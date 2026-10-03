@@ -160,8 +160,8 @@ each index group that was written this cycle:
 - If the group's index buffer is **empty**, synthesize one index series of `n` samples
   starting at the cycle stamp, spaced 1 ns apart, where `n` is the group's per-channel
   sample count.
-- If the index buffer is **not empty**, something supplied upstream stamps. Leave it
-  alone.
+- If the index buffer is **not empty**, something supplied upstream stamps. Keep them.
+  §4.4 covers a channel that also has body writes.
 
 `ProgramState.Flush` gains the stamp: `Flush(fr, now)`. The 1 ns spacing matches what
 the Core already does for auto-index ("subsequent samples in the same write are spaced 1
@@ -193,8 +193,19 @@ calculated channel inherits its source samples' timestamps, so cycle-stamping it
 misdate anything not arriving live. Text programs write through the WASM host functions,
 supply no time, and get cycle stamps.
 
-Where a single group mixes the two, the sample counts do not line up and the write
-errors. See §6.2.
+A channel alone on its index can get both kinds of write in one cycle. A body write
+takes the cycle stamp, or 1 ns after the last stamp of the previous frame when that is
+later. Flush sorts all samples by stamp. Samples with equal stamps keep the order the
+program wrote them in, and each moves 1 ns after the one before it. A literal flow and a
+body write in one cycle both carry the cycle stamp, so the one the program ran last
+stays last. Integrations write the last value of a series to hardware, so the last value
+in time order wins.
+
+Cesium does not check the order of stamps inside a frame, so an unsorted index is stored
+without an error. Arc must sort it.
+
+Where a group of channels on one shared index mixes the two, the sample counts do not
+line up and the write errors. See §6.2.
 
 ### 4.5 `now()`
 
