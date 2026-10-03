@@ -1839,6 +1839,35 @@ var _ = Describe("Sequence", func() {
 			}))
 		})
 
+		DescribeTable(
+			"Should not act on a losing transition after its scope restarts",
+			func(ctx SpecContext, source string, log []string) {
+				Expect(run(ctx, source, "start", "a+b", "|")).To(Equal(
+					[]phase{{log: log}},
+				))
+			},
+			Entry("a self-jump to a top-level scope", `
+			sequence main {
+			    stage armed {
+			        "main" -> log
+			        a == 1 => main
+			        b == 1 => flight
+			    }
+			}
+			sequence flight { stage f { "flight" -> log } }
+			start == 1 => main`, []string{"main", "main"}),
+			Entry("a stage that transitions to itself", `
+			sequence main {
+			    stage s {
+			        "s" -> log
+			        a == 1 => s
+			        b == 1 => t
+			    }
+			    stage t { "t" -> log }
+			}
+			start == 1 => main`, []string{"s", "s"}),
+		)
+
 		It(
 			"Should not restart a target that is already running",
 			func(ctx SpecContext) {

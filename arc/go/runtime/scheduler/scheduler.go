@@ -378,13 +378,6 @@ func (s *Scheduler) resetLeafNode(m *member) {
 	}
 }
 
-// clearLeafNodeSelfChanged clears selfChanged on m's node.
-func (s *Scheduler) clearLeafNodeSelfChanged(m *member) {
-	if n := m.node; m.isNode() && n != nil {
-		s.selfChangedFlags[n.idx] = 0
-	}
-}
-
 // activateScope marks a scope active and primes its members. Sequential scopes reset
 // their strata members and activate step 0; parallel scopes reset every leaf-node
 // member and cascade-activate always-live nested scopes. Gated children wait for their
@@ -427,18 +420,28 @@ func (s *Scheduler) activateSequentialStep(ss *scope, idx int) {
 	}
 }
 
-// deactivateMember clears selfChanged for the member's node, or deactivates its
-// nested scope.
+// deactivateMember deactivates the member's nested scope, or clears selfChanged and
+// the transition marks of its node. A restarted scope then waits for its transitions
+// to fire again.
 func (s *Scheduler) deactivateMember(m *member) {
 	if m.scope != nil {
 		s.deactivateScope(m.scope)
 		return
 	}
-	s.clearLeafNodeSelfChanged(m)
+	n := m.node
+	if n == nil {
+		return
+	}
+	s.selfChangedFlags[n.idx] = 0
+	for i := range n.outputs {
+		if h := n.outputs[i].markHandleIdx; h >= 0 {
+			s.markedFlags[h] = 0
+		}
+	}
 }
 
-// deactivateScope marks a scope and every scope nested in it inactive, and clears
-// selfChanged on their leaf-node members.
+// deactivateScope marks a scope and every scope nested in it inactive, and
+// deactivates their leaf-node members.
 func (s *Scheduler) deactivateScope(ss *scope) {
 	if ss.ir.Mode == ir.ScopeModeSequential {
 		ss.activeStep = -1

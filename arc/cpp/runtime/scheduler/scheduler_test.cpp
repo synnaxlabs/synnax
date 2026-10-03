@@ -2194,6 +2194,27 @@ TEST_F(JumpTest, RestartsAScopeThatJumpsToItself) {
     EXPECT_EQ(body.reset_called, 2);
 }
 
+TEST_F(JumpTest, DoesNotActOnALosingJumpAfterItsScopeRestarts) {
+    mock("trigger", {true});
+    for (const auto &key: {"j1", "j2"}) {
+        auto &j = mock(key, {true});
+        j.suppress_auto_mark = true;
+        j.on_next = [&j](node::Context &ctx) {
+            if (j.next_called == 1) ctx.mark_changed(0);
+        };
+    }
+    const auto &flight = mock("flight_node");
+    std::vector<ir::Scope> scopes;
+    scopes.push_back(
+        main_seq({"j1", "j2"}, {jump("j1", "main"), jump("j2", "flight")})
+    );
+    scopes.push_back(target("flight"));
+    const auto s = build(jump_program({"j1", "j2", "flight_node"}, std::move(scopes)));
+
+    s->next(JUMP_CYCLE);
+    EXPECT_EQ(flight.next_called, 0);
+}
+
 TEST_F(JumpTest, StopsTheScopesNestedInAScopeThatRestarts) {
     mock("trigger", {true});
     auto &start = mock("start", {true});

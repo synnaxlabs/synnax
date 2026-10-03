@@ -350,12 +350,6 @@ private:
         }
     }
 
-    /// @brief clears self-changed on m's node. No-op if m is a scope member
-    /// or an unresolved node-key.
-    void clear_leaf_node_self_changed(MemberState &m) {
-        if (m.is_node() && m.node != NO_INDEX) this->self_changed_flags[m.node] = 0;
-    }
-
     /// @brief fires the first transition whose `on` handle was freshly marked by the
     /// active step this cycle, and is truthy unless the transition is continuous.
     /// Inactive-owner transitions and stale outputs without a fresh mark are both
@@ -461,18 +455,23 @@ private:
         if (m.scope != NO_INDEX) this->activate_scope(this->scopes[m.scope]);
     }
 
-    /// @brief clears self-changed for the member's node, or deactivates its nested
-    /// scope.
+    /// @brief deactivates the member's nested scope, or clears self-changed and the
+    /// transition marks of its node. A restarted scope then waits for its transitions
+    /// to fire again.
     void deactivate_member(MemberState &m) {
         if (m.scope != NO_INDEX) {
             this->deactivate_scope(this->scopes[m.scope]);
             return;
         }
-        this->clear_leaf_node_self_changed(m);
+        if (m.node == NO_INDEX) return;
+        this->self_changed_flags[m.node] = 0;
+        for (const auto &out: this->nodes[m.node].outputs)
+            if (out.mark_handle_idx != NO_INDEX)
+                this->marked_flags[out.mark_handle_idx] = 0;
     }
 
-    /// @brief marks a scope and every scope nested in it inactive, and clears
-    /// self-changed on their leaf-node members.
+    /// @brief marks a scope and every scope nested in it inactive, and deactivates
+    /// their leaf-node members.
     void deactivate_scope(ScopeState &state) {
         if (state.ir.mode == ir::ScopeMode::Sequential) state.active_step = NO_INDEX;
         for (auto &m: state.members)

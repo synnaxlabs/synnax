@@ -3127,6 +3127,53 @@ TEST(JumpTest, RestartsASequenceThatJumpsToItself) {
     );
 }
 
+class RestartTest : public testing::TestWithParam<jumps::Case> {};
+
+INSTANTIATE_TEST_SUITE_P(
+    Jumps,
+    RestartTest,
+    testing::Values(
+        jumps::Case{
+            "a_self_jump_to_a_top_level_scope",
+            R"(
+    sequence main {
+        stage armed {
+            "main" -> %log%
+            %a% == 1 => main
+            %b% == 1 => flight
+        }
+    }
+    sequence flight { stage f { "flight" -> %log% } }
+    %start% == 1 => main)",
+            "main"
+        },
+        jumps::Case{
+            "a_stage_that_transitions_to_itself",
+            R"(
+    sequence main {
+        stage s {
+            "s" -> %log%
+            %a% == 1 => s
+            %b% == 1 => t
+        }
+        stage t { "t" -> %log% }
+    }
+    %start% == 1 => main)",
+            "s"
+        }
+    ),
+    jumps::case_name
+);
+
+TEST_P(RestartTest, DoesNotActOnALosingTransitionAfterItsScopeRestarts) {
+    using namespace jumps;
+    const auto &expected = GetParam().expected;
+    EXPECT_EQ(
+        run(GetParam().source, {"start", "a+b", "|"}),
+        (std::vector<Phase>{{.log = {expected, expected}}})
+    );
+}
+
 TEST(JumpTest, DoesNotRestartATargetThatIsAlreadyRunning) {
     using namespace jumps;
     EXPECT_EQ(
