@@ -65,5 +65,8 @@ label, so a screen reader hears "Performance High", not only "Performance".
    that sizes to its name would shrink to zero. React Spectrum and Fluent measure with a
    resize observer instead. That works everywhere but costs a render pass on each
    resize. The trade is real.
-3. **Fade, not ellipsis**: Radix, Spectrum, and Ant ellipsize. Lyra already fades in
+3. **JS positioning stays**: CSS anchor positioning works in Chrome, Safari 26, and
+   Firefox 147. On Linux, Tauri uses the system WebKitGTK, so support depends on the
+   distribution.
+4. **Fade, not ellipsis**: Radix, Spectrum, and Ant ellipsize. Lyra already fades in
    `Tag` and tree items, so selects match them.

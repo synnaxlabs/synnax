@@ -119,7 +119,7 @@ const ESCAPE_TRIGGERS: Triggers.Trigger[] = [Triggers.ESCAPE];
 /** The gap in pixels a dialog keeps from the window edges. */
 const WINDOW_MARGIN = 6;
 
-/** Width counts for every variant, since it moves the clamp to the window's edge. */
+/** Compares width too, since a wider dialog clamps further from the window edge. */
 const positionsEqual = (next: box.Box, prev?: box.Box | null): boolean => {
   if (prev == null) return false;
   return (

@@ -314,5 +314,32 @@ describe("Dialog", () => {
         `${window.innerHeight - bottom - 6}px`,
       );
     });
+
+    const resize = (): void => {
+      act(() => {
+        window.dispatchEvent(new Event("resize"));
+      });
+    };
+
+    it("should clamp again when the dialog widens in place", () => {
+      const el = open(rect(400, 100, 100, 30), rect(0, 0, 200, 100));
+      expect(el.style.left).toBe("400px");
+      vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(
+        function (this: HTMLElement) {
+          return this.classList.contains("pluto-dialog__dialog") ? 620 : 0;
+        },
+      );
+      resize();
+      expect(el.style.left).toBe(`${window.innerWidth - 6 - 620}px`);
+    });
+
+    it("should shrink the available height when the window shrinks", () => {
+      const el = open(rect(400, 100, 100, 30), rect(0, 0, 200, 100));
+      const top = parseFloat(el.style.top);
+      vi.spyOn(window, "innerHeight", "get").mockReturnValue(500);
+      resize();
+      expect(el.style.top).toBe(`${top}px`);
+      expect(variable(el, "available-height")).toBe(`${500 - top - 6}px`);
+    });
   });
 });

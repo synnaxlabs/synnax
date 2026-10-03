@@ -96,11 +96,11 @@ export const SingleTrigger = <K extends record.Key>({
     ),
   });
   const dragging = Haul.useDraggingState();
-  const generatedId = useId();
-  const id = idProp ?? generatedId;
-  const labelId = useId();
-  // Referencing itself makes the trigger contribute its own aria-label, so a selection
-  // joins the label to it instead of being hidden by it.
+  const baseId = useId();
+  const id = idProp ?? baseId;
+  const labelId = `${baseId}-label`;
+  // A self-reference reads the trigger's own aria-label, so the name becomes the
+  // aria-label followed by the selection.
   const labelledBySelection =
     rest["aria-label"] != null &&
     !iconOnly &&
