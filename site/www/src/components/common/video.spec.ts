@@ -7,68 +7,72 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { start } from "@/components/common/video";
 
-let intersect: IntersectionObserverCallback;
-let options: IntersectionObserverInit | undefined;
-const observe = vi.fn();
-const unobserve = vi.fn();
-const load = vi.fn();
-
-class Observer {
-  constructor(callback: IntersectionObserverCallback, init?: IntersectionObserverInit) {
-    intersect = callback;
-    options = init;
-  }
-  observe = observe;
-  unobserve = unobserve;
-}
-
-const scroll = (video: HTMLVideoElement, isIntersecting: boolean): void =>
-  intersect(
-    [{ target: video, isIntersecting } as unknown as IntersectionObserverEntry],
-    {} as IntersectionObserver,
+// Stubs the observer and media loading that jsdom lacks, renders two lazy videos and a
+// plain one, and starts the script.
+const setup = () => {
+  const observer = {
+    observe: vi.fn(),
+    unobserve: vi.fn(),
+    options: undefined as IntersectionObserverInit | undefined,
+    callback: (() => {}) as IntersectionObserverCallback,
+  };
+  vi.stubGlobal(
+    "IntersectionObserver",
+    class {
+      constructor(
+        callback: IntersectionObserverCallback,
+        init?: IntersectionObserverInit,
+      ) {
+        observer.callback = callback;
+        observer.options = init;
+      }
+      observe = observer.observe;
+      unobserve = observer.unobserve;
+    },
   );
-
-const videos = (): HTMLVideoElement[] => [...document.querySelectorAll("video")];
+  const load = vi.fn();
+  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(function (
+    this: HTMLMediaElement,
+  ) {
+    load(this);
+  });
+  document.body.innerHTML = `
+    <video data-lazy-video preload="none" muted loop playsinline></video>
+    <video data-lazy-video preload="none" muted loop playsinline></video>
+    <video muted></video>`;
+  start();
+  const scroll = (video: HTMLVideoElement, isIntersecting: boolean): void =>
+    observer.callback(
+      [{ target: video, isIntersecting } as unknown as IntersectionObserverEntry],
+      {} as IntersectionObserver,
+    );
+  return { observer, load, scroll, videos: [...document.querySelectorAll("video")] };
+};
 
 describe("video", () => {
-  beforeEach(() => {
-    observe.mockClear();
-    unobserve.mockClear();
-    load.mockClear();
-    vi.stubGlobal("IntersectionObserver", Observer);
-    // jsdom has no media loading.
-    vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(function (
-      this: HTMLMediaElement,
-    ) {
-      load(this);
-    });
-    document.body.innerHTML = `
-      <video data-lazy-video preload="none" muted loop playsinline></video>
-      <video data-lazy-video preload="none" muted loop playsinline></video>
-      <video muted></video>`;
-    start();
-  });
-
   it("should observe each lazy video and no other video", () => {
-    const [first, second] = videos();
-    expect(observe.mock.calls).toEqual([[first], [second]]);
+    const { observer, videos } = setup();
+    expect(observer.observe.mock.calls).toEqual([[videos[0]], [videos[1]]]);
   });
 
   it("should watch one viewport above and below the screen", () => {
-    expect(options).toEqual({ rootMargin: "100% 0px" });
+    const { observer } = setup();
+    expect(observer.options).toEqual({ rootMargin: "100% 0px" });
   });
 
   it("should not load a video before it comes near the screen", () => {
+    const { load, videos } = setup();
     expect(load).not.toHaveBeenCalled();
-    expect(videos().map((v) => v.autoplay)).toEqual([false, false, false]);
+    expect(videos.map((v) => v.autoplay)).toEqual([false, false, false]);
   });
 
   it("should load and autoplay a video that comes near the screen", () => {
-    const [first, second] = videos();
+    const { load, scroll, videos } = setup();
+    const [first, second] = videos;
     scroll(first, true);
     expect(load.mock.calls).toEqual([[first]]);
     expect(first.autoplay).toBe(true);
@@ -76,16 +80,16 @@ describe("video", () => {
   });
 
   it("should stop observing a video once it loads", () => {
-    const [first] = videos();
-    scroll(first, true);
-    expect(unobserve).toHaveBeenCalledExactlyOnceWith(first);
+    const { observer, scroll, videos } = setup();
+    scroll(videos[0], true);
+    expect(observer.unobserve).toHaveBeenCalledExactlyOnceWith(videos[0]);
   });
 
   it("should ignore a video that leaves the screen", () => {
-    const [first] = videos();
-    scroll(first, false);
+    const { observer, load, scroll, videos } = setup();
+    scroll(videos[0], false);
     expect(load).not.toHaveBeenCalled();
-    expect(unobserve).not.toHaveBeenCalled();
-    expect(first.autoplay).toBe(false);
+    expect(observer.unobserve).not.toHaveBeenCalled();
+    expect(videos[0].autoplay).toBe(false);
   });
 });

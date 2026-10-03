@@ -555,9 +555,9 @@ import CdnPicture from "@/components/common/CdnPicture.astro";
 </style>
 
 <script>
-    import * as vendor from "@/components/integrations/vendor";
-    import * as workflow from "@/components/integrations/workflow";
+    import { start as startVendor } from "@/components/integrations/vendor";
+    import { start as startWorkflow } from "@/components/integrations/workflow";
 
-    vendor.start();
-    workflow.start();
+    startVendor();
+    startWorkflow();
 </script>

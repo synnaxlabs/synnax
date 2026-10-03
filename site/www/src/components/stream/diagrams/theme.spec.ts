@@ -9,11 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import {
-  deriveNodeState,
-  resolveNodeColors,
-  resolveTraceColor,
-} from "@/components/stream/diagrams/theme";
+import { deriveNodeState, resolveTraceColor } from "@/components/stream/diagrams/theme";
 
 describe("theme", () => {
   describe("deriveNodeState", () => {
@@ -35,28 +31,6 @@ describe("theme", () => {
 
     it("should treat missing alarm nodes as none", () => {
       expect(deriveNodeState("p1", ["p1"], [])).toBe("active");
-    });
-  });
-
-  describe("resolveNodeColors", () => {
-    it("should color an active node in the primary color", () => {
-      const colors = resolveNodeColors("active");
-      expect(colors.iconColor).toBe("var(--pluto-primary-p1)");
-      expect(colors.textColor).toBe("var(--pluto-gray-l9)");
-    });
-
-    it("should color alarm and excluded nodes in the error color", () => {
-      for (const state of ["alarm", "excluded"] as const) {
-        const colors = resolveNodeColors(state);
-        expect(colors.iconColor).toBe("var(--pluto-error-z)");
-        expect(colors.textColor).toBe("var(--pluto-error-z)");
-      }
-    });
-
-    it("should dim an inactive node", () => {
-      const colors = resolveNodeColors("inactive");
-      expect(colors.iconColor).toBe("var(--pluto-gray-l5)");
-      expect(colors.valueColor).toBe("var(--pluto-gray-l5)");
     });
   });
 

@@ -144,6 +144,13 @@ describe("Diagram", () => {
       expect(screen.getByTestId("mid").style.color).toBe(DIM);
       expect(screen.getByTestId("out").style.color).toBe(ERROR);
     });
+
+    it("should color an excluded node in the error color", () => {
+      render(
+        <Diagram def={DEF} state={{ ...ZERO_CALC_STATE, excludedNodes: ["mid"] }} />,
+      );
+      expect(screen.getByTestId("mid").style.color).toBe(ERROR);
+    });
   });
 
   describe("pill variant", () => {

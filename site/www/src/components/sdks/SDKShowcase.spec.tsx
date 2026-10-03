@@ -10,11 +10,19 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { SDKShowcase } from "@/components/sdks/SDKShowcase";
+import { type Samples, SDKShowcase } from "@/components/sdks/SDKShowcase";
 
-const CODE = ["py", "ts", "cpp"].map((lang) =>
-  ["stream", "write", "read"].map((op) => `<pre>${lang}-${op}</pre>`),
-);
+const sample = (lang: string): Samples["python"] => ({
+  stream: `<pre>${lang}-stream</pre>`,
+  write: `<pre>${lang}-write</pre>`,
+  read: `<pre>${lang}-read</pre>`,
+});
+
+const SAMPLES: Samples = {
+  python: sample("py"),
+  typescript: sample("ts"),
+  cpp: sample("cpp"),
+};
 
 const panels = (container: HTMLElement): string[] =>
   [...container.querySelectorAll(".sdks-panel")].map((panel) => {
@@ -24,7 +32,7 @@ const panels = (container: HTMLElement): string[] =>
 
 describe("SDKShowcase", () => {
   it("should show the Python samples first", () => {
-    const { container } = render(<SDKShowcase codeHtmls={CODE} />);
+    const { container } = render(<SDKShowcase samples={SAMPLES} />);
     expect(screen.getByText("Python").className).toContain("viz-tab--active");
     expect(panels(container)).toEqual([
       "Stream: py-stream",
@@ -34,7 +42,7 @@ describe("SDKShowcase", () => {
   });
 
   it("should show every sample of the selected language", () => {
-    const { container } = render(<SDKShowcase codeHtmls={CODE} />);
+    const { container } = render(<SDKShowcase samples={SAMPLES} />);
     fireEvent.click(screen.getByText("C++"));
     expect(screen.getByText("C++").className).toContain("viz-tab--active");
     expect(screen.getByText("Python").className).not.toContain("viz-tab--active");

@@ -44,6 +44,11 @@ describe("header", () => {
     expect(header().classList).not.toContain("header--top");
   });
 
+  it("should throw on a page without a header", () => {
+    document.body.innerHTML = "";
+    expect(start).toThrow("the page has no .header");
+  });
+
   it("should mark the header again when the page scrolls back to the top", () => {
     vi.stubGlobal("scrollY", 400);
     start();

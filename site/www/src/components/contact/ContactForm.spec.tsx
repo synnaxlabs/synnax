@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ContactForm } from "@/components/contact/ContactForm";
 
@@ -22,8 +22,18 @@ const FIELDS = {
   message: "We fire engines on a test stand.",
 };
 
-let fetch: Mock;
-let alert: Mock;
+// Answers the form with the given response and records alerts, then renders it.
+const setup = (
+  respond: (url: string, init: RequestInit) => Promise<Response> = async () =>
+    new Response("{}", { status: 200 }),
+) => {
+  const fetch = vi.fn(respond);
+  const alert = vi.fn();
+  vi.stubGlobal("fetch", fetch);
+  vi.stubGlobal("alert", alert);
+  render(<ContactForm />);
+  return { fetch, alert };
+};
 
 const fill = (values: Partial<typeof FIELDS> = FIELDS): void => {
   const inputs: Record<keyof typeof FIELDS, HTMLElement> = {
@@ -49,16 +59,13 @@ const send = async (): Promise<void> => {
 const container = (): Element => document.querySelector(".contact-form-container")!;
 
 describe("ContactForm", () => {
-  beforeEach(() => {
-    fetch = vi.fn(async () => new Response("{}", { status: 200 }));
-    alert = vi.fn();
-    vi.stubGlobal("fetch", fetch);
-    vi.stubGlobal("alert", alert);
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   describe("validation", () => {
     it("should flag every empty field and send nothing", async () => {
-      render(<ContactForm />);
+      const { fetch } = setup();
       await send();
       for (const message of [
         "Please enter your name",
@@ -71,7 +78,7 @@ describe("ContactForm", () => {
     });
 
     it("should reject an email without a domain", async () => {
-      render(<ContactForm />);
+      const { fetch } = setup();
       fill({ ...FIELDS, email: "gaal" });
       await send();
       expect(screen.getByText("Please enter a valid email")).toBeTruthy();
@@ -79,7 +86,7 @@ describe("ContactForm", () => {
     });
 
     it("should reject a message over 50,000 characters", async () => {
-      render(<ContactForm />);
+      const { fetch } = setup();
       fill({ ...FIELDS, message: "a".repeat(50001) });
       await send();
       expect(screen.getByText("Message is too long")).toBeTruthy();
@@ -89,11 +96,11 @@ describe("ContactForm", () => {
 
   describe("submission", () => {
     it("should post each field to Formspree", async () => {
-      render(<ContactForm />);
+      const { fetch } = setup();
       fill();
       await send();
       expect(fetch).toHaveBeenCalledOnce();
-      const [url, init] = fetch.mock.calls[0] as [string, RequestInit];
+      const [url, init] = fetch.mock.calls[0];
       expect(url).toBe(ENDPOINT);
       expect(init.method).toBe("POST");
       expect(init.headers).toEqual({ Accept: "application/json" });
@@ -101,19 +108,17 @@ describe("ContactForm", () => {
     });
 
     it("should disable the button while the request is in flight", async () => {
-      let respond!: (response: Response) => void;
-      fetch.mockReturnValue(new Promise<Response>((resolve) => (respond = resolve)));
-      render(<ContactForm />);
+      const { promise, resolve } = Promise.withResolvers<Response>();
+      setup(() => promise);
       fill();
       await send();
       expect(disabled()).toBe(true);
-      await act(async () => respond(new Response("{}", { status: 500 })));
+      await act(async () => resolve(new Response("{}", { status: 500 })));
       expect(disabled()).toBe(false);
     });
 
     it("should send the form once when clicked again in flight", async () => {
-      fetch.mockReturnValue(new Promise<Response>(() => {}));
-      render(<ContactForm />);
+      const { fetch } = setup(() => new Promise(() => {}));
       fill();
       await send();
       await send();
@@ -122,7 +127,7 @@ describe("ContactForm", () => {
 
     it("should thank the visitor half a second after a success", async () => {
       vi.useFakeTimers();
-      render(<ContactForm />);
+      setup();
       fill();
       await send();
       expect(disabled()).toBe(true);
@@ -131,12 +136,11 @@ describe("ContactForm", () => {
         await vi.advanceTimersByTimeAsync(500);
       });
       expect(container().classList).toContain("success");
-      vi.useRealTimers();
     });
 
     it("should return to the form on back", async () => {
       vi.useFakeTimers();
-      render(<ContactForm />);
+      setup();
       fill();
       await send();
       await act(async () => {
@@ -145,14 +149,12 @@ describe("ContactForm", () => {
       fireEvent.click(screen.getByText("Back"));
       expect(container().classList).not.toContain("success");
       expect(disabled()).toBe(false);
-      vi.useRealTimers();
     });
   });
 
   describe("failure", () => {
     it("should alert and allow a retry when Formspree refuses the form", async () => {
-      fetch.mockResolvedValue(new Response("{}", { status: 422 }));
-      render(<ContactForm />);
+      const { alert } = setup(async () => new Response("{}", { status: 422 }));
       fill();
       await send();
       expect(alert).toHaveBeenCalledExactlyOnceWith(FAILURE);
@@ -161,8 +163,9 @@ describe("ContactForm", () => {
     });
 
     it("should alert and allow a retry when the request fails", async () => {
-      fetch.mockRejectedValue(new TypeError("Failed to fetch"));
-      render(<ContactForm />);
+      const { alert } = setup(async () => {
+        throw new TypeError("Failed to fetch");
+      });
       fill();
       await send();
       expect(alert).toHaveBeenCalledExactlyOnceWith(FAILURE);

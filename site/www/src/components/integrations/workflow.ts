@@ -11,14 +11,15 @@
 export const start = (): void => {
   const tabs = document.querySelectorAll(".workflow-tab");
   const panels = document.querySelectorAll(".workflow-panel");
-  for (const tab of tabs)
+  for (const tab of tabs) {
+    const step = tab.getAttribute("data-step");
+    const panel = document.querySelector(`.workflow-panel[data-panel="${step}"]`);
+    if (panel == null) throw new Error(`workflow step ${step} has no panel`);
     tab.addEventListener("click", () => {
-      const step = tab.getAttribute("data-step");
       for (const t of tabs) t.classList.remove("workflow-tab--active");
       for (const p of panels) p.classList.remove("workflow-panel--active");
       tab.classList.add("workflow-tab--active");
-      document
-        .querySelector(`.workflow-panel[data-panel="${step}"]`)
-        ?.classList.add("workflow-panel--active");
+      panel.classList.add("workflow-panel--active");
     });
+  }
 };

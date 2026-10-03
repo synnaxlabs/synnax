@@ -49,4 +49,9 @@ describe("workflow", () => {
     expect(active(".workflow-tab")).toEqual(["0"]);
     expect(active(".workflow-panel")).toEqual(["0"]);
   });
+
+  it("should throw on a tab without a panel", () => {
+    document.body.innerHTML = '<button class="workflow-tab" data-step="3"></button>';
+    expect(start).toThrow("workflow step 3 has no panel");
+  });
 });

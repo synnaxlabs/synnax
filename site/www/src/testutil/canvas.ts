@@ -9,20 +9,20 @@
 
 import { vi } from "vitest";
 
-export type Point = [x: number, y: number];
+type Point = [x: number, y: number];
 
-export interface Stroke {
+interface Stroke {
   style: string;
   points: Point[];
 }
 
-export interface Fill {
+interface Fill {
   style: string;
   /** The center and radius of each arc in the path. */
   arcs: Array<[x: number, y: number, r: number]>;
 }
 
-export interface CanvasRecord {
+interface CanvasRecord {
   strokes: Stroke[];
   fills: Fill[];
   scales: Point[];

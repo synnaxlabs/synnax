@@ -10,8 +10,9 @@
 /** Adds `header--top` to the header while the page is within 10 pixels of the top. */
 export const start = (): void => {
   const header = document.querySelector(".header");
+  if (header == null) throw new Error("the page has no .header");
   const update = (): void => {
-    header?.classList.toggle("header--top", window.scrollY <= 10);
+    header.classList.toggle("header--top", window.scrollY <= 10);
   };
   update();
   window.addEventListener("scroll", update, { passive: true });

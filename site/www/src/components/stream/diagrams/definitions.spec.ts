@@ -9,10 +9,27 @@
 
 import { describe, expect, it } from "vitest";
 
-import * as definitions from "@/components/stream/diagrams/definitions";
+import {
+  ALARM_DIAGRAM,
+  AUTOMATE_ALARM_DIAGRAM,
+  CONVERSION_DIAGRAM,
+  type DiagramDef,
+  FFT_DIAGRAM,
+  MASSFLOW_DIAGRAM,
+  MIXTURE_DIAGRAM,
+  VOTING_DIAGRAM,
+} from "@/components/stream/diagrams";
 import type { NodeDef } from "@/components/stream/diagrams/types";
 
-const DIAGRAMS = Object.entries(definitions);
+const DIAGRAMS = Object.entries({
+  ALARM_DIAGRAM,
+  AUTOMATE_ALARM_DIAGRAM,
+  CONVERSION_DIAGRAM,
+  FFT_DIAGRAM,
+  MASSFLOW_DIAGRAM,
+  MIXTURE_DIAGRAM,
+  VOTING_DIAGRAM,
+}) satisfies Array<[string, DiagramDef]>;
 
 const overlap = (a: NodeDef, b: NodeDef): boolean =>
   Math.abs(a.x - b.x) < (a.w + b.w) / 2 && Math.abs(a.y - b.y) < (a.h + b.h) / 2;

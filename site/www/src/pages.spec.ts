@@ -50,22 +50,14 @@ describe("pages", () => {
       doc = await render(Index, "/");
     });
 
-    it("should link only to sections that exist on the page", () => {
-      const ids = new Set(all(doc, "[id]").map((el) => el.id));
-      const targets = all(doc, 'a[href^="/#"], a[href^="#"]').map(
-        (a) => a.getAttribute("href")!.split("#")[1],
-      );
-      expect(targets.length).toBeGreaterThan(0);
-      for (const target of new Set(targets)) expect(ids).toContain(target);
-    });
-
-    describe("JavaScript", () => {
-      it("should hydrate every island only when it scrolls into view", () => {
-        const islands = all(doc, "astro-island");
-        expect(islands.length).toBeGreaterThan(0);
-        expect(new Set(islands.map((i) => i.getAttribute("client")))).toEqual(
-          new Set(["visible"]),
+    describe("navigation", () => {
+      it("should link only to sections that exist on the page", () => {
+        const ids = new Set(all(doc, "[id]").map((el) => el.id));
+        const targets = all(doc, 'a[href^="/#"], a[href^="#"]').map(
+          (a) => a.getAttribute("href")!.split("#")[1],
         );
+        expect(targets.length).toBeGreaterThan(0);
+        for (const target of new Set(targets)) expect(ids).toContain(target);
       });
 
       it("should number each product card as its section is numbered", () => {
@@ -80,11 +72,38 @@ describe("pages", () => {
           );
         }
       });
+    });
+
+    describe("JavaScript", () => {
+      it("should hydrate every island only when it scrolls into view", () => {
+        const islands = all(doc, "astro-island");
+        expect(islands.length).toBeGreaterThan(0);
+        expect(new Set(islands.map((i) => i.getAttribute("client")))).toEqual(
+          new Set(["visible"]),
+        );
+      });
 
       it("should render the product menu on the server", () => {
         const nav = doc.querySelector("header .nav-links")!;
         expect(nav.closest("astro-island")).toBeNull();
         expect(all(nav, ".product-dropdown .product-card")).toHaveLength(6);
+      });
+    });
+
+    describe("integrations", () => {
+      it("should give each workflow tab a panel", () => {
+        const steps = all(doc, ".workflow-tab").map((t) => t.getAttribute("data-step"));
+        const panels = all(doc, ".workflow-panel").map((p) =>
+          p.getAttribute("data-panel"),
+        );
+        expect(steps.length).toBeGreaterThan(0);
+        expect(steps).toEqual(panels);
+      });
+
+      it("should name the vendor of each integration cell", () => {
+        const cells = all(doc, ".integration-cell");
+        expect(cells.length).toBeGreaterThan(0);
+        for (const cell of cells) expect(cell.getAttribute("data-vendor")).toBeTruthy();
       });
     });
 
