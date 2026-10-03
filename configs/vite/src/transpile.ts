@@ -123,8 +123,9 @@ export const transpile = (modules: boolean): Plugin => {
     load: (id) => (id === RESOLVED_ENTRY ? "export {};" : null),
     buildStart() {
       rmSync(outDir, { recursive: true, force: true });
-      for (const file of files(path.join(root, "src"), () => true))
-        this.addWatchFile(file);
+      const src = path.join(root, "src");
+      this.addWatchFile(src);
+      for (const file of files(src, () => true)) this.addWatchFile(file);
     },
     closeBundle: () => {
       const start = performance.now();
