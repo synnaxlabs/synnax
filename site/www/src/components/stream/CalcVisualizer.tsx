@@ -10,6 +10,7 @@
 import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
 
 import { CodePanel } from "@/components/common/CodePanel";
+import { VizTabs } from "@/components/common/VizTabs";
 import { CALC_EXAMPLES, ZERO_CALC_STATE } from "@/components/stream/calcTimeline";
 import { Diagram } from "@/components/stream/diagrams";
 
@@ -75,17 +76,11 @@ export const CalcVisualizer = ({ codeHtmls }: CalcVisualizerProps): ReactElement
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      <div className="viz-tabs">
-        {CALC_EXAMPLES.map((ex, i) => (
-          <button
-            key={ex.id}
-            className={`viz-tab${i === activeTab ? " viz-tab--active" : ""}`}
-            onClick={() => handleTabClick(i)}
-          >
-            {ex.title}
-          </button>
-        ))}
-      </div>
+      <VizTabs
+        tabs={CALC_EXAMPLES.map(({ id, title }) => ({ key: id, title }))}
+        active={activeTab}
+        onSelect={handleTabClick}
+      />
       <div className="viz-content">
         <div className="viz-code">
           <CodePanel html={codeHtmls[activeTab]} activeLines={step.activeLines} />

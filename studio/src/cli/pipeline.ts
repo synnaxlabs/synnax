@@ -116,7 +116,7 @@ const TARGET_PRESETS: Record<string, number> = {
 };
 
 /** parseTarget resolves a target spec ("1080p" | "4k" | pixels) to a width. */
-export const parseTarget = (value: string | undefined, native: number): number => {
+const parseTarget = (value: string | undefined, native: number): number => {
   if (value == null) return native;
   const width = TARGET_PRESETS[value.toLowerCase()] ?? Number(value);
   if (!Number.isFinite(width) || width <= 0)

@@ -21,7 +21,7 @@ export const Electromagnetic = ({
   id,
   className,
   orientation = "right",
-  color,
+  strokeColor,
   scale = 1,
   ...rest
 }: Props) => (
@@ -38,7 +38,7 @@ export const Electromagnetic = ({
     />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >
@@ -57,7 +57,7 @@ export const Electromagnetic = ({
         d="M39.5 17.5C39.5 16.9747 39.6035 16.4546 39.8045 15.9693C40.0055 15.484 40.3001 15.043 40.6716 14.6716C41.043 14.3001 41.484 14.0055 41.9693 13.8045C42.4546 13.6035 42.9747 13.5 43.5 13.5C44.0253 13.5 44.5454 13.6035 45.0307 13.8045C45.516 14.0055 45.957 14.3001 46.3284 14.6716C46.6999 15.043 46.9945 15.484 47.1955 15.9693C47.3965 16.4546 47.5 16.9747 47.5 17.5"
         strokeWidth="2"
       />
-      <Label position={LABELS} color={color} />
+      <Label position={LABELS} strokeColor={strokeColor} />
     </Primitive.SVG>
   </Primitive.Div>
 );

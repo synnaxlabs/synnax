@@ -17,14 +17,24 @@ import { QUERY_ATTRIBUTE } from "@/components/tabs/sync";
 const slotName = (key: string): string =>
   key.replace(/[-_]([a-z])/g, (_, c: string) => c.toUpperCase());
 
-export interface TabEntry {
-  tabKey: string;
+export interface TabEntry<K extends string = string> {
+  tabKey: K;
   name: string;
   icon?: ReactElement;
 }
 
-export interface TabsProps extends Record<string, ReactElement | any> {
-  tabs: TabEntry[];
+/** The props an MDX page passes: one slot per tab, and the tab filters. */
+export interface FilterProps<K extends string = string> extends Record<
+  string,
+  ReactElement | any
+> {
+  exclude?: K[];
+  /** Tabs to show first, in this order. The other tabs keep their order. */
+  priority?: K[];
+}
+
+export interface TabsProps<K extends string = string> extends FilterProps<K> {
+  tabs: TabEntry<K>[];
   /** Syncs the selected tab with every block on the page that shares the key. */
   queryParamKey?: string;
 }
@@ -34,23 +44,38 @@ export interface TabsProps extends Record<string, ReactElement | any> {
  * in `@/components/tabs/sync` switches them in the browser, so the component never
  * hydrates.
  */
-export const Tabs = ({ tabs, queryParamKey, ...rest }: TabsProps): ReactElement => (
-  <Base.Frame
-    initialValue={tabs[0].tabKey}
-    {...{ [QUERY_ATTRIBUTE]: queryParamKey ?? "" }}
-  >
-    <Base.Selector>
-      {tabs.map(({ tabKey, name, icon }) => (
-        <Base.Tab key={tabKey} itemKey={tabKey}>
-          {icon}
-          <Text.Text>{name}</Text.Text>
-        </Base.Tab>
+export const Tabs = <K extends string>({
+  tabs,
+  queryParamKey,
+  exclude = [],
+  priority = [],
+  ...rest
+}: TabsProps<K>): ReactElement => {
+  const rank = (key: K): number => {
+    const index = priority.indexOf(key);
+    return index === -1 ? priority.length : index;
+  };
+  const shown = tabs
+    .filter(({ tabKey }) => !exclude.includes(tabKey))
+    .sort((a, b) => rank(a.tabKey) - rank(b.tabKey));
+  return (
+    <Base.Frame
+      initialValue={shown[0].tabKey}
+      {...{ [QUERY_ATTRIBUTE]: queryParamKey ?? "" }}
+    >
+      <Base.Selector>
+        {shown.map(({ tabKey, name, icon }) => (
+          <Base.Tab key={tabKey} itemKey={tabKey}>
+            {icon}
+            <Text.Text>{name}</Text.Text>
+          </Base.Tab>
+        ))}
+      </Base.Selector>
+      {shown.map(({ tabKey }) => (
+        <Base.Content key={tabKey} itemKey={tabKey} keepMounted>
+          {rest[slotName(tabKey)]}
+        </Base.Content>
       ))}
-    </Base.Selector>
-    {tabs.map(({ tabKey }) => (
-      <Base.Content key={tabKey} itemKey={tabKey} keepMounted>
-        {rest[slotName(tabKey)]}
-      </Base.Content>
-    ))}
-  </Base.Frame>
-);
+    </Base.Frame>
+  );
+};

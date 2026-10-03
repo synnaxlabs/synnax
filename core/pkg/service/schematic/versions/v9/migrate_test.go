@@ -45,7 +45,6 @@ var labeled = v9.LabeledConfig{
 		Align:         "center",
 	},
 	Orientation: "left",
-	Scale:       1,
 }
 
 var _ = Describe("Config typing", func() {
@@ -67,8 +66,9 @@ var _ = Describe("Config typing", func() {
 			"color":   "#ff0000",
 		})).To(Equal(v9.ValveElementConfig{
 			LabeledConfig:    labeled,
+			Scale:            1,
 			StalenessTimeout: 5,
-			Color:            new(MustSucceed(color.FromHex("#ff0000"))),
+			StrokeColor:      new(MustSucceed(color.FromHex("#ff0000"))),
 		}))
 	})
 
@@ -80,8 +80,8 @@ var _ = Describe("Config typing", func() {
 				map[string]any{"direction": "x", "length": 10.0},
 			},
 		})).To(Equal(v9.PipeElementConfig{
-			Color:    new(MustSucceed(color.FromHex("#0000ff"))),
-			Segments: []v9.Segment{{Direction: "x", Length: 10}},
+			StrokeColor: new(MustSucceed(color.FromHex("#0000ff"))),
+			Segments:    []v9.Segment{{Direction: "x", Length: 10}},
 		}))
 	})
 
@@ -261,7 +261,7 @@ var _ = Describe("Config typing", func() {
 				"color":   stored,
 			}).(v9.ValveElementConfig)
 			Expect(ok).To(BeTrue())
-			Expect(cfg.Color).To(BeNil())
+			Expect(cfg.StrokeColor).To(BeNil())
 		},
 		Entry("array", []any{0.0, 0.0, 0.0, 0.0}),
 		Entry("hex", "#00000000"),
@@ -275,23 +275,135 @@ var _ = Describe("Config typing", func() {
 			"color":   "#ff000080",
 		}).(v9.ValveElementConfig)
 		Expect(ok).To(BeTrue())
-		Expect(cfg.Color).To(HaveValue(Equal(MustSucceed(color.FromHex("#ff000080")))))
+		Expect(cfg.StrokeColor).To(
+			HaveValue(Equal(MustSucceed(color.FromHex("#ff000080")))),
+		)
 	})
 
 	It("Should drop zero colors nested in a symbol's indicator", func(ctx SpecContext) {
 		cfg, ok := typed(ctx, msgpack.EncodedJSON{
-			"variant":         "tank",
+			"variant":         "scale",
 			"backgroundColor": []any{0.0, 0.0, 0.0, 0.0},
-			"fill": map[string]any{
-				"color":     []any{0.0, 0.0, 0.0, 0.0},
+			"indicator": map[string]any{
+				"textColor": []any{0.0, 0.0, 0.0, 0.0},
 				"axisColor": "#00ff00",
 			},
-		}).(v9.TankElementConfig)
+		}).(v9.ScaleElementConfig)
 		Expect(ok).To(BeTrue())
-		Expect(cfg.BackgroundColor).To(BeNil())
-		Expect(cfg.Fill.Color).To(BeNil())
+		Expect(cfg.TextColor).To(BeNil())
 		green := MustSucceed(color.FromHex("#00ff00"))
-		Expect(cfg.Fill.AxisColor).To(HaveValue(Equal(green)))
+		Expect(cfg.AxisColor).To(HaveValue(Equal(green)))
+	})
+
+	Describe("Color names", func() {
+		var (
+			red   = MustSucceed(color.FromHex("#ff0000"))
+			green = MustSucceed(color.FromHex("#00ff00"))
+			blue  = MustSucceed(color.FromHex("#0000ff"))
+		)
+		// fields lifts a config and returns its wire fields, so one table covers every
+		// variant.
+		fields := func(ctx SpecContext, raw msgpack.EncodedJSON) msgpack.EncodedJSON {
+			GinkgoHelper()
+			return MustSucceed(v9.ElementConfigFields(v9.ElementConfig{
+				Variant: typed(ctx, raw),
+			}))
+		}
+
+		DescribeTable("Should rename a legacy color to the part it paints",
+			func(ctx SpecContext, variant, from string, to ...string) {
+				out := fields(
+					ctx,
+					msgpack.EncodedJSON{"variant": variant, from: "#ff0000"},
+				)
+				Expect(out).ToNot(HaveKey(from))
+				for _, name := range to {
+					Expect(out).To(HaveKeyWithValue(name, Not(BeNil())), name)
+				}
+			},
+			Entry("valve", "valve", "color", "stroke_color"),
+			Entry("static symbol", "cap", "color", "stroke_color"),
+			Entry("manual valve", "manual_valve", "color", "stroke_color"),
+			Entry("pipe", "pipe", "color", "stroke_color"),
+			Entry("box stroke", "box", "color", "stroke_color"),
+			Entry("box fill", "box", "background_color", "fill_color"),
+			Entry("circle fill", "circle", "background_color", "fill_color"),
+			Entry("polygon fill", "polygon", "background_color", "fill_color"),
+			Entry("cylinder fill", "cylinder", "background_color", "fill_color"),
+			Entry("tank stroke", "tank", "color", "stroke_color"),
+			Entry("tank fill", "tank", "background_color", "fill_color"),
+			Entry("value stroke", "value", "color", "stroke_color"),
+			Entry("value fill", "value", "background_color", "fill_color"),
+			Entry("button", "button", "color", "fill_color"),
+			Entry("input", "input", "color", "fill_color"),
+			Entry("setpoint", "setpoint", "color", "fill_color"),
+			Entry("select", "select", "color", "fill_color"),
+			Entry("off-page reference", "off_page_reference", "color",
+				"fill_color"),
+			Entry("text box", "text_box", "color", "text_color"),
+			Entry("gauge", "gauge", "color", "stroke_color"),
+			Entry("line", "line", "color", "stroke_color"),
+			Entry("state indicator", "state_indicator", "color", "stroke_color"),
+			Entry("string display", "string_display", "color", "stroke_color"),
+			Entry("light", "light", "color", "stroke_color", "on_color"),
+			Entry("scale", "scale", "color", "level_color"),
+		)
+
+		DescribeTable("Should drop a custom symbol's unpainted color",
+			func(ctx SpecContext, variant string) {
+				Expect(fields(ctx, msgpack.EncodedJSON{
+					"variant": variant,
+					"color":   "#ff0000",
+				})).ToNot(HaveKey("color"))
+			},
+			Entry("custom static", "custom_static"),
+			Entry("custom actuator", "custom_actuator"),
+		)
+
+		It("Should lift a scale's indicator to the top of its config", func(
+			ctx SpecContext,
+		) {
+			cfg, ok := typed(ctx, msgpack.EncodedJSON{
+				"variant": "scale",
+				"color":   "#ff0000",
+				"indicator": map[string]any{
+					"color":       "#0000ff",
+					"axisColor":   "#00ff00",
+					"textColor":   "#0000ff",
+					"units":       "psi",
+					"fillHidden":  true,
+					"caretHidden": true,
+				},
+			}).(v9.ScaleElementConfig)
+			Expect(ok).To(BeTrue())
+			Expect(cfg.LevelColor).To(HaveValue(Equal(red)))
+			Expect(cfg.AxisColor).To(HaveValue(Equal(green)))
+			Expect(cfg.TextColor).To(HaveValue(Equal(blue)))
+			Expect(cfg.Units).To(Equal("psi"))
+			Expect(cfg.LevelHidden).To(BeTrue())
+			Expect(cfg.CaretHidden).To(BeTrue())
+		})
+
+		It("Should lift a tank's fill to the top of its config", func(ctx SpecContext) {
+			cfg, ok := typed(ctx, msgpack.EncodedJSON{
+				"variant": "tank",
+				"color":   "#ff0000",
+				"fill": map[string]any{
+					"color":       "#0000ff",
+					"axisColor":   "#00ff00",
+					"units":       "L",
+					"caretHidden": false,
+					"scaleHidden": true,
+				},
+			}).(v9.TankElementConfig)
+			Expect(ok).To(BeTrue())
+			Expect(cfg.StrokeColor).To(HaveValue(Equal(red)))
+			Expect(cfg.LevelColor).To(HaveValue(Equal(blue)))
+			Expect(cfg.AxisColor).To(HaveValue(Equal(green)))
+			Expect(cfg.Units).To(Equal("L"))
+			Expect(cfg.CaretVisible).To(BeTrue())
+			Expect(cfg.ScaleVisible).To(BeFalse())
+		})
 	})
 
 	Describe("Legacy redlines", func() {
@@ -330,7 +442,7 @@ var _ = Describe("Config typing", func() {
 				},
 				Smooth: true,
 			}))
-			Expect(cfg.BackgroundColor).To(HaveValue(Equal(green)))
+			Expect(cfg.FillColor).To(HaveValue(Equal(green)))
 		})
 
 		It("Should read reversed bounds in ascending order", func(ctx SpecContext) {
@@ -355,7 +467,7 @@ var _ = Describe("Config typing", func() {
 					map[string]any{"key": "b", "color": "#ff0000", "position": 0.8},
 					map[string]any{"key": "a", "color": "#ffff00", "position": 0.2},
 				},
-			}).BackgroundColor).To(HaveValue(Equal(yellow)))
+			}).FillColor).To(HaveValue(Equal(yellow)))
 		})
 
 		It("Should scale across the unit range when the bounds are absent", func(
@@ -378,7 +490,7 @@ var _ = Describe("Config typing", func() {
 				},
 			})
 			Expect(cfg.Redline.Bands).To(Equal([]color.Band{{Key: "a"}}))
-			Expect(cfg.BackgroundColor).To(BeNil())
+			Expect(cfg.FillColor).To(BeNil())
 		})
 
 		It("Should convert an empty gradient into an empty redline", func(
@@ -408,7 +520,7 @@ var _ = Describe("Config typing", func() {
 			"segments": []any{},
 		}).(v9.PipeElementConfig)
 		Expect(ok).To(BeTrue())
-		Expect(cfg.Color).To(BeNil())
+		Expect(cfg.StrokeColor).To(BeNil())
 	})
 
 	// A v8 config predates every schema default, so the lift is the only place the
@@ -430,6 +542,18 @@ var _ = Describe("Config typing", func() {
 		)
 	})
 
+	It("Should keep the scale of a symbol that draws one", func(ctx SpecContext) {
+		Expect(typed(ctx, msgpack.EncodedJSON{"variant": "valve", "scale": 2.0})).To(
+			HaveField("Scale", 2.0),
+		)
+	})
+
+	It("Should drop the scale of a symbol that never draws one", func(ctx SpecContext) {
+		Expect(typed(ctx, msgpack.EncodedJSON{"variant": "value", "scale": 2.0})).To(
+			Equal(typed(ctx, msgpack.EncodedJSON{"variant": "value"})),
+		)
+	})
+
 	It("Should type a custom symbol's state overrides", func(ctx SpecContext) {
 		Expect(typed(ctx, msgpack.EncodedJSON{
 			"variant": "customStatic",
@@ -447,6 +571,7 @@ var _ = Describe("Config typing", func() {
 			}},
 		})).To(Equal(v9.CustomStaticElementConfig{
 			LabeledConfig: labeled,
+			Scale:         1,
 			SpecKey:       "spec",
 			StateOverrides: []symbol.State{{
 				Key:  "on",
@@ -494,6 +619,7 @@ var _ = Describe("ImportSchematic", func() {
 				ToggleSymbolConfig: v9.ToggleSymbolConfig{
 					ToggleConfig: v9.ToggleConfig{
 						LabeledConfig:    labeled,
+						Scale:            1,
 						StalenessTimeout: 5,
 					},
 				},
@@ -669,6 +795,7 @@ var _ = Describe("Migration", func() {
 				ToggleSymbolConfig: v9.ToggleSymbolConfig{
 					ToggleConfig: v9.ToggleConfig{
 						LabeledConfig:    labeled,
+						Scale:            1,
 						StalenessTimeout: 5,
 					},
 				},

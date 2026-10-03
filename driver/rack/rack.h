@@ -148,8 +148,11 @@ struct Config {
         return os;
     }
 
+    /// @brief builds the configuration from defaults, persisted state, the config file,
+    /// the environment, and command line arguments, each overriding the last. Does not
+    /// reach the Core. On error, returns the configuration built so far.
     static std::pair<Config, x::errors::Error>
-    load(x::args::Parser &parser, x::breaker::Breaker &breaker) {
+    resolve(x::args::Parser &parser, x::breaker::Breaker &breaker) {
         rack::Config cfg{
             .connection =
                 {
@@ -168,8 +171,16 @@ struct Config {
         if (const auto err = cfg.load_env()) return {cfg, err};
         VLOG(1) << "loading configuration from command line";
         if (const auto err = cfg.load_args(parser)) return {cfg, err};
+        return {cfg, x::errors::NIL};
+    }
+
+    static std::pair<Config, x::errors::Error>
+    load(x::args::Parser &parser, x::breaker::Breaker &breaker) {
+        auto [cfg, err] = resolve(parser, breaker);
+        if (err) return {cfg, err};
         if (breaker.retry_count() == 0) LOG(INFO) << cfg;
-        if (const auto err = cfg.load_remote(breaker)) return {cfg, err};
+        err = cfg.load_remote(breaker);
+        if (err) return {cfg, err};
         LOG(INFO) << x::log::BLUE() << "successfully reached cluster at "
                   << cfg.connection.address() << ". Continuing with driver startup"
                   << x::log::RESET();
@@ -179,7 +190,7 @@ struct Config {
                   << x::log::SHALE() << "  cluster: " << x::log::RESET()
                   << cfg.remote_info.cluster_key;
         VLOG(1) << "saving remote info";
-        const auto err = Config::save_remote_info(parser, cfg.remote_info);
+        err = Config::save_remote_info(parser, cfg.remote_info);
         VLOG(1) << "saved remote info";
         return {cfg, err};
     }

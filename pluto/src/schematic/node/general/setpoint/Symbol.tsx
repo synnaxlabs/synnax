@@ -28,7 +28,7 @@ export const Symbol = ({
     control,
     units,
     commandChannel,
-    color,
+    fillColor,
     size,
     disabled,
     onClickDelay,
@@ -47,7 +47,7 @@ export const Symbol = ({
       <Setpoint
         onChange={set}
         units={units}
-        color={color}
+        fillColor={fillColor}
         orientation={orientation}
         disabled={disabled}
         size={size}
