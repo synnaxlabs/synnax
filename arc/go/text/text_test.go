@@ -6436,6 +6436,47 @@ time.wait{duration=500ms} -> output`
 					Expect(alarm.Activation.Param).To(Equal(ir.DefaultOutputParam))
 				},
 			)
+			DescribeTable(
+				"Should record the arrow kind on every scope jump",
+				func(ctx SpecContext, arrow string, kind ir.EdgeKind) {
+					resolver := []symbol.Symbol{{
+						Name: "cmd",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.U8()),
+						ID:   10060,
+					}}
+					source := strings.ReplaceAll(`
+				sequence main {
+				    stage a {
+				        cmd == 1 ARROW b
+				        cmd == 2 ARROW abort
+				    }
+				    stage b {}
+				}
+				sequence abort {
+				    stage hold {}
+				}
+				cmd == 3 ARROW main`, "ARROW", arrow)
+					parsed := MustSucceed(text.Parse(text.Text{Raw: source}))
+					inter, diagnostics := text.Analyze(
+						ctx,
+						parsed,
+						NewRoot(nil, resolver...),
+					)
+					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+					main := findTopLevelScope(inter, "main")
+					Expect(main.ActivationKind).To(Equal(kind))
+					Expect(
+						findTopLevelScope(inter, "abort").ActivationKind,
+					).To(Equal(kind))
+					Expect(main.Transitions).To(HaveLen(2))
+					for _, t := range main.Transitions {
+						Expect(t.Kind).To(Equal(kind), t.String())
+					}
+				},
+				Entry("=>", "=>", ir.EdgeKindConditional),
+				Entry("->", "->", ir.EdgeKindContinuous),
+			)
 		})
 
 		Context("Direct Stage Targeting", func() {

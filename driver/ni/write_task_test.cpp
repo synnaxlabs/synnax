@@ -271,9 +271,9 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     EXPECT_EQ(second_state.variant, synnax::status::VARIANT_SUCCESS);
     ASSERT_EQ(second_state.message, "Task stopped successfully");
 
-    auto first = std::move(
-        mock_writer_factory->writes->at(mock_writer_factory->writes->size() - 1)
-    );
+    auto first = mock_writer_factory->writes
+                     ->at(mock_writer_factory->writes->size() - 1)
+                     .deep_copy();
     ASSERT_EQ(first.size(), 3);
     ASSERT_EQ(first.length(), 1);
     ASSERT_TRUE(first.contains(state_ch_1.key));

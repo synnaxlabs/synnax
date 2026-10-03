@@ -20,7 +20,7 @@ const DIMENSIONS = { width: 89, height: 76 };
 export const SpringLoadedRelief = ({
   className,
   orientation = "left",
-  color: colorVal,
+  strokeColor: colorVal,
   scale,
   enabled = false,
   ...rest
@@ -49,7 +49,7 @@ export const SpringLoadedRelief = ({
     </Handle.Boundary>
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={colorVal}
+      strokeColor={colorVal}
       orientation={orientation}
       scale={scale}
     >

@@ -20,9 +20,9 @@ import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Toggle } from "@/schematic/node/common/toggle";
 
-export interface Props extends Omit<Toggle.ButtonProps, "onClick" | "onMouseDown"> {
+export interface Props
+  extends Omit<Toggle.ButtonProps, "onClick" | "onMouseDown">, Primitive.SVGBasedProps {
   onClick?: MouseEventHandler<HTMLElement>;
-  scale?: number;
 }
 
 export const Switch = ({
@@ -30,7 +30,7 @@ export const Switch = ({
   onClick,
   onClickDelay,
   orientation = "left",
-  color: colorVal,
+  strokeColor: colorVal,
   scale = 1,
   disabled,
 }: Props): ReactElement => {

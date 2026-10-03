@@ -13,7 +13,6 @@
     margin: 1rem 0;
 }
 
-.pluto-schematic-tooltip__field > .pluto-text:first-child {
+.pluto-schematic-tooltip .pluto-icon {
     color: var(--pluto-gray-l9);
-    font-weight: var(--pluto-small-font-weight);
 }

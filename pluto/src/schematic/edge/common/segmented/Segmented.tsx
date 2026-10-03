@@ -61,7 +61,7 @@ const create = (Path: FC<PathProps>): Edge => {
     sourceNode,
     targetNode,
     selected = false,
-    config: { segments: middleSegments, color: edgeColor },
+    config: { segments: middleSegments, strokeColor },
     onChange,
   }): ReactElement | null => {
     const flow = useReactFlow();
@@ -150,7 +150,7 @@ const create = (Path: FC<PathProps>): Edge => {
 
     return (
       <>
-        <Path points={points} crossings={crossings} color={edgeColor} />
+        <Path points={points} crossings={crossings} color={strokeColor} />
         {selected &&
           calcMidPoints(points).map((p, i) => {
             const dir = segments[i].direction;

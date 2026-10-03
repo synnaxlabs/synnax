@@ -45,17 +45,12 @@ env:
   GH_TOKEN: ${{ github.token }}
 
 jobs:
-  verify:
-    name: Verify checks
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Verify checks
-        uses: ./.github/actions/verify-checks
-        with:
-          sha: ${{ github.sha }}
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yaml
+    with:
+      full: true
+    secrets: inherit
 
   resolve:
     name: Resolve version
@@ -87,7 +82,7 @@ jobs:
 
   draft:
     name: Draft Desktop
-    needs: [resolve, verify]
+    needs: [resolve, ci]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository

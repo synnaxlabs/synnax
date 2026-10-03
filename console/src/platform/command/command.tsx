@@ -31,7 +31,7 @@ export interface ListItemProps extends Omit<Palette.ListItemProps, "children"> {
   endContent?: ReactElement;
 }
 
-export const ListItem = ({
+const ListItem = ({
   name,
   icon,
   onSelect,

@@ -97,7 +97,7 @@ export const selectSelectedSymbolGroup = (params: KeyedSelectorParams): string =
 
 export const useSelectSelectedSymbolGroup = createSelector(selectSelectedSymbolGroup);
 
-export const selectPropertiesTab = (
+const selectPropertiesTab = (
   params: KeyedSelectorParams,
 ): Properties.TabKey | undefined => selectToolbar(params).propertiesTab;
 

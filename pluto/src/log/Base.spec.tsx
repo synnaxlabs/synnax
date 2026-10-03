@@ -393,7 +393,7 @@ describe("log/Base", () => {
       Object.defineProperty(event, "clipboardData", {
         value: { setData },
       });
-      logDiv.dispatchEvent(event);
+      fireEvent(logDiv, event);
       expect(setData).toHaveBeenCalledWith("text/plain", "hello");
       expect(setData).toHaveBeenCalledWith(
         "text/html",

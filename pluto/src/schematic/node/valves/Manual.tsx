@@ -20,7 +20,7 @@ const DIMENSIONS = { width: 87, height: 48 };
 export const Manual = ({
   className,
   orientation = "left",
-  color,
+  strokeColor,
   scale,
   enabled = false,
   ...rest
@@ -39,7 +39,7 @@ export const Manual = ({
     />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >

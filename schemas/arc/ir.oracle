@@ -75,10 +75,16 @@ Liveness enum {
 }
 
 Transition struct {
-    on        Handle  {
-        @doc value "is the dataflow handle whose truthy value fires this transition."
+    on        Handle   {
+        @doc value "is the dataflow handle whose output fires this transition."
     }
-    targetKey string? {
+    kind      EdgeKind {
+        @doc value """
+            is conditional when only a truthy output fires the transition (`=>`), and
+            continuous when every output fires it (`->`).
+        """
+    }
+    targetKey string?  {
         @doc value """
             is the sibling step key to activate. Null when the transition exits the
             scope, yielding to the parent.
@@ -113,36 +119,43 @@ Members = Member[] {
 }
 
 Scope struct {
-    key         string       {
+    key            string       {
         @doc value "is the scope identifier."
     }
-    mode        ScopeMode    {
+    mode           ScopeMode    {
         @doc value "defines whether this scope runs steps in parallel or sequentially."
     }
-    liveness    Liveness     {
+    liveness       Liveness     {
         @doc value """
             defines whether this scope is continuously active or must be activated.
         """
     }
-    activation  Handle?      {
+    activation     Handle?      {
         @doc value """
-            is the handle whose truthy value activates a gated scope. Unset for
-            always-live scopes.
+            is the handle whose output activates a gated scope. Unset for always-live
+            scopes.
         """
     }
-    strata      Members[]    {
+    activationKind EdgeKind     {
+        @doc value """
+            is conditional when only a truthy activation output activates the scope
+            (`=>`), and continuous when every output does (`->`). Unspecified when
+            activation is unset.
+        """
+    }
+    strata         Members[]    {
         @doc value """
             contains stratified execution layers for parallel scopes. On sequential
             scopes, strata hold variable nodes that run every pass alongside the active
             step. Stratum N depends only on strata 0 to N-1.
         """
     }
-    steps       Members      {
+    steps          Members      {
         @doc value """
             contains ordered steps for sequential scopes. Empty for parallel scopes.
         """
     }
-    transitions Transition[] {
+    transitions    Transition[] {
         @doc value """
             contains state-transition rules for sequential scopes. Empty for parallel
             scopes.

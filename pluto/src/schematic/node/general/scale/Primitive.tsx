@@ -12,7 +12,12 @@ import { CSS } from "@synnaxlabs/lyra/css";
 import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
-interface RenderProps extends Pick<schematic.ScaleNodeConfig, "indicator"> {
+interface RenderProps extends Partial<
+  Pick<
+    schematic.ScaleNodeConfig,
+    "levelColor" | "axisColor" | "levelHidden" | "caretHidden"
+  >
+> {
   className?: string;
 }
 
@@ -44,18 +49,24 @@ const TICK_YS = TICK_RATIOS.map(alongBar);
 const AXIS_FALLBACK = "var(--pluto-gray-l8)";
 
 export const Scale = ({
-  indicator: { color: c, axisColor, fillHidden, caretHidden },
+  levelColor,
+  axisColor,
+  levelHidden,
+  caretHidden,
   className,
 }: RenderProps): ReactElement => {
   const containerStyle = useMemo<CSSProperties>(
-    () => ({ ...CONTAINER_STYLE, [CSS.variable("symbol-color")]: color.rgbaString(c) }),
-    [c],
+    () => ({
+      ...CONTAINER_STYLE,
+      [CSS.variable("symbol-color")]: color.rgbaString(levelColor),
+    }),
+    [levelColor],
   );
-  const axis = color.isZero(axisColor) ? AXIS_FALLBACK : color.hex(axisColor);
+  const axis = axisColor == null ? AXIS_FALLBACK : color.hex(axisColor);
   return (
     <div className={CSS.cls(CSS.B("symbol-colored"), className)} style={containerStyle}>
       <svg width={WIDTH} height={HEIGHT} style={{ position: "absolute" }}>
-        {!fillHidden && (
+        {!levelHidden && (
           <>
             <rect
               x={BAR_LEFT}
@@ -77,7 +88,7 @@ export const Scale = ({
             />
           </>
         )}
-        {fillHidden && (
+        {levelHidden && (
           <line
             x1={BAR_RIGHT}
             y1={BAR_TOP}

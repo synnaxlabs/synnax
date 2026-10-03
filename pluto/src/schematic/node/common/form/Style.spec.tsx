@@ -20,7 +20,7 @@ import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const schema = z.object({
   label: Label.configZ,
-  color: color.crudeZ.optional(),
+  strokeColor: color.crudeZ.optional(),
   scale: z.number(),
   orientation: z.string(),
   specKey: z.string().optional(),
@@ -48,7 +48,7 @@ const SynnaxWrapper = createSynnaxWrapper({ client: null });
 const Host = ({ values, ref }: HostProps): ReactElement => {
   const methods = Base.use({ values, schema });
   useImperativeHandle(ref, () => ({
-    get: () => methods.get<color.Crude>("color", { optional: true })?.value,
+    get: () => methods.get<color.Crude>("strokeColor", { optional: true })?.value,
   }));
   return (
     <SynnaxWrapper>
@@ -60,18 +60,18 @@ const Host = ({ values, ref }: HostProps): ReactElement => {
 };
 
 describe("Form.StyleForm", () => {
-  it("should show the color field without writing a color the config lacks", () => {
+  it("should show the stroke field without writing a color the config lacks", () => {
     const ref: { current: Handle | null } = { current: null };
     const { getByText } = render(<Host values={VALUES} ref={ref} />);
-    expect(getByText("Color")).toBeDefined();
+    expect(getByText("Stroke")).toBeDefined();
     assert(ref.current != null);
     expect(ref.current.get()).toBeUndefined();
   });
 
-  it("should hide the color field when the config carries state overrides", () => {
+  it("should hide the stroke field when the config carries state overrides", () => {
     const { queryByText } = render(
       <Host values={{ ...VALUES, specKey: "", stateOverrides: [] }} />,
     );
-    expect(queryByText("Color")).toBeNull();
+    expect(queryByText("Stroke")).toBeNull();
   });
 });

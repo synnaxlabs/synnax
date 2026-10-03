@@ -97,7 +97,7 @@ describe("Table", () => {
       renderContext: recorder,
       telemFactories: [],
     });
-    const project = await client.projects.create({ name: "center", layout: {} });
+    const project = await client.projects.create({ name: "center" });
     // A value cell, not a text cell: value is the variant that draws on the
     // canvas, so its recorded draw calls pin the centering offset into the
     // canvas path alongside the DOM transform.
@@ -105,7 +105,7 @@ describe("Table", () => {
       name: "center_table",
       rows: [{ size: ROW_SIZE, cells: ["a"] }],
       columns: [{ size: COL_SIZE }],
-      cells: { a: { variant: "value", level: "h5", color: "#000000" } },
+      cells: { a: { variant: "value", level: "h5", textColor: "#000000" } },
     });
     key = created.key;
     await loadTable(wrapper, key);
@@ -286,7 +286,7 @@ describe("Table", () => {
     };
 
     const createTextTable = async (): Promise<table.Key> => {
-      const project = await client.projects.create({ name: "undo", layout: {} });
+      const project = await client.projects.create({ name: "undo" });
       const created = await client.tables.create(project.key, {
         name: "undo_table",
         rows: [{ size: ROW_SIZE, cells: ["a"] }],
@@ -380,12 +380,12 @@ describe("Table", () => {
           cells[cellKey] = table.cellConfigZ.parse({
             variant: "value",
             level: "h5",
-            color: "#000000",
+            textColor: "#000000",
           });
           return cellKey;
         }),
       }));
-      const project = await client.projects.create({ name, layout: {} });
+      const project = await client.projects.create({ name });
       const created = await client.tables.create(project.key, {
         name: `${name}_table`,
         rows: rowSpecs,
@@ -437,7 +437,7 @@ describe("Table", () => {
     // A value cell stored with only its variant takes every other field from the
     // schema defaults, so it renders instead of crashing on missing fields.
     it("renders a value cell carrying only its variant", async () => {
-      const project = await client.projects.create({ name: "sparse", layout: {} });
+      const project = await client.projects.create({ name: "sparse" });
       const created = await client.tables.create(project.key, {
         name: "sparse_table",
         rows: [{ size: ROW_SIZE, cells: ["a"] }],

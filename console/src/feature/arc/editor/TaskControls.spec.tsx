@@ -19,6 +19,8 @@ import { Suspense } from "react";
 import { describe, expect, it } from "vitest";
 
 import { TaskControls } from "@/feature/arc/editor/TaskControls";
+import { Analytics } from "@/platform/analytics";
+import { createTestSink } from "@/platform/analytics/testutil";
 import { awaitCommand, clickRedeploy } from "@/platform/task/testutil";
 import {
   createConsoleWrapper,
@@ -34,14 +36,20 @@ const client = createTestClient();
 const createArcRack = async () =>
   await client.racks.create({ name: uniqueName("rack"), integrations: ["arc"] });
 
-const renderControls = async (arcKey: arc.Key, as: Client = client) => {
+const renderControls = async (
+  arcKey: arc.Key,
+  as: Client = client,
+  analytics: Analytics.Sink = Analytics.NOOP,
+) => {
   const { wrapper } = await createConsoleWrapper({ client: as });
   return await renderSuspended(
-    <Suspense fallback={null}>
-      <Arc.Suspended arcKey={arcKey}>
-        <TaskControls />
-      </Arc.Suspended>
-    </Suspense>,
+    <Analytics.Provider sink={analytics}>
+      <Suspense fallback={null}>
+        <Arc.Suspended arcKey={arcKey}>
+          <TaskControls />
+        </Arc.Suspended>
+      </Suspense>
+    </Analytics.Provider>,
     { wrapper },
   );
 };
@@ -113,6 +121,21 @@ describe("TaskControls", () => {
     } finally {
       streamer.close();
     }
+  });
+
+  it("should report the automation it deployed", async () => {
+    const rck = await createArcRack();
+    const a = await client.arcs.create({ name: uniqueName("arc"), mode: "text" });
+    await client.arcs.setRack(a.key, rck.key);
+    const analytics = createTestSink();
+    const { container } = await renderControls(a.key, client, analytics);
+    await waitFor(() =>
+      expect(getIconButton(container, "play").getAttribute("aria-disabled")).toBeNull(),
+    );
+    fireEvent.click(getIconButton(container, "play"));
+    await waitFor(() =>
+      expect(analytics.capture).toHaveBeenCalledWith("automation_deployed", {}),
+    );
   });
 
   it("should offer a start that picks up the synced config when the arc drifts", async () => {

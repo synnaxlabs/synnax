@@ -24,7 +24,7 @@ import { SIZE_LEVELS } from "@/schematic/node/common/size";
 interface RenderProps extends Partial<
   Pick<
     schematic.StateIndicatorNodeConfig,
-    "color" | "orientation" | "inlineSize" | "size"
+    "strokeColor" | "orientation" | "inlineSize" | "size"
   >
 > {
   options: schematic.StateIndicatorNodeConfig["options"];
@@ -39,7 +39,7 @@ export const StateIndicator = ({
   orientation = "left",
   matchedOptionKey,
   options,
-  color: colorVal,
+  strokeColor,
   inlineSize,
   size = "medium",
   staleColor,
@@ -63,12 +63,12 @@ export const StateIndicator = ({
   const label = matched != null ? matched.name || `Option ${matched.value}` : "Unknown";
   const style = useMemo<CSSProperties>(
     () => ({
-      [CSS.variable("symbol-color")]: color.rgbaString(colorVal),
+      [CSS.variable("symbol-color")]: color.rgbaString(strokeColor),
       backgroundColor,
       minWidth: inlineSize,
       height: Component.HEIGHTS[size],
     }),
-    [colorVal, backgroundColor, inlineSize, size],
+    [strokeColor, backgroundColor, inlineSize, size],
   );
   return (
     <Primitive.Div

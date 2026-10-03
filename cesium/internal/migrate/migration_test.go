@@ -10,16 +10,12 @@
 package migrate_test
 
 import (
-	"os"
-	"strconv"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/testdata"
-	"github.com/synnaxlabs/x/encoding/json"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/query"
@@ -50,9 +46,7 @@ var _ = Describe("Migration Test", func() {
 					),
 				)
 
-				By(
-					"Asserting that the version got migrated, the meta file got changed, and the format is correct",
-				)
+				By("Asserting that the version got migrated and the format is correct")
 				for _, ch := range testdata.Channels {
 					chInDB, err := db.RetrieveChannel(ctx, ch.Key)
 					if ch.Key == testdata.LegacyRateKey {
@@ -63,23 +57,6 @@ var _ = Describe("Migration Test", func() {
 					}
 					Expect(chInDB.Version).To(Equal(channel.VersionCurrent))
 					Expect(chInDB.IsIndex).To(Equal(ch.IsIndex))
-
-					var (
-						channelFS = MustSucceed(fs.Sub(strconv.Itoa(int(ch.Key))))
-						r         = MustSucceed(
-							channelFS.Open("meta.json", os.O_RDONLY),
-						)
-						s        = MustSucceed(r.Stat()).Size()
-						buf      = make([]byte, s)
-						chInMeta cesium.Channel
-					)
-
-					MustSucceed(r.Read(buf))
-					Expect(r.Close()).To(Succeed())
-
-					Expect(json.Codec.Decode(ctx, buf, &chInMeta)).To(Succeed())
-					Expect(chInMeta).To(Equal(chInDB))
-
 				}
 
 				Expect(db.Close()).To(Succeed())

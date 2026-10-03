@@ -24,8 +24,10 @@ func renameSetStatus(_ context.Context, a Arc) (Arc, error) {
 			continue
 		}
 		n.Type = "status.set"
+		// The TS client stores the key in snake case. Camel case is read as a fallback.
+		key := legacyStatusConfigString(n.Config, "statusKey", "")
 		n.Config = msgpack.EncodedJSON{
-			"key_or_name": legacyStatusConfigString(n.Config, "statusKey", ""),
+			"key_or_name": legacyStatusConfigString(n.Config, "status_key", key),
 			"variant":     legacyStatusConfigString(n.Config, "variant", "success"),
 			"message":     legacyStatusConfigString(n.Config, "message", ""),
 		}

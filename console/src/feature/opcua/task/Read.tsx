@@ -46,7 +46,7 @@ interface IsIndexItemProps {
 const IsIndexItem = ({ path }: IsIndexItemProps): ReactElement => (
   <PForm.SwitchField
     path={`${path}.isIndex`}
-    label="Use as Index"
+    label="Use as index"
     hideIfNull
     x
     align="center"

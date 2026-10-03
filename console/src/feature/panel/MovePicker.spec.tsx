@@ -63,7 +63,6 @@ const createPanel = async (
 const createHarness = async (): Promise<Harness> => {
   const { key: projectKey } = await client.projects.create({
     name: uniqueName("project"),
-    layout: {},
   });
   const tab = createTab();
   const source = await createPanel(projectKey, [tab]);

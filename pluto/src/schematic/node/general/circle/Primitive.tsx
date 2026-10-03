@@ -24,8 +24,8 @@ interface RenderProps extends Omit<
 
 export const Circle = ({
   radius,
-  color: colorVal,
-  backgroundColor,
+  strokeColor,
+  fillColor,
   className,
   strokeWidth,
 }: RenderProps): ReactElement => {
@@ -66,13 +66,13 @@ export const Circle = ({
           id="4"
         />
       </Handle.Boundary>
-      <Primitive.SVG dimensions={dimensions} color={colorVal}>
+      <Primitive.SVG dimensions={dimensions} strokeColor={strokeColor}>
         <Primitive.Circle
           cx={width / 2}
           cy={height / 2}
           r={radius}
           strokeWidth={strokeWidth ?? 2}
-          fill={color.cssString(backgroundColor)}
+          fill={color.cssString(fillColor)}
         />
       </Primitive.SVG>
     </Primitive.Div>

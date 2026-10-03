@@ -29,9 +29,17 @@ func (cc CellConfig) EncodeOrc(w *orc.Writer) error {
 		w.String(string(v.Level))
 		w.Float64(float64(v.Weight))
 		w.String(string(v.Align))
-		if v.BackgroundColor != nil {
+		if v.FillColor != nil {
 			w.Bool(true)
-			if err := v.BackgroundColor.EncodeOrc(w); err != nil {
+			if err := v.FillColor.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		if v.TextColor != nil {
+			w.Bool(true)
+			if err := v.TextColor.EncodeOrc(w); err != nil {
 				return err
 			}
 		} else {
@@ -51,18 +59,18 @@ func (cc CellConfig) EncodeOrc(w *orc.Writer) error {
 		if err := v.Redline.EncodeOrc(w); err != nil {
 			return err
 		}
-		if v.BackgroundColor != nil {
+		if v.FillColor != nil {
 			w.Bool(true)
-			if err := v.BackgroundColor.EncodeOrc(w); err != nil {
+			if err := v.FillColor.EncodeOrc(w); err != nil {
 				return err
 			}
 		} else {
 			w.Bool(false)
 		}
 		w.String(string(v.Level))
-		if v.Color != nil {
+		if v.TextColor != nil {
 			w.Bool(true)
-			if err := v.Color.EncodeOrc(w); err != nil {
+			if err := v.TextColor.EncodeOrc(w); err != nil {
 				return err
 			}
 		} else {
@@ -123,7 +131,20 @@ func (cc *CellConfig) DecodeOrc(r *orc.Reader) error {
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
-				v.BackgroundColor = &hv
+				v.FillColor = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.TextColor = &hv
 			}
 		}
 		cc.Variant = v
@@ -172,7 +193,7 @@ func (cc *CellConfig) DecodeOrc(r *orc.Reader) error {
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
-				v.BackgroundColor = &hv
+				v.FillColor = &hv
 			}
 		}
 		{
@@ -192,7 +213,7 @@ func (cc *CellConfig) DecodeOrc(r *orc.Reader) error {
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
-				v.Color = &hv
+				v.TextColor = &hv
 			}
 		}
 		if v.Units, err = r.String(); err != nil {

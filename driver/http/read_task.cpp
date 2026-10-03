@@ -242,6 +242,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
     std::vector<std::string> warnings;
     std::size_t skipped = 0;
     std::size_t failed = 0;
+    std::size_t unreachable = 0;
 
     // Parse all response bodies up front so sampling groups can reference them.
     std::vector<bool> ep_parsed(this->cfg.endpoints.size(), false);
@@ -249,6 +250,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
         const auto &ep = this->cfg.endpoints[ei];
         auto &[resp, req_err] = results[ei];
 
+        if (req_err.matches(errors::UNREACHABLE_ERROR)) unreachable++;
         if (req_err.matches(errors::SKIPPED_ERROR)) {
             skipped++;
             continue;
@@ -286,6 +288,14 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
         warnings.push_back(
             std::to_string(skipped) + " requests not sent, the device was unreachable"
         );
+    // An error, not a warning, so the pipeline breaker backs off from a dead device.
+    if (unreachable == this->requests.size()) {
+        res.error = x::errors::Error(
+            errors::UNREACHABLE_ERROR,
+            x::strings::join(warnings, "; ")
+        );
+        return res;
+    }
     if (failed == 0 && skipped == 0 && !this->requests.empty() &&
         this->requests.size() > this->requests.front().max_concurrent_requests &&
         tick > this->cfg.rate.period())
@@ -406,7 +416,12 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
         std::move(requests)
     );
 
-    auto breaker_cfg = x::breaker::Config{.name = task.name};
+    // About one day of backoff before the task stops.
+    auto breaker_cfg = x::breaker::Config{
+        .name = task.name,
+        .max_retries = 761,
+        .max_interval = 2 * x::telem::MINUTE,
+    };
 
     auto read_task = std::make_unique<common::ReadTask>(
         task,

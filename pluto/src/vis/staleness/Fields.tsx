@@ -14,29 +14,22 @@ import { type ReactElement } from "react";
 
 import { staleness } from "@/vis/staleness/aether";
 
-export interface FieldsProps {
-  /** Path to the config holding the staleness keys. Defaults to the form root. */
-  path?: string;
-}
-
 /**
  * Fields edits the color a component takes on, and the delay before it does, once its
  * source stops sending. It renders as a pair of siblings, so the caller places it in a
  * row of its own choosing. An unchosen color is absent, so the swatch shows the theme
  * color it resolves to until a pick writes one.
  */
-export const Fields = ({ path = "" }: FieldsProps = {}): ReactElement => {
+export const Fields = (): ReactElement => {
   const theme = Theming.use();
-  const field = (name: string): string =>
-    path.length === 0 ? name : `${path}.${name}`;
   return (
     <>
       <Color.Field
-        path={field("stalenessColor")}
+        path="stalenessColor"
         fallback={staleness.resolveColor(undefined, theme)}
       />
       <Form.NumericField
-        path={field("stalenessTimeout")}
+        path="stalenessTimeout"
         label="Timeout"
         padHelpText={false}
         inputProps={INPUT_PROPS}

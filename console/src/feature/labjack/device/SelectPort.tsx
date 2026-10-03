@@ -67,6 +67,7 @@ export const SelectPort = ({
   variant,
   preview,
   dialogProps,
+  allowNone,
   ...rest
 }: SelectPortProps) => {
   const { data, getItem, retrieve } = List.useStaticData<string, Port>({
@@ -81,6 +82,7 @@ export const SelectPort = ({
         getItem={getItem}
         onChange={onChange}
         value={value}
+        allowNone={allowNone}
         closeDialogOnSelect
       >
         <Flex.Box pack x>

@@ -20,7 +20,7 @@ const DIMENSIONS = { width: 87, height: 58 };
 export const Relief = ({
   className,
   orientation = "left",
-  color,
+  strokeColor,
   scale,
   enabled = false,
   ...rest
@@ -38,7 +38,7 @@ export const Relief = ({
     />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >

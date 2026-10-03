@@ -384,7 +384,7 @@ func BenchmarkIteratorCalc_CalculatorChain(b *testing.B) {
 }
 
 func BenchmarkIteratorCalc_MultipleDomains(b *testing.B) {
-	for _, numDomains := range []int{1, 3} {
+	for _, numDomains := range []int{1, 3, 30} {
 		b.Run(fmt.Sprintf("domains=%d", numDomains), func(b *testing.B) {
 			env := newBenchIterEnv(b)
 			defer env.close(b)

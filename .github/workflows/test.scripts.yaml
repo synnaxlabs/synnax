@@ -13,7 +13,7 @@ on:
   workflow_call:
   workflow_dispatch:
 concurrency:
-  group: scripts-${{ github.ref }}
+  group: scripts-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

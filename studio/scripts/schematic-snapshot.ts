@@ -27,9 +27,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
   await capture.createComponent(session, "Schematic");
   await session.waitFor(page.locator(".pluto-diagram").first());
-  await capture.place(session, "Tank", { x: 480, y: 240 });
-  await capture.place(session, "Gate", { x: 900, y: 250 });
-  await capture.deselect(session, { x: 1300, y: 520 });
+  // New symbols drop at the canvas center, so only the last one may sit there.
+  await capture.place(session, "Tank", { x: 300, y: 160 });
+  await capture.place(session, "Gate", { x: 700, y: 160 });
+  await capture.deselect(session, { x: 100, y: 290 });
   // Close the symbol library so the schematic tab closes cleanly.
   await page.locator(".console-main-nav__item").last().click();
   await session.settle(400);

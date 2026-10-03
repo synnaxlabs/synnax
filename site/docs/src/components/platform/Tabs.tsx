@@ -9,27 +9,12 @@
 
 import { type Platform } from "@/components/platform/choice";
 import { INFO } from "@/components/platform/Platform";
-import { Tabs as Base, type TabsProps as BaseProps } from "@/components/tabs/Tabs";
+import { type FilterProps, Tabs as Base } from "@/components/tabs/Tabs";
 
 const TABS = INFO.map(({ key, ...p }) => ({ ...p, tabKey: key }));
 
-export interface TabsProps extends Omit<BaseProps, "tabs" | "queryParamKey"> {
-  exclude?: Platform[];
-  priority?: Platform[];
-}
+export type TabsProps = FilterProps<Platform>;
 
-export const Tabs = ({ exclude = [], priority = [], ...rest }: TabsProps) => {
-  const excludeSet = new Set(exclude);
-  const tabs = TABS.filter((tab) => !excludeSet.has(tab.tabKey));
-
-  if (priority.length > 0)
-    tabs.sort((a, b) => {
-      let aIndex = priority.indexOf(a.tabKey);
-      if (aIndex === -1) aIndex = priority.length;
-      let bIndex = priority.indexOf(b.tabKey);
-      if (bIndex === -1) bIndex = priority.length;
-      return aIndex - bIndex;
-    });
-
-  return <Base queryParamKey="platform" tabs={tabs} {...rest} />;
-};
+export const Tabs = (props: TabsProps) => (
+  <Base queryParamKey="platform" tabs={TABS} {...props} />
+);

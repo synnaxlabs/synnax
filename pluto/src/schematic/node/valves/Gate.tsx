@@ -18,7 +18,7 @@ export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 const DIMENSIONS = { width: 87, height: 42 };
 
 export const Gate = ({
-  color,
+  strokeColor,
   className,
   orientation = "left",
   scale,
@@ -34,7 +34,7 @@ export const Gate = ({
     <Handle.Linear orientation={orientation} left={2.2989} right={97.7011} />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >

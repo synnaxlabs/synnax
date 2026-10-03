@@ -18,7 +18,7 @@ export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 const DIMENSIONS = { width: 64, height: 64 };
 
 export const Pump = ({
-  color,
+  strokeColor,
   className,
   orientation = "left",
   scale,
@@ -38,7 +38,7 @@ export const Pump = ({
     />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >

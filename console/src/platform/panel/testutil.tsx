@@ -101,8 +101,7 @@ export const createPanelWrapper = async ({
     store,
   });
   const projectKey =
-    project ??
-    (await client.projects.create({ name: uniqueName("project"), layout: {} })).key;
+    project ?? (await client.projects.create({ name: uniqueName("project") })).key;
   resolvedStore.dispatch(Session.Project.select(projectKey));
   // A scoped panel renders because it is the window's selected panel; tab
   // focus/visibility selectors require that term.

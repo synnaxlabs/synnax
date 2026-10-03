@@ -51,6 +51,7 @@ cc_test(
         "//client/cpp/testutil",
         "//driver/common",
         "//driver/pipeline/mock",
+        "//x/cpp/sync",
         "//x/cpp/test",
         "//x/cpp/uuid",
         "@googletest//:gtest_main",

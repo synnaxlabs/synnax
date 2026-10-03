@@ -243,6 +243,20 @@ func (s Series) SetValueAt[T FixedSample](i int, v T) {
 	data[i] = v
 }
 
+// Last returns a one-sample series holding the last sample of s. Panics when empty.
+func (s Series) Last() Series {
+	data := s.At(-1)
+	if s.DataType.IsVariable() {
+		data = NewSeriesV(string(data)).Data
+	}
+	return Series{
+		DataType:  s.DataType,
+		Data:      data,
+		Alignment: s.Alignment.AddSamples(uint32(s.Len() - 1)),
+		TimeRange: s.TimeRange,
+	}
+}
+
 // CopyValue copies the sample from src at the index srcIdx to the index srcIdx in src.
 // dst and src must have the same DataType, and that DataType cannot be of variable
 // density.

@@ -87,6 +87,18 @@ export const gutter = ({
   externalScale?: boolean;
 }): number => (showScale && !externalScale ? GUTTER : 0);
 
+/** @returns the level color a scale paints while its color is absent. */
+export const levelColorFallback = (theme: baseTheme.Theme): color.Color =>
+  theme.colors.visualization.palettes.default[0];
+
+/** @returns the axis and tick color a scale paints while its axis color is absent. */
+export const axisColorFallback = (theme: baseTheme.Theme): color.Color =>
+  theme.colors.gray.l8;
+
+/** @returns the tick label color a scale paints while its text color is absent. */
+export const textColorFallback = (theme: baseTheme.Theme): color.Color =>
+  theme.colors.gray.l10;
+
 const TICK_LENGTH = 5;
 // Minor ticks are denser, unlabeled markers drawn shorter than the labeled major ticks.
 const MINOR_TICK_LENGTH = 3;
@@ -145,11 +157,11 @@ export class Scale
     i.requestRender = render.useOptionalRequestor(ctx);
 
     i.fillColor = color.isZero(this.state.color)
-      ? i.theme.colors.visualization.palettes.default[0]
+      ? levelColorFallback(i.theme)
       : this.state.color;
     const { axisColor, textColor } = this.state;
-    i.axisColor = color.isZero(axisColor) ? i.theme.colors.gray.l8 : axisColor;
-    i.textColor = color.isZero(textColor) ? i.theme.colors.gray.l10 : textColor;
+    i.axisColor = color.isZero(axisColor) ? axisColorFallback(i.theme) : axisColor;
+    i.textColor = color.isZero(textColor) ? textColorFallback(i.theme) : textColor;
     i.tickLevel = this.state.level;
 
     const { lower, upper } = this.state.bounds;

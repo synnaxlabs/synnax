@@ -45,17 +45,40 @@ synnax-driver start --standalone
     {
       option: "--standalone/-s",
       default: "false",
-      description: "Run the Driver directly within the terminal process.",
+      description: "Run the Driver in the foreground instead of as a service.",
     },
     {
-      option: "--config/-c",
-      default: '"config.json"',
-      description: "The path to the configuration file to use for the Driver.",
+      option: "--config",
+      default: '""',
+      description:
+        "The path to the configuration file to use for the Driver. No file is read when unset.",
+    },
+    {
+      option: "--state-file",
+      default: '""',
+      description:
+        "The path to the persisted state file. Defaults to a platform-specific location, see <a href='/reference/enterprise/driver/configuration#precedence'>Precedence</a>.",
     },
     {
       option: "--debug",
       default: "false",
       description: "Enable debug logging.",
+    },
+    {
+      option: "--no-color",
+      default: "false",
+      description: "Disable color in log output.",
+    },
+    {
+      option: "--disable-sig-stop",
+      default: "false",
+      description: "Keep running when the process receives SIGINT or SIGTERM.",
+    },
+    {
+      option: "--disable-stdin-stop",
+      default: "false",
+      description:
+        "Stop reading stdin for a <code>STOP</code> line. Set this when the Driver runs without a terminal.",
     },
     {
       option: "--host",
@@ -78,22 +101,10 @@ synnax-driver start --standalone
       description: "The password to use when logging in to the Synnax Core.",
     },
     {
-      option: "--ca-cert-file",
-      default: '""',
+      option: "--secure",
+      default: "false",
       description:
-        "The path to the CA certificate file to use when connecting to the Synnax Core.",
-    },
-    {
-      option: "--client-cert-file",
-      default: '""',
-      description:
-        "The path to the client certificate file to use when connecting to the Synnax Core.",
-    },
-    {
-      option: "--client-key-file",
-      default: '""',
-      description:
-        "The path to the client key file to use when connecting to the Synnax Core.",
+        "Whether to connect to the Synnax Core over TLS. Pass a value, as in <code>--secure=true</code>.",
     },
     {
       option: "--correct-skew",
@@ -121,6 +132,16 @@ synnax-driver start --standalone
       option: "--worker-count",
       default: "4",
       description: "Number of worker threads for task operations. Valid range is 1-64.",
+    },
+    {
+      option: "--rack-key",
+      default: "0",
+      description: "The key of an existing rack in the Core to attach to.",
+    },
+    {
+      option: "--cluster-key",
+      default: '""',
+      description: "The key of the Core that owns the rack.",
     },
     {
       option: "--enable-integrations",
@@ -154,8 +175,7 @@ synnax-driver stop
 
 ## Restart
 
-The `restart` command restarts the Driver. This is equivalent to stopping and then
-starting the Driver.
+The `restart` command stops and then starts the Driver service.
 
 ### Example usage
 
@@ -167,8 +187,8 @@ synnax-driver restart
 
 ## Login
 
-The `login` command logs in to a Synnax Core. On Linux, run it with `sudo`. If the
-Driver is already running, restart it to apply the new credentials.
+The `login` command saves the connection parameters for a Synnax Core. On Linux, run it
+with `sudo`. If the Driver is already running, restart it to apply the new credentials.
 
 ### Example usage
 
@@ -176,24 +196,24 @@ Driver is already running, restart it to apply the new credentials.
 synnax-driver login
 ```
 
-This will prompt you to enter the Core's connection parameters. Once you've entered the
-parameters, the Driver will automatically connect to the Core. Here's an example of the
-output:
+The command prompts for the Core's connection parameters:
 
 ```
 synnax-driver login
-host (default: localhost): 10.0.0.45
-port (default: 9090): 9090
-username: synnax
-password:
+Host [localhost]: 10.0.0.45
+Port [9090]: 9090
+Secure (Y/N) [N]: N
+Username: synnax
+Password:
 ```
 
 <Divider.Divider x />
 
 ## Clear
 
-The `clear` command clears connection parameters configured through the `login` command.
-On Linux, run it with `sudo`.
+The `clear` command clears the persisted state file: the connection parameters saved by
+the `login` command and the cached rack identity. The next start creates a new rack. On
+Linux, run it with `sudo`.
 
 ### Example usage
 
@@ -230,7 +250,7 @@ synnax-driver uninstall
 
 ## Logs
 
-The `logs` command prints the Driver's logs to the console.
+The `logs` command streams the Driver's logs to the console until you press Ctrl+C.
 
 ### Example usage
 

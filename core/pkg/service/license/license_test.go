@@ -10,6 +10,7 @@
 package license_test
 
 import (
+	"context"
 	"crypto/mldsa"
 	"encoding/base64"
 	"encoding/binary"
@@ -90,6 +91,13 @@ var _ = Describe("License", func() {
 		GinkgoHelper()
 		key := append([]byte("license/"), lic.Jti.String()...)
 		Expect(db.Set(ctx, key, []byte(sign(lic)))).To(Succeed())
+	}
+	// announcements collects every key svc announces a change under.
+	announcements := func(svc *license.Service) <-chan string {
+		GinkgoHelper()
+		keys := make(chan string, 10)
+		DeferCleanup(svc.OnChange(func(_ context.Context, key string) { keys <- key }))
+		return keys
 	}
 	open := func(ctx SpecContext, cfgs ...license.ServiceConfig) *license.Service {
 		GinkgoHelper()
@@ -424,6 +432,18 @@ var _ = Describe("License", func() {
 				Expect(svc.Retrieve().Warning).To(BeEmpty())
 			},
 		)
+		It(
+			"should announce the license once a clock that was behind catches up",
+			func(ctx SpecContext) {
+				svc := open(ctx, license.ServiceConfig{Key: sign(newLicense())})
+				Expect(svc.Close()).To(Succeed())
+				clock.Store(now.Add(-2 * day).UnixNano())
+				svc = open(ctx, clocked)
+				keys := announcements(svc)
+				clock.Store(now.Add(time.Hour).UnixNano())
+				Eventually(keys).Should(Receive(Equal(license.OntologyKey)))
+			},
+		)
 		It("should never move the recorded time back", func(ctx SpecContext) {
 			svc := open(ctx, clocked, license.ServiceConfig{Key: sign(newLicense())})
 			Expect(mark(ctx)()).To(Equal(now.UnixNano()))
@@ -658,6 +678,17 @@ var _ = Describe("License", func() {
 			Expect(svc.Activate(ctx, "nope")).Error().
 				To(MatchError(license.ErrInvalid))
 		})
+		It("should announce an activated license", func(ctx SpecContext) {
+			keys := announcements(svc)
+			MustSucceed(svc.Activate(ctx, sign(newLicense())))
+			Expect(keys).To(Receive(Equal(license.OntologyKey)))
+		})
+		It("should not announce a refused license key", func(ctx SpecContext) {
+			keys := announcements(svc)
+			Expect(svc.Activate(ctx, "nope")).Error().
+				To(MatchError(license.ErrInvalid))
+			Expect(keys).ToNot(Receive())
+		})
 		It("should enforce the channel cap", func(ctx SpecContext) {
 			lic := newLicense()
 			lic.Channels = 10
@@ -683,6 +714,54 @@ var _ = Describe("License", func() {
 		It("should not cap a license with a zero cap", func(ctx SpecContext) {
 			MustSucceed(svc.Activate(ctx, sign(newLicense())))
 			Expect(svc.CheckChannelLimit(1 << 19)).To(Succeed())
+		})
+	})
+
+	Describe("Deactivate", func() {
+		var svc *license.Service
+		BeforeEach(func(ctx SpecContext) { svc = open(ctx) })
+
+		It("should leave the Core without a license", func(ctx SpecContext) {
+			lic := newLicense()
+			MustSucceed(svc.Activate(ctx, sign(lic)))
+			info := MustSucceed(svc.Deactivate(ctx, lic.Jti))
+			Expect(info.State).To(Equal(license.StateMissing))
+			Expect(info.License).To(BeNil())
+			Expect(svc.Check()).To(MatchError(license.ErrMissing))
+		})
+		It("should keep the license removed across a reopen", func(ctx SpecContext) {
+			lic := newLicense()
+			MustSucceed(svc.Activate(ctx, sign(lic)))
+			MustSucceed(svc.Deactivate(ctx, lic.Jti))
+			Expect(svc.Close()).To(Succeed())
+			Expect(open(ctx).Retrieve().State).To(Equal(license.StateMissing))
+		})
+		It("should fall back to another stored license", func(ctx SpecContext) {
+			older, newer := newLicense(), newLicense()
+			older.Channels, newer.Channels = 100, 500
+			newer.Iat = uint32(now.Unix())
+			MustSucceed(svc.Activate(ctx, sign(older)))
+			MustSucceed(svc.Activate(ctx, sign(newer)))
+			info := MustSucceed(svc.Deactivate(ctx, newer.Jti))
+			Expect(info.State).To(Equal(license.StateOk))
+			Expect(info.License.Channels).To(BeEquivalentTo(100))
+		})
+		It(
+			"should change nothing for a license that is not stored",
+			func(ctx SpecContext) {
+				lic := newLicense()
+				MustSucceed(svc.Activate(ctx, sign(lic)))
+				info := MustSucceed(svc.Deactivate(ctx, uuid.New()))
+				Expect(info.State).To(Equal(license.StateOk))
+				Expect(info.License.Jti).To(Equal(lic.Jti))
+			},
+		)
+		It("should announce a removed license", func(ctx SpecContext) {
+			lic := newLicense()
+			MustSucceed(svc.Activate(ctx, sign(lic)))
+			keys := announcements(svc)
+			MustSucceed(svc.Deactivate(ctx, lic.Jti))
+			Expect(keys).To(Receive(Equal(license.OntologyKey)))
 		})
 	})
 })

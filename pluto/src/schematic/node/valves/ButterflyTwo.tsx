@@ -18,7 +18,7 @@ export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 const DIMENSIONS = { width: 87, height: 42 };
 
 export const ButterflyTwo = ({
-  color: colorVal,
+  strokeColor: colorVal,
   className,
   orientation = "left",
   scale,
@@ -34,7 +34,7 @@ export const ButterflyTwo = ({
     <Handle.Linear orientation={orientation} left={2.2989} right={97.7011} />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={colorVal}
+      strokeColor={colorVal}
       orientation={orientation}
       scale={scale}
     >

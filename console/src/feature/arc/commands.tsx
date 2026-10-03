@@ -15,7 +15,7 @@ import { Explorer } from "@/feature/arc/explorer";
 import { Arc } from "@/platform/arc";
 import { Command } from "@/platform/command";
 
-export const CreateCommand = Command.create({
+const CreateCommand = Command.create({
   key: "create_arc",
   name: "Create Arc automation",
   icon: <Icon.Arc />,
@@ -23,7 +23,7 @@ export const CreateCommand = Command.create({
   useOnSelect: Arc.useCreate,
 });
 
-export const OpenExplorerCommand = Command.create({
+const OpenExplorerCommand = Command.create({
   key: "open_arc_explorer",
   name: "Open Arc explorer",
   icon: <PArc.ExplorerIcon />,

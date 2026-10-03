@@ -56,6 +56,7 @@ inline x::json::json Edge::to_json() const {
 inline Transition Transition::parse(x::json::Parser parser) {
     return Transition{
         .on = parser.field<Handle>("on"),
+        .kind = parser.field<EdgeKind>("kind"),
         .target_key = parser.field<std::optional<std::string>>("target_key"),
     };
 }
@@ -63,6 +64,7 @@ inline Transition Transition::parse(x::json::Parser parser) {
 inline x::json::json Transition::to_json() const {
     x::json::json j;
     j["on"] = this->on.to_json();
+    j["kind"] = this->kind;
     j["target_key"] = this->target_key;
     return j;
 }
@@ -87,6 +89,7 @@ inline Scope Scope::parse(x::json::Parser parser) {
         .mode = parser.field<ScopeMode>("mode"),
         .liveness = parser.field<Liveness>("liveness"),
         .activation = parser.field<std::optional<Handle>>("activation"),
+        .activation_kind = parser.field<EdgeKind>("activation_kind"),
         .strata = parser.field<std::vector<Members>>("strata", std::vector<Members>{}),
         .steps = parser.field<std::vector<Member>>("steps", std::vector<Member>{}),
         .transitions = parser.field<std::vector<Transition>>(
@@ -102,6 +105,7 @@ inline x::json::json Scope::to_json() const {
     j["mode"] = this->mode;
     j["liveness"] = this->liveness;
     if (this->activation.has_value()) j["activation"] = this->activation->to_json();
+    j["activation_kind"] = this->activation_kind;
     {
         auto arr = x::json::json::array();
         for (const auto &inner: this->strata)

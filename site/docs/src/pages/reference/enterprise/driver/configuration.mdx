@@ -8,115 +8,122 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The `synnax-driver login` command sets how the Driver connects to the Core. You can also
-set the parameters of the Driver in a configuration file or with environment variables.
+The `synnax-driver login` command sets how the Driver connects to the Core. The Driver
+also reads its configuration from command line flags, environment variables, and a
+configuration file.
 
 <Divider.Divider x />
 
 ## Precedence
 
-The precedence of the different configuration methods is as follows, with earlier
-methods taking precedence over later ones:
+Earlier sources override later ones:
 
-1. Command line arguments (Highest)
+1. Command line arguments
 2. Environment variables
-3. Configuration file
-4. Parameters passed to the `synnax-driver login` command
-5. Internal defaults (Lowest)
+3. The environment file, on Linux and NI Linux Real-Time
+4. Configuration file
+5. Persisted state, written by `synnax-driver login` and by the Driver itself
+6. Internal defaults
+
+The persisted state file holds the connection parameters saved by `login` and the
+identity of the rack the Driver last attached to. It lives at
+`/var/lib/synnax-driver/persisted-state.json` on Linux,
+`%LOCALAPPDATA%\synnax-driver\persisted-state.json` on Windows, and
+`~/Library/Application Support/synnax-driver/persisted-state.json` on macOS. Use the
+`--state-file` flag to move it.
+
+<Divider.Divider x />
+
+## Environment file
+
+On Linux and NI Linux Real-Time, the service and the `login` command read
+`/etc/synnax/driver.env` and set each `KEY=VALUE` pair it names. For `login`, a variable
+already in your environment wins. The file is optional. Only root can read it, so run
+`login` with `sudo`.
+
+`start --standalone` does not read the file. For a foreground run, set the variables in
+your shell:
+
+```bash
+export GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=/path/to/ca.crt
+synnax-driver start --standalone
+```
 
 <Divider.Divider x />
 
 ## Configuration file
 
-The Synnax Driver can optionally read connection parameters from a JSON configuration
-file with the following format:
+Pass a JSON file with the `--config` flag. Every key is optional and has the same
+meaning as the flag of the same name in the
+[CLI reference](/reference/enterprise/driver/cli-reference). The file must not contain
+comments.
 
 ```json
 {
-  // Connection parameters
   "connection": {
-    // The host of the Synnax Core.
     "host": "localhost",
-    // The port of the Synnax Core.
     "port": 9090,
-    // The username to use when logging in to the Synnax Core.
     "username": "synnax",
-    // The password to use when logging in to the Synnax Core.
     "password": "password",
-    // The path to the CA certificate file to use when connecting
-    // to the Synnax Core. This is only required if the Core
-    // is configured to use TLS.
-    "ca_cert_file": "/path/to/ca.crt",
-    // The path to the client certificate file to use when connecting
-    // to the Synnax Core. This is only required when the Core is
-    // configured to use TLS and client certificates for authentication.
-    "client_cert_file": "/path/to/client.crt",
-    // The path to the client key file to use when connecting to the
-    // Synnax Core. This is only required when the Core is configured
-    // to use TLS and client certificates for authentication.
-    "client_key_file": "/path/to/client.key"
+    "secure": false
   },
   "timing": {
-    // Enable automatic skew correction for the Driver.
     "correct_skew": true
   },
   "manager": {
-    // Duration in seconds before reporting stuck task operations.
     "op_timeout": 60,
-    // Interval in seconds between task timeout checks.
     "poll_interval": 1,
-    // Maximum time in seconds to wait for task workers during shutdown.
     "shutdown_timeout": 30,
-    // Number of worker threads for task operations (1-64).
     "worker_count": 4
   },
-  // List of device integrations to enable (overrides defaults).
-  "enable_integrations": ["arc", "ethercat", "http", "labjack", "modbus", "ni", "opc"],
-  // List of device integrations to disable.
-  "disable_integrations": []
+  "remote_info": {
+    "rack_key": 65537,
+    "cluster_key": "6f2c7a1e-3b9d-4c58-9e21-0d8f5a7b3c44"
+  },
+  "integrations": ["arc", "ethercat", "http", "labjack", "modbus", "ni", "opc"]
 }
 ```
+
+The `integrations` list replaces the default set. Omit `remote_info` to let the Driver
+create a rack on first start and remember it in the persisted state file.
 
 <Divider.Divider x />
 
 ## Environment variables
 
-The Synnax Driver also supports setting connection parameters via environment variables.
+Every configuration key is also readable from an environment variable named
+`SYNNAX_DRIVER_` followed by the key in upper case. Integrations can't be set from the
+environment.
+
+The Linux and NI Linux Real-Time service does not inherit your shell. It reads
+`/etc/synnax/driver.env`, one `KEY=value` per line, each time it starts. Lines start
+with the variable name, with no `export`. The `install` command creates the file, owned
+by root with mode `600`, so only root can read the password in it. Edit it with `sudo`
+and restart the service after editing it.
 
 ```bash
 # The host of the Synnax Core.
-export SYNNAX_DRIVER_HOST=localhost
+SYNNAX_DRIVER_HOST=localhost
 # The port of the Synnax Core.
-export SYNNAX_DRIVER_PORT=9090
+SYNNAX_DRIVER_PORT=9090
 # The username to use when logging in to the Synnax Core.
-export SYNNAX_DRIVER_USERNAME=synnax
+SYNNAX_DRIVER_USERNAME=synnax
 # The password to use when logging in to the Synnax Core.
-export SYNNAX_DRIVER_PASSWORD=password
-# The path to the CA certificate file to use when
-# connecting to the Synnax Core. This is only required
-# if the Core is configured to use TLS.
-export SYNNAX_DRIVER_CA_CERT_FILE=/path/to/ca.crt
-# The path to the client certificate file to use when
-# connecting to the Synnax Core. This is only required when
-# the Core is configured to use TLS and client certificates
-# for authentication.
-export SYNNAX_DRIVER_CLIENT_CERT_FILE=/path/to/client.crt
-# The path to the client key file to use when connecting to
-# the Synnax Core. This is only required when the Core is
-# configured to use TLS and client certificates for authentication.
-export SYNNAX_DRIVER_CLIENT_KEY_FILE=/path/to/client.key
+SYNNAX_DRIVER_PASSWORD=password
+# Whether to connect to the Synnax Core over TLS.
+SYNNAX_DRIVER_SECURE=false
 # Enable automatic clock skew correction for the Driver.
-export SYNNAX_DRIVER_CORRECT_SKEW=true
+SYNNAX_DRIVER_CORRECT_SKEW=true
 # Duration in seconds before reporting stuck task operations.
-export SYNNAX_DRIVER_OP_TIMEOUT=60
+SYNNAX_DRIVER_OP_TIMEOUT=60
 # Interval in seconds between task timeout checks.
-export SYNNAX_DRIVER_POLL_INTERVAL=1
+SYNNAX_DRIVER_POLL_INTERVAL=1
 # Maximum time in seconds to wait for task workers during shutdown.
-export SYNNAX_DRIVER_SHUTDOWN_TIMEOUT=30
+SYNNAX_DRIVER_SHUTDOWN_TIMEOUT=30
 # Number of worker threads for task operations (1-64).
-export SYNNAX_DRIVER_WORKER_COUNT=4
-# Comma-separated list of device integrations to enable.
-export SYNNAX_DRIVER_ENABLE_INTEGRATIONS=labjack,ni,opc
-# Comma-separated list of device integrations to disable.
-export SYNNAX_DRIVER_DISABLE_INTEGRATIONS=modbus
+SYNNAX_DRIVER_WORKER_COUNT=4
+# The key of an existing rack in the Core to attach to.
+SYNNAX_DRIVER_RACK_KEY=65537
+# The key of the Core that owns the rack.
+SYNNAX_DRIVER_CLUSTER_KEY=6f2c7a1e-3b9d-4c58-9e21-0d8f5a7b3c44
 ```

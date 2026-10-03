@@ -107,12 +107,15 @@ class Transition(BaseModel):
     """Is a declarative state-transition rule on a sequential Scope.
 
     Attributes:
-        on: Is the dataflow handle whose truthy value fires this transition.
+        on: Is the dataflow handle whose output fires this transition.
+        kind: Is conditional when only a truthy output fires the transition (`=>`), and
+            continuous when every output fires it (`->`).
         targetKey: Is the sibling step key to activate. Null when the transition exits
             the scope, yielding to the parent.
     """
 
     on: Handle
+    kind: EdgeKind
     targetKey: str | None = None
 
 
@@ -167,8 +170,11 @@ class Scope(BaseModel):
         mode: Defines whether this scope runs steps in parallel or sequentially.
         liveness: Defines whether this scope is continuously active or must be
             activated.
-        activation: Is the handle whose truthy value activates a gated scope. Unset for
+        activation: Is the handle whose output activates a gated scope. Unset for
             always-live scopes.
+        activationKind: Is conditional when only a truthy activation output activates
+            the scope (`=>`), and continuous when every output does (`->`). Unspecified
+            when activation is unset.
         strata: Contains stratified execution layers for parallel scopes. On sequential
             scopes, strata hold variable nodes that run every pass alongside the active
             step. Stratum N depends only on strata 0 to N-1.
@@ -181,6 +187,7 @@ class Scope(BaseModel):
     mode: ScopeMode
     liveness: Liveness
     activation: Handle | None = None
+    activationKind: EdgeKind
     strata: list[Members] = Field(default_factory=list)
     steps: Members = Field(default_factory=list)
     transitions: list[Transition] = Field(default_factory=list)

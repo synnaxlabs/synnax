@@ -75,6 +75,10 @@
           "parameters": { "rack_key": [65537, 65538] }
         },
         {
+          "case": "arc/transition_arrows",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
           "case": "arc/conversion",
           "parameters": { "rack_key": [65537, 65538] }
         },

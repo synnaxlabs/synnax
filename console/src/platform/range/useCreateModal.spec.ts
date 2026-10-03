@@ -12,6 +12,8 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { type Analytics } from "@/platform/analytics";
+import { createTestSink } from "@/platform/analytics/testutil";
 import {
   findButton,
   type ModalOpenerHandle,
@@ -29,14 +31,16 @@ const client = createTestClient();
 
 interface OpenModalOptions {
   client?: Synnax | null;
+  analytics?: Analytics.Sink;
 }
 
 const openModal = async (
   params?: Range.CreateModalParams,
-  { client: c = null }: OpenModalOptions = {},
+  { client: c = null, analytics }: OpenModalOptions = {},
 ): Promise<ModalOpenerHandle<void>> => {
   const handle = await renderModalOpener(Range.useCreateModal, [params ?? {}], {
     client: c,
+    analytics,
   });
   await waitFor(() => expect(screen.getByText("Save locally")).toBeTruthy());
   return handle;
@@ -100,6 +104,28 @@ describe("Range.useCreateModal", () => {
       const retrieved = await client.ranges.retrieve(name);
       expect(retrieved.name).toEqual(name);
     });
+  });
+
+  it("should report the range it saved to the Core", async () => {
+    const analytics = createTestSink();
+    await openModal(
+      { name: uniqueRangeName("reported"), timeRange: { start: 1, end: 2 } },
+      { client, analytics },
+    );
+    await clickWhenEnabled("Save to Core");
+    await waitFor(() =>
+      expect(analytics.capture).toHaveBeenCalledWith("range_created", {}),
+    );
+  });
+
+  it("should not report an edited range as created", async () => {
+    const existing = await createTestRange(client);
+    const analytics = createTestSink();
+    await openModal({ rangeKey: existing.key }, { client, analytics });
+    await waitFor(() => expect(screen.getByDisplayValue(existing.name)).toBeTruthy());
+    await clickWhenEnabled("Save to Core");
+    await waitFor(() => expect(screen.queryByText("Save locally")).toBeNull());
+    expect(analytics.capture).not.toHaveBeenCalled();
   });
 
   it("should prefill from and update the existing range when rangeKey is provided", async () => {

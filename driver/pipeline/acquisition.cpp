@@ -140,7 +140,10 @@ void Acquisition::run() {
             break;
         }
         if (source_err) source_err = x::errors::NIL;
-        if (fr.empty() && authorities.empty()) continue;
+        if (fr.empty() && authorities.empty()) {
+            this->breaker.reset();
+            continue;
+        }
         // Open the writer after receiving the first frame so we can resolve the
         // start timestamp from the data. This helps to account for clock drift
         // between the source we're recording data from and the system clock.

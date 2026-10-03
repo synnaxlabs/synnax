@@ -306,11 +306,14 @@ func (x *Edge) GetKind() EdgeKind {
 // Transition is a declarative state-transition rule on a sequential Scope.
 type Transition struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// on is the dataflow handle whose truthy value fires this transition.
+	// on is the dataflow handle whose output fires this transition.
 	On *Handle `protobuf:"bytes,1,opt,name=on,proto3" json:"on,omitempty"`
+	// kind is conditional when only a truthy output fires the transition (`=>`), and
+	// continuous when every output fires it (`->`).
+	Kind EdgeKind `protobuf:"varint,2,opt,name=kind,proto3,enum=arc.ir.pb.EdgeKind" json:"kind,omitempty"`
 	// target_key is the sibling step key to activate. Null when the transition exits the
 	// scope, yielding to the parent.
-	TargetKey     *string `protobuf:"bytes,2,opt,name=target_key,json=targetKey,proto3,oneof" json:"target_key,omitempty"`
+	TargetKey     *string `protobuf:"bytes,3,opt,name=target_key,json=targetKey,proto3,oneof" json:"target_key,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -350,6 +353,13 @@ func (x *Transition) GetOn() *Handle {
 		return x.On
 	}
 	return nil
+}
+
+func (x *Transition) GetKind() EdgeKind {
+	if x != nil {
+		return x.Kind
+	}
+	return EdgeKind_EDGE_KIND_UNSPECIFIED
 }
 
 func (x *Transition) GetTargetKey() string {
@@ -472,18 +482,22 @@ type Scope struct {
 	Mode ScopeMode `protobuf:"varint,2,opt,name=mode,proto3,enum=arc.ir.pb.ScopeMode" json:"mode,omitempty"`
 	// liveness defines whether this scope is continuously active or must be activated.
 	Liveness Liveness `protobuf:"varint,3,opt,name=liveness,proto3,enum=arc.ir.pb.Liveness" json:"liveness,omitempty"`
-	// activation is the handle whose truthy value activates a gated scope. Unset for
+	// activation is the handle whose output activates a gated scope. Unset for
 	// always-live scopes.
 	Activation *Handle `protobuf:"bytes,4,opt,name=activation,proto3,oneof" json:"activation,omitempty"`
+	// activation_kind is conditional when only a truthy activation output activates the
+	// scope (`=>`), and continuous when every output does (`->`). Unspecified when
+	// activation is unset.
+	ActivationKind EdgeKind `protobuf:"varint,5,opt,name=activation_kind,json=activationKind,proto3,enum=arc.ir.pb.EdgeKind" json:"activation_kind,omitempty"`
 	// strata contains stratified execution layers for parallel scopes. On sequential
 	// scopes, strata hold variable nodes that run every pass alongside the active step.
 	// Stratum N depends only on strata 0 to N-1.
-	Strata []*MembersWrapper `protobuf:"bytes,5,rep,name=strata,proto3" json:"strata,omitempty"`
+	Strata []*MembersWrapper `protobuf:"bytes,6,rep,name=strata,proto3" json:"strata,omitempty"`
 	// steps contains ordered steps for sequential scopes. Empty for parallel scopes.
-	Steps []*Member `protobuf:"bytes,6,rep,name=steps,proto3" json:"steps,omitempty"`
+	Steps []*Member `protobuf:"bytes,7,rep,name=steps,proto3" json:"steps,omitempty"`
 	// transitions contains state-transition rules for sequential scopes. Empty for
 	// parallel scopes.
-	Transitions   []*Transition `protobuf:"bytes,7,rep,name=transitions,proto3" json:"transitions,omitempty"`
+	Transitions   []*Transition `protobuf:"bytes,8,rep,name=transitions,proto3" json:"transitions,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -544,6 +558,13 @@ func (x *Scope) GetActivation() *Handle {
 		return x.Activation
 	}
 	return nil
+}
+
+func (x *Scope) GetActivationKind() EdgeKind {
+	if x != nil {
+		return x.ActivationKind
+	}
+	return EdgeKind_EDGE_KIND_UNSPECIFIED
 }
 
 func (x *Scope) GetStrata() []*MembersWrapper {
@@ -928,12 +949,13 @@ const file_arc_go_ir_pb_ir_proto_rawDesc = "" +
 	"\x04Edge\x12)\n" +
 	"\x06source\x18\x01 \x01(\v2\x11.arc.ir.pb.HandleR\x06source\x12)\n" +
 	"\x06target\x18\x02 \x01(\v2\x11.arc.ir.pb.HandleR\x06target\x12'\n" +
-	"\x04kind\x18\x03 \x01(\x0e2\x13.arc.ir.pb.EdgeKindR\x04kind\"b\n" +
+	"\x04kind\x18\x03 \x01(\x0e2\x13.arc.ir.pb.EdgeKindR\x04kind\"\x8b\x01\n" +
 	"\n" +
 	"Transition\x12!\n" +
-	"\x02on\x18\x01 \x01(\v2\x11.arc.ir.pb.HandleR\x02on\x12\"\n" +
+	"\x02on\x18\x01 \x01(\v2\x11.arc.ir.pb.HandleR\x02on\x12'\n" +
+	"\x04kind\x18\x02 \x01(\x0e2\x13.arc.ir.pb.EdgeKindR\x04kind\x12\"\n" +
 	"\n" +
-	"target_key\x18\x02 \x01(\tH\x00R\ttargetKey\x88\x01\x01B\r\n" +
+	"target_key\x18\x03 \x01(\tH\x00R\ttargetKey\x88\x01\x01B\r\n" +
 	"\v_target_key\"l\n" +
 	"\x06Member\x12\x1e\n" +
 	"\bnode_key\x18\x01 \x01(\tH\x00R\anodeKey\x88\x01\x01\x12+\n" +
@@ -941,17 +963,18 @@ const file_arc_go_ir_pb_ir_proto_rawDesc = "" +
 	"\t_node_keyB\b\n" +
 	"\x06_scope\";\n" +
 	"\x0eMembersWrapper\x12)\n" +
-	"\x06values\x18\x01 \x03(\v2\x11.arc.ir.pb.MemberR\x06values\"\xd0\x02\n" +
+	"\x06values\x18\x01 \x03(\v2\x11.arc.ir.pb.MemberR\x06values\"\x8e\x03\n" +
 	"\x05Scope\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12(\n" +
 	"\x04mode\x18\x02 \x01(\x0e2\x14.arc.ir.pb.ScopeModeR\x04mode\x12/\n" +
 	"\bliveness\x18\x03 \x01(\x0e2\x13.arc.ir.pb.LivenessR\bliveness\x126\n" +
 	"\n" +
 	"activation\x18\x04 \x01(\v2\x11.arc.ir.pb.HandleH\x00R\n" +
-	"activation\x88\x01\x01\x121\n" +
-	"\x06strata\x18\x05 \x03(\v2\x19.arc.ir.pb.MembersWrapperR\x06strata\x12'\n" +
-	"\x05steps\x18\x06 \x03(\v2\x11.arc.ir.pb.MemberR\x05steps\x127\n" +
-	"\vtransitions\x18\a \x03(\v2\x15.arc.ir.pb.TransitionR\vtransitionsB\r\n" +
+	"activation\x88\x01\x01\x12<\n" +
+	"\x0factivation_kind\x18\x05 \x01(\x0e2\x13.arc.ir.pb.EdgeKindR\x0eactivationKind\x121\n" +
+	"\x06strata\x18\x06 \x03(\v2\x19.arc.ir.pb.MembersWrapperR\x06strata\x12'\n" +
+	"\x05steps\x18\a \x03(\v2\x11.arc.ir.pb.MemberR\x05steps\x127\n" +
+	"\vtransitions\x18\b \x03(\v2\x15.arc.ir.pb.TransitionR\vtransitionsB\r\n" +
 	"\v_activation\"\x18\n" +
 	"\x04Body\x12\x10\n" +
 	"\x03raw\x18\x01 \x01(\tR\x03raw\"\xd1\x01\n" +
@@ -1033,32 +1056,34 @@ var file_arc_go_ir_pb_ir_proto_depIdxs = []int32{
 	3,  // 1: arc.ir.pb.Edge.target:type_name -> arc.ir.pb.Handle
 	0,  // 2: arc.ir.pb.Edge.kind:type_name -> arc.ir.pb.EdgeKind
 	3,  // 3: arc.ir.pb.Transition.on:type_name -> arc.ir.pb.Handle
-	8,  // 4: arc.ir.pb.Member.scope:type_name -> arc.ir.pb.Scope
-	6,  // 5: arc.ir.pb.MembersWrapper.values:type_name -> arc.ir.pb.Member
-	1,  // 6: arc.ir.pb.Scope.mode:type_name -> arc.ir.pb.ScopeMode
-	2,  // 7: arc.ir.pb.Scope.liveness:type_name -> arc.ir.pb.Liveness
-	3,  // 8: arc.ir.pb.Scope.activation:type_name -> arc.ir.pb.Handle
-	7,  // 9: arc.ir.pb.Scope.strata:type_name -> arc.ir.pb.MembersWrapper
-	6,  // 10: arc.ir.pb.Scope.steps:type_name -> arc.ir.pb.Member
-	5,  // 11: arc.ir.pb.Scope.transitions:type_name -> arc.ir.pb.Transition
-	9,  // 12: arc.ir.pb.Function.body:type_name -> arc.ir.pb.Body
-	15, // 13: arc.ir.pb.Function.inputs:type_name -> arc.types.pb.Param
-	15, // 14: arc.ir.pb.Function.outputs:type_name -> arc.types.pb.Param
-	16, // 15: arc.ir.pb.Function.channels:type_name -> arc.types.pb.Channels
-	15, // 16: arc.ir.pb.Node.inputs:type_name -> arc.types.pb.Param
-	15, // 17: arc.ir.pb.Node.outputs:type_name -> arc.types.pb.Param
-	16, // 18: arc.ir.pb.Node.channels:type_name -> arc.types.pb.Channels
-	14, // 19: arc.ir.pb.Authorities.channels:type_name -> arc.ir.pb.Authorities.ChannelsEntry
-	10, // 20: arc.ir.pb.IR.functions:type_name -> arc.ir.pb.Function
-	11, // 21: arc.ir.pb.IR.nodes:type_name -> arc.ir.pb.Node
-	4,  // 22: arc.ir.pb.IR.edges:type_name -> arc.ir.pb.Edge
-	12, // 23: arc.ir.pb.IR.authorities:type_name -> arc.ir.pb.Authorities
-	8,  // 24: arc.ir.pb.IR.root:type_name -> arc.ir.pb.Scope
-	25, // [25:25] is the sub-list for method output_type
-	25, // [25:25] is the sub-list for method input_type
-	25, // [25:25] is the sub-list for extension type_name
-	25, // [25:25] is the sub-list for extension extendee
-	0,  // [0:25] is the sub-list for field type_name
+	0,  // 4: arc.ir.pb.Transition.kind:type_name -> arc.ir.pb.EdgeKind
+	8,  // 5: arc.ir.pb.Member.scope:type_name -> arc.ir.pb.Scope
+	6,  // 6: arc.ir.pb.MembersWrapper.values:type_name -> arc.ir.pb.Member
+	1,  // 7: arc.ir.pb.Scope.mode:type_name -> arc.ir.pb.ScopeMode
+	2,  // 8: arc.ir.pb.Scope.liveness:type_name -> arc.ir.pb.Liveness
+	3,  // 9: arc.ir.pb.Scope.activation:type_name -> arc.ir.pb.Handle
+	0,  // 10: arc.ir.pb.Scope.activation_kind:type_name -> arc.ir.pb.EdgeKind
+	7,  // 11: arc.ir.pb.Scope.strata:type_name -> arc.ir.pb.MembersWrapper
+	6,  // 12: arc.ir.pb.Scope.steps:type_name -> arc.ir.pb.Member
+	5,  // 13: arc.ir.pb.Scope.transitions:type_name -> arc.ir.pb.Transition
+	9,  // 14: arc.ir.pb.Function.body:type_name -> arc.ir.pb.Body
+	15, // 15: arc.ir.pb.Function.inputs:type_name -> arc.types.pb.Param
+	15, // 16: arc.ir.pb.Function.outputs:type_name -> arc.types.pb.Param
+	16, // 17: arc.ir.pb.Function.channels:type_name -> arc.types.pb.Channels
+	15, // 18: arc.ir.pb.Node.inputs:type_name -> arc.types.pb.Param
+	15, // 19: arc.ir.pb.Node.outputs:type_name -> arc.types.pb.Param
+	16, // 20: arc.ir.pb.Node.channels:type_name -> arc.types.pb.Channels
+	14, // 21: arc.ir.pb.Authorities.channels:type_name -> arc.ir.pb.Authorities.ChannelsEntry
+	10, // 22: arc.ir.pb.IR.functions:type_name -> arc.ir.pb.Function
+	11, // 23: arc.ir.pb.IR.nodes:type_name -> arc.ir.pb.Node
+	4,  // 24: arc.ir.pb.IR.edges:type_name -> arc.ir.pb.Edge
+	12, // 25: arc.ir.pb.IR.authorities:type_name -> arc.ir.pb.Authorities
+	8,  // 26: arc.ir.pb.IR.root:type_name -> arc.ir.pb.Scope
+	27, // [27:27] is the sub-list for method output_type
+	27, // [27:27] is the sub-list for method input_type
+	27, // [27:27] is the sub-list for extension type_name
+	27, // [27:27] is the sub-list for extension extendee
+	0,  // [0:27] is the sub-list for field type_name
 }
 
 func init() { file_arc_go_ir_pb_ir_proto_init() }

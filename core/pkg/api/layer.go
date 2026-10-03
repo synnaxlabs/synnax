@@ -77,8 +77,9 @@ type Transport struct {
 	// CONNECTIVITY
 	ConnectivityCheck freighter.UnaryServer[struct{}, connectivity.CheckResponse]
 	// LICENSE
-	LicenseRetrieve freighter.UnaryServer[license.RetrieveRequest, license.RetrieveResponse]
-	LicenseActivate freighter.UnaryServer[license.ActivateRequest, license.ActivateResponse]
+	LicenseRetrieve   freighter.UnaryServer[license.RetrieveRequest, license.RetrieveResponse]
+	LicenseActivate   freighter.UnaryServer[license.ActivateRequest, license.ActivateResponse]
+	LicenseDeactivate freighter.UnaryServer[license.DeactivateRequest, license.DeactivateResponse]
 	// FRAME
 	FrameWriter   freighter.StreamServer[framer.WriterRequest, framer.WriterResponse]
 	FrameIterator freighter.StreamServer[framer.IteratorRequest, framer.IteratorResponse]
@@ -113,13 +114,12 @@ type Transport struct {
 	GroupRename   freighter.UnaryServer[group.RenameRequest, struct{}]
 	GroupRetrieve freighter.UnaryServer[group.RetrieveRequest, group.RetrieveResponse]
 	// PROJECT
-	ProjectCreate    freighter.UnaryServer[project.CreateRequest, project.CreateResponse]
-	ProjectRetrieve  freighter.UnaryServer[project.RetrieveRequest, project.RetrieveResponse]
-	ProjectDelete    freighter.UnaryServer[project.DeleteRequest, struct{}]
-	ProjectRename    freighter.UnaryServer[project.RenameRequest, struct{}]
-	ProjectSetLayout freighter.UnaryServer[project.SetLayoutRequest, struct{}]
-	ProjectExport    freighter.UnaryServer[project.ExportRequest, project.ExportResponse]
-	ProjectImport    freighter.UnaryServer[project.ImportRequest, project.ImportResponse]
+	ProjectCreate   freighter.UnaryServer[project.CreateRequest, project.CreateResponse]
+	ProjectRetrieve freighter.UnaryServer[project.RetrieveRequest, project.RetrieveResponse]
+	ProjectDelete   freighter.UnaryServer[project.DeleteRequest, struct{}]
+	ProjectRename   freighter.UnaryServer[project.RenameRequest, struct{}]
+	ProjectExport   freighter.UnaryServer[project.ExportRequest, project.ExportResponse]
+	ProjectImport   freighter.UnaryServer[project.ImportRequest, project.ImportResponse]
 	// SCHEMATIC
 	SchematicCreate   freighter.UnaryServer[schematic.CreateRequest, schematic.CreateResponse]
 	SchematicRetrieve freighter.UnaryServer[schematic.RetrieveRequest, schematic.RetrieveResponse]
@@ -263,6 +263,7 @@ func (l *Layer) BindTo(t Transport) {
 		secureMiddleware,
 		t.LicenseRetrieve,
 		t.LicenseActivate,
+		t.LicenseDeactivate,
 	)
 
 	freighter.UseOnAll(
@@ -330,7 +331,6 @@ func (l *Layer) BindTo(t Transport) {
 		t.ProjectCreate,
 		t.ProjectRetrieve,
 		t.ProjectRename,
-		t.ProjectSetLayout,
 		t.ProjectExport,
 		t.ProjectImport,
 
@@ -443,6 +443,7 @@ func (l *Layer) BindTo(t Transport) {
 	// LICENSE
 	t.LicenseRetrieve.BindHandler(l.License.Retrieve)
 	t.LicenseActivate.BindHandler(l.License.Activate)
+	t.LicenseDeactivate.BindHandler(l.License.Deactivate)
 
 	// USER
 	t.UserRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.Rename))
@@ -514,9 +515,6 @@ func (l *Layer) BindTo(t Transport) {
 	t.ProjectRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.Rename))
 	t.ProjectExport.BindHandler(l.Project.Export)
 	t.ProjectImport.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.Import))
-	t.ProjectSetLayout.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Project.SetLayout),
-	)
 
 	// SCHEMATIC
 	t.SchematicCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Schematic.Create))

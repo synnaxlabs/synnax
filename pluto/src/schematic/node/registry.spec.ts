@@ -105,7 +105,7 @@ describe("Schematic.Node.createConfig", () => {
     const config = createConfig({ variant: "value" });
     expect(config.variant).toBe("value");
     expect(config.units).toBe("psi");
-    expect(config.scale).toBe(1);
+    expect(config.stalenessTimeout).toBe(5);
   });
 
   it("should name the label after the spec when the input sets none", () => {

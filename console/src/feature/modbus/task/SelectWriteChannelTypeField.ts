@@ -17,8 +17,6 @@ const NAMES = {
   holding_register: "Holding register",
 } as const satisfies Record<WriteChannelType, string>;
 
-export type SelectWriteChannelTypeFieldProps = Form.SelectFieldProps<WriteChannelType>;
-
 export const SelectWriteChannelTypeField = Form.buildSelectField<WriteChannelType>({
   fieldKey: "type",
   fieldProps: {

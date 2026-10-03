@@ -110,3 +110,32 @@ TEST(Join, CommaSeparator) {
 TEST(Join, EmptyStringsInParts) {
     EXPECT_EQ(x::strings::join({"", "b", ""}, "; "), "; b; ");
 }
+
+TEST(Trim, RemovesSurroundingWhitespace) {
+    EXPECT_EQ(x::strings::trim("  hello \t"), "hello");
+    EXPECT_EQ(x::strings::trim("hello"), "hello");
+    EXPECT_EQ(x::strings::trim("value\r"), "value");
+}
+
+TEST(Trim, KeepsInteriorWhitespace) {
+    EXPECT_EQ(x::strings::trim("  two words  "), "two words");
+}
+
+TEST(Trim, AllWhitespaceIsEmpty) {
+    EXPECT_EQ(x::strings::trim(" \t\r"), "");
+    EXPECT_EQ(x::strings::trim(""), "");
+}
+
+TEST(Unquote, RemovesOneLayer) {
+    EXPECT_EQ(x::strings::unquote("\"hello\""), "hello");
+    EXPECT_EQ(x::strings::unquote("'hello'"), "hello");
+    EXPECT_EQ(x::strings::unquote("\"\"hello\"\""), "\"hello\"");
+}
+
+TEST(Unquote, KeepsUnquoted) {
+    EXPECT_EQ(x::strings::unquote("hello"), "hello");
+    EXPECT_EQ(x::strings::unquote("\"hello"), "\"hello");
+    EXPECT_EQ(x::strings::unquote("'hello\""), "'hello\"");
+    EXPECT_EQ(x::strings::unquote("\""), "\"");
+    EXPECT_EQ(x::strings::unquote(""), "");
+}

@@ -22,9 +22,9 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
     await capture.createComponent(session, "Schematic");
     await session.waitFor(page.locator(".pluto-diagram").first());
-    const value = await capture.place(session, "Value", { x: 720, y: 300 });
-    await capture.deselect(session, { x: 200, y: 600 });
-    await session.moveTo({ x: 300, y: 620 });
+    const value = await capture.place(session, "Value", { x: 515, y: 160 });
+    await capture.deselect(session, { x: 100, y: 290 });
+    await session.moveTo({ x: 150, y: 350 });
 
     session.startRecording();
     await session.hold(500);

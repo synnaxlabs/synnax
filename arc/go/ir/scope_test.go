@@ -73,8 +73,15 @@ var _ = Describe("Scope", func() {
 				Liveness: ir.LivenessGated,
 				Steps:    ir.Members{ir.NodeMember("init"), ir.NodeMember("run")},
 				Transitions: []ir.Transition{
-					{On: ir.Handle{Node: "init", Param: "done"}, TargetKey: &run},
-					{On: ir.Handle{Node: "run", Param: "done"}},
+					{
+						On:        ir.Handle{Node: "init", Param: "done"},
+						Kind:      ir.EdgeKindConditional,
+						TargetKey: &run,
+					},
+					{
+						On:   ir.Handle{Node: "run", Param: "done"},
+						Kind: ir.EdgeKindConditional,
+					},
 				},
 			}
 			out := s.String()

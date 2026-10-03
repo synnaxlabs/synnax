@@ -125,6 +125,7 @@ export const Provider = ({
 
   const handleKeyDown = useCallback((e: KeyboardEvent | MouseEvent): void => {
     const key = eventKey(e);
+    if (key == null) return;
     // We prevent the default behavior of arrow keys to prevent scrolling and movement
     // of the cursor. We might want to move this elsewhere in the future.
     if (["ArrowUp", "ArrowDown"].includes(key)) e.preventDefault();
@@ -154,6 +155,7 @@ export const Provider = ({
 
   const handleKeyUp = useCallback((e: KeyboardEvent | MouseEvent): void => {
     const key = eventKey(e);
+    if (key == null) return;
     // We prevent the default behavior of arrow keys to prevent scrolling and movement
     if (["ArrowUp", "ArrowDown"].includes(key)) e.preventDefault();
     // We don't want to trigger any events for excluded keys.

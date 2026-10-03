@@ -9,7 +9,8 @@
 
 import { label } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { color, testutil, TimeSpan } from "@synnaxlabs/x";
+import { color, TimeSpan } from "@synnaxlabs/x";
+import { expectAlways } from "@synnaxlabs/x/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -489,7 +490,7 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       act(() => result.current.form.set("name", "edited"));
       await act(async () => await client.labels.delete(toDelete.key));
-      await testutil.expectAlways(async () => {
+      await expectAlways(async () => {
         await expect(
           async () => await client.labels.retrieve(toDelete.key),
         ).rejects.toThrow();

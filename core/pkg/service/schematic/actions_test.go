@@ -30,7 +30,7 @@ func tankCfg(label, hex string) schematic.ElementConfig {
 		Label: schematic.LabelConfig{Label: label},
 	}
 	if hex != "" {
-		cfg.Color = new(MustSucceed(color.FromHex(hex)))
+		cfg.StrokeColor = new(MustSucceed(color.FromHex(hex)))
 	}
 	return schematic.ElementConfig{Variant: cfg}
 }
@@ -40,7 +40,7 @@ func pipeCfg(hex string) schematic.ElementConfig {
 	GinkgoHelper()
 	cfg := schematic.SegmentedEdgeConfig{}
 	if hex != "" {
-		cfg.Color = new(MustSucceed(color.FromHex(hex)))
+		cfg.StrokeColor = new(MustSucceed(color.FromHex(hex)))
 	}
 	return schematic.ElementConfig{
 		Variant: schematic.PipeElementConfig{SegmentedEdgeConfig: cfg},

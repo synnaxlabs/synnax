@@ -91,8 +91,13 @@ export interface Edge extends z.infer<typeof edgeZ> {}
 
 /** Transition is a declarative state-transition rule on a sequential Scope. */
 export const transitionZ = z.object({
-  /** on is the dataflow handle whose truthy value fires this transition. */
+  /** on is the dataflow handle whose output fires this transition. */
   on: handleZ,
+  /**
+   * kind is conditional when only a truthy output fires the transition (`=>`), and
+   * continuous when every output fires it (`->`).
+   */
+  kind: edgeKindZ,
   /**
    * targetKey is the sibling step key to activate. Null when the transition exits the
    * scope, yielding to the parent.
@@ -159,6 +164,7 @@ export interface Scope {
   mode: ScopeMode;
   liveness: Liveness;
   activation?: Handle;
+  activationKind: EdgeKind;
   strata: Members[];
   steps: Members;
   transitions: Transition[];
@@ -173,10 +179,16 @@ export const scopeZ: z.ZodType<Scope> = z.object({
    */
   liveness: livenessZ,
   /**
-   * activation is the handle whose truthy value activates a gated scope. Unset for
+   * activation is the handle whose output activates a gated scope. Unset for
    * always-live scopes.
    */
   activation: handleZ.optional(),
+  /**
+   * activationKind is conditional when only a truthy activation output activates the
+   * scope (`=>`), and continuous when every output does (`->`). Unspecified when
+   * activation is unset.
+   */
+  activationKind: edgeKindZ,
   /**
    * strata contains stratified execution layers for parallel scopes. On sequential
    * scopes, strata hold variable nodes that run every pass alongside the active step.

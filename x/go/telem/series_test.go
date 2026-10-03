@@ -249,6 +249,29 @@ var _ = Describe("Series", func() {
 		})
 	})
 
+	Describe("Last", func() {
+		It("Should return the last sample with its alignment advanced", func() {
+			s := telem.NewSeriesV[int32](1, 2, 3)
+			s.Alignment = telem.NewAlignment(2, 5)
+			s.TimeRange = telem.TimeRange{Start: 10, End: 40}
+			last := s.Last()
+			Expect(last).To(telem.MatchSeriesDataV[int32](3))
+			Expect(last.Alignment).To(Equal(telem.NewAlignment(2, 7)))
+			Expect(last.TimeRange).To(Equal(s.TimeRange))
+		})
+
+		It("Should return the last sample of a variable density series", func() {
+			s := telem.NewSeriesV("a", "bc", "def")
+			last := s.Last()
+			Expect(last.DataType).To(Equal(telem.StringT))
+			Expect(last).To(telem.MatchSeriesDataV("def"))
+		})
+
+		It("Should panic when the series is empty", func() {
+			Expect(func() { telem.Series{DataType: telem.Int32T}.Last() }).To(Panic())
+		})
+	})
+
 	Describe("ValueAt", func() {
 		Describe("Happy Path", func() {
 			Specify("uint8", valueAtTest(uint8(1), telem.Uint8T))

@@ -71,8 +71,11 @@ const (
 
 // Transition is a declarative state-transition rule on a sequential Scope.
 type Transition struct {
-	// On is the dataflow handle whose truthy value fires this transition.
+	// On is the dataflow handle whose output fires this transition.
 	On Handle `json:"on" msgpack:"on"`
+	// Kind is conditional when only a truthy output fires the transition (`=>`), and
+	// continuous when every output fires it (`->`).
+	Kind EdgeKind `json:"kind" msgpack:"kind"`
 	// TargetKey is the sibling step key to activate. Null when the transition exits the
 	// scope, yielding to the parent.
 	TargetKey *string `json:"target_key,omitzero" msgpack:"target_key,omitempty"`
@@ -102,9 +105,13 @@ type Scope struct {
 	Mode ScopeMode `json:"mode" msgpack:"mode"`
 	// Liveness defines whether this scope is continuously active or must be activated.
 	Liveness Liveness `json:"liveness" msgpack:"liveness"`
-	// Activation is the handle whose truthy value activates a gated scope. Unset for
+	// Activation is the handle whose output activates a gated scope. Unset for
 	// always-live scopes.
 	Activation *Handle `json:"activation,omitzero" msgpack:"activation,omitempty"`
+	// ActivationKind is conditional when only a truthy activation output activates the
+	// scope (`=>`), and continuous when every output does (`->`). Unspecified when
+	// activation is unset.
+	ActivationKind EdgeKind `json:"activation_kind" msgpack:"activation_kind"`
 	// Strata contains stratified execution layers for parallel scopes. On sequential
 	// scopes, strata hold variable nodes that run every pass alongside the active step.
 	// Stratum N depends only on strata 0 to N-1.

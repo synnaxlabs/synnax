@@ -11,6 +11,7 @@ package v5
 
 import (
 	"context"
+	"math"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy"
@@ -122,7 +123,7 @@ func migrateTickType(t string) *TickType {
 // schema uses. A zero color is the legacy "unset" sentinel, which maps to nil so the
 // Console assigns a default at render time.
 func colorPtr(c color.Color) *color.Color {
-	if c.IsZero() {
+	if c == (color.Color{}) {
 		return nil
 	}
 	return &c
@@ -135,7 +136,7 @@ func migrateLines(in []legacy.Line) []Line {
 			Label:          l.Label,
 			Color:          colorPtr(l.Color),
 			StrokeWidth:    l.StrokeWidth,
-			Downsample:     l.Downsample,
+			Downsample:     uint32(max(1, math.Round(l.Downsample))),
 			DownsampleMode: DownsampleMode(l.DownsampleMode),
 		}
 	})

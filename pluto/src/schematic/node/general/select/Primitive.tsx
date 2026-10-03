@@ -23,7 +23,7 @@ import { Primitive } from "@/schematic/node/common/primitive";
 interface RenderProps extends Partial<
   Pick<
     schematic.SelectNodeConfig,
-    "color" | "orientation" | "size" | "disabled" | "inlineSize" | "onClickDelay"
+    "fillColor" | "orientation" | "size" | "disabled" | "inlineSize" | "onClickDelay"
   >
 > {
   options: schematic.SelectNodeConfig["options"];
@@ -40,7 +40,7 @@ const DIALOG_PROPS: Dialog.DialogProps = {
 export const Select = ({
   className,
   orientation = "left",
-  color,
+  fillColor,
   value,
   onChange,
   onSend,
@@ -93,7 +93,7 @@ export const Select = ({
           onChange={(key: string | null) => onChange(key)}
           disabled={disabled}
           resourceName="option"
-          triggerProps={{ color, size }}
+          triggerProps={{ color: fillColor, size }}
           dialogProps={DIALOG_PROPS}
           style={triggerStyle}
         >
@@ -111,7 +111,7 @@ export const Select = ({
               if (matched != null) onSend?.(matched.value);
             }}
             onClickDelay={onClickDelay}
-            color={color}
+            color={fillColor}
             disabled={disabled}
           >
             Send

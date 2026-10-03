@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, type device } from "@synnaxlabs/client";
+import { channel } from "@synnaxlabs/client";
 import { z } from "zod";
 
 export const VERSION = "0.0.0";
 
 export const MAKE = "opc";
-export type Make = typeof MAKE;
 export const makeZ = z.literal(MAKE);
 
 export const NO_SECURITY_MODE = "None";
@@ -80,6 +79,3 @@ export const ZERO_PROPERTIES: Properties = {
   read: { index: 0, channels: {} },
   write: { channels: {} },
 };
-
-export interface Device extends device.Device<typeof propertiesZ, typeof makeZ> {}
-export interface New extends device.New<typeof propertiesZ, typeof makeZ> {}

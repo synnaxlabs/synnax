@@ -282,10 +282,17 @@ export interface UseTaskControlsReturn {
 const notDeployedYet = (name: string) =>
   status.create({ name, variant: "disabled", message: "Not deployed yet" });
 
-/** Running state and start/stop controls for the arc's task. */
-export const useTaskControls = (key: arc.Key, name: string): UseTaskControlsReturn => {
+/**
+ * Running state and start/stop controls for the arc's task. The params hook into the
+ * commands the controls send.
+ */
+export const useTaskControls = (
+  key: arc.Key,
+  name: string,
+  params?: Flux.UseDirectUpdateParams<Task.CommandParams>,
+): UseTaskControlsReturn => {
   const { data: tsk, variant, status: readStatus } = useResultTask({ arcKey: key });
-  const cmd = Task.useCommand();
+  const cmd = Task.useCommand(params);
   const isRunning = tsk?.status?.details.running ?? false;
   const taskKey = tsk?.key ?? "";
   const taskRack = tsk?.rack ?? 0;

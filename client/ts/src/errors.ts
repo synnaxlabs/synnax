@@ -203,14 +203,6 @@ const encode: errors.Encoder = (error) => {
 
 errors.register({ encode, decode });
 
-export const validateFieldNotNull = (
-  key: string,
-  value: unknown,
-  message: string = "must be provided",
-): void => {
-  if (value == null) throw new PathError(key, new ValidationError(message));
-};
-
 export const errorsMiddleware: Middleware = async (ctx, next) => {
   try {
     return await next(ctx);

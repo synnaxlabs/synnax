@@ -35,8 +35,8 @@ export default manifest.define([
     script: "scripts/schematic-align-items.ts",
   },
   {
-    id: "console/schematics/change-color",
-    script: "scripts/schematic-change-color.ts",
+    id: "console/schematics/edit-several-elements",
+    script: "scripts/schematic-edit-several-elements.ts",
   },
   { id: "console/schematics/value", script: "scripts/schematic-value.ts" },
   {

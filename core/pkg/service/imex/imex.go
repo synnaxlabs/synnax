@@ -121,10 +121,17 @@ func (e Envelope) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, e.body)
 }
 
+// decodeOptions are the JSON options every import decode uses.
+var decodeOptions = jsontext.AllowInvalidUTF8(true)
+
+// Codec decodes import files. It replaces invalid UTF-8 and lone surrogates with
+// U+FFFD, since Consoles before v0.57 exported lone surrogates as escapes. It rejects a
+// duplicate object name, which no exporter writes.
+var Codec = xjson.NewCodec(decodeOptions)
+
 // UnmarshalJSONFrom reads a flat JSON object, promoting the headers and retaining the
-// bytes for a later Decode. A duplicate object name or invalid UTF-8 fails the read: an
-// import file comes from outside the Core, so a defect there is corruption, not a value
-// to guess.
+// bytes for a later Decode. A duplicate object name fails the read. Decode it through
+// Codec so that invalid UTF-8 reads as U+FFFD.
 func (e *Envelope) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
@@ -138,14 +145,14 @@ func (e *Envelope) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	// these bytes back long after this call, so they must be copied.
 	raw = raw.Clone()
 	var m map[string]any
-	if err := json.Unmarshal(raw, &m); err != nil {
+	if err := json.Unmarshal(raw, &m, decodeOptions); err != nil {
 		return err
 	}
 	// A JSON null decodes to a nil map rather than an error.
 	if m == nil {
 		return errors.Wrap(validate.ErrValidation, "envelope must be a JSON object")
 	}
-	return e.unmarshal(m, raw, xjson.Codec)
+	return e.unmarshal(m, raw, Codec)
 }
 
 // unmarshal promotes the {version, type, name} headers onto the receiver and stashes

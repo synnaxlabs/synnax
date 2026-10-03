@@ -17,14 +17,14 @@ import z from "zod";
 
 import { Window } from "@/session/window";
 
-export const viewportZ = z.object({
+const viewportZ = z.object({
   renderTrigger: z.number().default(0),
   zoom: dimensions.dimensionsZ.default(dimensions.DECIMAL),
   pan: xy.xyZ.default(xy.ZERO),
 });
 export interface ViewportState extends z.infer<typeof viewportZ> {}
 
-export const selectionZ = z.object({ box: box.box.default(box.ZERO) });
+const selectionZ = z.object({ box: box.box.default(box.ZERO) });
 export interface SelectionState extends z.infer<typeof selectionZ> {}
 
 export const toolbarTabZ = z.enum([
@@ -35,25 +35,23 @@ export const toolbarTabZ = z.enum([
   "annotations",
 ]);
 export type ToolbarTab = z.infer<typeof toolbarTabZ>;
-export const toolbarZ = z.object({ activeTab: toolbarTabZ.default("data") });
+const toolbarZ = z.object({ activeTab: toolbarTabZ.default("data") });
 export interface ToolbarState extends z.infer<typeof toolbarZ> {}
 
 export const clickModeZ = z.enum(["annotate", "measure"]);
 export type ClickMode = z.infer<typeof clickModeZ>;
-export const controlZ = z.object({
+const controlZ = z.object({
   hold: z.boolean().default(false),
   clickMode: clickModeZ.nullable().default(null),
   enableTooltip: z.boolean().default(true),
 });
 export interface ControlState extends z.infer<typeof controlZ> {}
 
-export const measureZ = z.object({
+const measureZ = z.object({
   mode: etherLineplot.measure.modeZ.default("one"),
 });
-export interface MeasureState extends z.infer<typeof measureZ> {}
 
-export const annotationsZ = z.object({ visible: z.boolean().default(true) });
-export interface AnnotationsState extends z.infer<typeof annotationsZ> {}
+const annotationsZ = z.object({ visible: z.boolean().default(true) });
 
 export const stateZ = z.object({
   viewport: viewportZ.prefault({}),
@@ -72,7 +70,7 @@ export interface NewState extends z.input<typeof stateZ> {}
 export const ZERO_STATE = stateZ.parse({});
 export const ZERO_ANNOTATIONS_STATE = annotationsZ.parse({});
 
-export const windowStateZ = z.record(z.string(), stateZ).default({});
+const windowStateZ = z.record(z.string(), stateZ).default({});
 
 export const sliceStateZ = z.object({
   version: z.literal(0).default(0),
@@ -260,7 +258,7 @@ export const purgeState = (state: State): State => {
   return state;
 };
 
-export const purgeSliceState = <S extends StoreState>(state: S): S => {
+const purgeSliceState = <S extends StoreState>(state: S): S => {
   Window.purgeDocuments(state[SLICE_NAME], purgeState);
   return state;
 };

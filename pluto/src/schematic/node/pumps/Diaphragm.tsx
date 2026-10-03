@@ -19,7 +19,7 @@ export interface DiaphragmProps extends Toggle.ButtonProps, Primitive.SVGBasedPr
 const DIMENSIONS = { width: 64, height: 64 };
 
 export const Diaphragm = ({
-  color,
+  strokeColor,
   className,
   orientation = "left",
   scale,
@@ -39,7 +39,7 @@ export const Diaphragm = ({
     />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >

@@ -1,0 +1,15 @@
+{
+  "version": 8,
+  "type": "schematic",
+  "key": "11111111-2222-3333-4444-666666666666",
+  "name": "Rejected",
+  "nodes": [
+    { "key": "n1", "position": { "x": 0, "y": 0 } },
+    { "key": "n2", "position": { "x": 0, "y": 0 } }
+  ],
+  "edges": [],
+  "configs": {
+    "n1": { "variant": "circle", "radius": "wide" },
+    "n2": { "variant": "valve" }
+  }
+}

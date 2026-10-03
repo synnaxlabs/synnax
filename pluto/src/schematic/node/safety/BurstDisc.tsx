@@ -19,7 +19,7 @@ const DIMENSIONS = { width: 40, height: 48 };
 
 export const BurstDisc = ({
   className,
-  color: colorVal,
+  strokeColor: colorVal,
   orientation = "left",
   scale,
   ...rest
@@ -36,7 +36,7 @@ export const BurstDisc = ({
     </Handle.Boundary>
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={colorVal}
+      strokeColor={colorVal}
       orientation={orientation}
       scale={scale}
     >

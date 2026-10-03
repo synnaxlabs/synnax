@@ -14,7 +14,6 @@ import { z } from "zod";
 import { Device } from "@/platform/device";
 
 export const MAKE = "LabJack";
-export type Make = typeof MAKE;
 export const makeZ = z.literal(MAKE);
 
 export const T4_MODEL = "LJM_dtT4";
@@ -237,11 +236,6 @@ export const ZERO_PROPERTIES: Properties = {
 };
 
 export interface Device extends device.Device<
-  typeof propertiesZ,
-  typeof makeZ,
-  typeof modelZ
-> {}
-export interface New extends device.New<
   typeof propertiesZ,
   typeof makeZ,
   typeof modelZ

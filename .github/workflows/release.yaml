@@ -67,28 +67,11 @@ env:
   GH_TOKEN: ${{ github.token }}
 
 jobs:
-  verify:
-    name: Verify checks
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Verify checks
-        uses: ./.github/actions/verify-checks
-        with:
-          sha: ${{ github.sha }}
-
-  integration:
-    name: Integration
-    uses: ./.github/workflows/test.integration.yaml
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yaml
     with:
-      ubuntu: true
-      windows: true
-    permissions:
-      actions: read
-      contents: write
-      packages: write
+      full: true
     secrets: inherit
 
   resolve:
@@ -179,7 +162,7 @@ jobs:
 
   draft-console:
     name: Draft Console
-    needs: [resolve, verify, integration]
+    needs: [resolve, ci]
     if: inputs.console
     runs-on: ubuntu-latest
     steps:
@@ -237,7 +220,7 @@ jobs:
 
   draft-driver:
     name: Draft Driver
-    needs: [resolve, verify, integration]
+    needs: [resolve, ci]
     if: inputs.driver
     runs-on: ubuntu-latest
     steps:
@@ -286,12 +269,11 @@ jobs:
   # and never runs after one fails.
   draft-core:
     name: Draft Core
-    needs: [resolve, verify, integration, publish-console, publish-driver]
+    needs: [resolve, ci, publish-console, publish-driver]
     if: >-
       !cancelled() && inputs.core && needs.resolve.result == 'success' &&
-      needs.verify.result == 'success' && needs.integration.result == 'success' &&
-      (!inputs.console || needs.publish-console.result == 'success') && (!inputs.driver
-      || needs.publish-driver.result == 'success')
+      needs.ci.result == 'success' && (!inputs.console || needs.publish-console.result
+      == 'success') && (!inputs.driver || needs.publish-driver.result == 'success')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository

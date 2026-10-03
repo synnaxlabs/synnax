@@ -21,7 +21,7 @@ export const Orifice = ({
   id,
   className,
   orientation = "right",
-  color,
+  strokeColor,
   scale = 1,
   ...rest
 }: Props): ReactElement => (
@@ -35,14 +35,14 @@ export const Orifice = ({
     />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >
       <Primitive.Rect x="2.5" y="2" width="67" height="31" rx="2" />
       <Primitive.Path d="M24.5 2V7.5V13" strokeLinecap="round" />
       <Primitive.Path d="M24.5 33V22" strokeLinecap="round" />
-      <Label color={color} />
+      <Label strokeColor={strokeColor} />
     </Primitive.SVG>
   </Primitive.Div>
 );

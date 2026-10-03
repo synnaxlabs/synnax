@@ -11,7 +11,7 @@
 import { SEO } from "astro-seo";
 import "@/styles/main.css";
 import Header from "@/components/Header.astro";
-import Footer from "@/components/Footer.astro";
+import Footer from "@synnaxlabs/site-common/Footer.astro";
 
 interface Props {
     /** The page title, before " | Synnax". The home page leaves it unset. */
@@ -26,6 +26,36 @@ const fullTitle = title == null ? HOME_TITLE : `${title} | Synnax`;
 // Query strings and trailing slashes must not split a page into duplicates.
 const pathname = Astro.url.pathname.replace(/(.)\/$/, "$1");
 const canonical = new URL(pathname, Astro.site).href;
+
+const FOOTER_COLUMNS = [
+    {
+        title: "Product",
+        links: [
+            { label: "Visualize and operate", href: "/#visualize" },
+            { label: "Automate and control", href: "/#automate" },
+            { label: "Store and review", href: "/#review" },
+            { label: "Stream and process", href: "/#stream" },
+            { label: "Integrations", href: "/#integrations" },
+            { label: "SDKs", href: "/#sdks" },
+        ],
+    },
+    {
+        title: "Resources",
+        links: [
+            { label: "Documentation", href: "https://docs.synnaxlabs.com/reference" },
+            { label: "Reliability", href: "https://docs.synnaxlabs.com/reliability/" },
+            { label: "Sponsorships", href: "/sponsorships" },
+        ],
+    },
+    {
+        title: "Company",
+        href: "/company",
+        links: [
+            { label: "Contact", href: "/#contact" },
+            { label: "Privacy policy", href: "/privacy" },
+        ],
+    },
+];
 ---
 
 <!doctype html>
@@ -63,7 +93,7 @@ const canonical = new URL(pathname, Astro.site).href;
         <main>
             <slot />
         </main>
-        <Footer />
+        <Footer home="/" columns={FOOTER_COLUMNS} />
     </body>
 </html>
 

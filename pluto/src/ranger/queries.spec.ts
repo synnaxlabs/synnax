@@ -9,7 +9,8 @@
 
 import { ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { color, testutil, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { color, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { expectAlways } from "@synnaxlabs/x/testutil";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import {
   createElement,
@@ -1267,7 +1268,7 @@ describe("queries", () => {
       await act(async () => {
         await rng.kv.delete("test_key");
       });
-      await testutil.expectAlways(async () => {
+      await expectAlways(async () => {
         expect(await rng.kv.list()).not.toHaveProperty("test_key");
       }, 800);
     });

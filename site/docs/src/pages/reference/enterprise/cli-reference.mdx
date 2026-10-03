@@ -299,7 +299,7 @@ Here are example configuration files in various formats:
   "node-key": "node.key",
   "username": "synnax",
   "password": "seldon",
-  "license-file": "/usr/local/synnax/synnax.license",
+  "license-file": "/usr/local/synnax/synnax.lic",
   "debug": false,
   "slow-consumer-timeout": "2.5s",
   "no-driver": false,
@@ -337,7 +337,7 @@ node-cert: node.crt
 node-key: node.key
 username: synnax
 password: seldon
-license-file: /usr/local/synnax/synnax.license
+license-file: /usr/local/synnax/synnax.lic
 no-driver: false
 disable-integrations: []
 enable-integrations: []
@@ -370,7 +370,7 @@ node-cert = "node.crt"
 node-key = "node.key"
 username = "synnax"
 password = "seldon"
-license-file = "/usr/local/synnax/synnax.license"
+license-file = "/usr/local/synnax/synnax.lic"
 no-driver = false
 disable-integrations = []
 enable-integrations = []
@@ -428,7 +428,7 @@ Each listener object accepts the following fields:
     {
       field: "cert.source",
       description:
-        'The certificate source: <code>file</code>, <code>auto</code>, or <code>tailscale</code>. See <a href="/reference/enterprise/production#certificate-sources">Certificate Sources</a>.',
+        'The certificate source: <code>file</code>, <code>auto</code>, or <code>tailscale</code>. See <a href="/reference/enterprise/production#certificate-sources">Certificate sources</a>.',
     },
     {
       field: "cert.cert",

@@ -134,7 +134,7 @@ func newRuntimeHarness(
 	}
 
 	tolerance := time.CalculateTolerance(timeMod.BaseInterval)
-	h.scheduler = scheduler.New(prog.IR, nodes, tolerance)
+	h.scheduler = MustSucceed(scheduler.New(prog.IR, nodes, tolerance))
 	h.timeMod = timeMod
 
 	h.closers = append(h.closers, func(ctx context.Context) error {

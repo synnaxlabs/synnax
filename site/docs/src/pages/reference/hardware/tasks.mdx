@@ -34,8 +34,8 @@ Before you create a task, configure the device or service that the task uses:
 ## What are tasks?
 
 Tasks are the primary method to communicate with hardware in Synnax. A task is a
-background process that reads data from your hardware or writes data to it. You use
-tasks for data acquisition and for control.
+background process on the Driver that reads data from your hardware or writes data to
+it. You use tasks for data acquisition and for control.
 
 You can start, stop, and configure a task at any time. Synnax stores the configuration
 of each task, so you can set up tasks for different purposes and change between them.
@@ -70,7 +70,7 @@ type `Create`. Select the task type you need to open the task configuration dial
 </Fragment>
 <Fragment slot="tab3">
 
-Click on the add icon (<Icon.Add />) in the top-right corner of the central mosaic and
+Click the add icon (<Icon.Add />) in the top-right corner of the central mosaic and
 select the task type from the menu.
 
 <Video id="device-drivers/task/layout-selector" />
@@ -231,6 +231,7 @@ for task in all_tasks:
 analog_read_tasks = [t for t in all_tasks if t.type == "ni_analog_read"]
 
 # Available task types:
+#   arc,
 #   ethercat_read, ethercat_write,
 #   ni_analog_read, ni_analog_write,
 #   ni_counter_read,
@@ -360,6 +361,7 @@ allTasks.forEach((task) => {
 const analogReadTasks = allTasks.filter((t) => t.type === "ni_analog_read");
 
 // Available task types:
+//   arc,
 //   ethercat_read, ethercat_write,
 //   ni_analog_read, ni_analog_write,
 //   ni_counter_read,

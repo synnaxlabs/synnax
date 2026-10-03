@@ -4215,6 +4215,20 @@ var _ = Describe("Frame", func() {
 			}))
 		})
 
+		It("Should keep every entry when extended one frame at a time", func() {
+			var extended telem.Frame[int32]
+			for i := range int32(100) {
+				extended = extended.Extend(
+					telem.UnaryFrame(i, telem.NewSeriesV(i)),
+				)
+			}
+			Expect(extended.Count()).To(Equal(100))
+			for i, key := range extended.KeysSlice() {
+				Expect(key).To(Equal(int32(i)))
+				Expect(extended.SeriesAt(i)).To(Equal(telem.NewSeriesV(int32(i))))
+			}
+		})
+
 		It("Should handle duplicate keys when extending", func() {
 			frame1 := telem.MultiFrame(
 				[]int32{1, 2},

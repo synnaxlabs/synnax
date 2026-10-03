@@ -21,7 +21,7 @@ const DIMENSIONS = { width: 21, height: 36 };
 export const HeaterElement = ({
   className,
   orientation = "left",
-  color,
+  strokeColor,
   scale,
   ...rest
 }: HeaterElementProps): ReactElement => (
@@ -44,7 +44,7 @@ export const HeaterElement = ({
     </Handle.Boundary>
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >

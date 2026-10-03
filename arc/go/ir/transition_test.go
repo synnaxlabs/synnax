@@ -21,14 +21,33 @@ var _ = Describe("Transition", func() {
 			target := "next"
 			t := ir.Transition{
 				On:        ir.Handle{Node: "n", Param: "done"},
+				Kind:      ir.EdgeKindConditional,
 				TargetKey: &target,
 			}
 			Expect(t.String()).To(Equal("on n/done => next"))
 		})
 
 		It("Should render an exiting transition when TargetKey is nil", func() {
-			t := ir.Transition{On: ir.Handle{Node: "n", Param: "done"}}
+			t := ir.Transition{
+				On:   ir.Handle{Node: "n", Param: "done"},
+				Kind: ir.EdgeKindConditional,
+			}
 			Expect(t.String()).To(Equal("on n/done => exit"))
+		})
+
+		It("Should render a continuous transition with ->", func() {
+			target := "next"
+			t := ir.Transition{
+				On:        ir.Handle{Node: "n", Param: "done"},
+				Kind:      ir.EdgeKindContinuous,
+				TargetKey: &target,
+			}
+			Expect(t.String()).To(Equal("on n/done -> next"))
+		})
+
+		It("Should render a transition with no kind with ?>", func() {
+			t := ir.Transition{On: ir.Handle{Node: "n", Param: "done"}}
+			Expect(t.String()).To(Equal("on n/done ?> exit"))
 		})
 	})
 })

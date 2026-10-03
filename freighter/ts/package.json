@@ -23,7 +23,6 @@
     "fix": "eslint --fix"
   },
   "dependencies": {
-    "@synnaxlabs/alamos": "catalog:",
     "@synnaxlabs/x": "catalog:",
     "zod": "catalog:"
   },

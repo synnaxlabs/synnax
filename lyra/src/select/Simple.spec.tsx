@@ -10,11 +10,12 @@
 import { fireEvent, render } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Icon } from "@/icon";
 import { List } from "@/list";
 import { Select } from "@/select";
+import { disableActEnvironment } from "@/testutil/act";
 import { mockBoundingClientRect } from "@/testutil/dom";
 
 describe("Select.Simple", () => {
@@ -185,14 +186,7 @@ describe("Select.Simple multiple", () => {
     // act runs every effect before returning, which hides what a browser would paint.
     // These specs mount outside it and read the page after each task, where a browser
     // may paint.
-    beforeEach(() => {
-      (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
-        false;
-    });
-    afterEach(() => {
-      (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
-        true;
-    });
+    beforeEach(disableActEnvironment);
 
     const paints = async (element: ReactElement): Promise<string[]> => {
       const container = document.createElement("div");

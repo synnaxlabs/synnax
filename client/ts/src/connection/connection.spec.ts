@@ -29,6 +29,7 @@ import {
   MissingLicenseError,
 } from "@/errors";
 import { license } from "@/license";
+import { query } from "@/query";
 import { TEST_CLIENT_PARAMS, waitForStatus } from "@/testutil";
 import { Transport } from "@/transport";
 
@@ -1139,6 +1140,7 @@ describe("connection", () => {
           use: vi.fn(),
         },
         connection: client,
+        cache: new query.Cache({ openStreamer: null }),
       });
       await licenses.activate("key");
       expect(retryNow).toHaveBeenCalledOnce();
@@ -1166,7 +1168,8 @@ describe("connection", () => {
       const next = vi.fn(async (ctx: Context) => ctx);
       await mw(createUnaryContext(`/api/v1${license.RETRIEVE_ENDPOINT}`), next);
       await mw(createUnaryContext(`/api/v1${license.ACTIVATE_ENDPOINT}`), next);
-      expect(next).toHaveBeenCalledTimes(2);
+      await mw(createUnaryContext(`/api/v1${license.DEACTIVATE_ENDPOINT}`), next);
+      expect(next).toHaveBeenCalledTimes(3);
       await client.close();
     });
 

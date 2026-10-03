@@ -381,11 +381,7 @@ private:
                     const auto data = x::mem::make_local_shared<x::telem::Series>(
                         str_value
                     );
-                    ch->write_value(
-                        static_cast<types::ChannelKey>(channel_id),
-                        data,
-                        Series()
-                    );
+                    ch->write_value(static_cast<types::ChannelKey>(channel_id), data);
                 }
             )
             .unwrap();

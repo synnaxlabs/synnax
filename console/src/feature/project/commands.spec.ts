@@ -35,7 +35,7 @@ const createProjectWithPanel = async (): Promise<{
   proj: project.Project;
   logName: string;
 }> => {
-  const proj = await client.projects.create({ name: uniqueName("proj"), layout: {} });
+  const proj = await client.projects.create({ name: uniqueName("proj") });
   const logName = uniqueName("log");
   const createdLog = await client.logs.create(proj.key, { name: logName });
   await client.panels.create({

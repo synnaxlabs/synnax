@@ -51,7 +51,7 @@ const haulItems = ({ name, id: otgID, data }: ontology.Resource): Haul.Item[] =>
 
 const allowRename: Tree.AllowRename = ({ data }) => data?.internal !== true;
 
-export const useDelete = Tree.createUseDelete({
+const useDelete = Tree.createUseDelete({
   type: "Channel",
   query: PChannel.useDelete,
   convertKey: Number,
@@ -68,7 +68,7 @@ const beforeSetAlias = async ({
   return { ...data, alias };
 };
 
-export const useSetAlias = ({
+const useSetAlias = ({
   selection: {
     ids: [firstID],
   },
@@ -86,13 +86,13 @@ export const useSetAlias = ({
   );
 };
 
-export const useRename = Tree.createUseRename({
+const useRename = Tree.createUseRename({
   query: PChannel.useRename,
   ontologyID: channel.ontologyID,
   convertKey: Number,
 });
 
-export const useDeleteAlias = ({
+const useDeleteAlias = ({
   selection: { ids },
 }: Tree.ContextMenuProps): (() => void) => {
   const activeRange = Session.Range.useSelectSelectedKey();

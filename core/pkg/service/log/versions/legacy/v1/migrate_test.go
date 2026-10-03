@@ -29,7 +29,7 @@ var _ = Describe("Migrate", func() {
 		Expect(result.Channels[0].Channel).To(Equal(channel.Key(1)))
 		Expect(result.Channels[0].Color).To(BeEmpty())
 		Expect(result.Channels[0].Notation).To(Equal(notation.NotationStandard))
-		Expect(result.Channels[0].Precision).To(Equal(int32(-1)))
+		Expect(result.Channels[0].Precision).To(Equal(-1.0))
 		Expect(result.Channels[0].Alias).To(Equal(""))
 		Expect(
 			result.Channels[0].Timestamp.Format,
@@ -41,7 +41,7 @@ var _ = Describe("Migrate", func() {
 	It("Should set correct v1 defaults", func() {
 		old := v0.Data{Channels: []channel.Key{}}
 		result := v1.Migrate(old)
-		Expect(result.TimestampPrecision).To(Equal(int32(0)))
+		Expect(result.TimestampPrecision).To(BeZero())
 		Expect(result.ShowChannelNames).To(BeTrue())
 		Expect(result.ShowReceiptTimestamp).To(BeTrue())
 	})

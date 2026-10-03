@@ -12,6 +12,7 @@ import "@/platform/import/createModal.css";
 import { type UploadBody } from "@synnaxlabs/freighter";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Modal } from "@synnaxlabs/lyra/modal";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useCallback } from "react";
@@ -99,9 +100,9 @@ export const createModal = ({ header, resourceName, useOnImport }: CreateModalAr
     );
 
     return (
-      <Modals.Frame className={CSS.B("import-modal")}>
-        <Modals.Header icon={<Icon.Import />}>{header}</Modals.Header>
-        <Modals.Body>
+      <Modal.Frame className={CSS.B("import-modal")}>
+        <Modal.Header icon={<Icon.Import />}>{header}</Modal.Header>
+        <Modal.Body>
           <FS.DropZone
             className={CSS.BE("import-modal", "zone")}
             y
@@ -122,7 +123,7 @@ export const createModal = ({ header, resourceName, useOnImport }: CreateModalAr
               Select folder
             </Button.Button>
           </FS.DropZone>
-        </Modals.Body>
-      </Modals.Frame>
+        </Modal.Body>
+      </Modal.Frame>
     );
   });

@@ -74,7 +74,6 @@ describe("status toolbar", () => {
   it("should open the explorer from the empty state action", async () => {
     const proj = await client.projects.create({
       name: uniqueName("proj"),
-      layout: {},
     });
     const { store } = await renderToolbar();
     store.dispatch(Session.Project.select(proj.key));

@@ -19,7 +19,7 @@ const DIMENSIONS = { width: 39, height: 21 };
 export const TJunction = ({
   className,
   orientation = "left",
-  color: colorVal,
+  strokeColor: colorVal,
   scale,
   ...rest
 }: Props): ReactElement => (
@@ -49,7 +49,7 @@ export const TJunction = ({
     </Handle.Boundary>
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={colorVal}
+      strokeColor={colorVal}
       orientation={orientation}
       scale={scale}
     >

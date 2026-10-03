@@ -17,7 +17,7 @@ export const DividerShowcase = () => (
   <Flex.Box y pack empty>
     <Flex.Box x pack grow sharp>
       <SubcategorySection
-        title="Vertical Dividers"
+        title="Vertical dividers"
         description="Vertical separators for dividing content horizontally within flex containers"
       >
         <Flex.Box y gap="medium">
@@ -56,7 +56,7 @@ export const DividerShowcase = () => (
       </SubcategorySection>
 
       <SubcategorySection
-        title="Horizontal Dividers"
+        title="Horizontal dividers"
         description="Horizontal separators for dividing content vertically within flex containers"
       >
         <Flex.Box y gap="medium">

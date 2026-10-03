@@ -19,6 +19,7 @@ import { Access, Arc, type Flux, Synnax, Task } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
+import { useCaptureDeploy } from "@/platform/arc/useCaptureDeploy";
 import { ContextMenu as Base } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
@@ -46,7 +47,8 @@ export const ContextMenu = ({
 
   const client = Synnax.use();
   const canControl = Framer.useCanCommand();
-  const { update: runCommand } = Task.useCommand();
+  const captureDeploy = useCaptureDeploy();
+  const { update: runCommand } = Task.useCommand({ afterSuccess: captureDeploy });
   const redeployTaskKeys =
     client == null || !canControl
       ? []

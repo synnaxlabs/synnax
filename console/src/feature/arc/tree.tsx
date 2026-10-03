@@ -13,6 +13,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access, Arc, Task } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 
+import { Arc as PlatformArc } from "@/platform/arc";
 import { ContextMenu } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
@@ -48,7 +49,8 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const canControl = Framer.useCanCommand();
-  const { update: runCommand } = Task.useCommand();
+  const captureDeploy = PlatformArc.useCaptureDeploy();
+  const { update: runCommand } = Task.useCommand({ afterSuccess: captureDeploy });
   const rename = useRename(props);
   const handleDelete = useDelete(props);
   const handleLink = Core.useCopyLinkToClipboard();

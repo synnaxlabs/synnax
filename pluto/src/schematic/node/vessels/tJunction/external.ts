@@ -16,7 +16,7 @@ import { TJunction } from "@/schematic/node/vessels/tJunction/Primitive";
 
 export const spec: Spec<"t_junction", schematic.TJunctionNodeConfig> = {
   key: "t_junction",
-  name: "T Junction",
+  name: "T junction",
   label: "",
   Form: Form.StyleForm,
   Node: Label.createLabeled<schematic.TJunctionNodeConfig>(TJunction),

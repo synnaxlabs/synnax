@@ -11,7 +11,7 @@ import "schemas/synnax/channel"
 import "schemas/synnax/ranger"
 
 @go output "core/pkg/service/ranger/alias"
-@ts output "client/ts/src/range/alias"
+@ts output "client/ts/src/ranger/alias"
 
 Alias struct {
     range   ranger.Key  {

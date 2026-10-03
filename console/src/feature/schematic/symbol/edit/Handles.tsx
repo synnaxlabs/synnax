@@ -95,16 +95,6 @@ const Handle = ({ handle, selectedHandle, svgBox, onSelect, onDrag }: HandleProp
   );
 };
 
-export const handleScale = (svgElement: SVGSVGElement) => {
-  const svgBox = box.construct(svgElement);
-  const windowBox = box.construct(document.documentElement);
-  return scale.XY.scale(windowBox)
-    .clamp(svgBox)
-    .translate(xy.scale(box.topLeft(svgBox), -1))
-    .reBound(box.construct({ x: 0, y: 0 }, box.dims(svgBox)))
-    .scale(box.reRoot(box.DECIMAL, location.TOP_LEFT));
-};
-
 export interface HandleOverlayProps {
   handles: schematic.symbol.Handle[];
   selectedHandle: string | undefined;

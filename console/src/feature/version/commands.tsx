@@ -13,7 +13,7 @@ import { Command } from "@/platform/command";
 import { Version } from "@/platform/version";
 import { Session } from "@/session";
 
-export const OpenInfoCommand = Command.create({
+const OpenInfoCommand = Command.create({
   key: "open_version_info",
   name: "Show version info",
   icon: <Icon.Info />,

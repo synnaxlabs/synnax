@@ -21,11 +21,13 @@ export default defineConfig({
       entry: {
         index: path.resolve(".", "src/index.ts"),
         bench: path.resolve(".", "src/bench/index.ts"),
+        testutil: path.resolve(".", "src/testutil/index.ts"),
       },
     },
-    rolldownOptions: { external: ["zod", /^node:/] },
+    rolldownOptions: { external: ["zod", "vitest", /^node:/] },
   },
   test: {
+    setupFiles: ["src/testutil/setup.ts"],
     exclude: ["**/node_modules/**", "**/dist/**"],
     coverage: {
       include: ["src/**/*.ts", "src/**/*.tsx"],

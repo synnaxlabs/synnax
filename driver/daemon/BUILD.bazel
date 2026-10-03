@@ -20,8 +20,16 @@ config_setting(
 cc_library(
     name = "daemon",
     srcs = select({
-        ":nilinuxrt": ["daemon_nilinuxrt.cpp"],
-        "@platforms//os:linux": ["daemon_linux.cpp"],
+        ":nilinuxrt": [
+            "common.cpp",
+            "common.h",
+            "daemon_nilinuxrt.cpp",
+        ],
+        "@platforms//os:linux": [
+            "common.cpp",
+            "common.h",
+            "daemon_linux.cpp",
+        ],
         "//conditions:default": ["daemon_noop.cpp"],
     }),
     hdrs = ["daemon.h"],
@@ -34,6 +42,7 @@ cc_library(
     }),
     visibility = ["//visibility:public"],
     deps = [
+        "//x/cpp/env",
         "//x/cpp/errors",
         "//x/cpp/os",
         "//x/cpp/thread",
