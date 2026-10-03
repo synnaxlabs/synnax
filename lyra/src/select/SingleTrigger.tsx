@@ -20,7 +20,7 @@ import { List } from "@/list";
 import { useContext, useSelected } from "@/select/Context";
 import { Label } from "@/select/Label";
 import { staticCanDrop } from "@/select/MultipleTrigger";
-import { useIsFixed } from "@/select/registry";
+import { useIsFixed, useText } from "@/select/registry";
 
 export interface SingleTriggerEntry<K extends record.Key> extends record.KeyedNamed<K> {
   icon?: Icon.ReactElement;
@@ -75,6 +75,7 @@ export const SingleTrigger = <K extends record.Key>({
   const { setSelected } = useContext<K>();
   const [selected] = allSelected;
   const fixed = useIsFixed(selected);
+  const fixedText = useText(selected);
   const item = List.useItem<K, SingleTriggerEntry<K>>(selected);
   const { name, icon } = item ?? {};
   const resolvedIcon = renderIcon?.(item) ?? icon ?? baseIcon;
@@ -101,6 +102,7 @@ export const SingleTrigger = <K extends record.Key>({
   const labelId = `${baseId}-label`;
   // A self-reference reads the trigger's own aria-label, so the name becomes the
   // aria-label followed by the selection.
+  const shown = fixed ? fixedText : (name ?? (preview === true ? "None" : placeholder));
   const labelledBySelection =
     rest["aria-label"] != null &&
     !iconOnly &&
@@ -123,7 +125,7 @@ export const SingleTrigger = <K extends record.Key>({
       aria-labelledby={
         labelledBySelection ? `${id} ${labelId}` : rest["aria-labelledby"]
       }
-      tooltip={tooltip ?? (collapsible ? name : undefined)}
+      tooltip={tooltip ?? (collapsible ? shown : undefined)}
       hideTooltip={hideTooltip ?? (collapsible ? nameReadable : undefined)}
       preview={preview}
       hideCaret={hideCaret || iconOnly}
@@ -131,7 +133,7 @@ export const SingleTrigger = <K extends record.Key>({
       {resolvedIcon}
       {!iconOnly && (
         <Label itemKey={selected} id={labelId}>
-          {name ?? (preview === true ? "None" : placeholder)}
+          {shown}
         </Label>
       )}
     </Dialog.Trigger>

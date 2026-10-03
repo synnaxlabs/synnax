@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -150,6 +150,70 @@ describe("Select.Simple", () => {
       </List.Frame>,
     );
     expect(c.getByRole("button", { name: "Nested Bravo" }).textContent).toBe("Bravo");
+  });
+
+  describe("text value", () => {
+    const Collapsible = () => {
+      const [value, setValue] = useState("");
+      return (
+        <Select.Simple<string>
+          value={value}
+          onChange={setValue}
+          resourceName="Level"
+          triggerProps={{ collapsible: true }}
+        >
+          <Select.Item itemKey="high" textValue="High">
+            <Icon.Add />
+            <span>High</span>
+          </Select.Item>
+          <Select.Item itemKey="low">Low</Select.Item>
+          <Select.Item itemKey="plus" textValue="Plus">
+            <Icon.Add />
+          </Select.Item>
+        </Select.Simple>
+      );
+    };
+
+    const collapse = (c: ReturnType<typeof render>, option: string): HTMLElement => {
+      fireEvent.click(c.getByText("Level"));
+      fireEvent.click(c.getByText(option));
+      const trigger = c.getByRole("button", { name: `Level ${option}` });
+      const label = trigger.querySelector<HTMLElement>(".pluto-select__label");
+      if (label != null) label.style.display = "none";
+      vi.useFakeTimers();
+      fireEvent.pointerOver(trigger, { pointerType: "mouse" });
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+      vi.useRealTimers();
+      return trigger;
+    };
+
+    const tooltip = (): string | null | undefined =>
+      document.querySelector(".pluto-tooltip")?.textContent;
+
+    it("should show an item's text value in a collapsed trigger's tooltip", () => {
+      const c = render(<Collapsible />);
+      collapse(c, "High");
+      expect(tooltip()).toBe("High");
+    });
+
+    it("should default the text value to string children", () => {
+      const c = render(<Collapsible />);
+      collapse(c, "Low");
+      expect(tooltip()).toBe("Low");
+    });
+
+    it("should match the search against the text value", () => {
+      const c = render(<Collapsible />);
+      fireEvent.click(c.getByText("Level"));
+      fireEvent.change(c.getByPlaceholderText("Search Levels..."), {
+        target: { value: "plus" },
+      });
+      const options = c.getAllByRole("option");
+      expect(options.filter((o) => o.closest("[hidden]") == null)).toHaveLength(1);
+      expect(c.getByText("High").closest("[hidden]")).not.toBeNull();
+    });
   });
 });
 

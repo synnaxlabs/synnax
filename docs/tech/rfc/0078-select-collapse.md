@@ -38,7 +38,8 @@ shrink below the name and still shows the icon and caret.
 name and caret hide, and the icon centers. The caller must size the select, because
 containment drops the name from the trigger's width. The tooltip shows the name only
 when the name is hidden or cut off, checked on each hover through a function form of
-`Tooltip.Dialog`'s `hide`.
+`Tooltip.Dialog`'s `hide`. A fixed `Select.Item` gives its name as `textValue`, which
+defaults to string children, as in Radix and React Spectrum. The search matches it too.
 
 ### 3.2 The list fits the window
 
