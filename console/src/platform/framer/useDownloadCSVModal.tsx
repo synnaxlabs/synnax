@@ -168,7 +168,7 @@ const DownloadButton = ({ handleFinish }: DownloadButtonProps) => {
         timeRange,
         channels,
         channelNames,
-        iteratorConfig: { downsampleFactor },
+        iteratorConfig: { reduction: { variant: "stride", factor: downsampleFactor } },
         responseType: "csv",
       });
       await download({

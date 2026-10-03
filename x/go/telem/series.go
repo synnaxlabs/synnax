@@ -40,9 +40,16 @@ type Series struct {
 	// Alignment defines the location of the series relative to other series in a
 	// logical group. Typically used for defining the position of the series within a
 	// channel's data.
-	Alignment    Alignment `json:"alignment" msgpack:"alignment"`
-	cachedLength *int64
+	Alignment Alignment `json:"alignment" msgpack:"alignment"`
+	// AlignmentMultiple is the number of alignment steps between consecutive samples.
+	// It is above one when each sample stands for a group of stored samples. Zero
+	// means one.
+	AlignmentMultiple uint32 `json:"alignment_multiple,omitempty" msgpack:"alignment_multiple,omitempty"`
+	cachedLength      *int64
 }
+
+// Multiple returns the number of alignment steps between consecutive samples.
+func (s Series) Multiple() uint32 { return max(s.AlignmentMultiple, 1) }
 
 // Len returns the number of samples currently in the Series.
 func (s Series) Len() int64 {
@@ -277,7 +284,7 @@ func (s Series) AlignmentBounds() AlignmentBounds {
 		Lower: s.Alignment,
 		Upper: NewAlignment(
 			s.Alignment.DomainIndex(),
-			s.Alignment.SampleIndex()+uint32(s.Len()),
+			s.Alignment.SampleIndex()+uint32(s.Len())*s.Multiple(),
 		),
 	}
 }
@@ -301,33 +308,36 @@ func (s Series) String() string {
 
 // Downsample returns a copy of the Series with the data down sampled by the given
 // factor, i.e., 1 out of every factor samples is kept.
-func (s Series) Downsample(factor uint32) Series {
+func (s Series) Downsample(factor uint32) Series { return s.DownsampleFrom(0, factor) }
+
+// DownsampleFrom returns a copy of the Series that keeps every factor-th sample,
+// starting with the sample at index start. The result's alignment is that of the first
+// kept sample. A factor below 2 returns the series unchanged.
+func (s Series) DownsampleFrom(start int64, factor uint32) Series {
 	if factor <= 1 || len(s.Data) == 0 {
 		return s
 	}
-	f := int(factor)
+	f := int64(factor)
 	var oData []byte
 	if s.DataType.IsVariable() {
 		samples := unmarshalVariable[[]byte](s.Data)
-		downsampled := make([][]byte, 0, len(samples)/f+1)
-		for i := 0; i < len(samples); i += f {
+		downsampled := make([][]byte, 0, int64(len(samples))/f+1)
+		for i := start; i < int64(len(samples)); i += f {
 			downsampled = append(downsampled, samples[i])
 		}
 		oData = marshalVariable(downsampled)
 	} else {
-		seriesLength := len(s.Data) / f
-		oData = make([]byte, 0, seriesLength)
-		for i := int64(0); i < s.Len(); i += int64(f) {
-			start := i * int64(s.DataType.Density())
-			end := start + int64(s.DataType.Density())
-			oData = append(oData, s.Data[start:end]...)
+		density := int64(s.DataType.Density())
+		oData = make([]byte, 0, (s.Len()/f+1)*density)
+		for i := start; i < s.Len(); i += f {
+			oData = append(oData, s.Data[i*density:(i+1)*density]...)
 		}
 	}
 	return Series{
 		TimeRange: s.TimeRange,
 		DataType:  s.DataType,
 		Data:      oData,
-		Alignment: s.Alignment,
+		Alignment: s.Alignment.AddSamples(uint32(start)),
 	}
 }
 
@@ -340,10 +350,11 @@ func truncateAndFormatSlice[T any](slice []T) string {
 // DeepCopy creates a deep copy of the series, including all of its data.
 func (s Series) DeepCopy() Series {
 	return Series{
-		TimeRange: s.TimeRange,
-		Alignment: s.Alignment,
-		DataType:  s.DataType,
-		Data:      slices.Clone(s.Data),
+		TimeRange:         s.TimeRange,
+		Alignment:         s.Alignment,
+		AlignmentMultiple: s.AlignmentMultiple,
+		DataType:          s.DataType,
+		Data:              slices.Clone(s.Data),
 	}
 }
 
@@ -352,6 +363,7 @@ func (s Series) DeepCopy() Series {
 func (s *Series) CopyFrom(src Series) {
 	s.TimeRange = src.TimeRange
 	s.Alignment = src.Alignment
+	s.AlignmentMultiple = src.AlignmentMultiple
 	s.DataType = src.DataType
 	s.Data = append(s.Data[:0], src.Data...)
 }

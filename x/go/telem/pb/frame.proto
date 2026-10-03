@@ -24,6 +24,7 @@ message Series {
   string data_type = 2;
   bytes data = 3;
   uint64 alignment = 4;
+  uint32 alignment_multiple = 5;
 }
 
 message Frame {

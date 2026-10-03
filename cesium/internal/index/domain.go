@@ -59,10 +59,8 @@ func byteSize(sampleCount int64) telem.Size {
 // whose start timestamp and end timestamps are both known will have an equal lower
 // and upper bound.
 //
-// The distance method also returns an alignment pair, which represents the
-// alignment of the lower and upper bounds. The alignment pair is a 64-bit integer
-// where the lower 32 bits represent the domain and the upper 32 bits represent the
-// sample index within the domain.
+// Distance also returns the alignment of the first index sample at or after the end
+// of tr.
 func (i *Domain) Distance(
 	ctx context.Context,
 	tr telem.TimeRange,
@@ -99,12 +97,6 @@ func (i *Domain) Distance(
 		return approx, alignment, err
 	}
 
-	// If the time range is zero, then the distance is zero.
-	if tr.Span().IsZero() {
-		alignment = telem.NewAlignment(iter.Position(), 0)
-		return approx, alignment, err
-	}
-
 	// Open a new reader on the domain at the start of the range.
 	r, err := iter.OpenReader(ctx)
 	if err != nil {
@@ -116,6 +108,12 @@ func (i *Domain) Distance(
 
 	startApprox, err = i.search(tr.Start, r)
 	if err != nil {
+		return approx, alignment, err
+	}
+
+	// If the time range is zero, then the distance is zero.
+	if tr.Span().IsZero() {
+		alignment = telem.NewAlignment(iter.Position(), uint32(startApprox.Upper))
 		return approx, alignment, err
 	}
 	approx.StartExact = startApprox.Exact()
@@ -213,6 +211,60 @@ func (i *Domain) Stamp(
 		approx, err = i.forwardStamp(ctx, ref, offset, continuous)
 	}
 	return approx, err
+}
+
+// EndAfter returns the exclusive end of the time range that starts at ref and holds the
+// next n samples of the index, which is the timestamp of sample n at or after ref,
+// counting from zero. It returns telem.TimeStampMax when fewer than n samples follow
+// ref. Gaps between domains do not count.
+func (i *Domain) EndAfter(
+	ctx context.Context,
+	ref telem.TimeStamp,
+	n int64,
+) (end telem.TimeStamp, err error) {
+	iter := i.DB.OpenIterator(domain.IterRange(ref.SpanRange(telem.TimeSpanMax)))
+	defer func() {
+		if err = errors.Combine(err, iter.Close()); err != nil {
+			end = 0
+		}
+	}()
+	for ok := iter.SeekFirst(ctx); ok; ok = iter.Next() {
+		var found bool
+		if end, found, n, err = i.endInDomain(ctx, iter, ref, n); err != nil || found {
+			return end, err
+		}
+	}
+	return telem.TimeStampMax, nil
+}
+
+// endInDomain looks for sample n at or after ref in the domain at iter. It returns the
+// sample's timestamp when the domain holds it, and otherwise the count still owed after
+// the domain's samples.
+func (i *Domain) endInDomain(
+	ctx context.Context,
+	iter *domain.Iterator,
+	ref telem.TimeStamp,
+	n int64,
+) (end telem.TimeStamp, found bool, remaining int64, err error) {
+	r, err := iter.OpenReader(ctx)
+	if err != nil {
+		return 0, false, n, err
+	}
+	defer func() { err = errors.Combine(err, r.Close()) }()
+	var start int64
+	if iter.TimeRange().Start < ref {
+		approx, err := i.search(ref, r)
+		if err != nil {
+			return 0, false, n, err
+		}
+		start = approx.Upper
+	}
+	count := sampleCount(r.Size())
+	if start+n < count {
+		end, err = newStampReader()(r, byteSize(start+n))
+		return end, true, 0, err
+	}
+	return 0, false, n - (count - start), nil
 }
 
 func (i *Domain) zeroStamp(
