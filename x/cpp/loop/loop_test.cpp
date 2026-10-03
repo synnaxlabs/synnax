@@ -202,22 +202,12 @@ TEST(LoopTest, testWaitBreakerEarlyWake) {
     EXPECT_LT(elapsed, telem::MILLISECOND * 700);
 }
 
-/// @brief it should block for at least its duration.
-TEST(SleeperTest, BlocksForAtLeastItsDuration) {
-    Sleeper sleeper;
-    for (const auto duration: {telem::MICROSECOND * 100, telem::MILLISECOND * 2}) {
-        const auto start = hs_clock::now();
-        sleeper.sleep(duration);
-        EXPECT_GE(telem::TimeSpan(hs_clock::now() - start), duration);
-    }
-}
-
-/// @brief it should still sleep after it is moved.
-TEST(SleeperTest, SleepsAfterAMove) {
-    Sleeper moved;
-    Sleeper sleeper(std::move(moved));
+/// @brief it should still sleep precisely after it is moved.
+TEST(LoopTest, testPreciseSleepAfterMove) {
+    Timer moved;
+    Timer timer(std::move(moved));
     const auto start = hs_clock::now();
-    sleeper.sleep(telem::MILLISECOND * 2);
+    timer.precise_sleep(telem::MILLISECOND * 2);
     EXPECT_GE(telem::TimeSpan(hs_clock::now() - start), telem::MILLISECOND * 2);
 }
 

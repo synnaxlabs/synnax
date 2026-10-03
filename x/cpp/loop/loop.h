@@ -12,10 +12,10 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <memory>
 #include <thread>
 
 #include "x/cpp/breaker/breaker.h"
-#include "x/cpp/loop/sleeper.h"
 #include "x/cpp/telem/telem.h"
 
 using hs_clock = std::chrono::steady_clock;
@@ -107,7 +107,7 @@ private:
             if (!running()) return;
             const auto start = hs_clock::now();
             if (telem::TimeSpan(end - start) <= sleep_estimate_) break;
-            this->sleeper_.sleep(RESOLUTION);
+            this->step();
             const auto curr_end = hs_clock::now();
             const auto elapsed_ns = std::chrono::duration_cast<nanos>(curr_end - start)
                                         .count();
@@ -126,11 +126,25 @@ private:
 
     [[nodiscard]] bool medium_rate() const { return interval < MEDIUM_RES_THRESHOLD; }
 
+    /// @brief the OS state of a sleep step, defined in the source file of each OS.
+    struct Impl;
+    /// @brief owns an Impl. The deleter is defined with Impl, so Timer needs no
+    /// special members defined out of line.
+    using ImplPtr = std::unique_ptr<Impl, void (*)(Impl *)>;
+
+    /// @brief creates the OS state of a sleep step.
+    static ImplPtr make_impl();
+
+    /// @brief blocks for one step of a precise sleep. On Windows 10 1803 and later,
+    /// the step waits on a high-resolution timer, so it does not round up to the
+    /// system tick.
+    void step();
+
     telem::TimeSpan interval{};
     bool last_set = false;
     hs_clock::time_point last;
-    /// @brief sleeps each step of a precise sleep.
-    Sleeper sleeper_;
+    /// @brief the OS state of a sleep step.
+    ImplPtr impl_ = make_impl();
 
     /// @brief Welford's algorithm state: the most one step is expected to take. It
     /// starts at one step, so a sleep longer than one step measures a step.

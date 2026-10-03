@@ -13,13 +13,10 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 cc_library(
     name = "loop",
     srcs = select({
-        "@platforms//os:windows": ["sleeper_windows.cpp"],
-        "//conditions:default": ["sleeper_default.cpp"],
+        "@platforms//os:windows": ["loop_windows.cpp"],
+        "//conditions:default": ["loop_default.cpp"],
     }),
-    hdrs = [
-        "loop.h",
-        "sleeper.h",
-    ],
+    hdrs = ["loop.h"],
     copts = select({
         "@platforms//os:windows": [
             "/DWIN32_LEAN_AND_MEAN",
