@@ -272,8 +272,19 @@ session causes none.
 
 **Revocation is not instant everywhere.** It is immediate on the node that receives the
 delete. Other nodes see it when Aspen replicates the delete. A node cut off from the
-cluster keeps honoring the session until it rejoins. And with no absolute lifetime, a
-stolen token works until someone revokes it or its client stops.
+cluster keeps honoring the session until it rejoins.
+
+**No absolute lifetime has four consequences**, and each one is accepted:
+
+- A session can live forever. A Console on a control-room wall, or a Driver, stays
+  logged in as long as it runs. A laptop left open is protected by its operating system
+  lock, not by Synnax.
+- A stolen token works while someone uses it. Revocation is the only defense, which is
+  why the session list shows an address and a start time.
+- A person disabled at the identity provider keeps access until their session goes idle
+  or someone revokes it. Offboarding must include a delete of the Synnax user. A later
+  back-channel logout endpoint (§4.11) removes this gap for providers that support it.
+- The 12 and 24 hour session limits in NIST SP 800-63B are not met.
 
 ### 4.5 Streams
 
@@ -403,6 +414,11 @@ use a `certificate` method. Its record holds the certificate fingerprint, and th
 builds the proof from the TLS state Freighter already carries. That PR adds one package
 with a table and an authenticator, and one variant to `Proof`. It also needs the Core to
 request client certificates, which RFC 0045 §4.6 deferred.
+
+**Back-channel logout.** Keycloak and Microsoft Entra can call an endpoint when they
+disable an account. That PR adds one unauthenticated endpoint that validates the
+provider's signed logout token and deletes the sessions of the matching link. The
+session model does not change.
 
 ## 5 What this RFC does not cover
 
