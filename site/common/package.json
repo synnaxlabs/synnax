@@ -3,10 +3,11 @@
   "type": "module",
   "private": true,
   "exports": {
+    "./Drawer.astro": "./src/Drawer.astro",
     "./Footer.astro": "./src/Footer.astro",
+    "./MenuButton.astro": "./src/MenuButton.astro",
     "./PrivacyPolicy.astro": "./src/PrivacyPolicy.astro",
     "./base.css": "./src/base.css",
-    "./drawer.css": "./src/drawer.css",
     "./integration": "./src/integration.ts",
     "./sitemap": "./src/sitemap.ts"
   },

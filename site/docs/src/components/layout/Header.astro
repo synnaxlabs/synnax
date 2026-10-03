@@ -16,7 +16,8 @@ import Search from "@/components/search/Search.astro";
 import { Page } from "@/components/nav/Page";
 import { REFERENCE_PAGES } from "@/pages/_nav";
 import { enabled } from "@/flags";
-import "@synnaxlabs/site-common/drawer.css";
+import Drawer from "@synnaxlabs/site-common/Drawer.astro";
+import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
 const url = Astro.url.pathname;
 const version = await Astro.locals.releases.latest("core").catch(() => null);
 const label = version?.split(".").slice(0, -1).join(".");
@@ -84,23 +85,8 @@ const label = version?.split(".").slice(0, -1).join(".");
                         Log in
                     </Button.Button>
                 )}
-                <button class="mobile-menu-btn" aria-label="Open menu" data-mobile-open>
-                    <span class="mobile-menu-icon"></span>
-                </button>
-                <div class="mobile-overlay" data-mobile-close></div>
-                <nav class="mobile-drawer">
-                    <div class="mobile-drawer-header">
-                        <a href="https://synnaxlabs.com" class="logo-link">
-                            <Logo variant="title" />
-                        </a>
-                        <button
-                            class="mobile-close-btn"
-                            aria-label="Close menu"
-                            data-mobile-close
-                        >
-                            <span class="mobile-close-icon"></span>
-                        </button>
-                    </div>
+                <MenuButton />
+                <Drawer home="https://synnaxlabs.com">
                     <div class="mobile-drawer-links">
                         <a href="/reference/" class="mobile-drawer-link">
                             Reference
@@ -120,7 +106,7 @@ const label = version?.split(".").slice(0, -1).join(".");
                     <div class="mobile-drawer-tree">
                         <Page nodes={REFERENCE_PAGES} currentPage={url} />
                     </div>
-                </nav>
+                </Drawer>
             </Flex.Box>
         </Flex.Box>
     </Flex.Box>
