@@ -132,10 +132,11 @@ private:
     /// @brief sleeps each step of a precise sleep.
     Sleeper sleeper_;
 
-    /// @brief Welford's algorithm state: the most one step is expected to take.
-    telem::TimeSpan sleep_estimate_ = RESOLUTION * 10;
+    /// @brief Welford's algorithm state: the most one step is expected to take. It
+    /// starts at one step, so a sleep longer than one step measures a step.
+    telem::TimeSpan sleep_estimate_ = RESOLUTION;
     /// @brief Welford's algorithm state: running mean of step durations.
-    telem::TimeSpan sleep_mean_ = RESOLUTION * 10;
+    telem::TimeSpan sleep_mean_ = RESOLUTION;
     /// @brief Welford's algorithm state: sum of squared deviations.
     telem::TimeSpan sleep_M2_ = telem::TimeSpan::ZERO();
     /// @brief Welford's algorithm state: sample count.

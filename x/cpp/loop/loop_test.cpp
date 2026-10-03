@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <ctime>
 #include <iomanip>
 #include <iostream>
 #include <vector>
@@ -225,7 +226,8 @@ TEST(SleeperTest, SleepsAfterAMove) {
 TEST(LoopTest, testPreciseSleepEndsOnDeadline) {
     constexpr int COUNT = 50;
     Timer timer;
-    for (const auto duration: {telem::MILLISECOND * 2, telem::MILLISECOND * 5}) {
+    for (const auto duration:
+         {telem::MICROSECOND * 500, telem::MILLISECOND * 2, telem::MILLISECOND * 5}) {
         std::vector<telem::TimeSpan> late;
         late.reserve(COUNT);
         for (int i = 0; i < COUNT; i++) {
@@ -237,6 +239,35 @@ TEST(LoopTest, testPreciseSleepEndsOnDeadline) {
             << "at " << duration;
         EXPECT_LT(median(late), telem::MICROSECOND * 20) << "at " << duration;
     }
+}
+
+/// @brief Returns the CPU time the calling thread has used. Windows counts it in
+/// scheduler ticks, so a short span reads coarse there.
+telem::TimeSpan thread_cpu_time() {
+#ifdef _WIN32
+    FILETIME created, exited, kernel, user;
+    GetThreadTimes(GetCurrentThread(), &created, &exited, &kernel, &user);
+    const auto ticks = [](const FILETIME &t) {
+        return (static_cast<std::int64_t>(t.dwHighDateTime) << 32) | t.dwLowDateTime;
+    };
+    return telem::TimeSpan((ticks(kernel) + ticks(user)) * 100);
+#else
+    timespec ts{};
+    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts);
+    return telem::TimeSpan(ts.tv_sec * 1'000'000'000LL + ts.tv_nsec);
+#endif
+}
+
+/// @brief it should sleep, not spin, through most of a precise sleep shorter than 1 ms.
+TEST(LoopTest, testSubMillisecondPreciseSleepSleeps) {
+    constexpr int COUNT = 500;
+    Timer timer;
+    const auto cpu_start = thread_cpu_time();
+    const auto start = hs_clock::now();
+    for (int i = 0; i < COUNT; i++)
+        timer.precise_sleep(telem::MICROSECOND * 500);
+    const auto wall = telem::TimeSpan(hs_clock::now() - start);
+    EXPECT_LT(thread_cpu_time() - cpu_start, wall * 0.75);
 }
 
 /// @brief it should re-anchor after an overrun instead of catching up on the missed
