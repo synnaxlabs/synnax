@@ -4,8 +4,8 @@
   "private": true,
   "exports": {
     "./Footer.astro": "./src/Footer.astro",
-    "./drawer.css": "./src/drawer.css",
-    "./tokens.css": "./src/tokens.css"
+    "./base.css": "./src/base.css",
+    "./drawer.css": "./src/drawer.css"
   },
   "scripts": {
     "check-types": "astro check",
