@@ -1434,20 +1434,22 @@ TEST(IntervalVarTest, CountsTheNextFireFromTheSchedule) {
     EXPECT_EQ(second.deadline, 30 * x::telem::MILLISECOND);
 }
 
-/// @brief A fire a full period behind should fire once and restart the schedule.
-TEST(IntervalVarTest, RestartsTheScheduleAfterAPause) {
+/// @brief A fire more than one period late should fire once, skip the fires it missed,
+/// and keep the schedule.
+TEST(IntervalVarTest, SkipsTheMissedFiresAfterAPause) {
     VarConfig t("interval", "period", 10 * x::telem::MILLISECOND);
     const auto tick = runtime::node::RunReason::TimerTick;
     EXPECT_TRUE(t.tick(x::telem::TimeSpan(0), tick).fired);
     const auto late = t.tick(35 * x::telem::MILLISECOND, tick);
     EXPECT_TRUE(late.fired);
-    EXPECT_EQ(late.deadline, 45 * x::telem::MILLISECOND);
-    EXPECT_FALSE(t.tick(40 * x::telem::MILLISECOND, tick).fired);
+    EXPECT_EQ(late.deadline, 40 * x::telem::MILLISECOND);
+    EXPECT_FALSE(t.tick(39 * x::telem::MILLISECOND, tick).fired);
+    EXPECT_TRUE(t.tick(40 * x::telem::MILLISECOND, tick).fired);
 }
 
-/// @brief A fire exactly one period behind should restart the schedule, so the next
+/// @brief A fire exactly one period behind should skip the fire it missed, so the next
 /// pass at the same time does not fire again.
-TEST(IntervalVarTest, RestartsTheScheduleExactlyOnePeriodBehind) {
+TEST(IntervalVarTest, SkipsTheMissedFireExactlyOnePeriodBehind) {
     VarConfig t("interval", "period", 10 * x::telem::MILLISECOND);
     const auto tick = runtime::node::RunReason::TimerTick;
     EXPECT_TRUE(t.tick(x::telem::TimeSpan(0), tick).fired);

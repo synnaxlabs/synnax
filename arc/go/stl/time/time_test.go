@@ -1461,7 +1461,7 @@ var _ = Describe("Time", func() {
 				Expect(fired).To(Equal(3))
 				Expect(deadline).To(Equal(3 * period))
 			})
-			It("Should restart the schedule after a pause", func(ctx SpecContext) {
+			It("Should skip the missed fires after a pause", func(ctx SpecContext) {
 				period := telem.Second
 				n := MustSucceed(factory.Create(node.Config{
 					Node: ir.Node{
@@ -1490,12 +1490,14 @@ var _ = Describe("Time", func() {
 				tick(0)
 				tick(3500 * telem.Millisecond)
 				Expect(fired).To(Equal(2))
-				Expect(deadline).To(Equal(4500 * telem.Millisecond))
-				tick(4 * period)
+				Expect(deadline).To(Equal(4 * period))
+				tick(4*period - telem.Nanosecond)
 				Expect(fired).To(Equal(2))
+				tick(4 * period)
+				Expect(fired).To(Equal(3))
 			})
 			It(
-				"Should restart the schedule exactly one period behind",
+				"Should skip the missed fire exactly one period behind",
 				func(ctx SpecContext) {
 					period := telem.Second
 					n := MustSucceed(factory.Create(node.Config{

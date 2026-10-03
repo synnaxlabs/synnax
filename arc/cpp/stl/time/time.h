@@ -137,10 +137,9 @@ public:
             return x::errors::NIL;
         }
         // Fires count from the schedule, so a late fire does not delay the fires after
-        // it. A fire a full period behind restarts the schedule from now.
-        this->last_fired += period;
-        if (ctx.cycle.elapsed - this->last_fired >= period)
-            this->last_fired = ctx.cycle.elapsed;
+        // it. A fire more than one period late skips the fires it missed.
+        const auto behind = ctx.cycle.elapsed - this->last_fired;
+        this->last_fired += behind - behind % period;
         ctx.mark_self_changed();
         ctx.set_deadline(this->last_fired + period, period);
         const auto &o = this->state.output(0);
