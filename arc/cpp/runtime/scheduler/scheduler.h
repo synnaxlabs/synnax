@@ -166,9 +166,9 @@ class Scheduler {
     /// (re)activation. An entry node with the flag set skips the unconditional
     /// stratum-0 dispatch.
     std::vector<uint8_t> fired_flags;
-    /// @brief marked_flags[i] is set when the (node, output) pair behind
-    /// transition handle i fired truthy this cycle. Cleared at end of
-    /// cycle so transitions fire on fresh marks, not stale truthiness.
+    /// @brief marked_flags[i] is set when the (node, output) pair behind transition
+    /// handle i fired this cycle. Cleared at end of cycle so transitions fire on fresh
+    /// marks, not stale outputs.
     std::vector<uint8_t> marked_flags;
     /// @brief visited_flags[i] is set when node i has had its execution
     /// opportunity in the current pass. Cleared at the start of each pass.
@@ -336,14 +336,13 @@ private:
         if (m.is_node() && m.node != NO_INDEX) this->self_changed_flags[m.node] = 0;
     }
 
-    /// @brief fires the first transition whose `on` handle was freshly
-    /// marked truthy by the active step this cycle. Inactive-owner
-    /// transitions and stale truthiness without a fresh mark are both
-    /// ignored — the latter prevents latched comparisons from driving
-    /// repeat transitions. Iterates the pre-filtered transitions_for_step
-    /// list for the active step, which interleaves external transitions
-    /// and the active step's own transitions in source order. Returns
-    /// true if a transition fired.
+    /// @brief fires the first transition whose `on` handle was freshly marked by the
+    /// active step this cycle, and is truthy unless the transition is continuous.
+    /// Inactive-owner transitions and stale outputs without a fresh mark are both
+    /// ignored — the latter prevents latched comparisons from driving repeat
+    /// transitions. Iterates the pre-filtered transitions_for_step list for the active
+    /// step, which interleaves external transitions and the active step's own
+    /// transitions in source order. Returns true if a transition fired.
     bool evaluate_transitions(ScopeState &state) {
         if (state.active_step == NO_INDEX ||
             state.active_step >= state.transitions_for_step.size())
@@ -352,7 +351,8 @@ private:
         for (const size_t i: state.transitions_for_step[state.active_step]) {
             const size_t handle_idx = state.transition_on_idx[i];
             if (handle_idx == NO_INDEX || !this->marked_flags[handle_idx]) continue;
-            if (!this->nodes[state.transition_on_node[i]].node->is_output_truthy(
+            if (transitions[i].kind != ir::EdgeKind::Continuous &&
+                !this->nodes[state.transition_on_node[i]].node->is_output_truthy(
                     state.transition_on_output_idx[i]
                 ))
                 continue;
@@ -444,19 +444,18 @@ private:
         this->error_handler(e);
     }
 
-    /// @brief propagates the current node's output to downstream nodes,
-    /// records a fresh transition mark when truthy, and fires any gated
-    /// scope activations attached to this output. Conditional edges
-    /// propagate only when the source is truthy. Only callable from
-    /// inside a node's next() — curr_node is set by execute_member
-    /// immediately before the call.
+    /// @brief propagates the current node's output to downstream nodes, records a fresh
+    /// transition mark, and fires any gated scope activations attached to this output.
+    /// Conditional edges and conditional activations act only when the source is
+    /// truthy. Only callable from inside a node's next() — curr_node is set by
+    /// execute_member immediately before the call.
     void mark_changed(const size_t output_idx) {
         DCHECK(this->curr_node != NO_INDEX);
         const auto &n = this->nodes[this->curr_node];
         if (output_idx >= n.outputs.size()) return;
         const auto &out = n.outputs[output_idx];
         const bool truthy = n.node->is_output_truthy(output_idx);
-        if (truthy && out.mark_handle_idx != NO_INDEX)
+        if (out.mark_handle_idx != NO_INDEX)
             this->marked_flags[out.mark_handle_idx] = 1;
         for (const auto &edge: out.edges)
             if (!edge.conditional || truthy) {
@@ -468,7 +467,9 @@ private:
             }
         for (const size_t scope_idx: out.activates) {
             auto &scope = this->scopes[scope_idx];
-            if (!scope.active) this->activate_scope(scope);
+            if (!scope.active &&
+                (truthy || scope.ir.activation_kind == ir::EdgeKind::Continuous))
+                this->activate_scope(scope);
         }
     }
 
@@ -477,6 +478,37 @@ private:
         this->self_changed_flags[this->curr_node] = 1;
     }
 };
+
+/// @brief returns a validation error when a transition or scope activation in scope, or
+/// in any scope nested under it, has an unspecified kind. A Core that predates the
+/// kind field emits such an IR.
+inline x::errors::Error validate(const ir::Scope &scope) {
+    const auto unspecified = std::ranges::find(
+        scope.transitions,
+        ir::EdgeKind::Unspecified,
+        &ir::Transition::kind
+    );
+    if (unspecified != scope.transitions.end())
+        return x::errors::Error(
+            x::errors::VALIDATION,
+            "scope " + scope.key +
+                " has a transition with no kind: " + unspecified->to_string()
+        );
+    if (scope.activation.has_value() &&
+        scope.activation_kind == ir::EdgeKind::Unspecified)
+        return x::errors::Error(
+            x::errors::VALIDATION,
+            "scope " + scope.key + " has an activation with no kind"
+        );
+    for (const auto &stratum: scope.strata)
+        for (const auto &m: stratum)
+            if (m.scope)
+                if (auto err = validate(*m.scope); err) return err;
+    for (const auto &m: scope.steps)
+        if (m.scope)
+            if (auto err = validate(*m.scope); err) return err;
+    return x::errors::NIL;
+}
 
 namespace detail {
 

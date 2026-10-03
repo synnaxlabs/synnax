@@ -133,7 +133,7 @@ func newRuntimeHarness(
 		nodes[irNode.Key] = n
 	}
 
-	h.scheduler = scheduler.New(prog.IR, nodes)
+	h.scheduler = MustSucceed(scheduler.New(prog.IR, nodes))
 	h.timeMod = timeMod
 
 	h.closers = append(h.closers, func(ctx context.Context) error {

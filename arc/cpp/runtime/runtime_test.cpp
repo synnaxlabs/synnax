@@ -83,6 +83,21 @@ create_lifecycle_runtime(std::unique_ptr<testutil::MockLoop> loop) {
     return {runtime, loop_ptr};
 }
 
+/// @brief load should reject a program whose scope activation has no kind.
+TEST(RuntimeTest, LoadRejectsAnActivationWithNoKind) {
+    ir::Scope stage;
+    stage.key = "stage";
+    stage.mode = ir::ScopeMode::Parallel;
+    stage.liveness = ir::Liveness::Gated;
+    stage.activation = ir::Handle{"trigger", "output"};
+    Config cfg{.program = {}};
+    cfg.program.root.strata.push_back({ir::scope_member(std::move(stage))});
+    const auto result = load(cfg);
+    ASSERT_OCCURRED_AS_P(result, x::errors::VALIDATION);
+    EXPECT_EQ(result.second.data, "scope stage has an activation with no kind");
+    EXPECT_EQ(result.first, nullptr);
+}
+
 /// @brief Test that write() calls error handler with QUEUE_FULL_INPUT when queue is
 /// full.
 TEST(RuntimeTest, WriteCallsErrorHandlerOnQueueFull) {

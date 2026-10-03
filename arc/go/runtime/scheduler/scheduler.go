@@ -134,9 +134,9 @@ type Scheduler struct {
 	// firedFlags[i] is set when node i runs and cleared on (re)activation. An
 	// entry node with the flag set skips the unconditional stratum-0 dispatch.
 	firedFlags []uint8
-	// markedFlags[i] is set when the (node, output) pair behind transition
-	// handle i fired truthy this cycle. Cleared at end of cycle so
-	// transitions fire on fresh marks, not stale truthiness.
+	// markedFlags[i] is set when the (node, output) pair behind transition handle i
+	// fired this cycle. Cleared at end of cycle so transitions fire on fresh marks,
+	// not stale outputs.
 	markedFlags []uint8
 	// currNode is the node whose Next is currently executing, cached so
 	// MarkChanged / MarkSelfChanged callbacks know whom they came from.
@@ -284,13 +284,12 @@ func (s *Scheduler) executeMember(stratumIdx int, m *member) {
 	}
 }
 
-// evaluateTransitions fires the first transition whose `on` handle was
-// freshly marked truthy by the active step this cycle. Inactive-owner
-// transitions and stale truthiness without a fresh mark are both ignored
-// — the latter prevents latched comparisons from driving repeat
-// transitions. Iterates the pre-filtered transitionsForStep list for
-// the active step, which interleaves external transitions and the
-// active step's own transitions in source order. Returns true if a
+// evaluateTransitions fires the first transition whose `on` handle was freshly marked
+// by the active step this cycle, and is truthy unless the transition is continuous.
+// Inactive-owner transitions and stale outputs without a fresh mark are both ignored —
+// the latter prevents latched comparisons from driving repeat transitions. Iterates the
+// pre-filtered transitionsForStep list for the active step, which interleaves external
+// transitions and the active step's own transitions in source order. Returns true if a
 // transition fired.
 func (s *Scheduler) evaluateTransitions(ss *scope) bool {
 	if ss.activeStep < 0 || ss.activeStep >= len(ss.transitionsForStep) {
@@ -301,7 +300,8 @@ func (s *Scheduler) evaluateTransitions(ss *scope) bool {
 		if handleIdx < 0 || s.markedFlags[handleIdx] == 0 {
 			continue
 		}
-		if !ss.transitionOnNode[i].IsOutputTruthy(ss.transitionOnOutputIdx[i]) {
+		if ss.ir.Transitions[i].Kind != ir.EdgeKindContinuous &&
+			!ss.transitionOnNode[i].IsOutputTruthy(ss.transitionOnOutputIdx[i]) {
 			continue
 		}
 		s.markedFlags[handleIdx] = 0
@@ -405,17 +405,16 @@ func (s *Scheduler) deactivateScope(ss *scope) {
 	ss.active = false
 }
 
-// markChanged propagates the current node's output to downstream nodes,
-// records a fresh transition mark when truthy, and fires any gated scope
-// activations attached to this output. Conditional edges propagate only
-// when the source is truthy.
+// markChanged propagates the current node's output to downstream nodes, records a fresh
+// transition mark, and fires any gated scope activations attached to this output.
+// Conditional edges and conditional activations act only when the source is truthy.
 func (s *Scheduler) markChanged(outputIdx int) {
 	if outputIdx < 0 || outputIdx >= len(s.currNode.outputs) {
 		return
 	}
 	out := &s.currNode.outputs[outputIdx]
 	truthy := s.currNode.IsOutputTruthy(outputIdx)
-	if truthy && out.markHandleIdx >= 0 {
+	if out.markHandleIdx >= 0 {
 		s.markedFlags[out.markHandleIdx] = 1
 	}
 	for _, edge := range out.edges {
@@ -429,7 +428,7 @@ func (s *Scheduler) markChanged(outputIdx int) {
 		}
 	}
 	for _, sc := range out.activates {
-		if !sc.active {
+		if !sc.active && (truthy || sc.ir.ActivationKind == ir.EdgeKindContinuous) {
 			s.activateScope(sc)
 		}
 	}

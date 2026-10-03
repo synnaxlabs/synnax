@@ -87,19 +87,31 @@ var _ = Describe("MigrateTable", func() {
 		Expect(fields).NotTo(HaveKey("backgroundColor"))
 	})
 
-	It("Should rename a value cell's text and background colors", func(
-		ctx SpecContext,
-	) {
-		cfg, ok := migrateCell(ctx, "value", `{
-			"color": "#112233",
-			"backgroundColor": "#445566"
-		}`).Variant.(v2.ValueCellConfig)
+	It("Should rename a value cell's text color", func(ctx SpecContext) {
+		cfg, ok := migrateCell(
+			ctx, "value", `{"color": "#112233"}`,
+		).Variant.(v2.ValueCellConfig)
 		Expect(MustBeOk(cfg, ok).TextColor).To(HaveValue(
 			Equal(color.Color{R: 17, G: 34, B: 51, A: 1}),
 		))
-		Expect(cfg.FillColor).To(HaveValue(
-			Equal(color.Color{R: 68, G: 85, B: 102, A: 1}),
+	})
+
+	// A v0.58 Console kept a text cell's fill when it switched the cell to a value
+	// cell, but no released value cell painted it.
+	It("Should drop the fill a value cell kept from a text cell", func(
+		ctx SpecContext,
+	) {
+		cfg, ok := migrateCell(ctx, "value", `{
+			"value": "Hi", "weight": 600, "align": "left",
+			"backgroundColor": "#445566", "color": "#112233", "level": "h3",
+			"units": "psi", "stalenessTimeout": 5,
+			"redline": {"bounds": {"lower": 0, "upper": 1}, "gradient": []}
+		}`).Variant.(v2.ValueCellConfig)
+		Expect(MustBeOk(cfg, ok).FillColor).To(BeNil())
+		Expect(cfg.TextColor).To(HaveValue(
+			Equal(color.Color{R: 17, G: 34, B: 51, A: 1}),
 		))
+		Expect(cfg.Units).To(Equal("psi"))
 	})
 
 	It("Should keep a chosen background color", func(ctx SpecContext) {
@@ -202,6 +214,18 @@ var _ = Describe("MigrateTable", func() {
 			Expect(cfg.FillColor).To(BeNil())
 		})
 
+		It("Should leave the background absent over a fill kept from a text cell",
+			func(ctx SpecContext) {
+				cfg, ok := migrateCell(ctx, "value", `{
+					"backgroundColor": "#445566",
+					"redline": {
+						"bounds": {"lower": 0, "upper": 1},
+						"gradient": [{"key": "s", "color": "#00000000", "position": 0}]
+					}
+				}`).Variant.(v2.ValueCellConfig)
+				Expect(MustBeOk(cfg, ok).FillColor).To(BeNil())
+			})
+
 		It("Should convert an empty gradient into an empty redline", func(
 			ctx SpecContext,
 		) {
@@ -258,7 +282,7 @@ var _ = Describe("MigrateTable", func() {
 		Expect(fields).NotTo(HaveKey("telem"))
 	})
 
-	It("Should round a fractional legacy precision to a whole count", func(
+	It("Should truncate a fractional legacy precision to a whole count", func(
 		ctx SpecContext,
 	) {
 		cfg, ok := migrateCell(ctx, "value", `{
@@ -266,7 +290,7 @@ var _ = Describe("MigrateTable", func() {
 				"stringifier": {"props": {"precision": 2.6}}
 			}}}
 		}`).Variant.(v2.ValueCellConfig)
-		Expect(*MustBeOk(cfg, ok).Precision).To(Equal(int32(3)))
+		Expect(*MustBeOk(cfg, ok).Precision).To(Equal(int32(2)))
 	})
 
 	It("Should leave precision absent when the legacy spec carries none", func(
@@ -284,6 +308,18 @@ var _ = Describe("MigrateTable", func() {
 			}}}
 		}`).Variant.(v2.ValueCellConfig)
 		Expect(*MustBeOk(cfg, ok).Precision).To(Equal(int32(0)))
+	})
+
+	It("Should round down a fractional averaging window", func(ctx SpecContext) {
+		cfg, ok := migrateCell(ctx, "value", `{
+			"telem": {"props": {"segments": {
+				"valueStream": {"props": {"channel": 12}},
+				"rollingAverage": {"props": {"windowSize": 2.5}}
+			}}}
+		}`).Variant.(v2.ValueCellConfig)
+		cfg = MustBeOk(cfg, ok)
+		Expect(cfg.Channel).To(BeEquivalentTo(12))
+		Expect(cfg.RollingAverage).To(Equal(int32(2)))
 	})
 
 	It("Should leave the channel at the zero sentinel for a legacy zero channel", func(

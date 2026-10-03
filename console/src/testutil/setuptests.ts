@@ -149,6 +149,9 @@ beforeAll(() => {
         });
       },
     });
+  // jsdom has no canvas backend. Its getContext already returns null, but it logs "Not
+  // implemented" on every call.
+  HTMLCanvasElement.prototype.getContext = () => null;
   // jsdom does not implement matchMedia; Lyra's Nebula listens for OS scheme changes.
   // Every query reports no match and never changes.
   if (typeof window.matchMedia !== "function")

@@ -13,8 +13,46 @@
 
 package v1
 
-import "github.com/synnaxlabs/x/gorp"
+import (
+	"context"
+	"maps"
+	"slices"
+
+	"github.com/synnaxlabs/x/gorp"
+)
 
 // Migration lifts stored devices from v0 to v1, dropping the persisted status and
 // parent fields.
 var Migration = gorp.NewEntryMigration("v54_drop_status_parent", autoMigrateDevice)
+
+// HTTPHealthCheckMigration turns the health check headers and query parameters that a
+// v0.53.0 Console stored as maps into the lists every later reader expects.
+var HTTPHealthCheckMigration = gorp.NewEntryMigration(
+	"v59_http_health_check_lists",
+	func(_ context.Context, d Device) (Device, error) {
+		if d.Make != "http" {
+			return d, nil
+		}
+		hc, ok := d.Properties["health_check"].(map[string]any)
+		if !ok {
+			return d, nil
+		}
+		listEntries(hc, "headers", "name")
+		listEntries(hc, "query_params", "parameter")
+		return d, nil
+	},
+)
+
+// listEntries replaces the map stored at key in hc with a list of entries sorted by
+// name, each holding the name under nameField.
+func listEntries(hc map[string]any, key, nameField string) {
+	entries, ok := hc[key].(map[string]any)
+	if !ok {
+		return
+	}
+	list := make([]any, 0, len(entries))
+	for _, name := range slices.Sorted(maps.Keys(entries)) {
+		list = append(list, map[string]any{nameField: name, "value": entries[name]})
+	}
+	hc[key] = list
+}

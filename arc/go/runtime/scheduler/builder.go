@@ -12,6 +12,8 @@ package scheduler
 import (
 	"github.com/synnaxlabs/arc/ir"
 	rnode "github.com/synnaxlabs/arc/runtime/node"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // builder assembles a Scheduler from a compiled IR. It owns every piece of
@@ -40,10 +42,53 @@ type builder struct {
 	nextHandleIdx int
 }
 
-// New creates a scheduler from a compiled IR and a set of runtime node
-// instances keyed by ir.Node.Key.
-func New(prog ir.IR, nodes map[string]rnode.Node) *Scheduler {
-	return newBuilder(prog, nodes).build(prog)
+// New creates a scheduler from a compiled IR and a set of runtime node instances keyed
+// by ir.Node.Key. New returns validate.ErrValidation when a transition or scope
+// activation in prog has no kind.
+func New(prog ir.IR, nodes map[string]rnode.Node) (*Scheduler, error) {
+	if err := validateKinds(prog.Root); err != nil {
+		return nil, err
+	}
+	return newBuilder(prog, nodes).build(prog), nil
+}
+
+// validateKinds returns validate.ErrValidation when a transition or scope activation in
+// sc, or in any scope nested under it, has an unspecified kind.
+func validateKinds(sc ir.Scope) error {
+	for _, t := range sc.Transitions {
+		if t.Kind == ir.EdgeKindUnspecified {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"scope %s has a transition with no kind: %s",
+				sc.Key,
+				t,
+			)
+		}
+	}
+	if sc.Activation != nil && sc.ActivationKind == ir.EdgeKindUnspecified {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"scope %s has an activation with no kind",
+			sc.Key,
+		)
+	}
+	for _, stratum := range sc.Strata {
+		for _, m := range stratum {
+			if m.Scope != nil {
+				if err := validateKinds(*m.Scope); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	for _, m := range sc.Steps {
+		if m.Scope != nil {
+			if err := validateKinds(*m.Scope); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func newBuilder(prog ir.IR, runtimeNodes map[string]rnode.Node) *builder {

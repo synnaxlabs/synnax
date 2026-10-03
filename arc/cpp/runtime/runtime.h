@@ -262,6 +262,7 @@ inline std::vector<x::control::Authority> build_authorities(
 
 inline std::pair<std::shared_ptr<Runtime>, x::errors::Error>
 load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
+    if (auto err = scheduler::validate(cfg.program.root); err) return {nullptr, err};
     std::set<types::ChannelKey> reads;
     std::set<types::ChannelKey> writes;
     for (const auto &n: cfg.program.nodes) {

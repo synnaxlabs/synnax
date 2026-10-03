@@ -269,7 +269,11 @@ func (t *impl) open(ctx context.Context) (err error) {
 		nodes[irNode.Key] = n
 	}
 
-	drt.scheduler = scheduler.New(t.prog.Program.IR, nodes)
+	sched, err := scheduler.New(t.prog.Program.IR, nodes)
+	if err != nil {
+		return err
+	}
+	drt.scheduler = sched
 	drt.timeMod = timeMod
 
 	drt.scheduler.SetErrorHandler(

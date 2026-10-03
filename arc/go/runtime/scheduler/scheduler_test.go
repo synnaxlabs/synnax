@@ -20,6 +20,8 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // MockNode is a configurable runtime node used across scheduler tests.
@@ -217,6 +219,33 @@ func irNode(key string, outputs ...string) ir.Node {
 	return n
 }
 
+// twoStepSeq builds `sequence main { stage first; stage second }` whose
+// transition to second fires on first_node's output with the given kind.
+func twoStepSeq(kind ir.EdgeKind) ir.IR {
+	first := parallelScope("first", stratum(ir.NodeMember("first_node")))
+	second := parallelScope("second", stratum(ir.NodeMember("second_node")))
+	main := sequentialScope("main", []ir.Member{
+		{Scope: &first},
+		{Scope: &second},
+	}, ir.Transition{
+		On:        ir.Handle{Node: "first_node", Param: "output"},
+		Kind:      kind,
+		TargetKey: stepKeyTarget("second"),
+	})
+	trigger := ir.Handle{Node: "trigger", Param: "output"}
+	main.Activation = &trigger
+	main.ActivationKind = ir.EdgeKindConditional
+	return programOf(
+		[]ir.Node{
+			irNode("trigger", "output"),
+			irNode("first_node", "output"),
+			irNode("second_node"),
+		},
+		nil,
+		rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
+	)
+}
+
 // programOf builds an IR program from the given nodes, edges, and root
 // scope. Output names are declared per node via the node helper — the
 // scheduler reads them exclusively from ir.Node.Outputs.
@@ -246,7 +275,8 @@ var _ = Describe("Scheduler", func() {
 	}
 
 	build := func(prog ir.IR) *scheduler.Scheduler {
-		return scheduler.New(prog, nodes)
+		GinkgoHelper()
+		return MustSucceed(scheduler.New(prog, nodes))
 	}
 
 	BeforeEach(func() {
@@ -567,6 +597,7 @@ var _ = Describe("Scheduler", func() {
 				act := ir.Handle{Node: "trigger", Param: "output"}
 				gated := parallelScope("stage", stratum(ir.NodeMember("stage_node")))
 				gated.Activation = &act
+				gated.ActivationKind = ir.EdgeKindConditional
 				prog := programOf(
 					[]ir.Node{irNode("trigger", "output"), irNode("stage_node")},
 					nil,
@@ -593,6 +624,7 @@ var _ = Describe("Scheduler", func() {
 				act := ir.Handle{Node: "trigger", Param: "output"}
 				gated := parallelScope("stage", stratum(ir.NodeMember("stage_node")))
 				gated.Activation = &act
+				gated.ActivationKind = ir.EdgeKindConditional
 				prog := programOf(
 					[]ir.Node{irNode("trigger", "output"), irNode("stage_node")},
 					nil,
@@ -624,33 +656,6 @@ var _ = Describe("Scheduler", func() {
 	})
 
 	Describe("Sequential scope transitions", func() {
-		buildTwoStepSeq := func(onNode string) ir.IR {
-			// sequence main { stage first; stage second; } with a
-			// transition first->second driven by `onNode`'s output.
-			first := parallelScope("first", stratum(ir.NodeMember("first_node")))
-			second := parallelScope("second", stratum(ir.NodeMember("second_node")))
-			main := sequentialScope("main", []ir.Member{
-				{Scope: &first},
-				{Scope: &second},
-			}, ir.Transition{
-				On:        ir.Handle{Node: onNode, Param: "output"},
-				TargetKey: stepKeyTarget("second"),
-			})
-			// Module-scope trigger to activate the sequence.
-			trigger := ir.Handle{Node: "trigger", Param: "output"}
-			main.Activation = &trigger
-			main.Liveness = ir.LivenessGated
-			return programOf(
-				[]ir.Node{
-					irNode("trigger", "output"),
-					irNode("first_node", "output"),
-					irNode("second_node"),
-				},
-				nil,
-				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
-			)
-		}
-
 		It(
 			"Should advance the active member when a transition's handle fires",
 			func(ctx SpecContext) {
@@ -658,7 +663,7 @@ var _ = Describe("Scheduler", func() {
 				firstNode := mock("first_node")
 				firstNode.OnNext = func(c node.Context) { c.MarkSelfChanged() }
 				secondNode := mock("second_node")
-				prog := buildTwoStepSeq("first_node")
+				prog := twoStepSeq(ir.EdgeKindConditional)
 				s := build(prog)
 
 				// Cycle 1: trigger fires, main activates at `first`; first_node
@@ -700,11 +705,13 @@ var _ = Describe("Scheduler", func() {
 				[]ir.Member{{Scope: &first}},
 				ir.Transition{
 					On:        ir.Handle{Node: "first_node", Param: "output"},
+					Kind:      ir.EdgeKindConditional,
 					TargetKey: exitTarget(),
 				},
 			)
 			triggerH := ir.Handle{Node: "trigger", Param: "output"}
 			main.Activation = &triggerH
+			main.ActivationKind = ir.EdgeKindConditional
 			prog := programOf(
 				[]ir.Node{irNode("trigger", "output"), irNode("first_node", "output")},
 				nil,
@@ -757,15 +764,18 @@ var _ = Describe("Scheduler", func() {
 					},
 					ir.Transition{
 						On:        ir.Handle{Node: "first_node", Param: "output"},
+						Kind:      ir.EdgeKindConditional,
 						TargetKey: stepKeyTarget("a"),
 					},
 					ir.Transition{
 						On:        ir.Handle{Node: "first_node", Param: "output"},
+						Kind:      ir.EdgeKindConditional,
 						TargetKey: stepKeyTarget("b"),
 					},
 				)
 				triggerH := ir.Handle{Node: "trigger", Param: "output"}
 				main.Activation = &triggerH
+				main.ActivationKind = ir.EdgeKindConditional
 				mock("a_node")
 				mock("b_node")
 				prog := programOf(
@@ -823,15 +833,18 @@ var _ = Describe("Scheduler", func() {
 					},
 					ir.Transition{
 						On:        ir.Handle{Node: "s1", Param: "output"},
+						Kind:      ir.EdgeKindConditional,
 						TargetKey: stepKeyTarget("s2"),
 					},
 					ir.Transition{
 						On:        ir.Handle{Node: "s2", Param: "output"},
+						Kind:      ir.EdgeKindConditional,
 						TargetKey: stepKeyTarget("s3"),
 					},
 				)
 				triggerH := ir.Handle{Node: "trigger", Param: "output"}
 				main.Activation = &triggerH
+				main.ActivationKind = ir.EdgeKindConditional
 				prog := programOf(
 					[]ir.Node{
 						irNode("trigger", "output"),
@@ -867,6 +880,7 @@ var _ = Describe("Scheduler", func() {
 			act := ir.Handle{Node: "trigger", Param: "output"}
 			stage := parallelScope("stage", stratum(ir.NodeMember("n")))
 			stage.Activation = &act
+			stage.ActivationKind = ir.EdgeKindConditional
 			prog := programOf(
 				[]ir.Node{irNode("trigger", "output"), irNode("n")},
 				nil,
@@ -889,6 +903,7 @@ var _ = Describe("Scheduler", func() {
 				outer := parallelScope("outer", stratum(ir.ScopeMember(nested)))
 				act := ir.Handle{Node: "trigger", Param: "output"}
 				outer.Activation = &act
+				outer.ActivationKind = ir.EdgeKindConditional
 				prog := programOf(
 					[]ir.Node{irNode("trigger", "output"), irNode("inner")},
 					nil,
@@ -1421,11 +1436,13 @@ var _ = Describe("Scheduler", func() {
 				[]ir.Member{{Scope: &first}, {Scope: &second}},
 				ir.Transition{
 					On:        ir.Handle{Node: "stage_node", Param: "done"},
+					Kind:      ir.EdgeKindConditional,
 					TargetKey: stepKeyTarget("second"),
 				},
 			)
 			triggerH := ir.Handle{Node: "trigger", Param: "output"}
 			main.Activation = &triggerH
+			main.ActivationKind = ir.EdgeKindConditional
 
 			prog := programOf(
 				[]ir.Node{
@@ -1525,6 +1542,7 @@ var _ = Describe("Scheduler", func() {
 				act := ir.Handle{Node: "trigger", Param: "output"}
 				gated := parallelScope("stage", stratum(ir.NodeMember("stage_node")))
 				gated.Activation = &act
+				gated.ActivationKind = ir.EdgeKindConditional
 				prog := programOf(
 					[]ir.Node{irNode("trigger", "output"), irNode("stage_node")},
 					nil,
@@ -1734,6 +1752,7 @@ var _ = Describe("Scheduler", func() {
 			}
 			triggerH := ir.Handle{Node: "trigger", Param: "output"}
 			main.Activation = &triggerH
+			main.ActivationKind = ir.EdgeKindConditional
 			prog := programOf(
 				[]ir.Node{irNode("trigger", "output")},
 				nil,
@@ -1763,6 +1782,7 @@ var _ = Describe("Scheduler", func() {
 				act := ir.Handle{Node: "trigger", Param: "output"}
 				gated := parallelScope("stage", stratum(ir.NodeMember("stage_node")))
 				gated.Activation = &act
+				gated.ActivationKind = ir.EdgeKindConditional
 				prog := programOf(
 					[]ir.Node{irNode("trigger", "output"), irNode("stage_node")},
 					nil,
@@ -1806,9 +1826,11 @@ var _ = Describe("Scheduler", func() {
 			stageA := parallelScope("stage_a", stratum(ir.NodeMember("A")))
 			actA := ir.Handle{Node: "trigger_a", Param: "output"}
 			stageA.Activation = &actA
+			stageA.ActivationKind = ir.EdgeKindConditional
 			stageB := parallelScope("stage_b", stratum(ir.NodeMember("B")))
 			actB := ir.Handle{Node: "trigger_b", Param: "output"}
 			stageB.Activation = &actB
+			stageB.ActivationKind = ir.EdgeKindConditional
 			prog := programOf(
 				[]ir.Node{
 					irNode("trigger_a", "output"),
@@ -1888,11 +1910,13 @@ var _ = Describe("Scheduler", func() {
 					[]ir.Member{{Scope: &first}},
 					ir.Transition{
 						On:        ir.Handle{Node: "first_node", Param: "output"},
+						Kind:      ir.EdgeKindConditional,
 						TargetKey: exitTarget(),
 					},
 				)
 				triggerH := ir.Handle{Node: "trigger", Param: "output"}
 				main.Activation = &triggerH
+				main.ActivationKind = ir.EdgeKindConditional
 				prog := programOf(
 					[]ir.Node{
 						irNode("trigger", "output"),
@@ -1957,10 +1981,12 @@ var _ = Describe("Scheduler", func() {
 					{Scope: &body},
 				}, ir.Transition{
 					On:        ir.Handle{Node: "latch", Param: "output"},
+					Kind:      ir.EdgeKindConditional,
 					TargetKey: exitTarget(),
 				})
 				triggerH := ir.Handle{Node: "trigger", Param: "output"}
 				main.Activation = &triggerH
+				main.ActivationKind = ir.EdgeKindConditional
 
 				prog := programOf(
 					[]ir.Node{
@@ -2029,10 +2055,12 @@ var _ = Describe("Scheduler", func() {
 					{Scope: &b},
 				}, ir.Transition{
 					On:        ir.Handle{Node: "latch", Param: "output"},
+					Kind:      ir.EdgeKindConditional,
 					TargetKey: stepKeyTarget("b"),
 				})
 				triggerH := ir.Handle{Node: "trigger", Param: "output"}
 				main.Activation = &triggerH
+				main.ActivationKind = ir.EdgeKindConditional
 
 				prog := programOf(
 					[]ir.Node{
@@ -2119,10 +2147,12 @@ var _ = Describe("Scheduler", func() {
 					{Scope: &b},
 				}, ir.Transition{
 					On:        ir.Handle{Node: "latch", Param: "output"},
+					Kind:      ir.EdgeKindConditional,
 					TargetKey: stepKeyTarget("b"),
 				})
 				triggerH := ir.Handle{Node: "trigger", Param: "output"}
 				main.Activation = &triggerH
+				main.ActivationKind = ir.EdgeKindConditional
 
 				prog := programOf(
 					[]ir.Node{
@@ -2177,11 +2207,13 @@ var _ = Describe("Scheduler", func() {
 					[]ir.Member{{Scope: &loop}},
 					ir.Transition{
 						On:        ir.Handle{Node: "loop_node", Param: "output"},
+						Kind:      ir.EdgeKindConditional,
 						TargetKey: stepKeyTarget("loop"),
 					},
 				)
 				triggerH := ir.Handle{Node: "trigger", Param: "output"}
 				main.Activation = &triggerH
+				main.ActivationKind = ir.EdgeKindConditional
 				prog := programOf(
 					[]ir.Node{
 						irNode("trigger", "output"),
@@ -2394,10 +2426,12 @@ var _ = Describe("Scheduler", func() {
 					{Scope: &second},
 				}, ir.Transition{
 					On:        ir.Handle{Node: "first_node", Param: "output"},
+					Kind:      ir.EdgeKindConditional,
 					TargetKey: stepKeyTarget("second"),
 				})
 				triggerH := ir.Handle{Node: "trigger", Param: "output"}
 				main.Activation = &triggerH
+				main.ActivationKind = ir.EdgeKindConditional
 				prog := programOf(
 					[]ir.Node{
 						irNode("trigger", "output"),
@@ -2561,11 +2595,13 @@ var _ = Describe("Scheduler", func() {
 					[]ir.Member{{Scope: &first}},
 					ir.Transition{
 						On:        ir.Handle{Node: "A", Param: "output"},
+						Kind:      ir.EdgeKindConditional,
 						TargetKey: exitTarget(),
 					},
 				)
 				triggerH := ir.Handle{Node: "trigger", Param: "output"}
 				main.Activation = &triggerH
+				main.ActivationKind = ir.EdgeKindConditional
 				prog := programOf(
 					[]ir.Node{irNode("trigger", "output"), irNode("A", "output")},
 					nil,
@@ -2609,6 +2645,7 @@ var _ = Describe("Scheduler", func() {
 				main := sequentialScope("main", []ir.Member{ir.NodeMember("step")})
 				triggerH := ir.Handle{Node: "trigger", Param: "output"}
 				main.Activation = &triggerH
+				main.ActivationKind = ir.EdgeKindConditional
 				prog := programOf(
 					[]ir.Node{irNode("trigger", "output"), irNode("step")},
 					nil,
@@ -2752,6 +2789,7 @@ var _ = Describe("Scheduler", func() {
 				main := sequentialScope("main", []ir.Member{{Scope: &stage}})
 				triggerH := ir.Handle{Node: "trigger", Param: "output"}
 				main.Activation = &triggerH
+				main.ActivationKind = ir.EdgeKindConditional
 				prog := programOf(
 					[]ir.Node{
 						irNode("trigger", "output"),
@@ -2955,6 +2993,7 @@ var _ = Describe("Scheduler", func() {
 				main.Strata = []ir.Members{stratum(ir.NodeMember("V"))}
 				triggerH := ir.Handle{Node: "trigger", Param: "output"}
 				main.Activation = &triggerH
+				main.ActivationKind = ir.EdgeKindConditional
 				prog := programOf(
 					[]ir.Node{irNode("trigger", "output"), irNode("V"), irNode("M")},
 					nil,
@@ -3005,11 +3044,13 @@ var _ = Describe("Scheduler", func() {
 					[]ir.Member{{Scope: &first}},
 					ir.Transition{
 						On:        ir.Handle{Node: "A", Param: "output"},
+						Kind:      ir.EdgeKindConditional,
 						TargetKey: exitTarget(),
 					},
 				)
 				triggerH := ir.Handle{Node: "trigger", Param: "output"}
 				main.Activation = &triggerH
+				main.ActivationKind = ir.EdgeKindConditional
 				prog := programOf(
 					[]ir.Node{
 						irNode("trigger", "output"),
@@ -3071,6 +3112,7 @@ var _ = Describe("Scheduler", func() {
 				main.Strata = []ir.Members{stratum(ir.NodeMember("ghost"))}
 				triggerH := ir.Handle{Node: "trigger", Param: "output"}
 				main.Activation = &triggerH
+				main.ActivationKind = ir.EdgeKindConditional
 				prog := programOf(
 					[]ir.Node{irNode("trigger", "output"), irNode("M")},
 					nil,
@@ -3088,6 +3130,91 @@ var _ = Describe("Scheduler", func() {
 				}).ToNot(Panic())
 				Expect(mocks["M"].NextCalled).To(Equal(1))
 			},
+		)
+	})
+
+	Describe("Arrow kinds", func() {
+		// gatedStage builds a top-level stage activated by trigger's output with
+		// the given kind.
+		gatedStage := func(kind ir.EdgeKind) ir.IR {
+			act := ir.Handle{Node: "trigger", Param: "output"}
+			gated := parallelScope("stage", stratum(ir.NodeMember("stage_node")))
+			gated.Activation = &act
+			gated.ActivationKind = kind
+			return programOf(
+				[]ir.Node{irNode("trigger", "output"), irNode("stage_node")},
+				nil,
+				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(gated)),
+			)
+		}
+
+		cycle := node.Cycle{Elapsed: telem.Microsecond, Reason: node.ReasonTimerTick}
+
+		DescribeTable(
+			"Should fire a transition on a falsy output only when it is continuous",
+			func(ctx SpecContext, kind ir.EdgeKind, secondRuns int) {
+				mock("trigger", true)
+				mock("first_node").OnNext = markOnNext(0)
+				second := mock("second_node")
+				build(twoStepSeq(kind)).Next(ctx, cycle)
+				Expect(second.NextCalled).To(Equal(secondRuns))
+			},
+			Entry("conditional", ir.EdgeKindConditional, 0),
+			Entry("continuous", ir.EdgeKindContinuous, 1),
+		)
+
+		DescribeTable(
+			"Should activate a scope on a falsy output only when it is continuous",
+			func(ctx SpecContext, kind ir.EdgeKind, stageRuns int) {
+				mock("trigger").OnNext = markOnNext(0)
+				stage := mock("stage_node")
+				build(gatedStage(kind)).Next(ctx, cycle)
+				Expect(stage.NextCalled).To(Equal(stageRuns))
+			},
+			Entry("conditional", ir.EdgeKindConditional, 0),
+			Entry("continuous", ir.EdgeKindContinuous, 1),
+		)
+
+		DescribeTable(
+			"Should return an error on a scope jump with no kind",
+			func(prog func() ir.IR, msg string) {
+				Expect(scheduler.New(prog(), nodes)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(msg)),
+				))
+			},
+			Entry(
+				"transition",
+				func() ir.IR { return twoStepSeq(ir.EdgeKindUnspecified) },
+				"scope main has a transition with no kind: "+
+					"on first_node/output ?> second",
+			),
+			Entry(
+				"activation",
+				func() ir.IR { return gatedStage(ir.EdgeKindUnspecified) },
+				"scope stage has an activation with no kind",
+			),
+			Entry(
+				"transition in a nested step",
+				func() ir.IR {
+					leaf := parallelScope("leaf", stratum(ir.NodeMember("leaf_node")))
+					inner := sequentialScope(
+						"inner",
+						[]ir.Member{{Scope: &leaf}},
+						ir.Transition{
+							On: ir.Handle{Node: "leaf_node", Param: "output"},
+						},
+					)
+					outer := sequentialScope("outer", []ir.Member{{Scope: &inner}})
+					return programOf(
+						[]ir.Node{irNode("leaf_node", "output")},
+						nil,
+						rootScope(ir.ScopeMember(outer)),
+					)
+				},
+				"scope inner has a transition with no kind: "+
+					"on leaf_node/output ?> exit",
+			),
 		)
 	})
 })

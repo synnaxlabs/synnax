@@ -11,6 +11,7 @@ package v1_test
 
 import (
 	"context"
+	"encoding/json"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -147,4 +148,77 @@ var _ = Describe("MigrateDevice", func() {
 			Expect(got.Parent).To(BeNil())
 		},
 	)
+})
+
+var _ = Describe("HTTPHealthCheckMigration", func() {
+	migrateDevice := func(ctx SpecContext, d v1.Device) v1.Device {
+		GinkgoHelper()
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		Expect(gorp.NewCreate[v1.Key, v1.Device]().Entry(&d).Exec(ctx, db)).
+			To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "Device",
+			Migrations: []migrate.Migration{v1.HTTPHealthCheckMigration},
+		})).To(Succeed())
+		var got v1.Device
+		Expect(gorp.NewRetrieve[v1.Key, v1.Device]().
+			Where(gorp.MatchKeys[v1.Key, v1.Device](d.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
+		return got
+	}
+	// The properties a v0.53.0 Console stored for an HTTP device.
+	v053Properties := func() msgpack.EncodedJSON {
+		GinkgoHelper()
+		var p msgpack.EncodedJSON
+		Expect(json.Unmarshal([]byte(`{
+			"max_concurrent_requests": 6, "write": {}, "timeout_ms": 100,
+			"secure": false, "read": {}, "version": 1, "verify_ssl": true,
+			"health_check": {
+				"headers": {"X-Token": "abc", "Accept": "application/json"},
+				"query_params": {"probe": "1"},
+				"method": "GET", "path": "/health", "validate_response": false
+			},
+			"auth": {"type": "none"}
+		}`), &p)).To(Succeed())
+		return p
+	}
+
+	It("Should list the health check headers and parameters of a v0.53.0 device",
+		func(ctx SpecContext) {
+			got := migrateDevice(ctx, v1.Device{
+				Key: "k53-http", Make: "http", Properties: v053Properties(),
+			})
+			hc := got.Properties["health_check"].(map[string]any)
+			Expect(hc["headers"]).To(Equal([]any{
+				map[string]any{"name": "Accept", "value": "application/json"},
+				map[string]any{"name": "X-Token", "value": "abc"},
+			}))
+			Expect(hc["query_params"]).To(Equal([]any{
+				map[string]any{"parameter": "probe", "value": "1"},
+			}))
+			Expect(hc["path"]).To(Equal("/health"))
+		})
+
+	It("Should leave a health check that already lists its headers untouched",
+		func(ctx SpecContext) {
+			props := v053Properties()
+			hc := props["health_check"].(map[string]any)
+			hc["headers"] = []any{map[string]any{"name": "X-Token", "value": "abc"}}
+			delete(hc, "query_params")
+			got := migrateDevice(
+				ctx,
+				v1.Device{Key: "http", Make: "http", Properties: props},
+			)
+			Expect(got.Properties).To(Equal(props))
+		})
+
+	It("Should leave a device of another make untouched", func(ctx SpecContext) {
+		props := v053Properties()
+		got := migrateDevice(
+			ctx,
+			v1.Device{Key: "lj", Make: "LabJack", Properties: props},
+		)
+		Expect(got.Properties).To(Equal(v053Properties()))
+	})
 })
