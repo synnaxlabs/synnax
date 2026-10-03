@@ -50,18 +50,14 @@ inline const x::telem::TimeSpan RT_EVENT_THRESHOLD = 3 * x::telem::MILLISECOND;
 /// polling loop.
 inline const x::telem::TimeSpan HYBRID_THRESHOLD = 5 * x::telem::MILLISECOND;
 
-/// @brief Timer span below which AUTO spins before a deadline on Windows. Without the
-/// spin, the timer wakes about 0.5 ms late, which is 1% of 50 ms.
-inline const x::telem::TimeSpan WINDOWS_HYBRID_THRESHOLD = 50 * x::telem::MILLISECOND;
-
 /// @brief Timeout for event-driven wait to periodically check breaker.running().
 inline const x::telem::TimeSpan EVENT_DRIVEN_TIMEOUT = 100 * x::telem::MILLISECOND;
 
 /// @brief Windows WaitableTimer uses 100-nanosecond units.
 inline const x::telem::TimeSpan WINDOWS_TIMER_UNIT = 100 * x::telem::NANOSECOND;
 
-/// @brief Span the Windows loop spins ahead of a deadline in HYBRID and RT_EVENT. The
-/// timer alone fires about 0.5 ms late.
+/// @brief Span the Windows loop spins ahead of a deadline in AUTO, HYBRID, and
+/// RT_EVENT. The timer alone fires about 0.5 ms late.
 inline const x::telem::TimeSpan WINDOWS_DEADLINE_SPIN = x::telem::MILLISECOND;
 
 /// @brief Span the macOS loop spins ahead of a deadline in HYBRID. A kqueue timeout
@@ -128,12 +124,10 @@ inline std::ostream &operator<<(std::ostream &os, ExecutionMode mode) {
     }
 }
 
-/// @brief Returns the timer span below which AUTO spins before a deadline on this
-/// platform.
+/// @brief Returns the timer span below which AUTO uses HYBRID on this platform.
 x::telem::TimeSpan hybrid_threshold();
 
-/// @brief Returns true when AUTO spins before a deadline of a timer with the given
-/// span.
+/// @brief Returns true when AUTO uses HYBRID for a timer with the given span.
 inline bool auto_spins(const x::telem::TimeSpan span) {
     return span < hybrid_threshold();
 }
@@ -278,8 +272,8 @@ struct Loop {
     /// @param max_timeout Upper bound on how long to sleep. When positive, the loop
     /// will wake after at most this duration even if no input fires. A value of 0 means
     /// no deadline.
-    /// @param span the period of the timer that owns the deadline. AUTO spins before
-    /// the deadline only when auto_spins(span) is true.
+    /// @param span the period of the timer that owns the deadline. AUTO uses HYBRID
+    /// only when auto_spins(span) is true.
     /// @return WakeReason indicating why wait() returned.
     virtual WakeReason wait(
         x::breaker::Breaker &breaker,

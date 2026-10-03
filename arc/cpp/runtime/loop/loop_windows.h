@@ -112,8 +112,11 @@ public:
                 return this->hybrid_wait(breaker, max_timeout);
             case ExecutionMode::AUTO:
                 if (auto_spins(span)) return this->hybrid_wait(breaker, max_timeout);
-                return this
-                    ->event_driven_wait(breaker, max_timeout, x::telem::TimeSpan(0));
+                return this->event_driven_wait(
+                    breaker,
+                    max_timeout,
+                    timing::WINDOWS_DEADLINE_SPIN
+                );
             case ExecutionMode::EVENT_DRIVEN:
                 return this
                     ->event_driven_wait(breaker, max_timeout, x::telem::TimeSpan(0));

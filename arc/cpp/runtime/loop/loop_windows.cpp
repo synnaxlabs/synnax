@@ -17,7 +17,9 @@ create(const Config &cfg, std::shared_ptr<x::thread::rt::Handle> rt_handle) {
 }
 
 x::telem::TimeSpan hybrid_threshold() {
-    return timing::WINDOWS_HYBRID_THRESHOLD;
+    // AUTO does not use HYBRID on Windows. Its event-driven wait spins to each
+    // deadline.
+    return x::telem::TimeSpan(0);
 }
 
 }

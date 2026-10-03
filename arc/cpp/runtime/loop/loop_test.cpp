@@ -291,7 +291,7 @@ TEST(ModeSelectorTest, AboveRtEventThreshold_SelectsAuto) {
 }
 
 TEST(ModeSelectorTest, AutoSpinsBelowHybridThreshold) {
-#if !defined(__linux__)
+#if !defined(__linux__) && !defined(_WIN32)
     EXPECT_TRUE(auto_spins(hybrid_threshold() - x::telem::MICROSECOND));
 #endif
     EXPECT_FALSE(auto_spins(hybrid_threshold()));
@@ -300,9 +300,7 @@ TEST(ModeSelectorTest, AutoSpinsBelowHybridThreshold) {
 
 /// @brief The HYBRID threshold should be the documented value of the platform.
 TEST(ModeSelectorTest, HybridThresholdIsTheValueOfThePlatform) {
-#if defined(_WIN32)
-    EXPECT_EQ(hybrid_threshold(), 50 * x::telem::MILLISECOND);
-#elif defined(__linux__)
+#if defined(_WIN32) || defined(__linux__)
     EXPECT_EQ(hybrid_threshold(), x::telem::TimeSpan(0));
 #else
     EXPECT_EQ(hybrid_threshold(), 5 * x::telem::MILLISECOND);
