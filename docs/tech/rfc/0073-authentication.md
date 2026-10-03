@@ -18,7 +18,7 @@ This RFC splits authentication into three records:
 
 - A **subject** is whatever logs in: a user or a rack.
 - A **credential** ties one subject to one method: a password, an API key, or a link to
-  an account at an OpenID Connect provider. Each method stores its own.
+  an account at an OpenID Connect provider. Each method keeps its own table.
 - A **session** is what a login creates. Every request carries its token.
 
 The authentication service only sees subjects as IDs, and it reaches each method through
@@ -83,10 +83,9 @@ How other systems answer the questions in this RFC:
    else.
 4. **A person can interrupt a test, and a timer cannot**: Revocation closes a live
    stream. No clock does.
-5. **Passwords are never saved to disk**: Not by the Core, a client, the Console, or the
-   Driver. The Core keeps only hashes. Everything else saves a session token or an API
-   key, which can each be revoked without touching the password. The one exception is
-   the root password in the Core start settings (§4.7).
+5. **Passwords are never saved to disk**: The Core keeps hashes. Clients, the Console,
+   and the Driver save a session token or an API key, which can be revoked on its own.
+   The one exception is the root password in the Core start settings (§4.7).
 
 ## 4 Design
 
@@ -245,9 +244,8 @@ it. JWTs and the signing key go away.
 - `last_active` drives the idle timeout.
 
 A session token is `sys_`, the session key, and a random secret, the same layout as an
-API key with its `syk_` prefix. The Core finds the session by its key and compares the
-hash. The prefix lets a secret scanner recognize both kinds, and lets the Core tell them
-apart.
+API key. The Core finds the session by its key and compares the hash. The prefixes let
+the Core, and secret scanners, tell the two kinds apart.
 
 On each request the middleware puts three values on the request: the subject, the
 credential, and the session key. Handlers and audit rely on the subject and the
@@ -261,20 +259,16 @@ A session ends in two ways:
    deletes its credentials. Changing a password ends that credential's other sessions.
 2. **Idle timeout**: No activity for the timeout period. Any request or open stream
    counts as activity, and a client with nothing to send calls a renew endpoint. So a
-   running client never times out, and a crashed one does.
-
-There is no absolute lifetime.
-
-Activity does not cost a write per request. Each node tracks it in memory and writes
-`last_active` only when the stored value is older than a quarter of the timeout. That is
-at most four writes per session per timeout period, however busy the client is. An idle
-session causes none.
+   running client never times out, and a crashed one does. Activity does not cost a
+   write per request: each node tracks it in memory and writes `last_active` only when
+   the stored value is older than a quarter of the timeout. That is at most four writes
+   per session per timeout period, however busy the client is.
 
 **Revocation is not instant everywhere.** It is immediate on the node that receives the
 delete. Other nodes see it when Aspen replicates the delete. A node cut off from the
 cluster keeps honoring the session until it rejoins.
 
-**No absolute lifetime has four consequences**, and each one is accepted:
+**There is no absolute lifetime.** That has four consequences, and each one is accepted:
 
 - A session can live forever. A Console on a control-room wall, or a Driver, stays
   logged in as long as it runs. A laptop left open is protected by its operating system
@@ -293,7 +287,7 @@ ends, the Core closes the stream with an authentication error.
 
 An operator can hold control authority through a writer stream for hours. An
 administrator who deletes a stolen credential stops that stream at once. Nothing else
-does: an open stream counts as activity, so its session cannot time out.
+does.
 
 To rotate a rack's API key without dropping the Driver, add the new key, move the Driver
 to it, and then delete the old one.
@@ -304,8 +298,8 @@ A Core start setting lists the methods the Core accepts. The default is all of t
 
 - A method that is off is refused at login and at credential creation. Its credentials
   stay in the table and work again if the method is turned back on.
-- An unauthenticated endpoint reports the accepted methods, so the Console knows what to
-  show on its login page.
+- `auth/methods` reports the accepted methods, so the Console knows what to show on its
+  login page.
 - `api_key` can be turned off, but racks have no other way to log in today. A Core with
   `api_key` off and the embedded Driver on refuses to start.
 - The root user gets no exception.
@@ -360,8 +354,7 @@ User struct {
 `username` is gone. A user who only logs in through a provider has none. One `name`
 field replaces `first_name` and `last_name`. A migration joins the two, and falls back
 to the username when both are empty. A first login through a provider fills `name` from
-the provider's `name` claim. The Console shows the name, and the username from the
-password credential where one exists.
+the provider's `name` claim.
 
 The rack schema does not change. A rack's API keys point at it.
 
@@ -382,7 +375,8 @@ The rack schema does not change. A rack's API keys point at it.
 | `auth/oidc/retrieve`    | Yes   | List provider links                                               |
 | `auth/oidc/unlink`      | Yes   | Remove a provider link                                            |
 
-Three rules the table does not show:
+These replace `auth/login`, `auth/change-password`, and `user/change-username`. Three
+rules the table does not show:
 
 - Changing your own password needs the current one. Setting another user's password
   needs permission from access control, not the old password.
@@ -391,8 +385,6 @@ Three rules the table does not show:
 - When first-login creation is off, the link endpoint is the only way to add a provider
   account. An administrator cannot type the provider's opaque ID, so they create the
   user with a password, and the user logs in and links their own account.
-
-These replace `auth/login`, `auth/change-password`, and `user/change-username`.
 
 - **Client libraries** take one proof at construction and log in on the first request.
   When a session ends, a client holding a password or API key logs in again by itself. A
@@ -442,8 +434,7 @@ Each phase is one pull request into `main`.
 - **Phase 4: Clients.** Session endpoints, and login, renewal, and logout in the
   TypeScript, Python, and C++ clients.
 - **Phase 5: Console sessions.** The Console stores the token and logs out.
-- **Phase 6: API keys.** The authenticator, the credential endpoints, and client
-  bindings.
+- **Phase 6: API keys.** The authenticator, the key endpoints, and client bindings.
 - **Phase 7: Racks.** The Driver role, enrollment in `synnax-driver login`, and the
   embedded Driver key. Removes the root password from the Driver config.
 - **Phase 8: Console credentials.** The credentials list on user and rack pages.
@@ -467,18 +458,17 @@ Each phase is one pull request into `main`.
 ## 7 Resolved decisions
 
 1. **Exchange only, no API key on each request**: One kind of token on the request path
-   means one check and one thing for a stream to watch. The costs are real. A tool that
-   can only send a fixed header, such as a Grafana data source or a webhook, cannot
-   connect. Every plain HTTP caller needs a login call and a retry. A short script that
-   never logs out leaves a session behind until the idle timeout. A direct API key is a
-   small later addition: one more lookup in the middleware, chosen by the token prefix,
-   and a stream that watches its credential.
+   means one check and one thing for a stream to watch. The costs: a tool that can only
+   send a fixed header, such as a Grafana data source, cannot connect; every plain HTTP
+   caller needs a login call and a retry; a short script that never logs out leaves a
+   session behind until the idle timeout. A direct API key is a small later addition:
+   one more lookup in the middleware, chosen by the prefix, and a stream that watches
+   its credential.
 2. **Stored sessions, not signed tokens**: A signed token needs no lookup and no
    replication. It also cannot be revoked, gives a stream nothing to watch, and needs a
    signing key shared by every node. The cost is one replicated write per login.
-3. **No absolute session lifetime**: A hard limit could end a live test. The cost is
-   that Synnax does not meet the 12 and 24 hour session limits in NIST SP 800-63B, and a
-   stolen token lives until it is revoked.
+3. **No absolute session lifetime**: A hard limit could end a live test. The costs are
+   listed in §4.4.
 4. **No join token for racks**: The installer's own session does the same job through
    the normal API. The cost is that a Driver that loses its key cannot recover without a
    person.
