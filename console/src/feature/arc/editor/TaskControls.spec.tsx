@@ -178,7 +178,7 @@ describe("TaskControls", () => {
       const a = await client.arcs.create({ name: uniqueName("arc"), mode: "text" });
       await client.arcs.updateTask(a.key, { rack: rck.key, performance: "medium" });
       await renderControls(a.key);
-      await findDialogTriggerByText("Medium: some CPU");
+      await findDialogTriggerByText("Medium");
     });
 
     it("should set the level of a bound arc", async () => {
@@ -189,7 +189,7 @@ describe("TaskControls", () => {
       const trigger = await findDialogTriggerByText("Auto");
       await waitFor(() => expect(trigger.getAttribute("aria-disabled")).toBeNull());
       fireEvent.click(trigger);
-      fireEvent.click(await screen.findByText("High: one full CPU core"));
+      fireEvent.click(await screen.findByText("High"));
       await waitFor(async () => {
         const tsk = await client.arcs.task.retrieve(a.key);
         expect(tsk?.config.performance).toBe("high");

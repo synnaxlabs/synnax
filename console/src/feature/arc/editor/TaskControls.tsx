@@ -10,28 +10,17 @@
 import "@/feature/arc/editor/TaskControls.css";
 
 import { type arc, type rack } from "@synnaxlabs/client";
-import { Select } from "@synnaxlabs/lyra/select";
 import { Arc, Rack } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
+import { SelectPerformance } from "@/feature/arc/editor/SelectPerformance";
 import { Arc as PlatformArc } from "@/platform/arc";
 import { CSS } from "@/platform/css";
 import { Framer } from "@/platform/framer";
 import { Task } from "@/platform/task";
 
 const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: "arc" };
-
-const PERFORMANCE_ITEMS = (
-  <>
-    <Select.Item<arc.task.Performance> itemKey="auto">Auto</Select.Item>
-    <Select.Item<arc.task.Performance> itemKey="low">Low: least CPU</Select.Item>
-    <Select.Item<arc.task.Performance> itemKey="medium">Medium: some CPU</Select.Item>
-    <Select.Item<arc.task.Performance> itemKey="high">
-      High: one full CPU core
-    </Select.Item>
-  </>
-);
 
 export const TaskControls = () => {
   const key = Arc.useKey();
@@ -73,17 +62,12 @@ export const TaskControls = () => {
             location="top"
             initialQuery={INITIAL_RACK_QUERY}
           />
-          <Select.Simple<arc.task.Performance>
-            className={CSS.B("performance-select")}
+          <SelectPerformance
             value={taskPerformance}
             onChange={handlePerformanceChange}
-            allowNone={false}
             disabled={!bound}
             location="top"
-            resourceName="performance"
-          >
-            {PERFORMANCE_ITEMS}
-          </Select.Simple>
+          />
         </>
       }
     />
