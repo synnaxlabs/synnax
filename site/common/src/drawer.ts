@@ -19,7 +19,7 @@ const setOpen = (open: boolean): void => {
 
 /**
  * Starts the mobile menu: its buttons open and close the drawer, and following a link
- * closes it. Call it once; the header persists across page swaps.
+ * closes it. Call it once per document; it keeps working across page swaps.
  */
 export const start = (): void => {
   document.addEventListener("click", (e) => {

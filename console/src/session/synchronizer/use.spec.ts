@@ -17,6 +17,9 @@ import { createConsoleWrapper } from "@/testutil";
 
 const client = createTestClient();
 
+// The reconnect spec expects retries while its proxy is severed.
+const quiet = (): void => {};
+
 describe("Synchronizer.use", () => {
   it("should run reconciles sequentially in declaration order", async () => {
     const calls: string[] = [];
@@ -147,7 +150,10 @@ describe("Synchronizer.use", () => {
       maxInterval: TimeSpan.milliseconds(50),
       scale: 1.5,
     };
-    const { proxy, client: local } = await createProxiedTestClient({ retry });
+    const { proxy, client: local } = await createProxiedTestClient({
+      retry,
+      onRetry: quiet,
+    });
     let reconciles = 0;
     const { wrapper } = await createConsoleWrapper({ client: local });
     const { result } = renderHook(

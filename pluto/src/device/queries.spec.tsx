@@ -1682,7 +1682,7 @@ describe("queries", () => {
             >
               <Display />
             </Errors.SuspenseBoundary>,
-            { wrapper },
+            { wrapper, onCaughtError: () => {} },
           );
         });
         await waitFor(() => expect(utils.queryByTestId("error")).not.toBeNull());
