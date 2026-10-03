@@ -585,6 +585,14 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 		if err = t.Reset(0); err != nil {
 			return err
 		}
+		arm := func() error {
+			deadline := r.scheduler.NextDeadline()
+			if deadline == telem.TimeSpanMax {
+				// No active timers, so the loop wakes only on channel input.
+				return t.Stop()
+			}
+			return t.Reset((deadline - r.elapsed()).Duration())
+		}
 		var (
 			runReason node.RunReason
 			res       framer.StreamerResponse
@@ -595,6 +603,13 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 			case <-ctx.Done():
 				return ctx.Err()
 			case <-t.C:
+				// A stale fire from an earlier Reset runs no cycle.
+				if r.elapsed() < r.scheduler.NextDeadline() {
+					if err = arm(); err != nil {
+						return err
+					}
+					continue
+				}
 				runReason = node.ReasonTimerTick
 			case res, ok = <-r.In.Outlet():
 				if !ok {
@@ -609,13 +624,7 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 			if err = r.next(ctx, res, runReason); err != nil {
 				return err
 			}
-			if deadline := r.scheduler.NextDeadline(); deadline == telem.TimeSpanMax {
-				// No active timers, so the loop wakes only on channel input.
-				err = t.Stop()
-			} else {
-				err = t.Reset((deadline - r.elapsed()).Duration())
-			}
-			if err != nil {
+			if err = arm(); err != nil {
 				return err
 			}
 		}
