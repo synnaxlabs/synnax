@@ -23,7 +23,7 @@ import Modbus from "./logos/Modbus.astro";
 import OPCUA from "./logos/OPCUA.astro";
 import SectionHero from "@/components/common/SectionHero.astro";
 import FeatureSection from "@/components/common/FeatureSection.astro";
-import { cdn } from "@/cdn";
+import CdnPicture from "@/components/common/CdnPicture.astro";
 ---
 
 <!-- Dither SVG filter definition -->
@@ -236,8 +236,9 @@ import { cdn } from "@/cdn";
                     data-panel="0"
                     style="--img-br: 3.5rem 1rem 1rem 1rem; --img-w: 170%;"
                 >
-                    <img
-                        src={cdn("images/workflow-attach-device.png")}
+                    <CdnPicture
+                        path="images/workflow-attach-device.png"
+                        sizes="(max-width: 900px) 95vw, 1100px"
                         alt="Attach device"
                     />
                 </div>
@@ -246,8 +247,9 @@ import { cdn } from "@/cdn";
                     data-panel="1"
                     style="--img-br: 1.5rem 1rem 1rem 1rem;"
                 >
-                    <img
-                        src={cdn("images/workflow-configure.png")}
+                    <CdnPicture
+                        path="images/workflow-configure.png"
+                        sizes="(max-width: 900px) 95vw, 1100px"
                         alt="Configure instrumentation"
                     />
                 </div>
@@ -256,8 +258,9 @@ import { cdn } from "@/cdn";
                     data-panel="2"
                     style="--img-br: 2rem 1rem 1rem 1rem; --img-w: 120%;"
                 >
-                    <img
-                        src={cdn("images/workflow-acquire.png")}
+                    <CdnPicture
+                        path="images/workflow-acquire.png"
+                        sizes="(max-width: 900px) 95vw, 1100px"
                         alt="Acquire data and control"
                     />
                 </div>
@@ -472,6 +475,7 @@ import { cdn } from "@/cdn";
 
         & img {
             width: var(--img-w, 110%);
+            height: auto;
             max-width: none;
             display: block;
             border-radius: var(--img-br, 4rem 1rem 1rem 1rem);

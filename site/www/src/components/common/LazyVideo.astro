@@ -1,0 +1,57 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { cdn } from "@/cdn";
+
+interface Props {
+    /** The CDN path of the 2560 pixel wide encode. */
+    wide: string;
+    /** The CDN path of the 1280 pixel wide encode, served to narrow viewports. */
+    narrow: string;
+    width: number;
+    height: number;
+    class?: string;
+}
+
+const { wide, narrow, width, height, class: className } = Astro.props;
+---
+
+<video
+    class={className}
+    width={width}
+    height={height}
+    muted
+    loop
+    playsinline
+    preload="none"
+    data-lazy-video
+>
+    <source media="(max-width: 900px)" src={cdn(narrow)} type="video/mp4" />
+    <source src={cdn(wide)} type="video/mp4" />
+</video>
+
+<script>
+    // Defers each download until its video is within one viewport of the screen.
+    const observer = new IntersectionObserver(
+        (entries) => {
+            for (const { target, isIntersecting } of entries) {
+                if (!isIntersecting) continue;
+                const video = target as HTMLVideoElement;
+                observer.unobserve(video);
+                video.autoplay = true;
+                video.load();
+            }
+        },
+        { rootMargin: "100% 0px" },
+    );
+    document
+        .querySelectorAll<HTMLVideoElement>("video[data-lazy-video]")
+        .forEach((video) => observer.observe(video));
+</script>

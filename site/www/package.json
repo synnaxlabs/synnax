@@ -43,6 +43,7 @@
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
     "jsdom": "catalog:",
+    "sharp": "catalog:",
     "stylelint": "catalog:",
     "typescript": "catalog:ts6",
     "vitest": "catalog:"
