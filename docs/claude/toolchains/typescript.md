@@ -168,7 +168,7 @@ errors here are invisible at runtime.
 ## Package layout
 
 `src/index.ts` entry, tests co-located, `dist/` output (ESM `index.js`, types at
-`dist/src/index.d.ts`). x and Lyra build with `lib({ transpiled: true })` instead: one
+`dist/src/index.d.ts`). X and Lyra build with `lib({ transpiled: true })` instead: one
 file per source file, so `dist/` mirrors `src/` (`dist/index.js`, `dist/index.d.ts`).
 Standard scripts: `build` = `tsc --noEmit && vite build`, plus `check-types`, `test`,
 `lint`, `fix`.

@@ -102,10 +102,9 @@ const checkEntries = (outDir: string, modules: string[]): void => {
 };
 
 /**
- * Builds the package as one output file per source file: the native `tsc` emits the
- * JavaScript and declarations described by `tsconfig.build.json`, imports are rewritten
- * to fully specified relative paths, and stylesheets are copied beside their modules.
- * When `modules` is set, each `src/<name>/index.ts` entry must only re-export.
+ * Builds one JavaScript file and declaration per source file, with fully specified
+ * imports and stylesheets beside their modules. When `modules` is set, rejects module
+ * entries that import for side effects.
  */
 export const transpile = (modules: boolean): Plugin => {
   let root = "";
