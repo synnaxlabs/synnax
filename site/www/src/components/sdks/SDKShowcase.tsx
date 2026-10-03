@@ -8,16 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type FC, type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useCallback, useState } from "react";
+
+import { type VizTab, VizTabs } from "@/components/common/VizTabs";
 
 interface SDKShowcaseProps {
   codeHtmls: string[][];
 }
 
-const LANG_TABS: { title: string; icon: FC }[] = [
-  { title: "Python", icon: Icon.Python },
-  { title: "TypeScript", icon: Icon.TypeScript },
-  { title: "C++", icon: Icon.CPlusPlus },
+const LANG_TABS: VizTab[] = [
+  { key: "python", title: "Python", icon: Icon.Python },
+  { key: "typescript", title: "TypeScript", icon: Icon.TypeScript },
+  { key: "cpp", title: "C++", icon: Icon.CPlusPlus },
 ];
 
 const OP_LABELS = ["Stream", "Write", "Read"];
@@ -34,19 +36,7 @@ export const SDKShowcase = ({ codeHtmls }: SDKShowcaseProps): ReactElement => {
 
   return (
     <div className="sdks-showcase">
-      <div className="viz-tabs">
-        {LANG_TABS.map(({ title, icon: TabIcon }, i) => (
-          <button
-            key={title}
-            className={`viz-tab${i === activeLang ? " viz-tab--active" : ""}`}
-            onClick={() => handleLangClick(i)}
-          >
-            <TabIcon />
-
-            {title}
-          </button>
-        ))}
-      </div>
+      <VizTabs tabs={LANG_TABS} active={activeLang} onSelect={handleLangClick} />
       <div className="sdks-panels">
         {OP_LABELS.map((label, opIdx) => (
           <div key={label} className="sdks-panel">
