@@ -149,6 +149,7 @@ public:
         }
         auto next_timeout = x::telem::TimeSpan(0);
         auto next_span = x::telem::TimeSpan::max();
+        auto deadline_at = x::telem::TimeSpan::max();
         // The first cycle runs at once as a timer tick, so that timers set their first
         // deadlines without a wait for input.
         bool started = false;
@@ -163,17 +164,20 @@ public:
             x::telem::Frame frame;
             bool first = true;
             while (this->inputs.try_pop(frame) || first) {
-                const auto reason = (first && is_timer) ? node::RunReason::TimerTick
-                                                        : node::RunReason::ChannelInput;
+                const auto elapsed = this->elapsed();
+                // A due timer fires on any cycle, so steady input cannot starve it.
+                const bool timer_tick = (first && is_timer) || elapsed >= deadline_at;
                 first = false;
                 this->state->ingest(frame);
                 const node::Cycle cycle{
                     .now = this->clock.now(),
-                    .elapsed = this->elapsed(),
-                    .reason = reason
+                    .elapsed = elapsed,
+                    .reason = timer_tick ? node::RunReason::TimerTick
+                                         : node::RunReason::ChannelInput
                 };
                 this->time_module->set_now(cycle.now);
                 this->clock.advance(this->scheduler->next(cycle));
+                deadline_at = this->scheduler->next_deadline().at;
                 Output out;
                 out.authority_changes = this->state->flush_authority_changes();
                 this->clock.advance(this->state->flush_into(out.frame, cycle.now));

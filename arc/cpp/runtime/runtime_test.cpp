@@ -381,6 +381,11 @@ struct DeadlineNode final : public node::Node {
     x::telem::TimeSpan work;
     /// @brief the span of the timer that sets the deadline.
     x::telem::TimeSpan span;
+    /// @brief how many runs were timer ticks.
+    std::atomic<int> timer_ticks{0};
+    /// @brief when positive, a timer tick on or after the deadline moves it this far
+    /// past the tick, as a timer fire does.
+    std::atomic<int64_t> advance_ns{0};
 
     explicit DeadlineNode(
         const x::telem::TimeSpan deadline,
@@ -391,6 +396,12 @@ struct DeadlineNode final : public node::Node {
 
     x::errors::Error next(node::Context &ctx) override {
         ctx.mark_self_changed();
+        if (ctx.cycle.reason == node::RunReason::TimerTick) {
+            this->timer_ticks++;
+            const auto advance = this->advance_ns.load();
+            if (advance > 0 && ctx.cycle.elapsed.nanoseconds() >= this->deadline_ns)
+                this->deadline_ns = ctx.cycle.elapsed.nanoseconds() + advance;
+        }
         std::this_thread::sleep_for(this->work.chrono());
         const auto d = x::telem::TimeSpan(this->deadline_ns.load());
         if (d != x::telem::TimeSpan::max()) ctx.set_deadline(d, this->span);
@@ -522,6 +533,43 @@ TEST(RuntimeClockTest, ResumesAboveReservedStamps) {
     std::lock_guard lock(node_ptr->mu);
     EXPECT_EQ(node_ptr->cycle_stamps[0], start);
     EXPECT_EQ(node_ptr->cycle_stamps[1], start + int64_t{3});
+}
+
+/// @brief A due timer should fire even when every wake is an input wake.
+TEST(RuntimeDeadlineTest, DueTimerFiresOnAnInputWake) {
+    auto [runtime, loop, node] = DeadlineRuntimeFixture::create(x::telem::TimeSpan(0));
+    loop->wake_reason = loop::WakeReason::Input;
+    ASSERT_TRUE(runtime->start());
+    ASSERT_EVENTUALLY_GE(node->timer_ticks.load(), 3);
+    ASSERT_TRUE(runtime->stop());
+}
+
+/// @brief A due deadline should give one timer tick, not one per input cycle after it,
+/// while a burst of input keeps the runtime busy.
+TEST(RuntimeDeadlineTest, DueTimerTicksOncePerDeadline) {
+    auto [runtime, loop, node] = DeadlineRuntimeFixture::create(
+        50 * x::telem::MILLISECOND
+    );
+    node->advance_ns = x::telem::SECOND.nanoseconds();
+    loop->wake_reason = loop::WakeReason::Input;
+    ASSERT_TRUE(runtime->start());
+    const auto sw = x::telem::Stopwatch();
+    while (sw.elapsed() < 300 * x::telem::MILLISECOND)
+        runtime->write(x::telem::Frame());
+    ASSERT_TRUE(runtime->stop());
+    EXPECT_EQ(node->timer_ticks.load(), 2);
+}
+
+/// @brief With no deadline, an input wake should never become a timer tick.
+TEST(RuntimeDeadlineTest, NoDeadlineInputWakeIsNotATimerTick) {
+    auto [runtime, loop, node] = DeadlineRuntimeFixture::create(
+        x::telem::TimeSpan::max()
+    );
+    loop->wake_reason = loop::WakeReason::Input;
+    ASSERT_TRUE(runtime->start());
+    ASSERT_EVENTUALLY_GE(loop->wait_count.load(), 5);
+    ASSERT_TRUE(runtime->stop());
+    EXPECT_EQ(node->timer_ticks.load(), 1);
 }
 
 /// @brief When no deadline is set, runtime should pass max_timeout=0 (no constraint)

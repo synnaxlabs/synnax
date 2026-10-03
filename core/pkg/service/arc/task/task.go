@@ -586,6 +586,10 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 					return nil
 				}
 				runReason = node.ReasonChannelInput
+				// A due timer fires on any cycle, so steady input cannot starve it.
+				if r.elapsed() >= r.scheduler.NextDeadline() {
+					runReason = node.ReasonTimerTick
+				}
 			}
 			if err := r.next(ctx, res, runReason); err != nil {
 				return err
