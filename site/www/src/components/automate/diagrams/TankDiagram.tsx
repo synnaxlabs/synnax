@@ -7,16 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { ReactElement } from "react";
+import { type ReactElement, useId } from "react";
 
 import type { DiagramState } from "@/components/automate/timeline";
 
-interface PressureDiagramProps {
+export interface TankDiagramProps {
   state: DiagramState;
+  fullScalePressure: number;
+  authorityVisible?: boolean;
 }
 
 const COLOR_ACTIVE = "var(--pluto-primary-p1)";
 const COLOR_INACTIVE = "var(--pluto-gray-l9)";
+const COLOR_EMERGENCY = "var(--pluto-error-z)";
 
 const VALVE_PATH =
   "M0 0L-13-6.6C-13.7-6.9-14.7-6.4-14.7-5.3V5.3C-14.7 6.4-13.7 6.9-13 6.6L0 0ZM0 0L13-6.6C13.7-6.9 14.7-6.4 14.7-5.3V5.3C14.7 6.4 13.7 6.9 13 6.6L0 0Z";
@@ -57,11 +60,22 @@ const Valve = ({ x, y, color, active, label }: ValveProps): ReactElement => (
   </g>
 );
 
-export const PressureDiagram = ({ state }: PressureDiagramProps): ReactElement => {
+export const TankDiagram = ({
+  state,
+  fullScalePressure,
+  authorityVisible = false,
+}: TankDiagramProps): ReactElement => {
+  const clipID = useId();
+  const isEmergency = state.stage === "emergency";
   const pressActive = state.pressValve;
   const ventActive = state.ventValve;
   const pressColor = pressActive ? COLOR_ACTIVE : COLOR_INACTIVE;
-  const ventColor = ventActive ? COLOR_ACTIVE : COLOR_INACTIVE;
+  const ventColor = ventActive
+    ? isEmergency
+      ? COLOR_EMERGENCY
+      : COLOR_ACTIVE
+    : COLOR_INACTIVE;
+  const tankStroke = isEmergency ? COLOR_EMERGENCY : "var(--pluto-gray-l9)";
   const tankX = 110;
   const tankY = 110;
   const tankW = 80;
@@ -69,13 +83,12 @@ export const PressureDiagram = ({ state }: PressureDiagramProps): ReactElement =
   const rX = 40;
   const rY = 22;
   const tankPath = `M${tankX},${tankY + rY} a${rX},${rY} 0 0 1 ${tankW},0 v${tankH - 2 * rY} a${rX},${rY} 0 0 1 -${tankW},0 Z`;
-  const fillHeight = Math.min((state.pressure / 600) * 80, 80);
+  const fillHeight = Math.min((state.pressure / fullScalePressure) * 80, 80);
   const fillY = tankY + tankH - fillHeight;
 
   return (
     <svg viewBox="-30 -10 450 350" className="automate-diagram-svg">
       <g transform="translate(45, 0)">
-        {/* Top pipe */}
         <line
           x1="150"
           y1="-10"
@@ -95,7 +108,6 @@ export const PressureDiagram = ({ state }: PressureDiagramProps): ReactElement =
           label="Press Valve"
         />
 
-        {/* Pipe from press valve to tank */}
         <line
           x1="150"
           y1="83"
@@ -107,16 +119,15 @@ export const PressureDiagram = ({ state }: PressureDiagramProps): ReactElement =
           className={pressActive ? "flow-line" : ""}
         />
 
-        {/* Tank vessel */}
         <path
           d={tankPath}
           fill="var(--pluto-gray-l2)"
-          stroke="var(--pluto-gray-l9)"
+          stroke={tankStroke}
           strokeWidth="2"
+          className={isEmergency ? "emergency-border" : ""}
         />
-        {/* Tank fill level — clipped to tank shape */}
         <defs>
-          <clipPath id="tank-clip-pressure">
+          <clipPath id={clipID}>
             <path d={tankPath} />
           </clipPath>
         </defs>
@@ -125,13 +136,11 @@ export const PressureDiagram = ({ state }: PressureDiagramProps): ReactElement =
           y={fillY}
           width={tankW}
           height={fillHeight}
-          fill={COLOR_ACTIVE}
+          fill={isEmergency ? COLOR_EMERGENCY : COLOR_ACTIVE}
           opacity="0.2"
           className="vessel-fill"
-          clipPath="url(#tank-clip-pressure)"
+          clipPath={`url(#${clipID})`}
         />
-
-        {/* Pressure value */}
         <text
           x="150"
           y="175"
@@ -142,7 +151,6 @@ export const PressureDiagram = ({ state }: PressureDiagramProps): ReactElement =
           {state.pressure.toFixed(1)} psi
         </text>
 
-        {/* Pipe from tank to vent valve */}
         <line
           x1="150"
           y1="230"
@@ -162,7 +170,6 @@ export const PressureDiagram = ({ state }: PressureDiagramProps): ReactElement =
           label="Vent Valve"
         />
 
-        {/* Bottom pipe */}
         <line
           x1="150"
           y1="290"
@@ -174,16 +181,52 @@ export const PressureDiagram = ({ state }: PressureDiagramProps): ReactElement =
           className={ventActive ? "flow-line" : ""}
         />
       </g>
-      {/* Stage badge */}
+      {authorityVisible && (
+        <g transform="translate(278, -2)">
+          <rect
+            x="0"
+            y="0"
+            width="64"
+            height="20"
+            rx="2"
+            fill="var(--pluto-gray-l2)"
+            stroke="var(--pluto-gray-l4)"
+            strokeWidth="1"
+          />
+          <rect
+            x="0"
+            y="0"
+            width={(state.authority / 255) * 64}
+            height="20"
+            rx="2"
+            fill={isEmergency ? COLOR_EMERGENCY : COLOR_ACTIVE}
+            opacity="0.25"
+            className="authority-fill"
+          />
+          <text
+            x="32"
+            y="10"
+            textAnchor="middle"
+            dominantBaseline="central"
+            className="diagram-badge-sm"
+            style={{ fill: "var(--pluto-gray-l9)" }}
+          >
+            auth {state.authority}
+          </text>
+        </g>
+      )}
+
       <rect
         x="348"
         y="-2"
         width="64"
         height="20"
         rx="2"
-        fill="var(--pluto-gray-l2)"
-        stroke="var(--pluto-gray-l4)"
+        fill={isEmergency ? COLOR_EMERGENCY : "var(--pluto-gray-l2)"}
+        fillOpacity={isEmergency ? 0.15 : 1}
+        stroke={isEmergency ? COLOR_EMERGENCY : "var(--pluto-gray-l4)"}
         strokeWidth="1"
+        className={isEmergency ? "emergency-border" : ""}
       />
       <text
         x="380"
@@ -191,10 +234,36 @@ export const PressureDiagram = ({ state }: PressureDiagramProps): ReactElement =
         textAnchor="middle"
         dominantBaseline="central"
         className="diagram-badge-sm"
-        style={{ fill: "var(--pluto-gray-l9)" }}
+        style={{ fill: isEmergency ? COLOR_EMERGENCY : "var(--pluto-gray-l9)" }}
       >
         {state.stage}
       </text>
+
+      {state.stage === "safed" && (
+        <g transform="translate(348, 22)">
+          <rect
+            x="0"
+            y="0"
+            width="64"
+            height="20"
+            rx="2"
+            fill="var(--pluto-secondary-z)"
+            fillOpacity="0.15"
+            stroke="var(--pluto-secondary-z)"
+            strokeWidth="1"
+          />
+          <text
+            x="32"
+            y="10"
+            textAnchor="middle"
+            dominantBaseline="central"
+            className="diagram-badge-sm"
+            style={{ fill: "var(--pluto-secondary-z)" }}
+          >
+            SAFE
+          </text>
+        </g>
+      )}
     </svg>
   );
 };
