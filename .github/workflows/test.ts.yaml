@@ -115,9 +115,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up pnpm and Node.js
-        uses: pnpm/setup@v3
-        with:
-          cache: true
+        uses: ./.github/actions/setup-pnpm
 
       - name: Check types
         if: matrix.lint && inputs.lint

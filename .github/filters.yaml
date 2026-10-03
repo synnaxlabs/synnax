@@ -53,6 +53,7 @@ py: &py
 
 ts: &ts
   - *ci
+  - .github/actions/setup-pnpm/**
   - .github/workflows/test.ts.yaml
   - codecov.yaml
   - configs/**
