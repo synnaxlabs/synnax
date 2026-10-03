@@ -23,7 +23,6 @@ html {
 
 :root {
     /* Layout variables */
-    --nav-height: clamp(7rem, 5.5rem + 2vw, 9rem);
     --max-width: 1400px;
     --pluto-border-width: 1px;
 

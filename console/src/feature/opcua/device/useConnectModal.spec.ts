@@ -13,7 +13,10 @@ import { describe, expect, it } from "vitest";
 
 import { OPCUA } from "@/feature/opcua";
 import { createOPCDevice } from "@/feature/opcua/testutil";
+import { createTestSink } from "@/platform/analytics/testutil";
 import { pressSaveTrigger, renderModalOpener } from "@/platform/modals/testutil";
+import { answerNextCommand, selectFromDropdown } from "@/platform/task/testutil";
+import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -52,6 +55,32 @@ describe("OPCUA.Device.useConnectModal", () => {
     expect(screen.getByText("Basic 256-bit")).toBeTruthy();
     fireEvent.click(screen.getAllByText("None")[0]);
     await waitFor(() => expect(screen.queryByText("Client certificate")).toBeNull());
+  });
+
+  it("should report a device it connected", async () => {
+    const rack = await client.racks.create({
+      name: uniqueName("opcua_rack"),
+      integrations: ["opc"],
+    });
+    const scan = await rack.createTask({
+      name: uniqueName("opcua_scan"),
+      type: OPCUA.Task.SCAN_TYPE,
+      config: {},
+    });
+    const analytics = createTestSink();
+    await renderModalOpener(OPCUA.Device.useConnectModal, [{}], { client, analytics });
+    await selectFromDropdown("Select Driver", rack.name);
+    fireEvent.change(screen.getByPlaceholderText("opc.tcp://localhost:4840"), {
+      target: { value: "opc.tcp://localhost:4840" },
+    });
+    const { answered } = await answerNextCommand(client, scan);
+    pressSaveTrigger();
+    await answered;
+    await waitFor(() =>
+      expect(analytics.capture).toHaveBeenCalledWith("device_connected", {
+        integration: "opcua",
+      }),
+    );
   });
 
   // Submitting with no rack chosen fails validation. That error is the proof the keys

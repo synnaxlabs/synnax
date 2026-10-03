@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <memory>
+#include <numeric>
 #include <string>
 #include <vector>
 
@@ -1324,6 +1326,245 @@ TEST(ChannelStateTest, StampIndexes_SkipsChannelWithNoIndex) {
 
     ASSERT_EQ(out.size(), 1);
     EXPECT_EQ(highest.nanoseconds(), 0);
+}
+
+namespace {
+/// @brief buffers one value with a supplied timestamp, as a sink does.
+void write_stamped(State &state, types::ChannelKey key, float value, int64_t stamp) {
+    state.write_value(
+        key,
+        x::mem::make_local_shared<x::telem::Series>(std::vector<float>{value}),
+        x::mem::make_local_shared<x::telem::Series>(
+            std::vector<x::telem::TimeStamp>{x::telem::TimeStamp(stamp)}
+        )
+    );
+}
+
+/// @brief a state with one FLOAT32 channel (1) alone on its index (2).
+State alone_on_index() {
+    return State(
+        std::vector<Digest>{
+            {.key = 1, .data_type = x::telem::FLOAT32_T, .index = 2},
+        }
+    );
+}
+
+/// @brief returns the series the frame holds for key.
+const x::telem::Series &series_of(const x::telem::Frame &frame, types::ChannelKey key) {
+    for (size_t i = 0; i < frame.size(); i++)
+        if (frame.channels->at(i) == key) return frame.series->at(i);
+    throw std::runtime_error("channel not in frame");
+}
+
+const int64_t SUPPLIED = FLUSH_NOW.nanoseconds() - 5 * x::telem::SECOND.nanoseconds();
+const int64_t LATER = FLUSH_NOW.nanoseconds() + 5 * x::telem::SECOND.nanoseconds();
+}
+
+TEST(ChannelStateTest, MixedWrites_FlowWriteFirst) {
+    auto state = alone_on_index();
+    write_stamped(state, 1, 1.0f, SUPPLIED);
+    state.write_channel_f32(1, 2.0f);
+    x::telem::Frame out;
+    const auto highest = state.flush_into(out, FLUSH_NOW);
+    EXPECT_EQ(out.at<float>(1, 0), 1.0f);
+    EXPECT_EQ(out.at<float>(1, 1), 2.0f);
+    EXPECT_EQ(out.at<int64_t>(2, 0), SUPPLIED);
+    EXPECT_EQ(out.at<int64_t>(2, 1), FLUSH_NOW.nanoseconds());
+    EXPECT_EQ(highest.nanoseconds(), FLUSH_NOW.nanoseconds());
+}
+
+TEST(ChannelStateTest, MixedWrites_BodyWriteFirst) {
+    auto state = alone_on_index();
+    state.write_channel_f32(1, 2.0f);
+    write_stamped(state, 1, 1.0f, SUPPLIED);
+    x::telem::Frame out;
+    const auto highest = state.flush_into(out, FLUSH_NOW);
+    EXPECT_EQ(out.at<float>(1, 0), 1.0f);
+    EXPECT_EQ(out.at<float>(1, 1), 2.0f);
+    EXPECT_EQ(out.at<int64_t>(2, 0), SUPPLIED);
+    EXPECT_EQ(out.at<int64_t>(2, 1), FLUSH_NOW.nanoseconds());
+    EXPECT_EQ(highest.nanoseconds(), FLUSH_NOW.nanoseconds());
+}
+
+TEST(ChannelStateTest, MixedWrites_BodyBeforeSuppliedStampLaterThanNow) {
+    auto state = alone_on_index();
+    write_stamped(state, 1, 1.0f, LATER);
+    state.write_channel_f32(1, 2.0f);
+    x::telem::Frame out;
+    const auto highest = state.flush_into(out, FLUSH_NOW);
+    EXPECT_EQ(out.at<float>(1, 0), 2.0f);
+    EXPECT_EQ(out.at<float>(1, 1), 1.0f);
+    EXPECT_EQ(out.at<int64_t>(2, 0), FLUSH_NOW.nanoseconds());
+    EXPECT_EQ(out.at<int64_t>(2, 1), LATER);
+    EXPECT_EQ(highest.nanoseconds(), FLUSH_NOW.nanoseconds());
+}
+
+TEST(ChannelStateTest, MixedWrites_KeepsWriteOrderAtNow_BodyWriteFirst) {
+    auto state = alone_on_index();
+    state.write_channel_f32(1, 0.7f);
+    write_stamped(state, 1, 0.0f, FLUSH_NOW.nanoseconds());
+    x::telem::Frame out;
+    const auto highest = state.flush_into(out, FLUSH_NOW);
+    EXPECT_EQ(out.at<float>(1, 0), 0.7f);
+    EXPECT_EQ(out.at<float>(1, 1), 0.0f);
+    EXPECT_EQ(out.at<int64_t>(2, 0), FLUSH_NOW.nanoseconds());
+    EXPECT_EQ(out.at<int64_t>(2, 1), FLUSH_NOW.nanoseconds() + 1);
+    EXPECT_EQ(highest.nanoseconds(), FLUSH_NOW.nanoseconds() + 1);
+}
+
+TEST(ChannelStateTest, MixedWrites_KeepsWriteOrderAtNow_SuppliedWriteFirst) {
+    auto state = alone_on_index();
+    write_stamped(state, 1, 0.0f, FLUSH_NOW.nanoseconds());
+    state.write_channel_f32(1, 0.7f);
+    x::telem::Frame out;
+    const auto highest = state.flush_into(out, FLUSH_NOW);
+    EXPECT_EQ(out.at<float>(1, 0), 0.0f);
+    EXPECT_EQ(out.at<float>(1, 1), 0.7f);
+    EXPECT_EQ(out.at<int64_t>(2, 0), FLUSH_NOW.nanoseconds());
+    EXPECT_EQ(out.at<int64_t>(2, 1), FLUSH_NOW.nanoseconds() + 1);
+    EXPECT_EQ(highest.nanoseconds(), FLUSH_NOW.nanoseconds() + 1);
+}
+
+TEST(ChannelStateTest, MixedWrites_MovesEqualSuppliedStampsApart) {
+    auto state = alone_on_index();
+    write_stamped(state, 1, 1.0f, FLUSH_NOW.nanoseconds());
+    write_stamped(state, 1, 2.0f, FLUSH_NOW.nanoseconds());
+    x::telem::Frame out;
+    const auto highest = state.flush_into(out, FLUSH_NOW);
+    EXPECT_EQ(out.at<float>(1, 0), 1.0f);
+    EXPECT_EQ(out.at<float>(1, 1), 2.0f);
+    EXPECT_EQ(out.at<int64_t>(2, 0), FLUSH_NOW.nanoseconds());
+    EXPECT_EQ(out.at<int64_t>(2, 1), FLUSH_NOW.nanoseconds() + 1);
+    EXPECT_EQ(highest.nanoseconds(), FLUSH_NOW.nanoseconds() + 1);
+}
+
+TEST(ChannelStateTest, MixedWrites_OrdersSuppliedStampsByTime) {
+    auto state = alone_on_index();
+    write_stamped(state, 1, 1.0f, 20);
+    write_stamped(state, 1, 2.0f, 10);
+    x::telem::Frame out;
+    state.flush_into(out, FLUSH_NOW);
+    EXPECT_EQ(out.at<float>(1, 0), 2.0f);
+    EXPECT_EQ(out.at<float>(1, 1), 1.0f);
+    EXPECT_EQ(out.at<int64_t>(2, 0), 10);
+    EXPECT_EQ(out.at<int64_t>(2, 1), 20);
+}
+
+TEST(ChannelStateTest, MixedWrites_BodyAfterPreviousFramesLastStamp) {
+    auto state = alone_on_index();
+    write_stamped(state, 1, 1.0f, LATER);
+    x::telem::Frame first;
+    state.flush_into(first, FLUSH_NOW);
+    state.write_channel_f32(1, 2.0f);
+    x::telem::Frame out;
+    state.flush_into(out, FLUSH_NOW);
+    EXPECT_EQ(out.at<int64_t>(2, 0), LATER + 1);
+}
+
+TEST(ChannelStateTest, MixedWrites_OrdersStringChannelByTimeThenWriteOrder) {
+    State state(
+        std::vector<Digest>{
+            {.key = 7, .data_type = x::telem::STRING_T, .index = 8},
+        }
+    );
+    const auto write_string = [&state](const std::string &value, int64_t stamp) {
+        state.write_value(
+            7,
+            x::mem::make_local_shared<x::telem::Series>(value),
+            x::mem::make_local_shared<x::telem::Series>(
+                std::vector<x::telem::TimeStamp>{x::telem::TimeStamp(stamp)}
+            )
+        );
+    };
+    write_string("late", 20);
+    write_string("early", 10);
+    state.write_value(
+        7,
+        x::mem::make_local_shared<x::telem::Series>(std::string("body"))
+    );
+    write_string("tie", FLUSH_NOW.nanoseconds());
+    x::telem::Frame out;
+    state.flush_into(out, FLUSH_NOW);
+    EXPECT_EQ(out.at<std::string>(7, 0), "early");
+    EXPECT_EQ(out.at<std::string>(7, 1), "late");
+    EXPECT_EQ(out.at<std::string>(7, 2), "body");
+    EXPECT_EQ(out.at<std::string>(7, 3), "tie");
+    EXPECT_EQ(out.at<int64_t>(8, 0), 10);
+    EXPECT_EQ(out.at<int64_t>(8, 1), 20);
+    EXPECT_EQ(out.at<int64_t>(8, 2), FLUSH_NOW.nanoseconds());
+    EXPECT_EQ(out.at<int64_t>(8, 3), FLUSH_NOW.nanoseconds() + 1);
+}
+
+/// @brief Every order of one to four writes mixes body writes (b) with supplied writes
+/// stamped behind now (l), at now (n), and ahead of now (a). Samples must come out in
+/// time order, then in write order, each 1ns after the one before when they tie. A
+/// second cycle, 1ns later, makes one body write.
+TEST(ChannelStateTest, StampInvariants_TimeThenWriteOrder) {
+    std::vector<std::string> orders{""}, all;
+    for (int len = 0; len < 4; len++) {
+        std::vector<std::string> next;
+        for (const auto &order: orders)
+            for (const char op: {'b', 'l', 'n', 'a'})
+                next.push_back(order + op);
+        orders = next;
+        all.insert(all.end(), orders.begin(), orders.end());
+    }
+    constexpr int64_t now = 1000;
+    for (const auto &order: all) {
+        SCOPED_TRACE(order);
+        auto state = alone_on_index();
+        std::vector<std::pair<int64_t, float>> written;
+        std::vector<bool> synthesized;
+        int64_t behind = now - 100, ahead = now + 100;
+        for (size_t i = 0; i < order.size(); i++) {
+            const auto value = static_cast<float>(i + 1);
+            auto stamp = now;
+            if (order[i] == 'l') stamp = behind++;
+            if (order[i] == 'a') stamp = ahead++;
+            if (order[i] == 'b')
+                state.write_channel_f32(1, value);
+            else
+                write_stamped(state, 1, value, stamp);
+            written.emplace_back(stamp, value);
+            synthesized.push_back(order[i] == 'b');
+        }
+        std::vector<size_t> positions(written.size());
+        std::iota(positions.begin(), positions.end(), 0);
+        std::stable_sort(positions.begin(), positions.end(), [&](size_t a, size_t b) {
+            return written[a].first < written[b].first;
+        });
+        std::vector<std::pair<int64_t, float>> expected;
+        int64_t highest = 0;
+        for (const auto p: positions) {
+            auto want = written[p];
+            if (!expected.empty() && want.first <= expected.back().first) {
+                want.first = expected.back().first + 1;
+                synthesized[p] = true;
+            }
+            if (synthesized[p]) highest = want.first;
+            expected.push_back(want);
+        }
+        x::telem::Frame out;
+        const auto actual_highest = state.flush_into(out, x::telem::TimeStamp(now));
+        const auto &values = series_of(out, 1);
+        const auto &index = series_of(out, 2);
+        ASSERT_EQ(index.size(), order.size());
+        ASSERT_EQ(values.size(), index.size());
+        for (size_t i = 0; i < expected.size(); i++)
+            ASSERT_EQ(
+                std::make_pair(
+                    index.at<int64_t>(static_cast<int>(i)),
+                    values.at<float>(static_cast<int>(i))
+                ),
+                expected[i]
+            );
+        ASSERT_EQ(actual_highest.nanoseconds(), highest);
+        const auto last = expected.back().first;
+        state.write_channel_f32(1, 0);
+        x::telem::Frame next;
+        state.flush_into(next, x::telem::TimeStamp(now + 1));
+        ASSERT_EQ(series_of(next, 2).at<int64_t>(0), std::max(now + 1, last + 1));
+    }
 }
 
 /// @brief A write node carrying its channel config but missing the data input
