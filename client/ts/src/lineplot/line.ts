@@ -70,7 +70,7 @@ export const reconcileLines = (
           const key = lineKey({ yAxis, xAxis, range, xChannel, yChannel });
           if (kept.has(key)) continue;
           kept.add(key);
-          // A new line takes Oracle schema defaults (stroke width, downsample);
+          // A new line takes Oracle schema defaults (stroke width, aggregation);
           // label and color stay unset so they resolve at render time.
           lines.push(byKey.get(key) ?? lineZ.parse({ key }));
         }

@@ -2419,7 +2419,7 @@ describe("remote", () => {
       await expect.poll(() => sources.every((s) => !s.loading())).toBe(true);
 
     const drawn = (x: MultiSeries, y: MultiSeries) =>
-      line.buildDrawOperations(x, y, 1, 1, "average", line.DEFAULT_OVERLAP_THRESHOLD);
+      line.buildDrawOperations(x, y, line.DEFAULT_OVERLAP_THRESHOLD);
 
     it("should pair every reduced x sample with a y sample", async () => {
       const { data, home } = await writeChannels();

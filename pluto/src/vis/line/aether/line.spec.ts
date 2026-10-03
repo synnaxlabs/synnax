@@ -33,7 +33,6 @@ import {
   type DrawOperation,
   Line,
   type LineProps,
-  nearestVertex,
 } from "@/vis/line/aether/line";
 import { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/test";
@@ -383,14 +382,7 @@ describe("line", () => {
       it(`spec ${name}`, () => {
         const xSeries = buildSeriesFromEntries(x);
         const ySeries = buildSeriesFromEntries(y);
-        const drawOperations = buildDrawOperations(
-          xSeries,
-          ySeries,
-          1,
-          0,
-          "decimate",
-          TimeSpan.ZERO,
-        );
+        const drawOperations = buildDrawOperations(xSeries, ySeries, TimeSpan.ZERO);
         expect(drawOperations.length).toBe(expected.length);
         drawOperations.forEach((drawOperation: DrawOperation, i: number) => {
           expect(drawOperation.x).toBe(xSeries.series[expected[i].xSeries]);
@@ -404,13 +396,13 @@ describe("line", () => {
   });
 
   describe("bridgeVertices", () => {
-    const op = (
-      x: Series,
-      y: Series,
-      count: number,
-      offset = 0,
-      downsample = 1,
-    ): DrawOperation => ({ x, y, xOffset: offset, yOffset: offset, count, downsample });
+    const op = (x: Series, y: Series, count: number, offset = 0): DrawOperation => ({
+      x,
+      y,
+      xOffset: offset,
+      yOffset: offset,
+      count,
+    });
     const f32 = (...data: number[]): Series => new Series(new Float32Array(data));
     const shifted = (sampleOffset: bigint, ...data: number[]): Series =>
       new Series({ data: new Float32Array(data), sampleOffset });
@@ -453,20 +445,6 @@ describe("line", () => {
       expect(vertices(ops)).toEqual(expected);
     });
 
-    describe("decimated ops", () => {
-      const ax = f32(0, 1, 2, 3, 4, 5, 6);
-      const ay = f32(10, 11, 12, 13, 14, 15, 16);
-      const b = op(f32(9), f32(1), 1);
-
-      it("should start at the last vertex the strip draws", () => {
-        expect(vertices([op(ax, ay, 7, 0, 3), b])).toEqual([3, 13, 9, 1]);
-      });
-
-      it("should start at the first sample of an op too short to draw", () => {
-        expect(vertices([op(ax, ay, 5, 0, 3), b])).toEqual([0, 10, 9, 1]);
-      });
-    });
-
     it("should respect the op offsets and a uint8 y", () => {
       const a = op(f32(0, 1, 2, 3), new Series(new Uint8Array([0, 1, 1, 0])), 2, 1);
       const b = op(f32(4, 5, 6), new Series(new Uint8Array([1, 0, 0])), 2, 1);
@@ -494,41 +472,6 @@ describe("line", () => {
       const s = new scale.XY(scale.Scale.scale<number>(lower, lower + view).scale(1));
       const [x] = bridgeVertices([a, b], s);
       expect(x).toBeCloseTo(0.5, 5);
-    });
-  });
-
-  describe("nearestVertex", () => {
-    const EMPTY = new Series(new Float32Array());
-    const op = (count: number, downsample: number, xOffset = 0): DrawOperation => ({
-      x: EMPTY,
-      y: EMPTY,
-      xOffset,
-      yOffset: 0,
-      count,
-      downsample,
-    });
-
-    it("should return the index itself when nothing is decimated", () => {
-      expect(nearestVertex(op(30, 1), 17)).toBe(17);
-    });
-
-    it("should round to the nearest drawn vertex", () => {
-      expect(nearestVertex(op(30, 4), 1)).toBe(0);
-      expect(nearestVertex(op(30, 4), 3)).toBe(4);
-      expect(nearestVertex(op(30, 4), 14)).toBe(16);
-    });
-
-    it("should not pass the last vertex the strip draws", () => {
-      expect(nearestVertex(op(30, 4), 29)).toBe(24);
-    });
-
-    it("should measure from the op's x offset", () => {
-      expect(nearestVertex(op(30, 4, 2), 5)).toBe(6);
-      expect(nearestVertex(op(30, 4, 2), 3)).toBe(2);
-    });
-
-    it("should return the first sample of an op too short to draw", () => {
-      expect(nearestVertex(op(6, 4), 5)).toBe(0);
     });
   });
 
@@ -573,10 +516,9 @@ describe("line", () => {
     const PROPS: LineProps = {
       region: box.construct(0, 0, 800, 600),
       dataToDecimalScale: scale.XY.IDENTITY,
-      exposure: 0,
     };
 
-    const mount = (x: Series[], y: Series[], downsample = 1) => {
+    const mount = (x: Series[], y: Series[]) => {
       const { gl, calls } = canvasTest.createGL();
       const recorder = canvasTest.record();
       (recorder as { gl: unknown }).gl = gl;
@@ -592,7 +534,6 @@ describe("line", () => {
               x: sourceSpec(x),
               y: sourceSpec(y),
               color: color.construct("#ff0000"),
-              downsample,
             },
           },
         },
@@ -641,15 +582,9 @@ describe("line", () => {
         { start: 0, end: 100 },
       );
 
-      it("should return the sample under the target when nothing is decimated", () => {
+      it("should return the sample under the target", () => {
         const m = mount([X], [Y]);
         expect(m.line.findByXValue(PROPS, 3).value).toEqual({ x: 3, y: 30 });
-      });
-
-      it("should snap to the nearest vertex a decimated line draws", () => {
-        const m = mount([X], [Y], 4);
-        expect(m.line.findByXValue(PROPS, 3).value).toEqual({ x: 4, y: 40 });
-        expect(m.line.findByXValue(PROPS, 29).value).toEqual({ x: 24, y: 240 });
       });
     });
   });

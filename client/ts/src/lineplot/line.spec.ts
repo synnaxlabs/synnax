@@ -110,8 +110,8 @@ describe("line", () => {
       expect(lines).toHaveLength(1);
       const [line] = lines;
       expect(line.strokeWidth).toEqual(2);
-      expect(line.downsample).toEqual(1);
-      expect(line.downsampleMode).toEqual("decimate");
+      expect(line.aggregation).toEqual("min_max");
+      expect(line.detail).toEqual("medium");
       expect(line.label).toBeUndefined();
       expect(line.color).toBeUndefined();
     });
@@ -131,8 +131,8 @@ describe("line", () => {
         label: "custom",
         color: [255, 0, 0, 1],
         strokeWidth: 5,
-        downsample: 4,
-        downsampleMode: "average",
+        aggregation: "average",
+        detail: "high",
       };
       const { lines, dropped } = reconcileLines(channels, ranges, [styled]);
       expect(lines).toEqual([styled]);
@@ -149,8 +149,8 @@ describe("line", () => {
           yChannel: 99,
         }),
         strokeWidth: 2,
-        downsample: 1,
-        downsampleMode: "decimate",
+        aggregation: "min_max",
+        detail: "medium",
       };
       const channels = emptyChannels({ x1: 10, y1: [1] });
       const ranges = emptyRanges({ x1: ["r1"] });
