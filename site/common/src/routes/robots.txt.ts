@@ -7,12 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sitemap } from "@synnaxlabs/site-common/sitemap";
+import { type APIContext, type APIRoute } from "astro";
 
 export const prerender = true;
 
-const ROUTES = Object.keys(import.meta.glob("/src/pages/**/*.astro")).map(
-  (file) => file.replace(/^\/src\/pages/, "").replace(/(index)?\.astro$/, "") || "/",
-);
+export const GET = (({ site }: Pick<APIContext, "site">) =>
+  new Response(
+    `User-agent: *
+Allow: /
 
-export const GET = sitemap(ROUTES);
+Sitemap: ${new URL("/sitemap.xml", site).href}
+`,
+    { headers: { "Content-Type": "text/plain; charset=utf-8" } },
+  )) satisfies APIRoute;
