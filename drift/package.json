@@ -29,7 +29,6 @@
     "@testing-library/react": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
-    "@vitejs/plugin-react": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "async-mutex": "catalog:",
     "eslint": "catalog:",

@@ -38,6 +38,7 @@ import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { onTestFinished } from "vitest";
 import { type z } from "zod";
 
+import { Analytics } from "@/platform/analytics";
 import { type FormTabProps } from "@/platform/task/Form";
 import { Session } from "@/session";
 import {
@@ -350,6 +351,8 @@ export interface RenderTaskFormTabOptions extends Pick<RenderOptions, "onCaughtE
    * callback receives the notification list on every change.
    */
   onStatuses?: (statuses: Status.NotificationSpec[]) => void;
+  /** Receives every event the form reports; discards them by default. */
+  analytics?: Analytics.Sink;
 }
 
 export interface RenderTaskFormTabResult extends RenderResult, CreatedPanel {
@@ -366,7 +369,7 @@ export const renderTaskFormTab = async (
   Form: FC<FormTabProps>,
   options: RenderTaskFormTabOptions = {},
 ): Promise<RenderTaskFormTabResult> => {
-  const { onStatuses, onCaughtError } = options;
+  const { onStatuses, onCaughtError, analytics = Analytics.NOOP } = options;
   const client = options.client ?? defaultClient;
   const as = options.as ?? client;
   const taskKey =
@@ -387,10 +390,12 @@ export const renderTaskFormTab = async (
     await as.panels.retrieve(created.panelKey);
   }
   const result = await renderSuspended(
-    <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
-      <Form taskKey={taskKey} />
-      {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
-    </PanelScopes>,
+    <Analytics.Provider sink={analytics}>
+      <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
+        <Form taskKey={taskKey} />
+        {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
+      </PanelScopes>
+    </Analytics.Provider>,
     { wrapper, onCaughtError },
   );
   return { ...result, ...created, store, tabKey: tab.key };
@@ -520,6 +525,32 @@ export const reportTaskStopped = async (
       details: { task: tsk.key, running: false, configHash: tsk.configHash },
     }),
   });
+};
+
+/**
+ * Answers the next command sent to the task with a success status, as a Driver does.
+ * Specs run without a Driver, so a caller that waits for the answer otherwise times out.
+ * Resolves once it listens, with a promise that settles after the answer is written.
+ */
+export const answerNextCommand = async (
+  client: Client,
+  tsk: task.Task,
+): Promise<{ answered: Promise<void> }> => {
+  const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+  const answer = async (): Promise<void> => {
+    try {
+      const cmd = await awaitCommand(streamer, tsk.key);
+      await client.tasks.create({
+        ...tsk.payload,
+        status: createTaskStatus({
+          details: { task: tsk.key, cmd: cmd.key, rack: tsk.rack },
+        }),
+      });
+    } finally {
+      streamer.close();
+    }
+  };
+  return { answered: answer() };
 };
 
 /** Finds the single text input rendered by a task form field. */

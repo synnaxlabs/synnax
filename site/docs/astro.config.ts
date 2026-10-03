@@ -30,6 +30,11 @@ export default defineConfig({
         access: "public",
         optional: true,
       }),
+      FLAG_PORTAL: envField.boolean({
+        context: "client",
+        access: "public",
+        default: false,
+      }),
     },
   },
   adapter: vercel({
@@ -39,8 +44,9 @@ export default defineConfig({
     isr: { expiration: 300, exclude: [/^\/releases\/[^/]+\/(latest|next)\.json$/] },
   }),
   vite: {
-    // Lyra is ESM with CSS imports, which Node cannot load; Vite bundles it for SSR.
-    ssr: { noExternal: ["@synnaxlabs/lyra"] },
+    // These ship ESM with CSS imports, which Node cannot load; Vite bundles them for
+    // SSR.
+    ssr: { noExternal: ["@synnaxlabs/lyra", "@synnaxlabs/site-common"] },
     css: {
       postcss: { plugins: [layers([{ name: "pluto", files: /[\\/]lyra[\\/]/ }])] },
     },

@@ -16,7 +16,7 @@ export default defineConfig({
   plugins: [lib({ name: "freighter" })],
   build: {
     rolldownOptions: {
-      external: ["zod", "@synnaxlabs/alamos", "@synnaxlabs/x"],
+      external: ["zod", "@synnaxlabs/x"],
     },
   },
   test: {

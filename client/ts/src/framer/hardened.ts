@@ -15,7 +15,12 @@ import { EOF } from "@synnaxlabs/freighter";
 import { breaker, errors, observe, sync, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
-import { AccessDeniedError, NotFoundError, ValidationError } from "@/errors";
+import {
+  AccessDeniedError,
+  LicenseError,
+  NotFoundError,
+  ValidationError,
+} from "@/errors";
 import { type Frame } from "@/framer/frame";
 import {
   type Streamer,
@@ -162,11 +167,13 @@ export class HardenedStreamer implements Streamer {
         const err = errors.fromUnknown(e);
         // Retrying only fixes connectivity; a definitive rejection recurs on every
         // attempt. Expired and invalid tokens are not definitive: the auth
-        // middleware refreshes them, and a later attempt gets a fresh budget.
+        // middleware refreshes them, and a later attempt gets a fresh budget. A
+        // license refusal lasts until activation, after which the connection reopens.
         if (
           AccessDeniedError.matches(err) ||
           ValidationError.matches(err) ||
-          NotFoundError.matches(err)
+          NotFoundError.matches(err) ||
+          LicenseError.matches(err)
         )
           throw err;
         if (!(await this.breaker.wait())) throw err;

@@ -1,0 +1,35 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-account-login__body {
+    width: 100%;
+    height: 100%;
+    padding: 6rem 8rem 3rem;
+}
+
+/* One fixed height for the mark and the orbital, so the text holds still between
+   stages. The orbital sizes itself from this box. */
+.console-account-login__hero {
+    width: 100%;
+    height: 26rem;
+    flex-shrink: 0;
+
+    & .pluto-orbital {
+        --pluto-orbital-size: 26rem;
+        --pluto-loading-delay: 0ms;
+    }
+}
+
+/* Text is a flex box, so align centers the box but not its wrapped lines. */
+.console-account-login__description {
+    text-align: center;
+    text-wrap: balance;
+}
