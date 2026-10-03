@@ -21,7 +21,7 @@
     > .pluto-dialog__trigger:not(.pluto-select-single-trigger--collapsible)
         > .pluto-select__label
 ) {
-    min-width: 9rem;
+    min-width: 11rem;
 }
 
 /* Inline-size containment drops the name from the trigger's own width, so the caller
