@@ -37,6 +37,7 @@ const TAB: Panel.Tab = {
     "Toolbar",
   ),
   Icon: Icon.Schematic,
+  // Passing the whole namespace would keep all of its code in the startup bundle.
   Name: Panel.createEditableTabName(
     { useEnsure: Base.useEnsure, useName: Base.useName, useRename: Base.useRename },
     <Icon.Schematic />,
@@ -45,6 +46,7 @@ const TAB: Panel.Tab = {
     const corpse = query.requireCorpse(client.schematics.getCached(resource.key));
     await client.schematics.create(project, corpse);
   },
+  // Passing the whole namespace would keep all of its code in the startup bundle.
   useTombstone: Panel.createTombstoneReader({ useTombstone: Base.useTombstone }),
 };
 

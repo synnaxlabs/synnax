@@ -30,6 +30,7 @@ const TAB: Panel.Tab = {
   Content: Panel.lazyComponent(() => import("@/feature/log/Log"), "Log"),
   Toolbar: Panel.lazyComponent(() => import("@/feature/log/toolbar"), "Toolbar"),
   Icon: Icon.Log,
+  // Passing the whole namespace would keep all of its code in the startup bundle.
   Name: Panel.createEditableTabName(
     { useEnsure: Base.useEnsure, useName: Base.useName, useRename: Base.useRename },
     <Icon.Log />,
@@ -38,6 +39,7 @@ const TAB: Panel.Tab = {
     const corpse = query.requireCorpse(client.logs.getCached(resource.key));
     await client.logs.create(project, corpse);
   },
+  // Passing the whole namespace would keep all of its code in the startup bundle.
   useTombstone: Panel.createTombstoneReader({ useTombstone: Base.useTombstone }),
 };
 

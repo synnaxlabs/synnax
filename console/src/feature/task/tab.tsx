@@ -87,5 +87,6 @@ export const TAB: Panel.Tab = {
     // nothing running, so core seeds it as never deployed.
     await client.tasks.create({ ...corpse.payload, status: undefined });
   },
+  // Passing the whole namespace would keep all of its code in the startup bundle.
   useTombstone: Panel.createTombstoneReader({ useTombstone: Base.useTombstone }),
 };

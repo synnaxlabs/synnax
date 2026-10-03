@@ -29,6 +29,7 @@ const TAB: Panel.Tab = {
   Content: Panel.lazyComponent(() => import("@/feature/lineplot/LinePlot"), "LinePlot"),
   Toolbar: Panel.lazyComponent(() => import("@/feature/lineplot/toolbar"), "Toolbar"),
   Icon: Icon.LinePlot,
+  // Passing the whole namespace would keep all of its code in the startup bundle.
   Name: Panel.createEditableTabName(
     { useEnsure: Base.useEnsure, useName: Base.useName, useRename: Base.useRename },
     <Icon.LinePlot />,
@@ -37,6 +38,7 @@ const TAB: Panel.Tab = {
     const corpse = query.requireCorpse(client.lineplots.getCached(resource.key));
     await client.lineplots.create(project, corpse);
   },
+  // Passing the whole namespace would keep all of its code in the startup bundle.
   useTombstone: Panel.createTombstoneReader({ useTombstone: Base.useTombstone }),
 };
 
