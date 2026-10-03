@@ -18,6 +18,15 @@ import { Cache } from "@/framer/cache/cache";
 import { MultiplexedStreamer, type StreamHooks } from "@/framer/cache/streamer";
 import { Frame } from "@/framer/frame";
 
+const createErrorSpy = () => {
+  const instrumentation = new alamos.Instrumentation({
+    key: "test",
+    logger: new alamos.Logger({ filters: [alamos.logThresholdFilter("error")] }),
+  });
+  const errorSpy = vi.spyOn(instrumentation.L, "error").mockImplementation(() => {});
+  return { instrumentation, errorSpy };
+};
+
 class MockStreamer implements framer.Streamer {
   private keysI: channel.Params[];
   readonly updateVi = vi.fn();
@@ -407,11 +416,7 @@ describe("MultiplexedStreamer", () => {
         if (updateCalls === 1) throw updateErr;
         ms1.updateVi(keys);
       });
-      const ins = new alamos.Instrumentation({
-        key: "test",
-        logger: new alamos.Logger(),
-      });
-      const errorSpy = vi.spyOn(ins.L, "error").mockImplementation(() => {});
+      const { instrumentation, errorSpy } = createErrorSpy();
       const rejections: unknown[] = [];
       const onRejection = (reason: unknown) => rejections.push(reason);
       process.on("unhandledRejection", onRejection);
@@ -419,7 +424,7 @@ describe("MultiplexedStreamer", () => {
       const streamer = new MultiplexedStreamer({
         cache: new Cache(),
         openStreamer: createStreamOpener([ms1]),
-        instrumentation: ins,
+        instrumentation,
       });
 
       try {
@@ -510,9 +515,11 @@ describe("MultiplexedStreamer", () => {
           };
         });
       };
+      const { instrumentation, errorSpy } = createErrorSpy();
       const streamer = new MultiplexedStreamer({
         cache: new Cache(),
         openStreamer: opener,
+        instrumentation,
       });
 
       let brokenCalls = 0;
@@ -531,12 +538,19 @@ describe("MultiplexedStreamer", () => {
       expect(brokenCalls).toBeGreaterThan(5);
       expect(responses.length).toBeGreaterThan(5);
       expect(openCalls).toBe(1);
+      expect(errorSpy).toHaveBeenCalledWith(
+        "stream handler failed",
+        { error: new Error("broken live handler") },
+        true,
+      );
     });
 
     it("should notify remaining status handlers when one throws", async () => {
+      const { instrumentation, errorSpy } = createErrorSpy();
       const streamer = new MultiplexedStreamer({
         cache: new Cache(),
         openStreamer: createStreamOpener([pendingStreamer([1])]),
+        instrumentation,
       });
 
       const broken = streamer.stream(() => {}, [1]);
@@ -551,6 +565,11 @@ describe("MultiplexedStreamer", () => {
       good.close();
 
       expect(statuses).toContain("success");
+      expect(errorSpy).toHaveBeenCalledWith(
+        "status handler failed",
+        { error: new Error("broken status handler") },
+        true,
+      );
     });
   });
 
@@ -801,11 +820,7 @@ describe("MultiplexedStreamer", () => {
       ms1.closeVi.mockImplementation(() => {
         throw closeErr;
       });
-      const ins = new alamos.Instrumentation({
-        key: "test",
-        logger: new alamos.Logger(),
-      });
-      const errorSpy = vi.spyOn(ins.L, "error").mockImplementation(() => {});
+      const { instrumentation, errorSpy } = createErrorSpy();
 
       let openCalls = 0;
       const opener = async (): Promise<framer.Streamer> => {
@@ -815,7 +830,7 @@ describe("MultiplexedStreamer", () => {
       const streamer = new MultiplexedStreamer({
         cache: new Cache(),
         openStreamer: opener,
-        instrumentation: ins,
+        instrumentation,
       });
 
       streamer.stream(() => {}, [1]);
