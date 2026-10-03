@@ -8,8 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { license } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
 import { Description } from "@synnaxlabs/lyra/description";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, License } from "@synnaxlabs/pluto";
@@ -17,6 +19,8 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { describeChannels, describeTerm, editionLabel } from "@/platform/license/term";
+import { ACCOUNT_URL } from "@/platform/license/urls";
+import { Session } from "@/session";
 
 const GrantedSummary = (): ReactElement | null => {
   const { data } = License.useResult({});
@@ -63,7 +67,7 @@ const GrantedDetails = (): ReactElement | null => {
   if (result.data == null) return null;
   const { state, warning, license: lic } = result.data;
   return (
-    <Flex.Box y gap="small" className={CSS.B("license")}>
+    <>
       {lic == null || state !== "ok" ? (
         <Status.Summary
           variant="warning"
@@ -82,6 +86,23 @@ const GrantedDetails = (): ReactElement | null => {
       {warning !== "" && (
         <Status.Summary variant="warning" level="small" message={warning} />
       )}
+    </>
+  );
+};
+
+/** The account a Synnax Desktop machine is linked to, with a way to the hub. */
+const Account = (): ReactElement | null => {
+  const email = Session.Account.useSelectEmail();
+  if (email == null) return null;
+  return (
+    <Flex.Box x justify="between" align="center" gap="large">
+      <Text.Text level="small" color={10} overflow="ellipsis">
+        Logged in as {email}
+      </Text.Text>
+      <Button.Button variant="text" size="small" href={ACCOUNT_URL} target="_blank">
+        <Icon.OpenExternal />
+        Manage in your account
+      </Button.Button>
     </Flex.Box>
   );
 };
@@ -94,8 +115,15 @@ export const Summary = (): ReactElement | null =>
   Access.useRetrieveGranted(license.ONTOLOGY_ID) ? <GrantedSummary /> : null;
 
 /**
- * The license in full for the version info modal. Renders nothing when the user may not
- * read the license.
+ * The account the machine is linked to, and the license in full, for the version info
+ * modal. The license shows only when the user may read it.
  */
-export const Details = (): ReactElement | null =>
-  Access.useRetrieveGranted(license.ONTOLOGY_ID) ? <GrantedDetails /> : null;
+export const Details = (): ReactElement => {
+  const granted = Access.useRetrieveGranted(license.ONTOLOGY_ID);
+  return (
+    <Flex.Box y gap="small" className={CSS.B("license")}>
+      <Account />
+      {granted && <GrantedDetails />}
+    </Flex.Box>
+  );
+};

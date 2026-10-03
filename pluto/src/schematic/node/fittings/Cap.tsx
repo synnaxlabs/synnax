@@ -20,7 +20,7 @@ const DIMENSIONS = { width: 26, height: 48 };
 export const Cap = ({
   className,
   orientation = "left",
-  color,
+  strokeColor,
   scale,
   ...rest
 }: CapProps): ReactElement => (
@@ -35,7 +35,7 @@ export const Cap = ({
       />
     </Handle.Boundary>
     <Primitive.SVG
-      color={color}
+      strokeColor={strokeColor}
       dimensions={DIMENSIONS}
       orientation={orientation}
       scale={scale}

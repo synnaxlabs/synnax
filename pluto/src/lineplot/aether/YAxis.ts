@@ -41,7 +41,7 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
 
   xBounds(): bounds.Bounds {
     return bounds.max(
-      this.lines.map((el) => el.xBounds()).filter((b) => bounds.isFinite(b)),
+      this.visibleLines.map((el) => el.xBounds()).filter((b) => bounds.isFinite(b)),
     );
   }
 
@@ -134,11 +134,15 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
   }
 
   private dataBounds(xBounds: bounds.Bounds): bounds.Bounds[] {
-    return this.lines.map((el) => el.yBounds(xBounds));
+    return this.visibleLines.map((el) => el.yBounds(xBounds));
   }
 
   private get lines(): readonly line.Line[] {
     return this.childrenOfType(line.Line.TYPE);
+  }
+
+  private get visibleLines(): readonly line.Line[] {
+    return this.lines.filter((el) => el.state.visible);
   }
 
   private get rules(): readonly rule.Rule[] {

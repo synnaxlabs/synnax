@@ -533,51 +533,6 @@ describe("line", () => {
   });
 
   describe("Line", () => {
-    const GL_ENUMS = {
-      ARRAY_BUFFER: 1,
-      FLOAT: 2,
-      UNSIGNED_BYTE: 3,
-      STATIC_DRAW: 4,
-      DYNAMIC_DRAW: 5,
-      LINE_STRIP: 6,
-      LINES: 7,
-      VERTEX_SHADER: 8,
-      FRAGMENT_SHADER: 9,
-      COMPILE_STATUS: 10,
-    };
-
-    interface GLCall {
-      op: string;
-      args: unknown[];
-    }
-
-    /** Records every GL call. Calls that return a handle hand back a stub instead. */
-    const createGL = (): { gl: WebGL2RenderingContext; calls: GLCall[] } => {
-      const calls: GLCall[] = [];
-      const target: Record<string, unknown> = {
-        ...GL_ENUMS,
-        createProgram: () => ({}),
-        createShader: () => ({}),
-        createBuffer: () => ({}),
-        getShaderParameter: () => true,
-        getAttribLocation: () => 0,
-        getUniformLocation: () => ({}),
-      };
-      const handler: ProxyHandler<Record<string, unknown>> = {
-        get(t, prop) {
-          if (typeof prop !== "string") return undefined;
-          t[prop] ??= (...args: unknown[]): void => {
-            calls.push({ op: prop, args });
-          };
-          return t[prop];
-        },
-      };
-      return {
-        gl: new Proxy(target, handler) as unknown as WebGL2RenderingContext,
-        calls,
-      };
-    };
-
     /** Supplies the line GL context and the render requestor, as the canvas and the
      * plot do in production. */
     class Host extends aether.Composite<typeof Host.stateZ> {
@@ -622,7 +577,7 @@ describe("line", () => {
     };
 
     const mount = (x: Series[], y: Series[], downsample = 1) => {
-      const { gl, calls } = createGL();
+      const { gl, calls } = canvasTest.createGL();
       const recorder = canvasTest.record();
       (recorder as { gl: unknown }).gl = gl;
       recorder.resize(PROPS.region, 1);
@@ -658,16 +613,16 @@ describe("line", () => {
       it("should draw one strip per domain and no bridge for a single domain", () => {
         const m = mount([X1], [Y1]);
         m.line.render(PROPS);
-        expect(m.draws()).toEqual([[GL_ENUMS.LINE_STRIP, 3]]);
+        expect(m.draws()).toEqual([[canvasTest.GL_ENUMS.LINE_STRIP, 3]]);
       });
 
       it("should draw a bridge between the strips of two domains", () => {
         const m = mount([X1, X2], [Y1, Y2]);
         m.line.render(PROPS);
         expect(m.draws()).toEqual([
-          [GL_ENUMS.LINE_STRIP, 3],
-          [GL_ENUMS.LINE_STRIP, 2],
-          [GL_ENUMS.LINES, 2],
+          [canvasTest.GL_ENUMS.LINE_STRIP, 3],
+          [canvasTest.GL_ENUMS.LINE_STRIP, 2],
+          [canvasTest.GL_ENUMS.LINES, 2],
         ]);
         const upload = m.calls.filter((c) => c.op === "bufferData").at(-1);
         expect(Array.from(upload?.args[1] as Float32Array)).toEqual([2, 30, 5, 40]);

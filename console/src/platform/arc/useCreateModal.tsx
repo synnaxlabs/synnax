@@ -14,6 +14,7 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { type Input } from "@synnaxlabs/lyra/input";
+import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -62,9 +63,9 @@ export const useCreateModal = Modals.createPrompt<CreateModalResult, CreateModal
     });
 
     return (
-      <Modals.Frame className={CSS.B("arc-create-modal")}>
-        <Modals.Header icon={<Icon.Arc />}>Arc.Create</Modals.Header>
-        <Modals.Body>
+      <Modal.Frame className={CSS.B("arc-create-modal")}>
+        <Modal.Header icon={<Icon.Arc />}>Arc.Create</Modal.Header>
+        <Modal.Body>
           <Form.Form<typeof Arc.formSchema> {...form}>
             <Form.TextField path="name" required inputProps={NAME_INPUT_PROPS} />
             <Form.Field<arc.Mode> path="mode" label="Editor mode" full="x">
@@ -72,14 +73,15 @@ export const useCreateModal = Modals.createPrompt<CreateModalResult, CreateModal
                 <Select.Buttons
                   value={value}
                   onChange={onChange}
+                  variant="outlined"
                   pack={false}
+                  gap="tiny"
                   x
                   full="x"
                 >
                   <Select.Item
                     itemKey="text"
                     className={MODE_CLASS}
-                    variant="outlined"
                     y
                     grow
                     alignSelf="stretch"
@@ -95,7 +97,6 @@ export const useCreateModal = Modals.createPrompt<CreateModalResult, CreateModal
                   <Select.Item
                     itemKey="graph"
                     className={MODE_CLASS}
-                    variant="outlined"
                     y
                     grow
                     alignSelf="stretch"
@@ -112,8 +113,8 @@ export const useCreateModal = Modals.createPrompt<CreateModalResult, CreateModal
               )}
             </Form.Field>
           </Form.Form>
-        </Modals.Body>
-        <Modals.Footer>
+        </Modal.Body>
+        <Modal.Footer>
           <Triggers.SaveHelpText action="Create" trigger={Triggers.SAVE} />
           <Nav.Bar.End align="center">
             <Button.Button
@@ -125,8 +126,8 @@ export const useCreateModal = Modals.createPrompt<CreateModalResult, CreateModal
               Create
             </Button.Button>
           </Nav.Bar.End>
-        </Modals.Footer>
-      </Modals.Frame>
+        </Modal.Footer>
+      </Modal.Frame>
     );
   },
 );

@@ -135,7 +135,7 @@ var _ = Describe("ImEx", func() {
 				)
 				cfg, ok := res.Configs["n1"].Variant.(schematic.ValveElementConfig)
 				Expect(ok).To(BeTrue())
-				Expect(cfg.Color).
+				Expect(cfg.StrokeColor).
 					To(HaveValue(Equal(MustSucceed(color.FromHex("#ff0000")))))
 			},
 		)

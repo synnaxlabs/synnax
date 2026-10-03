@@ -8,29 +8,8 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/ranger/alias";
-export * from "@/ranger/alias";
-export {
-  /** @deprecated Use {@link alias.createKey} instead. */
-  createKey as aliasKey,
-  /** @deprecated Use {@link alias.decodeDeleteChange} instead. */
-  decodeDeleteChange as decodeDeleteAliasChange,
-  /** @deprecated Use {@link alias.DELETE_CHANNEL_NAME} instead. */
-  DELETE_CHANNEL_NAME as DELETE_ALIAS_CHANNEL_NAME,
-  /** @deprecated Use {@link SET_CHANNEL_NAME} instead. */
-  SET_CHANNEL_NAME as SET_ALIAS_CHANNEL_NAME,
-} from "@/ranger/alias/payload";
 export * from "@/ranger/client";
 export * from "@/ranger/kv";
-export * from "@/ranger/kv";
-export {
-  /** @deprecated Use {@link kv.DELETE_CHANNEL_NAME} instead. */
-  DELETE_CHANNEL_NAME as KV_DELETE_CHANNEL,
-  /** @deprecated Use {@link kv.SET_CHANNEL_NAME} instead. */
-  SET_CHANNEL_NAME as KV_SET_CHANNEL,
-  /** @deprecated Use {@link kv.Pair} instead. */
-  /** @deprecated Use {@link kv.createPairKey} instead. */
-  createPairKey as kvPairKey,
-} from "@/ranger/kv/payload";
 export * from "@/ranger/payload";
 export * from "@/ranger/types.gen";
 export * from "@/ranger/writer";
