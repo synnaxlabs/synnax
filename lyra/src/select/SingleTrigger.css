@@ -15,8 +15,12 @@
 }
 
 /* The name fades rather than pushing the caret out, so the select may shrink below
-   it. The floor keeps the icon and caret in view. */
-.pluto-dialog__frame:has(> .pluto-dialog__trigger > .pluto-select__label) {
+   it. The floor keeps the icon and caret in view. A collapsible select's caller sets
+   its width instead. */
+.pluto-dialog__frame:has(
+    > .pluto-dialog__trigger:not(.pluto-select-single-trigger--collapsible)
+        > .pluto-select__label
+) {
     min-width: 9rem;
 }
 
@@ -26,15 +30,17 @@
     container-type: inline-size;
 }
 
-/* Below this width the name shows too few letters to read, so only the icon stays. */
+/* Below this width the name shows too few letters to read, so only the icon stays, or
+   the caret when there is no icon. */
 @container (width < 16rem) {
     .pluto-select-single-trigger--collapsible {
         > .pluto-select__label,
-        > .pluto-caret-animated {
+        &:has(> .pluto-icon:first-child) > .pluto-caret-animated {
             display: none;
         }
 
-        > .pluto-icon:first-child {
+        > .pluto-icon:first-child,
+        > .pluto-caret-animated {
             margin-inline: auto;
         }
     }
