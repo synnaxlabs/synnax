@@ -34,7 +34,7 @@ func layoutFile(layouts map[string]map[string]any, mosaics map[string]any) []byt
 	return MustSucceed(json.Marshal(body))
 }
 
-// logState is typeless, recognized as a log by its channels array.
+// logState is typeless. It takes its type from the layout record that names it.
 func logState(extra map[string]any) []byte {
 	GinkgoHelper()
 	body := map[string]any{
@@ -70,13 +70,29 @@ func logFiles() zip.Files {
 var _ = Describe("Members", func() {
 	It("Should decode importable members in layout-key order", func(ctx SpecContext) {
 		members := MustSucceed(legacy.Members(
-			ctx, imexSvc, layoutFile(logLayouts, nil), logFiles(),
+			ctx, layoutFile(logLayouts, nil), logFiles(),
 		))
 		Expect(members).To(HaveLen(2))
 		Expect(members[0].LayoutKey).To(Equal("k1"))
 		Expect(members[0].Path).To(Equal("Metrics.json"))
 		Expect(members[0].Env.Type).To(Equal(string(ontology.ResourceTypeLog)))
 		Expect(members[1].LayoutKey).To(Equal("k2"))
+	})
+
+	It("Should type and name a typeless task config from its layout record", func(
+		ctx SpecContext,
+	) {
+		layouts := map[string]map[string]any{
+			"t1": {"key": "t1", "type": "labjack_write", "name": "Valves"},
+		}
+		members := MustSucceed(legacy.Members(ctx, layoutFile(layouts, nil), zip.Files{
+			"t1.json": MustSucceed(json.Marshal(map[string]any{
+				"device": "dev", "channels": []any{},
+			})),
+		}))
+		Expect(members).To(HaveLen(1))
+		Expect(members[0].Env.Type).To(Equal("labjack_write"))
+		Expect(members[0].Env.Name).To(Equal("Valves"))
 	})
 
 	It("Should skip layouts whose type is not a frozen legacy type", func(
@@ -86,7 +102,7 @@ var _ = Describe("Members", func() {
 			"m1": {"key": "m1", "type": "mosaic", "name": "Main"},
 		}
 		Expect(legacy.Members(
-			ctx, imexSvc, layoutFile(layouts, nil), zip.Files{},
+			ctx, layoutFile(layouts, nil), zip.Files{},
 		)).To(BeEmpty())
 	})
 
@@ -94,7 +110,7 @@ var _ = Describe("Members", func() {
 		ctx SpecContext,
 	) {
 		Expect(legacy.Members(
-			ctx, imexSvc, layoutFile(logLayouts, nil), zip.Files{},
+			ctx, layoutFile(logLayouts, nil), zip.Files{},
 		)).Error().To(SatisfyAll(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring(`data for layout "k1" not found`)),
@@ -102,7 +118,7 @@ var _ = Describe("Members", func() {
 	})
 
 	It("Should reject an undecodable layout slice", func(ctx SpecContext) {
-		Expect(legacy.Members(ctx, imexSvc, []byte("garbage"), zip.Files{})).
+		Expect(legacy.Members(ctx, []byte("garbage"), zip.Files{})).
 			Error().To(MatchError(ContainSubstring(legacy.LayoutFileName)))
 	})
 })

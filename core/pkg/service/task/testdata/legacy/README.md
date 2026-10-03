@@ -38,6 +38,10 @@ Fixtures with a `_py` suffix freeze that dialect as `model_dump()` wrote it:
   released `uC` units, `ai_freq_voltage`, both thermistors, `ai_voltage_rms`).
 - `ni_counter_read_py.json` carries `ci_frequency` and `ci_period` channels with the
   Python-only `DynAvg` measurement method, plus the `Seconds` frequency units.
+- `ni_counter_read_py_ext_controlled.json` carries a `ci_edge_count` channel with the
+  Python-only `ExtControlled` count direction.
+- `ni_counter_read_py_velocity.json` carries velocity channels with the Python-only
+  `InchesPerSecond` linear and `Degrees` angular units.
 - `labjack_read_py_no_scale.json` carries AI and thermocouple channels with no `scale`
   key, plus `pos_chan`, which only Python wrote on the analog channel.
 - `arc_py.json` carries the `auto_start` field, which only Python wrote; the Console

@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, location, testutil } from "@synnaxlabs/x";
+import { box, location } from "@synnaxlabs/x";
+import { toString } from "@synnaxlabs/x/testutil";
 import { describe, expect, it } from "vitest";
 
 import { position } from "@/position";
@@ -663,7 +664,7 @@ describe("position", () => {
       [{}, { x: undefined, y: undefined }],
     ];
     TESTS.forEach(([arg, expected]) => {
-      it(`should return ${testutil.toString(expected)} for ${testutil.toString(arg)}`, () => {
+      it(`should return ${toString(expected)} for ${toString(arg)}`, () => {
         expect(position.parseLocationOptions(arg)).toEqual(expected);
       });
     });

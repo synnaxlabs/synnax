@@ -690,15 +690,16 @@ again.
 
 A nested sequence is one step of its parent: when it completes, the parent advances or
 exits in turn. A sequence declared inside a stage does not advance anything when it
-completes. The stage leaves only through its own `=>` transition.
+completes. The stage leaves only through its own transition.
 
 A flow step completes when its final node fires. Stages do not complete; they leave only
-through an explicit `=>` transition.
+through an explicit `=>` or `->` transition.
 
 ### Reactive vs one-shot semantics
 
 **Reactive flows (`->`)**: Execute every time the source produces a value while the
-stage is active.
+stage is active. A `->` into a stage, a sequence, or `next` enters the target on every
+value, truthy or not.
 
 **Conditional transitions (`=>`)**: Propagate only when the condition is truthy (a
 `bool` `true`, a non-zero numeric, or a non-empty string). A transition to an
@@ -738,7 +739,8 @@ start_cmd => main // channel triggers sequence
 emergency_stop => abort // multiple entries allowed
 ```
 
-The sequence starts when the source produces a truthy value.
+With `=>`, the sequence starts when the source produces a truthy value. With `->`, it
+starts on every value.
 
 ## Naming and scoping
 

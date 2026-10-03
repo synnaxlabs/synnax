@@ -25,6 +25,6 @@ func NewMigrations(cfg MigrationsConfig) []migrate.Migration {
 	return slices.Concat(
 		[]migrate.Migration{v0.NormalizeKeys},
 		v0.NewMigrations(cfg),
-		[]migrate.Migration{v1.Migration},
+		[]migrate.Migration{v1.Migration, v1.HTTPHealthCheckMigration},
 	)
 }

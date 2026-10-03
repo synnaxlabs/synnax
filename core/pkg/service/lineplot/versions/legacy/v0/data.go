@@ -128,8 +128,9 @@ type Line struct {
 	Color color.Color `json:"color"`
 	// StrokeWidth is the line width in pixels.
 	StrokeWidth float64 `json:"strokeWidth"`
-	// Downsample is the downsampling factor.
-	Downsample uint32 `json:"downsample"`
+	// Downsample is the downsampling factor. The Console's numeric input stored a typed
+	// fraction unrounded.
+	Downsample float64 `json:"downsample"`
 	// DownsampleMode selects the downsampling strategy.
 	DownsampleMode string `json:"downsampleMode"`
 }

@@ -533,6 +533,8 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		Entry(nil, "ni_analog_write"),
 		Entry(nil, "ni_counter_read"),
 		Entry(nil, "ni_counter_read_py"),
+		Entry(nil, "ni_counter_read_py_ext_controlled"),
+		Entry(nil, "ni_counter_read_py_velocity"),
 		Entry(nil, "ni_digital_read"),
 		Entry(nil, "ni_digital_write"),
 		Entry(nil, "opc_read"),

@@ -54,6 +54,7 @@ interface Harness {
   deactivate: Mock<Account.RenewDeps["license"]["deactivate"]>;
   store: TestStore;
   renew: Mock<(secret: string) => Promise<Account.RenewResult>>;
+  onError: Mock<(error: Error) => void>;
   statuses: () => Status.NotificationSpec[];
 }
 
@@ -84,10 +85,12 @@ const setup = async ({
     if (renewError != null) throw renewError;
     return result;
   });
+  const onError = vi.fn<(error: Error) => void>();
   const deps: Partial<Account.RenewDeps> = {
     renew,
     interval,
     license: { retrieve, activate, deactivate },
+    onError,
   };
   const { result: rendered, store } = await renderHookWithConsole(
     () => {
@@ -105,6 +108,7 @@ const setup = async ({
     deactivate,
     store,
     renew,
+    onError,
     statuses: () => rendered.current,
   };
 };
@@ -137,6 +141,9 @@ describe("Account.useRenew", () => {
     });
     await waitFor(() => expect(h.renew.mock.calls.length).toBeGreaterThan(1));
     expect(h.statuses()).toEqual([]);
+    expect(h.onError).toHaveBeenCalledWith(
+      new Error("failed to renew the license", { cause: new Error("Failed to fetch") }),
+    );
   });
 
   it("should show a failed renewal within a week of the expiry", async () => {
