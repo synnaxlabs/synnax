@@ -134,14 +134,14 @@ class NotificationsClient:
             try:
                 clear_all.dispatch_event("click", timeout=SILENCE_TIMEOUT)
             except PlaywrightTimeoutError:
+                # An expired toast can drop the count to four, which hides the control.
                 pass
-        else:
-            # Last to first: a silenced toast unmounts and shifts the indexes after it.
-            for i in reversed(range(buttons.count())):
-                try:
-                    buttons.nth(i).dispatch_event("click", timeout=SILENCE_TIMEOUT)
-                except PlaywrightTimeoutError:
-                    pass
+        # Last to first: a silenced toast unmounts and shifts the indexes after it.
+        for i in reversed(range(buttons.count())):
+            try:
+                buttons.nth(i).dispatch_event("click", timeout=SILENCE_TIMEOUT)
+            except PlaywrightTimeoutError:
+                pass
         try:
             expect(buttons).to_have_count(0, timeout=2000)
         except AssertionError:

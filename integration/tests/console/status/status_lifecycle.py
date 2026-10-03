@@ -67,6 +67,7 @@ class StatusLifecycle(ConsoleCase):
         """Run all Status Explorer tests."""
         # Notifications
         self.test_status_notification()
+        self.test_close_all_clears_overflow()
 
         # Explorer
         self.test_status_exists_in_explorer()
@@ -91,6 +92,30 @@ class StatusLifecycle(ConsoleCase):
         assert self.console.statuses.notifications.wait_for(notification_status_name), (
             f"Notification for '{notification_status_name}' should appear"
         )
+
+    def test_close_all_clears_overflow(self) -> None:
+        """Test that close_all silences the notifications folded behind "+N more"."""
+        self.log("Testing: Close all clears overflowed notifications")
+        notifications = self.console.statuses.notifications
+        notifications.close_all()
+        prefix = f"OverflowStatus_{self.suffix}"
+        overflow = [
+            sy.Status(
+                variant=sy.status.VARIANT_INFO,
+                message=f"Overflow {i}",
+                name=f"{prefix}_{i}",
+            )
+            for i in range(6)
+        ]
+        for stat in overflow:
+            self.client.statuses.set(stat)
+        self.page.locator(".console-notifications__controls").get_by_role(
+            "button", name="Clear all", exact=True
+        ).wait_for(state="visible", timeout=5000)
+        notifications.close_all()
+        remaining = self.page.get_by_role("status").filter(has_text=prefix).count()
+        self.client.statuses.delete([stat.key for stat in overflow])
+        assert remaining == 0, f"{remaining} overflow notifications should be silenced"
 
     def test_status_exists_in_explorer(self) -> None:
         """Test that created statuses appear in the explorer."""
