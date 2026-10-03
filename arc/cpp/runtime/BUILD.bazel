@@ -70,6 +70,25 @@ cc_test(
 )
 
 cc_test(
+    name = "timing_bench",
+    srcs = ["timing_bench.cpp"],
+    # Measures interval timing with every core busy, so it only runs when named.
+    tags = [
+        "manual",
+        "no-asan",
+    ],
+    deps = [
+        ":runtime",
+        "//arc/cpp/ir",
+        "//arc/cpp/runtime/testutil",
+        "//arc/cpp/types",
+        "//x/cpp/telem",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
     name = "runtime_test",
     srcs = ["runtime_test.cpp"],
     deps = [

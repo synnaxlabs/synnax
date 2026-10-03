@@ -286,7 +286,7 @@ Program build_sequential_with_vars(size_t n) {
 }
 
 void run_tick_bench(benchmark::State &state, Program p) {
-    Scheduler sched(std::move(p.ir), p.nodes, x::telem::TimeSpan(0));
+    Scheduler sched(std::move(p.ir), p.nodes);
     run_with_alloc_tracking(state, [&] {
         sched.next(
             {.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
@@ -319,7 +319,7 @@ void BM_Construction(benchmark::State &state) {
         state.PauseTiming();
         auto p = build_fanout_chain(state.range(0));
         state.ResumeTiming();
-        Scheduler sched(std::move(p.ir), p.nodes, x::telem::TimeSpan(0));
+        Scheduler sched(std::move(p.ir), p.nodes);
         benchmark::DoNotOptimize(sched);
     }
 }

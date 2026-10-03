@@ -37,13 +37,6 @@ const (
 	name               = "time"
 )
 
-// MinTolerance is the minimum tolerance for timing comparisons,
-// handling OS scheduling jitter even when BaseInterval is very small.
-const MinTolerance = 5 * telem.Millisecond
-
-// unsetBaseInterval is the sentinel value indicating BaseInterval hasn't been set yet.
-const unsetBaseInterval = telem.TimeSpanMax
-
 var (
 	intervalDoc = doc.New(
 		doc.Paragraph("Fires repeatedly at a specified period."),
@@ -164,9 +157,6 @@ func rejectNonPositiveSpan(param string) symbol.ArgumentsHook {
 // the `now` WASM host function and acts as the node factory for interval
 // and wait.
 type Host struct {
-	// BaseInterval is the GCD of known timer periods, declared and literal
-	// reassignments. Its only use is deriving the timing tolerance.
-	BaseInterval telem.TimeSpan
 	// now is the current cycle's stamp, set by the runtime loop before each pass.
 	// The `now` WASM binding is called from guest code, which has no node Context
 	// to read, so the value is pushed here instead.
@@ -180,7 +170,7 @@ func (h *Host) SetNow(now telem.TimeStamp) { h.now = now }
 // NewHost registers the time module's `now` WASM host binding with rt and
 // returns a Host handle that acts as the node factory for interval / wait.
 func NewHost(ctx context.Context, rt wazero.Runtime) (*Host, error) {
-	h := &Host{BaseInterval: unsetBaseInterval}
+	h := &Host{}
 	if rt == nil {
 		return h, nil
 	}
@@ -198,43 +188,16 @@ func NewHost(ctx context.Context, rt wazero.Runtime) (*Host, error) {
 func (h *Host) Create(cfg node.Config) (node.Node, error) {
 	switch cfg.Node.Type {
 	case intervalSymbolName:
-		periodParam, ok := cfg.Node.Inputs.Get(periodInputParam)
-		if !ok {
-			return nil, query.ErrNotFound
-		}
-		period, err := parseTime(periodParam.Value, periodParam.Name)
-		if err != nil {
+		if err := validateSpan(cfg.Node.Inputs, periodInputParam); err != nil {
 			return nil, err
 		}
-		if err = validateStaticSpan(period, periodParam); err != nil {
-			return nil, err
-		}
-		h.updateBaseInterval(period)
-		h.foldReassignedSpans(cfg, periodParam)
-		return &Interval{
-			State:     cfg.State,
-			lastFired: -period,
-		}, nil
+		return &Interval{State: cfg.State}, nil
 
 	case waitSymbolName:
-		durationParam, ok := cfg.Node.Inputs.Get(durationInputParam)
-		if !ok {
-			return nil, query.ErrNotFound
-		}
-		duration, err := parseTime(durationParam.Value, durationParam.Name)
-		if err != nil {
+		if err := validateSpan(cfg.Node.Inputs, durationInputParam); err != nil {
 			return nil, err
 		}
-		if err = validateStaticSpan(duration, durationParam); err != nil {
-			return nil, err
-		}
-		h.updateBaseInterval(duration)
-		h.foldReassignedSpans(cfg, durationParam)
-		return &Wait{
-			State:     cfg.State,
-			startTime: -1,
-			fired:     false,
-		}, nil
+		return &Wait{State: cfg.State, startTime: -1}, nil
 
 	case nowSymbolName:
 		return &Now{State: cfg.State}, nil
@@ -244,65 +207,25 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 	}
 }
 
-// CalculateTolerance returns the timing tolerance for the given base interval.
-func CalculateTolerance(baseInterval telem.TimeSpan) telem.TimeSpan {
-	if baseInterval == unsetBaseInterval {
-		return MinTolerance
+// validateSpan returns query.ErrNotFound when the named span input is missing, and a
+// validation error when its value is not a telem.TimeSpan or, unless var-bound, is not
+// positive. The runtime guard covers the live values of var-bound inputs.
+func validateSpan(inputs types.Params, name string) error {
+	p, ok := inputs.Get(name)
+	if !ok {
+		return query.ErrNotFound
 	}
-	halfInterval := baseInterval / 2
-	if halfInterval < MinTolerance {
-		return MinTolerance
+	span, ok := p.Value.(telem.TimeSpan)
+	if !ok {
+		return validate.PathedError(
+			errors.Wrapf(
+				validate.ErrInvalidType,
+				"expected type telem.TimeSpan, received %s",
+				reflect.TypeOf(p.Value).Name(),
+			),
+			p.Name,
+		)
 	}
-	return halfInterval
-}
-
-// foldReassignedSpans folds the literal reassignment values of a var-bound
-// timer param into BaseInterval, so tolerance tracks the fastest known period.
-func (h *Host) foldReassignedSpans(cfg node.Config, p types.Param) {
-	if p.Type.Kind != types.KindVarRef {
-		return
-	}
-	for _, e := range cfg.Program.Edges {
-		if e.Target.Node != p.Type.Name {
-			continue
-		}
-		src, ok := cfg.Program.Nodes.Find(e.Source.Node)
-		if !ok || src.Type != "constant" {
-			continue
-		}
-		v, ok := src.Inputs.Get("value")
-		if !ok || v.Value == nil {
-			continue
-		}
-		if span, err := parseTime(v.Value, v.Name); err == nil {
-			h.updateBaseInterval(span)
-		}
-	}
-}
-
-func (h *Host) updateBaseInterval(span telem.TimeSpan) {
-	// A non-positive span is not a real timer period. Folding it in would
-	// poison the GCD and drive the loop cadence off a parked timer.
-	if span <= 0 {
-		return
-	}
-	if h.BaseInterval == unsetBaseInterval {
-		h.BaseInterval = span
-	} else {
-		h.BaseInterval = telem.TimeSpan(gcd(int64(h.BaseInterval), int64(span)))
-	}
-}
-
-func gcd(a, b int64) int64 {
-	for b != 0 {
-		a, b = b, a%b
-	}
-	return a
-}
-
-// validateStaticSpan rejects a non-positive span stamped at compile time.
-// Var-bound params are exempt: the runtime guard covers their live values.
-func validateStaticSpan(span telem.TimeSpan, p types.Param) error {
 	if p.Type.Kind == types.KindVarRef || span > 0 {
 		return nil
 	}
@@ -310,21 +233,6 @@ func validateStaticSpan(span telem.TimeSpan, p types.Param) error {
 		errors.Wrapf(validate.ErrValidation, "must be positive, got %s", span),
 		p.Name,
 	)
-}
-
-func parseTime(v any, name string) (telem.TimeSpan, error) {
-	span, ok := v.(telem.TimeSpan)
-	if !ok {
-		return 0, validate.PathedError(
-			errors.Wrapf(
-				validate.ErrInvalidType,
-				"expected type telem.TimeSpan, received %s",
-				reflect.TypeOf(v).Name(),
-			),
-			name,
-		)
-	}
-	return span, nil
 }
 
 // liveSpan returns the named input's current span: the referenced variable's
@@ -358,7 +266,10 @@ func (g *spanGuard) reset() { g.reported = false }
 // Interval is a node that fires repeatedly at a specified period.
 type Interval struct {
 	*node.State
+	// lastFired is the elapsed time of the last scheduled fire. It is valid only when
+	// started is true.
 	lastFired telem.TimeSpan
+	started   bool
 	guard     spanGuard
 }
 
@@ -367,37 +278,42 @@ func (i *Interval) Init(_ node.Context) {}
 func (i *Interval) Next(ctx node.Context) {
 	period := liveSpan(i.State, periodInputParam)
 	// A non-positive period would keep the deadline permanently in the past,
-	// spinning the scheduler loop. Park without a deadline instead; a later
-	// reassignment to a positive value resumes the timer.
+	// spinning the scheduler loop. Park without a deadline until the node runs
+	// again, such as when its stage is entered again.
 	if !i.guard.usable(ctx, period, "interval period") {
 		return
 	}
-	if ctx.Reason != node.ReasonTimerTick {
+	// The first usable run puts the first fire at now, so the interval fires on its
+	// first timer tick.
+	if !i.started {
+		i.lastFired = ctx.Elapsed - period
+		i.started = true
+	}
+	// A timer never fires before its deadline. An early wake re-arms it.
+	if ctx.Reason != node.ReasonTimerTick || ctx.Elapsed-i.lastFired < period {
 		ctx.MarkSelfChanged()
 		ctx.SetDeadline(i.lastFired + period)
 		return
 	}
-	if ctx.Elapsed-i.lastFired < period-ctx.Tolerance {
-		ctx.MarkSelfChanged()
-		ctx.SetDeadline(i.lastFired + period)
-		return
-	}
-	i.lastFired = ctx.Elapsed
+	// Fires count from the schedule, so a late fire does not delay the fires after
+	// it. A fire more than one period late skips the fires it missed.
+	behind := ctx.Elapsed - i.lastFired
+	i.lastFired += behind - behind%period
 	ctx.MarkSelfChanged()
 	ctx.SetDeadline(i.lastFired + period)
-	i.Emit(ctx, 0)
 	output := i.Output(0)
 	outputTime := i.OutputTime(0)
 	output.Resize(1)
 	outputTime.Resize(1)
 	output.SetValueAt(0, uint8(1))
 	outputTime.SetValueAt(0, ctx.Now)
+	i.Emit(ctx, 0)
 }
 
 // Reset resets the interval so it fires immediately on the next timer tick.
 func (i *Interval) Reset(ctx node.Context) {
 	i.State.Reset(ctx)
-	i.lastFired = -liveSpan(i.State, periodInputParam)
+	i.started = false
 	i.guard.reset()
 }
 
@@ -416,22 +332,20 @@ func (w *Wait) Next(ctx node.Context) {
 		return
 	}
 	duration := liveSpan(w.State, durationInputParam)
-	// A non-positive duration is a configuration error, not an instant fire:
-	// park instead. Timing stays anchored to startTime, so recovery re-checks
-	// the live duration against the original activation.
+	// A non-positive duration is a configuration error, not an instant fire.
+	// Park without a deadline until the node runs again, such as when its stage
+	// is entered again.
 	if !w.guard.usable(ctx, duration, "wait duration") {
 		return
 	}
 	if w.startTime < 0 {
 		w.startTime = ctx.Elapsed
 	}
-	ctx.SetDeadline(w.startTime + duration)
-	if ctx.Reason != node.ReasonTimerTick {
+	// A timer never fires before its deadline. An early wake re-arms it.
+	if ctx.Reason != node.ReasonTimerTick ||
+		ctx.Elapsed-w.startTime < duration {
 		ctx.MarkSelfChanged()
-		return
-	}
-	if ctx.Elapsed-w.startTime < duration-ctx.Tolerance {
-		ctx.MarkSelfChanged()
+		ctx.SetDeadline(w.startTime + duration)
 		return
 	}
 	w.fired = true

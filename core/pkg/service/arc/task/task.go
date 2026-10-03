@@ -35,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/internal/taskreporter"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/internal/timer"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
@@ -268,8 +269,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 		nodes[irNode.Key] = n
 	}
 
-	tolerance := time.CalculateTolerance(timeMod.BaseInterval)
-	sched, err := scheduler.New(t.prog.Program.IR, nodes, tolerance)
+	sched, err := scheduler.New(t.prog.Program.IR, nodes)
 	if err != nil {
 		return err
 	}
@@ -289,7 +289,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 		),
 	)
 
-	drt.startTime = telem.Now()
+	drt.startReading = timer.Now()
 	drt.writeKeys = deps.Writes.Slice()
 
 	pipeline := plumber.New()
@@ -331,7 +331,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 				Name: t.prog.Name,
 				Key:  t.task.Key.String(),
 			},
-			Start: drt.startTime,
+			Start: telem.Now(),
 			Keys:  writeKeys,
 		}
 		if authorities := buildAuthorities(
@@ -483,7 +483,9 @@ type state struct {
 
 type dataRuntime struct {
 	confluence.AbstractLinear[framer.StreamerResponse, framer.WriterRequest]
-	startTime telem.TimeStamp
+	// startReading is the timer.Now reading the runtime started at. Every deadline
+	// counts from it.
+	startReading stdtime.Duration
 	// clock stamps every cycle. It is the runtime's only clock: nodes and host
 	// functions read the stamp it produces instead of sampling their own.
 	clock     telem.MonoClock
@@ -503,7 +505,7 @@ func (d *dataRuntime) next(
 	d.state.channel.Ingest(res.Frame.ToStorage())
 	cycle := node.Cycle{
 		Now:     d.clock.Now(),
-		Elapsed: telem.Since(d.startTime),
+		Elapsed: d.elapsed(),
 		Reason:  reason,
 	}
 	d.timeMod.SetNow(cycle.Now)
@@ -526,6 +528,11 @@ func (d *dataRuntime) next(
 		return signal.SendUnderContext(ctx, d.Out.Inlet(), req)
 	}
 	return nil
+}
+
+// elapsed returns the time since the runtime started.
+func (d *dataRuntime) elapsed() telem.TimeSpan {
+	return telem.TimeSpan(timer.Now() - d.startReading)
 }
 
 func (d *dataRuntime) flushAuthorityChanges(ctx context.Context) error {
@@ -564,41 +571,51 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	if r.Out != nil {
 		o.AttachClosables(r.Out)
 	}
-	sCtx.Go(func(ctx context.Context) error {
+	sCtx.Go(func(ctx context.Context) (err error) {
+		t, err := timer.New()
+		if err != nil {
+			return err
+		}
+		defer func() { err = errors.Join(err, t.Close()) }()
+		// Fire right away, so timer nodes set their first deadline even when no
+		// streaming input is connected.
+		if err = t.Reset(0); err != nil {
+			return err
+		}
+		arm := func() error {
+			deadline := r.scheduler.NextDeadline()
+			if deadline == telem.TimeSpanMax {
+				// No active timers, so the loop wakes only on channel input.
+				return t.Stop()
+			}
+			return t.Reset((deadline - r.elapsed()).Duration())
+		}
 		var (
 			runReason node.RunReason
-			// Fire immediately so timer nodes seed their first deadline
-			// even when no streaming input is connected.
-			timer = stdtime.NewTimer(0)
-			res   framer.StreamerResponse
-			ok    bool
+			res       framer.StreamerResponse
+			ok        bool
 		)
-		defer timer.Stop()
 		for {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			case <-timer.C:
+			case <-t.C:
 				runReason = node.ReasonTimerTick
 			case res, ok = <-r.In.Outlet():
 				if !ok {
 					return nil
 				}
 				runReason = node.ReasonChannelInput
+				// A due timer fires on this cycle, not on a later timer wake.
+				if r.elapsed() >= r.scheduler.NextDeadline() {
+					runReason = node.ReasonTimerTick
+				}
 			}
-			if err := r.next(ctx, res, runReason); err != nil {
+			if err = r.next(ctx, res, runReason); err != nil {
 				return err
 			}
-			timer.Stop()
-			deadline := r.scheduler.NextDeadline()
-			elapsed := telem.Since(r.startTime)
-			if deadline == telem.TimeSpanMax {
-				// No active timers. Timer stays stopped, so we only wake on channel
-				// input.
-			} else if deadline > elapsed {
-				timer.Reset((deadline - elapsed).Duration())
-			} else {
-				timer.Reset(0)
+			if err = arm(); err != nil {
+				return err
 			}
 		}
 	}, o.Signal...)

@@ -403,11 +403,16 @@ class ConfigClient:
                 raise AttributeError(f"No TestCase subclass found in {file_path}")
 
             if test_def.name:
+                # A parameter matrix adds a suffix to the class name.
                 matching = [
-                    cls for cls in test_classes if cls.__name__ == test_def.name
+                    cls
+                    for cls in test_classes
+                    if test_def.name == cls.__name__
+                    or test_def.name.startswith(f"{cls.__name__}_")
                 ]
                 if matching:
-                    return [matching[0]]
+                    # The longest name is the most exact match.
+                    return [max(matching, key=lambda cls: len(cls.__name__))]
 
             return test_classes
 

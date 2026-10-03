@@ -26,7 +26,6 @@
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/program/program.h"
 #include "arc/cpp/runtime/errors/errors.h"
-#include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/scheduler/scheduler.h"
 #include "arc/cpp/runtime/state/state.h"
@@ -159,16 +158,9 @@ public:
             nodes[ir_node.key] = std::move(n);
         }
 
-        const auto base_interval = time_mod->base_interval();
-        const auto loop_cfg = loop::Config{}.apply_defaults(base_interval);
-        const auto tolerance = stl::time::calculate_tolerance(
-            loop_cfg.mode,
-            base_interval
-        );
         this->sched = std::make_unique<scheduler::Scheduler>(
             prog_ir,
             nodes,
-            tolerance,
             errors::noop_handler
         );
     }

@@ -14,6 +14,7 @@ cc_library(
     hdrs = [
         "mock_loop.h",
         "stamps.h",
+        "timing.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -50,7 +51,6 @@ cc_library(
         "//arc/cpp/ir",
         "//arc/cpp/program",
         "//arc/cpp/runtime/errors",
-        "//arc/cpp/runtime/loop",
         "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/scheduler",
         "//arc/cpp/runtime/state",
