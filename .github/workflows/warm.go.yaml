@@ -1,0 +1,60 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Pull requests restore the Go caches that main saves. Nightly alone leaves them up to a
+# day behind, so each merge refreshes the Core's.
+name: Warm - Go
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**/*.go"
+      - "**/go.mod"
+      - "**/go.sum"
+      - .github/workflows/test.go.yaml
+      - .github/workflows/warm.go.yaml
+  workflow_dispatch:
+
+# A burst of merges warms only the newest one.
+concurrency:
+  group: warm-go
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    name: Core
+    uses: ./.github/workflows/test.go.yaml
+    with:
+      coverage_flag: core
+      directory: core
+      warm: true
+    secrets: inherit
+
+  # Pull requests restore only the newest cache, so the older ones only evict others.
+  prune:
+    name: Prune older caches
+    needs: core
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Delete older Core caches
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for prefix in go-test-Linux-core- go-lint-core-; do
+            gh cache list --ref refs/heads/main --key "$prefix" --sort created_at \
+              --order desc --limit 100 --json id --jq '.[1:][].id' |
+              xargs -r -n1 gh cache delete
+          done
