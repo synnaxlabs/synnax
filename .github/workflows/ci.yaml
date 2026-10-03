@@ -248,7 +248,7 @@ jobs:
       coverage_flag: console
       directory: console
       package: console
-      test_args: -- --no-file-parallelism
+      test_args: --no-file-parallelism
     secrets: inherit
 
   copyright:
@@ -528,7 +528,7 @@ jobs:
       coverage_flag: pluto
       directory: pluto
       package: pluto
-      test_args: -- --no-file-parallelism
+      test_args: --no-file-parallelism
     secrets: inherit
 
   portal:

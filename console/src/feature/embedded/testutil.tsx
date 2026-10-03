@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Synnax } from "@synnaxlabs/pluto";
+import { scheduler } from "@synnaxlabs/x";
 import { emit } from "@tauri-apps/api/event";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import { cleanup, waitFor } from "@testing-library/react";
@@ -75,9 +76,12 @@ export const mockSupervisor = (
   };
 };
 
-/** Removes the mocked shell. The tree unmounts first, while it can still unlisten. */
-export const clearSupervisor = (): void => {
+/**
+ * Unmounts the tree, then removes the mocked shell once its async cleanups unlisten.
+ */
+export const clearSupervisor = async (): Promise<void> => {
   cleanup();
+  await scheduler.flushTaskQueue();
   clearMocks();
 };
 
