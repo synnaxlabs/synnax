@@ -17,7 +17,7 @@ create(const Config &cfg, std::shared_ptr<x::thread::rt::Handle> rt_handle) {
 }
 
 x::telem::TimeSpan hybrid_threshold() {
-    // HYBRID does not spin before a deadline on Linux, and the timerfd alone wakes
+    // HYBRID does not spin before a deadline on Linux, and a blocking wait alone wakes
     // about 0.02 ms late.
     return x::telem::TimeSpan(0);
 }

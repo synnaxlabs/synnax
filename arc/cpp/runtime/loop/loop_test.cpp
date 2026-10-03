@@ -1199,13 +1199,19 @@ INSTANTIATE_TEST_SUITE_P(
 );
 
 #if defined(__linux__) || defined(__APPLE__) || defined(_WIN32)
-/// @brief Timer calls whose arm fails the way the OS call does.
+/// @brief Timer calls whose arm fails the way the OS call does. On Linux, the loop
+/// arms a timerfd because epoll_pwait2 is missing.
 struct FailingArm {
 #if defined(__linux__)
+    static int wait(int, epoll_event *, int, const timespec &) {
+        errno = ENOSYS;
+        return -1;
+    }
     static int set(int, const itimerspec &) {
         errno = EBADF;
         return -1;
     }
+    static bool realtime() { return true; }
 #elif defined(__APPLE__)
     static int set(int, const struct kevent &) {
         errno = ENOMEM;
@@ -1317,6 +1323,133 @@ const std::vector<ExecutionMode> ARMED_MODES = {
 };
 
 INSTANTIATE_TEST_SUITE_P(ArmedModes, FailedArmTest, testing::ValuesIn(ARMED_MODES));
+
+#if defined(__linux__)
+/// @brief Linux calls that count timerfd arms. realtime_thread is what the thread
+/// reports as its policy, and pwait2 is whether epoll_pwait2 exists.
+struct CountingEpollApi {
+    bool realtime_thread = true;
+    bool pwait2 = true;
+    int *arms = nullptr;
+
+    int wait(
+        const int epfd,
+        epoll_event *events,
+        const int max,
+        const timespec &timeout
+    ) const {
+        if (!this->pwait2) {
+            errno = ENOSYS;
+            return -1;
+        }
+        return EpollApi::wait(epfd, events, max, timeout);
+    }
+
+    int set(const int fd, const itimerspec &ts) const {
+        (*this->arms)++;
+        return EpollApi::set(fd, ts);
+    }
+
+    bool realtime() const { return this->realtime_thread; }
+};
+
+/// @brief A started loop on a thread that reports a real-time policy, in the mode of
+/// the parameter.
+class DirectWaitTest : public testing::TestWithParam<ExecutionMode> {
+protected:
+    int arms = 0;
+    std::unique_ptr<Linux<CountingEpollApi>> loop;
+    std::unique_ptr<x::notify::Notifier> notifier;
+    x::breaker::Breaker breaker;
+
+    void SetUp() override {
+        Config config;
+        config.mode = this->GetParam();
+        config.cpu_affinity = CPU_AFFINITY_NONE;
+        this->loop = std::make_unique<Linux<CountingEpollApi>>(
+            config,
+            nullptr,
+            CountingEpollApi{.arms = &this->arms}
+        );
+        ASSERT_NIL(this->loop->start());
+        this->notifier = x::notify::create();
+        ASSERT_TRUE(this->loop->watch(*this->notifier));
+        this->breaker.start();
+    }
+
+    void TearDown() override { this->breaker.stop(); }
+};
+
+/// @brief A real-time wait should block to its deadline with no timerfd, which wakes
+/// through a priority 1 softirq thread on PREEMPT_RT.
+TEST_P(DirectWaitTest, FiresOnTheDeadlineWithNoTimerfd) {
+    constexpr int COUNT = 20;
+    std::vector<x::telem::TimeSpan> errors;
+    errors.reserve(COUNT);
+    for (int i = 0; i < COUNT; i++) {
+        const auto sw = x::telem::Stopwatch();
+        ASSERT_EQ(
+            this->loop->wait(this->breaker, test_timing::DEADLINE_DURATION),
+            WakeReason::Timer
+        );
+        errors.push_back(sw.elapsed() - test_timing::DEADLINE_DURATION);
+    }
+    std::sort(errors.begin(), errors.end());
+    EXPECT_GE(errors.front(), x::telem::TimeSpan(0));
+    EXPECT_LE(errors[COUNT / 2], test_timing::FIRE_ERROR_BOUND);
+    EXPECT_EQ(this->arms, 0);
+}
+
+/// @brief An input should end a real-time wait before its deadline.
+TEST_P(DirectWaitTest, ReturnsInputBeforeTheDeadline) {
+    WakeReason reason = WakeReason::Timeout;
+    std::thread waiter([&] {
+        reason = this->loop->wait(this->breaker, x::telem::SECOND);
+    });
+    std::this_thread::sleep_for(test_timing::THREAD_STARTUP.chrono());
+    const auto sw = x::telem::Stopwatch();
+    this->notifier->signal();
+    waiter.join();
+    EXPECT_EQ(reason, WakeReason::Input);
+    EXPECT_LE(sw.elapsed(), test_timing::WAKE_LATENCY);
+}
+
+/// @brief A real-time wait with no deadline should block until its timeout.
+TEST_P(DirectWaitTest, TimesOutWithNoDeadline) {
+    EXPECT_EQ(this->loop->wait(this->breaker), WakeReason::Timeout);
+    EXPECT_EQ(this->arms, 0);
+}
+
+INSTANTIATE_TEST_SUITE_P(ArmedModes, DirectWaitTest, testing::ValuesIn(ARMED_MODES));
+
+/// @brief Starts a loop with api in EVENT_DRIVEN mode and waits to one deadline.
+void wait_one_deadline(const CountingEpollApi &api) {
+    Config config;
+    config.mode = ExecutionMode::EVENT_DRIVEN;
+    Linux<CountingEpollApi> loop(config, nullptr, api);
+    ASSERT_NIL(loop.start());
+    x::breaker::Breaker breaker;
+    breaker.start();
+    EXPECT_EQ(loop.wait(breaker, test_timing::DEADLINE_DURATION), WakeReason::Timer);
+    breaker.stop();
+}
+
+/// @brief A loop on a thread that is not real-time should arm a timerfd, as an epoll
+/// timeout adds 0.1% of the wait as slack to such a thread.
+TEST(DirectWaitFallbackTest, ArmsATimerfdOnANormalThread) {
+    int arms = 0;
+    wait_one_deadline(CountingEpollApi{.realtime_thread = false, .arms = &arms});
+    EXPECT_GT(arms, 0);
+}
+
+/// @brief A loop should arm a timerfd on a kernel before 5.11, which has no
+/// epoll_pwait2.
+TEST(DirectWaitFallbackTest, ArmsATimerfdWithoutEpollPwait2) {
+    int arms = 0;
+    wait_one_deadline(CountingEpollApi{.pwait2 = false, .arms = &arms});
+    EXPECT_GT(arms, 0);
+}
+#endif
 
 #if defined(_WIN32)
 /// @brief The arms of the timer and the raises and lowers of the system tick.

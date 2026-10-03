@@ -16,8 +16,10 @@
 #include <thread>
 
 #include "absl/log/log.h"
+#include <sched.h>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
+#include <sys/syscall.h>
 #include <sys/timerfd.h>
 #include <unistd.h>
 
@@ -29,23 +31,52 @@
 
 namespace arc::runtime::loop {
 
-/// @brief arms a timerfd with the OS call.
-struct TimerfdArm {
+#ifndef SCHED_DEADLINE
+#define SCHED_DEADLINE 6
+#endif
+
+/// @brief the OS calls of the Linux loop.
+struct EpollApi {
+    /// @brief waits like epoll_wait, but for a timeout in nanoseconds. Returns -1 with
+    /// errno ENOSYS before Linux 5.11, which has no epoll_pwait2.
+    static int
+    wait(const int epfd, epoll_event *events, const int max, const timespec &timeout) {
+#ifdef SYS_epoll_pwait2
+        return static_cast<int>(
+            syscall(SYS_epoll_pwait2, epfd, events, max, &timeout, nullptr, 0)
+        );
+#else
+        errno = ENOSYS;
+        return -1;
+#endif
+    }
+
     /// @brief sets the timer of fd to ts. Returns 0, or -1 with errno set.
     static int set(const int fd, const itimerspec &ts) {
         return timerfd_settime(fd, 0, &ts, nullptr);
     }
+
+    /// @brief returns true when the calling thread has a real-time policy.
+    static bool realtime() {
+        const int policy = sched_getscheduler(0);
+        return policy == SCHED_FIFO || policy == SCHED_RR || policy == SCHED_DEADLINE;
+    }
 };
 
-/// @brief the loop of Linux, built on epoll and a timerfd. Arm sets the timerfd.
-template<typename Arm = TimerfdArm>
+/// @brief the loop of Linux, built on epoll. A real-time thread blocks to a deadline
+/// on an epoll_pwait2 timeout. On PREEMPT_RT, a timerfd wakes through a softirq thread
+/// at priority 1, so any busy real-time thread on the core delays it. Other threads
+/// arm a timerfd, as an epoll timeout adds 0.1% of the wait as slack to them. Api
+/// makes the OS calls.
+template<typename Api = EpollApi>
 class Linux final : public Loop {
 public:
     explicit Linux(
         const Config &config,
-        std::shared_ptr<x::thread::rt::Handle> rt_handle = nullptr
+        std::shared_ptr<x::thread::rt::Handle> rt_handle = nullptr,
+        Api api = Api{}
     ):
-        config_(config), rt_handle_(std::move(rt_handle)) {}
+        config_(config), rt_handle_(std::move(rt_handle)), api_(std::move(api)) {}
 
     ~Linux() override { this->close_fds(); }
 
@@ -102,28 +133,6 @@ public:
                 )
             );
 
-        // HIGH_RATE and BUSY_WAIT check the deadline against the clock.
-        if (this->config_.mode != ExecutionMode::HIGH_RATE &&
-            this->config_.mode != ExecutionMode::BUSY_WAIT) {
-            this->timer_fd_ = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
-            if (this->timer_fd_ == -1)
-                return this->fail_start(
-                    x::errors::Error(
-                        "Failed to create timerfd: " + std::string(strerror(errno))
-                    )
-                );
-            ev.events = EPOLLIN;
-            ev.data.fd = this->timer_fd_;
-            if (epoll_ctl(this->epoll_fd_, EPOLL_CTL_ADD, this->timer_fd_, &ev) == -1)
-                return this->fail_start(
-                    x::errors::Error(
-                        "Failed to add timerfd to epoll: " +
-                        std::string(strerror(errno))
-                    )
-                );
-            this->timer_enabled_ = true;
-        }
-
         if (!this->rt_handle_) {
             auto rt_cfg = this->config_.rt();
             x::thread::rt::apply_config(rt_cfg);
@@ -131,6 +140,28 @@ public:
             this->rt_handle_->apply();
         }
 
+        // HIGH_RATE and BUSY_WAIT check the deadline against the clock.
+        if (this->config_.mode == ExecutionMode::HIGH_RATE ||
+            this->config_.mode == ExecutionMode::BUSY_WAIT)
+            return x::errors::NIL;
+        this->direct_ = this->api_.realtime() && this->direct_waits();
+        if (this->direct_) return x::errors::NIL;
+        this->timer_fd_ = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
+        if (this->timer_fd_ == -1)
+            return this->fail_start(
+                x::errors::Error(
+                    "Failed to create timerfd: " + std::string(strerror(errno))
+                )
+            );
+        ev.events = EPOLLIN;
+        ev.data.fd = this->timer_fd_;
+        if (epoll_ctl(this->epoll_fd_, EPOLL_CTL_ADD, this->timer_fd_, &ev) == -1)
+            return this->fail_start(
+                x::errors::Error(
+                    "Failed to add timerfd to epoll: " + std::string(strerror(errno))
+                )
+            );
+        this->timer_enabled_ = true;
         return x::errors::NIL;
     }
 
@@ -168,6 +199,25 @@ public:
     }
 
 private:
+    /// @brief returns true when epoll_pwait2 exists. Linux before 5.11 has no
+    /// epoll_pwait2, and some seccomp filters block it.
+    bool direct_waits() {
+        epoll_event event;
+        if (this->api_.wait(this->epoll_fd_, &event, 1, timespec{}) != -1) return true;
+        return errno != ENOSYS && errno != EPERM;
+    }
+
+    /// @brief waits for events until span elapses. Returns the number of events, 0
+    /// when span elapses first, or -1 with errno set.
+    int timed_wait(epoll_event *events, const x::telem::TimeSpan span) {
+        const int64_t ns = std::max<int64_t>(span.nanoseconds(), 0);
+        const int64_t second = x::telem::SECOND.nanoseconds();
+        timespec ts{};
+        ts.tv_sec = ns / second;
+        ts.tv_nsec = ns % second;
+        return this->api_.wait(this->epoll_fd_, events, 2, ts);
+    }
+
     /// @brief closes and clears the descriptors that start opened, so a later start
     /// opens them again. Returns err.
     x::errors::Error fail_start(x::errors::Error err) {
@@ -192,6 +242,7 @@ private:
         }
 
         this->timer_enabled_ = false;
+        this->direct_ = false;
     }
 
     WakeReason
@@ -239,7 +290,7 @@ private:
         struct itimerspec ts{};
         ts.it_value.tv_sec = deadline / second;
         ts.it_value.tv_nsec = deadline % second;
-        if (Arm::set(this->timer_fd_, ts) == -1) {
+        if (this->api_.set(this->timer_fd_, ts) == -1) {
             this->report_arm_failure(strerror(errno));
             return false;
         }
@@ -258,15 +309,28 @@ private:
         x::breaker::Breaker &breaker,
         const x::telem::TimeSpan max_timeout
     ) {
+        const bool deadline = max_timeout.nanoseconds() > 0;
         const bool armed = this->arm_deadline(max_timeout);
-        if (!armed && max_timeout.nanoseconds() > 0)
+        if (!this->direct_ && !armed && deadline)
             return this->busy_wait(breaker, max_timeout);
         struct epoll_event events[2];
-        const int timeout_ms = armed ? -1 : timing::EVENT_DRIVEN_TIMEOUT.milliseconds();
-        const int n = epoll_wait(this->epoll_fd_, events, 2, timeout_ms);
+        int n;
+        if (this->direct_)
+            n = this->timed_wait(
+                events,
+                deadline ? max_timeout : timing::EVENT_DRIVEN_TIMEOUT
+            );
+        else
+            n = epoll_wait(
+                this->epoll_fd_,
+                events,
+                2,
+                armed ? -1 : timing::EVENT_DRIVEN_TIMEOUT.milliseconds()
+            );
 
         if (n > 0) return this->consume_events(events, n);
-        if (n == 0) return WakeReason::Timeout;
+        if (n == 0)
+            return this->direct_ && deadline ? WakeReason::Timer : WakeReason::Timeout;
         if (errno != EINTR)
             LOG(ERROR) << "[arc.loop] epoll_wait error: " << strerror(errno);
         return WakeReason::Shutdown;
@@ -274,26 +338,38 @@ private:
 
     WakeReason
     hybrid_wait(x::breaker::Breaker &breaker, const x::telem::TimeSpan max_timeout) {
+        const bool deadline = max_timeout.nanoseconds() > 0;
         const bool armed = this->arm_deadline(max_timeout);
-        if (!armed && max_timeout.nanoseconds() > 0)
+        if (!this->direct_ && !armed && deadline)
             return this->busy_wait(breaker, max_timeout);
-        const auto spin_start = std::chrono::steady_clock::now();
-        const auto spin_duration = std::chrono::nanoseconds(
-            this->config_.spin_duration.nanoseconds()
-        );
+        const auto sw = x::telem::Stopwatch();
 
         struct epoll_event events[2];
 
-        while (std::chrono::steady_clock::now() - spin_start < spin_duration) {
+        while (sw.elapsed() < this->config_.spin_duration) {
             if (!breaker.running()) return WakeReason::Shutdown;
 
             const int n = epoll_wait(this->epoll_fd_, events, 2, 0);
             if (n > 0) return this->consume_events(events, n);
+            if (this->direct_ && deadline && sw.elapsed() >= max_timeout)
+                return WakeReason::Timer;
         }
 
-        const int timeout_ms = armed ? -1 : timing::HYBRID_BLOCK_TIMEOUT.milliseconds();
-        const int n = epoll_wait(this->epoll_fd_, events, 2, timeout_ms);
+        int n;
+        if (this->direct_)
+            n = this->timed_wait(
+                events,
+                deadline ? max_timeout - sw.elapsed() : timing::HYBRID_BLOCK_TIMEOUT
+            );
+        else
+            n = epoll_wait(
+                this->epoll_fd_,
+                events,
+                2,
+                armed ? -1 : timing::HYBRID_BLOCK_TIMEOUT.milliseconds()
+            );
         if (n > 0) return this->consume_events(events, n);
+        if (n == 0 && this->direct_ && deadline) return WakeReason::Timer;
         return WakeReason::Timeout;
     }
 
@@ -330,10 +406,14 @@ private:
 
     Config config_;
     std::shared_ptr<x::thread::rt::Handle> rt_handle_;
+    Api api_;
     int epoll_fd_ = -1;
     int event_fd_ = -1;
     int timer_fd_ = -1;
     bool timer_enabled_ = false;
+    /// @brief true when waits block to their deadline on an epoll_pwait2 timeout
+    /// instead of a timerfd.
+    bool direct_ = false;
     bool arm_failed_ = false;
     ::x::loop::Timer sleeper_;
 };
