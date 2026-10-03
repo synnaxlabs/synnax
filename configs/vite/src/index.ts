@@ -31,16 +31,23 @@ export interface Options {
   /**
    * Build the package as a subpath-only module set: every `src/<name>/index.ts` is an
    * entry, `package.json` exports must match them, each source file stays its own
-   * output file, and emitted modules keep their CSS imports.
+   * output file, and emitted modules keep their CSS imports. Implies `unbundled`.
    * @default false
    */
   modules?: boolean;
+  /**
+   * Whether each source file stays its own output file, so a consumer's bundler can
+   * drop the modules it does not import. The package must declare `sideEffects`.
+   * @default false
+   */
+  unbundled?: boolean;
 }
 
 export const lib = ({
   name,
   publishSourcemaps = true,
   modules = false,
+  unbundled = false,
 }: Options): Plugin[] => [
   {
     name: "vite-plugin-lib",
@@ -66,9 +73,10 @@ export const lib = ({
             entry,
             ...config.build?.lib,
           },
-          rolldownOptions: modules
-            ? { output: { preserveModules: true, preserveModulesRoot: "src" } }
-            : {},
+          rolldownOptions:
+            modules || unbundled
+              ? { output: { preserveModules: true, preserveModulesRoot: "src" } }
+              : {},
         },
       };
     },

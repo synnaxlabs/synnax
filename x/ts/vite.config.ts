@@ -15,7 +15,7 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   base: "/x/",
-  plugins: [lib({ name: "x" })],
+  plugins: [lib({ name: "x", unbundled: true })],
   build: {
     lib: {
       entry: {
