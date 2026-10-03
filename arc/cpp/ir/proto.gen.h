@@ -82,6 +82,7 @@ Transition::to_proto() const {
     }
     pb.set_kind(static_cast<::arc::ir::pb::EdgeKind>(this->kind));
     if (this->target_key.has_value()) pb.set_target_key(*this->target_key);
+    if (this->activate_key.has_value()) pb.set_activate_key(*this->activate_key);
     return {pb, x::errors::NIL};
 }
 
@@ -95,6 +96,31 @@ Transition::from_proto(const ::arc::ir::pb::Transition &pb) {
     }
     cpp.kind = static_cast<EdgeKind>(pb.kind());
     if (pb.has_target_key()) cpp.target_key = pb.target_key();
+    if (pb.has_activate_key()) cpp.activate_key = pb.activate_key();
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::arc::ir::pb::Activation, x::errors::Error>
+Activation::to_proto() const {
+    ::arc::ir::pb::Activation pb;
+    {
+        auto [v, err] = this->on.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_on() = v;
+    }
+    pb.set_kind(static_cast<::arc::ir::pb::EdgeKind>(this->kind));
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Activation, x::errors::Error>
+Activation::from_proto(const ::arc::ir::pb::Activation &pb) {
+    Activation cpp;
+    {
+        auto [v, err] = Handle::from_proto(pb.on());
+        if (err) return {{}, err};
+        cpp.on = v;
+    }
+    cpp.kind = static_cast<EdgeKind>(pb.kind());
     return {cpp, x::errors::NIL};
 }
 
@@ -126,12 +152,11 @@ inline std::pair<::arc::ir::pb::Scope, x::errors::Error> Scope::to_proto() const
     pb.set_key(this->key);
     pb.set_mode(static_cast<::arc::ir::pb::ScopeMode>(this->mode));
     pb.set_liveness(static_cast<::arc::ir::pb::Liveness>(this->liveness));
-    if (this->activation.has_value()) {
-        auto [v, err] = this->activation->to_proto();
+    for (const auto &item: this->activations) {
+        auto [v, err] = item.to_proto();
         if (err) return {{}, err};
-        *pb.mutable_activation() = v;
+        *pb.add_activations() = v;
     }
-    pb.set_activation_kind(static_cast<::arc::ir::pb::EdgeKind>(this->activation_kind));
     for (const auto &item: this->strata) {
         auto *wrapper = pb.add_strata();
         for (const auto &v: item) {
@@ -159,12 +184,11 @@ Scope::from_proto(const ::arc::ir::pb::Scope &pb) {
     cpp.key = pb.key();
     cpp.mode = static_cast<ScopeMode>(pb.mode());
     cpp.liveness = static_cast<Liveness>(pb.liveness());
-    if (pb.has_activation()) {
-        auto [v, err] = Handle::from_proto(pb.activation());
-        if (err) return {{}, err};
-        cpp.activation = v;
-    }
-    cpp.activation_kind = static_cast<EdgeKind>(pb.activation_kind());
+    if (auto err = x::pb::from_proto_repeated<Activation>(
+            cpp.activations,
+            pb.activations()
+        ))
+        return {{}, err};
     for (const auto &wrapper: pb.strata()) {
         std::vector<Member> inner;
         if (auto err = x::pb::from_proto_repeated<Member>(inner, wrapper.values()))

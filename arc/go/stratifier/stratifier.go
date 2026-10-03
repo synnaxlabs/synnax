@@ -151,16 +151,18 @@ func stratifyParallel(
 			}
 		}
 		for i, m := range members {
-			if m.Scope == nil || m.Scope.Activation == nil {
+			if m.Scope == nil {
 				continue
 			}
-			src, ok := ownership[m.Scope.Activation.Node]
-			if !ok || src == i {
-				continue
-			}
-			if stratum[src] >= stratum[i] {
-				stratum[i] = stratum[src] + 1
-				changed = true
+			for _, a := range m.Scope.Activations {
+				src, ok := ownership[a.On.Node]
+				if !ok || src == i {
+					continue
+				}
+				if stratum[src] >= stratum[i] {
+					stratum[i] = stratum[src] + 1
+					changed = true
+				}
 			}
 		}
 		if !changed {

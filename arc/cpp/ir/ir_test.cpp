@@ -246,6 +246,15 @@ TEST(IRTest, testTransitionToStringExit) {
     ASSERT_NE(t.to_string().find("=> exit"), std::string::npos);
 }
 
+/// @brief it should format a Transition that exits to a top-level scope
+TEST(IRTest, testTransitionToStringExitTo) {
+    Transition t;
+    t.on = Handle("n", "out");
+    t.kind = EdgeKind::Conditional;
+    t.activate_key = "abort";
+    ASSERT_EQ(t.to_string(), "on n/out => exit to abort");
+}
+
 /// @brief it should format a continuous Transition with ->
 TEST(IRTest, testTransitionToStringContinuous) {
     Transition t;

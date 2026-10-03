@@ -110,7 +110,9 @@ conditions before success conditions.
 ## Transitions
 
 A **transition** is a flow statement whose target is a stage or sequence name. When the
-edge fires, the current stage or sequence deactivates and control jumps to the target.
+edge fires, control leaves every stage and sequence between the transition and its
+target, then jumps to the target. A transition to a top-level sequence or stage stops
+the whole top-level sequence or stage that holds it.
 
 ```arc channels="stop_btn, emergency, pressure", bodies="idle,abort"
 stage running {
@@ -120,9 +122,10 @@ stage running {
 }
 ```
 
-Transitions fire while the source expression is truthy. Transitioning to an
-already-active target is a no-op, so a source that stays truthy will not re-enter a
-running sequence or stage.
+Transitions fire while the source expression is truthy. A transition to a running
+sequence or stage does not restart it, so a source that stays truthy will not re-enter
+it. The exception is a transition to the sequence or stage that holds it, which leaves
+and re-enters that sequence or stage.
 
 <Divider.Divider x />
 

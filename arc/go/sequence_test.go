@@ -1533,6 +1533,389 @@ var _ = Describe("Sequence", func() {
 		)
 	})
 
+	// A jump to a top-level scope acts only when it is the first true jump in source
+	// order. It stops the whole top-level scope that holds it, then starts its target.
+	Describe("Jumps to a top-level scope", func() {
+		const (
+			start uint32 = iota + 100
+			a
+			b
+			probe
+			log
+		)
+		const (
+			aliveMain uint32 = iota + 110
+			aliveInner
+			aliveFlight
+		)
+		resolver := channelSymbols(map[string]channelDef{
+			"start":        {types.U8(), int(start)},
+			"a":            {types.U8(), int(a)},
+			"b":            {types.U8(), int(b)},
+			"probe":        {types.U8(), int(probe)},
+			"log":          {types.String(), int(log)},
+			"alive_main":   {types.U8(), int(aliveMain)},
+			"alive_inner":  {types.U8(), int(aliveInner)},
+			"alive_flight": {types.U8(), int(aliveFlight)},
+		})
+		inputs := map[string]uint32{"start": start, "a": a, "b": b, "probe": probe}
+		aliveNames := map[uint32]string{
+			aliveMain:   "alive_main",
+			aliveInner:  "alive_inner",
+			aliveFlight: "alive_flight",
+		}
+		// phase is what one flush holds: the log in write order, and the alive_*
+		// channels that a probe reached.
+		type phase struct {
+			log   []string
+			alive []string
+		}
+		// run executes steps against source. A step names the inputs to write in one
+		// cycle, joined by "+", then settles. A "!" suffix runs one cycle only, and "|"
+		// flushes a phase.
+		run := func(ctx SpecContext, source string, steps ...string) []phase {
+			digests := []channels.Digest{{Key: log, DataType: telem.StringT}}
+			for _, k := range inputs {
+				digests = append(
+					digests,
+					channels.Digest{Key: k, DataType: telem.Uint8T},
+				)
+			}
+			for k := range aliveNames {
+				digests = append(
+					digests,
+					channels.Digest{Key: k, DataType: telem.Uint8T},
+				)
+			}
+			h := newRuntimeHarness(ctx, source, resolver, digests...)
+			defer h.Close(ctx)
+			cycles := func(n int) {
+				for range n {
+					advance(h, ctx, telem.Millisecond)
+				}
+			}
+			cycles(5)
+			var phases []phase
+			for _, step := range steps {
+				if step == "|" {
+					out, _ := h.Flush()
+					p := phase{log: drainStrings(out, log)}
+					for _, k := range []uint32{aliveMain, aliveInner, aliveFlight} {
+						if len(out.Get(k).Series) > 0 {
+							p.alive = append(p.alive, aliveNames[k])
+						}
+					}
+					phases = append(phases, p)
+					continue
+				}
+				names, once := strings.CutSuffix(step, "!")
+				for name := range strings.SplitSeq(names, "+") {
+					h.Ingest(inputs[name], telem.NewSeriesV[uint8](1))
+				}
+				if once {
+					cycles(1)
+				} else {
+					cycles(5)
+				}
+			}
+			return phases
+		}
+
+		const twoJumpsToAbort = `
+		sequence main {
+		    stage armed {
+		        "main" -> log
+		        a == 1 => abort
+		        b == 1 => abort
+		    }
+		}
+		sequence abort {
+		    stage safed { "abort" -> log }
+		}
+		start == 1 => main`
+
+		DescribeTable(
+			"Should start the target from each jump to it",
+			func(ctx SpecContext, jump string) {
+				Expect(run(ctx, twoJumpsToAbort, "start", jump, "|")).To(Equal(
+					[]phase{{log: []string{"main", "abort"}}},
+				))
+			},
+			Entry("first jump", "a"),
+			Entry("second jump", "b"),
+		)
+
+		It(
+			"Should start the target from a jump and from an entry point",
+			func(ctx SpecContext) {
+				Expect(run(ctx, `
+			sequence main {
+			    stage armed {
+			        "main" -> log
+			        b == 1 => abort
+			    }
+			}
+			sequence abort {
+			    stage safed { "abort" -> log }
+			}
+			start == 1 => main
+			a == 1 => abort`, "start", "b", "|")).To(Equal(
+					[]phase{{log: []string{"main", "abort"}}},
+				))
+			},
+		)
+
+		DescribeTable(
+			"Should start a scope from each entry point to it",
+			func(ctx SpecContext, entry string) {
+				Expect(run(ctx, `
+				sequence main {
+				    stage armed { "main" -> log }
+				}
+				a == 1 => main
+				b == 1 => main`, entry, "|")).To(Equal(
+					[]phase{{log: []string{"main"}}},
+				))
+			},
+			Entry("first entry point", "a"),
+			Entry("second entry point", "b"),
+		)
+
+		DescribeTable(
+			"Should act only on the first true jump in source order",
+			func(ctx SpecContext, source string, expected []string) {
+				Expect(run(ctx, source, "start", "a+b", "|")).To(Equal(
+					[]phase{{log: expected}},
+				))
+			},
+			Entry("two jumps in one stage", `
+			sequence main {
+			    stage armed {
+			        a == 1 => abort
+			        b == 1 => flight
+			    }
+			}
+			sequence abort { stage s { "abort" -> log } }
+			sequence flight { stage f { "flight" -> log } }
+			start == 1 => main`, []string{"abort"}),
+			Entry("two jumps in a top-level stage", `
+			stage armed {
+			    a == 1 => abort
+			    b == 1 => flight
+			}
+			sequence abort { stage s { "abort" -> log } }
+			sequence flight { stage f { "flight" -> log } }
+			start == 1 => armed`, []string{"abort"}),
+			Entry("a next before a jump", `
+			sequence main {
+			    stage armed {
+			        b == 1 => next
+			        a == 1 => abort
+			    }
+			    stage hold { "hold" -> log }
+			}
+			sequence abort { stage s { "abort" -> log } }
+			start == 1 => main`, []string{"hold"}),
+			Entry("a stage jump before a jump in its inline sequence", `
+			sequence main {
+			    stage armed {
+			        a == 1 => abort
+			        sequence { stage r { b == 1 => flight } }
+			    }
+			}
+			sequence abort { stage s { "abort" -> log } }
+			sequence flight { stage f { "flight" -> log } }
+			start == 1 => main`, []string{"abort"}),
+			Entry("a jump in an inline sequence before a stage jump", `
+			sequence main {
+			    stage armed {
+			        sequence { stage r { b == 1 => flight } }
+			        a == 1 => abort
+			    }
+			}
+			sequence abort { stage s { "abort" -> log } }
+			sequence flight { stage f { "flight" -> log } }
+			start == 1 => main`, []string{"flight"}),
+		)
+
+		const flight = `
+		sequence flight {
+		    stage f {
+		        "flight" -> log
+		        probe -> alive_flight
+		    }
+		}`
+
+		DescribeTable(
+			"Should stop the whole top-level scope that holds the jump",
+			func(ctx SpecContext, source, name string) {
+				Expect(
+					run(
+						ctx,
+						source+flight,
+						"start",
+						"a",
+						"|",
+						"probe",
+						"|",
+						"start",
+						"|",
+					),
+				).
+					To(Equal([]phase{
+						{log: []string{name, "flight"}},
+						{alive: []string{"alive_flight"}},
+						{log: []string{name}},
+					}))
+			},
+			Entry("a stage of a sequence", `
+			sequence main {
+			    stage armed {
+			        "main" -> log
+			        probe -> alive_main
+			        a == 1 => flight
+			    }
+			}
+			start == 1 => main`, "main"),
+			Entry("an inline sequence in a stage", `
+			sequence main {
+			    stage armed {
+			        "main" -> log
+			        probe -> alive_main
+			        sequence {
+			            stage release {
+			                probe -> alive_inner
+			                a == 1 => flight
+			            }
+			        }
+			    }
+			}
+			start == 1 => main`, "main"),
+			Entry("a sequence that is a step", `
+			sequence main {
+			    sequence ramp {
+			        stage r {
+			            "main" -> log
+			            probe -> alive_inner
+			            a == 1 => flight
+			        }
+			    }
+			    stage hold { "hold" -> log }
+			}
+			start == 1 => main`, "main"),
+			Entry("a top-level stage", `
+			stage idle {
+			    "idle" -> log
+			    probe -> alive_main
+			    a == 1 => flight
+			}
+			start == 1 => idle`, "idle"),
+			Entry("an inline sequence in a top-level stage", `
+			stage idle {
+			    "idle" -> log
+			    probe -> alive_main
+			    sequence {
+			        stage release {
+			            probe -> alive_inner
+			            a == 1 => flight
+			        }
+			    }
+			}
+			start == 1 => idle`, "idle"),
+		)
+
+		It("Should restart a sequence that jumps to itself", func(ctx SpecContext) {
+			Expect(run(ctx, `
+			sequence main {
+			    stage armed {
+			        "main" -> log
+			        probe -> alive_main
+			        a == 1 => main
+			    }
+			}
+			start == 1 => main`, "start", "a", "|", "probe", "|")).To(Equal([]phase{
+				{log: []string{"main", "main"}},
+				{alive: []string{"alive_main"}},
+			}))
+		})
+
+		It(
+			"Should not restart a target that is already running",
+			func(ctx SpecContext) {
+				Expect(run(ctx, `
+			sequence main {
+			    stage armed {
+			        "main" -> log
+			        a == 1 => abort
+			    }
+			}
+			sequence abort {
+			    stage s {
+			        "abort" -> log
+			        probe -> alive_flight
+			    }
+			}
+			start == 1 => main
+			b == 1 => abort`, "b", "start", "a", "|", "probe", "|")).To(Equal([]phase{
+					{log: []string{"abort", "main"}},
+					{alive: []string{"alive_flight"}},
+				}))
+			},
+		)
+
+		DescribeTable(
+			"Should start the target in the cycle of the jump",
+			func(ctx SpecContext, source string) {
+				Expect(run(ctx, source, "start", "|", "a!", "|")).To(Equal(
+					[]phase{{}, {log: []string{"flight"}}},
+				))
+			},
+			Entry("target declared after the source", `
+			sequence main {
+			    stage armed { a == 1 => flight }
+			}
+			sequence flight { stage f { "flight" -> log } }
+			start == 1 => main`),
+			Entry("target declared before the source", `
+			sequence flight { stage f { "flight" -> log } }
+			sequence main {
+			    stage armed { a == 1 => flight }
+			}
+			start == 1 => main`),
+		)
+
+		DescribeTable(
+			"Should not run a triggered body of a stage that left and entered again",
+			func(ctx SpecContext, source string, log []string) {
+				Expect(run(
+					ctx,
+					source,
+					"start", "b", "a", "start", "|", "probe", "|", "b", "probe", "|",
+				)).To(Equal([]phase{{log: log}, {}, {alive: []string{"alive_inner"}}}))
+			},
+			Entry("left through a jump to a top-level scope", `
+			sequence main {
+			    stage armed {
+			        "armed" -> log
+			        b == 1 => stage { probe -> alive_inner }
+			        a == 1 => flight
+			    }
+			}
+			sequence flight { stage f { "flight" -> log } }
+			start == 1 => main`, []string{"armed", "flight", "armed"}),
+			Entry("left through a transition to another stage", `
+			sequence main {
+			    stage armed {
+			        "armed" -> log
+			        b == 1 => stage { probe -> alive_inner }
+			        a == 1 => next
+			    }
+			    stage hold { start == 1 => armed }
+			}
+			start == 1 => main`, []string{"armed", "armed"}),
+		)
+	})
+
 	Describe("Composition", func() {
 		It("Inline stage in sequence resumes after => next", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{

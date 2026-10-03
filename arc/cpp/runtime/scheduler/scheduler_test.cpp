@@ -719,7 +719,7 @@ TEST_F(SchedulerTest, GatedScopeDoesNotExecuteBeforeActivation) {
     auto &stage_node = mock("stage_node");
     ir::Handle act{"trigger", "output"};
     auto gated = parallel_scope("stage", {stratum_of({ir::node_member("stage_node")})});
-    gated.activation = act;
+    gated.activations = {{.on = act, .kind = ir::EdgeKind::Conditional}};
     auto ir = program_of(
         {ir_node("trigger", {"output"}), ir_node("stage_node")},
         {},
@@ -736,7 +736,7 @@ TEST_F(SchedulerTest, GatedScopeActivatesOnceHandleFires) {
     auto &stage_node = mock("stage_node");
     ir::Handle act{"trigger", "output"};
     auto gated = parallel_scope("stage", {stratum_of({ir::node_member("stage_node")})});
-    gated.activation = act;
+    gated.activations = {{.on = act, .kind = ir::EdgeKind::Conditional}};
     auto ir = program_of(
         {ir_node("trigger", {"output"}), ir_node("stage_node")},
         {},
@@ -763,7 +763,7 @@ TEST_F(SchedulerTest, ReactivationAfterResetStampsFromTheNewCycle) {
     auto &stage_node = mock("stage_node");
     ir::Handle act{"trigger", "output"};
     auto gated = parallel_scope("stage", {stratum_of({ir::node_member("stage_node")})});
-    gated.activation = act;
+    gated.activations = {{.on = act, .kind = ir::EdgeKind::Conditional}};
     auto ir = program_of(
         {ir_node("trigger", {"output"}), ir_node("stage_node")},
         {},
@@ -839,7 +839,9 @@ TEST_F(SchedulerTest, CascadeResetsNestedAlwaysScopeOnActivation) {
         "outer",
         {stratum_of({ir::scope_member(std::move(nested))})}
     );
-    outer.activation = ir::Handle{"trigger", "output"};
+    outer.activations = {
+        {.on = ir::Handle{"trigger", "output"}, .kind = ir::EdgeKind::Conditional}
+    };
     auto ir = program_of(
         {ir_node("trigger", {"output"}), ir_node("inner")},
         {},
@@ -901,7 +903,9 @@ TEST_F(SchedulerTest, AdvancesOnTransitionFire) {
          ir::scope_member(std::move(second_scope))},
         {t}
     );
-    main.activation = ir::Handle{"trigger", "output"};
+    main.activations = {
+        {.on = ir::Handle{"trigger", "output"}, .kind = ir::EdgeKind::Conditional}
+    };
 
     auto ir = program_of(
         {ir_node("trigger", {"output"}),
@@ -940,7 +944,9 @@ TEST_F(SchedulerTest, ExitTargetDeactivatesSequence) {
         {ir::scope_member(std::move(first_scope))},
         {t}
     );
-    main.activation = ir::Handle{"trigger", "output"};
+    main.activations = {
+        {.on = ir::Handle{"trigger", "output"}, .kind = ir::EdgeKind::Conditional}
+    };
     auto ir = program_of(
         {ir_node("trigger", {"output"}), ir_node("first_node", {"output"})},
         {},
@@ -986,7 +992,9 @@ TEST_F(SchedulerTest, FirstMatchWinsWhenMultipleTransitionsTruthy) {
          ir::scope_member(std::move(b_scope))},
         {t1, t2}
     );
-    main.activation = ir::Handle{"trigger", "output"};
+    main.activations = {
+        {.on = ir::Handle{"trigger", "output"}, .kind = ir::EdgeKind::Conditional}
+    };
     auto ir = program_of(
         {ir_node("trigger", {"output"}),
          ir_node("first_node", {"output"}),
@@ -1030,7 +1038,9 @@ TEST_F(SchedulerTest, CascadesMultipleTransitionsInOneCycle) {
          ir::scope_member(std::move(sc3))},
         {t1, t2}
     );
-    main.activation = ir::Handle{"trigger", "output"};
+    main.activations = {
+        {.on = ir::Handle{"trigger", "output"}, .kind = ir::EdgeKind::Conditional}
+    };
     auto ir = program_of(
         {ir_node("trigger", {"output"}),
          ir_node("s1", {"output"}),
@@ -1114,7 +1124,9 @@ TEST_F(SchedulerTest, EmptySequentialScopeTolerated) {
     main.key = "main";
     main.mode = ir::ScopeMode::Sequential;
     main.liveness = ir::Liveness::Gated;
-    main.activation = ir::Handle{"trigger", "output"};
+    main.activations = {
+        {.on = ir::Handle{"trigger", "output"}, .kind = ir::EdgeKind::Conditional}
+    };
     auto ir = program_of(
         {ir_node("trigger", {"output"})},
         {},
@@ -1133,9 +1145,13 @@ TEST_F(SchedulerTest, IndependentTopLevelGatedScopes) {
     auto &a = mock("A");
     auto &b = mock("B");
     auto stage_a = parallel_scope("stage_a", {stratum_of({ir::node_member("A")})});
-    stage_a.activation = ir::Handle{"trigger_a", "output"};
+    stage_a.activations = {
+        {.on = ir::Handle{"trigger_a", "output"}, .kind = ir::EdgeKind::Conditional}
+    };
     auto stage_b = parallel_scope("stage_b", {stratum_of({ir::node_member("B")})});
-    stage_b.activation = ir::Handle{"trigger_b", "output"};
+    stage_b.activations = {
+        {.on = ir::Handle{"trigger_b", "output"}, .kind = ir::EdgeKind::Conditional}
+    };
     auto ir = program_of(
         {ir_node("trigger_a", {"output"}),
          ir_node("trigger_b", {"output"}),
@@ -1202,7 +1218,9 @@ TEST_F(
     t_exit.on = ir::Handle{"latch", "output"};
     t_exit.target_key = exit_target();
     auto main = sequential_scope("main", {ir::scope_member(std::move(body))}, {t_exit});
-    main.activation = ir::Handle{"trigger", "output"};
+    main.activations = {
+        {.on = ir::Handle{"trigger", "output"}, .kind = ir::EdgeKind::Conditional}
+    };
 
     auto program = program_of(
         {ir_node("trigger", {"output"}),
@@ -1253,7 +1271,9 @@ TEST_F(
         {ir::scope_member(std::move(a)), ir::scope_member(std::move(b))},
         {t_ab}
     );
-    main.activation = ir::Handle{"trigger", "output"};
+    main.activations = {
+        {.on = ir::Handle{"trigger", "output"}, .kind = ir::EdgeKind::Conditional}
+    };
 
     auto program = program_of(
         {ir_node("trigger", {"output"}),
@@ -1312,7 +1332,9 @@ TEST_F(SchedulerTest, FiresTransitionAgainWhenSourceFreshlyMarksChangedOnLaterCy
         {ir::scope_member(std::move(a)), ir::scope_member(std::move(b))},
         {t_ab}
     );
-    main.activation = ir::Handle{"trigger", "output"};
+    main.activations = {
+        {.on = ir::Handle{"trigger", "output"}, .kind = ir::EdgeKind::Conditional}
+    };
 
     auto program = program_of(
         {ir_node("trigger", {"output"}),
@@ -1457,7 +1479,9 @@ TEST_F(SchedulerTest, RunsTheNextSequentialStepOnTheSettlePassSoItObservesPriorW
         {ir::scope_member(std::move(first)), ir::scope_member(std::move(second))},
         {t}
     );
-    main.activation = ir::Handle{"trigger", "output"};
+    main.activations = {
+        {.on = ir::Handle{"trigger", "output"}, .kind = ir::EdgeKind::Conditional}
+    };
     auto program = program_of(
         {ir_node("trigger", {"output"}),
          ir_node("V"),
@@ -1546,7 +1570,9 @@ TEST_F(SchedulerTest, ReFiresAnEntryNodeWhenItsScopeReActivates) {
     t.on = ir::Handle{"A", "output"};
     t.target_key = exit_target();
     auto main = sequential_scope("main", {ir::scope_member(std::move(first))}, {t});
-    main.activation = ir::Handle{"trigger", "output"};
+    main.activations = {
+        {.on = ir::Handle{"trigger", "output"}, .kind = ir::EdgeKind::Conditional}
+    };
     auto program = program_of(
         {ir_node("trigger", {"output"}), ir_node("A", {"output"})},
         {},
@@ -1571,7 +1597,9 @@ TEST_F(SchedulerTest, RunsAnEntrySequentialFlowStepOnceWhileTheStepStaysActive) 
     mock("trigger", {true});
     auto &step = mock("step");
     auto main = sequential_scope("main", {ir::node_member("step")});
-    main.activation = ir::Handle{"trigger", "output"};
+    main.activations = {
+        {.on = ir::Handle{"trigger", "output"}, .kind = ir::EdgeKind::Conditional}
+    };
     auto program = program_of(
         {ir_node("trigger", {"output"}), ir_node("step")},
         {},
@@ -1668,7 +1696,9 @@ TEST_F(SchedulerTest, FiresAStagesOneShotTriggeredNodeOncePerActivation) {
          stratum_of({ir::node_member("creator")})}
     );
     auto main = sequential_scope("main", {ir::scope_member(std::move(stage))});
-    main.activation = ir::Handle{"trigger", "output"};
+    main.activations = {
+        {.on = ir::Handle{"trigger", "output"}, .kind = ir::EdgeKind::Conditional}
+    };
     auto program = program_of(
         {ir_node("trigger", {"output"}),
          ir_node("entry", {"output"}),
@@ -1803,7 +1833,9 @@ TEST_F(SchedulerTest, ResetsASequentialScopesStrataMembersOnActivation) {
     auto stage = parallel_scope("stage", {stratum_of({ir::node_member("M")})});
     auto main = sequential_scope("main", {ir::scope_member(std::move(stage))});
     main.strata.push_back(stratum_of({ir::node_member("V")}));
-    main.activation = ir::Handle{"trigger", "output"};
+    main.activations = {
+        {.on = ir::Handle{"trigger", "output"}, .kind = ir::EdgeKind::Conditional}
+    };
     auto program = program_of(
         {ir_node("trigger", {"output"}), ir_node("V"), ir_node("M")},
         {},
@@ -1840,7 +1872,9 @@ TEST_F(SchedulerTest, ClearsAPendingSelfChangeAndReResetsOnScopeReEntry) {
     t.on = ir::Handle{"A", "output"};
     t.target_key = exit_target();
     auto main = sequential_scope("main", {ir::scope_member(std::move(first))}, {t});
-    main.activation = ir::Handle{"trigger", "output"};
+    main.activations = {
+        {.on = ir::Handle{"trigger", "output"}, .kind = ir::EdgeKind::Conditional}
+    };
     auto program = program_of(
         {ir_node("trigger", {"output"}),
          ir_node("src", {"output"}),
@@ -1881,7 +1915,9 @@ TEST_F(SchedulerTest, IgnoresAStrataVariableMemberWithNoMatchingNode) {
     auto stage = parallel_scope("stage", {stratum_of({ir::node_member("M")})});
     auto main = sequential_scope("main", {ir::scope_member(std::move(stage))});
     main.strata.push_back(stratum_of({ir::node_member("ghost")}));
-    main.activation = ir::Handle{"trigger", "output"};
+    main.activations = {
+        {.on = ir::Handle{"trigger", "output"}, .kind = ir::EdgeKind::Conditional}
+    };
     auto program = program_of(
         {ir_node("trigger", {"output"}), ir_node("M")},
         {},
@@ -1911,8 +1947,9 @@ static ir::IR two_step_seq(const ir::EdgeKind kind) {
         {ir::scope_member(std::move(first)), ir::scope_member(std::move(second))},
         {t}
     );
-    main.activation = ir::Handle{"trigger", "output"};
-    main.activation_kind = ir::EdgeKind::Conditional;
+    main.activations = {
+        {.on = ir::Handle{"trigger", "output"}, .kind = ir::EdgeKind::Conditional}
+    };
     return program_of(
         {ir_node("trigger", {"output"}),
          ir_node("first_node", {"output"}),
@@ -1925,8 +1962,7 @@ static ir::IR two_step_seq(const ir::EdgeKind kind) {
 /// @brief builds a top-level stage activated by trigger's output with the given kind.
 static ir::IR gated_stage(const ir::EdgeKind kind) {
     auto gated = parallel_scope("stage", {stratum_of({ir::node_member("stage_node")})});
-    gated.activation = ir::Handle{"trigger", "output"};
-    gated.activation_kind = kind;
+    gated.activations = {{.on = ir::Handle{"trigger", "output"}, .kind = kind}};
     return program_of(
         {ir_node("trigger", {"output"}), ir_node("stage_node")},
         {},
@@ -1988,4 +2024,308 @@ TEST(ValidateTest, RejectsAnActivationWithNoKind) {
     EXPECT_EQ(err.data, "scope stage has an activation with no kind");
 }
 
+// ----- Jumps -----
+
+namespace {
+const node::Cycle JUMP_CYCLE{
+    .elapsed = x::telem::MICROSECOND,
+    .reason = node::RunReason::TimerTick
+};
+
+/// @brief activates a scope on trigger's truthy output.
+std::vector<ir::Activation> triggered() {
+    return {{.on = ir::Handle{"trigger", "output"}, .kind = ir::EdgeKind::Conditional}};
+}
+
+/// @brief returns a conditional transition on key's output that exits to target.
+ir::Transition jump(const std::string &key, const std::string &target) {
+    ir::Transition t;
+    t.on = ir::Handle{key, "output"};
+    t.kind = ir::EdgeKind::Conditional;
+    t.activate_key = target;
+    return t;
+}
+
+/// @brief builds `sequence main { stage s { ...keys } }`, activated by trigger and
+/// holding the given transitions.
+ir::Scope main_seq(
+    const std::vector<std::string> &keys,
+    std::vector<ir::Transition> transitions
+) {
+    std::vector<ir::Member> members;
+    for (const auto &k: keys)
+        members.push_back(ir::node_member(k));
+    auto s = parallel_scope("s", {stratum_of(std::move(members))});
+    auto main = sequential_scope(
+        "main",
+        {ir::scope_member(std::move(s))},
+        std::move(transitions)
+    );
+    main.activations = triggered();
+    return main;
+}
+
+/// @brief builds a gated top-level stage holding one node.
+ir::Scope target(const std::string &key) {
+    return parallel_scope(key, {stratum_of({ir::node_member(key + "_node")})});
+}
+
+/// @brief puts trigger first in the root, then scopes in the given order.
+ir::IR
+jump_program(const std::vector<std::string> &node_keys, std::vector<ir::Scope> scopes) {
+    ir::IR prog;
+    prog.nodes.push_back(ir_node("trigger", {"output"}));
+    for (const auto &k: node_keys)
+        prog.nodes.push_back(ir_node(k, {"output"}));
+    std::vector<ir::Member> members{ir::node_member("trigger")};
+    for (auto &sc: scopes)
+        members.push_back(ir::scope_member(std::move(sc)));
+    prog.root = root_scope(std::move(members));
+    return prog;
+}
+}
+
+class JumpTest : public SchedulerTest {
+protected:
+    /// @brief registers a node that runs on every cycle while its scope is active.
+    MockNode &alive(const std::string &key) {
+        auto &m = this->mock(key);
+        m.on_next = [](node::Context &ctx) { ctx.mark_self_changed(); };
+        return m;
+    }
+};
+
+TEST_F(JumpTest, ExitsAndStartsATargetDeclaredBeforeInTheSameCycle) {
+    mock("trigger", {true});
+    const auto &body = alive("body");
+    mock("j", {true});
+    const auto &abort = mock("abort_node");
+    std::vector<ir::Scope> scopes;
+    scopes.push_back(target("abort"));
+    scopes.push_back(main_seq({"body", "j"}, {jump("j", "abort")}));
+    const auto s = build(jump_program({"body", "j", "abort_node"}, std::move(scopes)));
+    s->next(JUMP_CYCLE);
+    EXPECT_EQ(abort.next_called, 1);
+    s->next(JUMP_CYCLE);
+    EXPECT_EQ(body.next_called, 1);
+}
+
+TEST_F(JumpTest, ActsOnlyOnTheFirstJumpThatFires) {
+    mock("trigger", {true});
+    mock("j1", {true});
+    mock("j2", {true});
+    const auto &abort = mock("abort_node");
+    const auto &flight = mock("flight_node");
+    std::vector<ir::Scope> scopes;
+    scopes.push_back(
+        main_seq({"j1", "j2"}, {jump("j1", "abort"), jump("j2", "flight")})
+    );
+    scopes.push_back(target("abort"));
+    scopes.push_back(target("flight"));
+    const auto s = build(
+        jump_program({"j1", "j2", "abort_node", "flight_node"}, std::move(scopes))
+    );
+
+    s->next(JUMP_CYCLE);
+    EXPECT_EQ(abort.next_called, 1);
+    EXPECT_EQ(flight.next_called, 0);
+}
+
+TEST_F(JumpTest, ExitsAParallelScope) {
+    mock("trigger", {true});
+    const auto &body = alive("body");
+    mock("j", {true});
+    const auto &flight = mock("flight_node");
+    auto idle = parallel_scope(
+        "idle",
+        {stratum_of({ir::node_member("body"), ir::node_member("j")})}
+    );
+    idle.activations = triggered();
+    idle.transitions = {jump("j", "flight")};
+    std::vector<ir::Scope> scopes;
+    scopes.push_back(std::move(idle));
+    scopes.push_back(target("flight"));
+    const auto s = build(jump_program({"body", "j", "flight_node"}, std::move(scopes)));
+    s->next(JUMP_CYCLE);
+    EXPECT_EQ(flight.next_called, 1);
+    s->next(JUMP_CYCLE);
+    EXPECT_EQ(body.next_called, 1);
+}
+
+TEST_F(JumpTest, ActsOnlyOnTheFirstExitOfAParallelScope) {
+    mock("trigger", {true});
+    mock("j1", {true});
+    mock("j2", {true});
+    const auto &abort = mock("abort_node");
+    const auto &flight = mock("flight_node");
+    auto idle = parallel_scope(
+        "idle",
+        {stratum_of({ir::node_member("j1"), ir::node_member("j2")})}
+    );
+    idle.activations = triggered();
+    idle.transitions = {jump("j1", "abort"), jump("j2", "flight")};
+    std::vector<ir::Scope> scopes;
+    scopes.push_back(std::move(idle));
+    scopes.push_back(target("abort"));
+    scopes.push_back(target("flight"));
+    const auto s = build(
+        jump_program({"j1", "j2", "abort_node", "flight_node"}, std::move(scopes))
+    );
+
+    s->next(JUMP_CYCLE);
+    EXPECT_EQ(abort.next_called, 1);
+    EXPECT_EQ(flight.next_called, 0);
+}
+
+TEST_F(JumpTest, RestartsAScopeThatJumpsToItself) {
+    mock("trigger", {true});
+    const auto &body = mock("body");
+    auto &j = mock("j", {true});
+    j.suppress_auto_mark = true;
+    j.on_next = [&j](node::Context &ctx) {
+        if (j.next_called == 1) ctx.mark_changed(0);
+    };
+    std::vector<ir::Scope> scopes;
+    scopes.push_back(main_seq({"body", "j"}, {jump("j", "main")}));
+    const auto s = build(jump_program({"body", "j"}, std::move(scopes)));
+
+    s->next(JUMP_CYCLE);
+    EXPECT_EQ(body.next_called, 2);
+    EXPECT_EQ(body.reset_called, 2);
+}
+
+TEST_F(JumpTest, StopsTheScopesNestedInAScopeThatRestarts) {
+    mock("trigger", {true});
+    auto &start = mock("start", {true});
+    start.suppress_auto_mark = true;
+    start.on_next = [&start](node::Context &ctx) {
+        if (start.next_called == 1) ctx.mark_changed(0);
+    };
+    auto &j = mock("j", {true});
+    j.suppress_auto_mark = true;
+    j.on_next = [&j](node::Context &ctx) {
+        ctx.mark_self_changed();
+        if (j.next_called == 2) ctx.mark_changed(0);
+    };
+    const auto &body = alive("body");
+    auto inner = parallel_scope("inner", {stratum_of({ir::node_member("body")})});
+    inner.activations = {
+        {.on = ir::Handle{"start", "output"}, .kind = ir::EdgeKind::Conditional}
+    };
+    auto outer = parallel_scope(
+        "outer",
+        {stratum_of(
+            {ir::node_member("start"),
+             ir::node_member("j"),
+             ir::scope_member(std::move(inner))}
+        )}
+    );
+    outer.activations = triggered();
+    outer.transitions = {jump("j", "outer")};
+    std::vector<ir::Scope> scopes;
+    scopes.push_back(std::move(outer));
+    const auto s = build(jump_program({"start", "j", "body"}, std::move(scopes)));
+    for (int i = 0; i < 3; ++i)
+        s->next(JUMP_CYCLE);
+    EXPECT_EQ(body.next_called, 2);
+}
+
+TEST_F(JumpTest, DoesNotRestartATargetThatIsAlreadyActive) {
+    mock("trigger", {true});
+    mock("j", {true});
+    const auto &abort = mock("abort_node");
+    auto running = target("abort");
+    running.activations = triggered();
+    std::vector<ir::Scope> scopes;
+    scopes.push_back(std::move(running));
+    scopes.push_back(main_seq({"j"}, {jump("j", "abort")}));
+    const auto s = build(jump_program({"j", "abort_node"}, std::move(scopes)));
+
+    s->next(JUMP_CYCLE);
+    EXPECT_EQ(abort.next_called, 1);
+    EXPECT_EQ(abort.reset_called, 1);
+}
+
+class ActivationTest : public SchedulerTest,
+                       public ::testing::WithParamInterface<std::string> {};
+
+TEST_P(ActivationTest, ActivatesAScopeFromEachOfItsActivations) {
+    const auto &firing = GetParam();
+    mock("a1", {firing == "a1"});
+    mock("a2", {firing == "a2"});
+    const auto &stage = mock("stage_node");
+    auto gated = target("stage");
+    gated.activations = {
+        {.on = ir::Handle{"a1", "output"}, .kind = ir::EdgeKind::Conditional},
+        {.on = ir::Handle{"a2", "output"}, .kind = ir::EdgeKind::Conditional},
+    };
+    const auto s = build(program_of(
+        {ir_node("a1", {"output"}), ir_node("a2", {"output"}), ir_node("stage_node")},
+        {},
+        root_scope(
+            {ir::node_member("a1"),
+             ir::node_member("a2"),
+             ir::scope_member(std::move(gated))}
+        )
+    ));
+
+    s->next(JUMP_CYCLE);
+    EXPECT_EQ(stage.next_called, 1);
+}
+
+INSTANTIATE_TEST_SUITE_P(Jumps, ActivationTest, ::testing::Values("a1", "a2"));
+
+/// @brief returns the validation error for a top-level scope s that holds t.
+static x::errors::Error
+validate_transition(ir::Transition t, const ir::ScopeMode mode) {
+    auto s = target("s");
+    s.mode = mode;
+    s.transitions = {std::move(t)};
+    std::vector<ir::Scope> scopes;
+    scopes.push_back(std::move(s));
+    return validate(jump_program({"s_node"}, std::move(scopes)).root);
+}
+
+TEST(ValidateTest, RejectsAJumpToAScopeThatIsNotTopLevel) {
+    const auto err = validate_transition(
+        jump("s_node", "missing"),
+        ir::ScopeMode::Parallel
+    );
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(
+        err.data,
+        "scope s has a transition to a scope that is not top-level: "
+        "on s_node/output => exit to missing"
+    );
+}
+
+TEST(ValidateTest, RejectsAStepTargetOnAParallelScope) {
+    ir::Transition t;
+    t.on = ir::Handle{"s_node", "output"};
+    t.kind = ir::EdgeKind::Conditional;
+    t.target_key = "other";
+    const auto err = validate_transition(t, ir::ScopeMode::Parallel);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(
+        err.data,
+        "scope s has a transition with a step target it cannot take: "
+        "on s_node/output => other"
+    );
+}
+
+TEST(ValidateTest, RejectsAStepTargetOnAJump) {
+    auto t = jump("s_node", "s");
+    t.target_key = "other";
+    const auto err = validate_transition(t, ir::ScopeMode::Sequential);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(
+        err.data,
+        "scope s has a transition with a step target it cannot take: "
+        "on s_node/output => other"
+    );
+}
+
+TEST(ValidateTest, AcceptsAJumpToATopLevelScope) {
+    ASSERT_NIL(validate_transition(jump("s_node", "s"), ir::ScopeMode::Parallel));
+}
 }

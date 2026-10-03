@@ -150,6 +150,9 @@ func TransitionToPB(r ir.Transition) (*Transition, error) {
 	if r.TargetKey != nil {
 		pb.TargetKey = r.TargetKey
 	}
+	if r.ActivateKey != nil {
+		pb.ActivateKey = r.ActivateKey
+	}
 	return pb, nil
 }
 
@@ -170,6 +173,9 @@ func TransitionFromPB(pb *Transition) (ir.Transition, error) {
 	}
 	if pb.TargetKey != nil {
 		r.TargetKey = pb.TargetKey
+	}
+	if pb.ActivateKey != nil {
+		r.ActivateKey = pb.ActivateKey
 	}
 	return r, nil
 }
@@ -193,6 +199,67 @@ func TransitionsFromPB(pbs []*Transition) ([]ir.Transition, error) {
 	for i, pb := range pbs {
 		var err error
 		result[i], err = TransitionFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ActivationToPB converts Activation to Activation.
+func ActivationToPB(r ir.Activation) (*Activation, error) {
+	onVal, err := HandleToPB(r.On)
+	if err != nil {
+		return nil, err
+	}
+	kindVal, err := EdgeKindToPB(r.Kind)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Activation{
+		On:   onVal,
+		Kind: kindVal,
+	}
+	return pb, nil
+}
+
+// ActivationFromPB converts Activation to Activation.
+func ActivationFromPB(pb *Activation) (ir.Activation, error) {
+	var r ir.Activation
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.On, err = HandleFromPB(pb.On)
+	if err != nil {
+		return ir.Activation{}, err
+	}
+	r.Kind, err = EdgeKindFromPB(pb.Kind)
+	if err != nil {
+		return ir.Activation{}, err
+	}
+	return r, nil
+}
+
+// ActivationsToPB converts a slice of Activation to Activation.
+func ActivationsToPB(rs []ir.Activation) ([]*Activation, error) {
+	result := make([]*Activation, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ActivationToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ActivationsFromPB converts a slice of Activation to Activation.
+func ActivationsFromPB(pbs []*Activation) ([]ir.Activation, error) {
+	result := make([]ir.Activation, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ActivationFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -271,7 +338,7 @@ func ScopeToPB(r ir.Scope) (*Scope, error) {
 	if err != nil {
 		return nil, err
 	}
-	activationKindVal, err := EdgeKindToPB(r.ActivationKind)
+	activationsVal, err := ActivationsToPB(r.Activations)
 	if err != nil {
 		return nil, err
 	}
@@ -298,20 +365,13 @@ func ScopeToPB(r ir.Scope) (*Scope, error) {
 		return nil, err
 	}
 	pb := &Scope{
-		Key:            r.Key,
-		Mode:           modeVal,
-		Liveness:       livenessVal,
-		ActivationKind: activationKindVal,
-		Strata:         strataVal,
-		Steps:          stepsVal,
-		Transitions:    transitionsVal,
-	}
-	if r.Activation != nil {
-		var err error
-		pb.Activation, err = HandleToPB(*r.Activation)
-		if err != nil {
-			return nil, err
-		}
+		Key:         r.Key,
+		Mode:        modeVal,
+		Liveness:    livenessVal,
+		Activations: activationsVal,
+		Strata:      strataVal,
+		Steps:       stepsVal,
+		Transitions: transitionsVal,
 	}
 	return pb, nil
 }
@@ -331,7 +391,7 @@ func ScopeFromPB(pb *Scope) (ir.Scope, error) {
 	if err != nil {
 		return ir.Scope{}, err
 	}
-	r.ActivationKind, err = EdgeKindFromPB(pb.ActivationKind)
+	r.Activations, err = ActivationsFromPB(pb.Activations)
 	if err != nil {
 		return ir.Scope{}, err
 	}
@@ -358,13 +418,6 @@ func ScopeFromPB(pb *Scope) (ir.Scope, error) {
 		return ir.Scope{}, err
 	}
 	r.Key = pb.Key
-	if pb.Activation != nil {
-		val, err := HandleFromPB(pb.Activation)
-		if err != nil {
-			return ir.Scope{}, err
-		}
-		r.Activation = &val
-	}
 	return r, nil
 }
 

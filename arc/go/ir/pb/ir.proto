@@ -57,7 +57,8 @@ message Edge {
   EdgeKind kind = 3;
 }
 
-// Transition is a declarative state-transition rule on a sequential Scope.
+// Transition is a declarative state-transition rule on a sequential Scope, or an exit
+// from a parallel Scope.
 message Transition {
   // on is the dataflow handle whose output fires this transition.
   Handle on = 1;
@@ -67,6 +68,18 @@ message Transition {
   // target_key is the sibling step key to activate. Null when the transition exits the
   // scope, yielding to the parent.
   optional string target_key = 3;
+  // activate_key is the key of the top-level scope to activate after the transition
+  // exits its scope. Null unless targetKey is null.
+  optional string activate_key = 4;
+}
+
+// Activation is a handle that activates a gated Scope without leaving any scope.
+message Activation {
+  // on is the dataflow handle whose output activates the scope.
+  Handle on = 1;
+  // kind is conditional when only a truthy output activates the scope (`=>`), and
+  // continuous when every output does (`->`).
+  EdgeKind kind = 2;
 }
 
 // Member is a tagged union representing a single child of a Scope. Exactly one of
@@ -93,22 +106,18 @@ message Scope {
   ScopeMode mode = 2;
   // liveness defines whether this scope is continuously active or must be activated.
   Liveness liveness = 3;
-  // activation is the handle whose output activates a gated scope. Unset for
-  // always-live scopes.
-  optional Handle activation = 4;
-  // activation_kind is conditional when only a truthy activation output activates the
-  // scope (`=>`), and continuous when every output does (`->`). Unspecified when
-  // activation is unset.
-  EdgeKind activation_kind = 5;
+  // activations contains the handles that activate a gated scope. Empty for always-live
+  // scopes.
+  repeated Activation activations = 4;
   // strata contains stratified execution layers for parallel scopes. On sequential
   // scopes, strata hold variable nodes that run every pass alongside the active step.
   // Stratum N depends only on strata 0 to N-1.
-  repeated MembersWrapper strata = 6;
+  repeated MembersWrapper strata = 5;
   // steps contains ordered steps for sequential scopes. Empty for parallel scopes.
-  repeated Member steps = 7;
-  // transitions contains state-transition rules for sequential scopes. Empty for
-  // parallel scopes.
-  repeated Transition transitions = 8;
+  repeated Member steps = 6;
+  // transitions contains state-transition rules in source order. A parallel scope holds
+  // only exits.
+  repeated Transition transitions = 7;
 }
 
 // Body is raw function body source code with optional parsed AST.

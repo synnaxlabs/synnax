@@ -69,7 +69,8 @@ const (
 	LivenessGated
 )
 
-// Transition is a declarative state-transition rule on a sequential Scope.
+// Transition is a declarative state-transition rule on a sequential Scope, or an exit
+// from a parallel Scope.
 type Transition struct {
 	// On is the dataflow handle whose output fires this transition.
 	On Handle `json:"on" msgpack:"on"`
@@ -79,6 +80,18 @@ type Transition struct {
 	// TargetKey is the sibling step key to activate. Null when the transition exits the
 	// scope, yielding to the parent.
 	TargetKey *string `json:"target_key,omitzero" msgpack:"target_key,omitempty"`
+	// ActivateKey is the key of the top-level scope to activate after the transition
+	// exits its scope. Null unless targetKey is null.
+	ActivateKey *string `json:"activate_key,omitzero" msgpack:"activate_key,omitempty"`
+}
+
+// Activation is a handle that activates a gated Scope without leaving any scope.
+type Activation struct {
+	// On is the dataflow handle whose output activates the scope.
+	On Handle `json:"on" msgpack:"on"`
+	// Kind is conditional when only a truthy output activates the scope (`=>`), and
+	// continuous when every output does (`->`).
+	Kind EdgeKind `json:"kind" msgpack:"kind"`
 }
 
 // Member is a tagged union representing a single child of a Scope. Exactly one of
@@ -105,21 +118,17 @@ type Scope struct {
 	Mode ScopeMode `json:"mode" msgpack:"mode"`
 	// Liveness defines whether this scope is continuously active or must be activated.
 	Liveness Liveness `json:"liveness" msgpack:"liveness"`
-	// Activation is the handle whose output activates a gated scope. Unset for
+	// Activations contains the handles that activate a gated scope. Empty for
 	// always-live scopes.
-	Activation *Handle `json:"activation,omitzero" msgpack:"activation,omitempty"`
-	// ActivationKind is conditional when only a truthy activation output activates the
-	// scope (`=>`), and continuous when every output does (`->`). Unspecified when
-	// activation is unset.
-	ActivationKind EdgeKind `json:"activation_kind" msgpack:"activation_kind"`
+	Activations []Activation `json:"activations" msgpack:"activations"`
 	// Strata contains stratified execution layers for parallel scopes. On sequential
 	// scopes, strata hold variable nodes that run every pass alongside the active step.
 	// Stratum N depends only on strata 0 to N-1.
 	Strata []Members `json:"strata" msgpack:"strata"`
 	// Steps contains ordered steps for sequential scopes. Empty for parallel scopes.
 	Steps Members `json:"steps" msgpack:"steps"`
-	// Transitions contains state-transition rules for sequential scopes. Empty for
-	// parallel scopes.
+	// Transitions contains state-transition rules in source order. A parallel scope
+	// holds only exits.
 	Transitions []Transition `json:"transitions" msgpack:"transitions"`
 }
 

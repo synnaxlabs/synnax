@@ -58,6 +58,7 @@ inline Transition Transition::parse(x::json::Parser parser) {
         .on = parser.field<Handle>("on"),
         .kind = parser.field<EdgeKind>("kind"),
         .target_key = parser.field<std::optional<std::string>>("target_key"),
+        .activate_key = parser.field<std::optional<std::string>>("activate_key"),
     };
 }
 
@@ -66,6 +67,21 @@ inline x::json::json Transition::to_json() const {
     j["on"] = this->on.to_json();
     j["kind"] = this->kind;
     j["target_key"] = this->target_key;
+    j["activate_key"] = this->activate_key;
+    return j;
+}
+
+inline Activation Activation::parse(x::json::Parser parser) {
+    return Activation{
+        .on = parser.field<Handle>("on"),
+        .kind = parser.field<EdgeKind>("kind"),
+    };
+}
+
+inline x::json::json Activation::to_json() const {
+    x::json::json j;
+    j["on"] = this->on.to_json();
+    j["kind"] = this->kind;
     return j;
 }
 
@@ -88,8 +104,10 @@ inline Scope Scope::parse(x::json::Parser parser) {
         .key = parser.field<std::string>("key"),
         .mode = parser.field<ScopeMode>("mode"),
         .liveness = parser.field<Liveness>("liveness"),
-        .activation = parser.field<std::optional<Handle>>("activation"),
-        .activation_kind = parser.field<EdgeKind>("activation_kind"),
+        .activations = parser.field<std::vector<Activation>>(
+            "activations",
+            std::vector<Activation>{}
+        ),
         .strata = parser.field<std::vector<Members>>("strata", std::vector<Members>{}),
         .steps = parser.field<std::vector<Member>>("steps", std::vector<Member>{}),
         .transitions = parser.field<std::vector<Transition>>(
@@ -104,8 +122,7 @@ inline x::json::json Scope::to_json() const {
     j["key"] = this->key;
     j["mode"] = this->mode;
     j["liveness"] = this->liveness;
-    if (this->activation.has_value()) j["activation"] = this->activation->to_json();
-    j["activation_kind"] = this->activation_kind;
+    j["activations"] = x::json::to_array(this->activations);
     {
         auto arr = x::json::json::array();
         for (const auto &inner: this->strata)

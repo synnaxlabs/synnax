@@ -72,6 +72,8 @@ std::string Transition::to_string() const {
        << (this->kind == EdgeKind::Continuous ? "->" : "=>") << " ";
     if (this->target_key.has_value())
         ss << *this->target_key;
+    else if (this->activate_key.has_value())
+        ss << "exit to " << *this->activate_key;
     else
         ss << "exit";
     return ss.str();
@@ -270,9 +272,8 @@ namespace {
 /// whether the Root section should appear in an IR's tree output.
 bool scope_is_zero(const Scope &s) {
     return s.key.empty() && s.mode == ScopeMode::Unspecified &&
-           s.liveness == Liveness::Unspecified && !s.activation.has_value() &&
-           s.activation_kind == EdgeKind::Unspecified && s.strata.empty() &&
-           s.steps.empty() && s.transitions.empty();
+           s.liveness == Liveness::Unspecified && s.activations.empty() &&
+           s.strata.empty() && s.steps.empty() && s.transitions.empty();
 }
 
 }
