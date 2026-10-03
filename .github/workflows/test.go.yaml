@@ -216,8 +216,10 @@ jobs:
           --keep-going --trace --timeout=2h --github-output ${{ inputs.ginkgo_flags }}
         working-directory: ${{ inputs.directory }}
 
+      # Pull requests test only on Linux, so other caches would only evict theirs.
       - name: Save the Go caches
-        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+        if:
+          ${{ !cancelled() && github.ref == 'refs/heads/main' && runner.os == 'Linux' }}
         uses: actions/cache/save@v6
         with:
           path: |
