@@ -169,6 +169,7 @@ var _ = Describe("HTTPHealthCheckMigration", func() {
 	}
 	// The properties a v0.53.0 Console stored for an HTTP device.
 	v053Properties := func() msgpack.EncodedJSON {
+		GinkgoHelper()
 		var p msgpack.EncodedJSON
 		Expect(json.Unmarshal([]byte(`{
 			"max_concurrent_requests": 6, "write": {}, "timeout_ms": 100,
