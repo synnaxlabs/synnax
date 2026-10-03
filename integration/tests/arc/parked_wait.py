@@ -62,23 +62,17 @@ class ParkedWait(ArcCase):
 
     def verify_sequence_execution(self) -> None:
         timer = sy.Timer()
-        status = self.status()
-        while status is None or status.variant != "warning":
+        while (status := self.status()) is None or status.variant != "warning":
             if status is not None and status.variant == "error":
                 self.fail(f"the task reports an error: {status.message}")
-                return
             if timer.elapsed() > 5 * sy.TimeSpan.SECOND:
                 self.fail("the task reports no warning for the zero wait duration")
-                return
             sy.sleep(0.05)
-            status = self.status()
         if WARNING_MESSAGE not in f"{status.message} {status.description}":
             self.fail(f"the warning is not about the wait: {status.message}")
-            return
         self.wait_for_eq("pw_alive", 1, timeout=5 * sy.TimeSpan.SECOND)
         if self.read_tlm("pw_done") == 1:
             self.fail("the parked wait fired before its stage was entered again")
-            return
         self.wait_for_eq("pw_done", 1, timeout=10 * sy.TimeSpan.SECOND)
         status = self.status()
         if status is not None and status.variant == "error":

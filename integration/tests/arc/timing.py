@@ -9,7 +9,6 @@
 
 """The timing limits of the Arc runtimes."""
 
-import platform
 from dataclasses import dataclass
 
 import synnax as sy
@@ -68,14 +67,3 @@ def runtime(rack: sy.Rack) -> str:
     if rack.embedded and not rack.name.endswith("Embedded Driver"):
         return "Go"
     return "C++"
-
-
-def limits(rack: sy.Rack, table: dict[str, dict[str, Limits]] = LIMITS) -> Limits:
-    """Returns the timing limits of the runtime of ``rack``. The OS is that of the test
-    host, which also runs the Core and its Driver.
-
-    :param rack: The rack that holds the Arc task.
-    :param table: The limits of each runtime and OS.
-    :returns: The limits of the runtime of ``rack`` on the OS of the test host.
-    """
-    return table[runtime(rack)][platform.system()]

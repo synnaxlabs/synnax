@@ -7,12 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import platform
+
 import numpy as np
 
 import synnax as sy
 from framework.utils import create_indexed_pair
 from tests.arc.arc import ArcCase
-from tests.arc.timing import LIMITS, LONG_LIMITS, Limits, limits
+from tests.arc.timing import LIMITS, LONG_LIMITS, Limits, runtime
 
 # How many times the sequence holds each wait of a case.
 REPEATS = 20
@@ -63,7 +65,8 @@ class _WaitSamples(ArcCase):
     def setup(self) -> None:
         self._retrieve_rack()
         assert self.rack is not None
-        self.limits = limits(self.rack, self.limit_table)
+        # The Core and its Driver run on the test host, so they share its OS.
+        self.limits = self.limit_table[runtime(self.rack)][platform.system()]
         min_ms = self.limits.min_wait_ms
         profile = [w for w in self.profile_ms if w >= min_ms]
         if not profile:
@@ -84,11 +87,9 @@ class _WaitSamples(ArcCase):
         values = frame["ws_cmd"].to_numpy().tolist()
         if values != writes:
             self.fail(f"ws_cmd holds {values}, expected {writes}")
-            return
         held_ms = np.diff(times) / float(sy.TimeSpan.MILLISECOND)
         waits_ms = np.array(self.waits_ms)
-        over: list[str] = []
-        wide: list[str] = []
+        failures: list[str] = []
         self.log(f"held time in ms, {REPEATS} samples per wait")
         self.log(
             f"{'wait':<6}  {'median':>7}  {'error':>7}"
@@ -99,30 +100,24 @@ class _WaitSamples(ArcCase):
             median = float(np.median(held))
             error = (median - wait_ms) / wait_ms * 100
             spread = float(held.max() - held.min())
-            flag = ""
+            flags: list[str] = []
             if abs(error) > self.limits.max_error_percent:
-                flag += "  error over limit"
-                over.append(f"{wait_ms} ms ({error:+.1f}%)")
+                flags.append(
+                    f"error {error:+.1f}% over the {self.limits.max_error_percent:g}%"
+                    " limit"
+                )
             if spread > self.limits.max_spread_ms:
-                flag += "  spread over limit"
-                wide.append(f"{wait_ms} ms ({spread:.3f} ms)")
+                flags.append(
+                    f"spread {spread:.3f} ms over the {self.limits.max_spread_ms:g}"
+                    " ms limit"
+                )
             wait = f"{wait_ms} ms"
             self.log(
                 f"{wait:<6}  {median:>7.3f}  {error:>+6.1f}%  {held.min():>7.3f}"
                 f"  {np.percentile(held, 90):>7.3f}  {held.max():>7.3f}"
-                f"  {spread:>7.3f}{flag}"
+                f"  {spread:>7.3f}" + "".join(f"  {f}" for f in flags)
             )
-        failures: list[str] = []
-        if over:
-            failures.append(
-                f"median error over the {self.limits.max_error_percent:g}% limit: "
-                + ", ".join(over)
-            )
-        if wide:
-            failures.append(
-                f"spread over the {self.limits.max_spread_ms:g} ms limit: "
-                + ", ".join(wide)
-            )
+            failures += [f"{wait} {f}" for f in flags]
         if failures:
             self.fail("; ".join(failures))
 
