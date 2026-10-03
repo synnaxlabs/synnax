@@ -50,8 +50,10 @@ const TOGGLE_FIELDS = Object.keys(schematic.toggleSymbolConfigZ.shape).filter(
   (key) => !(key in schematic.staticSymbolConfigZ.shape),
 );
 
-/// withoutToggleConfig renders a toggle symbol's primitive without the fields only a
-/// toggle node consumes, which would otherwise land on the DOM.
+/**
+ * Wraps a toggle symbol primitive so that toggle-only config fields do not reach the
+ * DOM.
+ */
 export const withoutToggleConfig = <P extends object>(Primitive: FC<P>): FC<P> =>
   Component.removeProps(Primitive, TOGGLE_FIELDS);
 
