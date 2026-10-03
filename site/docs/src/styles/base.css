@@ -17,20 +17,15 @@
  */
 
 html {
-    background: var(--pluto-gray-l0);
     color-scheme: light dark;
 }
 
 :root {
     /* Layout variables */
     --max-width: 1400px;
-    --pluto-border-width: 1px;
 
     /* Breakpoints (for reference - CSS can't use vars in media queries) */
     /* Mobile: 800px, Small mobile: 600px, Tablet: 1100px */
-
-    /* Lighten secondary text globally */
-    --pluto-gray-l8: #7c7c7c;
 
     /* Docs body text - softer than l10 */
     --docs-body-color: #3f4140;
@@ -93,12 +88,6 @@ html {
         0px 16px 24px -8px rgba(0, 0, 0, 0.12);
 }
 
-@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
-    :root {
-        --pluto-border-width: 0.5px;
-    }
-}
-
 @media (prefers-color-scheme: dark) {
     :root {
         --docs-body-color: #9fa1a0;
@@ -134,15 +123,6 @@ body {
 }
 
 /* Link styles - exclude Pluto buttons which have their own styling */
-a:not(.pluto-btn) {
-    color: var(--pluto-primary-p1);
-    text-decoration: none;
-}
-
-a:hover:not(.pluto-btn) {
-    text-decoration: underline;
-}
-
 /* List styles */
 li {
     margin: 1rem 0;
