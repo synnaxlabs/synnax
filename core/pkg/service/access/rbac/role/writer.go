@@ -11,8 +11,8 @@ package role
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
@@ -30,7 +30,7 @@ type Writer struct {
 
 // Create creates a new role in the database.
 func (w Writer) Create(ctx context.Context, r *Role) error {
-	if r.Key == uuid.Nil {
+	if r.Key == uuid.Nil() {
 		r.Key = uuid.New()
 	}
 	if r.Internal && !w.allowInternal {

@@ -11,8 +11,8 @@ package status
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -168,7 +168,7 @@ func (s *Service) ResolveKeyOrName(
 // new UUID-keyed status named keyOrName when nothing matched, with the new fields
 // applied.
 func SetTarget(matches []Status[any], keyOrName, message, variant string) Status[any] {
-	st := Status[any]{Key: uuid.NewString(), Name: keyOrName}
+	st := Status[any]{Key: uuid.New().String(), Name: keyOrName}
 	if len(matches) > 0 {
 		st = matches[0]
 	}
@@ -208,12 +208,15 @@ func (s *Service) SetByKeyOrName(
 }
 
 // NewWriter opens a Writer for statuses. Pass a nil tx to write directly against the
-// service's DB.
+// service's DB. A status write spans the entry and its ontology resource, so the two
+// land together only when tx does.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
+	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		tx:        gorp.OverrideTx(s.cfg.DB, tx),
-		otg:       s.cfg.Ontology,
+		tx:        tx,
+		table:     s.table,
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
+		otg:       s.cfg.Ontology,
 		group:     s.group,
 	}
 }

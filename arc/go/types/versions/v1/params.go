@@ -10,23 +10,11 @@
 package v1
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/samber/lo"
 )
-
-var _ json.Marshaler = Params(nil)
-
-// MarshalJSON implements the json.Marshal interface.
-func (p Params) MarshalJSON() ([]byte, error) {
-	if p == nil {
-		return json.Marshal([]Param{})
-	}
-	type params []Param
-	return json.Marshal(params(p))
-}
 
 // Get retrieves a parameter by name. Returns the parameter and true if found, otherwise
 // returns a zero Param and false.

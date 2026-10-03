@@ -15,11 +15,10 @@ import (
 )
 
 // Prettier is a Formatter that runs prettier over its input via stdin.
-// `--stdin-filepath=<absPath>` is passed so prettier can resolve the
-// surrounding .prettierrc / prettier.config.* and pick the right parser
-// from the file extension. The command runs from the nearest
-// package.json directory so `npx` resolves the package-local prettier
-// binary instead of the system PATH copy.
+// `--stdin-filepath=<absPath>` is passed so prettier can resolve the surrounding
+// .prettierrc / prettier.config.* and pick the right parser from the file extension.
+// The command runs from the nearest package.json directory so `pnpm exec` resolves the
+// workspace's prettier instead of the system PATH copy.
 type Prettier struct {
 	// Bin is the prettier binary to run.
 	Bin string
@@ -27,9 +26,9 @@ type Prettier struct {
 	Args []string
 }
 
-// NewPrettier returns a Prettier formatter using `npx prettier`.
+// NewPrettier returns a Prettier formatter using `pnpm exec prettier`.
 func NewPrettier() *Prettier {
-	return &Prettier{Bin: "npx", Args: []string{"prettier"}}
+	return &Prettier{Bin: "pnpm", Args: []string{"exec", "prettier"}}
 }
 
 // Format runs prettier with content on stdin.

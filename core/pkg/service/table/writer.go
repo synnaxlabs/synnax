@@ -11,8 +11,8 @@ package table
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -38,7 +38,7 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, t *Table) er
 		exists bool
 		err    error
 	)
-	if t.Key == uuid.Nil {
+	if t.Key == uuid.Nil() {
 		t.Key = uuid.New()
 	} else {
 		exists, err = w.tbl.NewRetrieve().
@@ -59,7 +59,7 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, t *Table) er
 		if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
 			return err
 		}
-		if projectKey != uuid.Nil {
+		if projectKey != uuid.Nil() {
 			if err = w.otgWriter.DefineRelationships(
 				ctx,
 				project.OntologyID(projectKey),

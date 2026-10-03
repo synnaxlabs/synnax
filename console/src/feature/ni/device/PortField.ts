@@ -7,12 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Form } from "@synnaxlabs/pluto";
-
-export type PortFieldProps = Form.NumericFieldProps;
+import { Form } from "@synnaxlabs/lyra/form";
 
 export const PortField = Form.buildNumericField({
   fieldKey: "port",
-  fieldProps: { label: "Port", style: { width: "7.5rem" } },
-  inputProps: { showDragHandle: false },
+  fieldProps: { label: "Port" },
+  inputProps: { showDragHandle: false, style: { width: "12rem" } },
 });

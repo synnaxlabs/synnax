@@ -1,0 +1,181 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Button } from "@synnaxlabs/lyra/button";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import SectionHero from "@/components/common/SectionHero.astro";
+import FeatureSection from "@/components/common/FeatureSection.astro";
+import PanelTab from "@/components/common/PanelTab.astro";
+import BrickWall from "./BrickWall.astro";
+import { cdn } from "@/cdn";
+---
+
+<SectionHero id="review" label="4 -> Store, organize, review">
+    Understand what happened, and why
+    <Fragment slot="description">
+        Review test data, compare runs side-by-side, and drill into anomalies without
+        ever leaving the platform.
+    </Fragment>
+</SectionHero>
+
+<FeatureSection label="4.1 -> Storage engine" class="review-feature">
+    <Fragment slot="title">
+        The only deeply integrated control system and database engine
+    </Fragment>
+    <Fragment slot="description">
+        Permanently store and organize kilohertz-rate data from thousands of channels
+        with read and write speeds exceeding 10 million samples per second.
+    </Fragment>
+    <Button.Button
+        slot="action"
+        variant="text"
+        href="https://docs.synnaxlabs.com/blog/one-billion-rows"
+    >
+        See the benchmarks →
+    </Button.Button>
+</FeatureSection>
+
+<BrickWall />
+
+<FeatureSection label="4.2 -> Organize with ranges">
+    <Fragment slot="title"> Name it, tag it, find it later </Fragment>
+    <Fragment slot="description">
+        Mark test runs, events, and anomalies as named time ranges. Attach metadata,
+        label and nest them into hierarchies, and build an audit trail that makes every
+        data point traceable.
+    </Fragment>
+    <Button.Button
+        slot="action"
+        variant="text"
+        href="https://docs.synnaxlabs.com/reference/concepts/ranges"
+    >
+        Learn about ranges →
+    </Button.Button>
+    <div class="review-ranges-showcase">
+        <div class="review-ranges-explorer-container">
+            <PanelTab label="Explorer">
+                <Icon.Explore slot="icon" className="panel-tab-icon" />
+            </PanelTab>
+            <img
+                class="review-ranges-explorer"
+                src={cdn("images/range-explorer.png")}
+                alt="Range explorer showing labeled test runs with stage indicators"
+            />
+        </div>
+        <div class="review-ranges-detail-container">
+            <PanelTab label="Range">
+                <Icon.Range slot="icon" className="panel-tab-icon" />
+            </PanelTab>
+            <img
+                class="review-ranges-detail"
+                src={cdn("images/range-overview.png")}
+                alt="Range detail panel showing metadata, labels, and hierarchy"
+            />
+        </div>
+    </div>
+</FeatureSection>
+
+<style is:global>
+    .review-feature .feature-right {
+        margin-left: auto;
+    }
+
+    .review-feature .feature-description {
+        max-width: 450px;
+    }
+
+    .review-ranges-showcase {
+        position: relative;
+        z-index: 0;
+        margin-top: var(--space-2xl);
+        padding-bottom: var(--space-md);
+    }
+
+    .review-ranges-showcase::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 40%;
+        z-index: 10;
+        background: linear-gradient(
+            to bottom,
+            transparent 0%,
+            var(--pluto-gray-l0) 70%
+        );
+        pointer-events: none;
+    }
+
+    .review-ranges-explorer-container {
+        position: relative;
+        z-index: 2;
+        width: 95%;
+        padding: 0;
+        background: color-mix(in srgb, var(--pluto-gray-l1) 50%, var(--pluto-gray-l2));
+        border-radius: 2rem;
+        border: var(--pluto-border);
+        overflow: hidden;
+    }
+
+    .review-ranges-explorer {
+        width: 100%;
+        height: auto;
+        display: block;
+        padding: clamp(1.5rem, 1rem + 1vw, 3rem);
+        mix-blend-mode: lighten;
+    }
+
+    .review-ranges-detail-container {
+        position: absolute;
+        z-index: 4;
+        bottom: 10rem;
+        right: 0;
+        width: 45%;
+        padding: 0;
+        border-radius: 1.6rem;
+        border: var(--pluto-border);
+        overflow: hidden;
+        background: color-mix(in srgb, var(--pluto-gray-l1) 50%, var(--pluto-gray-l2));
+        box-shadow:
+            0 2px 4px rgba(0, 0, 0, 0.3),
+            0 8px 24px rgba(0, 0, 0, 0.4),
+            0 24px 64px rgba(0, 0, 0, 0.5);
+    }
+
+    .review-ranges-detail {
+        width: 100%;
+        height: auto;
+        display: block;
+        padding: clamp(1.5rem, 1rem + 1vw, 3rem);
+        mix-blend-mode: lighten;
+    }
+
+    @media (max-width: 900px) {
+        .review-ranges-showcase {
+            padding-bottom: 0;
+            overflow: hidden;
+        }
+
+        .review-ranges-explorer-container {
+            width: 100%;
+            mask-image: none;
+        }
+
+        .review-ranges-detail-container {
+            position: relative;
+            bottom: auto;
+            right: auto;
+            width: 100%;
+            margin-top: var(--space-sm);
+            mask-image: none;
+        }
+    }
+</style>

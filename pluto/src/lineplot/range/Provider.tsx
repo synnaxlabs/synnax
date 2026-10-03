@@ -9,23 +9,22 @@
 
 import "@/lineplot/range/Provider.css";
 
+import { type Component } from "@synnaxlabs/lyra/component";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { useSyncedRef, useUniqueKey } from "@synnaxlabs/lyra/hooks";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { box, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect } from "react";
 
 import { Aether } from "@/aether";
-import { type RenderProp } from "@/component/renderProp";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { useSyncedRef } from "@/hooks";
-import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { useContext, useGridEntry } from "@/lineplot/Frame";
 import { range } from "@/lineplot/range/aether";
-import { Menu } from "@/menu";
 
 export interface ProviderProps extends Aether.ComponentProps {
   visible?: boolean;
   onHasAnnotationsChange?: (hasAnnotations: boolean) => void;
-  menu?: RenderProp<range.SelectedState>;
+  menu?: Component.RenderProp<range.SelectedState>;
 }
 
 export const Provider = ({

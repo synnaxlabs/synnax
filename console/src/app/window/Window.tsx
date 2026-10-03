@@ -10,7 +10,11 @@
 import "@/app/window/Window.css";
 
 import { Drift } from "@synnaxlabs/drift";
-import { Component, Flex, Haul, Menu, OS } from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { OS } from "@synnaxlabs/pluto";
 import { memo, type ReactElement, useEffect } from "react";
 
 import { Notifications } from "@/app/notifications";

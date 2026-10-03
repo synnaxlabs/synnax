@@ -8,10 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
+import { useInitializerRef, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { color, deep, dimensions, direction, type location } from "@synnaxlabs/x";
 import { type RefCallback, useCallback, useRef } from "react";
-
-import { useInitializerRef, useSyncedRef } from "@/hooks/ref";
 
 const ORIGINAL_STROKE_ATTRIBUTE = "data-original-stroke";
 const ORIGINAL_FILL_ATTRIBUTE = "data-original-fill";

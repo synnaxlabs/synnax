@@ -395,9 +395,11 @@ var _ = Describe("LiftVarReads", func() {
 		return t
 	}
 	addVar := func(bCtx SpecContext, sym symbol.Symbol) {
+		GinkgoHelper()
 		MustSucceed(root.Add(bCtx, sym))
 	}
 	lift := func(bCtx SpecContext, code string) context.Context[parser.IExpressionContext] {
+		GinkgoHelper()
 		expr := MustSucceed(parser.ParseExpression(code))
 		ctx := context.NewRoot(bCtx, expr, root)
 		flow.LiftVarReads(ctx, fn, expr)
@@ -531,6 +533,7 @@ var _ = Describe("LiftFmtStrVarReads", func() {
 		fn   *symbol.Symbol
 	)
 	liftFmt := func(bCtx SpecContext, code string) context.Context[parser.IExpressionContext] {
+		GinkgoHelper()
 		expr := MustSucceed(parser.ParseExpression(code))
 		ctx := context.NewRoot(bCtx, expr, root)
 		flow.LiftFmtStrVarReads(ctx, fn, expr)

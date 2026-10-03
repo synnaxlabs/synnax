@@ -1,0 +1,20 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# The Driver version is the SYNNAX_DRIVER_VERSION define; .bazelrc defaults it to 0.0.0
+# for dev builds and the release build overrides it.
+genrule(
+    name = "version",
+    outs = ["version.h"],
+    cmd = """
+        echo '#pragma once' > $@ &&
+        echo '#define SYNNAX_DRIVER_VERSION \"$(SYNNAX_DRIVER_VERSION)\"' >> $@
+    """,
+    visibility = ["//visibility:public"],
+)

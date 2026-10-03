@@ -16,12 +16,18 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
+	xfs "github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
+	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -45,6 +51,7 @@ var _ = Describe("Iterator", func() {
 						Sync:  new(true),
 					}))
 					writeBatch := func(ts ...telem.TimeStamp) {
+						GinkgoHelper()
 						series := make([]telem.Series, len(s.keys))
 						for i := range s.keys {
 							cp := make([]telem.TimeStamp, len(ts))
@@ -153,9 +160,114 @@ var _ = Describe("Iterator", func() {
 					Expect(iter.Prev(iterator.AutoSpan)).To(BeFalse())
 					Expect(iter.Close()).To(Succeed())
 				})
+
+				Specify("Downsample", func(ctx SpecContext) {
+					iter := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
+						Keys:             s.keys,
+						Bounds:           telem.TimeRangeMax,
+						DownsampleFactor: 3,
+					}))
+					Expect(iter.SeekFirst()).To(BeTrue())
+					Expect(iter.Next(20 * telem.Second)).To(BeTrue())
+					Expect(
+						iter.Value().SeriesAt(0),
+					).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(10, 13, 16, 19, 22)))
+					Expect(iter.Close()).To(Succeed())
+				})
 			})
 		}
 	})
+})
+
+// openFaultyCluster opens a two-node cluster whose nodes each store telemetry on their
+// own fault-injecting file system, keyed by node.
+func openFaultyCluster(ctx context.Context) (*mock.Cluster, map[node.Key]*FaultyFS) {
+	GinkgoHelper()
+	var (
+		cluster = mock.OpenCluster(ctx, 0)
+		faulty  = make(map[node.Key]*FaultyFS)
+	)
+	for range 2 {
+		var (
+			nodeFS = WrapFaultyFS(xfs.NewMem())
+			store  = &storage.Layer{
+				KV: DeferClose(memkv.New()),
+				TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: nodeFS}))),
+			}
+			n = cluster.Provision(ctx, distribution.LayerConfig{Storage: store})
+		)
+		faulty[n.Cluster.HostKey()] = nodeFS
+	}
+	return cluster, faulty
+}
+
+var _ = Describe("Close", func() {
+	It("Should reject every call after Close", func(ctx SpecContext) {
+		s := DeferClose(gatewayOnlyScenario(ctx))
+		iter := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
+			Keys:   s.keys,
+			Bounds: telem.TimeRangeMax,
+		}))
+		Expect(iter.Close()).To(Succeed())
+		Expect(iter.SeekFirst()).To(BeFalse())
+		Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
+		Expect(iter.Valid()).To(BeFalse())
+		Expect(iter.Error()).To(MatchError(iterator.ErrClosed))
+		Expect(iter.Close()).To(Succeed())
+	})
+})
+
+var _ = Describe("Read failure", func() {
+	DescribeTable(
+		"Should return the read error from Close",
+		func(ctx SpecContext, faultyNode node.Key, leaseholders ...node.Key) {
+			cluster, faulty := openFaultyCluster(ctx)
+			defer func() { Expect(cluster.Close()).To(Succeed()) }()
+			channels := make([]channel.Channel, len(leaseholders))
+			for i, leaseholder := range leaseholders {
+				channels[i] = channel.Channel{
+					Name:        fmt.Sprintf("failure_%d", i),
+					IsIndex:     true,
+					DataType:    telem.TimestampT,
+					Leaseholder: leaseholder,
+				}
+			}
+			gateway := cluster.Nodes[1]
+			channels = MustSucceed(gateway.Channel.Create(ctx, channels))
+			keys := channel.KeysFromChannels(channels)
+			w := MustSucceed(gateway.Framer.OpenWriter(ctx, writer.Config{
+				Keys:  keys,
+				Start: 10 * telem.SecondTS,
+				Sync:  new(true),
+			}))
+			series := make([]telem.Series, len(keys))
+			for i := range keys {
+				series[i] = telem.NewSeriesSecondsTSV(10, 11, 12)
+			}
+			Expect(w.Write(frame.NewMulti(keys, series))).To(BeTrue())
+			MustSucceed(w.Commit())
+			Expect(w.Close()).To(Succeed())
+
+			iter := MustSucceed(gateway.Framer.OpenIterator(ctx, iterator.Config{
+				Keys:   keys,
+				Bounds: telem.TimeRangeMax,
+			}))
+			Expect(iter.SeekFirst()).To(BeTrue())
+			faulty[faultyNode].SetOptions(WithFailReadAt())
+			for iter.Next(iterator.AutoSpan) {
+			}
+			Expect(iter.Close()).To(MatchError(ContainSubstring(ErrFault.Error())))
+			Expect(iter.Close()).To(Succeed())
+		},
+		Entry("on the gateway", node.Key(1), node.Key(1)),
+		Entry("on a peer", node.Key(2), node.Key(2)),
+		Entry(
+			"on a peer beside a healthy gateway",
+			node.Key(2),
+			node.Key(1),
+			node.Key(2),
+		),
+	)
 })
 
 type scenario struct {
@@ -179,6 +291,7 @@ func newChannelSet() []channel.Channel {
 }
 
 func gatewayOnlyScenario(ctx context.Context) scenario {
+	GinkgoHelper()
 	channels := newChannelSet()
 	builder := mock.OpenCluster(ctx, 1)
 	dist := builder.Nodes[1]
@@ -194,6 +307,7 @@ func gatewayOnlyScenario(ctx context.Context) scenario {
 }
 
 func peerOnlyScenario(ctx context.Context) scenario {
+	GinkgoHelper()
 	channels := newChannelSet()
 	builder := mock.OpenCluster(ctx, 4)
 	dist := builder.Nodes[1]
@@ -213,6 +327,7 @@ func peerOnlyScenario(ctx context.Context) scenario {
 }
 
 func mixedScenario(ctx context.Context) scenario {
+	GinkgoHelper()
 	channels := []channel.Channel{
 		{
 			Name:        "mixed_gateway",

@@ -9,10 +9,10 @@
 
 import "@/mosaic/Mosaic.css";
 
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { type ReactElement, useMemo } from "react";
 
-import { CSS } from "@/css";
-import { Haul } from "@/haul";
 import { useContext } from "@/mosaic/Frame";
 import { filterTabCreateHaulItems, filterTabDropHaulItems } from "@/mosaic/haul";
 

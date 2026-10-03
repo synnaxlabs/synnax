@@ -17,6 +17,11 @@ extern crate objc2_app_kit;
 #[cfg(target_os = "macos")]
 extern crate objc2_foundation;
 
+#[cfg(feature = "desktop")]
+mod install;
+#[cfg(feature = "desktop")]
+mod supervisor;
+
 #[cfg(target_os = "macos")]
 use device_query::{DeviceEvents, DeviceEventsHandler, DeviceQuery, DeviceState, MouseState};
 #[cfg(target_os = "macos")]
@@ -26,7 +31,7 @@ use std::time::Duration;
 #[cfg(target_os = "macos")]
 use tauri::Emitter;
 
-use tauri::Window;
+use tauri::{Manager, Window};
 
 use tauri_plugin_prevent_default::KeyboardShortcut;
 use tauri_plugin_prevent_default::ModifierKey::MetaKey;
@@ -82,7 +87,22 @@ fn main() {
     let prevent = tauri_plugin_prevent_default::Builder::new()
         .shortcut(KeyboardShortcut::with_modifiers("W", &[MetaKey]))
         .build();
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    #[cfg(feature = "desktop")]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        supervisor::commands::supervisor_status,
+        supervisor::commands::supervisor_history,
+        supervisor::commands::supervisor_restart,
+        supervisor::commands::supervisor_stop,
+        supervisor::commands::supervisor_reset,
+        supervisor::commands::supervisor_show_logs,
+        supervisor::commands::supervisor_show_data,
+        supervisor::commands::supervisor_diagnostics,
+        supervisor::commands::supervisor_log_tail,
+        supervisor::commands::supervisor_export_diagnostics,
+        install::install_info,
+    ]);
+    builder
         .on_page_load(|window, _| {
             set_transparent_titlebar(&window.window(), true);
         })
@@ -104,14 +124,25 @@ fn main() {
             _ => (),
         })
         .plugin(prevent)
-        .plugin(tauri_plugin_single_instance::init(|_app, _argv, _cwd| {}))
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            if let Some(win) = app.get_webview_window("main") {
+                let _ = win.unminimize();
+                let _ = win.show();
+                let _ = win.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
+            #[cfg(feature = "desktop")]
+            install::init(app.handle());
+            #[cfg(feature = "desktop")]
+            supervisor::commands::init(app.handle())?;
             #[cfg(desktop)]
             app.handle()
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
@@ -134,6 +165,12 @@ fn main() {
             });
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app, _event| {
+            #[cfg(feature = "desktop")]
+            if let tauri::RunEvent::Exit = _event {
+                supervisor::commands::shutdown(_app);
+            }
+        });
 }

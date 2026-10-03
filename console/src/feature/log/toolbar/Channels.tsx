@@ -8,21 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, log } from "@synnaxlabs/client";
-import {
-  Access,
-  Button,
-  Channel,
-  Color,
-  Flex,
-  Icon,
-  Input,
-  List,
-  Log,
-  Notation,
-  type Select,
-  Telem,
-  Theming,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Color } from "@synnaxlabs/lyra/color";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { type Select } from "@synnaxlabs/lyra/select";
+import { Theming } from "@synnaxlabs/lyra/theming";
+import { Access, Channel, Log, Notation, Telem } from "@synnaxlabs/pluto";
 import {
   color,
   DataType,
@@ -86,8 +80,10 @@ const ChannelRow = ({
     (tz: TimeZone) => dispatch(log.setChannelTimestampTz({ channel, tz })),
     [channel, dispatch],
   );
+  // The log stores a zero color for a channel that follows the theme.
   const handleColorChange = useCallback(
-    (color: color.Color) => dispatch(log.setChannelColor({ channel, color })),
+    (c?: color.Color) =>
+      dispatch(log.setChannelColor({ channel, color: c ?? color.ZERO })),
     [channel, dispatch],
   );
   const handleChannelChange = useCallback(
@@ -182,9 +178,9 @@ const ChannelRow = ({
           </>
         )}
         <Color.Swatch
-          value={hasCustomColor ? config.color : defaultColor}
+          value={hasCustomColor ? config.color : undefined}
+          fallback={defaultColor}
           onChange={handleColorChange}
-          onDelete={hasCustomColor ? () => handleColorChange(color.ZERO) : undefined}
           size="small"
         />
         <Button.Button

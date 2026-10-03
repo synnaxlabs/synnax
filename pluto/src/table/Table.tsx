@@ -10,6 +10,10 @@
 import "@/table/Table.css";
 
 import { table } from "@synnaxlabs/client";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { box, id, math, xy } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithRef,
@@ -24,9 +28,6 @@ import {
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { CSS } from "@/css";
-import { useSyncedRef } from "@/hooks";
-import { Menu } from "@/menu";
 import { AddCountControl } from "@/table/AddCountControl";
 import { table as aetherTable } from "@/table/aether";
 import { Cell } from "@/table/cells";
@@ -46,8 +47,6 @@ import {
 import { Row } from "@/table/Row";
 import { Selection } from "@/table/selection";
 import { useKey } from "@/table/Suspended";
-import { Theming } from "@/theming";
-import { Triggers } from "@/triggers";
 import { Canvas } from "@/vis/canvas";
 
 export { getCellColumn } from "@/table/Indicator";
@@ -62,13 +61,14 @@ const NAV_KEYS = new Set<Triggers.Key>([
   "ArrowDown",
 ]);
 
-const BASE_ROW_SIZE = 36;
-const BASE_COL_SIZE = 72;
+// The base sizes come from the schema, which declares the default size of a row and a
+// column.
+const BASE_ROW_SIZE = table.rowZ.parse({}).size;
+const BASE_COL_SIZE = table.columnZ.parse({}).size;
 
-const newDefaultCell = (theme: ReturnType<typeof Theming.use>): table.Cell => ({
+const newDefaultCell = (): table.Cell => ({
   key: id.create(),
-  variant: "text",
-  props: Cell.REGISTRY.text.defaultProps(theme),
+  config: Cell.defaultConfig("text"),
 });
 
 export interface TableProps
@@ -130,7 +130,6 @@ export const Table = ({
   const rows = useRows({ key });
   const columns = useColumns({ key });
   const { dispatch } = useDispatch();
-  const theme = Theming.use();
 
   const addRow = useCallback(
     (atIndex?: number, count: number = 1) => {
@@ -142,12 +141,12 @@ export const Table = ({
             index: atIndex ?? math.MAX_UINT32,
             size: BASE_ROW_SIZE,
             cells: [],
-            cellTemplate: newDefaultCell(theme),
+            cellTemplate: newDefaultCell(),
           }),
         );
       dispatch({ key, actions });
     },
-    [dispatch, key, theme],
+    [dispatch, key],
   );
   const addCol = useCallback(
     (atIndex?: number, count: number = 1) => {
@@ -159,12 +158,12 @@ export const Table = ({
             index: atIndex ?? math.MAX_UINT32,
             size: BASE_COL_SIZE,
             cells: [],
-            cellTemplate: newDefaultCell(theme),
+            cellTemplate: newDefaultCell(),
           }),
         );
       dispatch({ key, actions });
     },
-    [dispatch, key, theme],
+    [dispatch, key],
   );
   const removeRow = useCallback(
     (indices: number[]) => {
@@ -197,15 +196,12 @@ export const Table = ({
         actions: [
           table.eraseCells({
             cells: selected,
-            template: {
-              variant: "text",
-              props: Cell.REGISTRY.text.defaultProps(theme),
-            },
+            template: Cell.defaultConfig("text"),
           }),
         ],
       });
     },
-    [dispatch, key, theme],
+    [dispatch, key],
   );
   const { undo } = useUndo({ key });
   const { redo } = useRedo({ key });
@@ -310,7 +306,7 @@ export const Table = ({
   });
 
   const handleCellSelect = useCallback(
-    (cellKey: string, ev: MouseEvent) => {
+    (cellKey: string, ev: React.MouseEvent) => {
       if (!editable) return;
       tableElRef.current?.focus({ preventScroll: true });
       const { shiftKey, ctrlKey, metaKey, type } = ev;
@@ -444,7 +440,7 @@ export const Table = ({
     (e: React.KeyboardEvent<HTMLTableElement>) => {
       if (!editable) return;
       const key = Triggers.eventKey(e);
-      if (!NAV_KEYS.has(key)) return;
+      if (key == null || !NAV_KEYS.has(key)) return;
       const anchor = lastSelectedRef.current;
       if (anchor == null) return;
       const pos = findCellPosition(rowsRef.current, anchor);

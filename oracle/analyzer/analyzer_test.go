@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/analyzer"
+	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/resolution"
 	. "github.com/synnaxlabs/oracle/testutil"
 	"github.com/synnaxlabs/x/diagnostics"
@@ -316,6 +317,56 @@ Entry struct {
 			},
 		)
 
+		DescribeTable(
+			"Should omit an inline variant payload where its union omits",
+			func(ctx SpecContext, unionDomains string) {
+				source := `
+				@go output "out"
+				Entry struct { value int32 }
+				Aggregation enum {
+					min_max = 0
+					@go omit
+				}
+				Reduction union on variant {
+					limit { aggregation Aggregation }
+					` + unionDomains + `
+				}
+			`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				payload := table.MustGet("test.ReductionLimitPayload")
+				Expect(omit.IsType(payload, "go")).To(BeTrue())
+			},
+			Entry("alone", "@go omit"),
+			Entry("followed by another go domain", "@go omit\n@go marshal"),
+		)
+
+		DescribeTable(
+			"Should keep an inline variant payload that its union does not omit",
+			func(ctx SpecContext, variantDomains string) {
+				source := `
+				@go output "out"
+				Aggregation enum {
+					min_max = 0
+					@go omit
+				}
+				Reduction union on variant {
+					limit {
+						aggregation Aggregation
+						` + variantDomains + `
+					}
+				}
+			`
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.String()).To(ContainSubstring(
+					"test.ReductionLimitPayload generates for go but field " +
+						"aggregation references test.Aggregation, which is omitted in go",
+				))
+			},
+			Entry("no variant domains", ""),
+			Entry("a variant omit", "@go omit"),
+		)
+
 		It("Should allow references to hand-written types", func(ctx SpecContext) {
 			source := `
 				@go output "out"
@@ -615,6 +666,8 @@ Entry struct {
 			Expect(form.Values).To(HaveLen(2))
 			Expect(form.Values[0].Name).To(Equal("a"))
 			Expect(form.Values[1].Name).To(Equal("b"))
+			Expect(form.Declared).To(HaveLen(1))
+			Expect(form.Declared[0].Name).To(Equal("b"))
 		})
 
 		It("Should inherit the int kind from int parent enums", func(ctx SpecContext) {
@@ -3004,6 +3057,10 @@ Mode enum {
 				form := table.MustGet("schematic.ElementConfig").Form.(resolution.UnionForm)
 				Expect(form.Variants).To(HaveLen(2))
 				Expect(form.Variants[1].Name).To(Equal("group"))
+				Expect(form.Included).To(HaveLen(1))
+				Expect(form.Included[0].Name).To(Equal("schematic.NodeConfig"))
+				Expect(form.Declared).To(HaveLen(1))
+				Expect(form.Declared[0].Name).To(Equal("group"))
 			},
 		)
 

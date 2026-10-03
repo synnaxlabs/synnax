@@ -108,12 +108,11 @@ func (db *DB) Read(
 	ctx context.Context,
 	tr telem.TimeRange,
 ) (frame channel.Frame, err error) {
-	defer func() { err = db.wrapError(err) }()
 	var iter *Iterator
 	if iter, err = db.OpenIterator(IterRange(tr)); err != nil {
 		return frame, err
 	}
-	defer func() { err = db.wrapError(iter.Close()) }()
+	defer func() { err = errors.Combine(err, iter.Close()) }()
 	if !iter.SeekFirst(ctx) {
 		return frame, err
 	}
@@ -160,28 +159,5 @@ func (db *DB) RenameChannelInMeta(ctx context.Context, newName string) error {
 		return nil
 	}
 	db.cfg.Channel.Name = newName
-	return meta.Create(ctx, db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
-}
-
-// SetIndexKeyInMeta changes the channel's index to the channel with the given key, and
-// persists the change to the underlying file system.
-func (db *DB) SetIndexKeyInMeta(ctx context.Context, key channel.Key) error {
-	if db.closed.Load() {
-		return db.wrapError(ErrDBClosed)
-	}
-	db.cfg.Channel.Index = key
-	return meta.Create(ctx, db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
-}
-
-// SetChannelKeyInMeta changes the channel's key to the channel with the given key, and
-// persists the change to the underlying file system.
-func (db *DB) SetChannelKeyInMeta(ctx context.Context, key channel.Key) error {
-	if db.closed.Load() {
-		return ErrDBClosed
-	}
-	if db.cfg.Channel.IsIndex {
-		db.cfg.Channel.Index = key
-	}
-	db.cfg.Channel.Key = key
 	return meta.Create(ctx, db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
 }

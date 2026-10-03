@@ -22,9 +22,10 @@ namespace arc::stl::selector {
 namespace {
 runtime::node::Context make_context() {
     return runtime::node::Context{
-        .elapsed = x::telem::TimeSpan(0),
+        .cycle =
+            {.elapsed = x::telem::TimeSpan(0),
+             .reason = runtime::node::RunReason::ChannelInput},
         .tolerance = x::telem::TimeSpan(0),
-        .reason = runtime::node::RunReason::ChannelInput,
         .mark_changed = [](size_t) {},
         .report_error = [](const x::errors::Error &) {},
     };
@@ -108,6 +109,7 @@ void write_source(
         0
     ) = x::mem::make_local_shared<x::telem::Series>(data, x::telem::BOOLEAN_T);
     source.output_time(0) = x::mem::make_local_shared<x::telem::Series>(timestamps);
+    source.mark_fresh(0);
 }
 }
 
@@ -172,8 +174,8 @@ TEST(SelectTest, AllTrueInput) {
     EXPECT_EQ(checker.output(1)->size(), 0);
 }
 
-/// @brief reset() re-arms inputs so the node re-runs on stage re-entry.
-TEST(SelectTest, ResetRearmsInputsOnStageReentry) {
+/// @brief reset() keeps a consumed edge-fed input on stage re-entry.
+TEST(SelectTest, ResetKeepsConsumedEdgeFedInput) {
     TestSetup setup;
     Select node(setup.make_select_node(), 0);
 
@@ -192,9 +194,14 @@ TEST(SelectTest, ResetRearmsInputsOnStageReentry) {
     ASSERT_NIL(node.next(ctx));
     EXPECT_EQ(changes, 0);
 
-    // Stage re-entry re-arms the inputs so the node runs again.
-    node.reset();
+    // Stage re-entry keeps the consumed input, so the node does not re-run.
+    node.reset(ctx);
     changes = 0;
+    ASSERT_NIL(node.next(ctx));
+    EXPECT_EQ(changes, 0);
+
+    // A new source value runs it again.
+    write_source(source, {1, 1, 1}, {400, 500, 600});
     ASSERT_NIL(node.next(ctx));
     EXPECT_GT(changes, 0);
 }
@@ -414,6 +421,7 @@ TEST(SelectTest, PropagatesAlignmentAndTimeRange) {
     source.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
         std::vector<int64_t>{100, 200}
     );
+    source.mark_fresh(0);
 
     auto ctx = make_context();
     ASSERT_NIL(node.next(ctx));

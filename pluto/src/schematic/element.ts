@@ -7,15 +7,33 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import z from "zod";
+import { schematic } from "@synnaxlabs/client";
+import { type theme } from "@synnaxlabs/lyra/theme";
+import { type color } from "@synnaxlabs/x";
 
 import { Edge } from "@/schematic/edge";
 import { Node } from "@/schematic/node";
 
-export const elementConfigZ = z.discriminatedUnion("variant", [
-  ...Node.configZ.options,
-  ...Edge.configZ.options,
-]);
-export type ElementConfig = z.infer<typeof elementConfigZ>;
+export const elementConfigZ = schematic.elementConfigZ;
+export type ElementConfig = schematic.ElementConfig;
 
 export const ELEMENT_REGISTRY = { ...Node.REGISTRY, ...Edge.REGISTRY };
+
+const DEFAULT_COLOR_FALLBACKS: Required<Node.ColorFallbacks> = {
+  fillColor: Node.Form.noFillFallback,
+  strokeColor: Node.Form.defaultFallback,
+  textColor: Node.Form.defaultFallback,
+};
+
+/**
+ * @returns the color an element of the variant paints while its color at key is
+ * absent.
+ */
+export const colorFallback = (
+  key: Node.ColorKey,
+  variant: schematic.ElementConfigType,
+  theme: theme.Theme,
+): color.Color =>
+  (ELEMENT_REGISTRY[variant].colorFallbacks?.[key] ?? DEFAULT_COLOR_FALLBACKS[key])(
+    theme,
+  );

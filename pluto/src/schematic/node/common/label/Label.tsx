@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type dimensions, direction, location, text } from "@synnaxlabs/x";
+import { schematic } from "@synnaxlabs/client";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Text } from "@synnaxlabs/lyra/text";
+import { type dimensions } from "@synnaxlabs/x";
 import {
   type CSSProperties,
   type FC,
@@ -16,24 +19,13 @@ import {
   useCallback,
   useMemo,
 } from "react";
-import { z } from "zod";
 
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
 import { Grid } from "@/schematic/node/common/grid";
 import { type Primitive } from "@/schematic/node/common/primitive";
 import { type NodeProps } from "@/schematic/node/spec";
-import { Text } from "@/text";
 
-export const configZ = z.object({
-  label: z.string().optional(),
-  level: text.levelZ.optional(),
-  orientation: location.locationZ.optional(),
-  direction: direction.directionZ.optional(),
-  maxInlineSize: z.number().optional(),
-  align: Flex.alignmentZ.optional(),
-});
-export type Config = z.infer<typeof configZ>;
+export const configZ = schematic.labelConfigZ;
+export type Config = schematic.LabelConfig;
 
 export interface LabelProps {
   config: Config;
@@ -88,21 +80,8 @@ export const Label = Grid.createItem(({ config, onChange }: Partial<LabelProps>)
 });
 Label.displayName = "Label.GridItem";
 
-export const defaultConfig = (label: string): Config => ({
-  label,
-  level: "h5",
-  orientation: "top",
-  maxInlineSize: 150,
-  align: "center",
-  direction: "x",
-});
-
-export const labeledConfigZ = z.object({
-  label: configZ.optional(),
-  orientation: location.outerZ.optional(),
-  scale: z.number().optional(),
-});
-export type LabeledConfig = z.infer<typeof labeledConfigZ>;
+export const labeledConfigZ = schematic.labeledConfigZ;
+export type LabeledConfig = schematic.LabeledConfig;
 
 interface LabeledOverrides<C extends LabeledConfig> {
   grid?: Pick<Grid.GridProps, "allowRotate" | "keepAspectRatio">;
@@ -123,7 +102,7 @@ export const createLabeled = <C extends LabeledConfig>(
     onConfigChange,
     selected,
     config,
-  }: NodeProps<LabeledConfig>): ReactElement => {
+  }: NodeProps<LabeledConfig & Partial<schematic.ScaledConfig>>): ReactElement => {
     const { label, orientation = "left", ...rest } = config;
     const scaleResize = Grid.useScaleResize(config, onConfigChange);
     // A custom onResize override (e.g. circle's radius) takes over; otherwise the symbol
@@ -146,7 +125,7 @@ export const createLabeled = <C extends LabeledConfig>(
       </Grid.Grid>
     );
   };
-  const M = memo(Inner) as FC<NodeProps<C>>;
+  const M = memo(Inner) as unknown as FC<NodeProps<C>>;
   M.displayName = BaseSymbol.displayName;
   return M;
 };

@@ -72,6 +72,13 @@ type importEntry struct {
 	Path  string
 }
 
+// NeedsAlias reports whether the import renders with an explicit alias. The alias
+// always qualifies references in the body; it reaches the import line only when it
+// differs from the name the path is already assumed to bind.
+func (i importEntry) NeedsAlias() bool {
+	return i.Alias != naming.AssumedImportName(i.Path)
+}
+
 type funcData struct {
 	GoName         string
 	TypeParamsDecl string // "" for non-generic, "[Details any]" for generic
@@ -128,7 +135,7 @@ import (
 {{- if .Imports}}
 {{end}}
 {{- range .Imports}}
-	{{if .Alias}}{{.Alias}} {{end}}"{{.Path}}"
+	{{if .NeedsAlias}}{{.Alias}} {{end}}"{{.Path}}"
 {{- end}}
 )
 {{range $fn := .Funcs}}

@@ -9,7 +9,10 @@
 
 import "@/schematic/node/general/value/value.css";
 
-import { type dimensions, type text } from "@synnaxlabs/x";
+import { type schematic } from "@synnaxlabs/client";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Text } from "@synnaxlabs/lyra/text";
+import { color, type dimensions, type text } from "@synnaxlabs/x";
 import {
   type CSSProperties,
   type PropsWithChildren,
@@ -17,14 +20,15 @@ import {
   useMemo,
 } from "react";
 
-import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { type Config } from "@/schematic/node/general/value/config";
-import { symbolColorVar } from "@/schematic/symbolColor";
-import { Text } from "@/text";
 
-interface RenderProps extends PropsWithChildren<Omit<Config, "label" | "variant">> {
+interface RenderProps extends PropsWithChildren<
+  Pick<
+    schematic.ValueNodeConfig,
+    "strokeColor" | "textColor" | "orientation" | "units" | "inlineSize"
+  >
+> {
   className?: string;
   dimensions?: dimensions.Dimensions;
   unitsLevel?: text.Level;
@@ -32,15 +36,16 @@ interface RenderProps extends PropsWithChildren<Omit<Config, "label" | "variant"
 
 export const Value = ({
   className,
-  color: colorVal,
+  strokeColor,
+  textColor,
   dimensions,
-  orientation = "left",
-  units = "psi",
+  orientation,
+  units,
   unitsLevel = "small",
   children,
   inlineSize = 80,
 }: RenderProps): ReactElement => {
-  const symbolColor = symbolColorVar(colorVal);
+  const symbolColor = color.rgbaString(strokeColor);
   const style = useMemo<CSSProperties>(
     () => ({
       [CSS.variable("symbol-color")]: symbolColor,
@@ -72,7 +77,9 @@ export const Value = ({
         bottom={102}
       />
       <div className={CSS.cls(CSS.BE("value", "units"), CSS.M(unitsLevel))}>
-        <Text.Text level={unitsLevel}>{units}</Text.Text>
+        <Text.Text level={unitsLevel} color={textColor ?? 11}>
+          {units}
+        </Text.Text>
       </div>
     </Primitive.Div>
   );

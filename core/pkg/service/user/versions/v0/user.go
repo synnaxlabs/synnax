@@ -10,7 +10,8 @@
 package v0
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/vmihailenco/msgpack/v5"
@@ -42,7 +43,7 @@ func (u *User) DecodeMsgpack(dec *msgpack.Decoder) error {
 	if err = msgpack.Unmarshal(raw, (*alias)(u)); err != nil {
 		return err
 	}
-	keyIsNil := u.Key == uuid.Nil
+	keyIsNil := u.Key == uuid.Nil()
 	usernameEmpty := len(u.Username) == 0
 	if keyIsNil || usernameEmpty {
 		var legacy struct {

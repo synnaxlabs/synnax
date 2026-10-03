@@ -280,18 +280,19 @@ describe("Persist.open", () => {
     });
 
     it("should still open when the migration throws", async () => {
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const onError = vi.fn<(error: Error) => void>();
       const { initialState } = await openPersist(new Persist.MemoryKV(), {
+        onError,
         migrate: async () => {
           throw new Error("unreadable legacy store");
         },
       });
       expect(initialState).toEqual(ZERO_MOCK_STATE);
-      expect(errorSpy).toHaveBeenCalledWith(
-        "failed to carry the previous release's state over",
-        expect.anything(),
+      expect(onError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: "failed to carry the previous release's state over",
+        }),
       );
-      errorSpy.mockRestore();
     });
 
     it("should compose the global, selected Core, and active project partitions", async () => {
@@ -395,9 +396,9 @@ describe("Persist.open", () => {
       await vi.waitFor(async () =>
         expect(await store.keys()).toContain(`window.c1.p1.${WINDOW}.slot`),
       );
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const onError = vi.fn<(error: Error) => void>();
       const sessionOneWrites = store.writes.length;
-      const driver2 = await createDriver(store);
+      const driver2 = await createDriver(store, { onError });
       await edit(driver2, "16.3.0");
       // The reread bytes must compose back to what re-staging narrows, or every
       // launch rewrites the partition and burns a revert slot.
@@ -406,8 +407,7 @@ describe("Persist.open", () => {
         .flat()
         .filter(({ key }) => key.startsWith("window."));
       expect(rewrites).toHaveLength(0);
-      expect(errorSpy).not.toHaveBeenCalled();
-      errorSpy.mockRestore();
+      expect(onError).not.toHaveBeenCalled();
     });
 
     it("should bound a partition to four slots", async () => {
@@ -469,10 +469,10 @@ describe("Persist.open", () => {
 
     it("should keep the last version loadable when a state write fails", async () => {
       const store = new FailingKV();
-      const driver = await createDriver(store);
+      const onError = vi.fn<(error: Error) => void>();
+      const driver = await createDriver(store, { onError });
       await enter(driver, CTX);
       await edit(driver, "16.2.0");
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
       // Every ring entry is keyed on its slot number. The pointer rides in the same
       // batch, so rejecting the state write leaves it naming the last good slot.
       store.failOn = /\.\d$/;
@@ -480,26 +480,24 @@ describe("Persist.open", () => {
         { type: "work/edit" },
         { ...driver.getState(), work: { value: "16.3.0", transient: "drag" } },
       );
-      await vi.waitFor(() => expect(errorSpy).toHaveBeenCalled());
+      await vi.waitFor(() => expect(onError).toHaveBeenCalled());
       expect((await driver.composed())?.work.value).toBe("16.2.0");
-      errorSpy.mockRestore();
     });
 
     it("should leave the pointer where it was when a write is rejected", async () => {
       const store = new FailingKV();
-      const driver = await createDriver(store);
+      const onError = vi.fn<(error: Error) => void>();
+      const driver = await createDriver(store, { onError });
       await enter(driver, CTX);
       await edit(driver, "16.2.0");
       const before = await store.get(`project.c1.p1.slot`);
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
       store.failOn = /^project\./;
       driver.dispatch(
         { type: "work/edit" },
         { ...driver.getState(), work: { value: "16.3.0" } },
       );
-      await vi.waitFor(() => expect(errorSpy).toHaveBeenCalled());
+      await vi.waitFor(() => expect(onError).toHaveBeenCalled());
       expect(await store.get(`project.c1.p1.slot`)).toEqual(before);
-      errorSpy.mockRestore();
     });
 
     it("should scope slices to the context they were written under", async () => {
@@ -640,8 +638,9 @@ describe("Persist.open", () => {
     it("should fall back to the slice's initial state when the stored bytes fail its schema", async () => {
       const store = new Persist.MemoryKV();
       await createPersisted(store);
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const onError = vi.fn<(error: Error) => void>();
       const { initialState } = await openPersist(store, {
+        onError,
         scopes: {
           ...SCOPES,
           project: { work: workZ.refine(() => false), windows: z.string().array() },
@@ -649,22 +648,21 @@ describe("Persist.open", () => {
       });
       expect(initialState?.work).toEqual(ZERO_MOCK_STATE.work);
       expect(initialState?.core).toEqual(STATE.core);
-      expect(errorSpy).toHaveBeenCalled();
-      errorSpy.mockRestore();
+      expect(onError).toHaveBeenCalled();
     });
 
     it("should leave the other slices of a partition alone when one fails", async () => {
       const store = new Persist.MemoryKV();
       await createPersisted(store);
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const onError = vi.fn<(error: Error) => void>();
       const { initialState } = await openPersist(store, {
+        onError,
         scopes: {
           ...SCOPES,
           global: { core: selectedZ.refine(() => false) },
         },
       });
       expect(initialState?.core).toEqual(ZERO_MOCK_STATE.core);
-      errorSpy.mockRestore();
     });
   });
 
@@ -686,8 +684,9 @@ describe("Persist.open", () => {
     };
 
     it("should still compose the initial state", async () => {
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const onError = vi.fn<(error: Error) => void>();
       const { initialState, middleware } = await Persist.open<MockState>({
+        onError,
         initial: ZERO_MOCK_STATE,
         scopes: SCOPES,
         getContext,
@@ -695,12 +694,12 @@ describe("Persist.open", () => {
       });
       expect(initialState).toEqual(ZERO_MOCK_STATE);
       expect(middleware).toBeDefined();
-      errorSpy.mockRestore();
     });
 
     it("should announce that the store is unavailable", async () => {
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const onError = vi.fn<(error: Error) => void>();
       const { middleware } = await Persist.open<MockState>({
+        onError,
         initial: ZERO_MOCK_STATE,
         scopes: SCOPES,
         getContext,
@@ -712,12 +711,12 @@ describe("Persist.open", () => {
         dispatch,
       } as never)((a) => a)({ type: "work/edit" });
       expect(dispatch).toHaveBeenCalledWith(Persist.storeUnavailable());
-      errorSpy.mockRestore();
     });
 
     it("should announce it only once", async () => {
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const onError = vi.fn<(error: Error) => void>();
       const { middleware } = await Persist.open<MockState>({
+        onError,
         initial: ZERO_MOCK_STATE,
         scopes: SCOPES,
         getContext,
@@ -735,7 +734,29 @@ describe("Persist.open", () => {
           (action as { type: string }).type === Persist.storeUnavailable.type,
       );
       expect(announcements).toHaveLength(1);
-      errorSpy.mockRestore();
+    });
+
+    it("should try a failed save once instead of retrying it", async () => {
+      const onError = vi.fn<(error: Error) => void>();
+      const { middleware } = await Persist.open<MockState>({
+        onError,
+        initial: ZERO_MOCK_STATE,
+        scopes: SCOPES,
+        getContext,
+        openKV: broken,
+        debounceInterval: TimeSpan.milliseconds(10),
+      });
+      // Dispatches from the middleware go back through it, as they do in redux.
+      const chain: (action: unknown) => unknown = middleware({
+        getState: () => ZERO_MOCK_STATE,
+        dispatch: (action: unknown) => chain(action),
+      } as never)((a) => a);
+      const failedSaves = () =>
+        onError.mock.calls.filter(([e]) => e.message === "failed to persist state");
+      chain({ type: "work/edit" });
+      await vi.waitFor(() => expect(failedSaves()).toHaveLength(1));
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(failedSaves()).toHaveLength(1);
     });
   });
 
@@ -841,26 +862,24 @@ describe("Persist.middleware", () => {
   });
 
   it("should report a failed purge instead of throwing", async () => {
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const onError = vi.fn<(error: Error) => void>();
     const store = new FailingKV();
-    const driver = await createDriver(store);
+    const driver = await createDriver(store, { onError });
     await enter(driver, CTX);
     await edit(driver, "16.2.0");
     store.failOn = /^core\.c1\./;
     driver.dispatch(Persist.purge("c1"));
     await vi.waitFor(() =>
-      expect(errorSpy).toHaveBeenCalledWith(
-        "failed to purge stored Core state",
-        expect.anything(),
+      expect(onError).toHaveBeenCalledWith(
+        expect.objectContaining({ message: "failed to purge stored Core state" }),
       ),
     );
-    errorSpy.mockRestore();
   });
 
   it("should announce the store unavailable when a mid-session write fails", async () => {
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const onError = vi.fn<(error: Error) => void>();
     const store = new FailingKV();
-    const driver = await createDriver(store);
+    const driver = await createDriver(store, { onError });
     await enter(driver, CTX);
     store.failOn = /./;
     driver.dispatch(
@@ -870,7 +889,6 @@ describe("Persist.middleware", () => {
     await vi.waitFor(() =>
       expect(driver.dispatched).toHaveBeenCalledWith(Persist.storeUnavailable()),
     );
-    errorSpy.mockRestore();
   });
 
   // The revert and clear branches reload the window, which jsdom cannot perform; the
@@ -888,22 +906,20 @@ describe("Persist.middleware", () => {
   });
 
   it("should report a failed revert instead of reloading", async () => {
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const onError = vi.fn<(error: Error) => void>();
     const store = new FailingKV();
-    const driver = await createDriver(store);
+    const driver = await createDriver(store, { onError });
     await enter(driver, CTX);
     await edit(driver, "16.2.0");
     await edit(driver, "16.2.1");
     store.failOn = /\.slot$/;
     driver.dispatch(Persist.revertState());
     await vi.waitFor(() =>
-      expect(errorSpy).toHaveBeenCalledWith(
-        "failed to revert state",
-        expect.anything(),
+      expect(onError).toHaveBeenCalledWith(
+        expect.objectContaining({ message: "failed to revert state" }),
       ),
     );
     expect((await driver.composed())?.work.value).toBe("16.2.1");
-    errorSpy.mockRestore();
   });
 
   it("should fall back to the initial state when reverting past the first version", async () => {
@@ -963,7 +979,7 @@ describe("Persist.middleware", () => {
   });
 
   it("should end the swap when loading the target context fails", async () => {
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const onError = vi.fn<(error: Error) => void>();
     const store = new Persist.MemoryKV();
     const failing: Persist.SugaredKV = {
       get: async <V>(key: string): Promise<V | null> => {
@@ -978,7 +994,7 @@ describe("Persist.middleware", () => {
       keys: async () => await store.keys(),
       clear: async () => await store.clear(),
     };
-    const driver = await createDriver(store, { openKV: () => failing });
+    const driver = await createDriver(store, { onError, openKV: () => failing });
     await enter(driver, CTX);
     driver.dispatch(
       { type: "Core/select" },
@@ -987,7 +1003,6 @@ describe("Persist.middleware", () => {
     await vi.waitFor(() =>
       expect(driver.dispatched).toHaveBeenCalledWith(Persist.endSwap()),
     );
-    errorSpy.mockRestore();
   });
 
   it("should mark the swap window with beginSwap before hydrate", async () => {

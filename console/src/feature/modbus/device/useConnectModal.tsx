@@ -10,18 +10,15 @@
 import "@/feature/modbus/device/Connect.css";
 
 import { type device, type rack, status, TimeSpan } from "@synnaxlabs/client";
-import {
-  Button,
-  Component,
-  Device as PDevice,
-  Flex,
-  type Flux,
-  Form,
-  Icon,
-  Nav,
-  Rack,
-  Status,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Modal } from "@synnaxlabs/lyra/modal";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Device as PDevice, type Flux, Rack } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { type Device, SCHEMAS, ZERO_PROPERTIES } from "@/feature/modbus/device/types";
@@ -30,6 +27,7 @@ import {
   SCAN_TYPE,
   TEST_CONNECTION_COMMAND_TYPE,
 } from "@/feature/modbus/task/types";
+import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { type Device as PlatformDevice } from "@/platform/device";
 import { Modals } from "@/platform/modals";
@@ -92,6 +90,7 @@ const beforeSave = async ({
 
 export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
   ({ deviceKey, close }) => {
+    const { capture } = Analytics.use();
     const {
       form,
       save,
@@ -102,12 +101,15 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
       initialValues: INITIAL_VALUES,
       beforeValidate,
       beforeSave,
-      afterSave: useCallback(() => close(), [close]),
+      afterSave: useCallback(() => {
+        if (deviceKey == null) capture("device_connected", { integration: "modbus" });
+        close();
+      }, [capture, close, deviceKey]),
     });
 
     return (
-      <Modals.Frame className={CSS.B("modbus-connect")}>
-        <Modals.Header icon={<Icon.Logo.Modbus />}>Server.Connect</Modals.Header>
+      <Modal.Frame className={CSS.B("modbus-connect")}>
+        <Modal.Header icon={<Icon.Logo.Modbus />}>Server.Connect</Modal.Header>
         <Flex.Box className={CSS.B("content")} grow size="small">
           <Form.Form<typeof PDevice.formSchema> {...form}>
             <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
@@ -137,7 +139,7 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
             </Flex.Box>
           </Form.Form>
         </Flex.Box>
-        <Modals.Footer>
+        <Modal.Footer>
           <Nav.Bar.Start gap="small">
             {variant == "success" ? (
               <Triggers.SaveHelpText action="Connect" noBar />
@@ -155,8 +157,8 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
               Connect
             </Button.Button>
           </Nav.Bar.End>
-        </Modals.Footer>
-      </Modals.Frame>
+        </Modal.Footer>
+      </Modal.Frame>
     );
   },
 );

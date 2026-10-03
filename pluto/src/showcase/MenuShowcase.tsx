@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Text } from "@synnaxlabs/lyra/text";
 import { useState } from "react";
-
-import { Flex } from "@/flex";
-import { Icon } from "@/icon";
-import { Menu } from "@/menu";
-import { Text } from "@/text";
 
 import { SubcategorySection } from "./SubcategorySection";
 
@@ -30,7 +29,7 @@ export const MenuShowcase = () => {
     <Flex.Box y pack empty>
       <Flex.Box x pack grow sharp>
         <SubcategorySection
-          title="Basic Menu"
+          title="Basic menu"
           description="Simple menu with text items showing selection states and different sizes"
         >
           <Flex.Box x gap="large">
@@ -94,7 +93,7 @@ export const MenuShowcase = () => {
         </SubcategorySection>
 
         <SubcategorySection
-          title="Menu with Icons"
+          title="Menu with icons"
           description="Menu items with icons showing common UI patterns like file operations"
         >
           <Flex.Box
@@ -136,7 +135,7 @@ export const MenuShowcase = () => {
         </SubcategorySection>
 
         <SubcategorySection
-          title="Icon-Only Menu"
+          title="Icon-only menu"
           description="Menu with only icons showing a compact toolbar-style interface"
         >
           <Flex.Box
@@ -177,7 +176,7 @@ export const MenuShowcase = () => {
 
       <Flex.Box x pack grow sharp>
         <SubcategorySection
-          title="Background Contrast"
+          title="Background contrast"
           description="Menu items on different background levels showing contrast adaptation"
         >
           <Flex.Box x gap="medium">
@@ -227,7 +226,7 @@ export const MenuShowcase = () => {
         </SubcategorySection>
 
         <SubcategorySection
-          title="Context Menu"
+          title="Context menu"
           description="Right-click menu that appears at cursor position with contextual actions"
         >
           <Flex.Box y gap="medium">
@@ -300,7 +299,7 @@ export const MenuShowcase = () => {
 
       <Flex.Box x pack grow sharp>
         <SubcategorySection
-          title="Menu Variations"
+          title="Menu variations"
           description="Different menu configurations including compact spacing and custom triggers"
         >
           <Flex.Box x gap="large">

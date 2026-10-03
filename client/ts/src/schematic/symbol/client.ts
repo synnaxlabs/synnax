@@ -198,11 +198,14 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
         ),
     });
     drop();
-    this.cfg.ontology.cache.relationships.delete(
-      (r) =>
-        r.type === ontology.PARENT_OF_RELATIONSHIP_TYPE &&
-        r.to.type === "schematic_symbol" &&
-        keysArr.includes(r.to.key),
+    const cache = this.cfg.ontology.cache;
+    cache.relationships.delete(
+      keysArr.flatMap((k) =>
+        cache
+          .relationshipsTo(ontologyID(k))
+          .filter((r) => r.type === ontology.PARENT_OF_RELATIONSHIP_TYPE)
+          .map(ontology.relationshipToString),
+      ),
     );
   }
 
@@ -262,18 +265,21 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
    */
   async deleteGroup(key: group.Key, opts: query.WriteOptions = {}): Promise<void> {
     const groupID = group.ontologyID(key);
-    const rels = this.cfg.ontology.cache.relationships;
+    const cache = this.cfg.ontology.cache;
     // Read the members before the delete drops the relationships naming them.
-    const memberKeys = rels.get((r) => matchChildRel(r, groupID)).map((r) => r.to.key);
+    const memberKeys = cache
+      .relationshipsFrom(groupID)
+      .filter((r) => matchChildRel(r, groupID))
+      .map((r) => r.to.key);
     const drop = () => [
       this.store.delete(memberKeys),
       this.cfg.groupStore.delete(key),
       // Both the relationships to the group's children and the one naming the group as
       // its parent's child: the group and every symbol in it are gone.
-      rels.delete(
-        (r) =>
-          r.type === ontology.PARENT_OF_RELATIONSHIP_TYPE &&
-          (ontology.idsEqual(r.from, groupID) || ontology.idsEqual(r.to, groupID)),
+      cache.relationships.delete(
+        [...cache.relationshipsFrom(groupID), ...cache.relationshipsTo(groupID)]
+          .filter((r) => r.type === ontology.PARENT_OF_RELATIONSHIP_TYPE)
+          .map(ontology.relationshipToString),
       ),
     ];
     await query.optimistic({

@@ -15,9 +15,9 @@ Console application.
 
 All official documentation can be found on our [website](https://docs.synnaxlabs.com).
 If you are interested in building on top of Synnax, please read our
-[Contributing Guide](docs/CONTRIBUTING.md) and our [technical documentation](docs/tech).
+[Contributing Guide](CONTRIBUTING.md) and our [technical documentation](docs/tech).
 
-## Development Status
+## Development status
 
 Synnax is currently under active development. The APIs are stable and are unlikely to
 change significantly.
@@ -29,7 +29,7 @@ releases with different minor version numbers (e.g. 0.40.0 and 0.41.0) may chang
 Our team is targeting a v1 release before the end of 2026, at which point all APIs will
 be considered stable and will not change until a v2 release.
 
-## Repository Organization
+## Repository organization
 
 Synnax is built as a collection of several projects, all of which are collected in this
 monorepo. The following is a summary of each:
@@ -47,7 +47,9 @@ monorepo. The following is a summary of each:
   Python, and TypeScript.
 - [Console](console) - A data-visualization and graphical control application for macOS
   and Windows.
-- [Documentation Site](docs/site) - The code for the Synnax documentation website.
+- [Documentation Site](site/docs) - The code for the Synnax documentation website.
+- [Portal](site/portal) - The account site at portal.synnaxlabs.com, where users manage
+  licenses and Synnax Desktop machines.
 - [Technical Documentation](docs/tech) - Technical documentation such as RFCs and
   contribution guides.
 - [Drift](drift) - Redux state synchronization and declarative window management for
@@ -61,6 +63,8 @@ monorepo. The following is a summary of each:
   integration and stress testing across the Synnax server and its clients.
 - [Oracle](oracle) - A schema definition language, code generator, and migration CLI
   used to keep Synnax's data models consistent across Go, TypeScript, Python, and C++.
+- [Lyra](lyra) - The React UI primitives (buttons, inputs, forms, menus, theming) shared
+  by Pluto, the Console, and the documentation site.
 - [Pluto](pluto) - A React component library for building modular user interfaces on top
   of the Synnax telemetry engine.
 - [Core](core) - The core Synnax server, which integrates Aspen and Cesium to provide a

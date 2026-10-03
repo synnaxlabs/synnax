@@ -9,11 +9,7 @@
 
 package channel
 
-import (
-	"go/types"
-
-	"github.com/synnaxlabs/freighter"
-)
+import "github.com/synnaxlabs/freighter"
 
 // CreateMessage is the request and response payload for a channel create operation. As
 // a request it carries the channels to create; as a response it carries those same
@@ -40,9 +36,9 @@ type DeleteRequest struct {
 
 type (
 	// DeleteClient issues channel delete requests to a remote Core.
-	DeleteClient = freighter.UnaryClient[DeleteRequest, types.Nil]
+	DeleteClient = freighter.UnaryClient[DeleteRequest, struct{}]
 	// DeleteServer handles incoming channel delete requests from a remote Core.
-	DeleteServer = freighter.UnaryServer[DeleteRequest, types.Nil]
+	DeleteServer = freighter.UnaryServer[DeleteRequest, struct{}]
 )
 
 // RenameRequest is the payload for a channel rename operation.
@@ -53,9 +49,9 @@ type RenameRequest struct {
 
 type (
 	// RenameClient issues channel rename requests to a remote Core.
-	RenameClient = freighter.UnaryClient[RenameRequest, types.Nil]
+	RenameClient = freighter.UnaryClient[RenameRequest, struct{}]
 	// RenameServer handles incoming channel rename requests from a remote Core.
-	RenameServer = freighter.UnaryServer[RenameRequest, types.Nil]
+	RenameServer = freighter.UnaryServer[RenameRequest, struct{}]
 )
 
 // Transport bundles the node-to-node transports used to forward channel create, delete,

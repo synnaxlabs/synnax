@@ -1,0 +1,17 @@
+{
+  "extends": "@synnaxlabs/tsconfig/base.json",
+  "compilerOptions": {
+    "types": ["react", "react-dom"],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": [
+    "src/**/*",
+    "astro.config.ts",
+    "astro-components.d.ts",
+    "eslint.config.ts",
+    "stylelint.config.js",
+    "vitest.config.ts"
+  ]
+}

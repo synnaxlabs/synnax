@@ -13,7 +13,6 @@ import (
 	"fmt"
 
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/version"
 	"github.com/synnaxlabs/x/io/fs"
 )
 
@@ -35,10 +34,11 @@ type migration func(state DBState) DBState
 var migrations = []migration{
 	migrateV0toV1,
 	migrateV1toV2,
+	migrateV2toV3,
 }
 
 func migrateV0toV1(state DBState) DBState {
-	state.Channel.Version = version.Version1
+	state.Channel.Version = channel.Version1
 	if state.Channel.Name == "" {
 		state.Channel.Name = fmt.Sprintf("Unknown %v", state.Channel.Key)
 	}
@@ -46,7 +46,7 @@ func migrateV0toV1(state DBState) DBState {
 }
 
 func migrateV1toV2(state DBState) DBState {
-	state.Channel.Version = version.Version2
+	state.Channel.Version = channel.Version2
 	if state.Channel.Virtual || state.Channel.IsIndex {
 		return state
 	}
@@ -54,8 +54,20 @@ func migrateV1toV2(state DBState) DBState {
 	return state
 }
 
+// migrateV2toV3 clears the index flag on virtual channels, which store nothing and so
+// can never be an index. Validate rejects that pair, and it runs after this, so a
+// record carrying both stays readable.
+func migrateV2toV3(state DBState) DBState {
+	state.Channel.Version = channel.Version3
+	if state.Channel.Virtual {
+		state.Channel.IsIndex = false
+	}
+	return state
+}
+
 // Migrate runs all pending version migrations on the given DBState, starting from the
-// channel's current version up to the latest.
+// channel's current version up to the latest. It runs on every open of a channel whose
+// stored version is behind, so a migration must be idempotent and must not write.
 func Migrate(state DBState) DBState {
 	for i := int(state.Channel.Version); i < len(migrations); i++ {
 		state = migrations[i](state)

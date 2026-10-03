@@ -29,7 +29,7 @@ type StatusDetails struct {
 	// Cmd is the last command executed on this task.
 	Cmd string `json:"cmd" msgpack:"cmd"`
 	// Data contains task-specific status data.
-	Data msgpack.EncodedJSON `json:"data,omitzero" msgpack:"data,omitzero"`
+	Data msgpack.EncodedJSON `json:"data,omitzero" msgpack:"data,omitempty"`
 }
 
 // Status is task-specific status information including execution state and
@@ -49,11 +49,11 @@ type Task struct {
 	Type string `json:"type" msgpack:"type"`
 	// Config is task-specific configuration stored as JSON. Structure varies by task
 	// type.
-	Config msgpack.EncodedJSON `json:"config,omitzero" msgpack:"config,omitzero"`
+	Config msgpack.EncodedJSON `json:"config" msgpack:"config"`
 	// Internal is true if this is an internal system task.
 	Internal bool `json:"internal" msgpack:"internal"`
 	// Snapshot is true if this task is an immutable snapshot copy of another task.
 	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
 	// Status is the current execution status of the task.
-	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
+	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
 }

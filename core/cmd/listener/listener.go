@@ -43,14 +43,29 @@ type Config struct {
 	Cert      CertConfig
 	Advertise bool
 	Name      string
+	// Loopback binds the listener to the loopback interface only, so no other machine
+	// can reach it.
+	Loopback bool
 }
 
-// Validate implements config.Config with the per-listener rules: a non-empty address
-// and PEM paths only on the file source. Setting a cert or key path on any other source
-// is a silent misconfiguration; remaining per-source rules are enforced at build time.
+// isLoopbackHost reports whether a Loopback listener accepts the host.
+func isLoopbackHost(host string) bool {
+	return host == "localhost" || host == "127.0.0.1"
+}
+
+// Validate implements config.Config with the per-listener rules: a non-empty address,
+// a loopback host on a loopback listener, and PEM paths only on the file source.
+// Setting a cert or key path on any other source is a silent misconfiguration;
+// remaining per-source rules are enforced at build time.
 func (c Config) Validate() error {
 	v := validate.New("listener")
 	v.NotEmptyString("address", c.Address)
+	v.Ternaryf(
+		"loopback",
+		c.Loopback && !isLoopbackHost(c.Address.Host()),
+		"a loopback listener must use the host localhost or 127.0.0.1, not %q",
+		c.Address.Host(),
+	)
 	v.Ternaryf(
 		"cert",
 		c.Cert.Source != file.SourceType && (c.Cert.Cert != "" || c.Cert.Key != ""),
@@ -69,7 +84,8 @@ func (c Config) source(fs xfs.FS, ca *cert.Factory) (cert.Source, error) {
 	case file.SourceType:
 		certPath, keyPath := c.Cert.Cert, c.Cert.Key
 		if certPath == "" && keyPath == "" {
-			certPath, keyPath = ca.AbsoluteNodeCertPath(), ca.AbsoluteNodeKeyPath()
+			certPath, keyPath = ca.Config().AbsoluteNodeCertPath(),
+				ca.Config().AbsoluteNodeKeyPath()
 		}
 		return file.NewSource(fs, certPath, keyPath)
 	case auto.SourceType:
@@ -160,7 +176,7 @@ func (cs Configs) Resolve(
 	out := make([]server.Listener, len(cs))
 	if insecure {
 		for i, c := range cs {
-			out[i] = server.Listener{Address: c.Address}
+			out[i] = server.Listener{Address: c.Address, Loopback: c.Loopback}
 		}
 		return out, nil
 	}
@@ -214,7 +230,11 @@ func (cs Configs) Resolve(
 				}
 			}
 		}
-		out[i] = server.Listener{Address: c.Address, TLS: p.TLSConfigFor(src)}
+		out[i] = server.Listener{
+			Address:  c.Address,
+			TLS:      p.TLSConfigFor(src),
+			Loopback: c.Loopback,
+		}
 	}
 	return out, nil
 }
@@ -263,6 +283,7 @@ func parseList(items []any) (Configs, error) {
 			},
 			Advertise: asBool(m, "advertise"),
 			Name:      asString(m, "name"),
+			Loopback:  asBool(m, "loopback"),
 		}
 	}
 	return configs, nil

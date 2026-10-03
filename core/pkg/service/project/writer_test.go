@@ -10,7 +10,8 @@
 package project_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -19,12 +20,9 @@ import (
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
 		It("Should create a project", func(ctx SpecContext) {
-			proj := project.Project{
-				Name:   "test",
-				Layout: map[string]any{"key": "data"},
-			}
+			proj := project.Project{Name: "test"}
 			Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
-			Expect(proj.Key).ToNot(Equal(uuid.Nil))
+			Expect(proj.Key).ToNot(Equal(uuid.Nil()))
 		})
 		It(
 			"Should return a validation error when the name is empty",
@@ -64,24 +62,6 @@ var _ = Describe("Writer", func() {
 					Exec(ctx, tx),
 			).To(Succeed())
 			Expect(res.Name).To(Equal("test2"))
-		})
-	})
-	Describe("SetLayout", func() {
-		It("Should set the layout of a project", func(ctx SpecContext) {
-			proj := project.Project{Name: "test"}
-			Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
-			Expect(
-				svc.NewWriter(tx).
-					SetLayout(ctx, proj.Key, map[string]any{"key": "data"}),
-			).To(Succeed())
-			var res project.Project
-			Expect(
-				svc.NewRetrieve().
-					Where(project.MatchKeys(proj.Key)).
-					Entry(&res).
-					Exec(ctx, tx),
-			).To(Succeed())
-			Expect(res.Layout["key"]).To(Equal("data"))
 		})
 	})
 	Describe("DeleteChannel", func() {

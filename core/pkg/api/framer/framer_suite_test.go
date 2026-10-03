@@ -11,8 +11,8 @@ package framer_test
 
 import (
 	"testing"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
@@ -105,14 +105,14 @@ func createUserGranted(
 	objects ...ontology.ID,
 ) user.User {
 	u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-		Username: "api-framer-" + uuid.NewString(),
+		Username: "api-framer-" + uuid.New().String(),
 	}))
 	roleWriter := rbacSvc.Role.NewWriter(nil, true)
-	r := &role.Role{Name: "api-framer-" + uuid.NewString()}
+	r := &role.Role{Name: "api-framer-" + uuid.New().String()}
 	Expect(roleWriter.Create(ctx, r)).To(Succeed())
 	policyWriter := rbacSvc.Policy.NewWriter(nil, true)
 	p := &policy.Policy{
-		Name:    "api-framer-" + uuid.NewString(),
+		Name:    "api-framer-" + uuid.New().String(),
 		Objects: objects,
 		Actions: []access.Action{action},
 	}

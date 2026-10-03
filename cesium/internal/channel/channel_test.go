@@ -105,5 +105,16 @@ var _ = Describe("Channel", func() {
 				DataType: telem.Float32T,
 			},
 		),
+		Entry(
+			"Virtual channel is an index",
+			"is_index: virtual channel cannot be an index",
+			cesium.Channel{
+				Name:     "Steinbeck",
+				Key:      9998,
+				Virtual:  true,
+				IsIndex:  true,
+				DataType: telem.TimestampT,
+			},
+		),
 	)
 })

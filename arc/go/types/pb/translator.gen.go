@@ -12,7 +12,8 @@
 package pb
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
+
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )

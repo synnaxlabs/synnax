@@ -10,7 +10,8 @@
 package v2
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	"github.com/synnaxlabs/x/gorp"
 )
 

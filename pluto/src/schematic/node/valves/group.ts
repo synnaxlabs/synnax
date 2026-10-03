@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@/icon";
+import { Icon } from "@synnaxlabs/lyra/icon";
+
 import { type Group } from "@/schematic/node/group";
 
 export const GROUP: Group = {
@@ -16,28 +17,28 @@ export const GROUP: Group = {
   Icon: Icon.Valve,
   symbols: [
     "valve",
-    "solenoidValve",
-    "threeWayValve",
-    "fourWayValve",
-    "angledValve",
-    "ballValve",
-    "threeWayBallValve",
-    "gateValve",
-    "butterflyValveOne",
-    "butterflyValveTwo",
-    "breatherValve",
-    "manualValve",
-    "needleValve",
-    "reliefValve",
-    "angledReliefValve",
-    "springLoadedReliefValve",
-    "angledSpringLoadedReliefValve",
-    "checkValve",
-    "isoCheckValve",
-    "checkValveWithArrow",
+    "solenoid_valve",
+    "three_way_valve",
+    "four_way_valve",
+    "angled_valve",
+    "ball_valve",
+    "three_way_ball_valve",
+    "gate_valve",
+    "butterfly_valve_one",
+    "butterfly_valve_two",
+    "breather_valve",
+    "manual_valve",
+    "needle_valve",
+    "relief_valve",
+    "angled_relief_valve",
+    "spring_loaded_relief_valve",
+    "angled_spring_loaded_relief_valve",
+    "check_valve",
+    "iso_check_valve",
+    "check_valve_with_arrow",
     "regulator",
-    "regulatorManual",
-    "electricRegulator",
-    "electricRegulatorMotorized",
+    "regulator_manual",
+    "electric_regulator",
+    "electric_regulator_motorized",
   ],
 };

@@ -11,8 +11,8 @@ package lineplot
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -35,7 +35,7 @@ func (w Writer) Create(
 		exists bool
 		err    error
 	)
-	if lp.Key == uuid.Nil {
+	if lp.Key == uuid.Nil() {
 		lp.Key = uuid.New()
 	} else {
 		exists, err = w.table.NewRetrieve().
@@ -60,7 +60,7 @@ func (w Writer) Create(
 		if err := w.otg.DefineResources(ctx, otgID); err != nil {
 			return err
 		}
-		if projectKey != uuid.Nil {
+		if projectKey != uuid.Nil() {
 			if err := w.otg.DefineRelationships(
 				ctx,
 				project.OntologyID(projectKey),

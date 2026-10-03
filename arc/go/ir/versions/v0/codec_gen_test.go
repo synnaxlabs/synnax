@@ -14,13 +14,12 @@ package v0_test
 import (
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/ir/versions/v0"
 	types "github.com/synnaxlabs/arc/types/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Codec", func() {
@@ -261,10 +260,10 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v0.Function{
 				Key:      "",
 				Body:     v0.Body{Raw: ""},
-				Config:   nil,
-				Inputs:   nil,
-				Outputs:  nil,
-				Channels: types.Channels{Read: nil, Write: nil},
+				Config:   []types.Param{},
+				Inputs:   []types.Param{},
+				Outputs:  []types.Param{},
+				Channels: types.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}},
 			}),
 			Entry("empty collections", v0.Function{
 				Key:      "test_1",
@@ -582,7 +581,7 @@ func FuzzDecodeBody(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -629,7 +628,7 @@ func FuzzDecodeEdge(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -832,10 +831,10 @@ func FuzzDecodeFunction(f *testing.F) {
 		seed := v0.Function{
 			Key:      "",
 			Body:     v0.Body{Raw: ""},
-			Config:   nil,
-			Inputs:   nil,
-			Outputs:  nil,
-			Channels: types.Channels{Read: nil, Write: nil},
+			Config:   []types.Param{},
+			Inputs:   []types.Param{},
+			Outputs:  []types.Param{},
+			Channels: types.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -874,7 +873,7 @@ func FuzzDecodeFunction(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -913,7 +912,7 @@ func FuzzDecodeHandle(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})

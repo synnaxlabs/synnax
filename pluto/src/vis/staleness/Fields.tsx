@@ -7,51 +7,31 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
+import { Color } from "@synnaxlabs/lyra/color";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { type ReactElement } from "react";
 
-import { Color } from "@/color";
-import { Form } from "@/form";
-import { Theming } from "@/theming";
 import { staleness } from "@/vis/staleness/aether";
-
-export interface FieldsProps {
-  /** Path to the config holding the staleness keys. Defaults to the form root. */
-  path?: string;
-}
 
 /**
  * Fields edits the color a component takes on, and the delay before it does, once its
  * source stops sending. It renders as a pair of siblings, so the caller places it in a
- * row of its own choosing. Both fields carry a default so they still render on a symbol
- * saved before it gained staleness config.
+ * row of its own choosing. An unchosen color is absent, so the swatch shows the theme
+ * color it resolves to until a pick writes one.
  */
-export const Fields = ({ path = "" }: FieldsProps = {}): ReactElement => {
+export const Fields = (): ReactElement => {
   const theme = Theming.use();
-  const field = (name: string): string =>
-    path.length === 0 ? name : `${path}.${name}`;
   return (
     <>
-      <Form.Field<color.Crude>
-        label="Stale color"
-        align="start"
-        padHelpText={false}
-        path={field("stalenessColor")}
-        defaultValue={color.ZERO}
-      >
-        {({ value, onChange }) => (
-          <Color.Swatch
-            value={staleness.resolveColor(value, theme)}
-            onChange={onChange}
-            bordered
-          />
-        )}
-      </Form.Field>
+      <Color.Field
+        path="stalenessColor"
+        fallback={staleness.resolveColor(undefined, theme)}
+      />
       <Form.NumericField
-        path={field("stalenessTimeout")}
-        label="Stale timeout"
+        path="stalenessTimeout"
+        label="Timeout"
         padHelpText={false}
-        defaultValue={staleness.DEFAULT_TIMEOUT}
         inputProps={INPUT_PROPS}
       />
     </>

@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, type Synnax as Client } from "@synnaxlabs/client";
-import { context, type Icon } from "@synnaxlabs/pluto";
+import { context } from "@synnaxlabs/lyra/context";
+import { type Icon } from "@synnaxlabs/lyra/icon";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { type Panel } from "@/platform/panel";

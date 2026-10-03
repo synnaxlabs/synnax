@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@/icon";
+import { Icon } from "@synnaxlabs/lyra/icon";
+
 import { type Group } from "@/schematic/node/group";
 
 export const GROUP: Group = {
@@ -16,18 +17,18 @@ export const GROUP: Group = {
   Icon: Icon.Channel,
   symbols: [
     "value",
-    "stringDisplay",
+    "string_display",
     "gauge",
     "scale",
     "setpoint",
-    "textBox",
-    "offPageReference",
+    "text_box",
+    "off_page_reference",
     "button",
     "select",
     "switch",
     "input",
     "light",
-    "stateIndicator",
+    "state_indicator",
     "polygon",
     "circle",
     "box",

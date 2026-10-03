@@ -9,7 +9,7 @@
 
 import { type device, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Menu as PMenu } from "@synnaxlabs/pluto";
+import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -46,7 +46,6 @@ const renderContextMenu = async (devices: EtherCAT.Device.SlaveDevice[]) => {
   const { wrapper, store } = await createConsoleWrapper({ client });
   const proj = await client.projects.create({
     name: uniqueName("proj"),
-    layout: {},
   });
   store.dispatch(Session.Project.select(proj.key));
   const keys = devices.map((d) => d.key);

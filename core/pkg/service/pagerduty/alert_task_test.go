@@ -14,8 +14,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -43,6 +43,7 @@ var _ = Describe("AlertTask", func() {
 		ctx context.Context,
 		cfg pd.TaskConfig,
 	) driver.Task {
+		GinkgoHelper()
 		t := task.Task{
 			Key:    uuid.New(),
 			Name:   "PagerDuty Test",
@@ -61,6 +62,7 @@ var _ = Describe("AlertTask", func() {
 		message string,
 		details any,
 	) {
+		GinkgoHelper()
 		tx := db.OpenTx()
 		defer func() { Expect(tx.Close()).To(Succeed()) }()
 		w := statusSvc.NewWriter(tx)
@@ -78,6 +80,7 @@ var _ = Describe("AlertTask", func() {
 	BeforeEach(func() {
 		sender = newMockSender()
 		factory = MustSucceed(pd.NewFactory(pd.FactoryConfig{
+			DB:     db,
 			Status: statusSvc,
 			Sender: sender,
 		}))

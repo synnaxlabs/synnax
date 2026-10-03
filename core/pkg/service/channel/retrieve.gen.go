@@ -13,6 +13,7 @@ package channel
 
 import (
 	"context"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -36,7 +37,8 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	name *gorp.LookupIndex[Key, Channel, Name]
+	name       *gorp.LookupIndex[Key, Channel, Name]
+	localIndex *gorp.LookupIndex[Key, Channel, LocalKey]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one index instance
@@ -48,6 +50,10 @@ func newIndexes() indexes {
 			"name",
 			func(e *Channel) Name { return e.Name },
 		),
+		localIndex: gorp.NewLookupIndex[Key, Channel, LocalKey](
+			"local_index",
+			func(e *Channel) LocalKey { return e.LocalIndex },
+		),
 	}
 }
 
@@ -56,6 +62,7 @@ func newIndexes() indexes {
 func (i indexes) all() []gorp.Index[Key, Channel] {
 	return []gorp.Index[Key, Channel]{
 		i.name,
+		i.localIndex,
 	}
 }
 

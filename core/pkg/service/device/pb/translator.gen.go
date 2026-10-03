@@ -12,7 +12,8 @@
 package pb
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
+
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	ontologypb "github.com/synnaxlabs/synnax/pkg/service/ontology/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"

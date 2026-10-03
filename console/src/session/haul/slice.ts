@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { Haul } from "@synnaxlabs/pluto";
+import { Haul } from "@synnaxlabs/lyra/haul";
 
 export const SLICE_NAME = "haul";
 
@@ -40,4 +40,3 @@ export const { setHauled } = actions;
 export { reducer };
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
-export type Payload = Action["payload"];

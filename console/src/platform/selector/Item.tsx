@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, type Icon } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { type Icon } from "@synnaxlabs/lyra/icon";
 
 import {
   type OnSelectParams,
@@ -20,7 +21,7 @@ export interface ItemProps extends Omit<Button.ButtonProps, "children"> {
   icon: Icon.ReactElement;
 }
 
-export const Item = ({ title, icon, ...rest }: ItemProps) => (
+const Item = ({ title, icon, ...rest }: ItemProps) => (
   <Button.Button variant="outlined" {...rest}>
     {icon}
     {title}

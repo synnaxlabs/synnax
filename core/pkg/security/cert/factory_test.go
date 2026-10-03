@@ -116,8 +116,8 @@ var _ = Describe("Factory", func() {
 			f := newFactory("synnaxlabs.com")
 			Expect(f.CreateCAPair()).To(Succeed())
 			for _, p := range []string{
-				f.AbsoluteNodeCertPath(),
-				f.AbsoluteNodeKeyPath(),
+				f.Config().AbsoluteNodeCertPath(),
+				f.Config().AbsoluteNodeKeyPath(),
 			} {
 				file := MustSucceed(fs.Open(p, os.O_CREATE|os.O_WRONLY))
 				MustSucceed(file.Write([]byte("not a certificate")))

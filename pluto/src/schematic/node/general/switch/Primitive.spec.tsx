@@ -30,7 +30,7 @@ describe("switch symbol", () => {
     // The track and knob are painted from the display var in switch.css; jsdom cannot
     // compute it, so we assert the marker classes and the source var.
     it("should carry the symbol-colored + colored classes and set the source color", () => {
-      const { container } = render(<Switch color="#ff0000" />);
+      const { container } = render(<Switch strokeColor="#ff0000" />);
       const root = getRoot(container);
       const cls = root.getAttribute("class") ?? "";
       expect(cls).toContain("pluto-symbol-colored");
@@ -39,20 +39,18 @@ describe("switch symbol", () => {
     });
 
     it("should carry the alpha channel so a translucent color stays translucent", () => {
-      const { container } = render(<Switch color={[255, 0, 0, 0.5]} />);
+      const { container } = render(<Switch strokeColor={[255, 0, 0, 0.5]} />);
       expect(getRoot(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
         "255, 0, 0, 0.5",
       );
     });
 
     // An unset color must leave the switch on the input theme it draws itself from.
-    it("should stay uncolored for the ZERO sentinel", () => {
-      const { container } = render(<Switch color={color.ZERO} />);
+    it("should pass a fully transparent color through as a choice", () => {
+      const { container } = render(<Switch strokeColor={color.ZERO} />);
       const root = getRoot(container);
-      const cls = root.getAttribute("class") ?? "";
-      expect(cls).not.toContain("pluto-symbol-colored");
-      expect(cls).not.toContain("pluto-switch-symbol--colored");
-      expect(root.style.getPropertyValue("--pluto-symbol-color")).toBe("");
+      expect(root.getAttribute("class") ?? "").toContain("pluto-symbol-colored");
+      expect(root.style.getPropertyValue("--pluto-symbol-color")).toBe("0, 0, 0, 0");
     });
 
     it("should stay uncolored when no color is given", () => {
@@ -64,7 +62,7 @@ describe("switch symbol", () => {
 
     // The stale color reaches the primitive as an ordinary color, so both states color.
     it("should color an enabled switch the same way as a disabled one", () => {
-      const { container } = render(<Switch color="#ff0000" enabled />);
+      const { container } = render(<Switch strokeColor="#ff0000" enabled />);
       const root = getRoot(container);
       expect(root.getAttribute("class")).toContain("pluto-switch-symbol--colored");
       expect(root.style.getPropertyValue("--pluto-symbol-color")).toBe("255, 0, 0, 1");

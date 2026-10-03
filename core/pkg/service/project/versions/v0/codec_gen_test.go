@@ -12,16 +12,15 @@
 package v0_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Codec", func() {
@@ -43,10 +42,10 @@ var _ = Describe("Codec", func() {
 				Layout: msgpack.EncodedJSON{"key_4": "value_4"},
 			}),
 			Entry("zero values", v0.Workspace{
-				Key:    uuid.Nil,
+				Key:    uuid.Nil(),
 				Name:   "",
-				Author: uuid.Nil,
-				Layout: nil,
+				Author: uuid.Nil(),
+				Layout: msgpack.EncodedJSON{},
 			}),
 		)
 	})
@@ -90,10 +89,10 @@ func FuzzDecodeWorkspace(f *testing.F) {
 	}
 	{
 		seed := v0.Workspace{
-			Key:    uuid.Nil,
+			Key:    uuid.Nil(),
 			Name:   "",
-			Author: uuid.Nil,
-			Layout: nil,
+			Author: uuid.Nil(),
+			Layout: msgpack.EncodedJSON{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -117,7 +116,7 @@ func FuzzDecodeWorkspace(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})

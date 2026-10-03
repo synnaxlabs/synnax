@@ -1,0 +1,41 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Page as P } from "@/components/nav/Page";
+import { REFERENCE_PAGES } from "@/pages/_nav";
+---
+
+<nav class="page-nav" transition:persist>
+    <P nodes={REFERENCE_PAGES} currentPage={Astro.url.pathname} />
+</nav>
+
+<style is:global>
+    /* Lyra's flex display would otherwise override the hidden attribute. */
+    .reference-tree [role="treeitem"][hidden] {
+        display: none;
+    }
+</style>
+
+<script>
+    const SCROLL_KEY = "page-nav-scroll";
+    const tree = document.querySelector(".page-nav .reference-tree");
+    if (tree != null) {
+        const saved = sessionStorage.getItem(SCROLL_KEY);
+        if (saved != null) tree.scrollTop = parseFloat(saved);
+        let scrollTimer: ReturnType<typeof setTimeout> | null = null;
+        tree.addEventListener("scroll", () => {
+            if (scrollTimer != null) clearTimeout(scrollTimer);
+            scrollTimer = setTimeout(
+                () => sessionStorage.setItem(SCROLL_KEY, String(tree.scrollTop)),
+                100,
+            );
+        });
+    }
+</script>

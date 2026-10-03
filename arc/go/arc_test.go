@@ -118,6 +118,7 @@ var _ = Describe("Dashed names keep -> intact", func() {
 
 var _ = Describe("Arc", func() {
 	compile := func(ctx SpecContext, code string, channels ...arc.Symbol) arc.Program {
+		GinkgoHelper()
 		t := arc.Text{Raw: code}
 		Expect(t.Raw).ToNot(BeEmpty())
 		root := symbol.NewRoot(nil, stl.NewSymbols())
@@ -129,6 +130,7 @@ var _ = Describe("Arc", func() {
 	}
 
 	findNodeByType := func(nodes ir.Nodes, nodeType string) ir.Node {
+		GinkgoHelper()
 		for _, n := range nodes {
 			if n.Type == nodeType {
 				return n
@@ -141,6 +143,7 @@ var _ = Describe("Arc", func() {
 	// findTopLevelScope returns the top-level Scope member whose key matches.
 	// Fails the spec if no such member exists.
 	findTopLevelScope := func(prog arc.Program, key string) ir.Scope {
+		GinkgoHelper()
 		for _, stratum := range prog.Root.Strata {
 			for _, m := range stratum {
 				if m.Scope != nil && m.Scope.Key == key {
@@ -155,6 +158,7 @@ var _ = Describe("Arc", func() {
 	// findMember returns the member with the given key in a scope's
 	// Steps (sequential) or its Strata (parallel).
 	findMember := func(scope ir.Scope, key string) ir.Member {
+		GinkgoHelper()
 		for _, m := range scope.Steps {
 			if m.Key() == key {
 				return m
@@ -599,6 +603,36 @@ func check() {
 				),
 				MatchError(ContainSubstring("did you mean: check{}?")),
 			))
+		},
+	)
+
+	It(
+		"Should return a compile error when '=>' feeds a routing table",
+		func(ctx SpecContext) {
+			root := symbol.NewRoot(nil, stl.NewSymbols())
+			flag := symbol.Symbol{
+				Name: "flag",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.Bool()),
+				ID:   1,
+			}
+			vlvCmd := symbol.Symbol{
+				Name: "vlv_cmd",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.Bool()),
+				ID:   2,
+			}
+			root.Parent.AddChild(&flag)
+			root.Parent.AddChild(&vlvCmd)
+			t := arc.Text{Raw: `
+flag -> select{} => {
+    true: true -> vlv_cmd,
+    false: false -> vlv_cmd
+}
+`}
+			Expect(arc.CompileText(ctx, t, root)).Error().To(
+				MatchError(ContainSubstring("'=>' cannot feed a routing table")),
+			)
 		},
 	)
 
@@ -1180,4 +1214,36 @@ var _ = Describe("Bool expression pipelines end-to-end runtime", func() {
 			out2.Get(300).Series[0].Unmarshal[bool](),
 		).To(Equal([]bool{false}))
 	})
+})
+
+var _ = Describe("Cycle stamps end-to-end runtime", func() {
+	It(
+		"Should resume the clock above stamps forwarded into an index",
+		func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"x":   {types.F32(), 100},
+				"out": {types.F32(), 200},
+			})
+			h := newRuntimeHarness(ctx, `x -> out`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Float32T},
+				channels.Digest{Key: 199, DataType: telem.TimestampT},
+				channels.Digest{Key: 200, DataType: telem.Float32T, Index: 199},
+			)
+			defer h.Close(ctx)
+			stepped := 10 * telem.SecondTS
+			h.clock.Source = func() telem.TimeStamp { return stepped }
+
+			h.Ingest(100, telem.NewSeriesV[float32](1, 2, 3))
+			h.Tick(ctx, telem.Millisecond)
+			h.channelState.ClearReads()
+			out, changed := h.Flush()
+			Expect(changed).To(BeTrue())
+			Expect(
+				out.Get(199).Series[0].Unmarshal[telem.TimeStamp](),
+			).To(Equal([]telem.TimeStamp{stepped, stepped + 1, stepped + 2}))
+
+			h.Tick(ctx, 2*telem.Millisecond)
+			Expect(h.cycleNow).To(Equal(stepped + 3))
+		},
+	)
 })

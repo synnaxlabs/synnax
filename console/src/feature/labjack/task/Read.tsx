@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
-import { Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
@@ -22,8 +24,11 @@ import {
   convertReadChannelTypeToPortType,
 } from "@/feature/labjack/task/convertChannelTypeToPortType";
 import { getOpenPort } from "@/feature/labjack/task/getOpenPort";
-import { FORMS } from "@/feature/labjack/task/ReadChannelForms";
-import { SelectReadChannelTypeField } from "@/feature/labjack/task/SelectReadChannelTypeField";
+import { CustomScaleForm, FORMS } from "@/feature/labjack/task/ReadChannelForms";
+import {
+  READ_CHANNEL_TYPE_NAMES,
+  SelectReadChannelTypeField,
+} from "@/feature/labjack/task/SelectReadChannelTypeField";
 import {
   createReadChannel,
   deployReadConfigZ,
@@ -94,15 +99,24 @@ interface ChannelDetailsProps extends Task.Views.DetailsProps {
   deviceModel: Device.Model;
 }
 
+const DetailsTitle = ({ path, deviceModel }: ChannelDetailsProps) => {
+  const port = PForm.useFieldValue<string>(`${path}.port`);
+  const type = PForm.useFieldValue<ReadChannelType>(`${path}.type`);
+  return (
+    <Task.Views.ItemLabel kind={READ_CHANNEL_TYPE_NAMES[type]}>
+      Port {getRenderedPort(port, deviceModel, type)}
+    </Task.Views.ItemLabel>
+  );
+};
+
 const ChannelDetails = ({ path, deviceModel }: ChannelDetailsProps) => {
   const channel = PForm.useFieldValue<ReadChannel>(path);
-  const Form = FORMS[channel.type];
+  const TypeForm = FORMS[channel.type];
   return (
-    <>
-      <Flex.Box x>
+    <PForm.Sections>
+      <PForm.Section title="Source">
         <SelectReadChannelTypeField
           path={path}
-          grow
           onChange={(value, { get, path, set }) => {
             if (value == null) return;
             const prevType = get<ReadChannelType>(path).value;
@@ -122,7 +136,7 @@ const ChannelDetails = ({ path, deviceModel }: ChannelDetailsProps) => {
             set(`${parentPath}.port`, nextPort);
           }}
         />
-        <PForm.Field<string> path={`${path}.port`}>
+        <PForm.Field<string> path={`${path}.port`} label="Port">
           {({ value, onChange, preview }) => (
             <SelectPort
               value={value}
@@ -133,15 +147,24 @@ const ChannelDetails = ({ path, deviceModel }: ChannelDetailsProps) => {
             />
           )}
         </PForm.Field>
-      </Flex.Box>
-      <Form deviceModel={deviceModel} path={path} />
-    </>
+      </PForm.Section>
+      {TypeForm != null && (
+        <PForm.Section title="Signal">
+          <TypeForm deviceModel={deviceModel} path={path} />
+        </PForm.Section>
+      )}
+      {"scale" in channel && (
+        <PForm.Section title="Scale">
+          <CustomScaleForm prefix={path} />
+        </PForm.Section>
+      )}
+    </PForm.Sections>
   );
 };
 
 const getOpenChannel = (
   channels: ReadChannel[],
-  device: Device.Device,
+  deviceModel: Device.Model,
   channelKeyToCopy?: string,
 ) => {
   if (channelKeyToCopy == null)
@@ -154,7 +177,7 @@ const getOpenChannel = (
     preferredPortType === Device.DI_PORT_TYPE
       ? Device.AI_PORT_TYPE
       : Device.DI_PORT_TYPE;
-  const port = getOpenPort(channels, device.model, [preferredPortType, backupPortType]);
+  const port = getOpenPort(channels, deviceModel, [preferredPortType, backupPortType]);
   if (port == null) return null;
   // Now we need to determine what channel type we use the schema and zero channel
   // for. Note that if the copied channel was a thermocouple channel, then we need to
@@ -172,7 +195,6 @@ const getOpenChannel = (
     ...Task.READ_CHANNEL_OVERRIDE,
     key: id.create(),
     port: port.key,
-    channel: device.properties[port.type].channels[port.key] ?? 0,
   };
 };
 
@@ -184,31 +206,44 @@ const isChannelTareable = (channel: ReadChannel) => channel.type === "analog";
 
 const ChannelsForm = ({ device }: ChannelsFormProps) => {
   const [tare, allowTare, handleTare] = Task.useTare({ isChannelTareable });
+  const { model } = device;
   const createChannel = useCallback(
     (channels: ReadChannel[], channelKeyToCopy?: string) =>
-      getOpenChannel(channels, device, channelKeyToCopy),
-    [device],
+      getOpenChannel(channels, model, channelKeyToCopy),
+    [model],
   );
   const listItem = useCallback(
     ({ key, ...p }: Task.ChannelListItemProps) => (
-      <ChannelListItem {...p} onTare={tare} key={key} deviceModel={device.model} />
+      <ChannelListItem {...p} onTare={tare} key={key} deviceModel={model} />
     ),
-    [tare, device.model],
+    [tare, model],
   );
   const details = useCallback(
-    (p: Task.Views.DetailsProps) => (
-      <ChannelDetails {...p} deviceModel={device.model} />
-    ),
+    (p: Task.Views.DetailsProps) => <ChannelDetails {...p} deviceModel={model} />,
+    [model],
+  );
+  const resolve = useCallback(
+    (c: ReadChannel) => ({
+      channel:
+        device.properties[convertReadChannelTypeToPortType(c.type)].channels[c.port] ??
+        0,
+    }),
+    [device],
+  );
+  const detailsTitle = useCallback(
+    (p: Task.Views.DetailsProps) => <DetailsTitle {...p} deviceModel={device.model} />,
     [device.model],
   );
   return (
     <Task.Views.ListAndDetails<ReadChannel>
       listItem={listItem}
       details={details}
+      detailsTitle={detailsTitle}
       createChannel={createChannel}
       onTare={handleTare}
       allowTare={allowTare}
       contextMenuItems={Task.readChannelContextMenuItem}
+      resolve={resolve}
     />
   );
 };

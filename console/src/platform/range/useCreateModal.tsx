@@ -10,21 +10,19 @@
 import "@/platform/range/Create.css";
 
 import { type ranger, TimeStamp } from "@synnaxlabs/client";
-import {
-  Button,
-  Flex,
-  Form,
-  Icon,
-  Input,
-  Nav,
-  Ranger,
-  Synnax,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Modal } from "@synnaxlabs/lyra/modal";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Ranger, Synnax } from "@synnaxlabs/pluto";
 import { type NumericTimeRange, TimeRange, uuid } from "@synnaxlabs/x";
-import { useCallback, useRef } from "react";
+import { type ReactElement, useCallback, useRef } from "react";
 import { type z } from "zod";
 
+import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Label } from "@/platform/label";
 import { Modals } from "@/platform/modals";
@@ -43,10 +41,36 @@ const ParentRangeIcon = Icon.createComposite(Icon.Range, {
   bottomRight: Icon.Arrow.Up,
 });
 
+// A parent is a range, but "Range" alone would not say which one, so this trigger
+// names itself. It reads as content, like the timeline above it.
+const PARENT_TRIGGER_PROPS = { placeholder: "Parent range", variant: "text" as const };
+
+const TimelineField = (): ReactElement => {
+  // A range loaded by key carries no parent field, so the read must tolerate its
+  // absence.
+  const parentKey = Form.useFieldValue<string>("parent", { optional: true });
+  const parent = Ranger.useResult(
+    parentKey == null || parentKey === "" ? null : { key: parentKey },
+  );
+  const parentRange = parent.data?.timeRange.numeric;
+  return (
+    <Form.Field<NumericTimeRange>
+      path="timeRange"
+      showLabel={false}
+      padHelpText={false}
+    >
+      {(p) => (
+        <Ranger.Timeline level="h4" variant="shadow" parent={parentRange} {...p} />
+      )}
+    </Form.Field>
+  );
+};
+
 export const useCreateModal = Modals.create<CreateModalParams>(
   ({ close, rangeKey, ...params }) => {
     const now = useRef(Number(TimeStamp.now().valueOf())).current;
     const dispatch = Session.useDispatch();
+    const { capture } = Analytics.use();
 
     const client = Synnax.use();
     const clientExists = client != null;
@@ -57,11 +81,12 @@ export const useCreateModal = Modals.create<CreateModalParams>(
         key: rangeKey ?? uuid.create(),
         name: "",
         labels: [],
-        timeRange: { start: now, end: now },
+        timeRange: { start: now, end: TimeStamp.MAX.nanoseconds },
         parent: "",
         ...params,
       },
       afterSave: (form) => {
+        if (rangeKey == null) capture("range_created", {});
         close();
         const { key } = form.value();
         if (key == null) return;
@@ -93,70 +118,60 @@ export const useCreateModal = Modals.create<CreateModalParams>(
     const saveName = "Save to Core";
 
     return (
-      <Modals.Frame className={CSS.B("range-create-layout")}>
-        <Modals.Header icon={<Icon.Range />}>Range.Create</Modals.Header>
-        <Modals.Body>
+      <Modal.Frame className={CSS.B("range-create-layout")}>
+        <Modal.Header icon={<Icon.Range />}>Range.Create</Modal.Header>
+        <Modal.Body>
           <Form.Form<typeof Ranger.formSchema> {...form}>
-            <Form.Field<string> path="name">
-              {(p) => (
-                <Input.Text
-                  autoFocus
-                  level="h2"
-                  variant="text"
-                  placeholder="Name"
-                  {...p}
-                />
-              )}
-            </Form.Field>
-            <Form.Field<NumericTimeRange> path="timeRange" label="Stage">
-              {(p) => (
-                <Ranger.SelectStage
-                  {...Ranger.wrapNumericTimeRangeToStage(p)}
-                  className={CSS.BE("range-create-layout", "stage")}
-                  triggerProps={{ variant: "outlined" }}
-                />
-              )}
-            </Form.Field>
-            <Flex.Box
-              x
-              wrap
-              gap="large"
-              className={CSS.BE("range-create-layout", "time-range")}
-            >
-              <Form.Field<number> path="timeRange.start" label="From">
-                {(p) => <Input.DateTime level="h4" variant="text" {...p} />}
-              </Form.Field>
-              <Text.Text
-                level="h4"
-                className={CSS.BE("range-create-layout", "time-range-arrow")}
-              >
-                <Icon.Arrow.Right />
-              </Text.Text>
-              <Form.Field<number> path="timeRange.end" label="To">
-                {(p) => <Input.DateTime level="h4" variant="text" {...p} />}
-              </Form.Field>
-            </Flex.Box>
-            <Flex.Box x>
-              <Form.Field<string> path="parent" visible padHelpText={false}>
-                {({ onChange, value }) => (
-                  <Ranger.Select
-                    className={CSS.BE("range-create-layout", "parent")}
-                    zIndex={-1}
-                    filter={recursiveParentFilter}
-                    value={value}
-                    onChange={onChange}
-                    icon={<ParentRangeIcon />}
-                    allowNone
+            <Flex.Box y gap="huge">
+              <Form.Field<string> path="name" showLabel={false} padHelpText={false}>
+                {(p) => (
+                  <Input.Text
+                    autoFocus
+                    level="h2"
+                    variant="text"
+                    placeholder="Name"
+                    aria-label="Name"
+                    {...p}
                   />
                 )}
               </Form.Field>
-              <Form.Field<string[]> path="labels" required={false}>
-                {(p) => <Label.SelectMultiple zIndex={100} {...p} />}
-              </Form.Field>
+              <TimelineField />
+              <Flex.Box x align="center">
+                <Form.Field<string>
+                  path="parent"
+                  visible
+                  showLabel={false}
+                  padHelpText={false}
+                >
+                  {({ onChange, value }) => (
+                    <Ranger.Select
+                      className={CSS.BE("range-create-layout", "parent")}
+                      zIndex={-1}
+                      filter={recursiveParentFilter}
+                      value={value}
+                      // Clearing the selection reports null, but the schema types an
+                      // absent parent as "". Null fails validation on a field that
+                      // hides itself when null, so the save would stall unexplained.
+                      onChange={(v: string | null) => onChange(v ?? "")}
+                      icon={<ParentRangeIcon />}
+                      triggerProps={PARENT_TRIGGER_PROPS}
+                      allowNone
+                    />
+                  )}
+                </Form.Field>
+                <Form.Field<string[]>
+                  path="labels"
+                  required={false}
+                  showLabel={false}
+                  padHelpText={false}
+                >
+                  {(p) => <Label.SelectMultiple zIndex={100} {...p} />}
+                </Form.Field>
+              </Flex.Box>
             </Flex.Box>
           </Form.Form>
-        </Modals.Body>
-        <Modals.Footer>
+        </Modal.Body>
+        <Modal.Footer>
           <Triggers.SaveHelpText action={saveName} />
           <Nav.Bar.End>
             <Button.Button onClick={() => saveLocal()} disabled={variant === "loading"}>
@@ -172,8 +187,8 @@ export const useCreateModal = Modals.create<CreateModalParams>(
               {saveName}
             </Button.Button>
           </Nav.Bar.End>
-        </Modals.Footer>
-      </Modals.Frame>
+        </Modal.Footer>
+      </Modal.Frame>
     );
   },
 );

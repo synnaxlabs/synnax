@@ -1,0 +1,36 @@
+---
+title: "systemd service"
+layout: "@/layouts/Reference.astro"
+description: "Manage Synnax using a systemd service."
+prev: "CLI reference"
+prevURL: "/reference/core/cli-reference"
+---
+
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Using a systemd service is a great way to manage a Synnax Core. Here is an example
+service file (typically kept in `/lib/systemd/system/synnax/service`):
+
+```ini
+[Unit]
+Description = synnax
+
+[Service]
+Type = simple
+User = synnax
+Group = synnax
+LimitNOFILE = 4096
+Restart = always
+RestartSec = 5s
+StandardOutput = /home/synnax/synnax.log
+StandardError = /home/synnax/errors.log
+ExecStart = /home/synnax/synnax start --listen="localhost:9090" --license-file="/home/synnax/synnax.lic"
+
+[Install]
+WantedBy = multi-user.target
+```
+
+The unit passes the license key through `--license-file`, so the key stays out of the
+unit file and the process list. The
+[production guide](/reference/core/production#licensing) explains how to obtain one.

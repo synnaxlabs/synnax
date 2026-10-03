@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Triggers } from "@synnaxlabs/pluto";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -48,7 +48,7 @@ describe("Core.Badge", () => {
     expect(await screen.findByText("Connected")).toBeTruthy();
   });
 
-  it("should show the signed-in user's name in the trigger", async () => {
+  it("should show the logged-in user's name in the trigger", async () => {
     const { wrapper } = await createConnectedConsoleWrapper({
       client: null,
       connParams: CONNECTION_PARAMS,

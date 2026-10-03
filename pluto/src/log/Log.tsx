@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type log } from "@synnaxlabs/client";
+import { type Menu } from "@synnaxlabs/lyra/menu";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { primitive, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
@@ -15,8 +17,6 @@ import { streamMultiChannelLog } from "@/log/aether/telem/sources";
 import { Base, type BaseProps } from "@/log/Base";
 import { use, useRedo, useUndo } from "@/log/queries";
 import { useKey } from "@/log/Suspended";
-import { type Menu } from "@/menu";
-import { Triggers } from "@/triggers";
 
 const DEFAULT_RETENTION = TimeSpan.days(7);
 const PRELOAD = TimeSpan.seconds(30);

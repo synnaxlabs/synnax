@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Breadcrumb } from "@/breadcrumb";
-import { Flex } from "@/flex";
-import { Icon } from "@/icon";
-import { Text } from "@/text";
+import { Breadcrumb } from "@synnaxlabs/lyra/breadcrumb";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
 
 import { SubcategorySection } from "./SubcategorySection";
 
@@ -32,7 +32,7 @@ export const BreadcrumbShowcase = () => {
   return (
     <Flex.Box y pack empty>
       <SubcategorySection
-        title="Typography Levels"
+        title="Typography levels"
         description="Breadcrumbs with different text levels for various hierarchical contexts"
       >
         <Flex.Box y gap="medium">
@@ -58,7 +58,7 @@ export const BreadcrumbShowcase = () => {
       </SubcategorySection>
 
       <SubcategorySection
-        title="Highlight Modes"
+        title="Highlight modes"
         description="Different highlighting styles to emphasize specific breadcrumb segments"
       >
         <Flex.Box y gap="medium">
@@ -96,7 +96,7 @@ export const BreadcrumbShowcase = () => {
       </SubcategorySection>
 
       <SubcategorySection
-        title="URL-Based Breadcrumbs"
+        title="URL-based breadcrumbs"
         description="Automatically generated breadcrumbs from URL paths using mapURLSegments utility"
       >
         <Flex.Box y gap="small">

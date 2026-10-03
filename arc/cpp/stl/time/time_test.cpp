@@ -29,9 +29,8 @@ runtime::node::Context make_context(
     const runtime::node::RunReason reason = runtime::node::RunReason::TimerTick
 ) {
     return runtime::node::Context{
-        .elapsed = elapsed,
+        .cycle = {.elapsed = elapsed, .reason = reason},
         .tolerance = tolerance,
-        .reason = reason,
         .mark_changed = [](size_t) {},
         .mark_self_changed = [] {},
         .set_deadline = [](x::telem::TimeSpan) {},
@@ -318,23 +317,20 @@ TEST(IntervalTest, FiresRepeatedly) {
     EXPECT_EQ(output->size(), 1);
 }
 
-/// @brief Test that Interval stamps wall-clock time when firing.
+/// @brief Test that Interval stamps the cycle time when firing.
 TEST(IntervalTest, SetsTimestampOnFire) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
     const auto inputs = ASSERT_NIL_P(IntervalInputs::create(setup.ir.nodes[0].inputs));
     Interval node(setup.make_node(), inputs.interval);
 
-    const auto before = x::telem::TimeStamp::now();
     auto ctx = make_context(x::telem::SECOND * 5);
+    ctx.cycle.now = x::telem::TimeStamp(3 * x::telem::SECOND);
     ASSERT_NIL(node.next(ctx));
-    const auto after = x::telem::TimeStamp::now();
 
     auto checker = setup.make_node();
     const auto &output_time = checker.output_time(0);
     EXPECT_EQ(output_time->size(), 1);
-    const auto ts = output_time->at<int64_t>(0);
-    EXPECT_GE(ts, before.nanoseconds());
-    EXPECT_LE(ts, after.nanoseconds());
+    EXPECT_EQ(output_time->at<int64_t>(0), ctx.cycle.now.nanoseconds());
 }
 
 /// @brief Test that Interval calls mark_changed when firing.
@@ -420,7 +416,7 @@ TEST(IntervalTest, ResetAllowsImmediateFiring) {
     node.next(ctx2);
     EXPECT_EQ(output->size(), 0);
 
-    node.reset();
+    node.reset(ctx2);
 
     auto ctx3 = make_context(x::telem::MILLISECOND * 600);
     node.next(ctx3);
@@ -434,26 +430,26 @@ TEST(IntervalTest, OnlyFiresOnTimerTick) {
 
     bool changed_called = false;
     runtime::node::Context ctx;
-    ctx.elapsed = x::telem::SECOND;
+    ctx.cycle.elapsed = x::telem::SECOND;
     ctx.tolerance = x::telem::TimeSpan(0);
     ctx.mark_changed = [&changed_called](size_t) { changed_called = true; };
     ctx.mark_self_changed = [] {};
     ctx.set_deadline = [](x::telem::TimeSpan) {};
     ctx.report_error = [](const x::errors::Error &) {};
 
-    ctx.reason = runtime::node::RunReason::TimerTick;
+    ctx.cycle.reason = runtime::node::RunReason::TimerTick;
     ASSERT_NIL(node.next(ctx));
     ASSERT_TRUE(changed_called);
 
     changed_called = false;
-    ctx.elapsed = x::telem::SECOND + x::telem::MILLISECOND * 500;
-    ctx.reason = runtime::node::RunReason::ChannelInput;
+    ctx.cycle.elapsed = x::telem::SECOND + x::telem::MILLISECOND * 500;
+    ctx.cycle.reason = runtime::node::RunReason::ChannelInput;
     ASSERT_NIL(node.next(ctx));
     ASSERT_FALSE(changed_called);
 
     changed_called = false;
-    ctx.reason = runtime::node::RunReason::TimerTick;
-    ctx.elapsed = x::telem::SECOND * 2;
+    ctx.cycle.reason = runtime::node::RunReason::TimerTick;
+    ctx.cycle.elapsed = x::telem::SECOND * 2;
     ASSERT_NIL(node.next(ctx));
     ASSERT_TRUE(changed_called);
 }
@@ -473,7 +469,7 @@ TEST(IntervalTest, ParksAndReportsOnceOnNonPositivePeriod) {
     ctx.report_error = [&](const x::errors::Error &e) { reported.push_back(e); };
 
     ASSERT_NIL(node.next(ctx));
-    ctx.elapsed = x::telem::SECOND;
+    ctx.cycle.elapsed = x::telem::SECOND;
     ASSERT_NIL(node.next(ctx));
 
     EXPECT_FALSE(changed_called);
@@ -492,7 +488,7 @@ TEST(IntervalTest, ReportsNonPositivePeriodAgainAfterReset) {
     ctx.report_error = [&](const x::errors::Error &e) { reported.push_back(e); };
 
     ASSERT_NIL(node.next(ctx));
-    node.reset();
+    node.reset(ctx);
     ASSERT_NIL(node.next(ctx));
 
     EXPECT_EQ(reported.size(), 2);
@@ -567,7 +563,7 @@ TEST(WaitTest, ResetAllowsFiringAgain) {
     EXPECT_EQ(output->size(), 1);
     output->resize(0);
 
-    node.reset();
+    node.reset(ctx2);
 
     auto ctx3 = make_context(x::telem::SECOND * 2);
     node.next(ctx3);
@@ -585,28 +581,28 @@ TEST(WaitTest, OnlyFiresOnTimerTick) {
 
     bool changed_called = false;
     runtime::node::Context ctx;
-    ctx.elapsed = x::telem::TimeSpan(0);
+    ctx.cycle.elapsed = x::telem::TimeSpan(0);
     ctx.tolerance = x::telem::TimeSpan(0);
     ctx.mark_changed = [&changed_called](size_t) { changed_called = true; };
     ctx.mark_self_changed = [] {};
     ctx.set_deadline = [](x::telem::TimeSpan) {};
     ctx.report_error = [](const x::errors::Error &) {};
 
-    ctx.reason = runtime::node::RunReason::TimerTick;
+    ctx.cycle.reason = runtime::node::RunReason::TimerTick;
     ASSERT_NIL(node.next(ctx));
     ASSERT_FALSE(changed_called);
 
-    ctx.elapsed = x::telem::MILLISECOND * 500;
-    ctx.reason = runtime::node::RunReason::ChannelInput;
+    ctx.cycle.elapsed = x::telem::MILLISECOND * 500;
+    ctx.cycle.reason = runtime::node::RunReason::ChannelInput;
     ASSERT_NIL(node.next(ctx));
     ASSERT_FALSE(changed_called);
 
-    ctx.elapsed = x::telem::SECOND;
-    ctx.reason = runtime::node::RunReason::ChannelInput;
+    ctx.cycle.elapsed = x::telem::SECOND;
+    ctx.cycle.reason = runtime::node::RunReason::ChannelInput;
     ASSERT_NIL(node.next(ctx));
     ASSERT_FALSE(changed_called);
 
-    ctx.reason = runtime::node::RunReason::TimerTick;
+    ctx.cycle.reason = runtime::node::RunReason::TimerTick;
     ASSERT_NIL(node.next(ctx));
     ASSERT_TRUE(changed_called);
 }
@@ -671,7 +667,7 @@ TEST(WaitTest, StartsTimingFromChannelInputAfterReset) {
     EXPECT_EQ(output->size(), 1);
     output->resize(0);
 
-    node.reset();
+    node.reset(ctx2);
 
     auto ctx3 = make_context(
         x::telem::SECOND * 2,
@@ -762,7 +758,7 @@ TEST(WaitTest, CallsMarkSelfChangedOnChannelInputToSurvive) {
     EXPECT_TRUE(changed_called);
 }
 
-/// @brief Test that Wait stamps wall-clock time when firing.
+/// @brief Test that Wait stamps the cycle time when firing.
 TEST(WaitTest, SetsTimestampOnFire) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
     Wait node(setup.make_node());
@@ -770,17 +766,14 @@ TEST(WaitTest, SetsTimestampOnFire) {
     auto ctx1 = make_context(x::telem::SECOND * 2);
     node.next(ctx1);
 
-    const auto before = x::telem::TimeStamp::now();
     auto ctx2 = make_context(x::telem::SECOND * 3);
+    ctx2.cycle.now = x::telem::TimeStamp(4 * x::telem::SECOND);
     node.next(ctx2);
-    const auto after = x::telem::TimeStamp::now();
 
     auto checker = setup.make_node();
     const auto &output_time = checker.output_time(0);
     EXPECT_EQ(output_time->size(), 1);
-    const auto ts = output_time->at<int64_t>(0);
-    EXPECT_GE(ts, before.nanoseconds());
-    EXPECT_LE(ts, after.nanoseconds());
+    EXPECT_EQ(output_time->at<int64_t>(0), ctx2.cycle.now.nanoseconds());
 }
 
 /// @brief Test that Wait calls mark_changed when firing.
@@ -835,7 +828,7 @@ TEST(WaitTest, ResetRestartsTimingFromZero) {
     auto ctx1 = make_context(x::telem::SECOND * 5);
     node.next(ctx1);
 
-    node.reset();
+    node.reset(ctx1);
 
     auto ctx2 = make_context(x::telem::SECOND * 5 + x::telem::MILLISECOND * 500);
     node.next(ctx2);
@@ -865,7 +858,7 @@ TEST(WaitTest, ParksAndReportsOnceOnNonPositiveDuration) {
     ctx.report_error = [&](const x::errors::Error &e) { reported.push_back(e); };
 
     ASSERT_NIL(node.next(ctx));
-    ctx.elapsed = x::telem::SECOND;
+    ctx.cycle.elapsed = x::telem::SECOND;
     ASSERT_NIL(node.next(ctx));
 
     EXPECT_FALSE(changed_called);
@@ -1184,7 +1177,7 @@ TEST(WaitDeadlineTest, SetsCorrectDeadlineAfterReset) {
     auto ctx2 = make_context(x::telem::SECOND);
     ASSERT_NIL(node.next(ctx2));
 
-    node.reset();
+    node.reset(ctx2);
 
     x::telem::TimeSpan reported_deadline(-1);
     auto ctx3 = make_context(x::telem::SECOND * 10);
@@ -1197,7 +1190,6 @@ TEST(WaitDeadlineTest, SetsCorrectDeadlineAfterReset) {
 struct NowTestSetup {
     ir::IR ir;
     runtime::state::State state;
-    x::telem::MonoClock clock;
 
     NowTestSetup():
         ir(build_ir()),
@@ -1229,33 +1221,30 @@ private:
     }
 };
 
-/// @brief Now node outputs a valid wall-clock timestamp.
-TEST(NowTest, OutputsWallClockTimestamp) {
+/// @brief Now node outputs the cycle stamp, not a clock reading of its own.
+TEST(NowTest, OutputsTheCycleStamp) {
     NowTestSetup setup;
     const auto inputs = ASSERT_NIL_P(time::NowInputs::create(setup.ir.nodes[0].inputs));
-    time::Now node(inputs, setup.make_node(), &setup.clock);
+    time::Now node(inputs, setup.make_node());
 
-    const auto before = x::telem::TimeStamp::now().nanoseconds();
     auto ctx = make_context(x::telem::SECOND * 5);
+    ctx.cycle.now = x::telem::TimeStamp(3 * x::telem::SECOND);
     bool changed = false;
     ctx.mark_changed = [&](size_t) { changed = true; };
     ASSERT_NIL(node.next(ctx));
-    const auto after = x::telem::TimeStamp::now().nanoseconds();
 
     EXPECT_TRUE(changed);
     auto checker = setup.make_node();
     const auto &output = checker.output(0);
     EXPECT_EQ(output->size(), 1);
-    const auto ts = output->at<int64_t>(0);
-    EXPECT_GE(ts, before);
-    EXPECT_LE(ts, after);
+    EXPECT_EQ(output->at<int64_t>(0), ctx.cycle.now.nanoseconds());
 }
 
 /// @brief Now node fires on any RunReason (not just TimerTick).
 TEST(NowTest, FiresOnChannelInput) {
     NowTestSetup setup;
     const auto inputs = ASSERT_NIL_P(time::NowInputs::create(setup.ir.nodes[0].inputs));
-    time::Now node(inputs, setup.make_node(), &setup.clock);
+    time::Now node(inputs, setup.make_node());
 
     bool changed = false;
     auto ctx = make_context(
@@ -1276,9 +1265,10 @@ TEST(NowTest, FiresOnChannelInput) {
 TEST(NowTest, OutputAndOutputTimeMatch) {
     NowTestSetup setup;
     const auto inputs = ASSERT_NIL_P(time::NowInputs::create(setup.ir.nodes[0].inputs));
-    time::Now node(inputs, setup.make_node(), &setup.clock);
+    time::Now node(inputs, setup.make_node());
 
     auto ctx = make_context(x::telem::SECOND);
+    ctx.cycle.now = x::telem::TimeStamp(3 * x::telem::SECOND);
     ASSERT_NIL(node.next(ctx));
 
     auto checker = setup.make_node();
@@ -1293,12 +1283,12 @@ TEST(NowTest, OutputAndOutputTimeMatch) {
 TEST(NowTest, WorksAfterReset) {
     NowTestSetup setup;
     const auto inputs = ASSERT_NIL_P(time::NowInputs::create(setup.ir.nodes[0].inputs));
-    time::Now node(inputs, setup.make_node(), &setup.clock);
+    time::Now node(inputs, setup.make_node());
 
     auto ctx1 = make_context(x::telem::TimeSpan(0));
     ASSERT_NIL(node.next(ctx1));
 
-    node.reset();
+    node.reset(ctx1);
 
     bool changed = false;
     auto ctx2 = make_context(x::telem::SECOND);
@@ -1315,7 +1305,7 @@ TEST(NowTest, WorksAfterReset) {
 TEST(NowTest, IsOutputTruthyFalseForUnknownParam) {
     NowTestSetup setup;
     const auto inputs = ASSERT_NIL_P(time::NowInputs::create(setup.ir.nodes[0].inputs));
-    time::Now node(inputs, setup.make_node(), &setup.clock);
+    time::Now node(inputs, setup.make_node());
     EXPECT_FALSE(node.is_output_truthy(999));
 }
 
@@ -1478,7 +1468,8 @@ TEST(IntervalVarTest, FiresImmediatelyAfterResetUsingTheLivePeriod) {
     );
     EXPECT_TRUE(t.tick(x::telem::SECOND, runtime::node::RunReason::TimerTick).fired);
     t.set(5 * x::telem::SECOND);
-    t.node->reset();
+    auto ctx = make_context(x::telem::SECOND);
+    t.node->reset(ctx);
     EXPECT_TRUE(
         t.tick(1500 * x::telem::MILLISECOND, runtime::node::RunReason::TimerTick).fired
     );

@@ -16,7 +16,7 @@ import (
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"
-	color "github.com/synnaxlabs/x/color/versions/v0"
+	color "github.com/synnaxlabs/x/color/versions/v1"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
@@ -95,7 +95,7 @@ type Log struct {
 	// Name is a human-readable name for the log.
 	Name string `json:"name" msgpack:"name"`
 	// Channels are the channels displayed in this log, in order.
-	Channels []ChannelEntry `json:"channels,omitzero" msgpack:"channels,omitzero"`
+	Channels []ChannelEntry `json:"channels" msgpack:"channels"`
 	// TimestampPrecision is the precision of displayed timestamps (0-3).
 	TimestampPrecision int32 `json:"timestamp_precision" msgpack:"timestamp_precision"`
 	// ChannelNamesHidden is true when channel names are hidden.

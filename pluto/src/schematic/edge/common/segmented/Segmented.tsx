@@ -9,6 +9,10 @@
 
 import "@/schematic/edge/common/segmented/Segmented.css";
 
+import { type schematic } from "@synnaxlabs/client";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Cursor } from "@synnaxlabs/lyra/cursor";
+import { type Triggers } from "@synnaxlabs/lyra/triggers";
 import { box, direction, xy } from "@synnaxlabs/x";
 import { useReactFlow } from "@xyflow/react";
 import {
@@ -21,8 +25,6 @@ import {
   useState,
 } from "react";
 
-import { CSS } from "@/css";
-import { Cursor } from "@/cursor";
 import { type Base } from "@/schematic/edge/common/base";
 import { Jumps } from "@/schematic/edge/common/jumps";
 import {
@@ -39,7 +41,6 @@ import {
 } from "@/schematic/edge/common/segmented/connector";
 import { Form } from "@/schematic/edge/common/segmented/Form";
 import { type Edge, type Spec } from "@/schematic/edge/spec";
-import { type Key } from "@/triggers/triggers";
 import { selectNodeBox } from "@/vis/diagram/util";
 
 interface CurrentlyDragging {
@@ -52,15 +53,15 @@ export interface PathProps extends Omit<Base.BaseProps, "path" | "points"> {
   crossings: xy.XY[];
 }
 
-const create = <V extends string>(Path: FC<PathProps>): Edge<Config<V>> => {
-  const E: Edge<Config<V>> = ({
+const create = (Path: FC<PathProps>): Edge => {
+  const E: Edge = ({
     edgeKey,
     source,
     target,
     sourceNode,
     targetNode,
     selected = false,
-    config: { segments: middleSegments, color: edgeColor },
+    config: { segments: middleSegments, strokeColor },
     onChange,
   }): ReactElement | null => {
     const flow = useReactFlow();
@@ -113,7 +114,7 @@ const create = <V extends string>(Path: FC<PathProps>): Edge<Config<V>> => {
 
     const dragStart = Cursor.useDrag({
       onStart: useCallback(
-        (_: xy.XY, __: Key, el: HTMLElement) => {
+        (_: xy.XY, __: Triggers.Key, el: HTMLElement) => {
           dragRef.current = {
             index: Number(el.id.split("-")[1]),
             segments: [...segments],
@@ -149,7 +150,7 @@ const create = <V extends string>(Path: FC<PathProps>): Edge<Config<V>> => {
 
     return (
       <>
-        <Path points={points} crossings={crossings} color={edgeColor} />
+        <Path points={points} crossings={crossings} color={strokeColor} />
         {selected &&
           calcMidPoints(points).map((p, i) => {
             const dir = segments[i].direction;
@@ -200,7 +201,7 @@ const calcMidPoints = (points: xy.XY[]): xy.XY[] =>
     return xy.construct((p.x + prev.x) / 2, (p.y + prev.y) / 2);
   });
 
-export const createSpec = <V extends string = string>(
+export const createSpec = <V extends schematic.EdgeConfigType>(
   variant: V,
   name: string,
   path: FC<PathProps>,
@@ -208,9 +209,7 @@ export const createSpec = <V extends string = string>(
   key: variant,
   name,
   configZ: createConfigZ(variant),
-  Edge: create<V>(path),
+  Edge: create(path),
   Form,
   defaultConfig: () => createDefaultConfig(variant),
 });
-
-export { type Config, createConfigZ, createDefaultConfig };

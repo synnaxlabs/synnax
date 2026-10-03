@@ -13,21 +13,19 @@ import {
   query,
   type Synnax as Client,
 } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
+import { context } from "@synnaxlabs/lyra/context";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import {
-  Access,
-  Component,
-  context,
-  Haul,
-  List,
-  Menu,
-  Ontology,
-  Status,
-  Synnax,
-  Tree as Base,
   useCombinedStateAndRef,
   useInitializerRef,
   useSyncedRef,
-} from "@synnaxlabs/pluto";
+} from "@synnaxlabs/lyra/hooks";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Tree as Base } from "@synnaxlabs/lyra/tree";
+import { Access, Ontology, Synnax } from "@synnaxlabs/pluto";
 import { array, type destructor, type observe } from "@synnaxlabs/x";
 import {
   type DragEvent,
@@ -397,6 +395,12 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   });
   const { shape, expand, contract } = treeProps;
   const shapeRef = useSyncedRef(shape);
+  // A placeholder's row stays mounted, so its rename can start out of view. Focusing
+  // the editable then scrolls the row into view.
+  const pinned = useMemo(
+    () => shape.keys.filter(placeholders.hasItem),
+    [shape.keys, placeholders],
+  );
 
   const getState = useCallback(
     (): TreeState => ({
@@ -570,6 +574,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         // the tree attempts to render it.
         getItem={getItem}
         emptyContent={answered ? emptyContent : null}
+        pinned={pinned}
         onContextMenu={menuProps.open}
       >
         {itemRenderProp}

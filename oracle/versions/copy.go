@@ -45,14 +45,14 @@ func copyForm(form resolution.TypeForm, rw func(string) string) resolution.TypeF
 		return f
 	case resolution.EnumForm:
 		f.Values = slices.Clone(f.Values)
+		f.Declared = slices.Clone(f.Declared)
 		f.Extends = copyRefs(f.Extends, rw)
 		return f
 	case resolution.UnionForm:
-		f.Variants = slices.Clone(f.Variants)
-		for i := range f.Variants {
-			f.Variants[i].Type = copyRef(f.Variants[i].Type, rw)
-		}
+		f.Variants = copyVariants(f.Variants, rw)
+		f.Declared = copyVariants(f.Declared, rw)
 		f.Extends = copyRefs(f.Extends, rw)
+		f.Included = copyRefs(f.Included, rw)
 		return f
 	case resolution.DistinctForm:
 		f.Base = copyRef(f.Base, rw)
@@ -65,6 +65,16 @@ func copyForm(form resolution.TypeForm, rw func(string) string) resolution.TypeF
 	default:
 		return form
 	}
+}
+
+func copyVariants(
+	variants []resolution.UnionVariant, rw func(string) string,
+) []resolution.UnionVariant {
+	out := slices.Clone(variants)
+	for i := range out {
+		out[i].Type = copyRef(out[i].Type, rw)
+	}
+	return out
 }
 
 func copyFields(fields []resolution.Field, rw func(string) string) []resolution.Field {

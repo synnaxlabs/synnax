@@ -10,7 +10,8 @@
 package view_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -66,7 +67,7 @@ var _ = Describe("View", func() {
 						Type: "test",
 					}
 					Expect(w.Create(ctx, s)).To(Succeed())
-					Expect(s.Key).ToNot(Equal(uuid.Nil))
+					Expect(s.Key).ToNot(Equal(uuid.Nil()))
 				},
 			)
 			It("Should update an existing view", func(ctx SpecContext) {

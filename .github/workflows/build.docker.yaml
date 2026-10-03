@@ -11,7 +11,7 @@ name: Build - Docker
 
 on:
   workflow_call:
-    inputs:
+    inputs: &inputs
       module:
         description:
           Module path containing the Dockerfile and go.mod (e.g. core,
@@ -22,13 +22,15 @@ on:
         description: Full Docker image tag to push
         required: true
         type: string
+  workflow_dispatch:
+    inputs: *inputs
 
 jobs:
   build:
     name: Build - Docker
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v7
 
       - name: Set up Docker Buildx
@@ -47,7 +49,7 @@ jobs:
           echo "GO_VERSION=$(grep '^go ' ${{ inputs.module }}/go.mod | awk '{print
           $2}')" >> $GITHUB_OUTPUT
 
-      - name: Build and Push Image
+      - name: Build and push image
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -56,5 +58,5 @@ jobs:
           push: true
           tags: ${{ inputs.tag }}
           cache-from: type=gha,scope=synnax-docker-${{ inputs.module }}
-          cache-to: type=inline
+          cache-to: type=gha,mode=max,scope=synnax-docker-${{ inputs.module }}
           build-args: GO_VERSION=${{ steps.go-version.outputs.GO_VERSION }}

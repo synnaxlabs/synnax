@@ -7,29 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
-import { primitive, zod } from "@synnaxlabs/x";
+import { type channel, type schematic } from "@synnaxlabs/client";
+import { Form as Base } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Flex } from "@/flex";
-import { Form as Base } from "@/form";
-import { Input } from "@/input";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
-import { Status } from "@/status";
+import { type FormProps } from "@/schematic/node/spec";
 import { Synnax } from "@/synnax";
-import { Tabs } from "@/tabs";
-import { telem } from "@/telem/aether";
+import { Properties } from "@/vis/properties";
 import { Staleness } from "@/vis/staleness";
 
 const TelemForm = (): ReactElement => {
   const { set } = Base.useContext();
-  const { value, onChange } = Base.useField<telem.StringSourceSpec>("telem");
-  const source = zod.parse(telem.streamChannelValuePropsZ, value?.props, {
-    label: "value stream source",
-  });
+  const { value, onChange } =
+    Base.useField<Pick<schematic.StringDisplayNodeConfig, "channel">>("");
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const handleSourceChange = (key: channel.Key | null): void => {
@@ -38,59 +36,55 @@ const TelemForm = (): ReactElement => {
         const { name } = await client.channels.retrieve({ key });
         set("tooltip", [name]);
       }, "Failed to retrieve channel");
-    onChange(telem.streamChannelStringValue({ channel: key ?? 0 }));
+    onChange({ ...value, channel: key ?? undefined });
   };
-  if (typeof source.channel != "number")
-    throw new Error("Must pass in a channel by key to the string display form");
   return (
-    <>
-      <Input.Item label="Channel" grow>
-        <Channel.SelectSingle
-          value={source.channel}
-          onChange={handleSourceChange}
-          // Only variable density channels (STRING, JSON, UUID) read as text.
-          filter={(ch) => ch.dataType.isVariable}
-        />
-      </Input.Item>
-      <Flex.Box x>
+    <Base.Sections x>
+      <Base.Section title="Source">
+        <Input.Item label="Channel" padHelpText={false}>
+          <Channel.SelectSingle
+            value={value.channel ?? 0}
+            onChange={handleSourceChange}
+            // Only variable density channels (STRING, JSON, UUID) read as text.
+            filter={(ch) => ch.dataType.isVariable}
+          />
+        </Input.Item>
+      </Base.Section>
+      <Base.Section title="Staleness">
         <Staleness.Fields />
-      </Flex.Box>
-    </>
+      </Base.Section>
+    </Base.Sections>
   );
 };
 
 const StyleForm = (): ReactElement => (
-  <Form.Wrapper x>
-    <Flex.Box y grow>
+  <Base.Sections x>
+    <Base.Section title="Label">
       <Label.Form path="label" />
-      <Flex.Box x>
-        <Form.ColorField path="color" />
-        <Form.LevelSizeField />
-        <Base.NumericField
-          path="inlineSize"
-          label="Display width"
-          hideIfNull
-          inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
-        />
-      </Flex.Box>
-    </Flex.Box>
-    <Orientation.Field path="" hideInner />
-  </Form.Wrapper>
+    </Base.Section>
+    <Base.Section title="Appearance">
+      <Form.ColorField path="strokeColor" label="Stroke" />
+      <Form.ColorField path="textColor" label="Text" />
+      <Form.LevelSizeField />
+      <Base.NumericField
+        path="inlineSize"
+        label="Width"
+        hideIfNull
+        padHelpText={false}
+        inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
+      />
+    </Base.Section>
+    <Orientation.Section path="" hideInner />
+  </Base.Sections>
 );
 
-export const StringDisplayForm = (): ReactElement => (
-  <Tabs.Frame initialValue="style">
-    <Tabs.Selector>
-      <Tabs.Tab itemKey="style">Style</Tabs.Tab>
-      <Tabs.Tab itemKey="telemetry">Telemetry</Tabs.Tab>
-    </Tabs.Selector>
+export const StringDisplayForm = ({ tab, onTabChange }: FormProps): ReactElement => (
+  <Properties.Tabs tabs={["telemetry", "style"]} tab={tab} onTabChange={onTabChange}>
     <Tabs.Content itemKey="style">
       <StyleForm />
     </Tabs.Content>
     <Tabs.Content itemKey="telemetry">
-      <Form.Wrapper y empty>
-        <TelemForm />
-      </Form.Wrapper>
+      <TelemForm />
     </Tabs.Content>
-  </Tabs.Frame>
+  </Properties.Tabs>
 );

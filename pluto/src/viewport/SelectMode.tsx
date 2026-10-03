@@ -7,22 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { type Tooltip } from "@synnaxlabs/lyra/tooltip";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { caseconv } from "@synnaxlabs/x";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
-import { Icon } from "@/icon";
-import { Select } from "@/select";
-import { Text } from "@/text";
-import { type Tooltip } from "@/tooltip";
-import { Triggers } from "@/triggers";
-import { type Trigger } from "@/triggers/triggers";
-import { type Mode, MODES, type UseTriggers } from "@/viewport/use";
+import { type Mode, type UseTriggers } from "@/viewport/use";
 
 export type FilteredMode = Exclude<Mode, "cancel">;
 
 interface TooltipProps {
   mode: FilteredMode;
-  triggers: Trigger[];
+  triggers: Triggers.Trigger[];
 }
 
 export const TooltipText = ({ mode, triggers }: TooltipProps): ReactElement => (
@@ -33,49 +32,46 @@ export const TooltipText = ({ mode, triggers }: TooltipProps): ReactElement => (
 );
 
 export interface SelectModeProps
-  extends Omit<Select.ButtonsProps<Mode>, "keys">, Omit<Tooltip.WrapProps, "tooltip"> {
+  extends Select.ButtonsProps<Mode>, Omit<Tooltip.ExtensionProps, "tooltip"> {
   triggers: UseTriggers;
-  disable?: Mode[];
 }
 
 export const SelectMode = ({
   triggers,
   value,
   onChange,
-  disable = ["zoomReset", "click", "cancel"],
   tooltipLocation,
   hideTooltip,
   ...rest
 }: SelectModeProps): ReactElement => {
-  const data = useMemo(() => MODES.filter((m) => !disable.includes(m)), [disable]);
-  const commonProps: Partial<Select.ButtonProps<Mode>> = {
+  const commonProps: Partial<Select.ItemProps<Mode>> = {
     tooltipLocation,
     hideTooltip,
     size: "small",
   };
   return (
-    <Select.Buttons {...rest} keys={data} value={value} onChange={onChange}>
-      <Select.Button
+    <Select.Buttons variant="outlined" {...rest} value={value} onChange={onChange}>
+      <Select.Item
         itemKey="zoom"
         tooltip={<TooltipText mode="zoom" triggers={triggers.modes.zoom} />}
         {...commonProps}
       >
         <Icon.Zoom />
-      </Select.Button>
-      <Select.Button
+      </Select.Item>
+      <Select.Item
         itemKey="pan"
         tooltip={<TooltipText mode="pan" triggers={triggers.modes.pan} />}
         {...commonProps}
       >
         <Icon.Pan />
-      </Select.Button>
-      <Select.Button
+      </Select.Item>
+      <Select.Item
         itemKey="select"
         tooltip={<TooltipText mode="select" triggers={triggers.modes.select} />}
         {...commonProps}
       >
         <Icon.Selection />
-      </Select.Button>
+      </Select.Item>
     </Select.Buttons>
   );
 };

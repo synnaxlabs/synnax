@@ -7,14 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/schematic/node/general/light/light.css";
+
+import { type schematic } from "@synnaxlabs/client";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { type Config } from "@/schematic/node/general/light/config";
 
-interface RenderProps extends Omit<Config, "variant"> {
+interface RenderProps extends Partial<
+  Pick<schematic.LightNodeConfig, "strokeColor" | "onColor" | "orientation" | "scale">
+> {
   className?: string;
   enabled?: boolean;
 }
@@ -26,7 +31,8 @@ export const WIDTH_PER_SCALE = DIMENSIONS.width * Primitive.BASE_SCALE;
 
 export const Light = ({
   className,
-  color,
+  strokeColor,
+  onColor,
   orientation = "left",
   enabled,
   scale,
@@ -44,11 +50,20 @@ export const Light = ({
     />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >
-      <Primitive.Circle cx="32" cy="32" r="30" />
+      <g
+        className={CSS.cls(CSS.B("symbol-colored"), CSS.BE("light", "lamp"))}
+        style={
+          onColor == null
+            ? undefined
+            : { [CSS.variable("symbol-color")]: color.rgbaString(onColor) }
+        }
+      >
+        <Primitive.Circle cx="32" cy="32" r="30" />
+      </g>
     </Primitive.SVG>
   </Primitive.Div>
 );

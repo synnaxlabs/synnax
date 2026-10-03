@@ -29,6 +29,7 @@ func generateChain(resource, v0, v1, live string) map[string]string {
 	GinkgoHelper()
 	root := GinkgoT().TempDir()
 	write := func(rel, content string) {
+		GinkgoHelper()
 		full := filepath.Join(root, rel)
 		Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
 		Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
@@ -59,6 +60,7 @@ var _ = Describe("Chain migrate.gen.go", func() {
 	It("Should emit auto-copies as a pure function of adjacent files", func() {
 		root := GinkgoT().TempDir()
 		write := func(rel, content string) {
+			GinkgoHelper()
 			full := filepath.Join(root, rel)
 			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
 			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
@@ -122,6 +124,7 @@ Channel struct {
 		func() {
 			root := GinkgoT().TempDir()
 			write := func(rel, content string) {
+				GinkgoHelper()
 				full := filepath.Join(root, rel)
 				Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
 				Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
@@ -189,6 +192,7 @@ Task struct {
 	It("Should copy an extends parent pinned to one dependency version", func() {
 		root := GinkgoT().TempDir()
 		write := func(rel, content string) {
+			GinkgoHelper()
 			full := filepath.Join(root, rel)
 			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
 			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
@@ -265,6 +269,7 @@ Node struct extends base.Base {
 	It("Should route a bumped dependency pin through its exported wrapper", func() {
 		root := GinkgoT().TempDir()
 		write := func(rel, content string) {
+			GinkgoHelper()
 			full := filepath.Join(root, rel)
 			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
 			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())

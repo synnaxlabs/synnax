@@ -141,7 +141,7 @@ describe("Primitive.SVG", () => {
 
     it("should set the symbol-color variable and marker class for a color", () => {
       const { container } = render(
-        <Primitive.SVG dimensions={{ width: 10, height: 10 }} color="#ff0000" />,
+        <Primitive.SVG dimensions={{ width: 10, height: 10 }} strokeColor="#ff0000" />,
       );
       const svg = container.querySelector("svg") as SVGSVGElement;
       // Fill and stroke are driven by CSS off --pluto-symbol-color, not attributes.
@@ -151,12 +151,15 @@ describe("Primitive.SVG", () => {
       expect(svg.getAttribute("class")).toContain("pluto-symbol-colored");
     });
 
-    it("should treat the ZERO sentinel as unset so it falls back to the theme", () => {
+    it("should pass a fully transparent color through as a choice", () => {
       const { container } = render(
-        <Primitive.SVG dimensions={{ width: 10, height: 10 }} color={color.ZERO} />,
+        <Primitive.SVG
+          dimensions={{ width: 10, height: 10 }}
+          strokeColor={color.ZERO}
+        />,
       );
       const svg = container.querySelector("svg") as SVGSVGElement;
-      expect(svg.style.getPropertyValue("--pluto-symbol-color")).toBe("");
+      expect(svg.style.getPropertyValue("--pluto-symbol-color")).toBe("0, 0, 0, 0");
       expect(svg.getAttribute("class")).toContain("pluto-symbol-colored");
     });
 
@@ -166,7 +169,7 @@ describe("Primitive.SVG", () => {
       const { container } = render(
         <Primitive.SVG
           dimensions={{ width: 10, height: 10 }}
-          color={[255, 0, 0, 0.5]}
+          strokeColor={[255, 0, 0, 0.5]}
         />,
       );
       const svg = container.querySelector("svg") as SVGSVGElement;

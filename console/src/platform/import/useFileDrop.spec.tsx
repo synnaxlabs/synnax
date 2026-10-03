@@ -9,7 +9,7 @@
 
 import { type ontology, panel, project } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/pluto";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { unzipSync, zipSync } from "fflate";
@@ -211,7 +211,6 @@ describe("Import.useFileDrop", () => {
     });
     const switched = await client.projects.create({
       name: `switched-${uuid.create()}`,
-      layout: {},
     });
     const importBundle = vi.fn<Import.BundleImporter>(
       async (_name, _bundle, { store }) => {

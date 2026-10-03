@@ -34,7 +34,6 @@ describe("lineplot queries", () => {
     it("should retrieve a line plot by key", async () => {
       const project = await client.projects.create({
         name: "test_project",
-        layout: {},
       });
       const plot = await client.lineplots.create(project.key, {
         name: "retrieve_test",
@@ -56,7 +55,6 @@ describe("lineplot queries", () => {
     it("should cache retrieved line plots", async () => {
       const project = await client.projects.create({
         name: "cache_project",
-        layout: {},
       });
       const plot = await client.lineplots.create(project.key, {
         name: "cached_plot",
@@ -81,7 +79,6 @@ describe("lineplot queries", () => {
     it("should create a new line plot", async () => {
       const project = await client.projects.create({
         name: "create_project",
-        layout: {},
       });
 
       const { result } = renderHook(() => LinePlot.useCreate(), { wrapper });
@@ -106,7 +103,6 @@ describe("lineplot queries", () => {
     it("should store created line plot in flux store", async () => {
       const project = await client.projects.create({
         name: "store_project",
-        layout: {},
       });
 
       const { result: createResult } = renderHook(() => LinePlot.useCreate(), {
@@ -135,7 +131,6 @@ describe("lineplot queries", () => {
     it("should rename a line plot", async () => {
       const project = await client.projects.create({
         name: "rename_project",
-        layout: {},
       });
       const plot = await client.lineplots.create(project.key, {
         name: "original_name",
@@ -170,7 +165,6 @@ describe("lineplot queries", () => {
     it("should update cached plot after rename", async () => {
       const project = await client.projects.create({
         name: "rename_cache_project",
-        layout: {},
       });
       const plot = await client.lineplots.create(project.key, {
         name: "cache_original",
@@ -202,7 +196,6 @@ describe("lineplot queries", () => {
     it("should delete a single line plot", async () => {
       const project = await client.projects.create({
         name: "delete_project",
-        layout: {},
       });
       const plot = await client.lineplots.create(project.key, {
         name: "delete_single",
@@ -220,7 +213,6 @@ describe("lineplot queries", () => {
     it("should delete multiple line plots", async () => {
       const project = await client.projects.create({
         name: "delete_multi_project",
-        layout: {},
       });
       const plot1 = await client.lineplots.create(project.key, {
         name: "delete_multi_1",
@@ -246,7 +238,6 @@ describe("lineplot queries", () => {
     const createPlot = async () => {
       const proj = await client.projects.create({
         name: `dispatch_ws_${uuid.create()}`,
-        layout: {},
       });
       return await client.lineplots.create(proj.key, { name: "dispatch_test" });
     };
@@ -477,7 +468,6 @@ describe("lineplot queries", () => {
     const createPlot = async () => {
       const proj = await client.projects.create({
         name: `selector_ws_${uuid.create()}`,
-        layout: {},
       });
       return await client.lineplots.create(proj.key, { name: "selector_test" });
     };
@@ -689,6 +679,7 @@ describe("lineplot queries", () => {
         { wrapper },
       );
       expect(line.current.color).toEqual(color.construct("#00aaff"));
+      expect(line.current.pickedColor).toEqual(color.construct("#00aaff"));
     });
 
     it("useRules / useRule reflect setRule and removeRule", async () => {
@@ -765,7 +756,8 @@ describe("lineplot queries", () => {
         () => LinePlot.useRule({ key: created.key, ruleKey: "rl-1" }),
         { wrapper },
       );
-      expect(rule.current.color).toBeDefined();
+      expect(rule.current.pickedColor).toBeUndefined();
+      expect(rule.current.color).toEqual(rule.current.autoColor);
     });
 
     it("useLineCount reflects the number of lines", async () => {
@@ -938,7 +930,6 @@ describe("lineplot queries", () => {
     const createPlot = async () => {
       const proj = await client.projects.create({
         name: `stability_ws_${uuid.create()}`,
-        layout: {},
       });
       return await client.lineplots.create(proj.key, { name: "stability_test" });
     };

@@ -11,8 +11,8 @@ package project
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
@@ -29,7 +29,7 @@ func (w Writer) Create(
 	ctx context.Context,
 	p *Project,
 ) (err error) {
-	if p.Key == uuid.Nil {
+	if p.Key == uuid.Nil() {
 		p.Key = uuid.New()
 	}
 	if err = p.Validate(); err != nil {
@@ -75,18 +75,6 @@ func (w Writer) Rename(
 	return w.table.NewUpdate().Where(gorp.MatchKeys[Key, Project](key)).
 		Change(func(_ gorp.Context, p Project) Project {
 			p.Name = name
-			return p
-		}).Exec(ctx, w.tx)
-}
-
-func (w Writer) SetLayout(
-	ctx context.Context,
-	key Key,
-	layout map[string]any,
-) error {
-	return w.table.NewUpdate().Where(gorp.MatchKeys[Key, Project](key)).
-		Change(func(_ gorp.Context, p Project) Project {
-			p.Layout = layout
 			return p
 		}).Exec(ctx, w.tx)
 }

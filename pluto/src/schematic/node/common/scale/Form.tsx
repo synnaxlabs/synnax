@@ -8,6 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Form as Base } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
 import {
   caseconv,
   type direction,
@@ -16,31 +20,26 @@ import {
   primitive,
   type text,
 } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type PropsWithChildren, type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Component } from "@/component";
-import { Flex } from "@/flex";
-import { Form as Base } from "@/form";
-import { Input } from "@/input";
 import { Notation } from "@/notation";
 import { Form as NodeForm } from "@/schematic/node/common/form";
-import {
-  type Config,
-  createTelem,
-  DEFAULT_SIDE,
-  defaultConfig,
-  parseTelem,
-  type TelemProps,
-} from "@/schematic/node/common/scale/config";
-import { Select } from "@/select";
-import { type telem } from "@/telem/aether";
+import { type Config } from "@/schematic/node/common/scale/config";
+import { type ColorFallbacks } from "@/schematic/node/spec";
+import { Scale as VisScale } from "@/vis/scale";
 import { Staleness } from "@/vis/staleness";
+
+export const colorFallbacks = {
+  textColor: VisScale.textColorFallback,
+} satisfies ColorFallbacks;
 
 const PRECISION_INPUT_PROPS: Partial<Input.NumericProps> = {
   bounds: { lower: 0, upper: 10 },
 };
-const WINDOW_SIZE_BOUNDS = { lower: 1, upper: 100 };
+const WINDOW_SIZE_INPUT_PROPS: Partial<Input.NumericProps> = {
+  bounds: { lower: 1, upper: 100 },
+};
 
 const NotationSelect = Component.renderProp(
   ({ value, onChange }: Input.Control<notation.Notation>): ReactElement => (
@@ -53,13 +52,6 @@ const SIDES: readonly location.Outer[] = [
   ...location.X_LOCATIONS,
 ];
 
-export interface FormProps {
-  /** Path to the scale config within the symbol's config. */
-  path: string;
-}
-
-const field = (path: string, name: string): string => `${path}.${name}`;
-
 interface SideFieldProps {
   path: string;
   label: string;
@@ -68,142 +60,120 @@ interface SideFieldProps {
 }
 
 // A field on the other axis takes the side facing the same way as the default.
-const defaultSide = (sides: readonly location.Outer[]): location.Outer =>
-  sides.includes(DEFAULT_SIDE) ? DEFAULT_SIDE : location.swapAxis(DEFAULT_SIDE);
-
 const SideField = ({ path, label, sides }: SideFieldProps): ReactElement => (
-  <Base.Field<location.Outer>
-    path={path}
-    label={label}
-    padHelpText={false}
-    defaultValue={defaultSide(sides)}
-  >
+  <Base.Field<location.Outer> path={path} label={label} padHelpText={false}>
     {({ value, onChange }) => (
-      <Select.Buttons value={value} onChange={onChange} keys={sides}>
+      <Select.Buttons value={value} onChange={onChange}>
         {sides.map((side) => (
-          <Select.Button key={side} itemKey={side}>
+          <Select.Item key={side} itemKey={side}>
             {caseconv.capitalize(side)}
-          </Select.Button>
+          </Select.Item>
         ))}
       </Select.Buttons>
     )}
   </Base.Field>
 );
 
-export interface TelemFormProps extends FormProps {
+export interface TelemFormProps {
   /** When true, clearing the channel unbinds the scale instead of pinning it to 0. */
   allowNone?: boolean;
-  /** Applied when the symbol carries no scale config yet. */
-  defaults?: Partial<Config>;
 }
 
-export const TelemForm = ({
-  path,
-  allowNone = false,
-  defaults,
-}: TelemFormProps): ReactElement => {
+/** TelemForm renders telemetry sections; place it inside `Form.Sections`. */
+export const TelemForm = ({ allowNone = false }: TelemFormProps): ReactElement => {
   const { set } = Base.useContext();
-  const config = Base.useField<Config | undefined>(path, { optional: true })?.value;
-  const props = parseTelem(config?.telem);
-  const setTelem = (telem?: telem.NumberSourceSpec): void => {
-    if (config != null) return set(field(path, "telem"), telem);
-    if (telem != null) set(path, defaultConfig({ ...defaults, telem }));
-  };
-  const handleChange = (next: Partial<TelemProps>): void =>
-    setTelem(createTelem({ ...props, ...next }));
+  const channel = Base.useFieldValue<Config["channel"]>("channel", { optional: true });
   const handleChannelChange = (key: channel.Key | null): void => {
-    if (allowNone && !primitive.isNonZero(key)) return setTelem(undefined);
-    handleChange({ channel: key ?? 0 });
+    if (allowNone && !primitive.isNonZero(key)) return set("channel", undefined);
+    set("channel", key ?? 0);
   };
   return (
     <>
-      <Flex.Box x>
-        <Input.Item label="Channel" grow padHelpText={false}>
+      <Base.Section title="Source">
+        <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
-            value={props.channel}
+            value={channel ?? 0}
             onChange={handleChannelChange}
             allowNone={allowNone}
           />
         </Input.Item>
-        {config != null && (
-          <NodeForm.BoundsFields path={field(path, "bounds")} padHelpText={false} />
-        )}
-      </Flex.Box>
-      {config != null && (
-        <Flex.Box x>
-          <Base.Field<notation.Notation>
-            path={field(path, "notation")}
-            label="Notation"
-            padHelpText={false}
-          >
-            {NotationSelect}
-          </Base.Field>
-          <Base.NumericField
-            path={field(path, "precision")}
-            label="Precision"
-            align="start"
-            padHelpText={false}
-            inputProps={PRECISION_INPUT_PROPS}
-          />
-          <NodeForm.UnitsField path={field(path, "units")} />
-          <Staleness.Fields path={path} />
-          <Input.Item label="Averaging window" align="start" grow>
-            <Input.Numeric
-              value={props.windowSize}
-              bounds={WINDOW_SIZE_BOUNDS}
-              onChange={(windowSize) => handleChange({ windowSize })}
-            />
-          </Input.Item>
-        </Flex.Box>
-      )}
+        <Base.NumericField
+          path="rollingAverage"
+          label="Averaging window"
+          padHelpText={false}
+          inputProps={WINDOW_SIZE_INPUT_PROPS}
+        />
+      </Base.Section>
+      <Base.Section title="Range">
+        <NodeForm.BoundsFields path="bounds" padHelpText={false} />
+      </Base.Section>
+      <Base.Section title="Format">
+        <Base.Field<notation.Notation>
+          path="notation"
+          label="Notation"
+          padHelpText={false}
+        >
+          {NotationSelect}
+        </Base.Field>
+        <Base.NumericField
+          path="precision"
+          label="Precision"
+          padHelpText={false}
+          inputProps={PRECISION_INPUT_PROPS}
+        />
+        <NodeForm.UnitsField path="units" />
+      </Base.Section>
+      <Base.Section title="Staleness">
+        <Staleness.Fields />
+      </Base.Section>
     </>
   );
 };
 
-export interface DisplayFieldsProps extends FormProps {
+export interface DisplayFieldsProps extends PropsWithChildren {
   /** The axis the bar fills along, which the ticks must sit clear of. */
   axis?: direction.Direction;
 }
 
-/** Which parts of the scale are drawn, and the sides the ticks and readout sit on. */
+/**
+ * Which parts of the scale are drawn, and the sides the ticks and readout sit on. The
+ * children are the value and scale switches, which each symbol stores its own way.
+ */
 export const DisplayFields = ({
-  path,
   axis = "y",
+  children,
 }: DisplayFieldsProps): ReactElement => (
   <>
-    <Base.SwitchField path={field(path, "showFill")} label="Fill" padHelpText={false} />
-    <Base.SwitchField
-      path={field(path, "showCaret")}
-      label="Value"
-      padHelpText={false}
-    />
-    <Base.SwitchField
-      path={field(path, "showScale")}
-      label="Scale"
-      padHelpText={false}
-    />
-    <SideField path={field(path, "caretSide")} label="Value side" sides={SIDES} />
+    <NodeForm.NegatedSwitchField path="levelHidden" label="Fill" padHelpText={false} />
+    {children}
+    <SideField path="caretSide" label="Value side" sides={SIDES} />
     <SideField
-      path={field(path, "side")}
+      path="side"
       label="Scale side"
       sides={axis === "y" ? location.X_LOCATIONS : location.Y_LOCATIONS}
     />
   </>
 );
 
-/**
- * Colors of the scale and its labels, and the text size. The fill color is the symbol's
- * own, so the caller renders it against whichever path holds it.
- */
-export const StyleFields = ({ path }: FormProps): ReactElement => (
+/** Colors of the level, the axis, and the labels, and the text size. */
+export const StyleFields = (): ReactElement => (
   <>
-    <NodeForm.ColorField path={field(path, "axisColor")} label="Scale color" />
-    <NodeForm.ColorField path={field(path, "textColor")} label="Text color" />
-    <Base.Field<text.Level>
-      path={field(path, "level")}
-      label="Text size"
-      padHelpText={false}
-    >
+    <NodeForm.ColorField
+      path="levelColor"
+      label="Level"
+      fallback={VisScale.levelColorFallback}
+    />
+    <NodeForm.ColorField
+      path="axisColor"
+      label="Axis"
+      fallback={VisScale.axisColorFallback}
+    />
+    <NodeForm.ColorField
+      path="textColor"
+      label="Text"
+      fallback={colorFallbacks.textColor}
+    />
+    <Base.Field<text.Level> path="level" label="Text size" padHelpText={false}>
       {NodeForm.SelectTextLevel}
     </Base.Field>
   </>

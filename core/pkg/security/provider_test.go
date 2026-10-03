@@ -10,6 +10,7 @@
 package security_test
 
 import (
+	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
@@ -23,8 +24,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/security"
+	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/security/cert/file"
 	"github.com/synnaxlabs/synnax/pkg/security/mock"
+	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
@@ -138,8 +141,8 @@ var _ = Describe("OtelProvider", func() {
 				Expect(err).To(MatchError(os.ErrNotExist))
 			})
 		})
-		Describe("Node Private", func() {
-			It("Should return the node private key", func() {
+		Describe("Token Private", func() {
+			It("Should reuse the node key when it can sign tokens", func() {
 				fs := xfs.NewMem()
 				mock.GenerateCerts(fs)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
@@ -147,7 +150,45 @@ var _ = Describe("OtelProvider", func() {
 					KeySize:  mock.SmallKeySize,
 					Insecure: new(false),
 				}))
-				Expect(prov.NodePrivate()).ToNot(BeNil())
+				Expect(prov.TokenPrivate()).To(BeAssignableToTypeOf(&rsa.PrivateKey{}))
+			})
+			It("Should use the dedicated key when the node key is ML-DSA", func() {
+				fs := xfs.NewMem()
+				f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
+					FS:           fs,
+					Hosts:        []address.Address{"localhost:26260"},
+					KeySize:      mock.SmallKeySize,
+					KeyAlgorithm: cert.KeyAlgorithmMLDSA65,
+				}))
+				Expect(f.CreateCAPair()).To(Succeed())
+				Expect(f.CreateNodePair()).To(Succeed())
+				Expect(f.CreateTokenKeyIfMissing()).To(Succeed())
+				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
+					FS:       fs,
+					KeySize:  mock.SmallKeySize,
+					Insecure: new(false),
+				}))
+				Expect(prov.TokenPrivate()).
+					To(BeAssignableToTypeOf(ed25519.PrivateKey{}))
+			})
+			It("Should fail when an ML-DSA node key has no token key", func() {
+				fs := xfs.NewMem()
+				f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
+					FS:           fs,
+					Hosts:        []address.Address{"localhost:26260"},
+					KeySize:      mock.SmallKeySize,
+					KeyAlgorithm: cert.KeyAlgorithmMLDSA65,
+				}))
+				Expect(f.CreateCAPair()).To(Succeed())
+				Expect(f.CreateNodePair()).To(Succeed())
+				Expect(security.NewProvider(security.ProviderConfig{
+					FS:       fs,
+					KeySize:  mock.SmallKeySize,
+					Insecure: new(false),
+				})).Error().To(SatisfyAll(
+					MatchError(os.ErrNotExist),
+					MatchError(ContainSubstring("cannot sign authentication tokens")),
+				))
 			})
 		})
 		Describe("VerifyCertHost", func() {
@@ -391,7 +432,7 @@ var _ = Describe("OtelProvider", func() {
 					Insecure: new(true),
 					KeySize:  mock.SmallKeySize,
 				}))
-				Expect(prov.NodePrivate()).ToNot(BeNil())
+				Expect(prov.TokenPrivate()).ToNot(BeNil())
 			})
 		})
 		Describe("Certificate Verification", func() {

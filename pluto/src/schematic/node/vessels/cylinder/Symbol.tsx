@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { type NodeProps } from "@/schematic/node/spec";
-import { type Config } from "@/schematic/node/vessels/cylinder/config";
 import { Cylinder } from "@/schematic/node/vessels/cylinder/Primitive";
 
 export const Symbol = ({
@@ -22,12 +22,12 @@ export const Symbol = ({
   config: {
     label,
     orientation = "left",
-    backgroundColor,
-    color,
+    fillColor,
+    strokeColor,
     dimensions,
     borderRadius,
   },
-}: NodeProps<Config>): ReactElement => (
+}: NodeProps<schematic.CylinderNodeConfig>): ReactElement => (
   <Grid.Grid
     editable={selected}
     nodeKey={nodeKey}
@@ -38,10 +38,10 @@ export const Symbol = ({
     <Label.Label config={label} onChange={onConfigChange} />
     <Cylinder
       orientation={orientation}
-      color={color}
+      strokeColor={strokeColor}
       dimensions={dimensions}
       borderRadius={borderRadius}
-      backgroundColor={backgroundColor}
+      fillColor={fillColor}
     />
   </Grid.Grid>
 );

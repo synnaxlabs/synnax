@@ -13,15 +13,11 @@ import {
   type project,
   type Synnax,
 } from "@synnaxlabs/client";
-import {
-  Access,
-  context,
-  type Flux,
-  type Icon,
-  Panel,
-  Text,
-  type Triggers,
-} from "@synnaxlabs/pluto";
+import { context } from "@synnaxlabs/lyra/context";
+import { type Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
+import { type Triggers } from "@synnaxlabs/lyra/triggers";
+import { Access, type Flux, Panel } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
@@ -74,10 +70,6 @@ const [RendererContext, useRendererContext] = context.create<Tabs>({
 });
 
 export { RendererContext };
-
-export interface UseTabReturn extends Tab {
-  type: string;
-}
 
 // useTab resolves the registered Tab for the active tab's type, sourced from the
 // surrounding panel scope. Throws when no renderer is registered for the type.

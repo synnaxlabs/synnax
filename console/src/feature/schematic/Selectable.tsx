@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { Access, Icon } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Access } from "@synnaxlabs/pluto";
 
 import { Schematic } from "@/platform/schematic";
 import { Selector } from "@/platform/selector";

@@ -13,11 +13,12 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import {
   type Adder,
+  type AsyncErrorHandler,
   createAsyncErrorHandler,
   createErrorHandler,
   type ErrorHandler,
+  type Log,
 } from "@/status/aether/errorHandler";
-import { type AsyncErrorHandler } from "@/status/base/Aggregator";
 
 export const aggregatorStateZ = z.object({ statuses: status.statusZ().array() });
 export interface AggregatorState extends z.infer<typeof aggregatorStateZ> {}
@@ -27,6 +28,7 @@ const CONTEXT_KEY = "status.aggregator";
 interface ContextValue {
   add: Adder;
   create: (spec: status.Crude) => status.Status;
+  log: Log;
 }
 
 export class Aggregator extends aether.Composite<typeof aggregatorStateZ> {
@@ -38,6 +40,7 @@ export class Aggregator extends aether.Composite<typeof aggregatorStateZ> {
     ctx.set(CONTEXT_KEY, {
       add: this.add.bind(this),
       create: status.create,
+      log: (message: string) => this.instrumentation.L.error(message),
     });
   }
 
@@ -57,11 +60,15 @@ export const useOptionalAdder = (ctx: aether.Context): Adder => {
   if (agg != null) return agg.add;
   return () => {};
 };
-export const useErrorHandler = (ctx: aether.Context): ErrorHandler =>
-  createErrorHandler(useAdder(ctx));
+export const useErrorHandler = (ctx: aether.Context): ErrorHandler => {
+  const { add, log } = ctx.get<ContextValue>(CONTEXT_KEY);
+  return createErrorHandler(add, log);
+};
 
-export const useAsyncErrorHandler = (ctx: aether.Context): AsyncErrorHandler =>
-  createAsyncErrorHandler(useAdder(ctx));
+export const useAsyncErrorHandler = (ctx: aether.Context): AsyncErrorHandler => {
+  const { add, log } = ctx.get<ContextValue>(CONTEXT_KEY);
+  return createAsyncErrorHandler(add, log);
+};
 
 export const REGISTRY: aether.ComponentRegistry = {
   [Aggregator.TYPE]: Aggregator,

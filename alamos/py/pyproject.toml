@@ -15,12 +15,12 @@ requires-python = ">=3.12,<4"
 dependencies = [
     "opentelemetry-api>=1.41.1,<2",
     "opentelemetry-sdk>=1.41.1,<2",
-    "pydantic>=2.13.4,<3",
+    "pydantic>=2.13.5,<3",
     "uptrace>=1.41.0,<2",
 ]
 
 [dependency-groups]
-dev = ["mypy>=2.3.1,<3", "ruff>=0.16.5,<1", "pytest>=9.1.1,<10", "pytest-cov>=7.1.0,<8"]
+dev = ["mypy>=2.3.1,<3", "ruff>=0.16.8,<1", "pytest>=9.1.1,<10", "pytest-cov>=7.1.0,<8"]
 
 [tool.ruff]
 line-length = 88

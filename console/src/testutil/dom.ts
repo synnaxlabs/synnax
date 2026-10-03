@@ -85,21 +85,6 @@ export const findIconButton = async (
 ): Promise<HTMLButtonElement> => await waitFor(() => getIconButton(container, icon));
 
 /**
- * Returns the pluto toggle button in container. Toggles carry no accessible name, and
- * their icon is decoration that changes with the design, so the toggle class is the
- * only stable handle.
- */
-export const getToggleButton = (container: ParentNode): HTMLButtonElement => {
-  const button = container.querySelector<HTMLButtonElement>("button.pluto-btn-toggle");
-  if (button == null) throw new Error("no toggle button");
-  return button;
-};
-
-/** Reports whether a pluto toggle button is in its on state. */
-export const isToggled = (button: Element): boolean =>
-  button.classList.contains("pluto--selected");
-
-/**
  * Finds the text input whose pluto node placeholder (a rendered sibling element, not
  * an HTML placeholder attribute) contains the given text.
  */
@@ -139,13 +124,6 @@ export const getInputItem = (labelText: string): Element => {
  */
 export const getLabeledInput = (labelText: string): HTMLInputElement =>
   getBySelector<HTMLInputElement>(getInputItem(labelText), "input");
-
-/**
- * Finds the dialog-select trigger of the pluto input item labeled with labelText. The
- * trigger renders no accessible role or stable text of its own.
- */
-export const getLabeledDialogTrigger = (labelText: string): HTMLElement =>
-  getBySelector<HTMLElement>(getInputItem(labelText), ".pluto-dialog__trigger");
 
 /**
  * Waits for the live dialog trigger of the mounted select whose current value renders
@@ -232,9 +210,9 @@ export const getInputTable = (labelText: string): InputTable => {
     getInputItem(labelText),
     ".pluto-input__table",
   );
-  const [header, ...rows] = Array.from(table.querySelectorAll<HTMLElement>("tr"));
+  const rows = Array.from(table.querySelectorAll<HTMLElement>("tbody tr"));
   return {
-    add: getIconButton(header, "add"),
+    add: getIconButton(table, "add"),
     rows,
     cell: (row, col = 0) =>
       within(rows[row]).getAllByRole<HTMLInputElement>("textbox")[col],
@@ -256,7 +234,9 @@ export const getHeaderIconButton = (
   title: string,
   icon: string = "add",
 ): HTMLButtonElement => {
-  const header = screen.getByText(title).closest(".pluto-header");
+  const header = screen
+    .getByText(title)
+    .closest(".pluto-header, .pluto-form-section__header");
   if (header == null) throw new Error(`no header titled ${title}`);
   return getIconButton(header, icon);
 };

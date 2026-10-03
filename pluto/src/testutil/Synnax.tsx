@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type connection, type Synnax as Client } from "@synnaxlabs/client";
+import { disableActEnvironment } from "@synnaxlabs/lyra/testutil";
+import { theme } from "@synnaxlabs/lyra/theme";
 import { type FC, type PropsWithChildren, type ReactElement, Suspense } from "react";
 
 import { Aether } from "@/aether";
@@ -15,8 +17,8 @@ import { type aether } from "@/aether/aether";
 import { aetherTest } from "@/aether/test";
 import { Alamos } from "@/alamos";
 import { alamos } from "@/alamos/aether";
+import { Status } from "@/status";
 import { status } from "@/status/aether";
-import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
 import { synnax } from "@/synnax/aether";
 import { Telem } from "@/telem";
@@ -42,7 +44,10 @@ const RenderContextSeed = ({
   return <Aether.Composite path={path}>{children}</Aether.Composite>;
 };
 
-const TEST_THEME = theming.themeZ.parse(theming.SYNNAX_THEMES.synnaxLight);
+/** Tests assert on reported statuses, so their printed copies are noise. */
+const quiet = (): void => {};
+
+const TEST_THEME = theme.themeZ.parse(theme.SYNNAX_THEMES.synnaxLight);
 
 // Mounts the production aether theming provider without the React provider's
 // font loading, which jsdom cannot perform (no FontFace).
@@ -83,6 +88,7 @@ export const createSynnaxWrapper = ({
   telemFactories,
   connectionStatus,
 }: CreateSynnaxWrapperParams): FC<PropsWithChildren> => {
+  if (client != null) disableActEnvironment();
   const AetherProvider = aetherTest.createProvider({
     ...synnax.REGISTRY,
     ...status.REGISTRY,
@@ -112,7 +118,7 @@ export const createSynnaxWrapper = ({
     if (telemFactories != null) inner = <Telem.Provider>{inner}</Telem.Provider>;
     return (
       <AetherProvider>
-        <Status.Aggregator>
+        <Status.Aggregator log={quiet}>
           <Alamos.Provider>
             <Synnax.TestProvider client={client} status={connectionStatus}>
               <Suspense fallback={null}>

@@ -11,8 +11,8 @@ package arc_test
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
@@ -35,6 +35,7 @@ type scopedAction = actions.Scoped[arc.Key, arc.Action]
 // commit immediately (nil tx) so access-control reads can observe the new
 // ontology resource.
 func createArc(ctx context.Context, name string) arc.Arc {
+	GinkgoHelper()
 	a := arc.Arc{Name: name, Mode: arc.ModeGraph}
 	Expect(arcSvc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
 	return a
@@ -259,6 +260,7 @@ var _ = Describe("Service", func() {
 
 	Describe("SetRack", func() {
 		grantSetRack := func(ctx SpecContext, a arc.Arc) {
+			GinkgoHelper()
 			grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
 			grantOn(
 				ctx,

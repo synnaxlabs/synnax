@@ -1,0 +1,25 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import Inline from "@/components/code/Inline.astro";
+import { assetURL } from "@/util/releases";
+const { os } = Astro.props;
+
+const version = await Astro.locals.releases.latest("core");
+const url = assetURL("core", version, `synnax-v${version}-${os.toLowerCase()}`);
+let code = `curl -LO ${url}`;
+let lang: "bash" | "powershell" = "bash";
+if (os === "windows") {
+    lang = "powershell";
+    code = `$ErrorActionPreference="Stop"; [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; $ProgressPreference='SilentlyContinue'; $null=New-Item -Type Directory -Force $env:appdata/synnax; Invoke-WebRequest -Uri ${url} -OutFile synnax.exe; Copy-Item -Force "synnax.exe" -Destination $env:appdata/synnax; if (-not [Environment]::GetEnvironmentVariable("Path", "User").Contains("%APPDATA%\synnax")) { [Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path", "User") + ";%APPDATA%\synnax", "User"); }; $env:PATH += ";$env:appdata\synnax"`;
+}
+---
+
+<Inline lang={lang} code={code} theme="css-variables" wrap={os === "windows"} />

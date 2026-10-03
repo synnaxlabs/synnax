@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { CSS } from "@synnaxlabs/lyra/css";
 import { type ReactElement } from "react";
 
-import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
@@ -18,7 +18,7 @@ export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 const DIMENSIONS = { width: 64, height: 79 };
 
 export const AngledRelief = ({
-  color,
+  strokeColor,
   className,
   orientation = "left",
   scale,
@@ -50,7 +50,7 @@ export const AngledRelief = ({
     <Primitive.SVG
       dimensions={DIMENSIONS}
       orientation={orientation}
-      color={color}
+      strokeColor={strokeColor}
       scale={scale}
     >
       <Primitive.Line x1={21} y1={2} x2={21} y2={36.7} strokeLinecap="round" />

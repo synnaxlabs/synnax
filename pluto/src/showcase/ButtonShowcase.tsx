@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button } from "@/button";
-import { Flex } from "@/flex";
-import { Icon } from "@/icon";
-import { Text } from "@/text";
-import { Triggers } from "@/triggers";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 
 import { SubcategorySection } from "./SubcategorySection";
 
@@ -19,7 +19,7 @@ export const ButtonShowcase = () => (
   <Flex.Box y pack empty>
     <Flex.Box x pack grow sharp>
       <SubcategorySection
-        title="Sizes & Variants"
+        title="Sizes and variants"
         description="Different button sizes (huge, large, medium, small, tiny) across all variants (default, filled, text, outlined)"
       >
         <Flex.Box x gap="large">
@@ -117,7 +117,7 @@ export const ButtonShowcase = () => (
       </SubcategorySection>
 
       <SubcategorySection
-        title="With Icons"
+        title="With icons"
         description="Buttons with text and icons, and icon-only buttons across different variants"
       >
         <Flex.Box x gap="large">
@@ -172,7 +172,7 @@ export const ButtonShowcase = () => (
 
     <Flex.Box x pack grow sharp>
       <SubcategorySection
-        title="States & Special Properties"
+        title="States and special properties"
         description="Disabled, loading, sharp corners, and link buttons"
       >
         <Flex.Box y gap="medium">
@@ -221,7 +221,7 @@ export const ButtonShowcase = () => (
       </SubcategorySection>
 
       <SubcategorySection
-        title="Background Contrast"
+        title="Background contrast"
         description="Buttons on different background colors to test contrast adaptation"
       >
         <Flex.Box x gap="medium">
@@ -249,7 +249,7 @@ export const ButtonShowcase = () => (
 
     <Flex.Box x pack grow sharp>
       <SubcategorySection
-        title="Status Colors"
+        title="Status colors"
         description="Buttons with warning and error status colors"
       >
         <Flex.Box y gap="medium">
@@ -287,7 +287,7 @@ export const ButtonShowcase = () => (
       </SubcategorySection>
 
       <SubcategorySection
-        title="Custom Colors"
+        title="Custom colors"
         description="Buttons with custom color overrides"
       >
         <Flex.Box y gap="medium">
@@ -307,7 +307,7 @@ export const ButtonShowcase = () => (
       </SubcategorySection>
 
       <SubcategorySection
-        title="Trigger Indicators"
+        title="Trigger indicators"
         description="Buttons with keyboard shortcuts displayed using showTriggerIndicator"
       >
         <Flex.Box y gap="medium">

@@ -37,6 +37,7 @@ var _ = Describe("Completion", func() {
 	})
 
 	completionAt := func(ctx context.Context, line, col uint32) *protocol.CompletionList {
+		GinkgoHelper()
 		result := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
 			TextDocument: protocol.TextDocumentIdentifier{
 				URI: "file:///test.oracle",
@@ -47,6 +48,7 @@ var _ = Describe("Completion", func() {
 	}
 
 	completionFor := func(ctx context.Context, docURI uri.URI, line, col uint32) *protocol.CompletionList {
+		GinkgoHelper()
 		result := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 			Position:     protocol.Position{Line: line, Character: col},
@@ -63,6 +65,7 @@ var _ = Describe("Completion", func() {
 	}
 
 	openDoc := func(ctx context.Context, docURI uri.URI, text string) {
+		GinkgoHelper()
 		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 			TextDocument: protocol.TextDocumentItem{
 				URI: docURI, Version: 1, Text: text,
@@ -302,6 +305,7 @@ var _ = Describe("Hover", func() {
 	})
 
 	hoverAt := func(ctx context.Context, docURI uri.URI, line, col uint32) *protocol.Hover {
+		GinkgoHelper()
 		return MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 			Position:     protocol.Position{Line: line, Character: col},
@@ -356,6 +360,7 @@ var _ = Describe("SemanticTokensFull", func() {
 	})
 
 	openDoc := func(ctx context.Context, docURI uri.URI, text string) {
+		GinkgoHelper()
 		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 			TextDocument: protocol.TextDocumentItem{
 				URI: docURI, Version: 1, Text: text,
@@ -364,6 +369,7 @@ var _ = Describe("SemanticTokensFull", func() {
 	}
 
 	tokensFor := func(ctx context.Context, docURI uri.URI) *protocol.SemanticTokens {
+		GinkgoHelper()
 		return MustSucceed(server.SemanticTokensFull(
 			ctx,
 			&protocol.SemanticTokensParams{
@@ -398,6 +404,76 @@ var _ = Describe("SemanticTokensFull", func() {
 		openDoc(ctx, "file:///enum.oracle", "Status enum {\n    Active = 1\n}\n")
 		Expect(tokensFor(ctx, "file:///enum.oracle").Data).ToNot(BeEmpty())
 	})
+
+	// tokenTypeAt decodes the delta-encoded token stream and returns the type index of
+	// the token starting at line and char.
+	tokenTypeAt := func(data []uint32, line, char uint32) uint32 {
+		GinkgoHelper()
+		var l, c uint32
+		for i := 0; i+4 < len(data); i += 5 {
+			if data[i] > 0 {
+				c = 0
+			}
+			l += data[i]
+			c += data[i+1]
+			if l == line && c == char {
+				return data[i+3]
+			}
+		}
+		Fail("no token starts at the given position")
+		return 0
+	}
+
+	DescribeTable(
+		"should color a name that matches a primitive type as a property",
+		func(ctx SpecContext, text string, line, char uint32) {
+			openDoc(ctx, "file:///names.oracle", text)
+			data := tokensFor(ctx, "file:///names.oracle").Data
+			Expect(tokenTypeAt(data, line, char)).
+				To(Equal(uint32(lsp.SemanticTokenTypeProperty)))
+		},
+		Entry(
+			"field",
+			"Entry struct {\n    timestamp timestamp\n}\n",
+			uint32(1),
+			uint32(4),
+		),
+		Entry(
+			"field after a comment",
+			"Entry struct {\n    // when\n    timestamp timestamp\n}\n",
+			uint32(2),
+			uint32(4),
+		),
+		Entry(
+			"inline field",
+			"Entry struct { timestamp timestamp }\n",
+			uint32(0),
+			uint32(15),
+		),
+		Entry("enum member", "Kind enum {\n    uuid = 1\n}\n", uint32(1), uint32(4)),
+	)
+
+	DescribeTable(
+		"should color a primitive in type position as a type",
+		func(ctx SpecContext, text string, line, char uint32) {
+			openDoc(ctx, "file:///types.oracle", text)
+			data := tokensFor(ctx, "file:///types.oracle").Data
+			Expect(tokenTypeAt(data, line, char)).
+				To(Equal(uint32(lsp.SemanticTokenTypeType)))
+		},
+		Entry(
+			"field",
+			"Entry struct {\n    timestamp timestamp\n}\n",
+			uint32(1),
+			uint32(14),
+		),
+		Entry(
+			"inline field",
+			"Entry struct { timestamp timestamp }\n",
+			uint32(0),
+			uint32(25),
+		),
+	)
 })
 
 var _ = Describe("Formatting", func() {
@@ -409,6 +485,7 @@ var _ = Describe("Formatting", func() {
 	})
 
 	openDoc := func(ctx context.Context, docURI uri.URI, text string) {
+		GinkgoHelper()
 		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 			TextDocument: protocol.TextDocumentItem{
 				URI: docURI, Version: 1, Text: text,
@@ -417,6 +494,7 @@ var _ = Describe("Formatting", func() {
 	}
 
 	formatDoc := func(ctx context.Context, docURI uri.URI) []protocol.TextEdit {
+		GinkgoHelper()
 		return MustSucceed(server.Formatting(ctx, &protocol.DocumentFormattingParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		}))

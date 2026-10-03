@@ -16,19 +16,40 @@ import weakref
 import synnax as sy
 from freighter.exceptions import Unreachable
 from freighter.mock import MockUnaryClient
-from synnax.connection import Checker, CheckResponse, State
+from synnax.connection import Checker, CheckResponse, State, _versions_compatible
+from synnax.license import State as LicenseState
 from x.telem import TimeSpan, TimeStamp
 
 
 def _make_response(
     node_time: TimeStamp | None = None,
     node_version: str = "0.54.0",
+    license: LicenseState = "ok",
 ) -> CheckResponse:
     return CheckResponse(
         cluster_key="test-cluster",
         node_version=node_version,
         node_time=node_time or TimeStamp.now(),
+        license=license,
     )
+
+
+class TestVersionsCompatible:
+    def test_equal_minor(self) -> None:
+        """Should accept an equal major.minor and reject a different one."""
+        assert _versions_compatible("0.59.2", "0.59.0")
+        assert not _versions_compatible("0.59.2", "0.60.0")
+
+    def test_malformed_version(self) -> None:
+        """Should reject a version that does not parse rather than treat it as dev."""
+        assert not _versions_compatible("", "0.59.0")
+        assert not _versions_compatible("0.59.0", "nightly")
+        assert not _versions_compatible("", "")
+
+    def test_dev_build(self) -> None:
+        """Should accept a 0.0 build on either side."""
+        assert _versions_compatible("0.0.0-dev", "0.59.0")
+        assert _versions_compatible("0.59.0", "0.0.0-abc1234")
 
 
 class TestChecker:
@@ -130,6 +151,30 @@ class TestChecker:
         checker.stop()
         time.sleep(0.1)
         assert not checker._thread.is_alive()
+
+    def test_license_state_from_check(self) -> None:
+        """Should carry the license state the Core reports."""
+        mock = MockUnaryClient[None, CheckResponse](
+            responses=[_make_response(license="missing"), _make_response()]
+        )
+        checker = Checker(mock, poll_freq=TimeSpan.SECOND * 30)
+        assert checker.state.license == "missing"
+        checker.stop()
+
+    def test_on_change_fires_on_license_transition(self) -> None:
+        """Should fire onChange when only the license state changes."""
+        mock = MockUnaryClient[None, CheckResponse](
+            responses=[_make_response(license="missing"), _make_response()]
+        )
+        checker = Checker(mock, poll_freq=TimeSpan.SECOND * 30)
+        assert checker.state.status == "connected"
+        changes: list[State] = []
+        checker.on_change(lambda s: changes.append(s))
+        checker.check()
+        assert len(changes) == 1
+        assert changes[0].status == "connected"
+        assert changes[0].license == "ok"
+        checker.stop()
 
     def test_version_incompatible(self) -> None:
         """Should report incompatible versions when major.minor differs."""

@@ -64,6 +64,9 @@ type EnumForm struct {
 	// analyzer expands this to the union of the parents' members plus any
 	// members declared in the enum's own body.
 	Values []EnumValue
+	// Declared holds the members the enum's own body declares, set only when the
+	// enum extends. Only a renderer writing the declaration back wants it.
+	Declared []EnumValue
 	// IsIntEnum reports whether members carry integer (vs string) values. An
 	// extending enum matches the kind of the enums it extends.
 	IsIntEnum bool
@@ -90,9 +93,15 @@ type UnionForm struct {
 	Discriminator string
 	// Variants lists every concrete shape the union admits, in declaration order.
 	Variants []UnionVariant
+	// Declared holds the variants the union's own body declares, set only when
+	// Included is non-empty. Only a renderer writing the declaration back wants it.
+	Declared []UnionVariant
 	// Extends names struct types whose fields are shared across all variants.
 	// Resolved later by the analyzer; struct-form is validated there.
 	Extends []TypeRef
+	// Included names the unions this union takes the variants of. The analyzer
+	// moves them out of Extends, which readers take as struct bases.
+	Included []TypeRef
 }
 
 func (UnionForm) typeForm() {}

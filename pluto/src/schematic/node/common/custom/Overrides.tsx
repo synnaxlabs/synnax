@@ -10,18 +10,18 @@
 import "@/schematic/node/common/custom/Overrides.css";
 
 import { type schematic } from "@synnaxlabs/client";
-import { caseconv, type color, deep } from "@synnaxlabs/x";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Color } from "@synnaxlabs/lyra/color";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { caseconv, color, deep } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
-import { Button } from "@/button";
-import { Color } from "@/color";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { Form } from "@/form";
-import { Icon } from "@/icon";
 import { Symbol } from "@/schematic/symbol";
-import { Select } from "@/select";
-import { Text } from "@/text";
 
 interface RegionControlsProps {
   path: string;
@@ -101,20 +101,18 @@ const RegionControls = ({
         {caseconv.capitalize(name)}
       </Text.Text>
       <Flex.Box x align="stretch" key={path}>
-        <Form.Field<color.Color>
+        <Color.Field
           path={`${path}.strokeColor`}
+          fallback={color.ZERO}
           showLabel={false}
-          padHelpText={false}
-        >
-          {({ value, onChange }) => <Color.Swatch value={value} onChange={onChange} />}
-        </Form.Field>
-        <Form.Field<color.Color>
+          align="stretch"
+        />
+        <Color.Field
           path={`${path}.fillColor`}
+          fallback={color.ZERO}
           showLabel={false}
-          padHelpText={false}
-        >
-          {({ value, onChange }) => <Color.Swatch value={value} onChange={onChange} />}
-        </Form.Field>
+          align="stretch"
+        />
         <Button.Button
           onClick={() => onReset(path)}
           variant="text"
@@ -213,16 +211,11 @@ export const StateOverrideForm = (): ReactElement => {
   return (
     <Flex.Box y align="stretch">
       {states.length > 1 && (
-        <Select.Buttons
-          keys={states}
-          value={shownState}
-          onChange={setSelectedState}
-          full="x"
-        >
+        <Select.Buttons value={shownState} onChange={setSelectedState} full="x">
           {states.map((state) => (
-            <Select.Button key={state} itemKey={state} justify="center">
+            <Select.Item key={state} itemKey={state} justify="center">
               {caseconv.capitalize(state)}
-            </Select.Button>
+            </Select.Item>
           ))}
         </Select.Buttons>
       )}

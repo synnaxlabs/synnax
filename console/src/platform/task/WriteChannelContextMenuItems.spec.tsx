@@ -9,9 +9,8 @@
 
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
-import { Menu } from "@synnaxlabs/pluto";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { act } from "react";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Task } from "@/platform/task";

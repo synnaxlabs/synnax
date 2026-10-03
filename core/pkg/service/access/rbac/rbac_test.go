@@ -10,7 +10,8 @@
 package rbac_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -371,10 +372,10 @@ var _ = Describe("Service", func() {
 		It(
 			"Should deny when the matching policy's actions do not contain the requested action",
 			func(ctx SpecContext) {
-				r := &role.Role{Name: "read-only-" + uuid.NewString()}
+				r := &role.Role{Name: "read-only-" + uuid.New().String()}
 				Expect(roleWriter.Create(ctx, r)).To(Succeed())
 				p := &policy.Policy{
-					Name:    "read-only-policy-" + uuid.NewString(),
+					Name:    "read-only-policy-" + uuid.New().String(),
 					Objects: []ontology.ID{obj},
 					Actions: []access.Action{access.ActionRetrieve},
 				}
@@ -393,15 +394,15 @@ var _ = Describe("Service", func() {
 		It(
 			"Should fall through a non-matching-action policy to a matching-action policy",
 			func(ctx SpecContext) {
-				r := &role.Role{Name: "split-actions-" + uuid.NewString()}
+				r := &role.Role{Name: "split-actions-" + uuid.New().String()}
 				Expect(roleWriter.Create(ctx, r)).To(Succeed())
 				retrievePolicy := &policy.Policy{
-					Name:    "retrieve-only-" + uuid.NewString(),
+					Name:    "retrieve-only-" + uuid.New().String(),
 					Objects: []ontology.ID{obj},
 					Actions: []access.Action{access.ActionRetrieve},
 				}
 				updatePolicy := &policy.Policy{
-					Name:    "update-only-" + uuid.NewString(),
+					Name:    "update-only-" + uuid.New().String(),
 					Objects: []ontology.ID{obj},
 					Actions: []access.Action{access.ActionUpdate},
 				}

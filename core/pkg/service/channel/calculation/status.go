@@ -10,15 +10,13 @@
 package calculation
 
 import (
-	"go/types"
-
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
 )
 
 // Status is a calculated channel status entry.
-type Status = status.Status[types.Nil]
+type Status = status.Status[struct{}]
 
 // StatusKey returns the status key for the given channel key.
 func StatusKey(key channel.Key) status.Key { return channel.OntologyID(key).String() }

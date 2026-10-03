@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex, Form, Input, Text } from "@synnaxlabs/pluto";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
 import { caseconv } from "@synnaxlabs/x";
 import { useEffect, useMemo } from "react";
 
@@ -16,9 +17,8 @@ export type Entry<K extends string, V extends string | number> = {
 } & { value: V };
 
 export interface KeyValueEditorProps<K extends string, V extends string | number>
-  extends Flex.BoxProps {
+  extends Input.ItemProps {
   path: string;
-  label: string;
   keyField: K;
   keyPlaceholder?: string;
   valuePlaceholder?: string;
@@ -28,7 +28,6 @@ export interface KeyValueEditorProps<K extends string, V extends string | number
 
 export const KeyValueEditor = <K extends string, V extends string | number>({
   path,
-  label,
   keyField,
   keyPlaceholder = "Key",
   valuePlaceholder = "Value",
@@ -77,7 +76,7 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
             (row) =>
               ({ [keyField]: row[keyIndex], value: row[valueIndex] }) as Entry<K, V>,
           )
-        : undefined,
+        : [],
     );
 
   const keyColumn = (
@@ -99,13 +98,10 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
   columns[valueIndex] = valueColumn;
 
   return (
-    <Flex.Box y gap="small" {...rest}>
-      <Text.Text level="small" size="small" color={9}>
-        {label}
-      </Text.Text>
+    <Input.Item padHelpText={false} {...rest}>
       <Input.Table value={rows} onChange={handleRowsChange} preview={preview}>
         {columns}
       </Input.Table>
-    </Flex.Box>
+    </Input.Item>
   );
 };

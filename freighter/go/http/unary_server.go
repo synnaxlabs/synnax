@@ -292,11 +292,8 @@ func acceptsGzip(header string) bool {
 	return false
 }
 
+// encodeAndWrite encodes v straight into the response rather than into a buffer the
+// caller then copies, so a large response body is written once.
 func encodeAndWrite(c fiber.Ctx, encoder http.Encoder, v any) error {
-	b, err := encoder.Encode(c.RequestCtx(), v)
-	if err != nil {
-		return err
-	}
-	_, err = c.Write(b)
-	return err
+	return encoder.EncodeStream(c.RequestCtx(), c, v)
 }

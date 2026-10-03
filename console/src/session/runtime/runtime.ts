@@ -16,3 +16,9 @@ export type Engine = "tauri" | "web";
 export const ENGINE: Engine = isTauri() ? "tauri" : "web";
 
 export const Drift = ENGINE === "tauri" ? TauriRuntime : NoopRuntime;
+
+/** True when the app opens no `synnax://` links, so a copied link opens nothing. */
+export const LINKS_DISABLED = DESKTOP;
+
+/** True when the app runs its own Core, so it has no login and no Core to pick. */
+export const CORE_EMBEDDED = DESKTOP;

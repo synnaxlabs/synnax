@@ -258,6 +258,19 @@ func (t Type) Is64Bit() bool {
 	}
 }
 
+// IsFixedWidth reports whether the type is a primitive occupying a fixed number of
+// bytes, and so whether Density returns a width rather than panicking.
+func (t Type) IsFixedWidth() bool {
+	switch t.Kind {
+	case KindU8, KindU16, KindU32, KindU64,
+		KindI8, KindI16, KindI32, KindI64,
+		KindF32, KindF64, KindBool:
+		return true
+	default:
+		return false
+	}
+}
+
 // Density returns the size in bytes of the primitive type.
 func (t Type) Density() int {
 	switch t.Kind {

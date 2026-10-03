@@ -135,5 +135,8 @@ func (w Writer) DeleteGuard(
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
+	if err := w.otg.DeleteResources(ctx, key.OntologyID()); err != nil {
+		return err
+	}
 	return w.status.Delete(ctx, key.OntologyID().String())
 }

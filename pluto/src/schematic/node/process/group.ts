@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@/icon";
+import { Icon } from "@synnaxlabs/lyra/icon";
+
 import { type Group } from "@/schematic/node/group";
 
 export const GROUP: Group = {
@@ -15,16 +16,16 @@ export const GROUP: Group = {
   name: "Process",
   Icon: Icon.Process,
   symbols: [
-    "heatExchangerGeneral",
-    "heatExchangerM",
-    "heatExchangerStraightTube",
-    "staticMixer",
-    "rotaryMixer",
+    "heat_exchanger_general",
+    "heat_exchanger_m",
+    "heat_exchanger_straight_tube",
+    "static_mixer",
+    "rotary_mixer",
     "agitator",
-    "propellerAgitator",
-    "flatBladeAgitator",
-    "paddleAgitator",
-    "crossBeamAgitator",
-    "helicalAgitator",
+    "propeller_agitator",
+    "flat_blade_agitator",
+    "paddle_agitator",
+    "cross_beam_agitator",
+    "helical_agitator",
   ],
 };

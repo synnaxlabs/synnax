@@ -9,7 +9,7 @@
 
 import { DataType, MultiSeries, Series, TimeRange, TimeSpan } from "@synnaxlabs/x";
 import { allocSuite } from "@synnaxlabs/x/bench";
-import { bench, describe } from "vitest";
+import { test } from "vitest";
 
 import { Dynamic } from "@/framer/cache/dynamic";
 
@@ -57,11 +57,13 @@ const makeFlushCase = (): (() => void) => {
   };
 };
 
-describe("write", () => {
-  bench("steady 10smp", makeSteadyCase(10));
-  bench("steady 10smp timespan-sized", makeSteadyCase(10, TimeSpan.seconds(60)));
-  bench("steady 100smp", makeSteadyCase(100));
-  bench("flush every write", makeFlushCase());
+test("write", async ({ bench }) => {
+  await bench.compare(
+    bench("steady 10smp", makeSteadyCase(10)),
+    bench("steady 10smp timespan-sized", makeSteadyCase(10, TimeSpan.seconds(60))),
+    bench("steady 100smp", makeSteadyCase(100)),
+    bench("flush every write", makeFlushCase()),
+  );
 });
 
 allocSuite("dynamic cache write", [

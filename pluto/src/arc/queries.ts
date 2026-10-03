@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { arc, type rack, status, task } from "@synnaxlabs/client";
+import { type List } from "@synnaxlabs/lyra/list";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { compare, type record, verbs, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import z from "zod";
@@ -15,9 +17,7 @@ import z from "zod";
 import { Node } from "@/arc/graph/node";
 import { Scope } from "@/arc/scope";
 import { Flux } from "@/flux";
-import { type List } from "@/list";
 import { Task } from "@/task";
-import { Theming } from "@/theming";
 import { type Diagram } from "@/vis/diagram";
 
 const RESOURCE_NAME = "Arc";
@@ -282,10 +282,17 @@ export interface UseTaskControlsReturn {
 const notDeployedYet = (name: string) =>
   status.create({ name, variant: "disabled", message: "Not deployed yet" });
 
-/** Running state and start/stop controls for the arc's task. */
-export const useTaskControls = (key: arc.Key, name: string): UseTaskControlsReturn => {
+/**
+ * Running state and start/stop controls for the arc's task. The params hook into the
+ * commands the controls send.
+ */
+export const useTaskControls = (
+  key: arc.Key,
+  name: string,
+  params?: Flux.UseDirectUpdateParams<Task.CommandParams>,
+): UseTaskControlsReturn => {
   const { data: tsk, variant, status: readStatus } = useResultTask({ arcKey: key });
-  const cmd = Task.useCommand();
+  const cmd = Task.useCommand(params);
   const isRunning = tsk?.status?.details.running ?? false;
   const taskKey = tsk?.key ?? "";
   const taskRack = tsk?.rack ?? 0;

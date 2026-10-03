@@ -53,6 +53,7 @@ cc_test(
         "//driver/pipeline/mock",
         "//driver/task",
         "//x/cpp/defer",
+        "//x/cpp/sync",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],

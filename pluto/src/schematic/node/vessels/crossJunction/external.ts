@@ -7,30 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
+import { type schematic } from "@synnaxlabs/client";
 
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
-import { Primitive } from "@/schematic/node/common/primitive";
 import { type Spec } from "@/schematic/node/spec";
-import { type Config, VARIANT } from "@/schematic/node/vessels/crossJunction/config";
 import { CrossJunction } from "@/schematic/node/vessels/crossJunction/Primitive";
 
-export * from "@/schematic/node/vessels/crossJunction/config";
-
-export const defaultConfig = (): Config => ({
-  variant: VARIANT,
-  color: color.ZERO,
-  label: Label.defaultConfig(""),
-  ...Primitive.ZERO_PROPS,
-});
-
-export const spec: Spec<typeof VARIANT, Config> = {
-  key: VARIANT,
+export const spec: Spec<"cross_junction", schematic.CrossJunctionNodeConfig> = {
+  key: "cross_junction",
   name: "Cross junction",
+  label: "",
   Form: Form.StyleForm,
-  Node: Label.createLabeled<Config>(CrossJunction),
+  Node: Label.createLabeled<schematic.CrossJunctionNodeConfig>(CrossJunction),
   Preview: CrossJunction,
-  defaultConfig,
   zIndex: 24,
 };

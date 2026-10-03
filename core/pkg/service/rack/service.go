@@ -172,7 +172,7 @@ func OpenService(
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
-	if s.monitor, err = openMonitor(s.Child("monitor"), s); !ok(err, s.monitor) {
+	if s.monitor, err = openMonitor(ctx, s.Child("monitor"), s); !ok(err, s.monitor) {
 		return nil, err
 	}
 	return s, nil
@@ -204,9 +204,13 @@ func (s *Service) loadEmbeddedRack(ctx context.Context) error {
 	}
 	embeddedRack.Name = name
 	embeddedRack.Embedded = true
-	err = s.NewWriter(nil).Create(ctx, &embeddedRack)
+	if err = s.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.NewWriter(tx).Create(ctx, &embeddedRack)
+	}); err != nil {
+		return err
+	}
 	s.EmbeddedKey = embeddedRack.Key
-	return err
+	return nil
 }
 
 func (s *Service) Close() error { return s.closer.Close() }

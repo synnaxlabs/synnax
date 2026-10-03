@@ -11,8 +11,8 @@ package pledge
 
 import (
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter"
@@ -104,7 +104,7 @@ func (cfg Config) Override(other Config) Config {
 	cfg.ClusterKey = override.If(
 		cfg.ClusterKey,
 		other.ClusterKey,
-		other.ClusterKey != uuid.Nil,
+		other.ClusterKey != uuid.Nil(),
 	)
 	cfg.RequestTimeout = override.Numeric(cfg.RequestTimeout, other.RequestTimeout)
 	cfg.RetryInterval = override.Numeric(cfg.RetryInterval, other.RetryInterval)

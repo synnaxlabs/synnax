@@ -141,12 +141,12 @@ public:
             this->state.string_input("color")
         );
         *this->state.output(0) = x::telem::Series(key);
-        *this->state.output_time(0) = x::telem::Series(x::telem::TimeStamp::now());
-        ctx.mark_changed(0);
+        *this->state.output_time(0) = x::telem::Series(ctx.cycle.now);
+        this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 
-    void reset() override { this->state.reset(); }
+    void reset(::arc::runtime::node::Context &) override { this->state.reset(); }
 
     [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
         return this->state.is_output_truthy(output_idx);
@@ -176,12 +176,12 @@ public:
             this->state.string_input("key")
         );
         *this->state.output(0) = x::telem::Series(out);
-        *this->state.output_time(0) = x::telem::Series(x::telem::TimeStamp::now());
-        ctx.mark_changed(0);
+        *this->state.output_time(0) = x::telem::Series(ctx.cycle.now);
+        this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 
-    void reset() override { this->state.reset(); }
+    void reset(::arc::runtime::node::Context &) override { this->state.reset(); }
 
     [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
         return this->state.is_output_truthy(output_idx);

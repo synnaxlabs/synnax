@@ -1,10 +1,7 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
+  "rules": { "cycles": "error" },
   "workspaces": {
-    ".": {
-      "entry": ["package.json"],
-      "project": ["package.json"]
-    },
     "alamos/ts": {
       "entry": ["src/index.ts", "src/dev/index.ts"],
       "project": ["src/**/*.ts"]
@@ -25,27 +22,15 @@
       "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"]
     },
+    "lyra": {
+      "entry": ["src/*/index.ts"],
+      "project": ["src/**/*.{ts,tsx}"],
+      "ignoreDependencies": ["@fontsource/geist-mono", "@fontsource-variable/inter"]
+    },
     "pluto": {
-      "entry": [
-        "src/index.ts",
-        "src/ether.ts",
-        "src/flex/index.ts",
-        "src/button/index.ts",
-        "src/tabs/index.ts",
-        "src/theming/index.ts",
-        "src/menu/index.ts",
-        "src/header/index.ts",
-        "src/tree/index.ts",
-        "src/dropdown/index.ts",
-        "src/video/index.ts",
-        "src/text/index.ts",
-        "src/input/index.ts",
-        "src/triggers/index.ts",
-        "src/list/index.ts",
-        "src/color/index.ts",
-        "src/css/index.ts"
-      ],
-      "project": ["src/**/*.{ts,tsx}"]
+      "entry": ["src/index.ts", "src/ether.ts", "src/testutil/index.ts"],
+      "project": ["src/**/*.{ts,tsx}"],
+      "ignoreDependencies": ["vscode"]
     },
     "x/media": {
       "entry": ["src/index.ts"],
@@ -53,47 +38,53 @@
     },
     "x/ts": {
       "entry": ["src/index.ts", "src/bench/index.ts"],
-      "project": ["src/**/*.ts"],
-      "ignoreDependencies": ["@vitest/coverage-v8"]
+      "project": ["src/**/*.ts"]
     },
     "console": {
-      "entry": ["src/main.tsx", "src-tauri/src/main.rs"],
+      "entry": ["src/flags.ts"],
       "project": ["src/**/*.{ts,tsx}"],
-      "ignore": ["src-tauri/**"]
+      "ignoreIssues": {
+        "src/app/nav/drawer/Bottom.tsx": ["exports"],
+        "src/feature/*/{explorer,overview}/external.tsx": ["exports"],
+        "src/platform/*/filter/{Chips,MenuItem}.tsx": ["exports"],
+        "src/platform/task/{fields,views}/*.tsx": ["exports"]
+      }
     },
-    "docs/site": {
+    "oracle/lsp/extensions/vscode": {
+      "project": ["src/**/*.ts"]
+    },
+    "studio": {
+      "entry": ["videos.ts", "scripts/*.ts", "films/*.ts", "src/remotion/entry.ts"],
+      "project": ["{src,scripts,films}/**/*.{ts,tsx}"]
+    },
+    "site/common": {
+      "entry": ["src/**/*.{astro,ts}"],
+      "project": ["src/**/*.{ts,astro}"]
+    },
+    "site/docs": {
       "entry": ["src/**/*.astro", "src/**/*.tsx", "src/**/*.ts"],
-      "project": ["src/**/*.{ts,tsx,astro}"],
-      "ignoreDependencies": ["@astrojs/*"]
+      "project": ["src/**/*.{ts,tsx,astro,mdx}"]
+    },
+    "site/portal": {
+      "entry": ["src/**/*.astro", "src/**/*.tsx", "src/**/*.ts", "scripts/*.ts"],
+      "project": ["src/**/*.{ts,tsx,astro}", "scripts/*.ts"]
+    },
+    "site/www": {
+      "entry": ["src/pages/**/*.astro"],
+      "project": ["src/**/*.{ts,tsx,astro}"]
     },
     "configs/eslint": {
-      "entry": ["index.ts"],
-      "project": ["*.ts"],
-      "ignoreDependencies": ["eslint-*", "@eslint/*"]
+      "project": ["*.ts"]
     },
-    "configs/ts": {
-      "entry": ["base.json"],
-      "project": ["*.json"]
-    },
+    "configs/ts": {},
     "configs/vite": {
-      "entry": ["lib.ts"],
-      "project": ["*.ts"],
-      "ignoreDependencies": ["vite-*"]
+      "project": ["src/**/*.ts"]
     },
     "configs/stylelint": {
-      "entry": ["index.cjs"],
-      "project": ["*.cjs"],
-      "ignoreDependencies": ["stylelint-*"]
+      "project": ["*.ts"],
+      "ignoreDependencies": ["stylelint-config-standard"]
     }
   },
-  "ignore": [
-    "**/examples/**",
-    "**/dist/**",
-    "**/node_modules/**",
-    "**/.turbo/**",
-    "**/coverage/**"
-  ],
-  "ignoreDependencies": ["@types/*"],
   "ignoreExportsUsedInFile": {
     "interface": true,
     "type": true

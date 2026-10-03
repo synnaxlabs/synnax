@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <memory>
+#include <numeric>
 #include <string>
 #include <vector>
 
@@ -21,17 +23,23 @@
 #include "x/cpp/test/test.h"
 
 #include "arc/cpp/runtime/state/state.h"
+#include "arc/cpp/runtime/testutil/stamps.h"
 #include "arc/cpp/stl/channels/channels.h"
 
 namespace arc::stl::channels {
+
+/// @brief stands in for the cycle stamp a runtime loop passes to flush_into.
+constexpr auto FLUSH_NOW = x::telem::TimeStamp(1000LL * 1000 * 1000 * 1000);
+
 runtime::node::Context make_context(bool *changed = nullptr) {
     return runtime::node::Context{
-        .elapsed = ::x::telem::SECOND,
+        .cycle = {.elapsed = ::x::telem::SECOND},
         .mark_changed =
             [changed](size_t) {
                 if (changed) *changed = true;
             },
         .report_error = [](const x::errors::Error &) {},
+        .reserve_stamps = runtime::testutil::reserve_stamps(),
     };
 }
 
@@ -340,9 +348,10 @@ TEST(OnTest, NextHandlesMultipleSeries) {
 
     int call_count = 0;
     auto ctx = runtime::node::Context{
-        .elapsed = ::x::telem::SECOND,
+        .cycle = {.elapsed = ::x::telem::SECOND},
         .mark_changed = [&call_count](size_t) { call_count++; },
         .report_error = [](const x::errors::Error &) {},
+        .reserve_stamps = runtime::testutil::reserve_stamps(),
     };
 
     ASSERT_NIL(node->next(ctx));
@@ -398,9 +407,10 @@ TEST(OnTest, NextSkipsOnIndexCountMismatch) {
 
     int call_count = 0;
     auto ctx = runtime::node::Context{
-        .elapsed = ::x::telem::SECOND,
+        .cycle = {.elapsed = ::x::telem::SECOND},
         .mark_changed = [&call_count](size_t) { call_count++; },
         .report_error = [](const x::errors::Error &) {},
+        .reserve_stamps = runtime::testutil::reserve_stamps(),
     };
 
     ASSERT_NIL(node->next(ctx));
@@ -446,9 +456,10 @@ TEST(OnTest, NextSkipsOnAlignmentMismatch) {
 
     int call_count = 0;
     auto ctx = runtime::node::Context{
-        .elapsed = ::x::telem::SECOND,
+        .cycle = {.elapsed = ::x::telem::SECOND},
         .mark_changed = [&call_count](size_t) { call_count++; },
         .report_error = [](const x::errors::Error &) {},
+        .reserve_stamps = runtime::testutil::reserve_stamps(),
     };
 
     ASSERT_NIL(node->next(ctx));
@@ -492,9 +503,10 @@ TEST(OnTest, NextCallsMarkChanged) {
 
     std::vector<size_t> marked;
     auto ctx = runtime::node::Context{
-        .elapsed = ::x::telem::SECOND,
+        .cycle = {.elapsed = ::x::telem::SECOND},
         .mark_changed = [&](size_t i) { marked.push_back(i); },
         .report_error = [](const x::errors::Error &) {},
+        .reserve_stamps = runtime::testutil::reserve_stamps(),
     };
 
     ASSERT_NIL(node->next(ctx));
@@ -563,6 +575,7 @@ TEST(WriteTest, NextWritesDataWhenInputAvailable) {
     upstream.output_time(0) = x::mem::make_local_shared<::x::telem::Series>(
         std::vector<int64_t>{500, 501}
     );
+    upstream.mark_fresh(0);
 
     auto sink_checker = ASSERT_NIL_P(s.node("sink"));
     EXPECT_TRUE(sink_checker.refresh_inputs());
@@ -585,7 +598,7 @@ TEST(WriteTest, NextWritesDataWhenInputAvailable) {
     EXPECT_EQ(out_time->alignment, ::x::telem::Alignment(42));
 
     x::telem::Frame out;
-    s.flush_into(out);
+    s.flush_into(out, FLUSH_NOW);
     EXPECT_FALSE(out.empty());
     ASSERT_TRUE(out.contains(100));
     EXPECT_FLOAT_EQ(out.at<float>(100, 0), 7.7f);
@@ -655,11 +668,12 @@ TEST(WriteTest, NextReportsErrorOnTimeLengthMismatch) {
     upstream.output_time(0) = x::mem::make_local_shared<::x::telem::Series>(
         std::vector<int64_t>{500}
     );
+    upstream.mark_fresh(0);
 
     bool changed = false;
     x::errors::Error captured;
     runtime::node::Context ctx{
-        .elapsed = ::x::telem::SECOND,
+        .cycle = {.elapsed = ::x::telem::SECOND},
         .mark_changed = [&](size_t) { changed = true; },
         .report_error = [&](const x::errors::Error &e) { captured = e; },
     };
@@ -674,12 +688,12 @@ TEST(WriteTest, NextReportsErrorOnTimeLengthMismatch) {
     EXPECT_FALSE(changed);
 
     x::telem::Frame out;
-    s.flush_into(out);
+    s.flush_into(out, FLUSH_NOW);
     EXPECT_TRUE(out.empty());
 }
 
-/// @brief reset() re-arms inputs so the sink re-runs on stage re-entry.
-TEST(WriteTest, ResetRearmsInputsOnStageReentry) {
+/// @brief reset() keeps a consumed edge-fed input on stage re-entry.
+TEST(WriteTest, ResetKeepsConsumedEdgeFedInput) {
     types::Param upstream_output;
     upstream_output.name = ir::default_output_param;
     upstream_output.type.kind = types::Kind::F32;
@@ -705,7 +719,9 @@ TEST(WriteTest, ResetRearmsInputsOnStageReentry) {
 
     types::Param channel_config;
     channel_config.name = "channel";
-    channel_config.type.kind = types::Kind::U32;
+    // Production IR types a channel param as Chan, which the state treats as a
+    // reference: it carries no data and never gates or re-arms.
+    channel_config.type.kind = types::Kind::Chan;
     channel_config.value = static_cast<uint32_t>(100);
     sink_node.inputs.push_back(channel_config);
 
@@ -737,6 +753,7 @@ TEST(WriteTest, ResetRearmsInputsOnStageReentry) {
     upstream.output_time(0) = x::mem::make_local_shared<::x::telem::Series>(
         std::vector<int64_t>{500, 501}
     );
+    upstream.mark_fresh(0);
 
     int changes = 0;
     runtime::node::Context ctx{.mark_changed = [&](size_t) { changes++; }};
@@ -749,9 +766,20 @@ TEST(WriteTest, ResetRearmsInputsOnStageReentry) {
     ASSERT_NIL(sink->next(ctx));
     EXPECT_EQ(changes, 0);
 
-    // Stage re-entry re-arms the inputs so the sink runs again.
-    sink->reset();
+    // Stage re-entry keeps the consumed input, so the sink does not rewrite it.
+    sink->reset(ctx);
     changes = 0;
+    ASSERT_NIL(sink->next(ctx));
+    EXPECT_EQ(changes, 0);
+
+    // A new upstream value runs it again.
+    upstream.output(0) = x::mem::make_local_shared<::x::telem::Series>(
+        std::vector<float>{9.9f}
+    );
+    upstream.output_time(0) = x::mem::make_local_shared<::x::telem::Series>(
+        std::vector<int64_t>{502}
+    );
+    upstream.mark_fresh(0);
     ASSERT_NIL(sink->next(ctx));
     EXPECT_EQ(changes, 1);
 }
@@ -811,7 +839,7 @@ TEST(WriteTest, NextRespectsRefreshInputsGuard) {
     ASSERT_NIL(sink->next(ctx));
 
     x::telem::Frame out;
-    s.flush_into(out);
+    s.flush_into(out, FLUSH_NOW);
     EXPECT_TRUE(out.empty());
 }
 
@@ -873,6 +901,7 @@ TEST(WriteTest, NextSkipsEmptyInput) {
     upstream.output_time(0) = x::mem::make_local_shared<::x::telem::Series>(
         std::vector<int64_t>{}
     );
+    upstream.mark_fresh(0);
 
     auto sink_checker = ASSERT_NIL_P(s.node("sink"));
     EXPECT_FALSE(sink_checker.refresh_inputs());
@@ -881,7 +910,7 @@ TEST(WriteTest, NextSkipsEmptyInput) {
     ASSERT_NIL(sink->next(ctx));
 
     x::telem::Frame out;
-    s.flush_into(out);
+    s.flush_into(out, FLUSH_NOW);
     EXPECT_TRUE(out.empty());
 }
 
@@ -945,13 +974,14 @@ TEST(WriteTest, NextHandlesSequentialWrites) {
     upstream1.output_time(0) = x::mem::make_local_shared<::x::telem::Series>(
         std::vector<int64_t>{10}
     );
+    upstream1.mark_fresh(0);
 
     auto sink_checker1 = ASSERT_NIL_P(s.node("sink"));
     EXPECT_TRUE(sink_checker1.refresh_inputs());
     ASSERT_NIL(sink->next(ctx));
 
     x::telem::Frame out1;
-    s.flush_into(out1);
+    s.flush_into(out1, FLUSH_NOW);
     EXPECT_FALSE(out1.empty());
     ASSERT_TRUE(out1.contains(100));
     EXPECT_FLOAT_EQ(out1.at<float>(100, 0), 1.0f);
@@ -963,13 +993,14 @@ TEST(WriteTest, NextHandlesSequentialWrites) {
     upstream2.output_time(0) = x::mem::make_local_shared<::x::telem::Series>(
         std::vector<int64_t>{20}
     );
+    upstream2.mark_fresh(0);
 
     auto sink_checker2 = ASSERT_NIL_P(s.node("sink"));
     EXPECT_TRUE(sink_checker2.refresh_inputs());
     ASSERT_NIL(sink->next(ctx));
 
     x::telem::Frame out2;
-    s.flush_into(out2);
+    s.flush_into(out2, FLUSH_NOW);
     EXPECT_FALSE(out2.empty());
     ASSERT_TRUE(out2.contains(100));
     EXPECT_FLOAT_EQ(out2.at<float>(100, 0), 2.0f);
@@ -1054,7 +1085,7 @@ TEST(IntegrationTest, SourceToSinkFlow) {
     ASSERT_NIL(sink->next(ctx));
 
     x::telem::Frame out;
-    s.flush_into(out);
+    s.flush_into(out, FLUSH_NOW);
     EXPECT_FALSE(out.empty());
     ASSERT_TRUE(out.contains(3));
     EXPECT_EQ(out.at<int32_t>(3, 0), 42);
@@ -1079,7 +1110,7 @@ TEST(ChannelStateTest, WriteValue_AccumulatesSameChannelIntoSingleSeries) {
     channel_state.write_value(1, data2, time2);
 
     x::telem::Frame out;
-    channel_state.flush_into(out);
+    channel_state.flush_into(out, FLUSH_NOW);
 
     ASSERT_TRUE(out.contains(1));
     EXPECT_EQ(out.at<float>(1, 0), 1.0f);
@@ -1097,7 +1128,7 @@ TEST(ChannelStateTest, WriteChannelTyped_IndexedWritesTimestamp) {
     channel_state.write_channel_i32(5, 20);
 
     x::telem::Frame out;
-    channel_state.flush_into(out);
+    channel_state.flush_into(out, FLUSH_NOW);
 
     ASSERT_TRUE(out.contains(5));
     EXPECT_EQ(out.at<int32_t>(5, 0), 10);
@@ -1115,7 +1146,7 @@ TEST(ChannelStateTest, WriteChannelTyped_NoIndexWritesOnlyData) {
     channel_state.write_channel_f64(7, 2.5);
 
     x::telem::Frame out;
-    channel_state.flush_into(out);
+    channel_state.flush_into(out, FLUSH_NOW);
     ASSERT_EQ(out.size(), 1);
     ASSERT_TRUE(out.contains(7));
     EXPECT_DOUBLE_EQ(out.at<double>(7, 0), 1.5);
@@ -1137,7 +1168,7 @@ TEST(ChannelStateTest, WriteValue_MultipleWritesSameKeyPreservedInFlush) {
     channel_state.write_value(10, data2, time2);
 
     x::telem::Frame out;
-    channel_state.flush_into(out);
+    channel_state.flush_into(out, FLUSH_NOW);
     ASSERT_EQ(out.size(), 1);
     ASSERT_TRUE(out.contains(10));
     EXPECT_EQ(out.at<float>(10, 0), 1.0f);
@@ -1214,13 +1245,326 @@ TEST(ChannelStateTest, WriteSeries_RoundTripsViaReadSeries) {
     channel_state.write_series(1, data, time);
 
     x::telem::Frame out;
-    channel_state.flush_into(out);
+    channel_state.flush_into(out, FLUSH_NOW);
     ASSERT_TRUE(out.contains(1));
     EXPECT_EQ(out.at<float>(1, 0), 5.0f);
     EXPECT_EQ(out.at<float>(1, 1), 6.0f);
     ASSERT_TRUE(out.contains(2));
     EXPECT_EQ(out.at<int64_t>(2, 0), 300);
     EXPECT_EQ(out.at<int64_t>(2, 1), 400);
+}
+
+TEST(ChannelStateTest, StampIndexes_OneSamplePerDataSample) {
+    State channel_state(
+        std::vector<Digest>{{.key = 1, .data_type = ::x::telem::FLOAT32_T, .index = 2}}
+    );
+    channel_state.write_channel_f32(1, 1.0f);
+    channel_state.write_channel_f32(1, 2.0f);
+    channel_state.write_channel_f32(1, 3.0f);
+
+    x::telem::Frame out;
+    const auto highest = channel_state.flush_into(out, FLUSH_NOW);
+
+    ASSERT_TRUE(out.contains(2));
+    EXPECT_EQ(out.at<int64_t>(2, 0), FLUSH_NOW.nanoseconds());
+    EXPECT_EQ(out.at<int64_t>(2, 1), FLUSH_NOW.nanoseconds() + 1);
+    EXPECT_EQ(out.at<int64_t>(2, 2), FLUSH_NOW.nanoseconds() + 2);
+    EXPECT_EQ(highest.nanoseconds(), FLUSH_NOW.nanoseconds() + 2);
+}
+
+TEST(ChannelStateTest, StampIndexes_GroupMembersStartTogether) {
+    State channel_state(
+        std::vector<Digest>{
+            {.key = 1, .data_type = ::x::telem::FLOAT32_T, .index = 2},
+            {.key = 3, .data_type = ::x::telem::FLOAT32_T, .index = 2}
+        }
+    );
+    channel_state.write_channel_f32(1, 1.0f);
+    channel_state.write_channel_f32(1, 2.0f);
+    channel_state.write_channel_f32(3, 3.0f);
+    channel_state.write_channel_f32(3, 4.0f);
+
+    x::telem::Frame out;
+    channel_state.flush_into(out, FLUSH_NOW);
+
+    ASSERT_TRUE(out.contains(2));
+    // Two data series plus one index series: the shared index is stamped once.
+    ASSERT_EQ(out.size(), 3);
+    EXPECT_EQ(out.at<int64_t>(2, 0), FLUSH_NOW.nanoseconds());
+    EXPECT_EQ(out.at<int64_t>(2, 1), FLUSH_NOW.nanoseconds() + 1);
+}
+
+TEST(ChannelStateTest, StampIndexes_KeepsSuppliedTimestamps) {
+    State channel_state(
+        std::vector<Digest>{{.key = 1, .data_type = ::x::telem::FLOAT32_T, .index = 2}}
+    );
+    const auto data = ::x::mem::make_local_shared<::x::telem::Series>(
+        std::vector<float>{5.0f, 6.0f}
+    );
+    const auto time = ::x::mem::make_local_shared<::x::telem::Series>(
+        std::vector<int64_t>{300, 400}
+    );
+    channel_state.write_series(1, data, time);
+
+    x::telem::Frame out;
+    const auto highest = channel_state.flush_into(out, FLUSH_NOW);
+
+    ASSERT_TRUE(out.contains(2));
+    EXPECT_EQ(out.at<int64_t>(2, 0), 300);
+    EXPECT_EQ(out.at<int64_t>(2, 1), 400);
+    EXPECT_EQ(highest.nanoseconds(), 0);
+}
+
+TEST(ChannelStateTest, StampIndexes_SkipsChannelWithNoIndex) {
+    State channel_state(
+        std::vector<Digest>{{.key = 7, .data_type = ::x::telem::FLOAT64_T, .index = 0}}
+    );
+    channel_state.write_channel_f64(7, 1.5);
+
+    x::telem::Frame out;
+    const auto highest = channel_state.flush_into(out, FLUSH_NOW);
+
+    ASSERT_EQ(out.size(), 1);
+    EXPECT_EQ(highest.nanoseconds(), 0);
+}
+
+namespace {
+/// @brief buffers one value with a supplied timestamp, as a sink does.
+void write_stamped(State &state, types::ChannelKey key, float value, int64_t stamp) {
+    state.write_value(
+        key,
+        x::mem::make_local_shared<x::telem::Series>(std::vector<float>{value}),
+        x::mem::make_local_shared<x::telem::Series>(
+            std::vector<x::telem::TimeStamp>{x::telem::TimeStamp(stamp)}
+        )
+    );
+}
+
+/// @brief a state with one FLOAT32 channel (1) alone on its index (2).
+State alone_on_index() {
+    return State(
+        std::vector<Digest>{
+            {.key = 1, .data_type = x::telem::FLOAT32_T, .index = 2},
+        }
+    );
+}
+
+/// @brief returns the series the frame holds for key.
+const x::telem::Series &series_of(const x::telem::Frame &frame, types::ChannelKey key) {
+    for (size_t i = 0; i < frame.size(); i++)
+        if (frame.channels->at(i) == key) return frame.series->at(i);
+    throw std::runtime_error("channel not in frame");
+}
+
+const int64_t SUPPLIED = FLUSH_NOW.nanoseconds() - 5 * x::telem::SECOND.nanoseconds();
+const int64_t LATER = FLUSH_NOW.nanoseconds() + 5 * x::telem::SECOND.nanoseconds();
+}
+
+TEST(ChannelStateTest, MixedWrites_FlowWriteFirst) {
+    auto state = alone_on_index();
+    write_stamped(state, 1, 1.0f, SUPPLIED);
+    state.write_channel_f32(1, 2.0f);
+    x::telem::Frame out;
+    const auto highest = state.flush_into(out, FLUSH_NOW);
+    EXPECT_EQ(out.at<float>(1, 0), 1.0f);
+    EXPECT_EQ(out.at<float>(1, 1), 2.0f);
+    EXPECT_EQ(out.at<int64_t>(2, 0), SUPPLIED);
+    EXPECT_EQ(out.at<int64_t>(2, 1), FLUSH_NOW.nanoseconds());
+    EXPECT_EQ(highest.nanoseconds(), FLUSH_NOW.nanoseconds());
+}
+
+TEST(ChannelStateTest, MixedWrites_BodyWriteFirst) {
+    auto state = alone_on_index();
+    state.write_channel_f32(1, 2.0f);
+    write_stamped(state, 1, 1.0f, SUPPLIED);
+    x::telem::Frame out;
+    const auto highest = state.flush_into(out, FLUSH_NOW);
+    EXPECT_EQ(out.at<float>(1, 0), 1.0f);
+    EXPECT_EQ(out.at<float>(1, 1), 2.0f);
+    EXPECT_EQ(out.at<int64_t>(2, 0), SUPPLIED);
+    EXPECT_EQ(out.at<int64_t>(2, 1), FLUSH_NOW.nanoseconds());
+    EXPECT_EQ(highest.nanoseconds(), FLUSH_NOW.nanoseconds());
+}
+
+TEST(ChannelStateTest, MixedWrites_BodyBeforeSuppliedStampLaterThanNow) {
+    auto state = alone_on_index();
+    write_stamped(state, 1, 1.0f, LATER);
+    state.write_channel_f32(1, 2.0f);
+    x::telem::Frame out;
+    const auto highest = state.flush_into(out, FLUSH_NOW);
+    EXPECT_EQ(out.at<float>(1, 0), 2.0f);
+    EXPECT_EQ(out.at<float>(1, 1), 1.0f);
+    EXPECT_EQ(out.at<int64_t>(2, 0), FLUSH_NOW.nanoseconds());
+    EXPECT_EQ(out.at<int64_t>(2, 1), LATER);
+    EXPECT_EQ(highest.nanoseconds(), FLUSH_NOW.nanoseconds());
+}
+
+TEST(ChannelStateTest, MixedWrites_KeepsWriteOrderAtNow_BodyWriteFirst) {
+    auto state = alone_on_index();
+    state.write_channel_f32(1, 0.7f);
+    write_stamped(state, 1, 0.0f, FLUSH_NOW.nanoseconds());
+    x::telem::Frame out;
+    const auto highest = state.flush_into(out, FLUSH_NOW);
+    EXPECT_EQ(out.at<float>(1, 0), 0.7f);
+    EXPECT_EQ(out.at<float>(1, 1), 0.0f);
+    EXPECT_EQ(out.at<int64_t>(2, 0), FLUSH_NOW.nanoseconds());
+    EXPECT_EQ(out.at<int64_t>(2, 1), FLUSH_NOW.nanoseconds() + 1);
+    EXPECT_EQ(highest.nanoseconds(), FLUSH_NOW.nanoseconds() + 1);
+}
+
+TEST(ChannelStateTest, MixedWrites_KeepsWriteOrderAtNow_SuppliedWriteFirst) {
+    auto state = alone_on_index();
+    write_stamped(state, 1, 0.0f, FLUSH_NOW.nanoseconds());
+    state.write_channel_f32(1, 0.7f);
+    x::telem::Frame out;
+    const auto highest = state.flush_into(out, FLUSH_NOW);
+    EXPECT_EQ(out.at<float>(1, 0), 0.0f);
+    EXPECT_EQ(out.at<float>(1, 1), 0.7f);
+    EXPECT_EQ(out.at<int64_t>(2, 0), FLUSH_NOW.nanoseconds());
+    EXPECT_EQ(out.at<int64_t>(2, 1), FLUSH_NOW.nanoseconds() + 1);
+    EXPECT_EQ(highest.nanoseconds(), FLUSH_NOW.nanoseconds() + 1);
+}
+
+TEST(ChannelStateTest, MixedWrites_MovesEqualSuppliedStampsApart) {
+    auto state = alone_on_index();
+    write_stamped(state, 1, 1.0f, FLUSH_NOW.nanoseconds());
+    write_stamped(state, 1, 2.0f, FLUSH_NOW.nanoseconds());
+    x::telem::Frame out;
+    const auto highest = state.flush_into(out, FLUSH_NOW);
+    EXPECT_EQ(out.at<float>(1, 0), 1.0f);
+    EXPECT_EQ(out.at<float>(1, 1), 2.0f);
+    EXPECT_EQ(out.at<int64_t>(2, 0), FLUSH_NOW.nanoseconds());
+    EXPECT_EQ(out.at<int64_t>(2, 1), FLUSH_NOW.nanoseconds() + 1);
+    EXPECT_EQ(highest.nanoseconds(), FLUSH_NOW.nanoseconds() + 1);
+}
+
+TEST(ChannelStateTest, MixedWrites_OrdersSuppliedStampsByTime) {
+    auto state = alone_on_index();
+    write_stamped(state, 1, 1.0f, 20);
+    write_stamped(state, 1, 2.0f, 10);
+    x::telem::Frame out;
+    state.flush_into(out, FLUSH_NOW);
+    EXPECT_EQ(out.at<float>(1, 0), 2.0f);
+    EXPECT_EQ(out.at<float>(1, 1), 1.0f);
+    EXPECT_EQ(out.at<int64_t>(2, 0), 10);
+    EXPECT_EQ(out.at<int64_t>(2, 1), 20);
+}
+
+TEST(ChannelStateTest, MixedWrites_BodyAfterPreviousFramesLastStamp) {
+    auto state = alone_on_index();
+    write_stamped(state, 1, 1.0f, LATER);
+    x::telem::Frame first;
+    state.flush_into(first, FLUSH_NOW);
+    state.write_channel_f32(1, 2.0f);
+    x::telem::Frame out;
+    state.flush_into(out, FLUSH_NOW);
+    EXPECT_EQ(out.at<int64_t>(2, 0), LATER + 1);
+}
+
+TEST(ChannelStateTest, MixedWrites_OrdersStringChannelByTimeThenWriteOrder) {
+    State state(
+        std::vector<Digest>{
+            {.key = 7, .data_type = x::telem::STRING_T, .index = 8},
+        }
+    );
+    const auto write_string = [&state](const std::string &value, int64_t stamp) {
+        state.write_value(
+            7,
+            x::mem::make_local_shared<x::telem::Series>(value),
+            x::mem::make_local_shared<x::telem::Series>(
+                std::vector<x::telem::TimeStamp>{x::telem::TimeStamp(stamp)}
+            )
+        );
+    };
+    write_string("late", 20);
+    write_string("early", 10);
+    state.write_value(
+        7,
+        x::mem::make_local_shared<x::telem::Series>(std::string("body"))
+    );
+    write_string("tie", FLUSH_NOW.nanoseconds());
+    x::telem::Frame out;
+    state.flush_into(out, FLUSH_NOW);
+    EXPECT_EQ(out.at<std::string>(7, 0), "early");
+    EXPECT_EQ(out.at<std::string>(7, 1), "late");
+    EXPECT_EQ(out.at<std::string>(7, 2), "body");
+    EXPECT_EQ(out.at<std::string>(7, 3), "tie");
+    EXPECT_EQ(out.at<int64_t>(8, 0), 10);
+    EXPECT_EQ(out.at<int64_t>(8, 1), 20);
+    EXPECT_EQ(out.at<int64_t>(8, 2), FLUSH_NOW.nanoseconds());
+    EXPECT_EQ(out.at<int64_t>(8, 3), FLUSH_NOW.nanoseconds() + 1);
+}
+
+/// @brief Every order of one to four writes mixes body writes (b) with supplied writes
+/// stamped behind now (l), at now (n), and ahead of now (a). Samples must come out in
+/// time order, then in write order, each 1ns after the one before when they tie. A
+/// second cycle, 1ns later, makes one body write.
+TEST(ChannelStateTest, StampInvariants_TimeThenWriteOrder) {
+    std::vector<std::string> orders{""}, all;
+    for (int len = 0; len < 4; len++) {
+        std::vector<std::string> next;
+        for (const auto &order: orders)
+            for (const char op: {'b', 'l', 'n', 'a'})
+                next.push_back(order + op);
+        orders = next;
+        all.insert(all.end(), orders.begin(), orders.end());
+    }
+    constexpr int64_t now = 1000;
+    for (const auto &order: all) {
+        SCOPED_TRACE(order);
+        auto state = alone_on_index();
+        std::vector<std::pair<int64_t, float>> written;
+        std::vector<bool> synthesized;
+        int64_t behind = now - 100, ahead = now + 100;
+        for (size_t i = 0; i < order.size(); i++) {
+            const auto value = static_cast<float>(i + 1);
+            auto stamp = now;
+            if (order[i] == 'l') stamp = behind++;
+            if (order[i] == 'a') stamp = ahead++;
+            if (order[i] == 'b')
+                state.write_channel_f32(1, value);
+            else
+                write_stamped(state, 1, value, stamp);
+            written.emplace_back(stamp, value);
+            synthesized.push_back(order[i] == 'b');
+        }
+        std::vector<size_t> positions(written.size());
+        std::iota(positions.begin(), positions.end(), 0);
+        std::stable_sort(positions.begin(), positions.end(), [&](size_t a, size_t b) {
+            return written[a].first < written[b].first;
+        });
+        std::vector<std::pair<int64_t, float>> expected;
+        int64_t highest = 0;
+        for (const auto p: positions) {
+            auto want = written[p];
+            if (!expected.empty() && want.first <= expected.back().first) {
+                want.first = expected.back().first + 1;
+                synthesized[p] = true;
+            }
+            if (synthesized[p]) highest = want.first;
+            expected.push_back(want);
+        }
+        x::telem::Frame out;
+        const auto actual_highest = state.flush_into(out, x::telem::TimeStamp(now));
+        const auto &values = series_of(out, 1);
+        const auto &index = series_of(out, 2);
+        ASSERT_EQ(index.size(), order.size());
+        ASSERT_EQ(values.size(), index.size());
+        for (size_t i = 0; i < expected.size(); i++)
+            ASSERT_EQ(
+                std::make_pair(
+                    index.at<int64_t>(static_cast<int>(i)),
+                    values.at<float>(static_cast<int>(i))
+                ),
+                expected[i]
+            );
+        ASSERT_EQ(actual_highest.nanoseconds(), highest);
+        const auto last = expected.back().first;
+        state.write_channel_f32(1, 0);
+        x::telem::Frame next;
+        state.flush_into(next, x::telem::TimeStamp(now + 1));
+        ASSERT_EQ(series_of(next, 2).at<int64_t>(0), std::max(now + 1, last + 1));
+    }
 }
 
 /// @brief A write node carrying its channel config but missing the data input
@@ -1319,7 +1663,7 @@ public:
     /// @brief drops every read series but the latest on each channel.
     void clear_reads() {
         ::x::telem::Frame out;
-        this->state.flush_into(out);
+        this->state.flush_into(out, FLUSH_NOW);
     }
 
 private:
@@ -1396,9 +1740,9 @@ TEST(SourceRebindTest, RebindsOnResetAndAbsorbsDataBufferedOnTheNewChannel) {
     SourceRebind t;
     *t.node("bind").output(0) = ::x::telem::Series(static_cast<uint32_t>(20));
     t.ingest(20, 0, 9.9f);
-    t.source->reset();
     bool changed = false;
     auto ctx = make_context(&changed);
+    t.source->reset(ctx);
     ASSERT_NIL(t.source->next(ctx));
     EXPECT_FALSE(changed) << "pre-rebind data must be absorbed by Reset";
 
@@ -1456,7 +1800,7 @@ struct WasmFixture {
 
     void flush_and_ingest() {
         ::x::telem::Frame frame(1);
-        this->state->flush_into(frame);
+        this->state->flush_into(frame, FLUSH_NOW);
         this->state->ingest(frame);
     }
 

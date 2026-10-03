@@ -7,17 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { color } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
-import { CSS } from "@/css";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { type Config } from "@/schematic/node/general/polygon/config";
-import { Theming } from "@/theming";
 
-export const DEFAULT_POLYGON_SIDE_LENGTH = 20;
-
-interface RenderProps extends Omit<Config, "variant"> {
+interface RenderProps extends Omit<
+  schematic.PolygonNodeConfig,
+  "variant" | "label" | "scale"
+> {
   className?: string;
 }
 
@@ -84,12 +85,15 @@ const generateRoundedPolygonPath = (
   return path.join(" ");
 };
 
+/** @returns the fill a polygon paints while its fill color is absent. */
+export const fillFallback = (theme: Theming.Theme): color.Color => theme.colors.gray.l1;
+
 export const Polygon = ({
   numSides,
   sideLength,
   rotation = 0,
-  color: colorVal,
-  backgroundColor,
+  strokeColor,
+  fillColor,
   className,
   cornerRounding,
   strokeWidth,
@@ -110,10 +114,13 @@ export const Polygon = ({
   );
   return (
     <Primitive.Div className={CSS.cls(className, CSS.B("polygon"))}>
-      <Primitive.SVG dimensions={{ width: size, height: size }} color={colorVal}>
+      <Primitive.SVG
+        dimensions={{ width: size, height: size }}
+        strokeColor={strokeColor}
+      >
         <Primitive.Path
           d={path}
-          fill={color.cssString(backgroundColor ?? theme.colors.gray.l1)}
+          fill={color.cssString(fillColor ?? fillFallback(theme))}
           strokeWidth={strokeWidth ?? 2}
         />
       </Primitive.SVG>

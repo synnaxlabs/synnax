@@ -1,6 +1,6 @@
 TypeScript development rules for this package: @../docs/claude/toolchains/typescript.md
 
-## Namespace Casing Encodes Thread Safety
+## Namespace casing encodes thread safety
 
 - **lowercase** namespaces (`aether`, `flux`, `lineplot` from `@/lineplot/aether`) are
   safe on the aether worker thread: no React, no DOM.
@@ -11,7 +11,7 @@ A feature often ships both: `LinePlot` (React components) and `lineplot` (its ae
 worker counterpart). Follow the casing when adding a module — a worker-safe package
 exported as PascalCase (or the reverse) is a defect.
 
-## Live-Core Tests
+## Live-Core tests
 
 Query/flux specs (e.g. `node/queries.spec.ts`, `task/queries.spec.ts`,
 `synnax/aether/provider.spec.ts`) connect to a real Core at `localhost:9090`. Check for

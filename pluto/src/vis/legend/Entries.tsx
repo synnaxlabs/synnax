@@ -7,17 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Button } from "@synnaxlabs/lyra/button";
+import { Color } from "@synnaxlabs/lyra/color";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
+import { type Theming } from "@synnaxlabs/lyra/theming";
+import { stopPropagation } from "@synnaxlabs/lyra/util";
 import { type color, type optional, type state } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
-
-import { Button } from "@/button";
-import { Color } from "@/color";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { Icon } from "@/icon";
-import { Text } from "@/text";
-import { type Theming } from "@/theming";
-import { stopPropagation } from "@/util/event";
 
 export interface EntryData {
   color: color.Crude;
@@ -93,10 +92,10 @@ const Entry = ({
     >
       <Flex.Box align="center" gap="small" x>
         <Color.Swatch
-          allowChange={onColorChange != null}
           draggable={false}
-          onChange={(c) => onColorChange?.(key, c)}
+          onChange={onColorChange == null ? undefined : (c) => onColorChange(key, c)}
           size="tiny"
+          variant="text"
           value={color}
           onVisibleChange={onColorPickerVisibleChange}
         />

@@ -11,13 +11,14 @@ package task_test
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc"
@@ -30,6 +31,7 @@ import (
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
@@ -80,6 +82,7 @@ func moduleNotFoundGetter(context.Context, uuid.UUID) (svcarc.Arc, error) {
 
 var _ = Describe("Task", Ordered, func() {
 	var (
+		db            *gorp.DB
 		statusSvc     *status.Service
 		channelSvc    *channel.Service
 		channelWriter channel.Writer
@@ -90,6 +93,7 @@ var _ = Describe("Task", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		node := mock.NewNode(ctx)
+		db = node.DB
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
 		searchIdx := MustOpen(search.OpenIndex())
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
@@ -120,10 +124,16 @@ var _ = Describe("Task", Ordered, func() {
 			Status:       statusSvc,
 		}))
 		channelWriter = channelSvc.NewWriter(nil)
-		framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-			Framer:  node.Framer,
+		channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
+			DB:      node.DB,
 			Channel: channelSvc,
 			Status:  statusSvc,
+		}))
+		framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
+			DB:           node.DB,
+			Framer:       node.Framer,
+			Channel:      channelSvc,
+			ChannelGraph: channelGraph,
 		}))
 		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:       node.DB,
@@ -134,17 +144,23 @@ var _ = Describe("Task", Ordered, func() {
 		}))
 	})
 
-	newFactoryWith := func(getModule func(context.Context, uuid.UUID) (svcarc.Arc, error)) driver.Factory {
-		return MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+	newFactoryWith := func(
+		getModule func(context.Context, uuid.UUID) (svcarc.Arc, error),
+		cfgs ...arctask.FactoryConfig,
+	) driver.Factory {
+		GinkgoHelper()
+		return MustSucceed(arctask.NewFactory(append([]arctask.FactoryConfig{{
+			DB:         db,
 			Channel:    channelSvc,
 			Framer:     framerSvc,
 			Status:     statusSvc,
 			GetProgram: getModule,
 			Ranger:     rangerSvc,
-		}))
+		}}, cfgs...)...))
 	}
 
 	newGraphFactory := func(g graph.Graph) driver.Factory {
+		GinkgoHelper()
 		return newFactoryWith(
 			func(ctx context.Context, key uuid.UUID) (svcarc.Arc, error) {
 				resolver := channelSvc.NewArcSymbolResolver(nil)
@@ -163,7 +179,12 @@ var _ = Describe("Task", Ordered, func() {
 		)
 	}
 
-	newTextFactory := func(ctx context.Context, prof arc.Text) driver.Factory {
+	newTextFactory := func(
+		ctx context.Context,
+		prof arc.Text,
+		cfgs ...arctask.FactoryConfig,
+	) driver.Factory {
+		GinkgoHelper()
 		return newFactoryWith(func(_ context.Context, _ uuid.UUID) (svcarc.Arc, error) {
 			resolver := channelSvc.NewArcSymbolResolver(nil)
 			root := arc.NewRoot(resolver, slices.Concat(
@@ -179,10 +200,11 @@ var _ = Describe("Task", Ordered, func() {
 				Text:    prof,
 				Program: &module,
 			}, nil
-		})
+		}, cfgs...)
 	}
 
 	configToMap := func(cfg arctask.Config) map[string]any {
+		GinkgoHelper()
 		cfgJSON := MustSucceed(json.Marshal(cfg))
 		var cfgMap map[string]any
 		Expect(json.Unmarshal(cfgJSON, &cfgMap)).To(Succeed())
@@ -190,6 +212,7 @@ var _ = Describe("Task", Ordered, func() {
 	}
 
 	newTask := func(ctx context.Context, factory driver.Factory) driver.Task {
+		GinkgoHelper()
 		svcTask := task.Task{
 			Key:    uuid.New(),
 			Name:   "test-task",
@@ -207,8 +230,9 @@ var _ = Describe("Task", Ordered, func() {
 	}
 
 	createVirtualCh := func(ctx context.Context, prefix string, dataType telem.DataType) *channel.Channel {
+		GinkgoHelper()
 		ch := &channel.Channel{
-			Name:     prefix + "_" + uuid.NewString()[:8],
+			Name:     prefix + "_" + uuid.New().String()[:8],
 			Virtual:  true,
 			DataType: dataType,
 		}
@@ -220,6 +244,7 @@ var _ = Describe("Task", Ordered, func() {
 		responses <-chan framer.StreamerResponse,
 		close func(),
 	) {
+		GinkgoHelper()
 		streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
 			Keys:        keys,
 			SendOpenAck: true,
@@ -289,6 +314,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should return ErrTaskNotHandled for non-Arc task types",
 			func(ctx SpecContext) {
 				factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+					DB:      db,
 					Channel: channelSvc,
 					Framer:  framerSvc,
 					Status:  statusSvc,
@@ -320,6 +346,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should return error for invalid config", func(ctx SpecContext) {
 			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+				DB:         db,
 				Channel:    channelSvc,
 				Framer:     framerSvc,
 				Status:     statusSvc,
@@ -337,6 +364,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should return error when CompileProgram fails", func(ctx SpecContext) {
 			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+				DB:         db,
 				Channel:    channelSvc,
 				Framer:     framerSvc,
 				Status:     statusSvc,
@@ -374,6 +402,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should set error status when config is invalid", func(ctx SpecContext) {
 			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+				DB:         db,
 				Channel:    channelSvc,
 				Framer:     framerSvc,
 				Status:     statusSvc,
@@ -393,12 +422,13 @@ var _ = Describe("Task", Ordered, func() {
 				Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
-			Expect(stat.Message).To(ContainSubstring("invalid UUID"))
+			Expect(stat.Message).To(ContainSubstring("invalid uuid"))
 			Expect(stat.Details.Running).To(BeFalse())
 		})
 
 		It("Should set error status when GetProgram fails", func(ctx SpecContext) {
 			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+				DB:         db,
 				Channel:    channelSvc,
 				Framer:     framerSvc,
 				Status:     statusSvc,
@@ -426,7 +456,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should write no status for a successful configure driven by a command",
 			func(ctx SpecContext) {
 				ch := &channel.Channel{
-					Name:     "config_status_test_ch_" + uuid.NewString()[:8],
+					Name:     "config_status_test_ch_" + uuid.New().String()[:8],
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
@@ -454,7 +484,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should attribute a start acknowledgment to the command and name it",
 			func(ctx SpecContext) {
 				ch := &channel.Channel{
-					Name:     "start_ack_test_ch_" + uuid.NewString()[:8],
+					Name:     "start_ack_test_ch_" + uuid.New().String()[:8],
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
@@ -490,7 +520,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should auto-start task and set running status when auto_start is true",
 			func(ctx SpecContext) {
 				ch := &channel.Channel{
-					Name:     "auto_start_test_ch_" + uuid.NewString()[:8],
+					Name:     "auto_start_test_ch_" + uuid.New().String()[:8],
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
@@ -524,7 +554,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should not write a terminal status when stopped silently",
 			func(ctx SpecContext) {
 				ch := &channel.Channel{
-					Name:     "silent_stop_test_ch_" + uuid.NewString()[:8],
+					Name:     "silent_stop_test_ch_" + uuid.New().String()[:8],
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
@@ -557,6 +587,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should not write a status when config is invalid at boot",
 			func(ctx SpecContext) {
 				factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+					DB:         db,
 					Channel:    channelSvc,
 					Framer:     framerSvc,
 					Status:     statusSvc,
@@ -582,6 +613,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should not write a status when GetProgram fails at boot",
 			func(ctx SpecContext) {
 				factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+					DB:         db,
 					Channel:    channelSvc,
 					Framer:     framerSvc,
 					Status:     statusSvc,
@@ -607,6 +639,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should write an error status when GetProgram fails at boot with auto-start",
 			func(ctx SpecContext) {
 				factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+					DB:         db,
 					Channel:    channelSvc,
 					Framer:     framerSvc,
 					Status:     statusSvc,
@@ -638,7 +671,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should not write a status when configured successfully at boot",
 			func(ctx SpecContext) {
 				ch := &channel.Channel{
-					Name:     "boot_silent_test_ch_" + uuid.NewString()[:8],
+					Name:     "boot_silent_test_ch_" + uuid.New().String()[:8],
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
@@ -664,7 +697,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should auto-start at boot when auto_start is true", func(ctx SpecContext) {
 			ch := &channel.Channel{
-				Name:     "boot_auto_start_test_ch_" + uuid.NewString()[:8],
+				Name:     "boot_auto_start_test_ch_" + uuid.New().String()[:8],
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
@@ -697,11 +730,13 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("FactoryConfig", func() {
 		full := func() arctask.FactoryConfig {
 			return arctask.FactoryConfig{
+				DB:         db,
 				Channel:    channelSvc,
 				Framer:     framerSvc,
 				Status:     statusSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
 				Ranger:     rangerSvc,
+				Now:        telem.Now,
 			}
 		}
 
@@ -717,6 +752,11 @@ var _ = Describe("Task", Ordered, func() {
 					clear(&cfg)
 					Expect(cfg.Validate()).To(MatchError(ContainSubstring(field)))
 				},
+				Entry(
+					"db",
+					func(c *arctask.FactoryConfig) { c.DB = nil },
+					"db",
+				),
 				Entry(
 					"channel",
 					func(c *arctask.FactoryConfig) { c.Channel = nil },
@@ -754,6 +794,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(merged.Status).To(BeIdenticalTo(src.Status))
 				Expect(merged.Ranger).To(BeIdenticalTo(src.Ranger))
 				Expect(merged.GetProgram).ToNot(BeNil())
+				Expect(merged.Now).ToNot(BeNil())
 			})
 
 			It("Should preserve the receiver's fields when other's are nil", func() {
@@ -772,7 +813,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		BeforeEach(func(ctx SpecContext) {
 			ch := &channel.Channel{
-				Name:     "lifecycle_test_ch_" + uuid.NewString()[:8],
+				Name:     "lifecycle_test_ch_" + uuid.New().String()[:8],
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
@@ -966,7 +1007,7 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("Sequence with consecutive status.set steps", func() {
 		It("Should advance through every status.set step", func(ctx SpecContext) {
 			trig := createVirtualCh(ctx, "seq_status_trig", telem.Uint8T)
-			base := "seq_status_" + uuid.NewString()[:8]
+			base := "seq_status_" + uuid.New().String()[:8]
 			prog := arc.Text{Raw: fmt.Sprintf(`
 				import status
 
@@ -1003,6 +1044,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(w.Close()).To(Succeed())
 
 			byName := func(name string) svcarc.Status {
+				GinkgoHelper()
 				var stat svcarc.Status
 				Expect(statusSvc.NewRetrieve[svcarc.StatusDetails]().
 					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
@@ -1031,7 +1073,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should create exactly one status for an untriggered status.set in a stage",
 			func(ctx SpecContext) {
 				trig := createVirtualCh(ctx, "entry_status_trig", telem.Uint8T)
-				name := "entry_status_" + uuid.NewString()[:8]
+				name := "entry_status_" + uuid.New().String()[:8]
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import status
 
@@ -1066,6 +1108,7 @@ var _ = Describe("Task", Ordered, func() {
 				).To(BeTrue())
 
 				oneRow := func(g Gomega) {
+					GinkgoHelper()
 					var rows []svcarc.Status
 					g.Expect(statusSvc.NewRetrieve[svcarc.StatusDetails]().
 						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
@@ -1093,7 +1136,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should create exactly one range for an untriggered ranges.create in a stage",
 			func(ctx SpecContext) {
 				trig := createVirtualCh(ctx, "entry_range_trig", telem.Uint8T)
-				name := "entry_range_" + uuid.NewString()[:8]
+				name := "entry_range_" + uuid.New().String()[:8]
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import ranges
 
@@ -1130,6 +1173,7 @@ var _ = Describe("Task", Ordered, func() {
 				// Every extra fire creates a new identically-named range, so a
 				// stable count of one proves the entry node dispatched once.
 				oneRange := func(g Gomega) {
+					GinkgoHelper()
 					g.Expect(rangerSvc.NewRetrieve().
 						Where(ranger.MatchNames(name)).
 						Count(ctx, nil)).To(Equal(1))
@@ -1154,11 +1198,11 @@ var _ = Describe("Task", Ordered, func() {
 			func(ctx SpecContext) {
 				data := createVirtualCh(ctx, "route_status_data", telem.BooleanT)
 				out := createVirtualCh(ctx, "route_status_out", telem.StringT)
-				name := "press_high_" + uuid.NewString()[:8]
+				name := "press_high_" + uuid.New().String()[:8]
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import status
 
-					%s -> select{} => {
+					%s -> select{} -> {
 					    true: status.set{
 					        key_or_name="%s",
 					        message="tank pressure above limit",
@@ -1189,6 +1233,7 @@ var _ = Describe("Task", Ordered, func() {
 				).To(BeTrue())
 
 				oneRow := func(g Gomega) {
+					GinkgoHelper()
 					var rows []svcarc.Status
 					g.Expect(statusSvc.NewRetrieve[svcarc.StatusDetails]().
 						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
@@ -1218,14 +1263,14 @@ var _ = Describe("Task", Ordered, func() {
 			func(ctx SpecContext) {
 				trig := createVirtualCh(ctx, "route_status_var_trig", telem.Uint8T)
 				data := createVirtualCh(ctx, "route_status_var_data", telem.BooleanT)
-				name := "press_high_" + uuid.NewString()[:8]
+				name := "press_high_" + uuid.New().String()[:8]
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import status
 
 					sequence main {
 					    stage watch {
 					        v str := ""
-					        %s -> select{} => {
+					        %s -> select{} -> {
 					            true: status.set{
 					                key_or_name="%s",
 					                message="tank pressure above limit",
@@ -1264,6 +1309,7 @@ var _ = Describe("Task", Ordered, func() {
 				).To(BeTrue())
 
 				oneRow := func(g Gomega) {
+					GinkgoHelper()
 					var rows []svcarc.Status
 					g.Expect(statusSvc.NewRetrieve[svcarc.StatusDetails]().
 						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
@@ -1294,14 +1340,14 @@ var _ = Describe("Task", Ordered, func() {
 				trig := createVirtualCh(ctx, "route_status_alias_trig", telem.Uint8T)
 				data := createVirtualCh(ctx, "route_status_alias_data", telem.BooleanT)
 				out := createVirtualCh(ctx, "route_status_alias_out", telem.StringT)
-				name := "press_high_" + uuid.NewString()[:8]
+				name := "press_high_" + uuid.New().String()[:8]
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import status
 
 					sequence main {
 					    stage watch {
 					        sink := %s
-					        %s -> select{} => {
+					        %s -> select{} -> {
 					            true: status.set{
 					                key_or_name="%s",
 					                message="tank pressure above limit",
@@ -1340,6 +1386,7 @@ var _ = Describe("Task", Ordered, func() {
 				).To(BeTrue())
 
 				oneRow := func(g Gomega) {
+					GinkgoHelper()
 					var rows []svcarc.Status
 					g.Expect(statusSvc.NewRetrieve[svcarc.StatusDetails]().
 						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
@@ -1369,11 +1416,11 @@ var _ = Describe("Task", Ordered, func() {
 			func(ctx SpecContext) {
 				data := createVirtualCh(ctx, "route_range_data", telem.BooleanT)
 				out := createVirtualCh(ctx, "route_range_out", telem.StringT)
-				name := "overpressure_" + uuid.NewString()[:8]
+				name := "overpressure_" + uuid.New().String()[:8]
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import ranges
 
-					%s -> select{} => {
+					%s -> select{} -> {
 					    true: ranges.create{name="%s"} -> %s
 					}
 				`, data.Name, name, out.Name)}
@@ -1434,14 +1481,14 @@ var _ = Describe("Task", Ordered, func() {
 			func(ctx SpecContext) {
 				trig := createVirtualCh(ctx, "route_range_var_trig", telem.Uint8T)
 				data := createVirtualCh(ctx, "route_range_var_data", telem.BooleanT)
-				name := "overpressure_" + uuid.NewString()[:8]
+				name := "overpressure_" + uuid.New().String()[:8]
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import ranges
 
 					sequence main {
 					    stage watch {
 					        v str := ""
-					        %s -> select{} => {
+					        %s -> select{} -> {
 					            true: ranges.create{name="%s"} -> v
 					        }
 					    }
@@ -1511,14 +1558,14 @@ var _ = Describe("Task", Ordered, func() {
 				trig := createVirtualCh(ctx, "route_range_alias_trig", telem.Uint8T)
 				data := createVirtualCh(ctx, "route_range_alias_data", telem.BooleanT)
 				out := createVirtualCh(ctx, "route_range_alias_out", telem.StringT)
-				name := "overpressure_" + uuid.NewString()[:8]
+				name := "overpressure_" + uuid.New().String()[:8]
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import ranges
 
 					sequence main {
 					    stage watch {
 					        sink := %s
-					        %s -> select{} => {
+					        %s -> select{} -> {
 					            true: ranges.create{name="%s"} -> sink
 					        }
 					    }
@@ -1586,11 +1633,11 @@ var _ = Describe("Task", Ordered, func() {
 			func(ctx SpecContext) {
 				data := createVirtualCh(ctx, "route_range_val_data", telem.BooleanT)
 				out := createVirtualCh(ctx, "route_range_val_out", telem.StringT)
-				name := "overpressure_" + uuid.NewString()[:8]
+				name := "overpressure_" + uuid.New().String()[:8]
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import ranges
 
-					%s -> select{} => {
+					%s -> select{} -> {
 					    true: ranges.create{name="%s"} -> %s
 					}
 				`, data.Name, name, out.Name)}
@@ -1650,14 +1697,14 @@ var _ = Describe("Task", Ordered, func() {
 				trig := createVirtualCh(ctx, "route_range_val_trig", telem.Uint8T)
 				data := createVirtualCh(ctx, "route_range_val_data", telem.BooleanT)
 				probe := createVirtualCh(ctx, "route_range_val_probe", telem.StringT)
-				name := "overpressure_" + uuid.NewString()[:8]
+				name := "overpressure_" + uuid.New().String()[:8]
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import ranges
 
 					sequence main {
 					    stage watch {
 					        v str := ""
-					        %s -> select{} => {
+					        %s -> select{} -> {
 					            true: ranges.create{name="%s"} -> v
 					        }
 					        v -> %s
@@ -1726,14 +1773,14 @@ var _ = Describe("Task", Ordered, func() {
 				trig := createVirtualCh(ctx, "route_range_val_trig", telem.Uint8T)
 				data := createVirtualCh(ctx, "route_range_val_data", telem.BooleanT)
 				out := createVirtualCh(ctx, "route_range_val_out", telem.StringT)
-				name := "overpressure_" + uuid.NewString()[:8]
+				name := "overpressure_" + uuid.New().String()[:8]
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import ranges
 
 					sequence main {
 					    stage watch {
 					        sink := %s
-					        %s -> select{} => {
+					        %s -> select{} -> {
 					            true: ranges.create{name="%s"} -> sink
 					        }
 					    }
@@ -1807,15 +1854,25 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
 
-				dupName := "dup_alarm_" + uuid.NewString()[:8]
-				w := statusSvc.NewWriter(nil)
-				Expect(w.Set(ctx, &status.Status[any]{
-					Key: uuid.NewString(), Name: dupName, Variant: status.VariantInfo,
-					Message: "first", Time: telem.Now(),
-				})).To(Succeed())
-				Expect(w.Set(ctx, &status.Status[any]{
-					Key: uuid.NewString(), Name: dupName, Variant: status.VariantInfo,
-					Message: "second", Time: telem.Now(),
+				dupName := "dup_alarm_" + uuid.New().String()[:8]
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					w := statusSvc.NewWriter(tx)
+					if err := w.Set(ctx, &status.Status[any]{
+						Key:     uuid.New().String(),
+						Name:    dupName,
+						Variant: status.VariantInfo,
+						Message: "first",
+						Time:    telem.Now(),
+					}); err != nil {
+						return err
+					}
+					return w.Set(ctx, &status.Status[any]{
+						Key:     uuid.New().String(),
+						Name:    dupName,
+						Variant: status.VariantInfo,
+						Message: "second",
+						Time:    telem.Now(),
+					})
 				})).To(Succeed())
 
 				reportNodes, reportConfigs := buildGraphNodes(
@@ -1888,13 +1945,13 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("Interval Timing", func() {
 		It("Should fire intervals without any streaming data", func(ctx SpecContext) {
 			indexCh := &channel.Channel{
-				Name:     "interval_idx_" + uuid.NewString()[:8],
+				Name:     "interval_idx_" + uuid.New().String()[:8],
 				IsIndex:  true,
 				DataType: telem.TimestampT,
 			}
 			Expect(channelWriter.Create(ctx, indexCh)).To(Succeed())
 			dataCh := &channel.Channel{
-				Name:       "interval_data_" + uuid.NewString()[:8],
+				Name:       "interval_data_" + uuid.New().String()[:8],
 				LocalIndex: indexCh.LocalKey,
 				DataType:   telem.Uint8T,
 			}
@@ -1942,13 +1999,13 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should stamp wall-clock index timestamps for interval -> channel flows",
 			func(ctx SpecContext) {
 				idxCh := &channel.Channel{
-					Name:     "timer_wall_idx_" + uuid.NewString()[:8],
+					Name:     "timer_wall_idx_" + uuid.New().String()[:8],
 					IsIndex:  true,
 					DataType: telem.TimestampT,
 				}
 				Expect(channelWriter.Create(ctx, idxCh)).To(Succeed())
 				dataCh := &channel.Channel{
-					Name:       "timer_wall_data_" + uuid.NewString()[:8],
+					Name:       "timer_wall_data_" + uuid.New().String()[:8],
 					LocalIndex: idxCh.LocalKey,
 					DataType:   telem.Uint8T,
 				}
@@ -2001,6 +2058,61 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(len(persisted)).To(BeNumerically(">=", 3))
 				for _, ts := range persisted {
 					Expect(ts).To(BeNumerically(">=", wallStart))
+				}
+			})
+
+		It("Should resume the clock above stamps forwarded into an index",
+			func(ctx SpecContext) {
+				src := createVirtualCh(ctx, "stepped_src", telem.Int64T)
+				idxCh := &channel.Channel{
+					Name:     "stepped_idx_" + uuid.New().String()[:8],
+					IsIndex:  true,
+					DataType: telem.TimestampT,
+				}
+				Expect(channelWriter.Create(ctx, idxCh)).To(Succeed())
+				dataCh := &channel.Channel{
+					Name:       "stepped_data_" + uuid.New().String()[:8],
+					LocalIndex: idxCh.LocalKey,
+					DataType:   telem.Int64T,
+				}
+				Expect(channelWriter.Create(ctx, dataCh)).To(Succeed())
+				prog := arc.Text{Raw: fmt.Sprintf("%s -> %s\n", src.Name, dataCh.Name)}
+				responses, closeStreamer := openTestStreamer(
+					ctx, channel.Keys{idxCh.Key()}, 10,
+				)
+				defer closeStreamer()
+
+				stepped := telem.Now().Add(telem.Hour)
+				t := newTask(ctx, newTextFactory(ctx, prog, arctask.FactoryConfig{
+					Now: func() telem.TimeStamp { return stepped },
+				}))
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  []channel.Key{src.Key()},
+					Start: telem.Now(),
+				}))
+				for range 2 {
+					Expect(w.Write(frame.NewUnary(
+						src.Key(), telem.NewSeriesV[int64](1, 2, 3),
+					))).To(BeTrue())
+				}
+				Expect(w.Close()).To(Succeed())
+
+				var streamed []telem.TimeStamp
+				for len(streamed) < 6 {
+					var fr framer.StreamerResponse
+					Eventually(responses).Should(Receive(&fr))
+					for _, ser := range fr.Frame.Get(idxCh.Key()).Series {
+						streamed = append(
+							streamed, ser.Unmarshal[telem.TimeStamp]()...,
+						)
+					}
+				}
+				Expect(streamed).To(HaveLen(6))
+				for i := 1; i < len(streamed); i++ {
+					Expect(streamed[i]).To(BeNumerically(">", streamed[i-1]))
 				}
 			})
 
@@ -2340,13 +2452,13 @@ var _ = Describe("Task", Ordered, func() {
 				create: func(ctx context.Context, prefix string) writeCh {
 					GinkgoHelper()
 					idx := &channel.Channel{
-						Name:     prefix + "_time_" + uuid.NewString()[:8],
+						Name:     prefix + "_time_" + uuid.New().String()[:8],
 						IsIndex:  true,
 						DataType: telem.TimestampT,
 					}
 					Expect(channelWriter.Create(ctx, idx)).To(Succeed())
 					ch := &channel.Channel{
-						Name:       prefix + "_" + uuid.NewString()[:8],
+						Name:       prefix + "_" + uuid.New().String()[:8],
 						LocalIndex: idx.LocalKey,
 						DataType:   telem.Uint8T,
 					}
@@ -3423,7 +3535,7 @@ var _ = Describe("Task", Ordered, func() {
 		// while-watching entry covers the injection ordering after entry.
 		DescribeTable("fires channel-triggered transitions across writer sessions",
 			func(ctx SpecContext, rogueSessions int, roguesAfterEntry bool) {
-				suffix := uuid.NewString()[:8]
+				suffix := uuid.New().String()[:8]
 				idxCh := &channel.Channel{
 					Name:     "trig_align_idx_" + suffix,
 					IsIndex:  true,
@@ -3504,6 +3616,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(wIdx.Close()).To(Succeed())
 
 				enterWatch := func() {
+					GinkgoHelper()
 					time.Sleep(50 * time.Millisecond)
 					goW := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 						Keys:  channel.Keys{goCh.Key()},
@@ -3565,6 +3678,183 @@ var _ = Describe("Task", Ordered, func() {
 			Entry("with a single writer session", 0, false),
 			Entry("after index-less sessions on the trigger channel", 6, false),
 			Entry("with index-less sessions injected while watching", 6, true),
+		)
+	})
+
+	Describe("Mixed writes to one channel", func() {
+		createIndexed := func(ctx context.Context, prefix string) (idx, data channel.Channel) {
+			GinkgoHelper()
+			idx = channel.Channel{
+				Name:     prefix + "_time_" + uuid.New().String()[:8],
+				IsIndex:  true,
+				DataType: telem.TimestampT,
+			}
+			Expect(channelWriter.Create(ctx, &idx)).To(Succeed())
+			data = channel.Channel{
+				Name:       prefix + "_" + uuid.New().String()[:8],
+				LocalIndex: idx.LocalKey,
+				DataType:   telem.Uint8T,
+			}
+			Expect(channelWriter.Create(ctx, &data)).To(Succeed())
+			return idx, data
+		}
+
+		readStored := func(
+			ctx context.Context,
+			idx, data channel.Channel,
+		) (values []uint8, stamps []telem.TimeStamp) {
+			GinkgoHelper()
+			iter := MustOpen(framerSvc.OpenIterator(ctx, framer.IteratorConfig{
+				Keys:   []channel.Key{idx.Key(), data.Key()},
+				Bounds: telem.TimeRangeMax,
+			}))
+			if !iter.SeekFirst() {
+				return nil, nil
+			}
+			for iter.Next(iterator.AutoSpan) {
+				for _, ser := range iter.Value().Get(data.Key()).Series {
+					for i := range int(ser.Len()) {
+						values = append(values, ser.ValueAt[uint8](i))
+					}
+				}
+				for _, ser := range iter.Value().Get(idx.Key()).Series {
+					for i := range int(ser.Len()) {
+						stamps = append(stamps, ser.ValueAt[telem.TimeStamp](i))
+					}
+				}
+			}
+			return values, stamps
+		}
+
+		DescribeTable(
+			"Should store a body write and a flow write from one cycle in time order",
+			func(ctx SpecContext, indexedSource bool, program string, expected []uint8) {
+				outIdx, out := createIndexed(ctx, "mixed_out")
+				var src channel.Channel
+				if indexedSource {
+					_, src = createIndexed(ctx, "mixed_src")
+				} else {
+					src = *createVirtualCh(ctx, "mixed_src", telem.Uint8T)
+				}
+				prog := arc.Text{Raw: strings.NewReplacer(
+					"OUT", out.Name,
+					"SRC", src.Name,
+				).Replace(program)}
+				t := newTask(ctx, newTextFactory(ctx, prog))
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+				time.Sleep(20 * time.Millisecond)
+
+				srcStamp := telem.Now()
+				keys := []channel.Key{src.Key()}
+				series := []telem.Series{telem.NewSeriesV[uint8](1)}
+				if indexedSource {
+					keys = append(keys, src.Index())
+					series = append(series, telem.NewSeriesV(srcStamp))
+				}
+				fw := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  keys,
+					Start: srcStamp,
+				}))
+				Expect(fw.Write(frame.NewMulti(keys, series))).To(BeTrue())
+				Expect(fw.Close()).To(Succeed())
+
+				Eventually(func(g Gomega) {
+					values, stamps := readStored(ctx, outIdx, out)
+					g.Expect(values).To(Equal(expected))
+					g.Expect(stamps).To(HaveLen(2))
+					g.Expect(stamps[1]).To(BeNumerically(">", stamps[0]))
+					if indexedSource {
+						g.Expect(stamps[0]).To(Equal(srcStamp))
+					}
+				}).Should(Succeed())
+			},
+			Entry(
+				"indexed source, func line first",
+				true,
+				"func vent() {\n    OUT = 2\n}\nSRC -> vent{}\nSRC -> OUT\n",
+				[]uint8{1, 2},
+			),
+			Entry(
+				"indexed source, flow line first",
+				true,
+				"func vent() {\n    OUT = 2\n}\nSRC -> OUT\nSRC -> vent{}\n",
+				[]uint8{1, 2},
+			),
+			Entry(
+				"virtual source, func line first",
+				false,
+				"func vent() {\n    OUT = 2\n}\nSRC -> vent{}\nSRC -> OUT\n",
+				[]uint8{2, 1},
+			),
+			Entry(
+				"virtual source, flow line first",
+				false,
+				"func vent() {\n    OUT = 2\n}\nSRC -> OUT\nSRC -> vent{}\n",
+				[]uint8{1, 2},
+			),
+			Entry(
+				"literal flow in a stage",
+				false,
+				"func vent() {\n    OUT = 2\n}\n"+
+					"sequence main {\n    stage a {\n        1 -> OUT\n    }\n}\n"+
+					"SRC -> vent{}\nSRC => main\n",
+				[]uint8{1, 2},
+			),
+		)
+
+		It(
+			"Should store a stage's literal after a body write from the stage it leaves",
+			func(ctx SpecContext) {
+				outIdx, out := createIndexed(ctx, "abort_out")
+				start := createVirtualCh(ctx, "abort_start", telem.Uint8T)
+				src := createVirtualCh(ctx, "abort_src", telem.Uint8T)
+				cmd := createVirtualCh(ctx, "abort_cmd", telem.Uint8T)
+				prog := arc.Text{Raw: strings.NewReplacer(
+					"OUT", out.Name,
+					"START", start.Name,
+					"SRC", src.Name,
+					"CMD", cmd.Name,
+				).Replace(`func guide() {
+    OUT = 2
+}
+sequence main {
+    stage fly {
+        SRC -> guide{}
+        CMD == 1 => abort
+    }
+    stage abort {
+        1 -> OUT
+    }
+}
+START => main
+`)}
+				t := newTask(ctx, newTextFactory(ctx, prog))
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+				time.Sleep(20 * time.Millisecond)
+				write := func(keys []channel.Key) {
+					series := make([]telem.Series, len(keys))
+					for i := range series {
+						series[i] = telem.NewSeriesV[uint8](1)
+					}
+					fw := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+						Keys:  keys,
+						Start: telem.Now(),
+					}))
+					Expect(fw.Write(frame.NewMulti(keys, series))).To(BeTrue())
+					Expect(fw.Close()).To(Succeed())
+				}
+				write([]channel.Key{start.Key()})
+				time.Sleep(20 * time.Millisecond)
+				write([]channel.Key{src.Key(), cmd.Key()})
+				Eventually(func(g Gomega) {
+					values, stamps := readStored(ctx, outIdx, out)
+					g.Expect(values).To(Equal([]uint8{2, 1}))
+					g.Expect(stamps).To(HaveLen(2))
+					g.Expect(stamps[1]).To(BeNumerically(">", stamps[0]))
+				}).Should(Succeed())
+			},
 		)
 	})
 })

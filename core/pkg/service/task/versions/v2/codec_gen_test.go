@@ -12,16 +12,16 @@
 package v2_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Codec", func() {
@@ -40,14 +40,18 @@ var _ = Describe("Codec", func() {
 				Key:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Rack:       rack.Key(3),
 				Name:       "test_3",
-				ConfigHash: "test_4",
+				Type:       "test_4",
+				Config:     msgpack.EncodedJSON{"key_5": "value_5"},
+				ConfigHash: "test_6",
 				Internal:   true,
 				Snapshot:   false,
 			}),
 			Entry("zero values", v2.Task{
-				Key:        uuid.Nil,
+				Key:        uuid.Nil(),
 				Rack:       rack.Key(0),
 				Name:       "",
+				Type:       "",
+				Config:     msgpack.EncodedJSON{},
 				ConfigHash: "",
 				Internal:   false,
 				Snapshot:   false,
@@ -61,7 +65,9 @@ func BenchmarkEncodeDecodeTask(b *testing.B) {
 		Key:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Rack:       rack.Key(3),
 		Name:       "test_3",
-		ConfigHash: "test_4",
+		Type:       "test_4",
+		Config:     msgpack.EncodedJSON{"key_5": "value_5"},
+		ConfigHash: "test_6",
 		Internal:   true,
 		Snapshot:   false,
 	}
@@ -86,7 +92,9 @@ func FuzzDecodeTask(f *testing.F) {
 			Key:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Rack:       rack.Key(3),
 			Name:       "test_3",
-			ConfigHash: "test_4",
+			Type:       "test_4",
+			Config:     msgpack.EncodedJSON{"key_5": "value_5"},
+			ConfigHash: "test_6",
 			Internal:   true,
 			Snapshot:   false,
 		}
@@ -98,9 +106,11 @@ func FuzzDecodeTask(f *testing.F) {
 	}
 	{
 		seed := v2.Task{
-			Key:        uuid.Nil,
+			Key:        uuid.Nil(),
 			Rack:       rack.Key(0),
 			Name:       "",
+			Type:       "",
+			Config:     msgpack.EncodedJSON{},
 			ConfigHash: "",
 			Internal:   false,
 			Snapshot:   false,
@@ -127,7 +137,7 @@ func FuzzDecodeTask(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})

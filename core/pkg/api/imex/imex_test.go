@@ -11,10 +11,10 @@ package imex_test
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"
@@ -175,6 +175,17 @@ var _ = Describe("Import", func() {
 				MatchError(ContainSubstring("invalid params")),
 				MatchError(ContainSubstring("validation error")),
 			))
+	})
+})
+
+var _ = Describe("JSONCodec", func() {
+	It("Should write the same bytes for the same value", func(ctx SpecContext) {
+		v := map[string]int{"z": 1, "a": 2, "m": 3, "b": 4, "q": 5}
+		first := MustSucceed(apiimex.JSONCodec.Encode(ctx, v))
+		for range 20 {
+			Expect(apiimex.JSONCodec.Encode(ctx, v)).To(Equal(first))
+		}
+		Expect(string(first)).To(ContainSubstring("\"a\": 2,\n  \"b\": 4"))
 	})
 })
 

@@ -16,51 +16,50 @@ import (
 	"os"
 	"runtime"
 	"sync"
-	"time"
 
 	"github.com/synnaxlabs/oracle/format"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/x/telem"
 	"golang.org/x/sync/errgroup"
 )
 
-// GeneratedGate is the load-bearing gate of `oracle check`: it asserts
-// that what the pipeline would write to disk on the next `oracle sync`
-// already matches what is on disk today.
+// GeneratedGate is the load-bearing gate of `oracle check`: it asserts that what the
+// pipeline would write to disk on the next `oracle sync` already matches what is on
+// disk today.
 //
-// The mechanics: for every plugin output, run the same formatter chain
-// `oracle sync` would, then byte-compare the canonical bytes to the
-// existing file. Any divergence - missing file, content mismatch - is
-// reported as drift with `oracle sync` as the fix hint.
+// The mechanics: for every plugin output, run the same formatter chain `oracle sync`
+// would, then byte-compare the canonical bytes to the existing file. Any divergence -
+// missing file, content mismatch - is reported as drift with `oracle sync` as the fix
+// hint.
 //
-// Because the formatter chain is the *same* one sync uses (passed in via
-// the constructor, not reconstructed here), it is structurally
-// impossible for this gate to disagree with what sync would produce.
-type GeneratedGate struct {
+// Because the formatter chain is the *same* one sync uses (passed in via the
+// constructor, not reconstructed here), it is structurally impossible for this gate to
+// disagree with what sync would produce.
+type generatedGate struct {
 	formatters *format.Registry
 	workers    int
 }
 
-// NewGeneratedGate constructs a generated-drift gate. The formatter
-// registry must be the same one sync uses; passing a different one
-// turns the gate into a lie.
-func NewGeneratedGate(formatters *format.Registry, workers int) *GeneratedGate {
-	return &GeneratedGate{formatters: formatters, workers: workers}
+// NewGeneratedGate constructs a generated-drift gate. The formatter registry must be
+// the same one sync uses; passing a different one turns the gate into a lie.
+func NewGeneratedGate(formatters *format.Registry, workers int) Checker {
+	return generatedGate{formatters: formatters, workers: workers}
 }
 
-func (GeneratedGate) Name() string { return "generated" }
+func (generatedGate) Name() string { return "generated" }
 
-func (g GeneratedGate) Run(
+func (g generatedGate) Run(
 	ctx context.Context,
-	p *pipeline.Result,
+	res *pipeline.Result,
 	env Env,
 ) GateReport {
-	start := time.Now()
+	start := telem.Now()
 	r := GateReport{Gate: g.Name(), Status: StatusPass}
 
 	all := make([]plugin.File, 0)
-	for _, files := range p.Outputs {
+	for _, files := range res.Outputs {
 		all = append(all, files...)
 	}
 
@@ -94,7 +93,7 @@ func (g GeneratedGate) Run(
 			Severity: SeverityError,
 			Message:  "generated gate aborted: " + err.Error(),
 		})
-		r.Elapsed = time.Since(start)
+		r.Elapsed = telem.Since(start)
 		return r
 	}
 	for _, f := range findings {
@@ -106,21 +105,19 @@ func (g GeneratedGate) Run(
 	if len(r.Findings) > 0 {
 		r.Status = StatusFail
 	}
-	r.Elapsed = time.Since(start)
+	r.Elapsed = telem.Since(start)
 	return r
 }
 
-// checkOne runs the formatter chain on a single plugin output and
-// compares the canonical bytes to the on-disk file. Returns (finding,
-// true) when there is something to report, (zero, false) when the file
-// is up to date.
+// checkOne runs the formatter chain on a single plugin output and compares the
+// canonical bytes to the on-disk file. Returns (finding, true) when there is something
+// to report, (zero, false) when the file is up to date.
 //
-// Errors from the formatter chain are reported as findings rather than
-// surfaced as Go errors. Sync would experience the same error on the
-// next run; for a CI gate the right thing is to attribute the failure
-// to the file that triggered it and keep going so the user sees every
-// failing file at once.
-func (g GeneratedGate) checkOne(
+// Errors from the formatter chain are reported as findings rather than surfaced as Go
+// errors. Sync would experience the same error on the next run; for a CI gate the right
+// thing is to attribute the failure to the file that triggered it and keep going so the
+// user sees every failing file at once.
+func (g generatedGate) checkOne(
 	ctx context.Context,
 	env Env,
 	f plugin.File,

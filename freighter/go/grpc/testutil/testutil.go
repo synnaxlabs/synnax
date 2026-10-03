@@ -12,7 +12,9 @@
 package testutil
 
 import (
+	"context"
 	"net"
+	"sync/atomic"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
@@ -23,7 +25,35 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/stats"
 )
+
+// connBeginHandler reports whether the server has accepted a connection.
+type connBeginHandler struct{ began *atomic.Bool }
+
+var _ stats.Handler = connBeginHandler{}
+
+func (connBeginHandler) TagRPC(
+	ctx context.Context,
+	_ *stats.RPCTagInfo,
+) context.Context {
+	return ctx
+}
+
+func (connBeginHandler) HandleRPC(context.Context, stats.RPCStats) {}
+
+func (connBeginHandler) TagConn(
+	ctx context.Context,
+	_ *stats.ConnTagInfo,
+) context.Context {
+	return ctx
+}
+
+func (h connBeginHandler) HandleConn(_ context.Context, s stats.ConnStats) {
+	if _, ok := s.(*stats.ConnBegin); ok {
+		h.began.Store(true)
+	}
+}
 
 // StartServer starts a gRPC server listening on an ephemeral localhost port and opens a
 // freighter connection pool dialed against it with insecure transport credentials. bind
@@ -36,18 +66,25 @@ import (
 // that gracefully stops the server and then closes the pool when the current spec
 // completes, so it must be called from within a Ginkgo spec or lifecycle hook.
 //
-// Before returning, StartServer dials and waits for the pooled connection to become
-// ready. The pool dials lazily and caches the connection for the rest of the spec, so
-// pre-warming it here makes the connection part of the caller's goroutine baseline:
+// Before returning, StartServer dials and waits for both ends of the pooled connection
+// to come up. The pool dials lazily and caches the connection for the rest of the spec,
+// so pre-warming it here makes the connection part of the caller's goroutine baseline:
 // callers that invoke StartServer from a BeforeAll keep per-spec goroutine-leak checks
 // passing, because no spec is the one that first registers the long-lived connection.
+// The server end is awaited separately because the client reports ready as soon as it
+// reads the server preface, which the server writes before it starts its per-connection
+// goroutines.
 func StartServer(
 	bind func(grpc.ServiceRegistrar, *fgrpc.Pool),
 	opts ...grpc.ServerOption,
 ) address.Address {
+	ginkgo.GinkgoHelper()
 	lis := testutil.MustSucceed(net.Listen("tcp", "localhost:0"))
 	addr := address.Address(lis.Addr().String())
-	srv := grpc.NewServer(opts...)
+	var began atomic.Bool
+	srv := grpc.NewServer(
+		append(opts, grpc.StatsHandler(connBeginHandler{began: &began}))...,
+	)
 	pool := testutil.DeferClose(fgrpc.OpenPool(
 		"",
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -66,5 +103,6 @@ func StartServer(
 	conn := testutil.MustSucceed(pool.Acquire(addr))
 	conn.Connect()
 	gomega.Eventually(conn.GetState).Should(gomega.Equal(connectivity.Ready))
+	gomega.Eventually(began.Load).Should(gomega.BeTrue())
 	return addr
 }

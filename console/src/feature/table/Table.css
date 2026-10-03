@@ -19,11 +19,8 @@
     width: 72px;
 }
 
-/* Insets the cell form's tab strip off the pane edge. */
-.console-table__toolbar-content {
-    padding: 1rem 0.75rem;
-}
-
-.console-table__multi-cell-form {
-    padding: 2rem;
+.console-table__variant {
+    margin-left: 1rem;
+    padding-left: 2rem;
+    border-left: var(--pluto-border-l6);
 }

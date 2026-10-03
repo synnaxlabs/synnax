@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { useState } from "react";
 
 import { Channel } from "@/channel";
-import { Flex } from "@/flex";
-import { Icon } from "@/icon";
-import { Select } from "@/select";
-import { Text } from "@/text";
 
 import { SubcategorySection } from "./SubcategorySection";
 
@@ -37,23 +37,19 @@ const SelectSingle = () => {
 const SelectButton = () => {
   const [value, setValue] = useState<string>("");
   return (
-    <Select.Buttons
-      keys={["x-center", "y-center", "x-left", "y-left"]}
-      value={value}
-      onChange={setValue}
-    >
-      <Select.Button key="x-center" itemKey="x-center">
+    <Select.Buttons value={value} onChange={setValue}>
+      <Select.Item itemKey="x-center">
         <Icon.Align.XCenter />
-      </Select.Button>
-      <Select.Button key="y-center" itemKey="y-center">
+      </Select.Item>
+      <Select.Item itemKey="y-center">
         <Icon.Align.YCenter />
-      </Select.Button>
-      <Select.Button key="x-left" itemKey="x-left">
+      </Select.Item>
+      <Select.Item itemKey="x-left">
         <Icon.Align.Left />
-      </Select.Button>
-      <Select.Button key="y-left" itemKey="y-left">
+      </Select.Item>
+      <Select.Item itemKey="y-left">
         <Icon.Align.Top />
-      </Select.Button>
+      </Select.Item>
     </Select.Buttons>
   );
 };
@@ -62,7 +58,7 @@ export const SelectShowcase = () => (
   <Flex.Box y pack empty>
     <Flex.Box x pack grow sharp>
       <SubcategorySection
-        title="Channel Selection"
+        title="Channel selection"
         description="Dropdown selectors for single and multiple channel selection with search capabilities"
       >
         <Flex.Box y gap="huge">
@@ -82,7 +78,7 @@ export const SelectShowcase = () => (
       </SubcategorySection>
 
       <SubcategorySection
-        title="Button Selection"
+        title="Button selection"
         description="Toggle button groups for selecting from predefined options with visual icons"
       >
         <Flex.Box y gap="small">
@@ -94,7 +90,7 @@ export const SelectShowcase = () => (
       </SubcategorySection>
 
       <SubcategorySection
-        title="Icon Selection"
+        title="Icon selection"
         description="Select from a list of icons"
       >
         <SelectIconShowcase />
@@ -103,23 +99,30 @@ export const SelectShowcase = () => (
   </Flex.Box>
 );
 
-export const SelectIconShowcase = () => {
+const SelectIconShowcase = () => {
   const [value, setValue] = useState<string>("");
   return (
-    <Select.Static
+    <Select.Simple<string>
       resourceName="alignment"
-      data={[
-        { key: "x-center", icon: <Icon.Align.XCenter />, name: "X Center" },
-        { key: "y-center", icon: <Icon.Align.YCenter />, name: "Y Center" },
-        { key: "x-left", icon: <Icon.Align.Left />, name: "X Left" },
-        { key: "y-left", icon: <Icon.Align.Top />, name: "Y Left" },
-      ]}
       value={value}
       allowNone
       variant="floating"
       onChange={setValue}
       icon={<Icon.Align.XCenter />}
       triggerProps={{ iconOnly: true }}
-    />
+    >
+      <Select.Item itemKey="x-center">
+        <Icon.Align.XCenter />X Center
+      </Select.Item>
+      <Select.Item itemKey="y-center">
+        <Icon.Align.YCenter />Y Center
+      </Select.Item>
+      <Select.Item itemKey="x-left">
+        <Icon.Align.Left />X Left
+      </Select.Item>
+      <Select.Item itemKey="y-left">
+        <Icon.Align.Top />Y Left
+      </Select.Item>
+    </Select.Simple>
   );
 };

@@ -10,7 +10,8 @@
 package rbac_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -38,7 +39,7 @@ var _ = Describe("Provision", func() {
 							Entry(&r).
 							Exec(ctx, tx),
 					).To(Succeed())
-					Expect(r.Key).ToNot(Equal(uuid.Nil))
+					Expect(r.Key).ToNot(Equal(uuid.Nil()))
 					Expect(r.Internal).To(BeTrue())
 				}
 			},

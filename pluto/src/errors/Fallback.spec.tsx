@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  type RenderResult,
+  waitFor,
+} from "@testing-library/react";
+import { type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -32,6 +39,10 @@ vi.mock("@/errors/resolveStack", () => ({
   })),
 }));
 
+/** Renders inside an async act, so the stack resolution settles before any check. */
+const renderSettled = async (ui: ReactElement): Promise<RenderResult> =>
+  await act(async () => render(ui));
+
 describe("Fallback", () => {
   let warnSpy: ReturnType<typeof vi.spyOn>;
 
@@ -49,25 +60,25 @@ describe("Fallback", () => {
   mockError.name = "TestError";
   const mockReset = vi.fn();
 
-  it("should render the error name", () => {
-    const c = render(
+  it("should render the error name", async () => {
+    const c = await renderSettled(
       <Errors.Fallback error={mockError} resetErrorBoundary={mockReset} />,
     );
     expect(c.getByText("TestError")).toBeTruthy();
   });
 
-  it("should render the error message", () => {
-    const c = render(
+  it("should render the error message", async () => {
+    const c = await renderSettled(
       <Errors.Fallback error={mockError} resetErrorBoundary={mockReset} />,
     );
     expect(c.getByText("Test error message")).toBeTruthy();
   });
 
-  it("should render the chain of causes beneath the message", () => {
+  it("should render the chain of causes beneath the message", async () => {
     const denied = new Error("insufficient permissions");
     denied.name = "AccessDenied";
     const wrapped = new Error("Failed to retrieve permissions", { cause: denied });
-    const c = render(
+    const c = await renderSettled(
       <Errors.Fallback error={wrapped} resetErrorBoundary={mockReset} />,
     );
     expect(
@@ -75,25 +86,25 @@ describe("Fallback", () => {
     ).toBeTruthy();
   });
 
-  it("should render the default reload button", () => {
-    const c = render(
+  it("should render the default reload button", async () => {
+    const c = await renderSettled(
       <Errors.Fallback error={mockError} resetErrorBoundary={mockReset} />,
     );
     expect(c.getByText("Reload")).toBeTruthy();
   });
 
-  it("should call resetErrorBoundary when reload button is clicked", () => {
+  it("should call resetErrorBoundary when reload button is clicked", async () => {
     const resetFn = vi.fn();
-    const c = render(
+    const c = await renderSettled(
       <Errors.Fallback error={mockError} resetErrorBoundary={resetFn} />,
     );
     fireEvent.click(c.getByText("Reload"));
     expect(resetFn).toHaveBeenCalled();
   });
 
-  it("should render custom children instead of default button", () => {
+  it("should render custom children instead of default button", async () => {
     const customAction = vi.fn();
-    const c = render(
+    const c = await renderSettled(
       <Errors.Fallback error={mockError} resetErrorBoundary={mockReset}>
         <button onClick={customAction}>Custom Action</button>
       </Errors.Fallback>,
@@ -104,8 +115,8 @@ describe("Fallback", () => {
     expect(customAction).toHaveBeenCalled();
   });
 
-  it("should render the logo in the navbar", () => {
-    const c = render(
+  it("should render the logo in the navbar", async () => {
+    const c = await renderSettled(
       <Errors.Fallback error={mockError} resetErrorBoundary={mockReset} />,
     );
     expect(c.container.querySelector(".synnax-logo")).toBeTruthy();
@@ -117,32 +128,26 @@ describe("Fallback", () => {
     });
     const zodError = schema.safeParse({ nodes: [{ color: [0, 255] }] }).error!;
 
-    it("should render a prettified zod error instead of the raw issues JSON", () => {
-      const c = render(
-        <Errors.Fallback
-          error={zodError as unknown as Error}
-          resetErrorBoundary={mockReset}
-        />,
+    it("should render a prettified zod error instead of the raw issues JSON", async () => {
+      const c = await renderSettled(
+        <Errors.Fallback error={zodError} resetErrorBoundary={mockReset} />,
       );
       const message = c.container.querySelector(".pluto-error-fallback__message");
       expect(message?.textContent).toContain("at nodes[0].color[1]");
       expect(message?.textContent).not.toContain('"code"');
     });
 
-    it("should mark a multiline message so it renders as a scrollable block", () => {
-      const c = render(
-        <Errors.Fallback
-          error={zodError as unknown as Error}
-          resetErrorBoundary={mockReset}
-        />,
+    it("should mark a multiline message so it renders as a scrollable block", async () => {
+      const c = await renderSettled(
+        <Errors.Fallback error={zodError} resetErrorBoundary={mockReset} />,
       );
       expect(
         c.container.querySelector(".pluto-error-fallback__message--multiline"),
       ).toBeTruthy();
     });
 
-    it("should not mark a single-line message as multiline", () => {
-      const c = render(
+    it("should not mark a single-line message as multiline", async () => {
+      const c = await renderSettled(
         <Errors.Fallback error={mockError} resetErrorBoundary={mockReset} />,
       );
       expect(
@@ -168,8 +173,8 @@ describe("Fallback", () => {
   });
 
   describe("component stack", () => {
-    it("should render the component stack when present", () => {
-      const c = render(
+    it("should render the component stack when present", async () => {
+      const c = await renderSettled(
         <Errors.Fallback
           error={mockError}
           componentStack={"    at ThrowingComponent\n    at Boundary"}
@@ -179,8 +184,8 @@ describe("Fallback", () => {
       expect(c.getByText(/at ThrowingComponent/)).toBeTruthy();
     });
 
-    it("should fall back to error.stack when componentStack is null", () => {
-      const c = render(
+    it("should fall back to error.stack when componentStack is null", async () => {
+      const c = await renderSettled(
         <Errors.Fallback
           error={mockError}
           componentStack={null}
@@ -190,8 +195,8 @@ describe("Fallback", () => {
       expect(c.container.querySelector(".pluto-error-fallback__stack")).toBeTruthy();
     });
 
-    it("should fall back to error.stack when componentStack is empty", () => {
-      const c = render(
+    it("should fall back to error.stack when componentStack is empty", async () => {
+      const c = await renderSettled(
         <Errors.Fallback
           error={mockError}
           componentStack=""
@@ -201,10 +206,10 @@ describe("Fallback", () => {
       expect(c.container.querySelector(".pluto-error-fallback__stack")).toBeTruthy();
     });
 
-    it("should not render stack section when both componentStack and error.stack are empty", () => {
+    it("should not render stack section when both componentStack and error.stack are empty", async () => {
       const errorWithoutStack = new Error("No stack");
       errorWithoutStack.stack = "";
-      const c = render(
+      const c = await renderSettled(
         <Errors.Fallback
           error={errorWithoutStack}
           componentStack=""

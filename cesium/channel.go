@@ -14,9 +14,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/unary"
-	"github.com/synnaxlabs/cesium/internal/version"
-	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
@@ -108,11 +105,11 @@ func (db *DB) RenameChannel(ctx context.Context, key ChannelKey, newName string)
 	return db.renameChannel(ctx, key, newName)
 }
 
-// RenameChannel renames the channel with the specified key to newName. There is a
-// race condition here: one could rename a channel while it is being read or streamed
-// from or written to. We choose to not address this since the name is purely
-// decorative in Cesium and not used to identify channels whereas the key is the
-// unique identifier. The same goes for the virtual database.
+// RenameChannel renames the channel with the specified key to newName. There is a race
+// condition here: one could rename a channel while it is being read or streamed from or
+// written to. We choose to not address this since the name is purely decorative in
+// Cesium and not used to identify channels whereas the key is the unique identifier.
+// The same goes for the virtual database.
 func (db *DB) renameChannel(ctx context.Context, key ChannelKey, newName string) error {
 	if u, ok := db.mu.dbs.unary[key]; ok {
 		if err := u.RenameChannelInMeta(ctx, newName); err != nil {
@@ -149,7 +146,7 @@ func (db *DB) createChannel(ctx context.Context, ch Channel) (err error) {
 	if ch.IsIndex {
 		ch.Index = ch.Key
 	}
-	ch.Version = version.VersionCurrent
+	ch.Version = channel.VersionCurrent
 	err = db.openVirtualOrUnary(ctx, ch)
 	return err
 }
@@ -194,110 +191,5 @@ func (db *DB) validateNewChannel(ch Channel) error {
 			)
 		}
 	}
-	return nil
-}
-
-// RekeyChannel changes the key of channel oldKey into newKey. This operation is
-// idempotent and does not return an error if the channel does not exist. RekeyChannel
-// returns an error if there are open iterators/writers on the given channel.
-func (db *DB) RekeyChannel(
-	ctx context.Context,
-	oldKey ChannelKey,
-	newKey channel.Key,
-) error {
-	db.mu.Lock()
-	defer db.mu.Unlock()
-
-	if _, ok := db.mu.dbs.unary[newKey]; ok {
-		return errors.Newf(
-			"cannot rekey channel to %d since a channel with the same key already exists in the database",
-			newKey,
-		)
-	}
-	if _, ok := db.mu.dbs.virtual[newKey]; ok {
-		return errors.Newf(
-			"cannot rekey channel to %d since a channel with the same key already exists in the database",
-			newKey,
-		)
-	}
-
-	oldDir := keyToDirName(oldKey)
-	newDir := keyToDirName(newKey)
-	if u, ok := db.mu.dbs.unary[oldKey]; ok {
-		if err := u.Close(); err != nil {
-			return err
-		}
-		if err := db.fs.Rename(oldDir, newDir); err != nil {
-			return err
-		}
-		newFS, err := db.fs.Sub(keyToDirName(newKey))
-		if err != nil {
-			return err
-		}
-		newCh := u.Channel()
-		newCh.Key = newKey
-		if newCh.IsIndex {
-			newCh.Index = newKey
-		}
-		newDB, err := unary.Open(ctx, unary.Config{
-			Instrumentation: db.Instrumentation,
-			MetaCodec:       db.metaCodec,
-			Channel:         newCh,
-			FS:              newFS,
-		})
-		if err != nil {
-			return err
-		}
-		if err = newDB.SetChannelKeyInMeta(ctx, newKey); err != nil {
-			return err
-		}
-		delete(db.mu.dbs.unary, oldKey)
-		db.mu.dbs.unary[newKey] = *newDB
-
-		// If the DB is an index channel, update every unary DB that referenced the
-		// old key as its index.
-		if u.Channel().IsIndex {
-			for otherDBKey := range db.mu.dbs.unary {
-				otherDB := db.mu.dbs.unary[otherDBKey]
-				if otherDB.Channel().Index == oldKey && otherDBKey != newKey {
-					if err = otherDB.SetIndexKeyInMeta(ctx, newKey); err != nil {
-						return err
-					}
-					otherDB.SetIndex((*newDB).Index())
-					db.mu.dbs.unary[otherDBKey] = otherDB
-				}
-			}
-		}
-		return nil
-	}
-	if vDB, ok := db.mu.dbs.virtual[oldKey]; ok {
-		if err := vDB.Close(); err != nil {
-			return err
-		}
-		if err := db.fs.Rename(oldDir, newDir); err != nil {
-			return err
-		}
-		newFS, err := db.fs.Sub(keyToDirName(newKey))
-		if err != nil {
-			return err
-		}
-		newChannel := vDB.Channel()
-		newChannel.Key = newKey
-		newDB, err := virtual.Open(ctx, virtual.Config{
-			Instrumentation: db.Instrumentation,
-			Channel:         newChannel,
-			MetaCodec:       db.metaCodec,
-			FS:              newFS,
-		})
-		if err != nil {
-			return err
-		}
-		if err = newDB.SetChannelKeyInMeta(ctx, newKey); err != nil {
-			return err
-		}
-		delete(db.mu.dbs.virtual, oldKey)
-		db.mu.dbs.virtual[newKey] = *newDB
-	}
-
 	return nil
 }

@@ -1,0 +1,20 @@
+// SYNTAX TEST "source.oracle" "names that match primitive types"
+
+Entry struct {
+    timestamp timestamp
+//  ^^^^^^^^^ variable.other.property.oracle
+//            ^^^^^^^^^ storage.type.oracle
+    // when
+    uuid uuid?
+//  ^^^^ variable.other.property.oracle
+//       ^^^^ storage.type.oracle
+}
+
+Inline struct { timestamp timestamp }
+//              ^^^^^^^^^ variable.other.property.oracle
+//                        ^^^^^^^^^ storage.type.oracle
+
+Kind enum {
+    uuid = 1
+//  ^^^^ variable.other.property.oracle
+}

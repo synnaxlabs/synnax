@@ -8,75 +8,32 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { type color, type notation, primitive, zod } from "@synnaxlabs/x";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Status } from "@synnaxlabs/lyra/status";
+import { type notation, primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { telem } from "@/ether";
-import { Flex } from "@/flex";
-import { Form } from "@/form";
-import { Input } from "@/input";
 import { Notation } from "@/notation";
-import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 import { Staleness } from "@/vis/staleness";
 
 interface ValueTelemFormT {
-  telem: telem.StringSourceSpec;
-  tooltip: string[];
-  stalenessTimeout?: number;
-  stalenessColor?: color.Color;
+  channel?: channel.Key;
+  rollingAverage?: number;
+  precision?: number;
+  notation?: notation.Notation;
 }
-
-const VALUE_CONNECTIONS: telem.Connection[] = [
-  { from: "valueStream", to: "rollingAverage" },
-  { from: "rollingAverage", to: "stringifier" },
-];
 
 export interface TelemFormProps {
   path: string;
 }
 
+/** TelemForm renders telemetry sections; place it inside `Form.Sections`. */
 export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
   const { set } = Form.useContext();
   const { value, onChange } = Form.useField<ValueTelemFormT>(path);
-  const sourceP = zod.parse(telem.sourcePipelinePropsZ, value.telem?.props, {
-    label: "source pipeline",
-  });
-  const source = zod.parse(
-    telem.streamChannelValuePropsZ,
-    sourceP.segments.valueStream.props,
-    { label: "value stream source" },
-  );
-  const stringifier = zod.parse(
-    telem.stringifyNumberProps,
-    sourceP.segments.stringifier.props,
-    { label: "stringifier" },
-  );
-  const rollingAverage = zod.parse(
-    telem.rollingAverageProps,
-    sourceP.segments.rollingAverage.props,
-    { label: "rolling average" },
-  );
-
-  const handleChange = (segments: telem.SourcePipelineProps["segments"]): void => {
-    const t = telem.sourcePipeline("string", {
-      connections: VALUE_CONNECTIONS,
-      segments: {
-        valueStream: telem.streamChannelValue({ channel: source.channel }),
-        stringifier: telem.stringifyNumber({
-          precision: stringifier.precision ?? 2,
-          notation: stringifier.notation,
-        }),
-        rollingAverage: telem.rollingAverage({
-          windowSize: rollingAverage.windowSize ?? 1,
-        }),
-        ...segments,
-      },
-      outlet: "stringifier",
-    });
-    onChange({ ...value, telem: t });
-  };
 
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
@@ -86,50 +43,52 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
         const { name } = await client.channels.retrieve({ key });
         set(`${path}.tooltip`, [name]);
       }, "Failed to retrieve channel");
-    handleChange({ valueStream: telem.streamChannelValue({ channel: key ?? 0 }) });
+    onChange({ ...value, channel: key ?? undefined });
   };
 
   const handleNotationChange = (notation: notation.Notation): void =>
-    handleChange({ stringifier: telem.stringifyNumber({ ...stringifier, notation }) });
+    onChange({ ...value, notation });
 
   const handlePrecisionChange = (precision: number): void =>
-    handleChange({ stringifier: telem.stringifyNumber({ ...stringifier, precision }) });
+    onChange({ ...value, precision });
 
   const handleRollingAverageChange = (windowSize: number): void =>
-    handleChange({ rollingAverage: telem.rollingAverage({ windowSize }) });
+    onChange({ ...value, rollingAverage: windowSize });
 
-  if (typeof source.channel != "number")
-    throw new Error("Must pass in a channel by key to Value.TelemForm");
-  const channelKey = source.channel;
+  const channelKey = value.channel ?? 0;
 
   return (
     <>
-      <Input.Item label="Channel" grow>
-        <Channel.SelectSingle value={channelKey} onChange={handleSourceChange} />
-      </Input.Item>
-      <Flex.Box x>
-        <Input.Item label="Notation">
-          <Notation.Select
-            value={stringifier.notation}
-            onChange={handleNotationChange}
-          />
+      <Form.Section title="Source">
+        <Input.Item label="Channel" padHelpText={false}>
+          <Channel.SelectSingle value={channelKey} onChange={handleSourceChange} />
         </Input.Item>
-        <Input.Item label="Precision" align="start">
+        <Input.Item label="Averaging window" padHelpText={false}>
           <Input.Numeric
-            value={stringifier.precision ?? 2}
-            bounds={{ lower: 0, upper: 10 }}
-            onChange={handlePrecisionChange}
-          />
-        </Input.Item>
-        <Input.Item label="Averaging window" align="start">
-          <Input.Numeric
-            value={rollingAverage.windowSize ?? 1}
+            value={value.rollingAverage ?? 1}
             bounds={{ lower: 1, upper: 100 }}
             onChange={handleRollingAverageChange}
           />
         </Input.Item>
+      </Form.Section>
+      <Form.Section title="Format">
+        <Input.Item label="Notation" padHelpText={false}>
+          <Notation.Select
+            value={value.notation ?? "standard"}
+            onChange={handleNotationChange}
+          />
+        </Input.Item>
+        <Input.Item label="Precision" padHelpText={false}>
+          <Input.Numeric
+            value={value.precision ?? 2}
+            bounds={{ lower: 0, upper: 10 }}
+            onChange={handlePrecisionChange}
+          />
+        </Input.Item>
+      </Form.Section>
+      <Form.Section title="Staleness">
         <Staleness.Fields />
-      </Flex.Box>
+      </Form.Section>
     </>
   );
 };

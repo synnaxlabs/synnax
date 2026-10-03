@@ -7,18 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/schematic/node/common/form/StateMapping.css";
+
+import { type schematic } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Color } from "@synnaxlabs/lyra/color";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Text } from "@synnaxlabs/lyra/text";
 import { color, id } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
-
-import { Button } from "@/button";
-import { Color } from "@/color";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { Form } from "@/form";
-import { Icon } from "@/icon";
-import { List } from "@/list";
-import { type StateMapping } from "@/schematic/node/general/stateIndicator/config";
-import { Text } from "@/text";
 
 interface StateMappingFormProps {
   path: string;
@@ -70,15 +71,12 @@ const StateMappingListItem = ({
         }}
       />
       {showColor && (
-        <Form.Field<color.Crude>
+        <Color.Field
           path={`${basePath}.color`}
+          fallback={color.ZERO}
           showLabel={false}
           showHelpText={false}
-        >
-          {({ value, onChange }) => (
-            <Color.Swatch value={value ?? color.ZERO} onChange={onChange} bordered />
-          )}
-        </Form.Field>
+        />
       )}
       <Button.Button
         onClick={() => onRemove(itemKey)}
@@ -96,8 +94,10 @@ export const StateMappingForm = ({
   path,
   showColor = false,
 }: StateMappingFormProps): ReactElement => {
-  const { data, push, remove } = Form.useFieldList<string, StateMapping>(path);
-  const options = Form.useFieldValue<StateMapping[]>(path);
+  const { data, push, remove } = Form.useFieldList<string, schematic.StateMapping>(
+    path,
+  );
+  const options = Form.useFieldValue<schematic.StateMapping[]>(path);
 
   const handleAddOption = (): void => {
     const nextValue =
@@ -118,33 +118,34 @@ export const StateMappingForm = ({
       className={CSS.B("state-mapping-list")}
     >
       <List.Frame data={data}>
-        <List.Items<string>
-          grow
-          emptyContent={
-            <Flex.Box center grow>
-              <Text.Text center status="disabled" gap="tiny">
-                No options added
-                <Text.Text variant="link" onClick={handleAddOption}>
-                  Add an option
+        <List.Scroll grow>
+          <List.Items<string>
+            emptyContent={
+              <Flex.Box center grow>
+                <Text.Text y center status="disabled" gap="tiny">
+                  No options added
+                  <Text.Text variant="link" onClick={handleAddOption}>
+                    Add an option
+                  </Text.Text>
                 </Text.Text>
-              </Text.Text>
-            </Flex.Box>
-          }
-        >
-          {({ itemKey, index }) => {
-            if (index >= options.length) return null;
-            return (
-              <StateMappingListItem
-                itemKey={itemKey}
-                index={index}
-                path={path}
-                showColor={showColor}
-                duplicateValue={duplicateValues.has(options[index].value)}
-                onRemove={remove}
-              />
-            );
-          }}
-        </List.Items>
+              </Flex.Box>
+            }
+          >
+            {({ itemKey, index }) => {
+              if (index >= options.length) return null;
+              return (
+                <StateMappingListItem
+                  itemKey={itemKey}
+                  index={index}
+                  path={path}
+                  showColor={showColor}
+                  duplicateValue={duplicateValues.has(options[index].value)}
+                  onRemove={remove}
+                />
+              );
+            }}
+          </List.Items>
+        </List.Scroll>
       </List.Frame>
       {options.length > 0 && (
         <Button.Button

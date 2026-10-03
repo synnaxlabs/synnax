@@ -30,6 +30,7 @@ var _ = Describe("MergeLive", func() {
 	BeforeEach(func() {
 		root = GinkgoT().TempDir()
 		write = func(rel, content string) {
+			GinkgoHelper()
 			full := filepath.Join(root, rel)
 			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
 			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
@@ -42,6 +43,7 @@ licenses/BSL.txt.
 	})
 
 	resolver := func() (*versions.Resolver, versions.Chain) {
+		GinkgoHelper()
 		chains := MustSucceed(versions.Discover(root))
 		r := versions.NewResolver(chains, analyzer.NewStandardFileLoader(root))
 		chain, ok := chains["schemas/synnax/channel"]

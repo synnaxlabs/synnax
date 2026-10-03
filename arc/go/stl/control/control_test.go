@@ -236,7 +236,7 @@ var _ = Describe("Control", func() {
 				nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
 				n.Next(nCtx)
 				Expect(authorityState.Flush()[0].Authority).To(Equal(uint8(77)))
-				n.Reset()
+				n.Reset(node.Context{})
 				v.Set(33)
 				n.Next(nCtx)
 				changes := authorityState.Flush()
@@ -265,7 +265,7 @@ var _ = Describe("Control", func() {
 				n.Next(nCtx)
 				changes := authorityState.Flush()
 				Expect(changes).To(HaveLen(1))
-				n.Reset()
+				n.Reset(node.Context{})
 				n.Next(nCtx)
 				changes = authorityState.Flush()
 				Expect(changes).To(HaveLen(1))
@@ -284,7 +284,7 @@ var _ = Describe("Control", func() {
 				first := authorityState.Flush()
 				Expect(first).To(HaveLen(1))
 				Expect(first[0].Authority).To(Equal(uint8(200)))
-				n.Reset()
+				n.Reset(node.Context{})
 				n.Next(nCtx)
 				second := authorityState.Flush()
 				Expect(second).To(HaveLen(1))
@@ -311,6 +311,7 @@ var _ = Describe("Control", func() {
 		var root *symbol.Symbol
 		BeforeEach(func() { root = symbol.NewRoot(nil, control.NewSymbols()) })
 		bare := func(ctx context.Context, name string) *symbol.Symbol {
+			GinkgoHelper()
 			return MustSucceed(root.Resolve(ctx, name, symbol.IncludeInternal))
 		}
 		It("Should expose bare set_authority symbol", func(ctx SpecContext) {

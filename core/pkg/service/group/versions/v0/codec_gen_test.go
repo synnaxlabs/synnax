@@ -12,15 +12,14 @@
 package v0_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/group/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Codec", func() {
@@ -39,7 +38,7 @@ var _ = Describe("Codec", func() {
 				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name: "test_2",
 			}),
-			Entry("zero values", v0.Group{Key: uuid.Nil, Name: ""}),
+			Entry("zero values", v0.Group{Key: uuid.Nil(), Name: ""}),
 		)
 	})
 })
@@ -77,7 +76,7 @@ func FuzzDecodeGroup(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.Group{Key: uuid.Nil, Name: ""}
+		seed := v0.Group{Key: uuid.Nil(), Name: ""}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -100,7 +99,7 @@ func FuzzDecodeGroup(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})

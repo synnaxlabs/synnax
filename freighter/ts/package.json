@@ -14,23 +14,20 @@
     "control systems"
   ],
   "scripts": {
-    "build": "tsc --noEmit && vite build",
+    "build": "vite build",
     "check-types": "tsc --noEmit",
-    "watch": "tsc --noEmit && vite build --watch",
+    "watch": "vite build --watch",
     "test": "vitest",
     "cov": "vitest --coverage",
     "lint": "eslint",
-    "fix": "eslint --fix",
-    "madge": "madge --circular src"
+    "fix": "eslint --fix"
   },
   "dependencies": {
-    "@synnaxlabs/alamos": "catalog:",
     "@synnaxlabs/x": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@synnaxlabs/eslint-config": "catalog:",
-    "@synnaxlabs/madge": "catalog:",
     "@synnaxlabs/tsconfig": "catalog:",
     "@synnaxlabs/vite-plugin": "catalog:",
     "@types/node": "catalog:",

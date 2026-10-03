@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type label } from "@synnaxlabs/client";
-
-import { Haul } from "@/haul";
+import { Haul } from "@synnaxlabs/lyra/haul";
 
 export const HAUL_TYPE = "label";
 

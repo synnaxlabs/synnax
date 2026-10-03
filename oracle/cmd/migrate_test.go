@@ -37,7 +37,7 @@ var _ = Describe("migrate command", func() {
 
 	Describe("with a single version chain", func() {
 		BeforeEach(func() {
-			repoDir, cleanup = setupMiniRepo("0.53.4", map[string]string{
+			repoDir, cleanup = setupMiniRepo(map[string]string{
 				"synnax/versions/channel/v0.oracle": chainV0,
 			})
 		})
@@ -75,7 +75,7 @@ var _ = Describe("migrate command", func() {
 
 	Describe("with chains in multiple domains", func() {
 		BeforeEach(func() {
-			repoDir, cleanup = setupMiniRepo("0.53.4", map[string]string{
+			repoDir, cleanup = setupMiniRepo(map[string]string{
 				"synnax/versions/channel/v0.oracle": chainV0,
 				"x/versions/channel/v0.oracle":      chainV0,
 			})
@@ -103,7 +103,7 @@ var _ = Describe("migrate command", func() {
 
 	Describe("without version chains", func() {
 		BeforeEach(func() {
-			repoDir, cleanup = setupMiniRepo("0.53.4", map[string]string{
+			repoDir, cleanup = setupMiniRepo(map[string]string{
 				"user.oracle": "User struct {\n    name string\n}\n",
 			})
 		})

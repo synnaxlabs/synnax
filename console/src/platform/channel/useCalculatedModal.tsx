@@ -9,24 +9,22 @@
 
 import "@/platform/channel/CalculatedModal.css";
 
-import { channel, DataType, status, TimeSpan } from "@synnaxlabs/client";
-import {
-  Arc,
-  Button,
-  Channel,
-  Code,
-  Flex,
-  Form,
-  Icon,
-  Input,
-  Nav,
-  Select,
-  Status,
-  Text,
-} from "@synnaxlabs/pluto";
+import { type channel, DataType, status, TimeSpan } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Modal } from "@synnaxlabs/lyra/modal";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Arc, Channel, Code } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { useState } from "react";
 
+import { Analytics } from "@/platform/analytics";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
@@ -52,6 +50,7 @@ const EXTRA_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;
 export const useCalculatedModal = Modals.create<CalculatedModalParams>(
   ({ channelKey, close }) => {
     const isEdit = primitive.isNonZero(channelKey);
+    const { capture } = Analytics.use();
     const {
       form,
       variant,
@@ -60,6 +59,7 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
     } = Channel.useCalculatedForm({
       query: primitive.isZero(channelKey) ? null : { key: channelKey },
       afterSave: ({ reset }) => {
+        if (!isEdit) capture("channel_created", { calculated: true });
         if (createMore) reset();
         else close();
       },
@@ -79,11 +79,11 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
       typeof Channel.calculatedFormSchema
     >("name", { ctx: form });
     return (
-      <Modals.Frame className={CSS.B("channel", "edit", "calculated")}>
-        <Modals.Header icon={<Icon.Channel />}>
+      <Modal.Frame className={CSS.B("channel", "edit", "calculated")}>
+        <Modal.Header icon={<Icon.Channel />}>
           {isEdit ? `${name}.Edit` : "Channel.Create.Calculated"}
-        </Modals.Header>
-        <Modals.Body justify="start" gap="large">
+        </Modal.Header>
+        <Modal.Body justify="start" gap="large">
           <Form.Form<typeof Channel.calculatedFormSchema> {...form}>
             <Form.TextField path="name" label="Name" inputProps={NAME_INPUT_PROPS} />
             <Form.Field<string> path="expression" grow>
@@ -107,12 +107,12 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
                 label="Operation"
               >
                 {(p) => (
-                  <Select.Buttons keys={channel.OPERATION_TYPES} {...p}>
-                    <Select.Button itemKey="none">None</Select.Button>
-                    <Select.Button itemKey="min">Min</Select.Button>
-                    <Select.Button itemKey="max">Max</Select.Button>
-                    <Select.Button itemKey="avg">Average</Select.Button>
-                    <Select.Button itemKey="derivative">Derivative</Select.Button>
+                  <Select.Buttons {...p}>
+                    <Select.Item itemKey="none">None</Select.Item>
+                    <Select.Item itemKey="min">Min</Select.Item>
+                    <Select.Item itemKey="max">Max</Select.Item>
+                    <Select.Item itemKey="avg">Average</Select.Item>
+                    <Select.Item itemKey="derivative">Derivative</Select.Item>
                   </Select.Buttons>
                 )}
               </Form.Field>
@@ -152,8 +152,8 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
               )}
             </Flex.Box>
           </Form.Form>
-        </Modals.Body>
-        <Modals.Footer>
+        </Modal.Body>
+        <Modal.Footer>
           <Nav.Bar.Start>
             {variant == "success" ? (
               <Triggers.SaveHelpText action={isEdit ? "Save" : "Create"} />
@@ -179,8 +179,8 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
               </Button.Button>
             </Flex.Box>
           </Nav.Bar.End>
-        </Modals.Footer>
-      </Modals.Frame>
+        </Modal.Footer>
+      </Modal.Frame>
     );
   },
 );

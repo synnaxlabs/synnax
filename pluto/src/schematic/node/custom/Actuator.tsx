@@ -8,22 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { type CrudeTimeSpan } from "@synnaxlabs/x";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Note } from "@synnaxlabs/lyra/note";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type MouseEventHandler, type ReactElement } from "react";
 
-import { CSS } from "@/css";
-import { Icon } from "@/icon";
-import { Note } from "@/note";
 import { Custom } from "@/schematic/node/common/custom";
 import { Handle } from "@/schematic/node/common/handle";
 import { Toggle } from "@/schematic/node/common/toggle";
 import { Symbol } from "@/schematic/symbol";
-import { Text } from "@/text";
 
 export interface ActuatorProps extends Omit<Toggle.ButtonProps, "onClick"> {
   specKey: string;
   onClick?: MouseEventHandler<HTMLElement>;
-  onClickDelay?: CrudeTimeSpan;
   scale?: number;
   stateOverrides?: schematic.symbol.State[];
 }

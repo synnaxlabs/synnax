@@ -8,24 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { group, imex, type ontology, schematic } from "@synnaxlabs/client";
-import {
-  Access,
-  Button,
-  Component,
-  Flex,
-  Group,
-  Haul,
-  Icon,
-  Input,
-  List,
-  Menu,
-  Schematic,
-  Select,
-  Status,
-  Tabs,
-  Text,
-  Theming,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Access, Group, Schematic } from "@synnaxlabs/pluto";
 import { id, uuid } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 import { z } from "zod";
@@ -45,12 +40,11 @@ const HAUL_DRAG_PROPS: Haul.UseDragProps = {
 
 const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const { itemKey } = props;
-  const theme = Theming.use();
   const addNode = Schematic.useAddNode();
   const { startDrag, onDragEnd } = Haul.useDrag(HAUL_DRAG_PROPS);
   const variant = itemKey as Schematic.Node.Variant;
   const createParams = useCallback(
-    (): Schematic.AddNodeProps => ({ key: id.create(), variant }),
+    (): Schematic.AddNodeProps => ({ key: id.create(), config: { variant } }),
     [variant],
   );
   const handleDragStart = useCallback(
@@ -62,8 +56,11 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
     [addNode, createParams],
   );
   const spec = List.useItem<string, Schematic.Node.Spec>(itemKey);
-  const defaultConfig = useMemo(() => spec?.defaultConfig(theme), [spec, theme]);
-  if (spec == null || defaultConfig == null) return null;
+  const config = useMemo(
+    () => (spec == null ? null : Schematic.Node.createConfig({ variant })),
+    [spec, variant],
+  );
+  if (spec == null || config == null) return null;
   const { name, Preview } = spec;
   return (
     <List.Item
@@ -79,7 +76,7 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
     >
       <Text.Text level="small">{name}</Text.Text>
       <Flex.Box align="center" justify="center" grow>
-        <Preview {...defaultConfig} scale={0.75} />
+        <Preview {...config} scale={0.75} />
       </Flex.Box>
     </List.Item>
   );
@@ -92,20 +89,18 @@ export interface SymbolListProps {
 }
 
 const StaticSymbolList = ({ groupKey }: SymbolListProps): ReactElement => {
-  const symbols = useMemo<Schematic.Node.Spec[]>(() => {
+  const symbols = useMemo(() => {
     const g = Schematic.Node.GROUPS.find((g) => g.key === groupKey);
-    return Object.values(Schematic.Node.REGISTRY).filter((s) =>
-      g?.symbols.includes(s.key),
-    ) as unknown as Schematic.Node.Spec[];
+    return Schematic.Node.STATIC_SPECS.filter((s) => g?.symbols.includes(s.key));
   }, [groupKey]);
   const { data, getItem } = List.useStaticData<string, Schematic.Node.Spec>({
     data: symbols,
   });
   return (
     <List.Frame<string, Schematic.Node.Spec> data={data} getItem={getItem}>
-      <List.Items x className={CSS.BE("schematic", "symbols", "group")} wrap>
-        {staticListItem}
-      </List.Items>
+      <List.Scroll x className={CSS.BE("schematic", "symbols", "group")} wrap>
+        <List.Items>{staticListItem}</List.Items>
+      </List.Scroll>
     </List.Frame>
   );
 };
@@ -117,7 +112,9 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   const symbol = List.useItem<string, schematic.symbol.Symbol>(itemKey);
   const isStatic =
     symbol?.data?.variant === "static" || symbol?.data?.states?.length === 1;
-  const variant: Schematic.Node.Variant = isStatic ? "customStatic" : "customActuator";
+  const variant: Schematic.Node.CustomVariant = isStatic
+    ? "custom_static"
+    : "custom_actuator";
   const Preview = Schematic.Node.REGISTRY[variant].Preview as React.FC<{
     specKey: string;
     scale?: number;
@@ -126,7 +123,10 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   const { startDrag, onDragEnd } = Haul.useDrag(HAUL_DRAG_PROPS);
 
   const createParams = useCallback(
-    (): Schematic.AddNodeProps => ({ key: id.create(), variant, specKey: itemKey }),
+    (): Schematic.AddNodeProps<Schematic.Node.CustomVariant> => ({
+      key: id.create(),
+      config: { variant, specKey: itemKey },
+    }),
     [variant, itemKey],
   );
   const handleDragStart = useCallback(
@@ -147,7 +147,7 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   if (symbol == null) return null;
 
   return (
-    <Select.ListItem
+    <Select.Item
       className={CSS.cls(CSS.BE("schematic-symbols", "button"))}
       align="center"
       gap="tiny"
@@ -168,7 +168,7 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
       <Flex.Box align="center" justify="center" grow>
         <Preview specKey={itemKey} scale={0.75} />
       </Flex.Box>
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 
@@ -260,17 +260,20 @@ const RemoteSymbolList = ({ groupKey }: SymbolListProps): ReactElement => {
         {...menuProps}
         menu={(props) => <RemoteSymbolListContextMenu {...props} groupKey={groupKey} />}
       >
-        <List.Items
+        <List.Scroll
           x
           className={CSS.BE("schematic", "symbols", "group")}
           onContextMenu={menuProps.open}
-          emptyContent={
-            listData.answered && <RemoteListEmptyContent groupKey={groupKey} />
-          }
           wrap
         >
-          {remoteListItem}
-        </List.Items>
+          <List.Items
+            emptyContent={
+              listData.answered && <RemoteListEmptyContent groupKey={groupKey} />
+            }
+          >
+            {remoteListItem}
+          </List.Items>
+        </List.Scroll>
       </Menu.ContextMenu>
     </List.Frame>
   );
@@ -544,9 +547,9 @@ const SearchSymbolList = ({ searchTerm }: SearchSymbolListProps): ReactElement =
       getItem={getItem}
       subscribe={subscribe}
     >
-      <List.Items x className={CSS.BE("schematic", "symbols", "group")} wrap>
-        {searchListItem}
-      </List.Items>
+      <List.Scroll x className={CSS.BE("schematic", "symbols", "group")} wrap>
+        <List.Items>{searchListItem}</List.Items>
+      </List.Scroll>
     </List.Frame>
   );
 };

@@ -15,7 +15,12 @@ import { EOF } from "@synnaxlabs/freighter";
 import { breaker, errors, observe, sync, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
-import { AccessDeniedError, NotFoundError, ValidationError } from "@/errors";
+import {
+  AccessDeniedError,
+  LicenseError,
+  NotFoundError,
+  ValidationError,
+} from "@/errors";
 import { type Frame } from "@/framer/frame";
 import {
   type Streamer,
@@ -32,6 +37,24 @@ const normalizeConfig = (config: StreamerConfig): NormalizedStreamerConfig =>
     ? { ...config }
     : { channels: config };
 
+/** Options for {@link HardenedStreamer}. */
+export interface HardenedStreamerOptions {
+  /**
+   * Retry behavior for reconnect attempts. Defaults to retrying forever on capped,
+   * jittered exponential backoff.
+   */
+  breaker?: breaker.Config;
+  /**
+   * Called after every successful reconnect (not the initial open). Frames may have
+   * been dropped between the failure and the reopen.
+   */
+  onReopen?: () => void;
+  /** Called when the stream fails and reconnection begins. */
+  onDrop?: (error: Error) => void;
+  /** Receives each failed reconnect attempt. Defaults to console.warn. */
+  onRetry?: (error: Error) => void;
+}
+
 /**
  * A hardened streamer that automatically reconnects on failure.
  * This streamer wraps a regular streamer and adds automatic reconnection
@@ -44,6 +67,7 @@ export class HardenedStreamer implements Streamer {
   private readonly config: NormalizedStreamerConfig;
   private readonly onReopen?: () => void;
   private readonly onDrop?: (error: Error) => void;
+  private readonly onRetry: (error: Error) => void;
   private readonly closeNotifier = new sync.Notifier();
   // A stream that outlives this span proves the incident over; a shorter
   // life keeps the reconnect backoff escalating.
@@ -55,9 +79,12 @@ export class HardenedStreamer implements Streamer {
   constructor(
     opener: StreamOpener,
     config: StreamerConfig,
-    breakerConfig: breaker.Config = {},
-    onReopen?: () => void,
-    onDrop?: (error: Error) => void,
+    {
+      breaker: breakerConfig = {},
+      onReopen,
+      onDrop,
+      onRetry = console.warn,
+    }: HardenedStreamerOptions = {},
   ) {
     this.opener = opener;
     this.config = normalizeConfig(config);
@@ -69,7 +96,7 @@ export class HardenedStreamer implements Streamer {
       maxInterval = TimeSpan.seconds(5),
       scale = 2,
       jitter = 0.25,
-    } = breakerConfig ?? {};
+    } = breakerConfig;
     this.breaker = new breaker.Breaker({
       maxRetries,
       baseInterval,
@@ -85,25 +112,19 @@ export class HardenedStreamer implements Streamer {
     this.stableAfter = new TimeSpan(maxInterval);
     this.onReopen = onReopen;
     this.onDrop = onDrop;
+    this.onRetry = onRetry;
   }
 
   /**
    * Opens a new hardened streamer with the given configuration.
-   * @param breakerConfig - Retry behavior for reconnect attempts. Defaults to retrying
-   * forever on capped, jittered exponential backoff.
-   * @param onReopen - Called after every successful reconnect (not the initial open).
-   * Frames may have been dropped between the failure and the reopen.
-   * @param onDrop - Called when the stream fails and reconnection begins.
    * @returns A promise that resolves to a new hardened streamer
    */
   static async open(
     opener: StreamOpener,
     config: StreamerConfig,
-    breakerConfig?: breaker.Config,
-    onReopen?: () => void,
-    onDrop?: (error: Error) => void,
+    options?: HardenedStreamerOptions,
   ): Promise<HardenedStreamer> {
-    const h = new HardenedStreamer(opener, config, breakerConfig, onReopen, onDrop);
+    const h = new HardenedStreamer(opener, config, options);
     await h.start();
     return h;
   }
@@ -146,18 +167,20 @@ export class HardenedStreamer implements Streamer {
         const err = errors.fromUnknown(e);
         // Retrying only fixes connectivity; a definitive rejection recurs on every
         // attempt. Expired and invalid tokens are not definitive: the auth
-        // middleware refreshes them, and a later attempt gets a fresh budget.
+        // middleware refreshes them, and a later attempt gets a fresh budget. A
+        // license refusal lasts until activation, after which the connection reopens.
         if (
           AccessDeniedError.matches(err) ||
           ValidationError.matches(err) ||
-          NotFoundError.matches(err)
+          NotFoundError.matches(err) ||
+          LicenseError.matches(err)
         )
           throw err;
         if (!(await this.breaker.wait())) throw err;
         // close() interrupts the backoff above, so re-check: a retired
         // streamer's failed reconnect is expected, not a fault to report.
         if (this.closed) break;
-        console.error("failed to open streamer", e);
+        this.onRetry(new Error("failed to open streamer", { cause: e }));
       }
     throw new EOF();
   }

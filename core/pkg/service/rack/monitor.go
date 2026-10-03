@@ -114,8 +114,9 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 	if len(statuses) == 0 {
 		return nil
 	}
-	if err := m.svc.Status.NewWriter(nil).
-		SetMany(ctx, &statuses); err != nil {
+	if err := m.svc.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return m.svc.Status.NewWriter(tx).SetMany(ctx, &statuses)
+	}); err != nil {
 		return err
 	}
 	for _, stat := range statuses {
@@ -159,10 +160,18 @@ func parseKeyFromOntologyIDString(s status.Key) (Key, error) {
 	return KeyFromOntologyID(id)
 }
 
+// openMonitor watches the health of every stored rack. A rack that sends no status
+// within one health check interval is marked as not running, even when its stored
+// status is healthy.
 func openMonitor(
+	ctx context.Context,
 	ins alamos.Instrumentation,
 	svc *Service,
 ) (*monitor, error) {
+	var racks []Rack
+	if err := svc.NewRetrieve().Entries(&racks).Exec(ctx, nil); err != nil {
+		return nil, err
+	}
 	obs := svc.Status.Observe()
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(ins))
 	s := &monitor{
@@ -171,7 +180,11 @@ func openMonitor(
 		svc:              svc,
 		shutdownRoutines: signal.NewHardShutdown(sCtx, cancel),
 	}
-	s.mu.racks = make(map[Key]rackState)
+	now := svc.Now()
+	s.mu.racks = make(map[Key]rackState, len(racks))
+	for _, r := range racks {
+		s.mu.racks[r.Key] = rackState{lastUpdated: now}
+	}
 	s.disconnectStatusObserver = obs.OnChange(s.handleChange)
 	signal.GoTick(
 		sCtx,

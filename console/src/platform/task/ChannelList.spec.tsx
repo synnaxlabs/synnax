@@ -7,18 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Component, Form, Select } from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Select } from "@synnaxlabs/lyra/select";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
 
+const resolve = () => null;
+
 const listItem = Component.renderProp(
   ({ itemKey, ...p }: Task.ChannelListItemProps) => (
-    <Select.ListItem itemKey={itemKey} {...p}>
+    <Select.Item itemKey={itemKey} {...p}>
       item-{itemKey}
-    </Select.ListItem>
+    </Select.Item>
   ),
 );
 
@@ -40,6 +44,7 @@ const Harness = ({
   const { data, remove } = Form.useFieldList<string, Task.Channel>("config.channels");
   return (
     <Task.ChannelList<Task.Channel>
+      resolve={resolve}
       data={data}
       remove={remove}
       path="config.channels"

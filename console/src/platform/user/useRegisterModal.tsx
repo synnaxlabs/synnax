@@ -8,17 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type access, status } from "@synnaxlabs/client";
-import {
-  Access,
-  Button,
-  Flex,
-  Form,
-  Icon,
-  type Input,
-  Nav,
-  Synnax,
-  User,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { type Input } from "@synnaxlabs/lyra/input";
+import { Modal } from "@synnaxlabs/lyra/modal";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Access, Synnax, User } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Modals } from "@/platform/modals";
@@ -58,9 +55,9 @@ export const useRegisterModal = Modals.create(({ close }) => {
   });
 
   return (
-    <Modals.Frame>
-      <Modals.Header icon={<Icon.User />}>User.Register</Modals.Header>
-      <Modals.Body>
+    <Modal.Frame>
+      <Modal.Header icon={<Icon.User />}>User.Register</Modal.Header>
+      <Modal.Body>
         <Form.Form<typeof User.formSchema> {...form}>
           <Flex.Box y>
             <Flex.Box x grow>
@@ -92,8 +89,8 @@ export const useRegisterModal = Modals.create(({ close }) => {
             </Form.Field>
           </Flex.Box>
         </Form.Form>
-      </Modals.Body>
-      <Modals.Footer>
+      </Modal.Body>
+      <Modal.Footer>
         <Triggers.SaveHelpText action="Register" />
         <Nav.Bar.End>
           <Button.Button
@@ -106,7 +103,7 @@ export const useRegisterModal = Modals.create(({ close }) => {
             Register
           </Button.Button>
         </Nav.Bar.End>
-      </Modals.Footer>
-    </Modals.Frame>
+      </Modal.Footer>
+    </Modal.Frame>
   );
 });

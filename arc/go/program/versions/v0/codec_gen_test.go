@@ -14,12 +14,11 @@ package v0_test
 import (
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/program/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Codec", func() {
@@ -38,7 +37,7 @@ var _ = Describe("Codec", func() {
 				WASM:              []byte{1, 2, 3},
 				OutputMemoryBases: map[string]uint32{"test_2": 3},
 			}),
-			Entry("zero values", v0.Program{WASM: nil, OutputMemoryBases: nil}),
+			Entry("zero values", v0.Program{WASM: nil, OutputMemoryBases: map[string]uint32{}}),
 			Entry("empty collections", v0.Program{WASM: []byte{1, 2, 3}, OutputMemoryBases: map[string]uint32{}}),
 		)
 	})
@@ -77,7 +76,7 @@ func FuzzDecodeProgram(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.Program{WASM: nil, OutputMemoryBases: nil}
+		seed := v0.Program{WASM: nil, OutputMemoryBases: map[string]uint32{}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -108,7 +107,7 @@ func FuzzDecodeProgram(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})

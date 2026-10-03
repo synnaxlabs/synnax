@@ -25,7 +25,7 @@ const writer = createTestClient();
 let proj: project.Project;
 
 beforeAll(async () => {
-  proj = await writer.projects.create({ name: `proj-${id.create()}`, layout: {} });
+  proj = await writer.projects.create({ name: `proj-${id.create()}` });
 });
 
 interface Domain {

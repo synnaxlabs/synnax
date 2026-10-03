@@ -49,6 +49,7 @@ Thumbs.db
 
 # Exclude everything not needed for core Go build
 /console
+/lyra
 /pluto
 /docs
 /scripts

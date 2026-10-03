@@ -11,6 +11,7 @@ package meta_test
 
 import (
 	"context"
+	jsonv2 "encoding/json/v2"
 	"io"
 	"os"
 	"strconv"
@@ -62,6 +63,114 @@ var _ = Describe("Meta", func() {
 							"error decoding meta in folder for channel %d",
 							key,
 						)))
+				})
+			})
+
+			Describe("Legacy meta names", func() {
+				// A database written before IsIndex, Virtual and Concurrency carried
+				// json tags stored them under their Go field names. The meta codec
+				// matches names case-insensitively so those databases still open.
+				Specify("Should clear the index flag on a virtual channel", func(
+					ctx SpecContext,
+				) {
+					key := GenerateChannelKey()
+					subFs := MustSucceed(fs.Sub(strconv.Itoa(int(key))))
+					f := MustSucceed(subFs.Open("meta.json", os.O_CREATE|os.O_WRONLY))
+					// Validate rejects this pair, so the record only stays readable
+					// because the migration runs first.
+					legacy := []byte(`{"name":"Faraday","data_type":"timestamp",` +
+						`"key":` + strconv.Itoa(int(key)) +
+						`,"index":0,"IsIndex":true,"Virtual":true,"version":2}`)
+					Expect(f.Write(legacy)).To(Equal(len(legacy)))
+					Expect(f.Close()).To(Succeed())
+
+					ch := MustSucceed(meta.Open(
+						ctx,
+						subFs,
+						channel.Channel{Key: key},
+						json.NewCodec(jsonv2.MatchCaseInsensitiveNames(true)),
+					))
+					Expect(ch.Virtual).To(BeTrue())
+					Expect(ch.IsIndex).To(BeFalse())
+				})
+
+				Specify("Should migrate a legacy file without rewriting it", func(
+					ctx SpecContext,
+				) {
+					key := GenerateChannelKey()
+					faulty := WrapFaultyFS(MustSucceed(fs.Sub(strconv.Itoa(int(key)))))
+					f := MustSucceed(faulty.Open("meta.json", os.O_CREATE|os.O_WRONLY))
+					legacy := []byte(`{"name":"Faraday","data_type":"timestamp",` +
+						`"key":` + strconv.Itoa(int(key)) +
+						`,"index":0,"IsIndex":true,"version":2}`)
+					Expect(f.Write(legacy)).To(Equal(len(legacy)))
+					Expect(f.Close()).To(Succeed())
+
+					faulty.SetOptions(WithFailWrite())
+					codec := json.NewCodec(jsonv2.MatchCaseInsensitiveNames(true))
+					ch := MustSucceed(meta.Open(
+						ctx, faulty, channel.Channel{Key: key}, codec,
+					))
+					Expect(ch.IsIndex).To(BeTrue())
+					Expect(ch.Version).To(Equal(channel.VersionCurrent))
+					Expect(faulty.Exists("meta.json.tmp")).To(BeFalse())
+				})
+
+				Specify(
+					"Should write a legacy file under the current names on Create",
+					func(
+						ctx SpecContext,
+					) {
+						key := GenerateChannelKey()
+						subFs := MustSucceed(fs.Sub(strconv.Itoa(int(key))))
+						f := MustSucceed(
+							subFs.Open("meta.json", os.O_CREATE|os.O_WRONLY),
+						)
+						legacy := []byte(`{"name":"Faraday","data_type":"timestamp",` +
+							`"key":` + strconv.Itoa(int(key)) +
+							`,"index":0,"IsIndex":true,"version":2}`)
+						Expect(f.Write(legacy)).To(Equal(len(legacy)))
+						Expect(f.Close()).To(Succeed())
+
+						codec := json.NewCodec(jsonv2.MatchCaseInsensitiveNames(true))
+						ch := MustSucceed(meta.Open(
+							ctx, subFs, channel.Channel{Key: key}, codec,
+						))
+						Expect(meta.Create(ctx, subFs, codec, ch)).To(Succeed())
+
+						r := MustSucceed(subFs.Open("meta.json", os.O_RDONLY))
+						stored := make([]byte, 512)
+						n := MustSucceed(r.Read(stored))
+						Expect(r.Close()).To(Succeed())
+						Expect(
+							string(stored[:n]),
+						).To(ContainSubstring(`"is_index":true`))
+						Expect(string(stored[:n])).To(ContainSubstring(`"version":3`))
+						Expect(string(stored[:n])).NotTo(ContainSubstring(`"IsIndex"`))
+					},
+				)
+
+				Specify("Should read a meta.json written under Go field names", func(
+					ctx SpecContext,
+				) {
+					key := GenerateChannelKey()
+					subFs := MustSucceed(fs.Sub(strconv.Itoa(int(key))))
+					f := MustSucceed(subFs.Open("meta.json", os.O_CREATE|os.O_WRONLY))
+					legacy := []byte(`{"name":"Faraday","data_type":"int64",` +
+						`"key":` + strconv.Itoa(int(key)) +
+						`,"index":0,"IsIndex":true,"Virtual":false,` +
+						`"Concurrency":1,"version":1}`)
+					Expect(f.Write(legacy)).To(Equal(len(legacy)))
+					Expect(f.Close()).To(Succeed())
+
+					ch := MustSucceed(meta.Read(
+						ctx,
+						subFs,
+						json.NewCodec(jsonv2.MatchCaseInsensitiveNames(true)),
+					))
+					Expect(ch.Key).To(Equal(key))
+					Expect(ch.IsIndex).To(BeTrue())
+					Expect(ch.Virtual).To(BeFalse())
 				})
 			})
 

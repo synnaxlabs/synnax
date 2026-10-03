@@ -7,23 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TIME_ZONES, type TimeZone } from "@synnaxlabs/x";
+import { Select } from "@synnaxlabs/lyra/select";
+import { type TimeZone } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Select } from "@/select";
-
-export interface SelectTimeZoneProps extends Omit<
-  Select.ButtonsProps<TimeZone>,
-  "keys"
-> {}
+export interface SelectTimeZoneProps extends Select.ButtonsProps<TimeZone> {}
 
 export const SelectTimeZone = (props: SelectTimeZoneProps): ReactElement => (
-  <Select.Buttons {...props} keys={TIME_ZONES}>
-    <Select.Button itemKey="UTC" tooltip="UTC">
+  <Select.Buttons {...props}>
+    <Select.Item itemKey="UTC" tooltip="UTC">
       UTC
-    </Select.Button>
-    <Select.Button itemKey="local" tooltip="Local time zone">
+    </Select.Item>
+    <Select.Item itemKey="local" tooltip="Local time zone">
       Local
-    </Select.Button>
+    </Select.Item>
   </Select.Buttons>
 );

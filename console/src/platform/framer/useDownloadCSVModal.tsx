@@ -10,21 +10,19 @@
 import "@/platform/framer/DownloadCSVModal.css";
 
 import { channel, DisconnectedError } from "@synnaxlabs/client";
-import {
-  Button,
-  Channel,
-  Flex,
-  Form,
-  Icon,
-  Input,
-  Nav,
-  type Select,
-  Status,
-  Synnax,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Modal } from "@synnaxlabs/lyra/modal";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { type Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Channel, Synnax } from "@synnaxlabs/pluto";
 import {
   type CrudeTimeRange,
+  type NumericTimeRange,
   numericTimeRangeZ,
   runtime,
   TimeRange,
@@ -50,11 +48,6 @@ const CHANNEL_SELECT_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
   placeholder: "Select channels to download",
 };
 
-export interface PromptDownloadCSV extends Modals.Prompt<
-  void,
-  DownloadCSVModalParams
-> {}
-
 export const useDownloadCSVModal = Modals.createPrompt<void, DownloadCSVModalParams>(
   ({ timeRange, channels, name, icon, close }) => {
     const form = Form.use<typeof formSchema>({
@@ -66,6 +59,11 @@ export const useDownloadCSVModal = Modals.createPrompt<void, DownloadCSVModalPar
         name,
       },
     });
+    const range = Form.useFieldValue<
+      NumericTimeRange,
+      NumericTimeRange,
+      typeof formSchema
+    >("timeRange", { ctx: form });
     const footer = (
       <>
         <Triggers.SaveHelpText action="Download" />
@@ -76,32 +74,40 @@ export const useDownloadCSVModal = Modals.createPrompt<void, DownloadCSVModalPar
     );
     return (
       <Form.Form<typeof formSchema> {...form}>
-        <Modals.Frame className={CSS.B("download-csv")}>
-          <Modals.Header icon={icon}>CSV.Download</Modals.Header>
-          <Modals.Body gap="huge">
+        <Modal.Frame className={CSS.B("download-csv")}>
+          <Modal.Header icon={icon}>CSV.Download</Modal.Header>
+          <Modal.Body gap="huge">
             <Text.Text level="h3" weight={450}>
               Download data for {name} as CSV
             </Text.Text>
             <Flex.Box y full="x" gap="medium">
               <Flex.Box x gap="medium">
-                <Form.Field<number>
+                <Form.DateTimeField
                   path="timeRange.start"
                   padHelpText={false}
                   label="From"
-                >
-                  {(p) => (
-                    <Input.DateTime level="h4" variant="text" onlyChangeOnBlur {...p} />
-                  )}
-                </Form.Field>
+                  inputProps={{
+                    level: "h4",
+                    variant: "text",
+                    bound: "start",
+                    anchors: { end: range.end },
+                  }}
+                />
                 <Icon.Arrow.Right
                   className={CSS.BE("download-csv", "arrow")}
                   color={9}
                 />
-                <Form.Field<number> padHelpText={false} path="timeRange.end" label="To">
-                  {(p) => (
-                    <Input.DateTime onlyChangeOnBlur level="h4" variant="text" {...p} />
-                  )}
-                </Form.Field>
+                <Form.DateTimeField
+                  padHelpText={false}
+                  path="timeRange.end"
+                  label="To"
+                  inputProps={{
+                    level: "h4",
+                    variant: "text",
+                    bound: "end",
+                    anchors: { start: range.start },
+                  }}
+                />
               </Flex.Box>
               <Form.Field<channel.Key[]> path="channels">
                 {({ value, onChange }) => (
@@ -125,9 +131,9 @@ export const useDownloadCSVModal = Modals.createPrompt<void, DownloadCSVModalPar
                 </Text.Text>
               )}
             </Flex.Box>
-          </Modals.Body>
-          <Modals.Footer>{footer}</Modals.Footer>
-        </Modals.Frame>
+          </Modal.Body>
+          <Modal.Footer>{footer}</Modal.Footer>
+        </Modal.Frame>
       </Form.Form>
     );
   },

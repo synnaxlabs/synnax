@@ -23,7 +23,7 @@ const FRAME_ENCODING = { contentType: "application/vnd.synnax.frame" };
 const reqZ = z.object({
   keys: keyZ.array(),
   bounds: TimeRange.z,
-  downsampleFactor: z.int(),
+  downsampleFactor: z.uint32(),
   indexesIncluded: z.boolean(),
 });
 

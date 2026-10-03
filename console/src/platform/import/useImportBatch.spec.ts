@@ -9,7 +9,7 @@
 
 import { log, type ontology, type panel } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Status } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/lyra/status";
 import { act, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -22,7 +22,6 @@ const client = createTestClient();
 const createLogID = async (): Promise<ontology.ID> => {
   const proj = await client.projects.create({
     name: uniqueName("project"),
-    layout: {},
   });
   const created = await client.logs.create(proj.key, { name: uniqueName("log") });
   return log.ontologyID(created.key);
@@ -31,7 +30,6 @@ const createLogID = async (): Promise<ontology.ID> => {
 const renderImportBatch = async () => {
   const proj = await client.projects.create({
     name: uniqueName("project"),
-    layout: {},
   });
   const { result, store } = await renderHookWithConsole(
     () => ({

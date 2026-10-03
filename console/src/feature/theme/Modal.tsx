@@ -10,15 +10,16 @@
 import "@/feature/theme/Modal.css";
 
 import { type Dispatch } from "@reduxjs/toolkit";
-import { Component, Icon, List, Select, Text } from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Modal } from "@synnaxlabs/lyra/modal";
+import { Select } from "@synnaxlabs/lyra/select";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/platform/css";
-import { Body } from "@/platform/modals/Body";
 import { create } from "@/platform/modals/factory";
-import { Frame } from "@/platform/modals/Frame";
-import { Header } from "@/platform/modals/Header";
 import { type Session } from "@/session";
 import { Theme } from "@/session/theme";
 
@@ -39,10 +40,10 @@ const listItem = Component.renderProp(
     const entry = List.useItem<Theme.Mode, Entry>(props.itemKey);
     if (entry == null) return null;
     return (
-      <Select.ListItem {...props} align="center" gap="medium">
+      <Select.Item {...props} align="center" gap="medium">
         {entry.icon}
-        <Text.Text>{entry.name}</Text.Text>
-      </Select.ListItem>
+        {entry.name}
+      </Select.Item>
     );
   },
 );
@@ -61,11 +62,11 @@ const Content = ({
   );
   const { data, getItem } = List.useStaticData<Theme.Mode, Entry>({ data: OPTIONS });
   return (
-    <Frame className={CSS.B("theme-modal")} bordered rounded="small" pack>
-      <Header hideClose icon={<Icon.DarkMode />}>
+    <Modal.Frame className={CSS.B("theme-modal")} bordered rounded="small" pack>
+      <Modal.Header closeHidden icon={<Icon.DarkMode />}>
         Color theme
-      </Header>
-      <Body pack>
+      </Modal.Header>
+      <Modal.Body pack>
         <Select.Frame<Theme.Mode, Entry>
           data={data}
           getItem={getItem}
@@ -73,10 +74,12 @@ const Content = ({
           onChange={handleChange}
           initialHover={data.indexOf(mode)}
         >
-          <List.Items<Theme.Mode>>{listItem}</List.Items>
+          <List.Scroll>
+            <List.Items<Theme.Mode>>{listItem}</List.Items>
+          </List.Scroll>
         </Select.Frame>
-      </Body>
-    </Frame>
+      </Modal.Body>
+    </Modal.Frame>
   );
 };
 

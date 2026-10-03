@@ -1,11 +1,11 @@
 Go development rules for this module: @../docs/claude/toolchains/go.md
 
-# Core Server
+# Core server
 
 The Synnax server: composes Cesium (time-series) and Aspen (distributed KV) into a
 clustered telemetry engine, exposed over Freighter transports.
 
-## Layered Architecture (`core/pkg/`)
+## Layered architecture (`core/pkg/`)
 
 Five strictly-ordered layers, each with a `layer.go` composition root. Dependencies flow
 downward only — a layer never imports one above it:
@@ -30,7 +30,7 @@ Supporting packages outside the stack:
 - `console/` — serves the console web build.
 - `version/` — build version stamping.
 
-## Placement Rule
+## Placement rule
 
 New functionality goes in the lowest layer that can implement it: needs only local
 storage → storage; needs cluster routing → distribution; needs Synnax business concepts

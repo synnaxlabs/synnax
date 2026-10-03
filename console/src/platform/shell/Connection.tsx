@@ -8,18 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import { type connection } from "@synnaxlabs/client";
-import { Status, Synnax, Text } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Connection as PlatformConnection } from "@/platform/connection";
 import { CSS } from "@/platform/css";
 import { Island } from "@/platform/shell/Island";
 
-/* Rejected credentials mean the Core answered, so the island stays nominal and
-   the login form carries the auth error. */
+/* Rejected credentials and an unlicensed Core mean the Core answered, so the island
+   stays nominal and the surface behind it carries the error. */
+const ANSWERED: connection.Reason[] = ["auth", "unlicensed"];
+
 const variantOf = (status?: connection.Status | null): connection.Status["variant"] => {
   if (status == null) return "loading";
-  if (status.variant === "error" && status.details.reason === "auth") return "success";
+  if (status.variant === "error" && ANSWERED.includes(status.details.reason))
+    return "success";
   return status.variant;
 };
 

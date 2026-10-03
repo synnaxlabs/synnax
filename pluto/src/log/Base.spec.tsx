@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Base } from "@/log/Base";
-import { Menu } from "@/menu";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
-import { Triggers } from "@/triggers";
 
 // Partial Aether mock: only intercepts type "log" for controlling worker-computed
 // state (empty, scrolling, selectionStart, etc.). All other Aether consumers
@@ -393,7 +393,7 @@ describe("log/Base", () => {
       Object.defineProperty(event, "clipboardData", {
         value: { setData },
       });
-      logDiv.dispatchEvent(event);
+      fireEvent(logDiv, event);
       expect(setData).toHaveBeenCalledWith("text/plain", "hello");
       expect(setData).toHaveBeenCalledWith(
         "text/html",

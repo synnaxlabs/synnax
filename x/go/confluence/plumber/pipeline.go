@@ -10,8 +10,6 @@
 package plumber
 
 import (
-	"go/types"
-
 	"github.com/synnaxlabs/x/address"
 	cfs "github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
@@ -132,7 +130,7 @@ func (p *Pipeline) GetSource[V cfs.Value](addr address.Address) (cfs.Source[V], 
 	}
 	s, ok := rs.flow.(cfs.Source[V])
 	if !ok {
-		return nil, wrongType[types.Nil, V](addr, rs.flow)
+		return nil, wrongType[struct{}, V](addr, rs.flow)
 	}
 	return s, nil
 }
@@ -144,7 +142,7 @@ func (p *Pipeline) GetSink[V cfs.Value](addr address.Address) (cfs.Sink[V], erro
 	}
 	s, ok := rs.flow.(cfs.Sink[V])
 	if !ok {
-		return nil, wrongType[V, types.Nil](addr, rs.flow)
+		return nil, wrongType[V, struct{}](addr, rs.flow)
 	}
 	return s, nil
 }

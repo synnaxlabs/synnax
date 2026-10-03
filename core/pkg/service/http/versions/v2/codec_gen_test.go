@@ -12,17 +12,16 @@
 package v2_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
+	"github.com/synnaxlabs/x/testutil"
 )
 
 var (
@@ -72,7 +71,7 @@ var _ = Describe("Codec", func() {
 				Name:       "",
 				DataType:   telem.DataType(""),
 				TimeFormat: nil,
-				EnumValues: nil,
+				EnumValues: []v2.EnumEntry{},
 			}),
 			Entry("empty collections", v2.ChannelField{
 				Pointer:    "test_1",
@@ -172,12 +171,12 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v2.ReadConfig{
-				Key:                uuid.Nil,
+				Key:                uuid.Nil(),
 				AutoStart:          false,
 				DataSavingDisabled: false,
 				Device:             "",
 				Rate:               telem.Rate(0),
-				Endpoints:          nil,
+				Endpoints:          []v2.ReadEndpoint{},
 			}),
 			Entry("empty collections", v2.ReadConfig{
 				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -225,10 +224,10 @@ var _ = Describe("Codec", func() {
 				Key:         "",
 				Method:      v2.Method(""),
 				Path:        "",
-				Headers:     nil,
-				QueryParams: nil,
+				Headers:     []v2.Header{},
+				QueryParams: []v2.QueryParam{},
 				Body:        "",
-				Fields:      nil,
+				Fields:      []v2.ReadField{},
 				Index:       "",
 			}),
 			Entry("empty collections", v2.ReadEndpoint{
@@ -272,7 +271,7 @@ var _ = Describe("Codec", func() {
 				Pointer:    "",
 				DataType:   telem.DataType(""),
 				TimeFormat: nil,
-				EnumValues: nil,
+				EnumValues: []v2.EnumEntry{},
 			}),
 			Entry("empty collections", v2.ReadField{
 				Key:        "test_1",
@@ -303,7 +302,7 @@ var _ = Describe("Codec", func() {
 				Disabled: true,
 			}),
 			Entry("zero values", v2.ScanConfig{
-				Key:      uuid.Nil,
+				Key:      uuid.Nil(),
 				Rate:     telem.Rate(0),
 				Disabled: false,
 			}),
@@ -352,10 +351,10 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v2.WriteConfig{
-				Key:       uuid.Nil,
+				Key:       uuid.Nil(),
 				AutoStart: false,
 				Device:    "",
-				Endpoints: nil,
+				Endpoints: []v2.WriteEndpoint{},
 			}),
 			Entry("empty collections", v2.WriteConfig{
 				Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -405,8 +404,8 @@ var _ = Describe("Codec", func() {
 				Disabled:    false,
 				Method:      v2.Method(""),
 				Path:        "",
-				Headers:     nil,
-				QueryParams: nil,
+				Headers:     []v2.Header{},
+				QueryParams: []v2.QueryParam{},
 				Channel: v2.ChannelField{
 					Pointer:    "",
 					JSONType:   v2.JSONType(""),
@@ -414,9 +413,9 @@ var _ = Describe("Codec", func() {
 					Name:       "",
 					DataType:   telem.DataType(""),
 					TimeFormat: nil,
-					EnumValues: nil,
+					EnumValues: []v2.EnumEntry{},
 				},
-				Fields: nil,
+				Fields: []v2.WriteField{},
 			}),
 			Entry("empty collections", v2.WriteEndpoint{
 				Key:         "test_1",
@@ -827,7 +826,7 @@ func FuzzDecodeBaseWriteField(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -858,7 +857,7 @@ func FuzzDecodeChannelField(f *testing.F) {
 			Name:       "",
 			DataType:   telem.DataType(""),
 			TimeFormat: nil,
-			EnumValues: nil,
+			EnumValues: []v2.EnumEntry{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -898,7 +897,7 @@ func FuzzDecodeChannelField(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -937,7 +936,7 @@ func FuzzDecodeEnumEntry(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -976,7 +975,7 @@ func FuzzDecodeHeader(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -1015,7 +1014,7 @@ func FuzzDecodeQueryParam(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -1061,12 +1060,12 @@ func FuzzDecodeReadConfig(f *testing.F) {
 	}
 	{
 		seed := v2.ReadConfig{
-			Key:                uuid.Nil,
+			Key:                uuid.Nil(),
 			AutoStart:          false,
 			DataSavingDisabled: false,
 			Device:             "",
 			Rate:               telem.Rate(0),
-			Endpoints:          nil,
+			Endpoints:          []v2.ReadEndpoint{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1105,7 +1104,7 @@ func FuzzDecodeReadConfig(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -1145,10 +1144,10 @@ func FuzzDecodeReadEndpoint(f *testing.F) {
 			Key:         "",
 			Method:      v2.Method(""),
 			Path:        "",
-			Headers:     nil,
-			QueryParams: nil,
+			Headers:     []v2.Header{},
+			QueryParams: []v2.QueryParam{},
 			Body:        "",
-			Fields:      nil,
+			Fields:      []v2.ReadField{},
 			Index:       "",
 		}
 		w := orc.NewWriter(0)
@@ -1190,7 +1189,7 @@ func FuzzDecodeReadEndpoint(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -1223,7 +1222,7 @@ func FuzzDecodeReadField(f *testing.F) {
 			Pointer:    "",
 			DataType:   telem.DataType(""),
 			TimeFormat: nil,
-			EnumValues: nil,
+			EnumValues: []v2.EnumEntry{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1264,7 +1263,7 @@ func FuzzDecodeReadField(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -1285,7 +1284,7 @@ func FuzzDecodeScanConfig(f *testing.F) {
 	}
 	{
 		seed := v2.ScanConfig{
-			Key:      uuid.Nil,
+			Key:      uuid.Nil(),
 			Rate:     telem.Rate(0),
 			Disabled: false,
 		}
@@ -1311,7 +1310,7 @@ func FuzzDecodeScanConfig(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -1358,10 +1357,10 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 	}
 	{
 		seed := v2.WriteConfig{
-			Key:       uuid.Nil,
+			Key:       uuid.Nil(),
 			AutoStart: false,
 			Device:    "",
-			Endpoints: nil,
+			Endpoints: []v2.WriteEndpoint{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1398,7 +1397,7 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -1442,8 +1441,8 @@ func FuzzDecodeWriteEndpoint(f *testing.F) {
 			Disabled:    false,
 			Method:      v2.Method(""),
 			Path:        "",
-			Headers:     nil,
-			QueryParams: nil,
+			Headers:     []v2.Header{},
+			QueryParams: []v2.QueryParam{},
 			Channel: v2.ChannelField{
 				Pointer:    "",
 				JSONType:   v2.JSONType(""),
@@ -1451,9 +1450,9 @@ func FuzzDecodeWriteEndpoint(f *testing.F) {
 				Name:       "",
 				DataType:   telem.DataType(""),
 				TimeFormat: nil,
-				EnumValues: nil,
+				EnumValues: []v2.EnumEntry{},
 			},
-			Fields: nil,
+			Fields: []v2.WriteField{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1502,7 +1501,7 @@ func FuzzDecodeWriteEndpoint(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -1549,7 +1548,7 @@ func FuzzDecodeWriteField(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})

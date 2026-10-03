@@ -8,16 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot } from "@synnaxlabs/client";
-import {
-  Button,
-  Direction,
-  Flex,
-  Icon,
-  Input,
-  LinePlot,
-  Select,
-  Tabs,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { Direction, LinePlot } from "@synnaxlabs/pluto";
 import { type text } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -70,9 +67,7 @@ const AutoBoundButton = ({ enabled, ...rest }: AutoBoundButtonProps): ReactEleme
 
 const AXES_BOUNDS_DRAG_SCALE = { x: 0.1, y: 0.1 };
 
-export const LinePlotAxisControls = ({
-  axisKey,
-}: LinePlotAxisControlsProps): ReactElement => {
+const LinePlotAxisControls = ({ axisKey }: LinePlotAxisControlsProps): ReactElement => {
   const dispatch = LinePlot.useSingleDispatch();
   const axis = LinePlot.useAxis({ axisKey });
 

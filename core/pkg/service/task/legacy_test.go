@@ -10,13 +10,14 @@
 package task_test
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
@@ -497,7 +498,14 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			)
 			// The trailing newline keeps regenerated goldens Prettier-clean.
 			goldenBytes := append(
-				MustSucceed(json.MarshalIndent(canonical, "", "  ")), '\n',
+				MustSucceed(
+					json.Marshal(
+						canonical,
+						jsontext.WithIndent("  "),
+						json.Deterministic(true),
+					),
+				),
+				'\n',
 			)
 			if os.Getenv("UPDATE_LEGACY_GOLDENS") != "" {
 				Expect(os.WriteFile(goldenPath, goldenBytes, 0o644)).To(Succeed())

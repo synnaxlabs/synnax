@@ -10,10 +10,12 @@
 package telem_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 // filterCases size a frame and the key list a caller demands from it. Frames of 100
@@ -70,6 +72,64 @@ func BenchmarkKeepKeys(b *testing.B) {
 		b.Run(c.name, func(b *testing.B) {
 			for b.Loop() {
 				_ = fr.KeepKeys(keys)
+			}
+		})
+	}
+}
+
+// BenchmarkEncodeMsgpack measures encoding a frame unmasked and after KeepKeys has
+// masked it. The masked branch encodes element by element rather than handing the whole
+// slice to the encoder.
+func BenchmarkEncodeMsgpack(b *testing.B) {
+	for _, c := range []struct {
+		name            string
+		total, demanded int
+	}{
+		{"10Frame/5Demanded", 10, 5},
+		{"100Frame/50Demanded", 100, 50},
+	} {
+		frame, demanded := newFilterFrame(c.total, c.demanded)
+		masked := frame.KeepKeys(set.New(demanded...))
+		b.Run("unmasked/"+c.name, func(b *testing.B) {
+			b.ReportAllocs()
+			for b.Loop() {
+				if _, err := msgpack.Marshal(frame); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+		b.Run("masked/"+c.name, func(b *testing.B) {
+			b.ReportAllocs()
+			for b.Loop() {
+				if _, err := msgpack.Marshal(masked); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+// BenchmarkExtend extends an empty frame by a number of two-entry frames, one call per
+// frame, the shape of a loop that accumulates frames as they arrive.
+func BenchmarkExtend(b *testing.B) {
+	for _, count := range []int{10, 100, 1_000, 10_000} {
+		parts := make([]telem.Frame[int32], count)
+		for i := range parts {
+			parts[i] = telem.MultiFrame(
+				[]int32{int32(2 * i), int32(2*i + 1)},
+				[]telem.Series{
+					telem.NewSeriesV[float32](1),
+					telem.NewSeriesV[float32](2),
+				},
+			)
+		}
+		b.Run(fmt.Sprintf("frames=%d", count), func(b *testing.B) {
+			b.ReportAllocs()
+			for b.Loop() {
+				var fr telem.Frame[int32]
+				for _, part := range parts {
+					fr = fr.Extend(part)
+				}
 			}
 		})
 	}

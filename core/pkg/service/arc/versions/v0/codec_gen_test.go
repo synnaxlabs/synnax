@@ -12,11 +12,9 @@
 package v0_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	graph "github.com/synnaxlabs/arc/graph/versions/v0"
@@ -32,6 +30,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
+	"github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Codec", func() {
@@ -127,14 +126,14 @@ var _ = Describe("Codec", func() {
 				}),
 			}),
 			Entry("zero values", v0.Arc{
-				Key:  uuid.Nil,
+				Key:  uuid.Nil(),
 				Name: "",
 				Mode: v0.Mode(""),
 				Graph: graph.Graph{
 					Viewport:  graph.Viewport{Position: spatial.XY{X: 0, Y: 0}, Zoom: 0},
-					Functions: nil,
-					Edges:     nil,
-					Nodes:     nil,
+					Functions: []ir.Function{},
+					Edges:     []ir.Edge{},
+					Nodes:     []graph.Node{},
 				},
 				Text:    text.Text{Raw: ""},
 				Program: nil,
@@ -330,14 +329,14 @@ func FuzzDecodeArc(f *testing.F) {
 	}
 	{
 		seed := v0.Arc{
-			Key:  uuid.Nil,
+			Key:  uuid.Nil(),
 			Name: "",
 			Mode: v0.Mode(""),
 			Graph: graph.Graph{
 				Viewport:  graph.Viewport{Position: spatial.XY{X: 0, Y: 0}, Zoom: 0},
-				Functions: nil,
-				Edges:     nil,
-				Nodes:     nil,
+				Functions: []ir.Function{},
+				Edges:     []ir.Edge{},
+				Nodes:     []graph.Node{},
 			},
 			Text:    text.Text{Raw: ""},
 			Program: nil,
@@ -365,7 +364,7 @@ func FuzzDecodeArc(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})

@@ -14,15 +14,16 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Writer is used to create and update statuses within the DB.
+// Writer is used to create and update statuses within the DB. Every write touches both
+// the status entry and its ontology resource, and the two land together only when the
+// Writer holds a transaction spanning them.
 type Writer struct {
 	tx        gorp.Tx
+	table     *gorp.Table[Key, Status[any]]
 	otgWriter ontology.Writer
 	otg       *ontology.Ontology
 	group     group.Group
@@ -99,17 +100,8 @@ func (w Writer) SetWithParent[D any](
 
 // SetMany creates or updates multiple statuses within the DB. If any of the statuses
 // already exist, they will be updated.
-func (w Writer) SetMany[D any](
-	ctx context.Context,
-	statuses *[]Status[D],
-) error {
-	for i, s := range *statuses {
-		if err := w.Set(ctx, &s); err != nil {
-			return err
-		}
-		(*statuses)[i] = s
-	}
-	return nil
+func (w Writer) SetMany[D any](ctx context.Context, statuses *[]Status[D]) error {
+	return w.SetManyWithParent(ctx, statuses, ontology.ID{})
 }
 
 // SetManyWithParent creates or updates multiple statuses within the DB as child
@@ -138,9 +130,9 @@ func (w Writer) SetManyWithParent[D any](
 
 // Delete deletes the statuses with the given keys. Delete is idempotent.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	if err := gorp.NewDelete[Key, Status[any]]().
+	if err := w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Status[any]](keys...)).
-		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
+		Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)

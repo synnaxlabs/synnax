@@ -144,7 +144,7 @@ type SetRangesPayload struct {
 // SetCustomRangePayload sets the window the "custom" range key resolves to. A null
 // custom clears the window.
 type SetCustomRangePayload struct {
-	Custom *CustomRange `json:"custom,omitempty" msgpack:"custom,omitempty"`
+	Custom *CustomRange `json:"custom,omitzero" msgpack:"custom,omitempty"`
 }
 
 // SetAxisLabelPayload sets the label rendered along the axis identified by key.
@@ -186,21 +186,21 @@ type SetAxisTickSpacingPayload struct {
 // time.
 type SetAxisTypePayload struct {
 	Key  AxisKey   `json:"key" msgpack:"key"`
-	Type *TickType `json:"type,omitempty" msgpack:"type,omitempty"`
+	Type *TickType `json:"type,omitzero" msgpack:"type,omitempty"`
 }
 
 // SetLineLabelPayload sets the label of the line identified by key. Null resets it to
 // derive from the channel name at render time.
 type SetLineLabelPayload struct {
 	Key   string  `json:"key" msgpack:"key"`
-	Label *string `json:"label,omitempty" msgpack:"label,omitempty"`
+	Label *string `json:"label,omitzero" msgpack:"label,omitempty"`
 }
 
 // SetLineColorPayload sets the color of the line identified by key. Null resets it to a
 // palette color assigned at render time.
 type SetLineColorPayload struct {
 	Key   string       `json:"key" msgpack:"key"`
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 }
 
 // SetLineStrokeWidthPayload sets the stroke width, in pixels, of the line identified by
@@ -248,7 +248,7 @@ type SetRuleLabelPayload struct {
 // default color assigned at render time.
 type SetRuleColorPayload struct {
 	Key   string       `json:"key" msgpack:"key"`
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 }
 
 // SetRuleAxisPayload sets the axis the rule identified by key is anchored to.
@@ -292,41 +292,41 @@ type RemoveRulePayload struct {
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
 	Type                  string                        `json:"type" msgpack:"type"`
-	Create                *CreatePayload                `json:"create,omitempty" msgpack:"create,omitempty"`
-	Rename                *RenamePayload                `json:"rename,omitempty" msgpack:"rename,omitempty"`
-	SetTitleVisible       *SetTitleVisiblePayload       `json:"set_title_visible,omitempty" msgpack:"set_title_visible,omitempty"`
-	SetTitleLevel         *SetTitleLevelPayload         `json:"set_title_level,omitempty" msgpack:"set_title_level,omitempty"`
-	SetLegendHidden       *SetLegendHiddenPayload       `json:"set_legend_hidden,omitempty" msgpack:"set_legend_hidden,omitempty"`
-	SetLegendPosition     *SetLegendPositionPayload     `json:"set_legend_position,omitempty" msgpack:"set_legend_position,omitempty"`
-	AddChannel            *AddChannelPayload            `json:"add_channel,omitempty" msgpack:"add_channel,omitempty"`
-	RemoveChannel         *RemoveChannelPayload         `json:"remove_channel,omitempty" msgpack:"remove_channel,omitempty"`
-	SetChannels           *SetChannelsPayload           `json:"set_channels,omitempty" msgpack:"set_channels,omitempty"`
-	SetXChannel           *SetXChannelPayload           `json:"set_x_channel,omitempty" msgpack:"set_x_channel,omitempty"`
-	AddRange              *AddRangePayload              `json:"add_range,omitempty" msgpack:"add_range,omitempty"`
-	RemoveRange           *RemoveRangePayload           `json:"remove_range,omitempty" msgpack:"remove_range,omitempty"`
-	SetRanges             *SetRangesPayload             `json:"set_ranges,omitempty" msgpack:"set_ranges,omitempty"`
-	SetCustomRange        *SetCustomRangePayload        `json:"set_custom_range,omitempty" msgpack:"set_custom_range,omitempty"`
-	SetAxisLabel          *SetAxisLabelPayload          `json:"set_axis_label,omitempty" msgpack:"set_axis_label,omitempty"`
-	SetAxisLabelDirection *SetAxisLabelDirectionPayload `json:"set_axis_label_direction,omitempty" msgpack:"set_axis_label_direction,omitempty"`
-	SetAxisLabelLevel     *SetAxisLabelLevelPayload     `json:"set_axis_label_level,omitempty" msgpack:"set_axis_label_level,omitempty"`
-	SetAxisBounds         *SetAxisBoundsPayload         `json:"set_axis_bounds,omitempty" msgpack:"set_axis_bounds,omitempty"`
-	SetAxisTickSpacing    *SetAxisTickSpacingPayload    `json:"set_axis_tick_spacing,omitempty" msgpack:"set_axis_tick_spacing,omitempty"`
-	SetAxisType           *SetAxisTypePayload           `json:"set_axis_type,omitempty" msgpack:"set_axis_type,omitempty"`
-	SetLineLabel          *SetLineLabelPayload          `json:"set_line_label,omitempty" msgpack:"set_line_label,omitempty"`
-	SetLineColor          *SetLineColorPayload          `json:"set_line_color,omitempty" msgpack:"set_line_color,omitempty"`
-	SetLineStrokeWidth    *SetLineStrokeWidthPayload    `json:"set_line_stroke_width,omitempty" msgpack:"set_line_stroke_width,omitempty"`
-	SetLineDownsample     *SetLineDownsamplePayload     `json:"set_line_downsample,omitempty" msgpack:"set_line_downsample,omitempty"`
-	SetLineDownsampleMode *SetLineDownsampleModePayload `json:"set_line_downsample_mode,omitempty" msgpack:"set_line_downsample_mode,omitempty"`
-	SetLine               *SetLinePayload               `json:"set_line,omitempty" msgpack:"set_line,omitempty"`
-	SetRule               *SetRulePayload               `json:"set_rule,omitempty" msgpack:"set_rule,omitempty"`
-	SetRuleLabel          *SetRuleLabelPayload          `json:"set_rule_label,omitempty" msgpack:"set_rule_label,omitempty"`
-	SetRuleColor          *SetRuleColorPayload          `json:"set_rule_color,omitempty" msgpack:"set_rule_color,omitempty"`
-	SetRuleAxis           *SetRuleAxisPayload           `json:"set_rule_axis,omitempty" msgpack:"set_rule_axis,omitempty"`
-	SetRuleLineWidth      *SetRuleLineWidthPayload      `json:"set_rule_line_width,omitempty" msgpack:"set_rule_line_width,omitempty"`
-	SetRuleLineDash       *SetRuleLineDashPayload       `json:"set_rule_line_dash,omitempty" msgpack:"set_rule_line_dash,omitempty"`
-	SetRuleUnits          *SetRuleUnitsPayload          `json:"set_rule_units,omitempty" msgpack:"set_rule_units,omitempty"`
-	SetRulePosition       *SetRulePositionPayload       `json:"set_rule_position,omitempty" msgpack:"set_rule_position,omitempty"`
-	RemoveRule            *RemoveRulePayload            `json:"remove_rule,omitempty" msgpack:"remove_rule,omitempty"`
+	Create                *CreatePayload                `json:"create,omitzero" msgpack:"create,omitempty"`
+	Rename                *RenamePayload                `json:"rename,omitzero" msgpack:"rename,omitempty"`
+	SetTitleVisible       *SetTitleVisiblePayload       `json:"set_title_visible,omitzero" msgpack:"set_title_visible,omitempty"`
+	SetTitleLevel         *SetTitleLevelPayload         `json:"set_title_level,omitzero" msgpack:"set_title_level,omitempty"`
+	SetLegendHidden       *SetLegendHiddenPayload       `json:"set_legend_hidden,omitzero" msgpack:"set_legend_hidden,omitempty"`
+	SetLegendPosition     *SetLegendPositionPayload     `json:"set_legend_position,omitzero" msgpack:"set_legend_position,omitempty"`
+	AddChannel            *AddChannelPayload            `json:"add_channel,omitzero" msgpack:"add_channel,omitempty"`
+	RemoveChannel         *RemoveChannelPayload         `json:"remove_channel,omitzero" msgpack:"remove_channel,omitempty"`
+	SetChannels           *SetChannelsPayload           `json:"set_channels,omitzero" msgpack:"set_channels,omitempty"`
+	SetXChannel           *SetXChannelPayload           `json:"set_x_channel,omitzero" msgpack:"set_x_channel,omitempty"`
+	AddRange              *AddRangePayload              `json:"add_range,omitzero" msgpack:"add_range,omitempty"`
+	RemoveRange           *RemoveRangePayload           `json:"remove_range,omitzero" msgpack:"remove_range,omitempty"`
+	SetRanges             *SetRangesPayload             `json:"set_ranges,omitzero" msgpack:"set_ranges,omitempty"`
+	SetCustomRange        *SetCustomRangePayload        `json:"set_custom_range,omitzero" msgpack:"set_custom_range,omitempty"`
+	SetAxisLabel          *SetAxisLabelPayload          `json:"set_axis_label,omitzero" msgpack:"set_axis_label,omitempty"`
+	SetAxisLabelDirection *SetAxisLabelDirectionPayload `json:"set_axis_label_direction,omitzero" msgpack:"set_axis_label_direction,omitempty"`
+	SetAxisLabelLevel     *SetAxisLabelLevelPayload     `json:"set_axis_label_level,omitzero" msgpack:"set_axis_label_level,omitempty"`
+	SetAxisBounds         *SetAxisBoundsPayload         `json:"set_axis_bounds,omitzero" msgpack:"set_axis_bounds,omitempty"`
+	SetAxisTickSpacing    *SetAxisTickSpacingPayload    `json:"set_axis_tick_spacing,omitzero" msgpack:"set_axis_tick_spacing,omitempty"`
+	SetAxisType           *SetAxisTypePayload           `json:"set_axis_type,omitzero" msgpack:"set_axis_type,omitempty"`
+	SetLineLabel          *SetLineLabelPayload          `json:"set_line_label,omitzero" msgpack:"set_line_label,omitempty"`
+	SetLineColor          *SetLineColorPayload          `json:"set_line_color,omitzero" msgpack:"set_line_color,omitempty"`
+	SetLineStrokeWidth    *SetLineStrokeWidthPayload    `json:"set_line_stroke_width,omitzero" msgpack:"set_line_stroke_width,omitempty"`
+	SetLineDownsample     *SetLineDownsamplePayload     `json:"set_line_downsample,omitzero" msgpack:"set_line_downsample,omitempty"`
+	SetLineDownsampleMode *SetLineDownsampleModePayload `json:"set_line_downsample_mode,omitzero" msgpack:"set_line_downsample_mode,omitempty"`
+	SetLine               *SetLinePayload               `json:"set_line,omitzero" msgpack:"set_line,omitempty"`
+	SetRule               *SetRulePayload               `json:"set_rule,omitzero" msgpack:"set_rule,omitempty"`
+	SetRuleLabel          *SetRuleLabelPayload          `json:"set_rule_label,omitzero" msgpack:"set_rule_label,omitempty"`
+	SetRuleColor          *SetRuleColorPayload          `json:"set_rule_color,omitzero" msgpack:"set_rule_color,omitempty"`
+	SetRuleAxis           *SetRuleAxisPayload           `json:"set_rule_axis,omitzero" msgpack:"set_rule_axis,omitempty"`
+	SetRuleLineWidth      *SetRuleLineWidthPayload      `json:"set_rule_line_width,omitzero" msgpack:"set_rule_line_width,omitempty"`
+	SetRuleLineDash       *SetRuleLineDashPayload       `json:"set_rule_line_dash,omitzero" msgpack:"set_rule_line_dash,omitempty"`
+	SetRuleUnits          *SetRuleUnitsPayload          `json:"set_rule_units,omitzero" msgpack:"set_rule_units,omitempty"`
+	SetRulePosition       *SetRulePositionPayload       `json:"set_rule_position,omitzero" msgpack:"set_rule_position,omitempty"`
+	RemoveRule            *RemoveRulePayload            `json:"remove_rule,omitzero" msgpack:"remove_rule,omitempty"`
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on

@@ -42,6 +42,8 @@ export interface ClientConfig {
   unary: UnaryClient;
   file: FileTransport;
   retrieveChannels: ChannelRetriever;
+  /** Receives each failed reconnect attempt of a feed's stream. */
+  onRetry?: (error: Error) => void;
 }
 
 /**
@@ -110,8 +112,10 @@ export class Client {
   openFeed(options: FeedOptions = {}): Feed {
     return new Feed({
       ...options,
+      onRetry: this.cfg.onRetry,
       readRemote: async (tr, keys) => await this.read(tr, keys),
       openStreamer: async (config) => await this.openStreamer(config),
+      readLatest: async (keys) => await this.readLatest(keys, 1),
     });
   }
 

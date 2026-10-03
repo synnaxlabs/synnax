@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -74,10 +75,16 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:       statusSvc,
 	}))
 	channelWriter = channelSvc.NewWriter(nil)
-	framerSvc = MustOpen(svcframer.OpenService(ctx, svcframer.ServiceConfig{
-		Framer:  node.Framer,
+	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
+		DB:      node.DB,
 		Channel: channelSvc,
 		Status:  statusSvc,
+	}))
+	framerSvc = MustOpen(svcframer.OpenService(ctx, svcframer.ServiceConfig{
+		DB:           node.DB,
+		Framer:       node.Framer,
+		Channel:      channelSvc,
+		ChannelGraph: channelGraph,
 	}))
 	apiChannelSvc = MustSucceed(channel.NewService(config.LayerConfig{
 		Distribution: &distribution.Layer{DB: node.DB},

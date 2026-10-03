@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { theme as baseTheme } from "@synnaxlabs/lyra/theme";
 import {
   border,
   bounds,
@@ -25,7 +26,6 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
 import { theming } from "@/theming/aether";
-import { fontString } from "@/theming/base/fontString";
 import { newTickFactory, type Tick, type TickFactory } from "@/vis/axis/ticks";
 import { type Element } from "@/vis/diagram/aether/Diagram";
 import { Draw2D } from "@/vis/draw2d";
@@ -56,9 +56,8 @@ export const scaleStateZ = staleness.configZ.extend({
   caretSide: location.outerZ.default("right"),
   // Appended to the readout, after the value.
   units: z.string().default(""),
-  // Colors the fill, the caret, and the readout once the source stops sending. Zero
-  // uses the theme.
-  stalenessColor: color.colorZ.default(color.ZERO),
+  // Colors the fill, the caret, and the readout once the source stops sending.
+  stalenessColor: color.colorZ.optional(),
   // Formatting of the readout value.
   notation: notation.notationZ.default("standard"),
   precision: z.number().default(2),
@@ -88,6 +87,18 @@ export const gutter = ({
   externalScale?: boolean;
 }): number => (showScale && !externalScale ? GUTTER : 0);
 
+/** @returns the level color a scale paints while its color is absent. */
+export const levelColorFallback = (theme: baseTheme.Theme): color.Color =>
+  theme.colors.visualization.palettes.default[0];
+
+/** @returns the axis and tick color a scale paints while its axis color is absent. */
+export const axisColorFallback = (theme: baseTheme.Theme): color.Color =>
+  theme.colors.gray.l8;
+
+/** @returns the tick label color a scale paints while its text color is absent. */
+export const textColorFallback = (theme: baseTheme.Theme): color.Color =>
+  theme.colors.gray.l10;
+
 const TICK_LENGTH = 5;
 // Minor ticks are denser, unlabeled markers drawn shorter than the labeled major ticks.
 const MINOR_TICK_LENGTH = 3;
@@ -101,7 +112,7 @@ const UNITS_GAP = 4;
 const EXTERNAL_GAP = 10;
 
 interface InternalState {
-  theme: theming.Theme;
+  theme: baseTheme.Theme;
   render: render.Context;
   telem: telem.NumberSource;
   staleness: staleness.Registration;
@@ -146,11 +157,11 @@ export class Scale
     i.requestRender = render.useOptionalRequestor(ctx);
 
     i.fillColor = color.isZero(this.state.color)
-      ? i.theme.colors.visualization.palettes.default[0]
+      ? levelColorFallback(i.theme)
       : this.state.color;
     const { axisColor, textColor } = this.state;
-    i.axisColor = color.isZero(axisColor) ? i.theme.colors.gray.l8 : axisColor;
-    i.textColor = color.isZero(textColor) ? i.theme.colors.gray.l10 : textColor;
+    i.axisColor = color.isZero(axisColor) ? axisColorFallback(i.theme) : axisColor;
+    i.textColor = color.isZero(textColor) ? textColorFallback(i.theme) : textColor;
     i.tickLevel = this.state.level;
 
     const { lower, upper } = this.state.bounds;
@@ -469,7 +480,7 @@ export class Scale
     const { theme, tickLevel, stale } = this.internal;
     const valueColor = this.valueColor;
     const ctx = draw.canvas;
-    ctx.font = fontString(theme, { level: tickLevel, code: true });
+    ctx.font = baseTheme.fontString(theme, { level: tickLevel, code: true });
     const value = ctx.textDimensions(valueText, { useAtlas: true });
     // The units are drawn separately so they sit tighter than a monospace space.
     const unitsWidth =

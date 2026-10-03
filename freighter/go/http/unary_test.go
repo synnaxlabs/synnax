@@ -227,8 +227,6 @@ var _ = BeforeSuite(func() {
 	}).WithPolling(1 * time.Millisecond).Should(Succeed())
 })
 
-var _ = AfterSuite(func() { Expect(unaryApp.Shutdown()).To(Succeed()) })
-
 var _ = Describe("Unary", func() {
 	test.UnarySuite(func() (
 		freighter.UnaryServer[test.Request, test.Response],
@@ -259,6 +257,7 @@ var _ = Describe("Unary", func() {
 			accept string,
 			body []byte,
 		) (*http.Response, []byte) {
+			GinkgoHelper()
 			httpReq := MustSucceed(http.NewRequestWithContext(
 				ctx,
 				http.MethodPost,
@@ -593,6 +592,7 @@ var _ = Describe("Unary", func() {
 			)
 		}
 		post := func(ctx context.Context, query string) test.Response {
+			GinkgoHelper()
 			body := MustSucceed(json.Codec.Encode(ctx, test.Request{}))
 			httpReq := MustSucceed(http.NewRequestWithContext(
 				ctx, http.MethodPost,

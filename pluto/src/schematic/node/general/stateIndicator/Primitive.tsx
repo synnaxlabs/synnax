@@ -9,20 +9,25 @@
 
 import "@/schematic/node/general/stateIndicator/stateIndicator.css";
 
+import { type schematic } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
-import { HEIGHTS } from "@/component/size";
-import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { SIZE_LEVELS } from "@/schematic/node/common/size";
-import { type Config } from "@/schematic/node/general/stateIndicator/config";
-import { symbolColorVar } from "@/schematic/symbolColor";
-import { Text } from "@/text";
-import { Theming } from "@/theming";
 
-interface RenderProps extends Omit<Config, "variant"> {
+interface RenderProps extends Partial<
+  Pick<
+    schematic.StateIndicatorNodeConfig,
+    "strokeColor" | "orientation" | "inlineSize" | "size"
+  >
+> {
+  options: schematic.StateIndicatorNodeConfig["options"];
   className?: string;
   matchedOptionKey?: string | null;
   /** Colors the label while the state channel is stale. */
@@ -34,7 +39,7 @@ export const StateIndicator = ({
   orientation = "left",
   matchedOptionKey,
   options,
-  color: colorVal,
+  strokeColor,
   inlineSize,
   size = "medium",
   staleColor,
@@ -58,12 +63,12 @@ export const StateIndicator = ({
   const label = matched != null ? matched.name || `Option ${matched.value}` : "Unknown";
   const style = useMemo<CSSProperties>(
     () => ({
-      [CSS.variable("symbol-color")]: symbolColorVar(colorVal),
+      [CSS.variable("symbol-color")]: color.rgbaString(strokeColor),
       backgroundColor,
       minWidth: inlineSize,
-      height: HEIGHTS[size],
+      height: Component.HEIGHTS[size],
     }),
-    [colorVal, backgroundColor, inlineSize, size],
+    [strokeColor, backgroundColor, inlineSize, size],
   );
   return (
     <Primitive.Div

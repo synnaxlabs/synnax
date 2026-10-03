@@ -612,6 +612,42 @@ var _ = Describe("Type", func() {
 		})
 	})
 
+	Describe("IsFixedWidth", func() {
+		DescribeTable("Should return true for fixed-width primitives",
+			func(t types.Type) {
+				Expect(t.IsFixedWidth()).To(BeTrue())
+			},
+			Entry("U8", types.U8()),
+			Entry("U16", types.U16()),
+			Entry("U32", types.U32()),
+			Entry("U64", types.U64()),
+			Entry("I8", types.I8()),
+			Entry("I16", types.I16()),
+			Entry("I32", types.I32()),
+			Entry("I64", types.I64()),
+			Entry("F32", types.F32()),
+			Entry("F64", types.F64()),
+			Entry("Bool", types.Bool()),
+			Entry("TimeStamp", types.TimeStamp()),
+			Entry("TimeSpan", types.TimeSpan()),
+		)
+
+		DescribeTable("Should return false for every type Density panics on",
+			func(t types.Type) {
+				Expect(t.IsFixedWidth()).To(BeFalse())
+			},
+			Entry("String", types.String()),
+			Entry("Chan", types.Chan(types.I32())),
+			Entry("Series", types.Series(types.F64())),
+			Entry("Variable", types.Variable("T", nil)),
+			Entry("NumericConstraint", types.NumericConstraint()),
+			Entry("IntegerConstraint", types.IntegerConstraint()),
+			Entry("FloatConstraint", types.FloatConstraint()),
+			Entry("Function", types.Function(types.FunctionProperties{})),
+			Entry("Invalid", types.Type{Kind: types.KindInvalid}),
+		)
+	})
+
 	Describe("Density", func() {
 		DescribeTable("Should return correct byte size for fixed-size primitives",
 			func(t types.Type, expectedDensity int) {

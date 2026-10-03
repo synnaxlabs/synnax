@@ -7,20 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Form as Base } from "@synnaxlabs/lyra/form";
 import { color } from "@synnaxlabs/x";
 import { render } from "@testing-library/react";
 import { type ReactElement, useImperativeHandle } from "react";
 import { assert, describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { Form as Base } from "@/form";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const schema = z.object({
   label: Label.configZ,
-  color: color.crudeZ.optional(),
+  strokeColor: color.crudeZ.optional(),
   scale: z.number(),
   orientation: z.string(),
   specKey: z.string().optional(),
@@ -29,7 +29,7 @@ const schema = z.object({
 type Values = z.infer<typeof schema>;
 
 const VALUES: Values = {
-  label: Label.defaultConfig("Valve"),
+  label: Label.configZ.parse({ label: "Valve" }),
   scale: 1,
   orientation: "left",
 };
@@ -48,7 +48,7 @@ const SynnaxWrapper = createSynnaxWrapper({ client: null });
 const Host = ({ values, ref }: HostProps): ReactElement => {
   const methods = Base.use({ values, schema });
   useImperativeHandle(ref, () => ({
-    get: () => methods.get<color.Crude>("color", { optional: true })?.value,
+    get: () => methods.get<color.Crude>("strokeColor", { optional: true })?.value,
   }));
   return (
     <SynnaxWrapper>
@@ -60,18 +60,18 @@ const Host = ({ values, ref }: HostProps): ReactElement => {
 };
 
 describe("Form.StyleForm", () => {
-  it("should seed a zero color when the config has none", () => {
+  it("should show the stroke field without writing a color the config lacks", () => {
     const ref: { current: Handle | null } = { current: null };
     const { getByText } = render(<Host values={VALUES} ref={ref} />);
-    expect(getByText("Color")).toBeDefined();
+    expect(getByText("Stroke")).toBeDefined();
     assert(ref.current != null);
-    expect(ref.current.get()).toEqual(color.ZERO);
+    expect(ref.current.get()).toBeUndefined();
   });
 
-  it("should hide the color field when the config carries state overrides", () => {
+  it("should hide the stroke field when the config carries state overrides", () => {
     const { queryByText } = render(
       <Host values={{ ...VALUES, specKey: "", stateOverrides: [] }} />,
     );
-    expect(queryByText("Color")).toBeNull();
+    expect(queryByText("Stroke")).toBeNull();
   });
 });

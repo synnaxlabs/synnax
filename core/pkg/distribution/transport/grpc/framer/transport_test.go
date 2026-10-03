@@ -11,7 +11,6 @@ package framer_test
 
 import (
 	"context"
-	"go/types"
 	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -97,16 +96,16 @@ var _ = Describe("Transport", func() {
 		It("Should round-trip a delete request over the wire", func(ctx SpecContext) {
 			var received deleter.Request
 			transport.Deleter().Server().BindHandler(
-				func(_ context.Context, req deleter.Request) (types.Nil, error) {
+				func(_ context.Context, req deleter.Request) (struct{}, error) {
 					received = req
-					return types.Nil{}, nil
+					return struct{}{}, nil
 				},
 			)
 			Expect(transport.Deleter().Client().Send(
 				ctx,
 				addr,
 				deleter.Request{Keys: channel.Keys{1, 2, 3}},
-			)).To(Equal(types.Nil{}))
+			)).To(Equal(struct{}{}))
 			Expect(received.Keys).To(Equal(channel.Keys{1, 2, 3}))
 		})
 	})

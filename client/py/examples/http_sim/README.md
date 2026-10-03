@@ -1,4 +1,4 @@
-# HTTP Driver Examples
+# HTTP driver examples
 
 This directory contains example scripts for working with HTTP/REST devices in Synnax.
 
@@ -10,13 +10,13 @@ This directory contains example scripts for working with HTTP/REST devices in Sy
    - For testing: Mock HTTP server (included in `examples/http_sim/server.py`)
 2. **Authentication**: Logged in to Synnax CLI (`uv run sy login`)
 
-## Quick Start Guide
+## Quick start guide
 
 **Important**: All commands in this guide should be run from the `client/py` directory.
 
 Follow these scripts in order:
 
-### 1. Start the Mock Server (Optional)
+### 1. Start the mock server (optional)
 
 If you don't have a real HTTP endpoint, start the included mock server:
 
@@ -36,7 +36,7 @@ This server simulates:
 The server runs on `http://127.0.0.1:8081` by default. Use `--https` for TLS and
 `--auth <type>` for authentication testing.
 
-### 2. Connect Your HTTP Server
+### 2. Connect your HTTP server
 
 Register your HTTP server with Synnax:
 
@@ -55,7 +55,7 @@ This script will:
 - `DEVICE_NAME`: A friendly name for your HTTP server
 - `HOST`: Host and port of the server (e.g., `127.0.0.1:8081`)
 
-### 3. Read Data from HTTP Endpoints
+### 3. Read data from HTTP endpoints
 
 Poll an HTTP endpoint for sensor data:
 
@@ -71,7 +71,7 @@ This example:
 - Displays live values
 - Press Ctrl+C to stop
 
-### 4. Write Commands via HTTP
+### 4. Write commands via HTTP
 
 Send commands to an HTTP endpoint:
 
@@ -85,7 +85,7 @@ This example:
 - Configures a write task sending PUT `/api/v1/setpoint`
 - Writes setpoint values (20.0, 25.0, ..., 65.0) at 1 Hz for 10 seconds
 
-## Device Configuration
+## Device configuration
 
 ### Connection
 
@@ -127,7 +127,7 @@ auth = {
 }
 ```
 
-### Health Check
+### Health check
 
 Configure how the driver monitors device health:
 
@@ -143,9 +143,9 @@ health_check = sy.http.HealthCheck(
 )
 ```
 
-## Read Task Fields
+## Read task fields
 
-### JSON Pointers
+### JSON pointers
 
 Fields use [JSON Pointer](https://datatracker.ietf.org/doc/html/rfc6901) syntax to
 extract values from the response body:
@@ -155,7 +155,7 @@ sy.http.ReadField(pointer="/temperature", channel=temp_ch.key)
 sy.http.ReadField(pointer="/sensors/sensor_0", channel=sensor_ch.key)
 ```
 
-### Timestamp Fields
+### Timestamp fields
 
 For hardware-timed data, configure a timestamp field and set it as the endpoint's index:
 
@@ -173,7 +173,7 @@ endpoint = sy.http.ReadEndpoint(
 )
 ```
 
-### Enum Fields
+### Enum fields
 
 Map string values to numbers:
 
@@ -185,9 +185,9 @@ sy.http.ReadField(
 )
 ```
 
-## Write Task Fields
+## Write task fields
 
-### Channel Field
+### Channel field
 
 Each write endpoint has one channel field that provides the dynamic value:
 
@@ -199,7 +199,7 @@ sy.http.ChannelField(
 )
 ```
 
-### Static Fields
+### Static fields
 
 Add fixed values to the request body:
 
@@ -208,7 +208,7 @@ sy.http.StaticField(pointer="/source", json_type="string", value="python-client"
 sy.http.StaticField(pointer="/priority", json_type="number", value=1)
 ```
 
-### Generated Fields
+### Generated fields
 
 Add auto-generated values (UUIDs or timestamps):
 
@@ -245,12 +245,12 @@ sy.http.GeneratedField(pointer="/ts", generator="timestamp", time_format="iso860
 - If using response validation, confirm the response matches the expected value
 - Check authentication configuration
 
-## Additional Resources
+## Additional resources
 
 - [JSON Pointer Specification (RFC 6901)](https://datatracker.ietf.org/doc/html/rfc6901)
 - [Synnax HTTP Driver Documentation](https://docs.synnaxlabs.com/reference/driver/http/)
 
-## Next Steps
+## Next steps
 
 After running these examples, you can:
 

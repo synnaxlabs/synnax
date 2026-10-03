@@ -11,7 +11,6 @@ import {
   channel,
   device,
   type framer,
-  type ontology,
   panel,
   project,
   query,
@@ -21,19 +20,23 @@ import {
 } from "@synnaxlabs/client";
 import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
-import { Form as PForm, Panel as PlutoPanel, type Status } from "@synnaxlabs/pluto";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { type Status } from "@synnaxlabs/lyra/status";
+import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import {
+  act,
   fireEvent,
   type RenderResult,
   screen,
   waitFor,
   within,
 } from "@testing-library/react";
-import { act, type FC, type PropsWithChildren, type ReactElement } from "react";
+import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { onTestFinished } from "vitest";
 import { type z } from "zod";
 
+import { Analytics } from "@/platform/analytics";
 import { type FormTabProps } from "@/platform/task/Form";
 import { Session } from "@/session";
 import {
@@ -147,7 +150,7 @@ export const createTaskStatus = (
  * empty channel list. Specs merge their own top-level fields and `config` over this.
  * The status mirrors what core writes for a task that has never been deployed.
  */
-export const DEFAULT_TASK_FORM_VALUES: TaskFormValues = {
+const DEFAULT_TASK_FORM_VALUES: TaskFormValues = {
   key: undefined,
   name: "Test Task",
   rack: 0,
@@ -195,17 +198,6 @@ export const createSelectedPanel = async (
     );
   });
   return { client, panelKey: doc.key, tabKeys: tabs.map((t) => t.key) };
-};
-
-/** Reads the resource ID of a tab from the cached panel doc, or null for none. */
-export const selectTabResource = (
-  { client, panelKey, tabKeys }: CreatedPanel,
-  tabKey: panel.TabKey = tabKeys[0],
-): ontology.ID | null => {
-  const cached = client.panels.getCached(panelKey);
-  if (!query.isLive(cached)) return null;
-  const tab = panel.findTab(cached.root, tabKey);
-  return tab?.variant === "resource" ? tab.resource : null;
 };
 
 /**
@@ -356,6 +348,8 @@ export interface RenderTaskFormTabOptions {
    * callback receives the notification list on every change.
    */
   onStatuses?: (statuses: Status.NotificationSpec[]) => void;
+  /** Receives every event the form reports; discards them by default. */
+  analytics?: Analytics.Sink;
 }
 
 export interface RenderTaskFormTabResult extends RenderResult, CreatedPanel {
@@ -372,7 +366,7 @@ export const renderTaskFormTab = async (
   Form: FC<FormTabProps>,
   options: RenderTaskFormTabOptions = {},
 ): Promise<RenderTaskFormTabResult> => {
-  const { onStatuses } = options;
+  const { onStatuses, analytics = Analytics.NOOP } = options;
   const client = options.client ?? defaultClient;
   const as = options.as ?? client;
   const taskKey =
@@ -393,10 +387,12 @@ export const renderTaskFormTab = async (
     await as.panels.retrieve(created.panelKey);
   }
   const result = await renderSuspended(
-    <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
-      <Form taskKey={taskKey} />
-      {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
-    </PanelScopes>,
+    <Analytics.Provider sink={analytics}>
+      <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
+        <Form taskKey={taskKey} />
+        {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
+      </PanelScopes>
+    </Analytics.Provider>,
     { wrapper },
   );
   return { ...result, ...created, store, tabKey: tab.key };
@@ -526,6 +522,32 @@ export const reportTaskStopped = async (
       details: { task: tsk.key, running: false, configHash: tsk.configHash },
     }),
   });
+};
+
+/**
+ * Answers the next command sent to the task with a success status, as a Driver does.
+ * Specs run without a Driver, so a caller that waits for the answer otherwise times out.
+ * Resolves once it listens, with a promise that settles after the answer is written.
+ */
+export const answerNextCommand = async (
+  client: Client,
+  tsk: task.Task,
+): Promise<{ answered: Promise<void> }> => {
+  const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+  const answer = async (): Promise<void> => {
+    try {
+      const cmd = await awaitCommand(streamer, tsk.key);
+      await client.tasks.create({
+        ...tsk.payload,
+        status: createTaskStatus({
+          details: { task: tsk.key, cmd: cmd.key, rack: tsk.rack },
+        }),
+      });
+    } finally {
+      streamer.close();
+    }
+  };
+  return { answered: answer() };
 };
 
 /** Finds the single text input rendered by a task form field. */

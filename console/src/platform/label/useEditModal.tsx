@@ -10,23 +10,20 @@
 import "@/platform/label/Edit.css";
 
 import { label, type query } from "@synnaxlabs/client";
-import {
-  Access,
-  Button,
-  Color,
-  Component,
-  CSS as PCSS,
-  Dialog,
-  Divider,
-  Flex,
-  type Flux,
-  Form,
-  Icon,
-  Input,
-  Label,
-  List,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Color } from "@synnaxlabs/lyra/color";
+import { Component } from "@synnaxlabs/lyra/component";
+import { CSS as PCSS } from "@synnaxlabs/lyra/css";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Modal } from "@synnaxlabs/lyra/modal";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Access, type Flux, Label } from "@synnaxlabs/pluto";
 import { color } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -96,7 +93,7 @@ const LabelListItem = ({
             padHelpText={false}
             showLabel={false}
           >
-            {(p) => <Color.Swatch onlyChangeOnBlur {...p} />}
+            {(p) => <Color.Swatch onlyChangeOnBlur variant="text" {...p} />}
           </Form.Field>
           <Form.TextField
             showLabel={false}
@@ -164,8 +161,8 @@ export const useEditModal = Modals.create(() => {
   const [searchTerm, setSearchTerm] = useState("");
   const hasCreatePermission = Access.useCreateGranted(label.TYPE_ONTOLOGY_ID);
   return (
-    <Modals.Frame y className={CSS.BE("label", "edit")}>
-      <Modals.Header icon={<Icon.Label />}>Label.Edit</Modals.Header>
+    <Modal.Frame y className={CSS.BE("label", "edit")}>
+      <Modal.Header icon={<Icon.Label />}>Label.Edit</Modal.Header>
       <List.Frame<label.Key, label.Label>
         data={data}
         getItem={getItem}
@@ -196,9 +193,11 @@ export const useEditModal = Modals.create(() => {
             visible={newFormVisible}
             onClose={() => setNewFormVisible(false)}
           />
-          <List.Items grow emptyContent={answered && !newFormVisible && EMPTY_CONTENT}>
-            {listItem}
-          </List.Items>
+          <List.Scroll grow>
+            <List.Items emptyContent={answered && !newFormVisible && EMPTY_CONTENT}>
+              {listItem}
+            </List.Items>
+          </List.Scroll>
           {!newFormVisible && hasCreatePermission && (
             <PlatformButton.CreateListItem
               onClick={() => setNewFormVisible(true)}
@@ -209,6 +208,6 @@ export const useEditModal = Modals.create(() => {
           )}
         </Flex.Box>
       </List.Frame>
-    </Modals.Frame>
+    </Modal.Frame>
   );
 });

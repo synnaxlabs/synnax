@@ -9,9 +9,9 @@
 
 import "@/schematic/node/valves/Solenoid.css";
 
+import { CSS } from "@synnaxlabs/lyra/css";
 import { type ReactElement } from "react";
 
-import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
@@ -23,7 +23,7 @@ const DIMENSIONS = { width: 87, height: 69 };
 
 export const Solenoid = ({
   className,
-  color,
+  strokeColor,
   orientation = "left",
   normallyOpen = false,
   scale,
@@ -77,7 +77,7 @@ export const Solenoid = ({
     </Handle.Boundary>
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >

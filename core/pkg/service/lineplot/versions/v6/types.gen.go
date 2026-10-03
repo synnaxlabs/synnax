@@ -12,7 +12,8 @@
 package v6
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"strconv"
 
 	v5 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v5"
@@ -114,58 +115,53 @@ type CustomRange struct {
 	Variant CustomRangeVariant
 }
 
-// MarshalJSON encodes the active variant with its "variant" tag injected.
-func (u CustomRange) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t CustomRangeType
-	switch u.Variant.(type) {
+// MarshalJSONTo encodes the active variant with its "variant" tag injected.
+func (u CustomRange) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
 	case DynamicCustomRange:
-		t = DynamicCustomRangeType
+		return json.MarshalEncode(enc, struct {
+			Type CustomRangeType `json:"variant"`
+			DynamicCustomRange
+		}{Type: DynamicCustomRangeType, DynamicCustomRange: v})
 	case StaticCustomRange:
-		t = StaticCustomRangeType
+		return json.MarshalEncode(enc, struct {
+			Type CustomRangeType `json:"variant"`
+			StaticCustomRange
+		}{Type: StaticCustomRangeType, StaticCustomRange: v})
 	default:
-		return nil, errors.Newf("CustomRange: nil or unknown variant %T", u.Variant)
+		return errors.Newf("CustomRange: unknown variant %T", v)
 	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["variant"] = tag
-	return json.Marshal(fields)
 }
 
-// UnmarshalJSON decodes the variant selected by the "variant" field.
-func (u *CustomRange) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
+// UnmarshalJSONFrom decodes the variant selected by the "variant" field.
+func (u *CustomRange) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
 		u.Variant = nil
 		return nil
 	}
+	opts := dec.Options()
 	var disc struct {
 		Type CustomRangeType `json:"variant"`
 	}
-	if err := json.Unmarshal(data, &disc); err != nil {
+	if err := json.Unmarshal(data, &disc, opts); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case DynamicCustomRangeType:
 		var v DynamicCustomRange
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case StaticCustomRangeType:
 		var v StaticCustomRange
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
@@ -181,11 +177,11 @@ type Ranges struct {
 	// rather than UUIDs because the console layers synthetic rolling-window ranges
 	// (e.g. "recent", "rolling1m") alongside persisted ranges; the server stores
 	// whatever the client sends.
-	X1 []string `json:"x1,omitzero" msgpack:"x1,omitzero"`
+	X1 []string `json:"x1" msgpack:"x1"`
 	// X2 are the range keys plotted against the x2 axis.
-	X2 []string `json:"x2,omitzero" msgpack:"x2,omitzero"`
+	X2 []string `json:"x2" msgpack:"x2"`
 	// Custom is the window the "custom" range key resolves to.
-	Custom *CustomRange `json:"custom,omitempty" msgpack:"custom,omitempty"`
+	Custom *CustomRange `json:"custom,omitzero" msgpack:"custom,omitempty"`
 }
 
 // ManualBounds controls whether an axis uses a manually-set bound on each side
@@ -227,9 +223,9 @@ type LinePlot struct {
 	// Lines holds per-line styling and downsampling configuration. Each entry
 	// corresponds to one channel and range combination produced by the channels and
 	// ranges bindings.
-	Lines []Line `json:"lines,omitzero" msgpack:"lines,omitzero"`
+	Lines []Line `json:"lines" msgpack:"lines"`
 	// Rules holds annotation rules drawn over the plot.
-	Rules []Rule `json:"rules,omitzero" msgpack:"rules,omitzero"`
+	Rules []Rule `json:"rules" msgpack:"rules"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

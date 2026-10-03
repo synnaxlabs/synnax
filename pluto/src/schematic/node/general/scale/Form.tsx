@@ -7,64 +7,66 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type location } from "@synnaxlabs/x";
+import { Form as Base } from "@synnaxlabs/lyra/form";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Flex } from "@/flex";
-import { Form as Base } from "@/form";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { Scale } from "@/schematic/node/common/scale";
-import { axis, DEFAULT_DIMENSIONS } from "@/schematic/node/general/scale/config";
-import { Tabs } from "@/tabs";
+import { type FormProps } from "@/schematic/node/spec";
+import { Properties } from "@/vis/properties";
 
-export const ScaleForm = (): ReactElement => {
-  const orientation = Base.useField<location.Outer>("orientation", {
-    optional: true,
-  })?.value;
+export const ScaleForm = ({ tab, onTabChange }: FormProps): ReactElement => {
+  const { value: orientation } = Base.useField<location.Outer>("orientation");
   return (
-    <Tabs.Frame initialValue="properties">
-      <Tabs.Selector>
-        <Tabs.Tab itemKey="properties">Properties</Tabs.Tab>
-        <Tabs.Tab itemKey="telemetry">Telemetry</Tabs.Tab>
-      </Tabs.Selector>
-      <Tabs.Content itemKey="properties">
-        <Form.Wrapper x>
-          <Flex.Box y grow>
+    <Properties.Tabs tabs={["telemetry", "style"]} tab={tab} onTabChange={onTabChange}>
+      <Tabs.Content itemKey="style">
+        <Base.Sections x>
+          <Base.Section title="Label">
             <Label.Form path="label" />
-            <Flex.Box x>
-              <Base.NumericField
-                path="dimensions.width"
-                label="Width"
+          </Base.Section>
+          <Base.Section title="Dimensions">
+            <Base.NumericField
+              path="dimensions.width"
+              label="Width"
+              padHelpText={false}
+              inputProps={Form.DIMENSIONS_INPUT_PROPS}
+            />
+            <Base.NumericField
+              path="dimensions.height"
+              label="Height"
+              padHelpText={false}
+              inputProps={Form.DIMENSIONS_INPUT_PROPS}
+            />
+          </Base.Section>
+          <Base.Section title="Display">
+            <Scale.DisplayFields axis={location.direction(orientation)}>
+              <Form.NegatedSwitchField
+                path="caretHidden"
+                label="Value"
                 padHelpText={false}
-                defaultValue={DEFAULT_DIMENSIONS.width}
-                inputProps={Form.DIMENSIONS_INPUT_PROPS}
               />
-              <Base.NumericField
-                path="dimensions.height"
-                label="Height"
+              <Form.NegatedSwitchField
+                path="scaleHidden"
+                label="Scale"
                 padHelpText={false}
-                defaultValue={DEFAULT_DIMENSIONS.height}
-                inputProps={Form.DIMENSIONS_INPUT_PROPS}
               />
-              <Scale.DisplayFields path="indicator" axis={axis(orientation)} />
-            </Flex.Box>
-            <Flex.Box x>
-              <Form.ColorField path="color" label="Fill color" />
-              <Scale.StyleFields path="indicator" />
-            </Flex.Box>
-          </Flex.Box>
-          <Orientation.Field path="" hideInner />
-        </Form.Wrapper>
+            </Scale.DisplayFields>
+          </Base.Section>
+          <Base.Section title="Appearance">
+            <Scale.StyleFields />
+          </Base.Section>
+          <Orientation.Section path="" hideInner />
+        </Base.Sections>
       </Tabs.Content>
       <Tabs.Content itemKey="telemetry">
-        <Form.Wrapper x>
-          <Flex.Box y grow>
-            <Scale.TelemForm path="indicator" />
-          </Flex.Box>
-        </Form.Wrapper>
+        <Base.Sections x>
+          <Scale.TelemForm />
+        </Base.Sections>
       </Tabs.Content>
-    </Tabs.Frame>
+    </Properties.Tabs>
   );
 };

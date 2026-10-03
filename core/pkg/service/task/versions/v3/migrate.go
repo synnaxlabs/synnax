@@ -11,7 +11,7 @@ package v3
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 
 	"github.com/cespare/xxhash/v2"
@@ -64,7 +64,7 @@ func hashConfig(config msgpack.EncodedJSON) (string, error) {
 	if config == nil {
 		config = msgpack.EncodedJSON{}
 	}
-	b, err := json.Marshal(map[string]any(config))
+	b, err := json.Marshal(map[string]any(config), json.Deterministic(true))
 	if err != nil {
 		return "", errors.Wrap(err, "failed to hash task config")
 	}
@@ -187,12 +187,12 @@ func stageAndRemove(
 	otgW ontology.Writer,
 	t v2.Task,
 ) error {
-	b, err := json.Marshal(t)
+	b, err := json.Marshal(t, json.Deterministic(true))
 	if err != nil {
 		marshalErr := err
 		stripped := t
 		stripped.Config = nil
-		if b, err = json.Marshal(stripped); err != nil {
+		if b, err = json.Marshal(stripped, json.Deterministic(true)); err != nil {
 			return err
 		}
 		ins.L.Warn(

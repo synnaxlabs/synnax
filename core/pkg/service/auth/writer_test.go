@@ -11,8 +11,8 @@ package auth_test
 
 import (
 	"strings"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
@@ -31,7 +31,7 @@ var _ = Describe("Writer", func() {
 	BeforeEach(func(ctx SpecContext) {
 		svc = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
 		writer = svc.NewWriter(nil)
-		creds = auth.Credentials{Username: uuid.NewString(), Password: "password"}
+		creds = auth.Credentials{Username: uuid.New().String(), Password: "password"}
 		Expect(writer.Register(ctx, creds)).To(Succeed())
 	})
 	Describe("Register", func() {
@@ -53,7 +53,7 @@ var _ = Describe("Writer", func() {
 			"Should propagate the bcrypt error verbatim when the password is too long to hash",
 			func(ctx SpecContext) {
 				err := writer.Register(ctx, auth.Credentials{
-					Username: uuid.NewString(),
+					Username: uuid.New().String(),
 					Password: strings.Repeat("a", 73),
 				})
 				Expect(err).To(MatchError(bcrypt.ErrPasswordTooLong))
@@ -72,7 +72,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should reject an empty password before touching the store",
 			func(ctx SpecContext) {
-				emptyPassUser := uuid.NewString()
+				emptyPassUser := uuid.New().String()
 				Expect(writer.Register(ctx, auth.Credentials{
 					Username: emptyPassUser,
 					Password: "",
@@ -88,7 +88,7 @@ var _ = Describe("Writer", func() {
 	})
 	Describe("UpdateUsername", func() {
 		It("Should rename the credential entry", func(ctx SpecContext) {
-			newUsername := uuid.NewString()
+			newUsername := uuid.New().String()
 			newCreds := auth.Credentials{
 				Username: newUsername,
 				Password: creds.Password,
@@ -113,7 +113,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should return RepeatedUsername when the target name is taken",
 			func(ctx SpecContext) {
-				newUsername := uuid.NewString()
+				newUsername := uuid.New().String()
 				newCreds := auth.Credentials{
 					Username: newUsername,
 					Password: creds.Password,
@@ -130,7 +130,13 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should return an error when the old username is not registered",
 			func(ctx SpecContext) {
-				Expect(writer.UpdateUsername(ctx, uuid.NewString(), uuid.NewString())).
+				Expect(
+					writer.UpdateUsername(
+						ctx,
+						uuid.New().String(),
+						uuid.New().String(),
+					),
+				).
 					To(MatchError(query.ErrNotFound))
 			},
 		)
@@ -152,7 +158,7 @@ var _ = Describe("Writer", func() {
 			"Should return InvalidCredentials when the username is not registered",
 			func(ctx SpecContext) {
 				Expect(writer.ChangePassword(ctx, auth.Credentials{
-					Username: uuid.NewString(),
+					Username: uuid.New().String(),
 					Password: newPassword,
 				})).To(MatchError(auth.ErrInvalidCredentials))
 			},
@@ -204,7 +210,10 @@ var _ = Describe("Writer", func() {
 			}
 		})
 		It("Should delete multiple credentials", func(ctx SpecContext) {
-			creds2 := auth.Credentials{Username: uuid.NewString(), Password: "password"}
+			creds2 := auth.Credentials{
+				Username: uuid.New().String(),
+				Password: "password",
+			}
 			Expect(writer.Register(ctx, creds2)).To(Succeed())
 			Expect(
 				writer.Deactivate(ctx, creds.Username, creds2.Username),

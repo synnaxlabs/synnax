@@ -9,7 +9,9 @@
 
 import { channel, DataType, ontology } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Channel as PChannel, List, Text } from "@synnaxlabs/pluto";
+import { List } from "@synnaxlabs/lyra/list";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Channel as PChannel } from "@synnaxlabs/pluto";
 import { act, fireEvent, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";

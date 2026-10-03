@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { CSS } from "@synnaxlabs/lyra/css";
 import { type ReactElement } from "react";
 
-import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Label } from "@/schematic/node/flowmeters/Label";
@@ -22,7 +22,7 @@ export const Venturi = ({
   id,
   className,
   orientation = "right",
-  color,
+  strokeColor,
   scale = 1,
   ...rest
 }: Props): ReactElement => (
@@ -59,7 +59,7 @@ export const Venturi = ({
     </Handle.Boundary>
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >
@@ -68,7 +68,7 @@ export const Venturi = ({
       <Primitive.Path d="M8 2L26.5329 12.7" strokeLinecap="round" />
       <Primitive.Path d="M56 33L26.5876 22.2948" strokeLinecap="round" />
       <Primitive.Path d="M56 2L26.5876 12.7052" strokeLinecap="round" />
-      <Label position={LABELS} color={color} />
+      <Label position={LABELS} strokeColor={strokeColor} />
     </Primitive.SVG>
   </Primitive.Div>
 );

@@ -1,0 +1,36 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# GitHub does not cancel the CI run of a merge group it merges past, rebuilds, or
+# dequeues. This run joins the CI concurrency group of the destroyed merge group, which
+# cancels that CI run and frees its runners.
+
+name: Cancel - Merge group
+
+on:
+  merge_group:
+    types: [destroyed]
+
+# Must match the merge group key in ci.yaml.
+concurrency:
+  group: ci-${{ github.event.merge_group.head_ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  cancel:
+    name: Cancel
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log the reason
+        env:
+          HEAD_REF: ${{ github.event.merge_group.head_ref }}
+          REASON: ${{ github.event.reason }}
+        run: echo "Merge group $HEAD_REF was destroyed ($REASON)."

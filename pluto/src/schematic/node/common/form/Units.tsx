@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Form } from "@synnaxlabs/lyra/form";
 import { type ReactElement } from "react";
-
-import { Form } from "@/form";
 
 export const UnitsField = (props: Partial<Form.TextFieldProps>): ReactElement => (
   <Form.TextField

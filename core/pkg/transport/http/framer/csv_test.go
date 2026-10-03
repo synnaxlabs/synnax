@@ -13,8 +13,8 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"

@@ -11,7 +11,8 @@ package v7
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"math"
 
 	"github.com/samber/lo"
@@ -224,7 +225,7 @@ func segmentsToRaw(segs []segment) []any {
 // schematic.oracle. Empty entries are dropped because msgpack.EncodedJSON is
 // nil-equivalent to "no entry".
 func migrateProps(
-	in map[string]json.RawMessage,
+	in map[string]jsontext.Value,
 ) (map[string]msgpack.EncodedJSON, error) {
 	if len(in) == 0 {
 		return nil, nil

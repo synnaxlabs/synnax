@@ -1,4 +1,4 @@
-# Tank Pressurization Control Sequence
+# Tank pressurization control sequence
 
 This directory contains a control sequence to simulate a tank-pressure control (TPC)
 test sequence. TPC sequences are commonly used to control the pressure in rocket
@@ -19,7 +19,7 @@ This directory contains several files:
 
 The simulator for this example is located in `examples/simulators/tpc.py`.
 
-## Running the Example
+## Running the example
 
 To run the example, make sure you have:
 
@@ -64,7 +64,7 @@ The control sequence will run and you should see the pressure in the system incr
 decrease over time. You should also see the state of the pressurization system update in
 the Console.
 
-## Using the Operator Schematic
+## Using the operator schematic
 
 This directory includes an example schematic (`schematic.json`) that provides a visual
 interface for monitoring and controlling the example TPC system. To use it:

@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot } from "@synnaxlabs/client";
-import { Flex, Input, LinePlot } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Input } from "@synnaxlabs/lyra/input";
+import { LinePlot } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { CSS } from "@/platform/css";

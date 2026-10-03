@@ -16,12 +16,14 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/gorp"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -31,6 +33,7 @@ func TestSignals(t *testing.T) {
 }
 
 var (
+	db         *gorp.DB
 	channelSvc *channel.Service
 	framerSvc  *framer.Service
 )
@@ -38,6 +41,7 @@ var (
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := mock.NewNode(ctx)
+	db = node.DB
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
 	searchIdx := MustOpen(search.OpenIndex())
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
@@ -67,10 +71,16 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:       searchIdx,
 		Status:       statusSvc,
 	}))
-	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-		Framer:  node.Framer,
+	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
+		DB:      node.DB,
 		Channel: channelSvc,
 		Status:  statusSvc,
+	}))
+	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
+		DB:           node.DB,
+		Framer:       node.Framer,
+		Channel:      channelSvc,
+		ChannelGraph: channelGraph,
 	}))
 })
 

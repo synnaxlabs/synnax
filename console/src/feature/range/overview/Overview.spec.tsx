@@ -19,7 +19,8 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Errors, Flux, Icon, Panel as PlutoPanel } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Errors, Flux, Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ComponentType } from "react";
@@ -107,7 +108,6 @@ const createChildRange = async (parent: ranger.Range): Promise<ranger.Range> => 
 const createSnapshot = async (rng: ranger.Range): Promise<ontology.ID> => {
   const project = await client.projects.create({
     name: uniqueName("proj"),
-    layout: {},
   });
   const sch = await client.schematics.create(project.key, {
     name: uniqueName("sch"),
@@ -218,7 +218,6 @@ describe("range/overview tab", () => {
 
     const project = await client.projects.create({
       name: uniqueName("proj"),
-      layout: {},
     });
     await act(async () => {
       await restore({ client, project: project.key, resource: rng.ontologyID });
@@ -241,7 +240,6 @@ describe("range/overview tab", () => {
 
     const project = await client.projects.create({
       name: uniqueName("proj"),
-      layout: {},
     });
     await restore({ client, project: project.key, resource: rng.ontologyID });
 
