@@ -315,14 +315,7 @@ import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
 </style>
 
 <script>
-    const header = document.querySelector(".header");
-    const updateHeader = () => {
-        if (window.scrollY <= 10) {
-            header?.classList.add("header--top");
-        } else {
-            header?.classList.remove("header--top");
-        }
-    };
-    updateHeader();
-    window.addEventListener("scroll", updateHeader, { passive: true });
+    import { start } from "@/components/header";
+
+    start();
 </script>

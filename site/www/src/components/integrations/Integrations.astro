@@ -555,39 +555,9 @@ import CdnPicture from "@/components/common/CdnPicture.astro";
 </style>
 
 <script>
-    const vendor = document.querySelector(".integrations-vendor");
+    import * as vendor from "@/components/integrations/vendor";
+    import * as workflow from "@/components/integrations/workflow";
 
-    document.querySelectorAll(".integration-cell").forEach((cell) => {
-        cell.addEventListener("mouseenter", () => {
-            const name = cell.getAttribute("data-vendor");
-            const color = getComputedStyle(cell).getPropertyValue("--brand-color");
-            if (vendor && name) {
-                vendor.textContent = name;
-                (vendor as HTMLElement).style.color = color;
-            }
-        });
-
-        cell.addEventListener("mouseleave", () => {
-            if (vendor) {
-                vendor.textContent = "existing";
-                (vendor as HTMLElement).style.color = "";
-            }
-        });
-    });
-
-    const tabs = document.querySelectorAll(".workflow-tab");
-    const panels = document.querySelectorAll(".workflow-panel");
-
-    tabs.forEach((tab) => {
-        tab.addEventListener("click", () => {
-            const step = tab.getAttribute("data-step");
-            tabs.forEach((t) => t.classList.remove("workflow-tab--active"));
-            panels.forEach((p) => p.classList.remove("workflow-panel--active"));
-            tab.classList.add("workflow-tab--active");
-            const panel = document.querySelector(
-                `.workflow-panel[data-panel="${step}"]`,
-            );
-            if (panel) panel.classList.add("workflow-panel--active");
-        });
-    });
+    vendor.start();
+    workflow.start();
 </script>

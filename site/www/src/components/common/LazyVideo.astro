@@ -61,20 +61,7 @@ const sources = [{ media: "(max-width: 900px)", src: cdn(narrow) }, { src: cdn(w
 </noscript>
 
 <script>
-    // Defers each download until its video is within one viewport of the screen.
-    const observer = new IntersectionObserver(
-        (entries) => {
-            for (const { target, isIntersecting } of entries) {
-                if (!isIntersecting) continue;
-                const video = target as HTMLVideoElement;
-                observer.unobserve(video);
-                video.autoplay = true;
-                video.load();
-            }
-        },
-        { rootMargin: "100% 0px" },
-    );
-    document
-        .querySelectorAll<HTMLVideoElement>("video[data-lazy-video]")
-        .forEach((video) => observer.observe(video));
+    import { start } from "@/components/common/video";
+
+    start();
 </script>

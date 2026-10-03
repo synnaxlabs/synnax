@@ -1690,9 +1690,15 @@ importers:
       '@synnaxlabs/vite-plugin':
         specifier: 'catalog:'
         version: link:../../configs/vite
+      '@synnaxlabs/x':
+        specifier: 'catalog:'
+        version: link:../../x/ts
       '@testing-library/react':
         specifier: 'catalog:'
         version: 16.3.3(@testing-library/dom@10.4.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@types/jsdom':
+        specifier: 'catalog:'
+        version: 30.0.0
       '@types/react':
         specifier: 'catalog:'
         version: 19.3.0

@@ -7,19 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { getViteConfig } from "astro/config";
-import { type ViteUserConfigFn } from "vitest/config";
+import { failOnConsoleOutput } from "@synnaxlabs/x/testutil";
+import { cleanup } from "@testing-library/react";
+import { afterEach } from "vitest";
 
-const config: ViteUserConfigFn = getViteConfig(
-  {
-    test: {
-      environment: "jsdom",
-      setupFiles: ["src/testutil/setup.ts"],
-      unstubGlobals: true,
-      restoreMocks: true,
-    },
-  },
-  { root: import.meta.dirname },
-);
-
-export default config;
+failOnConsoleOutput();
+afterEach(cleanup);

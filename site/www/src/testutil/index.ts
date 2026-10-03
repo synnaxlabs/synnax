@@ -7,19 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { getViteConfig } from "astro/config";
-import { type ViteUserConfigFn } from "vitest/config";
-
-const config: ViteUserConfigFn = getViteConfig(
-  {
-    test: {
-      environment: "jsdom",
-      setupFiles: ["src/testutil/setup.ts"],
-      unstubGlobals: true,
-      restoreMocks: true,
-    },
-  },
-  { root: import.meta.dirname },
-);
-
-export default config;
+export * from "@/testutil/astro";
+export * from "@/testutil/canvas";
+export * from "@/testutil/image";

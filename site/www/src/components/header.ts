@@ -7,19 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { getViteConfig } from "astro/config";
-import { type ViteUserConfigFn } from "vitest/config";
-
-const config: ViteUserConfigFn = getViteConfig(
-  {
-    test: {
-      environment: "jsdom",
-      setupFiles: ["src/testutil/setup.ts"],
-      unstubGlobals: true,
-      restoreMocks: true,
-    },
-  },
-  { root: import.meta.dirname },
-);
-
-export default config;
+/** Adds `header--top` to the header while the page is within 10 pixels of the top. */
+export const start = (): void => {
+  const header = document.querySelector(".header");
+  const update = (): void => {
+    header?.classList.toggle("header--top", window.scrollY <= 10);
+  };
+  update();
+  window.addEventListener("scroll", update, { passive: true });
+};
