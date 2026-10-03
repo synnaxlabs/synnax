@@ -35,8 +35,8 @@ LIMITS: dict[str, dict[str, Limits]] = {
         "Darwin": Limits(min_wait_ms=1, max_error_percent=2.5, max_spread_ms=1.5),
         "Windows": Limits(min_wait_ms=5, max_error_percent=0.5, max_spread_ms=0.1),
     },
-    # SY-5052: a Go wake is 0.2 to 0.4 ms late, and 1 ms late on macOS. A spin to the
-    # deadline in the Go loop would remove most of it and lower these shortest waits.
+    # SY-5052: a Go wake on macOS is up to 1 ms late. The Linux and Windows limits are
+    # loose: their Core timer wakes within 0.1 ms.
     "Go": {
         "Linux": Limits(min_wait_ms=10, max_error_percent=3.0, max_spread_ms=1.25),
         "Darwin": Limits(min_wait_ms=20, max_error_percent=6.0, max_spread_ms=2.0),
@@ -44,8 +44,7 @@ LIMITS: dict[str, dict[str, Limits]] = {
     },
 }
 
-# The limits of waits of 50 ms or more, measured the same way. On Windows, the C++
-# runtime does not spin before these waits, so its timer is up to 0.7 ms late.
+# The limits of waits of 50 ms or more, measured the same way.
 LONG_LIMITS: dict[str, dict[str, Limits]] = {
     "C++": {
         "Linux": Limits(min_wait_ms=50, max_error_percent=0.5, max_spread_ms=0.1),
