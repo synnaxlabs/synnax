@@ -19,3 +19,6 @@ var epoch = time.Now()
 // Now returns a reading of a monotonic clock. Only the span between two readings has
 // meaning.
 func Now() time.Duration { return time.Since(epoch) }
+
+// Wall returns the wall clock time.
+func Wall() time.Time { return time.Now() }
