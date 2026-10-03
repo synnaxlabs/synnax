@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-//go:build linux || windows
-
 package timer
 
 // waiter is the state of a goroutine that waits on an OS timer.

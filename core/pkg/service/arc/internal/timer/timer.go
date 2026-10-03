@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 // Package timer provides a timer that wakes closer to its deadline than a time.Timer.
-// On Linux, a time.Timer wakes at most once per millisecond.
+// A time.Timer wakes at most once per millisecond on Linux, and up to 1 ms late on
+// macOS.
 package timer
 
 // Timer sends on C when the span given to Reset elapses. It never fires early, but a

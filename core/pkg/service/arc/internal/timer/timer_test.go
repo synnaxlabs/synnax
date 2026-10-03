@@ -10,6 +10,7 @@
 package timer_test
 
 import (
+	"slices"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -79,6 +80,28 @@ var _ = Describe("Timer", func() {
 		Eventually(func() int { return len(t.C) }).Should(Equal(1))
 		Expect(t.Stop()).To(Succeed())
 		Expect(t.C).ToNot(Receive())
+	})
+
+	It("Should fire within half a millisecond of its deadline", func() {
+		const (
+			span  = 10 * time.Millisecond
+			fires = 50
+		)
+		late := make([]time.Duration, fires)
+		for i := range late {
+			start := timer.Now()
+			Expect(t.Reset(span)).To(Succeed())
+			// Eventually would poll, which keeps the Go runtime awake and hides the
+			// lateness of a time.Timer.
+			select {
+			case <-t.C:
+			case <-time.After(time.Second):
+				Fail("timer did not fire")
+			}
+			late[i] = timer.Now() - start - span
+		}
+		slices.Sort(late)
+		Expect(late[fires/2]).To(BeNumerically("<", 500*time.Microsecond))
 	})
 
 	It("Should wake more often than once per millisecond", func() {
