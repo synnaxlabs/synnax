@@ -269,7 +269,11 @@ func (t *impl) open(ctx context.Context) (err error) {
 	}
 
 	tolerance := time.CalculateTolerance(timeMod.BaseInterval)
-	drt.scheduler = scheduler.New(t.prog.Program.IR, nodes, tolerance)
+	sched, err := scheduler.New(t.prog.Program.IR, nodes, tolerance)
+	if err != nil {
+		return err
+	}
+	drt.scheduler = sched
 	drt.timeMod = timeMod
 
 	drt.scheduler.SetErrorHandler(
