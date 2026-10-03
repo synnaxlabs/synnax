@@ -7,12 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import favicon from "@synnaxlabs/media/static/logo/icon-white-favicon.ico?inline";
-import { type APIRoute } from "astro";
+import { type APIContext, type APIRoute } from "astro";
 
 export const prerender = true;
 
-export const GET: APIRoute = async () => {
-  const icon = await fetch(favicon);
-  return new Response(icon.body, { headers: { "Content-Type": "image/x-icon" } });
-};
+export const GET = (({ site }: Pick<APIContext, "site">) =>
+  new Response(
+    `User-agent: *
+Allow: /
+
+Sitemap: ${new URL("/sitemap.xml", site).href}
+`,
+    { headers: { "Content-Type": "text/plain; charset=utf-8" } },
+  )) satisfies APIRoute;

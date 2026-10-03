@@ -7,7 +7,9 @@
     "./Footer.astro": "./src/Footer.astro",
     "./MenuButton.astro": "./src/MenuButton.astro",
     "./PrivacyPolicy.astro": "./src/PrivacyPolicy.astro",
-    "./base.css": "./src/base.css"
+    "./base.css": "./src/base.css",
+    "./integration": "./src/integration.ts",
+    "./sitemap": "./src/sitemap.ts"
   },
   "scripts": {
     "check-types": "astro check",

@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sitemap } from "@synnaxlabs/site-common/sitemap";
+import favicon from "@synnaxlabs/media/static/logo/icon-white-favicon.svg?raw";
+import { type APIRoute } from "astro";
 
 export const prerender = true;
 
-const ROUTES = Object.keys(import.meta.glob("/src/pages/**/*.astro")).map(
-  (file) => file.replace(/^\/src\/pages/, "").replace(/(index)?\.astro$/, "") || "/",
-);
-
-export const GET = sitemap(ROUTES);
+export const GET = (() =>
+  new Response(favicon, {
+    headers: { "Content-Type": "image/svg+xml" },
+  })) satisfies APIRoute;
