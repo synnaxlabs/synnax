@@ -125,7 +125,7 @@ const useRegistry = (): Registry => {
         let label = labelsRef.current.get(key);
         if (label == null) {
           label = document.createElement("span");
-          label.className = CSS.BE("select", "label");
+          label.className = CSS.BE("select", "fixed-label");
           labelsRef.current.set(key, label);
         }
         return label;

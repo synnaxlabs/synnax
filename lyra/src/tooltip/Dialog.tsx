@@ -43,7 +43,8 @@ interface ChildProps {
 
 export interface DialogProps {
   location?: position.Location;
-  hide?: boolean;
+  /** Keeps the tooltip hidden. A function decides on each hover or focus. */
+  hide?: boolean | ((anchor: HTMLElement) => boolean);
   children: [ReactNode, ReactElement<ChildProps>];
 }
 
@@ -53,7 +54,7 @@ export interface ExtensionProps {
   tooltip?: DialogProps["children"][0];
   /** The preferred location relative to the element. Chosen by position when unset. */
   tooltipLocation?: DialogProps["location"];
-  /** Forces the tooltip to stay hidden. */
+  /** Keeps the tooltip hidden. A function decides on each hover or focus. */
   hideTooltip?: DialogProps["hide"];
 }
 
@@ -68,7 +69,8 @@ const ESCAPE_TRIGGERS: Triggers.Trigger[] = [Triggers.ESCAPE];
  * @param props.location - The preferred location for the tooltip relative to the
  * element. If unspecified or the tooltip would overflow the window, the best
  * location is chosen automatically.
- * @param props.hide - Force the tooltip to remain hidden.
+ * @param props.hide - Force the tooltip to remain hidden, or decide on each hover or
+ * focus from the anchor.
  * @default false.
  */
 export const Dialog = ({
@@ -88,6 +90,10 @@ export const Dialog = ({
   const releaseRef = useRef<destructor.Destructor | null>(null);
   const visibleRef = useSyncedRef(visible);
   const hideRef = useSyncedRef(hide);
+  const hidden = useCallback((anchor: HTMLElement): boolean => {
+    const h = hideRef.current;
+    return typeof h === "function" ? h(anchor) : h;
+  }, []);
   const delayRef = useSyncedRef(delay);
 
   const clearOpenTimeout = useCallback((): void => {
@@ -135,7 +141,7 @@ export const Dialog = ({
 
   const handlePointerEnter = useCallback(
     (e: React.PointerEvent<HTMLElement>): void => {
-      if (hideRef.current || e.pointerType === "touch") return;
+      if (e.pointerType === "touch" || hidden(e.currentTarget)) return;
       clearOpenTimeout();
       if (visibleRef.current || isWarm()) return open();
       openTimeoutRef.current = setTimeout(
@@ -143,15 +149,15 @@ export const Dialog = ({
         new TimeSpan(delayRef.current).milliseconds,
       );
     },
-    [open],
+    [open, hidden],
   );
   const handlePointerLeave = useCallback((): void => close(), [close]);
   const handleFocus = useCallback(
     (e: React.FocusEvent<HTMLElement>): void => {
-      if (hideRef.current || !e.currentTarget.matches(":focus-visible")) return;
+      if (!e.currentTarget.matches(":focus-visible") || hidden(e.currentTarget)) return;
       open();
     },
-    [open],
+    [open, hidden],
   );
 
   useEffect(() => {
@@ -178,7 +184,7 @@ export const Dialog = ({
   Triggers.use({ triggers: ESCAPE_TRIGGERS, callback: handleEscape, priority: 200 });
 
   useEffect(() => {
-    if (hide) close(true);
+    if (hide === true) close(true);
   }, [hide, close]);
 
   useEffect(

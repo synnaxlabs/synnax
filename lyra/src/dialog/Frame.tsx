@@ -116,19 +116,17 @@ export { useInternalContext };
 
 const ESCAPE_TRIGGERS: Triggers.Trigger[] = [Triggers.ESCAPE];
 
-const positionsEqual = (
-  variant: Variant,
-  next: box.Box,
-  prev?: box.Box | null,
-): boolean => {
-  const prevNull = prev == null;
-  if (prevNull) return false;
-  const topLeftEqual =
+/** The gap in pixels a dialog keeps from the window edges. */
+const WINDOW_MARGIN = 6;
+
+/** Width counts for every variant, since it moves the clamp to the window's edge. */
+const positionsEqual = (next: box.Box, prev?: box.Box | null): boolean => {
+  if (prev == null) return false;
+  return (
     Math.abs(box.left(next) - box.left(prev)) <= 1 &&
-    Math.abs(box.top(next) - box.top(prev)) <= 1;
-  if (variant === "floating") return topLeftEqual;
-  const widthEqual = Math.abs(box.width(next) - box.width(prev)) <= 1;
-  return topLeftEqual && widthEqual;
+    Math.abs(box.top(next) - box.top(prev)) <= 1 &&
+    Math.abs(box.width(next) - box.width(prev)) <= 1
+  );
 };
 
 const PREFERENCES: position.LocationPreference[] = [
@@ -216,6 +214,7 @@ export const Frame = ({
   const targetRef = useRef<HTMLDivElement>(null);
   const prevLocationPreference = useRef<position.Preference | undefined>(undefined);
   const prevBox = useRef<box.Box | undefined>(undefined);
+  const prevWindowBox = useRef<box.Box | undefined>(undefined);
   const dialogRef = useRef<HTMLDivElement>(null);
 
   const [{ targetCorner, dialogCorner, style, modalPosition }, setState] =
@@ -227,7 +226,9 @@ export const Frame = ({
     const target = box.construct(targetRef.current);
     if (box.areaIsZero(target) && variant !== "modal") return close();
 
-    let dialog = box.construct(dialogRef.current);
+    // Layout size, not the painted box: the entrance animation scales the dialog.
+    const { offsetWidth, offsetHeight } = dialogRef.current;
+    let dialog = box.construct(0, 0, offsetWidth, offsetHeight);
     if (variant === "connected") dialog = box.resize(dialog, "x", box.width(target));
     const windowBox = box.construct(0, 0, window.innerWidth, window.innerHeight);
     if (variant === "modal") {
@@ -256,15 +257,40 @@ export const Frame = ({
     prevLocationPreference.current = locations;
     const { targetCorner, dialogCorner } = locations;
     const roundedDialog = box.round(adjustedDialog);
-    if (positionsEqual(variant, roundedDialog, prevBox.current)) return;
+    if (
+      positionsEqual(roundedDialog, prevBox.current) &&
+      prevWindowBox.current != null &&
+      box.equals(windowBox, prevWindowBox.current)
+    )
+      return;
     prevBox.current = roundedDialog;
-    const style: CSSProperties = {};
-    style.left = box.left(roundedDialog);
-    if (targetCorner.y === "top" && dialogCorner.x === targetCorner.x)
-      style.bottom = box.height(windowBox) - box.bottom(roundedDialog);
-    else style.top = box.top(roundedDialog);
+    prevWindowBox.current = windowBox;
+    const windowWidth = box.width(windowBox);
+    const windowHeight = box.height(windowBox);
+    const style: CSSProperties & Record<string, string | number> = {};
+    style.left = Math.max(
+      WINDOW_MARGIN,
+      Math.min(
+        box.left(roundedDialog),
+        windowWidth - WINDOW_MARGIN - box.width(roundedDialog),
+      ),
+    );
+    let availableHeight: number;
+    if (targetCorner.y === "top" && dialogCorner.x === targetCorner.x) {
+      const bottom = Math.max(WINDOW_MARGIN, windowHeight - box.bottom(roundedDialog));
+      style.bottom = bottom;
+      availableHeight = windowHeight - bottom - WINDOW_MARGIN;
+    } else {
+      const top = Math.max(WINDOW_MARGIN, box.top(roundedDialog));
+      style.top = top;
+      availableHeight = windowHeight - top - WINDOW_MARGIN;
+    }
+    style[CSS.variable("dialog-available-width")] =
+      `${windowWidth - 2 * WINDOW_MARGIN}px`;
+    style[CSS.variable("dialog-available-height")] = `${availableHeight}px`;
     if (variant === "connected") style.width = box.width(roundedDialog);
-    if (typeof maxHeight === "number") style.maxHeight = maxHeight;
+    if (typeof maxHeight === "number")
+      style[CSS.variable("dialog-max-height")] = `${maxHeight}px`;
     if (visible) style.zIndex = zIndex;
     setState((prev) => ({ ...prev, targetCorner, dialogCorner, style }));
   }, [propsLocation, variant, close]);

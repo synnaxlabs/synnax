@@ -14,7 +14,7 @@
     display: none;
 }
 
-/* Lets a fixed item's portaled label lay out as the trigger's own children. */
-.pluto-select__label {
+/* Lets a fixed item's portaled label lay out as the label's own children. */
+.pluto-select__fixed-label {
     display: contents;
 }

@@ -88,7 +88,25 @@ describe("Select.Simple", () => {
     fireEvent.click(c.getByText("Test Item"));
     fireEvent.click(c.getByText("Third Item"));
     expect(c.queryByPlaceholderText("Search Test Items...")).toBeNull();
-    expect(c.getByRole("button", { name: "Test Item" }).textContent).toBe("Third Item");
+    expect(c.getByRole("button", { name: "Test Item Third Item" }).textContent).toBe(
+      "Third Item",
+    );
+  });
+
+  it("should show a fixed item's label in a label that fades on overflow", () => {
+    const c = render(<SelectSimple />);
+    fireEvent.click(c.getByText("Test Item"));
+    fireEvent.click(c.getByText("Third Item"));
+    const label = c
+      .getByRole("button", { name: "Test Item Third Item" })
+      .querySelector(".pluto-select__label");
+    expect(label?.classList).toContain("pluto-text--overflow-fade");
+    expect(label?.textContent).toBe("Third Item");
+  });
+
+  it("should name the trigger by its resource while nothing is selected", () => {
+    const c = render(<SelectSimple />);
+    expect(c.getByRole("button", { name: "Test Item" })).toBeTruthy();
   });
 
   it("should show empty content when the search hides every item", () => {
@@ -107,7 +125,7 @@ describe("Select.Simple", () => {
       target: { value: "Second" },
     });
     fireEvent.click(c.getByText("Second Item"));
-    fireEvent.click(c.getByRole("button", { name: "Test Item" }));
+    fireEvent.click(c.getByRole("button", { name: "Test Item Second Item" }));
     expect(c.getByText("First Item").closest("[hidden]")).toBeNull();
   });
 
@@ -131,7 +149,7 @@ describe("Select.Simple", () => {
         </List.Scroll>
       </List.Frame>,
     );
-    expect(c.getByRole("button", { name: "Nested" }).textContent).toBe("Bravo");
+    expect(c.getByRole("button", { name: "Nested Bravo" }).textContent).toBe("Bravo");
   });
 });
 
@@ -193,7 +211,7 @@ describe("Select.Simple multiple", () => {
       document.body.appendChild(container);
       const seen: string[] = [];
       const read = (): string => {
-        const trigger = container.querySelector("[aria-label='Test Item']");
+        const trigger = container.querySelector(".pluto-dialog__trigger");
         const empty = document.body.textContent?.includes("No Test Items found");
         return `${trigger?.textContent}${empty === true ? " + empty" : ""}`;
       };
