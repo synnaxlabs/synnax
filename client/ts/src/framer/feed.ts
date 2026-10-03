@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { debounce, MultiSeries, type TimeRange } from "@synnaxlabs/x";
+import { debounce, MultiSeries, type Size, type TimeRange } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
@@ -24,6 +24,7 @@ import {
   type StreamHandler,
   type Subscription,
 } from "@/framer/cache/streamer";
+import { TileReader, type TileRemoteReader, type TileSpec } from "@/framer/cache/tile";
 import { type Frame } from "@/framer/frame";
 import { HardenedStreamer } from "@/framer/hardened";
 import { type StreamOpener } from "@/framer/streamer";
@@ -43,12 +44,18 @@ export interface FeedProps
     Omit<MultiplexedStreamerProps, "cache" | "openStreamer"> {
   openStreamer: StreamOpener;
   readLatest: LatestReader;
+  readTileRemote: TileRemoteReader;
+  /**
+   * Byte size the tile cache evicts down to. Tiles a caller holds are never evicted.
+   * @default Size.megabytes(128)
+   */
+  tileBudget?: Size;
 }
 
 /** The part of {@link FeedProps} a caller sets. The client supplies the rest. */
 export interface FeedOptions extends Omit<
   FeedProps,
-  "readRemote" | "openStreamer" | "readLatest"
+  "readRemote" | "openStreamer" | "readLatest" | "readTileRemote"
 > {}
 
 /**
@@ -60,6 +67,7 @@ export class Feed {
   private readonly cache: Cache;
   private readonly reader: Reader;
   private readonly streamer: MultiplexedStreamer;
+  private readonly tiles: TileReader;
   private readonly latest: debounce.Batcher<channel.Key, MultiSeries>;
   private readonly inFlight = new Set<LatestBatch>();
   private closed = false;
@@ -69,6 +77,8 @@ export class Feed {
       readRemote,
       openStreamer,
       readLatest,
+      readTileRemote,
+      tileBudget,
       transform = DEFAULT_STATIC_PROPS.transform,
       instrumentation,
       dynamicBufferSize,
@@ -93,6 +103,13 @@ export class Feed {
       cache: this.cache,
       batchDebounce,
       overlapThreshold,
+    });
+    this.tiles = new TileReader({
+      readRemote: readTileRemote,
+      transform,
+      batchDebounce,
+      budget: tileBudget,
+      staleThreshold: staleCoverageThreshold,
     });
     this.streamer = new MultiplexedStreamer({
       cache: this.cache,
@@ -140,6 +157,17 @@ export class Feed {
   }
 
   /**
+   * Reads one tile of a channel, reduced under the tile's point limit. Finished tiles
+   * are cached, so the result may be shared with other callers. Reads of tiles with
+   * equal bounds and options within one batch window share a single request, so their
+   * series share one group size.
+   * @throws {UnexpectedError} if the feed is closed while the read is pending.
+   */
+  async readTile(spec: TileSpec): Promise<MultiSeries> {
+    return await this.tiles.read(spec);
+  }
+
+  /**
    * Reads the latest stored sample of the given channel, in the representation the
    * cache serves. Reads within one batch window share a single request.
    * @throws {UnexpectedError} if the feed is closed while the read is pending.
@@ -158,6 +186,7 @@ export class Feed {
     this.inFlight.clear();
     await this.streamer.close();
     await this.reader.close();
+    this.tiles.close();
     this.cache.close();
   }
 }
