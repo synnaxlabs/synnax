@@ -14,6 +14,7 @@ package timer
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -21,14 +22,18 @@ import (
 // after Reset or Stop returns, C receives nothing for an earlier deadline. A Timer is
 // not safe for concurrent use.
 type Timer struct {
+	// spin is how long the timer spins on Now before each deadline instead of waiting
+	// on the OS timer.
+	spin time.Duration
 	// C receives a value when the timer fires.
 	C <-chan struct{}
 	// c is C with send access. It holds at most one pending fire.
 	c chan struct{}
-	// mu guards deadline, sends on c, and changes to the OS timer.
+	// mu guards writes to deadline, sends on c, and changes to the OS timer.
 	mu sync.Mutex
-	// deadline is the Now reading the timer fires at, or zero when it is stopped.
-	deadline time.Duration
+	// deadline is the Now reading the timer fires at, or zero when it is stopped. The
+	// spin reads it without mu, so Reset and Stop do not wait on the spin.
+	deadline atomic.Int64
 	// done closes when the wait goroutine exits.
 	done chan struct{}
 	// err is the wait goroutine's failure. It is safe to read after done closes.
@@ -36,10 +41,12 @@ type Timer struct {
 	platform
 }
 
-// New opens a stopped Timer. The caller must Close it.
-func New() (*Timer, error) {
+// New opens a stopped Timer that spins on Now for the last spin of each wait, which
+// holds a CPU core for that span. A spin longer than a wait spins for all of it. The
+// caller must Close the Timer.
+func New(spin time.Duration) (*Timer, error) {
 	c := make(chan struct{}, 1)
-	t := &Timer{C: c, c: c, done: make(chan struct{})}
+	t := &Timer{C: c, c: c, done: make(chan struct{}), spin: spin}
 	if err := t.open(); err != nil {
 		return nil, err
 	}
@@ -68,9 +75,9 @@ func (t *Timer) Reset(d time.Duration) error {
 	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	t.deadline = Now() + d
+	t.deadline.Store(int64(Now() + d))
 	t.drain()
-	return t.arm(d)
+	return t.arm(t.lead(d))
 }
 
 // Stop stops the timer and drops a pending fire.
@@ -80,7 +87,7 @@ func (t *Timer) Stop() error {
 	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	t.deadline = 0
+	t.deadline.Store(0)
 	t.drain()
 	return t.disarm()
 }
@@ -89,25 +96,45 @@ func (t *Timer) Stop() error {
 func (t *Timer) Close() error {
 	t.mu.Lock()
 	// The wait goroutine never arms a stopped timer, so close can release it.
-	t.deadline = 0
+	t.deadline.Store(0)
 	t.mu.Unlock()
 	return t.close()
 }
 
-// expire fires the timer when its deadline has come. An earlier wake arms the OS timer
-// for the rest of the span. The wait goroutine calls expire on each OS timer wake.
+// expire fires the timer when its deadline has come, spinning through the last spin
+// of the wait. An earlier wake arms the OS timer for the rest of the span. The wait
+// goroutine calls expire on each OS timer wake.
 func (t *Timer) expire() error {
+	t.spinToDeadline()
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	if t.deadline == 0 {
+	deadline := time.Duration(t.deadline.Load())
+	if deadline == 0 {
 		return nil
 	}
-	if left := t.deadline - Now(); left > 0 {
-		return t.arm(left)
+	if left := deadline - Now(); left > 0 {
+		return t.arm(t.lead(left))
 	}
-	t.deadline = 0
+	t.deadline.Store(0)
 	t.fire()
 	return nil
+}
+
+// spinToDeadline spins until the deadline, unless the timer is stopped or the deadline
+// is more than spin away.
+func (t *Timer) spinToDeadline() {
+	for {
+		deadline := time.Duration(t.deadline.Load())
+		if left := deadline - Now(); deadline == 0 || left <= 0 || left > t.spin {
+			return
+		}
+	}
+}
+
+// lead returns the span to arm the OS timer for, so that it wakes spin before a
+// deadline d away. The span is always positive, because arming zero disarms.
+func (t *Timer) lead(d time.Duration) time.Duration {
+	return max(d-t.spin, time.Nanosecond)
 }
 
 // failure returns the wait goroutine's failure, or nil while it runs.

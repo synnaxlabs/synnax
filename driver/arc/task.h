@@ -142,8 +142,7 @@ public:
         if (rt_manager != nullptr) {
             x::thread::rt::Config base_rt;
             base_rt.enabled = true;
-            base_rt.lock_memory = cfg.loop.memory_locked;
-            base_rt.priority = cfg.loop.rt_priority;
+            base_rt.priority = ::arc::runtime::loop::DEFAULT_RT_PRIORITY;
             rt_handle = std::make_shared<x::thread::rt::Handle>(
                 rt_manager->allocate(base_rt)
             );

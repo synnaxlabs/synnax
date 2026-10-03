@@ -1,0 +1,53 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.pluto-select__dialog.console-performance-select__dialog {
+    width: 320px;
+
+    &.pluto--visible {
+        max-height: none;
+    }
+}
+
+.console-performance-select__item + .console-performance-select__item {
+    margin-top: 1rem;
+}
+
+.console-performance-select__meter {
+    width: 1em;
+    height: 1em;
+    flex-shrink: 0;
+}
+
+.pluto-icon.console-performance-select__auto {
+    color: #635bff;
+}
+
+.console-performance-select__bar {
+    fill: var(--pluto-gray-l5);
+}
+
+.console-performance-select-meter--low .console--filled {
+    fill: var(--pluto-success-z);
+}
+
+.console-performance-select-meter--medium .console--filled {
+    fill: var(--pluto-warning-z);
+}
+
+.console-performance-select-meter--high .console--filled {
+    fill: var(--pluto-error-z);
+}
+
+/* The trigger shows the selected level's name alone. */
+.console-performance-select__trigger .console-performance-select__description {
+    display: none;
+}

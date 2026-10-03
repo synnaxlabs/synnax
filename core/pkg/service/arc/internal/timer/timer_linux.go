@@ -17,6 +17,9 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// DefaultSpin is the spin that holds a wait to its deadline at the lowest CPU cost.
+const DefaultSpin time.Duration = 0
+
 // platform reads a non-blocking timerfd through the Go netpoller. The netpoller wakes
 // on the fd at the timerfd's precision, not at its own 1 ms timeout precision.
 type platform struct {

@@ -1,0 +1,39 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/arc/v3"
+import "schemas/synnax/versions/task/v2"
+
+Performance enum {
+    auto   = "auto"
+    low    = "low"
+    medium = "medium"
+    high   = "high"
+
+    @doc value """
+        sets how closely the Arc runtime holds timer deadlines. A higher level is more
+        precise and uses more CPU.
+    """
+}
+
+Config struct extends task.PersistConfig {
+    arc_key     arc.Key     {
+        @doc value "is the key of the Arc module the task executes."
+    }
+    hash        string = "" {
+        @doc value "is the semantic hash of the Arc module at deploy time."
+    }
+    performance Performance = auto {
+        @doc value "sets how closely the runtime holds timer deadlines."
+    }
+
+    @doc value  "configures an Arc task, which runs a compiled Arc module."
+    @go marshal
+    @go migrate
+}

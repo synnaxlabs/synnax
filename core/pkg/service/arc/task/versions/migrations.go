@@ -7,15 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/arc/actions";
-export * from "@/arc/actions.gen";
-export * from "@/arc/client";
-export * from "@/arc/compiler";
-export * from "@/arc/graph";
-export * from "@/arc/ir";
-export * from "@/arc/module";
-export * from "@/arc/program";
-export * from "@/arc/task";
-export * from "@/arc/text";
-export * from "@/arc/types";
-export * from "@/arc/types.gen";
+package versions
+
+import (
+	v4 "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions/v4"
+	"github.com/synnaxlabs/x/migrate"
+)
+
+// Migrations is the ordered migration chain for stored Arc task configs.
+var Migrations = []migrate.Migration{v4.Migration}
