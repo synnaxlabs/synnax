@@ -222,7 +222,7 @@ struct Edge {
     /// @brief target is the target node parameter consuming data.
     Handle target;
     /// @brief kind defines execution semantics for this connection.
-    EdgeKind kind;
+    EdgeKind kind = {};
 
     static Edge parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -241,7 +241,7 @@ struct Transition {
     /// @brief kind is conditional when only a truthy output fires the transition
     /// (`=>`),
     /// and continuous when every output fires it (`->`).
-    EdgeKind kind;
+    EdgeKind kind = {};
     /// @brief target_key is the sibling step key to activate. Null when the transition
     /// exits the scope, yielding to the parent.
     std::optional<std::string> target_key;
@@ -402,10 +402,10 @@ struct Scope {
     /// @brief key is the scope identifier.
     std::string key;
     /// @brief mode defines whether this scope runs steps in parallel or sequentially.
-    ScopeMode mode;
+    ScopeMode mode = {};
     /// @brief liveness defines whether this scope is continuously active or must be
     /// activated.
-    Liveness liveness;
+    Liveness liveness = {};
     /// @brief activation is the handle whose output activates a gated scope. Unset for
     /// always-live scopes.
     std::optional<Handle> activation;
@@ -413,7 +413,7 @@ struct Scope {
     /// activates
     /// the scope (`=>`), and continuous when every output does (`->`). Unspecified when
     /// activation is unset.
-    EdgeKind activation_kind;
+    EdgeKind activation_kind = {};
     /// @brief strata contains stratified execution layers for parallel scopes. On
     /// sequential scopes, strata hold variable nodes that run every pass alongside the
     /// active step. Stratum N depends only on strata 0 to N-1.
