@@ -14,10 +14,15 @@ name: Warm - Go
 on:
   push:
     branches: [main]
+    # The Core and the local modules its go.mod replaces.
     paths:
-      - "**/*.go"
-      - "**/go.mod"
-      - "**/go.sum"
+      - alamos/go/**
+      - arc/go/**
+      - aspen/**
+      - cesium/**
+      - core/**
+      - freighter/go/**
+      - x/go/**
       - .github/workflows/test.go.yaml
       - .github/workflows/warm.go.yaml
   workflow_dispatch:
