@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	stdmath "math"
 	stdtime "time"
 
 	"github.com/synnaxlabs/arc/ir"
@@ -296,7 +297,11 @@ func (t *impl) open(ctx context.Context) (err error) {
 
 	// The ticker's t=0 startup tick fires entry nodes; an input-driven program
 	// would otherwise not fire them until the first input is received.
-	ticker := &tickerRuntime{dataRuntime: drt}
+	spin, ok := spins[t.cfg.Performance]
+	if !ok {
+		return errors.Newf("unknown performance %q", t.cfg.Performance)
+	}
+	ticker := &tickerRuntime{dataRuntime: drt, spin: spin}
 	pipeline.SetSegment(runtimeAddr, ticker)
 
 	var (
@@ -562,8 +567,19 @@ func (d *dataRuntime) flushAuthorityChanges(ctx context.Context) error {
 	return signal.SendUnderContext(ctx, d.Out.Inlet(), req)
 }
 
+// spins maps each performance level to how long the ticker's timer spins before a
+// deadline.
+var spins = map[Performance]stdtime.Duration{
+	PerformanceAuto:   timer.DefaultSpin,
+	PerformanceLow:    0,
+	PerformanceMedium: stdtime.Millisecond,
+	PerformanceHigh:   stdmath.MaxInt64,
+}
+
 type tickerRuntime struct {
 	dataRuntime
+	// spin is how long the timer spins before each deadline.
+	spin stdtime.Duration
 }
 
 func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
@@ -572,7 +588,7 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 		o.AttachClosables(r.Out)
 	}
 	sCtx.Go(func(ctx context.Context) (err error) {
-		t, err := timer.New()
+		t, err := timer.New(r.spin)
 		if err != nil {
 			return err
 		}

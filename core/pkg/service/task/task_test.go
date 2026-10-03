@@ -12,6 +12,7 @@ package task_test
 import (
 	"context"
 	"math"
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -23,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/labjack"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -87,8 +89,9 @@ var _ = Describe("Task", Ordered, func() {
 		}))
 		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 		at := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
+		lj := MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{DB: db}))
 		configs = MustSucceed(config.NewRegistry(
-			append(pd.Stores(), at.Stores()...)...,
+			slices.Concat(pd.Stores(), at.Stores(), lj.Stores())...,
 		))
 		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:       db,
@@ -228,19 +231,19 @@ var _ = Describe("Task", Ordered, func() {
 		It(
 			"Should hash integer and integral float values identically",
 			func(ctx SpecContext) {
-				createArc := func(config msgpack.EncodedJSON) string {
+				createRead := func(config msgpack.EncodedJSON) string {
 					GinkgoHelper()
 					t := &task.Task{
-						Type:   arc.TaskType,
+						Type:   "labjack_read",
 						Rack:   testRack.Key,
-						Name:   "Arc Task",
+						Name:   "LabJack Read",
 						Config: config,
 					}
 					Expect(w.Create(ctx, t)).To(Succeed())
 					return t.ConfigHash
 				}
-				Expect(createArc(msgpack.EncodedJSON{"rt_priority": 50})).
-					To(Equal(createArc(msgpack.EncodedJSON{"rt_priority": 50.0})))
+				Expect(createRead(msgpack.EncodedJSON{"sample_rate": 50})).
+					To(Equal(createRead(msgpack.EncodedJSON{"sample_rate": 50.0})))
 			},
 		)
 		It(

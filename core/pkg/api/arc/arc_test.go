@@ -22,7 +22,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
@@ -258,8 +260,8 @@ var _ = Describe("Service", func() {
 		})
 	})
 
-	Describe("SetRack", func() {
-		grantSetRack := func(ctx SpecContext, a arc.Arc) {
+	Describe("UpdateTask", func() {
+		grantBind := func(ctx SpecContext, a arc.Arc) {
 			GinkgoHelper()
 			grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
 			grantOn(
@@ -274,10 +276,17 @@ var _ = Describe("Service", func() {
 			"Should reject the request when the subject has no policy",
 			func(ctx SpecContext) {
 				a := createArc(ctx, "set-rack-no-policy")
-				Expect(apiSvc.SetRack(AuthedCtx(ctx, author), db, apiarc.SetRackRequest{
-					Key:  a.Key,
-					Rack: testRack.Key,
-				})).Error().To(MatchError(access.ErrDenied))
+				Expect(
+					apiSvc.UpdateTask(
+						AuthedCtx(ctx, author),
+						db,
+						apiarc.UpdateTaskRequest{
+							Key:  a.Key,
+							Rack: new(testRack.Key),
+						},
+					),
+				).Error().
+					To(MatchError(access.ErrDenied))
 			},
 		)
 
@@ -286,20 +295,27 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				a := createArc(ctx, "set-rack-no-task-policy")
 				grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
-				Expect(apiSvc.SetRack(AuthedCtx(ctx, author), db, apiarc.SetRackRequest{
-					Key:  a.Key,
-					Rack: testRack.Key,
-				})).Error().To(MatchError(access.ErrDenied))
+				Expect(
+					apiSvc.UpdateTask(
+						AuthedCtx(ctx, author),
+						db,
+						apiarc.UpdateTaskRequest{
+							Key:  a.Key,
+							Rack: new(testRack.Key),
+						},
+					),
+				).Error().
+					To(MatchError(access.ErrDenied))
 			},
 		)
 
 		It("Should bind the rack and return the task", func(ctx SpecContext) {
 			a := createArc(ctx, "set-rack-ok")
-			grantSetRack(ctx, a)
+			grantBind(ctx, a)
 			res := MustSucceed(
-				apiSvc.SetRack(AuthedCtx(ctx, author), db, apiarc.SetRackRequest{
+				apiSvc.UpdateTask(AuthedCtx(ctx, author), db, apiarc.UpdateTaskRequest{
 					Key:  a.Key,
-					Rack: testRack.Key,
+					Rack: new(testRack.Key),
 				}),
 			)
 			Expect(res.Task).ToNot(BeNil())
@@ -310,7 +326,7 @@ var _ = Describe("Service", func() {
 
 		It("Should clear the rack with task delete permission", func(ctx SpecContext) {
 			a := createArc(ctx, "clear-rack-ok")
-			grantSetRack(ctx, a)
+			grantBind(ctx, a)
 			grantOn(
 				ctx,
 				author.OntologyID(),
@@ -318,15 +334,16 @@ var _ = Describe("Service", func() {
 				ontology.ID{Type: ontology.ResourceTypeTask},
 			)
 			deployed := MustSucceed(
-				apiSvc.SetRack(AuthedCtx(ctx, author), db, apiarc.SetRackRequest{
+				apiSvc.UpdateTask(AuthedCtx(ctx, author), db, apiarc.UpdateTaskRequest{
 					Key:  a.Key,
-					Rack: testRack.Key,
+					Rack: new(testRack.Key),
 				}),
 			)
 			Expect(deployed.Task).ToNot(BeNil())
 			res := MustSucceed(
-				apiSvc.SetRack(AuthedCtx(ctx, author), db, apiarc.SetRackRequest{
-					Key: a.Key,
+				apiSvc.UpdateTask(AuthedCtx(ctx, author), db, apiarc.UpdateTaskRequest{
+					Key:  a.Key,
+					Rack: new(rack.Key(0)),
 				}),
 			)
 			Expect(res.Task).To(BeNil())
@@ -334,6 +351,71 @@ var _ = Describe("Service", func() {
 				Where(arc.MatchKeys(a.Key)).
 				Exec(ctx, nil)).To(Succeed())
 		})
+
+		It(
+			"Should reject a performance change without task update permission",
+			func(ctx SpecContext) {
+				a := createArc(ctx, "performance-no-task-policy")
+				grantBind(ctx, a)
+				MustSucceed(
+					apiSvc.UpdateTask(
+						AuthedCtx(ctx, author),
+						db,
+						apiarc.UpdateTaskRequest{
+							Key:  a.Key,
+							Rack: new(testRack.Key),
+						},
+					),
+				)
+				Expect(
+					apiSvc.UpdateTask(
+						AuthedCtx(ctx, author),
+						db,
+						apiarc.UpdateTaskRequest{
+							Key:         a.Key,
+							Performance: new(arctask.PerformanceHigh),
+						},
+					),
+				).Error().
+					To(MatchError(access.ErrDenied))
+			},
+		)
+
+		It(
+			"Should set the performance with task update permission",
+			func(ctx SpecContext) {
+				a := createArc(ctx, "performance-ok")
+				grantBind(ctx, a)
+				grantOn(
+					ctx,
+					author.OntologyID(),
+					access.ActionUpdate,
+					ontology.ID{Type: ontology.ResourceTypeTask},
+				)
+				MustSucceed(
+					apiSvc.UpdateTask(
+						AuthedCtx(ctx, author),
+						db,
+						apiarc.UpdateTaskRequest{
+							Key:  a.Key,
+							Rack: new(testRack.Key),
+						},
+					),
+				)
+				res := MustSucceed(
+					apiSvc.UpdateTask(
+						AuthedCtx(ctx, author),
+						db,
+						apiarc.UpdateTaskRequest{
+							Key:         a.Key,
+							Performance: new(arctask.PerformanceHigh),
+						},
+					),
+				)
+				Expect(res.Task.Rack).To(Equal(testRack.Key))
+				Expect(res.Task.Config).To(HaveKeyWithValue("performance", "high"))
+			},
+		)
 
 		It("Should bubble up not found for a nonexistent arc", func(ctx SpecContext) {
 			missing := uuid.New()
@@ -344,10 +426,13 @@ var _ = Describe("Service", func() {
 				access.ActionCreate,
 				ontology.ID{Type: ontology.ResourceTypeTask},
 			)
-			Expect(apiSvc.SetRack(AuthedCtx(ctx, author), db, apiarc.SetRackRequest{
-				Key:  missing,
-				Rack: testRack.Key,
-			})).Error().To(MatchError(query.ErrNotFound))
+			Expect(
+				apiSvc.UpdateTask(AuthedCtx(ctx, author), db, apiarc.UpdateTaskRequest{
+					Key:  missing,
+					Rack: new(testRack.Key),
+				}),
+			).Error().
+				To(MatchError(query.ErrNotFound))
 		})
 	})
 })

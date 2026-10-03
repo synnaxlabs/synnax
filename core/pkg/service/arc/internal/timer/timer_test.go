@@ -48,7 +48,7 @@ var _ = Describe("Wall", func() {
 
 var _ = Describe("Timer", func() {
 	var t *timer.Timer
-	BeforeEach(func() { t = MustOpen(timer.New()) })
+	BeforeEach(func() { t = MustOpen(timer.New(timer.DefaultSpin)) })
 
 	It("Should not fire before Reset", func() {
 		Consistently(t.C).WithTimeout(20 * time.Millisecond).ShouldNot(Receive())
@@ -151,5 +151,67 @@ var _ = Describe("Timer", func() {
 				Should(Receive())
 		}
 		Expect(time.Since(start)).To(BeNumerically("<", fires*875*time.Microsecond))
+	})
+
+	DescribeTable("Should never fire early, whatever its spin",
+		func(spin time.Duration) {
+			s := MustOpen(timer.New(spin))
+			const span = 5 * time.Millisecond
+			for range 20 {
+				start := timer.Now()
+				Expect(s.Reset(span)).To(Succeed())
+				Eventually(s.C).WithTimeout(time.Second).Should(Receive())
+				Expect(timer.Now() - start).To(BeNumerically(">=", span))
+			}
+		},
+		Entry("none", time.Duration(0)),
+		Entry("part of the wait", 2*time.Millisecond),
+		Entry("the whole wait", time.Hour),
+	)
+
+	It("Should fire within 50 µs of its deadline when it spins the whole wait", func() {
+		s := MustOpen(timer.New(time.Hour))
+		const (
+			span  = 2 * time.Millisecond
+			fires = 50
+		)
+		late := make([]time.Duration, fires)
+		for i := range late {
+			start := timer.Now()
+			Expect(s.Reset(span)).To(Succeed())
+			select {
+			case <-s.C:
+			case <-time.After(time.Second):
+				Fail("timer did not fire")
+			}
+			late[i] = timer.Now() - start - span
+		}
+		slices.Sort(late)
+		Expect(late[fires/2]).To(BeNumerically("<", 50*time.Microsecond))
+	})
+
+	It("Should not fire after Stop during a spin", func() {
+		s := MustOpen(timer.New(time.Hour))
+		Expect(s.Reset(20 * time.Millisecond)).To(Succeed())
+		time.Sleep(5 * time.Millisecond)
+		Expect(s.Stop()).To(Succeed())
+		Consistently(s.C).WithTimeout(40 * time.Millisecond).ShouldNot(Receive())
+	})
+
+	It("Should not hold up Reset while it spins", func() {
+		s := MustOpen(timer.New(time.Hour))
+		const resets = 50
+		took := make([]time.Duration, resets)
+		for i := range took {
+			Expect(s.Reset(3 * time.Millisecond)).To(Succeed())
+			for start := timer.Now(); timer.Now()-start < 2*time.Millisecond; {
+			}
+			start := timer.Now()
+			Expect(s.Reset(time.Millisecond)).To(Succeed())
+			took[i] = timer.Now() - start
+			Eventually(s.C).WithTimeout(time.Second).Should(Receive())
+		}
+		slices.Sort(took)
+		Expect(took[resets/2]).To(BeNumerically("<", 5*time.Microsecond))
 	})
 })

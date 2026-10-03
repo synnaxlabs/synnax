@@ -144,32 +144,23 @@ struct Config {
 
     Config() = default;
 
+    /// @brief Parses the loop mode from the performance level of an Arc task config.
     explicit Config(x::json::Parser &parser) {
-        const auto mode_str = parser.field<std::string>("execution_mode", "AUTO");
-        if (mode_str == "AUTO")
+        const auto performance = parser.field<std::string>("performance", "auto");
+        if (performance == "auto")
             mode = ExecutionMode::AUTO;
-        else if (mode_str == "BUSY_WAIT")
-            mode = ExecutionMode::BUSY_WAIT;
-        else if (mode_str == "HIGH_RATE")
-            mode = ExecutionMode::HIGH_RATE;
-        else if (mode_str == "RT_EVENT")
-            mode = ExecutionMode::RT_EVENT;
-        else if (mode_str == "HYBRID")
-            mode = ExecutionMode::HYBRID;
-        else if (mode_str == "EVENT_DRIVEN")
+        else if (performance == "low")
             mode = ExecutionMode::EVENT_DRIVEN;
-        else {
+        else if (performance == "medium")
+            mode = ExecutionMode::HYBRID;
+        else if (performance == "high")
+            mode = ExecutionMode::BUSY_WAIT;
+        else
             parser.field_err(
-                "execution_mode",
-                "invalid execution mode: " + mode_str +
-                    " (must be AUTO, BUSY_WAIT, HIGH_RATE, RT_EVENT, HYBRID, "
-                    "or EVENT_DRIVEN)"
+                "performance",
+                "invalid performance: " + performance +
+                    " (must be auto, low, medium, or high)"
             );
-            return;
-        }
-        rt_priority = parser.field<int>("rt_priority", DEFAULT_RT_PRIORITY);
-        cpu_affinity = parser.field<int>("cpu_affinity", CPU_AFFINITY_AUTO);
-        memory_locked = parser.field<bool>("memory_locked", false);
     }
 
     Config apply_defaults(const x::telem::TimeSpan shortest_span) const {

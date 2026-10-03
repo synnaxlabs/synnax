@@ -40,12 +40,17 @@
             flex-grow: 1;
             min-width: 200px;
         }
+
+        & .console-performance-select {
+            min-width: 160px;
+        }
     }
 }
 
 @container (max-width: 400px) {
     .console-arc-editor {
-        .console-rack-select {
+        .console-rack-select,
+        .console-performance-select {
             display: none;
         }
     }
