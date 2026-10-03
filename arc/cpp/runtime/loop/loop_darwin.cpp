@@ -15,8 +15,4 @@ std::unique_ptr<Loop>
 create(const Config &cfg, std::shared_ptr<x::thread::rt::Handle> rt_handle) {
     return std::make_unique<Darwin<>>(cfg, std::move(rt_handle));
 }
-
-x::telem::TimeSpan hybrid_threshold() {
-    return timing::HYBRID_THRESHOLD;
-}
 }

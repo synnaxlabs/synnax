@@ -17,18 +17,7 @@
 #include <thread>
 #include <vector>
 
-#ifdef _WIN32
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <windows.h>
-#ifndef CREATE_WAITABLE_TIMER_HIGH_RESOLUTION
-#define CREATE_WAITABLE_TIMER_HIGH_RESOLUTION 0x00000002
-#endif
-#else
+#ifndef _WIN32
 #include <time.h>
 #endif
 
@@ -40,6 +29,9 @@
 #include "x/cpp/telem/telem.h"
 
 #include "arc/cpp/runtime/loop/loop.h"
+#ifdef _WIN32
+#include "arc/cpp/runtime/loop/loop_windows.h"
+#endif
 #include "arc/cpp/runtime/testutil/timing.h"
 
 namespace arc::runtime::loop {
@@ -103,12 +95,7 @@ void log_timers() {
                   << " ms current, " << max_100ns / 10000.0 << " ms best, "
                   << min_100ns / 10000.0 << " ms default\n";
     }
-    const HANDLE timer = CreateWaitableTimerExW(
-        NULL,
-        NULL,
-        CREATE_WAITABLE_TIMER_HIGH_RESOLUTION,
-        TIMER_ALL_ACCESS
-    );
+    const HANDLE timer = WaitableTimerApi::create_high_resolution();
     if (timer == NULL) {
         std::cout << "  high-resolution timer: unavailable, error " << GetLastError()
                   << "\n";

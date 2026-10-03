@@ -9,7 +9,6 @@
 
 #pragma once
 
-#include <chrono>
 #include <cstring>
 #include <string>
 #include <thread>
@@ -64,7 +63,8 @@ public:
 
         switch (this->config_.mode) {
             case ExecutionMode::AUTO:
-                if (auto_spins(span)) return this->hybrid_wait(breaker, max_timeout);
+                if (span < timing::HYBRID_THRESHOLD)
+                    return this->hybrid_wait(breaker, max_timeout);
                 return this->event_driven_wait(breaker, max_timeout);
             case ExecutionMode::EVENT_DRIVEN:
                 return this->event_driven_wait(breaker, max_timeout);
@@ -197,11 +197,9 @@ private:
     ) {
         this->arm_deadline(x::telem::TimeSpan(0));
         const auto sw = x::telem::Stopwatch();
-        const auto spin_start = std::chrono::steady_clock::now();
-        const auto spin_duration = this->config_.spin_duration.chrono();
         struct timespec timeout = {0, 0};
         struct kevent events[8];
-        while (std::chrono::steady_clock::now() - spin_start < spin_duration) {
+        while (sw.elapsed() < this->config_.spin_duration) {
             if (!breaker.running()) return WakeReason::Shutdown;
             const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, &timeout);
             if (n > 0) return this->classify_events(events, n);
@@ -253,20 +251,12 @@ private:
             nullptr
         );
         if (Arm::set(this->kqueue_fd_, kev) == -1) {
-            this->report_arm_failure(strerror(errno));
+            report_arm_failure(this->arm_failed_, strerror(errno));
             this->deadline_armed_ = false;
             return false;
         }
         this->deadline_armed_ = deadline;
         return deadline;
-    }
-
-    /// @brief logs the first failed arm. The loop then spins to each deadline.
-    void report_arm_failure(const std::string &cause) {
-        if (this->arm_failed_) return;
-        this->arm_failed_ = true;
-        LOG(ERROR) << "[arc.loop] failed to arm the deadline timer, spinning to each "
-                   << "deadline instead: " << cause;
     }
 
     /// @brief HYBRID: blocks until the spin span ahead of deadline, then spins to it.

@@ -15,10 +15,4 @@ std::unique_ptr<Loop>
 create(const Config &cfg, std::shared_ptr<x::thread::rt::Handle> rt_handle) {
     return std::make_unique<Linux<>>(cfg, std::move(rt_handle));
 }
-
-x::telem::TimeSpan hybrid_threshold() {
-    // HYBRID does not spin before a deadline on Linux, and a blocking wait alone wakes
-    // about 0.02 ms late.
-    return x::telem::TimeSpan(0);
-}
 }

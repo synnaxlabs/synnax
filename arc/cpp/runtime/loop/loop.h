@@ -46,8 +46,7 @@ inline const x::telem::TimeSpan HIGH_RATE_THRESHOLD = x::telem::MILLISECOND;
 /// is available, falling through to AUTO otherwise.
 inline const x::telem::TimeSpan RT_EVENT_THRESHOLD = 3 * x::telem::MILLISECOND;
 
-/// @brief Timer span below which AUTO spins before a deadline on macOS and in the
-/// polling loop.
+/// @brief Timer span below which AUTO spins before a deadline on macOS.
 inline const x::telem::TimeSpan HYBRID_THRESHOLD = 5 * x::telem::MILLISECOND;
 
 /// @brief Timeout for event-driven wait to periodically check breaker.running().
@@ -122,14 +121,6 @@ inline std::ostream &operator<<(std::ostream &os, ExecutionMode mode) {
         default:
             return os << "UNKNOWN";
     }
-}
-
-/// @brief Returns the timer span below which AUTO uses HYBRID on this platform.
-x::telem::TimeSpan hybrid_threshold();
-
-/// @brief Returns true when AUTO uses HYBRID for a timer with the given span.
-inline bool auto_spins(const x::telem::TimeSpan span) {
-    return span < hybrid_threshold();
 }
 
 /// @brief Resolves AUTO from the shortest timer span of a program. Returns AUTO when no
@@ -261,6 +252,15 @@ high_rate_span(const Config &cfg, const x::telem::TimeSpan max_timeout) {
     return std::min(cfg.interval, max_timeout);
 }
 
+/// @brief logs the first failed arm of a deadline timer and sets reported. The loop
+/// then spins to each deadline.
+inline void report_arm_failure(bool &reported, const std::string &cause) {
+    if (reported) return;
+    reported = true;
+    LOG(ERROR) << "[arc.loop] failed to arm the deadline timer, spinning to each "
+               << "deadline instead: " << cause;
+}
+
 /// @brief Abstract event loop for the Arc runtime.
 /// Provides platform-specific waiting on timers and external events.
 struct Loop {
@@ -272,8 +272,8 @@ struct Loop {
     /// @param max_timeout Upper bound on how long to sleep. When positive, the loop
     /// will wake after at most this duration even if no input fires. A value of 0 means
     /// no deadline.
-    /// @param span the period of the timer that owns the deadline. AUTO uses HYBRID
-    /// only when auto_spins(span) is true.
+    /// @param span the period of the timer that owns the deadline. On macOS, AUTO uses
+    /// HYBRID only when span is below timing::HYBRID_THRESHOLD.
     /// @return WakeReason indicating why wait() returned.
     virtual WakeReason wait(
         x::breaker::Breaker &breaker,

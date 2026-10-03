@@ -9,7 +9,6 @@
 
 #pragma once
 
-#include <chrono>
 #include <string>
 
 #include "absl/log/log.h"
@@ -73,8 +72,6 @@ struct WaitableTimerApi {
 /// @brief the loop of Windows, built on a waitable timer. Api makes the timer calls.
 template<typename Api = WaitableTimerApi>
 class Windows final : public Loop {
-    static constexpr DWORD MAX_HANDLES = MAXIMUM_WAIT_OBJECTS;
-
 public:
     explicit Windows(
         const Config &config,
@@ -102,16 +99,10 @@ public:
                 return this->busy_wait(breaker, max_timeout);
             case ExecutionMode::HIGH_RATE:
                 return this->high_rate_wait(breaker, max_timeout);
-            case ExecutionMode::RT_EVENT:
-                return this->event_driven_wait(
-                    breaker,
-                    max_timeout,
-                    timing::WINDOWS_DEADLINE_SPIN
-                );
             case ExecutionMode::HYBRID:
                 return this->hybrid_wait(breaker, max_timeout);
             case ExecutionMode::AUTO:
-                if (auto_spins(span)) return this->hybrid_wait(breaker, max_timeout);
+            case ExecutionMode::RT_EVENT:
                 return this->event_driven_wait(
                     breaker,
                     max_timeout,
@@ -189,7 +180,6 @@ private:
                 );
             VLOG(1) << "[arc.loop] using standard waitable timer with a 1 ms tick";
         }
-        this->timer_enabled_ = true;
         return x::errors::NIL;
     }
 
@@ -218,16 +208,8 @@ private:
                                    timing::WINDOWS_TIMER_UNIT.nanoseconds();
         due_time.QuadPart = -span_100ns;
         if (this->api_.set(this->timer_event_, due_time)) return true;
-        this->report_arm_failure(std::to_string(GetLastError()));
+        report_arm_failure(this->arm_failed_, std::to_string(GetLastError()));
         return false;
-    }
-
-    /// @brief logs the first failed arm. The loop then spins to each deadline.
-    void report_arm_failure(const std::string &cause) {
-        if (this->arm_failed_) return;
-        this->arm_failed_ = true;
-        LOG(ERROR) << "[arc.loop] failed to arm the deadline timer, spinning to each "
-                   << "deadline instead: " << cause;
     }
 
     /// @brief returns true when a deadline is inside the spin span, which has no time
@@ -237,7 +219,7 @@ private:
         const x::telem::TimeSpan max_timeout,
         const x::telem::TimeSpan spin
     ) const {
-        return this->timer_enabled_ && max_timeout.nanoseconds() > 0 &&
+        return this->timer_event_ != NULL && max_timeout.nanoseconds() > 0 &&
                max_timeout < spin + timing::WINDOWS_TIMER_UNIT;
     }
 
@@ -245,7 +227,7 @@ private:
     /// disarms the timer so that an earlier deadline does not wake the loop.
     bool
     arm_deadline(const x::telem::TimeSpan max_timeout, const x::telem::TimeSpan spin) {
-        if (!this->timer_enabled_) return false;
+        if (this->timer_event_ == NULL) return false;
         if (max_timeout.nanoseconds() <= 0) {
             this->disarm_timer();
             this->set_tick_raised(false);
@@ -293,15 +275,12 @@ private:
             CloseHandle(this->wake_event_);
             this->wake_event_ = NULL;
         }
-
-        this->timer_enabled_ = false;
     }
 
     WakeReason
     busy_wait(x::breaker::Breaker &breaker, const x::telem::TimeSpan max_timeout) {
         HANDLE handles[3];
         const DWORD count = this->build_handles(handles);
-        if (count == 0) return WakeReason::Shutdown;
         const auto sw = x::telem::Stopwatch();
 
         while (breaker.running()) {
@@ -339,7 +318,6 @@ private:
     ) {
         HANDLE handles[3];
         const DWORD count = this->build_handles(handles);
-        if (count == 0) return WakeReason::Shutdown;
 
         const auto sw = x::telem::Stopwatch();
         if (this->inside_spin(max_timeout, spin))
@@ -368,7 +346,6 @@ private:
     hybrid_wait(x::breaker::Breaker &breaker, const x::telem::TimeSpan max_timeout) {
         HANDLE handles[3];
         const DWORD count = this->build_handles(handles);
-        if (count == 0) return WakeReason::Shutdown;
         const auto sw = x::telem::Stopwatch();
         const auto spin = timing::WINDOWS_DEADLINE_SPIN;
         if (this->inside_spin(max_timeout, spin))
@@ -377,12 +354,7 @@ private:
         if (!armed && max_timeout.nanoseconds() > 0)
             return this->busy_wait(breaker, max_timeout);
 
-        const auto spin_start = std::chrono::steady_clock::now();
-        const auto spin_duration = std::chrono::nanoseconds(
-            this->config_.spin_duration.nanoseconds()
-        );
-
-        while (std::chrono::steady_clock::now() - spin_start < spin_duration) {
+        while (sw.elapsed() < this->config_.spin_duration) {
             if (!breaker.running()) return WakeReason::Shutdown;
 
             const DWORD result = WaitForMultipleObjects(count, handles, FALSE, 0);
@@ -410,17 +382,16 @@ private:
     /// @brief Classifies which handle was signaled to determine wake reason.
     WakeReason classify_result(const DWORD result, const HANDLE *handles) const {
         const DWORD index = result - WAIT_OBJECT_0;
-        if (this->timer_enabled_ && handles[index] == this->timer_event_)
-            return WakeReason::Timer;
+        if (handles[index] == this->timer_event_) return WakeReason::Timer;
         if (handles[index] == this->watched_handle_) return WakeReason::Input;
         return WakeReason::Shutdown;
     }
 
     DWORD build_handles(HANDLE *handles) const {
-        DWORD count = 0;
-        if (this->wake_event_ != NULL) handles[count++] = this->wake_event_;
+        handles[0] = this->wake_event_;
+        DWORD count = 1;
         if (this->watched_handle_ != NULL) handles[count++] = this->watched_handle_;
-        if (this->timer_enabled_) handles[count++] = this->timer_event_;
+        if (this->timer_event_ != NULL) handles[count++] = this->timer_event_;
         return count;
     }
 
@@ -429,7 +400,6 @@ private:
     HANDLE wake_event_ = NULL;
     HANDLE timer_event_ = NULL;
     HANDLE watched_handle_ = NULL;
-    bool timer_enabled_ = false;
     bool arm_failed_ = false;
     bool high_res_timer_ = false;
     bool tick_raised_ = false;

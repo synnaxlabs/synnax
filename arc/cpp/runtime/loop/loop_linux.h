@@ -10,7 +10,6 @@
 #pragma once
 
 #include <algorithm>
-#include <chrono>
 #include <cstring>
 #include <string>
 #include <thread>
@@ -95,8 +94,6 @@ public:
             case ExecutionMode::HYBRID:
                 return this->hybrid_wait(breaker, max_timeout);
             case ExecutionMode::AUTO:
-                if (auto_spins(span)) return this->hybrid_wait(breaker, max_timeout);
-                return this->event_driven_wait(breaker, max_timeout);
             case ExecutionMode::RT_EVENT:
             case ExecutionMode::EVENT_DRIVEN:
                 return this->event_driven_wait(breaker, max_timeout);
@@ -161,7 +158,6 @@ public:
                     "Failed to add timerfd to epoll: " + std::string(strerror(errno))
                 )
             );
-        this->timer_enabled_ = true;
         return x::errors::NIL;
     }
 
@@ -241,7 +237,6 @@ private:
             this->epoll_fd_ = -1;
         }
 
-        this->timer_enabled_ = false;
         this->direct_ = false;
     }
 
@@ -284,25 +279,17 @@ private:
     /// deadline, it disarms the timer, which also clears a fire from an earlier
     /// deadline.
     bool arm_deadline(const x::telem::TimeSpan max_timeout) {
-        if (!this->timer_enabled_) return false;
+        if (this->timer_fd_ == -1) return false;
         const int64_t deadline = std::max<int64_t>(max_timeout.nanoseconds(), 0);
         const int64_t second = x::telem::SECOND.nanoseconds();
         struct itimerspec ts{};
         ts.it_value.tv_sec = deadline / second;
         ts.it_value.tv_nsec = deadline % second;
         if (this->api_.set(this->timer_fd_, ts) == -1) {
-            this->report_arm_failure(strerror(errno));
+            report_arm_failure(this->arm_failed_, strerror(errno));
             return false;
         }
         return deadline > 0;
-    }
-
-    /// @brief logs the first failed arm. The loop then spins to each deadline.
-    void report_arm_failure(const std::string &cause) {
-        if (this->arm_failed_) return;
-        this->arm_failed_ = true;
-        LOG(ERROR) << "[arc.loop] failed to arm the deadline timer, spinning to each "
-                   << "deadline instead: " << cause;
     }
 
     WakeReason event_driven_wait(
@@ -410,7 +397,6 @@ private:
     int epoll_fd_ = -1;
     int event_fd_ = -1;
     int timer_fd_ = -1;
-    bool timer_enabled_ = false;
     /// @brief true when waits block to their deadline on an epoll_pwait2 timeout
     /// instead of a timerfd.
     bool direct_ = false;

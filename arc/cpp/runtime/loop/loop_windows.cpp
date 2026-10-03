@@ -15,11 +15,4 @@ std::unique_ptr<Loop>
 create(const Config &cfg, std::shared_ptr<x::thread::rt::Handle> rt_handle) {
     return std::make_unique<Windows<>>(cfg, std::move(rt_handle));
 }
-
-x::telem::TimeSpan hybrid_threshold() {
-    // AUTO does not use HYBRID on Windows. Its event-driven wait spins to each
-    // deadline.
-    return x::telem::TimeSpan(0);
-}
-
 }
