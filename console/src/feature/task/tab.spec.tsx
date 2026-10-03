@@ -38,7 +38,12 @@ const renderContent = async (
     </Errors.SuspenseBoundary>
   );
   TabContent.displayName = "TabContent";
-  await renderTaskFormTab(TabContent, { client, taskKey });
+  await renderTaskFormTab(TabContent, {
+    client,
+    taskKey,
+    // A spec that passes a fallback expects the boundary to catch.
+    onCaughtError: FallbackComponent == null ? undefined : () => {},
+  });
 };
 
 const TabName: FC<PTask.FormTabProps> = () => <Task.TAB.Name />;

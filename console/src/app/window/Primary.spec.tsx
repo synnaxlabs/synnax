@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { assert, describe, expect, it, vi } from "vitest";
+import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
+import { assert, describe, expect, it, onTestFinished, vi } from "vitest";
 
 // The full-width top bar is macOS only, so the engine stays the sole variable
 // across host platforms, Linux CI included.
@@ -47,8 +48,15 @@ const TOP_BAR = ".console-nav__bar.pluto--location-top";
 
 const renderPrimary = async (engine: "web" | "tauri"): Promise<HTMLElement> => {
   mocks.engine = engine;
+  if (engine === "tauri") {
+    // A dev build version skips the update check.
+    mockIPC((cmd) => (cmd === "plugin:app|version" ? "0.0.0" : undefined));
+    onTestFinished(clearMocks);
+  }
   const { container } = await renderWithConsole(<Primary />, {
     preloadedState: withWorkspace(),
+    // No Core is connected, so the panel boundary catches the disconnect.
+    onCaughtError: () => {},
   });
   const workspace = container.querySelector<HTMLElement>(WORKSPACE);
   assert(workspace != null);

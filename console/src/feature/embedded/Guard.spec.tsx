@@ -46,7 +46,7 @@ describe("Embedded.Guard", () => {
     await renderGuard();
     expect(await screen.findByText("Starting Synnax...")).toBeTruthy();
     expect(screen.queryByText("workspace")).toBeNull();
-    await act(async () => await emitStatus(LIVE));
+    await emitStatus(LIVE);
     expect(await screen.findByText("workspace")).toBeTruthy();
   });
 
@@ -68,7 +68,7 @@ describe("Embedded.Guard", () => {
     const { emitStatus } = mockSupervisor(() => LIVE);
     await renderGuard();
     expect(await screen.findByText("workspace")).toBeTruthy();
-    await act(async () => await emitStatus({ state: "restarting" }));
+    await emitStatus({ state: "restarting" });
     expect(screen.getByText("workspace")).toBeTruthy();
   });
 
@@ -76,9 +76,7 @@ describe("Embedded.Guard", () => {
     const { commands, emitStatus } = mockSupervisor(() => LIVE);
     await renderGuard();
     expect(await screen.findByText("workspace")).toBeTruthy();
-    await act(
-      async () => await emitStatus({ state: "failed", message: "exited with 3" }),
-    );
+    await emitStatus({ state: "failed", message: "exited with 3" });
     expect(await screen.findByText("Synnax stopped unexpectedly")).toBeTruthy();
     expect(screen.queryByText("workspace")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Restart" }));

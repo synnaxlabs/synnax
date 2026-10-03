@@ -18,6 +18,7 @@ import {
   render,
   renderHook,
   type RenderHookResult,
+  type RenderOptions,
   type RenderResult,
   screen,
 } from "@testing-library/react";
@@ -113,7 +114,7 @@ export const closeOf = (
   (store.getState().at(-1)?.render() as ReactElement<Session.Modals.ContentProps>).props
     .close;
 
-export interface RenderModalOpenerOptions {
+export interface RenderModalOpenerOptions extends Pick<RenderOptions, "onCaughtError"> {
   /** Client backing the console wrapper; null (default) for Core-free specs. */
   client?: Client | null;
   preloadedState?: ConsolePreloadedState;
@@ -150,6 +151,7 @@ export const renderModalOpener = async <Args extends unknown[], R>(
     preloadedState,
     store,
     additionalRegistry,
+    onCaughtError,
     analytics = Analytics.NOOP,
   } = options;
   const { wrapper: Console, store: resolvedStore } = await createConsoleWrapper({
@@ -168,7 +170,7 @@ export const renderModalOpener = async <Args extends unknown[], R>(
       </Analytics.Provider>
     </Console>
   );
-  const { result, unmount } = renderHook(useOpen, { wrapper });
+  const { result, unmount } = renderHook(useOpen, { wrapper, onCaughtError });
   const box: { current?: R } = {};
   const reopen = () => {
     act(() => {
