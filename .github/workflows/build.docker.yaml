@@ -46,19 +46,31 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # The tag hashes the Git objects of every path the Dockerfile copies and of the
-      # files that drive the build, so two commits with the same sources share an image.
+      # The tag hashes the Git objects of every path the Dockerfile copies, the files
+      # that drive the build, and the digests of the base images. Two commits with the
+      # same sources share an image until a base image moves.
       - name: Tag the image
         id: tag
         env:
           MODULE: ${{ inputs.module }}
           REPOSITORY: ${{ inputs.repository }}
         run: |
+          dockerfile="$MODULE/Dockerfile"
+          go_version=$(awk '$1 == "go" { print $2 }' "$MODULE/go.mod")
           sources=$(awk '$1 == "COPY" && $2 !~ /^--/ { $1 = $NF = ""; print }' \
-            "$MODULE/Dockerfile")
-          objects=$(git rev-parse $(printf 'HEAD:%s ' $sources "$MODULE/Dockerfile" \
+            "$dockerfile")
+          objects=$(git rev-parse $(printf 'HEAD:%s ' $sources "$dockerfile" \
             .dockerignore .github/workflows/build.docker.yaml))
-          hash=$(sha256sum <<< "$objects" | cut -c1-32)
+          stages=$(awk '$1 == "FROM" && $3 == "AS" { print $4 }' "$dockerfile")
+          bases=$(awk '$1 == "FROM" { print $2 }' "$dockerfile" |
+            sed "s/\${GO_VERSION}/$go_version/" | grep -vxF "$stages")
+          digests=""
+          for base in $bases; do
+            digests+=$(docker buildx imagetools inspect "$base" \
+              --format '{{json .Manifest.Digest}}')
+          done
+          hash=$(sha256sum <<< "$objects $digests" | cut -c1-32)
+          echo "go_version=$go_version" >> "$GITHUB_OUTPUT"
           echo "image=$REPOSITORY:src-$hash" >> "$GITHUB_OUTPUT"
 
       # A failed inspect also builds, which is always correct.
@@ -76,13 +88,6 @@ jobs:
         if: steps.check.outputs.found != 'true'
         uses: docker/setup-buildx-action@v4
 
-      - name: Extract Go version
-        if: steps.check.outputs.found != 'true'
-        id: go-version
-        run:
-          echo "GO_VERSION=$(grep '^go ' ${{ inputs.module }}/go.mod | awk '{print
-          $2}')" >> $GITHUB_OUTPUT
-
       - name: Build and push image
         if: steps.check.outputs.found != 'true'
         uses: docker/build-push-action@v7
@@ -94,4 +99,4 @@ jobs:
           tags: ${{ steps.tag.outputs.image }}
           cache-from: type=gha,scope=synnax-docker-${{ inputs.module }}
           cache-to: type=gha,mode=max,scope=synnax-docker-${{ inputs.module }}
-          build-args: GO_VERSION=${{ steps.go-version.outputs.GO_VERSION }}
+          build-args: GO_VERSION=${{ steps.tag.outputs.go_version }}
