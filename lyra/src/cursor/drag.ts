@@ -67,7 +67,7 @@ export const useDrag = ({
       const el = e.currentTarget as HTMLElement;
       const { pointerId } = e;
       const start = xy.construct(e);
-      const mouseKey = Triggers.eventKey(e);
+      const mouseKey = Triggers.mouseKey(e.button);
       let started = false;
 
       // Moves are coalesced to one onMove per animation frame: WebKit delivers

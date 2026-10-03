@@ -14,6 +14,7 @@ import { Arc, Rack } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
+import { Arc as PlatformArc } from "@/platform/arc";
 import { CSS } from "@/platform/css";
 import { Framer } from "@/platform/framer";
 import { Task } from "@/platform/task";
@@ -23,9 +24,11 @@ const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: "arc" };
 export const TaskControls = () => {
   const key = Arc.useKey();
   const name = Arc.useName();
+  const captureDeploy = PlatformArc.useCaptureDeploy();
   const { running, taskRack, taskStatus, onStart, onStop } = Arc.useTaskControls(
     key,
     name,
+    { afterSuccess: captureDeploy },
   );
   const drifted = Arc.useDrifted({ arcKey: key });
   const canControl = Framer.useCanCommand();

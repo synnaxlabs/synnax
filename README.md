@@ -48,6 +48,8 @@ monorepo. The following is a summary of each:
 - [Console](console) - A data-visualization and graphical control application for macOS
   and Windows.
 - [Documentation Site](site/docs) - The code for the Synnax documentation website.
+- [Portal](site/portal) - The account site at portal.synnaxlabs.com, where users manage
+  licenses and Synnax Desktop machines.
 - [Technical Documentation](docs/tech) - Technical documentation such as RFCs and
   contribution guides.
 - [Drift](drift) - Redux state synchronization and declarative window management for
