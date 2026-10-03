@@ -1190,6 +1190,15 @@ importers:
       '@codingame/monaco-vscode-editor-api':
         specifier: 'catalog:'
         version: 37.1.0
+      '@fontsource-variable/inter':
+        specifier: 'catalog:'
+        version: 5.3.0
+      '@fontsource/geist-mono':
+        specifier: 'catalog:'
+        version: 5.2.8
+      '@fontsource/inter':
+        specifier: 'catalog:'
+        version: 5.3.0
       '@synnaxlabs/alamos':
         specifier: 'catalog:'
         version: link:../alamos/ts
@@ -1236,15 +1245,6 @@ importers:
       '@codingame/monaco-vscode-theme-service-override':
         specifier: 'catalog:'
         version: 37.1.0
-      '@fontsource-variable/inter':
-        specifier: 'catalog:'
-        version: 5.3.0
-      '@fontsource/geist-mono':
-        specifier: 'catalog:'
-        version: 5.2.8
-      '@fontsource/inter':
-        specifier: 'catalog:'
-        version: 5.3.0
       '@juggle/resize-observer':
         specifier: 'catalog:'
         version: 3.4.0
