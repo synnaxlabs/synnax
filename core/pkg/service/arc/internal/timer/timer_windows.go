@@ -31,14 +31,11 @@ const (
 
 var (
 	kernel32                      = windows.NewLazySystemDLL("kernel32.dll")
-	winmm                         = windows.NewLazySystemDLL("winmm.dll")
 	procQueryPerformanceCounter   = kernel32.NewProc("QueryPerformanceCounter")
 	procQueryPerformanceFrequency = kernel32.NewProc("QueryPerformanceFrequency")
 	procCreateWaitableTimerExW    = kernel32.NewProc("CreateWaitableTimerExW")
 	procSetWaitableTimer          = kernel32.NewProc("SetWaitableTimer")
 	procCancelWaitableTimer       = kernel32.NewProc("CancelWaitableTimer")
-	procTimeBeginPeriod           = winmm.NewProc("timeBeginPeriod")
-	procTimeEndPeriod             = winmm.NewProc("timeEndPeriod")
 	// frequency returns the QueryPerformanceCounter counts per second.
 	frequency = sync.OnceValue(func() int64 {
 		return queryPerformance(procQueryPerformanceFrequency)
@@ -95,9 +92,9 @@ func (t *Timer) open() error {
 		); h == 0 {
 			return errors.Wrap(err, "failed to create waitable timer")
 		}
-		if r, _, _ := procTimeBeginPeriod.Call(1); r != 0 {
+		if err = windows.TimeBeginPeriod(1); err != nil {
 			return errors.Join(
-				errors.Newf("failed to raise the system tick: %d", r),
+				errors.Wrap(err, "failed to raise the system tick"),
 				windows.CloseHandle(windows.Handle(h)),
 			)
 		}
@@ -212,12 +209,10 @@ func (t *Timer) Close() error {
 func (t *Timer) release() error {
 	err := windows.CloseHandle(t.handle)
 	if t.tickRaised {
-		if r, _, _ := procTimeEndPeriod.Call(1); r != 0 {
-			err = errors.Join(
-				err,
-				errors.Newf("failed to lower the system tick: %d", r),
-			)
-		}
+		err = errors.Join(
+			err,
+			errors.Wrap(windows.TimeEndPeriod(1), "failed to lower the system tick"),
+		)
 	}
 	return err
 }
