@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type APIRoute } from "astro";
+import { type APIContext, type APIRoute } from "astro";
 
 export const prerender = true;
 
-export const GET: APIRoute = ({ site }) =>
+export const GET = (({ site }: Pick<APIContext, "site">) =>
   new Response(
     `User-agent: *
 Allow: /
@@ -19,4 +19,4 @@ Allow: /
 Sitemap: ${new URL("/sitemap.xml", site).href}
 `,
     { headers: { "Content-Type": "text/plain; charset=utf-8" } },
-  );
+  )) satisfies APIRoute;

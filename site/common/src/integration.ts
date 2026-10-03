@@ -7,21 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type AstroIntegration } from "astro";
+import { type AstroIntegration, type HookParameters } from "astro";
 
 const ROUTES = ["favicon.ico", "favicon.svg", "robots.txt"];
 
 /** Serves the favicons and the robots.txt that every Synnax site shares. */
-export const integration = (): AstroIntegration => ({
-  name: "@synnaxlabs/site-common",
-  hooks: {
-    "astro:config:setup": ({ injectRoute }) => {
-      for (const route of ROUTES)
-        injectRoute({
-          pattern: `/${route}`,
-          entrypoint: new URL(`./routes/${route}.ts`, import.meta.url),
-          prerender: true,
-        });
+export const integration = () =>
+  ({
+    name: "@synnaxlabs/site-common",
+    hooks: {
+      "astro:config:setup": ({
+        injectRoute,
+      }: Pick<HookParameters<"astro:config:setup">, "injectRoute">) => {
+        for (const route of ROUTES)
+          injectRoute({
+            pattern: `/${route}`,
+            entrypoint: new URL(`./routes/${route}.ts`, import.meta.url),
+            prerender: true,
+          });
+      },
     },
-  },
-});
+  }) satisfies AstroIntegration;

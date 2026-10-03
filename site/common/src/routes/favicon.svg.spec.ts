@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import favicon from "@synnaxlabs/media/static/logo/icon-white-favicon.ico?inline";
-import { type APIRoute } from "astro";
+import { describe, expect, it } from "vitest";
 
-export const prerender = true;
+import { GET } from "./favicon.svg";
 
-export const GET = (async () => {
-  const icon = await fetch(favicon);
-  return new Response(icon.body, { headers: { "Content-Type": "image/x-icon" } });
-}) satisfies APIRoute;
+describe("favicon.svg", () => {
+  it("should respond with an SVG image", async () => {
+    const response = GET();
+    expect(response.headers.get("Content-Type")).toBe("image/svg+xml");
+    expect(await response.text()).toContain("<svg");
+  });
+});

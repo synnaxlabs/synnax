@@ -12,5 +12,7 @@ import { type APIRoute } from "astro";
 
 export const prerender = true;
 
-export const GET: APIRoute = () =>
-  new Response(favicon, { headers: { "Content-Type": "image/svg+xml" } });
+export const GET = (() =>
+  new Response(favicon, {
+    headers: { "Content-Type": "image/svg+xml" },
+  })) satisfies APIRoute;
