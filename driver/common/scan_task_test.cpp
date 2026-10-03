@@ -1166,6 +1166,56 @@ TEST(TestScanTask, TestNoUpdateWhenParentDeviceSame) {
     EXPECT_EQ(created_devices->size(), 1);
 }
 
+/// @brief it should not update a module whose stored parent matches its chassis.
+TEST(TestScanTask, TestNoUpdateWhenStoredParentMatches) {
+    synnax::device::Device dev1;
+    dev1.key = "module1";
+    dev1.name = "Module 1";
+    dev1.rack = 1;
+    dev1.location = "slot-1";
+    dev1.parent = synnax::device::ontology_id("chassis-1");
+
+    std::vector<std::vector<synnax::device::Device>> devices = {{dev1}, {dev1}};
+    auto scanner = std::make_unique<MockScanner>(
+        devices,
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{}
+    );
+
+    auto remote_devices = std::make_shared<std::vector<synnax::device::Device>>();
+    remote_devices->push_back(dev1);
+
+    auto created_devices = std::make_shared<std::vector<synnax::device::Device>>();
+    auto cluster_api = std::make_unique<MockClusterAPI>(
+        remote_devices,
+        created_devices
+    );
+
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    task.name = "Test Scan Task";
+
+    x::breaker::Config breaker_config;
+    x::telem::Rate scan_rate = x::telem::HERTZ * 1;
+
+    ScanTask scan_task(
+        std::move(scanner),
+        ctx,
+        task,
+        breaker_config,
+        scan_rate,
+        std::move(cluster_api)
+    );
+
+    ASSERT_NIL(scan_task.init());
+    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan());
+    ASSERT_EQ(created_devices->size(), 0);
+}
+
 /// @brief it should not update a device the scanner gives no parent.
 TEST(TestScanTask, TestNoUpdateWhenScannedDeviceHasNoParent) {
     synnax::device::Device dev1;
