@@ -9,7 +9,7 @@
 
 import { type schematic } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
-import { box, scale, text, xy } from "@synnaxlabs/x";
+import { box, text, xy } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
 import { Grid } from "@/schematic/node/common/grid";
@@ -17,7 +17,6 @@ import { Label } from "@/schematic/node/common/label";
 import { LEVEL_SIZES } from "@/schematic/node/common/size";
 import { Value } from "@/schematic/node/general/value/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
-import { telem } from "@/telem/aether";
 import { Value as BaseValue } from "@/vis/value";
 
 const VALUE_BACKGROUND_OVERSCAN = xy.construct(1, -4);
@@ -32,7 +31,7 @@ export const Symbol = ({
     label,
     level = "p",
     textColor,
-    color,
+    strokeColor,
     channel,
     rollingAverage,
     precision,
@@ -43,6 +42,7 @@ export const Symbol = ({
     stalenessColor,
     stalenessTimeout,
     redline,
+    fillColor,
   },
 }: NodeProps<schematic.ValueNodeConfig>): ReactElement => {
   const valueBoxHeight = Component.HEIGHTS[LEVEL_SIZES[level]];
@@ -50,24 +50,10 @@ export const Symbol = ({
     () => BaseValue.stringSource({ channel, rollingAverage, precision, notation }),
     [channel, rollingAverage, precision, notation],
   );
-  const backgroundTelem = useMemo(() => {
-    if (redline == null) return undefined;
-    const { bounds, gradient } = redline;
-    return telem.sourcePipeline("color", {
-      connections: [
-        { from: "source", to: "scale" },
-        { from: "scale", to: "gradient" },
-      ],
-      segments: {
-        source: t,
-        scale: telem.scaleNumber({
-          scale: scale.Scale.scale<number>(bounds).scale(0, 1).transform,
-        }),
-        gradient: telem.colorGradient({ gradient }),
-      },
-      outlet: "gradient",
-    });
-  }, [t, redline]);
+  const backgroundTelem = useMemo(
+    () => BaseValue.backgroundTelem(t, redline, fillColor),
+    [t, redline, fillColor],
+  );
   const { width: oWidth } = BaseValue.use({
     aetherKey: nodeKey,
     color: textColor,
@@ -91,7 +77,8 @@ export const Symbol = ({
     <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false}>
       <Label.Label config={label} onChange={onConfigChange} />
       <Value
-        color={color}
+        strokeColor={strokeColor}
+        textColor={textColor}
         orientation={orientation}
         dimensions={{ height: valueBoxHeight, width: oWidth }}
         inlineSize={inlineSize}

@@ -16,10 +16,11 @@ export default defineConfig({
   plugins: [lib({ name: "freighter" })],
   build: {
     rolldownOptions: {
-      external: ["zod", "@synnaxlabs/alamos", "@synnaxlabs/x"],
+      external: ["zod", "@synnaxlabs/x"],
     },
   },
   test: {
+    setupFiles: ["src/testutil/setup.ts"],
     exclude: ["**/node_modules/**", "**/dist/**"],
     coverage: {
       include: ["src/**/*.ts", "src/**/*.tsx"],

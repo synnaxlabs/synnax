@@ -18,16 +18,22 @@
     "test": "vitest",
     "cov": "vitest --coverage",
     "lint": "eslint",
-    "fix": "eslint --fix",
-    "madge": "madge --circular src"
+    "fix": "eslint --fix"
   },
   "dependencies": {
     "async-mutex": "catalog:",
     "zod": "catalog:"
   },
+  "peerDependencies": {
+    "vitest": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "vitest": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@synnaxlabs/eslint-config": "catalog:",
-    "@synnaxlabs/madge": "catalog:",
     "@synnaxlabs/tsconfig": "catalog:",
     "@synnaxlabs/vite-plugin": "catalog:",
     "@types/node": "catalog:",
@@ -56,6 +62,10 @@
     "./bench": {
       "types": "./dist/src/bench/index.d.ts",
       "default": "./dist/bench.js"
+    },
+    "./testutil": {
+      "types": "./dist/src/testutil/index.d.ts",
+      "default": "./dist/testutil.js"
     },
     "./dist/*": "./dist/*"
   }

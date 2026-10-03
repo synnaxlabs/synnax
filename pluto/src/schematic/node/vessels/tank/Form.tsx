@@ -16,6 +16,7 @@ import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { Scale } from "@/schematic/node/common/scale";
 import { type FormProps as NodeFormProps } from "@/schematic/node/spec";
+import { Properties } from "@/vis/properties";
 
 export interface TankFormProps extends NodeFormProps {
   showBorderRadius?: boolean;
@@ -24,20 +25,22 @@ export interface TankFormProps extends NodeFormProps {
 }
 
 const FillForm = (): ReactElement => {
-  const channel = Base.useFieldValue<Scale.Config["channel"]>("fill.channel", {
+  const channel = Base.useFieldValue<Scale.Config["channel"]>("channel", {
     optional: true,
   });
   return (
     <Base.Sections x>
-      <Scale.TelemForm path="fill" allowNone />
+      <Scale.TelemForm allowNone />
       {channel != null && (
         <>
           <Base.Section title="Display">
-            <Scale.DisplayFields path="fill" />
+            <Scale.DisplayFields>
+              <Base.SwitchField path="caretVisible" label="Value" padHelpText={false} />
+              <Base.SwitchField path="scaleVisible" label="Scale" padHelpText={false} />
+            </Scale.DisplayFields>
           </Base.Section>
           <Base.Section title="Appearance">
-            <Form.ColorField path="fill.color" label="Fill color" />
-            <Scale.StyleFields path="fill" />
+            <Scale.StyleFields />
           </Base.Section>
         </>
       )}
@@ -46,6 +49,8 @@ const FillForm = (): ReactElement => {
 };
 
 export const TankForm = ({
+  tab,
+  onTabChange,
   showBorderRadius = false,
   showStrokeWidth = false,
   showFillTab = false,
@@ -57,8 +62,8 @@ export const TankForm = ({
         <Orientation.Field path="" hideInner showOuterCenter label="Location" />
       </Base.Section>
       <Base.Section title="Appearance">
-        <Form.ColorField path="color" />
-        <Form.ColorField path="backgroundColor" label="Background color" />
+        <Form.ColorField path="strokeColor" label="Stroke" />
+        <Form.FillField />
         <Form.RadiusFields path="borderRadius" />
         {showBorderRadius && (
           <Base.NumericField
@@ -95,11 +100,11 @@ export const TankForm = ({
   );
   if (!showFillTab) return style;
   return (
-    <Form.Tabs tabs={["style", "fill"]}>
+    <Properties.Tabs tabs={["style", "fill"]} tab={tab} onTabChange={onTabChange}>
       <Tabs.Content itemKey="style">{style}</Tabs.Content>
       <Tabs.Content itemKey="fill">
         <FillForm />
       </Tabs.Content>
-    </Form.Tabs>
+    </Properties.Tabs>
   );
 };

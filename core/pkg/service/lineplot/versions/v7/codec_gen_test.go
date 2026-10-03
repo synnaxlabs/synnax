@@ -19,7 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v7"
-	color "github.com/synnaxlabs/x/color/versions/v0"
+	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"

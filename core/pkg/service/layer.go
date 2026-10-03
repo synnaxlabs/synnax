@@ -25,7 +25,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/verification"
 	"github.com/synnaxlabs/synnax/pkg/service/control"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -36,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack"
+	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
@@ -93,10 +93,11 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL]
 	RootCredentials auth.Credentials
-	// Verifier is for verifying. Magic.
+	// License configures the license service. The layer supplies its DB and
+	// instrumentation.
 	//
-	// [OPTIONAL] - Defaults to "".
-	Verifier string
+	// [OPTIONAL] - Defaults to license.DefaultServiceConfig.
+	License license.ServiceConfig
 	// ValidateChannelNames enables channel name validation during creation and
 	// renaming. When false, channels may have names with spaces, special characters,
 	// etc.
@@ -124,7 +125,7 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.Security = override.Nil(c.Security, other.Security)
 	c.Storage = override.Nil(c.Storage, other.Storage)
 	c.RootCredentials = override.Zero(c.RootCredentials, other.RootCredentials)
-	c.Verifier = override.String(c.Verifier, other.Verifier)
+	c.License = c.License.Override(other.License)
 	c.ValidateChannelNames = override.Nil(
 		c.ValidateChannelNames, other.ValidateChannelNames,
 	)
@@ -211,8 +212,8 @@ type Layer struct {
 	// Control reads the control state of channels across the cluster and publishes
 	// every transfer on the control channel.
 	Control *control.Service
-	// Verification verifies that the universe remains as it is.
-	Verification *verification.Service
+	// License holds the Core's license and gates the API on it.
+	License *license.Service
 	// Arc is used for validating, saving, and executing arc automations.
 	Arc *arc.Service
 	// Metrics is used for collecting host machine metrics and publishing them over
@@ -306,24 +307,23 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, l.Status) {
 		return nil, err
 	}
-	if l.Verification, err = verification.OpenService(ctx, verification.ServiceConfig{
-		Instrumentation: cfg.Child("verification"),
+	if l.License, err = license.OpenService(ctx, cfg.License, license.ServiceConfig{
+		Instrumentation: cfg.Child("license"),
 		DB:              cfg.Distribution.DB.KV(),
-		Verifier:        cfg.Verifier,
-	}); !ok(err, l.Verification) {
+	}); !ok(err, l.License) {
 		return nil, err
 	}
 	if l.Channel, err = channel.OpenService(ctx, channel.ServiceConfig{
-		Instrumentation:  cfg.Child("channel"),
-		Channel:          cfg.Distribution.Channel,
-		DB:               cfg.Distribution.DB,
-		HostProvider:     cfg.Distribution.Cluster,
-		Ontology:         l.Ontology,
-		Group:            l.Group,
-		Search:           l.Search,
-		IntOverflowCheck: l.Verification.IsOverflowed,
-		ValidateNames:    cfg.ValidateChannelNames,
-		Status:           l.Status,
+		Instrumentation: cfg.Child("channel"),
+		Channel:         cfg.Distribution.Channel,
+		DB:              cfg.Distribution.DB,
+		HostProvider:    cfg.Distribution.Cluster,
+		Ontology:        l.Ontology,
+		Group:           l.Group,
+		Search:          l.Search,
+		Limit:           l.License.CheckChannelLimit,
+		ValidateNames:   cfg.ValidateChannelNames,
+		Status:          l.Status,
 	}); !ok(err, l.Channel) {
 		return nil, err
 	}
@@ -360,6 +360,15 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		ctx,
 		l.Signals,
 		l.Channel.Observe(),
+	); !ok(err, closer) {
+		return nil, err
+	}
+	if closer, err := l.Signals.PublishJSON(
+		ctx,
+		signals.JSONPublisherConfig[string]{
+			Observable: l.License,
+			SetName:    license.SetChannelName,
+		},
 	); !ok(err, closer) {
 		return nil, err
 	}

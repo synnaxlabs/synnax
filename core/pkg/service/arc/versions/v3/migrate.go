@@ -13,8 +13,24 @@
 
 package v3
 
-import "github.com/synnaxlabs/x/gorp"
+import (
+	"context"
+
+	"github.com/synnaxlabs/x/gorp"
+)
 
 // Migration lifts stored arcs from v1 to v3, converting deploy state to the live
 // representation.
 var Migration = gorp.NewEntryMigration("v56_to_live", autoMigrateArc)
+
+// ModeMigration states the graph mode of every stored Arc that a v0.49 Core saved
+// without a mode, which every later Console read as graph.
+var ModeMigration = gorp.NewEntryMigration(
+	"v59_fill_blank_mode",
+	func(_ context.Context, a Arc) (Arc, error) {
+		if a.Mode == "" {
+			a.Mode = ModeGraph
+		}
+		return a, nil
+	},
+)

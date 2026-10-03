@@ -10,6 +10,8 @@
 import "zod/compile";
 
 import { ResizeObserver } from "@juggle/resize-observer";
+import { preloadTimeLanguage } from "@synnaxlabs/lyra/testutil";
+import { failOnConsoleOutput } from "@synnaxlabs/x/testutil";
 import { configure } from "@testing-library/react";
 import { afterAll, beforeAll, vi } from "vitest";
 
@@ -18,6 +20,8 @@ import { installTestWebSocket } from "@/testutil/websocket";
 // Live-Core round-trips share the single test Core with the rest of the suite, so allow
 // more than the 1s waitFor default.
 configure({ asyncUtilTimeout: 5000 });
+
+failOnConsoleOutput();
 
 class MockIntersectionObserver {
   observe = vi.fn();
@@ -28,6 +32,8 @@ class MockIntersectionObserver {
 // Installed at module scope: an async describe body can open a socket at
 // collection time, before any beforeAll runs.
 installTestWebSocket();
+
+preloadTimeLanguage();
 
 beforeAll(() => {
   vi.stubGlobal("ResizeObserver", ResizeObserver);

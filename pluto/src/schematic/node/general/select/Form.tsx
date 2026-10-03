@@ -17,6 +17,12 @@ import { Channel } from "@/channel";
 import { Control } from "@/schematic/node/common/control";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
+import { type ColorFallbacks, type FormProps } from "@/schematic/node/spec";
+import { Properties } from "@/vis/properties";
+
+export const colorFallbacks = {
+  fillColor: Form.primaryFallback,
+} satisfies ColorFallbacks;
 
 const SelectTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } =
@@ -48,15 +54,19 @@ const SelectTelemForm = ({ path }: { path: string }): ReactElement => {
   );
 };
 
-export const SelectForm = (): ReactElement => (
-  <Form.Tabs tabs={["style", "control", "options"]}>
+export const SelectForm = ({ tab, onTabChange }: FormProps): ReactElement => (
+  <Properties.Tabs
+    tabs={["control", "style", "options"]}
+    tab={tab}
+    onTabChange={onTabChange}
+  >
     <Tabs.Content itemKey="style">
       <Base.Sections x>
         <Base.Section title="Label">
           <Label.Form path="label" />
         </Base.Section>
         <Base.Section title="Appearance">
-          <Form.ColorField path="color" />
+          <Form.FillField fallback={colorFallbacks.fillColor} />
           <Form.SizeField />
           <Base.NumericField
             path="inlineSize"
@@ -73,5 +83,5 @@ export const SelectForm = (): ReactElement => (
     <Tabs.Content itemKey="options">
       <Form.StateMappingForm path="options" />
     </Tabs.Content>
-  </Form.Tabs>
+  </Properties.Tabs>
 );

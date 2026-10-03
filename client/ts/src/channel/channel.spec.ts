@@ -15,14 +15,15 @@ import { statusKey } from "@/channel/payload";
 import { NotFoundError } from "@/errors";
 import { query } from "@/query";
 import {
-  createSeverableProxy,
+  createProxiedTestClient,
   createTestClient,
   expectDeleted,
   expectLive,
   FAST_RETRY,
   spyOnSend,
-  TEST_CLIENT_PARAMS,
 } from "@/testutil";
+
+const quiet = (): void => {};
 
 const client = createTestClient();
 const remote = createTestClient();
@@ -562,20 +563,14 @@ describe("cached reads", () => {
 
   describe("name resolution", () => {
     it("serves literal names from the record store without reaching the cluster", async () => {
-      const proxy = await createSeverableProxy();
-      const local = createTestClient({
-        ...TEST_CLIENT_PARAMS,
-        port: proxy.port,
+      const { proxy, client: local } = await createProxiedTestClient({
         retry: FAST_RETRY,
+        onRetry: quiet,
       });
-      try {
-        const ch = await createVirtual(local);
-        await proxy.sever();
-        const res = await local.channels.retrieve([ch.name]);
-        expect(res.map((c) => c.key)).toEqual([ch.key]);
-      } finally {
-        await proxy.close();
-      }
+      const ch = await createVirtual(local);
+      await proxy.sever();
+      const res = await local.channels.retrieve([ch.name]);
+      expect(res.map((c) => c.key)).toEqual([ch.key]);
     }, 30000);
 
     it("fetches only the names the store cannot resolve", async () => {
@@ -583,95 +578,69 @@ describe("cached reads", () => {
       // stream ever carries it. Severing proves the fetch went out for this name and
       // not for the known one.
       const unknown = await createVirtual(remote);
-      const proxy = await createSeverableProxy();
-      const local = createTestClient({
-        ...TEST_CLIENT_PARAMS,
-        port: proxy.port,
+      const { proxy, client: local } = await createProxiedTestClient({
         retry: FAST_RETRY,
+        onRetry: quiet,
       });
-      try {
-        const known = await createVirtual(local);
-        await proxy.sever();
-        await expect(
-          local.channels.retrieve([known.name, unknown.name]),
-        ).rejects.toThrow();
-        await proxy.restore();
-        await expect
-          .poll(async () =>
-            (await local.channels.retrieve([known.name, unknown.name]))
-              .map((c) => c.key)
-              .sort(),
-          )
-          .toEqual([known.key, unknown.key].sort());
-      } finally {
-        await proxy.close();
-      }
+      const known = await createVirtual(local);
+      await proxy.sever();
+      await expect(
+        local.channels.retrieve([known.name, unknown.name]),
+      ).rejects.toThrow();
+      await proxy.restore();
+      await expect
+        .poll(async () =>
+          (await local.channels.retrieve([known.name, unknown.name]))
+            .map((c) => c.key)
+            .sort(),
+        )
+        .toEqual([known.key, unknown.key].sort());
     }, 30000);
 
     it("goes to the cluster for a name holding regex characters", async () => {
-      const proxy = await createSeverableProxy();
-      const local = createTestClient({
-        ...TEST_CLIENT_PARAMS,
-        port: proxy.port,
+      const { proxy, client: local } = await createProxiedTestClient({
         retry: FAST_RETRY,
+        onRetry: quiet,
       });
-      try {
-        const ch = await createVirtual(local);
-        await proxy.sever();
-        // The stored channel matches the pattern, but a pattern can match
-        // records the store has never seen, so it cannot be served locally.
-        await expect(local.channels.retrieve([`${ch.name}.*`])).rejects.toThrow();
-      } finally {
-        await proxy.close();
-      }
+      const ch = await createVirtual(local);
+      await proxy.sever();
+      // The stored channel matches the pattern, but a pattern can match
+      // records the store has never seen, so it cannot be served locally.
+      await expect(local.channels.retrieve([`${ch.name}.*`])).rejects.toThrow();
     }, 30000);
 
     it("goes to the cluster when a name matches two stored channels", async () => {
-      const proxy = await createSeverableProxy();
-      const local = createTestClient({
-        ...TEST_CLIENT_PARAMS,
-        port: proxy.port,
+      const { proxy, client: local } = await createProxiedTestClient({
         retry: FAST_RETRY,
+        onRetry: quiet,
       });
-      try {
-        const ch = await createVirtual(local);
-        const other = await createVirtual(local);
-        // A cluster running without name validation can hold duplicates. Forge
-        // the collision: an ambiguous name must never resolve from the store.
-        local.channels.store.set([new Channel({ ...other.payload, name: ch.name })]);
-        await proxy.sever();
-        await expect(local.channels.retrieve([ch.name])).rejects.toThrow();
-        // The guard falls through to the cluster rather than failing outright,
-        // so the same request answers once the link returns.
-        await proxy.restore();
-        await expect
-          .poll(async () =>
-            (await local.channels.retrieve([ch.name])).map((c) => c.key),
-          )
-          .toEqual([ch.key]);
-      } finally {
-        await proxy.close();
-      }
+      const ch = await createVirtual(local);
+      const other = await createVirtual(local);
+      // A cluster running without name validation can hold duplicates. Forge
+      // the collision: an ambiguous name must never resolve from the store.
+      local.channels.store.set([new Channel({ ...other.payload, name: ch.name })]);
+      await proxy.sever();
+      await expect(local.channels.retrieve([ch.name])).rejects.toThrow();
+      // The guard falls through to the cluster rather than failing outright,
+      // so the same request answers once the link returns.
+      await proxy.restore();
+      await expect
+        .poll(async () => (await local.channels.retrieve([ch.name])).map((c) => c.key))
+        .toEqual([ch.key]);
     }, 30000);
 
     it("goes to the cluster for a request narrowed beyond names", async () => {
-      const proxy = await createSeverableProxy();
-      const local = createTestClient({
-        ...TEST_CLIENT_PARAMS,
-        port: proxy.port,
+      const { proxy, client: local } = await createProxiedTestClient({
         retry: FAST_RETRY,
+        onRetry: quiet,
       });
-      try {
-        const ch = await createVirtual(local);
-        await proxy.sever();
-        // The store cannot prove it holds every virtual channel named this, so
-        // any field narrowing the request beyond names disqualifies it.
-        await expect(
-          local.channels.retrieve({ names: [ch.name], virtual: true }),
-        ).rejects.toThrow();
-      } finally {
-        await proxy.close();
-      }
+      const ch = await createVirtual(local);
+      await proxy.sever();
+      // The store cannot prove it holds every virtual channel named this, so
+      // any field narrowing the request beyond names disqualifies it.
+      await expect(
+        local.channels.retrieve({ names: [ch.name], virtual: true }),
+      ).rejects.toThrow();
     }, 30000);
 
     it("resolves cached names without scanning the table", async () => {

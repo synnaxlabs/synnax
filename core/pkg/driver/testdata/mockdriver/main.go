@@ -22,6 +22,7 @@ func main() {
 	var (
 		debug      bool
 		configPath string
+		statePath  string
 	)
 	args := os.Args[1:]
 	for i := 0; i < len(args); i++ {
@@ -35,12 +36,33 @@ func main() {
 				i++
 				configPath = args[i]
 			}
+		case "--state-file":
+			if i+1 < len(args) {
+				i++
+				statePath = args[i]
+			}
 		}
 	}
 
 	if configPath != "" {
 		if _, err := os.Stat(configPath); err != nil {
 			fmt.Fprintf(os.Stderr, "E [mock] [main.go] config file not found: %s\n", configPath)
+			os.Exit(1)
+		}
+	}
+
+	if statePath != "" {
+		if err := os.WriteFile(statePath, []byte("{}"), 0o644); err != nil {
+			fmt.Fprintf(os.Stderr, "E [mock] [main.go] failed to write state file: %v\n", err)
+			os.Exit(1)
+		}
+	}
+
+	// MOCK_ENV_DUMP_FILE receives the process environment, one variable per line.
+	if path := os.Getenv("MOCK_ENV_DUMP_FILE"); path != "" {
+		env := []byte(strings.Join(os.Environ(), "\n"))
+		if err := os.WriteFile(path, env, 0o644); err != nil {
+			fmt.Fprintf(os.Stderr, "E [mock] [main.go] failed to dump environment: %v\n", err)
 			os.Exit(1)
 		}
 	}

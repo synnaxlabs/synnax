@@ -1,0 +1,361 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+:root {
+    --max-width: 1300px;
+    --pluto-gray-l9: #9b9b9b;
+    --pluto-h1-size: clamp(4.8rem, 2rem + 5.5vw, 10.5rem);
+    --pluto-h1-weight: 500;
+    --pluto-h1-line-height: 110%;
+    --pluto-h1-letter-spacing: -0.035em;
+    --pluto-h2-size: clamp(4rem, 1.5rem + 5vw, 9.5rem);
+    --pluto-h2-weight: 500;
+    --pluto-h2-line-height: 120%;
+    --pluto-h2-letter-spacing: -0.02em;
+    --pluto-h3-size: clamp(3.2rem, 1.5rem + 3vw, 6rem);
+    --pluto-h3-weight: 500;
+    --pluto-h3-line-height: 120%;
+    --pluto-h3-letter-spacing: -0.02em;
+    --pluto-h4-size: clamp(2.4rem, 1.2rem + 2vw, 3.75rem);
+    --pluto-h4-weight: 500;
+    --pluto-h4-line-height: 130%;
+    --pluto-h5-size: clamp(2rem, 1rem + 1.6vw, 3.25rem);
+    --pluto-h5-line-height: clamp(3rem, 1.5rem + 2vw, 4.5rem);
+    --pluto-h5-weight: 350;
+    --pluto-small-size: 2rem;
+    --pluto-small-line-height: 115%;
+    --shiki-background: transparent;
+    --shiki-foreground: var(--pluto-text-color);
+    --shiki-token-comment: var(--pluto-gray-l7);
+    --shiki-token-string-expression: var(--pluto-secondary-m1);
+    --shiki-token-string: var(--pluto-secondary-m1);
+    --shiki-token-function: #556bf8;
+    --shiki-token-punctuation: var(--pluto-text-color);
+    --shiki-token-keyword: #cc255f;
+    --shiki-token-constant: var(--pluto-text-color);
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+section[id],
+.contact-outer[id] {
+    scroll-margin-top: var(--nav-height);
+}
+
+.section-description {
+    font-weight: 350;
+}
+
+body {
+    min-height: 100vh;
+    font-family: var(--pluto-font-family);
+    color: var(--pluto-text-color);
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ── Section Hero ─────────────────────────────────────────────── */
+
+.section-hero-wrapper {
+    padding-top: var(--space-xl);
+    padding-bottom: var(--space-xl);
+    gap: var(--space-2xl);
+}
+
+.section-label {
+    color: var(--pluto-gray-l8);
+    font-weight: 500;
+}
+
+.section-hero {
+    display: grid;
+    grid-template-columns: 3fr 2fr;
+    gap: var(--space-lg);
+    width: 100%;
+    align-items: start;
+}
+
+.section-hero-title {
+    display: block;
+}
+
+.section-hero-description {
+    color: var(--pluto-gray-l9);
+}
+
+/* ── Feature Section ─────────────────────────────────────────── */
+
+.feature-section {
+    padding-top: var(--space-lg);
+    padding-bottom: var(--space-lg);
+    gap: var(--space-md);
+    border-top: var(--pluto-border);
+}
+
+.feature-label {
+    color: var(--pluto-gray-l8);
+    font-weight: 500;
+    font-size: clamp(2rem, 1.5rem + 0.5vw, 3rem);
+    margin-bottom: var(--space-sm);
+}
+
+.feature-header {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-sm);
+    width: 100%;
+    align-items: start;
+}
+
+.feature-title {
+    display: block;
+}
+
+.feature-right {
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+    align-items: flex-start;
+}
+
+.feature-right .pluto-btn {
+    color: var(--pluto-gray-l8);
+    text-decoration: none;
+    margin-left: -2rem;
+}
+
+.feature-right .pluto-btn:hover {
+    text-decoration: none;
+}
+
+.feature-description {
+    color: var(--pluto-gray-l9);
+}
+
+/* ── Panel Tab ───────────────────────────────────────────────── */
+
+.panel-tab {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.5rem 2rem;
+    font-family: var(--pluto-code-font-family);
+    font-size: clamp(1.6rem, 1rem + 0.6vw, 2.2rem);
+    font-weight: 500;
+    color: var(--pluto-gray-l8);
+    border-bottom: var(--pluto-border);
+    background: var(--pluto-gray-l0);
+}
+
+.panel-tab-icon {
+    font-size: 2rem;
+    color: var(--pluto-gray-l7);
+}
+
+/* ── Viz Tabs ────────────────────────────────────────────────── */
+
+.viz-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: var(--pluto-border);
+}
+
+.viz-tab {
+    padding: clamp(1.5rem, 1rem + 0.8vw, 2.5rem) clamp(2rem, 1.5rem + 1.5vw, 4rem);
+    background: transparent;
+    border: none;
+    border-right: var(--pluto-border);
+    cursor: pointer;
+    font-family: var(--pluto-font-family);
+    font-size: clamp(1.8rem, 1rem + 1vw, 2.5rem);
+    font-weight: 500;
+    color: var(--pluto-gray-l7);
+    transition:
+        color 0.2s ease,
+        background 0.2s ease;
+
+    &:hover {
+        color: var(--pluto-gray-l9);
+        background: var(--pluto-gray-l2);
+    }
+
+    &:last-child {
+        border-right: none;
+    }
+}
+
+.viz-tab--active {
+    color: var(--pluto-text-color);
+    background: var(--pluto-gray-l2);
+}
+
+/* ── Code Panel ──────────────────────────────────────────────── */
+
+.code-panel pre {
+    margin: 0;
+    padding: 0;
+    background: transparent !important;
+    font-size: clamp(1.8rem, 1rem + 0.7vw, 2.4rem);
+    line-height: clamp(2.7rem, 1.5rem + 1vw, 3.6rem);
+}
+
+.code-panel code {
+    font-family: var(--pluto-code-font-family);
+    font-size: inherit;
+    line-height: inherit;
+    display: flex;
+    flex-direction: column;
+    counter-reset: line;
+}
+
+.code-panel .line {
+    min-height: clamp(2.4rem, 1.5rem + 1vw, 3.6rem);
+    padding: 0 1rem;
+    border-left: 3px solid transparent;
+    counter-increment: line;
+    transition:
+        border-color 0.3s ease,
+        background 0.3s ease;
+}
+
+.code-panel .line::before {
+    content: counter(line);
+    display: inline-block;
+    width: 2.5rem;
+    margin-right: clamp(1.5rem, 1rem + 0.5vw, 2.5rem);
+    text-align: right;
+    color: var(--pluto-gray-l7);
+    font-size: clamp(1.6rem, 1rem + 0.6vw, 2.2rem);
+    line-height: clamp(2.4rem, 1.5rem + 1vw, 3.6rem);
+    vertical-align: middle;
+    user-select: none;
+}
+
+.code-panel .line[data-active] {
+    border-left-color: var(--pluto-primary-p1);
+    background: var(--pluto-primary-z-20);
+}
+
+/* ── Viz Container ───────────────────────────────────────────── */
+
+.viz-container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    border: var(--pluto-border);
+    border-radius: 2rem;
+    overflow: hidden;
+    background: var(--pluto-gray-l1);
+}
+
+.viz-content {
+    display: grid;
+    grid-template-columns: 2fr 3fr;
+    min-height: 380px;
+}
+
+.viz-code {
+    padding: clamp(2rem, 1.5rem + 1.5vw, 4rem);
+    border-right: var(--pluto-border);
+    overflow: auto;
+}
+
+.viz-diagram {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.viz-progress {
+    display: flex;
+    justify-content: center;
+    gap: 0.8rem;
+    padding: 2rem;
+    border-top: var(--pluto-border);
+}
+
+.viz-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--pluto-gray-l4);
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.viz-dot--active {
+    width: 20px;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--pluto-gray-l4);
+    position: relative;
+    overflow: hidden;
+}
+
+.viz-dot--active::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--pluto-primary-p1);
+    transform-origin: left center;
+    transform: scaleX(0);
+    animation: viz-dot-fill var(--step-duration, 1200ms) linear forwards;
+    animation-play-state: var(--play-state, running);
+}
+
+@keyframes viz-dot-fill {
+    from {
+        transform: scaleX(0);
+    }
+
+    to {
+        transform: scaleX(1);
+    }
+}
+
+/* ── Responsive ──────────────────────────────────────────────── */
+
+@media (width <= 900px) {
+    .section-hero {
+        grid-template-columns: 1fr;
+    }
+
+    .feature-header {
+        grid-template-columns: 1fr;
+    }
+
+    .viz-content {
+        grid-template-columns: 1fr;
+    }
+
+    .viz-code {
+        border-right: none;
+        border-bottom: var(--pluto-border);
+    }
+}
+
+@media (width <= 600px) {
+    .viz-tabs {
+        flex-direction: column;
+    }
+
+    .viz-tab {
+        border-right: none;
+        border-bottom: var(--pluto-border);
+
+        &:last-child {
+            border-bottom: none;
+        }
+    }
+}

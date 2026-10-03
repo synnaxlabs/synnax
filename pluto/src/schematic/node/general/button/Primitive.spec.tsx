@@ -10,7 +10,7 @@
 import { schematic } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { color, deep } from "@synnaxlabs/x";
-import { fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -28,7 +28,7 @@ describe("button symbol", () => {
   it("should carry the symbol-colored + symbol-button classes and set the source color", () => {
     // The bg/border/text vars are mapped to the display/contrast vars in button.css;
     // jsdom cannot compute them, so we assert the marker classes and the source var.
-    const { container } = render(<Button color="#ff0000" />);
+    const { container } = render(<Button fillColor="#ff0000" />);
     const btn = getButton(container);
     const cls = btn.getAttribute("class") ?? "";
     expect(cls).toContain("pluto-symbol-colored");
@@ -37,7 +37,7 @@ describe("button symbol", () => {
   });
 
   it("should not engage the base button's concrete-color JS path", () => {
-    const { container } = render(<Button color="#ff0000" />);
+    const { container } = render(<Button fillColor="#ff0000" />);
     const btn = getButton(container);
     // The color is not forwarded, so the base button never sets its own color var.
     expect(btn.getAttribute("class")).not.toContain("pluto-btn--custom-color");
@@ -45,14 +45,14 @@ describe("button symbol", () => {
   });
 
   it("should carry the alpha channel so a translucent button stays translucent", () => {
-    const { container } = render(<Button color={[255, 0, 0, 0.5]} />);
+    const { container } = render(<Button fillColor={[255, 0, 0, 0.5]} />);
     expect(getButton(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
       "255, 0, 0, 0.5",
     );
   });
 
   it("should pass a fully transparent color through as a choice", () => {
-    const { container } = render(<Button color={color.ZERO} />);
+    const { container } = render(<Button fillColor={color.ZERO} />);
     expect(getButton(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
       "0, 0, 0, 0",
     );
@@ -150,7 +150,9 @@ describe("button symbol", () => {
         fireEvent.mouseDown(getButton(container));
         vi.advanceTimersByTime(499);
         expect(onClick).not.toHaveBeenCalled();
-        vi.advanceTimersByTime(1);
+        act(() => {
+          vi.advanceTimersByTime(1);
+        });
         expect(onClick).toHaveBeenCalledTimes(1);
       });
 
@@ -162,7 +164,9 @@ describe("button symbol", () => {
         const btn = getButton(container);
         fireEvent.mouseDown(btn);
         expect(onMouseDown).not.toHaveBeenCalled();
-        vi.advanceTimersByTime(500);
+        act(() => {
+          vi.advanceTimersByTime(500);
+        });
         expect(onMouseDown).toHaveBeenCalledTimes(1);
       });
 
@@ -237,16 +241,19 @@ describe("ButtonForm", () => {
         <ButtonForm />
       </FormWrapper>,
     );
+    fireEvent.click(getByText("Style"));
     expect(getByText("Size")).toBeDefined();
     expect(getByText("M").closest("button")?.getAttribute("aria-pressed")).toBe("true");
   });
 
   it("should not render the label size and direction fields", () => {
-    const { queryByText } = render(
+    const { getByText, queryByText } = render(
       <FormWrapper>
         <ButtonForm />
       </FormWrapper>,
     );
+    fireEvent.click(getByText("Style"));
+    expect(getByText("Size")).toBeDefined();
     expect(queryByText("Label size")).toBeNull();
     expect(queryByText("Label direction")).toBeNull();
   });

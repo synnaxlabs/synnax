@@ -19,8 +19,8 @@ export const CylinderForm = (): ReactElement => (
       <Label.Form path="label" />
     </Base.Section>
     <Base.Section title="Appearance">
-      <Form.ColorField path="color" />
-      <Form.ColorField path="backgroundColor" label="Background color" />
+      <Form.ColorField path="strokeColor" label="Stroke" />
+      <Form.FillField />
     </Base.Section>
     <Base.Section title="Dimensions">
       <Base.NumericField

@@ -2176,6 +2176,77 @@ var _ = Describe("TS Types Plugin", func() {
 			})
 		})
 
+		Context("same-namespace hand-written reference", func() {
+			It("Should import a referenced hand-written struct from its module",
+				func(ctx SpecContext) {
+					source := `
+						@ts output "x/ts/src/color"
+
+						Color struct {
+							r uint8
+							@ts hand
+							@ts include "x/ts/src/color/color"
+						}
+
+						Band struct {
+							threshold float64
+							color Color
+						}
+					`
+					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					ExpectContent(resp, "types.gen.ts").
+						ToContain(
+							`import { colorZ } from "@/color/color"`,
+							`color: colorZ`,
+						).
+						ToNotContain("export const colorZ")
+				})
+
+			It("Should import a hand-written struct that a struct extends",
+				func(ctx SpecContext) {
+					source := `
+						@ts output "x/ts/src/color"
+
+						Color struct {
+							r uint8
+							@ts hand
+							@ts include "x/ts/src/color/color"
+						}
+
+						Named struct extends Color {
+							name string
+						}
+					`
+					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					ExpectContent(resp, "types.gen.ts").
+						ToContain(
+							`import { colorZ } from "@/color/color"`,
+							"export const namedZ = colorZ\n",
+						)
+				})
+
+			It("Should fail when a referenced hand-written struct declares no module",
+				func(ctx SpecContext) {
+					source := `
+						@ts output "x/ts/src/color"
+
+						Color struct {
+							r uint8
+							@ts hand
+						}
+
+						Band struct {
+							color Color
+						}
+					`
+					req := MustGenerateRequest(ctx, source, "color", loader)
+					Expect(typesPlugin.Generate(req)).Error().To(MatchError(
+						"failed to generate x/ts/src/color: types with no generated " +
+							"TypeScript declaration need a @ts include module: color.Color",
+					))
+				})
+		})
+
 		Context("documentation", func() {
 			It("Should generate JSDoc comments from doc domain", func(ctx SpecContext) {
 				source := `
@@ -2239,6 +2310,39 @@ var _ = Describe("TS Types Plugin", func() {
 						`common.infoZ`,
 					)
 			})
+		})
+
+		Context("reference into an ancestor namespace", func() {
+			BeforeEach(func() {
+				loader.Add("schemas/ranger", `
+					@ts output "client/ts/src/ranger"
+
+					Key uuid
+				`)
+			})
+
+			It(
+				"Should import the ancestor's types.gen as a namespace",
+				func(ctx SpecContext) {
+					source := `
+					import "schemas/ranger"
+
+					@ts output "client/ts/src/ranger/kv"
+
+					Pair struct {
+						range ranger.Key
+						key string
+					}
+				`
+					resp := MustGenerate(ctx, source, "kv", loader, typesPlugin)
+					ExpectContent(resp, "types.gen.ts").
+						ToContain(
+							`import * as ranger from "@/ranger/types.gen"`,
+							`ranger.keyZ`,
+						).
+						ToNotContain(`from "@/ranger";`)
+				},
+			)
 		})
 
 		Context("snake_case cross-namespace reference", func() {
@@ -2329,6 +2433,57 @@ var _ = Describe("TS Types Plugin", func() {
 						)
 				},
 			)
+		})
+
+		Context("cross-namespace alias reference", func() {
+			BeforeEach(func() {
+				loader.Add("schemas/common", `
+					@ts output "client/ts/src/common"
+
+					Name = string
+				`)
+			})
+
+			It("Should import the alias's namespace", func(ctx SpecContext) {
+				source := `
+					import "schemas/common"
+
+					@ts output "client/ts/src/task"
+
+					Task struct {
+						key uuid
+						name common.Name
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(`import { common } from "@/common"`, `common.nameZ`)
+			})
+		})
+
+		Context("reference into a namespace with no TS output", func() {
+			BeforeEach(func() {
+				loader.Add("schemas/common", `
+					Info struct {
+						key uuid
+					}
+				`)
+			})
+
+			It("Should import the namespace by its name", func(ctx SpecContext) {
+				source := `
+					import "schemas/common"
+
+					@ts output "client/ts/src/task"
+
+					Task struct {
+						key uuid
+						info common.Info
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").ToContain(`common.infoZ`)
+			})
 		})
 
 		Context("same-package cross-namespace reference", func() {

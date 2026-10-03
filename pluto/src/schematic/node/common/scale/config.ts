@@ -8,36 +8,74 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { type dimensions, type location } from "@synnaxlabs/x";
 
 import { Telem } from "@/schematic/node/common/telem";
 import { type telem } from "@/telem/aether";
 import { type Scale as VisScale } from "@/vis/scale";
 
-/** Side the ticks and the readout sit on until the user moves them. */
-export const DEFAULT_SIDE: location.Outer = "right";
-
 /** Stored shape of a live scale indicator, shared by every symbol that renders one. */
 export type Config = schematic.ScaleIndicatorConfig;
 
-// The bar's own size. The tick gutter sits beside it, so the symbol occupies more.
-export const DEFAULT_DIMENSIONS: dimensions.Dimensions = { width: 34, height: 160 };
-
 /** source builds the smoothed read pipeline the indicator's value is drawn from. */
-export const source = ({ channel, rollingAverage }: Config): telem.NumberSourceSpec =>
+export const source = ({
+  channel,
+  rollingAverage,
+}: Pick<Config, "channel" | "rollingAverage">): telem.NumberSourceSpec =>
   Telem.smoothedNumberSource({ channel, rollingAverage });
 
-/** visProps translates the stored hidden flags into the vis scale's show flags. */
+/** The indicator fields the vis scale draws from. */
+export type VisConfig = Pick<
+  Config,
+  | "bounds"
+  | "levelColor"
+  | "axisColor"
+  | "textColor"
+  | "units"
+  | "stalenessColor"
+  | "stalenessTimeout"
+  | "notation"
+  | "precision"
+  | "side"
+  | "caretSide"
+  | "level"
+  | "levelHidden"
+  | "caretHidden"
+  | "scaleHidden"
+>;
+
+/** visProps translates the stored indicator fields into the vis scale's props. */
 export const visProps = ({
-  fillHidden,
+  levelColor,
+  axisColor,
+  levelHidden,
   caretHidden,
   scaleHidden,
-  ...rest
-}: Config): Omit<VisScale.UseProps, "aetherKey" | "box"> & {
+  bounds,
+  textColor,
+  units,
+  stalenessColor,
+  stalenessTimeout,
+  notation,
+  precision,
+  side,
+  caretSide,
+  level,
+}: VisConfig): Omit<VisScale.UseProps, "aetherKey" | "box"> & {
   showScale: boolean;
 } => ({
-  ...rest,
-  showFill: !fillHidden,
+  bounds,
+  color: levelColor,
+  axisColor,
+  textColor,
+  units,
+  stalenessColor,
+  stalenessTimeout,
+  notation,
+  precision,
+  side,
+  caretSide,
+  level,
+  showFill: !levelHidden,
   showCaret: !caretHidden,
   showScale: !scaleHidden,
 });

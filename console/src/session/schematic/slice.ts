@@ -10,20 +10,26 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type schematic } from "@synnaxlabs/client";
 import { type Drift } from "@synnaxlabs/drift";
-import { type Control, control, type Diagram, Viewport } from "@synnaxlabs/pluto";
+import {
+  type Control,
+  control,
+  type Diagram,
+  Properties,
+  Viewport,
+} from "@synnaxlabs/pluto";
 import { color, control as xcontrol, sticky, xy } from "@synnaxlabs/x";
 import z from "zod";
 
 import { Window } from "@/session/window";
 
-export const viewportZ = z.object({
+const viewportZ = z.object({
   position: xy.xyZ.default({ x: 0, y: 0 }),
   zoom: z.number().default(1),
   mode: Viewport.modeZ.default("select"),
 });
 export interface Viewport extends z.infer<typeof viewportZ> {}
 
-export const legendStateZ = z.object({
+const legendStateZ = z.object({
   visible: z.boolean().default(true),
   position: sticky.xyZ.default({
     x: 24,
@@ -37,13 +43,15 @@ export interface LegendState extends z.infer<typeof legendStateZ> {}
 
 export const toolbarTabZ = z.enum(["symbols", "properties", "control"]);
 export type ToolbarTab = z.infer<typeof toolbarTabZ>;
-export const toolbarStateZ = z.object({
+const toolbarStateZ = z.object({
   selectedTab: toolbarTabZ.default("symbols"),
   selectedSymbolGroup: z.string().default("general"),
+  /** The last tab selected in a symbol's properties form. */
+  propertiesTab: Properties.tabKeyZ.optional(),
 });
 export interface ToolbarState extends z.infer<typeof toolbarStateZ> {}
 
-export const controlStateZ = z.object({
+const controlStateZ = z.object({
   authority: xcontrol.authorityZ.default(1),
   status: control.statusZ.default("released"),
 });
@@ -62,7 +70,7 @@ export interface NewState extends z.input<typeof stateZ> {}
 
 export const ZERO_STATE = stateZ.parse({});
 
-export const windowStateZ = z.record(z.string(), stateZ).default({});
+const windowStateZ = z.record(z.string(), stateZ).default({});
 
 export const sliceStateZ = z.object({
   version: z.literal(0).default(0),
@@ -116,6 +124,10 @@ export interface SelectToolbarTabPayload extends KeyedPayload {
 
 export interface SetSelectedSymbolGroupPayload extends KeyedPayload {
   group: string;
+}
+
+export interface SetPropertiesTabPayload extends KeyedPayload {
+  tab: Properties.TabKey;
 }
 
 export interface SetEditablePayload extends KeyedPayload {
@@ -198,6 +210,11 @@ export const { actions, reducer } = createSlice({
     >((state, { payload: { group } }) => {
       state.toolbar.selectedSymbolGroup = group;
     }),
+    setPropertiesTab: withSelectedState<SetPropertiesTabPayload, SliceState>(
+      (state, { payload: { tab } }) => {
+        state.toolbar.propertiesTab = tab;
+      },
+    ),
     setEditable: withSelectedState<SetEditablePayload, SliceState>(
       (state, { payload: { editable } }) => {
         state.editable = editable;
@@ -236,6 +253,7 @@ export const {
   setLegendVisible,
   selectToolbarTab,
   setSelectedSymbolGroup,
+  setPropertiesTab,
   setEditable,
   setFitViewOnResize,
   setViewport,
@@ -269,6 +287,7 @@ export const MIDDLEWARE = [
     setLegendVisible,
     selectToolbarTab,
     setSelectedSymbolGroup,
+    setPropertiesTab,
     setEditable,
     setFitViewOnResize,
     setViewport,

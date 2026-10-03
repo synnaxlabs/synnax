@@ -36,7 +36,11 @@ const customState = Schematic.stateZ.parse({
   control: { authority: 250, status: "acquired" },
   selected: ["a", "b"],
   legend: { visible: false, colors: { a: color.ZERO } },
-  toolbar: { selectedTab: "properties", selectedSymbolGroup: "valves" },
+  toolbar: {
+    selectedTab: "properties",
+    selectedSymbolGroup: "valves",
+    propertiesTab: "style",
+  },
   editable: true,
   fitViewOnResize: true,
   viewport: { position: { x: 7, y: 8 }, zoom: 2, mode: "pan" },
@@ -198,6 +202,13 @@ describe("schematic selector hooks", () => {
       wrapper: wrapperFor(store(), KEY),
     });
     expect(result.current).toBe("valves");
+  });
+
+  it("should return the properties tab", () => {
+    const { result } = renderHook(() => Schematic.useSelectPropertiesTab(), {
+      wrapper: wrapperFor(store(), KEY),
+    });
+    expect(result.current).toBe("style");
   });
 
   it("should return the legend state", () => {
@@ -370,7 +381,7 @@ let projectKey: string;
 
 describe("useSelectEditable", () => {
   beforeAll(async () => {
-    projectKey = (await client.projects.create({ name: id.create(), layout: {} })).key;
+    projectKey = (await client.projects.create({ name: id.create() })).key;
   });
 
   it("permits editing when the user can update and edit mode is on", async () => {

@@ -15,7 +15,11 @@ import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
 import { Form } from "@/schematic/node/common/form";
+import { Label } from "@/schematic/node/common/label";
+import { Orientation } from "@/schematic/node/common/orientation";
 import { Telem } from "@/schematic/node/common/telem";
+import { type FormProps } from "@/schematic/node/spec";
+import { Properties } from "@/vis/properties";
 import { Staleness } from "@/vis/staleness";
 
 type LightTelemFormT = Pick<schematic.LightNodeConfig, "channel" | "threshold">;
@@ -59,13 +63,38 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
   );
 };
 
-export const LightForm = (): ReactElement => (
-  <Form.Tabs tabs={["style", "telemetry"]}>
+const StyleForm = (): ReactElement => {
+  // An absent on color paints the stroke color.
+  const strokeColor = Base.useFieldValue<schematic.LightNodeConfig["strokeColor"]>(
+    "strokeColor",
+    { optional: true },
+  );
+  return (
+    <Base.Sections x>
+      <Base.Section title="Label">
+        <Label.Form path="label" />
+      </Base.Section>
+      <Base.Section title="Appearance">
+        <Form.ColorField path="strokeColor" label="Stroke" />
+        <Form.ColorField
+          path="onColor"
+          label="On"
+          fallback={(theme) => strokeColor ?? Form.defaultFallback(theme)}
+        />
+        <Form.ScaleField path="scale" />
+      </Base.Section>
+      <Orientation.Section path="" />
+    </Base.Sections>
+  );
+};
+
+export const LightForm = ({ tab, onTabChange }: FormProps): ReactElement => (
+  <Properties.Tabs tabs={["telemetry", "style"]} tab={tab} onTabChange={onTabChange}>
     <Tabs.Content itemKey="style">
-      <Form.StyleForm />
+      <StyleForm />
     </Tabs.Content>
     <Tabs.Content itemKey="telemetry">
       <LightTelemForm path="" />
     </Tabs.Content>
-  </Form.Tabs>
+  </Properties.Tabs>
 );

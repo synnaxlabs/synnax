@@ -14,6 +14,8 @@
 package api
 
 import (
+	"slices"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/alamos"
@@ -31,6 +33,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
+	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
 	"github.com/synnaxlabs/synnax/pkg/api/ontology"
@@ -73,6 +76,10 @@ type Transport struct {
 	ChannelRetrieveGroup freighter.UnaryServer[channel.RetrieveGroupRequest, channel.RetrieveGroupResponse]
 	// CONNECTIVITY
 	ConnectivityCheck freighter.UnaryServer[struct{}, connectivity.CheckResponse]
+	// LICENSE
+	LicenseRetrieve   freighter.UnaryServer[license.RetrieveRequest, license.RetrieveResponse]
+	LicenseActivate   freighter.UnaryServer[license.ActivateRequest, license.ActivateResponse]
+	LicenseDeactivate freighter.UnaryServer[license.DeactivateRequest, license.DeactivateResponse]
 	// FRAME
 	FrameWriter   freighter.StreamServer[framer.WriterRequest, framer.WriterResponse]
 	FrameIterator freighter.StreamServer[framer.IteratorRequest, framer.IteratorResponse]
@@ -107,13 +114,12 @@ type Transport struct {
 	GroupRename   freighter.UnaryServer[group.RenameRequest, struct{}]
 	GroupRetrieve freighter.UnaryServer[group.RetrieveRequest, group.RetrieveResponse]
 	// PROJECT
-	ProjectCreate    freighter.UnaryServer[project.CreateRequest, project.CreateResponse]
-	ProjectRetrieve  freighter.UnaryServer[project.RetrieveRequest, project.RetrieveResponse]
-	ProjectDelete    freighter.UnaryServer[project.DeleteRequest, struct{}]
-	ProjectRename    freighter.UnaryServer[project.RenameRequest, struct{}]
-	ProjectSetLayout freighter.UnaryServer[project.SetLayoutRequest, struct{}]
-	ProjectExport    freighter.UnaryServer[project.ExportRequest, project.ExportResponse]
-	ProjectImport    freighter.UnaryServer[project.ImportRequest, project.ImportResponse]
+	ProjectCreate   freighter.UnaryServer[project.CreateRequest, project.CreateResponse]
+	ProjectRetrieve freighter.UnaryServer[project.RetrieveRequest, project.RetrieveResponse]
+	ProjectDelete   freighter.UnaryServer[project.DeleteRequest, struct{}]
+	ProjectRename   freighter.UnaryServer[project.RenameRequest, struct{}]
+	ProjectExport   freighter.UnaryServer[project.ExportRequest, project.ExportResponse]
+	ProjectImport   freighter.UnaryServer[project.ImportRequest, project.ImportResponse]
 	// SCHEMATIC
 	SchematicCreate   freighter.UnaryServer[schematic.CreateRequest, schematic.CreateResponse]
 	SchematicRetrieve freighter.UnaryServer[schematic.RetrieveRequest, schematic.RetrieveResponse]
@@ -208,6 +214,7 @@ type Layer struct {
 	Channel      *channel.Service
 	Control      *control.Service
 	Connectivity *connectivity.Service
+	License      *license.Service
 	Ontology     *ontology.Service
 	Range        *ranger.Service
 	KV           *kv.Service
@@ -239,13 +246,11 @@ func (l *Layer) BindTo(t Transport) {
 			alamos.Middleware(alamos.Config{Instrumentation: l.config.Instrumentation}),
 		)
 		rec                = recovery.Middleware(l.config.Instrumentation)
+		gate               = license.Middleware(l.config.Service.License)
 		insecureMiddleware = []freighter.Middleware{rec, instrumentation}
-		secureMiddleware   = make(
-			[]freighter.Middleware, len(insecureMiddleware), len(insecureMiddleware)+1,
-		)
+		secureMiddleware   = append(slices.Clone(insecureMiddleware), tk)
+		gatedMiddleware    = append(slices.Clone(secureMiddleware), gate)
 	)
-	copy(secureMiddleware, insecureMiddleware)
-	secureMiddleware = append(secureMiddleware, tk)
 
 	freighter.UseOnAll(
 		insecureMiddleware,
@@ -253,8 +258,16 @@ func (l *Layer) BindTo(t Transport) {
 		t.ConnectivityCheck,
 	)
 
+	// The license endpoints skip the gate so an unlicensed Core can be activated.
 	freighter.UseOnAll(
 		secureMiddleware,
+		t.LicenseRetrieve,
+		t.LicenseActivate,
+		t.LicenseDeactivate,
+	)
+
+	freighter.UseOnAll(
+		gatedMiddleware,
 
 		// AUTH
 		t.AuthChangePassword,
@@ -318,7 +331,6 @@ func (l *Layer) BindTo(t Transport) {
 		t.ProjectCreate,
 		t.ProjectRetrieve,
 		t.ProjectRename,
-		t.ProjectSetLayout,
 		t.ProjectExport,
 		t.ProjectImport,
 
@@ -413,6 +425,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.ArcRetrieve,
 		t.ArcDispatch,
 		t.ArcSetRack,
+		t.ArcLSP,
 
 		// IMPORT/EXPORT
 		t.ImExImport,
@@ -426,6 +439,11 @@ func (l *Layer) BindTo(t Transport) {
 	t.AuthChangePassword.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.Auth.ChangePassword),
 	)
+
+	// LICENSE
+	t.LicenseRetrieve.BindHandler(l.License.Retrieve)
+	t.LicenseActivate.BindHandler(l.License.Activate)
+	t.LicenseDeactivate.BindHandler(l.License.Deactivate)
 
 	// USER
 	t.UserRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.Rename))
@@ -497,9 +515,6 @@ func (l *Layer) BindTo(t Transport) {
 	t.ProjectRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.Rename))
 	t.ProjectExport.BindHandler(l.Project.Export)
 	t.ProjectImport.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.Import))
-	t.ProjectSetLayout.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Project.SetLayout),
-	)
 
 	// SCHEMATIC
 	t.SchematicCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Schematic.Create))
@@ -654,6 +669,9 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.Connectivity, err = connectivity.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.License, err = license.NewService(cfg); err != nil {
 		return nil, err
 	}
 	if l.Ontology, err = ontology.NewService(cfg); err != nil {

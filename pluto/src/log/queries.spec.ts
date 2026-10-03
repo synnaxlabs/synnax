@@ -41,7 +41,6 @@ describe("log queries", () => {
   const createLog = async (overrides: Partial<log.New> = {}): Promise<log.Log> => {
     const proj = await client.projects.create({
       name: `log_ws_${uuid.create()}`,
-      layout: {},
     });
     return await client.logs.create(proj.key, { name: "test_log", ...overrides });
   };
@@ -278,7 +277,6 @@ describe("log queries", () => {
     it("should create a new log and cache it", async () => {
       const project = await client.projects.create({
         name: "create_project",
-        layout: {},
       });
       const { result } = renderHook(() => Log.useCreate(), { wrapper });
       const key = uuid.create();

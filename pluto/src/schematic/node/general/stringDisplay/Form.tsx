@@ -19,7 +19,9 @@ import { Channel } from "@/channel";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
+import { type FormProps } from "@/schematic/node/spec";
 import { Synnax } from "@/synnax";
+import { Properties } from "@/vis/properties";
 import { Staleness } from "@/vis/staleness";
 
 const TelemForm = (): ReactElement => {
@@ -61,7 +63,8 @@ const StyleForm = (): ReactElement => (
       <Label.Form path="label" />
     </Base.Section>
     <Base.Section title="Appearance">
-      <Form.ColorField path="color" />
+      <Form.ColorField path="strokeColor" label="Stroke" />
+      <Form.ColorField path="textColor" label="Text" />
       <Form.LevelSizeField />
       <Base.NumericField
         path="inlineSize"
@@ -75,13 +78,13 @@ const StyleForm = (): ReactElement => (
   </Base.Sections>
 );
 
-export const StringDisplayForm = (): ReactElement => (
-  <Form.Tabs tabs={["style", "telemetry"]}>
+export const StringDisplayForm = ({ tab, onTabChange }: FormProps): ReactElement => (
+  <Properties.Tabs tabs={["telemetry", "style"]} tab={tab} onTabChange={onTabChange}>
     <Tabs.Content itemKey="style">
       <StyleForm />
     </Tabs.Content>
     <Tabs.Content itemKey="telemetry">
       <TelemForm />
     </Tabs.Content>
-  </Form.Tabs>
+  </Properties.Tabs>
 );

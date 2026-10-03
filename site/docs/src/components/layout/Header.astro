@@ -1,0 +1,229 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Logo } from "@synnaxlabs/media";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import Search from "@/components/search/Search.astro";
+import { Page } from "@/components/nav/Page";
+import { REFERENCE_PAGES } from "@/pages/_nav";
+import { enabled } from "@/flags";
+import Drawer from "@synnaxlabs/site-common/Drawer.astro";
+import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
+const url = Astro.url.pathname;
+const version = await Astro.locals.releases.latest("core").catch(() => null);
+const label = version?.split(".").slice(0, -1).join(".");
+---
+
+<Flex.Box className="main-header" justify="center" align="center" el="header" empty>
+    <Flex.Box className="header-row" justify="center" align="center">
+        <Flex.Box
+            className="header-content"
+            direction="x"
+            justify="between"
+            align="center"
+        >
+            <Flex.Box direction="x" align="center" gap={4}>
+                <a href="https://synnaxlabs.com" class="logo-link">
+                    <Logo variant="title" />
+                </a>
+                <Flex.Box direction="x" className="header-nav" align="center" gap={1}>
+                    <Button.Button
+                        variant="text"
+                        className={`nav-link ${url.includes("reference") ? "nav-link--active" : ""}`}
+                        href="/reference/"
+                    >
+                        Reference
+                    </Button.Button>
+                    <Button.Button
+                        variant="text"
+                        className={`nav-link ${url.includes("blog") ? "nav-link--active" : ""}`}
+                        href="/blog/"
+                    >
+                        Blog
+                    </Button.Button>
+                    <Button.Button
+                        variant="text"
+                        className={`nav-link ${url.includes("releases") ? "nav-link--active" : ""}`}
+                        href="/releases/"
+                    >
+                        Releases
+                    </Button.Button>
+                    <Button.Button
+                        variant="text"
+                        className={`nav-link ${url.includes("reliability") ? "nav-link--active" : ""}`}
+                        href="/reliability/"
+                    >
+                        Reliability
+                    </Button.Button>
+                </Flex.Box>
+            </Flex.Box>
+            <Flex.Box direction="x" align="center" gap="small">
+                <Search />
+                <Button.Button
+                    className="version-button"
+                    variant="outlined"
+                    href="https://github.com/synnaxlabs/synnax"
+                >
+                    <p class="version">{label}</p>
+                    <Icon.Logo.Github />
+                </Button.Button>
+                {enabled("portal") && (
+                    <Button.Button
+                        className="login-button"
+                        variant="filled"
+                        href="https://portal.synnaxlabs.com/login"
+                    >
+                        Log in
+                    </Button.Button>
+                )}
+                <MenuButton />
+                <Drawer home="https://synnaxlabs.com">
+                    <div class="mobile-drawer-links">
+                        <a href="/reference/" class="mobile-drawer-link">
+                            Reference
+                        </a>
+                        <a href="/blog/" class="mobile-drawer-link">
+                            Blog
+                        </a>
+                        <a href="/releases/" class="mobile-drawer-link">
+                            Releases
+                        </a>
+                        <a href="/reliability/" class="mobile-drawer-link">
+                            Reliability
+                        </a>
+                        <div class="mobile-drawer-divider"></div>
+                        <span class="mobile-drawer-section-label">Reference</span>
+                    </div>
+                    <div class="mobile-drawer-tree">
+                        <Page nodes={REFERENCE_PAGES} currentPage={url} />
+                    </div>
+                </Drawer>
+            </Flex.Box>
+        </Flex.Box>
+    </Flex.Box>
+</Flex.Box>
+
+<style is:global>
+    .main-header {
+        z-index: 4;
+        position: sticky;
+        top: 0;
+        background: var(--pluto-gray-l2-30);
+        -webkit-backdrop-filter: blur(3rem);
+        backdrop-filter: blur(3rem);
+
+        .header-row {
+            height: var(--nav-height);
+            border-bottom: var(--pluto-border);
+            border-color: var(--pluto-gray-l4);
+            width: 100%;
+        }
+
+        .header-content {
+            width: 100%;
+            max-width: var(--max-width);
+            padding: 0 7rem;
+        }
+
+        .logo-link {
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+
+            & .synnax-logo--title {
+                height: 4.5rem;
+            }
+        }
+
+        .nav-link {
+            font-size: var(--pluto-small-size);
+            font-weight: 400;
+            color: var(--pluto-gray-l8);
+            text-decoration: none;
+
+            &:hover {
+                color: var(--pluto-gray-l10);
+                text-decoration: none;
+            }
+        }
+
+        .nav-link--active {
+            color: var(--pluto-gray-l10);
+        }
+
+        .login-button {
+            text-decoration: none;
+            font-size: 2rem;
+            font-weight: 500;
+        }
+
+        .version-button {
+            text-decoration: none;
+
+            & p {
+                color: var(--pluto-gray-l8);
+                font-size: var(--pluto-small-size);
+                font-weight: 400;
+                text-decoration: none;
+            }
+            & .pluto-icon {
+                color: var(--pluto-gray-l9);
+                height: 2.5rem;
+                width: 2.5rem;
+            }
+        }
+
+        .mobile-menu-btn,
+        .mobile-drawer {
+            display: none;
+        }
+    }
+
+    .mobile-drawer-tree {
+        flex: 1;
+        overflow-y: auto;
+        padding-bottom: 2rem;
+    }
+
+    @media (max-width: 800px) {
+        .main-header {
+            .header-content {
+                padding: 0 3rem;
+            }
+            .header-nav {
+                display: none;
+            }
+            .version-button {
+                display: none;
+            }
+            .mobile-menu-btn {
+                display: block;
+            }
+            .mobile-drawer {
+                display: flex;
+            }
+        }
+    }
+
+    @media (max-width: 800px) and (hover: none) {
+        .main-header {
+            z-index: 100;
+            position: fixed;
+            top: 0;
+            width: 100%;
+        }
+
+        body {
+            padding-top: var(--nav-height);
+        }
+    }
+</style>

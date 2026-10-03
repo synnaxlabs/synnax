@@ -74,6 +74,7 @@ interface MultiElementPropertiesProps {
 const MultiConfig = ({ nodes }: MultiElementPropertiesProps): ReactElement => {
   const dispatch = Arc.useSingleDispatch();
   const viewport = Session.Arc.useSelectViewport();
+  const handleError = Status.useErrorHandler();
 
   const getLayouts = () =>
     nodes
@@ -96,7 +97,7 @@ const MultiConfig = ({ nodes }: MultiElementPropertiesProps): ReactElement => {
           });
           return new Diagram.NodeLayout(node.key, nodeBox, handles);
         } catch (e) {
-          console.error(e);
+          handleError(e, "failed to calculate Arc node layout");
         }
         return null;
       })

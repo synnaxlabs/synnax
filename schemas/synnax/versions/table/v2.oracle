@@ -8,9 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/versions/channel/v0"
-import "schemas/x/versions/color/v0"
+import "schemas/x/versions/color/v1"
 import "schemas/x/versions/notation/v0"
-import "schemas/x/versions/spatial/v0"
 import "schemas/x/versions/text/v0"
 
 Key = v0.Key
@@ -24,36 +23,29 @@ FlexAlignment enum {
     @doc value "is a cross-axis flex alignment for laid-out content."
 }
 
-Redline struct {
-    bounds   spatial.Bounds {
-        @doc value "is the numeric range mapped onto the gradient."
-    }
-    gradient color.Stop[]   {
-        @doc value "is the color gradient applied across the bounds."
-    }
-
-    @doc value  "maps a numeric range to a color gradient for limit visualization."
-    @go marshal
-}
-
 CellConfig union on variant {
     text {
-        value            string = "" {
+        value      string = "" {
             @doc value "is the text content of the cell."
         }
-        level            text.Level = text.LevelH5 {
+        level      text.Level = text.LevelH5 {
             @doc value "is the typography level of the cell text."
         }
-        weight           float64 = 400 {
+        weight     float64 = 400 {
             @doc value "is the font weight of the cell text."
         }
-        align            FlexAlignment = FlexAlignmentCenter {
+        align      FlexAlignment = FlexAlignmentCenter {
             @doc value "is the alignment of the cell text along the row axis."
         }
-        background_color color.Color?  {
+        fill_color color.Color?  {
             @doc value """
                 is the background color of the cell. When absent the theme picks the
                 fill; a fully transparent value paints nothing.
+            """
+        }
+        text_color color.Color?  {
+            @doc value """
+                is the color of the cell text. When absent the theme picks the color.
             """
         }
 
@@ -75,16 +67,19 @@ CellConfig union on variant {
         notation          notation.Notation = notation.NotationStandard {
             @doc value "is the numeric notation used to format the value."
         }
-        redline           Redline?          {
+        redline           color.Scale = {} {
+            @doc value "is the threshold band mapping applied to the background."
+        }
+        fill_color        color.Color?      {
             @doc value """
-                is the bounds-to-gradient mapping applied to the background. When absent
-                the cell paints no redline.
+                is the fill behind the value where no redline band paints. When absent
+                the cell paints no fill.
             """
         }
         level             text.Level = text.LevelH5 {
             @doc value "is the typography level of the displayed value."
         }
-        color             color.Color?      {
+        text_color        color.Color?      {
             @doc value """
                 is the color of the displayed text. When absent the value renders with a
                 theme-derived legible color.

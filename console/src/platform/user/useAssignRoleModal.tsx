@@ -11,6 +11,7 @@ import { type access, status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Access, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
@@ -33,14 +34,14 @@ export const useAssignRoleModal = Modals.create<AssignRoleModalParams>(
     });
     return (
       <Form.Form<typeof Access.Role.changeRoleFormSchema> {...form}>
-        <Modals.Frame>
-          <Modals.Header icon={<Icon.User />}>{title ?? "Role.Assign"}</Modals.Header>
-          <Modals.Body>
+        <Modal.Frame>
+          <Modal.Header icon={<Icon.User />}>{title ?? "Role.Assign"}</Modal.Header>
+          <Modal.Body>
             <Form.Field<access.role.Key> path="role" label="Role">
               {(props) => <Access.Role.Select {...props} />}
             </Form.Field>
-          </Modals.Body>
-          <Modals.Footer>
+          </Modal.Body>
+          <Modal.Footer>
             <Triggers.SaveHelpText action="Assign" />
             <Nav.Bar.End>
               <Button.Button
@@ -55,8 +56,8 @@ export const useAssignRoleModal = Modals.create<AssignRoleModalParams>(
                 Assign
               </Button.Button>
             </Nav.Bar.End>
-          </Modals.Footer>
-        </Modals.Frame>
+          </Modal.Footer>
+        </Modal.Frame>
       </Form.Form>
     );
   },

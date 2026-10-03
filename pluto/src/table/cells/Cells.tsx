@@ -13,11 +13,10 @@ import { table } from "@synnaxlabs/client";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text as BaseText } from "@synnaxlabs/lyra/text";
-import { type border, box, color, scale } from "@synnaxlabs/x";
+import { type border, box, color } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
 import { Cell as Base } from "@/table/cells/Cell";
-import { telem } from "@/telem/aether";
 import { Value as BaseValue } from "@/vis/value";
 
 export const textConfigZ = table.textCellConfigZ;
@@ -48,14 +47,15 @@ export const Text = ({
   align = "center",
   level = "h5",
   weight = 400,
-  backgroundColor,
+  fillColor,
+  textColor,
 }: CellProps<TextConfig>): ReactElement => {
   const handleSelect = (e: React.MouseEvent) => onSelect(cellKey, e);
   const handleValueChange = (value: string) =>
-    onChange({ variant: "text", value, level, weight, align, backgroundColor });
+    onChange({ variant: "text", value, level, weight, align, fillColor, textColor });
   const cellStyle = useMemo(
-    () => ({ backgroundColor: color.cssString(backgroundColor), width: box.width(b) }),
-    [backgroundColor, b],
+    () => ({ backgroundColor: color.cssString(fillColor), width: box.width(b) }),
+    [fillColor, b],
   );
   const editableStyle = useMemo(() => ({ justifyContent: align }), [align]);
   return (
@@ -76,6 +76,7 @@ export const Text = ({
         level={level}
         value={value}
         weight={weight}
+        color={textColor == null ? undefined : color.cssString(textColor)}
         onChange={handleValueChange}
         style={editableStyle}
         allowDoubleClick={editable}
@@ -97,8 +98,9 @@ export const Value = ({
   notation,
   borderRadius,
   level = "h5",
-  color: textColor,
+  textColor,
   redline,
+  fillColor,
   selected,
   box: b,
   onSelect,
@@ -109,24 +111,10 @@ export const Value = ({
     () => BaseValue.stringSource({ channel, rollingAverage, precision, notation }),
     [channel, rollingAverage, precision, notation],
   );
-  const backgroundTelem = useMemo(() => {
-    if (redline == null) return undefined;
-    const { bounds, gradient } = redline;
-    return telem.sourcePipeline("color", {
-      connections: [
-        { from: "source", to: "scale" },
-        { from: "scale", to: "gradient" },
-      ],
-      segments: {
-        source: t,
-        scale: telem.scaleNumber({
-          scale: scale.Scale.scale<number>(bounds).scale(0, 1).transform,
-        }),
-        gradient: telem.colorGradient({ gradient }),
-      },
-      outlet: "gradient",
-    });
-  }, [t, redline]);
+  const backgroundTelem = useMemo(
+    () => BaseValue.backgroundTelem(t, redline, fillColor),
+    [t, redline, fillColor],
+  );
   BaseValue.use({
     aetherKey: cellKey,
     box: b,

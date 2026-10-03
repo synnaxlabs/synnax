@@ -13,6 +13,8 @@ import { id } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import { type Analytics } from "@/platform/analytics";
+import { createTestSink } from "@/platform/analytics/testutil";
 import { Device } from "@/platform/device";
 import { createTestDevice } from "@/platform/device/testutil";
 import { Errors } from "@/platform/errors";
@@ -33,13 +35,15 @@ const useConfigureModal = Modals.create<Device.ConfigureParams>(
   ),
 );
 
-const setup = async () => {
+const setup = async (analytics?: Analytics.Sink) => {
   const dev = await createTestDevice(client, {
     configured: false,
     name: uniqueName("my_sensor"),
+    make: "acme",
   });
   const handle = await renderModalOpener(useConfigureModal, [{ deviceKey: dev.key }], {
     client,
+    analytics,
   });
   await waitFor(() => expect(screen.getByText(/give this device a name/)).toBeTruthy());
   return { dev, ...handle };
@@ -58,6 +62,7 @@ describe("device Configure", () => {
           initialProperties={{}}
         />
       </Errors.SuspenseBoundary>,
+      { onCaughtError: () => {} },
     );
     expect(screen.queryByText(/give this device a name/)).toBeNull();
   });
@@ -111,5 +116,24 @@ describe("device Configure", () => {
       expect(updated.properties.vendor).toEqual("acme");
     });
     await waitFor(() => expect(screen.queryByText(/short identifier/)).toBeNull());
+  });
+
+  it("should report the make of the device it configured", async () => {
+    const analytics = createTestSink();
+    const { dev } = await setup(analytics);
+    await waitFor(() => expect(nameInput().value).toEqual(dev.name));
+    await act(async () => {
+      fireEvent.click(findButton("Next"));
+    });
+    await waitFor(() => expect(screen.getByText(/short identifier/)).toBeTruthy());
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "sensor_1" } });
+    await act(async () => {
+      fireEvent.click(findButton("Save"));
+    });
+    await waitFor(() =>
+      expect(analytics.capture).toHaveBeenCalledWith("device_configured", {
+        make: "acme",
+      }),
+    );
   });
 });

@@ -32,15 +32,56 @@ struct Digest {
 };
 
 class State {
+    /// @brief holds the sample counts of a channel's body writes and timestamped writes
+    /// when a timestamped write arrives after a body write.
+    struct Position {
+        size_t body;
+        size_t stamped;
+    };
+
     std::unordered_map<types::ChannelKey, types::ChannelKey> indexes;
     std::unordered_map<types::ChannelKey, std::vector<Series>> reads;
+    /// @brief holds this cycle's samples, except body writes to indexed channels.
     std::unordered_map<types::ChannelKey, Series> writes;
+    /// @brief holds body writes to indexed channels until flush_into stamps them.
+    std::unordered_map<types::ChannelKey, Series> unstamped;
+    /// @brief records where body writes fall among each channel's timestamped writes.
+    std::unordered_map<types::ChannelKey, std::vector<Position>> positions;
     std::vector<types::ChannelKey> active_write_keys;
+    /// @brief holds the last timestamp flushed to each index.
+    std::unordered_map<types::ChannelKey, int64_t> last_stamps;
+    /// @brief counts the channels that wrote to each index this cycle.
+    std::unordered_map<types::ChannelKey, size_t> writers;
+
+    /// @brief returns the index of key, or zero when key has none or is an index.
+    [[nodiscard]] types::ChannelKey index_of(types::ChannelKey key) const;
+
+    /// @brief returns the buffers that body writes to key go into. Writes to an
+    /// indexed channel wait in unstamped until flush_into gives them timestamps.
+    std::unordered_map<types::ChannelKey, Series> &body_writes(types::ChannelKey key);
+
+    /// @brief records key as written this cycle, unless it already is.
+    void activate(types::ChannelKey key);
+
+    /// @brief records how many body writes to key came before a timestamped write.
+    void mark_position(types::ChannelKey key, types::ChannelKey idx);
+
+    /// @brief returns the order the program wrote a channel's samples in. Indexes below
+    /// stamped are timestamped samples, and the rest are body writes.
+    static std::vector<size_t>
+    write_order(size_t stamped, size_t body, const std::vector<Position> &positions);
+
+    /// @brief appends data to the buffer for key in bufs.
+    void append_write(
+        std::unordered_map<types::ChannelKey, Series> &bufs,
+        types::ChannelKey key,
+        const Series &data
+    );
 
     template<typename T>
     void append_fixed_sample(types::ChannelKey key, x::telem::DataType dt, T value) {
-        auto &buf = this->writes[key];
-        if (buf == nullptr || buf->empty()) this->active_write_keys.push_back(key);
+        auto &buf = this->body_writes(key)[key];
+        if (buf == nullptr || buf->empty()) this->activate(key);
         if (buf == nullptr) {
             buf = x::mem::make_local_shared<x::telem::Series>(dt, 1);
         } else if (buf->data_type() != dt) {
@@ -58,11 +99,21 @@ class State {
         buf->write(value);
     }
 
-    /// @brief fills every empty index buffer whose channels wrote this cycle, and
-    /// returns the highest timestamp it wrote. A non-empty buffer already holds the
-    /// upstream stamps a sink forwarded and is left alone. Every member of a group
-    /// starts at now, so one cycle's writes stay aligned across channels.
+    /// @brief gives every sample written this cycle a timestamp and returns the
+    /// highest timestamp it synthesized.
     x::telem::TimeStamp stamp_indexes(x::telem::TimeStamp now);
+
+    /// @brief gives the body writes of key a timestamp and puts all of its samples in
+    /// time order.
+    /// @returns the last timestamp it synthesized, or zero when it synthesized none.
+    x::telem::TimeStamp
+    stamp_alone(types::ChannelKey key, types::ChannelKey idx, x::telem::TimeStamp now);
+
+    /// @brief appends key's body writes to its timestamped samples. When the shared
+    /// index has no timestamps yet, stamps one per sample of key, starting at now.
+    /// @returns the last timestamp it synthesized, or zero when it synthesized none.
+    x::telem::TimeStamp
+    stamp_group(types::ChannelKey key, types::ChannelKey idx, x::telem::TimeStamp now);
 
 public:
     template<typename T>
@@ -78,7 +129,12 @@ public:
 
     std::pair<x::telem::MultiSeries, bool> read_value(types::ChannelKey key);
 
+    /// @brief buffers data with the timestamps in time, as a sink does.
     void write_value(types::ChannelKey key, const Series &data, const Series &time);
+
+    /// @brief buffers data without timestamps, as a body write does. flush_into
+    /// stamps it when the channel has an index.
+    void write_value(types::ChannelKey key, const Series &data);
 
     void write_channel_u8(types::ChannelKey key, uint8_t value);
     void write_channel_u16(types::ChannelKey key, uint16_t value);
@@ -98,8 +154,11 @@ public:
     void write_series(types::ChannelKey key, const Series &data, const Series &time);
 
     /// @brief flushes read and write state directly into the provided frame, avoiding
-    /// intermediate allocations. An index whose channels wrote no timestamps of their
-    /// own is stamped from now, one sample per data sample, spaced 1ns apart.
+    /// intermediate allocations. A channel alone on its index gets its samples in time
+    /// order. Its body writes take the later of now and 1ns after the last timestamp of
+    /// the index. Samples with equal timestamps keep the order the program wrote them
+    /// in, and each moves 1ns after the one before it. Channels that share an index are
+    /// stamped from now, and only when none of them supplied timestamps.
     /// @returns the highest timestamp it synthesized, so the caller's clock can resume
     /// above it. Zero when nothing was synthesized.
     x::telem::TimeStamp flush_into(x::telem::Frame &out, x::telem::TimeStamp now);

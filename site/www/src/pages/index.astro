@@ -1,0 +1,83 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import Layout from "@/layouts/Layout.astro";
+import Hero from "@/components/hero/Hero.astro";
+import Integrations from "@/components/integrations/Integrations.astro";
+import Automate from "@/components/automate/Automate.astro";
+import Visualize from "@/components/visualize/Visualize.astro";
+import Review from "@/components/review/Review.astro";
+import SDKs from "@/components/sdks/SDKs.astro";
+import StreamProcess from "@/components/stream/StreamProcess.astro";
+import CalcChannels from "@/components/stream/CalcChannels.astro";
+import Alarms from "@/components/stream/Alarms.astro";
+import Contact from "@/components/contact/Contact.astro";
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import logo from "@synnaxlabs/media/static/logo/icon-white-favicon.svg";
+
+const DESCRIPTION =
+    "Synnax is one platform for real-time data acquisition, hardware control, visualization, and analysis, built for teams that test and operate advanced hardware.";
+const organization = {
+    "@type": "Organization",
+    "@id": "https://www.synnaxlabs.com/#organization",
+    name: "Synnax Labs",
+    url: "https://www.synnaxlabs.com",
+    logo: new URL(logo.src, Astro.site).href,
+    sameAs: [
+        "https://github.com/synnaxlabs/synnax",
+        "https://www.linkedin.com/company/synnaxlabs/",
+    ],
+};
+const structuredData = {
+    "@context": "https://schema.org",
+    "@graph": [
+        organization,
+        {
+            "@type": "SoftwareApplication",
+            name: "Synnax",
+            description: DESCRIPTION,
+            applicationCategory: "DeveloperApplication",
+            operatingSystem: "Windows, macOS, Linux",
+            url: "https://www.synnaxlabs.com",
+            softwareHelp: {
+                "@type": "CreativeWork",
+                url: "https://docs.synnaxlabs.com",
+            },
+            publisher: { "@id": organization["@id"] },
+        },
+    ],
+};
+---
+
+<Layout description={DESCRIPTION}>
+    <script
+        slot="head"
+        type="application/ld+json"
+        set:html={JSON.stringify(structuredData).replaceAll("<", "\\u003c")}
+    />
+    <Hero />
+    <Divider.Divider direction="x" />
+    <Visualize />
+    <Divider.Divider direction="x" />
+    <Automate />
+    <Divider.Divider direction="x" />
+    <Review />
+    <Divider.Divider direction="x" />
+    <StreamProcess />
+    <CalcChannels />
+    <Alarms />
+    <Divider.Divider direction="x" />
+    <Integrations />
+    <Divider.Divider direction="x" />
+    <SDKs />
+    <Divider.Divider direction="x" />
+    <Contact />
+</Layout>

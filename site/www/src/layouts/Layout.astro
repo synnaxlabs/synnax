@@ -1,0 +1,111 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { SEO } from "astro-seo";
+import "@/styles/main.css";
+import Header from "@/components/Header.astro";
+import Footer from "@synnaxlabs/site-common/Footer.astro";
+
+interface Props {
+    /** The page title, before " | Synnax". The home page leaves it unset. */
+    title?: string;
+    description: string;
+}
+
+const { title, description } = Astro.props;
+const HOME_TITLE = "Synnax | Hardware data acquisition, control, and analysis";
+const IMAGE = "https://synnax.nyc3.cdn.digitaloceanspaces.com/docs/og-default.png";
+const fullTitle = title == null ? HOME_TITLE : `${title} | Synnax`;
+// Query strings and trailing slashes must not split a page into duplicates.
+const pathname = Astro.url.pathname.replace(/(.)\/$/, "$1");
+const canonical = new URL(pathname, Astro.site).href;
+
+const FOOTER_COLUMNS = [
+    {
+        title: "Product",
+        links: [
+            { label: "Visualize and operate", href: "/#visualize" },
+            { label: "Automate and control", href: "/#automate" },
+            { label: "Store and review", href: "/#review" },
+            { label: "Stream and process", href: "/#stream" },
+            { label: "Integrations", href: "/#integrations" },
+            { label: "SDKs", href: "/#sdks" },
+        ],
+    },
+    {
+        title: "Resources",
+        links: [
+            { label: "Documentation", href: "https://docs.synnaxlabs.com/reference" },
+            { label: "Reliability", href: "https://docs.synnaxlabs.com/reliability/" },
+            { label: "Sponsorships", href: "/sponsorships" },
+        ],
+    },
+    {
+        title: "Company",
+        href: "/company",
+        links: [
+            { label: "Contact", href: "/#contact" },
+            { label: "Privacy policy", href: "/privacy" },
+        ],
+    },
+];
+---
+
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <SEO
+            title={fullTitle}
+            description={description}
+            canonical={canonical}
+            openGraph={{
+                basic: {
+                    title: fullTitle,
+                    type: "website",
+                    image: IMAGE,
+                    url: canonical,
+                },
+                optional: { description, siteName: "Synnax" },
+                image: { alt: "Synnax" },
+            }}
+            twitter={{
+                card: "summary_large_image",
+                title: fullTitle,
+                description,
+                image: IMAGE,
+            }}
+        />
+        <link rel="icon" href="/favicon.ico" sizes="48x48" />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <slot name="head" />
+    </head>
+    <body>
+        <Header />
+        <main>
+            <slot />
+        </main>
+        <Footer home="/" columns={FOOTER_COLUMNS} />
+    </body>
+</html>
+
+<style is:global>
+    main {
+        width: 100%;
+    }
+
+    section {
+        max-width: var(--max-width);
+        margin: 0 auto;
+        padding-left: var(--content-padding);
+        padding-right: var(--content-padding);
+    }
+</style>

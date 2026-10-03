@@ -18,7 +18,13 @@ import {
 } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  type RenderOptions,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Channel } from "@/feature/channel";
@@ -69,11 +75,15 @@ const createChannelGroup = async (
   return group.ontologyID(grp.key);
 };
 
-const renderChannelTree = async (root: ontology.ID) =>
+const renderChannelTree = async (
+  root: ontology.ID,
+  onCaughtError?: RenderOptions["onCaughtError"],
+) =>
   await renderOntologyTree({
     client,
     root,
     items: Channel.TREE_ITEMS,
+    onCaughtError,
   });
 
 describe("channel/ontology", () => {
@@ -107,7 +117,6 @@ describe("channel/ontology", () => {
       const ch = await createChannel();
       const proj = await client.projects.create({
         name: uniqueName("proj"),
-        layout: {},
       });
       const root = await createChannelGroup(ch);
       const { store } = await renderChannelTree(root);
@@ -125,7 +134,6 @@ describe("channel/ontology", () => {
       const ch = await createChannel();
       const proj = await client.projects.create({
         name: uniqueName("proj"),
-        layout: {},
       });
       const plot = await client.lineplots.create(proj.key, {
         name: uniqueName("plot"),
@@ -167,7 +175,6 @@ describe("channel/ontology", () => {
       const virtualCh = await createChannel({ isIndex: false, virtual: true });
       const proj = await client.projects.create({
         name: uniqueName("proj"),
-        layout: {},
       });
       const root = await createChannelGroup(virtualCh);
       const { store } = await renderChannelTree(root);
@@ -271,9 +278,11 @@ describe("channel/ontology", () => {
         expression: "return 1",
       });
       const root = await createChannelGroup(calc);
-      await renderChannelTree(root);
+      // Monaco cannot run in jsdom, so the expression editor's boundary catches.
+      await renderChannelTree(root, () => {});
       await openTreeRowContextMenu(calc.name);
-      fireEvent.click(await screen.findByText("Edit calculation"));
+      const edit = await screen.findByText("Edit calculation");
+      await act(async () => fireEvent.click(edit));
       expect(await screen.findByDisplayValue(calc.name)).toBeTruthy();
     });
 

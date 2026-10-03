@@ -3,7 +3,7 @@
 How a change gets into `main`. Setup lives in the package guides
 ([Core](core/CONTRIBUTING.md), [Console](console/CONTRIBUTING.md),
 [Pluto](pluto/CONTRIBUTING.md), [TypeScript client](client/ts/CONTRIBUTING.md),
-[Python client](client/py/CONTRIBUTING.md), [docs site](docs/site/CONTRIBUTING.md)),
+[Python client](client/py/CONTRIBUTING.md), [docs site](site/docs/CONTRIBUTING.md)),
 design in the [RFCs](docs/tech/rfc), and code style in [CLAUDE.md](CLAUDE.md).
 
 ## Branches and pull requests
@@ -40,14 +40,20 @@ the code around it, against the `CLAUDE.md` principles, the tests, and the docs.
 change carries a migration and a dark feature stays dark. **Tier 3**: Only Greptile
 reads it. A fix that turns out to change behavior gets its tier raised.
 
-Two statuses gate a merge into `main` or a `release/**` branch, both through a merge
-queue. `Review gate` stays pending until the PR has one tier label, a successful
-Greptile review and, for Tier 1 or 2, an approval from a human other than the author. A
-later request for changes or a dismissal retires an approval. Two tier labels fail it.
-`OK` is the CI workflow's last job: it fails when any check the PR's paths select
-failed. The queue reruns CI on the merged result with the integration suite added before
-the branch moves. Admins bypass when Greptile is down. The gate script is
-`.github/scripts/check_review.sh`, the ruleset `.github/rulesets/main.json`.
+Two statuses gate a merge into `main` or a `release/**` branch. `Review gate` stays
+pending until the PR has one tier label, a finished Greptile review of the head and, for
+Tier 1 or 2, an approval from a human other than the author. A later request for changes
+or a dismissal retires an approval. Two tier labels fail it, and so does a Greptile
+confidence score below 5/5: push a fix, or retrigger the review after answering the
+comments. `OK` is the CI workflow's last job: it fails when any check the PR's paths
+select failed. A merge into `main` goes through a merge queue, which reruns CI on the
+merged result with the integration suite added before the branch moves. GitHub refuses a
+queue on a wildcard branch pattern, so a `release/**` merge goes in directly, and CI
+runs again on the pushed commit. A release runs the integration suite itself. Admins
+bypass when Greptile is down. The gate script is `.github/scripts/check_review.sh`, the
+rulesets `.github/rulesets/main.json` and `.github/rulesets/release.json`. An admin
+applies a changed ruleset file by hand; the `Check - Rulesets` workflow fails each day
+until GitHub matches the files.
 
 ## Size
 
@@ -66,7 +72,7 @@ failure to avoid is a branch that grows for days and lands as one PR nobody can 
 
 Synnax Desktop is the free edition, where a feature ships first. The Console is the
 enterprise edition and gets it once it has proved itself. A static flag in
-`console/src/flags.ts` (or `docs/site/src/flags.ts`) is on in dev and Desktop builds and
+`console/src/flags.ts` (or `site/docs/src/flags.ts`) is on in dev and Desktop builds and
 off in the Console build; its entry names the owner, the Linear umbrella issue, and the
 release that removes it. A flag past that release is a bug: promote or delete.
 
@@ -81,9 +87,11 @@ release that removes it. A flag past that release is a bug: promote or delete.
 
 ## Issue priority
 
-| Priority | Feature                                        | Bug                                                                                    |
-| -------- | ---------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Urgent   | Blocks an upcoming pilot or current customer.  | Stops the user and costs significant time or resources; a core element fails outright. |
-| High     | Requested by users and important to their use. | Degrades the experience enough to outrank most feature work; slows or repeats work.    |
-| Medium   | Some interest, or a clear improvement.         | Noticeable, targeted for the next release, or has a workaround today.                  |
-| Low      | Not critical to users or the product.          | Low impact; can wait for a later release.                                              |
+Priority means when we act.
+
+| Priority | Meaning                                                               |
+| -------- | --------------------------------------------------------------------- |
+| Urgent   | Within hours: a blocked customer or release, broken production or CI. |
+| High     | This cycle or next.                                                   |
+| Medium   | This quarter. The floor for customer requests.                        |
+| Low      | Someday. Never cancel for age.                                        |

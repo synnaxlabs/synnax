@@ -31,7 +31,6 @@ const client = createTestClient();
 const createTestPlot = async (): Promise<lineplot.LinePlot> => {
   const project = await client.projects.create({
     name: uniqueName("proj"),
-    layout: {},
   });
   return await client.lineplots.create(project.key, { name: uniqueName("plot") });
 };

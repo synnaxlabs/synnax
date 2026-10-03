@@ -9,14 +9,14 @@
 
 import "@/schematic/edge/common/segmented/Segmented.css";
 
+import { Color } from "@synnaxlabs/lyra/color";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
-import { type color } from "@synnaxlabs/x";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { type CSSProperties, type ReactElement } from "react";
 
-import { Color } from "@/color";
 import { type Variant } from "@/schematic/edge/registry";
 
 const SELECT_STYLE: CSSProperties = { width: "25rem" };
@@ -38,13 +38,14 @@ const SelectVariant = (props: SelectVariantProps): ReactElement => (
   </Select.Simple>
 );
 
-export const Form = (): ReactElement => (
-  <Flex.Box className={CSS.B("schematic-edge-form")} align="start" x>
-    <Base.Field<color.Color> path="color" label="Color" padHelpText={false}>
-      {(p) => <Color.Swatch {...p} />}
-    </Base.Field>
-    <Base.Field<Variant> path="variant" label="Variant" padHelpText={false}>
-      {(p) => <SelectVariant {...p} />}
-    </Base.Field>
-  </Flex.Box>
-);
+export const Form = (): ReactElement => {
+  const theme = Theming.use();
+  return (
+    <Flex.Box className={CSS.B("schematic-edge-form")} align="start" x>
+      <Color.Field path="strokeColor" label="Stroke" fallback={theme.colors.gray.l11} />
+      <Base.Field<Variant> path="variant" label="Variant" padHelpText={false}>
+        {(p) => <SelectVariant {...p} />}
+      </Base.Field>
+    </Flex.Box>
+  );
+};

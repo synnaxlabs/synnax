@@ -766,7 +766,7 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
   }
 }
 
-export class ScaledPath2D {
+class ScaledPath2D {
   readonly scale_: scale.XY;
   readonly path: Path2D;
 

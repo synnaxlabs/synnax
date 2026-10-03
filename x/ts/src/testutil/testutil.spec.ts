@@ -9,35 +9,33 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { testutil } from "@/testutil";
+import { expectAlways, toString } from "@/testutil";
 
 describe("testutil", () => {
   describe("toString", () => {
     it("should stringify regular values normally", () => {
-      expect(testutil.toString("hello")).toBe('"hello"');
-      expect(testutil.toString(123)).toBe("123");
-      expect(testutil.toString(true)).toBe("true");
-      expect(testutil.toString(null)).toBe("null");
-      expect(testutil.toString(undefined)).toBeUndefined();
+      expect(toString("hello")).toBe('"hello"');
+      expect(toString(123)).toBe("123");
+      expect(toString(true)).toBe("true");
+      expect(toString(null)).toBe("null");
+      expect(toString(undefined)).toBeUndefined();
     });
 
     it("should handle arrays", () => {
-      expect(testutil.toString([1, 2, 3])).toBe("[1,2,3]");
-      expect(testutil.toString(["a", "b", "c"])).toBe('["a","b","c"]');
-      expect(testutil.toString([])).toBe("[]");
+      expect(toString([1, 2, 3])).toBe("[1,2,3]");
+      expect(toString(["a", "b", "c"])).toBe('["a","b","c"]');
+      expect(toString([])).toBe("[]");
     });
 
     it("should handle objects", () => {
-      expect(testutil.toString({ a: 1, b: 2 })).toBe('{"a":1,"b":2}');
-      expect(testutil.toString({ nested: { value: 42 } })).toBe(
-        '{"nested":{"value":42}}',
-      );
-      expect(testutil.toString({})).toBe("{}");
+      expect(toString({ a: 1, b: 2 })).toBe('{"a":1,"b":2}');
+      expect(toString({ nested: { value: 42 } })).toBe('{"nested":{"value":42}}');
+      expect(toString({})).toBe("{}");
     });
 
     it("should convert bigint to string", () => {
       const bigIntValue = BigInt(123456789012345678901234567890n);
-      expect(testutil.toString(bigIntValue)).toBe('"123456789012345678901234567890"');
+      expect(toString(bigIntValue)).toBe('"123456789012345678901234567890"');
     });
 
     it("should handle objects with bigint values", () => {
@@ -48,14 +46,14 @@ describe("testutil", () => {
           value: BigInt(111111111111111111111n),
         },
       };
-      expect(testutil.toString(obj)).toBe(
+      expect(toString(obj)).toBe(
         '{"regular":123,"big":"999999999999999999999","nested":{"value":"111111111111111111111"}}',
       );
     });
 
     it("should handle arrays with bigint values", () => {
       const arr = [BigInt(1n), BigInt(2n), 3, BigInt(4n)];
-      expect(testutil.toString(arr)).toBe('["1","2",3,"4"]');
+      expect(toString(arr)).toBe('["1","2",3,"4"]');
     });
 
     it("should handle mixed complex structures", () => {
@@ -67,7 +65,7 @@ describe("testutil", () => {
           total: BigInt(999999n),
         },
       };
-      expect(testutil.toString(complex)).toBe(
+      expect(toString(complex)).toBe(
         '{"id":"123","data":[1,"456",{"value":"789"}],"metadata":{"count":42,"total":"999999"}}',
       );
     });
@@ -84,7 +82,7 @@ describe("testutil", () => {
 
     it("should call the function once per interval over the duration", async () => {
       const fn = vi.fn();
-      const done = testutil.expectAlways(fn, 100, 20);
+      const done = expectAlways(fn, 100, 20);
       await vi.runAllTimersAsync();
       await done;
       expect(fn).toHaveBeenCalledTimes(5);
@@ -97,7 +95,7 @@ describe("testutil", () => {
         calls.push(Date.now() - start);
         await new Promise((resolve) => setTimeout(resolve, 30));
       };
-      const done = testutil.expectAlways(asyncFn, 100, 20);
+      const done = expectAlways(asyncFn, 100, 20);
       await vi.runAllTimersAsync();
       await done;
       expect(calls).toEqual([0, 50]);
@@ -107,9 +105,7 @@ describe("testutil", () => {
       const errorFn = vi.fn(() => {
         throw new Error("Test error");
       });
-      await expect(testutil.expectAlways(errorFn, 50, 20)).rejects.toThrow(
-        "Test error",
-      );
+      await expect(expectAlways(errorFn, 50, 20)).rejects.toThrow("Test error");
       expect(errorFn).toHaveBeenCalledTimes(1);
     });
 
@@ -117,7 +113,7 @@ describe("testutil", () => {
       const asyncErrorFn = vi.fn(async () => {
         throw new Error("Async test error");
       });
-      await expect(testutil.expectAlways(asyncErrorFn, 50, 20)).rejects.toThrow(
+      await expect(expectAlways(asyncErrorFn, 50, 20)).rejects.toThrow(
         "Async test error",
       );
       expect(asyncErrorFn).toHaveBeenCalledTimes(1);
@@ -125,7 +121,7 @@ describe("testutil", () => {
 
     it("should use default values when not provided", async () => {
       const fn = vi.fn();
-      const done = testutil.expectAlways(fn);
+      const done = expectAlways(fn);
       await vi.runAllTimersAsync();
       await done;
       expect(fn).toHaveBeenCalledTimes(10);
@@ -134,7 +130,7 @@ describe("testutil", () => {
     it("should sleep for the interval between calls", async () => {
       const fn = vi.fn();
       const start = Date.now();
-      const done = testutil.expectAlways(fn, 100, 30);
+      const done = expectAlways(fn, 100, 30);
       await vi.runAllTimersAsync();
       await done;
       expect(Date.now() - start).toBe(120);
@@ -147,7 +143,7 @@ describe("testutil", () => {
         callCount++;
         if (callCount < 3) throw new Error("Not ready yet");
       });
-      await expect(testutil.expectAlways(fn, 80, 20)).rejects.toThrow("Not ready yet");
+      await expect(expectAlways(fn, 80, 20)).rejects.toThrow("Not ready yet");
       expect(fn).toHaveBeenCalledTimes(1);
     });
 
@@ -156,7 +152,7 @@ describe("testutil", () => {
       const incrementer = setInterval(() => value++, 10);
       try {
         const rejects = expect(
-          testutil.expectAlways(() => expect(value).toBeLessThan(3), 100, 20),
+          expectAlways(() => expect(value).toBeLessThan(3), 100, 20),
         ).rejects.toThrow();
         await vi.advanceTimersByTimeAsync(100);
         await rejects;

@@ -13,9 +13,10 @@ import { type ReactElement } from "react";
 
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
-export interface PolygonFormProps {
-  numSides: number;
-}
+import { fillFallback } from "@/schematic/node/general/polygon/Primitive";
+import { type ColorFallbacks } from "@/schematic/node/spec";
+
+export const colorFallbacks = { fillColor: fillFallback } satisfies ColorFallbacks;
 
 const ROTATION_INPUT_PROPS: Partial<Input.NumericProps> = {
   dragScale: { x: 0.5, y: 2 },
@@ -68,8 +69,8 @@ export const PolygonForm = (): ReactElement => (
       />
     </Base.Section>
     <Base.Section title="Appearance">
-      <Form.ColorField path="color" />
-      <Form.ColorField path="backgroundColor" label="Background color" />
+      <Form.ColorField path="strokeColor" label="Stroke" />
+      <Form.FillField fallback={colorFallbacks.fillColor} />
       <Base.NumericField
         path="strokeWidth"
         label="Border width"
@@ -78,5 +79,3 @@ export const PolygonForm = (): ReactElement => (
     </Base.Section>
   </Base.Sections>
 );
-
-export const CommonPolygonForm = PolygonForm;

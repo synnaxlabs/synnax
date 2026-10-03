@@ -31,6 +31,8 @@ Config::load_config_file(x::args::Parser &args, x::breaker::Breaker &breaker) {
     this->remote_info.override(rem_info);
     auto timing_config = p.optional_child("timing");
     this->timing.override(timing_config);
+    auto manager_config = p.optional_child("manager");
+    this->manager.override(manager_config);
     this->integrations = p.field("integrations", this->integrations);
     return p.error();
 }

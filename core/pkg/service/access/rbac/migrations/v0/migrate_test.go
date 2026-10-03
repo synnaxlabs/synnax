@@ -275,4 +275,66 @@ var _ = Describe("Legacy Permission Migration", func() {
 		Expect(run()).To(Succeed())
 		Expect(run()).To(Succeed())
 	})
+
+	It("Should keep the roles of a store that already converted to roles", func(
+		ctx SpecContext,
+	) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		searchIdx := MustOpen(search.OpenIndex())
+		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Search:   searchIdx,
+		}))
+		authSvc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
+		userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
+			DB:              db,
+			Ontology:        otg,
+			Group:           groupSvc,
+			Search:          searchIdx,
+			Auth:            authSvc,
+			RootCredentials: auth.Credentials{Username: "root", Password: "p"},
+		}))
+		policySvc := MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Search:   searchIdx,
+		}))
+		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Group:    groupSvc,
+			Search:   searchIdx,
+		}))
+		builtinRoles := MustSucceed(builtin.Provision(ctx, db, policySvc, roleSvc))
+		// Cores up to v0.53 converted permissions to roles and set this flag.
+		Expect(db.Set(ctx, []byte("sy_rbac_migration_performed"), []byte{1})).
+			To(Succeed())
+		tx := DeferClose(db.OpenTx())
+		viewer := MustSucceed(userSvc.NewWriter(tx).Create(ctx, user.User{
+			Username: "viewer",
+		}))
+		Expect(roleSvc.NewWriter(tx, true).AssignRole(
+			ctx, viewer.OntologyID(), builtinRoles.ViewerKey,
+		)).To(Succeed())
+		Expect(tx.Commit(ctx)).To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:        db,
+			Namespace: "RBAC",
+			Migrations: []migrate.Migration{v0.NewMigration(v0.MigrationConfig{
+				User:     userSvc,
+				Ontology: otg,
+				Role:     roleSvc,
+				Roles:    builtinRoles,
+			})},
+		})).To(Succeed())
+		check := DeferClose(db.OpenTx())
+		Expect(userHasSpecificRole(
+			ctx, check, otg, viewer.OntologyID(), builtinRoles.ViewerKey,
+		)).To(BeTrue())
+		Expect(userHasSpecificRole(
+			ctx, check, otg, viewer.OntologyID(), builtinRoles.OperatorKey,
+		)).To(BeFalse())
+	})
 })

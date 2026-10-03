@@ -11,6 +11,7 @@ import { lineplot, type panel, type project } from "@synnaxlabs/client";
 import { LinePlot } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
+import { Analytics } from "@/platform/analytics";
 import { useGetDefaultRanges } from "@/platform/lineplot/ranges";
 import { Panel } from "@/platform/panel";
 import { Session } from "@/session";
@@ -26,9 +27,11 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
   const getActiveProject = Session.Project.useGetSelected();
   const getDefaultRanges = useGetDefaultRanges();
   const openTab = Panel.useOpenTab();
+  const { capture } = Analytics.use();
   const { update } = LinePlot.useCreate({
     afterOptimistic: ({ data: { key } }) =>
       openTab({ variant: "resource", resource: lineplot.ontologyID(key), key: tabKey }),
+    afterSuccess: () => capture("plot_created", {}),
   });
   return useCallback(
     (params = {}) =>

@@ -22,9 +22,6 @@ const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
 const selectAll = (state: StoreState): State[] => selectSliceState(state).ranges;
 
-export const useSelectSliceState = (): SliceState =>
-  Select.useMemo((state: StoreState) => selectSliceState(state), []);
-
 export const useGetSliceState = (): (() => SliceState) => {
   const store = useStore<StoreState>();
   return useCallback(() => selectSliceState(store.getState()), [store]);

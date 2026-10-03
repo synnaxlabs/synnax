@@ -12,6 +12,8 @@
 
 #include "absl/log/log.h"
 
+#include "client/cpp/errors/errors.h"
+
 #include "driver/errors/errors.h"
 #include "driver/pipeline/acquisition.h"
 
@@ -107,7 +109,7 @@ void Acquisition::run() {
         auto [writer_i, writer_err_i] = factory->open_writer(writer_config);
         writer_err = writer_err_i;
         if (writer_err) {
-            if (writer_err.matches(freighter::UNREACHABLE) &&
+            if (synnax::errors::is_temporarily_unavailable(writer_err) &&
                 this->breaker.wait(writer_err.message()))
                 return this->run();
             LOG(ERROR) << "[acquisition] failed to eagerly open writer: "
@@ -138,7 +140,10 @@ void Acquisition::run() {
             break;
         }
         if (source_err) source_err = x::errors::NIL;
-        if (fr.empty() && authorities.empty()) continue;
+        if (fr.empty() && authorities.empty()) {
+            this->breaker.reset();
+            continue;
+        }
         // Open the writer after receiving the first frame so we can resolve the
         // start timestamp from the data. This helps to account for clock drift
         // between the source we're recording data from and the system clock.
@@ -210,7 +215,7 @@ void Acquisition::run() {
         this->breaker.reset();
     }
     if (writer_opened) writer_err = writer->close();
-    if (writer_err.matches(freighter::UNREACHABLE) &&
+    if (synnax::errors::is_temporarily_unavailable(writer_err) &&
         this->breaker.wait(writer_err.message()))
         return this->run();
     if (source_err && !source_err.matches(errors::NOMINAL_SHUTDOWN_ERROR))

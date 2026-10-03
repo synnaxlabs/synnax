@@ -26,8 +26,8 @@ export const CircleForm = (): ReactElement => (
       <Label.Form path="label" />
     </Base.Section>
     <Base.Section title="Appearance">
-      <Form.ColorField path="color" />
-      <Form.ColorField path="backgroundColor" label="Background color" />
+      <Form.ColorField path="strokeColor" label="Stroke" />
+      <Form.FillField />
       <Base.NumericField path="radius" label="Radius" inputProps={RADIUS_INPUT_PROPS} />
       <Base.NumericField
         path="strokeWidth"

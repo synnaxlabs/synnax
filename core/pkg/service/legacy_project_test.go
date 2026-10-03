@@ -12,14 +12,15 @@ package service_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/security"
-	secmock "github.com/synnaxlabs/synnax/pkg/security/mock"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
+	svcmock "github.com/synnaxlabs/synnax/pkg/service/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/gorp"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -32,15 +33,7 @@ var _ = Describe("Legacy project bundles", func() {
 	openLayer := func(ctx SpecContext) (*service.Layer, *gorp.DB) {
 		GinkgoHelper()
 		node := mock.NewNode(ctx)
-		sec := MustSucceed(security.NewProvider(security.ProviderConfig{
-			Insecure: new(true),
-			KeySize:  secmock.SmallKeySize,
-		}))
-		return MustOpen(service.OpenLayer(ctx, service.LayerConfig{
-			Distribution: node.Layer,
-			Security:     sec,
-			Storage:      node.Storage,
-		})), node.DB
+		return MustOpen(svcmock.OpenLayer(ctx, node)), node.DB
 	}
 
 	// importBundle imports the bundle directory at path and returns the layer it landed
@@ -132,10 +125,22 @@ var _ = Describe("Legacy project bundles", func() {
 				ontology.ResourceTypeSchematic,
 				ontology.ResourceTypeLineplot,
 			))
+			Expect(typesOf(children)).ToNot(ContainElement(ontology.ResourceTypeLog))
+			Expect(lo.Map(children, func(c ontology.Resource, _ int) string {
+				return c.Name
+			})).To(ContainElements("Line Plot", "Schematic"))
 			// A task parents under its rack's task group, never the project.
 			Expect(typesOf(children)).ToNot(ContainElement(
 				ontology.ResourceTypeTask,
 			))
+			var tasks []task.Task
+			Expect(l.Task.NewRetrieve().
+				Where(task.MatchNames("NI Analog Read Task", "LabJack Write Task")).
+				Entries(&tasks).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(lo.Map(tasks, func(t task.Task, _ int) string { return t.Type })).To(
+				ConsistOf("ni_analog_read", "labjack_write"),
+			)
 		})
 	})
 

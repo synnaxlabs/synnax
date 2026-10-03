@@ -1,0 +1,45 @@
+{
+  "name": "Pressurant",
+  "root": {
+    "variant": "split",
+    "direction": "x",
+    "size": 0.58,
+    "first": {
+      "variant": "leaf",
+      "tabs": [
+        {
+          "key": "b531687a-1873-4921-baef-53836f1d3153",
+          "variant": "resource",
+          "resource": "Pressurant Pressures.json"
+        }
+      ]
+    },
+    "last": {
+      "variant": "split",
+      "direction": "y",
+      "size": 0.5,
+      "first": {
+        "variant": "leaf",
+        "tabs": [
+          {
+            "key": "5db7f11d-b593-49d5-954d-d3fdf9c48dfd",
+            "variant": "resource",
+            "resource": "Pressurant Temperatures.json"
+          }
+        ]
+      },
+      "last": {
+        "variant": "leaf",
+        "tabs": [
+          {
+            "key": "fb2d97b1-2918-4373-bb84-a646141e19b7",
+            "variant": "resource",
+            "resource": "Pneumatics.json"
+          }
+        ]
+      }
+    }
+  },
+  "type": "panel",
+  "version": 0
+}

@@ -10,6 +10,7 @@
 import "@/telem/control/Legend.css";
 
 import { UnexpectedError } from "@synnaxlabs/client";
+import { Color } from "@synnaxlabs/lyra/color";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -18,7 +19,6 @@ import { type color, type state, unique } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { Aether } from "@/aether";
-import { Color } from "@/color";
 import { control } from "@/telem/control/aether";
 import { useContext } from "@/telem/control/Controller";
 import { Legend as Base } from "@/vis/legend";
@@ -67,7 +67,10 @@ export const Legend = (props: LegendProps): ReactElement | null => {
   } = restProps;
 
   const handleColorChange = useCallback(
-    (key: string, c: color.Color) => onColorsChange?.({ ...colors, [key]: c }),
+    (key: string, c?: color.Color) => {
+      const { [key]: _removed, ...rest } = colors;
+      onColorsChange?.(c == null ? rest : { ...rest, [key]: c });
+    },
     [colors, onColorsChange],
   );
 
@@ -78,7 +81,8 @@ export const Legend = (props: LegendProps): ReactElement | null => {
     return {
       key: d.subject.key,
       name: d.subject.name,
-      color: colors[d.subject.key] ?? d.subjectColor,
+      color: colors[d.subject.key],
+      fallback: d.subjectColor,
       isSelf: d.subject.key === contextKey,
     };
   });
@@ -107,6 +111,7 @@ export const Legend = (props: LegendProps): ReactElement | null => {
           itemKey={d.key}
           name={d.name}
           color={d.color}
+          fallback={d.fallback}
           isSelf={d.isSelf}
           onColorChange={handleColorChange}
           onColorPickerVisibleChange={setPickerVisible}
@@ -119,9 +124,11 @@ export const Legend = (props: LegendProps): ReactElement | null => {
 interface LegendEntryProps {
   itemKey: string;
   name: string;
-  color: color.Color;
+  color?: color.Color;
+  /** The color the subject paints while no color is picked for it. */
+  fallback: color.Color;
   isSelf: boolean;
-  onColorChange: (key: string, color: color.Color) => void;
+  onColorChange: (key: string, color?: color.Color) => void;
   onColorPickerVisibleChange: state.Setter<boolean>;
 }
 
@@ -129,13 +136,14 @@ const LegendEntry = ({
   itemKey,
   name,
   color: entryColor,
+  fallback,
   isSelf,
   onColorChange,
   onColorPickerVisibleChange,
 }: LegendEntryProps): ReactElement => {
   const parsed = parseSubjectName(name);
   const handleColorChange = useCallback(
-    (c: color.Color) => onColorChange(itemKey, c),
+    (c?: color.Color) => onColorChange(itemKey, c),
     [itemKey, onColorChange],
   );
   return (
@@ -147,11 +155,12 @@ const LegendEntry = ({
       grow
     >
       <Color.Swatch
-        allowChange
         draggable={false}
         onChange={handleColorChange}
         size="tiny"
+        variant="text"
         value={entryColor}
+        fallback={fallback}
         onVisibleChange={onColorPickerVisibleChange}
       />
       {parsed.secondary == null ? (

@@ -1,0 +1,61 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Driver"
+description: "Acquire data and control hardware from a number of vendors."
+nextURL: "/reference/driver/installation"
+next: "Driver installation"
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The Synnax Driver reads and controls hardware from
+[National Instruments](https://ni.com), [LabJack](https://labjack.com), and
+[EtherCAT](https://ethercat.org) devices. It also acquires data from servers over HTTP
+JSON REST APIs, [Modbus TCP/IP](https://modbus.org), and
+[OPC UA](https://opcfoundation.org), and runs
+[Arc automations](/reference/control/arc/introduction), Synnax's language for hardware
+control. You can build a custom driver for devices that are not natively supported.
+
+Jump to [National Instruments](/reference/driver/ni/configure-device),
+[EtherCAT](/reference/driver/ethercat/get-started),
+[LabJack](/reference/driver/labjack/configure-device),
+[HTTP](/reference/driver/http/connect-server),
+[OPC UA](/reference/driver/opc-ua/connect-server),
+[Modbus](/reference/driver/modbus/connect-server), or
+[PagerDuty](/reference/driver/pagerduty/alert-task).
+
+<Divider.Divider x />
+
+## Embedded Driver
+
+Every [Synnax Core](/reference/core/quick-start) embeds a Driver. It runs on the same
+machine as the Core and starts with it. The embedded Driver is the right choice for most
+users.
+
+<Divider.Divider x />
+
+## Driver installation
+
+The [Driver](/reference/driver/installation) can also run as a separate binary on a
+different machine, connecting to the Core over the network. Use it to integrate devices
+spread across several machines.
+
+### Support for NI Linux Real-Time
+
+The Driver supports deployment on
+[NI Linux Real-Time](https://www.ni.com/en/shop/linux/introduction-to-ni-linux-real-time.html)
+controllers, such as [NI CompactRIO](https://www.ni.com/en/shop/compactrio.html) and
+[NI PXI](https://www.ni.com/en/shop/pxi.html) systems.
+
+On a real-time controller the Driver also runs
+[Arc automations](/reference/control/arc/introduction), so control loops run close to
+the hardware with no network latency.
+
+<Divider.Divider x />
+
+## Building a custom driver
+
+If you don't see a driver for your hardware, you can build your own using the
+[Python client](/reference/client/advanced/build-device-driver).

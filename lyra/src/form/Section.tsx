@@ -13,6 +13,7 @@ import { type ReactElement, type ReactNode } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
+import { useCombinedRefs, useWheelScrollX } from "@/hooks";
 import { Text } from "@/text";
 
 export interface SectionsProps extends Flex.BoxProps {}
@@ -20,23 +21,31 @@ export interface SectionsProps extends Flex.BoxProps {}
 /**
  * Lays out sections. Stacked (the default), every label in every section shares one
  * column sized to the widest label and every control fills the rest. Side by side
- * (`x`), each section is as wide as its content: fields fill the rows the height
- * affords, then continue in a further label and control column pair.
+ * (`x`), each section is as wide as its content: fields fill three rows, then
+ * continue in a further label and control column pair. The side-by-side strip
+ * scrolls horizontally under a vertical mouse wheel.
  */
 export const Sections = ({
   className,
   direction,
   x,
   y,
+  ref,
   ...rest
-}: SectionsProps): ReactElement => (
-  <Flex.Box
-    className={CSS.cls(CSS.B("form-sections"), className)}
-    direction={Flex.parseDirection(direction, x, y) ?? "y"}
-    empty
-    {...rest}
-  />
-);
+}: SectionsProps): ReactElement => {
+  const dir = Flex.parseDirection(direction, x, y) ?? "y";
+  const wheelRef = useWheelScrollX<HTMLDivElement>();
+  const combinedRef = useCombinedRefs(ref, wheelRef);
+  return (
+    <Flex.Box
+      className={CSS.cls(CSS.B("form-sections"), className)}
+      direction={dir}
+      ref={dir === "x" ? combinedRef : ref}
+      empty
+      {...rest}
+    />
+  );
+};
 
 export interface SectionProps extends Omit<Flex.BoxProps, "title"> {
   title: string;

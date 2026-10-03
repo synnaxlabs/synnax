@@ -10,8 +10,11 @@
 package v9
 
 import (
+	"cmp"
 	"encoding/json"
+	"math"
 	"reflect"
+	"slices"
 	"strings"
 	"unicode"
 
@@ -139,7 +142,13 @@ func extractTelemArgs(cfg map[string]any) {
 			cfg["channel"] = ch
 		}
 		if w, ok := segProp(cfg["telem"], "rollingAverage", "windowSize"); ok {
-			cfg["rolling_average"] = w
+			cfg["rolling_average"] = floorWindow(w)
+		}
+		if p, ok := segProp(cfg["telem"], "stringifier", "precision"); ok {
+			cfg["precision"] = p
+		}
+		if n, ok := segProp(cfg["telem"], "stringifier", "notation"); ok {
+			cfg["notation"] = n
 		}
 		delete(cfg, "telem")
 		delete(cfg, "background_telem")
@@ -167,6 +176,15 @@ func extractTelemArgs(cfg map[string]any) {
 		}
 		delete(cfg, "source")
 		delete(cfg, "sink")
+	case "scale", "tank":
+		indicator, _ := cfg[legacyIndicators[variant]].(map[string]any)
+		if ch, ok := segProp(indicator["telem"], "valueStream", "channel"); ok {
+			cfg["channel"] = ch
+		}
+		if w, ok := segProp(indicator["telem"], "rollingAverage", "windowSize"); ok {
+			cfg["rolling_average"] = floorWindow(w)
+		}
+		delete(indicator, "telem")
 	case "button", "select", "input":
 		if ch, ok := segProp(cfg["sink"], "setter", "channel"); ok {
 			cfg["command_channel"] = ch
@@ -199,6 +217,19 @@ func extractTelemArgs(cfg map[string]any) {
 		delete(ctl, "chip")
 		delete(ctl, "indicator")
 	}
+}
+
+// floorWindow rounds a stored averaging window down to a whole sample count. The
+// Console's numeric input stored a typed fraction unrounded, and its window held the
+// floor of that many samples.
+func floorWindow(v any) any {
+	switch t := v.(type) {
+	case float64:
+		return int64(math.Floor(t))
+	case float32:
+		return int64(math.Floor(float64(t)))
+	}
+	return v
 }
 
 // segProp reads a property from a named segment of a stored pipeline spec, reporting
@@ -267,18 +298,96 @@ func normalizePage(cfg map[string]any) {
 	cfg["page"] = map[string]any{"type": "schematic", "key": key}
 }
 
-// zeroColorOpaqueFields names fields whose colors are required and so must keep a
-// zero value, alongside the fields already excluded from normalization.
-var zeroColorOpaqueFields = set.New("gradient")
+// legacyStop is a gradient stop of a legacy redline, positioned in [0, 1] across the
+// redline's bounds.
+type legacyStop struct {
+	Key      string  `json:"key"`
+	Color    any     `json:"color"`
+	Position float64 `json:"position"`
+}
 
-// stripZeroColors deletes every color-valued field holding the zero color. Consoles
-// before v9 stored transparent black for an unchosen color; v9 stores nothing, so the
-// theme picks the color instead. Gradient stops and opaque fields are left alone.
-func stripZeroColors(v any) {
+// legacyRedline is the redline Consoles before v9 stored.
+type legacyRedline struct {
+	Bounds *struct {
+		Lower float64 `json:"lower"`
+		Upper float64 `json:"upper"`
+	} `json:"bounds"`
+	Gradient []legacyStop `json:"gradient"`
+}
+
+// bandRedline rewrites a value config's legacy redline into threshold bands, in place
+// on the normalized wire map. Each stop becomes a band at its position scaled across
+// the bounds. The bands interpolate and the lowest stop's color becomes the background,
+// so every value keeps the fill the legacy renderer painted.
+func bandRedline(cfg map[string]any) error {
+	if cfg["variant"] != "value" {
+		return nil
+	}
+	raw, ok := cfg["redline"]
+	if !ok {
+		return nil
+	}
+	b, err := json.Marshal(raw)
+	if err != nil {
+		return err
+	}
+	var old legacyRedline
+	if err = json.Unmarshal(b, &old); err != nil {
+		return errors.Wrapf(validate.ErrValidation, "invalid redline: %s", err)
+	}
+	lower, upper := 0.0, 1.0
+	if b := old.Bounds; b != nil {
+		// The legacy renderer swapped reversed bounds before it scaled.
+		lower, upper = min(b.Lower, b.Upper), max(b.Lower, b.Upper)
+	}
+	bands := make([]any, len(old.Gradient))
+	for i, stop := range old.Gradient {
+		bands[i] = map[string]any{
+			"key":       stop.Key,
+			"threshold": lower + stop.Position*(upper-lower),
+			"color":     stop.Color,
+		}
+	}
+	redline := map[string]any{"bands": bands}
+	if len(old.Gradient) > 0 {
+		redline["smooth"] = true
+		lowest := slices.MinFunc(old.Gradient, func(a, b legacyStop) int {
+			return cmp.Compare(a.Position, b.Position)
+		})
+		if !isZeroColor(lowest.Color) {
+			cfg["background_color"] = lowest.Color
+		}
+	}
+	cfg["redline"] = redline
+	return nil
+}
+
+// keptZeroColorFields names fields whose colors keep a zero value, alongside the fields
+// already excluded from normalization. Band colors are required. Released Consoles
+// painted a zero region color under state_overrides as transparent.
+var keptZeroColorFields = set.New("bands", "state_overrides")
+
+// polygonKeptZeroColorFields adds the polygon's fill, which released Consoles also
+// painted as transparent when zero.
+var polygonKeptZeroColorFields = set.New("bands", "state_overrides", "fill_color")
+
+// stripZeroColors deletes every color-valued field of cfg holding the zero color.
+// Consoles before v9 stored transparent black for an unchosen color; v9 stores nothing,
+// so the theme picks the color instead. Fields a release painted as transparent keep
+// their zero.
+func stripZeroColors(cfg map[string]any) {
+	kept := keptZeroColorFields
+	if cfg["variant"] == "polygon" {
+		kept = polygonKeptZeroColorFields
+	}
+	stripZeroColorsExcept(cfg, kept)
+}
+
+func stripZeroColorsExcept(v any, kept set.Set[string]) {
 	switch t := v.(type) {
 	case map[string]any:
 		for k, val := range t {
-			if opaqueConfigFields.Contains(k) || zeroColorOpaqueFields.Contains(k) {
+			if opaqueConfigFields.Contains(k) || kept.Contains(k) {
 				continue
 			}
 			if strings.HasSuffix(k, "color") {
@@ -287,11 +396,11 @@ func stripZeroColors(v any) {
 				}
 				continue
 			}
-			stripZeroColors(val)
+			stripZeroColorsExcept(val, kept)
 		}
 	case []any:
 		for _, item := range t {
-			stripZeroColors(item)
+			stripZeroColorsExcept(item, kept)
 		}
 	}
 }
@@ -306,5 +415,196 @@ func isZeroColor(v any) bool {
 	if err := json.Unmarshal(b, &c); err != nil {
 		return false
 	}
-	return c.IsZero()
+	return c == color.Color{}
+}
+
+// strokeAndFill renames the fields of a symbol with an outline and a body.
+var strokeAndFill = map[string][]string{
+	"color":            {"stroke_color"},
+	"background_color": {"fill_color"},
+}
+
+// colorRenames maps each variant's legacy color fields to the fields named for the part
+// they paint. A variant absent here keeps a legacy color as its stroke.
+var colorRenames = map[string]map[string][]string{
+	"box":                strokeAndFill,
+	"circle":             strokeAndFill,
+	"polygon":            strokeAndFill,
+	"cylinder":           strokeAndFill,
+	"tank":               strokeAndFill,
+	"value":              strokeAndFill,
+	"button":             {"color": {"fill_color"}},
+	"input":              {"color": {"fill_color"}},
+	"setpoint":           {"color": {"fill_color"}},
+	"select":             {"color": {"fill_color"}},
+	"off_page_reference": {"color": {"fill_color"}},
+	"text_box":           {"color": {"text_color"}},
+	"light":              {"color": {"stroke_color", "on_color"}},
+	"scale":              {"color": {"level_color"}},
+	"custom_actuator":    {"color": nil},
+	"custom_static":      {"color": nil},
+}
+
+// legacyIndicators names the field each variant nested its level indicator under.
+var legacyIndicators = map[string]string{"scale": "indicator", "tank": "fill"}
+
+// indicatorRenames maps a legacy nested indicator's fields to the fields of the symbol
+// that now extends the indicator. The indicator's own color is dropped: a scale painted
+// its top-level color over it, and a tank's level takes the same name.
+var indicatorRenames = map[string]map[string]string{
+	"scale": {"color": ""},
+	"tank": {
+		"color":      "level_color",
+		"show_caret": "caret_visible",
+		"show_scale": "scale_visible",
+	},
+}
+
+// invertedIndicatorFlags maps a legacy nested indicator's show flags to the hidden
+// flags of the symbol that now extends the indicator.
+var invertedIndicatorFlags = map[string]map[string]string{
+	"scale": {
+		"show_fill":  "level_hidden",
+		"show_caret": "caret_hidden",
+		"show_scale": "scale_hidden",
+	},
+	"tank": {"show_fill": "level_hidden"},
+}
+
+// invertedFlags maps each variant's legacy enabling flags to the disabling flags that
+// replaced them.
+var invertedFlags = map[string]map[string]string{
+	"text_box":           {"auto_fit": "auto_fit_disabled"},
+	"off_page_reference": {"dbl_click_nav": "dbl_click_nav_disabled"},
+}
+
+// invertedControlFlags maps a legacy control state's show flags to its hidden flags.
+var invertedControlFlags = map[string]string{
+	"show":           "hidden",
+	"show_chip":      "chip_hidden",
+	"show_indicator": "indicator_hidden",
+}
+
+// invertLegacyFlags rewrites the legacy enabling flags of a config and its control
+// state as the disabling flags that replaced them, in place on the normalized wire map.
+func invertLegacyFlags(cfg map[string]any) {
+	variant, _ := cfg["variant"].(string)
+	invertFlags(cfg, invertedFlags[variant])
+	if ctl, ok := cfg["control"].(map[string]any); ok {
+		invertFlags(ctl, invertedControlFlags)
+	}
+}
+
+// invertFlags replaces each flag in m that flags names with its negation under the new
+// name. A flag that is not a boolean moves to the new name unchanged, so the typed
+// decode rejects it.
+func invertFlags(m map[string]any, flags map[string]string) {
+	for from, to := range flags {
+		val, ok := m[from]
+		if !ok {
+			continue
+		}
+		delete(m, from)
+		if b, ok := val.(bool); ok {
+			val = !b
+		}
+		m[to] = val
+	}
+}
+
+// renameColors rewrites a config's legacy color fields to the names of the parts they
+// paint, and lifts a scale's or tank's nested indicator to the top of the config, in
+// place on the normalized wire map. A legacy field that paints two parts is copied to
+// both, so the symbol renders as it did.
+func renameColors(cfg map[string]any) {
+	variant, _ := cfg["variant"].(string)
+	if nested, ok := legacyIndicators[variant]; ok {
+		liftIndicator(
+			cfg, nested, indicatorRenames[variant], invertedIndicatorFlags[variant],
+		)
+	}
+	renames, ok := colorRenames[variant]
+	if !ok {
+		renames = map[string][]string{"color": {"stroke_color"}}
+	}
+	for from, to := range renames {
+		val, ok := cfg[from]
+		if !ok {
+			continue
+		}
+		delete(cfg, from)
+		for _, name := range to {
+			cfg[name] = val
+		}
+	}
+}
+
+// liftIndicator moves the fields of the indicator nested under key to the top of cfg,
+// renaming or dropping the ones renames names and negating the ones inverted names. A
+// dropped field maps to "".
+func liftIndicator(
+	cfg map[string]any,
+	key string,
+	renames map[string]string,
+	inverted map[string]string,
+) {
+	indicator, ok := cfg[key].(map[string]any)
+	delete(cfg, key)
+	if !ok {
+		return
+	}
+	invertFlags(indicator, inverted)
+	for k, val := range indicator {
+		if name, renamed := renames[k]; renamed {
+			if name == "" {
+				continue
+			}
+			k = name
+		}
+		cfg[k] = val
+	}
+}
+
+// withDefaults decodes a normalized config over its variant's schema defaults. A stored
+// field keeps its value even when it is zero.
+func withDefaults(stored msgpack.EncodedJSON) (ElementConfig, error) {
+	defaults, err := defaultConfig(stored)
+	if err != nil {
+		return ElementConfig{}, err
+	}
+	fields, err := ElementConfigFields(defaults)
+	if err != nil {
+		return ElementConfig{}, err
+	}
+	mergeFields(fields, stored)
+	return DecodeElementConfig(fields)
+}
+
+// defaultConfig returns the schema defaults of the variant a normalized config names,
+// including those of its control state when the config carries one.
+func defaultConfig(stored msgpack.EncodedJSON) (ElementConfig, error) {
+	probe := msgpack.EncodedJSON{"variant": stored["variant"]}
+	// The control state is the only optional field whose type declares defaults.
+	if _, ok := stored["control"].(map[string]any); ok {
+		probe["control"] = map[string]any{}
+	}
+	cfg, err := DecodeElementConfig(probe)
+	if err != nil {
+		return ElementConfig{}, err
+	}
+	cfg.ApplyDefaults()
+	return cfg, nil
+}
+
+// mergeFields writes every field of src into dst, merging nested objects by field.
+func mergeFields(dst, src map[string]any) {
+	for k, val := range src {
+		if d, ok := dst[k].(map[string]any); ok {
+			if s, ok := val.(map[string]any); ok {
+				mergeFields(d, s)
+				continue
+			}
+		}
+		dst[k] = val
+	}
 }

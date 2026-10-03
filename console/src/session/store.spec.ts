@@ -114,6 +114,34 @@ describe("createStore", () => {
     );
   });
 
+  it("should keep the account link across launches", async () => {
+    const store = await createStore();
+    const link = { secret: "shh", email: "someone@example.com", user: "user_a" };
+    store.dispatch(Session.Account.link(link));
+    await waitForPersisted(
+      db,
+      (p) => p.account?.link?.secret === link.secret,
+      "Account link not persisted yet",
+    );
+    const reloaded = await createStore();
+    expect(Session.Account.selectSliceState(reloaded.getState())).toEqual({
+      version: 0,
+      link,
+    });
+  });
+
+  it("should keep a pending login across launches", async () => {
+    const store = await createStore();
+    store.dispatch(Session.Account.beginLogin("minted"));
+    await waitForPersisted(
+      db,
+      (p) => p.account?.pending === "minted",
+      "Pending login not persisted yet",
+    );
+    const reloaded = await createStore();
+    expect(Session.Account.selectPending(reloaded.getState())).toBe("minted");
+  });
+
   it("round-trips a Core saved before its first login", async () => {
     const key = "3c1d9b2e-5a47-4f08-9d16-7e2b8c4a1f53";
     const store = await createStore();
@@ -174,11 +202,12 @@ describe("createStore", () => {
   });
 
   it("boots when storage is unreadable and announces it", async () => {
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const onPersistError = vi.fn<(error: Error) => void>();
     const fail = async (): Promise<never> => {
       throw new Error("storage is blocked");
     };
     const store = await createStore({
+      onPersistError,
       openKV: () => ({
         get: fail,
         set: fail,
@@ -200,7 +229,11 @@ describe("createStore", () => {
     );
     expect(rest).toStrictEqual(zero);
     expect(Session.Persist.selectStoreUnavailable(store.getState())).toBe(true);
-    errorSpy.mockRestore();
+    await waitFor(() =>
+      expect(onPersistError).toHaveBeenCalledWith(
+        expect.objectContaining({ message: "failed to persist state" }),
+      ),
+    );
   });
 
   /** Walks into a Core and project the way production does, and edits window state. */
@@ -305,8 +338,8 @@ describe("createStore", () => {
     );
     expect(slotKey).toBeDefined();
     const slotBefore = await db.get(slotKey as string);
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const reloaded = await createStore();
+    const onPersistError = vi.fn<(error: Error) => void>();
+    const reloaded = await createStore({ onPersistError });
     reloaded.dispatch(Session.Panel.reconcileOrder({ panels: [PANEL] }));
     await waitForPersisted(
       db,
@@ -315,11 +348,7 @@ describe("createStore", () => {
     );
     // A rewrite advances the slot pointer, so four launches would erase the ring.
     expect(await db.get(slotKey as string)).toEqual(slotBefore);
-    expect(errorSpy).not.toHaveBeenCalledWith(
-      expect.stringContaining("discarding stored slice"),
-      expect.anything(),
-    );
-    errorSpy.mockRestore();
+    expect(onPersistError).not.toHaveBeenCalled();
   });
 
   it("purges a removed Core's stored state", async () => {

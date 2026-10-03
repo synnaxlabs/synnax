@@ -75,7 +75,10 @@ export const Splash = (): ReactElement => {
   const awaitingProject = Session.Link.useSelectAwaitingProject();
 
   return (
-    <Shell.Frame className={CSS.B("project-splash")} connection={activeCore}>
+    <Shell.Frame
+      className={CSS.B("project-splash")}
+      connection={Session.Runtime.CORE_EMBEDDED ? null : activeCore}
+    >
       <Menu.ContextMenu menu={contextMenu} {...menuProps} />
       <Select.Frame
         data={data}
@@ -96,17 +99,19 @@ export const Splash = (): ReactElement => {
               <Icon.Project />
               Projects
             </Header.Title>
-            <Header.Actions>
-              <PButton.Button
-                variant="text"
-                textColor={9}
-                size="medium"
-                onClick={logout}
-              >
-                <Icon.Logout />
-                Log out
-              </PButton.Button>
-            </Header.Actions>
+            {!Session.Runtime.CORE_EMBEDDED && (
+              <Header.Actions>
+                <PButton.Button
+                  variant="text"
+                  textColor={9}
+                  size="medium"
+                  onClick={logout}
+                >
+                  <Icon.Logout />
+                  Log out
+                </PButton.Button>
+              </Header.Actions>
+            )}
           </Header.Header>
           {awaitingProject && (
             <Status.Summary

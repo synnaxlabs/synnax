@@ -1,24 +1,13 @@
 {
   "name": "@synnaxlabs/media",
-  "version": "0.58.0",
+  "private": true,
   "type": "module",
-  "description": "Media Assets for Synnax Labs",
-  "repository": "https://github.com/synnaxlabs/synnax/tree/main/x/media",
-  "keywords": [
-    "synnax",
-    "media",
-    "data acquisition",
-    "big data",
-    "telemetry",
-    "control systems"
-  ],
   "scripts": {
     "build": "vite build",
     "watch": "vite build --watch",
     "check-types": "tsc --noEmit",
     "lint": "eslint",
     "fix": "eslint --fix",
-    "madge": "madge --circular src",
     "stylelint": "stylelint \"src/**/*.css\""
   },
   "peerDependencies": {
@@ -26,33 +15,24 @@
   },
   "devDependencies": {
     "@synnaxlabs/eslint-config": "catalog:",
-    "@synnaxlabs/madge": "catalog:",
     "@synnaxlabs/stylelint-config": "catalog:",
     "@synnaxlabs/tsconfig": "catalog:",
     "@synnaxlabs/vite-plugin": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
-    "@vitejs/plugin-react": "catalog:",
     "clsx": "catalog:",
     "eslint": "catalog:",
     "react": "catalog:",
-    "react-icons": "catalog:",
     "stylelint": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:"
   },
-  "files": [
-    "dist",
-    "src",
-    "!**/*.spec.*",
-    "!**/*.bench.*",
-    "!dist/eslint.config.*"
-  ],
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
       "default": "./dist/media.js"
     },
-    "./dist/*": "./dist/*"
+    "./dist/*": "./dist/*",
+    "./static/*": "./static/*"
   }
 }

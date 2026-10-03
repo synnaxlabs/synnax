@@ -12,8 +12,9 @@ import "@synnaxlabs/lyra/dist/base.css";
 import "@synnaxlabs/media/dist/media.css";
 import "@synnaxlabs/pluto/dist/pluto.css";
 
-import { type ReactElement } from "react";
+import { Fragment, type PropsWithChildren, type ReactElement } from "react";
 
+import { Analytics } from "@/app/analytics";
 import { Haul } from "@/app/haul";
 import { Panel } from "@/app/panel";
 import { Pluto } from "@/app/pluto";
@@ -22,8 +23,10 @@ import { Task } from "@/app/task";
 import { Tree } from "@/app/tree";
 import { Vis } from "@/app/vis";
 import { Window } from "@/app/window";
+import { Embedded } from "@/feature/embedded";
 import { Errors } from "@/platform/errors";
 import { Runtime } from "@/platform/runtime";
+import { Version } from "@/platform/version";
 import { Session } from "@/session";
 
 export interface AppProps extends Pick<Pluto.ContextProps, "workerURL"> {}
@@ -34,29 +37,44 @@ const SideEffect = (): null => {
   return null;
 };
 
+const DesktopContext = ({ children }: PropsWithChildren): ReactElement => (
+  <Analytics.Provider>
+    <Embedded.Provider>
+      <Version.InstallProvider middleware={Embedded.installMiddleware}>
+        {children}
+      </Version.InstallProvider>
+    </Embedded.Provider>
+  </Analytics.Provider>
+);
+
+const BuildContext = DESKTOP ? DesktopContext : Fragment;
+
 export const App = ({ workerURL }: AppProps): ReactElement => (
   <>
     <SideEffect />
     <Errors.OverlayWithoutStore>
-      <Session.Context>
-        <Pluto.Context workerURL={workerURL}>
-          <Session.SettledProvider>
-            <Errors.OverlayWithStore>
-              <Panel.Context>
-                <Tree.Context>
-                  <Range.Context>
-                    <Task.Context>
-                      <Vis.Canvas>
-                        <Window.Window />
-                      </Vis.Canvas>
-                    </Task.Context>
-                  </Range.Context>
-                </Tree.Context>
-              </Panel.Context>
-            </Errors.OverlayWithStore>
-          </Session.SettledProvider>
-        </Pluto.Context>
-      </Session.Context>
+      <BuildContext>
+        <Session.Context>
+          <Pluto.Context workerURL={workerURL}>
+            {DESKTOP && <Analytics.Watch />}
+            <Session.SettledProvider>
+              <Errors.OverlayWithStore>
+                <Panel.Context>
+                  <Tree.Context>
+                    <Range.Context>
+                      <Task.Context>
+                        <Vis.Canvas>
+                          <Window.Window />
+                        </Vis.Canvas>
+                      </Task.Context>
+                    </Range.Context>
+                  </Tree.Context>
+                </Panel.Context>
+              </Errors.OverlayWithStore>
+            </Session.SettledProvider>
+          </Pluto.Context>
+        </Session.Context>
+      </BuildContext>
     </Errors.OverlayWithoutStore>
   </>
 );

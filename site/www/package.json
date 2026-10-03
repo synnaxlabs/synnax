@@ -1,0 +1,50 @@
+{
+  "name": "@synnaxlabs/www",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro check && astro build",
+    "check-types": "astro check",
+    "preview": "astro preview",
+    "astro": "astro",
+    "lint": "eslint",
+    "fix": "eslint --fix",
+    "format": "prettier --write .",
+    "format-check": "prettier --check .",
+    "stylelint": "stylelint \"src/**/*.css\"",
+    "test": "vitest",
+    "cov": "vitest --coverage"
+  },
+  "dependencies": {
+    "@astrojs/react": "catalog:",
+    "@astrojs/vercel": "catalog:",
+    "@synnaxlabs/arc": "catalog:",
+    "@synnaxlabs/lyra": "catalog:",
+    "@synnaxlabs/media": "catalog:",
+    "@synnaxlabs/site-common": "catalog:",
+    "astro": "catalog:",
+    "astro-seo": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "shiki": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@astrojs/check": "catalog:",
+    "@synnaxlabs/eslint-config": "catalog:",
+    "@synnaxlabs/stylelint-config": "catalog:",
+    "@synnaxlabs/tsconfig": "catalog:",
+    "@synnaxlabs/vite-plugin": "catalog:",
+    "@testing-library/react": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "eslint": "catalog:",
+    "jsdom": "catalog:",
+    "stylelint": "catalog:",
+    "typescript": "catalog:ts6",
+    "vitest": "catalog:"
+  }
+}

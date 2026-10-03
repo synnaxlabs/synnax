@@ -1,0 +1,33 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import Root from "@/layouts/Root.astro";
+import "@/styles/portal.css";
+
+interface Props {
+    title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<Root title={title}>
+    <section class="portal-auth-page">
+        <slot />
+    </section>
+</Root>
+
+<script>
+    // Back after a login can restore this page from the browser's memory, where the
+    // server's redirect for a logged-in visitor never runs. A reload asks it again.
+    window.addEventListener("pageshow", (e) => {
+        if (e.persisted) window.location.reload();
+    });
+</script>

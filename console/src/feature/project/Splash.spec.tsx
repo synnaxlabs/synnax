@@ -39,7 +39,7 @@ describe("project/Splash", () => {
     });
 
     it("should name the denial when the list read is refused", async () => {
-      await client.projects.create({ name: uniqueName("argon"), layout: {} });
+      await client.projects.create({ name: uniqueName("argon") });
       const denied = await createTestClientWithPolicy(client, {
         name: uuid.create(),
         objects: [
@@ -57,6 +57,27 @@ describe("project/Splash", () => {
         ),
       ).toBeDefined();
       expect(screen.queryByText("No projects created.")).toBeNull();
+    });
+  });
+
+  describe("session controls", () => {
+    it("should log out of the Core", async () => {
+      const { store } = await renderWithConsole(<Project.Splash />);
+      act(() => {
+        store.dispatch(Session.Core.select(Session.Core.LOCAL_KEY));
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Log out" }));
+      expect(Session.Core.selectSelected(store.getState())).toBeUndefined();
+    });
+
+    it("should name the selected Core in the connection island", async () => {
+      const { store } = await renderWithConsole(<Project.Splash />);
+      act(() => {
+        store.dispatch(Session.Core.select(Session.Core.LOCAL_KEY));
+      });
+      const name = Session.Core.selectSelected(store.getState())?.name;
+      if (name == null) throw new Error("no Core is selected");
+      expect(await screen.findByText(name)).toBeTruthy();
     });
   });
 
@@ -79,7 +100,7 @@ describe("project/Splash", () => {
   describe("selecting an existing project", () => {
     it("should activate the project", async () => {
       const name = `proj-${id.create()}`;
-      const proj = await client.projects.create({ name, layout: {} });
+      const proj = await client.projects.create({ name });
       const { wrapper, store } = await createConsoleWrapper({ client });
       render(<Project.Splash />, { wrapper });
 
@@ -98,8 +119,8 @@ describe("project/Splash", () => {
     it("should filter the list to matching projects and allow selecting one", async () => {
       const first = uniqueName("hydrogen");
       const second = uniqueName("xenon");
-      await client.projects.create({ name: first, layout: {} });
-      const created = await client.projects.create({ name: second, layout: {} });
+      await client.projects.create({ name: first });
+      const created = await client.projects.create({ name: second });
       const { wrapper, store } = await createConsoleWrapper({ client });
       render(<Project.Splash />, { wrapper });
 
@@ -119,7 +140,7 @@ describe("project/Splash", () => {
     });
 
     it("should show a no-match message instead of the created-none empty state", async () => {
-      await client.projects.create({ name: uniqueName("krypton"), layout: {} });
+      await client.projects.create({ name: uniqueName("krypton") });
       const { wrapper } = await createConsoleWrapper({ client });
       render(<Project.Splash />, { wrapper });
 
@@ -134,7 +155,7 @@ describe("project/Splash", () => {
   describe("keyboard navigation", () => {
     it("should select the hovered project when Enter is pressed", async () => {
       const name = uniqueName("kb_enter");
-      const proj = await client.projects.create({ name, layout: {} });
+      const proj = await client.projects.create({ name });
       const { wrapper, store } = await createConsoleWrapper({ client });
       render(
         <Triggers.Provider>
@@ -158,8 +179,8 @@ describe("project/Splash", () => {
 
     it("should move the hover with the arrow keys before selecting", async () => {
       const prefix = uniqueName("kb_arrows");
-      const a = await client.projects.create({ name: `${prefix}_a`, layout: {} });
-      const b = await client.projects.create({ name: `${prefix}_b`, layout: {} });
+      const a = await client.projects.create({ name: `${prefix}_a` });
+      const b = await client.projects.create({ name: `${prefix}_b` });
       const { wrapper, store } = await createConsoleWrapper({ client });
       render(
         <Triggers.Provider>
@@ -189,7 +210,7 @@ describe("project/Splash", () => {
 
     it("should not select a project while a modal is open", async () => {
       const name = uniqueName("kb_modal");
-      await client.projects.create({ name, layout: {} });
+      await client.projects.create({ name });
       const { wrapper, store } = await createConsoleWrapper({ client });
       render(
         <Triggers.Provider>

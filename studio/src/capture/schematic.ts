@@ -29,7 +29,7 @@ export const canvas = (page: Page): Locator =>
   page.locator(".react-flow__pane").first();
 
 /** symbols returns every symbol on the canvas, in the order they were added. */
-export const symbols = (page: Page): Locator => page.locator(".react-flow__node");
+const symbols = (page: Page): Locator => page.locator(".react-flow__node");
 
 /**
  * handle returns one of a symbol's attachment points. A symbol can carry

@@ -111,17 +111,23 @@ describe("StringDisplay", () => {
         </FormWrapper>,
       );
 
+    it("should open on the telemetry tab", () => {
+      const { getByRole } = renderForm();
+      expect(getByRole("tab", { name: "Telemetry" }).ariaSelected).toBe("true");
+    });
+
     it("should render the style controls", () => {
       const { getAllByText, getByText } = renderForm();
+      fireEvent.click(getByText("Style"));
       expect(getAllByText("Label")).toHaveLength(2);
-      expect(getByText("Color")).toBeDefined();
+      expect(getByText("Stroke")).toBeDefined();
+      expect(getByText("Text")).toBeDefined();
       expect(getByText("Width")).toBeDefined();
       expect(getAllByText("Size")).toHaveLength(2);
     });
 
     it("should render the telemetry controls", () => {
       const { getByText } = renderForm();
-      fireEvent.click(getByText("Telemetry"));
       expect(getByText("Channel")).toBeDefined();
       expect(getByText("Color")).toBeDefined();
       expect(getByText("Timeout")).toBeDefined();

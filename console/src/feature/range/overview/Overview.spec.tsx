@@ -82,7 +82,8 @@ const renderOverview = async (
         </PlatformRange.SnapshotServicesProvider>
       </PlutoPanel.TabScope.Provider>
     </PlutoPanel.Scope.Provider>,
-    { wrapper },
+    // A spec that passes a fallback expects the boundary to catch.
+    { wrapper, onCaughtError: FallbackComponent == null ? undefined : () => {} },
   );
   const setTabResource = async (nextKey: string) =>
     await act(async () => {
@@ -108,7 +109,6 @@ const createChildRange = async (parent: ranger.Range): Promise<ranger.Range> => 
 const createSnapshot = async (rng: ranger.Range): Promise<ontology.ID> => {
   const project = await client.projects.create({
     name: uniqueName("proj"),
-    layout: {},
   });
   const sch = await client.schematics.create(project.key, {
     name: uniqueName("sch"),
@@ -219,7 +219,6 @@ describe("range/overview tab", () => {
 
     const project = await client.projects.create({
       name: uniqueName("proj"),
-      layout: {},
     });
     await act(async () => {
       await restore({ client, project: project.key, resource: rng.ontologyID });
@@ -242,7 +241,6 @@ describe("range/overview tab", () => {
 
     const project = await client.projects.create({
       name: uniqueName("proj"),
-      layout: {},
     });
     await restore({ client, project: project.key, resource: rng.ontologyID });
 

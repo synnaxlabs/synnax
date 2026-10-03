@@ -21,7 +21,7 @@ interface BaseListItemProps extends Omit<Palette.ListItemProps, "onSelect"> {
   onSelect: (item: ontology.Resource) => void;
 }
 
-export const BaseListItem = ({ icon, onSelect, ...rest }: BaseListItemProps) => {
+const BaseListItem = ({ icon, onSelect, ...rest }: BaseListItemProps) => {
   const { itemKey } = rest;
   const item = List.useItem<string, ontology.Resource>(itemKey);
   if (item == null) return null;

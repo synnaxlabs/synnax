@@ -16,11 +16,13 @@ import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { Scale } from "@/schematic/node/common/scale";
+import { type FormProps } from "@/schematic/node/spec";
+import { Properties } from "@/vis/properties";
 
-export const ScaleForm = (): ReactElement => {
+export const ScaleForm = ({ tab, onTabChange }: FormProps): ReactElement => {
   const { value: orientation } = Base.useField<location.Outer>("orientation");
   return (
-    <Form.Tabs tabs={["style", "telemetry"]}>
+    <Properties.Tabs tabs={["telemetry", "style"]} tab={tab} onTabChange={onTabChange}>
       <Tabs.Content itemKey="style">
         <Base.Sections x>
           <Base.Section title="Label">
@@ -41,23 +43,30 @@ export const ScaleForm = (): ReactElement => {
             />
           </Base.Section>
           <Base.Section title="Display">
-            <Scale.DisplayFields
-              path="indicator"
-              axis={location.direction(orientation)}
-            />
+            <Scale.DisplayFields axis={location.direction(orientation)}>
+              <Form.NegatedSwitchField
+                path="caretHidden"
+                label="Value"
+                padHelpText={false}
+              />
+              <Form.NegatedSwitchField
+                path="scaleHidden"
+                label="Scale"
+                padHelpText={false}
+              />
+            </Scale.DisplayFields>
           </Base.Section>
           <Base.Section title="Appearance">
-            <Form.ColorField path="color" label="Fill color" />
-            <Scale.StyleFields path="indicator" />
+            <Scale.StyleFields />
           </Base.Section>
           <Orientation.Section path="" hideInner />
         </Base.Sections>
       </Tabs.Content>
       <Tabs.Content itemKey="telemetry">
         <Base.Sections x>
-          <Scale.TelemForm path="indicator" />
+          <Scale.TelemForm />
         </Base.Sections>
       </Tabs.Content>
-    </Form.Tabs>
+    </Properties.Tabs>
   );
 };

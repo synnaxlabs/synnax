@@ -262,6 +262,54 @@ var _ = Describe("CounterRead", func() {
 				}},
 			},
 		),
+		Entry("rewrites the Python external count direction to the direction it ran",
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":            "ci_edge_count",
+					"count_direction": "ExtControlled",
+				}},
+			},
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":            "ci_edge_count",
+					"count_direction": "CountUp",
+				}},
+			},
+		),
+		Entry("rewrites the Python linear velocity units",
+			msgpack.EncodedJSON{
+				"channels": []any{
+					map[string]any{
+						"type":  "ci_velocity_linear",
+						"units": "MetersPerSecond",
+					},
+					map[string]any{
+						"type":  "ci_velocity_linear",
+						"units": "InchesPerSecond",
+					},
+				},
+			},
+			msgpack.EncodedJSON{
+				"channels": []any{
+					map[string]any{"type": "ci_velocity_linear", "units": "m/s"},
+					map[string]any{"type": "ci_velocity_linear", "units": "in/s"},
+				},
+			},
+		),
+		Entry("rewrites the Python angular velocity degrees to degrees per second",
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":  "ci_velocity_angular",
+					"units": "Degrees",
+				}},
+			},
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":  "ci_velocity_angular",
+					"units": "Degrees/s",
+				}},
+			},
+		),
 		Entry("keeps a canonical frequency channel unchanged",
 			msgpack.EncodedJSON{
 				"channels": []any{map[string]any{
