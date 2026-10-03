@@ -25,7 +25,7 @@ import (
 var _ = Describe("Migration", func() {
 	DescribeTable("Should convert the loop mode to a performance level",
 		func(ctx SpecContext, mode v3.ExecutionMode, want v4.Performance) {
-			seed := v3.Config{
+			stored := v3.Config{
 				Key:           uuid.New(),
 				AutoStart:     true,
 				ArcKey:        uuid.New(),
@@ -39,7 +39,7 @@ var _ = Describe("Migration", func() {
 			MustSucceed(
 				gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v3.Config]{DB: db}),
 			)
-			Expect(gorp.NewCreate[uuid.UUID, v3.Config]().Entry(&seed).Exec(ctx, db)).
+			Expect(gorp.NewCreate[uuid.UUID, v3.Config]().Entry(&stored).Exec(ctx, db)).
 				To(Succeed())
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 				DB:         db,
@@ -48,11 +48,11 @@ var _ = Describe("Migration", func() {
 			})).To(Succeed())
 			var got v4.Config
 			Expect(gorp.NewRetrieve[uuid.UUID, v4.Config]().
-				Where(gorp.MatchKeys[uuid.UUID, v4.Config](seed.Key)).
+				Where(gorp.MatchKeys[uuid.UUID, v4.Config](stored.Key)).
 				Entry(&got).Exec(ctx, db)).To(Succeed())
-			Expect(got.Key).To(Equal(seed.Key))
+			Expect(got.Key).To(Equal(stored.Key))
 			Expect(got.AutoStart).To(BeTrue())
-			Expect(got.ArcKey).To(Equal(seed.ArcKey))
+			Expect(got.ArcKey).To(Equal(stored.ArcKey))
 			Expect(got.Hash).To(Equal("abc123"))
 			Expect(got.Performance).To(Equal(want))
 		},
