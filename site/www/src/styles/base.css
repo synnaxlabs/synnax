@@ -11,7 +11,6 @@
 
 :root {
     --max-width: 1300px;
-    --pluto-gray-l8: #7c7c7c;
     --pluto-gray-l9: #9b9b9b;
     --pluto-h1-size: clamp(4.8rem, 2rem + 5.5vw, 10.5rem);
     --pluto-h1-weight: 500;
@@ -45,7 +44,6 @@
 }
 
 html {
-    background: var(--pluto-gray-l0);
     scroll-behavior: smooth;
 }
 
@@ -63,21 +61,6 @@ body {
     font-family: var(--pluto-font-family);
     color: var(--pluto-text-color);
     -webkit-font-smoothing: antialiased;
-}
-
-a:not(.pluto-btn) {
-    color: var(--pluto-primary-p1);
-    text-decoration: none;
-
-    &:hover {
-        text-decoration: underline;
-    }
-}
-
-@media (resolution >= 2dppx) {
-    :root {
-        --pluto-border-width: 0.5px;
-    }
 }
 
 /* ── Section Hero ─────────────────────────────────────────────── */

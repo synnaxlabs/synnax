@@ -72,7 +72,7 @@ export const middleware =
 
     const label = runtime.label();
 
-    validateAction({ action: incoming, emitted, emitter });
+    validateAction(incoming);
 
     const isDrift = isDriftAction(action.type);
     if (isDrift)

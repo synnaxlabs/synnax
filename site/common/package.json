@@ -4,10 +4,11 @@
   "private": true,
   "exports": {
     "./Footer.astro": "./src/Footer.astro",
+    "./PrivacyPolicy.astro": "./src/PrivacyPolicy.astro",
+    "./base.css": "./src/base.css",
     "./drawer.css": "./src/drawer.css",
     "./integration": "./src/integration.ts",
-    "./sitemap": "./src/sitemap.ts",
-    "./tokens.css": "./src/tokens.css"
+    "./sitemap": "./src/sitemap.ts"
   },
   "scripts": {
     "check-types": "astro check",

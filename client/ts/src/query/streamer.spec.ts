@@ -95,6 +95,7 @@ const createListeners = (
 
 const createStreamerArgs = (overrides?: Partial<StreamerParams>): StreamerParams => ({
   onError: vi.fn(),
+  onRetry: vi.fn(),
   listeners: [],
   openStreamer: async () => new MockHardenedStreamer([]),
   ...overrides,

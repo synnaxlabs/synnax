@@ -31,7 +31,7 @@ describe("Embedded.useConnParams", () => {
       wrapper: Embedded.Provider,
     });
     expect(result.current).toBeUndefined();
-    await act(async () => await emitStatus(RUNNING));
+    await emitStatus(RUNNING);
     await waitFor(() => expect(result.current).toEqual(PARAMS));
   });
 
@@ -50,9 +50,9 @@ describe("Embedded.useConnParams", () => {
     });
     await waitFor(() => expect(result.current).toEqual(PARAMS));
     const before = result.current;
-    await act(async () => await emitStatus({ state: "restarting" }));
+    await emitStatus({ state: "restarting" });
     expect(result.current).toBe(before);
-    await act(async () => await emitStatus(RUNNING));
+    await emitStatus(RUNNING);
     expect(result.current).toBe(before);
   });
 
@@ -63,7 +63,7 @@ describe("Embedded.useConnParams", () => {
     const { result } = renderHook(Embedded.useConnParams, {
       wrapper: Embedded.Provider,
     });
-    await act(async () => await emitStatus(RUNNING));
+    await emitStatus(RUNNING);
     await act(async () => answer({ state: "failed", message: "stale" }));
     expect(result.current).toEqual(PARAMS);
   });

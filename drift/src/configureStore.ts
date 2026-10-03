@@ -112,7 +112,7 @@ const receivePreloadedStateAndListen = async <
       const store = getStore();
       if (store == null) return;
       if (action != null) {
-        validateAction({ action, emitter });
+        validateAction(action);
         store.dispatch(sugar(action, emitter));
         return;
       }
@@ -150,7 +150,7 @@ const receivePreloadedStateAndListen = async <
             return;
           }
           if (action == null) return;
-          validateAction({ action, emitter });
+          validateAction(action);
           s.dispatch(sugar(action, emitter));
         });
         await runtime.emit({ sendState: true }, MAIN_WINDOW);

@@ -32,9 +32,9 @@ struct Handle;
 struct Body;
 struct Node;
 struct Authorities;
-struct Transition;
 struct Function;
 struct Edge;
+struct Transition;
 struct Member;
 struct Scope;
 struct IR;
@@ -132,26 +132,6 @@ struct Authorities {
     to_proto() const;
     static std::pair<Authorities, x::errors::Error>
     from_proto(const ::arc::ir::pb::Authorities &pb);
-};
-
-/// @brief Transition is a declarative state-transition rule on a sequential Scope.
-struct Transition {
-    /// @brief on is the dataflow handle whose truthy value fires this transition.
-    Handle on;
-    /// @brief target_key is the sibling step key to activate. Null when the transition
-    /// exits the scope, yielding to the parent.
-    std::optional<std::string> target_key;
-
-    static Transition parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::arc::ir::pb::Transition;
-    [[nodiscard]] std::pair<::arc::ir::pb::Transition, x::errors::Error>
-    to_proto() const;
-    static std::pair<Transition, x::errors::Error>
-    from_proto(const ::arc::ir::pb::Transition &pb);
-    [[nodiscard]] std::string to_string() const;
-    friend std::ostream &operator<<(std::ostream &os, const Transition &t);
 };
 
 /// @brief Function is a function template definition with typed parameters, serving as
@@ -252,6 +232,30 @@ struct Edge {
     static std::pair<Edge, x::errors::Error> from_proto(const ::arc::ir::pb::Edge &pb);
     [[nodiscard]] std::string to_string() const;
     friend std::ostream &operator<<(std::ostream &os, const Edge &e);
+};
+
+/// @brief Transition is a declarative state-transition rule on a sequential Scope.
+struct Transition {
+    /// @brief on is the dataflow handle whose output fires this transition.
+    Handle on;
+    /// @brief kind is conditional when only a truthy output fires the transition
+    /// (`=>`),
+    /// and continuous when every output fires it (`->`).
+    EdgeKind kind;
+    /// @brief target_key is the sibling step key to activate. Null when the transition
+    /// exits the scope, yielding to the parent.
+    std::optional<std::string> target_key;
+
+    static Transition parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::arc::ir::pb::Transition;
+    [[nodiscard]] std::pair<::arc::ir::pb::Transition, x::errors::Error>
+    to_proto() const;
+    static std::pair<Transition, x::errors::Error>
+    from_proto(const ::arc::ir::pb::Transition &pb);
+    [[nodiscard]] std::string to_string() const;
+    friend std::ostream &operator<<(std::ostream &os, const Transition &t);
 };
 
 /// @brief Functions is a collection of function definitions in an Arc module.
@@ -402,10 +406,14 @@ struct Scope {
     /// @brief liveness defines whether this scope is continuously active or must be
     /// activated.
     Liveness liveness;
-    /// @brief activation is the handle whose truthy value activates a gated scope.
-    /// Unset
-    /// for always-live scopes.
+    /// @brief activation is the handle whose output activates a gated scope. Unset for
+    /// always-live scopes.
     std::optional<Handle> activation;
+    /// @brief activation_kind is conditional when only a truthy activation output
+    /// activates
+    /// the scope (`=>`), and continuous when every output does (`->`). Unspecified when
+    /// activation is unset.
+    EdgeKind activation_kind;
     /// @brief strata contains stratified execution layers for parallel scopes. On
     /// sequential scopes, strata hold variable nodes that run every pass alongside the
     /// active step. Stratum N depends only on strata 0 to N-1.

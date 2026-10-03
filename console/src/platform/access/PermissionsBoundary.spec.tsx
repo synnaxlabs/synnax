@@ -12,7 +12,7 @@ import {
   createTestClient,
   createTestClientWithRole,
 } from "@synnaxlabs/client/testutil";
-import { act, fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, type RenderOptions, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Access } from "@/platform/access";
@@ -20,13 +20,16 @@ import { createConsoleWrapper, renderSuspended } from "@/testutil";
 
 const root = createTestClient();
 
-const renderBoundary = async (client: Synnax): Promise<void> => {
+const renderBoundary = async (
+  client: Synnax,
+  onCaughtError?: RenderOptions["onCaughtError"],
+): Promise<void> => {
   const { wrapper } = await createConsoleWrapper({ client });
   await renderSuspended(
     <Access.PermissionsBoundary loading={<span>loading permissions</span>}>
       <span>workspace</span>
     </Access.PermissionsBoundary>,
-    { wrapper },
+    { wrapper, onCaughtError },
   );
 };
 
@@ -40,7 +43,7 @@ describe("Access.PermissionsBoundary", () => {
   it("should load the permissions again on Retry after a failure", async () => {
     // The Host role cannot retrieve policies, so the permissions fail to load.
     const client = await createTestClientWithRole(root, "Host");
-    await renderBoundary(client);
+    await renderBoundary(client, () => {});
     const retry = await screen.findByRole("button", { name: "Retry" });
     expect(screen.queryByText("workspace")).toBeNull();
     const user = client.auth.user;
