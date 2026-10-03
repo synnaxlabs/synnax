@@ -28,7 +28,6 @@
     "astro-seo": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "shiki": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

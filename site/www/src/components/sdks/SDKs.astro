@@ -8,20 +8,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createCssVariablesTheme, createHighlighter } from "shiki";
+import { highlighter } from "@synnaxlabs/site-common/shiki";
 import { EcosystemDiagram } from "@/components/sdks/EcosystemDiagram";
 import { SDKShowcase } from "@/components/sdks/SDKShowcase";
 import SectionHero from "@/components/common/SectionHero.astro";
 
-const cssVarsTheme = createCssVariablesTheme({ name: "css-variables" });
-
-const highlighter = await createHighlighter({
-    themes: [cssVarsTheme],
-    langs: ["python", "typescript", "cpp"],
-});
-
-const highlight = (code: string, lang: string) =>
-    highlighter.codeToHtml(code, { lang, theme: "css-variables" });
+const highlight = await highlighter(["python", "typescript", "cpp"]);
 
 // -- Stream --
 
