@@ -20,7 +20,7 @@ const TAB: Panel.Tab = {
     "Toolbar",
   ),
   Icon: Icon.Arc,
-  // Passing the whole namespace would keep all of its code in the startup bundle.
+  // Only these hooks, so the bundler can drop the rest of the namespace.
   Name: Panel.createEditableTabName(
     { useEnsure: Arc.useEnsure, useName: Arc.useName, useRename: Arc.useRename },
     <Icon.Arc />,
@@ -29,7 +29,7 @@ const TAB: Panel.Tab = {
     const corpse = query.requireCorpse(client.arcs.getCached(resource.key));
     await client.arcs.create(corpse);
   },
-  // Passing the whole namespace would keep all of its code in the startup bundle.
+  // Only these hooks, so the bundler can drop the rest of the namespace.
   useTombstone: Panel.createTombstoneReader({ useTombstone: Arc.useTombstone }),
 };
 

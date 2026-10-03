@@ -29,7 +29,7 @@ const TAB: Panel.Tab = {
   Content: Panel.lazyComponent(() => import("@/feature/table/Table"), "Table"),
   Toolbar: Panel.lazyComponent(() => import("@/feature/table/Toolbar"), "Toolbar"),
   Icon: Icon.Table,
-  // Passing the whole namespace would keep all of its code in the startup bundle.
+  // Only these hooks, so the bundler can drop the rest of the namespace.
   Name: Panel.createEditableTabName(
     { useEnsure: Base.useEnsure, useName: Base.useName, useRename: Base.useRename },
     <Icon.Table />,
@@ -38,7 +38,7 @@ const TAB: Panel.Tab = {
     const corpse = query.requireCorpse(client.tables.getCached(resource.key));
     await client.tables.create(project, corpse);
   },
-  // Passing the whole namespace would keep all of its code in the startup bundle.
+  // Only these hooks, so the bundler can drop the rest of the namespace.
   useTombstone: Panel.createTombstoneReader({ useTombstone: Base.useTombstone }),
 };
 

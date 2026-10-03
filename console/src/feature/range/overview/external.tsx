@@ -19,7 +19,7 @@ const TAB: Panel.Tab = {
     "Overview",
   ),
   Icon: Icon.Range,
-  // Passing the whole namespace would keep all of its code in the startup bundle.
+  // Only these hooks, so the bundler can drop the rest of the namespace.
   Name: Panel.createEditableTabName(
     {
       useEnsure: Ranger.useEnsure,
@@ -32,7 +32,7 @@ const TAB: Panel.Tab = {
     const corpse = query.requireCorpse(client.ranges.getCached(resource.key));
     await client.ranges.create(corpse.payload);
   },
-  // Passing the whole namespace would keep all of its code in the startup bundle.
+  // Only these hooks, so the bundler can drop the rest of the namespace.
   useTombstone: Panel.createTombstoneReader({ useTombstone: Ranger.useTombstone }),
 };
 
