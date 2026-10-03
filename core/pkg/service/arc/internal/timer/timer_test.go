@@ -116,25 +116,8 @@ var _ = Describe("Timer", func() {
 	})
 
 	It("Should fire within half a millisecond of its deadline", func() {
-		const (
-			span  = 10 * time.Millisecond
-			fires = 50
-		)
-		late := make([]time.Duration, fires)
-		for i := range late {
-			start := timer.Now()
-			Expect(t.Reset(span)).To(Succeed())
-			// Eventually would poll, which keeps the Go runtime awake and hides the
-			// lateness of a time.Timer.
-			select {
-			case <-t.C:
-			case <-time.After(time.Second):
-				Fail("timer did not fire")
-			}
-			late[i] = timer.Now() - start - span
-		}
-		slices.Sort(late)
-		Expect(late[fires/2]).To(BeNumerically("<", 500*time.Microsecond))
+		Expect(medianLateness(t, 10*time.Millisecond, 50)).
+			To(BeNumerically("<", 500*time.Microsecond))
 	})
 
 	It("Should wake more often than once per millisecond", func() {
@@ -171,23 +154,8 @@ var _ = Describe("Timer", func() {
 
 	It("Should fire within 50 µs of its deadline when it spins the whole wait", func() {
 		s := MustOpen(timer.New(time.Hour))
-		const (
-			span  = 2 * time.Millisecond
-			fires = 50
-		)
-		late := make([]time.Duration, fires)
-		for i := range late {
-			start := timer.Now()
-			Expect(s.Reset(span)).To(Succeed())
-			select {
-			case <-s.C:
-			case <-time.After(time.Second):
-				Fail("timer did not fire")
-			}
-			late[i] = timer.Now() - start - span
-		}
-		slices.Sort(late)
-		Expect(late[fires/2]).To(BeNumerically("<", 50*time.Microsecond))
+		Expect(medianLateness(s, 2*time.Millisecond, 50)).
+			To(BeNumerically("<", 50*time.Microsecond))
 	})
 
 	It("Should not fire after Stop during a spin", func() {
@@ -215,3 +183,24 @@ var _ = Describe("Timer", func() {
 		Expect(took[resets/2]).To(BeNumerically("<", 5*time.Microsecond))
 	})
 })
+
+// medianLateness returns the median of how late t fires over fires waits of span. It
+// reads C directly: Eventually polls, so the wait between polls would count as
+// lateness, and its polling keeps the Go runtime awake, which hides the lateness of a
+// time.Timer.
+func medianLateness(t *timer.Timer, span time.Duration, fires int) time.Duration {
+	GinkgoHelper()
+	late := make([]time.Duration, fires)
+	for i := range late {
+		start := timer.Now()
+		Expect(t.Reset(span)).To(Succeed())
+		select {
+		case <-t.C:
+		case <-time.After(time.Second):
+			Fail("timer did not fire")
+		}
+		late[i] = timer.Now() - start - span
+	}
+	slices.Sort(late)
+	return late[fires/2]
+}
