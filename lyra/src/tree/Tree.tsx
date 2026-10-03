@@ -201,6 +201,7 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
   allowNone,
   autoSelectOnNone,
   emptyContent,
+  pinned,
   ...rest
 }: TreeProps<K, E>): ReactElement => {
   const { keys, nodes } = shape;
@@ -225,6 +226,7 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
         overscan={overscan}
         onFetchMore={onFetchMore}
         virtual={virtual}
+        pinned={pinned}
         allowNone={allowNone}
         autoSelectOnNone={autoSelectOnNone}
       >
