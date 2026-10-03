@@ -210,23 +210,10 @@ func (p SetRangesPayload) Handle(state LinePlot) (LinePlot, error) {
 	if !p.AxisKey.IsValid() {
 		return LinePlot{}, unknownXAxisKey(p.AxisKey)
 	}
-	axis := xAxisRanges(&state.Ranges, p.AxisKey)
-	keys := set.New[uuid.UUID]()
-	for _, r := range p.Ranges {
-		key, err := validateRange(r)
-		if err != nil {
-			return LinePlot{}, err
-		}
-		if keys.Contains(key) {
-			return LinePlot{}, errors.Wrapf(
-				validate.ErrValidation,
-				"duplicate range %s on x-axis %q",
-				key,
-				p.AxisKey,
-			)
-		}
-		keys.Add(key)
+	if err := validateAxisRanges(p.AxisKey, p.Ranges); err != nil {
+		return LinePlot{}, err
 	}
+	axis := xAxisRanges(&state.Ranges, p.AxisKey)
 	axis.Ranges = slices.Clone(p.Ranges)
 	state.Lines = reconcileLines(state)
 	return state, nil
@@ -535,8 +522,30 @@ func validateRange(r Range) (uuid.UUID, error) {
 	return rangeKey(r), nil
 }
 
-// rangeKey returns the key of r. It panics when r has no variant, which the action
-// handlers reject before a range reaches state.
+// validateAxisRanges returns a validation error when a range bound to the x-axis k is
+// invalid or two of them share a key.
+func validateAxisRanges(k XAxisKey, ranges []Range) error {
+	keys := set.New[uuid.UUID]()
+	for _, r := range ranges {
+		key, err := validateRange(r)
+		if err != nil {
+			return err
+		}
+		if keys.Contains(key) {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"duplicate range %s on x-axis %q",
+				key,
+				k,
+			)
+		}
+		keys.Add(key)
+	}
+	return nil
+}
+
+// rangeKey returns the key of r. It panics when r has no variant, which Create and the
+// action handlers reject before a range reaches state.
 func rangeKey(r Range) uuid.UUID {
 	switch v := r.Variant.(type) {
 	case PersistedRange:

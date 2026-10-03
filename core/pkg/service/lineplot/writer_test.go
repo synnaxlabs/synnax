@@ -124,6 +124,42 @@ var _ = Describe("Writer", func() {
 				).To(ConsistOf(x1Line(keyR1.String(), 10, 5), x1Line(keyR1.String(), 10, 6)))
 			},
 		)
+		DescribeTable(
+			"Should reject invalid ranges supplied at creation",
+			func(ctx SpecContext, ranges lineplot.Ranges, msg string) {
+				plot := lineplot.LinePlot{
+					Name:     "test",
+					Channels: lineplot.Channels{X1: 10, Y1: []channel.Key{5}},
+					Ranges:   ranges,
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &plot)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(msg)),
+				))
+			},
+			Entry(
+				"a range with no variant",
+				lineplot.Ranges{X1: lineplot.XAxisRanges{Ranges: []lineplot.Range{{}}}},
+				"range has no variant",
+			),
+			Entry(
+				"a static range that ends before it starts",
+				lineplot.Ranges{X2: lineplot.XAxisRanges{
+					Ranges: []lineplot.Range{staticRange(keyR1, 10, 0)},
+				}},
+				"static range "+keyR1.String()+" ends before it starts",
+			),
+			Entry(
+				"two ranges sharing a key on one x-axis",
+				lineplot.Ranges{X1: lineplot.XAxisRanges{
+					Ranges: []lineplot.Range{
+						persisted(keyR1),
+						staticRange(keyR1, 0, 10),
+					},
+				}},
+				`duplicate range `+keyR1.String()+` on x-axis "x1"`,
+			),
+		)
 	})
 
 	Describe("CreateMany", func() {
