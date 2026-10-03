@@ -29,14 +29,14 @@ channels.
 
 ## Channel parameters
 
-| Parameter                                                                        | Type       | Default                                          | Description                                                                                                                                                                                                         |
-| -------------------------------------------------------------------------------- | ---------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`                                                                           | string     | Required                                         | A human-readable name for the channel. This name is not guaranteed to be unique.                                                                                                                                    |
-| <Client.Var client:load py="data_type" ts="dataType" />                          | `DataType` | Required                                         | The data type of the samples stored in the channel (e.g., `DataType.FLOAT32`, `DataType.TIMESTAMP`).                                                                                                                |
-| <Client.Var client:load py="is_index" ts="isIndex" />                            | boolean    | <Client.Var client:load py="False" ts="false" /> | Set to <Client.Var client:load py="True" ts="true" /> if the channel is an index channel, <Client.Var client:load py="False" ts="false" /> otherwise. Index channels must have a data type of `DataType.TIMESTAMP`. |
-| `index`                                                                          | number     | `0`                                              | The key of the index channel that this channel is associated with. Not required for index channels.                                                                                                                 |
-| `virtual`                                                                        | boolean    | <Client.Var client:load py="False" ts="false" /> | Set to <Client.Var client:load py="True" ts="true" /> if the channel is virtual. Virtual channels do not store data in the database and are used for streaming purposes only.                                       |
-| <Client.Var client:load py="retrieve_if_name_exists" ts="retrieveIfNameExists"/> | boolean    | <Client.Var client:load py="False" ts="false" /> | If <Client.Var client:load py="True" ts="true" />, retrieves the channel if one with the same name already exists instead of creating a duplicate.                                                                  |
+| Parameter                                                            | Type       | Default                              | Description                                                                                                                                                                                 |
+| -------------------------------------------------------------------- | ---------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`                                                               | string     | Required                             | A human-readable name for the channel. This name is not guaranteed to be unique.                                                                                                            |
+| <Client.Var py="data_type" ts="dataType" />                          | `DataType` | Required                             | The data type of the samples stored in the channel (e.g., `DataType.FLOAT32`, `DataType.TIMESTAMP`).                                                                                        |
+| <Client.Var py="is_index" ts="isIndex" />                            | boolean    | <Client.Var py="False" ts="false" /> | Set to <Client.Var py="True" ts="true" /> if the channel is an index channel, <Client.Var py="False" ts="false" /> otherwise. Index channels must have a data type of `DataType.TIMESTAMP`. |
+| `index`                                                              | number     | `0`                                  | The key of the index channel that this channel is associated with. Not required for index channels.                                                                                         |
+| `virtual`                                                            | boolean    | <Client.Var py="False" ts="false" /> | Set to <Client.Var py="True" ts="true" /> if the channel is virtual. Virtual channels do not store data in the database and are used for streaming purposes only.                           |
+| <Client.Var py="retrieve_if_name_exists" ts="retrieveIfNameExists"/> | boolean    | <Client.Var py="False" ts="false" /> | If <Client.Var py="True" ts="true" />, retrieves the channel if one with the same name already exists instead of creating a duplicate.                                                      |
 
 <Divider.Divider x />
 
@@ -50,15 +50,15 @@ so Synnax creates all of the channels or none of them.
   You must create an index channel before the non-virtual data channels that use it.
 </Note.Note>
 
-<Client.Tabs client:load exclude={["cpp"]}>
+<Client.Tabs exclude={["cpp"]}>
 
   <Fragment slot="console">
 
 Create a channel from the [channels toolbar](/reference/console/ui-overview#channels),
-or with the "Create Channel" command in the
+or with the "Create channel" command in the
 [command palette](/reference/console/ui-overview#search-and-command-palette).
 
-<Video client:only="react" id="client/channels/create" />
+<Video id="client/channels/create" />
 
   </Fragment>
 
@@ -154,7 +154,7 @@ To retrieve channel(s), pass the channel name(s) or key(s) to the `retrieve` met
 Retrieving by key is faster than retrieving by name, and is recommended whenever
 possible.
 
-<Client.Tabs client:load exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
 
@@ -206,7 +206,7 @@ client raises no error and leaves missing channels out of the results.
 Channels can be retrieved using regular expression patterns. The Core treats any name
 starting with `^` or ending with `$` as a regex pattern.
 
-<Client.Tabs client:load exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
 
@@ -235,11 +235,11 @@ If you expect multiple channels to match the pattern, you must pass in a list to
 
 ## Rename channels
 
-<Client.Tabs client:load exclude={["cpp"]}>
+<Client.Tabs exclude={["cpp"]}>
 
   <Fragment slot="console">
 
-<Video client:only="react" id="client/channels/rename" />
+<Video id="client/channels/rename" />
 
   </Fragment>
 
@@ -288,11 +288,11 @@ await client.channels.rename(
   Synnax Core. This is a permanent operation that cannot be undone. Be careful!
 </Note.Note>
 
-<Client.Tabs client:load exclude={["cpp"]}>
+<Client.Tabs exclude={["cpp"]}>
 
   <Fragment slot="console">
 
-<Video client:only="react" id="client/channels/delete" />
+<Video id="client/channels/delete" />
 
   </Fragment>
 
@@ -350,11 +350,11 @@ Ranges allow you to define [aliases](/reference/concepts/ranges#channel-aliases)
 channels that only apply within that range's context. This is useful when you want to
 give a channel a more descriptive name for a specific test or operation.
 
-<Client.Tabs client:load exclude={["cpp"]}>
+<Client.Tabs exclude={["cpp"]}>
 
   <Fragment slot="console">
 
-<Video client:only="react" id="client/channels/alias" />
+<Video id="client/channels/alias" />
 
 The alias is only shown while its range is active, and only in your own Console.
 

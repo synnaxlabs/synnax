@@ -18,7 +18,7 @@ export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 const DIMENSIONS = { width: 66, height: 66 };
 
 export const Turbo = ({
-  color,
+  strokeColor,
   className,
   orientation = "left",
   scale,
@@ -38,7 +38,7 @@ export const Turbo = ({
     />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >

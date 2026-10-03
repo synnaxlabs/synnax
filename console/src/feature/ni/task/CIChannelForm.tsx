@@ -295,13 +295,13 @@ const AngularVelocityUnitsField = Form.buildSelectField<CIAngularVelocityUnits>(
 
 const DistPerPulseField = Form.buildNumericField({
   fieldKey: "distPerPulse",
-  fieldProps: { label: "Distance / Pulse" },
+  fieldProps: { label: "Distance / pulse" },
   inputProps: {},
 });
 
 const PulsesPerRevField = Form.buildNumericField({
   fieldKey: "pulsesPerRev",
-  fieldProps: { label: "Pulses / Rev" },
+  fieldProps: { label: "Pulses / rev" },
   inputProps: {},
 });
 

@@ -16,7 +16,7 @@ export const components = mdxOverrides;
     date="Sep 29, 2025"
     title="Arc beta"
 >
-<Image client:only="react" id="releases/0-46-0/thumbnail" themed={false} />
+<Image id="releases/0-46-0/thumbnail" themed={false} />
 
 Synnax v0.46 introduces the first release of our new automation language, Arc. We've
 also redesigned the browsing experience for ranges in the Console, added a new gauge
@@ -36,7 +36,7 @@ visual language for implementing alarms within Synnax.
 
 ### Range explorer
 
-<Image client:only="react" id="releases/0-46-0/range-explorer" themed={false} />
+<Image id="releases/0-46-0/range-explorer" themed={false} />
 
 We've redesigned the way you browse ranges in the Console. We've removed the unwieldy
 resources toolbar and replaced it with an intuitive range explorer. The explorer let's
@@ -52,12 +52,7 @@ active and which have been completed.
 ### Gauge symbol
 
 <Flex.Box x justify="center">
-  <Image
-    client:only="react"
-    id="releases/0-46-0/gauge"
-    themed={false}
-    style={{ width: 350 }}
-  />
+  <Image id="releases/0-46-0/gauge" themed={false} style={{ width: 350 }} />
 </Flex.Box>
 
 Our new Schematic gauge symbol is a great way to display a bar-indicator representing
@@ -68,7 +63,7 @@ the value of a gauge. To use it, simply drag and drop it into a schematic.
 ### Minor improvements and bug fixes
 
 - Fixed an issue where OPC UA nodes with periods in their names were not displayed
-  correctly inside of the Read Task configuration dialog.
+  correctly inside of the read task configuration dialog.
 - Improved the performance of the Console telemetry streaming infrastructure by using a
   new and improved telemetry frame encoding mechanism.
 - Improved the smoothness of toolbar actions (opening, renaming, deleting, etc.) by

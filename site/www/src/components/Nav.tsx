@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Button } from "@synnaxlabs/lyra/button";
+import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -24,35 +25,35 @@ interface ProductItem {
 const PRODUCTS: ProductItem[] = [
   {
     icon: Icon.Visualize,
-    title: "Visualize & Operate",
+    title: "Visualize and operate",
     description: "Operator dashboards and real-time monitoring interfaces",
     href: "/#visualize",
     section: 2,
   },
   {
     icon: Icon.Arc,
-    title: "Automate & Control",
+    title: "Automate and control",
     description: "Process control, safety interlocks, and test automation",
     href: "/#automate",
     section: 3,
   },
   {
     icon: Icon.Analyze,
-    title: "Review & Analyze",
+    title: "Review and analyze",
     description: "Post-test analysis, data comparison, and trend review",
     href: "/#review",
     section: 4,
   },
   {
     icon: Icon.Acquire,
-    title: "Stream & Process",
+    title: "Stream and process",
     description: "Real-time data pipelines, alerting, and live streaming",
     href: "/#stream",
     section: 5,
   },
   {
     icon: Icon.Hardware,
-    title: "Device Integrations",
+    title: "Device integrations",
     description: "OPC UA, Modbus, EtherCAT, NI, Dewesoft, and more",
     href: "/#integrations",
     section: 6,
@@ -132,18 +133,18 @@ export const Nav = (): ReactElement => {
       <Button.Button variant="text" className="nav-link" href="/company">
         Company
       </Button.Button>
-      <div className="nav-divider" />
+      <Divider.Divider y color={4} className="nav-divider" />
       <Button.Button
         variant="text"
         className="nav-link"
-        href="https://docs.synnaxlabs.com"
+        href="https://docs.synnaxlabs.com/reference"
       >
         Docs
       </Button.Button>
       <Button.Button
         variant="text"
         className="nav-link"
-        href="https://docs.synnaxlabs.com/blog/"
+        href="https://docs.synnaxlabs.com/blog"
       >
         Blog
       </Button.Button>

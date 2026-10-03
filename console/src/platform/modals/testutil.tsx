@@ -29,6 +29,7 @@ import {
 } from "react";
 import { Provider } from "react-redux";
 
+import { Analytics } from "@/platform/analytics";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 import {
@@ -119,6 +120,8 @@ export interface RenderModalOpenerOptions {
   store?: TestStore;
   /** Extra aether components merged over the default console test registry. */
   additionalRegistry?: aether.ComponentRegistry;
+  /** Receives every event the modal reports; discards them by default. */
+  analytics?: Analytics.Sink;
 }
 
 export interface ModalOpenerHandle<R> {
@@ -142,7 +145,13 @@ export const renderModalOpener = async <Args extends unknown[], R>(
   args: Args,
   options: RenderModalOpenerOptions = {},
 ): Promise<ModalOpenerHandle<R>> => {
-  const { client = null, preloadedState, store, additionalRegistry } = options;
+  const {
+    client = null,
+    preloadedState,
+    store,
+    additionalRegistry,
+    analytics = Analytics.NOOP,
+  } = options;
   const { wrapper: Console, store: resolvedStore } = await createConsoleWrapper({
     client,
     preloadedState,
@@ -151,10 +160,12 @@ export const renderModalOpener = async <Args extends unknown[], R>(
   });
   const wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
-      <Triggers.Provider>
-        {children}
-        <Modals.Stack />
-      </Triggers.Provider>
+      <Analytics.Provider sink={analytics}>
+        <Triggers.Provider>
+          {children}
+          <Modals.Stack />
+        </Triggers.Provider>
+      </Analytics.Provider>
     </Console>
   );
   const { result, unmount } = renderHook(useOpen, { wrapper });

@@ -12,12 +12,14 @@ import Header from "@/components/layout/Header.astro";
 import "@/styles/main.css";
 import PostHog from "@/components/analytics/PostHog.astro";
 import { ClientRouter } from "astro:transitions";
-import favicon from "@synnaxlabs/media/static/logo/icon-white-favicon.svg";
 import { SEO } from "astro-seo";
-import Footer from "@/components/layout/Footer.astro";
+import Footer from "@synnaxlabs/site-common/Footer.astro";
 import { enabled } from "@/flags";
+import { sectionOf } from "@/pages/_nav";
+import { normalizeRoute } from "@/util/route";
 const {
     frontmatter: { title, description, url, image, flag },
+    article,
 } = Astro.props;
 // A page behind a flag that is off does not exist.
 const hidden = flag != null && !enabled(flag);
@@ -25,26 +27,58 @@ if (hidden) Astro.response.status = 404;
 const DEFAULT_OG_IMAGE =
     "https://synnax.nyc3.cdn.digitaloceanspaces.com/docs/og-default.png";
 const ogImage = image || DEFAULT_OG_IMAGE;
-const canonicalUrl = new URL(
-    Astro.url.pathname,
-    Astro.site || "https://docs.synnaxlabs.com",
-).href;
+// Query strings (the ?client= switcher) and trailing slashes must not split a page
+// into duplicates.
+const route = normalizeRoute(Astro.url.pathname);
+const canonicalUrl = new URL(route, Astro.site).href;
+const section = sectionOf(route);
 const cleanTitle = title?.replace(/`/g, "");
-const fullTitle = cleanTitle ? `${cleanTitle} | Synnax` : "Synnax";
+const pageTitle = cleanTitle && section ? `${cleanTitle} | ${section}` : cleanTitle;
+const fullTitle = pageTitle ? `${pageTitle} | Synnax` : "Synnax";
+
+const FOOTER_COLUMNS = [
+    {
+        title: "Documentation",
+        links: [
+            { label: "Reference", href: "/reference/" },
+            { label: "Concepts", href: "/reference/concepts/overview" },
+            { label: "Client libraries", href: "/reference/client/quick-start" },
+            { label: "Control", href: "/reference/control/get-started" },
+        ],
+    },
+    {
+        title: "Resources",
+        links: [
+            { label: "Blog", href: "/blog/" },
+            { label: "Releases", href: "/releases/" },
+            { label: "Reliability", href: "/reliability/" },
+            { label: "GitHub", href: "https://github.com/synnaxlabs/synnax" },
+        ],
+    },
+    {
+        title: "Company",
+        links: [
+            { label: "About", href: "https://www.synnaxlabs.com/company" },
+            { label: "Contact", href: "https://synnaxlabs.com/#contact" },
+            { label: "Privacy policy", href: "/privacy-policy" },
+        ],
+    },
+];
 ---
 
-<html>
+<html lang="en" transition:animate="none">
     <head>
         <PostHog />
         <SEO
-            title={cleanTitle}
+            title={pageTitle}
             titleTemplate="%s | Synnax"
             titleDefault="Synnax"
             description={description}
+            canonical={canonicalUrl}
             openGraph={{
                 basic: {
                     title: fullTitle,
-                    type: "website",
+                    type: article == null ? "website" : "article",
                     image: ogImage,
                     url: canonicalUrl,
                 },
@@ -55,6 +89,7 @@ const fullTitle = cleanTitle ? `${cleanTitle} | Synnax` : "Synnax";
                 image: {
                     alt: cleanTitle || "Synnax",
                 },
+                article,
             }}
             twitter={{
                 card: "summary_large_image",
@@ -64,9 +99,13 @@ const fullTitle = cleanTitle ? `${cleanTitle} | Synnax` : "Synnax";
             }}
             extend={{
                 link: [
+                    { rel: "icon", href: "/favicon.ico", sizes: "48x48" },
+                    { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
                     {
-                        rel: "icon",
-                        href: favicon.src,
+                        rel: "alternate",
+                        type: "application/rss+xml",
+                        title: "Synnax blog",
+                        href: "/blog/rss.xml",
                     },
                 ],
                 meta: [
@@ -79,6 +118,7 @@ const fullTitle = cleanTitle ? `${cleanTitle} | Synnax` : "Synnax";
         />
         <ClientRouter />
         <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <slot name="head" />
     </head>
     <body>
         <Header url={url} transition:persist />
@@ -91,12 +131,36 @@ const fullTitle = cleanTitle ? `${cleanTitle} | Synnax` : "Synnax";
                 <slot />
             )}
         </main>
-        <Footer />
+        <Footer home="https://synnaxlabs.com" columns={FOOTER_COLUMNS} />
     </body>
     <script>
+        import { QUERY as CLIENT_QUERY } from "@/components/client/choice";
         import { addCodeButtonListeners } from "@/components/code/codeUtil";
+        import { start as startVideos } from "@/components/media/video";
+        import { start as startMobileMenu } from "@/components/nav/mobile";
+        import { start as startOnThisPage } from "@/components/nav/onThisPage";
+        import { start as startSidebar } from "@/components/nav/sidebar";
+        import { QUERY as PLATFORM_QUERY } from "@/components/platform/choice";
+        import { start as startTabs } from "@/components/tabs/sync";
         import { startPinningHashTarget } from "@/util/hash";
         import { startUpdatingIframeHref } from "@/util/iframe";
+        import { onDemand } from "@/util/island";
+
+        startSidebar();
+        startMobileMenu();
+        startVideos();
+        // Before the tabs, so the outline hears the first tab change.
+        startOnThisPage();
+        startTabs({ client: CLIENT_QUERY, platform: PLATFORM_QUERY, context: {} });
+        onDemand({
+            selector: '[data-island="search"]',
+            load: () => import("@/components/search/mount"),
+            hotkey: (e) => (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k",
+        });
+        onDemand({
+            selector: '[data-island="feedback"]',
+            load: () => import("@/components/feedback/mount"),
+        });
         const bindClickHandlersToHeadingAnchors = () => {
             const anchors =
                 document.querySelectorAll<HTMLAnchorElement>(".heading-anchor");

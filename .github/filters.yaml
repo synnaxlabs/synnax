@@ -62,6 +62,9 @@ ts: &ts
   - pnpm-workspace.yaml
   - turbo.json
 
+vite_plugin:
+  - *ts
+
 alamos_go: &alamos_go
   - *go
   - alamos/go/**
@@ -127,6 +130,10 @@ arc_ts: &arc_ts
   - *ts
   - arc/ts/**
 
+oracle_language:
+  - *ts
+  - oracle/lsp/extensions/vscode/**
+
 media: &media
   - *ts
   - x/media/**
@@ -174,6 +181,14 @@ pluto: &pluto
   - *x_ts
   - pluto/**
 
+portal:
+  - *client_ts
+  - *lyra
+  - *media
+  - *ts
+  - *x_ts
+  - site/portal/**
+
 console: &console
   - *client_ts
   - *drift
@@ -185,11 +200,18 @@ console: &console
   - *x_ts
   - console/**
 
+site_common: &site_common
+  - *lyra
+  - *media
+  - *ts
+  - site/common/**
+
 docs:
   - *arc_ts
   - *client_ts
   - *lyra
   - *media
+  - *site_common
   - *ts
   - *x_ts
   - .github/workflows/test.docs.yaml
@@ -199,8 +221,20 @@ www:
   - *arc_ts
   - *lyra
   - *media
+  - *site_common
   - *ts
   - site/www/**
+
+knip:
+  - *arc_ts
+  - *console
+  - *ts
+  - oracle/lsp/extensions/vscode/**
+  - site/common/**
+  - site/docs/**
+  - site/portal/**
+  - site/www/**
+  - studio/**
 
 alamos_py: &alamos_py
   - *py
@@ -315,15 +349,13 @@ scripts:
 
 console_build: &console_build
   - *console
-  - .github/workflows/build.synnax.yaml
 
 core_build: &core_build
   - *core
-  - .github/workflows/build.synnax.yaml
 
 driver_build: &driver_build
   - *driver
-  - .github/workflows/build.synnax.yaml
+  - scripts/run_bazel.sh
 
 integration:
   - *client_py
@@ -333,6 +365,7 @@ integration:
   - *py
   - *x_py
   - .github/scripts/check_artifact_cache.sh
+  - .github/workflows/build.synnax.yaml
   - .github/workflows/test.integration.worker.yaml
   - .github/workflows/test.integration.yaml
   - .github/workflows/test.migration.yaml

@@ -11,10 +11,12 @@ package start
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/samber/lo"
@@ -33,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/transport"
 	"github.com/synnaxlabs/synnax/pkg/version"
@@ -57,7 +60,7 @@ type CoreConfig struct {
 	noDriver             *bool
 	alamos.Instrumentation
 	dataPath             string
-	verifier             string
+	licenseKey           string
 	rootCredentials      auth.Credentials
 	listeners            listener.Configs
 	peers                []address.Address
@@ -122,7 +125,7 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 		insecure:        override.Nil(c.insecure, other.insecure),
 		debug:           override.Nil(c.debug, other.debug),
 		autoCert:        override.Nil(c.autoCert, other.autoCert),
-		verifier:        override.String(c.verifier, other.verifier),
+		licenseKey:      override.String(c.licenseKey, other.licenseKey),
 		memBacked:       override.Nil(c.memBacked, other.memBacked),
 		listeners:       override.Slice(c.listeners, other.listeners),
 		peers:           override.Slice(c.peers, other.peers),
@@ -249,12 +252,15 @@ func BootupCore(
 	}
 
 	serviceLayer, err := service.OpenLayer(ctx, service.LayerConfig{
-		Instrumentation:      cfg.Child("service"),
-		Distribution:         distributionLayer,
-		Security:             securityProvider,
-		Storage:              storageLayer,
-		RootCredentials:      cfg.rootCredentials,
-		Verifier:             cfg.verifier,
+		Instrumentation: cfg.Child("service"),
+		Distribution:    distributionLayer,
+		Security:        securityProvider,
+		Storage:         storageLayer,
+		RootCredentials: cfg.rootCredentials,
+		License: license.ServiceConfig{
+			Key:     cfg.licenseKey,
+			Version: version.Get(),
+		},
 		ValidateChannelNames: cfg.validateChannelNames,
 	})
 	if !ok(err, serviceLayer) {
@@ -348,11 +354,16 @@ func BootupCore(
 		return err
 	}
 
+	licenseInfo := serviceLayer.License.Retrieve()
+	covered := licenseInfo.State == license.StateOk
 	if embeddedDriver, err := driver.Open(
 		ctx,
 		driver.Config{
 			Enabled:  new(!*cfg.noDriver),
 			Insecure: cfg.insecure,
+			// An unlicensed Core refuses the Driver's rack, so the Driver retries in
+			// the background.
+			Detached: new(!covered),
 			Integrations: parseIntegrations(
 				cfg.enabledIntegrations,
 				cfg.disabledIntegrations,
@@ -364,8 +375,6 @@ func BootupCore(
 			Credentials:         cfg.rootCredentials,
 			Debug:               cfg.debug,
 			TrustAnchorsPEM:     driverTrustAnchors,
-			ClientCertFile:      cfg.certFactoryConfig.AbsoluteCACertPath(),
-			ClientKeyFile:       cfg.certFactoryConfig.AbsoluteCAKeyPath(),
 			ParentDirname:       workDir,
 			TaskWorkerCount:     cfg.taskWorkerCount,
 			TaskShutdownTimeout: cfg.taskShutdownTimeout,
@@ -380,6 +389,18 @@ func BootupCore(
 		"\033[32mSynnax is running and available at %v \033[0m",
 		cfg.listeners.AdvertiseAddress(),
 	)
+	if !covered {
+		scheme := "https"
+		if *cfg.insecure {
+			scheme = "http"
+		}
+		cfg.L.Warn(fmt.Sprintf(
+			"no active license on this Core. Host fingerprint: %s. Open the "+
+				"Console at %s to activate.",
+			strings.Join(licenseInfo.Fingerprint, ", "),
+			scheme+"://"+string(cfg.listeners.AdvertiseAddress()),
+		))
+	}
 
 	if onServerStarted != nil {
 		onServerStarted <- struct{}{}

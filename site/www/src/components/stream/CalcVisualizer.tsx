@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
+import { type ReactElement } from "react";
 
-import { CodePanel } from "@/components/shared/CodePanel";
+import { CodePanel } from "@/components/common/CodePanel";
+import { useTimeline } from "@/components/common/useTimeline";
+import { VizTabs } from "@/components/common/VizTabs";
 import { CALC_EXAMPLES, ZERO_CALC_STATE } from "@/components/stream/calcTimeline";
 import { Diagram } from "@/components/stream/diagrams";
 
@@ -18,74 +20,19 @@ interface CalcVisualizerProps {
 }
 
 export const CalcVisualizer = ({ codeHtmls }: CalcVisualizerProps): ReactElement => {
-  const [activeTab, setActiveTab] = useState(0);
-  const [stepIndex, setStepIndex] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const [tick, setTick] = useState(0);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { activeTab, stepIndex, step, playKey, selectTab, containerProps } =
+    useTimeline(CALC_EXAMPLES);
 
   const example = CALC_EXAMPLES[activeTab];
-  const step = example.steps[stepIndex];
   const diagramState = { ...ZERO_CALC_STATE, ...step.state };
 
-  const clearTimer = useCallback(() => {
-    if (timeoutRef.current != null) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-  }, []);
-
-  useEffect(() => {
-    if (paused) return;
-    clearTimer();
-    timeoutRef.current = setTimeout(() => {
-      setStepIndex((prev) => (prev + 1) % example.steps.length);
-    }, step.duration);
-    return clearTimer;
-  }, [
-    stepIndex,
-    activeTab,
-    paused,
-    tick,
-    example.steps.length,
-    step.duration,
-    clearTimer,
-  ]);
-
-  const handleTabClick = useCallback(
-    (index: number) => {
-      if (index === activeTab) return;
-      setPaused(false);
-      setActiveTab(index);
-      setStepIndex(0);
-    },
-    [activeTab],
-  );
-
-  const handleMouseEnter = useCallback(() => setPaused(true), []);
-  const handleMouseLeave = useCallback(() => {
-    setPaused(false);
-    setTick((t) => t + 1);
-  }, []);
-
   return (
-    <div
-      className="calc-visualizer viz-container"
-      style={{ "--play-state": paused ? "paused" : "running" } as React.CSSProperties}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      <div className="viz-tabs">
-        {CALC_EXAMPLES.map((ex, i) => (
-          <button
-            key={ex.id}
-            className={`viz-tab${i === activeTab ? " viz-tab--active" : ""}`}
-            onClick={() => handleTabClick(i)}
-          >
-            {ex.title}
-          </button>
-        ))}
-      </div>
+    <div className="calc-visualizer viz-container" {...containerProps}>
+      <VizTabs
+        tabs={CALC_EXAMPLES.map(({ id, title }) => ({ key: id, title }))}
+        active={activeTab}
+        onSelect={selectTab}
+      />
       <div className="viz-content">
         <div className="viz-code">
           <CodePanel html={codeHtmls[activeTab]} activeLines={step.activeLines} />
@@ -97,7 +44,7 @@ export const CalcVisualizer = ({ codeHtmls }: CalcVisualizerProps): ReactElement
       <div className="viz-progress">
         {example.steps.map((s, i) => (
           <div
-            key={i === stepIndex ? `${activeTab}-${stepIndex}-${tick}` : i}
+            key={i === stepIndex ? playKey : i}
             className={`viz-dot${i === stepIndex ? " viz-dot--active" : ""}`}
             style={
               i === stepIndex

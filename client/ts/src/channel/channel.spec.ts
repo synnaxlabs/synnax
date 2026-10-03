@@ -24,6 +24,8 @@ import {
   TEST_CLIENT_PARAMS,
 } from "@/testutil";
 
+const quiet = (): void => {};
+
 const client = createTestClient();
 const remote = createTestClient();
 
@@ -567,6 +569,7 @@ describe("cached reads", () => {
         ...TEST_CLIENT_PARAMS,
         port: proxy.port,
         retry: FAST_RETRY,
+        onRetry: quiet,
       });
       try {
         const ch = await createVirtual(local);
@@ -588,6 +591,7 @@ describe("cached reads", () => {
         ...TEST_CLIENT_PARAMS,
         port: proxy.port,
         retry: FAST_RETRY,
+        onRetry: quiet,
       });
       try {
         const known = await createVirtual(local);
@@ -614,6 +618,7 @@ describe("cached reads", () => {
         ...TEST_CLIENT_PARAMS,
         port: proxy.port,
         retry: FAST_RETRY,
+        onRetry: quiet,
       });
       try {
         const ch = await createVirtual(local);
@@ -632,6 +637,7 @@ describe("cached reads", () => {
         ...TEST_CLIENT_PARAMS,
         port: proxy.port,
         retry: FAST_RETRY,
+        onRetry: quiet,
       });
       try {
         const ch = await createVirtual(local);
@@ -660,6 +666,7 @@ describe("cached reads", () => {
         ...TEST_CLIENT_PARAMS,
         port: proxy.port,
         retry: FAST_RETRY,
+        onRetry: quiet,
       });
       try {
         const ch = await createVirtual(local);

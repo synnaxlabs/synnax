@@ -9,8 +9,8 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/lyra/icon";
-import FeatureSection from "@/components/shared/FeatureSection.astro";
-import PanelTab from "@/components/shared/PanelTab.astro";
+import FeatureSection from "@/components/common/FeatureSection.astro";
+import PanelTab from "@/components/common/PanelTab.astro";
 import { cdn } from "@/cdn";
 ---
 
@@ -25,7 +25,7 @@ import { cdn } from "@/cdn";
     </Fragment>
     <div class="alarm-showcase">
         <div class="alarm-flow-container">
-            <PanelTab label="Alarm Editor">
+            <PanelTab label="Alarm editor">
                 <Icon.Arc slot="icon" className="panel-tab-icon" />
             </PanelTab>
             <img

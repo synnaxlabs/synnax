@@ -9,7 +9,9 @@ next: "Read task"
 nextURL: "/reference/driver/opc-ua/read-task"
 ---
 
-import { Text as TextComponent, Client, Table } from "@/components";
+import { Text as TextComponent } from "@/components/text";
+import { Client } from "@/components/client";
+import { Table } from "@/components/table";
 import Details from "@/components/details/Details.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -88,9 +90,9 @@ following:
 | `server_cert`        | string | No       | -       | Trusted server certificate (required if security policy ≠ `None`)                                                       |
 
 <Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Security Mode & Policy Reference</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Details /> Security mode and policy reference</Text.Text>
 
-**Security Mode:**
+**Security mode:**
 
 - **None** -> No security applied
 - **Sign** -> Messages are signed but not encrypted. Provides authentication without
@@ -98,7 +100,7 @@ following:
 - **SignAndEncrypt** -> Messages are signed and encrypted for full authenticity and
   confidentiality
 
-**Security Policy:**
+**Security policy:**
 
 - **None** -> No encryption
 - **Basic128Rsa15** -> 128-bit encryption with RSA-15
@@ -113,16 +115,16 @@ following:
 
 ## How-to
 
-<Client.Tabs client:load exclude={["typescript", "cpp"]}>
+<Client.Tabs exclude={["typescript", "cpp"]}>
   <Fragment slot="console">
 
-<Video client:only="react" id="device-drivers/opc-ua/connect-server/connect-server" />
+<Video id="device-drivers/opc-ua/connect-server/connect-server" />
 
   </Fragment>
   <Fragment slot="python">
 
 <Details open>
-<Text.Text slot="summary" level="p"><Icon.Connect /> Connect to OPC UA Server</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Connect /> Connect to OPC UA server</Text.Text>
 
 ```python
 import synnax as sy

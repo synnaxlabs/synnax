@@ -19,6 +19,7 @@ import { type FC } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
+import { createTestSink } from "@/platform/analytics/testutil";
 import { Task } from "@/platform/task";
 import {
   awaitCommand,
@@ -335,6 +336,23 @@ describe("wrapForm", () => {
       const updated = await client.tasks.retrieve({ key: draft.key });
       expect(updated.name).toBe("New Test Task");
       expect(updated.rack).toBe(rack.key);
+    });
+
+    it("should report the type of the task it started", async () => {
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...getInitialValues({}), rack: 0 });
+      const analytics = createTestSink();
+      const { container } = await renderTaskFormTab(createRenderer(), {
+        client,
+        taskKey: draft.key,
+        analytics,
+      });
+      await clickDeploy(container);
+      await waitFor(() =>
+        expect(analytics.capture).toHaveBeenCalledWith("task_started", {
+          type: "opc_read",
+        }),
+      );
     });
 
     it("should start without saving for a subject who cannot update the task", async () => {

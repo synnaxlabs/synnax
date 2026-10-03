@@ -123,6 +123,7 @@ const TableCell = ({
     const background = buildGradient(upperColors, "y", false);
     elements.push(
       <div
+        key="upper"
         style={{
           height: upperColors.length * 2,
           width: "100%",
@@ -150,6 +151,7 @@ const TableCell = ({
     const background = buildGradient(leftColors, "x", false);
     elements.push(
       <div
+        key="left"
         style={{
           height: "100%",
           width: leftColors.length * 2,
@@ -177,6 +179,7 @@ const TableCell = ({
     const background = buildGradient(rightColors, "x", true);
     elements.push(
       <div
+        key="right"
         style={{
           height: "100%",
           width: rightColors.length * 2,

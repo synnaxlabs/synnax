@@ -10,14 +10,14 @@
 
 import { Button } from "@synnaxlabs/lyra/button";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import SectionHero from "@/components/shared/SectionHero.astro";
-import FeatureSection from "@/components/shared/FeatureSection.astro";
-import PanelTab from "@/components/shared/PanelTab.astro";
+import SectionHero from "@/components/common/SectionHero.astro";
+import FeatureSection from "@/components/common/FeatureSection.astro";
+import PanelTab from "@/components/common/PanelTab.astro";
 import BrickWall from "./BrickWall.astro";
 import { cdn } from "@/cdn";
 ---
 
-<SectionHero id="review" label="4 -> Store, Organize, Review">
+<SectionHero id="review" label="4 -> Store, organize, review">
     Understand what happened, and why
     <Fragment slot="description">
         Review test data, compare runs side-by-side, and drill into anomalies without
@@ -25,7 +25,7 @@ import { cdn } from "@/cdn";
     </Fragment>
 </SectionHero>
 
-<FeatureSection label="4.1 -> Storage Engine" class="review-feature">
+<FeatureSection label="4.1 -> Storage engine" class="review-feature">
     <Fragment slot="title">
         The only deeply integrated control system and database engine
     </Fragment>
@@ -36,7 +36,7 @@ import { cdn } from "@/cdn";
     <Button.Button
         slot="action"
         variant="text"
-        href="https://docs.synnaxlabs.com/guides/comparison/performance/one-billion-rows"
+        href="https://docs.synnaxlabs.com/blog/one-billion-rows"
     >
         See the benchmarks →
     </Button.Button>
@@ -44,7 +44,7 @@ import { cdn } from "@/cdn";
 
 <BrickWall />
 
-<FeatureSection label="4.2 -> Organize with Ranges">
+<FeatureSection label="4.2 -> Organize with ranges">
     <Fragment slot="title"> Name it, tag it, find it later </Fragment>
     <Fragment slot="description">
         Mark test runs, events, and anomalies as named time ranges. Attach metadata,

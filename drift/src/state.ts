@@ -25,7 +25,7 @@ import {
   windowStateZ,
 } from "@/window";
 
-export const configZ = z.object({
+const configZ = z.object({
   enablePrerender: z.boolean(),
   // Defaults apply to every window, so they must not carry a key of their own.
   defaultWindowProps: windowPropsZ.omit({ key: true }).partial(),
@@ -385,7 +385,9 @@ const reduceSetWindowError = (
 
 const reduceFocusWindow = assertLabel<FocusWindowPayload>((s, a) => {
   const win = s.windows[a.payload.label];
-  if (win == null) return;
+  // An unreserved pre-render stays hidden, so a focus it dispatched for itself is
+  // dropped the same way its props are.
+  if (win == null || !win.reserved) return;
   if (win.visible !== true) win.visible = true;
   incrementCounter("focusCount")(s, a);
 });
@@ -438,7 +440,7 @@ const reduceSetWindowProps = (
 
 interface InternalSetInitialPayload extends SetConfigPayload, SetWindowLabelPayload {}
 
-export const reduceInternalSetInitial = (
+const reduceInternalSetInitial = (
   s: SliceState,
   a: PayloadAction<InternalSetInitialPayload>,
 ): void => {

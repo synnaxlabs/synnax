@@ -29,7 +29,7 @@ describe("OffPageReference", () => {
       // the source var (the only dynamic value) and the marker class.
       const { container } = render(
         <ThemeWrapper>
-          <OffPageReference color="#3774d0" />
+          <OffPageReference fillColor="#3774d0" />
         </ThemeWrapper>,
       );
       const arrow = container.querySelector<HTMLElement>(".pluto-arrow");
@@ -53,7 +53,7 @@ describe("OffPageReference", () => {
     it("should pass a fully transparent color through as a choice", () => {
       const { container } = render(
         <ThemeWrapper>
-          <OffPageReference color={color.ZERO} />
+          <OffPageReference fillColor={color.ZERO} />
         </ThemeWrapper>,
       );
       const arrow = container.querySelector<HTMLElement>(".pluto-arrow");

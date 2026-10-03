@@ -26,6 +26,7 @@
 @import url("@synnaxlabs/media/dist/media.css") layer(pluto);
 
 /* Import our CSS into higher priority layers */
+@import url("@synnaxlabs/site-common/tokens.css") layer(base);
 @import url("./base.css") layer(base);
 @import url("./pluto.css") layer(overrides);
 @import url("./layout.css") layer(overrides);

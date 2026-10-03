@@ -38,7 +38,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/types"
 )
 
 var (
@@ -105,8 +104,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:        groupSvc,
 		Search:       searchIdx,
 		Status:       statusSvc,
-		// The suite creates more channels than a Core with no license key allows.
-		IntOverflowCheck: func(types.Uint20) error { return nil },
 	}))
 	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 		DB:      db,

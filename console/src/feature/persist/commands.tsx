@@ -34,7 +34,7 @@ const useClear = () => {
   );
 };
 
-export const ClearCommand = Command.create({
+const ClearCommand = Command.create({
   key: "clear_local_storage",
   name: "Clear local storage",
   icon: <Icon.Close />,

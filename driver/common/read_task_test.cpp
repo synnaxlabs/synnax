@@ -512,7 +512,10 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
     EXPECT_EQ(warning_state.key, synnax::task::status_key(t));
     EXPECT_EQ(warning_state.details.cmd, driver::task::NO_COMMAND);
     EXPECT_EQ(warning_state.variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(warning_state.message, errors::TEMPORARY_HARDWARE_ERROR.message());
+    EXPECT_EQ(
+        warning_state.message,
+        errors::TEMPORARY_HARDWARE_ERROR.message() + " (retry 1/50 in 0.0 s)"
+    );
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 3);
     auto recovered_state = ctx->statuses[2];
@@ -529,6 +532,42 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(stop_state.message, "Task stopped successfully");
+}
+
+/// @brief it should show the retry count and the backoff interval in the warning for
+/// each consecutive temporary error.
+TEST(TestCommonReadTask, testTemporaryErrorWarningShowsRetry) {
+    const auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    synnax::task::Task t;
+    t.key = x::uuid::create();
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto s = x::telem::Series(x::telem::TimeStamp::now());
+    for (int i = 0; i < 30; i++)
+        reads->emplace_back(x::telem::Frame(i, s.deep_copy()));
+    auto mock_source = std::make_unique<MockSource>(
+        reads,
+        std::make_shared<std::vector<x::errors::Error>>(std::vector{
+            errors::TEMPORARY_HARDWARE_ERROR,
+            errors::TEMPORARY_HARDWARE_ERROR,
+            x::errors::NIL
+        })
+    );
+    auto breaker_config = x::breaker::default_config("cat");
+    breaker_config.base_interval = 100 * x::telem::MILLISECOND;
+    breaker_config.max_retries = 3;
+    breaker_config.scale = 2;
+    ReadTask
+        read_task(t, ctx, breaker_config, std::move(mock_source), mock_writer_factory);
+    read_task.start("start_cmd");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 4);
+    const auto msg = errors::TEMPORARY_HARDWARE_ERROR.message();
+    EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(ctx->statuses[1].message, msg + " (retry 1/3 in 0.1 s)");
+    EXPECT_EQ(ctx->statuses[2].variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(ctx->statuses[2].message, msg + " (retry 2/3 in 0.2 s)");
+    EXPECT_EQ(ctx->statuses[3].variant, synnax::status::VARIANT_SUCCESS);
+    read_task.stop("stop_cmd", true);
 }
 
 /// @brief it should parse valid base read task configuration.

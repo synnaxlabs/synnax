@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <memory>
+#include <optional>
 #include <random>
 #include <string>
 
@@ -46,6 +48,14 @@ const arc::ir::Node *
 find_node_by_type(const arc::program::Program &mod, const std::string &type) {
     for (const auto &node: mod.nodes)
         if (node.type == type) return &node;
+    return nullptr;
+}
+
+/// @brief Finds the IR node with the given key in the module.
+const arc::ir::Node *
+find_node_by_key(const arc::program::Program &mod, const std::string &key) {
+    for (const auto &node: mod.nodes)
+        if (node.key == key) return &node;
     return nullptr;
 }
 
@@ -480,6 +490,169 @@ func double(val f32) f32 {
     EXPECT_FLOAT_EQ(output->at<float>(2), 30.0f);
 }
 
+/// @brief an add node fed by two sources, driven one write at a time. Mirrors the
+/// omitted-channel calculator specs in the Core.
+struct AddProgram {
+    synnax::Synnax client = new_test_client();
+    program::Program mod;
+    ir::IR ir;
+    std::shared_ptr<wasm::Module> wasm_mod;
+    std::unique_ptr<state::State> state;
+    std::optional<wasm::Node> node;
+    std::vector<std::string> changed_outputs;
+
+    AddProgram() {
+        mod = testutil::compile_text(
+            client,
+            "func add(a f32, b f32) f32 {\n    return a + b\n}"
+        );
+        auto [opened, err] = wasm::Module::open({.program = mod});
+        if (err) throw std::runtime_error(err.message());
+        wasm_mod = std::move(opened);
+        const auto &fn = mod.function("add");
+        ir.functions.push_back(fn);
+        arc::types::Param output;
+        output.name = "output";
+        output.type = arc::types::Type{.kind = arc::types::Kind::F32};
+        for (const auto &key: {"a", "b"}) {
+            ir::Node source;
+            source.key = key;
+            source.type = key;
+            source.outputs.push_back(output);
+            ir.nodes.push_back(source);
+            ir.edges.emplace_back(ir::Handle(key, "output"), ir::Handle("add", key));
+        }
+        ir::Node add;
+        add.key = "add";
+        add.type = "add";
+        add.inputs = fn.inputs;
+        add.outputs = fn.outputs;
+        ir.nodes.push_back(add);
+        state = std::make_unique<state::State>(
+            state::Config{.ir = ir, .channels = {}},
+            arc::runtime::errors::noop_handler
+        );
+        auto [node_state, state_err] = state->node("add");
+        if (state_err) throw std::runtime_error(state_err.message());
+        auto [func, func_err] = wasm_mod->func("add");
+        if (func_err) throw std::runtime_error(func_err.message());
+        node.emplace(
+            ir,
+            ir.nodes.back(),
+            std::move(node_state),
+            func,
+            wasm_mod->strings()
+        );
+    }
+
+    /// @brief publishes one write of values on the named source node.
+    void feed(
+        const std::string &source,
+        const std::uint32_t domain,
+        const std::vector<x::telem::TimeStamp> &stamps,
+        const std::vector<float> &values
+    ) {
+        auto [src, err] = state->node(source);
+        if (err) throw std::runtime_error(err.message());
+        auto data = x::telem::Series(values);
+        data.alignment = x::telem::Alignment(domain, 0);
+        src.output(0) = x::mem::make_local_shared<x::telem::Series>(std::move(data));
+        auto time = x::telem::Series(stamps);
+        time.alignment = x::telem::Alignment(domain, 0);
+        src.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
+            std::move(time)
+        );
+        src.mark_fresh(0);
+    }
+
+    /// @brief runs the add node once and returns whether it emitted.
+    bool next() {
+        changed_outputs.clear();
+        auto ctx = make_context();
+        ctx.mark_changed = [&](size_t i) {
+            changed_outputs.push_back(ir.nodes.back().outputs[i].name);
+        };
+        if (const auto err = node->next(ctx)) throw std::runtime_error(err.message());
+        return !changed_outputs.empty();
+    }
+
+    [[nodiscard]] state::Series output() {
+        auto [n, err] = state->node("add");
+        if (err) throw std::runtime_error(err.message());
+        return n.output(0);
+    }
+
+    [[nodiscard]] state::Series output_time() {
+        auto [n, err] = state->node("add");
+        if (err) throw std::runtime_error(err.message());
+        return n.output_time(0);
+    }
+};
+
+std::vector<x::telem::TimeStamp> seconds(const std::vector<int64_t> &values) {
+    std::vector<x::telem::TimeStamp> out;
+    for (const auto v: values)
+        out.emplace_back(v * x::telem::SECOND);
+    return out;
+}
+
+/// @brief an omitted channel holds its last sample, stamped from the fresh input.
+TEST(NodeTest, OmittedChannelHoldsItsLastSample) {
+    AddProgram p;
+    p.feed("a", 5, seconds({10, 20, 30}), {15, 25, 35});
+    p.feed("b", 5, seconds({10, 20, 30}), {5, 10, 15});
+    ASSERT_TRUE(p.next());
+    ASSERT_EQ(p.output()->size(), 3);
+    EXPECT_FLOAT_EQ(p.output()->at<float>(0), 20.0f);
+    EXPECT_FLOAT_EQ(p.output()->at<float>(1), 35.0f);
+    EXPECT_FLOAT_EQ(p.output()->at<float>(2), 50.0f);
+
+    p.feed("a", 6, seconds({40}), {45});
+    ASSERT_TRUE(p.next());
+    ASSERT_EQ(p.output()->size(), 1);
+    EXPECT_FLOAT_EQ(p.output()->at<float>(0), 60.0f);
+    ASSERT_EQ(p.output_time()->size(), 1);
+    EXPECT_EQ(
+        p.output_time()->at<x::telem::TimeStamp>(0),
+        x::telem::TimeStamp(40 * x::telem::SECOND)
+    );
+}
+
+/// @brief an omitted channel with no prior sample yields nothing.
+TEST(NodeTest, OmittedChannelWithNoPriorSampleYieldsNothing) {
+    AddProgram p;
+    p.feed("a", 5, seconds({10}), {15});
+    ASSERT_FALSE(p.next());
+}
+
+/// @brief an omitted channel holds through two omissions.
+TEST(NodeTest, OmittedChannelHoldsThroughTwoOmissions) {
+    AddProgram p;
+    p.feed("a", 5, seconds({10}), {15});
+    p.feed("b", 5, seconds({10}), {5});
+    ASSERT_TRUE(p.next());
+    ASSERT_EQ(p.output()->size(), 1);
+    EXPECT_FLOAT_EQ(p.output()->at<float>(0), 20.0f);
+
+    p.feed("a", 6, seconds({20}), {25});
+    ASSERT_TRUE(p.next());
+    ASSERT_EQ(p.output()->size(), 1);
+    EXPECT_FLOAT_EQ(p.output()->at<float>(0), 30.0f);
+    EXPECT_EQ(
+        p.output_time()->at<x::telem::TimeStamp>(0),
+        x::telem::TimeStamp(20 * x::telem::SECOND)
+    );
+
+    p.feed("a", 7, seconds({30}), {35});
+    ASSERT_TRUE(p.next());
+    ASSERT_EQ(p.output()->size(), 1);
+    EXPECT_FLOAT_EQ(p.output()->at<float>(0), 40.0f);
+    EXPECT_EQ(
+        p.output_time()->at<x::telem::TimeStamp>(0),
+        x::telem::TimeStamp(30 * x::telem::SECOND)
+    );
+}
+
 /// @brief Node::next reports errors via context when WASM execution fails.
 TEST(NodeTest, NextReportsErrorOnWasmTrap) {
     const auto client = new_test_client();
@@ -738,13 +911,6 @@ constant{} -> )" + output_name;
     changed_outputs.clear();
     ASSERT_NIL(node.next(ctx));
     EXPECT_EQ(changed_outputs.size(), 1);
-}
-
-const arc::ir::Node *
-find_node_by_key(const arc::program::Program &mod, const std::string &key) {
-    for (const auto &node: mod.nodes)
-        if (node.key == key) return &node;
-    return nullptr;
 }
 
 /// @brief a dispatcher fed a multi-sample batch stamps each sample 1 ns apart.

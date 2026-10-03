@@ -16,7 +16,6 @@ import * as v1 from "@/feature/opcua/device/types/v1";
 
 export const MAKE = v0.MAKE;
 export const makeZ = v0.makeZ;
-export type Make = v0.Make;
 
 export const NO_SECURITY_MODE = v0.NO_SECURITY_MODE;
 export const SIGN_SECURITY_MODE = v0.SIGN_SECURITY_MODE;
@@ -44,7 +43,6 @@ export interface Properties extends v1.Properties {}
 export const ZERO_PROPERTIES = v1.ZERO_PROPERTIES;
 
 export interface Device extends v1.Device {}
-export interface New extends v1.New {}
 
 const PROPERTIES_MIGRATIONS: migrate.Migrations = {
   [v0.VERSION]: v1.propertiesMigration,

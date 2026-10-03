@@ -11,7 +11,9 @@
 import { Search as S } from "@/components/search/Search";
 ---
 
-<S client:only="react" />
+<div data-island="search">
+    <S />
+</div>
 
 <style is:global>
     .search-box {

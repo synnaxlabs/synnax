@@ -22,7 +22,6 @@ describe("MQTT.Task Commands", () => {
   it("should create a read draft and open its resource tab from the command", async () => {
     const proj = await client.projects.create({
       name: uniqueName("proj"),
-      layout: {},
     });
     const { store, openCommandPalette, selectCommand } = await renderPalette({
       commands: MQTT.Task.COMMANDS,
@@ -41,7 +40,6 @@ describe("MQTT.Task Commands", () => {
   it("should create a write draft and open its resource tab from the command", async () => {
     const proj = await client.projects.create({
       name: uniqueName("proj"),
-      layout: {},
     });
     const { store, openCommandPalette, selectCommand } = await renderPalette({
       commands: MQTT.Task.COMMANDS,
@@ -60,7 +58,6 @@ describe("MQTT.Task Commands", () => {
   it("should create an edge node draft and open its resource tab from the command", async () => {
     const proj = await client.projects.create({
       name: uniqueName("proj"),
-      layout: {},
     });
     const { store, openCommandPalette, selectCommand } = await renderPalette({
       commands: MQTT.Task.COMMANDS,
