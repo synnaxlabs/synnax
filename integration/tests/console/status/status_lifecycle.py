@@ -7,6 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import re
+
+from playwright.sync_api import expect
+
 import synnax as sy
 from console.case import ConsoleCase
 from x import random_name
@@ -109,9 +113,13 @@ class StatusLifecycle(ConsoleCase):
         ]
         for stat in overflow:
             self.client.statuses.set(stat)
-        self.page.locator(".console-notifications__controls").get_by_role(
-            "button", name="Clear all", exact=True
-        ).wait_for(state="visible", timeout=5000)
+        # Expanding the feed shows every toast, so the count proves all six arrived.
+        controls = self.page.locator(".console-notifications__controls")
+        controls.get_by_role("button", name=re.compile(r"^\+\d+ more$")).click()
+        expect(self.page.get_by_role("status").filter(has_text=prefix)).to_have_count(
+            len(overflow), timeout=5000
+        )
+        controls.get_by_role("button", name="Show less", exact=True).click()
         notifications.close_all()
         remaining = self.page.get_by_role("status").filter(has_text=prefix).count()
         self.client.statuses.delete([stat.key for stat in overflow])
