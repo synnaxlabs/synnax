@@ -67,6 +67,23 @@ Alignment:
 	Expected: 1-2
 	Actual: 1-3`,
 			),
+			Entry("Mismatched Alignment Multiples",
+				telem.Series{
+					DataType:          telem.Float64T,
+					Data:              telem.NewSeries([]float64{1, 2, 3}).Data,
+					Alignment:         telem.NewAlignment(1, 2),
+					AlignmentMultiple: 2,
+				},
+				telem.Series{
+					DataType:  telem.Float64T,
+					Data:      telem.NewSeries([]float64{1, 2, 3}).Data,
+					Alignment: telem.NewAlignment(1, 2),
+				},
+				`Series did not match:
+AlignmentMultiple:
+	Expected: 2
+	Actual: 1`,
+			),
 			Entry("Mismatched Time Ranges",
 				telem.Series{
 					DataType:  telem.Float64T,

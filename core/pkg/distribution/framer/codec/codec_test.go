@@ -234,6 +234,47 @@ var _ = Describe("Codec", func() {
 				},
 			),
 		),
+		Entry("Alignment Multiples",
+			channel.Keys{1, 2},
+			[]telem.DataType{telem.TimestampT, telem.Float32T},
+			frame.NewMulti(
+				channel.Keys{1, 2},
+				[]telem.Series{
+					{
+						DataType:          telem.TimestampT,
+						Data:              telem.NewSeriesSecondsTSV(1, 2).Data,
+						Alignment:         telem.NewAlignment(1, 4),
+						AlignmentMultiple: 4,
+					},
+					{
+						DataType:          telem.Float32T,
+						Data:              telem.NewSeriesV[float32](1, 2).Data,
+						Alignment:         telem.NewAlignment(1, 4),
+						AlignmentMultiple: 4,
+					},
+				},
+			),
+		),
+		Entry("Mixed Alignment Multiples",
+			channel.Keys{1, 2},
+			[]telem.DataType{telem.Uint8T, telem.Float32T},
+			frame.NewMulti(
+				channel.Keys{1, 2},
+				[]telem.Series{
+					{
+						DataType:  telem.Uint8T,
+						Data:      []byte{1, 2},
+						Alignment: 5,
+					},
+					{
+						DataType:          telem.Float32T,
+						Data:              telem.NewSeriesV[float32](1, 2).Data,
+						Alignment:         10,
+						AlignmentMultiple: 3,
+					},
+				},
+			),
+		),
 		Entry("Variable Data Types",
 			channel.Keys{1, 2, 3},
 			[]telem.DataType{telem.Uint8T, telem.StringT, telem.JSONT},
@@ -443,6 +484,23 @@ var _ = Describe("Codec", func() {
 				encoded, err := c.Encode(ctx, fr)
 				Expect(encoded).To(BeEmpty())
 				Expect(err).To(MatchError(validate.ErrValidation))
+			},
+		)
+	})
+
+	Describe("Extended Flags", func() {
+		It(
+			"Should reject a frame that sets the extended flags bit",
+			func(ctx SpecContext) {
+				c := codec.NewStatic(channel.Keys{1}, []telem.DataType{telem.Int32T})
+				encoded := MustSucceed(
+					c.Encode(ctx, frame.NewUnary(1, telem.NewSeriesV[int32](1))),
+				)
+				encoded[0] |= 1 << 7
+				Expect(c.Decode(encoded)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("extended flags byte")),
+				))
 			},
 		)
 	})
@@ -1100,6 +1158,42 @@ var _ = Describe("Codec", func() {
 				Expect(ch2Series.Series).To(HaveLen(1))
 				ch2Data := ch2Series.Series[0].Unmarshal[float32]()
 				Expect(ch2Data).To(Equal([]float32{1.1, 2.2, 3.3, 4.4}))
+			},
+		)
+
+		It(
+			"Should merge contiguous series that share an alignment multiple",
+			func(ctx SpecContext) {
+				c := codec.NewStatic(channel.Keys{1}, []telem.DataType{telem.Int32T})
+				s1 := telem.NewSeriesV[int32](1, 2)
+				s1.Alignment = telem.NewAlignment(0, 0)
+				s1.AlignmentMultiple = 3
+				s2 := telem.NewSeriesV[int32](3, 4)
+				s2.Alignment = telem.NewAlignment(0, 6)
+				s2.AlignmentMultiple = 3
+				fr := frame.NewMulti(channel.Keys{1, 1}, []telem.Series{s1, s2})
+				decoded := MustSucceed(c.Decode(MustSucceed(c.Encode(ctx, fr))))
+				Expect(decoded.Count()).To(Equal(1))
+				merged := decoded.SeriesAt(0)
+				Expect(merged.Unmarshal[int32]()).To(Equal([]int32{1, 2, 3, 4}))
+				Expect(merged.AlignmentMultiple).To(Equal(uint32(3)))
+			},
+		)
+
+		It(
+			"Should not merge series with different alignment multiples",
+			func(ctx SpecContext) {
+				c := codec.NewStatic(channel.Keys{1}, []telem.DataType{telem.Int32T})
+				s1 := telem.NewSeriesV[int32](1, 2)
+				s1.Alignment = telem.NewAlignment(0, 0)
+				s1.AlignmentMultiple = 2
+				s2 := telem.NewSeriesV[int32](3, 4)
+				s2.Alignment = telem.NewAlignment(0, 4)
+				fr := frame.NewMulti(channel.Keys{1, 1}, []telem.Series{s1, s2})
+				decoded := MustSucceed(c.Decode(MustSucceed(c.Encode(ctx, fr))))
+				Expect(decoded.Count()).To(Equal(2))
+				Expect(decoded.SeriesAt(0).AlignmentMultiple).To(Equal(uint32(2)))
+				Expect(decoded.SeriesAt(1).AlignmentMultiple).To(BeZero())
 			},
 		)
 

@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  type Aggregation,
+  type Series,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
 import { AUTO_SPAN, iteratorConfigZ } from "@/framer/iterator";
@@ -110,7 +116,7 @@ describe("Iterator", () => {
       });
       await writer.close();
       const iter = await client.openIterator(TimeRange.MAX, channels, {
-        downsampleFactor: 2,
+        reduction: { variant: "stride", factor: 2 },
       });
 
       try {
@@ -135,7 +141,7 @@ describe("Iterator", () => {
       });
       await writer.close();
       const iter = await client.openIterator(TimeRange.MAX, channels, {
-        downsampleFactor: 3,
+        reduction: { variant: "stride", factor: 3 },
       });
 
       try {
@@ -158,7 +164,7 @@ describe("Iterator", () => {
       });
       await writer.close();
       const iter = await client.openIterator(TimeRange.MAX, channels, {
-        downsampleFactor: 1,
+        reduction: { variant: "stride", factor: 1 },
       });
       try {
         expect(await iter.seekFirst()).toBe(true);
@@ -173,19 +179,89 @@ describe("Iterator", () => {
     });
 
     describe("config", () => {
-      test("defaults to keeping every sample", () => {
-        expect(iteratorConfigZ.parse({}).downsampleFactor).toEqual(1);
+      const stride = (factor: number) => ({
+        reduction: { variant: "stride" as const, factor },
+      });
+      test("defaults to no reduction", () => {
+        expect(iteratorConfigZ.parse({}).reduction).toBeUndefined();
       });
       test.each([0, 1, 2, 10, MAX_DOWNSAMPLE_FACTOR])("accepts %i", (factor) => {
-        expect(iteratorConfigZ.parse({ downsampleFactor: factor })).toHaveProperty(
-          "downsampleFactor",
-          factor,
+        expect(iteratorConfigZ.parse(stride(factor)).reduction).toEqual(
+          stride(factor).reduction,
         );
       });
       // The wire field is unsigned, so a factor the schema lets through would be
       // reinterpreted by the Core instead of rejected.
       test.each([-1, 1.5, MAX_DOWNSAMPLE_FACTOR + 1])("rejects %s", (factor) => {
-        expect(() => iteratorConfigZ.parse({ downsampleFactor: factor })).toThrow();
+        expect(() => iteratorConfigZ.parse(stride(factor))).toThrow();
+      });
+    });
+  });
+  describe("aggregation", () => {
+    const readReduced = async (
+      aggregation: Aggregation,
+      pointLimit: number,
+    ): Promise<Series> => {
+      const channels = await newIndexedPair(client);
+      const [idx_ch, data_ch] = channels;
+      const writer = await client.openWriter({ start: TimeStamp.SECOND, channels });
+      await writer.write({
+        [idx_ch.key]: secondsLinspace(1, 8),
+        [data_ch.key]: new Float64Array([4, 1, 3, 8, 5, 2, 6, 7]),
+      });
+      await writer.close();
+      const iter = await client.openIterator(TimeRange.MAX, channels, {
+        reduction: { variant: "limit", aggregation, pointLimit },
+      });
+      try {
+        expect(await iter.seekFirst()).toBe(true);
+        expect(await iter.next(AUTO_SPAN)).toBe(true);
+        const data = iter.value.get(data_ch.key).series[0];
+        expect(iter.value.get(idx_ch.key).series[0].alignment).toEqual(data.alignment);
+        expect(await iter.next(AUTO_SPAN)).toBe(false);
+        return data;
+      } finally {
+        await iter.close();
+      }
+    };
+
+    test("min_max keeps the extremes of each group in order", async () => {
+      const data = await readReduced("min_max", 4);
+      expect(Array.from(data)).toEqual([1, 8, 2, 7]);
+      expect(data.alignmentMultiple).toEqual(2n);
+    });
+
+    test("average keeps the mean of each group", async () => {
+      const data = await readReduced("average", 4);
+      expect(Array.from(data)).toEqual([2.5, 5.5, 3.5, 6.5]);
+      expect(data.alignmentMultiple).toEqual(2n);
+    });
+
+    test("decimate keeps the first sample of each group", async () => {
+      const data = await readReduced("decimate", 2);
+      expect(Array.from(data)).toEqual([4, 5]);
+      expect(data.alignmentMultiple).toEqual(4n);
+    });
+
+    test("returns every sample under the point limit", async () => {
+      const data = await readReduced("min_max", 8);
+      expect(Array.from(data)).toEqual([4, 1, 3, 8, 5, 2, 6, 7]);
+      expect(data.alignmentMultiple).toEqual(1n);
+    });
+
+    describe("config", () => {
+      const limit = (pointLimit: number) => ({
+        reduction: { variant: "limit" as const, pointLimit },
+      });
+      test("defaults the aggregation to min_max", () => {
+        expect(iteratorConfigZ.parse(limit(4)).reduction).toEqual({
+          variant: "limit",
+          aggregation: "min_max",
+          pointLimit: 4,
+        });
+      });
+      test.each([0, -1, 1.5, 2 ** 32])("rejects a point limit of %s", (pointLimit) => {
+        expect(() => iteratorConfigZ.parse(limit(pointLimit))).toThrow();
       });
     });
   });

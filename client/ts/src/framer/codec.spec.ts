@@ -342,6 +342,56 @@ describe("encoder", () => {
     });
   });
 
+  describe("alignment multiples", () => {
+    const MULTIPLES_PRESENT_BIT = 1 << 6;
+    const EXTENDED_BIT = 1 << 7;
+
+    it("should round-trip the alignment multiple of each series", () => {
+      const codec = new Codec([1, 2], [DataType.FLOAT32, DataType.FLOAT32]);
+      const encoded = codec.encode(
+        new framer.Frame(
+          [1, 2],
+          [
+            new Series({
+              data: new Float32Array([1, 2]),
+              alignment: 8n,
+              alignmentMultiple: 4n,
+            }),
+            new Series({ data: new Float32Array([3, 4]), alignment: 12n }),
+          ],
+        ),
+      );
+      expect(encoded[0] & MULTIPLES_PRESENT_BIT).toEqual(MULTIPLES_PRESENT_BIT);
+      const decoded = new Frame(codec.decode(encoded));
+      expect(decoded.series[0].alignment).toEqual(8n);
+      expect(decoded.series[0].alignmentMultiple).toEqual(4n);
+      expect(decoded.series[1].alignment).toEqual(12n);
+      expect(decoded.series[1].alignmentMultiple).toEqual(1n);
+      expect(Array.from(decoded.series[1])).toEqual([3, 4]);
+    });
+
+    it("should leave the multiples flag unset when every multiple is one", () => {
+      const codec = new Codec([1], [DataType.FLOAT32]);
+      const encoded = codec.encode(
+        new framer.Frame([1], [new Series(new Float32Array([1, 2]))]),
+      );
+      expect(encoded[0] & MULTIPLES_PRESENT_BIT).toEqual(0);
+    });
+
+    it("should reject a frame that sets the extended flags bit", () => {
+      const codec = new Codec([1], [DataType.FLOAT32]);
+      const encoded = codec.encode(
+        new framer.Frame([1], [new Series(new Float32Array([1, 2]))]),
+      );
+      encoded[0] |= EXTENDED_BIT;
+      expect(() => codec.decode(encoded)).toThrow(
+        new ValidationError(
+          "[framer.codec] - remote sent an extended flags byte, which this codec does not support",
+        ),
+      );
+    });
+  });
+
   describe("dynamic codec", () => {
     it("should allow the caller to update the codec", () => {
       const codec = new Codec();
