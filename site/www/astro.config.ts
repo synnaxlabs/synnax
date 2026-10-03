@@ -9,12 +9,12 @@
 
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
-import { integration as common } from "@synnaxlabs/site-common/integration";
+import { integration } from "@synnaxlabs/site-common/integration";
 import { layers } from "@synnaxlabs/vite-plugin";
 import { defineConfig } from "astro/config";
 
 export default defineConfig({
-  integrations: [common(), react()],
+  integrations: [integration(), react()],
   output: "server",
   adapter: vercel(),
   vite: {
