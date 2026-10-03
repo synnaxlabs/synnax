@@ -111,6 +111,7 @@ import {
   MdCalendarToday,
   MdComment,
   MdCommit,
+  MdComputer,
   MdContentCut,
   MdContentPaste,
   MdDarkMode,
@@ -354,7 +355,7 @@ export const Reference = wrapSVGIcon(IoBookSharp, "reference");
 export const Bolt = wrapSVGIcon(HiLightningBolt, "bolt");
 export const Import = wrapSVGIcon(PiUploadSimple, "import");
 export const Export = wrapSVGIcon(PiDownloadSimple, "export");
-export const Download = Export;
+export const Download = wrapSVGIcon(PiDownloadSimple, "download");
 export const Range = wrapSVGIcon(MdOutlineTimelapse, "range");
 export const Redline = wrapSVGIcon(TbBaselineDensitySmall, "redline");
 export const Node = wrapSVGIcon(MdOutlineDeviceHub, "node");
@@ -475,6 +476,7 @@ export const Hardware = wrapSVGIcon(MdHardware, "hardware");
 export const Save = wrapSVGIcon(MdSaveAlt, "save");
 export const Task = wrapSVGIcon(TbRadarFilled, "task");
 export const Device = wrapSVGIcon(SiGooglenearby, "device");
+export const Computer = wrapSVGIcon(MdComputer, "computer");
 export const Link = wrapSVGIcon(MdLink, "link");
 export const Attachment = wrapSVGIcon(GrAttachment, "attachment");
 export const Drag = wrapSVGIcon(GrDrag, "drag");
@@ -558,7 +560,7 @@ export const ArcFlow = wrapSVGIcon(IoIosArrowRoundForward, "arc-flow");
 export const ArcFunc = wrapSVGIcon(LuSquareFunction, "arc-func");
 export const Select = wrapSVGIcon(TbArrowsSplit, "select");
 export const Notification = wrapSVGIcon(IoNotifications, "notification");
-export const Status = Notification;
+export const Status = wrapSVGIcon(IoNotifications, "status");
 export const InProgress = wrapSVGIcon(RiProgress4Line, "in-progress");
 export const Completed = wrapSVGIcon(RiProgress8Line, "completed");
 export const ToDo = wrapSVGIcon(RiProgress1Line, "to-do");
@@ -679,6 +681,7 @@ const icons = {
   Save,
   Task,
   Device,
+  Computer,
   Link,
   Attachment,
   Drag,

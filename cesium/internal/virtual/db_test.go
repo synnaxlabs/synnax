@@ -70,24 +70,6 @@ var _ = Describe("DB Metadata Operations", func() {
 				)
 			})
 
-			Describe("SetChannelKeyInMeta", func() {
-				It(
-					"Should change the channel key and persist it",
-					func(ctx SpecContext) {
-						newKey := GenerateChannelKey()
-						Expect(db.SetChannelKeyInMeta(ctx, newKey)).To(Succeed())
-						ch := MustSucceed(meta.Read(ctx, fs, json.Codec))
-						Expect(ch.Key).To(Equal(newKey))
-					},
-				)
-
-				It("Should be a no-op when the key is the same", func(ctx SpecContext) {
-					Expect(db.SetChannelKeyInMeta(ctx, dbKey)).To(Succeed())
-					ch := MustSucceed(meta.Read(ctx, fs, json.Codec))
-					Expect(ch.Key).To(Equal(dbKey))
-				})
-			})
-
 			Describe("LeadingControlState", func() {
 				It(
 					"Should return nil when there are no writers open on the DB",
@@ -141,9 +123,6 @@ var _ = Describe("DB Metadata Operations", func() {
 				Expect(db.Close()).To(Succeed())
 				Expect(
 					db.RenameChannel(ctx, "new_name"),
-				).To(MatchError(virtual.ErrDBClosed))
-				Expect(
-					db.SetChannelKeyInMeta(ctx, GenerateChannelKey()),
 				).To(MatchError(virtual.ErrDBClosed))
 			},
 		)

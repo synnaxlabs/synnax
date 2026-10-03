@@ -82,10 +82,14 @@ describe("Tree", () => {
     (keys: string[]) => keys.map((key) => ({ key, name: key })),
   );
 
-  const Component = () => {
+  interface ComponentProps {
+    pinned?: string[];
+  }
+
+  const Component = ({ pinned }: ComponentProps) => {
     const props = use({ nodes: NODES });
     return (
-      <Tree {...props} getItem={getItem}>
+      <Tree {...props} getItem={getItem} pinned={pinned}>
         {({ key, ...rest }) => (
           <Item key={key} {...rest}>
             {key}
@@ -118,6 +122,16 @@ describe("Tree", () => {
       ".pluto-list__virtualizer",
     );
     expect(virtualizer?.style.minHeight).toBe(`${NODES.length * 27}px`);
+  });
+
+  it("should keep a pinned node mounted outside the window", () => {
+    const last = NODES[NODES.length - 1].key;
+    const { rerender } = render(<Component />);
+    expect(screen.queryByText(last)).toBeNull();
+    rerender(<Component pinned={[last]} />);
+    expect(screen.getByText(last)).toBeTruthy();
+    rerender(<Component />);
+    expect(screen.queryByText(last)).toBeNull();
   });
 });
 

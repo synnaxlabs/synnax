@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
+import { type ReactElement } from "react";
 
 import { AbortDiagram } from "@/components/automate/diagrams/AbortDiagram";
 import { PressureDiagram } from "@/components/automate/diagrams/PressureDiagram";
@@ -17,6 +17,8 @@ import {
   ZERO_DIAGRAM_STATE,
 } from "@/components/automate/timeline";
 import { CodePanel } from "@/components/common/CodePanel";
+import { useTimeline } from "@/components/common/useTimeline";
+import { VizTabs } from "@/components/common/VizTabs";
 import type { CalcDiagramState } from "@/components/stream/calcTimeline";
 import { AUTOMATE_ALARM_DIAGRAM, Diagram } from "@/components/stream/diagrams";
 
@@ -82,53 +84,21 @@ const alarmToCalcState = (state: DiagramState): CalcDiagramState => {
 export const AutomateVisualizer = ({
   codeHtmls,
 }: AutomateVisualizerProps): ReactElement => {
-  const [activeTab, setActiveTab] = useState(0);
-  const [stepIndex, setStepIndex] = useState(0);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { activeTab, stepIndex, step, playKey, selectTab, containerProps } =
+    useTimeline(EXAMPLES);
 
   const example = EXAMPLES[activeTab];
-  const step = example.steps[stepIndex];
   const diagramState: DiagramState = { ...ZERO_DIAGRAM_STATE, ...step.state };
   const isAlarm = example.id === "alarm";
   const DiagramComponent = DIAGRAMS[example.id];
 
-  const clearTimer = useCallback(() => {
-    if (timeoutRef.current != null) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-  }, []);
-
-  useEffect(() => {
-    clearTimer();
-    timeoutRef.current = setTimeout(() => {
-      setStepIndex((prev) => (prev + 1) % example.steps.length);
-    }, step.duration);
-    return clearTimer;
-  }, [stepIndex, activeTab, example.steps.length, step.duration, clearTimer]);
-
-  const handleTabClick = useCallback(
-    (index: number) => {
-      if (index === activeTab) return;
-      setActiveTab(index);
-      setStepIndex(0);
-    },
-    [activeTab],
-  );
-
   return (
-    <div className="viz-container">
-      <div className="viz-tabs">
-        {EXAMPLES.map((ex, i) => (
-          <button
-            key={ex.id}
-            className={`viz-tab${i === activeTab ? " viz-tab--active" : ""}`}
-            onClick={() => handleTabClick(i)}
-          >
-            {ex.title}
-          </button>
-        ))}
-      </div>
+    <div className="viz-container" {...containerProps}>
+      <VizTabs
+        tabs={EXAMPLES.map(({ id, title }) => ({ key: id, title }))}
+        active={activeTab}
+        onSelect={selectTab}
+      />
       <div className="viz-content">
         <div className="viz-code">
           <CodePanel html={codeHtmls[activeTab]} activeLines={step.activeLines} />
@@ -151,7 +121,7 @@ export const AutomateVisualizer = ({
       <div className="viz-progress">
         {example.steps.map((s, i) => (
           <div
-            key={i === stepIndex ? `${activeTab}-${stepIndex}` : i}
+            key={i === stepIndex ? playKey : i}
             className={`viz-dot${i === stepIndex ? " viz-dot--active" : ""}`}
             style={
               i === stepIndex

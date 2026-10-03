@@ -25,6 +25,7 @@ interface ProxiedClient {
   proxy: SeverableProxy;
   client: Synnax;
   internal: Error[];
+  retries: Error[];
 }
 
 const createProxiedClient = async (
@@ -32,6 +33,7 @@ const createProxiedClient = async (
 ): Promise<ProxiedClient> => {
   const proxy = await createSeverableProxy();
   const internal: Error[] = [];
+  const retries: Error[] = [];
   const client = new Synnax({
     host: "localhost",
     port: proxy.port,
@@ -39,8 +41,9 @@ const createProxiedClient = async (
     password: TEST_CLIENT_PARAMS.password,
     retry,
     onInternalError: (error) => internal.push(error),
+    onRetry: (error) => retries.push(error),
   });
-  return { proxy, client, internal };
+  return { proxy, client, internal, retries };
 };
 
 const chainOf = (err: unknown): string => {
@@ -55,7 +58,7 @@ const chainOf = (err: unknown): string => {
 
 describe("downtime", () => {
   it("should reconnect to the same cluster after escalated downtime", async () => {
-    const { proxy, client, internal } = await createProxiedClient();
+    const { proxy, client, internal, retries } = await createProxiedClient();
     try {
       await client.connect();
       const firstKey = client.connection.status.details.clusterKey;
@@ -83,6 +86,7 @@ describe("downtime", () => {
       const recovered = await client.projects.create({ name: "recovered" });
       expect(recovered.name).toBe("recovered");
       expect(internal.map(chainOf)).toEqual([]);
+      expect(retries).not.toHaveLength(0);
     } finally {
       await client.close();
       await proxy.close();

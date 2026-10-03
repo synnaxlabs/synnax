@@ -51,6 +51,8 @@ beforeAll(async () => {
   await waitFor(() => expect(client.connection.status.details.epoch).toBe(1));
 });
 
+const quiet = (): void => {};
+
 /** Mounts the real provider against a live cluster reached through `port`. */
 const createLiveWrapper = (port: number): FC<PropsWithChildren> => {
   const AetherProvider = aetherTest.createProvider({
@@ -66,10 +68,11 @@ const createLiveWrapper = (port: number): FC<PropsWithChildren> => {
       maxInterval: TimeSpan.milliseconds(50),
       scale: 1.5,
     },
+    onRetry: quiet,
   };
   const Live = ({ children }: PropsWithChildren): ReactElement => (
     <AetherProvider>
-      <Status.Aggregator>
+      <Status.Aggregator log={quiet}>
         <Synnax.Provider connParams={connParams}>{children}</Synnax.Provider>
       </Status.Aggregator>
     </AetherProvider>

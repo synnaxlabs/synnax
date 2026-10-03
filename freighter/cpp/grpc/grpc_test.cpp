@@ -36,8 +36,7 @@ TEST(testGRPC, basicProto) {
 /// @brief it should send a unary request and receive a response.
 TEST(testGRPC, testBasicUnary) {
     std::thread s(mock::server, base_target);
-    // Sleep for 100 ms to make sure server is up.
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    mock::wait_for_servers();
     const auto pool = std::make_shared<Pool>();
     auto client = UnaryClient<RQ, RS, UNARY_RPC>(pool, base_target);
     auto mes = test::Message();
@@ -65,8 +64,7 @@ public:
 /// @brief it should propagate metadata headers through middleware.
 TEST(testGRPC, testMiddlewareInjection) {
     std::thread s(mock::server, base_target);
-    // Sleep for 100 ms to make sure server is up.
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    mock::wait_for_servers();
     const auto pool = std::make_shared<Pool>();
     auto client = UnaryClient<RQ, RS, UNARY_RPC>(pool, base_target);
     const auto mw = std::make_shared<myMiddleware>();
@@ -97,7 +95,7 @@ TEST(testGRPC, testMultipleTargets) {
     std::string target_two("localhost:8081");
     std::thread s1(mock::server, target_one);
     std::thread s2(mock::server, target_two);
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    mock::wait_for_servers(2);
     auto pool = std::make_shared<Pool>();
     auto client = UnaryClient<RQ, RS, UNARY_RPC>(pool);
     auto mes_one = test::Message();
@@ -119,7 +117,7 @@ TEST(testGRPC, testMultipleTargets) {
 TEST(testGRPC, testBasicStream) {
     std::string target("localhost:8080");
     std::thread s(mock::server, target);
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    mock::wait_for_servers();
 
     auto pool = std::make_shared<Pool>();
     auto client = StreamClient<RQ, RS, STREAM_RPC>(pool, base_target);
@@ -142,7 +140,7 @@ TEST(testGRPC, testMultipleStreamObjects) {
     std::string target_two("localhost:8081");
     std::thread s1(mock::server, target_one);
     std::thread s2(mock::server, target_two);
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    mock::wait_for_servers(2);
 
     auto pool = std::make_shared<Pool>();
     auto client = StreamClient<RQ, RS, STREAM_RPC>(pool);
@@ -179,7 +177,7 @@ TEST(testGRPC, testMultipleStreamObjects) {
 TEST(testGRPC, testSendMultipleMessages) {
     std::string target("localhost:8080");
     std::thread s(mock::server, target);
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    mock::wait_for_servers();
 
     auto pool = std::make_shared<Pool>();
     auto client = StreamClient<RQ, RS, STREAM_RPC>(pool, base_target);
@@ -232,8 +230,7 @@ constexpr int N_THREADS = 3;
 /// @brief it should handle concurrent unary requests from multiple threads.
 TEST(testGRPC, stressTestUnaryWithManyThreads) {
     std::thread s(mock::server, base_target);
-    // Sleep for 100 ms to make sure server is up.
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    mock::wait_for_servers();
     auto pool = std::make_shared<Pool>();
     auto global_unary_client = std::make_shared<UnaryClient<RQ, RS, UNARY_RPC>>(
         pool,
@@ -268,8 +265,7 @@ void stream_send(
 /// @brief it should handle concurrent stream requests from multiple threads.
 TEST(testGRPC, stressTestStreamWithManyThreads) {
     std::thread s(mock::server, base_target);
-    // Sleep for 100 ms to make sure server is up.
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    mock::wait_for_servers();
 
     auto pool = std::make_shared<Pool>();
     auto global_stream_client = std::make_shared<StreamClient<RQ, RS, STREAM_RPC>>(
@@ -293,7 +289,7 @@ TEST(testGRPC, stressTestStreamWithManyThreads) {
 TEST(testGRPC, testPoolChannelReuse) {
     std::string target("localhost:8080");
     std::thread s(mock::server, target);
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    mock::wait_for_servers();
 
     auto pool = std::make_shared<Pool>();
     auto client = UnaryClient<RQ, RS, UNARY_RPC>(pool);
@@ -335,7 +331,7 @@ TEST(testGRPC, testCloseSendOnDeadConnection) {
 TEST(testGRPC, testCloseSendIdempotent) {
     std::string target("localhost:8080");
     std::thread s(mock::server, target);
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    mock::wait_for_servers();
     auto pool = std::make_shared<Pool>();
     auto client = StreamClient<RQ, RS, STREAM_RPC>(pool, base_target);
     auto streamer = ASSERT_NIL_P(client.stream(""));
