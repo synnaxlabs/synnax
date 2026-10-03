@@ -38,6 +38,7 @@ var _ = Describe("Transition", func() {
 		It("Should render a transition that exits to a top-level scope", func() {
 			t := ir.Transition{
 				On:          ir.Handle{Node: "n", Param: "done"},
+				Kind:        ir.EdgeKindConditional,
 				ActivateKey: new("abort"),
 			}
 			Expect(t.String()).To(Equal("on n/done => exit to abort"))
