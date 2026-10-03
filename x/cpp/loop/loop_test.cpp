@@ -204,17 +204,22 @@ TEST(LoopTest, testWaitBreakerEarlyWake) {
 
 /// @brief it should still sleep precisely after it is moved.
 TEST(LoopTest, testPreciseSleepAfterMove) {
+    auto brk = breaker::Breaker(breaker::default_config("test"));
+    brk.start();
     Timer moved;
     Timer timer(std::move(moved));
     const auto start = hs_clock::now();
-    timer.precise_sleep(telem::MILLISECOND * 2);
+    timer.precise_sleep(telem::MILLISECOND * 2, brk);
     EXPECT_GE(telem::TimeSpan(hs_clock::now() - start), telem::MILLISECOND * 2);
+    brk.stop();
 }
 
 /// @brief it should end a precise sleep on its deadline when the sleep is longer than
 /// one sleep of the operating system.
 TEST(LoopTest, testPreciseSleepEndsOnDeadline) {
     constexpr int COUNT = 50;
+    auto brk = breaker::Breaker(breaker::default_config("test"));
+    brk.start();
     Timer timer;
     for (const auto duration:
          {telem::MICROSECOND * 500, telem::MILLISECOND * 2, telem::MILLISECOND * 5}) {
@@ -222,43 +227,40 @@ TEST(LoopTest, testPreciseSleepEndsOnDeadline) {
         late.reserve(COUNT);
         for (int i = 0; i < COUNT; i++) {
             const auto start = hs_clock::now();
-            timer.precise_sleep(duration);
+            timer.precise_sleep(duration, brk);
             late.emplace_back(telem::TimeSpan(hs_clock::now() - start) - duration);
         }
         EXPECT_GE(*std::min_element(late.begin(), late.end()), telem::TimeSpan::ZERO())
             << "at " << duration;
         EXPECT_LT(median(late), telem::MICROSECOND * 20) << "at " << duration;
     }
+    brk.stop();
 }
 
-/// @brief Returns the CPU time the calling thread has used. Windows counts it in
-/// scheduler ticks, so a short span reads coarse there.
+// A Windows sleep step takes about 0.6 ms, so a 0.5 ms precise sleep spins there.
+#ifndef _WIN32
+/// @brief Returns the CPU time the calling thread has used.
 telem::TimeSpan thread_cpu_time() {
-#ifdef _WIN32
-    FILETIME created, exited, kernel, user;
-    GetThreadTimes(GetCurrentThread(), &created, &exited, &kernel, &user);
-    const auto ticks = [](const FILETIME &t) {
-        return (static_cast<std::int64_t>(t.dwHighDateTime) << 32) | t.dwLowDateTime;
-    };
-    return telem::TimeSpan((ticks(kernel) + ticks(user)) * 100);
-#else
     timespec ts{};
     clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts);
     return telem::TimeSpan(ts.tv_sec * 1'000'000'000LL + ts.tv_nsec);
-#endif
 }
 
 /// @brief it should sleep, not spin, through most of a precise sleep shorter than 1 ms.
 TEST(LoopTest, testSubMillisecondPreciseSleepSleeps) {
     constexpr int COUNT = 500;
+    auto brk = breaker::Breaker(breaker::default_config("test"));
+    brk.start();
     Timer timer;
     const auto cpu_start = thread_cpu_time();
     const auto start = hs_clock::now();
     for (int i = 0; i < COUNT; i++)
-        timer.precise_sleep(telem::MICROSECOND * 500);
+        timer.precise_sleep(telem::MICROSECOND * 500, brk);
     const auto wall = telem::TimeSpan(hs_clock::now() - start);
+    brk.stop();
     EXPECT_LT(thread_cpu_time() - cpu_start, wall * 0.75);
 }
+#endif
 
 /// @brief it should re-anchor after an overrun instead of catching up on the missed
 /// periods.
