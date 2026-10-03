@@ -188,36 +188,16 @@ func NewHost(ctx context.Context, rt wazero.Runtime) (*Host, error) {
 func (h *Host) Create(cfg node.Config) (node.Node, error) {
 	switch cfg.Node.Type {
 	case intervalSymbolName:
-		periodParam, ok := cfg.Node.Inputs.Get(periodInputParam)
-		if !ok {
-			return nil, query.ErrNotFound
-		}
-		period, err := parseTime(periodParam.Value, periodParam.Name)
-		if err != nil {
-			return nil, err
-		}
-		if err = validateStaticSpan(period, periodParam); err != nil {
+		if err := validateSpan(cfg.Node.Inputs, periodInputParam); err != nil {
 			return nil, err
 		}
 		return &Interval{State: cfg.State}, nil
 
 	case waitSymbolName:
-		durationParam, ok := cfg.Node.Inputs.Get(durationInputParam)
-		if !ok {
-			return nil, query.ErrNotFound
-		}
-		duration, err := parseTime(durationParam.Value, durationParam.Name)
-		if err != nil {
+		if err := validateSpan(cfg.Node.Inputs, durationInputParam); err != nil {
 			return nil, err
 		}
-		if err = validateStaticSpan(duration, durationParam); err != nil {
-			return nil, err
-		}
-		return &Wait{
-			State:     cfg.State,
-			startTime: -1,
-			fired:     false,
-		}, nil
+		return &Wait{State: cfg.State, startTime: -1}, nil
 
 	case nowSymbolName:
 		return &Now{State: cfg.State}, nil
@@ -227,9 +207,25 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 	}
 }
 
-// validateStaticSpan rejects a non-positive span stamped at compile time. Var-bound
-// params are exempt: the runtime guard covers their live values.
-func validateStaticSpan(span telem.TimeSpan, p types.Param) error {
+// validateSpan returns query.ErrNotFound when the named span input is missing, and a
+// validation error when its value is not a telem.TimeSpan or, unless var-bound, is not
+// positive. The runtime guard covers the live values of var-bound inputs.
+func validateSpan(inputs types.Params, name string) error {
+	p, ok := inputs.Get(name)
+	if !ok {
+		return query.ErrNotFound
+	}
+	span, ok := p.Value.(telem.TimeSpan)
+	if !ok {
+		return validate.PathedError(
+			errors.Wrapf(
+				validate.ErrInvalidType,
+				"expected type telem.TimeSpan, received %s",
+				reflect.TypeOf(p.Value).Name(),
+			),
+			p.Name,
+		)
+	}
 	if p.Type.Kind == types.KindVarRef || span > 0 {
 		return nil
 	}
@@ -237,21 +233,6 @@ func validateStaticSpan(span telem.TimeSpan, p types.Param) error {
 		errors.Wrapf(validate.ErrValidation, "must be positive, got %s", span),
 		p.Name,
 	)
-}
-
-func parseTime(v any, name string) (telem.TimeSpan, error) {
-	span, ok := v.(telem.TimeSpan)
-	if !ok {
-		return 0, validate.PathedError(
-			errors.Wrapf(
-				validate.ErrInvalidType,
-				"expected type telem.TimeSpan, received %s",
-				reflect.TypeOf(v).Name(),
-			),
-			name,
-		)
-	}
-	return span, nil
 }
 
 // liveSpan returns the named input's current span: the referenced variable's
@@ -308,13 +289,8 @@ func (i *Interval) Next(ctx node.Context) {
 		i.lastFired = ctx.Elapsed - period
 		i.started = true
 	}
-	if ctx.Reason != node.ReasonTimerTick {
-		ctx.MarkSelfChanged()
-		ctx.SetDeadline(i.lastFired + period)
-		return
-	}
 	// A timer never fires before its deadline. An early wake re-arms it.
-	if ctx.Elapsed-i.lastFired < period {
+	if ctx.Reason != node.ReasonTimerTick || ctx.Elapsed-i.lastFired < period {
 		ctx.MarkSelfChanged()
 		ctx.SetDeadline(i.lastFired + period)
 		return

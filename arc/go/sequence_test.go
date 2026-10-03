@@ -4168,7 +4168,7 @@ var _ = Describe("Sequence", func() {
 				out, _ = h.Flush()
 				Expect(
 					out.Get(104).Series,
-				).To(BeEmpty(), "at 100ms wait must not have fired (below 499.9ms threshold)")
+				).To(BeEmpty(), "at 100ms wait must not have fired (below 500ms threshold)")
 
 				h.Ingest(101, telem.NewSeriesV[uint8](1))
 				tickTo(101 * telem.Millisecond)
@@ -4194,7 +4194,7 @@ var _ = Describe("Sequence", func() {
 				out, _ = h.Flush()
 				Expect(out.Get(104).Series).To(BeEmpty(),
 					"at 550ms cumulative (448ms post-re-entry), wait must NOT have fired; "+
-						"if it did, wait did not reset on re-entry (startTime stuck at 1ms → elapsed-startTime=549ms > 499.9ms threshold)")
+						"if it did, wait did not reset on re-entry (startTime stuck at 1ms → elapsed-startTime=549ms > 500ms threshold)")
 
 				tickTo(602 * telem.Millisecond)
 				out, _ = h.Flush()
@@ -4210,11 +4210,11 @@ var _ = Describe("Sequence", func() {
 		//   immediately
 		// The probe fires interval once at elapsed=50ms (lastFired becomes
 		// 50ms), detours to parked within 10ms, and re-enters at elapsed=60ms
-		// — only 10ms past the last fire, well below the 99.9ms threshold.
+		// — only 10ms past the last fire, well below the 100ms threshold.
 		//   If interval reset on re-entry (started = false): it anchors again and
 		//   fires immediately on the re-entry tick.
 		//   If interval did NOT reset: lastFired = 50ms (stale), elapsed
-		//   - lastFired = 10ms < 99.9ms, no fire.
+		//   - lastFired = 10ms < 100ms, no fire.
 		// The assertion on the re-entry tick distinguishes the two cases.
 		It(
 			"interval{} cadence restarts when its stage is re-entered",
@@ -4265,7 +4265,7 @@ var _ = Describe("Sequence", func() {
 				out, _ = h.Flush()
 				Expect(lastU8(out, 103)).To(Equal(uint8(1)),
 					"interval should fire immediately on stage re-entry (reset clears started); "+
-						"if it did not fire, lastFired is stale (10ms since last fire < 99.9ms threshold)")
+						"if it did not fire, lastFired is stale (10ms since last fire < 100ms threshold)")
 
 				tickTo(70 * telem.Millisecond)
 				out, _ = h.Flush()
@@ -4275,7 +4275,7 @@ var _ = Describe("Sequence", func() {
 				tickTo(160 * telem.Millisecond)
 				out, _ = h.Flush()
 				Expect(lastU8(out, 103)).To(Equal(uint8(1)),
-					"interval should fire at elapsed=160ms (100ms since re-entry fire, past the 99.9ms threshold)")
+					"interval should fire at elapsed=160ms (100ms since re-entry fire, reaching the 100ms threshold)")
 			},
 		)
 

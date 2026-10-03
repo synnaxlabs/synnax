@@ -289,7 +289,6 @@ func (t *impl) open(ctx context.Context) (err error) {
 		),
 	)
 
-	drt.start = stdtime.Now()
 	drt.startReading = timer.Now()
 	drt.writeKeys = deps.Writes.Slice()
 
@@ -332,7 +331,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 				Name: t.prog.Name,
 				Key:  t.task.Key.String(),
 			},
-			Start: telem.NewTimeStamp(drt.start),
+			Start: telem.Now(),
 			Keys:  writeKeys,
 		}
 		if authorities := buildAuthorities(
@@ -484,8 +483,6 @@ type state struct {
 
 type dataRuntime struct {
 	confluence.AbstractLinear[framer.StreamerResponse, framer.WriterRequest]
-	// start is the wall clock time the runtime started at.
-	start stdtime.Time
 	// startReading is the timer.Now reading the runtime started at. Every deadline
 	// counts from it.
 	startReading stdtime.Duration
