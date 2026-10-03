@@ -82,7 +82,8 @@ const renderOverview = async (
         </PlatformRange.SnapshotServicesProvider>
       </PlutoPanel.TabScope.Provider>
     </PlutoPanel.Scope.Provider>,
-    { wrapper },
+    // A spec that passes a fallback expects the boundary to catch.
+    { wrapper, onCaughtError: FallbackComponent == null ? undefined : () => {} },
   );
   const setTabResource = async (nextKey: string) =>
     await act(async () => {

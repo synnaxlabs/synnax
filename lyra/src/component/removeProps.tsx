@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 /**
@@ -33,12 +34,11 @@ export const removeProps = <P extends object>(
   WrappedComponent: FC<P>,
   propsToRemove: string[],
 ): FC<P> => {
-  const omitted: Record<string, never> = {};
-  propsToRemove.forEach((prop) => (omitted[prop] = undefined as never));
-  const C = (props: P) => {
-    const { ...restProps } = { ...props, ...omitted };
-    return <WrappedComponent {...restProps} />;
-  };
+  const C = (props: P) => (
+    <WrappedComponent
+      {...(record.omit(props, ...(propsToRemove as (keyof P)[])) as P)}
+    />
+  );
   C.displayName = `RemoveProps(${WrappedComponent.displayName})`;
   return C;
 };

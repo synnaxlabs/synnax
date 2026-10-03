@@ -366,6 +366,18 @@ var _ = Describe("ImportGroup", func() {
 			Expect(g.Name).To(Equal("Valves"))
 			Expect(childNames(ctx, g)).To(ConsistOf("Inlet"))
 		})
+		It("Should replace a lone surrogate in the manifest with U+FFFD", func(
+			ctx SpecContext,
+		) {
+			g := importGroup(ctx, zip.Files{
+				"manifest.json": []byte(`{"version":1,"type":"symbol_group",` +
+					`"name":"Tank \ud83d","symbols":[{"file":"Inlet.json",` +
+					`"key":"` + uuid.New().String() + `","name":"Inlet"}]}`),
+				"Inlet.json": member("Inlet"),
+			})
+			Expect(g.Name).To(Equal("Tank \uFFFD"))
+			Expect(childNames(ctx, g)).To(ConsistOf("Inlet"))
+		})
 		It("Should reject a listed file the bundle does not hold", func(
 			ctx SpecContext,
 		) {

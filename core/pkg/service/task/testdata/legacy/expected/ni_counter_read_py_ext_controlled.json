@@ -1,0 +1,21 @@
+{
+  "auto_start": false,
+  "channels": [
+    {
+      "active_edge": "Falling",
+      "channel": 3112,
+      "count_direction": "CountUp",
+      "device": "fixture-ni-py-ctr-dev",
+      "disabled": false,
+      "initial_count": 5,
+      "key": "ch-py-ci-edge-count",
+      "name": "",
+      "port": 2,
+      "terminal": "/Dev1/PFI2",
+      "type": "ci_edge_count"
+    }
+  ],
+  "data_saving_disabled": false,
+  "sample_rate": 50,
+  "stream_rate": 10
+}

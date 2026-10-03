@@ -6,7 +6,8 @@
     "./Drawer.astro": "./src/Drawer.astro",
     "./Footer.astro": "./src/Footer.astro",
     "./MenuButton.astro": "./src/MenuButton.astro",
-    "./tokens.css": "./src/tokens.css"
+    "./PrivacyPolicy.astro": "./src/PrivacyPolicy.astro",
+    "./base.css": "./src/base.css"
   },
   "scripts": {
     "check-types": "astro check",

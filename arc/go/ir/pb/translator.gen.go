@@ -139,8 +139,13 @@ func TransitionToPB(r ir.Transition) (*Transition, error) {
 	if err != nil {
 		return nil, err
 	}
+	kindVal, err := EdgeKindToPB(r.Kind)
+	if err != nil {
+		return nil, err
+	}
 	pb := &Transition{
-		On: onVal,
+		On:   onVal,
+		Kind: kindVal,
 	}
 	if r.TargetKey != nil {
 		pb.TargetKey = r.TargetKey
@@ -156,6 +161,10 @@ func TransitionFromPB(pb *Transition) (ir.Transition, error) {
 	}
 	var err error
 	r.On, err = HandleFromPB(pb.On)
+	if err != nil {
+		return ir.Transition{}, err
+	}
+	r.Kind, err = EdgeKindFromPB(pb.Kind)
 	if err != nil {
 		return ir.Transition{}, err
 	}
@@ -262,6 +271,10 @@ func ScopeToPB(r ir.Scope) (*Scope, error) {
 	if err != nil {
 		return nil, err
 	}
+	activationKindVal, err := EdgeKindToPB(r.ActivationKind)
+	if err != nil {
+		return nil, err
+	}
 	strataVal, err := func() ([]*MembersWrapper, error) {
 		result := make([]*MembersWrapper, len(r.Strata))
 		for i, inner := range r.Strata {
@@ -285,12 +298,13 @@ func ScopeToPB(r ir.Scope) (*Scope, error) {
 		return nil, err
 	}
 	pb := &Scope{
-		Key:         r.Key,
-		Mode:        modeVal,
-		Liveness:    livenessVal,
-		Strata:      strataVal,
-		Steps:       stepsVal,
-		Transitions: transitionsVal,
+		Key:            r.Key,
+		Mode:           modeVal,
+		Liveness:       livenessVal,
+		ActivationKind: activationKindVal,
+		Strata:         strataVal,
+		Steps:          stepsVal,
+		Transitions:    transitionsVal,
 	}
 	if r.Activation != nil {
 		var err error
@@ -314,6 +328,10 @@ func ScopeFromPB(pb *Scope) (ir.Scope, error) {
 		return ir.Scope{}, err
 	}
 	r.Liveness, err = LivenessFromPB(pb.Liveness)
+	if err != nil {
+		return ir.Scope{}, err
+	}
+	r.ActivationKind, err = EdgeKindFromPB(pb.ActivationKind)
 	if err != nil {
 		return ir.Scope{}, err
 	}

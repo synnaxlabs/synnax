@@ -12,7 +12,7 @@ import { z } from "zod";
 
 import { binary } from "@/binary";
 import { primitive } from "@/primitive";
-import { testutil } from "@/testutil";
+import { toString } from "@/testutil";
 
 class ExampleStringer implements primitive.Stringer {
   readonly value: string;
@@ -43,10 +43,10 @@ describe("primitive", () => {
       { value: new ExampleStringer("cat"), expected: false },
     ];
     SPECS.forEach(({ value, expected }) => {
-      test(`isZero should return ${expected} for ${testutil.toString(value)}`, () => {
+      test(`isZero should return ${expected} for ${toString(value)}`, () => {
         expect(primitive.isZero(value)).toEqual(expected);
       });
-      test(`isNonZero should return ${!expected} for ${testutil.toString(value)}`, () => {
+      test(`isNonZero should return ${!expected} for ${toString(value)}`, () => {
         expect(primitive.isNonZero(value)).toEqual(!expected);
       });
     });
