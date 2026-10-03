@@ -138,8 +138,10 @@ func (t *Timer) spinToDeadline() {
 			return
 		}
 		remaining := time.Duration(deadline) - Now()
-		// The deadline moved later after this wake. The timer is set again for it.
+		// The wake was early, or Reset moved the deadline later. A stale fire is safe:
+		// the receiver checks its clock and calls Reset, which sets the timer again.
 		if remaining > 2*spin {
+			t.fire()
 			return
 		}
 		if remaining <= 0 {
