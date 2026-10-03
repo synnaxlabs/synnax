@@ -168,15 +168,18 @@ errors here are invisible at runtime.
 ## Package layout
 
 `src/index.ts` entry, tests co-located, `dist/` output (ESM `index.js`, types at
-`dist/src/index.d.ts`). Standard scripts: `build` = `tsc --noEmit && vite build`, plus
-`check-types`, `test`, `lint`, `fix`.
+`dist/src/index.d.ts`). x and Lyra build with `lib({ transpiled: true })` instead: one
+file per source file, so `dist/` mirrors `src/` (`dist/index.js`, `dist/index.d.ts`).
+Standard scripts: `build` = `tsc --noEmit && vite build`, plus `check-types`, `test`,
+`lint`, `fix`.
 
 ## Bundling and publishing
 
 Every dependency is either **external** (the import survives in `dist/`, and the
 consumer's installer supplies the code) or **bundled** (the code is copied into
 `dist/`). The choice belongs in the package's `vite.config.ts`
-`rolldownOptions.external` array.
+`rolldownOptions.external` array. A transpiled package bundles nothing: every runtime
+import stays in `dist/`, so each one is a `dependencies` or `peerDependencies` entry.
 
 > **Externalize what appears in your public API surface, or what must exist exactly
 > once. Bundle everything else.**
