@@ -372,6 +372,34 @@ var _ = Describe("Sequence", func() {
 			},
 		)
 
+		It(
+			"Transitions on the first fire of an interval",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(
+					map[string]channelDef{"log": {types.String(), 101}},
+				)
+				h := newRuntimeHarness(ctx, `import time
+				sequence main {
+				    stage a {
+				        "a" -> log
+				        time.interval{50ms} => next
+				    }
+				    stage b {
+				        "b" -> log
+				    }
+				}
+				1 => main`, resolver,
+					channels.Digest{Key: 101, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+
+				advance(h, ctx, telem.Millisecond)
+				advance(h, ctx, 2*telem.Millisecond)
+				advance(h, ctx, 3*telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(drainStrings(out, 101)).To(Equal([]string{"a", "b"}))
+			},
+		)
 
 		It(
 			"Advances past a nested sequence whose terminal step is an assignment",

@@ -325,13 +325,13 @@ func (i *Interval) Next(ctx node.Context) {
 	i.lastFired += behind - behind%period
 	ctx.MarkSelfChanged()
 	ctx.SetDeadline(i.lastFired + period)
-	i.Emit(ctx, 0)
 	output := i.Output(0)
 	outputTime := i.OutputTime(0)
 	output.Resize(1)
 	outputTime.Resize(1)
 	output.SetValueAt(0, uint8(1))
 	outputTime.SetValueAt(0, ctx.Now)
+	i.Emit(ctx, 0)
 }
 
 // Reset resets the interval so it fires immediately on the next timer tick.
