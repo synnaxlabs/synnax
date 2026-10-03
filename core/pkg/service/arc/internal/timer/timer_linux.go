@@ -44,6 +44,9 @@ func (t *Timer) open() error {
 }
 
 func (t *Timer) read() {
+	// The last fire wakes the receiver after done closes, so its next Reset or Stop
+	// returns err.
+	defer t.fire()
 	defer close(t.done)
 	buf := make([]byte, 8)
 	for {
@@ -51,8 +54,6 @@ func (t *Timer) read() {
 			if !errors.Is(err, os.ErrClosed) {
 				t.err = errors.Wrap(err, "failed to read timerfd")
 			}
-			// Wakes the receiver, so its next Reset or Stop returns the error.
-			t.fire()
 			return
 		}
 		t.fire()

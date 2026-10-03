@@ -114,14 +114,15 @@ func (t *Timer) open() error {
 }
 
 func (t *Timer) wait() {
+	// The last fire wakes the receiver after done closes, so its next Reset or Stop
+	// returns err.
+	defer t.fire()
 	defer close(t.done)
 	handles := []windows.Handle{t.handle, t.closed}
 	for {
 		event, err := windows.WaitForMultipleObjects(handles, false, windows.INFINITE)
 		if err != nil {
 			t.err = errors.Wrap(err, "failed to wait on waitable timer")
-			// Wakes the receiver, so its next Reset or Stop returns the error.
-			t.fire()
 			return
 		}
 		if event == windows.WAIT_OBJECT_0+1 {
