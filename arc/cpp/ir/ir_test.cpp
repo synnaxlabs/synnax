@@ -228,10 +228,17 @@ TEST(IRTest, testEdgeToStringConditional) {
     ASSERT_EQ(str, "a.out => b.in (conditional)");
 }
 
+/// @brief it should format an Edge with no kind with ?>
+TEST(IRTest, testEdgeToStringUnspecified) {
+    const Edge e(Handle("a", "out"), Handle("b", "in"), EdgeKind::Unspecified);
+    ASSERT_EQ(e.to_string(), "a.out ?> b.in");
+}
+
 /// @brief it should format a Transition with a step-key target
 TEST(IRTest, testTransitionToStringStepKey) {
     Transition t;
     t.on = Handle("n", "out");
+    t.kind = EdgeKind::Conditional;
     t.target_key = "next";
     const auto str = t.to_string();
     ASSERT_NE(str.find("on n/out"), std::string::npos);
@@ -242,6 +249,7 @@ TEST(IRTest, testTransitionToStringStepKey) {
 TEST(IRTest, testTransitionToStringExit) {
     Transition t;
     t.on = Handle("n", "out");
+    t.kind = EdgeKind::Conditional;
     // target_key left unset signals exit.
     ASSERT_NE(t.to_string().find("=> exit"), std::string::npos);
 }
@@ -262,6 +270,14 @@ TEST(IRTest, testTransitionToStringContinuous) {
     t.kind = EdgeKind::Continuous;
     t.target_key = "next";
     ASSERT_EQ(t.to_string(), "on n/out -> next");
+}
+
+/// @brief it should format a Transition with no kind with ?>
+TEST(IRTest, testTransitionToStringUnspecified) {
+    Transition t;
+    t.on = Handle("n", "out");
+    t.target_key = "next";
+    ASSERT_EQ(t.to_string(), "on n/out ?> next");
 }
 
 /// @brief it should format a Member wrapping a leaf node-key
@@ -323,6 +339,7 @@ TEST(IRTest, testScopeToStringSequentialWithTransitions) {
     s.steps.push_back(node_member("second"));
     Transition t;
     t.on = Handle("first", "done");
+    t.kind = EdgeKind::Conditional;
     t.target_key = "second";
     s.transitions.push_back(t);
     const auto str = s.to_string();

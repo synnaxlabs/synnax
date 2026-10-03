@@ -14,31 +14,20 @@
 
 namespace arc::ir {
 
-std::string Handle::to_string() const {
-    return this->node + "." + this->param;
-}
-
-std::ostream &operator<<(std::ostream &os, const Handle &h) {
-    return os << h.to_string();
-}
-
-std::string Edge::to_string() const {
-    std::ostringstream ss;
-    ss << this->source.to_string();
-    ss << (this->kind == EdgeKind::Conditional ? " => " : " -> ");
-    ss << this->target.to_string();
-    if (this->kind == EdgeKind::Continuous)
-        ss << " (continuous)";
-    else if (this->kind == EdgeKind::Conditional)
-        ss << " (conditional)";
-    return ss.str();
-}
-
-std::ostream &operator<<(std::ostream &os, const Edge &e) {
-    return os << e.to_string();
-}
-
 namespace {
+
+/// @brief returns the Arc operator for kind: "->" for continuous, "=>" for
+/// conditional, and "?>" for any other kind.
+const char *arrow(const EdgeKind k) {
+    switch (k) {
+        case EdgeKind::Continuous:
+            return "->";
+        case EdgeKind::Conditional:
+            return "=>";
+        default:
+            return "?>";
+    }
+}
 
 /// @brief returns the short label used in tree output for a scope's mode.
 const char *scope_mode_label(const ScopeMode m) {
@@ -66,10 +55,34 @@ const char *liveness_label(const Liveness l) {
 
 }
 
+std::string Handle::to_string() const {
+    return this->node + "." + this->param;
+}
+
+std::ostream &operator<<(std::ostream &os, const Handle &h) {
+    return os << h.to_string();
+}
+
+std::string Edge::to_string() const {
+    std::ostringstream ss;
+    ss << this->source.to_string();
+    ss << " " << arrow(this->kind) << " ";
+    ss << this->target.to_string();
+    if (this->kind == EdgeKind::Continuous)
+        ss << " (continuous)";
+    else if (this->kind == EdgeKind::Conditional)
+        ss << " (conditional)";
+    return ss.str();
+}
+
+std::ostream &operator<<(std::ostream &os, const Edge &e) {
+    return os << e.to_string();
+}
+
 std::string Transition::to_string() const {
     std::ostringstream ss;
-    ss << "on " << this->on.node << "/" << this->on.param << " "
-       << (this->kind == EdgeKind::Continuous ? "->" : "=>") << " ";
+    ss << "on " << this->on.node << "/" << this->on.param << " " << arrow(this->kind)
+       << " ";
     if (this->target_key.has_value())
         ss << *this->target_key;
     else if (this->activate_key.has_value())
