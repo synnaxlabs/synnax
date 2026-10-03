@@ -1,0 +1,22 @@
+{
+  "type": "ni_counter_read",
+  "auto_start": false,
+  "data_saving": true,
+  "sample_rate": 50,
+  "stream_rate": 10,
+  "device": "fixture-ni-py-ctr-dev",
+  "channels": [
+    {
+      "key": "ch-py-ci-edge-count",
+      "enabled": true,
+      "device": "fixture-ni-py-ctr-dev",
+      "port": 2,
+      "channel": 3112,
+      "type": "ci_edge_count",
+      "active_edge": "Falling",
+      "count_direction": "ExtControlled",
+      "initial_count": 5,
+      "terminal": "/Dev1/PFI2"
+    }
+  ]
+}

@@ -33,9 +33,14 @@ export interface UnaryClient extends Transport {
   ) => Promise<z.infer<RS>>;
 }
 
+/**
+ * Wraps a unary client so it retries requests that fail on an unreachable target.
+ * @param onRetry - Receives each failure the breaker retries. Defaults to console.warn.
+ */
 export const unaryWithBreaker = (
   base: UnaryClient,
   cfg: breaker.Config,
+  onRetry: (error: Error) => void = console.warn,
 ): UnaryClient => {
   class WithBreaker implements UnaryClient {
     readonly wrapped: UnaryClient;
@@ -61,7 +66,7 @@ export const unaryWithBreaker = (
         } catch (err) {
           const e = errors.fromUnknown(err);
           if (!Unreachable.matches(e) || !brk.canRetry) throw e;
-          console.warn(`[freighter] ${brk.retryMessage}`, e);
+          onRetry(new Error(brk.retryMessage, { cause: e }));
           await brk.wait();
         }
       while (true);

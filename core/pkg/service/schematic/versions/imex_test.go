@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("DecodeImExEnvelope", func() {
@@ -187,6 +188,17 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		env.Name = "Renamed"
 		Expect(MustSucceed(versions.DecodeImExEnvelope(ctx, env)).Name).
 			To(Equal("Renamed"))
+	})
+
+	It("Should reject a v8 envelope holding a config the union rejects", func(
+		ctx SpecContext,
+	) {
+		Expect(versions.DecodeImExEnvelope(
+			ctx, LoadEnvelope("testdata/import_v8_rejected.json"),
+		)).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("node n1")),
+		))
 	})
 
 	It("Should reject a version newer than Latest", func(ctx SpecContext) {

@@ -12,40 +12,44 @@ import { Logo } from "@synnaxlabs/media";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
+import flag from "./us-flag.svg";
+
+interface Link {
+    label: string;
+    href: string;
+}
+
+interface Column {
+    title: string;
+    href?: string;
+    links: Link[];
+}
+
+interface Props {
+    /** The URL of the Synnax Labs home page as seen from the site. */
+    home: string;
+    columns: Column[];
+}
+
+const { home, columns } = Astro.props;
 ---
 
 <Flex.Box el="footer" justify="center" align="center">
     <Flex.Box className="footer-content" align="stretch">
-        <a href="https://synnaxlabs.com" class="footer-logo-link">
+        <a href={home} class="footer-logo-link">
             <Logo variant="title" />
         </a>
         <Flex.Box direction="x" justify="between" align="start" className="footer-main">
-            <Flex.Box align="start" className="footer-link-column">
-                <Text.Text level="small" className="footer-column-header">
-                    Documentation
-                </Text.Text>
-                <a href="/reference/">Reference</a>
-                <a href="/reference/concepts/overview">Concepts</a>
-                <a href="/reference/client/quick-start">Client libraries</a>
-                <a href="/reference/control/get-started">Control</a>
-            </Flex.Box>
-            <Flex.Box align="start" className="footer-link-column">
-                <Text.Text level="small" className="footer-column-header">
-                    Resources
-                </Text.Text>
-                <a href="/blog/">Blog</a>
-                <a href="/releases/">Releases</a>
-                <a href="/reliability/">Reliability</a>
-                <a href="https://github.com/synnaxlabs/synnax">GitHub</a>
-            </Flex.Box>
-            <Flex.Box align="start" className="footer-link-column">
-                <Text.Text level="small" className="footer-column-header">
-                    Company
-                </Text.Text>
-                <a href="https://www.synnaxlabs.com/company">About</a>
-                <a href="https://synnaxlabs.com/#contact">Contact</a>
-                <a href="/privacy-policy">Privacy policy</a>
-            </Flex.Box>
+            {columns.map(({ title, href, links }) => (
+                <Flex.Box align="start" className="footer-link-column">
+                    <Text.Text level="small" className="footer-column-header">
+                        {href == null ? title : <a href={href}>{title}</a>}
+                    </Text.Text>
+                    {links.map(({ label, href }) => (
+                        <a href={href}>{label}</a>
+                    ))}
+                </Flex.Box>
+            ))}
             <Flex.Box align="end" className="footer-link-column">
                 <Text.Text level="small" className="footer-column-header">
                     Location
@@ -77,11 +81,7 @@ import { Text } from "@synnaxlabs/lyra/text";
                     </Text.Text>
                 </Flex.Box>
                 <div class="footer-flag-wrapper">
-                    <img
-                        src="/images/us-flag.svg"
-                        alt="American flag"
-                        class="footer-flag"
-                    />
+                    <img src={flag.src} alt="American flag" class="footer-flag" />
                     <div class="footer-flag-shimmer"></div>
                 </div>
                 <Flex.Box className="footer-social">
@@ -99,13 +99,13 @@ import { Text } from "@synnaxlabs/lyra/text";
 
 <style is:global>
     footer {
-        padding: 8rem 7rem;
+        padding: var(--space-lg) var(--content-padding);
         border-top: var(--pluto-border);
 
         .footer-content {
             width: 100%;
             max-width: var(--max-width);
-            gap: 8rem;
+            gap: var(--space-lg);
         }
 
         .footer-logo-link {
@@ -126,7 +126,6 @@ import { Text } from "@synnaxlabs/lyra/text";
             a {
                 color: var(--pluto-gray-l8);
                 text-decoration: none;
-                font-family: var(--pluto-font-family);
                 font-size: 2rem;
                 transition: color 0.2s ease-in-out;
 
@@ -138,21 +137,15 @@ import { Text } from "@synnaxlabs/lyra/text";
 
         .footer-column-header {
             color: var(--pluto-text-color);
-            font-size: 2rem;
             font-weight: 500;
-            font-family: var(--pluto-font-family);
+            font-family: var(--pluto-code-font-family);
             text-transform: uppercase;
             letter-spacing: 0.08em;
             margin-bottom: 0.5rem;
-        }
 
-        .footer-muted {
-            color: var(--pluto-gray-l8);
-        }
-
-        .footer-built-in {
-            gap: 0.25rem;
-            font-family: var(--pluto-mono-font-family);
+            a {
+                color: inherit;
+            }
         }
 
         .footer-flag-wrapper {
@@ -183,9 +176,18 @@ import { Text } from "@synnaxlabs/lyra/text";
             animation: flag-shimmer 4s ease-in-out infinite;
         }
 
+        .footer-built-in {
+            gap: 0.25rem;
+            font-family: var(--pluto-code-font-family);
+        }
+
+        .footer-muted {
+            color: var(--pluto-gray-l8);
+        }
+
         .footer-bottom-bar {
             width: 100%;
-            padding-top: 8rem;
+            padding-top: var(--space-lg);
             border-top: var(--pluto-border);
         }
 
@@ -198,8 +200,8 @@ import { Text } from "@synnaxlabs/lyra/text";
         }
 
         .footer-social-link {
-            height: 3rem;
-            width: 3rem;
+            height: 4rem;
+            width: 4rem;
             color: var(--pluto-gray-l8);
             transition: color 0.2s ease-in-out;
 
@@ -213,7 +215,7 @@ import { Text } from "@synnaxlabs/lyra/text";
         footer .footer-main {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 5rem;
+            gap: var(--space-md);
         }
 
         footer .footer-link-column {
@@ -242,17 +244,13 @@ import { Text } from "@synnaxlabs/lyra/text";
     }
 
     @media (max-width: 600px) {
-        footer {
-            padding: 5rem 3rem;
-        }
-
         footer .footer-logo-link .synnax-logo--title {
             height: 3.5rem;
         }
 
         footer .footer-social-link {
-            height: 2.5rem;
-            width: 2.5rem;
+            height: 3rem;
+            width: 3rem;
         }
     }
 

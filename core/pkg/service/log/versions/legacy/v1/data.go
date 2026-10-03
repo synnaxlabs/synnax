@@ -43,8 +43,9 @@ type ChannelEntry struct {
 	Color string `json:"color"`
 	// Notation is the numeric display notation.
 	Notation notation.Notation `json:"notation"`
-	// Precision is the number of decimal places displayed.
-	Precision int32 `json:"precision"`
+	// Precision is the number of decimal places displayed. The Console's numeric input
+	// stored a typed fraction unrounded.
+	Precision float64 `json:"precision"`
 	// Alias overrides the channel name; empty for none.
 	Alias string `json:"alias"`
 	// Timestamp is the timestamp display configuration.
@@ -57,8 +58,8 @@ type ChannelEntry struct {
 type Data struct {
 	// Channels are the displayed channels with display options.
 	Channels []ChannelEntry `json:"channels"`
-	// TimestampPrecision is the timestamp display precision.
-	TimestampPrecision int32 `json:"timestampPrecision"`
+	// TimestampPrecision is the timestamp display precision, stored like Precision.
+	TimestampPrecision float64 `json:"timestampPrecision"`
 	// ShowChannelNames toggles channel name display.
 	ShowChannelNames bool `json:"showChannelNames"`
 	// ShowReceiptTimestamp toggles receipt timestamp display.

@@ -34,6 +34,8 @@ import {
   secondsLinspace,
 } from "@/testutil";
 
+const quiet = (): void => {};
+
 const client = createTestClient();
 
 describe("Streamer", () => {
@@ -658,7 +660,9 @@ describe("Streamer", () => {
     });
 
     it("should reject a silent read with Unreachable after the deadline", async () => {
-      const { proxy, client: proxied } = await createProxiedTestClient();
+      const { proxy, client: proxied } = await createProxiedTestClient({
+        onRetry: quiet,
+      });
       const ch = await newVirtualChannel(client);
       const streamer = await proxied.openStreamer({
         channels: ch.key,
@@ -682,16 +686,16 @@ describe("Streamer", () => {
     }, 30_000);
 
     it("should reconnect and resume streaming after a silent death", async () => {
-      const { proxy, client: proxied } = await createProxiedTestClient();
+      const { proxy, client: proxied } = await createProxiedTestClient({
+        onRetry: quiet,
+      });
       const ch = await newVirtualChannel(client);
       const onDrop = vi.fn();
       const onReopen = vi.fn();
       const hardened = await HardenedStreamer.open(
         async (cfg) => await proxied.openStreamer(cfg),
         { channels: ch.key, keepAlive: KEEP_ALIVE },
-        FAST_RETRY,
-        onReopen,
-        onDrop,
+        { breaker: FAST_RETRY, onReopen, onDrop, onRetry: quiet },
       );
       try {
         await write(ch, [1]);
@@ -712,7 +716,9 @@ describe("Streamer", () => {
     }, 30_000);
 
     it("should leave a silent read pending when keep-alive is disabled", async () => {
-      const { proxy, client: proxied } = await createProxiedTestClient();
+      const { proxy, client: proxied } = await createProxiedTestClient({
+        onRetry: quiet,
+      });
       const ch = await newVirtualChannel(client);
       const streamer = await proxied.openStreamer({
         channels: ch.key,
@@ -798,9 +804,7 @@ describe("Streamer", () => {
           return streamer2;
         },
         { channels: [1] },
-        undefined,
-        undefined,
-        onDrop,
+        { onDrop },
       );
       expect(await hardened.read()).toEqual(fr1);
       expect(await hardened.read()).toEqual(fr2);
@@ -817,7 +821,7 @@ describe("Streamer", () => {
           return new MockStreamer();
         },
         { channels: [1] },
-        { baseInterval: TimeSpan.milliseconds(30), jitter: 0 },
+        { breaker: { baseInterval: TimeSpan.milliseconds(30), jitter: 0 } },
       );
       const pending = hardened.read().catch((e: unknown) => e);
       await new Promise((resolve) => setTimeout(resolve, 150));
@@ -842,7 +846,7 @@ describe("Streamer", () => {
           throw new Unreachable({ message: "still down" });
         },
         { channels: [1] },
-        { baseInterval: TimeSpan.seconds(60) },
+        { breaker: { baseInterval: TimeSpan.seconds(60) } },
       );
       expect(await hardened.read()).toEqual(fr1);
       // drops, fails one reopen, then sleeps out the 60s backoff
@@ -865,6 +869,7 @@ describe("Streamer", () => {
         [fr1, new Unreachable({ message: "down" })],
       ];
       let opens = 0;
+      const onRetry = vi.fn<(error: Error) => void>();
       const hardened = await HardenedStreamer.open(
         async () => {
           opens++;
@@ -872,23 +877,24 @@ describe("Streamer", () => {
           throw new Unreachable({ message: "still down" });
         },
         { channels: [1] },
-        { baseInterval: TimeSpan.seconds(60), maxInterval: TimeSpan.milliseconds(5) },
+        {
+          breaker: {
+            baseInterval: TimeSpan.seconds(60),
+            maxInterval: TimeSpan.milliseconds(5),
+          },
+          onRetry,
+        },
       );
       expect(await hardened.read()).toEqual(fr1);
       // maxInterval also sets stableAfter, so a stream older than it counts as
       // healthy: the drop skips the pre-loop backoff and reaches the retry
       // loop's own, which still sleeps the full baseInterval on its first wait.
       await new Promise((resolve) => setTimeout(resolve, 20));
-      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
-      try {
-        const pending = hardened.read().catch((e: unknown) => e);
-        await expect.poll(() => opens).toBe(2);
-        hardened.close();
-        expect(EOF.matches(await pending)).toBe(true);
-        expect(consoleError).not.toHaveBeenCalled();
-      } finally {
-        consoleError.mockRestore();
-      }
+      const pending = hardened.read().catch((e: unknown) => e);
+      await expect.poll(() => opens).toBe(2);
+      hardened.close();
+      expect(EOF.matches(await pending)).toBe(true);
+      expect(onRetry).not.toHaveBeenCalled();
     });
 
     it("should not throw when closed while reconnecting", async () => {
@@ -906,7 +912,7 @@ describe("Streamer", () => {
           throw new Unreachable({ message: "still down" });
         },
         { channels: [1] },
-        { baseInterval: TimeSpan.seconds(60) },
+        { breaker: { baseInterval: TimeSpan.seconds(60) } },
       );
       expect(await hardened.read()).toEqual(fr1);
       const pending = hardened.read().catch((e: unknown) => e);
@@ -959,6 +965,7 @@ describe("Streamer", () => {
       ];
       streamer5.responses = [[fr5, null]];
       const openerMock = vi.fn();
+      const onRetry = vi.fn<(error: Error) => void>();
       let count = 0;
       const hardened = await HardenedStreamer.open(
         async () => {
@@ -969,13 +976,14 @@ describe("Streamer", () => {
           return streamer5;
         },
         { channels: [1] },
-        { baseInterval: TimeSpan.milliseconds(1) },
+        { breaker: { baseInterval: TimeSpan.milliseconds(1) }, onRetry },
       );
       const fr = await hardened.read();
       expect(fr).toEqual(fr1);
       const fr2 = await hardened.read();
       expect(fr2).toEqual(fr5);
       expect(openerMock).toHaveBeenCalledTimes(5);
+      expect(onRetry).toHaveBeenCalledTimes(3);
     });
 
     it("should rethrow the error when the breaker exceeds the max retries", async () => {
@@ -983,6 +991,7 @@ describe("Streamer", () => {
       const fr = new Frame({ 1: new Series([1]) });
       streamer.responses = [[fr, null]];
       const openerMock = vi.fn();
+      const onRetry = vi.fn<(error: Error) => void>();
       await expect(
         HardenedStreamer.open(
           async () => {
@@ -990,13 +999,18 @@ describe("Streamer", () => {
             throw new Unreachable({ message: "very unreachable" });
           },
           { channels: [1] },
-          { maxRetries: 3, baseInterval: TimeSpan.milliseconds(1) },
+          {
+            breaker: { maxRetries: 3, baseInterval: TimeSpan.milliseconds(1) },
+            onRetry,
+          },
         ),
       ).rejects.toThrow("very unreachable");
+      expect(onRetry).toHaveBeenCalledTimes(3);
     });
 
     it("should retry an open the auth middleware could not refresh", async () => {
       const openerMock = vi.fn();
+      const onRetry = vi.fn<(error: Error) => void>();
       await expect(
         HardenedStreamer.open(
           async () => {
@@ -1004,10 +1018,14 @@ describe("Streamer", () => {
             throw new ExpiredTokenError("token expired");
           },
           { channels: [1] },
-          { maxRetries: 2, baseInterval: TimeSpan.milliseconds(1) },
+          {
+            breaker: { maxRetries: 2, baseInterval: TimeSpan.milliseconds(1) },
+            onRetry,
+          },
         ),
       ).rejects.toThrow(ExpiredTokenError);
       expect(openerMock.mock.calls.length).toBeGreaterThan(1);
+      expect(onRetry).toHaveBeenCalled();
     });
 
     it("should give up on the first denial instead of retrying", async () => {
@@ -1019,7 +1037,7 @@ describe("Streamer", () => {
             throw new AccessDeniedError("no permission to stream");
           },
           { channels: [1] },
-          { maxRetries: 3, baseInterval: TimeSpan.milliseconds(1) },
+          { breaker: { maxRetries: 3, baseInterval: TimeSpan.milliseconds(1) } },
         ),
       ).rejects.toThrow(AccessDeniedError);
       expect(openerMock).toHaveBeenCalledTimes(1);
@@ -1034,7 +1052,7 @@ describe("Streamer", () => {
             throw new MissingLicenseError("No license is active on this Core");
           },
           { channels: [1] },
-          { maxRetries: 3, baseInterval: TimeSpan.milliseconds(1) },
+          { breaker: { maxRetries: 3, baseInterval: TimeSpan.milliseconds(1) } },
         ),
       ).rejects.toThrow(MissingLicenseError);
       expect(openerMock).toHaveBeenCalledTimes(1);
@@ -1060,9 +1078,7 @@ describe("Streamer", () => {
           return streamer2;
         },
         { channels: [1] },
-        undefined,
-        onReopen,
-        onDrop,
+        { onReopen, onDrop },
       );
       expect(onDrop).not.toHaveBeenCalled();
       expect(onReopen).not.toHaveBeenCalled();
@@ -1119,9 +1135,7 @@ describe("Streamer", () => {
           return await new Promise<Streamer>((resolve) => pendingOpens.push(resolve));
         },
         { channels: [1] },
-        { maxInterval: TimeSpan.milliseconds(5), jitter: 0 },
-        undefined,
-        onDrop,
+        { breaker: { maxInterval: TimeSpan.milliseconds(5), jitter: 0 }, onDrop },
       );
       expect(await hardened.read()).toEqual(fr1);
       // Age the stream past stableAfter so the reconnect skips the backoff sleep.
@@ -1157,7 +1171,7 @@ describe("Streamer", () => {
           return await new Promise<Streamer>((_, reject) => pendingOpens.push(reject));
         },
         { channels: [1] },
-        { maxInterval: TimeSpan.milliseconds(5), jitter: 0 },
+        { breaker: { maxInterval: TimeSpan.milliseconds(5), jitter: 0 } },
       );
       expect(await hardened.read()).toEqual(fr1);
       await sleep.sleep(TimeSpan.milliseconds(10));

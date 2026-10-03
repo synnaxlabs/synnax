@@ -23,6 +23,8 @@ import {
   spyOnSend,
 } from "@/testutil";
 
+const quiet = (): void => {};
+
 const client = createTestClient();
 const remote = createTestClient();
 
@@ -563,6 +565,7 @@ describe("cached reads", () => {
     it("serves literal names from the record store without reaching the cluster", async () => {
       const { proxy, client: local } = await createProxiedTestClient({
         retry: FAST_RETRY,
+        onRetry: quiet,
       });
       const ch = await createVirtual(local);
       await proxy.sever();
@@ -577,6 +580,7 @@ describe("cached reads", () => {
       const unknown = await createVirtual(remote);
       const { proxy, client: local } = await createProxiedTestClient({
         retry: FAST_RETRY,
+        onRetry: quiet,
       });
       const known = await createVirtual(local);
       await proxy.sever();
@@ -596,6 +600,7 @@ describe("cached reads", () => {
     it("goes to the cluster for a name holding regex characters", async () => {
       const { proxy, client: local } = await createProxiedTestClient({
         retry: FAST_RETRY,
+        onRetry: quiet,
       });
       const ch = await createVirtual(local);
       await proxy.sever();
@@ -607,6 +612,7 @@ describe("cached reads", () => {
     it("goes to the cluster when a name matches two stored channels", async () => {
       const { proxy, client: local } = await createProxiedTestClient({
         retry: FAST_RETRY,
+        onRetry: quiet,
       });
       const ch = await createVirtual(local);
       const other = await createVirtual(local);
@@ -626,6 +632,7 @@ describe("cached reads", () => {
     it("goes to the cluster for a request narrowed beyond names", async () => {
       const { proxy, client: local } = await createProxiedTestClient({
         retry: FAST_RETRY,
+        onRetry: quiet,
       });
       const ch = await createVirtual(local);
       await proxy.sever();

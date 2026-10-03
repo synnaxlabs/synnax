@@ -29,7 +29,12 @@ export class Transport {
   readonly stream: WebSocketClient;
   readonly secure: boolean;
 
-  constructor(url: url.URL, breakerCfg: breaker.Config = {}, secure: boolean = false) {
+  constructor(
+    url: url.URL,
+    breakerCfg: breaker.Config = {},
+    secure: boolean = false,
+    onRetry?: (error: Error) => void,
+  ) {
     this.secure = secure;
     this.url = url.child("/api/v1/");
     const codec = new binary.JSONCodec();
@@ -38,7 +43,7 @@ export class Transport {
     // client deliberately skips the breaker's retry wrapper: an upload body may be a
     // one-shot ReadableStream that cannot be re-sent on a retry.
     const http = new HTTPClient(this.url, codec, this.secure);
-    this.unary = unaryWithBreaker(http, breakerCfg);
+    this.unary = unaryWithBreaker(http, breakerCfg, onRetry);
     this.unaryNoRetry = http;
     this.file = http;
     this.stream = new WebSocketClient(this.url, codec, this.secure);
