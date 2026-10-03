@@ -735,9 +735,11 @@ When transitioning to a top-level sequence or stage (e.g., `=> abort`):
    scope holding the transition restarts.
 4. There is no built-in "return" mechanism.
 
-If several transitions that leave a scope are true in the same cycle, only the first in
-source order acts. This holds across nesting: a transition in a stage and a transition
-in a sequence declared inside that stage are ordered by their position in the source.
+Within one sequence, only the first true transition in source order acts. Among the
+jumps to top-level scopes that one top-level scope holds, only the first true jump in
+source order acts, at any depth of nesting. A different transition in a sequence nested
+inside a stage, such as `=> next`, acts before the jumps of that stage, whatever its
+position in the source.
 
 Activations are independent: several top-level scopes can run at the same time.
 
