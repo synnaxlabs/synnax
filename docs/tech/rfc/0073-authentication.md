@@ -152,11 +152,13 @@ A hash never leaves the Core. Clients see every other field.
 ### 4.2 OpenID Connect
 
 A provider is a Core start setting: a name, an issuer URL, and a client ID. Only the
-Console logs in this way. It asks the Core for the provider's login URL, opens the
-system browser, and receives a code on a loopback redirect. That code is the proof. The
-Core exchanges it with the provider and validates the result, so the Core must be able
-to reach the provider. An air-gapped site runs its own provider. A site with smart cards
-puts the card check in its provider.
+Console logs in this way. It reads the provider's login address from `auth/methods`,
+opens the system browser with a PKCE challenge, and receives a code on a loopback
+redirect. The code and the PKCE verifier are the proof. The Core exchanges them with the
+provider and validates the result, so the Core must be able to reach the provider. The
+Core keeps no state between the two steps, so a cluster node other than the one that
+served `auth/methods` can finish the login. An air-gapped site runs its own provider. A
+site with smart cards puts the card check in its provider.
 
 The provider answers with a signed ID token. The Core checks its signature, issuer,
 audience, expiry, and nonce, and then reads two claims:
@@ -354,22 +356,32 @@ The rack schema does not change. A rack's API keys point at it.
 
 ### 4.10 API and clients
 
-| Endpoint                 | Token | Purpose                               |
-| ------------------------ | ----- | ------------------------------------- |
-| `auth/methods`           | No    | Accepted methods and providers        |
-| `auth/oidc/authorize`    | No    | Login URL for a provider              |
-| `auth/session/create`    | No    | Log in with a proof                   |
-| `auth/session/renew`     | Yes   | Report activity                       |
-| `auth/session/retrieve`  | Yes   | List sessions                         |
-| `auth/session/delete`    | Yes   | Log out or revoke                     |
-| `auth/password/set`      | Yes   | Set or change a password or username  |
-| `auth/password/retrieve` | Yes   | Usernames of subjects                 |
-| `auth/key/create`        | Yes   | Create an API key, returned once      |
-| `auth/key/retrieve`      | Yes   | List API keys, without hashes         |
-| `auth/key/delete`        | Yes   | Delete API keys                       |
-| `auth/oidc/link`         | Yes   | Link a provider account to the caller |
-| `auth/oidc/retrieve`     | Yes   | List provider links                   |
-| `auth/oidc/unlink`       | Yes   | Remove a provider link                |
+| Endpoint                | Token | Purpose                                                           |
+| ----------------------- | ----- | ----------------------------------------------------------------- |
+| `auth/methods`          | No    | Accepted methods, and each provider's login address and client ID |
+| `auth/session/create`   | No    | Log in with a proof                                               |
+| `auth/session/renew`    | Yes   | Report activity                                                   |
+| `auth/session/retrieve` | Yes   | List sessions                                                     |
+| `auth/session/delete`   | Yes   | Log out or revoke                                                 |
+| `auth/password/set`     | Yes   | Set or change a password or username                              |
+| `auth/key/create`       | Yes   | Create an API key, returned once                                  |
+| `auth/key/retrieve`     | Yes   | List API keys, without hashes                                     |
+| `auth/key/delete`       | Yes   | Delete API keys                                                   |
+| `auth/oidc/link`        | Yes   | Link a provider account to the caller                             |
+| `auth/oidc/retrieve`    | Yes   | List provider links                                               |
+| `auth/oidc/unlink`      | Yes   | Remove a provider link                                            |
+
+Three rules the table does not show:
+
+- Changing your own password needs the current one. Setting another user's password
+  needs permission from access control, not the old password.
+- The user endpoint fills in `username` from the password table when it reads, so a user
+  list needs no second call. The field is not stored on the user record.
+- When first-login creation is off, the link endpoint is the only way to add a provider
+  account. An administrator cannot type the provider's opaque ID, so they create the
+  user with a password, and the user logs in and links their own account.
+
+These replace `auth/login`, `auth/change-password`, and `user/change-username`.
 
 - **Client libraries** take one proof at construction and log in on the first request.
   When a session ends, a client holding a password or API key logs in again by itself. A
