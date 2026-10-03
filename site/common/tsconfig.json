@@ -1,0 +1,7 @@
+{
+  "extends": "@synnaxlabs/tsconfig/base.json",
+  "compilerOptions": {
+    "types": ["react"]
+  },
+  "include": ["src/**/*", "eslint.config.ts", "stylelint.config.js", "vitest.config.ts"]
+}

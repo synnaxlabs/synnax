@@ -13,18 +13,8 @@ const undefinedActionMessage = "[drift] - unexpected undefined action";
 const undefinedActionTypeMessage = "[drift] - unexpected undefined action type";
 
 /** Ensures an action is valid, and throws an error if it is not. */
-export const validateAction = (meta: {
-  emitted?: boolean;
-  action?: UnknownAction;
-  emitter?: string;
-}): void => {
-  meta.emitted ??= false;
-  if (meta.action == null) {
-    console.warn(undefinedActionMessage, meta);
-    throw new Error(undefinedActionMessage);
-  }
-  if (meta.action.type == null || meta.action.type.length === 0) {
-    console.warn(undefinedActionTypeMessage, meta);
+export const validateAction = (action?: UnknownAction): void => {
+  if (action == null) throw new Error(undefinedActionMessage);
+  if (action.type == null || action.type.length === 0)
     throw new Error(undefinedActionTypeMessage);
-  }
 };

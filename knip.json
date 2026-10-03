@@ -57,6 +57,10 @@
       "entry": ["videos.ts", "scripts/*.ts", "films/*.ts", "src/remotion/entry.ts"],
       "project": ["{src,scripts,films}/**/*.{ts,tsx}"]
     },
+    "site/common": {
+      "entry": ["src/**/*.{astro,ts}"],
+      "project": ["src/**/*.{ts,astro}"]
+    },
     "site/docs": {
       "entry": ["src/**/*.astro", "src/**/*.tsx", "src/**/*.ts"],
       "project": ["src/**/*.{ts,tsx,astro,mdx}"]
