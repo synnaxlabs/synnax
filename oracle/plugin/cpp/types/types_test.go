@@ -1789,6 +1789,28 @@ var _ = Describe("C++ Types Plugin", func() {
 			)
 
 			It(
+				"Should zero-initialize an int enum field with no default",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "out"
+
+					Mode enum {
+						automatic = 1
+						manual    = 2
+					}
+
+					Config struct {
+						mode     Mode
+						override Mode?
+					}
+				`
+					resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+					ExpectContent(resp, "types.gen.h").
+						ToContain(`Mode mode = {};`, `std::optional<Mode> override;`)
+				},
+			)
+
+			It(
 				"Should reference string enum defaults via their generated constants",
 				func(ctx SpecContext) {
 					source := `
