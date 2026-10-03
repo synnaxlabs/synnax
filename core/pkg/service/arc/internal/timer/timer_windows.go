@@ -65,6 +65,7 @@ func Now() time.Duration {
 // platform waits on a waitable timer that wakes spin before the deadline, then spins
 // to the deadline on Now.
 type platform struct {
+	waiter
 	// handle is the waitable timer.
 	handle windows.Handle
 	// closed is an event that Close signals to stop the wait goroutine.
@@ -74,10 +75,6 @@ type platform struct {
 	tickRaised bool
 	// deadline is the Now reading the timer fires at, or zero when it is stopped.
 	deadline atomic.Int64
-	// done closes when the wait goroutine exits.
-	done chan struct{}
-	// err is the wait goroutine's failure. It is safe to read after done closes.
-	err error
 }
 
 func (t *Timer) open() error {
@@ -160,14 +157,16 @@ func (t *Timer) spinToDeadline() {
 // Reset stops the timer and starts it again, so it fires after d. A d of zero or less
 // fires right away.
 func (t *Timer) Reset(d time.Duration) error {
-	if err := t.Stop(); err != nil {
+	if d <= 0 {
+		err := t.Stop()
+		t.fire()
 		return err
 	}
-	if d <= 0 {
-		t.fire()
-		return nil
+	if err := t.failure(); err != nil {
+		return err
 	}
 	t.deadline.Store(int64(Now() + d))
+	t.drain()
 	// A negative due time is relative, in 100 ns units.
 	due := -int64((d - spin) / 100)
 	if due >= 0 {
@@ -189,10 +188,8 @@ func (t *Timer) Reset(d time.Duration) error {
 
 // Stop stops the timer and drops a pending fire.
 func (t *Timer) Stop() error {
-	select {
-	case <-t.done:
-		return t.err
-	default:
+	if err := t.failure(); err != nil {
+		return err
 	}
 	t.deadline.Store(0)
 	t.drain()

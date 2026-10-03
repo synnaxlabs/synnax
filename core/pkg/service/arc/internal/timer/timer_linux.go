@@ -20,15 +20,12 @@ import (
 // platform reads a non-blocking timerfd through the Go netpoller. The netpoller wakes
 // on the fd at the timerfd's precision, not at its own 1 ms timeout precision.
 type platform struct {
+	waiter
 	// fd is the timerfd. It stays separate from file because File.Fd makes the fd
 	// blocking.
 	fd int
 	// file reads fd through the netpoller.
 	file *os.File
-	// done closes when the read goroutine exits.
-	done chan struct{}
-	// err is the read goroutine's failure. It is safe to read after done closes.
-	err error
 }
 
 func (t *Timer) open() error {
@@ -65,22 +62,22 @@ func (t *Timer) read() {
 // Reset stops the timer and starts it again, so it fires after d. A d of zero or less
 // fires right away.
 func (t *Timer) Reset(d time.Duration) error {
-	if err := t.Stop(); err != nil {
+	if d <= 0 {
+		err := t.Stop()
+		t.fire()
 		return err
 	}
-	if d <= 0 {
-		t.fire()
-		return nil
+	if err := t.failure(); err != nil {
+		return err
 	}
+	t.drain()
 	return t.arm(d)
 }
 
 // Stop stops the timer and drops a pending fire.
 func (t *Timer) Stop() error {
-	select {
-	case <-t.done:
-		return t.err
-	default:
+	if err := t.failure(); err != nil {
+		return err
 	}
 	t.drain()
 	return t.arm(0)
