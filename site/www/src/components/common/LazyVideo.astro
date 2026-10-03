@@ -39,6 +39,12 @@ const sources = [{ media: "(max-width: 900px)", src: cdn(narrow) }, { src: cdn(w
     ))}
 </video>
 <noscript>
+    {/* Applies only without scripting. Overrides each section's display rule. */}
+    <style is:inline>
+        video[data-lazy-video] {
+            display: none !important;
+        }
+    </style>
     <video
         class={className}
         width={width}
@@ -53,15 +59,6 @@ const sources = [{ media: "(max-width: 900px)", src: cdn(narrow) }, { src: cdn(w
         ))}
     </video>
 </noscript>
-
-<style is:global>
-    @media (scripting: none) {
-        /* Overrides the display rule each section sets on its video. */
-        video[data-lazy-video] {
-            display: none !important;
-        }
-    }
-</style>
 
 <script>
     // Defers each download until its video is within one viewport of the screen.
