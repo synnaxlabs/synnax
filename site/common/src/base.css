@@ -12,6 +12,7 @@
 :root {
     --nav-height: clamp(7rem, 5.5rem + 2vw, 9rem);
     --content-padding: clamp(2rem, 1rem + 2vw, 7rem);
+    --pluto-gray-l8: #7c7c7c;
     --space-sm: clamp(2rem, 1rem + 1vw, 4rem);
     --space-md: clamp(3rem, 1.5rem + 2vw, 6rem);
     --space-lg: clamp(5rem, 2rem + 3vw, 10rem);
@@ -26,4 +27,17 @@
     --astro-code-token-punctuation: var(--pluto-text-color);
     --astro-code-token-keyword: #cc255f;
     --astro-code-token-constant: var(--pluto-text-color);
+}
+
+html {
+    background: var(--pluto-gray-l0);
+}
+
+a:not(.pluto-btn) {
+    color: var(--pluto-primary-p1);
+    text-decoration: none;
+
+    &:hover {
+        text-decoration: underline;
+    }
 }

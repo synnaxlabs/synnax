@@ -10,6 +10,8 @@
 package arc_test
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/stl/channels"
@@ -1410,6 +1412,124 @@ var _ = Describe("Sequence", func() {
 				out, _ = h.Flush()
 				Expect(lastU8(out, 102)).To(Equal(uint8(0)))
 			},
+		)
+	})
+
+	// `=>` enters a scope only on a truthy condition; `->` enters on every value.
+	Describe("Transition arrows", func() {
+		const (
+			sibling = `
+			sequence main {
+			    stage a {
+			        "a" -> log
+			        cmd == 1 ARROW b
+			    }
+			    stage b {
+			        "b" -> log
+			    }
+			}
+			1 => main`
+			next = `
+			sequence main {
+			    stage a {
+			        "a" -> log
+			        cmd == 1 ARROW next
+			    }
+			    stage b {
+			        "b" -> log
+			    }
+			}
+			1 => main`
+			// A later cmd == 2 reaches hold only while main is still running.
+			crossScope = `
+			sequence main {
+			    stage flight {
+			        "flight" -> log
+			        cmd == 1 ARROW abort
+			        cmd == 2 => hold
+			    }
+			    stage hold {
+			        "hold" -> log
+			    }
+			}
+			sequence abort {
+			    "abort" -> log
+			}
+			1 => main`
+			// main completes after one step, so a later value can re-enter it.
+			root = `
+			sequence main {
+			    "main" -> log
+			}
+			cmd == 1 ARROW main`
+			inline = `
+			cmd == 1 ARROW stage {
+			    "body" -> log
+			}`
+		)
+
+		DescribeTable(
+			"Should enter the target scope per the arrow",
+			func(ctx SpecContext, source, arrow string, cmd uint8, expected []string) {
+				resolver := channelSymbols(map[string]channelDef{
+					"cmd": {types.U8(), 100},
+					"log": {types.String(), 101},
+				})
+				h := newRuntimeHarness(
+					ctx,
+					strings.ReplaceAll(source, "ARROW", arrow),
+					resolver,
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+				var log []string
+				settle := func() {
+					for range 4 {
+						advance(h, ctx, telem.Millisecond)
+					}
+					out, _ := h.Flush()
+					log = append(log, drainStrings(out, 101)...)
+				}
+				settle()
+				h.Ingest(100, telem.NewSeriesV(cmd))
+				settle()
+				h.Ingest(100, telem.NewSeriesV[uint8](2))
+				settle()
+				Expect(log).To(Equal(expected))
+			},
+			Entry("sibling, =>, false", sibling, "=>", uint8(0), []string{"a"}),
+			Entry("sibling, =>, true", sibling, "=>", uint8(1), []string{"a", "b"}),
+			Entry("sibling, ->, false", sibling, "->", uint8(0), []string{"a", "b"}),
+			Entry("sibling, ->, true", sibling, "->", uint8(1), []string{"a", "b"}),
+			Entry("next, =>, false", next, "=>", uint8(0), []string{"a"}),
+			Entry("next, =>, true", next, "=>", uint8(1), []string{"a", "b"}),
+			Entry("next, ->, false", next, "->", uint8(0), []string{"a", "b"}),
+			Entry("next, ->, true", next, "->", uint8(1), []string{"a", "b"}),
+			Entry(
+				"cross-scope, =>, false",
+				crossScope, "=>", uint8(0), []string{"flight", "hold"},
+			),
+			Entry(
+				"cross-scope, =>, true",
+				crossScope, "=>", uint8(1), []string{"flight", "abort"},
+			),
+			Entry(
+				"cross-scope, ->, false",
+				crossScope, "->", uint8(0), []string{"flight", "abort"},
+			),
+			Entry(
+				"cross-scope, ->, true",
+				crossScope, "->", uint8(1), []string{"flight", "abort"},
+			),
+			Entry("root, =>, false", root, "=>", uint8(0), []string(nil)),
+			Entry("root, =>, true", root, "=>", uint8(1), []string{"main"}),
+			Entry("root, ->, false", root, "->", uint8(0), []string{"main", "main"}),
+			Entry("root, ->, true", root, "->", uint8(1), []string{"main", "main"}),
+			Entry("inline, =>, false", inline, "=>", uint8(0), []string(nil)),
+			Entry("inline, =>, true", inline, "=>", uint8(1), []string{"body"}),
+			Entry("inline, ->, false", inline, "->", uint8(0), []string{"body"}),
+			Entry("inline, ->, true", inline, "->", uint8(1), []string{"body"}),
 		)
 	})
 

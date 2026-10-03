@@ -33,67 +33,58 @@ export interface AsyncErrorHandler {
   ): Promise<void>;
 }
 
-const checkSkip = (
-  err: unknown,
-  skip: errors.Matchable | errors.Matchable[] | undefined,
-): boolean => {
+/** Prints a reported error. */
+export interface Log {
+  (message: string): void;
+}
+
+type Skip = errors.Matchable | errors.Matchable[] | undefined;
+
+type Report = (exc: unknown, message?: string, skip?: Skip) => void;
+
+const checkSkip = (err: unknown, skip: Skip): boolean => {
   if (Array.isArray(skip)) return skip.some((matcher) => matcher.matches(err));
   return skip?.matches(err) ?? false;
 };
 
-const formatError = (stat: status.Status): void => {
-  console.error(status.toString(stat));
-};
+const createReport =
+  (add: Adder, log: Log): Report =>
+  (exc, message, skip) => {
+    if (checkSkip(exc, skip)) return;
+    const stat = status.fromException(exc, message);
+    log(status.toString(stat));
+    add(stat);
+  };
 
-const parseException = (
-  exc: unknown,
-  message?: string,
-  skip?: errors.Matchable | errors.Matchable[],
-): status.Status | null => {
-  const stat = status.fromException(exc, message);
-  formatError(stat);
-  if (checkSkip(exc, skip)) return null;
-  return stat;
-};
+const isFunc = (v: unknown): v is () => Promise<void> | void => typeof v === "function";
 
-const handleException = <ExcOrFunc>(
-  excOrFunc: ExcOrFunc,
-  add: Adder,
+const run = async (
+  func: () => Promise<void> | void,
+  report: Report,
   message?: string,
-  skip?: errors.Matchable | errors.Matchable[],
-): excOrFunc is ExcOrFunc & (() => Promise<void> | void) => {
-  if (typeof excOrFunc === "function") return true;
-  const stat = parseException(excOrFunc, message, skip);
-  if (stat != null) add(stat);
-  return false;
-};
-
-const handleFunc = async <Func extends () => Promise<void> | void>(
-  func: Func,
-  add: Adder,
-  message?: string,
-  skip?: errors.Matchable | errors.Matchable[],
+  skip?: Skip,
 ): Promise<void> => {
   try {
     const promise = func();
     // Skip the added microtask if the function returns void instead of a promise.
     if (promise != null) await promise;
   } catch (exc) {
-    const stat = parseException(exc, message, skip);
-    if (stat != null) return add(stat);
+    report(exc, message, skip);
   }
 };
 
-export const createErrorHandler =
-  (add: Adder): ErrorHandler =>
-  (excOrFunc, message, skip): void => {
-    if (!handleException(excOrFunc, add, message, skip)) return;
-    void handleFunc(excOrFunc, add, message, skip);
+export const createErrorHandler = (add: Adder, log: Log): ErrorHandler => {
+  const report = createReport(add, log);
+  return (excOrFunc, message, skip) => {
+    if (isFunc(excOrFunc)) void run(excOrFunc, report, message, skip);
+    else report(excOrFunc, message, skip);
   };
+};
 
-export const createAsyncErrorHandler =
-  (add: Adder): AsyncErrorHandler =>
-  async (func, message, skip): Promise<void> => {
-    if (!handleException(func, add, message, skip)) return;
-    await handleFunc(func, add, message, skip);
+export const createAsyncErrorHandler = (add: Adder, log: Log): AsyncErrorHandler => {
+  const report = createReport(add, log);
+  return async (excOrFunc, message, skip) => {
+    if (isFunc(excOrFunc)) await run(excOrFunc, report, message, skip);
+    else report(excOrFunc, message, skip);
   };
+};

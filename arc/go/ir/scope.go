@@ -23,6 +23,7 @@ func (s Scope) IsZero() bool {
 		s.Mode == ScopeModeUnspecified &&
 		s.Liveness == LivenessUnspecified &&
 		s.Activation == nil &&
+		s.ActivationKind == EdgeKindUnspecified &&
 		len(s.Strata) == 0 &&
 		len(s.Steps) == 0 &&
 		len(s.Transitions) == 0

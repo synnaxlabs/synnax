@@ -48,6 +48,7 @@ import {
   type EnsureFetchParams,
   type LocalCache,
   localFor,
+  readCached,
   type RetrieveParams,
   setSettled,
   suspendOnFetch,
@@ -461,7 +462,7 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>(
   if (pending.promise == null && cached !== undefined) {
     if (Deleted.matches<Data>(cached))
       throw new DeletedError(`${caseconv.capitalize(name)} was deleted`, cached.corpse);
-    return cached;
+    return readCached(cached);
   }
   return suspendOnFetch(
     params,
@@ -613,6 +614,7 @@ const useEnsure = <Query extends query.Params, Data extends query.Data>(
           `${caseconv.capitalize(name)} was deleted`,
           cached.corpse,
         );
+      readCached(cached);
       return;
     }
   }

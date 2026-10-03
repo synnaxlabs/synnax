@@ -59,11 +59,14 @@ message Edge {
 
 // Transition is a declarative state-transition rule on a sequential Scope.
 message Transition {
-  // on is the dataflow handle whose truthy value fires this transition.
+  // on is the dataflow handle whose output fires this transition.
   Handle on = 1;
+  // kind is conditional when only a truthy output fires the transition (`=>`), and
+  // continuous when every output fires it (`->`).
+  EdgeKind kind = 2;
   // target_key is the sibling step key to activate. Null when the transition exits the
   // scope, yielding to the parent.
-  optional string target_key = 2;
+  optional string target_key = 3;
 }
 
 // Member is a tagged union representing a single child of a Scope. Exactly one of
@@ -90,18 +93,22 @@ message Scope {
   ScopeMode mode = 2;
   // liveness defines whether this scope is continuously active or must be activated.
   Liveness liveness = 3;
-  // activation is the handle whose truthy value activates a gated scope. Unset for
+  // activation is the handle whose output activates a gated scope. Unset for
   // always-live scopes.
   optional Handle activation = 4;
+  // activation_kind is conditional when only a truthy activation output activates the
+  // scope (`=>`), and continuous when every output does (`->`). Unspecified when
+  // activation is unset.
+  EdgeKind activation_kind = 5;
   // strata contains stratified execution layers for parallel scopes. On sequential
   // scopes, strata hold variable nodes that run every pass alongside the active step.
   // Stratum N depends only on strata 0 to N-1.
-  repeated MembersWrapper strata = 5;
+  repeated MembersWrapper strata = 6;
   // steps contains ordered steps for sequential scopes. Empty for parallel scopes.
-  repeated Member steps = 6;
+  repeated Member steps = 7;
   // transitions contains state-transition rules for sequential scopes. Empty for
   // parallel scopes.
-  repeated Transition transitions = 7;
+  repeated Transition transitions = 8;
 }
 
 // Body is raw function body source code with optional parsed AST.

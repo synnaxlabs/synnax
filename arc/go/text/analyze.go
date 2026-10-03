@@ -88,7 +88,7 @@ func (f *seqFrame) nextMember() string {
 // be stamped onto top-level Scope members once the main loop is done.
 type shellBuilder struct {
 	stack       []*seqFrame
-	activations map[string]ir.Handle
+	activations map[string]activation
 	// inlineNodes accumulates the flat IR of every lowered inline body; the
 	// bodies' scopes are placed in their enclosing scope's members.
 	inlineNodes []ir.Node
@@ -136,7 +136,7 @@ func newShellBuilder(
 	synthByAST map[antlr.ParserRuleContext]*symbol.Symbol,
 ) *shellBuilder {
 	return &shellBuilder{
-		activations: map[string]ir.Handle{},
+		activations: map[string]activation{},
 		synthByAST:  synthByAST,
 		varNodes:    map[*symbol.Symbol]varEntry{},
 	}
@@ -219,11 +219,15 @@ func (s *shellBuilder) addCompletion(on ir.Handle) {
 	for i := len(s.stack) - 1; ; i-- {
 		f := s.stack[i]
 		if next := f.nextMember(); next != "" {
-			s.addTransitionTo(f, ir.Transition{On: on, TargetKey: new(next)})
+			s.addTransitionTo(f, ir.Transition{
+				On:        on,
+				Kind:      ir.EdgeKindConditional,
+				TargetKey: new(next),
+			})
 			return
 		}
 		if !f.escalatesCompletion || i == 0 {
-			s.addTransitionTo(f, ir.Transition{On: on})
+			s.addTransitionTo(f, ir.Transition{On: on, Kind: ir.EdgeKindConditional})
 			return
 		}
 	}
@@ -242,11 +246,18 @@ func (s *shellBuilder) resolveTargetFrame(name string) *seqFrame {
 	return nil
 }
 
+// activation is a pending scope activation: the handle that fires it and the kind of
+// the arrow that leads into the scope.
+type activation struct {
+	on   ir.Handle
+	kind ir.EdgeKind
+}
+
 // registerActivation records that the scope named key should be activated by
 // the given handle. The activation is stamped onto the emitted Scope by the
 // main Analyze loop once all top-level items have been processed.
-func (s *shellBuilder) registerActivation(key string, on ir.Handle) {
-	s.activations[key] = on
+func (s *shellBuilder) registerActivation(key string, on ir.Handle, kind ir.EdgeKind) {
+	s.activations[key] = activation{on: on, kind: kind}
 }
 
 // applyTransitionIntent records a transition and/or activation against the
@@ -254,11 +265,15 @@ func (s *shellBuilder) registerActivation(key string, on ir.Handle) {
 // honored, in that priority; a zero intent is a no-op. When the intent is a
 // cross-scope activation and the shell is inside a sequence, an additional
 // exit transition is appended so the current sequence relinquishes control.
-func (s *shellBuilder) applyTransitionIntent(on ir.Handle, intent transitionIntent) {
+func (s *shellBuilder) applyTransitionIntent(
+	on ir.Handle,
+	kind ir.EdgeKind,
+	intent transitionIntent,
+) {
 	switch {
 	case intent.isNext:
 		next := s.top().nextMember()
-		s.addTransition(ir.Transition{On: on, TargetKey: new(next)})
+		s.addTransition(ir.Transition{On: on, Kind: kind, TargetKey: new(next)})
 	case intent.memberKey != "":
 		frame := intent.targetFrame
 		if frame == nil {
@@ -266,12 +281,12 @@ func (s *shellBuilder) applyTransitionIntent(on ir.Handle, intent transitionInte
 		}
 		s.addTransitionTo(
 			frame,
-			ir.Transition{On: on, TargetKey: new(intent.memberKey)},
+			ir.Transition{On: on, Kind: kind, TargetKey: new(intent.memberKey)},
 		)
 	case intent.activateKey != "":
-		s.registerActivation(intent.activateKey, on)
+		s.registerActivation(intent.activateKey, on, kind)
 		if s.top() != nil && !intent.suppressExit {
-			s.addTransition(ir.Transition{On: on})
+			s.addTransition(ir.Transition{On: on, Kind: kind})
 		}
 	}
 }
@@ -1538,8 +1553,9 @@ func Analyze(
 			if m.Scope == nil {
 				return
 			}
-			if handle, ok := shell.activations[m.Scope.Key]; ok {
-				m.Scope.Activation = new(handle)
+			if a, ok := shell.activations[m.Scope.Key]; ok {
+				m.Scope.Activation = new(a.on)
+				m.Scope.ActivationKind = a.kind
 				bound.Add(m.Scope.Key)
 			}
 			bindActivations(m.Scope)
@@ -1767,7 +1783,7 @@ func (p *flowChainProcessor) consumeTransition(
 	// already carries the firing signal, so the extras are dropped.
 	p.additionalTriggers = nil
 
-	p.shell.applyTransitionIntent(p.prevOutput, intent)
+	p.shell.applyTransitionIntent(p.prevOutput, p.edgeKind(), intent)
 	p.transitionEmitted = true
 	return true
 }
@@ -2117,7 +2133,9 @@ func analyzeOutputRoutingTable(
 			}
 
 			if result.transition != nil {
-				shell.applyTransitionIntent(prevOutputHandle, *result.transition)
+				shell.applyTransitionIntent(
+					prevOutputHandle, edgeKinds[i], *result.transition,
+				)
 				continue
 			}
 
@@ -2232,7 +2250,11 @@ func autoWireTransition(shell *shellBuilder, lastNode ir.Node, nextMemberKey str
 		shell.addCompletion(on)
 		return
 	}
-	shell.addTransition(ir.Transition{On: on, TargetKey: new(nextMemberKey)})
+	shell.addTransition(ir.Transition{
+		On:        on,
+		Kind:      ir.EdgeKindConditional,
+		TargetKey: new(nextMemberKey),
+	})
 }
 
 // declaredAsStep reports whether decl sits in a step position: its nearest
