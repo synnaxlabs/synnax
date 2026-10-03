@@ -1,0 +1,73 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Troubleshoot Synnax Desktop"
+description: "Fix common problems, read the logs, and export diagnostics for support."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Synnax Desktop starts Synnax when the app opens and stops it when the app closes. Find
+your problem below. Each command runs from the
+[command palette](/reference/get-started/ui-overview#search-and-command-palette).
+
+<Divider.Divider x />
+
+## Common problems
+
+### The top bar shows "Reconnecting"
+
+Synnax stopped, and Synnax Desktop is starting it again. Live data stops for a short
+time, and your workspace stays open. Wait for the indicator to go away. No saved data is
+lost.
+
+### Synnax Desktop shows "Synnax stopped unexpectedly"
+
+Synnax stopped many times in a row, so Synnax Desktop stopped trying to start it. Select
+**Restart** to try again. If Synnax stops again, select **Diagnostics** to see the last
+problem, and [export diagnostics](#export-diagnostics-for-support) for support.
+
+### Live data or tasks stopped
+
+Run the "Restart Synnax" command. Running tasks and live data stop for a few seconds,
+then start again. No saved data is lost.
+
+### I want to start again with no data
+
+Run the "Erase all data" command. To learn what it deletes, see
+[erase all data](/reference/desktop/data#erase-all-data).
+
+<Divider.Divider x />
+
+## Logs
+
+Synnax writes its log to `core.log` in the log folder. To open the folder, run the "Show
+logs" command.
+
+| Operating system | Log folder                                   |
+| ---------------- | -------------------------------------------- |
+| macOS            | `~/Library/Logs/com.synnaxlabs.desktop`      |
+| Windows          | `%LOCALAPPDATA%\com.synnaxlabs.desktop\logs` |
+
+<Divider.Divider x />
+
+## Diagnostics
+
+The diagnostics dialog helps you, or the person who supports you, find a problem. To
+open it, run the "Open diagnostics" command. The dialog shows:
+
+- The version of Synnax Desktop.
+- The time Synnax started, and the number of starts.
+- The last problem and its reason, if there was one.
+- The size and location of the data folder.
+- The end of the log.
+
+The dialog has buttons to show the data folder, show the logs, restart Synnax, export
+diagnostics, and erase all data.
+
+### Export diagnostics for support
+
+Select **Export** in the diagnostics dialog, then select where to save the file. Synnax
+Desktop writes a zip file with a summary and the logs. Send this file to the person who
+supports you.

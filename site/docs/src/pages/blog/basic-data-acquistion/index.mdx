@@ -16,9 +16,7 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
 
-{/_ TODO(media): Hero screenshot. A LabJack on the desk next to a laptop running Synnax
-Desktop, with the finished layout from this guide on screen: the line plot, the
-schematic, and the Arc editor side by side. _/}
+{/* TODO(media): Hero screenshot. A LabJack on the desk next to a laptop running Synnax Desktop, with the finished layout from this guide on screen: the line plot, the schematic, and the Arc editor side by side. */}
 
 <Image client:only="react" id="blog/basic-data-acquisition/hero" themed={false} />
 
@@ -64,8 +62,7 @@ sample and visualize channel data, and control outputs.
 Take your jumper wire and connect the `DAC0` screw terminal to `AIN0`. That's all the
 wiring we'll do.
 
-{/_ TODO(media): Close-up photo of the LabJack screw terminals with the jumper wire
-running from DAC0 to AIN0. Label both terminals in the photo. _/}
+{/* TODO(media): Close-up photo of the LabJack screw terminals with the jumper wire running from DAC0 to AIN0. Label both terminals in the photo. */}
 
 <Image client:only="react" id="blog/basic-data-acquisition/wiring" themed={false} />
 
@@ -97,9 +94,7 @@ control, the Core for storing your data, and the Driver for talking to your hard
 There's nothing to run from a terminal. Open the app, sign in with a free Synnax
 account, and you're ready to go.
 
-{/_ TODO(media): Short video. Open Synnax Desktop for the first time, click Sign in,
-finish the browser sign-in, and land in an empty workspace. Cut the browser portion down
-to a second or two. _/}
+{/* TODO(media): Short video. Open Synnax Desktop for the first time, click Sign in, finish the browser sign-in, and land in an empty workspace. Cut the browser portion down to a second or two. */}
 
 <Video client:only="react" id="blog/basic-data-acquisition/sign-in" themed={false} />
 
@@ -119,9 +114,7 @@ Synnax will ask you for two things:
 2. **An identifier** -> A short prefix for every channel on the device. We'll use `lj`,
    so our first analog input will show up as a channel called `lj_AIN0`.
 
-{/_ TODO(media): Video. Plug in the LabJack, the detection notification pops up, click
-Configure, type the name "Bench LabJack", type the identifier "lj", and save. End on the
-device in the Devices toolbar. _/}
+{/* TODO(media): Video. Plug in the LabJack, the detection notification pops up, click Configure, type the name "Bench LabJack", type the identifier "lj", and save. End on the device in the Devices toolbar. */}
 
 <Video
   client:only="react"
@@ -157,9 +150,7 @@ Here's how we'll set it up:
 When you configure the task, Synnax creates the channels for you. You'll get an
 `lj_AIN0` channel for the voltage, and an `lj_time` channel that holds the timestamps.
 
-{/_ TODO(media): Video. Right click the device, Create read task, set sample rate to 100
-and stream rate to 25, add an analog input on AIN0, name the task "Bench read",
-Configure, then press play. End on the task showing its running status. _/}
+{/* TODO(media): Video. Right click the device, Create read task, set sample rate to 100 and stream rate to 25, add an analog input on AIN0, name the task "Bench read", Configure, then press play. End on the task showing its running status. */}
 
 <Video client:only="react" id="blog/basic-data-acquisition/read-task" themed={false} />
 
@@ -187,9 +178,7 @@ Open the plot's toolbar with the line plot button in the bottom left corner, and
 You'll see a flat line sitting right around 0 V. That's expected: nothing is driving
 `DAC0` yet. We'll fix that in the next section.
 
-{/_ TODO(media): Video. Create a line plot from the command palette, open the toolbar,
-add lj_AIN0 to Y1, and let the live line scroll for a few seconds. Bonus: briefly touch
-the jumper wire so the noise shows up on the plot. _/}
+{/* TODO(media): Video. Create a line plot from the command palette, open the toolbar, add lj_AIN0 to Y1, and let the live line scroll for a few seconds. Bonus: briefly touch the jumper wire so the noise shows up on the plot. */}
 
 <Video client:only="react" id="blog/basic-data-acquisition/line-plot" themed={false} />
 
@@ -218,9 +207,7 @@ a _state_ channel that reports what the device is actually doing. For `DAC0`, th
 `lj_DAC0_cmd` and `lj_DAC0_state`. `FIO4` is LabJack's name for the `DIO4` register, so
 its channels are `lj_DIO4_cmd` and `lj_DIO4_state`.
 
-{/_ TODO(media): Video. Right click the device, Create write task, add an analog output
-on DAC0 and a digital output on FIO4, name the task "Bench write", Configure, then press
-play. _/}
+{/* TODO(media): Video. Right click the device, Create write task, add an analog output on DAC0 and a digital output on FIO4, name the task "Bench write", Configure, then press play. */}
 
 <Video client:only="react" id="blog/basic-data-acquisition/write-task" themed={false} />
 
@@ -248,10 +235,7 @@ Switch the schematic into control mode using the controls in the top right corne
 take control. Now type `2.5` into the setpoint and hit enter. Watch the value readout
 jump to 2.5 V, and flip over to your line plot to see the step.
 
-{/_ TODO(media): Video. The main event of the post. Create a schematic, drag in a
-switch, a setpoint, and a value, set their channels, switch to control mode, then type
-2.5 into the setpoint. Split screen or quick cut to the line plot so the step from 0 V
-to 2.5 V is visible. Then click the switch on and off a couple of times. _/}
+{/* TODO(media): Video. The main event of the post. Create a schematic, drag in a switch, a setpoint, and a value, set their channels, switch to control mode, then type 2.5 into the setpoint. Split screen or quick cut to the line plot so the step from 0 V to 2.5 V is visible. Then click the switch on and off a couple of times. */}
 
 <Video
   client:only="react"
@@ -298,10 +282,7 @@ one before it finishes, so it reads like a checklist.
 To run it, pick your Driver from the dropdown in the editor toolbar, click
 **Configure**, and hit play.
 
-{/_ TODO(media): Video. Create the Arc automation, paste the program, select the Driver,
-Configure, press play. Keep the line plot visible next to the editor so the staircase (0
-V, 1 V, 4 V, 0 V) draws itself live. The schematic switch should also light up and turn
-off with the digital output. _/}
+{/* TODO(media): Video. Create the Arc automation, paste the program, select the Driver, Configure, press play. Keep the line plot visible next to the editor so the staircase (0 V, 1 V, 4 V, 0 V) draws itself live. The schematic switch should also light up and turn off with the digital output. */}
 
 <Video client:only="react" id="blog/basic-data-acquisition/arc" themed={false} />
 

@@ -8,6 +8,7 @@ layout: "@/layouts/Reference.astro"
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Note } from "@synnaxlabs/lyra/note";
+import Placeholder from "@/components/media/Placeholder.astro";
 import Step from "@/components/text/Step.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -17,13 +18,18 @@ write a changing value to them with an Arc automation, plot the value, and recor
 range. It takes about ten minutes.
 
 You need Synnax Desktop, or the Synnax Console connected to a Synnax Core. To choose
-one, see [Synnax editions](/reference/get-started/editions). Open a
-[project](/reference/visualize/projects) before you start, because the Console saves
-visualizations only in an open project.
+one, see [Synnax editions](/reference/get-started/editions). Use any
+[project](/reference/visualize/projects). To start with an empty one, run the "Create
+project" command.
 
-Each step runs a command from the
+Most steps run a command from the
 [command palette](/reference/get-started/ui-overview#search-and-command-palette). To
 open it, press `Ctrl+Shift+P` on Windows or `Cmd+Shift+P` on macOS.
+
+<Placeholder
+  kind="video"
+  shot="The whole tutorial at speed: create ramp_time and ramp, start the Ramp Arc automation, plot ramp on a rolling 30 s plot, and drag a selection to create the First run range."
+/>
 
 <Divider.Divider x />
 
@@ -75,7 +81,8 @@ time.interval{period=100ms} -> step{}
 - `ramp = value` writes the value to the `ramp` channel. Synnax writes the timestamp to
   `ramp_time`.
 
-4. In the bar at the bottom of the editor, select a Driver.
+4. In the bar at the bottom of the editor, open the **Driver** list and select a Driver.
+   In Synnax Desktop, select **Node 1 Embedded Driver**.
 5. Select the start <Icon.Play /> button.
 
 The automation is now running. To stop it, select the stop <Icon.Stop /> button.
@@ -85,8 +92,8 @@ The automation is now running. To stop it, select the stop <Icon.Stop /> button.
 ## <Step step={3} level="h2">Plot the data</Step>
 
 1. Run the "Create line plot" command.
-2. Select the line plot <Icon.LinePlot /> button in the bottom-left corner to open the
-   plot toolbar.
+2. Select the component <Icon.Component /> button in the bottom-left corner, or press
+   `V`, to open the component toolbar.
 3. In **Y1**, select `ramp`.
 4. In **Ranges**, select **Rolling 30s**.
 

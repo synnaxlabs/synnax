@@ -32,6 +32,7 @@ const SECTION_ICONS: Record<string, ReactElement> = {
   control: <Icon.Control />,
   alarms: <Icon.Status />,
   client: <Icon.Terminal />,
+  desktop: <Icon.Desktop />,
   enterprise: <Icon.Core />,
 };
 

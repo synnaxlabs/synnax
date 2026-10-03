@@ -94,6 +94,10 @@ One page at a time. The brief holds:
   is missing (use cases, examples, limits, errors, troubleshooting), and what needs a
   better form (a table, a worked example, a diagram, a video, tabs).
 - **Prior art** for this page, where it adds something beyond the charter.
+- **Design and layout.** How the page looks, not only what it says: hierarchy, what the
+  eye lands on first, spacing, columns, and how it reads at phone width. Look at the
+  current page in Chrome and at real prior art pages before proposing. Content-only
+  briefs are incomplete.
 - **Media plan.** Each video and image: keep, change, re-record, add, or remove, with
   the reason the reader needs it. See Media.
 - **Open claims** that code reading could not verify.

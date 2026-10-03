@@ -2,18 +2,25 @@
 title: "Install Synnax Desktop"
 description: "Download and install Synnax Desktop on macOS or Windows."
 layout: "@/layouts/Reference.astro"
-flag: "desktop"
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Note } from "@synnaxlabs/lyra/note";
 import { Desktop } from "@/components/desktop";
+import Placeholder from "@/components/media/Placeholder.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Synnax Desktop is one app that collects, stores, and shows data from your hardware. It
-includes the Synnax Console, a private database, and a Synnax Driver. You install it
-once and use it with nothing to run from a terminal. Synnax Desktop is free.
+Synnax Desktop is one free app that connects to your hardware, records and shows its
+data, and controls it. It includes the Synnax Console, a Synnax Core, and a Synnax
+Driver. You install it once, with nothing to run from a terminal.
+
+<Note.Note variant="info">
+  Looking for the Enterprise install guide? See [Set up Synnax
+  Enterprise](/reference/enterprise). Not sure which edition you need? See [Synnax
+  editions](/reference/get-started/editions).
+</Note.Note>
 
 <Divider.Divider x />
 
@@ -66,21 +73,30 @@ Download the latest release for your operating system:
 
 ## First launch
 
-When Synnax Desktop opens, it shows "Starting Synnax..." while Synnax starts. Then it
-shows the project selector. Select **New project** to create a project, or open one.
-Synnax saves your visualizations and layout in the project. For more information, see
-[projects](/reference/visualize/projects).
+1. Synnax Desktop shows "Starting Synnax..." and then "Preparing your workspace...".
+2. On the "Log in to continue" screen, select **Log in**. Your web browser opens. Log in
+   to your Synnax account, and Synnax Desktop continues on its own.
+3. Synnax Desktop shows the list of projects. Select **Sample project** to open a
+   simulated tank system, or select **New project** to start with an empty project.
 
-Each user account on the computer has its own Synnax Desktop data. All of the data stays
-on your computer.
+{/* TODO(sign-in): step 2 depends on the Desktop sign-in work (sy-4856-desktop-signin). */}
+
+<Placeholder
+  kind="image"
+  shot="The list of projects on first launch, with the Sample project and New project buttons. Light and dark."
+/>
+
+Each user account on the computer has its own Synnax Desktop data. All of your data
+stays on your computer.
+
+When a new version is ready, the top bar shows **Update available**. Select it, then
+select **Update and restart**.
 
 <Divider.Divider x />
 
 ## Next steps
 
+- Run a simulated test in the [sample project](/reference/get-started/sample-project).
 - Record and plot your first data in [your first run](/reference/get-started/first-run).
 - Learn the parts of the Console in the
-  [UI overview](/reference/get-started/ui-overview).
-- [Update Synnax Desktop](/reference/get-started/desktop/updates) when a new version is
-  available.
-- Find your [Synnax Desktop data](/reference/get-started/desktop/data).
+  [Console UI overview](/reference/get-started/ui-overview).

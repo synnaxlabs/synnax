@@ -2,25 +2,59 @@
 layout: "@/layouts/Reference.astro"
 title: "UI overview"
 heading: "Console UI overview"
-description: "Navigate the Synnax Console UI."
+description:
+  "Find your way around the toolbars, panels, and command palette of the Console."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Image, Video } from "@/components/media/Media";
+import { Video } from "@/components/media/Media";
+import Placeholder from "@/components/media/Placeholder.astro";
 import { Edition } from "@/components/edition";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The Synnax Console is the interface you use to see and control your data. It has two
-main parts: the central mosaic and the side toolbars.
+The Synnax Console is where you set up hardware, see your data, and control your system.
+It has a bar on the left, a bar at the top, and the mosaic in the middle.
 
-The mosaic shows visualizations such as line plots and schematics. The toolbars give
-access to channels, ranges, projects, devices, tasks, and visualization settings.
+<Placeholder
+  kind="image"
+  shot="The Console with the sample project open, each part below labeled: project selector, search, toolbars, component button, panel selector, mosaic. Light and dark."
+/>
+
+<Divider.Divider x />
+
+## Parts of the Console
+
+| Part             | Where                      | What it does                                                                                        |
+| ---------------- | -------------------------- | --------------------------------------------------------------------------------------------------- |
+| Project selector | Top of the left bar        | Shows the open [project](/reference/visualize/projects). Select it to open another.                 |
+| Search           | Below the project selector | Opens the [command palette](#search-and-command-palette).                                           |
+| Toolbars         | Middle of the left bar     | Open the [toolbars](#toolbars) for channels, ranges, devices, and more.                             |
+| Component        | Bottom of the left bar     | Opens the [component toolbar](#component) for the selected plot or schematic.                       |
+| Panel selector   | Left of the top bar        | Shows the panels of the project. A panel is one arrangement of tabs.                                |
+| Help and updates | Right of the top bar       | Opens the docs (<Icon.QuestionMark />), and shows **Update available** when a new version is ready. |
+| Mosaic           | Middle                     | Shows your line plots, schematics, tables, logs, and Arc editors in tabs.                           |
+
+To split the mosaic, drag a tab to an edge of another tab.
 
 <Divider.Divider x />
 
 ## Toolbars
+
+Select a toolbar icon in the left bar, or press its key, to open the toolbar.
+
+| Toolbar                 | Key |
+| ----------------------- | --- |
+| Channels                | `C` |
+| Ranges                  | `R` |
+| Projects                | `W` |
+| Devices                 | `D` |
+| Tasks                   | `T` |
+| Arcs                    | `A` |
+| Statuses                | `S` |
+| Users (Enterprise only) | `U` |
+| Component               | `V` |
 
 ### <Icon.Channel />Channels
 
@@ -68,8 +102,8 @@ deployment and change their roles.
 
 ### <Icon.Component />Component
 
-The component toolbar lets you edit the properties of
-[line plots](/reference/visualize/line-plots), [logs](/reference/visualize/logs),
+The component toolbar is at the bottom of the left bar. It lets you edit the properties
+of [line plots](/reference/visualize/line-plots), [logs](/reference/visualize/logs),
 [schematics](/reference/visualize/schematics), and
 [tables](/reference/visualize/tables).
 

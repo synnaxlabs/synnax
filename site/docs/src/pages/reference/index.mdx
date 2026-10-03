@@ -1,15 +1,175 @@
 ---
 title: "Get started"
+heading: "Synnax documentation"
 description:
-  "Start with Synnax: install it, record your first data, and find each capability."
+  "Connect hardware, operate and automate physical systems, and process live and
+  recorded data."
 layout: "@/layouts/Reference.astro"
 showBreadcrumb: false
 ---
 
-import DesktopBody from "@/pages/reference/get-started/_overview-desktop.mdx";
-import EnterpriseBody from "@/pages/reference/get-started/_overview-enterprise.mdx";
-import { enabled } from "@/flags";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import Card from "@/components/card/Card.astro";
+import Grid from "@/components/card/Grid.astro";
+import Choice from "@/components/landing/Choice.astro";
+import Hero from "@/components/landing/Hero.astro";
+import Use from "@/components/landing/Use.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-{enabled("desktop") ? <DesktopBody /> : <EnterpriseBody />}
+<Hero>
+  Synnax is a unified industrial control and operations platform. It combines data
+  acquisition, a time-series database, live visualization, manual and automated
+  control, and data processing in one system.
+
+<Fragment slot="uses">
+  <Use
+    title="Propulsion testing"
+    description="Run rocket engine and component test stands."
+  />
+  <Use
+    title="Fusion and energy"
+    description="Operate experiments and the systems that support them."
+  />
+  <Use
+    title="Vehicle testing"
+    description="Test automotive and aerospace components."
+  />
+  <Use
+    title="Production control"
+    description="Monitor and control production equipment."
+  />
+</Fragment>
+
+<Fragment slot="start">
+  <Choice
+    title="Synnax Desktop"
+    description="Free. Runs on your own macOS or Windows computer, with nothing to set up."
+    action="Download Synnax Desktop"
+    href="/reference/get-started/install-desktop"
+    primary
+  >
+    <Icon.Desktop slot="icon" />
+    <Icon.Download slot="action-icon" />
+  </Choice>
+  <Choice
+    title="Synnax Enterprise"
+    description="For teams. Deploy a Core on your own servers, then connect users, Drivers, and scripts to it."
+    action="Set up Synnax Enterprise"
+    href="/reference/enterprise"
+  >
+    <Icon.Core slot="icon" />
+    <Icon.Core slot="action-icon" />
+  </Choice>
+</Fragment>
+
+  <img
+    slot="media"
+    src="https://synnax.nyc3.cdn.digitaloceanspaces.com/landing/images/console-screenshot.png"
+    alt="The Synnax Console with a schematic, a line plot, and an Arc sequence open"
+  />
+</Hero>
+
+<Divider.Divider x />
+
+## Common workflows
+
+<Grid columns={3}>
+  <Card
+    href="/reference/hardware"
+    title="Record data from a test stand"
+    description="Read sensors from NI, LabJack, Modbus, OPC UA, EtherCAT, and HTTP devices."
+  >
+    <Icon.Hardware slot="icon" />
+  </Card>
+  <Card
+    href="/reference/control/manual"
+    title="Operate a system by hand"
+    description="Open valves and start pumps from a live schematic."
+  >
+    <Icon.Schematic slot="icon" />
+  </Card>
+  <Card
+    href="/reference/control/arc/how-to/test-sequences"
+    title="Automate a test sequence"
+    description="Write the stages, timing, and aborts of a test in Arc."
+  >
+    <Icon.Arc slot="icon" />
+  </Card>
+  <Card
+    href="/reference/alarms"
+    title="Catch bad values"
+    description="Color values that pass a limit, and raise alarms with Arc."
+  >
+    <Icon.Status slot="icon" />
+  </Card>
+  <Card
+    href="/reference/ranges"
+    title="Review and compare tests"
+    description="Mark each test run in time, then find, plot, and export its data."
+  >
+    <Icon.Range slot="icon" />
+  </Card>
+  <Card
+    href="/reference/channels/calculated"
+    title="Process data as it arrives"
+    description="Compute new values from live and recorded channels."
+  >
+    <Icon.Calculation slot="icon" />
+  </Card>
+</Grid>
+
+<Divider.Divider x />
+
+## Start here
+
+<Grid columns={2}>
+  <Card
+    href="/reference/get-started/sample-project"
+    title="Explore the sample project"
+    description="Run a simulated tank pressurization, take control of a valve, and abort the test."
+  >
+    <Icon.Play slot="icon" />
+  </Card>
+  <Card
+    href="/reference/get-started/first-run"
+    title="Your first run"
+    description="Create channels, write data with Arc, plot it, and record a range."
+  >
+    <Icon.LinePlot slot="icon" />
+  </Card>
+  <Card
+    href="/reference/get-started/concepts"
+    title="Synnax concepts"
+    description="Learn the parts of Synnax and the words the docs use for them."
+  >
+    <Icon.Concepts slot="icon" />
+  </Card>
+  <Card
+    href="/reference/get-started/ui-overview"
+    title="Console UI overview"
+    description="Find your way around the toolbars, panels, and command palette."
+  >
+    <Icon.Panel slot="icon" />
+  </Card>
+</Grid>
+
+<Divider.Divider x />
+
+## How Synnax compares
+
+Teams often build a test or control system from separate tools: one to acquire data, one
+to store it, one for operator screens, and one for automation. Synnax does each job in
+one system. Plots, schematics, sequences, and alarms all use the same channels, so
+nothing needs to be wired between tools.
+
+| Job                        | Often done with                         | In Synnax                                     |
+| -------------------------- | --------------------------------------- | --------------------------------------------- |
+| Acquire data from hardware | LabVIEW, NI FlexLogger, vendor software | [Hardware tasks](/reference/hardware/tasks)   |
+| Store time-series data     | InfluxDB, TimescaleDB, a historian      | [Channels](/reference/channels)               |
+| Plot live and past data    | Grafana, LabVIEW, Excel                 | [Line plots](/reference/visualize/line-plots) |
+| Build operator screens     | Ignition, LabVIEW front panels          | [Schematics](/reference/visualize/schematics) |
+| Automate sequences         | LabVIEW, PLC logic, Python scripts      | [Arc](/reference/control/arc/introduction)    |
+| Raise alarms               | SCADA alarm systems                     | [Alarms](/reference/alarms)                   |
+| Organize test runs         | Folders, file names, spreadsheets       | [Ranges](/reference/ranges)                   |

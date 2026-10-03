@@ -1,0 +1,72 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+---
+
+<div class="docs-hero">
+    <div class="docs-hero__lead">
+        <slot />
+    </div>
+    <div class="docs-hero__uses">
+        <slot name="uses" />
+    </div>
+    <div class="docs-hero__start">
+        <slot name="start" />
+    </div>
+    <p class="docs-hero__note">
+        Not sure which one you need?{" "}
+        <a href="/reference/get-started/editions">Compare the editions</a>.
+    </p>
+    <div class="docs-hero__media">
+        <slot name="media" />
+    </div>
+</div>
+
+<style is:global>
+    .docs-hero {
+        .docs-hero__lead p {
+            font-size: var(--pluto-h5-size);
+            line-height: 1.6;
+            color: var(--pluto-gray-l10);
+            max-width: 120rem;
+        }
+        .docs-hero__uses {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 3rem 4rem;
+            margin-top: 5rem;
+            @media (max-width: 600px) {
+                grid-template-columns: 1fr;
+            }
+        }
+        .docs-hero__start {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 2rem;
+            margin-top: 6rem;
+            @media (max-width: 600px) {
+                grid-template-columns: 1fr;
+            }
+        }
+        .docs-hero__note {
+            margin-top: 2.5rem;
+            text-align: center;
+            color: var(--pluto-gray-l8);
+            font-size: var(--pluto-small-size);
+        }
+        .docs-hero__media {
+            margin-top: 6rem;
+            img {
+                display: block;
+                width: 100%;
+                height: auto;
+            }
+        }
+    }
+</style>

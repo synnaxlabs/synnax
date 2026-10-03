@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-a.pluto-text {
+a.pluto-text:not(.pluto-btn) {
     text-decoration: none;
     color: var(--pluto-primary-p1);
     cursor: pointer;

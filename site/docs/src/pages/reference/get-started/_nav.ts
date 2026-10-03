@@ -19,6 +19,11 @@ export const GET_STARTED_NAV: PageNavNode = {
       name: "Overview",
     },
     {
+      key: "/reference/get-started/concepts",
+      href: "/reference/get-started/concepts",
+      name: "Concepts",
+    },
+    {
       key: "/reference/get-started/editions",
       href: "/reference/get-started/editions",
       name: "Editions",
@@ -27,7 +32,12 @@ export const GET_STARTED_NAV: PageNavNode = {
       key: "/reference/get-started/install-desktop",
       href: "/reference/get-started/install-desktop",
       name: "Install Synnax Desktop",
-      flag: "desktop",
+      edition: "desktop",
+    },
+    {
+      key: "/reference/get-started/sample-project",
+      href: "/reference/get-started/sample-project",
+      name: "Sample project",
       edition: "desktop",
     },
     {
@@ -39,29 +49,6 @@ export const GET_STARTED_NAV: PageNavNode = {
       key: "/reference/get-started/ui-overview",
       href: "/reference/get-started/ui-overview",
       name: "UI overview",
-    },
-    {
-      key: "desktop",
-      name: "Synnax Desktop",
-      flag: "desktop",
-      edition: "desktop",
-      children: [
-        {
-          key: "/reference/get-started/desktop/updates",
-          href: "/reference/get-started/desktop/updates",
-          name: "Updates",
-        },
-        {
-          key: "/reference/get-started/desktop/data",
-          href: "/reference/get-started/desktop/data",
-          name: "Data",
-        },
-        {
-          key: "/reference/get-started/desktop/troubleshooting",
-          href: "/reference/get-started/desktop/troubleshooting",
-          name: "Troubleshooting",
-        },
-      ],
     },
   ],
 };

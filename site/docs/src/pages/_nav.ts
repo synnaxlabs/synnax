@@ -13,6 +13,7 @@ import { ALARMS_NAV } from "@/pages/reference/alarms/_nav";
 import { CHANNELS_NAV } from "@/pages/reference/channels/_nav";
 import { CLIENT_NAV } from "@/pages/reference/client/_nav";
 import { CONTROL_NAV } from "@/pages/reference/control/_nav";
+import { DESKTOP_NAV } from "@/pages/reference/desktop/_nav";
 import { ENTERPRISE_NAV } from "@/pages/reference/enterprise/_nav";
 import { GET_STARTED_NAV } from "@/pages/reference/get-started/_nav";
 import { HARDWARE_NAV } from "@/pages/reference/hardware/_nav";
@@ -36,6 +37,7 @@ export const REFERENCE_PAGES: PageNavNode[] = visible([
   CONTROL_NAV,
   ALARMS_NAV,
   CLIENT_NAV,
+  DESKTOP_NAV,
   ENTERPRISE_NAV,
 ]);
 

@@ -30,7 +30,15 @@ line.
 - UI labels a reader clicks go in bold and match Console source exactly. Commands in the
   command palette go in quotes ("Create channel").
 - Name the thing. No bare "this", "that", or "it" pointing back at a sentence.
+- Write for the end user's flow: what they see, what they do, what they get. Leave out
+  internal details (retry counts, backoff, probe intervals, storage layout, file
+  formats) unless the reader acts on them. A behavior the UI makes obvious, such as an
+  update prompt, gets a sentence, not a page.
 - Never name a customer or show real customer deployment details.
+- Positioning copy (what Synnax is, what a capability is for) comes from Synnax's own
+  materials: the website (`site/www`), the README, `llms.txt`, and the blog. Never a
+  generic category label such as "a platform for hardware data". Say the concrete work:
+  acquire, control, visualize, review, and automate.
 
 ## Section and page structure
 
@@ -44,6 +52,8 @@ line.
   Those belong in the Enterprise section. A reference page may link to a CLI flag.
 - Desktop is the default reader. Pages lead with the Console, and the Console tab comes
   first.
+- The restructured site ships together with Synnax Desktop. Do not hide Desktop pages
+  or content behind a flag, and do not write a fallback for a site without Desktop.
 
 ## Editions and clients
 
