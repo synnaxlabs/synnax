@@ -1,0 +1,61 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-range-select__live-icon,
+.console-range-select__live-label {
+    color: var(--pluto-error-p1);
+    filter: opacity(0.8);
+}
+
+/* The left inset lines the label's icon up with the icon of the typed window below. */
+.console-range-select__live {
+    padding: 0.5rem 1rem 0.5rem 3rem;
+    border: 0 solid var(--pluto-gray-l6);
+    border-width: 0 var(--pluto-border-width);
+}
+
+/* A tag edits in place, so while the pointer is on one the field behind it stays at
+   rest, and a click reads as an edit rather than as opening the list. */
+.pluto-btn.pluto-dialog__trigger:has(.console-range-select__editable:hover) {
+    --pluto-hover-bg: var(--pluto-fill-rest);
+    --pluto-hover-border-color: var(--pluto-gray-l7);
+}
+
+/* The whole tag lifts on hover, and the field under the pointer underlines to show
+   which value a click edits. */
+.pluto-btn.pluto-tag.console-range-select__editable {
+    &:hover {
+        border-color: var(--pluto-gray-l8);
+        background: var(--pluto-gray-l1);
+
+        .pluto-btn.pluto-tag__close {
+            --pluto-bg: var(--pluto-gray-l1);
+            --pluto-hover-bg: var(--pluto-gray-l1);
+            --pluto-active-bg: var(--pluto-gray-l1);
+        }
+    }
+
+    .pluto-btn.pluto-time-editor__trigger {
+        --pluto-hover-bg: transparent;
+        --pluto-active-bg: transparent;
+
+        padding: 0;
+        text-underline-offset: 0.25em;
+
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+
+    .pluto-timespan__label {
+        color: inherit;
+    }
+}

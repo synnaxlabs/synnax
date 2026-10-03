@@ -30,6 +30,7 @@ export interface ButtonsProps<K extends record.Key = record.Key>
       | "itemHeight"
       | "overscan"
       | "onFetchMore"
+      | "closeDialogOnSelect"
     > {
   /** Whether to render the buttons flat and inert, for use inside a preview. */
   preview?: boolean;
@@ -55,6 +56,9 @@ export const Buttons = <K extends record.Key = record.Key>({
   onChange,
   allowNone,
   multiple,
+  autoSelectOnNone,
+  initialHover,
+  enableTriggers,
   preview = false,
   variant = "text",
   className,
@@ -68,6 +72,9 @@ export const Buttons = <K extends record.Key = record.Key>({
     multiple,
     value,
     onChange,
+    autoSelectOnNone,
+    initialHover,
+    enableTriggers,
   } as FrameProps<K, record.Keyed<K>>;
   const isEmpty = value == null || (Array.isArray(value) && value.length === 0);
   const ctx = useMemo(() => ({ preview, variant }), [preview, variant]);

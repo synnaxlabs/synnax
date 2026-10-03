@@ -12,7 +12,9 @@ import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Component } from "@/component";
+import { Dialog } from "@/dialog";
 import { Select } from "@/select";
+import { Triggers } from "@/triggers";
 
 describe("Select.Item", () => {
   it("should render a collection of buttons", () => {
@@ -117,6 +119,44 @@ describe("Select.Item", () => {
     expect(c.getByText("Option 3").closest("button")?.classList).not.toContain(
       "pluto--selected",
     );
+  });
+
+  it("should ignore Enter when its triggers are disabled", () => {
+    const onChange = vi.fn();
+    render(
+      <Dialog.Frame visible>
+        <Triggers.Provider>
+          <Select.Buttons
+            value={1}
+            onChange={onChange}
+            initialHover={0}
+            enableTriggers={false}
+          >
+            <Select.Item itemKey={1}>Option 1</Select.Item>
+            <Select.Item itemKey={2}>Option 2</Select.Item>
+          </Select.Buttons>
+        </Triggers.Provider>
+      </Dialog.Frame>,
+    );
+    fireEvent.keyDown(window, { code: "ArrowDown" });
+    fireEvent.keyDown(window, { code: "Enter" });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("should select the hovered button with Enter when its triggers are enabled", () => {
+    const onChange = vi.fn();
+    render(
+      <Dialog.Frame visible>
+        <Triggers.Provider>
+          <Select.Buttons value={1} onChange={onChange} initialHover={1}>
+            <Select.Item itemKey={1}>Option 1</Select.Item>
+            <Select.Item itemKey={2}>Option 2</Select.Item>
+          </Select.Buttons>
+        </Triggers.Provider>
+      </Dialog.Frame>,
+    );
+    fireEvent.keyDown(window, { code: "Enter" });
+    expect(onChange).toHaveBeenCalledWith(2, { clicked: 2 });
   });
 
   describe("preview", () => {

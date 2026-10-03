@@ -79,11 +79,6 @@ describe("Range.useResolveMultiple", () => {
     expect(result.current).toEqual([local]);
   });
 
-  it("should pass a rolling range through untouched", async () => {
-    const { result } = await renderResolveMultiple([], [Session.Range.RECENT_KEY]);
-    expect(result.current).toEqual([Session.Range.BUILT_IN[0]]);
-  });
-
   // A half-rendered row would show a Core range with no name until the synchronizer
   // caught up with the delete.
   it("should drop a range the Core no longer holds", async () => {

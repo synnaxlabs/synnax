@@ -72,27 +72,6 @@ type Legend = versions.Legend
 // carry zero or more channels each.
 type Channels = versions.Channels
 
-// CustomRange is the window a plot's synthetic "custom" range key resolves to.
-type CustomRange = versions.CustomRange
-type CustomRangeVariant = versions.CustomRangeVariant
-type CustomRangeType = versions.CustomRangeType
-
-const (
-	// DynamicCustomRangeType is a rolling window.
-	DynamicCustomRangeType CustomRangeType = versions.DynamicCustomRangeType
-	// StaticCustomRangeType is a fixed window.
-	StaticCustomRangeType CustomRangeType = versions.StaticCustomRangeType
-)
-
-// DynamicCustomRange is a rolling window.
-type DynamicCustomRange = versions.DynamicCustomRange
-
-// StaticCustomRange is a fixed window.
-type StaticCustomRange = versions.StaticCustomRange
-
-// Ranges binds range keys to each x-axis.
-type Ranges = versions.Ranges
-
 // ManualBounds controls whether an axis uses a manually-set bound on each side
 // independently. When a side is false (the default), the corresponding entry in
 // Axis.bounds is recomputed locally from the rendered data window and never broadcast
@@ -115,3 +94,30 @@ type Rule = versions.Rule
 // plots support multiple channels, real-time streaming, and historical data display
 // with zoom and pan capabilities.
 type LinePlot = versions.LinePlot
+
+// BaseRange holds the fields every plotted range carries.
+type BaseRange = versions.BaseRange
+
+// Range is a range plotted against an x-axis.
+type Range = versions.Range
+type RangeVariant = versions.RangeVariant
+type RangeType = versions.RangeType
+
+const (
+	// PersistedRangeType is a range the Core holds, plotted by reference.
+	PersistedRangeType RangeType = versions.PersistedRangeType
+	// StaticRangeType is a fixed window the plot owns.
+	StaticRangeType RangeType = versions.StaticRangeType
+)
+
+// PersistedRange is a range the Core holds, plotted by reference.
+type PersistedRange = versions.PersistedRange
+
+// StaticRange is a fixed window the plot owns.
+type StaticRange = versions.StaticRange
+
+// XAxisRanges binds a rolling window and a set of ranges to an x-axis.
+type XAxisRanges = versions.XAxisRanges
+
+// Ranges binds ranges to each x-axis.
+type Ranges = versions.Ranges

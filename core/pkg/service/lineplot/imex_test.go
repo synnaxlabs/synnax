@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -89,7 +90,10 @@ var _ = Describe("ImEx", func() {
 			)
 			Expect(res.Name).To(Equal("Server Typed"))
 			Expect(res.Channels.Y1).To(Equal([]channel.Key{1, 2}))
-			Expect(res.Ranges.X1).To(Equal([]string{"recent"}))
+			Expect(res.Ranges.X1).To(Equal(lineplot.XAxisRanges{
+				Rolling: new(30 * telem.Second),
+				Ranges:  []lineplot.Range{},
+			}))
 			// Lines are derived from the channels and ranges bindings on create.
 			Expect(res.Lines).To(HaveLen(2))
 		})
@@ -160,10 +164,24 @@ var _ = Describe("ImEx", func() {
 		It(
 			"Should preserve plot content through export then import",
 			func(ctx SpecContext) {
+				rangeKey, staticKey := uuid.New(), uuid.New()
 				original := lineplot.LinePlot{
 					Name:     "round-trip",
 					Channels: lineplot.Channels{Y1: []channel.Key{4, 5}},
-					Ranges:   lineplot.Ranges{X1: []string{"recent"}},
+					Ranges: lineplot.Ranges{X1: lineplot.XAxisRanges{
+						Rolling: new(30 * telem.Second),
+						Ranges: []lineplot.Range{
+							{Variant: lineplot.PersistedRange{
+								BaseRange: lineplot.BaseRange{Key: rangeKey},
+							}},
+							{Variant: lineplot.StaticRange{
+								BaseRange: lineplot.BaseRange{Key: staticKey},
+								Name:      new("run"),
+								Start:     1,
+								End:       2,
+							}},
+						},
+					}},
 				}
 				Expect(
 					svc.NewWriter(nil).Create(ctx, proj.Key, &original),
@@ -192,8 +210,8 @@ var _ = Describe("ImEx", func() {
 					Y4: []channel.Key{},
 				}))
 				Expect(res.Ranges).To(Equal(lineplot.Ranges{
-					X1: []string{"recent"},
-					X2: []string{},
+					X1: original.Ranges.X1,
+					X2: lineplot.XAxisRanges{Ranges: []lineplot.Range{}},
 				}))
 			},
 		)

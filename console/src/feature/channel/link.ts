@@ -11,22 +11,15 @@ import { useCallback } from "react";
 
 import { LinePlot } from "@/platform/lineplot";
 import { type Link } from "@/platform/link";
-import { Session } from "@/session";
 
 export const useLink = (): Link.Handler => {
   const create = LinePlot.useCreate();
-  const getSelectedKey = Session.Range.useGetSelectedKey();
   return useCallback(
     async ({ client, key }) => {
       const channel = await client.channels.retrieve(key);
-      const activeRange = getSelectedKey() ?? Session.Range.RECENT_KEY;
-      create({
-        name: `${channel.name} Plot`,
-        channels: { y1: [channel.key] },
-        ranges: { x1: [activeRange] },
-      });
+      create({ name: `${channel.name} Plot`, channels: { y1: [channel.key] } });
     },
-    [create, getSelectedKey],
+    [create],
   );
 };
 

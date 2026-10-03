@@ -33,7 +33,7 @@ export const useOpen = (): ((resource: ontology.Resource) => void) => {
   const getFocusedTab = Session.Panel.useGetFocusedTab();
   const getSelectedPanel = Session.Panel.useGetSelected();
   const getSelectedProject = Session.Project.useGetSelected();
-  const getSelectedRange = Session.Range.useGetSelectedKey();
+  const getDefaultRanges = LinePlot.useGetDefaultRanges();
   const store = Session.useStore();
   const handleError = Status.useErrorHandler();
   const { capture } = Analytics.use();
@@ -72,11 +72,10 @@ export const useOpen = (): ((resource: ontology.Resource) => void) => {
             openTab({ variant: "resource", resource: log.ontologyID(key) });
             return;
           }
-          const selectedRange = getSelectedRange() ?? Session.Range.RECENT_KEY;
           const { key } = await client.lineplots.create(project, {
             name: "Line plot",
             channels: { y1: [channelKey] },
-            ranges: { x1: [selectedRange] },
+            ranges: getDefaultRanges(),
           });
           capture("plot_created", {});
           store.dispatch(Session.LinePlot.create({ key }));
@@ -91,7 +90,7 @@ export const useOpen = (): ((resource: ontology.Resource) => void) => {
       getFocusedTab,
       getSelectedPanel,
       getSelectedProject,
-      getSelectedRange,
+      getDefaultRanges,
       store,
       handleError,
       capture,

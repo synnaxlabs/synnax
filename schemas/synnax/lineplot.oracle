@@ -113,52 +113,6 @@ Channels struct {
     @go marshal
 }
 
-CustomRange union on variant {
-    dynamic {
-        span telem.TimeSpan = 0 {
-            @doc value "is the span of the window, which ends now."
-            @ts type   telem.NumericTimeSpan
-        }
-
-        @doc value "is a rolling window."
-    }
-    static {
-        start telem.TimeStamp {
-            @doc value "is the inclusive start of the fixed window."
-            @ts type   telem.StringTimeStamp
-        }
-        end   telem.TimeStamp {
-            @doc value "is the exclusive end of the fixed window."
-            @ts type   telem.StringTimeStamp
-        }
-
-        @doc value "is a fixed window."
-    }
-
-    @doc value  "is the window a plot's synthetic \"custom\" range key resolves to."
-    @go marshal
-}
-
-Ranges struct {
-    x1     string[]     {
-        @doc value """
-            are the range keys plotted against the x1 axis. Range keys are opaque
-            strings rather than UUIDs because the console layers synthetic
-            rolling-window ranges (e.g. "recent", "rolling1m") alongside persisted
-            ranges; the server stores whatever the client sends.
-        """
-    }
-    x2     string[]     {
-        @doc value "are the range keys plotted against the x2 axis."
-    }
-    custom CustomRange? {
-        @doc value "is the window the \"custom\" range key resolves to."
-    }
-
-    @doc value  "binds range keys to each x-axis."
-    @go marshal
-}
-
 ManualBounds struct {
     lower bool = false {
         @doc value """
@@ -330,7 +284,7 @@ LinePlot struct {
         @doc value "binds channel keys to each axis."
     }
     ranges   Ranges = {} {
-        @doc value "binds range keys to each x-axis."
+        @doc value "binds ranges to each x-axis."
     }
     axes     Axes = {} {
         @doc value "bundles per-axis configuration."
@@ -424,44 +378,56 @@ LinePlot struct {
         @doc value "replaces the single channel bound to the x-axis named by axis_key."
     }
 
-    action AddRange {
+    action SetRolling {
         axis_key XAxisKey
-        range    string
+        span     telem.TimeSpan? {
+            @ts type telem.NumericTimeSpan
+        }
 
         @doc value """
-            appends the range key to the ranges array bound to the x-axis named by
-            axis_key. No-op when the range is already present.
+            sets the span of the window ending now that is plotted against the x-axis
+            named by axis_key. A null span removes the window and its lines.
+        """
+    }
+
+    action AddRange {
+        axis_key XAxisKey
+        range    Range
+
+        @doc value """
+            appends the range to the x-axis named by axis_key. No-op when a range with
+            the same key is already present.
         """
     }
 
     action RemoveRange {
         axis_key XAxisKey
-        range    string
+        key      uuid
 
         @doc value """
-            removes the range key from the x-axis named by axis_key. No-op when the
-            range is not present.
+            removes the range with the given key from the x-axis named by axis_key.
+            No-op when no such range is present.
+        """
+    }
+
+    action SetRange {
+        axis_key XAxisKey
+        range    Range
+
+        @doc value """
+            replaces the range with the same key on the x-axis named by axis_key. The
+            range keeps its position and its lines keep their styling.
         """
     }
 
     action SetRanges {
         axis_key XAxisKey
-        ranges   string[]
+        ranges   Range[]
 
         @doc value """
-            replaces the entire set of range keys bound to the x-axis named by axis_key
-            with ranges. Ranges absent from the new set are removed and their lines
-            dropped; ranges not previously present are added. Existing ranges keep their
-            line styling.
-        """
-    }
-
-    action SetCustomRange {
-        custom CustomRange?
-
-        @doc value """
-            sets the window the "custom" range key resolves to. A null custom clears the
-            window.
+            replaces the entire set of ranges bound to the x-axis named by axis_key.
+            Ranges absent from the new set are removed and their lines dropped; ranges
+            not previously present are added. Existing ranges keep their line styling.
         """
     }
 
@@ -649,4 +615,65 @@ LinePlot struct {
     @go migrate
     @ontology type "lineplot"
     @retrieve
+}
+
+BaseRange struct {
+    key uuid {
+        @doc value """
+            identifies the range within its axis. A persisted range uses the Core
+            range's key.
+        """
+    }
+
+    @doc value  "holds the fields every plotted range carries."
+    @go marshal
+}
+
+Range union on variant extends BaseRange {
+    persisted {
+        @doc value "is a range the Core holds, plotted by reference."
+    }
+    static {
+        name  string?         {
+            @doc value "is the label shown for the window. Absent shows its bounds."
+        }
+        start telem.TimeStamp {
+            @doc value "is the inclusive start of the window."
+            @ts type   telem.StringTimeStamp
+        }
+        end   telem.TimeStamp {
+            @doc value "is the exclusive end of the window."
+            @ts type   telem.StringTimeStamp
+        }
+
+        @doc value "is a fixed window the plot owns."
+    }
+
+    @doc value  "is a range plotted against an x-axis."
+    @go marshal
+}
+
+XAxisRanges struct {
+    rolling telem.TimeSpan? {
+        @doc value "is the span of the window ending now, when the axis has one."
+        @ts type   telem.NumericTimeSpan
+    }
+    ranges  Range[]         {
+        @doc value "are the ranges plotted against the axis."
+    }
+
+    @doc value  "binds a rolling window and a set of ranges to an x-axis."
+    @go marshal
+}
+
+Ranges struct {
+    x1 XAxisRanges = {} {
+        @doc value "are the ranges plotted against the x1 axis."
+    }
+    x2 XAxisRanges = {} {
+        @doc value "are the ranges plotted against the x2 axis."
+    }
+
+    @doc value  "binds ranges to each x-axis."
+    @go marshal
 }

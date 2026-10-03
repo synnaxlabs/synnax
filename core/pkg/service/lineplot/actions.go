@@ -11,6 +11,7 @@ package lineplot
 
 import (
 	"slices"
+	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/errors"
@@ -121,75 +122,100 @@ func (p SetXChannelPayload) Handle(state LinePlot) (LinePlot, error) {
 	case XAxisKeyX2:
 		state.Channels.X2 = p.Channel
 	default:
-		return LinePlot{}, errors.Wrapf(
-			validate.ErrValidation,
-			"unknown x-axis %q",
-			p.AxisKey,
-		)
+		return LinePlot{}, unknownXAxisKey(p.AxisKey)
 	}
 	state.Lines = reconcileLines(state)
 	return state, nil
 }
 
-// Handle appends the range key to the ranges slice bound to the x-axis named
-// by AxisKey. No-op when the range is already bound to that axis. The
-// inverse RemoveRange undoes the append without preserving original slice
-// position; see AddChannel for the same caveat.
+// Handle sets the span of the rolling window plotted against the x-axis named by
+// AxisKey. A nil Span removes the window and its lines.
+func (p SetRollingPayload) Handle(state LinePlot) (LinePlot, error) {
+	if !p.AxisKey.IsValid() {
+		return LinePlot{}, unknownXAxisKey(p.AxisKey)
+	}
+	axis := xAxisRanges(&state.Ranges, p.AxisKey)
+	if p.Span != nil && *p.Span <= 0 {
+		return LinePlot{}, errors.Wrapf(
+			validate.ErrValidation,
+			"rolling span must be positive, got %s",
+			*p.Span,
+		)
+	}
+	axis.Rolling = p.Span
+	state.Lines = reconcileLines(state)
+	return state, nil
+}
+
+// Handle appends the range to the x-axis named by AxisKey. No-op when a range with
+// the same key is already bound to that axis.
 func (p AddRangePayload) Handle(state LinePlot) (LinePlot, error) {
 	if !p.AxisKey.IsValid() {
-		return LinePlot{}, errors.Wrapf(
-			validate.ErrValidation,
-			"unknown x-axis %q",
-			p.AxisKey,
-		)
+		return LinePlot{}, unknownXAxisKey(p.AxisKey)
 	}
-	slice := xAxisRangeSlice(&state.Ranges, p.AxisKey)
-	if slices.Contains(*slice, p.Range) {
+	axis := xAxisRanges(&state.Ranges, p.AxisKey)
+	key, err := validateRange(p.Range)
+	if err != nil {
+		return LinePlot{}, err
+	}
+	if slices.ContainsFunc(axis.Ranges, keyed(key)) {
 		return state, nil
 	}
-	*slice = append(*slice, p.Range)
+	axis.Ranges = append(axis.Ranges, p.Range)
 	state.Lines = reconcileLines(state)
 	return state, nil
 }
 
-// Handle removes the range key from the x-axis named by AxisKey. No-op when
-// the range is not present.
+// Handle removes the range with Key from the x-axis named by AxisKey. No-op when the
+// range is not present.
 func (p RemoveRangePayload) Handle(state LinePlot) (LinePlot, error) {
 	if !p.AxisKey.IsValid() {
-		return LinePlot{}, errors.Wrapf(
-			validate.ErrValidation,
-			"unknown x-axis %q",
-			p.AxisKey,
-		)
+		return LinePlot{}, unknownXAxisKey(p.AxisKey)
 	}
-	slice := xAxisRangeSlice(&state.Ranges, p.AxisKey)
-	*slice = slices.DeleteFunc(*slice, func(r string) bool { return r == p.Range })
+	axis := xAxisRanges(&state.Ranges, p.AxisKey)
+	axis.Ranges = slices.DeleteFunc(axis.Ranges, keyed(p.Key))
 	state.Lines = reconcileLines(state)
 	return state, nil
 }
 
-// Handle replaces the entire set of range keys bound to the x-axis named by
-// AxisKey, reconciling the line set. Ranges dropped from the set lose their
-// lines; ranges new to it gain default-styled lines. Surviving ranges keep
-// their existing line styling.
+// Handle replaces the range sharing Range's key on the x-axis named by AxisKey. It
+// returns a validation error when no range on the axis has that key.
+func (p SetRangePayload) Handle(state LinePlot) (LinePlot, error) {
+	if !p.AxisKey.IsValid() {
+		return LinePlot{}, unknownXAxisKey(p.AxisKey)
+	}
+	axis := xAxisRanges(&state.Ranges, p.AxisKey)
+	key, err := validateRange(p.Range)
+	if err != nil {
+		return LinePlot{}, err
+	}
+	i := slices.IndexFunc(axis.Ranges, keyed(key))
+	if i < 0 {
+		return LinePlot{}, errors.Wrapf(
+			validate.ErrValidation,
+			"no range %s on x-axis %q",
+			key,
+			p.AxisKey,
+		)
+	}
+	axis.Ranges[i] = p.Range
+	return state, nil
+}
+
+// Handle replaces the entire set of ranges bound to the x-axis named by AxisKey,
+// reconciling the line set. Ranges dropped from the set lose their lines; ranges new
+// to it gain default-styled lines. Surviving ranges keep their existing line styling.
+// It returns a validation error when two ranges share a key.
 func (p SetRangesPayload) Handle(state LinePlot) (LinePlot, error) {
 	if !p.AxisKey.IsValid() {
-		return LinePlot{}, errors.Wrapf(
-			validate.ErrValidation,
-			"unknown x-axis %q",
-			p.AxisKey,
-		)
+		return LinePlot{}, unknownXAxisKey(p.AxisKey)
 	}
-	slice := xAxisRangeSlice(&state.Ranges, p.AxisKey)
-	*slice = slices.Clone(p.Ranges)
+	if err := validateAxisRanges(p.AxisKey, p.Ranges); err != nil {
+		return LinePlot{}, err
+	}
+	axis := xAxisRanges(&state.Ranges, p.AxisKey)
+	axis.Ranges = slices.Clone(p.Ranges)
 	state.Lines = reconcileLines(state)
-	return state, nil
-}
-
-// Handle sets the window the "custom" range key resolves to. A nil Custom
-// clears the window.
-func (p SetCustomRangePayload) Handle(state LinePlot) (LinePlot, error) {
-	state.Ranges.Custom = p.Custom
 	return state, nil
 }
 
@@ -449,22 +475,98 @@ func yAxisSlice(c *Channels, k YAxisKey) *[]channel.Key {
 	panic(errors.Newf("lineplot: yAxisSlice called with non-y-axis %q", k))
 }
 
-// xAxisRangeSlice returns a pointer to the ranges slice for the given
-// x-axis key so handlers can append or filter in place. Callers must have
-// already validated k via IsValid; a non-matching key here means the x-axis
-// enum gained a member that wasn't wired through, so panic loudly rather
-// than returning nil for callers to dereference.
-func xAxisRangeSlice(r *Ranges, k XAxisKey) *[]string {
+// unknownXAxisKey returns the validation error for an action naming no x-axis.
+func unknownXAxisKey(k XAxisKey) error {
+	return errors.Wrapf(validate.ErrValidation, "unknown x-axis %q", k)
+}
+
+// xAxisRanges returns a pointer to the ranges bound to the x-axis k so handlers can
+// set into them in place. Callers must have validated k via IsValid, so a non-matching
+// key means the x-axis enum gained a member that was not wired through.
+func xAxisRanges(r *Ranges, k XAxisKey) *XAxisRanges {
 	switch k {
 	case XAxisKeyX1:
 		return &r.X1
 	case XAxisKeyX2:
 		return &r.X2
 	}
-	panic(errors.Newf("lineplot: xAxisRangeSlice called with non-x-axis %q", k))
+	panic(errors.Newf("lineplot: xAxisRanges called with non-x-axis %q", k))
 }
 
-const lineKeySeparator = "---"
+// lineRanges returns the range part of the key of each line plotted against axis:
+// the rolling window first, then each range in order.
+func lineRanges(axis XAxisRanges) []string {
+	parts := make([]string, 0, len(axis.Ranges)+1)
+	if axis.Rolling != nil {
+		parts = append(parts, rollingLineRange)
+	}
+	for _, r := range axis.Ranges {
+		parts = append(parts, rangeKey(r).String())
+	}
+	return parts
+}
+
+// validateRange returns the key of r, or a validation error when r has no variant or
+// is a static range that ends before it starts.
+func validateRange(r Range) (uuid.UUID, error) {
+	if r.Variant == nil {
+		return uuid.UUID{}, errors.Wrap(validate.ErrValidation, "range has no variant")
+	}
+	if v, ok := r.Variant.(StaticRange); ok && v.End < v.Start {
+		return uuid.UUID{}, errors.Wrapf(
+			validate.ErrValidation,
+			"static range %s ends before it starts",
+			v.Key,
+		)
+	}
+	return rangeKey(r), nil
+}
+
+// validateAxisRanges returns a validation error when a range bound to the x-axis k is
+// invalid or two of them share a key.
+func validateAxisRanges(k XAxisKey, ranges []Range) error {
+	keys := set.New[uuid.UUID]()
+	for _, r := range ranges {
+		key, err := validateRange(r)
+		if err != nil {
+			return err
+		}
+		if keys.Contains(key) {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"duplicate range %s on x-axis %q",
+				key,
+				k,
+			)
+		}
+		keys.Add(key)
+	}
+	return nil
+}
+
+// rangeKey returns the key of r. It panics when r has no variant, which Create and the
+// action handlers reject before a range reaches state.
+func rangeKey(r Range) uuid.UUID {
+	switch v := r.Variant.(type) {
+	case PersistedRange:
+		return v.Key
+	case StaticRange:
+		return v.Key
+	}
+	panic(errors.Newf("lineplot: range with unknown variant %T", r.Variant))
+}
+
+// keyed returns a predicate matching the range with the given key.
+func keyed(key uuid.UUID) func(Range) bool {
+	return func(r Range) bool { return rangeKey(r) == key }
+}
+
+const (
+	lineKeySeparator = "---"
+	// rollingLineRange is the range part of the key of a line plotted over an axis's
+	// rolling window.
+	rollingLineRange = "rolling"
+)
 
 // Default styling for a newly materialized line. These mirror the Oracle schema
 // defaults on Line. Oracle does not currently emit Go-side struct defaults, so they are
@@ -527,7 +629,7 @@ func reconcileLines(state LinePlot) []Line {
 	lines := make([]Line, 0, len(state.Lines))
 	for _, xAxis := range xAxisKeys {
 		xChannel := xAxisChannel(state.Channels, xAxis)
-		for _, rng := range *xAxisRangeSlice(&state.Ranges, xAxis) {
+		for _, rng := range lineRanges(*xAxisRanges(&state.Ranges, xAxis)) {
 			for _, yAxis := range yAxisKeys {
 				for _, yChannel := range *yAxisSlice(&state.Channels, yAxis) {
 					key := lineKey(yAxis, xAxis, rng, xChannel, yChannel)

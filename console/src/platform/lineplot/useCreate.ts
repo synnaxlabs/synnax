@@ -12,6 +12,7 @@ import { LinePlot } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Analytics } from "@/platform/analytics";
+import { useGetDefaultRanges } from "@/platform/lineplot/ranges";
 import { Panel } from "@/platform/panel";
 import { Session } from "@/session";
 
@@ -24,7 +25,7 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
   params?: Partial<lineplot.New>,
 ) => void) => {
   const getActiveProject = Session.Project.useGetSelected();
-  const getSelectedRange = Session.Range.useGetSelectedKey();
+  const getDefaultRanges = useGetDefaultRanges();
   const openTab = Panel.useOpenTab();
   const { capture } = Analytics.use();
   const { update } = LinePlot.useCreate({
@@ -36,10 +37,10 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
     (params = {}) =>
       update({
         name: "Line plot",
-        ranges: { x1: [getSelectedRange() ?? Session.Range.RECENT_KEY] },
+        ranges: getDefaultRanges(),
         ...params,
         project: project ?? getActiveProject(),
       }),
-    [update, project, getActiveProject, getSelectedRange],
+    [update, project, getActiveProject, getDefaultRanges],
   );
 };

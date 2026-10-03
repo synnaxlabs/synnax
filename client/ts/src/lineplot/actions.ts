@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { deep } from "@synnaxlabs/x";
+
 import { actions } from "@/actions";
 import {
   type Action,
@@ -25,7 +27,6 @@ import {
   setAxisTickSpacing,
   setAxisType,
   setChannels,
-  setCustomRange,
   setLegendHidden,
   setLegendPosition,
   setLine,
@@ -34,7 +35,9 @@ import {
   setLineDownsampleMode,
   setLineLabel,
   setLineStrokeWidth,
+  setRange,
   setRanges,
+  setRolling,
   setRule,
   setRuleAxis,
   setRuleColor,
@@ -196,28 +199,13 @@ const handlers: Handlers = {
     };
   },
 
-  // addRange appends the range to an x-axis and reconciles the line set, materializing
-  // a line for every y-channel plotted against it. removeRange is its inverse.
-  addRange: (state, payload) => {
-    const axis = payload.axisKey;
-    const slice = state.ranges[axis];
-    if (slice.includes(payload.range)) return actions.NO_OP_RESULT;
-    slice.push(payload.range);
-    state.lines = reconcileLines(state.channels, state.ranges, state.lines).lines;
-    return {
-      inverse: [removeRange({ axisKey: axis, range: payload.range })],
-      targets: [`range:${payload.range}`],
-    };
-  },
-
-  // removeRange drops the range and reconciles the line set, dropping every line
-  // it produced and restoring their styling on undo.
-  removeRange: (state, payload) => {
-    const axis = payload.axisKey;
-    const slice = state.ranges[axis];
-    const idx = slice.indexOf(payload.range);
-    if (idx === -1) return actions.NO_OP_RESULT;
-    slice.splice(idx, 1);
+  // setRolling sets or clears an x-axis's rolling window. The window's lines keep one
+  // key whatever its span, so changing the span keeps their styling.
+  setRolling: (state, payload) => {
+    const axis = state.ranges[payload.axisKey];
+    const old = axis.rolling;
+    if (old === payload.span) return actions.NO_OP_RESULT;
+    axis.rolling = payload.span;
     const { lines, dropped } = reconcileLines(
       state.channels,
       state.ranges,
@@ -226,27 +214,85 @@ const handlers: Handlers = {
     state.lines = lines;
     return {
       inverse: [
-        addRange({ axisKey: axis, range: payload.range }),
+        setRolling({ axisKey: payload.axisKey, span: old }),
         ...dropped.map((l) => setLine({ line: actions.snapshotDraft(l) })),
       ],
-      targets: [`range:${payload.range}`],
+      targets: [`rolling:${payload.axisKey}`],
+    };
+  },
+
+  // addRange appends the range to an x-axis and reconciles the line set, materializing
+  // a line for every y-channel plotted against it. removeRange is its inverse.
+  addRange: (state, payload) => {
+    const axis = payload.axisKey;
+    const { ranges } = state.ranges[axis];
+    const { key } = payload.range;
+    if (ranges.some((r) => r.key === key)) return actions.NO_OP_RESULT;
+    ranges.push(payload.range);
+    state.lines = reconcileLines(state.channels, state.ranges, state.lines).lines;
+    return {
+      inverse: [removeRange({ axisKey: axis, key })],
+      targets: [`range:${key}`],
+    };
+  },
+
+  // removeRange drops the range and reconciles the line set, dropping every line
+  // it produced and restoring their styling on undo.
+  removeRange: (state, payload) => {
+    const axis = payload.axisKey;
+    const { ranges } = state.ranges[axis];
+    const idx = ranges.findIndex((r) => r.key === payload.key);
+    if (idx === -1) return actions.NO_OP_RESULT;
+    const [removed] = ranges.splice(idx, 1);
+    const { lines, dropped } = reconcileLines(
+      state.channels,
+      state.ranges,
+      state.lines,
+    );
+    state.lines = lines;
+    return {
+      inverse: [
+        addRange({ axisKey: axis, range: actions.snapshotDraft(removed) }),
+        ...dropped.map((l) => setLine({ line: actions.snapshotDraft(l) })),
+      ],
+      targets: [`range:${payload.key}`],
+    };
+  },
+
+  // setRange replaces the range sharing the payload's key in place. The key is
+  // unchanged, so its lines keep their styling and the line set needs no reconcile.
+  setRange: (state, payload) => {
+    const axis = payload.axisKey;
+    const { ranges } = state.ranges[axis];
+    const { key } = payload.range;
+    const idx = ranges.findIndex((r) => r.key === key);
+    if (idx === -1) return actions.NO_OP_RESULT;
+    const old = actions.snapshotDraft(ranges[idx]);
+    ranges[idx] = payload.range;
+    return {
+      inverse: [setRange({ axisKey: axis, range: old })],
+      targets: [`range:${key}`],
     };
   },
 
   // setRanges replaces an x-axis's whole range set in one edit, reconciling the
-  // line set once. It is the bulk form of addRange/removeRange for the
+  // line set once. It is the bulk form of addRange/removeRange/setRange for the
   // multi-select toolbar; dropped lines are restored verbatim on undo and
-  // targets name only the ranges that actually changed.
+  // targets name only the ranges that were removed, added, or edited.
   setRanges: (state, payload) => {
     const axis = payload.axisKey;
-    const current = state.ranges[axis];
-    const nextSet = new Set(payload.ranges);
-    const currentSet = new Set(current);
-    const removed = current.filter((range) => !nextSet.has(range));
-    const added = payload.ranges.filter((range) => !currentSet.has(range));
-    if (added.length === 0 && removed.length === 0) return actions.NO_OP_RESULT;
+    const current = state.ranges[axis].ranges;
+    const byKey = new Map(current.map((r) => [r.key, r]));
+    const nextKeys = new Set(payload.ranges.map(({ key }) => key));
+    const removed = current
+      .filter(({ key }) => !nextKeys.has(key))
+      .map(({ key }) => key);
+    const changed = payload.ranges
+      .filter((r) => !deep.equal(byKey.get(r.key), r))
+      .map(({ key }) => key);
+    if (changed.length === 0 && removed.length === 0) return actions.NO_OP_RESULT;
     const oldRanges = actions.snapshotDraft(current);
-    state.ranges[axis] = [...payload.ranges];
+    state.ranges[axis].ranges = [...payload.ranges];
     const { lines, dropped } = reconcileLines(
       state.channels,
       state.ranges,
@@ -258,20 +304,7 @@ const handlers: Handlers = {
         setRanges({ axisKey: axis, ranges: oldRanges }),
         ...dropped.map((l) => setLine({ line: actions.snapshotDraft(l) })),
       ],
-      targets: [...removed, ...added].map((range) => `range:${range}`),
-    };
-  },
-
-  setCustomRange: (state, payload) => {
-    const old = state.ranges.custom;
-    state.ranges.custom = payload.custom;
-    return {
-      inverse: [
-        setCustomRange({
-          custom: old === undefined ? undefined : actions.snapshotDraft(old),
-        }),
-      ],
-      targets: ["range:custom"],
+      targets: [...removed, ...changed].map((key) => `range:${key}`),
     };
   },
 

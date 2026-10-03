@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import { useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -272,6 +272,16 @@ describe("Select.Multiple", () => {
     expect(trigger.tabIndex).toBe(0);
     fireEvent.keyDown(trigger, { key: "Enter" });
     expect(c.getByText("First Item Option")).toBeTruthy();
+  });
+
+  it("should select the initially hovered item on Enter", () => {
+    const { SelectMultiple, onChange } = createSelectMultiple();
+    const c = render(<SelectMultiple initialHover={0} />);
+    fireEvent.click(c.getByText("Test Items"));
+    act(() => {
+      fireEvent.keyDown(window, { code: "Enter" });
+    });
+    expect(onChange).toHaveBeenCalledWith(["1"]);
   });
 
   it("should prompt a selection when a visible label names the field", () => {

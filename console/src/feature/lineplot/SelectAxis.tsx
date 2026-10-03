@@ -8,13 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, lineplot } from "@synnaxlabs/client";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Channel, LinePlot } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
-import { CustomRangeInput } from "@/feature/lineplot/CustomRangeInput";
-import { Range } from "@/platform/range";
 import { Session } from "@/session";
 
 const SEARCH_OPTIONS: channel.RetrieveOptions = {
@@ -83,30 +80,5 @@ export const XAxisChannelSelect = ({
         location="top"
       />
     </Input.Item>
-  );
-};
-
-export interface XAxisRangeSelectProps extends Omit<
-  Range.SelectMultipleInputItemProps,
-  "value" | "onChange"
-> {
-  axisKey: lineplot.XAxisKey;
-}
-
-export const XAxisRangeSelect = ({
-  axisKey,
-  ...rest
-}: XAxisRangeSelectProps): ReactElement => {
-  const value = LinePlot.useXAxisRanges({ axisKey });
-  const dispatch = LinePlot.useSingleDispatch();
-  const handleChange = useCallback(
-    (ranges: string[]) => dispatch(lineplot.setRanges({ axisKey, ranges })),
-    [dispatch, axisKey],
-  );
-  return (
-    <Flex.Box x grow>
-      <Range.SelectMultipleInputItem value={value} onChange={handleChange} {...rest} />
-      {value.includes(Range.CUSTOM_KEY) && <CustomRangeInput />}
-    </Flex.Box>
   );
 };

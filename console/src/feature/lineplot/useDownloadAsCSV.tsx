@@ -15,7 +15,6 @@ import { TimeRange, TimeStamp, unique } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Framer } from "@/platform/framer";
-import { Range } from "@/platform/range";
 
 // DownloadLine carries only the channels the CSV export pulls. CSV columns are
 // headed by the channel name, never the line's display label, so none is read.
@@ -58,20 +57,20 @@ export const useDownloadAsCSV = (): ((params: DownloadAsCSVParams) => void) => {
 export const useDownloadPlotAsCSV = (key: string): (() => void) => {
   const downloadAsCSV = useDownloadAsCSV();
   const derived = LinePlot.useLines({ key });
-  const ranges = LinePlot.useRanges({ key });
+  const resolved = LinePlot.useResolvedRanges({ key });
   const name = LinePlot.useName({ key });
-  const rangeKeys = unique.unique([...ranges.x1, ...ranges.x2]);
-  const resolved = Range.useResolveMultiple(rangeKeys);
   return useCallback(() => {
     const now = TimeStamp.now();
     const lines: DownloadLine[] = derived.map((d) => ({
       channels: { x: d.xChannel, y: d.yChannel },
     }));
-    const timeRanges = resolved.map((r) => {
-      if (r.variant === "dynamic")
-        return new TimeRange({ start: now.sub(r.span), end: now });
-      return new TimeRange(r.timeRange);
-    });
+    const timeRanges = [resolved.x1, resolved.x2].flatMap((axis) =>
+      [...axis.values()].map((r) =>
+        r.variant === "dynamic"
+          ? new TimeRange({ start: now.sub(r.span), end: now })
+          : r.timeRange,
+      ),
+    );
     downloadAsCSV({ timeRanges, lines, name });
   }, [downloadAsCSV, derived, resolved, name]);
 };

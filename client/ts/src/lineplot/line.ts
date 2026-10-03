@@ -15,6 +15,7 @@ import {
   type Ranges,
   X_AXIS_KEYS,
   type XAxisKey,
+  type XAxisRanges,
   Y_AXIS_KEYS,
   type YAxisKey,
 } from "@/lineplot/types.gen";
@@ -24,12 +25,21 @@ import {
 export interface LineKeyParts {
   yAxis: YAxisKey;
   xAxis: XAxisKey;
+  /** The key of the range, or {@link ROLLING_LINE_RANGE} for the rolling window. */
   range: string;
   xChannel: channel.Key;
   yChannel: channel.Key;
 }
 
 const SEPARATOR = "---";
+
+/** The range part of the key of a line plotted over an axis's rolling window. */
+export const ROLLING_LINE_RANGE = "rolling";
+
+const lineRanges = ({ rolling, ranges }: XAxisRanges): string[] => [
+  ...(rolling == null ? [] : [ROLLING_LINE_RANGE]),
+  ...ranges.map(({ key }) => key),
+];
 
 // lineKey encodes the identity of a line into the stable string stored as
 // Line.key. This is the only place the key format is defined.
@@ -64,7 +74,7 @@ export const reconcileLines = (
   const lines: Line[] = [];
   for (const xAxis of X_AXIS_KEYS) {
     const xChannel = channels[xAxis];
-    for (const range of ranges[xAxis])
+    for (const range of lineRanges(ranges[xAxis]))
       for (const yAxis of Y_AXIS_KEYS)
         for (const yChannel of channels[yAxis]) {
           const key = lineKey({ yAxis, xAxis, range, xChannel, yChannel });

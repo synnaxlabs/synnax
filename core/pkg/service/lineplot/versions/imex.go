@@ -18,6 +18,7 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v0"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v5"
 	v6 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v6"
+	v7 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v7"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
@@ -44,7 +45,10 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (LinePlot, error
 					ctx, v0.LinePlot{Name: env.Name, Data: body},
 				)
 				if err == nil {
-					lp, err = v6.MigrateLinePlot(ctx, lp5)
+					var lp6 v6.LinePlot
+					if lp6, err = v6.MigrateLinePlot(ctx, lp5); err == nil {
+						lp, err = v7.MigrateLinePlot(ctx, lp6)
+					}
 				}
 			}
 		}

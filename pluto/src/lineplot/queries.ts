@@ -9,12 +9,23 @@
 
 import { lineplot, NotFoundError, type project } from "@synnaxlabs/client";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { color, compare, DataType, type require, uuid, verbs } from "@synnaxlabs/x";
+import {
+  color,
+  compare,
+  DataType,
+  type require,
+  TimeRange,
+  TimeSpan,
+  unique,
+  uuid,
+  verbs,
+} from "@synnaxlabs/x";
 import { useMemo } from "react";
 
 import { Channel } from "@/channel";
 import { Flux } from "@/flux";
 import { Scope } from "@/lineplot/scope";
+import { Ranger } from "@/ranger";
 
 const RESOURCE_NAME = "line plot";
 
@@ -181,14 +192,64 @@ export const useXAxisChannel = Scope.bindHook(
 );
 
 export const useXAxisRanges = Scope.bindHook(
-  createSelector<lineplot.Ranges[lineplot.XAxisKey], XAxisParams>(
+  createSelector<lineplot.XAxisRanges, XAxisParams>(
     ({ ranges }, { axisKey }) => ranges[axisKey],
-    compare.arraysEqual,
   ),
 );
 
-export const useCustomRange = Scope.bindHook(
-  createSelector(({ ranges }) => ranges.custom),
+/** The window a plotted line reads. */
+export type ResolvedRange =
+  { variant: "static"; timeRange: TimeRange } | { variant: "dynamic"; span: TimeSpan };
+
+/**
+ * The windows a plot's lines read, by x-axis and then by the range part of each line's
+ * key. A Core range is absent until the Core answers.
+ */
+export type ResolvedRanges = Record<lineplot.XAxisKey, Map<string, ResolvedRange>>;
+
+const resolveAxis = (
+  { rolling, ranges }: lineplot.XAxisRanges,
+  found: Map<string, TimeRange>,
+): Map<string, ResolvedRange> => {
+  const resolved = new Map<string, ResolvedRange>();
+  if (rolling != null)
+    resolved.set(lineplot.ROLLING_LINE_RANGE, {
+      variant: "dynamic",
+      span: new TimeSpan(rolling),
+    });
+  for (const range of ranges) {
+    const timeRange =
+      range.variant === "static"
+        ? // BigInt, not the constructor: TimeStamp parses a bare string as a
+          // date-time, not a decimal int64.
+          new TimeRange(BigInt(range.start), BigInt(range.end))
+        : found.get(range.key);
+    if (timeRange != null) resolved.set(range.key, { variant: "static", timeRange });
+  }
+  return resolved;
+};
+
+/** @returns the windows the plot's lines read, reading the Core for its ranges. */
+export const useResolvedRanges = Scope.bindHook(
+  ({ key }: KeyParams): ResolvedRanges => {
+    const ranges = useRanges({ key });
+    const persisted = useMemo(
+      () =>
+        unique.unique(
+          [...ranges.x1.ranges, ...ranges.x2.ranges]
+            .filter(({ variant }) => variant === "persisted")
+            .map(({ key }) => key),
+        ),
+      [ranges],
+    );
+    const { data } = Ranger.useResultMultiple(
+      persisted.length === 0 ? null : { keys: persisted },
+    );
+    return useMemo(() => {
+      const found = new Map((data ?? []).map(({ key, timeRange }) => [key, timeRange]));
+      return { x1: resolveAxis(ranges.x1, found), x2: resolveAxis(ranges.x2, found) };
+    }, [ranges, data]);
+  },
 );
 
 interface XAxisBaseReturn {

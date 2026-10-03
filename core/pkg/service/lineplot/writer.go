@@ -45,6 +45,12 @@ func (w Writer) Create(
 			return err
 		}
 	}
+	if err := validateAxisRanges(XAxisKeyX1, lp.Ranges.X1.Ranges); err != nil {
+		return err
+	}
+	if err := validateAxisRanges(XAxisKeyX2, lp.Ranges.X2.Ranges); err != nil {
+		return err
+	}
 	// Materialize lines for any channel/range bindings supplied at creation so a plot
 	// created with channels and ranges but no lines is fully populated.
 	lp.Lines = reconcileLines(*lp)

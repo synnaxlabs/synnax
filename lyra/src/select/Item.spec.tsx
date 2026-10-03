@@ -7,8 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { act, fireEvent, render, type RenderResult } from "@testing-library/react";
-import { type ReactElement, useState } from "react";
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  type RenderResult,
+  screen,
+} from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Dialog } from "@/dialog";
@@ -170,6 +177,28 @@ describe("Select.Item", () => {
       keyDown("ArrowUp");
       expect(hovered(c)).toBe("custom");
     });
+  });
+});
+
+describe("Select.useSearchTerm", () => {
+  const wrapper = ({ children }: PropsWithChildren): ReactElement => (
+    <Triggers.Provider>
+      <Dialog.Frame visible>
+        <Select.Frame<string, undefined> data={[]} onChange={vi.fn()} allowNone>
+          <Select.Search />
+          {children}
+        </Select.Frame>
+      </Dialog.Frame>
+    </Triggers.Provider>
+  );
+
+  it("should follow the term typed into the search field", () => {
+    const { result } = renderHook(Select.useSearchTerm, { wrapper });
+    expect(result.current).toBe("");
+    fireEvent.change(screen.getByPlaceholderText("Search..."), {
+      target: { value: "2m" },
+    });
+    expect(result.current).toBe("2m");
   });
 });
 

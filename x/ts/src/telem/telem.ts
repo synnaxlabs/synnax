@@ -735,8 +735,8 @@ export class TimeSpan
 
   /**
    * Parses a run of amounts and units, the form {@link toString} prints: `30s`,
-   * `2h 30m`, `1.5h`, `500ms`. Units are `d`, `h`, `m` or `min`, `s`, `ms`, `us` or
-   * `µs`, and `ns`, in any case.
+   * `2h 30m`, `1.5h`, `500ms`. Units are `y`, `mo`, `w`, `d`, `h`, `m` or `min`, `s`,
+   * `ms`, `us` or `µs`, and `ns`, in any case. A month is 30 days and a year 365.
    * @returns the span, or null when the text is not a unit run.
    */
   static parse(text: string): TimeSpan | null {
@@ -1094,6 +1094,9 @@ export class TimeSpan
 }
 
 const SPAN_UNITS: Record<string, TimeSpan> = {
+  y: TimeSpan.days(365),
+  mo: TimeSpan.days(30),
+  w: TimeSpan.days(7),
   d: TimeSpan.DAY,
   h: TimeSpan.HOUR,
   m: TimeSpan.MINUTE,
