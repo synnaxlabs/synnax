@@ -66,6 +66,7 @@ const (
 	IteratorCommandValid        = iterator.CommandValid
 	IteratorCommandError        = iterator.CommandError
 	IteratorCommandSetBounds    = iterator.CommandSetBounds
+	IteratorAutoSpan            = iterator.AutoSpan
 	WriterCommandOpen           = writer.CommandOpen
 	WriterCommandWrite          = writer.CommandWrite
 	WriterCommandCommit         = writer.CommandCommit

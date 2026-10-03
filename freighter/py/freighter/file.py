@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from typing import Protocol
 
 from freighter.transport import RQ, RS, Transport
@@ -59,6 +60,21 @@ class FileTransport(Transport, Protocol):
         :param target: the target address of the server.
         :param req: the typed request payload.
         :param dest: file path to stream the response body into.
+        :raises Unreachable: when the target cannot be reached.
+        :raises Exception: any error returned by the server.
+        """
+        ...
+
+    def stream(self, target: str, req: RQ, accept: str) -> Generator[bytes, None, None]:
+        """Sends req to target and yields the response body in chunks as it arrives.
+
+        Close the iterator to release the connection early. Exhausting it releases the
+        connection too.
+
+        :param target: the target address of the server.
+        :param req: the typed request payload.
+        :param accept: the content type to ask the server to encode the body in.
+        :returns: the response body, in arbitrarily sized chunks.
         :raises Unreachable: when the target cannot be reached.
         :raises Exception: any error returned by the server.
         """

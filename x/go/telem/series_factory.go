@@ -138,6 +138,20 @@ func MarshalVariableSample(sample []byte) []byte {
 	return b
 }
 
+// UnmarshalVariableSample returns the variable-length sample at the start of data and
+// the number of bytes it occupies, prefix included. n is 0 when data does not hold a
+// complete sample. The sample aliases data.
+func UnmarshalVariableSample(data []byte) (sample []byte, n int) {
+	if len(data) < variableLengthPrefixSize {
+		return nil, 0
+	}
+	n = variableLengthPrefixSize + int(ByteOrder.Uint32(data))
+	if n > len(data) {
+		return nil, 0
+	}
+	return data[variableLengthPrefixSize:n], n
+}
+
 func marshalVariable[T VariableSample](data []T) []byte {
 	total := lo.SumBy(
 		data,
@@ -206,17 +220,14 @@ func unmarshalFixed[T FixedSample](b []byte) []T { return unsafe.CastSlice[byte,
 
 func unmarshalVariable[T VariableSample](b []byte) []T {
 	var data []T
-	offset := 0
-	for offset+variableLengthPrefixSize <= len(b) {
-		length := int(ByteOrder.Uint32(b[offset:]))
-		offset += variableLengthPrefixSize
-		if offset+length > len(b) {
-			break
+	for {
+		sample, n := UnmarshalVariableSample(b)
+		if n == 0 {
+			return data
 		}
-		data = append(data, T(b[offset:offset+length]))
-		offset += length
+		data = append(data, T(sample))
+		b = b[n:]
 	}
-	return data
 }
 
 // DecodeJSON unmarshals a JSON-encoded series into a slice of values of the specified

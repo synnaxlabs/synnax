@@ -25,6 +25,7 @@ describe("Client", () => {
       const unreachable = new Client({
         stream: transport.stream,
         unary: transport.unary,
+        file: transport.file,
         retrieveChannels: async () => {
           throw new Unreachable({ message: "core down" });
         },
