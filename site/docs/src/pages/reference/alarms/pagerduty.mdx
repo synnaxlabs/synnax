@@ -16,8 +16,8 @@ export const components = mdxOverrides;
 
 A PagerDuty alert task sends the [statuses](/reference/alarms/statuses) that you choose
 to PagerDuty. For example, when an Arc automation sets the "Engine 1" status to
-**Error**, the task opens a PagerDuty incident, and the on-call engineer gets a page.
-When the status changes to **Success**, the task resolves the incident.
+**Error**, the task triggers a PagerDuty alert, and the on-call engineer gets a page.
+When the status changes to **Success**, the task resolves the alert.
 
 Before you start, you need a PagerDuty service with an Events API v2 integration, and
 the statuses to send. To get the 32-character integration key, also called the routing
@@ -32,11 +32,14 @@ key, open **Services** -> **Service Directory** in PagerDuty, select the service
 | ----------------- | ----------------------------------------------------------------- |
 | Error             | An `error` event, or `critical` with **Treat error as critical**. |
 | Warning           | A `warning` event.                                                |
-| Info              | An `info` event. It also opens an incident.                       |
-| Success           | Resolves the incident.                                            |
+| Info              | An `info` event.                                                  |
+| Success           | Resolves the alert.                                               |
 | Loading, Disabled | Nothing.                                                          |
 
-- PagerDuty groups events by status key, so a later change updates the same incident.
+- The status key is the PagerDuty dedup key, so a later change updates the same open
+  alert.
+- Error, warning, and info all send a trigger event. The settings of the PagerDuty
+  service decide whether the alert opens an incident and how urgent it is.
 - The summary of the event is the status message, followed by `: ` and the description
   when there is one. The source is the status name, and the details are the status
   details.
