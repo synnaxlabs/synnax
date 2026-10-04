@@ -1,34 +1,45 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Find channels"
-description: "Find channels by name, key, pattern, or search term."
+description:
+  "Find channels in the Console, or retrieve them in code by name, key, pattern, or
+  search term."
 clients: ["console", "python", "typescript"]
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Find a [channel](/reference/channels) in the Console to open it, or retrieve it in code
-to read and write its data.
+In the Console, you find a [channel](/reference/channels) to plot it or to add it to a
+schematic. In a script, you retrieve a channel before you read or write its data.
 
 <Divider.Divider x />
 
-## Find a channel by name or key
+## Find a channel in the Console
 
-<Client.Tabs>
+The [channels toolbar](/reference/channels#channels-in-the-console) lists all of the
+channels in Synnax. To open it, click <Icon.Channel /> or press **C**. To add a channel
+to a schematic, drag it from the toolbar onto the schematic.
 
-  <Fragment slot="console">
+To find a channel by name, open the
+[search palette](/reference/get-started/ui-overview#search-and-command-palette) with
+**Ctrl+P** (**Cmd+P** on macOS), and type part of the name. Select a result to add the
+channel to the open line plot, or to a new line plot. A virtual channel opens in a log.
 
-Find a channel in the [channels toolbar](/reference/get-started/ui-overview#channels).
-To search by name, open the
-[search palette](/reference/get-started/ui-overview#search-and-command-palette) and type
-part of the name. Select a result to open the channel in a line plot. A virtual channel
-opens in a log.
+<Divider.Divider x />
 
-  </Fragment>
+## Retrieve channels in code
+
+A script gets a channel from the Core before it reads or writes its data. Retrieve
+channels by name or key, by a pattern, or by a search term.
+
+### By name or key
+
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -74,9 +85,7 @@ Store keys in programs that run for a long time.
 
 </Client.Tabs>
 
-<Divider.Divider x />
-
-## Find channels by pattern
+### By pattern
 
 A name that is not a valid [channel name](/reference/channels#names) is a regular
 expression, in [Go RE2 syntax](https://github.com/google/re2/wiki/Syntax). The pattern
@@ -111,12 +120,10 @@ Put the pattern in an array. With a pattern that is not in an array, `retrieve` 
 
 </Client.Tabs>
 
-<Divider.Divider x />
+### By search term
 
-## Search and filter channels
-
-The TypeScript client can search channels by a part of their name, and filter them by
-their properties.
+Only the TypeScript client can search channels by a part of their name, and filter them
+by their properties.
 
 <Client.Tabs exclude={["console", "python"]}>
 

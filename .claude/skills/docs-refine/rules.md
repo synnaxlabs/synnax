@@ -13,6 +13,7 @@ line.
 - Components and front matter
 - Links and moves
 - Content patterns that worked
+- Content principles from page review
 
 ## Prose
 
@@ -124,3 +125,27 @@ Use these when they fit. Each came from prior art and the user accepted it.
 - Name rule, then convention, then bad and good pairs (Prometheus, Tailscale).
 - A limits table (Cloudflare).
 - Symptom-first troubleshooting, then an FAQ (QuestDB).
+
+## Content principles from page review
+
+The user's page notes, made general. Apply them in passes over other sections.
+
+- When Synnax often makes a thing for the reader, the task page first says when it does
+  and when the reader must make the thing. Tell the reader not to do work that the
+  product already does.
+- Say when to use each interface, not only how. A task with a Console and a client
+  method says which one fits which job (a few things set up once, or data that a script
+  writes).
+- Keep only the cases the reader acts on. A "when" section names the paths that the
+  reader chooses between, and leaves out side facts, even true ones.
+- Each way to do the task on a page gets a section, even when the full steps are on
+  another page. A short section with one example and a link is enough.
+- Each Console task with its own h2 gets a video of its steps. Request it from the media
+  session when it is missing.
+- A link to a client-only page says that it uses the Python or TypeScript client.
+- Use `Client.Tabs` only when the Console and the clients do the same job (create a
+  channel). When the jobs differ (find a channel to plot it, or retrieve it in a script)
+  or a task exists only in code, give the code part its own h2 with "in code" in the
+  name, and open it with one sentence on why a script does it. Model:
+  `channels/find.mdx`. Pages to check: ranges find, data, and aliases; hardware tasks;
+  control authority; Enterprise users.
