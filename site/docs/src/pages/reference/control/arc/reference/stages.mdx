@@ -125,6 +125,10 @@ stage pressurize {
 }
 ```
 
+Between a stage and a sequence declared inside it, the line written first wins only when
+both lines jump to a top-level sequence or stage. Any other transition in the inner
+sequence, such as `=> next`, acts first.
+
 For continuous flows (`->`), if multiple flows write to the same channel, last write
 wins based on line order.
 

@@ -118,8 +118,9 @@ func buildDeepNested(depth int) (ir.IR, map[string]node.Node) {
 	irNodes = append(irNodes, irNode("trigger", "go"))
 	nodes["trigger"] = newBenchNode(true)
 	current.Liveness = ir.LivenessGated
-	current.Activation = &ir.Handle{Node: "trigger", Param: "go"}
-	current.ActivationKind = ir.EdgeKindConditional
+	current.Activations = []ir.Activation{
+		{On: ir.Handle{Node: "trigger", Param: "go"}, Kind: ir.EdgeKindConditional},
+	}
 	root := rootWithStrata(stratum(ir.NodeMember("trigger"), ir.ScopeMember(current)))
 	return programOf(irNodes, nil, root), nodes
 }
@@ -157,8 +158,9 @@ func buildSequentialChain(n int) (ir.IR, map[string]node.Node) {
 		}
 	}
 	seq := sequentialScope("seq", members, transitions...)
-	seq.Activation = &ir.Handle{Node: "trigger", Param: "go"}
-	seq.ActivationKind = ir.EdgeKindConditional
+	seq.Activations = []ir.Activation{
+		{On: ir.Handle{Node: "trigger", Param: "go"}, Kind: ir.EdgeKindConditional},
+	}
 	return programOf(
 		irNodes,
 		nil,

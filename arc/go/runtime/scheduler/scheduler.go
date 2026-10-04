@@ -35,11 +35,18 @@ type outEdge struct {
 type outputResolved struct {
 	// edges are the outgoing dataflow edges from this output.
 	edges []outEdge
-	// markHandleIdx is the markedFlags index for sequential-scope
-	// transitions sourced from this output, or -1 if none.
+	// markHandleIdx is the markedFlags index for transitions sourced from this
+	// output, or -1 if none.
 	markHandleIdx int
-	// activates are the gated scopes whose activation handle is this output.
-	activates []*scope
+	// activates are the gated scope activations whose handle is this output.
+	activates []activation
+}
+
+// activation is a gated scope that an output activates.
+type activation struct {
+	scope *scope
+	// continuous means every output activates the scope, not only a truthy one.
+	continuous bool
 }
 
 // node pairs a runtime node with its pre-resolved per-output propagation
@@ -103,6 +110,9 @@ type scope struct {
 	// for transition i's `on`-handle, or -1 if unresolved. Paired with
 	// transitionOnNode[i] so the truthy check is a direct virtual call.
 	transitionOnOutputIdx []int
+	// transitionTargets[i] is the top-level scope that transition i activates
+	// after it exits this scope, or nil.
+	transitionTargets []*scope
 	// transitionsForStep[s] holds transition indices to evaluate when
 	// step s is active, in source order. Each entry is the union of:
 	//   - transitions whose owner is s (sourced inside that step)
@@ -222,6 +232,7 @@ func (s *Scheduler) walk(ss *scope) {
 		return
 	}
 	s.walkParallel(ss)
+	s.evaluateExits(ss)
 }
 
 // walkParallel runs every member of a parallel scope in stratum order.
@@ -300,31 +311,62 @@ func (s *Scheduler) evaluateTransitions(ss *scope) bool {
 		return false
 	}
 	for _, i := range ss.transitionsForStep[ss.activeStep] {
-		handleIdx := ss.transitionOnIdx[i]
-		if handleIdx < 0 || s.markedFlags[handleIdx] == 0 {
+		if !s.fires(ss, i) {
 			continue
 		}
-		if ss.ir.Transitions[i].Kind != ir.EdgeKindContinuous &&
-			!ss.transitionOnNode[i].IsOutputTruthy(ss.transitionOnOutputIdx[i]) {
-			continue
-		}
-		s.markedFlags[handleIdx] = 0
-		if ss.activeStep >= 0 {
-			s.deactivateStep(&ss.members[ss.activeStep])
-		}
+		s.deactivateMember(&ss.members[ss.activeStep])
 		t := ss.ir.Transitions[i]
 		if t.TargetKey == nil {
-			s.deactivateScope(ss)
-		} else {
-			idx, ok := ss.memberByKey[*t.TargetKey]
-			if !ok {
-				return false
-			}
-			s.activateSequentialStep(ss, idx)
+			s.exit(ss, i)
+			return true
 		}
+		idx, ok := ss.memberByKey[*t.TargetKey]
+		if !ok {
+			return false
+		}
+		s.activateSequentialStep(ss, idx)
 		return true
 	}
 	return false
+}
+
+// evaluateExits fires the first exit of a parallel scope, in source order, whose `on`
+// handle was freshly marked this cycle and is truthy unless the exit is continuous.
+func (s *Scheduler) evaluateExits(ss *scope) {
+	for i := range ss.ir.Transitions {
+		if s.fires(ss, i) {
+			s.exit(ss, i)
+			return
+		}
+	}
+}
+
+// fires reports whether transition i of ss has a fresh mark and, unless the transition
+// is continuous, a truthy output. A firing transition consumes its mark.
+func (s *Scheduler) fires(ss *scope, i int) bool {
+	handleIdx := ss.transitionOnIdx[i]
+	if handleIdx < 0 || s.markedFlags[handleIdx] == 0 {
+		return false
+	}
+	if ss.ir.Transitions[i].Kind != ir.EdgeKindContinuous &&
+		!ss.transitionOnNode[i].IsOutputTruthy(ss.transitionOnOutputIdx[i]) {
+		return false
+	}
+	s.markedFlags[handleIdx] = 0
+	return true
+}
+
+// exit deactivates ss through transition i, then activates the transition's target
+// unless it is already active. Activating a target costs a settle pass, so the target
+// runs this cycle wherever the walk visits it. A target equal to ss restarts it.
+func (s *Scheduler) exit(ss *scope, i int) {
+	s.deactivateScope(ss)
+	target := ss.transitionTargets[i]
+	if target == nil || target.active {
+		return
+	}
+	s.activateScope(target)
+	s.settled = false
 }
 
 // resetLeafNode clears selfChanged and fired and calls Reset on m's node.
@@ -333,13 +375,6 @@ func (s *Scheduler) resetLeafNode(m *member) {
 		s.selfChangedFlags[n.idx] = 0
 		s.firedFlags[n.idx] = 0
 		n.Reset(s.nodeCtx)
-	}
-}
-
-// clearLeafNodeSelfChanged clears selfChanged on m's node.
-func (s *Scheduler) clearLeafNodeSelfChanged(m *member) {
-	if n := m.node; m.isNode() && n != nil {
-		s.selfChangedFlags[n.idx] = 0
 	}
 }
 
@@ -385,26 +420,34 @@ func (s *Scheduler) activateSequentialStep(ss *scope, idx int) {
 	}
 }
 
-// deactivateStep clears selfChanged for the step's node, or marks a
-// nested scope inactive. Nested-scope state freezes and is overwritten
-// on the next parent activation.
-func (s *Scheduler) deactivateStep(m *member) {
+// deactivateMember deactivates the member's nested scope, or clears selfChanged and
+// the transition marks of its node. A restarted scope then waits for its transitions
+// to fire again.
+func (s *Scheduler) deactivateMember(m *member) {
 	if m.scope != nil {
 		s.deactivateScope(m.scope)
 		return
 	}
-	s.clearLeafNodeSelfChanged(m)
+	n := m.node
+	if n == nil {
+		return
+	}
+	s.selfChangedFlags[n.idx] = 0
+	for i := range n.outputs {
+		if h := n.outputs[i].markHandleIdx; h >= 0 {
+			s.markedFlags[h] = 0
+		}
+	}
 }
 
-// deactivateScope marks a scope inactive and clears selfChanged on its
-// direct leaf-node members. Does not recurse — nested scope state freezes
-// until the next activation overwrites it.
+// deactivateScope marks a scope and every scope nested in it inactive, and
+// deactivates their leaf-node members.
 func (s *Scheduler) deactivateScope(ss *scope) {
 	if ss.ir.Mode == ir.ScopeModeSequential {
 		ss.activeStep = -1
 	}
 	for i := range ss.members {
-		s.clearLeafNodeSelfChanged(&ss.members[i])
+		s.deactivateMember(&ss.members[i])
 	}
 	ss.active = false
 }
@@ -431,9 +474,9 @@ func (s *Scheduler) markChanged(outputIdx int) {
 			}
 		}
 	}
-	for _, sc := range out.activates {
-		if !sc.active && (truthy || sc.ir.ActivationKind == ir.EdgeKindContinuous) {
-			s.activateScope(sc)
+	for _, a := range out.activates {
+		if !a.scope.active && (truthy || a.continuous) {
+			s.activateScope(a.scope)
 		}
 	}
 }

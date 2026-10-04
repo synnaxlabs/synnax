@@ -702,8 +702,9 @@ stage is active. A `->` into a stage, a sequence, or `next` enters the target on
 value, truthy or not.
 
 **Conditional transitions (`=>`)**: Propagate only when the condition is truthy (a
-`bool` `true`, a non-zero numeric, or a non-empty string). A transition to an
-already-active stage is a no-op, preventing re-entry.
+`bool` `true`, a non-zero numeric, or a non-empty string). A transition to a running
+stage or sequence does not restart it. A transition to the stage or sequence that holds
+it leaves and re-enters it.
 
 **Entry nodes**: Fire once per scope activation, and again on re-entry. A node is an
 entry node when nothing flows into it and it reads no channels: a literal, or a call
@@ -719,14 +720,26 @@ When entering a stage or a sequence:
 
 Aside from stateful variables (`$=`), a scope keeps no memory between entries.
 
-### Cross-sequence transitions
+When a scope stops, every stage and sequence inside it stops too. A body that a trigger
+starts inside a stage runs again after the stage re-enters only when that trigger fires
+again.
 
-When transitioning to another sequence (e.g., `=> abort`):
+### Transitions to a top-level scope
 
-1. Source sequence's active stage is deactivated
-2. Target sequence starts at its first defined stage
-3. This is one-way—no built-in "return" mechanism
-4. The source's enclosing sequences do not resume; their remaining steps never run
+When transitioning to a top-level sequence or stage (e.g., `=> abort`):
+
+1. The whole top-level sequence or stage that holds the transition stops, with every
+   stage and sequence nested in it. None of them resume.
+2. The target starts at its first defined stage, in the same cycle.
+3. A target that is already running does not restart. A target that is the top-level
+   scope holding the transition restarts.
+4. There is no built-in "return" mechanism.
+
+Within one sequence, only the first true transition in source order acts. Among the
+jumps to top-level scopes that one top-level scope holds, only the first true jump in
+source order acts, at any depth of nesting. A different transition in a sequence nested
+inside a stage, such as `=> next`, acts before the jumps of that stage, whatever its
+position in the source.
 
 Activations are independent: several top-level scopes can run at the same time.
 

@@ -104,7 +104,8 @@ class Edge(BaseModel):
 
 
 class Transition(BaseModel):
-    """Is a declarative state-transition rule on a sequential Scope.
+    """Is a declarative state-transition rule on a sequential Scope, or an exit from a
+    parallel Scope.
 
     Attributes:
         on: Is the dataflow handle whose output fires this transition.
@@ -112,11 +113,27 @@ class Transition(BaseModel):
             continuous when every output fires it (`->`).
         targetKey: Is the sibling step key to activate. Null when the transition exits
             the scope, yielding to the parent.
+        activateKey: Is the key of the top-level scope to activate after the transition
+            exits its scope. Null unless targetKey is null.
     """
 
     on: Handle
     kind: EdgeKind
     targetKey: str | None = None
+    activateKey: str | None = None
+
+
+class Activation(BaseModel):
+    """Is a handle that activates a gated Scope without leaving any scope.
+
+    Attributes:
+        on: Is the dataflow handle whose output activates the scope.
+        kind: Is conditional when only a truthy output activates the scope (`=>`), and
+            continuous when every output does (`->`).
+    """
+
+    on: Handle
+    kind: EdgeKind
 
 
 class Function(BaseModel):
@@ -170,24 +187,20 @@ class Scope(BaseModel):
         mode: Defines whether this scope runs steps in parallel or sequentially.
         liveness: Defines whether this scope is continuously active or must be
             activated.
-        activation: Is the handle whose output activates a gated scope. Unset for
+        activations: Contains the handles that activate a gated scope. Empty for
             always-live scopes.
-        activationKind: Is conditional when only a truthy activation output activates
-            the scope (`=>`), and continuous when every output does (`->`). Unspecified
-            when activation is unset.
         strata: Contains stratified execution layers for parallel scopes. On sequential
             scopes, strata hold variable nodes that run every pass alongside the active
             step. Stratum N depends only on strata 0 to N-1.
         steps: Contains ordered steps for sequential scopes. Empty for parallel scopes.
-        transitions: Contains state-transition rules for sequential scopes. Empty for
-            parallel scopes.
+        transitions: Contains state-transition rules in source order. A parallel scope
+            holds only exits.
     """
 
     key: str
     mode: ScopeMode
     liveness: Liveness
-    activation: Handle | None = None
-    activationKind: EdgeKind
+    activations: list[Activation] = Field(default_factory=list)
     strata: list[Members] = Field(default_factory=list)
     steps: Members = Field(default_factory=list)
     transitions: list[Transition] = Field(default_factory=list)

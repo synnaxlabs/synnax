@@ -136,7 +136,9 @@ Program build_deep_nested(size_t depth) {
         current = std::move(outer);
     }
     current.liveness = ir::Liveness::Gated;
-    current.activation = ir::Handle{"trigger", "go"};
+    current.activations = {
+        {.on = ir::Handle{"trigger", "go"}, .kind = ir::EdgeKind::Conditional}
+    };
 
     p.ir.root.mode = ir::ScopeMode::Parallel;
     p.ir.root.liveness = ir::Liveness::Always;
@@ -174,7 +176,7 @@ Program build_sequential_chain(size_t n) {
     seq.steps = std::move(steps);
     seq.transitions = std::move(transitions);
     ir::Handle act{"trigger", "go"};
-    seq.activation = act;
+    seq.activations = {{.on = act, .kind = ir::EdgeKind::Conditional}};
 
     p.ir.root.mode = ir::ScopeMode::Parallel;
     p.ir.root.liveness = ir::Liveness::Always;
@@ -275,7 +277,9 @@ Program build_sequential_with_vars(size_t n) {
     seq.steps = std::move(steps);
     seq.transitions = std::move(transitions);
     seq.strata.push_back(std::move(vars));
-    seq.activation = ir::Handle{"trigger", "go"};
+    seq.activations = {
+        {.on = ir::Handle{"trigger", "go"}, .kind = ir::EdgeKind::Conditional}
+    };
 
     p.ir.root.mode = ir::ScopeMode::Parallel;
     p.ir.root.liveness = ir::Liveness::Always;

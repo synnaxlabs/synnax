@@ -35,6 +35,7 @@ struct Authorities;
 struct Function;
 struct Edge;
 struct Transition;
+struct Activation;
 struct Member;
 struct Scope;
 struct IR;
@@ -234,7 +235,8 @@ struct Edge {
     friend std::ostream &operator<<(std::ostream &os, const Edge &e);
 };
 
-/// @brief Transition is a declarative state-transition rule on a sequential Scope.
+/// @brief Transition is a declarative state-transition rule on a sequential Scope, or
+/// an exit from a parallel Scope.
 struct Transition {
     /// @brief on is the dataflow handle whose output fires this transition.
     Handle on;
@@ -245,6 +247,9 @@ struct Transition {
     /// @brief target_key is the sibling step key to activate. Null when the transition
     /// exits the scope, yielding to the parent.
     std::optional<std::string> target_key;
+    /// @brief activate_key is the key of the top-level scope to activate after the
+    /// transition exits its scope. Null unless targetKey is null.
+    std::optional<std::string> activate_key;
 
     static Transition parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -256,6 +261,26 @@ struct Transition {
     from_proto(const ::arc::ir::pb::Transition &pb);
     [[nodiscard]] std::string to_string() const;
     friend std::ostream &operator<<(std::ostream &os, const Transition &t);
+};
+
+/// @brief Activation is a handle that activates a gated Scope without leaving any
+/// scope.
+struct Activation {
+    /// @brief on is the dataflow handle whose output activates the scope.
+    Handle on;
+    /// @brief kind is conditional when only a truthy output activates the scope (`=>`),
+    /// and
+    /// continuous when every output does (`->`).
+    EdgeKind kind = {};
+
+    static Activation parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::arc::ir::pb::Activation;
+    [[nodiscard]] std::pair<::arc::ir::pb::Activation, x::errors::Error>
+    to_proto() const;
+    static std::pair<Activation, x::errors::Error>
+    from_proto(const ::arc::ir::pb::Activation &pb);
 };
 
 /// @brief Functions is a collection of function definitions in an Arc module.
@@ -406,14 +431,9 @@ struct Scope {
     /// @brief liveness defines whether this scope is continuously active or must be
     /// activated.
     Liveness liveness = {};
-    /// @brief activation is the handle whose output activates a gated scope. Unset for
+    /// @brief activations contains the handles that activate a gated scope. Empty for
     /// always-live scopes.
-    std::optional<Handle> activation;
-    /// @brief activation_kind is conditional when only a truthy activation output
-    /// activates
-    /// the scope (`=>`), and continuous when every output does (`->`). Unspecified when
-    /// activation is unset.
-    EdgeKind activation_kind = {};
+    std::vector<Activation> activations;
     /// @brief strata contains stratified execution layers for parallel scopes. On
     /// sequential scopes, strata hold variable nodes that run every pass alongside the
     /// active step. Stratum N depends only on strata 0 to N-1.
@@ -421,9 +441,9 @@ struct Scope {
     /// @brief steps contains ordered steps for sequential scopes. Empty for parallel
     /// scopes.
     Members steps;
-    /// @brief transitions contains state-transition rules for sequential scopes. Empty
-    /// for
-    /// parallel scopes.
+    /// @brief transitions contains state-transition rules in source order. A parallel
+    /// scope
+    /// holds only exits.
     std::vector<Transition> transitions;
 
     static Scope parse(x::json::Parser parser);

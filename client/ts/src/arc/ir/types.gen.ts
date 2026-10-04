@@ -89,7 +89,10 @@ export const edgeZ = z.object({
 });
 export interface Edge extends z.infer<typeof edgeZ> {}
 
-/** Transition is a declarative state-transition rule on a sequential Scope. */
+/**
+ * Transition is a declarative state-transition rule on a sequential Scope, or an exit
+ * from a parallel Scope.
+ */
 export const transitionZ = z.object({
   /** on is the dataflow handle whose output fires this transition. */
   on: handleZ,
@@ -103,8 +106,25 @@ export const transitionZ = z.object({
    * scope, yielding to the parent.
    */
   targetKey: z.string().optional(),
+  /**
+   * activateKey is the key of the top-level scope to activate after the transition
+   * exits its scope. Null unless targetKey is null.
+   */
+  activateKey: z.string().optional(),
 });
 export interface Transition extends z.infer<typeof transitionZ> {}
+
+/** Activation is a handle that activates a gated Scope without leaving any scope. */
+export const activationZ = z.object({
+  /** on is the dataflow handle whose output activates the scope. */
+  on: handleZ,
+  /**
+   * kind is conditional when only a truthy output activates the scope (`=>`), and
+   * continuous when every output does (`->`).
+   */
+  kind: edgeKindZ,
+});
+export interface Activation extends z.infer<typeof activationZ> {}
 
 /**
  * Function is a function template definition with typed parameters, serving as a
@@ -163,8 +183,7 @@ export interface Scope {
   key: string;
   mode: ScopeMode;
   liveness: Liveness;
-  activation?: Handle;
-  activationKind: EdgeKind;
+  activations: Activation[];
   strata: Members[];
   steps: Members;
   transitions: Transition[];
@@ -179,16 +198,10 @@ export const scopeZ: z.ZodType<Scope> = z.object({
    */
   liveness: livenessZ,
   /**
-   * activation is the handle whose output activates a gated scope. Unset for
-   * always-live scopes.
+   * activations contains the handles that activate a gated scope. Empty for always-live
+   * scopes.
    */
-  activation: handleZ.optional(),
-  /**
-   * activationKind is conditional when only a truthy activation output activates the
-   * scope (`=>`), and continuous when every output does (`->`). Unspecified when
-   * activation is unset.
-   */
-  activationKind: edgeKindZ,
+  activations: activationZ.array().default(() => []),
   /**
    * strata contains stratified execution layers for parallel scopes. On sequential
    * scopes, strata hold variable nodes that run every pass alongside the active step.
@@ -202,8 +215,8 @@ export const scopeZ: z.ZodType<Scope> = z.object({
     return membersZ;
   },
   /**
-   * transitions contains state-transition rules for sequential scopes. Empty for
-   * parallel scopes.
+   * transitions contains state-transition rules in source order. A parallel scope holds
+   * only exits.
    */
   transitions: transitionZ.array().default(() => []),
 });

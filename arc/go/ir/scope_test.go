@@ -26,8 +26,15 @@ var _ = Describe("Scope", func() {
 			Entry("a key", ir.Scope{Key: "main"}, false),
 			Entry("a mode", ir.Scope{Mode: ir.ScopeModeParallel}, false),
 			Entry("a liveness", ir.Scope{Liveness: ir.LivenessAlways}, false),
-			Entry("an activation",
-				ir.Scope{Activation: &ir.Handle{Node: "n", Param: "p"}}, false),
+			Entry(
+				"an activation",
+				ir.Scope{
+					Activations: []ir.Activation{
+						{On: ir.Handle{Node: "n", Param: "p"}},
+					},
+				},
+				false,
+			),
 			Entry("strata",
 				ir.Scope{Strata: []ir.Members{{ir.NodeMember("n")}}}, false),
 			Entry("steps", ir.Scope{Steps: ir.Members{ir.NodeMember("n")}}, false),

@@ -16,6 +16,8 @@ func (t Transition) String() string {
 	target := "exit"
 	if t.TargetKey != nil {
 		target = *t.TargetKey
+	} else if t.ActivateKey != nil {
+		target = "exit to " + *t.ActivateKey
 	}
 	return fmt.Sprintf("on %s/%s %s %s", t.On.Node, t.On.Param, t.Kind.Arrow(), target)
 }
