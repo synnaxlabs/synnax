@@ -41,34 +41,24 @@ export const CLIENT_NAV: PageNavNode = {
       name: "Time types",
     },
     {
-      key: "/reference/client/stream-data",
-      href: "/reference/client/stream-data",
-      name: "Streaming data",
+      key: "/reference/client/write-data",
+      href: "/reference/client/write-data",
+      name: "Write data",
     },
     {
       key: "/reference/client/read-data",
       href: "/reference/client/read-data",
-      name: "Reading data",
+      name: "Read data",
     },
     {
-      key: "/reference/client/write-data",
-      href: "/reference/client/write-data",
-      name: "Writing data",
+      key: "/reference/client/stream-data",
+      href: "/reference/client/stream-data",
+      name: "Stream data",
     },
     {
       key: "advanced",
       name: "Advanced topics",
       children: [
-        {
-          key: "/reference/client/advanced/auto-commit",
-          href: "/reference/client/advanced/auto-commit",
-          name: "Auto-commit",
-        },
-        {
-          key: "/reference/client/advanced/auto-index",
-          href: "/reference/client/advanced/auto-index",
-          name: "Auto-index",
-        },
         {
           key: "/reference/client/advanced/iterators",
           href: "/reference/client/advanced/iterators",
