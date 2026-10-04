@@ -104,6 +104,10 @@ describe("zoom.plan", () => {
     it("should keep a point zoom at 2x for a 3x 1600px capture into 1920px", () => {
       expect(plan(capture(3), 1920)[0].amount).toEqual(2);
     });
+
+    it("should hold the full frame for a 2x 1600px capture into 3840px", () => {
+      expect(plan(capture(2), 3840)[0].amount).toEqual(1);
+    });
   });
 
   it("should reject an override with neither amount nor rect", () => {

@@ -70,11 +70,12 @@ const overrideAmount = (
  * plan returns the camera's zoom segments: one per authored zoom override. Clicks
  * never zoom; the camera holds the full frame unless a shot asks for a zoom. Every
  * amount is capped at the deepest zoom that stays crisp in a video outputWidth pixels
- * wide: the capture's native width over outputWidth.
+ * wide: the capture's native width over outputWidth, and at least 1, so a render wider
+ * than the capture holds the full frame.
  */
 export const plan = (tl: Timeline, outputWidth: number): Segment[] => {
   const { width, height, dsf } = tl.meta;
-  const max = (width * dsf) / outputWidth;
+  const max = Math.max(1, (width * dsf) / outputWidth);
   const moves = tl.events
     .filter((e) => e.type === "move")
     .sort((a, b) => a.tick - b.tick);

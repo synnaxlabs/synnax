@@ -116,9 +116,9 @@ Console reads at the scale of a desktop window, not a zoomed-in browser. `--targ
 capture. It defaults to 1080p, the width the docs site serves: a 4k page load is seconds
 of video the reader waits through. Targets below native are supersampled, which also
 buys zoom headroom: crisp zoom tops out at `(width * dsf) / target`, so a 1080p target
-from the default capture keeps zooms to 1.67x pixel-perfect, while a 4k target upscales
-during them. The camera caps every zoom at that limit. For deeper crisp zooms, capture
-with `--dsf 3`: a 1080p target then allows 2.5x.
+from the default capture keeps zooms to 1.67x pixel-perfect. The camera caps every zoom
+at that limit, so a 4k target from the default capture does not zoom. For deeper crisp
+zooms, capture with `--dsf 3`: a 1080p target then allows 2.5x.
 
 ## Camera
 
