@@ -33,9 +33,9 @@ These come from user review and are not open for reinterpretation.
 - **Create shots start from an empty panel.** `capture.clearPanel` in setup, then
   `capture.clickPanelCreate` on camera so the viewer sees the component selector open.
 - **Form dialogs frame the whole dialog.**
-  `session.zoom(".pluto-dialog__dialog.pluto--modal")` before it opens,
-  `session.endZoom()` after it closes. Never zoom a button that the dialog already
-  covered.
+  `session.zoom(".pluto-dialog__dialog.pluto--modal")` once it opens,
+  `session.endZoom()` at the click that closes it. Never zoom a button that the dialog
+  already covered.
 - **Context menus never zoom.** The menu and the row it came from must both stay in
   frame.
 - **View-swapping clicks pass `{ zoom: false }`.** A click that replaces the panel
@@ -52,6 +52,28 @@ These come from user review and are not open for reinterpretation.
   from a script unhides environment noise (the Core reports clock skew and an unknown
   embedded driver status on every capture). Inspect the DOM in a throwaway file you
   delete, never in the shot.
+
+## Camera
+
+Captures are 1600x900 CSS px, so the Console reads at the scale of a desktop window.
+Every shot has the same four parts.
+
+1. **Open wide.** Hold the whole Console at 1x for 1.5 to 2 s before the first click or
+   zoom, so the viewer sees where the work happens. Park the cursor near the center in
+   setup.
+2. **Zoom on the area of work, not on clicks.** Open one `session.zoom(region)` for each
+   area the next beats happen in: a dialog, a toolbar, a panel, a form. Never zoom on
+   one button, and never once per click. Let the rect set the depth. Pass an amount (1.4
+   to 1.6) only for a wide, short region such as a toolbar field. Above 1.67x a 1080p
+   render upscales.
+3. **Let the camera pan.** Inside a zoom, the camera holds while the cursor's targets
+   stay in frame, and pans only as far as it must when one leaves. Do not open a new
+   zoom to follow a dropdown.
+4. **Close wide.** Call `session.endZoom()` at the click that commits the work (Save,
+   Create), then hold the whole Console for 2.5 to 3 s on the result. The last frame is
+   the page still.
+
+The research behind these rules is in `docs/tech/video-automation/decisions.md`.
 
 ## Traps
 
