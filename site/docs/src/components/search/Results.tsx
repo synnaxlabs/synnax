@@ -183,7 +183,7 @@ const DEFAULT_ITEMS: SearchResult[] = [
     title: "Visualize",
     description: "Plot and monitor data",
     content: "Build line plots, schematics, tables, and logs",
-    href: "/reference/visualize/line-plots",
+    href: "/reference/visualize",
   },
   {
     key: "default-enterprise",

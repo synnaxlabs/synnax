@@ -14,6 +14,11 @@ export const VISUALIZE_NAV: PageNavNode = {
   name: "Visualize",
   children: [
     {
+      key: "/reference/visualize",
+      href: "/reference/visualize",
+      name: "Overview",
+    },
+    {
       key: "/reference/visualize/projects",
       href: "/reference/visualize/projects",
       name: "Projects",
