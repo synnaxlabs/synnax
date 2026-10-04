@@ -268,19 +268,19 @@ export const searchPalette = async (
   session.setSpeed(1);
   await session.hold(PALETTE_READ_MS);
   await session.click(dialog.locator(".pluto-list__item").first(), { text: true });
-  session.endZoom();
 };
 
-/** Holds long enough for the camera to settle or a viewer to read the results. */
+/** Holds long enough for a viewer to read the palette. */
 const PALETTE_READ_MS = 700;
 
 /**
- * openPalette clicks the palette button, clears any stale query, and frames the
- * dialog, holding until the camera settles so typing starts on a steady shot.
+ * openPalette clicks the palette button, clears any stale query, and holds so the
+ * viewer sees it open.
  */
 const openPalette = async (session: CaptureSession): Promise<Locator> => {
   const { page } = session;
-  // No zoom: the button is a corner target, and the dialog zoom follows at once.
+  // No zoom: the dialog spans most of the window, so any zoom deep enough to read
+  // as one crops its edges.
   await session.click(page.locator(".console-palette button").first(), {
     zoom: false,
   });
@@ -290,11 +290,6 @@ const openPalette = async (session: CaptureSession): Promise<Locator> => {
   const dialog = page
     .locator(".pluto-dialog__dialog:has(.console-palette__input)")
     .first();
-  // The dialog spans most of the window, so its fit would leave the camera at about 1x.
-  // 1.35x is the deepest zoom that keeps its edges in frame.
-  const box = await dialog.boundingBox();
-  if (box == null) throw new Error("command palette is not on screen");
-  await session.zoom({ x: box.x + box.width / 2, y: box.y + box.height / 2 }, 1.35);
   await session.hold(PALETTE_READ_MS);
   return dialog;
 };
@@ -364,5 +359,4 @@ export const commandPalette = async (
   await session.click(item.getByText(command, { exact: true }).first(), {
     text: true,
   });
-  session.endZoom();
 };
