@@ -50,10 +50,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     .filter({ hasText: RANGE })
     .first();
   await session.waitFor(item);
-  await session.moveTo({ x: 756, y: 500 });
+  await session.moveTo({ x: 800, y: 450 });
 
   session.startRecording();
-  await session.hold(1000);
+  await session.hold(1500);
 
   await capture.contextMenu(session, item, "Set as active range");
   await session.hold(1200);
@@ -69,14 +69,17 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   const range = drawer.locator(".pluto-tag").filter({ hasText: RANGE }).first();
   await session.waitFor(range);
   await session.hold(600);
+  // The toolbar is wide and short, so it takes an amount.
+  await session.zoom(drawer, 1.4);
   // Rest on the X axis's range, which the plot took from the active range.
   await session.moveTo(range, { text: true });
   await session.hold(1200);
 
   await capture.addChannels(session, "Y1", [CHANNEL], { search: CHANNEL });
+  session.endZoom();
   await session.hold(600);
 
   // Off the plot, so no crosshair covers the new line.
-  await session.moveTo({ x: 900, y: 24 });
-  await session.hold(2500);
+  await session.moveTo({ x: 950, y: 24 });
+  await session.hold(3000);
 };
