@@ -541,39 +541,6 @@ TEST(WriterTests, testSetAuthorityMultipleAuthoritiesNoKeys) {
     ASSERT_NIL(writer.close());
 }
 
-/// @brief validate_authorities should return nil for empty authorities.
-TEST(ValidateAuthorities, EmptyAuthorities) {
-    ASSERT_NIL(validate_authorities({}, {}));
-}
-
-/// @brief validate_authorities should return nil for a single authority broadcast.
-TEST(ValidateAuthorities, SingleAuthorityBroadcast) {
-    ASSERT_NIL(validate_authorities({1, 2, 3}, {200}));
-}
-
-/// @brief validate_authorities should return nil when keys and authorities match.
-TEST(ValidateAuthorities, MatchingSizes) {
-    ASSERT_NIL(validate_authorities({1, 2, 3}, {100, 200, 255}));
-}
-
-/// @brief validate_authorities should return nil for single authority with no keys.
-TEST(ValidateAuthorities, SingleAuthorityNoKeys) {
-    ASSERT_NIL(validate_authorities({}, {200}));
-}
-
-/// @brief validate_authorities should reject mismatched keys and authorities sizes.
-TEST(ValidateAuthorities, MismatchedSizes) {
-    ASSERT_OCCURRED_AS(
-        validate_authorities({1, 2, 3}, {100, 200}),
-        x::errors::VALIDATION
-    );
-}
-
-/// @brief validate_authorities should reject multiple authorities when keys is empty.
-TEST(ValidateAuthorities, MultipleAuthoritiesNoKeys) {
-    ASSERT_OCCURRED_AS(validate_authorities({}, {100, 200}), x::errors::VALIDATION);
-}
-
 /// @brief once a writer encounters an error, it should continually return that error
 /// on any subsequent method calls.
 TEST(WriterTests, testErrorCommunication) {

@@ -66,6 +66,7 @@ cc_test(
     srcs = [
         "config_test.cpp",
     ],
+    tags = ["requires-core"],
     deps = [
         "//client/cpp/testutil",
         "//driver/rack",
