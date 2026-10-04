@@ -97,7 +97,10 @@ func NewUpgrade[Old, New any](migrate func(context.Context, Old) (New, error)) U
 			return nil, err
 		}
 		var out msgpack.EncodedJSON
-		return out, json.Unmarshal(b, &out)
+		if err = json.Unmarshal(b, &out); err != nil {
+			return nil, err
+		}
+		return out, nil
 	}
 }
 
