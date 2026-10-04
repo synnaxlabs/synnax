@@ -2,143 +2,99 @@
 layout: "@/layouts/Reference.astro"
 title: "`math`"
 description:
-  "Arc standard library reference for the math module: avg, derivative, max, and min"
+  "Look up math.avg, math.min, math.max, and math.derivative, the running statistics of
+  the Arc math module."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
-import Params from "@/components/params/Params.astro";
-
 export const components = mdxOverrides;
 
-The `math` module provides numerical primitives: running averages, running min/max, and
-derivatives.
+The `math` module gives running statistics and rates of change of a numeric value.
+Import it with `import math`. All `math` functions are flow functions: a function body
+cannot call them.
+
+`avg`, `min`, and `max` share these parameters:
+
+| Parameter  | Type     | Required | Default | Meaning                                                                   |
+| ---------- | -------- | -------- | ------- | ------------------------------------------------------------------------- |
+| `duration` | `i64 ns` | No       | `0`     | Start again when this much time has passed, measured on input timestamps. |
+| `count`    | `i64`    | No       | `0`     | Start again on the next input after this many values.                     |
+| `reset`    | `bool`   | No       | `false` | Has no effect in text mode, which cannot wire an input to it.             |
+
+With `duration` and `count` at 0, the value covers every input since the stage started.
+A window starts again with the input that ends the old window. Synnax reads `duration`
+and `count` once, when the automation starts.
+
+<Divider.Divider x />
 
 ## `avg`
 
-Computes a running average of input values, emitting the updated average on each input.
-By default the average accumulates over every sample; set `duration` or `count` to reset
-the window periodically.
+Gives the average of all input values since the window started.
 
-<Params
-  fn="math.avg"
-  input="numeric"
-  params={[
-    {
-      name: "duration",
-      type: "i64 ns",
-      description: "Reset the average after this much time elapses (such as `5s`).",
-    },
-    {
-      name: "count",
-      type: "i64",
-      description: "Reset the average after this many samples.",
-    },
-  ]}
-  output={{
-    type: "numeric",
-    description: "The running average, matching the input type.",
-  }}
-/>
+- Input -> a numeric value.
+- Output -> one value for each input batch, of the same type as the input. It has the
+  timestamp of the last value in the batch. It is not a moving average.
+- Runs -> on each new input. Its window starts again when its stage starts.
 
-```arc channels="sensor, output"
-sensor -> math.avg{} -> output
+```arc channels="tank_pt, tank_pt_avg"
+import math
 
-// Reset by sample count or time window
-sensor -> math.avg{count=100} -> output
-sensor -> math.avg{duration=5s} -> output
+tank_pt -> math.avg{duration=5s} -> tank_pt_avg
 ```
+
+An integer input gives an integer average, rounded toward zero. On the Core, the sum
+uses the input type, so it can overflow and loses precision. Use a float input. A Driver
+sums in `f64`.
 
 <Divider.Divider x />
 
 ## `derivative`
 
-Computes the rate of change of input values with respect to time. The output is always
-`f64`, regardless of the input type.
+Gives the rate of change of the input, in units per second.
 
-<Params
-  fn="math.derivative"
-  input="numeric"
-  output={{
-    type: "f64",
-    description: "The rate of change between consecutive samples.",
-  }}
-/>
+- Input -> a numeric value.
+- Output -> one `f64` value for each input value, with the same timestamp. The rate is
+  the change from the previous value, divided by the time between their timestamps.
+- Runs -> on each new input. The first value, and a value with a timestamp that is not
+  later than the one before it, give 0. It starts again when its stage starts.
 
-```arc channels="sensor, rate_output"
-sensor -> math.derivative{} -> rate_output
+`derivative` has no parameters.
+
+```arc channels="tank_pt, tank_pt_rate"
+import math
+
+tank_pt -> math.derivative{} -> tank_pt_rate
 ```
 
 <Divider.Divider x />
 
 ## `max`
 
-Tracks the running maximum of input values, emitting the updated maximum on each input.
-By default the maximum accumulates over every sample; set `duration` or `count` to reset
-the window periodically.
+Gives the largest input value since the window started.
 
-<Params
-  fn="math.max"
-  input="numeric"
-  params={[
-    {
-      name: "duration",
-      type: "i64 ns",
-      description: "Reset the maximum after this much time elapses (such as `5s`).",
-    },
-    {
-      name: "count",
-      type: "i64",
-      description: "Reset the maximum after this many samples.",
-    },
-  ]}
-  output={{
-    type: "numeric",
-    description: "The running maximum, matching the input type.",
-  }}
-/>
+- Input -> a numeric value.
+- Output -> one value for each input batch, of the same type as the input.
+- Runs -> on each new input. Its window starts again when its stage starts.
 
-```arc channels="sensor, output"
-sensor -> math.max{} -> output
+```arc channels="tank_pt, tank_pt_max"
+import math
 
-// Reset by sample count or time window
-sensor -> math.max{count=100} -> output
-sensor -> math.max{duration=5s} -> output
+tank_pt -> math.max{} -> tank_pt_max
 ```
 
 <Divider.Divider x />
 
 ## `min`
 
-Tracks the running minimum of input values, emitting the updated minimum on each input.
-By default the minimum accumulates over every sample; set `duration` or `count` to reset
-the window periodically.
+Gives the smallest input value since the window started.
 
-<Params
-  fn="math.min"
-  input="numeric"
-  params={[
-    {
-      name: "duration",
-      type: "i64 ns",
-      description: "Reset the minimum after this much time elapses (such as `5s`).",
-    },
-    {
-      name: "count",
-      type: "i64",
-      description: "Reset the minimum after this many samples.",
-    },
-  ]}
-  output={{
-    type: "numeric",
-    description: "The running minimum, matching the input type.",
-  }}
-/>
+- Input -> a numeric value.
+- Output -> one value for each input batch, of the same type as the input.
+- Runs -> on each new input. Its window starts again when its stage starts.
 
-```arc channels="sensor, output"
-sensor -> math.min{} -> output
+```arc channels="tank_pt, tank_pt_min"
+import math
 
-// Reset by sample count or time window
-sensor -> math.min{count=100} -> output
-sensor -> math.min{duration=5s} -> output
+tank_pt -> math.min{count=1000} -> tank_pt_min
 ```
