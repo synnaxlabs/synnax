@@ -69,7 +69,9 @@ StandardError=journal
 #RestrictSUIDSGID=true
 #MemoryDenyWriteExecute=true
 
-# Resource limits
+# Resource limits. RTPRIO and MEMLOCK let Arc tasks run on a real-time thread.
+LimitRTPRIO=99
+LimitMEMLOCK=infinity
 LimitNOFILE=65535
 LimitCORE=infinity
 TasksMax=4096
@@ -81,6 +83,30 @@ RestartSec=5s
 [Install]
 WantedBy=multi-user.target
 )";
+
+const std::string LATENCY_RULE_PATH = "/etc/udev/rules.d/99-synnax.rules";
+
+/// @brief lets the synnax group hold CPU cores out of deep idle states, which Arc
+/// tasks at high performance do through /dev/cpu_dma_latency.
+const std::string
+    LATENCY_RULE = "KERNEL==\"cpu_dma_latency\", GROUP=\"synnax\", MODE=\"0660\"\n";
+
+x::errors::Error apply_udev_rules() {
+    if (system("udevadm control --reload") != 0)
+        return x::errors::Error("Failed to reload udev rules");
+    if (system("udevadm trigger --name-match=cpu_dma_latency") != 0)
+        return x::errors::Error("Failed to apply udev rules");
+    return x::errors::NIL;
+}
+
+x::errors::Error install_latency_rule() {
+    LOG(INFO) << "Creating udev rule at " << LATENCY_RULE_PATH;
+    std::ofstream rule_file(LATENCY_RULE_PATH.c_str());
+    if (!rule_file) return x::errors::Error("Failed to create udev rule");
+    rule_file << LATENCY_RULE;
+    rule_file.close();
+    return apply_udev_rules();
+}
 
 x::errors::Error install_service() {
     // Check if service exists and is running
@@ -98,6 +124,7 @@ x::errors::Error install_service() {
     if (auto err = create_system_user()) return err;
     if (auto err = create_env_file()) return err;
     if (auto err = install_binary()) return err;
+    if (auto err = install_latency_rule()) return err;
 
     LOG(INFO) << "Creating service file at " << SYSTEMD_SERVICE_PATH;
     std::error_code ec;
@@ -129,6 +156,9 @@ x::errors::Error uninstall_service() {
         LOG(WARNING) << "Failed to disable service (may not be enabled)";
 
     fs::remove(SYSTEMD_SERVICE_PATH);
+    if (fs::remove(LATENCY_RULE_PATH)) {
+        if (auto err = apply_udev_rules()) return err;
+    }
 
     if (system("systemctl daemon-reload") != 0)
         return x::errors::Error("Failed to reload systemd");
