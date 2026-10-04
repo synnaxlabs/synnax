@@ -28,10 +28,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await capture.hideBottomToolbar(session);
     await capture.openToolbar(session, "channel");
     await capture.resizeToolbar(session, 400);
-    await page.locator("button.console-main-nav__item.pluto--selected").first().click();
-    await session.waitForHidden(
-      page.locator(".console-nav__drawer.pluto--visible:not(.pluto--location-bottom)"),
-    );
+    await capture.closeToolbar(session);
     await session.settleWall(12_000);
     await session.moveTo({ x: 900, y: 450 });
 
