@@ -108,10 +108,9 @@ creates the channels that the task needs. The Driver then builds the task and st
 When you stop a task, the Driver stops reading and writing, and Synnax keeps the
 configuration.
 
-Edits to a running task do not apply until you redeploy it. The task tab shows a
-**Redeploy** button, and the tasks toolbar shows a warning icon with the tooltip
-"Configuration changed since deploy". With **Auto start** on, the task starts each time
-the Driver starts.
+Edits to a running task do not apply until you
+[redeploy it](/reference/hardware/start-and-stop-tasks#apply-edits-to-a-running-task).
+With **Auto start** on, the task starts each time the Driver starts.
 
 | Status                                            | Meaning                                                |
 | ------------------------------------------------- | ------------------------------------------------------ |
@@ -160,12 +159,12 @@ Right-click a task to open its menu:
 | **Enable data saving**, **Disable data saving** | Turns [data saving](#data-saving) on or off.                                   |
 | **Snapshot to \<range\>**                       | Saves a copy of the task to the active [range](/reference/ranges#snapshots).   |
 | **Export**                                      | Saves the task as a JSON file. Run the "Import components" command to load it. |
-| **Copy link**                                   | Copies a link to the task.                                                     |
+| **Copy link**                                   | Copies a link to the task. Not in Synnax Desktop.                              |
 | **Delete**                                      | Deletes the task.                                                              |
 
 The task tab has buttons to **Copy Python code**, **Copy TypeScript code**, **Copy JSON
-configuration**, **Copy link**, and **Export**. The code buttons copy a line that
-retrieves the task in a script.
+configuration**, **Copy link** (not in Synnax Desktop), and **Export**. The code buttons
+copy a line that retrieves the task in a script.
 
 <Divider.Divider x />
 

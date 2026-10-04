@@ -11,8 +11,20 @@ export const components = mdxOverrides;
 
 Find the message or symptom that you see, then follow its fix. Each command runs from
 the [command palette](/reference/get-started/ui-overview#search-and-command-palette).
-Some problems show only in the log. To open it, run the "Show logs" command. For
-problems with one integration, see the troubleshooting section on its pages.
+Some problems show only in the log. In Synnax Desktop, run the "Show logs" command to
+open it. For problems with one integration, see the troubleshooting section on its
+pages.
+
+<Divider.Divider x />
+
+## Restart the Driver
+
+Many fixes end with a Driver restart. How you restart it depends on where it runs:
+
+- **Synnax Desktop** -> run the "Restart Synnax" command.
+- **The embedded Driver of a Core** -> restart the Core.
+- **A standalone Driver** -> run `sudo synnax-driver restart` on Linux, or see
+  [install the Driver](/reference/enterprise/driver/install).
 
 <Divider.Divider x />
 
@@ -24,7 +36,7 @@ The Core has not heard from the Driver for a few seconds. The Driver shows this 
 in the devices toolbar. A task on that Driver shows the same message when you start or
 stop it.
 
-1. Run the "Restart Synnax" command.
+1. [Restart the Driver](#restart-the-driver).
 2. Wait for the Driver status to change to "Driver is running".
 
 <Edition.Enterprise>
@@ -42,7 +54,7 @@ status changes to "operation timed out". The Driver does not run a new command f
 task until the old command ends, so starting the task again does not help.
 
 1. Check the cable, power, and network of the device.
-2. Run the "Restart Synnax" command.
+2. [Restart the Driver](#restart-the-driver).
 3. Start the task again.
 
 If the status is "Synnax Driver on ... not running" instead, see
@@ -76,7 +88,7 @@ Find the cause that matches your device:
   modules in them.
 - **Vendor software** -> NI devices need NI-DAQmx, LabJack devices need LJM, and
   EtherCAT on Windows needs Npcap. See the setup page of the integration. Install the
-  software, then run the "Restart Synnax" command.
+  software, then [restart the Driver](#restart-the-driver).
 - **Operating system** -> NI devices do not work on macOS. LabJack devices work on
   Windows and macOS only. See
   [supported integrations](/reference/hardware#supported-integrations).
@@ -116,7 +128,7 @@ the software was removed. NI tasks never work on macOS, and LabJack tasks never 
 Linux.
 
 1. Install NI-DAQmx or LJM.
-2. Run the "Restart Synnax" command.
+2. [Restart the Driver](#restart-the-driver).
 3. Start the task again.
 
 ### A task says its device is not configured
@@ -131,9 +143,8 @@ The task has **Data saving** off. Turn on **Data saving** in the task tab. See
 
 ### A running task ignores your edits
 
-The task tab saves edits, but a running task keeps its old configuration. The tasks
-toolbar shows a warning icon with the tooltip "Configuration changed since deploy".
-Click **Redeploy** in the task tab.
+The task keeps its old configuration until you redeploy it. See
+[apply edits to a running task](/reference/hardware/start-and-stop-tasks#apply-edits-to-a-running-task).
 
 ### A write task does not change the output
 
