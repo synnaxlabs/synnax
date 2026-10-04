@@ -44,6 +44,11 @@ export const RANGES_NAV: PageNavNode = {
       name: "Channel aliases",
     },
     {
+      key: "/reference/ranges/snapshots",
+      href: "/reference/ranges/snapshots",
+      name: "Snapshots",
+    },
+    {
       key: "/reference/ranges/data",
       href: "/reference/ranges/data",
       name: "Read and write range data",
@@ -52,6 +57,11 @@ export const RANGES_NAV: PageNavNode = {
       key: "/reference/ranges/export",
       href: "/reference/ranges/export",
       name: "Export data",
+    },
+    {
+      key: "/reference/ranges/reference",
+      href: "/reference/ranges/reference",
+      name: "Reference",
     },
   ],
 };
