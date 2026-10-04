@@ -82,6 +82,8 @@ export default defineConfig({
     "/reference/device-drivers/standalone": "/reference/enterprise/driver/install",
     "/reference/client/advanced": "/reference/client/write-data",
     "/reference/client/advanced/delete-data": "/reference/client/delete-data",
+    "/reference/client/advanced/auto-commit": "/reference/client/write-data",
+    "/reference/client/advanced/auto-index": "/reference/client/write-data",
     "/reference/client/authentication": "/reference/client/connect",
     "/reference/console/clusters": "/reference/enterprise/console",
     "/reference/console/cores": "/reference/enterprise/console",
