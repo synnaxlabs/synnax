@@ -6,7 +6,6 @@ clients: ["console", "python", "typescript"]
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Note } from "@synnaxlabs/lyra/note";
 import { Fragment } from "react";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Client } from "@/components/client";
@@ -31,42 +30,40 @@ channels yourself. For their names, see
 
 ### Channels that you create
 
-| To                                                                                                                       | Create                             | Where                                        |
-| ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------- | -------------------------------------------- |
-| Store data from a script, such as a [device that the Driver does not support](/reference/hardware/custom) or an analysis | An index channel and data channels | In the script, before it writes the data     |
-| Configure a [hardware task](/reference/hardware/tasks) in Python or TypeScript                                           | The channels of the task           | In the script, before you configure the task |
-| Send a live signal, such as a button press or a setpoint                                                                 | A virtual channel                  | In the Console or in a script                |
-| Compute a value from other channels                                                                                      | A calculated channel               | In the Console or in a script                |
+| To                                                                 | Create                             | Where                                        |
+| ------------------------------------------------------------------ | ---------------------------------- | -------------------------------------------- |
+| Store data from a script                                           | An index channel and data channels | In the script, before it writes the data     |
+| Configure a [hardware task](/reference/hardware/tasks) in a script | The channels of the task           | In the script, before you configure the task |
+| Send a live signal                                                 | A virtual channel                  | In the Console or in a script                |
+| Compute a value from other channels                                | A calculated channel               | In the Console or in a script                |
 
 A virtual channel suits a value that only live views and automations use, such as a
-`start_cmd` button that starts an Arc sequence. Synnax does not store its values, so you
-cannot plot them later or find them in a range. To keep a record of each value, such as
-each time an operator starts a test, create a data channel with its own index.
+setpoint, or a `start_cmd` button that starts an Arc sequence. Synnax does not store its
+values, so you cannot plot them later or find them in a range. To keep a record of each
+value, such as each time an operator starts a test, create a data channel with its own
+index.
 
 ### In the Console or in a script
 
 - Use the Console for a few channels that you set up once, such as the virtual channel
   of a schematic button.
-- Use Python or TypeScript when a script writes the data. Create the channels at the
-  start of the script, so the script also works on a new Core. One call can also create
-  many channels.
+- Use Python or TypeScript when a script writes the data, such as data from a
+  [device that the Driver does not support](/reference/hardware/custom) or from an
+  analysis. Create the channels at the start of the script, so the script also works on
+  a new Core. One call can also create many channels.
 
 <Divider.Divider x />
 
 ## Choose an index
 
-Each data channel needs an index channel for its timestamps. You set the index when you
-create the data channel, and you cannot change it later.
+Each data channel needs an index channel for its timestamps. Create the index channel
+first, then set it when you create the data channel. You cannot change the index later.
 
 - Data channels that you write at the same times can share one index. For example,
   sensors that one script reads in the same loop.
 - Data channels that you write at different times need different indexes. Give each
   [command channel](/reference/hardware/tasks#command-channels) its own index.
 - Virtual channels have no index.
-
-<Note.Note variant="warning" className="compact">
-  Create the index channel before the data channels that use it.
-</Note.Note>
 
 <Divider.Divider x />
 
@@ -219,7 +216,7 @@ create one in the Console or in a script, see
 
 ## Next steps
 
-- [Channel properties](/reference/channels/reference#properties) lists each property
-  that you can set.
-- [Write data](/reference/client/write-data) shows how to write samples to the new
-  channels with the Python or TypeScript client.
+- [Channel properties](/reference/channels/reference#properties) -> each property that
+  you can set.
+- [Write data](/reference/client/write-data) -> write samples to the new channels with
+  the Python or TypeScript client.

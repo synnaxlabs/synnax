@@ -8,7 +8,6 @@ platforms: ["Linux", "Windows", "macOS", "Docker"]
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Note } from "@synnaxlabs/lyra/note";
 
 import { Platform } from "@/components/platform";
@@ -34,7 +33,7 @@ Core** button.
 3. Check that your license covers the new version. After the license term ends, a
    license with a version cap covers only versions up to the cap. See
    [expiry](/reference/enterprise/license#expiry).
-4. Stop the Core. Press `Ctrl+C` in its terminal, or stop its service.
+4. Stop the Core. Press **Ctrl+C** in its terminal, or stop its service.
 5. Copy the data folder of the Core to a safe place. The data folder holds all data,
    metadata, and the stored license key. See
    [Back up the Core](/reference/enterprise/production-checklist#back-up-the-core).
@@ -89,9 +88,7 @@ same data folder.
 
 2. Download and run the new installer:
 
-   <Flex.Box direction="y" justify="center" align="center">
-     <WindowsDownloadButton />
-   </Flex.Box>
+   <WindowsDownloadButton />
 
 The installer replaces the Core and installs the service again. The service keeps its
 settings in `C:\ProgramData\Synnax\config.yaml`, which the installer does not change. If

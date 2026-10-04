@@ -77,15 +77,15 @@ A delete of a time range with no data does nothing and raises no error.
 
 The Core rejects a delete in these cases:
 
-- **An index channel with data that depends on it.** You cannot delete samples of an
+- **An index channel with data that depends on it** -> you cannot delete samples of an
   index channel while a data channel that it indexes has samples in the time range.
   Delete the data channels first, or in the same call as the index channel.
-- **An open writer.** You cannot delete a time range that an open writer can write to.
+- **An open writer** -> you cannot delete a time range that an open writer can write to.
   Close the writer first.
-- **A channel key that does not exist.** The Core deletes nothing and raises a not found
-  error. A channel name that does not exist raises no error: the Core deletes nothing
-  for that name.
-- **No permission.** Your user needs permission to delete the data of each channel.
+- **A channel key that does not exist** -> the Core deletes nothing and raises a not
+  found error. A channel name that does not exist raises no error: the Core deletes
+  nothing for that name.
+- **No permission** -> your user needs permission to delete the data of each channel.
   Users with the Viewer role cannot delete data.
 
 <Client.Tabs exclude={["console"]}>

@@ -7,7 +7,6 @@ platforms: ["Linux", "Windows", "macOS", "Docker"]
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Note } from "@synnaxlabs/lyra/note";
 
 import { Platform } from "@/components/platform";
@@ -42,8 +41,6 @@ Select your operating system.
 
 <Fragment slot="Docker">
 
-### Docker
-
 <Note.Note variant="warning">
   A Core in a Docker container cannot access devices that connect to the host computer.
   To acquire data from devices with the Driver, install the Core directly on the host
@@ -60,8 +57,6 @@ docker pull synnaxlabs/synnax:latest
 
 <Fragment slot="Linux">
 
-### Linux
-
 Download the latest binary:
 
 <DownloadURL os="linux" />
@@ -76,8 +71,8 @@ Make the binary executable. If you do not have the necessary permissions, use `s
 chmod +x /usr/local/bin/synnax
 ```
 
-If `/usr/local/bin` is not in your `PATH`, add it. This command is for `bash`. For `zsh`,
-change `~/.bashrc` to `~/.zshrc`:
+If `/usr/local/bin` is not in your `PATH`, add it. This command is for `bash`. For
+`zsh`, change `~/.bashrc` to `~/.zshrc`:
 
 ```bash
 echo 'export PATH=$PATH:/usr/local/bin' >> ~/.bashrc
@@ -96,8 +91,6 @@ You should see:
 </Fragment>
 
 <Fragment slot="macOS">
-
-### macOS
 
 Download the latest binary for Apple silicon:
 
@@ -133,17 +126,12 @@ You should see:
 
 <Fragment slot="Windows">
 
-### Windows
-
 Download and run the latest installer. The installer adds `synnax` to your `PATH`.
 
-<Flex.Box direction="y" justify="center" align="center">
-  <WindowsDownloadButton />
-  <small>
-    Earlier versions are on the
-    <a href="https://github.com/synnaxlabs/synnax/releases"> Synnax releases page</a>.
-  </small>
-</Flex.Box>
+<WindowsDownloadButton />
+
+Earlier versions are on the
+[Synnax releases page](https://github.com/synnaxlabs/synnax/releases).
 
 The installer also offers to install the Core as a Windows service, and selects that
 option by default. With the service, the Core starts now and each time Windows starts,
@@ -221,7 +209,7 @@ folder, in the folder where you ran the command. It listens on port 9090 of ever
 network interface of the computer, so other computers on your network can reach it. Your
 firewall can ask you to allow the connection.
 
-To stop the Core, press `Ctrl+C` in the terminal. For other flags, see the
+To stop the Core, press **Ctrl+C** in the terminal. For other flags, see the
 [CLI reference](/reference/enterprise/cli-reference). Before your team relies on the
 Core, work through the
 [production checklist](/reference/enterprise/production-checklist).

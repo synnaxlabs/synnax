@@ -5,7 +5,6 @@ layout: "@/layouts/Reference.astro"
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Note } from "@synnaxlabs/lyra/note";
 import { Desktop } from "@/components/desktop";
 import Placeholder from "@/components/media/Placeholder.astro";
@@ -45,15 +44,10 @@ macOS. For more information, see [NI devices](/reference/hardware/ni/configure-d
 
 Download the latest release for your operating system:
 
-<br />
-<Flex.Box direction="y" justify="center" align="center">
-  <Desktop.DownloadButton />
-  <small>
-    Older versions are on the [Synnax releases on
-    GitHub](https://github.com/synnaxlabs/synnax/releases).
-  </small>
-</Flex.Box>
-<br />
+<Desktop.DownloadButton />
+
+Earlier versions are on the
+[Synnax releases page](https://github.com/synnaxlabs/synnax/releases).
 
 <Divider.Divider x />
 
@@ -96,7 +90,7 @@ select **Update and restart**.
 
 ## Next steps
 
-- Run a simulated test in the [sample project](/reference/get-started/sample-project).
-- Record and plot your first data in [your first run](/reference/get-started/first-run).
-- Learn the parts of the Console in the
-  [Console UI overview](/reference/get-started/ui-overview).
+- [Explore the sample project](/reference/get-started/sample-project) -> run a simulated
+  test.
+- [Your first run](/reference/get-started/first-run) -> record and plot your first data.
+- [UI overview](/reference/get-started/ui-overview) -> learn the parts of the Console.

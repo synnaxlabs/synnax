@@ -137,7 +137,10 @@ by their properties.
 import { DataType } from "@synnaxlabs/client";
 
 // The ten best matches for "pressure"
-const matches = await client.channels.retrieve({ searchTerm: "pressure", limit: 10 });
+const matches = await client.channels.retrieve({
+  searchTerm: "pressure",
+  limit: 10,
+});
 
 // All float32 data channels
 const floats = await client.channels.retrieve({

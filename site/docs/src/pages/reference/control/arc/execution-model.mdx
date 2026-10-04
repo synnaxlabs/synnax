@@ -106,16 +106,16 @@ run at the same time.
 
 When a stage starts:
 
-- **Writes run once.** A flow with no input, such as `1 -> press_vlv_cmd`, runs once
-  each time the stage starts. A function call with no input that reads a channel in its
-  body is different: it runs in every cycle while the stage is active.
-- **Earlier values do not count.** The stage reacts only to values that arrive after it
-  starts. A condition such as `tank_pt > 300` waits for the next `tank_pt` value, even
-  when the last value was 400.
-- **Timers start again.** `time.wait` counts from zero, and `time.interval` fires at
-  once, then once each period.
-- **Variables reset.** Variables declared with `:=` in the stage or the sequence go back
-  to their first value. Variables declared with `$=` in the stage or the sequence keep
+- **Writes** -> a flow with no input, such as `1 -> press_vlv_cmd`, runs once each time
+  the stage starts. A function call with no input that reads a channel in its body is
+  different: it runs in every cycle while the stage is active.
+- **Earlier values** -> the stage reacts only to values that arrive after it starts. A
+  condition such as `tank_pt > 300` waits for the next `tank_pt` value, even when the
+  last value was 400.
+- **Timers** -> `time.wait` counts from zero, and `time.interval` fires at once, then
+  once each period.
+- **Variables** -> variables declared with `:=` in the stage or the sequence go back to
+  their first value. Variables declared with `$=` in the stage or the sequence keep
   their value. Each function called in the stage starts again too, so its `$=` variables
   go back to their first value.
 

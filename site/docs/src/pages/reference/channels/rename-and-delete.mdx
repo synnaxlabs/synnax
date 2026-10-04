@@ -139,15 +139,14 @@ no error when a channel does not exist, so you can call it again.
 
 ### Before you delete
 
-- **Delete data channels before their index.** Synnax does not delete an index channel
-  while data channels use it. To delete both, delete the data channels first, or delete
-  all of them in one call.
-- **Stop tasks and scripts that use the channel.** Synnax does not delete a channel
-  while a writer or a reader has it open.
-- **Update what refers to the channel.** Synnax does not check tasks, Arc automations,
-  or calculated channels before a delete. After the delete, they fail or show an error.
-- **Delete the index of a calculated channel.** When you delete a calculated channel,
-  its `<name>_time` index stays. Delete the index too.
+- **Index channels** -> Synnax does not delete an index channel while data channels use
+  it. To delete both, delete the data channels first, or delete all of them in one call.
+- **Open channels** -> Synnax does not delete a channel while a writer or a reader has
+  it open. Stop the tasks and scripts that use the channel first.
+- **References** -> Synnax does not check tasks, Arc automations, or calculated channels
+  before a delete. After the delete, they fail or show an error, so update them first.
+- **Calculated channels** -> when you delete a calculated channel, its `<name>_time`
+  index stays. Delete the index too.
 
 To delete the data in a time range and keep the channel, see
 [delete data](/reference/client/delete-data).
