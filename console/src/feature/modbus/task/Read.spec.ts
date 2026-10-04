@@ -9,6 +9,7 @@
 
 import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { id } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -182,5 +183,68 @@ describe("Read", () => {
     );
     const matches = await client.channels.retrieve([`${dev.name}_coil_input_0`]);
     expect(matches).toHaveLength(1);
+  });
+
+  describe("byte and word order", () => {
+    const createRegisterDraft = async (dataType: string, swapWords: boolean) => {
+      const dev = await createModbusDevice(client, {
+        properties: {
+          connection: { host: "localhost", port: 502, swapBytes: false, swapWords },
+        },
+      });
+      const register = Modbus.Task.READ_CHANNEL_SCHEMAS.holding_register.parse({
+        type: "holding_register",
+        key: id.create(),
+        dataType,
+      });
+      const draft = await createDraft(client, {
+        ...Modbus.Task.READ_SCHEMAS.config.parse({}),
+        device: dev.key,
+        channels: [register],
+      });
+      return { dev, draft };
+    };
+
+    const deployRegister = async (container: HTMLElement, key: task.Key) => {
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        key,
+        Modbus.Task.READ_SCHEMAS,
+      );
+      const [register] = created.config.channels;
+      if (register.type !== "holding_register")
+        throw new Error(`expected a holding register, got ${register.type}`);
+      return register;
+    };
+
+    it("should show the device's order and leave the channel unset on deploy", async () => {
+      const { draft } = await createRegisterDraft("float32", true);
+      const { container } = await renderRead({ client, taskKey: draft.key });
+      await screen.findByText("Words: device (swapped)");
+      screen.getByText("Bytes: device (not swapped)");
+      const register = await deployRegister(container, draft.key);
+      expect(register.bytesSwapped).toBeUndefined();
+      expect(register.wordsSwapped).toBeUndefined();
+    });
+
+    it("should store the override picked on a register channel", async () => {
+      const { draft } = await createRegisterDraft("float32", true);
+      const { container } = await renderRead({ client, taskKey: draft.key });
+      fireEvent.click(await screen.findByText("Bytes: device (not swapped)"));
+      fireEvent.click(await screen.findByText("Bytes: swapped"));
+      fireEvent.click(screen.getByText("Words: device (swapped)"));
+      fireEvent.click(await screen.findByText("Words: not swapped"));
+      const register = await deployRegister(container, draft.key);
+      expect(register.bytesSwapped).toBe(true);
+      expect(register.wordsSwapped).toBe(false);
+    });
+
+    it("should show only the byte order for a type that fits in one register", async () => {
+      const { draft } = await createRegisterDraft("uint16", true);
+      await renderRead({ client, taskKey: draft.key });
+      await screen.findByText("Bytes: device (not swapped)");
+      expect(screen.queryByText(/^Words:/)).toBeNull();
+    });
   });
 });
