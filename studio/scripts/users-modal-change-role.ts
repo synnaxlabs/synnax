@@ -33,7 +33,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.moveTo({ x: 756, y: 500 });
 
   session.startRecording();
-  await session.hold(1000);
+  await session.hold(1800);
 
   await capture.contextMenu(session, item, "Change role");
   const modal = page.locator(".pluto-dialog__dialog.pluto--modal").first();
@@ -71,5 +71,6 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     zoom: false,
   });
   await session.waitFor(capture.treeItem(page, "user:", "grace"));
-  await session.hold(500);
+  await session.moveTo({ x: 800, y: 450 });
+  await session.hold(2800);
 };

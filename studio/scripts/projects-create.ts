@@ -20,7 +20,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.moveTo({ x: 756, y: 500 });
 
   session.startRecording();
-  await session.hold(1000);
+  await session.hold(1800);
 
   // The dialog opens beside the small avatar, so a punch-in would crop it.
   const trigger = page.locator(".console-project-selector__trigger").first();
