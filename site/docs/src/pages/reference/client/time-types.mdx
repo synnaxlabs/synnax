@@ -190,8 +190,9 @@ The static methods are `nanoseconds`, `microseconds`, `milliseconds`, `seconds`,
 
 ## TimeRange
 
-A time range includes its start and excludes its end. A sample at the end of a range
-belongs to the next range, so ranges that touch never hold the same sample:
+A time range includes its start and excludes its end. A sample at the end of a time
+range belongs to the next time range, so time ranges that touch never hold the same
+sample:
 
 <TimeRangeDiagram />
 
@@ -211,8 +212,8 @@ tr = start.range(end)
 tr = start.span_range(sy.TimeSpan.HOUR)
 ```
 
-`contains` also takes a `TimeRange`, and returns true when the whole range is inside,
-ends included.
+`contains` also takes a `TimeRange`, and returns true when the whole time range is
+inside, ends included.
 
   </Fragment>
 
@@ -236,8 +237,9 @@ const fromObject = new TimeRange({ start, end });
 const fromSpan = start.spanRange(TimeSpan.HOUR);
 ```
 
-`contains` also takes a `TimeRange`. It returns true only when the other range starts at
-or after this range and ends before this range ends, so `tr.contains(tr)` is false.
+`contains` also takes a `TimeRange`. It returns true only when the other time range
+starts at or after this time range and ends before this time range ends, so
+`tr.contains(tr)` is false.
 
   </Fragment>
 

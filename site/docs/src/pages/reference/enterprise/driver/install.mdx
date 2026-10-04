@@ -150,11 +150,11 @@ For a certificate from your own authority, or from a Core that runs with `--auto
 - **Linux, NI Linux Real-Time, and Windows** -> add the CA certificate to the trust
   store of the operating system. See
   [Install certificates](/reference/enterprise/certificates).
-- **macOS** -> the Driver does not read the macOS keychain. Set
-  `GRPC_DEFAULT_SSL_ROOTS_FILE_PATH` to the CA file in the shell that runs `login` and
-  `start`. The Driver then trusts only the certificates in that file.
+- **macOS** -> the Driver does not read the macOS keychain. See the macOS tab of
+  [Install the certificate](/reference/enterprise/certificates?platform=macOS#install-the-certificate).
+  Set `GRPC_DEFAULT_SSL_ROOTS_FILE_PATH` in the shell that runs `login` and `start`.
 
-On Linux and NI Linux Real-Time, you can instead add the variable to
+On Linux and NI Linux Real-Time, you can instead set the same variable in
 `/etc/synnax/driver.env`, before you run `login`. See
 [Environment file](/reference/enterprise/driver/configuration#environment-file). The
 Driver then trusts only the certificates in that file.
@@ -221,5 +221,5 @@ Synnax Driver is running (PID: 28191)
 
 On Windows and macOS, the terminal that runs the Driver shows its logs.
 
-The Driver adds a rack with the host name of its computer to the Core. To see the rack
-and connect devices to it, see [Devices](/reference/hardware/devices).
+The Driver shows in the devices toolbar under the host name of its computer. To connect
+devices to it, see [Devices](/reference/hardware/devices).

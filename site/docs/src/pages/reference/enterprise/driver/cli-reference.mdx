@@ -183,13 +183,13 @@ or `false`.
       option: "--rack-key",
       default: "0",
       description:
-        "The key of the rack to use. With 0, the Driver creates a rack. Set <code>--cluster-key</code> too.",
+        "The key that the Core knows this Driver by. With 0, the Driver registers as a new Driver. Set <code>--cluster-key</code> too.",
     },
     {
       option: "--cluster-key",
       default: "00000000-0000-0000-0000-000000000000",
       description:
-        "The key of the Core that owns the rack. When it is not the key of the Core, the Driver creates a rack.",
+        "The key of the Core that issued <code>--rack-key</code>. When it is not the key of the Core, the Driver registers as a new Driver.",
     },
     {
       option: "--enable-integrations",
@@ -263,8 +263,8 @@ shows `/var/log/synnax-driver.log`.
 ## clear
 
 Deletes the saved login and the rack key from the state file. On the next start, the
-Driver uses its other sources, or the defaults, and creates a new rack. The old rack
-stays on the Core.
+Driver uses its other sources, or the defaults, and shows in the devices toolbar as a
+new Driver. The old entry stays on the Core.
 
 ```bash
 sudo synnax-driver clear
