@@ -1,0 +1,158 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Run the Core as a service"
+description:
+  "Start a Synnax Core when the computer boots, and restart it after a failure."
+platforms: ["Linux", "Windows", "Docker"]
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Note } from "@synnaxlabs/lyra/note";
+import { Platform } from "@/components/platform";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+A Synnax Core started from a terminal stops when the terminal closes. As a service, the
+Core starts when the computer boots and starts again after a crash.
+
+<Divider.Divider x />
+
+## Run the Core as a service
+
+<Platform.Tabs exclude={["macOS"]}>
+
+<Fragment slot="Linux">
+
+1. Install the Core at `/usr/local/bin/synnax`. See
+   [Set up Synnax Enterprise](/reference/enterprise#install-the-core).
+2. Create a system user for the Core. The Core needs a home folder that exists:
+
+   ```bash
+   sudo useradd --system --home-dir /var/lib/synnax --shell /usr/sbin/nologin synnax
+   ```
+
+3. Put the license key at `/etc/synnax/license.lic`, readable by the `synnax` user:
+
+   ```bash
+   sudo mkdir -p /etc/synnax
+   sudo cp synnax.lic /etc/synnax/license.lic
+   sudo chown root:synnax /etc/synnax/license.lic
+   sudo chmod 640 /etc/synnax/license.lic
+   ```
+
+4. Create `/etc/systemd/system/synnax.service`:
+
+   ```ini
+   [Unit]
+   Description=Synnax Core
+   Wants=network-online.target
+   After=network-online.target
+
+   [Service]
+   Type=simple
+   User=synnax
+   Group=synnax
+   StateDirectory=synnax
+   WorkingDirectory=/var/lib/synnax
+   ExecStart=/usr/local/bin/synnax start \
+     --listen=synnax.example.com:9090 \
+     --data=/var/lib/synnax/data \
+     --certs-dir=/var/lib/synnax/certs \
+     --log-file-path=/var/lib/synnax/logs/synnax.log \
+     --license-file=/etc/synnax/license.lic \
+     --auto-cert
+   KillSignal=SIGINT
+   Restart=always
+   RestartSec=5s
+   LimitNOFILE=65536
+
+   [Install]
+   WantedBy=multi-user.target
+   ```
+
+   Change `--listen` to the name that clients use to reach the Core. For a different
+   certificate, see [Set up TLS](/reference/enterprise/tls).
+
+5. Start the service and turn it on at boot:
+
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now synnax
+   ```
+
+6. Check that the Core started:
+
+   ```bash
+   journalctl -u synnax -f -a
+   ```
+
+   Wait for `Synnax is running and available at`.
+
+The unit sets `KillSignal=SIGINT` because the Core shuts down cleanly only on `SIGINT`.
+`LimitNOFILE` allows the Core to keep many channel files open. To change a flag, edit
+the unit, then run `sudo systemctl daemon-reload` and `sudo systemctl restart synnax`.
+
+For EtherCAT devices, also add `AmbientCapabilities=CAP_NET_RAW` to the `[Service]`
+section.
+
+</Fragment>
+
+<Fragment slot="Windows">
+
+The Windows installer installs the Core as a service by default, so you can skip this
+step if you used it.
+
+1. In PowerShell as an administrator, install the service with the flags for the Core:
+
+   ```powershell
+   synnax service install --listen=synnax.example.com:9090 --auto-cert `
+     --license-file=C:\ProgramData\Synnax\license.lic
+   ```
+
+2. Start the service:
+
+   ```powershell
+   synnax service start
+   ```
+
+3. Check that it runs:
+
+   ```powershell
+   synnax service status
+   ```
+
+The service is named `SynnaxCore`, with the display name "Synnax Core". It keeps its
+settings in `C:\ProgramData\Synnax\config.yaml`, its data in
+`C:\ProgramData\Synnax\data`, and its log in `C:\ProgramData\Synnax\logs\synnax.log`.
+When the Core crashes, Windows restarts it after 5 seconds, then 30 seconds, then 60
+seconds. A Core that stops with an error does not restart.
+
+To change a setting, edit `config.yaml`, then run `synnax service stop` and
+`synnax service start`. Running `synnax service install` again does not change
+`config.yaml` when it exists. For each `service` command, see the
+[CLI reference](/reference/enterprise/cli-reference#service-windows-only).
+
+</Fragment>
+
+<Fragment slot="Docker">
+
+Start the container with a restart policy:
+
+```bash
+docker run -d --name synnax --restart unless-stopped \
+  --stop-signal SIGINT --stop-timeout 30 \
+  -p 9090:9090 -v synnax-data:/synnax/synnax-data \
+  -v synnax-certs:/usr/local/synnax/certs \
+  synnaxlabs/synnax --listen=synnax.example.com:9090 --auto-cert
+```
+
+Docker starts the container when the Docker daemon starts and after a crash.
+`--stop-signal SIGINT` lets the Core shut down cleanly on `docker stop`, and
+`--stop-timeout 30` gives it time to finish.
+
+</Fragment>
+
+</Platform.Tabs>
+
+On macOS, use [Synnax Desktop](/reference/get-started/install-desktop), which starts the
+Core with the app.

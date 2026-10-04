@@ -199,7 +199,8 @@ export default defineConfig({
     "/reference/core/production": "/reference/enterprise/production",
     "/reference/core/quick-start": "/reference/enterprise",
     "/reference/core/requirements": "/reference/enterprise/requirements",
-    "/reference/core/systemd-service": "/reference/enterprise/systemd-service",
+    "/reference/core/systemd-service": "/reference/enterprise/service",
+    "/reference/enterprise/systemd-service": "/reference/enterprise/service",
     "/reference/driver": "/reference/hardware",
     "/reference/driver/ethercat": "/reference/hardware/ethercat",
     "/reference/driver/ethercat/configure-device":

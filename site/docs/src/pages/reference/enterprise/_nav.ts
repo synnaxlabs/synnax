@@ -61,6 +61,16 @@ export const ENTERPRISE_NAV: PageNavNode = {
       ],
     },
     {
+      key: "/reference/enterprise/users",
+      href: "/reference/enterprise/users",
+      name: "Users",
+    },
+    {
+      key: "/reference/enterprise/service",
+      href: "/reference/enterprise/service",
+      name: "Run as a service",
+    },
+    {
       key: "/reference/enterprise/production",
       href: "/reference/enterprise/production",
       name: "Deploy to production",
@@ -69,11 +79,6 @@ export const ENTERPRISE_NAV: PageNavNode = {
       key: "/reference/enterprise/clusters",
       href: "/reference/enterprise/clusters",
       name: "Clusters and nodes",
-    },
-    {
-      key: "/reference/enterprise/users",
-      href: "/reference/enterprise/users",
-      name: "Users",
     },
     {
       key: "driver",
@@ -100,11 +105,6 @@ export const ENTERPRISE_NAV: PageNavNode = {
       key: "/reference/enterprise/cli-reference",
       href: "/reference/enterprise/cli-reference",
       name: "CLI reference",
-    },
-    {
-      key: "/reference/enterprise/systemd-service",
-      href: "/reference/enterprise/systemd-service",
-      name: "systemd service",
     },
   ],
 };
