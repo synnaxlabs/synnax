@@ -142,9 +142,11 @@ schematic valve can show the state channel, so it shows the value that the Drive
 not only the value that you clicked.
 
 The state channel holds the last value that the Driver sent. It is not a measurement of
-the output. If an NI or LabJack write fails, the state channel keeps the old value. The
-task writes the state channels at the **State update rate**, and also right after each
-command.
+the output. If a LabJack write fails, the state channel keeps the old value. An NI
+analog write that is out of range is an exception: see
+[the outputs stop changing](/reference/hardware/ni/analog-write-task#the-outputs-stop-changing-after-a-command).
+The task writes the state channels at the **State update rate**, and also right after
+each command.
 
 ### Outputs with no state channel
 
