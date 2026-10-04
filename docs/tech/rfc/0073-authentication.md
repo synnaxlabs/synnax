@@ -155,6 +155,12 @@ Core checks a password with the algorithm in the tag, and stores it again with A
 when the tag names anything else. The same step serves any later change of algorithm or
 cost.
 
+A Core start setting, off by default, restricts passwords to a FIPS-approved hash. With
+it on, the Core hashes with PBKDF2 and refuses to check any hash with another tag. An
+existing bcrypt or Argon2id password then fails at login until an administrator sets it
+again. The root password is not affected, because the Core hashes it from the start
+settings at every start. API keys and session tokens use SHA-256, which FIPS approves.
+
 ### 4.2 OpenID Connect
 
 A provider is a Core start setting: a name, an issuer URL, and a client ID. Only the
@@ -434,7 +440,8 @@ session model does not change.
 Each phase is one pull request into `main`.
 
 - **Phase 1: Passwords.** The `Authenticator` interface, the password package and its
-  table, and the migration from `SecureCredentials`.
+  table, the migration from `SecureCredentials`, tagged hashes with Argon2id, and the
+  FIPS password setting.
 - **Phase 2: Sessions.** The session table, `Login`, `Authenticate`, `Logout`, the idle
   sweep, and the middleware. Deletes the `token` package.
 - **Phase 3: Streams.** Streams close when their session ends and count as activity.
@@ -495,8 +502,5 @@ Each phase is one pull request into `main`.
 4. **Provider settings**: Start settings as written, or stored records the Console can
    edit without a restart.
 5. **Driver role**: Which policies the built-in role carries.
-6. **FIPS passwords**: Whether to add a Core setting that hashes passwords with PBKDF2.
-   Argon2id is not approved under FIPS, and PBKDF2 is the only password hash NIST
-   approves today. NIST plans to approve a memory-hard function in a revision of SP
-   800-132 but has published no draft. A site that needs FIPS needs it for TLS and every
-   other hash too, so this setting may belong to a wider FIPS mode.
+6. **FIPS mode**: Whether the FIPS password setting should grow into one setting for the
+   whole Core. A site that needs FIPS needs it for TLS and every other hash too.
