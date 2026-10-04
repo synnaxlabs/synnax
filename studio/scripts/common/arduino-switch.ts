@@ -39,7 +39,14 @@ export const arduinoSwitchScript =
       await session.hold(600);
       const properties = page.locator(".console-schematic__properties").first();
       await session.waitFor(properties);
-      await session.zoom(properties);
+      // The drawer spans the window, so a zoom on it renders at 1x. Zoom on its left
+      // half, where the State and Command fields sit.
+      const drawer = await properties.boundingBox();
+      if (drawer == null) throw new Error("properties drawer is hidden");
+      await session.zoom(
+        { x: drawer.x + drawer.width * 0.42, y: drawer.y + drawer.height / 2 },
+        1.5,
+      );
       await session.click(
         properties.locator("[role='tab']").filter({ hasText: "Control" }).first(),
         { text: true, zoom: false },
