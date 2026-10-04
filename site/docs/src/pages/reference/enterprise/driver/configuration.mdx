@@ -1,51 +1,95 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Configure a standalone Driver"
-description: "Set Driver parameters with a file or environment variables."
+description:
+  "Set the connection, task, and integration parameters of a standalone Driver with its
+  state file, a configuration file, environment variables, or flags."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
+import { Note } from "@synnaxlabs/lyra/note";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The `synnax-driver login` command sets how the Driver connects to the Core. The Driver
-also reads its configuration from command line flags, environment variables, and a
-configuration file.
+A standalone Driver reads its parameters from five sources. A source higher in the list
+overrides the sources below it:
+
+1. Command line flags. See the
+   [CLI reference](/reference/enterprise/driver/cli-reference).
+2. [Environment variables](#environment-variables).
+3. A [configuration file](#configuration-file).
+4. The [state file](#state-file), which `synnax-driver login` writes.
+5. The defaults.
+
+The parameter flags and the configuration file apply only to
+`synnax-driver start --standalone`. The Linux and NI Linux Real-Time service always
+starts with the same command. To configure the service, use `login` and the
+[environment file](#environment-file). Run `login` once, also when the environment file
+holds the connection: `login` creates the folder of the state file, and the service
+cannot.
 
 <Divider.Divider x />
 
-## Precedence
+## State file
 
-Earlier sources override later ones:
+The state file holds the connection parameters that `login` saves, and the key of the
+rack that the Driver uses on the Core.
 
-1. Command line arguments
-2. Environment variables
-3. The environment file, on Linux and NI Linux Real-Time
-4. Configuration file
-5. Persisted state, written by `synnax-driver login` and by the Driver itself
-6. Internal defaults
+| Operating system   | Path                                                               |
+| ------------------ | ------------------------------------------------------------------ |
+| Linux, NI Linux RT | `/var/lib/synnax-driver/persisted-state.json`                      |
+| Windows            | `%LOCALAPPDATA%\synnax-driver\persisted-state.json`                |
+| macOS              | `~/Library/Application Support/synnax-driver/persisted-state.json` |
 
-The persisted state file holds the connection parameters saved by `login` and the
-identity of the rack the Driver last attached to. It lives at
-`/var/lib/synnax-driver/persisted-state.json` on Linux,
-`%LOCALAPPDATA%\synnax-driver\persisted-state.json` on Windows, and
-`~/Library/Application Support/synnax-driver/persisted-state.json` on macOS. Use the
-`--state-file` flag to move it.
+The `--state-file` flag of `start --standalone`, `login`, and `clear` sets a different
+path. The service always uses the default path.
+
+<Note.Note variant="warning">
+  The state file holds the password as plain text, and each user of the computer can
+  read and change the file. Give the Driver a user with only the [Host
+  role](/reference/enterprise/users#built-in-roles).
+</Note.Note>
+
+To remove the saved login and the rack key, run `synnax-driver clear`. On the next
+start, the Driver creates a new rack.
 
 <Divider.Divider x />
 
-## Environment file
+## Environment variables
 
-On Linux and NI Linux Real-Time, the service and the `login` command read
-`/etc/synnax/driver.env` and set each `KEY=VALUE` pair it names. For `login`, a variable
-already in your environment wins. The file is optional. Only root can read it, so run
-`login` with `sudo`.
-
-`start --standalone` does not read the file. For a foreground run, set the variables in
-your shell:
+The Driver reads each parameter from a variable named `SYNNAX_DRIVER_` and the key in
+upper case. The integrations have no variable.
 
 ```bash
-export GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=/path/to/ca.crt
+SYNNAX_DRIVER_HOST=10.0.0.45
+SYNNAX_DRIVER_PORT=9090
+SYNNAX_DRIVER_USERNAME=driver
+SYNNAX_DRIVER_PASSWORD=password
+SYNNAX_DRIVER_SECURE=false
+SYNNAX_DRIVER_CORRECT_SKEW=true
+SYNNAX_DRIVER_OP_TIMEOUT=60
+SYNNAX_DRIVER_POLL_INTERVAL=1
+SYNNAX_DRIVER_SHUTDOWN_TIMEOUT=30
+SYNNAX_DRIVER_WORKER_COUNT=4
+```
+
+To learn what each parameter does, see [Parameters](#parameters).
+
+### Environment file
+
+On Linux and NI Linux Real-Time, the service and `login` read `/etc/synnax/driver.env`.
+Write one `KEY=value` on each line, with no `export`. `login` uses the file only for
+variables such as `GRPC_DEFAULT_SSL_ROOTS_FILE_PATH`. It does not read the
+`SYNNAX_DRIVER_` variables.
+
+`install` creates the file. Only root can read it, so edit it with `sudo`, and run
+`login` with `sudo`. Restart the service after you edit the file.
+
+`start --standalone` does not read the file. For a Driver in a terminal, export the
+variables in the shell:
+
+```bash
+export SYNNAX_DRIVER_WORKER_COUNT=8
 synnax-driver start --standalone
 ```
 
@@ -53,17 +97,15 @@ synnax-driver start --standalone
 
 ## Configuration file
 
-Pass a JSON file with the `--config` flag. Every key is optional and has the same
-meaning as the flag of the same name in the
-[CLI reference](/reference/enterprise/driver/cli-reference). The file must not contain
-comments.
+Give a JSON file to `start --standalone` with the `--config` flag. Each key is optional.
+The file cannot hold comments.
 
 ```json
 {
   "connection": {
-    "host": "localhost",
+    "host": "10.0.0.45",
     "port": 9090,
-    "username": "synnax",
+    "username": "driver",
     "password": "password",
     "secure": false
   },
@@ -76,54 +118,31 @@ comments.
     "shutdown_timeout": 30,
     "worker_count": 4
   },
-  "remote_info": {
-    "rack_key": 65537,
-    "cluster_key": "6f2c7a1e-3b9d-4c58-9e21-0d8f5a7b3c44"
-  },
   "integrations": ["arc", "ethercat", "http", "labjack", "modbus", "ni", "opc"]
 }
 ```
 
-The `integrations` list replaces the default set. Omit `remote_info` to let the Driver
-create a rack on first start and remember it in the persisted state file.
+The `integrations` list replaces the default list. Leave out `remote_info`, so that the
+Driver creates a rack on the first start and saves its key in the state file.
 
 <Divider.Divider x />
 
-## Environment variables
+## Parameters
 
-Every configuration key is also readable from an environment variable named
-`SYNNAX_DRIVER_` followed by the key in upper case. Integrations can't be set from the
-environment.
+| Key                | Default     | Description                                                                                                                                       |
+| ------------------ | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `host`             | `localhost` | The host of the Core.                                                                                                                             |
+| `port`             | `9090`      | The port of the Core.                                                                                                                             |
+| `username`         | `synnax`    | The username of the Driver user.                                                                                                                  |
+| `password`         | `seldon`    | The password of the Driver user.                                                                                                                  |
+| `secure`           | `false`     | Connect to the Core over TLS.                                                                                                                     |
+| `correct_skew`     | `true`      | Keep the timestamps of hardware-timed NI and LabJack reads in step with the clock of the computer.                                                |
+| `op_timeout`       | `60`        | The number of seconds after which a task operation that has not finished, such as a start, gives the task the error `operation timed out`.        |
+| `poll_interval`    | `1`         | The number of seconds between two checks for task operations that have not finished.                                                              |
+| `shutdown_timeout` | `30`        | The number of seconds that the Driver waits for task operations when it stops.                                                                    |
+| `worker_count`     | `4`         | The number of threads that run task operations. Use a value from 1 to 64.                                                                         |
+| `rack_key`         | `0`         | The key of the rack to use. With 0, or when the rack does not exist, the Driver creates a rack named after the host name of the computer.         |
+| `cluster_key`      | nil UUID    | The key of the Core that owns `rack_key`. When it is not the key of the Core, the Driver ignores `rack_key` and creates a rack, so set both keys. |
+| `integrations`     | all         | The device integrations to run: `arc`, `ethercat`, `http`, `labjack`, `modbus`, `ni`, and `opc`. NI Linux RT has no `modbus`.                     |
 
-The Linux and NI Linux Real-Time service does not inherit your shell. It reads
-`/etc/synnax/driver.env`, one `KEY=value` per line, each time it starts. Lines start
-with the variable name, with no `export`. The `install` command creates the file, owned
-by root with mode `600`, so only root can read the password in it. Edit it with `sudo`
-and restart the service after editing it.
-
-```bash
-# The host of the Synnax Core.
-SYNNAX_DRIVER_HOST=localhost
-# The port of the Synnax Core.
-SYNNAX_DRIVER_PORT=9090
-# The username to use when logging in to the Synnax Core.
-SYNNAX_DRIVER_USERNAME=synnax
-# The password to use when logging in to the Synnax Core.
-SYNNAX_DRIVER_PASSWORD=password
-# Whether to connect to the Synnax Core over TLS.
-SYNNAX_DRIVER_SECURE=false
-# Enable automatic clock skew correction for the Driver.
-SYNNAX_DRIVER_CORRECT_SKEW=true
-# Duration in seconds before reporting stuck task operations.
-SYNNAX_DRIVER_OP_TIMEOUT=60
-# Interval in seconds between task timeout checks.
-SYNNAX_DRIVER_POLL_INTERVAL=1
-# Maximum time in seconds to wait for task workers during shutdown.
-SYNNAX_DRIVER_SHUTDOWN_TIMEOUT=30
-# Number of worker threads for task operations (1-64).
-SYNNAX_DRIVER_WORKER_COUNT=4
-# The key of an existing rack in the Core to attach to.
-SYNNAX_DRIVER_RACK_KEY=65537
-# The key of the Core that owns the rack.
-SYNNAX_DRIVER_CLUSTER_KEY=6f2c7a1e-3b9d-4c58-9e21-0d8f5a7b3c44
-```
+For a boolean environment variable, use `true` or `false`.
