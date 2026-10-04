@@ -11,7 +11,7 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 A control sequence is a Python script that commands channels and waits on sensor values.
-This page builds one sequence: it opens `press_vlv_cmd` until `tank_pt` reaches 300,
+This page builds one sequence: it opens `press_vlv_cmd` until `press_pt` reaches 300,
 checks that the pressure holds, then opens `vent_vlv_cmd` to vent the tank. For every
 method and parameter, see the
 [controller reference](/reference/control/python/controller).
@@ -20,10 +20,29 @@ method and parameter, see the
 
 ## Prerequisites
 
-- A Synnax Core that you can [connect to](/reference/client/connect).
+- A running Synnax Core.
 - The Python client, installed with the [quick start](/reference/client/quick-start).
-- Command channels for your valves and a sensor channel, such as `press_vlv_cmd`,
-  `vent_vlv_cmd`, and `tank_pt`.
+- Your credentials, saved with
+  [`sy login`](/reference/client/connect#log-in-once-with-sy-login). The simulator and
+  the script connect with them.
+
+<Divider.Divider x />
+
+## Start the simulator
+
+The Python client includes a press simulator, so you can run this page with no hardware.
+The simulator creates the channels `press_vlv_cmd`, `vent_vlv_cmd`, and `press_pt`. When
+the press valve is open, `press_pt` goes up by about 20 each second. When the vent valve
+is open, it goes down by the same amount.
+
+In a separate terminal, start the simulator and keep it running:
+
+```bash
+python -m examples.simulators.press
+```
+
+To stop it, press Ctrl+C. With real hardware, skip this step and use the names of your
+channels.
 
 <Divider.Divider x />
 
@@ -40,7 +59,7 @@ client = sy.Synnax()
 with client.control.acquire(
     name="Press and vent",
     write=["press_vlv_cmd", "vent_vlv_cmd"],
-    read=["tank_pt"],
+    read=["press_pt"],
     write_authorities=200,
 ) as ctrl:
     ...
@@ -81,10 +100,10 @@ error.
 
 Call `wait_until` with a function that returns `True` when the condition is met. Each
 time new data arrives on a `read` channel, the controller calls the function with
-itself, so `c["tank_pt"]` is the latest value of `tank_pt`:
+itself, so `c["press_pt"]` is the latest value of `press_pt`:
 
 ```python
-    ctrl.wait_until(lambda c: c["tank_pt"] > 300)
+    ctrl.wait_until(lambda c: c["press_pt"] > 300)
 ```
 
 ### Add a timeout
@@ -94,7 +113,7 @@ number is seconds. `wait_until` returns `False` if the timeout ends first:
 
 ```python
     reached = ctrl.wait_until(
-        lambda c: c["tank_pt"] > 300,
+        lambda c: c["press_pt"] > 300,
         timeout=30 * sy.TimeSpan.SECOND,
     )
     ctrl["press_vlv_cmd"] = False
@@ -110,7 +129,7 @@ condition stays true for the full `duration`:
 ```python
     if reached:
         held = ctrl.remains_true_for(
-            lambda c: c["tank_pt"] > 280,
+            lambda c: c["press_pt"] > 280,
             duration=10 * sy.TimeSpan.SECOND,
         )
 ```
@@ -126,7 +145,7 @@ returns `False`:
 
 ```python
     ctrl["vent_vlv_cmd"] = True
-    ctrl.wait_while(lambda c: c["tank_pt"] > 5)
+    ctrl.wait_while(lambda c: c["press_pt"] > 5)
 ```
 
 For every parameter of the wait methods, see the
@@ -154,24 +173,24 @@ client = sy.Synnax()
 with client.control.acquire(
     name="Press and vent",
     write=["press_vlv_cmd", "vent_vlv_cmd"],
-    read=["tank_pt"],
+    read=["press_pt"],
     write_authorities=200,
 ) as ctrl:
     try:
         ctrl.set({"press_vlv_cmd": True, "vent_vlv_cmd": False})
         reached = ctrl.wait_until(
-            lambda c: c["tank_pt"] > 300,
+            lambda c: c["press_pt"] > 300,
             timeout=30 * sy.TimeSpan.SECOND,
         )
         ctrl["press_vlv_cmd"] = False
         if reached:
             held = ctrl.remains_true_for(
-                lambda c: c["tank_pt"] > 280,
+                lambda c: c["press_pt"] > 280,
                 duration=10 * sy.TimeSpan.SECOND,
             )
             print("Pressure held" if held else "Pressure dropped")
         ctrl["vent_vlv_cmd"] = True
-        ctrl.wait_while(lambda c: c["tank_pt"] > 5)
+        ctrl.wait_while(lambda c: c["press_pt"] > 5)
     finally:
         ctrl.set({"press_vlv_cmd": False, "vent_vlv_cmd": True})
 ```
@@ -179,6 +198,6 @@ with client.control.acquire(
 When you run the script, a schematic that shows the valves lists **Press and vent** in
 its control legend. The script prints the result of the hold check and exits after the
 tank vents below 5, with the press valve closed and the vent valve open. For a longer
-example with a simulator, see
+example that pressurizes in steps, see
 [`client/py/examples/control/press`](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/control/press)
 on GitHub.
