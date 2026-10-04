@@ -30,10 +30,10 @@ export const NI_USB_6343: SimulatedDevice = {
 /** A LabJack T7 on USB that nobody has configured yet. */
 export const LABJACK_T7: SimulatedDevice = {
   key: "470018422",
-  name: "LabJack T7",
+  name: "LJM_dtT7-8422",
   make: "LabJack",
   model: "LJM_dtT7",
-  location: "470018422",
+  location: "LJM_ctUSB",
   properties: { identifier: "" },
 };
 
