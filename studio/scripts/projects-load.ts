@@ -29,7 +29,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.settleWall(3000);
 
     await capture.commandPalette(session, "Create project");
-    const name = page.locator(".console-modal").getByPlaceholder("Name").first();
+    const name = page
+      .locator(".pluto-dialog__dialog.pluto--modal")
+      .getByPlaceholder("Name")
+      .first();
     await session.waitFor(name);
     await name.fill("Coldflow Campaign");
     await capture.clickButton(session, "Create");
