@@ -155,11 +155,16 @@ Core checks a password with the algorithm in the tag, and stores it again with A
 when the tag names anything else. The same step serves any later change of algorithm or
 cost.
 
-A Core start setting, off by default, restricts passwords to a FIPS-approved hash. With
-it on, the Core hashes with PBKDF2 and refuses to check any hash with another tag. An
-existing bcrypt or Argon2id password then fails at login until an administrator sets it
-again. The root password is not affected, because the Core hashes it from the start
-settings at every start. API keys and session tokens use SHA-256, which FIPS approves.
+A Core start setting named for FIPS, off by default, restricts passwords to a
+FIPS-approved hash. With it on, the Core hashes with PBKDF2 and refuses to check a
+bcrypt or Argon2id hash at all. The setting is meant for a new Core, where every
+password is PBKDF2 from the first start. On an existing Core, each older password fails
+at login until an administrator sets it again. The root password is not affected,
+because the Core hashes it from the start settings at every start. API keys and session
+tokens use SHA-256, which FIPS approves.
+
+This setting is the first piece of a FIPS mode for the whole Core, which will later
+cover TLS and every other use of cryptography.
 
 ### 4.2 OpenID Connect
 
@@ -434,6 +439,7 @@ session model does not change.
 - Authentication between Core nodes. Peer calls are unauthenticated today.
 - Smart cards without a provider, SAML, and LDAP.
 - Second factors, login rate limits, and lockout.
+- FIPS mode beyond password hashing.
 
 ## 6 Implementation phases
 
@@ -502,5 +508,3 @@ Each phase is one pull request into `main`.
 4. **Provider settings**: Start settings as written, or stored records the Console can
    edit without a restart.
 5. **Driver role**: Which policies the built-in role carries.
-6. **FIPS mode**: Whether the FIPS password setting should grow into one setting for the
-   whole Core. A site that needs FIPS needs it for TLS and every other hash too.
