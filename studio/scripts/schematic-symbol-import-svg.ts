@@ -58,8 +58,15 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   const drop = page.locator(".console-schematic-file-drop").first();
   await session.waitFor(drop);
   await session.hold(800);
-  // The dialog nearly fills the window, so a zoom on it renders at 1x. Zoom on the
-  // sidebar's edge, and let the camera pan to the Create button.
+  // The Console opens a detached file input, so the picker never renders; the
+  // chooser event is the only seam to hand it a file.
+  const chooser = page.waitForEvent("filechooser");
+  await session.click(drop, { zoom: false });
+  await (await chooser).setFiles(SVG);
+  const region = page.locator(".console-schematic-region-list-item").first();
+  await session.waitFor(region);
+  // The dialog nearly fills the window, so a zoom on it renders at 1x. The sidebar
+  // shows only after the import: zoom on its edge, and let the camera pan to Create.
   const sidebar = await modal
     .locator(".console-schematic__sidebar")
     .first()
@@ -69,14 +76,6 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     { x: sidebar.x + sidebar.width, y: sidebar.y + sidebar.height / 2 },
     1.5,
   );
-
-  // The Console opens a detached file input, so the picker never renders; the
-  // chooser event is the only seam to hand it a file.
-  const chooser = page.waitForEvent("filechooser");
-  await session.click(drop, { zoom: false });
-  await (await chooser).setFiles(SVG);
-  const region = page.locator(".console-schematic-region-list-item").first();
-  await session.waitFor(region);
   await session.hold(1800);
 
   await session.click(
