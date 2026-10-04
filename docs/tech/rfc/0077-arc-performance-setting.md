@@ -45,7 +45,8 @@ C++ loop keeps its six internal modes.
 On Linux, `HYBRID` blocks, then spins 50 µs before each deadline, and never more than
 half the timer period. `BUSY_WAIT` on a real-time thread waits the same way and keeps
 all cores out of deep idle states through `/dev/cpu_dma_latency`. A real-time thread
-that never sleeps is throttled by the kernel or starves it (§4).
+that never sleeps is throttled by the kernel or starves it (§4). `medium` does not hold
+idle states, so on an idle host a core waking from one can outlast its spin.
 
 ### 2.1 Schema and migration
 

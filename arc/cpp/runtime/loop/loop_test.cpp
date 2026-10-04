@@ -1533,8 +1533,9 @@ TEST(DeadlineSpinTest, BusyWaitSpinsOnANormalThread) {
 /// @brief A HYBRID loop on a thread that reports the policy of the parameter.
 class HybridFireTest : public testing::TestWithParam<bool> {};
 
-/// @brief HYBRID should spin to its deadline, whether it blocks on an epoll_pwait2
-/// timeout or a timerfd.
+/// @brief HYBRID should end each wait on its deadline, whether it blocks on an
+/// epoll_pwait2 timeout or a timerfd. A core waking from a deep idle state can outlast
+/// the spin, so the bound is that of a blocking wait.
 TEST_P(HybridFireTest, FiresOnTheDeadline) {
     int arms = 0;
     Config config;
@@ -1550,7 +1551,7 @@ TEST_P(HybridFireTest, FiresOnTheDeadline) {
     breaker.start();
     const auto fire = median_fire(loop, breaker);
     breaker.stop();
-    EXPECT_LE(fire.error, test_timing::SPIN_FIRE_ERROR_BOUND);
+    EXPECT_LE(fire.error, test_timing::FIRE_ERROR_BOUND);
     EXPECT_EQ(fire.waits, 1);
 }
 
