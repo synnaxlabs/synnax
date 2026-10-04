@@ -91,5 +91,4 @@ build-backend = "hatchling.build"
 
 # The framework's own unit tests. Integration tests run through the test conductor.
 [tool.pytest.ini_options]
-testpaths = ["framework"]
-python_files = ["*_test.py"]
+testpaths = ["framework/tests"]

@@ -66,10 +66,10 @@ def _start_core(
     command += ["-d", str(directory)]
     if index > 0:
         command += ["--disable-integrations", "ni"]
-    log = open(directory / "core.log", "wb")
-    return subprocess.Popen(
-        command, stdout=log, stderr=subprocess.STDOUT, cwd=directory
-    )
+    with open(directory / "core.log", "wb") as log:
+        return subprocess.Popen(
+            command, stdout=log, stderr=subprocess.STDOUT, cwd=directory
+        )
 
 
 def _wait_ready(core: subprocess.Popen[bytes], port: int) -> None:
