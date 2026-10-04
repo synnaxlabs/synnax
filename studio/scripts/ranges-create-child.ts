@@ -107,7 +107,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   // the modal or the first match dismisses it.
   const modal = page.locator(".console-modal");
   const name = modal.getByPlaceholder("Name").first();
-  const labels = modal.getByText("Select labels", { exact: true }).first();
+  const labels = modal.getByText(/^(Select labels|Labels)$/).first();
   const labelItem = (n: string): ReturnType<typeof page.locator> =>
     page
       .locator(".pluto-select__dialog:visible .pluto-list__item")
