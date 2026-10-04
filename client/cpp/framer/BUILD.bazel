@@ -36,7 +36,7 @@ cc_library(
 cc_test(
     name = "framer_test",
     srcs = [
-        "codec_test.cpp",
+        "codec_core_test.cpp",
         "streamer_test.cpp",
         "writer_test.cpp",
     ],
@@ -44,6 +44,27 @@ cc_test(
     deps = [
         "//client/cpp:synnax",
         "//client/cpp/testutil",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "codec_test",
+    srcs = ["codec_test.cpp"],
+    deps = [
+        "//client/cpp:synnax",
+        "//client/cpp/testutil",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "authorities_test",
+    srcs = ["authorities_test.cpp"],
+    deps = [
+        "//client/cpp/framer",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
