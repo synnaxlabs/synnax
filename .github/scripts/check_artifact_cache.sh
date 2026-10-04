@@ -250,20 +250,6 @@ normalize() {
         | sort -u
 }
 
-# Prints the pinned ref of an action that the build job uses, directly or through one
-# of its local composite actions.
-toolchain_ref() {
-    local action=$1
-    local composite
-    {
-        yq '.jobs.build.steps[].uses // ""' "${WORKFLOW}"
-        for composite in $(yq '.jobs.build.steps[].uses // "" | select(test("^[.]/"))' \
-            "${WORKFLOW}"); do
-            yq '.runs.steps[].uses // ""' "${composite}/action.yaml"
-        done
-    } | awk -v a="${action}@" 'index($0, a) == 1 { print; exit }'
-}
-
 # True when the logged build of one component used the same toolchain, script, and
 # flags this build would.
 component_matches() {
@@ -272,7 +258,7 @@ component_matches() {
     local log=$3
     local action ref
     for action in ${TOOLCHAIN[${comp}]}; do
-        ref=$(toolchain_ref "${action}")
+        ref=$("$(dirname "$0")/toolchain_ref.sh" "${WORKFLOW}" "${action}")
         if [ -z "${ref}" ] || ! grep -qxF "##[group]Run ${ref}" "${log}"; then
             return 1
         fi
