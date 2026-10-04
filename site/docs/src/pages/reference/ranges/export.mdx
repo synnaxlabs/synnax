@@ -19,14 +19,11 @@ region that you select on a line plot. Each way opens the same download dialog.
 
 ## Export a range
 
-{/* prettier-ignore-start */}
-
 1. Open the [range overview](/reference/ranges/find#range-overview).
-2. Click download as CSV (<Icon.CSV />) at the top of the overview.
-3. In the download dialog, select the channels to export.
-4. Click `Download`, then choose where to save the file.
-
-{/* prettier-ignore-end */}
+2. Click <Icon.CSV /> (**Download data for** followed by the range name **as CSV**) at
+   the top of the overview.
+3. In the dialog, select the channels to export.
+4. Click **Download**, then choose where to save the file.
 
 The dialog uses the start and end of the range. It has no channels selected, because a
 range does not hold a list of channels.
@@ -39,24 +36,21 @@ When you export from a line plot, the dialog selects the channels of the plot fo
 
 ### Whole plot
 
-{/* prettier-ignore-start */}
-
-Open the component toolbar of the line plot and click download as CSV (<Icon.CSV />).
-The dialog uses the time span of all the ranges on the plot.
-
-{/* prettier-ignore-end */}
+Open the component toolbar of the line plot and click <Icon.CSV />. The dialog selects
+the X and Y channels of the plot. Its time span covers all the ranges on the plot, and a
+rolling span ends at the current time.
 
 ### Selected region
 
 1. [Select a region](/reference/visualize/line-plots#select-a-region) of the line plot.
-2. Right-click the selection and select `Download region as CSV`.
+2. Right-click the selection and select **Download region as CSV**.
 
 The dialog uses the start and end of the selection.
 
 ### Range annotation
 
-Right-click a range annotation on the line plot and select `Download as CSV`. The dialog
-uses the start and end of that range.
+Right-click a range annotation on the line plot and select **Download as CSV**. The
+dialog uses the start and end of that range.
 
 <Divider.Divider x />
 
@@ -67,10 +61,11 @@ The download dialog has these fields:
 - **From** and **To**: The start and end of the data to export. Change them to export a
   shorter or longer period.
 - **Channels**: The channels to export. Virtual channels are not in the list.
-- **Downsample factor**: Keeps one sample of every N samples. The default is 1, which
-  keeps all samples.
+- **Downsample factor**: Keeps one sample of every N samples. It is a whole number, 1 or
+  more. The default is 1, which keeps all samples.
 
-The `Download` button is disabled until you select at least one channel.
+**Download** is disabled until you select at least one channel. The end time cannot be
+before the start time. Press **Ctrl+Enter** (**Cmd+Enter** on macOS) to download.
 
 <Divider.Divider x />
 
