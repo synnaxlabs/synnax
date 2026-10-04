@@ -74,6 +74,37 @@ protected:
     }
 };
 
+/// @brief it should take the device's order for a register with no override and
+/// let an override win.
+TEST(ModbusChannels, testOutputRegisterResolvesDeviceOrder) {
+    auto inherit = x::json::Parser(
+        x::json::json{{"type", "holding_register"}, {"data_type", "float32"}}
+    );
+    const auto inherit_cfg = ::synnax::modbus::HoldingRegisterWriteChannel::parse(
+        inherit
+    );
+    ASSERT_NIL(inherit.error());
+    const device::ConnectionConfig conn("h", 1, true, true);
+    const channel::OutputHoldingRegister inherited(inherit_cfg, conn);
+    EXPECT_TRUE(inherited.bytes_swapped);
+    EXPECT_TRUE(inherited.words_swapped);
+
+    auto override = x::json::Parser(
+        x::json::json{
+            {"type", "holding_register"},
+            {"data_type", "float32"},
+            {"bytes_swapped", false}
+        }
+    );
+    const auto override_cfg = ::synnax::modbus::HoldingRegisterWriteChannel::parse(
+        override
+    );
+    ASSERT_NIL(override.error());
+    const channel::OutputHoldingRegister overridden(override_cfg, conn);
+    EXPECT_FALSE(overridden.bytes_swapped);
+    EXPECT_TRUE(overridden.words_swapped);
+}
+
 /// @brief it should write coil and register values to Modbus device.
 TEST_F(ModbusWriteTest, testBasicWrite) {
     this->setup_task_config();

@@ -58,23 +58,32 @@ import {
 
 const defaultClient = createTestClient();
 
+const TASK_FORM_READS = [
+  task.TYPE_ONTOLOGY_ID,
+  device.TYPE_ONTOLOGY_ID,
+  rack.TYPE_ONTOLOGY_ID,
+  channel.TYPE_ONTOLOGY_ID,
+  panel.TYPE_ONTOLOGY_ID,
+  project.TYPE_ONTOLOGY_ID,
+  group.TYPE_ONTOLOGY_ID,
+];
+
 /**
  * Creates a client that may read and update tasks but only read channels, so specs can
  * check the channel-rename gates on task context menus.
  */
 export const createChannelReadOnlyClient = async (client: Client): Promise<Client> =>
   await createTestClientWithGrants(client, {
-    retrieve: [
-      task.TYPE_ONTOLOGY_ID,
-      device.TYPE_ONTOLOGY_ID,
-      rack.TYPE_ONTOLOGY_ID,
-      channel.TYPE_ONTOLOGY_ID,
-      panel.TYPE_ONTOLOGY_ID,
-      project.TYPE_ONTOLOGY_ID,
-      group.TYPE_ONTOLOGY_ID,
-    ],
+    retrieve: TASK_FORM_READS,
     update: [task.TYPE_ONTOLOGY_ID],
   });
+
+/**
+ * Creates a client that may read but not update tasks, so a task form stays in
+ * preview mode.
+ */
+export const createTaskReadOnlyClient = async (client: Client): Promise<Client> =>
+  await createTestClientWithGrants(client, { retrieve: TASK_FORM_READS });
 
 export type TaskFormValues = Record<string, unknown>;
 
