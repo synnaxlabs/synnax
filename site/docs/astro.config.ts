@@ -92,7 +92,37 @@ export default defineConfig({
     "/reference/console/workspaces": "/reference/visualize/projects",
     "/reference/control/arc/concepts":
       "/reference/control/arc/concepts/control-authority",
-    "/reference/control/arc/how-to": "/reference/control/arc/how-to/data-processing",
+    "/reference/control/arc/how-to": "/reference/control/arc",
+    "/reference/control/arc/how-to/test-sequences":
+      "/reference/control/arc/test-sequences",
+    "/reference/control/arc/how-to/bang-bang-control":
+      "/reference/control/arc/bang-bang-control",
+    "/reference/control/arc/how-to/data-processing":
+      "/reference/control/arc/compute-values",
+    "/reference/control/arc/how-to/derived-calculations":
+      "/reference/control/arc/compute-values",
+    "/reference/control/arc/how-to/rate-of-change":
+      "/reference/control/arc/compute-values",
+    "/reference/control/arc/how-to/sensor-averaging":
+      "/reference/control/arc/compute-values",
+    "/reference/control/arc/how-to/sensor-validation":
+      "/reference/control/arc/compute-values",
+    "/reference/control/arc/how-to/unit-conversions":
+      "/reference/control/arc/compute-values",
+    "/reference/control/arc/introduction": "/reference/control/arc",
+    "/reference/control/arc/concepts/stateful-variables":
+      "/reference/control/arc/reference/variables",
+    "/reference/control/arc/reference/built-ins":
+      "/reference/control/arc/reference/standard-library",
+    "/reference/control/control-authority": "/reference/control/authority",
+    "/reference/control/embedded": "/reference/control/arc",
+    "/reference/control/embedded/get-started": "/reference/control/arc",
+    "/reference/control/embedded/recipes": "/reference/control/arc",
+    "/reference/control/embedded/reference": "/reference/control/arc",
+    "/reference/control/get-started": "/reference/control",
+    "/reference/control/python/get-started":
+      "/reference/control/python/write-sequences",
+    "/reference/control/python/examples": "/reference/client/examples",
     "/reference/driver/timing": "/reference/hardware/tasks",
     "/reference/driver/http/get-started": "/reference/hardware/http/connect-server",
     "/reference/driver/labjack/get-started":
