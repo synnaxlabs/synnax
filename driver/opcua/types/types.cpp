@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cctype>
 #include <iomanip>
 #include <map>
+#include <new>
 // Disable GCC 13 false positive warning in <regex> header
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic push
@@ -78,7 +80,7 @@ NodeId NodeId::parse(const std::string &field_name, x::json::Parser &parser) {
 }
 
 std::pair<NodeId, x::errors::Error> NodeId::parse(const std::string &node_id_str) {
-    std::regex regex("NS=(\\d+);(I|S|G|B)=(.+)");
+    const std::regex regex("NS=(\\d+);(I|S|G|B)=(.+)", std::regex::icase);
     std::smatch matches;
     if (!std::regex_search(node_id_str, matches, regex))
         return {
@@ -87,40 +89,55 @@ std::pair<NodeId, x::errors::Error> NodeId::parse(const std::string &node_id_str
         };
 
     int nsIndex = std::stoi(matches[1].str());
-    std::string type = matches[2].str();
+    const char type = static_cast<char>(std::toupper(matches[2].str()[0]));
     std::string identifier = matches[3].str();
 
     UA_NodeId raw_id = UA_NODEID_NULL;
-    if (type == "I")
+    if (type == 'I')
         raw_id = UA_NODEID_NUMERIC(
             static_cast<UA_UInt16>(nsIndex),
             std::stoul(identifier)
         );
-    else if (type == "S")
+    else if (type == 'S')
         raw_id = UA_NODEID_STRING_ALLOC(
             static_cast<UA_UInt16>(nsIndex),
             identifier.c_str()
         );
-    else if (type == "G")
+    else if (type == 'G')
         raw_id = UA_NODEID_GUID(
             static_cast<UA_UInt16>(nsIndex),
             string_to_guid(identifier)
         );
-    else if (type == "B") {
-        size_t len = identifier.length() / 2;
-        auto *data = static_cast<UA_Byte *>(UA_malloc(len));
-        for (size_t i = 0; i < len; ++i)
-            sscanf(&identifier[2 * i], "%2hhx", &data[i]);
-        raw_id = UA_NODEID_BYTESTRING(
-            static_cast<UA_UInt16>(nsIndex),
-            reinterpret_cast<char *>(data)
-        );
-        UA_free(data);
+    else if (type == 'B') {
+        const UA_String encoded{
+            identifier.size(),
+            reinterpret_cast<UA_Byte *>(identifier.data())
+        };
+        raw_id.namespaceIndex = static_cast<UA_UInt16>(nsIndex);
+        raw_id.identifierType = UA_NODEIDTYPE_BYTESTRING;
+        // The decoder is lenient, so only input that re-encodes to itself is valid.
+        String canonical;
+        if (UA_ByteString_fromBase64(&raw_id.identifier.byteString, &encoded) ==
+                UA_STATUSCODE_GOOD &&
+            UA_ByteString_toBase64(&raw_id.identifier.byteString, canonical.ptr()) !=
+                UA_STATUSCODE_GOOD) {
+            UA_NodeId_clear(&raw_id);
+            throw std::bad_alloc();
+        }
+        if (!UA_String_equal(&encoded, &canonical.get())) {
+            UA_NodeId_clear(&raw_id);
+            return {
+                NodeId(),
+                x::errors::Error(
+                    x::errors::VALIDATION,
+                    "Invalid base64 in ByteString identifier: " + identifier
+                )
+            };
+        }
     }
 
-    // Wrap in RAII type - NodeId constructor will take ownership
+    // NodeId copies raw_id, so raw_id still owns its allocation.
     NodeId result(raw_id);
-    // Clear the raw_id to prevent double-free (NodeId now owns it)
     UA_NodeId_clear(&raw_id);
     return {std::move(result), x::errors::NIL};
 }
@@ -142,13 +159,18 @@ std::string NodeId::to_string(const UA_NodeId &node_id) {
         case UA_NODEIDTYPE_GUID:
             node_id_str << "G=" << guid_to_string(node_id.identifier.guid);
             break;
-        case UA_NODEIDTYPE_BYTESTRING:
-            node_id_str << "B=";
-            for (std::size_t i = 0; i < node_id.identifier.byteString.length; ++i) {
-                node_id_str << std::setfill('0') << std::setw(2) << std::hex
-                            << static_cast<int>(node_id.identifier.byteString.data[i]);
-            }
+        case UA_NODEIDTYPE_BYTESTRING: {
+            String encoded;
+            if (UA_ByteString_toBase64(&node_id.identifier.byteString, encoded.ptr()) !=
+                UA_STATUSCODE_GOOD)
+                throw std::bad_alloc();
+            node_id_str << "B="
+                        << std::string(
+                               reinterpret_cast<char *>(encoded.get().data),
+                               encoded.get().length
+                           );
             break;
+        }
         default:
             node_id_str << "Unknown";
     }
