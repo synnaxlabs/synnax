@@ -12,7 +12,6 @@
     "static/env.d.ts",
     "astro.check.config.ts",
     "astro.config.ts",
-    "astro-components.d.ts",
     "eslint.config.ts",
     "stylelint.config.ts",
     "vitest.config.ts"

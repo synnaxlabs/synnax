@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/schematic/node/common/primitive/primitive.css";
+
 import { CSS } from "@synnaxlabs/lyra/css";
 import { useHold } from "@synnaxlabs/lyra/hooks";
 import { type CrudeTimeSpan } from "@synnaxlabs/x";

@@ -49,6 +49,13 @@ on:
         required: false
         type: boolean
         default: false
+      warm:
+        description:
+          Whether to lint and compile the tests without running them, which fills the
+          caches that pull requests restore
+        required: false
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs: *inputs
 
@@ -64,9 +71,33 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version-file: ${{ inputs.directory }}/go.mod
-          cache-dependency-path: |
-            ${{ inputs.directory }}/go.mod
-            ${{ inputs.directory }}/go.sum
+          cache: false
+
+      - name: Key the Go caches
+        id: key
+        shell: bash
+        env:
+          DIRECTORY: ${{ inputs.directory }}
+          SUM: ${{ hashFiles(format('{0}/go.sum', inputs.directory)) }}
+        run: |
+          echo "module=go-lint-$DIRECTORY-" >> "$GITHUB_OUTPUT"
+          echo "sum=go-lint-$DIRECTORY-$SUM-" >> "$GITHUB_OUTPUT"
+
+      # A run reads the caches of its own branch and of main, never those of another
+      # pull request, so only main saves them. A changed go.sum falls back to an older
+      # cache of the module.
+      - name: Restore the Go caches
+        id: cache
+        uses: actions/cache/restore@v6
+        with:
+          path: &lint-cache |
+            ~/.cache/go-build
+            ~/.cache/golangci-lint
+            ~/go/pkg/mod
+          key: ${{ steps.key.outputs.sum }}${{ github.run_id }}
+          restore-keys: |
+            ${{ steps.key.outputs.sum }}
+            ${{ steps.key.outputs.module }}
 
       - name: Build the custom golangci-lint binary
         uses: golangci/golangci-lint-action@v9
@@ -91,14 +122,19 @@ jobs:
           GOOS=linux ./custom-gcl run --path-mode=abs
           echo "::endgroup::"
           echo "::group::GOOS=windows"
-          # A throwaway cache keeps the shared setup-go cache down to one GOOS.
-          GOOS=windows GOCACHE="$RUNNER_TEMP/gocache-windows" \
-            ./custom-gcl run --path-mode=abs
+          GOOS=windows ./custom-gcl run --path-mode=abs
           echo "::endgroup::"
           echo "::group::GOOS=darwin"
           GOOS=darwin GOCACHE="$RUNNER_TEMP/gocache-darwin" \
             ./custom-gcl run --path-mode=abs
           echo "::endgroup::"
+
+      - name: Save the Go caches
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+        uses: actions/cache/save@v6
+        with:
+          path: *lint-cache
+          key: ${{ steps.cache.outputs.cache-primary-key }}
 
   test:
     name: Test (${{ matrix.os }})
@@ -134,30 +170,65 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version-file: ${{ inputs.directory }}/go.mod
-          # This workflow file salts the cache key: cache archives store absolute
-          # paths, so one saved before a cache-path move restores to the old spot
-          # and would otherwise pin the moved cache permanently cold.
-          cache-dependency-path: |
-            ${{ inputs.directory }}/go.mod
-            ${{ inputs.directory }}/go.sum
-            .github/workflows/test.go.yaml
+          cache: false
+
+      # This workflow file salts the key: cache archives store absolute paths, so one
+      # saved before a cache-path move would restore to the old spot.
+      - name: Key the Go caches
+        id: key
+        shell: bash
+        env:
+          DIRECTORY: ${{ inputs.directory }}
+          SUM:
+            ${{ hashFiles(format('{0}/go.sum', inputs.directory),
+            '.github/workflows/test.go.yaml') }}
+        run: |
+          echo "build=$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
+          echo "modules=$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
+          echo "module=go-test-${{ runner.os }}-$DIRECTORY-" >> "$GITHUB_OUTPUT"
+          echo "sum=go-test-${{ runner.os }}-$DIRECTORY-$SUM-" >> "$GITHUB_OUTPUT"
+
+      # A run reads the caches of its own branch and of main, never those of another
+      # pull request, so only main saves them. A changed go.sum falls back to an older
+      # cache of the module.
+      - name: Restore the Go caches
+        id: cache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ${{ steps.key.outputs.build }}
+            ${{ steps.key.outputs.modules }}
+          key: ${{ steps.key.outputs.sum }}${{ github.run_id }}
+          restore-keys: |
+            ${{ steps.key.outputs.sum }}
+            ${{ steps.key.outputs.module }}
 
       - name: Install stringer
-        if: matrix.codegen
+        if: matrix.codegen && !inputs.warm
         run: go install golang.org/x/tools/cmd/stringer@v0.50.0
 
       - name: Install antlr4
-        if: matrix.codegen && inputs.install_antlr4
+        if: matrix.codegen && !inputs.warm && inputs.install_antlr4
         run: |
           scripts/install_antlr4.sh
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Verify `go generate` is up to date
-        if: matrix.codegen
+        if: matrix.codegen && !inputs.warm
         run: scripts/check_go_generate.sh ${{ inputs.directory }}
+
+      # Matches the compile flags of the Test step below, so it fills the cache entries
+      # that step looks up.
+      - name: Compile the tests
+        if: inputs.warm
+        run: |
+          go run github.com/onsi/ginkgo/v2/ginkgo build -r --cover --race \
+            --ldflags="-w -s"
+        working-directory: ${{ inputs.directory }}
 
       # macOS skips race and cover until it runs on stronger machines.
       - name: Test
+        if: ${{ !inputs.warm }}
         timeout-minutes: 150
         run: >-
           go run github.com/onsi/ginkgo/v2/ginkgo -r ${{ runner.os == 'macOS' &&
@@ -166,8 +237,17 @@ jobs:
           --keep-going --trace --timeout=2h --github-output ${{ inputs.ginkgo_flags }}
         working-directory: ${{ inputs.directory }}
 
+      - name: Save the Go caches
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ${{ steps.key.outputs.build }}
+            ${{ steps.key.outputs.modules }}
+          key: ${{ steps.cache.outputs.cache-primary-key }}
+
       - name: Upload coverage
-        if: runner.os != 'macOS'
+        if: runner.os != 'macOS' && !inputs.warm
         uses: codecov/codecov-action@v7
         with:
           fail_ci_if_error: true

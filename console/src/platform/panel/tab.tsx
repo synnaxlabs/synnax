@@ -19,7 +19,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type Triggers } from "@synnaxlabs/lyra/triggers";
 import { Access, type Flux, Panel } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
-import { type FC, type ReactElement } from "react";
+import { type FC, lazy, type LazyExoticComponent, type ReactElement } from "react";
 
 export interface TabNameProps {
   /** Whether the render site permits renaming the tab in place. Defaults to true. */
@@ -42,12 +42,12 @@ export interface UseTombstone {
 }
 
 export interface Tab {
-  Content: Content;
+  Content: Content | LazyExoticComponent<Content>;
   Name: TabName;
   /** Represents the tab as a glyph alone, e.g. on the bottom toolbar button.
    * Rendered inside the tab's panel and tab scope. */
   Icon: TabIcon;
-  Toolbar?: Toolbar;
+  Toolbar?: Toolbar | LazyExoticComponent<Toolbar>;
   /**
    * Re-creates the tab's deleted resource from the corpse held by the client's
    * cache. Corpses keep their original keys, so restoring re-registers the
@@ -63,6 +63,16 @@ export interface Tab {
 }
 
 export interface Tabs extends Record<string, Tab> {}
+
+/**
+ * Returns a component that loads the export `name` of `load`'s module on first render,
+ * keeping that module out of the startup bundle. Tabs render it inside a Suspense
+ * boundary.
+ */
+export const lazyComponent = <K extends string, C extends FC<record.Empty>>(
+  load: () => Promise<Record<K, C>>,
+  name: K,
+): LazyExoticComponent<C> => lazy(async () => ({ default: (await load())[name] }));
 
 const [RendererContext, useRendererContext] = context.create<Tabs>({
   defaultValue: {},

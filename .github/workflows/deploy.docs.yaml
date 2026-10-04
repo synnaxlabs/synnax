@@ -43,9 +43,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up pnpm and Node.js
-        uses: pnpm/setup@v3
-        with:
-          cache: true
+        uses: ./.github/actions/setup-pnpm
 
       - name: Update docs search index
         working-directory: site/docs

@@ -24,13 +24,13 @@ import { theming } from "@synnaxlabs/pluto/ether";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { Schematic } from "@/feature/schematic";
 import {
   client,
   createSymbolPayload,
   renderSchematic,
   SYMBOL_FILE_DROP_PROMPT,
 } from "@/feature/schematic/testutil";
+import { Toolbar } from "@/feature/schematic/toolbar/Toolbar";
 import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import {
@@ -50,7 +50,7 @@ afterEach(() => {
 });
 
 const renderSymbolsToolbar = async (as?: Client) =>
-  await renderSchematic(Schematic.Toolbar, {
+  await renderSchematic(Toolbar, {
     sessionState: { editable: true },
     additionalRegistry: theming.REGISTRY,
     as,
