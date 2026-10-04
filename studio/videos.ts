@@ -101,6 +101,23 @@ export default manifest.define([
     script: "scripts/arc-create-automation.ts",
   },
   {
+    id: "control/authority/hand-off",
+    script: "scripts/control-authority-hand-off.ts",
+  },
+  {
+    id: "control/manual/absolute-control",
+    script: "scripts/control-manual-absolute-control.ts",
+  },
+  { id: "control/arc/overview", script: "scripts/control-arc-overview.ts" },
+  {
+    id: "control/arc/start-from-schematic/start-button",
+    script: "scripts/control-arc-start-button.ts",
+  },
+  {
+    id: "control/arc/graph-editor/build-alarm",
+    script: "scripts/control-arc-build-alarm.ts",
+  },
+  {
     id: "device-drivers/task/command-palette",
     script: "scripts/task-command-palette.ts",
   },

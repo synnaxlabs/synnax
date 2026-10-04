@@ -1,0 +1,213 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type Locator } from "playwright";
+
+import { capture, fixtures } from "@/index";
+
+const STATUS = "Tank pressure";
+
+/** Creates `tank_pt` and the status the alarm sets. */
+const createResources = async (): Promise<void> => {
+  const client = fixtures.connect();
+  try {
+    const time = await client.channels.create(
+      { name: "tank_time", isIndex: true, dataType: "timestamp" },
+      { retrieveIfNameExists: true },
+    );
+    await client.channels.create(
+      { name: "tank_pt", dataType: "float64", index: time.key },
+      { retrieveIfNameExists: true },
+    );
+    await client.statuses.set({
+      name: STATUS,
+      variant: "success",
+      message: "Tank pressure is normal",
+    });
+  } finally {
+    await client.close();
+  }
+};
+
+/**
+ * Docs `control/arc/graph-editor/build-alarm`: in an empty graph-mode Arc automation,
+ * drag a telemetry source, a constant, a greater-than operator, a select, and two
+ * change-status blocks onto the graph, set their properties, connect them, choose the
+ * Driver, and start the automation.
+ */
+export default async (session: capture.CaptureSession): Promise<void> => {
+  await createResources();
+  const { page } = session;
+  await capture.login(session);
+  await capture.clearPanel(session);
+  await capture.clickPanelCreate(session);
+  await capture.createComponent(session, "Arc automation");
+  const modal = page.locator(".pluto-dialog__dialog.pluto--modal").first();
+  const name = modal.getByPlaceholder("Name").first();
+  await session.waitFor(name);
+  await name.fill("Tank pressure alarm");
+  await session.click(
+    modal
+      .locator(".console-arc-create-modal__mode-select-button")
+      .filter({ hasText: "Graph" })
+      .first(),
+    { zoom: false },
+  );
+  await session.click(page.getByRole("button", { name: "Create", exact: true }), {
+    zoom: false,
+  });
+  await session.waitForHidden(modal);
+  const pane = capture.canvas(page);
+  await session.waitFor(pane);
+
+  const drawer = page.locator(".console-nav__drawer.pluto--location-bottom").first();
+  const stagesTab = drawer.getByText("Stages", { exact: true }).first();
+  if (!(await stagesTab.isVisible().catch(() => false))) {
+    await session.click(page.locator(".console-main-nav__item").last(), {
+      zoom: false,
+    });
+    await session.waitFor(stagesTab);
+  }
+  await session.settle(600);
+  await session.moveTo({ x: 760, y: 300 });
+
+  const nodes = page.locator(".react-flow__node");
+  const at = async (x: number, y: number) => {
+    const box = await pane.boundingBox();
+    if (box == null) throw new Error("graph canvas is not on screen");
+    return { x: box.x + x, y: box.y + y };
+  };
+  const group = async (id: string): Promise<void> => {
+    await session.click(drawer.locator(`button[id='${id}']`).first(), {
+      text: true,
+      zoom: false,
+    });
+    await session.hold(300);
+  };
+  const add = async (block: string, x: number, y: number): Promise<Locator> => {
+    const before = await nodes.count();
+    await session.drag(
+      drawer.locator(`[aria-label='${block}']`).first(),
+      await at(x, y),
+      { zoom: false },
+    );
+    const node = nodes.nth(before);
+    await session.waitFor(node);
+    await session.hold(300);
+    return node;
+  };
+
+  session.startRecording();
+  await session.hold(800);
+
+  await group("telem");
+  const source = await add("Telemetry source", 170, 90);
+  await group("basic");
+  const constant = await add("Constant", 170, 250);
+  await group("operator");
+  const greater = await add("Greater than", 470, 170);
+  await group("flow_control");
+  const select = await add("Select", 720, 170);
+  await group("basic");
+  const warning = await add("Change status", 1030, 90);
+  const success = await add("Change status", 1030, 260);
+  await session.hold(500);
+
+  const properties = drawer.locator(".console-arc-properties__individual").first();
+  const configure = async (node: Locator): Promise<void> => {
+    await session.click(node, { zoom: false });
+    const tab = drawer.getByText("Properties", { exact: true }).first();
+    if (!(await properties.isVisible().catch(() => false)))
+      await session.click(tab, { text: true, zoom: false });
+    await session.waitFor(properties);
+    await session.hold(300);
+  };
+  const typeInto = async (target: Locator, text: string): Promise<void> => {
+    await session.click(target, { zoom: false });
+    await session.press("ControlOrMeta+a");
+    session.setSpeed(2);
+    await session.type(text);
+    session.setSpeed(1);
+    await session.press("Enter");
+    await session.hold(400);
+  };
+  const choose = async (trigger: Locator, item: string, search?: string) => {
+    await session.click(trigger, { zoom: false });
+    if (search != null) {
+      const input = page.getByPlaceholder(search).first();
+      await session.waitFor(input);
+      session.setSpeed(2);
+      await session.type(item);
+      session.setSpeed(1);
+    }
+    const option = page
+      .locator(".pluto-list__item")
+      .filter({ has: page.getByText(item, { exact: true }) })
+      .first();
+    await session.waitFor(option);
+    await session.hold(300);
+    await session.click(option, { text: true, zoom: false });
+    await session.hold(500);
+  };
+  const field = (label: string): Locator =>
+    properties
+      .locator(".pluto-input__item")
+      .filter({ hasText: new RegExp(`^${label}`) });
+
+  await session.zoom(drawer);
+  await configure(source);
+  await choose(
+    properties.getByText("Select channel", { exact: true }).first(),
+    "tank_pt",
+    "Search channels...",
+  );
+
+  await configure(constant);
+  await typeInto(properties.locator("input").first(), "450");
+
+  const setStatus = async (
+    node: Locator,
+    variant: string | null,
+    message: string,
+  ): Promise<void> => {
+    await configure(node);
+    await choose(field("Status").locator("button").first(), STATUS);
+    if (variant != null)
+      await choose(field("Variant").locator("button").first(), variant);
+    await typeInto(field("Message").locator("input").first(), message);
+  };
+  await setStatus(warning, "Warning", "Tank pressure is above 450 psi");
+  await setStatus(success, null, "Tank pressure is normal");
+  session.endZoom();
+  await capture.deselect(session, { x: 900, y: 380 });
+  await session.hold(600);
+
+  const connect = async (from: Locator, to: Locator): Promise<void> => {
+    await session.drag(from, to, { zoom: false });
+    await session.hold(400);
+  };
+  await connect(capture.handle(source, "right"), capture.handle(greater, "left", 0));
+  await connect(capture.handle(constant, "right"), capture.handle(greater, "left", 1));
+  await connect(capture.handle(greater, "right"), capture.handle(select, "left"));
+  await connect(capture.handle(select, "right", 0), capture.handle(warning, "left"));
+  await connect(capture.handle(select, "right", 1), capture.handle(success, "left"));
+  await session.hold(800);
+
+  const controls = page.locator(".console-arc-editor__controls").first();
+  await session.zoom(controls);
+  await choose(controls.locator(".console-rack-select").first(), "Node 1");
+  await session.click(controls.locator("button:has(svg.pluto-icon--play)").first(), {
+    zoom: false,
+  });
+  await session.waitFor(controls.getByText("Task started successfully").first());
+  await session.hold(1200);
+  session.endZoom();
+  await session.moveTo(await at(900, 380));
+  await session.hold(3000);
+};
