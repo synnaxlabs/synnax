@@ -1,60 +1,68 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Clusters and nodes"
-description: "Learn how Synnax Core nodes join to form a cluster."
+description: "How Synnax Cores join into a cluster, how to start one, and its limits."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
+import { Note } from "@synnaxlabs/lyra/note";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-A Synnax Core can run as one node or as a cluster of many nodes. This page describes how
-nodes form a cluster.
+<Note.Note variant="warning">
+  Clusters of more than one node are experimental. A cluster has no failover: when a
+  node stops, its data is not available until it starts again. For production, run one
+  Core.
+</Note.Note>
+
+A Synnax Core is one node. Several nodes can join into a cluster, which clients reach
+through any node.
 
 <Divider.Divider x />
 
-## What is a node?
+## What each node holds
 
-A node is a single, running instance of the Synnax executable. A node can be deployed on
-an edge server to acquire data from sensors in the field, run in a local environment for
-development, or be deployed in the cloud for high performance analysis.
+- **Metadata** -> channels, ranges, users, the license, and other metadata are copied to
+  every node. A change on one node reaches the others within a few seconds.
+- **Data** -> the samples of a channel stay on the node where the channel was created.
+  When a client writes or reads a channel through a different node, that node forwards
+  the request. A channel cannot move to a different node.
 
-<Divider.Divider x />
-
-## What is a cluster?
-
-Multiple nodes join together to form a cluster. These nodes constantly communicate with
-each other to coordinate operations across the cluster. Through this communication, the
-nodes expose the cluster as a monolithic data space. This means that a user can query
-any node and have access to all of the cluster's data and compute.
-
-The smallest Synnax cluster contains a single node. This works well for testing and
-development. We recommend running larger clusters for production.
+When a node stops, no node can read or write its channels.
 
 <Divider.Divider x />
 
-## Cluster topology
+## Start a cluster
 
-### Reachable addresses and IDs
+1. On the first node, create the CA and start the Core:
 
-Nodes are uniquely identified by both a reachable address and an ID. A node's address
-allows clients and other nodes to communicate with it. Synnax multiplexes client and
-node communication over the same port.
+   ```bash
+   synnax start --listen=core01.example.com:9090 --auto-cert
+   ```
 
-A node's ID is a 16-bit integer that uniquely identifies it within the cluster. The
-first node in the cluster, called the bootstrap node, gets the ID 1. Subsequent nodes
-get IDs through a process called pledging. If a node permanently leaves the cluster, its
-ID is not reassigned. Node IDs are used to generate cluster-wide unique IDs for
-components such as [channels](/reference/channels), and to synchronize operations across
-the cluster.
+2. Copy `ca.crt` and `ca.key` from the certificate folder of the first node to the same
+   folder on each other node. Every node must use the same CA.
+3. On each other node, start the Core with the address of a running node in `--peers`:
 
-### Heartbeats and gossip
+   ```bash
+   synnax start --listen=core02.example.com:9090 --auto-cert \
+     --peers=core01.example.com:9090
+   ```
 
-Nodes use a [gossip protocol](https://en.wikipedia.org/wiki/Gossip_protocol) to
-continuously exchange information about the cluster topology. Each node gossips with a
-pseudo-randomly chosen node, called a _peer_, on a one second interval. Each time a node
-gossips, it increments a counter, called a heartbeat, and sends it along with its
-current view of the cluster topology. The node and its peer then compare their
-topologies and merge them.
+Each `--listen` host must be a name that the other nodes can reach. Nodes get their IDs
+when they join. A node reads `--peers` only on its first start, with an empty data
+folder.
 
-Heartbeats play an important role in failure detection and response.
+The license must cover the fingerprint of every node, because each node checks its own.
+Ask Synnax Labs for a license for all the computers in the cluster.
+
+<Divider.Divider x />
+
+## Limits
+
+- A node cannot be removed from a cluster. The data on it goes with it.
+- Nodes of different versions are not supported. To upgrade, stop every node, upgrade
+  every node, then start them all.
+- A login on one node is valid only on that node.
+- Writes to channels on more than one node are not one transaction.
+- Every node keeps a full copy of the metadata.
