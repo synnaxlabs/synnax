@@ -19,7 +19,6 @@ interface SDKShowcaseProps {
 const LANG_TABS: VizTab[] = [
   { key: "python", title: "Python", icon: Icon.Python },
   { key: "typescript", title: "TypeScript", icon: Icon.TypeScript },
-  { key: "cpp", title: "C++", icon: Icon.CPlusPlus },
 ];
 
 const OP_LABELS = ["Stream", "Write", "Read"];

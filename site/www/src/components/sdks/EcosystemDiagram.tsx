@@ -38,7 +38,7 @@ const DIAGRAM: DiagramDef = {
       w: 130,
       h: 50,
       label: "ext_ecu",
-      icon: Icon.CPlusPlus,
+      icon: Icon.Logo.EtherCAT,
     },
     {
       id: "custom_io",
@@ -83,7 +83,7 @@ const DIAGRAM: DiagramDef = {
       w: 130,
       h: 50,
       label: "test_runner",
-      icon: Icon.CPlusPlus,
+      icon: Icon.Terminal,
     },
   ],
   edges: [
@@ -100,7 +100,7 @@ const STATE: CalcDiagramState = {
   activeNodes: ["synnax"],
   nodeValues: {
     hardware_daq: "NI · LabJack",
-    ext_ecu: "C++ embedded",
+    ext_ecu: "EtherCAT · OPC UA",
     custom_io: "Modbus · serial",
     synnax: "",
     ml_pipeline: "Python",
