@@ -14,7 +14,6 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"sync"
 	"syscall"
 
 	"github.com/samber/lo"
@@ -80,8 +79,8 @@ func start(cmd *cobra.Command) {
 		return BootupCore(ctx, nil, cfg)
 	}, xsignal.WithKey("start"), xsignal.RecoverWithErrOnPanic())
 
-	shutdownDone := make(chan struct{})
-	var wg sync.WaitGroup
+	fCtx, fCancel := xsignal.Isolated(xsignal.WithInstrumentation(ins))
+	forceExit := xsignal.NewHardShutdown(fCtx, fCancel)
 	// shutDown cancels the Core, then exits at once if signalsToForce more stop signals
 	// arrive before the shutdown completes. Stdin requests never count: the Desktop
 	// supervisor sends the stop keyword, then closes stdin.
@@ -90,18 +89,19 @@ func start(cmd *cobra.Command) {
 			"\033[33mSynnax is shutting down. Press Ctrl+C again to exit now.\033[0m",
 		)
 		cancel()
-		wg.Go(func() {
+		fCtx.Go(func(ctx context.Context) error {
 			for range signalsToForce {
 				select {
 				case <-sigC:
-				case <-shutdownDone:
-					return
+				case <-ctx.Done():
+					return ctx.Err()
 				}
 			}
 			ins.L.Fatal(
 				"received a second stop signal, exiting before shutdown completes",
 			)
-		})
+			return nil
+		}, xsignal.WithKey("force_exit"))
 	}
 
 	select {
@@ -113,8 +113,9 @@ func start(cmd *cobra.Command) {
 	}
 
 	err = sCtx.Wait()
-	close(shutdownDone)
-	wg.Wait()
+	if fErr := forceExit.Close(); fErr != nil {
+		ins.L.Fatal("failed to stop the force exit routine", zap.Error(fErr))
+	}
 	if err != nil && !errors.Is(err, context.Canceled) {
 		ins.L.Zap().Sugar().Errorf(
 			"\033[31mSynnax has encountered an error and is shutting down: %v\033[0m",
