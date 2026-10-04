@@ -55,7 +55,9 @@ describe("StateOverrideForm", () => {
       name: "actuated",
       parent: group.ontologyID(parent.key),
       data: {
-        svg: '<svg viewBox="0 0 10 10"><rect class="main" stroke="#111111" fill="#eeeeee" /></svg>',
+        svg:
+          '<svg viewBox="0 0 10 10">' +
+          '<rect class="main" stroke="#111111" fill="#eeeeee" /></svg>',
         states: [createState("base", "Base"), createState("active", "Active")],
         handles: [],
         variant: "actuator",
