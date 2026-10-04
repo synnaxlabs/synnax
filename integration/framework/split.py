@@ -36,7 +36,7 @@ def _tests(arguments: str) -> list[str]:
     return [str(d) for d in definitions]
 
 
-def check() -> list[str]:
+def check(jobs: dict[str, Job]) -> list[str]:
     """Checks that the jobs together run every test of every test file outside
     EXEMPT exactly once.
 
@@ -48,7 +48,7 @@ def check() -> list[str]:
     target = ",".join(p for p in prefixes if p not in EXEMPT)
     expected = Counter(_tests(target))
     actual: Counter[str] = Counter()
-    for job in JOBS.values():
+    for job in jobs.values():
         for arguments in (*(a for part in job.parts for a in part), *job.after):
             actual.update(_tests(arguments))
     problems = [f"missing: {t}" for t in expected if t not in actual]
@@ -157,7 +157,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("job", nargs="?", choices=sorted(JOBS), help="CI job to run")
     parser.add_argument(
-        "--target", help="Test conductor arguments to run on one Core instead of a job"
+        "--target",
+        default=os.environ.get("TEST_TARGET") or None,
+        help="Test conductor arguments to run on one Core instead of a job "
+        "(default: the TEST_TARGET environment variable)",
     )
     parser.add_argument("--name", default="tc", help="Test conductor name")
     parser.add_argument(
@@ -183,7 +186,7 @@ def main() -> None:
         parser.error("give either a job or --target")
 
     if args.job:
-        problems = check()
+        problems = check(JOBS)
         if problems:
             print("The CI jobs do not run every test exactly once:")
             print("\n".join(f"  {p}" for p in problems))

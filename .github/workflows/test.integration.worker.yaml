@@ -102,7 +102,8 @@ jobs:
             "$RUNNER_TEMP/resources.csv" > /dev/null 2>&1 &
 
       # Starts the Cores and runs the tests: a job of integration/jobs.py, or the custom
-      # target in flags on one Core.
+      # target in flags on one Core. The target stays out of the command because the
+      # step holds the license key.
       - name: Run tests (Windows)
         if: runner.os == 'Windows'
         timeout-minutes: 30
@@ -111,11 +112,10 @@ jobs:
         env:
           PYTHONIOENCODING: utf-8
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+          TEST_TARGET: ${{ inputs.flags }}
           PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
           PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
-        run: >-
-          uv run test-split --name tc_win ${{ inputs.flags && format('"--target={0}"',
-          inputs.flags) || matrix.name }}
+        run: uv run test-split --name tc_win ${{ !inputs.flags && matrix.name || '' }}
 
       - name: Run tests (Ubuntu)
         if: runner.os == 'Linux'
@@ -123,11 +123,10 @@ jobs:
         working-directory: integration
         env:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+          TEST_TARGET: ${{ inputs.flags }}
           PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
           PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
-        run: >-
-          uv run test-split --name tc_unix ${{ inputs.flags && format('"--target={0}"',
-          inputs.flags) || matrix.name }}
+        run: uv run test-split --name tc_unix ${{ !inputs.flags && matrix.name || '' }}
 
       # A failed measurement must not fail the tests it measured.
       - name: Report resource use
