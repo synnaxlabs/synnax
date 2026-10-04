@@ -132,6 +132,8 @@ export default manifest.define([
   // Hardware shots run against the simulated Driver in fixtures/hardware.ts.
   { id: "device-drivers/task/task-basic", script: "scripts/tasks-start.ts" },
   { id: "hardware/devices/toolbar", script: "scripts/devices-toolbar.ts" },
+  { id: "hardware/modbus/read-task", script: "scripts/modbus-read-task.ts" },
+  { id: "hardware/modbus/write-task", script: "scripts/modbus-write-task.ts" },
   {
     id: "releases/0-57-0/panels",
     script: "scripts/release-0-57-0-panels.ts",

@@ -10,6 +10,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
 import { Details } from "@/components/details";
+import { Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -64,6 +65,8 @@ channel. To swap the two bytes in each register, set `bytes_swapped`.
 The Console creates the channels. For the server `Pump skid PLC`, a `float32` holding
 register at address 0 gives `Pump_skid_PLC_holding_register_input_0_f32`, and a coil at
 address 3 gives `Pump_skid_PLC_coil_input_3`. The index channel is `Pump_skid_PLC_time`.
+
+<Video id="hardware/modbus/read-task" />
 
   </Fragment>
   <Fragment slot="python">
