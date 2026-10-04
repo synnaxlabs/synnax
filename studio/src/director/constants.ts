@@ -54,10 +54,10 @@ export const PRE_AIM_EPSILON = 1.0005;
 export const ZOOM_RECT_MARGIN_PX = 96;
 
 /**
- * Ceiling for zoom amounts derived from element rects (authored or auto). A 2x
- * 1600px capture stays crisp in a 1080p render up to 3200 / 1920 = 1.67x.
+ * Ceiling for every zoom amount, authored or derived from a rect. A 2x 1600px capture
+ * stays crisp in a 1080p render up to 3200 / 1920 = 1.67x.
  */
-export const RECT_ZOOM_MAX = 1.6;
+export const ZOOM_MAX = 1.6;
 
 /**
  * Floor for rect-derived zoom during auto segments. A click whose target rect

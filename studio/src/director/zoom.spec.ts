@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { RECT_ZOOM_MAX, ZOOM_RECT_MARGIN_PX } from "@/director/constants";
+import { ZOOM_MAX, ZOOM_RECT_MARGIN_PX } from "@/director/constants";
 import { fitAmount, plan } from "@/director/zoom";
 import { type Event, type Rect, type Timeline } from "@/timeline";
 
@@ -78,17 +78,22 @@ describe("zoom.plan", () => {
       { type: "zoom", tick: 500, endTick: 900, x: 950, y: 460, rect },
     ]);
     const segments = plan(tl);
-    expect(segments[0].amount).toEqual(
-      Math.min(RECT_ZOOM_MAX, fitAmount(rect, 1920, 1080)),
-    );
+    expect(segments[0].amount).toEqual(Math.min(ZOOM_MAX, fitAmount(rect, 1920, 1080)));
   });
 
-  it("should cap a derived override amount at RECT_ZOOM_MAX", () => {
+  it("should cap a derived override amount at ZOOM_MAX", () => {
     const rect = { x: 900, y: 500, width: 40, height: 20 };
     const tl = timeline([
       { type: "zoom", tick: 500, endTick: 900, x: 920, y: 510, rect },
     ]);
-    expect(plan(tl)[0].amount).toEqual(RECT_ZOOM_MAX);
+    expect(plan(tl)[0].amount).toEqual(ZOOM_MAX);
+  });
+
+  it("should cap an authored point zoom's amount at ZOOM_MAX", () => {
+    const tl = timeline([
+      { type: "zoom", tick: 500, endTick: 900, amount: 2, x: 100, y: 100 },
+    ]);
+    expect(plan(tl)[0].amount).toEqual(1.6);
   });
 
   it("should reject an override with neither amount nor rect", () => {

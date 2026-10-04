@@ -123,11 +123,11 @@ during them. For deeper crisp zooms, capture with `--dsf 3`.
 
 Clicks never zoom. Scripts author the camera: `session.zoom(locator)` opens a zoom that
 frames the element's rect plus a margin (amount derived from the rect, capped at
-`RECT_ZOOM_MAX`, unless given), and `session.endZoom()` returns to the full frame.
-Inside a zoom, the camera holds its framing while the cursor's targets stay in frame,
-and pans only as far as it must when a target leaves it. The pan starts when the cursor
-departs, so the camera and cursor arrive together. `AUTHORING.md` holds the rules for
-where to zoom.
+`ZOOM_MAX`, unless given; a given amount is capped there too), and `session.endZoom()`
+returns to the full frame. Inside a zoom, the camera holds its framing while the
+cursor's targets stay in frame, and pans only as far as it must when a target leaves it.
+The pan starts when the cursor departs, so the camera and cursor arrive together.
+`AUTHORING.md` holds the rules for where to zoom.
 
 The synthetic cursor fades out after sitting still for 0.75s and fades back in the
 moment it moves or presses again, matching Screen Studio's idle behavior. The fade is

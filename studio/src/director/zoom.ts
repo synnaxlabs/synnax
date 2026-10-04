@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { RECT_ZOOM_MAX, ZOOM_RECT_MARGIN_PX } from "@/director/constants";
+import { ZOOM_MAX, ZOOM_RECT_MARGIN_PX } from "@/director/constants";
 import { type Point, type Rect, type Timeline } from "@/timeline";
 
 /** A focus the camera frames: a point, optionally with its element's rect. */
@@ -52,13 +52,13 @@ interface ZoomOverride {
 /**
  * overrideAmount resolves an authored override's magnification: the authored
  * amount when given, otherwise as tight as the framing margin allows for the
- * rect, capped at RECT_ZOOM_MAX.
+ * rect. Either is capped at ZOOM_MAX.
  */
 const overrideAmount = (o: ZoomOverride, width: number, height: number): number => {
-  if (o.amount != null) return o.amount;
+  if (o.amount != null) return Math.min(ZOOM_MAX, o.amount);
   if (o.rect == null)
     throw new Error("zoom override without an amount requires a rect");
-  return Math.min(RECT_ZOOM_MAX, fitAmount(o.rect, width, height));
+  return Math.min(ZOOM_MAX, fitAmount(o.rect, width, height));
 };
 
 /**
