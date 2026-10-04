@@ -30,11 +30,12 @@ skips the deadlines it missed.
 
 Four things set the lateness:
 
-- **Where the automation runs** -> A Driver runs Arc on a real-time thread when the
-  computer permits it. The Core runs Arc as a normal program. See
-  [where an Arc automation runs](/reference/control/arc#where-an-arc-automation-runs).
+- **Where the automation runs** -> A Driver runs Arc on a high-priority thread. The Core
+  runs Arc as a normal program. See
+  [run timing-critical automations on a Driver](#run-timing-critical-automations-on-a-driver).
 - **The operating system** -> Linux with a real-time kernel, such as Ubuntu Pro
-  real-time or NI Linux Real-Time, gives the most precise timing.
+  real-time or NI Linux Real-Time, gives the most precise timing. A Driver on Windows or
+  macOS also holds timing closely, at a higher CPU cost.
 - **The performance level** -> A higher level uses more CPU to wake closer to each
   deadline. See [performance levels](#performance-levels).
 - **Other work on the computer** -> A real-time thread runs before other programs. A
@@ -57,19 +58,45 @@ on time. To change it, see
 
 Each level waits in a different way on each computer:
 
-| Level  | Driver on Linux                                                                                                                        | Driver on macOS or Windows                                                                                    | Core                                                                        |
-| ------ | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Auto   | Sleeps until each deadline. With no real-time thread and a timer under 1 ms, sleeps in short steps and checks the clock.               | Sleeps, then checks the clock before each deadline under 5 ms (macOS) or 1 ms before each deadline (Windows). | Sleeps until each deadline. On Windows, checks the clock for the last 1 ms. |
-| Low    | Sleeps until each deadline.                                                                                                            | Sleeps until each deadline.                                                                                   | Sleeps until each deadline.                                                 |
-| Medium | Sleeps, then checks the clock for the last 50 µs.                                                                                      | Sleeps, then checks the clock for the last 1.5 ms (macOS) or 1 ms (Windows).                                  | Sleeps, then checks the clock for the last 1 ms.                            |
-| High   | On a real-time thread, waits as Medium and keeps all CPU cores out of deep sleep. On a normal thread, checks the clock the whole time. | Checks the clock the whole time.                                                                              | Checks the clock the whole time.                                            |
+| Level  | Driver on Linux                                                                                      | Driver on Windows                                | Driver on macOS                                    | Core                                             |
+| ------ | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------ | -------------------------------------------------- | ------------------------------------------------ |
+| Auto   | Sleeps until each deadline.                                                                          | As Medium.                                       | As Medium for timers under 5 ms. Else, as Low.     | As Low. On Windows, as Medium.                   |
+| Low    | Sleeps until each deadline.                                                                          | Sleeps until each deadline.                      | Sleeps until each deadline.                        | Sleeps until each deadline.                      |
+| Medium | Sleeps, then checks the clock for the last 50 µs.                                                    | Sleeps, then checks the clock for the last 1 ms. | Sleeps, then checks the clock for the last 1.5 ms. | Sleeps, then checks the clock for the last 1 ms. |
+| High   | On a real-time thread, as Medium, and keeps all CPU cores out of deep sleep. Else, checks the clock. | Checks the clock the whole time.                 | Checks the clock the whole time.                   | Checks the clock the whole time.                 |
 
-A thread that checks the clock keeps one CPU core busy for that time. On a Linux
-real-time thread, High does not check the clock the whole time: Linux stops or slows a
-real-time thread that never sleeps. So on a Linux Driver with a real-time thread, High
-uses about as much CPU as Medium and holds timing more closely. High keeps every CPU
-core out of deep sleep, which uses more power. Pick Medium when power matters more than
-a few hundred microseconds.
+A thread that checks the clock keeps one CPU core busy for that time. The CPU cost
+depends on the computer:
+
+- **Linux and the Core** -> The checks take at most half of each wait. At 1 kHz, Medium
+  on the Core keeps half a core busy.
+- **Windows** -> At about 1 kHz and faster, the checks fill each period, so Auto,
+  Medium, and High each keep one core busy. Low uses almost no CPU, but the Windows
+  timer fires up to 0.5 ms late.
+- **macOS** -> Each check pauses the thread for about 12 µs, so High uses about 15% of a
+  core.
+
+On a Linux real-time thread, High does not check the clock the whole time: Linux stops
+or slows a real-time thread that never sleeps. So on a Linux Driver with a real-time
+thread, High uses about as much CPU as Medium and holds timing more closely. High keeps
+every CPU core out of deep sleep, which uses more power. Pick Medium when power matters
+more than a few hundred microseconds.
+
+<Divider.Divider x />
+
+## Run timing-critical automations on a Driver
+
+A Driver runs Arc on a high-priority thread, so other programs on the computer do not
+delay it. On Windows and macOS, it gets this priority with no setup. On Linux, it needs
+real-time permission. See [Linux](#linux).
+
+The Core runs Arc as a normal program. When the computer is busy, other programs delay
+it. In our tests on fully loaded computers at Auto, 1% of Core timers fired 2 ms late on
+Linux, 6 ms late on macOS, and more than 80 ms late on Windows. A Driver on the same
+computers fired 99% of timers within 15 µs. See [measured timing](#measured-timing).
+
+Synnax Desktop includes a Driver. To use it, select it when you
+[choose where the automation runs](/reference/control/arc/automations#choose-where-it-runs).
 
 <Divider.Divider x />
 
@@ -116,8 +143,10 @@ lateness of the fires on both sides of it.
 
 ## Get the best timing from a computer
 
-On Linux, these steps give the Driver the most precise timing. NI Linux Real-Time needs
-none of them.
+### Linux
+
+These steps give the Driver the most precise timing. NI Linux Real-Time needs none of
+them.
 
 1. **Install the Driver as a service.** `sudo synnax-driver install` gives the service
    real-time permission, and lets High keep CPU cores out of deep sleep. After you
@@ -133,32 +162,78 @@ none of them.
    isolates with the `isolcpus` boot parameter. With no isolated cores, it uses the last
    one to four cores of the computer. Keep other heavy programs off those cores.
 
+The Driver inside the Core gets real-time permission only when the Core has it:
+
+- **Docker** -> Add `--ulimit rtprio=99` to the `docker run` command.
+- **systemd** -> Add `LimitRTPRIO=99` to the `[Service]` section of the Core service.
+  See
+  [run the Core as a service](/reference/enterprise/service#run-the-core-as-a-service).
+
+The Driver inside the Core does not get permission to keep CPU cores out of deep sleep.
+For the most precise timing, install the Driver as a service.
+
+### Windows
+
+1. **Set the power mode to Best performance.** Go to **Settings** > **System** > **Power
+   & battery** > **Power mode**. On Windows Server, use the **High performance** power
+   plan. In our test on an idle computer, 1% of Core timers at 1 kHz fired 0.97 ms late
+   on the Balanced plan, against 0.11 ms on High performance. Auto, Medium, and High on
+   a Driver did not change.
+
+2. **Keep the computer plugged in.** On battery power, Windows slows programs whose
+   window is minimized, and the programs they start. This includes the Driver inside
+   Synnax Desktop.
+
+3. **Stop the computer from sleeping.** Go to **Settings** > **System** > **Power &
+   battery** > **Screen, sleep, & hibernate timeouts**, and set the sleep timeout for
+   when the computer is plugged in to **Never**. A computer that sleeps stops all its
+   automations.
+
+### macOS
+
+1. **Do not use Low Power Mode.** Go to **System Settings** > **Battery** on a laptop,
+   or **Energy** on a desktop, then **Energy Mode**. Select **Automatic**, or **High
+   Power** if your Mac has it. On a laptop, set it for both battery and power adapter.
+   Low Power Mode slows the computer to save energy.
+
+2. **Stop the computer from sleeping.** On a laptop, go to **System Settings** >
+   **Battery** > **Options**, and turn on **Prevent automatic sleeping on power adapter
+   when the display is off**. On a desktop, go to **System Settings** > **Energy**, and
+   turn on **Prevent automatic sleeping when the display is off**. A computer that
+   sleeps stops all its automations.
+
+The Driver inside the Core and Synnax Desktop gets the same priority as a Driver that
+runs on its own, on both Windows and macOS.
+
 <Divider.Divider x />
 
 ## Measured timing
 
-We measured how late Arc timers fire on one test computer. Your numbers depend on your
-hardware, operating system, and load. To measure your own computer, see
+We measured how late Arc timers fire on three test computers. Your numbers depend on
+your hardware, operating system, and load. To measure your own computer, see
 [watch the timing of an automation](#watch-the-timing-of-an-automation).
 
 ### How we measured
 
-- **Computer** -> An AWS c7i.metal-24xl, with no virtual machine: Intel Xeon Platinum
-  8488C, 48 cores. The default power settings of each kernel: the real-time kernel runs
-  the CPU at a power-saving speed, and the standard kernel at full speed.
-- **Operating system** -> Ubuntu 24.04, with the Ubuntu Pro real-time kernel 6.8 or the
-  standard kernel 7.0.
-- **What runs** -> The Arc timer loop of the Driver, with its real-time thread at
-  priority 47 on the last CPU core, as the Driver runs it. The Core tests use the Arc
-  timer of the Core.
-- **Load** -> Idle: nothing else runs. Loaded: `stress-ng` keeps every core busy with
-  CPU, disk, and memory work.
-- **Length** -> 60 seconds for each level and rate: 60,000 fires at 1 kHz. Medium and
-  High at 1 kHz under load also ran for 5 minutes.
+- **Linux** -> An AWS c7i.metal-24xl, with no virtual machine: Intel Xeon Platinum
+  8488C, 48 cores. Ubuntu 24.04, with the Ubuntu Pro real-time kernel 6.8 or the
+  standard kernel 7.0, with the default power settings of each kernel: the real-time
+  kernel runs the CPU at a power-saving speed, and the standard kernel at full speed.
+- **Windows** -> The same computer with Windows Server 2022, on the Balanced power plan
+  (the default on Windows 11) and on High performance (the default on Windows Server).
+- **macOS** -> An AWS mac2.metal: a Mac mini with an Apple M1, 8 cores. macOS 26.7, with
+  its default power settings.
+- **What runs** -> The Arc timer loop of the Driver, with the thread priority and CPU
+  core that the Driver gives it. The Core tests use the Arc timer of the Core.
+- **Load** -> Idle: nothing else runs. Loaded: other programs keep every core busy with
+  CPU, disk, and memory work. On Linux, the load is `stress-ng`.
+- **Length** -> For each level and rate: 60 seconds on Linux and macOS, and 30 seconds
+  on Windows. That is 60,000 or 30,000 fires at 1 kHz. On Linux, Medium and High at 1
+  kHz under load also ran for 5 minutes.
 - **Lateness** -> The time from each deadline to the moment the timer fires. "99%" is
   the lateness that 99 of 100 fires stay under. "Worst" is the latest fire of the run.
 
-### Driver on a real-time kernel
+### Driver on a real-time Linux kernel
 
 A 1 kHz interval on the loaded computer:
 
@@ -195,7 +270,7 @@ At other rates, under load:
 At 10 kHz, Medium and High check the clock for half of each 100 µs period, so they use
 half a core.
 
-### Driver on a standard kernel
+### Driver on a standard Linux kernel
 
 A 1 kHz interval on the loaded computer:
 
@@ -220,21 +295,73 @@ A 100 Hz interval on the idle computer:
 | Medium | < 1 µs | 172 µs |
 | High   | < 1 µs | 1 µs   |
 
-### The Core on a standard kernel
+### Driver on Windows
 
-The Core runs Arc as a normal program, so other programs can delay it. A 1 kHz interval:
+A 1 kHz interval on the loaded computer, on the Balanced plan. The CPU is from the idle
+computer:
 
-| Level  | Idle median | Idle worst | Loaded median | Loaded 99% | Loaded worst | CPU  |
-| ------ | ----------- | ---------- | ------------- | ---------- | ------------ | ---- |
-| Auto   | 10 µs       | 27 µs      | 15 µs         | 1.9 ms     | 4.2 ms       | 2%   |
-| Low    | 10 µs       | 25 µs      | 104 µs        | 1.8 ms     | 6.9 ms       | 2%   |
-| Medium | 2 µs        | 104 µs     | 7 µs          | 1.3 ms     | 4.4 ms       | 100% |
-| High   | 2 µs        | 74 µs      | 7 µs          | 17 µs      | 4.3 ms       | 100% |
+| Level  | Median | 99%    | Worst  | CPU  |
+| ------ | ------ | ------ | ------ | ---- |
+| Auto   | < 1 µs | < 1 µs | 2.0 ms | 100% |
+| Low    | 260 µs | 508 µs | 867 µs | 2.4% |
+| Medium | < 1 µs | < 1 µs | 11 µs  | 100% |
+| High   | < 1 µs | < 1 µs | 14 µs  | 100% |
 
-On a busy computer, any level on the Core can fire some milliseconds late. Medium checks
-the clock for the last 1 ms of each wait, so at 1 kHz it keeps a core busy, as High
-does. For control loops faster than about 100 Hz, or loops that must not fire late, run
-the automation on a Driver.
+The Windows timer fires up to about 0.5 ms late, so Low is late by that much. Auto,
+Medium, and High check the clock for the last 1 ms of each wait. At 1 kHz, that is the
+whole period. In two of the loaded runs, up to 3 fires in 30,000 came 2 to 3 ms late.
+
+A 100 Hz interval on the idle computer, on the Balanced plan:
+
+| Level  | Median | Worst  | CPU  |
+| ------ | ------ | ------ | ---- |
+| Auto   | 7 µs   | 9 µs   | 8.1% |
+| Low    | 449 µs | 1.2 ms | 0.1% |
+| Medium | 7 µs   | 9 µs   | 6.9% |
+| High   | < 1 µs | 32 µs  | 100% |
+
+### Driver on macOS
+
+A 1 kHz interval on the loaded computer:
+
+| Level  | Median | 99%   | Worst | CPU   |
+| ------ | ------ | ----- | ----- | ----- |
+| Auto   | 6 µs   | 13 µs | 40 µs | 14.7% |
+| Low    | 5 µs   | 22 µs | 47 µs | 0.2%  |
+| Medium | 6 µs   | 13 µs | 34 µs | 14.7% |
+| High   | 6 µs   | 13 µs | 34 µs | 14.8% |
+
+At every level and rate, under load, 99% of fires came within 22 µs and the worst was 84
+µs. Each clock check pauses the thread for about 12 µs, so Medium and High use about 15%
+of a core, not a full core.
+
+A 100 Hz interval on the idle computer:
+
+| Level  | Median | Worst  | CPU  |
+| ------ | ------ | ------ | ---- |
+| Auto   | 33 µs  | 105 µs | 0.2% |
+| Low    | 34 µs  | 94 µs  | 0.2% |
+| Medium | 9 µs   | 65 µs  | 4.5% |
+| High   | 5 µs   | 32 µs  | 7.8% |
+
+At 100 Hz, Auto sleeps until each deadline, as Low does.
+
+### The Core
+
+The Core runs Arc as a normal program, so other programs can delay it. A 1 kHz interval
+at Auto:
+
+| Computer                  | Idle median | Idle worst | Loaded median | Loaded 99% | Loaded worst |
+| ------------------------- | ----------- | ---------- | ------------- | ---------- | ------------ |
+| Linux, standard kernel    | 10 µs       | 27 µs      | 15 µs         | 1.9 ms     | 4.2 ms       |
+| macOS                     | 43 µs       | 3.1 ms     | 35 µs         | 6.2 ms     | 21 ms        |
+| Windows, High performance | 15 µs       | 0.63 ms    | 17 ms         | 88 ms      | 138 ms       |
+| Windows, Balanced         | 306 µs      | 3.2 ms     | 30 ms         | 136 ms     | 185 ms       |
+
+Under load, the other levels gave about the same lateness. On a busy computer, the Core
+can fire milliseconds late, and on Windows more than 100 ms late. For control loops
+faster than about 100 Hz, or loops that must not fire late, run the automation on a
+Driver.
 
 ### A sequence wait, from start to end
 
@@ -249,8 +376,6 @@ longer than the wait each hold was, from the timestamps of the two writes:
 | Linux    | The Core | +52 µs            | +76 µs           | +57 µs             | +136 µs           |
 | Windows  | A Driver | Not tested        | Not tested       | +1 µs              | +4 µs             |
 | Windows  | The Core | +16 µs            | +22 µs           | +20 µs             | +28 µs            |
-
-We have no test results for macOS yet.
 
 <Divider.Divider x />
 
@@ -277,7 +402,7 @@ When a computer has little work, its CPU cores go into deep sleep, and a core ca
 
 ### One CPU core is always busy
 
-At High, a Driver without a real-time thread, a Driver on macOS or Windows, and the Core
-check the clock the whole time, which keeps one core busy. On the Core, Medium does the
-same at 1 kHz or faster. Use a lower level, or run the automation on a Driver that runs
-as a Linux service.
+At High, a Driver without a real-time thread, a Driver on Windows, and the Core check
+the clock the whole time, which keeps one core busy. On Windows, Auto and Medium do the
+same at about 1 kHz and faster. Use Low, or run the automation on a Driver that runs as
+a Linux service.
