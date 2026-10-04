@@ -14,6 +14,8 @@
 package schemadiff
 
 import (
+	"slices"
+
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
@@ -276,6 +278,12 @@ func diffWalk(
 			return TypeDescendantChanged
 		}
 		return TypeUnchanged
+	case resolution.UnionForm:
+		if _, ok := new.Form.(resolution.UnionForm); ok {
+			return diffUnion(
+				old, new, oldForm, oldTable, newTable, counterpart, result, visiting,
+			)
+		}
 	}
 
 	oldStruct, oldOk := old.Form.(resolution.StructForm)
@@ -324,6 +332,40 @@ func diffWalk(
 		return TypeDescendantChanged
 	}
 	return TypeUnchanged
+}
+
+// diffUnion walks a union's bases and variant payloads, so a type that changed inside
+// a variant gets its own diff entry.
+func diffUnion(
+	old, new resolution.Type,
+	form resolution.UnionForm,
+	oldTable, newTable *resolution.Table,
+	counterpart func(string) string,
+	result map[string]TypeDiff,
+	visiting set.Set[string],
+) TypeChangeKind {
+	refs := slices.Clone(form.Extends)
+	for _, v := range form.Variants {
+		refs = append(refs, v.Type)
+	}
+	hasDescendantChange := false
+	for _, ref := range refs {
+		if diffRefWalk(
+			ref, oldTable, newTable, counterpart, result, visiting,
+		) != TypeUnchanged {
+			hasDescendantChange = true
+		}
+	}
+	kind := TypeUnchanged
+	if !typesEqual(old, new, oldTable, newTable, make(set.Set[string])) {
+		kind = TypeChanged
+	} else if hasDescendantChange {
+		kind = TypeDescendantChanged
+	}
+	if kind != TypeUnchanged {
+		result[old.QualifiedName] = TypeDiff{QualifiedName: old.QualifiedName, Kind: kind}
+	}
+	return kind
 }
 
 func structFieldsChanged(
