@@ -24,31 +24,31 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const { page } = session;
     await capture.login(session);
     await capture.clearPanel(session);
-    await session.moveTo({ x: 756, y: 500 });
+    await session.moveTo({ x: 800, y: 450 });
 
     session.startRecording();
-    await session.hold(1200);
+    await session.hold(1500);
 
     await capture.openToolbar(session, "device");
     await session.hold(600);
     const rack = capture.treeItem(page, "rack:", "Node 1 Embedded Driver");
     await session.waitFor(rack);
-    await session.click(rack, { zoom: false, text: true });
+    await session.click(rack, { text: true });
     const plc = capture.treeItem(page, "device:", MODBUS_PLC.name);
     await session.waitFor(plc);
     await session.hold(600);
-    await session.rightClick(plc, { zoom: false, text: true });
+    await session.rightClick(plc, { text: true });
     const menu = page.locator(".pluto-menu-context").first();
     await session.waitFor(menu);
     await session.hold(500);
     await session.click(menu.getByText("Create read task", { exact: true }).first(), {
-      zoom: false,
       text: true,
     });
 
     const form = page.locator(".console-task-configure").first();
     await session.waitFor(form);
     await session.hold(1000);
+    await session.zoom(form.locator(".console-task-channel-form-container").first());
     const rows = form.locator(".console-channel-item");
     const add = form.getByText("Add channel", { exact: true }).first();
 
@@ -67,6 +67,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.hold(800);
 
     await session.click(form.locator("button:has(svg.pluto-icon--play)").first());
+    session.endZoom();
     await session.waitFor(form.getByText("Task started successfully").first());
     await session.hold(3000);
   } finally {

@@ -26,7 +26,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.moveTo({ x: 800, y: 450 });
 
   session.startRecording();
-  await session.hold(1000);
+  await session.hold(1500);
 
   await capture.clickToolbarCreate(session);
   const modal = page.locator(".pluto-dialog__dialog.pluto--modal").first();
@@ -61,6 +61,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await selectItem(session, "tank_time");
   await session.hold(600);
   await capture.clickButton(session, "Create");
+  session.endZoom();
   await session.waitFor(
     page.locator(".console-nav__drawer").getByText("tank_pressure", { exact: true }),
   );
@@ -68,8 +69,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
   await session.click(modal.getByRole("button", { name: "Close" }).first());
   await session.waitForHidden(name);
-  session.endZoom();
-  await session.hold(2400);
+  await session.hold(2800);
 };
 
 /** switchFor returns the switch input beside a label in the create dialog. */

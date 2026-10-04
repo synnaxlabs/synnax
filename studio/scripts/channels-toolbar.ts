@@ -28,12 +28,15 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await capture.hideBottomToolbar(session);
     await capture.openToolbar(session, "channel");
     await capture.resizeToolbar(session, 400);
-    await capture.closeToolbar(session);
+    await page.locator("button.console-main-nav__item.pluto--selected").first().click();
+    await session.waitForHidden(
+      page.locator(".console-nav__drawer.pluto--visible:not(.pluto--location-bottom)"),
+    );
     await session.settleWall(12_000);
     await session.moveTo({ x: 900, y: 450 });
 
     session.startRecording();
-    await session.hold(1200);
+    await session.hold(1500);
 
     await capture.openToolbar(session, "channel");
     await session.hold(600);
@@ -48,10 +51,11 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.drag(temperature, axis, { zoom: false });
     await session.hold(2000);
 
-    await session.rightClick(temperature, { zoom: false, text: true });
+    await session.zoom(pressure, 1.6);
+    await session.hold(400);
+    await session.rightClick(temperature, { text: true });
     const menu = page.locator(".pluto-menu-context").first();
     await session.waitFor(menu);
-    await session.zoom(menu);
     await session.hold(500);
     for (const item of await menu.locator(".pluto-menu-item").all()) {
       await session.moveTo(item);
@@ -60,27 +64,27 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.hold(400);
     await session.press("Escape");
     await session.waitForHidden(menu);
-    session.endZoom();
     await session.hold(600);
 
-    await session.click(pressure, { zoom: false, text: true });
+    await session.click(pressure, { text: true });
     await page.keyboard.down("ControlOrMeta");
-    await session.click(temperature, { zoom: false, text: true });
+    await session.click(temperature, { text: true });
     await page.keyboard.up("ControlOrMeta");
     await session.hold(400);
-    await capture.contextMenu(session, temperature, "Group selection");
+    await session.rightClick(temperature, { text: true });
+    await session.waitFor(menu);
+    await session.hold(400);
+    await session.click(menu.getByText("Group selection", { exact: true }).first());
     const editable = page
       .locator(".pluto-text--editable[contenteditable='true']")
       .first();
     await session.waitFor(editable);
-    await session.zoom(editable, 2);
     await session.hold(400);
     await session.type("Tank");
     await session.hold(300);
     await session.press("Enter");
-    await session.hold(1200);
     session.endZoom();
-    await session.hold(2400);
+    await session.hold(2800);
   } finally {
     await fixture.stop();
   }
