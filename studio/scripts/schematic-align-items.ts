@@ -25,6 +25,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   const ball = await capture.place(session, "Ball", { x: 830, y: 200 });
   const needle = await capture.place(session, "Needle", { x: 515, y: 160 });
   await capture.deselect(session, { x: 100, y: 290 });
+  await capture.fitView(session);
   await session.moveTo({ x: 800, y: 620 });
 
   session.startRecording();

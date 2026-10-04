@@ -40,6 +40,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     // "Generic" is the catalog name of the plain valve; "Valve" is its label.
     const valve = await capture.place(session, "Generic", { x: 500, y: 200 });
     await capture.deselect(session, { x: 100, y: 290 });
+    await capture.fitView(session);
     await session.moveTo({ x: 800, y: 450 });
 
     session.startRecording();

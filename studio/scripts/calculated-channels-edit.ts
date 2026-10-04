@@ -39,7 +39,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await m.zoom();
   await session.hold(300);
 
-  await session.click(m.editor);
+  await m.focusEditor();
   await session.press("ControlOrMeta+a");
   await session.hold(300);
   await session.press("Delete");

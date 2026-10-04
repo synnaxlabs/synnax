@@ -110,8 +110,8 @@ export interface Stand {
 
 /**
  * createStand logs in and fills the first panel, named `name`, with a line plot of
- * live sine telemetry and a table, as two tabs in one pane. Call stop when the shot
- * ends.
+ * live sine telemetry and a table, as two tabs in one pane with the plot visible. Call
+ * stop when the shot ends.
  */
 export const createStand = async (
   session: capture.CaptureSession,
@@ -135,6 +135,9 @@ export const createStand = async (
     await session.waitFor(page.locator(".console-table").first());
     await capture.hideBottomToolbar(session);
     const table = (await tabs.nth(1).innerText()).trim();
+    // An empty table is a dull first frame, so the plot is the visible tab.
+    await mosaicTab(session, plot).click({ timeout: 5000 });
+    await capture.hideBottomToolbar(session);
     await session.settleWall(10000);
     await session.settle(500);
     ready = true;

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ZOOM_RECT_MARGIN_PX } from "@/director/constants";
 import { capture, fixtures } from "@/index";
 
 const QUERY = "tank";
@@ -45,7 +46,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     // input and the result names are.
     const { width } = page.viewportSize() ?? { width: 1600 };
     await session.zoom(
-      { x: box.x + width / ZOOM / 2, y: box.y + box.height / 2 },
+      {
+        x: box.x - ZOOM_RECT_MARGIN_PX + width / ZOOM / 2,
+        y: box.y + box.height / 2,
+      },
       ZOOM,
     );
     await session.hold(600);

@@ -9,6 +9,7 @@
 
 import { type Locator, type Page } from "playwright";
 
+import { control } from "@/capture/plot";
 import { type CaptureSession } from "@/capture/rig";
 import { type Point } from "@/timeline";
 
@@ -148,6 +149,17 @@ export const selectSymbols = async (
     y: Math.max(...found.map((b) => b.y + b.height)) + padding,
   };
   await session.drag(from, to, { zoom: false });
+};
+
+/**
+ * fitView fits and centers the schematic in its pane, off camera. Each click on
+ * the control also toggles fit on resize, so a second click turns it back off.
+ */
+export const fitView = async (session: CaptureSession): Promise<void> => {
+  const button = control(session.page, "expand");
+  await button.click({ timeout: 5000 });
+  await button.click({ timeout: 5000 });
+  await session.settle(300);
 };
 
 /**
