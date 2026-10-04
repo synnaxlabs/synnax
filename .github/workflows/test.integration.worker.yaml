@@ -13,7 +13,7 @@ on:
   workflow_call:
     inputs:
       test_matrix:
-        description: "JSON test matrix (e.g., from validate_test_coverage.sh)"
+        description: "JSON test matrix (e.g., from integration/jobs.py)"
         type: string
         required: true
       ref_run_id:
@@ -101,8 +101,8 @@ jobs:
           nohup uv run python ../.github/scripts/sample_resources.py sample \
             "$RUNNER_TEMP/resources.csv" > /dev/null 2>&1 &
 
-      # Starts the Cores and runs the tests. A matrix entry runs split across Cores at
-      # once (integration/framework/split.py); a custom target runs on one Core.
+      # Starts the Cores and runs the tests: a job of integration/jobs.py, or the custom
+      # target in flags on one Core.
       - name: Run tests (Windows)
         if: runner.os == 'Windows'
         timeout-minutes: 30
@@ -114,8 +114,8 @@ jobs:
           PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
           PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
         run: >-
-          uv run test-split --name tc_win "--target=${{ matrix.target || inputs.flags
-          }}" ${{ matrix.target && matrix.name || '' }}
+          uv run test-split --name tc_win ${{ inputs.flags && format('"--target={0}"',
+          inputs.flags) || matrix.name }}
 
       - name: Run tests (Ubuntu)
         if: runner.os == 'Linux'
@@ -126,8 +126,8 @@ jobs:
           PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
           PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
         run: >-
-          uv run test-split --name tc_unix "--target=${{ matrix.target || inputs.flags
-          }}" ${{ matrix.target && matrix.name || '' }}
+          uv run test-split --name tc_unix ${{ inputs.flags && format('"--target={0}"',
+          inputs.flags) || matrix.name }}
 
       # A failed measurement must not fail the tests it measured.
       - name: Report resource use
