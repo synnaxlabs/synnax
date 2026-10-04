@@ -30,6 +30,11 @@ export const ARC_NAV: PageNavNode = {
       name: "Execution model",
     },
     {
+      key: "/reference/control/arc/timing",
+      href: "/reference/control/arc/timing",
+      name: "Timing",
+    },
+    {
       key: "/reference/control/arc/automations",
       href: "/reference/control/arc/automations",
       name: "Automations",
