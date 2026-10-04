@@ -420,6 +420,95 @@ Board struct {
 			},
 			[]string{"Entries: old.Entries"},
 		),
+		Entry("migrates a union variant by variant when a variant's base changed",
+			"modbus",
+			`Value struct {
+	swapped bool = false
+
+	@go marshal
+}
+
+Base struct {
+	key string @key
+
+	@go marshal
+}
+
+Channel union on type extends Base {
+	coil {}
+	register extends Value {
+		length int32 = 0
+	}
+
+	@go marshal
+}
+
+Config struct {
+	key uuid @key
+	channels Channel[]
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Value struct {
+	swapped bool?
+
+	@go marshal
+}
+
+Base = v0.Base
+
+Channel union on type extends v0.Base {
+	coil {}
+	register extends Value {
+		length int32 = 0
+	}
+
+	@go marshal
+}
+
+Config struct {
+	key uuid @key
+	channels Channel[]
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Value struct {
+	swapped bool?
+}
+
+Base struct {
+	key string @key
+}
+
+Channel union on type extends Base {
+	coil {}
+	register extends Value {
+		length int32 = 0
+	}
+}
+
+Config struct {
+	key uuid @key
+	channels Channel[]
+}
+`,
+			true,
+			[]string{
+				"switch v := old.Variant.(type) {",
+				"case v0.CoilChannel:",
+				"case v0.RegisterChannel:",
+				"nv, err := autoMigrateRegisterChannel(ctx, v)",
+				"return Channel{Variant: nv}, nil",
+				"value, err := MigrateValue(ctx, old.Value)",
+				"Length: old.Length",
+				`errors.Newf("Channel: unknown variant %T", v)`,
+			},
+			[]string{"Channel(old)"},
+		),
 		Entry("auto-copies value types without migrate entries",
 			"color",
 			`Color struct {
@@ -567,8 +656,12 @@ Channel struct {
 }
 `,
 			true,
-			[]string{"func autoMigrateChannel", "return MigratePayload(ctx, v)"},
-			[]string{"func autoMigratePayload", "Payload(old)"},
+			[]string{
+				"func autoMigrateChannel",
+				"return MigratePayload(ctx, v)",
+				"func autoMigratePayload",
+			},
+			[]string{"Payload(old)"},
 		),
 		Entry("leaves a field whose union-ness changed to the hand migration",
 			"channel",
