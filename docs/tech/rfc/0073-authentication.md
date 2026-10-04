@@ -172,14 +172,15 @@ cover TLS and every other use of cryptography.
 
 A provider is an entry in the Core config file: a name, an issuer URL, a client ID, and
 a client secret when the provider requires one. A change needs a restart, and every node
-in a cluster needs the same entries. Only the Console logs in this way. It reads the
-provider's login address from `auth/methods`, opens the system browser with a PKCE
-challenge, and receives a code on a loopback redirect. The code and the PKCE verifier
-are the proof. The Core exchanges them with the provider and validates the result, so
-the Core must be able to reach the provider. The Core keeps no state between the two
-steps, so a cluster node other than the one that served `auth/methods` can finish the
-login. An air-gapped site runs its own provider. A site with smart cards puts the card
-check in its provider.
+in a cluster needs the same entries. Stored records that the Console edits can replace
+the file later with no change to the login flow. Only the Console logs in this way. It
+reads the provider's login address from `auth/methods`, opens the system browser with a
+PKCE challenge, and receives a code on a loopback redirect. The code and the PKCE
+verifier are the proof. The Core exchanges them with the provider and validates the
+result, so the Core must be able to reach the provider. The Core keeps no state between
+the two steps, so a cluster node other than the one that served `auth/methods` can
+finish the login. An air-gapped site runs its own provider. A site with smart cards puts
+the card check in its provider.
 
 The provider answers with a signed ID token. The Core checks its signature, issuer,
 audience, expiry, and nonce, and then reads two claims:
@@ -194,8 +195,9 @@ disabled keeps their Synnax session until it is revoked or goes idle.
 
 Three rules cover how provider accounts become users:
 
-1. The first login creates a user with the built-in Viewer role. A provider setting can
-   turn this off.
+1. The first login creates a user with the built-in Viewer role, so the new user does
+   not open an empty Console. Everyone in the provider's directory can then read the
+   Core's data. A provider setting turns this off.
 2. The Core never links a provider account to an existing user because an email or name
    matches. Grafana documents this as an account takeover risk.
 3. A logged-in user can link their provider account from their own session.
@@ -210,6 +212,13 @@ func (s *Service) Logout(ctx context.Context, keys ...SessionKey) error
 
 `Login` turns a proof into a session and its token. The middleware calls `Authenticate`
 on every request. Neither names a subject type or a method.
+
+An API key is not accepted directly on a request. That keeps one check in the middleware
+and one thing for a stream to watch. It has three costs. A tool that can only send a
+fixed header, such as a Grafana data source, cannot connect. A plain HTTP caller needs a
+login call and a retry. A short script that never logs out leaves a session behind until
+the idle timeout. A direct key can be added later: one more lookup in the middleware,
+chosen by the token prefix, and a stream that watches its credential.
 
 Each method implements one interface:
 
@@ -256,7 +265,9 @@ Session struct {
 ```
 
 A session is a Gorp record, so it survives a restart and every node in a cluster sees
-it. JWTs and the signing key go away.
+it. JWTs and the signing key go away: a signed token cannot be revoked, gives a stream
+nothing to watch, and needs a key shared by every node. The cost is one replicated write
+per login.
 
 - `subject` is what the middleware reads on every request.
 - `method` and `credential` let a deleted or changed credential end its sessions, and
@@ -274,7 +285,7 @@ hash. The prefixes let the Core, and secret scanners, tell the two kinds apart.
 On each request the middleware puts three values on the request: the subject, the
 credential, and the session key. Handlers and audit rely on the subject and the
 credential. The session key is optional, so a request that authenticates without a
-session can exist later (§7).
+session can exist later (§4.3).
 
 A session ends in two ways:
 
@@ -370,6 +381,10 @@ it no longer stores a rack key.
   with the embedded rack and saves it in the configuration file it already writes for
   the embedded Driver, in place of the root username and password. Every later start
   reuses it. The Core makes a new key only when the saved one is missing or refused.
+
+There is no join token. The installer's own session does that job through the normal
+API, so access control already decides who can add a rack. A standalone Driver that
+loses its key needs a person to run the login command again.
 
 A rack needs permissions. The built-in Host role already exists for this: "For machines
 running the Synnax driver" (`core/pkg/service/access/rbac/builtin/builtin.go:111`). It
@@ -575,32 +590,3 @@ Each phase is one pull request into `main`.
   the upgrade and removes the password from its file.
 - The Console and the Python CLI delete the password they saved before the upgrade, once
   the first login with it succeeds.
-
-## 7 Resolved decisions
-
-1. **Exchange only, no API key on each request**: One kind of token on the request path
-   means one check and one thing for a stream to watch. The costs: a tool that can only
-   send a fixed header, such as a Grafana data source, cannot connect; every plain HTTP
-   caller needs a login call and a retry; a short script that never logs out leaves a
-   session behind until the idle timeout. A direct API key is a small later addition:
-   one more lookup in the middleware, chosen by the prefix, and a stream that watches
-   its credential.
-2. **Stored sessions, not signed tokens**: A signed token needs no lookup and no
-   replication. It also cannot be revoked, gives a stream nothing to watch, and needs a
-   signing key shared by every node. The cost is one replicated write per login.
-3. **No absolute session lifetime**: A hard limit could end a live test. The costs are
-   listed in §4.4.
-4. **No join token for racks**: The installer's own session does the same job through
-   the normal API. The cost is that a Driver that loses its key cannot recover without a
-   person.
-5. **First provider login gets Viewer, not nothing**: A user with no role opens an empty
-   Console. The cost is that everyone in the provider's directory can read the Core's
-   data unless creation is turned off.
-6. **The root password stays in the start settings**: Grafana and Keycloak apply the
-   setting once and recover with a host tool. Synnax Desktop needs a new root password
-   on every launch, so the settings stay in charge.
-7. **Provider settings live in the Core config file**: Stored records that the Console
-   edits would need no restart and would replicate across a cluster. They also need a
-   schema, endpoints, a Console page, and permissions. Providers change rarely, and the
-   accepted methods and the root user are start settings too. Stored records can replace
-   the file later with no change to the login flow.
