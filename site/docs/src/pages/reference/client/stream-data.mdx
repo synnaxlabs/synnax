@@ -1,83 +1,79 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Stream data"
-description: "Stream channel data in real time with a streamer."
+description:
+  "Get samples as the Core receives them with a streamer in the Python and TypeScript
+  clients: read frames, change channels, slow the stream, and close the streamer."
 clients: ["python", "typescript"]
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
+import { Field } from "@/components/field";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Streaming is useful for real-time processing, live visualization, and control sequences.
-The interface for streaming is a **streamer**. One streamer can read from many channels
-at the same time. It returns data only when new samples arrive.
-
-The lifecycle of a streamer has four steps: open it, read frames, update its channels if
-necessary, and close it.
+A streamer gets samples from the Core as the Core receives them. Use it to process live
+data, to show live values in your own app, or to react to a value in a script. A
+streamer gets only new samples. To get stored samples,
+[read data](/reference/client/read-data). Samples from `client.write` and from writers
+in `persist` mode do not reach streamers, as
+[writer modes](/reference/client/write-data#writer-modes) says.
 
 <Divider.Divider x />
 
-## Opening a streamer
+## Open a streamer and read frames
 
-To start streaming data, call the <Client.Var py="open_streamer" ts="openStreamer" />
-method on the client with a list of channels. Synnax checks that each channel exists
-before the stream starts.
-
-<Client.Tabs exclude={["cpp","console"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
 
 ```python
-# Python's context manager is recommended
-with client.open_streamer(["ch1", "ch2"]) as streamer:
-    for frame in streamer:
-        # Process the frame
+import synnax as sy
 
-# Alternative method
-# (requires explicit closing)
-streamer = client.open_streamer(["ch1", "ch2"])
+client = sy.Synnax()
+
+with client.open_streamer(["time", "temperature"]) as streamer:
+    for frame in streamer:
+        print(frame["temperature"].to_numpy())
 ```
+
+The loop waits for each frame. The `with` block closes the streamer, also when the code
+raises an error.
 
   </Fragment>
 
   <Fragment slot="typescript">
 
 ```typescript
-const streamer = await client.openStreamer(["ch1", "ch2"]);
+const streamer = await client.openStreamer(["time", "temperature"]);
 try {
-  for await (const frame of streamer) {
-    // Process the frame
-  }
+  for await (const frame of streamer) console.log(Array.from(frame.get("temperature")));
 } finally {
   streamer.close();
 }
 ```
 
+The loop waits for each frame. The `finally` block closes the streamer, also when the
+code throws an error.
+
   </Fragment>
+
 </Client.Tabs>
 
-<Divider.Divider x />
+Each frame holds the samples of one write, as a
+[frame](/reference/client/series-and-frames#frames). A frame can hold samples for only
+some of the channels, so check before you use a channel:
 
-## Downsampling option
-
-To stream data at a lower rate, use the <Client.Var py="downsample_factor"
-ts="downsampleFactor" /> parameter. A value of `n` keeps every nth sample of each
-series. The default is 1, which keeps all samples. The streamer does not average values.
-It drops samples.
-
-<Client.Tabs exclude={["cpp","console"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
 
 ```python
-# Read every 2nd sample
-streamer = client.open_streamer(
-    channels=["temperature", "pressure"],
-    downsample_factor=2,
-)
+for frame in streamer:
+    if "temperature" in frame:
+        latest = frame["temperature"][-1]
 ```
 
   </Fragment>
@@ -85,248 +81,139 @@ streamer = client.open_streamer(
   <Fragment slot="typescript">
 
 ```typescript
-// Read every 2nd sample
+for await (const frame of streamer) {
+  const temperature = frame.get("temperature");
+  if (temperature.length > 0) {
+    const latest = temperature.at(-1);
+  }
+}
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+### Read one frame
+
+<Client.Tabs exclude={["console", "cpp"]}>
+
+  <Fragment slot="python">
+
+`read` waits for the next frame. With a timeout, it returns `None` when no frame comes
+in time:
+
+```python
+frame = streamer.read(timeout=5)
+if frame is None:
+    print("No data in 5 seconds")
+```
+
+The timeout is a number of seconds or a `TimeSpan`.
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+`read` waits for the next frame:
+
+```typescript
+const frame = await streamer.read();
+```
+
+`read` has no timeout. When the Core sends nothing for 15 seconds, `read` throws, so a
+lost connection does not stop your code.
+
+  </Fragment>
+
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Stream with asyncio in Python
+
+`open_async_streamer` gives a streamer for `asyncio` code:
+
+```python
+async with await client.open_async_streamer(["time", "temperature"]) as streamer:
+    async for frame in streamer:
+        print(frame["temperature"].to_numpy())
+```
+
+The async streamer has no timeout on `read`, and it cannot change its channels. The
+TypeScript streamer is always async.
+
+<Divider.Divider x />
+
+## Change the channels
+
+To stream other channels, give the streamer a new list. The list replaces the old
+channels:
+
+<Client.Tabs exclude={["console", "cpp"]}>
+
+  <Fragment slot="python">
+
+```python
+streamer.update_channels(["time", "temperature", "pressure"])
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+await streamer.update(["time", "temperature", "pressure"]);
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Slow the stream
+
+When your code reads more slowly than frames come, the Core drops frames. To get all the
+samples, slow the stream, or read the stored data later. Two options reduce the data:
+
+<Client.Tabs exclude={["console", "cpp"]}>
+
+  <Fragment slot="python">
+
+```python
+streamer = client.open_streamer(["time", "temperature"], downsample_factor=10)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { Rate } from "@synnaxlabs/client";
+
 const streamer = await client.openStreamer({
-  channels: ["temperature", "pressure"],
-  downsampleFactor: 2,
+  channels: ["time", "temperature"],
+  downsampleFactor: 10,
+  throttleRate: Rate.hz(10),
 });
 ```
 
   </Fragment>
+
 </Client.Tabs>
+
+- <Client.Var py="downsample_factor" ts="downsampleFactor" /> -> keep one of each `N`
+samples in each series. The Core drops the other samples and does not average them. A
+write of fewer than `N` samples is not reduced.
+- `throttleRate` -> send at most this many frames each second. The Core joins the
+  samples between two sends into one frame, so the streamer gets all samples in fewer
+  frames. Only the TypeScript client sets it.
 
 <Divider.Divider x />
 
-## Using an async streamer
+## Close the streamer
 
-<Client.Tabs exclude={["cpp","console"]}>
-
-  <Fragment slot="python">
-
-For `asyncio` support, use `open_async_streamer`. It has the same interface as the
-synchronous streamer:
-
-```python
-async with await client.open_async_streamer(["ch1", "ch2"]) as streamer:
-    async for frame in streamer:
-        # Process the frame
-```
-
-  </Fragment>
-
-  <Fragment slot="typescript">
-
-<br />
-TypeScript streaming is async by default.
-
-  </Fragment>
-</Client.Tabs>
-
-<Divider.Divider x />
-
-## Reading frames
-
-To read the next incoming frame, call the `read` method on the streamer.
-
-<Client.Tabs exclude={["cpp","console"]}>
-
-  <Fragment slot="python">
-
-```python
-frame = streamer.read()
-```
-
-  </Fragment>
-
-  <Fragment slot="typescript">
-
-```typescript
-const frame = await streamer.read();
-```
-
-  </Fragment>
-</Client.Tabs>
-
-This call will block until a new frame is available. A frame may not contain data for
-every channel, so be ready to [handle partial frames](#handling-partial-frames).
-
-For more on working with frames, see
-[series and frames](/reference/client/series-and-frames).
-
-<Divider.Divider x />
-
-## Using a for loop
-
-The streamer implements an iterator, allowing you to use a for loop to continuously
-process incoming frames.
-
-<Client.Tabs exclude={["cpp","console"]}>
-
-  <Fragment slot="python">
-
-```python
-# Process frames synchronously
-
-for frame in streamer:
-    print(frame.at(-1))
-```
-
-  </Fragment>
-
-  <Fragment slot="typescript">
-
-```typescript
-// Process frames asynchronously
-for await (const frame of streamer) {
-  console.log(frame.at(-1));
-}
-```
-
-  </Fragment>
-</Client.Tabs>
-
-<Divider.Divider x />
-
-## Handling partial frames
-
-A frame from a streamer does not always contain data for every channel of the streamer.
-It contains data only for the channels that got new samples since the last read. The
-series in a frame can also have different lengths, because channels can get samples in
-batches or at different rates.
-
-For example, two devices sample `temperature` and `pressure` at different rates. One
-frame can contain data only for `temperature`, and the next frame only for `pressure`.
-
-<Client.Tabs exclude={["cpp","console"]}>
-
-  <Fragment slot="python">
-
-```python
-streamer = client.open_streamer(["temperature", "pressure"])
-
-frame = streamer.read()
-print(frame[-1])
-# Output: {"temperature": 25.0}
-
-frame = streamer.read()
-print(frame[-1])
-# Output: {"pressure": 1013.25}
-
-frame = streamer.read()
-print(frame[-1])
-# Output: {"temperature": 25.1, "pressure": 1013.25}
-
-# Check if a frame contains data for a specific channel
-if "temperature" in frame:
-    print(frame["temperature"])
-```
-
-  </Fragment>
-
-  <Fragment slot="typescript">
-
-```typescript
-const streamer = await client.openStreamer(["temperature", "pressure"]);
-
-const frame = await streamer.read();
-console.log(frame.at(-1));
-// Output: { temperature: 25.0 }
-
-const frame2 = await streamer.read();
-console.log(frame2.at(-1));
-// Output: { pressure: 1013.25 }
-
-const frame3 = await streamer.read();
-console.log(frame3.at(-1));
-// Output: { temperature: 25.1, pressure: 1013.25 }
-
-// Check if a frame contains data for a specific channel
-if (frame.has("temperature")) console.log(frame.get("temperature"));
-```
-
-  </Fragment>
-</Client.Tabs>
-
-<Divider.Divider x />
-
-## Specifying a timeout
-
-<Client.Tabs exclude={["cpp","console"]}>
-
-  <Fragment slot="python">
-
-Add a `timeout` parameter to the `read` method. If the timeout is reached before a new
-frame is available, the method returns `None`.
-
-```python
-# Wait for 5 seconds
-frame = streamer.read(timeout=5)
-
-# A `TimeSpan` object can also be used
-frame = streamer.read(timeout=5 * sy.TimeSpan.SECOND)
-
-if frame is None:
-    print("Timed out waiting for a frame")
-```
-
-  </Fragment>
-
-  <Fragment slot="typescript">
-
-TypeScript doesn't have built-in timeout support. Instead, you can use `Promise.race()`
-to achieve the equivalent functionality.
-
-```typescript
-const timeout = (ms: number) =>
-  new Promise<null>((resolve) => setTimeout(() => resolve(null), ms));
-
-// Wait for 5 seconds
-const frame = await Promise.race([streamer.read(), timeout(5000)]);
-
-if (frame === null) {
-  console.log("Timed out waiting for a frame");
-}
-```
-
-  </Fragment>
-</Client.Tabs>
-
-<Divider.Divider x />
-
-## Updating the channel list
-
-To change the channels that a streamer reads from, call the <Client.Var
-py="update_channels" ts="update" /> method. This is useful when a user selects a new set
-of channels to plot. The call replaces the current list of channels. It does not add to
-the list.
-
-<Client.Tabs exclude={["cpp","console"]}>
-
-  <Fragment slot="python">
-
-```python
-streamer.update_channels(["temperature", "pressure", "humidity"])
-```
-
-  </Fragment>
-
-  <Fragment slot="typescript">
-
-```typescript
-await streamer.update(["temperature", "pressure", "humidity"]);
-```
-
-  </Fragment>
-</Client.Tabs>
-
-<Divider.Divider x />
-
-## Closing the streamer
-
-When you finish streaming, always call the `close` method on the streamer. This closes
-the network connection and releases local resources.
-
-<Client.Tabs exclude={["cpp","console"]}>
+<Client.Tabs exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
 
@@ -343,38 +230,68 @@ streamer.close();
 ```
 
   </Fragment>
+
 </Client.Tabs>
 
-Using structured cleanup patterns ensures the streamer is always closed, even if an
-exception is thrown.
+A streamer that you do not close keeps its connection to the Core open.
 
-<Client.Tabs exclude={["cpp","console"]}>
+<Divider.Divider x />
+
+## Streamer options
+
+<Client.Tabs exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
 
-```python
-# Using the streamer as a context manager ensures
-# the streamer is always closed correctly.
+<Field.List>
 
-with client.open_streamer(["temperature1", "temperature2"]) as streamer:
-    for frame in streamer:
-        # Process the frame
-```
+<Field.Item name="channels" id="python-channels" type="list[str] | list[int]">
+  The names or keys of the channels to stream.
+</Field.Item>
+
+<Field.Item
+  name="downsample_factor"
+  id="python-downsample-factor"
+  type="int"
+  default="1"
+>
+  Keep one of each `downsample_factor` samples in each series.
+</Field.Item>
+
+</Field.List>
 
   </Fragment>
 
   <Fragment slot="typescript">
 
-```typescript
-const streamer = await client.openStreamer(["temperature1", "temperature2"]);
-try {
-  for await (const frame of streamer) {
-    // Process the frame
-  }
-} finally {
-  streamer.close();
-}
-```
+<Field.List>
+
+<Field.Item name="channels" id="typescript-channels" type="string[] | number[]">
+  The names or keys of the channels to stream.
+</Field.Item>
+
+<Field.Item
+  name="downsampleFactor"
+  id="typescript-downsample-factor"
+  type="number"
+  default="1"
+>
+  Keep one of each `downsampleFactor` samples in each series.
+</Field.Item>
+
+<Field.Item name="throttleRate" id="typescript-throttle-rate" type="Rate" default="0">
+  The largest number of frames each second. With 0, the Core sends each frame when it
+  receives it.
+</Field.Item>
+
+<Field.Item name="keepAlive" id="typescript-keep-alive" type="TimeSpan" default="5 s">
+  How often the Core tells the streamer that the connection is alive. When three
+  intervals pass with no message, `read` throws. The value must be at least 2 s. With
+  `TimeSpan.ZERO`, `read` waits with no limit.
+</Field.Item>
+
+</Field.List>
 
   </Fragment>
+
 </Client.Tabs>
