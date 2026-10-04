@@ -73,7 +73,7 @@ const LEVELS: Level[] = [
     key: "low",
     glyph: <Meter level="low" />,
     name: "Low",
-    description: "Least CPU. Timing can drift by a millisecond or more.",
+    description: "Least CPU. A fire can come a millisecond or more late.",
   },
   {
     key: "medium",
