@@ -63,9 +63,11 @@ Every shot has the same four parts.
    setup.
 2. **Zoom on the area of work, not on clicks.** Open one `session.zoom(region)` for each
    area the next beats happen in: a dialog, a toolbar, a panel, a form. Never zoom on
-   one button, and never once per click. Let the rect set the depth. Pass an amount (1.4
-   to 1.6) only for a wide, short region such as a toolbar field. Above 1.67x a 1080p
-   render upscales.
+   one button, and never once per click. Let the rect set the depth. An amount on a
+   region only makes the zoom shallower: the camera never zooms past the depth at which
+   the region fits. For a region wider than the zoomed frame, such as a toolbar, zoom on
+   a point inside it with an amount from 1.4 to 1.6 (`session.zoom({ x, y }, 1.5)`), and
+   the camera pans to keep each target in frame. Above 1.67x a 1080p render upscales.
 3. **Let the camera pan.** Inside a zoom, the camera holds while the cursor's targets
    stay in frame, and pans only as far as it must when one leaves. Do not open a new
    zoom to follow a dropdown.
