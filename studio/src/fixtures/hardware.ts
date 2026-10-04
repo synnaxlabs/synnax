@@ -53,6 +53,79 @@ export const MODBUS_PLC: SimulatedDevice = {
   },
 };
 
+interface Entry {
+  name: string;
+  pdo_index: number;
+  index: number;
+  sub_index: number;
+  bit_length: number;
+  data_type: string;
+}
+
+const entry = (
+  pdo_index: number,
+  index: number,
+  sub_index: number,
+  name: string,
+  data_type: string,
+  bit_length: number,
+): Entry => ({ name, pdo_index, index, sub_index, bit_length, data_type });
+
+/** The input entries of one EL3102 channel in its standard PDOs. */
+const el3102Standard = (status: number, compact: number, index: number): Entry[] => [
+  entry(status, index, 0x01, "Status__Underrange", "uint8", 1),
+  entry(status, index, 0x02, "Status__Overrange", "uint8", 1),
+  entry(status, index, 0x03, "Status__Limit 1", "uint8", 2),
+  entry(status, index, 0x05, "Status__Limit 2", "uint8", 2),
+  entry(status, index, 0x07, "Status__Error", "uint8", 1),
+  entry(status, index, 0x0e, "Status__Sync error", "uint8", 1),
+  entry(status, index, 0x0f, "Status__TxPDO State", "uint8", 1),
+  entry(status, index, 0x10, "Status__TxPDO Toggle", "uint8", 1),
+  entry(status, index, 0x11, "Value", "int16", 16),
+  entry(compact, index, 0x11, "Value", "int16", 16),
+];
+
+/**
+ * An EL3102 module that the Driver found on the en5 port but nobody has configured yet,
+ * with the properties SOEM discovery writes from the ESI catalog.
+ */
+export const EL3102: SimulatedDevice = {
+  key: "ethercat_en5_2_203305042_2",
+  name: "EL3102",
+  make: "ethercat",
+  model: "slave",
+  location: "en5.Slot 2",
+  message: "Discovered (28 inputs, 0 outputs)",
+  properties: {
+    vendor_id: 2,
+    product_code: 0x0c1e3052,
+    revision: 0x00140000,
+    serial: 0,
+    name: "EL3102",
+    network: "en5",
+    position: 2,
+    input_bits: 48,
+    output_bits: 0,
+    pdo_order_reliable: true,
+    enabled: true,
+    pdos: {
+      inputs: [
+        entry(0x1a00, 0x3101, 0x01, "Status", "uint8", 8),
+        entry(0x1a00, 0x3101, 0x02, "Value", "int16", 16),
+        entry(0x1a01, 0x3102, 0x01, "Status", "uint8", 8),
+        entry(0x1a01, 0x3102, 0x02, "Value", "int16", 16),
+        ...el3102Standard(0x1a02, 0x1a03, 0x6000),
+        ...el3102Standard(0x1a04, 0x1a05, 0x6010),
+        entry(0x1a07, 0x6001, 0x11, "Value", "int32", 32),
+        entry(0x1a09, 0x6011, 0x11, "Value", "int32", 32),
+        entry(0x1a10, 0x3101, 0x02, "Channel 1", "int16", 16),
+        entry(0x1a10, 0x3102, 0x02, "Channel 2", "int16", 16),
+      ],
+      outputs: [],
+    },
+  },
+};
+
 export interface DriverOptions extends ConnectionOptions {
   /** Devices to create on the embedded rack, with a status for each. */
   devices?: SimulatedDevice[];

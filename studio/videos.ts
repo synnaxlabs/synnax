@@ -61,7 +61,7 @@ export default manifest.define([
   { id: "client/channels/delete", script: "scripts/channels-delete.ts" },
   { id: "console/channels/alias", script: "scripts/channels-alias.ts" },
   {
-    id: "console/calculated-channels/create-and-edit",
+    id: "client/calculated-channels/create-and-edit",
     script: "scripts/calculated-channels-create-and-edit.ts",
   },
   { id: "client/ranges/create", script: "scripts/ranges-create.ts" },
@@ -124,6 +124,18 @@ export default manifest.define([
   // Hardware shots run against the simulated Driver in fixtures/hardware.ts.
   { id: "device-drivers/task/task-basic", script: "scripts/tasks-start.ts" },
   { id: "hardware/devices/toolbar", script: "scripts/devices-toolbar.ts" },
+  {
+    id: "device-drivers/ni/configure-device/ni-configure-device",
+    script: "scripts/ni-configure-device.ts",
+  },
+  {
+    id: "device-drivers/labjack/configure-device/lj-configure",
+    script: "scripts/labjack-configure-device.ts",
+  },
+  {
+    id: "device-drivers/ethercat/configure-device/ethercat-configure",
+    script: "scripts/ethercat-configure-device.ts",
+  },
   // The custom devices tutorial runs against fixtures/arduino.ts.
   {
     id: "client/resources/build-device-driver/line-plot",
