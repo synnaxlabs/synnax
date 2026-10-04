@@ -129,7 +129,7 @@ export const frameLegend = async (
   await session.zoom(
     { x: (left + right) / 2, y: (top + bottom) / 2 },
     Math.min(
-      1.7,
+      1.6,
       view.width / (right - left + 192),
       view.height / (bottom - top + 192),
     ),
