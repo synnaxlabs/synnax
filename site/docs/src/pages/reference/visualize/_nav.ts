@@ -24,6 +24,11 @@ export const VISUALIZE_NAV: PageNavNode = {
       name: "Projects",
     },
     {
+      key: "/reference/visualize/panels",
+      href: "/reference/visualize/panels",
+      name: "Panels and tabs",
+    },
+    {
       key: "/reference/visualize/line-plots",
       href: "/reference/visualize/line-plots",
       name: "Line plots",

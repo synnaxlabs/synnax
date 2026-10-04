@@ -1,89 +1,68 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Projects"
-heading: "Projects"
-description: "Organize and share Console layouts with projects."
+title: "Create and open projects"
+description: "Create, open, rename, and delete projects in the Console."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-
-import { Edition } from "@/components/edition";
-import Diagram from "@/components/diagram/Diagram.astro";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
-import { Image, Video } from "@/components/media/Media";
-
 export const components = mdxOverrides;
 
-<Diagram style="height: 400px" preview>
-  <Image
-    id="console/workspaces/workspaces"
-    themed={false}
-    style={{
-      height: "500px",
-      width: "fit-content",
-      transform: "translate(-6%, -9%)",
-      borderRadius: "1.5rem",
-      boxShadow: "-1rem -1rem 1rem 3px var(--pluto-gray-l1-15)",
-    }}
-  />
-</Diagram>
-
-A project holds your layouts. Each project has one or more panels. A panel is an
-arrangement of tabs, such as line plots, schematics, tables, and logs. The panel
-selector at the top of the Console shows the panels in the current project.
-
-Make one project for each test stand, campaign, or operator view. The Console always
-works inside a project. When no project is open, the Console shows a list of projects to
-open, and a button to create a new one.
+A project holds your panels and the line plots, schematics, tables, and logs in them.
+The Console always has one project open. Make one project for each test stand, campaign,
+or operator station. To arrange the visualizations in a project, see
+[panels and tabs](/reference/visualize/panels).
 
 <Divider.Divider x />
 
-## Creating and loading
+## Create a project
 
-### Create
+1. At the top of the left bar, click the project selector. It shows the initials of the
+   open project.
+2. Click **New project**.
+3. Enter a name, then click **Create**.
 
-Create a project from the project selector in the top-left corner of the Console, or
-with the `Create project` command in the
+The Console opens the new project. It has one panel, **New panel**, with a **Create
+component** tab.
+
+You can also run the "Create project" command from the
 [command palette](/reference/get-started/ui-overview#search-and-command-palette).
 
 <Video id="console/workspaces/create" />
 
-### Load
+<Divider.Divider x />
 
-Load a project from the [projects toolbar](/reference/get-started/ui-overview#projects)
-on the left-hand side, or from the project selector in the top-left corner.
+## Open a project
+
+1. At the top of the left bar, click the project selector.
+2. Select the project.
+
+The Console shows the panels of the selected project.
+
+You can also press **W** to open the projects toolbar, then double-click a project.
+
+When no project is open, the Console shows the **Projects** list. Select a project, or
+click **New project**.
 
 <Video id="console/workspaces/load" />
 
 <Divider.Divider x />
 
-## Sharing a project
+## Rename a project
 
-### Via file
-
-Right-click the project in the projects toolbar and click `Export`. You can also run the
-`Export current project` command in the
-[command palette](/reference/get-started/ui-overview#search-and-command-palette).
-
-<Image id="console/workspaces/export" />
-
-The Console saves the project as a `.zip` file. The file holds the panels of the project
-and the visualizations in them.
-
-<Edition.Enterprise>
-
-### Via link
-
-Right-click the project in the projects toolbar and click `Copy link`. Anyone connected
-to the same Core can open the project by pasting the link into a web browser.
-
-<Image id="console/workspaces/copy-link" />
-
-</Edition.Enterprise>
+1. Right-click the project in the projects toolbar or in the project selector.
+2. Select **Rename**.
+3. Type the new name, then press **Enter**.
 
 <Divider.Divider x />
 
-## Importing a project
+## Delete a project
 
-Run the `Import project` command and select a `.zip` file or the folder you extracted
-from it. You can also drag the `.zip` file or the folder into the Console.
+1. Right-click the project in the projects toolbar or in the project selector.
+2. Select **Delete**.
+3. Click **Delete** to confirm.
+
+You cannot undo a delete. When you delete the open project, the Console shows the
+**Projects** list.
