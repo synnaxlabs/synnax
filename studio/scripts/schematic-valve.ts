@@ -74,15 +74,16 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       { zoom: false },
     );
     await session.settle(400);
+    // The drag selects the valve.
+    await capture.deselect(session, { x: 100, y: 290 });
+    await session.settle(300);
     // Park the cursor inside the schematic: the floating controls only show
     // while the panel is hovered.
     await session.moveTo({ x: 300, y: 560 });
 
     session.startRecording();
-    await session.hold(1200);
+    await session.hold(1800);
 
-    // Wide for the acquire: the control button sits at the far corner from the
-    // legend it turns on.
     await session.click(
       page.locator(".console-controls button:has(svg.pluto-icon--circle)").first(),
       { zoom: false },
@@ -90,41 +91,22 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.waitFor(page.locator(".pluto-legend-entry").first());
     await session.hold(1400);
 
-    // One frame carries both the legend and the valve, which sit far apart.
-    const [legend, body] = await Promise.all([
-      page.locator(".pluto-legend-entry").first().boundingBox(),
-      valve.boundingBox(),
-    ]);
-    const view = page.viewportSize();
-    if (legend == null || body == null || view == null)
-      throw new Error("legend or valve is hidden");
-    const left = Math.min(legend.x, body.x);
-    const top = Math.min(legend.y, body.y);
-    const right = Math.max(legend.x + legend.width, body.x + body.width);
-    const bottom = Math.max(legend.y + legend.height, body.y + body.height);
-    const aside = { x: body.x + body.width / 2 + 180, y: body.y + body.height + 120 };
-    await session.moveTo(aside);
-    await session.zoom(
-      { x: (left + right) / 2, y: (top + bottom) / 2 },
-      Math.min(
-        1.7,
-        view.width / (right - left + 192),
-        view.height / (bottom - top + 192),
-      ),
-    );
+    // The valve's rect alone would zoom past the render's resolution.
+    await session.zoom(valve, 1.6);
     await session.hold(900);
-
-    await session.click(valve.locator("button.pluto-symbol-primitive-toggle").first(), {
-      zoom: false,
-    });
+    await session.click(valve.locator("button.pluto-symbol-primitive-toggle").first());
+    session.endZoom();
     await session.hold(400);
     // The echo runs on wall time: command out, state back through the streamer.
     await session.settleWall(600);
-    await session.hold(1200);
-
+    const body = await valve.boundingBox();
+    if (body == null) throw new Error("valve is hidden");
     // Clear the cursor off the valve so the indicator stays readable.
-    await session.moveTo(aside);
-    await session.hold(2600);
+    await session.moveTo({
+      x: body.x + body.width + 160,
+      y: body.y + body.height + 90,
+    });
+    await session.hold(3000);
   } finally {
     await fixture.stop();
   }
