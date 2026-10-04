@@ -82,21 +82,21 @@ var _ = Describe("Start", func() {
 		},
 	)
 
-	DescribeTable(
-		"Should count only signals toward a forced exit after the stop keyword",
-		func(signals []syscall.Signal, code int) {
-			session, stdin := startCore()
-			MustSucceed(io.WriteString(stdin, "stop\n"))
-			for _, sig := range signals {
-				session.Signal(sig)
-			}
-			Eventually(session, 30*time.Second).Should(gexec.Exit(code))
-		},
-		Entry("one signal shuts down cleanly", []syscall.Signal{syscall.SIGTERM}, 0),
-		Entry(
-			"two signals exit at once",
-			[]syscall.Signal{syscall.SIGTERM, syscall.SIGINT},
-			1,
-		),
-	)
+	It("Should shut down cleanly on one signal after the stop keyword", func() {
+		session, stdin := startCore()
+		MustSucceed(io.WriteString(stdin, "stop\n"))
+		Eventually(session.Out).Should(gbytes.Say("Synnax is shutting down"))
+		session.Signal(syscall.SIGTERM)
+		Eventually(session, 30*time.Second).Should(gexec.Exit(0))
+		Expect(session.Out).To(gbytes.Say("Synnax has shut down"))
+	})
+
+	It("Should exit at once on two signals after the stop keyword", func() {
+		session, stdin := startCore()
+		MustSucceed(io.WriteString(stdin, "stop\n"))
+		session.Signal(syscall.SIGTERM)
+		session.Signal(syscall.SIGINT)
+		Eventually(session, 30*time.Second).Should(gexec.Exit(1))
+		Expect(session.Out).To(gbytes.Say("second stop signal"))
+	})
 })

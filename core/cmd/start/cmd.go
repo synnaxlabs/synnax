@@ -54,7 +54,6 @@ func start(cmd *cobra.Command) {
 	// sigC holds two signals, so a second signal sent right after the first is kept.
 	sigC := make(chan os.Signal, 2)
 	signal.Notify(sigC, os.Interrupt, syscall.SIGTERM)
-	defer signal.Stop(sigC)
 
 	sCtx, cancel := xsignal.WithCancel(ctx, xsignal.WithInstrumentation(ins))
 	defer cancel()
