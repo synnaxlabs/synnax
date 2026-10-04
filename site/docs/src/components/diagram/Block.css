@@ -115,16 +115,16 @@
 /* Each level of nesting steps one gray toward the blocks inside it. */
 .block-diagram__group {
     fill: var(--pluto-gray-l3);
+}
+
+.block-diagram__border {
+    fill: none;
     stroke: var(--pluto-gray-l5);
     stroke-width: 0.5;
 }
 
 .block-diagram--nest [data-depth="1"] > .block-diagram__group {
     fill: var(--pluto-gray-l2);
-}
-
-.block-diagram__hatch {
-    stroke: none;
 }
 
 .block-diagram__hatch-line {
@@ -139,13 +139,13 @@
     [data-depth="0"] {
         --docs-nest-accent: var(--pluto-warning-z);
         --docs-nest-fill: var(--pluto-gray-l3);
-        --docs-nest-mix: 11%;
+        --docs-nest-mix: 6.6%;
     }
 
     [data-depth="1"] {
         --docs-nest-accent: var(--pluto-secondary-z);
         --docs-nest-fill: var(--pluto-gray-l2);
-        --docs-nest-mix: 18.5%;
+        --docs-nest-mix: 7.6%;
     }
 
     [data-depth] {
@@ -156,7 +156,7 @@
         );
     }
 
-    [data-depth] > .block-diagram__group {
+    [data-depth] > .block-diagram__border {
         stroke: color-mix(in srgb, var(--docs-nest-accent) 60%, transparent);
     }
 
@@ -170,11 +170,11 @@
 @media (prefers-color-scheme: dark) {
     .block-diagram--colored {
         [data-depth="0"] {
-            --docs-nest-mix: 6%;
+            --docs-nest-mix: 2.6%;
         }
 
         [data-depth="1"] {
-            --docs-nest-mix: 11%;
+            --docs-nest-mix: 3.5%;
         }
     }
 }
