@@ -44,10 +44,21 @@ cc_test(
     name = "ni_test",
     srcs = [
         "read_task_test.cpp",
-        "scan_task_test.cpp",
         "write_task_test.cpp",
     ],
     tags = ["requires-core"],
+    deps = [
+        "//client/cpp/testutil",
+        "//driver/ni",
+        "//driver/pipeline/mock",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "scan_task_test",
+    srcs = ["scan_task_test.cpp"],
     deps = [
         "//client/cpp/testutil",
         "//driver/ni",
