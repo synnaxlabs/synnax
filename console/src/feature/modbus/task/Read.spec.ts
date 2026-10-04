@@ -17,6 +17,7 @@ import { Modbus } from "@/feature/modbus";
 import { createModbusDevice } from "@/feature/modbus/testutil";
 import {
   awaitEditableForm,
+  createTaskReadOnlyClient,
   deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
@@ -238,6 +239,17 @@ describe("Read", () => {
       const register = await deployRegister(container, draft.key);
       expect(register.bytesSwapped).toBe(true);
       expect(register.wordsSwapped).toBe(false);
+    });
+
+    it("should not open the order options without permission to update the task", async () => {
+      const { draft } = await createRegisterDraft("float32", true);
+      await renderTaskFormTab(Modbus.Task.Read, {
+        client,
+        taskKey: draft.key,
+        as: await createTaskReadOnlyClient(client),
+      });
+      fireEvent.click(await screen.findByText("Bytes: device (not swapped)"));
+      expect(screen.queryByText("Bytes: swapped")).toBeNull();
     });
 
     it("should show only the byte order for a type that fits in one register", async () => {

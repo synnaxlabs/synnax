@@ -43,6 +43,7 @@ const SelectOrder = ({
   return (
     <Select.Simple<Order>
       value={order}
+      preview={ctx.mode === "preview"}
       onChange={(next: Order) =>
         ctx.set(fieldPath, next === "device" ? undefined : next === "swapped")
       }
