@@ -29,14 +29,20 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.moveTo({ x: 800, y: 450 });
 
   session.startRecording();
-  await session.hold(1000);
+  await session.hold(1500);
 
-  await session.click(pressure, { zoom: false, text: true });
+  await session.zoom(pressure, 1.6);
+  await session.hold(400);
+  await session.click(pressure, { text: true });
   await page.keyboard.down("ControlOrMeta");
-  await session.click(temperature, { zoom: false, text: true });
+  await session.click(temperature, { text: true });
   await page.keyboard.up("ControlOrMeta");
   await session.hold(500);
-  await capture.contextMenu(session, temperature, "Delete");
+  await session.rightClick(temperature, { text: true });
+  const menu = page.locator(".pluto-menu-context").first();
+  await session.waitFor(menu);
+  await session.hold(400);
+  await session.click(menu.getByText("Delete", { exact: true }).first());
 
   const dialog = page.locator(".console-confirm").first();
   await session.waitFor(dialog);
@@ -47,5 +53,5 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.waitForHidden(dialog);
   session.endZoom();
   await session.waitForHidden(temperature);
-  await session.hold(2600);
+  await session.hold(2800);
 };

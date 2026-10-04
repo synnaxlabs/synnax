@@ -27,24 +27,28 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.moveTo({ x: 800, y: 450 });
 
   session.startRecording();
-  await session.hold(1000);
+  await session.hold(1500);
 
-  await capture.contextMenu(session, item, "Rename");
+  await session.zoom(item, 1.6);
+  await session.hold(400);
+  await session.rightClick(item, { text: true });
+  const menu = page.locator(".pluto-menu-context").first();
+  await session.waitFor(menu);
+  await session.hold(400);
+  await session.click(menu.getByText("Rename", { exact: true }).first());
   // The name turns into a contenteditable with its text selected, so typing
   // replaces it.
   const editable = page
     .locator(".pluto-text--editable[contenteditable='true']")
     .first();
   await session.waitFor(editable);
-  await session.zoom(editable, 2);
   await session.hold(400);
   await session.type("ox_tank_pressure");
   await session.hold(400);
   await session.press("Enter");
+  session.endZoom();
   await session.waitFor(
     page.locator(".console-nav__drawer").getByText("ox_tank_pressure", { exact: true }),
   );
-  await session.hold(1400);
-  session.endZoom();
-  await session.hold(1000);
+  await session.hold(2800);
 };

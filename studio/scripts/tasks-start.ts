@@ -54,21 +54,24 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const { page } = session;
     await capture.login(session);
     await capture.clearPanel(session);
-    await session.moveTo({ x: 756, y: 500 });
+    await session.moveTo({ x: 800, y: 450 });
 
     session.startRecording();
-    await session.hold(1200);
+    await session.hold(1500);
 
     await capture.openToolbar(session, "task");
     await session.hold(600);
     const item = page.locator(".console-task-toolbar").getByText(TASK, { exact: true });
     await session.waitFor(item);
-    await session.doubleClick(item, { zoom: false, text: true });
+    await session.doubleClick(item, { text: true });
     const form = page.locator(".console-task-configure").first();
     await session.waitFor(form);
+    await session.hold(800);
+    await session.zoom(form.locator(".console-task-controls").first(), 1.5);
     await session.hold(1200);
 
     await session.click(form.locator("button:has(svg.pluto-icon--play)").first());
+    session.endZoom();
     await session.waitFor(form.getByText("Task started successfully").first());
     await session.hold(3000);
   } finally {
