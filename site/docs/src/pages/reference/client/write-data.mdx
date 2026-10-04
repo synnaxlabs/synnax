@@ -29,7 +29,7 @@ that `time` indexes. To create channels like these, see
 
 `write` stores samples that you already have, such as data from a file:
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -78,7 +78,7 @@ to the Core. Use a writer instead.
 A writer stays open and writes many frames to its channels. Open it with a start
 timestamp and the channels it writes to:
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -164,7 +164,7 @@ writer mode sets which of the two the Core does:
 of an index, it must hold samples for all the channels of the writer that share that
 index, as [Rule 1](#rule-1) says.
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -251,7 +251,7 @@ To make a group of writes available together, turn auto-commit off and call `com
 after the group. `commit` waits for the Core and returns the end of the committed time
 range. Samples that you did not commit are lost when the writer closes.
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -315,7 +315,7 @@ Set <Client.Var py="mode" ts="mode" /> when you open the writer:
 - <Client.Var py="persist_stream" ts="persistStream" /> -> the Core stores the samples
 and sends them to streamers. This is the default.
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -352,7 +352,7 @@ Each write that leaves out the index channel gets the time at which the Core rec
 it. The samples in one write are 1 nanosecond apart. When the writer is also open on the
 index channel, a write that includes it uses your timestamps.
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -397,7 +397,7 @@ read each sample.
 
 ## Writer options
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 

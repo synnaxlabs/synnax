@@ -30,7 +30,7 @@ code can read from and write to.
 - The [Console](/reference/enterprise/console), logged in to the same Core.
 - An Arduino board and the [Arduino IDE](https://www.arduino.cc/en/software).
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -90,7 +90,7 @@ void loop() {
 The script creates an index channel `arduino_time` and a data channel `arduino_value`.
 Then it writes each value with the time that it arrived.
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -222,7 +222,7 @@ The script creates the command channel `arduino_command`. It is a
 values, and it needs no index channel. The script streams the channel, and sends each
 command to the Arduino.
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -343,7 +343,7 @@ The script creates a command channel, an index channel, and two data channels fo
 state and the value. It streams commands to the Arduino, and writes the state and the
 value from the Arduino.
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 

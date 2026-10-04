@@ -18,7 +18,7 @@ to read and write its data.
 
 ## Find a channel by name or key
 
-<Client.Tabs exclude={["cpp"]}>
+<Client.Tabs>
 
   <Fragment slot="console">
 
@@ -83,7 +83,7 @@ expression, in [Go RE2 syntax](https://github.com/google/re2/wiki/Syntax). The p
 must match the full name, unless it starts with `^` or ends with `$`. For example,
 `tank_.*` matches `tank_pressure` and `tank_time`, but not `ox_tank_pressure`.
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -118,7 +118,7 @@ Put the pattern in an array. With a pattern that is not in an array, `retrieve` 
 The TypeScript client can search channels by a part of their name, and filter them by
 their properties.
 
-<Client.Tabs exclude={["console", "python", "cpp"]}>
+<Client.Tabs exclude={["console", "python"]}>
 
   <Fragment slot="typescript">
 

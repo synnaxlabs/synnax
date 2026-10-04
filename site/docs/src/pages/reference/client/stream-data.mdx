@@ -25,7 +25,7 @@ in `persist` mode do not reach streamers, as
 
 ## Open a streamer and read frames
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -66,7 +66,7 @@ Each frame holds the samples of one write, as a
 [frame](/reference/client/series-and-frames#frames). A frame can hold samples for only
 some of the channels, so check before you use a channel:
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -95,7 +95,7 @@ for await (const frame of streamer) {
 
 ### Read one frame
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -149,7 +149,7 @@ TypeScript streamer is always async.
 To stream other channels, give the streamer a new list. The list replaces the old
 channels:
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -176,7 +176,7 @@ await streamer.update(["time", "temperature", "pressure"]);
 When your code reads more slowly than frames come, the Core drops frames. To get all the
 samples, slow the stream, or read the stored data later. Two options reduce the data:
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -213,7 +213,7 @@ write of fewer than `N` samples is not reduced.
 
 ## Close the streamer
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -239,7 +239,7 @@ A streamer that you do not close keeps its connection to the Core open.
 
 ## Streamer options
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 

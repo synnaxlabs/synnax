@@ -34,7 +34,7 @@ takes, such as a `datetime` in Python or a `Date` in TypeScript.
 
 ### Create a timestamp
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -87,7 +87,7 @@ epoch. To read a string in local time, pass `"local"` as the second argument.
 
 ### Add, subtract, and compare
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -121,7 +121,7 @@ console.log(later.afterEq(start)); // true
 
 ### Convert a timestamp
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -149,7 +149,7 @@ console.log(start.valueOf()); // 1791028800000000000n
 
 ## TimeSpan
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -196,7 +196,7 @@ sample:
 
 <TimeRangeDiagram />
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -251,7 +251,7 @@ starts at or after this time range and ends before this time range ends, so
 
 A rate is a frequency in hertz.
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -290,7 +290,7 @@ console.log(rate.period.toString()); // 10ms
 The time types keep every nanosecond. The native types of each language keep less, so a
 conversion can lose precision:
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
