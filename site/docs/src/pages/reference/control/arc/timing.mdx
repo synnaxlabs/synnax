@@ -67,7 +67,9 @@ Each level waits in a different way on each computer:
 A thread that checks the clock keeps one CPU core busy for that time. On a Linux
 real-time thread, High does not check the clock the whole time: Linux stops or slows a
 real-time thread that never sleeps. So on a Linux Driver with a real-time thread, High
-uses about as much CPU as Medium and holds timing more closely.
+uses about as much CPU as Medium and holds timing more closely. High keeps every CPU
+core out of deep sleep, which uses more power. Pick Medium when power matters more than
+a few hundred microseconds.
 
 <Divider.Divider x />
 
