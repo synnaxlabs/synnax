@@ -75,7 +75,6 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.waitFor(stagesTab);
   }
   await session.settle(600);
-  await session.moveTo({ x: 760, y: 300 });
 
   const nodes = page.locator(".react-flow__node");
   const at = async (x: number, y: number) => {
@@ -103,20 +102,29 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     return node;
   };
 
+  // The graph fits its view once, when the first block lands, which would move the
+  // first on-camera block. A throwaway block takes that fit.
+  const throwaway = await add("Constant", 400, 100);
+  await session.click(throwaway, { zoom: false });
+  await session.press("Backspace");
+  await session.waitForHidden(throwaway);
+  await session.moveTo({ x: 760, y: 300 });
+
   session.startRecording();
   await session.hold(800);
 
+  // Blocks keep clear of the canvas edges, where a connection drag auto-pans.
   await group("telem");
-  const source = await add("Telemetry source", 170, 90);
+  const source = await add("Telemetry source", 90, 60);
   await group("basic");
-  const constant = await add("Constant", 170, 250);
+  const constant = await add("Constant", 90, 165);
   await group("operator");
-  const greater = await add("Greater than", 470, 170);
+  const greater = await add("Greater than", 300, 120);
   await group("flow_control");
-  const select = await add("Select", 720, 170);
+  const select = await add("Select", 470, 120);
   await group("basic");
-  const warning = await add("Change status", 1030, 90);
-  const success = await add("Change status", 1030, 260);
+  const warning = await add("Change status", 680, 60);
+  const success = await add("Change status", 680, 175);
   await session.hold(500);
 
   const properties = drawer.locator(".console-arc-properties__individual").first();
@@ -185,11 +193,28 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await setStatus(warning, "Warning", "Tank pressure is above 450 psi");
   await setStatus(success, null, "Tank pressure is normal");
   session.endZoom();
-  await capture.deselect(session, { x: 900, y: 380 });
+  await capture.deselect(session, { x: 960, y: 230 });
   await session.hold(600);
 
+  // Handles sit behind the block body, so only the part of their marker outside the
+  // block takes a press.
+  const exposed = async (handle: Locator): Promise<{ x: number; y: number }> => {
+    const found = await handle.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      for (let dx = -10; dx <= 16; dx += 1)
+        for (let dy = -6; dy <= 8; dy += 1) {
+          const x = r.x + r.width / 2 + dx;
+          const y = r.y + r.height / 2 + dy;
+          const hit = document.elementFromPoint(x, y);
+          if (hit != null && (hit === el || el.contains(hit))) return { x, y };
+        }
+      return null;
+    });
+    if (found == null) throw new Error("handle is covered");
+    return found;
+  };
   const connect = async (from: Locator, to: Locator): Promise<void> => {
-    await session.drag(from, to, { zoom: false });
+    await session.drag(await exposed(from), await exposed(to), { zoom: false });
     await session.hold(400);
   };
   await connect(capture.handle(source, "right"), capture.handle(greater, "left", 0));
@@ -208,6 +233,6 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.waitFor(controls.getByText("Task started successfully").first());
   await session.hold(1200);
   session.endZoom();
-  await session.moveTo(await at(900, 380));
+  await session.moveTo(await at(960, 230));
   await session.hold(3000);
 };

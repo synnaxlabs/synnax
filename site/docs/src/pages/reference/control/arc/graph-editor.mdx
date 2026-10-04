@@ -6,6 +6,7 @@ description:
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
+import { Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -51,6 +52,8 @@ when it goes below. Before you start,
 When `tank_pt` goes above 450, the status changes to a warning. When it goes back to 450
 or below, the status changes to success. See [alarms](/reference/alarms) for how
 operators see statuses.
+
+<Video id="control/arc/graph-editor/build-alarm" />
 
 The top input of an operator block decides when the block runs. Connect the channel to
 the top input, and the constant to the bottom input. If the channel goes to the bottom
