@@ -1221,6 +1221,10 @@ struct FailingArm {
         return -1;
     }
     static bool realtime() { return true; }
+    static int hold_latency() {
+        errno = EACCES;
+        return -1;
+    }
 #elif defined(__APPLE__)
     static int set(int, const struct kevent &) {
         errno = ENOMEM;
