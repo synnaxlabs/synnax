@@ -45,8 +45,8 @@ var Cmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, _ []string) { start(cmd) },
 }
 
-// start is the entrypoint for starting a Synnax Core. It handles signal interrupts and
-// delegates to startServer for the actual startup.
+// start is the entrypoint for starting a Synnax Core. It handles stop requests and
+// delegates to BootupCore for the actual startup.
 func start(cmd *cobra.Command) {
 	ctx := cmd.Context()
 	ins := instrumentation.Configure()
