@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
@@ -50,8 +51,8 @@ func start(cmd *cobra.Command) {
 	ins := instrumentation.Configure()
 	defer instrumentation.Cleanup(ctx, ins)
 
-	interruptC := make(chan os.Signal, 1)
-	signal.Notify(interruptC, os.Interrupt)
+	stopC := make(chan os.Signal, 1)
+	signal.Notify(stopC, os.Interrupt, syscall.SIGTERM)
 
 	sCtx, cancel := xsignal.WithCancel(ctx, xsignal.WithInstrumentation(ins))
 	defer cancel()
@@ -60,7 +61,7 @@ func start(cmd *cobra.Command) {
 	// It's fine to let this get garbage collected.
 	go stdin.Watch(os.Stdin, viper.GetBool(FlagStopOnStdinClose), func() {
 		select {
-		case interruptC <- os.Interrupt:
+		case stopC <- os.Interrupt:
 		default:
 		}
 	})
@@ -76,7 +77,7 @@ func start(cmd *cobra.Command) {
 	}, xsignal.WithKey("start"), xsignal.RecoverWithErrOnPanic())
 
 	select {
-	case <-interruptC:
+	case <-stopC:
 		ins.L.Info(
 			"\033[33mSynnax is shutting down. This can take up to 5 seconds. Please be patient\033[0m",
 		)
