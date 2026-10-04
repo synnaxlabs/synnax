@@ -139,13 +139,13 @@
     [data-depth="0"] {
         --docs-nest-accent: var(--pluto-warning-z);
         --docs-nest-fill: var(--pluto-gray-l3);
-        --docs-nest-mix: 11%;
+        --docs-nest-mix: 6.6%;
     }
 
     [data-depth="1"] {
         --docs-nest-accent: var(--pluto-secondary-z);
         --docs-nest-fill: var(--pluto-gray-l2);
-        --docs-nest-mix: 18.5%;
+        --docs-nest-mix: 7.6%;
     }
 
     [data-depth] {
@@ -170,11 +170,11 @@
 @media (prefers-color-scheme: dark) {
     .block-diagram--colored {
         [data-depth="0"] {
-            --docs-nest-mix: 6%;
+            --docs-nest-mix: 2.6%;
         }
 
         [data-depth="1"] {
-            --docs-nest-mix: 11%;
+            --docs-nest-mix: 3.5%;
         }
     }
 }

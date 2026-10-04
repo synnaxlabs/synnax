@@ -181,10 +181,11 @@ const Svg = ({
             patternUnits="userSpaceOnUse"
             patternTransform="rotate(45)"
           >
+            {/* Centered, so the tile edge does not clip half of the stroke. */}
             <line
-              x1={0}
+              x1={HATCH_SPACING / 2}
               y1={0}
-              x2={0}
+              x2={HATCH_SPACING / 2}
               y2={HATCH_SPACING}
               className="block-diagram__hatch-line"
             />
