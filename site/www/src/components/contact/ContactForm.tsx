@@ -13,7 +13,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 
 const formSchema = z.object({
@@ -30,6 +30,8 @@ export const ContactForm = (): ReactElement => {
   const [hardSuccess, setHardSuccess] = useState(false);
   const [softSuccess, setSoftSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const successTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(successTimeout.current), []);
 
   const methods = Form.use({
     schema: formSchema,
@@ -54,7 +56,7 @@ export const ContactForm = (): ReactElement => {
         });
         if (res.ok) {
           setSoftSuccess(true);
-          setTimeout(() => setHardSuccess(true), 500);
+          successTimeout.current = setTimeout(() => setHardSuccess(true), 500);
         } else window.alert("Something went wrong. Please try again later.");
       } catch {
         window.alert("Something went wrong. Please try again later.");

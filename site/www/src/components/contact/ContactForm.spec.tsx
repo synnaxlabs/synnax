@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ContactForm } from "@/components/contact/ContactForm";
@@ -149,6 +149,15 @@ describe("ContactForm", () => {
       fireEvent.click(screen.getByText("Back"));
       expect(container().classList).not.toContain("success");
       expect(disabled()).toBe(false);
+    });
+
+    it("should cancel the pending thank-you when unmounted", async () => {
+      vi.useFakeTimers();
+      setup();
+      fill();
+      await send();
+      cleanup();
+      expect(vi.getTimerCount()).toBe(0);
     });
   });
 
