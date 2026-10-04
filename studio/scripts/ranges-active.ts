@@ -69,8 +69,11 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   const range = drawer.locator(".pluto-tag").filter({ hasText: RANGE }).first();
   await session.waitFor(range);
   await session.hold(600);
-  // The toolbar is wide and short, so it takes an amount.
-  await session.zoom(drawer, 1.4);
+  // A region's fit caps the zoom, and the drawer spans the window, so zoom on a point
+  // over its left side, where the range and channel fields are.
+  const box = await drawer.boundingBox();
+  if (box == null) throw new Error("line plot toolbar is not on screen");
+  await session.zoom({ x: box.x + 400, y: box.y + box.height / 2 }, 1.6);
   // Rest on the X axis's range, which the plot took from the active range.
   await session.moveTo(range, { text: true });
   await session.hold(1200);
