@@ -13,10 +13,14 @@
 package timer
 
 import (
+	"math"
 	"sync"
 	"sync/atomic"
 	"time"
 )
+
+// SpinAll is a spin that lasts the whole of each wait.
+const SpinAll = time.Duration(math.MaxInt64)
 
 // Timer sends on C when the span given to Reset elapses. It never fires early, and
 // after Reset or Stop returns, C receives nothing for an earlier deadline. A Timer is
@@ -25,6 +29,8 @@ type Timer struct {
 	// spin is how long the timer spins on Now before each deadline instead of waiting
 	// on the OS timer.
 	spin time.Duration
+	// waitSpin is spin for the current wait. The spin reads it without mu.
+	waitSpin atomic.Int64
 	// C receives a value when the timer fires.
 	C <-chan struct{}
 	// c is C with send access. It holds at most one pending fire.
@@ -42,8 +48,8 @@ type Timer struct {
 }
 
 // New opens a stopped Timer that spins on Now for the last spin of each wait, which
-// holds a CPU core for that span. A spin longer than a wait spins for all of it. The
-// caller must Close the Timer.
+// holds a CPU core for that span. A spin never takes more than half of a wait, except
+// SpinAll, which spins for all of it. The caller must Close the Timer.
 func New(spin time.Duration) (*Timer, error) {
 	c := make(chan struct{}, 1)
 	t := &Timer{C: c, c: c, done: make(chan struct{}), spin: spin}
@@ -76,6 +82,7 @@ func (t *Timer) Reset(d time.Duration) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.deadline.Store(int64(Now() + d))
+	t.waitSpin.Store(int64(t.spinFor(d)))
 	t.drain()
 	return t.arm(t.lead(d))
 }
@@ -121,20 +128,30 @@ func (t *Timer) expire() error {
 }
 
 // spinToDeadline spins until the deadline, unless the timer is stopped or the deadline
-// is more than spin away.
+// is more than the spin of the current wait away.
 func (t *Timer) spinToDeadline() {
 	for {
 		deadline := time.Duration(t.deadline.Load())
-		if left := deadline - Now(); deadline == 0 || left <= 0 || left > t.spin {
+		left := deadline - Now()
+		if deadline == 0 || left <= 0 || left > time.Duration(t.waitSpin.Load()) {
 			return
 		}
 	}
 }
 
-// lead returns the span to arm the OS timer for, so that it wakes spin before a
-// deadline d away. The span is always positive, because arming zero disarms.
+// spinFor returns the spin of a wait of d.
+func (t *Timer) spinFor(d time.Duration) time.Duration {
+	if t.spin == SpinAll {
+		return SpinAll
+	}
+	return min(t.spin, d/2)
+}
+
+// lead returns the span to arm the OS timer for, so that it wakes the spin of the
+// current wait before a deadline d away. The span is always positive, because arming
+// zero disarms.
 func (t *Timer) lead(d time.Duration) time.Duration {
-	return max(d-t.spin, time.Nanosecond)
+	return max(d-time.Duration(t.waitSpin.Load()), time.Nanosecond)
 }
 
 // failure returns the wait goroutine's failure, or nil while it runs.
