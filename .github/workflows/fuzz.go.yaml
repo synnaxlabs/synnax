@@ -17,19 +17,46 @@ on:
 
 jobs:
   fuzz:
-    name: Fuzz (${{ matrix.module }})
+    name: Fuzz (${{ matrix.module }} ${{ matrix.shard }}/${{ matrix.shards }})
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
+        # A shard fuzzes every package whose index is its number modulo shards. Core
+        # has about ten times the targets of the other modules, so it takes more
+        # shards and less time per target.
         include:
           - module: x/go
             artifact: x-go
-          - module: core
-            artifact: core
+            shard: 1
+            shards: 1
+            fuzztime: 60s
           - module: arc/go
             artifact: arc-go
+            shard: 1
+            shards: 1
+            fuzztime: 60s
+          - module: core
+            artifact: core
+            shard: 1
+            shards: 4
+            fuzztime: 20s
+          - module: core
+            artifact: core
+            shard: 2
+            shards: 4
+            fuzztime: 20s
+          - module: core
+            artifact: core
+            shard: 3
+            shards: 4
+            fuzztime: 20s
+          - module: core
+            artifact: core
+            shard: 4
+            shards: 4
+            fuzztime: 20s
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -44,27 +71,40 @@ jobs:
 
       - name: Fuzz
         working-directory: ${{ matrix.module }}
-        # go test -fuzz requires a single package (cannot use ./...), so we
-        # discover packages containing fuzz targets via grep and iterate.
+        env:
+          SHARD: ${{ matrix.shard }}
+          SHARDS: ${{ matrix.shards }}
+          FUZZTIME: ${{ matrix.fuzztime }}
+        # go test -fuzz requires a single package (cannot use ./...), so we discover
+        # the targets via grep and run them one at a time. A shard takes a contiguous
+        # block of the sorted list, which keeps the targets of a package together. A
+        # failed target does not stop the loop, so one run reports every failure.
         run: |
-          packages=$(grep -rl '^func Fuzz' --include='*_test.go' . | sed 's|/[^/]*$||' | sort -u)
-          if [ -z "$packages" ]; then
+          targets=$(grep -roE '^func Fuzz[A-Za-z0-9_]+' --include='*_test.go' . \
+            | sed -E 's|^(\./)?|./|; s|/[^/]*:func | |' | sort -u \
+            | awk -v n="$SHARDS" -v s="$SHARD" \
+              '{ l[NR] = $0 } END { for (i = 1; i <= NR; i++)
+                if (int((i - 1) * n / NR) + 1 == s) print l[i] }')
+          if [ -z "$targets" ]; then
             echo "No fuzz targets found"
             exit 0
           fi
-          for pkg in $packages; do
-            echo "::group::Fuzzing $pkg"
-            targets=$(go test "$pkg" -list '^Fuzz' -run '^$' 2>/dev/null | grep '^Fuzz' || true)
-            for target in $targets; do
-              echo "--- $target ---"
-              go test "$pkg" -fuzz="^${target}$" -fuzztime=60s -run='^$'
-            done
+          failed=()
+          while read -r pkg target; do
+            echo "::group::Fuzzing $pkg $target"
+            go test "$pkg" -fuzz="^${target}$" -fuzztime="$FUZZTIME" -run='^$' \
+              || failed+=("$pkg $target")
             echo "::endgroup::"
-          done
+          done <<< "$targets"
+          if [ "${#failed[@]}" -gt 0 ]; then
+            printf 'failed fuzz targets:\n'
+            printf '  %s\n' "${failed[@]}"
+            exit 1
+          fi
 
       - name: Upload crash corpus
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: fuzz-crashes-${{ matrix.artifact }}
+          name: fuzz-crashes-${{ matrix.artifact }}-${{ matrix.shard }}
           path: ${{ matrix.module }}/**/testdata/fuzz/
