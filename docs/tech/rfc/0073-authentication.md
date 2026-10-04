@@ -264,8 +264,10 @@ it. JWTs and the signing key go away.
 - `last_active` drives the idle timeout.
 
 A session token is `sys_`, the session key, and a random secret, the same layout as an
-API key. The Core finds the session by its key and compares the hash. The prefixes let
-the Core, and secret scanners, tell the two kinds apart.
+API key. Each secret is 32 random bytes, far above the 64 bit minimum in NIST SP 800-63B
+and the 128 bit strength NIST asks for after 2030. The FIPS mode (§4.1) governs the
+random generator and the hash. The Core finds the session by its key and compares the
+hash. The prefixes let the Core, and secret scanners, tell the two kinds apart.
 
 On each request the middleware puts three values on the request: the subject, the
 credential, and the session key. Handlers and audit rely on the subject and the
@@ -597,6 +599,5 @@ Each phase is one pull request into `main`.
 
 ## 8 Open questions
 
-1. **Token and key lengths**: The size of the random part of each.
-2. **Provider settings**: Start settings as written, or stored records the Console can
+1. **Provider settings**: Start settings as written, or stored records the Console can
    edit without a restart.
