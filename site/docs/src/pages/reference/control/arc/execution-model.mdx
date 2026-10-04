@@ -53,6 +53,11 @@ sequence fill {
 start_cmd == 1 => fill
 ```
 
+Only one line in the whole program can start a top-level sequence. When several lines
+point to the same top-level sequence, a known bug makes only the last one start it. The
+others stop the current sequence and start nothing. To reach an abort from several
+conditions, make the abort a stage of the same sequence.
+
 While `fill` waits for 300 psi, it checks nothing else. To watch for unsafe values
 during a step, put the step in a stage. All the flows in a stage run at the same time.
 

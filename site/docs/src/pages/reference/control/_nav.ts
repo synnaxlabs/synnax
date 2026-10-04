@@ -32,5 +32,10 @@ export const CONTROL_NAV: PageNavNode = {
     },
     ARC_NAV,
     PYTHON_SEQUENCES_NAV,
+    {
+      key: "/reference/control/troubleshooting",
+      href: "/reference/control/troubleshooting",
+      name: "Troubleshooting",
+    },
   ],
 };
