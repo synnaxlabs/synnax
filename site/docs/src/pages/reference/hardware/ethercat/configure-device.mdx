@@ -56,8 +56,10 @@ Driver:
 
 The Driver gets the PDOs of a module from a built-in catalog of Beckhoff and Dewesoft
 modules, then from the module itself. If it cannot find them, the status of the module
-starts with "Discovered with warning" or reads "Discovered (no PDOs found)". Use
-[manual channels](/reference/hardware/ethercat/read-task#pdo-channels) for that module.
+starts with "Discovered with warning" or reads "Discovered (no PDOs found)". To scan
+again, [restart the Driver](/reference/hardware/troubleshooting#restart-the-driver). A
+module that the scan cannot read is not supported yet. Manual channels on that module
+read wrong values.
 
 <Divider.Divider x />
 
