@@ -47,7 +47,12 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const form = page.locator(".console-task-configure").first();
     await session.waitFor(form);
     await session.hold(1000);
-    await session.zoom(form.locator(".console-task-channel-form-container").first());
+    // The channel list is too wide for its fit to zoom, so zoom on a point in it.
+    const box = await form
+      .locator(".console-task-channel-form-container")
+      .boundingBox();
+    if (box == null) throw new Error("channel list is not on screen");
+    await session.zoom({ x: box.x + box.width / 2, y: box.y + 250 }, 1.5);
     const rows = form.locator(".console-channel-item");
     const add = form.getByText("Add channel", { exact: true }).first();
 

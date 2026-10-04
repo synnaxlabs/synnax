@@ -47,7 +47,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   const dialog = page.locator(".console-confirm").first();
   await session.waitFor(dialog);
   await session.hold(400);
-  await session.zoom(dialog);
+  await session.zoom(dialog, 1.6);
   await session.hold(800);
   await session.click(dialog.getByRole("button", { name: "Delete", exact: true }));
   await session.waitForHidden(dialog);
