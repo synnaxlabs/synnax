@@ -10,7 +10,7 @@
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
-import { DataType } from "@synnaxlabs/x";
+import { DataType, Density } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { useFromConfig } from "@/feature/modbus/device/queries";
@@ -18,26 +18,27 @@ import { CSS } from "@/platform/css";
 
 type Order = "device" | "swapped" | "not_swapped";
 
-const SUBJECTS = {
-  bytesSwapped: { label: "Bytes", connection: "swapBytes" },
-  wordsSwapped: { label: "Words", connection: "swapWords" },
-} as const;
+const LABELS = { bytesSwapped: "Bytes", wordsSwapped: "Words" } as const;
 
 interface SelectOrderProps {
   path: string;
-  field: keyof typeof SUBJECTS;
+  field: keyof typeof LABELS;
+  deviceSwapped?: boolean;
 }
 
 const describe = (swapped: boolean): string => (swapped ? "swapped" : "not swapped");
 
-const SelectOrder = ({ path, field }: SelectOrderProps): ReactElement => {
-  const { label, connection } = SUBJECTS[field];
+const SelectOrder = ({
+  path,
+  field,
+  deviceSwapped,
+}: SelectOrderProps): ReactElement => {
+  const label = LABELS[field];
   const fieldPath = `${path}.${field}`;
   const ctx = Form.useContext();
   const value = Form.useFieldValue<boolean | undefined>(fieldPath, { optional: true });
-  const deviceSwapped = useFromConfig()?.properties.connection[connection];
   const order: Order = value == null ? "device" : value ? "swapped" : "not_swapped";
-  const deviceName =
+  const deviceOption =
     deviceSwapped == null ? "device" : `device (${describe(deviceSwapped)})`;
   return (
     <Select.Simple<Order>
@@ -48,7 +49,7 @@ const SelectOrder = ({ path, field }: SelectOrderProps): ReactElement => {
       allowNone={false}
       resourceName={`${label.toLowerCase()} order`}
     >
-      <Select.Item<Order> itemKey="device">{`${label}: ${deviceName}`}</Select.Item>
+      <Select.Item<Order> itemKey="device">{`${label}: ${deviceOption}`}</Select.Item>
       <Select.Item<Order> itemKey="swapped">{`${label}: ${describe(true)}`}</Select.Item>
       <Select.Item<Order> itemKey="not_swapped">
         {`${label}: ${describe(false)}`}
@@ -69,11 +70,22 @@ export interface OrderFieldsProps {
  * override. The device option shows the order the device currently sets. A data type
  * that fits in one register has no word order, so it shows the byte order alone.
  */
-export const OrderFields = ({ path, dataType }: OrderFieldsProps): ReactElement => (
-  <Flex.Box x pack className={CSS.BE("modbus", "order")}>
-    <SelectOrder path={path} field="bytesSwapped" />
-    {new DataType(dataType).density.valueOf() > 2 && (
-      <SelectOrder path={path} field="wordsSwapped" />
-    )}
-  </Flex.Box>
-);
+export const OrderFields = ({ path, dataType }: OrderFieldsProps): ReactElement => {
+  const connection = useFromConfig()?.properties.connection;
+  return (
+    <Flex.Box x pack className={CSS.B("modbus-order")}>
+      <SelectOrder
+        path={path}
+        field="bytesSwapped"
+        deviceSwapped={connection?.swapBytes}
+      />
+      {new DataType(dataType).density.valueOf() > Density.BIT16.valueOf() && (
+        <SelectOrder
+          path={path}
+          field="wordsSwapped"
+          deviceSwapped={connection?.swapWords}
+        />
+      )}
+    </Flex.Box>
+  );
+};

@@ -123,8 +123,8 @@ func (c ServiceConfig[E]) Validate() error {
 	v.NotNil("set_entry_key", c.SetEntryKey)
 	v.Ternary(
 		"upgrades",
-		imex.Version(len(c.Upgrades)) > c.Version,
-		"must not outnumber the version",
+		len(c.Upgrades) > 0 && imex.Version(len(c.Upgrades)) >= c.Version,
+		"must leave version 0 to legacy configs",
 	)
 	return v.Error()
 }

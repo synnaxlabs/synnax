@@ -56,17 +56,18 @@ var _ = Describe("Service", func() {
 			)).Error().To(MatchError(ContainSubstring("db: must be non-nil")))
 		})
 
-		It("Should reject more upgrades than the version", func(ctx SpecContext) {
+		It("Should reject upgrades that reach legacy version 0", func(ctx SpecContext) {
 			Expect(config.OpenService(
 				ctx,
 				config.ServiceConfig[arctask.Config]{
 					DB:          db,
 					Type:        testType,
+					Version:     1,
 					SetEntryKey: (*arctask.Config).SetKey,
 					Upgrades:    []config.Upgrade{nil},
 				},
 			)).Error().To(MatchError(
-				ContainSubstring("upgrades: must not outnumber the version"),
+				ContainSubstring("upgrades: must leave version 0 to legacy configs"),
 			))
 		})
 
