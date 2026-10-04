@@ -95,6 +95,10 @@ export default defineConfig({
       "/reference/control/arc/execution-model",
     "/reference/control/arc/concepts/sequences-and-stages":
       "/reference/control/arc/execution-model",
+    "/reference/control/arc/concepts/channels-and-series":
+      "/reference/control/arc/reference/types",
+    "/reference/control/arc/reference/loops":
+      "/reference/control/arc/reference/statements",
     "/reference/control/arc/how-to": "/reference/control/arc",
     "/reference/control/arc/how-to/test-sequences":
       "/reference/control/arc/test-sequences",

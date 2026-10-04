@@ -60,11 +60,6 @@ export const REFERENCE_NAV: PageNavNode = {
       href: "/reference/control/arc/reference/statements",
       name: "Statements",
     },
-    {
-      key: "/reference/control/arc/reference/loops",
-      href: "/reference/control/arc/reference/loops",
-      name: "Loops",
-    },
     STANDARD_LIBRARY_NAV,
     {
       key: "/reference/control/arc/reference/errors",
