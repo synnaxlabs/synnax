@@ -30,4 +30,4 @@ jobs:
           version: latest-known
 
       - name: Run tests
-        run: uvx pytest .github/scripts scripts
+        run: uvx --with psutil pytest .github/scripts scripts

@@ -14,7 +14,7 @@ import SectionHero from "@/components/common/SectionHero.astro";
 import FeatureSection from "@/components/common/FeatureSection.astro";
 import PanelTab from "@/components/common/PanelTab.astro";
 import BrickWall from "./BrickWall.astro";
-import { cdn } from "@/cdn";
+import CdnPicture from "@/components/common/CdnPicture.astro";
 ---
 
 <SectionHero id="review" label="4 -> Store, organize, review">
@@ -63,20 +63,22 @@ import { cdn } from "@/cdn";
             <PanelTab label="Explorer">
                 <Icon.Explore slot="icon" className="panel-tab-icon" />
             </PanelTab>
-            <img
+            <CdnPicture
                 class="review-ranges-explorer"
-                src={cdn("images/range-explorer.png")}
+                path="images/range-explorer.png"
                 alt="Range explorer showing labeled test runs with stage indicators"
+                sizes="(max-width: 900px) 100vw, 1180px"
             />
         </div>
         <div class="review-ranges-detail-container">
             <PanelTab label="Range">
                 <Icon.Range slot="icon" className="panel-tab-icon" />
             </PanelTab>
-            <img
+            <CdnPicture
                 class="review-ranges-detail"
-                src={cdn("images/range-overview.png")}
+                path="images/range-overview.png"
                 alt="Range detail panel showing metadata, labels, and hierarchy"
+                sizes="(max-width: 900px) 100vw, 560px"
             />
         </div>
     </div>

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// src/types/astro-components.d.ts
-declare module "*.astro" {
-  import type { AstroComponentFactory } from "astro/runtime";
-  const component: AstroComponentFactory;
-  export default component;
-}
+import { failOnConsoleOutput } from "@synnaxlabs/x/testutil";
+import { cleanup } from "@testing-library/react";
+import { afterEach } from "vitest";
+
+failOnConsoleOutput();
+afterEach(cleanup);

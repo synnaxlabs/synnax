@@ -10,16 +10,22 @@
 package v2_test
 
 import (
+	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"os"
+	"reflect"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/alamos"
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/log/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
 	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/migrate"
@@ -44,6 +50,20 @@ func loadV55(path string) v0.Log {
 	key := MustSucceed(uuid.Parse(m["key"].(string)))
 	name, _ := m["name"].(string)
 	return v0.Log{Key: key, Name: name, Data: m}
+}
+
+// decodeError matches a JSON decode error for goType at pointer. encoding/json/v2
+// randomizes its message wording per process, so the match reads the error's fields.
+func decodeError(pointer jsontext.Pointer, goType reflect.Type) types.GomegaMatcher {
+	return WithTransform(func(err error) *json.SemanticError {
+		var semErr *json.SemanticError
+		errors.As(err, &semErr)
+		return semErr
+	}, And(
+		Not(BeNil()),
+		HaveField("JSONPointer", Equal(pointer)),
+		HaveField("GoType", Equal(goType)),
+	))
 }
 
 var _ = Describe("MigrateLog", func() {
@@ -219,9 +239,9 @@ var _ = Describe("MigrateLog", func() {
 				},
 			},
 		}
-		Expect(v2.MigrateLog(ctx, old)).Error().To(MatchError(ContainSubstring(
-			"cannot unmarshal JSON string into Go channel.Key",
-		)))
+		Expect(v2.MigrateLog(ctx, old)).Error().To(decodeError(
+			"/channels/0/channel", reflect.TypeFor[channel.Key](),
+		))
 	})
 
 	It(
@@ -301,19 +321,18 @@ var _ = Describe("MigrateLog", func() {
 
 		DescribeTable(
 			"Should reject an undecodable body",
-			func(ctx SpecContext, path, msg string) {
-				Expect(v2.MigrateLog(ctx, loadV55(path))).Error().
-					To(MatchError(ContainSubstring(msg)))
+			func(ctx SpecContext, path string, matcher types.GomegaMatcher) {
+				Expect(v2.MigrateLog(ctx, loadV55(path))).Error().To(matcher)
 			},
 			Entry(
 				"channels stored as a non-array",
 				"../testdata/import_bad_data.json",
-				"cannot unmarshal JSON string into Go []v1.ChannelEntry",
+				decodeError("/channels", reflect.TypeFor[[]legacy.ChannelEntry]()),
 			),
 			Entry(
 				"unsupported version stamp",
 				"../testdata/import_bad_version.json",
-				"unknown log data version",
+				MatchError(ContainSubstring("unknown log data version")),
 			),
 		)
 	})
