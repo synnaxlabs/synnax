@@ -31,7 +31,11 @@ sudo synnax-driver install
 - **Linux** -> creates the `synnax` system user, the environment file
   `/etc/synnax/driver.env`, and the systemd service `synnax-driver`. The service runs as
   the `synnax` user. `install` does not start the service, and does not set it to start
-  with the computer. To do that, run `sudo systemctl enable synnax-driver`.
+  with the computer. To do that, run `sudo systemctl enable synnax-driver`. The service
+  can use real-time priority and lock memory, and `install` writes the udev rule
+  `/etc/udev/rules.d/99-synnax.rules`, so that
+  [Arc automations at the High level](/reference/control/arc/timing#performance-levels)
+  can keep CPU cores awake.
 - **NI Linux Real-Time** -> creates the service `/etc/init.d/synnax-driver`, which runs
   as root and starts with the controller. `install` does not start it, so run
   `synnax-driver start`. The Driver writes its logs to `/var/log/synnax-driver.log`.
@@ -284,9 +288,10 @@ Removes the service.
 sudo synnax-driver uninstall
 ```
 
-On Linux, `uninstall` stops the service first. On NI Linux Real-Time, it does not, so
-run `synnax-driver stop` before `uninstall`. The binary, the `synnax` user, the
-environment file, and the state file stay on the computer.
+On Linux, `uninstall` stops the service first and removes the udev rule. On NI Linux
+Real-Time, it does not stop the service, so run `synnax-driver stop` before `uninstall`.
+The binary, the `synnax` user, the environment file, and the state file stay on the
+computer.
 
 On Windows and macOS, there is no service. Delete the binary instead.
 
