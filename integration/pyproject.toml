@@ -85,10 +85,10 @@ init_forbid_extra = true
 init_types = true
 warn_required_dynamic_aliases = true
 
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
 # The framework's own unit tests. Integration tests run through the test conductor.
 [tool.pytest.ini_options]
 testpaths = ["framework/tests"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
