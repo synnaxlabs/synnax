@@ -11,14 +11,16 @@ import { Edition } from "@/components/edition";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-To control hardware in Synnax, you write values to a command channel, such as
-`press_vlv_cmd`. A [write task](/reference/hardware/tasks#write-tasks) listens on that
-channel and sends each value to the device: it opens a valve, starts a pump, or changes
-a setpoint. Most write tasks also write what the device did to a
-[state channel](/reference/channels#channels-that-tasks-create), such as
-`press_vlv_state`. [Modbus](/reference/hardware/modbus/write-task),
+To control hardware in Synnax, you write values to a
+[command channel](/reference/hardware/tasks#command-channels), such as `press_vlv_cmd`.
+A [write task](/reference/hardware/tasks#write-tasks) listens on that channel and sends
+each value to the device: it opens a valve, starts a pump, or changes a setpoint. Most
+write tasks also write what the device did to a
+[state channel](/reference/hardware/tasks#state-channels), such as `press_vlv_state`.
+[Modbus](/reference/hardware/modbus/write-task),
 [OPC UA](/reference/hardware/opc-ua/write-task), and
-[HTTP](/reference/hardware/http/write-task) write tasks have no state channels, so a
+[HTTP](/reference/hardware/http/write-task) write tasks have
+[no state channels](/reference/hardware/tasks#outputs-with-no-state-channel), so a
 [read task](/reference/hardware/tasks#read-tasks) on the same device reads the state
 back. For how commands and state work, see
 [write tasks](/reference/hardware/tasks#write-tasks).
