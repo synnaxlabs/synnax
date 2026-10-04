@@ -147,18 +147,24 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       return symbol;
     };
 
-    const press = await valve("Press valve", "press_vlv_cmd", { x: 470, y: 110 });
-    const vent = await valve("Vent valve", "vent_vlv_cmd", { x: 770, y: 110 });
+    // The canvas fits its view once, around the first symbol, and spawns every new
+    // symbol at its center. A throwaway symbol takes the fit, and the row keeps the
+    // center clear.
+    const throwaway = await capture.place(session, "Generic", { x: 510, y: 160 });
+    await session.press("Backspace");
+    await session.waitForHidden(throwaway);
+    const press = await valve("Press valve", "press_vlv_cmd", { x: 620, y: 160 });
+    const vent = await valve("Vent valve", "vent_vlv_cmd", { x: 750, y: 160 });
 
-    const button = await capture.place(session, "Button", { x: 470, y: 300 });
+    const button = await capture.place(session, "Button", { x: 270, y: 160 });
     await openTab("Style");
     await fill("Label", "Start");
     await openTab("Control");
     await bind("Command", "start_cmd");
 
     const indicator = await capture.place(session, "State indicator", {
-      x: 770,
-      y: 300,
+      x: 400,
+      y: 160,
     });
     await openTab("Telemetry");
     await bind("State", "press_stage");
@@ -180,7 +186,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       await session.settle(200);
     }
 
-    await capture.deselect(session, { x: 100, y: 60 });
+    await capture.deselect(session, { x: 40, y: 40 });
     await session.click(
       page.locator(".console-controls button:has(svg.pluto-icon--edit-off)").first(),
       { zoom: false },
@@ -189,9 +195,14 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       zoom: false,
     });
     await session.settle(600);
+    await session.click(
+      page.locator(".console-controls button:has(svg.pluto-icon--expand)").first(),
+      { zoom: false },
+    );
+    await session.settle(600);
     const status = indicator.locator(".pluto-state-indicator").first();
     await session.waitFor(status.getByText("Idle", { exact: true }));
-    await session.moveTo({ x: 300, y: 700 });
+    await session.moveTo({ x: 540, y: 520 });
 
     const startButton = button.locator(".pluto-symbol-button").first();
     session.startRecording();
@@ -225,12 +236,9 @@ const frame = async (
   const top = Math.min(...found.map((b) => b.y));
   const right = Math.max(...found.map((b) => b.x + b.width));
   const bottom = Math.max(...found.map((b) => b.y + b.height));
+  // Tight enough to leave the control legend out of frame.
   await session.zoom(
     { x: (left + right) / 2, y: (top + bottom) / 2 },
-    Math.min(
-      1.8,
-      view.width / (right - left + 320),
-      view.height / (bottom - top + 320),
-    ),
+    Math.min(1.75, view.width / (right - left + 80)),
   );
 };

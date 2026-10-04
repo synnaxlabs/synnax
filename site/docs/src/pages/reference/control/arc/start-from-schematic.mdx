@@ -6,6 +6,7 @@ description:
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
+import { Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -110,6 +111,8 @@ shows **Unknown** for a value with no option.
 Turn off editing, then click **Start** on the schematic. The schematic takes control,
 then writes to `start_cmd`. The indicator shows **Pressurizing**, and the press valve
 opens.
+
+<Video id="control/arc/start-from-schematic/start-button" />
 
 The schematic writes at authority 1 by default, and the automation at 255, so the
 automation keeps control of the valves. If you give the automation a lower authority
