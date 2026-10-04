@@ -25,7 +25,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.moveTo({ x: 756, y: 500 });
 
     session.startRecording();
-    await session.hold(1000);
+    await session.hold(1800);
 
     await capture.clickToolbarCreate(session);
     const first = page.getByPlaceholder("Richard").first();
@@ -76,7 +76,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     // Tree entries show the username, not the full name.
     const created = drawer.getByText("grace", { exact: true }).first();
     await session.waitFor(created);
-    await session.hold(500);
+    await session.moveTo({ x: 800, y: 450 });
+    await session.hold(2800);
   } finally {
     await fixture.stop();
   }
