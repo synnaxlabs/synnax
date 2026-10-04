@@ -63,8 +63,7 @@ export const configureDeviceScript =
       await session.hold(500);
       await capture.clickButton(session, "Next");
 
-      const identifierInput = modal.getByText("Identifier", { exact: true });
-      await session.waitFor(identifierInput);
+      await session.waitFor(modal.getByText("pick a short identifier"));
       await session.hold(600);
       await session.type(identifier);
       await session.hold(600);
