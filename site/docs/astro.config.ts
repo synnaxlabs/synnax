@@ -84,6 +84,7 @@ export default defineConfig({
     "/reference/client/advanced/delete-data": "/reference/client/delete-data",
     "/reference/client/advanced/auto-commit": "/reference/client/write-data",
     "/reference/client/advanced/auto-index": "/reference/client/write-data",
+    "/reference/client/advanced/iterators": "/reference/client/read-data",
     "/reference/client/authentication": "/reference/client/connect",
     "/reference/console/clusters": "/reference/enterprise/console",
     "/reference/console/cores": "/reference/enterprise/console",

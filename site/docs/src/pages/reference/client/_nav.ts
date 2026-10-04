@@ -56,17 +56,6 @@ export const CLIENT_NAV: PageNavNode = {
       name: "Stream data",
     },
     {
-      key: "advanced",
-      name: "Advanced topics",
-      children: [
-        {
-          key: "/reference/client/advanced/iterators",
-          href: "/reference/client/advanced/iterators",
-          name: "Iterators",
-        },
-      ],
-    },
-    {
       key: "/reference/client/delete-data",
       href: "/reference/client/delete-data",
       name: "Delete data",
