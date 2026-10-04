@@ -37,15 +37,44 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const tank = await capture.place(session, "Tank", at(0.14, 0.62));
     const ball = await capture.place(session, "Ball", at(0.3, 0.68));
     const solenoid = await capture.place(session, "Solenoid", at(0.78, 0.68));
-    const pressure = await capture.place(session, "Value", at(0.14, 0.2));
+    // High enough that the box clears the tank's label.
+    const pressure = await capture.place(session, "Value", at(0.14, 0.1));
     const temperature = await capture.place(session, "Value", at(0.62, 0.42));
     const pump = await capture.place(session, "Pump", at(0.46, 0.68));
     const check = await capture.place(session, "Check", at(0.62, 0.68));
 
     const drawer = page.locator(".console-nav__drawer.pluto--location-bottom").first();
-    const bind = async (value: Locator, channel: string): Promise<void> => {
+    const field = (label: string): Locator =>
+      drawer
+        .locator(".pluto-input__item")
+        .filter({ hasText: new RegExp(`^${label}`) })
+        .locator("input")
+        .first();
+    const bind = async (
+      value: Locator,
+      channel: string,
+      label: string,
+      units: string,
+    ): Promise<void> => {
       await session.click(value, { zoom: false });
       await capture.selectToolbarTab(session, "Properties");
+      await session.click(
+        drawer.locator("[role='tab']").filter({ hasText: "Style" }).first(),
+        {
+          text: true,
+          zoom: false,
+        },
+      );
+      for (const [name, text] of [
+        ["Label", label],
+        ["Units", units],
+      ]) {
+        const input = field(name);
+        await session.waitFor(input);
+        await input.fill(text);
+        await input.press("Enter");
+        await session.settle(300);
+      }
       const telemetry = drawer.getByText("Telemetry", { exact: true }).first();
       await session.waitFor(telemetry);
       await session.click(telemetry, {
@@ -69,8 +98,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       });
       await session.settle(400);
     };
-    await bind(pressure, fixture.channels[0]);
-    await bind(temperature, fixture.channels[1]);
+    await bind(pressure, fixture.channels[0], "Tank pressure", "psi");
+    await bind(temperature, fixture.channels[1], "Line temperature", "°C");
 
     const line = [tank, ball, pump, check, solenoid];
     for (let i = 0; i < line.length - 1; i++) {
