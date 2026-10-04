@@ -73,18 +73,16 @@ Set `cert.source` on each listener. Listeners can use different sources.
 
 ## The advertised listener
 
-Other nodes of a cluster and the embedded Driver connect to one address: the address of
-the advertised listener. Set `advertise: true` on one listener. If no listener sets it,
-the first listener is advertised.
+The embedded Driver connects to one address: the address of the advertised listener. Set
+`advertise: true` on one listener. If no listener sets it, the first listener is
+advertised.
 
-The certificate of the advertised listener must cover its host. In a cluster, it must
-also be signed by the Core CA. On a single Core with the embedded Driver, it must be
-signed by the Core CA or be the `node.crt` of the Core.
+The certificate of the advertised listener must cover its host, and must be signed by
+the Core CA or be the `node.crt` of the Core.
 
 <Note.Note variant="warning">
   The advertised listener cannot use `tailscale`, because a Tailscale certificate is not
-  signed by the Core CA. The exception is a single Core that starts with `--no-driver`
-  and has never joined a cluster.
+  signed by the Core CA. The exception is a Core that starts with `--no-driver`.
 </Note.Note>
 
 <Divider.Divider x />

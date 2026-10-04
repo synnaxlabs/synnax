@@ -23,8 +23,8 @@ line.
 - Term bullets use `->` as the separator:
   `- [Ranges](/reference/ranges) -> mark a test in time`. Never an em dash or a colon.
 - Product names: full name first on a page ("Synnax Core"), short name after ("the
-  Core"). Say "the Core" or "a Core", not "server" or "node", except when the text is
-  about multi-node clusters.
+  Core"). Say "the Core" or "a Core", never "server", "node", or "cluster". The docs
+  never describe multi-node clusters; they are not supported.
 - Console components are lowercase common nouns ("ranges toolbar", "Core selector"),
   with exact singular or plural. Task names are sentence case ("NI digital read task").
 - UI labels a reader clicks go in bold and match Console source exactly. Commands in the
@@ -42,6 +42,7 @@ line.
 
 ## Section and page structure
 
+- The docs never describe multi-node clusters; they are not supported.
 - One page per task. No "Manage" titles and no catch-all pages that hold many tasks.
 - Exception: a page for one Console component or one hardware task type (line plots,
   schematics, an NI analog read task) holds that component's tasks as verb h2s, then

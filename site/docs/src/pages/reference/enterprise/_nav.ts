@@ -76,11 +76,6 @@ export const ENTERPRISE_NAV: PageNavNode = {
       name: "Production checklist",
     },
     {
-      key: "/reference/enterprise/clusters",
-      href: "/reference/enterprise/clusters",
-      name: "Clusters and nodes",
-    },
-    {
       key: "driver",
       name: "Standalone Driver",
       children: [

@@ -50,14 +50,6 @@ See [Serve multiple listeners](/reference/enterprise/listeners).
 
 </Field.Item>
 
-<Field.Item name="--peers" short="-p" type="list" env="SYNNAX_PEERS">
-
-A comma-separated list of peer Cores in an existing cluster. If the list is not empty,
-the Core joins the cluster by connecting to each peer in the list. If the list is empty
-and the Core finds no existing cluster data, it starts a new cluster.
-
-</Field.Item>
-
 <Field.Item name="--data" short="-d" type="path" default='"synnax-data"' env="SYNNAX_DATA">
 
 The folder where the Core keeps its data.
@@ -297,7 +289,6 @@ Example files:
 ```json
 {
   "listen": "localhost:9090",
-  "peers": ["localhost:9091", "localhost:9092"],
   "data": "/usr/local/synnax/data",
   "verbose": true,
   "insecure": false,
@@ -332,9 +323,6 @@ Example files:
 
 ```yaml
 listen: localhost:9090
-peers:
-  - localhost:9091
-  - localhost:9092
 data: /usr/local/synnax/data
 verbose: true
 insecure: false
@@ -366,7 +354,6 @@ disable-channel-name-validation: false
 
 ```toml
 listen = "localhost:9090"
-peers = ["localhost:9091", "localhost:9092"]
 data = "/usr/local/synnax/data"
 verbose = true
 insecure = false
@@ -445,7 +432,7 @@ Fields of a listener:
     {
       field: "advertise",
       description:
-        "Marks this listener's address as the one peers dial to join the cluster. At most one listener may set it; the first listener is advertised if none do.",
+        "Marks this listener's address as the one the embedded Driver connects to. At most one listener may set it; the first listener is advertised if none do.",
     },
     {
       field: "name",
