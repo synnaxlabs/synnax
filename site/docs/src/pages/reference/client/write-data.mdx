@@ -601,6 +601,7 @@ Use this to calculate a new channel from stored data with the same index.
 All data channels that share an index must have samples at the same times, so they must
 have the same sample rate. Give a channel with a different rate its own index.
 
-Command channels usually need their own index too. You often write one command at a
-time, such as to open one valve, wait, and open a second valve. Commands that do not
-have the same timestamps cannot share an index.
+[Command channels](/reference/hardware/tasks#command-channels) usually need their own
+index too. You often write one command at a time, such as to open one valve, wait, and
+open a second valve. Commands that do not have the same timestamps cannot share an
+index.
