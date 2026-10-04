@@ -7,9 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// src/types/astro-components.d.ts
-declare module "*.astro" {
-  import type { AstroComponentFactory } from "astro/runtime";
-  const component: AstroComponentFactory;
-  export default component;
-}
+import { describe, expect, it } from "vitest";
+
+import { GET } from "./favicon.svg";
+
+describe("favicon.svg", () => {
+  it("should respond with an SVG image", async () => {
+    const response = GET();
+    expect(response.headers.get("Content-Type")).toBe("image/svg+xml");
+    expect(await response.text()).toContain("<svg");
+  });
+});

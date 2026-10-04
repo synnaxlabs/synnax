@@ -188,7 +188,9 @@ export const Badge = (): ReactElement => {
         >
           <Text.Text className={CSS.BE("core-badge", "user")}>
             <Icon.User />
-            {name}
+            <Text.Text el="span" overflow="fade">
+              {name}
+            </Text.Text>
           </Text.Text>
           <Connection.Indicator />
         </Dialog.Trigger>

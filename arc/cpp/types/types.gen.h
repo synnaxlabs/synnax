@@ -222,7 +222,7 @@ struct FunctionProperties {
 /// physical units, and constraints.
 struct Type : public FunctionProperties {
     /// @brief kind is the type category (primitive, compound, or meta-type).
-    Kind kind;
+    Kind kind = {};
     /// @brief name is the type name for variables and user-defined types.
     std::string name;
     /// @brief elem is the element type for compound types (chan, series).
@@ -233,7 +233,7 @@ struct Type : public FunctionProperties {
     x::mem::indirect<Type> constraint;
     /// @brief chan_direction indicates read/write direction for channel-typed
     /// parameters.
-    ChanDirection chan_direction;
+    ChanDirection chan_direction = {};
 
     static Type parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
