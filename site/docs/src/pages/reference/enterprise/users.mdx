@@ -127,9 +127,8 @@ with their keys.
 A Core starts with one root user, `synnax` with the password `seldon` by default. The
 root user always has the **Owner** role. At each start, the Core:
 
-- Creates the root user from `--username` and `--password` if no user has that
-  username. If a user has it, the Core makes that user the root user with the **Owner**
-  role.
+- Creates the root user from `--username` and `--password` if no user has that username.
+  If a user has it, the Core makes that user the root user with the **Owner** role.
 - Sets the root password back to `--password`. A changed root password lasts only until
   the next start.
 
