@@ -35,8 +35,8 @@ def stop_path(path: Path) -> Path:
 
 
 def sample(path: Path, interval: float) -> None:
-    """Writes a sample to the CSV at path every interval seconds until stopped."""
-    stop_path(path).unlink(missing_ok=True)
+    """Writes a sample to the CSV at path every interval seconds until stopped. An
+    existing stop file ends it before the first sample."""
     with open(path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(FIELDS)
@@ -72,8 +72,9 @@ def report(path: Path) -> str:
         "| --- | --- | --- | --- | --- |\n"
         f"| CPU % | {statistics.mean(cpu):.0f} | {percentile(cpu, 0.5):.0f} | "
         f"{percentile(cpu, 0.95):.0f} | {max(cpu):.0f} |\n"
-        f"| Memory GB | {statistics.mean(memory):.1f} | {percentile(memory, 0.5):.1f} | "
-        f"{percentile(memory, 0.95):.1f} | {max(memory):.1f} |\n"
+        f"| Memory GB | {statistics.mean(memory):.1f} | "
+        f"{percentile(memory, 0.5):.1f} | {percentile(memory, 0.95):.1f} | "
+        f"{max(memory):.1f} |\n"
     )
 
 

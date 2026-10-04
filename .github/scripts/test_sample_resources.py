@@ -61,12 +61,10 @@ class TestSample:
         assert not thread.is_alive()
         assert "| CPU % |" in summary
 
-    def test_should_ignore_a_stale_stop_file(self, tmp_path: Path) -> None:
+    def test_should_stop_when_reported_before_it_starts(self, tmp_path: Path) -> None:
         path = tmp_path / "resources.csv"
         sample_resources.stop_path(path).touch()
         thread = start(path)
-        wait_for_samples(path, 1)
-        sample_resources.report(path)
         thread.join(timeout=5)
         assert not thread.is_alive()
 

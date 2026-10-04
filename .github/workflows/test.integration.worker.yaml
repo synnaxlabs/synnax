@@ -86,18 +86,20 @@ jobs:
         if: runner.os == 'Windows'
         shell: powershell
         working-directory: integration
-        run: >-
-          Start-Process -FilePath uv -WindowStyle Hidden -WorkingDirectory .
-          -ArgumentList 'run', 'python', '../.github/scripts/sample_resources.py',
-          'sample', '${{ runner.temp }}\resources.csv'
+        run: |
+          Remove-Item -Force -ErrorAction SilentlyContinue "$env:RUNNER_TEMP\resources.stop"
+          Start-Process -FilePath uv -WindowStyle Hidden -WorkingDirectory . `
+            -ArgumentList 'run', 'python', '../.github/scripts/sample_resources.py', `
+            'sample', "$env:RUNNER_TEMP\resources.csv"
 
       - name: Start resource sampler (Ubuntu)
         id: sampler-unix
         if: runner.os == 'Linux'
         working-directory: integration
-        run: >-
-          nohup uv run python ../.github/scripts/sample_resources.py sample
-          "$RUNNER_TEMP/resources.csv" > /dev/null 2>&1 &
+        run: |
+          rm -f "$RUNNER_TEMP/resources.stop"
+          nohup uv run python ../.github/scripts/sample_resources.py sample \
+            "$RUNNER_TEMP/resources.csv" > /dev/null 2>&1 &
 
       - name: Start Core (Windows)
         if: runner.os == 'Windows'
