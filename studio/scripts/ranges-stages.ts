@@ -32,9 +32,13 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   const overview = page.locator(".console-range__overview").first();
   const stage = overview.locator(".pluto-stage-button__trigger").first();
   await session.waitFor(stage.filter({ hasText: "To do" }));
-  await session.moveTo({ x: 756, y: 500 });
+  await session.moveTo({ x: 800, y: 450 });
 
-  const transition = async (name: string, next: string): Promise<void> => {
+  const transition = async (
+    name: string,
+    next: string,
+    committed = false,
+  ): Promise<void> => {
     await session.click(stage, { text: true });
     const menu = page.locator(".pluto-stage-button__menu").first();
     await session.waitFor(menu);
@@ -43,18 +47,21 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const item = menu.getByText(name, { exact: true }).first();
     await session.moveTo(item, { text: true });
     await session.hold(1200);
+    if (committed) session.endZoom();
     await session.click(item, { text: true });
     await session.waitFor(stage.filter({ hasText: next }));
   };
 
   session.startRecording();
-  await session.hold(1000);
+  await session.hold(1500);
+  // The Details block holds the stage button and the timeline it changes.
+  await session.zoom(overview.locator(":scope > div > *").first());
 
   await transition("Start", "In progress");
   await session.hold(2000);
-  await transition("Complete", "Completed");
+  await transition("Complete", "Completed", true);
 
   // Clear of the timeline, so the end and the duration read.
-  await session.moveTo({ x: 756, y: 600 });
-  await session.hold(2500);
+  await session.moveTo({ x: 800, y: 600 });
+  await session.hold(3000);
 };

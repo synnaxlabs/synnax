@@ -36,10 +36,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     .first();
   await session.waitFor(range);
   await capture.contextMenu(session, range, "Clear active range");
-  await session.moveTo({ x: 756, y: 500 });
+  await session.moveTo({ x: 800, y: 450 });
 
   session.startRecording();
-  await session.hold(1000);
+  await session.hold(1500);
 
   await capture.contextMenu(session, range, "Set as active range");
   await session.hold(1000);
@@ -67,5 +67,5 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await snapshot.scrollIntoViewIfNeeded();
   await session.hold(600);
   await session.moveTo(snapshot, { text: true });
-  await session.hold(2500);
+  await session.hold(3000);
 };

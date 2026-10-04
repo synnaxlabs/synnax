@@ -66,10 +66,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
         el.parentElement?.style.setProperty("display", "none");
   });
 
-  await session.moveTo({ x: 756, y: 400 });
+  await session.moveTo({ x: 800, y: 450 });
 
   session.startRecording();
-  await session.hold(1000);
+  await session.hold(1500);
 
   // Create the new label through the selector's "New label" button.
   await openSelector();
@@ -85,6 +85,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   const modal = page.locator(".console-label__edit");
   await session.waitFor(modal);
   await session.hold(400);
+  await session.zoom(modal);
   await session.click(modal.getByText("New label", { exact: true }).first(), {
     text: true,
   });
@@ -118,13 +119,17 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
   await session.click(modal.locator("button:has(.pluto-icon--check)").first());
   await session.hold(400);
+  session.endZoom();
   await session.click(modal.locator("button:has(.pluto-icon--close)").first());
   await session.hold(300);
 
   // Open the selector once and add both labels; multi-select stays open.
+  // The Details block of the range overview holds the label selector.
+  await session.zoom(page.locator(".console-range__overview > div > *").first());
   await openSelector();
   await pick(NEW_LABEL);
   await pick("Nominal");
+  session.endZoom();
   await session.press("Escape");
   await session.waitFor(
     page.locator(".pluto-tag").filter({ hasText: NEW_LABEL }).first(),
@@ -132,5 +137,5 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.waitFor(
     page.locator(".pluto-tag").filter({ hasText: "Nominal" }).first(),
   );
-  await session.hold(1500);
+  await session.hold(3000);
 };
