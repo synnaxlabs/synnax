@@ -36,6 +36,10 @@ type Config struct {
 	//
 	// Default: 1.
 	Scale float64
+	// MaxInterval caps the interval that Scale grows. Zero applies no cap.
+	//
+	// Default: 0.
+	MaxInterval time.Duration
 	// MaxRetries is how many calls to Wait are allowed. Once a breaker reaches this
 	// number, Wait no longer waits and returns false. Set it to InfiniteRetries to
 	// lift the limit.
@@ -53,6 +57,7 @@ func (c Config) Override(o Config) Config {
 	c.BaseInterval = override.Numeric(c.BaseInterval, o.BaseInterval)
 	c.MaxRetries = override.Numeric(c.MaxRetries, o.MaxRetries)
 	c.Scale = override.Numeric(c.Scale, o.Scale)
+	c.MaxInterval = override.Numeric(c.MaxInterval, o.MaxInterval)
 	c.Clock = override.Nil(c.Clock, o.Clock)
 	return c
 }
@@ -63,6 +68,11 @@ func (c Config) Validate() error {
 	v.GreaterThanEq("base_interval", c.BaseInterval, 0)
 	v.GreaterThanEq("max_retries", c.MaxRetries, InfiniteRetries)
 	v.GreaterThanEq("scale", c.Scale, 1)
+	v.Ternary(
+		"max_interval",
+		c.MaxInterval != 0 && c.MaxInterval < c.BaseInterval,
+		"must be zero or at least base_interval",
+	)
 	v.NotNil("clock", c.Clock)
 	return v.Error()
 }
@@ -110,6 +120,9 @@ func (b *Breaker) Wait() bool {
 		return false
 	}
 	b.currInterval = time.Duration(float64(b.currInterval) * b.cfg.Scale)
+	if b.cfg.MaxInterval != 0 && b.currInterval > b.cfg.MaxInterval {
+		b.currInterval = b.cfg.MaxInterval
+	}
 	b.retryCount++
 	return true
 }

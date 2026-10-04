@@ -1,0 +1,64 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-task-configure--mqtt_read,
+.console-task-configure--mqtt_write {
+    .console-panes {
+        --console-list-width: 300px;
+    }
+
+    .pluto-tree__item {
+        padding-right: 1.25rem;
+    }
+
+    /* A Sparkplug B entry has no caret; the indent stands in for it so every label
+       starts flush. */
+    .pluto-tree__item.console-entry-item.console--leaf {
+        padding-left: calc(var(--pluto-tree-item-offset) + 3.5rem);
+    }
+
+    /* The tree paints every icon in its rows one gray; the toggle's own color must win
+       so an enabled item still reads as on. */
+    .pluto-tree__item .pluto-btn .pluto-icon {
+        color: inherit;
+    }
+
+    /* The add button stays quiet until the entry is hovered or chosen, so a long list
+       reads as data rather than a column of buttons. */
+    .console-entry-item__add {
+        opacity: 0;
+    }
+
+    .console-entry-item:is(:hover, :focus-within, .pluto--selected)
+        .console-entry-item__add {
+        opacity: 1;
+    }
+
+    .console-field-pointer {
+        min-width: 0;
+        flex-grow: 1;
+        font-family: var(--pluto-code-font-family);
+    }
+
+    .console--off :is(.console-field-pointer, .console-mqtt-entry-label > :last-child) {
+        color: var(--pluto-gray-l8);
+        text-decoration: line-through;
+        text-decoration-color: var(--pluto-gray-l6);
+    }
+
+    .console-static-field-value {
+        width: 120px;
+    }
+}
+
+.console-task-configure--mqtt_sparkplug_edge .console-field-data-type {
+    width: 22rem;
+}

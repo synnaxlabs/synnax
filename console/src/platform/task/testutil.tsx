@@ -22,6 +22,7 @@ import {
 import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
@@ -391,10 +392,12 @@ export const renderTaskFormTab = async (
   }
   const result = await renderSuspended(
     <Analytics.Provider sink={analytics}>
-      <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
-        <Form taskKey={taskKey} />
-        {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
-      </PanelScopes>
+      <Haul.Provider>
+        <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
+          <Form taskKey={taskKey} />
+          {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
+        </PanelScopes>
+      </Haul.Provider>
     </Analytics.Provider>,
     { wrapper, onCaughtError },
   );

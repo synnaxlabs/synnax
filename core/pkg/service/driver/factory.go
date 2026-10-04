@@ -29,6 +29,11 @@ type Factory interface {
 	// status is what answers the caller waiting on the command. Given NoCommand
 	// there is no caller, so failures on tasks that do not auto-start are logged.
 	ConfigureTask(ctx context.Context, t task.Task, cmdKey string) (Task, error)
+	// InitialTasks returns the internal tasks this factory needs on the driver's
+	// rack, such as a scan task. The driver creates each task whose type the rack
+	// does not yet hold, then configures it like any stored task. The driver sets
+	// the rack and the internal flag.
+	InitialTasks() []task.Task
 	// Name returns the integration name of this factory. This is used to identify the
 	// integrations allowed on the rack.
 	Name() string

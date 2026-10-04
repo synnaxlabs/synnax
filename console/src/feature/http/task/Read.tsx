@@ -9,12 +9,7 @@
 
 import "@/feature/http/task/Form.css";
 
-import {
-  channel,
-  http,
-  NotFoundError,
-  type Synnax as Client,
-} from "@synnaxlabs/client";
+import { channel, http } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -25,14 +20,13 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree } from "@synnaxlabs/lyra/tree";
-import { Access, Channel as PChannel, Telem } from "@synnaxlabs/pluto";
-import { DataType, errors, id, primitive, type record } from "@synnaxlabs/x";
+import { Telem } from "@synnaxlabs/pluto";
+import { DataType, id, type record } from "@synnaxlabs/x";
 import { type FC, type MouseEvent, useCallback, useMemo, useState } from "react";
 
 import { useFromConfig } from "@/feature/http/device/queries";
 import { Select as SelectDevice } from "@/feature/http/device/Select";
 import * as Device from "@/feature/http/device/types";
-import { ContextMenu } from "@/feature/http/task/ContextMenu";
 import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
 import { TimeFormatField } from "@/feature/http/task/TimeFormatField";
 import {
@@ -259,55 +253,6 @@ const FieldBinder = ({ epKey }: { epKey: string }) => {
   );
 };
 
-interface ChannelNameFieldProps {
-  path: string;
-  channel: channel.Key;
-  defaultName: string;
-}
-
-/**
- * Names a field's channel. Until configure creates the channel, the name lives on the
- * field; after, an edit renames the channel itself.
- */
-const ChannelNameField = ({
-  path,
-  channel: key,
-  defaultName,
-}: ChannelNameFieldProps) =>
-  key === 0 ? (
-    <PForm.TextField
-      path={`${path}.name`}
-      label="Channel"
-      padHelpText={false}
-      inputProps={{ placeholder: defaultName === "" ? "Channel name" : defaultName }}
-    />
-  ) : (
-    <ExistingChannelNameField channel={key} />
-  );
-
-const ExistingChannelNameField = ({ channel: key }: { channel: channel.Key }) => {
-  const { data: name = "" } = PChannel.useResultName({ key });
-  const { update } = PChannel.useRename();
-  const canRename = Access.useUpdateGranted(channel.TYPE_ONTOLOGY_ID);
-  const isPreview = Task.useIsPreview();
-  const handleChange = useCallback(
-    (next: string) => {
-      if (next.length > 0 && next !== name) update({ key, name: next });
-    },
-    [key, name, update],
-  );
-  return (
-    <Input.Item label="Channel" padHelpText={false}>
-      <Input.Text
-        value={name}
-        onChange={handleChange}
-        onlyChangeOnBlur
-        disabled={isPreview || !canRename}
-      />
-    </Input.Item>
-  );
-};
-
 type TimingMode = "software" | "value";
 
 const TimestampFields: FC<{ path: string }> = ({ path }) => {
@@ -445,9 +390,9 @@ const FieldPane: FC<{ epKey: string; fieldKey: string }> = ({ epKey, fieldKey })
           >
             {(p) => renderTelemSelectDataType({ ...p, disabled: bound })}
           </PForm.Field>
-          <ChannelNameField
-            path={path}
+          <Task.ChannelNameField
             channel={fieldChannel}
+            namePath={`${path}.name`}
             defaultName={defaultName}
           />
         </PForm.Section>
@@ -628,7 +573,7 @@ const Form: FC = () => {
       const disabledOf = (e: TreeEntry) =>
         ctx.get<boolean>(`${entryPath(e)}.disabled`).value;
       return (
-        <ContextMenu
+        <Task.Views.ContextMenu
           keys={keys}
           onRemove={handleRemove}
           onDuplicate={handleDuplicate}
@@ -725,21 +670,6 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
   return { name: "HTTP read task", type: READ_TYPE, config: cfg };
 };
 
-const retrieveChannel = async (
-  client: Client,
-  key: channel.Key,
-): Promise<channel.Channel | null> => {
-  try {
-    return await client.channels.retrieve(key);
-  } catch (e) {
-    if (NotFoundError.matches(e)) return null;
-    throw errors.fromUnknown(e);
-  }
-};
-
-const channelExists = async (client: Client, key: channel.Key): Promise<boolean> =>
-  (await retrieveChannel(client, key)) != null;
-
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({
     key: config.device,
@@ -750,76 +680,15 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
   try {
     for (const ep of config.endpoints) {
       dev.properties.read[ep.path] ??= { index: 0, channels: {} };
-      const epProps = dev.properties.read[ep.path];
-
-      const needsIndex = ep.fields.some(
-        (f) => !isTimingField(f) && !new DataType(f.dataType).isVariable,
-      );
-
-      if (needsIndex) {
-        let shouldCreateIndex = !primitive.isNonZero(epProps.index);
-        shouldCreateIndex ||= !(await channelExists(client, epProps.index));
-        if (shouldCreateIndex) {
-          // check if any existing data channels share an index we can reuse
-          let recoveredIndex = 0;
-          for (const storedKey of Object.values(epProps.channels)) {
-            if (!primitive.isNonZero(storedKey)) continue;
-            const ch = await retrieveChannel(client, storedKey);
-            if (ch != null && primitive.isNonZero(ch.index)) {
-              const indexCh = await retrieveChannel(client, ch.index);
-              if (indexCh != null) {
-                recoveredIndex = ch.index;
-                break;
-              }
-            }
-          }
-          if (primitive.isNonZero(recoveredIndex)) {
-            epProps.index = recoveredIndex;
-            modified = true;
-          } else {
-            modified = true;
-            const newIndexCh = await client.channels.create({
-              name: `${safeDevName}${channel.escapeInvalidName(ep.path)}_time`,
-              dataType: "timestamp",
-              isIndex: true,
-            });
-            epProps.index = newIndexCh.key;
-          }
-        }
-      }
-
-      const potentialTimingKey = ep.index;
-      for (const field of ep.fields) {
-        if (field.key === potentialTimingKey && epProps.index !== 0) {
-          field.channel = epProps.index;
-          continue;
-        }
-
-        if (field.channel !== 0 && (await channelExists(client, field.channel)))
-          continue;
-
-        const storedKey = epProps.channels[field.pointer];
-        if (
-          primitive.isNonZero(storedKey) &&
-          (await channelExists(client, storedKey))
-        ) {
-          field.channel = storedKey;
-          continue;
-        }
-
-        const dt = new DataType(field.dataType);
-        const chName = primitive.isNonZero(field.name)
-          ? field.name
-          : defaultChannelName(dev.name, ep.path, field.pointer);
-        const newCh = await client.channels.create({
-          name: chName,
-          dataType: field.dataType,
-          ...(dt.isVariable ? { virtual: true } : { index: epProps.index }),
-        });
-        modified = true;
-        field.channel = newCh.key;
-        epProps.channels[field.pointer] = newCh.key;
-      }
+      const changed = await Task.configureReadChannels({
+        client,
+        props: dev.properties.read[ep.path],
+        fields: ep.fields,
+        namePrefix: `${safeDevName}${channel.escapeInvalidName(ep.path)}`,
+        indexKey: ep.index,
+        indexed: (f) => !isTimingField(f) && !new DataType(f.dataType).isVariable,
+      });
+      modified ||= changed;
     }
   } finally {
     if (modified) await client.devices.create(dev, Device.SCHEMAS);

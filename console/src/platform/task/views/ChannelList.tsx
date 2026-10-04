@@ -51,7 +51,7 @@ export interface ChannelListProps<C extends Channel> extends Omit<
 > {
   /** Defaults to a "Channels" title; null when the enclosing frame titles the list. */
   header?: ReactNode;
-  resolve: BindChannelsProps<C>["resolve"];
+  resolve: BindChannelsProps<C>["resolve"] | null;
   createChannel: (channels: C[]) => C | null;
   createChannels?: (channels: C[], keys: string[]) => C[];
   path?: string;
