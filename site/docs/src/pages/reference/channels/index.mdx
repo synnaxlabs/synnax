@@ -74,9 +74,9 @@ channel, such as `valve_1_state`, shows what the hardware did.
 
 ### Start an automation from a button
 
-A schematic button writes `true` to a virtual `boolean` channel, such as `start_cmd`. An
-[Arc sequence](/reference/control/arc/test-sequences) starts when `start_cmd` receives a
-true value. Nothing stores the button press, because only the live value is necessary.
+A schematic button writes 1 to a virtual channel, such as `start_cmd`. An
+[Arc sequence](/reference/control/arc/start-from-schematic) starts when `start_cmd`
+receives 1. Nothing stores the button press, because only the live value is necessary.
 
 ### Store data from a script
 
