@@ -51,17 +51,19 @@ func start(cmd *cobra.Command) {
 	ins := instrumentation.Configure()
 	defer instrumentation.Cleanup(ctx, ins)
 
-	stopC := make(chan os.Signal, 1)
-	signal.Notify(stopC, os.Interrupt, syscall.SIGTERM)
+	// sigC holds two signals, so a second signal sent right after the first is kept.
+	sigC := make(chan os.Signal, 2)
+	signal.Notify(sigC, os.Interrupt, syscall.SIGTERM)
 
 	sCtx, cancel := xsignal.WithCancel(ctx, xsignal.WithInstrumentation(ins))
 	defer cancel()
 
 	// Listen for a custom stop keyword that can be used in place of a Ctrl+C signal.
 	// It's fine to let this get garbage collected.
+	stdinC := make(chan struct{}, 1)
 	go stdin.Watch(os.Stdin, viper.GetBool(FlagStopOnStdinClose), func() {
 		select {
-		case stopC <- os.Interrupt:
+		case stdinC <- struct{}{}:
 		default:
 		}
 	})
@@ -76,12 +78,26 @@ func start(cmd *cobra.Command) {
 		return BootupCore(ctx, nil, cfg)
 	}, xsignal.WithKey("start"), xsignal.RecoverWithErrOnPanic())
 
-	select {
-	case <-stopC:
+	// shutDown cancels the Core and lets a second signal force an exit. Stdin never
+	// forces one: the Desktop supervisor sends the stop keyword, then closes stdin.
+	shutDown := func() {
 		ins.L.Info(
-			"\033[33mSynnax is shutting down. This can take up to 5 seconds. Please be patient\033[0m",
+			"\033[33mSynnax is shutting down. Press Ctrl+C again to exit now.\033[0m",
 		)
 		cancel()
+		go func() {
+			<-sigC
+			ins.L.Fatal(
+				"received a second stop signal, exiting before shutdown completes",
+			)
+		}()
+	}
+
+	select {
+	case <-sigC:
+		shutDown()
+	case <-stdinC:
+		shutDown()
 	case <-sCtx.Stopped():
 	}
 
