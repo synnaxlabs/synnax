@@ -82,10 +82,12 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.click(active, { text: true, zoom: false });
   await session.hold(700);
 
-  // The second swatch of a region is its fill.
-  await session.click(region.locator(".pluto-color-swatch--chip").nth(1), {
-    zoom: false,
-  });
+  // The second swatch of a region is its fill. The 300px sidebar clips it, so scroll
+  // the sidebar to it first: the rig clicks at screen coordinates.
+  const fill = region.locator(".pluto-color-swatch--chip").nth(1);
+  await fill.scrollIntoViewIfNeeded();
+  await session.settle(300);
+  await session.click(fill, { zoom: false });
   const picker = page.locator(".pluto-color-picker").first();
   await session.waitFor(picker);
   await session.hold(600);
