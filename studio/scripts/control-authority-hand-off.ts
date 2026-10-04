@@ -9,11 +9,7 @@
 
 import { type capture, fixtures } from "@/index";
 
-import {
-  controlButton,
-  createValveSchematic,
-  frameLegend,
-} from "./common/valve-schematic";
+import { controlButton, createValveSchematic } from "./common/valve-schematic";
 
 const AUTOMATION = "Valve Guard";
 
@@ -50,31 +46,36 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const open = symbol.locator("button.pluto-symbol-primitive-toggle.pluto--enabled");
 
     session.startRecording();
-    await frameLegend(session, symbol);
-    await session.hold(2200);
-    session.endZoom();
+    await session.hold(1800);
 
-    // Wide for the acquire: the control button sits at the far corner from the legend.
     await session.moveTo(controlButton(session));
     await session.waitFor(page.getByText("Acquire control", { exact: true }).first());
     await session.hold(900);
     await session.click(controlButton(session), { zoom: false });
     await session.waitFor(entry("Schematic"));
-    await session.hold(800);
+    await session.hold(1200);
 
-    const aside = await frameLegend(session, symbol);
-    await session.moveTo(aside);
-    await session.hold(900);
-    await session.click(toggle, { zoom: false });
+    // The valve's rect alone would zoom past the render's resolution.
+    await session.zoom(symbol, 1.6);
+    await session.hold(800);
+    await session.click(toggle);
     await session.waitFor(open);
-    await session.moveTo(aside);
+    const body = await symbol.boundingBox();
+    if (body == null) throw new Error("valve is hidden");
+    await session.moveTo({
+      x: body.x + body.width + 120,
+      y: body.y + body.height + 60,
+    });
     await session.hold(1400);
     session.endZoom();
 
     await session.click(controlButton(session), { zoom: false });
     await session.waitFor(entry(AUTOMATION));
     await session.waitForHidden(open);
-    await session.moveTo(await frameLegend(session, symbol));
+    await session.moveTo({
+      x: body.x + body.width + 160,
+      y: body.y + body.height + 90,
+    });
     await session.hold(3000);
   } finally {
     await automation.stop();

@@ -18,12 +18,15 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   const { page } = session;
   await capture.login(session);
   await capture.clearPanel(session);
-  await session.moveTo({ x: 756, y: 500 });
+  await session.moveTo({ x: 800, y: 450 });
 
   session.startRecording();
-  await session.hold(500);
+  await session.hold(1800);
 
   await capture.clickPanelCreate(session);
+  const selector = page.locator(".console-layout-selector__frame").first();
+  await session.waitFor(selector);
+  await session.zoom(selector);
   await session.hold(800);
   await capture.createComponent(session, "Arc automation");
 
@@ -46,9 +49,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(800);
 
   await capture.clickButton(session, "Create");
-  await session.waitForHidden(modal);
   session.endZoom();
+  await session.waitForHidden(modal);
   await session.waitFor(page.locator(".pluto-editor").first());
-  // Long enough for the camera to settle and the idle cursor to fade.
   await session.hold(3000);
 };

@@ -78,12 +78,12 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const controls = page.locator(".console-arc-editor__controls").first();
     await session.waitFor(controls.getByText("Task started successfully").first());
     await session.waitFor(controls.getByText("Node 1", { exact: true }).first());
-    await session.moveTo({ x: 1300, y: 700 });
+    await session.moveTo({ x: 1400, y: 820 });
     await session.settle(1500);
 
     session.startRecording();
     // Long enough for the idle cursor to fade out of the last frame.
-    await session.hold(2500);
+    await session.hold(3000);
   } finally {
     await automation.stop();
   }
