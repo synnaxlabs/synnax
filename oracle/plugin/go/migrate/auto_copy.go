@@ -275,7 +275,9 @@ func (c *collector) collect(types []resolution.Type) fileData {
 		c.imports["github.com/samber/lo"] = importEntry{Path: "github.com/samber/lo"}
 	}
 	if c.usesErrors {
-		c.imports[errorsImportPath] = importEntry{Path: errorsImportPath}
+		c.imports["github.com/synnaxlabs/x/errors"] = importEntry{
+			Path: "github.com/synnaxlabs/x/errors",
+		}
 	}
 	// context renders as its own standard-library group in the template;
 	// every function signature includes context.Context.
@@ -370,8 +372,6 @@ func (c *collector) distinctFunc(
 	}
 	return decorateWithTypeParams(c.castFunc(typ), form.TypeParams)
 }
-
-const errorsImportPath = "github.com/synnaxlabs/x/errors"
 
 // unionFunc migrates a union one variant at a time. A variant removed in the new
 // version falls to the unknown-variant error.

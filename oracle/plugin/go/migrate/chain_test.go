@@ -498,6 +498,7 @@ Config struct {
 `,
 			true,
 			[]string{
+				"return autoMigrateChannel(ctx, v)",
 				"switch v := old.Variant.(type) {",
 				"case v0.CoilChannel:",
 				"case v0.RegisterChannel:",

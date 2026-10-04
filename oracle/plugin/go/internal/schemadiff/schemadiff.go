@@ -357,7 +357,7 @@ func diffUnion(
 		}
 	}
 	kind := TypeUnchanged
-	if !typesEqual(old, new, oldTable, newTable, make(set.Set[string])) {
+	if unionShapeChanged(form, new, oldTable, newTable) {
 		kind = TypeChanged
 	} else if hasDescendantChange {
 		kind = TypeDescendantChanged
@@ -369,6 +369,47 @@ func diffUnion(
 		}
 	}
 	return kind
+}
+
+// unionShapeChanged reports whether a union's own shape changed: its discriminator,
+// variants, number of bases, or the fields of an inline variant. As with structs, a
+// change inside a base is a descendant change.
+func unionShapeChanged(
+	old resolution.UnionForm,
+	newType resolution.Type,
+	oldTable, newTable *resolution.Table,
+) bool {
+	new, ok := newType.Form.(resolution.UnionForm)
+	if !ok || old.Discriminator != new.Discriminator ||
+		len(old.Variants) != len(new.Variants) ||
+		len(old.Extends) != len(new.Extends) {
+		return true
+	}
+	for i, ov := range old.Variants {
+		nv := new.Variants[i]
+		if ov.Name != nv.Name || ov.Inline != nv.Inline {
+			return true
+		}
+		if !ov.Inline {
+			if !refsIdentityEqual(ov.Type, nv.Type, oldTable, newTable) {
+				return true
+			}
+			continue
+		}
+		op, oOk := ov.Type.Resolve(oldTable)
+		np, nOk := nv.Type.Resolve(newTable)
+		if !oOk || !nOk {
+			return oOk != nOk
+		}
+		of, oOk := op.Form.(resolution.StructForm)
+		nf, nOk := np.Form.(resolution.StructForm)
+		if !oOk || !nOk || len(of.Extends) != len(nf.Extends) ||
+			!slices.Equal(of.OmittedFields, nf.OmittedFields) ||
+			structFieldsChanged(of, nf, oldTable, newTable) {
+			return true
+		}
+	}
+	return false
 }
 
 func structFieldsChanged(
