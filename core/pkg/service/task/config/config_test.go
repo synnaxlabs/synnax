@@ -341,30 +341,38 @@ var _ = Describe("Service", func() {
 				}))
 			})
 
-		It("Should return an upgrade's error", func(ctx SpecContext) {
-			failing := MustOpen(config.OpenService(
-				ctx,
-				config.ServiceConfig[arctask.Config]{
-					DB:          db,
-					Type:        "failing_upgrade_test",
-					Version:     2,
-					SetEntryKey: (*arctask.Config).SetKey,
-					Upgrades: []config.Upgrade{
-						func(
-							context.Context,
-							gorp.Tx,
-							msgpack.EncodedJSON,
-						) (msgpack.EncodedJSON, error) {
-							return nil, errors.New("cannot upgrade")
+		It(
+			"Should wrap an upgrade's error as a validation error",
+			func(ctx SpecContext) {
+				failing := MustOpen(config.OpenService(
+					ctx,
+					config.ServiceConfig[arctask.Config]{
+						DB:          db,
+						Type:        "failing_upgrade_test",
+						Version:     2,
+						SetEntryKey: (*arctask.Config).SetKey,
+						Upgrades: []config.Upgrade{
+							func(
+								context.Context,
+								gorp.Tx,
+								msgpack.EncodedJSON,
+							) (msgpack.EncodedJSON, error) {
+								return nil, errors.New("cannot upgrade")
+							},
 						},
 					},
-				},
-			))
-			Expect(failing.Normalize(ctx, nil, 1, msgpack.EncodedJSON{})).Error().
-				To(MatchError("cannot upgrade"))
-		})
+				))
+				Expect(failing.Normalize(ctx, nil, 1, msgpack.EncodedJSON{})).Error().
+					To(SatisfyAll(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring(
+							"upgrading failing_upgrade_test config: cannot upgrade",
+						)),
+					))
+			},
+		)
 
-		It("Should reject more upgrades than versions", func(ctx SpecContext) {
+		It("Should reject upgrades that reach legacy version 0", func(ctx SpecContext) {
 			Expect(config.OpenService(
 				ctx,
 				config.ServiceConfig[arctask.Config]{
@@ -372,13 +380,62 @@ var _ = Describe("Service", func() {
 					Type:        "too_many_upgrades_test",
 					Version:     1,
 					SetEntryKey: (*arctask.Config).SetKey,
-					Upgrades: []config.Upgrade{
-						appendStep("a"),
-						appendStep("b"),
-					},
+					Upgrades:    []config.Upgrade{appendStep("a")},
 				},
-			)).Error().To(MatchError(ContainSubstring("upgrades")))
+			)).Error().To(MatchError(
+				ContainSubstring("upgrades: must leave version 0 to legacy configs"),
+			))
 		})
+	})
+
+	Describe("NewUpgrade", func() {
+		type oldShape struct {
+			A int `json:"a"`
+		}
+		type newShape struct {
+			B int `json:"b"`
+		}
+		var upgraded *config.Service[arctask.Config]
+		BeforeEach(func(ctx SpecContext) {
+			upgraded = MustOpen(config.OpenService(
+				ctx,
+				config.ServiceConfig[arctask.Config]{
+					DB:          db,
+					Type:        "new_upgrade_test",
+					Version:     2,
+					SetEntryKey: (*arctask.Config).SetKey,
+					Upgrades: []config.Upgrade{config.NewUpgrade(
+						func(_ context.Context, old oldShape) (newShape, error) {
+							return newShape{B: old.A * 10}, nil
+						},
+					)},
+				},
+			))
+		})
+
+		It("Should lift a typed version through its upgrades", func(ctx SpecContext) {
+			Expect(upgraded.Normalize(ctx, nil, 1, msgpack.EncodedJSON{"a": 4})).
+				To(Equal(msgpack.EncodedJSON{"b": float64(40)}))
+		})
+
+		It("Should run the legacy rewrite and then every upgrade on a legacy version",
+			func(ctx SpecContext) {
+				Expect(upgraded.Normalize(ctx, nil, 0, msgpack.EncodedJSON{"a": 4})).
+					To(Equal(msgpack.EncodedJSON{"b": float64(40)}))
+			},
+		)
+
+		It("Should return current-version data unchanged", func(ctx SpecContext) {
+			data := msgpack.EncodedJSON{"a": 4}
+			Expect(upgraded.Normalize(ctx, nil, 2, data)).To(Equal(data))
+		})
+
+		It("Should return a validation error when a blob does not decode",
+			func(ctx SpecContext) {
+				Expect(upgraded.Normalize(ctx, nil, 1, msgpack.EncodedJSON{"a": "x"})).
+					Error().To(MatchError(validate.ErrValidation))
+			},
+		)
 	})
 
 	Describe("Version", func() {

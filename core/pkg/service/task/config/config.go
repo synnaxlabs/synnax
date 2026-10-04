@@ -72,6 +72,34 @@ type Upgrade func(
 	data msgpack.EncodedJSON,
 ) (msgpack.EncodedJSON, error)
 
+// NewUpgrade returns the Upgrade that decodes a blob as Old, runs migrate, and encodes
+// the result, so config blobs and stored records share one transform.
+func NewUpgrade[Old, New any](migrate func(context.Context, Old) (New, error)) Upgrade {
+	return func(
+		ctx context.Context,
+		_ gorp.Tx,
+		data msgpack.EncodedJSON,
+	) (msgpack.EncodedJSON, error) {
+		b, err := json.Marshal(data)
+		if err != nil {
+			return nil, err
+		}
+		var old Old
+		if err = json.Unmarshal(b, &old); err != nil {
+			return nil, err
+		}
+		n, err := migrate(ctx, old)
+		if err != nil {
+			return nil, err
+		}
+		if b, err = json.Marshal(n); err != nil {
+			return nil, err
+		}
+		var out msgpack.EncodedJSON
+		return out, json.Unmarshal(b, &out)
+	}
+}
+
 // ServiceConfig is the configuration for opening a Service. E is the record type
 // the service stores.
 type ServiceConfig[E any] struct {
@@ -130,12 +158,10 @@ func (c ServiceConfig[E]) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotEmptyString("type", c.Type)
 	v.NotNil("set_entry_key", c.SetEntryKey)
-	v.Ternaryf(
+	v.Ternary(
 		"upgrades",
-		imex.Version(len(c.Upgrades)) > c.Version,
-		"%d upgrades exceed version %d",
-		len(c.Upgrades),
-		c.Version,
+		len(c.Upgrades) > 0 && imex.Version(len(c.Upgrades)) >= c.Version,
+		"must leave version 0 to legacy configs",
 	)
 	return v.Error()
 }
@@ -268,7 +294,9 @@ func (s *Service[E]) Normalize(
 		var err error
 		upgrade := s.cfg.Upgrades[version-firstTyped]
 		if data, err = upgrade(ctx, gorp.OverrideTx(s.cfg.DB, tx), data); err != nil {
-			return nil, err
+			return nil, errors.Wrapf(
+				validate.ErrValidation, "upgrading %s config: %s", s.cfg.Type, err,
+			)
 		}
 	}
 	return data, nil
