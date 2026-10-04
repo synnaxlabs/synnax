@@ -33,7 +33,7 @@ sudo synnax-driver install
   the `synnax` user. `install` does not start the service, and does not set it to start
   with the computer. To do that, run `sudo systemctl enable synnax-driver`. The service
   can use real-time priority and lock memory, and `install` writes the udev rule
-  `/etc/udev/rules.d/99-synnax.rules`, so that
+  `/etc/udev/rules.d/99-synnax-driver-latency.rules`, so that
   [Arc automations at the High level](/reference/control/arc/timing#performance-levels)
   can keep CPU cores awake.
 - **NI Linux Real-Time** -> creates the service `/etc/init.d/synnax-driver`, which runs
