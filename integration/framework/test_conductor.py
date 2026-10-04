@@ -272,6 +272,7 @@ class TestConductor:
             tests_json.append(
                 {
                     "case": t.test_name,
+                    "file": t.file,
                     "name": t.name,
                     "status": t.status.name,
                     "started_at": _iso(t.started_at),

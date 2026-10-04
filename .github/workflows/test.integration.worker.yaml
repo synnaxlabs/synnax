@@ -32,7 +32,7 @@ on:
 
 jobs:
   run:
-    name: ${{ matrix.name }}
+    name: ${{ matrix.title || matrix.name }}
     timeout-minutes: 30
     runs-on:
       - self-hosted

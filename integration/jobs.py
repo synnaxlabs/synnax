@@ -33,6 +33,15 @@ class Job:
 EXEMPT = ("example", "migration")
 """Prefixes of test files that run in dedicated workflows."""
 
+PRODUCTS = {
+    "arc": "arc",
+    "console": "console",
+    "control": "arc",
+    "driver": "driver",
+    "latency": "arc",
+}
+"""The product each test file covers, by the file's prefix."""
+
 # Together, the jobs run every test of every test file outside EXEMPT exactly once.
 # test-split checks this before each job starts.
 JOBS: dict[str, Job] = {
@@ -59,9 +68,19 @@ JOBS: dict[str, Job] = {
 }
 
 
+def title(name: str, job: Job) -> str:
+    """Returns the job's name followed by the other products whose tests it runs, as
+    in "arc + console"."""
+    runs = (*(a for part in job.parts for a in part), *job.after)
+    files = {f for run in runs for f in run.split()[0].split("/")[0].split(",")}
+    others = sorted({PRODUCTS[f] for f in files} - {name})
+    return " + ".join((name, *others))
+
+
 def main() -> None:
     """Prints the job matrix as a GitHub Actions output line."""
-    matrix = {"include": [{"name": name} for name in JOBS]}
+    jobs = [{"name": name, "title": title(name, job)} for name, job in JOBS.items()]
+    matrix = {"include": jobs}
     print(f"TEST_MATRIX={json.dumps(matrix, separators=(',', ':'))}")
 
 

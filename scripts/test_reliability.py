@@ -14,8 +14,10 @@ import pytest
 
 from reliability import (
     JOB_NAME,
+    TC_JOB_NAME,
     Cases,
     enumerate_tests,
+    integration_products,
     integration_sources,
     os_of,
 )
@@ -244,3 +246,43 @@ class TestJobName:
     )
     def test_should_reject_other_jobs(self, name: str) -> None:
         assert JOB_NAME.match(name) is None
+
+
+class TestTcJobName:
+    """Tests for matching integration test jobs."""
+
+    @pytest.mark.parametrize(
+        ("name", "runner", "job"),
+        [
+            ("integration / Test (windows) / console", "windows", "console"),
+            ("integration / Test (windows) / arc + console", "windows", "arc"),
+            (
+                "integration / Test (ubuntu) / driver + arc + console",
+                "ubuntu",
+                "driver",
+            ),
+        ],
+    )
+    def test_should_match_the_runner_and_job(
+        self, name: str, runner: str, job: str
+    ) -> None:
+        m = TC_JOB_NAME.match(name)
+        assert m is not None
+        assert m.groups() == (runner, job)
+
+    def test_should_reject_other_jobs(self) -> None:
+        assert (
+            TC_JOB_NAME.match("integration / build / Build (windows-build-bot)") is None
+        )
+
+
+class TestIntegrationProducts:
+    """Tests for reading the product of each integration test file."""
+
+    def test_should_read_products_from_jobs(self) -> None:
+        sources = {"jobs.py": 'X = 1\nPRODUCTS = {"control": "arc"}\n'}
+        assert integration_products(sources) == {"control": "arc"}
+
+    def test_should_raise_without_products(self) -> None:
+        with pytest.raises(ValueError, match="integration/jobs.py has no PRODUCTS"):
+            integration_products({"jobs.py": "X = 1\n"})

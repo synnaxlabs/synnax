@@ -283,6 +283,7 @@ class ExecutionClient:
         else:
             result = Test(
                 test_name=test_def.case,
+                file=test_def.file,
                 name=test_def.display_name,
                 status=STATUS.TIMEOUT,
                 error_message="Test was terminated due to timeout",
@@ -304,6 +305,7 @@ class ExecutionClient:
     def _execute_single_test(self, test_def: TestDefinition) -> Test:
         test = Test(
             test_name=test_def.case,
+            file=test_def.file,
             name=test_def.display_name,
             status=STATUS.PENDING,
         )
@@ -516,6 +518,7 @@ class ExecutionClient:
                 killed_results.append(
                     Test(
                         test_name=test_def.case,
+                        file=test_def.file,
                         name=test_def.display_name,
                         status=status,
                         error_message=error_msg,

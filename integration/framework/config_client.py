@@ -29,6 +29,8 @@ class TestDefinition:
     """A test case definition from a sequence configuration file."""
 
     case: str
+    file: str
+    """The test file the case comes from, as its prefix: driver for driver_tests.json."""
     name: str | None = None
     parameters: dict[str, Any | list[Any]] = field(default_factory=dict)
     matrix: dict[str, list[Any]] | None = None
@@ -131,8 +133,9 @@ class ConfigClient:
             try:
                 with open(file_path, encoding="utf-8") as f:
                     file_data = json.load(f)
-                if "sequences" in file_data:
-                    all_sequences.extend(file_data["sequences"])
+                prefix = file_path.name.removesuffix("_tests.json")
+                for sequence in file_data.get("sequences", []):
+                    all_sequences.append({**sequence, "file": prefix})
             except FileNotFoundError:
                 raise FileNotFoundError(f"Test file not found: {test_file}")
             except json.JSONDecodeError as e:
@@ -174,6 +177,7 @@ class ConfigClient:
 
                 test_def = TestDefinition(
                     case=case_path,
+                    file=seq_dict["file"],
                     name=test.get("name", None),
                     parameters=test.get("parameters", {}),
                     matrix=test.get("matrix", None),
@@ -285,6 +289,7 @@ class ConfigClient:
             expanded.append(
                 TestDefinition(
                     case=test_def.case,
+                    file=test_def.file,
                     name=generated_name,
                     parameters=merged_params,
                 )
@@ -306,6 +311,7 @@ class ConfigClient:
                 expanded_defs.append(
                     TestDefinition(
                         case=test_def.case,
+                        file=test_def.file,
                         name=test_class.__name__,
                         parameters=test_def.parameters.copy(),
                         matrix=test_def.matrix,
