@@ -37,10 +37,15 @@ The only real choice is how much CPU timing may use.
 | `auto`   | `AUTO`         | Current behavior                        | Varies       |
 | `low`    | `EVENT_DRIVEN` | Blocks on its timer, never spins        | Lowest       |
 | `medium` | `HYBRID`       | Blocks, then spins before each deadline | Part of core |
-| `high`   | `BUSY_WAIT`    | Spins through each whole wait           | Full core    |
+| `high`   | `BUSY_WAIT`    | Spins through each whole wait           | Up to a core |
 
 Each runtime maps the level next to the code that already picks its wait strategy. The
 C++ loop keeps its six internal modes.
+
+On Linux, `HYBRID` blocks, then spins 50 µs before each deadline, and never more than
+half the timer period. `BUSY_WAIT` on a real-time thread waits the same way and keeps
+all cores out of deep idle states through `/dev/cpu_dma_latency`. A real-time thread
+that never sleeps is throttled by the kernel or starves it (§4).
 
 ### 2.1 Schema and migration
 
@@ -93,8 +98,9 @@ migrate when the Core starts. An older Driver reads no `execution_mode` and runs
    RT. A custom `rt_priority` goes back to 47.
 6. **Named `performance`**: `priority` means preemption order, and `precision` hides the
    CPU cost.
-
-## 5 Open questions
-
-1. **Spin length for `medium`** per OS. The Go runtime spins 1 ms on every OS. On Linux,
-   `HYBRID` does not spin before deadlines today.
+7. **`high` blocks on a Linux real-time thread**: on PREEMPT_RT at 1 kHz, a full spin at
+   `SCHED_FIFO` woke up to 47 ms late, as Ubuntu throttles real-time threads for 50 ms
+   each second. With the throttle off, as on NI Linux RT, it stalled RCU on its core.
+   Blocking, then spinning 50 µs, woke at most 1 µs late at 5% CPU. LinuxCNC,
+   ros2_control, and SOEM also block with an absolute sleep. The trade is real: holding
+   idle states off costs power on every core.

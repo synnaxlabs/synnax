@@ -85,7 +85,7 @@ const LEVELS: Level[] = [
     key: "high",
     glyph: <Meter level="high" />,
     name: "High",
-    description: "One full CPU core. The most precise timing.",
+    description: "Up to a full CPU core. The most precise timing.",
   },
 ];
 

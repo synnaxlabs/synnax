@@ -15,6 +15,7 @@
 #include <thread>
 
 #include "absl/log/log.h"
+#include <fcntl.h>
 #include <sched.h>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
@@ -60,6 +61,20 @@ struct EpollApi {
         const int policy = sched_getscheduler(0);
         return policy == SCHED_FIFO || policy == SCHED_RR || policy == SCHED_DEADLINE;
     }
+
+    /// @brief keeps every core out of idle states with a nonzero exit latency until
+    /// the returned descriptor closes. Returns -1 with errno set on failure. Writing
+    /// the device needs root.
+    static int hold_latency() {
+        const int fd = open("/dev/cpu_dma_latency", O_WRONLY | O_CLOEXEC);
+        if (fd == -1) return -1;
+        constexpr int32_t latency = 0;
+        if (write(fd, &latency, sizeof(latency)) == sizeof(latency)) return fd;
+        const int err = errno;
+        close(fd);
+        errno = err;
+        return -1;
+    }
 };
 
 /// @brief the loop of Linux, built on epoll. A real-time thread blocks to a deadline
@@ -88,11 +103,12 @@ public:
 
         switch (this->config_.mode) {
             case ExecutionMode::BUSY_WAIT:
-                return this->busy_wait(breaker, max_timeout);
+                if (this->spins_) return this->busy_wait(breaker, max_timeout);
+                return this->hybrid_wait(breaker, max_timeout, span);
             case ExecutionMode::HIGH_RATE:
                 return this->high_rate_wait(breaker, max_timeout);
             case ExecutionMode::HYBRID:
-                return this->hybrid_wait(breaker, max_timeout);
+                return this->hybrid_wait(breaker, max_timeout, span);
             case ExecutionMode::AUTO:
             case ExecutionMode::RT_EVENT:
             case ExecutionMode::EVENT_DRIVEN:
@@ -137,11 +153,14 @@ public:
             this->rt_handle_->apply();
         }
 
-        // HIGH_RATE and BUSY_WAIT check the deadline against the clock.
-        if (this->config_.mode == ExecutionMode::HIGH_RATE ||
-            this->config_.mode == ExecutionMode::BUSY_WAIT)
+        const bool realtime = this->api_.realtime();
+        const bool busy = this->config_.mode == ExecutionMode::BUSY_WAIT;
+        this->spins_ = busy && !realtime;
+        // HIGH_RATE and a spinning BUSY_WAIT check the deadline against the clock.
+        if (this->config_.mode == ExecutionMode::HIGH_RATE || this->spins_)
             return x::errors::NIL;
-        this->direct_ = this->api_.realtime() && this->direct_waits();
+        if (busy) this->hold_latency();
+        this->direct_ = realtime && this->direct_waits();
         if (this->direct_) return x::errors::NIL;
         this->timer_fd_ = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
         if (this->timer_fd_ == -1)
@@ -221,7 +240,22 @@ private:
         return err;
     }
 
+    /// @brief keeps all cores out of deep idle states while the loop runs, so a core
+    /// that blocks before a deadline wakes in time. Logs a warning on failure, as an
+    /// unprivileged process cannot hold the latency.
+    void hold_latency() {
+        this->latency_fd_ = this->api_.hold_latency();
+        if (this->latency_fd_ == -1)
+            LOG(WARNING) << "[arc.loop] failed to keep cores out of deep idle states, "
+                         << "so their wake-up can delay deadlines: " << strerror(errno);
+    }
+
     void close_fds() {
+        if (this->latency_fd_ != -1) {
+            close(this->latency_fd_);
+            this->latency_fd_ = -1;
+        }
+
         if (this->timer_fd_ != -1) {
             close(this->timer_fd_);
             this->timer_fd_ = -1;
@@ -323,41 +357,54 @@ private:
         return WakeReason::Shutdown;
     }
 
-    WakeReason
-    hybrid_wait(x::breaker::Breaker &breaker, const x::telem::TimeSpan max_timeout) {
-        const bool deadline = max_timeout.nanoseconds() > 0;
-        const bool armed = this->arm_deadline(max_timeout);
-        if (!this->direct_ && !armed && deadline)
-            return this->busy_wait(breaker, max_timeout);
+    /// @brief HYBRID: blocks until timing::LINUX_DEADLINE_SPIN ahead of the deadline,
+    /// then spins to it. The spin takes at most half of span, the period of the timer
+    /// that owns the deadline, so a real-time thread leaves its core half of each
+    /// period.
+    WakeReason hybrid_wait(
+        x::breaker::Breaker &breaker,
+        const x::telem::TimeSpan max_timeout,
+        const x::telem::TimeSpan span
+    ) {
         const auto sw = x::telem::Stopwatch();
-
         struct epoll_event events[2];
-
-        while (sw.elapsed() < this->config_.spin_duration) {
+        const bool deadline = max_timeout.nanoseconds() > 0;
+        const auto spin = std::min(timing::LINUX_DEADLINE_SPIN, span / 2);
+        const auto block = deadline ? max_timeout - spin : x::telem::TimeSpan(0);
+        // A block of zero or less disarms the timer, so no stale fire ends the spin.
+        const bool armed = this->arm_deadline(block);
+        if (!deadline || block.nanoseconds() > 0) {
+            if (!this->direct_ && !armed && deadline)
+                return this->busy_wait(breaker, max_timeout);
+            int n;
+            if (this->direct_)
+                n = this->timed_wait(
+                    events,
+                    deadline ? block : timing::HYBRID_BLOCK_TIMEOUT
+                );
+            else
+                n = epoll_wait(
+                    this->epoll_fd_,
+                    events,
+                    2,
+                    armed ? -1 : timing::HYBRID_BLOCK_TIMEOUT.milliseconds()
+                );
+            if (n > 0) {
+                const auto reason = this->consume_events(events, n);
+                if (reason != WakeReason::Timer) return reason;
+            } else if (n == -1) {
+                if (errno != EINTR)
+                    LOG(ERROR) << "[arc.loop] epoll_wait error: " << strerror(errno);
+                return WakeReason::Shutdown;
+            }
+            if (!deadline) return WakeReason::Timeout;
+        }
+        while (sw.elapsed() < max_timeout) {
             if (!breaker.running()) return WakeReason::Shutdown;
-
             const int n = epoll_wait(this->epoll_fd_, events, 2, 0);
             if (n > 0) return this->consume_events(events, n);
-            if (this->direct_ && deadline && sw.elapsed() >= max_timeout)
-                return WakeReason::Timer;
         }
-
-        int n;
-        if (this->direct_)
-            n = this->timed_wait(
-                events,
-                deadline ? max_timeout - sw.elapsed() : timing::HYBRID_BLOCK_TIMEOUT
-            );
-        else
-            n = epoll_wait(
-                this->epoll_fd_,
-                events,
-                2,
-                armed ? -1 : timing::HYBRID_BLOCK_TIMEOUT.milliseconds()
-            );
-        if (n > 0) return this->consume_events(events, n);
-        if (n == 0 && this->direct_ && deadline) return WakeReason::Timer;
-        return WakeReason::Timeout;
+        return WakeReason::Timer;
     }
 
     /// @brief Consumes events from epoll, returning the wake reason.
@@ -397,9 +444,14 @@ private:
     int epoll_fd_ = -1;
     int event_fd_ = -1;
     int timer_fd_ = -1;
+    /// @brief holds all cores out of deep idle states while open.
+    int latency_fd_ = -1;
     /// @brief true when waits block to their deadline on an epoll_pwait2 timeout
     /// instead of a timerfd.
     bool direct_ = false;
+    /// @brief true when BUSY_WAIT spins through each wait, which only a thread that is
+    /// not real-time does.
+    bool spins_ = false;
     bool arm_failed_ = false;
     ::x::loop::Timer sleeper_;
 };
