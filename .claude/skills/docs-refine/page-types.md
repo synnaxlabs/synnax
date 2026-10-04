@@ -24,7 +24,7 @@ How to do one thing.
 - One sentence on what the task does and why, then prerequisites (with links to the
   pages that satisfy them), then numbered steps, then the result.
 - One action per step. The location comes before the action ("In the ranges toolbar,
-  select **Add**"). Ten steps at most.
+  click **Add**"). Ten steps at most.
 - One method. Other interfaces go in `Client.Tabs`. Rare alternatives go in their own h2
   after the main method.
 - The reader can tell the task worked: the page says what they see at the end.
