@@ -84,7 +84,7 @@ export default defineConfig({
     "/reference/client/advanced/delete-data": "/reference/client/delete-data",
     "/reference/console/clusters": "/reference/enterprise/console",
     "/reference/console/cores": "/reference/enterprise/console",
-    "/reference/console/requirements": "/reference/enterprise/console",
+    "/reference/console/requirements": "/reference/enterprise/requirements",
     "/reference/console/channels": "/reference/channels",
     "/reference/console/calculated-channels": "/reference/channels/calculated",
     "/reference/console/ranges": "/reference/ranges/find",
