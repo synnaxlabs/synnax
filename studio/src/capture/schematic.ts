@@ -102,10 +102,22 @@ export const place = async (
     .filter({ has: page.getByText(name, { exact: true }) })
     .first();
   await session.waitFor(button);
-  const before = await symbols(page).count();
+  const ids = async (): Promise<string[]> =>
+    (
+      await symbols(page).evaluateAll((nodes) =>
+        nodes.map((n) => n.getAttribute("data-id")),
+      )
+    ).filter((id): id is string => id != null);
+  const before = new Set(await ids());
   await session.click(button, { zoom: false });
-  const symbol = symbols(page).nth(before);
-  await session.waitFor(symbol);
+  // React Flow does not keep nodes in creation order, so find the new one by id.
+  let id: string | undefined;
+  for (let tries = 0; id == null; tries++) {
+    if (tries > 200) throw new Error(`placing ${name} added no schematic node`);
+    id = (await ids()).find((i) => !before.has(i));
+    if (id == null) await session.settle(50);
+  }
+  const symbol = page.locator(`.react-flow__node[data-id="${id}"]`);
   await search.fill("");
   // Only the symbol's body starts a node drag; the node box also spans its
   // label slots.
