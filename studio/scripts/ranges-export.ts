@@ -40,10 +40,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     .locator(".console-range-overview__actions button:has(.pluto-icon--csv)")
     .first();
   await session.waitFor(csv);
-  await session.moveTo({ x: 756, y: 500 });
+  await session.moveTo({ x: 800, y: 450 });
 
   session.startRecording();
-  await session.hold(1000);
+  await session.hold(1500);
 
   await session.click(csv);
   const modal = page.locator(".console-download-csv").first();
@@ -82,7 +82,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
   // Rest on the Download button, now enabled.
   await session.moveTo(modal.getByRole("button", { name: /^Download/ }).first());
-  await session.hold(2000);
+  await session.hold(1000);
   session.endZoom();
-  await session.hold(500);
+  await session.hold(3000);
 };
