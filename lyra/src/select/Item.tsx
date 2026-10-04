@@ -31,10 +31,17 @@ import { type ButtonsContextValue, useButtonsContext, useClosed } from "@/select
 export type ItemProps<
   K extends record.Key = record.Key,
   E extends Button.ElementType = "div",
-> = List.ItemProps<K, E>;
+> = List.ItemProps<K, E> & {
+  /**
+   * The item's name as plain text, for children that are not plain text. The search
+   * matches it, and a collapsed trigger shows it in its tooltip. Defaults to the
+   * children when they are a string.
+   */
+  textValue?: string;
+};
 
 const BlockItem = <K extends record.Key, E extends Button.ElementType>(
-  props: ItemProps<K, E>,
+  props: List.ItemProps<K, E>,
 ): ReactNode => {
   const { selected, hovered, onSelect, sole } = useItemState(props.itemKey);
   const reselectNoop = useReselectNoop();
@@ -54,9 +61,10 @@ const BlockItem = <K extends record.Key, E extends Button.ElementType>(
 const useRegister = (
   key: record.Key,
   ref: RefObject<HTMLElement | null> | null,
+  text?: string,
 ): void => {
   const registry = useRegistryContext("Select.Item");
-  useLayoutEffect(() => registry.setItem(key, ref?.current ?? null));
+  useLayoutEffect(() => registry.setItem(key, ref?.current ?? null, text));
   useLayoutEffect(() => () => registry.removeItem(key), [registry, key]);
 };
 
@@ -103,21 +111,18 @@ const ClosedFixedItem = <K extends record.Key>({
   const keys = useMemo(() => [itemKey], [itemKey]);
   const selected = useSelectedAmong(keys) != null;
   const registry = useRegistryContext("Select.Item");
-  useRegister(itemKey, null);
   if (!selected) return null;
   return createPortal(children, registry.getLabel(itemKey));
 };
 
 const OpenFixedItem = <K extends record.Key, E extends Button.ElementType>(
-  props: ItemProps<K, E>,
+  props: List.ItemProps<K, E>,
 ): ReactNode => {
   const { itemKey, children } = props;
   const { selected, hovered, onSelect, sole } = useItemState(itemKey);
   const reselectNoop = useReselectNoop();
   const registry = useRegistryContext("Select.Item");
-  const ref = useRef<HTMLElement>(null);
   const hidden = useIsHidden(itemKey);
-  useRegister(itemKey, ref);
   const label = selected ? createPortal(children, registry.getLabel(itemKey)) : null;
   return (
     <>
@@ -129,21 +134,34 @@ const OpenFixedItem = <K extends record.Key, E extends Button.ElementType>(
         preventClick={reselectNoop && sole ? true : undefined}
         hidden={hidden}
         {...props}
-        ref={ref}
       />
       {label}
     </>
   );
 };
 
-const FixedItem = <K extends record.Key, E extends Button.ElementType>(
-  props: ItemProps<K, E>,
-): ReactNode =>
-  useClosed() ? (
-    <ClosedFixedItem<K> itemKey={props.itemKey}>{props.children}</ClosedFixedItem>
-  ) : (
-    <OpenFixedItem<K, E> {...props} />
+interface FixedItemProps<K extends record.Key, E extends Button.ElementType> {
+  item: List.ItemProps<K, E>;
+  text: string | undefined;
+}
+
+const FixedItem = <K extends record.Key, E extends Button.ElementType>({
+  item,
+  text,
+}: FixedItemProps<K, E>): ReactNode => {
+  const ref = useRef<HTMLElement>(null);
+  const { itemKey, children } = item;
+  useRegister(
+    itemKey,
+    ref,
+    text ?? (typeof children === "string" ? children : undefined),
   );
+  return useClosed() ? (
+    <ClosedFixedItem itemKey={itemKey}>{children}</ClosedFixedItem>
+  ) : (
+    <OpenFixedItem {...item} ref={ref} />
+  );
+};
 
 /**
  * One option of a selection. Rendered by an {@link Items} block, it is a row of the
@@ -159,7 +177,8 @@ export const Item = <
 ): ReactNode => {
   const inItems = List.useInItems();
   const buttons = useButtonsContext();
-  if (inItems) return <BlockItem<K, E> {...props} />;
-  if (buttons != null) return <ButtonItem<K> {...props} buttons={buttons} />;
-  return <FixedItem<K, E> {...props} />;
+  const { textValue, ...rest } = props;
+  if (inItems) return <BlockItem {...rest} />;
+  if (buttons != null) return <ButtonItem {...rest} buttons={buttons} />;
+  return <FixedItem item={rest} text={textValue} />;
 };

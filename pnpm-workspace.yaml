@@ -185,6 +185,7 @@ catalog:
   remotion: ^4.0.529
   resend: ^6.28.1
   satteri: ^0.10.5
+  sharp: ^0.35.4
   shiki: ^4.4.3
   source-map-js: ^1.2.1
   strip-markdown: ^6.0.0
