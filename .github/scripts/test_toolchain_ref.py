@@ -47,14 +47,18 @@ def toolchain_ref(tmp_path: Path, action: str, pin: str = "v3") -> str:
 
 
 class TestToolchainRef:
-    def test_direct_step(self, tmp_path: Path) -> None:
+    """Tests for finding the pinned ref of a build job's action."""
+
+    def test_should_find_a_direct_step_past_a_shared_prefix(
+        self, tmp_path: Path
+    ) -> None:
         assert toolchain_ref(tmp_path, "actions/setup-go") == "actions/setup-go@v7"
 
-    def test_composite_step(self, tmp_path: Path) -> None:
+    def test_should_find_a_step_inside_a_local_composite(self, tmp_path: Path) -> None:
         assert toolchain_ref(tmp_path, "pnpm/setup") == "pnpm/setup@v3"
 
-    def test_composite_pin_change(self, tmp_path: Path) -> None:
+    def test_should_follow_a_changed_composite_pin(self, tmp_path: Path) -> None:
         assert toolchain_ref(tmp_path, "pnpm/setup", pin="v4") == "pnpm/setup@v4"
 
-    def test_unused_action(self, tmp_path: Path) -> None:
+    def test_should_print_nothing_for_an_unused_action(self, tmp_path: Path) -> None:
         assert toolchain_ref(tmp_path, "bazel-contrib/setup-bazel") == ""
