@@ -10,6 +10,8 @@
 package config_test
 
 import (
+	"context"
+	"maps"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -19,6 +21,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config/legacy"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -218,21 +222,21 @@ var _ = Describe("Service", func() {
 			))
 		})
 
-		It("Should reject a version above the store's version", func() {
-			Expect(versioned.Normalize(3, msgpack.EncodedJSON{})).Error().
+		It("Should reject a version above the store's version", func(ctx SpecContext) {
+			Expect(versioned.Normalize(ctx, nil, 3, msgpack.EncodedJSON{})).Error().
 				To(SatisfyAll(
 					MatchError(ContainSubstring("validation")),
 					MatchError(ContainSubstring("newer than this Core supports")),
 				))
 		})
 
-		It("Should return current-version data unchanged", func() {
+		It("Should return current-version data unchanged", func(ctx SpecContext) {
 			data := msgpack.EncodedJSON{"camelKey": 1, "old_name": 2}
-			Expect(versioned.Normalize(2, data)).To(Equal(data))
+			Expect(versioned.Normalize(ctx, nil, 2, data)).To(Equal(data))
 		})
 
-		It("Should run the legacy rewrite on a legacy version", func() {
-			out := MustSucceed(versioned.Normalize(0, msgpack.EncodedJSON{
+		It("Should run the legacy rewrite on a legacy version", func(ctx SpecContext) {
+			out := MustSucceed(versioned.Normalize(ctx, nil, 0, msgpack.EncodedJSON{
 				"camelKey": 1,
 				"oldName":  2,
 			}))
@@ -254,7 +258,7 @@ var _ = Describe("Service", func() {
 					SetEntryKey: (*arctask.Config).SetKey,
 				},
 			))
-			out := MustSucceed(eraOnly.Normalize(0, msgpack.EncodedJSON{
+			out := MustSucceed(eraOnly.Normalize(ctx, nil, 0, msgpack.EncodedJSON{
 				"camelKey":   1,
 				"dataSaving": true,
 			}))
@@ -262,6 +266,118 @@ var _ = Describe("Service", func() {
 				"camel_key":            1,
 				"data_saving_disabled": false,
 			}))
+		})
+	})
+
+	Describe("Upgrades", func() {
+		var (
+			upgraded *config.Service[arctask.Config]
+			calls    []string
+		)
+		appendStep := func(step string) config.Upgrade {
+			return func(
+				_ context.Context,
+				tx gorp.Tx,
+				data msgpack.EncodedJSON,
+			) (msgpack.EncodedJSON, error) {
+				calls = append(calls, step)
+				Expect(tx).ToNot(BeNil())
+				out := msgpack.EncodedJSON{}
+				maps.Copy(out, data)
+				out[step] = true
+				return out, nil
+			}
+		}
+		BeforeEach(func(ctx SpecContext) {
+			calls = nil
+			upgraded = MustOpen(config.OpenService(
+				ctx,
+				config.ServiceConfig[arctask.Config]{
+					DB:          db,
+					Type:        "upgraded_test",
+					Version:     3,
+					SetEntryKey: (*arctask.Config).SetKey,
+					Legacy: &legacy.Rewrite{
+						Post: func(cfg msgpack.EncodedJSON) { cfg["legacy"] = true },
+					},
+					Upgrades: []config.Upgrade{
+						appendStep("to_v2"),
+						appendStep("to_v3"),
+					},
+				},
+			))
+		})
+
+		It("Should lift a typed version through the remaining upgrades in order", func(
+			ctx SpecContext,
+		) {
+			tx := db.OpenTx()
+			defer func() { Expect(tx.Close()).To(Succeed()) }()
+			out := MustSucceed(upgraded.Normalize(ctx, tx, 1, msgpack.EncodedJSON{}))
+			Expect(out).To(Equal(msgpack.EncodedJSON{"to_v2": true, "to_v3": true}))
+			Expect(calls).To(Equal([]string{"to_v2", "to_v3"}))
+		})
+
+		It("Should run only the upgrades above the given version", func(
+			ctx SpecContext,
+		) {
+			tx := db.OpenTx()
+			defer func() { Expect(tx.Close()).To(Succeed()) }()
+			out := MustSucceed(upgraded.Normalize(ctx, tx, 2, msgpack.EncodedJSON{}))
+			Expect(out).To(Equal(msgpack.EncodedJSON{"to_v3": true}))
+		})
+
+		It("Should run the legacy rewrite and then every upgrade on a legacy version",
+			func(ctx SpecContext) {
+				tx := db.OpenTx()
+				defer func() { Expect(tx.Close()).To(Succeed()) }()
+				out := MustSucceed(
+					upgraded.Normalize(ctx, tx, 0, msgpack.EncodedJSON{}),
+				)
+				Expect(out).To(Equal(msgpack.EncodedJSON{
+					"legacy": true,
+					"to_v2":  true,
+					"to_v3":  true,
+				}))
+			})
+
+		It("Should return an upgrade's error", func(ctx SpecContext) {
+			failing := MustOpen(config.OpenService(
+				ctx,
+				config.ServiceConfig[arctask.Config]{
+					DB:          db,
+					Type:        "failing_upgrade_test",
+					Version:     2,
+					SetEntryKey: (*arctask.Config).SetKey,
+					Upgrades: []config.Upgrade{
+						func(
+							context.Context,
+							gorp.Tx,
+							msgpack.EncodedJSON,
+						) (msgpack.EncodedJSON, error) {
+							return nil, errors.New("cannot upgrade")
+						},
+					},
+				},
+			))
+			Expect(failing.Normalize(ctx, nil, 1, msgpack.EncodedJSON{})).Error().
+				To(MatchError("cannot upgrade"))
+		})
+
+		It("Should reject more upgrades than versions", func(ctx SpecContext) {
+			Expect(config.OpenService(
+				ctx,
+				config.ServiceConfig[arctask.Config]{
+					DB:          db,
+					Type:        "too_many_upgrades_test",
+					Version:     1,
+					SetEntryKey: (*arctask.Config).SetKey,
+					Upgrades: []config.Upgrade{
+						appendStep("a"),
+						appendStep("b"),
+					},
+				},
+			)).Error().To(MatchError(ContainSubstring("upgrades")))
 		})
 	})
 
