@@ -28,7 +28,7 @@ You need:
 
 ## Install the client
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -58,7 +58,7 @@ as client 0.58 for Core 0.58. The client prints a warning when the versions diff
 Replace the address and credentials with the values of your Core. For TLS and other
 options, see [Connect to a Core](/reference/client/connect).
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -99,7 +99,7 @@ const client = new Synnax({
 The samples go in a data channel, and their timestamps go in an index channel. For more
 about channels, see [Create channels](/reference/channels/create).
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -143,7 +143,7 @@ const pressure = await client.channels.create(
 
 Write one sample every 100 milliseconds, starting now:
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -178,7 +178,7 @@ await client.write(start, {
 
 ## Read the samples back
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -212,7 +212,7 @@ await client.close();
 
 ## Run the script
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 

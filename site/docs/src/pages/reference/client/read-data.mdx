@@ -25,7 +25,7 @@ get samples as they arrive, [stream data](/reference/client/stream-data).
 Give `read` a time range and one or more channels. The time range includes its start and
 excludes its end, as [Time types](/reference/client/time-types#timerange) shows.
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -93,7 +93,7 @@ To work with the result, see [Series and frames](/reference/client/series-and-fr
 
 ## Read the latest samples
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -127,7 +127,7 @@ When a channel has fewer than `n` samples, the read returns the samples that exi
 
 ## Export to CSV
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -177,7 +177,7 @@ headers, pass `channelNames`, a record of channel name or key to header.
 An iterator reads a time range in chunks, so your code holds one chunk in memory at a
 time:
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -211,7 +211,7 @@ The `finally` block closes the iterator, also when the code throws an error.
 Each chunk holds up to 100,000 samples of each channel by default. Set the chunk size
 when you open the iterator:
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -252,7 +252,7 @@ below. Each returns false when no data is there, and puts the data that it read 
 With `sy.AUTO_SPAN` as the span, `next` and `prev` read one chunk. In TypeScript, the
 span is optional, and one chunk is the default.
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -290,7 +290,7 @@ TypeScript.
 
 ### Iterator options
 
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 

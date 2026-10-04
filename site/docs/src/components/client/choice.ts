@@ -9,7 +9,7 @@
 
 import { type Query } from "@/components/tabs/sync";
 
-export const CLIENTS = ["console", "python", "typescript", "cpp"] as const;
+export const CLIENTS = ["console", "python", "typescript"] as const;
 
 export type Client = (typeof CLIENTS)[number];
 
