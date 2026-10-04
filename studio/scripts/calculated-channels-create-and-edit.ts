@@ -28,13 +28,19 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   }
   await capture.openToolbar(session, "channel");
   await capture.resizeToolbar(session, 500);
-  await session.moveTo({ x: 756, y: 500 });
+  await session.moveTo({ x: 800, y: 450 });
 
   const modal = page.locator(".pluto-dialog__dialog.pluto--modal");
   const editor = modal.locator(".console-calculated-editor").first();
+  // The modal is too large for its fit to zoom, so zoom on its center.
+  const zoomModal = async (): Promise<void> => {
+    const box = await modal.first().boundingBox();
+    if (box == null) throw new Error("calculated channel modal is not on screen");
+    await session.zoom({ x: box.x + box.width / 2, y: box.y + box.height / 2 }, 1.4);
+  };
 
   session.startRecording();
-  await session.hold(500);
+  await session.hold(1500);
 
   // The calculated action is the first of the toolbar's two create actions.
   const action = page.locator(".console-nav__drawer .console-toolbar__action").first();
@@ -43,6 +49,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.click(action);
   const name = modal.getByPlaceholder("Name").first();
   await session.waitFor(name);
+  await zoomModal();
   await session.hold(300);
 
   await session.click(name);
@@ -65,10 +72,11 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(800);
 
   await capture.clickButton(session, "Create");
+  session.endZoom();
   await session.waitForHidden(name);
   const item = capture.treeItem(page, "channel:", NAME);
   await session.waitFor(item);
-  await session.hold(600);
+  await session.hold(1200);
 
   await session.rightClick(item, { zoom: false });
   const menu = page.locator(".pluto-menu-context").first();
@@ -79,6 +87,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(500);
   await session.click(edit, { zoom: false });
   await session.waitFor(editor);
+  await zoomModal();
   await session.hold(300);
 
   await session.click(editor);
@@ -104,6 +113,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(500);
 
   await capture.clickButton(session, "Save");
+  session.endZoom();
   await session.waitForHidden(editor);
   await session.hold(3000);
 };

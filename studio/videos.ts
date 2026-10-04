@@ -61,7 +61,7 @@ export default manifest.define([
   { id: "client/channels/delete", script: "scripts/channels-delete.ts" },
   { id: "console/channels/alias", script: "scripts/channels-alias.ts" },
   {
-    id: "console/calculated-channels/create-and-edit",
+    id: "client/calculated-channels/create-and-edit",
     script: "scripts/calculated-channels-create-and-edit.ts",
   },
   { id: "client/ranges/create", script: "scripts/ranges-create.ts" },
