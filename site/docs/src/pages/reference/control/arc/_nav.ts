@@ -41,6 +41,11 @@ export const ARC_NAV: PageNavNode = {
       name: "Graph editor",
     },
     {
+      key: "/reference/control/arc/start-from-schematic",
+      href: "/reference/control/arc/start-from-schematic",
+      name: "Start from a schematic",
+    },
+    {
       key: "/reference/control/arc/test-sequences",
       href: "/reference/control/arc/test-sequences",
       name: "Test sequences",
