@@ -38,7 +38,6 @@ export const GET_STARTED_NAV: PageNavNode = {
       key: "/reference/get-started/sample-project",
       href: "/reference/get-started/sample-project",
       name: "Sample project",
-      edition: "desktop",
     },
     {
       key: "/reference/get-started/first-run",
