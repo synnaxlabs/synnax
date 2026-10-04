@@ -19,6 +19,11 @@ export const ALARMS_NAV: PageNavNode = {
       name: "Overview",
     },
     {
+      key: "/reference/alarms/statuses",
+      href: "/reference/alarms/statuses",
+      name: "Statuses",
+    },
+    {
       key: "/reference/alarms/redlines",
       href: "/reference/alarms/redlines",
       name: "Redlines",
@@ -26,7 +31,7 @@ export const ALARMS_NAV: PageNavNode = {
     {
       key: "/reference/alarms/arc",
       href: "/reference/alarms/arc",
-      name: "Alarms in Arc",
+      name: "Arc alarms",
     },
     {
       key: "/reference/alarms/pagerduty",
