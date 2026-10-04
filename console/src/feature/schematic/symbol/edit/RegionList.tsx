@@ -38,6 +38,7 @@ const RegionListItem = ({ selectedState, ...props }: RegionListItemProps) => {
   const { itemKey } = props;
   const path = `data.states.${selectedState}.regions.${itemKey}`;
   const region = Form.useFieldValue<schematic.symbol.Region>(path, { optional: true });
+  const { set } = Form.useContext();
   const { remove } = Form.useFieldListUtils<string, schematic.symbol.Region>(
     `data.states.${selectedState}.regions`,
   );
@@ -64,18 +65,16 @@ const RegionListItem = ({ selectedState, ...props }: RegionListItemProps) => {
         <Text.Text level="small" color={9}>
           {region?.selectors?.length || 0} elements
         </Text.Text>
-        <Color.Field
-          path={`${path}.strokeColor`}
+        <Color.Swatch
+          value={region.strokeColor}
           fallback={color.ZERO}
-          showLabel={false}
-          padHelpText
+          onChange={(c) => set(`${path}.strokeColor`, c)}
           size="small"
         />
-        <Color.Field
-          path={`${path}.fillColor`}
+        <Color.Swatch
+          value={region.fillColor}
           fallback={color.ZERO}
-          showLabel={false}
-          padHelpText
+          onChange={(c) => set(`${path}.fillColor`, c)}
           size="small"
         />
         <Button.Button

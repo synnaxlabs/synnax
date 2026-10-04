@@ -88,6 +88,7 @@ const RegionControls = ({
 }: RegionControlsProps): ReactElement => {
   const name = Form.useFieldValue<string>(`${path}.name`);
   const region = Form.useFieldValue<schematic.symbol.Region>(path);
+  const { set } = Form.useContext();
   const originalRegion = getOriginalRegion(path);
   const canBeReset = !deep.equal(region, originalRegion);
   return (
@@ -101,17 +102,15 @@ const RegionControls = ({
         {caseconv.capitalize(name)}
       </Text.Text>
       <Flex.Box x align="stretch" key={path}>
-        <Color.Field
-          path={`${path}.strokeColor`}
+        <Color.Swatch
+          value={region.strokeColor}
           fallback={color.ZERO}
-          showLabel={false}
-          align="stretch"
+          onChange={(c) => set(`${path}.strokeColor`, c)}
         />
-        <Color.Field
-          path={`${path}.fillColor`}
+        <Color.Swatch
+          value={region.fillColor}
           fallback={color.ZERO}
-          showLabel={false}
-          align="stretch"
+          onChange={(c) => set(`${path}.fillColor`, c)}
         />
         <Button.Button
           onClick={() => onReset(path)}
