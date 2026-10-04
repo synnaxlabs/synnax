@@ -34,6 +34,11 @@ export const HARDWARE_NAV: PageNavNode = {
       href: "/reference/hardware/tasks",
       name: "Tasks",
     },
+    {
+      key: "/reference/hardware/start-and-stop-tasks",
+      href: "/reference/hardware/start-and-stop-tasks",
+      name: "Start and stop",
+    },
     ETHERCAT_NAV,
     HTTP_NAV,
     LABJACK_NAV,
