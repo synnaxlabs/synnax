@@ -13,6 +13,7 @@ package start_test
 
 import (
 	"net"
+	"os"
 	"os/exec"
 	"syscall"
 	"time"
@@ -24,14 +25,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Start", Ordered, ContinueOnFailure, func() {
-	var binary string
-	BeforeAll(func() {
-		ShouldNotLeakGoroutines()
-		binary = MustSucceed(gexec.Build("github.com/synnaxlabs/synnax"))
-		DeferCleanup(gexec.CleanupBuildArtifacts)
-	})
-
+var _ = Describe("Start", func() {
 	// startCore starts a Core with in-memory storage and returns once it is running.
 	startCore := func() *gexec.Session {
 		GinkgoHelper()
@@ -40,10 +34,12 @@ var _ = Describe("Start", Ordered, ContinueOnFailure, func() {
 		Expect(l.Close()).To(Succeed())
 		dir := GinkgoT().TempDir()
 		cmd := exec.Command(
-			binary, "start", "--mem", "--insecure", "--no-driver",
+			MustSucceed(os.Executable()),
+			"start", "--mem", "--insecure", "--no-driver",
 			"--listen", addr, "--data", dir,
 		)
 		cmd.Dir = dir
+		cmd.Env = append(os.Environ(), coreEnv+"=1")
 		session := MustSucceed(gexec.Start(cmd, GinkgoWriter, GinkgoWriter))
 		DeferCleanup(func() { session.Kill().Wait() })
 		Eventually(session.Out, 30*time.Second).Should(gbytes.Say("Synnax is running"))
