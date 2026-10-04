@@ -52,6 +52,35 @@ backup.
 
 To restore, stop the Core, replace the data folder with the copy, and start the Core.
 
+### The data folder
+
+The data folder holds everything the Core stores: metadata, users, and the license key
+in `kv/`, telemetry in `cesium/`, and a `LOCK` file. The `--data` flag (`-d`), the
+`SYNNAX_DATA` environment variable, or the `data` key of the config file sets it. The
+defaults are:
+
+| How the Core runs                                                | Data folder                                                              |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `synnax start` in a terminal                                     | `synnax-data`, in the folder where you ran the command                   |
+| Docker                                                           | `/synnax/synnax-data` in the container, usually the `synnax-data` volume |
+| Windows service                                                  | `C:\ProgramData\Synnax\data`                                             |
+| systemd, as in [Run as a service](/reference/enterprise/service) | `/var/lib/synnax/data`                                                   |
+| Synnax Desktop                                                   | See [Synnax Desktop data](/reference/desktop/data)                       |
+
+To find the data folder of a running Core, look for this line near the start of its log.
+A relative path is relative to the folder where the Core started:
+
+```
+storage/layer.go:205  starting in directory  {"dirname": "synnax-data"}
+```
+
+On Windows, `synnax service status` also prints the data folder.
+
+### Copy the data folder
+
+For a Core that runs in a terminal, press `Ctrl+C`, copy the data folder, then start the
+Core again with the same flags. For a service:
+
 <Platform.Tabs exclude={["macOS"]}>
 <Fragment slot="Linux">
 

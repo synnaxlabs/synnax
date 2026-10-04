@@ -52,7 +52,7 @@ Core starts when the computer boots and starts again after a crash.
    Type=simple
    User=synnax
    Group=synnax
-   StateDirectory=synnax
+   StateDirectory=synnax synnax-driver
    WorkingDirectory=/var/lib/synnax
    ExecStart=/usr/local/bin/synnax start \
      --listen=synnax.example.com:9090 \
@@ -89,8 +89,11 @@ Core starts when the computer boots and starts again after a crash.
    Wait for `Synnax is running and available at`.
 
 The unit sets `KillSignal=SIGINT` because the Core shuts down cleanly only on `SIGINT`.
-`LimitNOFILE` allows the Core to keep many channel files open. To change a flag, edit
-the unit, then run `sudo systemctl daemon-reload` and `sudo systemctl restart synnax`.
+`StateDirectory` creates `/var/lib/synnax` and `/var/lib/synnax-driver` for the `synnax`
+user. Core 0.58 and earlier keep the state of the embedded Driver in
+`/var/lib/synnax-driver`, and do not start without it. `LimitNOFILE` allows the Core to
+keep many channel files open. To change a flag, edit the unit, then run
+`sudo systemctl daemon-reload` and `sudo systemctl restart synnax`.
 
 For EtherCAT devices, also add `AmbientCapabilities=CAP_NET_RAW` to the `[Service]`
 section.
