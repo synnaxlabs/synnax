@@ -14,11 +14,6 @@ export const ETHERCAT_NAV: PageNavNode = {
   name: "EtherCAT",
   children: [
     {
-      key: "/reference/hardware/ethercat/get-started",
-      href: "/reference/hardware/ethercat/get-started",
-      name: "Get started",
-    },
-    {
       key: "/reference/hardware/ethercat/configure-device",
       href: "/reference/hardware/ethercat/configure-device",
       name: "Configure a device",
