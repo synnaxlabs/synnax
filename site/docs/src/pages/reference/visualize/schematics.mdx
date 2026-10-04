@@ -207,16 +207,34 @@ custom symbol has **State overrides**. See
 
 ### Control tab
 
-| Group     | Field          | Description                                                                                             |
-| --------- | -------------- | ------------------------------------------------------------------------------------------------------- |
-| State     | Channel        | The channel that sets how the symbol looks, such as open or closed.                                     |
-| Command   | Channel        | The channel that the Console writes to when an operator clicks the symbol.                              |
-| Command   | Delay          | The time in ms that an operator must press and hold before the symbol writes. Not on momentary buttons. |
-| Command   | Control chip   | Shows the chip that tells who has control of the channel.                                               |
-| Staleness | Color, Timeout | The same as on the [Telemetry tab](#telemetry-tab).                                                     |
+Valves, pumps, switches, and other actuators have these fields:
 
-A button also has a mode: **Fire**, **Momentary**, or **Pulse**. For what each symbol
-writes, see [manual control](/reference/control/manual).
+| Section   | Field          | Description                                                                   |
+| --------- | -------------- | ----------------------------------------------------------------------------- |
+| State     | Channel        | The channel that sets how the symbol looks, such as open or closed.           |
+| Command   | Channel        | The channel that the Console writes to when an operator clicks the symbol.    |
+| Command   | Delay          | The time in ms that an operator must press and hold before the symbol writes. |
+| Command   | Control chip   | Shows the chip that tells who has control of the channel.                     |
+| Staleness | Color, Timeout | The same as on the [Telemetry tab](#telemetry-tab).                           |
+
+A button has these fields:
+
+| Section   | Field        | Description                                                                                         |
+| --------- | ------------ | --------------------------------------------------------------------------------------------------- |
+| Command   | Channel      | The channel that the Console writes to when an operator clicks the button.                          |
+| Command   | Control chip | Shows the chip that tells who has control of the channel.                                           |
+| Actuation | Mode         | **Fire** (the default), **Momentary**, or **Pulse**.                                                |
+| Actuation | Delay        | The time in ms that an operator must press and hold before the button writes. Not on **Momentary**. |
+
+A button has no label at first. Set one under **Label** on the **Style** tab. For what
+each mode writes, see [manual control](/reference/control/manual).
+
+### Options tab
+
+A state indicator shows the option that matches the value of its channel. Click **Add
+option** to add one, then give it a name, a value, and a color. The value must match
+exactly. When no option matches, the symbol shows **Unknown**. Two options cannot have
+the same value.
 
 ### Redline tab
 
