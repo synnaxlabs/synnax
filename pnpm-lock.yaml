@@ -1362,6 +1362,9 @@ importers:
       astro:
         specifier: 'catalog:'
         version: 7.3.5(@astrojs/markdown-remark@7.3.0(supports-color@10.2.2))(@azure/identity@4.13.3(supports-color@10.2.2))(@types/node@24.19.0)(@vercel/functions@3.7.6(@aws-sdk/credential-provider-web-identity@3.972.77)(ws@8.22.0))(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.0)
+      astro-seo:
+        specifier: 'catalog:'
+        version: 1.2.0
     devDependencies:
       '@astrojs/check':
         specifier: 'catalog:'
@@ -1438,9 +1441,6 @@ importers:
       astro:
         specifier: 'catalog:'
         version: 7.3.5(@astrojs/markdown-remark@7.3.0(supports-color@10.2.2))(@azure/identity@4.13.3(supports-color@10.2.2))(@types/node@24.19.0)(@vercel/functions@3.7.6(@aws-sdk/credential-provider-web-identity@3.972.77)(ws@8.22.0))(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.0)
-      astro-seo:
-        specifier: 'catalog:'
-        version: 1.2.0
       hast-util-from-html:
         specifier: 'catalog:'
         version: 2.0.3
@@ -1659,9 +1659,6 @@ importers:
       astro:
         specifier: 'catalog:'
         version: 7.3.5(@astrojs/markdown-remark@7.3.0(supports-color@10.2.2))(@azure/identity@4.13.3(supports-color@10.2.2))(@types/node@24.19.0)(@vercel/functions@3.7.6(@aws-sdk/credential-provider-web-identity@3.972.77)(ws@8.22.0))(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.0)
-      astro-seo:
-        specifier: 'catalog:'
-        version: 1.2.0
       react:
         specifier: 'catalog:'
         version: 19.3.0

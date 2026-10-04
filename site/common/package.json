@@ -5,6 +5,7 @@
   "exports": {
     "./Drawer.astro": "./src/Drawer.astro",
     "./Footer.astro": "./src/Footer.astro",
+    "./Head.astro": "./src/Head.astro",
     "./MenuButton.astro": "./src/MenuButton.astro",
     "./PrivacyPolicy.astro": "./src/PrivacyPolicy.astro",
     "./base.css": "./src/base.css",
@@ -25,7 +26,8 @@
     "@astrojs/react": "catalog:",
     "@synnaxlabs/lyra": "catalog:",
     "@synnaxlabs/media": "catalog:",
-    "astro": "catalog:"
+    "astro": "catalog:",
+    "astro-seo": "catalog:"
   },
   "devDependencies": {
     "@astrojs/check": "catalog:",
