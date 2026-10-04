@@ -65,7 +65,8 @@ and import the file on the **Authorities** tab.
 In PowerShell as an administrator:
 
 ```powershell
-Import-Certificate -FilePath synnax-ca.crt -CertStoreLocation Cert:\LocalMachine\Root
+Import-Certificate -FilePath synnax-ca.crt `
+  -CertStoreLocation Cert:\LocalMachine\Root
 ```
 
 The Console, browsers, and a standalone Driver use this store.

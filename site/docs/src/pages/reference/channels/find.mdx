@@ -74,7 +74,8 @@ const tankPressure = await client.channels.retrieve("tank_pressure");
 const sameChannel = await client.channels.retrieve(tankPressure.key);
 
 // Many channels, by names or by keys
-const byName = await client.channels.retrieve(["tank_pressure", "tank_temperature"]);
+const names = ["tank_pressure", "tank_temperature"];
+const byName = await client.channels.retrieve(names);
 const byKey = await client.channels.retrieve([tankPressure.key, sameChannel.key]);
 ```
 

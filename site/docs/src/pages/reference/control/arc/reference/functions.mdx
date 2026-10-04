@@ -14,7 +14,8 @@ A function declares config parameters in braces, inputs in parentheses, and an o
 output. Functions are declared at the top level only.
 
 ```text
-function = "func" name ("{" params "}")? "(" params? ")" output? "{" statement* "}"
+function = "func" name ("{" params "}")? "(" params? ")" output?
+           "{" statement* "}"
 params   = name type ("=" literal)? ("," name type ("=" literal)?)*
 ```
 

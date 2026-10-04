@@ -100,7 +100,12 @@ import synnax as sy
 
 PORT = "/dev/ttyACM0"
 
-client = sy.Synnax(host="localhost", port=9090, username="synnax", password="seldon")
+client = sy.Synnax(
+    host="localhost",
+    port=9090,
+    username="synnax",
+    password="seldon",
+)
 
 time = client.channels.create(
     name="arduino_time",
@@ -232,7 +237,12 @@ import synnax as sy
 
 PORT = "/dev/ttyACM0"
 
-client = sy.Synnax(host="localhost", port=9090, username="synnax", password="seldon")
+client = sy.Synnax(
+    host="localhost",
+    port=9090,
+    username="synnax",
+    password="seldon",
+)
 
 client.channels.create(
     name="arduino_command",
@@ -353,7 +363,12 @@ import synnax as sy
 
 PORT = "/dev/ttyACM0"
 
-client = sy.Synnax(host="localhost", port=9090, username="synnax", password="seldon")
+client = sy.Synnax(
+    host="localhost",
+    port=9090,
+    username="synnax",
+    password="seldon",
+)
 
 client.channels.create(
     name="arduino_command",

@@ -152,7 +152,9 @@ start = sy.TimeStamp.now()
 client.write(
     start,
     {
-        "tank_time": [start + sy.TimeSpan.MILLISECOND * 100 * i for i in range(5)],
+        "tank_time": [
+            start + sy.TimeSpan.MILLISECOND * 100 * i for i in range(5)
+        ],
         "tank_pressure": [20.0, 20.5, 21.0, 21.5, 22.0],
     },
 )
@@ -164,8 +166,9 @@ client.write(
 
 ```typescript
 const start = TimeStamp.now();
+const step = TimeSpan.milliseconds(100);
 await client.write(start, {
-  tank_time: [0, 1, 2, 3, 4].map((i) => start.add(TimeSpan.milliseconds(100 * i))),
+  tank_time: [0, 1, 2, 3, 4].map((i) => start.add(step.mult(i))),
   tank_pressure: [20.0, 20.5, 21.0, 21.5, 22.0],
 });
 ```

@@ -108,7 +108,8 @@ subtraction: `later - start` returns a `TimeStamp`.
 ```typescript
 const later = start.add(TimeSpan.MINUTE);
 console.log(later.span(start).toString()); // 1m
-console.log(later.sub(TimeSpan.seconds(30)).toString()); // 2026-10-03T12:00:30.000Z
+// 2026-10-03T12:00:30.000Z
+console.log(later.sub(TimeSpan.seconds(30)).toString());
 console.log(later.after(start)); // true
 console.log(later.afterEq(start)); // true
 ```
