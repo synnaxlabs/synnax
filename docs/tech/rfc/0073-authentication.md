@@ -170,14 +170,16 @@ cover TLS and every other use of cryptography.
 
 ### 4.2 OpenID Connect
 
-A provider is a Core start setting: a name, an issuer URL, and a client ID. Only the
-Console logs in this way. It reads the provider's login address from `auth/methods`,
-opens the system browser with a PKCE challenge, and receives a code on a loopback
-redirect. The code and the PKCE verifier are the proof. The Core exchanges them with the
-provider and validates the result, so the Core must be able to reach the provider. The
-Core keeps no state between the two steps, so a cluster node other than the one that
-served `auth/methods` can finish the login. An air-gapped site runs its own provider. A
-site with smart cards puts the card check in its provider.
+A provider is an entry in the Core config file: a name, an issuer URL, a client ID, and
+a client secret when the provider requires one. A change needs a restart, and every node
+in a cluster needs the same entries. Only the Console logs in this way. It reads the
+provider's login address from `auth/methods`, opens the system browser with a PKCE
+challenge, and receives a code on a loopback redirect. The code and the PKCE verifier
+are the proof. The Core exchanges them with the provider and validates the result, so
+the Core must be able to reach the provider. The Core keeps no state between the two
+steps, so a cluster node other than the one that served `auth/methods` can finish the
+login. An air-gapped site runs its own provider. A site with smart cards puts the card
+check in its provider.
 
 The provider answers with a signed ID token. The Core checks its signature, issuer,
 audience, expiry, and nonce, and then reads two claims:
@@ -439,6 +441,7 @@ can read.
 | ---------------- | ------------------------------------------------- | ------------------------------------------------ | --------------------------------------------------------------- |
 | Core             | Hashes of passwords, API keys, and session tokens | Database                                         | A hash cannot be used to log in                                 |
 | Core             | Root password                                     | Start flag, environment variable, or config file | Plain text. The one exception                                   |
+| Core             | Client secret of a provider, when it requires one | Config file                                      | Plain text. Keep the file readable only by the Core's user      |
 | Core             | API key of the embedded Driver                    | Driver config file in the Core data directory    | Plain text, owner-only file                                     |
 | Driver           | API key of its rack                               | Driver state file                                | Plain text, owner-only file                                     |
 | Console, desktop | Session token                                     | Operating system keychain                        | Encrypted by the operating system                               |
@@ -462,13 +465,13 @@ the same time, as each component already works. New names are proposals.
 
 **Core**
 
-| Setting                | Change                                                                                       |
-| ---------------------- | -------------------------------------------------------------------------------------------- |
-| `username`, `password` | Unchanged, with the `synnax` and `seldon` defaults. They own the root user's password (§4.7) |
-| `auth-methods`         | New. The accepted methods (§4.6). Default: all                                               |
-| `fips`                 | New. Restricts password hashes to PBKDF2 (§4.1). Default: false                              |
-| `session-idle-timeout` | New. The idle timeout (§4.4). Default: 7 days                                                |
-| `oidc-providers`       | New. A list of providers, each with a name, an issuer URL, and a client ID (§4.2)            |
+| Setting                | Change                                                                                                                         |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `username`, `password` | Unchanged, with the `synnax` and `seldon` defaults. They own the root user's password (§4.7)                                   |
+| `auth-methods`         | New. The accepted methods (§4.6). Default: all                                                                                 |
+| `fips`                 | New. Restricts password hashes to PBKDF2 (§4.1). Default: false                                                                |
+| `session-idle-timeout` | New. The idle timeout (§4.4). Default: 7 days                                                                                  |
+| `oidc-providers`       | New. Config file only. A list of providers, each with a name, an issuer URL, a client ID, and an optional client secret (§4.2) |
 
 **Driver** (config file, `SYNNAX_DRIVER_` environment variables, and the state file)
 
@@ -596,8 +599,8 @@ Each phase is one pull request into `main`.
 6. **The root password stays in the start settings**: Grafana and Keycloak apply the
    setting once and recover with a host tool. Synnax Desktop needs a new root password
    on every launch, so the settings stay in charge.
-
-## 8 Open questions
-
-1. **Provider settings**: Start settings as written, or stored records the Console can
-   edit without a restart.
+7. **Provider settings live in the Core config file**: Stored records that the Console
+   edits would need no restart and would replicate across a cluster. They also need a
+   schema, endpoints, a Console page, and permissions. Providers change rarely, and the
+   accepted methods and the root user are start settings too. Stored records can replace
+   the file later with no change to the login flow.
