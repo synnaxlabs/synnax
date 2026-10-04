@@ -284,6 +284,14 @@ A session ends in two ways:
    the stored value is older than a quarter of the timeout. That is at most four writes
    per session per timeout period, however busy the client is.
 
+**The idle timeout measures the client, not the person.** An open Console always holds
+streams, so it never times out, even when nobody touches it. The timeout fires only when
+the client is gone: closed, asleep, crashed, or cut off. There is no logoff or lock for
+a person who walks away. One case needs a person: when a Console loses its connection
+for longer than the timeout, the user logs in again after it returns. The Console keeps
+no password, in memory or on disk, so it cannot do that by itself. A Driver or a script
+holds its key and logs in again without help.
+
 **Revocation is not instant everywhere.** It is immediate on the node that receives the
 delete. Other nodes see it when Aspen replicates the delete. A node cut off from the
 cluster keeps honoring the session until it rejoins.
@@ -523,6 +531,7 @@ session model does not change.
 - Authentication between Core nodes. Peer calls are unauthenticated today.
 - Smart cards without a provider, SAML, and LDAP.
 - Second factors, login rate limits, and lockout.
+- A Console screen lock after a person is inactive.
 - FIPS mode beyond password hashing.
 
 ## 6 Implementation phases
