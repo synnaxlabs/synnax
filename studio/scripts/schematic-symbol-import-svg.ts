@@ -58,7 +58,17 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   const drop = page.locator(".console-schematic-file-drop").first();
   await session.waitFor(drop);
   await session.hold(800);
-  await session.zoom(modal);
+  // The dialog nearly fills the window, so a zoom on it renders at 1x. Zoom on the
+  // sidebar's edge, and let the camera pan to the Create button.
+  const sidebar = await modal
+    .locator(".console-schematic__sidebar")
+    .first()
+    .boundingBox();
+  if (sidebar == null) throw new Error("symbol sidebar is hidden");
+  await session.zoom(
+    { x: sidebar.x + sidebar.width, y: sidebar.y + sidebar.height / 2 },
+    1.5,
+  );
 
   // The Console opens a detached file input, so the picker never renders; the
   // chooser event is the only seam to hand it a file.
