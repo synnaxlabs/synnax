@@ -63,10 +63,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.waitFor(snapshots);
   await snapshots.scrollIntoViewIfNeeded();
   await session.settle(400);
-  await session.moveTo({ x: 900, y: 500 });
+  await session.moveTo({ x: 800, y: 450 });
 
   session.startRecording();
-  await session.hold(1200);
+  await session.hold(1800);
 
   await capture.contextMenu(session, item, `Snapshot to ${RANGE}`);
   const snapshot = page
@@ -74,10 +74,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     .filter({ hasText: NAME })
     .first();
   await session.waitFor(snapshot);
-  await session.zoom(snapshot, 1.8);
-  await session.hold(2000);
-  session.endZoom();
-  await session.hold(800);
+  await session.moveTo({ x: 800, y: 450 });
+  await session.hold(2800);
 };
 
 /** key extracts a resource's key from its tree item's ontology-id DOM id. */

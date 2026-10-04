@@ -19,25 +19,30 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const { page } = session;
     await capture.login(session);
     await capture.clearPanel(session);
-    await session.moveTo({ x: 756, y: 500 });
+    await session.moveTo({ x: 800, y: 450 });
 
     session.startRecording();
-    await session.hold(800);
+    await session.hold(1800);
 
     await capture.clickPanelCreate(session);
     await session.hold(800);
     await capture.createComponent(session, "Line plot");
     await session.waitFor(page.locator(".pluto-line-plot").first());
     await session.hold(600);
+    await capture.showVisualizationToolbar(session);
+    await session.zoom(page.locator("label").filter({ hasText: "Y1" }).first(), 1.5);
+    await session.hold(500);
     await capture.addChannels(session, "Y1", [fixture.value], {
       search: fixture.value,
     });
+    await session.hold(600);
+    session.endZoom();
     await capture.hideBottomToolbar(session);
-    await session.moveTo({ x: 756, y: 980 });
+    await session.moveTo({ x: 800, y: 870 });
     // The first seconds of the plot can show a gap in the data. Wait in wall time until
     // the 30 s window scrolls past it.
     await session.settleWall(30000);
-    await session.hold(2500);
+    await session.hold(2800);
   } finally {
     await fixture.stop();
   }
