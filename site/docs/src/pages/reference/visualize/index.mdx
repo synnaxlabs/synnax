@@ -9,6 +9,40 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Diagram } from "@/components/diagram";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
+export const hierarchy = {
+  key: "project",
+  label: "Engine test",
+  caption: "project, 2 panels",
+  icon: Icon.Project,
+  columns: 2,
+  narrowColumns: 1,
+  children: [
+    {
+      key: "hotfire",
+      label: "Hotfire",
+      caption: "panel, 4 tabs",
+      icon: Icon.Panel,
+      columns: 2,
+      children: [
+        { key: "plot", label: "Line plot", icon: Icon.LinePlot },
+        { key: "schematic", label: "Schematic", icon: Icon.Schematic },
+        { key: "table", label: "Table", icon: Icon.Table },
+        { key: "log", label: "Log", icon: Icon.Log },
+      ],
+    },
+    {
+      key: "cold",
+      label: "Cold flow",
+      caption: "panel, 2 tabs",
+      icon: Icon.Panel,
+      narrowColumns: 2,
+      children: [
+        { key: "cold-schematic", label: "Schematic", icon: Icon.Schematic },
+        { key: "cold-plot", label: "Line plot", icon: Icon.LinePlot },
+      ],
+    },
+  ],
+};
 
 The Synnax Console shows your channel data in four kinds of visualizations: line plots,
 schematics, tables, and logs. Each visualization opens in a tab. You arrange tabs in
@@ -19,23 +53,10 @@ Synnax stores each project, its panels, and its visualizations in the Synnax Cor
 Console saves each change that you make, so everyone on the same Core can
 [share](/reference/visualize/share) them.
 
-<Diagram.Block
+<Diagram.Nest
+  colored
   title="A project holds panels. A panel holds tabs, and each tab shows one visualization: a line plot, a schematic, a table, or a log."
-  nodes={[
-    { key: "project", label: "Project", icon: Icon.Project, column: 0 },
-    { key: "panel", label: "Panels", caption: "tabs", icon: Icon.Panel, column: 1 },
-    { key: "lineplot", label: "Line plot", icon: Icon.LinePlot, column: 2 },
-    { key: "schematic", label: "Schematic", icon: Icon.Schematic, column: 2 },
-    { key: "table", label: "Table", icon: Icon.Table, column: 2 },
-    { key: "log", label: "Log", icon: Icon.Log, column: 2 },
-  ]}
-  edges={[
-    { from: "project", to: "panel" },
-    { from: "panel", to: "lineplot" },
-    { from: "panel", to: "schematic" },
-    { from: "panel", to: "table" },
-    { from: "panel", to: "log" },
-  ]}
+  root={hierarchy}
 />
 
 <Divider.Divider x />
