@@ -189,6 +189,16 @@ var _ = Describe("JSONCodec", func() {
 	})
 })
 
+var _ = Describe("ImportCodec", func() {
+	It("Should replace a lone surrogate with U+FFFD", func(ctx SpecContext) {
+		var env imex.Envelope
+		Expect(apiimex.ImportCodec.Decode(
+			ctx, []byte(`{"version":1,"name":"Tank \ud83d"}`), &env,
+		)).To(Succeed())
+		Expect(env.Name).To(Equal("Tank \uFFFD"))
+	})
+})
+
 var _ = Describe("ResolveEncoding", func() {
 	It("Should return a pretty JSON encoder for the JSON encoding", func(
 		ctx SpecContext,

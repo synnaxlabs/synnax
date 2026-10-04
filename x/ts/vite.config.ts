@@ -15,17 +15,19 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   base: "/x/",
-  plugins: [lib({ name: "x" })],
+  plugins: [lib({ name: "x", unbundled: true })],
   build: {
     lib: {
       entry: {
         index: path.resolve(".", "src/index.ts"),
         bench: path.resolve(".", "src/bench/index.ts"),
+        testutil: path.resolve(".", "src/testutil/index.ts"),
       },
     },
-    rolldownOptions: { external: ["zod", /^node:/] },
+    rolldownOptions: { external: ["zod", "vitest", /^node:/] },
   },
   test: {
+    setupFiles: ["src/testutil/setup.ts"],
     exclude: ["**/node_modules/**", "**/dist/**"],
     coverage: {
       include: ["src/**/*.ts", "src/**/*.tsx"],

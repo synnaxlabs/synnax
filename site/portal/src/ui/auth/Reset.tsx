@@ -9,6 +9,7 @@
 
 import { Button } from "@synnaxlabs/lyra/button";
 import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useState } from "react";
 import { z } from "zod";
@@ -73,13 +74,8 @@ export const Reset = ({ target }: ResetProps): ReactElement => {
   });
 
   const footer = (
-    <Text.Text
-      el="a"
-      level="small"
-      variant="link"
-      href={withTarget("/sign-in", target)}
-    >
-      Back to sign in
+    <Text.Text el="a" level="small" variant="link" href={withTarget("/login", target)}>
+      Back to log in
     </Text.Text>
   );
 
@@ -87,7 +83,7 @@ export const Reset = ({ target }: ResetProps): ReactElement => {
     return (
       <Card
         title="Set a new password"
-        description={`We sent a code to ${emailMethods.value().email}.`}
+        description={`We sent a code to ${emailMethods.value().email}`}
         error={reset.error}
         footer={footer}
       >
@@ -95,11 +91,15 @@ export const Reset = ({ target }: ResetProps): ReactElement => {
           <Form.TextField
             path="code"
             label="Code"
+            required={false}
+            padHelpText={false}
             inputProps={{ autoFocus: true, autoComplete: "one-time-code" }}
           />
           <Form.TextField
             path="password"
             label="New password"
+            required={false}
+            padHelpText={false}
             inputProps={{ type: "password", autoComplete: "new-password" }}
           />
           <Button.Button
@@ -111,7 +111,7 @@ export const Reset = ({ target }: ResetProps): ReactElement => {
             status={reset.loading ? "loading" : undefined}
             trigger={["Enter"]}
           >
-            Set password and sign in
+            Set password and log in
           </Button.Button>
         </Form.Form>
       </Card>
@@ -120,7 +120,7 @@ export const Reset = ({ target }: ResetProps): ReactElement => {
   return (
     <Card
       title="Reset your password"
-      description="We will email you a code."
+      description="We will email you a code"
       error={send.error}
       footer={footer}
     >
@@ -128,6 +128,8 @@ export const Reset = ({ target }: ResetProps): ReactElement => {
         <Form.TextField
           path="email"
           label="Email"
+          required={false}
+          padHelpText={false}
           inputProps={{ type: "email", autoComplete: "email", autoFocus: true }}
         />
         <Button.Button
@@ -141,6 +143,7 @@ export const Reset = ({ target }: ResetProps): ReactElement => {
           trigger={["Enter"]}
         >
           Send code
+          <Icon.Arrow.Right />
         </Button.Button>
       </Form.Form>
     </Card>

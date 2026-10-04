@@ -11,6 +11,7 @@ import "zod/compile";
 import "fake-indexeddb/auto";
 
 import { preloadTimeLanguage } from "@synnaxlabs/lyra/testutil";
+import { failOnConsoleOutput } from "@synnaxlabs/x/testutil";
 import { configure } from "@testing-library/react";
 import { afterAll, beforeAll, vi } from "vitest";
 
@@ -19,6 +20,8 @@ import { installTestWebSocket } from "@/testutil/websocket";
 // Live-core round-trips share the single test Core with the rest of the suite, so allow
 // more than the 1s waitFor default.
 configure({ asyncUtilTimeout: 5000 });
+
+failOnConsoleOutput();
 
 // Clients constructed at spec module scope start connecting immediately, so the
 // crash-proof WebSocket must be in place before spec imports, not in beforeAll.
@@ -148,6 +151,24 @@ beforeAll(() => {
           reader.readAsArrayBuffer(this);
         });
       },
+    });
+  // jsdom has no canvas backend. Its getContext already returns null, but it logs "Not
+  // implemented" on every call.
+  HTMLCanvasElement.prototype.getContext = () => null;
+  // jsdom does not implement matchMedia; Lyra's Nebula listens for OS scheme changes.
+  // Every query reports no match and never changes.
+  if (typeof window.matchMedia !== "function")
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      writable: true,
+      value: (media: string): MediaQueryList =>
+        Object.assign(new EventTarget(), {
+          media,
+          matches: false,
+          onchange: null,
+          addListener: () => {},
+          removeListener: () => {},
+        }),
     });
   // jsdom does not implement scrollIntoView; pluto's Tabs.Selector calls it to reveal
   // the selected tab.

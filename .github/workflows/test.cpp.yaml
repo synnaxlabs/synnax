@@ -78,10 +78,10 @@ jobs:
   test:
     name: Test (${{ matrix.os }})
     # A service with an empty image does not start. Services run on Linux only, so the
-    # other runners skip tests tagged requires-core.
+    # other runners get no image and skip tests tagged requires-core.
     services:
       synnax:
-        image: ${{ inputs.core_image }}
+        image: ${{ matrix.os == 'ubuntu-build-bot' && inputs.core_image || '' }}
         env:
           SYNNAX_LISTEN: localhost:9090
           SYNNAX_VERBOSE: true
@@ -161,11 +161,14 @@ jobs:
           bazel test ${{ inputs.sanitizers && '--config=asan' || '' }} --test_output=all
           ${{ inputs.targets }} ${{ steps.tags.outputs.flag }} ${{ inputs.test_flags }}
 
+      # The Ubuntu build bots have 16 GB and no swap. A sanitized compile takes up to
+      # 3.5 GB, so eight at once reach the OOM killer, which takes the runner down with
+      # the job and leaves its Core service container holding port 9090.
       - name: Test (Ubuntu)
         if: runner.os == 'Linux'
         shell: bash
         run: >-
-          bazel test $BAZEL_REMOTE_CACHE_FLAGS ${{ inputs.sanitizers &&
+          bazel test $BAZEL_REMOTE_CACHE_FLAGS --jobs=4 ${{ inputs.sanitizers &&
           '--config=asan-leak' || '' }} --test_output=all
           --test_env=LSAN_OPTIONS=suppressions=${{ github.workspace
           }}/scripts/sanitizers/lsan_suppressions.txt ${{ inputs.targets }} ${{

@@ -9,7 +9,8 @@
 
 import { group, NotFoundError, ontology, query, status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id, testutil, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { expectAlways } from "@synnaxlabs/x/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -806,7 +807,7 @@ describe("Status queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       act(() => result.current.form.set("name", "Edited"));
       await act(async () => await client.statuses.delete(key));
-      await testutil.expectAlways(async () => {
+      await expectAlways(async () => {
         await expect(
           async () => await client.statuses.retrieve({ keys: [key] }),
         ).rejects.toThrow(NotFoundError);

@@ -20,6 +20,8 @@ import { afterEach, assert, describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
 import { Task } from "@/feature/task";
+import { Analytics } from "@/platform/analytics";
+import { createTestSink } from "@/platform/analytics/testutil";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
 import {
@@ -95,14 +97,19 @@ const createTask = async ({
   return t;
 };
 
-const renderToolbar = async (as: Client = client) => {
+const renderToolbar = async (
+  as: Client = client,
+  analytics: Analytics.Sink = Analytics.NOOP,
+) => {
   const { wrapper, store } = await createConsoleWrapper({ client: as });
   const created = await createSelectedPanel(store, client);
   render(
-    <Task.RegistryProvider registry={Task.REGISTRY}>
-      {Task.TOOLBAR.content}
-      <Modals.Stack />
-    </Task.RegistryProvider>,
+    <Analytics.Provider sink={analytics}>
+      <Task.RegistryProvider registry={Task.REGISTRY}>
+        {Task.TOOLBAR.content}
+        <Modals.Stack />
+      </Task.RegistryProvider>
+    </Analytics.Provider>,
     { wrapper },
   );
   return { created, store };
@@ -196,6 +203,19 @@ describe("task/Toolbar", () => {
       } finally {
         streamer.close();
       }
+    });
+
+    it("reports the type of a task it started", async () => {
+      const t = await createTask({ running: false });
+      const analytics = createTestSink();
+      await renderToolbar(client, analytics);
+      await openContextMenuUntil(t.name, "Start");
+      fireEvent.click(screen.getByText("Start"));
+      await waitFor(() =>
+        expect(analytics.capture).toHaveBeenCalledWith("task_started", {
+          type: NI.Task.ANALOG_READ_TYPE,
+        }),
+      );
     });
 
     it("issues a stop command for a running task", async () => {
@@ -317,12 +337,16 @@ describe("task/Toolbar", () => {
       store.dispatch(Session.Range.select(rng.key));
       await openContextMenu(t.name);
       fireEvent.click(await screen.findByText(`Snapshot to ${rng.name}`));
-      await waitFor(async () => {
+      const snapshots = await waitFor(async () => {
         const children = await client.ontology.children.retrieve({
           ids: rng.ontologyID,
         });
-        expect(children.some((c) => c.id.type === "task")).toBe(true);
+        const tasks = children.filter((c) => c.id.type === "task");
+        expect(tasks).not.toHaveLength(0);
+        return tasks;
       });
+      // The snapshot is a task on the same rack, which cannot go while it remains.
+      createdTasks.push(...snapshots.map((c) => c.id.key));
     });
   });
 

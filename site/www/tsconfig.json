@@ -9,8 +9,8 @@
   "include": [
     "src/**/*",
     "astro.config.ts",
-    "astro-components.d.ts",
     "eslint.config.ts",
-    "stylelint.config.js"
+    "stylelint.config.js",
+    "vitest.config.ts"
   ]
 }

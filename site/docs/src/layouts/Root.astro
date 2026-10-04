@@ -13,7 +13,7 @@ import "@/styles/main.css";
 import PostHog from "@/components/analytics/PostHog.astro";
 import { ClientRouter } from "astro:transitions";
 import { SEO } from "astro-seo";
-import Footer from "@/components/layout/Footer.astro";
+import Footer from "@synnaxlabs/site-common/Footer.astro";
 import { enabled } from "@/flags";
 import { sectionOf } from "@/pages/_nav";
 import { normalizeRoute } from "@/util/route";
@@ -35,6 +35,35 @@ const section = sectionOf(route);
 const cleanTitle = title?.replace(/`/g, "");
 const pageTitle = cleanTitle && section ? `${cleanTitle} | ${section}` : cleanTitle;
 const fullTitle = pageTitle ? `${pageTitle} | Synnax` : "Synnax";
+
+const FOOTER_COLUMNS = [
+    {
+        title: "Documentation",
+        links: [
+            { label: "Reference", href: "/reference/" },
+            { label: "Concepts", href: "/reference/concepts/overview" },
+            { label: "Client libraries", href: "/reference/client/quick-start" },
+            { label: "Control", href: "/reference/control/get-started" },
+        ],
+    },
+    {
+        title: "Resources",
+        links: [
+            { label: "Blog", href: "/blog/" },
+            { label: "Releases", href: "/releases/" },
+            { label: "Reliability", href: "/reliability/" },
+            { label: "GitHub", href: "https://github.com/synnaxlabs/synnax" },
+        ],
+    },
+    {
+        title: "Company",
+        links: [
+            { label: "About", href: "https://www.synnaxlabs.com/company" },
+            { label: "Contact", href: "https://synnaxlabs.com/#contact" },
+            { label: "Privacy policy", href: "/privacy-policy" },
+        ],
+    },
+];
 ---
 
 <html lang="en" transition:animate="none">
@@ -102,13 +131,12 @@ const fullTitle = pageTitle ? `${pageTitle} | Synnax` : "Synnax";
                 <slot />
             )}
         </main>
-        <Footer />
+        <Footer home="https://synnaxlabs.com" columns={FOOTER_COLUMNS} />
     </body>
     <script>
         import { QUERY as CLIENT_QUERY } from "@/components/client/choice";
         import { addCodeButtonListeners } from "@/components/code/codeUtil";
         import { start as startVideos } from "@/components/media/video";
-        import { start as startMobileMenu } from "@/components/nav/mobile";
         import { start as startOnThisPage } from "@/components/nav/onThisPage";
         import { start as startSidebar } from "@/components/nav/sidebar";
         import { QUERY as PLATFORM_QUERY } from "@/components/platform/choice";
@@ -118,7 +146,6 @@ const fullTitle = pageTitle ? `${pageTitle} | Synnax` : "Synnax";
         import { onDemand } from "@/util/island";
 
         startSidebar();
-        startMobileMenu();
         startVideos();
         // Before the tabs, so the outline hears the first tab change.
         startOnThisPage();

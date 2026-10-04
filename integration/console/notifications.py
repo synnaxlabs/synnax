@@ -119,30 +119,33 @@ class NotificationsClient:
         except PlaywrightTimeoutError:
             return False
 
-    def close_all(self) -> int:
-        """Silence every visible notification at once and wait for them to clear.
+    def close_all(self) -> None:
+        """Silence every notification, including the ones folded behind the "+N more"
+        control, and wait for them to clear.
 
         A notification that expires on its own before its click lands is already in
         the wanted state, so it does not fail the call.
-
-        :returns: Number of notifications silenced.
         """
         buttons = self._all().get_by_role("button", name="Silence", exact=True)
-        count = buttons.count()
-        silenced = 0
+        clear_all = self.page.locator(".console-notifications__controls").get_by_role(
+            "button", name="Clear all", exact=True
+        )
+        if clear_all.count() > 0:
+            try:
+                clear_all.dispatch_event("click", timeout=SILENCE_TIMEOUT)
+            except PlaywrightTimeoutError:
+                # An expired toast can drop the count to four, which hides the control.
+                pass
         # Last to first: a silenced toast unmounts and shifts the indexes after it.
-        for i in reversed(range(count)):
+        for i in reversed(range(buttons.count())):
             try:
                 buttons.nth(i).dispatch_event("click", timeout=SILENCE_TIMEOUT)
-                silenced += 1
             except PlaywrightTimeoutError:
                 pass
-        if silenced > 0:
-            try:
-                expect(buttons).to_have_count(0, timeout=2000)
-            except AssertionError:
-                pass
-        return silenced
+        try:
+            expect(buttons).to_have_count(0, timeout=2000)
+        except AssertionError:
+            pass
 
     def close_connection(self) -> bool:
         """Close the 'Connected to...' notification if present.

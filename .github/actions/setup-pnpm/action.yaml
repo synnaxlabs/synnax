@@ -1,0 +1,76 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+name: Set up pnpm
+description: Installs pnpm, Node.js, and the workspace dependencies
+
+inputs:
+  cache:
+    description: Whether to restore the pnpm store from the Actions cache
+    required: false
+    default: "true"
+  dest:
+    description: Where to store pnpm files
+    required: false
+    default: ~/setup-pnpm
+
+runs:
+  using: composite
+  steps:
+    # pnpm/setup saves a new store under a unique key from every job, about 8 GB per
+    # CI run, which evicts every other cache in the repository within minutes.
+    - name: Set up pnpm and Node.js
+      uses: pnpm/setup@v3
+      with:
+        dest: ${{ inputs.dest }}
+        install: false
+
+    - name: Key the pnpm store
+      id: key
+      if: inputs.cache == 'true'
+      shell: bash
+      env:
+        LOCKFILE: ${{ hashFiles('pnpm-lock.yaml') }}
+      run: |
+        path=$(pnpm store path)
+        echo "path=${path#'\\?\'}" >> "$GITHUB_OUTPUT"
+        echo "prefix=pnpm-store-$RUNNER_OS-$RUNNER_ARCH-" >> "$GITHUB_OUTPUT"
+        echo "key=pnpm-store-$RUNNER_OS-$RUNNER_ARCH-$LOCKFILE" >> "$GITHUB_OUTPUT"
+
+    - name: Restore the pnpm store
+      id: cache
+      if: inputs.cache == 'true'
+      uses: actions/cache/restore@v6
+      with:
+        path: ${{ steps.key.outputs.path }}
+        key: ${{ steps.key.outputs.key }}
+        restore-keys: ${{ steps.key.outputs.prefix }}
+
+    # pnpm/setup already installed the runtime from devEngines.
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --no-runtime
+
+    # The store is saved once per lockfile and branch. A merge group runs on a
+    # throwaway branch that no later run can read, so it never saves.
+    - name: Prune the pnpm store
+      if:
+        inputs.cache == 'true' && steps.cache.outputs.cache-hit != 'true' &&
+        github.event_name != 'merge_group'
+      shell: bash
+      run: pnpm store prune
+
+    - name: Save the pnpm store
+      if:
+        inputs.cache == 'true' && steps.cache.outputs.cache-hit != 'true' &&
+        github.event_name != 'merge_group'
+      uses: actions/cache/save@v6
+      with:
+        path: ${{ steps.key.outputs.path }}
+        key: ${{ steps.key.outputs.key }}

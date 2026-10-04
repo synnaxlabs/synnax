@@ -12,6 +12,8 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { type Analytics } from "@/platform/analytics";
+import { createTestSink } from "@/platform/analytics/testutil";
 import { Channel } from "@/platform/channel";
 import { uniqueChannelName } from "@/platform/channel/testutil";
 import {
@@ -24,9 +26,13 @@ const client = createTestClient();
 
 const openModal = async (
   params?: Channel.CalculatedModalParams,
+  analytics?: Analytics.Sink,
 ): Promise<ModalOpenerHandle<void>> => {
   const handle = await renderModalOpener(Channel.useCalculatedModal, [params ?? {}], {
     client,
+    analytics,
+    // Monaco cannot run in jsdom, so the expression editor's boundary catches.
+    onCaughtError: () => {},
   });
   await screen.findByPlaceholderText("Name");
   return handle;
@@ -129,6 +135,30 @@ describe("useCalculatedModal", () => {
         expect(updated.expression).toBe("return 2");
       });
       await waitFor(() => expect(screen.queryByPlaceholderText("Name")).toBeNull());
+    });
+
+    it("should not report an edited channel as created", async () => {
+      const ch = await client.channels.create({
+        name: uniqueChannelName("calc"),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+        expression: "return 2",
+      });
+      const analytics = createTestSink();
+      await openModal({ channelKey: ch.key }, analytics);
+      await waitFor(() =>
+        expect(screen.getByPlaceholderText<HTMLInputElement>("Name").value).toBe(
+          ch.name,
+        ),
+      );
+      fireEvent.change(screen.getByPlaceholderText("Name"), {
+        target: { value: uniqueChannelName("calc_renamed") },
+      });
+      await act(async () => {
+        fireEvent.click(findButton("Save"));
+      });
+      await waitFor(() => expect(screen.queryByPlaceholderText("Name")).toBeNull());
+      expect(analytics.capture).not.toHaveBeenCalled();
     });
   });
 });

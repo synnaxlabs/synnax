@@ -81,7 +81,7 @@ jobs:
         run: .github/scripts/import_apple_certificate.sh
 
       - name: Set up pnpm and Node.js
-        uses: pnpm/setup@v3
+        uses: ./.github/actions/setup-pnpm
         with:
           # Signed builds run on macos-latest and windows-latest, which start cold and
           # want the cache. An unsigned build takes macos-build-bot, which keeps a local
@@ -105,18 +105,31 @@ jobs:
           CHANNEL: ${{ inputs.updater_channel == 'next' && 'next' || 'latest' }}
         run: |
           ENDPOINT="https://docs.synnaxlabs.com/releases/${PRODUCT}/${CHANNEL}.json"
+          RELEASE=false
+          if [ "$PRODUCT" = desktop ] && [ -n "$APP_VERSION" ]; then RELEASE=true; fi
           if [ -z "$APP_VERSION" ]; then
             APP_VERSION=$(grep -m1 '^version = ' src-tauri/Cargo.toml | cut -d'"' -f2)
           fi
           APP_VERSION="${APP_VERSION/-rc./-}"
           BASE='{}'
+          BUILD="$(jq -r .build.beforeBuildCommand src-tauri/tauri.conf.json)"
           if [ "$PRODUCT" = desktop ]; then
             BASE="$(cat src-tauri/tauri.desktop.conf.json)"
           fi
+          # A Desktop release sends its source maps to PostHog, which resolves exception
+          # stacks with them. The chunk IDs go in after the frontend builds and before
+          # tauri build bundles it.
+          if [ "$RELEASE" = true ]; then
+            BUILD="$BUILD && posthog-cli --host https://us.posthog.com sourcemap process"
+            BUILD="$BUILD --directory dist --release-name synnax-desktop"
+            BUILD="$BUILD --release-version $APP_VERSION"
+          fi
           jq -n --argjson base "$BASE" --arg version "$APP_VERSION" \
-            --arg endpoint "$ENDPOINT" \
-            '$base | .version = $version | .plugins.updater.endpoints = [$endpoint]' \
+            --arg endpoint "$ENDPOINT" --arg build "$BUILD" \
+            '$base | .version = $version | .plugins.updater.endpoints = [$endpoint]
+              | .build.beforeBuildCommand = $build' \
             > src-tauri/release.tauri.conf.json
+          echo "release=${RELEASE}" >> $GITHUB_OUTPUT
           echo "app_version=${APP_VERSION}" >> $GITHUB_OUTPUT
 
       - name: Install Rust
@@ -152,6 +165,10 @@ jobs:
       - name: Build workspace packages
         run: pnpm exec turbo build --filter "@synnaxlabs/console^..."
 
+      - name: Install PostHog CLI
+        if: steps.config.outputs.release == 'true'
+        run: npm install -g @posthog/cli@0.18.9
+
       - name: Install trusted-signing-cli
         if: matrix.os == 'windows-latest' && inputs.sign_binaries
         run: cargo install trusted-signing-cli
@@ -170,11 +187,16 @@ jobs:
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
+          POSTHOG_CLI_PROJECT_ID: "621680"
         working-directory: console
         run: pnpm build --config src-tauri/release.tauri.conf.json
 
       - name: Build app (unsigned)
         if: ${{ !inputs.sign_binaries }}
+        env:
+          POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
+          POSTHOG_CLI_PROJECT_ID: "621680"
         working-directory: console
         run: pnpm build --config src-tauri/release.tauri.conf.json --no-sign
 

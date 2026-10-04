@@ -18,6 +18,7 @@ packages:
   - lyra
   - oracle/lsp/extensions/vscode
   - pluto
+  - site/common
   - site/docs
   - site/portal
   - site/www
@@ -94,6 +95,7 @@ catalog:
   '@synnaxlabs/lyra': workspace:^
   '@synnaxlabs/media': workspace:^
   '@synnaxlabs/pluto': workspace:^
+  '@synnaxlabs/site-common': workspace:^
   '@synnaxlabs/stylelint-config': workspace:^
   '@synnaxlabs/tsconfig': workspace:^
   '@synnaxlabs/vite-plugin': workspace:^
@@ -104,6 +106,7 @@ catalog:
   '@tauri-apps/plugin-deep-link': ^2.5.0
   '@tauri-apps/plugin-dialog': ^2.8.0
   '@tauri-apps/plugin-fs': ^2.6.0
+  '@tauri-apps/plugin-os': ^2.4.0
   '@tauri-apps/plugin-process': ^2.4.0
   '@tauri-apps/plugin-shell': ^2.4.0
   '@tauri-apps/plugin-store': ^2.5.0
@@ -113,6 +116,7 @@ catalog:
   '@types/d3-scale': ^4.0.9
   '@types/hast': ^3.0.4
   '@types/html-escaper': ^3.0.4
+  '@types/jsdom': ^30.0.0
   '@types/node': ^24.19.0
   '@types/offscreencanvas': ^2019.7.3
   '@types/pluralize': ^0.0.33
@@ -159,6 +163,9 @@ catalog:
   playwright: ^1.63.0
   pluralize: ^8.0.0
   postcss: ^8.5.26
+  # Pinned exactly. posthog-js publishes several times a day, so a range resolves to a
+  # release minutes old and trips the minimum release age gate.
+  posthog-js: 1.427.2
   prettier: ^3.9.9
   prettier-plugin-astro: ^1.1.0
   prettier-plugin-sh: ^0.20.2
@@ -178,6 +185,7 @@ catalog:
   remotion: ^4.0.529
   resend: ^6.28.1
   satteri: ^0.10.5
+  sharp: ^0.35.4
   shiki: ^4.4.3
   source-map-js: ^1.2.1
   strip-markdown: ^6.0.0

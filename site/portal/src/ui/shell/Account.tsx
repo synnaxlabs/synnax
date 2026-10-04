@@ -14,21 +14,24 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
-import { useClerk, useUser } from "@/ui/clerk";
+import { useClerk } from "@/ui/clerk";
 
-/** Account is the avatar menu in the portal bar: the user's settings and sign out. */
-export const Account = (): ReactElement | null => {
+export interface AccountProps {
+  name: string;
+  /** image is the URL of the user's picture. Initials show without one. */
+  image?: string;
+}
+
+/** Account is the avatar menu in the portal bar: the user's settings and log out. */
+export const Account = ({ name, image }: AccountProps): ReactElement => {
   const clerk = useClerk();
-  const user = useUser();
-  const signOut = (): void => {
+  const logout = (): void => {
     if (clerk == null) return;
     void clerk.signOut(() => {
       window.location.assign("/");
       return Promise.resolve();
     });
   };
-  if (user == null) return null;
-  const name = user.fullName ?? user.primaryEmailAddress?.emailAddress ?? "";
   return (
     <Dialog.Frame variant="floating" location={{ x: "right", y: "bottom" }}>
       <Dialog.Trigger
@@ -37,7 +40,7 @@ export const Account = (): ReactElement | null => {
         aria-label="Account menu"
         className="portal-account__trigger"
       >
-        <Avatar.Avatar name={name} image={user.hasImage ? user.imageUrl : undefined} />
+        <Avatar.Avatar name={name} image={image} />
       </Dialog.Trigger>
       <Dialog.Dialog bordered rounded background={1} className="portal-menu">
         <Text.Text level="small" color={9} className="portal-menu__name">
@@ -47,7 +50,7 @@ export const Account = (): ReactElement | null => {
           level="small"
           onChange={{
             settings: () => window.location.assign("/settings"),
-            signOut,
+            logout,
           }}
         >
           <Menu.Item itemKey="settings">
@@ -55,9 +58,9 @@ export const Account = (): ReactElement | null => {
             Settings
           </Menu.Item>
           <Menu.Divider />
-          <Menu.Item itemKey="signOut">
+          <Menu.Item itemKey="logout">
             <Icon.Logout />
-            Sign out
+            Log out
           </Menu.Item>
         </Menu.Menu>
       </Dialog.Dialog>

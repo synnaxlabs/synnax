@@ -8,21 +8,34 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type FC, type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useCallback, useState } from "react";
+
+import { type VizTab, VizTabs } from "@/components/common/VizTabs";
+
+type Language = "python" | "typescript" | "cpp";
+
+type Operation = "stream" | "write" | "read";
+
+/** The highlighted HTML of each operation's sample in each language. */
+export type Samples = Record<Language, Record<Operation, string>>;
 
 interface SDKShowcaseProps {
-  codeHtmls: string[][];
+  samples: Samples;
 }
 
-const LANG_TABS: { title: string; icon: FC }[] = [
-  { title: "Python", icon: Icon.Python },
-  { title: "TypeScript", icon: Icon.TypeScript },
-  { title: "C++", icon: Icon.CPlusPlus },
+const LANG_TABS: Array<VizTab & { key: Language }> = [
+  { key: "python", title: "Python", icon: Icon.Python },
+  { key: "typescript", title: "TypeScript", icon: Icon.TypeScript },
+  { key: "cpp", title: "C++", icon: Icon.CPlusPlus },
 ];
 
-const OP_LABELS = ["Stream", "Write", "Read"];
+const OPERATIONS: Array<{ key: Operation; label: string }> = [
+  { key: "stream", label: "Stream" },
+  { key: "write", label: "Write" },
+  { key: "read", label: "Read" },
+];
 
-export const SDKShowcase = ({ codeHtmls }: SDKShowcaseProps): ReactElement => {
+export const SDKShowcase = ({ samples }: SDKShowcaseProps): ReactElement => {
   const [activeLang, setActiveLang] = useState(0);
 
   const handleLangClick = useCallback(
@@ -34,27 +47,15 @@ export const SDKShowcase = ({ codeHtmls }: SDKShowcaseProps): ReactElement => {
 
   return (
     <div className="sdks-showcase">
-      <div className="viz-tabs">
-        {LANG_TABS.map(({ title, icon: TabIcon }, i) => (
-          <button
-            key={title}
-            className={`viz-tab${i === activeLang ? " viz-tab--active" : ""}`}
-            onClick={() => handleLangClick(i)}
-          >
-            <TabIcon />
-
-            {title}
-          </button>
-        ))}
-      </div>
+      <VizTabs tabs={LANG_TABS} active={activeLang} onSelect={handleLangClick} />
       <div className="sdks-panels">
-        {OP_LABELS.map((label, opIdx) => (
-          <div key={label} className="sdks-panel">
+        {OPERATIONS.map(({ key, label }) => (
+          <div key={key} className="sdks-panel">
             <span className="sdks-panel-label">{label}</span>
             <div
               className="code-panel"
               dangerouslySetInnerHTML={{
-                __html: codeHtmls[activeLang][opIdx],
+                __html: samples[LANG_TABS[activeLang].key][key],
               }}
             />
           </div>

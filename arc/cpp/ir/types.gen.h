@@ -223,7 +223,7 @@ struct Edge {
     /// @brief target is the target node parameter consuming data.
     Handle target;
     /// @brief kind defines execution semantics for this connection.
-    EdgeKind kind;
+    EdgeKind kind = {};
 
     static Edge parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -243,7 +243,7 @@ struct Transition {
     /// @brief kind is conditional when only a truthy output fires the transition
     /// (`=>`),
     /// and continuous when every output fires it (`->`).
-    EdgeKind kind;
+    EdgeKind kind = {};
     /// @brief target_key is the sibling step key to activate. Null when the transition
     /// exits the scope, yielding to the parent.
     std::optional<std::string> target_key;
@@ -271,7 +271,7 @@ struct Activation {
     /// @brief kind is conditional when only a truthy output activates the scope (`=>`),
     /// and
     /// continuous when every output does (`->`).
-    EdgeKind kind;
+    EdgeKind kind = {};
 
     static Activation parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -427,10 +427,10 @@ struct Scope {
     /// @brief key is the scope identifier.
     std::string key;
     /// @brief mode defines whether this scope runs steps in parallel or sequentially.
-    ScopeMode mode;
+    ScopeMode mode = {};
     /// @brief liveness defines whether this scope is continuously active or must be
     /// activated.
-    Liveness liveness;
+    Liveness liveness = {};
     /// @brief activations contains the handles that activate a gated scope. Empty for
     /// always-live scopes.
     std::vector<Activation> activations;

@@ -46,6 +46,11 @@ on:
         description: The pnpm package name
         required: true
         type: string
+      shards:
+        description: How many jobs split the test files on each OS, from 1 to 4
+        required: false
+        type: number
+        default: 1
       test:
         description: Whether to run the tests
         required: false
@@ -71,7 +76,9 @@ on:
 
 jobs:
   test:
-    name: Test (${{ matrix.os }})
+    name:
+      Test (${{ matrix.os }}${{ inputs.shards > 1 && format(', {0}/{1}', matrix.shard,
+      inputs.shards) || '' }})
     env:
       NODE_OPTIONS: "--max_old_space_size=4096"
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
@@ -83,7 +90,6 @@ jobs:
       synnax:
         image: ${{ inputs.core_image }}
         env:
-          SYNNAX_VERBOSE: true
           SYNNAX_INSECURE: true
           SYNNAX_MEM: true
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -103,22 +109,32 @@ jobs:
       fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
+        shard: [1, 2, 3, 4]
         exclude:
           - os: ${{ !inputs.macos && 'macos-latest' }}
           - os: ${{ !inputs.ubuntu && 'ubuntu-latest' }}
           - os: ${{ !inputs.windows && 'windows-latest' }}
+          - shard: ${{ inputs.shards < 2 && 2 }}
+          - shard: ${{ inputs.shards < 3 && 3 }}
+          - shard: ${{ inputs.shards < 4 && 4 }}
         include:
           - os: ubuntu-latest
+            shard: 1
             lint: true
     runs-on: ${{ matrix.os }}
     steps:
+      # The matrix holds four shards, so a larger count would skip test files.
+      - name: Check the shard count
+        if: inputs.shards < 1 || inputs.shards > 4
+        run: |
+          echo "::error::shards must be from 1 to 4, not ${{ inputs.shards }}."
+          exit 1
+
       - name: Checkout repository
         uses: actions/checkout@v7
 
       - name: Set up pnpm and Node.js
-        uses: pnpm/setup@v3
-        with:
-          cache: true
+        uses: ./.github/actions/setup-pnpm
 
       - name: Check types
         if: matrix.lint && inputs.lint
@@ -134,7 +150,13 @@ jobs:
 
       - name: Test
         if: inputs.test
-        run: pnpm cov:${{ inputs.package }} ${{ inputs.test_args }}
+        # The reporters feed the coverage upload, which only vitest packages have.
+        run: >-
+          pnpm cov:${{ inputs.package }} -- ${{ inputs.coverage_flag != '' &&
+          '--coverage.reporter=text-summary --coverage.reporter=clover
+          --coverage.reporter=json' || '' }} ${{ inputs.shards > 1 &&
+          format('--shard={0}/{1}', matrix.shard, inputs.shards) || '' }} ${{
+          inputs.test_args }}
 
       - name: Upload coverage
         if: inputs.test && inputs.coverage_flag != ''

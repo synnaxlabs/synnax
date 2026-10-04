@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Event, type License } from "@/server/db/schema";
-import { deny } from "@/server/license/deny";
+import { type Denial, deny } from "@/server/license/deny";
 
 export const date = (d: Date | null): string =>
   d == null ? "" : d.toISOString().slice(0, 10);
@@ -47,7 +47,9 @@ export const statusOf = (lic: License, now: Date): LicenseStatus => {
   if (lic.expiresAt == null) return "active";
   const left = lic.expiresAt.getTime() - now.getTime();
   if (left <= 0) return "expired";
-  return left > EXPIRING ? "active" : "expiring";
+  // A Desktop license renews itself on a short term, so a near expiry is normal there.
+  if (lic.edition === "desktop" || left > EXPIRING) return "active";
+  return "expiring";
 };
 
 export interface Standing {
@@ -97,7 +99,17 @@ const EVENT_LABELS: Record<Event["kind"], string> = {
   rename: "Machine renamed",
   revoke: "License revoked",
   expiry_notice: "Expiry notice sent",
+  link: "Machine linked",
+  renew: "License renewed",
+  unlink: "Machine logged out",
 };
+
+const REASON_LABELS: Partial<Record<string, string>> = {
+  revoked: "revoked",
+  expired: "expired",
+  no_seats: "no free seat",
+  superseded: "logged in again",
+} satisfies Record<Denial | "superseded", string>;
 
 interface Narrator {
   /** machines is the name each activation key reads as. */
@@ -109,8 +121,14 @@ interface Narrator {
 /** describeEvent writes one event as a line: what happened, to what, by whom. */
 export const describeEvent = (e: Event, { machines, actors }: Narrator): string => {
   const on = e.activation == null ? undefined : machines[e.activation];
-  const by = actors[e.actor];
+  // A machine renewing itself is its own actor, so it is only named once.
+  const by = actors[e.actor] ?? machines[e.actor];
+  const detail = e.detail as Record<string, unknown>;
+  const reason =
+    typeof detail.reason === "string"
+      ? ` (${REASON_LABELS[detail.reason] ?? detail.reason})`
+      : "";
   const subject = on == null ? "" : `: ${on}`;
-  const actor = by == null ? "" : ` by ${by}`;
-  return `${EVENT_LABELS[e.kind]}${subject}${actor}`;
+  const actor = by == null || by === on ? "" : ` by ${by}`;
+  return `${EVENT_LABELS[e.kind]}${subject}${actor}${reason}`;
 };

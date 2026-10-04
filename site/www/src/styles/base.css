@@ -11,9 +11,6 @@
 
 :root {
     --max-width: 1300px;
-    --content-padding: clamp(2rem, 1rem + 2vw, 7rem);
-    --nav-height: clamp(7rem, 5.5rem + 2vw, 9rem);
-    --pluto-gray-l8: #7c7c7c;
     --pluto-gray-l9: #9b9b9b;
     --pluto-h1-size: clamp(4.8rem, 2rem + 5.5vw, 10.5rem);
     --pluto-h1-weight: 500;
@@ -35,14 +32,6 @@
     --pluto-h5-weight: 350;
     --pluto-small-size: 2rem;
     --pluto-small-line-height: 115%;
-
-    /* Fluid spacing scale */
-    --space-sm: clamp(2rem, 1rem + 1vw, 4rem);
-    --space-md: clamp(3rem, 1.5rem + 2vw, 6rem);
-    --space-lg: clamp(5rem, 2rem + 3vw, 10rem);
-    --space-xl: clamp(6rem, 2rem + 4vw, 15rem);
-    --space-2xl: clamp(8rem, 3rem + 5vw, 20rem);
-    --space-3xl: clamp(10rem, 4rem + 6vw, 25rem);
     --shiki-background: transparent;
     --shiki-foreground: var(--pluto-text-color);
     --shiki-token-comment: var(--pluto-gray-l7);
@@ -55,7 +44,6 @@
 }
 
 html {
-    background: var(--pluto-gray-l0);
     scroll-behavior: smooth;
 }
 
@@ -68,26 +56,21 @@ section[id],
     font-weight: 350;
 }
 
+/* Sizes and lays out the img as if the picture around it were absent. Its sources
+ * would otherwise take a gap in a flex parent. */
+picture {
+    display: contents;
+
+    & source {
+        display: none;
+    }
+}
+
 body {
     min-height: 100vh;
     font-family: var(--pluto-font-family);
     color: var(--pluto-text-color);
     -webkit-font-smoothing: antialiased;
-}
-
-a:not(.pluto-btn) {
-    color: var(--pluto-primary-p1);
-    text-decoration: none;
-
-    &:hover {
-        text-decoration: underline;
-    }
-}
-
-@media (resolution >= 2dppx) {
-    :root {
-        --pluto-border-width: 0.5px;
-    }
 }
 
 /* ── Section Hero ─────────────────────────────────────────────── */

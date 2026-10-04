@@ -53,6 +53,7 @@ py: &py
 
 ts: &ts
   - *ci
+  - .github/actions/setup-pnpm/**
   - .github/workflows/test.ts.yaml
   - codecov.yaml
   - configs/**
@@ -200,11 +201,18 @@ console: &console
   - *x_ts
   - console/**
 
+site_common: &site_common
+  - *lyra
+  - *media
+  - *ts
+  - site/common/**
+
 docs:
   - *arc_ts
   - *client_ts
   - *lyra
   - *media
+  - *site_common
   - *ts
   - *x_ts
   - .github/workflows/test.docs.yaml
@@ -214,6 +222,7 @@ www:
   - *arc_ts
   - *lyra
   - *media
+  - *site_common
   - *ts
   - site/www/**
 
@@ -222,6 +231,7 @@ knip:
   - *console
   - *ts
   - oracle/lsp/extensions/vscode/**
+  - site/common/**
   - site/docs/**
   - site/portal/**
   - site/www/**
@@ -311,6 +321,7 @@ oracle_check:
   - *oracle
   - .clang-format
   - .clang-format-ignore
+  - .github/actions/setup-pnpm/**
   - .github/workflows/check.oracle.yaml
   - .prettierignore
   - .prettierrc
