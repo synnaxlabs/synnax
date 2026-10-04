@@ -66,17 +66,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     });
     await session.settle(600);
     // The canvas only reaches its recorded size once the drawer closes.
-    const pane = await capture.canvas(page).boundingBox();
-    if (pane == null) throw new Error("schematic canvas is not on screen");
-    await session.drag(
-      valve.locator(".pluto-drag-handle").first(),
-      { x: pane.x + pane.width / 2, y: pane.y + pane.height / 2 },
-      { zoom: false },
-    );
-    await session.settle(400);
-    // The drag selects the valve.
-    await capture.deselect(session, { x: 100, y: 290 });
-    await session.settle(300);
+    await capture.fitView(session);
     // Park the cursor inside the schematic: the floating controls only show
     // while the panel is hovered.
     await session.moveTo({ x: 300, y: 560 });

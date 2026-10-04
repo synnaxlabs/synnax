@@ -24,6 +24,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.waitFor(page.locator(".pluto-diagram").first());
     const value = await capture.place(session, "Value", { x: 515, y: 160 });
     await capture.deselect(session, { x: 100, y: 290 });
+    await capture.fitView(session);
     await session.moveTo({ x: 800, y: 620 });
 
     session.startRecording();

@@ -24,6 +24,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   const tank = await capture.place(session, "Tank", { x: 300, y: 160 });
   const valve = await capture.place(session, "Gate", { x: 700, y: 160 });
   await capture.deselect(session, { x: 100, y: 290 });
+  await capture.fitView(session);
   await session.moveTo({ x: 800, y: 620 });
 
   session.startRecording();
