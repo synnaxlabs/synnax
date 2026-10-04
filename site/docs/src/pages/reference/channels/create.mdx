@@ -14,11 +14,42 @@ import { Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Most [channels](/reference/channels) come from
-[tasks](/reference/channels#channels-that-tasks-create), which create their channels for
-you. Create a channel yourself to store data from a script, or to send a live signal
-with a virtual channel. To compute values from other channels, create a
-[calculated channel](/reference/channels/calculated).
+Create a [channel](/reference/channels) when no task creates it for you: to store data
+from a script, to send a live signal, or to compute a value from other channels.
+
+<Divider.Divider x />
+
+## When to create a channel
+
+### Channels that tasks create
+
+When you click **Start** in the tab of a task that you configured in the Console, the
+Console creates the channels of the task. A read task gets a data channel for each
+input, and a write task gets a command channel for each output. You do not create these
+channels yourself. For their names, see
+[channels that tasks create](/reference/channels#channels-that-tasks-create).
+
+### Channels that you create
+
+| To                                                                                                                       | Create                             | Where                                        |
+| ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------- | -------------------------------------------- |
+| Store data from a script, such as a [device that the Driver does not support](/reference/hardware/custom) or an analysis | An index channel and data channels | In the script, before it writes the data     |
+| Configure a [hardware task](/reference/hardware/tasks) in Python or TypeScript                                           | The channels of the task           | In the script, before you configure the task |
+| Send a live signal, such as a button press or a setpoint                                                                 | A virtual channel                  | In the Console or in a script                |
+| Compute a value from other channels                                                                                      | A calculated channel               | In the Console or in a script                |
+
+A virtual channel suits a value that only live views and automations use, such as a
+`start_cmd` button that starts an Arc sequence. Synnax does not store its values, so you
+cannot plot them later or find them in a range. To keep a record of each value, such as
+each time an operator starts a test, create a data channel with its own index.
+
+### In the Console or in a script
+
+- Use the Console for a few channels that you set up once, such as the virtual channel
+  of a schematic button.
+- Use Python or TypeScript when a script writes the data. Create the channels at the
+  start of the script, so the script also works on a new Core. One call can also create
+  many channels.
 
 <Divider.Divider x />
 
