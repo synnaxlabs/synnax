@@ -25,7 +25,21 @@ export const ARC_NAV: PageNavNode = {
       href: "/reference/control/arc/get-started",
       name: "Get started",
     },
-    CONCEPTS_NAV,
+    {
+      key: "/reference/control/arc/execution-model",
+      href: "/reference/control/arc/execution-model",
+      name: "Execution model",
+    },
+    {
+      key: "/reference/control/arc/automations",
+      href: "/reference/control/arc/automations",
+      name: "Automations",
+    },
+    {
+      key: "/reference/control/arc/graph-editor",
+      href: "/reference/control/arc/graph-editor",
+      name: "Graph editor",
+    },
     {
       key: "/reference/control/arc/test-sequences",
       href: "/reference/control/arc/test-sequences",
@@ -46,6 +60,7 @@ export const ARC_NAV: PageNavNode = {
       href: "/reference/control/arc/effective-arc",
       name: "Effective Arc",
     },
+    CONCEPTS_NAV,
     REFERENCE_NAV,
   ],
 };

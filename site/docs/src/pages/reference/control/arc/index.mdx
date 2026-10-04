@@ -42,29 +42,33 @@ value. This flow writes the average of two pressure sensors to a third channel:
 
 ## Sequences
 
-A sequence is a set of stages. One stage of a sequence is active at a time. Each stage
-writes values and watches conditions, and `=>` moves the sequence to the next stage when
-a condition becomes true. This sequence starts when `start_cmd` becomes 1:
+A sequence runs its steps in order: writes, waits, and stages. A stage holds until one
+of its conditions is true, and `=> next` moves the sequence on. When the last step
+finishes, the sequence stops, and `start_cmd` can start it again. This sequence runs
+each time `start_cmd` becomes 1:
 
-```arc channels="press_vlv_cmd, vent_vlv_cmd, tank_pt, start_cmd" bodies="press, pressurize, hold, vent"
+```arc channels="press_vlv_cmd, vent_vlv_cmd, tank_pt, start_cmd" bodies="press, pressurize, vent"
 import time
 
 sequence press {
     stage pressurize {
         1 -> press_vlv_cmd
-        tank_pt > 300 => hold
+        tank_pt > 300 => next
     }
-    stage hold {
-        0 -> press_vlv_cmd
-        time.wait{duration=10s} => vent
-    }
+    0 -> press_vlv_cmd
+    time.wait{duration=10s}
     stage vent {
         1 -> vent_vlv_cmd
+        tank_pt < 5 => next
     }
+    0 -> vent_vlv_cmd
 }
 
 start_cmd == 1 => press
 ```
+
+See the [execution model](/reference/control/arc/execution-model) for how stages,
+conditions, and writes run.
 
 <Divider.Divider x />
 
@@ -75,10 +79,11 @@ You choose where each automation runs in its **Driver** list:
 - **The Core** -> The entry `Node 1` (or the number of your Core) runs the automation
   inside the Core. It needs no Driver. When the automation has an error while it runs,
   the Core logs a warning and keeps it running.
-- **A [Driver](/reference/hardware#where-the-driver-runs)** -> The entry with the name
-  of the computer runs the automation in the Driver, next to the hardware that the
-  Driver connects to. A Driver can run the automation on a real-time loop. When the
-  automation has an error while it runs, the Driver stops it.
+- **A [Driver](/reference/hardware#where-the-driver-runs)** -> The entry
+  `Node 1 Embedded Driver` is the Driver that runs with the Core. A standalone Driver
+  shows with the name of its computer. A Driver runs the automation next to the hardware
+  it connects to, and can run it on a real-time loop. When the automation has an error
+  while it runs, the Driver stops it.
 
 <Edition.Enterprise>
 

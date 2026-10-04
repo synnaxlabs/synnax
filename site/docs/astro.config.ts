@@ -90,8 +90,12 @@ export default defineConfig({
     "/reference/console/calculated-channels": "/reference/channels/calculated",
     "/reference/console/ranges": "/reference/ranges/find",
     "/reference/console/workspaces": "/reference/visualize/projects",
-    "/reference/control/arc/concepts":
-      "/reference/control/arc/concepts/control-authority",
+    "/reference/control/arc/concepts": "/reference/control/arc/execution-model",
+    "/reference/control/arc/concepts/control-authority": "/reference/control/authority",
+    "/reference/control/arc/concepts/reactive-execution":
+      "/reference/control/arc/execution-model",
+    "/reference/control/arc/concepts/sequences-and-stages":
+      "/reference/control/arc/execution-model",
     "/reference/control/arc/how-to": "/reference/control/arc",
     "/reference/control/arc/how-to/test-sequences":
       "/reference/control/arc/test-sequences",

@@ -14,21 +14,6 @@ export const CONCEPTS_NAV: PageNavNode = {
   name: "Concepts",
   children: [
     {
-      key: "/reference/control/arc/concepts/control-authority",
-      href: "/reference/control/arc/concepts/control-authority",
-      name: "Control authority",
-    },
-    {
-      key: "/reference/control/arc/concepts/reactive-execution",
-      href: "/reference/control/arc/concepts/reactive-execution",
-      name: "Reactive execution",
-    },
-    {
-      key: "/reference/control/arc/concepts/sequences-and-stages",
-      href: "/reference/control/arc/concepts/sequences-and-stages",
-      name: "Sequences and stages",
-    },
-    {
       key: "/reference/control/arc/concepts/channels-and-series",
       href: "/reference/control/arc/concepts/channels-and-series",
       name: "Channels and series",
