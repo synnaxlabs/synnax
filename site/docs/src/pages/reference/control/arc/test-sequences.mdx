@@ -1,405 +1,259 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Test sequences"
-description: "Build automated test sequences with stages, timing, and abort handling"
+title: "Write a test sequence"
+description:
+  "Add timeouts, leak checks, rate checks, and ranges to an Arc test sequence."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Note } from "@synnaxlabs/lyra/note";
 import { mdxOverrides } from "@/components/mdxOverrides";
-
 export const components = mdxOverrides;
 
-Test sequences are ordered procedures that step through stages: pressurize, hold, fire,
-shutdown. Arc sequences handle this naturally with stages, transitions, and concurrent
-monitoring for abort conditions.
+A test sequence moves hardware through stages, such as pressurize, hold, and vent, and
+goes to an abort stage when a value is unsafe. This page starts from the sequence that
+you write in the [Arc tutorial](/reference/control/arc/get-started), and adds the checks
+that a real test needs.
+
+Before you start, you need these channels:
+
+| Channel         | Type             | What it holds                                                                                                  |
+| --------------- | ---------------- | -------------------------------------------------------------------------------------------------------------- |
+| `press_vlv_cmd` | `uint8`          | The press valve command, sent by a [write task](/reference/hardware/tasks#write-tasks).                        |
+| `vent_vlv_cmd`  | `uint8`          | The vent valve command.                                                                                        |
+| `tank_pt`       | `float64`        | The tank pressure in psi, from a read task.                                                                    |
+| `start_cmd`     | `uint8`, virtual | `1` from a start button. See [start a sequence from a schematic](/reference/control/arc/start-from-schematic). |
+| `abort_cmd`     | `uint8`, virtual | `1` from an abort button.                                                                                      |
 
 <Divider.Divider x />
 
-## Basic sequence
+## Start from the tutorial sequence
 
-A minimal sequence with active and complete states:
+This is the sequence from the tutorial, with the channel names above:
 
-```arc channels="press_vlv_cmd, ox_pt_1, start_cmd, log", bodies="main"
-sequence main {
-    stage active {
-        true -> press_vlv_cmd
-        ox_pt_1 > 500 => next
-    }
-
-    stage complete {
-        false -> press_vlv_cmd
-        "complete" -> log
-    }
-}
-
-start_cmd => main
-```
-
-Wire `start_cmd` to a button in the Console. When clicked, the sequence opens the valve,
-waits for pressure to reach 500, then closes the valve and stops.
-
-<Note.Note variant="info">
-The entry point `start_cmd => main` triggers the sequence when the channel
-receives a truthy value (`true`, or a non-zero numeric). Create `start_cmd` as a `bool`
-virtual channel in Synnax, then wire it to a button in your Console schematic.
-</Note.Note>
-
-<Divider.Divider x />
-
-## Timed stages
-
-Use `time.wait` to add delays between stages:
-
-```arc channels="press_vlv_cmd, ox_pt_1, start_cmd", bodies="main"
+```arc channels="start_cmd, abort_cmd, press_vlv_cmd, vent_vlv_cmd, tank_pt" bodies="press, idle, pressurize, hold, vent, abort"
 import time
 
-sequence main {
+sequence press {
+    stage idle {
+        0 -> press_vlv_cmd
+        0 -> vent_vlv_cmd
+        start_cmd == 1 => pressurize
+    }
     stage pressurize {
-        true -> press_vlv_cmd
-        ox_pt_1 > 500 => next
+        1 -> press_vlv_cmd
+        0 -> vent_vlv_cmd
+        tank_pt > 450 => abort
+        abort_cmd == 1 => abort
+        tank_pt > 300 => hold
     }
-
     stage hold {
-        // Keep valve open, wait 30 seconds
-        true -> press_vlv_cmd
-        time.wait{duration=30s} => next
+        0 -> press_vlv_cmd
+        abort_cmd == 1 => abort
+        time.wait{duration=10s} => vent
     }
-
-    stage depressurize {
-        false -> press_vlv_cmd
-        ox_pt_1 < 50 => next
+    stage vent {
+        1 -> vent_vlv_cmd
+        tank_pt < 5 => idle
     }
-
-    stage complete {
-        false -> press_vlv_cmd
+    stage abort {
+        0 -> press_vlv_cmd
+        1 -> vent_vlv_cmd
+        start_cmd == 1 => pressurize
     }
 }
 
-start_cmd => main
+true => press
 ```
 
-The sequence pressurizes to 500 psi, holds for 30 seconds, then depressurizes.
+The sequence keeps every stage in one sequence, and `true => press` keeps it running, so
+each click on the start button starts a new run. The tutorial explains each line. For
+how stages start and stop, see the
+[execution model](/reference/control/arc/execution-model).
 
 <Divider.Divider x />
 
-## Abort handling
+## Add a timeout
 
-Real test sequences need abort capability. List abort conditions first in each stage
-(line order determines priority):
+If the press valve sticks closed, `pressurize` waits forever. Add a timer as the last
+transition of the stage:
 
-```arc channels="ox_pt_1, abort_btn, press_vlv_cmd, fuel_vlv_cmd, igniter_cmd, start_cmd, emergency_stop", bodies="abort, main"
-import time
-
-sequence main {
-    stage pressurize {
-        // Abort checks first
-        ox_pt_1 > 700 => abort // over-pressure
-        abort_btn => abort // operator abort
-
-        // Automation next
-        true -> press_vlv_cmd
-        ox_pt_1 > 500 => next
-    }
-
-    stage hold {
-        ox_pt_1 > 700 => abort
-        abort_btn => abort
-        true -> press_vlv_cmd
-        time.wait{duration=30s} => next
-    }
-
-    stage depressurize {
-        abort_btn => abort
-        false -> press_vlv_cmd
-        ox_pt_1 < 50 => next
-    }
-
-    stage complete {
-        false -> press_vlv_cmd
-    }
-}
-
-sequence abort {
-    stage safing {
-        false -> press_vlv_cmd
-        false -> fuel_vlv_cmd
-        false -> igniter_cmd
-    }
-}
-
-start_cmd => main
-emergency_stop => abort
-```
-
-The `abort` sequence closes all valves and disables actuators. Both the automated
-conditions and the `emergency_stop` channel can trigger it.
-
-<Note.Note variant="warning">
-Always put abort conditions before normal operation flows in each stage.
-When multiple conditional transitions (`=>`) are truthy in the same cycle, the
-first one listed wins.
-</Note.Note>
-
-<Divider.Divider x />
-
-## Conditional progression
-
-Advance based on multiple conditions being satisfied:
-
-```arc channels="ox_pt_1, fuel_pt_1, abort_btn, press_vlv_cmd",bodies="abort, timeout"
-import time
-
-sequence main {
-    stage verify {
-        // Check all systems ready
-        ox_pt_1 > 100 and ox_pt_1 < 200 and fuel_pt_1 > 100 => next
-        // Timeout if conditions not met
-        time.wait{duration=10s} => timeout
-    }
-
-    stage pressurize {
-        ox_pt_1 > 700 => abort
-        abort_btn => abort
-        true -> press_vlv_cmd
-        ox_pt_1 > 500 => next
-    }
-
-    stage hold {
-        // ... rest of sequence
-    }
-
-    stage timeout {
-        // Handle timeout condition
-        false -> press_vlv_cmd
-    }
+```arc channels="tank_pt, abort_cmd" bodies="abort, hold"
+stage pressurize {
+    // ...
+    tank_pt > 300 => hold
+    time.wait{duration=60s} => abort
 }
 ```
 
-The verify stage waits until both pressure readings are in range. If they don't reach
-the required values within 10 seconds, the sequence moves to a timeout stage instead.
+The timer starts again each time `pressurize` starts. The first true transition in the
+code wins, so the safety checks above it still come first.
 
 <Divider.Divider x />
 
-## Inline gates for linear procedures
+## Add a leak check
 
-When a test is mostly ordered writes and waits but has one step that needs to watch
-multiple conditions, an inline stage keeps the procedure readable without forcing every
-step into its own named stage:
+In `hold`, a falling pressure means a leak. Add the over-pressure check and a leak
+check:
 
-```arc channels="vent_vlv_cmd, press_vlv_cmd, tank_pressure, abort_btn, start_btn, emergency_stop", bodies="abort,timeout,prime"
-import time
-
-sequence prime {
-    // Straight-line setup
-    false -> vent_vlv_cmd
-    true -> press_vlv_cmd
-
-    // Inline gate: group the exit conditions
-    stage {
-        tank_pressure > 700 => abort
-        abort_btn => abort
-        tank_pressure > 500 => next
-        time.wait{duration=30s} => timeout
-    }
-
-    // Procedure resumes
-    false -> press_vlv_cmd
+```arc channels="tank_pt, abort_cmd" bodies="abort, vent"
+stage hold {
+    0 -> press_vlv_cmd
+    tank_pt > 450 => abort
+    abort_cmd == 1 => abort
+    tank_pt < 250 => abort
+    time.wait{duration=10s} => vent
 }
-
-sequence abort {
-    stage safed {
-        false -> press_vlv_cmd
-        true -> vent_vlv_cmd
-    }
-}
-
-sequence timeout {
-    stage safed {
-        false -> press_vlv_cmd
-        true -> vent_vlv_cmd
-    }
-}
-
-start_btn => prime
-emergency_stop => abort
 ```
 
-All four transitions inside the inline stage are armed in parallel. Line order breaks
-ties, so the over-pressure abort wins if it fires at the same instant as the success
-check. `=> next` advances to the next item in `prime`; `=> abort` and `=> timeout` jump
-to those named sequences.
-
-Use this pattern when the rest of the procedure is straight-line and only one step needs
-a multi-exit gate.
+The check cannot fire when `hold` starts, because a stage reacts only to values that
+arrive after it starts.
 
 <Divider.Divider x />
 
-## Rate-limited pressurization
+## Abort on a fast pressure rise
 
-Control the pressurization rate to avoid thermal shock or mechanical stress:
+A pressure that rises too fast can mean a failed regulator. Compute the rate of change
+in `pressurize`, and abort above a limit:
 
-```arc channels="ox_pt_1, ox_rate, press_vlv_cmd, abort_btn", bodies="abort"
+```arc channels="tank_pt" bodies="abort, too_fast"
 import math
 
-sequence main {
-    stage pressurize {
-        // Abort conditions
-        ox_pt_1 > 700 => abort
-        ox_rate > 150 => abort
-        abort_btn => abort
-
-        // Open the valve only while the rise rate is under 100 psi/s
-        ox_pt_1 -> math.derivative{} -> ox_rate
-        ox_rate < 100 -> press_vlv_cmd
-
-        ox_pt_1 > 500 => next
-    }
-    // ... rest of sequence
+func too_fast(rate f64) bool {
+    return rate > 50
 }
+
+// in stage pressurize:
+tank_pt -> math.derivative{} -> too_fast{} => abort
 ```
 
-[`math.derivative`](/reference/control/arc/reference/standard-library/math#derivative)
-computes the rise rate in psi per second. The valve stays open while the rate is under
-100 psi/s, and a runaway rate over 150 psi/s aborts.
+`math.derivative` gives the change per second, so this check aborts above 50 psi/s. Its
+first value after the stage starts is 0. A derivative of a noisy sensor is noisy too:
+0.1 psi of noise at 1 kHz is about 100 psi/s. Before you choose the limit, write the
+rate to a channel and plot it during a real run:
+`tank_pt -> math.derivative{} -> tank_pt_rate`.
 
 <Divider.Divider x />
 
-## Complete test stand sequence
+## Go from abort to a safe stop
 
-A realistic rocket engine test sequence with all the patterns combined:
+Add a `done` stage that both `vent` and `abort` go to when the tank is empty, and that
+waits for the next start:
 
-```arc channels="ox_pt_1, fuel_pt_1, abort_btn, ox_rate, ox_press_vlv_cmd, fuel_press_vlv_cmd, igniter_cmd, chamber_tc_1, ox_main_vlv_cmd, fuel_main_vlv_cmd, ox_vent_vlv_cmd, fuel_vent_vlv_cmd, start_cmd, emergency_stop",bodies="abort, ignition_fail, main"
+```arc channels="tank_pt, start_cmd, vent_vlv_cmd" bodies="done, pressurize"
+stage vent {
+    1 -> vent_vlv_cmd
+    tank_pt < 5 => done
+}
+stage abort {
+    0 -> press_vlv_cmd
+    1 -> vent_vlv_cmd
+    tank_pt < 5 => done
+}
+stage done {
+    0 -> vent_vlv_cmd
+    start_cmd == 1 => pressurize
+}
+```
+
+After an abort, the next click on the start button starts a new run at once. If your
+operators must check the hardware first, add a stage that waits for a separate reset
+button before `done`.
+
+<Divider.Divider x />
+
+## Mark each run with a range
+
+A [range](/reference/ranges) marks the time of each run, so you can find its data later.
+Create the range when `pressurize` starts, and end it in `done`:
+
+```arc bodies="press, pressurize, done"
+import ranges
+
+sequence press {
+    range_key str $= ""
+    // ...
+    stage pressurize {
+        ranges.create{name="Press test"} -> range_key
+        // ...
+    }
+    // ...
+    stage done {
+        ranges.end{key=range_key}
+        // ...
+    }
+}
+```
+
+`range_key` is a variable of the sequence. `ranges.create` stores the key of the new
+range in it, and `ranges.end` reads it when `done` starts. Each run shows as a range
+named `Press test`. See [find ranges](/reference/ranges/find).
+
+<Divider.Divider x />
+
+## The full sequence
+
+```arc channels="start_cmd, abort_cmd, press_vlv_cmd, vent_vlv_cmd, tank_pt" bodies="press, idle, pressurize, hold, vent, abort, done, too_fast"
 import math
+import ranges
 import time
 
-sequence main {
-    // Stage 1: System checkout
-    stage checkout {
-        ox_pt_1 > 50 => abort // tank should be empty
-        fuel_pt_1 > 50 => abort
-        abort_btn => abort
-        // All systems nominal, proceed
-        time.wait{duration=2s} => next
+func too_fast(rate f64) bool {
+    return rate > 50
+}
+
+sequence press {
+    range_key str $= ""
+
+    stage idle {
+        0 -> press_vlv_cmd
+        0 -> vent_vlv_cmd
+        start_cmd == 1 => pressurize
     }
-    // Stage 2: Pressurize oxidizer
-    stage press_ox {
-        ox_pt_1 > 650 => abort
-        ox_pt_1 -> math.derivative{} -> ox_rate
-        ox_rate > 100 => abort
-        abort_btn => abort
-        true -> ox_press_vlv_cmd
-        ox_pt_1 > 500 => next
+    stage pressurize {
+        ranges.create{name="Press test"} -> range_key
+        1 -> press_vlv_cmd
+        0 -> vent_vlv_cmd
+        tank_pt > 450 => abort
+        tank_pt -> math.derivative{} -> too_fast{} => abort
+        abort_cmd == 1 => abort
+        tank_pt > 300 => hold
+        time.wait{duration=60s} => abort
     }
-    // Stage 3: Pressurize fuel
-    stage press_fuel {
-        ox_pt_1 > 650 => abort
-        fuel_pt_1 > 450 => abort
-        abort_btn => abort
-        true -> ox_press_vlv_cmd // maintain ox pressure
-        true -> fuel_press_vlv_cmd
-        fuel_pt_1 > 350 => next
-    }
-    // Stage 4: Pre-fire hold
     stage hold {
-        ox_pt_1 > 650 => abort
-        fuel_pt_1 > 450 => abort
-        ox_pt_1 < 400 => abort // pressure decay = leak
-        fuel_pt_1 < 250 => abort
-        abort_btn => abort
-        true -> ox_press_vlv_cmd
-        true -> fuel_press_vlv_cmd
-        time.wait{duration=5s} => next
+        0 -> press_vlv_cmd
+        tank_pt > 450 => abort
+        abort_cmd == 1 => abort
+        tank_pt < 250 => abort
+        time.wait{duration=10s} => vent
     }
-    // Stage 5: Ignition
-    stage ignite {
-        ox_pt_1 > 650 => abort
-        fuel_pt_1 > 450 => abort
-        abort_btn => abort
-        true -> ox_press_vlv_cmd
-        true -> fuel_press_vlv_cmd
-        true -> igniter_cmd
-        // Wait for combustion confirmation
-        chamber_tc_1 > 500 => next
-        // Ignition timeout
-        time.wait{duration=3s} => ignition_fail
+    stage vent {
+        1 -> vent_vlv_cmd
+        tank_pt < 5 => done
     }
-    // Stage 6: Main run
-    stage main_run {
-        ox_pt_1 > 700 => abort
-        fuel_pt_1 > 500 => abort
-        chamber_tc_1 > 2000 => abort
-        abort_btn => abort
-        true -> ox_press_vlv_cmd
-        true -> fuel_press_vlv_cmd
-        true -> ox_main_vlv_cmd
-        true -> fuel_main_vlv_cmd
-        false -> igniter_cmd
-        time.wait{duration=10s} => next
+    stage abort {
+        0 -> press_vlv_cmd
+        1 -> vent_vlv_cmd
+        tank_pt < 5 => done
     }
-    // Stage 7: Shutdown
-    stage shutdown {
-        // Controlled shutdown sequence
-        false -> ox_main_vlv_cmd
-        false -> fuel_main_vlv_cmd
-        time.wait{duration=1s} => next
-    }
-    // Stage 8: Depressurize
-    stage depress {
-        false -> ox_press_vlv_cmd
-        false -> fuel_press_vlv_cmd
-        true -> ox_vent_vlv_cmd
-        true -> fuel_vent_vlv_cmd
-        ox_pt_1 < 20 and fuel_pt_1 < 20 => next
-    }
-    // Stage 9: Complete
-    stage complete {
-        false -> ox_vent_vlv_cmd
-        false -> fuel_vent_vlv_cmd
-    }
-    // Stage: Ignition failure
-    stage ignition_fail {
-        false -> igniter_cmd
-        true => abort
+    stage done {
+        ranges.end{key=range_key}
+        0 -> vent_vlv_cmd
+        start_cmd == 1 => pressurize
     }
 }
 
-sequence abort {
-    stage safing {
-        // Close all valves immediately
-        false -> ox_press_vlv_cmd
-        false -> fuel_press_vlv_cmd
-        false -> ox_main_vlv_cmd
-        false -> fuel_main_vlv_cmd
-        false -> igniter_cmd
-        // Open vents
-        true -> ox_vent_vlv_cmd
-        true -> fuel_vent_vlv_cmd
-    }
-}
-// Entry points
-start_cmd => main
-emergency_stop => abort
+true => press
 ```
+
+A redeploy during a run starts the sequence again in `idle`, which closes both valves
+with the tank under pressure, and leaves the range of that run open. Stop the test
+before you redeploy.
 
 <Divider.Divider x />
 
-## Sequence design tips
+## Let an operator take over
 
-**List abort conditions first.** Line order determines priority, and safety conditions
-should always win.
-
-**Use multiple abort thresholds.** A pressure of 600 psi might be a warning, but 700 psi
-triggers an immediate abort.
-
-**Add timeouts.** A sequence waiting on a condition that never comes hangs forever.
-Bound each wait with `time.wait` and transition to an error stage.
-
-**Keep stages focused.** Give each stage one purpose. Split complex operations into
-multiple stages.
-
-**Monitor continuously.** All flows in a stage run concurrently, so abort checks stay
-armed while the stage waits.
-
-**Test abort paths.** Simulate abort conditions during development to verify the system
-reaches a safe state. The abort sequence is the most important part of your automation.
+The sequence writes at authority 255, the default, so an operator cannot take control of
+the valves from a schematic. To let them, add `authority 100` after the imports, and
+raise the authority to 255 in `abort`. See
+[set authority in an Arc automation](/reference/control/authority#set-authority-in-an-arc-automation).
