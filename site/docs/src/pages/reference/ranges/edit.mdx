@@ -1,7 +1,7 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Edit and delete ranges"
-description: "Rename, change, and delete ranges in the Console or in code."
+description: "Rename a range, change its times or stage, and delete it."
 clients: ["console", "python", "typescript"]
 ---
 
@@ -13,42 +13,74 @@ import { Image } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Change the name, time range, or labels of a [range](/reference/ranges), or delete it.
+Rename a [range](/reference/ranges), change its times or its stage, or delete it. To
+change labels and metadata, see [metadata and labels](/reference/ranges/metadata).
 
 <Divider.Divider x />
 
-## Edit a range
+## Rename a range
 
 <Client.Tabs exclude={["cpp"]}>
 
   <Fragment slot="console">
 
-Right-click the range in the ranges toolbar or the range explorer and select `Rename`.
-To change the time range or labels, edit them in the
+Right-click the range in the ranges toolbar or the range explorer and select **Rename**.
+You can also click the name on the
 [range overview](/reference/ranges/find#range-overview).
 
   </Fragment>
 
   <Fragment slot="python">
 
-Call `client.ranges.create` with the `key` of the range to update. You can change the
-name, time range, or color.
+The Python client has no rename method. Update the range with its key, as the next
+section shows.
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+await client.ranges.rename(myRange.key, "My Updated Range");
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Change the times or the stage
+
+<Client.Tabs exclude={["cpp"]}>
+
+  <Fragment slot="console">
+
+On the [range overview](/reference/ranges/find#range-overview), click the start or end
+time on the timeline and change it. To start, complete, or reopen the range, click its
+stage. Each stage change sets the start or end time. See
+[stages](/reference/ranges/reference#stages).
+
+The Console cannot change the color or the parent of a range.
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+Call `client.ranges.create` with the `key` of the range:
 
 ```python
+from datetime import datetime
+
 import synnax as sy
 
-# First, retrieve the range you want to update
 my_range = client.ranges.retrieve(name="My Range")
-
-# Update the range by providing its key and new values
-updated_range = client.ranges.create(
-    key=my_range.key,  # Specify the key to update existing range
-    name="My Updated Range",  # New name
+client.ranges.create(
+    key=my_range.key,
+    name="My Updated Range",
     time_range=sy.TimeRange(
-        start=sy.TimeStamp("2023-02-12 13:00:00"),
-        end=sy.TimeStamp("2023-02-12 15:00:00"),
+        start=sy.TimeStamp(datetime(2023, 2, 12, 13, 0)),
+        end=sy.TimeStamp(datetime(2023, 2, 12, 15, 0)),
     ),
-    color="#00FF00",  # New color
+    color="#00FF00",
 )
 ```
 
@@ -56,24 +88,20 @@ updated_range = client.ranges.create(
 
   <Fragment slot="typescript">
 
-Call `client.ranges.create` with the `key` of the range to update. You can change the
-name, time range, or color.
+Call `client.ranges.create` with the `key` of the range:
 
 ```typescript
 import { TimeRange, TimeStamp } from "@synnaxlabs/client";
 
-// First, retrieve the range you want to update
 const myRange = await client.ranges.retrieve("My Range");
-
-// Update the range by providing its key and new values
-const updatedRange = await client.ranges.create({
-  key: myRange.key, // Specify the key to update existing range
-  name: "My Updated Range", // New name
+await client.ranges.create({
+  key: myRange.key,
+  name: "My Updated Range",
   timeRange: new TimeRange(
     new TimeStamp("2023-02-12 13:00:00"),
     new TimeStamp("2023-02-12 15:00:00"),
   ),
-  color: "#00FF00", // New color
+  color: "#00FF00",
 });
 ```
 
@@ -81,9 +109,9 @@ const updatedRange = await client.ranges.create({
 </Client.Tabs>
 
 <Note.Note variant="warning" className="compact">
-  In code, an update replaces all the properties of the range. Include every property
-  that you want to keep. If no range has the `key`, Synnax creates a new range with that
-  key.
+  An update in code replaces the name, the time range, and the color. Leave out the
+  color and the range loses it. Labels are only added, and the parent stays when you
+  leave it out. If no range has the key, Synnax creates a new range with that key.
 </Note.Note>
 
 <Divider.Divider x />
@@ -91,13 +119,15 @@ const updatedRange = await client.ranges.create({
 ## Delete a range
 
 Deleting a range also deletes its child ranges. It does not delete the data of the
-channels in the range.
+channels in the range, and it does not delete its
+[snapshots](/reference/ranges/snapshots).
 
 <Client.Tabs exclude={["cpp"]}>
 
   <Fragment slot="console">
 
-Right-click the range in the ranges toolbar or the range explorer and select `Delete`.
+Right-click the range in the ranges toolbar or the range explorer and select **Delete**,
+then confirm.
 
 <Image id="client/ranges/delete" />
 
@@ -105,27 +135,19 @@ Right-click the range in the ranges toolbar or the range explorer and select `De
 
   <Fragment slot="python">
 
-Delete a range by passing its key to the `client.ranges.delete` method.
-
 ```python
-# Delete a single range
 client.ranges.delete(my_range.key)
-
-# Delete multiple ranges
 client.ranges.delete([my_range.key, my_other_range.key])
 ```
+
+A key that matches no range is ignored.
 
   </Fragment>
 
   <Fragment slot="typescript">
 
-Delete a range by passing its key to the `client.ranges.delete` method.
-
 ```typescript
-// Delete a single range
 await client.ranges.delete(myRange.key);
-
-// Delete multiple ranges
 await client.ranges.delete([myRange.key, myOtherRange.key]);
 ```
 
