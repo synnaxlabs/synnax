@@ -143,3 +143,9 @@ The user's page notes, made general. Apply them in passes over other sections.
 - Each Console task with its own h2 gets a video of its steps. Request it from the media
   session when it is missing.
 - A link to a client-only page says that it uses the Python or TypeScript client.
+- Use `Client.Tabs` only when the Console and the clients do the same job (create a
+  channel). When the jobs differ (find a channel to plot it, or retrieve it in a script)
+  or a task exists only in code, give the code part its own h2 with "in code" in the
+  name, and open it with one sentence on why a script does it. Model:
+  `channels/find.mdx`. Pages to check: ranges find, data, and aliases; hardware tasks;
+  control authority; Enterprise users.
