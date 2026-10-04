@@ -72,7 +72,7 @@ std::pair<NodeId, x::errors::Error> NodeId::parse(const std::string &node_id_str
     if (sep == std::string_view::npos || sep < 3 || upper(str[0]) != 'N' ||
         upper(str[1]) != 'S' || str[2] != '=')
         return invalid();
-    UA_UInt16 ns;
+    UA_UInt16 ns = 0;
     if (!parse_number(str.substr(3, sep - 3), ns)) return invalid();
     const auto body = str.substr(sep + 1);
     if (body.size() < 3 || body[1] != '=') return invalid();
@@ -85,7 +85,7 @@ std::pair<NodeId, x::errors::Error> NodeId::parse(const std::string &node_id_str
     UA_NodeId raw_id = UA_NODEID_NULL;
     switch (upper(body[0])) {
         case 'I': {
-            UA_UInt32 numeric;
+            UA_UInt32 numeric = 0;
             if (!parse_number(std::string_view(identifier), numeric)) return invalid();
             raw_id = UA_NODEID_NUMERIC(ns, numeric);
             break;
