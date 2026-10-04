@@ -1,227 +1,164 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Errors"
-description: "Arc error code reference for compile-time and runtime errors"
+description:
+  "Look up the diagnostics that the Arc compiler reports, with their causes and fixes."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Field } from "@/components/field";
 import { mdxOverrides } from "@/components/mdxOverrides";
-
 export const components = mdxOverrides;
 
-Arc errors fall into two categories: compile-time errors (caught before deployment) and
-runtime errors (occur during execution).
+The Arc compiler checks the code while you type, and the editor marks each problem. Each
+diagnostic has a line and a column, a severity, a message, and sometimes a code and a
+note. An error stops the automation from compiling. A warning does not. In a status, a
+diagnostic looks like this:
 
-## Error code format
-
-Arc error codes follow the pattern:
-
+```text
+5:14 error [ARC3001]: missing required argument for parameter 'y' of func 'add'
+  note: signature: add(x f64, y f64) f64
 ```
-ARC<category><number>
-```
 
-| Category    | Range   | Description                               |
-| ----------- | ------- | ----------------------------------------- |
-| Type System | ARC2xxx | Type mismatches and constraint violations |
-| Functions   | ARC3xxx | Argument count and type errors            |
-| Symbols     | ARC4xxx | Undefined or redefined symbols            |
+In the messages below, `<name>` stands for a value that changes.
 
 <Divider.Divider x />
 
-## Compile-time errors
+## Diagnostic codes
 
-The compiler catches these before deployment.
+<Field.List>
 
-### Type system errors (ARC2xxx)
+<Field.Item name="ARC3001" id="arc3001">
 
-| Code    | Name                    | Description                                   |
-| ------- | ----------------------- | --------------------------------------------- |
-| ARC2001 | TypeMismatch            | Incompatible types in operation or assignment |
-| ARC2003 | TypeConstraintViolation | Type doesn't satisfy constraint               |
+Error. `missing required argument for parameter '<p>' of func '<f>'`, or
+`too many arguments for func '<f>': expected at most <n>`. The call has too few or too
+many arguments. Match the signature in the note.
 
-**Example: TypeMismatch**
+</Field.Item>
 
-```arc
-// Error: cannot add i32 and f64
-x i32 := 42
-y f64 := x + 1.0
-```
+<Field.Item name="ARC3002" id="arc3002">
 
-**Fix:** Use explicit type casting:
+Error. `type mismatch in argument '<p>' of '<f>': expected <T>, got <U>`. An argument
+has the wrong type. Convert the value. For a duration in a variable, declare the
+variable as `i64 ns`.
 
-```arc
-x i32 := 42
-y f64 := f64(x) + 1.0
-```
+</Field.Item>
 
-### Function errors (ARC3xxx)
+<Field.Item name="ARC4003" id="arc4003">
 
-| Code    | Name         | Description                      |
-| ------- | ------------ | -------------------------------- |
-| ARC3001 | FuncArgCount | Wrong number of arguments        |
-| ARC3002 | FuncArgType  | Function argument has wrong type |
+Warning. `'<old>' is deprecated, use '<new>' instead`. The code uses an old name, such
+as `interval`. Use the qualified name, such as `time.interval`.
 
-**Example: FuncArgCount**
+</Field.Item>
 
-```arc
-func add(x f64, y f64) f64 {
-    return x + y
-}
-// Error: expected 2 arguments, got 1
-result := add(5.0)
-```
+<Field.Item name="ARC5001" id="arc5001">
 
-### Symbol errors (ARC4xxx)
+Error. `imported module "<m>" is unused`. The code imports a module and does not use it.
+Remove the import.
 
-| Code    | Name            | Description                                                  |
-| ------- | --------------- | ------------------------------------------------------------ |
-| ARC4001 | SymbolUndefined | Referenced symbol not found                                  |
-| ARC4002 | SymbolRedefined | Symbol conflicts with declaration in same or enclosing scope |
+</Field.Item>
 
-**Example: SymbolUndefined**
+</Field.List>
 
-```arc
-// Error: undefined symbol 'ox_pt_1'
-value := ox_pt_1 // channel doesn't exist in cluster
-```
-
-**Example: SymbolRedefined**
-
-```arc
-x := 42
-x := 100 // Error: x already declared
-```
-
-```arc
-func example() {
-    x := 10
-    if x > 0 {
-        x := 20 // Error: conflicts with outer x
-    }
-}
-```
+Codes ARC2001, ARC2003, ARC4001, and ARC4002 are reserved. The compiler does not emit
+them.
 
 <Divider.Divider x />
 
-## Common error messages
+## Common messages without a code
 
-| Message                                                | Meaning                                               |
-| ------------------------------------------------------ | ----------------------------------------------------- |
-| `"X is not a channel"`                                 | Using a non-channel where a channel is expected       |
-| `"X is not a function"`                                | Using `{}` syntax on something that isn't a function  |
-| `"X is not a channel or sequence"`                     | Invalid target for flow or transition                 |
-| `"X has more than one parameter"`                      | Function needs a routing table for multiple inputs    |
-| `"input routing table must precede a func invocation"` | Routing table in wrong position                       |
-| `"compound assignment requires numeric element type"`  | Using `+=` etc. with non-numeric type                 |
-| `"undefined symbol: X"`                                | Symbol not declared (typo or missing channel)         |
-| `"type mismatch"`                                      | Incompatible types in operation                       |
-| `"authority value must be an integer in range 0-255"`  | Authority value out of range                          |
-| `"authority declaration must appear before ..."`       | Authority block after func/sequence declarations      |
-| `"multiple default authority values"`                  | More than one bare numeric default in authority block |
-| `"duplicate authority for 'X'"`                        | Same channel listed twice in authority block          |
-| `"channel 'X' not found"`                              | Authority references a channel that doesn't exist     |
-| `"missing return"`                                     | Function with return type has no return statement     |
-| `"unreachable code"`                                   | Code after unconditional return                       |
+These tables list the most common diagnostics without a code, not all of them.
+
+### Syntax, imports, and names
+
+| Message                                                                 | Cause                                                                                                                                   | Fix                                                                                          |
+| ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `mismatched input '<x>' expecting <tokens>`                             | The syntax is not correct at that position.                                                                                             | Correct the code at the line and column.                                                     |
+| `token recognition error at: '<c>'`                                     | The character is not part of Arc, such as `&`.                                                                                          | Use the Arc operator, such as `and`.                                                         |
+| `unknown unit: <text>`                                                  | A number has a suffix that is not a unit, such as `0xFF` or `1e3`. In a function body, the error shows only when the automation starts. | Write the number in decimal digits.                                                          |
+| `unknown module "<m>"`                                                  | No module has that name.                                                                                                                | Use a module from the [standard library](/reference/control/arc/reference/standard-library). |
+| `duplicate import: "<m>" is already imported`                           | The code imports the module two times.                                                                                                  | Remove one import.                                                                           |
+| `import statements must appear before any other top-level declarations` | An import comes after other code.                                                                                                       | Move the imports to the top of the file.                                                     |
+| `undefined symbol: <name>`                                              | The name is not declared, the channel does not exist, or the module is not imported. A note gives the `import` to add.                  | Declare the name, correct the channel name, or add the import.                               |
+| `name <x> conflicts with existing <kind> at line <l>, col <c>`          | Two declarations in the same scope have the same name.                                                                                  | Rename one of them.                                                                          |
+
+### Types and expressions
+
+| Message                                                                                                     | Cause                                                                         | Fix                                         |
+| ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------- |
+| `type mismatch: cannot assign <T> to '<name>' (type <U>)`                                                   | The value and the variable have different types.                              | Convert the value, such as `f64(x)`.        |
+| `cannot use <T> in <op> operation`                                                                          | The operator does not take that type, such as `x and true` with a number `x`. | Use a comparison, such as `x > 0 and true`. |
+| `boolean conversions are not supported; define the comparison explicitly, e.g. x != 0 or abs(x - 1) < 0.01` | The code casts a value to `bool`.                                             | Write a comparison, such as `x != 0`.       |
+
+### Variables and functions
+
+| Message                                                                                                | Cause                                                                    | Fix                                                  |
+| ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ | ---------------------------------------------------- |
+| `cannot reassign a top-level variable; assignment is only valid inside a sequence, stage, or function` | A top-level variable is a constant.                                      | Assign it inside a sequence, a stage, or a function. |
+| `stateful variables cannot be declared at the top level`                                               | A `$=` declaration is at the top level.                                  | Declare it in a sequence, a stage, or a function.    |
+| `cannot assign to loop variable '<i>'`                                                                 | The loop body changes the loop variable.                                 | Use a different variable.                            |
+| `function '<f>' must return a value of type <T> on all paths`                                          | One path through the function has no `return`.                           | Add a `return` to each path.                         |
+| `cannot return a value from a function with no return type`                                            | `return x` in a function without an output type, or with a named output. | Add an output type, or assign the named output.      |
+| `function '<f>' cannot be called inside a func block. Use it as a flow statement instead: <f>{}`       | A function body calls a flow function, such as `math.avg`.               | Use the function in a flow.                          |
+| `unknown parameter '<p>' for func '<f>'`                                                               | The function has no parameter with that name.                            | Use a name from the signature in the note.           |
+| `duplicate argument for parameter '<p>' of func '<f>'`                                                 | The call gives the same parameter two times.                             | Remove one argument.                                 |
+
+### Flows, sequences, and stages
+
+| Message                                                                              | Cause                                                                                           | Fix                                                                     |
+| ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `input value for '<p>' must be a literal`                                            | A parameter in `{}` gets a channel or an expression.                                            | Use a literal or a variable.                                            |
+| `upstream value type <T> does not match func '<f>' trigger parameter '<p>' type <U>` | The flow sends the wrong type into the function, such as a `bool` into `control.set_authority`. | Send a value of the type that the function takes.                       |
+| `<source> value type <T> does not match channel <ch> value type <U>`                 | A flow writes one channel type to a channel of another type.                                    | Convert the value in a function, or use a channel of the same type.     |
+| `func <f> output type <T> does not match channel <ch> value type <U>`                | The function output and the channel have different types.                                       | Use a channel of the output type.                                       |
+| `<name> is not a function`                                                           | `{}` follows a name that is not a function.                                                     | Call a function, or remove the `{}`.                                    |
+| `'=>' cannot feed select{}, use '->'`                                                | A `=>` sends values into `select`.                                                              | Use `->`.                                                               |
+| `input routing tables not yet implemented in text compiler`                          | The code uses an input routing table.                                                           | Set the extra parameters in `{}`, or call the function from a function. |
+| `'next' used outside of a sequence`                                                  | A `=> next` is in a top-level stage or flow.                                                    | Move it into a sequence.                                                |
+| `'next' in last stage '<s>' has no next stage`                                       | The last stage of a sequence uses `=> next`.                                                    | Add a step after it, or go to a named stage.                            |
+| `sequence '<s>' has no steps`                                                        | The sequence is empty.                                                                          | Add a step.                                                             |
+
+### Authority and standard library arguments
+
+| Message                                                                                          | Cause                                                | Fix                                         |
+| ------------------------------------------------------------------------------------------------ | ---------------------------------------------------- | ------------------------------------------- |
+| `authority declaration must appear before function, flow, and sequence declarations`             | Other code comes before `authority`.                 | Move `authority` to just after the imports. |
+| `multiple default authority values`                                                              | The declaration has more than one default.           | Keep one default.                           |
+| `duplicate authority for '<ch>'`                                                                 | A channel has more than one value.                   | Keep one value for the channel.             |
+| `channel '<ch>' not found`                                                                       | The declaration names a channel that does not exist. | Correct the channel name.                   |
+| `authority value must be an integer in range 0-255, got '<v>'`                                   | The value is outside 0 to 255.                       | Use a value from 0 to 255.                  |
+| `<param> must be positive, got <span>`                                                           | A timer has a `period` or `duration` of 0 or less.   | Use a positive duration.                    |
+| `"<v>" is not a valid status variant: [success, info, warning, error, loading, disabled]`        | `status.set` has an unknown `variant`.               | Use a variant from the list.                |
+| For example, `color must be a hex value (e.g. "#3bc454") or rgb(r,g,b): "<v>": validation error` | `ranges.create` has a `color` that is not a color.   | Use a hex, `rgb()`, or `rgba()` color.      |
+| `stable.for input must be a numeric or bool type, got <T>`                                       | `stable.for` gets a `str` value.                     | Send a numeric or `bool` value.             |
+
+### Errors when the automation starts
+
+These errors come from the last compile step. The editor does not mark them, and they
+have no line number. They show in the status when the automation starts, after a prefix
+that names the place, such as:
+
+```text
+failed to compile function 'f' body: failed to compile return expression: float modulo not yet implemented
+```
+
+| Message                                                                | Cause                                                                            | Fix                                                         |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `float modulo not yet implemented`                                     | The code uses `%` on floats.                                                     | Use `%` on integers only.                                   |
+| `cannot read '<name>': its initializer is not a compile-time constant` | Code reads a top-level variable whose value is not a constant, such as a series. | Declare the variable in the function or stage that uses it. |
+
+### Warnings without a code
+
+| Message                                                                     | Cause                                           | Fix                                   |
+| --------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------- |
+| `numeric conditions are deprecated; use an explicit comparison like x != 0` | An `if` or a `=>` uses a number as a condition. | Write a comparison, such as `x != 0`. |
 
 <Divider.Divider x />
 
-## Runtime errors
+## Errors while it runs
 
-These errors occur during execution and stop the Arc task (but not the Driver).
-
-### Arithmetic errors
-
-| Error            | Cause                          |
-| ---------------- | ------------------------------ |
-| Division by zero | Dividing by zero in `/` or `%` |
-
-```arc
-// Runtime error if b is 0
-result := a / b
-```
-
-**Prevention:**
-
-```arc
-if b != 0 {
-    result := a / b
-}
-```
-
-### Array/string errors
-
-| Error                | Cause                                         |
-| -------------------- | --------------------------------------------- |
-| Out-of-bounds access | Index outside valid range                     |
-| Length mismatch      | Series operation with different-length arrays |
-
-```arc
-data := [1.0, 2.0, 3.0]
-value := data[5] // Runtime error: index 5 out of bounds
-```
-
-**Prevention:**
-
-```arc
-if index < len(data) {
-    value := data[index]
-}
-```
-
-<Divider.Divider x />
-
-## Error isolation
-
-A runtime error in one Arc task only stops that task. Other tasks and the hardware
-driver continue running normally. The error status is reported to Console where you can
-see what went wrong.
-
-<Divider.Divider x />
-
-## Debugging
-
-### Check task status
-
-When an Arc automation doesn't behave as expected:
-
-1. Check the task status in Console
-2. Runtime errors (division by zero, out-of-bounds) stop the task and report the error
-3. The error message indicates what went wrong
-
-### Use LSP diagnostics
-
-The text editor shows compile-time errors inline:
-
-- Red underline: Error (won't compile)
-- Yellow underline: Warning (compiles but suspicious)
-- Hover for error message and suggested fix
-
-### Write intermediate values
-
-Write intermediate values to channels for debugging:
-
-```arc channels="setpoint, gain, debug_error"
-func debug_controller(value f64) f64 {
-    error := value - setpoint
-
-    // Write to channel for visibility
-    debug_error = f"Error is: {error}"
-    return error * gain
-}
-```
-
-Monitor these channels in Console to trace data flow.
-
-<Divider.Divider x />
-
-## Common fixes
-
-| Problem              | Fix                                      |
-| -------------------- | ---------------------------------------- |
-| Type mismatch        | Add explicit cast: `f64(x)`              |
-| Undefined symbol     | Check spelling, verify channel exists    |
-| Wrong argument count | Check function signature                 |
-| Division by zero     | Add guard: `if b != 0`                   |
-| Index out of bounds  | Add guard: `if i < len(data)`            |
-| Missing return       | Add `return` statement to all code paths |
+Errors while an automation runs have no code. Examples are an integer division by zero
+and a failed `status.set` or `ranges` call. On the Core, Synnax shows a warning and the
+automation keeps running. On a Driver, an error stops the automation, and a warning does
+not. For the full rules, see
+[errors while it runs](/reference/control/arc/execution-model#errors-while-it-runs).

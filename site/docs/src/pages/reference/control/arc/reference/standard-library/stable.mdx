@@ -1,49 +1,46 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "`stable`"
-description: "Arc standard library reference for the debounce module"
+description:
+  "Look up stable.for, which passes a value only after it holds steady for a duration."
 ---
 
-import { Note } from "@synnaxlabs/lyra/note";
+import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
-import Params from "@/components/params/Params.astro";
-
 export const components = mdxOverrides;
 
-The `stable` module suppresses transient signal changes.
+The `stable` module removes short changes from a signal. Import it with `import stable`.
+
+<Divider.Divider x />
 
 ## `for`
 
-`stable.for` is a debounce: it emits its input value only after the value has held
-unchanged for `duration`. Any change restarts the window, so fluctuations shorter than
-`duration` never propagate, and a newly stable value is emitted once.
+Passes a value only after the value stays the same for `duration`.
 
-<Params
-  fn="stable.for"
-  input="numeric | bool"
-  params={[
-    {
-      name: "duration",
-      type: "i64 ns",
-      required: true,
-      description:
-        "How long the value must hold before it is emitted, as a duration literal (e.g. `500ms`).",
-    },
-  ]}
-  output={{
-    type: "numeric | bool",
-    description: "The debounced value, matching the input type.",
-  }}
-/>
+| Parameter  | Type     | Required | Default | Meaning                                                 |
+| ---------- | -------- | -------- | ------- | ------------------------------------------------------- |
+| `duration` | `i64 ns` | Yes      |         | How long the value must stay the same, such as `500ms`. |
 
-<Note.Note variant="warning">
-  Channels with variable-size data types, such as `str`, are not allowed.
-</Note.Note>
+`duration` takes a literal or a variable. A new variable value applies from the next
+change of the input value.
 
-```arc channels="input, output, press_pt, vent_cmd"
-// Debounce a value: write afterit holds for 5s
-input -> stable.for{ duration=5s } -> output
+- Input -> a numeric or `bool` value. A `str` value gives the error
+  `stable.for input must be a numeric or bool type, got str`.
+- Output -> the steady value, of the same type as the input. It has the time of the
+  cycle that sends it.
+- Runs -> on each new input value. A change of value starts the hold time again, from
+  the timestamp of that value. When an input arrives after the value has held for
+  `duration`, `stable.for` sends the value once. It sends again only when a different
+  value holds for `duration`.
 
-// Debounce a condition: act only after it holds for 500ms
-press_pt > 100 -> stable.for{ duration=500ms } -> vent_cmd
+Because `stable.for` checks the hold time only when an input arrives, a slow channel can
+send the value later than `duration`. When its stage starts, `stable.for` forgets the
+last value.
+
+```arc channels="tank_pt, high_pt"
+import stable
+
+tank_pt > 500 -> stable.for{duration=500ms} -> high_pt
 ```
+
+`stable.for` works the same on the Core and on a Driver.
