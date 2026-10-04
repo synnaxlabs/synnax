@@ -117,9 +117,18 @@ const label = version?.split(".").slice(0, -1).join(".");
         z-index: 4;
         position: sticky;
         top: 0;
-        background: var(--pluto-gray-l2-30);
-        -webkit-backdrop-filter: blur(3rem);
-        backdrop-filter: blur(3rem);
+
+        /* A backdrop filter on the header would contain the drawer's fixed position,
+        so the closed drawer would widen the page. */
+        &::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            z-index: -1;
+            background: var(--pluto-gray-l2-30);
+            -webkit-backdrop-filter: blur(3rem);
+            backdrop-filter: blur(3rem);
+        }
 
         .header-row {
             height: var(--nav-height);
