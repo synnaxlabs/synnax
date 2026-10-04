@@ -30,6 +30,7 @@ classifiers = ["Private :: Do Not Upload"]
 [project.scripts]
 test-conductor = "framework.test_conductor:main"
 tc = "framework.test_conductor:main"
+test-split = "framework.split:main"
 migration-conductor = "migration_conductor:main"
 mc = "migration_conductor:main"
 

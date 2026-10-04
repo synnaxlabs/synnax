@@ -244,7 +244,7 @@ class ConfigClient:
         if not sequences:
             parts: list[str] = []
             if target_filter.sequence_filter:
-                parts.append(f"sequence='{target_filter.sequence_filter}'")
+                parts.append(f"sequence='{','.join(target_filter.sequence_filter)}'")
             if target_filter.case_filter:
                 parts.append(f"case='{','.join(target_filter.case_filter)}'")
             raise ValueError(f"No tests found matching filters: {', '.join(parts)}")

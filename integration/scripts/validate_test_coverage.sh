@@ -25,7 +25,8 @@ TESTS_DIR="integration/tests"
 EXEMPT="example migration"
 
 # Matrix definition (single source of truth)
-# Format: "name:target" where target can be comma-separated file prefixes
+# Format: "name:target" where target can be comma-separated file prefixes. Each name
+# must have a split in integration/framework/split.py.
 MATRIX_ENTRIES=(
     "arc:arc,control,latency"
     "console:console"
