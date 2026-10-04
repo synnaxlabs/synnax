@@ -7,6 +7,7 @@ description: "Follow the values of channels as lines of text while they arrive."
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Image, Video } from "@/components/media/Media";
+import Diagram from "@/components/diagram/Diagram.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -17,7 +18,20 @@ of any data type, including text and JSON.
 A log shows only values that arrive while it is open. It does not read stored data. To
 see stored data, use a [line plot](/reference/visualize/line-plots).
 
-<Image id="console/logs/thumbnail" themed={false} />
+<Diagram style="height: 300px" preview>
+  <Image
+    id="console/logs/thumbnail"
+    themed={false}
+    style={{
+      width: "500px",
+      position: "absolute",
+      left: "50%",
+      transform: "translateX(-50%)",
+      borderRadius: "1.5rem",
+      boxShadow: "-1rem -1rem 1rem 3px var(--pluto-gray-l1-15)",
+    }}
+  />
+</Diagram>
 
 <Divider.Divider x />
 

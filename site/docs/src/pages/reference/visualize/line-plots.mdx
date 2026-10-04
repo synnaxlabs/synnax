@@ -8,6 +8,7 @@ description:
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Image, Video } from "@/components/media/Media";
+import Diagram from "@/components/diagram/Diagram.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -15,7 +16,18 @@ A line plot graphs the values of channels over time. It shows live data as it ar
 or the data of past [ranges](/reference/ranges). Use a line plot to watch a test, to
 compare runs, and to measure and export data.
 
-<Image id="console/line-plots/example" />
+<Diagram style="height: 400px" preview>
+  <Image
+    id="console/line-plots/example"
+    style={{
+      height: "500px",
+      width: "fit-content",
+      transform: "translate(-6%, -9%)",
+      borderRadius: "1.5rem",
+      border: "1px solid var(--pluto-gray-l6)",
+    }}
+  />
+</Diagram>
 
 <Divider.Divider x />
 
