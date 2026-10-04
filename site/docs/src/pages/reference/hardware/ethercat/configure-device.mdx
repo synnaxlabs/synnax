@@ -56,8 +56,10 @@ Driver:
 
 The Driver gets the PDOs of a module from a built-in catalog of Beckhoff and Dewesoft
 modules, then from the module itself. If it cannot find them, the status of the module
-starts with "Discovered with warning" or reads "Discovered (no PDOs found)". Use
-[manual channels](/reference/hardware/ethercat/read-task#pdo-channels) for that module.
+starts with "Discovered with warning" or reads "Discovered (no PDOs found)". Tasks
+cannot use the PDOs of that module, and manual channels read wrong values. Check the CoE
+mailbox and the EEPROM (SII) of the module, then
+[restart the Driver](/reference/hardware/troubleshooting#restart-the-driver).
 
 <Divider.Divider x />
 
