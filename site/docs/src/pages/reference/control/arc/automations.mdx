@@ -12,9 +12,8 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 An Arc automation holds Arc code or a graph of blocks, and the Driver that runs it. You
-create, start, and edit automations in the Console. The **Arcs** drawer lists them all.
-To learn what Arc is and where it can run, see the
-[Arc overview](/reference/control/arc).
+create, start, and edit automations in the Console. The Arcs toolbar lists them all. To
+learn what Arc is and where it can run, see the [Arc overview](/reference/control/arc).
 
 <Edition.Enterprise>
 
@@ -34,7 +33,7 @@ See [users and roles](/reference/enterprise/users#roles).
 ## Create an Arc automation
 
 1. In the left nav, click **Arcs** (<Icon.Arc />), or press `A`.
-2. In the **Arcs** drawer, click **Create Arc automation** (<Icon.Add />).
+2. In the Arcs toolbar, click **Create Arc automation** (<Icon.Add />).
 3. Type a name, and select an **Editor mode**:
    - **Text** -> Write Arc code. Use it for sequences and for automations with many
      conditions.
@@ -68,7 +67,7 @@ to a different Driver, select the Driver, then click **Redeploy**.
    started successfully".
 2. To stop it, click **Stop** (<Icon.Stop />).
 
-You can also start and stop an automation from its entry in the **Arcs** drawer.
+You can also start and stop an automation from its entry in the Arcs toolbar.
 
 <Divider.Divider x />
 
@@ -87,8 +86,8 @@ values, and each sequence starts again. Stop and start also run the latest code.
 
 ## Rename, copy a link, or delete an automation
 
-Right-click an automation in the **Arcs** drawer, and select **Rename**, **Copy link**,
-or **Delete**.
+Right-click an automation in the Arcs toolbar, and select **Rename**, **Copy link** (not
+in Synnax Desktop), or **Delete**.
 
 Delete stops the automation. If its tab is open, the tab offers **Restore**, which
 brings back the code but not the Driver choice. The restored automation is stopped.
@@ -97,15 +96,15 @@ brings back the code but not the Driver choice. The restored automation is stopp
 
 ## Find an automation
 
-The **Arcs** drawer lists every automation. To search by name, click **Open Arc
-explorer** in the drawer. Double-click an automation to open it.
+The Arcs toolbar lists every automation. To search by name, click **Open Arc explorer**
+in the toolbar. Double-click an automation to open it.
 
 <Divider.Divider x />
 
 ## Export and import an automation
 
-To save an automation as a JSON file, click **Export layout** in the editor toolbar. To
-import a file, run the "Import components" command from the command palette.
+To save an automation as a JSON file, click **Export layout** in the component toolbar.
+To import a file, run the "Import components" command from the command palette.
 
 <Divider.Divider x />
 

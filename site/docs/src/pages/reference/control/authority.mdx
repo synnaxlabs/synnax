@@ -33,7 +33,7 @@ operator must be able to take. See [default authorities](#default-authorities).
    authority, with a higher authority than the controlling writer, it takes control.
 2. **On equal authority, the first writer to open keeps control.** When two writers have
    the same authority, the one that opened on the channel first controls it. A writer
-   that releases control and acquires it again counts as a new writer.
+   that releases control and takes it again counts as a new writer.
 3. **Control passes on when the controlling writer leaves.** When the controlling writer
    closes or lowers its authority, the writer with the next highest authority gets
    control.
@@ -67,14 +67,14 @@ watches the test on a schematic.
 | Event                                       | Controls `press_vlv_cmd` | Why                                   |
 | ------------------------------------------- | ------------------------ | ------------------------------------- |
 | The Press sequence starts.                  | Press sequence           | No other writer is open.              |
-| The operator acquires control.              | Schematic                | 200 is higher than 100.               |
+| The operator takes control.                 | Schematic                | 200 is higher than 100.               |
 | The operator releases control.              | Press sequence           | It is the only writer left.           |
-| The operator acquires control again.        | Schematic                | 200 is higher than 100.               |
+| The operator takes control again.           | Schematic                | 200 is higher than 100.               |
 | The Press sequence enters its abort stage.  | Press sequence           | 255 is higher than 200.               |
 | The operator clicks the control chip (255). | Press sequence           | Equal authority, and it opened first. |
 
 In this recording, an automation named Valve Guard writes at 100, and a schematic at 200
-acquires control, opens the valve, and releases control. The legend shows which writer
+takes control, opens the valve, and releases control. The legend shows which writer
 controls the valve at each step.
 
 <Video id="control/authority/hand-off" />
@@ -119,7 +119,7 @@ controls the valve at each step.
 3. Start the automation.
 
 A schematic that shows these channels now lists the automation in its control legend. An
-operator who acquires control at more than 100 takes the valves until the abort stage
+operator who takes control at more than 100 takes the valves until the abort stage
 starts.
 
 To set a different authority on one channel, list it after the default:

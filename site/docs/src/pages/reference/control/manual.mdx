@@ -2,7 +2,7 @@
 layout: "@/layouts/Reference.astro"
 title: "Control hardware from a schematic"
 description:
-  "Acquire control, command valves and buttons, and release control from a schematic."
+  "Take control, command valves and buttons, and release control from a schematic."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -32,11 +32,11 @@ You cannot control a snapshot of a schematic.
 
 Your role decides what you can do:
 
-- **Owner** and **Engineer** can acquire control and
+- **Owner** and **Engineer** can take control and
   [set the schematic authority](#set-the-schematic-authority).
-- **Operator** can acquire control, but cannot edit schematics. For an Operator, editing
-  is always off, so the first click on a symbol acquires control. The schematic always
-  writes at authority 1, and the **Control** tab does not show.
+- **Operator** can take control, but cannot edit schematics. For an Operator, editing is
+  always off, so the first click on a symbol takes control. The schematic always writes
+  at authority 1, and the **Control** tab does not show.
 - **Viewer** cannot control hardware, and the control button does not show.
 
 See [users and roles](/reference/enterprise/users#roles).
@@ -45,7 +45,7 @@ See [users and roles](/reference/enterprise/users#roles).
 
 <Divider.Divider x />
 
-## Acquire control and command a valve
+## Take control and command a valve
 
 1. Move the pointer over the schematic, then click the control button (<Icon.Circle />)
    in the top-right corner. Its tooltip is **Acquire control**.
@@ -60,11 +60,11 @@ See [users and roles](/reference/enterprise/users#roles).
 
 <Video id="console/schematics/valve" />
 
-When editing is off and the schematic does not have control, a click on a symbol
-acquires control first, then sends the command. You can also right-click the schematic
-and select **Take control** or **Release control**. Closing the schematic also releases
-control. To release control and edit at the same time, click **Release control and
-enable editing** in the component toolbar.
+When editing is off and the schematic does not have control, a click on a symbol takes
+control first, then sends the command. You can also right-click the schematic and select
+**Take control** or **Release control**. Closing the schematic also releases control. To
+release control and edit at the same time, click **Release control and enable editing**
+in the component toolbar.
 
 If the chip next to a symbol is a red square, a different writer controls the channel,
 and Synnax drops your commands. See [control authority](/reference/control/authority).
@@ -93,7 +93,7 @@ other writer can take control from it.
 1. Turn on editing for the schematic.
 2. In the component toolbar, select the **Control** tab.
 3. Set **Control authority**.
-4. Acquire control again.
+4. Take control again.
 
 Each Console keeps its own authority for each schematic. The value is not saved with the
 schematic, so another Console that opens the same schematic writes at 1.
