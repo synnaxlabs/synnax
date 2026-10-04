@@ -69,7 +69,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.moveTo({ x: 756, y: 500 });
 
     session.startRecording();
-    await session.hold(1200);
+    await session.hold(1800);
 
     // A drop in the outer third of a pane splits it.
     const leaf = await page

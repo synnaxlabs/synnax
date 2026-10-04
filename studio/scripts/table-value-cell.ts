@@ -38,7 +38,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.moveTo({ x: 756, y: 500 });
 
     session.startRecording();
-    await session.hold(1000);
+    await session.hold(1800);
 
     // No zoom anywhere: the cell sits far from the toolbar that edits it.
     await session.click(page.locator(".pluto-table__cell").nth(1), { zoom: false });
@@ -90,7 +90,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     // Clear of the cell, so the live value reads.
     await session.moveTo({ x: 756, y: 500 });
     await session.settleWall(1500);
-    await session.hold(2000);
+    await session.hold(2800);
   } finally {
     await fixture.stop();
   }
