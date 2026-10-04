@@ -50,6 +50,8 @@ create_indexed_pair(synnax::Synnax &client);
 
 /// @brief asserts that actual holds the same channels and series as expected, in any
 /// channel order.
+/// @param expected the frame to compare against.
+/// @param actual the frame being checked.
 void assert_frames_equal(
     const x::telem::Frame &expected,
     const x::telem::Frame &actual
