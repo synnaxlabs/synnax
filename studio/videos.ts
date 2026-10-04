@@ -55,31 +55,10 @@ export default manifest.define([
     script: "scripts/clusters-connect.ts",
     port: 9090,
   },
-  // A desktop-sized viewport, so the Console reads at its normal scale.
-  {
-    id: "client/channels/create",
-    script: "scripts/channels-create.ts",
-    width: 1600,
-    height: 900,
-  },
-  {
-    id: "client/channels/toolbar",
-    script: "scripts/channels-toolbar.ts",
-    width: 1600,
-    height: 900,
-  },
-  {
-    id: "client/channels/rename",
-    script: "scripts/channels-rename.ts",
-    width: 1600,
-    height: 900,
-  },
-  {
-    id: "client/channels/delete",
-    script: "scripts/channels-delete.ts",
-    width: 1600,
-    height: 900,
-  },
+  { id: "client/channels/create", script: "scripts/channels-create.ts" },
+  { id: "client/channels/toolbar", script: "scripts/channels-toolbar.ts" },
+  { id: "client/channels/rename", script: "scripts/channels-rename.ts" },
+  { id: "client/channels/delete", script: "scripts/channels-delete.ts" },
   { id: "console/channels/alias", script: "scripts/channels-alias.ts" },
   {
     id: "console/calculated-channels/create-and-edit",
