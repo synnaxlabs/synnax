@@ -98,9 +98,10 @@ see a description. For more, see [manual control](/reference/control/manual).
 2. While the pressure climbs, click **Abort**.
 
 The Press sequence closes the press valve and opens the vent valve. In the abort stage,
-the sequence takes an authority of 255, which is absolute: no other writer can take
-control of the valves. The sequence also aborts by itself when the pressure goes above
-450 psi.
+the sequence raises its authority to 255, the highest value, so the schematic (200)
+cannot override it. See
+[how authority works](/reference/control/authority#how-authority-works). The sequence
+also aborts by itself when the pressure goes above 450 psi.
 
 To run the test again after an abort, click **Start**, and release control.
 
