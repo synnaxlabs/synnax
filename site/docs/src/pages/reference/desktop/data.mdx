@@ -22,6 +22,15 @@ runs.
 
 <Divider.Divider x />
 
+## Metadata backups
+
+Before a new version of Synnax Desktop first runs on your data, it copies your channels,
+ranges, and projects to the `backups` folder next to the data folder. It keeps the three
+newest copies. The copies hold no recorded data. Synnax Desktop has no way to restore a
+copy.
+
+<Divider.Divider x />
+
 ## Erase all data
 
 <Note.Note variant="error">
@@ -33,4 +42,6 @@ runs.
    dialog.
 2. Hold the **Erase all data** button for one second to confirm.
 
-Synnax Desktop deletes the data and starts again with no data. The logs stay.
+Synnax Desktop deletes the data, then closes and opens again with no data. The logs and
+your app settings stay. If the erase fails, Synnax stays stopped: click **Restart** in
+the diagnostics dialog.

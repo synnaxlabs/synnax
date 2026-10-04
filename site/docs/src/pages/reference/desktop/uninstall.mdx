@@ -9,11 +9,11 @@ import { Note } from "@synnaxlabs/lyra/note";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-When you uninstall Synnax Desktop, your data stays on the computer. To delete your data
-too, delete the Synnax Desktop folders after you uninstall the app.
+When you uninstall Synnax Desktop, your data stays on the computer unless you delete it.
 
 <Note.Note variant="warning">
-  Before you delete your data, export the projects and data that you want to keep.
+  Deleting the data cannot be undone. Before you delete it, [export the
+  data](/reference/ranges/export) and projects that you want to keep.
 </Note.Note>
 
 <Divider.Divider x />
@@ -22,9 +22,12 @@ too, delete the Synnax Desktop folders after you uninstall the app.
 
 1. Quit Synnax Desktop.
 2. In the Applications folder, drag Synnax Desktop to the Trash.
-3. To delete your data, delete these folders:
+3. To delete your data too, delete these folders and files:
    - `~/Library/Application Support/com.synnaxlabs.desktop`
    - `~/Library/Logs/com.synnaxlabs.desktop`
+   - `~/Library/Caches/com.synnaxlabs.desktop`
+   - `~/Library/WebKit/com.synnaxlabs.desktop`
+   - `~/Library/Preferences/com.synnaxlabs.desktop.plist`
 
 <Divider.Divider x />
 
@@ -33,4 +36,7 @@ too, delete the Synnax Desktop folders after you uninstall the app.
 1. Quit Synnax Desktop.
 2. Open **Settings**, then **Apps**, then **Installed apps**.
 3. Find Synnax Desktop, select the menu next to it, and select **Uninstall**.
-4. To delete your data, delete the folder `%LOCALAPPDATA%\com.synnaxlabs.desktop`.
+4. To delete your data too, select **Delete the application data** in the uninstaller.
+
+If you did not select it, delete the folders `%LOCALAPPDATA%\com.synnaxlabs.desktop` and
+`%APPDATA%\com.synnaxlabs.desktop`.
