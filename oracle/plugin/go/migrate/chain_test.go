@@ -524,6 +524,52 @@ Board struct {
 `,
 			false, nil, nil,
 		),
+		Entry("routes a union whose variants changed through its hand migration",
+			"channel",
+			`Payload union on type {
+	text {
+		value string
+	}
+
+	@go marshal
+}
+Channel struct {
+	key uuid @key
+	payloads Payload[]
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Payload union on type {
+	binary {
+		data bytes
+	}
+
+	@go marshal
+}
+Channel struct {
+	key uuid @key
+	payloads Payload[]
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Payload union on type {
+	binary {
+		data bytes
+	}
+}
+Channel struct {
+	key uuid @key
+	payloads Payload[]
+}
+`,
+			true,
+			[]string{"func autoMigrateChannel", "return MigratePayload(ctx, v)"},
+			[]string{"func autoMigratePayload", "Payload(old)"},
+		),
 		Entry("leaves a field whose union-ness changed to the hand migration",
 			"channel",
 			`Text struct {

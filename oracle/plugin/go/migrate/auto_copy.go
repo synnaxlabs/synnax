@@ -268,6 +268,13 @@ func (c *collector) ensureFunc(typ resolution.Type) {
 		c.funcs = append(c.funcs, c.aliasFunc(typ, form))
 	case resolution.DistinctForm:
 		c.funcs = append(c.funcs, c.distinctFunc(typ, form))
+	case resolution.UnionForm:
+		// A union whose variants changed has no copy that type-checks; the
+		// developer template carries its whole migration.
+		if td, ok := c.diff[typ.QualifiedName]; !ok ||
+			td.Kind != schemadiff.TypeChanged {
+			c.funcs = append(c.funcs, c.castFunc(typ))
+		}
 	default:
 		c.funcs = append(c.funcs, c.castFunc(typ))
 	}
@@ -679,17 +686,17 @@ func (c *collector) requireFunc(typ resolution.Type) string {
 		if !c.generated.Contains(typ.QualifiedName) {
 			c.pending = append(c.pending, typ)
 		}
-		// Every changed struct gets a MigrateX/migrateX wrapper in the
+		// Every changed struct or union gets a MigrateX/migrateX wrapper in the
 		// developer template; route local references through it so
 		// hand-written fixups in the wrapper apply to nested occurrences too.
-		if td, ok := c.diff[typ.QualifiedName]; ok &&
-			td.Kind == schemadiff.TypeChanged {
-			if _, isStruct := typ.Form.(resolution.StructForm); isStruct {
-				if n, ok := c.wrappers[typ.QualifiedName]; ok {
-					return n
-				}
-				return "Migrate" + goName
+		td, hasDiff := c.diff[typ.QualifiedName]
+		_, isStruct := typ.Form.(resolution.StructForm)
+		_, isUnion := typ.Form.(resolution.UnionForm)
+		if hasDiff && td.Kind == schemadiff.TypeChanged && (isStruct || isUnion) {
+			if n, ok := c.wrappers[typ.QualifiedName]; ok {
+				return n
 			}
+			return "Migrate" + goName
 		}
 		return "autoMigrate" + goName
 	}
