@@ -115,16 +115,16 @@
 /* Each level of nesting steps one gray toward the blocks inside it. */
 .block-diagram__group {
     fill: var(--pluto-gray-l3);
+}
+
+.block-diagram__border {
+    fill: none;
     stroke: var(--pluto-gray-l5);
     stroke-width: 0.5;
 }
 
 .block-diagram--nest [data-depth="1"] > .block-diagram__group {
     fill: var(--pluto-gray-l2);
-}
-
-.block-diagram__hatch {
-    stroke: none;
 }
 
 .block-diagram__hatch-line {
@@ -156,7 +156,7 @@
         );
     }
 
-    [data-depth] > .block-diagram__group {
+    [data-depth] > .block-diagram__border {
         stroke: color-mix(in srgb, var(--docs-nest-accent) 60%, transparent);
     }
 

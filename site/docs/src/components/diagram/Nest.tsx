@@ -40,6 +40,8 @@ const PADDING = 12;
 // Matches the row gap of a block diagram.
 const GAP = 20;
 const HATCH_SPACING = 6;
+// Keeps the hatch clear of the border, which is 0.5 wide and centered on the box edge.
+const HATCH_INSET = 1;
 
 type Columns = (node: NestNode) => number;
 
@@ -123,10 +125,14 @@ const Group = ({ placed, depth, hatch }: GroupProps): ReactElement => {
     <g data-depth={depth}>
       <rect {...box} className="block-diagram__group" />
       <rect
-        {...box}
+        x={x + HATCH_INSET}
+        y={y + HATCH_INSET}
+        width={width - 2 * HATCH_INSET}
+        height={height - 2 * HATCH_INSET}
+        rx={box.rx - HATCH_INSET}
         fill={`url(#${hatch}-${depth})`}
-        className="block-diagram__hatch"
       />
+      <rect {...box} className="block-diagram__border" />
       <g className="block-diagram__header">
         <Content node={header} />
       </g>
