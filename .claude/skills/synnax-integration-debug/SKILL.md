@@ -152,10 +152,10 @@ that wall-clock window. Filter by request path or trace fields to attribute line
 ## Common gotchas
 
 - **Local dev has no `server.log` by default.** The conductor reads from
-  `$SYNNAX_SERVER_LOG` (default `~/synnax-data/synnax-core.log`). CI's `start_core.sh`
-  redirects there automatically. Locally, the user must redirect:
-  `synnax start -mi > ~/synnax-data/synnax-core.log 2>&1`. Absent the file, the bundle
-  is still valid; just no server log slice.
+  `$SYNNAX_SERVER_LOG` (default `~/synnax-data/synnax-core.log`). In CI, `test-split`
+  starts each Core and points its conductor at that Core's log. Locally, the user must
+  redirect: `synnax start -mi > ~/synnax-data/synnax-core.log 2>&1`. Absent the file,
+  the bundle is still valid; just no server log slice.
 - **`trace.zip` only exists for failures.** A passing test's bundle dir is intentionally
   empty; `tracing.stop()` discards on pass.
 - **`bundle_dir` field is relative.** Resolve against the run dir, not the integration
