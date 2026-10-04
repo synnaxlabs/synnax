@@ -31,7 +31,8 @@ Before you install:
   [NI CompactRIO user manual](https://www.ni.com/docs/en-US/bundle/ni-compactrio/page/programming-modes.html).
 - Turn on SSH on the controller. You can turn it off after you install the Driver.
 
-Open an SSH connection to the controller and run:
+Open an SSH connection to the controller and log in as `admin`. On NI Linux Real-Time,
+`admin` is root, so the commands on this page need no `sudo` there. Run:
 
 <Driver.DownloadURL os="ni-linux-rt" />
 
@@ -112,7 +113,8 @@ The output ends with the version:
 ## <Step step="2" level="h2">Log in to the Core</Step>
 
 Create a user for the Driver with the [Host role](/reference/enterprise/users#roles).
-Then run `login`. On Linux and NI Linux Real-Time, run it with `sudo`:
+Then run `login`. On Linux, run it with `sudo`. On NI Linux Real-Time, run it as `admin`
+with no `sudo`:
 
 ```bash
 sudo synnax-driver login
@@ -167,7 +169,7 @@ Driver then trusts only the certificates in that file.
 The Driver started before you logged in, so restart it:
 
 ```bash
-sudo synnax-driver restart
+synnax-driver restart
 ```
 
 </Fragment>

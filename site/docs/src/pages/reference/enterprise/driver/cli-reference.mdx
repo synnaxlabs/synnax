@@ -10,8 +10,9 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 The service commands (`install`, `uninstall`, `start` without `--standalone`, `stop`,
-`restart`, `status`, and `logs`) work only on Linux and NI Linux Real-Time. Run them
-with `sudo`. On Windows and macOS, they fail with
+`restart`, `status`, and `logs`) work only on Linux and NI Linux Real-Time. On Linux,
+run them with `sudo`. On NI Linux Real-Time, log in as `admin`, which is root, and leave
+out `sudo` in the commands below. On Windows and macOS, they fail with
 `running the driver as a daemon is not supported`. There, run the Driver with
 `synnax-driver start --standalone`, and stop it with Ctrl+C.
 
@@ -33,8 +34,7 @@ sudo synnax-driver install
   with the computer. To do that, run `sudo systemctl enable synnax-driver`.
 - **NI Linux Real-Time** -> creates the service `/etc/init.d/synnax-driver`, which runs
   as root and starts with the controller. `install` does not start it, so run
-  `sudo synnax-driver start`. The Driver writes its logs to
-  `/var/log/synnax-driver.log`.
+  `synnax-driver start`. The Driver writes its logs to `/var/log/synnax-driver.log`.
 
 In both cases, `install` copies the binary to `/usr/local/bin`. When the service already
 exists, `install` stops it and removes it first. On Linux, run `systemctl enable` and
@@ -59,7 +59,8 @@ Username: driver
 Password:
 ```
 
-On Linux and NI Linux Real-Time, run `login` with `sudo`, because it reads the
+On Linux, run `login` with `sudo`, and on NI Linux Real-Time as `admin`, because it
+reads the
 [environment file](/reference/enterprise/driver/configuration#environment-file). Restart
 a running Driver to use the new login.
 
@@ -284,7 +285,7 @@ sudo synnax-driver uninstall
 ```
 
 On Linux, `uninstall` stops the service first. On NI Linux Real-Time, it does not, so
-run `sudo synnax-driver stop` before `uninstall`. The binary, the `synnax` user, the
+run `synnax-driver stop` before `uninstall`. The binary, the `synnax` user, the
 environment file, and the state file stay on the computer.
 
 On Windows and macOS, there is no service. Delete the binary instead.

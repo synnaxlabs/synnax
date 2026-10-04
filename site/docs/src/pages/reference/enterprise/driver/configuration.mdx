@@ -82,8 +82,9 @@ Write one `KEY=value` on each line, with no `export`. `login` uses the file only
 variables such as `GRPC_DEFAULT_SSL_ROOTS_FILE_PATH`. It does not read the
 `SYNNAX_DRIVER_` variables.
 
-`install` creates the file. Only root can read it, so edit it with `sudo`, and run
-`login` with `sudo`. Restart the service after you edit the file.
+`install` creates the file. Only root can read it, so edit it and run `login` as root:
+with `sudo` on Linux, and as `admin` on NI Linux Real-Time. Restart the service after
+you edit the file.
 
 `start --standalone` does not read the file. For a Driver in a terminal, export the
 variables in the shell:
