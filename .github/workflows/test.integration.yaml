@@ -299,7 +299,7 @@ jobs:
         if: runner.os == 'Linux'
         timeout-minutes: 3
         env:
-          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
         run: integration/scripts/check_driver_env_file.sh
 
       - name: Check Driver service lifecycle (Windows)
