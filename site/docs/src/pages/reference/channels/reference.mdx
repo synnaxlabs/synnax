@@ -91,24 +91,24 @@ the operations in order.
 
 ## Data types
 
-| Data type   | Size     | Arc type | Description                                                      |
-| ----------- | -------- | -------- | ---------------------------------------------------------------- |
-| `boolean`   | 1 byte   | `bool`   | `true` or `false`.                                               |
-| `int8`      | 1 byte   | `i8`     | Signed 8-bit integer.                                            |
-| `int16`     | 2 bytes  | `i16`    | Signed 16-bit integer.                                           |
-| `int32`     | 4 bytes  | `i32`    | Signed 32-bit integer.                                           |
-| `int64`     | 8 bytes  | `i64`    | Signed 64-bit integer.                                           |
-| `uint8`     | 1 byte   | `u8`     | Unsigned 8-bit integer.                                          |
-| `uint16`    | 2 bytes  | `u16`    | Unsigned 16-bit integer.                                         |
-| `uint32`    | 4 bytes  | `u32`    | Unsigned 32-bit integer.                                         |
-| `uint64`    | 8 bytes  | `u64`    | Unsigned 64-bit integer.                                         |
-| `float32`   | 4 bytes  | `f32`    | 32-bit floating-point number.                                    |
-| `float64`   | 8 bytes  | `f64`    | 64-bit floating-point number.                                    |
-| `timestamp` | 8 bytes  | `i64`    | Nanoseconds since the Unix epoch, in UTC.                        |
-| `uuid`      | 16 bytes | `str`    | A [UUID](https://www.rfc-editor.org/rfc/rfc9562.html).           |
-| `string`    | Variable | `str`    | UTF-8 text.                                                      |
-| `json`      | Variable | `str`    | A JSON value.                                                    |
-| `bytes`     | Variable | None     | Raw bytes. Arc programs and calculated channels cannot use them. |
+| Data type   | Size     | Arc type | Description                                                         |
+| ----------- | -------- | -------- | ------------------------------------------------------------------- |
+| `boolean`   | 1 byte   | `bool`   | `true` or `false`.                                                  |
+| `int8`      | 1 byte   | `i8`     | Signed 8-bit integer.                                               |
+| `int16`     | 2 bytes  | `i16`    | Signed 16-bit integer.                                              |
+| `int32`     | 4 bytes  | `i32`    | Signed 32-bit integer.                                              |
+| `int64`     | 8 bytes  | `i64`    | Signed 64-bit integer.                                              |
+| `uint8`     | 1 byte   | `u8`     | Unsigned 8-bit integer.                                             |
+| `uint16`    | 2 bytes  | `u16`    | Unsigned 16-bit integer.                                            |
+| `uint32`    | 4 bytes  | `u32`    | Unsigned 32-bit integer.                                            |
+| `uint64`    | 8 bytes  | `u64`    | Unsigned 64-bit integer.                                            |
+| `float32`   | 4 bytes  | `f32`    | 32-bit floating-point number.                                       |
+| `float64`   | 8 bytes  | `f64`    | 64-bit floating-point number.                                       |
+| `timestamp` | 8 bytes  | `i64`    | Nanoseconds since the Unix epoch, in UTC.                           |
+| `uuid`      | 16 bytes | `str`    | A [UUID](https://www.rfc-editor.org/rfc/rfc9562.html).              |
+| `string`    | Variable | `str`    | UTF-8 text.                                                         |
+| `json`      | Variable | `str`    | A JSON value.                                                       |
+| `bytes`     | Variable | None     | Raw bytes. Arc automations and calculated channels cannot use them. |
 
 All data types can be stored, and all can be virtual. Only `timestamp` can be the data
 type of an index channel.
