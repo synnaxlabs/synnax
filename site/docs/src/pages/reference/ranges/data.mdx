@@ -6,14 +6,13 @@ clients: ["console", "python", "typescript"]
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Note } from "@synnaxlabs/lyra/note";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-A range knows its start and end time, so you can read and write its data without exact
-time boundaries.
+A range knows its start and end time, so you can read and write its data without typing
+timestamps.
 
 <Divider.Divider x />
 
@@ -23,25 +22,28 @@ time boundaries.
 
   <Fragment slot="console">
 
-Right-click a range in the ranges toolbar and select `Add to new plot`. When a line plot
-is open, select `Add to active plot` to add the range to it. See
-[line plots](/reference/visualize/line-plots) for more.
+In the ranges toolbar, right-click a range and select **Add to new plot**. The Console
+opens a line plot of the range with no channels. Open the component toolbar and select
+channels in **Y1**.
+
+To add the range to a line plot that is already open, focus the plot, then select **Add
+to active plot**. See [line plots](/reference/visualize/line-plots#choose-a-time-range).
 
   </Fragment>
 
   <Fragment slot="python">
 
+Use a channel name or [alias](/reference/ranges/aliases) as a property or a key of the
+range. The result acts as a NumPy array:
+
 ```python
-my_range = client.ranges.retrieve("My Interesting Test")
+my_range = client.ranges.retrieve(name="My Interesting Test")
 
-# Read data from a single channel
-data = my_range.my_precise_tc.read()
+data = my_range.my_precise_tc.to_numpy()
+celsius = my_range["my_precise_tc"] - 273.15
 
-# Read data from multiple channels
-frame = my_range.read(["my_precise_tc", "my_precise_pt"])
-
-# Python allows direct use of channel names as properties
-celsius = my_range.my_precise_tc - 273.15
+# Read several channels as a frame
+frame = client.read(my_range.time_range, ["my_precise_tc", "my_precise_pt"])
 ```
 
   </Fragment>
@@ -51,14 +53,11 @@ celsius = my_range.my_precise_tc - 273.15
 ```typescript
 const myRange = await client.ranges.retrieve("My Interesting Test");
 
-// Read data from a single channel
 const data = await myRange.read("my_precise_tc");
+const celsius = Array.from(data, (v) => Number(v) - 273.15);
 
-// Read data from multiple channels
+// Read several channels as a frame
 const frame = await myRange.read(["my_precise_tc", "my_precise_pt"]);
-
-// Convert from Kelvin to Celsius
-const celsius = data.map((v) => v - 273.15);
 ```
 
   </Fragment>
@@ -68,31 +67,40 @@ const celsius = data.map((v) => v - 273.15);
 
 ## Write to a range
 
-Writing to a range removes the burden of needing to correctly align the timestamps for
-different channels. The write will assume that the timestamp of the first sample is the
-start of the range.
+A write to a range starts at the start time of the range. Include the index channel of
+the data with timestamps inside the range.
 
-<Client.Tabs exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp", "console"]}>
 
   <Fragment slot="python">
 
 ```python
-my_range = client.ranges.retrieve("My Interesting Test")
+import synnax as sy
 
-temperatures = [55, 55.1, 55.7, 57.2, 58.1, 58.9, 59.1, 59.2, 59.3]
-pressures = [100, 100.1, 100.7, 102.2, 103.1, 103.9, 104.1, 104.2, 104.3]
-
-my_range.write({
-    "my_precise_tc": temperatures,
-    "my_precise_pt": pressures,
-})
+my_range = client.ranges.retrieve(name="My Interesting Test")
+start = my_range.time_range.start
+my_range.write(
+    {
+        "my_time": [start + sy.TimeSpan.SECOND * i for i in range(3)],
+        "my_precise_tc": [301.2, 301.5, 301.9],
+    }
+)
 ```
 
   </Fragment>
 
   <Fragment slot="typescript">
 
-<Note.Note variant="info">Writing to ranges is not supported in TypeScript.</Note.Note>
+```typescript
+import { TimeSpan } from "@synnaxlabs/client";
+
+const myRange = await client.ranges.retrieve("My Interesting Test");
+const start = myRange.timeRange.start;
+await client.write(start, {
+  my_time: [0, 1, 2].map((i) => start.add(TimeSpan.seconds(i))),
+  my_precise_tc: [301.2, 301.5, 301.9],
+});
+```
 
   </Fragment>
 </Client.Tabs>
