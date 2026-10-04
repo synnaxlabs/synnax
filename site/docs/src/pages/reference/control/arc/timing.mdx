@@ -114,38 +114,20 @@ lateness of the fires on both sides of it.
 
 ## Get the best timing from a computer
 
-On Linux, these steps give the Driver the most precise timing. Do the first step on each
-Linux computer that runs a standalone Driver. NI Linux Real-Time needs none of them.
+On Linux, these steps give the Driver the most precise timing. NI Linux Real-Time needs
+none of them.
 
-1. **Give the Driver real-time permission.** The Driver service runs as the `synnax`
-   user, which cannot use a real-time thread. Run `sudo systemctl edit synnax-driver`,
-   and add:
+1. **Install the Driver as a service.** `sudo synnax-driver install` gives the service
+   real-time permission, and lets High keep CPU cores out of deep sleep. After you
+   upgrade the Driver, run the command again. See
+   [install the Driver](/reference/enterprise/driver/install). Cores that stay awake use
+   more power.
 
-   ```ini
-   [Service]
-   LimitRTPRIO=99
-   LimitMEMLOCK=infinity
-   ```
-
-   Then run `sudo systemctl restart synnax-driver`.
-
-2. **Let High keep CPU cores out of deep sleep.** A CPU core in deep sleep can take 0.3
-   ms to wake. At High, the Driver keeps all cores out of deep sleep, which needs access
-   to `/dev/cpu_dma_latency`. Give the `synnax` group that access:
-
-   ```shell
-   echo 'KERNEL=="cpu_dma_latency", GROUP="synnax", MODE="0660"' | sudo tee /etc/udev/rules.d/99-synnax.rules
-   sudo udevadm control --reload
-   sudo udevadm trigger --name-match=cpu_dma_latency
-   ```
-
-   Then restart the Driver. Cores that stay awake use more power.
-
-3. **Use a real-time kernel.** On Ubuntu Pro, run `sudo pro enable realtime-kernel`,
+2. **Use a real-time kernel.** On Ubuntu Pro, run `sudo pro enable realtime-kernel`,
    then restart the computer. See the
    [Ubuntu real-time documentation](https://ubuntu.com/real-time/docs/latest/).
 
-4. **Keep CPU cores for the Driver.** The Driver runs Arc on the cores that the kernel
+3. **Keep CPU cores for the Driver.** The Driver runs Arc on the cores that the kernel
    isolates with the `isolcpus` boot parameter. With no isolated cores, it uses the last
    one to four cores of the computer. Keep other heavy programs off those cores.
 
@@ -277,14 +259,14 @@ To see the Driver log on Linux, run `synnax-driver logs`.
 ### The Driver log shows "Failed to set SCHED_FIFO priority 47"
 
 The Driver cannot use a real-time thread, so other programs can delay Arc, and High
-keeps one CPU core busy. Give the Driver
-[real-time permission](#get-the-best-timing-from-a-computer).
+keeps one CPU core busy. Run `sudo synnax-driver install` again, then start the Driver.
+A Driver that you start by hand needs root, or the `CAP_SYS_NICE` capability.
 
 ### The Driver log shows "failed to keep cores out of deep idle states"
 
 The automation runs at High, but the Driver cannot keep CPU cores out of deep sleep. A
-timer can then fire up to about 0.3 ms late. Give the `synnax` group
-[access to `/dev/cpu_dma_latency`](#get-the-best-timing-from-a-computer).
+timer can then fire up to about 0.3 ms late. Run `sudo synnax-driver install` again,
+then start the Driver.
 
 ### Timers fire 0.1 to 0.3 ms late on a computer that does little else
 
@@ -295,5 +277,5 @@ When a computer has little work, its CPU cores go into deep sleep, and a core ca
 
 At High, a Driver without a real-time thread, a Driver on macOS or Windows, and the Core
 check the clock the whole time, which keeps one core busy. On the Core, Medium does the
-same at 1 kHz or faster. Use a lower level, or run the automation on a Linux Driver with
-real-time permission.
+same at 1 kHz or faster. Use a lower level, or run the automation on a Driver that runs
+as a Linux service.
