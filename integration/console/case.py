@@ -199,12 +199,8 @@ class ConsoleCase(TestCase):
         super().teardown()
 
     def _close_browser(self) -> None:
-        if self.playwright is None:
-            return
-        try:
-            self.context.close()
-            self.browser.close()
-        finally:
+        # Stopping the driver also closes every browser it launched.
+        if self.playwright is not None:
             self.playwright.stop()
 
     def _stop_tracing(self) -> None:
