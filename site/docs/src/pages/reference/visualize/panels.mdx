@@ -7,6 +7,7 @@ description:
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -25,6 +26,8 @@ opens a new panel named **New panel**.
 To switch panels, click the name of a panel in the panel selector. To change the order
 of the panels, drag a name to a new position.
 
+<Video id="console/panels/create" />
+
 <Divider.Divider x />
 
 ## Rename and delete panels
@@ -38,6 +41,8 @@ To delete a panel:
 2. Select **Delete**.
 3. Click **Delete** to confirm.
 
+<Video id="console/panels/rename-and-delete" />
+
 <Divider.Divider x />
 
 ## Open a visualization in a tab
@@ -46,9 +51,10 @@ To delete a panel:
    bar. A **Create component** tab opens.
 2. Select **Line plot**, **Schematic**, **Log**, or **Table**.
 
+<Video id="console/panels/open-tab" />
+
 The tab shows the new visualization. The list also has an item for each kind of
-[task](/reference/hardware/tasks) and for an
-[Arc automation](/reference/control/arc).
+[task](/reference/hardware/tasks) and for an [Arc automation](/reference/control/arc).
 
 <Divider.Divider x />
 
@@ -56,6 +62,8 @@ The tab shows the new visualization. The list also has an item for each kind of
 
 To show two tabs side by side, drag a tab to the edge of the panel. Drop it on the left,
 right, top, or bottom third of the panel.
+
+<Video id="console/panels/split" />
 
 You can also right-click a tab and select **Split horizontally** or **Split
 vertically**. These items show when the tab shares its pane with another tab.
@@ -67,6 +75,8 @@ vertically**. These items show when the tab shares its pane with another tab.
 To move a tab to a different panel, drag it onto the name of that panel in the panel
 selector. To pick where it lands, hold it over the name until the panel opens, then drop
 it in the panel. You can also right-click the tab and select **Move to panel**.
+
+<Video id="console/panels/move" />
 
 To move a tab to a new panel, drag it onto <Icon.Add /> at the right of the panel
 selector.
@@ -92,6 +102,8 @@ Windows are only available in the Console app and Synnax Desktop, not in a web b
 
 To make one tab fill the panel, right-click it and select **Focus**. To return, press
 **Esc** two times, or right-click the tab and select **Exit focus**.
+
+<Video id="console/panels/focus" />
 
 <Divider.Divider x />
 
