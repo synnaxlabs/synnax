@@ -13,7 +13,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	stdmath "math"
 	stdtime "time"
 
 	"github.com/synnaxlabs/arc/ir"
@@ -573,7 +572,7 @@ var spins = map[Performance]stdtime.Duration{
 	PerformanceAuto:   timer.DefaultSpin,
 	PerformanceLow:    0,
 	PerformanceMedium: stdtime.Millisecond,
-	PerformanceHigh:   stdmath.MaxInt64,
+	PerformanceHigh:   timer.SpinAll,
 }
 
 type tickerRuntime struct {
