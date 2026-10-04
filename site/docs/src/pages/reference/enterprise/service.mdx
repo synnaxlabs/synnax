@@ -65,6 +65,7 @@ Core starts when the computer boots and starts again after a crash.
    Restart=always
    RestartSec=5s
    LimitNOFILE=65536
+   LimitRTPRIO=99
 
    [Install]
    WantedBy=multi-user.target
@@ -92,8 +93,9 @@ The unit sets `KillSignal=SIGINT` because the Core shuts down cleanly only on `S
 `StateDirectory` creates `/var/lib/synnax` and `/var/lib/synnax-driver` for the `synnax`
 user. Core 0.58 and earlier keep the state of the embedded Driver in
 `/var/lib/synnax-driver`, and do not start without it. `LimitNOFILE` allows the Core to
-keep many channel files open. To change a flag, edit the unit, then run
-`sudo systemctl daemon-reload` and `sudo systemctl restart synnax`.
+keep many channel files open. `LimitRTPRIO` lets Arc automations on the embedded Driver
+run on a [real-time thread](/reference/control/arc/timing). To change a flag, edit the
+unit, then run `sudo systemctl daemon-reload` and `sudo systemctl restart synnax`.
 
 For EtherCAT devices, also add `AmbientCapabilities=CAP_NET_RAW` to the `[Service]`
 section.
@@ -144,7 +146,7 @@ Start the container with a restart policy:
 ```bash
 docker run -d --name synnax --restart unless-stopped \
   --stop-signal SIGINT --stop-timeout 30 --mac-address 02:5a:00:00:00:01 \
-  -p 9090:9090 -v synnax-data:/synnax/synnax-data \
+  --ulimit rtprio=99 -p 9090:9090 -v synnax-data:/synnax/synnax-data \
   -v synnax-certs:/usr/local/synnax/certs \
   synnaxlabs/synnax --listen=synnax.example.com:9090 --auto-cert
 ```
@@ -153,6 +155,9 @@ Docker starts the container when the Docker daemon starts and after a crash.
 `--stop-signal SIGINT` lets the Core shut down cleanly on `docker stop`, and
 `--stop-timeout 30` gives it time to finish. The license is bound to the
 `--mac-address`, so keep the same address when you recreate or upgrade the container.
+`--ulimit rtprio=99` lets Arc automations on the embedded Driver run on a real-time
+thread. The Core runs as a non-root user in the container, so `--cap-add SYS_NICE` does
+not do this.
 
 </Fragment>
 
