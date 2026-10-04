@@ -96,6 +96,8 @@ line.
 - Every page is in the nav. `check-site` fails an orphan page.
 - Tabs: `Client.Tabs` (slots `console`, `python`, `typescript`, `cpp`; `exclude` to drop
   one), `Platform.Tabs` (slots `Linux`, `Windows`, `macOS`, `Docker`).
+- OS tabs always use `Platform.Tabs` or `Driver.Tabs`, never a hand-built `Tabs` with OS
+  names.
 - `Note.Note` variants are `info`, `warning`, and `error` only. Use notes rarely.
 - `<Video id>` and `<Image id>` resolve to `-light` and `-dark` files on the CDN.
 
