@@ -12,6 +12,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
 import { Details } from "@/components/details";
+import { Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -51,6 +52,8 @@ The Console creates a command channel and an index channel for each output. For 
 server `Pump skid PLC`, a coil at address 3 gives `Pump_skid_PLC_coil_output_3_cmd` and
 `Pump_skid_PLC_coil_output_3_cmd_time`. To use a different name, right-click the channel
 and select **Rename** before you start the task.
+
+<Video id="hardware/modbus/write-task" />
 
   </Fragment>
   <Fragment slot="python">

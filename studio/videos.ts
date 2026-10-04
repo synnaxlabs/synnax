@@ -145,6 +145,8 @@ export default manifest.define([
     id: "client/resources/build-device-driver/console-setup",
     script: "scripts/custom-devices-console-setup.ts",
   },
+  { id: "hardware/modbus/read-task", script: "scripts/modbus-read-task.ts" },
+  { id: "hardware/modbus/write-task", script: "scripts/modbus-write-task.ts" },
   {
     id: "releases/0-57-0/panels",
     script: "scripts/release-0-57-0-panels.ts",
