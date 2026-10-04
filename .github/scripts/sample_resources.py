@@ -16,6 +16,7 @@ summarizes the CSV to stdout and, inside GitHub Actions, to the job summary.
 
 import argparse
 import csv
+import math
 import os
 import statistics
 import sys
@@ -35,6 +36,7 @@ def stop_path(path: Path) -> Path:
 
 def sample(path: Path, interval: float) -> None:
     """Writes a sample to the CSV at path every interval seconds until stopped."""
+    stop_path(path).unlink(missing_ok=True)
     with open(path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(FIELDS)
@@ -49,7 +51,7 @@ def sample(path: Path, interval: float) -> None:
 def percentile(values: list[float], fraction: float) -> float:
     """Returns the nearest-rank percentile of values."""
     ordered = sorted(values)
-    return ordered[min(len(ordered) - 1, int(len(ordered) * fraction))]
+    return ordered[max(0, math.ceil(len(ordered) * fraction) - 1)]
 
 
 def report(path: Path) -> str:

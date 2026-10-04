@@ -88,15 +88,15 @@ jobs:
         working-directory: integration
         run: >-
           Start-Process -FilePath uv -WindowStyle Hidden -WorkingDirectory .
-          -ArgumentList 'run', 'python', 'scripts/sample_resources.py', 'sample', '${{
-          runner.temp }}\resources.csv'
+          -ArgumentList 'run', 'python', '../.github/scripts/sample_resources.py',
+          'sample', '${{ runner.temp }}\resources.csv'
 
       - name: Start resource sampler (Ubuntu)
         id: sampler-unix
         if: runner.os == 'Linux'
         working-directory: integration
         run: >-
-          nohup uv run python scripts/sample_resources.py sample
+          nohup uv run python ../.github/scripts/sample_resources.py sample
           "$RUNNER_TEMP/resources.csv" > /dev/null 2>&1 &
 
       - name: Start Core (Windows)
@@ -138,13 +138,15 @@ jobs:
         run: >-
           uv run test-conductor --name tc_unix ${{ matrix.target || inputs.flags }}
 
+      # A failed measurement must not fail the tests it measured.
       - name: Report resource use
+        continue-on-error: true
         if:
           always() && (steps.sampler-win.outcome == 'success' ||
           steps.sampler-unix.outcome == 'success')
         working-directory: integration
         run: >-
-          uv run python scripts/sample_resources.py report ${{ runner.temp
+          uv run python ../.github/scripts/sample_resources.py report ${{ runner.temp
           }}/resources.csv
 
       # The conductor writes a per-run bundle to integration/tests/results/run-*/
