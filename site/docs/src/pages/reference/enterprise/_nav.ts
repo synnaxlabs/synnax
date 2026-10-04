@@ -40,14 +40,30 @@ export const ENTERPRISE_NAV: PageNavNode = {
       name: "Upgrade",
     },
     {
+      key: "tls",
+      name: "TLS",
+      children: [
+        {
+          key: "/reference/enterprise/tls",
+          href: "/reference/enterprise/tls",
+          name: "Set up TLS",
+        },
+        {
+          key: "/reference/enterprise/certificates",
+          href: "/reference/enterprise/certificates",
+          name: "Install certificates",
+        },
+        {
+          key: "/reference/enterprise/listeners",
+          href: "/reference/enterprise/listeners",
+          name: "Serve multiple listeners",
+        },
+      ],
+    },
+    {
       key: "/reference/enterprise/production",
       href: "/reference/enterprise/production",
       name: "Deploy to production",
-    },
-    {
-      key: "/reference/enterprise/certificates",
-      href: "/reference/enterprise/certificates",
-      name: "Install certificates",
     },
     {
       key: "/reference/enterprise/clusters",

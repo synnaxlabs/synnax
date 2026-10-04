@@ -44,7 +44,7 @@ takes precedence over its environment variable.
 A reachable address and port to listen on for client connections and RPCs from other
 Cores. To bind more than one address, each with its own certificate, give a list of
 listeners in a [configuration file](#configuration-files). See
-[Serving multiple listeners](/reference/enterprise/production#serving-multiple-listeners).
+[Serve multiple listeners](/reference/enterprise/listeners).
 
 </Field.Item>
 
@@ -394,9 +394,8 @@ disable-channel-name-validation = false
 The `listen` key takes either form. A single address (as above) binds one listener over
 the node certificate paths. A list of objects binds one listener per entry, each with
 its own address and certificate. The list form works in configuration files only, not as
-a flag. See
-[Serving multiple listeners](/reference/enterprise/production#serving-multiple-listeners)
-for the full deployment model.
+a flag. See [Serve multiple listeners](/reference/enterprise/listeners) for the full
+deployment model.
 
 ```yaml
 listen:
@@ -428,7 +427,7 @@ Each listener object accepts the following fields:
     {
       field: "cert.source",
       description:
-        'The certificate source: <code>file</code>, <code>auto</code>, or <code>tailscale</code>. See <a href="/reference/enterprise/production#certificate-sources">Certificate sources</a>.',
+        'The certificate source: <code>file</code>, <code>auto</code>, or <code>tailscale</code>. See <a href="/reference/enterprise/listeners#certificate-sources">Certificate sources</a>.',
     },
     {
       field: "cert.cert",
