@@ -12,14 +12,14 @@ import { TimeSpan } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { LinePlot } from "@/feature/lineplot";
 import { client, renderLinePlot } from "@/feature/lineplot/testutil";
+import { Toolbar } from "@/feature/lineplot/toolbar";
 import { Range } from "@/platform/range";
 
 const PLACEHOLDER = "1h 30m";
 
 const renderData = async (ranges?: lineplot.New["ranges"]) => {
-  const handle = await renderLinePlot(LinePlot.Toolbar, {
+  const handle = await renderLinePlot(Toolbar, {
     linePlot: ranges === undefined ? {} : { ranges },
   });
   await screen.findByText("Ranges");
