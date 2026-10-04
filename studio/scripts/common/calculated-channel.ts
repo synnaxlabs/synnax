@@ -24,6 +24,11 @@ export interface Modal {
   /** zoom frames the modal, which is too large for its fit to zoom. */
   zoom: () => Promise<void>;
   /**
+   * focusEditor clicks the expression editor once it loads and waits for it to take
+   * focus. Keys typed before then fire the Console's single-key shortcuts.
+   */
+  focusEditor: () => Promise<void>;
+  /**
    * typeExpression types the channel prefix, accepts the editor's suggestion with Tab,
    * and types the tail.
    */
@@ -49,9 +54,19 @@ export const setup = async (session: capture.CaptureSession): Promise<Modal> => 
   await session.moveTo({ x: 800, y: 450 });
 
   const modal = page.locator(".pluto-dialog__dialog.pluto--modal");
+  const editor = modal.locator(".console-calculated-editor").first();
   return {
     modal,
-    editor: modal.locator(".console-calculated-editor").first(),
+    editor,
+    focusEditor: async () => {
+      const mounted = editor.locator(".monaco-editor");
+      // The editor loads on wall time. Off camera, ticks pass too fast for it to load.
+      for (let i = 0; i < 50 && !(await mounted.isVisible()); i++)
+        await session.settleWall(200);
+      await session.waitFor(mounted);
+      await session.click(editor);
+      await session.waitFor(editor.locator(".monaco-editor.focused"));
+    },
     zoom: async () => {
       const box = await modal.first().boundingBox();
       if (box == null) throw new Error("calculated channel modal is not on screen");
@@ -91,7 +106,7 @@ export const create = async (
   await session.hold(300);
 
   // Slower here so the channel name has time to highlight before Create.
-  await session.click(m.editor);
+  await m.focusEditor();
   await m.typeExpression(" * 2", 10);
   // Drop editor focus instantly so the caret does not blink through the hold.
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
