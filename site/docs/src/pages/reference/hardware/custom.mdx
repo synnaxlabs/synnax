@@ -291,7 +291,8 @@ When a frame holds more than one command, the script sends only the last one.
 ### <Step step={3} level="h3">Add a switch</Step>
 
 While the script runs, add a switch to a [schematic](/reference/visualize/schematics),
-and set its command channel and its state channel to `arduino_command`:
+and set its command channel and its state channel to `arduino_command`. Then take
+control of the schematic, and click the switch:
 
 <Video id="client/resources/build-device-driver/schematic" />
 
@@ -475,12 +476,15 @@ the value.
 
 </Client.Tabs>
 
-### <Step step={3} level="h3">Set up the Console</Step>
+### <Step step={3} level="h3">Bind the switch to the state</Step>
 
 While the script runs, set the command channel of the switch to `arduino_command` and
-its state channel to `arduino_state`. Add `arduino_value` to a line plot:
+its state channel to `arduino_state`. Then take control, and click the switch. It turns
+on when the Arduino reports the new state:
 
 <Video id="client/resources/build-device-driver/console-setup" />
+
+To plot `arduino_value`, add it to a line plot, as in the first section.
 
 <Divider.Divider x />
 
