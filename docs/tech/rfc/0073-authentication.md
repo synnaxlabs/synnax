@@ -148,12 +148,12 @@ can hold one password, any number of API keys, and one link per provider.
 
 A hash never leaves the Core. Clients see every other field.
 
-Password hashes stay on bcrypt, so every existing password keeps working. bcrypt is no
-longer the first choice: OWASP recommends Argon2id, and PBKDF2 is the only option NIST
-approves for a site that needs FIPS. So the algorithm must be easy to change. A hash is
-stored with a tag that names its algorithm and cost, which a bcrypt hash already
-carries. At login the Core checks a password with the algorithm in the tag, and stores
-it again when the tag is not the current choice. No user resets a password.
+New passwords are hashed with Argon2id, the first choice in the OWASP guidance. Existing
+bcrypt hashes keep working, so no user resets a password. A hash is stored with a tag
+that names its algorithm and cost, which a bcrypt hash already carries. At login the
+Core checks a password with the algorithm in the tag, and stores it again with Argon2id
+when the tag names anything else. The same step serves any later change of algorithm or
+cost.
 
 ### 4.2 OpenID Connect
 
@@ -495,6 +495,8 @@ Each phase is one pull request into `main`.
 4. **Provider settings**: Start settings as written, or stored records the Console can
    edit without a restart.
 5. **Driver role**: Which policies the built-in role carries.
-6. **Password algorithm**: When to move off bcrypt, and to what. Argon2id is the
-   stronger choice. PBKDF2 is the one a FIPS site can use. NIST plans to approve a
-   memory-hard function in a revision of SP 800-132, but has published no draft.
+6. **FIPS passwords**: Whether to add a Core setting that hashes passwords with PBKDF2.
+   Argon2id is not approved under FIPS, and PBKDF2 is the only password hash NIST
+   approves today. NIST plans to approve a memory-hard function in a revision of SP
+   800-132 but has published no draft. A site that needs FIPS needs it for TLS and every
+   other hash too, so this setting may belong to a wider FIPS mode.
