@@ -23,9 +23,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # A shard fuzzes every package whose index is its number modulo shards. Core
-        # has about ten times the targets of the other modules, so it takes more
-        # shards and less time per target.
+        # A shard fuzzes a contiguous block of the sorted targets, so a package can
+        # span two shards. Core has about ten times the targets of the other modules,
+        # so it takes more shards and less time per target.
         include:
           - module: x/go
             artifact: x-go
