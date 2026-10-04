@@ -353,8 +353,10 @@ it no longer stores a rack key.
   only the key.
 - **The Console** can create a rack and its key and show the key once. This is the path
   for Terraform and other automated installs.
-- **The embedded Driver** gets a fresh key for the embedded rack each time the Core
-  starts. The Core deletes the previous one.
+- **The embedded Driver** has one standing key, like any other rack. The Core creates it
+  with the embedded rack and saves it in the configuration file it already writes for
+  the embedded Driver, in place of the root username and password. Every later start
+  reuses it. The Core makes a new key only when the saved one is missing or refused.
 
 A rack needs permissions, so racks get a built-in Driver role when they are created.
 This is the only access control change in this RFC.
