@@ -1,333 +1,206 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "NI analog write task"
-description: "Learn how to send analog commands to NI devices with Synnax."
+description: "Write command channel values to the analog outputs of an NI device."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
-import Details from "@/components/details/Details.astro";
-import ChannelType from "@/components/details/ChannelType.astro";
-import DetailsGroup from "@/components/details/Group.astro";
 import { Client } from "@/components/client";
+import { Details } from "@/components/details";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-This task follows the standard
-[task lifecycle](/reference/hardware/tasks#task-lifecycle).
+An NI analog write task writes the values of command channels to the analog outputs of
+one NI device. For example, a setpoint on a schematic can drive a proportional valve
+from `ao0` of a USB-6343.
+
+Each output has a command channel and a
+[state channel](/reference/hardware/tasks#write-tasks). Each command writes the last
+value of every output of the task in one call.
+
+Before you start, you need a
+[configured device](/reference/hardware/ni/configure-device).
 
 <Divider.Divider x />
 
-## Task configuration reference
-
-| Parameter    | Type   | Required | Default | Description                                   |
-| ------------ | ------ | -------- | ------- | --------------------------------------------- |
-| `device`     | string | Yes      | -       | Device key to write to                        |
-| `state_rate` | number | No       | `10`    | Rate (Hz) at which state channels are updated |
-| `channels`   | array  | Yes      | -       | List of analog output channel configurations  |
-
-<Divider.Divider x />
-
-## Channel types reference
-
-<DetailsGroup>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Voltage /> Voltage ([`ao_voltage`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__output__channel_1gad278075876eeff4223fdb90ce58f0a15.html))</Text.Text>
-
-| Parameter       | Type   | Required | Default | Description                |
-| --------------- | ------ | -------- | ------- | -------------------------- |
-| `cmd_channel`   | number | Yes      | -       | Synnax command channel key |
-| `state_channel` | number | Yes      | -       | Synnax state channel key   |
-| `port`          | number | Yes      | -       | Physical port              |
-| `min_val`       | number | No       | `0`     | Minimum voltage (Volts)    |
-| `max_val`       | number | No       | `1`     | Maximum voltage (Volts)    |
-| `custom_scale`  | object | No       | -       | Custom scaling             |
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Current /> Current ([`ao_current`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__output__channel_1ga1ae6afadb89de214c4823ca7144ab28d.html))</Text.Text>
-
-| Parameter       | Type   | Required | Default | Description                |
-| --------------- | ------ | -------- | ------- | -------------------------- |
-| `cmd_channel`   | number | Yes      | -       | Synnax command channel key |
-| `state_channel` | number | Yes      | -       | Synnax state channel key   |
-| `port`          | number | Yes      | -       | Physical port              |
-| `min_val`       | number | No       | `0`     | Minimum current (Amps)     |
-| `max_val`       | number | No       | `1`     | Maximum current (Amps)     |
-| `custom_scale`  | object | No       | -       | Custom scaling             |
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Function generator ([`ao_func_gen`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__output__channel_1ga7146d8ebdf2336e5200c4d2549f67494.html))</Text.Text>
-
-| Parameter       | Type   | Required | Default | Description                              |
-| --------------- | ------ | -------- | ------- | ---------------------------------------- |
-| `cmd_channel`   | number | Yes      | -       | Synnax command channel key               |
-| `state_channel` | number | Yes      | -       | Synnax state channel key                 |
-| `port`          | number | Yes      | -       | Physical port                            |
-| `wave_type`     | enum   | No       | `Sine`  | `Sine`, `Triangle`, `Square`, `Sawtooth` |
-| `frequency`     | number | No       | `0`     | Waveform frequency (Hz)                  |
-| `amplitude`     | number | No       | `0`     | Waveform amplitude                       |
-| `offset`        | number | No       | `0`     | Waveform DC offset                       |
-
-</ChannelType>
-
-</DetailsGroup>
-
-<Divider.Divider x />
-
-## Important rules
-
-- **One task per module** -> Only one running task can claim a module at a time.
-
-<Divider.Divider x />
-
-## How-to
+## Create an NI analog write task
 
 <Client.Tabs exclude={["cpp"]}>
   <Fragment slot="console">
-    <Video
-      id="device-drivers/ni/analog-write-task/ni-analog-write"
-    />
+
+1. In the devices toolbar, right-click the device and select **Create analog write
+   task**.
+2. Set **State update rate**.
+3. Click **Add channel**. In **Source**, select the **Port**.
+4. In **Signal**, select the **Channel type**, then set its fields. See the
+   [channel reference](#channel-reference).
+5. Click <Icon.Play /> (**Start**).
+
+The Console creates the channels. For a device with the identifier `dev1`, port 0 gives
+the command channel `dev1_ao_0_cmd` with the index `dev1_ao_0_cmd_time`, and the state
+channel `dev1_ao_0_state` with the index `dev1_ao_state_time`.
+
   </Fragment>
   <Fragment slot="python">
 
-<Details>
-<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
+Python does not create channels. Create them first.
 
 ```python
 import synnax as sy
 from synnax import ni
 
-client = sy.Synnax()
-
-# Retrieve device
-c_dev = client.devices.retrieve(name="Mod1_Current")
-
-# Create command and state time indices
-ao_cmd_time = client.channels.create(
-    name="ao_cmd_time",
-    is_index=True,
-    data_type=sy.DataType.TIMESTAMP,
-    retrieve_if_name_exists=True,
+dev = client.devices.retrieve(key="<device key>")
+state_time = client.channels.create(
+    name="dev1_ao_state_time", is_index=True, data_type=sy.DataType.TIMESTAMP
 )
-ao_state_time = client.channels.create(
-    name="ao_state_time",
-    is_index=True,
-    data_type=sy.DataType.TIMESTAMP,
-    retrieve_if_name_exists=True,
+state = client.channels.create(
+    name="valve_setpoint_state", index=state_time.key, data_type=sy.DataType.FLOAT32
+)
+cmd_time = client.channels.create(
+    name="valve_setpoint_cmd_time", is_index=True, data_type=sy.DataType.TIMESTAMP
+)
+cmd = client.channels.create(
+    name="valve_setpoint_cmd", index=cmd_time.key, data_type=sy.DataType.FLOAT32
 )
 
-# Create command and state channels
-current_cmd = client.channels.create(
-    name="current_cmd",
-    index=ao_cmd_time.key,
-    data_type=sy.DataType.FLOAT32,
-    retrieve_if_name_exists=True,
-)
-current_state = client.channels.create(
-    name="current_state",
-    index=ao_state_time.key,
-    data_type=sy.DataType.FLOAT32,
-    retrieve_if_name_exists=True,
-)
-
-# Create and configure task
 task = ni.AnalogWriteTask(
-    name="NI Analog Write Task",
-    device=c_dev.key,
-    state_rate=sy.Rate.HZ * 20,
+    name="Valve setpoint",
+    device=dev.key,
     channels=[
-        ni.AOCurrentChannel(
-            cmd_channel=current_cmd.key,
-            state_channel=current_state.key,
+        ni.AOVoltageChannel(
             port=0,
-            min_val=0.004,
-            max_val=0.02,
-        ),
+            min_val=0,
+            max_val=10,
+            cmd_channel=cmd.key,
+            state_channel=state.key,
+        )
     ],
 )
-
 client.tasks.configure(task)
-
-# Start task and write commands
-with task.run():
-    with client.open_writer(
-        start=sy.TimeStamp.now(),
-        channels=["current_cmd"],
-    ) as writer:
-        # Set output to 0.01A
-        writer.write({
-            "current_cmd": 0.01,
-        })
-
-        # Read back state
-        with client.open_streamer(["current_state"]) as streamer:
-            frame = streamer.read()
-            print(f"State: {frame['current_state']}")
+task.start()
 ```
 
-</Details>
-
-<Details>
-<Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
-
-```python
-# Retrieve existing task
-task = client.tasks.retrieve(name="NI Analog Write Task")
-task = ni.AnalogWriteTask(internal=task)
-
-# Update task-level configuration
-task.config.auto_start = True
-task.config.state_rate = int(sy.Rate.HZ * 50)
-
-# Update channel-level configuration
-task.config.channels[0].port = 1
-task.config.channels[0].min_val = 0.002
-task.config.channels[0].max_val = 0.01
-
-# Apply changes
-client.tasks.configure(task)
-```
-
-</Details>
+Python creates the task on the embedded Driver of the Core. For a device on another
+Driver, use the Console or TypeScript.
 
   </Fragment>
   <Fragment slot="typescript">
 
-<Details>
-<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
-
-```typescript
-import { Synnax, TimeStamp, Rate } from "@synnaxlabs/client";
-
-const client = new Synnax();
-
-// Retrieve device
-const [cDev] = await client.devices.retrieve({ names: ["Mod1_Current"] });
-
-// Create command and state time indices
-const aoCmdTime = await client.channels.create(
-  {
-    name: "ao_cmd_time",
-    isIndex: true,
-    dataType: "timestamp",
-  },
-  { retrieveIfNameExists: true },
-);
-const aoStateTime = await client.channels.create(
-  {
-    name: "ao_state_time",
-    isIndex: true,
-    dataType: "timestamp",
-  },
-  { retrieveIfNameExists: true },
-);
-
-// Create command and state channels
-const currentCmd = await client.channels.create(
-  {
-    name: "current_cmd",
-    index: aoCmdTime.key,
-    dataType: "float32",
-  },
-  { retrieveIfNameExists: true },
-);
-const currentState = await client.channels.create(
-  {
-    name: "current_state",
-    index: aoStateTime.key,
-    dataType: "float32",
-  },
-  { retrieveIfNameExists: true },
-);
-
-// Create and configure task
-const task = await client.tasks.create({
-  name: "NI Analog Write Task",
-  rack: cDev.rack,
-  type: "ni_analog_write",
-  config: {
-    device: cDev.key,
-    stateRate: 20,
-    channels: [
-      {
-        type: "ao_current",
-        cmdChannel: currentCmd.key,
-        stateChannel: currentState.key,
-        port: 0,
-        minVal: 0.004,
-        maxVal: 0.02,
-      },
-    ],
-  },
-});
-
-// Start task
-await task.start();
-
-// Write command
-const writer = await client.openWriter({
-  start: TimeStamp.now(),
-  channels: ["current_cmd"],
-});
-
-await writer.write({
-  current_cmd: 0.01,
-});
-
-// Read state
-const streamer = await client.openStreamer(["current_state"]);
-const frame = await streamer.read();
-console.log(`State: ${frame.get("current_state").at(-1)}`);
-
-// Stop task
-await task.stop();
-await writer.close();
-await streamer.close();
-```
-
-</Details>
-
-<Details>
-<Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
+TypeScript does not create channels. Create them first, as in the Python example.
 
 ```typescript
 import { ni } from "@synnaxlabs/client";
 
-// Retrieve existing task
-const task = await client.tasks.retrieve({ name: "NI Analog Write Task" });
-
-// Parse and update configuration
-const config = ni.analogWriteConfigZ.parse(task.config);
-
-// Update task-level configuration
-config.autoStart = true;
-config.stateRate = 50;
-
-// Update channel-level configuration
-const current = config.channels[0] as ni.AOCurrentChannel;
-current.port = 1;
-current.minVal = 0.002;
-current.maxVal = 0.01;
-
-// Apply changes
-await client.tasks.create({
-  key: task.key,
-  rack: task.rack,
-  name: task.name,
-  type: task.type,
-  config,
+const dev = await client.devices.retrieve({ key: "<device key>" });
+const task = await client.tasks.create({
+  name: "Valve setpoint",
+  rack: dev.rack,
+  type: "ni_analog_write",
+  config: ni.analogWriteConfigZ.parse({
+    device: dev.key,
+    channels: [
+      {
+        type: "ao_voltage",
+        port: 0,
+        minVal: 0,
+        maxVal: 10,
+        cmdChannel: cmd.key,
+        stateChannel: state.key,
+      },
+    ],
+  }),
 });
+await task.start();
 ```
-
-</Details>
 
   </Fragment>
 </Client.Tabs>
+
+<Divider.Divider x />
+
+## Task options
+
+| Console label         | Python field           | Default | Notes                                                     |
+| --------------------- | ---------------------- | ------- | --------------------------------------------------------- |
+| **Device**            | `device`               |         | The key of the device.                                    |
+| **State update rate** | `state_rate`           | 10 Hz   | Up to 50,000 Hz in the Console.                           |
+| **Data saving**       | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving). |
+| **Auto start**        | `auto_start`           | Off     | Starts the task each time the Driver starts.              |
+
+<Divider.Divider x />
+
+## Channel reference
+
+Every channel has a `port` (**Port**), a `cmd_channel`, and a `state_channel`.
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Units.Voltage /> Voltage ([`ao_voltage`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__output__channel_1gad278075876eeff4223fdb90ce58f0a15.html))</Text.Text>
+
+| Console label      | Field          | Default | Notes                                  |
+| ------------------ | -------------- | ------- | -------------------------------------- |
+| **Range**          | `min_val`      | `0`     | Minimum voltage (Volts).               |
+| **Range**          | `max_val`      | `1`     | Maximum voltage (Volts).               |
+| **Custom scaling** | `custom_scale` |         | See [custom scaling](#custom-scaling). |
+
+</Details.Details>
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Units.Current /> Current ([`ao_current`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__output__channel_1ga1ae6afadb89de214c4823ca7144ab28d.html))</Text.Text>
+
+| Console label      | Field          | Default | Notes                                  |
+| ------------------ | -------------- | ------- | -------------------------------------- |
+| **Range**          | `min_val`      | `0`     | Minimum current (Amps).                |
+| **Range**          | `max_val`      | `1`     | Maximum current (Amps).                |
+| **Custom scaling** | `custom_scale` |         | See [custom scaling](#custom-scaling). |
+
+</Details.Details>
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Function generator ([`ao_func_gen`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__output__channel_1ga7146d8ebdf2336e5200c4d2549f67494.html))</Text.Text>
+
+| Console label | Field       | Default | Notes                                     |
+| ------------- | ----------- | ------- | ----------------------------------------- |
+| **Wave**      | `wave_type` | `Sine`  | `Sine`, `Triangle`, `Square`, `Sawtooth`. |
+| **Frequency** | `frequency` | `0`     | Waveform frequency (Hz).                  |
+| **Amplitude** | `amplitude` | `0`     | Waveform amplitude.                       |
+| **Offset**    | `offset`    | `0`     | Waveform DC offset.                       |
+
+</Details.Details>
+
+### Custom scaling
+
+Channels with **Custom scaling** convert the raw value before the Driver writes it. In
+the Console, the options are in the **Scale** section of the channel. In code, set
+`custom_scale` to one of these scales:
+
+| Console option | Python class      | Fields                                                                                                                          |
+| -------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| **None**       | `NoneScale`       | No scaling. This is the default.                                                                                                |
+| **Linear**     | `LinearScale`     | **Slope** (`slope`, 1) and **Y-intercept** (`y_intercept`, 0).                                                                  |
+| **Map**        | `MapScale`        | **Pre-scaled min** and **max** (`pre_scaled_min`, `pre_scaled_max`) to **Scaled min** and **max** (`scaled_min`, `scaled_max`). |
+| **Polynomial** | `PolynomialScale` | **Forward coefficients** (`forward_coeffs`) and **Reverse coefficients** (`reverse_coeffs`), from c0 up.                        |
+| **Table**      | `TableScale`      | Pairs of **Pre-scaled** and **Scaled** values (`pre_scaled_vals`, `scaled_vals`). You can load them from a CSV file.            |
+
+Every scale except **None** also has **Prescaled units** (`pre_scaled_units`, `Volts`)
+and **Scaled units** (`scaled_units`).
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+### The outputs stop changing after a command
+
+A command was outside the **Range** of its channel. NI-DAQmx rejects it with no message,
+and because each command writes every output, all later commands fail too. Send a value
+inside the range to that channel, then the task writes again.
+
+### "Port ... has already been used on another channel"
+
+Two channels use the same port. Change the port of one of them.
+
+For other problems, see
+[Configure an NI device](/reference/hardware/ni/configure-device#troubleshooting) and
+[Troubleshoot hardware](/reference/hardware/troubleshooting).
