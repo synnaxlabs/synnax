@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type PageNavNode } from "@/components/nav/Page";
-import { CONCEPTS_NAV } from "@/pages/reference/control/arc/concepts/_nav";
 import { REFERENCE_NAV } from "@/pages/reference/control/arc/reference/_nav";
 
 export const ARC_NAV: PageNavNode = {
@@ -65,7 +64,6 @@ export const ARC_NAV: PageNavNode = {
       href: "/reference/control/arc/effective-arc",
       name: "Effective Arc",
     },
-    CONCEPTS_NAV,
     REFERENCE_NAV,
   ],
 };
