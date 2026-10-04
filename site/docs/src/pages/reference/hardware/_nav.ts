@@ -25,6 +25,11 @@ export const HARDWARE_NAV: PageNavNode = {
       name: "Overview",
     },
     {
+      key: "/reference/hardware/devices",
+      href: "/reference/hardware/devices",
+      name: "Devices",
+    },
+    {
       key: "/reference/hardware/tasks",
       href: "/reference/hardware/tasks",
       name: "Tasks",
