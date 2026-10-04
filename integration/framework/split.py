@@ -48,8 +48,8 @@ class Split:
 
 SPLITS: dict[str, Split] = {
     # Every Arc case runs once per rack: 65537 on the embedded Driver, 65538 on the
-    # Core's own rack.
-    "arc": Split(parts=("arc,control,latency -x _65538", "arc -x _65537")),
+    # Core's own rack. A latency case uses NI, so latency stays on the first Core.
+    "arc": Split(parts=("arc,latency -x _65538", "arc,control -x _65537")),
     # The project sequence uses the OPC UA simulator and pages holds the NI forms.
     "console": Split(
         parts=(
