@@ -951,8 +951,7 @@ TEST(MaxTimeoutTest, Hybrid_MaxTimeoutConstrainsBlockPhase) {
     const auto elapsed = sw.elapsed();
     EXPECT_GE(elapsed, 15 * x::telem::MILLISECOND);
     EXPECT_LE(elapsed, test_timing::TIMER_UPPER_BOUND);
-    // A deadline wake is a timer on Windows and Linux and a timeout on macOS.
-    EXPECT_TRUE(reason == WakeReason::Timer || reason == WakeReason::Timeout);
+    EXPECT_EQ(reason, WakeReason::Timer);
 
     breaker.stop();
 }
@@ -1302,18 +1301,51 @@ TEST_P(FailedArmTest, TimesOutWithNoDeadline) {
     EXPECT_EQ(this->loop->wait(this->breaker), WakeReason::Timeout);
 }
 
-/// @brief The modes that arm a timer for a deadline. macOS HYBRID and RT_EVENT block on
-/// a kevent timeout, with no timer to arm.
+/// @brief The modes that arm a timer for a deadline.
 const std::vector<ExecutionMode> ARMED_MODES = {
     ExecutionMode::AUTO,
     ExecutionMode::EVENT_DRIVEN,
-#if !defined(__APPLE__)
     ExecutionMode::HYBRID,
     ExecutionMode::RT_EVENT,
-#endif
 };
 
 INSTANTIATE_TEST_SUITE_P(ArmedModes, FailedArmTest, testing::ValuesIn(ARMED_MODES));
+
+#if defined(__APPLE__)
+/// @brief Applies timer changes with the OS call and records each one in kevs.
+struct RecordingArm {
+    std::vector<struct kevent> *kevs;
+
+    int set(const int kq, const struct kevent &kev) const {
+        this->kevs->push_back(kev);
+        return KqueueArm::set(kq, kev);
+    }
+};
+
+/// @brief HYBRID should block on a NOTE_CRITICAL timer, which gets no timer slack,
+/// until the spin span ahead of the deadline.
+TEST(DeadlineSpinTest, HybridBlocksOnACriticalTimer) {
+    std::vector<struct kevent> kevs;
+    Config config;
+    config.mode = ExecutionMode::HYBRID;
+    config.cpu_affinity = CPU_AFFINITY_NONE;
+    Darwin<RecordingArm> loop(config, nullptr, RecordingArm{.kevs = &kevs});
+    ASSERT_NIL(loop.start());
+    x::breaker::Breaker breaker;
+    breaker.start();
+    EXPECT_EQ(loop.wait(breaker, test_timing::DEADLINE_DURATION), WakeReason::Timer);
+    breaker.stop();
+    const auto block = test_timing::DEADLINE_DURATION - timing::DARWIN_DEADLINE_SPIN;
+    const auto armed = std::ranges::find_if(kevs, [](const struct kevent &kev) {
+        return (kev.flags & EV_ADD) != 0;
+    });
+    ASSERT_NE(armed, kevs.end());
+    EXPECT_EQ(armed->ident, DEADLINE_EVENT_IDENT);
+    EXPECT_NE(armed->fflags & NOTE_CRITICAL, 0u);
+    EXPECT_LE(armed->data, block.nanoseconds());
+    EXPECT_GT(armed->data, (block - x::telem::MILLISECOND).nanoseconds());
+}
+#endif
 
 #if defined(__linux__)
 /// @brief Linux calls that count timerfd arms and latency holds, and record the timeout
