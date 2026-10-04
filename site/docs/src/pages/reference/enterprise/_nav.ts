@@ -71,9 +71,9 @@ export const ENTERPRISE_NAV: PageNavNode = {
       name: "Run as a service",
     },
     {
-      key: "/reference/enterprise/production",
-      href: "/reference/enterprise/production",
-      name: "Deploy to production",
+      key: "/reference/enterprise/production-checklist",
+      href: "/reference/enterprise/production-checklist",
+      name: "Production checklist",
     },
     {
       key: "/reference/enterprise/clusters",

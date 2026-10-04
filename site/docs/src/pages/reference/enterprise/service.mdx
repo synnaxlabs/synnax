@@ -156,3 +156,31 @@ Docker starts the container when the Docker daemon starts and after a crash.
 
 On macOS, use [Synnax Desktop](/reference/get-started/install-desktop), which starts the
 Core with the app.
+
+<Divider.Divider x />
+
+## Monitor the Core
+
+- **Health check** -> send `POST /api/v1/connectivity/check` with an empty JSON body. It
+  needs no login or license, and returns 200 while the Core runs:
+
+  ```bash
+  curl -s -X POST https://synnax.example.com:9090/api/v1/connectivity/check \
+    -H "Content-Type: application/json" -d '{}'
+  ```
+
+  The response has the Core version, its clock time, and its license state. It does not
+  check storage.
+
+- **Disk space** -> the Core does not check free space. When the data disk is full, the
+  Core can stop, and the service restarts it again and again. Alert well before the disk
+  fills.
+- **Logs** -> the Core writes logs to its output and to the file set by
+  `--log-file-path`. The file rotates at 50 MB and keeps 5 old files for 30 days. To
+  change these values, see the
+  [CLI reference](/reference/enterprise/cli-reference#start).
+
+<Note.Note variant="warning">
+  Do not start a Core in production with `--debug`. It serves profiling routes to every
+  network with no login.
+</Note.Note>
