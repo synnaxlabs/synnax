@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 
 	"github.com/samber/lo"
@@ -54,12 +55,13 @@ func start(cmd *cobra.Command) {
 	// sigC holds two signals, so a second signal sent right after the first is kept.
 	sigC := make(chan os.Signal, 2)
 	signal.Notify(sigC, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(sigC)
 
 	sCtx, cancel := xsignal.WithCancel(ctx, xsignal.WithInstrumentation(ins))
 	defer cancel()
 
 	// Listen for a custom stop keyword that can be used in place of a Ctrl+C signal.
-	// It's fine to let this get garbage collected.
+	// A read from stdin cannot be interrupted, so this goroutine runs until exit.
 	stdinC := make(chan struct{}, 1)
 	go stdin.Watch(os.Stdin, viper.GetBool(FlagStopOnStdinClose), func() {
 		select {
@@ -78,30 +80,42 @@ func start(cmd *cobra.Command) {
 		return BootupCore(ctx, nil, cfg)
 	}, xsignal.WithKey("start"), xsignal.RecoverWithErrOnPanic())
 
-	// shutDown cancels the Core and lets a second signal force an exit. Stdin never
-	// forces one: the Desktop supervisor sends the stop keyword, then closes stdin.
-	shutDown := func() {
+	shutdownDone := make(chan struct{})
+	var wg sync.WaitGroup
+	// shutDown cancels the Core, then exits at once if signalsToForce more stop signals
+	// arrive before the shutdown completes. Stdin requests never count: the Desktop
+	// supervisor sends the stop keyword, then closes stdin.
+	shutDown := func(signalsToForce int) {
 		ins.L.Info(
 			"\033[33mSynnax is shutting down. Press Ctrl+C again to exit now.\033[0m",
 		)
 		cancel()
-		go func() {
-			<-sigC
+		wg.Go(func() {
+			for range signalsToForce {
+				select {
+				case <-sigC:
+				case <-shutdownDone:
+					return
+				}
+			}
 			ins.L.Fatal(
 				"received a second stop signal, exiting before shutdown completes",
 			)
-		}()
+		})
 	}
 
 	select {
 	case <-sigC:
-		shutDown()
+		shutDown(1)
 	case <-stdinC:
-		shutDown()
+		shutDown(2)
 	case <-sCtx.Stopped():
 	}
 
-	if err := sCtx.Wait(); err != nil && !errors.Is(err, context.Canceled) {
+	err = sCtx.Wait()
+	close(shutdownDone)
+	wg.Wait()
+	if err != nil && !errors.Is(err, context.Canceled) {
 		ins.L.Zap().Sugar().Errorf(
 			"\033[31mSynnax has encountered an error and is shutting down: %v\033[0m",
 			err,
