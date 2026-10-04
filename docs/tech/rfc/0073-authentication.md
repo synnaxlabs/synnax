@@ -310,15 +310,14 @@ cluster keeps honoring the session until it rejoins.
 
 ### 4.5 Streams
 
-A stream authenticates when it opens and then watches its session. When the session
-ends, the Core closes the stream with an authentication error.
+A stream is opened with a session token, like any other request. The middleware checks
+the token once, when the stream opens, and the messages on the stream carry nothing. The
+stream then watches its session. When the session ends, the Core closes the stream with
+an authentication error.
 
 An operator can hold control authority through a writer stream for hours. An
 administrator who deletes a stolen credential stops that stream at once. Nothing else
 does.
-
-To rotate a rack's API key without dropping the Driver, add the new key, move the Driver
-to it, and then delete the old one.
 
 ### 4.6 Accepted methods
 
