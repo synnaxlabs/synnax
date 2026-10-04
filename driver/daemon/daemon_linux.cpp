@@ -84,7 +84,8 @@ RestartSec=5s
 WantedBy=multi-user.target
 )";
 
-const std::string LATENCY_RULE_PATH = "/etc/udev/rules.d/99-synnax.rules";
+const std::string
+    LATENCY_RULE_PATH = "/etc/udev/rules.d/99-synnax-driver-latency.rules";
 
 /// @brief lets the synnax group hold CPU cores out of deep idle states, which Arc
 /// tasks at high performance do through /dev/cpu_dma_latency.
@@ -124,7 +125,9 @@ x::errors::Error install_service() {
     if (auto err = create_system_user()) return err;
     if (auto err = create_env_file()) return err;
     if (auto err = install_binary()) return err;
-    if (auto err = install_latency_rule()) return err;
+    if (auto err = install_latency_rule())
+        LOG(WARNING) << "Arc tasks at high performance cannot keep CPU cores awake: "
+                     << err;
 
     LOG(INFO) << "Creating service file at " << SYSTEMD_SERVICE_PATH;
     std::error_code ec;
@@ -157,7 +160,8 @@ x::errors::Error uninstall_service() {
 
     fs::remove(SYSTEMD_SERVICE_PATH);
     if (fs::remove(LATENCY_RULE_PATH)) {
-        if (auto err = apply_udev_rules()) return err;
+        if (auto err = apply_udev_rules())
+            LOG(WARNING) << "Failed to reload udev rules: " << err;
     }
 
     if (system("systemctl daemon-reload") != 0)

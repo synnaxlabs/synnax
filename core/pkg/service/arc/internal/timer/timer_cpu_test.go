@@ -23,6 +23,7 @@ import (
 
 // cpuTime returns the CPU time the process has used.
 func cpuTime() time.Duration {
+	GinkgoHelper()
 	var usage syscall.Rusage
 	Expect(syscall.Getrusage(syscall.RUSAGE_SELF, &usage)).To(Succeed())
 	return time.Duration(usage.Utime.Nano() + usage.Stime.Nano())
