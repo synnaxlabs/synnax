@@ -43,8 +43,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.type("Hotfire Campaign");
   await session.hold(500);
   await capture.clickButton(session, "Create");
-  await session.waitForHidden(name);
   session.endZoom();
+  await session.waitForHidden(name);
   await session.waitFor(page.getByText("New panel").first());
   await session.hold(1200);
 
@@ -52,6 +52,6 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.click(trigger, { zoom: false });
   const dialog = page.locator(".console-project-selector-dialog").first();
   await session.waitFor(dialog.getByText("Hotfire Campaign").first());
-  await session.zoom(dialog);
+  await session.moveTo({ x: 800, y: 450 });
   await session.hold(2800);
 };
