@@ -7,10 +7,129 @@ description: "Learn how ranges organize your data into tests, runs, and events."
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Note } from "@synnaxlabs/lyra/note";
-import { Image } from "@/components/media/Media";
 import Diagram from "@/components/diagram/Diagram.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
+
+export const RangeDiagram = () => (
+  <svg
+    viewBox="0 0 800 270"
+    role="img"
+    aria-label="A range named Hotfire 12 marks a time interval across three channel traces. A child range named Ignition sits inside it."
+    style={{ width: "100%", height: "auto" }}
+  >
+    <rect
+      x="220"
+      y="20"
+      width="340"
+      height="200"
+      style={{ fill: "var(--pluto-primary-z-15)" }}
+    />
+    <rect
+      x="290"
+      y="45"
+      width="120"
+      height="175"
+      style={{ fill: "var(--pluto-primary-z-20)" }}
+    />
+    <path
+      d="M40,96 L52,99 L64,99 L76,97 L88,97 L100,97 L112,95 L124,91 L136,88 L148,89 L160,91 L172,92 L184,92 L196,94 L208,99 L220,101 L232,91 L244,79 L256,70 L268,62 L280,52 L292,49 L304,47 L316,50 L328,54 L340,56 L352,56 L364,57 L376,60 L388,60 L400,57 L412,52 L424,51 L436,51 L448,51 L460,49 L472,59 L484,72 L496,86 L508,97 L520,97 L532,97 L544,98 L556,97 L568,93 L580,89 L592,88 L604,91 L616,92 L628,91 L640,92 L652,97 L664,100 L676,100 L688,97 L700,95 L712,95 L724,94 L736,90 L748,87 L760,88"
+      style={{ fill: "none", stroke: "var(--pluto-gray-l9)", strokeWidth: 2 }}
+    />
+    <path
+      d="M40,135 L52,134 L64,131 L76,131 L88,128 L100,124 L112,127 L124,130 L136,130 L148,133 L160,135 L172,132 L184,128 L196,128 L208,127 L220,125 L232,124 L244,123 L256,117 L268,113 L280,109 L292,104 L304,101 L316,102 L328,102 L340,102 L352,107 L364,110 L376,108 L388,107 L400,106 L412,102 L424,100 L436,103 L448,105 L460,105 L472,115 L484,122 L496,124 L508,128 L520,129 L532,125 L544,126 L556,131 L568,132 L580,132 L592,134 L604,133 L616,128 L628,127 L640,128 L652,126 L664,128 L676,133 L688,134 L700,132 L712,133 L724,131 L736,126 L748,126 L760,128"
+      style={{ fill: "none", stroke: "var(--pluto-gray-l7)", strokeWidth: 2 }}
+    />
+    <path
+      d="M40,188 L52,185 L64,184 L76,181 L88,183 L100,187 L112,187 L124,189 L136,186 L148,182 L160,183 L172,182 L184,186 L196,188 L208,187 L220,187 L232,182 L244,182 L256,184 L268,185 L280,189 L292,187 L304,185 L316,184 L328,181 L340,184 L352,186 L364,187 L376,189 L388,185 L400,183 L412,183 L424,182 L436,187 L448,187 L460,187 L472,186 L484,182 L496,183 L508,183 L520,185 L532,189 L544,187 L556,186 L568,183 L580,181 L592,185 L604,185 L616,188 L628,188 L640,184 L652,184 L664,182 L676,183 L688,187 L700,187 L712,188 L724,186 L736,182 L748,183 L760,183"
+      style={{ fill: "none", stroke: "var(--pluto-gray-l5)", strokeWidth: 2 }}
+    />
+    <line
+      x1="220"
+      y1="20"
+      x2="220"
+      y2="230"
+      style={{ stroke: "var(--pluto-primary-z)", strokeWidth: 2 }}
+    />
+    <line
+      x1="560"
+      y1="20"
+      x2="560"
+      y2="230"
+      style={{
+        stroke: "var(--pluto-primary-z)",
+        strokeWidth: 2,
+        strokeDasharray: "6 5",
+      }}
+    />
+    <line
+      x1="40"
+      y1="230"
+      x2="760"
+      y2="230"
+      style={{ stroke: "var(--pluto-gray-l6)", strokeWidth: 1 }}
+    />
+    <text
+      x="228"
+      y="38"
+      style={{
+        fill: "var(--pluto-gray-l11)",
+        fontFamily: "var(--pluto-font-family)",
+        fontSize: 14,
+        fontWeight: 500,
+      }}
+    >
+      Hotfire 12
+    </text>
+    <text
+      x="298"
+      y="62"
+      style={{
+        fill: "var(--pluto-gray-l11)",
+        fontFamily: "var(--pluto-font-family)",
+        fontSize: 12,
+      }}
+    >
+      Ignition
+    </text>
+    <text
+      x="220"
+      y="252"
+      textAnchor="middle"
+      style={{
+        fill: "var(--pluto-gray-l9)",
+        fontFamily: "var(--pluto-font-family)",
+        fontSize: 12,
+      }}
+    >
+      Start (included)
+    </text>
+    <text
+      x="560"
+      y="252"
+      textAnchor="middle"
+      style={{
+        fill: "var(--pluto-gray-l9)",
+        fontFamily: "var(--pluto-font-family)",
+        fontSize: 12,
+      }}
+    >
+      End (excluded)
+    </text>
+    <text
+      x="760"
+      y="252"
+      textAnchor="end"
+      style={{
+        fill: "var(--pluto-gray-l7)",
+        fontFamily: "var(--pluto-font-family)",
+        fontSize: 12,
+      }}
+    >
+      Time
+    </text>
+  </svg>
+);
 
 A range (short for _time range_) is a named time interval that marks an important event
 in your data. [Channels](/reference/channels) group samples by their source. Ranges
@@ -23,8 +142,8 @@ range covers the data of every channel in its time interval.
   The interval includes its start and excludes its end.
 </Note.Note>
 
-<Diagram>
-  <Image id="concepts/overview/range" extension="svg" themed={false} />
+<Diagram variant="themed">
+  <RangeDiagram />
 </Diagram>
 
 <Divider.Divider x />
