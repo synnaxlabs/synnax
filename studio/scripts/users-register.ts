@@ -31,7 +31,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const first = page.getByPlaceholder("Richard").first();
     await session.waitFor(first);
     await session.hold(600);
-    await session.zoom(page.locator(".console-modal").first());
+    await session.zoom(page.locator(".pluto-dialog__dialog.pluto--modal").first());
 
     await session.click(first);
     await session.type("Grace");

@@ -29,7 +29,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(1000);
 
   await capture.clickToolbarCreate(session);
-  const modal = page.locator(".console-modal").first();
+  const modal = page.locator(".pluto-dialog__dialog.pluto--modal").first();
   const name = modal.getByPlaceholder("Name").first();
   await session.waitFor(name);
   await session.hold(600);

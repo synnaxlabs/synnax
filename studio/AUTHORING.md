@@ -32,9 +32,10 @@ These come from user review and are not open for reinterpretation.
   itself.
 - **Create shots start from an empty panel.** `capture.clearPanel` in setup, then
   `capture.clickPanelCreate` on camera so the viewer sees the component selector open.
-- **Form dialogs frame the whole dialog.** `session.zoom(".console-modal")` before it
-  opens, `session.endZoom()` after it closes. Never zoom a button that the dialog
-  already covered.
+- **Form dialogs frame the whole dialog.**
+  `session.zoom(".pluto-dialog__dialog.pluto--modal")` before it opens,
+  `session.endZoom()` after it closes. Never zoom a button that the dialog already
+  covered.
 - **Context menus never zoom.** The menu and the row it came from must both stay in
   frame.
 - **View-swapping clicks pass `{ zoom: false }`.** A click that replaces the panel
@@ -61,7 +62,7 @@ These come from user review and are not open for reinterpretation.
 - The inline editable class is `pluto-text--editable`. `CSS.BM` is `block--modifier`,
   not `__`.
 - The range overview's own title input answers `getByPlaceholder("Name")`. Scope modal
-  locators to `.console-modal`.
+  locators to `.pluto-dialog__dialog.pluto--modal`.
 - The Axes tab opens on X1, the time axis. Click Y1 before setting bounds.
 - A line plot hold snapshots the axis the moment it turns on, and the empty default is
   an hour-wide window at page load. Wait for real samples (`settleWall`) before clicking
