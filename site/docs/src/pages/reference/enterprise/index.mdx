@@ -1,15 +1,16 @@
 ---
 title: "Set up Synnax Enterprise"
-description: "Install and start a Synnax Core, then connect the Synnax Console to it."
+description:
+  "Install and start a Synnax Core, log in from the Console, and activate a license."
 layout: "@/layouts/Reference.astro"
 platforms: ["Linux", "Windows", "macOS", "Docker"]
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Note } from "@synnaxlabs/lyra/note";
 
-import { Console } from "@/components/console";
 import { Platform } from "@/components/platform";
 import DownloadURL from "@/components/core/DownloadURL.astro";
 import MoveCommand from "@/components/core/MoveCommand.astro";
@@ -17,24 +18,26 @@ import VersionOutput from "@/components/core/VersionOutput.astro";
 import WindowsDownloadButton from "@/components/core/WindowsDownloadButton.astro";
 import Step from "@/components/text/Step.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
-import { Image } from "@/components/media/Media";
 
 export const components = mdxOverrides;
 
-Synnax Enterprise is a standalone Synnax Core that your team deploys. Your team connects
-to it with the Synnax Console, the client libraries, and standalone Synnax Drivers, and
-each person logs in as a user. To compare Enterprise with Synnax Desktop, see
-[Synnax editions](/reference/get-started/editions).
+Synnax Enterprise is a Synnax Core that your team runs on its own computers. People
+connect to it with the Synnax Console, the client libraries, and standalone Synnax
+Drivers, and each person logs in as a user. To compare Enterprise with Synnax Desktop,
+see [Synnax editions](/reference/get-started/editions).
 
-Do the steps below to install a Core, start it, and connect the Console to it. Select
-your operating system to start.
+Do the steps below to install a Core, start it, log in, and activate its license. You
+need:
+
+- A computer that meets the [requirements](/reference/enterprise/requirements).
+- A Synnax account with an Enterprise license. Synnax Labs issues licenses to your
+  organization.
 
 <Divider.Divider x />
 
 ## <Step step={1} level="h2">Install the Core</Step>
 
-The Core stores all sensor and actuator data. Devices, Consoles, and control sequences
-communicate through it.
+Select your operating system.
 
 <Platform.Tabs>
 
@@ -43,12 +46,12 @@ communicate through it.
 ### Docker
 
 <Note.Note variant="warning">
-  A Core in a Docker container cannot access devices that connect to the host machine.
-  To connect data acquisition devices with the Driver, install the Core directly on the
-  host operating system.
+  A Core in a Docker container cannot access devices that connect to the host computer.
+  To acquire data from devices with the Driver, install the Core directly on the host
+  operating system.
 </Note.Note>
 
-Pull the latest image from Docker Hub:
+Pull the latest image from Docker Hub. The image runs on `linux/amd64`.
 
 ```bash
 docker pull synnaxlabs/synnax:latest
@@ -74,21 +77,11 @@ Make the binary executable. If you do not have the necessary permissions, use `s
 chmod +x /usr/local/bin/synnax
 ```
 
-Make sure that `/usr/local/bin` is in your `PATH`. To add it for the current terminal
-session only, run:
-
-```bash
-export PATH=$PATH:/usr/local/bin
-```
-
-To add it permanently, run:
+If `/usr/local/bin` is not in your `PATH`, add it. For `zsh`, use `~/.zshrc`:
 
 ```bash
 echo 'export PATH=$PATH:/usr/local/bin' >> ~/.bashrc
 ```
-
-For `zsh`, use `~/.zshrc` instead of `~/.bashrc`. If an earlier version of Synnax is in
-your `PATH`, remove it to prevent conflicts.
 
 Verify the installation:
 
@@ -106,7 +99,7 @@ You should see:
 
 ### macOS
 
-Download the latest binary:
+Download the latest binary for Apple silicon:
 
 <DownloadURL os="macos" />
 
@@ -120,20 +113,11 @@ Make the binary executable. If you do not have the necessary permissions, use `s
 chmod +x /usr/local/bin/synnax
 ```
 
-Make sure that `/usr/local/bin` is in your `PATH`. To add it for the current terminal
-session only, run:
-
-```bash
-export PATH=$PATH:/usr/local/bin
-```
-
-To add it permanently, run:
+If `/usr/local/bin` is not in your `PATH`, add it:
 
 ```bash
 echo 'export PATH=$PATH:/usr/local/bin' >> ~/.zshrc
 ```
-
-If an earlier version of Synnax is in your `PATH`, remove it to prevent conflicts.
 
 Verify the installation:
 
@@ -151,21 +135,22 @@ You should see:
 
 ### Windows
 
-Download and run the latest installer:
+Download and run the latest installer. The installer adds `synnax` to your `PATH`.
 
-<br />
-<br />
 <Flex.Box direction="y" justify="center" align="center">
   <WindowsDownloadButton />
   <small>
-    Releases for other operating systems and earlier versions are on the
+    Earlier versions are on the
     <a href="https://github.com/synnaxlabs/synnax/releases"> Synnax releases page</a>.
   </small>
 </Flex.Box>
-<br />
-<br />
 
-Verify the installation. Run this command in a **PowerShell** terminal:
+The installer also offers to install the Core as a Windows service, and selects that
+option by default. With the service, the Core starts now and each time Windows starts,
+so skip step 2. To change the service later, see
+[Windows service commands](/reference/enterprise/cli-reference#service-windows-only).
+
+Verify the installation in a **PowerShell** terminal:
 
 ```powershell
 synnax --version
@@ -188,17 +173,20 @@ You should see:
 <Fragment slot="Docker">
 
 ```bash
-docker run -p 9090:9090 synnaxlabs/synnax --listen=localhost:9090 --mem --insecure
+docker run --name synnax -p 9090:9090 -v synnax-data:/synnax/synnax-data \
+  synnaxlabs/synnax --listen=localhost:9090 --insecure
 ```
 
-The `-p 9090:9090` option maps port 9090 on the host to port 9090 in the container.
+The `-p 9090:9090` option maps port 9090 on the host to the container. The `-v` option
+keeps the data in a Docker volume named `synnax-data`. To start the same container again
+later, run `docker start synnax`.
 
 </Fragment>
 
 <Fragment slot="Linux">
 
 ```bash
-synnax start --listen=localhost:9090 --mem --insecure
+synnax start --listen=localhost:9090 --insecure
 ```
 
 </Fragment>
@@ -206,7 +194,7 @@ synnax start --listen=localhost:9090 --mem --insecure
 <Fragment slot="macOS">
 
 ```bash
-synnax start --listen=localhost:9090 --mem --insecure
+synnax start --listen=localhost:9090 --insecure
 ```
 
 </Fragment>
@@ -214,109 +202,74 @@ synnax start --listen=localhost:9090 --mem --insecure
 <Fragment slot="Windows">
 
 ```powershell
-synnax start --listen=localhost:9090 --mem --insecure
+synnax start --listen=localhost:9090 --insecure
 ```
 
 </Fragment>
 
 </Platform.Tabs>
 
-This command starts a Core with these flags:
+| Flag                      | Description                            |
+| ------------------------- | -------------------------------------- |
+| `--listen=localhost:9090` | The address of the Core.               |
+| `--insecure`              | Run without TLS. Use it to learn only. |
 
-<table>
-  <thead>
-    <tr>
-      <th>Flag</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>`--listen=localhost:9090`</td>
-      <td>The address that the Core listens on.</td>
-    </tr>
-    <tr>
-      <td>`--mem`</td>
-      <td>Keep all data in memory. Use this for learning and development.</td>
-    </tr>
-    <tr>
-      <td>`--insecure`</td>
-      <td>Run without TLS.</td>
-    </tr>
-  </tbody>
-</table>
+The Core keeps its data in a `synnax-data` folder and its logs in a `synnax-logs`
+folder, in the folder where you ran the command. It listens on port 9090 of every
+network interface of the computer, so other computers on your network can reach it. Your
+firewall can ask you to allow the connection.
 
-With `--mem`, the Core loses all data when it stops. For persistent storage and other
-flags, see the [Core CLI reference](/reference/enterprise/cli-reference). To deploy a
-Core for production use, see [Deploy to production](/reference/enterprise/production).
-
-To stop the Core, press `Ctrl+C` in the terminal.
+To stop the Core, press `Ctrl+C` in the terminal. For other flags, see the
+[CLI reference](/reference/enterprise/cli-reference). Before your team relies on the
+Core, work through the [production checklist](/reference/enterprise/production).
 
 <Divider.Divider x />
 
-## <Step step={3} level="h2">Install the Console</Step>
+## <Step step={3} level="h2">Open the Console and log in</Step>
 
-The Console is a desktop application to visualize data, configure devices, and control
-hardware. Download the latest release for your operating system:
+The Core serves the Synnax Console to your web browser. When the Core starts without a
+license, its log prints the address to open.
 
-<br />
-<br />
-<Flex.Box direction="y" justify="center" align="center">
-  <Console.DownloadButton />
-  <small>
-    Releases for other operating systems and earlier versions are on the [Synnax
-    releases page](https://github.com/synnaxlabs/synnax/releases).
-  </small>
-</Flex.Box>
-<br />
-<br />
+1. In a web browser on the same computer, go to `http://localhost:9090`.
+2. Enter the username `synnax` and the password `seldon`. These are the credentials of
+   the root user of a new Core.
+3. Click **Log in**.
 
-For the hardware that the Console needs, see the
-[Console requirements](/reference/enterprise/console#requirements). After you install
-the Console, it opens to the login window:
+The Console shows **This Core needs a license**.
 
-<Image id="console/get-started/window" />
-
-<Divider.Divider x />
-
-## <Step step={4} level="h2">Connect the Console and log in</Step>
-
-The Console includes a connection named **Local** to a Core at `localhost:9090`. It is
-in the list of Cores in the login window. When the Core from step 2 is reachable, the
-status of **Local** is **Connected**.
-
-Select **Local**, then log in with the root user credentials:
-
-<table>
-  <tr>
-    <th>Username</th>
-    <td>synnax</td>
-  </tr>
-  <tr>
-    <th>Password</th>
-    <td>seldon</td>
-  </tr>
-</table>
-
-To connect to a Core on a different machine, see
+The Console is also a desktop application for Windows and macOS. To use it, see
 [Connect the Console](/reference/enterprise/console).
 
 <Divider.Divider x />
 
-## <Step step={5} level="h2">Activate a license</Step>
+## <Step step={4} level="h2">Activate the license</Step>
 
-A standalone Core needs a license from your organization. A Core without one starts and
-answers login and connectivity checks, but refuses everything else until a license key
-is activated. The Console shows an activation screen for it. The
-[production guide](/reference/enterprise/production#licensing) covers the activation
-flow and the start flags that take a license key.
+1. Click **Copy fingerprint**. The fingerprint identifies the computer that runs the
+   Core.
+2. Click **Get a key**, and log in to your Synnax account.
+3. Select the license, enter a **Machine name**, and paste the fingerprint into **Host
+   hashes**.
+4. Click **Activate and download license key**. Your browser downloads a `.lic` file.
+5. In the Console, click <Icon.Attachment /> and select the `.lic` file, or paste the
+   key.
+6. Click **Activate**.
+
+The Core stores the key, so it stays active after a restart. To activate a Core with no
+browser, see [Activate a license](/reference/enterprise/production#licensing).
+
+<Divider.Divider x />
+
+## <Step step={5} level="h2">Create a project</Step>
+
+After activation, the Console shows **Projects**. Click **New project**. The project
+opens, and you can create channels, plots, and schematics in it.
 
 <Divider.Divider x />
 
 ## Next steps
 
-- [Connect a data acquisition device](/reference/hardware) with the Driver.
-- Learn about [channels](/reference/channels).
 - [Register users](/reference/enterprise/users) for your team.
+- [Connect a data acquisition device](/reference/hardware) with the Driver.
+- [Create channels](/reference/channels/create).
 - Write and read data with the
   [Python or TypeScript client](/reference/client/quick-start).
