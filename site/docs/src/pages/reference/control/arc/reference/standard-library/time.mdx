@@ -48,7 +48,9 @@ Fires again and again, once each `period`.
 - Input -> optional. Trigger-only: the first input value starts the timer, and later
   values have no effect. With no input, the timer starts when its stage starts.
 - Output -> `u8` value 1 on each fire, with the time of the cycle.
-- Runs -> on the first timer cycle after the timer starts, then once each `period`. At
+- Runs -> on the first timer cycle after the timer starts, then on a fixed schedule,
+  once each `period`. A late fire does not move the next one. When a cycle takes longer
+  than `period`, the timer fires once and does not make up the fires that it missed. At
   the top level, it fires when the automation starts.
 
 ```arc channels="heartbeat"
@@ -105,4 +107,6 @@ sequence fire {
 start_cmd == 1 => fire
 ```
 
-The timers work the same on the Core and on a Driver.
+The timers follow the same rules on the Core and on a Driver. They never fire early. How
+soon after its deadline a timer fires depends on where the automation runs and its
+performance level. See [Arc timing](/reference/control/arc/timing).
