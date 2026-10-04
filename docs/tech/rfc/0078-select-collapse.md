@@ -29,7 +29,7 @@ never shrank to fit it.
 ### 3.0 The name fades
 
 `Select.Label` always renders the name in `Text.Text el="span" overflow="fade"`, as
-`Tag` does. The frame of a trigger that shows a name gets `min-width: 10rem`, so it can
+`Tag` does. The frame of a trigger that shows a name gets `min-width: 11rem`, so it can
 shrink below the name and still shows the icon and caret.
 
 ### 3.1 Opt-in collapse
