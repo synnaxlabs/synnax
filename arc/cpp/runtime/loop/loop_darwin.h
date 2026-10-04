@@ -265,10 +265,16 @@ private:
     deadline_wait(const x::telem::Stopwatch &sw, const x::telem::TimeSpan deadline) {
         struct kevent events[8];
         const auto block = deadline - sw.elapsed() - timing::DARWIN_DEADLINE_SPIN;
-        if (block.nanoseconds() > 0) {
-            const auto timeout = ns_to_timespec(block.nanoseconds());
-            const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, &timeout);
-            if (n != 0) return this->wake_reason(events, n);
+        // A kevent timeout gets the kernel's timer slack, which can pass the deadline.
+        // The NOTE_CRITICAL timer of arm_deadline does not.
+        if (block.nanoseconds() > 0 && this->arm_deadline(block)) {
+            const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, nullptr);
+            if (n < 0) return this->wake_reason(events, n);
+            for (int i = 0; i < n; i++)
+                if (events[i].filter != EVFILT_TIMER ||
+                    events[i].ident != DEADLINE_EVENT_IDENT)
+                    return this->classify_events(events, n);
+            this->deadline_armed_ = false;
         }
         // A zero-timeout kevent sleeps about 12 us, so this spin uses about 11% CPU and
         // ends within 12 us of the deadline.
