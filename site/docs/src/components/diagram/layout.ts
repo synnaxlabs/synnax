@@ -59,7 +59,11 @@ const ICON_SPACE = 26;
 const X_PADDING = 24;
 const CORNER_RADIUS = 8;
 
-const nodeWidth = ({ label, caption, icon }: Node): number => {
+export const nodeWidth = ({
+  label,
+  caption,
+  icon,
+}: Pick<Node, "label" | "caption" | "icon">): number => {
   const text = Math.max(
     label.length * LABEL_CHAR_WIDTH,
     (caption?.length ?? 0) * CAPTION_CHAR_WIDTH,
@@ -67,7 +71,7 @@ const nodeWidth = ({ label, caption, icon }: Node): number => {
   return Math.ceil(text + (icon == null ? 0 : ICON_SPACE) + X_PADDING);
 };
 
-const nodeHeight = ({ caption }: Node): number =>
+export const nodeHeight = ({ caption }: Pick<Node, "caption">): number =>
   caption == null ? NODE_HEIGHT : NODE_HEIGHT + CAPTION_HEIGHT;
 
 const path = (x1: number, y1: number, x2: number, y2: number, midX: number): string => {
