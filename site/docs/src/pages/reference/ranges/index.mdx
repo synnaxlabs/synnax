@@ -36,13 +36,17 @@ records when the run started and ended, and it holds the facts about the run: th
 number, the procedure, and the test parameters.
 
 A test or data engineer uses ranges to find data later. They search for a range by name
-or label, plot its data, compare it with other runs, and
-[export it as CSV](/reference/ranges/export). They do not have to remember timestamps.
+or label, plot it next to other runs, and [export it as CSV](/reference/ranges/export).
+They do not have to remember timestamps.
 
 Ranges also mark events outside of tests, such as anomalies, maintenance periods, or
 automated control actions. An
-[Arc](/reference/control/arc/reference/standard-library/ranges) program can create a
+[Arc automation](/reference/control/arc/reference/standard-library/ranges) can create a
 range when a sequence starts and end it when the sequence stops.
+
+You can save a range to the Synnax Core, where everyone sees it, or keep it only in your
+Console. See
+[saved and local ranges](/reference/ranges/reference#saved-and-local-ranges).
 
 <Divider.Divider x />
 
@@ -58,7 +62,7 @@ and the current time:
 
 When you change the stage of a range in the Console, Synnax changes its start or end
 time. For example, when you complete an in-progress range, its end time becomes the
-current time.
+current time. See [stages](/reference/ranges/reference#stages) for each change.
 
 <Divider.Divider x />
 
@@ -109,19 +113,10 @@ alias, see [channel aliases](/reference/ranges/aliases).
 
 ## Snapshots
 
-A snapshot is a copy of a resource that is attached to a range. It records the
-configuration of the resource at the time of the range.
-
-The most useful snapshot is of a data acquisition or control
-[task](/reference/hardware). A task snapshot keeps calibrations, scale values, and the
-physical ports and lines of the task. You can also snapshot a
-[schematic](/reference/visualize/schematics) to keep how it looked during a test.
-
-To snapshot a task, make the range the
-[active range](/reference/ranges/find#active-range). Then right-click the task in the
-tasks toolbar and select `Snapshot to` followed by the range name. The snapshots section
-of the [range overview](/reference/ranges/find#range-overview) lists the snapshots of
-the range. Click a snapshot to open it.
+A snapshot is a read-only copy of a task or a schematic that is attached to a range. A
+task snapshot keeps the calibrations, scales, and ports that a test used. A schematic
+snapshot keeps how the schematic looked. See
+[snapshot tasks and schematics](/reference/ranges/snapshots).
 
 <Divider.Divider x />
 
