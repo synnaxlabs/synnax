@@ -8,12 +8,60 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@synnaxlabs/lyra/dist/tooltip/Frame.css";
+
+import { Button } from "@synnaxlabs/lyra/button";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
+
+import { SHORTCUT, STORAGE_KEY } from "@/components/nav/collapse";
 import { Page as P } from "@/components/nav/Page";
 import { REFERENCE_PAGES } from "@/pages/_nav";
+
+const TREE_ID = "page-nav-tree";
 ---
 
 <nav class="page-nav" transition:persist>
-    <P nodes={REFERENCE_PAGES} currentPage={Astro.url.pathname} />
+    <script is:inline define:vars={{ STORAGE_KEY }}>
+        // Applies a remembered collapse before the first paint, so the page does not
+        // shift once it loads.
+        try {
+            if (localStorage.getItem(STORAGE_KEY) === "true")
+                document.currentScript.parentElement.dataset.collapsed = "";
+        } catch {}
+    </script>
+    <div class="page-nav__panel">
+        <div class="page-nav__header">
+            <Button.Button
+                variant="text"
+                size="small"
+                className="page-nav__toggle"
+                aria-label="Collapse sidebar"
+                aria-expanded="true"
+                aria-controls={TREE_ID}
+                data-page-nav-toggle
+            >
+                <Icon.Sidebar />
+            </Button.Button>
+        </div>
+        <P id={TREE_ID} nodes={REFERENCE_PAGES} currentPage={Astro.url.pathname} />
+    </div>
+    <div
+        class="pluto-tooltip page-nav__tooltip"
+        role="tooltip"
+        id="page-nav-tooltip"
+        hidden
+    >
+        <Text.Text level="small" color={11}>
+            <span data-tooltip-label></span>
+            <Triggers.Text
+                trigger={["Control", SHORTCUT]}
+                level="small"
+                data-tooltip-keys
+            />
+        </Text.Text>
+    </div>
 </nav>
 
 <style is:global>

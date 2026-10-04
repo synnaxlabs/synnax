@@ -53,33 +53,152 @@ nav {
     }
 }
 
-/* Page navigation sidebar */
+/* Page navigation sidebar. Collapsed, it narrows to a rail of section icons. Every
+   icon keeps its x position in both states, centered in the rail. */
+main {
+    --docs-page-nav-width: 45rem;
+
+    &:has(> .page-nav[data-collapsed]) {
+        --docs-page-nav-width: 8rem;
+    }
+}
+
 .page-nav {
-    width: 45rem;
-    min-width: 45rem;
-    overflow: hidden;
-    padding-left: 2rem;
-    align-self: flex-start;
+    /* Icons center 4rem from the left edge, half the rail width. */
+    --docs-page-nav-padding: 0.75rem;
+    --docs-page-nav-rail-item: 5.3333rem;
     position: sticky;
     top: var(--nav-height);
+    align-self: flex-start;
+    width: var(--docs-page-nav-width);
+    min-width: var(--docs-page-nav-width);
     height: calc(100vh - var(--nav-height));
+    overflow: hidden;
     background: var(--pluto-gray-l2-20);
     border-right: var(--pluto-border);
+    transition:
+        width 0.2s ease,
+        min-width 0.2s ease;
 
-    .pluto-tabs__selector {
-        position: sticky;
-        top: 0;
-        background: var(--pluto-gray-l0);
-        margin-bottom: 3rem;
+    @media (prefers-reduced-motion: reduce) {
+        transition: none;
+    }
+}
 
-        & .pluto-text {
-            font-size: var(--pluto-small-size);
-            font-weight: 400;
+/* The panel keeps its full width, so the sidebar clips it rather than reflowing it. */
+.page-nav__panel {
+    display: flex;
+    flex-direction: column;
+    width: 45rem;
+    height: 100%;
+}
+
+/* The toggle centers in a rail-wide box, so it shares the icon column. */
+.page-nav__header {
+    display: flex;
+    flex-shrink: 0;
+    justify-content: center;
+    width: 8rem;
+    padding-top: 1.5rem;
+}
+
+.page-nav .pluto-tree.reference-tree {
+    flex: 1;
+    /* Padding, not a margin, so the current section's bar at the rail edge stays
+       inside the tree's clip. */
+    padding-left: var(--docs-page-nav-padding);
+    min-height: 0;
+    max-height: none;
+    padding-top: 2rem;
+    mask-image: linear-gradient(
+        to bottom,
+        transparent 0,
+        black 2rem,
+        black calc(100% - 5rem),
+        transparent 100%
+    );
+    -webkit-mask-image: linear-gradient(
+        to bottom,
+        transparent 0,
+        black 2rem,
+        black calc(100% - 5rem),
+        transparent 100%
+    );
+}
+
+.page-nav[data-collapsed] {
+    .reference-tree {
+        overflow-y: hidden;
+        scrollbar-width: none;
+    }
+
+    .reference-tree [role="treeitem"]:not([aria-level="1"]) {
+        display: none;
+    }
+
+    /* A square Console nav button: the icon sits where it sits in the open sidebar,
+       and the label clips at the right edge. */
+    .pluto-tree .page-nav-section-header {
+        position: relative;
+        width: var(--docs-page-nav-rail-item);
+        height: var(--docs-page-nav-rail-item);
+        margin-top: 0.5rem;
+        margin-left: calc(
+            4rem - var(--docs-page-nav-padding) - var(--docs-page-nav-rail-item) / 2
+        );
+        padding: 0 calc((var(--docs-page-nav-rail-item) - 2.5rem) / 2);
+        border-radius: var(--pluto-border-radius);
+        background: var(--pluto-bg);
+        cursor: pointer;
+        clip-path: inset(0 0 0 -2rem);
+
+        &:first-child {
+            margin-top: 0;
         }
 
-        & .pluto-tabs__tab {
-            flex-grow: 1;
+        &:hover {
+            background: var(--pluto-hover-bg);
         }
+
+        > .pluto-text {
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+
+        /* The section of the current page: no section header sits between it and the
+           selected page. It takes the Console's selected nav item style. */
+        &:has(~ .pluto--selected):not(
+                :has(~ .page-nav-section-header ~ .pluto--selected)
+            ) {
+            --pluto-bg: var(--pluto-selected-list-bg);
+            --pluto-hover-bg: var(--pluto-selected-list-hover-bg);
+            --docs-page-nav-bar: var(--pluto-primary-z);
+        }
+
+        &::after {
+            content: "";
+            position: absolute;
+            left: calc(var(--docs-page-nav-rail-item) / 2 - 4rem);
+            top: 0.5rem;
+            width: 0.5rem;
+            height: calc(100% - 1rem);
+            border-radius: 0 0.5rem 0.5rem 0;
+            background: var(--docs-page-nav-bar, transparent);
+        }
+    }
+}
+
+/* The docs enlarge the small step for prose, so the tooltip steps back down to the
+   size Lyra tooltips use in the Console. */
+.page-nav__tooltip {
+    &[hidden],
+    [hidden] {
+        display: none;
+    }
+
+    .pluto-text {
+        font-size: calc(var(--pluto-small-size) * 0.8);
+        line-height: 1.5;
     }
 }
 

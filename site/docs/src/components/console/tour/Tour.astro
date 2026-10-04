@@ -1,0 +1,169 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "@/components/console/tour/tour.css";
+
+import { grammar as arcGrammar } from "@synnaxlabs/arc";
+import { Button } from "@synnaxlabs/lyra/button";
+import Code from "astro/components/Code.astro";
+
+import { GROUPS, STEPS } from "@/components/console/tour/steps";
+import { Window } from "@/components/console/tour/Window";
+import { theme } from "@/util/shiki";
+
+const SEQUENCE = `import control
+import time
+
+// The sequence runs below the schematic's authority, so an operator can take control
+// of the valves at any time. An abort takes absolute authority.
+authority 100
+
+sequence main {
+    stage idle {
+        0 -> sample_press_vlv_cmd
+        0 -> sample_vent_vlv_cmd
+        sample_start_cmd => pressurize
+    }
+    stage pressurize {
+        control.set_authority{value=100}
+        1 -> sample_press_vlv_cmd
+        0 -> sample_vent_vlv_cmd
+        sample_tank_pt > 450 => abort
+        sample_abort_cmd => abort
+        sample_tank_pt > 300 => hold
+    }
+    stage hold {
+        0 -> sample_press_vlv_cmd
+        sample_abort_cmd => abort
+        time.wait{duration=10s} => vent
+    }
+    stage vent {
+        1 -> sample_vent_vlv_cmd
+        sample_tank_pt < 5 => idle
+    }
+    stage abort {
+        control.set_authority{value=255}
+        0 -> sample_press_vlv_cmd
+        1 -> sample_vent_vlv_cmd
+        sample_start_cmd => pressurize
+    }
+}
+
+1 => main`;
+
+const SIMULATOR = `import time
+
+// Simulates a tank that fills from a 500 psi nitrogen supply through the press valve
+// and empties through the vent valve.
+func step() {
+    pressure f64 $= 0
+    if sample_press_vlv_cmd == 1 {
+        pressure += (500 - pressure) * 0.02
+    }
+    if sample_vent_vlv_cmd == 1 {
+        pressure -= pressure * 0.05
+    }
+    pressure -= pressure * 0.0002
+    sample_tank_pt = pressure
+    sample_press_vlv_state = sample_press_vlv_cmd
+    sample_vent_vlv_state = sample_vent_vlv_cmd
+}
+
+time.interval{period=100ms} -> step{}`;
+---
+
+<figure class="docs-console docs-wide" data-console-tour>
+    <div class="docs-console__frame">
+        <div
+            class="docs-console__stage docs-ui"
+            tabindex="0"
+            aria-label="A copy of the Console"
+        >
+            <div class="docs-console__canvas">
+                <Window>
+                    <Code
+                        slot="sequence"
+                        code={SEQUENCE}
+                        lang={arcGrammar}
+                        theme={theme}
+                    />
+                    <Code
+                        slot="simulator"
+                        code={SIMULATOR}
+                        lang={arcGrammar}
+                        theme={theme}
+                    />
+                </Window>
+            </div>
+            <div class="docs-console__spotlight" data-spotlight></div>
+        </div>
+        <div class="docs-console__card" data-card aria-live="polite" hidden>
+            <div class="docs-console__card-arrow" data-card-arrow></div>
+            <div class="docs-console__card-meta docs-ui" data-card-meta></div>
+            <slot />
+            <div class="docs-console__card-actions docs-ui">
+                <Button.Button variant="text" size="small" data-tour="back">
+                    Back
+                </Button.Button>
+                <Button.Button variant="filled" size="small" data-tour="next">
+                    Next
+                </Button.Button>
+            </div>
+        </div>
+    </div>
+    <div class="docs-console__progress docs-ui" role="group" aria-label="Tour steps">
+        <Button.Button
+            variant="filled"
+            size="small"
+            className="docs-console__start"
+            data-tour="start"
+        >
+            Start the tour
+        </Button.Button>
+        <Button.Button
+            variant="outlined"
+            size="small"
+            className="docs-console__start"
+            data-tour="end"
+            hidden
+        >
+            End the tour
+        </Button.Button>
+        {GROUPS.map((group) => {
+            const steps = STEPS.filter((s) => s.group === group.key);
+            return (
+                <div
+                    class="docs-console__progress-group"
+                    style={`flex-grow: ${steps.length}`}
+                    data-progress-group={group.key}
+                >
+                    <span class="docs-console__progress-label">{group.name}</span>
+                    <div class="docs-console__progress-steps">
+                        {steps.map((step) => (
+                            <button
+                                type="button"
+                                class="docs-console__progress-step"
+                                data-step-target={step.key}
+                                aria-label={step.title}
+                                title={step.title}
+                            />
+                        ))}
+                    </div>
+                </div>
+            );
+        })}
+    </div>
+</figure>
+
+<script>
+    import { start } from "@/components/console/tour/controller";
+
+    start();
+</script>

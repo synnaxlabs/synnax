@@ -140,6 +140,7 @@ article .pluto-tabs__selector {
 
     .page-nav-section-header {
         margin-top: 2.5rem;
+        padding-inline: 0.5rem;
         cursor: default;
         box-shadow: none !important;
 

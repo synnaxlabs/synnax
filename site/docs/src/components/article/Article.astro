@@ -262,4 +262,22 @@ const publishedLabel =
             }
         }
     }
+
+    /* A wide block is centered on the prose and kept clear of the page navigation
+       on both sides. */
+    @media (min-width: 801px) {
+        main > section:has(.docs-wide),
+        main > section article:has(.docs-wide) {
+            overflow-x: visible;
+        }
+
+        article .docs-wide {
+            --docs-wide-width: max(
+                100%,
+                min(1080px, 100vw - 2 * (var(--docs-page-nav-width) + 4rem))
+            );
+            width: var(--docs-wide-width);
+            margin-inline: calc((100% - var(--docs-wide-width)) / 2);
+        }
+    }
 </style>

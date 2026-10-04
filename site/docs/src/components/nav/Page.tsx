@@ -86,8 +86,6 @@ const caret = (expanded: boolean): ReactElement => (
 const SECTION_STYLE: CSS.VarProperties = {
   "--pluto-tree-item-offset": "1.5rem",
   textDecoration: "none",
-  paddingLeft: "0.5rem",
-  paddingRight: "0.5rem",
 };
 
 const Section = ({ node }: Row): ReactElement => (
@@ -154,6 +152,7 @@ export interface PageProps {
 }
 
 export interface TreeProps extends PageProps {
+  id?: string;
   nodes: PageNavNode[];
 }
 
@@ -162,11 +161,12 @@ export interface TreeProps extends PageProps {
  * ancestors expanded. The script in `@/components/nav/sidebar` expands nodes and
  * follows page swaps, so the tree never hydrates.
  */
-export const Page = ({ nodes, currentPage: path }: TreeProps): ReactElement => {
+export const Page = ({ id, nodes, currentPage: path }: TreeProps): ReactElement => {
   const currentPage = normalizeRoute(path);
   const open = new Set(currentPage.split("/").filter((part) => part !== ""));
   return (
     <div
+      id={id}
       className="pluto-tree tree reference-tree styled-scrollbar pluto-list__scroll pluto-flex pluto--full-y"
       role="tree"
     >

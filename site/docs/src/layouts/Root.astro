@@ -137,6 +137,7 @@ const FOOTER_COLUMNS = [
         import { QUERY as CLIENT_QUERY } from "@/components/client/choice";
         import { addCodeButtonListeners } from "@/components/code/codeUtil";
         import { start as startVideos } from "@/components/media/video";
+        import { start as startCollapse } from "@/components/nav/collapse";
         import { start as startOnThisPage } from "@/components/nav/onThisPage";
         import { start as startSidebar } from "@/components/nav/sidebar";
         import { QUERY as PLATFORM_QUERY } from "@/components/platform/choice";
@@ -146,6 +147,7 @@ const FOOTER_COLUMNS = [
         import { onDemand } from "@/util/island";
 
         startSidebar();
+        startCollapse();
         startVideos();
         // Before the tabs, so the outline hears the first tab change.
         startOnThisPage();
