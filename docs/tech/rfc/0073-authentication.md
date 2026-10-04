@@ -296,7 +296,7 @@ cluster keeps honoring the session until it rejoins.
   why the session list shows an address and a start time.
 - A person disabled at the identity provider keeps access until their session goes idle
   or someone revokes it. Offboarding must include a delete of the Synnax user. A later
-  back-channel logout endpoint (§4.12) removes this gap for providers that support it.
+  back-channel logout endpoint (§4.13) removes this gap for providers that support it.
 - The 12 and 24 hour session limits in NIST SP 800-63B are not met.
 
 ### 4.5 Streams
@@ -442,7 +442,58 @@ Three changes follow from the table:
 - A root password given as a start flag shows in the process list. The docs recommend
   the environment variable or a config file that only the Core's user can read.
 
-### 4.12 Does it extend?
+### 4.12 Configuration changes
+
+Every setting below is a start flag, a config file key, and an environment variable at
+the same time, as each component already works. New names are proposals.
+
+**Core**
+
+| Setting                | Change                                                                            |
+| ---------------------- | --------------------------------------------------------------------------------- |
+| `username`, `password` | Unchanged. They own the root user's password (§4.7)                               |
+| `auth-methods`         | New. The accepted methods (§4.6). Default: all                                    |
+| `fips`                 | New. Restricts password hashes to PBKDF2 (§4.1). Default: false                   |
+| `session-idle-timeout` | New. The idle timeout (§4.4)                                                      |
+| `oidc-providers`       | New. A list of providers, each with a name, an issuer URL, and a client ID (§4.2) |
+
+**Driver** (config file, `SYNNAX_DRIVER_` environment variables, and the state file)
+
+| Setting                                      | Change                                        |
+| -------------------------------------------- | --------------------------------------------- |
+| `connection.username`, `connection.password` | Removed                                       |
+| `connection.api_key`                         | New. The rack's API key                       |
+| `remote_info.rack_key`                       | Removed. The session names the rack           |
+| `remote_info.cluster_key`                    | Unchanged                                     |
+| State file permissions                       | Owner-only, from readable and writable by all |
+
+`synnax-driver login` asks the same questions and saves `api_key` (§4.8). The config
+file that the Core writes for the embedded Driver changes in the same way.
+
+**Client libraries**
+
+| Library                            | Change                                                                                                                       |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| TypeScript `synnaxParamsZ`         | Adds `apiKey`. `username` and `password` become optional. One of the two is required                                         |
+| Python `Synnax(...)` and `Options` | Adds `api_key`, with the same rule                                                                                           |
+| Python `sy login`                  | Asks for a username and password, creates an API key, and saves the key to the keyring. `~/.synnax/config.json` is unchanged |
+| C++ `synnax::Config`               | Adds `api_key`, with the same rule. The `synnax` and `seldon` defaults go away                                               |
+| C interface `synnax_client_open`   | Gains an API key parameter, for LabVIEW                                                                                      |
+
+**Console**
+
+| Setting                       | Change                                                                   |
+| ----------------------------- | ------------------------------------------------------------------------ |
+| Saved Core record, `password` | Removed from the store                                                   |
+| Saved Core record, `username` | Unchanged. It fills the login form                                       |
+| Session token                 | New. Kept in the keychain on desktop and in browser storage in a browser |
+
+**Synnax Desktop**
+
+No change. Its launch config holds no secret, and the root password still travels in
+`SYNNAX_PASSWORD`.
+
+### 4.13 Does it extend?
 
 **A service account.** A later RFC adds a `service_account` resource. That PR adds one
 row to the subject map with `api_key`, and calls `DeleteFor` when an account is deleted.
