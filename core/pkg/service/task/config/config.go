@@ -14,6 +14,7 @@ import (
 	"encoding/json/v2"
 	"uuid"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config/legacy"
@@ -162,6 +163,11 @@ func (c ServiceConfig[E]) Validate() error {
 		"upgrades",
 		len(c.Upgrades) > 0 && imex.Version(len(c.Upgrades)) >= c.Version,
 		"must leave version 0 to legacy configs",
+	)
+	v.Ternary(
+		"upgrades",
+		lo.ContainsBy(c.Upgrades, func(u Upgrade) bool { return u == nil }),
+		"must not contain nil",
 	)
 	return v.Error()
 }

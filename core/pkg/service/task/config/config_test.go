@@ -280,6 +280,7 @@ var _ = Describe("Service", func() {
 				tx gorp.Tx,
 				data msgpack.EncodedJSON,
 			) (msgpack.EncodedJSON, error) {
+				GinkgoHelper()
 				calls = append(calls, step)
 				Expect(tx).ToNot(BeNil())
 				out := msgpack.EncodedJSON{}
@@ -385,6 +386,21 @@ var _ = Describe("Service", func() {
 			)).Error().To(MatchError(
 				ContainSubstring("upgrades: must leave version 0 to legacy configs"),
 			))
+		})
+	})
+
+	Describe("Upgrade validation", func() {
+		It("Should reject a nil upgrade", func(ctx SpecContext) {
+			Expect(config.OpenService(
+				ctx,
+				config.ServiceConfig[arctask.Config]{
+					DB:          db,
+					Type:        "nil_upgrade_test",
+					Version:     2,
+					SetEntryKey: (*arctask.Config).SetKey,
+					Upgrades:    []config.Upgrade{nil},
+				},
+			)).Error().To(MatchError(ContainSubstring("upgrades: must not contain nil")))
 		})
 	})
 
