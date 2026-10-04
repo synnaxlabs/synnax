@@ -1,0 +1,145 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Troubleshoot Synnax Enterprise"
+description:
+  "Find why a Synnax Core does not start, why the Console cannot connect, and fix
+  license problems."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Start with the log of the Core, then find the message or symptom below. For problems in
+other parts of Synnax, see [client troubleshooting](/reference/client/troubleshooting),
+[hardware troubleshooting](/reference/hardware/troubleshooting), and
+[Synnax Desktop troubleshooting](/reference/desktop/troubleshooting).
+
+<Divider.Divider x />
+
+## Read the log
+
+The Core writes its log to its terminal and to the file set by `--log-file-path`:
+
+- **Terminal or Docker** -> the output of `synnax start` or `docker logs synnax`.
+- **systemd** -> `journalctl -u synnax -a`.
+- **Windows service** -> `C:\ProgramData\Synnax\logs\synnax.log`, or
+  `synnax service status` for the last errors.
+- **Other** -> `./synnax-logs/synnax.log` in the folder where the Core started.
+
+For more detail, start the Core with `--verbose`.
+
+<Divider.Divider x />
+
+## The Core does not start
+
+When the Core cannot start, it logs
+`Synnax has encountered an error and is shutting down:`, then the cause.
+
+### node certificate not found
+
+The Core uses TLS by default and found no certificate in `/usr/local/synnax/certs`.
+Start it with `--auto-cert` to create one, set `--certs-dir` to your certificates, or
+use `--insecure` for a test Core. See [Set up TLS](/reference/enterprise/tls).
+
+### serves a certificate that does not cover that host
+
+The certificate does not cover the `--listen` host. Use a certificate for that host, or
+change `--listen` to a name the certificate covers. See
+[Set up TLS](/reference/enterprise/tls#use-your-own-certificate).
+
+### bind: address already in use
+
+Another program uses the port. Stop that program, or start the Core on a different port
+in `--listen`. On Windows, the message is "Only one usage of each socket address is
+normally permitted".
+
+### Failed to acquire lock on storage directory
+
+Another Core uses the same data folder. Stop the other Core, or start this one with a
+different `--data` folder.
+
+### permission denied
+
+The user that runs the Core cannot write a folder it needs: the data folder, the log
+folder, the certificate folder, or its home folder. Give the user write access, or set
+`--data`, `--log-file-path`, and `--certs-dir` to folders it can write. A message about
+`$HOME` means the user has no home folder. See
+[Run the Core as a service](/reference/enterprise/service).
+
+### Synnax requires the storage directory to have at least -rwx------ permissions
+
+The owner of the data folder cannot read, write, or open it. Run `chmod u+rwx` on the
+folder.
+
+### license error
+
+The key given with `--license-key`, `--license-file`, or an environment variable was
+refused. The message says why: "not issued for this machine", "invalid license", or
+"expired". Replace the key, or remove the flag and activate a license in the Console.
+See [Activate a license](/reference/enterprise/license#activate-at-start).
+
+### The disk is full
+
+The Core does not check free space. When the data disk is full, the Core can stop with
+"no space left on device". Free space on the disk, then start the Core.
+
+<Divider.Divider x />
+
+## The Console cannot connect or log in
+
+### The Core shows as Unreachable
+
+Hover over the status to see the reason:
+
+- **Cannot reach Core at** -> the Console cannot connect. Check that the Core runs, the
+  host and port are correct, and a firewall allows the port. For a Core with TLS, turn
+  on **Secure**, and [install its certificate](/reference/enterprise/certificates) if it
+  is self-signed.
+- **No license is active on this Core** -> log in through a browser at the address of
+  the Core, then [activate a license](/reference/enterprise/license).
+- **The license on this Core has expired** -> see
+  [expiry](/reference/enterprise/license#expiry).
+
+### invalid credentials
+
+The username or password is wrong. For the root user, restart the Core with a new
+`--password`. For other users, an Owner deletes the user and registers them again. See
+[Users](/reference/enterprise/users).
+
+### Version mismatch
+
+The Console and the Core have a different major or minor version. Upgrade the older one.
+See [Upgrade the Core](/reference/enterprise/upgrade).
+
+### Clock is ahead of the Core
+
+The clocks of this computer and the Core differ by more than one second. Sync both with
+NTP.
+
+### Live updates are unavailable
+
+The role of the user cannot read the channels that carry live changes. An Owner gives
+the user a role with more permissions. See
+[built-in roles](/reference/enterprise/users#built-in-roles).
+
+<Divider.Divider x />
+
+## License problems
+
+### The license term cannot be checked
+
+The log says the system clock is more than 24 hours behind the last recorded time. The
+clock moved back. Fix the clock, and the license applies again.
+
+### The license stopped after a hardware change
+
+The log says `skipping a stored license key issued for another machine`. The network
+hardware of the computer changed, so its fingerprint changed. Activate the license again
+with the new fingerprint. See
+[Activate a license](/reference/enterprise/license#move-a-core-to-a-different-computer).
+
+### using more channels than allowed by the license
+
+The Core has as many channels as the license allows. See
+[channel limit](/reference/enterprise/license#channel-limit).

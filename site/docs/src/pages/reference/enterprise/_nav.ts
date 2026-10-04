@@ -106,5 +106,10 @@ export const ENTERPRISE_NAV: PageNavNode = {
       href: "/reference/enterprise/cli-reference",
       name: "CLI reference",
     },
+    {
+      key: "/reference/enterprise/troubleshooting",
+      href: "/reference/enterprise/troubleshooting",
+      name: "Troubleshooting",
+    },
   ],
 };
