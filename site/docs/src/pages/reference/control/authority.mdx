@@ -126,7 +126,7 @@ See the [`control` module](/reference/control/arc/reference/standard-library/con
 ## Set the authority of a schematic
 
 Each schematic writes at one authority, 1 by default. To change it, see
-[set the schematic authority](/reference/control/manual#control-authority-on-a-schematic).
+[set the schematic authority](/reference/control/manual#set-the-schematic-authority).
 
 <Divider.Divider x />
 
@@ -230,13 +230,13 @@ channel.
 
 ## Default authorities
 
-| Writer                      | Default | Where to change it                                                                                      |
-| --------------------------- | ------- | ------------------------------------------------------------------------------------------------------- |
-| Schematic                   | 1       | [Schematic authority](/reference/control/manual#control-authority-on-a-schematic), kept by each Console |
-| Control chip on a schematic | 255     | Cannot change                                                                                           |
-| Arc automation              | 255     | [`authority` line](#set-authority-in-an-arc-automation)                                                 |
-| Python or TypeScript writer | 255     | [`authorities` parameter](#set-authority-in-code)                                                       |
-| Read task and write task    | 255     | Cannot change                                                                                           |
+| Writer                      | Default | Where to change it                                                                                 |
+| --------------------------- | ------- | -------------------------------------------------------------------------------------------------- |
+| Schematic                   | 1       | [Schematic authority](/reference/control/manual#set-the-schematic-authority), kept by each Console |
+| Control chip on a schematic | 255     | Cannot change                                                                                      |
+| Arc automation              | 255     | [`authority` line](#set-authority-in-an-arc-automation)                                            |
+| Python or TypeScript writer | 255     | [`authorities` parameter](#set-authority-in-code)                                                  |
+| Read task and write task    | 255     | Cannot change                                                                                      |
 
 A read task writes the channels it reads at 255, so a script cannot write to them while
 the task runs. A write task writes its state channels at 255.
