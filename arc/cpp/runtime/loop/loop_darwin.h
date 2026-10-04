@@ -196,7 +196,9 @@ private:
         const auto sw = x::telem::Stopwatch();
         struct timespec timeout = {0, 0};
         struct kevent events[8];
-        while (sw.elapsed() < this->config_.spin_duration) {
+        auto spin = this->config_.spin_duration;
+        if (max_timeout.nanoseconds() > 0) spin = std::min(spin, max_timeout);
+        while (sw.elapsed() < spin) {
             if (!breaker.running()) return WakeReason::Shutdown;
             const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, &timeout);
             if (n > 0) return this->classify_events(events, n);

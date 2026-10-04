@@ -64,6 +64,8 @@ const auto SHORT_FIRE_ERROR_BOUND = 250 * x::telem::MICROSECOND;
 /// @brief Maximum median distance between a fire and its deadline in a mode that spins
 /// to the deadline.
 const auto SPIN_FIRE_ERROR_BOUND = 50 * x::telem::MICROSECOND;
+/// @brief Deadline far shorter than a 1 ms HYBRID input spin.
+const auto SHORT_DEADLINE = 100 * x::telem::MICROSECOND;
 /// @brief Deadline of a wait that an input ends before the deadline. It is shorter than
 /// the block timeout of each mode, so that a stale timer fires inside the next wait.
 const auto STALE_DEADLINE = 5 * x::telem::MILLISECOND;
@@ -1051,6 +1053,28 @@ TEST(DeadlineTest, HighRate_ShortIntervalFiresOnDeadline) {
     const auto fire = median_fire(*loop, breaker);
     breaker.stop();
     EXPECT_LE(fire.error, test_timing::SPIN_FIRE_ERROR_BOUND);
+}
+
+/// @brief HYBRID should fire on a deadline that comes before the end of its input spin.
+TEST(DeadlineTest, Hybrid_FiresOnADeadlineInsideTheInputSpin) {
+    Config config;
+    config.mode = ExecutionMode::HYBRID;
+    config.spin_duration = x::telem::MILLISECOND;
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
+    x::breaker::Breaker breaker;
+    breaker.start();
+    constexpr int COUNT = 20;
+    std::vector<x::telem::TimeSpan> errors;
+    for (int i = 0; i < COUNT; i++)
+        errors.push_back(measure_fire(
+                             *loop,
+                             breaker,
+                             x::telem::Stopwatch(),
+                             test_timing::SHORT_DEADLINE
+        )
+                             .error);
+    breaker.stop();
+    EXPECT_LE(median_of(errors), test_timing::SHORT_FIRE_ERROR_BOUND);
 }
 
 /// @brief A loop in the mode of the parameter.
