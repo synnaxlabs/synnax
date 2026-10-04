@@ -20,12 +20,14 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/schemadiff"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/typemap"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/output"
+	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/oracle/versions"
 	"github.com/synnaxlabs/x/set"
@@ -86,7 +88,8 @@ type funcData struct {
 	NewTypeName    string
 	UsesCtx        bool
 	ZeroValue      string
-	Kind           string // "struct", "slice", "cast"
+	Kind           string // "struct", "slice", "cast", "union"
+	Variants       []variantCase
 	Preamble       []step
 	Fields         []field
 	SliceElemExpr  string
@@ -106,6 +109,12 @@ type step struct {
 	ElemExpr string
 	OldElem  string
 	NewElem  string
+}
+
+// variantCase is one arm of a union migration's type switch.
+type variantCase struct {
+	OldType string
+	Func    string
 }
 
 type field struct {
@@ -154,6 +163,23 @@ func autoMigrate{{$fn.GoName}}{{$fn.TypeParamsDecl}}({{- if $fn.UsesCtx}}ctx{{el
 		return {{$fn.SliceElemExpr}}
 	}), nil
 {{- end}}
+}
+{{else if eq $fn.Kind "union"}}
+func autoMigrate{{$fn.GoName}}(ctx context.Context, old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
+	switch v := old.Variant.(type) {
+	case nil:
+		return {{$fn.ZeroValue}}, nil
+{{- range $fn.Variants}}
+	case {{.OldType}}:
+		nv, err := {{.Func}}(ctx, v)
+		if err != nil {
+			return {{$fn.ZeroValue}}, err
+		}
+		return {{$fn.NewTypeName}}{Variant: nv}, nil
+{{- end}}
+	default:
+		return {{$fn.ZeroValue}}, errors.Newf("{{$fn.GoName}}: unknown variant %T", v)
+	}
 }
 {{else if eq $fn.Kind "struct"}}
 func autoMigrate{{$fn.GoName}}{{$fn.TypeParamsDecl}}({{- if $fn.UsesCtx}}ctx{{else}}_{{end}} context.Context, old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
@@ -228,6 +254,8 @@ type collector struct {
 	wrappers map[string]string
 	// usesLo marks that an emitted function body calls a samber/lo helper.
 	usesLo bool
+	// usesErrors marks that an emitted function body builds an x/errors error.
+	usesErrors bool
 }
 
 func (c *collector) collect(types []resolution.Type) fileData {
@@ -245,6 +273,9 @@ func (c *collector) collect(types []resolution.Type) fileData {
 	}
 	if c.usesLo {
 		c.imports["github.com/samber/lo"] = importEntry{Path: "github.com/samber/lo"}
+	}
+	if c.usesErrors {
+		c.imports[errorsImportPath] = importEntry{Path: errorsImportPath}
 	}
 	// context renders as its own standard-library group in the template;
 	// every function signature includes context.Context.
@@ -268,6 +299,8 @@ func (c *collector) ensureFunc(typ resolution.Type) {
 		c.funcs = append(c.funcs, c.aliasFunc(typ, form))
 	case resolution.DistinctForm:
 		c.funcs = append(c.funcs, c.distinctFunc(typ, form))
+	case resolution.UnionForm:
+		c.funcs = append(c.funcs, c.unionFunc(typ, form))
 	default:
 		c.funcs = append(c.funcs, c.castFunc(typ))
 	}
@@ -336,6 +369,67 @@ func (c *collector) distinctFunc(
 		)
 	}
 	return decorateWithTypeParams(c.castFunc(typ), form.TypeParams)
+}
+
+const errorsImportPath = "github.com/synnaxlabs/x/errors"
+
+// unionFunc migrates a union one variant at a time. A variant removed in the new
+// version falls to the unknown-variant error.
+func (c *collector) unionFunc(typ resolution.Type, form resolution.UnionForm) funcData {
+	goName := naming.GetGoName(typ)
+	newName := c.resolveNewTypeName(typ)
+	fn := funcData{
+		GoName:      goName,
+		OldTypeName: c.resolveTypeName(typ, c.oldTable),
+		NewTypeName: newName,
+		ZeroValue:   newName + "{}",
+		Kind:        "union",
+	}
+	oldPrefix := strings.TrimSuffix(fn.OldTypeName, goName)
+	newType, _ := c.newCounterpart(typ)
+	newForm, _ := newType.Form.(resolution.UnionForm)
+	for _, v := range form.Variants {
+		newV, ok := newForm.Variant(v.Name)
+		if !ok {
+			continue
+		}
+		vName := casing.VariantTypeName(goName, v.Name)
+		c.funcs = append(c.funcs, c.structFuncFromForms(
+			vName,
+			oldPrefix+vName,
+			strings.TrimSuffix(newName, goName)+vName,
+			variantForm(form, v, c.oldTable),
+			variantForm(newForm, newV, c.newTable),
+		))
+		fn.Variants = append(fn.Variants, variantCase{
+			OldType: oldPrefix + vName,
+			Func:    "autoMigrate" + vName,
+		})
+	}
+	c.usesErrors = true
+	return fn
+}
+
+// variantForm returns the struct a union variant generates as: the union's bases,
+// the variant's own bases, and its fields, in the order the types plugin embeds them.
+func variantForm(
+	form resolution.UnionForm,
+	v resolution.UnionVariant,
+	table *resolution.Table,
+) resolution.StructForm {
+	if !v.Inline {
+		return resolution.StructForm{
+			Extends: append(slices.Clone(form.Extends), v.Type),
+		}
+	}
+	inherited, declared := resolver.VariantBases(form, v, table)
+	sf := resolution.StructForm{Extends: inherited, Fields: declared}
+	if payload, ok := v.Type.Resolve(table); ok {
+		if pform, ok := payload.Form.(resolution.StructForm); ok {
+			sf.Fields = append(slices.Clone(declared), pform.Fields...)
+		}
+	}
+	return sf
 }
 
 func (c *collector) castFunc(typ resolution.Type) funcData {
@@ -679,17 +773,17 @@ func (c *collector) requireFunc(typ resolution.Type) string {
 		if !c.generated.Contains(typ.QualifiedName) {
 			c.pending = append(c.pending, typ)
 		}
-		// Every changed struct gets a MigrateX/migrateX wrapper in the
+		// Every changed struct or union gets a MigrateX/migrateX wrapper in the
 		// developer template; route local references through it so
 		// hand-written fixups in the wrapper apply to nested occurrences too.
-		if td, ok := c.diff[typ.QualifiedName]; ok &&
-			td.Kind == schemadiff.TypeChanged {
-			if _, isStruct := typ.Form.(resolution.StructForm); isStruct {
-				if n, ok := c.wrappers[typ.QualifiedName]; ok {
-					return n
-				}
-				return "Migrate" + goName
+		td, hasDiff := c.diff[typ.QualifiedName]
+		_, isStruct := typ.Form.(resolution.StructForm)
+		_, isUnion := typ.Form.(resolution.UnionForm)
+		if hasDiff && td.Kind == schemadiff.TypeChanged && (isStruct || isUnion) {
+			if n, ok := c.wrappers[typ.QualifiedName]; ok {
+				return n
 			}
+			return "Migrate" + goName
 		}
 		return "autoMigrate" + goName
 	}
