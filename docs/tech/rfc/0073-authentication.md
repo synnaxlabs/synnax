@@ -117,12 +117,11 @@ Password struct {
 }
 
 APIKey struct {
-    key       Key
-    subject   ontology.ID
-    hash      bytes        // SHA-256 of the secret
-    name      string
-    created   timestamp
-    last_used timestamp
+    key     Key
+    subject ontology.ID
+    hash    bytes        // SHA-256 of the secret
+    name    string
+    created timestamp
 }
 
 OIDCLink struct {
@@ -141,8 +140,9 @@ can hold one password, any number of API keys, and one link per provider.
 - **API key**: The key a client holds is `syk_`, the record key, and a random secret.
   The Core finds the record by its key and compares the hash. The secret is random, so a
   fast hash is safe. The Core returns the full key once, at creation. `name` is a label
-  such as "Terraform". `created` and `last_used` show which keys are old or unused. A
-  key has no permissions of its own. It acts as its subject.
+  such as "Terraform". `created` shows the age of a key, for rotation. To see whether a
+  key is in use, the Console lists its live sessions. A key has no permissions of its
+  own. It acts as its subject.
 - **OIDC link**: `account` is the stable ID the provider gives the person (§4.2). The
   Core stores no secret for it.
 
