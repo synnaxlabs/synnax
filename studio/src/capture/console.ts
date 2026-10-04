@@ -160,6 +160,20 @@ export const hideBottomToolbar = async (session: CaptureSession): Promise<void> 
   await session.waitForHidden(drawer);
 };
 
+/** closeToolbar closes the open side toolbar by clicking its selected nav icon. */
+export const closeToolbar = async (session: CaptureSession): Promise<void> => {
+  const { page } = session;
+  const selected = page.locator("button.console-main-nav__item.pluto--selected");
+  if (
+    !(await selected
+      .first()
+      .isVisible()
+      .catch(() => false))
+  )
+    return;
+  await session.click(selected.first());
+};
+
 /**
  * clickToolbarCreate clicks the "+" create action in the open toolbar's
  * header, as recorded input. The create action is always the last header
