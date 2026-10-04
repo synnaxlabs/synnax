@@ -20,22 +20,18 @@ export const createComponentScript =
     const { page } = session;
     await capture.login(session);
     await capture.clearPanel(session);
-    await session.moveTo({ x: 756, y: 500 });
+    await session.moveTo({ x: 800, y: 450 });
 
     session.startRecording();
-    await session.hold(1200);
+    await session.hold(1800);
 
     await capture.clickPanelCreate(session);
+    const selector = page.locator(".console-layout-selector__frame").first();
+    await session.waitFor(selector);
+    await session.zoom(selector);
     await session.hold(800);
-    await session.zoom(
-      page
-        .locator(".console-layout-selector__frame")
-        .getByRole("button", { name: title })
-        .first(),
-      1.8,
-    );
     await capture.createComponent(session, title);
-    await session.waitFor(page.locator(ready).first());
     session.endZoom();
-    await session.hold(3000);
+    await session.waitFor(page.locator(ready).first());
+    await session.hold(2800);
   };

@@ -48,12 +48,12 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await group.scrollIntoViewIfNeeded();
   await session.click(group, { text: true, zoom: false });
   await session.settle(600);
-  await session.moveTo({ x: 540, y: 300 });
+  await session.moveTo({ x: 800, y: 450 });
 
   session.startRecording();
-  await session.hold(500);
+  await session.hold(1800);
 
-  await session.click(capture.toolbarButton(page, "schematic", "add"));
+  await session.click(capture.toolbarButton(page, "schematic", "add"), { zoom: false });
   const modal = page.locator(".pluto-dialog__dialog.pluto--modal").first();
   const drop = page.locator(".console-schematic-file-drop").first();
   await session.waitFor(drop);
@@ -73,32 +73,14 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     modal.getByRole("button", { name: "Create", exact: true }).first(),
     { zoom: false },
   );
-  await session.waitForHidden(drop);
   session.endZoom();
+  await session.waitForHidden(drop);
 
   const symbol = page
     .locator(".console-schematic-symbols__button")
     .filter({ has: page.getByText("Tank", { exact: true }) })
     .first();
   await session.waitFor(symbol);
-  await session.hold(600);
-  // Park the cursor clear of the new symbol, then frame the group tab and the
-  // symbol together: at full width the drawer entry is too small to read.
-  const [tabBox, symbolBox] = await Promise.all([
-    group.boundingBox(),
-    symbol.boundingBox(),
-  ]);
-  const view = page.viewportSize();
-  if (tabBox == null || symbolBox == null || view == null)
-    throw new Error("group tab or symbol is hidden");
-  const left = Math.min(tabBox.x, symbolBox.x);
-  const right = Math.max(tabBox.x + tabBox.width, symbolBox.x + symbolBox.width);
-  const top = Math.min(tabBox.y, symbolBox.y);
-  const bottom = Math.max(tabBox.y + tabBox.height, symbolBox.y + symbolBox.height);
-  await session.moveTo({ x: symbolBox.x + symbolBox.width + 160, y: 300 });
-  await session.zoom(
-    { x: (left + right) / 2, y: (top + bottom) / 2 },
-    Math.min(1.45, view.width / (right - left + 96), view.height / (bottom - top + 96)),
-  );
-  await session.hold(500);
+  await session.moveTo({ x: 800, y: 450 });
+  await session.hold(2800);
 };
