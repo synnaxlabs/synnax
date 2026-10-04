@@ -2,9 +2,12 @@
 layout: "@/layouts/Reference.astro"
 title: "Production checklist"
 description: "Check a Synnax Core before you use it for real tests and operations."
+platforms: ["Linux", "Windows", "Docker"]
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
+
+import { Platform } from "@/components/platform";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -35,7 +38,56 @@ the page with the steps.
    data disk fills. The Core does not start with `--debug`. See
    [Monitor the Core](/reference/enterprise/service#monitor-the-core).
 8. **Backups** -> you copy the data folder on a schedule while the Core is stopped, and
-   before each upgrade. The Core has no online backup. See
-   [Upgrade the Core](/reference/enterprise/upgrade#before-you-upgrade).
+   before each upgrade. See [Back up the Core](#back-up-the-core).
 9. **Clock** -> the computer syncs its clock with NTP. A clock that moves back more than
    24 hours stops a license with an expiry date from applying.
+
+<Divider.Divider x />
+
+## Back up the Core
+
+A backup is a copy of the whole data folder, made while the Core is stopped. The Core is
+down during the copy, so clients cannot read or write data. The Core has no online
+backup.
+
+To restore, stop the Core, replace the data folder with the copy, and start the Core.
+
+<Platform.Tabs exclude={["macOS"]}>
+<Fragment slot="Linux">
+
+For a Core that runs as a [systemd service](/reference/enterprise/service), the data
+folder is `/var/lib/synnax/data`:
+
+```bash
+sudo systemctl stop synnax
+sudo cp -a /var/lib/synnax/data /backups/synnax-data-$(date +%F)
+sudo systemctl start synnax
+```
+
+</Fragment>
+<Fragment slot="Windows">
+
+For a Core that runs as a [Windows service](/reference/enterprise/service), the data
+folder is `C:\ProgramData\Synnax\data`. Run in an administrator terminal:
+
+```powershell
+synnax service stop
+robocopy C:\ProgramData\Synnax\data D:\Backups\synnax-data /E
+synnax service start
+```
+
+</Fragment>
+<Fragment slot="Docker">
+
+The data folder is the `synnax-data` volume. This copies it into an archive in the
+current folder:
+
+```bash
+docker stop synnax
+docker run --rm -v synnax-data:/data -v "$PWD":/backup alpine \
+  tar czf /backup/synnax-data.tar.gz -C /data .
+docker start synnax
+```
+
+</Fragment>
+</Platform.Tabs>
