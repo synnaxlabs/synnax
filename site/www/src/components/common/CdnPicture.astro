@@ -1,0 +1,48 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { inferRemoteSize, Picture } from "astro:assets";
+import type { HTMLAttributes } from "astro/types";
+import { cdn } from "@/cdn";
+
+interface Props extends Omit<
+    HTMLAttributes<"img">,
+    "src" | "srcset" | "width" | "height"
+> {
+    /** The image path under the CDN landing folder. */
+    path: string;
+    alt: string;
+    /** The rendered width of the image at each viewport, as in the `sizes` attribute. */
+    sizes: string;
+    /** Loads the image eagerly at high priority. Set only for the LCP image. */
+    priority?: boolean;
+}
+
+// Two pixels per CSS pixel at the widest content column.
+const WIDTHS = [640, 960, 1280, 1920, 2560];
+
+const { path, ...rest } = Astro.props;
+const src = cdn(path);
+const size = await inferRemoteSize(src);
+// Sharp enlarges past the source width, which only adds bytes.
+const width = Math.min(size.width, WIDTHS[WIDTHS.length - 1]);
+const height = Math.round((size.height * width) / size.width);
+const widths = [...WIDTHS.filter((w) => w < width), width];
+---
+
+<Picture
+    {...rest}
+    src={src}
+    width={width}
+    height={height}
+    widths={widths}
+    formats={["avif"]}
+    fallbackFormat="webp"
+/>

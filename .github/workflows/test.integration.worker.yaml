@@ -81,6 +81,26 @@ jobs:
         working-directory: integration
         run: uv run playwright install --with-deps
 
+      - name: Start resource sampler (Windows)
+        id: sampler-win
+        if: runner.os == 'Windows'
+        shell: powershell
+        working-directory: integration
+        run: |
+          Remove-Item -Force -ErrorAction SilentlyContinue "$env:RUNNER_TEMP\resources.stop"
+          Start-Process -FilePath uv -WindowStyle Hidden -WorkingDirectory . `
+            -ArgumentList 'run', 'python', '../.github/scripts/sample_resources.py', `
+            'sample', "$env:RUNNER_TEMP\resources.csv"
+
+      - name: Start resource sampler (Ubuntu)
+        id: sampler-unix
+        if: runner.os == 'Linux'
+        working-directory: integration
+        run: |
+          rm -f "$RUNNER_TEMP/resources.stop"
+          nohup uv run python ../.github/scripts/sample_resources.py sample \
+            "$RUNNER_TEMP/resources.csv" > /dev/null 2>&1 &
+
       - name: Start Core (Windows)
         if: runner.os == 'Windows'
         timeout-minutes: 1
@@ -119,6 +139,17 @@ jobs:
           PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
         run: >-
           uv run test-conductor --name tc_unix ${{ matrix.target || inputs.flags }}
+
+      # A failed measurement must not fail the tests it measured.
+      - name: Report resource use
+        continue-on-error: true
+        if:
+          always() && (steps.sampler-win.outcome == 'success' ||
+          steps.sampler-unix.outcome == 'success')
+        working-directory: integration
+        run: >-
+          uv run python ../.github/scripts/sample_resources.py report ${{ runner.temp
+          }}/resources.csv
 
       # The conductor writes a per-run bundle to integration/tests/results/run-*/
       # containing summary.json, server.log, and per-test subdirs (trace.zip,

@@ -15,14 +15,20 @@ import { defineConfig } from "astro/config";
 
 export default defineConfig({
   integrations: [integration(), react()],
-  output: "server",
   adapter: vercel(),
+  // Pictures from the CDN are fetched and re-encoded at build time.
+  image: { domains: ["synnax.nyc3.cdn.digitaloceanspaces.com"] },
   vite: {
     // These ship ESM with CSS imports, which Node cannot load; Vite bundles them for
     // SSR.
     ssr: { noExternal: ["@synnaxlabs/lyra", "@synnaxlabs/site-common"] },
     css: {
       postcss: { plugins: [layers([{ name: "pluto", files: /[\\/]lyra[\\/]/ }])] },
+    },
+    // An inlined font ships in the render-blocking stylesheet whether or not a page
+    // needs its characters.
+    build: {
+      assetsInlineLimit: (file) => (/\.woff2?$/.test(file) ? false : undefined),
     },
   },
   site: "https://www.synnaxlabs.com",

@@ -10,7 +10,7 @@
 
 import { createCssVariablesTheme, createHighlighter } from "shiki";
 import { EcosystemDiagram } from "@/components/sdks/EcosystemDiagram";
-import { SDKShowcase } from "@/components/sdks/SDKShowcase";
+import { type Samples, SDKShowcase } from "@/components/sdks/SDKShowcase";
 import SectionHero from "@/components/common/SectionHero.astro";
 
 const cssVarsTheme = createCssVariablesTheme({ name: "css-variables" });
@@ -136,23 +136,23 @@ for (auto& s : frame.series) {
     process(s);
 }`;
 
-const codeHtmls = [
-    [
-        highlight(pyStream, "python"),
-        highlight(pyWrite, "python"),
-        highlight(pyRead, "python"),
-    ],
-    [
-        highlight(tsStream, "typescript"),
-        highlight(tsWrite, "typescript"),
-        highlight(tsRead, "typescript"),
-    ],
-    [
-        highlight(cppStream, "cpp"),
-        highlight(cppWrite, "cpp"),
-        highlight(cppRead, "cpp"),
-    ],
-];
+const samples: Samples = {
+    python: {
+        stream: highlight(pyStream, "python"),
+        write: highlight(pyWrite, "python"),
+        read: highlight(pyRead, "python"),
+    },
+    typescript: {
+        stream: highlight(tsStream, "typescript"),
+        write: highlight(tsWrite, "typescript"),
+        read: highlight(tsRead, "typescript"),
+    },
+    cpp: {
+        stream: highlight(cppStream, "cpp"),
+        write: highlight(cppWrite, "cpp"),
+        read: highlight(cppRead, "cpp"),
+    },
+};
 ---
 
 <SectionHero id="sdks" label="7 -> Extend with SDKs" class="sdks">
@@ -166,7 +166,7 @@ const codeHtmls = [
 
 <div class="sdks-content">
     <EcosystemDiagram client:visible />
-    <SDKShowcase client:visible codeHtmls={codeHtmls} />
+    <SDKShowcase client:visible samples={samples} />
 </div>
 
 <style is:global>

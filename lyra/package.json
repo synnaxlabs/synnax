@@ -21,10 +21,13 @@
     "@fontsource-variable/inter": "catalog:",
     "@fontsource/geist-mono": "catalog:",
     "@synnaxlabs/x": "catalog:",
+    "@tanstack/react-virtual": "catalog:",
     "clsx": "catalog:",
     "compromise": "catalog:",
     "compromise-dates": "catalog:",
+    "fuse.js": "catalog:",
     "mathjs": "catalog:",
+    "pluralize": "catalog:",
     "react-icons": "catalog:",
     "zod": "catalog:"
   },
@@ -48,7 +51,6 @@
     "@synnaxlabs/stylelint-config": "catalog:",
     "@synnaxlabs/tsconfig": "catalog:",
     "@synnaxlabs/vite-plugin": "catalog:",
-    "@tanstack/react-virtual": "catalog:",
     "@testing-library/react": "catalog:",
     "@testing-library/user-event": "catalog:",
     "@types/node": "catalog:",
@@ -58,9 +60,7 @@
     "@vitejs/plugin-react": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
-    "fuse.js": "catalog:",
     "jsdom": "catalog:",
-    "pluralize": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "stylelint": "catalog:",
@@ -71,196 +71,196 @@
   },
   "exports": {
     "./avatar": {
-      "types": "./dist/src/avatar/index.d.ts",
-      "default": "./dist/avatar.js"
+      "types": "./dist/avatar/index.d.ts",
+      "default": "./dist/avatar/index.js"
     },
     "./breadcrumb": {
-      "types": "./dist/src/breadcrumb/index.d.ts",
-      "default": "./dist/breadcrumb.js"
+      "types": "./dist/breadcrumb/index.d.ts",
+      "default": "./dist/breadcrumb/index.js"
     },
     "./button": {
-      "types": "./dist/src/button/index.d.ts",
-      "default": "./dist/button.js"
+      "types": "./dist/button/index.d.ts",
+      "default": "./dist/button/index.js"
     },
     "./caret": {
-      "types": "./dist/src/caret/index.d.ts",
-      "default": "./dist/caret.js"
+      "types": "./dist/caret/index.d.ts",
+      "default": "./dist/caret/index.js"
     },
     "./clipboard": {
-      "types": "./dist/src/clipboard/index.d.ts",
-      "default": "./dist/clipboard.js"
+      "types": "./dist/clipboard/index.d.ts",
+      "default": "./dist/clipboard/index.js"
     },
     "./color": {
-      "types": "./dist/src/color/index.d.ts",
-      "default": "./dist/color.js"
+      "types": "./dist/color/index.d.ts",
+      "default": "./dist/color/index.js"
     },
     "./component": {
-      "types": "./dist/src/component/index.d.ts",
-      "default": "./dist/component.js"
+      "types": "./dist/component/index.d.ts",
+      "default": "./dist/component/index.js"
     },
     "./context": {
-      "types": "./dist/src/context/index.d.ts",
-      "default": "./dist/context.js"
+      "types": "./dist/context/index.d.ts",
+      "default": "./dist/context/index.js"
     },
     "./css": {
-      "types": "./dist/src/css/index.d.ts",
-      "default": "./dist/css.js"
+      "types": "./dist/css/index.d.ts",
+      "default": "./dist/css/index.js"
     },
     "./cursor": {
-      "types": "./dist/src/cursor/index.d.ts",
-      "default": "./dist/cursor.js"
+      "types": "./dist/cursor/index.d.ts",
+      "default": "./dist/cursor/index.js"
     },
     "./description": {
-      "types": "./dist/src/description/index.d.ts",
-      "default": "./dist/description.js"
+      "types": "./dist/description/index.d.ts",
+      "default": "./dist/description/index.js"
     },
     "./dialog": {
-      "types": "./dist/src/dialog/index.d.ts",
-      "default": "./dist/dialog.js"
+      "types": "./dist/dialog/index.d.ts",
+      "default": "./dist/dialog/index.js"
     },
     "./divider": {
-      "types": "./dist/src/divider/index.d.ts",
-      "default": "./dist/divider.js"
+      "types": "./dist/divider/index.d.ts",
+      "default": "./dist/divider/index.js"
     },
     "./flex": {
-      "types": "./dist/src/flex/index.d.ts",
-      "default": "./dist/flex.js"
+      "types": "./dist/flex/index.d.ts",
+      "default": "./dist/flex/index.js"
     },
     "./form": {
-      "types": "./dist/src/form/index.d.ts",
-      "default": "./dist/form.js"
+      "types": "./dist/form/index.d.ts",
+      "default": "./dist/form/index.js"
     },
     "./generic": {
-      "types": "./dist/src/generic/index.d.ts",
-      "default": "./dist/generic.js"
+      "types": "./dist/generic/index.d.ts",
+      "default": "./dist/generic/index.js"
     },
     "./haul": {
-      "types": "./dist/src/haul/index.d.ts",
-      "default": "./dist/haul.js"
+      "types": "./dist/haul/index.d.ts",
+      "default": "./dist/haul/index.js"
     },
     "./header": {
-      "types": "./dist/src/header/index.d.ts",
-      "default": "./dist/header.js"
+      "types": "./dist/header/index.d.ts",
+      "default": "./dist/header/index.js"
     },
     "./hooks": {
-      "types": "./dist/src/hooks/index.d.ts",
-      "default": "./dist/hooks.js"
+      "types": "./dist/hooks/index.d.ts",
+      "default": "./dist/hooks/index.js"
     },
     "./icon": {
-      "types": "./dist/src/icon/index.d.ts",
-      "default": "./dist/icon.js"
+      "types": "./dist/icon/index.d.ts",
+      "default": "./dist/icon/index.js"
     },
     "./input": {
-      "types": "./dist/src/input/index.d.ts",
-      "default": "./dist/input.js"
+      "types": "./dist/input/index.d.ts",
+      "default": "./dist/input/index.js"
     },
     "./list": {
-      "types": "./dist/src/list/index.d.ts",
-      "default": "./dist/list.js"
+      "types": "./dist/list/index.d.ts",
+      "default": "./dist/list/index.js"
     },
     "./memo": {
-      "types": "./dist/src/memo/index.d.ts",
-      "default": "./dist/memo.js"
+      "types": "./dist/memo/index.d.ts",
+      "default": "./dist/memo/index.js"
     },
     "./menu": {
-      "types": "./dist/src/menu/index.d.ts",
-      "default": "./dist/menu.js"
+      "types": "./dist/menu/index.d.ts",
+      "default": "./dist/menu/index.js"
     },
     "./modal": {
-      "types": "./dist/src/modal/index.d.ts",
-      "default": "./dist/modal.js"
+      "types": "./dist/modal/index.d.ts",
+      "default": "./dist/modal/index.js"
     },
     "./nav": {
-      "types": "./dist/src/nav/index.d.ts",
-      "default": "./dist/nav.js"
+      "types": "./dist/nav/index.d.ts",
+      "default": "./dist/nav/index.js"
     },
     "./nebula": {
-      "types": "./dist/src/nebula/index.d.ts",
-      "default": "./dist/nebula.js"
+      "types": "./dist/nebula/index.d.ts",
+      "default": "./dist/nebula/index.js"
     },
     "./note": {
-      "types": "./dist/src/note/index.d.ts",
-      "default": "./dist/note.js"
+      "types": "./dist/note/index.d.ts",
+      "default": "./dist/note/index.js"
     },
     "./portal": {
-      "types": "./dist/src/portal/index.d.ts",
-      "default": "./dist/portal.js"
+      "types": "./dist/portal/index.d.ts",
+      "default": "./dist/portal/index.js"
     },
     "./position": {
-      "types": "./dist/src/position/index.d.ts",
-      "default": "./dist/position.js"
+      "types": "./dist/position/index.d.ts",
+      "default": "./dist/position/index.js"
     },
     "./progress": {
-      "types": "./dist/src/progress/index.d.ts",
-      "default": "./dist/progress.js"
+      "types": "./dist/progress/index.d.ts",
+      "default": "./dist/progress/index.js"
     },
     "./resize": {
-      "types": "./dist/src/resize/index.d.ts",
-      "default": "./dist/resize.js"
+      "types": "./dist/resize/index.d.ts",
+      "default": "./dist/resize/index.js"
     },
     "./select": {
-      "types": "./dist/src/select/index.d.ts",
-      "default": "./dist/select.js"
+      "types": "./dist/select/index.d.ts",
+      "default": "./dist/select/index.js"
     },
     "./state": {
-      "types": "./dist/src/state/index.d.ts",
-      "default": "./dist/state.js"
+      "types": "./dist/state/index.d.ts",
+      "default": "./dist/state/index.js"
     },
     "./status": {
-      "types": "./dist/src/status/index.d.ts",
-      "default": "./dist/status.js"
+      "types": "./dist/status/index.d.ts",
+      "default": "./dist/status/index.js"
     },
     "./store": {
-      "types": "./dist/src/store/index.d.ts",
-      "default": "./dist/store.js"
+      "types": "./dist/store/index.d.ts",
+      "default": "./dist/store/index.js"
     },
     "./tabs": {
-      "types": "./dist/src/tabs/index.d.ts",
-      "default": "./dist/tabs.js"
+      "types": "./dist/tabs/index.d.ts",
+      "default": "./dist/tabs/index.js"
     },
     "./tag": {
-      "types": "./dist/src/tag/index.d.ts",
-      "default": "./dist/tag.js"
+      "types": "./dist/tag/index.d.ts",
+      "default": "./dist/tag/index.js"
     },
     "./telem": {
-      "types": "./dist/src/telem/index.d.ts",
-      "default": "./dist/telem.js"
+      "types": "./dist/telem/index.d.ts",
+      "default": "./dist/telem/index.js"
     },
     "./testutil": {
-      "types": "./dist/src/testutil/index.d.ts",
-      "default": "./dist/testutil.js"
+      "types": "./dist/testutil/index.d.ts",
+      "default": "./dist/testutil/index.js"
     },
     "./text": {
-      "types": "./dist/src/text/index.d.ts",
-      "default": "./dist/text.js"
+      "types": "./dist/text/index.d.ts",
+      "default": "./dist/text/index.js"
     },
     "./theme": {
-      "types": "./dist/src/theme/index.d.ts",
-      "default": "./dist/theme.js"
+      "types": "./dist/theme/index.d.ts",
+      "default": "./dist/theme/index.js"
     },
     "./theming": {
-      "types": "./dist/src/theming/index.d.ts",
-      "default": "./dist/theming.js"
+      "types": "./dist/theming/index.d.ts",
+      "default": "./dist/theming/index.js"
     },
     "./tooltip": {
-      "types": "./dist/src/tooltip/index.d.ts",
-      "default": "./dist/tooltip.js"
+      "types": "./dist/tooltip/index.d.ts",
+      "default": "./dist/tooltip/index.js"
     },
     "./tree": {
-      "types": "./dist/src/tree/index.d.ts",
-      "default": "./dist/tree.js"
+      "types": "./dist/tree/index.d.ts",
+      "default": "./dist/tree/index.js"
     },
     "./triggers": {
-      "types": "./dist/src/triggers/index.d.ts",
-      "default": "./dist/triggers.js"
+      "types": "./dist/triggers/index.d.ts",
+      "default": "./dist/triggers/index.js"
     },
     "./util": {
-      "types": "./dist/src/util/index.d.ts",
-      "default": "./dist/util.js"
+      "types": "./dist/util/index.d.ts",
+      "default": "./dist/util/index.js"
     },
     "./video": {
-      "types": "./dist/src/video/index.d.ts",
-      "default": "./dist/video.js"
+      "types": "./dist/video/index.d.ts",
+      "default": "./dist/video/index.js"
     },
     "./dist/*": "./dist/*"
   }

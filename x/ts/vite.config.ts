@@ -10,22 +10,11 @@
 /// <reference types="vitest/config" />
 
 import { lib } from "@synnaxlabs/vite-plugin";
-import path from "path";
 import { defineConfig } from "vite";
 
 export default defineConfig({
   base: "/x/",
-  plugins: [lib({ name: "x" })],
-  build: {
-    lib: {
-      entry: {
-        index: path.resolve(".", "src/index.ts"),
-        bench: path.resolve(".", "src/bench/index.ts"),
-        testutil: path.resolve(".", "src/testutil/index.ts"),
-      },
-    },
-    rolldownOptions: { external: ["zod", "vitest", /^node:/] },
-  },
+  plugins: [lib({ name: "x", transpiled: true })],
   test: {
     setupFiles: ["src/testutil/setup.ts"],
     exclude: ["**/node_modules/**", "**/dist/**"],

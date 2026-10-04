@@ -23,7 +23,7 @@ import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
         </a>
         <Flex.Box x gap={4} align="center">
             <div class="header-nav">
-                <Nav client:load />
+                <Nav />
             </div>
             <Button.Button variant="filled" href="/#contact">
                 Book a demo
@@ -172,8 +172,35 @@ import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
         box-shadow:
             0 4px 12px rgba(0, 0, 0, 0.15),
             0 16px 40px rgba(0, 0, 0, 0.2);
-        animation: dropdown-reveal 0.15s cubic-bezier(0.16, 1, 0.3, 1);
         z-index: 20;
+        visibility: hidden;
+        opacity: 0;
+        transform: translateX(-50%) translateY(-6px) scale(0.98);
+        /* Stays open briefly after the pointer leaves. */
+        transition:
+            visibility 0s 0.15s,
+            opacity 0s 0.15s,
+            transform 0s 0.15s;
+
+        /* Keeps the hover alive while the pointer crosses the gap below the link. */
+        &::before {
+            content: "";
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            right: 0;
+            height: 1.5rem;
+        }
+    }
+
+    .nav-dropdown-wrap:hover .product-dropdown,
+    .nav-dropdown-wrap:focus-within .product-dropdown {
+        visibility: visible;
+        opacity: 1;
+        transform: translateX(-50%);
+        transition:
+            opacity 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+            transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     .product-grid {
@@ -228,17 +255,6 @@ import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
         .product-card__desc {
             color: var(--pluto-gray-l8);
             line-height: 1.4;
-        }
-    }
-
-    @keyframes dropdown-reveal {
-        from {
-            opacity: 0;
-            transform: translateX(-50%) translateY(-6px) scale(0.98);
-        }
-        to {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0) scale(1);
         }
     }
 
@@ -299,14 +315,7 @@ import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
 </style>
 
 <script>
-    const header = document.querySelector(".header");
-    const updateHeader = () => {
-        if (window.scrollY <= 10) {
-            header?.classList.add("header--top");
-        } else {
-            header?.classList.remove("header--top");
-        }
-    };
-    updateHeader();
-    window.addEventListener("scroll", updateHeader, { passive: true });
+    import { start } from "@/components/header";
+
+    start();
 </script>

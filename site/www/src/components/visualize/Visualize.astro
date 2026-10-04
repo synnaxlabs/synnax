@@ -13,7 +13,8 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import SectionHero from "@/components/common/SectionHero.astro";
 import FeatureSection from "@/components/common/FeatureSection.astro";
 import PanelTab from "@/components/common/PanelTab.astro";
-import { cdn } from "@/cdn";
+import CdnPicture from "@/components/common/CdnPicture.astro";
+import LazyVideo from "@/components/common/LazyVideo.astro";
 ---
 
 <SectionHero id="visualize" label="2 -> Visualize and operate">
@@ -39,17 +40,13 @@ import { cdn } from "@/cdn";
         Learn more →
     </Button.Button>
     <div class="visualize-video-clip">
-        <video
+        <LazyVideo
             class="visualize-video--schematic"
-            width="3172"
-            height="2160"
-            autoplay
-            muted
-            loop
-            playsinline
-        >
-            <source src={cdn("schematic.mp4")} type="video/mp4" />
-        </video>
+            wide="videos/schematic-2560.1667ce37.mp4"
+            narrow="videos/schematic-1280.db0d11d3.mp4"
+            width={2560}
+            height={1744}
+        />
     </div>
 </FeatureSection>
 
@@ -71,18 +68,22 @@ import { cdn } from "@/cdn";
             <PanelTab label="Line plot">
                 <Icon.Visualize slot="icon" className="panel-tab-icon" />
             </PanelTab>
-            <video width="3840" height="2072" autoplay muted loop playsinline>
-                <source src={cdn("lineplot.mp4")} type="video/mp4" />
-            </video>
+            <LazyVideo
+                wide="videos/lineplot-2560.95642d77.mp4"
+                narrow="videos/lineplot-1280.e2b85c0f.mp4"
+                width={2560}
+                height={1384}
+            />
         </div>
         <div class="visualize-lineplot-detail-container">
             <PanelTab label="Measure">
                 <Icon.Rule slot="icon" className="panel-tab-icon" />
             </PanelTab>
             <div class="visualize-lineplot-detail-image-area">
-                <img
+                <CdnPicture
                     class="visualize-lineplot-detail"
-                    src={cdn("images/lineplot-detail.png")}
+                    path="images/lineplot-detail.png"
+                    sizes="440px"
                     alt="Line plot measurement detail showing slope, delta X, and delta Y"
                 />
             </div>

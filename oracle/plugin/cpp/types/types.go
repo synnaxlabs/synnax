@@ -804,6 +804,15 @@ func getUnderlyingPrimitive(
 	return ""
 }
 
+func isIntEnum(typeRef resolution.TypeRef, table *resolution.Table) bool {
+	resolved, ok := typeRef.Resolve(table)
+	if !ok {
+		return false
+	}
+	form, ok := resolved.Form.(resolution.EnumForm)
+	return ok && form.IsIntEnum
+}
+
 func (p *Plugin) processField(
 	field resolution.Field,
 	entry resolution.Type,
@@ -831,6 +840,9 @@ func (p *Plugin) processField(
 	cppFieldName = keywords.Escape(cppFieldName)
 
 	defaultValue := cppDefaultValue(cppType, underlyingPrimitive)
+	if !field.Optional && isIntEnum(field.Type, data.table) {
+		defaultValue = "{}"
+	}
 	if field.Default != nil {
 		if lit := p.cppDefaultLiteral(field.Type, *field.Default, data); lit != "" {
 			defaultValue = lit

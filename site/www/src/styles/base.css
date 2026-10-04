@@ -56,6 +56,16 @@ section[id],
     font-weight: 350;
 }
 
+/* Sizes and lays out the img as if the picture around it were absent. Its sources
+ * would otherwise take a gap in a flex parent. */
+picture {
+    display: contents;
+
+    & source {
+        display: none;
+    }
+}
+
 body {
     min-height: 100vh;
     font-family: var(--pluto-font-family);
