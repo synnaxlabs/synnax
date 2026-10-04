@@ -113,7 +113,7 @@ Password struct {
     key      Key
     subject  ontology.ID
     username string        // indexed, unique
-    hash     bytes         // bcrypt
+    hash     bytes         // tagged with its algorithm
 }
 
 APIKey struct {
@@ -147,6 +147,13 @@ can hold one password, any number of API keys, and one link per provider.
   Core stores no secret for it.
 
 A hash never leaves the Core. Clients see every other field.
+
+Password hashes stay on bcrypt, so every existing password keeps working. bcrypt is no
+longer the first choice: OWASP recommends Argon2id, and PBKDF2 is the only option NIST
+approves for a site that needs FIPS. So the algorithm must be easy to change. A hash is
+stored with a tag that names its algorithm and cost, which a bcrypt hash already
+carries. At login the Core checks a password with the algorithm in the tag, and stores
+it again when the tag is not the current choice. No user resets a password.
 
 ### 4.2 OpenID Connect
 
@@ -488,3 +495,6 @@ Each phase is one pull request into `main`.
 4. **Provider settings**: Start settings as written, or stored records the Console can
    edit without a restart.
 5. **Driver role**: Which policies the built-in role carries.
+6. **Password algorithm**: When to move off bcrypt, and to what. Argon2id is the
+   stronger choice. PBKDF2 is the one a FIPS site can use. NIST plans to approve a
+   memory-hard function in a revision of SP 800-132, but has published no draft.
