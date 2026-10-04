@@ -98,14 +98,17 @@ run at the same time.
 When a stage starts:
 
 - **Writes run once.** A flow with no input, such as `1 -> press_vlv_cmd`, runs once
-  each time the stage starts.
+  each time the stage starts. A function call with no input that reads a channel in its
+  body is different: it runs in every cycle while the stage is active.
 - **Earlier values do not count.** The stage reacts only to values that arrive after it
   starts. A condition such as `tank_pt > 300` waits for the next `tank_pt` value, even
   when the last value was 400.
 - **Timers start again.** `time.wait` counts from zero, and `time.interval` fires at
   once, then once each period.
 - **Variables reset.** Variables declared with `:=` in the stage or the sequence go back
-  to their first value. Variables declared with `$=` keep their value.
+  to their first value. Variables declared with `$=` in the stage or the sequence keep
+  their value. Each function called in the stage starts again too, so its `$=` variables
+  go back to their first value.
 
 When a stage stops, its flows stop, and their state stays as it was until the stage
 starts again.
@@ -127,9 +130,10 @@ code wins. Put safety checks before the other transitions.
 ## Writes
 
 An automation sends every value it writes, in the order of the code, not only the last
-value of a cycle. On a channel with an index, Synnax stamps the values of one cycle 1 ns
-apart. A function that reads a channel gets its latest value, or 0 before the first
-value.
+value of a cycle. A flow such as `tank_pt -> scale{} -> tank_pt_kpa` writes each value
+with the timestamp of the input value it came from. Values that a function body writes
+to a channel get the current time, 1 ns apart. A function that reads a channel gets its
+latest value, or 0 before the first value.
 
 <Divider.Divider x />
 
