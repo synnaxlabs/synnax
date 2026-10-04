@@ -8,19 +8,12 @@
 // included in the file licenses/APL.txt.
 
 #include <cctype>
+#include <charconv>
 #include <iomanip>
 #include <map>
 #include <new>
-// Disable GCC 13 false positive warning in <regex> header
-#if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
-#endif
-#include <regex>
-#if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
 #include <sstream>
+#include <string_view>
 
 #include "open62541/types.h"
 
@@ -29,28 +22,13 @@
 
 namespace driver::opcua::types {
 namespace {
-/// @brief Helper function to convert string GUID to UA_Guid
-UA_Guid string_to_guid(const std::string &guidStr) {
-    UA_Guid guid;
-    unsigned int data4[8];
-    std::sscanf(
-        guidStr.c_str(),
-        "%8x-%4hx-%4hx-%2x%2x-%2x%2x%2x%2x%2x%2x",
-        &guid.data1,
-        &guid.data2,
-        &guid.data3,
-        &data4[0],
-        &data4[1],
-        &data4[2],
-        &data4[3],
-        &data4[4],
-        &data4[5],
-        &data4[6],
-        &data4[7]
-    );
-    for (int i = 0; i < 8; ++i)
-        guid.data4[i] = static_cast<UA_Byte>(data4[i]);
-    return guid;
+/// @brief parses an unsigned decimal number that spans all of str.
+/// @returns false if str is empty, has a non-digit, or overflows T.
+template<typename T>
+bool parse_number(const std::string_view str, T &value) {
+    const auto end = str.data() + str.size();
+    const auto [ptr, ec] = std::from_chars(str.data(), end, value);
+    return ec == std::errc() && ptr == end;
 }
 
 /// @brief Helper function to convert a GUID to a string
@@ -80,60 +58,78 @@ NodeId NodeId::parse(const std::string &field_name, x::json::Parser &parser) {
 }
 
 std::pair<NodeId, x::errors::Error> NodeId::parse(const std::string &node_id_str) {
-    const std::regex regex("NS=(\\d+);(I|S|G|B)=(.+)", std::regex::icase);
-    std::smatch matches;
-    if (!std::regex_search(node_id_str, matches, regex))
-        return {
+    const auto invalid = [] {
+        return std::pair{
             NodeId(),
             x::errors::Error(x::errors::VALIDATION, "Invalid NodeId format")
         };
-
-    int nsIndex = std::stoi(matches[1].str());
-    const char type = static_cast<char>(std::toupper(matches[2].str()[0]));
-    std::string identifier = matches[3].str();
+    };
+    const auto upper = [](const char c) {
+        return static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    };
+    const std::string_view str = node_id_str;
+    const auto sep = str.find(';');
+    if (sep == std::string_view::npos || sep < 3 || upper(str[0]) != 'N' ||
+        upper(str[1]) != 'S' || str[2] != '=')
+        return invalid();
+    UA_UInt16 ns;
+    if (!parse_number(str.substr(3, sep - 3), ns)) return invalid();
+    const auto body = str.substr(sep + 1);
+    if (body.size() < 3 || body[1] != '=') return invalid();
+    std::string identifier(body.substr(2));
+    const UA_String ua_identifier{
+        identifier.size(),
+        reinterpret_cast<UA_Byte *>(identifier.data())
+    };
 
     UA_NodeId raw_id = UA_NODEID_NULL;
-    if (type == 'I')
-        raw_id = UA_NODEID_NUMERIC(
-            static_cast<UA_UInt16>(nsIndex),
-            std::stoul(identifier)
-        );
-    else if (type == 'S')
-        raw_id = UA_NODEID_STRING_ALLOC(
-            static_cast<UA_UInt16>(nsIndex),
-            identifier.c_str()
-        );
-    else if (type == 'G')
-        raw_id = UA_NODEID_GUID(
-            static_cast<UA_UInt16>(nsIndex),
-            string_to_guid(identifier)
-        );
-    else if (type == 'B') {
-        const UA_String encoded{
-            identifier.size(),
-            reinterpret_cast<UA_Byte *>(identifier.data())
-        };
-        raw_id.namespaceIndex = static_cast<UA_UInt16>(nsIndex);
-        raw_id.identifierType = UA_NODEIDTYPE_BYTESTRING;
-        // The decoder is lenient, so only input that re-encodes to itself is valid.
-        String canonical;
-        if (UA_ByteString_fromBase64(&raw_id.identifier.byteString, &encoded) ==
-                UA_STATUSCODE_GOOD &&
-            UA_ByteString_toBase64(&raw_id.identifier.byteString, canonical.ptr()) !=
-                UA_STATUSCODE_GOOD) {
-            UA_NodeId_clear(&raw_id);
-            throw std::bad_alloc();
+    switch (upper(body[0])) {
+        case 'I': {
+            UA_UInt32 numeric;
+            if (!parse_number(std::string_view(identifier), numeric)) return invalid();
+            raw_id = UA_NODEID_NUMERIC(ns, numeric);
+            break;
         }
-        if (!UA_String_equal(&encoded, &canonical.get())) {
-            UA_NodeId_clear(&raw_id);
-            return {
-                NodeId(),
-                x::errors::Error(
-                    x::errors::VALIDATION,
-                    "Invalid base64 in ByteString identifier: " + identifier
-                )
-            };
+        case 'S':
+            raw_id = UA_NODEID_STRING_ALLOC(ns, identifier.c_str());
+            break;
+        case 'G': {
+            UA_Guid guid;
+            if (UA_Guid_parse(&guid, ua_identifier) != UA_STATUSCODE_GOOD)
+                return invalid();
+            raw_id = UA_NODEID_GUID(ns, guid);
+            break;
         }
+        case 'B': {
+            raw_id.namespaceIndex = ns;
+            raw_id.identifierType = UA_NODEIDTYPE_BYTESTRING;
+            // The decoder is lenient, so only input that re-encodes to itself is valid.
+            String canonical;
+            if (UA_ByteString_fromBase64(
+                    &raw_id.identifier.byteString,
+                    &ua_identifier
+                ) == UA_STATUSCODE_GOOD &&
+                UA_ByteString_toBase64(
+                    &raw_id.identifier.byteString,
+                    canonical.ptr()
+                ) != UA_STATUSCODE_GOOD) {
+                UA_NodeId_clear(&raw_id);
+                throw std::bad_alloc();
+            }
+            if (!UA_String_equal(&ua_identifier, &canonical.get())) {
+                UA_NodeId_clear(&raw_id);
+                return {
+                    NodeId(),
+                    x::errors::Error(
+                        x::errors::VALIDATION,
+                        "Invalid base64 in ByteString identifier: " + identifier
+                    )
+                };
+            }
+            break;
+        }
+        default:
+            return invalid();
     }
 
     // NodeId copies raw_id, so raw_id still owns its allocation.

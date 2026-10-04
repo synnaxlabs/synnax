@@ -434,6 +434,57 @@ TEST(TypesTest, ParseNodeIdPrefixCaseInsensitive) {
     }
 }
 
+/// @brief it should reject malformed NodeIds with a validation error, not an exception.
+TEST(TypesTest, ParseMalformedNodeId) {
+    for (const std::string input: {
+             "",
+             "NS=1",
+             "NS=1;",
+             "NS=1;I=",
+             "NS=1;I5",
+             "NS=1;I=abc",
+             "NS=1;I=5 ",
+             "NS=1;I=+5",
+             "NS=1;I=-1",
+             "NS=1;I=4294967296",
+             "NS=;I=1",
+             "NS=-1;I=1",
+             "NS=65536;I=1",
+             "NS=99999999999;I=1",
+             " NS=1;I=5",
+             "xNS=1;I=5",
+             "N=1;I=5",
+             "NS=1;X=5",
+             "NS=1;G=xyz",
+             "NS=1;G=12345678-1234-5678-9abc-123456789abg",
+         }) {
+        auto [node_id, err] = NodeId::parse(input);
+        ASSERT_MATCHES(err, x::errors::VALIDATION);
+        EXPECT_EQ(err.data, "Invalid NodeId format") << input;
+        EXPECT_TRUE(node_id.is_null()) << input;
+    }
+}
+
+/// @brief it should accept the largest namespace index and numeric identifier.
+TEST(TypesTest, ParseNodeIdNumericLimits) {
+    auto node_id = ASSERT_NIL_P(NodeId::parse("NS=65535;I=4294967295"));
+    EXPECT_EQ(node_id.get().namespaceIndex, 65535);
+    EXPECT_EQ(node_id.get().identifier.numeric, 4294967295u);
+}
+
+/// @brief it should keep separators inside a string identifier.
+TEST(TypesTest, ParseStringNodeIdWithSeparators) {
+    auto node_id = ASSERT_NIL_P(NodeId::parse("NS=1;S=a;b=c"));
+    EXPECT_EQ(NodeId::to_string(node_id.get()), "NS=1;S=a;b=c");
+}
+
+/// @brief it should parse a very long string identifier.
+TEST(TypesTest, ParseLongStringNodeId) {
+    const std::string input = "NS=1;S=" + std::string(100000, 'a');
+    auto node_id = ASSERT_NIL_P(NodeId::parse(input));
+    EXPECT_EQ(NodeId::to_string(node_id.get()), input);
+}
+
 /// @brief it should report an invalid ByteString identifier as a field error.
 TEST(TypesTest, ParseInvalidByteStringNodeIdFromJSON) {
     x::json::Parser parser(std::string(R"({"node_id": "NS=1;B=AAE"})"));
