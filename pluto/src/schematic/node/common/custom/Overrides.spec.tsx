@@ -55,7 +55,7 @@ describe("StateOverrideForm", () => {
       name: "actuated",
       parent: group.ontologyID(parent.key),
       data: {
-        svg: '<svg viewBox="0 0 10 10"><rect class="main" /></svg>',
+        svg: '<svg viewBox="0 0 10 10"><rect class="main" stroke="#111111" fill="#eeeeee" /></svg>',
         states: [createState("base", "Base"), createState("active", "Active")],
         handles: [],
         variant: "actuator",
@@ -134,12 +134,15 @@ describe("StateOverrideForm", () => {
       );
     });
 
-    it("should clear the fill with Auto", async () => {
+    it("should clear the fill with Auto and show the SVG's own fill", async () => {
       const { swatches, getByLabelText, form } = await renderRegion();
       fireEvent.click(swatches[1]);
       fireEvent.click(getByLabelText("Auto"));
       await waitFor(() => expect(baseRegion(form())?.fillColor).toBeUndefined());
       expect(baseRegion(form())?.strokeColor).toBeDefined();
+      expect(swatches[1].style.getPropertyValue("--pluto-swatch-color")).toBe(
+        color.cssString("#eeeeee"),
+      );
     });
   });
 });

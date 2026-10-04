@@ -21,7 +21,8 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
-import { color } from "@synnaxlabs/x";
+import { Schematic } from "@synnaxlabs/pluto";
+import { useMemo } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -32,13 +33,18 @@ export interface RegionListProps extends Input.Control<string | undefined> {
 
 export interface RegionListItemProps extends List.ItemRenderProps<string> {
   selectedState: string;
+  svg: string;
 }
 
-const RegionListItem = ({ selectedState, ...props }: RegionListItemProps) => {
+const RegionListItem = ({ selectedState, svg, ...props }: RegionListItemProps) => {
   const { itemKey } = props;
   const path = `data.states.${selectedState}.regions.${itemKey}`;
   const region = Form.useFieldValue<schematic.symbol.Region>(path, { optional: true });
   const { set } = Form.useContext();
+  const paint = useMemo(
+    () => Schematic.Node.Region.paint(svg, region?.selectors ?? []),
+    [svg, region?.selectors],
+  );
   const { remove } = Form.useFieldListUtils<string, schematic.symbol.Region>(
     `data.states.${selectedState}.regions`,
   );
@@ -67,13 +73,13 @@ const RegionListItem = ({ selectedState, ...props }: RegionListItemProps) => {
         </Text.Text>
         <Color.Swatch
           value={region.strokeColor}
-          fallback={color.ZERO}
+          fallback={paint.stroke}
           onChange={(c) => set(`${path}.strokeColor`, c)}
           size="small"
         />
         <Color.Swatch
           value={region.fillColor}
-          fallback={color.ZERO}
+          fallback={paint.fill}
           onChange={(c) => set(`${path}.fillColor`, c)}
           size="small"
         />
@@ -99,6 +105,7 @@ export const RegionList = ({
   const { data } = Form.useFieldList<string, schematic.symbol.Region>(
     `data.states.${selectedState}.regions`,
   );
+  const svg = Form.useFieldValue<string>("data.svg");
   return (
     <Flex.Box y gap={1} className={CSS.B("schematic-region-list")}>
       <Header.Header level="p" bordered={false}>
@@ -134,7 +141,12 @@ export const RegionList = ({
         <List.Scroll y gap={1}>
           <List.Items<string>>
             {({ key, ...rest }) => (
-              <RegionListItem selectedState={selectedState} key={key} {...rest} />
+              <RegionListItem
+                selectedState={selectedState}
+                svg={svg}
+                key={key}
+                {...rest}
+              />
             )}
           </List.Items>
         </List.Scroll>

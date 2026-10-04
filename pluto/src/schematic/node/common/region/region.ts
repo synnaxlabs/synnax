@@ -49,7 +49,7 @@ const collectVisualElements = (svg: Element): SVGElement[] =>
     Array.from(svg.querySelectorAll<SVGElement>(tag)),
   ).filter(isRendered);
 
-interface ColorPair {
+export interface ColorPair {
   stroke: color.Color;
   fill: color.Color;
 }
@@ -127,6 +127,24 @@ export const extract = (svgElement: SVGElement): schematic.symbol.Region[] => {
     region.fillColor = group.colorPair.fill;
     return region;
   });
+};
+
+/**
+ * Returns the colors a normalized SVG paints a region with when the region sets none:
+ * the stroke and fill attributes of the first element the selectors match. A missing
+ * element or attribute reads as transparent.
+ */
+export const paint = (svg: string, selectors: string[]): ColorPair => {
+  const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
+  for (const selector of selectors) {
+    const el = doc.querySelector(selector);
+    if (el != null)
+      return {
+        stroke: normalizeColor(el.getAttribute("stroke")),
+        fill: normalizeColor(el.getAttribute("fill")),
+      };
+  }
+  return { stroke: color.ZERO, fill: color.ZERO };
 };
 
 const REGION_ID_ATTRIBUTE = "data-region-id";
