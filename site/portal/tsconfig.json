@@ -13,7 +13,6 @@
     "scripts/**/*",
     "drizzle.config.ts",
     "astro.config.ts",
-    "astro-components.d.ts",
     "eslint.config.ts",
     "vitest.config.ts"
   ]
