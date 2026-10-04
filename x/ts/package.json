@@ -25,6 +25,9 @@
   },
   "dependencies": {
     "async-mutex": "catalog:",
+    "fflate": "catalog:",
+    "nanoid": "catalog:",
+    "uuid": "catalog:",
     "zod": "catalog:"
   },
   "peerDependencies": {
@@ -42,10 +45,7 @@
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
-    "fflate": "catalog:",
-    "nanoid": "catalog:",
     "typescript": "catalog:",
-    "uuid": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"
   },
@@ -59,16 +59,16 @@
   ],
   "exports": {
     ".": {
-      "types": "./dist/src/index.d.ts",
-      "default": "./dist/x.js"
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     },
     "./bench": {
-      "types": "./dist/src/bench/index.d.ts",
-      "default": "./dist/bench.js"
+      "types": "./dist/bench/index.d.ts",
+      "default": "./dist/bench/index.js"
     },
     "./testutil": {
-      "types": "./dist/src/testutil/index.d.ts",
-      "default": "./dist/testutil.js"
+      "types": "./dist/testutil/index.d.ts",
+      "default": "./dist/testutil/index.js"
     },
     "./dist/*": "./dist/*"
   }
