@@ -59,8 +59,8 @@ Captures are 1600x900 CSS px, so the Console reads at the scale of a desktop win
 Every shot has the same four parts.
 
 1. **Open wide.** Hold the whole Console at 1x for 1.5 to 2 s before the first click or
-   zoom, so the viewer sees where the work happens. Park the cursor near the center in
-   setup.
+   zoom, so the viewer sees where the work happens. Park the cursor on empty space in
+   setup, with no control under it.
 2. **Zoom on the area of work, not on clicks.** Open one `session.zoom(region)` for each
    area the next beats happen in: a dialog, a toolbar, a panel, a form. Never zoom on
    one button, and never once per click. Let the rect set the depth. An amount on a
@@ -73,7 +73,8 @@ Every shot has the same four parts.
    zoom to follow a dropdown.
 4. **Close wide.** Call `session.endZoom()` at the click that commits the work (Save,
    Create), then hold the whole Console for 2.5 to 3 s on the result. The last frame is
-   the page still.
+   the page still. Before the hold, move the cursor to empty space with no control under
+   it: a hover shade on a button in the last frame reads as a mistake.
 
 The research behind these rules is in `docs/tech/video-automation/decisions.md`.
 
