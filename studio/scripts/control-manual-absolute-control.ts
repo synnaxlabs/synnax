@@ -26,15 +26,17 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const chip = symbol.locator(".pluto-control-chip").first();
 
     session.startRecording();
-    await session.hold(1200);
+    await session.hold(1800);
 
     await session.click(controlButton(session), { zoom: false });
     await session.waitFor(page.locator(".pluto-legend-entry").first());
     await session.hold(1000);
 
-    await session.zoom(symbol, 1.8);
+    // The valve's rect alone would zoom past the render's resolution.
+    await session.zoom(symbol, 1.6);
     await session.hold(800);
-    await session.click(chip, { zoom: false });
+    await session.click(chip);
+    session.endZoom();
     // Only absolute control gives the chip a background.
     await session.waitFor(symbol.locator(".pluto-control-chip[style*='secondary']"));
     const body = await symbol.boundingBox();
@@ -44,7 +46,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.hold(1000);
     await session.moveTo(chip);
     await session.waitFor(page.getByText(ABSOLUTE, { exact: true }).first());
-    await session.hold(2600);
+    await session.hold(3000);
   } finally {
     await valve.stop();
   }

@@ -77,10 +77,11 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.settle(600);
 
   const nodes = page.locator(".react-flow__node");
+  // Positions are fractions of the canvas, so the layout fills it.
   const at = async (x: number, y: number) => {
     const box = await pane.boundingBox();
     if (box == null) throw new Error("graph canvas is not on screen");
-    return { x: box.x + x, y: box.y + y };
+    return { x: box.x + x * box.width, y: box.y + y * box.height };
   };
   const group = async (id: string): Promise<void> => {
     await session.click(drawer.locator(`button[id='${id}']`).first(), {
@@ -104,27 +105,28 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
   // The graph fits its view once, when the first block lands, which would move the
   // first on-camera block. A throwaway block takes that fit.
-  const throwaway = await add("Constant", 400, 100);
+  const throwaway = await add("Constant", 0.4, 0.3);
+  await session.settle(1000);
   await session.click(throwaway, { zoom: false });
   await session.press("Backspace");
   await session.waitForHidden(throwaway);
-  await session.moveTo({ x: 760, y: 300 });
+  await session.moveTo({ x: 800, y: 450 });
 
   session.startRecording();
-  await session.hold(800);
+  await session.hold(1800);
 
   // Blocks keep clear of the canvas edges, where a connection drag auto-pans.
   await group("telem");
-  const source = await add("Telemetry source", 90, 60);
+  const source = await add("Telemetry source", 0.1, 0.18);
   await group("basic");
-  const constant = await add("Constant", 90, 165);
+  const constant = await add("Constant", 0.1, 0.5);
   await group("operator");
-  const greater = await add("Greater than", 300, 120);
+  const greater = await add("Greater than", 0.3, 0.36);
   await group("flow_control");
-  const select = await add("Select", 470, 120);
+  const select = await add("Select", 0.46, 0.36);
   await group("basic");
-  const warning = await add("Change status", 680, 60);
-  const success = await add("Change status", 680, 175);
+  const warning = await add("Change status", 0.64, 0.18);
+  const success = await add("Change status", 0.64, 0.52);
   await session.hold(500);
 
   const properties = drawer.locator(".console-arc-properties__individual").first();
@@ -168,7 +170,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       .locator(".pluto-input__item")
       .filter({ hasText: new RegExp(`^${label}`) });
 
-  await session.zoom(drawer);
+  await session.zoom(drawer, 1.4);
   await configure(source);
   await choose(
     properties.getByText("Select channel", { exact: true }).first(),
@@ -193,7 +195,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await setStatus(warning, "Warning", "Tank pressure is above 450 psi");
   await setStatus(success, null, "Tank pressure is normal");
   session.endZoom();
-  await capture.deselect(session, { x: 960, y: 230 });
+  await capture.deselect(session, await at(0.9, 0.4));
   await session.hold(600);
 
   // Handles sit behind the block body, so only the part of their marker outside the
@@ -225,14 +227,11 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(800);
 
   const controls = page.locator(".console-arc-editor__controls").first();
-  await session.zoom(controls);
+  await session.zoom(controls, 1.5);
   await choose(controls.locator(".console-rack-select").first(), "Node 1");
-  await session.click(controls.locator("button:has(svg.pluto-icon--play)").first(), {
-    zoom: false,
-  });
-  await session.waitFor(controls.getByText("Task started successfully").first());
-  await session.hold(1200);
+  await session.click(controls.locator("button:has(svg.pluto-icon--play)").first());
   session.endZoom();
-  await session.moveTo(await at(960, 230));
+  await session.waitFor(controls.getByText("Task started successfully").first());
+  await session.moveTo(await at(0.9, 0.4));
   await session.hold(3000);
 };

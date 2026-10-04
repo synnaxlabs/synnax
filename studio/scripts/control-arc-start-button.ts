@@ -147,12 +147,6 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       return symbol;
     };
 
-    // The canvas fits its view once, around the first symbol, and spawns every new
-    // symbol at its center. A throwaway symbol takes the fit, and the row keeps the
-    // center clear.
-    const throwaway = await capture.place(session, "Generic", { x: 510, y: 160 });
-    await session.press("Backspace");
-    await session.waitForHidden(throwaway);
     const press = await valve("Press valve", "press_vlv_cmd", { x: 620, y: 160 });
     const vent = await valve("Vent valve", "vent_vlv_cmd", { x: 750, y: 160 });
 
@@ -202,19 +196,21 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.settle(600);
     const status = indicator.locator(".pluto-state-indicator").first();
     await session.waitFor(status.getByText("Idle", { exact: true }));
-    await session.moveTo({ x: 540, y: 520 });
+    await session.moveTo({ x: 800, y: 700 });
 
     const startButton = button.locator(".pluto-symbol-button").first();
     session.startRecording();
-    await frame(session, [press, vent, button, indicator]);
-    await session.hold(1500);
-    await session.click(startButton, { zoom: false });
+    await session.hold(1800);
+    await frame(session, [button, indicator, press, vent]);
+    await session.hold(1000);
+    await session.click(startButton);
+    session.endZoom();
     await session.waitFor(status.getByText("Pressurizing", { exact: true }));
     const body = await indicator.boundingBox();
     if (body == null) throw new Error("state indicator is hidden");
     await session.moveTo({
       x: body.x + body.width + 160,
-      y: body.y + body.height + 90,
+      y: body.y + body.height + 120,
     });
     await session.hold(3000);
   } finally {
@@ -222,7 +218,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   }
 };
 
-/** frame opens an authored zoom holding every target. */
+/**
+ * frame opens an authored zoom holding every target. The symbols share no element of
+ * their own, so the depth comes from their joint rect.
+ */
 const frame = async (
   session: capture.CaptureSession,
   targets: Locator[],
@@ -236,9 +235,16 @@ const frame = async (
   const top = Math.min(...found.map((b) => b.y));
   const right = Math.max(...found.map((b) => b.x + b.width));
   const bottom = Math.max(...found.map((b) => b.y + b.height));
-  // Tight enough to leave the control legend out of frame.
+  const margin = 192;
   await session.zoom(
     { x: (left + right) / 2, y: (top + bottom) / 2 },
-    Math.min(1.75, view.width / (right - left + 80)),
+    Math.max(
+      1,
+      Math.min(
+        1.6,
+        view.width / (right - left + margin),
+        view.height / (bottom - top + margin),
+      ),
+    ),
   );
 };
