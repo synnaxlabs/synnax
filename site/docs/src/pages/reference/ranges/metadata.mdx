@@ -7,7 +7,6 @@ clients: ["console", "python", "typescript"]
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Note } from "@synnaxlabs/lyra/note";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
 import { Video } from "@/components/media/Media";
@@ -27,13 +26,14 @@ that you can filter by.
 
   <Fragment slot="console">
 
-{/* prettier-ignore-start */}
+1. On the [range overview](/reference/ranges/find#range-overview), click <Icon.Add /> in
+   the **Metadata** section.
+2. Enter a key and a value.
+3. Press **Enter**, or click <Icon.Check />.
 
-In the metadata section of the [range overview](/reference/ranges/find#range-overview), click create
-(<Icon.Add />). Enter a key and a value, then click the check (<Icon.Check />). To
-change a value, click it and type the new value.
-
-{/* prettier-ignore-end */}
+To change a value, click it and type the new value. The Console saves it when you click
+away. You cannot change a key; delete the pair and add a new one. A value that is a link
+shows a button that opens it.
 
 <Video id="client/ranges/set-metadata" />
 
@@ -67,9 +67,6 @@ const myRange = await client.ranges.retrieve("My Range");
 
 // Set a single key/value pair
 await myRange.kv.set("part_number", "12345");
-
-// TypeScript only supports the set() method
-// (no bracket syntax)
 
 // Set multiple key/value pairs
 await myRange.kv.set({
@@ -138,12 +135,8 @@ const allMetadata = await myRange.kv.list();
 
   <Fragment slot="console">
 
-{/* prettier-ignore-start */}
-
-In the metadata section of the [range overview](/reference/ranges/find#range-overview), click delete
-(<Icon.Delete />) beside the key.
-
-{/* prettier-ignore-end */}
+On the [range overview](/reference/ranges/find#range-overview), click <Icon.Delete />
+beside the key in the **Metadata** section. The Console deletes it with no confirm step.
 
   </Fragment>
 
@@ -184,10 +177,11 @@ await myRange.kv.delete(["part_number", "test_configuration"]);
 
   <Fragment slot="console">
 
-Select labels in the create dialog or in the
-[range overview](/reference/ranges/find#range-overview). To make a new label, select
-`New label` at the bottom of the label list. To change your labels, run the
-`Edit labels` command from the search and command palette.
+Select labels in the create dialog or on the
+[range overview](/reference/ranges/find#range-overview). To make a new label, type its
+name in the label list and select **New label**. To rename, recolor, or delete labels,
+run the "Edit labels" command from the
+[command palette](/reference/get-started/ui-overview#search-and-command-palette).
 
 <Video id="client/ranges/labels" />
 
@@ -195,15 +189,7 @@ Select labels in the create dialog or in the
 
   <Fragment slot="python">
 
-```python
-my_range = client.ranges.retrieve(name="My Range")
-
-# List the labels on the range
-for label in my_range.labels:
-    print(label.name)
-```
-
-<Note.Note variant="info">Labels are read-only in the Python client.</Note.Note>
+The Python client cannot read or set labels.
 
   </Fragment>
 
@@ -223,6 +209,9 @@ const labels = await myRange.retrieveLabels();
 
 // Remove the label from the range
 await myRange.removeLabel(label.key);
+
+// Retrieve every range with the label
+const hotfires = await client.ranges.retrieve({ hasLabels: [label.key] });
 ```
 
   </Fragment>
