@@ -303,7 +303,8 @@ EOF
             touch "$(execpath lib/wasmtime.lib)"
         """,
     }),
-    local = 1,  # Disable sandboxing for cargo build
+    # Cargo writes into the source tree. Unlike local, no-sandbox keeps the remote cache.
+    tags = ["no-sandbox"],
     visibility = ["//visibility:public"],
 )
 
