@@ -1,0 +1,77 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { ni } from "@synnaxlabs/client";
+
+import { NI_USB_6343, simulatedDriver } from "@/fixtures/hardware";
+import { capture, fixtures } from "@/index";
+
+const TASK = "Tank sensors";
+
+/**
+ * Docs `reference/hardware/start-and-stop-tasks` (Start a task): open the tasks
+ * toolbar, double-click an NI analog read task to open its tab, and click Start; the
+ * status turns to "Task started successfully". The NI device is simulated.
+ */
+export default async (session: capture.CaptureSession): Promise<void> => {
+  const driver = await simulatedDriver({
+    devices: [
+      {
+        ...NI_USB_6343,
+        configured: true,
+        properties: { ...NI_USB_6343.properties, identifier: "dev1" },
+      },
+    ],
+  });
+  try {
+    const client = fixtures.connect();
+    await client.tasks.create({
+      name: TASK,
+      type: "ni_analog_read",
+      rack: driver.rack,
+      config: ni.analogReadConfigZ.parse({
+        sampleRate: 100,
+        streamRate: 10,
+        channels: [0, 1].map((port) =>
+          ni.aiVoltageChannelZ.parse({
+            type: "ai_voltage",
+            port,
+            device: NI_USB_6343.key,
+            minVal: -10,
+            maxVal: 10,
+          }),
+        ),
+      }),
+    });
+    await client.close();
+
+    const { page } = session;
+    await capture.login(session);
+    await capture.clearPanel(session);
+    await session.moveTo({ x: 756, y: 500 });
+
+    session.startRecording();
+    await session.hold(1200);
+
+    await capture.openToolbar(session, "task");
+    await session.hold(600);
+    const item = page.locator(".console-task-toolbar").getByText(TASK, { exact: true });
+    await session.waitFor(item);
+    await session.doubleClick(item, { zoom: false, text: true });
+    const form = page.locator(".console-task-configure").first();
+    await session.waitFor(form);
+    await session.hold(1200);
+
+    await session.click(form.locator("button:has(svg.pluto-icon--play)").first());
+    await session.waitFor(form.getByText("Task started successfully").first());
+    await session.hold(3000);
+  } finally {
+    await driver.stop();
+  }
+};

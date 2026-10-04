@@ -112,6 +112,9 @@ export default manifest.define([
     id: "device-drivers/task/layout-selector",
     script: "scripts/task-layout-selector.ts",
   },
+  // Hardware shots run against the simulated Driver in fixtures/hardware.ts.
+  { id: "device-drivers/task/task-basic", script: "scripts/tasks-start.ts" },
+  { id: "hardware/devices/toolbar", script: "scripts/devices-toolbar.ts" },
   {
     id: "releases/0-57-0/panels",
     script: "scripts/release-0-57-0-panels.ts",
