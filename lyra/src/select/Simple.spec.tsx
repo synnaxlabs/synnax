@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -88,7 +88,25 @@ describe("Select.Simple", () => {
     fireEvent.click(c.getByText("Test Item"));
     fireEvent.click(c.getByText("Third Item"));
     expect(c.queryByPlaceholderText("Search Test Items...")).toBeNull();
-    expect(c.getByRole("button", { name: "Test Item" }).textContent).toBe("Third Item");
+    expect(c.getByRole("button", { name: "Test Item Third Item" }).textContent).toBe(
+      "Third Item",
+    );
+  });
+
+  it("should show a fixed item's label in a label that fades on overflow", () => {
+    const c = render(<SelectSimple />);
+    fireEvent.click(c.getByText("Test Item"));
+    fireEvent.click(c.getByText("Third Item"));
+    const label = c
+      .getByRole("button", { name: "Test Item Third Item" })
+      .querySelector(".pluto-select__label");
+    expect(label?.classList).toContain("pluto-text--overflow-fade");
+    expect(label?.textContent).toBe("Third Item");
+  });
+
+  it("should name the trigger by its resource while nothing is selected", () => {
+    const c = render(<SelectSimple />);
+    expect(c.getByRole("button", { name: "Test Item" })).toBeTruthy();
   });
 
   it("should show empty content when the search hides every item", () => {
@@ -107,7 +125,7 @@ describe("Select.Simple", () => {
       target: { value: "Second" },
     });
     fireEvent.click(c.getByText("Second Item"));
-    fireEvent.click(c.getByRole("button", { name: "Test Item" }));
+    fireEvent.click(c.getByRole("button", { name: "Test Item Second Item" }));
     expect(c.getByText("First Item").closest("[hidden]")).toBeNull();
   });
 
@@ -131,7 +149,71 @@ describe("Select.Simple", () => {
         </List.Scroll>
       </List.Frame>,
     );
-    expect(c.getByRole("button", { name: "Nested" }).textContent).toBe("Bravo");
+    expect(c.getByRole("button", { name: "Nested Bravo" }).textContent).toBe("Bravo");
+  });
+
+  describe("text value", () => {
+    const Collapsible = () => {
+      const [value, setValue] = useState("");
+      return (
+        <Select.Simple<string>
+          value={value}
+          onChange={setValue}
+          resourceName="Level"
+          triggerProps={{ collapsible: true }}
+        >
+          <Select.Item itemKey="high" textValue="High">
+            <Icon.Add />
+            <span>High</span>
+          </Select.Item>
+          <Select.Item itemKey="low">Low</Select.Item>
+          <Select.Item itemKey="plus" textValue="Plus">
+            <Icon.Add />
+          </Select.Item>
+        </Select.Simple>
+      );
+    };
+
+    const collapse = (c: ReturnType<typeof render>, option: string): HTMLElement => {
+      fireEvent.click(c.getByText("Level"));
+      fireEvent.click(c.getByText(option));
+      const trigger = c.getByRole("button", { name: `Level ${option}` });
+      const label = trigger.querySelector<HTMLElement>(".pluto-select__label");
+      if (label != null) label.style.display = "none";
+      vi.useFakeTimers();
+      fireEvent.pointerOver(trigger, { pointerType: "mouse" });
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+      vi.useRealTimers();
+      return trigger;
+    };
+
+    const tooltip = (): string | null | undefined =>
+      document.querySelector(".pluto-tooltip")?.textContent;
+
+    it("should show an item's text value in a collapsed trigger's tooltip", () => {
+      const c = render(<Collapsible />);
+      collapse(c, "High");
+      expect(tooltip()).toBe("High");
+    });
+
+    it("should default the text value to string children", () => {
+      const c = render(<Collapsible />);
+      collapse(c, "Low");
+      expect(tooltip()).toBe("Low");
+    });
+
+    it("should match the search against the text value", () => {
+      const c = render(<Collapsible />);
+      fireEvent.click(c.getByText("Level"));
+      fireEvent.change(c.getByPlaceholderText("Search Levels..."), {
+        target: { value: "plus" },
+      });
+      const options = c.getAllByRole("option");
+      expect(options.filter((o) => o.closest("[hidden]") == null)).toHaveLength(1);
+      expect(c.getByText("High").closest("[hidden]")).not.toBeNull();
+    });
   });
 });
 
@@ -193,7 +275,7 @@ describe("Select.Simple multiple", () => {
       document.body.appendChild(container);
       const seen: string[] = [];
       const read = (): string => {
-        const trigger = container.querySelector("[aria-label='Test Item']");
+        const trigger = container.querySelector(".pluto-dialog__trigger");
         const empty = document.body.textContent?.includes("No Test Items found");
         return `${trigger?.textContent}${empty === true ? " + empty" : ""}`;
       };

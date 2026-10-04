@@ -9,15 +9,15 @@
 
 import { Arc } from "@synnaxlabs/pluto";
 
-import { Explorer } from "@/feature/arc/explorer/Explorer";
 import { Panel } from "@/platform/panel";
-
-export { Explorer };
 
 export const TAB_TYPE = "arc_explorer";
 
 const TAB: Panel.Tab = {
-  Content: Explorer,
+  Content: Panel.lazyComponent(
+    () => import("@/feature/arc/explorer/Explorer"),
+    "Explorer",
+  ),
   Icon: Arc.ExplorerIcon,
   Name: Panel.createStaticTabName({
     name: "Arc explorer",

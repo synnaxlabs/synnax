@@ -87,7 +87,9 @@ export const SelectPort = ({
       >
         <Flex.Box pack x>
           <Dialog.Trigger preview={preview} {...triggerProps}>
-            {selected?.alias ?? selected?.key}
+            <Select.Label itemKey={value}>
+              {selected?.alias ?? selected?.key}
+            </Select.Label>
           </Dialog.Trigger>
           {children}
         </Flex.Box>

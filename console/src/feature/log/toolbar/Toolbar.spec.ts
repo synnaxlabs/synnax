@@ -10,7 +10,7 @@
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Log } from "@/feature/log";
+import { Toolbar } from "@/feature/log/toolbar";
 import { renderLog } from "@/feature/log/toolbar/testutil";
 import { Session } from "@/session";
 import { inWindow } from "@/session/window/testutil";
@@ -27,7 +27,7 @@ const preloadedState = (
 });
 
 const renderToolbar = (name = "Test Log") =>
-  renderLog(Log.Toolbar, {
+  renderLog(Toolbar, {
     log: { name },
     preloadedState: (key) => preloadedState(key),
   });

@@ -54,14 +54,20 @@
     &:not(.pluto--modal) {
         animation: var(--pluto-dialog-animation);
         box-shadow: var(--pluto-shadow-overlay);
-        max-height: 360px;
         z-index: 6;
+
+        /* The frame writes the space left between the trigger and the window edges. */
+        max-height: min(
+            var(--pluto-dialog-max-height, 360px),
+            var(--pluto-dialog-available-height, 100vh)
+        );
+        max-width: var(--pluto-dialog-available-width, none);
         &.pluto-height-small {
-            max-height: 200px;
+            --pluto-dialog-max-height: 200px;
         }
 
         &.pluto-height-large {
-            max-height: 480px;
+            --pluto-dialog-max-height: 480px;
         }
     }
 

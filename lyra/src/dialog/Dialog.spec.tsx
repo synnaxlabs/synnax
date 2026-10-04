@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Dialog } from "@/dialog";
 import { PORTAL_ID_ATTR, PORTAL_OWNER_ATTR } from "@/dialog/useClickOutside";
@@ -230,6 +230,116 @@ describe("Dialog", () => {
         expect(c.getByRole("dialog")).toBeTruthy();
         expect(c.getByRole("dialog").classList).toContain(`pluto--${variant}`);
       });
+    });
+  });
+  describe("window fit", () => {
+    const rect = (left: number, top: number, width: number, height: number) =>
+      ({
+        left,
+        top,
+        width,
+        height,
+        right: left + width,
+        bottom: top + height,
+        x: left,
+        y: top,
+        toJSON: () => ({}),
+      }) as DOMRect;
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    const open = (target: DOMRect, dialog: DOMRect): HTMLElement => {
+      vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (
+        this: Element,
+      ) {
+        if (this.classList.contains("pluto-dialog__frame")) return target;
+        return rect(0, 0, 0, 0);
+      });
+      const isDialog = (el: HTMLElement): boolean =>
+        el.classList.contains("pluto-dialog__dialog");
+      vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(
+        function (this: HTMLElement) {
+          return isDialog(this) ? dialog.width : 0;
+        },
+      );
+      vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(
+        function (this: HTMLElement) {
+          return isDialog(this) ? dialog.height : 0;
+        },
+      );
+      const c = render(
+        <Triggers.Provider>
+          <Dialog.Frame>
+            <Dialog.Trigger>Toggle</Dialog.Trigger>
+            <Dialog.Dialog>
+              <p>Content</p>
+            </Dialog.Dialog>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+      fireEvent.click(c.getByText("Toggle"));
+      // jsdom never fires the resize observers, so a window resize places the dialog.
+      act(() => {
+        window.dispatchEvent(new Event("resize"));
+      });
+      return c.getByRole("dialog");
+    };
+
+    const variable = (el: HTMLElement, name: string): string =>
+      el.style.getPropertyValue(`--pluto-dialog-${name}`);
+
+    it("should keep a dialog wider than the window inside its edges", () => {
+      const el = open(rect(400, 100, 100, 30), rect(0, 0, 1100, 100));
+      expect(el.style.left).toBe("6px");
+      expect(variable(el, "available-width")).toBe(`${window.innerWidth - 12}px`);
+    });
+
+    it("should limit a dialog below its trigger to the space under it", () => {
+      const el = open(rect(400, 100, 100, 30), rect(0, 0, 200, 100));
+      const top = parseFloat(el.style.top);
+      expect(top).toBeGreaterThanOrEqual(130);
+      expect(variable(el, "available-height")).toBe(
+        `${window.innerHeight - top - 6}px`,
+      );
+    });
+
+    it("should limit a dialog above its trigger to the space over it", () => {
+      const bottomEdge = window.innerHeight - 40;
+      const el = open(rect(400, bottomEdge, 100, 30), rect(0, 0, 200, 300));
+      const bottom = parseFloat(el.style.bottom);
+      expect(bottom).toBeGreaterThanOrEqual(window.innerHeight - bottomEdge);
+      expect(variable(el, "available-height")).toBe(
+        `${window.innerHeight - bottom - 6}px`,
+      );
+    });
+
+    const resize = (): void => {
+      act(() => {
+        window.dispatchEvent(new Event("resize"));
+      });
+    };
+
+    it("should clamp again when the dialog widens in place", () => {
+      const el = open(rect(400, 100, 100, 30), rect(0, 0, 200, 100));
+      expect(el.style.left).toBe("400px");
+      vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(
+        function (this: HTMLElement) {
+          return this.classList.contains("pluto-dialog__dialog") ? 620 : 0;
+        },
+      );
+      resize();
+      expect(el.style.left).toBe(`${window.innerWidth - 6 - 620}px`);
+    });
+
+    it("should shrink the available height when the window shrinks", () => {
+      const el = open(rect(400, 100, 100, 30), rect(0, 0, 200, 100));
+      const top = parseFloat(el.style.top);
+      vi.spyOn(window, "innerHeight", "get").mockReturnValue(500);
+      resize();
+      expect(el.style.top).toBe(`${top}px`);
+      expect(variable(el, "available-height")).toBe(`${500 - top - 6}px`);
     });
   });
 });

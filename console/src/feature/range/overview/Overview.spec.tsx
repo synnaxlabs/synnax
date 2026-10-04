@@ -27,6 +27,7 @@ import { type ComponentType } from "react";
 import { assert, describe, expect, it, vi } from "vitest";
 
 import { Range } from "@/feature/range";
+import { Overview } from "@/feature/range/overview/Overview";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
 import { createResourceTab, primePanel } from "@/platform/panel/testutil";
@@ -76,7 +77,7 @@ const renderOverview = async (
       <PlutoPanel.TabScope.Provider value={tabKey}>
         <PlatformRange.SnapshotServicesProvider services={services}>
           <Errors.SuspenseBoundary FallbackComponent={FallbackComponent}>
-            <Range.Overview.Overview />
+            <Overview />
           </Errors.SuspenseBoundary>
           <Modals.Stack />
         </PlatformRange.SnapshotServicesProvider>

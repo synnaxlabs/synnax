@@ -47,6 +47,12 @@ env:
 jobs:
   ci:
     name: CI
+    # A called workflow gets no more than its caller grants, and the fail-fast job in CI
+    # asks for actions: write.
+    permissions:
+      actions: write
+      contents: write
+      packages: write
     uses: ./.github/workflows/ci.yaml
     with:
       full: true
