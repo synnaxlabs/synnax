@@ -16,6 +16,7 @@ import {
   NEW_PANEL,
   PARK,
   pill,
+  renamePanel,
   selectPanel,
   STAND,
   zoomSelector,
@@ -28,10 +29,13 @@ const DRAFT = "Draft";
  * stand, then right-click the Draft panel, select Delete, and confirm.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
-  const stand = await createStand(session, NEW_PANEL);
+  // The stand takes its New panel name after Draft exists, because Draft also starts
+  // as New panel.
+  const stand = await createStand(session);
   try {
     const { page } = session;
     await createPanel(session, DRAFT);
+    await renamePanel(session, STAND, NEW_PANEL);
     await selectPanel(session, NEW_PANEL);
     await session.moveTo(PARK);
 
