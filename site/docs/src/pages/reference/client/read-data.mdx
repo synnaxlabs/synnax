@@ -22,7 +22,7 @@ get samples as they arrive, [stream data](/reference/client/stream-data).
 
 ## Read a time range
 
-Give `read` a time range and one or more channels. The range includes its start and
+Give `read` a time range and one or more channels. The time range includes its start and
 excludes its end, as [Time types](/reference/client/time-types#timerange) shows.
 
 <Client.Tabs exclude={["console", "cpp"]}>
@@ -235,14 +235,14 @@ const iterator = await client.openIterator(tr, ["time", "temperature"], {
 
 ### Move the iterator yourself
 
-A loop reads the range from start to end. To move in other ways, call the methods below.
-Each returns false when no data is there, and puts the data that it read in
+A loop reads the time range from start to end. To move in other ways, call the methods
+below. Each returns false when no data is there, and puts the data that it read in
 `iterator.value`, a frame.
 
 | Python           | TypeScript      | Does                                                         |
 | ---------------- | --------------- | ------------------------------------------------------------ |
-| `seek_first()`   | `seekFirst()`   | Moves to the start of the first data in the range.           |
-| `seek_last()`    | `seekLast()`    | Moves to the end of the last data in the range.              |
+| `seek_first()`   | `seekFirst()`   | Moves to the start of the first data in the time range.      |
+| `seek_last()`    | `seekLast()`    | Moves to the end of the last data in the time range.         |
 | `seek_ge(stamp)` | `seekGE(stamp)` | Moves to `stamp`, or the first data after it. Reads nothing. |
 | `seek_le(stamp)` | `seekLE(stamp)` | Moves to `stamp`, or the last data before it. Reads nothing. |
 | `next(span)`     | `next(span)`    | Reads forward by `span`.                                     |
@@ -284,8 +284,9 @@ try {
 
 </Client.Tabs>
 
-This code reads the range one minute at a time. The loop stops at the first minute that
-has no data. To read past gaps, use `sy.AUTO_SPAN` in Python, or no span in TypeScript.
+This code reads the time range one minute at a time. The loop stops at the first minute
+that has no data. To read past gaps, use `sy.AUTO_SPAN` in Python, or no span in
+TypeScript.
 
 ### Iterator options
 

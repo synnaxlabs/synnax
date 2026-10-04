@@ -32,8 +32,8 @@ cannot.
 
 ## State file
 
-The state file holds the connection parameters that `login` saves, and the key of the
-rack that the Driver uses on the Core.
+The state file holds the connection parameters that `login` saves, and the rack key: the
+key that the Core knows this Driver by.
 
 | Operating system   | Path                                                               |
 | ------------------ | ------------------------------------------------------------------ |
@@ -51,7 +51,8 @@ path. The service always uses the default path.
 </Note.Note>
 
 To remove the saved login and the rack key, run `synnax-driver clear`. On the next
-start, the Driver creates a new rack.
+start, the Driver shows in the devices toolbar as a new Driver. The old entry stays on
+the Core.
 
 <Divider.Divider x />
 
@@ -124,26 +125,27 @@ The file cannot hold comments.
 ```
 
 The `integrations` list replaces the default list. Leave out `remote_info`, so that the
-Driver creates a rack on the first start and saves its key in the state file.
+Driver registers with the Core on the first start and saves its rack key in the state
+file.
 
 <Divider.Divider x />
 
 ## Parameters
 
-| Key                | Default     | Description                                                                                                                                       |
-| ------------------ | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `host`             | `localhost` | The host of the Core.                                                                                                                             |
-| `port`             | `9090`      | The port of the Core.                                                                                                                             |
-| `username`         | `synnax`    | The username of the Driver user.                                                                                                                  |
-| `password`         | `seldon`    | The password of the Driver user.                                                                                                                  |
-| `secure`           | `false`     | Connect to the Core over TLS.                                                                                                                     |
-| `correct_skew`     | `true`      | Keep the timestamps of hardware-timed NI and LabJack reads in step with the clock of the computer.                                                |
-| `op_timeout`       | `60`        | The number of seconds after which a task operation that has not finished, such as a start, gives the task the error `operation timed out`.        |
-| `poll_interval`    | `1`         | The number of seconds between two checks for task operations that have not finished.                                                              |
-| `shutdown_timeout` | `30`        | The number of seconds that the Driver waits for task operations when it stops.                                                                    |
-| `worker_count`     | `4`         | The number of threads that run task operations. Use a value from 1 to 64.                                                                         |
-| `rack_key`         | `0`         | The key of the rack to use. With 0, or when the rack does not exist, the Driver creates a rack named after the host name of the computer.         |
-| `cluster_key`      | nil UUID    | The key of the Core that owns `rack_key`. When it is not the key of the Core, the Driver ignores `rack_key` and creates a rack, so set both keys. |
-| `integrations`     | all         | The device integrations to run: `arc`, `ethercat`, `http`, `labjack`, `modbus`, `ni`, and `opc`. NI Linux RT has no `modbus`.                     |
+| Key                | Default     | Description                                                                                                                                                           |
+| ------------------ | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `host`             | `localhost` | The host of the Core.                                                                                                                                                 |
+| `port`             | `9090`      | The port of the Core.                                                                                                                                                 |
+| `username`         | `synnax`    | The username of the Driver user.                                                                                                                                      |
+| `password`         | `seldon`    | The password of the Driver user.                                                                                                                                      |
+| `secure`           | `false`     | Connect to the Core over TLS.                                                                                                                                         |
+| `correct_skew`     | `true`      | Keep the timestamps of hardware-timed NI and LabJack reads in step with the clock of the computer.                                                                    |
+| `op_timeout`       | `60`        | The number of seconds after which a task operation that has not finished, such as a start, gives the task the error `operation timed out`.                            |
+| `poll_interval`    | `1`         | The number of seconds between two checks for task operations that have not finished.                                                                                  |
+| `shutdown_timeout` | `30`        | The number of seconds that the Driver waits for task operations when it stops.                                                                                        |
+| `worker_count`     | `4`         | The number of threads that run task operations. Use a value from 1 to 64.                                                                                             |
+| `rack_key`         | `0`         | The key that the Core knows this Driver by. With 0, or when the Core has no such key, the Driver registers as a new Driver named after the host name of the computer. |
+| `cluster_key`      | nil UUID    | The key of the Core that owns `rack_key`. When it is not the key of the Core, the Driver ignores `rack_key` and registers as a new Driver, so set both keys.          |
+| `integrations`     | all         | The device integrations to run: `arc`, `ethercat`, `http`, `labjack`, `modbus`, `ni`, and `opc`. NI Linux RT has no `modbus`.                                         |
 
 For a boolean environment variable, use `true` or `false`.

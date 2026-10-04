@@ -15,15 +15,15 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 Delete the samples of one or more channels in a time range. The channels stay, so you
-can write new samples to the range. To delete a channel, see
+can write new samples to the time range. To delete a channel, see
 [Rename and delete channels](/reference/channels/rename-and-delete).
 
 <Divider.Divider x />
 
 ## Delete a time range
 
-Give `delete` the channels and the time range. The range includes its start and excludes
-its end.
+Give `delete` the channels and the time range. The time range includes its start and
+excludes its end.
 
 <Client.Tabs exclude={["console", "cpp"]}>
 
@@ -63,7 +63,7 @@ A delete cannot be undone. After `delete` returns, reads do not return the sampl
 Core frees the disk space only after a file holds a large amount of deleted data, so a
 small delete can leave the disk use the same.
 
-A delete of a range with no data does nothing and raises no error.
+A delete of a time range with no data does nothing and raises no error.
 
 <Note.Note variant="warning">
   A name with characters other than letters, digits, and underscores is a regular
@@ -78,10 +78,10 @@ A delete of a range with no data does nothing and raises no error.
 The Core rejects a delete in these cases:
 
 - **An index channel with data that depends on it.** You cannot delete samples of an
-  index channel while a data channel that it indexes has samples in the range. Delete
-  the data channels first, or in the same call as the index channel.
-- **An open writer.** You cannot delete a range that an open writer can write to. Close
-  the writer first.
+  index channel while a data channel that it indexes has samples in the time range.
+  Delete the data channels first, or in the same call as the index channel.
+- **An open writer.** You cannot delete a time range that an open writer can write to.
+  Close the writer first.
 - **A channel key that does not exist.** The Core deletes nothing and raises a not found
   error. A channel name that does not exist raises no error: the Core deletes nothing
   for that name.
