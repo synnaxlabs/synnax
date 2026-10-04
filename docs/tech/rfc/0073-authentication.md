@@ -277,12 +277,12 @@ A session ends in two ways:
 1. **Revocation**: Someone deletes it. Logout deletes one session, and an administrator
    can delete any. Deleting a credential deletes its sessions. Deleting a subject
    deletes its credentials. Changing a password ends that credential's other sessions.
-2. **Idle timeout**: No activity for the timeout period. Any request or open stream
-   counts as activity, and a client with nothing to send calls a renew endpoint. So a
-   running client never times out, and a crashed one does. Activity does not cost a
-   write per request: each node tracks it in memory and writes `last_active` only when
-   the stored value is older than a quarter of the timeout. That is at most four writes
-   per session per timeout period, however busy the client is.
+2. **Idle timeout**: No activity for the timeout period, which is 7 days by default. Any
+   request or open stream counts as activity, and a client with nothing to send calls a
+   renew endpoint. So a running client never times out, and a crashed one does. Activity
+   does not cost a write per request: each node tracks it in memory and writes
+   `last_active` only when the stored value is older than a quarter of the timeout. That
+   is at most four writes per session per timeout period, however busy the client is.
 
 **The idle timeout measures the client, not the person.** An open Console always holds
 streams, so it never times out, even when nobody touches it. The timeout fires only when
@@ -464,7 +464,7 @@ the same time, as each component already works. New names are proposals.
 | `username`, `password` | Unchanged. They own the root user's password (§4.7)                               |
 | `auth-methods`         | New. The accepted methods (§4.6). Default: all                                    |
 | `fips`                 | New. Restricts password hashes to PBKDF2 (§4.1). Default: false                   |
-| `session-idle-timeout` | New. The idle timeout (§4.4)                                                      |
+| `session-idle-timeout` | New. The idle timeout (§4.4). Default: 7 days                                     |
 | `oidc-providers`       | New. A list of providers, each with a name, an issuer URL, and a client ID (§4.2) |
 
 **Driver** (config file, `SYNNAX_DRIVER_` environment variables, and the state file)
@@ -595,11 +595,9 @@ Each phase is one pull request into `main`.
 
 ## 8 Open questions
 
-1. **Idle timeout**: The default. Something long, like 7 days, lets a Console user close
-   a laptop for a weekend.
-2. **Token and key lengths**: The size of the random part of each.
-3. **Default root password**: Whether `synnax` and `seldon` stay as defaults.
-4. **Provider settings**: Start settings as written, or stored records the Console can
+1. **Token and key lengths**: The size of the random part of each.
+2. **Default root password**: Whether `synnax` and `seldon` stay as defaults.
+3. **Provider settings**: Start settings as written, or stored records the Console can
    edit without a restart.
-5. **Host role name**: Whether to rename the built-in Host role to Driver, now that only
+4. **Host role name**: Whether to rename the built-in Host role to Driver, now that only
    racks hold it.
