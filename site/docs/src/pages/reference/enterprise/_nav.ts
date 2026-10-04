@@ -20,14 +20,19 @@ export const ENTERPRISE_NAV: PageNavNode = {
       name: "Set up Enterprise",
     },
     {
+      key: "/reference/enterprise/requirements",
+      href: "/reference/enterprise/requirements",
+      name: "Requirements",
+    },
+    {
       key: "/reference/enterprise/console",
       href: "/reference/enterprise/console",
       name: "Connect the Console",
     },
     {
-      key: "/reference/enterprise/requirements",
-      href: "/reference/enterprise/requirements",
-      name: "Requirements",
+      key: "/reference/enterprise/license",
+      href: "/reference/enterprise/license",
+      name: "Activate a license",
     },
     {
       key: "/reference/enterprise/production",
