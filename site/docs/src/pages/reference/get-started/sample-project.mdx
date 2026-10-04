@@ -32,12 +32,12 @@ the "Open sample project" command from the
 
 Synnax Desktop creates a project with:
 
-| Item           | Kind                                                  | What it does                                                                        |
-| -------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Tank           | [Schematic](/reference/visualize/schematics)          | Shows the tank, its valves, and its pressure, with **Start** and **Abort** buttons. |
-| Tank pressure  | [Line plot](/reference/visualize/line-plots)          | Plots the tank pressure, and the state of each valve.                               |
-| Press sequence | [Arc automation](/reference/control/arc/introduction) | Runs the test: pressurize, hold, and vent.                                          |
-| Tank simulator | Arc automation                                        | Simulates the tank. It writes the pressure from the valve commands.                 |
+| Item           | Kind                                         | What it does                                                                        |
+| -------------- | -------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Tank           | [Schematic](/reference/visualize/schematics) | Shows the tank, its valves, and its pressure, with **Start** and **Abort** buttons. |
+| Tank pressure  | [Line plot](/reference/visualize/line-plots) | Plots the tank pressure, and the state of each valve.                               |
+| Press sequence | [Arc automation](/reference/control/arc)     | Runs the test: pressurize, hold, and vent.                                          |
+| Tank simulator | Arc automation                               | Simulates the tank. It writes the pressure from the valve commands.                 |
 
 Both Arc automations start at once. The tank pressure is 0 psi, and both valves are
 closed.
@@ -126,7 +126,7 @@ time, and it moves to the next stage when a condition is true.
 | `abort`      | Closes the press valve, opens the vent valve, and takes authority 255. | `pressurize` on **Start**.                                   |
 
 To learn to write a sequence like this one, see
-[test sequences](/reference/control/arc/how-to/test-sequences).
+[test sequences](/reference/control/arc/test-sequences).
 
 <Divider.Divider x />
 

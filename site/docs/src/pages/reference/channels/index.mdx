@@ -75,9 +75,8 @@ channel, such as `valve_1_state`, shows what the hardware did.
 ### Start an automation from a button
 
 A schematic button writes `true` to a virtual `boolean` channel, such as `start_cmd`. An
-[Arc sequence](/reference/control/arc/how-to/test-sequences) starts when `start_cmd`
-receives a true value. Nothing stores the button press, because only the live value is
-necessary.
+[Arc sequence](/reference/control/arc/test-sequences) starts when `start_cmd` receives a
+true value. Nothing stores the button press, because only the live value is necessary.
 
 ### Store data from a script
 
@@ -148,9 +147,9 @@ automations use, such as a button press or a test value.
 ### Calculated channels
 
 A calculated channel computes its values from other channels with an
-[Arc](/reference/control/arc/introduction) expression. Synnax does not store the values.
-It computes them when you stream or read the channel, for live data and for past time
-ranges. Synnax gives each calculated channel an index named `<name>_time`. See
+[Arc](/reference/control/arc) expression. Synnax does not store the values. It computes
+them when you stream or read the channel, for live data and for past time ranges. Synnax
+gives each calculated channel an index named `<name>_time`. See
 [calculated channels](/reference/channels/calculated).
 
 <Divider.Divider x />
