@@ -30,7 +30,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   // Create and open the group first: the create symbol action stays disabled
   // while a built-in group is selected.
   await session.click(capture.toolbarButton(page, "group", "add"), { zoom: false });
-  const groupName = page.locator(".console-modal").getByPlaceholder("Name").first();
+  const groupName = page
+    .locator(".pluto-dialog__dialog.pluto--modal")
+    .getByPlaceholder("Name")
+    .first();
   await session.waitFor(groupName);
   await groupName.fill("Test stand");
   await session.settle(300);
@@ -51,7 +54,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(500);
 
   await session.click(capture.toolbarButton(page, "schematic", "add"));
-  const modal = page.locator(".console-modal").first();
+  const modal = page.locator(".pluto-dialog__dialog.pluto--modal").first();
   const drop = page.locator(".console-schematic-file-drop").first();
   await session.waitFor(drop);
   await session.hold(800);

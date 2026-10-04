@@ -105,7 +105,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
   // The overview's own title input also has the "Name" placeholder; scope to
   // the modal or the first match dismisses it.
-  const modal = page.locator(".console-modal");
+  const modal = page.locator(".pluto-dialog__dialog.pluto--modal");
   const name = modal.getByPlaceholder("Name").first();
   const labels = modal.getByText(/^(Select labels|Labels)$/).first();
   const labelItem = (n: string): ReturnType<typeof page.locator> =>
