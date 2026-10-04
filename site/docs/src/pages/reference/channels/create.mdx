@@ -68,6 +68,7 @@ tank_time = client.channels.create(
     name="tank_time",
     data_type=sy.DataType.TIMESTAMP,
     is_index=True,
+    retrieve_if_name_exists=True,
 )
 
 tank_pressure, tank_temperature = client.channels.create(
@@ -101,11 +102,14 @@ this option to run the same script many times.
 ```typescript
 import { DataType } from "@synnaxlabs/client";
 
-const tankTime = await client.channels.create({
-  name: "tank_time",
-  dataType: DataType.TIMESTAMP,
-  isIndex: true,
-});
+const tankTime = await client.channels.create(
+  {
+    name: "tank_time",
+    dataType: DataType.TIMESTAMP,
+    isIndex: true,
+  },
+  { retrieveIfNameExists: true },
+);
 
 const [tankPressure, tankTemperature] = await client.channels.create(
   [

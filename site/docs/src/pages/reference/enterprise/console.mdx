@@ -1,11 +1,12 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Connect the Console"
-description: "Download the Synnax Console and connect it to a Synnax Core."
+description: "Install the Synnax Console app, add a Synnax Core to it, and log in."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { Console } from "@/components/console";
 import { mdxOverrides } from "@/components/mdxOverrides";
@@ -13,131 +14,77 @@ import { Video } from "@/components/media/Media";
 
 export const components = mdxOverrides;
 
-The Synnax Console is a desktop application to visualize data, control hardware, and
-manage a Synnax Core. It runs on Windows 11 and macOS Sequoia or later. To install and
-start a Core, see [Set up Synnax Enterprise](/reference/enterprise).
+The Synnax Console app runs on Windows and macOS and keeps a list of the Synnax Cores
+you connect to. Each Core also serves the Console to a web browser. For the hardware the
+Console needs, see
+[Console hardware](/reference/enterprise/requirements#console-hardware).
 
 <Divider.Divider x />
 
-## Install
+## Install the Console app
 
 Download the latest release for your operating system:
 
-<br />
-<br />
 <Flex.Box direction="y" justify="center" align="center">
   <Console.DownloadButton />
   <small>
-    Releases for other operating systems and earlier versions are on the [Synnax
-    releases page](https://github.com/synnaxlabs/synnax/releases).
+    Earlier versions are on the [Synnax releases
+    page](https://github.com/synnaxlabs/synnax/releases).
   </small>
 </Flex.Box>
-<br />
-<br />
 
 <Divider.Divider x />
 
-## Connecting a Core
+## Add a Core
 
-The login window shows a list of Cores. To add a Core, click **Add a Core**. Enter the
-name, host, port, and secure setting, then click **Connect**.
+The **Cores** list starts with two Cores: **Local**, a Core on this computer at
+`localhost:9090`, and **Demo**. If your Core runs on this computer on port 9090, skip to
+[log in](#log-in).
+
+1. In the **Cores** list, click **Add a Core**.
+2. Enter a name for the Core.
+3. Enter the **Host** and the **Port** of the Core. The default port is 9090.
+4. If the Core uses TLS, turn on **Secure**. For a Core with a self-signed certificate,
+   first [install its certificate](/reference/enterprise/certificates) on this computer.
+5. Click **Connect**.
+
+The Core shows in the list. **Connected** means the Core answered. **Unreachable** means
+it did not answer or has no active license. To see the reason, hover over the status.
+
+To change a Core, right-click it in the list and select **Edit**, **Rename**, **Refresh
+connection**, or **Remove**.
 
 <Video id="console/clusters/connect" />
 
-<table>
-  <thead>
-    <tr>
-      <th>Parameter</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>
-        <b>Name</b>
-      </td>
-      <td>
-        <p>A name for the Core in the list of Cores.</p>
-      </td>
-    </tr>
-    <tr>
-      <td>
-        <b>Host</b>
-      </td>
-      <td>
-        <p>The hostname or IP address of the Core.</p>
-      </td>
-    </tr>
-    <tr>
-      <td>
-        <b>Port</b>
-      </td>
-      <td>
-        <p>The port of the Core. The default is 9090.</p>
-      </td>
-    </tr>
-    <tr>
-      <td>
-        <b>Secure</b>
-      </td>
-      <td>
-        <p>
-          Connect with TLS. Turn this on for a Core that uses TLS. Turn it off for a
-          Core started with `--insecure`.
-        </p>
-      </td>
-    </tr>
-    <tr>
-      <td>
-        <b>Username</b>
-      </td>
-      <td>
-        <p>The username to log in with.</p>
-      </td>
-    </tr>
-    <tr>
-      <td>
-        <b>Password</b>
-      </td>
-      <td>
-        <p>The password to log in with.</p>
-      </td>
-    </tr>
-  </tbody>
-</table>
+<Divider.Divider x />
 
-To log in, select the Core in the list. Enter your **Username** and **Password**, then
-click **Log in**. The root user of a new Core is `synnax` with the password `seldon`,
-unless the Core started with different
-[`--username` and `--password` flags](/reference/enterprise/cli-reference#start).
+## Log in
+
+1. In the **Cores** list, click the Core.
+2. Enter your **Username** and **Password**.
+3. Click **Log in**.
+
+The root user of a new Core is `synnax` with the password `seldon`, unless the Core
+started with other
+[`--username` and `--password`](/reference/enterprise/cli-reference#start) values. Other
+users get their credentials from the person who
+[registered them](/reference/enterprise/users).
+
+After you log in, the Console shows your projects. On a Core with no license, it shows
+**This Core needs a license** instead. To activate one, see
+[Set up Synnax Enterprise](/reference/enterprise).
+
+The Console opens on the login form of the last Core you used. To select a different
+Core, click <Icon.Arrow.Left /> at the top left.
 
 <Divider.Divider x />
 
-## Requirements
+## Use the Console in a browser
 
-### Hardware
+1. In a web browser, go to the address of the Core, for example
+   `http://synnax.example.com:9090`. For a Core with TLS, use `https://`.
+2. Enter your **Username** and **Password**, then click **Log in**.
 
-|             | Minimum                                             | Recommended                                          |
-| ----------- | --------------------------------------------------- | ---------------------------------------------------- |
-| **CPU**     | Intel Core i5 (8th gen) / AMD Ryzen 5 (3000 series) | Intel Core i7 (10th gen) / AMD Ryzen 7 (4000 series) |
-| **RAM**     | 8 GB                                                | 16 GB or more                                        |
-| **Storage** | 2 GB available                                      | 4 GB available (SSD recommended)                     |
-
-### Graphics
-
-The Console uses the GPU heavily. High-frequency plots and dense schematics need a
-dedicated graphics card to run smoothly.
-
-|             | Minimum                      | Recommended                      |
-| ----------- | ---------------------------- | -------------------------------- |
-| **GPU**     | NVIDIA GTX 1030 / AMD RX 550 | NVIDIA RTX 2060 / AMD RX 5600 XT |
-| **VRAM**    | 2 GB                         | 6 GB or more                     |
-| **DirectX** | Version 12                   | Version 12 Ultimate              |
-| **OpenGL**  | Version 4.5                  | Version 4.6                      |
-
-Integrated graphics (Intel Iris Xe, AMD Radeon Vega) work. Performance decreases with
-many high-frequency streams, long time ranges, or complex schematics.
-
-### Display
-
-Use a display of at least 1920x1080. A 4K display is preferred for extended use.
+The browser Console connects to the Core that serves it. For a Core with a self-signed
+certificate, the browser warns about the certificate until you
+[install the certificate](/reference/enterprise/certificates) on your computer.
