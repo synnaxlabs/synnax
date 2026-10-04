@@ -58,28 +58,28 @@ gets to 100, it goes back to 0.
 2. Enter the name `Ramp`, select **Text** as the editor mode, and select **Create**.
 3. Copy this program into the editor:
 
-```arc channels="ramp"
-import time
+   ```arc channels="ramp"
+   import time
 
-func step() {
-    value f64 $= 0
-    value += 1
-    if value > 100 {
-        value = 0
-    }
-    ramp = value
-}
+   func step() {
+       value f64 $= 0
+       value += 1
+       if value > 100 {
+           value = 0
+       }
+       ramp = value
+   }
 
-time.interval{period=100ms} -> step{}
-```
+   time.interval{period=100ms} -> step{}
+   ```
 
-- `time.interval{period=100ms}` runs `step` ten times each second. See
-  [time](/reference/control/arc/reference/standard-library/time).
-- `value f64 $= 0` makes a
-  [stateful variable](/reference/control/arc/reference/variables#stateful). It keeps its
-  value from one run of `step` to the next.
-- `ramp = value` writes the value to the `ramp` channel. Synnax writes the timestamp to
-  `ramp_time`.
+   - `time.interval{period=100ms}` runs `step` ten times each second. See
+     [time](/reference/control/arc/reference/standard-library/time).
+   - `value f64 $= 0` makes a
+     [stateful variable](/reference/control/arc/reference/variables#stateful). It keeps
+     its value from one run of `step` to the next.
+   - `ramp = value` writes the value to the `ramp` channel. Synnax writes the timestamp
+     to `ramp_time`.
 
 4. In the bar at the bottom of the editor, open the **Driver** list and select a Driver.
    In Synnax Desktop, select **Node 1 Embedded Driver**.
@@ -124,12 +124,13 @@ the toolbar and select **Add to new plot**. Then add `ramp` to **Y1** of the new
 
 ## Next steps
 
-- [Channels](/reference/channels): Learn about data types, index channels, and
+- [Channels](/reference/channels) -> learn about data types, index channels, and
   calculated channels.
-- [Hardware](/reference/hardware): Connect a LabJack, NI, Modbus, OPC UA, or other
+- [Hardware](/reference/hardware) -> connect a LabJack, NI, Modbus, OPC UA, or other
   device.
-- [Visualize](/reference/visualize/line-plots): Build line plots, schematics, tables,
+- [Visualize](/reference/visualize/line-plots) -> build line plots, schematics, tables,
   and logs.
-- [Ranges](/reference/ranges): Add metadata and labels to ranges, and export their data.
-- [Control](/reference/control): Operate hardware by hand, or automate it with Arc.
-- [Alarms](/reference/alarms): Watch your data with statuses and redlines.
+- [Ranges](/reference/ranges) -> add metadata and labels to ranges, and export their
+  data.
+- [Control](/reference/control) -> operate hardware by hand, or automate it with Arc.
+- [Alarms](/reference/alarms) -> watch your data with statuses and redlines.
