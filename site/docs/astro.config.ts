@@ -168,7 +168,9 @@ export default defineConfig({
     "/reference/driver/ethercat/configure-device":
       "/reference/hardware/ethercat/configure-device",
     "/reference/driver/ethercat/get-started":
-      "/reference/hardware/ethercat/get-started",
+      "/reference/hardware/ethercat/configure-device",
+    "/reference/hardware/ethercat/get-started":
+      "/reference/hardware/ethercat/configure-device",
     "/reference/driver/ethercat/read-task": "/reference/hardware/ethercat/read-task",
     "/reference/driver/ethercat/write-task": "/reference/hardware/ethercat/write-task",
     "/reference/driver/get-started": "/reference/hardware",
