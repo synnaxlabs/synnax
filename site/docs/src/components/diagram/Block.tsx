@@ -51,33 +51,38 @@ const Tab = ({ x, y }: { x: number; y: number }): ReactElement => (
   </g>
 );
 
-const Item = ({
+/** The icon chip and text of a block, drawn over the given box. */
+export const Content = ({
   node: { label, caption, icon: Icon, x, y, width, height },
 }: {
   node: PlacedNode;
 }): ReactElement => (
+  <foreignObject x={x} y={y} width={width} height={height}>
+    <div className="block-diagram__content">
+      {Icon != null && (
+        <span className="block-diagram__icon">
+          <Icon />
+        </span>
+      )}
+      <span className="block-diagram__text">
+        <span className="block-diagram__label">{label}</span>
+        {caption != null && <span className="block-diagram__caption">{caption}</span>}
+      </span>
+    </div>
+  </foreignObject>
+);
+
+export const Item = ({ node }: { node: PlacedNode }): ReactElement => (
   <g>
     <rect
-      x={x}
-      y={y}
-      width={width}
-      height={height}
+      x={node.x}
+      y={node.y}
+      width={node.width}
+      height={node.height}
       rx={6}
       className="block-diagram__node"
     />
-    <foreignObject x={x} y={y} width={width} height={height}>
-      <div className="block-diagram__content">
-        {Icon != null && (
-          <span className="block-diagram__icon">
-            <Icon />
-          </span>
-        )}
-        <span className="block-diagram__text">
-          <span className="block-diagram__label">{label}</span>
-          {caption != null && <span className="block-diagram__caption">{caption}</span>}
-        </span>
-      </div>
-    </foreignObject>
+    <Content node={node} />
   </g>
 );
 
