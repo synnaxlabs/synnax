@@ -290,7 +290,11 @@ const openPalette = async (session: CaptureSession): Promise<Locator> => {
   const dialog = page
     .locator(".pluto-dialog__dialog:has(.console-palette__input)")
     .first();
-  await session.zoom(dialog);
+  // The dialog spans most of the window, so its fit would leave the camera at about 1x.
+  // 1.35x is the deepest zoom that keeps its edges in frame.
+  const box = await dialog.boundingBox();
+  if (box == null) throw new Error("command palette is not on screen");
+  await session.zoom({ x: box.x + box.width / 2, y: box.y + box.height / 2 }, 1.35);
   await session.hold(PALETTE_READ_MS);
   return dialog;
 };

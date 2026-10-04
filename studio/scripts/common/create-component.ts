@@ -28,7 +28,10 @@ export const createComponentScript =
     await capture.clickPanelCreate(session);
     const selector = page.locator(".console-layout-selector__frame").first();
     await session.waitFor(selector);
-    await session.zoom(selector);
+    // The selector fills the panel, so zoom on a point over its buttons.
+    const box = await selector.locator(".console-layout-selector__items").boundingBox();
+    if (box == null) throw new Error("layout selector buttons are not on screen");
+    await session.zoom({ x: box.x + box.width / 2, y: box.y + box.height / 2 }, 1.4);
     await session.hold(800);
     await capture.createComponent(session, title);
     session.endZoom();
