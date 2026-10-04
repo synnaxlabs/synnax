@@ -2,78 +2,121 @@
 layout: "@/layouts/Reference.astro"
 title: "Hardware"
 heading: "Hardware"
-description: "Acquire data from and control hardware from a number of vendors."
+description: "Connect DAQ cards, PLCs, and servers to Synnax with the Driver."
 ---
 
-import { Edition } from "@/components/edition";
 import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Diagram } from "@/components/diagram";
+import { Edition } from "@/components/edition";
+import Platforms from "@/components/hardware/Platforms.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The Synnax Driver connects Synnax to your hardware. It reads data from devices into
-channels, and it writes commands from channels to devices. The Driver also runs
-[Arc automations](/reference/control/arc/introduction) close to the hardware.
+The Synnax Driver connects hardware to Synnax. It runs tasks that read data from devices
+into [channels](/reference/channels), and tasks that write commands from channels to
+devices.
 
-You set up devices and [tasks](/reference/hardware/tasks) in the Console. The Driver
-then runs each task in the background.
+<Divider.Divider x />
+
+## What hardware is for
+
+- [Record sensor data from a DAQ card](/reference/hardware/ni/analog-read-task) -> an NI
+  analog read task or a [LabJack read task](/reference/hardware/labjack/read-task)
+  stores each sensor in a channel.
+- [Command valves and relays](/reference/hardware/ni/digital-write-task) -> a write task
+  sends each value you write to a command channel to an output.
+- [Read and write PLC values](/reference/hardware/modbus/connect-server) -> Modbus and
+  [OPC UA](/reference/hardware/opc-ua/connect-server) tasks read registers and nodes,
+  and write commands back.
+- [Poll a web API](/reference/hardware/http/read-task) -> an HTTP read task reads JSON
+  fields from a device or service on a schedule.
+- [Read and write EtherCAT I/O modules](/reference/hardware/ethercat/configure-device)
+  -> EtherCAT tasks exchange data with the modules on a network port.
+- [Connect hardware that Synnax does not support](/reference/hardware/custom) -> write
+  your own integration with the Python or TypeScript client.
+
+To run logic close to the hardware, deploy an
+[Arc automation](/reference/control/arc/introduction) to the Driver.
+
+<Divider.Divider x />
+
+## Devices and tasks
+
+- [Devices](/reference/hardware/devices) -> a device is one piece of hardware or one
+  server. The Driver finds NI, LabJack, and EtherCAT devices by itself. You connect
+  Modbus, OPC UA, and HTTP servers by their address.
+- [Tasks](/reference/hardware/tasks) -> a task is a job that the Driver runs on a
+  device. A read task records values in channels. A write task sends the commands from
+  channels to outputs.
 
 <Divider.Divider x />
 
 ## Supported integrations
 
-| Integration                                                     | Connects to                                         |
-| --------------------------------------------------------------- | --------------------------------------------------- |
-| [EtherCAT](/reference/hardware/ethercat/get-started)            | EtherCAT devices on a network interface             |
-| [HTTP](/reference/hardware/http/connect-server)                 | Devices and services with an HTTP or HTTPS JSON API |
-| [LabJack](/reference/hardware/labjack/configure-device)         | LabJack T-Series devices                            |
-| [Modbus](/reference/hardware/modbus/connect-server)             | Modbus TCP/IP servers, such as PLCs and I/O modules |
-| [National Instruments](/reference/hardware/ni/configure-device) | NI-DAQmx devices, such as CompactDAQ, cRIO, and PXI |
-| [OPC UA](/reference/hardware/opc-ua/connect-server)             | OPC UA servers, such as PLCs and SCADA systems      |
+<Platforms />
 
-Each integration has a table of the operating systems it supports. To send alerts to
-[PagerDuty](/reference/alarms/pagerduty), see the alarms section.
+Synnax Desktop runs on macOS with Apple silicon and on Windows (x64). It supports the
+integrations of its operating system, so NI devices need Windows. Some integrations need
+the vendor's software on the same computer as the Driver: NI-DAQmx for National
+Instruments, LJM for LabJack, and Npcap (Windows) or libpcap (macOS and Linux) for
+EtherCAT. Each setup page links to the download.
 
 <Divider.Divider x />
 
-## Embedded Driver
+## Where the Driver runs
 
-Synnax Desktop runs an embedded Driver for you. It starts and stops with the app, and
-you do not install or configure it. The Driver can use only the hardware that connects
-to the computer that runs Synnax Desktop.
+<Diagram.Block
+  title="Devices plugged into the computer and devices on the network both connect to the Driver. The Driver connects to the Core."
+  nodes={[
+    {
+      key: "local",
+      label: "Plugged-in devices",
+      caption: "USB, PCIe, EtherCAT",
+      icon: Icon.Hardware,
+      column: 0,
+    },
+    {
+      key: "network",
+      label: "Network devices",
+      caption: "PLCs, OPC UA, HTTP",
+      icon: Icon.Connect,
+      column: 0,
+    },
+    {
+      key: "driver",
+      label: "Driver",
+      caption: "runs tasks",
+      icon: Icon.Rack,
+      column: 1,
+    },
+    {
+      key: "core",
+      label: "Core",
+      caption: "stores channels",
+      icon: Icon.Core,
+      column: 2,
+    },
+  ]}
+  edges={[
+    { from: "local", to: "driver" },
+    { from: "network", to: "driver" },
+    { from: "driver", to: "core" },
+  ]}
+/>
+
+Synnax Desktop starts a Synnax Core on your computer, and the Core runs the Driver. The
+Driver reaches the devices plugged into the computer and the devices on any network the
+computer can reach. In the [devices toolbar](/reference/hardware/devices), devices that
+the Driver finds show under **Node 1 Embedded Driver**.
 
 <Edition.Enterprise>
 
-Every [Synnax Core](/reference/enterprise) also runs an embedded Driver on the same
-machine. It starts when the Core starts.
+A Core runs an embedded Driver by default. You can also
+[install the Driver](/reference/enterprise/driver/install) on another machine, such as
+an NI CompactRIO controller or a test stand computer. That Driver connects to the Core
+over the network and runs the tasks for the hardware on its machine. On an NI Linux
+Real-Time controller, tasks and Arc automations run next to the hardware, with no
+network delay in the control loop.
 
 </Edition.Enterprise>
-
-<Divider.Divider x />
-
-## Standalone Driver
-
-<Edition.Enterprise>
-
-With Synnax Enterprise, you can also
-[install the Driver as a standalone program](/reference/enterprise/driver/install) on a
-different machine from the Core. The standalone Driver connects to the Core over the
-network. Use it to acquire data from hardware on more than one machine.
-
-The standalone Driver runs on
-[NI Linux Real-Time](https://www.ni.com/en/shop/linux/introduction-to-ni-linux-real-time.html)
-controllers, such as [NI CompactRIO](https://www.ni.com/en/shop/compactrio.html) and
-[NI PXI](https://www.ni.com/en/shop/pxi.html) systems.
-
-On a real-time controller, the Driver runs data acquisition and control tasks and
-[Arc automations](/reference/control/arc/introduction). Control loops then run close to
-the hardware, with no latency from the network.
-
-</Edition.Enterprise>
-
-<Divider.Divider x />
-
-## Building a custom driver
-
-If Synnax does not support your hardware, you can
-[build a custom driver](/reference/hardware/custom) with the Python or TypeScript
-client.
