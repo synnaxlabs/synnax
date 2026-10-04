@@ -194,8 +194,9 @@ and **Scaled units** (`scaled_units`).
 ### The outputs stop changing after a command
 
 A command was outside the **Range** of its channel. NI-DAQmx rejects it with no message,
-and because each command writes every output, all later commands fail too. Send a value
-inside the range to that channel, then the task writes again.
+and because each command writes every output, all later commands fail too. The state
+channels still show the commands that were not written. Send a value inside the range to
+that channel, then the task writes again.
 
 ### "Port ... has already been used on another channel"
 
