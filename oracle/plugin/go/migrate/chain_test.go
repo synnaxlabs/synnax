@@ -354,7 +354,8 @@ Node struct {
 		Expect(content).To(ContainSubstring("core/pkg/service/base/versions/v1"))
 	})
 
-	DescribeTable("auto-copy scenarios",
+	DescribeTable(
+		"auto-copy scenarios",
 		func(
 			resource, v0, v1, live string,
 			wantFile bool,
@@ -509,6 +510,130 @@ Config struct {
 				`errors.Newf("Channel: unknown variant %T", v)`,
 			},
 			[]string{"Channel(old)"},
+		),
+		Entry("leaves a variant's default-only override to its embedded base",
+			"labjack",
+			`Base struct {
+	key string @key
+	port string = ""
+
+	@go marshal
+}
+
+Channel union on type extends Base {
+	ai { port string = "AIN0" }
+
+	@go marshal
+}
+
+Config struct {
+	key uuid @key
+	channels Channel[]
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Base struct {
+	key string @key
+	port string = ""
+	name string = ""
+
+	@go marshal
+}
+
+Channel union on type extends Base {
+	ai { port string = "AIN0" }
+
+	@go marshal
+}
+
+Config struct {
+	key uuid @key
+	channels Channel[]
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Base struct {
+	key string @key
+	port string = ""
+	name string = ""
+}
+
+Channel union on type extends Base {
+	ai { port string = "AIN0" }
+}
+
+Config struct {
+	key uuid @key
+	channels Channel[]
+}
+`,
+			true,
+			[]string{
+				"return autoMigrateChannel(ctx, v)",
+				"\treturn AIChannel{\n\t\tBase: base,\n\t}, nil",
+			},
+			nil,
+		),
+		Entry(
+			"leaves a variant that changed between inline and named to the hand migration",
+			"payload",
+			`Text struct {
+	value string
+
+	@go marshal
+}
+
+Payload union on type {
+	text Text
+	binary { data string }
+
+	@go marshal
+}
+
+Config struct {
+	key uuid @key
+	payloads Payload[]
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Payload union on type {
+	text { value string }
+	binary { data string }
+
+	@go marshal
+}
+
+Config struct {
+	key uuid @key
+	payloads Payload[]
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Payload union on type {
+	text { value string }
+	binary { data string }
+}
+
+Config struct {
+	key uuid @key
+	payloads Payload[]
+}
+`,
+			true,
+			[]string{
+				"return MigratePayload(ctx, v)",
+				"case v0.BinaryPayload:",
+				`errors.Newf("Payload: unknown variant %T", v)`,
+			},
+			[]string{"case v0.TextPayload:", "func autoMigrateTextPayload"},
 		),
 		Entry("auto-copies value types without migrate entries",
 			"color",

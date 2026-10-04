@@ -20,6 +20,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
@@ -89,13 +90,14 @@ type funcData struct {
 	UsesCtx        bool
 	ZeroValue      string
 	Kind           string // "struct", "slice", "cast", "union"
-	Variants       []variantCase
-	Preamble       []step
-	Fields         []field
-	SliceElemExpr  string
-	SliceOldElem   string
-	SliceNewElem   string
-	SliceHasErr    bool
+	// Variants holds one switch arm per variant a union keeps across versions.
+	Variants      []variantCase
+	Preamble      []step
+	Fields        []field
+	SliceElemExpr string
+	SliceOldElem  string
+	SliceNewElem  string
+	SliceHasErr   bool
 }
 
 type step struct {
@@ -113,8 +115,10 @@ type step struct {
 
 // variantCase is one arm of a union migration's type switch.
 type variantCase struct {
+	// OldType is the old version's variant type the arm matches.
 	OldType string
-	Func    string
+	// Func is the generated function that migrates the variant.
+	Func string
 }
 
 type field struct {
@@ -374,7 +378,8 @@ func (c *collector) distinctFunc(
 }
 
 // unionFunc migrates a union one variant at a time. A variant removed in the new
-// version falls to the unknown-variant error.
+// version, or one that changed between inline and named, falls to the unknown-variant
+// error.
 func (c *collector) unionFunc(typ resolution.Type, form resolution.UnionForm) funcData {
 	goName := naming.GetGoName(typ)
 	newName := c.resolveNewTypeName(typ)
@@ -389,8 +394,10 @@ func (c *collector) unionFunc(typ resolution.Type, form resolution.UnionForm) fu
 	newType, _ := c.newCounterpart(typ)
 	newForm, _ := newType.Form.(resolution.UnionForm)
 	for _, v := range form.Variants {
+		// A variant switching between inline and named embeds different bases, so
+		// only the hand migration can convert it.
 		newV, ok := newForm.Variant(v.Name)
-		if !ok {
+		if !ok || newV.Inline != v.Inline {
 			continue
 		}
 		vName := casing.VariantTypeName(goName, v.Name)
@@ -412,6 +419,7 @@ func (c *collector) unionFunc(typ resolution.Type, form resolution.UnionForm) fu
 
 // variantForm returns the struct a union variant generates as: the union's bases,
 // the variant's own bases, and its fields, in the order the types plugin embeds them.
+// A field that only restates an inherited default stays in its embedded base.
 func variantForm(
 	form resolution.UnionForm,
 	v resolution.UnionVariant,
@@ -426,7 +434,13 @@ func variantForm(
 	sf := resolution.StructForm{Extends: inherited, Fields: declared}
 	if payload, ok := v.Type.Resolve(table); ok {
 		if pform, ok := payload.Form.(resolution.StructForm); ok {
-			sf.Fields = append(slices.Clone(declared), pform.Fields...)
+			defaultOnly := resolver.DefaultOnlyOverrides(inherited, pform.Fields, table)
+			sf.Fields = append(
+				slices.Clone(declared),
+				lo.Reject(pform.Fields, func(f resolution.Field, _ int) bool {
+					return defaultOnly.Contains(f.Name)
+				})...,
+			)
 		}
 	}
 	return sf
