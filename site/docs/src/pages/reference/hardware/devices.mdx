@@ -6,6 +6,7 @@ description: "How devices get into Synnax, device identifiers, and device status
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -60,6 +61,8 @@ To open the devices toolbar, click <Icon.Device /> in the left bar or press `D`.
 toolbar shows each Driver, with its devices under it. NI modules show under their
 chassis. Each device shows its vendor logo, its name, its location, and a status dot.
 
+<Video id="hardware/devices/toolbar" />
+
 | Driver                     | What it is                                                     |
 | -------------------------- | -------------------------------------------------------------- |
 | **Node 1 Embedded Driver** | The Driver in Synnax Desktop or in a Synnax Core               |
@@ -78,7 +81,7 @@ Hover over a status dot to see its message.
 | Synnax Driver on \<name\> not running          | Driver                           | The Core has not heard from the Driver for a few seconds. |
 | Device present                                 | NI and LabJack devices           | The Driver found the device.                              |
 | Device connected                               | Modbus and HTTP devices          | The Driver reached the server.                            |
-| Server connected                               | OPC UA devices                   | The Driver reached the server.                            |
+| Server connected                               | OPC UA and HTTP devices          | The Driver reached the server.                            |
 | Failed to reach device, Failed to reach server | Modbus, OPC UA, and HTTP devices | The Driver cannot connect to the server.                  |
 | HTTP \<code\>, Health check validation failed  | HTTP devices                     | The server answered, but the health check failed.         |
 | Discovered (\<n\> inputs, \<m\> outputs)       | EtherCAT devices                 | The Driver found the module on the network.               |
