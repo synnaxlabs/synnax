@@ -79,8 +79,9 @@ How other systems answer the questions in this RFC:
    packages.
 2. **New subject types and methods plug in**: A future service account, or a certificate
    method, must not change the service.
-3. **One thing on the request path**: Every request carries a session token and nothing
-   else.
+3. **Every request carries a session token, and nothing else**: The middleware makes one
+   check. Passwords, API keys, and provider codes appear only at login, which turns them
+   into a session.
 4. **A person can interrupt a test, and a timer cannot**: Revocation closes a live
    stream. No clock does.
 5. **Passwords are never saved to disk**: The Core keeps hashes. Clients, the Console,
