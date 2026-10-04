@@ -16,6 +16,11 @@ export const CLIENT_NAV: PageNavNode = {
   edition: "enterprise",
   children: [
     {
+      key: "/reference/client",
+      href: "/reference/client",
+      name: "Overview",
+    },
+    {
       key: "/reference/client/quick-start",
       href: "/reference/client/quick-start",
       name: "Quick start",
@@ -69,12 +74,12 @@ export const CLIENT_NAV: PageNavNode = {
           href: "/reference/client/advanced/iterators",
           name: "Iterators",
         },
-        {
-          key: "/reference/client/advanced/delete-data",
-          href: "/reference/client/advanced/delete-data",
-          name: "Delete data",
-        },
       ],
+    },
+    {
+      key: "/reference/client/delete-data",
+      href: "/reference/client/delete-data",
+      name: "Delete data",
     },
     {
       key: "/reference/client/examples",
