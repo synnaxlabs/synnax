@@ -53,5 +53,10 @@ export const VISUALIZE_NAV: PageNavNode = {
       href: "/reference/visualize/logs",
       name: "Logs",
     },
+    {
+      key: "/reference/visualize/share",
+      href: "/reference/visualize/share",
+      name: "Share",
+    },
   ],
 };
