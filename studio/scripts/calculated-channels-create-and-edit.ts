@@ -30,7 +30,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await capture.resizeToolbar(session, 500);
   await session.moveTo({ x: 756, y: 500 });
 
-  const modal = page.locator(".console-modal");
+  const modal = page.locator(".pluto-dialog__dialog.pluto--modal");
   const editor = modal.locator(".console-calculated-editor").first();
 
   session.startRecording();

@@ -1,179 +1,112 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "LabJack | Configure device"
-heading: "Configure a LabJack device"
-description: "Learn how to connect and configure LabJack devices."
+title: "Configure a LabJack device"
+description: "Connect a LabJack T4 or T7 to the Driver and configure it for tasks."
 ---
 
-import { Text as TextComponent } from "@/components/text";
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Icon } from "@synnaxlabs/lyra/icon";
-import { Note } from "@synnaxlabs/lyra/note";
-import { Text } from "@synnaxlabs/lyra/text";
-import { Image, Video } from "@/components/media/Media";
-import { Details } from "@/components/details";
-import { Edition } from "@/components/edition";
-import { mdxOverrides } from "@/components/mdxOverrides";
-import { Client } from "@/components/client";
 import { Fragment } from "react";
+import { Client } from "@/components/client";
+import Platforms from "@/components/hardware/Platforms.astro";
+import { Video } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The Synnax Driver reads from and writes to LabJack T-Series devices.
-
-<Note.Note variant="warning" className="compact">
-  Only T-Series devices are supported. If you are interested in using Synnax with other
-  LabJack devices, [contact us](https://www.synnaxlabs.com/#contact).
-</Note.Note>
+The Driver connects to [LabJack](https://labjack.com/) T4 and T7 devices over USB,
+Ethernet, or Wi-Fi. It finds them with the LabJack LJM library. Before a task can use a
+device, you configure it. The T8 is not supported yet.
 
 <Divider.Divider x />
 
 ## Prerequisites
 
-Before you use your LabJack hardware with Synnax, make sure that you have:
+<Platforms integration="labjack" />
 
-1. [Synnax Desktop](/reference/get-started/install-desktop) installed on the computer
-   that your LabJack hardware connects to.
-2. The
-   [LJM library](https://support.labjack.com/docs/ljm-software-installer-downloads-t4-t7-t8-digit)
-   installed on the same computer.
-
-<Edition.Enterprise>
-
-With Synnax Enterprise, you need a [Synnax Core](/reference/enterprise) and a Synnax
-Driver that runs on the machine that your LabJack hardware connects to. A Core runs an
-embedded Driver on its own machine. For a different machine,
-[install a standalone Driver](/reference/enterprise/driver/install). Install the LJM
-library on the machine that runs the Driver. Install the
-[Synnax Console](/reference/enterprise/console) on your computer.
-
-</Edition.Enterprise>
+- Install the
+  [LJM library](https://support.labjack.com/docs/ljm-software-installer-downloads-t4-t7-t8-digit)
+  on the computer that runs the Driver, then
+  [restart the Driver](/reference/hardware/troubleshooting#restart-the-driver).
+- Connect the device to that computer by USB, or to the same network.
 
 <Divider.Divider x />
 
-## Supported operating systems
+## How the Driver finds devices
 
-| Platform                            | Status          |
-| ----------------------------------- | --------------- |
-| <Icon.Logo.Windows /> Windows       | ✓ Supported     |
-| <Icon.Logo.Linux /> Linux           | ✓ Supported     |
-| <Icon.Logo.NI /> NI Linux Real-Time | ✗ Not Supported |
-| <Icon.Logo.Apple /> macOS           | ✓ Supported     |
-| <Icon.Logo.Docker /> Docker         | ✗ Not Supported |
+The Driver looks for LabJack devices every few seconds. A USB device shows in the
+[devices toolbar](/reference/hardware/devices#devices-toolbar) within a few seconds. A
+device on the network can take about a minute.
 
-<Divider.Divider x />
+- **Name** -> the model and the last four digits of the serial number, such as
+  `LJM_dtT7-8422`.
+- **Location** -> the connection, such as `LJM_ctUSB` or `LJM_ctETHERNET`.
 
-## Configuration parameters reference
-
-| Parameter         | Type   | Required | Description                                                             |
-| ----------------- | ------ | -------- | ----------------------------------------------------------------------- |
-| `name`            | string | Yes      | Human-readable device name for identification in Console                |
-| `rack`            | string | Yes      | Synnax Driver (rack) key where the device is connected                  |
-| `model`           | string | Yes      | LabJack model (`LJM_dtT4`, `LJM_dtT7`, or `LJM_dtT8`)                   |
-| `location`        | string | Yes      | Physical connection identifier (see below)                              |
-| `identifier`      | string | Yes      | Device identifier: serial number, IP address, device name, etc.         |
-| `connection_type` | string | No       | Connection method: `ANY` (default), `USB`, `TCP`, `ETHERNET`, or `WIFI` |
-
-<Note.Note variant="info" className="compact">
-  `connection_type` is only supported through the Python and TypeScript client
-  libraries.
-</Note.Note>
+The Console also shows the notification "New LJM_dtT7 connected", with a **Configure**
+button.
 
 <Divider.Divider x />
 
-## How-to
+## Configure a device
 
-<Note.Note variant="warning" className="compact">
-  Before you begin, connect to your device and update it using
-  [Kipling](https://support.labjack.com/docs/kipling).
-</Note.Note>
-
-<Client.Tabs exclude={["cpp"]}>
+<Client.Tabs>
   <Fragment slot="console">
 
-Synnax will automatically detect new LabJack devices and display a notification in the
-Console when a new device is connected. To start configuring the device, find the device
-in the devices toolbar, right click on the device and select "Configure".
+1. In the devices toolbar, right-click the device and select **Configure**. You can also
+   click **Configure** in the notification.
+2. Enter a name, then click **Next**.
+3. Enter an [identifier](/reference/hardware/devices#identifiers), then click **Save**.
 
 <Video id="device-drivers/labjack/configure-device/lj-configure" />
 
-</Fragment>
+  </Fragment>
   <Fragment slot="python">
 
+Find the LabJack devices that the Driver found:
+
 ```python
-import synnax as sy
-from synnax import labjack
-
-# Connect to Synnax
-client = sy.Synnax()
-
-# Get the embedded rack (local driver rack)
-rack = client.racks.retrieve_embedded_rack()
-
-# Configure device connection
-device = labjack.Device(
-    model=labjack.T7,                 # Model: T4, T7, T8
-    identifier="ANY",                 # Serial number, IP, name, or "ANY"
-    name="My LabJack T7",             # Device name
-    location="ANY",                   # Connection identifier
-    rack=rack.key,                    # Rack key
-    connection_type="ANY",            # "ANY", "USB", "TCP", "ETHERNET", "WIFI"
-)
-
-# Create the device in Synnax
-device = client.devices.create(device)
-
-# Or retrieve by model
-device = client.devices.retrieve(model="LJM_dtT7")
-
-# Or retrieve by name
-device = client.devices.retrieve(name="My LabJack T7")
-
-print(f"Device configured: {device.name} (key={device.key})")
+for dev in client.devices.retrieve(makes=["LabJack"]):
+    print(dev.key, dev.name, dev.model, dev.location)
 ```
 
-</Fragment>
+The key of a LabJack device is its serial number. Configure devices in the Console.
+
+  </Fragment>
   <Fragment slot="typescript">
 
+Find the LabJack devices that the Driver found:
+
 ```typescript
-import { Synnax } from "@synnaxlabs/client";
-
-// Connect to Synnax
-const client = new Synnax();
-
-// Get the embedded rack (local driver rack)
-const [rack] = await client.racks.retrieve({ embedded: true });
-
-// Configure device connection
-const device = await client.devices.create({
-  key: crypto.randomUUID(),
-  rack: rack.key,
-  name: "My LabJack T7",
-  make: "LabJack",
-  model: "LJM_dtT7", // Model: LJM_dtT4, LJM_dtT7, LJM_dtT8
-  location: "ANY", // Connection identifier
-  properties: {
-    connection: {
-      identifier: "ANY", // Serial number, IP, name, or "ANY"
-      connectionType: "ANY", // "ANY", "USB", "TCP", "ETHERNET", "WIFI"
-    },
-    read: {
-      index: 0,
-      channels: {},
-    },
-    write: {
-      channels: {},
-    },
-  },
-});
-
-// Or retrieve by model
-const [byModel] = await client.devices.retrieve({ models: ["LJM_dtT7"] });
-
-// Or retrieve by name
-const [byName] = await client.devices.retrieve({ names: ["My LabJack T7"] });
-
-console.log(`Device configured: ${device.name} (key=${device.key})`);
+for (const dev of await client.devices.retrieve({ makes: ["LabJack"] }))
+  console.log(dev.key, dev.name, dev.model, dev.location);
 ```
+
+The key of a LabJack device is its serial number. Configure devices in the Console.
 
   </Fragment>
 </Client.Tabs>
+
+Do not create LabJack devices in code. The Driver opens a device by its serial number,
+so only a device that the Driver found works in a task.
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+### The device does not show in the devices toolbar
+
+Install the LJM library and
+[restart the Driver](/reference/hardware/troubleshooting#restart-the-driver). LabJack
+devices do not work on Linux. For more causes, see
+[Troubleshoot hardware](/reference/hardware/troubleshooting#a-device-does-not-show-in-the-devices-toolbar).
+
+### "A device matching the requested device parameters could not be found"
+
+Another program holds the device. A USB device works with one program at a time. Close
+[Kipling](https://support.labjack.com/docs/kipling) and other LabJack software, then
+start the task again.
+
+### "The device is temporarily unreachable. Will keep trying"
+
+The Driver lost the connection to the device. Check the USB cable or the network. The
+task continues when the device comes back.
+
+For other problems, see [Troubleshoot hardware](/reference/hardware/troubleshooting).

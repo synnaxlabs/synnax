@@ -15,7 +15,7 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 A calculated channel computes its values from other [channels](/reference/channels) with
-an [Arc](/reference/control/arc/introduction) expression. Use a calculated channel to:
+an [Arc](/reference/control/arc) expression. Use a calculated channel to:
 
 - Scale or convert a sensor value, such as volts to pressure.
 - Combine sensors, such as the pressure drop across a filter.
@@ -36,8 +36,9 @@ stream or read the channel, and it stops when nothing uses the channel.
   If you change `pressure * 3` to `pressure * 10`, all of the data shows
   `pressure * 10`.
 - **Samples**: Synnax runs the expression once for each new sample. Each channel name in
-  the expression gives one value. The expression runs only when each input channel has a
-  new sample.
+  the expression gives one value. The expression runs when any input channel has a new
+  sample, after every input has at least one sample. An input with no new sample gives
+  its last value.
 - **Data type**: Synnax gets the data type from the value that the expression returns.
   `return 1` gives an `int64` channel, and `return 1.0` gives a `float64` channel.
 - **Index**: Synnax creates a virtual index channel named `<name>_time` for each
@@ -49,13 +50,13 @@ stream or read the channel, and it stops when nothing uses the channel.
 
 ## Create a calculated channel
 
-<Client.Tabs exclude={["cpp"]}>
+<Client.Tabs>
 
   <Fragment slot="console">
 
 1. Click the create calculated channel button in the
-   [channels toolbar](/reference/get-started/ui-overview#channels), or run the **Create
-   calculated channel** command in the
+   [channels toolbar](/reference/get-started/ui-overview#channels), or run the "Create
+   calculated channel" command in the
    [command palette](/reference/get-started/ui-overview#search-and-command-palette).
 2. Enter a name.
 3. Write the [expression](#write-an-expression).
@@ -118,7 +119,7 @@ the expression.
 
 ## Edit a calculated channel
 
-<Client.Tabs exclude={["cpp"]}>
+<Client.Tabs>
 
   <Fragment slot="console">
 
@@ -233,7 +234,7 @@ Synnax receives, not one for each input sample. They reset in two ways:
   starts. The windows do not overlap, so a 10-second window gives the average of each
   10-second period, not a moving average. A window of `0` never resets.
 - **Reset channel**: The operation resets when a `boolean` reset channel receives
-  `true`. A schematic button or an Arc program can write to the reset channel.
+  `true`. A schematic button or an Arc automation can write to the reset channel.
 
 `derivative` has no window and no reset channel.
 
@@ -273,7 +274,7 @@ live. The output of `min`, `max`, and `avg` can then be different from the live 
 | Problem                                         | Cause and fix                                                                                                                                                                |
 | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | The channel shows an error icon in the toolbar. | The expression is not correct, or it uses a channel that does not exist. Hover over the icon to see the error. The error clears when a channel with the missing name exists. |
-| A line plot shows no values.                    | One input has no new samples. The expression runs only when each input has a new sample.                                                                                     |
+| A line plot shows no values.                    | One input has never had a sample. The expression runs only after every input has at least one sample.                                                                        |
 | A past time range shows no values.              | One input has no data in that time range.                                                                                                                                    |
 | The values look wrong or shifted in time.       | The inputs have different indexes. See [use inputs that share an index](#use-inputs-that-share-an-index).                                                                    |
 | The data type is `int64`, not `float64`.        | The expression returns an integer. Write numbers with a decimal point, such as `2.0`.                                                                                        |

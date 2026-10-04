@@ -16,14 +16,19 @@ export const CLIENT_NAV: PageNavNode = {
   edition: "enterprise",
   children: [
     {
+      key: "/reference/client",
+      href: "/reference/client",
+      name: "Overview",
+    },
+    {
       key: "/reference/client/quick-start",
       href: "/reference/client/quick-start",
       name: "Quick start",
     },
     {
-      key: "/reference/client/authentication",
-      href: "/reference/client/authentication",
-      name: "Authentication",
+      key: "/reference/client/connect",
+      href: "/reference/client/connect",
+      name: "Connect",
     },
     {
       key: "/reference/client/series-and-frames",
@@ -36,45 +41,24 @@ export const CLIENT_NAV: PageNavNode = {
       name: "Time types",
     },
     {
-      key: "/reference/client/stream-data",
-      href: "/reference/client/stream-data",
-      name: "Streaming data",
+      key: "/reference/client/write-data",
+      href: "/reference/client/write-data",
+      name: "Write data",
     },
     {
       key: "/reference/client/read-data",
       href: "/reference/client/read-data",
-      name: "Reading data",
+      name: "Read data",
     },
     {
-      key: "/reference/client/write-data",
-      href: "/reference/client/write-data",
-      name: "Writing data",
+      key: "/reference/client/stream-data",
+      href: "/reference/client/stream-data",
+      name: "Stream data",
     },
     {
-      key: "advanced",
-      name: "Advanced topics",
-      children: [
-        {
-          key: "/reference/client/advanced/auto-commit",
-          href: "/reference/client/advanced/auto-commit",
-          name: "Auto-commit",
-        },
-        {
-          key: "/reference/client/advanced/auto-index",
-          href: "/reference/client/advanced/auto-index",
-          name: "Auto-index",
-        },
-        {
-          key: "/reference/client/advanced/iterators",
-          href: "/reference/client/advanced/iterators",
-          name: "Iterators",
-        },
-        {
-          key: "/reference/client/advanced/delete-data",
-          href: "/reference/client/advanced/delete-data",
-          name: "Delete data",
-        },
-      ],
+      key: "/reference/client/delete-data",
+      href: "/reference/client/delete-data",
+      name: "Delete data",
     },
     {
       key: "/reference/client/examples",

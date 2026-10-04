@@ -1,189 +1,208 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "OPC UA | Connect server"
-heading: "Connect to an OPC UA server"
-description: "Connect to an OPC UA server using Synnax."
+title: "Connect an OPC UA server"
+description: "Connect an OPC UA server to Synnax, with its login and security settings."
 ---
 
-import { Client } from "@/components/client";
-import { Edition } from "@/components/edition";
-import { Table } from "@/components/table";
-import { Text as TextComponent } from "@/components/text";
-import Details from "@/components/details/Details.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Icon } from "@synnaxlabs/lyra/icon";
-import { Note } from "@synnaxlabs/lyra/note";
-import { Text } from "@synnaxlabs/lyra/text";
-import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
+import { Client } from "@/components/client";
+import Platforms from "@/components/hardware/Platforms.astro";
+import { Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The Synnax Driver connects to any [OPC UA](https://opcfoundation.org) server: PLCs,
-SCADA systems, DCS, MES, and industrial sensors. Secure and non-secure connections are
-supported with anonymous, username and password, or certificate authentication.
+An OPC UA server makes the values of a PLC or a SCADA system available as nodes. In
+Synnax, an OPC UA server is one endpoint with its login and security settings. The
+[read task](/reference/hardware/opc-ua/read-task) and the
+[write task](/reference/hardware/opc-ua/write-task) add the nodes.
 
 <Divider.Divider x />
 
 ## Prerequisites
 
-Before you connect to an OPC UA server, make sure that you have:
+<Platforms integration="opcua" />
 
-1. [Synnax Desktop](/reference/get-started/install-desktop) installed on a computer that
-   can reach your OPC UA server over the network.
-2. An OPC UA server on your network.
-
-<Edition.Enterprise>
-
-With Synnax Enterprise, you need a [Synnax Core](/reference/enterprise) and a Synnax
-Driver that can reach your OPC UA server. A Core runs an embedded Driver on its own
-machine. For a different machine,
-[install a standalone Driver](/reference/enterprise/driver/install). Install the
-[Synnax Console](/reference/enterprise/console) on your computer.
-
-</Edition.Enterprise>
+- A running Driver that can reach the server on the network. Synnax Desktop runs one for
+  you.
 
 <Divider.Divider x />
 
-## Supported operating systems
+## Connect a server
 
-| Platform                            | Status      |
-| ----------------------------------- | ----------- |
-| <Icon.Logo.Windows /> Windows       | ✓ Supported |
-| <Icon.Logo.Linux /> Linux           | ✓ Supported |
-| <Icon.Logo.NI /> NI Linux Real-Time | ✓ Supported |
-| <Icon.Logo.Apple /> macOS           | ✓ Supported |
-| <Icon.Logo.Docker /> Docker         | ✓ Supported |
-
-<Note.Note variant="info" className="compact">
-  When running in a Docker container, ensure [the container has network
-  access](https://docs.docker.com/get-started/docker-concepts/running-containers/publishing-ports/)
-  to the OPC UA server.
-</Note.Note>
-
-<Divider.Divider x />
-
-## Common OPC UA servers
-
-| Server                                                                                                                            | Description                                |
-| --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| [open62541](https://open62541.org/)                                                                                               | Open-source OPC UA stack                   |
-| [Beckhoff TwinCAT](https://infosys.beckhoff.com/english.php?content=../content/1033/tf6100_tc3_opcua_client/15427857035.html&id=) | PLC and automation platform                |
-| [FactoryTalk](https://www.rockwellautomation.com/en-us/docs/factorytalk-optix/1-00/contents-ditamap/getting-started.html)         | Allen-Bradley FactoryTalk with OPC UA      |
-| [Ignition](https://inductiveautomation.com/ignition/modules/ignition-opc-ua)                                                      | SCADA platform with built-in OPC UA server |
-| [Siemens S7](https://www.siemens.com/global/en/products/automation/industrial-communication/opc-ua.html)                          | PLCs with OPC UA support                   |
-| [Prosys OPC UA Simulation Server](https://prosysopc.com/products/opc-ua-simulation-server/)                                       | For testing and development                |
-
-<Divider.Divider x />
-
-## Configuration parameters reference
-
-| Parameter            | Type   | Required | Default | Description                                                                                                             |
-| -------------------- | ------ | -------- | ------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `name`               | string | Yes      | -       | Human-readable server name for identification in Console                                                                |
-| `rack`               | string | Yes      | -       | Synnax Driver (rack) key that will connect to the OPC UA server                                                         |
-| `endpoint`           | string | Yes      | -       | Server endpoint URL (e.g., `opc.tcp://localhost:4840`)                                                                  |
-| `username`           | string | No       | -       | Username for server authentication (optional)                                                                           |
-| `password`           | string | No       | -       | Password for server authentication (optional)                                                                           |
-| `security_mode`      | string | No       | `None`  | Security mode: `None`, `Sign`, or `SignAndEncrypt`                                                                      |
-| `security_policy`    | string | No       | `None`  | Security policy: `None`, `Basic128Rsa15`, `Basic256`, `Basic256Sha256`, `Aes128_Sha256_RsaOaep`, `Aes256_Sha256_RsaPss` |
-| `client_cert`        | string | No       | -       | Client certificate for signing/encrypting (required if security policy ≠ `None`)                                        |
-| `client_private_key` | string | No       | -       | Client private key for signing/encrypting (required if security policy ≠ `None`)                                        |
-| `server_cert`        | string | No       | -       | Trusted server certificate (required if security policy ≠ `None`)                                                       |
-
-<Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Security mode and policy reference</Text.Text>
-
-**Security mode:**
-
-- **None** -> No security applied
-- **Sign** -> Messages are signed but not encrypted. Provides authentication without
-  confidentiality
-- **SignAndEncrypt** -> Messages are signed and encrypted for full authenticity and
-  confidentiality
-
-**Security policy:**
-
-- **None** -> No encryption
-- **Basic128Rsa15** -> 128-bit encryption with RSA-15
-- **Basic256** -> 256-bit encryption
-- **Basic256Sha256** -> 256-bit encryption with SHA-256
-- **Aes128_Sha256_RsaOaep** -> 128-bit AES with SHA-256 and RSA OAEP
-- **Aes256_Sha256_RsaPss** -> 256-bit AES with SHA-256 and RSA PSS
-
-</Details>
-
-<Divider.Divider x />
-
-## How-to
-
-<Client.Tabs exclude={["typescript", "cpp"]}>
+<Client.Tabs>
   <Fragment slot="console">
+
+1. Run the "Connect OPC UA server" command.
+2. Enter a name for the server.
+3. In **Connect from**, select the Driver that connects to the server.
+4. In **Endpoint**, enter the address of the server, for example
+   `opc.tcp://192.168.1.50:4840`.
+5. If the server needs a login, enter the **Username** and the **Password**.
+6. Set the [security](#security).
+7. Click **Connect**.
+
+The Console asks the Driver to connect to the server before it saves the server. If the
+test fails or takes more than 10 seconds, the dialog shows the error and keeps your
+entries.
 
 <Video id="device-drivers/opc-ua/connect-server/connect-server" />
 
   </Fragment>
   <Fragment slot="python">
 
-<Details open>
-<Text.Text slot="summary" level="p"><Icon.Connect /> Connect to OPC UA server</Text.Text>
-
 ```python
-import synnax as sy
 from synnax import opcua
 
-# Initialize Synnax client
-client = sy.Synnax()
-
-# Retrieve the embedded rack
 rack = client.racks.retrieve_embedded_rack()
-
-# Create the OPC UA device
-device = opcua.Device(
-    endpoint="opc.tcp://localhost:4841/",
-    name="My OPC UA Server",
-    location="opc.tcp://localhost:4841/",
-    rack=rack.key,
+device = client.devices.create(
+    opcua.Device(
+        name="Line 1 PLC",
+        endpoint="opc.tcp://192.168.1.50:4840",
+        location="opc.tcp://192.168.1.50:4840",
+        rack=rack.key,
+    )
 )
-
-# Create the device in Synnax
-device = client.devices.create(device)
-
-# Or retrieve by location
-device = client.devices.retrieve(location="opc.tcp://localhost:4841/")
-
-# Or retrieve by name
-device = client.devices.retrieve(name="My OPC UA Server")
-
-print(f"Connected to OPC UA server: {device.name}")
 ```
 
-</Details>
+Python does not test the connection. Pass the key of a rack, or the device has no
+Driver.
 
-<Details open>
-<Text.Text slot="summary" level="p"><Icon.Close /> Disconnect server</Text.Text>
+  </Fragment>
+  <Fragment slot="typescript">
 
-```python
-import synnax as sy
-
-# Initialize Synnax client
-client = sy.Synnax()
-
-# Retrieve the device by name
-device = client.devices.retrieve(
-    name="My OPC UA Server",
-    ignore_not_found=True
-)
-
-if device is not None:
-    # Delete the server
-    client.devices.delete([device.key])
-    print(f"Disconnected OPC UA server: {device.name}")
-else:
-    print("Server not found")
+```typescript
+const rack = await client.racks.retrieve({ name: "Node 1 Embedded Driver" });
+await client.devices.create({
+  key: crypto.randomUUID(),
+  name: "Line 1 PLC",
+  rack: rack.key,
+  location: "opc.tcp://192.168.1.50:4840",
+  make: "opc",
+  model: "OPC UA server",
+  configured: true,
+  properties: {
+    version: "1.0.0",
+    connection: {
+      endpoint: "opc.tcp://192.168.1.50:4840",
+      securityMode: "None",
+      securityPolicy: "None",
+    },
+    read: { indexes: [], channels: {} },
+    write: { channels: {} },
+  },
+});
 ```
 
-</Details>
+TypeScript does not test the connection.
 
   </Fragment>
 </Client.Tabs>
+
+<Divider.Divider x />
+
+## Security
+
+The **Security mode** and the **Security policy** protect the connection between the
+Driver and the server. Set them to values that the server accepts.
+
+- **Security mode** -> **None**, **Sign**, or **Sign and encrypt**.
+- **Security policy** -> the algorithms. Set a policy other than **None** when the mode
+  is not **None**. With the policy at **None**, the Driver does not load the
+  certificates, even when the mode is **Sign**.
+- **Client certificate** and **Client private key** -> the certificate that the Driver
+  sends to the server, and its key. The fields show when the mode is not **None**.
+
+The certificate and key are file paths on the computer that runs the Driver:
+
+- In Synnax Desktop, the Console and the Driver run on the same computer, so the file
+  picker gives a correct path.
+- When the Driver runs on a different computer, the picker gives a path on your
+  computer. Set the paths in Python or TypeScript instead.
+- The Console in a web browser cannot pick files. Set the paths in Python or TypeScript.
+
+The private key must not have a password. The server reads the application URI of the
+Driver from the URI in the client certificate. Without a client certificate, the URI is
+`urn:synnax.opcua.client`.
+
+The Driver accepts every server certificate. The **Server certificate** field has no
+effect.
+
+The Driver logs in to the server as an anonymous user, or with the **Username** and
+**Password** when you enter one of them. It cannot log in with a user certificate.
+
+<Divider.Divider x />
+
+## Connection options
+
+| Console label          | Python field         | Default                    | Notes                                        |
+| ---------------------- | -------------------- | -------------------------- | -------------------------------------------- |
+| **Connect from**       | `rack`               |                            | The key of the rack that runs the Driver.    |
+| **Endpoint**           | `endpoint`           | `opc.tcp://localhost:4840` | The Python default is empty.                 |
+| **Username**           | `username`           | Empty                      | Empty for an anonymous login.                |
+| **Password**           | `password`           | Empty                      |                                              |
+| **Security mode**      | `security_mode`      | None                       | `"None"`, `"Sign"`, or `"SignAndEncrypt"`.   |
+| **Security policy**    | `security_policy`    | None                       | See [security policies](#security-policies). |
+| **Client certificate** | `client_cert`        | Empty                      | A path on the Driver computer.               |
+| **Client private key** | `client_private_key` | Empty                      | A path on the Driver computer. No password.  |
+| **Server certificate** | `server_cert`        | Empty                      | Has no effect.                               |
+
+In TypeScript, the fields are in `properties.connection` in camel case, such as
+`securityMode`, `clientCertificate`, and `serverCertificate`.
+
+### Security policies
+
+| Console label                  | Value                     |
+| ------------------------------ | ------------------------- |
+| **None**                       | `"None"`                  |
+| **Basic 128-bit RSA**          | `"Basic128Rsa15"`         |
+| **Basic 256-bit**              | `"Basic256"`              |
+| **Basic 256-bit with SHA-256** | `"Basic256Sha256"`        |
+| **AES 128-bit with SHA-256**   | `"Aes128_Sha256_RsaOaep"` |
+| **AES 256-bit with SHA-256**   | `"Aes256_Sha256_RsaPss"`  |
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+### "Failed to reach server"
+
+The Driver checks each server every 5 seconds. The status shows "Failed to reach server"
+when the Driver cannot connect. The description shows the reason.
+
+1. Check the **Endpoint**, including the port.
+2. Make sure that the computer that runs the Driver can reach the server.
+
+### "circuit breaker open"
+
+The Driver failed to connect three times in a row, so it waits 5 seconds before it tries
+again. Fix the cause of the first error, then try again.
+
+### "Failed to configure encryption"
+
+The Driver could not use the certificate, the key, or the policy.
+
+1. Make sure that the paths are correct on the computer that runs the Driver.
+2. Remove the password from the private key.
+3. Select a policy that the server supports.
+
+### "The certificate is not trusted."
+
+The server rejected the client certificate. Add the client certificate to the trust list
+of the server.
+
+### "The URI specified in the ApplicationDescription does not match the URI in the certificate."
+
+The URI in the client certificate is different from the URI that the server expects.
+Create a certificate whose URI matches the server configuration.
+
+### "User does not have permission to perform the requested operation."
+
+The server rejected the **Username** or the **Password**. Some servers show "The user
+identity token is valid but the server has rejected it." for the same cause.
+
+### "The user identity token is not valid."
+
+The server does not accept an anonymous login. Enter a **Username** and a **Password**.
+
+For other problems, see [Troubleshoot hardware](/reference/hardware/troubleshooting).

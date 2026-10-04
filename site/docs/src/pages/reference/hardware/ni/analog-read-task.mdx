@@ -1,927 +1,719 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "NI analog read task"
-description: "Learn how to acquire analog data from NI devices with Synnax."
+description:
+  "Read voltages, currents, temperatures, and other sensor signals from NI devices into
+  channels."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
-import Details from "@/components/details/Details.astro";
-import ChannelType from "@/components/details/ChannelType.astro";
-import DetailsGroup from "@/components/details/Group.astro";
 import { Client } from "@/components/client";
+import { Details } from "@/components/details";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-This task follows the standard
-[task lifecycle](/reference/hardware/tasks#task-lifecycle).
+An NI analog read task reads the analog inputs of NI devices into channels. Each channel
+has a type, such as voltage, current, thermocouple, or bridge, and NI-DAQmx converts the
+signal to the units of that type. For example, one task can record pressure transducers
+on an NI 9205 and thermocouples on an NI 9211 in the same chassis.
+
+Before you start, you need
+[configured devices](/reference/hardware/ni/configure-device).
 
 <Divider.Divider x />
 
-## Task configuration reference
+## Channels and timing
 
-| Parameter     | Type   | Required | Default | Description                                                   |
-| ------------- | ------ | -------- | ------- | ------------------------------------------------------------- |
-| `sample_rate` | number | No       | `10`    | Samples per second (Hz), determined by module                 |
-| `stream_rate` | number | No       | `5`     | Rate data is streamed to Synnax (Hz), must be ≤ `sample_rate` |
-| `channels`    | array  | Yes      | -       | List of analog input channel configurations                   |
+Each channel reads one port of one device. A task can use the modules of one chassis,
+and all of them must be on the same Driver. The task samples every channel on the device
+clock, at the **Sample rate**. See [timing](/reference/hardware/tasks#timing).
+
+Only one running task can use the analog inputs of a module. A second task on the same
+module fails to start with an NI-DAQmx error that says the resource is reserved.
 
 <Divider.Divider x />
 
-## Channel types reference
+## Create an NI analog read task
 
-<DetailsGroup>
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Acceleration /> Accelerometer ([`ai_accel`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1gafb775e5a6d567ec88f38192356b47eaf.html))</Text.Text>
-
-| Parameter              | Type   | Required | Default       | Description                                             |
-| ---------------------- | ------ | -------- | ------------- | ------------------------------------------------------- |
-| `channel`              | number | Yes      | -             | Synnax channel key                                      |
-| `device`               | string | Yes      | -             | Device identifier                                       |
-| `port`                 | number | Yes      | -             | Physical port                                           |
-| `min_val`              | number | No       | `0`           | Minimum acceleration                                    |
-| `max_val`              | number | No       | `1`           | Maximum acceleration                                    |
-| `terminal_config`      | enum   | No       | `Cfg_Default` | Terminal configuration                                  |
-| `sensitivity`          | number | No       | `0`           | Sensor sensitivity                                      |
-| `sensitivity_units`    | enum   | No       | `mVoltsPerG`  | `mVoltsPerG`, `VoltsPerG`                               |
-| `units`                | enum   | No       | `g`           | `g`, `MetersPerSecondSquared`, `InchesPerSecondSquared` |
-| `current_excit_source` | enum   | No       | `Internal`    | `Internal`, `External`, `None`                          |
-| `current_excit_val`    | number | No       | `0`           | Excitation current (Amps)                               |
-| `custom_scale`         | object | No       | -             | Custom scaling                                          |
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Acceleration /> Accelerometer 4-wire DC voltage ([`ai_accel_4_wire_dc_voltage`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1gaf3c2e5588e3464f607734acd27d52f79.html))</Text.Text>
-
-| Parameter              | Type    | Required | Default       | Description                                             |
-| ---------------------- | ------- | -------- | ------------- | ------------------------------------------------------- |
-| `channel`              | number  | Yes      | -             | Synnax channel key                                      |
-| `device`               | string  | Yes      | -             | Device identifier                                       |
-| `port`                 | number  | Yes      | -             | Physical port                                           |
-| `min_val`              | number  | No       | `0`           | Minimum acceleration                                    |
-| `max_val`              | number  | No       | `1`           | Maximum acceleration                                    |
-| `terminal_config`      | enum    | No       | `Cfg_Default` | Terminal configuration                                  |
-| `units`                | enum    | No       | `g`           | `g`, `MetersPerSecondSquared`, `InchesPerSecondSquared` |
-| `sensitivity`          | number  | No       | `0`           | Sensor sensitivity                                      |
-| `sensitivity_units`    | enum    | No       | `mVoltsPerG`  | `mVoltsPerG`, `VoltsPerG`                               |
-| `voltage_excit_source` | enum    | No       | `Internal`    | `Internal`, `External`, `None`                          |
-| `voltage_excit_val`    | number  | No       | `0`           | Excitation voltage (Volts)                              |
-| `scaled_by_excitation` | boolean | No       | `false`       | Scale the reading by the excitation voltage             |
-| `custom_scale`         | object  | No       | -             | Custom scaling                                          |
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Acceleration /> Accelerometer charge ([`ai_accel_charge`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1ga5d74e4c3c40c2aaef12c5dab3d8f8277.html))</Text.Text>
-
-| Parameter           | Type   | Required | Default            | Description                                                                                          |
-| ------------------- | ------ | -------- | ------------------ | ---------------------------------------------------------------------------------------------------- |
-| `channel`           | number | Yes      | -                  | Synnax channel key                                                                                   |
-| `device`            | string | Yes      | -                  | Device identifier                                                                                    |
-| `port`              | number | Yes      | -                  | Physical port                                                                                        |
-| `min_val`           | number | No       | `0`                | Minimum acceleration                                                                                 |
-| `max_val`           | number | No       | `1`                | Maximum acceleration                                                                                 |
-| `terminal_config`   | enum   | No       | `Cfg_Default`      | Terminal configuration                                                                               |
-| `units`             | enum   | No       | `g`                | `g`, `MetersPerSecondSquared`, `InchesPerSecondSquared`                                              |
-| `sensitivity`       | number | No       | `0`                | Sensor sensitivity                                                                                   |
-| `sensitivity_units` | enum   | No       | `PicoCoulombsPerG` | `PicoCoulombsPerG`, `PicoCoulombsPerMetersPerSecondSquared`, `PicoCoulombsPerInchesPerSecondSquared` |
-| `custom_scale`      | object | No       | -                  | Custom scaling                                                                                       |
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Bridge /> Bridge ([`ai_bridge`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1gab4d2a28bcc4212e7787808315471db67.html))</Text.Text>
-
-| Parameter                   | Type   | Required | Default         | Description                                 |
-| --------------------------- | ------ | -------- | --------------- | ------------------------------------------- |
-| `channel`                   | number | Yes      | -               | Synnax channel key                          |
-| `device`                    | string | Yes      | -               | Device identifier                           |
-| `port`                      | number | Yes      | -               | Physical port                               |
-| `min_val`                   | number | No       | `0`             | Minimum value                               |
-| `max_val`                   | number | No       | `1`             | Maximum value                               |
-| `units`                     | enum   | No       | `mVoltsPerVolt` | `mVoltsPerVolt`, `VoltsPerVolt`             |
-| `bridge_config`             | enum   | No       | `FullBridge`    | `FullBridge`, `HalfBridge`, `QuarterBridge` |
-| `voltage_excit_source`      | enum   | No       | `Internal`      | `Internal`, `External`, `None`              |
-| `voltage_excit_val`         | number | No       | `0`             | Excitation voltage (Volts)                  |
-| `nominal_bridge_resistance` | number | No       | `1`             | Nominal resistance (Ohms), must be &gt; 0   |
-| `custom_scale`              | object | No       | -               | Custom scaling                              |
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Voltage /> Charge ([`ai_charge`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1ga4e2aeb0cb00398ba8f132c5407ea5d58.html))</Text.Text>
-
-| Parameter         | Type   | Required | Default       | Description                |
-| ----------------- | ------ | -------- | ------------- | -------------------------- |
-| `channel`         | number | Yes      | -             | Synnax channel key         |
-| `device`          | string | Yes      | -             | Device identifier          |
-| `port`            | number | Yes      | -             | Physical port              |
-| `min_val`         | number | No       | `0`           | Minimum charge             |
-| `max_val`         | number | No       | `1`           | Maximum charge             |
-| `terminal_config` | enum   | No       | `Cfg_Default` | Terminal configuration     |
-| `units`           | enum   | No       | `Coulombs`    | `Coulombs`, `PicoCoulombs` |
-| `custom_scale`    | object | No       | -             | Custom scaling             |
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Current /> Current ([`ai_current`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1gadc9361c4cad612aeae3abe022076f5eb.html))</Text.Text>
-
-| Parameter                | Type   | Required | Default       | Description                          |
-| ------------------------ | ------ | -------- | ------------- | ------------------------------------ |
-| `channel`                | number | Yes      | -             | Synnax channel key                   |
-| `device`                 | string | Yes      | -             | Device identifier                    |
-| `port`                   | number | Yes      | -             | Physical port                        |
-| `min_val`                | number | No       | `0`           | Minimum current (Amps)               |
-| `max_val`                | number | No       | `1`           | Maximum current (Amps)               |
-| `terminal_config`        | enum   | No       | `Cfg_Default` | Terminal configuration               |
-| `shunt_resistor_loc`     | enum   | No       | `Default`     | `Default`, `Internal`, `External`    |
-| `ext_shunt_resistor_val` | number | No       | `1`           | External shunt resistor value (Ohms) |
-| `custom_scale`           | object | No       | -             | Custom scaling                       |
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Current /> Current RMS ([`ai_current_rms`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1gaef068e8b2360f0164842a72fd44f5374.html))</Text.Text>
-
-| Parameter                | Type   | Required | Default       | Description                          |
-| ------------------------ | ------ | -------- | ------------- | ------------------------------------ |
-| `channel`                | number | Yes      | -             | Synnax channel key                   |
-| `device`                 | string | Yes      | -             | Device identifier                    |
-| `port`                   | number | Yes      | -             | Physical port                        |
-| `min_val`                | number | No       | `0`           | Minimum current (Amps)               |
-| `max_val`                | number | No       | `1`           | Maximum current (Amps)               |
-| `terminal_config`        | enum   | No       | `Cfg_Default` | Terminal configuration               |
-| `shunt_resistor_loc`     | enum   | No       | `Default`     | `Default`, `Internal`, `External`    |
-| `ext_shunt_resistor_val` | number | No       | `1`           | External shunt resistor value (Ohms) |
-| `custom_scale`           | object | No       | -             | Custom scaling                       |
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Force /> Force bridge polynomial ([`ai_force_bridge_polynomial`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1ga407b87343cc271196c53089ff2f9b383.html))</Text.Text>
-
-| Parameter                   | Type   | Required | Default         | Description                                                |
-| --------------------------- | ------ | -------- | --------------- | ---------------------------------------------------------- |
-| `channel`                   | number | Yes      | -               | Synnax channel key                                         |
-| `device`                    | string | Yes      | -               | Device identifier                                          |
-| `port`                      | number | Yes      | -               | Physical port                                              |
-| `min_val`                   | number | No       | `0`             | Minimum force                                              |
-| `max_val`                   | number | No       | `1`             | Maximum force                                              |
-| `units`                     | enum   | No       | `Newtons`       | Force units (`Newtons`, `Pounds`, `KilogramForce`)         |
-| `bridge_config`             | enum   | No       | `FullBridge`    | `FullBridge`, `HalfBridge`, `QuarterBridge`                |
-| `voltage_excit_source`      | enum   | No       | `Internal`      | `Internal`, `External`, `None`                             |
-| `voltage_excit_val`         | number | No       | `0`             | Excitation voltage (Volts)                                 |
-| `nominal_bridge_resistance` | number | No       | `1`             | Nominal resistance (Ohms)                                  |
-| `forward_coeffs`            | array  | No       | `[]`            | Polynomial coefficients from electrical to physical values |
-| `reverse_coeffs`            | array  | No       | `[]`            | Polynomial coefficients from physical to electrical values |
-| `electrical_units`          | enum   | No       | `mVoltsPerVolt` | Electrical units                                           |
-| `physical_units`            | enum   | No       | `Newtons`       | Physical units                                             |
-| `custom_scale`              | object | No       | -               | Custom scaling                                             |
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Force /> Force bridge table ([`ai_force_bridge_table`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1ga87df6b93520dde3b4e4cfbf99e3cdb66.html))</Text.Text>
-
-| Parameter                   | Type   | Required | Default         | Description                                        |
-| --------------------------- | ------ | -------- | --------------- | -------------------------------------------------- |
-| `channel`                   | number | Yes      | -               | Synnax channel key                                 |
-| `device`                    | string | Yes      | -               | Device identifier                                  |
-| `port`                      | number | Yes      | -               | Physical port                                      |
-| `min_val`                   | number | No       | `0`             | Minimum force                                      |
-| `max_val`                   | number | No       | `1`             | Maximum force                                      |
-| `units`                     | enum   | No       | `Newtons`       | Force units (`Newtons`, `Pounds`, `KilogramForce`) |
-| `bridge_config`             | enum   | No       | `FullBridge`    | `FullBridge`, `HalfBridge`, `QuarterBridge`        |
-| `voltage_excit_source`      | enum   | No       | `Internal`      | `Internal`, `External`, `None`                     |
-| `voltage_excit_val`         | number | No       | `0`             | Excitation voltage (Volts)                         |
-| `nominal_bridge_resistance` | number | No       | `1`             | Nominal resistance (Ohms)                          |
-| `electrical_vals`           | array  | No       | `[]`            | Electrical values for table                        |
-| `physical_vals`             | array  | No       | `[]`            | Physical values for table                          |
-| `electrical_units`          | enum   | No       | `mVoltsPerVolt` | Electrical units                                   |
-| `physical_units`            | enum   | No       | `Newtons`       | Physical units                                     |
-| `custom_scale`              | object | No       | -               | Custom scaling                                     |
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Force /> Force bridge two-point linear ([`ai_force_bridge_two_point_lin`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1ga2e610b43e3c00dac59d46de4c609b2ad.html))</Text.Text>
-
-| Parameter                   | Type   | Required | Default         | Description                                        |
-| --------------------------- | ------ | -------- | --------------- | -------------------------------------------------- |
-| `channel`                   | number | Yes      | -               | Synnax channel key                                 |
-| `device`                    | string | Yes      | -               | Device identifier                                  |
-| `port`                      | number | Yes      | -               | Physical port                                      |
-| `min_val`                   | number | No       | `0`             | Minimum force                                      |
-| `max_val`                   | number | No       | `1`             | Maximum force                                      |
-| `units`                     | enum   | No       | `Newtons`       | Force units (`Newtons`, `Pounds`, `KilogramForce`) |
-| `bridge_config`             | enum   | No       | `FullBridge`    | `FullBridge`, `HalfBridge`, `QuarterBridge`        |
-| `voltage_excit_source`      | enum   | No       | `Internal`      | `Internal`, `External`, `None`                     |
-| `voltage_excit_val`         | number | No       | `0`             | Excitation voltage (Volts)                         |
-| `nominal_bridge_resistance` | number | No       | `1`             | Nominal resistance (Ohms)                          |
-| `first_electrical_val`      | number | No       | `0`             | First electrical value                             |
-| `second_electrical_val`     | number | No       | `1`             | Second electrical value                            |
-| `electrical_units`          | enum   | No       | `mVoltsPerVolt` | Electrical units                                   |
-| `first_physical_val`        | number | No       | `0`             | First physical value                               |
-| `second_physical_val`       | number | No       | `1`             | Second physical value                              |
-| `physical_units`            | enum   | No       | `Newtons`       | Physical units                                     |
-| `custom_scale`              | object | No       | -               | Custom scaling                                     |
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Force /> Force IEPE ([`ai_force_iepe`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1gaa6ff3418553a70767e450e29bc380256.html))</Text.Text>
-
-| Parameter              | Type   | Required | Default           | Description                                        |
-| ---------------------- | ------ | -------- | ----------------- | -------------------------------------------------- |
-| `channel`              | number | Yes      | -                 | Synnax channel key                                 |
-| `device`               | string | Yes      | -                 | Device identifier                                  |
-| `port`                 | number | Yes      | -                 | Physical port                                      |
-| `min_val`              | number | No       | `0`               | Minimum force                                      |
-| `max_val`              | number | No       | `1`               | Maximum force                                      |
-| `terminal_config`      | enum   | No       | `Cfg_Default`     | Terminal configuration                             |
-| `units`                | enum   | No       | `Newtons`         | Force units (`Newtons`, `Pounds`, `KilogramForce`) |
-| `sensitivity`          | number | No       | `0`               | Sensor sensitivity                                 |
-| `sensitivity_units`    | enum   | No       | `mVoltsPerNewton` | `mVoltsPerNewton`, `mVoltsPerPound`                |
-| `current_excit_source` | enum   | No       | `Internal`        | `Internal`, `External`, `None`                     |
-| `current_excit_val`    | number | No       | `0`               | Excitation current (Amps)                          |
-| `custom_scale`         | object | No       | -                 | Custom scaling                                     |
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Voltage /> Frequency voltage ([`ai_freq_voltage`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1gacfae87d4bb8abd35f8794543302fca06.html))</Text.Text>
-
-| Parameter         | Type   | Required | Default | Description                               |
-| ----------------- | ------ | -------- | ------- | ----------------------------------------- |
-| `channel`         | number | Yes      | -       | Synnax channel key                        |
-| `device`          | string | Yes      | -       | Device identifier                         |
-| `port`            | number | Yes      | -       | Physical port                             |
-| `min_val`         | number | No       | `0`     | Minimum frequency (Hz)                    |
-| `max_val`         | number | No       | `1`     | Maximum frequency (Hz)                    |
-| `threshold_level` | number | No       | `0`     | Voltage level at which a cycle is counted |
-| `hysteresis`      | number | No       | `0`     | Hysteresis around the threshold (Volts)   |
-| `custom_scale`    | object | No       | -       | Custom scaling                            |
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Sound /> Microphone ([`ai_microphone`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1ga5853b2284aa81bf45003a815c092c46f.html))</Text.Text>
-
-| Parameter              | Type   | Required | Default       | Description                    |
-| ---------------------- | ------ | -------- | ------------- | ------------------------------ |
-| `channel`              | number | Yes      | -             | Synnax channel key             |
-| `device`               | string | Yes      | -             | Device identifier              |
-| `port`                 | number | Yes      | -             | Physical port                  |
-| `terminal_config`      | enum   | No       | `Cfg_Default` | Terminal configuration         |
-| `mic_sensitivity`      | number | No       | `0`           | Microphone sensitivity         |
-| `max_snd_press_level`  | number | No       | `0`           | Maximum sound pressure level   |
-| `current_excit_source` | enum   | No       | `Internal`    | `Internal`, `External`, `None` |
-| `current_excit_val`    | number | No       | `0`           | Excitation current (Amps)      |
-| `custom_scale`         | object | No       | -             | Custom scaling                 |
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Pressure /> Pressure bridge polynomial ([`ai_pressure_bridge_polynomial`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1ga96308d972bed1172d1cfec606a7061a5.html))</Text.Text>
-
-| Parameter                   | Type   | Required | Default               | Description                                                |
-| --------------------------- | ------ | -------- | --------------------- | ---------------------------------------------------------- |
-| `channel`                   | number | Yes      | -                     | Synnax channel key                                         |
-| `device`                    | string | Yes      | -                     | Device identifier                                          |
-| `port`                      | number | Yes      | -                     | Physical port                                              |
-| `min_val`                   | number | No       | `0`                   | Minimum pressure                                           |
-| `max_val`                   | number | No       | `1`                   | Maximum pressure                                           |
-| `units`                     | enum   | No       | `PoundsPerSquareInch` | `Pascals`, `PoundsPerSquareInch`, `Bar`                    |
-| `bridge_config`             | enum   | No       | `FullBridge`          | `FullBridge`, `HalfBridge`, `QuarterBridge`                |
-| `voltage_excit_source`      | enum   | No       | `Internal`            | `Internal`, `External`, `None`                             |
-| `voltage_excit_val`         | number | No       | `0`                   | Excitation voltage (Volts)                                 |
-| `nominal_bridge_resistance` | number | No       | `1`                   | Nominal resistance (Ohms)                                  |
-| `forward_coeffs`            | array  | No       | `[]`                  | Polynomial coefficients from electrical to physical values |
-| `reverse_coeffs`            | array  | No       | `[]`                  | Polynomial coefficients from physical to electrical values |
-| `electrical_units`          | enum   | No       | `mVoltsPerVolt`       | Electrical units                                           |
-| `physical_units`            | enum   | No       | `PoundsPerSquareInch` | Physical units                                             |
-| `custom_scale`              | object | No       | -                     | Custom scaling                                             |
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Pressure /> Pressure bridge table ([`ai_pressure_bridge_table`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1gad78a60f9ae005cd7533422aad9621f59.html))</Text.Text>
-
-| Parameter                   | Type   | Required | Default               | Description                                 |
-| --------------------------- | ------ | -------- | --------------------- | ------------------------------------------- |
-| `channel`                   | number | Yes      | -                     | Synnax channel key                          |
-| `device`                    | string | Yes      | -                     | Device identifier                           |
-| `port`                      | number | Yes      | -                     | Physical port                               |
-| `min_val`                   | number | No       | `0`                   | Minimum pressure                            |
-| `max_val`                   | number | No       | `1`                   | Maximum pressure                            |
-| `units`                     | enum   | No       | `PoundsPerSquareInch` | `Pascals`, `PoundsPerSquareInch`, `Bar`     |
-| `bridge_config`             | enum   | No       | `FullBridge`          | `FullBridge`, `HalfBridge`, `QuarterBridge` |
-| `voltage_excit_source`      | enum   | No       | `Internal`            | `Internal`, `External`, `None`              |
-| `voltage_excit_val`         | number | No       | `0`                   | Excitation voltage (Volts)                  |
-| `nominal_bridge_resistance` | number | No       | `1`                   | Nominal resistance (Ohms)                   |
-| `electrical_vals`           | array  | No       | `[]`                  | Electrical values for table                 |
-| `physical_vals`             | array  | No       | `[]`                  | Physical values for table                   |
-| `electrical_units`          | enum   | No       | `mVoltsPerVolt`       | Electrical units                            |
-| `physical_units`            | enum   | No       | `PoundsPerSquareInch` | Physical units                              |
-| `custom_scale`              | object | No       | -                     | Custom scaling                              |
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Pressure /> Pressure bridge two-point linear ([`ai_pressure_bridge_two_point_lin`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1ga58a8c28527b09fa4182a2fab25fbfe57.html))</Text.Text>
-
-| Parameter                   | Type   | Required | Default               | Description                                 |
-| --------------------------- | ------ | -------- | --------------------- | ------------------------------------------- |
-| `channel`                   | number | Yes      | -                     | Synnax channel key                          |
-| `device`                    | string | Yes      | -                     | Device identifier                           |
-| `port`                      | number | Yes      | -                     | Physical port                               |
-| `min_val`                   | number | No       | `0`                   | Minimum pressure                            |
-| `max_val`                   | number | No       | `1`                   | Maximum pressure                            |
-| `units`                     | enum   | No       | `PoundsPerSquareInch` | `Pascals`, `PoundsPerSquareInch`, `Bar`     |
-| `bridge_config`             | enum   | No       | `FullBridge`          | `FullBridge`, `HalfBridge`, `QuarterBridge` |
-| `voltage_excit_source`      | enum   | No       | `Internal`            | `Internal`, `External`, `None`              |
-| `voltage_excit_val`         | number | No       | `0`                   | Excitation voltage (Volts)                  |
-| `nominal_bridge_resistance` | number | No       | `1`                   | Nominal resistance (Ohms)                   |
-| `first_electrical_val`      | number | No       | `0`                   | First electrical value                      |
-| `second_electrical_val`     | number | No       | `1`                   | Second electrical value                     |
-| `electrical_units`          | enum   | No       | `mVoltsPerVolt`       | Electrical units                            |
-| `first_physical_val`        | number | No       | `0`                   | First physical value                        |
-| `second_physical_val`       | number | No       | `1`                   | Second physical value                       |
-| `physical_units`            | enum   | No       | `PoundsPerSquareInch` | Physical units                              |
-| `custom_scale`              | object | No       | -                     | Custom scaling                              |
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Resistance /> Resistance ([`ai_resistance`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1gaa8454a1de839ded8669cce2b4b25cca4.html))</Text.Text>
-
-| Parameter              | Type   | Required | Default    | Description                    |
-| ---------------------- | ------ | -------- | ---------- | ------------------------------ |
-| `channel`              | number | Yes      | -          | Synnax channel key             |
-| `device`               | string | Yes      | -          | Device identifier              |
-| `port`                 | number | Yes      | -          | Physical port                  |
-| `min_val`              | number | No       | `0`        | Minimum resistance (Ohms)      |
-| `max_val`              | number | No       | `1`        | Maximum resistance (Ohms)      |
-| `resistance_config`    | enum   | No       | `2Wire`    | `2Wire`, `3Wire`, `4Wire`      |
-| `current_excit_source` | enum   | No       | `Internal` | `Internal`, `External`, `None` |
-| `current_excit_val`    | number | No       | `0`        | Excitation current (Amps)      |
-| `custom_scale`         | object | No       | -          | Custom scaling                 |
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Temperature /> RTD ([`ai_rtd`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1ga3111dddf4f6eef35801096d09db7d574.html))</Text.Text>
-
-| Parameter              | Type   | Required | Default    | Description                                                |
-| ---------------------- | ------ | -------- | ---------- | ---------------------------------------------------------- |
-| `channel`              | number | Yes      | -          | Synnax channel key                                         |
-| `device`               | string | Yes      | -          | Device identifier                                          |
-| `port`                 | number | Yes      | -          | Physical port                                              |
-| `min_val`              | number | No       | `0`        | Minimum temperature                                        |
-| `max_val`              | number | No       | `1`        | Maximum temperature                                        |
-| `units`                | enum   | No       | `DegC`     | `DegC`, `DegF`, `Kelvins`, `DegR`                          |
-| `rtd_type`             | enum   | No       | `Pt3750`   | `Pt3750`, `Pt3851`, `Pt3911`, `Pt3916`, `Pt3920`, `Pt3928` |
-| `r0`                   | number | No       | `0`        | Sensor resistance at 0 degrees Celsius (Ohms)              |
-| `resistance_config`    | enum   | No       | `2Wire`    | `2Wire`, `3Wire`, `4Wire`                                  |
-| `current_excit_source` | enum   | No       | `Internal` | `Internal`, `External`, `None`                             |
-| `current_excit_val`    | number | No       | `0`        | Excitation current (Amps)                                  |
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Strain /> Strain gauge ([`ai_strain_gauge`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1gab03c96b23cedb809011edc2df6fbef3e.html))</Text.Text>
-
-| Parameter                 | Type   | Required | Default       | Description                                                                                                        |
-| ------------------------- | ------ | -------- | ------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `channel`                 | number | Yes      | -             | Synnax channel key                                                                                                 |
-| `device`                  | string | Yes      | -             | Device identifier                                                                                                  |
-| `port`                    | number | Yes      | -             | Physical port                                                                                                      |
-| `min_val`                 | number | No       | `0`           | Minimum strain                                                                                                     |
-| `max_val`                 | number | No       | `1`           | Maximum strain                                                                                                     |
-| `strain_config`           | enum   | No       | `FullBridgeI` | `FullBridgeI`, `FullBridgeII`, `FullBridgeIII`, `HalfBridgeI`, `HalfBridgeII`, `QuarterBridgeI`, `QuarterBridgeII` |
-| `voltage_excit_source`    | enum   | No       | `Internal`    | `Internal`, `External`, `None`                                                                                     |
-| `voltage_excit_val`       | number | No       | `0`           | Excitation voltage (Volts)                                                                                         |
-| `gage_factor`             | number | No       | `0`           | Gage factor                                                                                                        |
-| `initial_bridge_voltage`  | number | No       | `0`           | Initial bridge voltage                                                                                             |
-| `nominal_gage_resistance` | number | No       | `0`           | Nominal gage resistance (Ohms)                                                                                     |
-| `poisson_ratio`           | number | No       | `0`           | Poisson's ratio                                                                                                    |
-| `lead_wire_resistance`    | number | No       | `0`           | Lead wire resistance (Ohms)                                                                                        |
-| `custom_scale`            | object | No       | -             | Custom scaling                                                                                                     |
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Temperature /> Temperature built-in sensor ([`ai_temp_builtin`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1gaaa6a97a78f05458c86bb1c1b86ed2781.html))</Text.Text>
-
-| Parameter | Type   | Required | Default | Description                       |
-| --------- | ------ | -------- | ------- | --------------------------------- |
-| `channel` | number | Yes      | -       | Synnax channel key                |
-| `device`  | string | Yes      | -       | Device identifier                 |
-| `units`   | enum   | No       | `DegC`  | `DegC`, `DegF`, `Kelvins`, `DegR` |
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Temperature /> Thermistor current excitation ([`ai_thermistor_iex`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1gaf7dc57c48b676e22c788574fecb4f512.html))</Text.Text>
-
-| Parameter              | Type   | Required | Default    | Description                       |
-| ---------------------- | ------ | -------- | ---------- | --------------------------------- |
-| `channel`              | number | Yes      | -          | Synnax channel key                |
-| `device`               | string | Yes      | -          | Device identifier                 |
-| `port`                 | number | Yes      | -          | Physical port                     |
-| `min_val`              | number | No       | `0`        | Minimum temperature               |
-| `max_val`              | number | No       | `1`        | Maximum temperature               |
-| `units`                | enum   | No       | `DegC`     | `DegC`, `DegF`, `Kelvins`, `DegR` |
-| `resistance_config`    | enum   | No       | `2Wire`    | `2Wire`, `3Wire`, `4Wire`         |
-| `current_excit_source` | enum   | No       | `Internal` | `Internal`, `External`, `None`    |
-| `current_excit_val`    | number | No       | `0`        | Excitation current (Amps)         |
-| `a`                    | number | No       | `0`        | First Steinhart-Hart coefficient  |
-| `b`                    | number | No       | `0`        | Second Steinhart-Hart coefficient |
-| `c`                    | number | No       | `0`        | Third Steinhart-Hart coefficient  |
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Temperature /> Thermistor voltage excitation ([`ai_thermistor_vex`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1ga79514ce1961338c419f0d6e1157e7b83.html))</Text.Text>
-
-| Parameter              | Type   | Required | Default    | Description                       |
-| ---------------------- | ------ | -------- | ---------- | --------------------------------- |
-| `channel`              | number | Yes      | -          | Synnax channel key                |
-| `device`               | string | Yes      | -          | Device identifier                 |
-| `port`                 | number | Yes      | -          | Physical port                     |
-| `min_val`              | number | No       | `0`        | Minimum temperature               |
-| `max_val`              | number | No       | `1`        | Maximum temperature               |
-| `units`                | enum   | No       | `DegC`     | `DegC`, `DegF`, `Kelvins`, `DegR` |
-| `resistance_config`    | enum   | No       | `2Wire`    | `2Wire`, `3Wire`, `4Wire`         |
-| `voltage_excit_source` | enum   | No       | `Internal` | `Internal`, `External`, `None`    |
-| `voltage_excit_val`    | number | No       | `0`        | Excitation voltage (Volts)        |
-| `a`                    | number | No       | `0`        | First Steinhart-Hart coefficient  |
-| `b`                    | number | No       | `0`        | Second Steinhart-Hart coefficient |
-| `c`                    | number | No       | `0`        | Third Steinhart-Hart coefficient  |
-| `r1`                   | number | No       | `0`        | Reference resistor (Ohms)         |
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Temperature /> Thermocouple ([`ai_thermocouple`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1gab4d78206aa204316fecb740a123b38f7.html))</Text.Text>
-
-| Parameter           | Type   | Required | Default    | Description                                                                                                                                    |
-| ------------------- | ------ | -------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `channel`           | number | Yes      | -          | Synnax channel key                                                                                                                             |
-| `device`            | string | Yes      | -          | Device identifier                                                                                                                              |
-| `port`              | number | Yes      | -          | Physical port                                                                                                                                  |
-| `min_val`           | number | No       | `0`        | Minimum temperature                                                                                                                            |
-| `max_val`           | number | No       | `1`        | Maximum temperature                                                                                                                            |
-| `units`             | enum   | No       | `DegC`     | `DegC`, `DegF`, `Kelvins`, `DegR`                                                                                                              |
-| `thermocouple_type` | enum   | No       | `J`        | `J`, `K`, `N`, `R`, `S`, `T`, `B`, `E`                                                                                                         |
-| `cjc`               | object | No       | `built_in` | Cold junction compensation. One of `{"source": "built_in"}`, `{"source": "const_val", "val": <temp>}`, or `{"source": "chan", "port": <port>}` |
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Torque /> Torque bridge polynomial ([`ai_torque_bridge_polynomial`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1ga533bdb964404f08e0b2895a43a14b7b8.html))</Text.Text>
-
-| Parameter                   | Type   | Required | Default         | Description                                                |
-| --------------------------- | ------ | -------- | --------------- | ---------------------------------------------------------- |
-| `channel`                   | number | Yes      | -               | Synnax channel key                                         |
-| `device`                    | string | Yes      | -               | Device identifier                                          |
-| `port`                      | number | Yes      | -               | Physical port                                              |
-| `min_val`                   | number | No       | `0`             | Minimum torque                                             |
-| `max_val`                   | number | No       | `1`             | Maximum torque                                             |
-| `units`                     | enum   | No       | `NewtonMeters`  | `NewtonMeters`, `InchPounds`, `FootPounds`, `InchOunces`   |
-| `bridge_config`             | enum   | No       | `FullBridge`    | `FullBridge`, `HalfBridge`, `QuarterBridge`                |
-| `voltage_excit_source`      | enum   | No       | `Internal`      | `Internal`, `External`, `None`                             |
-| `voltage_excit_val`         | number | No       | `0`             | Excitation voltage (Volts)                                 |
-| `nominal_bridge_resistance` | number | No       | `1`             | Nominal resistance (Ohms)                                  |
-| `forward_coeffs`            | array  | No       | `[]`            | Polynomial coefficients from electrical to physical values |
-| `reverse_coeffs`            | array  | No       | `[]`            | Polynomial coefficients from physical to electrical values |
-| `electrical_units`          | enum   | No       | `mVoltsPerVolt` | Electrical units                                           |
-| `physical_units`            | enum   | No       | `NewtonMeters`  | Physical units                                             |
-| `custom_scale`              | object | No       | -               | Custom scaling                                             |
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Torque /> Torque bridge table ([`ai_torque_bridge_table`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1ga2d5889e6a7a4915ae340683b4cd1dc80.html))</Text.Text>
-
-| Parameter                   | Type   | Required | Default         | Description                                              |
-| --------------------------- | ------ | -------- | --------------- | -------------------------------------------------------- |
-| `channel`                   | number | Yes      | -               | Synnax channel key                                       |
-| `device`                    | string | Yes      | -               | Device identifier                                        |
-| `port`                      | number | Yes      | -               | Physical port                                            |
-| `min_val`                   | number | No       | `0`             | Minimum torque                                           |
-| `max_val`                   | number | No       | `1`             | Maximum torque                                           |
-| `units`                     | enum   | No       | `NewtonMeters`  | `NewtonMeters`, `InchPounds`, `FootPounds`, `InchOunces` |
-| `bridge_config`             | enum   | No       | `FullBridge`    | `FullBridge`, `HalfBridge`, `QuarterBridge`              |
-| `voltage_excit_source`      | enum   | No       | `Internal`      | `Internal`, `External`, `None`                           |
-| `voltage_excit_val`         | number | No       | `0`             | Excitation voltage (Volts)                               |
-| `nominal_bridge_resistance` | number | No       | `1`             | Nominal resistance (Ohms)                                |
-| `electrical_vals`           | array  | No       | `[]`            | Electrical values for table                              |
-| `physical_vals`             | array  | No       | `[]`            | Physical values for table                                |
-| `electrical_units`          | enum   | No       | `mVoltsPerVolt` | Electrical units                                         |
-| `physical_units`            | enum   | No       | `NewtonMeters`  | Physical units                                           |
-| `custom_scale`              | object | No       | -               | Custom scaling                                           |
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Torque /> Torque bridge two-point linear ([`ai_torque_bridge_two_point_lin`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1gac0648326f7b53707894030813e538950.html))</Text.Text>
-
-| Parameter                   | Type   | Required | Default         | Description                                              |
-| --------------------------- | ------ | -------- | --------------- | -------------------------------------------------------- |
-| `channel`                   | number | Yes      | -               | Synnax channel key                                       |
-| `device`                    | string | Yes      | -               | Device identifier                                        |
-| `port`                      | number | Yes      | -               | Physical port                                            |
-| `min_val`                   | number | No       | `0`             | Minimum torque                                           |
-| `max_val`                   | number | No       | `1`             | Maximum torque                                           |
-| `units`                     | enum   | No       | `NewtonMeters`  | `NewtonMeters`, `InchPounds`, `FootPounds`, `InchOunces` |
-| `bridge_config`             | enum   | No       | `FullBridge`    | `FullBridge`, `HalfBridge`, `QuarterBridge`              |
-| `voltage_excit_source`      | enum   | No       | `Internal`      | `Internal`, `External`, `None`                           |
-| `voltage_excit_val`         | number | No       | `0`             | Excitation voltage (Volts)                               |
-| `nominal_bridge_resistance` | number | No       | `1`             | Nominal resistance (Ohms)                                |
-| `first_electrical_val`      | number | No       | `0`             | First electrical value                                   |
-| `second_electrical_val`     | number | No       | `1`             | Second electrical value                                  |
-| `electrical_units`          | enum   | No       | `mVoltsPerVolt` | Electrical units                                         |
-| `first_physical_val`        | number | No       | `0`             | First physical value                                     |
-| `second_physical_val`       | number | No       | `1`             | Second physical value                                    |
-| `physical_units`            | enum   | No       | `NewtonMeters`  | Physical units                                           |
-| `custom_scale`              | object | No       | -               | Custom scaling                                           |
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Velocity /> Velocity IEPE ([`ai_velocity_iepe`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1ga0256a5337cbe48c93b7450f39f27386e.html))</Text.Text>
-
-| Parameter              | Type   | Required | Default                            | Description                                                      |
-| ---------------------- | ------ | -------- | ---------------------------------- | ---------------------------------------------------------------- |
-| `channel`              | number | Yes      | -                                  | Synnax channel key                                               |
-| `device`               | string | Yes      | -                                  | Device identifier                                                |
-| `port`                 | number | Yes      | -                                  | Physical port                                                    |
-| `min_val`              | number | No       | `0`                                | Minimum velocity                                                 |
-| `max_val`              | number | No       | `1`                                | Maximum velocity                                                 |
-| `units`                | enum   | No       | `MetersPerSecond`                  | `MetersPerSecond`, `InchesPerSecond`                             |
-| `terminal_config`      | enum   | No       | `Cfg_Default`                      | Terminal configuration                                           |
-| `sensitivity`          | number | No       | `0`                                | Sensor sensitivity                                               |
-| `sensitivity_units`    | enum   | No       | `MillivoltsPerMillimeterPerSecond` | `MillivoltsPerMillimeterPerSecond`, `MilliVoltsPerInchPerSecond` |
-| `current_excit_source` | enum   | No       | `Internal`                         | `Internal`, `External`, `None`                                   |
-| `current_excit_val`    | number | No       | `0`                                | Excitation current (Amps)                                        |
-| `custom_scale`         | object | No       | -                                  | Custom scaling                                                   |
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Voltage /> Voltage ([`ai_voltage`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1ga94c83a5df8579b4164e638018b7ee89f.html))</Text.Text>
-
-| Parameter         | Type   | Required | Default       | Description                                                                 |
-| ----------------- | ------ | -------- | ------------- | --------------------------------------------------------------------------- |
-| `channel`         | number | Yes      | -             | Synnax channel key                                                          |
-| `device`          | string | Yes      | -             | Device identifier                                                           |
-| `port`            | number | Yes      | -             | Physical port                                                               |
-| `min_val`         | number | No       | `0`           | Minimum voltage (Volts)                                                     |
-| `max_val`         | number | No       | `1`           | Maximum voltage (Volts)                                                     |
-| `terminal_config` | enum   | No       | `Cfg_Default` | Terminal configuration (`Cfg_Default`, `RSE`, `NRSE`, `Diff`, `PseudoDiff`) |
-| `custom_scale`    | object | No       | -             | Custom scaling                                                              |
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Voltage /> Voltage RMS ([`ai_voltage_rms`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1gae3c40696c94f896a2c60784e3baf3905.html))</Text.Text>
-
-| Parameter         | Type   | Required | Default       | Description                                                                 |
-| ----------------- | ------ | -------- | ------------- | --------------------------------------------------------------------------- |
-| `channel`         | number | Yes      | -             | Synnax channel key                                                          |
-| `device`          | string | Yes      | -             | Device identifier                                                           |
-| `port`            | number | Yes      | -             | Physical port                                                               |
-| `min_val`         | number | No       | `0`           | Minimum voltage (Volts)                                                     |
-| `max_val`         | number | No       | `1`           | Maximum voltage (Volts)                                                     |
-| `terminal_config` | enum   | No       | `Cfg_Default` | Terminal configuration (`Cfg_Default`, `RSE`, `NRSE`, `Diff`, `PseudoDiff`) |
-| `custom_scale`    | object | No       | -             | Custom scaling                                                              |
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Voltage /> Voltage with excitation ([`ai_voltage_with_excit`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1ga12a57904c16ebc47c62a788f5435ca0a.html))</Text.Text>
-
-| Parameter              | Type    | Required | Default       | Description                                 |
-| ---------------------- | ------- | -------- | ------------- | ------------------------------------------- |
-| `channel`              | number  | Yes      | -             | Synnax channel key                          |
-| `device`               | string  | Yes      | -             | Device identifier                           |
-| `port`                 | number  | Yes      | -             | Physical port                               |
-| `min_val`              | number  | No       | `0`           | Minimum voltage (Volts)                     |
-| `max_val`              | number  | No       | `1`           | Maximum voltage (Volts)                     |
-| `terminal_config`      | enum    | No       | `Cfg_Default` | Terminal configuration                      |
-| `bridge_config`        | enum    | No       | `FullBridge`  | `FullBridge`, `HalfBridge`, `QuarterBridge` |
-| `voltage_excit_source` | enum    | No       | `Internal`    | `Internal`, `External`, `None`              |
-| `voltage_excit_val`    | number  | No       | `0`           | Excitation voltage (Volts)                  |
-| `scaled_by_excitation` | boolean | No       | `false`       | Scale the reading by the excitation voltage |
-| `custom_scale`         | object  | No       | -             | Custom scaling                              |
-
-</ChannelType>
-</DetailsGroup>
-
-<Divider.Divider x />
-
-## Important rules
-
-- **One task per module** -> Only one running task can claim a module at a time.
-- **Stream rate** -> For sample rates under 50 Hz, set the stream rate equal to the
-  sample rate. Above that, keep the stream rate under 50 Hz.
-
-<Divider.Divider x />
-
-## How-to
-
-<Client.Tabs exclude={["cpp"]}>
+<Client.Tabs>
   <Fragment slot="console">
-    <Video
-      id="device-drivers/ni/analog-read-task/ni-analog-read"
-    />
+
+1. In the devices toolbar, right-click a device and select **Create analog read task**.
+2. Set **Sample rate** and **Stream rate**.
+3. Click **Add channel**. In **Source**, select the **Device** and the **Port**.
+4. In **Signal**, select the **Channel type**, then set its fields. See the
+   [channel reference](#channel-reference).
+5. Click <Icon.Play /> (**Start**).
+
+The Console creates the channels. For a device with the identifier `dev1`, port 0 gives
+`dev1_ai_0`, and the built-in temperature sensor gives `dev1_ai_temp`. Each device has
+an index channel, such as `dev1_ai_time`.
+
   </Fragment>
   <Fragment slot="python">
 
-<Details>
-<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
+Python does not create channels. Create them first.
 
 ```python
 import synnax as sy
 from synnax import ni
 
-client = sy.Synnax()
-
-# Retrieve devices
-v_dev = client.devices.retrieve(name="Mod1_Voltage")
-c_dev = client.devices.retrieve(name="Mod2_Current")
-tc_dev = client.devices.retrieve(name="Mod1_TC")
-
-# Create index and data channels
-ai_time = client.channels.create(
-    name="ai_time",
-    is_index=True,
-    data_type=sy.DataType.TIMESTAMP,
-    retrieve_if_name_exists=True,
+dev = client.devices.retrieve(key="<device key>")
+time = client.channels.create(
+    name="dev1_ai_time", is_index=True, data_type=sy.DataType.TIMESTAMP
 )
-voltage_chan = client.channels.create(
-    name="voltage_chan",
-    index=ai_time.key,
-    data_type=sy.DataType.FLOAT32,
-    retrieve_if_name_exists=True,
-)
-current_chan = client.channels.create(
-    name="current_chan",
-    index=ai_time.key,
-    data_type=sy.DataType.FLOAT32,
-    retrieve_if_name_exists=True,
-)
-temp_chan = client.channels.create(
-    name="temp_chan",
-    index=ai_time.key,
-    data_type=sy.DataType.FLOAT32,
-    retrieve_if_name_exists=True,
+pressure = client.channels.create(
+    name="tank_pressure", index=time.key, data_type=sy.DataType.FLOAT32
 )
 
-# Create and configure task
 task = ni.AnalogReadTask(
-    name="NI Analog Read Task",
-    sample_rate=sy.Rate.HZ * 100,
-    stream_rate=sy.Rate.HZ * 25,
+    name="Tank sensors",
+    device=dev.key,
+    sample_rate=1000,
+    stream_rate=25,
     channels=[
         ni.AIVoltageChannel(
-            channel=voltage_chan.key,
-            device=v_dev.key,
-            port=0,
-            min_val=-10.0,
-            max_val=10.0,
-            terminal_config="Diff",
-        ),
-        ni.AICurrentChannel(
-            channel=current_chan.key,
-            device=c_dev.key,
-            port=0,
-            min_val=0.004,
-            max_val=0.02,
-            shunt_resistor_loc="Internal",
-            ext_shunt_resistor_val=249.0,
-        ),
-        ni.AIThermocoupleChannel(
-            channel=temp_chan.key,
-            device=tc_dev.key,
-            port=0,
-            units="DegC",
-            thermocouple_type="J",
-            cjc=ni.BuiltInCJC(),
+            port=0, min_val=-10, max_val=10, channel=pressure.key
         ),
     ],
 )
-
 client.tasks.configure(task)
-
-# Start task and read data
-with task.run():
-    with client.open_streamer(["voltage_chan", "current_chan", "temp_chan"]) as streamer:
-        for _ in range(10):
-            frame = streamer.read()
-            print(frame)
-
+task.start()
 ```
 
-</Details>
-
-<Details>
-<Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
-
-```python
-# Retrieve existing task
-task = client.tasks.retrieve(name="NI Analog Read Task")
-task = ni.AnalogReadTask(internal=task)
-
-# Update task-level configuration
-task.config.auto_start = True
-task.config.stream_rate = int(sy.Rate.HZ * 50)
-
-# Update voltage channel configuration
-task.config.channels[0].port = 1
-task.config.channels[0].min_val = -5.0
-task.config.channels[0].max_val = 5.0
-
-# Update current channel configuration
-task.config.channels[1].port = 2
-task.config.channels[1].min_val = 0.002
-task.config.channels[1].max_val = 0.01
-
-# Update thermocouple channel configuration
-task.config.channels[2].port = 3
-task.config.channels[2].thermocouple_type = "K"
-
-# Apply changes
-client.tasks.configure(task)
-```
-
-</Details>
+Python creates the task on the embedded Driver of the Core. For a device on another
+Driver, use the Console or TypeScript. If you open the task in the Console and click
+**Start**, the Console replaces your channels with its own.
 
   </Fragment>
   <Fragment slot="typescript">
 
-<Details>
-<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
-
-```typescript
-import { Synnax } from "@synnaxlabs/client";
-
-const client = new Synnax();
-
-// Retrieve devices
-const [vDev] = await client.devices.retrieve({ names: ["Mod1_Voltage"] });
-const [cDev] = await client.devices.retrieve({ names: ["Mod2_Current"] });
-const [tcDev] = await client.devices.retrieve({ names: ["Mod1_TC"] });
-
-// Create index and data channels
-const aiTime = await client.channels.create(
-  {
-    name: "ai_time",
-    isIndex: true,
-    dataType: "timestamp",
-  },
-  { retrieveIfNameExists: true },
-);
-
-const voltageChan = await client.channels.create(
-  {
-    name: "voltage_chan",
-    index: aiTime.key,
-    dataType: "float32",
-  },
-  { retrieveIfNameExists: true },
-);
-
-const currentChan = await client.channels.create(
-  {
-    name: "current_chan",
-    index: aiTime.key,
-    dataType: "float32",
-  },
-  { retrieveIfNameExists: true },
-);
-
-const tempChan = await client.channels.create(
-  {
-    name: "temp_chan",
-    index: aiTime.key,
-    dataType: "float32",
-  },
-  { retrieveIfNameExists: true },
-);
-
-// Create and configure task
-const task = await client.tasks.create({
-  name: "NI Analog Read Task",
-  rack: vDev.rack,
-  type: "ni_analog_read",
-  config: {
-    sampleRate: 100,
-    streamRate: 25,
-    channels: [
-      {
-        type: "ai_voltage",
-        channel: voltageChan.key,
-        device: vDev.key,
-        port: 0,
-        minVal: -10.0,
-        maxVal: 10.0,
-        terminalConfig: "Diff",
-      },
-      {
-        type: "ai_current",
-        channel: currentChan.key,
-        device: cDev.key,
-        port: 0,
-        minVal: 0.004,
-        maxVal: 0.02,
-        shuntResistorLoc: "Internal",
-        extShuntResistorVal: 249.0,
-      },
-      {
-        type: "ai_thermocouple",
-        channel: tempChan.key,
-        device: tcDev.key,
-        port: 0,
-        units: "DegC",
-        thermocoupleType: "J",
-        cjc: { source: "built_in" },
-      },
-    ],
-  },
-});
-
-// Start task
-await task.start();
-
-// Read data
-const streamer = await client.openStreamer([
-  "voltage_chan",
-  "current_chan",
-  "temp_chan",
-]);
-for (let i = 0; i < 10; i++) {
-  const frame = await streamer.read();
-  console.log(frame);
-}
-
-// Stop task
-await task.stop();
-await streamer.close();
-```
-
-</Details>
-
-<Details>
-<Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
+TypeScript does not create channels. Create them first.
 
 ```typescript
 import { ni } from "@synnaxlabs/client";
 
-// Retrieve existing task
-const task = await client.tasks.retrieve({ name: "NI Analog Read Task" });
-
-// Parse the configuration into its typed form
-const config = ni.analogReadConfigZ.parse(task.config);
-
-// Update task-level configuration
-config.autoStart = true;
-config.streamRate = 50;
-
-// Update voltage channel configuration
-const voltage = config.channels[0] as ni.AIVoltageChannel;
-voltage.port = 1;
-voltage.minVal = -5.0;
-voltage.maxVal = 5.0;
-
-// Update current channel configuration
-const current = config.channels[1] as ni.AICurrentChannel;
-current.port = 2;
-current.minVal = 0.002;
-current.maxVal = 0.01;
-
-// Update thermocouple channel configuration
-const thermocouple = config.channels[2] as ni.AIThermocoupleChannel;
-thermocouple.port = 3;
-thermocouple.thermocoupleType = "K";
-
-// Apply changes
-await client.tasks.create({
-  key: task.key,
-  rack: task.rack,
-  name: task.name,
-  type: task.type,
-  config,
+const dev = await client.devices.retrieve({ key: "<device key>" });
+const time = await client.channels.create({
+  name: "dev1_ai_time",
+  isIndex: true,
+  dataType: "timestamp",
 });
+const pressure = await client.channels.create({
+  name: "tank_pressure",
+  index: time.key,
+  dataType: "float32",
+});
+
+const task = await client.tasks.create({
+  name: "Tank sensors",
+  rack: dev.rack,
+  type: "ni_analog_read",
+  config: ni.analogReadConfigZ.parse({
+    sampleRate: 1000,
+    streamRate: 25,
+    channels: [
+      {
+        type: "ai_voltage",
+        device: dev.key,
+        port: 0,
+        minVal: -10,
+        maxVal: 10,
+        channel: pressure.key,
+      },
+    ],
+  }),
+});
+await task.start();
 ```
 
-</Details>
+If you open the task in the Console and click **Start**, the Console replaces your
+channels with its own.
 
   </Fragment>
 </Client.Tabs>
+
+<Divider.Divider x />
+
+## Tare channels
+
+Tare sets the current value of a channel to zero. The task must be running.
+
+1. In the channel list, click **Tare** on a channel. To tare several channels, select
+   them, right-click, and select **Tare**.
+2. The values of those channels start from zero.
+
+<Divider.Divider x />
+
+## Task options
+
+| Console label   | Python field           | Default | Notes                                                                    |
+| --------------- | ---------------------- | ------- | ------------------------------------------------------------------------ |
+| **Sample rate** | `sample_rate`          | 10 Hz   | Up to 1,000,000 Hz in the Console. Each device has a minimum.            |
+| **Stream rate** | `stream_rate`          | 5 Hz    | Up to 20,000 Hz. See [read tasks](/reference/hardware/tasks#read-tasks). |
+| **Data saving** | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving).                |
+| **Auto start**  | `auto_start`           | Off     | Starts the task each time the Driver starts.                             |
+
+<Divider.Divider x />
+
+## Channel reference
+
+Every channel has a `channel`, the Synnax channel that records the value, a `device`,
+the key of the device (**Device**), and a `port` (**Port**). The built-in temperature
+sensor has no port. In Python, a channel with no `device` uses the `device` of the task.
+
+The **Notes** column lists the values that code uses, such as `MetersPerSecondSquared`.
+The Console shows the same values as symbols, such as m/s².
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Units.Acceleration /> Accelerometer ([`ai_accel`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1gafb775e5a6d567ec88f38192356b47eaf.html))</Text.Text>
+
+| Console label                       | Field                  | Default       | Notes                                                    |
+| ----------------------------------- | ---------------------- | ------------- | -------------------------------------------------------- |
+| **Range**                           | `min_val`              | `0`           | Minimum acceleration.                                    |
+| **Range**                           | `max_val`              | `1`           | Maximum acceleration.                                    |
+| **Terminal configuration**          | `terminal_config`      | `Cfg_Default` | Terminal configuration.                                  |
+| **Sensitivity**                     | `sensitivity`          | `0`           | Sensor sensitivity.                                      |
+| Unit select next to **Sensitivity** | `sensitivity_units`    | `mVoltsPerG`  | `mVoltsPerG`, `VoltsPerG`.                               |
+| **Acceleration units**              | `units`                | `g`           | `g`, `MetersPerSecondSquared`, `InchesPerSecondSquared`. |
+| **Current excitation source**       | `current_excit_source` | `Internal`    | `Internal`, `External`, `None`.                          |
+| **Current excitation value**        | `current_excit_val`    | `0`           | Excitation current (Amps).                               |
+| **Custom scaling**                  | `custom_scale`         |               | See [custom scaling](#custom-scaling).                   |
+
+</Details.Details>
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Units.Acceleration /> Accelerometer 4-wire DC voltage ([`ai_accel_4_wire_dc_voltage`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1gaf3c2e5588e3464f607734acd27d52f79.html))</Text.Text>
+
+| Console label                       | Field                  | Default       | Notes                                                    |
+| ----------------------------------- | ---------------------- | ------------- | -------------------------------------------------------- |
+| **Range**                           | `min_val`              | `0`           | Minimum acceleration.                                    |
+| **Range**                           | `max_val`              | `1`           | Maximum acceleration.                                    |
+| **Terminal configuration**          | `terminal_config`      | `Cfg_Default` | Terminal configuration.                                  |
+| **Acceleration units**              | `units`                | `g`           | `g`, `MetersPerSecondSquared`, `InchesPerSecondSquared`. |
+| **Sensitivity**                     | `sensitivity`          | `0`           | Sensor sensitivity.                                      |
+| Unit select next to **Sensitivity** | `sensitivity_units`    | `mVoltsPerG`  | `mVoltsPerG`, `VoltsPerG`.                               |
+| **Voltage excitation source**       | `voltage_excit_source` | `Internal`    | `Internal`, `External`, `None`.                          |
+| **Voltage excitation value**        | `voltage_excit_val`    | `0`           | Excitation voltage (Volts).                              |
+| **Use excitation for scaling**      | `scaled_by_excitation` | `false`       | Scale the reading by the excitation voltage.             |
+| **Custom scaling**                  | `custom_scale`         |               | See [custom scaling](#custom-scaling).                   |
+
+</Details.Details>
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Units.Acceleration /> Accelerometer charge ([`ai_accel_charge`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1ga5d74e4c3c40c2aaef12c5dab3d8f8277.html))</Text.Text>
+
+| Console label                       | Field               | Default            | Notes                                                                                                 |
+| ----------------------------------- | ------------------- | ------------------ | ----------------------------------------------------------------------------------------------------- |
+| **Range**                           | `min_val`           | `0`                | Minimum acceleration.                                                                                 |
+| **Range**                           | `max_val`           | `1`                | Maximum acceleration.                                                                                 |
+| **Terminal configuration**          | `terminal_config`   | `Cfg_Default`      | Terminal configuration.                                                                               |
+| **Acceleration units**              | `units`             | `g`                | `g`, `MetersPerSecondSquared`, `InchesPerSecondSquared`.                                              |
+| **Sensitivity**                     | `sensitivity`       | `0`                | Sensor sensitivity.                                                                                   |
+| Unit select next to **Sensitivity** | `sensitivity_units` | `PicoCoulombsPerG` | `PicoCoulombsPerG`, `PicoCoulombsPerMetersPerSecondSquared`, `PicoCoulombsPerInchesPerSecondSquared`. |
+| **Custom scaling**                  | `custom_scale`      |                    | See [custom scaling](#custom-scaling).                                                                |
+
+</Details.Details>
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Bridge /> Bridge ([`ai_bridge`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1gab4d2a28bcc4212e7787808315471db67.html))</Text.Text>
+
+| Console label                 | Field                       | Default         | Notes                                        |
+| ----------------------------- | --------------------------- | --------------- | -------------------------------------------- |
+| **Range**                     | `min_val`                   | `0`             | Minimum value.                               |
+| **Range**                     | `max_val`                   | `1`             | Maximum value.                               |
+| **Electrical units**          | `units`                     | `mVoltsPerVolt` | `mVoltsPerVolt`, `VoltsPerVolt`.             |
+| **Bridge configuration**      | `bridge_config`             | `FullBridge`    | `FullBridge`, `HalfBridge`, `QuarterBridge`. |
+| **Voltage excitation source** | `voltage_excit_source`      | `Internal`      | `Internal`, `External`, `None`.              |
+| **Voltage excitation value**  | `voltage_excit_val`         | `0`             | Excitation voltage (Volts).                  |
+| **Nominal bridge resistance** | `nominal_bridge_resistance` | `1`             | Nominal resistance (Ohms).                   |
+| **Custom scaling**            | `custom_scale`              |                 | See [custom scaling](#custom-scaling).       |
+
+</Details.Details>
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Units.Voltage /> Charge ([`ai_charge`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1ga4e2aeb0cb00398ba8f132c5407ea5d58.html))</Text.Text>
+
+| Console label              | Field             | Default       | Notes                                  |
+| -------------------------- | ----------------- | ------------- | -------------------------------------- |
+| **Range**                  | `min_val`         | `0`           | Minimum charge.                        |
+| **Range**                  | `max_val`         | `1`           | Maximum charge.                        |
+| **Terminal configuration** | `terminal_config` | `Cfg_Default` | Terminal configuration.                |
+| **Charge units**           | `units`           | `Coulombs`    | `Coulombs`, `PicoCoulombs`.            |
+| **Custom scaling**         | `custom_scale`    |               | See [custom scaling](#custom-scaling). |
+
+</Details.Details>
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Units.Current /> Current ([`ai_current`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1gadc9361c4cad612aeae3abe022076f5eb.html))</Text.Text>
+
+| Console label               | Field                    | Default       | Notes                                  |
+| --------------------------- | ------------------------ | ------------- | -------------------------------------- |
+| **Range**                   | `min_val`                | `0`           | Minimum current (Amps).                |
+| **Range**                   | `max_val`                | `1`           | Maximum current (Amps).                |
+| **Terminal configuration**  | `terminal_config`        | `Cfg_Default` | Terminal configuration.                |
+| **Shunt resistor location** | `shunt_resistor_loc`     | `Default`     | `Default`, `Internal`, `External`.     |
+| **Shunt resistance**        | `ext_shunt_resistor_val` | `1`           | External shunt resistor value (Ohms).  |
+| **Custom scaling**          | `custom_scale`           |               | See [custom scaling](#custom-scaling). |
+
+</Details.Details>
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Units.Current /> Current RMS ([`ai_current_rms`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1gaef068e8b2360f0164842a72fd44f5374.html))</Text.Text>
+
+| Console label               | Field                    | Default       | Notes                                  |
+| --------------------------- | ------------------------ | ------------- | -------------------------------------- |
+| **Range**                   | `min_val`                | `0`           | Minimum current (Amps).                |
+| **Range**                   | `max_val`                | `1`           | Maximum current (Amps).                |
+| **Terminal configuration**  | `terminal_config`        | `Cfg_Default` | Terminal configuration.                |
+| **Shunt resistor location** | `shunt_resistor_loc`     | `Default`     | `Default`, `Internal`, `External`.     |
+| **Shunt resistance**        | `ext_shunt_resistor_val` | `1`           | External shunt resistor value (Ohms).  |
+| **Custom scaling**          | `custom_scale`           |               | See [custom scaling](#custom-scaling). |
+
+</Details.Details>
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Units.Force /> Force bridge polynomial ([`ai_force_bridge_polynomial`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1ga407b87343cc271196c53089ff2f9b383.html))</Text.Text>
+
+| Console label                 | Field                       | Default         | Notes                                                       |
+| ----------------------------- | --------------------------- | --------------- | ----------------------------------------------------------- |
+| **Range**                     | `min_val`                   | `0`             | Minimum force.                                              |
+| **Range**                     | `max_val`                   | `1`             | Maximum force.                                              |
+| **Force units**               | `units`                     | `Newtons`       | Force units (`Newtons`, `Pounds`, `KilogramForce`).         |
+| **Bridge configuration**      | `bridge_config`             | `FullBridge`    | `FullBridge`, `HalfBridge`, `QuarterBridge`.                |
+| **Voltage excitation source** | `voltage_excit_source`      | `Internal`      | `Internal`, `External`, `None`.                             |
+| **Voltage excitation value**  | `voltage_excit_val`         | `0`             | Excitation voltage (Volts).                                 |
+| **Nominal bridge resistance** | `nominal_bridge_resistance` | `1`             | Nominal resistance (Ohms).                                  |
+| **Forward coefficients**      | `forward_coeffs`            | `[]`            | Polynomial coefficients from electrical to physical values. |
+| **Reverse coefficients**      | `reverse_coeffs`            | `[]`            | Polynomial coefficients from physical to electrical values. |
+| **Electrical units**          | `electrical_units`          | `mVoltsPerVolt` | Electrical units.                                           |
+| **Physical units**            | `physical_units`            | `Newtons`       | Physical units.                                             |
+| **Custom scaling**            | `custom_scale`              |                 | See [custom scaling](#custom-scaling).                      |
+
+</Details.Details>
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Units.Force /> Force bridge table ([`ai_force_bridge_table`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1ga87df6b93520dde3b4e4cfbf99e3cdb66.html))</Text.Text>
+
+| Console label                 | Field                       | Default         | Notes                                               |
+| ----------------------------- | --------------------------- | --------------- | --------------------------------------------------- |
+| **Range**                     | `min_val`                   | `0`             | Minimum force.                                      |
+| **Range**                     | `max_val`                   | `1`             | Maximum force.                                      |
+| **Force units**               | `units`                     | `Newtons`       | Force units (`Newtons`, `Pounds`, `KilogramForce`). |
+| **Bridge configuration**      | `bridge_config`             | `FullBridge`    | `FullBridge`, `HalfBridge`, `QuarterBridge`.        |
+| **Voltage excitation source** | `voltage_excit_source`      | `Internal`      | `Internal`, `External`, `None`.                     |
+| **Voltage excitation value**  | `voltage_excit_val`         | `0`             | Excitation voltage (Volts).                         |
+| **Nominal bridge resistance** | `nominal_bridge_resistance` | `1`             | Nominal resistance (Ohms).                          |
+|                               | `electrical_vals`           | `[]`            | Electrical values for table.                        |
+|                               | `physical_vals`             | `[]`            | Physical values for table.                          |
+| **Electrical units**          | `electrical_units`          | `mVoltsPerVolt` | Electrical units.                                   |
+| **Physical units**            | `physical_units`            | `Newtons`       | Physical units.                                     |
+| **Custom scaling**            | `custom_scale`              |                 | See [custom scaling](#custom-scaling).              |
+
+</Details.Details>
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Units.Force /> Force bridge two-point linear ([`ai_force_bridge_two_point_lin`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1ga2e610b43e3c00dac59d46de4c609b2ad.html))</Text.Text>
+
+| Console label                 | Field                       | Default         | Notes                                               |
+| ----------------------------- | --------------------------- | --------------- | --------------------------------------------------- |
+| **Range**                     | `min_val`                   | `0`             | Minimum force.                                      |
+| **Range**                     | `max_val`                   | `1`             | Maximum force.                                      |
+| **Force units**               | `units`                     | `Newtons`       | Force units (`Newtons`, `Pounds`, `KilogramForce`). |
+| **Bridge configuration**      | `bridge_config`             | `FullBridge`    | `FullBridge`, `HalfBridge`, `QuarterBridge`.        |
+| **Voltage excitation source** | `voltage_excit_source`      | `Internal`      | `Internal`, `External`, `None`.                     |
+| **Voltage excitation value**  | `voltage_excit_val`         | `0`             | Excitation voltage (Volts).                         |
+| **Nominal bridge resistance** | `nominal_bridge_resistance` | `1`             | Nominal resistance (Ohms).                          |
+| **Electrical value one**      | `first_electrical_val`      | `0`             | First electrical value.                             |
+| **Electrical value two**      | `second_electrical_val`     | `1`             | Second electrical value.                            |
+| **Electrical units**          | `electrical_units`          | `mVoltsPerVolt` | Electrical units.                                   |
+| **Physical value one**        | `first_physical_val`        | `0`             | First physical value.                               |
+| **Physical value two**        | `second_physical_val`       | `1`             | Second physical value.                              |
+| **Physical units**            | `physical_units`            | `Newtons`       | Physical units.                                     |
+| **Custom scaling**            | `custom_scale`              |                 | See [custom scaling](#custom-scaling).              |
+
+</Details.Details>
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Units.Force /> Force IEPE ([`ai_force_iepe`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1gaa6ff3418553a70767e450e29bc380256.html))</Text.Text>
+
+| Console label                       | Field                  | Default           | Notes                                               |
+| ----------------------------------- | ---------------------- | ----------------- | --------------------------------------------------- |
+| **Range**                           | `min_val`              | `0`               | Minimum force.                                      |
+| **Range**                           | `max_val`              | `1`               | Maximum force.                                      |
+| **Terminal configuration**          | `terminal_config`      | `Cfg_Default`     | Terminal configuration.                             |
+| **Force units**                     | `units`                | `Newtons`         | Force units (`Newtons`, `Pounds`, `KilogramForce`). |
+| **Sensitivity**                     | `sensitivity`          | `0`               | Sensor sensitivity.                                 |
+| Unit select next to **Sensitivity** | `sensitivity_units`    | `mVoltsPerNewton` | `mVoltsPerNewton`, `mVoltsPerPound`.                |
+| **Current excitation source**       | `current_excit_source` | `Internal`        | `Internal`, `External`, `None`.                     |
+| **Current excitation value**        | `current_excit_val`    | `0`               | Excitation current (Amps).                          |
+| **Custom scaling**                  | `custom_scale`         |                   | See [custom scaling](#custom-scaling).              |
+
+</Details.Details>
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Units.Voltage /> Frequency voltage ([`ai_freq_voltage`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1gacfae87d4bb8abd35f8794543302fca06.html))</Text.Text>
+
+| Console label       | Field             | Default | Notes                                      |
+| ------------------- | ----------------- | ------- | ------------------------------------------ |
+| **Range**           | `min_val`         | `0`     | Minimum frequency (Hz).                    |
+| **Range**           | `max_val`         | `1`     | Maximum frequency (Hz).                    |
+| **Threshold level** | `threshold_level` | `0`     | Voltage level at which a cycle is counted. |
+| **Hysteresis**      | `hysteresis`      | `0`     | Hysteresis around the threshold (Volts).   |
+| **Custom scaling**  | `custom_scale`    |         | See [custom scaling](#custom-scaling).     |
+
+</Details.Details>
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Sound /> Microphone ([`ai_microphone`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1ga5853b2284aa81bf45003a815c092c46f.html))</Text.Text>
+
+| Console label                 | Field                  | Default       | Notes                                  |
+| ----------------------------- | ---------------------- | ------------- | -------------------------------------- |
+| **Terminal configuration**    | `terminal_config`      | `Cfg_Default` | Terminal configuration.                |
+| **Microphone sensitivity**    | `mic_sensitivity`      | `0`           | Microphone sensitivity.                |
+| **Max sound pressure level**  | `max_snd_press_level`  | `0`           | Maximum sound pressure level.          |
+| **Current excitation source** | `current_excit_source` | `Internal`    | `Internal`, `External`, `None`.        |
+| **Current excitation value**  | `current_excit_val`    | `0`           | Excitation current (Amps).             |
+| **Custom scaling**            | `custom_scale`         |               | See [custom scaling](#custom-scaling). |
+
+</Details.Details>
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Units.Pressure /> Pressure bridge polynomial ([`ai_pressure_bridge_polynomial`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1ga96308d972bed1172d1cfec606a7061a5.html))</Text.Text>
+
+| Console label                 | Field                       | Default               | Notes                                                       |
+| ----------------------------- | --------------------------- | --------------------- | ----------------------------------------------------------- |
+| **Range**                     | `min_val`                   | `0`                   | Minimum pressure.                                           |
+| **Range**                     | `max_val`                   | `1`                   | Maximum pressure.                                           |
+| **Pressure units**            | `units`                     | `PoundsPerSquareInch` | `Pascals`, `PoundsPerSquareInch`, `Bar`.                    |
+| **Bridge configuration**      | `bridge_config`             | `FullBridge`          | `FullBridge`, `HalfBridge`, `QuarterBridge`.                |
+| **Voltage excitation source** | `voltage_excit_source`      | `Internal`            | `Internal`, `External`, `None`.                             |
+| **Voltage excitation value**  | `voltage_excit_val`         | `0`                   | Excitation voltage (Volts).                                 |
+| **Nominal bridge resistance** | `nominal_bridge_resistance` | `1`                   | Nominal resistance (Ohms).                                  |
+| **Forward coefficients**      | `forward_coeffs`            | `[]`                  | Polynomial coefficients from electrical to physical values. |
+| **Reverse coefficients**      | `reverse_coeffs`            | `[]`                  | Polynomial coefficients from physical to electrical values. |
+| **Electrical units**          | `electrical_units`          | `mVoltsPerVolt`       | Electrical units.                                           |
+| **Physical units**            | `physical_units`            | `PoundsPerSquareInch` | Physical units.                                             |
+| **Custom scaling**            | `custom_scale`              |                       | See [custom scaling](#custom-scaling).                      |
+
+</Details.Details>
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Units.Pressure /> Pressure bridge table ([`ai_pressure_bridge_table`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1gad78a60f9ae005cd7533422aad9621f59.html))</Text.Text>
+
+| Console label                 | Field                       | Default               | Notes                                        |
+| ----------------------------- | --------------------------- | --------------------- | -------------------------------------------- |
+| **Range**                     | `min_val`                   | `0`                   | Minimum pressure.                            |
+| **Range**                     | `max_val`                   | `1`                   | Maximum pressure.                            |
+| **Pressure units**            | `units`                     | `PoundsPerSquareInch` | `Pascals`, `PoundsPerSquareInch`, `Bar`.     |
+| **Bridge configuration**      | `bridge_config`             | `FullBridge`          | `FullBridge`, `HalfBridge`, `QuarterBridge`. |
+| **Voltage excitation source** | `voltage_excit_source`      | `Internal`            | `Internal`, `External`, `None`.              |
+| **Voltage excitation value**  | `voltage_excit_val`         | `0`                   | Excitation voltage (Volts).                  |
+| **Nominal bridge resistance** | `nominal_bridge_resistance` | `1`                   | Nominal resistance (Ohms).                   |
+|                               | `electrical_vals`           | `[]`                  | Electrical values for table.                 |
+|                               | `physical_vals`             | `[]`                  | Physical values for table.                   |
+| **Electrical units**          | `electrical_units`          | `mVoltsPerVolt`       | Electrical units.                            |
+| **Physical units**            | `physical_units`            | `PoundsPerSquareInch` | Physical units.                              |
+| **Custom scaling**            | `custom_scale`              |                       | See [custom scaling](#custom-scaling).       |
+
+</Details.Details>
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Units.Pressure /> Pressure bridge two-point linear ([`ai_pressure_bridge_two_point_lin`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1ga58a8c28527b09fa4182a2fab25fbfe57.html))</Text.Text>
+
+| Console label                 | Field                       | Default               | Notes                                        |
+| ----------------------------- | --------------------------- | --------------------- | -------------------------------------------- |
+| **Range**                     | `min_val`                   | `0`                   | Minimum pressure.                            |
+| **Range**                     | `max_val`                   | `1`                   | Maximum pressure.                            |
+| **Pressure units**            | `units`                     | `PoundsPerSquareInch` | `Pascals`, `PoundsPerSquareInch`, `Bar`.     |
+| **Bridge configuration**      | `bridge_config`             | `FullBridge`          | `FullBridge`, `HalfBridge`, `QuarterBridge`. |
+| **Voltage excitation source** | `voltage_excit_source`      | `Internal`            | `Internal`, `External`, `None`.              |
+| **Voltage excitation value**  | `voltage_excit_val`         | `0`                   | Excitation voltage (Volts).                  |
+| **Nominal bridge resistance** | `nominal_bridge_resistance` | `1`                   | Nominal resistance (Ohms).                   |
+| **Electrical value one**      | `first_electrical_val`      | `0`                   | First electrical value.                      |
+| **Electrical value two**      | `second_electrical_val`     | `1`                   | Second electrical value.                     |
+| **Electrical units**          | `electrical_units`          | `mVoltsPerVolt`       | Electrical units.                            |
+| **Physical value one**        | `first_physical_val`        | `0`                   | First physical value.                        |
+| **Physical value two**        | `second_physical_val`       | `1`                   | Second physical value.                       |
+| **Physical units**            | `physical_units`            | `PoundsPerSquareInch` | Physical units.                              |
+| **Custom scaling**            | `custom_scale`              |                       | See [custom scaling](#custom-scaling).       |
+
+</Details.Details>
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Units.Resistance /> Resistance ([`ai_resistance`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1gaa8454a1de839ded8669cce2b4b25cca4.html))</Text.Text>
+
+| Console label                 | Field                  | Default    | Notes                                  |
+| ----------------------------- | ---------------------- | ---------- | -------------------------------------- |
+| **Range**                     | `min_val`              | `0`        | Minimum resistance (Ohms).             |
+| **Range**                     | `max_val`              | `1`        | Maximum resistance (Ohms).             |
+| **Resistance configuration**  | `resistance_config`    | `2Wire`    | `2Wire`, `3Wire`, `4Wire`.             |
+| **Current excitation source** | `current_excit_source` | `Internal` | `Internal`, `External`, `None`.        |
+| **Current excitation value**  | `current_excit_val`    | `0`        | Excitation current (Amps).             |
+| **Custom scaling**            | `custom_scale`         |            | See [custom scaling](#custom-scaling). |
+
+</Details.Details>
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Units.Temperature /> RTD ([`ai_rtd`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1ga3111dddf4f6eef35801096d09db7d574.html))</Text.Text>
+
+| Console label                 | Field                  | Default    | Notes                                                       |
+| ----------------------------- | ---------------------- | ---------- | ----------------------------------------------------------- |
+| **Range**                     | `min_val`              | `0`        | Minimum temperature.                                        |
+| **Range**                     | `max_val`              | `1`        | Maximum temperature.                                        |
+| **Temperature units**         | `units`                | `DegC`     | `DegC`, `DegF`, `Kelvins`, `DegR`.                          |
+| **RTD type**                  | `rtd_type`             | `Pt3750`   | `Pt3750`, `Pt3851`, `Pt3911`, `Pt3916`, `Pt3920`, `Pt3928`. |
+| **R0 resistance**             | `r0`                   | `0`        | Sensor resistance at 0 degrees Celsius (Ohms).              |
+| **Resistance configuration**  | `resistance_config`    | `2Wire`    | `2Wire`, `3Wire`, `4Wire`.                                  |
+| **Current excitation source** | `current_excit_source` | `Internal` | `Internal`, `External`, `None`.                             |
+| **Current excitation value**  | `current_excit_val`    | `0`        | Excitation current (Amps).                                  |
+
+</Details.Details>
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Units.Strain /> Strain gauge ([`ai_strain_gauge`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1gab03c96b23cedb809011edc2df6fbef3e.html))</Text.Text>
+
+| Console label                 | Field                     | Default       | Notes                                                                                                               |
+| ----------------------------- | ------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------- |
+| **Range**                     | `min_val`                 | `0`           | Minimum strain.                                                                                                     |
+| **Range**                     | `max_val`                 | `1`           | Maximum strain.                                                                                                     |
+| **Strain configuration**      | `strain_config`           | `FullBridgeI` | `FullBridgeI`, `FullBridgeII`, `FullBridgeIII`, `HalfBridgeI`, `HalfBridgeII`, `QuarterBridgeI`, `QuarterBridgeII`. |
+| **Voltage excitation source** | `voltage_excit_source`    | `Internal`    | `Internal`, `External`, `None`.                                                                                     |
+| **Voltage excitation value**  | `voltage_excit_val`       | `0`           | Excitation voltage (Volts).                                                                                         |
+| **Gage factor**               | `gage_factor`             | `0`           | Gage factor.                                                                                                        |
+| **Initial bridge voltage**    | `initial_bridge_voltage`  | `0`           | Initial bridge voltage.                                                                                             |
+| **Nominal gage resistance**   | `nominal_gage_resistance` | `0`           | Nominal gage resistance (Ohms).                                                                                     |
+| **Poisson's ratio**           | `poisson_ratio`           | `0`           | Poisson's ratio.                                                                                                    |
+| **Lead wire resistance**      | `lead_wire_resistance`    | `0`           | Lead wire resistance (Ohms).                                                                                        |
+| **Custom scaling**            | `custom_scale`            |               | See [custom scaling](#custom-scaling).                                                                              |
+
+</Details.Details>
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Units.Temperature /> Temperature built-in sensor ([`ai_temp_builtin`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1gaaa6a97a78f05458c86bb1c1b86ed2781.html))</Text.Text>
+
+| Console label         | Field   | Default | Notes                              |
+| --------------------- | ------- | ------- | ---------------------------------- |
+| **Temperature units** | `units` | `DegC`  | `DegC`, `DegF`, `Kelvins`, `DegR`. |
+
+</Details.Details>
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Units.Temperature /> Thermistor current excitation ([`ai_thermistor_iex`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1gaf7dc57c48b676e22c788574fecb4f512.html))</Text.Text>
+
+| Console label                 | Field                  | Default    | Notes                              |
+| ----------------------------- | ---------------------- | ---------- | ---------------------------------- |
+| **Range**                     | `min_val`              | `0`        | Minimum temperature.               |
+| **Range**                     | `max_val`              | `1`        | Maximum temperature.               |
+| **Temperature units**         | `units`                | `DegC`     | `DegC`, `DegF`, `Kelvins`, `DegR`. |
+| **Resistance configuration**  | `resistance_config`    | `2Wire`    | `2Wire`, `3Wire`, `4Wire`.         |
+| **Current excitation source** | `current_excit_source` | `Internal` | `Internal`, `External`, `None`.    |
+| **Current excitation value**  | `current_excit_val`    | `0`        | Excitation current (Amps).         |
+| **Steinhart-Hart A**          | `a`                    | `0`        | First Steinhart-Hart coefficient.  |
+| **Steinhart-Hart B**          | `b`                    | `0`        | Second Steinhart-Hart coefficient. |
+| **Steinhart-Hart C**          | `c`                    | `0`        | Third Steinhart-Hart coefficient.  |
+
+</Details.Details>
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Units.Temperature /> Thermistor voltage excitation ([`ai_thermistor_vex`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1ga79514ce1961338c419f0d6e1157e7b83.html))</Text.Text>
+
+| Console label                 | Field                  | Default    | Notes                              |
+| ----------------------------- | ---------------------- | ---------- | ---------------------------------- |
+| **Range**                     | `min_val`              | `0`        | Minimum temperature.               |
+| **Range**                     | `max_val`              | `1`        | Maximum temperature.               |
+| **Temperature units**         | `units`                | `DegC`     | `DegC`, `DegF`, `Kelvins`, `DegR`. |
+| **Resistance configuration**  | `resistance_config`    | `2Wire`    | `2Wire`, `3Wire`, `4Wire`.         |
+| **Voltage excitation source** | `voltage_excit_source` | `Internal` | `Internal`, `External`, `None`.    |
+| **Voltage excitation value**  | `voltage_excit_val`    | `0`        | Excitation voltage (Volts).        |
+| **Steinhart-Hart A**          | `a`                    | `0`        | First Steinhart-Hart coefficient.  |
+| **Steinhart-Hart B**          | `b`                    | `0`        | Second Steinhart-Hart coefficient. |
+| **Steinhart-Hart C**          | `c`                    | `0`        | Third Steinhart-Hart coefficient.  |
+| **Reference resistor**        | `r1`                   | `0`        | Reference resistor (Ohms).         |
+
+</Details.Details>
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Units.Temperature /> Thermocouple ([`ai_thermocouple`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1gab4d78206aa204316fecb740a123b38f7.html))</Text.Text>
+
+| Console label         | Field               | Default    | Notes                                                                                                                                      |
+| --------------------- | ------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Range**             | `min_val`           | `0`        | Minimum temperature.                                                                                                                       |
+| **Range**             | `max_val`           | `1`        | Maximum temperature.                                                                                                                       |
+| **Temperature units** | `units`             | `DegC`     | `DegC`, `DegF`, `Kelvins`, `DegR`.                                                                                                         |
+| **Thermocouple type** | `thermocouple_type` | `J`        | `J`, `K`, `N`, `R`, `S`, `T`, `B`, `E`.                                                                                                    |
+| **CJC source**        | `cjc`               | `built_in` | **Built in** (`built_in`), **Constant value** (`const_val`), or **Channel** (`chan`).                                                      |
+| **CJC value**         | `cjc.val`           |            | The CJC temperature, for **Constant value**.                                                                                               |
+| **CJC port**          | `cjc.port`          |            | For **Channel**: the position of another channel in this task that measures the CJC temperature, starting at 0. It is not a physical port. |
+
+</Details.Details>
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Units.Torque /> Torque bridge polynomial ([`ai_torque_bridge_polynomial`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1ga533bdb964404f08e0b2895a43a14b7b8.html))</Text.Text>
+
+| Console label                 | Field                       | Default         | Notes                                                       |
+| ----------------------------- | --------------------------- | --------------- | ----------------------------------------------------------- |
+| **Range**                     | `min_val`                   | `0`             | Minimum torque.                                             |
+| **Range**                     | `max_val`                   | `1`             | Maximum torque.                                             |
+| **Torque units**              | `units`                     | `NewtonMeters`  | `NewtonMeters`, `InchPounds`, `FootPounds`, `InchOunces`.   |
+| **Bridge configuration**      | `bridge_config`             | `FullBridge`    | `FullBridge`, `HalfBridge`, `QuarterBridge`.                |
+| **Voltage excitation source** | `voltage_excit_source`      | `Internal`      | `Internal`, `External`, `None`.                             |
+| **Voltage excitation value**  | `voltage_excit_val`         | `0`             | Excitation voltage (Volts).                                 |
+| **Nominal bridge resistance** | `nominal_bridge_resistance` | `1`             | Nominal resistance (Ohms).                                  |
+| **Forward coefficients**      | `forward_coeffs`            | `[]`            | Polynomial coefficients from electrical to physical values. |
+| **Reverse coefficients**      | `reverse_coeffs`            | `[]`            | Polynomial coefficients from physical to electrical values. |
+| **Electrical units**          | `electrical_units`          | `mVoltsPerVolt` | Electrical units.                                           |
+| **Physical units**            | `physical_units`            | `NewtonMeters`  | Physical units.                                             |
+| **Custom scaling**            | `custom_scale`              |                 | See [custom scaling](#custom-scaling).                      |
+
+</Details.Details>
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Units.Torque /> Torque bridge table ([`ai_torque_bridge_table`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1ga2d5889e6a7a4915ae340683b4cd1dc80.html))</Text.Text>
+
+| Console label                 | Field                       | Default         | Notes                                                     |
+| ----------------------------- | --------------------------- | --------------- | --------------------------------------------------------- |
+| **Range**                     | `min_val`                   | `0`             | Minimum torque.                                           |
+| **Range**                     | `max_val`                   | `1`             | Maximum torque.                                           |
+| **Torque units**              | `units`                     | `NewtonMeters`  | `NewtonMeters`, `InchPounds`, `FootPounds`, `InchOunces`. |
+| **Bridge configuration**      | `bridge_config`             | `FullBridge`    | `FullBridge`, `HalfBridge`, `QuarterBridge`.              |
+| **Voltage excitation source** | `voltage_excit_source`      | `Internal`      | `Internal`, `External`, `None`.                           |
+| **Voltage excitation value**  | `voltage_excit_val`         | `0`             | Excitation voltage (Volts).                               |
+| **Nominal bridge resistance** | `nominal_bridge_resistance` | `1`             | Nominal resistance (Ohms).                                |
+|                               | `electrical_vals`           | `[]`            | Electrical values for table.                              |
+|                               | `physical_vals`             | `[]`            | Physical values for table.                                |
+| **Electrical units**          | `electrical_units`          | `mVoltsPerVolt` | Electrical units.                                         |
+| **Physical units**            | `physical_units`            | `NewtonMeters`  | Physical units.                                           |
+| **Custom scaling**            | `custom_scale`              |                 | See [custom scaling](#custom-scaling).                    |
+
+</Details.Details>
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Units.Torque /> Torque bridge two-point linear ([`ai_torque_bridge_two_point_lin`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1gac0648326f7b53707894030813e538950.html))</Text.Text>
+
+| Console label                 | Field                       | Default         | Notes                                                     |
+| ----------------------------- | --------------------------- | --------------- | --------------------------------------------------------- |
+| **Range**                     | `min_val`                   | `0`             | Minimum torque.                                           |
+| **Range**                     | `max_val`                   | `1`             | Maximum torque.                                           |
+| **Torque units**              | `units`                     | `NewtonMeters`  | `NewtonMeters`, `InchPounds`, `FootPounds`, `InchOunces`. |
+| **Bridge configuration**      | `bridge_config`             | `FullBridge`    | `FullBridge`, `HalfBridge`, `QuarterBridge`.              |
+| **Voltage excitation source** | `voltage_excit_source`      | `Internal`      | `Internal`, `External`, `None`.                           |
+| **Voltage excitation value**  | `voltage_excit_val`         | `0`             | Excitation voltage (Volts).                               |
+| **Nominal bridge resistance** | `nominal_bridge_resistance` | `1`             | Nominal resistance (Ohms).                                |
+| **Electrical value one**      | `first_electrical_val`      | `0`             | First electrical value.                                   |
+| **Electrical value two**      | `second_electrical_val`     | `1`             | Second electrical value.                                  |
+| **Electrical units**          | `electrical_units`          | `mVoltsPerVolt` | Electrical units.                                         |
+| **Physical value one**        | `first_physical_val`        | `0`             | First physical value.                                     |
+| **Physical value two**        | `second_physical_val`       | `1`             | Second physical value.                                    |
+| **Physical units**            | `physical_units`            | `NewtonMeters`  | Physical units.                                           |
+| **Custom scaling**            | `custom_scale`              |                 | See [custom scaling](#custom-scaling).                    |
+
+</Details.Details>
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Units.Velocity /> Velocity IEPE ([`ai_velocity_iepe`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1ga0256a5337cbe48c93b7450f39f27386e.html))</Text.Text>
+
+| Console label                       | Field                  | Default                            | Notes                                                             |
+| ----------------------------------- | ---------------------- | ---------------------------------- | ----------------------------------------------------------------- |
+| **Range**                           | `min_val`              | `0`                                | Minimum velocity.                                                 |
+| **Range**                           | `max_val`              | `1`                                | Maximum velocity.                                                 |
+| **Velocity units**                  | `units`                | `MetersPerSecond`                  | `MetersPerSecond`, `InchesPerSecond`.                             |
+| **Terminal configuration**          | `terminal_config`      | `Cfg_Default`                      | Terminal configuration.                                           |
+| **Sensitivity**                     | `sensitivity`          | `0`                                | Sensor sensitivity.                                               |
+| Unit select next to **Sensitivity** | `sensitivity_units`    | `MillivoltsPerMillimeterPerSecond` | `MillivoltsPerMillimeterPerSecond`, `MilliVoltsPerInchPerSecond`. |
+| **Current excitation source**       | `current_excit_source` | `Internal`                         | `Internal`, `External`, `None`.                                   |
+| **Current excitation value**        | `current_excit_val`    | `0`                                | Excitation current (Amps).                                        |
+| **Custom scaling**                  | `custom_scale`         |                                    | See [custom scaling](#custom-scaling).                            |
+
+</Details.Details>
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Units.Voltage /> Voltage ([`ai_voltage`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1ga94c83a5df8579b4164e638018b7ee89f.html))</Text.Text>
+
+| Console label              | Field             | Default       | Notes                                                                        |
+| -------------------------- | ----------------- | ------------- | ---------------------------------------------------------------------------- |
+| **Range**                  | `min_val`         | `0`           | Minimum voltage (Volts).                                                     |
+| **Range**                  | `max_val`         | `1`           | Maximum voltage (Volts).                                                     |
+| **Terminal configuration** | `terminal_config` | `Cfg_Default` | Terminal configuration (`Cfg_Default`, `RSE`, `NRSE`, `Diff`, `PseudoDiff`). |
+| **Custom scaling**         | `custom_scale`    |               | See [custom scaling](#custom-scaling).                                       |
+
+</Details.Details>
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Units.Voltage /> Voltage RMS ([`ai_voltage_rms`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1gae3c40696c94f896a2c60784e3baf3905.html))</Text.Text>
+
+| Console label              | Field             | Default       | Notes                                                                        |
+| -------------------------- | ----------------- | ------------- | ---------------------------------------------------------------------------- |
+| **Range**                  | `min_val`         | `0`           | Minimum voltage (Volts).                                                     |
+| **Range**                  | `max_val`         | `1`           | Maximum voltage (Volts).                                                     |
+| **Terminal configuration** | `terminal_config` | `Cfg_Default` | Terminal configuration (`Cfg_Default`, `RSE`, `NRSE`, `Diff`, `PseudoDiff`). |
+| **Custom scaling**         | `custom_scale`    |               | See [custom scaling](#custom-scaling).                                       |
+
+</Details.Details>
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Units.Voltage /> Voltage with excitation ([`ai_voltage_with_excit`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1ga12a57904c16ebc47c62a788f5435ca0a.html))</Text.Text>
+
+| Console label                  | Field                  | Default       | Notes                                        |
+| ------------------------------ | ---------------------- | ------------- | -------------------------------------------- |
+| **Range**                      | `min_val`              | `0`           | Minimum voltage (Volts).                     |
+| **Range**                      | `max_val`              | `1`           | Maximum voltage (Volts).                     |
+| **Terminal configuration**     | `terminal_config`      | `Cfg_Default` | Terminal configuration.                      |
+| **Bridge configuration**       | `bridge_config`        | `FullBridge`  | `FullBridge`, `HalfBridge`, `QuarterBridge`. |
+| **Voltage excitation source**  | `voltage_excit_source` | `Internal`    | `Internal`, `External`, `None`.              |
+| **Voltage excitation value**   | `voltage_excit_val`    | `0`           | Excitation voltage (Volts).                  |
+| **Use excitation for scaling** | `scaled_by_excitation` | `false`       | Scale the reading by the excitation voltage. |
+| **Custom scaling**             | `custom_scale`         |               | See [custom scaling](#custom-scaling).       |
+
+</Details.Details>
+
+### Custom scaling
+
+Channels with **Custom scaling** convert the raw value before the Driver writes it. In
+the Console, the options are in the **Scale** section of the channel. In code, set
+`custom_scale` to one of these scales:
+
+| Console option | Python class      | Fields                                                                                                                          |
+| -------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| **None**       | `NoneScale`       | No scaling. This is the default.                                                                                                |
+| **Linear**     | `LinearScale`     | **Slope** (`slope`, 1) and **Y-intercept** (`y_intercept`, 0).                                                                  |
+| **Map**        | `MapScale`        | **Pre-scaled min** and **max** (`pre_scaled_min`, `pre_scaled_max`) to **Scaled min** and **max** (`scaled_min`, `scaled_max`). |
+| **Polynomial** | `PolynomialScale` | **Forward coefficients** (`forward_coeffs`) and **Reverse coefficients** (`reverse_coeffs`), from c0 up.                        |
+| **Table**      | `TableScale`      | Pairs of **Pre-scaled** and **Scaled** values (`pre_scaled_vals`, `scaled_vals`). You can load them from a CSV file.            |
+
+Every scale except **None** also has **Prescaled units** (`pre_scaled_units`, `Volts`)
+and **Scaled units** (`scaled_units`).
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+### "configured sample rate ... is below device minimum ..."
+
+The device cannot sample that slowly. Raise the **Sample rate** to at least the minimum
+in the message.
+
+### The task does not start, with an error that says the resource is reserved
+
+Another running task uses the analog inputs of the same module. Stop the other task, or
+move its channels into this task.
+
+### "Port ... has already been used on another channel on the same device"
+
+Two channels use the same port of one device. Change the port of one of them.
+
+### "No device provided for channel ..."
+
+A Python channel has no `device`, and the task has no `device` either. Set one of them.
+
+### "the network cannot keep up with the stream rate specified"
+
+The Driver cannot send the samples fast enough. Lower the **Stream rate**, so that each
+batch holds more samples.
+
+For other problems, see
+[Configure an NI device](/reference/hardware/ni/configure-device#troubleshooting) and
+[Troubleshoot hardware](/reference/hardware/troubleshooting).

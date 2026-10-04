@@ -15,14 +15,14 @@ export const PYTHON_SEQUENCES_NAV: PageNavNode = {
   edition: "enterprise",
   children: [
     {
-      key: "/reference/control/python/get-started",
-      href: "/reference/control/python/get-started",
-      name: "Get started",
+      key: "/reference/control/python/write-sequences",
+      href: "/reference/control/python/write-sequences",
+      name: "Write a sequence",
     },
     {
-      key: "/reference/control/python/examples",
-      href: "/reference/control/python/examples",
-      name: "Examples",
+      key: "/reference/control/python/controller",
+      href: "/reference/control/python/controller",
+      name: "Controller",
     },
   ],
 };

@@ -16,21 +16,26 @@ export const CONTROL_NAV: PageNavNode = {
   name: "Control",
   children: [
     {
-      key: "/reference/control/get-started",
-      href: "/reference/control/get-started",
-      name: "Get started",
+      key: "/reference/control",
+      href: "/reference/control",
+      name: "Overview",
+    },
+    {
+      key: "/reference/control/authority",
+      href: "/reference/control/authority",
+      name: "Authority",
     },
     {
       key: "/reference/control/manual",
       href: "/reference/control/manual",
       name: "Manual control",
     },
-    {
-      key: "/reference/control/authority",
-      href: "/reference/control/authority",
-      name: "Control authority",
-    },
     ARC_NAV,
     PYTHON_SEQUENCES_NAV,
+    {
+      key: "/reference/control/troubleshooting",
+      href: "/reference/control/troubleshooting",
+      name: "Troubleshooting",
+    },
   ],
 };

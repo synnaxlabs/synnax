@@ -20,34 +20,60 @@ export const ENTERPRISE_NAV: PageNavNode = {
       name: "Set up Enterprise",
     },
     {
-      key: "/reference/enterprise/console",
-      href: "/reference/enterprise/console",
-      name: "Connect the Console",
-    },
-    {
       key: "/reference/enterprise/requirements",
       href: "/reference/enterprise/requirements",
       name: "Requirements",
     },
     {
-      key: "/reference/enterprise/production",
-      href: "/reference/enterprise/production",
-      name: "Deploy to production",
+      key: "/reference/enterprise/console",
+      href: "/reference/enterprise/console",
+      name: "Connect the Console",
     },
     {
-      key: "/reference/enterprise/certificates",
-      href: "/reference/enterprise/certificates",
-      name: "Install certificates",
+      key: "/reference/enterprise/license",
+      href: "/reference/enterprise/license",
+      name: "Activate a license",
     },
     {
-      key: "/reference/enterprise/clusters",
-      href: "/reference/enterprise/clusters",
-      name: "Clusters and nodes",
+      key: "/reference/enterprise/upgrade",
+      href: "/reference/enterprise/upgrade",
+      name: "Upgrade",
+    },
+    {
+      key: "tls",
+      name: "TLS",
+      children: [
+        {
+          key: "/reference/enterprise/tls",
+          href: "/reference/enterprise/tls",
+          name: "Set up TLS",
+        },
+        {
+          key: "/reference/enterprise/certificates",
+          href: "/reference/enterprise/certificates",
+          name: "Install certificates",
+        },
+        {
+          key: "/reference/enterprise/listeners",
+          href: "/reference/enterprise/listeners",
+          name: "Serve multiple listeners",
+        },
+      ],
     },
     {
       key: "/reference/enterprise/users",
       href: "/reference/enterprise/users",
       name: "Users",
+    },
+    {
+      key: "/reference/enterprise/service",
+      href: "/reference/enterprise/service",
+      name: "Run as a service",
+    },
+    {
+      key: "/reference/enterprise/production-checklist",
+      href: "/reference/enterprise/production-checklist",
+      name: "Production checklist",
     },
     {
       key: "driver",
@@ -76,9 +102,9 @@ export const ENTERPRISE_NAV: PageNavNode = {
       name: "CLI reference",
     },
     {
-      key: "/reference/enterprise/systemd-service",
-      href: "/reference/enterprise/systemd-service",
-      name: "systemd service",
+      key: "/reference/enterprise/troubleshooting",
+      href: "/reference/enterprise/troubleshooting",
+      name: "Troubleshooting",
     },
   ],
 };

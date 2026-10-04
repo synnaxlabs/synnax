@@ -28,5 +28,4 @@ export const INFO: Info[] = [
     icon: <Icon.TypeScript />,
     edition: "enterprise",
   },
-  { key: "cpp", name: "C++", icon: <Icon.CPlusPlus />, edition: "enterprise" },
 ];

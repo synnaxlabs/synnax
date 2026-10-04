@@ -2,7 +2,7 @@
 
 Complete inventory of every `<Video id="..." />` under `site/docs/src/pages`.
 
-**Total: 61 unique ids** under `reference/` (the docs-site tutorial set), plus the
+**Total: 64 unique ids** under `reference/` (the docs-site tutorial set), plus the
 legacy clips under `releases/` (release-notes demos, listed in an addendum at the
 bottom). Shot descriptions marked "(inferred)" come from thin prose; the flow was
 reconstructed from the section heading and neighboring steps. Source paths are relative
@@ -193,12 +193,29 @@ All shots require channels with data (live streaming for the rolling-range ones)
   identifies color regions and the new symbol lands in the group -> requires an SVG file
   on disk.
 
+## control
+
+- `control/authority/hand-off` (reference/control/authority.mdx) -> a running Arc
+  automation at authority 100 holds a schematic valve closed, and the legend and red
+  chip show it in control -> acquire control from the schematic at authority 200 -> the
+  chip turns blue and the legend shows the schematic -> click the valve open -> release
+  control -> the legend shows the Arc again and the valve closes -> requires an echo
+  valve and an Arc running on the Core.
+- `control/manual/absolute-control` (reference/control/manual.mdx) -> acquire control
+  of a valve schematic (chip turns blue) -> click the control chip beside the valve ->
+  the chip turns green (absolute control, 255) -> hover it to show "You have absolute
+  control. Click to release." -> requires an echo valve.
+
 ## control/arc
 
+- `control/arc/overview` (reference/control/arc/index.mdx) -> still for the top of the
+  page: the `press` sequence open in the Arc text editor, Driver "Node 1" selected, and
+  the controls bar reading "Task started successfully" -> the docs use the last frame
+  -> requires the Arc's channels and the Arc running on the Core.
+
 - `control/arc/get-started/create-automation` (reference/control/arc/get-started.mdx) ->
-  open the command palette and run "Create an Arc automation" (alternatives: "+" button
-  in the toolbar, or right-click a driver in the resources panel) -> name it and select
-  **Text** editor mode -> the Arc text editor opens.
+  click "+" on an empty panel and pick **Arc automation** in the component selector ->
+  name it and select **Text** editor mode -> the Arc text editor opens.
 - `control/arc/get-started/deploy-automation` (reference/control/arc/get-started.mdx) ->
   with the tutorial program in the editor (and `tank_pressure`/`pressure_scaled` virtual
   channels created so no red squiggles remain), select a driver from the editor-toolbar

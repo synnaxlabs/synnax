@@ -36,7 +36,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(1000);
 
   await capture.contextMenu(session, item, "Change role");
-  const modal = page.locator(".console-modal").first();
+  const modal = page.locator(".pluto-dialog__dialog.pluto--modal").first();
   // The select opens on the current role rather than a placeholder.
   const role = modal.getByText("Viewer", { exact: true }).first();
   await session.waitFor(role);

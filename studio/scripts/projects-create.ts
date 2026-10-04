@@ -33,10 +33,13 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(900);
   await session.click(create, { text: true, zoom: false });
 
-  const name = page.locator(".console-modal").getByPlaceholder("Name").first();
+  const name = page
+    .locator(".pluto-dialog__dialog.pluto--modal")
+    .getByPlaceholder("Name")
+    .first();
   await session.waitFor(name);
   await session.hold(600);
-  await session.zoom(page.locator(".console-modal").first());
+  await session.zoom(page.locator(".pluto-dialog__dialog.pluto--modal").first());
   await session.type("Hotfire Campaign");
   await session.hold(500);
   await capture.clickButton(session, "Create");

@@ -1,143 +1,191 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Install a standalone Driver"
-description: "Install the Synnax Driver on a separate machine from the Synnax Core."
+description:
+  "Install the Synnax Driver on a computer other than the Core, log it in to the Core,
+  and start it."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Note } from "@synnaxlabs/lyra/note";
 import { Driver } from "@/components/driver";
 import Step from "@/components/text/Step.astro";
-import DriverDownloadURL from "@/components/driver/DownloadURL.astro";
-import DriverMoveCommand from "@/components/driver/MoveCommand.astro";
-import DriverVersionOutput from "@/components/driver/VersionOutput.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Most deployments use the [embedded Synnax Driver](/reference/hardware), which runs
-inside the Synnax Core. This page covers the standalone Driver: a separate binary that
-connects hardware on other machines to one Core.
+Each Core includes the [Driver](/reference/hardware), which connects the devices on the
+Core's computer. To connect devices on a different computer, install a standalone Driver
+on that computer. It connects to one Core over the network.
 
 <Divider.Divider x />
 
-## <Step step="1" level="h2">Installation</Step>
-
-Choose your operating system below to see the installation instructions:
+## <Step step="1" level="h2">Install the Driver</Step>
 
 <Driver.Tabs>
 <Fragment slot="ni-linux-rt">
 
-### Prerequisites
+Before you install:
 
-#### Supported hardware and software
+- Set the data acquisition modules of the controller to the NI-DAQmx real-time
+  programming mode in NI MAX. See the
+  [NI CompactRIO user manual](https://www.ni.com/docs/en-US/bundle/ni-compactrio/page/programming-modes.html).
+- Turn on SSH on the controller. You can turn it off after you install the Driver.
 
-The Synnax Driver supports the cRIO-904x and cRIO-905x families of controllers running
-NI Linux Real-Time 2024 Q1 and later.
+Open an SSH connection to the controller and log in as `admin`. On NI Linux Real-Time,
+`admin` is root, so the commands on this page need no `sudo` there. Run:
 
-#### NI-DAQmx programming mode
+<Driver.DownloadURL os="ni-linux-rt" />
 
-Data acquisition hardware connected to the cRIO must be configured to use the NI-DAQmx
-real-time programming mode.
-
-To change the programming mode, use NI Measurement & Automation Explorer (NI MAX). For
-detailed instructions, see the
-[NI CompactRIO User Manual](https://www.ni.com/docs/en-US/bundle/ni-compactrio/page/programming-modes.html)
-and the
-[NI-DAQmx on CompactRIO](https://www.ni.com/en/shop/compactrio/what-are-compactrio-controllers/what-is-compactrio-with-ni-daqmx-.html)
-guide.
-
-#### SSH access
-
-The Driver is installed over an SSH connection to the cRIO. You can disable SSH after
-installation, but keeping it enabled makes updates and management easier.
-
-#### Network access to a Synnax Core
-
-The Driver must be able to reach a Synnax Core over the network. Make sure you have a
-[Core running](/reference/enterprise) and its connection parameters on hand.
-
-### Install and run the Driver
-
-Open an SSH connection to the cRIO and run:
-
-<DriverDownloadURL os="ni-linux-rt" />
-
-This downloads, installs, and starts the Driver. Next, connect it to your Core.
+The script installs the Driver as a service and starts it. The service also starts each
+time the controller starts. The Driver runs as root.
 
 </Fragment>
 <Fragment slot="Linux">
 
 <Note.Note variant="info">
-  The Driver requires Ubuntu 24.04 LTS or later (glibc 2.39+). Ubuntu 22.04 reaches end
-  of standard support in April 2027.
+  The Driver needs a recent glibc. See
+  [Requirements](/reference/enterprise/requirements) for the supported Linux versions.
 </Note.Note>
 
-### Install and run the Driver
+Download the Driver:
 
-Download the latest binary:
+<Driver.DownloadURL os="linux" />
 
-<DriverDownloadURL os="linux" />
+Move it into a folder on your `PATH`, and make it executable:
 
-Move the binary into a directory on your `PATH`. Most of our users use `/usr/local/bin`:
-
-<DriverMoveCommand os="linux" />
-
-Give the binary execute permission. You may need `sudo` for this command:
+<Driver.MoveCommand os="linux" />
 
 ```bash
-chmod +x /usr/local/bin/synnax-driver
+sudo chmod +x /usr/local/bin/synnax-driver
 ```
 
-If running `synnax-driver` returns "command not found", make sure the directory you
-chose is on your `PATH`.
-
-Install and start the Driver as a systemd service:
+Install the systemd service:
 
 ```bash
 sudo synnax-driver install
-sudo synnax-driver start
 ```
 
-The `install` command copies the binary to `/usr/local/bin` if it is not already there,
-creates a `synnax` system user, and registers the `synnax-driver` service.
-
-To verify the installation, run:
-
-```bash
-synnax-driver version
-```
-
-You should see the following output:
-
-<DriverVersionOutput />
+The `install` command creates a `synnax` system user, the empty environment file
+`/etc/synnax/driver.env`, and the `synnax-driver` service. It does not start the
+service.
 
 </Fragment>
 <Fragment slot="Windows">
 
-### Install and run the Driver
+Download the Driver:
 
-Download the latest Synnax Driver executable for Windows:
+<Driver.DownloadURL os="windows" />
 
-<DriverDownloadURL os="windows" />
+Move `synnax-driver.exe` to a permanent folder, such as `C:\Program Files\Synnax\`. Then
+add that folder to the `Path` system environment variable, so that each terminal can run
+`synnax-driver`. Then open a new terminal.
 
-Move `synnax-driver.exe` to a permanent location, such as `C:\Program Files\Synnax\`.
+</Fragment>
+<Fragment slot="macOS">
 
-To run the Driver from any terminal, add that directory to your system's `PATH`:
+Download the Driver:
 
-1. Open the Start menu and search for "Environment Variables"
-2. Click "Edit the system environment variables"
-3. Click the "Environment Variables" button
-4. Under "System variables", find and select "Path", then click "Edit"
-5. Click "New" and add the directory containing `synnax-driver.exe`
-6. Click "OK" to save
+<Driver.DownloadURL os="macos" />
 
-To verify the installation, open a new PowerShell terminal and run:
+Move it into a folder on your `PATH`, and make it executable:
 
-```powershell
+<Driver.MoveCommand os="macos" />
+
+```bash
+sudo chmod +x /usr/local/bin/synnax-driver
+```
+
+</Fragment>
+</Driver.Tabs>
+
+Check the installation:
+
+```bash
 synnax-driver version
 ```
 
-The Driver runs in the foreground on Windows. Start it with:
+The output ends with the version:
+
+<Driver.VersionOutput />
+
+<Divider.Divider x />
+
+## <Step step="2" level="h2">Log in to the Core</Step>
+
+Create a user for the Driver with the [Host role](/reference/enterprise/users#roles).
+Then run `login`. On Linux, run it with `sudo`. On NI Linux Real-Time, run it as `admin`
+with no `sudo`:
+
+```bash
+sudo synnax-driver login
+```
+
+The command asks for the address of the Core, and checks that it can reach the Core.
+Then it asks for the username and the password:
+
+```
+Host [localhost]: 10.0.0.45
+Port [9090]:
+Secure (Y/N) [N]:
+Username: driver
+Password:
+```
+
+When the output shows `credentials saved successfully!`, the Driver is logged in.
+
+<Note.Note variant="warning">
+  The Driver saves the password as plain text in its state file, and each user of the
+  computer can read the file. Give the Driver a user with only the Host role, not an
+  administrator.
+</Note.Note>
+
+### Log in to a Core that uses TLS
+
+Answer `Y` to `Secure` when the Core uses TLS, and give the host name of the
+certificate, not an IP address. A certificate from a public authority, such as Let's
+Encrypt, needs no more setup.
+
+For a certificate from your own authority, or from a Core that runs with `--auto-cert`:
+
+- **Linux, NI Linux Real-Time, and Windows** -> add the CA certificate to the trust
+  store of the operating system. See
+  [Install certificates](/reference/enterprise/certificates).
+- **macOS** -> the Driver does not read the macOS keychain. See the macOS tab of
+  [Install the certificate](/reference/enterprise/certificates?platform=macOS#install-the-certificate).
+  Set `GRPC_DEFAULT_SSL_ROOTS_FILE_PATH` in the shell that runs `login` and `start`.
+
+On Linux and NI Linux Real-Time, you can instead set the same variable in
+`/etc/synnax/driver.env`, before you run `login`. See
+[Environment file](/reference/enterprise/driver/configuration#environment-file). The
+Driver then trusts only the certificates in that file.
+
+<Divider.Divider x />
+
+## <Step step="3" level="h2">Start the Driver</Step>
+
+<Driver.Tabs>
+<Fragment slot="ni-linux-rt">
+
+The Driver started before you logged in, so restart it:
+
+```bash
+synnax-driver restart
+```
+
+</Fragment>
+<Fragment slot="Linux">
+
+Set the service to start when the computer starts, then start it:
+
+```bash
+sudo systemctl enable synnax-driver
+sudo synnax-driver start
+```
+
+</Fragment>
+<Fragment slot="Windows">
+
+The Driver has no service on Windows. Run it in a terminal, and keep the terminal open:
 
 ```powershell
 synnax-driver start --standalone
@@ -146,36 +194,7 @@ synnax-driver start --standalone
 </Fragment>
 <Fragment slot="macOS">
 
-### Install and run the Driver
-
-Download the latest binary:
-
-<DriverDownloadURL os="macos" />
-
-Move the binary into a directory on your `PATH`. Most of our users use `/usr/local/bin`:
-
-<DriverMoveCommand os="macos" />
-
-Give the binary execute permission. You may need `sudo` for this command:
-
-```bash
-chmod +x /usr/local/bin/synnax-driver
-```
-
-If running `synnax-driver` returns "command not found", make sure the directory you
-chose is on your `PATH`.
-
-To verify the installation, run:
-
-```bash
-synnax-driver version
-```
-
-You should see the following output:
-
-<DriverVersionOutput />
-
-The Driver runs in the foreground on macOS. Start it with:
+The Driver has no service on macOS. Run it in a terminal, and keep the terminal open:
 
 ```bash
 synnax-driver start --standalone
@@ -186,70 +205,21 @@ synnax-driver start --standalone
 
 <Divider.Divider x />
 
-## <Step step="2" level="h2">Connect to the Synnax Core</Step>
+## <Step step="4" level="h2">Check the Driver</Step>
 
-To connect to a Core, you need its address, port, username, and password. Run the
-`synnax-driver login` command, with `sudo` on Linux:
-
-```bash
-synnax-driver login
-```
-
-The command prompts for the Core's connection parameters, checks that the Core is
-reachable, then logs in and saves the credentials:
-
-```
-synnax-driver login
-Host [localhost]: 10.0.0.45
-Port [9090]: 9090
-Secure (Y/N) [N]: N
-I20260915 10:12:04.118427 41820 login.cpp:32] connection established.
-Username: synnax
-Password:
-I20260915 10:12:09.601240 41820 login.cpp:43] successfully logged in!
-I20260915 10:12:09.602113 41820 login.cpp:48] credentials saved successfully!
-I20260915 10:12:09.602150 41820 login.cpp:50] start driver: synnax-driver start -s
-```
-
-### Connecting to a secure Core
-
-Answer `Y` to the `Secure` prompt when the Core uses TLS. The Driver verifies the Core's
-certificate against the operating system's trust store, so a certificate from a public
-authority such as Let's Encrypt needs no further setup. Connect using the host name the
-certificate was issued for, not an IP address.
-
-A Core started with `--auto-cert` serves a self-signed certificate. Install its CA
-certificate on the Driver's machine by following the
-[installing certificates](/reference/enterprise/certificates) guide. On a machine where
-you can't change the trust store, point the Driver at the CA file through its
-environment instead. On Linux and NI Linux Real-Time, add the line to the
-[environment file](/reference/enterprise/driver/configuration#environment-file) at
-`/etc/synnax/driver.env` before you run `login`:
-
-```bash
-GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=/path/to/ca.crt
-```
-
-The service and `login` read that file, so the setting applies to the login check and to
-the service. For a foreground `start --standalone`, and on Windows and macOS where there
-is no environment file, export the variable in the shell that runs `synnax-driver`.
-
-<Divider.Divider x />
-
-## <Step step="3" level="h2">Check the Driver status</Step>
-
-As a final step, check the Driver's status:
+On Linux and NI Linux Real-Time, check the service:
 
 ```bash
 synnax-driver status
 ```
 
-On Linux this prints the `systemctl status` of the `synnax-driver` service. On NI Linux
-Real-Time it prints whether the Driver is running and its process ID:
+On NI Linux Real-Time, a running Driver prints:
 
 ```
 Synnax Driver is running (PID: 28191)
 ```
 
-On Windows and macOS the Driver runs in the foreground, so its terminal output is its
-status.
+On Windows and macOS, the terminal that runs the Driver shows its logs.
+
+The Driver shows in the devices toolbar under the host name of its computer. To connect
+devices to it, see [Devices](/reference/hardware/devices).

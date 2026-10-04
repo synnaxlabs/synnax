@@ -35,24 +35,18 @@ synnax start -l localhost:9090 -im
 ### Flags
 
 You can also set each flag with its environment variable. A flag on the command line
-takes precedence over its environment variable.
+takes precedence over its environment variable. In an environment variable, separate
+list values with spaces, not commas.
 
 <Field.List>
 
 <Field.Item name="--listen" short="-l" type="address" default='"localhost:9090"' env="SYNNAX_LISTEN">
 
-A reachable address and port to listen on for client connections and RPCs from other
-Cores. To bind more than one address, each with its own certificate, give a list of
-listeners in a [configuration file](#configuration-files). See
-[Serving multiple listeners](/reference/enterprise/production#serving-multiple-listeners).
-
-</Field.Item>
-
-<Field.Item name="--peers" short="-p" type="list" env="SYNNAX_PEERS">
-
-A comma-separated list of peer Cores in an existing cluster. If the list is not empty,
-the Core joins the cluster by connecting to each peer in the list. If the list is empty
-and the Core finds no existing cluster data, it starts a new cluster.
+The address that clients and other Cores use to reach this Core. The host must be a name
+or address they can reach, and the TLS certificate must cover it. The Core binds the
+port on every network interface. To bind more than one address, each with its own
+certificate, give a list of listeners in a [configuration file](#configuration-files).
+See [Serve multiple listeners](/reference/enterprise/listeners).
 
 </Field.Item>
 
@@ -64,13 +58,13 @@ The folder where the Core keeps its data.
 
 <Field.Item name="--verbose" short="-v" env="SYNNAX_VERBOSE">
 
-Enables human-readable logging.
+Sets the log level to debug.
 
 </Field.Item>
 
 <Field.Item name="--insecure" short="-i" env="SYNNAX_INSECURE">
 
-Starts the Core without TLS encryption. Do not use it in production.
+Turns off TLS. Users still log in. Do not use it in production.
 
 </Field.Item>
 
@@ -87,16 +81,19 @@ Prints the help message for the `start` command.
 
 </Field.Item>
 
-<Field.Item name="--config" short="-c" type="path" default='"/usr/local/synnax/config.yaml"' env="SYNNAX_CONFIG">
+<Field.Item name="--config" short="-c" type="path" default='"/usr/local/synnax/config.yaml"'>
 
 A JSON, YAML, or TOML file that sets the Core's configuration in place of flags or
-environment variables. See [Configuration files](#configuration-files).
+environment variables. See [Configuration files](#configuration-files). The Core ignores
+a file that is missing or cannot be read, with no message.
 
 </Field.Item>
 
 <Field.Item name="--auto-cert" env="SYNNAX_AUTO_CERT">
 
-Generates self-signed certificates for the Core.
+Creates a CA and a certificate for the `--listen` host in `--certs-dir`, and replaces
+the certificate when the host changes. See
+[Set up TLS](/reference/enterprise/tls#use-a-self-signed-certificate).
 
 </Field.Item>
 
@@ -108,7 +105,15 @@ The folder that holds the TLS certificates of the Core.
 
 <Field.Item name="--ca-cert" type="path" default='"ca.crt"' env="SYNNAX_CA_CERT">
 
-The CA certificate file, relative to `--certs-dir`.
+The CA certificate file, relative to `--certs-dir`. Optional: the Core starts without
+it.
+
+</Field.Item>
+
+<Field.Item name="--ca-key" type="path" default='"ca.key"' env="SYNNAX_CA_KEY">
+
+The CA key file, relative to `--certs-dir`. `--auto-cert` uses it to sign the
+certificate of the Core.
 
 </Field.Item>
 
@@ -126,24 +131,22 @@ The key file of the Core, relative to `--certs-dir`.
 
 <Field.Item name="--username" type="string" default='"synnax"' env="SYNNAX_USERNAME">
 
-The username of the cluster root user. The Core applies it on every start. See
-[Root user reconciliation](#root-user-reconciliation) for what happens when it changes
-between restarts.
+The username of the root user. The Core applies it at every start. See
+[the root user](/reference/enterprise/users#the-root-user).
 
 </Field.Item>
 
 <Field.Item name="--password" type="string" default='"seldon"' env="SYNNAX_PASSWORD">
 
-The password of the cluster root user. The configured value is the source of truth: if
-the stored password is different, the Core changes it to match on the next start. See
-[Root user reconciliation](#root-user-reconciliation).
+The password of the root user. At every start, the Core sets the root password to this
+value. See [the root user](/reference/enterprise/users#the-root-user).
 
 </Field.Item>
 
 <Field.Item name="--license-key" type="string" env="SYNNAX_LICENSE_KEY">
 
 The license key to activate at start. See
-[Licensing](/reference/enterprise/production#licensing).
+[Activate a license](/reference/enterprise/license).
 
 </Field.Item>
 
@@ -155,8 +158,8 @@ A file that holds the license key to activate at start.
 
 <Field.Item name="--debug" env="SYNNAX_DEBUG">
 
-Enables debug logging. Do not use it in production, because it writes a very large
-amount of output.
+Serves a metrics page and profiling routes to every network with no login, and turns on
+development logging. Do not use it in production. For debug logs, use `--verbose`.
 
 </Field.Item>
 
@@ -176,24 +179,25 @@ integrations.
 
 <Field.Item name="--stop-on-stdin-close" env="SYNNAX_STOP_ON_STDIN_CLOSE">
 
-Stops the Core when its standard input closes. Use it when a parent process starts the
-Core and holds its standard input, so that the Core stops if the parent exits. Do not
-set it for a Core that runs as a service, because a service has no standard input.
+Stops the Core when its standard input closes. A line `stop` on standard input always
+stops the Core. Use it when a parent process starts the Core and holds its standard
+input, so that the Core stops if the parent exits. Do not set it for a Core that runs as
+a service, because a service has no standard input.
 
 </Field.Item>
 
 <Field.Item name="--disable-integrations" type="list" env="SYNNAX_DISABLE_INTEGRATIONS">
 
 The device integrations to disable. All integrations are enabled by default. The options
-are `arc`, `ethercat`, `labjack`, `modbus`, `ni`, and `opc`.
+are `arc`, `ethercat`, `http`, `labjack`, `modbus`, `ni`, and `opc`.
 
 </Field.Item>
 
 <Field.Item name="--enable-integrations" type="list" env="SYNNAX_ENABLE_INTEGRATIONS">
 
 The device integrations to enable, when you want only some of them. All integrations are
-enabled by default. The options are `arc`, `ethercat`, `labjack`, `modbus`, `ni`, and
-`opc`.
+enabled by default. The options are `arc`, `ethercat`, `http`, `labjack`, `modbus`,
+`ni`, and `opc`.
 
 </Field.Item>
 
@@ -265,15 +269,13 @@ digit.
 
 ### Configuration files
 
-Synnax will also read configuration files in JSON, TOML and YAML formats. The values set
-in these configuration files take the lowest precedence and will be overridden by any
-environment variables or command line flags.
+The Core also reads a configuration file in JSON, YAML, or TOML. Each key has the name
+of its flag. Environment variables and flags take precedence over the file.
 
-By default, Synnax reads the configuration file at `/usr/local/synnax/config.yaml`. To
-use a different file, set the `--config` flag or the `SYNNAX_CONFIG` environment
-variable.
+By default, the Core reads `/usr/local/synnax/config.yaml`. To use a different file, set
+`--config`. The `SYNNAX_CONFIG` environment variable has no effect.
 
-Here are example configuration files in various formats:
+Example files:
 
 <Tabs
   tabs={[
@@ -287,12 +289,10 @@ Here are example configuration files in various formats:
 ```json
 {
   "listen": "localhost:9090",
-  "peers": ["localhost:9091", "localhost:9092"],
   "data": "/usr/local/synnax/data",
   "verbose": true,
   "insecure": false,
   "mem": false,
-  "config": "/usr/local/synnax/config.yaml",
   "certs-dir": "/usr/local/synnax/certs",
   "ca-cert": "ca.crt",
   "node-cert": "node.crt",
@@ -323,14 +323,10 @@ Here are example configuration files in various formats:
 
 ```yaml
 listen: localhost:9090
-peers:
-  - localhost:9091
-  - localhost:9092
 data: /usr/local/synnax/data
 verbose: true
 insecure: false
 mem: false
-config: /usr/local/synnax/config.yaml
 certs-dir: /usr/local/synnax/certs
 ca-cert: ca.crt
 node-cert: node.crt
@@ -358,12 +354,10 @@ disable-channel-name-validation: false
 
 ```toml
 listen = "localhost:9090"
-peers = ["localhost:9091", "localhost:9092"]
 data = "/usr/local/synnax/data"
 verbose = true
 insecure = false
 mem = false
-config = "/usr/local/synnax/config.yaml"
 certs-dir = "/usr/local/synnax/certs"
 ca-cert = "ca.crt"
 node-cert = "node.crt"
@@ -391,20 +385,16 @@ disable-channel-name-validation = false
 
 #### Multiple listeners
 
-The `listen` key takes either form. A single address (as above) binds one listener over
-the node certificate paths. A list of objects binds one listener per entry, each with
-its own address and certificate. The list form works in configuration files only, not as
-a flag. See
-[Serving multiple listeners](/reference/enterprise/production#serving-multiple-listeners)
-for the full deployment model.
+The `listen` key takes a single address, as above, or a list of listeners, each with its
+own address and certificate. The list works only in a configuration file, and cannot be
+combined with `--auto-cert`, `--node-cert`, or `--node-key`. See
+[Serve multiple listeners](/reference/enterprise/listeners).
 
 ```yaml
 listen:
   - address: core01.example.com:9090
     cert:
-      source: file
-      cert: /usr/local/synnax/certs/driver.crt
-      key: /usr/local/synnax/certs/driver.key
+      source: auto
     advertise: true
   - address: node01.example-tailnet.ts.net:9091
     cert:
@@ -412,7 +402,7 @@ listen:
     name: console
 ```
 
-Each listener object accepts the following fields:
+Fields of a listener:
 
 <Table.Data
   columns={[
@@ -428,11 +418,12 @@ Each listener object accepts the following fields:
     {
       field: "cert.source",
       description:
-        'The certificate source: <code>file</code>, <code>auto</code>, or <code>tailscale</code>. See <a href="/reference/enterprise/production#certificate-sources">Certificate sources</a>.',
+        'The certificate source: <code>file</code>, <code>auto</code>, or <code>tailscale</code>. Required unless the Core starts with <code>--insecure</code>. See <a href="/reference/enterprise/listeners#certificate-sources">Certificate sources</a>.',
     },
     {
       field: "cert.cert",
-      description: "For a <code>file</code> source, the path to the PEM certificate.",
+      description:
+        "For a <code>file</code> source, the path to the PEM certificate. If <code>cert</code> and <code>key</code> are both empty, the listener uses the node certificate.",
     },
     {
       field: "cert.key",
@@ -441,11 +432,11 @@ Each listener object accepts the following fields:
     {
       field: "advertise",
       description:
-        "Marks this listener's address as the one peers dial to join the cluster. At most one listener may set it; the first listener is advertised if none do.",
+        "Marks this listener's address as the one the embedded Driver connects to. At most one listener may set it; the first listener is advertised if none do.",
     },
     {
       field: "name",
-      description: "An optional label for the listener, shown in logs.",
+      description: "An optional label. The Core does not use it.",
     },
     {
       field: "loopback",
@@ -455,233 +446,113 @@ Each listener object accepts the following fields:
   ]}
 />
 
-### Root user reconciliation
+<Divider.Divider x />
 
-Every time a Core starts, it reconciles the configured `--username` / `--password`
-against the existing cluster state. The configured credentials are the source of truth:
-the Core makes the state match config, rather than asking the operator to log in and
-update things by hand.
+## Cert
 
-The behavior depends on what already exists on disk:
+The `cert` commands create the files that `--auto-cert` creates, without starting the
+Core. They take `--certs-dir`, `--ca-cert`, `--ca-key`, `--node-cert`, and `--node-key`
+with the same defaults as `start`, and also:
 
-<Table.Data
-  columns={[
-    { key: "scenario", name: "Scenario", type: "html", width: 260 },
-    { key: "behavior", name: "Behavior", type: "html" },
-  ]}
-  data={[
-    {
-      scenario: "Fresh Core (no existing users)",
-      behavior:
-        "A new user is created with the configured username and marked as the root user. Credentials are registered and the user is granted the <code>Owner</code> role.",
-    },
-    {
-      scenario: "Restart with unchanged credentials",
-      behavior: "No change. The existing root user is left alone.",
-    },
-    {
-      scenario: "Restart with the same username but a different password",
-      behavior:
-        "The stored password is rotated to match the configured one. The old password no longer authenticates. Other users' passwords are untouched.",
-    },
-    {
-      scenario: "Restart with a different username",
-      behavior:
-        "The previous root user is demoted (the <code>RootUser</code> flag is cleared) but retains their <code>Owner</code> role and credentials, so they can still log in with full permissions. A new user is created with the configured username, marked root, and granted <code>Owner</code>.",
-    },
-    {
-      scenario: "Configured username matches an existing <em>non-root</em> user",
-      behavior:
-        "The existing user is promoted in place: their <code>RootUser</code> flag is set to true, their stored password is rotated to match the configured one, and any previous root user is demoted. The user keeps the same key, name, and role assignments. This lets you point <code>--username</code> at an already-provisioned account to make it the root, instead of creating a new one.",
-    },
-    {
-      scenario: "Restart with no credentials configured (both flags omitted)",
-      behavior:
-        "Auth state is left untouched. If multiple users somehow have <code>RootUser=true</code>, all but the first returned by the retrieve are demoted (keeping their <code>Owner</code> role) and a warning is logged. A cluster with zero or one root user is left as-is, so test setups and other callers that do not need a root user can open the Core without supplying credentials.",
-    },
-  ]}
-/>
+- `--key-size` -> the key size in bits. Default 2048.
+- `--allow-key-reuse` -> lets the CA key sign more than one certificate. Default false.
 
-#### Recovering a forgotten root password
+### cert ca
 
-Because the configured password is the source of truth, you can recover a forgotten root
-password by editing the Core's configuration (config file, environment variable, or
-`--password` flag) and restarting the Core. The stored password will be rotated on
-startup. Non-root users change their passwords through the API as normal. Only the root
-user's password is set by configuration.
+Creates `ca.crt` and `ca.key`.
 
-#### Demoted users
+```bash
+synnax cert ca
+```
 
-When a username change demotes the previous root user, that user keeps their `Owner`
-role and their original credentials. They can still log in with full permissions; they
-just no longer hold the immutable root-user flag. To fully remove them, an `Owner` can
-delete the demoted user through the API.
+### cert node
+
+Creates `node.crt` and `node.key` for one or more hosts, signed by the CA. It needs the
+CA files and does not replace node files that exist.
+
+```bash
+synnax cert node synnax.example.com
+```
 
 <Divider.Divider x />
 
 ## Version
 
-The `version` command prints the installed version of the Synnax database.
+The `version` command, or `synnax --version`, prints the version of the Core:
 
-### Examples
-
-If you run this command:
-
-```cmd
+```bash
 synnax version
 ```
 
-You'll see output similar to the following:
-
 <VersionOutput />
-
-### Flags
-
-This command has no flags.
 
 <Divider.Divider x />
 
 ## Service (Windows only)
 
-The `service` command manages Synnax as a Windows Service. These commands are only
-available on Windows and require administrator privileges.
+The `service` commands run the Core as a Windows service named `SynnaxCore`. Run them in
+a terminal as an administrator. For the steps, see
+[Run the Core as a service](/reference/enterprise/service).
 
-When running as a Windows Service, Synnax will:
-
-- Start automatically when Windows boots (if configured)
-- Receive proper shutdown signals for graceful termination
-- Log events to the Windows Event Log
-- Automatically restart on failure
+The service starts when Windows starts, unless installed with `--auto-start=false`. When
+the Core crashes, Windows restarts it after 5 seconds, then 30 seconds, then 60 seconds.
+The count resets each day. The service writes its log to the log file, not to the
+Windows Event Log.
 
 ### service install
 
-Installs Synnax as a Windows Service. Server configuration flags are stored in the
-service configuration and used when the service starts.
+Installs the service. It takes every `start` flag and writes them to
+`C:\ProgramData\Synnax\config.yaml`. The service reads only that file, and ignores
+`SYNNAX_*` environment variables. When the file exists, `install` does not change it.
 
-#### Examples
-
-Install with default settings (auto-start enabled, insecure mode):
-
-```cmd
-synnax service install --insecure
+```bash
+synnax service install --listen=synnax.example.com:9090 --auto-cert
 ```
 
-Install with custom data directory and listen address:
+On Windows, these flags have different defaults:
 
-```cmd
-synnax service install --listen 0.0.0.0:9090 --data C:\ProgramData\Synnax\data --insecure
-```
+- `--data` -> `C:\ProgramData\Synnax\data`
+- `--certs-dir` -> `C:\ProgramData\Synnax\certs`
+- `--log-file-path` -> `C:\ProgramData\Synnax\logs\synnax.log`
 
-Install without auto-start:
+Two flags are only for `install`:
 
-```cmd
-synnax service install --auto-start=false --insecure
-```
-
-#### Flags
-
-<Table.Data
-  columns={[
-    { key: "option", name: "Flag", type: "code", width: 180 },
-    { key: "default", name: "Default", type: "code" },
-    { key: "description", name: "Description", type: "html" },
-  ]}
-  data={[
-    {
-      option: "--auto-start",
-      default: "true",
-      description: "Start the service automatically when Windows starts.",
-    },
-    {
-      option: "--delayed-start",
-      default: "false",
-      description: "Delay service start until after Windows startup completes.",
-    },
-    {
-      option: "--listen/-l",
-      default: '"localhost:9090"',
-      description: "The address to listen for client connections.",
-    },
-    {
-      option: "--data/-d",
-      default: '"C:\\ProgramData\\Synnax\\data"',
-      description: "Directory where Synnax will store its data.",
-    },
-    {
-      option: "--insecure/-i",
-      default: "false",
-      description: "Disable encryption, authentication, and authorization.",
-    },
-    {
-      option: "--username",
-      default: '"synnax"',
-      description: "Username for the admin user.",
-    },
-    {
-      option: "--password",
-      default: '"seldon"',
-      description: "Password for the admin user.",
-    },
-    {
-      option: "--auto-cert",
-      default: "false",
-      description: "Automatically generate self-signed certificates.",
-    },
-    {
-      option: "--no-driver",
-      default: "false",
-      description: "Disable the embedded Synnax driver.",
-    },
-    {
-      option: "--enable-integrations",
-      default: "[]",
-      description:
-        "Device integrations to enable (arc, ethercat, labjack, modbus, ni, opc).",
-    },
-    {
-      option: "--disable-integrations",
-      default: "[]",
-      description:
-        "Device integrations to disable (arc, ethercat, labjack, modbus, ni, opc).",
-    },
-    {
-      option: "--peers/-p",
-      default: "[]",
-      description: "Addresses of additional peers in the cluster.",
-    },
-  ]}
-/>
+- `--auto-start` -> start the service when Windows starts. Default true.
+- `--delayed-start` -> start the service after Windows finishes starting. Default false.
+  With `--delayed-start`, the service starts automatically even with
+  `--auto-start=false`.
 
 ### service uninstall
 
-Removes the Synnax Windows Service. This will stop the service if it is running and
-remove it from the system.
+Removes the service. It does not stop a running service, and it does not delete
+`config.yaml`. Run `synnax service stop` first.
 
-```cmd
+```bash
 synnax service uninstall
 ```
 
 ### service start
 
-Starts the installed Synnax Windows Service.
+Starts the service.
 
-```cmd
+```bash
 synnax service start
 ```
 
 ### service stop
 
-Stops the running Synnax Windows Service.
+Stops the service.
 
-```cmd
+```bash
 synnax service stop
 ```
 
 ### service status
 
-Shows if the Synnax Windows Service is installed and running. It also shows the data
-directory, the log file location, and the listen address.
+Shows whether the service is installed and running, its version, its data folder, log
+file, certificate folder, listen address, and whether it runs with `--insecure`. When
+the service is stopped, it also shows the last 10 warnings and errors.
 
-```cmd
+```bash
 synnax service status
 ```

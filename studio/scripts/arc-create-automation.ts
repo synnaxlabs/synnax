@@ -27,7 +27,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(800);
   await capture.createComponent(session, "Arc automation");
 
-  const modal = page.locator(".console-modal").first();
+  const modal = page.locator(".pluto-dialog__dialog.pluto--modal").first();
   const name = modal.getByPlaceholder("Name").first();
   await session.waitFor(name);
   await session.hold(600);
@@ -49,5 +49,6 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.waitForHidden(modal);
   session.endZoom();
   await session.waitFor(page.locator(".pluto-editor").first());
-  await session.hold(500);
+  // Long enough for the camera to settle and the idle cursor to fade.
+  await session.hold(3000);
 };

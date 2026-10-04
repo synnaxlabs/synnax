@@ -1,260 +1,144 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Requirements"
-heading: "Deployment requirements"
+heading: "Synnax Enterprise requirements"
 description:
-  "Hardware and software requirements for deploying a Synnax Core to production."
+  "Operating systems, hardware, and network for the Synnax Core, the Console, and the
+  Driver."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Note } from "@synnaxlabs/lyra/note";
 import { mdxOverrides } from "@/components/mdxOverrides";
-import { Table } from "@/components/table";
 export const components = mdxOverrides;
 
-This page lists the hardware and software that a production Synnax Core needs. For the
-requirements of the Synnax Console, see
-[Connect the Console](/reference/enterprise/console#requirements).
+This page lists what the Synnax Core, the Synnax Console, and the standalone Synnax
+Driver need to run.
 
 <Divider.Divider x />
 
-## Operating system
+## Operating systems
 
-A Synnax Core can run on Linux, macOS, Windows, or a containerized environment.
+|                        | Linux                | Windows    | macOS         |
+| ---------------------- | -------------------- | ---------- | ------------- |
+| **Core**               | x86-64               | x86-64     | Apple silicon |
+| **Core in Docker**     | `linux/amd64` image  | Docker     | Docker        |
+| **Console app**        | No                   | Windows 11 | macOS Sequoia |
+| **Console in browser** | Yes                  | Yes        | Yes           |
+| **Standalone Driver**  | Yes, and NI Linux RT | Yes        | Yes           |
 
-For most production scenarios, we recommend running a recent glibc-based Linux
-distribution, such as [Ubuntu](https://ubuntu.com/download/server) 24.04 LTS or later,
-[Red Hat Enterprise Linux](https://www.redhat.com/en/technologies/linux-platforms/enterprise-linux),
-or [CentOS](https://www.centos.org/centos-stream/).
+We test the Console app on Windows 11 and macOS Sequoia. Older versions can work, but we
+do not test them.
 
-### Synnax Driver compatibility
+Each Core includes the Driver. On Linux, the Driver needs glibc 2.39 or later, which
+Ubuntu 24.04 LTS and later have. On an older distribution, start the Core with
+`--no-driver` and run a [standalone Driver](/reference/enterprise/driver/install) on a
+supported computer.
 
-If you plan on using the Synnax Driver to integrate directly with your hardware, only
-certain operating systems are supported. For minimum OS versions, see
-[standalone Driver](/reference/enterprise/driver/install).
-
-<table>
-  <thead>
-    <tr>
-      <th>Driver</th>
-      <th>Windows</th>
-      <th>Linux</th>
-      <th>macOS</th>
-      <th>Container</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>[National Instruments](/reference/hardware/ni)</td>
-      <td>✓</td>
-      <td>✓</td>
-      <td></td>
-      <td></td>
-    </tr>
-    <tr>
-      <td>[LabJack](/reference/hardware/labjack)</td>
-      <td>✓</td>
-      <td>✓</td>
-      <td>✓</td>
-      <td></td>
-    </tr>
-    <tr>
-      <td>[OPC UA](/reference/hardware/opc-ua)</td>
-      <td>✓</td>
-      <td>✓</td>
-      <td>✓</td>
-      <td>✓</td>
-    </tr>
-    <tr>
-      <td>[Modbus](/reference/hardware/modbus)</td>
-      <td>✓</td>
-      <td>✓</td>
-      <td>✓</td>
-      <td>✓</td>
-    </tr>
-  </tbody>
-</table>
+The device integrations differ by operating system. To see which ones run where, see
+[supported integrations](/reference/hardware#supported-integrations).
 
 <Divider.Divider x />
 
-## Hardware
+## Core hardware
 
-Core hardware requirements vary depending on your data acquisition and control workload.
+The hardware a Core needs depends on how many samples it writes each second.
 
-### Calculating workload
+### Calculate your workload
 
-The first step in sizing a system to meet your requirements is to calculate the total
-sample throughput of your workload.
+Multiply the number of channels in each group by its sample rate, then add the groups.
+For example:
 
-- The approximate number of channels you'll be acquiring data from. This includes
-  sensors, actuators, logs, and any other channels you may be using.
-- The average rate at which you'll be writing data for each channel. To be even more
-  precise, separate your channels into groups with specific sampling rates.
+- 10 high speed channels at 25 kHz -> 250k samples/s
+- 100 medium speed channels at 100 Hz -> 10k samples/s
+- 20 actuator state channels at 50 Hz -> 1k samples/s
 
-The total throughput is the number of channels multiplied by the average rate at which
-you'll be writing data for each channel.
+The total is 250k + 10k + 1k = 261k samples/s.
 
-For example, if we have three groups of channels:
+### Minimum hardware for a workload
 
-- 10 high speed at 25 kHz -> 250k samples/s
-- 100 medium speed at 100 Hz -> 10k samples/s
-- 20 actuators sending states at 50 Hz -> 1k samples/s
+Use the next row up from your total. These are minimums.
 
-The total throughput for our Core is 250k + 10k + 1k = 261k samples/s.
+| Throughput (samples/s) | CPU cores | Memory (GB) | Storage (GB) | Storage throughput (MB/s) |
+| ---------------------- | --------- | ----------- | ------------ | ------------------------- |
+| 250k                   | 4         | 8           | 100          | 120                       |
+| 500k                   | 6         | 16          | 200          | 1000                      |
+| 1M                     | 12        | 16          | 500          | 600                       |
+| 2M                     | 16        | 32          | 1000         | 1200                      |
+| 4M                     | 24        | 64          | 2000         | 2400                      |
 
-### Workload-based minimum requirements
-
-Once you've calculated your total throughput, use the following table to determine the
-_minimum_ hardware requirements for your Core.
-
-<table>
-  <thead>
-    <th>Throughput (samples/s)</th>
-    <th>CPU (cores) </th>
-    <th>Memory (GB)</th>
-    <th>Storage (GB)</th>
-    <th>Storage throughput (MB/s)</th>
-  </thead>
-  <tbody>
-    <tr>
-      <td>250k</td>
-      <td>4</td>
-      <td>8</td>
-      <td>100</td>
-      <td>120</td>
-    </tr>
-    <tr>
-      <td>500k</td>
-      <td>6</td>
-      <td>16</td>
-      <td>200</td>
-      <td>1000</td>
-    </tr>
-    <tr>
-      <td>1M</td>
-      <td>12</td>
-      <td>16</td>
-      <td>500</td>
-      <td>600</td>
-    </tr>
-    <tr>
-      <td>2M</td>
-      <td>16</td>
-      <td>32</td>
-      <td>1000</td>
-      <td>1200</td>
-    </tr>
-    <tr>
-      <td>4M</td>
-      <td>24</td>
-      <td>64</td>
-      <td>2000</td>
-      <td>2400</td>
-    </tr>
-  </tbody>
-</table>
-
-<Note.Note variant="info">
-  When operating Synnax in mission critical environments, we recommend provisioning
-  hardware that is at least twice the minimum requirements. This leaves ample room for
-  workload growth and unexpected spikes in throughput.
-</Note.Note>
+For mission critical systems, provision at least twice the minimum. The extra room
+covers growth and bursts.
 
 ### Storage
 
-We highly recommend using a high-performance M.2, NVMe, or SATA SSD for storage. This
-recommendation becomes more of a requirement if you have any very high throughput data
-acquisition channels (10 kHz or higher).
+Store data on an SSD (M.2, NVMe, or SATA). Channels at 10 kHz or more need one.
 
 ### CPU
 
-The Synnax Core is CPU intensive during data ingestion, streaming, and control
-operations. Modern multi-core processors perform best, and are a must when working in
-safety/performance critical environments.
-
-For production deployments, we recommend using a minimum four core processors from one
-of the following families:
-
-- Intel x86-64 processors (Xeon or Core i7/i9 series).
-- AMD x86-64 processors (EPYC or Ryzen series).
-- Apple silicon chips on macOS (M1/M2/M3 series).
-
-Avoid single or dual core processors for anything beyond development or testing
-environments.
-
-If you plan on using large numbers of
-[calculated channels](/reference/channels/calculated), increase the number of cores for
-your deployment.
+Use at least four cores for production. Ingestion, streaming, control, and
+[calculated channels](/reference/channels/calculated) all use the CPU. Supported
+families are Intel and AMD x86-64 (Xeon, Core i7 or i9, EPYC, Ryzen) and Apple silicon.
 
 ### Memory
 
-The Synnax Core is generally less memory-intensive than it is storage- or
-compute-intensive. For most production deployments, we recommend using a minimum of 8 GB
-of RAM.
+Use at least 8 GB of RAM for production.
+
+<Divider.Divider x />
+
+## Console hardware
+
+These requirements apply to the Console app, the Console in a browser, and Synnax
+Desktop.
+
+|             | Minimum                                             | Recommended                                          |
+| ----------- | --------------------------------------------------- | ---------------------------------------------------- |
+| **CPU**     | Intel Core i5 (8th gen) / AMD Ryzen 5 (3000 series) | Intel Core i7 (10th gen) / AMD Ryzen 7 (4000 series) |
+| **RAM**     | 8 GB                                                | 16 GB or more                                        |
+| **Storage** | 2 GB available                                      | 4 GB available (SSD recommended)                     |
+| **GPU**     | NVIDIA GTX 1030 / AMD RX 550                        | NVIDIA RTX 2060 / AMD RX 5600 XT                     |
+| **VRAM**    | 2 GB                                                | 6 GB or more                                         |
+| **Display** | 1920x1080                                           | 4K                                                   |
+
+The Console draws plots and schematics on the GPU with WebGL 2. Integrated graphics
+(Intel Iris Xe, AMD Radeon Vega) work, but many high-rate channels, long time ranges, or
+large schematics slow them down.
+
+### Browsers
+
+The Console in a browser needs a current version of Chrome, Edge, or Firefox, or Safari
+17 or later, with hardware acceleration turned on.
 
 <Divider.Divider x />
 
 ## Network
 
-Synnax Cores communicate using TCP and/or UDP protocols for coordination, data
-replication, and client connections. Given Synnax's high-performance capabilities for
-both data acquisition and control operations, the network infrastructure must be
-designed to handle substantial throughput with minimal latency.
+The Console, the client libraries, Drivers, and other Cores all reach a Core on one TCP
+port, 9090 by default. A Core with more than one
+[listener](/reference/enterprise/cli-reference#multiple-listeners) uses one port for
+each listener. A standalone Driver opens no ports. It connects to the Core.
 
-### Network interface requirements
+A Core listens on its port on every network interface of the computer, whatever host
+`--listen` names. To limit a listener to the computer itself, set `loopback` on it in
+the [configuration file](/reference/enterprise/cli-reference#configuration-files), or
+block the port with a firewall.
 
-For production deployments, we recommend the following network interface specifications:
-
-#### Minimum requirements
-
-- 10 Gigabit Ethernet (10GbE) network interface cards (NICs)
-- Full-duplex operation support
-- Hardware-based packet processing capabilities
-
-#### High-performance scenarios
-
-- 25 Gigabit Ethernet (25GbE) or higher for workloads exceeding 2M samples/s
-- Multiple NICs for redundancy and load balancing in mission-critical environments
-- RDMA-capable NICs for ultra-low latency applications
-
-### Switch infrastructure
-
-Network switches should be selected and configured to minimize latency and maximize
-throughput:
-
-- **Low-latency switches** -> Use enterprise-grade switches with sub-microsecond
-  port-to-port latency.
-- **Non-blocking architecture** -> Ensure switches provide full line-rate forwarding
-  across all ports.
-- **Buffer management** -> Configure appropriate buffer sizes to handle bursty traffic
-  patterns common in data acquisition workloads.
-- **Quality of service (QoS)** -> Implement traffic prioritization to ensure control
-  commands receive priority over bulk data transfers.
-
-### Cabling and physical infrastructure
-
-For optimal performance, especially over longer distances:
-
-- **Fiber optic cabling** -> Use single-mode or multi-mode fiber for runs longer than
-  100 meters.
-- **Direct attach cables (DAC)** -> Acceptable for short runs (< 10 meters) between
-  adjacent equipment.
-
-### Network security and isolation
+To estimate bandwidth, add the write rate to the read rate of each Console or script
+that streams data, then multiply by 16 bytes for each sample. For example, a Core that
+writes 261k samples/s and streams all of them to three Consoles moves about 261k × 4 ×
+16 bytes, or 17 MB/s.
 
 <Note.Note variant="error">
-  **Critical security and performance requirement** -> Never use public internet
-  connections for control operations. Control systems must operate on isolated,
-  dedicated networks.
+  Never send control commands over the public internet. Run control systems on an
+  isolated network.
 </Note.Note>
 
-For production control environments:
+For production control systems:
 
-- **Isolated networks** -> Deploy Synnax Cores on dedicated, air-gapped networks
-  separate from corporate IT infrastructure.
-- **Network segmentation** -> Use VLANs or physical separation to isolate control
-  traffic from data acquisition traffic.
-- **Firewall protection** -> Implement network firewalls with strict access control
-  policies.
-- **VPN access** -> When remote access is required, use industrial-grade VPN solutions
-  with multi-factor authentication.
+- **Isolate the network** -> Put the Core on a network that is separate from the
+  corporate network.
+- **Segment traffic** -> Use VLANs or separate networks for control and data
+  acquisition.
+- **Filter access** -> Use a firewall that lets only known computers reach the Core
+  port.
+- **Secure remote access** -> Use a VPN with multi-factor authentication.

@@ -14,8 +14,8 @@ export const components = mdxOverrides;
 
 This page explains the parts of Synnax and how they connect. It also defines the words
 that the rest of the docs use. The examples come from the
-[sample project](/reference/get-started/sample-project) in Synnax Desktop, a simulated
-tank that a sequence fills with nitrogen and then vents.
+[sample project](/reference/get-started/sample-project), a simulated tank that a
+sequence fills with nitrogen and then vents.
 
 <Divider.Divider x />
 
@@ -121,9 +121,9 @@ that has hardware connected.
 
 ### Arc
 
-[Arc](/reference/control/arc/introduction) is the Synnax language for automation. An Arc
-automation reacts when channel values change, and moves through stages such as
-pressurize, hold, and vent.
+[Arc](/reference/control/arc) is the Synnax language for automation. An Arc automation
+reacts when channel values change, and moves through stages such as pressurize, hold,
+and vent.
 
 In the sample project, the Press sequence fills the tank to 300 psi, waits 10 seconds,
 then vents the tank.
@@ -133,8 +133,8 @@ then vents the tank.
 
 ### Client libraries
 
-The [Python and TypeScript client libraries](/reference/client/quick-start) read, write,
-and stream data from your own scripts and apps.
+The [Python and TypeScript client libraries](/reference/client) read, write, and stream
+data from your own scripts and apps.
 
 For example, a Python script reads the data of a test run into a pandas DataFrame.
 
@@ -237,7 +237,7 @@ at 200. Thus an operator can take control of the valves at any time.
 
 ### Status
 
-A [status](/reference/alarms#statuses) is a named record of a condition, such as "Tank
+A [status](/reference/alarms/statuses) is a named record of a condition, such as "Tank
 pressure high". The Console shows a notification each time a status changes.
 
 For example, an Arc automation sets a warning status when the tank pressure passes a

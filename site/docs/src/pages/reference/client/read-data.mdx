@@ -1,198 +1,108 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Read data"
-description: "Read the data that Synnax already stored."
+description:
+  "Read stored samples with the Python and TypeScript clients: a time range, the latest
+  samples, a CSV export, and large time ranges with an iterator."
 clients: ["python", "typescript"]
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Fragment } from "react";
-import { Table } from "@/components/table";
 import { Client } from "@/components/client";
+import { Field } from "@/components/field";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Historical reads are useful for analyzing data that Synnax already stored. Use these
-patterns for past data, not for live streams. To get samples as they arrive,
-[stream data](/reference/client/stream-data).
+Read the samples that a Core stores. A read loads all of its samples into memory. For a
+time range that is too large for memory, use an [iterator](#read-large-time-ranges). To
+get samples as they arrive, [stream data](/reference/client/stream-data).
 
 <Divider.Divider x />
 
-## Range inclusivity
+## Read a time range
 
-A time range includes its start and excludes its end. For example, a read from
-`1677433720970863400` to `1677433721870863400` returns the highlighted samples:
+Give `read` a time range and one or more channels. The time range includes its start and
+excludes its end, as [Time types](/reference/client/time-types#timerange) shows.
 
-<Table.Data
-  columns={[
-    { key: "time" },
-    { key: "thermocouple-01" },
-    { key: "strain-gauge-01" },
-    { key: "pressure-transducer-05" },
-  ]}
-  highlights={[
-    {
-      key: "one",
-      columns: ["time", "thermocouple-01", "strain-gauge-01", "pressure-transducer-05"],
-      color: "var(--pluto-primary-z)",
-      rows: { lower: 1, upper: 4 },
-    },
-  ]}
-  data={[
-    {
-      time: 1677433720770863800,
-      "thermocouple-01": 19.2,
-      "strain-gauge-01": 350.78,
-      "pressure-transducer-05": 19.22,
-    },
-    {
-      time: 1677433720970863400,
-      "thermocouple-01": 19.2,
-      "strain-gauge-01": 350.78,
-      "pressure-transducer-05": 19.22,
-    },
-    {
-      time: 1677433721270868900,
-      "thermocouple-01": 19.2,
-      "strain-gauge-01": 350.78,
-      "pressure-transducer-05": 19.22,
-    },
-    {
-      time: 1677433721470863800,
-      "thermocouple-01": 19.2,
-      "strain-gauge-01": 350.78,
-      "pressure-transducer-05": 19.22,
-    },
-    {
-      time: 1677433721870863400,
-      "thermocouple-01": 19.2,
-      "strain-gauge-01": 350.78,
-      "pressure-transducer-05": 19.22,
-    },
-  ]}
-/>
-
-For more on time ranges, see [`TimeRange`](/reference/client/time-types#timerange).
-
-<Divider.Divider x />
-
-## Reading from a channel
-
-The simplest way to read historical data from Synnax is to use the `read` method on a
-`Channel`.
-
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
 ```python
-channel = client.channels.retrieve("my_temp_sensor")
-start = sy.TimeStamp("2025-02-12 12:30:00")
-end = sy.TimeStamp("2025-02-12 14:30:00")
+from datetime import datetime, timezone
 
-data = channel.read(start, end)
-```
-
-The returned data is a [`Series`](/reference/client/series-and-frames#series) object,
-which contains the time-range occupied by the data. Notably, the `Series` can be treated
-exactly like a `numpy.ndarray`.
-
-```python
-data = data - 273.15
-tr = data.time_range
-```
-
-  </Fragment>
-
-  <Fragment slot="typescript">
-
-```typescript
-const channel = await client.channels.retrieve("my_temp_sensor");
-const start = new Date("2025-02-12T12:30:00Z");
-const end = new Date("2025-02-12T14:30:00Z");
-
-const series = await channel.read(start, end);
-```
-
-The returned data is a [`Series`](/reference/client/series-and-frames#series), which
-maintains a very similar interface to a JavaScript typed array (e.g. `Float32Array`,
-`Int32Array`, etc.). Convert the returned data to a JavaScript array easily:
-
-```typescript
-const data = Array.from(series);
-```
-
-  </Fragment>
-
-</Client.Tabs>
-
-<Divider.Divider x />
-
-## Reading from multiple channels
-
-The returned data is an instance of the
-[Frame](/reference/client/series-and-frames#frames) class.
-
-<Client.Tabs exclude={["console", "cpp"]}>
-
-  <Fragment slot="python">
-
-Access the `Series` object using the `[]` operator. The `Frame` can also be converted to
-a `pandas.DataFrame` by calling the `to_df` method.
-
-```python
 import synnax as sy
 
-start = sy.TimeStamp("2025-02-12 12:30:00")
-end = sy.TimeStamp("2025-02-12 14:30:00")
+tr = sy.TimeRange(
+    datetime(2026, 10, 3, 12, 0, tzinfo=timezone.utc),
+    datetime(2026, 10, 3, 14, 0, tzinfo=timezone.utc),
+)
 
-frame = client.read(start, end, ["my_sensor", "sensor_index"])
+# One channel gives a MultiSeries.
+temperature = client.read(tr, "temperature")
+print(temperature.to_numpy())
 
-data = frame["my_sensor"]
+# Many channels give a Frame.
+frame = client.read(tr, ["time", "temperature", "pressure"])
 df = frame.to_df()
 ```
 
+A channel that you retrieved also has `read`:
+
+```python
+channel = client.channels.retrieve("temperature")
+temperature = channel.read(tr)
+```
+
   </Fragment>
 
   <Fragment slot="typescript">
 
-To access the data for a specific channel, use the `get` method.
+```typescript
+import { TimeRange } from "@synnaxlabs/client";
+
+const tr = new TimeRange(
+  new Date("2026-10-03T12:00:00Z"),
+  new Date("2026-10-03T14:00:00Z"),
+);
+
+// One channel gives a MultiSeries.
+const temperature = await client.read(tr, "temperature");
+console.log(Array.from(temperature));
+
+// Many channels give a Frame.
+const frame = await client.read(tr, ["time", "temperature", "pressure"]);
+const pressure = frame.get("pressure");
+```
+
+A channel that you retrieved also has `read`:
 
 ```typescript
-import { TimeStamp, TimeSpan } from "@synnaxlabs/client";
-
-const start = TimeStamp.now();
-const end = start.add(TimeSpan.seconds(10));
-
-const frame = await client.read({ start, end }, ["my_sensor", "sensor_index"]);
-
-const data = frame.get("my_sensor");
+const channel = await client.channels.retrieve("temperature");
+const samples = await channel.read(tr);
 ```
 
   </Fragment>
 
 </Client.Tabs>
 
+To work with the result, see [Series and frames](/reference/client/series-and-frames).
+
 <Divider.Divider x />
 
-## Reading the latest data
+## Read the latest samples
 
-The `readLatest` method allows you to read the latest N samples from one or more
-channels:
-
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
 ```python
-# Read the latest sample from a channel
-latest_value = client.read_latest("my_tc", n=1)
+# The last sample of one channel.
+last = client.read_latest("temperature")
 
-# Read the latest 10 samples from a channel
-latest_samples = client.read_latest("my_tc", n=10)
-
-# Read the latest 5 samples from multiple channels
-frame = client.read_latest(["my_tc", "my_sg", "my_pt"], n=5)
+# The last 10 samples of each channel.
+frame = client.read_latest(["temperature", "pressure"], n=10)
 ```
 
   </Fragment>
@@ -200,28 +110,230 @@ frame = client.read_latest(["my_tc", "my_sg", "my_pt"], n=5)
   <Fragment slot="typescript">
 
 ```typescript
-// Read the latest sample from a channel
-const latestValue = await client.readLatest("my_tc", 1);
+// The last sample of one channel.
+const last = await client.readLatest("temperature", 1);
 
-// Read the latest 10 samples from a channel
-const latestSamples = await client.readLatest("my_tc", 10);
-
-// Read the latest 5 samples from multiple channels
-const frame = await client.readLatest(["my_tc", "my_sg", "my_pt"], 5);
+// The last 10 samples of each channel.
+const frame = await client.readLatest(["temperature", "pressure"], 10);
 ```
 
   </Fragment>
 
 </Client.Tabs>
 
-The returned data follows the same conventions as other reads. A read of one channel
-returns a `MultiSeries`, and a read of many channels returns a `Frame`. If fewer than
-`n` samples exist, the method returns only the samples that exist.
+When a channel has fewer than `n` samples, the read returns the samples that exist.
 
 <Divider.Divider x />
 
-## Reading large time ranges
+## Export to CSV
 
-Each read above loads all of its data into memory. To read more data than fits in
-memory, use an [iterator](/reference/client/advanced/iterators). An iterator reads a
-time range in chunks.
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+Read a frame, and write its DataFrame to a file with pandas:
+
+```python
+frame = client.read(tr, ["time", "temperature", "pressure"])
+df = frame.to_df()[["time", "temperature", "pressure"]]
+df.to_csv("tank.csv", index=False)
+```
+
+`to_df` gives one column for each channel, in no fixed order, so select the columns in
+the order you want. All channels must have the same number of samples, so read only
+channels that share an index.
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+With `responseType: "csv"`, `read` returns a stream of CSV text:
+
+```typescript
+import { createWriteStream } from "node:fs";
+import { Writable } from "node:stream";
+
+const stream = await client.read({
+  channels: ["temperature", "pressure"],
+  timeRange: tr,
+  responseType: "csv",
+});
+await stream.pipeTo(Writable.toWeb(createWriteStream("tank.csv")));
+```
+
+The CSV has a column for each channel and for each of their index channels, with one
+line for each timestamp. Channels with different indexes merge into one table sorted by
+time. Virtual channels have no index, so the CSV leaves them out. To set the column
+headers, pass `channelNames`, a record of channel name or key to header.
+
+  </Fragment>
+
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Read large time ranges
+
+An iterator reads a time range in chunks, so your code holds one chunk in memory at a
+time:
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+with client.open_iterator(tr, ["time", "temperature"]) as iterator:
+    for frame in iterator:
+        print(len(frame["temperature"]))
+```
+
+The `with` block closes the iterator, also when the code raises an error.
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const iterator = await client.openIterator(tr, ["time", "temperature"]);
+try {
+  for await (const frame of iterator) console.log(frame.get("temperature").length);
+} finally {
+  await iterator.close();
+}
+```
+
+The `finally` block closes the iterator, also when the code throws an error.
+
+  </Fragment>
+
+</Client.Tabs>
+
+Each chunk holds up to 100,000 samples of each channel by default. Set the chunk size
+when you open the iterator:
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+iterator = client.open_iterator(tr, ["time", "temperature"], chunk_size=10_000)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const iterator = await client.openIterator(tr, ["time", "temperature"], {
+  chunkSize: 10_000,
+});
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+### Move the iterator yourself
+
+A loop reads the time range from start to end. To move in other ways, call the methods
+below. Each returns false when no data is there, and puts the data that it read in
+`iterator.value`, a frame.
+
+| Python           | TypeScript      | Does                                                         |
+| ---------------- | --------------- | ------------------------------------------------------------ |
+| `seek_first()`   | `seekFirst()`   | Moves to the start of the first data in the time range.      |
+| `seek_last()`    | `seekLast()`    | Moves to the end of the last data in the time range.         |
+| `seek_ge(stamp)` | `seekGE(stamp)` | Moves to `stamp`, or the first data after it. Reads nothing. |
+| `seek_le(stamp)` | `seekLE(stamp)` | Moves to `stamp`, or the last data before it. Reads nothing. |
+| `next(span)`     | `next(span)`    | Reads forward by `span`.                                     |
+| `prev(span)`     | `prev(span)`    | Reads backward by `span`.                                    |
+| `valid()`        | `valid()`       | Returns true when `value` holds data.                        |
+
+With `sy.AUTO_SPAN` as the span, `next` and `prev` read one chunk. In TypeScript, the
+span is optional, and one chunk is the default.
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+with client.open_iterator(tr, ["time", "temperature"]) as iterator:
+    iterator.seek_first()
+    while iterator.next(sy.TimeSpan.MINUTE):
+        print(iterator.value["temperature"].to_numpy().mean())
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { TimeSpan } from "@synnaxlabs/client";
+
+const iterator = await client.openIterator(tr, ["time", "temperature"]);
+try {
+  await iterator.seekFirst();
+  while (await iterator.next(TimeSpan.MINUTE))
+    console.log(iterator.value.get("temperature").length);
+} finally {
+  await iterator.close();
+}
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+This code reads the time range one minute at a time. The loop stops at the first minute
+that has no data. To read past gaps, use `sy.AUTO_SPAN` in Python, or no span in
+TypeScript.
+
+### Iterator options
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+<Field.List>
+
+<Field.Item name="chunk_size" id="python-chunk-size" type="int" default="100000">
+  The largest number of samples of each channel that one chunk reads, before
+  downsampling.
+</Field.Item>
+
+<Field.Item
+  name="downsample_factor"
+  id="python-downsample-factor"
+  type="int"
+  default="1"
+>
+  Keep one of each `downsample_factor` samples. With 1, the iterator keeps all samples.
+</Field.Item>
+
+</Field.List>
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+<Field.List>
+
+<Field.Item name="chunkSize" id="typescript-chunk-size" type="number" default="100000">
+  The largest number of samples of each channel that one chunk reads, before
+  downsampling.
+</Field.Item>
+
+<Field.Item
+  name="downsampleFactor"
+  id="typescript-downsample-factor"
+  type="number"
+  default="1"
+>
+  Keep one of each `downsampleFactor` samples. With 1, the iterator keeps all samples.
+</Field.Item>
+
+</Field.List>
+
+  </Fragment>
+
+</Client.Tabs>

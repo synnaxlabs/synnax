@@ -1,358 +1,222 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Modbus read task"
-description: "Learn how to acquire data from Modbus TCP devices with Synnax."
+description: "Read the coils and registers of a Modbus TCP server into channels."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
-import Details from "@/components/details/Details.astro";
-import ChannelType from "@/components/details/ChannelType.astro";
-import DetailsGroup from "@/components/details/Group.astro";
 import { Client } from "@/components/client";
+import { Details } from "@/components/details";
+import { Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-This task follows the standard
-[task lifecycle](/reference/hardware/tasks#task-lifecycle).
+A Modbus read task reads coils and registers from one Modbus server into channels. For
+example, it can record a tank level from holding registers 0 and 1 of a PLC at 10 Hz.
+
+Before you start, you need a
+[connected server](/reference/hardware/modbus/connect-server).
 
 <Divider.Divider x />
 
-## Task configuration reference
+## Registers and coils
 
-| Parameter     | Type   | Required | Default | Description                                                   |
-| ------------- | ------ | -------- | ------- | ------------------------------------------------------------- |
-| `device`      | string | Yes      | -       | Key of the Modbus server device                               |
-| `sample_rate` | number | No       | `10`    | Samples per second (Hz)                                       |
-| `stream_rate` | number | No       | `5`     | Rate data is streamed to Synnax (Hz), must be ≤ `sample_rate` |
-| `channels`    | array  | Yes      | -       | List of input channel configurations                          |
+A read task reads four types of data, each with its own address range:
 
-<Divider.Divider x />
+| Console label        | Modbus name      | Function code | Value                         |
+| -------------------- | ---------------- | ------------- | ----------------------------- |
+| **Coil**             | Coil             | 01            | 0 or 1                        |
+| **Discrete**         | Discrete input   | 02            | 0 or 1                        |
+| **Holding register** | Holding register | 03            | A number, in 1 to 4 registers |
+| **Register**         | Input register   | 04            | A number, in 1 to 4 registers |
 
-## Register types reference
+A register holds 16 bits. An 8-bit or 16-bit value uses one register, and an 8-bit value
+is the low byte. A 32-bit value uses two registers, and a 64-bit value uses four. The
+**Data type** of the channel sets the size.
 
-<DetailsGroup>
+For each type, the Driver reads all addresses from the lowest to the highest in one
+request. One request can hold at most 125 registers or 2000 coils or discrete inputs.
 
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Holding register input ([`holding_register`](https://www.modbustools.com/modbus.html))</Text.Text>
+The Driver timestamps each read with the computer clock. See
+[timing](/reference/hardware/tasks#timing).
 
-Reads from 16-bit read/write registers (Function Code 03). Typically used for
-configuration parameters and analog outputs that can also be read back.
+### Byte and word order
 
-| Parameter       | Type    | Required | Default | Description                                                                                                         |
-| --------------- | ------- | -------- | ------- | ------------------------------------------------------------------------------------------------------------------- |
-| `channel`       | number  | Yes      | -       | Synnax channel key                                                                                                  |
-| `address`       | number  | Yes      | -       | Modbus register address (0-65535)                                                                                   |
-| `data_type`     | string  | No       | `uint8` | Data type: `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, `float64`, `string` |
-| `bytes_swapped` | boolean | No       | `false` | Swap byte order within 16-bit words                                                                                 |
-| `words_swapped` | boolean | No       | `false` | Swap word order for 32-bit+ values                                                                                  |
-| `string_length` | number  | No       | `0`     | Register count to read as a string. `0` reads a number                                                              |
-
-**Data type sizes:**
-
-- `int8`/`uint8`/`int16`/`uint16`: 1 register (2 bytes)
-- `int32`/`uint32`/`float32`: 2 registers (4 bytes)
-- `int64`/`uint64`/`float64`: 4 registers (8 bytes)
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Input register ([`input_register`](https://www.modbustools.com/modbus.html))</Text.Text>
-
-Reads from 16-bit read-only registers (Function Code 04). Typically used for analog
-sensor values like temperature, pressure, or flow.
-
-| Parameter       | Type    | Required | Default | Description                                                                                                         |
-| --------------- | ------- | -------- | ------- | ------------------------------------------------------------------------------------------------------------------- |
-| `channel`       | number  | Yes      | -       | Synnax channel key                                                                                                  |
-| `address`       | number  | Yes      | -       | Modbus register address (0-65535)                                                                                   |
-| `data_type`     | string  | No       | `uint8` | Data type: `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, `float64`, `string` |
-| `bytes_swapped` | boolean | No       | `false` | Swap byte order within 16-bit words                                                                                 |
-| `words_swapped` | boolean | No       | `false` | Swap word order for 32-bit+ values                                                                                  |
-| `string_length` | number  | No       | `0`     | Register count to read as a string. `0` reads a number                                                              |
-
-**Data type sizes:**
-
-- `int8`/`uint8`/`int16`/`uint16`: 1 register (2 bytes)
-- `int32`/`uint32`/`float32`: 2 registers (4 bytes)
-- `int64`/`uint64`/`float64`: 4 registers (8 bytes)
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Wave.Square /> Coil input ([`coil`](https://www.modbustools.com/modbus.html#Function01))</Text.Text>
-
-Reads from 1-bit read/write coils (Function Code 01). Typically used for discrete output
-states that can be read back (e.g., relay states, valve positions).
-
-| Parameter | Type   | Required | Default | Description                   |
-| --------- | ------ | -------- | ------- | ----------------------------- |
-| `channel` | number | Yes      | -       | Synnax channel key            |
-| `address` | number | Yes      | -       | Modbus coil address (0-65535) |
-
-**Data type:** Always boolean (0/1)
-
-</ChannelType>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Wave.Square /> Discrete input ([`discrete_input`](https://www.modbustools.com/modbus.html))</Text.Text>
-
-Reads from 1-bit read-only discrete inputs (Function Code 02). Typically used for binary
-sensor inputs (e.g., limit switches, proximity sensors).
-
-| Parameter | Type   | Required | Default | Description                             |
-| --------- | ------ | -------- | ------- | --------------------------------------- |
-| `channel` | number | Yes      | -       | Synnax channel key                      |
-| `address` | number | Yes      | -       | Modbus discrete input address (0-65535) |
-
-**Data type:** Always boolean (0/1)
-
-</ChannelType>
-
-</DetailsGroup>
+By default, the Driver reads the low word of a 32-bit or 64-bit value first. Many
+devices send the high word first. If the values look wrong, set `words_swapped` on the
+channel. To swap the two bytes in each register, set `bytes_swapped`.
 
 <Divider.Divider x />
 
-## Important rules
+## Create a Modbus read task
 
-- **Software timing** -> Samples are timestamped in software with ~100 µs precision,
-  which degrades under heavy load.
-- **Byte/word order** -> Swap settings must match the server for multi-register data
-  types.
-- **Stream rate** -> For sample rates under 50 Hz, set the stream rate equal to the
-  sample rate. Above that, keep the stream rate under 50 Hz.
-
-<Divider.Divider x />
-
-## How-to
-
-<Client.Tabs exclude={["cpp"]}>
+<Client.Tabs>
   <Fragment slot="console">
-    <Video
-      id="device-drivers/modbus/read-task/modbus-read"
-    />
+
+1. In the devices toolbar, right-click the server and select **Create read task**.
+2. Set **Sample rate** and **Stream rate**.
+3. Click **Add channel**. Select the type, then enter the address. For a register,
+   select the **Data type**.
+4. Click <Icon.Play /> (**Start**).
+
+The Console creates the channels. For the server `Pump skid PLC`, a `float32` holding
+register at address 0 gives `Pump_skid_PLC_holding_register_input_0_f32`, and a coil at
+address 3 gives `Pump_skid_PLC_coil_input_3`. The index channel is `Pump_skid_PLC_time`.
+
+<Video id="hardware/modbus/read-task" />
+
   </Fragment>
   <Fragment slot="python">
 
-<Details>
-<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
+Python does not create channels. Create them first.
 
 ```python
 import synnax as sy
 from synnax import modbus
 
-client = sy.Synnax()
-
-# Retrieve device
-dev = client.devices.retrieve(name="Modbus Server")
-
-# Create index channel
-modbus_time = client.channels.create(
-    name="modbus_time",
-    is_index=True,
-    data_type=sy.DataType.TIMESTAMP,
-    retrieve_if_name_exists=True,
+dev = client.devices.retrieve(name="Pump skid PLC")
+time = client.channels.create(
+    name="plc_time", is_index=True, data_type=sy.DataType.TIMESTAMP
+)
+level = client.channels.create(
+    name="tank_level", index=time.key, data_type=sy.DataType.FLOAT32
+)
+pump_on = client.channels.create(
+    name="pump_on", index=time.key, data_type=sy.DataType.UINT8
 )
 
-# Create data channels
-input_reg_0 = client.channels.create(
-    name="input_register_0",
-    index=modbus_time.key,
-    data_type=sy.DataType.UINT8,
-    retrieve_if_name_exists=True,
-)
-
-input_reg_1 = client.channels.create(
-    name="input_register_1",
-    index=modbus_time.key,
-    data_type=sy.DataType.UINT8,
-    retrieve_if_name_exists=True,
-)
-
-# Create and configure task
 task = modbus.ReadTask(
-    name="Modbus Read Task",
+    name="Pump skid",
     device=dev.key,
-    sample_rate=sy.Rate.HZ * 10,
-    stream_rate=sy.Rate.HZ * 10,
+    sample_rate=10,
+    stream_rate=5,
     channels=[
-        modbus.InputRegisterReadChannel(
-            channel=input_reg_0.key,
-            address=0,
-            data_type="uint8",
+        modbus.HoldingRegisterReadChannel(
+            address=0, data_type="float32", words_swapped=True, channel=level.key
         ),
-        modbus.InputRegisterReadChannel(
-            channel=input_reg_1.key,
-            address=1,
-            data_type="uint8",
-        ),
+        modbus.CoilReadChannel(address=3, channel=pump_on.key),
     ],
 )
-
 client.tasks.configure(task)
-
-# Start task and read data
-with task.run():
-    with client.open_streamer(["input_register_0", "input_register_1"]) as streamer:
-        for _ in range(10):
-            frame = streamer.read()
-            print(frame)
+task.start()
 ```
-
-</Details>
-
-<Details>
-<Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
-
-```python
-# Retrieve existing task
-task = client.tasks.retrieve(name="Modbus Read Task")
-task = modbus.ReadTask(internal=task)
-
-# Update task-level configuration
-task.config.auto_start = True
-task.config.stream_rate = int(sy.Rate.HZ * 5)
-
-# Update first channel configuration
-task.config.channels[0].address = 10
-task.config.channels[0].data_type = "uint16"
-
-# Update second channel configuration
-task.config.channels[1].address = 11
-task.config.channels[1].data_type = "uint16"
-
-# Apply changes
-client.tasks.configure(task)
-```
-
-</Details>
 
   </Fragment>
   <Fragment slot="typescript">
 
-<Details>
-<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
-
-```typescript
-import { Synnax } from "@synnaxlabs/client";
-
-const client = new Synnax();
-
-// Retrieve device
-const [dev] = await client.devices.retrieve({ names: ["Modbus Server"] });
-
-// Create index channel
-const modbusTime = await client.channels.create(
-  {
-    name: "modbus_time",
-    isIndex: true,
-    dataType: "timestamp",
-  },
-  { retrieveIfNameExists: true },
-);
-
-// Create data channels
-const inputReg0 = await client.channels.create(
-  {
-    name: "input_register_0",
-    index: modbusTime.key,
-    dataType: "uint8",
-  },
-  { retrieveIfNameExists: true },
-);
-
-const inputReg1 = await client.channels.create(
-  {
-    name: "input_register_1",
-    index: modbusTime.key,
-    dataType: "uint8",
-  },
-  { retrieveIfNameExists: true },
-);
-
-// Create and configure task
-const task = await client.tasks.create({
-  name: "Modbus Read Task",
-  rack: dev.rack,
-  type: "modbus_read",
-  config: {
-    device: dev.key,
-    sampleRate: 10,
-    streamRate: 10,
-    channels: [
-      {
-        type: "input_register",
-        channel: inputReg0.key,
-        address: 0,
-        dataType: "uint8",
-      },
-      {
-        type: "input_register",
-        channel: inputReg1.key,
-        address: 1,
-        dataType: "uint8",
-      },
-    ],
-  },
-});
-
-// Start task
-await task.start();
-
-// Read data
-const streamer = await client.openStreamer(["input_register_0", "input_register_1"]);
-for (let i = 0; i < 10; i++) {
-  const frame = await streamer.read();
-  console.log(frame);
-}
-
-// Stop task
-await task.stop();
-await streamer.close();
-```
-
-</Details>
-
-<Details>
-<Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
+TypeScript does not create channels. Create them first.
 
 ```typescript
 import { modbus } from "@synnaxlabs/client";
 
-// Retrieve existing task
-const task = await client.tasks.retrieve({ name: "Modbus Read Task" });
-
-// Parse and update configuration
-const config = modbus.readConfigZ.parse(task.config);
-
-// Update task-level configuration
-config.autoStart = true;
-config.streamRate = 5;
-
-// Update first channel configuration
-const firstRegister = config.channels[0] as modbus.InputRegisterReadChannel;
-firstRegister.address = 10;
-firstRegister.dataType = "uint16";
-
-// Update second channel configuration
-const secondRegister = config.channels[1] as modbus.InputRegisterReadChannel;
-secondRegister.address = 11;
-secondRegister.dataType = "uint16";
-
-// Apply changes
-await client.tasks.create({
-  key: task.key,
-  rack: task.rack,
-  name: task.name,
-  type: task.type,
-  config,
+const [dev] = await client.devices.retrieve({ names: ["Pump skid PLC"] });
+const time = await client.channels.create({
+  name: "plc_time",
+  isIndex: true,
+  dataType: "timestamp",
 });
-```
+const level = await client.channels.create({
+  name: "tank_level",
+  index: time.key,
+  dataType: "float32",
+});
 
-</Details>
+const task = await client.tasks.create({
+  name: "Pump skid",
+  rack: dev.rack,
+  type: "modbus_read",
+  config: modbus.readConfigZ.parse({
+    device: dev.key,
+    sampleRate: 10,
+    streamRate: 5,
+    channels: [
+      {
+        type: "holding_register",
+        address: 0,
+        dataType: "float32",
+        wordsSwapped: true,
+        channel: level.key,
+      },
+    ],
+  }),
+});
+await task.start();
+```
 
   </Fragment>
 </Client.Tabs>
+
+<Divider.Divider x />
+
+## Task options
+
+| Console label     | Python field           | Default | Notes                                                     |
+| ----------------- | ---------------------- | ------- | --------------------------------------------------------- |
+| **Modbus server** | `device`               |         | The key of the server.                                    |
+| **Sample rate**   | `sample_rate`          | 10 Hz   | How often the Driver reads the server. Up to 50,000 Hz.   |
+| **Stream rate**   | `stream_rate`          | 5 Hz    | See [read tasks](/reference/hardware/tasks#read-tasks).   |
+| **Data saving**   | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving). |
+| **Auto start**    | `auto_start`           | Off     | Starts the task each time the Driver starts.              |
+
+<Divider.Divider x />
+
+## Channel reference
+
+Each channel has an `address`, from 0 to 65535, and a `channel`, the Synnax channel that
+records the value.
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Details /> Coil and Discrete</Text.Text>
+
+| Field  | Notes                                                            |
+| ------ | ---------------------------------------------------------------- |
+| `type` | `"coil"` or `"discrete_input"`. The value is 0 or 1, as `uint8`. |
+
+</Details.Details>
+
+<Details.Details>
+<Text.Text slot="summary" level="p"><Icon.Details /> Holding register and Register</Text.Text>
+
+| Console label | Field           | Default | Notes                                                                                              |
+| ------------- | --------------- | ------- | -------------------------------------------------------------------------------------------------- |
+| **Data type** | `data_type`     | `uint8` | `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, or `float64`. |
+|               | `words_swapped` | `false` | Reads the high word first. See [byte and word order](#byte-and-word-order).                        |
+|               | `bytes_swapped` | `false` | Swaps the two bytes in each register.                                                              |
+|               | `type`          |         | `"holding_register"` or `"input_register"`.                                                        |
+
+</Details.Details>
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+### "Illegal data address"
+
+The server does not have one of the addresses in the task. Check the address map of the
+device. Some devices count addresses from 1, so try the address minus 1.
+
+### "unsupported data type: ..."
+
+The Console also lists Boolean, Timestamp, and UUID, but the Driver does not support
+them. Select a data type from the [channel reference](#channel-reference).
+
+### "Too many data"
+
+The addresses of one type span more than one request can hold. Move the channels closer
+together, or split them into two tasks.
+
+### The values are wrong
+
+Set the [byte and word order](#byte-and-word-order) of the channel. Check that the data
+type matches the device.
+
+### The task stopped when the connection dropped
+
+The task stops on any connection error. Start the task again when the server is back.
+
+For other problems, see
+[Connect a Modbus server](/reference/hardware/modbus/connect-server#troubleshooting) and
+[Troubleshoot hardware](/reference/hardware/troubleshooting).

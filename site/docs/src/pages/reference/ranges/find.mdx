@@ -96,7 +96,7 @@ Retrieve a range by its name or key. In Python, catch `QueryError` when no range
 than one range matches. In TypeScript, the client throws `NotFoundError` or
 `MultipleFoundError`.
 
-<Client.Tabs exclude={["cpp","console"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -129,7 +129,7 @@ Pass a list of names or keys to retrieve several ranges. A name that matches no 
 left out of the result. In TypeScript, a missing key is left out too. In Python, a
 missing key raises `NotFoundError`.
 
-<Client.Tabs exclude={["cpp","console"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -169,7 +169,7 @@ const passed = await client.ranges.retrieve({ hasLabels: [passLabel.key] });
 
 If a range has child ranges, you can retrieve them directly from the parent range.
 
-<Client.Tabs exclude={["cpp","console"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -192,7 +192,7 @@ const childRanges = await myRange.retrieveChildren();
 
 Navigate up the hierarchy by retrieving a child range's parent.
 
-<Client.Tabs exclude={["cpp","console"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 

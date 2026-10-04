@@ -30,7 +30,7 @@ create the data channel, and you cannot change it later.
 - Data channels that you write at the same times can share one index. For example,
   sensors that one script reads in the same loop.
 - Data channels that you write at different times need different indexes. Give each
-  command channel its own index.
+  [command channel](/reference/hardware/tasks#command-channels) its own index.
 - Virtual channels have no index.
 
 <Note.Note variant="warning" className="compact">
@@ -41,13 +41,13 @@ create the data channel, and you cannot change it later.
 
 ## Create index and data channels
 
-<Client.Tabs exclude={["cpp"]}>
+<Client.Tabs>
 
   <Fragment slot="console">
 
 1. Click <Icon.Add /> in the
-   [channels toolbar](/reference/get-started/ui-overview#channels), or run the **Create
-   channel** command in the
+   [channels toolbar](/reference/get-started/ui-overview#channels), or run the "Create
+   channel" command in the
    [command palette](/reference/get-started/ui-overview#search-and-command-palette).
 2. Enter a name.
 3. For an index channel, turn on **Is index**. The data type changes to `timestamp`.
@@ -68,6 +68,7 @@ tank_time = client.channels.create(
     name="tank_time",
     data_type=sy.DataType.TIMESTAMP,
     is_index=True,
+    retrieve_if_name_exists=True,
 )
 
 tank_pressure, tank_temperature = client.channels.create(
@@ -101,11 +102,14 @@ this option to run the same script many times.
 ```typescript
 import { DataType } from "@synnaxlabs/client";
 
-const tankTime = await client.channels.create({
-  name: "tank_time",
-  dataType: DataType.TIMESTAMP,
-  isIndex: true,
-});
+const tankTime = await client.channels.create(
+  {
+    name: "tank_time",
+    dataType: DataType.TIMESTAMP,
+    isIndex: true,
+  },
+  { retrieveIfNameExists: true },
+);
 
 const [tankPressure, tankTemperature] = await client.channels.create(
   [
@@ -134,7 +138,7 @@ option to run the same script many times.
 A [virtual channel](/reference/channels#virtual-channels) has no index, so you can
 create it at any time.
 
-<Client.Tabs exclude={["cpp"]}>
+<Client.Tabs>
 
   <Fragment slot="console">
 

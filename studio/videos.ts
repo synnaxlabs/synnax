@@ -55,31 +55,10 @@ export default manifest.define([
     script: "scripts/clusters-connect.ts",
     port: 9090,
   },
-  // A desktop-sized viewport, so the Console reads at its normal scale.
-  {
-    id: "client/channels/create",
-    script: "scripts/channels-create.ts",
-    width: 1600,
-    height: 900,
-  },
-  {
-    id: "client/channels/toolbar",
-    script: "scripts/channels-toolbar.ts",
-    width: 1600,
-    height: 900,
-  },
-  {
-    id: "client/channels/rename",
-    script: "scripts/channels-rename.ts",
-    width: 1600,
-    height: 900,
-  },
-  {
-    id: "client/channels/delete",
-    script: "scripts/channels-delete.ts",
-    width: 1600,
-    height: 900,
-  },
+  { id: "client/channels/create", script: "scripts/channels-create.ts" },
+  { id: "client/channels/toolbar", script: "scripts/channels-toolbar.ts" },
+  { id: "client/channels/rename", script: "scripts/channels-rename.ts" },
+  { id: "client/channels/delete", script: "scripts/channels-delete.ts" },
   { id: "console/channels/alias", script: "scripts/channels-alias.ts" },
   {
     id: "console/calculated-channels/create-and-edit",
@@ -108,6 +87,23 @@ export default manifest.define([
     script: "scripts/arc-create-automation.ts",
   },
   {
+    id: "control/authority/hand-off",
+    script: "scripts/control-authority-hand-off.ts",
+  },
+  {
+    id: "control/manual/absolute-control",
+    script: "scripts/control-manual-absolute-control.ts",
+  },
+  { id: "control/arc/overview", script: "scripts/control-arc-overview.ts" },
+  {
+    id: "control/arc/start-from-schematic/start-button",
+    script: "scripts/control-arc-start-button.ts",
+  },
+  {
+    id: "control/arc/graph-editor/build-alarm",
+    script: "scripts/control-arc-build-alarm.ts",
+  },
+  {
     id: "device-drivers/task/command-palette",
     script: "scripts/task-command-palette.ts",
   },
@@ -125,6 +121,24 @@ export default manifest.define([
     id: "device-drivers/task/layout-selector",
     script: "scripts/task-layout-selector.ts",
   },
+  // Hardware shots run against the simulated Driver in fixtures/hardware.ts.
+  { id: "device-drivers/task/task-basic", script: "scripts/tasks-start.ts" },
+  { id: "hardware/devices/toolbar", script: "scripts/devices-toolbar.ts" },
+  // The custom devices tutorial runs against fixtures/arduino.ts.
+  {
+    id: "client/resources/build-device-driver/line-plot",
+    script: "scripts/custom-devices-line-plot.ts",
+  },
+  {
+    id: "client/resources/build-device-driver/schematic",
+    script: "scripts/custom-devices-schematic.ts",
+  },
+  {
+    id: "client/resources/build-device-driver/console-setup",
+    script: "scripts/custom-devices-console-setup.ts",
+  },
+  { id: "hardware/modbus/read-task", script: "scripts/modbus-read-task.ts" },
+  { id: "hardware/modbus/write-task", script: "scripts/modbus-write-task.ts" },
   {
     id: "device-drivers/pagerduty/alert-task/create",
     script: "scripts/pagerduty-alert-create.ts",

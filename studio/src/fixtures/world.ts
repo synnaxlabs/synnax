@@ -21,6 +21,7 @@ import {
 } from "@synnaxlabs/client";
 import { zip } from "@synnaxlabs/x";
 
+import { startArc } from "@/fixtures/arc";
 import { connect, type ConnectionOptions } from "@/fixtures/client";
 
 /** Project bundle of the test stand world, with channels referenced by name. */
@@ -90,8 +91,6 @@ const SAMPLE = TimeSpan.milliseconds(40);
 const HISTORY = TimeSpan.seconds(60);
 /** Wall-clock interval at which the stand catches up to its clock. */
 const POLL_MS = 10;
-/** How long the Arc task has to report that it started. */
-const START_TIMEOUT = TimeSpan.seconds(10);
 /** Fuel tank pressure while the fuel side stands by, in psi. */
 const FUEL_HOLD = 42;
 /** Idle seconds recorded before and after each past run. */
@@ -462,18 +461,10 @@ export const testStand = async ({
   const imported = await client.projects.import(bundle, { fileName: "TPC.zip" });
   await hardware(client, imported.key, daq, key);
 
-  const arc = await client.arcs.retrieve({ name: SEQUENCE });
-  const [rack] = await client.racks.retrieve({ integration: "arc" });
-  if (rack == null) throw new Error("the Core has no rack that runs Arc");
-  const task = await client.arcs.setRack(arc.key, rack.key);
-  if (task == null)
-    throw new Error(`binding ${SEQUENCE} to rack ${rack.name} made no task`);
-  const started = await task.executeCommandSync({
-    type: "start",
-    timeout: START_TIMEOUT,
-  });
-  if (started.variant === "error")
-    throw new Error(`${SEQUENCE} failed to start: ${started.message}`);
+  const task = await startArc(
+    client,
+    (await client.arcs.retrieve({ name: SEQUENCE })).key,
+  );
 
   let time = now().sub(HISTORY);
   const writer = await client.openWriter({ start: time, channels: stateChannels });

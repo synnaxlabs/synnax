@@ -1,0 +1,201 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+// The operating systems each Driver integration runs on. With no integration, renders
+// the matrix of every integration; with one, renders that integration's row.
+
+import { Icon } from "@synnaxlabs/lyra/icon";
+
+import Table from "@/components/table/Table.astro";
+
+const PLATFORMS = [
+    { key: "windows", label: "Windows", icon: Icon.Logo.Windows },
+    { key: "macos", label: "macOS", icon: Icon.Logo.Apple },
+    { key: "linux", label: "Linux", icon: Icon.Logo.Linux },
+    { key: "nilinuxrt", label: "NI Linux RT", icon: Icon.Logo.NI },
+    { key: "docker", label: "Docker", icon: Icon.Logo.Docker },
+] as const;
+
+type Platform = (typeof PLATFORMS)[number]["key"];
+
+interface Integration {
+    name: string;
+    href: string;
+    connects: string;
+    platforms: Record<Platform, boolean>;
+}
+
+const INTEGRATIONS = {
+    ethercat: {
+        name: "EtherCAT",
+        href: "/reference/hardware/ethercat/configure-device",
+        connects: "EtherCAT modules on a network port",
+        platforms: {
+            windows: true,
+            macos: true,
+            linux: true,
+            nilinuxrt: true,
+            docker: false,
+        },
+    },
+    http: {
+        name: "HTTP",
+        href: "/reference/hardware/http/connect-server",
+        connects: "Devices and services with an HTTP JSON API",
+        platforms: {
+            windows: true,
+            macos: true,
+            linux: true,
+            nilinuxrt: true,
+            docker: true,
+        },
+    },
+    labjack: {
+        name: "LabJack",
+        href: "/reference/hardware/labjack/configure-device",
+        connects: "LabJack T-series devices",
+        platforms: {
+            windows: true,
+            macos: true,
+            linux: false,
+            nilinuxrt: false,
+            docker: false,
+        },
+    },
+    modbus: {
+        name: "Modbus",
+        href: "/reference/hardware/modbus/connect-server",
+        connects: "Modbus TCP servers, such as PLCs and I/O modules",
+        platforms: {
+            windows: true,
+            macos: true,
+            linux: true,
+            nilinuxrt: false,
+            docker: true,
+        },
+    },
+    ni: {
+        name: "National Instruments",
+        href: "/reference/hardware/ni/configure-device",
+        connects: "NI-DAQmx devices, such as CompactDAQ and PXI",
+        platforms: {
+            windows: true,
+            macos: false,
+            linux: true,
+            nilinuxrt: true,
+            docker: false,
+        },
+    },
+    opcua: {
+        name: "OPC UA",
+        href: "/reference/hardware/opc-ua/connect-server",
+        connects: "OPC UA servers, such as PLCs and SCADA systems",
+        platforms: {
+            windows: true,
+            macos: true,
+            linux: true,
+            nilinuxrt: true,
+            docker: true,
+        },
+    },
+} satisfies Record<string, Integration>;
+
+export interface Props {
+    integration?: keyof typeof INTEGRATIONS;
+}
+
+const { integration } = Astro.props;
+const rows: Integration[] =
+    integration == null ? Object.values(INTEGRATIONS) : [INTEGRATIONS[integration]];
+const showName = integration == null;
+---
+
+<div class="docs-platforms">
+    <Table>
+        <thead>
+            <tr>
+                {showName && <th>Integration</th>}
+                {PLATFORMS.map(({ label, icon: PlatformIcon }) => (
+                    <th>
+                        <span class="docs-platforms-label">
+                            <PlatformIcon />
+                            {label}
+                        </span>
+                    </th>
+                ))}
+            </tr>
+        </thead>
+        <tbody>
+            {rows.map((row) => (
+                <tr>
+                    {showName && (
+                        <td class="docs-platforms-name">
+                            <a href={row.href}>{row.name}</a>
+                            <small>{row.connects}</small>
+                        </td>
+                    )}
+                    {PLATFORMS.map(({ key }) =>
+                        row.platforms[key] ? (
+                            <td class="docs-platforms-yes">
+                                <Icon.Check aria-label="Supported" />
+                            </td>
+                        ) : (
+                            <td class="docs-platforms-no">
+                                <Icon.Subtract aria-label="Not supported" />
+                            </td>
+                        ),
+                    )}
+                </tr>
+            ))}
+        </tbody>
+    </Table>
+</div>
+
+<style is:global>
+    article .docs-platforms {
+        & th {
+            vertical-align: bottom;
+        }
+        & th:not(:first-child),
+        & td.docs-platforms-yes,
+        & td.docs-platforms-no {
+            text-align: center;
+        }
+        & .docs-platforms-label {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        & td.docs-platforms-name {
+            min-width: 30rem;
+        }
+        @media (max-width: 800px) {
+            & td.docs-platforms-yes,
+            & td.docs-platforms-no {
+                text-align: left;
+            }
+        }
+        & td small {
+            display: block;
+            color: var(--pluto-gray-l8);
+            font-size: var(--pluto-small-size);
+        }
+        & td.docs-platforms-yes svg {
+            color: var(--pluto-primary-z);
+        }
+        & td.docs-platforms-no svg {
+            color: var(--pluto-gray-l9);
+            @media (prefers-color-scheme: dark) {
+                color: var(--pluto-gray-l8);
+            }
+        }
+    }
+</style>

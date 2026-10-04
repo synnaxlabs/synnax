@@ -74,10 +74,9 @@ channel, such as `valve_1_state`, shows what the hardware did.
 
 ### Start an automation from a button
 
-A schematic button writes `true` to a virtual `boolean` channel, such as `start_cmd`. An
-[Arc sequence](/reference/control/arc/how-to/test-sequences) starts when `start_cmd`
-receives a true value. Nothing stores the button press, because only the live value is
-necessary.
+A schematic button writes 1 to a virtual channel, such as `start_cmd`. An
+[Arc sequence](/reference/control/arc/start-from-schematic) starts when `start_cmd`
+receives 1. Nothing stores the button press, because only the live value is necessary.
 
 ### Store data from a script
 
@@ -148,9 +147,9 @@ automations use, such as a button press or a test value.
 ### Calculated channels
 
 A calculated channel computes its values from other channels with an
-[Arc](/reference/control/arc/introduction) expression. Synnax does not store the values.
-It computes them when you stream or read the channel, for live data and for past time
-ranges. Synnax gives each calculated channel an index named `<name>_time`. See
+[Arc](/reference/control/arc) expression. Synnax does not store the values. It computes
+them when you stream or read the channel, for live data and for past time ranges. Synnax
+gives each calculated channel an index named `<name>_time`. See
 [calculated channels](/reference/channels/calculated).
 
 <Divider.Divider x />
@@ -158,8 +157,9 @@ ranges. Synnax gives each calculated channel an index named `<name>_time`. See
 ## Names
 
 A channel name contains only letters, digits, and underscores, and it cannot start with
-a digit. Each name is unique, and names are case-sensitive. Arc programs and calculated
-channels use names to refer to channels, so a name must also be a valid Arc identifier.
+a digit. Each name is unique, and names are case-sensitive. Arc automations and
+calculated channels use names to refer to channels, so a name must also be a valid Arc
+identifier.
 
 These rules give names that are easy to find:
 
@@ -231,8 +231,9 @@ channel keeps its data.
 ### What happens when I rename a channel?
 
 Plots, schematics, and tasks refer to channels by key, so they continue to work.
-Calculated channels and Arc programs refer to channels by name. Update them to use the
-new name. See [rename channels](/reference/channels/rename-and-delete#rename-channels).
+Calculated channels and Arc automations refer to channels by name. Update them to use
+the new name. See
+[rename channels](/reference/channels/rename-and-delete#rename-channels).
 
 ### Should I use a virtual channel or a calculated channel?
 

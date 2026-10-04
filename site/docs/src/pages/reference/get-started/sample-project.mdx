@@ -13,14 +13,14 @@ import Step from "@/components/text/Step.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The sample project is a simulated tank test in Synnax Desktop. A nitrogen supply fills
-the tank through the press valve, and the vent valve empties it. An Arc automation
-pressurizes the tank, holds it, and vents it. You watch the test on a schematic and a
-line plot, take control of a valve, and abort the test. You need no hardware, and the
-tutorial takes about five minutes.
+The sample project is a simulated tank test. A nitrogen supply fills the tank through
+the press valve, and the vent valve empties it. An Arc automation pressurizes the tank,
+holds it, and vents it. You watch the test on a schematic and a line plot, take control
+of a valve, and abort the test. You need no hardware, and the tutorial takes about five
+minutes.
 
-You need [Synnax Desktop](/reference/get-started/install-desktop). The sample project is
-not available in Synnax Enterprise.
+You need [Synnax Desktop](/reference/get-started/install-desktop), or the Console
+connected to a [Synnax Enterprise](/reference/enterprise) Core.
 
 <Divider.Divider x />
 
@@ -30,14 +30,14 @@ In the list of projects, select **Sample project**. If a project is already open
 the "Open sample project" command from the
 [command palette](/reference/get-started/ui-overview#search-and-command-palette).
 
-Synnax Desktop creates a project with:
+The Console creates a project with:
 
-| Item           | Kind                                                  | What it does                                                                        |
-| -------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Tank           | [Schematic](/reference/visualize/schematics)          | Shows the tank, its valves, and its pressure, with **Start** and **Abort** buttons. |
-| Tank pressure  | [Line plot](/reference/visualize/line-plots)          | Plots the tank pressure, and the state of each valve.                               |
-| Press sequence | [Arc automation](/reference/control/arc/introduction) | Runs the test: pressurize, hold, and vent.                                          |
-| Tank simulator | Arc automation                                        | Simulates the tank. It writes the pressure from the valve commands.                 |
+| Item           | Kind                                         | What it does                                                                        |
+| -------------- | -------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Tank           | [Schematic](/reference/visualize/schematics) | Shows the tank, its valves, and its pressure, with **Start** and **Abort** buttons. |
+| Tank pressure  | [Line plot](/reference/visualize/line-plots) | Plots the tank pressure, and the state of each valve.                               |
+| Press sequence | [Arc automation](/reference/control/arc)     | Runs the test: pressurize, hold, and vent.                                          |
+| Tank simulator | Arc automation                               | Simulates the tank. It writes the pressure from the valve commands.                 |
 
 Both Arc automations start at once. The tank pressure is 0 psi, and both valves are
 closed.
@@ -98,9 +98,10 @@ see a description. For more, see [manual control](/reference/control/manual).
 2. While the pressure climbs, click **Abort**.
 
 The Press sequence closes the press valve and opens the vent valve. In the abort stage,
-the sequence takes an authority of 255, which is absolute: no other writer can take
-control of the valves. The sequence also aborts by itself when the pressure goes above
-450 psi.
+the sequence raises its authority to 255, the highest value, so the schematic (200)
+cannot override it. See
+[how authority works](/reference/control/authority#how-authority-works). The sequence
+also aborts by itself when the pressure goes above 450 psi.
 
 To run the test again after an abort, click **Start**, and release control.
 
@@ -114,8 +115,8 @@ To run the test again after an abort, click **Start**, and release control.
 ## <Step step={5} level="h2">Read the Press sequence</Step>
 
 Select the Press sequence tab at the bottom right to see its code. The sequence has five
-[stages](/reference/control/arc/concepts/sequences-and-stages). It is in one stage at a
-time, and it moves to the next stage when a condition is true.
+[stages](/reference/control/arc/execution-model#steps-of-a-sequence). It is in one stage
+at a time, and it moves to the next stage when a condition is true.
 
 | Stage        | What it does                                                           | Moves to                                                     |
 | ------------ | ---------------------------------------------------------------------- | ------------------------------------------------------------ |
@@ -126,7 +127,7 @@ time, and it moves to the next stage when a condition is true.
 | `abort`      | Closes the press valve, opens the vent valve, and takes authority 255. | `pressurize` on **Start**.                                   |
 
 To learn to write a sequence like this one, see
-[test sequences](/reference/control/arc/how-to/test-sequences).
+[test sequences](/reference/control/arc/test-sequences).
 
 <Divider.Divider x />
 

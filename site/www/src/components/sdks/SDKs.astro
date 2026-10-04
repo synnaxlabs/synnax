@@ -17,7 +17,7 @@ const cssVarsTheme = createCssVariablesTheme({ name: "css-variables" });
 
 const highlighter = await createHighlighter({
     themes: [cssVarsTheme],
-    langs: ["python", "typescript", "cpp"],
+    langs: ["python", "typescript"],
 });
 
 const highlight = (code: string, lang: string) =>
@@ -44,17 +44,6 @@ const streamer = await client.openStreamer(
 );
 for await (const frame of streamer) {
     console.log(frame);
-}`;
-
-const cppStream = `#include "client/cpp/synnax.h"
-
-auto client = synnax::Synnax(cfg);
-
-auto [s, err] = client.telem.open_streamer({
-    .channels = {"temperature", "pressure"},
-});
-for (auto frame : s) {
-    process(frame);
 }`;
 
 // -- Write --
@@ -88,20 +77,6 @@ await writer.write({
 await writer.commit();
 await writer.close();`;
 
-const cppWrite = `#include "client/cpp/synnax.h"
-
-auto client = synnax::Synnax(cfg);
-
-auto [w, err] = client.telem.open_writer({
-    .channels = {"time", "sensor"},
-    .start = synnax::TimeStamp::now(),
-});
-w.write({
-    {time, synnax::Series(ts)},
-    {data, synnax::Series(vals)},
-});
-w.commit();`;
-
 // -- Read --
 
 const pyRead = `import synnax as sy
@@ -124,18 +99,6 @@ const data = await client.read(
 );
 console.log(data.at(-1));`;
 
-const cppRead = `#include "client/cpp/synnax.h"
-
-auto client = synnax::Synnax(cfg);
-
-auto [frame, err] = client.telem.read(
-    synnax::TimeRange{start, end},
-    {"temperature", "pressure"},
-);
-for (auto& s : frame.series) {
-    process(s);
-}`;
-
 const codeHtmls = [
     [
         highlight(pyStream, "python"),
@@ -147,11 +110,6 @@ const codeHtmls = [
         highlight(tsWrite, "typescript"),
         highlight(tsRead, "typescript"),
     ],
-    [
-        highlight(cppStream, "cpp"),
-        highlight(cppWrite, "cpp"),
-        highlight(cppRead, "cpp"),
-    ],
 ];
 ---
 
@@ -160,7 +118,7 @@ const codeHtmls = [
     <Fragment slot="description">
         Use Synnax as a framework to build advanced industrial systems. Connect AI
         models, embed real-time processing, and interface with external controllers
-        through native client libraries in Python, TypeScript, and C++.
+        through native client libraries in Python and TypeScript.
     </Fragment>
 </SectionHero>
 

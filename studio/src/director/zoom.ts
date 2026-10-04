@@ -22,8 +22,13 @@ export interface Segment {
   start: number;
   end: number;
   amount: number;
-  /** Focuses (CSS px) within the segment, in tick order. */
-  focus: Focus[];
+  /** The authored framing the segment opens on. */
+  focus: Focus;
+  /**
+   * Cursor targets within the segment, in tick order, each at its move's departure.
+   * The camera pans to keep each one in frame.
+   */
+  follow: Focus[];
 }
 
 /**
@@ -57,19 +62,28 @@ const overrideAmount = (o: ZoomOverride, width: number, height: number): number 
 };
 
 /**
- * plan returns the camera's zoom segments: one per authored zoom override.
- * Clicks no longer auto-zoom; the camera holds the full frame unless a shot
- * asks for a zoom.
+ * plan returns the camera's zoom segments: one per authored zoom override. Clicks
+ * never zoom; the camera holds the full frame unless a shot asks for a zoom.
  */
 export const plan = (tl: Timeline): Segment[] => {
   const { width, height } = tl.meta;
+  const moves = tl.events
+    .filter((e) => e.type === "move")
+    .sort((a, b) => a.tick - b.tick);
   return tl.events
     .filter((e) => e.type === "zoom")
     .map((o) => ({
       start: o.tick,
       end: o.endTick,
       amount: overrideAmount(o, width, height),
-      focus: [{ tick: o.tick, point: { x: o.x, y: o.y }, rect: o.rect }],
+      focus: { tick: o.tick, point: { x: o.x, y: o.y }, rect: o.rect },
+      follow: moves
+        .filter((m) => m.tick > o.tick && m.tick - m.duration <= o.endTick)
+        .map((m) => ({
+          tick: m.tick - m.duration,
+          point: { x: m.x, y: m.y },
+          rect: m.rect,
+        })),
     }))
     .sort((a, b) => a.start - b.start);
 };

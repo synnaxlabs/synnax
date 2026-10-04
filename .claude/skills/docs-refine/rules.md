@@ -23,8 +23,8 @@ line.
 - Term bullets use `->` as the separator:
   `- [Ranges](/reference/ranges) -> mark a test in time`. Never an em dash or a colon.
 - Product names: full name first on a page ("Synnax Core"), short name after ("the
-  Core"). Say "the Core" or "a Core", not "server" or "node", except when the text is
-  about multi-node clusters.
+  Core"). Say "the Core" or "a Core", never "server", "node", or "cluster". The docs
+  never describe multi-node clusters; they are not supported.
 - Console components are lowercase common nouns ("ranges toolbar", "Core selector"),
   with exact singular or plural. Task names are sentence case ("NI digital read task").
 - UI labels a reader clicks go in bold and match Console source exactly. Commands in the
@@ -42,7 +42,12 @@ line.
 
 ## Section and page structure
 
+- The docs never describe multi-node clusters; they are not supported.
 - One page per task. No "Manage" titles and no catch-all pages that hold many tasks.
+- Exception: a page for one Console component or one hardware task type (line plots,
+  schematics, an NI analog read task) holds that component's tasks as verb h2s, then
+  its reference. The title stays the component noun. A task that needs more than ten
+  steps or its own tutorial gets its own page.
 - Each section opens with a concept page. The concept page has a section on what the
   thing is for: short canonical use cases, each linking to the page that shows how.
 - Nav labels drop the section noun ("Create"). Page titles keep it for search ("Create
@@ -92,6 +97,8 @@ line.
 - Every page is in the nav. `check-site` fails an orphan page.
 - Tabs: `Client.Tabs` (slots `console`, `python`, `typescript`, `cpp`; `exclude` to drop
   one), `Platform.Tabs` (slots `Linux`, `Windows`, `macOS`, `Docker`).
+- OS tabs always use `Platform.Tabs` or `Driver.Tabs`, never a hand-built `Tabs` with OS
+  names.
 - `Note.Note` variants are `info`, `warning`, and `error` only. Use notes rarely.
 - `<Video id>` and `<Image id>` resolve to `-light` and `-dark` files on the CDN.
 

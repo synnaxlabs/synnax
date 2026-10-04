@@ -1,167 +1,116 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "NI | Configure device"
-heading: "Configure an NI device"
-description: "Learn how to connect and configure National Instruments modules."
+title: "Configure an NI device"
+description:
+  "Connect National Instruments DAQ hardware to the Driver and configure it for tasks."
 ---
 
-import { Text as TextComponent } from "@/components/text";
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Icon } from "@synnaxlabs/lyra/icon";
-import { Note } from "@synnaxlabs/lyra/note";
-import { Text } from "@synnaxlabs/lyra/text";
-import { Image, Video } from "@/components/media/Media";
-import { Details } from "@/components/details";
-import { Edition } from "@/components/edition";
-import { mdxOverrides } from "@/components/mdxOverrides";
-import { Client } from "@/components/client";
 import { Fragment } from "react";
+import { Client } from "@/components/client";
+import Platforms from "@/components/hardware/Platforms.astro";
+import { Video } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The Synnax Driver supports every [National Instruments](https://www.ni.com/en-us.html)
-device that the
-[NI-DAQmx driver](https://www.ni.com/en-us/support/downloads/drivers/download.ni-daqmx.html)
-supports, including CompactDAQ, CompactRIO, and PXI systems. Chassis and their modules
-are discovered automatically and shown hierarchically in the Console.
+The Driver connects to [National Instruments](https://www.ni.com/) hardware that works
+with NI-DAQmx: CompactDAQ chassis and modules, USB and PCIe DAQ devices, and PXI. It
+finds them through NI-DAQmx. Before a task can use a device, you configure it.
 
 <Divider.Divider x />
 
 ## Prerequisites
 
-Before you use your NI hardware with Synnax, make sure that you have:
+<Platforms integration="ni" />
 
-1. [Synnax Desktop](/reference/get-started/install-desktop) installed on the Windows
-   computer that your NI hardware connects to.
-2. The
-   [NI-DAQmx](https://www.ni.com/en/support/downloads/drivers/download.ni-daq-mx.html)
-   and
-   [System Configuration](https://www.ni.com/en/support/downloads/drivers/download.system-configuration.html)
-   drivers installed on the same computer.
-
-<Edition.Enterprise>
-
-With Synnax Enterprise, you need a [Synnax Core](/reference/enterprise) and a Synnax
-Driver that runs on the machine that your NI hardware connects to. A Core runs an
-embedded Driver on its own machine. For a different machine,
-[install a standalone Driver](/reference/enterprise/driver/install). Install the NI
-drivers on the machine that runs the Driver. Install the
-[Synnax Console](/reference/enterprise/console) on your computer.
-
-</Edition.Enterprise>
+- Install
+  [NI-DAQmx](https://www.ni.com/en/support/downloads/drivers/download.ni-daq-mx.html) on
+  the computer that runs the Driver. If the Driver says that System Configuration is
+  missing, install
+  [NI System Configuration](https://www.ni.com/en/support/downloads/drivers/download.system-configuration.html).
+- After you install,
+  [restart the Driver](/reference/hardware/troubleshooting#restart-the-driver).
 
 <Divider.Divider x />
 
-## Supported operating systems
+## How the Driver finds devices
 
-| Platform                            | Status          |
-| ----------------------------------- | --------------- |
-| <Icon.Logo.Windows /> Windows       | ✓ Supported     |
-| <Icon.Logo.Linux /> Linux           | ✓ Supported     |
-| <Icon.Logo.NI /> NI Linux Real-Time | ✓ Supported     |
-| <Icon.Logo.Apple /> macOS           | ✗ Not Supported |
-| <Icon.Logo.Docker /> Docker         | ✗ Not Supported |
+The Driver looks for NI devices every few seconds. A device shows in the
+[devices toolbar](/reference/hardware/devices#devices-toolbar) with:
 
-NI-DAQmx does not support macOS. Synnax Desktop runs on macOS and Windows, so NI devices
-work with Synnax Desktop only on Windows.
+- **Name** -> `NI` and the model, such as `NI 9205` or `NI USB-6343`.
+- **Location** -> the name of the device in NI-DAQmx, such as `Dev1` or `cDAQ1Mod1`. The
+  Driver uses it to address the ports of the device, such as `Dev1/ai0`.
 
-<Divider.Divider x />
+The key of an NI device is its serial number. Modules show under their chassis. The
+Driver skips CompactRIO controllers, but it finds the modules in them.
 
-## Configuration parameters reference
-
-| Parameter    | Type   | Required | Description                                                 |
-| ------------ | ------ | -------- | ----------------------------------------------------------- |
-| `name`       | string | Yes      | Human-readable device name for identification in Console    |
-| `rack`       | string | Yes      | Synnax Driver (rack) key where the device is connected      |
-| `model`      | string | Yes      | NI device model (e.g., `cDAQ-9174`, `PXI-6259`, `USB-6008`) |
-| `location`   | string | Yes      | Physical connection identifier (device name from NI MAX)    |
-| `identifier` | string | Yes      | Channel name prefix for all channels on this device         |
+To stop the search, right-click the Driver in the devices toolbar and select **Toggle NI
+device scanner**.
 
 <Divider.Divider x />
 
-## How-to
+## Configure a device
 
-<Note.Note variant="warning" className="compact">
-  Before you begin, connect to your device and reserve it using [NI
-  MAX](https://www.ni.com/en/support/documentation/supplemental/21/what-is-ni-measurement---automation-explorer--ni-max--.html).
-  The Driver must run on the same machine used to reserve the hardware.
-</Note.Note>
-
-<Client.Tabs exclude={["cpp"]}>
+<Client.Tabs>
   <Fragment slot="console">
 
-Synnax will automatically detect new NI modules and display a notification in the
-Console when a new device is connected. To start configuring the device, find the device
-in the devices toolbar, right click on the device and select "Configure".
+1. In the devices toolbar, right-click the device and select **Configure**. You can also
+   click **Configure** in the "New ... connected" notification.
+2. Enter a name, then click **Next**.
+3. Enter an [identifier](/reference/hardware/devices#identifiers), then click **Save**.
+
+Configure each module that a task uses.
 
 <Video id="device-drivers/ni/configure-device/ni-configure-device" />
 
-</Fragment>
+  </Fragment>
   <Fragment slot="python">
 
+Find the NI devices that the Driver found:
+
 ```python
-import synnax as sy
-from synnax import ni
-
-# Connect to Synnax
-client = sy.Synnax()
-
-# Get the embedded rack (local driver rack)
-rack = client.racks.retrieve_embedded_rack()
-
-# Configure device using the ni.Device class
-device = ni.Device(
-    identifier="dev_mod1",
-    name="My NI Module",
-    model="NI 9205",
-    location="cDAQ1/dev_mod1",
-    rack=rack.key,
-)
-
-# Create the device in Synnax
-device = client.devices.create(device)
-
-# Or retrieve by model
-device = client.devices.retrieve(model="NI 9205")
-
-# Or retrieve by name
-device = client.devices.retrieve(name="My NI Module")
-
-print(f"Device configured: {device.name} (key={device.key})")
+for dev in client.devices.retrieve(makes=["NI"]):
+    print(dev.key, dev.name, dev.model, dev.location)
 ```
 
-</Fragment>
+Configure devices in the Console.
+
+  </Fragment>
   <Fragment slot="typescript">
 
+Find the NI devices that the Driver found:
+
 ```typescript
-import { Synnax } from "@synnaxlabs/client";
-
-// Connect to Synnax
-const client = new Synnax();
-
-// Get the embedded rack (local driver rack)
-const [rack] = await client.racks.retrieve({ embedded: true });
-
-// Configure device connection
-const device = await client.devices.create({
-  key: crypto.randomUUID(),
-  rack: rack.key,
-  name: "My NI Module",
-  make: "NI",
-  model: "NI 9205",
-  location: "cDAQ1/dev_mod1",
-  properties: {
-    identifier: "dev_mod1", // Channel name prefix
-  },
-});
-
-// Or retrieve by model
-const [byModel] = await client.devices.retrieve({ models: ["NI 9205"] });
-
-// Or retrieve by name
-const [byName] = await client.devices.retrieve({ names: ["My NI Module"] });
-
-console.log(`Device configured: ${device.name} (key=${device.key})`);
+for (const dev of await client.devices.retrieve({ makes: ["NI"] }))
+  console.log(dev.key, dev.name, dev.model, dev.location);
 ```
+
+Configure devices in the Console.
 
   </Fragment>
 </Client.Tabs>
+
+Do not create NI devices in code. A device that you create has a different key than the
+device that the Driver finds, and the Console cannot use it.
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+### The device does not show in the devices toolbar
+
+Install NI-DAQmx and restart the Driver. Check that NI MAX shows the device with a name.
+The Driver skips a device that has no name. For more causes, see
+[Troubleshoot hardware](/reference/hardware/troubleshooting#a-device-does-not-show-in-the-devices-toolbar).
+
+### "Cannot create the task because the NI-DAQmx and System Configuration libraries are not installed"
+
+Install the software in the [prerequisites](#prerequisites), then restart the Driver.
+
+### "The device is temporarily unreachable. Will keep trying"
+
+The Driver lost the connection to the device. Check the cable and the power. The task
+continues when the device comes back.
+
+For other problems, see [Troubleshoot hardware](/reference/hardware/troubleshooting).

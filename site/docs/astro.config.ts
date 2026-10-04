@@ -80,18 +80,60 @@ export default defineConfig({
     "/guides/operations": "/reference/",
     "/guides/comparison": "/reference/",
     "/reference/device-drivers/standalone": "/reference/enterprise/driver/install",
-    "/reference/client": "/reference/client/quick-start",
-    "/reference/client/advanced": "/reference/client/advanced/auto-commit",
+    "/reference/client/advanced": "/reference/client/write-data",
+    "/reference/client/advanced/delete-data": "/reference/client/delete-data",
+    "/reference/client/advanced/auto-commit": "/reference/client/write-data",
+    "/reference/client/advanced/auto-index": "/reference/client/write-data",
+    "/reference/client/advanced/iterators": "/reference/client/read-data",
+    "/reference/client/authentication": "/reference/client/connect",
     "/reference/console/clusters": "/reference/enterprise/console",
     "/reference/console/cores": "/reference/enterprise/console",
-    "/reference/console/requirements": "/reference/enterprise/console",
+    "/reference/console/requirements": "/reference/enterprise/requirements",
     "/reference/console/channels": "/reference/channels",
     "/reference/console/calculated-channels": "/reference/channels/calculated",
     "/reference/console/ranges": "/reference/ranges/find",
     "/reference/console/workspaces": "/reference/visualize/projects",
-    "/reference/control/arc/concepts":
-      "/reference/control/arc/concepts/control-authority",
-    "/reference/control/arc/how-to": "/reference/control/arc/how-to/data-processing",
+    "/reference/control/arc/concepts": "/reference/control/arc/execution-model",
+    "/reference/control/arc/concepts/control-authority": "/reference/control/authority",
+    "/reference/control/arc/concepts/reactive-execution":
+      "/reference/control/arc/execution-model",
+    "/reference/control/arc/concepts/sequences-and-stages":
+      "/reference/control/arc/execution-model",
+    "/reference/control/arc/concepts/channels-and-series":
+      "/reference/control/arc/reference/types",
+    "/reference/control/arc/reference/loops":
+      "/reference/control/arc/reference/statements",
+    "/reference/control/arc/how-to": "/reference/control/arc",
+    "/reference/control/arc/how-to/test-sequences":
+      "/reference/control/arc/test-sequences",
+    "/reference/control/arc/how-to/bang-bang-control":
+      "/reference/control/arc/bang-bang-control",
+    "/reference/control/arc/how-to/data-processing":
+      "/reference/control/arc/compute-values",
+    "/reference/control/arc/how-to/derived-calculations":
+      "/reference/control/arc/compute-values",
+    "/reference/control/arc/how-to/rate-of-change":
+      "/reference/control/arc/compute-values",
+    "/reference/control/arc/how-to/sensor-averaging":
+      "/reference/control/arc/compute-values",
+    "/reference/control/arc/how-to/sensor-validation":
+      "/reference/control/arc/compute-values",
+    "/reference/control/arc/how-to/unit-conversions":
+      "/reference/control/arc/compute-values",
+    "/reference/control/arc/introduction": "/reference/control/arc",
+    "/reference/control/arc/concepts/stateful-variables":
+      "/reference/control/arc/reference/variables",
+    "/reference/control/arc/reference/built-ins":
+      "/reference/control/arc/reference/standard-library",
+    "/reference/control/control-authority": "/reference/control/authority",
+    "/reference/control/embedded": "/reference/control/arc",
+    "/reference/control/embedded/get-started": "/reference/control/arc",
+    "/reference/control/embedded/recipes": "/reference/control/arc",
+    "/reference/control/embedded/reference": "/reference/control/arc",
+    "/reference/control/get-started": "/reference/control",
+    "/reference/control/python/get-started":
+      "/reference/control/python/write-sequences",
+    "/reference/control/python/examples": "/reference/client/examples",
     "/reference/driver/timing": "/reference/hardware/tasks",
     "/reference/driver/http/get-started": "/reference/hardware/http/connect-server",
     "/reference/driver/labjack/get-started":
@@ -113,7 +155,7 @@ export default defineConfig({
     "/reference/python-client/read-data": "/reference/client/read-data",
     "/reference/python-client/write-data": "/reference/client/write-data",
     "/reference/python-client/stream-data": "/reference/client/stream-data",
-    "/reference/python-client/delete-data": "/reference/client/advanced/delete-data",
+    "/reference/python-client/delete-data": "/reference/client/delete-data",
     "/reference/python-client/series-and-frames": "/reference/client/series-and-frames",
     "/reference/python-client/examples": "/reference/client/examples",
     "/reference/python-client/troubleshooting": "/reference/client/troubleshooting",
@@ -125,8 +167,7 @@ export default defineConfig({
     "/reference/typescript-client/read-data": "/reference/client/read-data",
     "/reference/typescript-client/write-data": "/reference/client/write-data",
     "/reference/typescript-client/stream-data": "/reference/client/stream-data",
-    "/reference/typescript-client/delete-data":
-      "/reference/client/advanced/delete-data",
+    "/reference/typescript-client/delete-data": "/reference/client/delete-data",
     "/reference/typescript-client/series-and-frames":
       "/reference/client/series-and-frames",
     "/reference/typescript-client/timestamps": "/reference/client/time-types",
@@ -139,7 +180,8 @@ export default defineConfig({
     "/reference/client/ranges": "/reference/ranges/create",
     "/reference/concepts": "/reference/channels",
     "/reference/concepts/channels": "/reference/channels",
-    "/reference/concepts/clusters-and-nodes": "/reference/enterprise/clusters",
+    "/reference/concepts/clusters-and-nodes": "/reference/enterprise",
+    "/reference/enterprise/clusters": "/reference/enterprise",
     "/reference/concepts/overview": "/reference/channels",
     "/reference/concepts/ranges": "/reference/ranges",
     "/reference/concepts/reads": "/reference/client/read-data",
@@ -159,16 +201,20 @@ export default defineConfig({
     "/reference/core/cli-reference": "/reference/enterprise/cli-reference",
     "/reference/core/installation": "/reference/enterprise",
     "/reference/core/installing-certificates": "/reference/enterprise/certificates",
-    "/reference/core/production": "/reference/enterprise/production",
+    "/reference/core/production": "/reference/enterprise/production-checklist",
+    "/reference/enterprise/production": "/reference/enterprise/production-checklist",
     "/reference/core/quick-start": "/reference/enterprise",
     "/reference/core/requirements": "/reference/enterprise/requirements",
-    "/reference/core/systemd-service": "/reference/enterprise/systemd-service",
+    "/reference/core/systemd-service": "/reference/enterprise/service",
+    "/reference/enterprise/systemd-service": "/reference/enterprise/service",
     "/reference/driver": "/reference/hardware",
     "/reference/driver/ethercat": "/reference/hardware/ethercat",
     "/reference/driver/ethercat/configure-device":
       "/reference/hardware/ethercat/configure-device",
     "/reference/driver/ethercat/get-started":
-      "/reference/hardware/ethercat/get-started",
+      "/reference/hardware/ethercat/configure-device",
+    "/reference/hardware/ethercat/get-started":
+      "/reference/hardware/ethercat/configure-device",
     "/reference/driver/ethercat/read-task": "/reference/hardware/ethercat/read-task",
     "/reference/driver/ethercat/write-task": "/reference/hardware/ethercat/write-task",
     "/reference/driver/get-started": "/reference/hardware",

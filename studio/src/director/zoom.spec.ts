@@ -96,6 +96,21 @@ describe("zoom.plan", () => {
     expect(() => plan(tl)).toThrow("requires a rect");
   });
 
+  it("should follow each move that arrives inside a segment, at its departure", () => {
+    const rect = { x: 1000, y: 600, width: 80, height: 30 };
+    const tl = timeline([
+      { type: "zoom", tick: 500, endTick: 900, amount: 1.5, x: 100, y: 100 },
+      { type: "move", tick: 490, x: 50, y: 50, duration: 20 },
+      { type: "move", tick: 510, x: 200, y: 200, duration: 20 },
+      { type: "move", tick: 700, x: 1040, y: 615, duration: 30, rect },
+      { type: "move", tick: 950, x: 10, y: 10, duration: 20 },
+    ]);
+    expect(plan(tl)[0].follow).toEqual([
+      { tick: 490, point: { x: 200, y: 200 }, rect: undefined },
+      { tick: 670, point: { x: 1040, y: 615 }, rect },
+    ]);
+  });
+
   it("should sort overrides by start tick", () => {
     const tl = timeline([
       { type: "zoom", tick: 1200, endTick: 1600, amount: 1.4, x: 900, y: 500 },
