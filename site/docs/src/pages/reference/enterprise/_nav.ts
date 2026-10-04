@@ -35,6 +35,11 @@ export const ENTERPRISE_NAV: PageNavNode = {
       name: "Activate a license",
     },
     {
+      key: "/reference/enterprise/upgrade",
+      href: "/reference/enterprise/upgrade",
+      name: "Upgrade",
+    },
+    {
       key: "/reference/enterprise/production",
       href: "/reference/enterprise/production",
       name: "Deploy to production",
