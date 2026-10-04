@@ -576,7 +576,7 @@ export class CaptureSession {
    * zoom opens an authored camera override framing the target, superseding
    * auto-zoom until endZoom (or finish) closes it. When amount is omitted the
    * director derives it from the target's rect: as tight as the framing margin
-   * allows. Every amount is capped at ZOOM_MAX.
+   * allows. The director caps every amount at the deepest zoom the render keeps crisp.
    */
   async zoom(target: Locator | Point, amount?: number): Promise<void> {
     if (this.openZoom != null) this.endZoom();

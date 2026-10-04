@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ZOOM_MAX, ZOOM_RECT_MARGIN_PX } from "@/director/constants";
+import { ZOOM_RECT_MARGIN_PX } from "@/director/constants";
 import { type Point, type Rect, type Timeline } from "@/timeline";
 
 /** A focus the camera frames: a point, optionally with its element's rect. */
@@ -52,21 +52,29 @@ interface ZoomOverride {
 /**
  * overrideAmount resolves an authored override's magnification: the authored
  * amount when given, otherwise as tight as the framing margin allows for the
- * rect. Either is capped at ZOOM_MAX.
+ * rect. Either is capped at max.
  */
-const overrideAmount = (o: ZoomOverride, width: number, height: number): number => {
-  if (o.amount != null) return Math.min(ZOOM_MAX, o.amount);
+const overrideAmount = (
+  o: ZoomOverride,
+  width: number,
+  height: number,
+  max: number,
+): number => {
+  if (o.amount != null) return Math.min(max, o.amount);
   if (o.rect == null)
     throw new Error("zoom override without an amount requires a rect");
-  return Math.min(ZOOM_MAX, fitAmount(o.rect, width, height));
+  return Math.min(max, fitAmount(o.rect, width, height));
 };
 
 /**
  * plan returns the camera's zoom segments: one per authored zoom override. Clicks
- * never zoom; the camera holds the full frame unless a shot asks for a zoom.
+ * never zoom; the camera holds the full frame unless a shot asks for a zoom. Every
+ * amount is capped at the deepest zoom that stays crisp in a video outputWidth pixels
+ * wide: the capture's native width over outputWidth.
  */
-export const plan = (tl: Timeline): Segment[] => {
-  const { width, height } = tl.meta;
+export const plan = (tl: Timeline, outputWidth: number): Segment[] => {
+  const { width, height, dsf } = tl.meta;
+  const max = (width * dsf) / outputWidth;
   const moves = tl.events
     .filter((e) => e.type === "move")
     .sort((a, b) => a.tick - b.tick);
@@ -75,7 +83,7 @@ export const plan = (tl: Timeline): Segment[] => {
     .map((o) => ({
       start: o.tick,
       end: o.endTick,
-      amount: overrideAmount(o, width, height),
+      amount: overrideAmount(o, width, height, max),
       focus: { tick: o.tick, point: { x: o.x, y: o.y }, rect: o.rect },
       follow: moves
         .filter((m) => m.tick > o.tick && m.tick - m.duration <= o.endTick)

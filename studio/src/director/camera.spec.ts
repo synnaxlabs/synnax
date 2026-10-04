@@ -172,12 +172,12 @@ describe("camera.simulate", () => {
 
   it("should hold the full frame without an authored zoom", () => {
     const tl = timeline([...click(120, 100, 100), ...click(600, 1800, 1000)]);
-    for (const s of simulate(tl, plan(tl))) expect(s.amount).toBe(1);
+    for (const s of simulate(tl, plan(tl, W))) expect(s.amount).toBe(1);
   });
 
   it("should frame the authored rect and return to 1x after the zoom", () => {
     const tl = timeline([zoom(60, 400, dialog)]);
-    const track = simulate(tl, plan(tl));
+    const track = simulate(tl, plan(tl, W));
     expect(track[300].amount).toBeCloseTo(fitAmount(dialog, W, H), 2);
     contains(track[300], dialog);
     expect(track.at(-1)!.amount).toBeLessThan(1.01);
@@ -189,7 +189,7 @@ describe("camera.simulate", () => {
       move(200, 1900, 1070),
       move(400, 10, 10),
     ]);
-    for (const s of simulate(tl, plan(tl))) {
+    for (const s of simulate(tl, plan(tl, W))) {
       const c = crop(s, W, H);
       expect(c.x).toBeGreaterThanOrEqual(-1e-6);
       expect(c.y).toBeGreaterThanOrEqual(-1e-6);
@@ -201,7 +201,7 @@ describe("camera.simulate", () => {
   it("should hold the framing for cursor targets inside the crop", () => {
     const button: Rect = { x: 1200, y: 680, width: 120, height: 32 };
     const tl = timeline([zoom(60, 600, dialog), move(300, 1260, 696, button)]);
-    const track = simulate(tl, plan(tl));
+    const track = simulate(tl, plan(tl, W));
     expect(track[400].cx).toBeCloseTo(track[260].cx, 3);
     expect(track[400].cy).toBeCloseTo(track[260].cy, 3);
   });
@@ -210,7 +210,7 @@ describe("camera.simulate", () => {
     const panel: Rect = { x: 100, y: 300, width: 400, height: 300 };
     const button: Rect = { x: 1700, y: 400, width: 120, height: 32 };
     const tl = timeline([zoom(60, 600, panel), move(300, 1760, 416, button)]);
-    const track = simulate(tl, plan(tl));
+    const track = simulate(tl, plan(tl, W));
     expect(track[450].amount).toBeCloseTo(track[260].amount, 3);
     expect(track[450].cx).toBeGreaterThan(track[260].cx + 0.2);
     contains(track[450], button);
@@ -219,7 +219,7 @@ describe("camera.simulate", () => {
   it("should pan without a jump", () => {
     const panel: Rect = { x: 100, y: 300, width: 400, height: 300 };
     const tl = timeline([zoom(60, 600, panel), move(300, 1760, 416)]);
-    const track = simulate(tl, plan(tl));
+    const track = simulate(tl, plan(tl, W));
     for (let f = 261; f < 600; f++) {
       const a = crop(track[f - 1], W, H);
       const b = crop(track[f], W, H);
@@ -230,13 +230,13 @@ describe("camera.simulate", () => {
   it("should start the pan when the cursor departs", () => {
     const panel: Rect = { x: 100, y: 300, width: 400, height: 300 };
     const tl = timeline([zoom(60, 600, panel), move(300, 1760, 416)]);
-    const track = simulate(tl, plan(tl));
+    const track = simulate(tl, plan(tl, W));
     expect(track[279].cx).toBeCloseTo(track[260].cx, 4);
     expect(track[300].cx).toBeGreaterThan(track[260].cx);
   });
 
   it("should be deterministic", () => {
     const tl = timeline([zoom(60, 400, dialog), move(200, 1700, 900)]);
-    expect(simulate(tl, plan(tl))).toEqual(simulate(tl, plan(tl)));
+    expect(simulate(tl, plan(tl, W))).toEqual(simulate(tl, plan(tl, W)));
   });
 });
