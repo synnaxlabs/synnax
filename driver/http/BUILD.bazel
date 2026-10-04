@@ -61,6 +61,7 @@ cc_test(
     name = "write_task_test",
     srcs = ["write_task_test.cpp"],
     linkstatic = True,
+    tags = ["requires-core"],
     deps = [
         ":http",
         "//client/cpp/testutil",
@@ -80,6 +81,7 @@ cc_test(
         "//driver/http/mock:test_cert.pem",
         "//driver/http/mock:test_key.pem",
     ],
+    tags = ["requires-core"],
     deps = [
         ":http",
         "//client/cpp/testutil",

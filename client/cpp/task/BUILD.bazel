@@ -50,6 +50,7 @@ cc_test(
 cc_test(
     name = "task_test",
     srcs = ["task_test.cpp"],
+    tags = ["requires-core"],
     deps = [
         ":task",
         "//client/cpp:synnax",
