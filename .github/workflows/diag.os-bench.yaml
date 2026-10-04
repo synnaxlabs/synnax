@@ -1,0 +1,42 @@
+name: Diag - OS bench
+on:
+  push:
+    branches: [diag-sy5080-os-bench]
+env:
+  BAZEL_REMOTE_CACHE_FLAGS:
+    --remote_cache=${{ vars.BAZEL_REMOTE_CACHE_GRPC_URL }}
+    --remote_cache_compression=true
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-build-bot, windows-build-bot]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - run: git submodule update --init --recursive
+      - uses: bazel-contrib/setup-bazel@0.19.0
+        with:
+          bazelisk-cache: false
+          disk-cache: false
+          repository-cache: false
+      - name: Build (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          bazel build -c opt //arc/cpp/runtime/loop:levels_bench
+          mkdir -p out && cp bazel-bin/arc/cpp/runtime/loop/levels_bench out/
+          file out/levels_bench; otool -L out/levels_bench; sw_vers
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          export MSYS_NO_PATHCONV=1
+          scripts/run_bazel.sh build -c opt $BAZEL_REMOTE_CACHE_FLAGS //arc/cpp/runtime/loop:levels_bench
+          mkdir -p out && cp bazel-bin/arc/cpp/runtime/loop/levels_bench.exe out/
+      - uses: actions/upload-artifact@v7
+        with:
+          name: levels_bench-${{ runner.os }}
+          path: out/
