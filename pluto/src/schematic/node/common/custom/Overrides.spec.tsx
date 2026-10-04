@@ -129,10 +129,9 @@ describe("StateOverrideForm", () => {
       const { swatches, getByLabelText, form } = await renderRegion();
       fireEvent.click(swatches[0]);
       fireEvent.change(getByLabelText("Hex"), { target: { value: "ff0000" } });
-      await waitFor(() => {
-        const stroke = baseRegion(form())?.strokeColor;
-        expect(stroke == null ? null : color.hex(stroke)).toBe("#ff0000");
-      });
+      await waitFor(() =>
+        expect(baseRegion(form())?.strokeColor).toEqual(color.construct("#ff0000")),
+      );
     });
 
     it("should clear the fill with Auto", async () => {
