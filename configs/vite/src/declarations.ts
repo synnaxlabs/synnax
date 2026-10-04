@@ -14,10 +14,10 @@ import path from "node:path";
 
 import { type Plugin } from "vite";
 
-const TSCONFIG = "tsconfig.build.json";
+export const TSCONFIG = "tsconfig.build.json";
 const ALIAS = /(["'])@\/([^"']+)\1/g;
 
-const tscBin = (): string => {
+export const tscBin = (): string => {
   const pkg = createRequire(import.meta.url).resolve("typescript/package.json");
   return path.join(path.dirname(pkg), "bin/tsc");
 };

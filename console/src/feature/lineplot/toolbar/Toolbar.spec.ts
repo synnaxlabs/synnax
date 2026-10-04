@@ -12,12 +12,12 @@ import { RoleClients } from "@synnaxlabs/client/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { LinePlot } from "@/feature/lineplot";
 import {
   client,
   createPreloadedState,
   renderLinePlot,
 } from "@/feature/lineplot/testutil";
+import { Toolbar } from "@/feature/lineplot/toolbar";
 import { getSwitch } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import { getIconButton, uniqueName } from "@/testutil";
@@ -26,7 +26,7 @@ const roles = new RoleClients(client);
 
 const renderToolbar = async (name = uniqueName("plot"), as?: Client) => ({
   name,
-  ...(await renderLinePlot(LinePlot.Toolbar, {
+  ...(await renderLinePlot(Toolbar, {
     linePlot: { name },
     preloadedState: (key) => createPreloadedState(key),
     as,

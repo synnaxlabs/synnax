@@ -10,18 +10,18 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { LinePlot } from "@/feature/lineplot";
 import {
   client,
   createPreloadedState,
   renderLinePlot,
 } from "@/feature/lineplot/testutil";
+import { Toolbar } from "@/feature/lineplot/toolbar";
 import { Session } from "@/session";
 import { getIconButton, getLabeledInput, uniqueName } from "@/testutil";
 
 const renderRulesTab = async () => {
   const name = uniqueName("plot");
-  const handle = await renderLinePlot(LinePlot.Toolbar, {
+  const handle = await renderLinePlot(Toolbar, {
     linePlot: { name },
     preloadedState: (key) => createPreloadedState(key),
   });
