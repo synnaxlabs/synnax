@@ -56,10 +56,10 @@ Driver:
 
 The Driver gets the PDOs of a module from a built-in catalog of Beckhoff and Dewesoft
 modules, then from the module itself. If it cannot find them, the status of the module
-starts with "Discovered with warning" or reads "Discovered (no PDOs found)". Tasks
-cannot use the PDOs of that module, and manual channels read wrong values. Check the CoE
-mailbox and the EEPROM (SII) of the module, then
-[restart the Driver](/reference/hardware/troubleshooting#restart-the-driver).
+starts with "Discovered with warning" or reads "Discovered (no PDOs found)". To scan
+again, [restart the Driver](/reference/hardware/troubleshooting#restart-the-driver). A
+module that the scan cannot read is not supported yet. Manual channels on that module
+read wrong values.
 
 <Divider.Divider x />
 
