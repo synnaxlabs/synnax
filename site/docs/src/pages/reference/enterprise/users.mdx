@@ -3,7 +3,7 @@ layout: "@/layouts/Reference.astro"
 title: "Users"
 description:
   "Register users, give them roles, and remove them. Includes the permissions of each
-  built-in role."
+  role."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -81,7 +81,7 @@ the user and register them again. A password can have up to 72 bytes.
 
 ## Manage users from code
 
-Create a user, then give it a built-in role:
+Create a user, then give it a role:
 
 <Client.Tabs exclude={["console", "cpp"]}>
 
@@ -91,9 +91,7 @@ Create a user, then give it a built-in role:
 user = client.users.create(
     username="jdoe", password="secret", first_name="Jane", last_name="Doe"
 )
-engineer = next(
-    r for r in client.access.roles.retrieve(internal=True) if r.name == "Engineer"
-)
+engineer = next(r for r in client.access.roles.retrieve() if r.name == "Engineer")
 client.access.roles.assign(user=user.key, role=engineer.key)
 ```
 
@@ -108,7 +106,7 @@ const user = await client.users.create({
   firstName: "Jane",
   lastName: "Doe",
 });
-const roles = await client.access.roles.retrieve({ internal: true });
+const roles = await client.access.roles.retrieve({});
 const engineer = roles.find((r) => r.name === "Engineer");
 await client.access.roles.assign({ user: user.key, role: engineer.key });
 ```
@@ -143,10 +141,9 @@ To change the root password for good, restart the Core with a new `--password`. 
 
 <Divider.Divider x />
 
-## Built-in roles
+## Roles
 
-A Core has five built-in roles. They cannot be changed or deleted. **All** means create,
-read, change, and delete.
+A Core has five roles. **All** means create, read, change, and delete.
 
 | Resources                                              | Owner | Engineer | Operator | Host           | Viewer |
 | ------------------------------------------------------ | ----- | -------- | -------- | -------------- | ------ |
