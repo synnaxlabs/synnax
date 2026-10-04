@@ -667,7 +667,7 @@ jobs:
 
       - name: Set up pnpm and Node.js
         if: inputs.console && env.CONSOLE_REF_RUN_ID == ''
-        uses: pnpm/setup@v3
+        uses: ./.github/actions/setup-pnpm
         with:
           # Build bots keep a local pnpm store, so restoring the GitHub cache tarball
           # only adds time. Linux stores it on the persistent root volume. Windows uses

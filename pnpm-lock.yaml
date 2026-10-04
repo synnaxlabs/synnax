@@ -527,6 +527,9 @@ catalogs:
     satteri:
       specifier: ^0.10.5
       version: 0.10.5
+    sharp:
+      specifier: ^0.35.4
+      version: 0.35.4
     shiki:
       specifier: ^4.4.3
       version: 4.4.3
@@ -1190,6 +1193,15 @@ importers:
       '@codingame/monaco-vscode-editor-api':
         specifier: 'catalog:'
         version: 37.1.0
+      '@fontsource-variable/inter':
+        specifier: 'catalog:'
+        version: 5.3.0
+      '@fontsource/geist-mono':
+        specifier: 'catalog:'
+        version: 5.2.8
+      '@fontsource/inter':
+        specifier: 'catalog:'
+        version: 5.3.0
       '@synnaxlabs/alamos':
         specifier: 'catalog:'
         version: link:../alamos/ts
@@ -1236,15 +1248,6 @@ importers:
       '@codingame/monaco-vscode-theme-service-override':
         specifier: 'catalog:'
         version: 37.1.0
-      '@fontsource-variable/inter':
-        specifier: 'catalog:'
-        version: 5.3.0
-      '@fontsource/geist-mono':
-        specifier: 'catalog:'
-        version: 5.2.8
-      '@fontsource/inter':
-        specifier: 'catalog:'
-        version: 5.3.0
       '@juggle/resize-observer':
         specifier: 'catalog:'
         version: 3.4.0
@@ -1687,9 +1690,15 @@ importers:
       '@synnaxlabs/vite-plugin':
         specifier: 'catalog:'
         version: link:../../configs/vite
+      '@synnaxlabs/x':
+        specifier: 'catalog:'
+        version: link:../../x/ts
       '@testing-library/react':
         specifier: 'catalog:'
         version: 16.3.3(@testing-library/dom@10.4.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@types/jsdom':
+        specifier: 'catalog:'
+        version: 30.0.0
       '@types/react':
         specifier: 'catalog:'
         version: 19.3.0
@@ -1705,6 +1714,9 @@ importers:
       jsdom:
         specifier: 'catalog:'
         version: 30.1.1
+      sharp:
+        specifier: 'catalog:'
+        version: 0.35.4(@types/node@24.19.0)
       stylelint:
         specifier: 'catalog:'
         version: 17.15.0(supports-color@10.2.2)(typescript@6.0.3)
@@ -10772,8 +10784,7 @@ snapshots:
 
   '@humanwhocodes/retry@0.4.3': {}
 
-  '@img/colour@1.1.0':
-    optional: true
+  '@img/colour@1.1.0': {}
 
   '@img/sharp-darwin-arm64@0.35.4':
     optionalDependencies:
@@ -16265,7 +16276,6 @@ snapshots:
       '@img/sharp-win32-ia32': 0.35.4
       '@img/sharp-win32-x64': 0.35.4
       '@types/node': 24.19.0
-    optional: true
 
   shebang-command@2.0.0:
     dependencies:

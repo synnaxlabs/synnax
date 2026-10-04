@@ -11,7 +11,7 @@
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Text } from "@synnaxlabs/lyra/text";
-import { cdn } from "@/cdn";
+import CdnPicture from "@/components/common/CdnPicture.astro";
 ---
 
 <div class="hero-wrapper">
@@ -51,10 +51,12 @@ import { cdn } from "@/cdn";
             </Flex.Box>
             <div class="screenshot-frame-outer">
                 <div class="screenshot-frame">
-                    <img
+                    <CdnPicture
                         class="hero-screenshot"
-                        src={cdn("images/console-screenshot.png")}
+                        path="images/console-screenshot.png"
                         alt="Synnax Console"
+                        sizes="(max-width: 1300px) 100vw, 1240px"
+                        priority
                     />
                 </div>
             </div>
@@ -169,6 +171,7 @@ import { cdn } from "@/cdn";
             position: relative;
             z-index: 1;
             width: 100%;
+            height: auto;
             border-radius: 1rem;
             border: none;
             outline: var(--pluto-border);

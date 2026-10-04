@@ -16,6 +16,9 @@ import * as path from "path";
 import { defineConfig, normalizePath, type Plugin } from "vite";
 
 const isDev = process.env.VITE_IS_DEV === "true";
+// Builds compile workspace packages from source, so code splitting reaches into them.
+// Specs run against the built packages.
+const fromSource = process.env.VITEST == null;
 // Builds Synnax Desktop, the app that bundles and manages its own Core.
 const desktop = process.env.VITE_DESKTOP === "true";
 const repoRoot = path.resolve(import.meta.dirname, "..");
@@ -88,62 +91,12 @@ const stripSourcesContent = (): Plugin => ({
   },
 });
 
-// Pluto hard-codes its Monaco worker addresses as root-absolute "/pluto/assets/..."
-// paths and marks them @vite-ignore, so this build neither rewrites them nor emits the
-// files. Copying each referenced worker to the address it already names is what makes
-// it load, both in the desktop bundle and in the copy the Core serves.
-const plutoWorkers = (): Plugin => {
-  const PATTERN = /\/pluto\/assets\/([\w.-]+)/g;
-  /** Adds every address in code to seen, returning only the ones new to it. */
-  const scan = (code: string, seen: Set<string>): string[] => {
-    const fresh: string[] = [];
-    for (const [, name] of code.matchAll(PATTERN))
-      if (!seen.has(name)) {
-        seen.add(name);
-        fresh.push(name);
-      }
-    return fresh;
-  };
-  return {
-    name: "pluto-workers",
-    async writeBundle(options, bundle) {
-      const dir = options.dir;
-      if (dir == null) return;
-      const seen = new Set<string>();
-      const pending: string[] = [];
-      Object.values(bundle).forEach((chunk) => {
-        if (chunk.type !== "chunk") return;
-        pending.push(...scan(chunk.code, seen));
-      });
-      if (seen.size === 0)
-        throw new Error(
-          "no /pluto/assets worker addresses in the bundle. Pluto's worker URL " +
-            "format changed; update the pattern above.",
-        );
-      const out = path.join(dir, "pluto", "assets");
-      await fs.mkdir(out, { recursive: true });
-      // A worker imports its own chunks, which the Console's bundle never names.
-      for (let name = pending.pop(); name != null; name = pending.pop()) {
-        const from = path.resolve(repoRoot, "pluto/dist/assets", name);
-        let code: string;
-        try {
-          code = await fs.readFile(from, "utf-8");
-        } catch (err) {
-          throw new Error(`missing ${from}. Run pnpm build:pluto.`, { cause: err });
-        }
-        await fs.writeFile(path.join(out, name), code);
-        pending.push(...scan(code, seen));
-      }
-    },
-  };
-};
-
 export default defineConfig({
   clearScreen: false,
   server: { port: 5173, strictPort: true },
   resolve: {
     tsconfigPaths: true,
-    alias: isDev
+    alias: fromSource
       ? {
           "@synnaxlabs/pluto/dist": path.resolve(repoRoot, "pluto/dist"),
           "@synnaxlabs/pluto": path.resolve(repoRoot, "pluto/src"),
@@ -160,7 +113,7 @@ export default defineConfig({
   },
   envPrefix: ["VITE_", "TAURI_"],
   css: { postcss: { plugins: [layers(CSS_LAYERS)] } },
-  plugins: [react(), workspaceSourcemaps(), stripSourcesContent(), plutoWorkers()],
+  plugins: [react(), workspaceSourcemaps(), stripSourcesContent()],
   build: {
     target: process.env.TAURI_PLATFORM === "windows" ? "chrome111" : "safari16.4",
     minify: !isDev,
@@ -176,8 +129,8 @@ export default defineConfig({
   define: { IS_DEV: isDev, DESKTOP: desktop },
   worker: {
     format: "es",
-    // The worker is a separate build and does not inherit `plugins`, so aether frames
-    // would otherwise stop at pluto/dist.
+    // The worker is a separate build and does not inherit `plugins`, so its frames
+    // would otherwise stop at client/ts/dist.
     plugins: () => [workspaceSourcemaps()],
   },
   test: {
