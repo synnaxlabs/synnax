@@ -132,6 +132,19 @@ export default manifest.define([
   // Hardware shots run against the simulated Driver in fixtures/hardware.ts.
   { id: "device-drivers/task/task-basic", script: "scripts/tasks-start.ts" },
   { id: "hardware/devices/toolbar", script: "scripts/devices-toolbar.ts" },
+  // The custom devices tutorial runs against fixtures/arduino.ts.
+  {
+    id: "client/resources/build-device-driver/line-plot",
+    script: "scripts/custom-devices-line-plot.ts",
+  },
+  {
+    id: "client/resources/build-device-driver/schematic",
+    script: "scripts/custom-devices-schematic.ts",
+  },
+  {
+    id: "client/resources/build-device-driver/console-setup",
+    script: "scripts/custom-devices-console-setup.ts",
+  },
   {
     id: "releases/0-57-0/panels",
     script: "scripts/release-0-57-0-panels.ts",
