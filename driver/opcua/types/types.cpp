@@ -23,6 +23,8 @@
 namespace driver::opcua::types {
 namespace {
 /// @brief parses an unsigned decimal number that spans all of str.
+/// @param str the digits to parse.
+/// @param value set to the parsed number on success.
 /// @returns false if str is empty, has a non-digit, or overflows T.
 template<typename T>
 bool parse_number(const std::string_view str, T &value) {
@@ -82,42 +84,36 @@ std::pair<NodeId, x::errors::Error> NodeId::parse(const std::string &node_id_str
         reinterpret_cast<UA_Byte *>(identifier.data())
     };
 
-    UA_NodeId raw_id = UA_NODEID_NULL;
+    NodeId result;
+    UA_NodeId &id = result.id_;
     switch (upper(body[0])) {
         case 'I': {
             UA_UInt32 numeric = 0;
             if (!parse_number(std::string_view(identifier), numeric)) return invalid();
-            raw_id = UA_NODEID_NUMERIC(ns, numeric);
+            id = UA_NODEID_NUMERIC(ns, numeric);
             break;
         }
         case 'S':
-            raw_id = UA_NODEID_STRING_ALLOC(ns, identifier.c_str());
+            id = UA_NODEID_STRING_ALLOC(ns, identifier.c_str());
             break;
         case 'G': {
             UA_Guid guid;
             if (UA_Guid_parse(&guid, ua_identifier) != UA_STATUSCODE_GOOD)
                 return invalid();
-            raw_id = UA_NODEID_GUID(ns, guid);
+            id = UA_NODEID_GUID(ns, guid);
             break;
         }
         case 'B': {
-            raw_id.namespaceIndex = ns;
-            raw_id.identifierType = UA_NODEIDTYPE_BYTESTRING;
+            id.namespaceIndex = ns;
+            id.identifierType = UA_NODEIDTYPE_BYTESTRING;
             // The decoder is lenient, so only input that re-encodes to itself is valid.
             String canonical;
-            if (UA_ByteString_fromBase64(
-                    &raw_id.identifier.byteString,
-                    &ua_identifier
-                ) == UA_STATUSCODE_GOOD &&
-                UA_ByteString_toBase64(
-                    &raw_id.identifier.byteString,
-                    canonical.ptr()
-                ) != UA_STATUSCODE_GOOD) {
-                UA_NodeId_clear(&raw_id);
+            if (UA_ByteString_fromBase64(&id.identifier.byteString, &ua_identifier) ==
+                    UA_STATUSCODE_GOOD &&
+                UA_ByteString_toBase64(&id.identifier.byteString, canonical.ptr()) !=
+                    UA_STATUSCODE_GOOD)
                 throw std::bad_alloc();
-            }
-            if (!UA_String_equal(&ua_identifier, &canonical.get())) {
-                UA_NodeId_clear(&raw_id);
+            if (!UA_String_equal(&ua_identifier, &canonical.get()))
                 return {
                     NodeId(),
                     x::errors::Error(
@@ -125,16 +121,11 @@ std::pair<NodeId, x::errors::Error> NodeId::parse(const std::string &node_id_str
                         "Invalid base64 in ByteString identifier: " + identifier
                     )
                 };
-            }
             break;
         }
         default:
             return invalid();
     }
-
-    // NodeId copies raw_id, so raw_id still owns its allocation.
-    NodeId result(raw_id);
-    UA_NodeId_clear(&raw_id);
     return {std::move(result), x::errors::NIL};
 }
 
