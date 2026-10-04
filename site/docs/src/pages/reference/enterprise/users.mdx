@@ -127,16 +127,22 @@ with their keys.
 A Core starts with one root user, `synnax` with the password `seldon` by default. The
 root user always has the **Owner** role. At each start, the Core:
 
-- Creates the root user from `--username` and `--password` if it does not exist.
+- Creates the root user from `--username` and `--password` if no user has that
+  username. If a user has it, the Core makes that user the root user with the **Owner**
+  role.
 - Sets the root password back to `--password`. A changed root password lasts only until
   the next start.
+
+When you start the Core with a different `--username`, the previous root user stops
+being root but keeps the **Owner** role and its password. To remove it, delete it.
 
 <Note.Note variant="warning">
   Do not change the username of the root user. At the next start, the Core creates a new
   root user, and the renamed user keeps the **Owner** role.
 </Note.Note>
 
-To change the root password for good, restart the Core with a new `--password`. See the
+To change the root password for good, or to recover a forgotten one, restart the Core
+with a new `--password`. See the
 [CLI reference](/reference/enterprise/cli-reference#start).
 
 <Divider.Divider x />

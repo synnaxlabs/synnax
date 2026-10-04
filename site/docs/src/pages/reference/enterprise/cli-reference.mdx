@@ -132,14 +132,14 @@ The key file of the Core, relative to `--certs-dir`.
 <Field.Item name="--username" type="string" default='"synnax"' env="SYNNAX_USERNAME">
 
 The username of the root user. The Core applies it at every start. See
-[Root user](#root-user).
+[the root user](/reference/enterprise/users#the-root-user).
 
 </Field.Item>
 
 <Field.Item name="--password" type="string" default='"seldon"' env="SYNNAX_PASSWORD">
 
 The password of the root user. At every start, the Core sets the root password to this
-value. See [Root user](#root-user).
+value. See [the root user](/reference/enterprise/users#the-root-user).
 
 </Field.Item>
 
@@ -189,15 +189,15 @@ a service, because a service has no standard input.
 <Field.Item name="--disable-integrations" type="list" env="SYNNAX_DISABLE_INTEGRATIONS">
 
 The device integrations to disable. All integrations are enabled by default. The options
-are `arc`, `ethercat`, `labjack`, `modbus`, `ni`, and `opc`.
+are `arc`, `ethercat`, `http`, `labjack`, `modbus`, `ni`, and `opc`.
 
 </Field.Item>
 
 <Field.Item name="--enable-integrations" type="list" env="SYNNAX_ENABLE_INTEGRATIONS">
 
 The device integrations to enable, when you want only some of them. All integrations are
-enabled by default. The options are `arc`, `ethercat`, `labjack`, `modbus`, `ni`, and
-`opc`.
+enabled by default. The options are `arc`, `ethercat`, `http`, `labjack`, `modbus`,
+`ni`, and `opc`.
 
 </Field.Item>
 
@@ -445,19 +445,6 @@ Fields of a listener:
     },
   ]}
 />
-
-### Root user
-
-At every start, the Core applies `--username` and `--password` to the root user:
-
-- When no user has the username, the Core creates it as the root user with the **Owner**
-  role.
-- When a user has the username, the Core makes it the root user, gives it the **Owner**
-  role, and sets its password to `--password`.
-- When the username changes, the previous root user stops being root but keeps the
-  **Owner** role and its password. To remove it, delete it.
-
-To recover a forgotten root password, restart the Core with a new `--password`.
 
 <Divider.Divider x />
 

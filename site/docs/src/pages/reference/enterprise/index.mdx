@@ -8,7 +8,6 @@ platforms: ["Linux", "Windows", "macOS", "Docker"]
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { Note } from "@synnaxlabs/lyra/note";
 
 import { Platform } from "@/components/platform";
@@ -245,18 +244,9 @@ The Console is also a desktop application for Windows and macOS. To use it, see
 
 ## <Step step={4} level="h2">Activate the license</Step>
 
-1. Click **Copy fingerprint**. The fingerprint identifies the computer that runs the
-   Core.
-2. Click **Get a key**, and log in to your Synnax account.
-3. Select the license, enter a **Machine name**, and paste the fingerprint into **Host
-   hashes**.
-4. Click **Activate and download license key**. Your browser downloads a `.lic` file.
-5. In the Console, click <Icon.Attachment /> and select the `.lic` file, or paste the
-   key.
-6. Click **Activate**.
-
-The Core stores the key, so it stays active after a restart. To activate a Core with no
-browser, see [Activate a license](/reference/enterprise/license).
+On the **This Core needs a license** screen, follow the steps in
+[Activate from the Console](/reference/enterprise/license#activate-from-the-console). The
+Core stores the key, so it stays active after a restart.
 
 <Divider.Divider x />
 

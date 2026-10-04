@@ -152,7 +152,7 @@ For a certificate from your own authority, or from a Core that runs with `--auto
   [Install certificates](/reference/enterprise/certificates).
 - **macOS** -> the Driver does not read the macOS keychain. Set
   `GRPC_DEFAULT_SSL_ROOTS_FILE_PATH` to the CA file in the shell that runs `login` and
-  `start`. The Driver then trusts only the certificates in that file.
+  `start`. See [Install certificates](/reference/enterprise/certificates#install-the-certificate).
 
 On Linux and NI Linux Real-Time, you can instead add the variable to
 `/etc/synnax/driver.env`, before you run `login`. See
