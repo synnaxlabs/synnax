@@ -11,7 +11,6 @@
 
 #include <cstring>
 #include <string>
-#include <thread>
 
 #include "absl/log/log.h"
 #include <sys/event.h>
@@ -167,9 +166,6 @@ private:
             }
             if (max_timeout.nanoseconds() > 0 && sw.elapsed() >= max_timeout)
                 return WakeReason::Timer;
-            // Prevent starvation of breaker-stopping threads. yield() over
-            // sleep_for() to avoid adding ~50-100us of kernel timer overhead.
-            std::this_thread::yield();
         }
         return WakeReason::Shutdown;
     }
