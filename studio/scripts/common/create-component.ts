@@ -7,7 +7,68 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ZOOM_RECT_MARGIN_PX } from "@/director/constants";
 import { capture } from "@/index";
+
+const ZOOM = 1.5;
+
+/**
+ * pickComponent zooms on the open "Create component" selector's options and picks
+ * `title`, then waits for `ready`, a selector for the opened component. The zoom ends
+ * at the pick.
+ */
+export const pickComponent = async (
+  session: capture.CaptureSession,
+  title: string,
+  ready: string,
+): Promise<void> => {
+  const { page } = session;
+  // The selector frame fills the panel, so a zoom on it renders at 1x. Zoom on the
+  // center of its options instead.
+  const options = page.locator(".console-layout-selector__frame").getByRole("button");
+  await session.waitFor(options.first());
+  const [first, last] = await Promise.all([
+    options.first().boundingBox(),
+    options.last().boundingBox(),
+  ]);
+  const target = await page
+    .locator(".console-layout-selector__frame")
+    .getByRole("button", { name: title })
+    .first()
+    .boundingBox();
+  if (first == null || last == null || target == null)
+    throw new Error("selector options are hidden");
+  // Shift the zoom off the options' center only as far as it takes to hold the picked
+  // option inside the crop's margin, so the camera does not pan to reach it.
+  const viewport = page.viewportSize() ?? { width: 1600, height: 900 };
+  const keep = (center: number, pos: number, size: number, span: number): number => {
+    const half = span / ZOOM / 2;
+    const lo = pos + size + ZOOM_RECT_MARGIN_PX - half;
+    const hi = pos - ZOOM_RECT_MARGIN_PX + half;
+    return Math.min(hi, Math.max(lo, center));
+  };
+  await session.zoom(
+    {
+      x: keep(
+        (first.x + last.x + last.width) / 2,
+        target.x,
+        target.width,
+        viewport.width,
+      ),
+      y: keep(
+        (first.y + last.y + last.height) / 2,
+        target.y,
+        target.height,
+        viewport.height,
+      ),
+    },
+    ZOOM,
+  );
+  await session.hold(800);
+  await capture.createComponent(session, title);
+  session.endZoom();
+  await session.waitFor(page.locator(ready).first());
+};
 
 /**
  * createComponentScript returns a script that clicks the mosaic "+" on an empty panel
@@ -17,7 +78,6 @@ import { capture } from "@/index";
 export const createComponentScript =
   (title: string, ready: string) =>
   async (session: capture.CaptureSession): Promise<void> => {
-    const { page } = session;
     await capture.login(session);
     await capture.clearPanel(session);
     await session.moveTo({ x: 800, y: 450 });
@@ -26,25 +86,6 @@ export const createComponentScript =
     await session.hold(1800);
 
     await capture.clickPanelCreate(session);
-    // The selector frame fills the panel, so a zoom on it renders at 1x. Zoom on the
-    // center of its options instead.
-    const options = page.locator(".console-layout-selector__frame").getByRole("button");
-    await session.waitFor(options.first());
-    const [first, last] = await Promise.all([
-      options.first().boundingBox(),
-      options.last().boundingBox(),
-    ]);
-    if (first == null || last == null) throw new Error("selector options are hidden");
-    await session.zoom(
-      {
-        x: (first.x + last.x + last.width) / 2,
-        y: (first.y + last.y + last.height) / 2,
-      },
-      1.5,
-    );
-    await session.hold(800);
-    await capture.createComponent(session, title);
-    session.endZoom();
-    await session.waitFor(page.locator(ready).first());
+    await pickComponent(session, title, ready);
     await session.hold(2800);
   };

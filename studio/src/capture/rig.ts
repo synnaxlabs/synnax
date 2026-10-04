@@ -524,12 +524,13 @@ export class CaptureSession {
    * drag presses at `from`, travels to `to` with the button held, and releases.
    * Unlike moveTo, the real mouse tracks the travel tick by tick (along the same
    * minimum-jerk profile the director renders), so drag interactions follow the
-   * cursor on screen.
+   * cursor on screen. With a list of stops, the drag rests `pauseMs` on each stop
+   * before the last, and resolves each stop only when it travels there.
    */
   async drag(
     from: Locator | Point,
-    to: Locator | Point,
-    opts?: { zoom?: boolean },
+    to: Locator | Point | Array<Locator | Point>,
+    opts?: { zoom?: boolean; pauseMs?: number },
   ): Promise<void> {
     const start = await this.moveTo(from);
     await this.dwell(opts?.zoom);
@@ -545,29 +546,39 @@ export class CaptureSession {
     await this.page.mouse.down();
     await this.hold(120);
 
-    const { point: dest, rect, cursor } = await this.resolve(to);
-    const duration = this.travelTicks(dest);
-    for (let i = 1; i <= duration; i++) {
-      const s = minimumJerk(i / duration);
-      await this.page.mouse.move(
-        start.x + (dest.x - start.x) * s,
-        start.y + (dest.y - start.y) * s,
-      );
-      await this.tick();
+    const stops = Array.isArray(to) ? to : [to];
+    for (const [i, stop] of stops.entries()) {
+      if (i > 0) await this.hold(opts?.pauseMs ?? 120);
+      const origin = this.cursor;
+      const { point: dest, rect, cursor } = await this.resolve(stop);
+      const duration = this.travelTicks(dest);
+      for (let t = 1; t <= duration; t++) {
+        const s = minimumJerk(t / duration);
+        await this.page.mouse.move(
+          origin.x + (dest.x - origin.x) * s,
+          origin.y + (dest.y - origin.y) * s,
+        );
+        await this.tick();
+      }
+      this.events.push({
+        type: "move",
+        tick: this.frame,
+        ...dest,
+        duration,
+        rect,
+        cursor,
+      });
+      this.cursor = dest;
+      this.cursorRect = rect;
     }
-    this.events.push({
-      type: "move",
-      tick: this.frame,
-      ...dest,
-      duration,
-      rect,
-      cursor,
-    });
-    this.cursor = dest;
-    this.cursorRect = rect;
     await this.hold(120);
 
-    this.events.push({ type: "pointerup", tick: this.frame, ...dest, button: "left" });
+    this.events.push({
+      type: "pointerup",
+      tick: this.frame,
+      ...this.cursor,
+      button: "left",
+    });
     await this.page.mouse.up();
     await this.tick();
   }

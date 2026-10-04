@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Locator } from "playwright";
-
 import { capture } from "@/index";
+
+import { selectItem, switchFor } from "./common/channel-dialog";
 
 /**
  * Docs `client/channels/create`: click the "+" action in the Channels toolbar, create
@@ -70,22 +70,4 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.click(modal.getByRole("button", { name: "Close" }).first());
   await session.waitForHidden(name);
   await session.hold(2800);
-};
-
-/** switchFor returns the switch input beside a label in the create dialog. */
-const switchFor = (modal: Locator, label: string): Locator =>
-  modal.getByText(label, { exact: true }).locator("..").locator("input").first();
-
-/** selectItem clicks an option in the open dropdown list. */
-const selectItem = async (
-  session: capture.CaptureSession,
-  text: string,
-): Promise<void> => {
-  const item = session.page
-    .locator(".pluto-list__item:not(.pluto-tree__item)")
-    .filter({ has: session.page.getByText(text, { exact: true }) })
-    .first();
-  await session.waitFor(item);
-  await session.hold(600);
-  await session.click(item.getByText(text, { exact: true }).first(), { text: true });
 };

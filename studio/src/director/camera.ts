@@ -14,7 +14,6 @@ import {
   BLUR_ZOOM_GAIN,
   CAMERA_SIM_DT,
   CAMERA_SPRING,
-  EDGE_SNAP_RATIO,
   PRE_AIM_EPSILON,
   ZOOM_RECT_MARGIN_PX,
 } from "@/director/constants";
@@ -52,8 +51,8 @@ export const crop = (s: CameraSample, width: number, height: number): Crop => ({
 
 /**
  * focusToCenter maps a focus point (CSS px) to the travel-space center that puts
- * the point at the middle of the crop, with edge snapping: focus in the outer
- * band pins flush to the edge.
+ * the point at the middle of the crop. A focus too near an edge to center pins the
+ * crop flush to that edge.
  */
 export const focusToCenter = (
   focus: Point,
@@ -63,9 +62,7 @@ export const focusToCenter = (
 ): Point => {
   const map = (u: number, z: number): number => {
     if (z <= 1) return 0.5;
-    const naive = (u - 1 / (2 * z)) / (1 - 1 / z);
-    const snapped = (naive - EDGE_SNAP_RATIO) / (1 - 2 * EDGE_SNAP_RATIO);
-    return Math.min(1, Math.max(0, snapped));
+    return Math.min(1, Math.max(0, (u - 1 / (2 * z)) / (1 - 1 / z)));
   };
   return { x: map(focus.x / width, amount), y: map(focus.y / height, amount) };
 };

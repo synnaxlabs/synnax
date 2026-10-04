@@ -41,9 +41,6 @@ export const CAMERA_SPRING: SpringParams = { stiffness: 130, damping: 42, mass: 
 /** Camera simulation step in seconds. */
 export const CAMERA_SIM_DT = 0.008;
 
-/** Focus in the outer band of the frame pins the camera flush to that edge. */
-export const EDGE_SNAP_RATIO = 0.25;
-
 /** Amounts at or below this are treated as fully zoomed out (pre-aim active). */
 export const PRE_AIM_EPSILON = 1.0005;
 

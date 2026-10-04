@@ -45,7 +45,15 @@ describe("focusToCenter", () => {
     expect(c.y).toBeCloseTo(0.5, 5);
   });
 
-  it("should pin edge-band focus flush to the edge", () => {
+  it("should put an off-center focus at the middle of the crop", () => {
+    const focus = { x: 0.48 * W, y: 0.56 * H };
+    const { x: cx, y: cy } = focusToCenter(focus, 1.5, W, H);
+    const c = crop({ amount: 1.5, cx, cy }, W, H);
+    expect(c.x + c.width / 2).toBeCloseTo(focus.x, 5);
+    expect(c.y + c.height / 2).toBeCloseTo(focus.y, 5);
+  });
+
+  it("should pin a focus too near an edge to center flush to the edge", () => {
     expect(focusToCenter({ x: 10, y: H / 2 }, 2, W, H).x).toEqual(0);
     expect(focusToCenter({ x: W - 10, y: H / 2 }, 2, W, H).x).toEqual(1);
   });
