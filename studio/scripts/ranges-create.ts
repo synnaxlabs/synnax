@@ -9,11 +9,6 @@
 
 import { capture } from "@/index";
 
-// Credentials and project come from the environment; never commit them.
-const USERNAME = process.env.SY_USERNAME ?? "";
-const PASSWORD = process.env.SY_PASSWORD ?? "";
-const PROJECT = process.env.SY_PROJECT ?? "";
-
 /**
  * Docs `console/ranges/create`. Three ways to create a range, from the Ranges
  * toolbar, the command palette, and a plot selection.
@@ -21,18 +16,7 @@ const PROJECT = process.env.SY_PROJECT ?? "";
 export default async (session: capture.CaptureSession): Promise<void> => {
   const { page } = session;
 
-  // Off-camera setup: the served console auto-connects to its own Core, so
-  // setup is just login and project selection.
-  await session.waitFor(page.locator(".pluto-field__username input"));
-  await page.locator(".pluto-field__username input").first().fill(USERNAME);
-  await page.locator(".pluto-field__password input").first().fill(PASSWORD);
-  await page.getByRole("button", { name: "Log in" }).click();
-
-  const project = page.getByText(PROJECT, { exact: true }).first();
-  await session.waitFor(project, 1800);
-  await project.click();
-  await session.waitFor(page.locator(".console-palette button"), 900);
-  await session.settle(1000);
+  await capture.login(session);
 
   await capture.openToolbar(session, "range");
   await capture.resizeToolbar(session, 400);

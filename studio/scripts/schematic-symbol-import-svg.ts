@@ -15,9 +15,9 @@ import { capture } from "@/index";
 const SVG = path.join(import.meta.dirname, "files", "tank.svg");
 
 /**
- * Docs `console/schematics/symbol-import-svg`: with a custom group selected,
- * open the create symbol dialog, import an SVG, and save; the editor lists the
- * color regions it found and the symbol joins the group.
+ * Docs `console/schematics/symbol-import-svg`: with a custom group selected, open
+ * the create symbol dialog, import an SVG, make it an actuator, recolor one region
+ * in its Active state, and create it; the symbol joins the group.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const { page } = session;
@@ -67,7 +67,41 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await (await chooser).setFiles(SVG);
   const region = page.locator(".console-schematic-region-list-item").first();
   await session.waitFor(region);
-  await session.hold(2400);
+  await session.hold(1800);
+
+  await session.click(
+    modal.locator(".pluto-select-btn").filter({ hasText: "Actuator" }).first(),
+    { text: true, zoom: false },
+  );
+  const active = modal
+    .locator(".console-schematic-state-list-item")
+    .filter({ hasText: "Active" })
+    .first();
+  await session.waitFor(active);
+  await session.hold(700);
+  await session.click(active, { text: true, zoom: false });
+  await session.hold(700);
+
+  // The second swatch of a region is its fill.
+  await session.click(region.locator(".pluto-color-swatch--chip").nth(1), {
+    zoom: false,
+  });
+  const picker = page.locator(".pluto-color-picker").first();
+  await session.waitFor(picker);
+  await session.hold(600);
+  // The second preset is the theme's secondary color.
+  await session.click(
+    picker.locator(".pluto-color-picker__swatches .pluto-color-swatch").nth(1),
+    { zoom: false },
+  );
+  await session.hold(500);
+  // A click outside the floating picker closes it.
+  await session.click(modal.getByText("Colors", { exact: true }).first(), {
+    text: true,
+    zoom: false,
+  });
+  await session.waitForHidden(picker);
+  await session.hold(1400);
 
   await session.click(
     modal.getByRole("button", { name: "Create", exact: true }).first(),
