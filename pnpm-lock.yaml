@@ -1353,6 +1353,9 @@ importers:
       '@astrojs/react':
         specifier: 'catalog:'
         version: 7.0.0(@types/node@24.19.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(esbuild@0.28.2)(jiti@2.7.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.0)
+      '@synnaxlabs/arc':
+        specifier: 'catalog:'
+        version: link:../../arc/ts
       '@synnaxlabs/lyra':
         specifier: 'catalog:'
         version: link:../../lyra
@@ -1365,6 +1368,9 @@ importers:
       astro-seo:
         specifier: 'catalog:'
         version: 1.2.0
+      shiki:
+        specifier: 'catalog:'
+        version: 4.4.3
     devDependencies:
       '@astrojs/check':
         specifier: 'catalog:'
@@ -1459,9 +1465,6 @@ importers:
       react-dom:
         specifier: 'catalog:'
         version: 19.3.0(react@19.3.0)
-      shiki:
-        specifier: 'catalog:'
-        version: 4.4.3
       zod:
         specifier: 'catalog:'
         version: 4.6.5
@@ -1665,9 +1668,6 @@ importers:
       react-dom:
         specifier: 'catalog:'
         version: 19.3.0(react@19.3.0)
-      shiki:
-        specifier: 'catalog:'
-        version: 4.4.3
       zod:
         specifier: 'catalog:'
         version: 4.6.5

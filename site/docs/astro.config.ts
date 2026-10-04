@@ -13,11 +13,11 @@ import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
 import { integration } from "@synnaxlabs/site-common/integration";
+import { symbols, theme } from "@synnaxlabs/site-common/shiki";
 import { layers } from "@synnaxlabs/vite-plugin";
 import { defineConfig, envField } from "astro/config";
 
 import { outline } from "./src/util/outline";
-import { symbols, theme } from "./src/util/shiki";
 
 // https://astro.build/config
 export default defineConfig({
