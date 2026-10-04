@@ -43,6 +43,10 @@ line.
 ## Section and page structure
 
 - One page per task. No "Manage" titles and no catch-all pages that hold many tasks.
+- Exception: a page for one Console component or one hardware task type (line plots,
+  schematics, an NI analog read task) holds that component's tasks as verb h2s, then
+  its reference. The title stays the component noun. A task that needs more than ten
+  steps or its own tutorial gets its own page.
 - Each section opens with a concept page. The concept page has a section on what the
   thing is for: short canonical use cases, each linking to the page that shows how.
 - Nav labels drop the section noun ("Create"). Page titles keep it for search ("Create
