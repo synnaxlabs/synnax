@@ -71,6 +71,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     zoom: false,
   });
   await session.waitFor(capture.treeItem(page, "user:", "grace"));
-  await session.moveTo({ x: 800, y: 450 });
+  // Park clear of the component buttons, so none shows a hover state.
+  await session.moveTo({ x: 1300, y: 780 });
   await session.hold(2800);
 };
