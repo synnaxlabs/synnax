@@ -85,7 +85,8 @@ How other systems answer the questions in this RFC:
    stream. No clock does.
 5. **Passwords are never saved to disk**: The Core keeps hashes. Clients, the Console,
    and the Driver save a session token or an API key, which can be revoked on its own.
-   The one exception is the root password in the Core start settings (§4.7).
+   The one exception is the root password in the Core start settings. §4.11 lists what
+   each component saves.
 
 ## 4 Design
 
@@ -295,7 +296,7 @@ cluster keeps honoring the session until it rejoins.
   why the session list shows an address and a start time.
 - A person disabled at the identity provider keeps access until their session goes idle
   or someone revokes it. Offboarding must include a delete of the Synnax user. A later
-  back-channel logout endpoint (§4.11) removes this gap for providers that support it.
+  back-channel logout endpoint (§4.12) removes this gap for providers that support it.
 - The 12 and 24 hour session limits in NIST SP 800-63B are not met.
 
 ### 4.5 Streams
@@ -414,7 +415,34 @@ rules the table does not show:
   the user to the login page. User and rack pages gain a credentials list.
 - **The Driver** config replaces `username` and `password` with `api_key`.
 
-### 4.11 Does it extend?
+### 4.11 What each component saves
+
+No component saves a password, with one exception: the root password in the Core start
+settings. Everything else that is saved is a hash, or a token or key that can be revoked
+on its own and is kept in the operating system keychain or in a file that only its owner
+can read.
+
+| Component        | Saves                                             | Where                                            | Protection                                                      |
+| ---------------- | ------------------------------------------------- | ------------------------------------------------ | --------------------------------------------------------------- |
+| Core             | Hashes of passwords, API keys, and session tokens | Database                                         | A hash cannot be used to log in                                 |
+| Core             | Root password                                     | Start flag, environment variable, or config file | Plain text. The one exception                                   |
+| Core             | API key of the embedded Driver                    | Driver config file in the Core data directory    | Plain text, owner-only file                                     |
+| Driver           | API key of its rack                               | Driver state file                                | Plain text, owner-only file                                     |
+| Console, desktop | Session token                                     | Operating system keychain                        | Encrypted by the operating system                               |
+| Console, browser | Session token                                     | Browser storage                                  | Plain text, limited to the Core's origin                        |
+| Python CLI       | API key                                           | Operating system keyring                         | Encrypted by the operating system                               |
+| Client libraries | Nothing                                           | Memory only                                      | Gone when the process exits                                     |
+| Synnax Desktop   | Nothing                                           | Memory only                                      | The launch password goes to the Core in an environment variable |
+
+Three changes follow from the table:
+
+- The Driver state file is readable and writable by every user today
+  (`driver/rack/persist.cpp:17-22`). It becomes owner-only.
+- The Console moves its saved login from the Tauri store, a plain file, to the keychain.
+- A root password given as a start flag shows in the process list. The docs recommend
+  the environment variable or a config file that only the Core's user can read.
+
+### 4.12 Does it extend?
 
 **A service account.** A later RFC adds a `service_account` resource. That PR adds one
 row to the subject map with `api_key`, and calls `DeleteFor` when an account is deleted.
@@ -476,6 +504,8 @@ Each phase is one pull request into `main`.
   can still log in.
 - A Driver with a saved username and password enrolls itself on its first start after
   the upgrade and removes the password from its file.
+- The Console and the Python CLI delete the password they saved before the upgrade, once
+  the first login with it succeeds.
 
 ## 7 Resolved decisions
 
