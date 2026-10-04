@@ -49,6 +49,13 @@ on:
         required: false
         type: boolean
         default: false
+      warm:
+        description:
+          Whether to lint and compile the tests without running them, which fills the
+          caches that pull requests restore
+        required: false
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs: *inputs
 
@@ -193,21 +200,31 @@ jobs:
             ${{ steps.key.outputs.module }}
 
       - name: Install stringer
-        if: matrix.codegen
+        if: matrix.codegen && !inputs.warm
         run: go install golang.org/x/tools/cmd/stringer@v0.50.0
 
       - name: Install antlr4
-        if: matrix.codegen && inputs.install_antlr4
+        if: matrix.codegen && !inputs.warm && inputs.install_antlr4
         run: |
           scripts/install_antlr4.sh
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Verify `go generate` is up to date
-        if: matrix.codegen
+        if: matrix.codegen && !inputs.warm
         run: scripts/check_go_generate.sh ${{ inputs.directory }}
+
+      # Matches the compile flags of the Test step below, so it fills the cache entries
+      # that step looks up.
+      - name: Compile the tests
+        if: inputs.warm
+        run: |
+          go run github.com/onsi/ginkgo/v2/ginkgo build -r --cover --race \
+            --ldflags="-w -s"
+        working-directory: ${{ inputs.directory }}
 
       # macOS skips race and cover until it runs on stronger machines.
       - name: Test
+        if: ${{ !inputs.warm }}
         timeout-minutes: 150
         run: >-
           go run github.com/onsi/ginkgo/v2/ginkgo -r ${{ runner.os == 'macOS' &&
@@ -226,7 +243,7 @@ jobs:
           key: ${{ steps.cache.outputs.cache-primary-key }}
 
       - name: Upload coverage
-        if: runner.os != 'macOS'
+        if: runner.os != 'macOS' && !inputs.warm
         uses: codecov/codecov-action@v7
         with:
           fail_ci_if_error: true
