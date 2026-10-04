@@ -38,7 +38,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await capture.login(session);
 
   await capture.searchPalette(session, "My Range");
-  const trigger = page.getByText("Select labels", { exact: true }).first();
+  const trigger = page.getByText(/^(Select labels|Labels)$/).first();
   const listItem = (name: string) =>
     page
       .locator(".pluto-list__item:not(.pluto-tree__item)")
