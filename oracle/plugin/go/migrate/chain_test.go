@@ -635,6 +635,68 @@ Config struct {
 			},
 			[]string{"case v0.TextPayload:", "func autoMigrateTextPayload"},
 		),
+		Entry(
+			"migrates a named variant whose payload changed through the generated switch",
+			"payload",
+			`Text struct {
+	value string
+
+	@go marshal
+}
+
+Payload union on type {
+	text Text
+
+	@go marshal
+}
+
+Config struct {
+	key uuid @key
+	payloads Payload[]
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Text struct {
+	value string
+	size int32 = 0
+
+	@go marshal
+}
+
+Payload union on type {
+	text Text
+
+	@go marshal
+}
+
+Config struct {
+	key uuid @key
+	payloads Payload[]
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Text struct {
+	value string
+	size int32 = 0
+}
+
+Payload union on type {
+	text Text
+}
+
+Config struct {
+	key uuid @key
+	payloads Payload[]
+}
+`,
+			true,
+			[]string{"return autoMigratePayload(ctx, v)", "case v0.TextPayload:"},
+			nil,
+		),
 		Entry("auto-copies value types without migrate entries",
 			"color",
 			`Color struct {

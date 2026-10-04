@@ -299,7 +299,9 @@ func diffWalk(
 		return TypeUnchanged
 	}
 
-	selfChanged := structFieldsChanged(oldStruct, newStruct, oldTable, newTable)
+	selfChanged := structFieldsChanged(
+		oldStruct, newStruct, oldTable, newTable, func(qn string) string { return qn },
+	)
 
 	hasDescendantChange := false
 	for _, f := range PersistedFields(oldStruct.Fields) {
@@ -357,7 +359,7 @@ func diffUnion(
 		}
 	}
 	kind := TypeUnchanged
-	if unionShapeChanged(form, new, oldTable, newTable) {
+	if unionShapeChanged(form, new, oldTable, newTable, counterpart) {
 		kind = TypeChanged
 	} else if hasDescendantChange {
 		kind = TypeDescendantChanged
@@ -372,17 +374,25 @@ func diffUnion(
 }
 
 // unionShapeChanged reports whether a union's own shape changed: its discriminator,
-// variants, number of bases, or the fields of an inline variant. As with structs, a
-// change inside a base is a descendant change.
+// variants, bases, or the fields of an inline variant. A type the union references
+// still matches when the new version redeclares it, since a change inside that type is
+// a descendant change.
 func unionShapeChanged(
 	old resolution.UnionForm,
 	newType resolution.Type,
 	oldTable, newTable *resolution.Table,
+	counterpart func(string) string,
 ) bool {
 	new, ok := newType.Form.(resolution.UnionForm)
 	if !ok || old.Discriminator != new.Discriminator ||
 		len(old.Variants) != len(new.Variants) ||
-		len(old.Extends) != len(new.Extends) {
+		!refsListIdentityEqual(
+			old.Extends,
+			new.Extends,
+			oldTable,
+			newTable,
+			counterpart,
+		) {
 		return true
 	}
 	for i, ov := range old.Variants {
@@ -391,7 +401,7 @@ func unionShapeChanged(
 			return true
 		}
 		if !ov.Inline {
-			if !refsIdentityEqual(ov.Type, nv.Type, oldTable, newTable) {
+			if !refsIdentityEqual(ov.Type, nv.Type, oldTable, newTable, counterpart) {
 				return true
 			}
 			continue
@@ -403,18 +413,42 @@ func unionShapeChanged(
 		}
 		of, oOk := op.Form.(resolution.StructForm)
 		nf, nOk := np.Form.(resolution.StructForm)
-		if !oOk || !nOk || len(of.Extends) != len(nf.Extends) ||
+		if !oOk || !nOk ||
+			!refsListIdentityEqual(
+				of.Extends,
+				nf.Extends,
+				oldTable,
+				newTable,
+				counterpart,
+			) ||
 			!slices.Equal(of.OmittedFields, nf.OmittedFields) ||
-			structFieldsChanged(of, nf, oldTable, newTable) {
+			structFieldsChanged(of, nf, oldTable, newTable, counterpart) {
 			return true
 		}
 	}
 	return false
 }
 
+func refsListIdentityEqual(
+	old, new []resolution.TypeRef,
+	oldTable, newTable *resolution.Table,
+	counterpart func(string) string,
+) bool {
+	if len(old) != len(new) {
+		return false
+	}
+	for i := range old {
+		if !refsIdentityEqual(old[i], new[i], oldTable, newTable, counterpart) {
+			return false
+		}
+	}
+	return true
+}
+
 func structFieldsChanged(
 	old, new resolution.StructForm,
 	oldTable, newTable *resolution.Table,
+	counterpart func(string) string,
 ) bool {
 	oldFields, newFields := PersistedFields(old.Fields), PersistedFields(new.Fields)
 	if len(oldFields) != len(newFields) {
@@ -433,7 +467,7 @@ func structFieldsChanged(
 		nf, exists := newByName[of.Name]
 		if !exists ||
 			of.Optional != nf.Optional ||
-			!refsIdentityEqual(of.Type, nf.Type, oldTable, newTable) ||
+			!refsIdentityEqual(of.Type, nf.Type, oldTable, newTable, counterpart) ||
 			domain.GetStringFromField(of, "go", "marshal") !=
 				domain.GetStringFromField(nf, "go", "marshal") {
 			return true
@@ -443,16 +477,20 @@ func structFieldsChanged(
 }
 
 // refsIdentityEqual checks if two type references point to the same type by qualified
-// name (not deep structural comparison).
+// name (not deep structural comparison). A new type matches an old one when it is the
+// same type or the old type's counterpart.
 func refsIdentityEqual(
 	old, new resolution.TypeRef,
 	oldTable, newTable *resolution.Table,
+	counterpart func(string) string,
 ) bool {
 	if len(old.TypeArgs) != len(new.TypeArgs) {
 		return false
 	}
 	for i := range old.TypeArgs {
-		if !refsIdentityEqual(old.TypeArgs[i], new.TypeArgs[i], oldTable, newTable) {
+		if !refsIdentityEqual(
+			old.TypeArgs[i], new.TypeArgs[i], oldTable, newTable, counterpart,
+		) {
 			return false
 		}
 	}
@@ -468,7 +506,8 @@ func refsIdentityEqual(
 	if !oldOk {
 		return old.Name == new.Name
 	}
-	return oldResolved.QualifiedName == newResolved.QualifiedName
+	return newResolved.QualifiedName == oldResolved.QualifiedName ||
+		newResolved.QualifiedName == counterpart(oldResolved.QualifiedName)
 }
 
 func diffRefWalk(
