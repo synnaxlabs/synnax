@@ -140,7 +140,7 @@ Start the container with a restart policy:
 
 ```bash
 docker run -d --name synnax --restart unless-stopped \
-  --stop-signal SIGINT --stop-timeout 30 \
+  --stop-signal SIGINT --stop-timeout 30 --mac-address 02:5a:00:00:00:01 \
   -p 9090:9090 -v synnax-data:/synnax/synnax-data \
   -v synnax-certs:/usr/local/synnax/certs \
   synnaxlabs/synnax --listen=synnax.example.com:9090 --auto-cert
@@ -148,7 +148,8 @@ docker run -d --name synnax --restart unless-stopped \
 
 Docker starts the container when the Docker daemon starts and after a crash.
 `--stop-signal SIGINT` lets the Core shut down cleanly on `docker stop`, and
-`--stop-timeout 30` gives it time to finish.
+`--stop-timeout 30` gives it time to finish. The license is bound to the
+`--mac-address`, so keep the same address when you recreate or upgrade the container.
 
 </Fragment>
 

@@ -114,9 +114,14 @@ you clear **Install Synnax as a Windows Service**, the installer removes the ser
    docker stop synnax && docker rm synnax
    ```
 
-3. Start a new container with the same volume and flags. If the license is bound to the
-   container, keep the same `--mac-address`, as
-   [Activate a license](/reference/enterprise/license#docker) says.
+3. Start a new container with the same volume and flags. The license is bound to the
+   `--mac-address`, so keep the same address:
+
+   ```bash
+   docker run -d --name synnax --mac-address 02:5a:00:00:00:01 \
+     -p 9090:9090 -v synnax-data:/synnax/synnax-data \
+     synnaxlabs/synnax:<version> <the same flags as before>
+   ```
 
 </Fragment>
 

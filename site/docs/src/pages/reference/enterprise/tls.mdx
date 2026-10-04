@@ -3,10 +3,12 @@ layout: "@/layouts/Reference.astro"
 title: "Set up TLS"
 description:
   "Start a Synnax Core that encrypts every connection with a TLS certificate."
+platforms: ["Linux", "Docker"]
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Note } from "@synnaxlabs/lyra/note";
+import { Platform } from "@/components/platform";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -60,7 +62,7 @@ In Docker, the certificate folder is inside the container. Mount a volume at
 install it again:
 
 ```bash
-docker run --name synnax -p 9090:9090 \
+docker run --name synnax -p 9090:9090 --mac-address 02:5a:00:00:00:01 \
   -v synnax-data:/synnax/synnax-data -v synnax-certs:/usr/local/synnax/certs \
   synnaxlabs/synnax --listen=synnax.example.com:9090 --auto-cert
 ```
@@ -91,9 +93,30 @@ files, the Core uses the new files for the next connection, with no restart.
 
 ### Example: Let's Encrypt
 
-1. Get a certificate for the domain with [Certbot](https://certbot.eff.org/). The domain
-   must have a public DNS record.
-2. Start the Core with the files Certbot made:
+Get a certificate for the domain with [Certbot](https://certbot.eff.org/). The domain
+must have a public DNS record. The Core then reads the files in place, in
+`/etc/letsencrypt/live/<domain>`.
+
+The Core serves a renewed certificate at once. Its embedded Driver and its sessions keep
+the files the Core read at start, so restart the Core after each renewal. Certbot runs
+each program in `/etc/letsencrypt/renewal-hooks/deploy` after a renewal.
+
+<Platform.Tabs exclude={["Windows", "macOS"]}>
+<Fragment slot="Linux">
+
+For a Core that runs as the `synnax` user, as in
+[Run the Core as a service](/reference/enterprise/service):
+
+1. Let the `synnax` group read the private key. Certbot keeps the group and mode at each
+   renewal:
+
+   ```bash
+   sudo chmod 0755 /etc/letsencrypt/live /etc/letsencrypt/archive
+   sudo chgrp synnax /etc/letsencrypt/live/synnax.example.com/privkey.pem
+   sudo chmod 0640 /etc/letsencrypt/live/synnax.example.com/privkey.pem
+   ```
+
+2. Start the Core with the Certbot files. Do not use `--auto-cert`:
 
    ```bash
    synnax start --listen=synnax.example.com:9090 \
@@ -101,9 +124,49 @@ files, the Core uses the new files for the next connection, with no restart.
      --node-cert=fullchain.pem --node-key=privkey.pem
    ```
 
-The user that runs the Core must be able to read `privkey.pem`. Certbot renews the
-certificate with a new private key. The Core serves the new certificate at once. At its
-next restart, it signs sessions with the new key, so all users must log in again.
+3. Restart the Core after each renewal:
+
+   ```bash
+   printf '#!/bin/sh\nsystemctl restart synnax\n' \
+     | sudo tee /etc/letsencrypt/renewal-hooks/deploy/restart-synnax
+   sudo chmod +x /etc/letsencrypt/renewal-hooks/deploy/restart-synnax
+   ```
+
+</Fragment>
+<Fragment slot="Docker">
+
+The Core in the image runs as user and group `65532`.
+
+1. Let group `65532` read the private key. Certbot keeps the group and mode at each
+   renewal:
+
+   ```bash
+   sudo chmod 0755 /etc/letsencrypt/live /etc/letsencrypt/archive
+   sudo chgrp 65532 /etc/letsencrypt/live/synnax.example.com/privkey.pem
+   sudo chmod 0640 /etc/letsencrypt/live/synnax.example.com/privkey.pem
+   ```
+
+2. Mount all of `/etc/letsencrypt` read-only, so the links in `live` resolve, and start
+   the Core with the Certbot files. Do not use `--auto-cert`:
+
+   ```bash
+   docker run -d --name synnax -p 9090:9090 --mac-address 02:5a:00:00:00:01 \
+     -v synnax-data:/synnax/synnax-data -v /etc/letsencrypt:/etc/letsencrypt:ro \
+     synnaxlabs/synnax --listen=synnax.example.com:9090 \
+     --certs-dir=/etc/letsencrypt/live/synnax.example.com \
+     --node-cert=fullchain.pem --node-key=privkey.pem
+   ```
+
+3. Restart the container after each renewal:
+
+   ```bash
+   printf '#!/bin/sh\ndocker restart synnax\n' \
+     | sudo tee /etc/letsencrypt/renewal-hooks/deploy/restart-synnax
+   sudo chmod +x /etc/letsencrypt/renewal-hooks/deploy/restart-synnax
+   ```
+
+</Fragment>
+</Platform.Tabs>
 
 <Divider.Divider x />
 

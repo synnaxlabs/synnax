@@ -122,10 +122,17 @@ A license allows a fixed number of machines. To move a Core:
 
 ### Docker
 
-A Docker container gets a new network hardware address each time you create it, so a
-recreated container no longer matches a bound key. To keep the fingerprint, give the
-container a fixed address with `docker run --mac-address`, or run it with
-`--network host`. On Kubernetes, ask Synnax Labs for a license that runs on any machine.
+The fingerprint comes from the network hardware (MAC) addresses of the computer. Docker
+gives each new container a random address, so a recreated container no longer matches a
+bound key. Start the container with a fixed, locally administered address:
+
+```bash
+docker run --name synnax --mac-address 02:5a:00:00:00:01 ...
+```
+
+The license is bound to the `--mac-address`, so keep the same address when you recreate
+or upgrade the container. With `--network host`, the container uses the addresses of the
+host instead. On Kubernetes, ask Synnax Labs for a license that runs on any machine.
 
 <Divider.Divider x />
 

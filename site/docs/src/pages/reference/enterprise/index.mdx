@@ -172,13 +172,15 @@ You should see:
 <Fragment slot="Docker">
 
 ```bash
-docker run --name synnax -p 9090:9090 -v synnax-data:/synnax/synnax-data \
+docker run --name synnax -p 9090:9090 --mac-address 02:5a:00:00:00:01 \
+  -v synnax-data:/synnax/synnax-data \
   synnaxlabs/synnax --listen=localhost:9090 --insecure
 ```
 
 The `-p 9090:9090` option maps port 9090 on the host to the container. The `-v` option
-keeps the data in a Docker volume named `synnax-data`. To start the same container again
-later, run `docker start synnax`.
+keeps the data in a Docker volume named `synnax-data`. The license is bound to the
+`--mac-address`, so keep the same address when you recreate or upgrade the container. To
+start the same container again later, run `docker start synnax`.
 
 </Fragment>
 
