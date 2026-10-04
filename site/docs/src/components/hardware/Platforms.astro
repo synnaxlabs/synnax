@@ -147,7 +147,9 @@ const showName = integration == null;
                                 <Icon.Check aria-label="Supported" />
                             </td>
                         ) : (
-                            <td class="docs-platforms-no">No</td>
+                            <td class="docs-platforms-no">
+                                <Icon.Subtract aria-label="Not supported" />
+                            </td>
                         ),
                     )}
                 </tr>
@@ -189,8 +191,11 @@ const showName = integration == null;
         & td.docs-platforms-yes svg {
             color: var(--pluto-primary-z);
         }
-        & td.docs-platforms-no > span {
-            color: var(--pluto-gray-l7);
+        & td.docs-platforms-no svg {
+            color: var(--pluto-gray-l9);
+            @media (prefers-color-scheme: dark) {
+                color: var(--pluto-gray-l8);
+            }
         }
     }
 </style>
