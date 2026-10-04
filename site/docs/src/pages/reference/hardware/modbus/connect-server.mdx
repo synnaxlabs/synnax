@@ -1,154 +1,137 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Modbus | Connect server"
-heading: "Connect to a Modbus server"
-description: "Connect to a Modbus TCP server using Synnax."
+title: "Connect a Modbus server"
+description: "Connect a Modbus TCP server, such as a PLC or an I/O module, to Synnax."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Icon } from "@synnaxlabs/lyra/icon";
-import { Note } from "@synnaxlabs/lyra/note";
-import { Text } from "@synnaxlabs/lyra/text";
-import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
-import Details from "@/components/details/Details.astro";
 import { Client } from "@/components/client";
-import { Edition } from "@/components/edition";
+import Platforms from "@/components/hardware/Platforms.astro";
+import { Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The Synnax Driver connects to [Modbus TCP/IP](https://modbus.org) servers such as PLCs,
-variable-frequency drives, power meters, and industrial I/O modules.
-
-<Note.Note variant="warning" className="compact">
-  Modbus RTU and Modbus ASCII (serial) are not supported.
-</Note.Note>
+The Modbus integration reads and writes the coils and registers of Modbus TCP servers,
+such as PLCs and remote I/O modules. Modbus RTU and Modbus ASCII are not supported. In
+Synnax, a Modbus server is one IP address and port. The
+[read task](/reference/hardware/modbus/read-task) and the
+[write task](/reference/hardware/modbus/write-task) add the addresses.
 
 <Divider.Divider x />
 
 ## Prerequisites
 
-Before you connect to a Modbus TCP server, make sure that you have:
+<Platforms integration="modbus" />
 
-1. [Synnax Desktop](/reference/get-started/install-desktop) installed on a computer that
-   can reach your Modbus server over the network.
-2. A Modbus TCP server on your network.
-
-<Edition.Enterprise>
-
-With Synnax Enterprise, you need a [Synnax Core](/reference/enterprise) and a Synnax
-Driver that can reach your Modbus server. A Core runs an embedded Driver on its own
-machine. For a different machine,
-[install a standalone Driver](/reference/enterprise/driver/install). Install the
-[Synnax Console](/reference/enterprise/console) on your computer.
-
-</Edition.Enterprise>
+- A running Driver that can reach the server on the network. Synnax Desktop runs one for
+  you.
 
 <Divider.Divider x />
 
-## Supported operating systems
+## Connect a server
 
-| Platform                            | Status          |
-| ----------------------------------- | --------------- |
-| <Icon.Logo.Windows /> Windows       | ✓ Supported     |
-| <Icon.Logo.Linux /> Linux           | ✓ Supported     |
-| <Icon.Logo.NI /> NI Linux Real-Time | ✗ Not Supported |
-| <Icon.Logo.Apple /> macOS           | ✓ Supported     |
-| <Icon.Logo.Docker /> Docker         | ✓ Supported     |
-
-<Note.Note variant="info" className="compact">
-  When running in a Docker container, ensure [the container has network
-  access](https://docs.docker.com/get-started/docker-concepts/running-containers/publishing-ports/)
-  to the Modbus server.
-</Note.Note>
-
-<Divider.Divider x />
-
-## Configuration parameters reference
-
-| Parameter    | Type    | Required | Default | Description                                                                                  |
-| ------------ | ------- | -------- | ------- | -------------------------------------------------------------------------------------------- |
-| `name`       | string  | Yes      | -       | Human-readable server name for identification in Console                                     |
-| `rack`       | integer | No       | -       | Synnax Driver (rack) key that will connect to the Modbus server                              |
-| `host`       | string  | Yes      | -       | IP address or hostname of the Modbus server (e.g., `192.168.1.100` or `localhost`)           |
-| `port`       | integer | Yes      | -       | TCP port number for the Modbus server (standard Modbus port is 502)                          |
-| `swap_bytes` | boolean | No       | `false` | Swap byte order within 16-bit words for endianness handling (applies to register types only) |
-| `swap_words` | boolean | No       | `false` | Swap word order for 32-bit and 64-bit values (applies to multi-register data types only)     |
-
-<Divider.Divider x />
-
-## How-to
-
-<Client.Tabs exclude={["typescript", "cpp"]}>
+<Client.Tabs exclude={["cpp"]}>
   <Fragment slot="console">
+
+1. Run the "Connect Modbus server" command.
+2. Enter a name for the server.
+3. In **Connect from**, select the Driver that reaches the server.
+4. In **Host**, enter the IPv4 address of the server, such as `192.168.1.20`.
+5. In **Port**, enter the port of the server, usually `502`.
+6. Click **Connect**.
+
+The Console connects to the server before it saves it. If the connection fails, the
+dialog shows the error and keeps your entries.
+
+The **Swap bytes** and **Swap words** switches have no effect. Set the
+[byte and word order](/reference/hardware/modbus/read-task#byte-and-word-order) on each
+channel in code.
 
 <Video id="device-drivers/modbus/connect-server/modbus-connect" />
 
-</Fragment>
+  </Fragment>
   <Fragment slot="python">
 
-<Details open>
-<Text.Text slot="summary" level="p"><Icon.Connect /> Connect to Modbus server</Text.Text>
-
 ```python
-import synnax as sy
 from synnax import modbus
 
-# Initialize Synnax client
-client = sy.Synnax()
-
-# Retrieve the embedded rack
 rack = client.racks.retrieve_embedded_rack()
-
-# Create the Modbus device
-device = modbus.Device(
-    host="192.168.1.100",
-    port=502,
-    name="My Modbus Server",
-    location="192.168.1.100:502",
-    rack=rack.key,
-    swap_bytes=False,
-    swap_words=False,
+device = client.devices.create(
+    modbus.Device(
+        name="Pump skid PLC",
+        host="192.168.1.20",
+        port=502,
+        location="192.168.1.20:502",
+        rack=rack.key,
+        configured=True,
+    )
 )
-
-# Create the device in Synnax
-device = client.devices.create(device)
-
-# Or retrieve by location
-device = client.devices.retrieve(location="192.168.1.100:502")
-
-# Or retrieve by name
-device = client.devices.retrieve(name="My Modbus Server")
-
-print(f"Connected to Modbus server: {device.name}")
 ```
 
-</Details>
+Python does not test the connection. Pass the key of a rack, or the device has no
+Driver. Pass `configured=True`, or the Console asks you to configure the server.
 
-<Details open>
-<Text.Text slot="summary" level="p"><Icon.Close /> Disconnect server</Text.Text>
+  </Fragment>
+  <Fragment slot="typescript">
 
-```python
-import synnax as sy
-
-# Initialize Synnax client
-client = sy.Synnax()
-
-# Retrieve the device by name
-device = client.devices.retrieve(
-    name="My Modbus Server",
-    ignore_not_found=True
-)
-
-if device is not None:
-    # Delete the server
-    client.devices.delete([device.key])
-    print(f"Disconnected Modbus server: {device.name}")
-else:
-    print("Server not found")
+```typescript
+const rack = await client.racks.retrieve({ name: "Node 1 Embedded Driver" });
+await client.devices.create({
+  key: crypto.randomUUID(),
+  name: "Pump skid PLC",
+  rack: rack.key,
+  location: "192.168.1.20:502",
+  make: "Modbus",
+  model: "Modbus",
+  configured: true,
+  properties: {
+    connection: { host: "192.168.1.20", port: 502, swapBytes: false, swapWords: false },
+    read: { index: 0, channels: {} },
+    write: { channels: {} },
+  },
+});
 ```
 
-</Details>
+TypeScript does not test the connection.
 
   </Fragment>
 </Client.Tabs>
+
+After you connect a server, the Driver connects to it again every few seconds and shows
+the result as the server status in the devices toolbar. See
+[device statuses](/reference/hardware/devices#statuses).
+
+<Divider.Divider x />
+
+## Connection options
+
+| Console label    | Python field | Default | Notes                                                  |
+| ---------------- | ------------ | ------- | ------------------------------------------------------ |
+| **Connect from** | `rack`       |         | The Driver that connects to the server.                |
+| **Host**         | `host`       |         | An IPv4 address. Hostnames, such as `localhost`, fail. |
+| **Port**         | `port`       |         | The TCP port, usually `502`.                           |
+
+The Driver always sends unit ID 255. There is no option to change it.
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+### Connect fails with a hostname
+
+The Driver accepts only IPv4 addresses. Enter the address of the server. For a server on
+the same computer as the Driver, enter `127.0.0.1`.
+
+### Connect fails with "Connection refused" or a timeout
+
+Check the address and the port. Make sure that the server allows Modbus TCP connections
+from the computer that runs the Driver.
+
+### The server connects but does not answer requests
+
+The server, or the gateway in front of it, needs a unit ID other than 255. The Driver
+cannot send a different unit ID.
+
+For other problems, see
+[Troubleshoot hardware](/reference/hardware/troubleshooting#failed-to-reach-device-or-failed-to-reach-server).
