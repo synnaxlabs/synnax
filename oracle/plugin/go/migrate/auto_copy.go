@@ -418,7 +418,9 @@ func variantForm(
 	table *resolution.Table,
 ) resolution.StructForm {
 	if !v.Inline {
-		return resolution.StructForm{Extends: append(slices.Clone(form.Extends), v.Type)}
+		return resolution.StructForm{
+			Extends: append(slices.Clone(form.Extends), v.Type),
+		}
 	}
 	inherited, declared := resolver.VariantBases(form, v, table)
 	sf := resolution.StructForm{Extends: inherited, Fields: declared}

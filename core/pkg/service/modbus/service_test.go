@@ -10,6 +10,7 @@
 package modbus_test
 
 import (
+	"maps"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -27,9 +28,7 @@ import (
 // register returns a holding register read channel carrying the given extra fields.
 func register(fields map[string]any) map[string]any {
 	ch := map[string]any{"type": "holding_register", "key": "chan-1", "address": 2}
-	for k, v := range fields {
-		ch[k] = v
-	}
+	maps.Copy(ch, fields)
 	return ch
 }
 

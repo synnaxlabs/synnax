@@ -363,7 +363,10 @@ func diffUnion(
 		kind = TypeDescendantChanged
 	}
 	if kind != TypeUnchanged {
-		result[old.QualifiedName] = TypeDiff{QualifiedName: old.QualifiedName, Kind: kind}
+		result[old.QualifiedName] = TypeDiff{
+			QualifiedName: old.QualifiedName,
+			Kind:          kind,
+		}
 	}
 	return kind
 }
