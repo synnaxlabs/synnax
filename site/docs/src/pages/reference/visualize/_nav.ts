@@ -39,6 +39,11 @@ export const VISUALIZE_NAV: PageNavNode = {
       name: "Schematics",
     },
     {
+      key: "/reference/visualize/custom-symbols",
+      href: "/reference/visualize/custom-symbols",
+      name: "Custom symbols",
+    },
+    {
       key: "/reference/visualize/tables",
       href: "/reference/visualize/tables",
       name: "Tables",
