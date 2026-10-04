@@ -368,9 +368,10 @@ it no longer stores a rack key.
   reuses it. The Core makes a new key only when the saved one is missing or refused.
 
 A rack needs permissions. The built-in Host role already exists for this: "For machines
-running the Synnax driver" (`core/pkg/service/access/rbac/builtin/builtin.go:111`). The
-Core assigns it to a rack when the rack is created. Today a person gives that role to
-the user account a Driver logs in with.
+running the Synnax driver" (`core/pkg/service/access/rbac/builtin/builtin.go:111`). It
+is renamed to Driver, because only racks hold it now. The Core assigns it to a rack when
+the rack is created. Today a person gives that role to the user account a Driver logs in
+with.
 
 ### 4.9 User and rack schemas
 
@@ -459,13 +460,13 @@ the same time, as each component already works. New names are proposals.
 
 **Core**
 
-| Setting                | Change                                                                            |
-| ---------------------- | --------------------------------------------------------------------------------- |
-| `username`, `password` | Unchanged. They own the root user's password (§4.7)                               |
-| `auth-methods`         | New. The accepted methods (§4.6). Default: all                                    |
-| `fips`                 | New. Restricts password hashes to PBKDF2 (§4.1). Default: false                   |
-| `session-idle-timeout` | New. The idle timeout (§4.4). Default: 7 days                                     |
-| `oidc-providers`       | New. A list of providers, each with a name, an issuer URL, and a client ID (§4.2) |
+| Setting                | Change                                                                                       |
+| ---------------------- | -------------------------------------------------------------------------------------------- |
+| `username`, `password` | Unchanged, with the `synnax` and `seldon` defaults. They own the root user's password (§4.7) |
+| `auth-methods`         | New. The accepted methods (§4.6). Default: all                                               |
+| `fips`                 | New. Restricts password hashes to PBKDF2 (§4.1). Default: false                              |
+| `session-idle-timeout` | New. The idle timeout (§4.4). Default: 7 days                                                |
+| `oidc-providers`       | New. A list of providers, each with a name, an issuer URL, and a client ID (§4.2)            |
 
 **Driver** (config file, `SYNNAX_DRIVER_` environment variables, and the state file)
 
@@ -547,8 +548,9 @@ Each phase is one pull request into `main`.
   TypeScript, Python, and C++ clients.
 - **Phase 5: Console sessions.** The Console stores the token and logs out.
 - **Phase 6: API keys.** The authenticator, the key endpoints, and client bindings.
-- **Phase 7: Racks.** The Host role on each rack, enrollment in `synnax-driver login`,
-  and the embedded Driver key. Removes the root password from the Driver config.
+- **Phase 7: Racks.** The Host role renamed to Driver and assigned to each rack,
+  enrollment in `synnax-driver login`, and the embedded Driver key. Removes the root
+  password from the Driver config.
 - **Phase 8: Console credentials.** The credentials list on user and rack pages.
 - **Phase 9: Accepted methods.** The start setting, `auth/methods`, and the login page.
 - **Phase 10: OpenID Connect.** Provider settings, the authenticator, the Console login
@@ -596,8 +598,5 @@ Each phase is one pull request into `main`.
 ## 8 Open questions
 
 1. **Token and key lengths**: The size of the random part of each.
-2. **Default root password**: Whether `synnax` and `seldon` stay as defaults.
-3. **Provider settings**: Start settings as written, or stored records the Console can
+2. **Provider settings**: Start settings as written, or stored records the Console can
    edit without a restart.
-4. **Host role name**: Whether to rename the built-in Host role to Driver, now that only
-   racks hold it.
