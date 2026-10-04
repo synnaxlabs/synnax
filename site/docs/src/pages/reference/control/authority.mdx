@@ -8,6 +8,7 @@ description:
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -71,6 +72,12 @@ watches the test on a schematic.
 | The operator acquires control again.        | Schematic                | 200 is higher than 100.               |
 | The Press sequence enters its abort stage.  | Press sequence           | 255 is higher than 200.               |
 | The operator clicks the control chip (255). | Press sequence           | Equal authority, and it opened first. |
+
+In this recording, an automation named Valve Guard writes at 100, and a schematic at 200
+acquires control, opens the valve, and releases control. The legend shows which writer
+controls the valve at each step.
+
+<Video id="control/authority/hand-off" />
 
 <Divider.Divider x />
 
