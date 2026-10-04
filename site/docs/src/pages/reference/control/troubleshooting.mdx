@@ -32,7 +32,7 @@ Each entry starts from what you see, then gives the cause and the fix.
   - The command channel has no write task, or the symbol has no state channel, so the
     valve never shows as open.
 - **Fix**:
-  1. Turn off editing, and acquire control.
+  1. Turn off editing, and take control.
   2. Look at the [control legend](/reference/control/manual#control-legend) to see which
      writer controls the channel. To take over, see
      [take absolute control](/reference/control/manual#take-absolute-control-of-one-channel).
@@ -92,7 +92,7 @@ Each entry starts from what you see, then gives the cause and the fix.
 ### The stage indicator shows a running sequence, but the valves do not move
 
 - **Cause** -> The automation has a lower authority than the schematic. A click on any
-  button acquires control of every actuated symbol on the schematic, valves included.
+  button takes control of every actuated symbol on the schematic, valves included.
   Synnax then drops the commands from the sequence.
 - **Fix** -> Keep the automation authority above the schematic authority, or put the
   start button on a separate schematic. See
