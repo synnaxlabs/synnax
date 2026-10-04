@@ -36,8 +36,9 @@ stream or read the channel, and it stops when nothing uses the channel.
   If you change `pressure * 3` to `pressure * 10`, all of the data shows
   `pressure * 10`.
 - **Samples**: Synnax runs the expression once for each new sample. Each channel name in
-  the expression gives one value. The expression runs only when each input channel has a
-  new sample.
+  the expression gives one value. The expression runs when any input channel has a new
+  sample, after every input has at least one sample. An input with no new sample gives
+  its last value.
 - **Data type**: Synnax gets the data type from the value that the expression returns.
   `return 1` gives an `int64` channel, and `return 1.0` gives a `float64` channel.
 - **Index**: Synnax creates a virtual index channel named `<name>_time` for each
@@ -273,7 +274,7 @@ live. The output of `min`, `max`, and `avg` can then be different from the live 
 | Problem                                         | Cause and fix                                                                                                                                                                |
 | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | The channel shows an error icon in the toolbar. | The expression is not correct, or it uses a channel that does not exist. Hover over the icon to see the error. The error clears when a channel with the missing name exists. |
-| A line plot shows no values.                    | One input has no new samples. The expression runs only when each input has a new sample.                                                                                     |
+| A line plot shows no values.                    | One input has never had a sample. The expression runs only after every input has at least one sample.                                                                        |
 | A past time range shows no values.              | One input has no data in that time range.                                                                                                                                    |
 | The values look wrong or shifted in time.       | The inputs have different indexes. See [use inputs that share an index](#use-inputs-that-share-an-index).                                                                    |
 | The data type is `int64`, not `float64`.        | The expression returns an integer. Write numbers with a decimal point, such as `2.0`.                                                                                        |
