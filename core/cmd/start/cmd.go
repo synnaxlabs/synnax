@@ -78,8 +78,8 @@ func start(cmd *cobra.Command) {
 		return BootupCore(ctx, nil, cfg)
 	}, xsignal.WithKey("start"), xsignal.RecoverWithErrOnPanic())
 
-	fCtx, fCancel := xsignal.Isolated(xsignal.WithInstrumentation(ins))
-	forceExit := xsignal.NewHardShutdown(fCtx, fCancel)
+	forceCtx, forceCancel := xsignal.Isolated(xsignal.WithInstrumentation(ins))
+	forceExit := xsignal.NewHardShutdown(forceCtx, forceCancel)
 	// shutDown cancels the Core, then exits at once if signalsToForce more stop signals
 	// arrive before the shutdown completes. Stdin requests never count: the Desktop
 	// supervisor sends the stop keyword, then closes stdin.
@@ -88,7 +88,7 @@ func start(cmd *cobra.Command) {
 			"\033[33mSynnax is shutting down. Press Ctrl+C again to exit now.\033[0m",
 		)
 		cancel()
-		fCtx.Go(func(ctx context.Context) error {
+		forceCtx.Go(func(ctx context.Context) error {
 			for range signalsToForce {
 				select {
 				case <-sigC:
