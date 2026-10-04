@@ -53,9 +53,6 @@ export const PRE_AIM_EPSILON = 1.0005;
  */
 export const ZOOM_RECT_MARGIN_PX = 96;
 
-/** Ceiling for zoom amounts derived from element rects (authored or auto). */
-export const RECT_ZOOM_MAX = 2.5;
-
 /**
  * Floor for rect-derived zoom during auto segments. A click whose target rect
  * fits only below this creates no zoom: near-full-width targets are mostly

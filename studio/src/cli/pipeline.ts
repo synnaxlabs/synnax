@@ -174,13 +174,12 @@ const withBundle = async (
 /** runRender directs the timeline and renders the video through Remotion. */
 export const runRender = async (opts: RenderRunOptions): Promise<void> => {
   const { timeline, captureDir, outputLocation, draft = false } = opts;
-  const tracks = direct(timeline);
-
-  const inputProps = { meta: timeline.meta, tracks, events: timeline.events };
   const native = Math.round(timeline.meta.width * timeline.meta.dsf);
   const targetWidth =
     opts.target == null ? Math.min(1920, native) : parseTarget(opts.target, native);
   const scale = targetWidth / native;
+  const tracks = direct(timeline, targetWidth);
+  const inputProps = { meta: timeline.meta, tracks, events: timeline.events };
   await withBundle(captureDir, async (serveUrl) => {
     const composition = await selectComposition({ serveUrl, id: "studio", inputProps });
     await renderMedia({

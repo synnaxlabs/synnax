@@ -116,18 +116,19 @@ Console reads at the scale of a desktop window, not a zoomed-in browser. `--targ
 capture. It defaults to 1080p, the width the docs site serves: a 4k page load is seconds
 of video the reader waits through. Targets below native are supersampled, which also
 buys zoom headroom: crisp zoom tops out at `(width * dsf) / target`, so a 1080p target
-from the default capture keeps zooms to 1.67x pixel-perfect, while a 4k target upscales
-during them. For deeper crisp zooms, capture with `--dsf 3`.
+from the default capture keeps zooms to 1.67x pixel-perfect. The camera caps every zoom
+at that limit, so a 4k target from the default capture does not zoom. For deeper crisp
+zooms, capture with `--dsf 3`: a 1080p target then allows 2.5x.
 
 ## Camera
 
 Clicks never zoom. Scripts author the camera: `session.zoom(locator)` opens a zoom that
-frames the element's rect plus a margin (amount derived from the rect, capped at
-`RECT_ZOOM_MAX`, unless given), and `session.endZoom()` returns to the full frame.
-Inside a zoom, the camera holds its framing while the cursor's targets stay in frame,
-and pans only as far as it must when a target leaves it. The pan starts when the cursor
-departs, so the camera and cursor arrive together. `AUTHORING.md` holds the rules for
-where to zoom.
+frames the element's rect plus a margin (amount derived from the rect unless given, and
+capped at the crisp limit either way), and `session.endZoom()` returns to the full
+frame. Inside a zoom, the camera holds its framing while the cursor's targets stay in
+frame, and pans only as far as it must when a target leaves it. The pan starts when the
+cursor departs, so the camera and cursor arrive together. `AUTHORING.md` holds the rules
+for where to zoom.
 
 The synthetic cursor fades out after sitting still for 0.75s and fades back in the
 moment it moves or presses again, matching Screen Studio's idle behavior. The fade is
