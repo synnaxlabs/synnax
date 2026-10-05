@@ -60,7 +60,8 @@ class Slave {
     SlaveConfig config_;
     modbus_mapping_t *mb_mapping_; // Add as member
 
-    // A Winsock socket is not a CRT file descriptor, so close() aborts on Windows.
+    /// @brief closes a socket. A Winsock socket is not a CRT file descriptor, so
+    /// close() aborts on Windows.
     static void close_socket(const int socket) {
 #ifdef _WIN32
         closesocket(socket);
