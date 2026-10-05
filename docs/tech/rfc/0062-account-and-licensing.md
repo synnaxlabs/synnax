@@ -23,7 +23,7 @@ free edition, Synnax Desktop, signs the user in through the system browser and r
 a short-lived license that renews while logged in. The enterprise edition, the
 standalone Core, activates through a start flag or the Console with a license that staff
 issued in the portal. Downloads stay public, the Core never phones home, a running Core
-never stops because of time, and the old key format is deleted.
+never stops because of time, and the old key format still activates a Core.
 
 ## 1 Motivation
 
@@ -202,7 +202,7 @@ variable maps to it.
 The KV holds one entry per activated license, keyed by `jti` under a fixed prefix. Aspen
 replicates the KV, so every node sees every activation and picks the entry whose
 fingerprints match its own hardware. Activating every node through one node therefore
-works. The service deletes the entry the old key format wrote.
+works. The service moves the entry the old key format wrote under the same prefix.
 
 When it opens, the service verifies each stored license key, evaluates its term, and
 records one of three states:
@@ -469,17 +469,20 @@ The work ships as a stack of five pull requests into `main`.
 
 ### 7.0 Compatibility
 
-The old key format is dropped without a grace window. Before the release that carries
-Phase 1, staff issue licenses through the staff area: a subscription license for every
+The Core still accepts the old key format, at start and through activation. It reads an
+old key as an enterprise license that expires on the key's date, caps channels at the
+key's count, and runs on any machine. A Core that stored an old key before the upgrade
+keeps it. The 50-channel allowance for a Core with no key or an expired key is gone:
+such a Core is unlicensed.
+
+Staff issue signed licenses through the staff area: a subscription license for every
 subscription holder, a perpetual license for the existing perpetual customer with the
 maximum version their contract sets, and internal licenses for the demo Core, the
 engineer machines, and CI. The release notes state that the standalone Core needs a
 license and link the activation page.
 
-A Core given an old-format key at start refuses it and does not start, so a customer
-replaces the old key with a signed license key when they upgrade. The Core deletes the
-old key's stored entry. Clients from before this release see a generic error from an
-unlicensed Core, and new clients decode it.
+Clients from before this release see a generic error from an unlicensed Core, and new
+clients decode it.
 
 ## 8 Resolved decisions
 
@@ -513,8 +516,9 @@ unlicensed Core, and new clients decode it.
 9. **Staff issue every license and create every team**: There is no self-serve trial, so
    a team a customer made would stay empty until a deal closes. The trade is real:
    onboarding is a staff step.
-10. **Hard cutover from the old key**: A grace window would keep the forgeable parser
-    alive for a release, and the holder list is small and known.
+10. **Old keys still activate a Core**: A hard cutover would stop every Core that
+    upgrades before its holder has a signed license. The trade is real: the forgeable
+    parser stays.
 11. **Private key in AWS KMS**: An environment secret is one leak away from unlimited
     licenses until a release ships new anchors. The trade is real: a second cloud
     account and a network call per issuance.

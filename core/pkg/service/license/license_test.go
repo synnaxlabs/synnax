@@ -293,12 +293,27 @@ var _ = Describe("License", func() {
 				})).Error().To(MatchError(license.ErrInvalid))
 			},
 		)
-		It("should remove the previous format's entry", func(ctx SpecContext) {
+		Describe("Numeric key stored by an earlier Core", func() {
 			legacy := []byte("bGljZW5zZUtleQ==")
-			Expect(db.Set(ctx, legacy, []byte("old"))).To(Succeed())
-			svc := open(ctx)
-			Expect(svc.Close()).To(Succeed())
-			Expect(db.Get(ctx, legacy)).Error().To(MatchError(query.ErrNotFound))
+			It("should apply the key and move its entry", func(ctx SpecContext) {
+				key := numericKey(now.Add(30*day), 100)
+				Expect(db.Set(ctx, legacy, []byte(key))).To(Succeed())
+				svc := open(ctx)
+				info := svc.Retrieve()
+				Expect(info.State).To(Equal(license.StateOk))
+				Expect(*info.License).To(Equal(MustSucceed(license.ParseLegacy(key))))
+				Expect(svc.Close()).To(Succeed())
+				Expect(db.Get(ctx, legacy)).Error().To(MatchError(query.ErrNotFound))
+				Expect(open(ctx).Retrieve().State).To(Equal(license.StateOk))
+			})
+			It(
+				"should fail to open on a key that does not parse",
+				func(ctx SpecContext) {
+					Expect(db.Set(ctx, legacy, []byte("old"))).To(Succeed())
+					Expect(license.OpenService(ctx, cfg)).Error().
+						To(MatchError(license.ErrInvalid))
+				},
+			)
 		})
 		It("should prefer a covering entry over an expired one", func(ctx SpecContext) {
 			expired := newLicense()
@@ -492,6 +507,22 @@ var _ = Describe("License", func() {
 			info := MustSucceed(svc.Activate(ctx, sign(newLicense())))
 			Expect(info.State).To(Equal(license.StateOk))
 			Expect(info.Warning).To(BeEmpty())
+		})
+		It("should accept a numeric key and cap its channels", func(ctx SpecContext) {
+			info := MustSucceed(svc.Activate(ctx, numericKey(now.Add(30*day), 100)))
+			Expect(info.State).To(Equal(license.StateOk))
+			Expect(svc.CheckChannelLimit(100)).To(Succeed())
+			Expect(svc.CheckChannelLimit(101)).To(MatchError(license.ErrTooMany))
+		})
+		It("should refuse a numeric key past its grace period", func(ctx SpecContext) {
+			Expect(svc.Activate(ctx, numericKey(now.Add(-30*day), 100))).Error().
+				To(MatchError(license.ErrExpired))
+		})
+		It("should keep a signed license over a numeric key", func(ctx SpecContext) {
+			lic := newLicense()
+			MustSucceed(svc.Activate(ctx, sign(lic)))
+			info := MustSucceed(svc.Activate(ctx, numericKey(now.Add(30*day), 100)))
+			Expect(*info.License).To(Equal(lic))
 		})
 		It(
 			"should keep a newer license over an older activation",

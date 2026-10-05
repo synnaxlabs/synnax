@@ -133,7 +133,8 @@ const (
 var (
 	// prefix keys the accepted license keys. The stored value is the license key.
 	prefix = []byte("license/")
-	// legacyKey is where Cores before signed licenses stored a key. Open deletes it.
+	// legacyKey is where Cores before signed licenses stored a numeric key. Open moves
+	// it under prefix.
 	legacyKey = []byte("bGljZW5zZUtleQ==")
 	// markKey holds the latest clock reading the service has recorded.
 	markKey = []byte("highWater")
@@ -179,7 +180,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err = s.syncClock(ctx); err != nil {
 		return nil, err
 	}
-	if err = cfg.Delete(ctx, legacyKey); err != nil {
+	if err = s.moveLegacy(ctx); err != nil {
 		return nil, err
 	}
 	if err = s.load(ctx); err != nil {
@@ -239,12 +240,44 @@ func (i Info) err() error {
 	return nil
 }
 
+// verify returns the license key carries, in the signed or the numeric format.
+func (s *Service) verify(key string) (License, error) {
+	if legacyFormat.MatchString(key) {
+		return ParseLegacy(key)
+	}
+	return Verify(s.cfg.Anchors, key)
+}
+
+// moveLegacy stores the key at legacyKey the way Activate stores a key, then deletes
+// the entry at legacyKey.
+func (s *Service) moveLegacy(ctx context.Context) error {
+	raw, closer, err := s.cfg.Get(ctx, legacyKey)
+	if errors.Is(err, query.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	key := string(raw)
+	if err = closer.Close(); err != nil {
+		return err
+	}
+	lic, err := ParseLegacy(key)
+	if err != nil {
+		return errors.Wrap(err, "failed to read the stored numeric license key")
+	}
+	if err = s.cfg.Set(ctx, entryKey(lic.Jti), []byte(key)); err != nil {
+		return err
+	}
+	return s.cfg.Delete(ctx, legacyKey)
+}
+
 // Activate verifies key, checks that it fits this machine and still covers it, and
 // stores it. The service then applies the stored key open would pick, which is key
 // unless a newer one is stored, and returns its info. Returns ErrInvalid,
 // ErrFingerprint, or ErrExpired when the key is refused.
 func (s *Service) Activate(ctx context.Context, key string) (Info, error) {
-	lic, err := Verify(s.cfg.Anchors, key)
+	lic, err := s.verify(key)
 	if err != nil {
 		return Info{}, err
 	}
@@ -355,7 +388,7 @@ func (s *Service) load(ctx context.Context) error {
 	}
 	var chosen *Info
 	for iter.First(); iter.Valid(); iter.Next() {
-		lic, err := Verify(s.cfg.Anchors, string(iter.Value()))
+		lic, err := s.verify(string(iter.Value()))
 		if err != nil {
 			s.cfg.L.Warn(
 				"skipping a stored license key that no longer verifies",
