@@ -5,8 +5,7 @@
 - **Related**:
   [RFC 0045 - Serving Core on multiple listeners with per-listener certificates](0045-core-multi-listener-per-listener-certs.md),
   [RFC 0049 - Client connection lifecycle](0049-client-connection-lifecycle.md),
-  [RFC 0063 - Synnax Desktop](0063-synnax-desktop.md),
-  [PR #3038 - SY-4952: Key credentials by user UUID and move the username onto them](https://github.com/synnaxlabs/synnax/pull/3038)
+  [RFC 0063 - Synnax Desktop](0063-synnax-desktop.md)
 
 ## 0 Summary
 
@@ -138,7 +137,7 @@ Every credential belongs to exactly one subject, through its `subject` field. A 
 can hold one password, any number of API keys, and one link per provider.
 
 - **Password**: The username lives here, not on the user record, so a rename edits one
-  field. This replaces `SecureCredentials` and follows the direction of PR #3038.
+  field. This replaces `SecureCredentials`.
 - **API key**: The key a client holds is `syk_`, the record key, and a random secret.
   The Core finds the record by its key and compares the hash. The secret is random, so a
   fast hash is safe. The Core returns the full key once, at creation. `name` is a label
@@ -609,7 +608,8 @@ Each phase is one pull request into `main`.
 - **Phase 3: Streams.** Streams close when their session ends and count as activity.
 - **Phase 4: Clients.** Session endpoints, and login, renewal, and logout in the
   TypeScript, Python, and C++ clients.
-- **Phase 5: Console sessions.** The Console stores the token and logs out.
+- **Phase 5: Console sessions.** The token in the keychain on desktop and in a cookie in
+  a browser, with no saved password, and logout.
 - **Phase 6: API keys.** The authenticator, the key endpoints, and client bindings.
 - **Phase 7: Racks.** The Host role renamed to Driver and assigned to each rack,
   enrollment in `synnax-driver login`, and the embedded Driver key. Removes the root
