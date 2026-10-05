@@ -1873,6 +1873,41 @@ TEST(NumericInputTest, ReturnsZeroForAnUnknownInput) {
     EXPECT_EQ(c.numeric_input<uint8_t>("nope"), 0);
 }
 
+/// @brief numeric_input should read an edge-fed input's live value rather than the
+/// configured one it carries.
+TEST(NumericInputTest, ReadsAnEdgeFedInputsLiveValue) {
+    ir::IR prog;
+    prog.nodes.push_back(make_node(
+        "src",
+        "src",
+        {},
+        {value_param(ir::default_output_param, types::Kind::U8)}
+    ));
+    prog.nodes.push_back(
+        make_node("c", "consumer", {value_param("gain", types::Kind::U8, 9)})
+    );
+    prog.edges.emplace_back(
+        ir::Handle("src", ir::default_output_param),
+        ir::Handle("c", "gain")
+    );
+    const auto s = std::make_shared<State>(Config{.ir = prog});
+    const auto src = ASSERT_NIL_P(s->node("src"));
+    auto c = ASSERT_NIL_P(s->node("c"));
+    emit(src, static_cast<uint8_t>(4), 1);
+    EXPECT_TRUE(c.refresh_inputs());
+    EXPECT_EQ(c.numeric_input<uint8_t>("gain"), 4);
+}
+
+/// @brief numeric_input by index should match the by-name overload.
+TEST(NumericInputTest, ByIndexMatchesByName) {
+    const auto s = new_numeric_input_state();
+    const auto c = ASSERT_NIL_P(s->node("c"));
+    const auto gain = ASSERT_NIL_P(c.resolve_input("gain"));
+    const auto offset = ASSERT_NIL_P(c.resolve_input("offset"));
+    EXPECT_EQ(c.numeric_input<uint8_t>(gain), c.numeric_input<uint8_t>("gain"));
+    EXPECT_EQ(c.numeric_input<uint8_t>(offset), c.numeric_input<uint8_t>("offset"));
+}
+
 /// @brief refresh_inputs should gate a value-fed node on an edge into an undeclared
 /// param.
 TEST(GatingTest, GatesAValueFedNodeOnAnEdgeIntoAnUndeclaredParam) {
