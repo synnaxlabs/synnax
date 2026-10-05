@@ -9,7 +9,9 @@
 
 #pragma once
 
+#include <algorithm>
 #include <memory>
+#include <string>
 #include <thread>
 
 #include "absl/log/log.h"
@@ -35,35 +37,32 @@ inline const x::telem::TimeSpan HIGH_RATE_POLL_INTERVAL = 100 * x::telem::MICROS
 /// @brief Timeout for blocking wait in HYBRID mode after spin phase (10 milliseconds).
 inline const x::telem::TimeSpan HYBRID_BLOCK_TIMEOUT = 10 * x::telem::MILLISECOND;
 
-/// @brief Minimum meaningful interval for kqueue EVFILT_TIMER on macOS (1 millisecond).
-/// Intervals below this threshold use software timing instead.
-inline const x::telem::TimeSpan KQUEUE_TIMER_MIN = x::telem::MILLISECOND;
-
-/// @brief Threshold below which software timer (HIGH_RATE) is used for precision.
-/// Above this, OS timers (timerfd/kqueue/WaitableTimer) provide sufficient precision.
-inline const x::telem::TimeSpan SOFTWARE_TIMER_THRESHOLD = x::telem::MILLISECOND;
-
 /// @brief Threshold below which HIGH_RATE or RT_EVENT should be used.
 /// Intervals below 1ms require precise software timing.
 inline const x::telem::TimeSpan HIGH_RATE_THRESHOLD = x::telem::MILLISECOND;
 
 /// @brief Upper bound for preferring RT_EVENT on RT-capable systems. Intervals
 /// between HIGH_RATE_THRESHOLD and this value use RT_EVENT when RT scheduling
-/// is available, falling through to HYBRID otherwise.
+/// is available, falling through to AUTO otherwise.
 inline const x::telem::TimeSpan RT_EVENT_THRESHOLD = 3 * x::telem::MILLISECOND;
 
-/// @brief Threshold below which HYBRID mode is beneficial.
-/// Intervals between 1-5ms benefit from spin-then-block approach.
+/// @brief Timer span below which AUTO spins before a deadline on macOS.
 inline const x::telem::TimeSpan HYBRID_THRESHOLD = 5 * x::telem::MILLISECOND;
 
 /// @brief Timeout for event-driven wait to periodically check breaker.running().
 inline const x::telem::TimeSpan EVENT_DRIVEN_TIMEOUT = 100 * x::telem::MILLISECOND;
 
-/// @brief Shorter timeout for non-blocking/polling checks.
-inline const x::telem::TimeSpan POLL_TIMEOUT = 10 * x::telem::MILLISECOND;
-
 /// @brief Windows WaitableTimer uses 100-nanosecond units.
 inline const x::telem::TimeSpan WINDOWS_TIMER_UNIT = 100 * x::telem::NANOSECOND;
+
+/// @brief Span the Windows loop spins ahead of a deadline in AUTO, HYBRID, and
+/// RT_EVENT. The timer alone fires about 0.5 ms late.
+inline const x::telem::TimeSpan WINDOWS_DEADLINE_SPIN = x::telem::MILLISECOND;
+
+/// @brief Span the macOS loop spins ahead of a deadline in HYBRID. A kqueue timeout
+/// alone fires up to 1 ms late.
+inline const x::telem::TimeSpan DARWIN_DEADLINE_SPIN = 1500 * x::telem::MICROSECOND;
+
 }
 
 /// @brief Default RT priority for SCHED_FIFO on Linux (range 1-99).
@@ -77,7 +76,8 @@ constexpr int CPU_AFFINITY_AUTO = -1;
 constexpr int CPU_AFFINITY_NONE = -2;
 
 enum class ExecutionMode {
-    /// @brief Auto-select mode based on timing requirements and platform capabilities.
+    /// @brief Picks the thread config from the shortest timer. At each wait, spins
+    /// before the deadline only when the timer that owns it is short.
     AUTO,
     /// @brief Continuous polling without sleeping. Lowest latency, 100% CPU.
     BUSY_WAIT,
@@ -123,18 +123,15 @@ inline std::ostream &operator<<(std::ostream &os, ExecutionMode mode) {
     }
 }
 
-/// @brief Auto-selects execution mode based on timing requirements and platform.
-/// Never returns BUSY_WAIT or AUTO.
-inline ExecutionMode
-select_mode(const x::telem::TimeSpan timing_interval, const bool has_intervals) {
-    if (!has_intervals) return ExecutionMode::EVENT_DRIVEN;
-    if (timing_interval < timing::HIGH_RATE_THRESHOLD)
+/// @brief Resolves AUTO from the shortest timer span of a program. Returns AUTO when no
+/// other mode is necessary. Never returns BUSY_WAIT.
+inline ExecutionMode select_mode(const x::telem::TimeSpan shortest_span) {
+    if (shortest_span < timing::HIGH_RATE_THRESHOLD)
         return x::thread::rt::has_support() ? ExecutionMode::RT_EVENT
                                             : ExecutionMode::HIGH_RATE;
-    if (x::thread::rt::has_support() && timing_interval < timing::RT_EVENT_THRESHOLD)
+    if (x::thread::rt::has_support() && shortest_span < timing::RT_EVENT_THRESHOLD)
         return ExecutionMode::RT_EVENT;
-    if (timing_interval < timing::HYBRID_THRESHOLD) return ExecutionMode::HYBRID;
-    return ExecutionMode::EVENT_DRIVEN;
+    return ExecutionMode::AUTO;
 }
 
 struct Config {
@@ -175,13 +172,12 @@ struct Config {
         memory_locked = parser.field<bool>("memory_locked", false);
     }
 
-    Config apply_defaults(const x::telem::TimeSpan timing_interval) const {
+    Config apply_defaults(const x::telem::TimeSpan shortest_span) const {
         Config cfg = *this;
-        const bool has_intervals = timing_interval != x::telem::TimeSpan::max();
-        if (this->mode == ExecutionMode::AUTO)
-            cfg.mode = select_mode(timing_interval, has_intervals);
-        if (this->interval.nanoseconds() == 0 && has_intervals)
-            cfg.interval = timing_interval;
+        if (this->mode == ExecutionMode::AUTO) cfg.mode = select_mode(shortest_span);
+        if (this->interval.nanoseconds() == 0 &&
+            shortest_span != x::telem::TimeSpan::max())
+            cfg.interval = shortest_span;
         // If HIGH_RATE or RT_EVENT is explicitly set without an interval, use a
         // sensible default.
         const bool needs_interval = cfg.mode == ExecutionMode::HIGH_RATE ||
@@ -248,6 +244,23 @@ struct Config {
     }
 };
 
+/// @brief Returns the span a HIGH_RATE wait sleeps: the interval of cfg, or max_timeout
+/// when it is positive and shorter.
+inline x::telem::TimeSpan
+high_rate_span(const Config &cfg, const x::telem::TimeSpan max_timeout) {
+    if (max_timeout.nanoseconds() <= 0) return cfg.interval;
+    return std::min(cfg.interval, max_timeout);
+}
+
+/// @brief logs the first failed arm of a deadline timer and sets reported. The loop
+/// then spins to each deadline.
+inline void report_arm_failure(bool &reported, const std::string &cause) {
+    if (reported) return;
+    reported = true;
+    LOG(ERROR) << "[arc.loop] failed to arm the deadline timer, spinning to each "
+               << "deadline instead: " << cause;
+}
+
 /// @brief Abstract event loop for the Arc runtime.
 /// Provides platform-specific waiting on timers and external events.
 struct Loop {
@@ -257,12 +270,15 @@ struct Loop {
     /// Must be called from the runtime thread only.
     /// @param breaker Controls loop termination; wait() returns when breaker stops.
     /// @param max_timeout Upper bound on how long to sleep. When positive, the loop
-    /// will wake after at most this duration even if no timer or input fires.
-    /// A value of 0 means no deadline constraint (use the loop's configured timing).
+    /// will wake after at most this duration even if no input fires. A value of 0 means
+    /// no deadline.
+    /// @param span the period of the timer that owns the deadline. On macOS, AUTO uses
+    /// HYBRID only when span is below timing::HYBRID_THRESHOLD.
     /// @return WakeReason indicating why wait() returned.
     virtual WakeReason wait(
         x::breaker::Breaker &breaker,
-        x::telem::TimeSpan max_timeout = x::telem::TimeSpan(0)
+        x::telem::TimeSpan max_timeout = x::telem::TimeSpan(0),
+        x::telem::TimeSpan span = x::telem::TimeSpan::max()
     ) = 0;
 
     /// @brief Initialize loop resources and apply RT configuration. Must be

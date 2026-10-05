@@ -110,8 +110,8 @@ jobs:
           # the paths resolve, which the action adds only to a lint it runs itself.
           problem-matchers: true
 
-      # The Windows runner does not have the disk space for a cold lint, so lint both
-      # GOOS values here. No package has a darwin-only file, so linux covers macOS.
+      # The Windows runner does not have the disk space for a cold lint, so lint every
+      # GOOS here.
       - name: Lint
         working-directory: ${{ inputs.directory }}
         env:
@@ -123,6 +123,10 @@ jobs:
           echo "::endgroup::"
           echo "::group::GOOS=windows"
           GOOS=windows ./custom-gcl run --path-mode=abs
+          echo "::endgroup::"
+          echo "::group::GOOS=darwin"
+          GOOS=darwin GOCACHE="$RUNNER_TEMP/gocache-darwin" \
+            ./custom-gcl run --path-mode=abs
           echo "::endgroup::"
 
       - name: Save the Go caches

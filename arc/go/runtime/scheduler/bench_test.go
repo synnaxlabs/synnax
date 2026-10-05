@@ -167,7 +167,7 @@ func buildSequentialChain(n int) (ir.IR, map[string]node.Node) {
 }
 
 func runTickBench(b *testing.B, prog ir.IR, nodes map[string]node.Node) {
-	s, err := scheduler.New(prog, nodes, 0)
+	s, err := scheduler.New(prog, nodes)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -225,7 +225,7 @@ func BenchmarkConstruction(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				if _, err := scheduler.New(prog, nodes, 0); err != nil {
+				if _, err := scheduler.New(prog, nodes); err != nil {
 					b.Fatal(err)
 				}
 			}

@@ -276,7 +276,7 @@ var _ = Describe("Scheduler", func() {
 
 	build := func(prog ir.IR) *scheduler.Scheduler {
 		GinkgoHelper()
-		return MustSucceed(scheduler.New(prog, nodes, 0))
+		return MustSucceed(scheduler.New(prog, nodes))
 	}
 
 	BeforeEach(func() {
@@ -3178,7 +3178,7 @@ var _ = Describe("Scheduler", func() {
 		DescribeTable(
 			"Should return an error on a scope jump with no kind",
 			func(prog func() ir.IR, msg string) {
-				Expect(scheduler.New(prog(), nodes, 0)).Error().To(SatisfyAll(
+				Expect(scheduler.New(prog(), nodes)).Error().To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring(msg)),
 				))
