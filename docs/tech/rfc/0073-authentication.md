@@ -143,12 +143,16 @@ can hold one password, any number of API keys, and one link per provider.
   The Core finds the record by its key and compares the hash. The secret is random, so a
   fast hash is safe. The Core returns the full key once, at creation. `name` is a label
   such as "Terraform". `created` shows the age of a key. To see whether a key is in use,
-  the Console lists its live sessions. A key has no permissions of its own. It acts as
-  its subject.
+  the Console lists its live sessions. A key never expires. It works until someone
+  deletes it. A key has no permissions of its own. It acts as its subject.
 - **OIDC link**: `account` is the stable ID the provider gives the person (§4.2). The
   Core stores no secret for it.
 
 A hash never leaves the Core. Clients see every other field.
+
+A subject can create API keys for itself. A user with the permission for it, which the
+Owner role holds, can create a key for any subject. That person can then act as the
+subject, so the permission belongs with administrators only.
 
 New passwords are hashed with Argon2id, the first choice in the OWASP guidance. Existing
 bcrypt hashes keep working, so no user resets a password. A hash is stored with a tag
@@ -309,7 +313,8 @@ holds its key and logs in again without help.
 
 **Revocation is not instant everywhere.** It is immediate on the node that receives the
 delete. Other nodes see it when Aspen replicates the delete. A node cut off from the
-cluster keeps honoring the session until it rejoins.
+cluster keeps honoring the session until it rejoins. A new session has the same delay:
+another node refuses its token until Aspen delivers it.
 
 **There is no absolute lifetime.** That has four consequences, and each one is accepted:
 
@@ -437,12 +442,49 @@ rules the table does not show:
   account. An administrator cannot type the provider's opaque ID, so they create the
   user with a password, and the user logs in and links their own account.
 
-- **Client libraries** take one proof at construction and log in on the first request.
-  When a session ends, a client holding a password or API key logs in again by itself. A
-  client keeps a password in memory only. The Python CLI saves an API key to the keyring
-  instead of the password it saves today.
-- **The Console** stores the session token instead of the password. A dead session sends
-  the user to the login page. User and rack pages gain a credentials list.
+A client takes one proof when it is built, either a username and password or an API key.
+Giving both is a validation error.
+
+```ts
+// TypeScript
+new Synnax({ host: "core.example.com", port: 9090, username: "jane", password: "..." });
+new Synnax({ host: "core.example.com", port: 9090, apiKey: "syk_..." });
+```
+
+```python
+# Python
+sy.Synnax(host="core.example.com", port=9090, username="jane", password="...")
+sy.Synnax(host="core.example.com", port=9090, api_key="syk_...")
+sy.Synnax()  # the key that `sy login` saved to the keyring
+```
+
+```cpp
+// C++
+synnax::Synnax(synnax::Config{.host = "core.example.com", .api_key = "syk_..."});
+```
+
+Both forms make the same login call on the first request, with a different proof:
+
+```json
+{ "proof": { "method": "password", "username": "jane", "password": "..." } }
+{ "proof": { "method": "api_key", "key": "syk_..." } }
+```
+
+The response holds the session token and the subject. For a rack's key the subject is
+the rack, so a client exposes the subject, and a user record only when the subject is a
+user.
+
+- **Client libraries** log in again by themselves when a session ends, because they hold
+  the password or key in memory. They never save a password. `sy login` asks for a
+  username and password once, creates an API key, and saves the key to the keyring.
+- **The desktop Console** keeps the session token in the keychain and sends it in the
+  `Authorization` header.
+- **The browser Console** never sees the token. The Core sets it in a cookie that
+  scripts cannot read, and the browser sends the cookie on every request and stream. The
+  middleware reads the token from the header or from the cookie. This also removes the
+  token from the WebSocket URL, where a browser has to put it today.
+- **Both Consoles** send the user to the login page when a session is dead, and gain a
+  credentials list on user and rack pages.
 - **The Driver** config replaces `username` and `password` with `api_key`.
 
 ### 4.11 What each component saves
@@ -460,7 +502,7 @@ can read.
 | Core             | API key of the embedded Driver                    | Driver config file in the Core data directory    | Plain text, owner-only file                                     |
 | Driver           | API key of its rack                               | Driver state file                                | Plain text, owner-only file                                     |
 | Console, desktop | Session token                                     | Operating system keychain                        | Encrypted by the operating system                               |
-| Console, browser | Session token                                     | Browser storage                                  | Plain text, limited to the Core's origin                        |
+| Console, browser | Session token                                     | A cookie that scripts cannot read                | The page never holds the token                                  |
 | Python CLI       | API key                                           | Operating system keyring                         | Encrypted by the operating system                               |
 | Client libraries | Nothing                                           | Memory only                                      | Gone when the process exits                                     |
 | Synnax Desktop   | Nothing                                           | Memory only                                      | The launch password goes to the Core in an environment variable |
@@ -508,16 +550,16 @@ file that the Core writes for the embedded Driver changes in the same way.
 | TypeScript `synnaxParamsZ`         | Adds `apiKey`. `username` and `password` become optional. One of the two is required                                         |
 | Python `Synnax(...)` and `Options` | Adds `api_key`, with the same rule                                                                                           |
 | Python `sy login`                  | Asks for a username and password, creates an API key, and saves the key to the keyring. `~/.synnax/config.json` is unchanged |
-| C++ `synnax::Config`               | Adds `api_key`, with the same rule. The `synnax` and `seldon` defaults go away                                               |
+| C++ `synnax::Config`               | Adds `api_key`, with the same rule. The `synnax` and `seldon` defaults apply only when no key is given                       |
 | C interface `synnax_client_open`   | Gains an API key parameter, for LabVIEW                                                                                      |
 
 **Console**
 
-| Setting                       | Change                                                                   |
-| ----------------------------- | ------------------------------------------------------------------------ |
-| Saved Core record, `password` | Removed from the store                                                   |
-| Saved Core record, `username` | Unchanged. It fills the login form                                       |
-| Session token                 | New. Kept in the keychain on desktop and in browser storage in a browser |
+| Setting                       | Change                                                                                      |
+| ----------------------------- | ------------------------------------------------------------------------------------------- |
+| Saved Core record, `password` | Removed from the store                                                                      |
+| Saved Core record, `username` | Unchanged. It fills the login form                                                          |
+| Session token                 | New. Kept in the keychain on desktop, and in a cookie that scripts cannot read in a browser |
 
 **Synnax Desktop**
 
@@ -550,7 +592,8 @@ session model does not change.
   later audit design has what it needs.
 - Authentication between Core nodes. Peer calls are unauthenticated today.
 - Smart cards without a provider, SAML, and LDAP.
-- Second factors, login rate limits, and lockout.
+- Second factors.
+- A limit on failed logins. The first version has none.
 - A Console screen lock after a person is inactive.
 - FIPS mode beyond password hashing.
 
