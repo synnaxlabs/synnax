@@ -151,17 +151,17 @@ var _ = Describe("Timer", Serial, func() {
 		},
 		Entry("none", time.Duration(0)),
 		Entry("part of the wait", 2*time.Millisecond),
-		Entry("the whole wait", time.Hour),
+		Entry("the whole wait", timer.SpinAll),
 	)
 
 	It("Should fire within 50 µs of its deadline when it spins the whole wait", func() {
-		s := MustOpen(timer.New(time.Hour))
+		s := MustOpen(timer.New(timer.SpinAll))
 		Expect(medianLateness(s, 2*time.Millisecond, 50)).
 			To(BeNumerically("<", 50*time.Microsecond))
 	})
 
 	It("Should not fire after Stop during a spin", func() {
-		s := MustOpen(timer.New(time.Hour))
+		s := MustOpen(timer.New(timer.SpinAll))
 		Expect(s.Reset(20 * time.Millisecond)).To(Succeed())
 		time.Sleep(5 * time.Millisecond)
 		Expect(s.Stop()).To(Succeed())
@@ -169,7 +169,7 @@ var _ = Describe("Timer", Serial, func() {
 	})
 
 	It("Should not hold up Reset while it spins", func() {
-		s := MustOpen(timer.New(time.Hour))
+		s := MustOpen(timer.New(timer.SpinAll))
 		const resets = 50
 		took := make([]time.Duration, resets)
 		for i := range took {

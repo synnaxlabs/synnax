@@ -63,6 +63,11 @@ inline const x::telem::TimeSpan WINDOWS_DEADLINE_SPIN = x::telem::MILLISECOND;
 /// alone fires up to 1 ms late.
 inline const x::telem::TimeSpan DARWIN_DEADLINE_SPIN = 1500 * x::telem::MICROSECOND;
 
+/// @brief Span the Linux loop spins ahead of a deadline in HYBRID, and in BUSY_WAIT on
+/// a real-time thread. A real-time wait alone wakes up to about 25 us late on
+/// PREEMPT_RT.
+inline const x::telem::TimeSpan LINUX_DEADLINE_SPIN = 50 * x::telem::MICROSECOND;
+
 }
 
 /// @brief Default RT priority for SCHED_FIFO on Linux (range 1-99).
@@ -79,14 +84,18 @@ enum class ExecutionMode {
     /// @brief Picks the thread config from the shortest timer. At each wait, spins
     /// before the deadline only when the timer that owns it is short.
     AUTO,
-    /// @brief Continuous polling without sleeping. Lowest latency, 100% CPU.
+    /// @brief Continuous polling without sleeping. Lowest latency, 100% CPU. On a Linux
+    /// real-time thread, it waits as HYBRID and keeps all cores out of deep idle
+    /// states.
+    /// A real-time thread that never sleeps is throttled by the kernel, or starves it.
     BUSY_WAIT,
     /// @brief Tight polling loop with precise software timing. Sub-millisecond
     /// precision.
     HIGH_RATE,
     /// @brief Real-time event-driven with RT thread configuration (Linux SCHED_FIFO).
     RT_EVENT,
-    /// @brief Spin briefly then block on events. Balanced for general-purpose systems.
+    /// @brief Blocks on events, then spins ahead of each deadline. Balanced for
+    /// general-purpose systems.
     HYBRID,
     /// @brief Block immediately on events. Lowest CPU usage, higher latency.
     EVENT_DRIVEN,

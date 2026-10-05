@@ -11,7 +11,6 @@
 
 #include <cstring>
 #include <string>
-#include <thread>
 
 #include "absl/log/log.h"
 #include <sys/event.h>
@@ -45,9 +44,10 @@ class Darwin final : public Loop {
 public:
     explicit Darwin(
         Config config,
-        std::shared_ptr<x::thread::rt::Handle> rt_handle = nullptr
+        std::shared_ptr<x::thread::rt::Handle> rt_handle = nullptr,
+        Arm arm = Arm{}
     ):
-        config_(std::move(config)), rt_handle_(std::move(rt_handle)) {
+        config_(std::move(config)), rt_handle_(std::move(rt_handle)), arm_(arm) {
         if (this->config_.memory_locked)
             LOG(WARNING) << "[arc.loop] Memory locking not fully supported on macOS";
     }
@@ -166,9 +166,6 @@ private:
             }
             if (max_timeout.nanoseconds() > 0 && sw.elapsed() >= max_timeout)
                 return WakeReason::Timer;
-            // Prevent starvation of breaker-stopping threads. yield() over
-            // sleep_for() to avoid adding ~50-100us of kernel timer overhead.
-            std::this_thread::yield();
         }
         return WakeReason::Shutdown;
     }
@@ -199,12 +196,15 @@ private:
         const auto sw = x::telem::Stopwatch();
         struct timespec timeout = {0, 0};
         struct kevent events[8];
-        while (sw.elapsed() < this->config_.spin_duration) {
+        auto spin = this->config_.spin_duration;
+        if (max_timeout.nanoseconds() > 0) spin = std::min(spin, max_timeout);
+        while (sw.elapsed() < spin) {
             if (!breaker.running()) return WakeReason::Shutdown;
             const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, &timeout);
             if (n > 0) return this->classify_events(events, n);
         }
-        if (max_timeout.nanoseconds() > 0) return this->deadline_wait(sw, max_timeout);
+        if (max_timeout.nanoseconds() > 0)
+            return this->deadline_wait(breaker, sw, max_timeout);
         timeout = ns_to_timespec(timing::HYBRID_BLOCK_TIMEOUT.nanoseconds());
         const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, &timeout);
         if (n > 0) return this->classify_events(events, n);
@@ -250,7 +250,7 @@ private:
             deadline ? max_timeout.nanoseconds() : 0,
             nullptr
         );
-        if (Arm::set(this->kqueue_fd_, kev) == -1) {
+        if (this->arm_.set(this->kqueue_fd_, kev) == -1) {
             report_arm_failure(this->arm_failed_, strerror(errno));
             this->deadline_armed_ = false;
             return false;
@@ -260,24 +260,35 @@ private:
     }
 
     /// @brief HYBRID: blocks until the spin span ahead of deadline, then spins to it.
-    /// The deadline counts from the start of sw.
-    WakeReason
-    deadline_wait(const x::telem::Stopwatch &sw, const x::telem::TimeSpan deadline) {
+    /// The deadline counts from the start of sw. When the timer does not arm, it spins
+    /// the whole wait.
+    WakeReason deadline_wait(
+        const x::breaker::Breaker &breaker,
+        const x::telem::Stopwatch &sw,
+        const x::telem::TimeSpan deadline
+    ) {
         struct kevent events[8];
         const auto block = deadline - sw.elapsed() - timing::DARWIN_DEADLINE_SPIN;
-        if (block.nanoseconds() > 0) {
-            const auto timeout = ns_to_timespec(block.nanoseconds());
-            const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, &timeout);
-            if (n != 0) return this->wake_reason(events, n);
+        // A kevent timeout gets timer slack that can pass the deadline. The
+        // NOTE_CRITICAL timer of arm_deadline gets none.
+        if (block.nanoseconds() > 0 && this->arm_deadline(block)) {
+            const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, nullptr);
+            if (n < 0) return this->wake_reason(events, n);
+            for (int i = 0; i < n; i++)
+                if (events[i].filter != EVFILT_TIMER ||
+                    events[i].ident != DEADLINE_EVENT_IDENT)
+                    return this->classify_events(events, n);
+            this->deadline_armed_ = false;
         }
         // A zero-timeout kevent sleeps about 12 us, so this spin uses about 11% CPU and
         // ends within 12 us of the deadline.
         constexpr timespec poll = {0, 0};
         while (sw.elapsed() < deadline) {
+            if (!breaker.running()) return WakeReason::Shutdown;
             const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, &poll);
             if (n != 0) return this->wake_reason(events, n);
         }
-        return WakeReason::Timeout;
+        return WakeReason::Timer;
     }
 
     /// @brief returns the wake reason of a kevent call that returned n != 0. An
@@ -313,6 +324,8 @@ private:
 
     Config config_;
     std::shared_ptr<x::thread::rt::Handle> rt_handle_;
+    /// @brief sets the deadline timer.
+    Arm arm_;
     int kqueue_fd_ = -1;
     bool deadline_armed_ = false;
     bool arm_failed_ = false;

@@ -64,6 +64,8 @@ const auto SHORT_FIRE_ERROR_BOUND = 250 * x::telem::MICROSECOND;
 /// @brief Maximum median distance between a fire and its deadline in a mode that spins
 /// to the deadline.
 const auto SPIN_FIRE_ERROR_BOUND = 50 * x::telem::MICROSECOND;
+/// @brief Deadline far shorter than a 1 ms HYBRID input spin.
+const auto SHORT_DEADLINE = 100 * x::telem::MICROSECOND;
 /// @brief Deadline of a wait that an input ends before the deadline. It is shorter than
 /// the block timeout of each mode, so that a stale timer fires inside the next wait.
 const auto STALE_DEADLINE = 5 * x::telem::MILLISECOND;
@@ -951,8 +953,7 @@ TEST(MaxTimeoutTest, Hybrid_MaxTimeoutConstrainsBlockPhase) {
     const auto elapsed = sw.elapsed();
     EXPECT_GE(elapsed, 15 * x::telem::MILLISECOND);
     EXPECT_LE(elapsed, test_timing::TIMER_UPPER_BOUND);
-    // A deadline wake is a timer on Windows and Linux and a timeout on macOS.
-    EXPECT_TRUE(reason == WakeReason::Timer || reason == WakeReason::Timeout);
+    EXPECT_EQ(reason, WakeReason::Timer);
 
     breaker.stop();
 }
@@ -1052,6 +1053,28 @@ TEST(DeadlineTest, HighRate_ShortIntervalFiresOnDeadline) {
     const auto fire = median_fire(*loop, breaker);
     breaker.stop();
     EXPECT_LE(fire.error, test_timing::SPIN_FIRE_ERROR_BOUND);
+}
+
+/// @brief HYBRID should fire on a deadline that comes before the end of its input spin.
+TEST(DeadlineTest, Hybrid_FiresOnADeadlineInsideTheInputSpin) {
+    Config config;
+    config.mode = ExecutionMode::HYBRID;
+    config.spin_duration = x::telem::MILLISECOND;
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
+    x::breaker::Breaker breaker;
+    breaker.start();
+    constexpr int COUNT = 20;
+    std::vector<x::telem::TimeSpan> errors;
+    for (int i = 0; i < COUNT; i++)
+        errors.push_back(measure_fire(
+                             *loop,
+                             breaker,
+                             x::telem::Stopwatch(),
+                             test_timing::SHORT_DEADLINE
+        )
+                             .error);
+    breaker.stop();
+    EXPECT_LE(median_of(errors), test_timing::SHORT_FIRE_ERROR_BOUND);
 }
 
 /// @brief A loop in the mode of the parameter.
@@ -1221,6 +1244,10 @@ struct FailingArm {
         return -1;
     }
     static bool realtime() { return true; }
+    static int hold_latency() {
+        errno = EACCES;
+        return -1;
+    }
 #elif defined(__APPLE__)
     static int set(int, const struct kevent &) {
         errno = ENOMEM;
@@ -1298,26 +1325,62 @@ TEST_P(FailedArmTest, TimesOutWithNoDeadline) {
     EXPECT_EQ(this->loop->wait(this->breaker), WakeReason::Timeout);
 }
 
-/// @brief The modes that arm a timer for a deadline. macOS HYBRID and RT_EVENT block on
-/// a kevent timeout, with no timer to arm.
+/// @brief The modes that arm a timer for a deadline.
 const std::vector<ExecutionMode> ARMED_MODES = {
     ExecutionMode::AUTO,
     ExecutionMode::EVENT_DRIVEN,
-#if !defined(__APPLE__)
     ExecutionMode::HYBRID,
     ExecutionMode::RT_EVENT,
-#endif
 };
 
 INSTANTIATE_TEST_SUITE_P(ArmedModes, FailedArmTest, testing::ValuesIn(ARMED_MODES));
 
+#if defined(__APPLE__)
+/// @brief Applies timer changes with the OS call and records each one in kevs.
+struct RecordingArm {
+    std::vector<struct kevent> *kevs;
+
+    int set(const int kq, const struct kevent &kev) const {
+        this->kevs->push_back(kev);
+        return KqueueArm::set(kq, kev);
+    }
+};
+
+/// @brief HYBRID should block on a NOTE_CRITICAL timer, which gets no timer slack,
+/// until the spin span ahead of the deadline.
+TEST(DeadlineSpinTest, HybridBlocksOnACriticalTimer) {
+    std::vector<struct kevent> kevs;
+    Config config;
+    config.mode = ExecutionMode::HYBRID;
+    config.cpu_affinity = CPU_AFFINITY_NONE;
+    Darwin<RecordingArm> loop(config, nullptr, RecordingArm{.kevs = &kevs});
+    ASSERT_NIL(loop.start());
+    x::breaker::Breaker breaker;
+    breaker.start();
+    EXPECT_EQ(loop.wait(breaker, test_timing::DEADLINE_DURATION), WakeReason::Timer);
+    breaker.stop();
+    const auto block = test_timing::DEADLINE_DURATION - timing::DARWIN_DEADLINE_SPIN;
+    const auto armed = std::ranges::find_if(kevs, [](const struct kevent &kev) {
+        return (kev.flags & EV_ADD) != 0;
+    });
+    ASSERT_NE(armed, kevs.end());
+    EXPECT_EQ(armed->ident, DEADLINE_EVENT_IDENT);
+    EXPECT_NE(armed->fflags & NOTE_CRITICAL, 0u);
+    EXPECT_LE(armed->data, block.nanoseconds());
+    EXPECT_GT(armed->data, (block - x::telem::MILLISECOND).nanoseconds());
+}
+#endif
+
 #if defined(__linux__)
-/// @brief Linux calls that count timerfd arms. realtime_thread is what the thread
-/// reports as its policy, and pwait2 is whether epoll_pwait2 exists.
+/// @brief Linux calls that count timerfd arms and latency holds, and record the timeout
+/// of each epoll_pwait2 wait. realtime_thread is what the thread reports as its policy,
+/// and pwait2 is whether epoll_pwait2 exists.
 struct CountingEpollApi {
     bool realtime_thread = true;
     bool pwait2 = true;
     int *arms = nullptr;
+    std::vector<x::telem::TimeSpan> *timeouts = nullptr;
+    int *holds = nullptr;
 
     int wait(
         const int epfd,
@@ -1325,6 +1388,10 @@ struct CountingEpollApi {
         const int max,
         const timespec &timeout
     ) const {
+        if (this->timeouts != nullptr)
+            this->timeouts->push_back(
+                x::telem::TimeSpan(timeout.tv_sec * 1'000'000'000 + timeout.tv_nsec)
+            );
         if (!this->pwait2) {
             errno = ENOSYS;
             return -1;
@@ -1338,6 +1405,11 @@ struct CountingEpollApi {
     }
 
     bool realtime() const { return this->realtime_thread; }
+
+    int hold_latency() const {
+        if (this->holds != nullptr) (*this->holds)++;
+        return open("/dev/null", O_WRONLY | O_CLOEXEC);
+    }
 };
 
 /// @brief A started loop on a thread that reports a real-time policy, in the mode of
@@ -1414,6 +1486,132 @@ TEST(DirectWaitFallbackTest, ArmsATimerfdWithoutEpollPwait2) {
     wait_one_deadline(CountingEpollApi{.pwait2 = false, .arms = &arms});
     EXPECT_GT(arms, 0);
 }
+
+/// @brief The blocks and latency holds of one wait.
+struct Blocks {
+    /// @brief the nonzero timeouts the wait blocked on.
+    std::vector<x::telem::TimeSpan> timeouts;
+    /// @brief how many times the loop held the wake latency of the cores.
+    int holds = 0;
+};
+
+/// @brief Starts a loop in mode on a thread that reports realtime as its policy, waits
+/// once to deadline for a timer of span, and records the wait in blocks.
+void wait_blocks(
+    Blocks &blocks,
+    const ExecutionMode mode,
+    const bool realtime,
+    const x::telem::TimeSpan deadline,
+    const x::telem::TimeSpan span = x::telem::TimeSpan::max()
+) {
+    int arms = 0;
+    std::vector<x::telem::TimeSpan> timeouts;
+    Config config;
+    config.mode = mode;
+    config.cpu_affinity = CPU_AFFINITY_NONE;
+    Linux<CountingEpollApi> loop(
+        config,
+        nullptr,
+        CountingEpollApi{
+            .realtime_thread = realtime,
+            .arms = &arms,
+            .timeouts = &timeouts,
+            .holds = &blocks.holds,
+        }
+    );
+    ASSERT_NIL(loop.start());
+    x::breaker::Breaker breaker;
+    breaker.start();
+    EXPECT_EQ(loop.wait(breaker, deadline, span), WakeReason::Timer);
+    breaker.stop();
+    for (const auto &timeout: timeouts)
+        if (timeout.nanoseconds() > 0) blocks.timeouts.push_back(timeout);
+}
+
+/// @brief HYBRID should block until the spin span ahead of the deadline.
+TEST(DeadlineSpinTest, HybridBlocksUntilTheSpinAheadOfTheDeadline) {
+    Blocks blocks;
+    wait_blocks(blocks, ExecutionMode::HYBRID, true, test_timing::DEADLINE_DURATION);
+    EXPECT_EQ(
+        blocks.timeouts,
+        std::vector{test_timing::DEADLINE_DURATION - timing::LINUX_DEADLINE_SPIN}
+    );
+    EXPECT_EQ(blocks.holds, 0);
+}
+
+/// @brief The spin should take at most half the span of the timer, so that a real-time
+/// thread leaves its core time in each period.
+TEST(DeadlineSpinTest, SpinTakesAtMostHalfTheTimerSpan) {
+    const auto span = 40 * x::telem::MICROSECOND;
+    Blocks blocks;
+    wait_blocks(
+        blocks,
+        ExecutionMode::HYBRID,
+        true,
+        test_timing::DEADLINE_DURATION,
+        span
+    );
+    EXPECT_EQ(blocks.timeouts, std::vector{test_timing::DEADLINE_DURATION - span / 2});
+}
+
+/// @brief A wait shorter than the spin should spin with no block.
+TEST(DeadlineSpinTest, HybridSpinsAShortWaitWithNoBlock) {
+    Blocks blocks;
+    wait_blocks(blocks, ExecutionMode::HYBRID, true, timing::LINUX_DEADLINE_SPIN / 2);
+    EXPECT_TRUE(blocks.timeouts.empty());
+}
+
+/// @brief BUSY_WAIT on a real-time thread should block before the deadline, as the
+/// kernel throttles a real-time thread that never sleeps, and hold the wake latency.
+TEST(DeadlineSpinTest, BusyWaitBlocksOnARealtimeThread) {
+    Blocks blocks;
+    wait_blocks(blocks, ExecutionMode::BUSY_WAIT, true, test_timing::DEADLINE_DURATION);
+    EXPECT_EQ(
+        blocks.timeouts,
+        std::vector{test_timing::DEADLINE_DURATION - timing::LINUX_DEADLINE_SPIN}
+    );
+    EXPECT_EQ(blocks.holds, 1);
+}
+
+/// @brief BUSY_WAIT on a thread that is not real-time should spin through the wait.
+TEST(DeadlineSpinTest, BusyWaitSpinsOnANormalThread) {
+    Blocks blocks;
+    wait_blocks(
+        blocks,
+        ExecutionMode::BUSY_WAIT,
+        false,
+        test_timing::DEADLINE_DURATION
+    );
+    EXPECT_TRUE(blocks.timeouts.empty());
+    EXPECT_EQ(blocks.holds, 0);
+}
+
+/// @brief A HYBRID loop on a thread that reports the policy of the parameter.
+class HybridFireTest : public testing::TestWithParam<bool> {};
+
+/// @brief HYBRID should end each wait on its deadline, whether it blocks on an
+/// epoll_pwait2 timeout or a timerfd. A core waking from a deep idle state can outlast
+/// the spin, so the bound is that of a blocking wait.
+TEST_P(HybridFireTest, FiresOnTheDeadline) {
+    int arms = 0;
+    Config config;
+    config.mode = ExecutionMode::HYBRID;
+    config.cpu_affinity = CPU_AFFINITY_NONE;
+    Linux<CountingEpollApi> loop(
+        config,
+        nullptr,
+        CountingEpollApi{.realtime_thread = this->GetParam(), .arms = &arms}
+    );
+    ASSERT_NIL(loop.start());
+    x::breaker::Breaker breaker;
+    breaker.start();
+    const auto fire = median_fire(loop, breaker);
+    breaker.stop();
+    EXPECT_LE(fire.error, test_timing::FIRE_ERROR_BOUND);
+    EXPECT_EQ(fire.waits, 1);
+}
+
+INSTANTIATE_TEST_SUITE_P(Policies, HybridFireTest, testing::Bool());
 #endif
 
 #if defined(_WIN32)
