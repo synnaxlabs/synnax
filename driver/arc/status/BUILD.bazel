@@ -27,6 +27,7 @@ cc_library(
 cc_test(
     name = "status_test",
     srcs = ["status_test.cpp"],
+    tags = ["requires-core"],
     deps = [
         ":status",
         "//arc/cpp/runtime/errors",

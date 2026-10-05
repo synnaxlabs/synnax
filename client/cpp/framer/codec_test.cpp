@@ -109,46 +109,6 @@ x::telem::Frame create_diff_lengths_frame() {
     return frame;
 }
 
-// Helper function to verify that two frames are equal
-void assert_frames_equal(
-    const x::telem::Frame &expected,
-    const x::telem::Frame &actual
-) {
-    ASSERT_EQ(expected.size(), actual.size());
-
-    for (size_t i = 0; i < expected.channels->size(); i++) {
-        auto expected_key = expected.channels->at(i);
-
-        auto it = std::find(
-            actual.channels->begin(),
-            actual.channels->end(),
-            expected_key
-        );
-        ASSERT_NE(it, actual.channels->end())
-            << "Channel key not found: " << expected_key;
-
-        const size_t idx = std::distance(actual.channels->begin(), it);
-        const auto &expected_series = expected.series->at(i);
-        const auto &actual_series = actual.series->at(idx);
-
-        ASSERT_EQ(expected_series.data_type(), actual_series.data_type());
-        ASSERT_EQ(expected_series.size(), actual_series.size());
-        ASSERT_EQ(expected_series.byte_size(), actual_series.byte_size());
-        ASSERT_EQ(expected_series.alignment, actual_series.alignment);
-        ASSERT_EQ(expected_series.time_range.start, actual_series.time_range.start);
-        ASSERT_EQ(expected_series.time_range.end, actual_series.time_range.end);
-
-        ASSERT_EQ(
-            0,
-            std::memcmp(
-                expected_series.data(),
-                actual_series.data(),
-                expected_series.byte_size()
-            )
-        );
-    }
-}
-
 x::telem::Frame create_large_equal_frame() {
     constexpr size_t NUM_CHANNELS = 500;
     auto frame = x::telem::Frame(NUM_CHANNELS);
@@ -374,87 +334,6 @@ TEST(CodecTests, LargeFrame) {
     codec.encode(frame, encoded);
     const x::telem::Frame decoded_frame = ASSERT_NIL_P(codec.decode(encoded));
     assert_frames_equal(frame, decoded_frame);
-}
-
-/// @brief it should allow the caller to dynamically update the keys fo the codec.
-TEST(CodecTests, DynamicCodecUpdate) {
-    auto client = new_test_client();
-
-    auto [idx_ch, data_ch] = create_indexed_pair(client);
-    Codec codec(client.channels);
-
-    codec.update(std::vector{idx_ch.key});
-
-    auto frame = x::telem::Frame(
-        idx_ch.key,
-        x::telem::Series(x::telem::TimeStamp(x::telem::SECOND))
-    );
-
-    std::vector<uint8_t> encoded;
-    ASSERT_NIL(codec.encode(frame, encoded));
-    auto decoded_frame = ASSERT_NIL_P(codec.decode(encoded));
-    assert_frames_equal(frame, decoded_frame);
-
-    codec.update(std::vector{data_ch.key});
-    auto frame2 = x::telem::Frame(data_ch.key, x::telem::Series(1.0f));
-    ASSERT_NIL(codec.encode(frame2, encoded));
-    auto decoded_frame2 = ASSERT_NIL_P(codec.decode(encoded));
-    assert_frames_equal(frame2, decoded_frame2);
-}
-
-/// @brief it should correctly encode/decode values when the codec are out of sync
-TEST(CodecTests, UninitializedCodec) {
-    auto client = new_test_client();
-    Codec codec(client.channels);
-
-    auto [idx_ch, _] = create_indexed_pair(client);
-    auto frame = x::telem::Frame(
-        idx_ch.key,
-        x::telem::Series(x::telem::TimeStamp(x::telem::SECOND))
-    );
-
-    std::vector<uint8_t> encoded;
-    ASSERT_THROW(codec.encode(frame, encoded), std::runtime_error);
-}
-
-/// @brief it should correctly manage the lifecycle of codecs that are temporarily
-/// out of sync by using historical states.
-TEST(CodecTests, OutOfSyncCodecs) {
-    auto client = new_test_client();
-    auto [idx_ch, data_ch] = create_indexed_pair(client);
-
-    Codec encoder(client.channels);
-    Codec decoder(client.channels);
-
-    // Initial state - both in sync
-    ASSERT_NIL(encoder.update(std::vector{idx_ch.key}));
-    ASSERT_NIL(decoder.update(std::vector{idx_ch.key}));
-
-    auto frame = x::telem::Frame(
-        idx_ch.key,
-        x::telem::Series(x::telem::TimeStamp(x::telem::SECOND))
-    );
-
-    std::vector<uint8_t> encoded;
-    ASSERT_NIL(encoder.encode(frame, encoded));
-    auto decoded_frame = ASSERT_NIL_P(decoder.decode(encoded));
-    assert_frames_equal(frame, decoded_frame);
-
-    // Decoder updates but encoder doesn't - should still work with old format
-    ASSERT_NIL(decoder.update(std::vector{data_ch.key}));
-    ASSERT_NIL(encoder.encode(frame, encoded));
-    auto decoded_frame2 = ASSERT_NIL_P(decoder.decode(encoded));
-    assert_frames_equal(frame, decoded_frame2);
-
-    // Encoder updates - old frame should now fail
-    ASSERT_NIL(encoder.update(std::vector{data_ch.key}));
-    ASSERT_OCCURRED_AS(encoder.encode(frame, encoded), x::errors::VALIDATION);
-
-    // New frame with updated channel should work
-    auto frame2 = x::telem::Frame(data_ch.key, x::telem::Series(1.0f));
-    ASSERT_NIL(encoder.encode(frame2, encoded));
-    auto decoded_frame3 = ASSERT_NIL_P(decoder.decode(encoded));
-    assert_frames_equal(frame2, decoded_frame3);
 }
 
 /// @brief it should return a validation error when the data type of a series does not

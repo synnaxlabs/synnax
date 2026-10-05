@@ -41,6 +41,7 @@ cc_library(
 cc_test(
     name = "arc_test",
     srcs = ["arc_test.cpp"],
+    tags = ["requires-core"],
     deps = [
         ":arc",
         "//client/cpp:synnax",
