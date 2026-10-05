@@ -141,9 +141,19 @@ class CustomSymbols(ConsoleCase):
         assert editor.region_count() == 2, (
             f"expected 2 regions (clip-path excluded), got {editor.region_count()}"
         )
+        assert editor.region_rows_fit(), "region rows overflow the editor sidebar"
 
         editor.set_region_fill_color("#FF0000", region_index=0)
         editor.assert_preview_fill("#body", "rgb(255, 0, 0)")
+
+        # Auto drops the override, so the preview and the swatch both show the SVG's
+        # own fill again.
+        editor.clear_region_fill_color(region_index=0)
+        editor.assert_preview_fill("#body", "rgb(90, 135, 197)")
+        swatch_color = editor.get_region_fill_swatch_color(region_index=0)
+        assert swatch_color == "rgba(90, 135, 197, 1)", (
+            f"Auto fill swatch should show the SVG's fill, got {swatch_color}"
+        )
 
         # The circle's green fill comes from a <style> class rule; overriding it must
         # paint once the block is stripped and the color flattened.

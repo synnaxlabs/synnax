@@ -277,6 +277,35 @@ describe("Region.extract", () => {
   });
 });
 
+describe("Region.paint", () => {
+  const SVG =
+    '<svg xmlns="http://www.w3.org/2000/svg">' +
+    '<rect id="a" stroke="#ff0000" fill="#00ff00" />' +
+    '<rect id="b" stroke="#0000ff" fill="none" />' +
+    "</svg>";
+
+  it("should return the paint of the first element the selectors match", () => {
+    expect(Region.paint(SVG, ["#missing", "#a", "#b"])).toEqual({
+      stroke: color.construct("#ff0000"),
+      fill: color.construct("#00ff00"),
+    });
+  });
+
+  it("should read a fill of none as transparent", () => {
+    expect(Region.paint(SVG, ["#b"])).toEqual({
+      stroke: color.construct("#0000ff"),
+      fill: color.ZERO,
+    });
+  });
+
+  it("should return transparent when no selector matches", () => {
+    expect(Region.paint(SVG, ["#missing"])).toEqual({
+      stroke: color.ZERO,
+      fill: color.ZERO,
+    });
+  });
+});
+
 const parse = (markup: string): SVGSVGElement => {
   const doc = new DOMParser().parseFromString(
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">${markup}</svg>`,

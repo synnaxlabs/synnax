@@ -27,3 +27,17 @@ def pick(page: Page, swatch: Locator, hex_color: str) -> None:
     hex_input.blur()
     page.keyboard.press("Escape")
     picker.wait_for(state="hidden", timeout=2000)
+
+
+def pick_auto(page: Page, swatch: Locator) -> None:
+    """Opens the color picker of an optional color's swatch, picks Auto, and closes
+    the picker.
+
+    :param swatch: The swatch that opens the picker.
+    """
+    swatch.click()
+    picker = page.locator(".pluto-color-picker")
+    picker.wait_for(state="visible", timeout=2000)
+    picker.get_by_label("Auto", exact=True).click()
+    page.keyboard.press("Escape")
+    picker.wait_for(state="hidden", timeout=2000)
