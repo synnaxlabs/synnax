@@ -134,7 +134,7 @@ func migrateConfigsToRecords(
 		}
 		// Stored blobs are all console-era, which every store's legacy rewrite
 		// handles as version 0.
-		converted, err := store.Normalize(0, t.Config)
+		converted, err := store.Normalize(ctx, tx, 0, t.Config)
 		if err != nil {
 			if err := quarantine(
 				ctx, tx, ins, otgW, t, unconvertibleReason(err),
