@@ -19,9 +19,9 @@ import (
 )
 
 const (
-	// spin is how long the timer spins before its deadline. A high resolution timer
-	// wakes up to about 0.5 ms late.
-	spin = time.Millisecond
+	// DefaultSpin is the spin that holds a wait to its deadline at the lowest CPU
+	// cost. A high resolution timer wakes up to about 0.5 ms late.
+	DefaultSpin = time.Millisecond
 	// createWaitableTimerHighResolution is CREATE_WAITABLE_TIMER_HIGH_RESOLUTION.
 	createWaitableTimerHighResolution = 0x2
 )
@@ -64,8 +64,7 @@ func Wall() time.Time {
 	return time.Unix(0, ft.Nanoseconds())
 }
 
-// platform waits on a waitable timer that wakes spin before the deadline, then spins
-// to the deadline on Now.
+// platform waits on a waitable timer.
 type platform struct {
 	// handle is the waitable timer.
 	handle windows.Handle
@@ -123,29 +122,15 @@ func (t *Timer) wait() error {
 		if event == windows.WAIT_OBJECT_0+1 {
 			return nil
 		}
-		t.spinToDeadline()
 		if err = t.expire(); err != nil {
 			return err
 		}
 	}
 }
 
-// spinToDeadline spins until the deadline, unless the timer is stopped or the deadline
-// is more than two spins away.
-func (t *Timer) spinToDeadline() {
-	for {
-		t.mu.Lock()
-		deadline := t.deadline
-		t.mu.Unlock()
-		if left := deadline - Now(); deadline == 0 || left <= 0 || left > 2*spin {
-			return
-		}
-	}
-}
-
 func (t *Timer) arm(d time.Duration) error {
 	// A negative due time is relative, in 100 ns units.
-	due := min(-int64((d-spin)/100), -1)
+	due := min(-int64(d/100), -1)
 	r, _, err := procSetWaitableTimer.Call(
 		uintptr(t.handle),
 		uintptr(unsafe.Pointer(&due)),

@@ -465,7 +465,7 @@ export const testStand = async ({
   const arc = await client.arcs.retrieve({ name: SEQUENCE });
   const [rack] = await client.racks.retrieve({ integration: "arc" });
   if (rack == null) throw new Error("the Core has no rack that runs Arc");
-  const task = await client.arcs.setRack(arc.key, rack.key);
+  const task = await client.arcs.updateTask(arc.key, { rack: rack.key });
   if (task == null)
     throw new Error(`binding ${SEQUENCE} to rack ${rack.name} made no task`);
   const started = await task.executeCommandSync({

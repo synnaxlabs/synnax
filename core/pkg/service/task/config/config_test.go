@@ -89,12 +89,12 @@ var _ = Describe("Service", func() {
 			key, arcKey := uuid.New(), uuid.New()
 			Expect(svc.Write(ctx, nil, key, msgpack.EncodedJSON{
 				"arc_key":     arcKey.String(),
-				"rt_priority": 10,
+				"performance": "high",
 			})).To(Succeed())
 			data := MustSucceed(svc.Read(ctx, nil, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["arc_key"]).To(Equal(arcKey.String()))
-			Expect(data["rt_priority"]).To(BeNumerically("==", 10))
+			Expect(data["performance"]).To(Equal("high"))
 		})
 
 		It("Should apply schema defaults to absent fields", func(ctx SpecContext) {
@@ -103,9 +103,7 @@ var _ = Describe("Service", func() {
 				"arc_key": uuid.New().String(),
 			})).To(Succeed())
 			data := MustSucceed(svc.Read(ctx, nil, key))
-			Expect(data["execution_mode"]).To(Equal("AUTO"))
-			Expect(data["rt_priority"]).To(BeNumerically("==", 47))
-			Expect(data["cpu_affinity"]).To(BeNumerically("==", -1))
+			Expect(data["performance"]).To(Equal("auto"))
 		})
 
 		It("Should overwrite the record stored under the same key", func(
@@ -114,14 +112,14 @@ var _ = Describe("Service", func() {
 			key := uuid.New()
 			Expect(svc.Write(ctx, nil, key, msgpack.EncodedJSON{
 				"arc_key":     uuid.New().String(),
-				"rt_priority": 10,
+				"performance": "high",
 			})).To(Succeed())
 			Expect(svc.Write(ctx, nil, key, msgpack.EncodedJSON{
 				"arc_key":     uuid.New().String(),
-				"rt_priority": 20,
+				"performance": "low",
 			})).To(Succeed())
 			data := MustSucceed(svc.Read(ctx, nil, key))
-			Expect(data["rt_priority"]).To(BeNumerically("==", 20))
+			Expect(data["performance"]).To(Equal("low"))
 		})
 
 		It("Should return a validation error when the data does not decode", func(
@@ -136,9 +134,9 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			Expect(svc.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
-				"arc_key":        uuid.New().String(),
-				"execution_mode": "BOGUS",
-			})).To(MatchError(ContainSubstring("invalid execution_mode: BOGUS")))
+				"arc_key":     uuid.New().String(),
+				"performance": "BOGUS",
+			})).To(MatchError(ContainSubstring("invalid performance: BOGUS")))
 		})
 	})
 

@@ -16,6 +16,9 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// DefaultSpin is the spin that holds a wait to its deadline at the lowest CPU cost.
+const DefaultSpin time.Duration = 0
+
 // platform waits on a kqueue that holds a one-shot timer and the event that Close
 // triggers. A kqueue cannot be non-blocking, so the wait goroutine blocks its thread in
 // kevent.

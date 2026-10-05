@@ -9,11 +9,12 @@
 
 import "@/feature/arc/editor/TaskControls.css";
 
-import { type rack } from "@synnaxlabs/client";
+import { type arc, type rack } from "@synnaxlabs/client";
 import { Arc, Rack } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
+import { SelectPerformance } from "@/feature/arc/editor/SelectPerformance";
 import { Arc as PlatformArc } from "@/platform/arc";
 import { CSS } from "@/platform/css";
 import { Framer } from "@/platform/framer";
@@ -25,18 +26,20 @@ export const TaskControls = () => {
   const key = Arc.useKey();
   const name = Arc.useName();
   const captureDeploy = PlatformArc.useCaptureDeploy();
-  const { running, taskRack, taskStatus, onStart, onStop } = Arc.useTaskControls(
-    key,
-    name,
-    { afterSuccess: captureDeploy },
-  );
+  const { running, taskRack, taskPerformance, taskStatus, onStart, onStop } =
+    Arc.useTaskControls(key, name, { afterSuccess: captureDeploy });
   const drifted = Arc.useDrifted({ arcKey: key });
   const canControl = Framer.useCanCommand();
-  const { update: setRack } = Arc.useSetRack();
+  const { update: updateTask } = Arc.useUpdateTask();
+  const bound = primitive.isNonZero(taskRack);
 
   const handleRackChange = useCallback(
-    (rackKey: rack.Key | undefined) => setRack({ key, rack: rackKey ?? 0 }),
-    [setRack, key],
+    (rackKey: rack.Key | undefined) => updateTask({ key, rack: rackKey ?? 0 }),
+    [updateTask, key],
+  );
+  const handlePerformanceChange = useCallback(
+    (performance: arc.task.Performance) => updateTask({ key, performance }),
+    [updateTask, key],
   );
 
   return (
@@ -46,18 +49,26 @@ export const TaskControls = () => {
       running={running}
       drifted={drifted}
       hideActions={!canControl}
-      disabled={!primitive.isNonZero(taskRack)}
+      disabled={!bound}
       onDeploy={onStart}
       onStop={onStop}
       extraActions={
-        <Rack.SelectSingle
-          className={CSS.B("rack-select")}
-          value={primitive.isNonZero(taskRack) ? taskRack : undefined}
-          onChange={handleRackChange}
-          allowNone={!running}
-          location="top"
-          initialQuery={INITIAL_RACK_QUERY}
-        />
+        <>
+          <Rack.SelectSingle
+            className={CSS.B("rack-select")}
+            value={bound ? taskRack : undefined}
+            onChange={handleRackChange}
+            allowNone={!running}
+            location="top"
+            initialQuery={INITIAL_RACK_QUERY}
+          />
+          <SelectPerformance
+            value={taskPerformance}
+            onChange={handlePerformanceChange}
+            disabled={!bound}
+            location="top"
+          />
+        </>
       }
     />
   );
