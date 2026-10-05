@@ -67,6 +67,7 @@ class Test:
     """Data class to store test execution results."""
 
     test_name: str
+    file: str
     status: STATUS
     name: str | None = None
     error_message: str | None = None

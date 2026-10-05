@@ -13,7 +13,7 @@ on:
   workflow_call:
     inputs:
       test_matrix:
-        description: "JSON test matrix (e.g., from validate_test_coverage.sh)"
+        description: "JSON test matrix (e.g., from integration/jobs.py)"
         type: string
         required: true
       ref_run_id:
@@ -32,7 +32,7 @@ on:
 
 jobs:
   run:
-    name: ${{ matrix.name }}
+    name: ${{ matrix.title || matrix.name }}
     timeout-minutes: 30
     runs-on:
       - self-hosted
@@ -98,44 +98,32 @@ jobs:
           nohup uv run python ../.github/scripts/sample_resources.py sample \
             "$RUNNER_TEMP/resources.csv" > /dev/null 2>&1 &
 
-      - name: Start Core (Windows)
+      # Starts the Cores and runs the tests: a job of integration/jobs.py, or the custom
+      # target in flags on one Core. The target stays out of the command because the
+      # step holds the license key.
+      - name: Run tests (Windows)
         if: runner.os == 'Windows'
-        timeout-minutes: 1
-        shell: powershell
-        env:
-          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
-        run: integration/scripts/StartCore.ps1
-
-      - name: Start Core (Ubuntu)
-        if: runner.os == 'Linux'
-        timeout-minutes: 1
-        env:
-          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
-        run: integration/scripts/start_core.sh
-
-      - name: Test conductor (Windows)
-        if: runner.os == 'Windows'
-        id: test-conductor-win
         timeout-minutes: 30
         shell: cmd
         working-directory: integration
         env:
           PYTHONIOENCODING: utf-8
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+          TEST_TARGET: ${{ inputs.flags }}
           PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
           PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
-        run: >-
-          uv run test-conductor --name tc_win ${{ matrix.target || inputs.flags }}
+        run: uv run test-split --name tc_win ${{ !inputs.flags && matrix.name || '' }}
 
-      - name: Test conductor (Ubuntu)
+      - name: Run tests (Ubuntu)
         if: runner.os == 'Linux'
-        id: test-conductor-unix
         timeout-minutes: 30
         working-directory: integration
         env:
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+          TEST_TARGET: ${{ inputs.flags }}
           PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
           PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
-        run: >-
-          uv run test-conductor --name tc_unix ${{ matrix.target || inputs.flags }}
+        run: uv run test-split --name tc_unix ${{ !inputs.flags && matrix.name || '' }}
 
       # A failed measurement must not fail the tests it measured.
       - name: Report resource use
