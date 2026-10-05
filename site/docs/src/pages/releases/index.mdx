@@ -2,6 +2,8 @@
 title: "Release notes"
 description: "The new features, improvements, and fixes in each Synnax release."
 layout: "@/layouts/Releases.astro"
+flags:
+  "0.59": "release059"
 ---
 
 import Release0380 from "@/pages/releases/0-38-0.mdx";
@@ -32,11 +34,20 @@ import Release0550 from "@/pages/releases/0-55-0.mdx";
 import Release0560 from "@/pages/releases/0-56-0.mdx";
 import Release0570 from "@/pages/releases/0-57-0.mdx";
 import Release0580 from "@/pages/releases/0-58-0.mdx";
+import Release0590 from "@/pages/releases/0-59-0.mdx";
+import { Releases } from "@/components/releases";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 
+<Releases.Flagged flag="release059">
+  <div class="release-wrapper">
+    ###### 0.59
+    <Release0590 />
+  </div>
+  <Divider.Divider x />
+</Releases.Flagged>
 <div class="release-wrapper">
   ###### 0.58
   <Release0580 />
