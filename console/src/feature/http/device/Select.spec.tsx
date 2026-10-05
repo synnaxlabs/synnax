@@ -31,8 +31,10 @@ describe("HTTP Device.Select", () => {
     const client = createTestClient();
     await renderSelect(client);
     fireEvent.click(await findDialogTrigger());
+    // One word with no separators: the Core matches each word of a term on its own, by
+    // prefix and edit distance, so a short word can hit another spec's fixture.
     fireEvent.change(await screen.findByPlaceholderText("Search devices..."), {
-      target: { value: uniqueName("no_such_device") },
+      target: { value: uniqueName("nosuchdevice").replace(/_/g, "") },
     });
     await screen.findByText("No HTTP servers connected");
     fireEvent.click(screen.getByText("Connect server"));
