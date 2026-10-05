@@ -472,8 +472,8 @@ The work ships as a stack of five pull requests into `main`.
 The Core still accepts the old key format, at start and through activation. It reads an
 old key as an enterprise license that expires on the key's date, caps channels at the
 key's count, and runs on any machine. A Core that stored an old key before the upgrade
-keeps it. The 50-channel allowance for a Core with no key or an expired key is gone:
-such a Core is unlicensed.
+keeps it. Past its grace period, an old key still covers the Core with a cap of 50
+channels. A Core with no key gets no allowance: it is unlicensed.
 
 Staff issue signed licenses through the staff area: a subscription license for every
 subscription holder, a perpetual license for the existing perpetual customer with the

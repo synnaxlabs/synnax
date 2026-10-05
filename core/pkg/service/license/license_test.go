@@ -514,10 +514,27 @@ var _ = Describe("License", func() {
 			Expect(svc.CheckChannelLimit(100)).To(Succeed())
 			Expect(svc.CheckChannelLimit(101)).To(MatchError(license.ErrTooMany))
 		})
-		It("should refuse a numeric key past its grace period", func(ctx SpecContext) {
-			Expect(svc.Activate(ctx, numericKey(now.Add(-30*day), 100))).Error().
-				To(MatchError(license.ErrExpired))
-		})
+		It(
+			"should cap a numeric key past its grace period at the free channels",
+			func(ctx SpecContext) {
+				info := MustSucceed(
+					svc.Activate(ctx, numericKey(now.Add(-30*day), 100)),
+				)
+				Expect(info.State).To(Equal(license.StateOk))
+				Expect(info.Warning).To(ContainSubstring("limited to 50 channels"))
+				Expect(info.License.Channels).To(BeEquivalentTo(license.FreeChannels))
+				Expect(svc.CheckChannelLimit(50)).To(Succeed())
+				Expect(svc.CheckChannelLimit(51)).To(MatchError(license.ErrTooMany))
+			},
+		)
+		It(
+			"should keep the count of a numeric key inside its grace period",
+			func(ctx SpecContext) {
+				info := MustSucceed(svc.Activate(ctx, numericKey(now.Add(-5*day), 100)))
+				Expect(info.Warning).To(ContainSubstring("grace period ends"))
+				Expect(info.License.Channels).To(BeEquivalentTo(100))
+			},
+		)
 		It("should keep a signed license over a numeric key", func(ctx SpecContext) {
 			lic := newLicense()
 			MustSucceed(svc.Activate(ctx, sign(lic)))

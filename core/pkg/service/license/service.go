@@ -240,12 +240,15 @@ func (i Info) err() error {
 	return nil
 }
 
-// verify returns the license key carries, in the signed or the numeric format.
-func (s *Service) verify(key string) (License, error) {
+// verify returns the license key carries, and whether key is in the numeric format
+// instead of the signed one.
+func (s *Service) verify(key string) (lic License, numeric bool, err error) {
 	if legacyFormat.MatchString(key) {
-		return ParseLegacy(key)
+		lic, err = ParseLegacy(key)
+		return lic, true, err
 	}
-	return Verify(s.cfg.Anchors, key)
+	lic, err = Verify(s.cfg.Anchors, key)
+	return lic, false, err
 }
 
 // moveLegacy stores the key at legacyKey the way Activate stores a key, then deletes
@@ -275,16 +278,17 @@ func (s *Service) moveLegacy(ctx context.Context) error {
 // Activate verifies key, checks that it fits this machine and still covers it, and
 // stores it. The service then applies the stored key open would pick, which is key
 // unless a newer one is stored, and returns its info. Returns ErrInvalid,
-// ErrFingerprint, or ErrExpired when the key is refused.
+// ErrFingerprint, or ErrExpired when the key is refused. A numeric key is never refused
+// as expired.
 func (s *Service) Activate(ctx context.Context, key string) (Info, error) {
-	lic, err := s.verify(key)
+	lic, numeric, err := s.verify(key)
 	if err != nil {
 		return Info{}, err
 	}
 	if !s.fingerprint.Covers(lic.FingerprintScheme, lic.Fingerprints) {
 		return Info{}, ErrFingerprint
 	}
-	info := s.evaluate(lic)
+	info := s.evaluate(lic, numeric)
 	if info.State != StateOk {
 		return Info{}, info.err()
 	}
@@ -388,7 +392,7 @@ func (s *Service) load(ctx context.Context) error {
 	}
 	var chosen *Info
 	for iter.First(); iter.Valid(); iter.Next() {
-		lic, err := s.verify(string(iter.Value()))
+		lic, numeric, err := s.verify(string(iter.Value()))
 		if err != nil {
 			s.cfg.L.Warn(
 				"skipping a stored license key that no longer verifies",
@@ -403,7 +407,7 @@ func (s *Service) load(ctx context.Context) error {
 			)
 			continue
 		}
-		info := s.evaluate(lic)
+		info := s.evaluate(lic, numeric)
 		if chosen == nil || better(info, *chosen) {
 			chosen = &info
 		}
@@ -431,8 +435,12 @@ func better(a, b Info) bool {
 const clockTemplate = "system clock is more than %s behind the last recorded time, " +
 	"so the license term cannot be checked"
 
-// evaluate decides the state a license puts this Core in at the current time.
-func (s *Service) evaluate(lic License) Info {
+// FreeChannels is the channel cap a numeric key keeps once its term has ended.
+const FreeChannels = 50
+
+// evaluate decides the state a license puts this Core in at the current time. A numeric
+// key whose term has ended still covers the Core, capped at FreeChannels.
+func (s *Service) evaluate(lic License, numeric bool) Info {
 	info := Info{State: StateOk, Fingerprint: s.fingerprint, License: &lic}
 	termUnknown := lic.Exp != nil && s.clockBehind.Load()
 	if lic.Exp != nil && !termUnknown {
@@ -461,6 +469,19 @@ func (s *Service) evaluate(lic License) Info {
 				"subscription ended on %s, this version is covered up to %s",
 				time.Unix(int64(*lic.Exp), 0).Format(time.DateOnly),
 				*lic.MaxVersion,
+			)
+		}
+		return info
+	}
+	if numeric {
+		lic.Channels = FreeChannels
+		if termUnknown {
+			info.Warning = fmt.Sprintf(clockTemplate, s.cfg.Rollback)
+		} else {
+			info.Warning = fmt.Sprintf(
+				"license key expired on %s, usage is limited to %d channels",
+				time.Unix(int64(*lic.Exp), 0).Format(time.DateOnly),
+				FreeChannels,
 			)
 		}
 		return info
