@@ -382,7 +382,8 @@ func (s *Service) recordClock(ctx context.Context, now time.Time) error {
 }
 
 // load applies the stored key that fits this machine. A key that still applies wins
-// over one that no longer does, then the most recently issued wins.
+// over one that no longer does, then the most recently issued wins, then the one that
+// ends last.
 func (s *Service) load(ctx context.Context) error {
 	s.loadMu.Lock()
 	defer s.loadMu.Unlock()
@@ -429,7 +430,11 @@ func better(a, b Info) bool {
 	if okA, okB := a.State == StateOk, b.State == StateOk; okA != okB {
 		return okA
 	}
-	return a.License.Iat > b.License.Iat
+	if a.License.Iat != b.License.Iat {
+		return a.License.Iat > b.License.Iat
+	}
+	aExp, bExp := a.License.Exp, b.License.Exp
+	return bExp != nil && (aExp == nil || *aExp > *bExp)
 }
 
 const clockTemplate = "system clock is more than %s behind the last recorded time, " +

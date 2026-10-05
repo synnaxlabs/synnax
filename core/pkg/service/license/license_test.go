@@ -528,6 +528,24 @@ var _ = Describe("License", func() {
 			},
 		)
 		It(
+			"should keep an unexpired numeric key over expired ones",
+			func(ctx SpecContext) {
+				for channels := 100; channels < 108; channels++ {
+					MustSucceed(
+						svc.Activate(ctx, numericKey(now.Add(-30*day), channels)),
+					)
+				}
+				info := MustSucceed(svc.Activate(ctx, numericKey(now.Add(30*day), 200)))
+				Expect(info.License.Channels).To(BeEquivalentTo(200))
+				for channels := 108; channels < 116; channels++ {
+					info = MustSucceed(
+						svc.Activate(ctx, numericKey(now.Add(-30*day), channels)),
+					)
+				}
+				Expect(info.License.Channels).To(BeEquivalentTo(200))
+			},
+		)
+		It(
 			"should keep the count of a numeric key inside its grace period",
 			func(ctx SpecContext) {
 				info := MustSucceed(svc.Activate(ctx, numericKey(now.Add(-5*day), 100)))
