@@ -8,12 +8,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { MarkdownHeading } from "astro";
 import Root from "@/layouts/Root.astro";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Releases as ReleasesComponents } from "@/components/releases";
+import { enabled } from "@/flags";
 const { headings, frontmatter } = Astro.props;
+// `flags` maps a version heading to the flag its notes sit behind.
+const flags: Record<string, string> = frontmatter.flags ?? {};
+const visible = headings.filter(
+    ({ text }: MarkdownHeading) => !(text in flags) || enabled(flags[text]),
+);
 ---
 
 <Root frontmatter={{ title: "Releases", description: frontmatter.description }}>
@@ -46,7 +53,7 @@ const { headings, frontmatter } = Astro.props;
             </Flex.Box>
             <slot />
         </Flex.Box>
-        <ReleasesComponents.List headings={headings} />
+        <ReleasesComponents.List headings={visible} />
     </section>
 </Root>
 
