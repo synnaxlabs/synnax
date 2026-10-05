@@ -17,7 +17,6 @@
 
 /// platform-specific headers
 #ifdef _WIN32
-#include <io.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #pragma comment(lib, "ws2_32.lib")
@@ -60,6 +59,15 @@ class Slave {
     mutable std::mutex mutex_;
     SlaveConfig config_;
     modbus_mapping_t *mb_mapping_; // Add as member
+
+    // A Winsock socket is not a CRT file descriptor, so close() aborts on Windows.
+    static void close_socket(const int socket) {
+#ifdef _WIN32
+        closesocket(socket);
+#else
+        close(socket);
+#endif
+    }
 
     // Helper function to find the highest address in a map
     template<typename T>
@@ -251,7 +259,7 @@ class Slave {
                         }
                     } else if (rc == -1) {
                         LOG(INFO) << "Connection closed on socket " << master_socket;
-                        close(master_socket);
+                        close_socket(master_socket);
                         FD_CLR(master_socket, &ref_set);
                         if (master_socket == fd_max) fd_max--;
                     }
@@ -317,7 +325,7 @@ public:
         if (server_thread_.joinable()) { server_thread_.join(); }
 
         if (socket_ != -1) {
-            close(socket_);
+            close_socket(socket_);
             socket_ = -1;
         }
     }
