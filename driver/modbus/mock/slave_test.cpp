@@ -34,6 +34,7 @@ void expect_coil_set(const Client &client) {
 }
 }
 
+/// @brief it should serve a new client after an earlier client disconnects.
 TEST(Slave, ServesNewClientAfterClientDisconnects) {
     SlaveConfig config;
     config.port = 1560;
@@ -50,6 +51,7 @@ TEST(Slave, ServesNewClientAfterClientDisconnects) {
     modbus_close(second.get());
 }
 
+/// @brief it should listen on the same port again after a stop.
 TEST(Slave, RestartsOnTheSamePortAfterStop) {
     SlaveConfig config;
     config.port = 1561;
