@@ -10,20 +10,13 @@
 
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
 import { Button } from "@synnaxlabs/lyra/button";
-import { createCssVariablesTheme, createHighlighter } from "shiki";
+import { highlighter } from "@synnaxlabs/site-common/shiki";
 import { CALC_EXAMPLES } from "@/components/stream/calcTimeline";
 import { CalcVisualizer } from "@/components/stream/CalcVisualizer";
 import FeatureSection from "@/components/common/FeatureSection.astro";
 
-const cssVarsTheme = createCssVariablesTheme({ name: "css-variables" });
-
-const highlighter = await createHighlighter({
-    themes: [cssVarsTheme],
-    langs: [arcGrammar],
-});
-
-const highlight = (code: string) =>
-    highlighter.codeToHtml(code, { lang: "arc", theme: "css-variables" });
+const render = await highlighter([arcGrammar]);
+const highlight = (code: string) => render(code, "arc");
 
 const codeHtmls = CALC_EXAMPLES.map((example) => highlight(example.code));
 ---

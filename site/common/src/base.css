@@ -19,6 +19,14 @@
     --space-xl: clamp(6rem, 2rem + 4vw, 15rem);
     --space-2xl: clamp(8rem, 3rem + 5vw, 20rem);
     --space-3xl: clamp(10rem, 4rem + 6vw, 25rem);
+    --astro-code-foreground: var(--pluto-text-color);
+    --astro-code-token-comment: var(--pluto-gray-l7);
+    --astro-code-token-string: var(--pluto-secondary-m1);
+    --astro-code-token-string-expression: var(--pluto-secondary-m1);
+    --astro-code-token-function: light-dark(#3774d0, #556bf8);
+    --astro-code-token-punctuation: var(--pluto-text-color);
+    --astro-code-token-keyword: #cc255f;
+    --astro-code-token-constant: var(--pluto-text-color);
 }
 
 html {

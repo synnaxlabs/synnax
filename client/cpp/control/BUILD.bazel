@@ -28,6 +28,7 @@ cc_library(
 cc_test(
     name = "control_test",
     srcs = ["control_test.cpp"],
+    tags = ["requires-core"],
     deps = [
         ":control",
         "//client/cpp:synnax",

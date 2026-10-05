@@ -29,6 +29,7 @@ cc_library(
 cc_test(
     name = "device_test",
     srcs = ["device_test.cpp"],
+    tags = ["requires-core"],
     visibility = ["//visibility:public"],
     deps = [
         ":device",
