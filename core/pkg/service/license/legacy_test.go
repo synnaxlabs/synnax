@@ -47,6 +47,23 @@ var _ = Describe("ParseLegacy", func() {
 		Expect(lic.Fingerprints).To(BeEmpty())
 		Expect(lic.MaxVersion).To(BeNil())
 	})
+	DescribeTable("Keys the former parser accepted",
+		func(key string, exp time.Time) {
+			lic := MustSucceed(license.ParseLegacy(key))
+			Expect(lic.Exp).To(HaveValue(BeEquivalentTo(exp.Unix())))
+			Expect(lic.Channels).To(BeEquivalentTo(100))
+		},
+		Entry(
+			"a key that expires at the end of 2099",
+			"885508-64317384-0400500005",
+			time.Date(2099, 12, 31, 0, 0, 0, 0, time.Local),
+		),
+		Entry(
+			"a key that expired at the start of 2000",
+			"894478-64317384-0400500005",
+			time.Date(2000, 1, 1, 0, 0, 0, 0, time.Local),
+		),
+	)
 	It("should give the same key the same identifier", func() {
 		first := MustSucceed(license.ParseLegacy(numericKey(expiry, 250)))
 		second := MustSucceed(license.ParseLegacy(numericKey(expiry, 250)))
@@ -61,6 +78,8 @@ var _ = Describe("ParseLegacy", func() {
 			Expect(license.ParseLegacy(key)).Error().To(MatchError(license.ErrInvalid))
 		},
 		Entry("a signed key", "a.b.c"),
+		Entry("a date the former parser refused", "000000-64317284-0400500005"),
+		Entry("a checksum the former parser refused", "894478-64317284-0000000000"),
 		Entry("too few digits", "12345-12345678-0400500003"),
 		Entry("a date that does not exist", "166320"+numericKey(expiry, 250)[6:]),
 		Entry("no channels", numericKey(expiry, 0)),
