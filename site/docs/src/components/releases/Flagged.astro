@@ -1,3 +1,4 @@
+---
 // Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
@@ -7,8 +8,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { default as Flagged } from "@/components/releases/Flagged.astro";
-export { default as List } from "@/components/releases/List.astro";
-export { default as PolkaDot } from "@/components/releases/PolkaDot.astro";
-export { default as Release } from "@/components/releases/Release.astro";
-export { default as Tile } from "@/components/releases/Tile.astro";
+import { enabled } from "@/flags";
+
+interface Props {
+    flag: string;
+}
+
+const { flag } = Astro.props;
+---
+
+{enabled(flag) && <slot />}

@@ -1,0 +1,175 @@
+---
+title: "Version 0.59 release notes"
+flag: "release059"
+---
+
+import { Releases } from "@/components/releases";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+<Releases.Flagged flag="release059">
+
+<Releases.Release
+    version="0.59.0"
+    breakingChanges
+    date="Oct 5, 2026"
+    title="Redline bands, symbol tooltips, and license keys"
+>
+
+Synnax v0.59 redesigns redlines as threshold bands, adds hover tooltips to schematic
+symbols, improves multi-element editing, and gives ranges an editable timeline. Task
+forms have a new sectioned layout, and line plots connect data across writer restarts. A
+Core now needs a signed license key, so read the breaking changes before you upgrade.
+
+<Divider.Divider x />
+
+### Redline bands
+
+Redlines on the schematic value symbol and the table value cell are now threshold bands
+in the units of the value. Each band has a threshold, a color, and an optional flash, so
+you set "red at 850 psi" directly. A base color applies below every threshold, and a
+smooth switch blends between bands. Existing redlines convert automatically.
+
+<Divider.Divider x />
+
+### Symbol tooltips
+
+Hover over a schematic symbol to see the channels it reads and writes, with their data
+types, and the settings that change its behavior. Tooltips show in view and control mode
+and hide in edit mode.
+
+<Divider.Divider x />
+
+### Multi-element editing
+
+Selecting several schematic symbols or table cells now shows shared groups of settings:
+colors, label, symbol size, staleness, number format, and control. A change applies only
+to the elements that have the setting, in one undo step. A color control shows `Mixed`
+when the selection disagrees, and `Selection colors` lists every color in the selection
+so you can replace one everywhere.
+
+Color settings are now named for the part they paint: `Stroke`, `Fill`, and `Text`.
+
+The Console also has a new color picker with an eyedropper, theme presets, recent
+colors, and an `Auto` button that lets the theme pick the color.
+
+<Divider.Divider x />
+
+### Range timeline
+
+A range now shows its stage and timestamps as one editable row. `To do` shows the
+planned start, `In progress` shows the start and the elapsed time, and `Completed` shows
+both ends and the duration. Before you commit an edit, the row shows which end moves and
+which stage the range lands in.
+
+The date and time inputs are rebuilt across the Console. Type a time and pick from the
+suggestions.
+
+<Divider.Divider x />
+
+### Task forms
+
+Task configuration forms now group their fields into named sections, with labels beside
+the fields. The NI channel forms and the HTTP task forms are rebuilt on the same layout,
+and `Add channel` moves to the bottom of the channel list.
+
+A channel entry for a port the device already maps now shows the existing channel
+instead of `No channel`.
+
+<Divider.Divider x />
+
+### Line plots
+
+- A line now connects across the gap that each writer restart left, where the samples
+  were present but the line broke.
+- Lines hidden from the legend no longer affect axis auto-scaling.
+- The history of a calculated channel now draws, and stays aligned when an input has no
+  sample at a timestamp.
+- Long ranges load faster, because the Core now downsamples as it reads from disk.
+
+<Divider.Divider x />
+
+### Licensing
+
+A Core now uses a signed license key that is bound to its machine. A Core without a
+license starts, and the Console shows an activation screen with the host fingerprint and
+a box for the key. A running Core does not stop when its license expires. See
+[Licensing](/reference/core/production#licensing).
+
+<Divider.Divider x />
+
+### Minor improvements and bug fixes
+
+#### Console
+
+- `Shift`-click adds a symbol or connection to the selection, and a modifier-click on a
+  symbol no longer resets the zoom.
+- A vertical mouse wheel scrolls the schematic and table property toolbars sideways.
+- `Copy address` for a Core is now in its right-click menu.
+- Fixed the main window sometimes staying hidden on launch.
+
+#### Schematics and tables
+
+- A symbol or table cell on a slow channel shows the last stored value when it opens,
+  and shows stale if that value is older than its timeout.
+
+#### Core
+
+- The Core shuts down cleanly on `SIGTERM`, the stop signal of Docker, systemd, and
+  Kubernetes. A second stop signal exits at once.
+- A rack that stopped reporting no longer shows as running after a Core restart.
+- The embedded Driver authenticates when the root password is not the default.
+- The embedded Driver keeps its state in the Core's working directory, so a Core on
+  Linux no longer needs root to start it.
+
+#### Driver
+
+- HTTP read tasks back off when the device is unreachable, and read task warnings show
+  the retry count and the wait.
+- OPC UA ByteString (`B=`) node IDs now work and use base64. A malformed node ID fails
+  configuration instead of stopping the Driver.
+
+#### Arc
+
+- All samples written in one cycle share one timestamp. Two channels on one index no
+  longer stop the task.
+- Writing one channel from a flow and a function body in the same cycle no longer stops
+  the task.
+- A literal in a graph block no longer stamps its output at 1970.
+
+<Divider.Divider x />
+
+### Breaking changes
+
+#### A Core needs a license key
+
+A Core without a license refuses every request except login, the connectivity check, and
+license activation. The 50-channel allowance without a key is removed, and a license key
+in the old format does not work. Get a new key from Synnax Labs before you upgrade.
+
+#### `secure` is the only TLS switch for the Driver
+
+A Driver config or state file that sets `ca_cert_file` without `secure` now connects in
+plain text. Set `secure: true`. A secure connection verifies the Core against the system
+trust store, or against the PEM file that `GRPC_DEFAULT_SSL_ROOTS_FILE_PATH` names.
+`client_cert_file` and `client_key_file` are ignored, so the Driver no longer supports
+mutual TLS. In LabVIEW, the `synnax client open.vi` Call Library node must drop its
+three certificate parameters. See [Driver installation](/reference/driver/installation).
+
+#### Arc arrows
+
+`=>` before a routing table or `select{}` is now an error. Use `->`. A jump into a
+sequence or stage now obeys its arrow: `=>` acts only on a true value, and `->` acts on
+every value.
+
+#### Pluto, Drift, and Media leave npm
+
+Only `@synnaxlabs/client` and its dependencies are published to npm. The published
+versions of `@synnaxlabs/pluto`, `@synnaxlabs/drift`, and `@synnaxlabs/media` stay
+available but get no updates, and the Pluto components documentation is removed.
+
+</Releases.Release>
+
+</Releases.Flagged>
