@@ -441,7 +441,11 @@
     }
 
     .foundation-contact-fields {
-        row-gap: 20px;
+        row-gap: 14px;
+    }
+
+    .foundation-contact-field {
+        gap: 6px;
     }
 
     .foundation-contact-submit-row {

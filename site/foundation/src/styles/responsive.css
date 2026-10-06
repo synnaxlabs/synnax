@@ -200,7 +200,7 @@
 
 @media (width <= 600px) {
     :root {
-        --content-padding: 20px;
+        --content-padding: 12px;
         --foundation-radius: 20px;
     }
 
@@ -325,10 +325,6 @@
 }
 
 @media (width <= 360px) {
-    :root {
-        --content-padding: 16px;
-    }
-
     .hero-product-label {
         inset-inline: 20px;
     }
