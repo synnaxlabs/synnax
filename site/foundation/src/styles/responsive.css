@@ -200,7 +200,7 @@
 
 @media (width <= 600px) {
     :root {
-        --content-padding: 12px;
+        --content-padding: 16px;
         --foundation-radius: 20px;
     }
 
