@@ -1,0 +1,28 @@
+---
+// Copyright 2026 Synnax Labs, Inc. Licensed under licenses/BSL.txt.
+import { DeploymentCarousel } from "@/components/DeploymentCarousel";
+---
+
+<section
+    id="deployments"
+    class="deployments-section"
+    aria-labelledby="deployments-title"
+>
+    <div class="section deployments-inner">
+        <div class="deployments-heading">
+            <div>
+                <p class="editorial-index">06 → Connected Infrastructure</p>
+                <h2 id="deployments-title">Foundation in the field.</h2>
+            </div>
+            <p>
+                Five deployment layouts, from a single facility to a distributed fleet.
+            </p>
+        </div>
+        <DeploymentCarousel client:visible={{ rootMargin: "600px" }} />
+        <noscript>
+            <p class="demo-noscript">
+                Enable JavaScript to explore all five infrastructure deployments.
+            </p>
+        </noscript>
+    </div>
+</section>

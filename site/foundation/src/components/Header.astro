@@ -1,0 +1,150 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Logo } from "@synnaxlabs/media";
+import Drawer from "@synnaxlabs/site-common/Drawer.astro";
+import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
+
+const links = [
+    { href: "#system", label: "How it works" },
+    { href: "#applications", label: "Use cases" },
+    { href: "#architecture", label: "Engineering" },
+];
+---
+
+<header class="site-header site-header--top">
+    <Flex.Box x align="center" className="header-inner">
+        <a href="/" class="brand" aria-label="Synnax home">
+            <Logo variant="title" aria-hidden="true" />
+        </a>
+        <nav aria-label="Main navigation" class="desktop-nav">
+            {links.map(({ href, label }) => (
+                <Button.Button href={href} variant="text" className="header-nav-link">
+                    {label}
+                </Button.Button>
+            ))}
+        </nav>
+        <Button.Button
+            href="#contact"
+            variant="filled"
+            color="#d5dfec"
+            className="header-cta"
+        >
+            Let's talk
+            <Icon.Arrow.Right className="header-cta-arrow" aria-hidden="true" />
+        </Button.Button>
+        <MenuButton />
+    </Flex.Box>
+</header>
+<Drawer home="/">
+    <div class="mobile-drawer-links">
+        <span class="mobile-drawer-section-label">Foundation</span>
+        {links.map(({ href, label }) => (
+            <a href={href} class="mobile-drawer-link">
+                {label}
+            </a>
+        ))}
+        <a href="#principles" class="mobile-drawer-link">
+            Our principles
+        </a>
+        <a href="#contact" class="mobile-drawer-link mobile-drawer-contact">
+            Let's talk <span aria-hidden="true">→</span>
+        </a>
+    </div>
+</Drawer>
+
+<script>
+    import { enhanceMenu } from "@/components/menu";
+    enhanceMenu();
+
+    const header = document.querySelector(".site-header");
+    const updateHeader = (): void => {
+        header?.classList.toggle("site-header--top", window.scrollY <= 10);
+    };
+    updateHeader();
+    window.addEventListener("scroll", updateHeader, { passive: true });
+</script>
+
+<style is:global>
+    @media (width <= 800px) {
+        .foundation-page .mobile-menu-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            margin-left: auto;
+            margin-right: -10px;
+        }
+
+        .foundation-page .mobile-drawer {
+            display: flex;
+            background: #0b111a;
+        }
+
+        .foundation-page .mobile-drawer-header {
+            padding-inline: var(--content-padding);
+        }
+
+        .foundation-page .mobile-drawer-header .logo-link .synnax-logo--title {
+            height: 28px;
+        }
+
+        .foundation-page .mobile-close-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            margin-right: -10px;
+        }
+
+        .foundation-page .mobile-drawer-links {
+            gap: 8px;
+            padding: 32px var(--content-padding);
+        }
+
+        .foundation-page .mobile-drawer-section-label {
+            padding: 0 12px 16px;
+            color: #8f9db0;
+        }
+
+        .foundation-page .mobile-drawer-link {
+            min-height: 52px;
+            padding: 16px 12px;
+            border-radius: 8px;
+            color: #d5dfec;
+            font: 400 22px/1.3 var(--foundation-body);
+
+            &:hover {
+                background: #182333;
+                color: #e8eef6;
+            }
+        }
+
+        .foundation-page .mobile-drawer-contact {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 20px;
+            background: #d5dfec;
+            color: #182333;
+            font-size: 16px;
+
+            &:hover {
+                background: #e8eef6;
+                color: #182333;
+            }
+        }
+    }
+</style>

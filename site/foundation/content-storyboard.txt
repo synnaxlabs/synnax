@@ -1,0 +1,447 @@
+FOUNDATION LANDING PAGE — CONTENT AND STORYBOARD
+
+Updated October 6, 2026.
+
+PURPOSE AND STATUS
+
+This document consolidates the agreed page structure, approved copy, and design
+intent for implementation. Section 1 and the section 2 introduction reflect
+recent site edits. Section 3 now has an initial live implementation; the remaining
+content is a brief for subsequent work. Unfinished copy is identified below.
+
+FINAL PAGE STRUCTURE
+
+1. Understand Foundation — hero.
+2. See the connected operation — equipment, clustering, telemetry, commands.
+3. Explore the unlocks — nine outcomes and a solutions invitation.
+4. Inspect the engineering — one attributes diagram plus a developer feature grid.
+5. Engineering principles — a short numbered list and our solutions commitment.
+6. Contact — a short form that includes an optional phone field.
+
+Section 4 contains both the attributes diagram and feature grid. The temporary
+seven-section proposal is superseded. Visible section numbering starts after
+an unnumbered hero: 01 through 05.
+
+EDITORIAL AND DESIGN DIRECTION
+
+Balance an ambitious headline on the left with concrete explanation on the right.
+Use short, punchy sentences and specific examples. Avoid generic marketing
+slogans, repetitive explanations, and em-dashes in public-facing copy.
+
+Use plane consistently in product terminology. Foundation includes industrial
+data acquisition and supervisory control. Do not reduce it to observability.
+The user clarified that Foundation itself has rules as well.
+
+Preserve the established dark Synnax palette, Inter body typography, Geist Mono
+technical text, restrained highlighting, clean geometry, and breathing room.
+Treat the product as fully capable in the page narrative; do not add development
+status language. Exact technical claims and benchmarks still require evidence.
+
+The solutions offer is about taking responsibility for the customer's problem.
+Delivery may involve Foundation platform capabilities, customer-specific software,
+or integration work. Do not make ownership terms the focus of this offer.
+
+
+SECTION 1: UNDERSTAND FOUNDATION
+
+Status: Approved and applied to the site.
+
+Product title:
+Foundation
+
+Small descriptor:
+THE INDUSTRIAL DATA & SUPERVISORY CONTROL PLANE
+
+Repeatable product description:
+Bridge distributed physical infrastructure with high-level software.
+
+Supporting explanation:
+Foundation communicates with your equipment and delivers it across sites to your
+applications, data platforms, and machine intelligence.
+
+Primary CTA: Show us your stack →
+Secondary CTA: Explore the system ↓
+
+Preserve the distinction between title, small descriptor, repeatable product
+sentence, supporting explanation, and calls to action. Keep the continuous hero
+canvas, with the copy directly on its lower-right negative space.
+
+Hero art study, October 6, 2026: an open, distributed structural field replaces
+the slab and separate objects. Unequal spans retain the orthographic grid, with
+recessed beam webs and a sparse signal inlay along the edge. The user preferred
+the simpler grid over the broad curved bypass. Keep detail restrained; preserve
+the approved copy, palette, typography, and outer bento border. Remove the glass
+copy panel. Place the copy lower and pin the white CTA 16px from the bottom and
+right edges. Both copy blocks sit 32px farther right, with their width preserved.
+Keep the reading area free of decorative lines. Preserve the wider beam
+proportions and extend the far-right cross-span beyond the bento crop.
+The same structural geometry continues beyond the bento as fine line art.
+Material is clipped to the rounded bento, while the outline stays visible on the
+page background. Keep the lower corner outlines too: resizing naturally reveals
+more of the underlying structure. Both layers must share one projection and size.
+
+
+
+SECTION 2: HOW FOUNDATION WORKS
+
+Status: Approved four-step story implemented October 6, 2026.
+
+Section label: 01 → How Foundation Works
+Heading: One programmable reality across your operations.
+
+Introduction:
+Foundation nodes run alongside your PLCs, DAQs, and controllers. Together, they
+form a cluster within and across sites. The cluster reliably carries measurements,
+equipment state, and supervisory commands. Your software gets a unified view of
+the operation and a consistent way to act on it.
+
+DIAGRAM STEP 1
+
+Start with the real world.
+
+The PLC on the production line. The instruments on the test stand. The LabVIEW
+application or SCADA system already running your facility.
+
+Foundation nodes stream data and carry supervisory commands to and from your
+existing systems.
+
+DIAGRAM STEP 2
+
+Form the cluster.
+
+A test stand in one building. A production line in another. A remote site across
+the country.
+
+Foundation nodes communicate within and across sites, bringing these systems into
+one cluster.
+
+DIAGRAM STEP 3
+
+Build a real-time picture.
+
+Link unified telemetry streams to databases, analytics, orchestration platforms,
+and machine intelligence.
+
+Give every application and agent the same live context from your operation.
+
+DIAGRAM STEP 4
+
+Act on the physical world.
+
+Change a setpoint from your application. Update a calibration from a centralized
+system. Receive an acknowledgment.
+
+Foundation routes supervisory commands to any piece of your infrastructure. It
+protects critical systems through sophisticated rules, interlocks, and access
+control mechanisms.
+
+IMPLEMENTED DIAGRAM DIRECTION
+
+Equipment → Cluster → Telemetry → Control. The four selected views preserve the
+orthographic industrial models and slate materials. Six Foundation nodes serve
+production, process instrumentation, testing, logistics, a remote facility, and
+existing server infrastructure. Separate site footprints make the distributed
+operation visible without replacing the original architectural language.
+
+The cluster lifts above dimmed physical infrastructure. Telemetry emphasizes
+applications, data platforms, and machine intelligence; supervisory control
+isolates a command path, protective rules, and the acknowledgment back to an
+application. Labels are specific to the selected step, with leader lines kept
+outside backed text areas. The wider caption stays in the lower-left canvas;
+its heading and Next step action hold fixed positions across all four views.
+The decorative SVG does not intercept pointer input over the tab controls.
+Signal motion continues at a restrained pace and respects reduced-motion
+preferences. Control uses separated red command and blue acknowledgment lanes,
+with arrowheads and a compact legend to make both directions explicit.
+
+CONTEXT FOR FUTURE EDITS
+
+The user clarified that Foundation itself also has rules. Preserve the approved
+step 4 copy rather than moving all rules into external control systems.
+
+This diagram introduces equipment connections, clustering, unified telemetry,
+and supervisory commands. Detailed failure, buffering, recovery, and reliability
+testing belong in the later engineering section.
+
+
+SECTION 3: THE UNLOCK GRID
+
+Approved October 6, 2026. Initial live implementation added October 6, 2026.
+The approved heading, introduction, outcomes, and solutions invitation are
+implemented. The live grid now combines twelve outcomes into nine cards to reduce
+scrolling while preserving the slate studies and their interactions.
+
+Section label: 02 → What Becomes Possible
+Heading: What will you build when everything connects?
+
+Introduction:
+Bring data and supervisory control into the software your operation needs. Detect
+failures earlier, improve processes, trace outcomes, and coordinate work across sites.
+
+NINE UNLOCKS
+
+1. Predictive maintenance
+2. Anomaly detection
+3. Remote diagnostics, including root-cause analysis
+4. Traceability & audit, including quality traceability and audit trails
+5. Faster test analysis
+6. Fleet intelligence, including operational visibility
+7. Supervisory automation
+8. Process optimization
+9. Machine intelligence
+
+SOLUTIONS INVITATION
+
+SOLUTIONS
+
+Bring us the problem.
+
+Our engineers work with your team to build the integrations, capabilities, and
+software your operation needs.
+
+CTA: Talk to our engineers → Contact
+
+A separate light steel-slate bento gives the customer solutions offer more
+prominence. An oversized architectural joint sits behind the right side: two
+planar fields meet along one stepped seam, with sparse diagonal section hatching.
+Dark type and a dark CTA distinguish the offer from the nine use-case cards above it.
+
+CONTEXT FOR THE LATER REDESIGN
+
+This section follows the connected-operation diagram and precedes engineering
+depth. It presents outcomes customers can enable with Foundation, rather than
+claiming that Foundation itself is a complete application for every outcome.
+
+Use a nine-item bento grid. Hover and keyboard focus can emphasize an individual
+tile without shifting the layout. Titles and essential descriptions remain visible
+at rest. Specific customer case studies can provide depth later.
+
+Supervisory automation replaces the earlier Custom applications tile to make
+the supervisory-control opportunity explicit.
+
+IMPLEMENTED VISUAL DIRECTION
+
+Three rows of three cards, with a wide card alternating left and right. Each
+outcome has a distinct shallow orthographic study using slate surfaces and fine
+traces. Hover and keyboard focus reveal a relationship within the geometry.
+Clicking holds a highlight, shown by a filled indicator; Escape releases it.
+Motion settles into a static state and respects reduced-motion preferences.
+
+The compact passes keep the typography and 20px gutters, trim the artwork areas
+from 240px to 174px, and slightly reduce card padding and section spacing.
+The second pass removes about another 10% of section height, with modest artwork
+scaling to preserve the diagrams' presence in the shorter cards.
+Predictive maintenance, fleet intelligence, and supervisory automation remain
+the wide cards. The underlying artwork and animations are unchanged.
+
+The grid sits directly after How Foundation Works and before engineering.
+It replaces the earlier problem interlude and three application cards.
+
+
+SECTION 4: INSPECT THE ENGINEERING
+
+Implemented October 6, 2026. A full-width slate chapter contains one dark,
+interactive orthographic diagram and six developer feature cards. The shared
+scene switches between reliability, performance, and deployment, with three
+explicitly selected states per view. This replaces the earlier stack diagram.
+
+Palette refinement: muted steel-blue slate, near-black blue diagram and code
+surfaces, brighter silver-blue edges and labels. The blue is closer to Synnax's
+color family, with the violet and green-gray casts reduced. Semantic amber fault
+states and code diff colors remain distinct. Slightly tighter control bars and
+section spacing preserve the diagram geometry, typography, content, and motion.
+
+Section label: 03 → Inspect the Engineering
+Heading: Simple on the surface. Serious underneath.
+Introduction: Durable local buffers. A direct data path. Reproducible deployments.
+Explore how Foundation behaves when the network, workload, or topology changes.
+
+PART A: ONE INTERACTIVE DIAGRAM FOR ENGINEERING ATTRIBUTES
+
+Use three selectable views of the same architecture. The shared scene helps
+visitors understand how these attributes belong to one system.
+
+Reliability
+Interrupt a connection, show buffering and recovery, and explain what happens
+to data and commands. Cover failure behavior, data integrity, and distributed
+operation together. Link to a deeper page explaining how we test reliability.
+
+Performance
+Highlight the data path and reveal the decisions behind throughput, latency,
+and resource efficiency. Include transport protocols where they explain real
+architectural choices. Support specific performance claims with measurements
+and test conditions.
+
+Deployment
+Show where nodes run and how configuration, rollout, and upgrades work across
+environments.
+
+Each view pairs the diagram with a few precise claims and a route to deeper
+evidence. Exact guarantees, supported environments, protocol details, and
+benchmark claims need verification before publication.
+
+PART B: A FEATURE GRID FOR THE ENGINEER'S EVERYDAY EXPERIENCE
+
+Present concrete capabilities that can be scanned independently:
+
+Connect equipment quickly.
+A Modbus TCP configuration excerpt showing reads and supervisory commands. The
+syntax comes from Foundation's acceptance fixtures; the card is labeled as an
+excerpt, not a complete runnable setup. LabJack is outside the current scope.
+
+Install one binary.
+Supported operating systems and prerequisites.
+
+Configure as code.
+Readable files, version control, and reviewable changes.
+
+Use your languages and tools.
+Read, subscribe, and command interfaces that fit existing software. No unverified
+SDK installation commands or package names.
+
+Diagnose problems directly.
+Connection state, delivery visibility, and actionable errors.
+
+Extend your system.
+Add devices, consumers, and integrations without rebuilding the infrastructure.
+
+DISTINCTION BETWEEN THE TWO PARTS
+
+The attributes diagram explains how the system behaves. The feature grid shows
+what the engineer actually has to do and what work Foundation removes.
+
+Deployment appears at different depths: the diagram explains distributed
+deployment behavior; the grid makes installation and day-to-day use concrete.
+
+Keep usability prominent. Demonstrate the actual work needed to connect hardware
+and get useful results, including prerequisites. Avoid generic developer-friendly
+claims or repeating section 2's equipment-to-node-to-software walkthrough.
+
+Direct statements about developer freedom, company principles, and building
+solutions for customers belong in section 5.
+
+IMPLEMENTED STATES AND EVIDENCE
+
+Reliability: connected → interrupt the link → restore the link. Bounded local
+buffering, resumed delivery, live traffic priority, and command deadlines are
+explicit. Expired commands do not replay. The evidence link is labeled "How
+Synnax tests reliability" and points to the existing Synnax reliability page;
+it is company testing evidence, not a Foundation benchmark claim.
+
+Performance: ingest → move through memory → deliver. Show common representation,
+frame batching, minimized copies/allocations, and QUIC transport. No invented
+throughput or latency figures.
+
+Deployment: one node → across sites → desired state. Show a consistent node
+shape, direct/relay connectivity, and configuration plates applied across nodes.
+Linux, macOS, and Windows follow the product's canonical design. Plan/apply is
+described as a workflow; no unverified executable CLI example is presented.
+
+Feature grid: define the connection; review the change before it runs; one binary;
+keep your software; know where to look; extend at the boundary. Configuration
+and review occupy two larger cards, followed by four compact interface studies.
+Typography and precise geometry carry the emphasis, with little bloom.
+
+
+SECTION 5: ENGINEERING PRINCIPLES
+
+Status: Implemented October 6, 2026. Section 5 of the page, with visible number 04.
+
+Section label: 04 → Our Principles
+Heading: Our engineering serves yours.
+
+Purpose:
+Explain why our engineering principles fit the customer's organization. Connect
+how we build Foundation to what their team gets. Keep this section short.
+
+01 · Reliability
+We build for the conditions your systems will actually face. Failure and recovery
+belong in the design from the start.
+
+02 · Simplicity
+We take on the infrastructure work so your team can focus on the operation. Deep
+capability should take less effort to use.
+
+03 · Power
+We build tools that leave room for work we have not anticipated. Engineers should
+be able to push beyond the first use case.
+
+04 · Freedom
+Keep the tools that work. Choose what you build, where you run it, and how it fits
+your organization.
+
+Closing commitment:
+We build for you.
+
+When your operation needs something more, we work alongside your team to build it.
+That can mean a new platform capability, an integration, or software built around
+your problem.
+
+CTA: Work with our engineers → (links to contact)
+
+Design direction:
+Dark graphite follows the slate engineering chapter. A thesis and one static
+open-frame geometric study sit on the left; four numbered principles form a
+continuous ruled list on the right. The customer commitment spans both columns
+below. Inter carries the statements; Geist Mono carries numbers and annotations.
+There are no separate principle cards or moving graphics. Palantir's Ontology
+presentation is an editorial reference, not a reproduced layout.
+
+This section carries the intent of “You own what you build. We build for you.”
+Developer freedom and delivering customer outcomes are complementary messages.
+
+
+SECTION 6: CONTACT
+
+Status: Implemented October 6, 2026. Phone is retained and optional.
+
+Section label: 05 → Let’s Talk
+Heading: What do you want to make possible?
+
+Introduction:
+Tell us what you’re working with and what you need it to do. We’ll work with your
+team to find the right approach.
+
+Form fields:
+- Name
+- Work email
+- Phone (optional)
+- Company
+- What are you working on? (multiline)
+
+Message placeholder:
+Describe your systems, the problem you’re solving, or what you want to build.
+
+Submit button: Talk to our team →
+
+The form welcomes a defined technical stack or an operational problem. Name,
+work email, company, and message are required. Phone remains optional. There are
+no industry, company-size, budget, or project-type dropdowns.
+
+IMPLEMENTED VISUAL DIRECTION AND SUBMISSION
+
+A single blue-slate bento closes the page. Three broad, shallow geometric planes
+occupy the lower left; a dark inset panel holds the form on the right. The
+geometry is static. A white submit button and a direct email alternative provide
+two ways to contact the team. Inter labels and Geist Mono annotations continue
+the page's typography.
+
+The form reuses Lyra controls and the existing Synnax Formspree endpoint. The
+payload includes company and a Foundation source tag. Native validation checks
+required fields and email; pending submissions lock the form against duplicates.
+Failures retain the draft and allow retry. A successful response displays a
+focused acknowledgement, without promising a specific response time. Functional
+tests mock the service; no live test message was sent.
+
+
+REMAINING CONTENT WORK
+
+- Review the drafted unlock tile descriptions and implemented geometric studies.
+- Review section 4's implemented heading, diagram states, and feature-grid copy.
+  Its visible section number is 03.
+- Establish evidence for reliability, performance, supported environments, and
+  operational behaviors. Define the content of the reliability-testing page.
+- Review section 5's implemented company thesis and customer commitment.
+- Source appropriate company/customer evidence without inventing endorsements.
+- Review the hero supporting sentence in a subsequent copy pass. The system
+  walkthrough now matches all four approved storyboard steps.

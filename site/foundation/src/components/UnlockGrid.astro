@@ -1,0 +1,173 @@
+---
+// Copyright 2026 Synnax Labs, Inc. Licensed under licenses/BSL.txt.
+
+import SolutionsBento from "@/components/SolutionsBento.astro";
+import { UnlockArt, type UnlockKind } from "@/components/UnlockArt";
+
+const unlocks: {
+    kind: UnlockKind;
+    title: string;
+    description: string;
+    detail: string;
+    wide?: boolean;
+}[] = [
+    {
+        kind: "predictive",
+        title: "Predictive maintenance",
+        description: "Find the signs of wear before they become downtime.",
+        detail: "Condition → forecast",
+        wide: true,
+    },
+    {
+        kind: "anomaly",
+        title: "Anomaly detection",
+        description: "Recognize when equipment departs from its normal behavior.",
+        detail: "Isolate the departure",
+    },
+    {
+        kind: "root-cause",
+        title: "Remote diagnostics",
+        description:
+            "Trace faults back to their source with live context from any site.",
+        detail: "Effect → origin",
+    },
+    {
+        kind: "quality",
+        title: "Traceability & audit",
+        description:
+            "Connect outcomes to equipment conditions, recorded changes, and operator actions.",
+        detail: "Follow the provenance",
+    },
+    {
+        kind: "tests",
+        title: "Faster test analysis",
+        description: "Align runs, compare results, and get to the next decision.",
+        detail: "Align at the event",
+    },
+    {
+        kind: "fleet",
+        title: "Fleet intelligence",
+        description:
+            "See live equipment state and compare performance across machines, facilities, and operating conditions.",
+        detail: "Compare across sites",
+        wide: true,
+    },
+    {
+        kind: "automation",
+        title: "Supervisory automation",
+        description:
+            "Coordinate actions across equipment with rules, interlocks, and acknowledgments.",
+        detail: "Command → acknowledgment",
+        wide: true,
+    },
+    {
+        kind: "optimization",
+        title: "Process optimization",
+        description: "Find the operating conditions that improve yield and efficiency.",
+        detail: "Explore the operating space",
+    },
+    {
+        kind: "intelligence",
+        title: "Machine intelligence",
+        description: "Give models and agents the live context of your operation.",
+        detail: "Signals → inference",
+    },
+];
+---
+
+<section
+    id="applications"
+    class="section editorial-section unlock-section"
+    aria-labelledby="unlocks-title"
+>
+    <div class="editorial-heading">
+        <p class="editorial-index">02 → What Becomes Possible</p>
+        <h2 id="unlocks-title" class="editorial-title">
+            What will you build
+            <br />
+            when everything connects?
+        </h2>
+        <p class="editorial-intro">
+            Bring data and supervisory control into the software your operation needs.
+            Detect failures earlier, improve processes, trace outcomes, and coordinate
+            work across sites.
+        </p>
+    </div>
+
+    <div class="unlock-grid">
+        {unlocks.map(({ kind, title, description, detail, wide }, index) => (
+            <article
+                class:list={["unlock-card", { "unlock-card-wide": wide }]}
+                data-kind={kind}
+                data-active="false"
+            >
+                <div class="unlock-card-meta" aria-hidden="true">
+                    <span class="unlock-number">
+                        {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <span class="unlock-detail">{detail}</span>
+                    <span class="unlock-indicator" />
+                </div>
+                <div class="unlock-artwork" aria-hidden="true">
+                    <UnlockArt kind={kind} />
+                </div>
+                <div class="unlock-copy">
+                    <h3 id={`unlock-${kind}`}>{title}</h3>
+                    <p id={`unlock-${kind}-description`}>{description}</p>
+                </div>
+                <button
+                    class="unlock-trigger"
+                    type="button"
+                    aria-label={`Pin ${title.toLowerCase()} highlight`}
+                    aria-describedby={`unlock-${kind}-description`}
+                    aria-pressed="false"
+                />
+            </article>
+        ))}
+    </div>
+
+    <SolutionsBento />
+</section>
+
+<script>
+    const cards = Array.from(document.querySelectorAll<HTMLElement>(".unlock-card"));
+    let pinned: HTMLElement | null = null;
+    const update = (preview: HTMLElement | null): void => {
+        const active = preview ?? pinned;
+        for (const card of cards) {
+            card.dataset.active = String(card === active);
+            card.dataset.pinned = String(card === pinned);
+            card.querySelector("button")?.setAttribute(
+                "aria-pressed",
+                String(card === pinned),
+            );
+        }
+    };
+    for (const card of cards) {
+        card.addEventListener("pointerenter", () => update(card));
+        card.addEventListener("pointerleave", () =>
+            update(
+                cards.find((candidate) => candidate.matches(":focus-within")) ?? null,
+            ),
+        );
+        card.addEventListener("focusin", () => update(card));
+        card.addEventListener("focusout", () =>
+            queueMicrotask(() =>
+                update(
+                    cards.find((candidate) =>
+                        candidate.matches(":hover, :focus-within"),
+                    ) ?? null,
+                ),
+            ),
+        );
+        card.querySelector("button")?.addEventListener("click", () => {
+            pinned = pinned === card ? null : card;
+            update(card);
+        });
+        card.addEventListener("keydown", (event) => {
+            if (event.key !== "Escape") return;
+            pinned = null;
+            update(null);
+        });
+    }
+</script>

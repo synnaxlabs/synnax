@@ -218,6 +218,13 @@ docs:
   - .github/workflows/test.docs.yaml
   - site/docs/**
 
+foundation:
+  - *lyra
+  - *media
+  - *site_common
+  - *ts
+  - site/foundation/**
+
 www:
   - *arc_ts
   - *lyra
@@ -233,6 +240,7 @@ knip:
   - oracle/lsp/extensions/vscode/**
   - site/common/**
   - site/docs/**
+  - site/foundation/**
   - site/portal/**
   - site/www/**
   - studio/**

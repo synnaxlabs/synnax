@@ -1,0 +1,106 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Button } from "@synnaxlabs/lyra/button";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import Layout from "@/layouts/Layout.astro";
+import { SystemDemo } from "@/components/SystemDemo";
+import Engineering from "@/components/Engineering.astro";
+import UnlockGrid from "@/components/UnlockGrid.astro";
+import HeroSlate from "@/components/HeroSlate.astro";
+import HeroFoundationArt from "@/components/HeroFoundationArt.astro";
+import Principles from "@/components/Principles.astro";
+import Contact from "@/components/Contact.astro";
+import SectionBoundary from "@/components/SectionBoundary.astro";
+import Deployments from "@/components/Deployments.astro";
+---
+
+<Layout>
+    <section class="hero section" aria-labelledby="hero-title">
+        <div class="hero-stage">
+            <HeroFoundationArt outline />
+            <div class="hero-layout">
+                <HeroSlate />
+                <div class="hero-copy">
+                    <h1 id="hero-title">
+                        Bridge distributed physical infrastructure with{" "}
+                        <span class="hero-phrase">high-level software.</span>
+                    </h1>
+                    <p class="hero-supporting-copy">
+                        Foundation communicates with your equipment and delivers it
+                        across sites to your applications, data platforms, and machine
+                        intelligence.
+                    </p>
+                </div>
+                <div class="hero-actions">
+                    <Button.Button
+                        href="#contact"
+                        variant="filled"
+                        color="#ffffff"
+                        className="foundation-button"
+                    >
+                        Show us your stack
+                        <Icon.Arrow.Right
+                            className="foundation-button-icon"
+                            aria-hidden="true"
+                        />
+                    </Button.Button>
+                </div>
+            </div>
+        </div>
+        <Button.Button href="#system" variant="text" className="hero-explore">
+            Explore the system
+            <span aria-hidden="true">↓</span>
+        </Button.Button>
+    </section>
+
+    <section
+        id="system"
+        class="system-section section"
+        aria-labelledby="system-title"
+        data-viewport-motion
+        data-motion="paused"
+    >
+        <div class="editorial-heading">
+            <p class="editorial-index">01 → How Foundation Works</p>
+            <h2 id="system-title" class="editorial-title">
+                One programmable reality across your operations.
+            </h2>
+            <p class="editorial-intro">
+                Foundation nodes run alongside your PLCs, DAQs, and controllers.
+                Together, they form a cluster within and across sites. The cluster
+                reliably carries measurements, equipment state, and supervisory
+                commands. Your software gets a unified view of the operation and a
+                consistent way to act on it.
+            </p>
+        </div>
+        <SystemDemo client:visible={{ rootMargin: "600px" }} />
+        <noscript>
+            <p class="demo-noscript">
+                Devices connect through Foundation to your applications and stores.
+                Enable JavaScript to explore the layers.
+            </p>
+        </noscript>
+    </section>
+
+    <SectionBoundary />
+    <UnlockGrid />
+    <Engineering />
+    <Principles />
+
+    <Deployments />
+
+    <Contact />
+</Layout>
+
+<script>
+    import { observeMotion } from "@/components/motion";
+    observeMotion();
+</script>

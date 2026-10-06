@@ -1,0 +1,144 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { SEO } from "astro-seo";
+import interLatin from "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url";
+import geistMonoLatin from "@fontsource/geist-mono/files/geist-mono-latin-400-normal.woff2?url";
+import Footer from "@synnaxlabs/site-common/Footer.astro";
+import Header from "@/components/Header.astro";
+import "@/styles/main.css";
+
+const title = "Foundation | Synnax";
+const description =
+    "The industrial data and supervisory control plane. Bridge distributed physical infrastructure with high-level software.";
+const canonical = new URL("/", Astro.site).href;
+const image = "https://synnax.nyc3.cdn.digitaloceanspaces.com/docs/og-default.png";
+const columns = [
+    {
+        title: "Foundation",
+        links: [
+            { label: "How it works", href: "/#system" },
+            { label: "Use cases", href: "/#applications" },
+            { label: "Engineering", href: "/#architecture" },
+            { label: "Our principles", href: "/#principles" },
+        ],
+    },
+    {
+        title: "Synnax",
+        links: [
+            { label: "About us", href: "https://www.synnaxlabs.com/company" },
+            { label: "Get in touch", href: "/#contact" },
+            { label: "Privacy policy", href: "https://www.synnaxlabs.com/privacy" },
+        ],
+    },
+];
+---
+
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="theme-color" content="#040506" />
+        <link rel="preload" href={interLatin} as="font" type="font/woff2" crossorigin />
+        <link
+            rel="preload"
+            href={geistMonoLatin}
+            as="font"
+            type="font/woff2"
+            crossorigin
+        />
+        <SEO
+            title={title}
+            description={description}
+            canonical={canonical}
+            openGraph={{
+                basic: { title, type: "website", image, url: canonical },
+                optional: { description, siteName: "Foundation by Synnax" },
+                image: { alt: "Synnax" },
+            }}
+            twitter={{ card: "summary_large_image", title, description, image }}
+        />
+        <link rel="icon" href="/favicon.ico" sizes="48x48" />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    </head>
+    <body class="foundation-page">
+        <a class="skip-link" href="#main">
+            Skip to content
+        </a>
+        <Header />
+        <main id="main">
+            <slot />
+        </main>
+        <Footer home="https://www.synnaxlabs.com" columns={columns} />
+    </body>
+</html>
+
+<style is:global>
+    .foundation-page footer .footer-content {
+        max-width: calc(var(--max-width) - 2 * var(--content-padding));
+    }
+
+    .foundation-page footer .footer-column-header {
+        font-size: 11px;
+        color: #9daabd;
+    }
+
+    .foundation-page footer .footer-link-column a {
+        font-size: 14px;
+        color: #aeb8c6;
+    }
+
+    .foundation-page footer .footer-link-column {
+        gap: 16px;
+        min-width: 0;
+    }
+
+    .foundation-page footer .footer-muted {
+        color: #929eaf;
+    }
+
+    @media (width <= 800px) {
+        .foundation-page footer .footer-main {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 32px 20px;
+        }
+
+        .foundation-page footer .footer-link-column:last-child {
+            grid-column: 1 / -1;
+        }
+
+        .foundation-page footer .footer-bottom-bar {
+            align-items: start;
+            gap: 28px;
+        }
+
+        .foundation-page footer .footer-bottom-right {
+            flex-direction: row;
+            flex-wrap: wrap;
+            justify-content: start;
+            gap: 20px;
+        }
+
+        .foundation-page footer .footer-built-in {
+            align-items: start;
+        }
+
+        .foundation-page footer .footer-link-column a {
+            display: flex;
+            align-items: center;
+            min-height: 36px;
+        }
+
+        .foundation-page footer .footer-link-column {
+            gap: 8px;
+        }
+    }
+</style>

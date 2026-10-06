@@ -1,0 +1,108 @@
+---
+// Copyright 2026 Synnax Labs, Inc. Licensed under licenses/BSL.txt.
+import { ContactForm } from "@/components/ContactForm";
+
+const planes = [
+    { offset: 64, fill: "#172939", stroke: "#40566a" },
+    { offset: 32, fill: "#21384b", stroke: "#597286" },
+    { offset: 0, fill: "url(#contact-slate)", stroke: "#8198aa" },
+];
+---
+
+<section
+    class="foundation-contact-section"
+    id="contact"
+    aria-labelledby="contact-title"
+>
+    <div class="section foundation-contact-inner">
+        <div class="foundation-contact-bento">
+            <svg
+                class="foundation-contact-art"
+                viewBox="0 0 680 420"
+                fill="none"
+                aria-hidden="true"
+                focusable="false"
+            >
+                <defs>
+                    <linearGradient
+                        id="contact-slate"
+                        x1="120"
+                        y1="60"
+                        x2="530"
+                        y2="280"
+                        gradientUnits="userSpaceOnUse"
+                    >
+                        <stop stop-color="#4b667d" />
+                        <stop offset="0.52" stop-color="#2d455a" />
+                        <stop offset="1" stop-color="#223648" />
+                    </linearGradient>
+                </defs>
+                <path d="M30 274L356 398L644 270" stroke="#5a7894" opacity="0.2" />
+                {planes.map(({ offset, fill, stroke }) => (
+                    <g transform={`translate(0 ${offset})`}>
+                        <path
+                            d="M72 166L354 292L630 166V177L354 303L72 177V166Z"
+                            fill="#132333"
+                            stroke="#40596d"
+                        />
+                        <path
+                            d="M72 166L350 40L630 166L354 292L72 166ZM187 166L353 241L515 166L350 91L187 166Z"
+                            fill={fill}
+                            fill-rule="evenodd"
+                            stroke={stroke}
+                            stroke-width="0.8"
+                        />
+                        <path
+                            d="M187 166V177L350 103L515 177V166L350 91L187 166Z"
+                            fill="#172b3d"
+                            stroke="#597286"
+                            stroke-width="0.7"
+                        />
+                    </g>
+                ))}
+                <path
+                    d="M91 167L351 49L611 167M354 282L611 167"
+                    stroke="#a1b5c5"
+                    stroke-width="0.7"
+                    opacity="0.55"
+                />
+                <path
+                    d="M87 200L352 319M87 232L353 350"
+                    stroke="#88a2b8"
+                    stroke-width="0.7"
+                    opacity="0.35"
+                />
+                <path d="M354 292V303M354 324V335M354 356V367" stroke="#bac8d2" />
+                <path
+                    d="M27 167H53M40 154V180M649 167H675M662 154V180"
+                    stroke="#8da7bd"
+                    opacity="0.4"
+                />
+            </svg>
+            <div class="foundation-contact-intro">
+                <div>
+                    <p class="foundation-contact-index">05 → Let’s Talk</p>
+                    <h2 id="contact-title">
+                        What do you want
+                        <br />
+                        <span>to make possible?</span>
+                    </h2>
+                    <p class="foundation-contact-description">
+                        Tell us what you’re working with and what you need it to do.
+                        We’ll work with your team to find the right approach.
+                    </p>
+                </div>
+                <div class="foundation-contact-direct">
+                    <span class="foundation-contact-email-label">Prefer email?</span>
+                    <a href="mailto:info@synnaxlabs.com">
+                        info@synnaxlabs.com
+                        <span aria-hidden="true">↗</span>
+                    </a>
+                </div>
+            </div>
+            <div class="foundation-contact-form-panel">
+                <ContactForm client:visible />
+            </div>
+        </div>
+    </div>
+</section>

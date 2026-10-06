@@ -1,0 +1,343 @@
+/* Copyright 2026 Synnax Labs, Inc. Licensed under licenses/BSL.txt. */
+
+.section-boundary {
+    position: relative;
+    height: 1px;
+    pointer-events: none;
+
+    > svg {
+        position: absolute;
+        top: -112px;
+        right: -80px;
+        width: 500px;
+        height: auto;
+        overflow: visible;
+        stroke: #6b839f;
+        stroke-width: 0.75px;
+        opacity: 0.25;
+    }
+}
+
+.section-boundary-rule {
+    display: block;
+    width: 42%;
+    height: 1px;
+    background: linear-gradient(to right, #2c3949, #2c394900);
+}
+
+.header-cta.pluto-btn {
+    border-radius: 6px;
+    color: #182333;
+}
+
+.desktop-nav .header-nav-link {
+    color: #aab3bf;
+}
+
+.editorial-title,
+.editorial-intro {
+    min-width: 0;
+}
+
+@media (width <= 1100px) {
+    .hero-copy {
+        margin-left: 24px;
+        margin-right: 28px;
+    }
+
+    .hero-product-description {
+        max-width: 34ch;
+    }
+
+    .unlock-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .unlock-card-wide {
+        grid-column: auto;
+    }
+}
+
+@media (width <= 900px) {
+    .section-boundary > svg {
+        width: 360px;
+        right: -96px;
+        top: -80px;
+        opacity: 0.2;
+    }
+
+    .system-section .editorial-heading,
+    .unlock-section .editorial-heading,
+    .engineering-inner .editorial-heading {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 24px;
+        margin-bottom: 40px;
+    }
+
+    .editorial-intro {
+        justify-self: start;
+        max-width: 64ch;
+        padding-top: 0;
+    }
+
+    .system-section .editorial-intro,
+    .unlock-section .editorial-intro,
+    .engineering-inner .editorial-intro {
+        max-width: 64ch;
+    }
+
+    .system-section {
+        padding-bottom: 80px;
+    }
+
+    .unlock-section {
+        padding-top: 64px;
+    }
+}
+
+@media (width <= 800px) {
+    .desktop-nav,
+    .header-cta.pluto-btn {
+        display: none;
+    }
+
+    .hero {
+        --hero-visual-height: clamp(300px, 48vw, 380px);
+
+        min-height: 0;
+        padding-block: 32px 80px;
+    }
+
+    .hero-layout {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0;
+        min-height: 0;
+        padding-bottom: 16px;
+    }
+
+    .hero-slate {
+        position: relative;
+        inset: auto;
+        height: var(--hero-visual-height);
+        flex-shrink: 0;
+    }
+
+    .hero-stage > .hero-slate-art-outline,
+    .hero-slate .hero-slate-art {
+        height: var(--hero-visual-height);
+    }
+
+    .hero-product-label {
+        inset: 28px 28px auto;
+    }
+
+    .hero-product-name {
+        font-size: clamp(44px, 10vw, 64px);
+    }
+
+    .hero-product-description {
+        max-width: 36ch;
+        font-size: 11px;
+        line-height: 1.65;
+        letter-spacing: 0.025em;
+        margin-top: 12px;
+    }
+
+    .hero-slate-caption {
+        display: none;
+    }
+
+    .hero-copy {
+        align-self: stretch;
+        margin: 12px 28px 28px;
+        padding: 0;
+    }
+
+    .hero :where(h1) {
+        max-width: 32ch;
+        font-size: 24px;
+        text-wrap: pretty;
+    }
+
+    .hero-supporting-copy {
+        max-width: 60ch;
+        margin-top: 16px;
+    }
+
+    .hero-actions {
+        position: static;
+        align-self: flex-end;
+        margin-inline: 16px;
+    }
+
+    .hero .hero-explore,
+    .solutions-explore.pluto-btn {
+        min-height: 44px;
+    }
+
+    .unlock-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+    }
+
+    .unlock-card:last-child {
+        grid-column: 1 / -1;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-rows: 20px 168px;
+
+        .unlock-card-meta {
+            grid-column: 1 / -1;
+        }
+
+        .unlock-copy {
+            align-self: center;
+            padding: 0 0 0 20px;
+        }
+    }
+}
+
+@media (width <= 600px) {
+    :root {
+        --content-padding: 20px;
+        --foundation-radius: 20px;
+    }
+
+    .hero {
+        padding-top: 24px;
+    }
+
+    .hero-product-label {
+        inset: 24px 24px auto;
+    }
+
+    .hero-product-description {
+        max-width: 30ch;
+    }
+
+    .hero-copy {
+        margin: 16px 24px 24px;
+    }
+
+    .hero :where(h1) {
+        font-size: 22px;
+    }
+
+    .hero-phrase {
+        white-space: normal;
+    }
+
+    .hero-actions {
+        align-self: stretch;
+    }
+
+    .hero-actions .foundation-button {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .hero-explore.pluto-btn,
+    .solutions-explore.pluto-btn {
+        font-size: 12px;
+    }
+
+    .system-section {
+        padding-top: 24px;
+        padding-bottom: 64px;
+    }
+
+    .section-boundary > svg {
+        display: none;
+    }
+
+    .section-boundary-rule {
+        width: 100%;
+    }
+
+    .system-section .editorial-title,
+    .unlock-section .editorial-title,
+    .engineering-inner .editorial-title {
+        font-size: clamp(30px, 8vw, 38px);
+    }
+
+    .editorial-heading > .editorial-index,
+    .principles-index,
+    .foundation-contact-index {
+        font-size: 12px;
+    }
+
+    .editorial-intro {
+        font-size: 16px;
+        line-height: 1.65;
+    }
+
+    .unlock-section {
+        padding-block: 56px 64px;
+    }
+
+    .unlock-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .unlock-card,
+    .unlock-card:last-child {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: 20px 142px 1fr;
+        padding: 18px 20px 20px;
+    }
+
+    .unlock-card:last-child .unlock-copy {
+        padding: 8px 0 0;
+    }
+
+    .unlock-artwork {
+        margin-inline: -16px;
+    }
+
+    .unlock-card .unlock-artwork > svg {
+        transform: scale(1.06);
+    }
+
+    .unlock-copy h3 {
+        font-size: 19px;
+    }
+
+    .unlock-copy p {
+        margin-top: 10px;
+    }
+
+    .unlock-solutions {
+        padding: 28px 24px;
+    }
+
+    .solutions-joint {
+        display: none;
+    }
+
+    .solutions-copy h3 {
+        font-size: 28px;
+    }
+
+    .solutions-contact.pluto-btn {
+        min-height: 44px;
+    }
+}
+
+@media (width <= 360px) {
+    :root {
+        --content-padding: 16px;
+    }
+
+    .hero-product-label {
+        inset-inline: 20px;
+    }
+
+    .hero-copy {
+        margin-inline: 20px;
+    }
+
+    .hero :where(h1) {
+        font-size: 21px;
+    }
+}

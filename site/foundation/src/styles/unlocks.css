@@ -1,0 +1,334 @@
+/* Copyright 2026 Synnax Labs, Inc. Licensed under licenses/BSL.txt. */
+
+.unlock-section {
+    padding-block: 72px 88px;
+
+    .editorial-heading {
+        grid-template-columns: 1.25fr 1fr;
+        column-gap: 72px;
+        margin-bottom: 40px;
+    }
+
+    .editorial-title {
+        font-size: clamp(36px, 3.6vw, 52px);
+    }
+
+    .editorial-intro {
+        max-width: 440px;
+    }
+}
+
+.unlock-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 20px;
+}
+
+.unlock-card {
+    position: relative;
+    isolation: isolate;
+    display: grid;
+    grid-template-rows: 20px 174px 1fr;
+    min-width: 0;
+    padding: 18px 24px 20px;
+    overflow: hidden;
+    border: 1px solid #202934;
+    border-radius: 20px;
+    background:
+        radial-gradient(ellipse at 65% 10%, rgb(66 90 122 / 10%), transparent 70%),
+        #0b1017;
+    transition:
+        border-color 280ms ease,
+        background-color 280ms ease;
+
+    &:has(:focus-visible) {
+        outline: 2px solid var(--foundation-accent);
+        outline-offset: 4px;
+    }
+}
+
+.unlock-card-wide {
+    grid-column: span 2;
+    background:
+        radial-gradient(ellipse at 70% 0%, rgb(75 105 145 / 12%), transparent 70%),
+        #0d141d;
+}
+
+.unlock-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #748292;
+    font: 400 10px/1.4 var(--foundation-mono);
+    letter-spacing: 0.025em;
+    white-space: nowrap;
+}
+
+.unlock-number {
+    font-variant-numeric: tabular-nums;
+}
+
+.unlock-detail {
+    margin-left: auto;
+    opacity: 0;
+    transition: opacity 240ms ease;
+}
+
+.unlock-indicator {
+    flex-shrink: 0;
+    width: 6px;
+    height: 6px;
+    margin-left: auto;
+    border: 1px solid #66788c;
+    border-radius: 50%;
+    transition: background-color 200ms ease;
+}
+
+.unlock-artwork {
+    position: relative;
+    align-self: stretch;
+    margin: -6px -24px 0;
+    pointer-events: none;
+}
+
+.unlock-artwork > svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    transform: scale(1.06);
+}
+
+.unlock-card:not(.unlock-card-wide) .unlock-artwork > svg {
+    transform: scale(1.1);
+}
+
+.unlock-copy {
+    position: relative;
+    align-self: start;
+    padding-top: 8px;
+
+    h3 {
+        margin: 0;
+        color: #d1d9e2;
+        font: 450 20px/1.3 var(--foundation-body);
+        letter-spacing: -0.025em;
+        text-wrap: pretty;
+    }
+
+    p {
+        max-width: 43ch;
+        margin: 12px 0 0;
+        color: #929eac;
+        font: 400 14px/1.6 var(--foundation-body);
+        letter-spacing: -0.01em;
+        text-wrap: pretty;
+    }
+}
+
+.unlock-trigger {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    border-radius: inherit;
+    background: transparent;
+    cursor: pointer;
+
+    &:focus-visible {
+        outline: none;
+    }
+}
+
+.unlock-art-reveal,
+.unlock-art-muted,
+.unlock-art-shift,
+.unlock-art-trace {
+    transition:
+        opacity 550ms ease,
+        transform 650ms cubic-bezier(0.22, 1, 0.36, 1),
+        stroke-dashoffset 900ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.unlock-art-reveal {
+    opacity: 0.18;
+}
+
+.unlock-art-muted {
+    opacity: 0.55;
+}
+
+.unlock-art-shift {
+    transform: translateY(0);
+}
+
+.unlock-art-trace {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+}
+
+.unlock-card[data-active="true"] {
+    border-color: #3c5065;
+    background-color: #0e151f;
+
+    .unlock-detail {
+        opacity: 1;
+    }
+
+    .unlock-art-reveal {
+        opacity: 1;
+    }
+
+    .unlock-art-muted {
+        opacity: 0.22;
+    }
+
+    .unlock-art-shift {
+        transform: translateY(-8px);
+    }
+
+    .unlock-art-trace {
+        stroke-dashoffset: 0;
+    }
+}
+
+.unlock-card[data-pinned="true"] .unlock-indicator {
+    background: #a9c2dc;
+    border-color: #a9c2dc;
+}
+
+.unlock-solutions {
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    gap: 48px;
+    min-height: 240px;
+    margin-top: 24px;
+    padding: 32px 36px;
+    overflow: hidden;
+    border: 1px solid #c0ced9;
+    border-radius: 20px;
+    background: linear-gradient(110deg, #b8c8d3, #98afc2);
+}
+
+.solutions-joint {
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.solutions-joint-field {
+    fill: #56748d;
+    opacity: 0.1;
+}
+
+.solutions-joint-hatch {
+    fill: url("#solutions-section-hatch");
+    opacity: 0.17;
+}
+
+.solutions-joint pattern path {
+    stroke: #38556c;
+    stroke-width: 0.65px;
+}
+
+.solutions-joint-edge {
+    stroke: #506c83;
+    stroke-width: 0.9px;
+    opacity: 0.45;
+}
+
+.solutions-copy {
+    max-width: 560px;
+
+    h3 {
+        margin: 20px 0 14px;
+        color: #172a3a;
+        font: 450 32px/1.2 var(--foundation-body);
+        letter-spacing: -0.035em;
+        text-wrap: pretty;
+    }
+}
+
+.solutions-label {
+    margin: 0;
+    color: #3c5365;
+    font: 500 11px/1.5 var(--foundation-mono);
+    letter-spacing: 0.07em;
+}
+
+.solutions-description {
+    max-width: 54ch;
+    margin: 0;
+    color: #354e61;
+    font: 400 15px/1.65 var(--foundation-body);
+    text-wrap: pretty;
+}
+
+.solutions-contact.pluto-btn {
+    flex-shrink: 0;
+    height: 42px;
+    padding-inline: 18px;
+    gap: 20px;
+    border-radius: 7px;
+    color: #e4ecf3;
+    font: 450 14px/1.4 var(--foundation-body);
+
+    .solutions-contact-icon {
+        width: 18px;
+        height: 18px;
+    }
+
+    &:focus-visible {
+        outline-color: #172839;
+    }
+}
+
+.solutions-explore.pluto-btn {
+    display: flex;
+    width: fit-content;
+    margin-inline: auto;
+}
+
+@media (width <= 1000px) {
+    .unlock-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .unlock-card-wide {
+        grid-column: span 2;
+    }
+}
+
+@media (width <= 600px) {
+    .unlock-section .editorial-heading,
+    .unlock-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .unlock-card-wide {
+        grid-column: auto;
+    }
+
+    .unlock-solutions {
+        align-items: start;
+        flex-direction: column;
+        gap: 28px;
+        padding: 28px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .unlock-card *,
+    .unlock-card {
+        transition: none;
+    }
+}

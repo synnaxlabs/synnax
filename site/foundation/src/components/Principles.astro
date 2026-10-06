@@ -1,0 +1,88 @@
+---
+// Copyright 2026 Synnax Labs, Inc. Licensed under licenses/BSL.txt.
+
+const principles = [
+    {
+        title: "Reliability",
+        copy: "We build for the conditions your systems will actually face. Failure and recovery belong in the design from the start.",
+    },
+    {
+        title: "Simplicity",
+        copy: "We take on the infrastructure work so your team can focus on the operation. Deep capability should take less effort to use.",
+    },
+    {
+        title: "Power",
+        copy: "We build tools that leave room for work we have not anticipated. Engineers should be able to push beyond the first use case.",
+    },
+    {
+        title: "Freedom",
+        copy: "Keep the tools that work. Choose what you build, where you run it, and how it fits your organization.",
+    },
+];
+---
+
+<section class="principles-chapter" id="principles" aria-labelledby="principles-title">
+    <div class="section principles-inner">
+        <p class="principles-index">04 → Our Principles</p>
+        <div class="principles-layout">
+            <div class="principles-thesis">
+                <h2 id="principles-title">
+                    Our engineering
+                    <br />
+                    <span>serves yours.</span>
+                </h2>
+                <svg
+                    class="principles-frame"
+                    viewBox="0 0 400 256"
+                    fill="none"
+                    aria-hidden="true"
+                    focusable="false"
+                >
+                    <path d="M42 208H346M66 230V24" stroke="#24313d" />
+                    <path
+                        d="M66 208V52H276L336 112V208H66Z"
+                        fill="#101820"
+                        stroke="#283948"
+                    />
+                    <path
+                        d="M66 52H276V148H66M276 52L336 112M276 148L336 208"
+                        stroke="#3e5265"
+                    />
+                    <path
+                        class="principles-frame-detail"
+                        d="M86 72H296V168H86V72Z"
+                        stroke="#4b6176"
+                    />
+                    <path
+                        class="principles-frame-detail"
+                        d="M106 92H316V188H106V92Z"
+                        stroke="#617b92"
+                    />
+                    <path d="M126 112H336V208H126V112Z" stroke="#8ca1b3" />
+                    <path d="M66 52L126 112M66 148L126 208" stroke="#526a80" />
+                    <path
+                        d="M126 112H166M126 112V144M336 208H296M336 208V176"
+                        stroke="#b0bfcc"
+                    />
+                    <path
+                        d="M61 208H71M66 203V213M331 112H341M336 107V117"
+                        stroke="#94a5b5"
+                    />
+                </svg>
+            </div>
+            <ol class="principles-list" aria-label="Our engineering principles">
+                {principles.map(({ title, copy }, index) => (
+                    <li>
+                        <span class="principle-number" aria-hidden="true">
+                            {String(index + 1).padStart(2, "0")}
+                        </span>
+                        <div class="principle-copy">
+                            <h3>{title}</h3>
+                            <p>{copy}</p>
+                        </div>
+                    </li>
+                ))}
+            </ol>
+        </div>
+    </div>
+</section>
