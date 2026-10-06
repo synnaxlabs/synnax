@@ -57,22 +57,27 @@ visibility. CI uses the repository's shared TypeScript workflow.
 
 ## Hosting and previews
 
-The Vercel project is `synnax/foundation`, linked to `synnaxlabs/synnax`. Its root is
-`site/foundation`, with workspace files outside the root included. The package's
-`vercel.json` installs the frozen pnpm workspace and runs `pnpm build:foundation` from
-the repository root. The Node version follows the repository's Node 24 runtime.
+The Vercel project is `synnax/foundation`. Its root is `site/foundation`, with workspace
+files outside the root included. The package's `vercel.json` installs the frozen pnpm
+workspace and runs `pnpm build:foundation` from the repository root. The Node version
+follows the repository's Node 24 runtime.
 
 From the repository root, an authenticated Vercel CLI can create a preview:
 
 ```sh
 vercel link --project foundation --scope synnax
-vercel deploy --target=preview --scope synnax
+vercel pull --yes --environment=preview --scope synnax
+vercel build --yes --scope synnax
+vercel deploy --prebuilt --target=preview --scope synnax
 ```
 
-Keep the Git production branch set to `main`. Pull requests on other branches can
-receive Vercel previews. Production promotion and assigning `foundation.synnaxlabs.com`
-are separate deployment actions; the canonical URL and sitemap already use that domain.
-Preview access follows the project's Vercel protection settings.
+Preview access is public. Automatic Git deployments are disconnected while deployment
+target classification is reviewed; publish previews explicitly through the CLI. Verify
+that the deployment target is `preview` with `vercel inspect <deployment-url>`.
+
+Production promotion and assigning `foundation.synnaxlabs.com` are separate deployment
+actions. Keep the Git production branch set to `main` if Git integration is enabled
+later. The canonical URL and sitemap already use the production domain.
 
 ## Diagram structure
 
