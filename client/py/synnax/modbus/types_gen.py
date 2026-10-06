@@ -28,12 +28,14 @@ class RegisterValue(BaseModel):
     Attributes:
         data_type: Is the data type the register contents are interpreted as.
         bytes_swapped: Is true when the byte order within each 16-bit word is swapped.
+            When absent, the device's byte order applies.
         words_swapped: Is true when the word order of multi-register values is swapped.
+            When absent, the device's word order applies.
     """
 
     data_type: telem.DataType = telem.DataType("uint8")
-    bytes_swapped: bool = False
-    words_swapped: bool = False
+    bytes_swapped: bool | None = None
+    words_swapped: bool | None = None
 
 
 class BaseReadChannel(BaseModel):

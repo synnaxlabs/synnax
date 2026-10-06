@@ -29,6 +29,15 @@ class ModbusReadVerify(ReadTaskMigrationVerify, ModbusReadTaskCase):
     num_channels = NUM_CHANNELS
     pre_start_sleep = 2
 
+    def test_task_config(self) -> None:
+        super().test_task_config()
+        assert self.tsk is not None
+        for ch in self.tsk.config.channels:
+            assert isinstance(ch, sy.modbus.HoldingRegisterReadChannel)
+            assert ch.bytes_swapped is None and ch.words_swapped is None, (
+                "a released channel's stored false should follow the device"
+            )
+
     @staticmethod
     def create_channels(client: sy.Synnax) -> list[sy.modbus.ReadChannel]:
         idx = create_index(client, IDX_NAME)
