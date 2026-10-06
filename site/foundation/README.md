@@ -66,13 +66,13 @@ From the repository root, an authenticated Vercel CLI can create a preview:
 
 ```sh
 vercel link --project foundation --scope synnax
-vercel deploy --scope synnax
+vercel deploy --target=preview --scope synnax
 ```
 
-Pull requests on the connected repository can also receive Vercel previews. Production
-promotion and assigning `foundation.synnaxlabs.com` are separate deployment actions; the
-canonical URL and sitemap already use that domain. Preview access follows the project's
-Vercel protection settings.
+Keep the Git production branch set to `main`. Pull requests on other branches can
+receive Vercel previews. Production promotion and assigning `foundation.synnaxlabs.com`
+are separate deployment actions; the canonical URL and sitemap already use that domain.
+Preview access follows the project's Vercel protection settings.
 
 ## Diagram structure
 
