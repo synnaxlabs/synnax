@@ -160,6 +160,16 @@ var _ = Describe("Timer", Serial, func() {
 			To(BeNumerically("<", 50*time.Microsecond))
 	})
 
+	It("Should hold a wait of DefaultSpin as a whole-wait spin does", func() {
+		if timer.DefaultSpin == 0 {
+			Skip("DefaultSpin does not spin")
+		}
+		s := MustOpen(timer.New(timer.SpinAll))
+		whole := medianLateness(s, timer.DefaultSpin, 50)
+		Expect(medianLateness(t, timer.DefaultSpin, 50)).
+			To(BeNumerically("~", whole, 10*time.Microsecond))
+	})
+
 	It("Should not fire after Stop during a spin", func() {
 		s := MustOpen(timer.New(timer.SpinAll))
 		Expect(s.Reset(20 * time.Millisecond)).To(Succeed())

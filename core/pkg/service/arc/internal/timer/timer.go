@@ -48,8 +48,9 @@ type Timer struct {
 }
 
 // New opens a stopped Timer that spins on Now for the last spin of each wait, which
-// holds a CPU core for that span. A spin never takes more than half of a wait, except
-// SpinAll, which spins for all of it. The caller must Close the Timer.
+// holds a CPU core for that span. A spin never takes more than half of a wait, unless
+// that half is under DefaultSpin, and SpinAll spins for all of it. The caller must
+// Close the Timer.
 func New(spin time.Duration) (*Timer, error) {
 	c := make(chan struct{}, 1)
 	t := &Timer{C: c, c: c, done: make(chan struct{}), spin: spin}
@@ -139,12 +140,13 @@ func (t *Timer) spinToDeadline() {
 	}
 }
 
-// spinFor returns the spin of a wait of d.
+// spinFor returns the spin of a wait of d. Half of a wait never cuts the spin under
+// DefaultSpin, the least spin that outlasts a late wake of the OS timer.
 func (t *Timer) spinFor(d time.Duration) time.Duration {
 	if t.spin == SpinAll {
 		return SpinAll
 	}
-	return min(t.spin, d/2)
+	return min(t.spin, max(d/2, DefaultSpin))
 }
 
 // lead returns the span to arm the OS timer for, so that it wakes the spin of the
