@@ -348,14 +348,19 @@
 
     .world-caption {
         grid-template-columns: minmax(0, 1fr);
-        grid-template-rows: 1fr auto;
+        grid-template-rows: auto auto;
+        align-content: start;
         gap: 18px;
-        min-height: 320px;
+        min-height: 0;
         margin-top: 22px;
     }
 
     .chapter-copy {
         max-width: 620px;
+
+        > :last-child {
+            margin-bottom: 0;
+        }
     }
 
     .chapter-next {
@@ -454,12 +459,6 @@
         --world-camera-y: 45px;
     }
 
-    .world-caption {
-        min-height: 390px;
-        margin-top: 22px;
-        gap: 20px;
-    }
-
     .chapter-copy h3 {
         margin-block: 12px 18px;
         font-size: 26px;
@@ -479,10 +478,6 @@
         gap: 8px;
         padding-inline: 10px;
         font-size: 11px;
-    }
-
-    .world-caption {
-        min-height: 450px;
     }
 
     .chapter-copy h3 {

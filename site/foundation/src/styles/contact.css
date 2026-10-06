@@ -13,7 +13,10 @@
     isolation: isolate;
     display: grid;
     grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-    gap: clamp(32px, 4vw, 64px);
+    grid-template-areas:
+        "intro form"
+        "direct form";
+    column-gap: clamp(32px, 4vw, 64px);
     padding: clamp(32px, 4vw, 56px);
     overflow: hidden;
     border: 1px solid #3d5368;
@@ -35,6 +38,7 @@
 }
 
 .foundation-contact-intro {
+    grid-area: intro;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -69,6 +73,8 @@
 }
 
 .foundation-contact-direct {
+    grid-area: direct;
+    place-self: end start;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -99,6 +105,7 @@
 }
 
 .foundation-contact-form-panel {
+    grid-area: form;
     container: contact-form / inline-size;
     position: relative;
     align-self: center;
@@ -297,7 +304,7 @@
 
 @media (width <= 1000px) {
     .foundation-contact-bento {
-        gap: 32px;
+        column-gap: 32px;
         padding: 32px;
     }
 
@@ -337,6 +344,10 @@
 
     .foundation-contact-bento {
         grid-template-columns: 1fr;
+        grid-template-areas:
+            "intro"
+            "form"
+            "direct";
         gap: 36px;
     }
 
@@ -350,7 +361,13 @@
     }
 
     .foundation-contact-direct {
-        margin-top: 28px;
+        justify-self: stretch;
+        width: 100%;
+        margin-top: 0;
+
+        a {
+            justify-content: space-between;
+        }
     }
 
     .foundation-contact-art {
