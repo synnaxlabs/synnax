@@ -9,8 +9,9 @@
  * included in the file licenses/APL.txt.
  */
 
-/* An empty trigger reads as a placeholder, the way every other empty control does. */
-.pluto-select-single-trigger--empty {
+/* An empty trigger reads as a placeholder. The trigger is pluto-text too, so a bare
+   class ties with its color and loses when its stylesheet loads first, in a build. */
+.pluto-btn.pluto-select-single-trigger--empty {
     color: var(--pluto-text-placeholder);
 
     /* The label is pluto-text, whose own color would otherwise override the dim. */
