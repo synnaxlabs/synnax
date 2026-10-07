@@ -359,6 +359,7 @@ private:
         for (const size_t i: state.transitions_for_step[state.active_step]) {
             if (!this->fires(state, i)) continue;
             this->deactivate_member(state.members[state.active_step]);
+            this->clear_transition_marks(state);
             const auto *step = std::get_if<ir::StepTarget>(&transitions[i].target);
             if (step == nullptr) {
                 this->exit(state, i);
@@ -449,25 +450,30 @@ private:
         if (m.scope != NO_INDEX) this->activate_scope(this->scopes[m.scope]);
     }
 
-    /// @brief deactivates the member's nested scope, or clears self-changed and the
-    /// transition marks of its node. A restarted scope then waits for its transitions
-    /// to fire again.
+    /// @brief deactivates the member's nested scope, or clears self-changed on its
+    /// node.
     void deactivate_member(MemberState &m) {
         if (m.scope != NO_INDEX) {
             this->deactivate_scope(this->scopes[m.scope]);
             return;
         }
-        if (m.node == NO_INDEX) return;
-        this->self_changed_flags[m.node] = 0;
-        for (const auto &out: this->nodes[m.node].outputs)
-            if (out.mark_handle_idx != NO_INDEX)
-                this->marked_flags[out.mark_handle_idx] = 0;
+        if (m.node != NO_INDEX) this->self_changed_flags[m.node] = 0;
     }
 
-    /// @brief marks a scope and every scope nested in it inactive, and deactivates
-    /// their leaf-node members.
+    /// @brief drops the pending marks of state's own transitions, so a losing
+    /// transition does not act after a sibling fired or after state restarts. Marks
+    /// that an enclosing scope's transitions hold stay, because that scope has not
+    /// evaluated them.
+    void clear_transition_marks(const ScopeState &state) {
+        for (const size_t h: state.transition_on_idx)
+            if (h != NO_INDEX) this->marked_flags[h] = 0;
+    }
+
+    /// @brief marks a scope and every scope nested in it inactive, deactivates their
+    /// leaf-node members, and drops the pending marks of each scope's transitions.
     void deactivate_scope(ScopeState &state) {
         if (state.ir.mode == ir::ScopeMode::Sequential) state.active_step = NO_INDEX;
+        this->clear_transition_marks(state);
         for (auto &m: state.members)
             this->deactivate_member(m);
         state.active = false;

@@ -3018,9 +3018,15 @@ TEST_P(FirstJumpTest, ActsOnlyOnTheFirstTrueJumpInSourceOrder) {
     EXPECT_EQ(p.phase(), (Phase{.log = {GetParam().expected}}));
 }
 
-TEST(JumpTest, ActsOnAnInnerTransitionBeforeTheJump) {
-    using namespace jumps;
-    Program p(R"(
+class InnerTransitionTest : public testing::TestWithParam<jumps::Case> {};
+
+INSTANTIATE_TEST_SUITE_P(
+    Jumps,
+    InnerTransitionTest,
+    testing::Values(
+        jumps::Case{
+            "the_jump_in_the_enclosing_stage",
+            R"(
     sequence main {
         stage armed {
             %a% == 1 => abort
@@ -3031,7 +3037,34 @@ TEST(JumpTest, ActsOnAnInnerTransitionBeforeTheJump) {
         }
     }
     sequence abort { stage s { "abort" -> %log% } }
-    %start% == 1 => main)");
+    %start% == 1 => main)",
+            ""
+        },
+        jumps::Case{
+            "the_jump_in_the_inner_stage",
+            R"(
+    sequence main {
+        stage armed {
+            sequence {
+                stage r {
+                    %a% == 1 => abort
+                    %b% == 1 => next
+                }
+                stage r2 { "r2" -> %log% }
+            }
+        }
+    }
+    sequence abort { stage s { "abort" -> %log% } }
+    %start% == 1 => main)",
+            ""
+        }
+    ),
+    jumps::case_name
+);
+
+TEST_P(InnerTransitionTest, ActsOnAnInnerTransitionBeforeTheJump) {
+    using namespace jumps;
+    Program p(GetParam().source);
     p.write("start");
     p.write("a", "b");
     EXPECT_EQ(p.phase(), (Phase{.log = {"r2", "abort"}}));

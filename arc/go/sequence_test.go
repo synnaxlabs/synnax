@@ -1776,8 +1776,15 @@ var _ = Describe("Sequence", func() {
 			start == 1 => main`, []string{"flight"}),
 		)
 
-		It("Should act on an inner transition before the jump", func(ctx SpecContext) {
-			p := open(ctx, `
+		DescribeTable(
+			"Should act on an inner transition before the jump",
+			func(ctx SpecContext, source string) {
+				p := open(ctx, source)
+				p.write("start")
+				p.write("a", "b")
+				Expect(p.phase()).To(Equal(phase{log: []string{"r2", "abort"}}))
+			},
+			Entry("the jump in the enclosing stage", `
 			sequence main {
 			    stage armed {
 			        a == 1 => abort
@@ -1788,11 +1795,22 @@ var _ = Describe("Sequence", func() {
 			    }
 			}
 			sequence abort { stage s { "abort" -> log } }
-			start == 1 => main`)
-			p.write("start")
-			p.write("a", "b")
-			Expect(p.phase()).To(Equal(phase{log: []string{"r2", "abort"}}))
-		})
+			start == 1 => main`),
+			Entry("the jump in the inner stage", `
+			sequence main {
+			    stage armed {
+			        sequence {
+			            stage r {
+			                a == 1 => abort
+			                b == 1 => next
+			            }
+			            stage r2 { "r2" -> log }
+			        }
+			    }
+			}
+			sequence abort { stage s { "abort" -> log } }
+			start == 1 => main`),
+		)
 
 		const flight = `
 		sequence flight {

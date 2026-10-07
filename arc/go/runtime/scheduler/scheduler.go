@@ -311,6 +311,7 @@ func (s *Scheduler) evaluateTransitions(ss *scope) bool {
 			continue
 		}
 		s.deactivateMember(&ss.members[ss.activeStep])
+		s.clearTransitionMarks(ss)
 		step, ok := ss.ir.Transitions[i].Target.Variant.(ir.StepTarget)
 		if !ok {
 			s.exit(ss, i)
@@ -416,32 +417,36 @@ func (s *Scheduler) activateSequentialStep(ss *scope, idx int) {
 	}
 }
 
-// deactivateMember deactivates the member's nested scope, or clears selfChanged and
-// the transition marks of its node. A restarted scope then waits for its transitions
-// to fire again.
+// deactivateMember deactivates the member's nested scope, or clears selfChanged on its
+// node.
 func (s *Scheduler) deactivateMember(m *member) {
 	if m.scope != nil {
 		s.deactivateScope(m.scope)
 		return
 	}
-	n := m.node
-	if n == nil {
-		return
+	if n := m.node; n != nil {
+		s.selfChangedFlags[n.idx] = 0
 	}
-	s.selfChangedFlags[n.idx] = 0
-	for i := range n.outputs {
-		if h := n.outputs[i].markHandleIdx; h >= 0 {
+}
+
+// clearTransitionMarks drops the pending marks of ss's own transitions, so a losing
+// transition does not act after a sibling fired or after ss restarts. Marks that an
+// enclosing scope's transitions hold stay, because that scope has not evaluated them.
+func (s *Scheduler) clearTransitionMarks(ss *scope) {
+	for _, h := range ss.transitionOnIdx {
+		if h >= 0 {
 			s.markedFlags[h] = 0
 		}
 	}
 }
 
-// deactivateScope marks a scope and every scope nested in it inactive, and
-// deactivates their leaf-node members.
+// deactivateScope marks a scope and every scope nested in it inactive, deactivates
+// their leaf-node members, and drops the pending marks of each scope's transitions.
 func (s *Scheduler) deactivateScope(ss *scope) {
 	if ss.ir.Mode == ir.ScopeModeSequential {
 		ss.activeStep = -1
 	}
+	s.clearTransitionMarks(ss)
 	for i := range ss.members {
 		s.deactivateMember(&ss.members[i])
 	}
