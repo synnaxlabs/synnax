@@ -3018,6 +3018,25 @@ TEST_P(FirstJumpTest, ActsOnlyOnTheFirstTrueJumpInSourceOrder) {
     EXPECT_EQ(p.phase(), (Phase{.log = {GetParam().expected}}));
 }
 
+TEST(JumpTest, ActsOnAnInnerTransitionBeforeTheJump) {
+    using namespace jumps;
+    Program p(R"(
+    sequence main {
+        stage armed {
+            %a% == 1 => abort
+            sequence {
+                stage r { %b% == 1 => next }
+                stage r2 { "r2" -> %log% }
+            }
+        }
+    }
+    sequence abort { stage s { "abort" -> %log% } }
+    %start% == 1 => main)");
+    p.write("start");
+    p.write("a", "b");
+    EXPECT_EQ(p.phase(), (Phase{.log = {"r2", "abort"}}));
+}
+
 class StopTopLevelScopeTest : public testing::TestWithParam<jumps::Case> {};
 
 INSTANTIATE_TEST_SUITE_P(

@@ -737,9 +737,9 @@ When transitioning to a top-level sequence or stage (e.g., `=> abort`):
 
 Within one sequence, only the first true transition in source order acts. Among the
 jumps to top-level scopes that one top-level scope holds, only the first true jump in
-source order acts, at any depth of nesting. A different transition in a sequence nested
-inside a stage, such as `=> next`, acts before the jumps of that stage, whatever its
-position in the source.
+source order acts, at any depth of nesting. A transition inside a nested sequence, such
+as `=> next`, does not compete with those jumps: it acts first, then the jump acts in
+the same cycle, so the stage the nested sequence entered stops at once.
 
 Activations are independent: several top-level scopes can run at the same time.
 
