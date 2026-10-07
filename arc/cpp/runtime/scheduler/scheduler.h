@@ -586,7 +586,8 @@ public:
         for (const auto &m: s.scopes[root_idx].members)
             if (m.scope != NO_INDEX) top_level[s.scopes[m.scope].ir.key] = m.scope;
         for (const auto &j: this->jumps)
-            s.scopes[j.scope].transition_targets[j.idx] = top_level.at(j.key);
+            if (const auto it = top_level.find(j.key); it != top_level.end())
+                s.scopes[j.scope].transition_targets[j.idx] = it->second;
         s.activate_scope(s.scopes[root_idx]);
     }
 
