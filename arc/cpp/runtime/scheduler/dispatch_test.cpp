@@ -240,14 +240,12 @@ TEST_F(SchedulerTest, ReFiresAnEntryNodeWhenItsScopeReActivates) {
         root_scope({ir::node_member("trigger"), ir::scope_member(std::move(main))})
     );
     const auto s = build(std::move(program));
-    // Cycle 1: main activates; A runs once and exits the sequence.
     s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(entry_node.next_called, 1);
     s->next(
         {.elapsed = 2 * x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
     );
     EXPECT_EQ(entry_node.next_called, 1);
-    // Cycle 3: main re-activates; the reset lets A fire again.
     s->next(
         {.elapsed = 3 * x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
     );

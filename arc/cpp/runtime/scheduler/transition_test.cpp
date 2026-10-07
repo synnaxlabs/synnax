@@ -421,19 +421,14 @@ TEST_F(SchedulerTest, ClearsAPendingSelfChangeAndReResetsOnScopeReEntry) {
     );
     const auto s = build(std::move(program));
     const int base = v.reset_called;
-    // Cycle 1: activation resets V; V runs via the trigger edge and marks
-    // itself.
     s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(v.reset_called, base + 1);
     EXPECT_EQ(v.next_called, 1);
-    // Cycle 2: V replays its self-change and re-marks; A exits main.
     stage_node.set_truthy(0);
     s->next(
         {.elapsed = 2 * x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
     );
     EXPECT_EQ(v.next_called, 2);
-    // Cycle 3: re-activation resets V again and clears the pending
-    // self-change, so V does not replay.
     s->next(
         {.elapsed = 3 * x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
     );
