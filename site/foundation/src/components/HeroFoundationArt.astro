@@ -93,6 +93,12 @@ for (const edge of edges) {
     else mergedEdges.push({ ...edge });
 }
 const atDepth = ([x, y]: Point, z: number): Point => [x, y, z];
+const faceDepth = ({ a, b }: (typeof edges)[number]): number =>
+    a[0] + a[1] + b[0] + b[1];
+// Paint from back to front so nearer cross beams cover the recessed faces behind them.
+const frontEdges = mergedEdges
+    .filter(({ front }) => front)
+    .sort((a, b) => faceDepth(a) - faceDepth(b));
 const frontCorners = [
     ...new Map(
         mergedEdges
@@ -101,26 +107,23 @@ const frontCorners = [
             .map((point) => [point.join(","), point]),
     ).values(),
 ];
-const inset = ([x, y]: Point, direction: "x" | "y", z: number): Point => [
-    x - (direction === "x" ? 4 : 0),
-    y - (direction === "y" ? 4 : 0),
-    z,
-];
-const beamProfile = ({ a, b, direction }: (typeof edges)[number]) => ({
+const inset = ([x, y]: Point, z: number): Point => {
+    let insetX = x,
+        insetY = y;
+    // Both incident boundaries share a mitered corner, including hidden back faces.
+    for (const { a, b, direction, front } of mergedEdges) {
+        if (!((a[0] === x && a[1] === y) || (b[0] === x && b[1] === y))) continue;
+        const offset = front ? -4 : 4;
+        if (direction === "x") insetX += offset;
+        else insetY += offset;
+    }
+    return [insetX, insetY, z];
+};
+const beamProfile = ({ a, b }: (typeof edges)[number]) => ({
     cap: [a, b, atDepth(b, -3), atDepth(a, -3)],
     recess: [atDepth(a, -3), atDepth(b, -3), atDepth(b, -35), atDepth(a, -35)],
-    web: [
-        inset(a, direction, -3),
-        inset(b, direction, -3),
-        inset(b, direction, -35),
-        inset(a, direction, -35),
-    ],
-    shelf: [
-        atDepth(a, -35),
-        atDepth(b, -35),
-        inset(b, direction, -35),
-        inset(a, direction, -35),
-    ],
+    web: [inset(a, -3), inset(b, -3), inset(b, -35), inset(a, -35)],
+    shelf: [atDepth(a, -35), atDepth(b, -35), inset(b, -35), inset(a, -35)],
     foot: [atDepth(a, -35), atDepth(b, -35), atDepth(b, -38), atDepth(a, -38)],
 });
 const routes: Point[][] = [
@@ -241,33 +244,19 @@ const translateRoute = (route: Point[], offset: number): Point[] =>
 
             <rect x="80" width="1000" height="520" fill="url(#hero-field-light)" />
             <g class="hero-field-mass">
-                {mergedEdges
-                    .filter((edge) => edge.front)
-                    .map((edge) => {
-                        const profile = beamProfile(edge);
-                        const material = `url(#hero-field-${edge.direction === "y" ? "front" : "side"})`;
-                        return (
-                            <g>
-                                <polygon
-                                    points={polygon(profile.recess)}
-                                    fill="#08111c"
-                                />
-                                <polygon
-                                    points={polygon(profile.web)}
-                                    fill={material}
-                                />
-                                <polygon
-                                    points={polygon(profile.shelf)}
-                                    fill="#203246"
-                                />
-                                <polygon
-                                    points={polygon(profile.foot)}
-                                    fill={material}
-                                />
-                                <polygon points={polygon(profile.cap)} fill="#293d52" />
-                            </g>
-                        );
-                    })}
+                {frontEdges.map((edge) => {
+                    const profile = beamProfile(edge);
+                    const material = `url(#hero-field-${edge.direction === "y" ? "front" : "side"})`;
+                    return (
+                        <g>
+                            <polygon points={polygon(profile.recess)} fill="#08111c" />
+                            <polygon points={polygon(profile.web)} fill={material} />
+                            <polygon points={polygon(profile.shelf)} fill="#203246" />
+                            <polygon points={polygon(profile.foot)} fill={material} />
+                            <polygon points={polygon(profile.cap)} fill="#293d52" />
+                        </g>
+                    );
+                })}
                 <path d={top} fill="url(#hero-field-top)" />
                 {mergedEdges.map(({ a, b, front }) => (
                     <path

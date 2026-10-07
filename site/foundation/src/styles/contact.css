@@ -222,6 +222,27 @@
     opacity: 1;
 }
 
+.foundation-contact-form :is(input, textarea) {
+    scroll-margin-block: 96px 32px;
+}
+
+.foundation-contact-field:has([aria-invalid="true"]) {
+    .foundation-contact-input,
+    .foundation-contact-message {
+        border-color: #ad7e72;
+
+        &:focus-within {
+            outline-color: #ad7e7259;
+        }
+    }
+}
+
+.foundation-contact-field-error {
+    margin: 0;
+    color: #e6b7aa;
+    font: 400 12px/1.5 var(--foundation-body);
+}
+
 .foundation-contact-submit-row {
     display: flex;
     flex-wrap: wrap;

@@ -230,9 +230,14 @@
     }
 
     li::before {
-        content: "·";
+        display: inline-block;
+        width: 4px;
+        height: 4px;
         margin-right: 8px;
-        color: #aac1dc;
+        border-radius: 50%;
+        background: #aac1dc;
+        content: "";
+        vertical-align: 2px;
     }
 }
 
