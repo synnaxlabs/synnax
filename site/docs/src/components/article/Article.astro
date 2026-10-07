@@ -21,6 +21,8 @@ const {
     prev,
     nextURL,
     prevURL,
+    nextGroup,
+    prevGroup,
     showBreadcrumb = true,
     published,
     author,
@@ -63,7 +65,7 @@ const publishedLabel =
             <InlineCode text={title} />
         </span>
     </Text.Text>
-    <h4 class="article-description">{description}</h4>
+    <p class="article-description">{description}</p>
     {author && (
         <a
             class="blog-author"
@@ -80,7 +82,14 @@ const publishedLabel =
         </a>
     )}
     <slot />
-    <NextPrev prev={prev} next={next} prevURL={prevURL} nextURL={nextURL} />
+    <NextPrev
+        prev={prev}
+        next={next}
+        prevURL={prevURL}
+        nextURL={nextURL}
+        prevGroup={prevGroup}
+        nextGroup={nextGroup}
+    />
 </article>
 
 <style is:global>
@@ -98,7 +107,10 @@ const publishedLabel =
         }
 
         & .pluto-breadcrumb {
+            flex-wrap: wrap;
+            row-gap: 0.5rem;
             & a.pluto-text {
+                white-space: nowrap;
                 color: var(--pluto-gray-l8);
                 font-weight: 375;
                 font-size: var(--pluto-p-size);
@@ -144,14 +156,17 @@ const publishedLabel =
 
         .article-top {
             display: flex;
+            flex-wrap: wrap;
             align-items: center;
-            gap: 2rem;
+            gap: 1rem 2rem;
             > .edition-badge {
                 margin-left: auto;
             }
         }
         .article-description {
             color: var(--pluto-gray-l9);
+            font-size: var(--pluto-h4-size);
+            line-height: var(--pluto-h4-line-height);
             font-weight: 350;
             margin-top: 1.15rem;
             margin-bottom: 6.9rem;
@@ -162,17 +177,6 @@ const publishedLabel =
 
             & + .blog-author {
                 margin-top: -4rem;
-            }
-        }
-
-        & video,
-        img:not(.diagram img):not(.blog-author__photo) {
-            border-radius: 1rem;
-            border: var(--pluto-border);
-            box-shadow: 0 0 1rem 0 var(--pluto-gray-l4);
-
-            @media (prefers-color-scheme: dark) {
-                box-shadow: 0 0 2rem 0 rgba(50, 50, 50, 0.1);
             }
         }
 
@@ -208,7 +212,7 @@ const publishedLabel =
         /* Padding carries the vertical space, so inline and block content match. */
         .pluto-note {
             display: block;
-            margin: var(--docs-block-gap) var(--docs-block-inset);
+            margin: var(--docs-block-gap) 0;
             padding: var(--docs-block-padding) var(--note-padding-inline, 3.5rem);
             font-size: var(--pluto-small-size);
             font-family: var(--pluto-font-family);
@@ -230,10 +234,6 @@ const publishedLabel =
 
         .pluto-note.compact {
             --note-padding-inline: 2rem;
-        }
-
-        .pluto-tabs__content > .pluto-note:first-child {
-            margin-top: 0;
         }
 
         table {
@@ -259,6 +259,85 @@ const publishedLabel =
                 width: 100%;
                 margin-bottom: 2rem;
                 margin-top: -2rem;
+            }
+        }
+    }
+
+    /* A pane owns the space at its edges, so the first and last blocks in it drop their
+       outer margins. A tab panel and a disclosure are both panes. */
+    article :is(.pluto-tabs__content, .docs-details > .content) {
+        & > :first-child {
+            margin-top: 0;
+        }
+
+        & > :last-child {
+            margin-bottom: 0;
+        }
+    }
+
+    /* Registered so that it resolves against the line height of the item, not the
+       circle. */
+    @property --docs-step-line {
+        syntax: "<length>";
+        inherits: true;
+        initial-value: 28px;
+    }
+
+    /* Every ordered list in an article is a list of steps: a numbered circle per step,
+       joined by a line, with the content of each step in one column. The built-in
+       list-item counter keeps the start of a list that continues after a block. */
+    article ol:not([class]) {
+        margin: 3rem 0;
+        padding: 0;
+        list-style: none;
+
+        & > li {
+            --docs-step-line: 1lh;
+            position: relative;
+            margin: 0;
+            padding: 0 0 3rem 6rem;
+
+            &::before {
+                content: counter(list-item);
+                position: absolute;
+                top: calc(var(--docs-step-line) / 2 - 12px);
+                left: 0;
+                display: grid;
+                place-items: center;
+                width: 24px;
+                height: 24px;
+                box-sizing: border-box;
+                border: 1px solid var(--pluto-gray-l4);
+                border-radius: 50%;
+                background: var(--pluto-gray-l0);
+                font:
+                    500 12px/1 "Geist Mono",
+                    monospace;
+                color: var(--pluto-gray-l9);
+            }
+
+            &::after {
+                content: "";
+                position: absolute;
+                top: calc(var(--docs-step-line) / 2 + 16px);
+                bottom: 4px;
+                left: 12px;
+                border-left: 1px solid var(--pluto-gray-l3);
+            }
+
+            &:last-child {
+                padding-bottom: 0;
+                &::after {
+                    display: none;
+                }
+            }
+
+            & > * {
+                margin: 0;
+            }
+
+            & > * + * {
+                margin-top: 2rem;
             }
         }
     }

@@ -9,7 +9,7 @@
 // included in the file licenses/APL.txt.
 
 // The operating systems each Driver integration runs on. With no integration, renders
-// the matrix of every integration; with one, renders that integration's row.
+// the matrix of every integration; with one, lists where that integration runs.
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
@@ -112,53 +112,121 @@ export interface Props {
 }
 
 const { integration } = Astro.props;
-const rows: Integration[] =
-    integration == null ? Object.values(INTEGRATIONS) : [INTEGRATIONS[integration]];
-const showName = integration == null;
+const platforms = integration == null ? null : INTEGRATIONS[integration].platforms;
+const supported = PLATFORMS.filter(({ key }) => platforms?.[key]);
+const unsupported = PLATFORMS.filter(({ key }) => platforms?.[key] === false);
 ---
 
-<div class="docs-platforms">
-    <Table>
-        <thead>
-            <tr>
-                {showName && <th>Integration</th>}
-                {PLATFORMS.map(({ label, icon: PlatformIcon }) => (
-                    <th>
-                        <span class="docs-platforms-label">
+{integration != null && (
+    <dl class="docs-platform-list">
+        <dt>Supported</dt>
+        <dd>
+            {supported.map(({ label, icon: PlatformIcon }) => (
+                <span>
+                    <PlatformIcon />
+                    {label}
+                </span>
+            ))}
+        </dd>
+        {unsupported.length > 0 && (
+            <>
+                <dt>Not supported</dt>
+                <dd class="docs-platform-list__none">
+                    {unsupported.map(({ label, icon: PlatformIcon }) => (
+                        <span>
                             <PlatformIcon />
                             {label}
                         </span>
-                    </th>
-                ))}
-            </tr>
-        </thead>
-        <tbody>
-            {rows.map((row) => (
+                    ))}
+                </dd>
+            </>
+        )}
+    </dl>
+)}
+
+{integration == null && (
+    <div class="docs-platforms">
+        <Table>
+            <thead>
                 <tr>
-                    {showName && (
+                    <th>Integration</th>
+                    {PLATFORMS.map(({ label, icon: PlatformIcon }) => (
+                        <th>
+                            <span class="docs-platforms-label">
+                                <PlatformIcon />
+                                {label}
+                            </span>
+                        </th>
+                    ))}
+                </tr>
+            </thead>
+            <tbody>
+                {Object.values(INTEGRATIONS).map((row: Integration) => (
+                    <tr>
                         <td class="docs-platforms-name">
                             <a href={row.href}>{row.name}</a>
                             <small>{row.connects}</small>
                         </td>
-                    )}
-                    {PLATFORMS.map(({ key }) =>
-                        row.platforms[key] ? (
-                            <td class="docs-platforms-yes">
-                                <Icon.Check aria-label="Supported" />
-                            </td>
-                        ) : (
-                            <td class="docs-platforms-no">
-                                <Icon.Subtract aria-label="Not supported" />
-                            </td>
-                        ),
-                    )}
-                </tr>
-            ))}
-        </tbody>
-    </Table>
-</div>
+                        {PLATFORMS.map(({ key }) =>
+                            row.platforms[key] ? (
+                                <td class="docs-platforms-yes">
+                                    <Icon.Check aria-label="Supported" />
+                                </td>
+                            ) : (
+                                <td class="docs-platforms-no">
+                                    <Icon.Subtract aria-label="Not supported" />
+                                </td>
+                            ),
+                        )}
+                    </tr>
+                ))}
+            </tbody>
+        </Table>
+    </div>
+)}
 
 <style is:global>
+    /* Matches the label and value columns of a problem entry. */
+    article .docs-platform-list {
+        display: grid;
+        grid-template-columns: max-content minmax(0, 1fr);
+        align-items: baseline;
+        gap: 1rem 3rem;
+        margin: 0 0 var(--docs-block-gap);
+        font-size: var(--pluto-p-size);
+        line-height: var(--pluto-p-line-height);
+
+        & dt {
+            font-size: var(--pluto-small-size);
+            font-weight: 500;
+            color: var(--pluto-gray-l8);
+        }
+
+        & dd {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem 3rem;
+            margin: 0;
+            color: var(--docs-body-color);
+
+            /* The text sets the baseline, so the label lines up with it. */
+            & span {
+                display: inline-flex;
+                align-items: baseline;
+                gap: 1rem;
+            }
+
+            & svg {
+                align-self: center;
+                color: var(--pluto-gray-l8);
+            }
+        }
+
+        & .docs-platform-list__none {
+            color: var(--pluto-gray-l8);
+        }
+    }
+
     article .docs-platforms {
         & th {
             vertical-align: bottom;

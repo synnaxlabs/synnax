@@ -79,10 +79,7 @@ const hasHeadings = shown.length > 0;
                         class={`on-this-page-item depth-${depth}`}
                     >
                         {outline[text]?.step != null && (
-                            <span class="on-this-page-step">
-                                {outline[text].step}
-                                <Icon.Arrow.Right />
-                            </span>
+                            <span class="on-this-page-step">{outline[text].step}</span>
                         )}
                         <InlineCode text={outline[text]?.text ?? unescape(text)} />
                     </a>
@@ -174,9 +171,8 @@ const hasHeadings = shown.length > 0;
             text-decoration: none;
             font-weight: 400;
             box-shadow: inset -1px 0 0 0 var(--pluto-border-color);
-            transition:
-                color 0.15s ease,
-                font-weight 0.15s ease;
+            /* Only the color marks the active item: a weight change would rewrap it. */
+            transition: color 0.15s ease;
 
             &[hidden] {
                 display: none;
@@ -187,10 +183,13 @@ const hasHeadings = shown.length > 0;
             }
 
             .on-this-page-step {
-                display: inline-flex;
-                align-items: center;
-                gap: 0.5rem;
-                margin-right: 0.75rem;
+                display: block;
+                margin-bottom: 0.25rem;
+                font:
+                    500 10px/14px "Geist Mono",
+                    monospace;
+                letter-spacing: 0.06em;
+                text-transform: uppercase;
                 color: var(--pluto-gray-l6);
                 transition: color 0.15s ease;
             }
@@ -206,7 +205,6 @@ const hasHeadings = shown.length > 0;
 
             &.active {
                 color: var(--pluto-text-color);
-                font-weight: 500;
             }
         }
     }

@@ -196,7 +196,9 @@ The `with` block closes the iterator, also when the code raises an error.
 ```typescript
 const iterator = await client.openIterator(tr, ["time", "temperature"]);
 try {
-  for await (const frame of iterator) console.log(frame.get("temperature").length);
+  for await (const frame of iterator) {
+    console.log(frame.get("temperature").length);
+  }
 } finally {
   await iterator.close();
 }

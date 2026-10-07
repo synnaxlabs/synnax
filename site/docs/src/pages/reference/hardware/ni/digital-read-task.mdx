@@ -8,6 +8,7 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
+import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -138,9 +139,20 @@ await task.start();
 
 ## Troubleshooting
 
-### "Port ..., line ... has already been used on another channel"
+### `Port ..., line ... has already been used on another channel`
 
-Two channels use the same line. Change the port or the line of one of them.
+<Problem.Body>
+<Problem.Cause>
+
+Two channels use the same line.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Change the port or the line of one of them.
+
+</Problem.Fix>
+</Problem.Body>
 
 For other problems, see
 [Configure an NI device](/reference/hardware/ni/configure-device#troubleshooting) and

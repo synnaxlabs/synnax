@@ -172,7 +172,7 @@ const Svg = ({
       height={placed.height}
       role="img"
       aria-label={title}
-      className={`block-diagram__svg block-diagram__nest--${variant}`}
+      className={`block-diagram__svg block-diagram__svg--${variant}`}
     >
       {/* A pattern's lines take their color from the pattern, not from the shape that
       uses it, so each depth gets its own. */}

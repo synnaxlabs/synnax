@@ -11,6 +11,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Note } from "@synnaxlabs/lyra/note";
 import { Image, Video } from "@/components/media/Media";
 import Diagram from "@/components/diagram/Diagram.astro";
+import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -280,21 +281,60 @@ Right-click the schematic for the same actions in a menu.
 
 ### A valve does nothing when I click it
 
+<Problem.Body>
+<Problem.Fix>
+
 See
 [Control troubleshooting](/reference/control/troubleshooting#a-click-on-a-valve-does-nothing)
-for the causes.
+for the causes and their fixes.
+
+</Problem.Fix>
+</Problem.Body>
 
 ### I cannot turn on editing
 
-You have control of the schematic. Open the component toolbar and click **Release
-control and enable editing**.
+<Problem.Body>
+<Problem.Cause>
+
+You have control of the schematic.
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. Open the component toolbar.
+2. Click **Release control and enable editing**.
+
+</Problem.Fix>
+</Problem.Body>
 
 ### The component toolbar has no Symbols tab
 
-You do not have permission to edit the schematic, or the schematic is a snapshot. A
-snapshot cannot change.
+<Problem.Body>
+<Problem.Cause>
+
+You cannot edit the schematic.
+
+</Problem.Cause>
+<Problem.Fix>
+
+- **You do not have permission** -> ask an administrator for access.
+- **The schematic is a snapshot** -> a snapshot cannot change. Open the schematic that
+  the snapshot came from.
+
+</Problem.Fix>
+</Problem.Body>
 
 ### A value shows the stale color
 
+<Problem.Body>
+<Problem.Cause>
+
 No new sample arrived within the **Timeout** on the [Telemetry tab](#telemetry-tab).
+
+</Problem.Cause>
+<Problem.Fix>
+
 Check that a task or a script writes to the channel.
+
+</Problem.Fix>
+</Problem.Body>

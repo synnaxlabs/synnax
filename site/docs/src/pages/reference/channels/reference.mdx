@@ -5,6 +5,8 @@ description: "Channel properties, data types, name rules, and error messages."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
+import { Field } from "@/components/field";
+import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -15,47 +17,60 @@ it can have, and the errors that channel operations can return.
 
 ## Properties
 
-| Property  | Console field | Python      | TypeScript | Type    | Default                    | Can change |
-| --------- | ------------- | ----------- | ---------- | ------- | -------------------------- | ---------- |
-| Key       | None          | `key`       | `key`      | number  | Synnax sets it             | No         |
-| Name      | Name          | `name`      | `name`     | string  | Required                   | Yes        |
-| Data type | Data type     | `data_type` | `dataType` | string  | Required                   | No         |
-| Is index  | Is index      | `is_index`  | `isIndex`  | boolean | `false`                    | No         |
-| Index     | Index         | `index`     | `index`    | number  | Required for data channels | No         |
-| Virtual   | Virtual       | `virtual`   | `virtual`  | boolean | `false`                    | No         |
+<Field.List>
 
-### Key
+<Field.Item label="Key" field="key" type="number" changeable={false}>
+  A number that identifies the channel. Synnax sets the key when you create the channel,
+  and the key never changes. Plots, schematics, and tasks refer to channels by key.
+</Field.Item>
 
-A number that identifies the channel. Synnax sets the key when you create the channel,
-and the key never changes. Plots, schematics, and tasks refer to channels by key.
+<Field.Item label="Name" field="name" type="string" required changeable>
+  The name of the channel. It must follow the [name rules](#name-rules). To change it,
+  [rename the channel](/reference/channels/rename-and-delete#rename-channels).
+</Field.Item>
 
-### Name
+<Field.Item
+  label="Data type"
+  field={{ py: "data_type", ts: "dataType" }}
+  type="string"
+  required
+  changeable={false}
+>
+  The type of each sample in the channel. See [data types](#data-types). An index
+  channel always has the `timestamp` data type. In Python, `is_index=True` sets
+  `timestamp` for you.
+</Field.Item>
 
-The name of the channel. It must follow the [name rules](#name-rules). To change it,
-[rename the channel](/reference/channels/rename-and-delete#rename-channels).
+<Field.Item
+  label="Is index"
+  field={{ py: "is_index", ts: "isIndex" }}
+  type="boolean"
+  default="false"
+  changeable={false}
+>
+  `true` for an [index channel](/reference/channels#index-channels). An index channel
+  cannot be virtual.
+</Field.Item>
 
-### Data type
+<Field.Item label="Index" field="index" type="number" changeable={false}>
+  The key of the index channel that holds the timestamps of this channel. Each data
+  channel needs an index, and the index must exist before you create the data channel.
+  Leave it unset for index, virtual, and calculated channels.
+</Field.Item>
 
-The type of each sample in the channel. See [data types](#data-types). An index channel
-always has the `timestamp` data type. In Python, `is_index=True` sets `timestamp` for
-you.
+<Field.Item
+  label="Virtual"
+  field="virtual"
+  type="boolean"
+  default="false"
+  changeable={false}
+>
+  `true` for a [virtual channel](/reference/channels#virtual-channels). Synnax streams
+  the values of a virtual channel and does not store them. A calculated channel also has
+  `virtual` set to `true`, because Synnax does not store its values.
+</Field.Item>
 
-### Is index
-
-`true` for an [index channel](/reference/channels#index-channels). An index channel
-cannot be virtual.
-
-### Index
-
-The key of the index channel that holds the timestamps of this channel. Each data
-channel needs an index, and the index must exist before you create the data channel.
-Leave it unset for index, virtual, and calculated channels.
-
-### Virtual
-
-`true` for a [virtual channel](/reference/channels#virtual-channels). Synnax streams the
-values of a virtual channel and does not store them. A calculated channel also has
-`virtual` set to `true`, because Synnax does not store its values.
+</Field.List>
 
 <Divider.Divider x />
 
@@ -65,27 +80,50 @@ A [calculated channel](/reference/channels/calculated) has a name and the proper
 below. Synnax sets its data type, its index, and its `virtual` property. You can change
 all of these properties after you create the channel.
 
-| Property   | Console field | Python       | TypeScript   | Type               | Default  |
-| ---------- | ------------- | ------------ | ------------ | ------------------ | -------- |
-| Expression | Expression    | `expression` | `expression` | string             | Required |
-| Operations | Operation     | `operations` | `operations` | list of operations | None     |
+<Field.List>
+
+<Field.Item label="Expression" field="expression" type="string" required>
+  The [Arc](/reference/control/arc) expression that computes each value. See [write an
+  expression](/reference/channels/calculated#write-an-expression).
+</Field.Item>
+
+<Field.Item
+  label="Operations"
+  console="Operation"
+  field="operations"
+  type="list of operations"
+>
+  The [operations](#operation-properties) that Synnax applies to the result of the
+  expression. The Console sets one operation. The client libraries accept a list, and
+  Synnax applies the operations in order.
+</Field.Item>
+
+</Field.List>
 
 ### Operation properties
 
-| Property      | Console field | Python          | TypeScript     | Type     | Default  |
-| ------------- | ------------- | --------------- | -------------- | -------- | -------- |
-| Type          | Operation     | `type`          | `type`         | string   | Required |
-| Window        | Window        | `duration`      | `duration`     | TimeSpan | `0`      |
-| Reset channel | Reset channel | `reset_channel` | `resetChannel` | number   | `0`      |
+<Field.List>
 
-- **Type**: `min`, `max`, `avg`, `derivative`, or `none`.
-- **Window**: The time after which `min`, `max`, or `avg` resets. `0` never resets. In
-  the Console, the window is in seconds.
-- **Reset channel**: The key of a `boolean` channel. `min`, `max`, or `avg` resets when
-  this channel receives `true`. `0` means no reset channel.
+<Field.Item label="Type" console="Operation" field="type" type="string" required>
+  `min`, `max`, `avg`, `derivative`, or `none`.
+</Field.Item>
 
-The Console sets one operation. The client libraries accept a list, and Synnax applies
-the operations in order.
+<Field.Item label="Window" field="duration" type="TimeSpan" default="0">
+  The time after which `min`, `max`, or `avg` resets, in seconds in the Console. `0`
+  never resets.
+</Field.Item>
+
+<Field.Item
+  label="Reset channel"
+  field={{ py: "reset_channel", ts: "resetChannel" }}
+  type="number"
+  default="0"
+>
+  The key of a `boolean` channel. `min`, `max`, or `avg` resets when this channel
+  receives `true`, and `0` means no reset channel.
+</Field.Item>
+
+</Field.List>
 
 <Divider.Divider x />
 
@@ -130,17 +168,96 @@ Then names can have any characters, and two channels can have the same name.
 
 ## Errors
 
-| Error message                                                             | Cause                                                                                   |
-| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `channel with name '<name>' already exists`                               | Another channel has this name. Select a different name.                                 |
-| `channel name '<name>' contains invalid characters`                       | The name does not follow the [name rules](#name-rules).                                 |
-| `non-indexed channel must have an index`                                  | A data channel has no index. Set its index, or make it virtual.                         |
-| `virtual channel cannot be indexed`                                       | A virtual channel has an index, or is an index. Remove the index setting.               |
-| `index channel with key <key> does not exist`                             | The index does not exist. Create the index channel first.                               |
-| `channel <key> is not an index`                                           | The index setting points to a channel that is not an index channel.                     |
-| `calculated channels cannot specify an index manually`                    | A calculated channel has an index setting. Remove it, because Synnax creates the index. |
-| `undefined symbol: <name>`                                                | An expression uses a channel name that does not exist.                                  |
-| `cannot delete channel <index> because it indexes data in channel <data>` | Data channels use this index. Delete them first, or in the same call.                   |
-| `there are <n> unclosed writers/iterators accessing it`                   | A task or a script has the channel open. Stop it, then delete the channel.              |
-| `NotFoundError`                                                           | No channel matches the name or key.                                                     |
-| `MultipleFoundError`                                                      | A pattern matches more than one channel. Put the pattern in a list.                     |
+### Names
+
+<Problem.List>
+
+<Problem.Item message={"channel with name '<name>' already exists"}>
+  <Problem.Cause>Another channel has this name.</Problem.Cause>
+  <Problem.Fix>Select a different name.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"channel name '<name>' contains invalid characters"}>
+  <Problem.Cause>The name does not follow the [name rules](#name-rules).</Problem.Cause>
+  <Problem.Fix>Change the name to follow the name rules.</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+### Indexes
+
+<Problem.List>
+
+<Problem.Item message={"non-indexed channel must have an index"}>
+  <Problem.Cause>A data channel has no index.</Problem.Cause>
+  <Problem.Fix>Set its index, or make it virtual.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"virtual channel cannot be indexed"}>
+  <Problem.Cause>A virtual channel has an index, or is an index.</Problem.Cause>
+  <Problem.Fix>Remove the index setting.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"index channel with key <key> does not exist"}>
+  <Problem.Cause>The index does not exist.</Problem.Cause>
+  <Problem.Fix>Create the index channel first.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"channel <key> is not an index"}>
+  <Problem.Cause>
+    The index setting points to a channel that is not an index channel.
+  </Problem.Cause>
+  <Problem.Fix>Set the index to an index channel.</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+### Calculated channels
+
+<Problem.List>
+
+<Problem.Item message={"calculated channels cannot specify an index manually"}>
+  <Problem.Cause>A calculated channel has an index setting.</Problem.Cause>
+  <Problem.Fix>Remove the index setting. Synnax creates the index.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"undefined symbol: <name>"}>
+  <Problem.Cause>An expression uses a channel name that does not exist.</Problem.Cause>
+  <Problem.Fix>Correct the name, or create the channel.</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+### Delete
+
+<Problem.List>
+
+<Problem.Item
+  message={"cannot delete channel <index> because it indexes data in channel <data>"}
+>
+  <Problem.Cause>Data channels use this index.</Problem.Cause>
+  <Problem.Fix>Delete them first, or in the same call.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"there are <n> unclosed writers/iterators accessing it"}>
+  <Problem.Cause>A task or a script has the channel open.</Problem.Cause>
+  <Problem.Fix>Stop the task or the script, then delete the channel.</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+### Find
+
+<Problem.List>
+
+<Problem.Item message={"NotFoundError"}>
+  <Problem.Cause>No channel matches the name or key.</Problem.Cause>
+  <Problem.Fix>Check the name or key. Names are case-sensitive.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"MultipleFoundError"}>
+  <Problem.Cause>A pattern matches more than one channel.</Problem.Cause>
+  <Problem.Fix>Put the pattern in a list.</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>

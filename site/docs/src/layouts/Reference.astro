@@ -11,9 +11,10 @@
 import Article from "@/components/article/Article.astro";
 import OnThisPage from "@/components/nav/OnThisPage.astro";
 import PageNav from "@/components/nav/Page.astro";
-import { editionOf, neighbors } from "@/components/nav/tree";
+import { type PageNavNode } from "@/components/nav/Page";
+import { editionOf, groupOf, neighbors } from "@/components/nav/tree";
 import Main from "@/layouts/Root.astro";
-import { REFERENCE_PAGES } from "@/pages/_nav";
+import { labelOf, REFERENCE_PAGES } from "@/pages/_nav";
 import { normalizeRoute } from "@/util/route";
 const { headings, frontmatter } = Astro.props;
 const {
@@ -26,6 +27,26 @@ const {
     showOnThisPage = true,
 } = frontmatter;
 const { prev, next } = neighbors(REFERENCE_PAGES, Astro.url.pathname);
+const group = groupOf(REFERENCE_PAGES, Astro.url.pathname);
+// A link into another group names that group, unless its title already does.
+interface Link {
+    title?: string;
+    href?: string;
+    group?: string;
+}
+const link = (node?: PageNavNode): Link => {
+    if (node == null) return {};
+    const href = node.href as string;
+    const title = labelOf(href) ?? node.name;
+    const target = groupOf(REFERENCE_PAGES, href);
+    return {
+        title,
+        href,
+        group: target !== group && target !== title ? target : undefined,
+    };
+};
+const nextLink = link(next);
+const prevLink = link(prev);
 const edition = editionOf(REFERENCE_PAGES, Astro.url.pathname);
 ---
 
@@ -42,10 +63,12 @@ const edition = editionOf(REFERENCE_PAGES, Astro.url.pathname);
             url={url}
             title={heading ?? title}
             description={description}
-            next={next?.name}
-            prev={prev?.name}
-            nextURL={next?.href}
-            prevURL={prev?.href}
+            next={nextLink.title}
+            prev={prevLink.title}
+            nextURL={nextLink.href}
+            prevURL={prevLink.href}
+            nextGroup={nextLink.group}
+            prevGroup={prevLink.group}
             edition={edition}
         >
             <slot />

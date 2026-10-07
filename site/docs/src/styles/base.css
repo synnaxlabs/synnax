@@ -29,15 +29,11 @@ html {
 
     /* Docs body text - softer than l10 */
     --docs-body-color: #3f4140;
+    --docs-marker-color: var(--pluto-gray-l8);
 
     /* Box geometry shared by notes, code blocks, and media */
-    --docs-block-inset: 1.5rem;
     --docs-block-padding: 3rem;
     --docs-block-gap: 4rem;
-
-    @media (width <= 800px) {
-        --docs-block-inset: 0px;
-    }
 
     /* Astro code block styling */
     --astro-code-color-text: var(--pluto-text-color);
@@ -56,23 +52,23 @@ html {
     --pluto-h1-size: 8rem;
     --pluto-h1-weight: 500;
     --pluto-h1-line-height: 120%;
-    --pluto-h1-letter-spacing: -0.02em;
+    --pluto-h1-letter-spacing: -0.03em;
     --pluto-h2-size: 5.5rem;
     --pluto-h2-weight: 500;
     --pluto-h2-line-height: 125%;
-    --pluto-h2-letter-spacing: -0.01em;
+    --pluto-h2-letter-spacing: -0.02em;
     --pluto-h3-size: 4rem;
-    --pluto-h3-weight: 400;
+    --pluto-h3-weight: 500;
     --pluto-h3-line-height: 135%;
     --pluto-h4-size: 3rem;
-    --pluto-h4-weight: 450;
+    --pluto-h4-weight: 550;
     --pluto-h4-line-height: 140%;
     --pluto-h5-size: round(2.666rem, 1px);
-    --pluto-h5-weight: 450;
+    --pluto-h5-weight: 550;
     --pluto-h5-line-height: 150%;
     --pluto-h5-text-transform: none;
-    --pluto-p-size: 2.5rem;
-    --pluto-p-weight: 350;
+    --pluto-p-size: round(2.6667rem, 1px);
+    --pluto-p-weight: 375;
     --pluto-p-line-height: 175%;
     --pluto-small-size: round(2.333rem, 1px);
     --pluto-small-weight: 350;
@@ -106,8 +102,7 @@ html {
         --pluto-h3-size: 3.25rem;
         --pluto-h4-size: 2.75rem;
         --pluto-h5-size: 2.5rem;
-        --pluto-p-size: round(2.3333rem, 1px);
-        --pluto-p-weight: 3500;
+        --pluto-p-size: round(2.5rem, 1px);
     }
 }
 
@@ -120,14 +115,29 @@ html {
 body {
     height: fit-content;
     margin: 0;
+    font-family: var(--pluto-font-family);
+    font-feature-settings:
+        "cv02" 1,
+        "cv03" 1,
+        "cv04" 1;
 }
 
 /* Link styles - exclude Pluto buttons which have their own styling */
 /* List styles */
 li {
-    margin: 1rem 0;
+    margin: round(1.3333rem, 1px) 0;
     font-size: var(--pluto-p-size);
     color: var(--docs-body-color);
+}
+
+/* Markers sit back so the item text leads. */
+li::marker {
+    color: var(--docs-marker-color);
+}
+
+ol > li::marker {
+    color: var(--pluto-gray-l8);
+    font-variant-numeric: tabular-nums;
 }
 
 /* Code styles (inline code outside of code blocks) */
@@ -138,11 +148,31 @@ code:not(.astro-code code) {
     border-color: var(--pluto-gray-l3);
     border-radius: 0.5rem;
     overflow: visible;
+    overflow-wrap: anywhere;
+
+    /* A span that wraps keeps its frame on each line. */
+    box-decoration-break: clone;
+}
+
+code[data-short] {
+    white-space: nowrap;
 }
 
 code:not(:is(h1, h2, h3, h4, h5, h6) code) {
     font-size: var(--pluto-small-size);
     line-height: var(--pluto-small-line-height);
+}
+
+/* In a heading or the page outline, code is set in mono only, because a chip at heading
+   size or in a narrow column outweighs the words around it. Mono takes the weight of
+   the words, but not their tight tracking. */
+:is(h1, h2, h3, h4, h5, h6, .on-this-page-item) code:not(.astro-code code) {
+    padding: 0;
+    border: none;
+    background: none;
+    font-size: 0.875em;
+    font-weight: inherit;
+    letter-spacing: 0;
 }
 
 code {
@@ -194,7 +224,38 @@ table > :not(caption) > * {
 table > :not(caption) > * > * {
     position: relative;
     border-width: 0 1px;
-    padding: 1.25rem 1.5rem;
+    padding: 1.75rem 2rem;
+}
+
+/* The table has no frame, so its text lines up with the prose edges. */
+table > :not(caption) > * > :first-child {
+    padding-left: 0;
+}
+
+table > :not(caption) > * > :last-child {
+    padding-right: 0;
+}
+
+table td:first-child {
+    font-weight: 500;
+    color: var(--pluto-gray-l11);
+}
+
+/* Tabular figures widen a hyphen next to a digit, so only numbers get them. */
+table :is(th, td).num {
+    text-align: end;
+    font-variant-numeric: tabular-nums;
+}
+
+table code:not(.astro-code code) {
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--pluto-gray-l11);
+}
+
+table a code:not(.astro-code code) {
+    color: inherit;
 }
 
 table td {
@@ -210,8 +271,12 @@ table tr {
 }
 
 table thead th {
-    padding: 1.5rem 1.5rem;
-    font-weight: 600;
+    padding-top: 0;
+    white-space: nowrap;
+    font-size: var(--pluto-small-size);
+    line-height: var(--pluto-small-line-height);
+    font-weight: 500;
+    color: var(--pluto-gray-l8);
 }
 
 table thead tr {
@@ -220,7 +285,7 @@ table thead tr {
 }
 
 table th {
-    border-bottom: var(--pluto-border);
+    border-bottom: 1px solid var(--pluto-gray-l4);
     text-align: start;
 }
 

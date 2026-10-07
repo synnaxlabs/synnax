@@ -12,6 +12,7 @@ import { Fragment } from "react";
 import { Client } from "@/components/client";
 import { Details } from "@/components/details";
 import { Video } from "@/components/media/Media";
+import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -222,32 +223,95 @@ The Console creates each channel with the data type of its node.
 
 ## Troubleshooting
 
-### "Invalid NodeId format"
+### `Invalid NodeId format`
 
-The node ID is not in the form `NS=<namespace>;<type>=<identifier>`. Write `NS` and the
-type in uppercase.
+<Problem.Body>
+<Problem.Cause>
 
-### "... (NS=...): The node id refers to a node that does not exist in the server address space."
+The node ID is not in the form `NS=<namespace>;<type>=<identifier>`.
 
-The server has no node with that ID. Drag the node from the **Browser** again.
+</Problem.Cause>
+<Problem.Fix>
 
-### "OPC UA array for ... is too small" or "... is too large"
+Write `NS` and the type in uppercase.
 
-An array node has a different number of values than **Array size**. Set **Array size**
-to the length of the array.
+</Problem.Fix>
+</Problem.Body>
 
-### "Invalid OPC UA data detected for channel ..."
+### `... (NS=...): The node id refers to a node that does not exist in the server address space.`
+
+<Problem.Body>
+<Problem.Cause>
+
+The server has no node with that ID.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Drag the node from the **Browser** again.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `OPC UA array for ... is too small` or `... is too large`
+
+<Problem.Body>
+<Problem.Cause>
+
+An array node has a different number of values than **Array size**.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Set **Array size** to the length of the array.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `Invalid OPC UA data detected for channel ...`
+
+<Problem.Body>
+<Problem.Cause>
 
 The server sent a value that the Driver cannot convert. The Driver skips the frame.
+
+</Problem.Cause>
+<Problem.Fix>
+
 Check the data type of the node.
 
-### "Channel ... already exists as ..."
+</Problem.Fix>
+</Problem.Body>
 
-Another task already reads the node into that channel. Move the channels to one task.
+### `Channel ... already exists as ...`
 
-### "Failed to browse OPC UA nodes"
+<Problem.Body>
+<Problem.Cause>
 
-The Driver could not browse the server. Check the
+Another task already reads the node into that channel.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Move the channels to one task.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `Failed to browse OPC UA nodes`
+
+<Problem.Body>
+<Problem.Cause>
+
+The Driver could not browse the server.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the
 [server connection](/reference/hardware/opc-ua/connect-server#troubleshooting).
+
+</Problem.Fix>
+</Problem.Body>
 
 For other problems, see [Troubleshoot hardware](/reference/hardware/troubleshooting).

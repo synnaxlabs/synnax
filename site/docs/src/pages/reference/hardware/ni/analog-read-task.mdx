@@ -12,6 +12,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
 import { Details } from "@/components/details";
+import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -539,15 +540,15 @@ The Console shows the same values as symbols, such as m/s².
 <Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Units.Temperature /> Thermocouple ([`ai_thermocouple`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__input__channels_1gab4d78206aa204316fecb740a123b38f7.html))</Text.Text>
 
-| Console label         | Field               | Default    | Notes                                                                                                                                      |
-| --------------------- | ------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Range**             | `min_val`           | `0`        | Minimum temperature.                                                                                                                       |
-| **Range**             | `max_val`           | `1`        | Maximum temperature.                                                                                                                       |
-| **Temperature units** | `units`             | `DegC`     | `DegC`, `DegF`, `Kelvins`, `DegR`.                                                                                                         |
-| **Thermocouple type** | `thermocouple_type` | `J`        | `J`, `K`, `N`, `R`, `S`, `T`, `B`, `E`.                                                                                                    |
-| **CJC source**        | `cjc`               | `built_in` | **Built in** (`built_in`), **Constant value** (`const_val`), or **Channel** (`chan`).                                                      |
-| **CJC value**         | `cjc.val`           |            | The CJC temperature, for **Constant value**.                                                                                               |
-| **CJC port**          | `cjc.port`          |            | For **Channel**: the position of another channel in this task that measures the CJC temperature, starting at 0. It is not a physical port. |
+| Console label         | Field               | Default    | Notes                                                                                       |
+| --------------------- | ------------------- | ---------- | ------------------------------------------------------------------------------------------- |
+| **Range**             | `min_val`           | `0`        | Minimum temperature.                                                                        |
+| **Range**             | `max_val`           | `1`        | Maximum temperature.                                                                        |
+| **Temperature units** | `units`             | `DegC`     | `DegC`, `DegF`, `Kelvins`, `DegR`.                                                          |
+| **Thermocouple type** | `thermocouple_type` | `J`        | `J`, `K`, `N`, `R`, `S`, `T`, `B`, `E`.                                                     |
+| **CJC source**        | `cjc`               | `built_in` | **Built in** (`built_in`), **Constant value** (`const_val`), or **Channel** (`chan`).       |
+| **CJC value**         | `cjc.val`           |            | The CJC temperature, for **Constant value**.                                                |
+| **CJC port**          | `cjc.port`          |            | For **Channel**: the position, from 0, of the CJC channel in the task, not a physical port. |
 
 </Details.Details>
 
@@ -676,13 +677,13 @@ Channels with **Custom scaling** convert the raw value before the Driver writes 
 the Console, the options are in the **Scale** section of the channel. In code, set
 `custom_scale` to one of these scales:
 
-| Console option | Python class      | Fields                                                                                                                          |
-| -------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| **None**       | `NoneScale`       | No scaling. This is the default.                                                                                                |
-| **Linear**     | `LinearScale`     | **Slope** (`slope`, 1) and **Y-intercept** (`y_intercept`, 0).                                                                  |
-| **Map**        | `MapScale`        | **Pre-scaled min** and **max** (`pre_scaled_min`, `pre_scaled_max`) to **Scaled min** and **max** (`scaled_min`, `scaled_max`). |
-| **Polynomial** | `PolynomialScale` | **Forward coefficients** (`forward_coeffs`) and **Reverse coefficients** (`reverse_coeffs`), from c0 up.                        |
-| **Table**      | `TableScale`      | Pairs of **Pre-scaled** and **Scaled** values (`pre_scaled_vals`, `scaled_vals`). You can load them from a CSV file.            |
+| Console option | Python class      | Fields                                                                                                                         |
+| -------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **None**       | `NoneScale`       | No scaling. This is the default.                                                                                               |
+| **Linear**     | `LinearScale`     | **Slope** (`slope`, 1) and **Y-intercept** (`y_intercept`, 0).                                                                 |
+| **Map**        | `MapScale`        | **Pre-scaled min** and **max** to **Scaled min** and **max** (`pre_scaled_min`, `pre_scaled_max`, `scaled_min`, `scaled_max`). |
+| **Polynomial** | `PolynomialScale` | **Forward coefficients** (`forward_coeffs`) and **Reverse coefficients** (`reverse_coeffs`), from c0 up.                       |
+| **Table**      | `TableScale`      | **Pre-scaled** and **Scaled** pairs (`pre_scaled_vals`, `scaled_vals`). A CSV file can fill them.                              |
 
 Every scale except **None** also has **Prescaled units** (`pre_scaled_units`, `Volts`)
 and **Scaled units** (`scaled_units`).
@@ -691,28 +692,80 @@ and **Scaled units** (`scaled_units`).
 
 ## Troubleshooting
 
-### "configured sample rate ... is below device minimum ..."
+### `configured sample rate ... is below device minimum ...`
 
-The device cannot sample that slowly. Raise the **Sample rate** to at least the minimum
-in the message.
+<Problem.Body>
+<Problem.Cause>
+
+The device cannot sample that slowly.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Raise the **Sample rate** to at least the minimum in the message.
+
+</Problem.Fix>
+</Problem.Body>
 
 ### The task does not start, with an error that says the resource is reserved
 
-Another running task uses the analog inputs of the same module. Stop the other task, or
-move its channels into this task.
+<Problem.Body>
+<Problem.Cause>
 
-### "Port ... has already been used on another channel on the same device"
+Another running task uses the analog inputs of the same module.
 
-Two channels use the same port of one device. Change the port of one of them.
+</Problem.Cause>
+<Problem.Fix>
 
-### "No device provided for channel ..."
+Stop the other task, or move its channels into this task.
 
-A Python channel has no `device`, and the task has no `device` either. Set one of them.
+</Problem.Fix>
+</Problem.Body>
 
-### "the network cannot keep up with the stream rate specified"
+### `Port ... has already been used on another channel on the same device`
 
-The Driver cannot send the samples fast enough. Lower the **Stream rate**, so that each
-batch holds more samples.
+<Problem.Body>
+<Problem.Cause>
+
+Two channels use the same port of one device.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Change the port of one of them.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `No device provided for channel ...`
+
+<Problem.Body>
+<Problem.Cause>
+
+A Python channel has no `device`, and the task has no `device` either.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Set one of them.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `the network cannot keep up with the stream rate specified`
+
+<Problem.Body>
+<Problem.Cause>
+
+The Driver cannot send the samples fast enough.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Lower the **Stream rate**, so that each batch holds more samples.
+
+</Problem.Fix>
+</Problem.Body>
 
 For other problems, see
 [Configure an NI device](/reference/hardware/ni/configure-device#troubleshooting) and

@@ -11,6 +11,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
 import { Details } from "@/components/details";
+import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -200,18 +201,50 @@ Each channel has a `port` and a `channel`, the Synnax channel that records the v
 
 ## Troubleshooting
 
-### "Synnax Driver can't keep up with hardware data acquisition"
+### `Synnax Driver can't keep up with hardware data acquisition`
 
-The Driver cannot send the samples as fast as the device makes them. Lower the **Stream
-rate**, or lower the **Sample rate**.
+<Problem.Body>
+<Problem.Cause>
+
+The Driver cannot send the samples as fast as the device makes them.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Lower the **Stream rate**, or lower the **Sample rate**.
+
+</Problem.Fix>
+</Problem.Body>
 
 ### Thermocouple values are wrong
 
+<Problem.Body>
+<Problem.Cause>
+
 The device is not a T7. The Driver sets up thermocouples on the T7 only.
 
-### "Port ... has already been used on another channel"
+</Problem.Cause>
+<Problem.Fix>
 
-Two channels use the same port. Select a different port for one of them.
+Use a T7 for thermocouple channels.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `Port ... has already been used on another channel`
+
+<Problem.Body>
+<Problem.Cause>
+
+Two channels use the same port.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Select a different port for one of them.
+
+</Problem.Fix>
+</Problem.Body>
 
 For other problems, see
 [Configure a LabJack device](/reference/hardware/labjack/configure-device#troubleshooting)

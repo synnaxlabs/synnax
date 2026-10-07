@@ -12,6 +12,7 @@ import { Fragment } from "react";
 import { Client } from "@/components/client";
 import { Details } from "@/components/details";
 import { Video } from "@/components/media/Media";
+import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -157,24 +158,61 @@ A `uint8` channel writes a Boolean, so the task cannot write to a Byte node.
 
 ## Troubleshooting
 
-### "... (NS=...): The value supplied for the attribute is not of the same type as the attribute's value."
+### `... (NS=...): The value supplied for the attribute is not of the same type as the attribute's value.`
 
-The data type of the command channel does not match the type of the node. Use the data
-type from the [table](#channel-reference). For example, a Double node needs a `float64`
-channel.
+<Problem.Body>
+<Problem.Cause>
 
-### "... (NS=...): The access level does not allow writing to the Node."
+The data type of the command channel does not match the type of the node.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Use the data type from the [table](#channel-reference). For example, a Double node needs
+a `float64` channel.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `... (NS=...): The access level does not allow writing to the Node.`
+
+<Problem.Body>
+<Problem.Cause>
 
 The node is read only on the server, or the user of the connection cannot write to it.
 
-### "Invalid NodeId format"
+</Problem.Cause>
+<Problem.Fix>
 
-The node ID is not in the form `NS=<namespace>;<type>=<identifier>`. Write `NS` and the
-type in uppercase.
+Make the node writable on the server, or connect with a user that can write to it.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `Invalid NodeId format`
+
+<Problem.Body>
+<Problem.Cause>
+
+The node ID is not in the form `NS=<namespace>;<type>=<identifier>`.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Write `NS` and the type in uppercase.
+
+</Problem.Fix>
+</Problem.Body>
 
 ### The server disconnects during a write
 
+<Problem.Body>
+<Problem.Cause>
+
 The Driver connects again once and repeats the write. If the second write fails, the
 task shows the error.
+
+</Problem.Cause>
+</Problem.Body>
 
 For other problems, see [Troubleshoot hardware](/reference/hardware/troubleshooting).

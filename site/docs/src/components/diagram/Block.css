@@ -10,9 +10,10 @@
  */
 
 .block-diagram {
+    container-type: inline-size;
     display: flex;
     justify-content: center;
-    margin: 3rem var(--docs-block-inset) var(--docs-block-gap);
+    margin: 3rem 0 var(--docs-block-gap);
     padding: 4rem 3rem;
     border: var(--pluto-border);
     border-radius: 1.5rem;
@@ -96,7 +97,7 @@
     font-size: 13px;
     line-height: 1.2;
     color: var(--pluto-gray-l10);
-    white-space: nowrap;
+    white-space: pre;
 }
 
 .block-diagram__caption {
@@ -104,12 +105,15 @@
     font-size: 11px;
     line-height: 1.2;
     color: var(--pluto-gray-l7);
-    white-space: nowrap;
+    white-space: pre;
 }
 
+/* A nest diagram's outer group is its frame, so the diagram sits on the page. */
 .block-diagram--nest {
-    container-type: inline-size;
-    background-image: none;
+    margin: 6rem 0;
+    padding: 0;
+    border: none;
+    background: none;
 }
 
 /* Each level of nesting steps one gray toward the blocks inside it. */
@@ -189,16 +193,18 @@
     color: var(--pluto-gray-l9);
 }
 
-.block-diagram__nest--narrow {
+/* A diagram draws a second, narrow layout that replaces the wide one in a narrow
+   column, so its text keeps a readable size. */
+.block-diagram__svg--narrow {
     display: none;
 }
 
 @container (max-width: 560px) {
-    .block-diagram__nest--wide {
+    .block-diagram__svg--wide {
         display: none;
     }
 
-    .block-diagram__nest--narrow {
+    .block-diagram__svg--narrow {
         display: block;
     }
 }

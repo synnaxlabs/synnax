@@ -18,7 +18,7 @@ import { enabled } from "@/flags";
 import { sectionOf } from "@/pages/_nav";
 import { normalizeRoute } from "@/util/route";
 const {
-    frontmatter: { title, description, url, image, flag },
+    frontmatter: { title, heading, description, url, image, flag },
     article,
 } = Astro.props;
 // A page behind a flag that is off does not exist.
@@ -33,8 +33,18 @@ const route = normalizeRoute(Astro.url.pathname);
 const canonicalUrl = new URL(route, Astro.site).href;
 const section = sectionOf(route);
 const cleanTitle = title?.replace(/`/g, "");
-const pageTitle = cleanTitle && section ? `${cleanTitle} | ${section}` : cleanTitle;
-const fullTitle = pageTitle ? `${pageTitle} | Synnax` : "Synnax";
+// An overview page has the name of its section, so the section shows once.
+const pageTitle =
+    cleanTitle && section && section !== cleanTitle
+        ? `${cleanTitle} | ${section}`
+        : cleanTitle;
+// The home page names the whole site, so its heading is the full title.
+const fullTitle =
+    route === "/reference" && heading != null
+        ? heading
+        : pageTitle
+          ? `${pageTitle} | Synnax`
+          : "Synnax";
 
 const FOOTER_COLUMNS = [
     {
@@ -70,9 +80,7 @@ const FOOTER_COLUMNS = [
     <head>
         <PostHog />
         <SEO
-            title={pageTitle}
-            titleTemplate="%s | Synnax"
-            titleDefault="Synnax"
+            title={fullTitle}
             description={description}
             canonical={canonicalUrl}
             openGraph={{

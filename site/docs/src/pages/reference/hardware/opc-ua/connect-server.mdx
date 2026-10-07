@@ -9,6 +9,7 @@ import { Fragment } from "react";
 import { Client } from "@/components/client";
 import Platforms from "@/components/hardware/Platforms.astro";
 import { Video } from "@/components/media/Media";
+import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -165,44 +166,116 @@ In TypeScript, the fields are in `properties.connection` in camel case, such as
 
 ## Troubleshooting
 
-### "Failed to reach server"
+### `Failed to reach server`
+
+<Problem.Body>
+<Problem.Cause>
 
 The Driver checks each server every 5 seconds. The status shows "Failed to reach server"
 when the Driver cannot connect. The description shows the reason.
 
+</Problem.Cause>
+<Problem.Fix>
+
 1. Check the **Endpoint**, including the port.
 2. Make sure that the computer that runs the Driver can reach the server.
 
-### "circuit breaker open"
+</Problem.Fix>
+</Problem.Body>
+
+### `circuit breaker open`
+
+<Problem.Body>
+<Problem.Cause>
 
 The Driver failed to connect three times in a row, so it waits 5 seconds before it tries
-again. Fix the cause of the first error, then try again.
+again.
 
-### "Failed to configure encryption"
+</Problem.Cause>
+<Problem.Fix>
+
+1. Fix the cause of the first error.
+2. Try again.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `Failed to configure encryption`
+
+<Problem.Body>
+<Problem.Cause>
 
 The Driver could not use the certificate, the key, or the policy.
+
+</Problem.Cause>
+<Problem.Fix>
 
 1. Make sure that the paths are correct on the computer that runs the Driver.
 2. Remove the password from the private key.
 3. Select a policy that the server supports.
 
-### "The certificate is not trusted."
+</Problem.Fix>
+</Problem.Body>
 
-The server rejected the client certificate. Add the client certificate to the trust list
-of the server.
+### `The certificate is not trusted.`
 
-### "The URI specified in the ApplicationDescription does not match the URI in the certificate."
+<Problem.Body>
+<Problem.Cause>
+
+The server rejected the client certificate.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Add the client certificate to the trust list of the server.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `The URI specified in the ApplicationDescription does not match the URI in the certificate.`
+
+<Problem.Body>
+<Problem.Cause>
 
 The URI in the client certificate is different from the URI that the server expects.
+
+</Problem.Cause>
+<Problem.Fix>
+
 Create a certificate whose URI matches the server configuration.
 
-### "User does not have permission to perform the requested operation."
+</Problem.Fix>
+</Problem.Body>
+
+### `User does not have permission to perform the requested operation.`
+
+<Problem.Body>
+<Problem.Cause>
 
 The server rejected the **Username** or the **Password**. Some servers show "The user
 identity token is valid but the server has rejected it." for the same cause.
 
-### "The user identity token is not valid."
+</Problem.Cause>
+<Problem.Fix>
 
-The server does not accept an anonymous login. Enter a **Username** and a **Password**.
+Enter a **Username** and a **Password** that the server accepts.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `The user identity token is not valid.`
+
+<Problem.Body>
+<Problem.Cause>
+
+The server does not accept an anonymous login.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Enter a **Username** and a **Password**.
+
+</Problem.Fix>
+</Problem.Body>
 
 For other problems, see [Troubleshoot hardware](/reference/hardware/troubleshooting).

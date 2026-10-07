@@ -77,9 +77,7 @@ line.
   to read the UI, and follows `studio/AUTHORING.md`.
 - A block diagram uses `Diagram.Block` (`site/docs/src/components/diagram/`), never an
   image of boxes and arrows drawn by hand.
-- Options with long descriptions (CLI flags, config fields) use `Field.List` and
-  `Field.Item`. A table squeezes long descriptions, because code in article tables does
-  not wrap. Tables are for matrices and short lookups.
+- Lists, tables, steps, code, and editions follow `design-system.md`.
 - A new component or CSS change gets a look in Chrome before the user sees it. Visual
   choices the user has not approved get one real prototype on the real page.
 
@@ -119,7 +117,7 @@ line.
 Use these when they fit. Each came from prior art and the user accepted it.
 
 - A kinds table with a "use when" column (Ignition, Prometheus).
-- A properties table: Console label, client field, and whether it can change (Ignition,
+- A properties list: Console label, client field, and whether it can change (Ignition,
   Stripe).
 - Worked input and output tables for computed values (InfluxDB).
 - Name rule, then convention, then bad and good pairs (Prometheus, Tailscale).

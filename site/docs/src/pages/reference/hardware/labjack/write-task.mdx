@@ -11,6 +11,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
 import { Details } from "@/components/details";
+import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -98,7 +99,12 @@ const task = await client.tasks.create({
   config: labjack.writeConfigZ.parse({
     device: dev.key,
     channels: [
-      { type: "digital", port: "DIO4", cmdChannel: cmd.key, stateChannel: state.key },
+      {
+        type: "digital",
+        port: "DIO4",
+        cmdChannel: cmd.key,
+        stateChannel: state.key,
+      },
     ],
   }),
 });
@@ -149,10 +155,20 @@ Each channel has a `cmd_channel` and a `state_channel`. Both are required.
 
 ## Troubleshooting
 
-### "output channels must set cmd_channel and state_channel"
+### `output channels must set cmd_channel and state_channel`
 
-A channel in code has no command channel or no state channel. Create both and set them
-on the channel.
+<Problem.Body>
+<Problem.Cause>
+
+A channel in code has no command channel or no state channel.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Create both and set them on the channel.
+
+</Problem.Fix>
+</Problem.Body>
 
 For other problems, see
 [Configure a LabJack device](/reference/hardware/labjack/configure-device#troubleshooting)

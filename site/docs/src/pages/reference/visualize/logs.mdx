@@ -8,6 +8,7 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Image, Video } from "@/components/media/Media";
 import Diagram from "@/components/diagram/Diagram.astro";
+import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -93,11 +94,33 @@ value. It is not the timestamp of the sample.
 
 ### The log says "No data received yet"
 
+<Problem.Body>
+<Problem.Cause>
+
 Nothing has written to the channels since the log opened. A log does not show stored
-data. Check that a task, a script, or an Arc automation writes to the channels, or use a
-line plot for stored data.
+data.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check that a task, a script, or an Arc automation writes to the channels, or use a line
+plot for stored data.
+
+</Problem.Fix>
+</Problem.Body>
 
 ### A line shows the wrong time
 
+<Problem.Body>
+<Problem.Cause>
+
 The receipt timestamp is the time that the Console received the value, not the time of
-the sample. To see when each sample was taken, plot the channel on a line plot.
+the sample.
+
+</Problem.Cause>
+<Problem.Fix>
+
+To see when each sample was taken, plot the channel on a line plot.
+
+</Problem.Fix>
+</Problem.Body>

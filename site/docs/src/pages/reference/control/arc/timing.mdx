@@ -8,6 +8,7 @@ description:
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
+import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -383,26 +384,71 @@ longer than the wait each hold was, from the timestamps of the two writes:
 
 To see the Driver log on Linux, run `synnax-driver logs`.
 
-### The Driver log shows "Failed to set SCHED_FIFO priority 47"
+### `Failed to set SCHED_FIFO priority 47`
 
-The Driver cannot use a real-time thread, so other programs can delay Arc, and High
-keeps one CPU core busy. Run `sudo synnax-driver install` again, then start the Driver.
+<Problem.Body>
+<Problem.Cause>
+
+The Driver log shows this warning when the Driver cannot use a real-time thread. Other
+programs can then delay Arc, and High keeps one CPU core busy.
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. Run `sudo synnax-driver install` again.
+2. Start the Driver.
+
 A Driver that you start by hand needs root, or the `CAP_SYS_NICE` capability.
 
-### The Driver log shows "failed to keep cores out of deep idle states"
+</Problem.Fix>
+</Problem.Body>
 
-The automation runs at High, but the Driver cannot keep CPU cores out of deep sleep. A
-timer can then fire up to about 0.3 ms late. Run `sudo synnax-driver install` again,
-then start the Driver.
+### `failed to keep cores out of deep idle states`
+
+<Problem.Body>
+<Problem.Cause>
+
+The Driver log shows this warning when an automation runs at High and the Driver cannot
+keep CPU cores out of deep sleep. A timer can then fire up to about 0.3 ms late.
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. Run `sudo synnax-driver install` again.
+2. Start the Driver.
+
+</Problem.Fix>
+</Problem.Body>
 
 ### Timers fire 0.1 to 0.3 ms late on a computer that does little else
 
+<Problem.Body>
+<Problem.Cause>
+
 When a computer has little work, its CPU cores go into deep sleep, and a core can take
-0.3 ms to wake. Low, Auto, and Medium let the cores sleep. Use High to keep them awake.
+0.3 ms to wake. Low, Auto, and Medium let the cores sleep.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Use High to keep the cores awake.
+
+</Problem.Fix>
+</Problem.Body>
 
 ### One CPU core is always busy
 
+<Problem.Body>
+<Problem.Cause>
+
 At High, a Driver without a real-time thread, a Driver on Windows, and the Core check
 the clock the whole time, which keeps one core busy. On Windows, Auto and Medium do the
-same at about 1 kHz and faster. Use Low, or run the automation on a Driver that runs as
-a Linux service.
+same at about 1 kHz and faster.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Use Low, or run the automation on a Driver that runs as a Linux service.
+
+</Problem.Fix>
+</Problem.Body>

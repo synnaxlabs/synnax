@@ -11,6 +11,7 @@ import { Fragment } from "react";
 import { Client } from "@/components/client";
 import { Details } from "@/components/details";
 import { Video } from "@/components/media/Media";
+import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -188,14 +189,35 @@ each time the Driver starts.
 
 ## Troubleshooting
 
-### "... returned ...: ..."
+### `... returned ...: ...`
+
+<Problem.Body>
+<Problem.Cause>
 
 The server rejected the request. The message shows the status code and the response
-body. Check the path, the body fields, and the authentication of the server. The task
-tries again after a temporary error, such as 408, 429, or a 5xx code.
+body. The task tries again after a temporary error, such as 408, 429, or a 5xx code.
 
-### "Pointer ... is already used by another field"
+</Problem.Cause>
+<Problem.Fix>
 
-Two fields in the body use the same pointer. Give each field its own pointer.
+Check the path, the body fields, and the authentication of the server.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `Pointer ... is already used by another field`
+
+<Problem.Body>
+<Problem.Cause>
+
+Two fields in the body use the same pointer.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Give each field its own pointer.
+
+</Problem.Fix>
+</Problem.Body>
 
 For other problems, see [Troubleshoot hardware](/reference/hardware/troubleshooting).

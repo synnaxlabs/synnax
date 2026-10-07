@@ -11,6 +11,7 @@ import { Fragment } from "react";
 import { Client } from "@/components/client";
 import { Details } from "@/components/details";
 import { Video } from "@/components/media/Media";
+import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -87,7 +88,9 @@ task = http.ReadTask(
         http.ReadEndpoint(
             method="GET",
             path="/api/data",
-            fields=[http.ReadField(pointer="/temperature", channel=temperature.key)],
+            fields=[
+                http.ReadField(pointer="/temperature", channel=temperature.key)
+            ],
         )
     ],
 )
@@ -183,24 +186,66 @@ The HTTP read task has no stream rate. Each response is sent to the Core at once
 
 ## Troubleshooting
 
-### "index channel ... is referenced by fields on different endpoints"
+### `index channel ... is referenced by fields on different endpoints`
 
-Two endpoints record into channels that share one index channel. Give each endpoint its
-own index channel.
+<Problem.Body>
+<Problem.Cause>
 
-### "field ... not found in response from ..."
+Two endpoints record into channels that share one index channel.
 
-The response has no value at the pointer. Check the pointer against a response from the
-server. Pointers start with `/` and are case sensitive.
+</Problem.Cause>
+<Problem.Fix>
 
-### "... endpoints ... overran the period"
+Give each endpoint its own index channel.
 
-The requests take longer than one period. Lower **Rate**, or increase **Max concurrent
-requests** on the [server](/reference/hardware/http/connect-server#connection-options).
+</Problem.Fix>
+</Problem.Body>
+
+### `field ... not found in response from ...`
+
+<Problem.Body>
+<Problem.Cause>
+
+The response has no value at the pointer.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the pointer against a response from the server. Pointers start with `/` and are
+case sensitive.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `... endpoints ... overran the period`
+
+<Problem.Body>
+<Problem.Cause>
+
+The requests take longer than one period.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Lower **Rate**, or increase **Max concurrent requests** on the
+[server](/reference/hardware/http/connect-server#connection-options).
+
+</Problem.Fix>
+</Problem.Body>
 
 ### The task stopped while the server was down
 
-The task tries again for a long time, then stops. Start the task again when the server
-is back.
+<Problem.Body>
+<Problem.Cause>
+
+The task tries again for a long time, then stops.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Start the task again when the server is back.
+
+</Problem.Fix>
+</Problem.Body>
 
 For other problems, see [Troubleshoot hardware](/reference/hardware/troubleshooting).

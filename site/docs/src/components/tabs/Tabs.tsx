@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/components/tabs/Tabs.css";
+
 import { Tabs as Base } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
 import { Badge } from "@/components/edition/Badge";
-import { type Edition } from "@/components/edition/edition";
+import { type Edition, NAMES } from "@/components/edition/edition";
 import { QUERY_ATTRIBUTE } from "@/components/tabs/sync";
 
 // Astro's React SSR camelCases dashed slot names.
@@ -61,20 +63,35 @@ export const Tabs = <K extends string>({
   const shown = tabs
     .filter(({ tabKey }) => !exclude.includes(tabKey))
     .sort((a, b) => rank(a.tabKey) - rank(b.tabKey));
+  const editions = [
+    ...new Set(shown.flatMap(({ edition }) => (edition == null ? [] : [edition]))),
+  ];
   return (
     <Base.Frame
       initialValue={shown[0].tabKey}
       {...{ [QUERY_ATTRIBUTE]: queryParamKey ?? "" }}
     >
-      <Base.Selector>
-        {shown.map(({ tabKey, name, icon, edition }) => (
-          <Base.Tab key={tabKey} itemKey={tabKey}>
-            {icon}
-            <Text.Text>{name}</Text.Text>
-            {edition != null && <Badge edition={edition} />}
-          </Base.Tab>
+      <div className="docs-tabs__header">
+        <Base.Selector sizing="content">
+          {shown.map(({ tabKey, name, icon, edition }) => (
+            <Base.Tab key={tabKey} itemKey={tabKey} data-edition={edition}>
+              {icon}
+              <Text.Text>{name}</Text.Text>
+            </Base.Tab>
+          ))}
+        </Base.Selector>
+        {editions.map((edition) => (
+          <a
+            key={edition}
+            className="docs-tabs__edition"
+            data-edition={edition}
+            href="/reference/get-started/editions"
+            title={`Needs Synnax ${NAMES[edition]}`}
+          >
+            <Badge edition={edition} />
+          </a>
         ))}
-      </Base.Selector>
+      </div>
       {shown.map(({ tabKey }) => (
         <Base.Content key={tabKey} itemKey={tabKey} keepMounted>
           {rest[slotName(tabKey)]}

@@ -36,13 +36,35 @@
     }
 }
 
+/* An article's tabs frame their panel like a Console pane, with the strip as the
+   pane's header. */
+article .pluto-tabs {
+    margin: 4rem 0 var(--docs-block-gap);
+    border: var(--pluto-border);
+    border-radius: 1.5rem;
+    background: var(--pluto-gray-l0);
+    overflow: hidden;
+
+    .pluto-tabs__content {
+        padding: var(--docs-block-padding);
+
+        & > :last-child {
+            margin-bottom: 0;
+        }
+    }
+}
+
+/* Tabs keep their full labels. On a phone, the strip scrolls instead. */
 article .pluto-tabs__selector {
-    margin: 1rem 1rem 2.5rem;
-    --pluto-height-medium: 6.5rem;
-    --pluto-tabs-tab-height: 5.5rem;
+    flex: 1;
+    min-width: 0;
+    justify-content: flex-start;
+
+    --pluto-height-medium: 7rem;
+    --pluto-tabs-tab-height: 5rem;
 
     .pluto-tabs__tab {
-        padding: 0 2.5rem;
+        padding: 0 2rem;
         gap: 1.5rem;
 
         @media (max-width: 800px) {
@@ -188,6 +210,18 @@ article table code {
 
 /* Note component - override base layer text colors */
 .pluto-note {
+    /* A link takes the color of the note, so the underline marks it. */
+    & a {
+        text-decoration: underline;
+        text-decoration-thickness: 1px;
+        text-underline-offset: 0.2em;
+        text-decoration-color: color-mix(in srgb, currentcolor 50%, transparent);
+
+        &:hover {
+            text-decoration-color: currentcolor;
+        }
+    }
+
     &.pluto--info {
         &,
         & p,

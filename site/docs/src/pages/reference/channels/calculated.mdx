@@ -11,6 +11,7 @@ import { Client } from "@/components/client";
 import { Video } from "@/components/media/Media";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Diagram } from "@/components/diagram";
+import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -29,22 +30,20 @@ an [Arc](/reference/control/arc) expression. Use a calculated channel to:
 Synnax does not store the values of a calculated channel. It computes them when you
 stream or read the channel, and it stops when nothing uses the channel.
 
-- **Past data**: You can read a calculated channel over a past time range. Synnax
-  computes the values from the stored data of the input channels. Each input must have
-  data in that time range.
-- **Edits**: Because Synnax stores no values, an edit changes all of the past data too.
-  If you change `pressure * 3` to `pressure * 10`, all of the data shows
-  `pressure * 10`.
-- **Samples**: Synnax runs the expression once for each new sample. Each channel name in
-  the expression gives one value. The expression runs when any input channel has a new
-  sample, after every input has at least one sample. An input with no new sample gives
-  its last value.
-- **Data type**: Synnax gets the data type from the value that the expression returns.
+- **Past data** -> you can read a calculated channel over a past time range. Synnax
+  computes the values from the stored data of the inputs, so each input must have data
+  in that range.
+- **Edits** -> because Synnax stores no values, an edit also changes all past data. If
+  you change `pressure * 3` to `pressure * 10`, all of the data shows `pressure * 10`.
+- **Samples** -> the expression runs once for each new sample of any input, after every
+  input has at least one sample. Each channel name gives one value, and an input with no
+  new sample gives its last value.
+- **Data type** -> Synnax gets the data type from the value that the expression returns.
   `return 1` gives an `int64` channel, and `return 1.0` gives a `float64` channel.
-- **Index**: Synnax creates a virtual index channel named `<name>_time` for each
+- **Index** -> Synnax creates a virtual index channel named `<name>_time` for each
   calculated channel.
-- **Chains**: A calculated channel can use other calculated channels as inputs. A chain
-  cannot loop back to itself.
+- **Chains** -> a calculated channel can use other calculated channels as inputs. A
+  chain cannot loop back to itself.
 
 <Divider.Divider x />
 
@@ -232,10 +231,10 @@ applies to the result of the expression.
 `min`, `max`, and `avg` give one output sample for each group of input samples that
 Synnax receives, not one for each input sample. They reset in two ways:
 
-- **Window**: The operation resets when the window time passes. Then a new window
-  starts. The windows do not overlap, so a 10-second window gives the average of each
-  10-second period, not a moving average. A window of `0` never resets.
-- **Reset channel**: The operation resets when a `boolean` reset channel receives
+- **Window** -> the operation resets at the end of each window. A 10-second window gives
+  the average of each 10-second period, not a moving average, and a window of `0` never
+  resets.
+- **Reset channel** -> the operation resets when a `boolean` reset channel receives
   `true`. A schematic button or an Arc automation can write to the reset channel.
 
 `derivative` has no window and no reset channel.
@@ -273,15 +272,55 @@ live. The output of `min`, `max`, and `avg` can then be different from the live 
 
 ## Troubleshooting
 
-| Problem                                         | Cause and fix                                                                                                                                                                |
-| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The channel shows an error icon in the toolbar. | The expression is not correct, or it uses a channel that does not exist. Hover over the icon to see the error. The error clears when a channel with the missing name exists. |
-| A line plot shows no values.                    | One input has never had a sample. The expression runs only after every input has at least one sample.                                                                        |
-| A past time range shows no values.              | One input has no data in that time range.                                                                                                                                    |
-| The values look wrong or shifted in time.       | The inputs have different indexes. See [use inputs that share an index](#use-inputs-that-share-an-index).                                                                    |
-| The data type is `int64`, not `float64`.        | The expression returns an integer. Write numbers with a decimal point, such as `2.0`.                                                                                        |
-| Create fails with "cannot serve as the index".  | A channel named `<name>_time` exists and is not a virtual index. Rename or delete that channel.                                                                              |
-| Create fails with "cannot specify an index".    | You set an index. Remove it, because Synnax creates the index.                                                                                                               |
+<Problem.List>
+
+<Problem.Item symptom={"The channel shows an error icon in the toolbar."}>
+  <Problem.Cause>
+    The expression is not correct, or it uses a channel that does not exist.
+  </Problem.Cause>
+  <Problem.Fix>
+    Hover over the icon to see the error, then correct the expression. The error clears
+    when a channel with the missing name exists.
+  </Problem.Fix>
+</Problem.Item>
+
+<Problem.Item symptom={"A line plot shows no values."}>
+  <Problem.Cause>
+    One input has never had a sample. The expression runs only after every input has at
+    least one sample.
+  </Problem.Cause>
+  <Problem.Fix>Write at least one sample to each input.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item symptom={"A past time range shows no values."}>
+  <Problem.Cause>One input has no data in that time range.</Problem.Cause>
+  <Problem.Fix>Select a time range in which every input has data.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item symptom={"The values look wrong or shifted in time."}>
+  <Problem.Cause>The inputs have different indexes.</Problem.Cause>
+  <Problem.Fix>
+    Use inputs that share an index. See [use inputs that share an
+    index](#use-inputs-that-share-an-index).
+  </Problem.Fix>
+</Problem.Item>
+
+<Problem.Item symptom={"The data type is int64, not float64."}>
+  <Problem.Cause>The expression returns an integer.</Problem.Cause>
+  <Problem.Fix>Write numbers with a decimal point, such as `2.0`.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={["channel \"<name>_time\" already exists and cannot serve as the index for a calculated channel", "channel \"<name>_time\" in the same request cannot serve as the index for calculated channel \"<name>\""]}>
+  <Problem.Cause>A channel named `<name>_time` exists and is not a virtual index.</Problem.Cause>
+  <Problem.Fix>Rename or delete that channel.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"calculated channels cannot specify an index manually"}>
+  <Problem.Cause>You set an index.</Problem.Cause>
+  <Problem.Fix>Remove the index setting. Synnax creates the index.</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
 
 [Calculated channel properties](/reference/channels/reference#calculated-channel-properties)
 lists each property that you can set.

@@ -8,8 +8,10 @@ description:
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
+import { Diagram } from "@/components/diagram";
 import { Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
+import { Rule } from "@/components/rule";
 export const components = mdxOverrides;
 
 A writer is anything that sends values to a channel: a schematic, an Arc automation, a
@@ -29,21 +31,43 @@ operator must be able to take. See [default authorities](#default-authorities).
 
 ## How authority works
 
-1. **Higher authority takes control.** When a writer opens on a channel, or raises its
-   authority, with a higher authority than the controlling writer, it takes control.
-2. **On equal authority, the first writer to open keeps control.** When two writers have
-   the same authority, the one that opened on the channel first controls it. A writer
-   that releases control and takes it again counts as a new writer.
-3. **Control passes on when the controlling writer leaves.** When the controlling writer
-   closes or lowers its authority, the writer with the next highest authority gets
-   control.
-4. **Values from other writers are dropped.** Synnax ignores the values from a writer
-   that does not control the channel. The writer gets no error.
-5. **255 is the highest authority.** A writer at 255 keeps control against every writer
-   that opened after it.
-6. **The index channel decides for its data channels.** A writer that loses control of
-   an index channel loses its writes to every channel on that index, even the channels
-   it controls.
+<Rule.List>
+<Rule.Item title="Higher authority takes control">
+
+When a writer opens on a channel, or raises its authority, with a higher authority than
+the controlling writer, it takes control.
+
+</Rule.Item>
+<Rule.Item title="On equal authority, the first writer to open keeps control">
+
+When two writers have the same authority, the one that opened on the channel first
+controls it. A writer that releases control and takes it again counts as a new writer.
+
+</Rule.Item>
+<Rule.Item title="Control passes on when the controlling writer leaves">
+
+When the controlling writer closes or lowers its authority, rules 1 and 2 pick the new
+controlling writer from the writers that are still open.
+
+</Rule.Item>
+<Rule.Item title="Values from other writers are dropped">
+
+Synnax ignores the values from a writer that does not control the channel. The writer
+gets no error.
+
+</Rule.Item>
+<Rule.Item title="255 is the highest authority">
+
+A writer at 255 keeps control against every writer that opened after it.
+
+</Rule.Item>
+<Rule.Item title="The index channel decides for its data channels">
+
+A writer that loses control of an index channel loses its writes to every channel on
+that index, even the channels it controls.
+
+</Rule.Item>
+</Rule.List>
 
 ### Virtual channels
 
@@ -56,22 +80,39 @@ virtual `press_vlv_cmd` at 255, the values from both reach the channel.
 
 ## Example: operator and abort
 
-A Press sequence controls `press_vlv_cmd`, a command channel with an index. An operator
-watches the test on a schematic.
+A Press sequence controls `press_vlv_cmd`, a command channel with an index. It writes at
+100, and at 255 in its abort stage. An operator watches the test on a schematic that
+writes at 200, and at 255 from a control chip.
 
-| Writer         | Authority                        |
-| -------------- | -------------------------------- |
-| Press sequence | 100, and 255 in its abort stage  |
-| Schematic      | 200, and 255 from a control chip |
-
-| Event                                       | Controls `press_vlv_cmd` | Why                                   |
-| ------------------------------------------- | ------------------------ | ------------------------------------- |
-| The Press sequence starts.                  | Press sequence           | No other writer is open.              |
-| The operator takes control.                 | Schematic                | 200 is higher than 100.               |
-| The operator releases control.              | Press sequence           | It is the only writer left.           |
-| The operator takes control again.           | Schematic                | 200 is higher than 100.               |
-| The Press sequence enters its abort stage.  | Press sequence           | 255 is higher than 200.               |
-| The operator clicks the control chip (255). | Press sequence           | Equal authority, and it opened first. |
+<Diagram.Handoff
+  title="Control of press_vlv_cmd over six events. The Press sequence controls it at events 1, 3, 5, and 6. The schematic controls it at events 2 and 4."
+  writers={[
+    {
+      name: "Press sequence",
+      caption: "Arc automation",
+      authority: [100, 100, 100, 100, 255, 255],
+    },
+    {
+      name: "Schematic",
+      caption: "Operator",
+      authority: [null, 200, null, 200, 200, 255],
+    },
+  ]}
+  events={[
+    { label: "The Press sequence starts.", reason: "No other writer is open." },
+    { label: "The operator takes control.", reason: "200 is higher than 100." },
+    { label: "The operator releases control.", reason: "It is the only writer left." },
+    { label: "The operator takes control again.", reason: "200 is higher than 100." },
+    {
+      label: "The Press sequence enters its abort stage.",
+      reason: "255 is higher than 200.",
+    },
+    {
+      label: "The operator clicks the control chip (255).",
+      reason: "Equal authority, and it opened first.",
+    },
+  ]}
+/>
 
 In this recording, an automation named Valve Guard writes at 100, and a schematic at 200
 takes control, opens the valve, and releases control. The legend shows which writer
@@ -83,40 +124,41 @@ controls the valve at each step.
 
 ## Set authority in an Arc automation
 
-1. In the Arc editor, after the `import` lines, add an `authority` line. It sets the
-   authority for every channel that the automation writes:
-
-   ```arc channels="press_vlv_cmd, vent_vlv_cmd, tank_pt, start_cmd, abort_cmd" bodies="main, pressurize, hold, abort"
-   import control
-
-   authority 100
-
-   sequence main {
-       stage pressurize {
-           1 -> press_vlv_cmd
-           0 -> vent_vlv_cmd
-           tank_pt > 450 => abort
-           abort_cmd == 1 => abort
-           tank_pt > 300 => hold
-       }
-       stage hold {
-           0 -> press_vlv_cmd
-           abort_cmd == 1 => abort
-       }
-       stage abort {
-           control.set_authority{value=255}
-           0 -> press_vlv_cmd
-           1 -> vent_vlv_cmd
-       }
-   }
-
-   start_cmd == 1 => main
-   ```
-
+1. In the Arc editor, after the `import` lines, add `authority 100`. It sets the
+   authority for every channel that the automation writes.
 2. In each stage that an operator must not override, add
    `control.set_authority{value=255}`. The automation raises its authority when the
    stage starts.
 3. Start the automation.
+
+The finished automation:
+
+```arc channels="press_vlv_cmd, vent_vlv_cmd, tank_pt, start_cmd, abort_cmd" bodies="main, pressurize, hold, abort"
+import control
+
+authority 100
+
+sequence main {
+    stage pressurize {
+        1 -> press_vlv_cmd
+        0 -> vent_vlv_cmd
+        tank_pt > 450 => abort
+        abort_cmd == 1 => abort
+        tank_pt > 300 => hold
+    }
+    stage hold {
+        0 -> press_vlv_cmd
+        abort_cmd == 1 => abort
+    }
+    stage abort {
+        control.set_authority{value=255}
+        0 -> press_vlv_cmd
+        1 -> vent_vlv_cmd
+    }
+}
+
+start_cmd == 1 => main
+```
 
 A schematic that shows these channels now lists the automation in its control legend. An
 operator who takes control at more than 100 takes the valves until the abort stage
@@ -125,8 +167,9 @@ starts.
 To set a different authority on one channel, list it after the default:
 `authority (100 vent_vlv_cmd 200)`. Always give a default. Without one, the channels you
 do not list stay at 255, and so do their index channels. An operator who takes a listed
-channel then loses every write to it, because the automation keeps the index (rule 6).
-See the [`control` module](/reference/control/arc/reference/standard-library/control).
+channel then loses every write to it, because the automation keeps the index (see
+[the index channel rule](#the-index-channel-decides-for-its-data-channels)). See the
+[`control` module](/reference/control/arc/reference/standard-library/control).
 
 <Divider.Divider x />
 
@@ -237,13 +280,13 @@ channel.
 
 ## Default authorities
 
-| Writer                      | Default | Where to change it                                                                                 |
-| --------------------------- | ------- | -------------------------------------------------------------------------------------------------- |
-| Schematic                   | 1       | [Schematic authority](/reference/control/manual#set-the-schematic-authority), kept by each Console |
-| Control chip on a schematic | 255     | Cannot change                                                                                      |
-| Arc automation              | 255     | [`authority` line](#set-authority-in-an-arc-automation)                                            |
-| Python or TypeScript writer | 255     | [`authorities` parameter](#set-authority-in-code)                                                  |
-| Read task and write task    | 255     | Cannot change                                                                                      |
+| Writer                                     | Default | Where to change it                                                                                                                              |
+| ------------------------------------------ | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Schematic                                  | 1       | [Schematic authority](/reference/control/manual#set-the-schematic-authority). Each Console keeps its own value. The schematic does not save it. |
+| Schematic, after a click on a control chip | 255     | Cannot change                                                                                                                                   |
+| Arc automation                             | 255     | [`authority` line](#set-authority-in-an-arc-automation)                                                                                         |
+| Python or TypeScript writer                | 255     | [`authorities` parameter](#set-authority-in-code)                                                                                               |
+| Read task and write task                   | 255     | Cannot change                                                                                                                                   |
 
 A read task writes the channels it reads at 255, so a script cannot write to them while
 the task runs. A write task writes its

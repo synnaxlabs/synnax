@@ -52,14 +52,14 @@ describe("fromPage", () => {
 
   it("should quote notes and the page description", () => {
     const html = page(
-      `<h4 class="article-description">About channels.</h4><div class="pluto-note"><p>Careful.</p></div>`,
+      `<p class="article-description">About channels.</p><div class="pluto-note"><p>Careful.</p></div>`,
     );
     expect(fromPage(html, PAGE_URL)).toBe("> About channels.\n\n> Careful.\n");
   });
 
   it("should drop an empty page description", () => {
     expect(
-      fromPage(page(`<h4 class="article-description"></h4><p>Body.</p>`), PAGE_URL),
+      fromPage(page(`<p class="article-description"></p><p>Body.</p>`), PAGE_URL),
     ).toBe("Body.\n");
   });
 

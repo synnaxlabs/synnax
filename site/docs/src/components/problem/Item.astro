@@ -1,0 +1,177 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+interface Props {
+    /** The exact message the reader sees, or each message that has the same cause. Give
+        this or `symptom`. */
+    message?: string | string[];
+    /** What the reader sees, in words, when there is no message. */
+    symptom?: string;
+    /** The diagnostic code, for example `ARC3001`. */
+    code?: string;
+    severity?: "error" | "warning";
+    /** The anchor of the entry. Defaults to the code, then to the title in kebab
+        case. */
+    id?: string;
+}
+
+const { message, symptom, code, severity } = Astro.props;
+if ((message == null) === (symptom == null))
+    throw new Error("Problem.Item needs exactly one of message or symptom");
+const titles = message == null ? [symptom as string] : [message].flat();
+const id =
+    Astro.props.id ??
+    (code ?? titles[0])
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "")
+        .slice(0, 64);
+const SEVERITIES = { error: "Error", warning: "Warning" };
+---
+
+<li class="problem" id={id}>
+    {(code != null || severity != null) && (
+        <p class="problem__meta">
+            {code != null && <code class="problem__code">{code}</code>}
+            {severity != null && (
+                <span class={`problem__severity problem__severity--${severity}`}>
+                    {SEVERITIES[severity]}
+                </span>
+            )}
+        </p>
+    )}
+    {titles.map((title) => (
+        <a
+            class:list={[
+                "problem__title",
+                { "problem__title--message": message != null },
+            ]}
+            href={`#${id}`}
+        >
+            {title}
+        </a>
+    ))}
+    <dl class="problem__body">
+        <slot />
+    </dl>
+</li>
+
+<style is:global>
+    .problem {
+        margin: 0;
+        padding: 3rem 0;
+        border-bottom: var(--pluto-border-width) solid var(--pluto-gray-l3);
+
+        &:last-child {
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+    }
+
+    .problem__meta {
+        display: flex;
+        align-items: baseline;
+        gap: 2rem;
+        margin: 0 0 0.5rem;
+        font-size: var(--pluto-small-size);
+        line-height: 20px;
+    }
+
+    article .problem__meta .problem__code {
+        padding: 0;
+        border: none;
+        background: none;
+        font-size: 12px;
+        color: var(--pluto-gray-l9);
+    }
+
+    .problem__severity {
+        display: inline-flex;
+        align-items: center;
+        gap: 1rem;
+        font-weight: 500;
+        color: var(--pluto-gray-l8);
+
+        &::before {
+            content: "";
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+        }
+    }
+
+    .problem__severity--error::before {
+        background: var(--pluto-error-z);
+    }
+
+    .problem__severity--warning::before {
+        background: var(--pluto-warning-z);
+    }
+
+    .problem__title {
+        display: block;
+        font-size: var(--pluto-p-size);
+        font-weight: 550;
+        line-height: var(--pluto-p-line-height);
+        color: var(--pluto-gray-l11);
+        text-decoration: none;
+        overflow-wrap: anywhere;
+
+        &:hover {
+            text-decoration: underline;
+            text-decoration-color: var(--pluto-gray-l6);
+        }
+    }
+
+    .problem__title--message {
+        font-family: "Geist Mono", monospace;
+        font-size: var(--pluto-small-size);
+        font-weight: 500;
+    }
+
+    .problem__body {
+        display: grid;
+        grid-template-columns: max-content minmax(0, 1fr);
+        align-items: baseline;
+        gap: 1rem 3rem;
+        margin: 1.5rem 0 0;
+    }
+
+    .problem__label {
+        font-size: var(--pluto-small-size);
+        font-weight: 500;
+        color: var(--pluto-gray-l8);
+    }
+
+    /* A phone puts each label above its value, so the value keeps the full width. */
+    @media (max-width: 600px) {
+        .problem__body {
+            grid-template-columns: minmax(0, 1fr);
+            gap: 0.5rem;
+        }
+
+        .problem__value + .problem__label {
+            margin-top: 1.5rem;
+        }
+    }
+
+    .problem__value {
+        margin: 0;
+        color: var(--docs-body-color);
+
+        & > :first-child {
+            margin-top: 0;
+        }
+
+        & > :last-child {
+            margin-bottom: 0;
+        }
+    }
+</style>

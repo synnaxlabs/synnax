@@ -7,6 +7,7 @@ description:
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Note } from "@synnaxlabs/lyra/note";
+import { Field } from "@/components/field";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -63,11 +64,25 @@ connect to port 9091 over Tailscale. For each field of a listener, see
 
 Set `cert.source` on each listener. Listeners can use different sources.
 
-| Source      | Certificate                                                                                                                                                                                                                |
-| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `file`      | A PEM certificate and key from the `cert` and `key` paths. When the files change, the listener uses the new files with no restart.                                                                                         |
-| `auto`      | A certificate signed by the Core CA for the listener address. Do not set `cert` or `key`.                                                                                                                                  |
-| `tailscale` | A `ts.net` certificate from the local `tailscaled`, renewed by Tailscale. Turn on HTTPS for the tailnet. If the Core does not run as root, run `tailscale set --operator=<user>` for its user. Do not set `cert` or `key`. |
+<Field.List>
+
+<Field.Item name="file" id="source-file">
+  A PEM certificate and key from the `cert` and `key` paths. When the files change, the
+  listener uses the new files with no restart.
+</Field.Item>
+
+<Field.Item name="auto" id="source-auto">
+  A certificate signed by the Core CA for the listener address. Do not set `cert` or
+  `key`.
+</Field.Item>
+
+<Field.Item name="tailscale" id="source-tailscale">
+  A `ts.net` certificate from the local `tailscaled`, renewed by Tailscale. Turn on
+  HTTPS for the tailnet. If the Core does not run as root, run `tailscale set
+  --operator=<user>` for its user. Do not set `cert` or `key`.
+</Field.Item>
+
+</Field.List>
 
 <Divider.Divider x />
 

@@ -9,6 +9,7 @@ import { Fragment } from "react";
 import { Client } from "@/components/client";
 import Platforms from "@/components/hardware/Platforms.astro";
 import { Video } from "@/components/media/Media";
+import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -148,31 +149,67 @@ In code, `auth` is a dictionary:
 {"type": "bearer", "token": "my-token"}
 {"type": "basic", "username": "user", "password": "pass"}
 {"type": "api_key", "send_as": "header", "header": "X-API-Key", "key": "abc"}
-{"type": "api_key", "send_as": "query_param", "parameter": "api_key", "key": "abc"}
+{
+    "type": "api_key",
+    "send_as": "query_param",
+    "parameter": "api_key",
+    "key": "abc",
+}
 ```
 
 <Divider.Divider x />
 
 ## Troubleshooting
 
-### The server connects, then shows "Failed to reach server"
+### `Failed to reach server`
 
-The test request in the **Connect** dialog waits up to 5 seconds. The health check and
-the tasks wait only for the **Expected response time**, which is 100 ms by default.
-Right-click the server, select **Edit connection**, and increase **Expected response
-time**.
+<Problem.Body>
+<Problem.Cause>
 
-### "Failed to execute HTTP request"
+The server passed the test in the **Connect** dialog, but the health check or a task
+cannot reach it in time. The test request in the **Connect** dialog waits up to 5
+seconds. The health check and the tasks wait only for the **Expected response time**,
+which is 100 ms by default.
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. Right-click the server and select **Edit connection**.
+2. Increase **Expected response time**.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `Failed to execute HTTP request`
+
+<Problem.Body>
+<Problem.Cause>
 
 The Driver could not reach the address. The description shows the reason.
+
+</Problem.Cause>
+<Problem.Fix>
 
 1. Make sure that **Host** has no `http://` or `https://`.
 2. Match **HTTPS** to the server. A local device often needs **HTTPS** off.
 3. For a server with a self-signed certificate, turn off **Verify SSL**.
 
-### "HTTP 401" or "HTTP 403"
+</Problem.Fix>
+</Problem.Body>
 
-The server rejected the credentials. Check the [authentication](#authentication)
-settings.
+### `HTTP 401` or `HTTP 403`
+
+<Problem.Body>
+<Problem.Cause>
+
+The server rejected the credentials.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the [authentication](#authentication) settings.
+
+</Problem.Fix>
+</Problem.Body>
 
 For other problems, see [Troubleshoot hardware](/reference/hardware/troubleshooting).

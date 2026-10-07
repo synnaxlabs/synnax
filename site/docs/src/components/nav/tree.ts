@@ -52,3 +52,19 @@ export const editionOf = (nodes: PageNavNode[], path: string): Edition | undefin
   };
   return find(nodes)?.edition;
 };
+
+/** Returns the name of the nearest group that holds the page at path, if one does. */
+export const groupOf = (nodes: PageNavNode[], path: string): string | undefined => {
+  const target = normalizeRoute(path);
+  // Null means the page is not in level. Undefined means it is, outside every group.
+  const find = (level: PageNavNode[], group?: string): string | undefined | null => {
+    for (const node of level) {
+      if (node.href != null && normalizeRoute(node.href) === target) return group;
+      if (node.children == null) continue;
+      const found = find(node.children, node.name);
+      if (found !== null) return found;
+    }
+    return null;
+  };
+  return find(nodes) ?? undefined;
+};

@@ -8,6 +8,7 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Image, Video } from "@/components/media/Media";
 import Diagram from "@/components/diagram/Diagram.astro";
+import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -146,16 +147,48 @@ These work while editing is on. On macOS, use **Cmd** for **Ctrl**.
 
 ### A value cell is empty
 
+<Problem.Body>
+<Problem.Cause>
+
 The channel has no stored samples, or it is a virtual channel that nothing has written
-to since the table opened. Check that a task or a script writes to the channel.
+to since the table opened.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check that a task or a script writes to the channel.
+
+</Problem.Fix>
+</Problem.Body>
 
 ### A value cell shows the stale color
+
+<Problem.Body>
+<Problem.Cause>
 
 No new sample arrived within the **Timeout**. A cell is stale at once when its latest
 stored sample is older than the timeout.
 
+</Problem.Cause>
+<Problem.Fix>
+
+Check that a task or a script writes to the channel.
+
+</Problem.Fix>
+</Problem.Body>
+
 ### I cannot select cells
 
-Editing is off in this window, or you do not have permission to edit the table. Click
+<Problem.Body>
+<Problem.Cause>
 
-<Icon.Edit /> (**Enable editing**), or ask an administrator for access.
+You cannot edit the table in this window.
+
+</Problem.Cause>
+<Problem.Fix>
+
+- **Editing is off in this window** -> click <Icon.Edit /> (**Enable editing**).
+- **You do not have permission to edit the table** -> ask an administrator for access.
+
+</Problem.Fix>
+</Problem.Body>

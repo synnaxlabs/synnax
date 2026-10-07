@@ -10,7 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import { type PageNavNode } from "@/components/nav/Page";
-import { editionOf, neighbors } from "@/components/nav/tree";
+import { editionOf, groupOf, neighbors } from "@/components/nav/tree";
 
 const NODES: PageNavNode[] = [
   { key: "/reference/", href: "/reference/", name: "Get started" },
@@ -105,6 +105,24 @@ describe("tree", () => {
 
     it("should return undefined for a path outside the tree", () => {
       expect(editionOf(NODES, "/reference/missing")).toBeUndefined();
+    });
+  });
+
+  describe("groupOf", () => {
+    it("should return the group that holds the page", () => {
+      expect(groupOf(NODES, "/reference/channels/create")).toBe("Channels");
+    });
+
+    it("should return the nearest group of a nested page", () => {
+      expect(groupOf(NODES, "/reference/enterprise/cli")).toBe("Advanced");
+    });
+
+    it("should return undefined for a page outside every group", () => {
+      expect(groupOf(NODES, "/reference/desktop")).toBeUndefined();
+    });
+
+    it("should return undefined for a path outside the tree", () => {
+      expect(groupOf(NODES, "/reference/missing")).toBeUndefined();
     });
   });
 });

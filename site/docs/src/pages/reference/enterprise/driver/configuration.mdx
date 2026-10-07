@@ -8,6 +8,7 @@ description:
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Note } from "@synnaxlabs/lyra/note";
+import { Field } from "@/components/field";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -132,20 +133,65 @@ file.
 
 ## Parameters
 
-| Key                | Default     | Description                                                                                                                                                           |
-| ------------------ | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `host`             | `localhost` | The host of the Core.                                                                                                                                                 |
-| `port`             | `9090`      | The port of the Core.                                                                                                                                                 |
-| `username`         | `synnax`    | The username of the Driver user.                                                                                                                                      |
-| `password`         | `seldon`    | The password of the Driver user.                                                                                                                                      |
-| `secure`           | `false`     | Connect to the Core over TLS.                                                                                                                                         |
-| `correct_skew`     | `true`      | Keep the timestamps of hardware-timed NI and LabJack reads in step with the clock of the computer.                                                                    |
-| `op_timeout`       | `60`        | The number of seconds after which a task operation that has not finished, such as a start, gives the task the error `operation timed out`.                            |
-| `poll_interval`    | `1`         | The number of seconds between two checks for task operations that have not finished.                                                                                  |
-| `shutdown_timeout` | `30`        | The number of seconds that the Driver waits for task operations when it stops.                                                                                        |
-| `worker_count`     | `4`         | The number of threads that run task operations. Use a value from 1 to 64.                                                                                             |
-| `rack_key`         | `0`         | The key that the Core knows this Driver by. With 0, or when the Core has no such key, the Driver registers as a new Driver named after the host name of the computer. |
-| `cluster_key`      | nil UUID    | The key of the Core that owns `rack_key`. When it is not the key of the Core, the Driver ignores `rack_key` and registers as a new Driver, so set both keys.          |
-| `integrations`     | all         | The device integrations to run: `arc`, `ethercat`, `http`, `labjack`, `modbus`, `ni`, and `opc`. NI Linux RT has no `modbus`.                                         |
+<Field.List>
+
+<Field.Item name="host" default="localhost">
+  The host of the Core.
+</Field.Item>
+
+<Field.Item name="port" default="9090">
+  The port of the Core.
+</Field.Item>
+
+<Field.Item name="username" default="synnax">
+  The username of the Driver user.
+</Field.Item>
+
+<Field.Item name="password" default="seldon">
+  The password of the Driver user.
+</Field.Item>
+
+<Field.Item name="secure" default="false">
+  Connect to the Core over TLS.
+</Field.Item>
+
+<Field.Item name="correct_skew" default="true">
+  Keep the timestamps of hardware-timed NI and LabJack reads in step with the clock of
+  the computer.
+</Field.Item>
+
+<Field.Item name="op_timeout" default="60">
+  The number of seconds after which a task operation that has not finished, such as a
+  start, gives the task the error `operation timed out`.
+</Field.Item>
+
+<Field.Item name="poll_interval" default="1">
+  The number of seconds between two checks for task operations that have not finished.
+</Field.Item>
+
+<Field.Item name="shutdown_timeout" default="30">
+  The number of seconds that the Driver waits for task operations when it stops.
+</Field.Item>
+
+<Field.Item name="worker_count" default="4">
+  The number of threads that run task operations. Use a value from 1 to 64.
+</Field.Item>
+
+<Field.Item name="rack_key" default="0">
+  The key that the Core knows this Driver by. With 0, or when the Core has no such key,
+  the Driver registers as a new Driver named after the host name of the computer.
+</Field.Item>
+
+<Field.Item name="cluster_key" default="nil UUID">
+  The key of the Core that owns `rack_key`. When it is not the key of the Core, the
+  Driver ignores `rack_key` and registers as a new Driver, so set both keys.
+</Field.Item>
+
+<Field.Item name="integrations" default="all">
+  The device integrations to run: `arc`, `ethercat`, `http`, `labjack`, `modbus`, `ni`,
+  and `opc`. NI Linux RT has no `modbus`.
+</Field.Item>
+
+</Field.List>
 
 For a boolean environment variable, use `true` or `false`.

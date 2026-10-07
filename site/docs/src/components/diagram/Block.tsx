@@ -12,6 +12,7 @@ import "@/components/diagram/Block.css";
 import { type ReactElement } from "react";
 
 import {
+  type Direction,
   type Edge,
   layout,
   type Node,
@@ -30,26 +31,43 @@ const TAB_OVERLAP = 8;
 const TAB_WIDTH = TAB_EXTEND + TAB_OVERLAP;
 const TAB_HEIGHT = 12;
 
-const Tab = ({ x, y }: { x: number; y: number }): ReactElement => (
-  <g className="block-diagram__tab">
-    <rect
-      x={x}
-      y={y - TAB_HEIGHT / 2}
-      width={TAB_WIDTH}
-      height={TAB_HEIGHT}
-      rx={3}
-      className="block-diagram__tab-body"
-    />
-    <rect
-      x={x + 2}
-      y={y - TAB_HEIGHT / 4}
-      width={TAB_WIDTH - 4}
-      height={TAB_HEIGHT / 2}
-      rx={1.5}
-      className="block-diagram__tab-center"
-    />
-  </g>
-);
+interface TabProps {
+  /** The center of the edge of the block that the tab sits on. */
+  x: number;
+  y: number;
+  /** Which edge of the block the tab sits on. */
+  side: "left" | "right" | "top" | "bottom";
+}
+
+// The tab overlaps the block and extends past its edge.
+const Tab = ({ x, y, side }: TabProps): ReactElement => {
+  const across = side === "left" || side === "right";
+  const width = across ? TAB_WIDTH : TAB_HEIGHT;
+  const height = across ? TAB_HEIGHT : TAB_WIDTH;
+  const start = side === "left" || side === "top" ? -TAB_EXTEND : -TAB_OVERLAP;
+  const left = across ? x + start : x - width / 2;
+  const top = across ? y - height / 2 : y + start;
+  return (
+    <g className="block-diagram__tab">
+      <rect
+        x={left}
+        y={top}
+        width={width}
+        height={height}
+        rx={3}
+        className="block-diagram__tab-body"
+      />
+      <rect
+        x={left + (across ? 2 : width / 4)}
+        y={top + (across ? height / 4 : 2)}
+        width={across ? width - 4 : width / 2}
+        height={across ? height / 2 : height - 4}
+        rx={1.5}
+        className="block-diagram__tab-center"
+      />
+    </g>
+  );
+};
 
 /** The icon chip and text of a block, drawn over the given box. */
 export const Content = ({
@@ -86,11 +104,11 @@ export const Item = ({ node }: { node: PlacedNode }): ReactElement => (
   </g>
 );
 
-/**
- * Draws a left-to-right block diagram. Give each node a column, and the diagram places,
- * sizes, and connects the blocks.
- */
-export const Block = ({ nodes, edges, title }: BlockProps): ReactElement => {
+interface SvgProps extends BlockProps {
+  direction: Direction;
+}
+
+const Svg = ({ nodes, edges, title, direction }: SvgProps): ReactElement => {
   const {
     width,
     height,
@@ -98,34 +116,51 @@ export const Block = ({ nodes, edges, title }: BlockProps): ReactElement => {
     edges: lines,
     sources,
     targets,
-  } = layout(nodes, edges);
+  } = layout(nodes, edges, direction);
+  const right = direction === "right";
   return (
-    <figure className="block-diagram">
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        width={width}
-        height={height}
-        role="img"
-        aria-label={title}
-        className="block-diagram__svg"
-      >
-        {lines.map(({ from, to, path }) => (
-          <path key={`${from}-${to}`} d={path} className="block-diagram__edge" />
-        ))}
-        {placed.map((node) => (
-          <g key={`tabs-${node.key}`}>
-            {sources.has(node.key) && (
-              <Tab x={node.x + node.width - TAB_OVERLAP} y={node.y + node.height / 2} />
-            )}
-            {targets.has(node.key) && (
-              <Tab x={node.x - TAB_EXTEND} y={node.y + node.height / 2} />
-            )}
-          </g>
-        ))}
-        {placed.map((node) => (
-          <Item key={node.key} node={node} />
-        ))}
-      </svg>
-    </figure>
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      width={width}
+      height={height}
+      role="img"
+      aria-label={title}
+      className={`block-diagram__svg block-diagram__svg--${right ? "wide" : "narrow"}`}
+    >
+      {lines.map(({ from, to, path }) => (
+        <path key={`${from}-${to}`} d={path} className="block-diagram__edge" />
+      ))}
+      {placed.map((node) => (
+        <g key={`tabs-${node.key}`}>
+          {sources.has(node.key) &&
+            (right ? (
+              <Tab x={node.x + node.width} y={node.y + node.height / 2} side="right" />
+            ) : (
+              <Tab x={node.x + node.width / 2} y={node.y + node.height} side="bottom" />
+            ))}
+          {targets.has(node.key) &&
+            (right ? (
+              <Tab x={node.x} y={node.y + node.height / 2} side="left" />
+            ) : (
+              <Tab x={node.x + node.width / 2} y={node.y} side="top" />
+            ))}
+        </g>
+      ))}
+      {placed.map((node) => (
+        <Item key={node.key} node={node} />
+      ))}
+    </svg>
   );
 };
+
+/**
+ * Draws a block diagram that flows from left to right, or from top to bottom in a
+ * narrow column. Give each node a column, and the diagram places, sizes, and connects
+ * the blocks.
+ */
+export const Block = (props: BlockProps): ReactElement => (
+  <figure className="block-diagram">
+    <Svg {...props} direction="right" />
+    <Svg {...props} direction="down" />
+  </figure>
+);

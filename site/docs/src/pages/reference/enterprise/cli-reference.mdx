@@ -6,7 +6,6 @@ description: "Commands and flags of the Synnax Core CLI."
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Field } from "@/components/field";
-import { Table } from "@/components/table";
 import { Tabs } from "@/components/tabs/Tabs";
 import VersionOutput from "@/components/core/VersionOutput.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
@@ -21,9 +20,7 @@ flags, environment variables, and configuration file keys.
 
 The `start` command starts the Synnax Core.
 
-### Examples
-
-#### Starting a Core
+### Example
 
 Use the `-i` and `-m` flags to start a Core in insecure mode with an in-memory data
 store:
@@ -383,7 +380,7 @@ disable-channel-name-validation = false
 </Fragment>
 </Tabs>
 
-#### Multiple listeners
+### Multiple listeners
 
 The `listen` key takes a single address, as above, or a list of listeners, each with its
 own address and certificate. The list works only in a configuration file, and cannot be
@@ -404,47 +401,43 @@ listen:
 
 Fields of a listener:
 
-<Table.Data
-  columns={[
-    { key: "field", name: "Field", type: "code", width: 130 },
-    { key: "description", name: "Description", type: "html" },
-  ]}
-  data={[
-    {
-      field: "address",
-      description:
-        "The <code>host:port</code> the listener binds to. Required and unique across listeners.",
-    },
-    {
-      field: "cert.source",
-      description:
-        'The certificate source: <code>file</code>, <code>auto</code>, or <code>tailscale</code>. Required unless the Core starts with <code>--insecure</code>. See <a href="/reference/enterprise/listeners#certificate-sources">Certificate sources</a>.',
-    },
-    {
-      field: "cert.cert",
-      description:
-        "For a <code>file</code> source, the path to the PEM certificate. If <code>cert</code> and <code>key</code> are both empty, the listener uses the node certificate.",
-    },
-    {
-      field: "cert.key",
-      description: "For a <code>file</code> source, the path to the PEM private key.",
-    },
-    {
-      field: "advertise",
-      description:
-        "Marks this listener's address as the one the embedded Driver connects to. At most one listener may set it; the first listener is advertised if none do.",
-    },
-    {
-      field: "name",
-      description: "An optional label. The Core does not use it.",
-    },
-    {
-      field: "loopback",
-      description:
-        "Binds the listener to the loopback interface only, so no other machine can reach it. The address host must be <code>localhost</code> or <code>127.0.0.1</code>. By default, a listener binds its port on every network interface.",
-    },
-  ]}
-/>
+<Field.List>
+
+<Field.Item name="address" id="listener-address" required>
+  The `host:port` the listener binds to. Unique across listeners.
+</Field.Item>
+
+<Field.Item name="cert.source" id="listener-cert-source">
+  The certificate source: `file`, `auto`, or `tailscale`. Required unless the Core
+  starts with `--insecure`. See [Certificate
+  sources](/reference/enterprise/listeners#certificate-sources).
+</Field.Item>
+
+<Field.Item name="cert.cert" id="listener-cert-cert">
+  For a `file` source, the path to the PEM certificate. If `cert` and `key` are both
+  empty, the listener uses the node certificate.
+</Field.Item>
+
+<Field.Item name="cert.key" id="listener-cert-key">
+  For a `file` source, the path to the PEM private key.
+</Field.Item>
+
+<Field.Item name="advertise" id="listener-advertise">
+  Marks this listener's address as the one the embedded Driver connects to. At most one
+  listener may set it; the first listener is advertised if none do.
+</Field.Item>
+
+<Field.Item name="name" id="listener-name">
+  An optional label. The Core does not use it.
+</Field.Item>
+
+<Field.Item name="loopback" id="listener-loopback">
+  Binds the listener to the loopback interface only, so no other machine can reach it.
+  The address host must be `localhost` or `127.0.0.1`. By default, a listener binds its
+  port on every network interface.
+</Field.Item>
+
+</Field.List>
 
 <Divider.Divider x />
 

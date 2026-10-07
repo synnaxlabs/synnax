@@ -164,12 +164,11 @@ For the names of command and state channels, see
 A hardware timed task uses the clock on the device. The Driver gives each sample a
 timestamp from the start of the batch and the sample rate. A software timed task has no
 device clock, so the Driver gives the samples timestamps from the computer clock when it
-reads them.
+reads them:
 
-| Timing   | Tasks                                                                                                                                               |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Hardware | NI analog read, LabJack read with no thermocouple channels                                                                                          |
-| Software | NI digital read, NI counter read, LabJack read with thermocouple channels, EtherCAT read, Modbus read, OPC UA read, HTTP read, and every write task |
+- **Hardware timed** -> NI analog read, and LabJack read with no thermocouple channels.
+- **Software timed** -> NI digital read, NI counter read, LabJack read with thermocouple
+  channels, EtherCAT read, Modbus read, OPC UA read, HTTP read, and every write task.
 
 An HTTP read task can also take its timestamps from the server response. See
 [endpoints and fields](/reference/hardware/http/read-task#endpoints-and-fields).
@@ -253,7 +252,7 @@ The LabJack write task has no **Auto start** switch in the Console.
 
 ## Tasks toolbar
 
-To open the tasks toolbar, click <Icon.Task /> in the left bar or press `T`. Each task
+To open the tasks toolbar, click <Icon.Task /> in the left bar or press **T**. Each task
 shows its status, name, and type, and a button to start or stop it. To create a task,
 click <Icon.Add /> (**Create task**). Double-click a task to open it in a tab.
 
@@ -307,7 +306,9 @@ list the tasks of another Driver, pass its rack key: `client.tasks.list(rack=key
 ```typescript
 // Find tasks by name.
 const task = await client.tasks.retrieve({ name: "Tank sensors" });
-const tasks = await client.tasks.retrieve({ names: ["Tank sensors", "Tank valves"] });
+const tasks = await client.tasks.retrieve({
+  names: ["Tank sensors", "Tank valves"],
+});
 
 // List the tasks on every Driver.
 for (const t of await client.tasks.list()) console.log(t.name, t.type);

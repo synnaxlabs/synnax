@@ -9,6 +9,7 @@ import { Fragment } from "react";
 import { Client } from "@/components/client";
 import Platforms from "@/components/hardware/Platforms.astro";
 import { Video } from "@/components/media/Media";
+import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -93,20 +94,54 @@ so only a device that the Driver found works in a task.
 
 ### The device does not show in the devices toolbar
 
-Install the LJM library and
-[restart the Driver](/reference/hardware/troubleshooting#restart-the-driver). LabJack
-devices do not work on Linux. For more causes, see
+<Problem.Body>
+<Problem.Cause>
+
+The Driver cannot load the LJM library, or it runs on Linux.
+
+</Problem.Cause>
+<Problem.Fix>
+
+- **LJM is not installed** -> install the LJM library and
+  [restart the Driver](/reference/hardware/troubleshooting#restart-the-driver).
+- **The Driver runs on Linux** -> LabJack devices do not work on Linux. Run the Driver
+  on Windows or macOS.
+
+For more causes, see
 [Troubleshoot hardware](/reference/hardware/troubleshooting#a-device-does-not-show-in-the-devices-toolbar).
 
-### "A device matching the requested device parameters could not be found"
+</Problem.Fix>
+</Problem.Body>
 
-Another program holds the device. A USB device works with one program at a time. Close
-[Kipling](https://support.labjack.com/docs/kipling) and other LabJack software, then
-start the task again.
+### `A device matching the requested device parameters could not be found`
 
-### "The device is temporarily unreachable. Will keep trying"
+<Problem.Body>
+<Problem.Cause>
 
-The Driver lost the connection to the device. Check the USB cable or the network. The
-task continues when the device comes back.
+Another program holds the device. A USB device works with one program at a time.
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. Close [Kipling](https://support.labjack.com/docs/kipling) and other LabJack software.
+2. Start the task again.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `The device is temporarily unreachable. Will keep trying`
+
+<Problem.Body>
+<Problem.Cause>
+
+The Driver lost the connection to the device.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the USB cable or the network. The task continues when the device comes back.
+
+</Problem.Fix>
+</Problem.Body>
 
 For other problems, see [Troubleshoot hardware](/reference/hardware/troubleshooting).

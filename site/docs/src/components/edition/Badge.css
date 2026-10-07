@@ -12,24 +12,20 @@
 .edition-badge {
     display: inline-flex;
     align-items: center;
-    gap: 0.6rem;
-    font-family: var(--pluto-font-family);
-    font-size: var(--pluto-small-size);
-    font-weight: 500;
-    line-height: 1;
+    height: 20px;
+    padding: 0 7px;
+    border: 1px solid var(--pluto-gray-l5);
+    border-radius: var(--pluto-border-radius-small);
+    background: var(--pluto-gray-l1);
+    font: 550 12px/1 var(--pluto-font-family);
+    letter-spacing: 0.01em;
     white-space: nowrap;
-    color: var(--pluto-gray-l8);
-}
-
-.edition-badge::before {
-    content: "";
-    width: 0.6rem;
-    height: 0.6rem;
-    border-radius: 50%;
-    background: currentcolor;
+    color: var(--pluto-gray-l10);
 }
 
 .edition-badge--enterprise {
+    border-color: color-mix(in srgb, var(--pluto-primary-z) 35%, transparent);
+    background: color-mix(in srgb, var(--pluto-primary-z) 8%, transparent);
     color: var(--pluto-primary-z);
 }
 

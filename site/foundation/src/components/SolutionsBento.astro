@@ -1,0 +1,55 @@
+---
+// Copyright 2026 Synnax Labs, Inc. Licensed under licenses/BSL.txt.
+
+import { Button } from "@synnaxlabs/lyra/button";
+import { Icon } from "@synnaxlabs/lyra/icon";
+
+const joint = "M954 -30V64H818V132H866V212H768V330";
+const field = `${joint}H1240V-30Z`;
+---
+
+<aside class="unlock-solutions" aria-labelledby="solutions-title">
+    <svg
+        class="solutions-joint"
+        viewBox="0 0 1200 300"
+        preserveAspectRatio="xMidYMid slice"
+        fill="none"
+        aria-hidden="true"
+        focusable="false"
+    >
+        <defs>
+            <pattern
+                id="solutions-section-hatch"
+                width="18"
+                height="18"
+                patternUnits="userSpaceOnUse"
+            >
+                <path d="M-1 1L1 -1M0 18L18 0M17 19L19 17" />
+            </pattern>
+        </defs>
+        <path class="solutions-joint-field" d={field} />
+        <path class="solutions-joint-hatch" d={field} />
+        <path class="solutions-joint-edge" d={joint} />
+    </svg>
+    <div class="solutions-copy">
+        <p class="solutions-label">SOLUTIONS</p>
+        <h3 id="solutions-title">Bring us the problem.</h3>
+        <p class="solutions-description">
+            Our engineers work with your team to build the integrations, capabilities,
+            and software your operation needs.
+        </p>
+    </div>
+    <Button.Button
+        href="#contact"
+        variant="filled"
+        color="#172839"
+        className="solutions-contact"
+    >
+        Talk to our engineers
+        <Icon.Arrow.Right className="solutions-contact-icon" aria-hidden="true" />
+    </Button.Button>
+</aside>
+<Button.Button href="#architecture" variant="text" className="solutions-explore">
+    Or build it yourself
+    <span aria-hidden="true">↓</span>
+</Button.Button>

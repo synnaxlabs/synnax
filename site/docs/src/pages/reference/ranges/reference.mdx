@@ -8,6 +8,7 @@ description:
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Client } from "@/components/client";
+import { Field } from "@/components/field";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -18,14 +19,43 @@ sets its times, and what local ranges cannot do.
 
 ## Properties
 
-| Property                                      | Type                                                  | Required | Description                                                                                                                             |
-| --------------------------------------------- | ----------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `key`                                         | UUID                                                  | No       | The unique ID of the range. Synnax makes one when you leave it out. Create with an existing key to update that range.                   |
-| `name`                                        | string                                                | Yes      | The name of the range, at least one character. Names do not have to be unique.                                                          |
-| <Client.Var py="time_range" ts="timeRange" /> | [`TimeRange`](/reference/client/time-types#timerange) | Yes      | The interval of the range. It includes the start and excludes the end. The start cannot be after the end, and neither can be zero.      |
-| `color`                                       | string                                                | No       | A hex color such as `"#FF0000"`. The client returns it as a color object. An empty string clears it. The Console cannot set it.         |
-| `parent`                                      | `Range`                                               | No       | The parent range. Set it when you create the range.                                                                                     |
-| `retrieve_if_name_exists`                     | boolean                                               | No       | Python only. Returns an existing range with the same name instead of creating a new one. See [create ranges](/reference/ranges/create). |
+<Field.List>
+
+<Field.Item name="key" type="UUID">
+  The unique ID of the range. Synnax makes one when you leave it out. Create with an
+  existing key to update that range.
+</Field.Item>
+
+<Field.Item name="name" type="string" required>
+  The name of the range, at least one character. Names do not have to be unique.
+</Field.Item>
+
+<Field.Item
+  id="time-range"
+  type="TimeRange"
+  typeHref="/reference/client/time-types#timerange"
+  required
+>
+  <Client.Var slot="name" py="time_range" ts="timeRange" />
+  The interval of the range. It includes the start and excludes the end. The start
+  cannot be after the end, and neither can be zero.
+</Field.Item>
+
+<Field.Item name="color" type="string">
+  A hex color such as `"#FF0000"`. The client returns it as a color object. An empty
+  string clears it. The Console cannot set it.
+</Field.Item>
+
+<Field.Item name="parent" type="Range">
+  The parent range. Set it when you create the range.
+</Field.Item>
+
+<Field.Item name="retrieve_if_name_exists" type="boolean">
+  Python only. Returns an existing range with the same name instead of creating a new
+  one. See [create ranges](/reference/ranges/create).
+</Field.Item>
+
+</Field.List>
 
 Labels and metadata are not properties of the create call. See
 [metadata and labels](/reference/ranges/metadata).

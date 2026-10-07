@@ -53,7 +53,8 @@ keeps nothing between runs.
 3. Start the Core with the key file:
 
    ```bash
-   synnax start --listen=synnax.example.com:9090 --license-file=/usr/local/synnax/synnax.lic
+   synnax start --listen=synnax.example.com:9090 \
+     --license-file=/usr/local/synnax/synnax.lic
    ```
 
    Or put the key in the `SYNNAX_LICENSE_KEY` environment variable. The `--license-key`
@@ -138,11 +139,12 @@ host instead. On Kubernetes, ask Synnax Labs for a license that runs on any mach
 
 ## Expiry
 
-| When                                | What happens                                                                                                                                                          |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 7 days before the expiry date       | The Console warns: "license expires on ..."                                                                                                                           |
-| Up to 14 days after the expiry date | The license still applies, with a warning that names the end of the grace period.                                                                                     |
-| After the grace period              | A license with a version cap still covers Core versions up to the cap. Otherwise the Core refuses requests and the Console shows **This Core's license has expired**. |
+1. **7 days before the expiry date** -> the Console warns: "license expires on ..."
+2. **Up to 14 days after the expiry date** -> the license still applies, with a warning
+   that names the end of the grace period.
+3. **After the grace period** -> a license with a version cap still covers Core versions
+   up to the cap. Otherwise the Core refuses requests and the Console shows **This
+   Core's license has expired**.
 
 The Core checks the term when it starts and when a key is activated. A Core that keeps
 running keeps its license state until its next restart. If the system clock is more than

@@ -9,12 +9,26 @@
 // included in the file licenses/APL.txt.
 
 export interface Props {
-    /** The flag or key, for example `--listen`. */
-    name: string;
+    /** The flag, key, or field, set in mono. Give this, `label`, or a `name` slot, such
+        as a `Client.Var`, together with an `id`. */
+    name?: string;
+    /** The Console label, set as text. Give this or `name`. */
+    label?: string;
+    /** The client field or fields that the entry sets. Give `py` and `ts` when the
+        Python and TypeScript names differ. */
+    field?: string | string[] | { py: string; ts: string };
+    /** The Console label, when it differs from the title. */
+    console?: string;
+    /** Whether the value can change after creation. Leave it out when the whole list
+        has one answer. */
+    changeable?: boolean;
+    required?: boolean;
     /** A short form of the flag, for example `-l`. */
     short?: string;
     /** The kind of value the flag takes. Leave it out for a flag that takes none. */
     type?: string;
+    /** The page that describes the type. */
+    typeHref?: string;
     default?: string;
     /** The environment variable that sets the same value. */
     env?: string;
@@ -24,27 +38,97 @@ export interface Props {
 
 const {
     name,
+    label,
+    field,
+    console: consoleLabel,
+    changeable,
+    required = false,
     short,
     type,
+    typeHref,
     default: defaultValue,
     env,
-    id = name.replace(/^-+/, ""),
 } = Astro.props;
+const slotted = Astro.slots.has("name");
+if ([name != null, label != null, slotted].filter(Boolean).length !== 1)
+    throw new Error("Field.Item needs exactly one of name, label, or a name slot");
+if (slotted && Astro.props.id == null)
+    throw new Error("Field.Item with a name slot needs an id");
+const title = (name ?? label ?? "") as string;
+const id =
+    Astro.props.id ??
+    (name != null
+        ? name.replace(/^-+/, "")
+        : title
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, "-")
+              .replace(/^-|-$/g, ""));
+const clientNames = typeof field === "object" && !Array.isArray(field) ? field : null;
+const fields = field == null || clientNames != null ? [] : [field].flat();
+const hasMeta =
+    consoleLabel != null ||
+    clientNames != null ||
+    fields.length > 0 ||
+    defaultValue != null ||
+    env != null ||
+    changeable != null;
 ---
 
 <div class="field" id={id}>
     <dt class="field__header">
         <a class="field__name" href={`#${id}`}>
-            <code>{name}</code>
+            {slotted ? (
+                <slot name="name" />
+            ) : name != null ? (
+                <code>{name}</code>
+            ) : (
+                <span class="field__label">{title}</span>
+            )}
             {short != null && (
                 <span>
                     , <code>{short}</code>
                 </span>
             )}
         </a>
-        {type != null && <code class="field__type">{`<${type}>`}</code>}
-        {(defaultValue != null || env != null) && (
+        {type != null &&
+            (typeHref != null ? (
+                <a class="field__type-link" href={typeHref}>
+                    <code class="field__type">{type}</code>
+                </a>
+            ) : (
+                <code class="field__type">
+                    {name?.startsWith("-") ? `<${type}>` : type}
+                </code>
+            ))}
+        {required && <span class="field__required">Required</span>}
+        {hasMeta && (
             <span class="field__meta">
+                {consoleLabel != null && (
+                    <span>
+                        Console <strong>{consoleLabel}</strong>
+                    </span>
+                )}
+                {clientNames != null && (
+                    <>
+                        <span>
+                            Python <code>{clientNames.py}</code>
+                        </span>
+                        <span>
+                            TypeScript <code>{clientNames.ts}</code>
+                        </span>
+                    </>
+                )}
+                {fields.length > 0 && (
+                    <span>
+                        Field{" "}
+                        {fields.map((f, i) => (
+                            <>
+                                {i > 0 && ", "}
+                                <code>{f}</code>
+                            </>
+                        ))}
+                    </span>
+                )}
                 {defaultValue != null && (
                     <span>
                         Default <code>{defaultValue}</code>
@@ -54,6 +138,9 @@ const {
                     <span>
                         Env <code>{env}</code>
                     </span>
+                )}
+                {changeable != null && (
+                    <span>{changeable ? "Can change" : "Cannot change"}</span>
                 )}
             </span>
         )}
@@ -67,16 +154,21 @@ const {
     .field {
         padding: 2.5rem 0;
         border-bottom: var(--pluto-border-width) solid var(--pluto-gray-l3);
+
+        &:last-child {
+            padding-bottom: 0;
+            border-bottom: none;
+        }
     }
 
     .field__header {
         display: flex;
         flex-wrap: wrap;
         align-items: baseline;
-        gap: 0.5rem 1.5rem;
+        gap: 0.5rem 2rem;
     }
 
-    .field__header code {
+    .field__header :global(code) {
         padding: 0;
         border: none;
         background: none;
@@ -86,7 +178,7 @@ const {
         color: var(--pluto-gray-l8);
         text-decoration: none;
 
-        & code {
+        & :global(code) {
             font-size: var(--pluto-p-size);
             font-weight: 600;
             color: var(--pluto-gray-l11);
@@ -102,20 +194,39 @@ const {
         }
     }
 
+    .field__label {
+        font-size: var(--pluto-p-size);
+        font-weight: 550;
+        color: var(--pluto-gray-l11);
+    }
+
+    .field__name:hover .field__label {
+        text-decoration: underline;
+        text-decoration-color: var(--pluto-gray-l6);
+    }
+
     .field__type {
         color: var(--pluto-gray-l8);
     }
 
+    .field__type-link:hover .field__type {
+        color: var(--pluto-primary-z);
+    }
+
+    .field__required {
+        font-size: var(--pluto-small-size);
+        font-weight: 500;
+        color: var(--pluto-gray-l9);
+    }
+
+    /* Its items wrap with the header, so a wrapped item starts at the left edge. */
     .field__meta {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: baseline;
-        flex-basis: 100%;
-        gap: 0.5rem 4rem;
+        display: contents;
         font-size: var(--pluto-small-size);
         color: var(--pluto-gray-l8);
 
-        & code {
+        & :is(code, strong) {
+            font-weight: 500;
             color: var(--pluto-gray-l10);
         }
     }

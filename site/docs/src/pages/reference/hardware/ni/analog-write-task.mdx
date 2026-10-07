@@ -10,6 +10,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
 import { Details } from "@/components/details";
+import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -57,7 +58,9 @@ state_time = client.channels.create(
     name="dev1_ao_state_time", is_index=True, data_type=sy.DataType.TIMESTAMP
 )
 state = client.channels.create(
-    name="valve_setpoint_state", index=state_time.key, data_type=sy.DataType.FLOAT32
+    name="valve_setpoint_state",
+    index=state_time.key,
+    data_type=sy.DataType.FLOAT32,
 )
 cmd_time = client.channels.create(
     name="valve_setpoint_cmd_time", is_index=True, data_type=sy.DataType.TIMESTAMP
@@ -176,13 +179,13 @@ Channels with **Custom scaling** convert the raw value before the Driver writes 
 the Console, the options are in the **Scale** section of the channel. In code, set
 `custom_scale` to one of these scales:
 
-| Console option | Python class      | Fields                                                                                                                          |
-| -------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| **None**       | `NoneScale`       | No scaling. This is the default.                                                                                                |
-| **Linear**     | `LinearScale`     | **Slope** (`slope`, 1) and **Y-intercept** (`y_intercept`, 0).                                                                  |
-| **Map**        | `MapScale`        | **Pre-scaled min** and **max** (`pre_scaled_min`, `pre_scaled_max`) to **Scaled min** and **max** (`scaled_min`, `scaled_max`). |
-| **Polynomial** | `PolynomialScale` | **Forward coefficients** (`forward_coeffs`) and **Reverse coefficients** (`reverse_coeffs`), from c0 up.                        |
-| **Table**      | `TableScale`      | Pairs of **Pre-scaled** and **Scaled** values (`pre_scaled_vals`, `scaled_vals`). You can load them from a CSV file.            |
+| Console option | Python class      | Fields                                                                                                                         |
+| -------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **None**       | `NoneScale`       | No scaling. This is the default.                                                                                               |
+| **Linear**     | `LinearScale`     | **Slope** (`slope`, 1) and **Y-intercept** (`y_intercept`, 0).                                                                 |
+| **Map**        | `MapScale`        | **Pre-scaled min** and **max** to **Scaled min** and **max** (`pre_scaled_min`, `pre_scaled_max`, `scaled_min`, `scaled_max`). |
+| **Polynomial** | `PolynomialScale` | **Forward coefficients** (`forward_coeffs`) and **Reverse coefficients** (`reverse_coeffs`), from c0 up.                       |
+| **Table**      | `TableScale`      | **Pre-scaled** and **Scaled** pairs (`pre_scaled_vals`, `scaled_vals`). A CSV file can fill them.                              |
 
 Every scale except **None** also has **Prescaled units** (`pre_scaled_units`, `Volts`)
 and **Scaled units** (`scaled_units`).
@@ -193,14 +196,35 @@ and **Scaled units** (`scaled_units`).
 
 ### The outputs stop changing after a command
 
+<Problem.Body>
+<Problem.Cause>
+
 A command was outside the **Range** of its channel. NI-DAQmx rejects it with no message,
 and because each command writes every output, all later commands fail too. The state
-channels still show the commands that were not written. Send a value inside the range to
-that channel, then the task writes again.
+channels still show the commands that were not written.
 
-### "Port ... has already been used on another channel"
+</Problem.Cause>
+<Problem.Fix>
 
-Two channels use the same port. Change the port of one of them.
+Send a value inside the range to that channel. The task then writes again.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `Port ... has already been used on another channel`
+
+<Problem.Body>
+<Problem.Cause>
+
+Two channels use the same port.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Change the port of one of them.
+
+</Problem.Fix>
+</Problem.Body>
 
 For other problems, see
 [Configure an NI device](/reference/hardware/ni/configure-device#troubleshooting) and

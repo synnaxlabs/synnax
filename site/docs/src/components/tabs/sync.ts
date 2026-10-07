@@ -21,8 +21,11 @@ export const PICKER_ATTRIBUTE = "data-tabs-picker";
 export const CHANGE_EVENT = "docs:tabs-change";
 
 const TAB = '[role="tab"]';
+const STRIP = '[role="tablist"]';
 const OPTION = "[data-tab-key]";
 const SELECTED_CLASS = "pluto--selected";
+const CLIPPED_START_CLASS = "pluto-tabs__selector--clipped-start";
+const CLIPPED_END_CLASS = "pluto-tabs__selector--clipped-end";
 
 /** Resolves and reacts to the choice for one query key. */
 export interface Query {
@@ -42,6 +45,27 @@ const ownTabs = (frame: Element): HTMLElement[] =>
     (tab) => tab.closest(`[${QUERY_ATTRIBUTE}]`) === frame,
   );
 
+// A strip of tabs is static HTML, so this script, not the tabs component, fades each
+// edge that hides tabs and scrolls the selected tab into view.
+const clip = (strip: Element): void => {
+  const max = strip.scrollWidth - strip.clientWidth;
+  strip.classList.toggle(CLIPPED_START_CLASS, max > 1 && strip.scrollLeft > 1);
+  strip.classList.toggle(CLIPPED_END_CLASS, max > 1 && strip.scrollLeft < max - 1);
+};
+
+const clipAll = (): void => document.querySelectorAll(STRIP).forEach(clip);
+
+const reveal = (tab: Element): void => {
+  const strip = tab.closest(STRIP);
+  if (strip == null) return;
+  const port = strip.getBoundingClientRect();
+  const { left, right } = tab.getBoundingClientRect();
+  // Centered, a tab clears the fade at each edge, and the strip stops at its ends.
+  if (left < port.left || right > port.right)
+    strip.scrollLeft += (left + right - port.left - port.right) / 2;
+  clip(strip);
+};
+
 const selectTab = (frame: Element, value: string): boolean => {
   const tabs = ownTabs(frame);
   if (!tabs.some((tab) => tab.dataset.tabKey === value)) return false;
@@ -54,6 +78,7 @@ const selectTab = (frame: Element, value: string): boolean => {
       `[id="${tab.getAttribute("aria-controls")}"]`,
     );
     if (panel != null) panel.hidden = !selected;
+    if (selected) reveal(tab);
   }
   return true;
 };
@@ -124,6 +149,7 @@ export const start = (queries: Queries): void => {
       apply(key, value);
     }
     if (replaced) window.history.replaceState(window.history.state, "", url);
+    clipAll();
     document.dispatchEvent(new CustomEvent(CHANGE_EVENT));
   };
 
@@ -182,6 +208,16 @@ export const start = (queries: Queries): void => {
     // Toggle events do not bubble.
     { capture: true },
   );
+
+  // Scroll events do not bubble.
+  document.addEventListener(
+    "scroll",
+    (e) => {
+      if (e.target instanceof Element && e.target.matches(STRIP)) clip(e.target);
+    },
+    { capture: true, passive: true },
+  );
+  window.addEventListener("resize", clipAll, { passive: true });
 
   // After a swap, not on page load, so the new page never shows its first tabs.
   document.addEventListener("astro:after-swap", load);

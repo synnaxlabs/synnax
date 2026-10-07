@@ -11,6 +11,7 @@ import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
 import Details from "@/components/details/Details.astro";
 import { Client } from "@/components/client";
+import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -201,26 +202,70 @@ const alertTask = await client.tasks.create({
 
 ## Troubleshooting
 
-### "must be exactly 32 characters"
+### `must be exactly 32 characters`
 
-The routing key is not 32 characters long. Copy the integration key again from the
-**Events API v2** integration in PagerDuty.
+<Problem.Body>
+<Problem.Cause>
 
-### "at least one alert must be enabled"
+The routing key is not 32 characters long.
 
-The task has no alerts, or every alert is disabled. Add an alert, or enable one.
+</Problem.Cause>
+<Problem.Fix>
 
-### "Failed to send PagerDuty event"
+Copy the integration key again from the **Events API v2** integration in PagerDuty.
 
-PagerDuty rejected the event, or the Core could not reach `events.pagerduty.com`. The
-rest of the message gives the cause. Check the routing key and the internet access of
-the computer that runs the Core. The task keeps running and sends the next change.
+</Problem.Fix>
+</Problem.Body>
+
+### `at least one alert must be enabled`
+
+<Problem.Body>
+<Problem.Cause>
+
+The task has no alerts, or every alert is disabled.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Add an alert, or enable one.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `Failed to send PagerDuty event`
+
+<Problem.Body>
+<Problem.Cause>
+
+The Core could not send the event to PagerDuty. The rest of the message gives the cause.
+The task keeps running and sends the next change.
+
+</Problem.Cause>
+<Problem.Fix>
+
+- **PagerDuty rejected the event** -> check the routing key.
+- **The Core could not reach `events.pagerduty.com`** -> check the internet access of
+  the computer that runs the Core.
+
+</Problem.Fix>
+</Problem.Body>
 
 ### No incident opens
 
+<Problem.Body>
+<Problem.Cause>
+
 The task sends only changes that happen while it runs, and only for the status keys in
-its alerts. Make sure that the task is running, and that the automation sets the same
-key. An Arc `status.set` with a name that matches no status creates a new status with a
-new key.
+its alerts.
+
+</Problem.Cause>
+<Problem.Fix>
+
+- **The task is not running** -> start the task.
+- **The automation sets a different key** -> set the key of an alert. An Arc
+  `status.set` with a name that matches no status creates a new status with a new key.
+
+</Problem.Fix>
+</Problem.Body>
 
 For other problems, see [tasks](/reference/hardware/tasks).

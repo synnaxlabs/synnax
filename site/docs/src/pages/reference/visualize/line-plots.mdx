@@ -9,6 +9,7 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Image, Video } from "@/components/media/Media";
 import Diagram from "@/components/diagram/Diagram.astro";
+import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -227,26 +228,78 @@ Raise the downsampling factor when a plot of a long range or of many channels is
 
 ### The plot is empty
 
-The time range has no data for the channels. Check that **Ranges** has a rolling span or
-a range in which the channels have samples. For live data, check that a task or a script
-writes to the channels.
+<Problem.Body>
+<Problem.Cause>
+
+The time range has no data for the channels.
+
+</Problem.Cause>
+<Problem.Fix>
+
+- **The range has no samples** -> make sure that **Ranges** has a rolling span or a
+  range in which the channels have samples.
+- **No live data arrives** -> check that a task or a script writes to the channels.
+
+</Problem.Fix>
+</Problem.Body>
 
 ### A range is not in the Ranges list
 
+<Problem.Body>
+<Problem.Cause>
+
 The list holds only your favorite ranges and ranges that you added to plots.
+
+</Problem.Cause>
+<Problem.Fix>
+
 [Favorite the range](/reference/ranges/find#favorites), or right-click it in the ranges
 toolbar and select **Add to active plot**.
 
+</Problem.Fix>
+</Problem.Body>
+
 ### A channel is not in the Y1 list
 
-The axis lists hide virtual, string, JSON, and UUID channels. Use a
-[log](/reference/visualize/logs) for text values.
+<Problem.Body>
+<Problem.Cause>
+
+The axis lists hide virtual, string, JSON, and UUID channels.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Use a [log](/reference/visualize/logs) for text values.
+
+</Problem.Fix>
+</Problem.Body>
 
 ### The toolbar says the plot is not editable
 
-You do not have permission to change the plot. Ask an administrator for access. You can
-still zoom, pan, and select.
+<Problem.Body>
+<Problem.Cause>
+
+You do not have permission to change the plot. You can still zoom, pan, and select.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Ask an administrator for access.
+
+</Problem.Fix>
+</Problem.Body>
 
 ### H does not pause the plot
 
-**H** needs permission to change the plot. Click <Icon.Pause /> instead.
+<Problem.Body>
+<Problem.Cause>
+
+**H** needs permission to change the plot.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Click <Icon.Pause /> instead.
+
+</Problem.Fix>
+</Problem.Body>

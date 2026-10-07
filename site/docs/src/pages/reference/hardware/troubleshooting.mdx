@@ -6,6 +6,7 @@ description: "Fix common problems with the Driver, devices, and tasks."
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Edition } from "@/components/edition";
+import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -30,11 +31,17 @@ Many fixes end with a Driver restart. How you restart it depends on where it run
 
 ## The Driver
 
-### "Synnax Driver on ... not running"
+### `Synnax Driver on ... not running`
+
+<Problem.Body>
+<Problem.Cause>
 
 The Core has not heard from the Driver for a few seconds. The Driver shows this warning
 in the devices toolbar. A task on that Driver shows the same message when you start or
 stop it.
+
+</Problem.Cause>
+<Problem.Fix>
 
 1. [Restart the Driver](#restart-the-driver).
 2. Wait for the Driver status to change to "Driver is running".
@@ -46,12 +53,21 @@ the Core. See [install the Driver](/reference/enterprise/driver/install).
 
 </Edition.Enterprise>
 
-### "No response to the start command"
+</Problem.Fix>
+</Problem.Body>
+
+### `No response to the start command`
+
+<Problem.Body>
+<Problem.Cause>
 
 The Driver did not answer the command in 10 seconds. The Driver is running, but the
 device takes too long to start or stop. After 60 seconds, the Driver gives up and the
 status changes to "operation timed out". The Driver does not run a new command for the
 task until the old command ends, so starting the task again does not help.
+
+</Problem.Cause>
+<Problem.Fix>
 
 1. Check the cable, power, and network of the device.
 2. [Restart the Driver](#restart-the-driver).
@@ -60,18 +76,30 @@ task until the old command ends, so starting the task again does not help.
 If the status is "Synnax Driver on ... not running" instead, see
 [the Driver is not running](#synnax-driver-on--not-running).
 
-### "no driver integration handles task type ..."
+</Problem.Fix>
+</Problem.Body>
+
+### `no driver integration handles task type ...`
 
 <Edition.Enterprise>
+
+<Problem.Body>
+<Problem.Cause>
 
 The Driver that holds the task does not run the integration of the task, for example a
 Modbus task on a Driver on NI Linux RT. The Driver shows this status when you start the
 task. A task stays on the Driver of its device.
 
+</Problem.Cause>
+<Problem.Fix>
+
 1. Connect the device again, with **Connect from** set to a Driver that runs the
    integration. See
    [supported integrations](/reference/hardware#supported-integrations).
 2. Create the task again on the new device.
+
+</Problem.Fix>
+</Problem.Body>
 
 </Edition.Enterprise>
 
@@ -81,7 +109,14 @@ task. A task stays on the Driver of its device.
 
 ### A device does not show in the devices toolbar
 
-Find the cause that matches your device:
+<Problem.Body>
+<Problem.Cause>
+
+The Driver skips the device, cannot use it, or does not look for it. A task with no
+device to select shows "No devices connected" in its device list.
+
+</Problem.Cause>
+<Problem.Fix>
 
 - **NI device** -> the Driver skips a device that has no name in NI MAX. Give the device
   a name in NI MAX. The Driver also skips CompactRIO controllers, but it finds the
@@ -97,28 +132,50 @@ Find the cause that matches your device:
   them by hand. See
   [how devices get into Synnax](/reference/hardware/devices#how-devices-get-into-synnax).
 
-When a task has no device to select, its device list shows "No devices connected".
+</Problem.Fix>
+</Problem.Body>
 
-### "Device disconnected"
+### `Device disconnected`
+
+<Problem.Body>
+<Problem.Cause>
 
 The Driver no longer finds a device that it found before.
+
+</Problem.Cause>
+<Problem.Fix>
 
 1. Check the cable, power, and network of the device.
 2. Wait for the next scan. The status changes back to "Device present".
 
-### "Failed to reach device" or "Failed to reach server"
+</Problem.Fix>
+</Problem.Body>
+
+### `Failed to reach device` or `Failed to reach server`
+
+<Problem.Body>
+<Problem.Cause>
 
 The Driver cannot connect to a Modbus, OPC UA, or HTTP device.
+
+</Problem.Cause>
+<Problem.Fix>
 
 1. Make sure that the device is on and on the same network as the Driver.
 2. Right-click the device in the devices toolbar and select **Edit connection**.
 3. Check the address and port, then click **Connect**.
+
+</Problem.Fix>
+</Problem.Body>
 
 <Divider.Divider x />
 
 ## Tasks
 
 ### A task says the libraries are not installed
+
+<Problem.Body>
+<Problem.Cause>
 
 The Driver cannot load the vendor libraries. NI tasks show "Cannot create the task
 because the NI-DAQmx and System Configuration libraries are not installed on this
@@ -127,27 +184,77 @@ installed on this System". These messages show for a task that you imported, or 
 the software was removed. NI tasks never work on macOS, and LabJack tasks never work on
 Linux.
 
+</Problem.Cause>
+<Problem.Fix>
+
 1. Install NI-DAQmx or LJM.
 2. [Restart the Driver](#restart-the-driver).
 3. Start the task again.
 
+</Problem.Fix>
+</Problem.Body>
+
 ### A task says its device is not configured
 
-The task tab shows "... is not configured" when its device is not configured yet. Click
-**Configure ...** in the message and follow the steps in the dialog.
+<Problem.Body>
+<Problem.Cause>
+
+The device of the task is not configured yet. The task tab shows "... is not
+configured".
+
+</Problem.Cause>
+<Problem.Fix>
+
+Click **Configure ...** in the message, and follow the steps in the dialog.
+
+</Problem.Fix>
+</Problem.Body>
 
 ### Values show on a plot but are not stored
 
-The task has **Data saving** off. Turn on **Data saving** in the task tab. See
+<Problem.Body>
+<Problem.Cause>
+
+The task has **Data saving** off.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Turn on **Data saving** in the task tab. See
 [data saving](/reference/hardware/tasks#data-saving).
+
+</Problem.Fix>
+</Problem.Body>
 
 ### A running task ignores your edits
 
-The task keeps its old configuration until you redeploy it. See
+<Problem.Body>
+<Problem.Cause>
+
+The task keeps its old configuration until you redeploy it.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Redeploy the task. See
 [apply edits to a running task](/reference/hardware/start-and-stop-tasks#apply-edits-to-a-running-task).
+
+</Problem.Fix>
+</Problem.Body>
 
 ### A write task does not change the output
 
-Another writer, such as a schematic or an Arc automation, holds control of the command
-channel with a higher authority. Release control in that writer, or give your writer a
-higher authority. See [control authority](/reference/control/authority).
+<Problem.Body>
+<Problem.Cause>
+
+Another writer, such as a schematic or an Arc automation, controls the command channel.
+It has a higher authority, or the same authority and it opened first.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Release control in that writer, or give your writer a higher authority. See
+[control authority](/reference/control/authority).
+
+</Problem.Fix>
+</Problem.Body>

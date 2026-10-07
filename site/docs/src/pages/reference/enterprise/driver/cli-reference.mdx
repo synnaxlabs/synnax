@@ -5,7 +5,7 @@ description: "The commands and flags of the synnax-driver program."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Table } from "@/components/table";
+import { Field } from "@/components/field";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -93,122 +93,94 @@ and `--disable-stdin-stop` take no value: they turn on when they are present. Th
 flags take a value, as `--port 9091` or `--port=9091`. For a boolean value, use `true`
 or `false`.
 
-<Table.Data
-  columns={[
-    { key: "option", name: "Flag", type: "code", width: 200 },
-    { key: "default", name: "Default", type: "code" },
-    { key: "description", name: "Description", type: "html" },
-  ]}
-  data={[
-    {
-      option: "--standalone, -s",
-      default: "false",
-      description: "Run the Driver in the terminal, not as a service.",
-    },
-    {
-      option: "--disable-sig-stop",
-      default: "false",
-      description: "Keep the Driver running when it gets SIGINT or SIGTERM.",
-    },
-    {
-      option: "--disable-stdin-stop",
-      default: "false",
-      description:
-        "Do not stop the Driver when you type <code>STOP</code> in the terminal. Use this flag when the Driver runs with no terminal.",
-    },
-    {
-      option: "--config",
-      default: "none",
-      description:
-        "The path of a <a href='/reference/enterprise/driver/configuration#configuration-file'>configuration file</a>.",
-    },
-    {
-      option: "--state-file",
-      default: "see description",
-      description:
-        "The path of the state file. The default depends on the operating system, see <a href='/reference/enterprise/driver/configuration#state-file'>State file</a>.",
-    },
-    {
-      option: "--host",
-      default: "localhost",
-      description: "The host of the Core.",
-    },
-    {
-      option: "--port",
-      default: "9090",
-      description: "The port of the Core.",
-    },
-    {
-      option: "--username",
-      default: "synnax",
-      description: "The username of the Driver user.",
-    },
-    {
-      option: "--password",
-      default: "seldon",
-      description: "The password of the Driver user.",
-    },
-    {
-      option: "--secure",
-      default: "false",
-      description:
-        "Connect to the Core over TLS. Takes a value: <code>--secure true</code>.",
-    },
-    {
-      option: "--correct-skew",
-      default: "true",
-      description:
-        "Keep the timestamps of hardware-timed NI and LabJack reads in step with the clock of the computer. Takes a value.",
-    },
-    {
-      option: "--op-timeout",
-      default: "60",
-      description:
-        "The number of seconds after which a task operation that has not finished gives the task the error <code>operation timed out</code>.",
-    },
-    {
-      option: "--poll-interval",
-      default: "1",
-      description:
-        "The number of seconds between two checks for task operations that have not finished.",
-    },
-    {
-      option: "--shutdown-timeout",
-      default: "30",
-      description:
-        "The number of seconds that the Driver waits for task operations when it stops.",
-    },
-    {
-      option: "--worker-count",
-      default: "4",
-      description: "The number of threads that run task operations, from 1 to 64.",
-    },
-    {
-      option: "--rack-key",
-      default: "0",
-      description:
-        "The key that the Core knows this Driver by. With 0, the Driver registers as a new Driver. Set <code>--cluster-key</code> too.",
-    },
-    {
-      option: "--cluster-key",
-      default: "00000000-0000-0000-0000-000000000000",
-      description:
-        "The key of the Core that issued <code>--rack-key</code>. When it is not the key of the Core, the Driver registers as a new Driver.",
-    },
-    {
-      option: "--enable-integrations",
-      default: "none",
-      description:
-        "Integrations to add, separated by commas: <code>arc</code>, <code>ethercat</code>, <code>http</code>, <code>labjack</code>, <code>modbus</code>, <code>ni</code>, or <code>opc</code>.",
-    },
-    {
-      option: "--disable-integrations",
-      default: "none",
-      description:
-        "Integrations to remove, separated by commas. For example, <code>--disable-integrations ni,labjack</code>.",
-    },
-  ]}
-/>
+<Field.List>
+
+<Field.Item name="--standalone" short="-s" default="false">
+  Run the Driver in the terminal, not as a service.
+</Field.Item>
+
+<Field.Item name="--disable-sig-stop" default="false">
+  Keep the Driver running when it gets SIGINT or SIGTERM.
+</Field.Item>
+
+<Field.Item name="--disable-stdin-stop" default="false">
+  Do not stop the Driver when you type `STOP` in the terminal. Use this flag when the
+  Driver runs with no terminal.
+</Field.Item>
+
+<Field.Item name="--config">
+  The path of a [configuration
+  file](/reference/enterprise/driver/configuration#configuration-file).
+</Field.Item>
+
+<Field.Item name="--state-file">
+  The path of the state file. The default depends on the operating system. See [State
+  file](/reference/enterprise/driver/configuration#state-file).
+</Field.Item>
+
+<Field.Item name="--host" default="localhost">
+  The host of the Core.
+</Field.Item>
+
+<Field.Item name="--port" default="9090">
+  The port of the Core.
+</Field.Item>
+
+<Field.Item name="--username" default="synnax">
+  The username of the Driver user.
+</Field.Item>
+
+<Field.Item name="--password" default="seldon">
+  The password of the Driver user.
+</Field.Item>
+
+<Field.Item name="--secure" default="false">
+  Connect to the Core over TLS. Takes a value: `--secure true`.
+</Field.Item>
+
+<Field.Item name="--correct-skew" default="true">
+  Keep the timestamps of hardware-timed NI and LabJack reads in step with the clock of
+  the computer. Takes a value.
+</Field.Item>
+
+<Field.Item name="--op-timeout" default="60">
+  The number of seconds after which a task operation that has not finished gives the
+  task the error `operation timed out`.
+</Field.Item>
+
+<Field.Item name="--poll-interval" default="1">
+  The number of seconds between two checks for task operations that have not finished.
+</Field.Item>
+
+<Field.Item name="--shutdown-timeout" default="30">
+  The number of seconds that the Driver waits for task operations when it stops.
+</Field.Item>
+
+<Field.Item name="--worker-count" default="4">
+  The number of threads that run task operations, from 1 to 64.
+</Field.Item>
+
+<Field.Item name="--rack-key" default="0">
+  The key that the Core knows this Driver by. With 0, the Driver registers as a new
+  Driver. Set `--cluster-key` too.
+</Field.Item>
+
+<Field.Item name="--cluster-key" default="00000000-0000-0000-0000-000000000000">
+  The key of the Core that issued `--rack-key`. When it is not the key of the Core, the
+  Driver registers as a new Driver.
+</Field.Item>
+
+<Field.Item name="--enable-integrations">
+  Integrations to add, separated by commas: `arc`, `ethercat`, `http`, `labjack`,
+  `modbus`, `ni`, or `opc`.
+</Field.Item>
+
+<Field.Item name="--disable-integrations">
+  Integrations to remove, separated by commas. For example, `--disable-integrations
+  ni,labjack`.
+</Field.Item>
+
+</Field.List>
 
 The service ignores these flags. To configure the service, see
 [Configure a standalone Driver](/reference/enterprise/driver/configuration).

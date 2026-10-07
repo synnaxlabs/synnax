@@ -10,6 +10,7 @@ import { Fragment } from "react";
 import { Client } from "@/components/client";
 import Platforms from "@/components/hardware/Platforms.astro";
 import { Video } from "@/components/media/Media";
+import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -100,17 +101,53 @@ device that the Driver finds, and the Console cannot use it.
 
 ### The device does not show in the devices toolbar
 
-Install NI-DAQmx and restart the Driver. Check that NI MAX shows the device with a name.
-The Driver skips a device that has no name. For more causes, see
+<Problem.Body>
+<Problem.Cause>
+
+The Driver cannot load NI-DAQmx, or it skips the device.
+
+</Problem.Cause>
+<Problem.Fix>
+
+- **NI-DAQmx is not installed** -> install NI-DAQmx and restart the Driver.
+- **The device has no name** -> check that NI MAX shows the device with a name. The
+  Driver skips a device that has no name.
+
+For more causes, see
 [Troubleshoot hardware](/reference/hardware/troubleshooting#a-device-does-not-show-in-the-devices-toolbar).
 
-### "Cannot create the task because the NI-DAQmx and System Configuration libraries are not installed"
+</Problem.Fix>
+</Problem.Body>
 
-Install the software in the [prerequisites](#prerequisites), then restart the Driver.
+### `Cannot create the task because the NI-DAQmx and System Configuration libraries are not installed`
 
-### "The device is temporarily unreachable. Will keep trying"
+<Problem.Body>
+<Problem.Cause>
 
-The Driver lost the connection to the device. Check the cable and the power. The task
-continues when the device comes back.
+The Driver cannot load the NI-DAQmx and System Configuration libraries.
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. Install the software in the [prerequisites](#prerequisites).
+2. Restart the Driver.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `The device is temporarily unreachable. Will keep trying`
+
+<Problem.Body>
+<Problem.Cause>
+
+The Driver lost the connection to the device.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the cable and the power. The task continues when the device comes back.
+
+</Problem.Fix>
+</Problem.Body>
 
 For other problems, see [Troubleshoot hardware](/reference/hardware/troubleshooting).

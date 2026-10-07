@@ -16,7 +16,9 @@ import { integration } from "@synnaxlabs/site-common/integration";
 import { layers } from "@synnaxlabs/vite-plugin";
 import { defineConfig, envField } from "astro/config";
 
+import { inlineCode } from "./src/util/inlineCode";
 import { outline } from "./src/util/outline";
+import { quantities } from "./src/util/quantities";
 import { symbols, theme } from "./src/util/shiki";
 
 // https://astro.build/config
@@ -58,7 +60,7 @@ export default defineConfig({
     },
   },
   markdown: {
-    processor: satteri({ hastPlugins: [outline] }),
+    processor: satteri({ hastPlugins: [outline, inlineCode, quantities] }),
     shikiConfig: {
       theme,
       langs: [arcGrammar],

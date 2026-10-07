@@ -240,14 +240,14 @@ article {
     h1.pluto-text {
         margin-top: 5rem;
         margin-bottom: 3rem;
-        letter-spacing: -0.02em;
+        letter-spacing: var(--pluto-h1-letter-spacing);
     }
 
     h2,
     h2.pluto-text {
-        margin-top: 8rem;
+        margin-top: 12rem;
         margin-bottom: 3rem;
-        letter-spacing: -0.01em;
+        letter-spacing: var(--pluto-h2-letter-spacing);
         color: var(--pluto-gray-l11);
         font-feature-settings:
             "liga" 1,
@@ -279,8 +279,9 @@ article {
 
     h3,
     h3.pluto-text {
-        margin-top: 5rem;
+        margin-top: 8rem;
         margin-bottom: 2.5rem;
+        letter-spacing: -0.015em;
         color: var(--pluto-gray-l11);
     }
 
@@ -297,8 +298,18 @@ article {
         margin-bottom: 2rem;
     }
 
-    table {
+    /* An MDX table scrolls inside a wrapper, so the wrapper is the block that takes the
+       margin. */
+    :is(table, .table-wrapper) {
         margin: 4rem 0;
+    }
+
+    .table-wrapper > table {
+        margin: 0;
+    }
+
+    :is(.field-list, .rule-list, .problem-list) {
+        margin: 3rem 0 var(--docs-block-gap);
     }
 
     :is(h2, h2.pluto-text) + :is(h3, h3.pluto-text) {
@@ -309,12 +320,17 @@ article {
         margin-top: 2rem;
     }
 
-    :is(h2, h2.pluto-text, h3, h3.pluto-text, h4, h4.pluto-text) + table {
-        margin-top: 2rem;
-    }
-
-    :is(h2, h2.pluto-text, h3, h3.pluto-text, h4, h4.pluto-text) + .astro-code-wrapper {
-        margin-top: 3rem;
+    /* A heading owns the gap below it. */
+    :is(h2, h2.pluto-text, h3, h3.pluto-text, h4, h4.pluto-text)
+        + :is(
+            table,
+            .table-wrapper,
+            .pluto-tabs,
+            .field-list,
+            .rule-list,
+            .problem-list
+        ) {
+        margin-top: 0;
     }
 
     .pluto-btn .pluto-text {
@@ -336,8 +352,18 @@ article {
     iframe,
     img:not(.diagram img, .blog-author__photo, figure img) {
         display: block;
-        width: calc(100% - 2 * var(--docs-block-inset));
-        margin: 5rem var(--docs-block-inset) var(--docs-block-gap);
+        width: 100%;
+        margin: 5rem 0 var(--docs-block-gap);
+    }
+
+    :is(video, img:not(.diagram img, .blog-author__photo)) {
+        border: var(--pluto-border);
+        border-radius: 1rem;
+        box-shadow: 0 0 1rem 0 var(--pluto-gray-l4);
+
+        @media (prefers-color-scheme: dark) {
+            box-shadow: 0 0 2rem 0 rgb(50 50 50 / 10%);
+        }
     }
 
     /* The picture only picks a source, so the image lays out as if unwrapped. */
@@ -347,28 +373,54 @@ article {
 
     .docs-video {
         position: relative;
-
-        & > video {
-            border-radius: var(--pluto-border-radius);
-        }
     }
 
-    /* Themed images render inside a picture, and videos inside a play button wrapper. */
-    p:has(+ :is(video, img, .docs-picture, .docs-video)) {
+    /* A lead-in sentence sits close to the block it introduces. Themed images render
+       inside a picture, and videos inside a play button wrapper. */
+    p:has(+ :is(video, img, .docs-picture, .docs-video, .table-wrapper, .pluto-tabs)),
+    p:has(+ :is(.field-list, .rule-list, .problem-list)) {
         margin-bottom: 2rem;
     }
 
-    p + :is(video, img),
+    p + :is(video, img, .table-wrapper, .pluto-tabs),
+    p + :is(.field-list, .rule-list, .problem-list),
     p + .docs-picture > img,
     p + .docs-video > video {
         margin-top: 0;
     }
 
-    /* Leading media sits under the tab strip like a leading code block. */
-    .pluto-tabs__content > :is(video, img):first-child,
-    .pluto-tabs__content > .docs-picture:first-child > img,
-    .pluto-tabs__content > .docs-video:first-child > video {
-        margin-top: 0;
+    /* In a pane, media is a band across the full pane, the same as a code block, so it
+       does not draw a frame inside the frame of the pane. */
+    :is(.pluto-tabs__content, .docs-details > .content) {
+        & > :is(video, img),
+        & > .docs-picture > img,
+        & > .docs-video > video {
+            width: calc(100% + 2 * var(--docs-block-padding));
+            max-width: none;
+            margin: var(--docs-block-padding) calc(-1 * var(--docs-block-padding));
+            border: none;
+            border-block: var(--pluto-border-width) solid var(--pluto-gray-l3);
+            border-radius: 0;
+            box-shadow: none;
+        }
+
+        & > :is(video, img):first-child,
+        & > .docs-picture:first-child > img,
+        & > .docs-video:first-child > video {
+            margin-top: calc(-1 * var(--docs-block-padding));
+            border-top: none;
+        }
+
+        & > :is(video, img):last-child,
+        & > .docs-picture:last-child > img,
+        & > .docs-video:last-child > video {
+            margin-bottom: calc(-1 * var(--docs-block-padding));
+            border-bottom: none;
+        }
+
+        & > p:has(+ :is(video, img, .docs-picture, .docs-video)) {
+            margin-bottom: 0;
+        }
     }
 
     /* Touch devices play a video on a tap, so a paused one shows a play button. */
@@ -394,8 +446,27 @@ article {
         }
     }
 
-    ul {
-        padding-left: 5rem;
+    /* Bullets are drawn, so their size and place do not change with the font. A list
+       with a class draws its own items. */
+    ul:not([class]) {
+        padding-left: 0;
+        list-style: none;
+
+        & > li {
+            position: relative;
+            padding-left: 20px;
+
+            &::before {
+                content: "";
+                position: absolute;
+                top: calc(0.5lh - 2.5px);
+                left: 3px;
+                width: 5px;
+                height: 5px;
+                border-radius: 50%;
+                background: var(--docs-marker-color);
+            }
+        }
     }
 
     .yt-video {
@@ -428,12 +499,5 @@ article {
                 }
             }
         }
-    }
-}
-
-/* Responsive article styles */
-@media (max-width: 800px) {
-    article ul {
-        padding-left: 2rem;
     }
 }

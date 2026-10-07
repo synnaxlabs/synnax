@@ -48,3 +48,38 @@ const contains = (node: PageNavNode, route: string): boolean =>
 /** Returns the name of the nav section that holds a route, if one does. */
 export const sectionOf = (route: string): string | undefined =>
   REFERENCE_PAGES.find((node) => node.children != null && contains(node, route))?.name;
+
+const routesOf = (node: PageNavNode): string[] => [
+  ...(node.href == null ? [] : [normalizeRoute(node.href)]),
+  ...(node.children ?? []).flatMap(routesOf),
+];
+
+const commonPath = (routes: string[]): string => {
+  const [first, ...rest] = routes.map((route) => route.split("/"));
+  const end = first.findIndex((part, i) => rest.some((parts) => parts[i] !== part));
+  return (end === -1 ? first : first.slice(0, end)).join("/");
+};
+
+// A section names the route that its pages share, unless an enclosing section shares
+// the same route. The section entry comes last, so it wins over its overview page.
+const labels = (nodes: PageNavNode[], parent: string): [string, string][] =>
+  nodes.flatMap((node): [string, string][] => {
+    if (node.children == null)
+      return node.href == null ? [] : [[normalizeRoute(node.href), node.name]];
+    const shared = commonPath(routesOf(node));
+    if (shared === parent) return labels(node.children, parent);
+    return [...labels(node.children, shared), [shared, node.name]];
+  });
+
+const ROOT = commonPath(REFERENCE_PAGES.flatMap(routesOf));
+
+const LABELS: ReadonlyMap<string, string> = new Map(
+  labels(REFERENCE_PAGES, ROOT).filter(([route]) => route !== ROOT),
+);
+
+/**
+ * Returns the nav name of a route. A route that a section's pages share, such as the
+ * route of its overview page, takes the name of the section.
+ */
+export const labelOf = (route: string): string | undefined =>
+  LABELS.get(normalizeRoute(route));

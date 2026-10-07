@@ -6,7 +6,7 @@ description:
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Field } from "@/components/field";
+import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -26,39 +26,50 @@ In the messages below, `<name>` stands for a value that changes.
 
 ## Diagnostic codes
 
-<Field.List>
+<Problem.List>
 
-<Field.Item name="ARC3001" id="arc3001">
+<Problem.Item
+  code="ARC3001"
+  severity="error"
+  message={[
+    "missing required argument for parameter '<p>' of func '<f>'",
+    "too many arguments for func '<f>': expected at most <n>",
+  ]}
+>
+  <Problem.Cause>The call has too few or too many arguments.</Problem.Cause>
+  <Problem.Fix>Match the signature in the note.</Problem.Fix>
+</Problem.Item>
 
-Error. `missing required argument for parameter '<p>' of func '<f>'`, or
-`too many arguments for func '<f>': expected at most <n>`. The call has too few or too
-many arguments. Match the signature in the note.
+<Problem.Item
+  code="ARC3002"
+  severity="error"
+  message="type mismatch in argument '<p>' of '<f>': expected <T>, got <U>"
+>
+  <Problem.Cause>An argument has the wrong type.</Problem.Cause>
+  <Problem.Fix>
+    Convert the value. For a duration in a variable, declare the variable as `i64 ns`.
+  </Problem.Fix>
+</Problem.Item>
 
-</Field.Item>
+<Problem.Item
+  code="ARC4003"
+  severity="warning"
+  message="'<old>' is deprecated, use '<new>' instead"
+>
+  <Problem.Cause>The code uses an old name, such as `interval`.</Problem.Cause>
+  <Problem.Fix>Use the qualified name, such as `time.interval`.</Problem.Fix>
+</Problem.Item>
 
-<Field.Item name="ARC3002" id="arc3002">
+<Problem.Item
+  code="ARC5001"
+  severity="error"
+  message={'imported module "<m>" is unused'}
+>
+  <Problem.Cause>The code imports a module and does not use it.</Problem.Cause>
+  <Problem.Fix>Remove the import.</Problem.Fix>
+</Problem.Item>
 
-Error. `type mismatch in argument '<p>' of '<f>': expected <T>, got <U>`. An argument
-has the wrong type. Convert the value. For a duration in a variable, declare the
-variable as `i64 ns`.
-
-</Field.Item>
-
-<Field.Item name="ARC4003" id="arc4003">
-
-Warning. `'<old>' is deprecated, use '<new>' instead`. The code uses an old name, such
-as `interval`. Use the qualified name, such as `time.interval`.
-
-</Field.Item>
-
-<Field.Item name="ARC5001" id="arc5001">
-
-Error. `imported module "<m>" is unused`. The code imports a module and does not use it.
-Remove the import.
-
-</Field.Item>
-
-</Field.List>
+</Problem.List>
 
 Codes ARC2001, ARC2003, ARC4001, and ARC4002 are reserved. The compiler does not emit
 them.
@@ -67,70 +78,238 @@ them.
 
 ## Common messages without a code
 
-These tables list the most common diagnostics without a code, not all of them.
+This section lists the most common diagnostics without a code, not all of them.
 
 ### Syntax, imports, and names
 
-| Message                                                                 | Cause                                                                                                                                   | Fix                                                                                          |
-| ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `mismatched input '<x>' expecting <tokens>`                             | The syntax is not correct at that position.                                                                                             | Correct the code at the line and column.                                                     |
-| `token recognition error at: '<c>'`                                     | The character is not part of Arc, such as `&`.                                                                                          | Use the Arc operator, such as `and`.                                                         |
-| `unknown unit: <text>`                                                  | A number has a suffix that is not a unit, such as `0xFF` or `1e3`. In a function body, the error shows only when the automation starts. | Write the number in decimal digits.                                                          |
-| `unknown module "<m>"`                                                  | No module has that name.                                                                                                                | Use a module from the [standard library](/reference/control/arc/reference/standard-library). |
-| `duplicate import: "<m>" is already imported`                           | The code imports the module two times.                                                                                                  | Remove one import.                                                                           |
-| `import statements must appear before any other top-level declarations` | An import comes after other code.                                                                                                       | Move the imports to the top of the file.                                                     |
-| `undefined symbol: <name>`                                              | The name is not declared, the channel does not exist, or the module is not imported. A note gives the `import` to add.                  | Declare the name, correct the channel name, or add the import.                               |
-| `name <x> conflicts with existing <kind> at line <l>, col <c>`          | Two declarations in the same scope have the same name.                                                                                  | Rename one of them.                                                                          |
+<Problem.List>
+
+<Problem.Item message={"mismatched input '<x>' expecting <tokens>"}>
+  <Problem.Cause>The syntax is not correct at that position.</Problem.Cause>
+  <Problem.Fix>Correct the code at the line and column.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"token recognition error at: '<c>'"}>
+  <Problem.Cause>The character is not part of Arc, such as `&`.</Problem.Cause>
+  <Problem.Fix>Use the Arc operator, such as `and`.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"unknown unit: <text>"}>
+  <Problem.Cause>
+    A number has a suffix that is not a unit, such as `0xFF` or `1e3`. In a function
+    body, the error shows only when the automation starts.
+  </Problem.Cause>
+  <Problem.Fix>Write the number in decimal digits.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={'unknown module "<m>"'}>
+  <Problem.Cause>No module has that name.</Problem.Cause>
+  <Problem.Fix>
+    Use a module from the [standard
+    library](/reference/control/arc/reference/standard-library).
+  </Problem.Fix>
+</Problem.Item>
+<Problem.Item message={'duplicate import: "<m>" is already imported'}>
+  <Problem.Cause>The code imports the module two times.</Problem.Cause>
+  <Problem.Fix>Remove one import.</Problem.Fix>
+</Problem.Item>
+<Problem.Item
+  message={"import statements must appear before any other top-level declarations"}
+>
+  <Problem.Cause>An import comes after other code.</Problem.Cause>
+  <Problem.Fix>Move the imports to the top of the file.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"undefined symbol: <name>"}>
+  <Problem.Cause>
+    The name is not declared, the channel does not exist, or the module is not imported.
+    A note gives the `import` to add.
+  </Problem.Cause>
+  <Problem.Fix>
+    Declare the name, correct the channel name, or add the import.
+  </Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"name <x> conflicts with existing <kind> at line <l>, col <c>"}>
+  <Problem.Cause>Two declarations in the same scope have the same name.</Problem.Cause>
+  <Problem.Fix>Rename one of them.</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
 
 ### Types and expressions
 
-| Message                                                                                                     | Cause                                                                         | Fix                                         |
-| ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------- |
-| `type mismatch: cannot assign <T> to '<name>' (type <U>)`                                                   | The value and the variable have different types.                              | Convert the value, such as `f64(x)`.        |
-| `cannot use <T> in <op> operation`                                                                          | The operator does not take that type, such as `x and true` with a number `x`. | Use a comparison, such as `x > 0 and true`. |
-| `boolean conversions are not supported; define the comparison explicitly, e.g. x != 0 or abs(x - 1) < 0.01` | The code casts a value to `bool`.                                             | Write a comparison, such as `x != 0`.       |
+<Problem.List>
+
+<Problem.Item message={"type mismatch: cannot assign <T> to '<name>' (type <U>)"}>
+  <Problem.Cause>The value and the variable have different types.</Problem.Cause>
+  <Problem.Fix>Convert the value, such as `f64(x)`.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"cannot use <T> in <op> operation"}>
+  <Problem.Cause>The operator does not take that type, such as `x and true` with a number `x`.</Problem.Cause>
+  <Problem.Fix>Use a comparison, such as `x > 0 and true`.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"boolean conversions are not supported; define the comparison explicitly, e.g. x != 0 or abs(x - 1) < 0.01"}>
+  <Problem.Cause>The code casts a value to `bool`.</Problem.Cause>
+  <Problem.Fix>Write a comparison, such as `x != 0`.</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
 
 ### Variables and functions
 
-| Message                                                                                                | Cause                                                                    | Fix                                                  |
-| ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ | ---------------------------------------------------- |
-| `cannot reassign a top-level variable; assignment is only valid inside a sequence, stage, or function` | A top-level variable is a constant.                                      | Assign it inside a sequence, a stage, or a function. |
-| `stateful variables cannot be declared at the top level`                                               | A `$=` declaration is at the top level.                                  | Declare it in a sequence, a stage, or a function.    |
-| `cannot assign to loop variable '<i>'`                                                                 | The loop body changes the loop variable.                                 | Use a different variable.                            |
-| `function '<f>' must return a value of type <T> on all paths`                                          | One path through the function has no `return`.                           | Add a `return` to each path.                         |
-| `cannot return a value from a function with no return type`                                            | `return x` in a function without an output type, or with a named output. | Add an output type, or assign the named output.      |
-| `function '<f>' cannot be called inside a func block. Use it as a flow statement instead: <f>{}`       | A function body calls a flow function, such as `math.avg`.               | Use the function in a flow.                          |
-| `unknown parameter '<p>' for func '<f>'`                                                               | The function has no parameter with that name.                            | Use a name from the signature in the note.           |
-| `duplicate argument for parameter '<p>' of func '<f>'`                                                 | The call gives the same parameter two times.                             | Remove one argument.                                 |
+<Problem.List>
+
+<Problem.Item
+  message={
+    "cannot reassign a top-level variable; assignment is only valid inside a sequence, stage, or function"
+  }
+>
+  <Problem.Cause>A top-level variable is a constant.</Problem.Cause>
+  <Problem.Fix>Assign it inside a sequence, a stage, or a function.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"stateful variables cannot be declared at the top level"}>
+  <Problem.Cause>A `$=` declaration is at the top level.</Problem.Cause>
+  <Problem.Fix>Declare it in a sequence, a stage, or a function.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"cannot assign to loop variable '<i>'"}>
+  <Problem.Cause>The loop body changes the loop variable.</Problem.Cause>
+  <Problem.Fix>Use a different variable.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"function '<f>' must return a value of type <T> on all paths"}>
+  <Problem.Cause>One path through the function has no `return`.</Problem.Cause>
+  <Problem.Fix>Add a `return` to each path.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"cannot return a value from a function with no return type"}>
+  <Problem.Cause>
+    `return x` in a function without an output type, or with a named output.
+  </Problem.Cause>
+  <Problem.Fix>Add an output type, or assign the named output.</Problem.Fix>
+</Problem.Item>
+<Problem.Item
+  message={
+    "function '<f>' cannot be called inside a func block. Use it as a flow statement instead: <f>{}"
+  }
+>
+  <Problem.Cause>
+    A function body calls a flow function, such as `math.avg`.
+  </Problem.Cause>
+  <Problem.Fix>Use the function in a flow.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"unknown parameter '<p>' for func '<f>'"}>
+  <Problem.Cause>The function has no parameter with that name.</Problem.Cause>
+  <Problem.Fix>Use a name from the signature in the note.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"duplicate argument for parameter '<p>' of func '<f>'"}>
+  <Problem.Cause>The call gives the same parameter two times.</Problem.Cause>
+  <Problem.Fix>Remove one argument.</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
 
 ### Flows, sequences, and stages
 
-| Message                                                                              | Cause                                                                                           | Fix                                                                     |
-| ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `input value for '<p>' must be a literal`                                            | A parameter in `{}` gets a channel or an expression.                                            | Use a literal or a variable.                                            |
-| `upstream value type <T> does not match func '<f>' trigger parameter '<p>' type <U>` | The flow sends the wrong type into the function, such as a `bool` into `control.set_authority`. | Send a value of the type that the function takes.                       |
-| `<source> value type <T> does not match channel <ch> value type <U>`                 | A flow writes one channel type to a channel of another type.                                    | Convert the value in a function, or use a channel of the same type.     |
-| `func <f> output type <T> does not match channel <ch> value type <U>`                | The function output and the channel have different types.                                       | Use a channel of the output type.                                       |
-| `<name> is not a function`                                                           | `{}` follows a name that is not a function.                                                     | Call a function, or remove the `{}`.                                    |
-| `'=>' cannot feed select{}, use '->'`                                                | A `=>` sends values into `select`.                                                              | Use `->`.                                                               |
-| `input routing tables not yet implemented in text compiler`                          | The code uses an input routing table.                                                           | Set the extra parameters in `{}`, or call the function from a function. |
-| `'next' used outside of a sequence`                                                  | A `=> next` is in a top-level stage or flow.                                                    | Move it into a sequence.                                                |
-| `'next' in last stage '<s>' has no next stage`                                       | The last stage of a sequence uses `=> next`.                                                    | Add a step after it, or go to a named stage.                            |
-| `sequence '<s>' has no steps`                                                        | The sequence is empty.                                                                          | Add a step.                                                             |
+<Problem.List>
+
+<Problem.Item message={"input value for '<p>' must be a literal"}>
+  <Problem.Cause>A parameter in `{}` gets a channel or an expression.</Problem.Cause>
+  <Problem.Fix>Use a literal or a variable.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"upstream value type <T> does not match func '<f>' trigger parameter '<p>' type <U>"}>
+  <Problem.Cause>The flow sends the wrong type into the function, such as a `bool` into `control.set_authority`.</Problem.Cause>
+  <Problem.Fix>Send a value of the type that the function takes.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"<source> value type <T> does not match channel <ch> value type <U>"}>
+  <Problem.Cause>A flow writes one channel type to a channel of another type.</Problem.Cause>
+  <Problem.Fix>Convert the value in a function, or use a channel of the same type.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"func <f> output type <T> does not match channel <ch> value type <U>"}>
+  <Problem.Cause>The function output and the channel have different types.</Problem.Cause>
+  <Problem.Fix>Use a channel of the output type.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"<name> is not a function"}>
+  <Problem.Cause>`{}` follows a name that is not a function.</Problem.Cause>
+  <Problem.Fix>Call a function, or remove the `{}`.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"'=>' cannot feed select{}, use '->'"}>
+  <Problem.Cause>A `=>` sends values into `select`.</Problem.Cause>
+  <Problem.Fix>Use `->`.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"input routing tables not yet implemented in text compiler"}>
+  <Problem.Cause>The code uses an input routing table.</Problem.Cause>
+  <Problem.Fix>Set the extra parameters in `{}`, or call the function from a function.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"'next' used outside of a sequence"}>
+  <Problem.Cause>A `=> next` is in a top-level stage or flow.</Problem.Cause>
+  <Problem.Fix>Move it into a sequence.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"'next' in last stage '<s>' has no next stage"}>
+  <Problem.Cause>The last stage of a sequence uses `=> next`.</Problem.Cause>
+  <Problem.Fix>Add a step after it, or go to a named stage.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"sequence '<s>' has no steps"}>
+  <Problem.Cause>The sequence is empty.</Problem.Cause>
+  <Problem.Fix>Add a step.</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
 
 ### Authority and standard library arguments
 
-| Message                                                                                          | Cause                                                | Fix                                         |
-| ------------------------------------------------------------------------------------------------ | ---------------------------------------------------- | ------------------------------------------- |
-| `authority declaration must appear before function, flow, and sequence declarations`             | Other code comes before `authority`.                 | Move `authority` to just after the imports. |
-| `multiple default authority values`                                                              | The declaration has more than one default.           | Keep one default.                           |
-| `duplicate authority for '<ch>'`                                                                 | A channel has more than one value.                   | Keep one value for the channel.             |
-| `channel '<ch>' not found`                                                                       | The declaration names a channel that does not exist. | Correct the channel name.                   |
-| `authority value must be an integer in range 0-255, got '<v>'`                                   | The value is outside 0 to 255.                       | Use a value from 0 to 255.                  |
-| `<param> must be positive, got <span>`                                                           | A timer has a `period` or `duration` of 0 or less.   | Use a positive duration.                    |
-| `"<v>" is not a valid status variant: [success, info, warning, error, loading, disabled]`        | `status.set` has an unknown `variant`.               | Use a variant from the list.                |
-| For example, `color must be a hex value (e.g. "#3bc454") or rgb(r,g,b): "<v>": validation error` | `ranges.create` has a `color` that is not a color.   | Use a hex, `rgb()`, or `rgba()` color.      |
-| `stable.for input must be a numeric or bool type, got <T>`                                       | `stable.for` gets a `str` value.                     | Send a numeric or `bool` value.             |
+<Problem.List>
+
+<Problem.Item
+  message={
+    "authority declaration must appear before function, flow, and sequence declarations"
+  }
+>
+  <Problem.Cause>Other code comes before `authority`.</Problem.Cause>
+  <Problem.Fix>Move `authority` to just after the imports.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"multiple default authority values"}>
+  <Problem.Cause>The declaration has more than one default.</Problem.Cause>
+  <Problem.Fix>Keep one default.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"duplicate authority for '<ch>'"}>
+  <Problem.Cause>A channel has more than one value.</Problem.Cause>
+  <Problem.Fix>Keep one value for the channel.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"channel '<ch>' not found"}>
+  <Problem.Cause>The declaration names a channel that does not exist.</Problem.Cause>
+  <Problem.Fix>Correct the channel name.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"authority value must be an integer in range 0-255, got '<v>'"}>
+  <Problem.Cause>The value is outside 0 to 255.</Problem.Cause>
+  <Problem.Fix>Use a value from 0 to 255.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"<param> must be positive, got <span>"}>
+  <Problem.Cause>A timer has a `period` or `duration` of 0 or less.</Problem.Cause>
+  <Problem.Fix>Use a positive duration.</Problem.Fix>
+</Problem.Item>
+<Problem.Item
+  message={
+    '"<v>" is not a valid status variant: [success, info, warning, error, loading, disabled]'
+  }
+>
+  <Problem.Cause>`status.set` has an unknown `variant`.</Problem.Cause>
+  <Problem.Fix>Use a variant from the list.</Problem.Fix>
+</Problem.Item>
+<Problem.Item
+  message={[
+    'color must be a hex value (e.g. "#3bc454") or rgb(r,g,b): "<v>": validation error',
+    'invalid hex color: "<v>": validation error',
+    'invalid hex color length: "<v>": validation error',
+    'rgb() takes 3 channels; use rgba() for alpha: "<v>": validation error',
+    'rgba() requires a 4th alpha channel: "<v>": validation error',
+    'rgb channels must be 0-255: "<v>": validation error',
+    'invalid rgb alpha: "<v>": validation error',
+    'rgba alpha must be 0-1: "<v>": validation error',
+  ]}
+>
+  <Problem.Cause>`ranges.create` has a `color` that is not a color.</Problem.Cause>
+  <Problem.Fix>Use a hex, `rgb()`, or `rgba()` color.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"stable.for input must be a numeric or bool type, got <T>"}>
+  <Problem.Cause>`stable.for` gets a `str` value.</Problem.Cause>
+  <Problem.Fix>Send a numeric or `bool` value.</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
 
 ### Errors when the automation starts
 
@@ -142,16 +321,36 @@ that names the place, such as:
 failed to compile function 'f' body: failed to compile return expression: float modulo not yet implemented
 ```
 
-| Message                                                                | Cause                                                                            | Fix                                                         |
-| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| `float modulo not yet implemented`                                     | The code uses `%` on floats.                                                     | Use `%` on integers only.                                   |
-| `cannot read '<name>': its initializer is not a compile-time constant` | Code reads a top-level variable whose value is not a constant, such as a series. | Declare the variable in the function or stage that uses it. |
+<Problem.List>
+
+<Problem.Item message={"float modulo not yet implemented"}>
+  <Problem.Cause>The code uses `%` on floats.</Problem.Cause>
+  <Problem.Fix>Use `%` on integers only.</Problem.Fix>
+</Problem.Item>
+<Problem.Item
+  message={"cannot read '<name>': its initializer is not a compile-time constant"}
+>
+  <Problem.Cause>
+    Code reads a top-level variable whose value is not a constant, such as a series.
+  </Problem.Cause>
+  <Problem.Fix>Declare the variable in the function or stage that uses it.</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
 
 ### Warnings without a code
 
-| Message                                                                     | Cause                                           | Fix                                   |
-| --------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------- |
-| `numeric conditions are deprecated; use an explicit comparison like x != 0` | An `if` or a `=>` uses a number as a condition. | Write a comparison, such as `x != 0`. |
+<Problem.List>
+
+<Problem.Item
+  severity="warning"
+  message={"numeric conditions are deprecated; use an explicit comparison like x != 0"}
+>
+  <Problem.Cause>An `if` or a `=>` uses a number as a condition.</Problem.Cause>
+  <Problem.Fix>Write a comparison, such as `x != 0`.</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
 
 <Divider.Divider x />
 
