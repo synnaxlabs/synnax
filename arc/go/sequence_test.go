@@ -1599,10 +1599,15 @@ var _ = Describe("Sequence", func() {
 			log   []string
 			alive []string
 		}
-		// run executes steps against source. A step names the inputs to write in one
-		// cycle, joined by "+", then settles. A "!" suffix runs one cycle only, and "|"
-		// flushes a phase.
-		run := func(ctx SpecContext, source string, steps ...string) []phase {
+		// program drives one compiled source. write ingests 1 on each named input in
+		// one cycle and settles, writeOnce runs a single cycle instead, and phase
+		// flushes what the program wrote since the last flush.
+		type program struct {
+			write     func(names ...string)
+			writeOnce func(names ...string)
+			phase     func() phase
+		}
+		open := func(ctx SpecContext, source string) program {
 			digests := []channels.Digest{{Key: log, DataType: telem.StringT}}
 			for _, k := range inputs {
 				digests = append(
@@ -1617,16 +1622,28 @@ var _ = Describe("Sequence", func() {
 				)
 			}
 			h := newRuntimeHarness(ctx, source, resolver, digests...)
-			defer h.Close(ctx)
+			DeferCleanup(func() { h.Close(ctx) })
 			cycles := func(n int) {
 				for range n {
 					advance(h, ctx, telem.Millisecond)
 				}
 			}
 			cycles(5)
-			var phases []phase
-			for _, step := range steps {
-				if step == "|" {
+			ingest := func(names []string) {
+				for _, name := range names {
+					h.Ingest(inputs[name], telem.NewSeriesV[uint8](1))
+				}
+			}
+			return program{
+				write: func(names ...string) {
+					ingest(names)
+					cycles(5)
+				},
+				writeOnce: func(names ...string) {
+					ingest(names)
+					cycles(1)
+				},
+				phase: func() phase {
 					out, _ := h.Flush()
 					p := phase{log: drainStrings(out, log)}
 					for _, k := range []uint32{aliveMain, aliveInner, aliveFlight} {
@@ -1634,20 +1651,9 @@ var _ = Describe("Sequence", func() {
 							p.alive = append(p.alive, aliveNames[k])
 						}
 					}
-					phases = append(phases, p)
-					continue
-				}
-				names, once := strings.CutSuffix(step, "!")
-				for name := range strings.SplitSeq(names, "+") {
-					h.Ingest(inputs[name], telem.NewSeriesV[uint8](1))
-				}
-				if once {
-					cycles(1)
-				} else {
-					cycles(5)
-				}
+					return p
+				},
 			}
-			return phases
 		}
 
 		const twoJumpsToAbort = `
@@ -1666,9 +1672,10 @@ var _ = Describe("Sequence", func() {
 		DescribeTable(
 			"Should start the target from each jump to it",
 			func(ctx SpecContext, jump string) {
-				Expect(run(ctx, twoJumpsToAbort, "start", jump, "|")).To(Equal(
-					[]phase{{log: []string{"main", "abort"}}},
-				))
+				p := open(ctx, twoJumpsToAbort)
+				p.write("start")
+				p.write(jump)
+				Expect(p.phase()).To(Equal(phase{log: []string{"main", "abort"}}))
 			},
 			Entry("first jump", "a"),
 			Entry("second jump", "b"),
@@ -1677,7 +1684,7 @@ var _ = Describe("Sequence", func() {
 		It(
 			"Should start the target from a jump and from an entry point",
 			func(ctx SpecContext) {
-				Expect(run(ctx, `
+				p := open(ctx, `
 			sequence main {
 			    stage armed {
 			        "main" -> log
@@ -1688,23 +1695,24 @@ var _ = Describe("Sequence", func() {
 			    stage safed { "abort" -> log }
 			}
 			start == 1 => main
-			a == 1 => abort`, "start", "b", "|")).To(Equal(
-					[]phase{{log: []string{"main", "abort"}}},
-				))
+			a == 1 => abort`)
+				p.write("start")
+				p.write("b")
+				Expect(p.phase()).To(Equal(phase{log: []string{"main", "abort"}}))
 			},
 		)
 
 		DescribeTable(
 			"Should start a scope from each entry point to it",
 			func(ctx SpecContext, entry string) {
-				Expect(run(ctx, `
+				p := open(ctx, `
 				sequence main {
 				    stage armed { "main" -> log }
 				}
 				a == 1 => main
-				b == 1 => main`, entry, "|")).To(Equal(
-					[]phase{{log: []string{"main"}}},
-				))
+				b == 1 => main`)
+				p.write(entry)
+				Expect(p.phase()).To(Equal(phase{log: []string{"main"}}))
 			},
 			Entry("first entry point", "a"),
 			Entry("second entry point", "b"),
@@ -1713,9 +1721,10 @@ var _ = Describe("Sequence", func() {
 		DescribeTable(
 			"Should act only on the first true jump in source order",
 			func(ctx SpecContext, source string, expected []string) {
-				Expect(run(ctx, source, "start", "a+b", "|")).To(Equal(
-					[]phase{{log: expected}},
-				))
+				p := open(ctx, source)
+				p.write("start")
+				p.write("a", "b")
+				Expect(p.phase()).To(Equal(phase{log: expected}))
 			},
 			Entry("two jumps in one stage", `
 			sequence main {
@@ -1778,24 +1787,14 @@ var _ = Describe("Sequence", func() {
 		DescribeTable(
 			"Should stop the whole top-level scope that holds the jump",
 			func(ctx SpecContext, source, name string) {
-				Expect(
-					run(
-						ctx,
-						source+flight,
-						"start",
-						"a",
-						"|",
-						"probe",
-						"|",
-						"start",
-						"|",
-					),
-				).
-					To(Equal([]phase{
-						{log: []string{name, "flight"}},
-						{alive: []string{"alive_flight"}},
-						{log: []string{name}},
-					}))
+				p := open(ctx, source+flight)
+				p.write("start")
+				p.write("a")
+				Expect(p.phase()).To(Equal(phase{log: []string{name, "flight"}}))
+				p.write("probe")
+				Expect(p.phase()).To(Equal(phase{alive: []string{"alive_flight"}}))
+				p.write("start")
+				Expect(p.phase()).To(Equal(phase{log: []string{name}}))
 			},
 			Entry("a stage of a sequence", `
 			sequence main {
@@ -1854,7 +1853,7 @@ var _ = Describe("Sequence", func() {
 		)
 
 		It("Should restart a sequence that jumps to itself", func(ctx SpecContext) {
-			Expect(run(ctx, `
+			p := open(ctx, `
 			sequence main {
 			    stage armed {
 			        "main" -> log
@@ -1862,18 +1861,21 @@ var _ = Describe("Sequence", func() {
 			        a == 1 => main
 			    }
 			}
-			start == 1 => main`, "start", "a", "|", "probe", "|")).To(Equal([]phase{
-				{log: []string{"main", "main"}},
-				{alive: []string{"alive_main"}},
-			}))
+			start == 1 => main`)
+			p.write("start")
+			p.write("a")
+			Expect(p.phase()).To(Equal(phase{log: []string{"main", "main"}}))
+			p.write("probe")
+			Expect(p.phase()).To(Equal(phase{alive: []string{"alive_main"}}))
 		})
 
 		DescribeTable(
 			"Should not act on a losing transition after its scope restarts",
 			func(ctx SpecContext, source string, log []string) {
-				Expect(run(ctx, source, "start", "a+b", "|")).To(Equal(
-					[]phase{{log: log}},
-				))
+				p := open(ctx, source)
+				p.write("start")
+				p.write("a", "b")
+				Expect(p.phase()).To(Equal(phase{log: log}))
 			},
 			Entry("a self-jump to a top-level scope", `
 			sequence main {
@@ -1900,7 +1902,7 @@ var _ = Describe("Sequence", func() {
 		It(
 			"Should not restart a target that is already running",
 			func(ctx SpecContext) {
-				Expect(run(ctx, `
+				p := open(ctx, `
 			sequence main {
 			    stage armed {
 			        "main" -> log
@@ -1914,19 +1916,24 @@ var _ = Describe("Sequence", func() {
 			    }
 			}
 			start == 1 => main
-			b == 1 => abort`, "b", "start", "a", "|", "probe", "|")).To(Equal([]phase{
-					{log: []string{"abort", "main"}},
-					{alive: []string{"alive_flight"}},
-				}))
+			b == 1 => abort`)
+				p.write("b")
+				p.write("start")
+				p.write("a")
+				Expect(p.phase()).To(Equal(phase{log: []string{"abort", "main"}}))
+				p.write("probe")
+				Expect(p.phase()).To(Equal(phase{alive: []string{"alive_flight"}}))
 			},
 		)
 
 		DescribeTable(
 			"Should start the target in the cycle of the jump",
 			func(ctx SpecContext, source string) {
-				Expect(run(ctx, source, "start", "|", "a!", "|")).To(Equal(
-					[]phase{{}, {log: []string{"flight"}}},
-				))
+				p := open(ctx, source)
+				p.write("start")
+				Expect(p.phase()).To(Equal(phase{}))
+				p.writeOnce("a")
+				Expect(p.phase()).To(Equal(phase{log: []string{"flight"}}))
 			},
 			Entry("target declared after the source", `
 			sequence main {
@@ -1945,11 +1952,17 @@ var _ = Describe("Sequence", func() {
 		DescribeTable(
 			"Should not run a triggered body of a stage that left and entered again",
 			func(ctx SpecContext, source string, log []string) {
-				Expect(run(
-					ctx,
-					source,
-					"start", "b", "a", "start", "|", "probe", "|", "b", "probe", "|",
-				)).To(Equal([]phase{{log: log}, {}, {alive: []string{"alive_inner"}}}))
+				p := open(ctx, source)
+				p.write("start")
+				p.write("b")
+				p.write("a")
+				p.write("start")
+				Expect(p.phase()).To(Equal(phase{log: log}))
+				p.write("probe")
+				Expect(p.phase()).To(Equal(phase{}))
+				p.write("b")
+				p.write("probe")
+				Expect(p.phase()).To(Equal(phase{alive: []string{"alive_inner"}}))
 			},
 			Entry("left through a jump to a top-level scope", `
 			sequence main {

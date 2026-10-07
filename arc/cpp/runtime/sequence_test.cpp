@@ -11,7 +11,6 @@
 #include <cstdint>
 #include <iterator>
 #include <ostream>
-#include <ranges>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -2805,43 +2804,53 @@ struct Phase {
 const std::vector<std::string> INPUTS{"start", "a", "b", "probe"};
 const std::vector<std::string> ALIVE{"alive_main", "alive_inner", "alive_flight"};
 
-/// @brief executes steps against source. A step names the inputs to write in one
-/// cycle, joined by "+", then settles. A "!" suffix runs one cycle only, and "|"
-/// flushes a phase.
-std::vector<Phase>
-run(const std::string &source, const std::vector<std::string> &steps) {
-    std::vector<testutil::ChannelSpec> specs{{"log", x::telem::STRING_T}};
-    for (const auto &name: INPUTS)
-        specs.push_back({name, x::telem::UINT8_T});
-    for (const auto &name: ALIVE)
-        specs.push_back({name, x::telem::UINT8_T});
-    Sequence h(source, specs);
-    h.settle();
-    std::vector<Phase> phases;
-    for (const auto &step: steps) {
-        if (step == "|") {
-            const auto out = h.flush();
-            Phase p{.log = collect<std::string>(out, h.key("log"))};
-            for (const auto &name: ALIVE)
-                if (!collect<std::uint8_t>(out, h.key(name)).empty())
-                    p.alive.push_back(name);
-            phases.push_back(std::move(p));
-            continue;
-        }
-        const bool once = step.ends_with('!');
-        const auto names = once ? step.substr(0, step.size() - 1) : step;
-        for (const auto name: std::views::split(names, '+'))
-            h.ingest(
-                std::string(std::string_view(name)),
-                x::telem::Series(std::uint8_t(1))
-            );
-        if (once)
-            h.advance(x::telem::MILLISECOND);
-        else
-            h.settle();
+/// @brief drives one compiled source. write ingests 1 on each named input in one
+/// cycle and settles, write_once runs a single cycle instead, and phase flushes what
+/// the program wrote since the last flush.
+class Program {
+public:
+    explicit Program(const std::string &source): h(source, specs()) {
+        this->h.settle();
     }
-    return phases;
-}
+
+    template<typename... Names>
+    void write(const Names &...names) {
+        this->ingest(names...);
+        this->h.settle();
+    }
+
+    template<typename... Names>
+    void write_once(const Names &...names) {
+        this->ingest(names...);
+        this->h.advance(x::telem::MILLISECOND);
+    }
+
+    Phase phase() {
+        const auto out = this->h.flush();
+        Phase p{.log = collect<std::string>(out, this->h.key("log"))};
+        for (const auto &name: ALIVE)
+            if (!collect<std::uint8_t>(out, this->h.key(name)).empty())
+                p.alive.push_back(name);
+        return p;
+    }
+
+private:
+    static std::vector<testutil::ChannelSpec> specs() {
+        std::vector<testutil::ChannelSpec> specs{{"log", x::telem::STRING_T}};
+        for (const auto &name: INPUTS)
+            specs.push_back({name, x::telem::UINT8_T});
+        for (const auto &name: ALIVE)
+            specs.push_back({name, x::telem::UINT8_T});
+        return specs;
+    }
+
+    template<typename... Names>
+    void ingest(const Names &...names) {
+        (this->h.ingest(std::string(names), x::telem::Series(std::uint8_t(1))), ...);
+    }
+
+    Sequence h;
+};
 
 /// @brief one entry of a table of programs.
 struct Case {
@@ -2882,16 +2891,15 @@ INSTANTIATE_TEST_SUITE_P(Jumps, JumpTargetTest, testing::Values("a", "b"));
 
 TEST_P(JumpTargetTest, StartsTheTargetFromEachJumpToIt) {
     using namespace jumps;
-    EXPECT_EQ(
-        run(TWO_JUMPS_TO_ABORT, {"start", GetParam(), "|"}),
-        (std::vector<Phase>{{.log = {"main", "abort"}}})
-    );
+    Program p(TWO_JUMPS_TO_ABORT);
+    p.write("start");
+    p.write(GetParam());
+    EXPECT_EQ(p.phase(), (Phase{.log = {"main", "abort"}}));
 }
 
 TEST(JumpTest, StartsTheTargetFromAJumpAndFromAnEntryPoint) {
     using namespace jumps;
-    EXPECT_EQ(
-        run(R"(
+    Program p(R"(
     sequence main {
         stage armed {
             "main" -> %log%
@@ -2902,10 +2910,10 @@ TEST(JumpTest, StartsTheTargetFromAJumpAndFromAnEntryPoint) {
         stage safed { "abort" -> %log% }
     }
     %start% == 1 => main
-    %a% == 1 => abort)",
-            {"start", "b", "|"}),
-        (std::vector<Phase>{{.log = {"main", "abort"}}})
-    );
+    %a% == 1 => abort)");
+    p.write("start");
+    p.write("b");
+    EXPECT_EQ(p.phase(), (Phase{.log = {"main", "abort"}}));
 }
 
 class EntryPointTest : public testing::TestWithParam<std::string> {};
@@ -2914,16 +2922,14 @@ INSTANTIATE_TEST_SUITE_P(Jumps, EntryPointTest, testing::Values("a", "b"));
 
 TEST_P(EntryPointTest, StartsAScopeFromEachEntryPointToIt) {
     using namespace jumps;
-    EXPECT_EQ(
-        run(R"(
+    Program p(R"(
     sequence main {
         stage armed { "main" -> %log% }
     }
     %a% == 1 => main
-    %b% == 1 => main)",
-            {GetParam(), "|"}),
-        (std::vector<Phase>{{.log = {"main"}}})
-    );
+    %b% == 1 => main)");
+    p.write(GetParam());
+    EXPECT_EQ(p.phase(), (Phase{.log = {"main"}}));
 }
 
 class FirstJumpTest : public testing::TestWithParam<jumps::Case> {};
@@ -3006,10 +3012,10 @@ INSTANTIATE_TEST_SUITE_P(
 
 TEST_P(FirstJumpTest, ActsOnlyOnTheFirstTrueJumpInSourceOrder) {
     using namespace jumps;
-    EXPECT_EQ(
-        run(GetParam().source, {"start", "a+b", "|"}),
-        (std::vector<Phase>{{.log = {GetParam().expected}}})
-    );
+    Program p(GetParam().source);
+    p.write("start");
+    p.write("a", "b");
+    EXPECT_EQ(p.phase(), (Phase{.log = {GetParam().expected}}));
 }
 
 class StopTopLevelScopeTest : public testing::TestWithParam<jumps::Case> {};
@@ -3099,21 +3105,19 @@ INSTANTIATE_TEST_SUITE_P(
 TEST_P(StopTopLevelScopeTest, StopsTheWholeTopLevelScopeThatHoldsTheJump) {
     using namespace jumps;
     const auto &name = GetParam().expected;
-    EXPECT_EQ(
-        run(GetParam().source + FLIGHT,
-            {"start", "a", "|", "probe", "|", "start", "|"}),
-        (std::vector<Phase>{
-            {.log = {name, "flight"}},
-            {.alive = {"alive_flight"}},
-            {.log = {name}},
-        })
-    );
+    Program p(GetParam().source + FLIGHT);
+    p.write("start");
+    p.write("a");
+    EXPECT_EQ(p.phase(), (Phase{.log = {name, "flight"}}));
+    p.write("probe");
+    EXPECT_EQ(p.phase(), (Phase{.alive = {"alive_flight"}}));
+    p.write("start");
+    EXPECT_EQ(p.phase(), (Phase{.log = {name}}));
 }
 
 TEST(JumpTest, RestartsASequenceThatJumpsToItself) {
     using namespace jumps;
-    EXPECT_EQ(
-        run(R"(
+    Program p(R"(
     sequence main {
         stage armed {
             "main" -> %log%
@@ -3121,10 +3125,12 @@ TEST(JumpTest, RestartsASequenceThatJumpsToItself) {
             %a% == 1 => main
         }
     }
-    %start% == 1 => main)",
-            {"start", "a", "|", "probe", "|"}),
-        (std::vector<Phase>{{.log = {"main", "main"}}, {.alive = {"alive_main"}}})
-    );
+    %start% == 1 => main)");
+    p.write("start");
+    p.write("a");
+    EXPECT_EQ(p.phase(), (Phase{.log = {"main", "main"}}));
+    p.write("probe");
+    EXPECT_EQ(p.phase(), (Phase{.alive = {"alive_main"}}));
 }
 
 class RestartTest : public testing::TestWithParam<jumps::Case> {};
@@ -3168,16 +3174,15 @@ INSTANTIATE_TEST_SUITE_P(
 TEST_P(RestartTest, DoesNotActOnALosingTransitionAfterItsScopeRestarts) {
     using namespace jumps;
     const auto &expected = GetParam().expected;
-    EXPECT_EQ(
-        run(GetParam().source, {"start", "a+b", "|"}),
-        (std::vector<Phase>{{.log = {expected, expected}}})
-    );
+    Program p(GetParam().source);
+    p.write("start");
+    p.write("a", "b");
+    EXPECT_EQ(p.phase(), (Phase{.log = {expected, expected}}));
 }
 
 TEST(JumpTest, DoesNotRestartATargetThatIsAlreadyRunning) {
     using namespace jumps;
-    EXPECT_EQ(
-        run(R"(
+    Program p(R"(
     sequence main {
         stage armed {
             "main" -> %log%
@@ -3191,10 +3196,13 @@ TEST(JumpTest, DoesNotRestartATargetThatIsAlreadyRunning) {
         }
     }
     %start% == 1 => main
-    %b% == 1 => abort)",
-            {"b", "start", "a", "|", "probe", "|"}),
-        (std::vector<Phase>{{.log = {"abort", "main"}}, {.alive = {"alive_flight"}}})
-    );
+    %b% == 1 => abort)");
+    p.write("b");
+    p.write("start");
+    p.write("a");
+    EXPECT_EQ(p.phase(), (Phase{.log = {"abort", "main"}}));
+    p.write("probe");
+    EXPECT_EQ(p.phase(), (Phase{.alive = {"alive_flight"}}));
 }
 
 class JumpCycleTest : public testing::TestWithParam<jumps::Case> {};
@@ -3229,10 +3237,11 @@ INSTANTIATE_TEST_SUITE_P(
 
 TEST_P(JumpCycleTest, StartsTheTargetInTheCycleOfTheJump) {
     using namespace jumps;
-    EXPECT_EQ(
-        run(GetParam().source, {"start", "|", "a!", "|"}),
-        (std::vector<Phase>{{}, {.log = {"flight"}}})
-    );
+    Program p(GetParam().source);
+    p.write("start");
+    EXPECT_EQ(p.phase(), Phase{});
+    p.write_once("a");
+    EXPECT_EQ(p.phase(), (Phase{.log = {"flight"}}));
 }
 
 /// @brief a program whose stage leaves and enters again, with the log that shows it.
@@ -3282,11 +3291,17 @@ INSTANTIATE_TEST_SUITE_P(
 
 TEST_P(TriggeredBodyTest, DoesNotRunATriggeredBodyOfAStageThatLeftAndEnteredAgain) {
     using namespace jumps;
-    EXPECT_EQ(
-        run(GetParam().source,
-            {"start", "b", "a", "start", "|", "probe", "|", "b", "probe", "|"}),
-        (std::vector<Phase>{{.log = GetParam().log}, {}, {.alive = {"alive_inner"}}})
-    );
+    Program p(GetParam().source);
+    p.write("start");
+    p.write("b");
+    p.write("a");
+    p.write("start");
+    EXPECT_EQ(p.phase(), (Phase{.log = GetParam().log}));
+    p.write("probe");
+    EXPECT_EQ(p.phase(), Phase{});
+    p.write("b");
+    p.write("probe");
+    EXPECT_EQ(p.phase(), (Phase{.alive = {"alive_inner"}}));
 }
 
 // A one-shot entry drives a func whose output rebinds a variable;
