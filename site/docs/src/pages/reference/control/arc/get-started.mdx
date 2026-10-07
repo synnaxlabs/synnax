@@ -179,16 +179,12 @@ You can stop execution at any time with the **Pause** button.
 
 The **Performance** dropdown next to the Driver sets how closely the automation holds
 its intervals and waits to their deadlines. A higher level is more precise and uses more
-CPU.
+CPU. Auto is the default. To choose a level, see
+[performance levels](/reference/control/arc/timing#performance-levels).
 
-| Level  | Use                                                        |
-| ------ | ---------------------------------------------------------- |
-| Auto   | The Driver picks a strategy from the program. The default. |
-| Low    | Least CPU. A fire can come a millisecond or more late.     |
-| Medium | Some CPU. Holds timing closely for most control loops.     |
-| High   | One full CPU core. The most precise timing.                |
-
-A change takes effect the next time you start the automation.
+You can select a level only after you choose a Driver. A running automation keeps its
+old level until you click **Redeploy**. A redeploy starts the automation again from the
+start.
 
 <Divider.Divider x />
 
