@@ -139,6 +139,11 @@ import { TopoCanvas } from "@/components/contact/TopoCanvas";
         }
 
         &.success {
+            & form,
+            & .contact-success-message {
+                transition-delay: 0.5s;
+            }
+
             & form {
                 transform: translate(-1300px);
             }

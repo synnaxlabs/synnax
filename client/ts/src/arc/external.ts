@@ -15,6 +15,7 @@ export * from "@/arc/graph";
 export * from "@/arc/ir";
 export * from "@/arc/module";
 export * from "@/arc/program";
+export * from "@/arc/task";
 export * from "@/arc/text";
 export * from "@/arc/types";
 export * from "@/arc/types.gen";

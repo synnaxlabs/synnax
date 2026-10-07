@@ -1068,6 +1068,9 @@ importers:
       '@synnaxlabs/x':
         specifier: 'catalog:'
         version: link:../x/ts
+      '@tanstack/react-virtual':
+        specifier: 'catalog:'
+        version: 3.14.13(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       clsx:
         specifier: 'catalog:'
         version: 2.1.1
@@ -1077,9 +1080,15 @@ importers:
       compromise-dates:
         specifier: 'catalog:'
         version: 3.9.0(compromise@14.17.0)
+      fuse.js:
+        specifier: 'catalog:'
+        version: 7.5.0
       mathjs:
         specifier: 'catalog:'
         version: 15.2.0
+      pluralize:
+        specifier: 'catalog:'
+        version: 8.0.0
       react-icons:
         specifier: 'catalog:'
         version: 5.7.0(react@19.3.0)
@@ -1102,9 +1111,6 @@ importers:
       '@synnaxlabs/vite-plugin':
         specifier: 'catalog:'
         version: link:../configs/vite
-      '@tanstack/react-virtual':
-        specifier: 'catalog:'
-        version: 3.14.13(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@testing-library/react':
         specifier: 'catalog:'
         version: 16.3.3(@testing-library/dom@10.4.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -1132,15 +1138,9 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 10.11.0(jiti@2.7.0)(supports-color@10.2.2)
-      fuse.js:
-        specifier: 'catalog:'
-        version: 7.5.0
       jsdom:
         specifier: 'catalog:'
         version: 30.1.1
-      pluralize:
-        specifier: 'catalog:'
-        version: 8.0.0
       react:
         specifier: 'catalog:'
         version: 19.3.0
@@ -1353,6 +1353,9 @@ importers:
       '@astrojs/react':
         specifier: 'catalog:'
         version: 7.0.0(@types/node@24.19.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(esbuild@0.28.2)(jiti@2.7.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.0)
+      '@synnaxlabs/arc':
+        specifier: 'catalog:'
+        version: link:../../arc/ts
       '@synnaxlabs/lyra':
         specifier: 'catalog:'
         version: link:../../lyra
@@ -1362,6 +1365,12 @@ importers:
       astro:
         specifier: 'catalog:'
         version: 7.3.5(@astrojs/markdown-remark@7.3.0(supports-color@10.2.2))(@azure/identity@4.13.3(supports-color@10.2.2))(@types/node@24.19.0)(@vercel/functions@3.7.6(@aws-sdk/credential-provider-web-identity@3.972.77)(ws@8.22.0))(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.0)
+      astro-seo:
+        specifier: 'catalog:'
+        version: 1.2.0
+      shiki:
+        specifier: 'catalog:'
+        version: 4.4.3
     devDependencies:
       '@astrojs/check':
         specifier: 'catalog:'
@@ -1438,9 +1447,6 @@ importers:
       astro:
         specifier: 'catalog:'
         version: 7.3.5(@astrojs/markdown-remark@7.3.0(supports-color@10.2.2))(@azure/identity@4.13.3(supports-color@10.2.2))(@types/node@24.19.0)(@vercel/functions@3.7.6(@aws-sdk/credential-provider-web-identity@3.972.77)(ws@8.22.0))(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.0)
-      astro-seo:
-        specifier: 'catalog:'
-        version: 1.2.0
       hast-util-from-html:
         specifier: 'catalog:'
         version: 2.0.3
@@ -1459,9 +1465,6 @@ importers:
       react-dom:
         specifier: 'catalog:'
         version: 19.3.0(react@19.3.0)
-      shiki:
-        specifier: 'catalog:'
-        version: 4.4.3
       zod:
         specifier: 'catalog:'
         version: 4.6.5
@@ -1659,18 +1662,12 @@ importers:
       astro:
         specifier: 'catalog:'
         version: 7.3.5(@astrojs/markdown-remark@7.3.0(supports-color@10.2.2))(@azure/identity@4.13.3(supports-color@10.2.2))(@types/node@24.19.0)(@vercel/functions@3.7.6(@aws-sdk/credential-provider-web-identity@3.972.77)(ws@8.22.0))(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.0)
-      astro-seo:
-        specifier: 'catalog:'
-        version: 1.2.0
       react:
         specifier: 'catalog:'
         version: 19.3.0
       react-dom:
         specifier: 'catalog:'
         version: 19.3.0(react@19.3.0)
-      shiki:
-        specifier: 'catalog:'
-        version: 4.4.3
       zod:
         specifier: 'catalog:'
         version: 4.6.5
@@ -1841,6 +1838,15 @@ importers:
       async-mutex:
         specifier: 'catalog:'
         version: 0.5.0
+      fflate:
+        specifier: 'catalog:'
+        version: 0.8.3
+      nanoid:
+        specifier: 'catalog:'
+        version: 6.0.1
+      uuid:
+        specifier: 'catalog:'
+        version: 14.0.2
       zod:
         specifier: 'catalog:'
         version: 4.6.5
@@ -1863,18 +1869,9 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 10.11.0(jiti@2.7.0)(supports-color@10.2.2)
-      fflate:
-        specifier: 'catalog:'
-        version: 0.8.3
-      nanoid:
-        specifier: 'catalog:'
-        version: 6.0.1
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
-      uuid:
-        specifier: 'catalog:'
-        version: 14.0.2
       vite:
         specifier: 'catalog:'
         version: 8.3.1(@types/node@24.19.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.0)

@@ -189,12 +189,12 @@ type Transport struct {
 	StatusDelete         freighter.UnaryServer[status.DeleteRequest, struct{}]
 	StatusSetByKeyOrName freighter.UnaryServer[status.SetByKeyOrNameRequest, status.SetByKeyOrNameResponse]
 	// ARC
-	ArcCreate   freighter.UnaryServer[arc.CreateRequest, arc.CreateResponse]
-	ArcDelete   freighter.UnaryServer[arc.DeleteRequest, struct{}]
-	ArcRetrieve freighter.UnaryServer[arc.RetrieveRequest, arc.RetrieveResponse]
-	ArcDispatch freighter.UnaryServer[arc.DispatchRequest, struct{}]
-	ArcSetRack  freighter.UnaryServer[arc.SetRackRequest, arc.SetRackResponse]
-	ArcLSP      freighter.StreamServer[arc.LSPMessage, arc.LSPMessage]
+	ArcCreate     freighter.UnaryServer[arc.CreateRequest, arc.CreateResponse]
+	ArcDelete     freighter.UnaryServer[arc.DeleteRequest, struct{}]
+	ArcRetrieve   freighter.UnaryServer[arc.RetrieveRequest, arc.RetrieveResponse]
+	ArcDispatch   freighter.UnaryServer[arc.DispatchRequest, struct{}]
+	ArcUpdateTask freighter.UnaryServer[arc.UpdateTaskRequest, arc.UpdateTaskResponse]
+	ArcLSP        freighter.StreamServer[arc.LSPMessage, arc.LSPMessage]
 	// VIEW
 	ViewCreate   freighter.UnaryServer[view.CreateRequest, view.CreateResponse]
 	ViewRetrieve freighter.UnaryServer[view.RetrieveRequest, view.RetrieveResponse]
@@ -424,7 +424,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.ArcDelete,
 		t.ArcRetrieve,
 		t.ArcDispatch,
-		t.ArcSetRack,
+		t.ArcUpdateTask,
 		t.ArcLSP,
 
 		// IMPORT/EXPORT
@@ -634,7 +634,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.ArcDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Delete))
 	t.ArcRetrieve.BindHandler(l.Arc.Retrieve)
 	t.ArcDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Dispatch))
-	t.ArcSetRack.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.SetRack))
+	t.ArcUpdateTask.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.UpdateTask))
 	t.ArcLSP.BindHandler(l.Arc.LSP)
 
 	// IMPORT/EXPORT

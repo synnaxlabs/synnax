@@ -12,6 +12,11 @@
 /* An empty trigger reads as a placeholder, the way every other empty control does. */
 .pluto-select-single-trigger--empty {
     color: var(--pluto-text-placeholder);
+
+    /* The label is pluto-text, whose own color would otherwise override the dim. */
+    > .pluto-select__label {
+        color: inherit;
+    }
 }
 
 /* The name fades rather than pushing the caret out, so the select may shrink below

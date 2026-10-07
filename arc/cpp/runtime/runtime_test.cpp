@@ -58,11 +58,7 @@ create_lifecycle_runtime(std::unique_ptr<testutil::MockLoop> loop) {
     auto state = std::make_shared<state::State>(state_cfg);
 
     std::unordered_map<std::string, std::unique_ptr<node::Node>> node_impls;
-    auto scheduler = std::make_unique<scheduler::Scheduler>(
-        arc::ir::IR{},
-        node_impls,
-        x::telem::TimeSpan(0)
-    );
+    auto scheduler = std::make_unique<scheduler::Scheduler>(arc::ir::IR{}, node_impls);
 
     Config cfg{
         .program = {},
@@ -317,11 +313,7 @@ TEST(RuntimeLifecycleTest, LoopStartFailureCallsErrorHandler) {
     state::Config state_cfg{.ir = arc::ir::IR{}, .channels = {}};
     auto state = std::make_shared<state::State>(state_cfg);
     std::unordered_map<std::string, std::unique_ptr<node::Node>> node_impls;
-    auto scheduler = std::make_unique<scheduler::Scheduler>(
-        arc::ir::IR{},
-        node_impls,
-        x::telem::TimeSpan(0)
-    );
+    auto scheduler = std::make_unique<scheduler::Scheduler>(arc::ir::IR{}, node_impls);
 
     std::atomic<bool> error_called{false};
     x::errors::Error captured_error;
@@ -402,14 +394,34 @@ TEST(BuildAuthoritiesTest, NoDefaultUsesAbsolute) {
 /// @brief Mock node that, like a real timer, self-marks and sets a deadline each run.
 struct DeadlineNode final : public node::Node {
     std::atomic<int64_t> deadline_ns;
+    /// @brief how long each run takes.
+    x::telem::TimeSpan work;
+    /// @brief the span of the timer that sets the deadline.
+    x::telem::TimeSpan span;
+    /// @brief how many runs were timer ticks.
+    std::atomic<int> timer_ticks{0};
+    /// @brief when positive, a timer tick on or after the deadline moves it this far
+    /// past the tick, as a timer fire does.
+    std::atomic<int64_t> advance_ns{0};
 
-    explicit DeadlineNode(const x::telem::TimeSpan deadline):
-        deadline_ns(deadline.nanoseconds()) {}
+    explicit DeadlineNode(
+        const x::telem::TimeSpan deadline,
+        const x::telem::TimeSpan work,
+        const x::telem::TimeSpan span
+    ):
+        deadline_ns(deadline.nanoseconds()), work(work), span(span) {}
 
     x::errors::Error next(node::Context &ctx) override {
         ctx.mark_self_changed();
+        if (ctx.cycle.reason == node::RunReason::TimerTick) {
+            this->timer_ticks++;
+            const auto advance = this->advance_ns.load();
+            if (advance > 0 && ctx.cycle.elapsed.nanoseconds() >= this->deadline_ns)
+                this->deadline_ns = ctx.cycle.elapsed.nanoseconds() + advance;
+        }
+        std::this_thread::sleep_for(this->work.chrono());
         const auto d = x::telem::TimeSpan(this->deadline_ns.load());
-        if (d != x::telem::TimeSpan::max()) ctx.set_deadline(d);
+        if (d != x::telem::TimeSpan::max()) ctx.set_deadline(d, this->span);
         return x::errors::NIL;
     }
 
@@ -424,11 +436,15 @@ struct DeadlineRuntimeFixture {
     testutil::MockLoop *loop;
     DeadlineNode *node;
 
-    static DeadlineRuntimeFixture create(const x::telem::TimeSpan deadline) {
+    static DeadlineRuntimeFixture create(
+        const x::telem::TimeSpan deadline,
+        const x::telem::TimeSpan work = x::telem::TimeSpan(0),
+        const x::telem::TimeSpan span = x::telem::SECOND
+    ) {
         auto mock_loop = std::make_unique<testutil::MockLoop>();
         auto *loop_ptr = mock_loop.get();
 
-        auto deadline_node = std::make_unique<DeadlineNode>(deadline);
+        auto deadline_node = std::make_unique<DeadlineNode>(deadline, work, span);
         auto *node_ptr = deadline_node.get();
 
         auto prog = arc::ir::testutil::Builder()
@@ -442,11 +458,7 @@ struct DeadlineRuntimeFixture {
         std::unordered_map<std::string, std::unique_ptr<node::Node>> node_impls;
         node_impls["deadline"] = std::move(deadline_node);
 
-        auto scheduler = std::make_unique<scheduler::Scheduler>(
-            prog,
-            node_impls,
-            x::telem::TimeSpan(0)
-        );
+        auto scheduler = std::make_unique<scheduler::Scheduler>(prog, node_impls);
 
         Config cfg{
             .program = {},
@@ -510,11 +522,7 @@ TEST(RuntimeClockTest, ResumesAboveReservedStamps) {
     );
     std::unordered_map<std::string, std::unique_ptr<node::Node>> node_impls;
     node_impls["reserve"] = std::move(reserve_node);
-    auto scheduler = std::make_unique<scheduler::Scheduler>(
-        prog,
-        node_impls,
-        x::telem::TimeSpan(0)
-    );
+    auto scheduler = std::make_unique<scheduler::Scheduler>(prog, node_impls);
     const auto start = x::telem::TimeStamp(10 * x::telem::SECOND);
     Config cfg{
         .program = {},
@@ -544,6 +552,43 @@ TEST(RuntimeClockTest, ResumesAboveReservedStamps) {
     EXPECT_EQ(node_ptr->cycle_stamps[1], start + int64_t{3});
 }
 
+/// @brief A due timer should fire even when every wake is an input wake.
+TEST(RuntimeDeadlineTest, DueTimerFiresOnAnInputWake) {
+    auto [runtime, loop, node] = DeadlineRuntimeFixture::create(x::telem::TimeSpan(0));
+    loop->wake_reason = loop::WakeReason::Input;
+    ASSERT_TRUE(runtime->start());
+    ASSERT_EVENTUALLY_GE(node->timer_ticks.load(), 3);
+    ASSERT_TRUE(runtime->stop());
+}
+
+/// @brief A due deadline should give one timer tick, not one per input cycle after it,
+/// while a burst of input keeps the runtime busy.
+TEST(RuntimeDeadlineTest, DueTimerTicksOncePerDeadline) {
+    auto [runtime, loop, node] = DeadlineRuntimeFixture::create(
+        50 * x::telem::MILLISECOND
+    );
+    node->advance_ns = x::telem::SECOND.nanoseconds();
+    loop->wake_reason = loop::WakeReason::Input;
+    ASSERT_TRUE(runtime->start());
+    const auto sw = x::telem::Stopwatch();
+    while (sw.elapsed() < 300 * x::telem::MILLISECOND)
+        runtime->write(x::telem::Frame());
+    ASSERT_TRUE(runtime->stop());
+    EXPECT_EQ(node->timer_ticks.load(), 2);
+}
+
+/// @brief With no deadline, an input wake should never become a timer tick.
+TEST(RuntimeDeadlineTest, NoDeadlineInputWakeIsNotATimerTick) {
+    auto [runtime, loop, node] = DeadlineRuntimeFixture::create(
+        x::telem::TimeSpan::max()
+    );
+    loop->wake_reason = loop::WakeReason::Input;
+    ASSERT_TRUE(runtime->start());
+    ASSERT_EVENTUALLY_GE(loop->wait_count.load(), 5);
+    ASSERT_TRUE(runtime->stop());
+    EXPECT_EQ(node->timer_ticks.load(), 1);
+}
+
 /// @brief When no deadline is set, runtime should pass max_timeout=0 (no constraint)
 /// on every cycle.
 TEST(RuntimeDeadlineTest, NoDeadlinePassesZeroTimeout) {
@@ -558,10 +603,47 @@ TEST(RuntimeDeadlineTest, NoDeadlinePassesZeroTimeout) {
     ASSERT_GE(timeouts.size(), 3);
     for (const auto &t: timeouts)
         EXPECT_EQ(t, x::telem::TimeSpan(0)) << "Expected 0 (no deadline constraint)";
+    for (const auto &s: loop->get_spans())
+        EXPECT_EQ(s, x::telem::TimeSpan::max());
 }
 
-/// @brief When a deadline is 10s in the future, runtime should pass a timeout close
-/// to 10s that decreases as elapsed time grows.
+/// @brief The runtime should pass the span of the timer that owns the deadline.
+TEST(RuntimeDeadlineTest, FutureDeadlinePassesItsSpan) {
+    auto [runtime, loop, node] = DeadlineRuntimeFixture::create(
+        x::telem::SECOND * 10,
+        x::telem::TimeSpan(0),
+        x::telem::SECOND * 3
+    );
+    ASSERT_TRUE(runtime->start());
+    ASSERT_EVENTUALLY_GE(loop->wait_count.load(), 3);
+    ASSERT_TRUE(runtime->stop());
+
+    const auto spans = loop->get_spans();
+    ASSERT_GE(spans.size(), 3);
+    for (const auto &s: spans)
+        EXPECT_EQ(s, x::telem::SECOND * 3);
+}
+
+/// @brief The timeout should count from the end of the cycle, so that the work of the
+/// cycle does not delay the wake.
+TEST(RuntimeDeadlineTest, TimeoutExcludesTheWorkOfTheCycle) {
+    const auto work = 50 * x::telem::MILLISECOND;
+    auto [runtime, loop, node] = DeadlineRuntimeFixture::create(
+        x::telem::SECOND * 10,
+        work
+    );
+    ASSERT_TRUE(runtime->start());
+    ASSERT_EVENTUALLY_GE(loop->wait_count.load(), 2);
+    ASSERT_TRUE(runtime->stop());
+
+    const auto timeouts = loop->get_max_timeouts();
+    ASSERT_GE(timeouts.size(), 2);
+    EXPECT_LE(timeouts[1], x::telem::SECOND * 10 - work);
+}
+
+/// @brief When a deadline is 10s in the future, runtime should pass a timeout close to
+/// 10s that decreases as elapsed time grows. The first cycle runs before the first
+/// wait, so the first wait already holds the deadline.
 TEST(RuntimeDeadlineTest, FutureDeadlinePassesDecreasingTimeout) {
     auto [runtime, loop, node] = DeadlineRuntimeFixture::create(x::telem::SECOND * 10);
     ASSERT_TRUE(runtime->start());
@@ -570,17 +652,14 @@ TEST(RuntimeDeadlineTest, FutureDeadlinePassesDecreasingTimeout) {
 
     const auto timeouts = loop->get_max_timeouts();
     ASSERT_GE(timeouts.size(), 3);
-    // First timeout after the initial cycle is close to 10s (minus small elapsed).
-    // Skip index 0 which is the initial 0-timeout seed.
+    EXPECT_LE(timeouts[0], x::telem::SECOND * 10);
     EXPECT_GT(timeouts[1], x::telem::SECOND * 9);
-    EXPECT_LE(timeouts[1], x::telem::SECOND * 10);
-    // Subsequent timeouts should be smaller as elapsed grows.
-    for (size_t i = 2; i < timeouts.size(); i++)
+    for (size_t i = 1; i < timeouts.size(); i++)
         EXPECT_LE(timeouts[i], timeouts[i - 1]);
 }
 
-/// @brief When the deadline is always in the past (1ns), runtime should pass 1ns
-/// on every cycle after the first.
+/// @brief When the deadline is always in the past (1ns), runtime should pass 1ns on
+/// every cycle.
 TEST(RuntimeDeadlineTest, PastDeadlinePassesMinimalTimeout) {
     auto [runtime, loop, node] = DeadlineRuntimeFixture::create(x::telem::TimeSpan(1));
     ASSERT_TRUE(runtime->start());
@@ -589,10 +668,8 @@ TEST(RuntimeDeadlineTest, PastDeadlinePassesMinimalTimeout) {
 
     const auto timeouts = loop->get_max_timeouts();
     ASSERT_GE(timeouts.size(), 3);
-    // After the initial seed cycle (index 0), every timeout should be 1ns
-    // because 1ns deadline is always < elapsed wall-clock time.
-    for (size_t i = 1; i < timeouts.size(); i++)
-        EXPECT_EQ(timeouts[i], x::telem::TimeSpan(1));
+    for (const auto &t: timeouts)
+        EXPECT_EQ(t, x::telem::TimeSpan(1));
 }
 
 TEST(MockLoopTest, WakeReasonIsConfigurable) {

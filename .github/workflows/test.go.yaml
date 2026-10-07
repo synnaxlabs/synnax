@@ -60,9 +60,16 @@ on:
     inputs: *inputs
 
 jobs:
+  # Every GOOS lints on Ubuntu, because the Windows runner does not have the disk space
+  # for a cold lint. One job per GOOS keeps each runner's cache and compile scratch to
+  # one GOOS, which fits the Ubuntu runner's disk.
   lint:
-    name: Lint
+    name: Lint (${{ matrix.goos }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        goos: [linux, windows, darwin]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -73,15 +80,20 @@ jobs:
           go-version-file: ${{ inputs.directory }}/go.mod
           cache: false
 
+      # This workflow file salts the key, so a cache saved under an older layout of the
+      # job never restores into the new one.
       - name: Key the Go caches
         id: key
         shell: bash
         env:
           DIRECTORY: ${{ inputs.directory }}
-          SUM: ${{ hashFiles(format('{0}/go.sum', inputs.directory)) }}
+          GOOS: ${{ matrix.goos }}
+          SUM:
+            ${{ hashFiles(format('{0}/go.sum', inputs.directory),
+            '.github/workflows/test.go.yaml') }}
         run: |
-          echo "module=go-lint-$DIRECTORY-" >> "$GITHUB_OUTPUT"
-          echo "sum=go-lint-$DIRECTORY-$SUM-" >> "$GITHUB_OUTPUT"
+          echo "module=go-lint-$GOOS-$DIRECTORY-" >> "$GITHUB_OUTPUT"
+          echo "sum=go-lint-$GOOS-$DIRECTORY-$SUM-" >> "$GITHUB_OUTPUT"
 
       # A run reads the caches of its own branch and of main, never those of another
       # pull request, so only main saves them. A changed go.sum falls back to an older
@@ -110,23 +122,19 @@ jobs:
           # the paths resolve, which the action adds only to a lint it runs itself.
           problem-matchers: true
 
-      # The Windows runner does not have the disk space for a cold lint, so lint both
-      # GOOS values here. No package has a darwin-only file, so linux covers macOS.
       - name: Lint
         working-directory: ${{ inputs.directory }}
         env:
           CGO_ENABLED: "0"
+          GOOS: ${{ matrix.goos }}
         run: |
           ./custom-gcl config verify
-          echo "::group::GOOS=linux"
-          GOOS=linux ./custom-gcl run --path-mode=abs
-          echo "::endgroup::"
-          echo "::group::GOOS=windows"
-          GOOS=windows ./custom-gcl run --path-mode=abs
-          echo "::endgroup::"
+          ./custom-gcl run --path-mode=abs
 
+      # A failed lint leaves a cache that pull requests would restore, so only a
+      # passing lint on main saves.
       - name: Save the Go caches
-        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+        if: ${{ success() && github.ref == 'refs/heads/main' }}
         uses: actions/cache/save@v6
         with:
           path: *lint-cache

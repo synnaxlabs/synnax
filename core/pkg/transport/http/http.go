@@ -417,8 +417,8 @@ func Bind(layer *api.Layer, router *http.Router) {
 		ArcDispatch: router.NewUnaryServer[arc.DispatchRequest, struct{}](
 			"/api/v1/arc/dispatch",
 		),
-		ArcSetRack: router.NewUnaryServer[arc.SetRackRequest, arc.SetRackResponse](
-			"/api/v1/arc/set-rack",
+		ArcUpdateTask: router.NewUnaryServer[arc.UpdateTaskRequest, arc.UpdateTaskResponse](
+			"/api/v1/arc/update-task",
 		),
 		ArcLSP: router.NewStreamServer[arc.LSPMessage, arc.LSPMessage](
 			"/api/v1/arc/lsp",

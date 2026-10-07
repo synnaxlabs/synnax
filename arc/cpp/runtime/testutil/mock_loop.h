@@ -50,12 +50,14 @@ public:
 
     loop::WakeReason wait(
         x::breaker::Breaker &breaker,
-        x::telem::TimeSpan max_timeout = x::telem::TimeSpan(0)
+        x::telem::TimeSpan max_timeout = x::telem::TimeSpan(0),
+        x::telem::TimeSpan span = x::telem::TimeSpan::max()
     ) override {
         this->wait_count++;
         {
             std::lock_guard tl(this->timeout_mu);
             this->max_timeouts.push_back(max_timeout);
+            this->spans.push_back(span);
         }
         std::unique_lock lock(this->mu);
         this->cv.wait_for(lock, std::chrono::milliseconds(10), [&] {
@@ -88,11 +90,18 @@ public:
         return this->max_timeouts;
     }
 
+    /// @brief Returns a snapshot of all span values passed to wait().
+    std::vector<x::telem::TimeSpan> get_spans() {
+        std::lock_guard lock(this->timeout_mu);
+        return this->spans;
+    }
+
 private:
     std::condition_variable cv;
     std::mutex mu;
     std::mutex timeout_mu;
     std::vector<x::telem::TimeSpan> max_timeouts;
+    std::vector<x::telem::TimeSpan> spans;
     bool should_block{true};
 };
 }

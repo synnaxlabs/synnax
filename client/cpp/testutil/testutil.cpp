@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <cstring>
 #include <random>
 
 #include "client/cpp/testutil/testutil.h"
@@ -53,4 +55,43 @@ create_indexed_pair(synnax::Synnax &client) {
         false
     ));
     return {idx, data};
+}
+
+void assert_frames_equal(
+    const x::telem::Frame &expected,
+    const x::telem::Frame &actual
+) {
+    ASSERT_EQ(expected.size(), actual.size());
+
+    for (size_t i = 0; i < expected.channels->size(); i++) {
+        auto expected_key = expected.channels->at(i);
+
+        auto it = std::find(
+            actual.channels->begin(),
+            actual.channels->end(),
+            expected_key
+        );
+        ASSERT_NE(it, actual.channels->end())
+            << "Channel key not found: " << expected_key;
+
+        const size_t idx = std::distance(actual.channels->begin(), it);
+        const auto &expected_series = expected.series->at(i);
+        const auto &actual_series = actual.series->at(idx);
+
+        ASSERT_EQ(expected_series.data_type(), actual_series.data_type());
+        ASSERT_EQ(expected_series.size(), actual_series.size());
+        ASSERT_EQ(expected_series.byte_size(), actual_series.byte_size());
+        ASSERT_EQ(expected_series.alignment, actual_series.alignment);
+        ASSERT_EQ(expected_series.time_range.start, actual_series.time_range.start);
+        ASSERT_EQ(expected_series.time_range.end, actual_series.time_range.end);
+
+        ASSERT_EQ(
+            0,
+            std::memcmp(
+                expected_series.data(),
+                actual_series.data(),
+                expected_series.byte_size()
+            )
+        );
+    }
 }

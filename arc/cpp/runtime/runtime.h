@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include <chrono>
+#include <algorithm>
 #include <memory>
 #include <set>
 #include <utility>
@@ -93,7 +93,8 @@ class Runtime {
     x::telem::MonoClock clock;
     x::queue::SPSC<x::telem::Frame> inputs;
     x::queue::SPSC<Output> outputs;
-    std::chrono::steady_clock::time_point start_time_steady_;
+    /// @brief measures the elapsed time since run() started.
+    x::telem::Stopwatch stopwatch;
     errors::Handler error_handler;
 
 public:
@@ -124,7 +125,7 @@ public:
         write_channels(std::move(write_channels)) {}
 
     void run() {
-        this->start_time_steady_ = std::chrono::steady_clock::now();
+        this->stopwatch.reset();
         x::thread::set_name("runtime");
         if (auto err = this->loop->start(); err) {
             LOG(ERROR) << "[arc.runtime] failed to start loop: " << err.message();
@@ -136,34 +137,36 @@ public:
             this->error_handler(x::errors::Error("failed to watch input notifier"));
             return;
         }
-        auto next_timeout = x::telem::TimeSpan(0);
-        x::telem::TimeSpan elapsed;
+        auto timeout = x::telem::TimeSpan(0);
+        node::Deadline deadline;
+        // The first cycle runs at once as a timer tick, so that timers set their first
+        // deadlines without a wait for input.
+        bool started = false;
         while (this->breaker.running()) {
-            const auto wake_reason = this->loop->wait(this->breaker, next_timeout);
+            auto wake_reason = loop::WakeReason::Timer;
+            if (started)
+                wake_reason = this->loop->wait(this->breaker, timeout, deadline.span);
+            started = true;
             const bool is_timer =
                 (wake_reason == loop::WakeReason::Timer ||
                  wake_reason == loop::WakeReason::Timeout);
             x::telem::Frame frame;
             bool first = true;
             while (this->inputs.try_pop(frame) || first) {
-                const auto reason = (first && is_timer) ? node::RunReason::TimerTick
-                                                        : node::RunReason::ChannelInput;
+                const auto elapsed = this->stopwatch.elapsed();
+                // A due timer fires on any cycle, so steady input cannot starve it.
+                const bool timer_tick = (first && is_timer) || elapsed >= deadline.at;
                 first = false;
                 this->state->ingest(frame);
-                const auto now_steady = std::chrono::steady_clock::now();
-                elapsed = x::telem::TimeSpan(
-                    std::chrono::duration_cast<std::chrono::nanoseconds>(
-                        now_steady - this->start_time_steady_
-                    )
-                        .count()
-                );
                 const node::Cycle cycle{
                     .now = this->clock.now(),
                     .elapsed = elapsed,
-                    .reason = reason
+                    .reason = timer_tick ? node::RunReason::TimerTick
+                                         : node::RunReason::ChannelInput
                 };
                 this->time_module->set_now(cycle.now);
                 this->clock.advance(this->scheduler->next(cycle));
+                deadline = this->scheduler->next_deadline();
                 Output out;
                 out.authority_changes = this->state->flush_authority_changes();
                 this->clock.advance(this->state->flush_into(out.frame, cycle.now));
@@ -174,13 +177,15 @@ public:
                     }
                 }
             }
-            const auto deadline = this->scheduler->next_deadline();
-            if (deadline == x::telem::TimeSpan::max())
-                next_timeout = x::telem::TimeSpan(0);
-            else if (deadline > elapsed)
-                next_timeout = deadline - elapsed;
+            // The timeout counts from now, so that the work of the cycle does not delay
+            // the wake.
+            if (deadline.at == x::telem::TimeSpan::max())
+                timeout = x::telem::TimeSpan(0);
             else
-                next_timeout = x::telem::TimeSpan(1);
+                timeout = std::max(
+                    deadline.at - this->stopwatch.elapsed(),
+                    x::telem::TimeSpan(1)
+                );
         }
     }
 
@@ -339,13 +344,10 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         if (err) return {nullptr, err};
         nodes[mod_node.key] = std::move(node);
     }
-    const auto base_interval = time_module->base_interval();
-    const auto loop_cfg = cfg.loop.apply_defaults(base_interval);
-    const auto tolerance = stl::time::calculate_tolerance(loop_cfg.mode, base_interval);
+    const auto loop_cfg = cfg.loop.apply_defaults(time_module->shortest_span());
     auto sched = std::make_unique<scheduler::Scheduler>(
         cfg.program,
         nodes,
-        tolerance,
         error_handler
     );
     auto loop = loop::create(loop_cfg, cfg.rt_handle);

@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package legacy converts the Arc task config shape released Consoles stored and
-// exported: {arcKey}, plus the loop settings only a hand-written config carried. The
-// memory lock flag was named for the act rather than the resulting state.
+// Package legacy converts the Arc task config shapes released Cores and Consoles wrote:
+// v0 {arcKey} plus the loop settings only a hand-written config carried, and v1 the
+// typed shape whose loop mode was a raw execution_mode.
 package legacy
 
 import (
+	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions/v3"
+	v4 "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions/v4"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config/legacy"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -20,9 +22,14 @@ import (
 
 // LastVersion is the newest legacy Arc task shape. The typed shape sits directly
 // above it.
-const LastVersion imex.Version = 0
+const LastVersion imex.Version = 1
 
-// Config converts the released config shape.
+// Config converts the released config shapes.
 var Config = legacy.Rewrite{Post: func(config msgpack.EncodedJSON) {
-	legacy.RenameKey(config, "lock_memory", "memory_locked")
+	mode, ok := config["execution_mode"].(string)
+	if !ok {
+		return
+	}
+	delete(config, "execution_mode")
+	config["performance"] = string(v4.PerformanceOf(v3.ExecutionMode(mode)))
 }}

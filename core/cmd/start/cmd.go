@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
@@ -43,24 +44,26 @@ var Cmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, _ []string) { start(cmd) },
 }
 
-// start is the entrypoint for starting a Synnax Core. It handles signal interrupts and
-// delegates to startServer for the actual startup.
+// start is the entrypoint for starting a Synnax Core. It handles stop requests and
+// delegates to BootupCore for the actual startup.
 func start(cmd *cobra.Command) {
 	ctx := cmd.Context()
 	ins := instrumentation.Configure()
 	defer instrumentation.Cleanup(ctx, ins)
 
-	interruptC := make(chan os.Signal, 1)
-	signal.Notify(interruptC, os.Interrupt)
+	// sigC holds two signals, so a second signal sent right after the first is kept.
+	sigC := make(chan os.Signal, 2)
+	signal.Notify(sigC, os.Interrupt, syscall.SIGTERM)
 
 	sCtx, cancel := xsignal.WithCancel(ctx, xsignal.WithInstrumentation(ins))
 	defer cancel()
 
 	// Listen for a custom stop keyword that can be used in place of a Ctrl+C signal.
-	// It's fine to let this get garbage collected.
+	// A read from stdin cannot be interrupted, so this goroutine runs until exit.
+	stdinC := make(chan struct{}, 1)
 	go stdin.Watch(os.Stdin, viper.GetBool(FlagStopOnStdinClose), func() {
 		select {
-		case interruptC <- os.Interrupt:
+		case stdinC <- struct{}{}:
 		default:
 		}
 	})
@@ -75,16 +78,44 @@ func start(cmd *cobra.Command) {
 		return BootupCore(ctx, nil, cfg)
 	}, xsignal.WithKey("start"), xsignal.RecoverWithErrOnPanic())
 
-	select {
-	case <-interruptC:
+	forceCtx, forceCancel := xsignal.Isolated(xsignal.WithInstrumentation(ins))
+	forceExit := xsignal.NewHardShutdown(forceCtx, forceCancel)
+	// shutDown cancels the Core, then exits at once if signalsToForce more stop signals
+	// arrive before the shutdown completes. Stdin requests never count: the Desktop
+	// supervisor sends the stop keyword, then closes stdin.
+	shutDown := func(signalsToForce int) {
 		ins.L.Info(
-			"\033[33mSynnax is shutting down. This can take up to 5 seconds. Please be patient\033[0m",
+			"\033[33mSynnax is shutting down. Press Ctrl+C again to exit now.\033[0m",
 		)
 		cancel()
+		forceCtx.Go(func(ctx context.Context) error {
+			for range signalsToForce {
+				select {
+				case <-sigC:
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+			}
+			ins.L.Fatal(
+				"received a second stop signal, exiting before shutdown completes",
+			)
+			return nil
+		}, xsignal.WithKey("force_exit"))
+	}
+
+	select {
+	case <-sigC:
+		shutDown(1)
+	case <-stdinC:
+		shutDown(2)
 	case <-sCtx.Stopped():
 	}
 
-	if err := sCtx.Wait(); err != nil && !errors.Is(err, context.Canceled) {
+	err = sCtx.Wait()
+	if fErr := forceExit.Close(); fErr != nil {
+		ins.L.Fatal("failed to stop the force exit routine", zap.Error(fErr))
+	}
+	if err != nil && !errors.Is(err, context.Canceled) {
 		ins.L.Zap().Sugar().Errorf(
 			"\033[31mSynnax has encountered an error and is shutting down: %v\033[0m",
 			err,

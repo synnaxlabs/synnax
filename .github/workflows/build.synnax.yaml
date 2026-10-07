@@ -307,7 +307,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      # Only the Bazel Driver build reads the vendored submodules.
       - name: Update submodules
+        if: inputs.driver && (env.DRIVER_REF_RUN_ID == '' || inputs.nilinuxrt)
         run: git submodule update --init --recursive
 
       - name: Install deps on Ubuntu
@@ -669,10 +671,12 @@ jobs:
         if: inputs.console && env.CONSOLE_REF_RUN_ID == ''
         uses: ./.github/actions/setup-pnpm
         with:
-          # Build bots keep a local pnpm store, so restoring the GitHub cache tarball
-          # only adds time. Linux stores it on the persistent root volume. Windows uses
-          # D:\pnpm-store on NVMe (same volume as node_modules, wiped on stop/start).
-          cache: ${{ !endsWith(matrix.os, '-build-bot') }}
+          # The Linux and macOS build bots keep their pnpm store on a persistent volume.
+          # The Windows bots keep it on NVMe next to node_modules, which a stop wipes,
+          # so they restore it from the cache that warm.windows.yaml saves.
+          cache:
+            ${{ matrix.os == 'windows-build-bot' || !endsWith(matrix.os, '-build-bot')
+            }}
           # A build bot hosts several runners out of one home directory, so a shared
           # dest lets one job's store cleanup delete files another is installing.
           dest:
@@ -729,6 +733,22 @@ jobs:
         run: |
           Copy-Item -Recurse -Force console/dist/* core/pkg/console/dist/
 
+      # The Windows bots keep the tool cache on NVMe, which a stop wipes, and
+      # extracting the Go archive takes over three minutes there.
+      - name: Key the Go toolchain cache
+        id: go-toolchain
+        if: inputs.core && env.CORE_REF_RUN_ID == '' && matrix.os == 'windows-build-bot'
+        shell: bash
+        run: .github/scripts/go_toolchain_cache.sh core/go.mod >> "$GITHUB_OUTPUT"
+
+      - name: Restore the Go toolchain
+        id: go-restore
+        if: inputs.core && env.CORE_REF_RUN_ID == '' && matrix.os == 'windows-build-bot'
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ steps.go-toolchain.outputs.path }}
+          key: ${{ steps.go-toolchain.outputs.key }}
+
       - name: Set up Go
         if: inputs.core && env.CORE_REF_RUN_ID == ''
         uses: actions/setup-go@v7
@@ -736,6 +756,16 @@ jobs:
           go-version-file: core/go.mod
           # Don't use github cache. Local cache is faster.
           cache: false
+
+      # Merge queue caches are unreachable from later runs, so the queue never saves.
+      - name: Save the Go toolchain
+        if:
+          steps.go-restore.outcome == 'success' && steps.go-restore.outputs.cache-hit !=
+          'true' && github.event_name != 'merge_group'
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ steps.go-toolchain.outputs.path }}
+          key: ${{ steps.go-toolchain.outputs.key }}
 
       - name: Build Core
         if: inputs.core && env.CORE_REF_RUN_ID == ''
@@ -973,9 +1003,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
-
-      - name: Update submodules
-        run: git submodule update --init --recursive
 
       - name: Download Linux Driver artifact
         if: inputs.driver

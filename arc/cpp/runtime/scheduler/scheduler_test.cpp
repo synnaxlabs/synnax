@@ -426,26 +426,35 @@ TEST_F(SchedulerTest, NextDeadlineDefaultsToMax) {
     auto ir = program_of({ir_node("A")}, {}, root_scope({ir::node_member("A")}));
     const auto s = build(std::move(ir));
     s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
-    EXPECT_EQ(s->next_deadline(), x::telem::TimeSpan::max());
+    EXPECT_EQ(s->next_deadline().at, x::telem::TimeSpan::max());
+    EXPECT_EQ(s->next_deadline().span, x::telem::TimeSpan::max());
 }
 
-TEST_F(SchedulerTest, NextDeadlineReturnsMinimum) {
-    auto &a = mock("A");
-    auto &b = mock("B");
-    a.on_next = [](const node::Context &ctx) {
-        ctx.set_deadline(10 * x::telem::MILLISECOND);
-    };
-    b.on_next = [](const node::Context &ctx) {
-        ctx.set_deadline(3 * x::telem::MILLISECOND);
-    };
-    auto ir = program_of(
-        {ir_node("A"), ir_node("B")},
-        {},
-        root_scope({ir::node_member("A"), ir::node_member("B")})
+TEST_F(SchedulerTest, NextDeadlineReturnsMinimumWithItsSpan) {
+    const auto d = deadline_of(
+        {.at = 10 * x::telem::MILLISECOND, .span = 5 * x::telem::MILLISECOND},
+        {.at = 3 * x::telem::MILLISECOND, .span = 20 * x::telem::MILLISECOND}
     );
-    const auto s = build(std::move(ir));
-    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
-    EXPECT_EQ(s->next_deadline(), 3 * x::telem::MILLISECOND);
+    EXPECT_EQ(d.at, 3 * x::telem::MILLISECOND);
+    EXPECT_EQ(d.span, 20 * x::telem::MILLISECOND);
+}
+
+TEST_F(SchedulerTest, NextDeadlineKeepsShortestSpanOfEqualDeadlines) {
+    const auto d = deadline_of(
+        {.at = 5 * x::telem::MILLISECOND, .span = 20 * x::telem::MILLISECOND},
+        {.at = 5 * x::telem::MILLISECOND, .span = 5 * x::telem::MILLISECOND}
+    );
+    EXPECT_EQ(d.at, 5 * x::telem::MILLISECOND);
+    EXPECT_EQ(d.span, 5 * x::telem::MILLISECOND);
+}
+
+TEST_F(SchedulerTest, NextDeadlineKeepsShortestSpanWhenItComesFirst) {
+    const auto d = deadline_of(
+        {.at = 5 * x::telem::MILLISECOND, .span = 5 * x::telem::MILLISECOND},
+        {.at = 5 * x::telem::MILLISECOND, .span = 20 * x::telem::MILLISECOND}
+    );
+    EXPECT_EQ(d.at, 5 * x::telem::MILLISECOND);
+    EXPECT_EQ(d.span, 5 * x::telem::MILLISECOND);
 }
 
 TEST_F(SchedulerTest, NextDeadlineResetsBetweenCycles) {
@@ -454,16 +463,17 @@ TEST_F(SchedulerTest, NextDeadlineResetsBetweenCycles) {
     a.on_next = [&call](const node::Context &ctx) {
         call++;
         ctx.mark_self_changed();
-        if (call == 1) ctx.set_deadline(x::telem::SECOND);
+        if (call == 1) ctx.set_deadline(x::telem::SECOND, x::telem::SECOND);
     };
     auto ir = program_of({ir_node("A")}, {}, root_scope({ir::node_member("A")}));
     const auto s = build(std::move(ir));
     s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
-    EXPECT_EQ(s->next_deadline(), x::telem::SECOND);
+    EXPECT_EQ(s->next_deadline().at, x::telem::SECOND);
     s->next(
         {.elapsed = 2 * x::telem::MILLISECOND, .reason = node::RunReason::TimerTick}
     );
-    EXPECT_EQ(s->next_deadline(), x::telem::TimeSpan::max());
+    EXPECT_EQ(s->next_deadline().at, x::telem::TimeSpan::max());
+    EXPECT_EQ(s->next_deadline().span, x::telem::TimeSpan::max());
 }
 
 TEST_F(SchedulerTest, ContinuesAfterErrorReport) {

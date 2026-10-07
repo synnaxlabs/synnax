@@ -9,8 +9,8 @@
 
 import { group, type ontology } from "@synnaxlabs/client";
 import { theming } from "@synnaxlabs/pluto/ether";
-import { uuid } from "@synnaxlabs/x";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { color, uuid } from "@synnaxlabs/x";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Schematic } from "@/feature/schematic";
@@ -28,6 +28,7 @@ import {
   renderModalOpener,
 } from "@/platform/modals/testutil";
 import {
+  assertDefined,
   fakePickedFile,
   getIconButton,
   interceptFilePicker,
@@ -142,6 +143,33 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(getEditSectionHeaderButton("Colors"));
       expect(await screen.findByText("Region 1")).toBeDefined();
       expect(screen.getByText("0 elements")).toBeDefined();
+    });
+
+    it("saves a region stroke picked from its swatch", async () => {
+      const createKey = uuid.create();
+      const { picker, handle } = await openCreateModal(createKey);
+      await loadSVG(picker);
+      fireEvent.click(getEditSectionHeaderButton("Colors"));
+      await screen.findByText("Region 1");
+      const item = handle.baseElement.querySelector<HTMLElement>(
+        ".console-schematic-region-list-item",
+      );
+      assertDefined(item);
+      expect(within(item).queryAllByRole("textbox")).toHaveLength(0);
+      const swatches = item.querySelectorAll<HTMLElement>(".pluto-color-swatch");
+      expect(swatches).toHaveLength(2);
+      fireEvent.click(swatches[0]);
+      fireEvent.change(screen.getByLabelText("Hex"), { target: { value: "ff0000" } });
+      fireEvent.change(findNameInput(), {
+        target: { value: uniqueName("colored_symbol") },
+      });
+      fireEvent.click(findButton("Create"));
+      await waitFor(async () => {
+        const created = await client.schematics.symbols.retrieve(createKey);
+        expect(created.data?.states[0].regions[0].strokeColor).toEqual(
+          color.construct("#ff0000"),
+        );
+      });
     });
 
     it("adds a placeable handle at the symbol center", async () => {

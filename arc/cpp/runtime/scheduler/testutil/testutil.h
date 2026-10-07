@@ -238,20 +238,35 @@ public:
     }
 
     std::unique_ptr<Scheduler> build(ir::IR ir) {
-        return std::make_unique<Scheduler>(
-            std::move(ir),
-            this->nodes,
-            x::telem::TimeSpan(0)
-        );
+        return std::make_unique<Scheduler>(std::move(ir), this->nodes);
     }
 
     std::unique_ptr<Scheduler> build_with_handler(ir::IR ir, errors::Handler handler) {
         return std::make_unique<Scheduler>(
             std::move(ir),
             this->nodes,
-            x::telem::TimeSpan(0),
             std::move(handler)
         );
+    }
+
+    /// @brief runs one cycle in which node A sets deadline a, then node B sets deadline
+    /// b. Returns the scheduler's next deadline.
+    node::Deadline deadline_of(const node::Deadline a, const node::Deadline b) {
+        this->mock("A").on_next = [a](const node::Context &ctx) {
+            ctx.set_deadline(a.at, a.span);
+        };
+        this->mock("B").on_next = [b](const node::Context &ctx) {
+            ctx.set_deadline(b.at, b.span);
+        };
+        const auto s = this->build(program_of(
+            {ir_node("A"), ir_node("B")},
+            {},
+            root_scope({ir::node_member("A"), ir::node_member("B")})
+        ));
+        s->next(
+            {.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick}
+        );
+        return s->next_deadline();
     }
 };
 }

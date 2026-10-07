@@ -28,113 +28,41 @@ TEST(TaskConfigParsing, DefaultLoopConfig) {
     arc::TaskConfig task_cfg(parser);
     ASSERT_TRUE(parser.ok());
     EXPECT_EQ(task_cfg.loop.mode, ::arc::runtime::loop::ExecutionMode::AUTO);
-    EXPECT_EQ(task_cfg.loop.rt_priority, ::arc::runtime::loop::DEFAULT_RT_PRIORITY);
-    EXPECT_EQ(task_cfg.loop.cpu_affinity, ::arc::runtime::loop::CPU_AFFINITY_AUTO);
-    EXPECT_FALSE(task_cfg.loop.memory_locked);
 }
 
-TEST(TaskConfigParsing, ExplicitExecutionMode) {
-    nlohmann::json cfg{
-        {"arc_key", "12345678-1234-5678-1234-567812345678"},
-        {"execution_mode", "BUSY_WAIT"}
+TEST(TaskConfigParsing, PerformanceLevels) {
+    std::vector<std::pair<std::string, ::arc::runtime::loop::ExecutionMode>> levels = {
+        {"auto", ::arc::runtime::loop::ExecutionMode::AUTO},
+        {"low", ::arc::runtime::loop::ExecutionMode::EVENT_DRIVEN},
+        {"medium", ::arc::runtime::loop::ExecutionMode::HYBRID},
+        {"high", ::arc::runtime::loop::ExecutionMode::BUSY_WAIT},
     };
-    auto parser = x::json::Parser(nlohmann::to_string(cfg));
-    arc::TaskConfig task_cfg(parser);
-    ASSERT_TRUE(parser.ok());
-    EXPECT_EQ(task_cfg.loop.mode, ::arc::runtime::loop::ExecutionMode::BUSY_WAIT);
-}
-
-TEST(TaskConfigParsing, AllExecutionModes) {
-    std::vector<std::pair<std::string, ::arc::runtime::loop::ExecutionMode>> modes = {
-        {"AUTO", ::arc::runtime::loop::ExecutionMode::AUTO},
-        {"BUSY_WAIT", ::arc::runtime::loop::ExecutionMode::BUSY_WAIT},
-        {"HIGH_RATE", ::arc::runtime::loop::ExecutionMode::HIGH_RATE},
-        {"RT_EVENT", ::arc::runtime::loop::ExecutionMode::RT_EVENT},
-        {"HYBRID", ::arc::runtime::loop::ExecutionMode::HYBRID},
-        {"EVENT_DRIVEN", ::arc::runtime::loop::ExecutionMode::EVENT_DRIVEN},
-    };
-    for (const auto &[mode_str, expected_mode]: modes) {
+    for (const auto &[level, expected_mode]: levels) {
         nlohmann::json cfg{
             {"arc_key", "12345678-1234-5678-1234-567812345678"},
-            {"execution_mode", mode_str}
+            {"performance", level}
         };
         auto parser = x::json::Parser(nlohmann::to_string(cfg));
         arc::TaskConfig task_cfg(parser);
-        ASSERT_TRUE(parser.ok()) << "Failed to parse mode: " << mode_str;
-        EXPECT_EQ(task_cfg.loop.mode, expected_mode)
-            << "Mode mismatch for: " << mode_str;
+        ASSERT_TRUE(parser.ok()) << "failed to parse performance: " << level;
+        EXPECT_EQ(task_cfg.loop.mode, expected_mode) << "mode mismatch for: " << level;
     }
 }
 
-TEST(TaskConfigParsing, InvalidExecutionMode) {
+TEST(TaskConfigParsing, InvalidPerformance) {
     nlohmann::json cfg{
         {"arc_key", "12345678-1234-5678-1234-567812345678"},
-        {"execution_mode", "INVALID_MODE"}
+        {"performance", "extreme"}
     };
     auto parser = x::json::Parser(nlohmann::to_string(cfg));
     arc::TaskConfig task_cfg(parser);
-    EXPECT_FALSE(parser.ok());
-}
-
-TEST(TaskConfigParsing, RtPriority) {
-    nlohmann::json cfg{
-        {"arc_key", "12345678-1234-5678-1234-567812345678"},
-        {"rt_priority", 99}
-    };
-    auto parser = x::json::Parser(nlohmann::to_string(cfg));
-    arc::TaskConfig task_cfg(parser);
-    ASSERT_TRUE(parser.ok());
-    EXPECT_EQ(task_cfg.loop.rt_priority, 99);
-}
-
-TEST(TaskConfigParsing, CpuAffinity) {
-    nlohmann::json cfg{
-        {"arc_key", "12345678-1234-5678-1234-567812345678"},
-        {"cpu_affinity", 3}
-    };
-    auto parser = x::json::Parser(nlohmann::to_string(cfg));
-    arc::TaskConfig task_cfg(parser);
-    ASSERT_TRUE(parser.ok());
-    EXPECT_EQ(task_cfg.loop.cpu_affinity, 3);
-}
-
-TEST(TaskConfigParsing, CpuAffinityNone) {
-    nlohmann::json cfg{
-        {"arc_key", "12345678-1234-5678-1234-567812345678"},
-        {"cpu_affinity", ::arc::runtime::loop::CPU_AFFINITY_NONE}
-    };
-    auto parser = x::json::Parser(nlohmann::to_string(cfg));
-    arc::TaskConfig task_cfg(parser);
-    ASSERT_TRUE(parser.ok());
-    EXPECT_EQ(task_cfg.loop.cpu_affinity, ::arc::runtime::loop::CPU_AFFINITY_NONE);
-}
-
-TEST(TaskConfigParsing, MemoryLocked) {
-    nlohmann::json cfg{
-        {"arc_key", "12345678-1234-5678-1234-567812345678"},
-        {"memory_locked", true}
-    };
-    auto parser = x::json::Parser(nlohmann::to_string(cfg));
-    arc::TaskConfig task_cfg(parser);
-    ASSERT_TRUE(parser.ok());
-    EXPECT_TRUE(task_cfg.loop.memory_locked);
-}
-
-TEST(TaskConfigParsing, FullLoopConfig) {
-    nlohmann::json cfg{
-        {"arc_key", "12345678-1234-5678-1234-567812345678"},
-        {"execution_mode", "RT_EVENT"},
-        {"rt_priority", 80},
-        {"cpu_affinity", 7},
-        {"memory_locked", true}
-    };
-    auto parser = x::json::Parser(nlohmann::to_string(cfg));
-    arc::TaskConfig task_cfg(parser);
-    ASSERT_TRUE(parser.ok());
-    EXPECT_EQ(task_cfg.loop.mode, ::arc::runtime::loop::ExecutionMode::RT_EVENT);
-    EXPECT_EQ(task_cfg.loop.rt_priority, 80);
-    EXPECT_EQ(task_cfg.loop.cpu_affinity, 7);
-    EXPECT_TRUE(task_cfg.loop.memory_locked);
+    ASSERT_FALSE(parser.ok());
+    EXPECT_NE(
+        parser.error().data.find(
+            "invalid performance: extreme (must be auto, low, medium, or high)"
+        ),
+        std::string::npos
+    );
 }
 
 TEST(ArcTests, testCalcDoubling) {

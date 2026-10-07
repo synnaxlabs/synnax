@@ -153,56 +153,91 @@ func (w Writer) childTaskKeys(ctx context.Context, key Key) ([]task.Key, error) 
 	return task.KeysFromOntologyIDs(ontology.ResourceIDs(children))
 }
 
-// SetRack binds the arc with the given key to rackKey by creating its task on that
-// rack, or moving the existing one. A zero rackKey unbinds: the task is deleted,
-// stopping it on its rack. It returns the task, or nil after an unbind. It returns an
-// error wrapping validate.ErrValidation when unbinding a running task.
-func (w Writer) SetRack(
+// TaskUpdate holds the fields of an arc's task to change. A nil field stays as it is.
+type TaskUpdate struct {
+	// Rack binds the arc to the rack, creating its task or moving the existing one. A
+	// zero rack unbinds the arc, deleting its task.
+	Rack *rack.Key
+	// Performance sets how closely the task's runtime holds timer deadlines.
+	Performance *taskversions.Performance
+}
+
+// UpdateTask changes the task of the arc with the given key. It returns the task, or
+// nil after an unbind. It returns an error wrapping validate.ErrValidation when
+// unbinding a running task, when unbinding and setting the performance in one update,
+// or when setting the performance of an arc with no task.
+func (w Writer) UpdateTask(
 	ctx context.Context,
 	key Key,
-	rackKey rack.Key,
+	update TaskUpdate,
 ) (*task.Task, error) {
 	existing, err := w.childTaskKeys(ctx, key)
 	if err != nil {
 		return nil, err
 	}
-	if rackKey == 0 {
+	if update.Rack != nil && *update.Rack == 0 {
+		if update.Performance != nil {
+			return nil, errors.Wrap(
+				validate.ErrValidation,
+				"cannot set the performance of an arc while unbinding it",
+			)
+		}
 		return nil, w.clearRack(ctx, existing)
 	}
-	var a Arc
+	var (
+		a   Arc
+		cfg taskversions.Config
+		tsk task.Task
+	)
 	if err = w.table.NewRetrieve().
 		Where(gorp.MatchKeys[Key, Arc](key)).
 		Entry(&a).
 		Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}
-	hash, err := Hash(a)
-	if err != nil {
+	if len(existing) > 0 {
+		if tsk, cfg, err = w.retrieveTask(ctx, existing[0]); err != nil {
+			return nil, err
+		}
+	} else if update.Rack == nil {
+		return nil, errors.Wrap(
+			validate.ErrValidation,
+			"cannot set the performance of an arc with no rack",
+		)
+	}
+	if update.Rack != nil {
+		tsk.Rack = *update.Rack
+	}
+	if update.Performance != nil {
+		cfg.Performance = *update.Performance
+	}
+	if cfg.Hash, err = Hash(a); err != nil {
 		return nil, err
 	}
-	return w.writeTask(ctx, a, rackKey, existing, hash)
+	return w.writeTask(ctx, a, tsk.Rack, existing, cfg)
 }
 
-// writeTask creates or overwrites the arc's task on rackKey. hash is the arc's
-// semantic hash, stamped into the config so the task's config hash tracks the arc's
-// content and the task drift mechanism reports arc content drift with no extra
-// machinery.
+// writeTask creates or overwrites the arc's task on rackKey with cfg, stamping the
+// arc's key into it. cfg.Hash is the arc's semantic hash, so the task's config hash
+// tracks the arc's content and the task drift mechanism reports arc content drift with
+// no extra machinery.
 func (w Writer) writeTask(
 	ctx context.Context,
 	a Arc,
 	rackKey rack.Key,
 	existing []task.Key,
-	hash string,
+	cfg taskversions.Config,
 ) (*task.Task, error) {
-	b, err := json.Marshal(taskversions.Config{ArcKey: a.Key, Hash: hash})
+	cfg.ArcKey = a.Key
+	b, err := json.Marshal(cfg)
 	if err != nil {
 		return nil, err
 	}
-	var cfg msgpack.EncodedJSON
-	if err = json.Unmarshal(b, &cfg); err != nil {
+	var encoded msgpack.EncodedJSON
+	if err = json.Unmarshal(b, &encoded); err != nil {
 		return nil, err
 	}
-	tsk := task.Task{Rack: rackKey, Name: a.Name, Type: TaskType, Config: cfg}
+	tsk := task.Task{Rack: rackKey, Name: a.Name, Type: TaskType, Config: encoded}
 	if len(existing) > 0 {
 		tsk.Key = existing[0]
 	}
@@ -222,6 +257,24 @@ func (w Writer) writeTask(
 	return &tsk, nil
 }
 
+// retrieveTask returns the task with the given key and its decoded config.
+func (w Writer) retrieveTask(
+	ctx context.Context,
+	key task.Key,
+) (task.Task, taskversions.Config, error) {
+	var (
+		tsk task.Task
+		cfg taskversions.Config
+	)
+	if err := w.tasks.NewRetrieve().
+		Where(task.MatchKeys(key)).
+		Entry(&tsk).
+		Exec(ctx, w.tx); err != nil {
+		return tsk, cfg, err
+	}
+	return tsk, cfg, tsk.Config.Unmarshal(&cfg)
+}
+
 // syncTask rewrites the arc's task in place when an edit changed the arc's semantic
 // hash, keeping the task config in step with the arc's content. A no-op for arcs with
 // no rack bound and for edits, like graph layout moves, that hash equally.
@@ -230,22 +283,16 @@ func (w Writer) syncTask(ctx context.Context, a Arc) error {
 	if err != nil || len(existing) == 0 {
 		return err
 	}
-	var tsk task.Task
-	if err = w.tasks.NewRetrieve().
-		Where(task.MatchKeys(existing[0])).
-		Entry(&tsk).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	var cfg taskversions.Config
-	if err = tsk.Config.Unmarshal(&cfg); err != nil {
+	tsk, cfg, err := w.retrieveTask(ctx, existing[0])
+	if err != nil {
 		return err
 	}
 	hash, err := Hash(a)
 	if err != nil || cfg.Hash == hash {
 		return err
 	}
-	_, err = w.writeTask(ctx, a, tsk.Rack, existing, hash)
+	cfg.Hash = hash
+	_, err = w.writeTask(ctx, a, tsk.Rack, existing, cfg)
 	return err
 }
 

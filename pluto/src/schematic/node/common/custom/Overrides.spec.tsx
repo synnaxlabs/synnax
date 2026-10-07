@@ -55,7 +55,9 @@ describe("StateOverrideForm", () => {
       name: "actuated",
       parent: group.ontologyID(parent.key),
       data: {
-        svg: '<svg viewBox="0 0 10 10"><rect class="main" /></svg>',
+        svg:
+          '<svg viewBox="0 0 10 10">' +
+          '<rect class="main" stroke="#111111" fill="#eeeeee" /></svg>',
         states: [createState("base", "Base"), createState("active", "Active")],
         handles: [],
         variant: "actuator",
@@ -101,5 +103,48 @@ describe("StateOverrideForm", () => {
     act(() => form().set("stateOverrides", [createState("base", "Base")]));
     await waitFor(() => expect(getByText("Base Region")).toBeTruthy());
     expect(queryByText("Active Region")).toBeNull();
+  });
+
+  describe("region colors", () => {
+    const baseRegion = (form: Form.UseReturn<typeof formSchema>) => {
+      const base = form.value().stateOverrides.find((s) => s.key === "base");
+      return base?.regions.find((r) => r.key === "main");
+    };
+
+    const renderRegion = async () => {
+      const symbol = await createSymbol();
+      const utils = renderForm(symbol.key);
+      await waitFor(() => expect(utils.getByText("Base Region")).toBeTruthy());
+      const swatches = Array.from(
+        utils.container.querySelectorAll<HTMLElement>(".pluto-color-swatch"),
+      );
+      return { ...utils, swatches };
+    };
+
+    it("should show the stroke and fill as swatches with no hex box", async () => {
+      const { swatches, queryAllByRole } = await renderRegion();
+      expect(swatches).toHaveLength(2);
+      expect(queryAllByRole("textbox")).toHaveLength(0);
+    });
+
+    it("should set the stroke from its swatch", async () => {
+      const { swatches, getByLabelText, form } = await renderRegion();
+      fireEvent.click(swatches[0]);
+      fireEvent.change(getByLabelText("Hex"), { target: { value: "ff0000" } });
+      await waitFor(() =>
+        expect(baseRegion(form())?.strokeColor).toEqual(color.construct("#ff0000")),
+      );
+    });
+
+    it("should clear the fill with Auto and show the SVG's own fill", async () => {
+      const { swatches, getByLabelText, form } = await renderRegion();
+      fireEvent.click(swatches[1]);
+      fireEvent.click(getByLabelText("Auto"));
+      await waitFor(() => expect(baseRegion(form())?.fillColor).toBeUndefined());
+      expect(baseRegion(form())?.strokeColor).toBeDefined();
+      expect(swatches[1].style.getPropertyValue("--pluto-swatch-color")).toBe(
+        color.cssString("#eeeeee"),
+      );
+    });
   });
 });
