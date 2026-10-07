@@ -41,9 +41,9 @@ control loops, periodic sampling, and generating test data.
 time.interval{period=1s} -> tick
 ```
 
-An interval fires on a fixed schedule. A late fire does not move the next one. When a
-cycle takes longer than `period`, the interval fires once and does not make up the fires
-that it missed.
+An interval fires when it starts, then on a fixed schedule, once each `period`. A late
+fire does not move the next one. When a cycle takes longer than `period`, the interval
+fires once and does not make up the fires that it missed.
 
 <Divider.Divider x />
 
