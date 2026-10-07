@@ -174,21 +174,6 @@
     font: 400 14px/1.75 var(--foundation-body);
 }
 
-a.engineering-evidence {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: auto;
-    padding-top: 8px;
-    color: var(--engineering-accent);
-    font: 500 12px/1.5 var(--foundation-mono);
-    text-decoration: none;
-
-    &:hover {
-        color: var(--engineering-ink);
-    }
-}
-
 .engineering-drawing {
     position: relative;
     display: flex;
@@ -815,10 +800,6 @@ a.engineering-evidence {
             gap: 8px;
             margin-block: 18px 12px;
         }
-    }
-
-    a.engineering-evidence {
-        min-height: 44px;
     }
 
     .engineering-drawing {

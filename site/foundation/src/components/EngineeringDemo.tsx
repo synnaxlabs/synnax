@@ -145,14 +145,6 @@ export const EngineeringDemo = (): ReactElement => {
               <li key={note}>{note}</li>
             ))}
           </ul>
-          {mode === "reliability" && (
-            <a
-              href="https://docs.synnaxlabs.com/reliability/"
-              className="engineering-evidence"
-            >
-              How Synnax tests reliability <span aria-hidden="true">↗</span>
-            </a>
-          )}
         </div>
         <div className="engineering-drawing">
           <div className="engineering-drawing-reference" aria-hidden="true">
