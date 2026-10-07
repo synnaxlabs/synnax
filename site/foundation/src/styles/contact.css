@@ -145,7 +145,7 @@
 
     label span {
         color: #8d9aa8;
-        font-size: 11px;
+        font-size: 12px;
     }
 
     .foundation-contact-input {
@@ -249,7 +249,7 @@
     margin: 0;
     max-width: 25ch;
     color: #99a6b3;
-    font: 400 11px/1.6 var(--foundation-body);
+    font: 400 12px/1.6 var(--foundation-body);
 
     a {
         color: #b5c6d7;

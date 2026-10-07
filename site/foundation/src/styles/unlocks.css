@@ -28,7 +28,7 @@
     position: relative;
     isolation: isolate;
     display: grid;
-    grid-template-rows: 20px 174px 1fr;
+    grid-template-rows: minmax(20px, max-content) 174px 1fr;
     min-width: 0;
     padding: 18px 24px 20px;
     overflow: hidden;
@@ -58,18 +58,23 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    color: #748292;
-    font: 400 10px/1.4 var(--foundation-mono);
+    color: #9baabc;
+    font: 500 12px/1.4 var(--foundation-mono);
     letter-spacing: 0.025em;
     white-space: nowrap;
 }
 
 .unlock-number {
+    font-size: 11px;
     font-variant-numeric: tabular-nums;
 }
 
 .unlock-detail {
+    min-width: 0;
     margin-left: auto;
+    line-height: 1.2;
+    text-align: right;
+    white-space: normal;
     opacity: 0;
     transition: opacity 240ms ease;
 }
@@ -260,15 +265,15 @@
 
 .solutions-label {
     margin: 0;
-    color: #3c5365;
-    font: 500 11px/1.5 var(--foundation-mono);
+    color: #122334;
+    font: 500 12px/1.5 var(--foundation-mono);
     letter-spacing: 0.07em;
 }
 
 .solutions-description {
     max-width: 54ch;
     margin: 0;
-    color: #354e61;
+    color: #203447;
     font: 400 15px/1.65 var(--foundation-body);
     text-wrap: pretty;
 }

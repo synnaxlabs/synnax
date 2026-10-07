@@ -13,7 +13,7 @@
     --engineering-ink: #e2e9f1;
     --engineering-body: #b7c5d7;
     --engineering-muted: #a1b3c9;
-    --engineering-caption: #8fa3bd;
+    --engineering-caption: #adbed3;
     --engineering-accent: #b4cbe9;
 
     background: var(--engineering-background);
@@ -83,7 +83,7 @@
 
         .engineering-control-index {
             color: var(--engineering-caption);
-            font: 11px/1 var(--foundation-mono);
+            font: 500 11px/1 var(--foundation-mono);
         }
 
         &:hover {
@@ -102,7 +102,7 @@
 .engineering-view-label,
 .engineering-scenario-label {
     color: var(--engineering-caption);
-    font: 10px/1.5 var(--foundation-mono);
+    font: 500 12px/1.5 var(--foundation-mono);
     letter-spacing: 0.06em;
 }
 
@@ -154,7 +154,7 @@
     gap: 9px;
     margin: 0;
     color: var(--engineering-accent);
-    font: 10px/1.5 var(--foundation-mono);
+    font: 500 12px/1.5 var(--foundation-mono);
     letter-spacing: 0.04em;
 
     > span {
@@ -181,7 +181,7 @@ a.engineering-evidence {
     margin-top: auto;
     padding-top: 8px;
     color: var(--engineering-accent);
-    font: 11px/1.5 var(--foundation-mono);
+    font: 500 12px/1.5 var(--foundation-mono);
     text-decoration: none;
 
     &:hover {
@@ -214,7 +214,7 @@ a.engineering-evidence {
     display: flex;
     justify-content: space-between;
     color: var(--engineering-caption);
-    font: 9px/1.5 var(--foundation-mono);
+    font: 500 11px/1.5 var(--foundation-mono);
     letter-spacing: 0.04em;
     pointer-events: none;
 }
@@ -249,8 +249,8 @@ a.engineering-evidence {
         cursor: pointer;
 
         .engineering-control-index {
-            font: 10px/1.5 var(--foundation-mono);
-            opacity: 0.55;
+            font: 500 12px/1.5 var(--foundation-mono);
+            color: var(--engineering-caption);
         }
 
         &:hover {
@@ -264,6 +264,11 @@ a.engineering-evidence {
             background: var(--engineering-selected);
         }
     }
+}
+
+.engineering-modes button[aria-pressed="true"] .engineering-control-index,
+.engineering-scenarios button[aria-pressed="true"] .engineering-control-index {
+    color: inherit;
 }
 
 .engineering-dx-heading {
@@ -292,7 +297,7 @@ a.engineering-evidence {
 .engineering-eyebrow {
     margin: 0;
     color: var(--engineering-caption);
-    font: 11px/1.5 var(--foundation-mono);
+    font: 500 12px/1.5 var(--foundation-mono);
     letter-spacing: 0.04em;
 }
 
@@ -336,7 +341,7 @@ a.engineering-evidence {
 
 .engineering-feature-index {
     color: var(--engineering-caption);
-    font: 10px/1.5 var(--foundation-mono);
+    font: 500 12px/1.5 var(--foundation-mono);
     letter-spacing: 0.03em;
 }
 
@@ -359,11 +364,11 @@ a.engineering-evidence {
     padding: 13px 20px;
     border-bottom: 1px solid var(--engineering-line);
     color: var(--engineering-body);
-    font: 11px/1.5 var(--foundation-mono);
+    font: 500 12px/1.5 var(--foundation-mono);
 
     > :last-child {
         color: var(--engineering-caption);
-        font-size: 9px;
+        font-size: 11px;
     }
 }
 
@@ -405,7 +410,7 @@ a.engineering-evidence {
     gap: 12px;
     padding: 0 20px 16px;
     color: var(--engineering-caption);
-    font: 10px/1.5 var(--foundation-mono);
+    font: 500 12px/1.5 var(--foundation-mono);
 }
 
 .engineering-change pre {
@@ -444,7 +449,7 @@ a.engineering-evidence {
     justify-content: space-between;
     margin: 0 20px 20px;
     color: var(--engineering-caption);
-    font: 11px/1.5 var(--foundation-mono);
+    font: 500 12px/1.5 var(--foundation-mono);
 
     .engineering-change-current {
         padding: 8px 12px;
@@ -500,7 +505,7 @@ a.engineering-evidence {
     small {
         margin-left: auto;
         color: var(--engineering-caption);
-        font-size: 8px;
+        font-size: 11px;
     }
 }
 
@@ -509,7 +514,7 @@ a.engineering-evidence {
     justify-content: space-between;
     margin-top: 22px;
     color: var(--engineering-body);
-    font-size: 10px;
+    font-size: 12px;
 }
 
 .engineering-interface {
@@ -556,7 +561,7 @@ a.engineering-evidence {
         align-items: center;
         gap: 8px;
         color: var(--engineering-body);
-        font-size: 10px;
+        font-size: 12px;
     }
 }
 
@@ -599,7 +604,7 @@ a.engineering-evidence {
     span {
         padding: 10px 12px;
         color: var(--engineering-body);
-        font-size: 10px;
+        font-size: 12px;
         background: var(--engineering-raised);
     }
 }
@@ -608,7 +613,7 @@ a.engineering-evidence {
     padding: 10px 12px;
     color: var(--engineering-ink);
     background: var(--engineering-selected);
-    font-size: 10px;
+    font-size: 12px;
     letter-spacing: 0.08em;
 }
 
@@ -822,7 +827,7 @@ a.engineering-evidence {
     }
 
     .engineering-drawing-reference {
-        font-size: 9px;
+        font-size: 11px;
     }
 
     .engineering-scenario-bar {
