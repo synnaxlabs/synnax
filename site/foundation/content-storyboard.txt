@@ -185,7 +185,7 @@ NINE UNLOCKS
 3. Remote diagnostics, including root-cause analysis
 4. Traceability & audit, including quality traceability and audit trails
 5. Faster test analysis
-6. Fleet intelligence, including operational visibility
+6. Fleet performance, including operational visibility
 7. Supervisory automation
 8. Process optimization
 9. Machine intelligence
@@ -231,7 +231,7 @@ The compact passes keep the typography and 20px gutters, trim the artwork areas
 from 240px to 174px, and slightly reduce card padding and section spacing.
 The second pass removes about another 10% of section height, with modest artwork
 scaling to preserve the diagrams' presence in the shorter cards.
-Predictive maintenance, fleet intelligence, and supervisory automation remain
+Predictive maintenance, fleet performance, and supervisory automation remain
 the wide cards. The underlying artwork and animations are unchanged.
 
 The grid sits directly after How Foundation Works and before engineering.
