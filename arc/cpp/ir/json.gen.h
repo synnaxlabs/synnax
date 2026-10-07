@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <string>
 #include <unordered_map>
+#include <variant>
 #include <vector>
 
 #include "x/cpp/json/json.h"
@@ -57,8 +58,7 @@ inline Transition Transition::parse(x::json::Parser parser) {
     return Transition{
         .on = parser.field<Handle>("on"),
         .kind = parser.field<EdgeKind>("kind"),
-        .target_key = parser.field<std::optional<std::string>>("target_key"),
-        .activate_key = parser.field<std::optional<std::string>>("activate_key"),
+        .target = parse_target(parser.child("target")),
     };
 }
 
@@ -66,8 +66,7 @@ inline x::json::json Transition::to_json() const {
     x::json::json j;
     j["on"] = this->on.to_json();
     j["kind"] = this->kind;
-    j["target_key"] = this->target_key;
-    j["activate_key"] = this->activate_key;
+    j["target"] = ::arc::ir::to_json(this->target);
     return j;
 }
 
@@ -222,6 +221,46 @@ inline x::json::json IR::to_json() const {
     return j;
 }
 
+inline ExitTarget ExitTarget::parse(x::json::Parser parser) {
+    ExitTarget result;
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json ExitTarget::to_json() const {
+    x::json::json j;
+    j["type"] = this->type;
+    return j;
+}
+
+inline StepTarget StepTarget::parse(x::json::Parser parser) {
+    StepTarget result;
+    result.key = parser.field<std::string>("key");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json StepTarget::to_json() const {
+    x::json::json j;
+    j["key"] = this->key;
+    j["type"] = this->type;
+    return j;
+}
+
+inline ScopeTarget ScopeTarget::parse(x::json::Parser parser) {
+    ScopeTarget result;
+    result.key = parser.field<std::string>("key");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json ScopeTarget::to_json() const {
+    x::json::json j;
+    j["key"] = this->key;
+    j["type"] = this->type;
+    return j;
+}
+
 inline Edges Edges::parse(x::json::Parser parser) {
     Edges result;
     for (auto &item: parser.field<std::vector<Edge>>())
@@ -265,6 +304,19 @@ inline x::json::json Nodes::to_json() const {
         j.push_back(item.to_json());
     }
     return j;
+}
+
+inline Target parse_target(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "exit") return ExitTarget::parse(parser);
+    if (discriminator == "step") return StepTarget::parse(parser);
+    if (discriminator == "scope") return ScopeTarget::parse(parser);
+    parser.field_err("type", "unknown Target type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const Target &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 
 }

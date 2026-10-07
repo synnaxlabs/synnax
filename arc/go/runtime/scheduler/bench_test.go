@@ -145,15 +145,15 @@ func buildSequentialChain(n int) (ir.IR, map[string]node.Node) {
 		if i+1 < n {
 			next := "m" + strconv.Itoa(i+1)
 			transitions = append(transitions, ir.Transition{
-				On:        ir.Handle{Node: k, Param: "next"},
-				Kind:      ir.EdgeKindConditional,
-				TargetKey: stepKeyTarget(next),
+				On:     ir.Handle{Node: k, Param: "next"},
+				Kind:   ir.EdgeKindConditional,
+				Target: stepKeyTarget(next),
 			})
 		} else {
 			transitions = append(transitions, ir.Transition{
-				On:        ir.Handle{Node: k, Param: "next"},
-				Kind:      ir.EdgeKindConditional,
-				TargetKey: exitTarget(),
+				On:     ir.Handle{Node: k, Param: "next"},
+				Kind:   ir.EdgeKindConditional,
+				Target: exitTarget(),
 			})
 		}
 	}

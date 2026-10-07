@@ -15,6 +15,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <variant>
 #include <vector>
 
 #include "absl/log/check.h"
@@ -365,12 +366,12 @@ private:
         for (const size_t i: state.transitions_for_step[state.active_step]) {
             if (!this->fires(state, i)) continue;
             this->deactivate_member(state.members[state.active_step]);
-            const auto &target_key = transitions[i].target_key;
-            if (!target_key.has_value()) {
+            const auto *step = std::get_if<ir::StepTarget>(&transitions[i].target);
+            if (step == nullptr) {
                 this->exit(state, i);
                 return true;
             }
-            const auto mit = state.member_by_key.find(*target_key);
+            const auto mit = state.member_by_key.find(step->key);
             if (mit == state.member_by_key.end()) return false;
             this->activate_sequential_step(state, mit->second);
             return true;
@@ -537,10 +538,11 @@ validate(const ir::Scope &scope, const std::unordered_set<std::string> &top_leve
     };
     for (const auto &t: scope.transitions) {
         if (t.kind == ir::EdgeKind::Unspecified) return invalid("with no kind", t);
-        if (t.target_key.has_value() &&
-            (scope.mode == ir::ScopeMode::Parallel || t.activate_key.has_value()))
+        if (std::holds_alternative<ir::StepTarget>(t.target) &&
+            scope.mode == ir::ScopeMode::Parallel)
             return invalid("with a step target it cannot take", t);
-        if (t.activate_key.has_value() && !top_level.contains(*t.activate_key))
+        if (const auto *jump = std::get_if<ir::ScopeTarget>(&t.target);
+            jump != nullptr && !top_level.contains(jump->key))
             return invalid("to a scope that is not top-level", t);
     }
     if (std::ranges::find(
@@ -785,8 +787,8 @@ private:
         state.transition_on_output_idx.assign(transitions.size(), NO_INDEX);
         state.transition_targets.assign(transitions.size(), NO_INDEX);
         for (size_t i = 0; i < transitions.size(); ++i) {
-            if (transitions[i].activate_key.has_value())
-                this->jumps.push_back({scope_idx, i, *transitions[i].activate_key});
+            if (const auto *jump = std::get_if<ir::ScopeTarget>(&transitions[i].target))
+                this->jumps.push_back({scope_idx, i, jump->key});
             const size_t on = this->lookup_node(transitions[i].on.node);
             if (on == NO_INDEX) continue;
             auto &on_node = this->s->nodes[on];

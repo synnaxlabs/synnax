@@ -79,8 +79,9 @@ func New(
 }
 
 // validateScope returns validate.ErrValidation when sc, or any scope nested under it,
-// has a transition or activation with an unspecified kind, a parallel transition with
-// a step target, or a transition that activates a scope missing from topLevel.
+// has a transition or activation with an unspecified kind, a transition with no
+// target, a parallel transition with a step target, or a transition that activates a
+// scope missing from topLevel.
 func validateScope(sc ir.Scope, topLevel set.Set[string]) error {
 	for _, t := range sc.Transitions {
 		if t.Kind == ir.EdgeKindUnspecified {
@@ -91,22 +92,32 @@ func validateScope(sc ir.Scope, topLevel set.Set[string]) error {
 				t,
 			)
 		}
-		if t.TargetKey != nil &&
-			(sc.Mode == ir.ScopeModeParallel || t.ActivateKey != nil) {
+		switch target := t.Target.Variant.(type) {
+		case nil:
 			return errors.Wrapf(
 				validate.ErrValidation,
-				"scope %s has a transition with a step target it cannot take: %s",
+				"scope %s has a transition with no target: %s",
 				sc.Key,
 				t,
 			)
-		}
-		if t.ActivateKey != nil && !topLevel.Contains(*t.ActivateKey) {
-			return errors.Wrapf(
-				validate.ErrValidation,
-				"scope %s has a transition to a scope that is not top-level: %s",
-				sc.Key,
-				t,
-			)
+		case ir.StepTarget:
+			if sc.Mode == ir.ScopeModeParallel {
+				return errors.Wrapf(
+					validate.ErrValidation,
+					"scope %s has a transition with a step target it cannot take: %s",
+					sc.Key,
+					t,
+				)
+			}
+		case ir.ScopeTarget:
+			if !topLevel.Contains(target.Key) {
+				return errors.Wrapf(
+					validate.ErrValidation,
+					"scope %s has a transition to a scope that is not top-level: %s",
+					sc.Key,
+					t,
+				)
+			}
 		}
 	}
 	for _, a := range sc.Activations {
@@ -309,8 +320,8 @@ func (b *builder) resolveTransitions(state *scope, transitions []ir.Transition) 
 	state.transitionOnOutputIdx = make([]int, len(transitions))
 	state.transitionTargets = make([]*scope, len(transitions))
 	for i, t := range transitions {
-		if t.ActivateKey != nil {
-			b.jumps = append(b.jumps, jump{state: state, idx: i, key: *t.ActivateKey})
+		if target, ok := t.Target.Variant.(ir.ScopeTarget); ok {
+			b.jumps = append(b.jumps, jump{state: state, idx: i, key: target.Key})
 		}
 		on, ok := b.nodes[t.On.Node]
 		if !ok {

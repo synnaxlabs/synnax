@@ -136,7 +136,7 @@ TEST_F(SchedulerTest, RunsTheNextSequentialStepOnTheSettlePassSoItObservesPriorW
     );
     ir::Transition t;
     t.on = ir::Handle{"first_node", "output"};
-    t.target_key = step_key_target("second");
+    t.target = step_key_target("second");
     auto main = sequential_scope(
         "main",
         {ir::scope_member(std::move(first)), ir::scope_member(std::move(second))},
@@ -229,7 +229,7 @@ TEST_F(SchedulerTest, ReFiresAnEntryNodeWhenItsScopeReActivates) {
     auto first = parallel_scope("first", {stratum_of({ir::node_member("A")})});
     ir::Transition t;
     t.on = ir::Handle{"A", "output"};
-    t.target_key = exit_target();
+    t.target = exit_target();
     auto main = sequential_scope("main", {ir::scope_member(std::move(first))}, {t});
     main.activations = {
         {.on = ir::Handle{"trigger", "output"}, .kind = ir::EdgeKind::Conditional}

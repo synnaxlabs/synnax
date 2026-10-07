@@ -315,12 +315,12 @@ func (s *Scheduler) evaluateTransitions(ss *scope) bool {
 			continue
 		}
 		s.deactivateMember(&ss.members[ss.activeStep])
-		t := ss.ir.Transitions[i]
-		if t.TargetKey == nil {
+		step, ok := ss.ir.Transitions[i].Target.Variant.(ir.StepTarget)
+		if !ok {
 			s.exit(ss, i)
 			return true
 		}
-		idx, ok := ss.memberByKey[*t.TargetKey]
+		idx, ok := ss.memberByKey[step.Key]
 		if !ok {
 			return false
 		}

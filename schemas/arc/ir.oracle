@@ -74,27 +74,40 @@ Liveness enum {
     @doc value "defines whether a Scope is continuously active or must be activated."
 }
 
+Target union on type {
+    exit {
+        @doc value "leaves the scope and yields to its parent."
+    }
+    step {
+        key string {
+            @doc value "is the key of the sibling step to activate."
+        }
+
+        @doc value "activates a sibling step of the same scope."
+    }
+    scope {
+        key string {
+            @doc value "is the key of the top-level scope to activate."
+        }
+
+        @doc value "leaves the scope, then activates a top-level scope."
+    }
+
+    @doc value "is where a transition goes when it fires."
+}
+
 Transition struct {
-    on          Handle   {
+    on     Handle   {
         @doc value "is the dataflow handle whose output fires this transition."
     }
-    kind        EdgeKind {
+    kind   EdgeKind {
         @doc value """
             is conditional when only a truthy output fires the transition (`=>`), and
             continuous when every output fires it (`->`).
         """
     }
-    targetKey   string?  {
-        @doc value """
-            is the sibling step key to activate. Null when the transition exits the
-            scope, yielding to the parent.
-        """
-    }
-    activateKey string?  {
-        @doc value """
-            is the key of the top-level scope to activate after the transition exits its
-            scope. Null unless targetKey is null.
-        """
+    target Target   {
+        @doc value "is where the transition goes when it fires."
     }
 
     @cpp methods "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Transition& t)"

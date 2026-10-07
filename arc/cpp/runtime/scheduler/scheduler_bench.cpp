@@ -164,8 +164,8 @@ Program build_sequential_chain(size_t n) {
         p.nodes[k] = std::make_unique<BenchNode>(std::vector<bool>{true});
         ir::Transition t;
         t.on = ir::Handle{k, "next"};
-        if (i + 1 < n) t.target_key = "m" + std::to_string(i + 1);
-        // leaving target_key unset signals exit for the terminal step.
+        if (i + 1 < n) t.target = ir::StepTarget{.key = "m" + std::to_string(i + 1)};
+        // the terminal step keeps the default exit target.
         transitions.push_back(std::move(t));
     }
 
@@ -257,7 +257,7 @@ Program build_sequential_with_vars(size_t n) {
         p.nodes[k] = std::make_unique<BenchNode>(std::vector<bool>{true});
         ir::Transition t;
         t.on = ir::Handle{k, "next"};
-        if (i + 1 < n) t.target_key = "m" + std::to_string(i + 1);
+        if (i + 1 < n) t.target = ir::StepTarget{.key = "m" + std::to_string(i + 1)};
         transitions.push_back(std::move(t));
     }
 

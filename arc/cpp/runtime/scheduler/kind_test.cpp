@@ -32,7 +32,7 @@ static ir::IR two_step_seq(const ir::EdgeKind kind) {
     ir::Transition t;
     t.on = ir::Handle{"first_node", "output"};
     t.kind = kind;
-    t.target_key = step_key_target("second");
+    t.target = step_key_target("second");
     auto main = sequential_scope(
         "main",
         {ir::scope_member(std::move(first)), ir::scope_member(std::move(second))},

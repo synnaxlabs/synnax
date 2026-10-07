@@ -37,7 +37,7 @@ TEST_F(SchedulerTest, AdvancesOnTransitionFire) {
     );
     ir::Transition t;
     t.on = ir::Handle{"first_node", "output"};
-    t.target_key = step_key_target("second");
+    t.target = step_key_target("second");
     auto main = sequential_scope(
         "main",
         {ir::scope_member(std::move(first_scope)),
@@ -79,7 +79,7 @@ TEST_F(SchedulerTest, ExitTargetDeactivatesSequence) {
     );
     ir::Transition t;
     t.on = ir::Handle{"first_node", "output"};
-    t.target_key = exit_target();
+    t.target = exit_target();
     auto main = sequential_scope(
         "main",
         {ir::scope_member(std::move(first_scope))},
@@ -122,10 +122,10 @@ TEST_F(SchedulerTest, FirstMatchWinsWhenMultipleTransitionsTruthy) {
     auto b_scope = parallel_scope("b", {stratum_of({ir::node_member("b_node")})});
     ir::Transition t1;
     t1.on = ir::Handle{"first_node", "output"};
-    t1.target_key = step_key_target("a");
+    t1.target = step_key_target("a");
     ir::Transition t2;
     t2.on = ir::Handle{"first_node", "output"};
-    t2.target_key = step_key_target("b");
+    t2.target = step_key_target("b");
     auto main = sequential_scope(
         "main",
         {ir::scope_member(std::move(first_scope)),
@@ -168,10 +168,10 @@ TEST_F(SchedulerTest, CascadesMultipleTransitionsInOneCycle) {
     auto sc3 = mk_step("s3", "s3");
     ir::Transition t1;
     t1.on = ir::Handle{"s1", "output"};
-    t1.target_key = step_key_target("s2");
+    t1.target = step_key_target("s2");
     ir::Transition t2;
     t2.on = ir::Handle{"s2", "output"};
-    t2.target_key = step_key_target("s3");
+    t2.target = step_key_target("s3");
     auto main = sequential_scope(
         "main",
         {ir::scope_member(std::move(sc1)),
@@ -217,7 +217,7 @@ TEST_F(
     auto body = parallel_scope("body", {stratum_of({ir::node_member("worker")})});
     ir::Transition t_exit;
     t_exit.on = ir::Handle{"latch", "output"};
-    t_exit.target_key = exit_target();
+    t_exit.target = exit_target();
     auto main = sequential_scope("main", {ir::scope_member(std::move(body))}, {t_exit});
     main.activations = {
         {.on = ir::Handle{"trigger", "output"}, .kind = ir::EdgeKind::Conditional}
@@ -266,7 +266,7 @@ TEST_F(
     auto b = parallel_scope("b", {stratum_of({ir::node_member("worker_b")})});
     ir::Transition t_ab;
     t_ab.on = ir::Handle{"latch", "output"};
-    t_ab.target_key = step_key_target("b");
+    t_ab.target = step_key_target("b");
     auto main = sequential_scope(
         "main",
         {ir::scope_member(std::move(a)), ir::scope_member(std::move(b))},
@@ -327,7 +327,7 @@ TEST_F(SchedulerTest, FiresTransitionAgainWhenSourceFreshlyMarksChangedOnLaterCy
     auto b = parallel_scope("b", {stratum_of({ir::node_member("worker_b")})});
     ir::Transition t_ab;
     t_ab.on = ir::Handle{"latch", "output"};
-    t_ab.target_key = step_key_target("b");
+    t_ab.target = step_key_target("b");
     auto main = sequential_scope(
         "main",
         {ir::scope_member(std::move(a)), ir::scope_member(std::move(b))},
@@ -402,7 +402,7 @@ TEST_F(SchedulerTest, ClearsAPendingSelfChangeAndReResetsOnScopeReEntry) {
     );
     ir::Transition t;
     t.on = ir::Handle{"A", "output"};
-    t.target_key = exit_target();
+    t.target = exit_target();
     auto main = sequential_scope("main", {ir::scope_member(std::move(first))}, {t});
     main.activations = {
         {.on = ir::Handle{"trigger", "output"}, .kind = ir::EdgeKind::Conditional}

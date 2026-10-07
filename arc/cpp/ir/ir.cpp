@@ -83,10 +83,10 @@ std::string Transition::to_string() const {
     std::ostringstream ss;
     ss << "on " << this->on.node << "/" << this->on.param << " " << arrow(this->kind)
        << " ";
-    if (this->target_key.has_value())
-        ss << *this->target_key;
-    else if (this->activate_key.has_value())
-        ss << "exit to " << *this->activate_key;
+    if (const auto *step = std::get_if<StepTarget>(&this->target))
+        ss << step->key;
+    else if (const auto *scope = std::get_if<ScopeTarget>(&this->target))
+        ss << "exit to " << scope->key;
     else
         ss << "exit";
     return ss.str();

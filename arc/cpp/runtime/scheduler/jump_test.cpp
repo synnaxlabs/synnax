@@ -40,7 +40,7 @@ ir::Transition jump(const std::string &key, const std::string &target) {
     ir::Transition t;
     t.on = ir::Handle{key, "output"};
     t.kind = ir::EdgeKind::Conditional;
-    t.activate_key = target;
+    t.target = ir::ScopeTarget{.key = target};
     return t;
 }
 
@@ -322,20 +322,8 @@ TEST(ValidateTest, RejectsAStepTargetOnAParallelScope) {
     ir::Transition t;
     t.on = ir::Handle{"s_node", "output"};
     t.kind = ir::EdgeKind::Conditional;
-    t.target_key = "other";
+    t.target = ir::StepTarget{.key = "other"};
     const auto err = validate_transition(t, ir::ScopeMode::Parallel);
-    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(
-        err.data,
-        "scope s has a transition with a step target it cannot take: "
-        "on s_node/output => other"
-    );
-}
-
-TEST(ValidateTest, RejectsAStepTargetOnAJump) {
-    auto t = jump("s_node", "s");
-    t.target_key = "other";
-    const auto err = validate_transition(t, ir::ScopeMode::Sequential);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_EQ(
         err.data,

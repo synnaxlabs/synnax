@@ -223,14 +223,18 @@ func (s *shellBuilder) addCompletion(on ir.Handle) {
 		f := s.stack[i]
 		if next := f.nextMember(); next != "" {
 			s.addTransitionTo(f, ir.Transition{
-				On:        on,
-				Kind:      ir.EdgeKindConditional,
-				TargetKey: new(next),
+				On:     on,
+				Kind:   ir.EdgeKindConditional,
+				Target: ir.Target{Variant: ir.StepTarget{Key: next}},
 			})
 			return
 		}
 		if !f.escalatesCompletion || i == 0 {
-			s.addTransitionTo(f, ir.Transition{On: on, Kind: ir.EdgeKindConditional})
+			s.addTransitionTo(f, ir.Transition{
+				On:     on,
+				Kind:   ir.EdgeKindConditional,
+				Target: ir.Target{Variant: ir.ExitTarget{}},
+			})
 			return
 		}
 	}
@@ -280,7 +284,11 @@ func (s *shellBuilder) applyTransitionIntent(
 	switch {
 	case intent.isNext:
 		next := s.top().nextMember()
-		s.addTransition(ir.Transition{On: on, Kind: kind, TargetKey: new(next)})
+		s.addTransition(ir.Transition{
+			On:     on,
+			Kind:   kind,
+			Target: ir.Target{Variant: ir.StepTarget{Key: next}},
+		})
 	case intent.memberKey != "":
 		frame := intent.targetFrame
 		if frame == nil {
@@ -288,7 +296,11 @@ func (s *shellBuilder) applyTransitionIntent(
 		}
 		s.addTransitionTo(
 			frame,
-			ir.Transition{On: on, Kind: kind, TargetKey: new(intent.memberKey)},
+			ir.Transition{
+				On:     on,
+				Kind:   kind,
+				Target: ir.Target{Variant: ir.StepTarget{Key: intent.memberKey}},
+			},
 		)
 	case intent.activateKey != "":
 		if s.jumps == nil || intent.suppressExit {
@@ -296,9 +308,9 @@ func (s *shellBuilder) applyTransitionIntent(
 			return
 		}
 		*s.jumps = append(*s.jumps, ir.Transition{
-			On:          on,
-			Kind:        kind,
-			ActivateKey: new(intent.activateKey),
+			On:     on,
+			Kind:   kind,
+			Target: ir.Target{Variant: ir.ScopeTarget{Key: intent.activateKey}},
 		})
 	}
 }
@@ -2256,9 +2268,9 @@ func autoWireTransition(shell *shellBuilder, lastNode ir.Node, nextMemberKey str
 		return
 	}
 	shell.addTransition(ir.Transition{
-		On:        on,
-		Kind:      ir.EdgeKindConditional,
-		TargetKey: new(nextMemberKey),
+		On:     on,
+		Kind:   ir.EdgeKindConditional,
+		Target: ir.Target{Variant: ir.StepTarget{Key: nextMemberKey}},
 	})
 }
 

@@ -195,14 +195,14 @@ func conditionalEdge(src, srcParam, tgt, tgtParam string) ir.Edge {
 
 // stepKeyTarget builds a transition target key that jumps to the named
 // sibling step.
-func stepKeyTarget(key string) *string {
-	return new(key)
+func stepKeyTarget(key string) ir.Target {
+	return ir.Target{Variant: ir.StepTarget{Key: key}}
 }
 
-// exitTarget returns the nil target key that exits the sequence, yielding
-// to the parent scope.
-func exitTarget() *string {
-	return nil
+// exitTarget returns the target that exits the sequence, yielding to the parent
+// scope.
+func exitTarget() ir.Target {
+	return ir.Target{Variant: ir.ExitTarget{}}
 }
 
 // irNode builds an ir.Node with the given key and ordered output names.
@@ -228,9 +228,9 @@ func twoStepSeq(kind ir.EdgeKind) ir.IR {
 		{Scope: &first},
 		{Scope: &second},
 	}, ir.Transition{
-		On:        ir.Handle{Node: "first_node", Param: "output"},
-		Kind:      kind,
-		TargetKey: stepKeyTarget("second"),
+		On:     ir.Handle{Node: "first_node", Param: "output"},
+		Kind:   kind,
+		Target: stepKeyTarget("second"),
 	})
 	trigger := ir.Handle{Node: "trigger", Param: "output"}
 	main.Activations = []ir.Activation{{On: trigger, Kind: ir.EdgeKindConditional}}
@@ -705,9 +705,9 @@ var _ = Describe("Scheduler", func() {
 			main := sequentialScope("main",
 				[]ir.Member{{Scope: &first}},
 				ir.Transition{
-					On:        ir.Handle{Node: "first_node", Param: "output"},
-					Kind:      ir.EdgeKindConditional,
-					TargetKey: exitTarget(),
+					On:     ir.Handle{Node: "first_node", Param: "output"},
+					Kind:   ir.EdgeKindConditional,
+					Target: exitTarget(),
 				},
 			)
 			triggerH := ir.Handle{Node: "trigger", Param: "output"}
@@ -765,14 +765,14 @@ var _ = Describe("Scheduler", func() {
 						{Scope: &bScope},
 					},
 					ir.Transition{
-						On:        ir.Handle{Node: "first_node", Param: "output"},
-						Kind:      ir.EdgeKindConditional,
-						TargetKey: stepKeyTarget("a"),
+						On:     ir.Handle{Node: "first_node", Param: "output"},
+						Kind:   ir.EdgeKindConditional,
+						Target: stepKeyTarget("a"),
 					},
 					ir.Transition{
-						On:        ir.Handle{Node: "first_node", Param: "output"},
-						Kind:      ir.EdgeKindConditional,
-						TargetKey: stepKeyTarget("b"),
+						On:     ir.Handle{Node: "first_node", Param: "output"},
+						Kind:   ir.EdgeKindConditional,
+						Target: stepKeyTarget("b"),
 					},
 				)
 				triggerH := ir.Handle{Node: "trigger", Param: "output"}
@@ -835,14 +835,14 @@ var _ = Describe("Scheduler", func() {
 						{Scope: &scope3},
 					},
 					ir.Transition{
-						On:        ir.Handle{Node: "s1", Param: "output"},
-						Kind:      ir.EdgeKindConditional,
-						TargetKey: stepKeyTarget("s2"),
+						On:     ir.Handle{Node: "s1", Param: "output"},
+						Kind:   ir.EdgeKindConditional,
+						Target: stepKeyTarget("s2"),
 					},
 					ir.Transition{
-						On:        ir.Handle{Node: "s2", Param: "output"},
-						Kind:      ir.EdgeKindConditional,
-						TargetKey: stepKeyTarget("s3"),
+						On:     ir.Handle{Node: "s2", Param: "output"},
+						Kind:   ir.EdgeKindConditional,
+						Target: stepKeyTarget("s3"),
 					},
 				)
 				triggerH := ir.Handle{Node: "trigger", Param: "output"}
@@ -1439,9 +1439,9 @@ var _ = Describe("Scheduler", func() {
 			main := sequentialScope("main",
 				[]ir.Member{{Scope: &first}, {Scope: &second}},
 				ir.Transition{
-					On:        ir.Handle{Node: "stage_node", Param: "done"},
-					Kind:      ir.EdgeKindConditional,
-					TargetKey: stepKeyTarget("second"),
+					On:     ir.Handle{Node: "stage_node", Param: "done"},
+					Kind:   ir.EdgeKindConditional,
+					Target: stepKeyTarget("second"),
 				},
 			)
 			triggerH := ir.Handle{Node: "trigger", Param: "output"}
@@ -1919,9 +1919,9 @@ var _ = Describe("Scheduler", func() {
 				main := sequentialScope("main",
 					[]ir.Member{{Scope: &first}},
 					ir.Transition{
-						On:        ir.Handle{Node: "first_node", Param: "output"},
-						Kind:      ir.EdgeKindConditional,
-						TargetKey: exitTarget(),
+						On:     ir.Handle{Node: "first_node", Param: "output"},
+						Kind:   ir.EdgeKindConditional,
+						Target: exitTarget(),
 					},
 				)
 				triggerH := ir.Handle{Node: "trigger", Param: "output"}
@@ -1991,9 +1991,9 @@ var _ = Describe("Scheduler", func() {
 				main := sequentialScope("main", []ir.Member{
 					{Scope: &body},
 				}, ir.Transition{
-					On:        ir.Handle{Node: "latch", Param: "output"},
-					Kind:      ir.EdgeKindConditional,
-					TargetKey: exitTarget(),
+					On:     ir.Handle{Node: "latch", Param: "output"},
+					Kind:   ir.EdgeKindConditional,
+					Target: exitTarget(),
 				})
 				triggerH := ir.Handle{Node: "trigger", Param: "output"}
 				main.Activations = []ir.Activation{
@@ -2066,9 +2066,9 @@ var _ = Describe("Scheduler", func() {
 					{Scope: &a},
 					{Scope: &b},
 				}, ir.Transition{
-					On:        ir.Handle{Node: "latch", Param: "output"},
-					Kind:      ir.EdgeKindConditional,
-					TargetKey: stepKeyTarget("b"),
+					On:     ir.Handle{Node: "latch", Param: "output"},
+					Kind:   ir.EdgeKindConditional,
+					Target: stepKeyTarget("b"),
 				})
 				triggerH := ir.Handle{Node: "trigger", Param: "output"}
 				main.Activations = []ir.Activation{
@@ -2159,9 +2159,9 @@ var _ = Describe("Scheduler", func() {
 					{Scope: &a},
 					{Scope: &b},
 				}, ir.Transition{
-					On:        ir.Handle{Node: "latch", Param: "output"},
-					Kind:      ir.EdgeKindConditional,
-					TargetKey: stepKeyTarget("b"),
+					On:     ir.Handle{Node: "latch", Param: "output"},
+					Kind:   ir.EdgeKindConditional,
+					Target: stepKeyTarget("b"),
 				})
 				triggerH := ir.Handle{Node: "trigger", Param: "output"}
 				main.Activations = []ir.Activation{
@@ -2220,9 +2220,9 @@ var _ = Describe("Scheduler", func() {
 				main := sequentialScope("main",
 					[]ir.Member{{Scope: &loop}},
 					ir.Transition{
-						On:        ir.Handle{Node: "loop_node", Param: "output"},
-						Kind:      ir.EdgeKindConditional,
-						TargetKey: stepKeyTarget("loop"),
+						On:     ir.Handle{Node: "loop_node", Param: "output"},
+						Kind:   ir.EdgeKindConditional,
+						Target: stepKeyTarget("loop"),
 					},
 				)
 				triggerH := ir.Handle{Node: "trigger", Param: "output"}
@@ -2440,9 +2440,9 @@ var _ = Describe("Scheduler", func() {
 					{Scope: &first},
 					{Scope: &second},
 				}, ir.Transition{
-					On:        ir.Handle{Node: "first_node", Param: "output"},
-					Kind:      ir.EdgeKindConditional,
-					TargetKey: stepKeyTarget("second"),
+					On:     ir.Handle{Node: "first_node", Param: "output"},
+					Kind:   ir.EdgeKindConditional,
+					Target: stepKeyTarget("second"),
 				})
 				triggerH := ir.Handle{Node: "trigger", Param: "output"}
 				main.Activations = []ir.Activation{
@@ -2610,9 +2610,9 @@ var _ = Describe("Scheduler", func() {
 				main := sequentialScope("main",
 					[]ir.Member{{Scope: &first}},
 					ir.Transition{
-						On:        ir.Handle{Node: "A", Param: "output"},
-						Kind:      ir.EdgeKindConditional,
-						TargetKey: exitTarget(),
+						On:     ir.Handle{Node: "A", Param: "output"},
+						Kind:   ir.EdgeKindConditional,
+						Target: exitTarget(),
 					},
 				)
 				triggerH := ir.Handle{Node: "trigger", Param: "output"}
@@ -3063,9 +3063,9 @@ var _ = Describe("Scheduler", func() {
 				main := sequentialScope("main",
 					[]ir.Member{{Scope: &first}},
 					ir.Transition{
-						On:        ir.Handle{Node: "A", Param: "output"},
-						Kind:      ir.EdgeKindConditional,
-						TargetKey: exitTarget(),
+						On:     ir.Handle{Node: "A", Param: "output"},
+						Kind:   ir.EdgeKindConditional,
+						Target: exitTarget(),
 					},
 				)
 				triggerH := ir.Handle{Node: "trigger", Param: "output"}
@@ -3249,9 +3249,9 @@ var _ = Describe("Scheduler", func() {
 		// jump is a conditional transition on key's output that exits to target.
 		jump := func(key, target string) ir.Transition {
 			return ir.Transition{
-				On:          ir.Handle{Node: key, Param: "output"},
-				Kind:        ir.EdgeKindConditional,
-				ActivateKey: new(target),
+				On:     ir.Handle{Node: key, Param: "output"},
+				Kind:   ir.EdgeKindConditional,
+				Target: ir.Target{Variant: ir.ScopeTarget{Key: target}},
 			}
 		}
 		// alive registers a node that runs on every cycle while its scope is active.
@@ -3507,25 +3507,22 @@ var _ = Describe("Scheduler", func() {
 			Entry(
 				"a step target on a parallel scope",
 				ir.Transition{
-					On:        ir.Handle{Node: "s_node", Param: "output"},
-					Kind:      ir.EdgeKindConditional,
-					TargetKey: new("other"),
+					On:     ir.Handle{Node: "s_node", Param: "output"},
+					Kind:   ir.EdgeKindConditional,
+					Target: stepKeyTarget("other"),
 				},
 				ir.ScopeModeParallel,
 				"scope s has a transition with a step target it cannot take: "+
 					"on s_node/output => other",
 			),
 			Entry(
-				"a step target on a jump",
+				"no target",
 				ir.Transition{
-					On:          ir.Handle{Node: "s_node", Param: "output"},
-					Kind:        ir.EdgeKindConditional,
-					TargetKey:   new("other"),
-					ActivateKey: new("s"),
+					On:   ir.Handle{Node: "s_node", Param: "output"},
+					Kind: ir.EdgeKindConditional,
 				},
 				ir.ScopeModeSequential,
-				"scope s has a transition with a step target it cannot take: "+
-					"on s_node/output => other",
+				"scope s has a transition with no target: on s_node/output => exit",
 			),
 		)
 	})

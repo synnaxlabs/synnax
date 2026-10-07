@@ -181,12 +181,12 @@ inline ir::Edge conditional_edge(
     };
 }
 
-inline std::optional<std::string> step_key_target(const std::string &key) {
-    return key;
+inline ir::Target step_key_target(const std::string &key) {
+    return ir::StepTarget{.key = key};
 }
 
-inline std::optional<std::string> exit_target() {
-    return std::nullopt;
+inline ir::Target exit_target() {
+    return ir::ExitTarget{};
 }
 
 /// @brief builds an ir::Node with the given key and ordered output

@@ -6515,8 +6515,7 @@ time.wait{duration=500ms} -> output`
 					main := findTopLevelScope(inter, "main")
 					Expect(main.Transitions).To(HaveLen(1))
 					t := main.Transitions[0]
-					Expect(t.TargetKey).ToNot(BeNil())
-					Expect(*t.TargetKey).To(Equal("second"))
+					Expect(t.Target.Variant).To(Equal(ir.StepTarget{Key: "second"}))
 					Expect(t.On.Node).To(HavePrefix("expression_"))
 				},
 			)
@@ -6574,8 +6573,7 @@ time.wait{duration=500ms} -> output`
 					Expect(main.Transitions).To(HaveLen(1),
 						"=> second must be placed on main's frame")
 					t := main.Transitions[0]
-					Expect(t.TargetKey).ToNot(BeNil())
-					Expect(*t.TargetKey).To(Equal("second"))
+					Expect(t.Target.Variant).To(Equal(ir.StepTarget{Key: "second"}))
 					Expect(t.On.Node).To(HavePrefix("on_trigger"))
 
 					// The nested sequence inside first must NOT carry an exit
@@ -6635,7 +6633,9 @@ time.wait{duration=500ms} -> output`
 					outer := findTopLevelScope(inter, "outer")
 					Expect(outer.Transitions).To(HaveLen(1),
 						"outer must carry only its terminal step's completion exit")
-					Expect(outer.Transitions[0].TargetKey).To(BeNil(),
+					Expect(
+						outer.Transitions[0].Target.Variant,
+					).To(Equal(ir.ExitTarget{}),
 						"outer's transition must be an exit, not the shadowed jump")
 
 					inner := findMember(outer, "inner").Scope
@@ -6643,8 +6643,7 @@ time.wait{duration=500ms} -> output`
 					Expect(inner.Transitions).To(HaveLen(1),
 						"inner must carry the transition because its target shadows outer's")
 					t := inner.Transitions[0]
-					Expect(t.TargetKey).ToNot(BeNil())
-					Expect(*t.TargetKey).To(Equal("target"))
+					Expect(t.Target.Variant).To(Equal(ir.StepTarget{Key: "target"}))
 				},
 			)
 
@@ -6737,10 +6736,9 @@ time.wait{duration=500ms} -> output`
 					main := findTopLevelScope(inter, "main")
 					Expect(main.Transitions).To(HaveLen(1))
 					Expect(main.Transitions[0].On.Node).To(HavePrefix("on_trigger"))
-					Expect(main.Transitions[0].TargetKey).To(BeNil())
 					Expect(
-						main.Transitions[0].ActivateKey,
-					).To(HaveValue(Equal("other")))
+						main.Transitions[0].Target.Variant,
+					).To(Equal(ir.ScopeTarget{Key: "other"}))
 				},
 			)
 		})
@@ -6776,8 +6774,7 @@ time.wait{duration=500ms} -> output`
 					Expect(main.Transitions).To(HaveLen(1),
 						"the parent must own the nested step's completion transition")
 					t := main.Transitions[0]
-					Expect(t.TargetKey).ToNot(BeNil())
-					Expect(*t.TargetKey).To(Equal("after"))
+					Expect(t.Target.Variant).To(Equal(ir.StepTarget{Key: "after"}))
 					Expect(t.On.Node).To(HavePrefix("write_a"))
 
 					first := findMember(main, "first").Scope
@@ -6821,9 +6818,12 @@ time.wait{duration=500ms} -> output`
 
 					main := findTopLevelScope(inter, "main")
 					Expect(main.Transitions).To(HaveLen(2))
-					Expect(main.Transitions[0].TargetKey).ToNot(BeNil())
-					Expect(*main.Transitions[0].TargetKey).To(Equal("tail"))
-					Expect(main.Transitions[1].TargetKey).To(BeNil(),
+					Expect(
+						main.Transitions[0].Target.Variant,
+					).To(Equal(ir.StepTarget{Key: "tail"}))
+					Expect(
+						main.Transitions[1].Target.Variant,
+					).To(Equal(ir.ExitTarget{}),
 						"the terminal nested step's completion must exit the parent")
 					Expect(main.Transitions[1].On.Node).To(HavePrefix("write_b"))
 
@@ -6865,8 +6865,7 @@ time.wait{duration=500ms} -> output`
 					Expect(main.Transitions).To(HaveLen(1),
 						"only the outermost frame with a next member gets the transition")
 					t := main.Transitions[0]
-					Expect(t.TargetKey).ToNot(BeNil())
-					Expect(*t.TargetKey).To(Equal("after"))
+					Expect(t.Target.Variant).To(Equal(ir.StepTarget{Key: "after"}))
 					Expect(t.On.Node).To(HavePrefix("write_a"))
 
 					mid := findMember(main, "mid").Scope
@@ -6913,7 +6912,9 @@ time.wait{duration=500ms} -> output`
 					subMember := holder.Strata[0][0]
 					Expect(subMember.Scope).ToNot(BeNil())
 					Expect(subMember.Scope.Transitions).To(HaveLen(1))
-					Expect(subMember.Scope.Transitions[0].TargetKey).To(BeNil(),
+					Expect(
+						subMember.Scope.Transitions[0].Target.Variant,
+					).To(Equal(ir.ExitTarget{}),
 						"the in-stage sequence keeps its own exit")
 				},
 			)
@@ -6963,16 +6964,16 @@ time.wait{duration=500ms} -> output`
 					Expect(main.Transitions).To(HaveLen(1),
 						"the explicit => must be main's only transition, no completion duplicate")
 					t := main.Transitions[0]
-					Expect(t.TargetKey).ToNot(BeNil())
-					Expect(*t.TargetKey).To(Equal("skip"))
+					Expect(t.Target.Variant).To(Equal(ir.StepTarget{Key: "skip"}))
 					Expect(t.On.Node).To(HavePrefix("on_trigger"))
 
 					inner := findMember(main, "inner").Scope
 					Expect(inner).ToNot(BeNil())
 					Expect(inner.Transitions).To(HaveLen(1),
 						"inner keeps only its internal step advance")
-					Expect(inner.Transitions[0].TargetKey).ToNot(BeNil())
-					Expect(*inner.Transitions[0].TargetKey).To(Equal("step_1"))
+					Expect(
+						inner.Transitions[0].Target.Variant,
+					).To(Equal(ir.StepTarget{Key: "step_1"}))
 				},
 			)
 		})
@@ -7395,7 +7396,7 @@ time.wait{duration=500ms} -> output`
 
 					main := findTopLevelScope(inter, "main")
 					nextT, ok := lo.Find(main.Transitions, func(t ir.Transition) bool {
-						return t.TargetKey != nil && *t.TargetKey == "second"
+						return t.Target.Variant == (ir.StepTarget{Key: "second"})
 					})
 					Expect(ok).To(BeTrue(), "expected a transition targeting 'second'")
 					Expect(nextT.On.Node).To(HavePrefix("expression_"))

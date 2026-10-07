@@ -861,8 +861,8 @@ stage abort {
 				Expect(abort.Mode).To(Equal(ir.ScopeModeParallel))
 				Expect(abort.Activations).To(BeEmpty())
 				Expect(main.Transitions).To(ContainElement(HaveField(
-					"ActivateKey",
-					HaveValue(Equal("abort")),
+					"Target.Variant",
+					Equal(ir.ScopeTarget{Key: "abort"}),
 				)))
 			},
 		)

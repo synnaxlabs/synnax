@@ -81,9 +81,9 @@ var _ = Describe("Scope", func() {
 				Steps:    ir.Members{ir.NodeMember("init"), ir.NodeMember("run")},
 				Transitions: []ir.Transition{
 					{
-						On:        ir.Handle{Node: "init", Param: "done"},
-						Kind:      ir.EdgeKindConditional,
-						TargetKey: &run,
+						On:     ir.Handle{Node: "init", Param: "done"},
+						Kind:   ir.EdgeKindConditional,
+						Target: ir.Target{Variant: ir.StepTarget{Key: run}},
 					},
 					{
 						On:   ir.Handle{Node: "run", Param: "done"},

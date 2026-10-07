@@ -143,15 +143,14 @@ func TransitionToPB(r ir.Transition) (*Transition, error) {
 	if err != nil {
 		return nil, err
 	}
+	targetVal, err := TargetToPB(r.Target)
+	if err != nil {
+		return nil, err
+	}
 	pb := &Transition{
-		On:   onVal,
-		Kind: kindVal,
-	}
-	if r.TargetKey != nil {
-		pb.TargetKey = r.TargetKey
-	}
-	if r.ActivateKey != nil {
-		pb.ActivateKey = r.ActivateKey
+		On:     onVal,
+		Kind:   kindVal,
+		Target: targetVal,
 	}
 	return pb, nil
 }
@@ -171,11 +170,9 @@ func TransitionFromPB(pb *Transition) (ir.Transition, error) {
 	if err != nil {
 		return ir.Transition{}, err
 	}
-	if pb.TargetKey != nil {
-		r.TargetKey = pb.TargetKey
-	}
-	if pb.ActivateKey != nil {
-		r.ActivateKey = pb.ActivateKey
+	r.Target, err = TargetFromPB(pb.Target)
+	if err != nil {
+		return ir.Transition{}, err
 	}
 	return r, nil
 }
@@ -788,6 +785,224 @@ func IRSFromPB(pbs []*IR) ([]ir.IR, error) {
 	for i, pb := range pbs {
 		var err error
 		result[i], err = IRFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ExitTargetToPB converts ExitTarget to TargetExitPayload.
+func ExitTargetToPB(r ir.ExitTarget) (*TargetExitPayload, error) {
+	pb := &TargetExitPayload{}
+	return pb, nil
+}
+
+// ExitTargetFromPB converts TargetExitPayload to ExitTarget.
+func ExitTargetFromPB(pb *TargetExitPayload) (ir.ExitTarget, error) {
+	var r ir.ExitTarget
+	if pb == nil {
+		return r, nil
+	}
+	return r, nil
+}
+
+// ExitTargetsToPB converts a slice of ExitTarget to TargetExitPayload.
+func ExitTargetsToPB(rs []ir.ExitTarget) ([]*TargetExitPayload, error) {
+	result := make([]*TargetExitPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ExitTargetToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ExitTargetsFromPB converts a slice of TargetExitPayload to ExitTarget.
+func ExitTargetsFromPB(pbs []*TargetExitPayload) ([]ir.ExitTarget, error) {
+	result := make([]ir.ExitTarget, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ExitTargetFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// StepTargetToPB converts StepTarget to TargetStepPayload.
+func StepTargetToPB(r ir.StepTarget) (*TargetStepPayload, error) {
+	pb := &TargetStepPayload{
+		Key: r.Key,
+	}
+	return pb, nil
+}
+
+// StepTargetFromPB converts TargetStepPayload to StepTarget.
+func StepTargetFromPB(pb *TargetStepPayload) (ir.StepTarget, error) {
+	var r ir.StepTarget
+	if pb == nil {
+		return r, nil
+	}
+	r.Key = pb.Key
+	return r, nil
+}
+
+// StepTargetsToPB converts a slice of StepTarget to TargetStepPayload.
+func StepTargetsToPB(rs []ir.StepTarget) ([]*TargetStepPayload, error) {
+	result := make([]*TargetStepPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = StepTargetToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// StepTargetsFromPB converts a slice of TargetStepPayload to StepTarget.
+func StepTargetsFromPB(pbs []*TargetStepPayload) ([]ir.StepTarget, error) {
+	result := make([]ir.StepTarget, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = StepTargetFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ScopeTargetToPB converts ScopeTarget to TargetScopePayload.
+func ScopeTargetToPB(r ir.ScopeTarget) (*TargetScopePayload, error) {
+	pb := &TargetScopePayload{
+		Key: r.Key,
+	}
+	return pb, nil
+}
+
+// ScopeTargetFromPB converts TargetScopePayload to ScopeTarget.
+func ScopeTargetFromPB(pb *TargetScopePayload) (ir.ScopeTarget, error) {
+	var r ir.ScopeTarget
+	if pb == nil {
+		return r, nil
+	}
+	r.Key = pb.Key
+	return r, nil
+}
+
+// ScopeTargetsToPB converts a slice of ScopeTarget to TargetScopePayload.
+func ScopeTargetsToPB(rs []ir.ScopeTarget) ([]*TargetScopePayload, error) {
+	result := make([]*TargetScopePayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ScopeTargetToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ScopeTargetsFromPB converts a slice of TargetScopePayload to ScopeTarget.
+func ScopeTargetsFromPB(pbs []*TargetScopePayload) ([]ir.ScopeTarget, error) {
+	result := make([]ir.ScopeTarget, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ScopeTargetFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// TargetToPB converts Target to Target.
+func TargetToPB(r ir.Target) (*Target, error) {
+	if r.Variant == nil {
+		return nil, nil
+	}
+	pb := &Target{}
+	switch v := r.Variant.(type) {
+	case ir.ExitTarget:
+		inner, err := ExitTargetToPB(v)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &Target_Exit{Exit: inner}
+	case ir.StepTarget:
+		inner, err := StepTargetToPB(v)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &Target_Step{Step: inner}
+	case ir.ScopeTarget:
+		inner, err := ScopeTargetToPB(v)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &Target_Scope{Scope: inner}
+	default:
+		return nil, errors.Newf("Target: unknown variant %T", r.Variant)
+	}
+	return pb, nil
+}
+
+// TargetFromPB converts Target to Target.
+func TargetFromPB(pb *Target) (ir.Target, error) {
+	var r ir.Target
+	if pb == nil {
+		return r, nil
+	}
+	switch v := pb.Variant.(type) {
+	case *Target_Exit:
+		inner, err := ExitTargetFromPB(v.Exit)
+		if err != nil {
+			return r, err
+		}
+		m := inner
+		r.Variant = m
+	case *Target_Step:
+		inner, err := StepTargetFromPB(v.Step)
+		if err != nil {
+			return r, err
+		}
+		m := inner
+		r.Variant = m
+	case *Target_Scope:
+		inner, err := ScopeTargetFromPB(v.Scope)
+		if err != nil {
+			return r, err
+		}
+		m := inner
+		r.Variant = m
+	}
+	return r, nil
+}
+
+// TargetsToPB converts a slice of Target to Target.
+func TargetsToPB(rs []ir.Target) ([]*Target, error) {
+	result := make([]*Target, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = TargetToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// TargetsFromPB converts a slice of Target to Target.
+func TargetsFromPB(pbs []*Target) ([]ir.Target, error) {
+	result := make([]ir.Target, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = TargetFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

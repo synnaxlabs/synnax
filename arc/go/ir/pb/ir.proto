@@ -65,12 +65,8 @@ message Transition {
   // kind is conditional when only a truthy output fires the transition (`=>`), and
   // continuous when every output fires it (`->`).
   EdgeKind kind = 2;
-  // target_key is the sibling step key to activate. Null when the transition exits the
-  // scope, yielding to the parent.
-  optional string target_key = 3;
-  // activate_key is the key of the top-level scope to activate after the transition
-  // exits its scope. Null unless targetKey is null.
-  optional string activate_key = 4;
+  // target is where the transition goes when it fires.
+  Target target = 3;
 }
 
 // Activation is a handle that activates a gated Scope without leaving any scope.
@@ -177,4 +173,22 @@ message IR {
   // root is the top-level execution context. The root is always a parallel, always-live
   // Scope whose strata mix module-scope reactive flow with top-level gated scopes.
   Scope root = 5;
+}
+message TargetExitPayload {}
+message TargetStepPayload {
+  // key is the key of the sibling step to activate.
+  string key = 1;
+}
+message TargetScopePayload {
+  // key is the key of the top-level scope to activate.
+  string key = 1;
+}
+
+// Target is where a transition goes when it fires.
+message Target {
+  oneof variant {
+    TargetExitPayload exit = 1;
+    TargetStepPayload step = 2;
+    TargetScopePayload scope = 3;
+  }
 }
