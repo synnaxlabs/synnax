@@ -174,6 +174,51 @@ inline std::pair<{{.CppName}}, x::errors::Error> {{.CppName}}::from_proto(
     return {cpp, x::errors::NIL};
 }
 {{- end}}
+{{- range .UnionTranslators}}
+{{- $u := .}}
+
+inline std::pair<{{.PBType}}, x::errors::Error> to_proto(const {{.CppName}}& value) {
+    {{.PBType}} pb;
+    const auto visit_err = std::visit([&pb](const auto& v) -> x::errors::Error {
+        using V = std::decay_t<decltype(v)>;
+        auto [inner, err] = v.to_proto();
+        if (err) return err;
+{{- range $u.Bases}}
+        {
+            auto [base, base_err] = static_cast<const {{.CppType}}&>(v).to_proto();
+            if (base_err) return base_err;
+            *pb.mutable_{{.PBAccessor}}() = base;
+        }
+{{- end}}
+{{- range $i, $v := $u.Variants}}
+        {{if $i}}else {{end}}if constexpr (std::is_same_v<V, {{$v.TypeName}}>) *pb.mutable_{{$v.PBAccessor}}() = inner;
+{{- end}}
+        return x::errors::NIL;
+    }, value);
+    return {pb, visit_err};
+}
+
+inline std::pair<{{.CppName}}, x::errors::Error> {{.SnakeName}}_from_proto(const {{.PBType}}& pb) {
+    switch (pb.variant_case()) {
+{{- range $u.Variants}}
+    case {{$u.PBType}}::k{{.CaseName}}: {
+        auto [v, err] = {{.TypeName}}::from_proto(pb.{{.PBAccessor}}());
+        if (err) return {{lbrace}}{{lbrace}}}, err};
+{{- range $u.Bases}}
+        {
+            auto [base, base_err] = {{.CppType}}::from_proto(pb.{{.PBAccessor}}());
+            if (base_err) return {{lbrace}}{{lbrace}}}, base_err};
+            static_cast<{{.CppType}}&>(v) = base;
+        }
+{{- end}}
+        return {v, x::errors::NIL};
+    }
+{{- end}}
+    default:
+        return {{lbrace}}{{lbrace}}}, x::errors::Error(x::errors::VALIDATION, "{{.CppName}}: no variant set")};
+    }
+}
+{{- end}}
 
 }
 `),

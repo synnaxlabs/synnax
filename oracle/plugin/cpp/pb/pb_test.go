@@ -1687,4 +1687,122 @@ var _ = Describe("C++ PB Plugin", func() {
 	})
 })
 
+var _ = Describe("C++ PB Plugin unions", func() {
+	var (
+		loader   *MockFileLoader
+		pbPlugin *pb.Plugin
+	)
+	const source = `
+	@cpp output "arc/cpp/ir"
+	@go output "arc/go/ir"
+	@pb
+
+	Target union on type {
+		exit {}
+		step { key string }
+		scope { key string }
+	}
+
+	Transition struct {
+		name string
+		target Target
+	}
+	`
+
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		pbPlugin = pb.New(pb.DefaultOptions())
+	})
+
+	It(
+		"Should convert a union field through the union's free functions",
+		func(ctx SpecContext) {
+			resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
+			ExpectContent(resp, "proto.gen.h").
+				ToContain(
+					"auto [v, err] = ::arc::ir::to_proto(this->target);",
+					"*pb.mutable_target() = v;",
+					"auto [v, err] = ::arc::ir::target_from_proto(pb.target());",
+					"cpp.target = v;",
+				)
+		},
+	)
+
+	It(
+		"Should translate each variant against its payload message",
+		func(ctx SpecContext) {
+			resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
+			ExpectContent(resp, "proto.gen.h").
+				ToContain(
+					"ExitTarget::to_proto() const {",
+					"::arc::ir::pb::TargetExitPayload pb;",
+					"StepTarget::from_proto(",
+					"const ::arc::ir::pb::TargetStepPayload& pb",
+					"cpp.key = pb.key();",
+				).
+				ToNotContain(
+					// The discriminator lives in the oneof case, not the payload.
+					"pb.set_type(",
+				)
+		},
+	)
+
+	It(
+		"Should dispatch between the std::variant and the oneof",
+		func(ctx SpecContext) {
+			resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
+			ExpectContent(resp, "proto.gen.h").
+				ToContain(
+					"inline std::pair<::arc::ir::pb::Target, x::errors::Error> "+
+						"to_proto(const Target& value) {",
+					"if constexpr (std::is_same_v<V, ExitTarget>) *pb.mutable_exit() = inner;",
+					"inline std::pair<Target, x::errors::Error> "+
+						"target_from_proto(const ::arc::ir::pb::Target& pb) {",
+					"switch (pb.variant_case()) {",
+					"case ::arc::ir::pb::Target::kScope: {",
+					"auto [v, err] = ScopeTarget::from_proto(pb.scope());",
+					`x::errors::Error(x::errors::VALIDATION, "Target: no variant set")`,
+				)
+		},
+	)
+
+	It(
+		"Should convert the union's bases on the wrapper and union array elements",
+		func(ctx SpecContext) {
+			source := `
+			@cpp output "arc/cpp/ir"
+			@go output "arc/go/ir"
+			@pb
+
+			Base struct { id string }
+
+			Field union on type extends Base {
+				fixed { value string }
+			}
+
+			Holder struct {
+				fields Field[]
+				spare Field?
+			}
+			`
+			resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
+			ExpectContent(resp, "proto.gen.h").
+				ToContain(
+					"auto [base, base_err] = static_cast<const Base&>(v).to_proto();",
+					"*pb.mutable_base() = base;",
+					"auto [base, base_err] = Base::from_proto(pb.base());",
+					"static_cast<Base&>(v) = base;",
+					"for (const auto& item : this->fields) {",
+					"auto [v, err] = ::arc::ir::to_proto(item);",
+					"*pb.add_fields() = v;",
+					"for (const auto& item : pb.fields()) {",
+					"auto [v, err] = ::arc::ir::field_from_proto(item);",
+					"cpp.fields.push_back(v);",
+					"if (this->spare.has_value()) {",
+					"if (pb.has_spare()) {",
+				)
+		},
+	)
+})
+
 var _ = ShouldNotLeakGoroutinesPerSpec()

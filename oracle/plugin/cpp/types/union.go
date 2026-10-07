@@ -14,10 +14,12 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/oracle/domain/doc"
+	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
 	cppnaming "github.com/synnaxlabs/oracle/plugin/cpp/naming"
 	"github.com/synnaxlabs/oracle/plugin/domain"
+	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 )
@@ -37,6 +39,10 @@ type unionData struct {
 	DiscJSON string
 	// Variants holds the dispatch info for each variant.
 	Variants []unionVariantData
+	// ProtoType is the qualified protobuf wrapper message, set when HasProto.
+	ProtoType string
+	// HasProto marks a union that translates to and from a protobuf message.
+	HasProto bool
 }
 
 // unionVariantData is the template view of one variant for the dispatch alias.
@@ -68,6 +74,17 @@ func (p *Plugin) processUnion(
 		Doc:       doc.Get(entry.Domains),
 		DiscJSON:  casing.FieldSnake(form.Discriminator),
 	}
+	pbNamespace := ""
+	if hasPBFlag(entry) && !omit.IsSkipped(entry, "pb") {
+		if pbOutputPath := output.GetPBPath(entry); pbOutputPath != "" {
+			pbNamespace = cppnaming.PBNamespace(pbOutputPath)
+			ud.HasProto = true
+			ud.ProtoType = fmt.Sprintf("%s::%s", pbNamespace, cppnaming.PBName(entry))
+			data.AddSystem("utility")
+			data.AddInternal("x/cpp/errors/errors.h")
+			data.AddInternal(fmt.Sprintf("%s/%s.pb.h", pbOutputPath, entry.Namespace))
+		}
+	}
 
 	variants := make([]structData, 0, len(form.Variants))
 	for _, v := range form.Variants {
@@ -91,6 +108,14 @@ func (p *Plugin) processUnion(
 			}
 		}
 		if payload, ok := v.Type.Resolve(data.table); ok {
+			// The variant translates against its payload message: a synthetic one
+			// for an inline body, the referenced struct's own message otherwise.
+			if ud.HasProto {
+				sd.HasProto = true
+				sd.ProtoNamespace = pbNamespace
+				sd.ProtoClass = cppnaming.PBName(payload)
+				sd.ProtoType = fmt.Sprintf("%s::%s", pbNamespace, sd.ProtoClass)
+			}
 			if v.Inline {
 				pform := payload.Form.(resolution.StructForm)
 				// A field that only restates an inherited default keeps the base's
