@@ -303,7 +303,9 @@ public:
     x::errors::Error start() {
         if (running_) { return x::errors::NIL; }
 
-        socket_ = modbus_tcp_listen(ctx_, 1);
+        // Concurrent tests connect faster than the loop accepts. macOS drops the
+        // connects past the backlog, and libmodbus gives up before the retransmit.
+        socket_ = modbus_tcp_listen(ctx_, SOMAXCONN);
         if (socket_ == -1) {
             return x::errors::Error(
                 "Failed to listen on modbus socket: " +
