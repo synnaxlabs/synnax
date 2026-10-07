@@ -43,6 +43,7 @@ const customState = Schematic.stateZ.parse({
   },
   editable: true,
   fitViewOnResize: true,
+  tooltipsDisabled: true,
   viewport: { position: { x: 7, y: 8 }, zoom: 2, mode: "pan" },
 });
 
@@ -227,6 +228,13 @@ describe("schematic selector hooks", () => {
 
   it("should return the fit view on resize flag", () => {
     const { result } = renderHook(() => Schematic.useSelectFitViewOnResize(), {
+      wrapper: wrapperFor(store(), KEY),
+    });
+    expect(result.current).toBe(true);
+  });
+
+  it("should return the tooltips disabled flag", () => {
+    const { result } = renderHook(() => Schematic.useSelectTooltipsDisabled(), {
       wrapper: wrapperFor(store(), KEY),
     });
     expect(result.current).toBe(true);
