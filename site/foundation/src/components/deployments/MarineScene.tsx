@@ -548,8 +548,8 @@ const Quay = (): ReactElement => (
 );
 
 const YellowSubmarine = (): ReactElement => {
-  const x = 330;
-  const y = 590;
+  const x = 262;
+  const y = 380;
   const sections = [
     [0, 0],
     [7, 6],
@@ -579,37 +579,70 @@ const YellowSubmarine = (): ReactElement => {
   // Match the fleet's orthographic view, drawing the curved hull back to front.
   hull.sort((a, b) => a.depth - b.depth);
   return (
-    <g className="deployment-submarine" aria-hidden="true">
-      <Face
-        vertices={[
-          [x + 3, y - 17, 10],
-          [x + 13, y - 14, 10],
-          [x + 17, y + 14, 10],
-          [x + 3, y + 17, 10],
-        ]}
-        fill="#ad8d42"
-      />
-      <Face
-        vertices={[
-          [x + 4, y, 10],
-          [x + 4, y, 25],
-          [x + 10, y, 23],
-          [x + 17, y, 10],
-        ]}
-        fill="#bea04e"
-      />
-      {hull.map(({ vertices, fill }, i) => (
-        <Face key={i} vertices={vertices} fill={fill} />
-      ))}
-      <Box
-        x={x + 31}
-        y={y - 4}
-        z={18}
-        width={17}
-        depth={8}
-        height={9}
-        material={{ top: "#e0c66e", left: "#b39445", right: "#997937" }}
-      />
+    <g className="deployment-submarine" transform="translate(0 24)" aria-hidden="true">
+      <g opacity={0.58}>
+        <Face
+          vertices={[
+            [x + 3, y - 17, 10],
+            [x + 13, y - 14, 10],
+            [x + 17, y + 14, 10],
+            [x + 3, y + 17, 10],
+          ]}
+          fill="#ad8d42"
+        />
+        <Face
+          vertices={[
+            [x + 4, y, 10],
+            [x + 4, y, 25],
+            [x + 10, y, 23],
+            [x + 17, y, 10],
+          ]}
+          fill="#bea04e"
+        />
+        {hull.map(({ vertices, fill }, i) => (
+          <Face key={i} vertices={vertices} fill={fill} />
+        ))}
+        <Box
+          x={x + 31}
+          y={y - 4}
+          z={18}
+          width={17}
+          depth={8}
+          height={9}
+          material={{ top: "#e0c66e", left: "#b39445", right: "#997937" }}
+        />
+        {[24, 40, 56].map((offset) => (
+          <g key={offset}>
+            {[3, 1.8].map((radius, i) => (
+              <Face
+                key={radius}
+                vertices={Array.from({ length: 12 }, (_, j) => {
+                  const angle = (j * Math.PI) / 6;
+                  return [
+                    x + offset + Math.cos(angle) * radius,
+                    y + 9.7,
+                    12 + Math.sin(angle) * radius,
+                  ];
+                })}
+                fill={i === 0 ? "#dfc47a" : "#263748"}
+              />
+            ))}
+          </g>
+        ))}
+      </g>
+      <g fill="none" stroke="#7799b4" strokeWidth={0.8} opacity={0.32}>
+        {[-4, 16, 35].map((offset) => {
+          const start = project([x - 25, y + offset, 24]);
+          const crest = project([x + 25, y + offset - 6, 24]);
+          const end = project([x + 103, y + offset + 2, 24]);
+          return (
+            <path
+              key={offset}
+              d={`M${start.join(",")} Q${crest.join(",")} ${end.join(",")}`}
+            />
+          );
+        })}
+      </g>
       <Box
         x={x + 40}
         y={y - 1}
@@ -628,24 +661,6 @@ const YellowSubmarine = (): ReactElement => {
         height={2}
         material={{ top: "#d3bc7b", left: "#a68e53", right: "#796641" }}
       />
-      {[24, 40, 56].map((offset) => (
-        <g key={offset}>
-          {[3, 1.8].map((radius, i) => (
-            <Face
-              key={radius}
-              vertices={Array.from({ length: 12 }, (_, j) => {
-                const angle = (j * Math.PI) / 6;
-                return [
-                  x + offset + Math.cos(angle) * radius,
-                  y + 9.7,
-                  12 + Math.sin(angle) * radius,
-                ];
-              })}
-              fill={i === 0 ? "#dfc47a" : "#263748"}
-            />
-          ))}
-        </g>
-      ))}
     </g>
   );
 };
