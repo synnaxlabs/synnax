@@ -210,7 +210,7 @@ When each level warrants a different response, demux the value with a
 [custom routing table](/reference/control/arc/reference/flow#custom-routing). A warning
 sets the status, and a critical also triggers the abort stage:
 
-```arc channels="tank_pressure, log_channel" bodies="abort"
+```arc channels="tank_pressure, log_channel, start_cmd" bodies="abort, monitor"
 import status
 
 func prioritize{
@@ -236,7 +236,13 @@ stage monitor {
         }
     }
 }
+
+start_cmd => monitor
 ```
+
+A jump from inside `monitor` stops `monitor`, so it stops watching after the abort. To
+keep watching, write the abort trigger at the top level instead, as
+`tank_pressure > 700 => abort`. A top-level `=>` starts its target and stops nothing.
 
 <Divider.Divider x />
 

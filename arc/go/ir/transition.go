@@ -14,8 +14,11 @@ import "fmt"
 // String returns a concise description of the transition.
 func (t Transition) String() string {
 	target := "exit"
-	if t.TargetKey != nil {
-		target = *t.TargetKey
+	switch v := t.Target.Variant.(type) {
+	case StepTarget:
+		target = v.Key
+	case ScopeTarget:
+		target = "exit to " + v.Key
 	}
 	return fmt.Sprintf("on %s/%s %s %s", t.On.Node, t.On.Param, t.Kind.Arrow(), target)
 }

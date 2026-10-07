@@ -89,7 +89,9 @@ TEST(RuntimeTest, LoadRejectsAnActivationWithNoKind) {
     stage.key = "stage";
     stage.mode = ir::ScopeMode::Parallel;
     stage.liveness = ir::Liveness::Gated;
-    stage.activation = ir::Handle{"trigger", "output"};
+    stage.activations = {
+        {.on = ir::Handle{"trigger", "output"}, .kind = ir::EdgeKind::Unspecified}
+    };
     Config cfg{.program = {}};
     cfg.program.root.strata.push_back({ir::scope_member(std::move(stage))});
     const auto result = load(cfg);

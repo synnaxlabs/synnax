@@ -152,12 +152,14 @@ var _ = Describe("IR", func() {
 							},
 							Transitions: []ir.Transition{
 								{
-									On:        ir.Handle{Node: "init", Param: "done"},
-									TargetKey: &stepKey,
+									On: ir.Handle{Node: "init", Param: "done"},
+									Target: ir.Target{
+										Variant: ir.StepTarget{Key: stepKey},
+									},
 								},
 								{
-									On:        ir.Handle{Node: "run", Param: "done"},
-									TargetKey: nil,
+									On:     ir.Handle{Node: "run", Param: "done"},
+									Target: ir.Target{Variant: ir.ExitTarget{}},
 								},
 							},
 						}},
@@ -174,9 +176,10 @@ var _ = Describe("IR", func() {
 			Expect(main.Mode).To(Equal(ir.ScopeModeSequential))
 			Expect(main.Steps).To(HaveLen(2))
 			Expect(main.Transitions).To(HaveLen(2))
-			Expect(main.Transitions[0].TargetKey).ToNot(BeNil())
-			Expect(*main.Transitions[0].TargetKey).To(Equal("run"))
-			Expect(main.Transitions[1].TargetKey).To(BeNil())
+			Expect(
+				main.Transitions[0].Target.Variant,
+			).To(Equal(ir.StepTarget{Key: "run"}))
+			Expect(main.Transitions[1].Target.Variant).To(Equal(ir.ExitTarget{}))
 		})
 	})
 

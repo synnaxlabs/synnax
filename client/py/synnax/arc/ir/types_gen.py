@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import TypeAlias
+from typing import Annotated, Literal, TypeAlias, Union
 
 from pydantic import BaseModel, Field
 
@@ -89,6 +89,33 @@ class Authorities(BaseModel):
     channels: dict[int, int] = Field(default_factory=dict)
 
 
+class ExitTarget(BaseModel):
+    """Leaves the scope and yields to its parent."""
+
+    type: Literal["exit"] = "exit"
+
+
+class StepTarget(BaseModel):
+    """Activates a sibling step of the same scope."""
+
+    type: Literal["step"] = "step"
+    key: str
+
+
+class ScopeTarget(BaseModel):
+    """Leaves the scope, then activates a top-level scope."""
+
+    type: Literal["scope"] = "scope"
+    key: str
+
+
+# Is where a transition goes when it fires.
+Target = Annotated[
+    Union[ExitTarget, StepTarget, ScopeTarget],
+    Field(discriminator="type"),
+]
+
+
 class Edge(BaseModel):
     """Is a dataflow connection between node parameters in the Arc graph.
 
@@ -103,20 +130,17 @@ class Edge(BaseModel):
     kind: EdgeKind
 
 
-class Transition(BaseModel):
-    """Is a declarative state-transition rule on a sequential Scope.
+class Activation(BaseModel):
+    """Is a handle that activates a gated Scope without leaving any scope.
 
     Attributes:
-        on: Is the dataflow handle whose output fires this transition.
-        kind: Is conditional when only a truthy output fires the transition (`=>`), and
-            continuous when every output fires it (`->`).
-        targetKey: Is the sibling step key to activate. Null when the transition exits
-            the scope, yielding to the parent.
+        on: Is the dataflow handle whose output activates the scope.
+        kind: Is conditional when only a truthy output activates the scope (`=>`), and
+            continuous when every output does (`->`).
     """
 
     on: Handle
     kind: EdgeKind
-    targetKey: str | None = None
 
 
 class Function(BaseModel):
@@ -139,6 +163,23 @@ class Function(BaseModel):
 
 
 Nodes: TypeAlias = list[Node]
+
+
+class Transition(BaseModel):
+    """Is a declarative state-transition rule on a sequential Scope, or an exit from a
+    parallel Scope.
+
+    Attributes:
+        on: Is the dataflow handle whose output fires this transition.
+        kind: Is conditional when only a truthy output fires the transition (`=>`), and
+            continuous when every output fires it (`->`).
+        target: Is where the transition goes when it fires.
+    """
+
+    on: Handle
+    kind: EdgeKind
+    target: Target
+
 
 Edges: TypeAlias = list[Edge]
 
@@ -170,24 +211,20 @@ class Scope(BaseModel):
         mode: Defines whether this scope runs steps in parallel or sequentially.
         liveness: Defines whether this scope is continuously active or must be
             activated.
-        activation: Is the handle whose output activates a gated scope. Unset for
+        activations: Contains the handles that activate a gated scope. Empty for
             always-live scopes.
-        activationKind: Is conditional when only a truthy activation output activates
-            the scope (`=>`), and continuous when every output does (`->`). Unspecified
-            when activation is unset.
         strata: Contains stratified execution layers for parallel scopes. On sequential
             scopes, strata hold variable nodes that run every pass alongside the active
             step. Stratum N depends only on strata 0 to N-1.
         steps: Contains ordered steps for sequential scopes. Empty for parallel scopes.
-        transitions: Contains state-transition rules for sequential scopes. Empty for
-            parallel scopes.
+        transitions: Contains state-transition rules in source order. A parallel scope
+            holds only exits.
     """
 
     key: str
     mode: ScopeMode
     liveness: Liveness
-    activation: Handle | None = None
-    activationKind: EdgeKind
+    activations: list[Activation] = Field(default_factory=list)
     strata: list[Members] = Field(default_factory=list)
     steps: Members = Field(default_factory=list)
     transitions: list[Transition] = Field(default_factory=list)

@@ -83,8 +83,10 @@ std::string Transition::to_string() const {
     std::ostringstream ss;
     ss << "on " << this->on.node << "/" << this->on.param << " " << arrow(this->kind)
        << " ";
-    if (this->target_key.has_value())
-        ss << *this->target_key;
+    if (const auto *step = std::get_if<StepTarget>(&this->target))
+        ss << step->key;
+    else if (const auto *scope = std::get_if<ScopeTarget>(&this->target))
+        ss << "exit to " << scope->key;
     else
         ss << "exit";
     return ss.str();
@@ -283,9 +285,8 @@ namespace {
 /// whether the Root section should appear in an IR's tree output.
 bool scope_is_zero(const Scope &s) {
     return s.key.empty() && s.mode == ScopeMode::Unspecified &&
-           s.liveness == Liveness::Unspecified && !s.activation.has_value() &&
-           s.activation_kind == EdgeKind::Unspecified && s.strata.empty() &&
-           s.steps.empty() && s.transitions.empty();
+           s.liveness == Liveness::Unspecified && s.activations.empty() &&
+           s.strata.empty() && s.steps.empty() && s.transitions.empty();
 }
 
 }
