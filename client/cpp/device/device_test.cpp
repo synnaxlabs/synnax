@@ -597,9 +597,12 @@ TEST(DeviceTests, testCreateWithParentOntologyID) {
         .parent = chassis_otg,
     };
     ASSERT_NIL(client.devices.create(module));
-    const auto retrieved = ASSERT_NIL_P(client.devices.retrieve(module.key));
+    const auto retrieved = ASSERT_NIL_P(
+        client.devices.retrieve(module.key, {.include_parent = true})
+    );
     ASSERT_EQ(retrieved.key, module.key);
     ASSERT_EQ(retrieved.name, module.name);
+    ASSERT_EQ(retrieved.parent, chassis_otg);
 }
 
 TEST(DeviceTests, testCreateMultipleDevicesWithParent) {
@@ -640,10 +643,13 @@ TEST(DeviceTests, testCreateMultipleDevicesWithParent) {
     };
     ASSERT_NIL(client.devices.create(mod1));
     ASSERT_NIL(client.devices.create(mod2));
-    const auto retrieved = ASSERT_NIL_P(
-        client.devices.retrieve(std::vector<std::string>{mod1.key, mod2.key})
-    );
+    const auto retrieved = ASSERT_NIL_P(client.devices.retrieve(
+        std::vector<std::string>{mod1.key, mod2.key},
+        {.include_parent = true}
+    ));
     ASSERT_EQ(retrieved.size(), 2);
+    for (const auto &dev: retrieved)
+        ASSERT_EQ(dev.parent, chassis_otg);
 }
 
 TEST(DeviceTests, testCreateDeviceDefaultsParentToRack) {
@@ -661,7 +667,10 @@ TEST(DeviceTests, testCreateDeviceDefaultsParentToRack) {
         .properties = {{"test", "properties"}},
     };
     ASSERT_NIL(client.devices.create(d));
-    const auto retrieved = ASSERT_NIL_P(client.devices.retrieve(d.key));
+    const auto retrieved = ASSERT_NIL_P(
+        client.devices.retrieve(d.key, {.include_parent = true})
+    );
     ASSERT_EQ(retrieved.key, d.key);
+    ASSERT_EQ(retrieved.parent, rack::rack_ontology_id(r.key));
 }
 }
