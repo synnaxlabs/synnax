@@ -341,5 +341,43 @@ describe("Dialog", () => {
       expect(el.style.top).toBe(`${top}px`);
       expect(variable(el, "available-height")).toBe(`${500 - top - 6}px`);
     });
+
+    describe("a dialog that outgrows its space", () => {
+      // Stands in for the CSS limit: the dialog never grows past the written space.
+      const grow = (natural: number): void => {
+        vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(
+          function (this: HTMLElement) {
+            if (!this.classList.contains("pluto-dialog__dialog")) return 0;
+            const available = parseFloat(variable(this, "available-height"));
+            return Math.min(natural, Number.isNaN(available) ? natural : available);
+          },
+        );
+        resize();
+      };
+
+      it("should move above the trigger when there is more room above", () => {
+        const el = open(rect(400, 500, 100, 30), rect(0, 0, 200, 100));
+        expect(el.style.top).not.toBe("");
+        grow(300);
+        expect(el.style.top).toBe("");
+        expect(parseFloat(el.style.bottom)).toBeGreaterThanOrEqual(
+          window.innerHeight - 500,
+        );
+      });
+
+      it("should stay below the trigger when there is more room below", () => {
+        const el = open(rect(400, 100, 100, 30), rect(0, 0, 200, 100));
+        grow(2000);
+        expect(el.style.bottom).toBe("");
+        expect(parseFloat(el.style.top)).toBeGreaterThanOrEqual(130);
+      });
+
+      it("should stay below the trigger when the dialog fits", () => {
+        const el = open(rect(400, 500, 100, 30), rect(0, 0, 200, 100));
+        grow(150);
+        expect(el.style.bottom).toBe("");
+        expect(parseFloat(el.style.top)).toBeGreaterThanOrEqual(530);
+      });
+    });
   });
 });

@@ -129,23 +129,33 @@ const positionsEqual = (next: box.Box, prev?: box.Box | null): boolean => {
   );
 };
 
-const PREFERENCES: position.LocationPreference[] = [
+const BELOW: position.Preference[] = [
   {
     targetCorner: location.BOTTOM_LEFT,
     dialogCorner: location.TOP_LEFT,
   },
   {
-    targetCorner: location.TOP_LEFT,
-    dialogCorner: location.BOTTOM_LEFT,
-  },
-  {
     targetCorner: location.BOTTOM_RIGHT,
     dialogCorner: location.TOP_RIGHT,
+  },
+];
+
+const ABOVE: position.Preference[] = [
+  {
+    targetCorner: location.TOP_LEFT,
+    dialogCorner: location.BOTTOM_LEFT,
   },
   {
     targetCorner: location.TOP_RIGHT,
     dialogCorner: location.BOTTOM_RIGHT,
   },
+];
+
+const PREFERENCES: position.LocationPreference[] = [
+  BELOW[0],
+  ABOVE[0],
+  BELOW[1],
+  ABOVE[1],
   {
     targetCorner: location.TOP_RIGHT,
     dialogCorner: location.TOP_LEFT,
@@ -215,6 +225,7 @@ export const Frame = ({
   const prevLocationPreference = useRef<position.Preference | undefined>(undefined);
   const prevBox = useRef<box.Box | undefined>(undefined);
   const prevWindowBox = useRef<box.Box | undefined>(undefined);
+  const prevAvailableHeight = useRef<number | undefined>(undefined);
   const dialogRef = useRef<HTMLDivElement>(null);
 
   const [{ targetCorner, dialogCorner, style, modalPosition }, setState] =
@@ -244,6 +255,17 @@ export const Frame = ({
     let prefer = PREFERENCES;
     if (prevLocationPreference.current != null)
       prefer = [prevLocationPreference.current, ...PREFERENCES];
+    // A dialog at its height limit fits on either side, so the side with more room
+    // leads.
+    if (
+      prevAvailableHeight.current != null &&
+      offsetHeight >= prevAvailableHeight.current - 1
+    ) {
+      const roomAbove = box.top(target);
+      const roomBelow = box.height(windowBox) - box.bottom(target);
+      if (roomAbove !== roomBelow)
+        prefer = [...(roomAbove > roomBelow ? ABOVE : BELOW), ...prefer];
+    }
     // In the connected or floating case, we use a more sophisticated positioning
     // algorithm.
     const { adjustedDialog, ...locations } = position.position({
@@ -285,6 +307,7 @@ export const Frame = ({
       style.top = top;
       availableHeight = windowHeight - top - WINDOW_MARGIN;
     }
+    prevAvailableHeight.current = availableHeight;
     style[CSS.variable("dialog-available-width")] =
       `${windowWidth - 2 * WINDOW_MARGIN}px`;
     style[CSS.variable("dialog-available-height")] = `${availableHeight}px`;
