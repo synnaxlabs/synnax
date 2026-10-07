@@ -547,6 +547,109 @@ const Quay = (): ReactElement => (
   </g>
 );
 
+const YellowSubmarine = (): ReactElement => {
+  const x = 330;
+  const y = 590;
+  const sections = [
+    [0, 0],
+    [7, 6],
+    [17, 10],
+    [62, 10],
+    [73, 7],
+    [79, 0],
+  ];
+  const rings: Point[][] = sections.map(([offset, radius]) =>
+    Array.from({ length: 12 }, (_, i) => {
+      const angle = (i * Math.PI) / 6;
+      return [x + offset, y + Math.cos(angle) * radius, 10 + Math.sin(angle) * radius];
+    }),
+  );
+  const hull = rings.slice(1).flatMap((ring, section) =>
+    ring.map((point, i) => {
+      const next = (i + 1) % ring.length;
+      const vertices = [rings[section][i], rings[section][next], ring[next], point];
+      const light = (Math.sin(((i + 0.5) * Math.PI) / 6) + 1) / 2;
+      return {
+        vertices,
+        fill: `rgb(${Math.round(132 + light * 88)} ${Math.round(102 + light * 87)} ${Math.round(39 + light * 50)})`,
+        depth: vertices.reduce((sum, [px, py, pz]) => sum + px + py + pz * 0.94, 0),
+      };
+    }),
+  );
+  // Match the fleet's orthographic view, drawing the curved hull back to front.
+  hull.sort((a, b) => a.depth - b.depth);
+  return (
+    <g className="deployment-submarine" aria-hidden="true">
+      <Face
+        vertices={[
+          [x + 3, y - 17, 10],
+          [x + 13, y - 14, 10],
+          [x + 17, y + 14, 10],
+          [x + 3, y + 17, 10],
+        ]}
+        fill="#ad8d42"
+      />
+      <Face
+        vertices={[
+          [x + 4, y, 10],
+          [x + 4, y, 25],
+          [x + 10, y, 23],
+          [x + 17, y, 10],
+        ]}
+        fill="#bea04e"
+      />
+      {hull.map(({ vertices, fill }, i) => (
+        <Face key={i} vertices={vertices} fill={fill} />
+      ))}
+      <Box
+        x={x + 31}
+        y={y - 4}
+        z={18}
+        width={17}
+        depth={8}
+        height={9}
+        material={{ top: "#e0c66e", left: "#b39445", right: "#997937" }}
+      />
+      <Box
+        x={x + 40}
+        y={y - 1}
+        z={27}
+        width={2}
+        depth={2}
+        height={10}
+        material={{ top: "#d3bc7b", left: "#a68e53", right: "#796641" }}
+      />
+      <Box
+        x={x + 40}
+        y={y - 1}
+        z={35}
+        width={6}
+        depth={2}
+        height={2}
+        material={{ top: "#d3bc7b", left: "#a68e53", right: "#796641" }}
+      />
+      {[24, 40, 56].map((offset) => (
+        <g key={offset}>
+          {[3, 1.8].map((radius, i) => (
+            <Face
+              key={radius}
+              vertices={Array.from({ length: 12 }, (_, j) => {
+                const angle = (j * Math.PI) / 6;
+                return [
+                  x + offset + Math.cos(angle) * radius,
+                  y + 9.7,
+                  12 + Math.sin(angle) * radius,
+                ];
+              })}
+              fill={i === 0 ? "#dfc47a" : "#263748"}
+            />
+          ))}
+        </g>
+      ))}
+    </g>
+  );
+};
+
 const ROUTES: readonly (readonly Point[])[] = [
   [
     [189, 88, 25],
@@ -643,6 +746,7 @@ export const MarineScene = (): ReactElement => (
         <Vessel key={vessel.label} {...vessel} />
       ))}
       <Quay />
+      <YellowSubmarine />
     </g>
     <g className="scene-annotations">
       <Label
