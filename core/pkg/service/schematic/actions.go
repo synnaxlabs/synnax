@@ -39,8 +39,8 @@ func (p SetNodePositionPayload) Handle(state Schematic) (Schematic, error) {
 }
 
 // Handle inserts the node if no node with the same key exists, otherwise
-// replaces the existing node in place. If Config is non-nil, it is stored
-// under the node's key.
+// replaces the existing node in place. If Config is non-nil, it is stored under the
+// node's key with the schema defaults filled in for every field the payload omits.
 func (p SetNodePayload) Handle(state Schematic) (Schematic, error) {
 	if p.Config != nil && p.Config.Variant == nil {
 		return Schematic{}, noVariantError(p.Node.Key)
@@ -60,7 +60,9 @@ func (p SetNodePayload) Handle(state Schematic) (Schematic, error) {
 		if state.Configs == nil {
 			state.Configs = make(map[string]ElementConfig)
 		}
-		state.Configs[p.Node.Key] = *p.Config
+		cfg := *p.Config
+		cfg.ApplyDefaults()
+		state.Configs[p.Node.Key] = cfg
 	}
 	return state, nil
 }
@@ -123,8 +125,9 @@ func (p RemoveEdgePayload) Handle(state Schematic) (Schematic, error) {
 	return state, nil
 }
 
-// Handle replaces the configs entry stored under the given key. A config naming no
-// variant is rejected: stored, it would be a null entry no client can read back.
+// Handle replaces the configs entry stored under the given key with the schema
+// defaults filled in for every field the payload omits. A config naming no variant is
+// rejected: stored, it would be a null entry no client can read back.
 func (p SetConfigPayload) Handle(state Schematic) (Schematic, error) {
 	if p.Config.Variant == nil {
 		return Schematic{}, noVariantError(p.Key)
@@ -132,7 +135,9 @@ func (p SetConfigPayload) Handle(state Schematic) (Schematic, error) {
 	if state.Configs == nil {
 		state.Configs = make(map[string]ElementConfig)
 	}
-	state.Configs[p.Key] = p.Config
+	cfg := p.Config
+	cfg.ApplyDefaults()
+	state.Configs[p.Key] = cfg
 	return state, nil
 }
 

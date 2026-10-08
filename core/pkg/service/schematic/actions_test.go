@@ -32,7 +32,13 @@ func tankCfg(label, hex string) schematic.ElementConfig {
 	if hex != "" {
 		cfg.StrokeColor = new(MustSucceed(color.FromHex(hex)))
 	}
-	return schematic.ElementConfig{Variant: cfg}
+	return withDefaults(schematic.ElementConfig{Variant: cfg})
+}
+
+// withDefaults returns cfg as the reducer stores it, with its schema defaults filled.
+func withDefaults(cfg schematic.ElementConfig) schematic.ElementConfig {
+	cfg.ApplyDefaults()
+	return cfg
 }
 
 // pipeCfg constructs a typed pipe edge config. hex is optional.
@@ -42,9 +48,9 @@ func pipeCfg(hex string) schematic.ElementConfig {
 	if hex != "" {
 		cfg.StrokeColor = new(MustSucceed(color.FromHex(hex)))
 	}
-	return schematic.ElementConfig{
+	return withDefaults(schematic.ElementConfig{
 		Variant: schematic.PipeElementConfig{SegmentedEdgeConfig: cfg},
-	}
+	})
 }
 
 // node constructs a node at the given coordinates. zIndex is left zero.
@@ -66,9 +72,9 @@ func groupCfg(members ...string) schematic.ElementConfig {
 	if members == nil {
 		members = []string{}
 	}
-	return schematic.ElementConfig{
+	return withDefaults(schematic.ElementConfig{
 		Variant: schematic.GroupBoxElementConfig{Members: members},
-	}
+	})
 }
 
 var _ = Describe("Reducer", func() {
@@ -141,6 +147,22 @@ var _ = Describe("Reducer", func() {
 				).To(Equal([]schematic.Node{node("n1", 0, 0), node("n2", 1, 2)}))
 			},
 		)
+		It("Should fill the schema defaults the payload omits", func() {
+			out := MustSucceed(
+				schematic.Reduce(
+					schematic.Schematic{},
+					schematic.NewSetNodeAction(schematic.SetNodePayload{
+						Node: node("n1", 0, 0),
+						Config: new(schematic.ElementConfig{
+							Variant: schematic.SwitchElementConfig{},
+						}),
+					}),
+				),
+			)
+			cfg := out.Configs["n1"].Variant.(schematic.SwitchElementConfig)
+			Expect(cfg.Scale).To(BeEquivalentTo(1))
+			Expect(cfg.StalenessTimeout).To(BeEquivalentTo(5))
+		})
 		It("Should write config under the node's key when config is non-nil", func() {
 			state := schematic.Schematic{}
 			out := MustSucceed(
@@ -553,6 +575,24 @@ var _ = Describe("Reducer", func() {
 	})
 
 	Describe("SetConfig", func() {
+		// An older Console dispatches configs without the fields it never knew, so the
+		// zero values must not reach storage: a zero scale hides the symbol.
+		It("Should fill the schema defaults the payload omits", func() {
+			out := MustSucceed(
+				schematic.Reduce(
+					schematic.Schematic{},
+					schematic.NewSetConfigAction(schematic.SetConfigPayload{
+						Key: "n1",
+						Config: schematic.ElementConfig{
+							Variant: schematic.SwitchElementConfig{},
+						},
+					}),
+				),
+			)
+			cfg := out.Configs["n1"].Variant.(schematic.SwitchElementConfig)
+			Expect(cfg.Scale).To(BeEquivalentTo(1))
+			Expect(cfg.StalenessTimeout).To(BeEquivalentTo(5))
+		})
 		It("Should write the config entry under the given key", func() {
 			state := schematic.Schematic{}
 			out := MustSucceed(
