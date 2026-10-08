@@ -13,12 +13,11 @@
 # re-reports the gate when the Greptile review lands after the push, and the edited
 # trigger when Greptile writes its score into the description. A merge group gets
 # success outright: its pull request passed the gate to enqueue, and the queue needs the
-# context on the merge commit too. Every event gets its own run and no run cancels
-# another: a run reports twice, so the last run to finish posts a verdict at least as
-# fresh as every earlier one. Every trigger runs a workflow from a branch of the
-# repository, never from the pull request, and the base-ref checkout takes the script
-# from the base branch, so a pull request cannot edit the gate it is judged by; no pull
-# request code runs here.
+# context on the merge commit too. Runs for one pull request queue behind each other
+# instead of cancelling, so a run never posts a verdict older than one already posted.
+# Every trigger runs a workflow from a branch of the repository, never from the pull
+# request, and the base-ref checkout takes the script from the base branch, so a pull
+# request cannot edit the gate it is judged by; no pull request code runs here.
 
 name: Check - Review
 
@@ -51,6 +50,17 @@ permissions:
   contents: read
   pull-requests: read
   statuses: write
+
+# A run that will skip gets its own group, so it never displaces a pending real one.
+concurrency:
+  group:
+    ${{ github.workflow }}-${{ ((github.event_name == 'check_run' &&
+    github.event.check_run.name != 'Greptile Review') || ((github.event.action ==
+    'labeled' || github.event.action == 'unlabeled') &&
+    !startsWith(github.event.label.name, 'review/'))) && github.run_id ||
+    github.event.pull_request.number || github.event.check_run.pull_requests[0].number
+    || inputs.pr || github.ref }}
+  cancel-in-progress: false
 
 jobs:
   gate:
@@ -88,23 +98,17 @@ jobs:
           PR: ${{ steps.pull.outputs.number }}
           SHA: ${{ steps.pull.outputs.sha || github.event.merge_group.head_sha }}
         run: |
-          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          report() {
-            echo "$1: $2"
-            gh api "repos/${GITHUB_REPOSITORY}/statuses/${SHA}" \
-              -f state="$1" \
-              -f context="Review gate" \
-              -f description="$2" \
-              -f target_url="$RUN_URL" > /dev/null
-          }
           if [ "$GITHUB_EVENT_NAME" = merge_group ]; then
-            report success "merge group: the pull request passed the gate to enqueue"
-            exit 0
-          fi
-          # Concurrent runs post in any order. The second pass reads state that is newer
-          # than every post made before this run's first one.
-          for _ in 1 2; do
+            state=success
+            description="merge group: the pull request passed the gate to enqueue"
+          else
             IFS=$'\t' read -r state description \
               < <(.github/scripts/check_review.sh "$PR")
-            report "$state" "$description"
-          done
+          fi
+          echo "$state: $description"
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          gh api "repos/${GITHUB_REPOSITORY}/statuses/${SHA}" \
+            -f state="$state" \
+            -f context="Review gate" \
+            -f description="$description" \
+            -f target_url="$RUN_URL" > /dev/null
