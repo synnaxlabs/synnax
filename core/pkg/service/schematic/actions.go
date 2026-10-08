@@ -151,13 +151,18 @@ func noVariantError(key string) error {
 // rawSetNodePayload is the wire shape of SetNodePayload. The config stays raw so the
 // decode can tell a field the client omitted from one it set to zero.
 type rawSetNodePayload struct {
-	Node   Node                `json:"node"            msgpack:"node"`
+	// Node is the node to insert or replace.
+	Node Node `json:"node" msgpack:"node"`
+	// Config is the node's config as the client sent it. Nil when the payload carries
+	// none, which leaves the stored config untouched.
 	Config msgpack.EncodedJSON `json:"config,omitzero" msgpack:"config,omitempty"`
 }
 
 // rawSetConfigPayload is the wire shape of SetConfigPayload. See rawSetNodePayload.
 type rawSetConfigPayload struct {
-	Key    string              `json:"key"    msgpack:"key"`
+	// Key is the node or edge key the config is stored under.
+	Key string `json:"key" msgpack:"key"`
+	// Config is the config as the client sent it. It must name a variant.
 	Config msgpack.EncodedJSON `json:"config" msgpack:"config"`
 }
 
