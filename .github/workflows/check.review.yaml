@@ -13,10 +13,11 @@
 # re-reports the gate when the Greptile review lands after the push, and the edited
 # trigger when Greptile writes its score into the description. A merge group gets
 # success outright: its pull request passed the gate to enqueue, and the queue needs the
-# context on the merge commit too. Every trigger runs a workflow from a branch of the
-# repository, never from the pull request, and the base-ref checkout takes the script
-# from the base branch, so a pull request cannot edit the gate it is judged by; no pull
-# request code runs here.
+# context on the merge commit too. Runs for one pull request queue behind each other
+# instead of cancelling, so a run never posts a verdict older than one already posted.
+# Every trigger runs a workflow from a branch of the repository, never from the pull
+# request, and the base-ref checkout takes the script from the base branch, so a pull
+# request cannot edit the gate it is judged by; no pull request code runs here.
 
 name: Check - Review
 
@@ -50,23 +51,27 @@ permissions:
   pull-requests: read
   statuses: write
 
-# A skipped run still cancels its group, so other check runs get their own.
+# A run that will skip gets its own group, so it never displaces a pending real one.
 concurrency:
   group:
-    ${{ github.workflow }}-${{ (github.event_name == 'check_run' &&
-    github.event.check_run.name != 'Greptile Review' && github.run_id) ||
+    ${{ github.workflow }}-${{ ((github.event_name == 'check_run' &&
+    github.event.check_run.name != 'Greptile Review') || ((github.event.action ==
+    'labeled' || github.event.action == 'unlabeled') &&
+    !startsWith(github.event.label.name, 'review/'))) && github.run_id ||
     github.event.pull_request.number || github.event.check_run.pull_requests[0].number
     || inputs.pr || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   gate:
-    # The ruleset matches check runs by name too, so a cancelled job named Review gate
-    # would block the merge.
+    # The ruleset matches check runs by name too, so a skipped job named Review gate
+    # would block the merge. Only a tier label can change the verdict.
     name: Report review gate
     if:
-      github.event_name != 'check_run' || (github.event.check_run.name == 'Greptile
-      Review' && github.event.check_run.pull_requests[0])
+      (github.event_name != 'check_run' || (github.event.check_run.name == 'Greptile
+      Review' && github.event.check_run.pull_requests[0])) && ((github.event.action !=
+      'labeled' && github.event.action != 'unlabeled') ||
+      startsWith(github.event.label.name, 'review/'))
     runs-on: ubuntu-latest
     steps:
       - name: Resolve the pull request
