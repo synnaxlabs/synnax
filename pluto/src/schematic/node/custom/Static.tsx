@@ -13,7 +13,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Note } from "@synnaxlabs/lyra/note";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type location } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type ReactElement, useMemo } from "react";
 
 import { Custom } from "@/schematic/node/common/custom";
 import { Handle } from "@/schematic/node/common/handle";
@@ -40,11 +40,14 @@ export const Static = ({
   const setContainer = Custom.useRender({
     orientation,
     activeState: "base",
-    externalScale: Primitive.resolveScale(scale),
+    externalScale: scale,
     spec,
     stateOverrides,
   });
-  const invalid = spec != null && !Custom.isValidSVG(spec.svg);
+  const invalid = useMemo(
+    () => spec != null && !Custom.isValidSVG(spec.svg),
+    [spec?.svg],
+  );
   if (missing || invalid)
     return (
       <Note.Note variant="warning" className={className}>

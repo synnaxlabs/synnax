@@ -98,6 +98,30 @@ describe("Custom.useRender", () => {
       expect(container.children.length).toBe(0);
     });
 
+    it("should mount valid markup that replaces malformed markup", () => {
+      const container = document.createElement("div");
+      const { result, rerender } = renderHook(
+        (props: Custom.UseRenderParams) => Custom.useRender(props),
+        {
+          initialProps: {
+            orientation: "top",
+            activeState: "inactive",
+            externalScale: 1,
+            spec: createMockSpec({ svg: "<svg><rect></svg>" }),
+          },
+        },
+      );
+      result.current(container);
+      expect(container.querySelector("svg")).toBeNull();
+      rerender({
+        orientation: "top",
+        activeState: "inactive",
+        externalScale: 1,
+        spec: createMockSpec(),
+      });
+      expect(container.querySelector("svg")).not.toBeNull();
+    });
+
     it("should not mount anything when svg is empty", () => {
       const container = document.createElement("div");
       const spec = createMockSpec({ svg: "" });
@@ -438,6 +462,39 @@ describe("Custom.useRender", () => {
       expect(svg.getAttribute("height")).toBe("300");
     });
 
+    // A zero scale would size the symbol to nothing.
+    it("should render an internal scale that is not positive at 1", () => {
+      const container = document.createElement("div");
+      renderAttached(
+        {
+          orientation: "top",
+          activeState: "inactive",
+          externalScale: 1,
+          spec: createMockSpec({ scale: 0 }),
+        },
+        container,
+      );
+      const svg = container.querySelector("svg") as SVGSVGElement;
+      expect(svg.getAttribute("width")).toBe("100");
+      expect(svg.getAttribute("height")).toBe("100");
+    });
+
+    it("should render an external scale that is not positive at 1", () => {
+      const container = document.createElement("div");
+      renderAttached(
+        {
+          orientation: "top",
+          activeState: "inactive",
+          externalScale: -1,
+          spec: createMockSpec(),
+        },
+        container,
+      );
+      const svg = container.querySelector("svg") as SVGSVGElement;
+      expect(svg.getAttribute("width")).toBe("100");
+      expect(svg.getAttribute("height")).toBe("100");
+    });
+
     it("should combine internal and external scale", () => {
       const container = document.createElement("div");
       const spec = createMockSpec({ scale: 2 });
@@ -655,6 +712,22 @@ describe("Custom.useRender", () => {
 
       expect(svgBefore).toBe(svgAfter);
       expect(onMount).toHaveBeenCalledTimes(1);
+    });
+
+    it("should not parse unchanged markup again", () => {
+      const container = document.createElement("div");
+      const spec = createMockSpec();
+      const parse = vi.spyOn(DOMParser.prototype, "parseFromString");
+      const { result, rerender } = renderHook(
+        ({ activeState }) =>
+          Custom.useRender({ orientation: "top", activeState, externalScale: 1, spec }),
+        { initialProps: { activeState: "inactive" } },
+      );
+      result.current(container);
+      expect(parse).toHaveBeenCalledTimes(1);
+      rerender({ activeState: "active" });
+      expect(parse).toHaveBeenCalledTimes(1);
+      parse.mockRestore();
     });
 
     it("should recreate SVG when svg content changes", () => {
@@ -1278,6 +1351,22 @@ const PreviewLike = ({ activeState }: { activeState: string }): ReactElement => 
   });
   return <div data-testid="container" ref={setContainer} />;
 };
+
+describe("Custom.parseSVG", () => {
+  it("should return the root of valid markup", () => {
+    const root = Custom.parseSVG('<svg viewBox="0 0 10 10"><rect /></svg>');
+    expect(root?.tagName.toLowerCase()).toBe("svg");
+  });
+
+  it.each([
+    ["empty", ""],
+    ["malformed", "<svg><rect></svg>"],
+    ["not rooted in svg", "<div><svg /></div>"],
+  ])("should return null for %s markup", (_, svg) => {
+    expect(Custom.parseSVG(svg)).toBeNull();
+    expect(Custom.isValidSVG(svg)).toBe(false);
+  });
+});
 
 describe("custom symbol editor preview", () => {
   it("should recolor a region when its color is edited through the form", () => {
