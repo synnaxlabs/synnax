@@ -12,6 +12,8 @@ import { useInitializerRef, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { color, deep, dimensions, direction, type location } from "@synnaxlabs/x";
 import { type RefCallback, useCallback, useRef } from "react";
 
+import { Primitive } from "@/schematic/node/common/primitive";
+
 const ORIGINAL_STROKE_ATTRIBUTE = "data-original-stroke";
 const ORIGINAL_FILL_ATTRIBUTE = "data-original-fill";
 
@@ -83,6 +85,8 @@ export interface UseRenderParams {
 
 interface RenderState {
   svgElement: SVGSVGElement | null;
+  // True while prevSvg is markup that failed to parse, so nothing is mounted for it.
+  svgInvalid: boolean;
   baseDims: dimensions.Dimensions;
   prevExternalScale: number | undefined;
   prevOrientation: location.Outer | undefined;
@@ -95,6 +99,7 @@ interface RenderState {
 
 const createRenderState = (): RenderState => ({
   svgElement: null,
+  svgInvalid: false,
   baseDims: { width: 0, height: 0 },
   prevExternalScale: undefined,
   prevOrientation: undefined,
@@ -105,24 +110,37 @@ const createRenderState = (): RenderState => ({
   prevStateOverrides: undefined,
 });
 
-// buildSVG parses the spec's markup into a fresh SVG element, records its base
-// dimensions, ensures its contents are wrapped in a single <g>, mounts it into the
-// container, and notifies onMount. The returned element starts from raw markup, so
-// every derived attribute (state colors, dimensions, stroke scaling) must be
-// re-applied by the caller afterwards.
+/**
+ * @returns the root element of svg, or null when the markup is empty, malformed, or
+ * not rooted in an svg element. Nothing can mount for a null result, so callers show a
+ * warning in its place.
+ */
+export const parseSVG = (svg: string): SVGSVGElement | null => {
+  if (svg.length === 0) return null;
+  const root = new DOMParser().parseFromString(svg, "image/svg+xml").documentElement;
+  if (root.tagName.toLowerCase() !== "svg" || root.querySelector("parsererror") != null)
+    return null;
+  return root as unknown as SVGSVGElement;
+};
+
+/** @returns whether svg is markup the renderer can mount. See {@link parseSVG}. */
+export const isValidSVG = (svg: string): boolean => parseSVG(svg) != null;
+
+// buildSVG records the parsed element's base dimensions, ensures its contents are
+// wrapped in a single <g>, mounts it into the container, and notifies onMount. The
+// element starts from raw markup, so every derived attribute (state colors, dimensions,
+// stroke scaling) must be re-applied by the caller afterwards.
 const buildSVG = (
   container: HTMLElement,
   state: RenderState,
-  spec: schematic.symbol.Spec,
+  svgElement: SVGSVGElement,
   onMount?: (svgElement: SVGSVGElement) => void,
 ) => {
   if (state.svgElement != null) {
     state.svgElement.remove();
     state.svgElement = null;
   }
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(spec.svg, "image/svg+xml");
-  const svgElement = doc.documentElement as unknown as SVGSVGElement;
+  const doc = svgElement.ownerDocument;
   state.svgElement = svgElement;
 
   const viewBoxAttr = svgElement.getAttribute("viewBox");
@@ -160,7 +178,10 @@ const applyScale = (
   let preScaledDims = state.baseDims;
   if (direction.construct(orientation) === "y")
     preScaledDims = dimensions.swap(preScaledDims);
-  const scaledDims = dimensions.scale(preScaledDims, scale * externalScale);
+  const scaledDims = dimensions.scale(
+    preScaledDims,
+    Primitive.resolveScale(scale) * Primitive.resolveScale(externalScale),
+  );
   state.svgElement.setAttribute("width", scaledDims.width.toString());
   state.svgElement.setAttribute("height", scaledDims.height.toString());
   state.svgElement.setAttribute(
@@ -188,7 +209,7 @@ const runRender = (
 ) => {
   const { orientation, activeState, externalScale, spec, onMount, stateOverrides } =
     params;
-  if (spec == null || spec.svg.length === 0) return;
+  if (spec == null) return;
 
   // useRender has two callers with opposite mutation models: the schematic node
   // renderers receive a fresh spec reference from the flux cache on every update, while
@@ -198,6 +219,8 @@ const runRender = (
   const externalScaleDiffers = state.prevExternalScale !== externalScale;
   const orientationDiffers = state.prevOrientation !== orientation;
   const svgDiffers = state.prevSvg !== spec.svg;
+  // Markup that failed to parse mounts nothing until it changes.
+  if (!svgDiffers && state.svgInvalid) return;
   const scaleDiffers = state.prevScale !== spec.scale;
   const strokeScaledDiffers = state.prevStrokeScaled !== spec.strokeScaled;
 
@@ -222,7 +245,18 @@ const runRender = (
   // colors, dimensions, and stroke scaling must all be re-applied even when their own
   // inputs are unchanged.
   const rebuilt = state.svgElement == null || svgDiffers;
-  if (rebuilt) buildSVG(container, state, spec, onMount);
+  if (rebuilt) {
+    const root = parseSVG(spec.svg);
+    if (root == null) {
+      state.svgElement?.remove();
+      state.svgElement = null;
+      state.svgInvalid = true;
+      state.prevSvg = spec.svg;
+      return;
+    }
+    state.svgInvalid = false;
+    buildSVG(container, state, root, onMount);
+  }
 
   if (currState != null && (rebuilt || stateDiffers || stateOverridesDiffers)) {
     applyState(state.svgElement!, currState, rebuilt ? undefined : state.prevState);

@@ -85,6 +85,22 @@ describe("switch symbol", () => {
         "1",
       );
     });
+
+    // A zero or negative scale would size the switch to nothing.
+    it.each([0, -2, NaN])("should render a scale of %s at 1", (scale) => {
+      const { container } = render(<Switch scale={scale} />);
+      expect(getRoot(container).style.getPropertyValue("--pluto-switch-scale")).toBe(
+        "1",
+      );
+    });
+  });
+
+  describe("disabled", () => {
+    it("should keep the switch mounted while disabled", () => {
+      const { container } = render(<Switch disabled />);
+      expect(getInput(container).disabled).toBe(true);
+      expect(container.querySelector(".pluto-input__switch-indicator")).not.toBeNull();
+    });
   });
 
   describe("orientation", () => {
