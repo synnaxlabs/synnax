@@ -119,6 +119,7 @@ func typeConfigs(
 			invertLegacyFlags(normalized)
 			renameColors(normalized)
 			stripZeroColors(map[string]any(normalized))
+			dropNonPositiveScale(normalized)
 		}
 		if err == nil {
 			cfg, err = withDefaults(normalized)
@@ -161,4 +162,27 @@ func rejectedConfigsError(losses map[string]configLoss) error {
 // Migration types stored schematic element configs, lifting them from v8 to v9.
 var Migration = gorp.NewInstrumentedEntryMigration(
 	"v58_type_element_configs", migrateStored,
+)
+
+// ScaleMigration resets every stored config scale that is not positive to the schema
+// default of 1. A zero scale sizes a symbol to nothing, so it hides the symbol while
+// its label and control state still render.
+var ScaleMigration = gorp.NewEntryMigration(
+	"v59_positive_scale",
+	func(_ context.Context, s Schematic) (Schematic, error) {
+		for k, cfg := range s.Configs {
+			fields, err := ElementConfigFields(cfg)
+			if err != nil {
+				return Schematic{}, err
+			}
+			if !dropNonPositiveScale(fields) {
+				continue
+			}
+			fields["scale"] = 1.0
+			if s.Configs[k], err = DecodeElementConfig(fields); err != nil {
+				return Schematic{}, err
+			}
+		}
+		return s, nil
+	},
 )

@@ -334,6 +334,31 @@ var _ = Describe("Config typing", func() {
 		Entry("null", nil),
 	)
 
+	// A zero scale sizes a symbol to nothing, so the schema default of 1 replaces it.
+	DescribeTable("Should fill the default for a stored scale that is not positive",
+		func(ctx SpecContext, stored any) {
+			cfg, ok := typed(ctx, msgpack.EncodedJSON{
+				"variant": "switch",
+				"scale":   stored,
+			}).(v9.SwitchElementConfig)
+			Expect(ok).To(BeTrue())
+			Expect(cfg.Scale).To(BeEquivalentTo(1))
+		},
+		Entry("zero", 0.0),
+		Entry("negative", -2.0),
+		Entry("null", nil),
+		Entry("string", "big"),
+	)
+
+	It("Should keep a positive stored scale", func(ctx SpecContext) {
+		cfg, ok := typed(ctx, msgpack.EncodedJSON{
+			"variant": "switch",
+			"scale":   2.5,
+		}).(v9.SwitchElementConfig)
+		Expect(ok).To(BeTrue())
+		Expect(cfg.Scale).To(BeEquivalentTo(2.5))
+	})
+
 	It("Should drop a stored zero fill on a button", func(ctx SpecContext) {
 		cfg, ok := typed(ctx, msgpack.EncodedJSON{
 			"variant": "button",
@@ -1038,5 +1063,48 @@ var _ = Describe("Migration", func() {
 
 	It("Should not reuse v8's migration key", func() {
 		Expect(v9.Migration.Key()).ToNot(Equal(v8.Migration.Key()))
+	})
+})
+
+var _ = Describe("ScaleMigration", func() {
+	// scaled builds a stored switch config carrying the given scale.
+	scaled := func(scale float64) v9.ElementConfig {
+		GinkgoHelper()
+		return MustSucceed(v9.DecodeElementConfig(msgpack.EncodedJSON{
+			"variant": "switch",
+			"scale":   scale,
+		}))
+	}
+	It("Should reset every stored scale that is not positive to 1", func(
+		ctx SpecContext,
+	) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		stored := v9.Schematic{
+			Key: uuid.New(),
+			Configs: map[string]v9.ElementConfig{
+				"zero":     scaled(0),
+				"negative": scaled(-1),
+				"kept":     scaled(3),
+			},
+		}
+		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v9.Key, v9.Schematic]{DB: db}))
+		Expect(gorp.NewCreate[v9.Key, v9.Schematic]().
+			Entry(&stored).Exec(ctx, db)).To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "Schematic",
+			Migrations: []migrate.Migration{v9.ScaleMigration},
+		})).To(Succeed())
+		var got v9.Schematic
+		Expect(gorp.NewRetrieve[v9.Key, v9.Schematic]().
+			Where(gorp.MatchKeys[v9.Key, v9.Schematic](stored.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
+		scaleOf := func(key string) float64 {
+			GinkgoHelper()
+			return MustSucceed(v9.ElementConfigFields(got.Configs[key]))["scale"].(float64)
+		}
+		Expect(scaleOf("zero")).To(Equal(1.0))
+		Expect(scaleOf("negative")).To(Equal(1.0))
+		Expect(scaleOf("kept")).To(Equal(3.0))
 	})
 })

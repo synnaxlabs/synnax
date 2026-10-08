@@ -12,6 +12,8 @@ import { useInitializerRef, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { color, deep, dimensions, direction, type location } from "@synnaxlabs/x";
 import { type RefCallback, useCallback, useRef } from "react";
 
+import { resolveScale } from "@/schematic/node/common/primitive/orientable";
+
 const ORIGINAL_STROKE_ATTRIBUTE = "data-original-stroke";
 const ORIGINAL_FILL_ATTRIBUTE = "data-original-fill";
 
@@ -110,6 +112,19 @@ const createRenderState = (): RenderState => ({
 // container, and notifies onMount. The returned element starts from raw markup, so
 // every derived attribute (state colors, dimensions, stroke scaling) must be
 // re-applied by the caller afterwards.
+/**
+ * @returns whether svg is markup the renderer can mount: a document whose root is an
+ * svg element and that the parser accepted. Empty or malformed markup mounts nothing,
+ * so callers check this to show a warning in its place.
+ */
+export const isValidSVG = (svg: string): boolean => {
+  if (svg.length === 0) return false;
+  const root = new DOMParser().parseFromString(svg, "image/svg+xml").documentElement;
+  return (
+    root.tagName.toLowerCase() === "svg" && root.querySelector("parsererror") == null
+  );
+};
+
 const buildSVG = (
   container: HTMLElement,
   state: RenderState,
@@ -160,7 +175,10 @@ const applyScale = (
   let preScaledDims = state.baseDims;
   if (direction.construct(orientation) === "y")
     preScaledDims = dimensions.swap(preScaledDims);
-  const scaledDims = dimensions.scale(preScaledDims, scale * externalScale);
+  const scaledDims = dimensions.scale(
+    preScaledDims,
+    resolveScale(scale) * resolveScale(externalScale),
+  );
   state.svgElement.setAttribute("width", scaledDims.width.toString());
   state.svgElement.setAttribute("height", scaledDims.height.toString());
   state.svgElement.setAttribute(
@@ -188,7 +206,7 @@ const runRender = (
 ) => {
   const { orientation, activeState, externalScale, spec, onMount, stateOverrides } =
     params;
-  if (spec == null || spec.svg.length === 0) return;
+  if (spec == null || !isValidSVG(spec.svg)) return;
 
   // useRender has two callers with opposite mutation models: the schematic node
   // renderers receive a fresh spec reference from the flux cache on every update, while

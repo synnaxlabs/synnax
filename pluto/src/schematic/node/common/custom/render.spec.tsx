@@ -83,6 +83,21 @@ describe("Custom.useRender", () => {
       expect(container.children.length).toBe(0);
     });
 
+    it("should not mount anything when the svg markup is malformed", () => {
+      const container = document.createElement("div");
+      const spec = createMockSpec({ svg: "<svg><rect></svg>" });
+      renderAttached(
+        {
+          orientation: "top",
+          activeState: "inactive",
+          externalScale: 1,
+          spec,
+        },
+        container,
+      );
+      expect(container.children.length).toBe(0);
+    });
+
     it("should not mount anything when svg is empty", () => {
       const container = document.createElement("div");
       const spec = createMockSpec({ svg: "" });

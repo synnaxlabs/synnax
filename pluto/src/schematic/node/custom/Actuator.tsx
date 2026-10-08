@@ -16,6 +16,7 @@ import { type MouseEventHandler, type ReactElement } from "react";
 
 import { Custom } from "@/schematic/node/common/custom";
 import { Handle } from "@/schematic/node/common/handle";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
 import { Symbol } from "@/schematic/symbol";
 
@@ -41,16 +42,17 @@ export const Actuator = ({
   const setContainer = Custom.useRender({
     orientation,
     activeState: enabled ? "active" : "base",
-    externalScale: scale,
+    externalScale: Primitive.resolveScale(scale),
     spec,
     stateOverrides,
   });
-  if (missing)
+  const invalid = spec != null && !Custom.isValidSVG(spec.svg);
+  if (missing || invalid)
     return (
       <Note.Note variant="warning" className={className}>
         <Text.Text level="p" status="warning">
           <Icon.Warning />
-          Missing custom symbol
+          {missing ? "Missing custom symbol" : "Invalid custom symbol"}
         </Text.Text>
       </Note.Note>
     );
