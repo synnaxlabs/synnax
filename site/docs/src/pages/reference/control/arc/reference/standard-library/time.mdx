@@ -41,6 +41,10 @@ control loops, periodic sampling, and generating test data.
 time.interval{period=1s} -> tick
 ```
 
+An interval fires when it starts, then on a fixed schedule, once each `period`. A late
+fire does not move the next one. When a cycle takes longer than `period`, the interval
+fires once and does not make up the fires that it missed.
+
 <Divider.Divider x />
 
 ## `now`
@@ -100,3 +104,11 @@ Fires once after a fixed duration, then stops.
 ```arc bodies="done"
 time.wait{duration=500ms} -> done
 ```
+
+<Divider.Divider x />
+
+## Timing
+
+Timers never fire early. How soon after its deadline a timer fires depends on where the
+automation runs and its performance level. See
+[timing and performance](/reference/control/arc/timing).

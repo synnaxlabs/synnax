@@ -4,8 +4,8 @@ title: "Effective Arc"
 description: "Best practices and common pitfalls when writing Arc automations"
 prev: "Test sequences"
 prevURL: "/reference/control/arc/how-to/test-sequences"
-next: "Language reference"
-nextURL: "/reference/control/arc/reference"
+next: "Timing and performance"
+nextURL: "/reference/control/arc/timing"
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -282,8 +282,8 @@ stage wait_with_timeout {
 
 ### Control loop rates
 
-The C++ driver runtime runs control loops at 1kHz. Deterministic cycle times need a
-Linux real-time kernel.
+How closely a loop holds its rate depends on where it runs, the operating system, and
+its performance level. See [timing and performance](/reference/control/arc/timing).
 
 For timing-critical applications:
 
