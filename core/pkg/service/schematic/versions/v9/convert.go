@@ -581,9 +581,11 @@ func liftIndicator(
 	}
 }
 
-// withDefaults decodes a normalized config over its variant's schema defaults. A stored
-// field keeps its value even when it is zero.
-func withDefaults(stored msgpack.EncodedJSON) (ElementConfig, error) {
+// DecodeWithDefaults decodes a normalized config over its variant's schema defaults. A
+// field the config carries keeps its value even when it is zero; only an omitted field
+// takes the default. It returns an error wrapping validate.ErrValidation when the
+// config names no known variant.
+func DecodeWithDefaults(stored msgpack.EncodedJSON) (ElementConfig, error) {
 	defaults, err := defaultConfig(stored)
 	if err != nil {
 		return ElementConfig{}, err
