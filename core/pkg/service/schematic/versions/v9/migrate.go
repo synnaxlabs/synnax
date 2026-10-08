@@ -121,7 +121,7 @@ func typeConfigs(
 			stripZeroColors(map[string]any(normalized))
 		}
 		if err == nil {
-			cfg, err = withDefaults(normalized)
+			cfg, err = DecodeWithDefaults(normalized)
 		}
 		if err == nil {
 			out[k] = cfg

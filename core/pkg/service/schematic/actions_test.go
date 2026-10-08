@@ -10,6 +10,7 @@
 package schematic_test
 
 import (
+	"encoding/json/v2"
 	"strconv"
 	"uuid"
 
@@ -17,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/union"
@@ -32,13 +34,7 @@ func tankCfg(label, hex string) schematic.ElementConfig {
 	if hex != "" {
 		cfg.StrokeColor = new(MustSucceed(color.FromHex(hex)))
 	}
-	return withDefaults(schematic.ElementConfig{Variant: cfg})
-}
-
-// withDefaults returns cfg as the reducer stores it, with its schema defaults filled.
-func withDefaults(cfg schematic.ElementConfig) schematic.ElementConfig {
-	cfg.ApplyDefaults()
-	return cfg
+	return schematic.ElementConfig{Variant: cfg}
 }
 
 // pipeCfg constructs a typed pipe edge config. hex is optional.
@@ -48,9 +44,9 @@ func pipeCfg(hex string) schematic.ElementConfig {
 	if hex != "" {
 		cfg.StrokeColor = new(MustSucceed(color.FromHex(hex)))
 	}
-	return withDefaults(schematic.ElementConfig{
+	return schematic.ElementConfig{
 		Variant: schematic.PipeElementConfig{SegmentedEdgeConfig: cfg},
-	})
+	}
 }
 
 // node constructs a node at the given coordinates. zIndex is left zero.
@@ -72,9 +68,9 @@ func groupCfg(members ...string) schematic.ElementConfig {
 	if members == nil {
 		members = []string{}
 	}
-	return withDefaults(schematic.ElementConfig{
+	return schematic.ElementConfig{
 		Variant: schematic.GroupBoxElementConfig{Members: members},
-	})
+	}
 }
 
 var _ = Describe("Reducer", func() {
@@ -147,22 +143,6 @@ var _ = Describe("Reducer", func() {
 				).To(Equal([]schematic.Node{node("n1", 0, 0), node("n2", 1, 2)}))
 			},
 		)
-		It("Should fill the schema defaults the payload omits", func() {
-			out := MustSucceed(
-				schematic.Reduce(
-					schematic.Schematic{},
-					schematic.NewSetNodeAction(schematic.SetNodePayload{
-						Node: node("n1", 0, 0),
-						Config: new(schematic.ElementConfig{
-							Variant: schematic.SwitchElementConfig{},
-						}),
-					}),
-				),
-			)
-			cfg := out.Configs["n1"].Variant.(schematic.SwitchElementConfig)
-			Expect(cfg.Scale).To(BeEquivalentTo(1))
-			Expect(cfg.StalenessTimeout).To(BeEquivalentTo(5))
-		})
 		It("Should write config under the node's key when config is non-nil", func() {
 			state := schematic.Schematic{}
 			out := MustSucceed(
@@ -575,24 +555,6 @@ var _ = Describe("Reducer", func() {
 	})
 
 	Describe("SetConfig", func() {
-		// An older Console dispatches configs without the fields it never knew, so the
-		// zero values must not reach storage: a zero scale hides the symbol.
-		It("Should fill the schema defaults the payload omits", func() {
-			out := MustSucceed(
-				schematic.Reduce(
-					schematic.Schematic{},
-					schematic.NewSetConfigAction(schematic.SetConfigPayload{
-						Key: "n1",
-						Config: schematic.ElementConfig{
-							Variant: schematic.SwitchElementConfig{},
-						},
-					}),
-				),
-			)
-			cfg := out.Configs["n1"].Variant.(schematic.SwitchElementConfig)
-			Expect(cfg.Scale).To(BeEquivalentTo(1))
-			Expect(cfg.StalenessTimeout).To(BeEquivalentTo(5))
-		})
 		It("Should write the config entry under the given key", func() {
 			state := schematic.Schematic{}
 			out := MustSucceed(
@@ -896,5 +858,77 @@ var _ = Describe("Reducer", func() {
 				Expect(out.Edges).To(BeEmpty())
 			},
 		)
+	})
+})
+
+// An older Console dispatches configs without the fields it never knew, so a decoded
+// payload fills the schema defaults for those and keeps every value it did carry.
+var _ = Describe("Payload decoding", func() {
+	decode := func(body string) schematic.Action {
+		GinkgoHelper()
+		var a schematic.Action
+		Expect(json.Unmarshal([]byte(body), &a)).To(Succeed())
+		return a
+	}
+
+	It("Should fill the defaults a set_config payload omits", func() {
+		a := decode(`{"type": "set_config", "set_config": {"key": "n1",
+			"config": {"variant": "switch"}}}`)
+		cfg := a.SetConfig.Config.Variant.(schematic.SwitchElementConfig)
+		Expect(cfg.Scale).To(BeEquivalentTo(1))
+		Expect(cfg.StalenessTimeout).To(BeEquivalentTo(5))
+		Expect(cfg.Label.Level).To(BeEquivalentTo("h5"))
+	})
+
+	It("Should fill the defaults a set_node payload omits", func() {
+		a := decode(`{"type": "set_node", "set_node": {"node": {"key": "n1",
+			"position": {"x": 1, "y": 2}}, "config": {"variant": "switch"}}}`)
+		Expect(a.SetNode.Node.Position).To(Equal(spatial.XY{X: 1, Y: 2}))
+		cfg := a.SetNode.Config.Variant.(schematic.SwitchElementConfig)
+		Expect(cfg.Scale).To(BeEquivalentTo(1))
+	})
+
+	It("Should leave a set_node payload without a config nil", func() {
+		a := decode(`{"type": "set_node", "set_node": {"node": {"key": "n1"}}}`)
+		Expect(a.SetNode.Config).To(BeNil())
+	})
+
+	It("Should keep a zero the payload carries", func() {
+		a := decode(`{"type": "set_config", "set_config": {"key": "l1",
+			"config": {"variant": "line", "end": {"x": 0, "y": 40}}}}`)
+		cfg := a.SetConfig.Config.Variant.(schematic.LineElementConfig)
+		Expect(cfg.End).To(Equal(spatial.XY{X: 0, Y: 40}))
+		Expect(cfg.StrokeWidth).To(BeEquivalentTo(2))
+	})
+
+	It("Should keep an empty string the payload carries", func() {
+		a := decode(`{"type": "set_config", "set_config": {"key": "v1",
+			"config": {"variant": "value", "units": ""}}}`)
+		cfg := a.SetConfig.Config.Variant.(schematic.ValueElementConfig)
+		Expect(cfg.Units).To(Equal(""))
+	})
+
+	It("Should reject a config naming no variant", func() {
+		var a schematic.Action
+		Expect(json.Unmarshal([]byte(`{"type": "set_config", "set_config": {"key":
+			"n1", "config": {"scale": 2}}}`), &a)).To(MatchError(validate.ErrValidation))
+	})
+
+	It("Should decode a msgpack payload the same way", func(ctx SpecContext) {
+		body := MustSucceed(msgpack.Codec.Encode(ctx, map[string]any{
+			"type": "set_config",
+			"set_config": map[string]any{
+				"key": "l1",
+				"config": map[string]any{
+					"variant": "line",
+					"end":     map[string]any{"x": 0},
+				},
+			},
+		}))
+		var a schematic.Action
+		Expect(msgpack.Codec.Decode(ctx, body, &a)).To(Succeed())
+		cfg := a.SetConfig.Config.Variant.(schematic.LineElementConfig)
+		Expect(cfg.End.X).To(BeZero())
+		Expect(cfg.StrokeWidth).To(BeEquivalentTo(2))
 	})
 })
