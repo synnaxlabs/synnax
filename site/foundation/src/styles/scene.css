@@ -1,0 +1,456 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.industrial-scene {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+    isolation: isolate;
+    color: #c8d5e5;
+
+    polygon,
+    path {
+        stroke-linejoin: round;
+        stroke-linecap: round;
+    }
+
+    .scene-solid polygon {
+        stroke: #a7c1e62b;
+        stroke-width: 0.8;
+    }
+
+    .scene-datum {
+        stroke: #607d9e;
+        stroke-width: 0.55;
+        opacity: 0.12;
+    }
+
+    .scene-physical,
+    .scene-ground,
+    .scene-applications,
+    .scene-campus-detail,
+    .scene-local-links,
+    .scene-software-links,
+    .scene-cluster-links,
+    .scene-foundation-node,
+    .scene-software-module {
+        transition: opacity 650ms ease;
+    }
+
+    .scene-detail {
+        stroke: #a7c1e6;
+        stroke-width: 0.6;
+        opacity: 0.22;
+    }
+
+    .scene-cylinder {
+        polygon {
+            stroke: #a7c1e620;
+            stroke-width: 0.35;
+        }
+
+        path {
+            stroke: #a7c1e6;
+            stroke-width: 0.6;
+            opacity: 0.25;
+        }
+    }
+
+    .scene-railing,
+    .scene-mast {
+        stroke: #7b97b8;
+        stroke-width: 1.6;
+    }
+
+    .scene-mast {
+        stroke-width: 2.5;
+    }
+
+    .scene-pipe-shadow {
+        stroke: #273d58;
+        stroke-width: 5;
+    }
+
+    .scene-pipe {
+        stroke: #7894b5;
+        stroke-width: 3.2;
+    }
+
+    .scene-door,
+    .scene-rack-slot {
+        stroke: #8aa6c9;
+        stroke-width: 0.65;
+        opacity: 0.35;
+    }
+
+    .scene-panel {
+        stroke: #5d83af;
+        stroke-width: 0.9;
+    }
+
+    .scene-roof-outline {
+        stroke: #7e9abd;
+        stroke-width: 1;
+        stroke-dasharray: 3 5;
+        opacity: 0.5;
+    }
+
+    .scene-road-line {
+        stroke: #778fae;
+        stroke-width: 1.5;
+        stroke-dasharray: 10 13;
+        opacity: 0.5;
+    }
+
+    .scene-crosswalk {
+        stroke: #7289a6;
+        stroke-width: 2.5;
+    }
+
+    .scene-parking {
+        stroke: #48617e;
+        stroke-width: 0.7;
+    }
+
+    .scene-site-edge {
+        fill: none;
+        stroke: #4b637d;
+        stroke-width: 0.7;
+        opacity: 0.3;
+    }
+
+    .scene-network {
+        transition: transform 750ms cubic-bezier(0.2, 0.65, 0.3, 1);
+    }
+
+    .scene-node-risers {
+        opacity: 0;
+        transition: opacity 650ms ease;
+    }
+
+    .scene-layer-riser {
+        stroke: #6d8dab;
+        stroke-width: 0.8;
+        stroke-dasharray: 3 6;
+    }
+
+    .scene-signal-underlay {
+        stroke: #0b121c;
+        stroke-width: 5;
+        opacity: 0.85;
+    }
+
+    .scene-signal-path {
+        stroke: #729dd2;
+        stroke-width: 1.9;
+    }
+
+    .scene-signal-packets {
+        stroke: #c8e0f8;
+        stroke-width: 2.5;
+        stroke-dasharray: 3 95;
+        animation: foundation-signal 4.8s linear infinite;
+    }
+
+    .scene-node-mark {
+        --logo-color: #c3d3e4;
+    }
+
+    .scene-node-id {
+        font: 13px var(--foundation-mono, monospace);
+        fill: #a7bdd6;
+        letter-spacing: 0.6px;
+        paint-order: stroke;
+        stroke: #0b121c;
+        stroke-width: 5;
+        stroke-linejoin: round;
+    }
+
+    .scene-applications,
+    .scene-software-links {
+        opacity: 0.12;
+    }
+
+    .scene-app-surface {
+        stroke: #7693af;
+        stroke-width: 0.6;
+    }
+
+    .scene-app-ink {
+        fill: none;
+        stroke: #a7c3df;
+        stroke-width: 1.4;
+    }
+
+    .scene-app-muted {
+        fill: none;
+        stroke: #688099;
+        stroke-width: 0.7;
+    }
+
+    .scene-app-label,
+    .scene-app-detail {
+        opacity: 0;
+        transition: opacity 650ms ease;
+        fill: #bbcbdc;
+        font: 16px var(--foundation-mono, monospace);
+        letter-spacing: 0;
+        paint-order: stroke;
+        stroke: #0b121c;
+        stroke-width: 6;
+        stroke-linejoin: round;
+    }
+
+    .scene-app-detail {
+        fill: #7f97b0;
+        font-size: 13px;
+    }
+
+    .scene-annotation {
+        animation: foundation-annotation-in 650ms ease both;
+
+        path {
+            stroke: #8ca4bf;
+            stroke-width: 0.85;
+            fill: none;
+            opacity: 0.5;
+        }
+
+        circle {
+            fill: #a7c2df;
+        }
+
+        rect {
+            fill: #0b121c;
+            fill-opacity: 0.96;
+        }
+
+        text {
+            fill: #bbc8d7;
+            font: 16px var(--foundation-mono, monospace);
+            letter-spacing: 0.2px;
+        }
+
+        .scene-annotation-detail {
+            fill: #8596a9;
+            font-size: 13px;
+            letter-spacing: 0;
+        }
+    }
+
+    .scene-cluster-links {
+        opacity: 0.28;
+    }
+
+    .scene-command {
+        color: var(--scene-command-color, #c8827c);
+    }
+
+    .scene-acknowledgment {
+        color: var(--scene-acknowledgment-color, #80aee1);
+    }
+
+    .scene-control-route {
+        opacity: 0;
+        transition: opacity 650ms ease;
+
+        .scene-signal-path {
+            stroke: currentcolor;
+            stroke-width: 2;
+        }
+
+        .scene-signal-packets {
+            stroke: currentcolor;
+            stroke-width: 3.4;
+            stroke-dasharray: 9 89;
+            animation-play-state: paused;
+        }
+
+        .scene-flow-arrow {
+            fill: none;
+            stroke: currentcolor;
+            stroke-width: 1.5;
+        }
+    }
+
+    &[data-layer="connectivity"],
+    &[data-layer="applications"],
+    &[data-layer="control"] {
+        .scene-node-risers {
+            opacity: 0.4;
+        }
+
+        .scene-ground,
+        .scene-campus-detail {
+            opacity: 0.22;
+        }
+
+        .scene-physical {
+            opacity: 0.13;
+        }
+
+        .scene-local-links {
+            opacity: 0.13;
+        }
+
+        .scene-cluster-links {
+            opacity: 1;
+        }
+    }
+
+    &[data-layer="connectivity"] .scene-signal-packets {
+        animation-name: foundation-cluster-signal;
+    }
+
+    &[data-layer="applications"],
+    &[data-layer="control"] {
+        .scene-app-label,
+        .scene-app-detail {
+            opacity: 1;
+        }
+    }
+
+    &[data-layer="applications"] {
+        .scene-foundation-node,
+        .scene-cluster-links {
+            opacity: 0.42;
+        }
+
+        .scene-applications,
+        .scene-software-links,
+        [data-node="F.02"] {
+            opacity: 1;
+        }
+
+        .scene-signal-packets {
+            animation-name: foundation-telemetry-signal;
+        }
+    }
+
+    &[data-layer="control"] {
+        .scene-cluster-links,
+        .scene-local-links,
+        .scene-foundation-node {
+            opacity: 0.13;
+        }
+
+        .scene-production {
+            opacity: 0.75;
+        }
+
+        .scene-applications,
+        .scene-control-route,
+        [data-node="F.01"],
+        [data-node="F.02"] {
+            opacity: 1;
+        }
+
+        .scene-software-module:not([data-kind="application"]) {
+            opacity: 0.13;
+        }
+
+        .scene-signal-packets {
+            animation-name: foundation-command-signal;
+        }
+
+        .scene-control-route .scene-signal-packets {
+            animation-play-state: running;
+        }
+    }
+}
+
+@keyframes foundation-signal {
+    to {
+        stroke-dashoffset: -196;
+    }
+}
+
+@keyframes foundation-cluster-signal {
+    to {
+        stroke-dashoffset: -196;
+    }
+}
+
+@keyframes foundation-telemetry-signal {
+    to {
+        stroke-dashoffset: 196;
+    }
+}
+
+@keyframes foundation-command-signal {
+    to {
+        stroke-dashoffset: -196;
+    }
+}
+
+@keyframes foundation-annotation-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .industrial-scene * {
+        animation: none !important;
+        transition: none !important;
+    }
+}
+
+@media (width <= 900px) {
+    .world-stage .industrial-scene .scene-annotation-detail {
+        display: none;
+    }
+}
+
+@media (width <= 600px) {
+    .world-stage .industrial-scene {
+        .scene-annotations,
+        .scene-campus-detail,
+        .scene-datum,
+        .scene-app-detail {
+            display: none;
+        }
+
+        .scene-node-id {
+            font-size: 21px;
+            stroke-width: 6;
+        }
+
+        .scene-app-label {
+            font-size: 22px;
+        }
+    }
+}
+
+.scene-load-state {
+    display: grid;
+    place-content: center;
+    gap: 12px;
+    width: 100%;
+    color: var(--foundation-caption);
+    font: 11px/1.5 var(--foundation-mono);
+    pointer-events: auto;
+
+    button {
+        padding: 12px 16px;
+        border: 1px solid #8295b133;
+        border-radius: 8px;
+        background: #111c2a;
+        color: #c3d0e1;
+        font: inherit;
+        cursor: pointer;
+    }
+}

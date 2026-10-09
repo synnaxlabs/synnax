@@ -71,6 +71,7 @@ jobs:
       drift: ${{ steps.filter.outputs.drift }}
       driver: ${{ steps.filter.outputs.driver }}
       driver_build: ${{ steps.filter.outputs.driver_build }}
+      foundation: ${{ steps.filter.outputs.foundation }}
       freighter_cpp: ${{ steps.filter.outputs.freighter_cpp }}
       freighter_go: ${{ steps.filter.outputs.freighter_go }}
       freighter_image: ${{ steps.filter.outputs.freighter_image }}
@@ -351,6 +352,17 @@ jobs:
 
   format:
     uses: ./.github/workflows/test.format.yaml
+
+  foundation:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.foundation == 'true'
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      directory: site/foundation
+      macos: *full
+      package: foundation
+      windows: *full
+    secrets: inherit
 
   freighter-cpp:
     needs: changes
@@ -712,6 +724,7 @@ jobs:
       - drift
       - driver
       - format
+      - foundation
       - freighter-cpp
       - freighter-go
       - freighter-image
