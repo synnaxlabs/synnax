@@ -122,10 +122,10 @@ amplitude:
   blocks of `n` samples from its start, and the trailing partial block is dropped. Any
   window of two or more samples draws; a short one draws a coarse spectrum rather than
   nothing.
-- **Transform length**: `N` is the smallest power of two at or above `n`, and each
-  block is zero-padded to it. The power of two is a convenience for the radix-2 kernel,
-  not a limit on the data: every sample in a block is used, and padding only
-  interpolates between the bins the data supports.
+- **Transform length**: `N` is the smallest power of two at or above `n`, and each block
+  is zero-padded to it. The power of two is a convenience for the radix-2 kernel, not a
+  limit on the data: every sample in a block is used, and padding only interpolates
+  between the bins the data supports.
 - **Averaging**: The magnitude of each bin is the mean over the blocks, as an analyzer
   averages a long capture. A fixed range that would need more than 64 blocks posts a
   status asking for a narrower range rather than reading it whole.
