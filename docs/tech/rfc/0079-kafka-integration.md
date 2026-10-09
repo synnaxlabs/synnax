@@ -166,14 +166,16 @@ ReadConfig struct extends task.PersistConfig {
     device       device.Key = ""
     topic        string = ""
     group        string = ""       // consumer group; empty means the task key
-    start_offset StartOffset = latest   // latest | earliest
+    start_offset StartOffset = latest   // latest | earliest | none
     fields       ReadField[]
 }
 ```
 
 One task consumes one topic. The consumer joins group `group`, or `kafka-<task key>`
 when empty, and commits offsets, so a restarted task resumes where it stopped.
-`start_offset` applies only when the group has no committed offset.
+`start_offset` applies only when the group has no committed offset: `latest` tails,
+`earliest` replays, and `none` answers the start command with an error status, for a
+group whose offsets must already exist.
 
 Each record value is parsed as JSON. For each enabled field whose `record_key` is empty
 or equal to the record key, the value at `pointer` is converted with the HTTP driver's
