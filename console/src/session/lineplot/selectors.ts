@@ -98,6 +98,11 @@ const selectMeasureMode = (params: KeyedSelectorParams): lineplot.measure.Mode =
 
 export const useSelectMeasureMode = createSelector(selectMeasureMode);
 
+const selectMeasurements = (params: KeyedSelectorParams): lineplot.Measurement[] =>
+  selectState(params).measurements;
+
+export const useSelectMeasurements = createSelector(selectMeasurements);
+
 const selectSelection = (params: KeyedSelectorParams): SelectionState =>
   selectState(params).selection;
 

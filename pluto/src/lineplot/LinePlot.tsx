@@ -54,6 +54,7 @@ import {
   useUndo,
   useXAxis,
   useXAxisKeys,
+  useXAxisRanges,
   useYAxis,
   useYAxisKeys,
 } from "@/lineplot/queries";
@@ -70,7 +71,48 @@ import { type Viewport } from "@/viewport";
 // in the consumer (Console's range slice), so the connected component receives
 // the static/dynamic time window per range key rather than reading it itself.
 export type ResolvedRange =
-  { variant: "static"; timeRange: TimeRange } | { variant: "dynamic"; span: TimeSpan };
+  | { variant: "static"; timeRange: TimeRange }
+  | { variant: "dynamic"; span: TimeSpan }
+  | {
+      variant: "triggered";
+      /** The trigger channel, or 0 for the line's own channel. */
+      channel: channel.Key;
+      level: number;
+      edge: lineplot.TriggerEdge;
+      span: TimeSpan;
+      pretrigger: number;
+      timeout: TimeSpan;
+    };
+
+/** The X axis configuration a line needs to pick its sources. */
+export interface XAxisConfig {
+  mode: lineplot.XAxisMode;
+  spectrum: lineplot.Spectrum;
+}
+
+const resolvedSpan = (r: ResolvedRange): TimeSpan =>
+  r.variant === "static" ? r.timeRange.span : r.span;
+
+const SPECTRUM_CONNECTIONS = [
+  { from: "data", to: "spectrum" },
+  { from: "index", to: "spectrum" },
+];
+
+const spectrumPipeline = (
+  data: telem.SeriesSourceSpec,
+  index: telem.SeriesSourceSpec,
+  spectrum: lineplot.Spectrum,
+  output: "frequency" | "magnitude",
+): telem.SeriesSourceSpec =>
+  telem.sourcePipeline("series", {
+    connections: SPECTRUM_CONNECTIONS,
+    outlet: "spectrum",
+    segments: {
+      data,
+      index,
+      spectrum: telem.spectrum({ ...spectrum, output }),
+    },
+  });
 
 export const axisLabel = (key: lineplot.AxisKey): string => key.toUpperCase();
 
@@ -117,6 +159,7 @@ interface LineProps {
   pKey: lineplot.Key;
   lineKey: string;
   resolved?: ResolvedRange;
+  xAxis: XAxisConfig;
   visible?: boolean;
 }
 
@@ -124,6 +167,7 @@ const Line = ({
   pKey,
   lineKey,
   resolved,
+  xAxis,
   visible = true,
 }: LineProps): ReactElement | null => {
   const { key, ...line } = useLine({ key: pKey, lineKey });
@@ -131,9 +175,31 @@ const Line = ({
     if (resolved == null) return null;
     const { xChannel, yChannel } = line;
     const hasX = primitive.isNonZero(xChannel);
+    if (resolved.variant === "triggered") {
+      const { variant: _, channel, ...trigger } = resolved;
+      const props = { ...trigger, channel: yChannel, trigger: channel || yChannel };
+      return {
+        x: telem.triggeredData({ ...props, output: "x" }),
+        y: telem.triggeredData({ ...props, output: "y" }),
+      };
+    }
+    const spectral = xAxis.mode === "spectrum";
     if (resolved.variant === "dynamic") {
       const keepFor = Number(resolved.span.valueOf()) * 3;
       const { span: timeSpan } = resolved;
+      const y = telem.streamChannelData({ timeSpan, channel: yChannel, keepFor });
+      if (spectral) {
+        const index = telem.streamChannelData({
+          timeSpan,
+          channel: yChannel,
+          useIndexOfChannel: true,
+          keepFor,
+        });
+        return {
+          x: spectrumPipeline(y, index, xAxis.spectrum, "frequency"),
+          y: spectrumPipeline(y, index, xAxis.spectrum, "magnitude"),
+        };
+      }
       return {
         x: telem.streamChannelData({
           timeSpan,
@@ -141,11 +207,19 @@ const Line = ({
           useIndexOfChannel: !hasX,
           keepFor,
         }),
-        y: telem.streamChannelData({
-          timeSpan,
-          channel: yChannel,
-          keepFor,
-        }),
+        y,
+      };
+    }
+    const y = telem.channelData({ timeRange: resolved.timeRange, channel: yChannel });
+    if (spectral) {
+      const index = telem.channelData({
+        timeRange: resolved.timeRange,
+        channel: yChannel,
+        useIndexOfChannel: true,
+      });
+      return {
+        x: spectrumPipeline(y, index, xAxis.spectrum, "frequency"),
+        y: spectrumPipeline(y, index, xAxis.spectrum, "magnitude"),
       };
     }
     return {
@@ -154,9 +228,9 @@ const Line = ({
         channel: hasX ? xChannel : yChannel,
         useIndexOfChannel: !hasX,
       }),
-      y: telem.channelData({ timeRange: resolved.timeRange, channel: yChannel }),
+      y,
     };
-  }, [resolved, line?.xChannel, line?.yChannel]);
+  }, [resolved, line?.xChannel, line?.yChannel, xAxis.mode, xAxis.spectrum]);
   if (line == null || telemetry == null) return null;
   return (
     <BaseLine
@@ -309,6 +383,7 @@ const Rules = ({ pKey, axisKey, onSelectRule }: RulesProps): ReactElement => {
 
 interface YAxisProps extends AxisChildrenProps {
   axisKey: lineplot.YAxisKey;
+  xAxis: XAxisConfig;
 }
 
 const YAxis = ({
@@ -318,6 +393,7 @@ const YAxis = ({
   resolvedRanges,
   hiddenLines,
   onSelectRule,
+  xAxis,
 }: YAxisProps): ReactElement => {
   const { dispatch } = useDispatch();
   const { axis, lineKeys, channels } = useYAxis({ key, axisKey });
@@ -364,6 +440,7 @@ const YAxis = ({
           pKey={key}
           lineKey={lineKey}
           resolved={resolvedRanges?.get(lineplot.parseLineKey(lineKey).range)}
+          xAxis={xAxis}
           visible={hiddenLines == null || !hiddenLines.has(lineKey)}
         />
       ))}
@@ -399,7 +476,20 @@ const XAxis = ({
   );
   const dropProps = useAxisDrop(axisKey, "x", handleDrop);
   const dragging = Haul.useDraggingState();
-  const { key: _, ...axisConfig } = useXAxis({ key, axisKey });
+  const { key: _, mode, spectrum, ...axisConfig } = useXAxis({ key, axisKey });
+  const rangeKeys = useXAxisRanges({ key, axisKey });
+  const triggered = rangeKeys.some(
+    (r) => resolvedRanges?.get(r)?.variant === "triggered",
+  );
+  // A spectrum plots frequency and a triggered window plots seconds since the
+  // trigger, so neither axis is a time axis whatever the channel's data type.
+  const type = mode === "spectrum" || triggered ? "linear" : axisConfig.type;
+  let label = axisConfig.label;
+  if (label.length === 0)
+    if (mode === "spectrum") label = "Hz";
+    else if (triggered) label = "s";
+
+  const xAxis = useMemo<XAxisConfig>(() => ({ mode, spectrum }), [mode, spectrum]);
   const yAxes = useYAxisKeys({ key });
   const handleLabelChange = useCallback(
     (label: string) =>
@@ -413,6 +503,8 @@ const XAxis = ({
     <BaseXAxis
       {...axisConfig}
       {...dropProps}
+      type={type}
+      label={label}
       location={AXIS_LOCATIONS[axisKey]}
       axisKey={axisKey}
       className={CSS.cls(CSS.dropRegion(canDropHaulItem(dragging)))}
@@ -428,6 +520,7 @@ const XAxis = ({
           resolvedRanges={resolvedRanges}
           hiddenLines={hiddenLines}
           onSelectRule={onSelectRule}
+          xAxis={xAxis}
         />
       ))}
       <Rules pKey={key} axisKey={axisKey} onSelectRule={onSelectRule} />
@@ -503,9 +596,7 @@ export const LinePlot = ({
   const viewportRef = useViewportReset({ key, hold: rest.hold });
   const loadingMessage = useMemo(() => {
     if (resolvedRanges == null || resolvedRanges.size === 0) return undefined;
-    const spans = [...resolvedRanges.values()].map((r) =>
-      r.variant === "dynamic" ? r.span : r.timeRange.span,
-    );
+    const spans = [...resolvedRanges.values()].map(resolvedSpan);
     const longest = spans.reduce((a, b) => (b.greaterThan(a) ? b : a));
     return `Fetching ${longest.toString()} of data`;
   }, [resolvedRanges]);

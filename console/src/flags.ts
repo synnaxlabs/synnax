@@ -16,6 +16,11 @@
  * `example: IS_DEV || import.meta.env.VITE_FLAG_EXAMPLE === "true", // Owner: Name.
  * Removed in 0.60.`
  */
-export const FLAGS = {} as const satisfies Record<string, boolean>;
+const IS_DEV = import.meta.env.DEV;
+
+export const FLAGS = {
+  // Owner: Patrick Dotson. Removed after the release that ships RFC 0080.
+  lineplotWindows: IS_DEV || import.meta.env.VITE_FLAG_LINEPLOT_WINDOWS === "true",
+} as const satisfies Record<string, boolean>;
 
 export type Flag = keyof typeof FLAGS;

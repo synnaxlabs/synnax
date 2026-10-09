@@ -7,17 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/telem/clockSkew";
-export * from "@/telem/fft";
-export { type GLBufferController } from "@/telem/gl";
-export * from "@/telem/series";
-export * as stats from "@/telem/stats";
-export * from "@/telem/telem";
-export {
-  TIME_ZONES,
-  TIMESTAMP_FORMATS,
-  type TimestampFormat,
-  timestampFormatZ,
-  type TimeZone,
-  timeZoneZ,
-} from "@/telem/types.gen";
+package v7_test
+
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+func TestLinePlotV7(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Service Line Plot v7 Suite")
+}
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

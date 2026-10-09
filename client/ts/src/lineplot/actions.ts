@@ -22,6 +22,8 @@ import {
   setAxisLabel,
   setAxisLabelDirection,
   setAxisLabelLevel,
+  setAxisMode,
+  setAxisSpectrum,
   setAxisTickSpacing,
   setAxisType,
   setChannels,
@@ -330,6 +332,20 @@ const handlers: Handlers = {
     return { inverse, targets: [`axis:${payload.key}`] };
   },
 
+  setAxisMode: (state, payload) => {
+    const axis = state.axes[payload.key];
+    const inverse = [setAxisMode({ key: payload.key, mode: axis.mode })];
+    axis.mode = payload.mode;
+    return { inverse, targets: [`axis:${payload.key}`] };
+  },
+
+  setAxisSpectrum: (state, payload) => {
+    const axis = state.axes[payload.key];
+    const inverse = [setAxisSpectrum({ key: payload.key, spectrum: axis.spectrum })];
+    axis.spectrum = payload.spectrum;
+    return { inverse, targets: [`axis:${payload.key}`] };
+  },
+
   setLineLabel: (state, payload) => {
     const line = state.lines.find((l) => l.key === payload.key);
     if (line == null) return actions.NO_OP_RESULT;
@@ -515,6 +531,10 @@ export const kindOf = (actions: Action[]): string => {
       return `axis:${a.setAxisTickSpacing.key}`;
     case "set_axis_type":
       return `axis:${a.setAxisType.key}`;
+    case "set_axis_mode":
+      return `axis:${a.setAxisMode.key}`;
+    case "set_axis_spectrum":
+      return `axis:${a.setAxisSpectrum.key}`;
     case "set_line_label":
       return `line:${a.setLineLabel.key}`;
     case "set_line_color":

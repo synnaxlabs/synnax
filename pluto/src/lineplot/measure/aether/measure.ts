@@ -22,6 +22,7 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { theming } from "@/theming/aether";
+import { type TickType } from "@/vis/axis/ticks";
 import { Draw2D } from "@/vis/draw2d";
 import { type FindResult } from "@/vis/line/aether/line";
 import { render } from "@/vis/render";
@@ -70,6 +71,8 @@ interface PointLabelParams {
   toTop: boolean;
   viewRegion: box.Box;
   xDist: TimeSpan;
+  xType: TickType;
+  xUnits: string;
 }
 
 interface PointLabelRowParams {
@@ -154,6 +157,13 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
 
   afterDelete(ctx: aether.Context): void {
     render.request(ctx, "layout");
+  }
+
+  /** @returns the x span between the two placed points, or null before both exist. */
+  window(): bounds.Bounds | null {
+    const { dataOne, dataTwo } = this.internal;
+    if (dataOne == null || dataTwo == null) return null;
+    return bounds.construct(dataOne.x, dataTwo.x);
   }
 
   private get verticalLineColor(): color.Color {
@@ -380,11 +390,24 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
   }
 
   private drawPointLabel(params: PointLabelParams): void {
-    const { pointNumber, position, value, units, bounds, toTop, viewRegion, xDist } =
-      params;
+    const {
+      pointNumber,
+      position,
+      value,
+      units,
+      bounds,
+      toTop,
+      viewRegion,
+      xDist,
+      xType,
+      xUnits,
+    } = params;
     const { draw, theme } = this.internal;
-    const ts = new TimeStamp(value.x);
-    const xValue = ts.toString(ts.formatBySpan(xDist), "local");
+    let xValue: string;
+    if (xType === "time") {
+      const ts = new TimeStamp(value.x);
+      xValue = ts.toString(ts.formatBySpan(xDist), "local");
+    } else xValue = `${math.smartRound(value.x)} ${xUnits}`.trim();
     const yValue = `${math.smartRound(value.y, bounds)} ${units ?? ""}`;
 
     const pointText = `${pointNumber}`;
@@ -565,8 +588,10 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     const yDist = Math.abs(yDistRaw);
     if (!Number.isFinite(xDistRaw) || !Number.isFinite(yDist)) return;
 
+    const xType = oneValue.xType ?? "time";
+    const xUnits = oneValue.xUnits ?? "";
     const xDist = new TimeSpan(xDistRaw);
-    const slope = yDistRaw / xDist.seconds;
+    const slope = yDistRaw / (xType === "time" ? xDist.seconds : xDistRaw);
 
     const xPixelDist = Math.abs(onePos.x - twoPos.x);
     const yPixelDist = Math.abs(onePos.y - twoPos.y);
@@ -606,12 +631,15 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     const trunc = xDist.lessThan(TIME_FORMAT_THRESHOLD)
       ? TimeSpan.MICROSECOND
       : TimeSpan.MILLISECOND;
-    const xValue = xDist.truncate(trunc).toString();
+    const xValue =
+      xType === "time"
+        ? xDist.truncate(trunc).toString()
+        : `${math.smartRound(xDistRaw, bounds.construct(xDistRaw))} ${xUnits}`.trim();
     let slopeValue = math
       .smartRound(slope, bounds.construct(Math.abs(slope)))
       .toString();
     if (oneValue.units != null && oneValue.units.length > 0)
-      slopeValue += ` ${oneValue.units} / s`;
+      slopeValue += ` ${oneValue.units} / ${xType === "time" ? "s" : xUnits || "x"}`;
 
     if (isVeryClose) {
       // Draw combined label when points are very close
@@ -715,6 +743,8 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       toTop: oneIsTop,
       viewRegion: props.region,
       xDist,
+      xType,
+      xUnits,
     });
     this.drawPointLabel({
       pointNumber: 2,
@@ -725,6 +755,8 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       toTop: !oneIsTop,
       viewRegion: props.region,
       xDist,
+      xType,
+      xUnits,
     });
   }
 }

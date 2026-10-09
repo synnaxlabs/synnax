@@ -82,6 +82,9 @@ const (
 	DynamicCustomRangeType CustomRangeType = versions.DynamicCustomRangeType
 	// StaticCustomRangeType is a fixed window.
 	StaticCustomRangeType CustomRangeType = versions.StaticCustomRangeType
+	// TriggeredCustomRangeType is a one-frame window cut around a level crossing on a
+	// trigger channel, plotted against time since the crossing.
+	TriggeredCustomRangeType CustomRangeType = versions.TriggeredCustomRangeType
 )
 
 // DynamicCustomRange is a rolling window.
@@ -89,6 +92,10 @@ type DynamicCustomRange = versions.DynamicCustomRange
 
 // StaticCustomRange is a fixed window.
 type StaticCustomRange = versions.StaticCustomRange
+
+// TriggeredCustomRange is a one-frame window cut around a level crossing on a trigger
+// channel, plotted against time since the crossing.
+type TriggeredCustomRange = versions.TriggeredCustomRange
 
 // Ranges binds range keys to each x-axis.
 type Ranges = versions.Ranges
@@ -115,3 +122,40 @@ type Rule = versions.Rule
 // plots support multiple channels, real-time streaming, and historical data display
 // with zoom and pan capabilities.
 type LinePlot = versions.LinePlot
+
+// XAxisMode selects what an x-axis plots: the channel samples, or the spectrum of each
+// line's channel over the axis window with frequency on the axis.
+type XAxisMode = versions.XAxisMode
+
+const (
+	XAxisModeSamples  XAxisMode = versions.XAxisModeSamples
+	XAxisModeSpectrum XAxisMode = versions.XAxisModeSpectrum
+)
+
+// WindowFunction names the window function applied to each FFT block.
+type WindowFunction = versions.WindowFunction
+
+const (
+	WindowFunctionHann        WindowFunction = versions.WindowFunctionHann
+	WindowFunctionRectangular WindowFunction = versions.WindowFunctionRectangular
+	WindowFunctionFlatTop     WindowFunction = versions.WindowFunctionFlatTop
+)
+
+// MagnitudeScale selects the scale of spectrum magnitudes.
+type MagnitudeScale = versions.MagnitudeScale
+
+const (
+	MagnitudeScaleLinear  MagnitudeScale = versions.MagnitudeScaleLinear
+	MagnitudeScaleDecibel MagnitudeScale = versions.MagnitudeScaleDecibel
+)
+
+// TriggerEdge selects the direction of the level crossing that fires a trigger.
+type TriggerEdge = versions.TriggerEdge
+
+const (
+	TriggerEdgeRising  TriggerEdge = versions.TriggerEdgeRising
+	TriggerEdgeFalling TriggerEdge = versions.TriggerEdgeFalling
+)
+
+// Spectrum configures the spectrum an x-axis plots in spectrum mode.
+type Spectrum = versions.Spectrum

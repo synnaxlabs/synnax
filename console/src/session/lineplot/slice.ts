@@ -33,6 +33,7 @@ export const toolbarTabZ = z.enum([
   "axes",
   "properties",
   "annotations",
+  "measure",
 ]);
 export type ToolbarTab = z.infer<typeof toolbarTabZ>;
 const toolbarZ = z.object({ activeTab: toolbarTabZ.default("data") });
@@ -60,6 +61,8 @@ export const stateZ = z.object({
   control: controlZ.prefault({}),
   toolbar: toolbarZ.prefault({}),
   measure: measureZ.prefault({}),
+  /** Live statistics per line, written by the plot and never persisted. */
+  measurements: z.array(etherLineplot.measurementZ).default([]),
   annotations: annotationsZ.prefault({}),
   selectedRules: z.array(z.string()).default([]),
   hiddenLines: z.array(z.string()).default([]),
@@ -136,6 +139,10 @@ export interface SetRangeAnnotationsVisiblePayload extends KeyedPayload {
 export interface SetLineVisiblePayload extends KeyedPayload {
   lineKey: string;
   visible: boolean;
+}
+
+export interface SetMeasurementsPayload extends KeyedPayload {
+  measurements: etherLineplot.Measurement[];
 }
 
 export interface RemovePayload {
@@ -227,6 +234,11 @@ export const { actions, reducer } = createSlice({
         state.hiddenLines = Array.from(hidden);
       },
     ),
+    setMeasurements: withSelectedState<SetMeasurementsPayload, SliceState>(
+      (state, { payload: { measurements } }) => {
+        state.measurements = measurements;
+      },
+    ),
     remove: (state, { payload: { keys } }: PayloadAction<RemovePayload>) => {
       Window.removeDocuments(state, keys);
     },
@@ -248,6 +260,7 @@ export const {
   setMeasureMode,
   setRangeAnnotationsVisible,
   setLineVisible,
+  setMeasurements,
   remove,
 } = actions;
 
@@ -255,6 +268,7 @@ export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 
 export const purgeState = (state: State): State => {
   state.selectedRules = [];
+  state.measurements = [];
   return state;
 };
 
@@ -280,5 +294,6 @@ export const MIDDLEWARE = [
     setMeasureMode,
     setRangeAnnotationsVisible,
     setLineVisible,
+    setMeasurements,
   ]),
 ];

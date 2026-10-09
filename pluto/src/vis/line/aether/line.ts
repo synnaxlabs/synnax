@@ -30,7 +30,8 @@ import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
-import { seriesOverlap, windowBounds } from "@/vis/line/aether/bounds";
+import { type TickType } from "@/vis/axis/ticks";
+import { clip, seriesOverlap, windowBounds } from "@/vis/line/aether/bounds";
 import FRAG_SHADER from "@/vis/line/aether/frag.glsl?raw";
 import F32_VERT_SHADER from "@/vis/line/aether/vert_f32.glsl?raw";
 import HYBRID_VERT_SHADER from "@/vis/line/aether/vert_hybrid.glsl?raw";
@@ -69,6 +70,16 @@ export interface FindResult {
   label?: string;
   units?: string;
   bounds: bounds.Bounds;
+  /** Tick type of the x axis the line sits on. Time formats x as a timestamp. */
+  xType?: TickType;
+  /** Label of the x axis, used as the units of x on a linear axis. */
+  xUnits?: string;
+}
+
+/** Paired samples of a line inside an x window. */
+export interface Samples {
+  x: Float64Array;
+  y: Float64Array;
 }
 
 export interface LineProps {
@@ -289,6 +300,9 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     i.stopListeningYTelem?.();
     i.stopListeningXTelem = i.xTelem.onChange(() => i.requestRender("data"));
     i.stopListeningYTelem = i.yTelem.onChange(() => i.requestRender("data"));
+    const held = telem.useHold(ctx);
+    i.xTelem.setHold?.(held);
+    i.yTelem.setHold?.(held);
     i.requestRender("layout");
     if (
       i.xDownsampler?.props.mode !== this.state.downsampleMode ||
@@ -333,6 +347,26 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     if (!bounds.isFinite(xWindow)) return b;
     const [, xData] = xTelem.value();
     return windowBounds(xData, yData, xWindow, DEFAULT_OVERLAP_THRESHOLD, b);
+  }
+
+  /** @returns the paired x and y samples whose x value lies inside the window. */
+  samplesIn(xWindow: bounds.Bounds): Samples {
+    const { xTelem, yTelem } = this.internal;
+    const [, xData] = xTelem.value();
+    const [, yData] = yTelem.value();
+    const xs: number[] = [];
+    const ys: number[] = [];
+    for (const x of xData.series)
+      for (const y of yData.series) {
+        const range = clip(x, y, xWindow, DEFAULT_OVERLAP_THRESHOLD);
+        if (range == null) continue;
+        const offset = Number((y.alignment - x.alignment) / x.alignmentMultiple);
+        for (let j = range[0]; j < range[1]; j++) {
+          xs.push(Number(x.at(j + offset, true)));
+          ys.push(Number(y.at(j, true)));
+        }
+      }
+    return { x: Float64Array.from(xs), y: Float64Array.from(ys) };
   }
 
   findByXValue(props: LineProps, target: number): FindResult {

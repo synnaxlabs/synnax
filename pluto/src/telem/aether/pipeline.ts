@@ -110,6 +110,14 @@ export class SourcePipeline<V>
     return this.outlet.sampleTime?.() ?? null;
   }
 
+  loading(): boolean {
+    return this.outlet.loading?.() ?? false;
+  }
+
+  setHold(held: boolean): void {
+    Object.values(this.sources).forEach((source) => source.setHold?.(held));
+  }
+
   cleanup(): void {
     Object.values(this.sources).forEach((source) => source.cleanup?.());
   }

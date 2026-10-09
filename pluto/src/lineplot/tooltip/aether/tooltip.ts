@@ -88,9 +88,13 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
 
     const avgXPosition =
       validValues.reduce((p, c) => p + c.position.x, 0) / validValues.length;
-    const avgXValue = new TimeStamp(
-      validValues.reduce((p, c) => p + c.value.x, 0) / validValues.length,
-    );
+    const avgX = validValues.reduce((p, c) => p + c.value.x, 0) / validValues.length;
+    const xType = validValues[0]?.xType ?? "time";
+    const xLabel = xType === "time" ? "Time" : validValues[0]?.xUnits || "X";
+    const xValue =
+      xType === "time"
+        ? new TimeStamp(avgX).toString("preciseDate", "local")
+        : math.smartRound(avgX).toString();
 
     const rulePosition = scale_.x.pos(avgXPosition);
     if (!bounds.contains(box.xBounds(region), rulePosition)) return;
@@ -126,8 +130,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     if (relativePosition.y > 0.6) root.y = "bottom";
 
     let maxLabelLength = values.reduce((p, c) => Math.max(p, c.label?.length ?? 0), 0);
-    const timeValueLength = avgXValue.toString("preciseDate", "local").length;
-    if (timeValueLength > maxLabelLength) maxLabelLength = timeValueLength;
+    if (xValue.length > maxLabelLength) maxLabelLength = xValue.length;
 
     draw.list({
       root,
@@ -143,8 +146,8 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
         let value: string;
         let color = this.internal.textColor;
         if (i === 0) {
-          label = "Time";
-          value = avgXValue.toString("preciseDate", "local");
+          label = xLabel;
+          value = xValue;
         } else {
           const v = validValues[i - 1];
           label = v.label ?? "";

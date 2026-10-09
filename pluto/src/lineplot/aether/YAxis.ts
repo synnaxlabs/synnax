@@ -137,7 +137,7 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
     return this.childrenOfType(line.Line.TYPE);
   }
 
-  private get visibleLines(): readonly line.Line[] {
+  get visibleLines(): readonly line.Line[] {
     return this.lines.filter((el) => el.state.visible);
   }
 

@@ -58,6 +58,15 @@ export class Context {
 }
 
 export const CONTEXT_KEY = "pluto-telem-context";
+export const HOLD_CONTEXT_KEY = "pluto-telem-hold";
+
+/** Publishes whether sources below ctx should freeze their output. */
+export const setHold = (ctx: aether.Context, held: boolean): void =>
+  ctx.set(HOLD_CONTEXT_KEY, held);
+
+/** @returns whether an ancestor holds the sources below it. */
+export const useHold = (ctx: aether.Context): boolean =>
+  ctx.getOptional<boolean>(HOLD_CONTEXT_KEY) ?? false;
 
 export const useContext = (ctx: aether.Context): Context =>
   ctx.get<Context>(CONTEXT_KEY);
@@ -104,6 +113,10 @@ export class MemoizedSource<V, S extends Source<V> = Source<V>> extends Memoized
 
   sampleTime(): TimeStamp | null {
     return this.wrapped.sampleTime?.() ?? null;
+  }
+
+  setHold(held: boolean): void {
+    this.wrapped.setHold?.(held);
   }
 
   cleanup(): void {

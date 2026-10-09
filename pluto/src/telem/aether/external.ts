@@ -13,6 +13,8 @@ export * from "@/telem/aether/noop";
 export * from "@/telem/aether/pipeline";
 export * from "@/telem/aether/provider";
 export * from "@/telem/aether/remote";
+export * from "@/telem/aether/spectrum";
 export * from "@/telem/aether/static";
 export * from "@/telem/aether/telem";
 export * from "@/telem/aether/transformers";
+export * from "@/telem/aether/triggered";

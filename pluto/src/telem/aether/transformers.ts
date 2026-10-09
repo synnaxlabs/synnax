@@ -20,6 +20,7 @@ import {
 import { z } from "zod";
 
 import { type Factory } from "@/telem/aether/factory";
+import { Spectrum } from "@/telem/aether/spectrum";
 import {
   type BooleanSink,
   type BooleanSinkSpec,
@@ -54,6 +55,8 @@ export class TransformerFactory implements Factory {
         return new RollingAverage(spec.props);
       case BandColor.TYPE:
         return new BandColor(spec.props);
+      case Spectrum.TYPE:
+        return new Spectrum(spec.props);
     }
     return null;
   }

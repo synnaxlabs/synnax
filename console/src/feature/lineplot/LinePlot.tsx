@@ -55,6 +55,30 @@ import { Session } from "@/session";
 const CLEAR_OVERSCAN: xy.XY = { x: 5, y: 5 };
 const VIEWPORT_DEBOUNCE = TimeSpan.milliseconds(100);
 
+const resolveCustom = (custom: lineplot.CustomRange): Base.ResolvedRange => {
+  switch (custom.variant) {
+    case "dynamic":
+      return { variant: "dynamic", span: new TimeSpan(custom.span) };
+    case "static":
+      // BigInt, not the constructor: TimeStamp parses a bare string as a date-time,
+      // not a decimal int64.
+      return {
+        variant: "static",
+        timeRange: new TimeRange(BigInt(custom.start), BigInt(custom.end)),
+      };
+    case "triggered":
+      return {
+        variant: "triggered",
+        channel: custom.channel,
+        level: custom.level,
+        edge: custom.edge,
+        span: new TimeSpan(custom.span),
+        pretrigger: custom.pretrigger,
+        timeout: new TimeSpan(custom.timeout),
+      };
+  }
+};
+
 interface RangeAnnotationContextMenuProps {
   lines: DownloadLine[];
   range: ranger.Payload;
@@ -94,6 +118,16 @@ const RangeAnnotationContextMenu = ({
   );
 };
 
+// A spectrum or a triggered window plots a linear x axis, so a selection on it is
+// not a time range.
+const useX1IsTime = (): boolean => {
+  const x1 = Base.useXAxis({ axisKey: "x1" });
+  const ranges = Base.useRanges();
+  const triggered =
+    ranges.x1.includes(Range.CUSTOM_KEY) && ranges.custom?.variant === "triggered";
+  return x1.type === "time" && x1.mode !== "spectrum" && !triggered;
+};
+
 interface ContextMenuContentProps {
   csvLines: DownloadLine[];
   linePlotRef: RefObject<Base.FrameRef | null>;
@@ -109,6 +143,7 @@ const ContextMenuContent = ({
   const { undo, canUndo } = Base.useUndo({});
   const { redo, canRedo } = Base.useRedo({});
   const { box: selection } = Session.LinePlot.useSelectSelection();
+  const timeAxis = useX1IsTime();
   const openCreateRange = Range.useCreateModal();
   const hasRangeCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   const handleError = Status.useErrorHandler();
@@ -144,7 +179,7 @@ const ContextMenuContent = ({
           <Menu.Divider />
         </>
       )}
-      {!box.areaIsZero(selection) && (
+      {!box.areaIsZero(selection) && timeAxis && (
         <>
           <Menu.CopyItem
             itemKey="iso"
@@ -214,17 +249,7 @@ const Internal = (): ReactElement => {
       );
     const { custom } = ranges;
     if (custom != null && rangeKeys.includes(Range.CUSTOM_KEY))
-      m.set(
-        Range.CUSTOM_KEY,
-        custom.variant === "dynamic"
-          ? { variant: "dynamic", span: new TimeSpan(custom.span) }
-          : {
-              variant: "static",
-              // BigInt, not the constructor: TimeStamp parses a bare string as a
-              // date-time, not a decimal int64.
-              timeRange: new TimeRange(BigInt(custom.start), BigInt(custom.end)),
-            },
-      );
+      m.set(Range.CUSTOM_KEY, resolveCustom(custom));
     return m;
   }, [resolved, ranges.custom, rangeKeys]);
 
@@ -246,6 +271,13 @@ const Internal = (): ReactElement => {
   );
 
   const { enableTooltip, clickMode, hold } = Session.LinePlot.useSelectControlState();
+  const activeTab = Session.LinePlot.useSelectActiveToolbarTab();
+  const measuring = activeTab === "measure";
+  const handleMeasurementsChange = useCallback(
+    (measurements: pLineplot.Measurement[]) =>
+      dispatch(Session.LinePlot.setMeasurements({ key, measurements })),
+    [dispatch, key],
+  );
   const mode = Session.LinePlot.useSelectViewportMode();
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
   const initialViewport = useMemo(
@@ -342,6 +374,8 @@ const Internal = (): ReactElement => {
           onLineVisibleChange={handleLineVisibleChange}
           hold={hold}
           onHold={handleHold}
+          measuring={measuring}
+          onMeasurementsChange={handleMeasurementsChange}
           onContextMenu={menuProps.open}
           onDoubleClick={handleDoubleClick}
           clearOverScan={CLEAR_OVERSCAN}

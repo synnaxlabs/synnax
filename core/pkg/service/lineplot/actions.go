@@ -254,6 +254,26 @@ func (p SetAxisTypePayload) Handle(state LinePlot) (LinePlot, error) {
 	return state, nil
 }
 
+// Handle sets what the x-axis identified by Key plots.
+func (p SetAxisModePayload) Handle(state LinePlot) (LinePlot, error) {
+	axis := axisPointer(&state.Axes, p.Key)
+	if axis == nil {
+		return LinePlot{}, unknownAxisKey(p.Key)
+	}
+	axis.Mode = p.Mode
+	return state, nil
+}
+
+// Handle sets the spectrum configuration of the axis identified by Key.
+func (p SetAxisSpectrumPayload) Handle(state LinePlot) (LinePlot, error) {
+	axis := axisPointer(&state.Axes, p.Key)
+	if axis == nil {
+		return LinePlot{}, unknownAxisKey(p.Key)
+	}
+	axis.Spectrum = p.Spectrum
+	return state, nil
+}
+
 func unknownAxisKey(k AxisKey) error {
 	return errors.Wrapf(validate.ErrValidation, "unknown axis_key %q", k)
 }
