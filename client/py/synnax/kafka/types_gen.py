@@ -69,7 +69,8 @@ class ReadField(BaseModel):
         data_type: Is the data type of the extracted value.
         time_format: Is the encoding of the JSON value when the target channel holds
             timestamps. Required for timestamp channels.
-        enum_values: Maps string labels in the record to numeric channel values.
+        enum_values: Maps string labels in the record to numeric or boolean channel
+            values.
         record_key: Is the group the field belongs to: records with this key, or every
             record not claimed by another group when empty. A group shares one index.
     """
@@ -98,8 +99,8 @@ class WriteChannel(BaseModel):
         json_type: Is the JSON type the sample value is serialized as.
         time_format: Is the output encoding when the channel holds timestamps. Required
             for timestamp channels.
-        enum_values: Maps numeric channel values to string labels. Only valid when
-            json_type is 'string'.
+        enum_values: Maps numeric or boolean channel values to string labels. Only valid
+            when json_type is 'string'.
     """
 
     key: str = Field(default_factory=lambda: str(uuid4()))

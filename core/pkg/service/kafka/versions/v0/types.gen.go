@@ -89,7 +89,7 @@ type ReadField struct {
 	// TimeFormat is the encoding of the JSON value when the target channel holds
 	// timestamps. Required for timestamp channels.
 	TimeFormat *http.TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
-	// EnumValues maps string labels in the record to numeric channel values.
+	// EnumValues maps string labels in the record to numeric or boolean channel values.
 	EnumValues []http.EnumEntry `json:"enum_values" msgpack:"enum_values"`
 	// RecordKey is the group the field belongs to: records with this key, or every
 	// record not claimed by another group when empty. A group shares one index.
@@ -151,8 +151,8 @@ type WriteChannel struct {
 	// TimeFormat is the output encoding when the channel holds timestamps. Required for
 	// timestamp channels.
 	TimeFormat *http.TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
-	// EnumValues maps numeric channel values to string labels. Only valid when
-	// json_type is 'string'.
+	// EnumValues maps numeric or boolean channel values to string labels. Only valid
+	// when json_type is 'string'.
 	EnumValues []http.EnumEntry `json:"enum_values" msgpack:"enum_values"`
 }
 

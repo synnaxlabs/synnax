@@ -56,7 +56,9 @@ export const readFieldZ = z.object({
    * timestamps. Required for timestamp channels.
    */
   timeFormat: http.timeFormatZ.optional(),
-  /** enumValues maps string labels in the record to numeric channel values. */
+  /**
+   * enumValues maps string labels in the record to numeric or boolean channel values.
+   */
   enumValues: http.enumEntryZ.array().default(() => []),
   /**
    * recordKey is the group the field belongs to: records with this key, or every record
@@ -82,8 +84,8 @@ export const writeChannelZ = z.object({
    */
   timeFormat: http.timeFormatZ.optional(),
   /**
-   * enumValues maps numeric channel values to string labels. Only valid when json_type
-   * is 'string'.
+   * enumValues maps numeric or boolean channel values to string labels. Only valid when
+   * json_type is 'string'.
    */
   enumValues: http.enumEntryZ.array().default(() => []),
 });
