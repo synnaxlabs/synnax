@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
@@ -109,7 +110,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ChannelGraph: channelGraph,
 	}))
 	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: node.DB}))
-	configs := MustSucceed(taskconfig.NewRegistry(pd.Stores()...))
+	kafkaSvc := MustOpen(kafka.OpenService(ctx, kafka.ServiceConfig{DB: node.DB}))
+	configs := MustSucceed(taskconfig.NewRegistry(
+		append(pd.Stores(), kafkaSvc.Stores()...)...,
+	))
 	taskService = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
@@ -128,6 +132,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 type mockFactory struct {
 	configureFunc func(context.Context, task.Task) (driver.Task, error)
 	name          string
+	// initialTasks are returned from InitialTasks.
+	initialTasks []task.Task
+	// initialErr is returned from InitialTasks when set.
+	initialErr error
 	// cmdKey records the cmdKey passed to ConfigureTask per task.
 	cmdKey sync.Map
 }
@@ -174,6 +182,10 @@ func writeConfigFailure(ctx context.Context, t task.Task, cmdKey string, err err
 }
 
 func (f *mockFactory) Name() string { return f.name }
+
+func (f *mockFactory) InitialTasks(context.Context, rack.Key) ([]task.Task, error) {
+	return f.initialTasks, f.initialErr
+}
 
 // mockTask is a test implementation of driver.Task.
 type mockTask struct {

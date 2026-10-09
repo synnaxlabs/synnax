@@ -12,6 +12,7 @@ package driver
 import (
 	"context"
 
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -32,6 +33,10 @@ type Factory interface {
 	// Name returns the integration name of this factory. This is used to identify the
 	// integrations allowed on the rack.
 	Name() string
+	// InitialTasks returns the internal tasks the factory owns on rack, such as a
+	// scan task. The driver creates the ones whose type is missing from the rack at
+	// boot, before configuring tasks. A factory with none returns nil, nil.
+	InitialTasks(ctx context.Context, rack rack.Key) ([]task.Task, error)
 }
 
 // ErrTaskNotHandled is returned when a task is not handled by a factory.
