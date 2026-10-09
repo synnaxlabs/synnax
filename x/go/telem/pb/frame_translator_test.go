@@ -21,9 +21,10 @@ var _ = Describe("Frame Translator", func() {
 	Describe("SeriesToPB + SeriesFromPB", func() {
 		It("Should round-trip a Series", func() {
 			original := telem.Series{
-				DataType:  telem.Float32T,
-				Data:      []byte{0, 0, 128, 63, 0, 0, 0, 64},
-				Alignment: telem.NewAlignment(1, 5),
+				DataType:          telem.Float32T,
+				Data:              []byte{0, 0, 128, 63, 0, 0, 0, 64},
+				Alignment:         telem.NewAlignment(1, 5),
+				AlignmentMultiple: 3,
 				TimeRange: telem.TimeRange{
 					Start: telem.TimeStamp(1000),
 					End:   telem.TimeStamp(2000),
@@ -34,6 +35,7 @@ var _ = Describe("Frame Translator", func() {
 			Expect(result.DataType).To(Equal(original.DataType))
 			Expect(result.Data).To(Equal(original.Data))
 			Expect(result.Alignment).To(Equal(original.Alignment))
+			Expect(result.AlignmentMultiple).To(Equal(original.AlignmentMultiple))
 			Expect(result.TimeRange.Start).To(Equal(original.TimeRange.Start))
 			Expect(result.TimeRange.End).To(Equal(original.TimeRange.End))
 		})

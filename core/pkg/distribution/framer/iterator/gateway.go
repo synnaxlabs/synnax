@@ -21,10 +21,10 @@ func (s *Service) newGateway(
 	generateSeqNums bool,
 ) (confluence.Segment[Request, Response], error) {
 	iter, err := s.cfg.TS.NewStreamIterator(ts.IteratorConfig{
-		Bounds:           cfg.Bounds,
-		Channels:         cfg.Keys.Storage(),
-		AutoChunkSize:    cfg.ChunkSize,
-		DownsampleFactor: cfg.DownsampleFactor,
+		Bounds:        cfg.Bounds,
+		Channels:      cfg.Keys.Storage(),
+		AutoChunkSize: cfg.ChunkSize,
+		Reduction:     cfg.Reduction,
 	})
 	if err != nil {
 		return nil, err

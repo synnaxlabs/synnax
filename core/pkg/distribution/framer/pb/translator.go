@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/control"
 	controlpb "github.com/synnaxlabs/x/control/pb"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	telempb "github.com/synnaxlabs/x/telem/pb"
 )
@@ -175,15 +176,19 @@ func (IteratorRequestTranslator) Backward(
 	if err != nil {
 		return iterator.Request{}, err
 	}
+	reduction, err := reductionFromPB(req.Reduction)
+	if err != nil {
+		return iterator.Request{}, err
+	}
 	return iterator.Request{
-		Command:          iterator.Command(req.Command),
-		Span:             telem.TimeSpan(req.Span),
-		Bounds:           bounds,
-		Stamp:            telem.TimeStamp(req.Stamp),
-		Keys:             channel.KeysFromUint32(req.Keys),
-		ChunkSize:        req.ChunkSize,
-		SeqNum:           int(req.SeqNum),
-		DownsampleFactor: req.DownsampleFactor,
+		Command:   iterator.Command(req.Command),
+		Span:      telem.TimeSpan(req.Span),
+		Bounds:    bounds,
+		Stamp:     telem.TimeStamp(req.Stamp),
+		Keys:      channel.KeysFromUint32(req.Keys),
+		ChunkSize: req.ChunkSize,
+		SeqNum:    int(req.SeqNum),
+		Reduction: reduction,
 	}, nil
 }
 
@@ -196,16 +201,56 @@ func (IteratorRequestTranslator) Forward(
 	if err != nil {
 		return nil, err
 	}
+	reduction, err := reductionToPB(req.Reduction)
+	if err != nil {
+		return nil, err
+	}
 	return &IteratorRequest{
-		Command:          int32(req.Command),
-		Span:             int64(req.Span),
-		Bounds:           bounds,
-		Stamp:            int64(req.Stamp),
-		Keys:             req.Keys.Uint32(),
-		ChunkSize:        req.ChunkSize,
-		SeqNum:           int32(req.SeqNum),
-		DownsampleFactor: req.DownsampleFactor,
+		Command:   int32(req.Command),
+		Span:      int64(req.Span),
+		Bounds:    bounds,
+		Stamp:     int64(req.Stamp),
+		Keys:      req.Keys.Uint32(),
+		ChunkSize: req.ChunkSize,
+		SeqNum:    int32(req.SeqNum),
+		Reduction: reduction,
 	}, nil
+}
+
+func reductionToPB(r telem.Reduction) (*Reduction, error) {
+	switch v := r.Variant.(type) {
+	case nil:
+		return nil, nil
+	case telem.StrideReduction:
+		return &Reduction{Variant: &Reduction_Stride{
+			Stride: &StrideReduction{Factor: v.Factor},
+		}}, nil
+	case telem.LimitReduction:
+		return &Reduction{Variant: &Reduction_Limit{Limit: &LimitReduction{
+			Aggregation: string(v.Aggregation),
+			PointLimit:  v.PointLimit,
+		}}}, nil
+	default:
+		return nil, errors.Newf("unknown reduction variant %T", v)
+	}
+}
+
+func reductionFromPB(r *Reduction) (telem.Reduction, error) {
+	switch v := r.GetVariant().(type) {
+	case nil:
+		return telem.Reduction{}, nil
+	case *Reduction_Stride:
+		return telem.Reduction{
+			Variant: telem.StrideReduction{Factor: v.Stride.GetFactor()},
+		}, nil
+	case *Reduction_Limit:
+		return telem.Reduction{Variant: telem.LimitReduction{
+			Aggregation: telem.Aggregation(v.Limit.GetAggregation()),
+			PointLimit:  v.Limit.GetPointLimit(),
+		}}, nil
+	default:
+		return telem.Reduction{}, errors.Newf("unknown reduction variant %T", v)
+	}
 }
 
 type IteratorResponseTranslator struct{}

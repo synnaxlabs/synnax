@@ -48,12 +48,10 @@ type Config struct {
 	//
 	// [OPTIONAL]
 	ChunkSize int64
-	// DownsampleFactor keeps every n-th sample of each series read from storage. The
-	// read is strided at the source, so the discarded samples are never read into
-	// memory. Values below 2 keep every sample.
+	// Reduction reduces the samples of each channel read from storage.
 	//
 	// [OPTIONAL]
-	DownsampleFactor uint32
+	Reduction telem.Reduction
 }
 
 // Validate ensures that Keys is non-empty and contains no free channels, which cannot

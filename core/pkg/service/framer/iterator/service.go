@@ -48,21 +48,28 @@ type Config struct {
 	//
 	// [OPTIONAL]
 	ChunkSize int64 `json:"chunk_size" msgpack:"chunk_size"`
-	// DownsampleFactor keeps every n-th sample of each series read from storage. The
-	// read is strided at the source, so the discarded samples are never read into
-	// memory. Values below 2 keep every sample.
+	// Reduction reduces the samples of each channel read. A stride keeps every
+	// factor-th sample. A limit reduces each channel in Bounds to about PointLimit
+	// points, and every channel on one index reduces over the same groups, so reduced
+	// index and data series share alignments.
 	//
 	// [OPTIONAL]
-	DownsampleFactor uint32 `json:"downsample_factor" msgpack:"downsample_factor"`
+	Reduction telem.Reduction `json:"reduction" msgpack:"reduction"`
 }
 
 func (c Config) distribution() framer.IteratorConfig {
 	return framer.IteratorConfig{
-		Keys:             c.Keys,
-		Bounds:           c.Bounds,
-		ChunkSize:        c.ChunkSize,
-		DownsampleFactor: c.DownsampleFactor,
+		Keys:      c.Keys,
+		Bounds:    c.Bounds,
+		ChunkSize: c.ChunkSize,
+		Reduction: c.Reduction,
 	}
+}
+
+func (c Config) validate() error {
+	v := validate.New("iterator.config")
+	v.Exec(c.Reduction.Validate)
+	return v.Error()
 }
 
 // ServiceConfig is the configuration for opening the service layer frame Service.
@@ -116,24 +123,30 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 }
 
 func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, error) {
+	if err := cfg.validate(); err != nil {
+		return nil, err
+	}
 	p := plumber.New()
-	calcTransform, err := s.newCalculationTransform(ctx, &cfg)
+	calcTransform, sizer, err := s.newCalculationTransform(ctx, &cfg)
 	if err != nil {
 		return nil, err
 	}
 	distCfg := cfg.distribution()
 	if calcTransform != nil {
 		// A calculation must see every sample its expression was written over. Fed a
-		// strided input, a stateful expression returns a different signal rather than
-		// a downsampled one, so the factor stays above the calculation.
-		distCfg.DownsampleFactor = 0
+		// strided or aggregated input, a stateful expression returns a different signal
+		// rather than a reduced one, so the reduction stays above the calculation.
+		distCfg.Reduction = telem.Reduction{}
 	}
 	dist, err := s.cfg.Framer.NewStreamIterator(ctx, distCfg)
 	if err != nil {
 		return nil, err
 	}
 	p.SetSegment("distribution", dist)
-	var routeOutletFrom address.Address = "distribution"
+	var (
+		routeInletsTo   address.Address = "distribution"
+		routeOutletFrom address.Address = "distribution"
+	)
 	if calcTransform != nil {
 		p.SetSegment(
 			"calculation",
@@ -142,15 +155,29 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 		)
 		p.MustConnect[Response](routeOutletFrom, "calculation", 25)
 		routeOutletFrom = "calculation"
-		if cfg.DownsampleFactor > 1 {
-			p.SetSegment("downsampler", newDownsampler(cfg))
+		if stride, ok := cfg.Reduction.Variant.(telem.StrideReduction); ok &&
+			stride.Factor > 1 {
+			p.SetSegment("downsampler", newDownsampler(stride.Factor))
 			p.MustConnect[Response](routeOutletFrom, "downsampler", 25)
 			routeOutletFrom = "downsampler"
+		}
+		if sizer != nil {
+			sizes, err := sizer.resolve(ctx, cfg.Bounds)
+			if err != nil {
+				return nil, err
+			}
+			r := newReducer(sizer.limit.Aggregation, sizes)
+			p.SetSegment("reducer", r)
+			p.MustConnect[Response](routeOutletFrom, "reducer", 25)
+			routeOutletFrom = "reducer"
+			p.SetSegment("planner", newRequestPlanner(sizer, r))
+			p.MustConnect[Request]("planner", routeInletsTo, 1)
+			routeInletsTo = "planner"
 		}
 	}
 	return &plumber.Segment[Request, Response]{
 		Pipeline:         p,
-		RouteInletsTo:    []address.Address{"distribution"},
+		RouteInletsTo:    []address.Address{routeInletsTo},
 		RouteOutletsFrom: []address.Address{routeOutletFrom},
 	}, nil
 }
@@ -173,10 +200,14 @@ func (s *Service) Open(ctx context.Context, cfg Config) (*Iterator, error) {
 	return &Iterator{requests: req, responses: res, shutdown: cancel, wg: sCtx}, nil
 }
 
+// newCalculationTransform returns a transform that runs the calculations cfg requests,
+// and rewrites cfg.Keys to the concrete channels those calculations read. When cfg
+// aggregates, it also returns the group sizer for the transform's output. It returns
+// nil for both when cfg requests no calculated channels.
 func (s *Service) newCalculationTransform(
 	ctx context.Context,
 	cfg *Config,
-) (*calculationTransform, error) {
+) (*calculationTransform, *groupSizer, error) {
 	originalKeys := slices.Clone(cfg.Keys)
 
 	// Fetch the requested channels
@@ -185,7 +216,7 @@ func (s *Service) newCalculationTransform(
 		Where(channel.MatchKeys(cfg.Keys...)).
 		Entries(&channels).
 		Exec(ctx, nil); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Use allocator to resolve dependencies and get topological order
@@ -194,7 +225,7 @@ func (s *Service) newCalculationTransform(
 		Channel:         s.cfg.Channel,
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// A free index has no expression, so add the calculated channel that writes it.
@@ -211,7 +242,7 @@ func (s *Service) newCalculationTransform(
 			Where(channel.MatchIndexes(freeIndexes...)).
 			Entries(&owners).
 			Exec(ctx, nil); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		channels = append(channels, owners...)
 	}
@@ -220,7 +251,7 @@ func (s *Service) newCalculationTransform(
 	for _, ch := range channels {
 		if ch.IsCalculated() {
 			if err := calcGraph.Add(ctx, ch); err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 		}
 	}
@@ -230,7 +261,7 @@ func (s *Service) newCalculationTransform(
 
 	// If no calculated channels, no transform needed
 	if len(modules) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	// Open calculators from modules
@@ -238,7 +269,7 @@ func (s *Service) newCalculationTransform(
 	for _, mod := range modules {
 		calc, err := calculator.Open(ctx, calculator.Config{Module: mod})
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		calculators = append(calculators, calc)
 	}
@@ -253,7 +284,7 @@ func (s *Service) newCalculationTransform(
 			Entries(&concreteBaseChannels).
 			Where(channel.MatchKeys(concreteBaseKeys.Slice()...)).
 			Exec(ctx, nil); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
@@ -272,5 +303,57 @@ func (s *Service) newCalculationTransform(
 		return !calculatedKeys.Contains(item) && !item.Free()
 	})
 
-	return newCalculationTransform(originalKeys, calculators), nil
+	transform := newCalculationTransform(originalKeys, calculators)
+	limit, ok := cfg.Reduction.Variant.(telem.LimitReduction)
+	if !ok {
+		return transform, nil, nil
+	}
+	sizer, err := s.newGroupSizer(limit, channels, concreteBaseChannels, calcGraph)
+	if err != nil {
+		return nil, nil, err
+	}
+	return transform, sizer, nil
+}
+
+// newGroupSizer returns a group sizer for the requested channels. A concrete channel
+// follows its own index. A calculated channel and its index follow the indexes of the
+// concrete channels the calculation reads.
+func (s *Service) newGroupSizer(
+	limit telem.LimitReduction,
+	requested []channel.Channel,
+	bases []channel.Channel,
+	calcGraph *graph.Graph,
+) (*groupSizer, error) {
+	baseIndexes := make(map[channel.Key]channel.Key, len(bases))
+	for _, ch := range bases {
+		if !ch.Virtual {
+			baseIndexes[ch.Key()] = ch.Index()
+		}
+	}
+	indexes := make(map[channel.Key][]channel.Key, len(requested))
+	for _, ch := range requested {
+		if !ch.IsCalculated() {
+			if !ch.Virtual {
+				indexes[ch.Key()] = []channel.Key{ch.Index()}
+			}
+			continue
+		}
+		baseKeys, err := calcGraph.BaseKeys(ch.Key())
+		if err != nil {
+			return nil, err
+		}
+		var calcIndexes []channel.Key
+		for key := range baseKeys {
+			if idx, ok := baseIndexes[key]; ok {
+				calcIndexes = append(calcIndexes, idx)
+			}
+		}
+		indexes[ch.Key()] = calcIndexes
+		indexes[ch.Index()] = calcIndexes
+	}
+	return &groupSizer{
+		framer:  s.cfg.Framer,
+		limit:   limit,
+		indexes: indexes,
+	}, nil
 }

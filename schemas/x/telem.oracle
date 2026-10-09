@@ -129,6 +129,51 @@ DataType string {
     @ts hand
 }
 
+Aggregation enum {
+    min_max  = "min_max"
+    average  = "average"
+    decimate = "decimate"
+
+    @cpp omit
+    @doc value """
+        selects how a limited read collapses each group of samples into points. min_max
+        keeps the lowest and highest sample of each group in the order they occurred,
+        average keeps the mean of each group, and decimate keeps the first sample of
+        each group.
+    """
+    @pb omit
+}
+
+Reduction union on variant {
+    stride {
+        factor uint32 {
+            @doc value "is the stride. Values below 2 keep every sample."
+        }
+
+        @doc value "keeps every factor-th sample of each series read."
+    }
+    limit {
+        aggregation Aggregation = min_max {
+            @doc value "selects the points each group of samples reduces to."
+        }
+        point_limit uint32      {
+            @doc value    "is the number of points each channel reduces to."
+            @validate min 1
+        }
+
+        @doc value """
+            reduces each group of samples so that each channel comes back as about
+            point_limit points. Channels on one index reduce over the same groups.
+        """
+    }
+
+    @cpp omit
+    @doc value """
+        selects how a read reduces samples. A read without one keeps every sample.
+    """
+    @pb omit
+}
+
 TimestampFormat enum {
     iso         = "ISO"
     isoDate     = "ISODate"

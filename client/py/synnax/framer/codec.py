@@ -18,6 +18,8 @@ from synnax.telem import Alignment, DataType, Series, TimeRange
 from x.codec import Codec as XCodec
 from x.codec import JSONCodec
 
+EXTENDED_FLAG_POS = 7
+MULTIPLES_PRESENT_FLAG_POS = 6
 ZERO_ALIGNMENTS_FLAG_POS = 5
 EQUAL_ALIGNMENTS_FLAG_POS = 4
 EQUAL_LENGTHS_FLAG_POS = 3
@@ -27,6 +29,7 @@ ALL_CHANNELS_PRESENT_FLAG_POS = 0
 
 TIME_RANGE_SIZE = 16
 ALIGNMENT_SIZE = 8
+MULTIPLE_SIZE = 4
 DATA_LENGTH_SIZE = 4
 KEY_SIZE = 4
 FLAGS_SIZE = 1
@@ -67,6 +70,7 @@ class CodecFlags:
         self.all_channels_present: bool = True
         self.eq_align: bool = True
         self.zero_alignments: bool = True
+        self.multiples_present: bool = False
 
     def encode(self) -> int:
         b = 0
@@ -82,10 +86,17 @@ class CodecFlags:
             b |= 1 << EQUAL_ALIGNMENTS_FLAG_POS
         if self.zero_alignments:
             b |= 1 << ZERO_ALIGNMENTS_FLAG_POS
+        if self.multiples_present:
+            b |= 1 << MULTIPLES_PRESENT_FLAG_POS
         return b
 
     @classmethod
     def decode(cls, b: int) -> CodecFlags:
+        if (b >> EXTENDED_FLAG_POS) & 1:
+            raise ValidationError(
+                "[framer.codec] - remote sent an extended flags byte, which this "
+                "codec does not support"
+            )
         flags = cls()
         flags.eq_len = bool((b >> EQUAL_LENGTHS_FLAG_POS) & 1)
         flags.eq_tr = bool((b >> EQUAL_TIME_RANGES_FLAG_POS) & 1)
@@ -93,6 +104,7 @@ class CodecFlags:
         flags.all_channels_present = bool((b >> ALL_CHANNELS_PRESENT_FLAG_POS) & 1)
         flags.eq_align = bool((b >> EQUAL_ALIGNMENTS_FLAG_POS) & 1)
         flags.zero_alignments = bool((b >> ZERO_ALIGNMENTS_FLAG_POS) & 1)
+        flags.multiples_present = bool((b >> MULTIPLES_PRESENT_FLAG_POS) & 1)
         return flags
 
 
@@ -176,6 +188,8 @@ class Codec:
                     flg.eq_tr = False
                 if ser.alignment != ref_align:
                     flg.eq_align = False
+            if ser.alignment_multiple > 1:
+                flg.multiples_present = True
 
             byte_array_size += _series_wire_byte_length(ser)
 
@@ -186,6 +200,8 @@ class Codec:
             byte_array_size += (int(flg.eq_tr) or len(sorted_keys)) * TIME_RANGE_SIZE
         if not flg.zero_alignments:
             byte_array_size += (int(flg.eq_align) or len(sorted_keys)) * ALIGNMENT_SIZE
+        if flg.multiples_present:
+            byte_array_size += len(sorted_keys) * MULTIPLE_SIZE
 
         buffer = bytearray(byte_array_size)
         offset = start_offset
@@ -250,6 +266,10 @@ class Codec:
             if not flg.eq_align and not flg.zero_alignments:
                 struct.pack_into("<Q", buffer, offset, ser.alignment)
                 offset += ALIGNMENT_SIZE
+
+            if flg.multiples_present:
+                struct.pack_into("<I", buffer, offset, ser.alignment_multiple)
+                offset += MULTIPLE_SIZE
 
         return bytes(buffer)
 
@@ -347,6 +367,13 @@ class Codec:
                 curr_alignment = Alignment(struct.unpack_from("<Q", buffer, idx)[0])
                 idx += ALIGNMENT_SIZE
 
+            multiple = 1
+            if flags.multiples_present:
+                if idx + MULTIPLE_SIZE > len(buffer):
+                    return False
+                multiple = max(struct.unpack_from("<I", buffer, idx)[0], 1)
+                idx += MULTIPLE_SIZE
+
             keys.append(key)
             series_list.append(
                 Series(
@@ -354,6 +381,7 @@ class Codec:
                     data=series_data,
                     time_range=tr,
                     alignment=curr_alignment,
+                    alignment_multiple=multiple,
                 )
             )
             return True

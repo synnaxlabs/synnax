@@ -77,6 +77,7 @@ from synnax.task import Status as TaskStatus
 from synnax.task import StatusDetails as TaskStatusDetails
 from synnax.task import Task
 from synnax.telem import (
+    Aggregation,
     Alignment,
     Authority,
     Bounds,
@@ -89,10 +90,13 @@ from synnax.telem import (
     CrudeTimeStamp,
     DataType,
     Density,
+    LimitReduction,
     MultiSeries,
     Rate,
+    Reduction,
     Series,
     Size,
+    StrideReduction,
     TimeRange,
     TimeSpan,
     TimeSpanUnits,
@@ -123,6 +127,10 @@ __all__ = [
     "ArcTask",
     "TaskStatus",
     "TaskStatusDetails",
+    "Aggregation",
+    "LimitReduction",
+    "Reduction",
+    "StrideReduction",
     "Alignment",
     "Arc",
     "AUTO_SPAN",

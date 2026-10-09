@@ -1005,6 +1005,120 @@ var _ = Describe("Iterator Behavior", func() {
 				})
 			})
 
+			Describe("Pieces", func() {
+				var idxA, dataA, idxB, dataB cesium.ChannelKey
+				BeforeEach(func(ctx SpecContext) {
+					idxA, dataA = GenerateChannelKey(), GenerateChannelKey()
+					idxB, dataB = GenerateChannelKey(), GenerateChannelKey()
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{
+							Key:      idxA,
+							Name:     "Amundsen",
+							IsIndex:  true,
+							DataType: telem.TimestampT,
+						},
+						cesium.Channel{
+							Key:      dataA,
+							Name:     "Scott",
+							Index:    idxA,
+							DataType: telem.Int64T,
+						},
+						cesium.Channel{
+							Key:      idxB,
+							Name:     "Mawson",
+							IsIndex:  true,
+							DataType: telem.TimestampT,
+						},
+						cesium.Channel{
+							Key:      dataB,
+							Name:     "Byrd",
+							Index:    idxB,
+							DataType: telem.Int64T,
+						},
+					)).To(Succeed())
+					Expect(db.Write(ctx, telem.SecondTS, telem.MultiFrame(
+						[]cesium.ChannelKey{idxA, dataA},
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6),
+							telem.NewSeriesV[int64](10, 20, 30, 40, 50, 60),
+						},
+					))).To(Succeed())
+					Expect(db.Write(ctx, 2*telem.SecondTS, telem.MultiFrame(
+						[]cesium.ChannelKey{idxB, dataB},
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(2, 4, 6),
+							telem.NewSeriesV[int64](100, 200, 300),
+						},
+					))).To(Succeed())
+				})
+
+				It(
+					"Should send a fixed span as one response per piece of at most "+
+						"AutoChunkSize samples per index",
+					func(ctx SpecContext) {
+						it := MustSucceed(db.NewStreamIterator(cesium.IteratorConfig{
+							Bounds: telem.TimeRangeMax,
+							Channels: []cesium.ChannelKey{
+								idxA,
+								dataA,
+								idxB,
+								dataB,
+							},
+							AutoChunkSize: 2,
+						}))
+						sCtx, cancel := signal.Isolated()
+						defer cancel()
+						requests, responses := confluence.Attach(it, 1)
+						it.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+						requests.Inlet() <- cesium.IteratorRequest{
+							Command: cesium.IteratorCommandSeekFirst,
+						}
+						Eventually(responses.Outlet()).Should(Receive())
+						requests.Inlet() <- cesium.IteratorRequest{
+							Command: cesium.IteratorCommandNext,
+							Span:    10 * telem.Second,
+						}
+						var pieces [][]int64
+						for {
+							var res cesium.IteratorResponse
+							Eventually(responses.Outlet()).Should(Receive(&res))
+							if res.Variant == cesium.IteratorResponseVariantAck {
+								Expect(res.Ack).To(BeTrue())
+								break
+							}
+							var data []int64
+							for key, series := range res.Frame.Entries() {
+								if key == dataA || key == dataB {
+									data = append(data, series.Unmarshal[int64]()...)
+								}
+							}
+							pieces = append(pieces, data)
+						}
+						Expect(pieces).To(Equal([][]int64{
+							{10, 20, 100},
+							{30, 40, 200},
+							{50, 60, 300},
+						}))
+						requests.Close()
+						Expect(sCtx.Wait()).To(Succeed())
+					},
+				)
+
+				It("Should keep the view start of a pieced Next", func() {
+					i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+						Bounds:        telem.TimeRangeMax,
+						Channels:      []cesium.ChannelKey{idxA, dataA},
+						AutoChunkSize: 2,
+					}))
+					Expect(i.SeekFirst()).To(BeTrue())
+					Expect(i.Next(10 * telem.Second)).To(BeTrue())
+					Expect(i.Value().Get(dataA).Series).To(HaveLen(3))
+					Expect(i.Prev(5 * telem.Second)).To(BeFalse())
+					Expect(i.Close()).To(Succeed())
+				})
+			})
+
 			Describe("Downsampling", func() {
 				It("Should keep every n-th sample of each channel", func(
 					ctx SpecContext,
@@ -1033,9 +1147,11 @@ var _ = Describe("Iterator Behavior", func() {
 						},
 					))).To(Succeed())
 					i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
-						Bounds:           telem.TimeRangeMax,
-						Channels:         []cesium.ChannelKey{idxKey, dataKey},
-						DownsampleFactor: 3,
+						Bounds:   telem.TimeRangeMax,
+						Channels: []cesium.ChannelKey{idxKey, dataKey},
+						Reduction: telem.Reduction{
+							Variant: telem.StrideReduction{Factor: 3},
+						},
 					}))
 					Expect(i.SeekFirst()).To(BeTrue())
 					Expect(i.Next(10 * telem.Second)).To(BeTrue())
@@ -1048,6 +1164,93 @@ var _ = Describe("Iterator Behavior", func() {
 					)
 					Expect(i.Close()).To(Succeed())
 				})
+
+				It(
+					"Should reduce the channels of each index over that index's groups",
+					func(
+						ctx SpecContext,
+					) {
+						fastIdx, fastData := GenerateChannelKey(), GenerateChannelKey()
+						slowIdx, slowData := GenerateChannelKey(), GenerateChannelKey()
+						Expect(db.CreateChannel(
+							ctx,
+							cesium.Channel{
+								Key:      fastIdx,
+								Name:     "Amundsen",
+								IsIndex:  true,
+								DataType: telem.TimestampT,
+							},
+							cesium.Channel{
+								Key:      fastData,
+								Name:     "Scott",
+								Index:    fastIdx,
+								DataType: telem.Float32T,
+							},
+							cesium.Channel{
+								Key:      slowIdx,
+								Name:     "Nansen",
+								IsIndex:  true,
+								DataType: telem.TimestampT,
+							},
+							cesium.Channel{
+								Key:      slowData,
+								Name:     "Peary",
+								Index:    slowIdx,
+								DataType: telem.Float32T,
+							},
+						)).To(Succeed())
+						// Both indexes span the same 100 seconds, at 100 and 20
+						// samples.
+						write := func(
+							idx, data cesium.ChannelKey,
+							count int,
+							step telem.TimeSpan,
+						) {
+							GinkgoHelper()
+							stamps := make([]telem.TimeStamp, count)
+							values := make([]float32, count)
+							for j := range count {
+								stamps[j] = telem.SecondTS.Add(telem.TimeSpan(j) * step)
+								values[j] = float32(j)
+							}
+							Expect(db.Write(ctx, telem.SecondTS, telem.MultiFrame(
+								[]cesium.ChannelKey{idx, data},
+								[]telem.Series{
+									telem.NewSeries(stamps),
+									telem.NewSeries(values),
+								},
+							))).To(Succeed())
+						}
+						write(fastIdx, fastData, 100, telem.Second)
+						write(slowIdx, slowData, 20, 5*telem.Second)
+						i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+							Bounds: telem.TimeRangeMax,
+							Channels: []cesium.ChannelKey{
+								fastIdx,
+								fastData,
+								slowIdx,
+								slowData,
+							},
+							Reduction: telem.Reduction{Variant: telem.LimitReduction{
+								Aggregation: telem.AggregationMinMax,
+								PointLimit:  10,
+							}},
+						}))
+						Expect(i.SeekFirst()).To(BeTrue())
+						Expect(i.Next(cesium.AutoSpan)).To(BeTrue())
+						f := i.Value()
+						fast, slow := f.Get(fastData).Series[0], f.Get(slowData).Series[0]
+						Expect(fast.Unmarshal[float32]()).To(HaveLen(10))
+						Expect(fast.AlignmentMultiple).To(Equal(uint32(10)))
+						Expect(slow.Unmarshal[float32]()).To(HaveLen(10))
+						Expect(slow.AlignmentMultiple).To(Equal(uint32(2)))
+						Expect(f.Get(fastIdx).Series[0].AlignmentBounds()).
+							To(Equal(fast.AlignmentBounds()))
+						Expect(f.Get(slowIdx).Series[0].AlignmentBounds()).
+							To(Equal(slow.AlignmentBounds()))
+						Expect(i.Close()).To(Succeed())
+					},
+				)
 			})
 
 			Describe("Open", func() {
