@@ -64,7 +64,9 @@ ReadField struct {
         """
     }
     enum_values http.EnumEntry[] {
-        @doc value "maps string labels in the record to numeric channel values."
+        @doc value """
+            maps string labels in the record to numeric or boolean channel values.
+        """
     }
     record_key  string = "" {
         @doc value """
@@ -127,8 +129,8 @@ WriteChannel struct {
     }
     enum_values http.EnumEntry[] {
         @doc value """
-            maps numeric channel values to string labels. Only valid when json_type is
-            'string'.
+            maps numeric or boolean channel values to string labels. Only valid when
+            json_type is 'string'.
         """
     }
 
