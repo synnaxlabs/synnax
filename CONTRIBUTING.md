@@ -17,16 +17,16 @@ person dispatches every release ([RFC 0058](docs/tech/rfc/0058-release-workflow.
   issue.
 - Description: what changed and why, leading with the effect on a user or the
   architecture. Never a file-by-file walk.
-- One review tier label. The author merges once the gate passes, after answering every
-  Greptile comment with a fix or a reason.
+- One review tier label. The author merges once the tier's review is done and the gate
+  passes, after answering every Greptile comment with a fix or a reason.
 - A version bump rides the PR that ships the change. Test-only and docs-only changes
   bump nothing.
 
 ## Review tiers
 
 A tier measures what a PR can change in a shipped enterprise product, not how large it
-is. The author picks; a reviewer can raise it by swapping the label; the gate never
-lowers it.
+is. The author picks; a reviewer can raise it by swapping the label. The tier is a
+convention between the author and the reviewer: no status enforces the human review.
 
 | Tier | Label             | Review                   | Covers                                                                                                                                                                                                                                                                           |
 | ---- | ----------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -41,10 +41,8 @@ change carries a migration and a dark feature stays dark. **Tier 3**: Only Grept
 reads it. A fix that turns out to change behavior gets its tier raised.
 
 Two statuses gate a merge into `main` or a `release/**` branch. `Review gate` stays
-pending until the PR has one tier label, a finished Greptile review of the head and, for
-Tier 1 or 2, an approval from a human other than the author. A later request for changes
-or a dismissal retires an approval. Two tier labels fail it, and so does a Greptile
-confidence score below 5/5: push a fix, or retrigger the review after answering the
+pending until the PR has a finished Greptile review of the head. A Greptile confidence
+score below 5/5 fails it: push a fix, or retrigger the review after answering the
 comments. `OK` is the CI workflow's last job: it fails when any check the PR's paths
 select failed. A merge into `main` goes through a merge queue, which reruns CI on the
 merged result with the integration suite added before the branch moves. GitHub refuses a
