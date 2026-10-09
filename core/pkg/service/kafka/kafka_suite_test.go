@@ -32,10 +32,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/twmb/franz-go/pkg/kfake"
@@ -225,29 +223,6 @@ func deviceStatus(ctx context.Context, dev device.Device) device.Status {
 		Entry(&stat).
 		Exec(ctx, nil)).To(Succeed())
 	return stat
-}
-
-// openTestStreamer streams live frames for keys. The returned close function must be
-// called before the spec ends.
-func openTestStreamer(ctx context.Context, keys channel.Keys) (
-	responses <-chan framer.StreamerResponse,
-	close func(),
-) {
-	GinkgoHelper()
-	streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
-		Keys:        keys,
-		SendOpenAck: true,
-	}))
-	requests, res := confluence.Attach(streamer, 100)
-	sCtx, cancel := signal.Isolated()
-	closer := signal.NewHardShutdown(sCtx, cancel)
-	streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-	Eventually(res.Outlet()).Should(Receive())
-	return res.Outlet(), func() {
-		requests.Close()
-		confluence.Drain(res)
-		Expect(closer.Close()).To(Succeed())
-	}
 }
 
 // newKafkaClient opens a franz-go client on the suite's fake cluster.

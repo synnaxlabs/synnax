@@ -17,7 +17,6 @@ import (
 	"io"
 	"slices"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -549,8 +548,8 @@ func (t *readTask) write(ctx context.Context, g *readGroup, rows []row) error {
 			},
 			Start:             kept[0].ts,
 			Keys:              g.keys,
-			Sync:              lo.ToPtr(true),
-			ErrOnUnauthorized: lo.ToPtr(true),
+			Sync:              new(true),
+			ErrOnUnauthorized: new(true),
 			Mode:              mode,
 		})
 		if err != nil {
