@@ -127,8 +127,10 @@ amplitude:
   limit on the data: every sample in a block is used, and padding only interpolates
   between the bins the data supports.
 - **Averaging**: The magnitude of each bin is the mean over the blocks, as an analyzer
-  averages a long capture. A fixed range that would need more than 64 blocks posts a
-  status asking for a narrower range rather than reading it whole.
+  averages a long capture. A fixed range is read through `channelData` with a sample
+  `limit` of 64 × `point_limit`, which the feed honors by stopping the read at that
+  count, so a large saved test is never fetched whole. A range the limit cuts short
+  posts a status asking for a narrower range.
 - **Frequency bins**: `k × rate / N` for `k` in `[0, N / 2]`, so the spectrum ends at
   the Nyquist frequency.
 - **Magnitude**: The amplitude spectrum, `2 × |X[k]| / (n × G)`, with `n` the samples in
