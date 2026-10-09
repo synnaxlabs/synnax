@@ -55,8 +55,8 @@ publishes sensor data onto Kafka wants it in Synnax without touching the publish
    the connect form tests the connection before saving.
 4. **Real broker in tests**: Specs run against an in-process fake broker, never a mock
    of the client.
-5. **Unfinished work ships dark**: Console entry points hide behind a flag until the
-   last phase.
+5. **Ships in Desktop first**: Console entry points hide behind a flag that is on in
+   Desktop builds and off in the Console build, until a promotion PR deletes it.
 
 ## 4 Design
 
@@ -271,7 +271,9 @@ unsolicited error statuses and leave the running flag as it was.
   `feature/device/{make,external}.ts[x]`, and `Icon.Logo.Kafka` in Lyra.
 
 `FLAGS.kafka` in `console/src/flags.ts` gates the device and task commands and
-selectables through their `useVisible` hooks until the last phase deletes it.
+selectables through their `useVisible` hooks. The flag is on in dev and Desktop builds
+and off in the Console build, and its entry names the owner, SY-5105 as the umbrella
+issue, and the release that removes it, per `CONTRIBUTING.md`.
 
 ### 4.7 Clients and documentation
 
@@ -320,7 +322,9 @@ Each phase is one pull request into `main`, branched from `main`.
 - **Phase 8: Console write task form.**
 - **Phase 9: Python wrappers and docs.** `synnax.kafka.ReadTask`, `WriteTask`, and the
   docs pages.
-- **Phase 10: Flag removal.** Delete `FLAGS.kafka`.
+- **Phase 10: Promotion.** After at least one stable Desktop release with Kafka in use,
+  a `review/thorough` PR deletes `FLAGS.kafka` and the dark branches, and nothing else.
+  This is the only phase that turns Kafka on in the Console.
 
 Compatibility: every phase is additive, and no stored shape changes. A Core before Phase
 1 rejects `kafka_*` tasks at creation as unknown types. Between Phases 1 and 3 a client
