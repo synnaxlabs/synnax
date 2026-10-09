@@ -4,7 +4,8 @@
 - **Date**: 2026-10-09
 - **Related**: [RFC 0013 - Pluto visualization](0013-pluto-visualization.md),
   [RFC 0055 - Client telemetry layer](0055-client-telemetry-layer.md),
-  [RFC 0068 - Line plot tiles](0068-line-plot-tiles.md)
+  [PR #3004 - SY-4938: Draw line plots from tiles behind a flag](https://github.com/synnaxlabs/synnax/pull/3004)
+  (carries RFC 0068 - Line plot tiles)
 
 ## 0 Summary
 
@@ -109,14 +110,29 @@ so the two outputs of one line share one computation per render.
 The FFT itself is `telem.fft` in `x/ts`: a real-input radix-2 transform with the window
 functions above, specs against known signals. The sample rate is the median index
 spacing over the window; an index whose spacing varies by more than 1% posts a status
-("channel is not uniformly sampled") and draws nothing. The frequency bins are
-`k × rate / N` for the transform length `N`.
+("channel is not uniformly sampled") and draws nothing.
 
-A window longer than `point_limit` samples is read in consecutive blocks of the
-transform length, and the magnitudes are averaged, as an analyzer does for a long
-capture. A fixed range that would need more than 64 blocks posts a status asking for a
-narrower range rather than reading it whole. Rolling windows read from the stream at
-full resolution, so the tile path of RFC 0068 never serves a spectrum.
+The transform follows these rules, so two implementations agree on spacing and
+amplitude:
+
+- **Transform length**: `N` is the largest power of two at or below the smaller of the
+  window's sample count and `point_limit`. A window under 16 samples draws nothing.
+- **Blocks**: A window longer than `N` is cut into consecutive blocks of `N` samples
+  from its start; the trailing partial block is dropped. The magnitude of each bin is
+  the mean over the blocks, as an analyzer averages a long capture. A fixed range that
+  would need more than 64 blocks posts a status asking for a narrower range rather than
+  reading it whole.
+- **Frequency bins**: `k × rate / N` for `k` in `[0, N / 2]`, so the spectrum ends at
+  the Nyquist frequency.
+- **Magnitude**: The amplitude spectrum, `2 × |X[k]| / (N × G)`, with `G` the coherent
+  gain of the window function (1 for `rectangular`, 0.5 for `hann`, 0.2156 for
+  `flat_top`) and no doubling of the `k = 0` bin. A sine of amplitude `A` reads `A` in
+  the channel's units.
+- **Decibel scale**: `20 × log10(magnitude)`, relative to one unit of the channel. A
+  zero magnitude reads as the plot's lower axis bound, never `-Infinity`.
+
+Rolling windows read from the stream at full resolution, so the tile path of RFC 0068
+never serves a spectrum.
 
 ### 4.1 The triggered window
 
@@ -145,8 +161,14 @@ data so the plot never blanks, as a bench scope does in auto mode.
 
 The X series is derived: index timestamp minus `t`, in seconds, as `float64`. The X axis
 of a triggered window is `linear` with the label "s", so successive frames land on top
-of each other and a periodic signal holds still. Hold freezes the axis bounds as it does
-today (`pluto/src/lineplot/aether/axis.ts:155-156`).
+of each other and a periodic signal holds still.
+
+Hold today freezes only the axis bounds (`pluto/src/lineplot/aether/axis.ts:155-156`);
+the sources keep publishing, and a triggered source would replace the frame under the
+frozen axes. So the line plot publishes `hold` into the Aether context, and the
+triggered source and the spectrum transformer read it: while it is set, each keeps
+serving the last frame it emitted and discards new writes after scanning them. Hold
+releases to the next frame, not to the writes that arrived in between.
 
 ### 4.2 Formatting follows the X tick type
 
@@ -164,10 +186,14 @@ window set it too. The tooltip, the measure labels, and the selection menu read 
 
 ### 4.3 Pairing status
 
-When both sources hold data and `buildDrawOperations` yields no operation, the line
-posts a status through the adder it already holds (`line.ts:281`): "X and Y channels
-share no index". The status clears on the next render that draws. Resampling across
-indexes is out of scope (§7).
+`seriesOverlap` (`pluto/src/vis/line/aether/bounds.ts:12-33`) rejects a pair whose time
+ranges or alignments do not overlap, which is also what two channels with no samples in
+common look like, so an empty draw is not evidence of an index mismatch. The sources
+already fetch each channel's index (`pluto/src/telem/aether/remote.ts:199-211`), so the
+line compares the two indexes instead. When they differ, it posts a status through the
+adder it already holds (`line.ts:281`): "X and Y channels share no index". When they
+match and nothing draws, the data has no overlapping samples yet, and the line stays
+quiet. Resampling across indexes is out of scope (§7).
 
 ### 4.4 Data tab and axis extent
 
@@ -183,7 +209,7 @@ window's sample range, instead of the bounds of every retained series.
 `riseTime` (10% to 90% of the first rising transition). Each returns `NaN` when the
 window holds too few samples.
 
-The measure aether component (`measure.ts:141`) computes the measurement window from its
+The measure Aether component (`measure.ts:141`) computes the measurement window from its
 two points, falling back to the visible X bounds when fewer than two are placed. For
 each visible line it asks the line for the samples inside the window, runs the
 functions, and writes the results into its state as `measurements`, one entry per line
@@ -205,9 +231,10 @@ of the same document, so it needs no registry entry beyond the command.
 
 ### 4.7 Schema version
 
-RFC 0068 bumps the line plot to v7 in PR #3005. The fields of §4.0 and §4.1 land in the
-first version that has not shipped when that phase opens: v7 if PR #3005 is unshipped,
-else v8. The change is additive, so the generated migration applies.
+RFC 0068, which lands with PR #3004, bumps the line plot to v7 in PR #3005. The fields
+of §4.0 and §4.1 land in the first version that has not shipped when that phase opens:
+v7 if PR #3005 is unshipped, else v8. The change is additive, so the generated migration
+applies.
 
 ### 4.8 Flag
 
@@ -235,12 +262,19 @@ Each phase is one pull request from `main`.
   behind the flag.
 - **Phase 7: Triggered source.** `telem.triggeredData`, the relative X series, the
   "Triggered" range entry, and its form behind the flag.
-- **Phase 8: Oscilloscope command and docs.** The command, the line plot docs page, and
-  flag removal.
+- **Phase 8: Oscilloscope command and docs.** The command and the line plot docs page,
+  behind the flag.
+- **Phase 9: Promotion.** After a stable Synnax Desktop release has shipped Phases 4 to
+  8, one PR deletes `FLAGS.lineplotWindows` and the dark branches, and nothing else.
 
 Compatibility: plots saved before Phase 5 carry no spectrum mode or triggered window and
-open unchanged. A plot saved with either opens on an older Console in `samples` mode
-with no custom window, which is the same reset an unknown range key produces today.
+open unchanged. The `Axis` fields are additive, so a plot saved in spectrum mode opens
+on an older Console in `samples` mode: the client parser drops the unknown fields. The
+`triggered` variant does not degrade: `customRangeZ` is a discriminated union
+(`client/ts/src/lineplot/types.gen.ts:181`), and a Console older than Phase 5 fails to
+parse the plot and reports it as an error. The flag keeps the variant out of saved plots
+until Phase 9, which follows the release that shipped the reader, so the only Console
+that rejects a triggered plot is one at least two releases behind the one that wrote it.
 
 ## 6 Resolved decisions
 
