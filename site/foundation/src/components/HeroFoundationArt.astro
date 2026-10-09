@@ -1,0 +1,383 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+interface Props {
+    outline?: boolean;
+}
+const { outline = false } = Astro.props;
+
+type Point = readonly [number, number, number];
+type Span = { x: number; y: number; w: number; d: number };
+const project = ([x, y, z]: Point): [number, number] => [
+    378 + x - y,
+    195 + x * 0.54 + y * 0.386 - z,
+];
+const polygon = (points: readonly Point[]): string =>
+    points.map((point) => project(point).join(",")).join(" ");
+const line = (points: readonly Point[]): string =>
+    points
+        .map((point, i) => `${i === 0 ? "M" : "L"}${project(point).join(" ")}`)
+        .join(" ");
+const plane = ({ x, y, w, d }: Span, z: number): Point[] => [
+    [x, y, z],
+    [x + w, y, z],
+    [x + w, y + d, z],
+    [x, y + d, z],
+];
+
+// The structure is the network. Unequal open spans replace a ground slab and objects.
+const spans: Span[] = [
+    { x: 40, y: -330, w: 28, d: 950 },
+    { x: 40, y: 70, w: 231, d: 28 },
+    { x: 243, y: 70, w: 28, d: 272 },
+    { x: 40, y: 308, w: 231, d: 34 },
+    { x: 155, y: -175, w: 24, d: 273 },
+    { x: 40, y: -175, w: 139, d: 24 },
+    { x: 40, y: -330, w: 650, d: 28 },
+    { x: 214, y: -1600, w: 26, d: 1298 },
+];
+const top = spans.map((span) => `${line(plane(span, 0))}Z`).join(" ");
+const inside = (x: number, y: number): boolean =>
+    spans.some((s) => x > s.x && x < s.x + s.w && y > s.y && y < s.y + s.d);
+const xs = [...new Set(spans.flatMap((s) => [s.x, s.x + s.w]))].sort((a, b) => a - b);
+const ys = [...new Set(spans.flatMap((s) => [s.y, s.y + s.d]))].sort((a, b) => a - b);
+
+// Expose only the union's boundaries, so intersecting spans read as one piece.
+const edges: { a: Point; b: Point; direction: "x" | "y"; front: boolean }[] = [];
+for (const y of ys) {
+    for (let i = 0; i < xs.length - 1; i++) {
+        const x = (xs[i] + xs[i + 1]) / 2;
+        const above = inside(x, y - 0.01);
+        const below = inside(x, y + 0.01);
+        if (above !== below)
+            edges.push({
+                a: [xs[i], y, 0],
+                b: [xs[i + 1], y, 0],
+                direction: "y",
+                front: above,
+            });
+    }
+}
+for (const x of xs) {
+    for (let i = 0; i < ys.length - 1; i++) {
+        const y = (ys[i] + ys[i + 1]) / 2;
+        const left = inside(x - 0.01, y);
+        const right = inside(x + 0.01, y);
+        if (left !== right)
+            edges.push({
+                a: [x, ys[i], 0],
+                b: [x, ys[i + 1], 0],
+                direction: "x",
+                front: left,
+            });
+    }
+}
+// Keep each exposed face continuous across internal construction coordinates.
+const mergedEdges: typeof edges = [];
+for (const edge of edges) {
+    const previous = mergedEdges.find(
+        (candidate) =>
+            candidate.direction === edge.direction &&
+            candidate.front === edge.front &&
+            candidate.b[0] === edge.a[0] &&
+            candidate.b[1] === edge.a[1],
+    );
+    if (previous) previous.b = edge.b;
+    else mergedEdges.push({ ...edge });
+}
+const atDepth = ([x, y]: Point, z: number): Point => [x, y, z];
+const faceDepth = ({ a, b }: (typeof edges)[number]): number =>
+    a[0] + a[1] + b[0] + b[1];
+// Paint from back to front so nearer cross beams cover the recessed faces behind them.
+const frontEdges = mergedEdges
+    .filter(({ front }) => front)
+    .sort((a, b) => faceDepth(a) - faceDepth(b));
+const frontCorners = [
+    ...new Map(
+        mergedEdges
+            .filter(({ front }) => front)
+            .flatMap(({ a, b }) => [a, b])
+            .map((point) => [point.join(","), point]),
+    ).values(),
+];
+const inset = ([x, y]: Point, z: number): Point => {
+    let insetX = x,
+        insetY = y;
+    // Both incident boundaries share a mitered corner, including hidden back faces.
+    for (const { a, b, direction, front } of mergedEdges) {
+        if (!((a[0] === x && a[1] === y) || (b[0] === x && b[1] === y))) continue;
+        const offset = front ? -4 : 4;
+        if (direction === "x") insetX += offset;
+        else insetY += offset;
+    }
+    return [insetX, insetY, z];
+};
+const beamProfile = ({ a, b }: (typeof edges)[number]) => ({
+    cap: [a, b, atDepth(b, -3), atDepth(a, -3)],
+    recess: [atDepth(a, -3), atDepth(b, -3), atDepth(b, -35), atDepth(a, -35)],
+    web: [inset(a, -3), inset(b, -3), inset(b, -35), inset(a, -35)],
+    shelf: [atDepth(a, -35), atDepth(b, -35), inset(b, -35), inset(a, -35)],
+    foot: [atDepth(a, -35), atDepth(b, -35), atDepth(b, -38), atDepth(a, -38)],
+});
+const routes: Point[][] = [
+    [
+        [47, 620, 0.5],
+        [47, -323, 0.5],
+        [221, -323, 0.5],
+        [221, -1600, 0.5],
+    ],
+    [
+        [47, 334, 0.5],
+        [263, 334, 0.5],
+        [263, 91, 0.5],
+        [47, 91, 0.5],
+    ],
+    [
+        [221, -323, 0.5],
+        [690, -323, 0.5],
+    ],
+];
+const roundedLine = (points: Point[], radius = 7): string => {
+    let d = `M${project(points[0]).join(" ")}`;
+    for (let i = 1; i < points.length - 1; i++) {
+        const before = points[i - 1],
+            point = points[i],
+            after = points[i + 1];
+        const trim = (other: Point): Point => {
+            const length = Math.hypot(other[0] - point[0], other[1] - point[1]);
+            const amount = Math.min(radius, length / 2) / length;
+            return [
+                point[0] + (other[0] - point[0]) * amount,
+                point[1] + (other[1] - point[1]) * amount,
+                point[2],
+            ];
+        };
+        d += `L${project(trim(before)).join(" ")}Q${project(point).join(" ")} ${project(trim(after)).join(" ")}`;
+    }
+    return `${d}L${project(points[points.length - 1]).join(" ")}`;
+};
+const translateRoute = (route: Point[], offset: number): Point[] =>
+    route.map(([x, y, z]) => [x + offset, y + offset, z]);
+---
+
+<svg
+    class:list={["hero-slate-art", { "hero-slate-art-outline": outline }]}
+    viewBox="80 0 1000 520"
+    preserveAspectRatio="xMidYMid slice"
+    aria-hidden="true"
+    focusable="false"
+    data-viewport-motion={outline ? undefined : ""}
+    data-motion="paused"
+>
+    {outline ? (
+        <g class="hero-field-wireframe">
+            {mergedEdges.map(({ a, b }) => (
+                <path d={line([a, b])} class="hero-field-wire-top" />
+            ))}
+            {mergedEdges
+                .filter(({ front }) => front)
+                .map(({ a, b }) => (
+                    <path
+                        d={line([atDepth(a, -38), atDepth(b, -38)])}
+                        class="hero-field-wire-base"
+                    />
+                ))}
+            {frontCorners.map((point) => (
+                <path
+                    d={line([point, atDepth(point, -38)])}
+                    class="hero-field-wire-base"
+                />
+            ))}
+        </g>
+    ) : (
+        <>
+            <defs>
+                <linearGradient
+                    id="hero-field-top"
+                    gradientUnits="userSpaceOnUse"
+                    x1="220"
+                    y1="430"
+                    x2="950"
+                    y2="60"
+                >
+                    <stop stop-color="#2c4055" />
+                    <stop offset=".46" stop-color="#25394e" />
+                    <stop offset="1" stop-color="#162739" />
+                </linearGradient>
+                <linearGradient
+                    id="hero-field-front"
+                    gradientUnits="userSpaceOnUse"
+                    x1="0"
+                    y1="180"
+                    x2="0"
+                    y2="550"
+                >
+                    <stop stop-color="#1c2c3e" />
+                    <stop offset="1" stop-color="#111e2c" />
+                </linearGradient>
+                <linearGradient
+                    id="hero-field-side"
+                    gradientUnits="userSpaceOnUse"
+                    x1="0"
+                    y1="180"
+                    x2="0"
+                    y2="550"
+                >
+                    <stop stop-color="#111d2a" />
+                    <stop offset="1" stop-color="#0a131e" />
+                </linearGradient>
+                <radialGradient id="hero-field-light" cx=".36" cy=".68" r=".64">
+                    <stop stop-color="#395f84" stop-opacity=".12" />
+                    <stop offset="1" stop-color="#243a52" stop-opacity="0" />
+                </radialGradient>
+                <clipPath id="hero-field-surface">
+                    <path d={top} />
+                </clipPath>
+            </defs>
+
+            <rect x="80" width="1000" height="520" fill="url(#hero-field-light)" />
+            <g class="hero-field-mass">
+                {frontEdges.map((edge) => {
+                    const profile = beamProfile(edge);
+                    const material = `url(#hero-field-${edge.direction === "y" ? "front" : "side"})`;
+                    return (
+                        <g>
+                            <polygon points={polygon(profile.recess)} fill="#08111c" />
+                            <polygon points={polygon(profile.web)} fill={material} />
+                            <polygon points={polygon(profile.shelf)} fill="#203246" />
+                            <polygon points={polygon(profile.foot)} fill={material} />
+                            <polygon points={polygon(profile.cap)} fill="#293d52" />
+                        </g>
+                    );
+                })}
+                <path d={top} fill="url(#hero-field-top)" />
+                {mergedEdges.map(({ a, b, front }) => (
+                    <path
+                        d={line([a, b])}
+                        class={front ? "hero-field-edge-near" : "hero-field-edge-far"}
+                    />
+                ))}
+            </g>
+
+            <g clip-path="url(#hero-field-surface)">
+                {routes.map((route) => (
+                    <g>
+                        <path d={roundedLine(route)} class="hero-field-groove" />
+                        <path d={roundedLine(route)} class="hero-field-signal" />
+                        <path
+                            d={roundedLine(translateRoute(route, 2))}
+                            class="hero-field-return"
+                        />
+                    </g>
+                ))}
+                {routes.map((route, i) => (
+                    <g>
+                        <path
+                            d={roundedLine(route)}
+                            pathLength="1000"
+                            class="hero-field-pulse"
+                            style={`animation-delay: ${i * -4}s;`}
+                        />
+                        <path
+                            d={roundedLine(translateRoute(route, 2))}
+                            pathLength="1000"
+                            class="hero-field-pulse hero-field-pulse-return"
+                            style={`animation-delay: ${i * -5 - 6}s;`}
+                        />
+                    </g>
+                ))}
+            </g>
+        </>
+    )}
+</svg>
+
+<style>
+    .hero-slate-art-outline {
+        overflow: visible;
+    }
+    .hero-field-wireframe {
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+    .hero-field-wireframe path {
+        vector-effect: non-scaling-stroke;
+    }
+    .hero-field-wire-top {
+        stroke: #7794b2;
+        stroke-width: 0.75;
+        opacity: 0.55;
+    }
+    .hero-field-wire-base {
+        stroke: #597591;
+        stroke-width: 0.7;
+        opacity: 0.5;
+    }
+    .hero-field-edge-near,
+    .hero-field-edge-far,
+    .hero-field-groove,
+    .hero-field-signal,
+    .hero-field-return,
+    .hero-field-pulse {
+        fill: none;
+    }
+    .hero-field-edge-near {
+        stroke: #7d96ad;
+        stroke-width: 0.6;
+        opacity: 0.3;
+    }
+    .hero-field-edge-far {
+        stroke: #486079;
+        stroke-width: 0.7;
+        opacity: 0.45;
+    }
+    .hero-field-groove {
+        stroke: #060f1c;
+        stroke-width: 2.7;
+        opacity: 0.75;
+    }
+    .hero-field-signal {
+        stroke: #7497bb;
+        stroke-width: 0.7;
+        opacity: 0.46;
+    }
+    .hero-field-return {
+        stroke: #435b73;
+        stroke-width: 0.5;
+        opacity: 0.5;
+    }
+    .hero-field-pulse {
+        stroke: #a8c4df;
+        stroke-width: 1;
+        stroke-dasharray: 13 487;
+        animation: hero-field-transmission 18s linear infinite;
+        opacity: 0.7;
+    }
+    [data-motion="paused"] .hero-field-pulse {
+        animation-play-state: paused;
+    }
+    .hero-field-pulse-return {
+        stroke: #7196ba;
+        stroke-dasharray: 9 491;
+        animation-direction: reverse;
+        animation-duration: 22s;
+        opacity: 0.5;
+    }
+    @keyframes hero-field-transmission {
+        to {
+            stroke-dashoffset: -1000;
+        }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .hero-field-pulse {
+            animation: none;
+        }
+    }
+</style>

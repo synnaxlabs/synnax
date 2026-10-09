@@ -1,0 +1,223 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { EngineeringDemo } from "@/components/EngineeringDemo";
+---
+
+<section
+    class="engineering-chapter"
+    id="architecture"
+    aria-labelledby="architecture-title"
+>
+    <div class="section editorial-section engineering-inner">
+        <div class="editorial-heading">
+            <p class="editorial-index">03 → Inspect the Engineering</p>
+            <h2 id="architecture-title" class="editorial-title">
+                Simple on the surface.
+                <br />
+                Serious underneath.
+            </h2>
+            <p class="editorial-intro">
+                Durable local buffers. A direct data path. Reproducible deployments.
+                Explore how Foundation behaves when the network, workload, or topology
+                changes.
+            </p>
+        </div>
+        <EngineeringDemo client:visible={{ rootMargin: "600px" }} />
+        <div class="engineering-dx-heading">
+            <div>
+                <p class="engineering-eyebrow">IN YOUR HANDS</p>
+                <h3>
+                    Less infrastructure to manage.
+                    <br />
+                    More room to engineer.
+                </h3>
+            </div>
+            <p>
+                Readable configuration, direct interfaces, and the information you need
+                to run the system.
+            </p>
+        </div>
+        <div class="engineering-features">
+            <article class="engineering-feature engineering-feature-wide">
+                <div class="engineering-feature-copy">
+                    <span class="engineering-feature-index">01 → EQUIPMENT</span>
+                    <h4>Define the connection.</h4>
+                    <p>
+                        Map device registers to named channels. Acquire measurements and
+                        send commands through the same connector.
+                    </p>
+                </div>
+                <div class="engineering-code-panel">
+                    <div class="engineering-file-label">
+                        <span>equipment.hcl</span>
+                        <span>MODBUS TCP</span>
+                    </div>
+                    <pre
+                        tabindex="0"
+                        role="region"
+                        aria-label="Modbus connector configuration excerpt"
+                    ><code><span class="eng-code-key">connector</span> <span class="eng-code-string">"dev"</span> {'{'}
+  kind      = <span class="eng-code-string">"modbus"</span>
+  transport = <span class="eng-code-string">"tcp"</span>
+  address   = <span class="eng-code-string">"dev"</span>
+
+  <span class="eng-code-key">read</span> <span class="eng-code-string">"dev.p"</span> {'{'} input_register = <span class="eng-code-value">0</span> {'}'}
+  <span class="eng-code-key">command</span> <span class="eng-code-string">"dev.q"</span> {'{'} holding_register = <span class="eng-code-value">1</span> {'}'}
+{'}'}</code></pre>
+                    <div class="engineering-code-caption">
+                        Configuration excerpt <span>READ ↔ COMMAND</span>
+                    </div>
+                </div>
+            </article>
+            <article class="engineering-feature engineering-feature-wide">
+                <div class="engineering-feature-copy">
+                    <span class="engineering-feature-index">02 → CONFIGURATION</span>
+                    <h4>Review the change before it runs.</h4>
+                    <p>
+                        Keep desired state in Git. Inspect a plan, review the diff, and
+                        apply deliberate changes across your nodes.
+                    </p>
+                </div>
+                <div
+                    class="engineering-change"
+                    aria-label="Configuration change from input register zero to four"
+                >
+                    <div class="engineering-file-label">
+                        <span>equipment.hcl</span>
+                        <span>1 CHANGE</span>
+                    </div>
+                    <pre
+                        tabindex="0"
+                        role="region"
+                        aria-label="Configuration diff"
+                    ><code><span class="eng-code-context">  read "dev.p" {'{'}</span>
+<span class="eng-code-remove">−   input_register = 0</span>
+<span class="eng-code-add">+   input_register = 4</span>
+<span class="eng-code-context">  {'}'}</span></code></pre>
+                    <div
+                        class="engineering-change-process"
+                        aria-label="Define, review, apply"
+                    >
+                        <span>Define</span>
+                        <span aria-hidden="true">→</span>
+                        <span class="engineering-change-current">Review</span>
+                        <span aria-hidden="true">→</span>
+                        <span>Apply</span>
+                    </div>
+                </div>
+            </article>
+            <article class="engineering-feature engineering-feature-small">
+                <div class="engineering-feature-copy">
+                    <span class="engineering-feature-index">03 → RUNTIME</span>
+                    <h4>One binary.</h4>
+                    <p>
+                        Run at the edge, on a workstation, or in the cloud. Keep the
+                        same deployment model.
+                    </p>
+                </div>
+                <div
+                    class="engineering-binary"
+                    aria-label="Foundation runs on Linux, macOS, and Windows"
+                >
+                    <div class="engineering-binary-object">
+                        <strong>foundation</strong>
+                        <small>RUST</small>
+                    </div>
+                    <div class="engineering-os">
+                        <span>Linux</span>
+                        <span>macOS</span>
+                        <span>Windows</span>
+                    </div>
+                </div>
+            </article>
+            <article class="engineering-feature engineering-feature-small">
+                <div class="engineering-feature-copy">
+                    <span class="engineering-feature-index">04 → INTERFACES</span>
+                    <h4>Keep your software.</h4>
+                    <p>
+                        Read telemetry and send commands from the applications and data
+                        platforms your team already uses.
+                    </p>
+                </div>
+                <div
+                    class="engineering-interface"
+                    aria-label="Programmatic read, subscribe, and command operations"
+                >
+                    <span>
+                        <i aria-hidden="true">→</i> read
+                    </span>
+                    <span>
+                        <i aria-hidden="true">↳</i> subscribe
+                    </span>
+                    <span>
+                        <i aria-hidden="true">←</i> command
+                    </span>
+                    <div class="engineering-interface-rail" aria-hidden="true" />
+                </div>
+            </article>
+            <article class="engineering-feature engineering-feature-small">
+                <div class="engineering-feature-copy">
+                    <span class="engineering-feature-index">05 → OPERABILITY</span>
+                    <h4>Know where to look.</h4>
+                    <p>
+                        Inspect connection state, buffer usage, and delivery progress.
+                        Get errors you can act on.
+                    </p>
+                </div>
+                <div
+                    class="engineering-diagnostics"
+                    aria-label="Inspect source, transport, and delivery separately"
+                >
+                    <div>
+                        <span>Source</span>
+                        <span class="engineering-diagnostic-track">
+                            <i />
+                        </span>
+                    </div>
+                    <div>
+                        <span>Transport</span>
+                        <span class="engineering-diagnostic-track">
+                            <i />
+                        </span>
+                    </div>
+                    <div>
+                        <span>Delivery</span>
+                        <span class="engineering-diagnostic-track">
+                            <i />
+                        </span>
+                    </div>
+                </div>
+            </article>
+            <article class="engineering-feature engineering-feature-small">
+                <div class="engineering-feature-copy">
+                    <span class="engineering-feature-index">06 → EXTENSIBILITY</span>
+                    <h4>Extend at the boundary.</h4>
+                    <p>
+                        Add device, transport, or storage adapters around one shared
+                        channel model.
+                    </p>
+                </div>
+                <div
+                    class="engineering-channel-model"
+                    aria-label="Channel model carries values, time, quality, and state"
+                >
+                    <div class="engineering-channel-header">CHANNEL</div>
+                    <div>
+                        <span>value</span>
+                        <span>time</span>
+                        <span>quality</span>
+                        <span>state</span>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </div>
+</section>

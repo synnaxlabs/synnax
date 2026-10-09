@@ -20,6 +20,7 @@ packages:
   - pluto
   - site/common
   - site/docs
+  - site/foundation
   - site/portal
   - site/www
   - studio

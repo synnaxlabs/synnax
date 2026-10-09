@@ -1,0 +1,29 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+@layer reset, pluto, base;
+
+@import url("./reset.css") layer(reset);
+@import url("@fontsource/geist-mono/latin-500.css");
+@import url("@synnaxlabs/lyra/dist/base.css") layer(pluto);
+@import url("@synnaxlabs/lyra/dist/theme-dark.css") layer(pluto);
+@import url("@synnaxlabs/media/dist/media.css") layer(pluto);
+@import url("@synnaxlabs/site-common/base.css") layer(base);
+@import url("./page.css") layer(base);
+@import url("./editorial.css") layer(base);
+@import url("./unlocks.css") layer(base);
+@import url("./engineering.css") layer(base);
+@import url("./principles.css") layer(base);
+@import url("./contact.css") layer(base);
+@import url("./scene.css") layer(base);
+@import url("./system.css") layer(base);
+@import url("./deployments.css") layer(base);
+@import url("./responsive.css") layer(base);

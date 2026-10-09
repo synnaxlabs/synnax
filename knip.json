@@ -65,6 +65,10 @@
       "entry": ["src/**/*.astro", "src/**/*.tsx", "src/**/*.ts"],
       "project": ["src/**/*.{ts,tsx,astro,mdx}"]
     },
+    "site/foundation": {
+      "entry": ["src/pages/**/*.astro"],
+      "project": ["src/**/*.{ts,tsx,astro}"]
+    },
     "site/portal": {
       "entry": ["src/**/*.astro", "src/**/*.tsx", "src/**/*.ts", "scripts/*.ts"],
       "project": ["src/**/*.{ts,tsx,astro}", "scripts/*.ts"]
