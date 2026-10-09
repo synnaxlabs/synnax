@@ -322,8 +322,12 @@ Each phase is one pull request into `main`, branched from `main`.
   docs pages.
 - **Phase 10: Flag removal.** Delete `FLAGS.kafka`.
 
-Compatibility: every phase is additive. No stored shape changes, and a Core without the
-factory rejects `kafka_*` tasks at creation as unknown types, as it does today.
+Compatibility: every phase is additive, and no stored shape changes. A Core before Phase
+1 rejects `kafka_*` tasks at creation as unknown types. Between Phases 1 and 3 a client
+can save one, and a start answers with an error status naming the unhandled type, since
+the config stores exist but no factory claims the type. The task is valid and starts
+once a Core with the factory runs. The Console has no entry point for these tasks until
+Phase 6, behind the flag.
 
 ## 7 What this RFC does not cover
 
