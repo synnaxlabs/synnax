@@ -160,7 +160,7 @@ ReadField struct {
     data_type   telem.DataType = "float64"
     time_format http.TimeFormat?   // required for timestamp channels
     enum_values http.EnumEntry[]
-    record_key  string = ""        // applies only to records with this key when set
+    record_key  string = ""        // the group: records with this key, or every key
 }
 
 ReadConfig struct extends task.PersistConfig {
@@ -178,23 +178,29 @@ when empty, and commits offsets, so a restarted task resumes where it stopped.
 `earliest` replays, and `none` answers the start command with an error status, for a
 group whose offsets must already exist.
 
-Each record value is parsed as JSON. For each enabled field whose `record_key` is empty
-or equal to the record key, the value at `pointer` is converted with the HTTP driver's
-rules (RFC 0028 §3.1) and appended to the field's channel. A record without the pointer
-contributes no sample for that field: topics carry mixed record shapes, and this is
-ordinary. A value that is present but does not convert is a task error status, and the
-record is skipped.
+Fields are grouped by `record_key`, and each group is its own stream with its own index
+channel and its own writer. The Cesium writer requires every series in a frame to have
+one length and every channel of an index to be present, so a record that carries a
+subset of an index's channels cannot be written. Grouping by key is what makes a
+mixed-shape topic writable: each shape is a key, and each key is a complete frame.
+
+A record goes to the group whose key equals its own, else to the empty-key group when
+one exists, else it is skipped as not addressed to this task. Its value is parsed as
+JSON, and for every enabled field in the group the value at `pointer` is converted with
+the HTTP driver's rules (RFC 0028 §3.1). A record that lacks a field's pointer, or holds
+a value that does not convert, is a task error status, and the record is skipped. A
+topic whose shapes differ without keys needs a match on a value inside the record, which
+is an open question (§9).
 
 `name` and `data_type` serve channel creation only: at deploy the Console creates a
 channel for every field whose `channel` is zero, as the HTTP read form does. After that
 the channel record is the truth. The Core reads each channel's real type at configure
 and rejects a config whose `data_type` disagrees.
 
-The index channel is a field like any other, targeting a timestamp channel with a
-`time_format`. A task with no timestamp field stamps every sample with the receive time.
-Every fetch batch becomes one frame holding the index samples and the data samples its
-records contained, written through a `framer.Writer` opened on every channel in the
-task.
+A group's index channel is a field like any other, targeting a timestamp channel with a
+`time_format`. A group with no timestamp field stamps its samples with the receive time.
+Every fetch batch becomes one even frame per group, written through that group's
+`framer.Writer`.
 
 Delivery is at least once. The writer opens with `Sync` and `AlwaysAutoPersist`, so a
 write acknowledgment means the samples are on disk. The consumer commits only marked
@@ -207,8 +213,8 @@ timestamp comes from the record. A task that stamps receive time stores a replay
 record again as a new sample.
 
 Validation at deploy: a device of make `kafka`, a non-empty topic, at least one enabled
-field, a pointer on every enabled field, a `time_format` on every timestamp channel, and
-every data channel sharing one index.
+field, a pointer on every enabled field, a `time_format` on every timestamp channel, at
+most one timestamp field per group, and every data channel in a group sharing one index.
 
 ### 4.4 Write task
 
@@ -274,9 +280,10 @@ unsolicited error statuses and leave the running flag as it was.
   sends `test_connection` to the rack's `kafka_scan` task.
 - `task/`: `Read.tsx` and `Write.tsx` on `Task.wrapForm`, with the device select in the
   properties row, the topic, and a `Task.Views.List` of fields or channels. The read
-  form's details pane holds pointer, data type, time format, enum labels, and record
-  key. The write form's properties row adds the record shape and the key setting; its
-  details pane holds JSON type, time format, and enum labels.
+  form lists fields under their record key, creates one index channel per group at
+  deploy, and its details pane holds pointer, data type, time format, enum labels, and
+  record key. The write form's properties row adds the record shape and the key setting;
+  its details pane holds JSON type, time format, and enum labels.
 - Registration in `feature/task/{types,external,tab,Selector}.tsx`,
   `feature/device/{make,external}.ts[x]`, and `Icon.Logo.Kafka` in Lyra.
 
@@ -298,9 +305,11 @@ Go specs open a `kfake.Cluster` per suite and point device properties at its lis
 address. The read suite produces records with a franz-go client and asserts frames
 through a test streamer, as the Arc task suite does. A restart spec stops the task
 between a write acknowledgment and the offset commit, starts it again, and asserts no
-sample is lost and none is duplicated. The write suite streams frames through a
-`framer.Writer` and consumes the topic. The scan suite asserts the status written for
-`test_connection` against a live and a closed fake cluster.
+sample is lost and none is duplicated. A mixed-key round-trip spec runs a write task on
+two channels into a read task with two keyed groups and asserts both streams. The write
+suite streams frames through a `framer.Writer` and consumes the topic. The scan suite
+asserts the status written for `test_connection` against a live and a closed fake
+cluster.
 
 ## 5 Prior art
 
@@ -370,15 +379,18 @@ Phase 6, behind the flag.
    this diverges from the HTTP and OPC UA devices, whose properties are Console-typed.
 7. **franz-go**: Pure Go, maintained, and ships a fake cluster. Sarama has no fake
    broker, and the Confluent client needs cgo.
-8. **Missing pointer is not an error**: Mixed-shape topics are the norm. The trade is
-   real: a misspelled pointer produces silence, not a status, so the form validates that
-   each pointer is a syntactically valid JSON pointer.
+8. **One stream per record key, and a missing pointer is an error**: The Cesium writer
+   rejects a frame with a subset of an index's channels, so a record must carry every
+   field of its group. Mixed shapes are expressed through keys, and a misspelled pointer
+   surfaces at once. The trade is real: an unkeyed mixed-shape topic has no home until a
+   value match exists.
 9. **Plain-text credentials**: Conforms to every existing device. A secret store is its
    own RFC.
 
 ## 9 Open questions
 
 - Wide layout for the write task: one record per index row, per-channel pointers.
+- A read field match on a value inside the record, for mixed-shape topics without keys.
 - A `kafka_read` integration test needs a broker in the conductor's environment: a
   Redpanda container, or none and rely on the Go specs.
 - Consumer lag as a status detail on the read task.
