@@ -240,8 +240,8 @@ WriteChannel struct {
 
 Record struct {
     value_pointer     string = "/value"
-    channel_pointer   string = "/channel"     // empty omits the name
-    timestamp_pointer string = "/timestamp"   // empty omits the timestamp
+    channel_pointer   string?                 // absent omits the name
+    timestamp_pointer string?                 // absent omits the timestamp
     time_format       http.TimeFormat = unix_ns
     fields            http.WriteField[]       // static and generated extras
 }
@@ -257,12 +257,14 @@ WriteConfig struct extends task.StartConfig {
 
 The task opens a `framer.Streamer` on the enabled channels and their index channels. For
 each data series in a frame it emits one record per sample, in the narrow layout: the
-value at `value_pointer`, the channel name at `channel_pointer`, and the sample's index
-timestamp at `timestamp_pointer`. A channel without an index uses the frame's receive
-time. Static and generated fields are placed last. The record key is the channel name or
-absent. The Kafka record's own timestamp is always the sample time, so a consumer that
-reads record metadata needs no timestamp in the body. Records are produced
-asynchronously; the client batches and compresses them.
+value at `value_pointer`, the channel name at `channel_pointer` when set, and the
+sample's index timestamp at `timestamp_pointer` when set. The two pointers are optional
+rather than defaulted, so a cleared pointer survives the store's default fill; the
+Console form starts them at `/channel` and `/timestamp`. A channel without an index uses
+the frame's receive time. Static and generated fields are placed last. The record key is
+the channel name or absent. The Kafka record's own timestamp is always the sample time,
+so a consumer that reads record metadata needs no timestamp in the body. Records are
+produced asynchronously; the client batches and compresses them.
 
 A produce failure sets an error status with the broker's message and keeps the task
 running. A closed client stops the task with an error status.
