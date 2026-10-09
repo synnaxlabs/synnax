@@ -123,20 +123,21 @@ an error status (`console/src/feature/modbus/device/useConnectModal.tsx`). The C
 Driver creates these tasks at boot through `task::Factory::configure_initial_tasks`
 (`driver/task/manager.cpp`). The Go driver has no equivalent.
 
-The Go driver gains one optional interface:
+`driver.Factory` gains one method, as the C++ `task::Factory` carries
+`configure_initial_tasks` next to `configure_task`:
 
 ```go
-// InitialTaskProvider is implemented by a factory that owns internal tasks on the
-// rack. The driver creates the missing ones at boot before configuring tasks.
-type InitialTaskProvider interface {
-    InitialTasks(ctx context.Context, rack rack.Key) ([]task.Task, error)
-}
+// InitialTasks returns the internal tasks the factory owns on the rack. The driver
+// creates the missing ones at boot before configuring tasks. A factory with none
+// returns nil, nil.
+InitialTasks(ctx context.Context, rack rack.Key) ([]task.Task, error)
 ```
 
-`driver.Open` checks each factory for the interface after the rack exists and before
-`configureExistingTasks`. A returned task is created with `Internal: true` only when no
-task of that type exists on the rack. The Kafka factory returns one `kafka_scan` task
-named "Kafka Scanner" with `ScanConfig` from `task.ScanConfig`.
+The Arc and PagerDuty factories return `nil, nil`. `driver.Open` calls every factory
+after the rack exists and before `configureExistingTasks`. A returned task is created
+with `Internal: true` only when no task of that type exists on the rack. The Kafka
+factory returns one `kafka_scan` task named "Kafka Scanner" with `ScanConfig` from
+`task.ScanConfig`.
 
 The scan task:
 
@@ -305,8 +306,9 @@ Each phase is one pull request into `main`, branched from `main`.
   `versions/kafka/v0.oracle`, generated Go, TS, and Python types, the
   `core/pkg/service/kafka` config store service, and its wiring into the task config
   registry. No factory yet.
-- **Phase 2: Initial tasks in the Go driver.** `driver.InitialTaskProvider` and its
-  handling in `driver.Open`, with specs.
+- **Phase 2: Initial tasks in the Go driver.** `Factory.InitialTasks`, its handling in
+  `driver.Open`, and the `nil, nil` method on the Arc and PagerDuty factories, with
+  specs.
 - **Phase 3: Scan task and factory.** The franz-go dependency, the client builder from
   device properties, the scan task with `test_connection` and the health check, and the
   factory wired into `layer.go`. The rack now advertises `kafka`.
@@ -336,7 +338,7 @@ factory rejects `kafka_*` tasks at creation as unknown types, as it does today.
    need. The trade is real: v1 is two task forms, not one.
 2. **The cluster is a device, not fields on the task**: Credentials live once and the
    connect form tests them. The trade is real: the Go driver needs initial-task support,
-   one small interface.
+   one method on every factory.
 3. **Reuse the HTTP field types**: `TimeFormat`, `EnumEntry`, `JSONType`, and
    `WriteField` are imported from the HTTP schema rather than redeclared. The trade is
    real: the Kafka schema depends on the HTTP schema's version chain.
