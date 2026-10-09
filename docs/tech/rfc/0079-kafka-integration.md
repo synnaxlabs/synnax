@@ -87,12 +87,23 @@ Properties struct {
     sasl    SASL = {}         // credentials
 }
 
-SASL struct {
-    mechanism SASLMechanism = none   // none | plain | scram_sha_256 | scram_sha_512
-    username  string = ""
-    password  string = ""
+Credentials struct {
+    username string = ""
+    password string = ""
+}
+
+SASL union on mechanism {
+    none          {}
+    plain         extends Credentials
+    scram_sha_256 extends Credentials
+    scram_sha_512 extends Credentials
 }
 ```
+
+SASL is a union on the mechanism, as the HTTP device's `auth` is a union on its type:
+username and password exist only for the mechanisms that use them, so a blank credential
+can never pass as "none". TLS with a certificate authority of the user's own is not
+modeled; the `tls` switch trusts the system roots.
 
 Properties are declared in `schemas/synnax/kafka.oracle` and generated for Go, TS, and
 Python. The HTTP driver types its device properties in the Console only, because its
@@ -142,6 +153,7 @@ The scan task:
 ReadField struct {
     key         string = create
     disabled    bool = false
+    name        string = ""        // channel name, used when the form creates it
     channel     channel.Key = 0
     pointer     string = ""        // JSON pointer within the record value
     data_type   telem.DataType = "float64"
@@ -170,10 +182,16 @@ contributes no sample for that field: topics carry mixed record shapes, and this
 ordinary. A value that is present but does not convert is a task error status, and the
 record is skipped.
 
+`name` and `data_type` serve channel creation only: at deploy the Console creates a
+channel for every field whose `channel` is zero, as the HTTP read form does. After that
+the channel record is the truth. The Core reads each channel's real type at configure
+and rejects a config whose `data_type` disagrees.
+
 The index channel is a field like any other, targeting a timestamp channel with a
 `time_format`. A task with no timestamp field stamps every sample with the receive time.
-Every record becomes one frame holding the index sample and the data samples the record
-contained, written through a `framer.StreamWriter` opened on every channel in the task.
+Every fetch batch becomes one frame holding the index samples and the data samples its
+records contained, written through a `framer.StreamWriter` opened on every channel in
+the task.
 
 Validation at deploy: a device of make `kafka`, a non-empty topic, at least one enabled
 field, a pointer on every enabled field, a `time_format` on every timestamp channel, and
@@ -215,7 +233,9 @@ each data series in a frame it emits one record per sample, in the narrow layout
 value at `value_pointer`, the channel name at `channel_pointer`, and the sample's index
 timestamp at `timestamp_pointer`. A channel without an index uses the frame's receive
 time. Static and generated fields are placed last. The record key is the channel name or
-absent. Records are produced asynchronously; the client batches and compresses them.
+absent. The Kafka record's own timestamp is always the sample time, so a consumer that
+reads record metadata needs no timestamp in the body. Records are produced
+asynchronously; the client batches and compresses them.
 
 A produce failure sets an error status with the broker's message and keeps the task
 running. A closed client stops the task with an error status.
@@ -237,8 +257,8 @@ unsolicited error statuses and leave the running flag as it was.
 
 - `device/`: `MAKE = "kafka"`, generated `propertiesZ`, a connect modal with brokers
   (one text field per address, add and remove), a TLS switch, a SASL mechanism select,
-  and username and password fields shown when the mechanism is not `none`. Its
-  `beforeSave` sends `test_connection` to the rack's `kafka_scan` task.
+  and username and password fields for the mechanisms that carry them. Its `beforeSave`
+  sends `test_connection` to the rack's `kafka_scan` task.
 - `task/`: `Read.tsx` and `Write.tsx` on `Task.wrapForm`, with the device select in the
   properties row, the topic, and a `Task.Views.List` of fields or channels. The read
   form's details pane holds pointer, data type, time format, enum labels, and record
@@ -338,3 +358,5 @@ factory rejects `kafka_*` tasks at creation as unknown types, as it does today.
 - A `kafka_read` integration test needs a broker in the conductor's environment: a
   Redpanda container, or none and rely on the Go specs.
 - Consumer lag as a status detail on the read task.
+- A certificate authority on the device for self-signed brokers, and client certificates
+  for mutual TLS.
