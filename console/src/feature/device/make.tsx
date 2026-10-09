@@ -14,6 +14,7 @@ import { z } from "zod";
 
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
+import { Kafka } from "@/feature/kafka";
 import { LabJack } from "@/feature/labjack";
 import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
@@ -23,6 +24,7 @@ import { type Tree } from "@/platform/tree";
 export const makeZ = z.enum([
   EtherCAT.Device.MAKE,
   HTTP.Device.MAKE,
+  Kafka.Device.MAKE,
   LabJack.Device.MAKE,
   Modbus.Device.MAKE,
   NI.Device.MAKE,
@@ -36,6 +38,7 @@ export const getMake = (make: unknown): Make | null =>
 const MAKE_ICONS: Record<Make, Icon.ReactElement> = {
   [EtherCAT.Device.MAKE]: <Icon.Logo.EtherCAT />,
   [HTTP.Device.MAKE]: <Icon.Logo.HTTP />,
+  [Kafka.Device.MAKE]: <Icon.Logo.Kafka />,
   [LabJack.Device.MAKE]: <Icon.Logo.LabJack />,
   [Modbus.Device.MAKE]: <Icon.Logo.Modbus />,
   [NI.Device.MAKE]: <Icon.Logo.NI />,
@@ -54,6 +57,7 @@ export const getIcon = (make: Make | null) =>
 export const useConfigureModal = (): ((make: Make, deviceKey: device.Key) => void) => {
   const ethercat = EtherCAT.Device.useConfigureModal();
   const http = HTTP.Device.useConnectModal();
+  const kafka = Kafka.Device.useConnectModal();
   const labjack = LabJack.Device.useConfigureModal();
   const modbus = Modbus.Device.useConnectModal();
   const ni = NI.Device.useConfigureModal();
@@ -63,6 +67,7 @@ export const useConfigureModal = (): ((make: Make, deviceKey: device.Key) => voi
       const openers: Record<Make, (args: { deviceKey: device.Key }) => void> = {
         [EtherCAT.Device.MAKE]: ethercat,
         [HTTP.Device.MAKE]: http,
+        [Kafka.Device.MAKE]: kafka,
         [LabJack.Device.MAKE]: labjack,
         [Modbus.Device.MAKE]: modbus,
         [NI.Device.MAKE]: ni,
@@ -70,7 +75,7 @@ export const useConfigureModal = (): ((make: Make, deviceKey: device.Key) => voi
       };
       openers[make]({ deviceKey });
     },
-    [ethercat, http, labjack, modbus, ni, opcua],
+    [ethercat, http, kafka, labjack, modbus, ni, opcua],
   );
 };
 

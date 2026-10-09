@@ -27,7 +27,7 @@ export const schemas = {
   }),
   channel_created: z.strictObject({ calculated: z.boolean() }),
   device_connected: z.strictObject({
-    integration: z.enum(["http", "modbus", "opcua"]),
+    integration: z.enum(["http", "kafka", "modbus", "opcua"]),
   }),
   device_configured: z.strictObject({ make: z.string() }),
   task_started: z.strictObject({ type: z.string() }),
