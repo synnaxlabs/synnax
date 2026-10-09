@@ -1,4 +1,4 @@
-# 79 Line plot windows and measurements
+# 80 Line plot windows and measurements
 
 - **Author**: Patrick Dotson
 - **Date**: 2026-10-09
@@ -117,17 +117,18 @@ bench analyzer would show.
 The transform follows these rules, so two implementations agree on spacing and
 amplitude:
 
-- **Transform length**: `N` is the smallest power of two at or above the smaller of the
-  window's sample count and `point_limit`, and a block shorter than `N` is zero-padded
-  to it. The power of two is a convenience for the radix-2 kernel, not a limit on the
-  data: every sample is used, and padding only interpolates between the bins the data
-  supports. Any window of two or more samples draws; a short one draws a coarse spectrum
-  rather than nothing.
-- **Blocks**: A window longer than `N` is cut into consecutive blocks of `N` samples
-  from its start; the trailing partial block is dropped. The magnitude of each bin is
-  the mean over the blocks, as an analyzer averages a long capture. A fixed range that
-  would need more than 64 blocks posts a status asking for a narrower range rather than
-  reading it whole.
+- **Block length**: `n` is the smaller of the window's sample count and `point_limit`,
+  so no block reads more than `point_limit` samples. The window is cut into consecutive
+  blocks of `n` samples from its start, and the trailing partial block is dropped. Any
+  window of two or more samples draws; a short one draws a coarse spectrum rather than
+  nothing.
+- **Transform length**: `N` is the smallest power of two at or above `n`, and each
+  block is zero-padded to it. The power of two is a convenience for the radix-2 kernel,
+  not a limit on the data: every sample in a block is used, and padding only
+  interpolates between the bins the data supports.
+- **Averaging**: The magnitude of each bin is the mean over the blocks, as an analyzer
+  averages a long capture. A fixed range that would need more than 64 blocks posts a
+  status asking for a narrower range rather than reading it whole.
 - **Frequency bins**: `k × rate / N` for `k` in `[0, N / 2]`, so the spectrum ends at
   the Nyquist frequency.
 - **Magnitude**: The amplitude spectrum, `2 × |X[k]| / (n × G)`, with `n` the samples in
