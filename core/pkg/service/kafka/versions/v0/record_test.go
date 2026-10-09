@@ -12,12 +12,12 @@ package v0_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
 )
 
 var _ = Describe("Record", func() {
 	DescribeTable("CustomTypeName",
-		func(name string, expected string) {
+		func(name, expected string) {
 			Expect(name).To(Equal(expected))
 		},
 		Entry("read config", v0.ReadConfig{}.CustomTypeName(), "kafka_read_config"),
