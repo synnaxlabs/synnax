@@ -193,8 +193,18 @@ and rejects a config whose `data_type` disagrees.
 The index channel is a field like any other, targeting a timestamp channel with a
 `time_format`. A task with no timestamp field stamps every sample with the receive time.
 Every fetch batch becomes one frame holding the index samples and the data samples its
-records contained, written through a `framer.StreamWriter` opened on every channel in
-the task.
+records contained, written through a `framer.Writer` opened on every channel in the
+task.
+
+Delivery is at least once. The writer opens with `Sync` and `AlwaysAutoPersist`, so a
+write acknowledgment means the samples are on disk. The consumer commits only marked
+offsets, and a batch is marked after its write is acknowledged. A write failure sets an
+error status, leaves the batch unmarked, and stops the task, so a restart resumes from
+the last acknowledged batch. A crash between the acknowledgment and the offset commit
+replays that batch: at start the task reads the last stored timestamp of each index it
+writes and drops replayed records stamped at or before it. That dedupe applies when the
+timestamp comes from the record. A task that stamps receive time stores a replayed
+record again as a new sample.
 
 Validation at deploy: a device of make `kafka`, a non-empty topic, at least one enabled
 field, a pointer on every enabled field, a `time_format` on every timestamp channel, and
@@ -286,9 +296,11 @@ per task type, noting that the integration runs on the Core.
 
 Go specs open a `kfake.Cluster` per suite and point device properties at its listen
 address. The read suite produces records with a franz-go client and asserts frames
-through a test streamer, as the Arc task suite does. The write suite streams frames
-through a `framer.Writer` and consumes the topic. The scan suite asserts the status
-written for `test_connection` against a live and a closed fake cluster.
+through a test streamer, as the Arc task suite does. A restart spec stops the task
+between a write acknowledgment and the offset commit, starts it again, and asserts no
+sample is lost and none is duplicated. The write suite streams frames through a
+`framer.Writer` and consumes the topic. The scan suite asserts the status written for
+`test_connection` against a live and a closed fake cluster.
 
 ## 5 Prior art
 
