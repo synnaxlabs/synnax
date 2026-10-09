@@ -48,10 +48,10 @@ keys = {
     for name in names
 }
 
-period = sy.TimeSpan.SECOND / RATE
-start = sy.TimeStamp.now()
+period = int(sy.TimeSpan.SECOND / RATE)
+start = int(sy.TimeStamp.now())
 with client.open_writer(
-    start=start,
+    start=sy.TimeStamp(start),
     channels=["waveform_time", *names],
     enable_auto_commit=True,
 ) as writer:
@@ -59,7 +59,7 @@ with client.open_writer(
     while True:
         n = np.arange(i, i + CHUNK)
         t = n / RATE
-        stamps = start + (n * period).astype(np.int64)
+        stamps = (start + n * period).astype(np.int64)
         sine = 5 * np.sin(2 * np.pi * 60 * t) + np.sin(2 * np.pi * 180 * t)
         noisy = sine + 0.5 * np.sin(2 * np.pi * 1000 * t) + np.random.randn(CHUNK) * 0.3
         phase = (t * 20) % 1.0
@@ -77,6 +77,6 @@ with client.open_writer(
         )
         i += CHUNK
         # Pace the writer to the wall clock so the stream stays live.
-        ahead = (start + (i * period)) - sy.TimeStamp.now()
+        ahead = start + i * period - int(sy.TimeStamp.now())
         if ahead > 0:
-            time.sleep(sy.TimeSpan(ahead).seconds)
+            time.sleep(ahead / 1e9)
