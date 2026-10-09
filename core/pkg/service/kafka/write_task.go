@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/json/v2"
 	"io"
+	"maps"
 	"sync"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -278,10 +279,7 @@ func (t *writeTask) closeClient() error {
 
 // produce emits one record per sample of every configured channel in fr.
 func (t *writeTask) produce(ctx context.Context, fr frame.Frame) {
-	series := make(map[channel.Key]telem.Series, fr.Count())
-	for k, s := range fr.Entries() {
-		series[k] = s
-	}
+	series := maps.Collect(fr.Entries())
 	now := telem.Now()
 	for key, wc := range t.channels {
 		s, ok := series[key]

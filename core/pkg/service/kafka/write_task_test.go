@@ -16,7 +16,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -107,8 +106,8 @@ var _ = Describe("Write task", func() {
 				Device: dev.Key,
 				Topic:  topic,
 				Record: kafka.Record{
-					ChannelPointer:   lo.ToPtr("/channel"),
-					TimestampPointer: lo.ToPtr("/timestamp"),
+					ChannelPointer:   new("/channel"),
+					TimestampPointer: new("/timestamp"),
 				},
 				Channels: []kafka.WriteChannel{{Key: "c1", Channel: data.Key()}},
 			})
