@@ -108,15 +108,21 @@ which the line binds as its X and Y. The factory keys the FFT on the channel and
 so the two outputs of one line share one computation per render.
 
 The FFT itself is `telem.fft` in `x/ts`: a real-input radix-2 transform with the window
-functions above, specs against known signals. The sample rate is the median index
-spacing over the window; an index whose spacing varies by more than 1% posts a status
-("channel is not uniformly sampled") and draws nothing.
+functions above, specs against known signals. The transform assumes uniform sampling, as
+every FFT does, and takes the rate as `(n - 1) / (t_last - t_first)` over the window's
+`n` samples. An irregularly sampled channel smears its spectrum, and the plot does not
+check for it: the user knows their channel's rate, and a check would refuse data that a
+bench analyzer would show.
 
 The transform follows these rules, so two implementations agree on spacing and
 amplitude:
 
-- **Transform length**: `N` is the largest power of two at or below the smaller of the
-  window's sample count and `point_limit`. A window under 16 samples draws nothing.
+- **Transform length**: `N` is the smallest power of two at or above the smaller of the
+  window's sample count and `point_limit`, and a block shorter than `N` is zero-padded
+  to it. The power of two is a convenience for the radix-2 kernel, not a limit on the
+  data: every sample is used, and padding only interpolates between the bins the data
+  supports. Any window of two or more samples draws; a short one draws a coarse spectrum
+  rather than nothing.
 - **Blocks**: A window longer than `N` is cut into consecutive blocks of `N` samples
   from its start; the trailing partial block is dropped. The magnitude of each bin is
   the mean over the blocks, as an analyzer averages a long capture. A fixed range that
@@ -124,10 +130,10 @@ amplitude:
   reading it whole.
 - **Frequency bins**: `k × rate / N` for `k` in `[0, N / 2]`, so the spectrum ends at
   the Nyquist frequency.
-- **Magnitude**: The amplitude spectrum, `2 × |X[k]| / (N × G)`, with `G` the coherent
-  gain of the window function (1 for `rectangular`, 0.5 for `hann`, 0.2156 for
-  `flat_top`) and no doubling of the `k = 0` bin. A sine of amplitude `A` reads `A` in
-  the channel's units.
+- **Magnitude**: The amplitude spectrum, `2 × |X[k]| / (n × G)`, with `n` the samples in
+  the block before padding and `G` the coherent gain of the window function (1 for
+  `rectangular`, 0.5 for `hann`, 0.2156 for `flat_top`), and no doubling of the `k = 0`
+  bin. A sine of amplitude `A` reads `A` in the channel's units.
 - **Decibel scale**: `20 × log10(magnitude)`, relative to one unit of the channel. A
   zero magnitude reads as the plot's lower axis bound, never `-Infinity`.
 
