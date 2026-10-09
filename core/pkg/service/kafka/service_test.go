@@ -94,12 +94,27 @@ var _ = Describe("Service", func() {
 			Expect(data["record_key"]).To(Equal("channel_name"))
 			Expect(data["record"]).To(And(
 				HaveKeyWithValue("value_pointer", "/value"),
-				HaveKeyWithValue("channel_pointer", "/channel"),
-				HaveKeyWithValue("timestamp_pointer", "/timestamp"),
 				HaveKeyWithValue("time_format", "unix_ns"),
+				Not(HaveKey("channel_pointer")),
+				Not(HaveKey("timestamp_pointer")),
 			))
 			Expect(data["channels"]).To(HaveExactElements(
 				HaveKeyWithValue("json_type", "number"),
+			))
+		})
+
+		It("Should keep the record pointers the caller sets", func(ctx SpecContext) {
+			key := uuid.New()
+			Expect(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
+				"record": map[string]any{
+					"channel_pointer":   "/name",
+					"timestamp_pointer": "/time",
+				},
+			})).To(Succeed())
+			data := MustSucceed(svc.Write.Read(ctx, nil, key))
+			Expect(data["record"]).To(And(
+				HaveKeyWithValue("channel_pointer", "/name"),
+				HaveKeyWithValue("timestamp_pointer", "/time"),
 			))
 		})
 

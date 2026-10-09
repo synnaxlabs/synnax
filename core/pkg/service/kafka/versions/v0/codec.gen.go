@@ -188,8 +188,18 @@ func (rf *ReadField) DecodeOrc(r *orc.Reader) error {
 // EncodeOrc writes the value to w in the Orc binary format.
 func (rv Record) EncodeOrc(w *orc.Writer) error {
 	w.String(rv.ValuePointer)
-	w.String(rv.ChannelPointer)
-	w.String(rv.TimestampPointer)
+	if rv.ChannelPointer != nil {
+		w.Bool(true)
+		w.String(*rv.ChannelPointer)
+	} else {
+		w.Bool(false)
+	}
+	if rv.TimestampPointer != nil {
+		w.Bool(true)
+		w.String(*rv.TimestampPointer)
+	} else {
+		w.Bool(false)
+	}
 	w.String(string(rv.TimeFormat))
 	w.Bool(rv.Fields != nil)
 	if rv.Fields != nil {
@@ -209,11 +219,31 @@ func (rv *Record) DecodeOrc(r *orc.Reader) error {
 	if rv.ValuePointer, err = r.String(); err != nil {
 		return err
 	}
-	if rv.ChannelPointer, err = r.String(); err != nil {
-		return err
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv string
+			if hv, err = r.String(); err != nil {
+				return err
+			}
+			rv.ChannelPointer = &hv
+		}
 	}
-	if rv.TimestampPointer, err = r.String(); err != nil {
-		return err
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv string
+			if hv, err = r.String(); err != nil {
+				return err
+			}
+			rv.TimestampPointer = &hv
+		}
 	}
 	{
 		rawV, err := r.String()

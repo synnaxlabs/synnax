@@ -94,15 +94,15 @@ export const recordZ = z.object({
   /** valuePointer is the JSON Pointer where the sample value is placed. */
   valuePointer: z.string().default("/value"),
   /**
-   * channelPointer is the JSON Pointer where the channel name is placed. Empty omits
+   * channelPointer is the JSON Pointer where the channel name is placed. Absent omits
    * the name.
    */
-  channelPointer: z.string().default("/channel"),
+  channelPointer: z.string().optional(),
   /**
-   * timestampPointer is the JSON Pointer where the sample timestamp is placed. Empty
+   * timestampPointer is the JSON Pointer where the sample timestamp is placed. Absent
    * omits the timestamp.
    */
-  timestampPointer: z.string().default("/timestamp"),
+  timestampPointer: z.string().optional(),
   /** timeFormat is the encoding of the sample timestamp. */
   timeFormat: http.timeFormatZ.default("unix_ns"),
   /** fields contains additional static or generated record fields. */

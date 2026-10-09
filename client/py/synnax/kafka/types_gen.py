@@ -118,17 +118,17 @@ class Record(BaseModel):
 
     Attributes:
         value_pointer: Is the JSON Pointer where the sample value is placed.
-        channel_pointer: Is the JSON Pointer where the channel name is placed. Empty
+        channel_pointer: Is the JSON Pointer where the channel name is placed. Absent
             omits the name.
         timestamp_pointer: Is the JSON Pointer where the sample timestamp is placed.
-            Empty omits the timestamp.
+            Absent omits the timestamp.
         time_format: Is the encoding of the sample timestamp.
         fields: Contains additional static or generated record fields.
     """
 
     value_pointer: str = "/value"
-    channel_pointer: str = "/channel"
-    timestamp_pointer: str = "/timestamp"
+    channel_pointer: str | None = None
+    timestamp_pointer: str | None = None
     time_format: http.TimeFormat = "unix_ns"
     fields: list[http.WriteField] = Field(default_factory=list)
 

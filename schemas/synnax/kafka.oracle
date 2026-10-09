@@ -187,14 +187,14 @@ Record struct {
     value_pointer     string = "/value" {
         @doc value "is the JSON Pointer where the sample value is placed."
     }
-    channel_pointer   string = "/channel" {
+    channel_pointer   string?           {
         @doc value """
-            is the JSON Pointer where the channel name is placed. Empty omits the name.
+            is the JSON Pointer where the channel name is placed. Absent omits the name.
         """
     }
-    timestamp_pointer string = "/timestamp" {
+    timestamp_pointer string?           {
         @doc value """
-            is the JSON Pointer where the sample timestamp is placed. Empty omits the
+            is the JSON Pointer where the sample timestamp is placed. Absent omits the
             timestamp.
         """
     }
