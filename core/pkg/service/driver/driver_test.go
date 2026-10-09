@@ -167,6 +167,71 @@ var _ = Describe("Driver", func() {
 			_, err := driver.Open(ctx, driver.Config{})
 			Expect(err).To(HaveOccurred())
 		})
+
+		It("should create the initial tasks a factory returns", func(ctx SpecContext) {
+			openDriver(ctx, &mockFactory{name: "test", initialTasks: []task.Task{{
+				Name: "Initial Task A",
+				Type: pagerduty.AlertTaskType,
+			}}})
+			var tasks []task.Task
+			Expect(taskService.NewRetrieve().
+				Where(task.And(
+					task.MatchRacks(embeddedRackKey(ctx)),
+					task.MatchNames("Initial Task A"),
+				)).
+				Entries(&tasks).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(tasks).To(HaveLen(1))
+			Expect(tasks[0].Internal).To(BeTrue())
+			Expect(tasks[0].Type).To(Equal(pagerduty.AlertTaskType))
+		})
+
+		It("should not duplicate an initial task whose type the rack has",
+			func(ctx SpecContext) {
+				factory := &mockFactory{name: "test", initialTasks: []task.Task{{
+					Name: "Initial Task B",
+					Type: pagerduty.AlertTaskType,
+				}}}
+				d1 := DeferClose(MustSucceed(driver.Open(ctx, driver.Config{
+					DB:        node.DB,
+					Rack:      rackService,
+					Task:      taskService,
+					Framer:    framerSvc,
+					Channel:   channelSvc,
+					Status:    statusSvc,
+					Factories: []driver.Factory{factory},
+					Host:      hostProvider,
+				})))
+				Expect(d1.Close()).To(Succeed())
+				openDriver(ctx, factory)
+				count := MustSucceed(taskService.NewRetrieve().
+					Where(task.And(
+						task.MatchRacks(embeddedRackKey(ctx)),
+						task.MatchTypes(pagerduty.AlertTaskType),
+						task.MatchNames("Initial Task B"),
+					)).
+					Count(ctx, nil))
+				Expect(count).To(BeNumerically("<=", 1))
+			},
+		)
+
+		It("should fail to open when a factory cannot list its initial tasks",
+			func(ctx SpecContext) {
+				Expect(driver.Open(ctx, driver.Config{
+					DB:      node.DB,
+					Rack:    rackService,
+					Task:    taskService,
+					Framer:  framerSvc,
+					Channel: channelSvc,
+					Status:  statusSvc,
+					Factories: []driver.Factory{&mockFactory{
+						name:       "test",
+						initialErr: errors.New("broker list unavailable"),
+					}},
+					Host: hostProvider,
+				})).Error().To(MatchError(ContainSubstring("broker list unavailable")))
+			},
+		)
 	})
 
 	Describe("Task Management", func() {
