@@ -140,8 +140,8 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", v0.Record{
 				ValuePointer:     "test_1",
-				ChannelPointer:   "test_2",
-				TimestampPointer: "test_3",
+				ChannelPointer:   new(string("test_2")),
+				TimestampPointer: new(string("test_3")),
 				TimeFormat:       http.TimeFormat("iso8601"),
 				Fields: []http.WriteField{
 					{Variant: http.StaticWriteField{
@@ -153,15 +153,15 @@ var _ = Describe("Codec", func() {
 			}),
 			Entry("zero values", v0.Record{
 				ValuePointer:     "",
-				ChannelPointer:   "",
-				TimestampPointer: "",
+				ChannelPointer:   nil,
+				TimestampPointer: nil,
 				TimeFormat:       http.TimeFormat(""),
 				Fields:           []http.WriteField{},
 			}),
 			Entry("empty collections", v0.Record{
 				ValuePointer:     "test_1",
-				ChannelPointer:   "test_2",
-				TimestampPointer: "test_3",
+				ChannelPointer:   new(string("test_2")),
+				TimestampPointer: new(string("test_3")),
 				TimeFormat:       http.TimeFormat("iso8601"),
 				Fields:           []http.WriteField{},
 			}),
@@ -246,8 +246,8 @@ var _ = Describe("Codec", func() {
 				RecordKey: v0.RecordKey("none"),
 				Record: v0.Record{
 					ValuePointer:     "test_7",
-					ChannelPointer:   "test_8",
-					TimestampPointer: "test_9",
+					ChannelPointer:   new(string("test_8")),
+					TimestampPointer: new(string("test_9")),
 					TimeFormat:       http.TimeFormat("iso8601"),
 					Fields: []http.WriteField{
 						{Variant: http.StaticWriteField{
@@ -276,8 +276,8 @@ var _ = Describe("Codec", func() {
 				RecordKey: v0.RecordKey(""),
 				Record: v0.Record{
 					ValuePointer:     "",
-					ChannelPointer:   "",
-					TimestampPointer: "",
+					ChannelPointer:   nil,
+					TimestampPointer: nil,
 					TimeFormat:       http.TimeFormat(""),
 					Fields:           []http.WriteField{},
 				},
@@ -291,8 +291,8 @@ var _ = Describe("Codec", func() {
 				RecordKey: v0.RecordKey("none"),
 				Record: v0.Record{
 					ValuePointer:     "test_7",
-					ChannelPointer:   "test_8",
-					TimestampPointer: "test_9",
+					ChannelPointer:   new(string("test_8")),
+					TimestampPointer: new(string("test_9")),
 					TimeFormat:       http.TimeFormat("iso8601"),
 					Fields:           []http.WriteField{},
 				},
@@ -370,8 +370,8 @@ func BenchmarkEncodeDecodeReadField(b *testing.B) {
 func BenchmarkEncodeDecodeRecord(b *testing.B) {
 	seed := v0.Record{
 		ValuePointer:     "test_1",
-		ChannelPointer:   "test_2",
-		TimestampPointer: "test_3",
+		ChannelPointer:   new(string("test_2")),
+		TimestampPointer: new(string("test_3")),
 		TimeFormat:       http.TimeFormat("iso8601"),
 		Fields: []http.WriteField{
 			{Variant: http.StaticWriteField{
@@ -450,8 +450,8 @@ func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 		RecordKey: v0.RecordKey("none"),
 		Record: v0.Record{
 			ValuePointer:     "test_7",
-			ChannelPointer:   "test_8",
-			TimestampPointer: "test_9",
+			ChannelPointer:   new(string("test_8")),
+			TimestampPointer: new(string("test_9")),
 			TimeFormat:       http.TimeFormat("iso8601"),
 			Fields: []http.WriteField{
 				{Variant: http.StaticWriteField{
@@ -654,8 +654,8 @@ func FuzzDecodeRecord(f *testing.F) {
 	{
 		seed := v0.Record{
 			ValuePointer:     "test_1",
-			ChannelPointer:   "test_2",
-			TimestampPointer: "test_3",
+			ChannelPointer:   new(string("test_2")),
+			TimestampPointer: new(string("test_3")),
 			TimeFormat:       http.TimeFormat("iso8601"),
 			Fields: []http.WriteField{
 				{Variant: http.StaticWriteField{
@@ -674,8 +674,8 @@ func FuzzDecodeRecord(f *testing.F) {
 	{
 		seed := v0.Record{
 			ValuePointer:     "",
-			ChannelPointer:   "",
-			TimestampPointer: "",
+			ChannelPointer:   nil,
+			TimestampPointer: nil,
 			TimeFormat:       http.TimeFormat(""),
 			Fields:           []http.WriteField{},
 		}
@@ -688,8 +688,8 @@ func FuzzDecodeRecord(f *testing.F) {
 	{
 		seed := v0.Record{
 			ValuePointer:     "test_1",
-			ChannelPointer:   "test_2",
-			TimestampPointer: "test_3",
+			ChannelPointer:   new(string("test_2")),
+			TimestampPointer: new(string("test_3")),
 			TimeFormat:       http.TimeFormat("iso8601"),
 			Fields:           []http.WriteField{},
 		}
@@ -846,8 +846,8 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 			RecordKey: v0.RecordKey("none"),
 			Record: v0.Record{
 				ValuePointer:     "test_7",
-				ChannelPointer:   "test_8",
-				TimestampPointer: "test_9",
+				ChannelPointer:   new(string("test_8")),
+				TimestampPointer: new(string("test_9")),
 				TimeFormat:       http.TimeFormat("iso8601"),
 				Fields: []http.WriteField{
 					{Variant: http.StaticWriteField{
@@ -883,8 +883,8 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 			RecordKey: v0.RecordKey(""),
 			Record: v0.Record{
 				ValuePointer:     "",
-				ChannelPointer:   "",
-				TimestampPointer: "",
+				ChannelPointer:   nil,
+				TimestampPointer: nil,
 				TimeFormat:       http.TimeFormat(""),
 				Fields:           []http.WriteField{},
 			},
@@ -905,8 +905,8 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 			RecordKey: v0.RecordKey("none"),
 			Record: v0.Record{
 				ValuePointer:     "test_7",
-				ChannelPointer:   "test_8",
-				TimestampPointer: "test_9",
+				ChannelPointer:   new(string("test_8")),
+				TimestampPointer: new(string("test_9")),
 				TimeFormat:       http.TimeFormat("iso8601"),
 				Fields:           []http.WriteField{},
 			},

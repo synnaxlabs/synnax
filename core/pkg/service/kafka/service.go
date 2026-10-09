@@ -40,6 +40,7 @@ const configVersion imex.Version = 1
 // ServiceConfig is the configuration for opening the Kafka task config service.
 type ServiceConfig struct {
 	// DB is the database config records are stored in.
+	//
 	// [REQUIRED]
 	DB *gorp.DB
 	alamos.Instrumentation

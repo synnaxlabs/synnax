@@ -175,12 +175,12 @@ func (w WriteChannel) Validate() error {
 type Record struct {
 	// ValuePointer is the JSON Pointer where the sample value is placed.
 	ValuePointer string `json:"value_pointer" msgpack:"value_pointer"`
-	// ChannelPointer is the JSON Pointer where the channel name is placed. Empty omits
+	// ChannelPointer is the JSON Pointer where the channel name is placed. Absent omits
 	// the name.
-	ChannelPointer string `json:"channel_pointer" msgpack:"channel_pointer"`
-	// TimestampPointer is the JSON Pointer where the sample timestamp is placed. Empty
+	ChannelPointer *string `json:"channel_pointer,omitzero" msgpack:"channel_pointer,omitempty"`
+	// TimestampPointer is the JSON Pointer where the sample timestamp is placed. Absent
 	// omits the timestamp.
-	TimestampPointer string `json:"timestamp_pointer" msgpack:"timestamp_pointer"`
+	TimestampPointer *string `json:"timestamp_pointer,omitzero" msgpack:"timestamp_pointer,omitempty"`
 	// TimeFormat is the encoding of the sample timestamp.
 	TimeFormat http.TimeFormat `json:"time_format" msgpack:"time_format"`
 	// Fields contains additional static or generated record fields.
@@ -191,12 +191,6 @@ type Record struct {
 func (r *Record) ApplyDefaults() {
 	if r.ValuePointer == "" {
 		r.ValuePointer = "/value"
-	}
-	if r.ChannelPointer == "" {
-		r.ChannelPointer = "/channel"
-	}
-	if r.TimestampPointer == "" {
-		r.TimestampPointer = "/timestamp"
 	}
 	if r.TimeFormat == "" {
 		r.TimeFormat = http.TimeFormatUnixNs
