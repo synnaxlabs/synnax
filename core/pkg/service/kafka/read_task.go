@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/twmb/franz-go/pkg/kadm"
+	"github.com/twmb/franz-go/pkg/kerr"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"go.uber.org/zap"
 )
@@ -359,9 +360,15 @@ func (t *readTask) open(ctx context.Context) (err error) {
 }
 
 // checkCommitted fails when the consumer group has no committed offset on a partition
-// of the topic.
+// of the topic. A group the cluster has never seen has none on any partition.
 func (t *readTask) checkCommitted(ctx context.Context, cl *kgo.Client) error {
 	resp, err := kadm.NewClient(cl).FetchOffsetsForTopics(ctx, t.group(), t.cfg.Topic)
+	if errors.Is(err, kerr.GroupIDNotFound) {
+		return errors.Newf(
+			"consumer group %q has no committed offset on topic %q",
+			t.group(), t.cfg.Topic,
+		)
+	}
 	if err != nil {
 		return errors.Wrap(err, "fetching committed offsets")
 	}

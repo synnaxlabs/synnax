@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -171,7 +172,7 @@ var _ = Describe("Driver", func() {
 		It("should create the initial tasks a factory returns", func(ctx SpecContext) {
 			openDriver(ctx, &mockFactory{name: "test", initialTasks: []task.Task{{
 				Name: "Initial Task A",
-				Type: pagerduty.AlertTaskType,
+				Type: kafka.ScanTaskType,
 			}}})
 			var tasks []task.Task
 			Expect(taskService.NewRetrieve().
@@ -183,7 +184,7 @@ var _ = Describe("Driver", func() {
 				Exec(ctx, nil)).To(Succeed())
 			Expect(tasks).To(HaveLen(1))
 			Expect(tasks[0].Internal).To(BeTrue())
-			Expect(tasks[0].Type).To(Equal(pagerduty.AlertTaskType))
+			Expect(tasks[0].Type).To(Equal(kafka.ScanTaskType))
 		})
 
 		It("should not duplicate an initial task whose type the rack has",
