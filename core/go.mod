@@ -33,6 +33,9 @@ require (
 	github.com/synnaxlabs/freighter v0.0.0
 	github.com/synnaxlabs/x v0.0.0
 	github.com/tetratelabs/wazero v1.12.0
+	github.com/twmb/franz-go v1.22.1
+	github.com/twmb/franz-go/pkg/kadm v1.19.0
+	github.com/twmb/franz-go/pkg/kfake v0.0.0-20261007040850-d3792b34935a
 	github.com/uptrace/uptrace-go v1.43.0
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	go.lsp.dev/protocol v1.0.1
@@ -129,6 +132,7 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/pelletier/go-toml/v2 v2.4.3 // indirect
 	github.com/philhofer/fwd v1.2.0 // indirect
+	github.com/pierrec/lz4/v4 v4.1.30 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/power-devops/perfstat v0.0.0-20260916203055-22a1a467d9f0 // indirect
 	github.com/prometheus/client_golang v1.24.1 // indirect
@@ -146,6 +150,7 @@ require (
 	github.com/tinylib/msgp v1.6.4 // indirect
 	github.com/tklauser/go-sysconf v0.4.0 // indirect
 	github.com/tklauser/numcpus v0.12.0 // indirect
+	github.com/twmb/franz-go/pkg/kmsg v1.14.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.74.0 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect

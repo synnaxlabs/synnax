@@ -723,6 +723,17 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if !ok(err, nil) {
 		return nil, err
 	}
+	kafkaFactory, err := kafka.NewFactory(kafka.FactoryConfig{
+		Instrumentation: cfg.Child("kafka"),
+		DB:              cfg.Distribution.DB,
+		Device:          l.Device,
+		Channel:         l.Channel,
+		Framer:          l.Framer,
+		Status:          l.Status,
+	})
+	if !ok(err, nil) {
+		return nil, err
+	}
 	if l.Driver, err = driver.Open(ctx, driver.Config{
 		Instrumentation: cfg.Child("driver"),
 		DB:              cfg.Distribution.DB,
@@ -731,7 +742,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Framer:          l.Framer,
 		Channel:         l.Channel,
 		Status:          l.Status,
-		Factories:       []driver.Factory{arcFactory, pdFactory},
+		Factories:       []driver.Factory{arcFactory, pdFactory, kafkaFactory},
 		Host:            cfg.Distribution.Cluster,
 	}); !ok(err, l.Driver) {
 		return nil, err
