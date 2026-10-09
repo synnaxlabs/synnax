@@ -26,7 +26,7 @@ export interface DetailsProps {
 
 export interface ListAndDetailsProps<C extends Channel> extends Pick<
   ChannelListProps<C>,
-  "onTare" | "allowTare" | "listItem" | "contextMenuItems" | "resolve"
+  "onTare" | "allowTare" | "listItem" | "contextMenuItems" | "resolve" | "path"
 > {
   details: Component.RenderProp<DetailsProps>;
   /** Names the selected channel in the details header, typically by its port. */
@@ -38,6 +38,7 @@ export const ListAndDetails = <C extends Channel>({
   details,
   detailsTitle,
   createChannel,
+  path = "config.channels",
   ...rest
 }: ListAndDetailsProps<C>) => {
   const [selected, setSelected] = useState<string[]>([]);
@@ -56,13 +57,14 @@ export const ListAndDetails = <C extends Channel>({
     },
     [createChannel],
   );
-  const detailsPath = selected.length > 0 ? `config.channels.${selected[0]}` : null;
+  const detailsPath = selected.length > 0 ? `${path}.${selected[0]}` : null;
   return (
     <Panes
       listTitle="Channels"
       list={
         <ChannelList<C>
           {...rest}
+          path={path}
           grow
           header={null}
           selected={selected}

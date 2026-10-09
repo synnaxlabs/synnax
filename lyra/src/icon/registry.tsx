@@ -214,6 +214,7 @@ import {
 } from "react-icons/ri";
 import { RxComponentBoolean, RxReset } from "react-icons/rx";
 import {
+  SiApachekafka,
   SiCplusplus,
   SiGooglenearby,
   SiNpm,
@@ -392,6 +393,7 @@ export const Logo = {
   Windows: wrapSVGIcon(FaWindows, "logo-windows"),
   EtherCAT,
   HTTP: wrapSVGIcon(MdHttp, "logo-http"),
+  Kafka: wrapSVGIcon(SiApachekafka, "logo-kafka"),
 };
 export const Arrow = {
   Right: wrapSVGIcon(TbArrowRight, "arrow-right"),

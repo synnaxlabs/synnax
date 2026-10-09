@@ -15,6 +15,7 @@ import { cloneElement } from "react";
 
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
+import { Kafka } from "@/feature/kafka";
 import { LabJack } from "@/feature/labjack";
 import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
@@ -27,6 +28,7 @@ import { type Task } from "@/platform/task";
 const FORMS: Task.Forms = {
   ...EtherCAT.Task.FORMS,
   ...HTTP.Task.FORMS,
+  ...Kafka.Task.FORMS,
   ...LabJack.Task.FORMS,
   ...Modbus.Task.FORMS,
   ...NI.Task.FORMS,
