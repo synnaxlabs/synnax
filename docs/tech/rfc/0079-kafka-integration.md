@@ -202,15 +202,23 @@ A group's index channel is a field like any other, targeting a timestamp channel
 Every fetch batch becomes one even frame per group, written through that group's
 `framer.Writer`.
 
+A Cesium index is strictly increasing, so a group's timestamps must be too. The task
+sorts each batch by timestamp before writing, and a record stamped at or before the
+group's last written timestamp is an error status and is skipped. A topic with several
+partitions interleaves their timestamps across batches, so a group reads from a topic
+whose records arrive in order, or accepts those errors.
+
 Delivery is at least once. The writer opens with `Sync` and `AlwaysAutoPersist`, so a
 write acknowledgment means the samples are on disk. The consumer commits only marked
 offsets, and a batch is marked after its write is acknowledged. A write failure sets an
 error status, leaves the batch unmarked, and stops the task, so a restart resumes from
 the last acknowledged batch. A crash between the acknowledgment and the offset commit
-replays that batch: at start the task reads the last stored timestamp of each index it
-writes and drops replayed records stamped at or before it. That dedupe applies when the
-timestamp comes from the record. A task that stamps receive time stores a replayed
-record again as a new sample.
+replays that batch. At start the task reads the last stored timestamp of each group as
+its replay boundary. Records at or before the boundary that arrive before the first
+record past it are the replay, and skip silently: under the ordering rule, each one was
+either stored or rejected with a status the first time. Any regression after that first
+record is an error as above. The boundary applies when the timestamp comes from the
+record. A task that stamps receive time stores a replayed record again as a new sample.
 
 Validation at deploy: a device of make `kafka`, a non-empty topic, at least one enabled
 field, a pointer on every enabled field, a `time_format` on every timestamp channel, at
@@ -305,11 +313,13 @@ Go specs open a `kfake.Cluster` per suite and point device properties at its lis
 address. The read suite produces records with a franz-go client and asserts frames
 through a test streamer, as the Arc task suite does. A restart spec stops the task
 between a write acknowledgment and the offset commit, starts it again, and asserts no
-sample is lost and none is duplicated. A mixed-key round-trip spec runs a write task on
-two channels into a read task with two keyed groups and asserts both streams. The write
-suite streams frames through a `framer.Writer` and consumes the topic. The scan suite
-asserts the status written for `test_connection` against a live and a closed fake
-cluster.
+sample is lost and none is duplicated, including a replayed batch that carries a record
+stamped equal to the last stored timestamp. An ordering spec asserts the error status
+for a record stamped at or before its group's last timestamp. A mixed-key round-trip
+spec runs a write task on two channels into a read task with two keyed groups and
+asserts both streams. The write suite streams frames through a `framer.Writer` and
+consumes the topic. The scan suite asserts the status written for `test_connection`
+against a live and a closed fake cluster.
 
 ## 5 Prior art
 
@@ -391,6 +401,7 @@ Phase 6, behind the flag.
 
 - Wide layout for the write task: one record per index row, per-channel pointers.
 - A read field match on a value inside the record, for mixed-shape topics without keys.
+- Out-of-order timestamps across partitions: a sort window, or a receive-time fallback.
 - A `kafka_read` integration test needs a broker in the conductor's environment: a
   Redpanda container, or none and rely on the Go specs.
 - Consumer lag as a status detail on the read task.
