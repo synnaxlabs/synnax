@@ -151,11 +151,14 @@ range input grows a form for the triggered fields. Pluto's `ResolvedRange`
 by variant.
 
 `telem.triggeredData` takes the Y channel, the trigger channel, and the fields above. It
-subscribes to both streams plus the index of the Y channel. The feed hands every write
-to its subscribers in one call (`client/ts/src/framer/cache/streamer.ts:355-372`), so on
-every write it scans the new trigger samples for a crossing of `level` in the chosen
-direction. At a crossing with index timestamp `t`, the frame is the samples whose index
-lies in `[t - pretrigger × span, t + (1 - pretrigger) × span]`, emitted once the end has
+subscribes to both channels and to the index of each, one index when they share it,
+since a data series carries values and a time range but not each sample's timestamp. The
+feed hands every write to its subscribers in one call
+(`client/ts/src/framer/cache/streamer.ts:355-372`), so on every write it scans the new
+trigger samples for a crossing of `level` in the chosen direction. The crossing's
+timestamp `t` is read from the trigger channel's index at the crossing sample. The frame
+is the samples of the Y channel whose own index lies in
+`[t - pretrigger × span, t + (1 - pretrigger) × span]`, emitted once the end has
 arrived. When no crossing arrives within `timeout`, the source emits the last `span` of
 data so the plot never blanks, as a bench scope does in auto mode.
 
