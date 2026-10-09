@@ -12,6 +12,7 @@ from importlib.metadata import version as _version
 from synnax import (
     ethercat,
     http,
+    kafka,
     labjack,
     license,
     modbus,
@@ -202,6 +203,7 @@ __all__ = [
     "color",
     "ethercat",
     "http",
+    "kafka",
     "labjack",
     "license",
     "modbus",

@@ -1,0 +1,235 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/channel"
+import "schemas/synnax/device"
+import "schemas/synnax/http"
+import "schemas/synnax/task"
+import "schemas/x/telem"
+
+@go output "core/pkg/service/kafka"
+@py output "client/py/synnax/kafka"
+@ts output "client/ts/src/kafka"
+
+Credentials struct {
+    username string = "" {
+        @doc value "is the SASL username."
+    }
+    password string = "" {
+        @doc value "is the SASL password."
+    }
+
+    @doc value "carries the username and password of a SASL mechanism."
+}
+
+SASL union on mechanism {
+    none {
+        @doc value "authenticates with no credentials."
+    }
+    plain extends Credentials {
+        @doc value "authenticates with the PLAIN mechanism."
+    }
+    scram_sha_256 extends Credentials {
+        @doc value "authenticates with the SCRAM-SHA-256 mechanism."
+    }
+    scram_sha_512 extends Credentials {
+        @doc value "authenticates with the SCRAM-SHA-512 mechanism."
+    }
+
+    @doc value "selects the SASL mechanism and the credentials it carries."
+}
+
+Properties struct {
+    brokers string[] {
+        @doc value "contains the bootstrap broker addresses, as host:port."
+    }
+    tls     bool = false {
+        @doc value "is true when every broker connection uses TLS."
+    }
+    sasl    SASL = none {
+        @doc value "is the authentication the brokers require."
+    }
+
+    @doc value "configures the connection to a Kafka cluster device."
+}
+
+StartOffset enum {
+    latest   = "latest"
+    earliest = "earliest"
+    none     = "none"
+
+    @doc value """
+        is where a consumer group with no committed offset starts reading a topic. none
+        fails the start instead of guessing.
+    """
+}
+
+RecordKey enum {
+    none         = "none"
+    channel_name = "channel_name"
+
+    @doc value "is the source of the key placed on every record a write task produces."
+}
+
+ScanConfig struct extends task.ScanConfig {
+    @doc value  "configures a Kafka scan task."
+    @go marshal
+    @go migrate
+}
+
+ReadField struct {
+    key         string = create {
+        @doc value "uniquely identifies the field within the task."
+        @key
+    }
+    disabled    bool = false {
+        @doc value "is true when the field is excluded from the task."
+    }
+    name        string = "" {
+        @doc value "is the name given to the channel when the task creates it."
+    }
+    channel     channel.Key = 0 {
+        @doc value "is the Synnax channel the extracted value is written to."
+    }
+    pointer     string = "" {
+        @doc value "is the JSON Pointer to the value within the record value."
+    }
+    data_type   telem.DataType = "float64" {
+        @doc value "is the data type of the extracted value."
+        @ts type   "string"
+    }
+    time_format http.TimeFormat? {
+        @doc value """
+            is the encoding of the JSON value when the target channel holds timestamps.
+            Required for timestamp channels.
+        """
+    }
+    enum_values http.EnumEntry[] {
+        @doc value "maps string labels in the record to numeric channel values."
+    }
+    record_key  string = "" {
+        @doc value """
+            is the group the field belongs to: records with this key, or every record
+            not claimed by another group when empty. A group shares one index.
+        """
+    }
+
+    @doc value  "is a single value extracted from a record's JSON value."
+    @go marshal
+}
+
+ReadConfig struct extends task.PersistConfig {
+    device       device.Key = "" {
+        @doc value "is the key of the Kafka cluster device to consume from."
+    }
+    topic        string = "" {
+        @doc value "is the topic the task consumes."
+    }
+    group        string = "" {
+        @doc value """
+            is the consumer group the task joins. Empty derives the group from the task
+            key.
+        """
+    }
+    start_offset StartOffset = latest {
+        @doc value "is where the group starts when it has no committed offset."
+    }
+    fields       ReadField[] {
+        @doc value "contains the fields extracted from every record."
+    }
+
+    @doc value  """
+        configures a Kafka read task, which consumes a topic and writes record fields
+        into channels.
+    """
+    @go marshal
+    @go migrate
+}
+
+WriteChannel struct {
+    key         string = create {
+        @doc value "uniquely identifies the channel within the task."
+        @key
+    }
+    disabled    bool = false {
+        @doc value "is true when the channel is excluded from the task."
+    }
+    channel     channel.Key = 0 {
+        @doc value "is the Synnax channel whose samples are produced."
+    }
+    json_type   http.JSONType = number {
+        @doc value "is the JSON type the sample value is serialized as."
+    }
+    time_format http.TimeFormat? {
+        @doc value """
+            is the output encoding when the channel holds timestamps. Required for
+            timestamp channels.
+        """
+    }
+    enum_values http.EnumEntry[] {
+        @doc value """
+            maps numeric channel values to string labels. Only valid when json_type is
+            'string'.
+        """
+    }
+
+    @doc value  "is a channel whose samples a write task produces as records."
+    @go marshal
+}
+
+Record struct {
+    value_pointer     string = "/value" {
+        @doc value "is the JSON Pointer where the sample value is placed."
+    }
+    channel_pointer   string = "/channel" {
+        @doc value """
+            is the JSON Pointer where the channel name is placed. Empty omits the name.
+        """
+    }
+    timestamp_pointer string = "/timestamp" {
+        @doc value """
+            is the JSON Pointer where the sample timestamp is placed. Empty omits the
+            timestamp.
+        """
+    }
+    time_format       http.TimeFormat = unix_ns {
+        @doc value "is the encoding of the sample timestamp."
+    }
+    fields            http.WriteField[] {
+        @doc value "contains additional static or generated record fields."
+    }
+
+    @doc value  "is the shape of every record a write task produces."
+    @go marshal
+}
+
+WriteConfig struct extends task.StartConfig {
+    device     device.Key = "" {
+        @doc value "is the key of the Kafka cluster device to produce to."
+    }
+    topic      string = "" {
+        @doc value "is the topic the task produces to."
+    }
+    record_key RecordKey = channel_name {
+        @doc value "is the source of the key placed on every record."
+    }
+    record     Record = {} {
+        @doc value "is the shape of every record."
+    }
+    channels   WriteChannel[] {
+        @doc value "contains the channels whose samples are produced."
+    }
+
+    @doc value  """
+        configures a Kafka write task, which produces one record per sample of each
+        channel to a topic.
+    """
+    @go marshal
+    @go migrate
+}
