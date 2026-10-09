@@ -41,10 +41,6 @@ download_artifacts() {
     local os_suffix=$(get_os_suffix)
     echo "Downloading artifacts from run: $run_id"
 
-    # Verify the run exists
-    echo "Verifying run $run_id exists..."
-    gh run view $run_id
-
     # Create binaries directory
     mkdir -p ./binaries
 
