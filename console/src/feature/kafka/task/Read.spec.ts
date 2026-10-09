@@ -85,7 +85,7 @@ describe("Read", () => {
     await screen.findByText(dev.name);
     fireEvent.click(getIconButton(container, "add"));
     await screen.findByText("Enum mapping");
-    await selectFromDropdown("Float64", "Timestamp");
+    await selectFromDropdown("float64", "Timestamp");
     await screen.findByText("Time format");
     await waitFor(() => expect(screen.queryByText("Enum mapping")).toBeNull());
   });
