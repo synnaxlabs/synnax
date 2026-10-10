@@ -140,32 +140,14 @@ TEST(Unquote, KeepsUnquoted) {
     EXPECT_EQ(x::strings::unquote(""), "");
 }
 
-TEST(Excerpt, KeepsShortSingleLine) {
-    EXPECT_EQ(x::strings::excerpt("hello world", 20), "hello world");
+TEST(EscapeLineBreaks, KeepsSingleLine) {
+    EXPECT_EQ(x::strings::escape_line_breaks("hello  world\t"), "hello  world\t");
+    EXPECT_EQ(x::strings::escape_line_breaks(""), "");
 }
 
-TEST(Excerpt, CollapsesWhitespaceOntoOneLine) {
+TEST(EscapeLineBreaks, EscapesEveryLineBreak) {
     EXPECT_EQ(
-        x::strings::excerpt("  <html>\n\t<body>  x\r\n</body>\n", 50),
-        "<html> <body> x </body>"
+        x::strings::escape_line_breaks("<html>\n  <body>\r\n</body>\n"),
+        "<html>\\n  <body>\\r\\n</body>\\n"
     );
-}
-
-TEST(Excerpt, CapsWithEllipsis) {
-    EXPECT_EQ(x::strings::excerpt("abcdefghij", 4), "abcd...");
-    EXPECT_EQ(x::strings::excerpt("abcd", 4), "abcd");
-    EXPECT_EQ(x::strings::excerpt("abc defg", 4), "abc...");
-    EXPECT_EQ(x::strings::excerpt("abc defg", 5), "abc d...");
-}
-
-TEST(Excerpt, KeepsUTF8CharactersWhole) {
-    EXPECT_EQ(x::strings::excerpt("abcé", 4), "abcé");
-    EXPECT_EQ(x::strings::excerpt("abcédef", 4), "abcé...");
-    EXPECT_EQ(x::strings::excerpt("abcdé", 4), "abcd...");
-    EXPECT_EQ(x::strings::excerpt("ééééé", 4), "éééé...");
-}
-
-TEST(Excerpt, AllWhitespaceIsEmpty) {
-    EXPECT_EQ(x::strings::excerpt(" \n\t", 10), "");
-    EXPECT_EQ(x::strings::excerpt("", 10), "");
 }

@@ -16,33 +16,20 @@
 
 namespace x::strings {
 
-/// @brief collapses s onto one line and caps its length. Stops reading s at the cut,
-/// which never splits a UTF-8 character.
-/// @param s the string to excerpt.
-/// @param max_len the number of characters kept before the string is cut.
-/// @returns s with each whitespace run replaced by one space, outer whitespace
-/// removed, and "..." appended when more than max_len characters remain.
-[[nodiscard]] inline std::string excerpt(const std::string &s, const size_t max_len) {
+/// @brief escapes the line breaks in s so it occupies one line.
+/// @param s the string to escape.
+/// @returns s with each '\n' and '\r' replaced by the two characters "\\n" and
+/// "\\r". Every other byte is kept as is.
+[[nodiscard]] inline std::string escape_line_breaks(const std::string &s) {
     std::string out;
-    size_t len = 0;
-    bool in_space = true;
-    for (const char c: s) {
-        const auto b = static_cast<unsigned char>(c);
-        if (std::isspace(b)) {
-            in_space = true;
-            continue;
-        }
-        if ((b & 0xC0) == 0x80) {
+    out.reserve(s.size());
+    for (const char c: s)
+        if (c == '\n')
+            out += "\\n";
+        else if (c == '\r')
+            out += "\\r";
+        else
             out += c;
-            continue;
-        }
-        const bool separate = in_space && !out.empty();
-        if (len + (separate ? 2 : 1) > max_len) return out + "...";
-        if (separate) out += ' ';
-        in_space = false;
-        out += c;
-        len += separate ? 2 : 1;
-    }
     return out;
 }
 

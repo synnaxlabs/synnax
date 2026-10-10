@@ -17,9 +17,6 @@
 #include "driver/http/read_task.h"
 
 namespace driver::http {
-/// @brief characters of a rejected response's body kept in the warning.
-constexpr std::size_t BODY_EXCERPT_LEN = 200;
-
 std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task
@@ -275,7 +272,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             auto msg = std::string(to_string(req.method)) + " " + req.url +
                        " returned " + std::to_string(resp.status_code);
             if (!resp.body.empty())
-                msg += ": " + x::strings::excerpt(resp.body, BODY_EXCERPT_LEN);
+                msg += ": " + x::strings::escape_line_breaks(resp.body);
             warnings.push_back(msg);
             continue;
         }

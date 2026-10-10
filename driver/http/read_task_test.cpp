@@ -1559,9 +1559,10 @@ TEST(HTTPReadTask, MixedStatusFailuresBackOff) {
     EXPECT_NE(res.error.data.find("503"), std::string::npos);
 }
 
-/// @brief a rejected endpoint beside a working one should stay a warning whose body
-/// is one capped line, and the working endpoint's data should come through.
-TEST(HTTPReadTask, PartialStatusFailureWarnsWithBodyExcerpt) {
+/// @brief a rejected endpoint beside a working one should stay a warning carrying the
+/// whole body with its line breaks escaped, and the working endpoint's data should
+/// come through.
+TEST(HTTPReadTask, PartialStatusFailureWarnsWithOneLineBody) {
     std::string body = "<html>\n  <body>\n";
     for (int i = 0; i < 40; i++)
         body += "    <p>line " + std::to_string(i) + "</p>\n";
@@ -1584,13 +1585,14 @@ TEST(HTTPReadTask, PartialStatusFailureWarnsWithBodyExcerpt) {
     EXPECT_EQ(fr.size(), 1);
     EXPECT_NEAR(fr.at<double>(2, 0), 1.0, 0.001);
     EXPECT_NE(
-        res.warning.find("/a returned 401: <html> <body> <p>line 0</p>"),
+        res.warning.find("/a returned 401: <html>\\n  <body>\\n    <p>line 0</p>"),
+        std::string::npos
+    );
+    EXPECT_NE(
+        res.warning.find("<p>line 39</p>\\n  </body>\\n</html>"),
         std::string::npos
     );
     EXPECT_EQ(res.warning.find('\n'), std::string::npos);
-    EXPECT_EQ(res.warning.find("</html>"), std::string::npos);
-    EXPECT_NE(res.warning.find("..."), std::string::npos);
-    EXPECT_LT(res.warning.size(), 300);
 }
 
 /// @brief endpoints not sent because the device was unreachable should collapse into
