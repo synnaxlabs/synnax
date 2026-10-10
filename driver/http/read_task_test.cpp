@@ -1486,9 +1486,9 @@ read_once(ReadTaskConfig &cfg, const mock::Server &server, x::telem::Frame &fr) 
 }
 }
 
-/// @brief every endpoint rejected with a critical status should return a critical
-/// error naming each status, so the task stops.
-TEST(HTTPReadTask, AllEndpointsCriticalStatusError) {
+/// @brief every endpoint rejected with a 4xx status should return a temporary error
+/// naming each status, so the pipeline backs off instead of stopping the task.
+TEST(HTTPReadTask, AllEndpoints4xxBacksOff) {
     mock::Server server(
         mock::ServerConfig{
             .routes = {
@@ -1503,17 +1503,18 @@ TEST(HTTPReadTask, AllEndpointsCriticalStatusError) {
     auto cfg = make_multi_endpoint_cfg({"/a", "/b"}, x::telem::Rate(10000));
     x::telem::Frame fr;
     const auto res = read_once(cfg, server, fr);
-    ASSERT_OCCURRED_AS(res.error, errors::CRITICAL_ERROR);
-    EXPECT_FALSE(res.error.matches(errors::TEMPORARY_ERROR));
+    ASSERT_OCCURRED_AS(res.error, errors::TEMPORARY_ERROR);
+    EXPECT_FALSE(res.error.matches(errors::UNREACHABLE_ERROR));
+    EXPECT_FALSE(res.error.matches(errors::CRITICAL_ERROR));
     EXPECT_EQ(fr.size(), 0);
     EXPECT_NE(res.error.data.find("GET"), std::string::npos);
     EXPECT_NE(res.error.data.find("/a returned 401: unauthorized"), std::string::npos);
     EXPECT_NE(res.error.data.find("/b returned 403: forbidden"), std::string::npos);
 }
 
-/// @brief every endpoint rejected with a temporary status should return a temporary
-/// error, so the pipeline breaker backs off.
-TEST(HTTPReadTask, AllEndpointsTemporaryStatusError) {
+/// @brief every endpoint rejected with a 5xx status should return a temporary error,
+/// so the pipeline breaker backs off.
+TEST(HTTPReadTask, AllEndpoints5xxBacksOff) {
     mock::Server server(
         mock::ServerConfig{
             .routes = {
@@ -1535,9 +1536,9 @@ TEST(HTTPReadTask, AllEndpointsTemporaryStatusError) {
     EXPECT_NE(res.error.data.find("/b returned 503"), std::string::npos);
 }
 
-/// @brief one temporary failure among critical ones should keep the error temporary,
-/// so the task retries instead of stopping.
-TEST(HTTPReadTask, MixedStatusFailuresTemporaryError) {
+/// @brief a mix of 4xx and 5xx rejections on every endpoint should return a temporary
+/// error carrying each code.
+TEST(HTTPReadTask, MixedStatusFailuresBackOff) {
     mock::Server server(
         mock::ServerConfig{
             .routes = {

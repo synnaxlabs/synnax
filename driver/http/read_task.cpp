@@ -246,7 +246,6 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
     std::size_t failed = 0;
     std::size_t rejected = 0;
     std::size_t unreachable = 0;
-    std::size_t temporary = 0;
 
     // Parse all response bodies up front so sampling groups can reference them.
     std::vector<bool> ep_parsed(this->cfg.endpoints.size(), false);
@@ -254,7 +253,6 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
         const auto &ep = this->cfg.endpoints[ei];
         auto &[resp, req_err] = results[ei];
 
-        if (req_err.matches(errors::TEMPORARY_ERROR)) temporary++;
         if (req_err.matches(errors::UNREACHABLE_ERROR)) unreachable++;
         if (req_err.matches(errors::SKIPPED_ERROR)) {
             skipped++;
@@ -273,7 +271,6 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
 
         if (auto status_err = errors::from_status(resp.status_code); status_err) {
             rejected++;
-            if (status_err.matches(errors::TEMPORARY_ERROR)) temporary++;
             const auto &req = requests[ei];
             auto msg = std::string(to_string(req.method)) + " " + req.url +
                        " returned " + std::to_string(resp.status_code);
@@ -297,15 +294,15 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             std::to_string(skipped) + " requests not sent, the device was unreachable"
         );
     // An error, not a warning, so the pipeline breaker backs off from a device that
-    // rejects every request. Failures that are all critical stop the task instead.
+    // rejects every request. Always temporary: a 401 during a token refresh or a 404
+    // while a device reboots must not stop the task.
     if (const auto failures = skipped + failed + rejected;
         failures == this->requests.size()) {
-        auto base = errors::CRITICAL_ERROR;
-        if (unreachable == failures)
-            base = errors::UNREACHABLE_ERROR;
-        else if (temporary > 0)
-            base = errors::TEMPORARY_ERROR;
-        res.error = x::errors::Error(base, x::strings::join(warnings, "; "));
+        res.error = x::errors::Error(
+            unreachable == failures ? errors::UNREACHABLE_ERROR
+                                    : errors::TEMPORARY_ERROR,
+            x::strings::join(warnings, "; ")
+        );
         return res;
     }
     if (failed == 0 && skipped == 0 && !this->requests.empty() &&
