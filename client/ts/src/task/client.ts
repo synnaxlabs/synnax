@@ -711,11 +711,10 @@ export class Client extends query.Retriever<
       cmd.task,
       setTimeout(() => {
         this.commandDeadlines.delete(cmd.task);
-        // A newer write answered the command. An older one, such as the creation
-        // placeholder echoing back over the stream, did not.
+        // Only a reply naming this command answers it. Clocks are never compared:
+        // the Driver's reply carries its host's time, not this client's.
         const current = statusStore.get(key);
-        if (current == null) return;
-        if (current !== optimistic && current.time.afterEq(optimistic.time)) return;
+        if (current == null || status.detailsOf(current)?.cmd === cmd.key) return;
         statusStore.set(
           key,
           status.create<StatusDetailsZodObject>({

@@ -1013,6 +1013,62 @@ describe("Task", async () => {
       }
     });
 
+    it("keeps a reply stamped by a Driver clock behind this client's", async () => {
+      const alive = await client.racks.create({ name: `alive-${id.create()}` });
+      const t = await alive.createTask({
+        name: `skew-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const key = task.statusKey(t.key);
+      let seeLoading = (): void => {};
+      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const off = client.statuses.store.subscribe((event) => {
+        if (event.variant === "set" && event.value.variant === "loading") seeLoading();
+      }, key);
+      try {
+        await client.tasks.retrieve({ key: t.key });
+        await setRackStatus(alive.key, "success", "Driver is running");
+        vi.useFakeTimers({
+          toFake: ["setTimeout", "clearTimeout"],
+          shouldAdvanceTime: true,
+        });
+        const cmdKey = await client.tasks.executeCommand({
+          task: t.key,
+          type: "start",
+        });
+        await loading;
+        // The Driver stamps its reply with its own clock, which here runs a minute
+        // behind. The reply names the command, so it answers it all the same.
+        const reply: task.Status = {
+          key,
+          name: "Task Status",
+          variant: "success",
+          message: "Task started successfully",
+          description: "",
+          time: TimeStamp.now().sub(TimeSpan.minutes(1)),
+          details: {
+            task: t.key,
+            running: true,
+            cmd: cmdKey,
+            configHash: "",
+            rack: alive.key,
+            data: {},
+          },
+        };
+        client.statuses.store.set(key, reply);
+        await vi.advanceTimersByTimeAsync(COMMAND_DEADLINE.milliseconds);
+        expect(client.statuses.store.get(key)).toMatchObject({
+          variant: "success",
+          message: "Task started successfully",
+          details: { running: true, cmd: cmdKey },
+        });
+      } finally {
+        vi.useRealTimers();
+        off();
+      }
+    });
+
     it("refetches a cached task whose config was changed by another client", async () => {
       const t = await testRack.createTask({
         name: `set-config-${id.create()}`,
