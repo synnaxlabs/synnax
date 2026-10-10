@@ -154,6 +154,15 @@ TEST(Excerpt, CollapsesWhitespaceOntoOneLine) {
 TEST(Excerpt, CapsWithEllipsis) {
     EXPECT_EQ(x::strings::excerpt("abcdefghij", 4), "abcd...");
     EXPECT_EQ(x::strings::excerpt("abcd", 4), "abcd");
+    EXPECT_EQ(x::strings::excerpt("abc defg", 4), "abc...");
+    EXPECT_EQ(x::strings::excerpt("abc defg", 5), "abc d...");
+}
+
+TEST(Excerpt, KeepsUTF8CharactersWhole) {
+    EXPECT_EQ(x::strings::excerpt("abcé", 4), "abcé");
+    EXPECT_EQ(x::strings::excerpt("abcédef", 4), "abcé...");
+    EXPECT_EQ(x::strings::excerpt("abcdé", 4), "abcd...");
+    EXPECT_EQ(x::strings::excerpt("ééééé", 4), "éééé...");
 }
 
 TEST(Excerpt, AllWhitespaceIsEmpty) {
