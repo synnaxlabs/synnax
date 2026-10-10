@@ -1464,6 +1464,12 @@ mock::Route value_route(const std::string &path, const x::telem::TimeSpan &delay
     };
 }
 
+/// @brief builds a route that answers every request with status_code and body.
+/// @param path the route path.
+/// @param status_code the HTTP status code to answer with.
+/// @param body the response body to answer with.
+/// @returns the route.
+/// @brief builds a GET route that answers with the given status and body.
 mock::Route
 status_route(const std::string &path, const int status_code, const std::string &body) {
     return {
