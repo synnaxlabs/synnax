@@ -17,6 +17,8 @@
 #include "driver/http/read_task.h"
 
 namespace driver::http {
+/// @brief characters of a rejected response's body kept in the warning.
+constexpr std::size_t BODY_EXCERPT_LEN = 200;
 
 std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
     const std::shared_ptr<task::Context> &ctx,
@@ -242,7 +244,9 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
     std::vector<std::string> warnings;
     std::size_t skipped = 0;
     std::size_t failed = 0;
+    std::size_t rejected = 0;
     std::size_t unreachable = 0;
+    std::size_t temporary = 0;
 
     // Parse all response bodies up front so sampling groups can reference them.
     std::vector<bool> ep_parsed(this->cfg.endpoints.size(), false);
@@ -250,6 +254,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
         const auto &ep = this->cfg.endpoints[ei];
         auto &[resp, req_err] = results[ei];
 
+        if (req_err.matches(errors::TEMPORARY_ERROR)) temporary++;
         if (req_err.matches(errors::UNREACHABLE_ERROR)) unreachable++;
         if (req_err.matches(errors::SKIPPED_ERROR)) {
             skipped++;
@@ -267,10 +272,13 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
         }
 
         if (auto status_err = errors::from_status(resp.status_code); status_err) {
+            rejected++;
+            if (status_err.matches(errors::TEMPORARY_ERROR)) temporary++;
             const auto &req = requests[ei];
             auto msg = std::string(to_string(req.method)) + " " + req.url +
                        " returned " + std::to_string(resp.status_code);
-            if (!resp.body.empty()) msg += ": " + resp.body;
+            if (!resp.body.empty())
+                msg += ": " + x::strings::excerpt(resp.body, BODY_EXCERPT_LEN);
             warnings.push_back(msg);
             continue;
         }
@@ -288,12 +296,16 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
         warnings.push_back(
             std::to_string(skipped) + " requests not sent, the device was unreachable"
         );
-    // An error, not a warning, so the pipeline breaker backs off from a dead device.
-    if (unreachable == this->requests.size()) {
-        res.error = x::errors::Error(
-            errors::UNREACHABLE_ERROR,
-            x::strings::join(warnings, "; ")
-        );
+    // An error, not a warning, so the pipeline breaker backs off from a device that
+    // rejects every request. Failures that are all critical stop the task instead.
+    if (const auto failures = skipped + failed + rejected;
+        failures == this->requests.size()) {
+        auto base = errors::CRITICAL_ERROR;
+        if (unreachable == failures)
+            base = errors::UNREACHABLE_ERROR;
+        else if (temporary > 0)
+            base = errors::TEMPORARY_ERROR;
+        res.error = x::errors::Error(base, x::strings::join(warnings, "; "));
         return res;
     }
     if (failed == 0 && skipped == 0 && !this->requests.empty() &&

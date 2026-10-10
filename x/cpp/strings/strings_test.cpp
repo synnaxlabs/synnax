@@ -139,3 +139,24 @@ TEST(Unquote, KeepsUnquoted) {
     EXPECT_EQ(x::strings::unquote("\""), "\"");
     EXPECT_EQ(x::strings::unquote(""), "");
 }
+
+TEST(Excerpt, KeepsShortSingleLine) {
+    EXPECT_EQ(x::strings::excerpt("hello world", 20), "hello world");
+}
+
+TEST(Excerpt, CollapsesWhitespaceOntoOneLine) {
+    EXPECT_EQ(
+        x::strings::excerpt("  <html>\n\t<body>  x\r\n</body>\n", 50),
+        "<html> <body> x </body>"
+    );
+}
+
+TEST(Excerpt, CapsWithEllipsis) {
+    EXPECT_EQ(x::strings::excerpt("abcdefghij", 4), "abcd...");
+    EXPECT_EQ(x::strings::excerpt("abcd", 4), "abcd");
+}
+
+TEST(Excerpt, AllWhitespaceIsEmpty) {
+    EXPECT_EQ(x::strings::excerpt(" \n\t", 10), "");
+    EXPECT_EQ(x::strings::excerpt("", 10), "");
+}

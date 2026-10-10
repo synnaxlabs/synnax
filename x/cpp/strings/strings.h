@@ -9,11 +9,34 @@
 
 #pragma once
 
+#include <cctype>
 #include <string>
 #include <string_view>
 #include <vector>
 
 namespace x::strings {
+
+/// @brief collapses s onto one line and caps its length.
+/// @param s the string to excerpt.
+/// @param max_len the number of characters kept before the string is cut.
+/// @returns s with each whitespace run replaced by one space, outer whitespace
+/// removed, and "..." appended when more than max_len characters remain.
+[[nodiscard]] inline std::string excerpt(const std::string &s, const size_t max_len) {
+    std::string out;
+    bool in_space = true;
+    for (const char c: s) {
+        if (std::isspace(static_cast<unsigned char>(c))) {
+            in_space = true;
+            continue;
+        }
+        if (in_space && !out.empty()) out += ' ';
+        in_space = false;
+        out += c;
+    }
+    if (out.size() <= max_len) return out;
+    out.resize(max_len);
+    return out + "...";
+}
 
 /// @brief writes v as a zero-padded decimal of the given width into the buffer at p.
 /// @param p pointer to at least width writable chars.
