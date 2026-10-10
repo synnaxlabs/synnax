@@ -1123,6 +1123,106 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
         << "Should have a success status with running=false after stop";
 }
 
+TEST(ArcStatusVerification, StopCommandStatusCarriesCommandKey) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+
+    auto input_idx_name = make_unique_channel_name("stop_cmd_input_idx");
+    auto input_name = make_unique_channel_name("stop_cmd_input");
+    auto output_idx_name = make_unique_channel_name("stop_cmd_output_idx");
+    auto output_name = make_unique_channel_name("stop_cmd_output");
+
+    auto input_idx = synnax::channel::Channel{
+        .name = input_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+        .index = 0
+    };
+    ASSERT_NIL(client->channels.create(input_idx));
+    auto output_idx = synnax::channel::Channel{
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+        .index = 0
+    };
+    ASSERT_NIL(client->channels.create(output_idx));
+
+    auto input_ch = synnax::channel::Channel{
+        .name = input_name,
+        .data_type = x::telem::FLOAT32_T,
+        .is_index = false,
+        .index = input_idx.key
+    };
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::FLOAT32_T,
+        .is_index = false,
+        .index = output_idx.key
+    };
+    ASSERT_NIL(client->channels.create(input_ch));
+    ASSERT_NIL(client->channels.create(output_ch));
+
+    synnax::arc::Arc arc_prog{
+        .name = make_unique_channel_name("stop_cmd_test"),
+        .mode = synnax::arc::MODE_TEXT
+    };
+    arc_prog.text = ::arc::text::Text{
+        .raw = "func pass(val f32) f32 { return val }\n" + input_name +
+               " -> pass{} -> " + output_name + "\n"
+    };
+    ASSERT_NIL(client->arcs.create(arc_prog));
+
+    auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("arc_stop_cmd_rack"))
+    );
+
+    synnax::task::Task task_meta{
+        .rack = rack.key,
+        .name = "arc_stop_cmd_test",
+        .type = "arc_runtime",
+    };
+    task_meta.config = nlohmann::json{{"arc_key", arc_prog.key.to_string()}};
+
+    auto parser = x::json::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+
+    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+    auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
+    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+        {input_idx.key, input_ch.key},
+        input_frames
+    );
+
+    auto ctx = std::make_shared<task::MockContext>(client);
+
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+    );
+
+    synnax::task::Command start_cmd{
+        .task = task_meta.key,
+        .type = "start",
+        .key = "stop_cmd_test_start",
+    };
+    task->exec(start_cmd);
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+
+    synnax::task::Command stop_cmd{
+        .task = task_meta.key,
+        .type = "stop",
+        .key = "stop_cmd_test_stop",
+    };
+    task->exec(stop_cmd);
+
+    bool found_stop_reply = false;
+    for (const auto &s: ctx->statuses)
+        if (s.details.cmd == stop_cmd.key && !s.details.running) {
+            found_stop_reply = true;
+            break;
+        }
+    EXPECT_TRUE(found_stop_reply)
+        << "The stop status should carry the stop command's key";
+}
+
 TEST(ArcEdgeCases, RapidStartStop) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
