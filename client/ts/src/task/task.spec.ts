@@ -1069,6 +1069,71 @@ describe("Task", async () => {
       }
     });
 
+    it("keeps a status that follows the reply before the deadline", async () => {
+      const alive = await client.racks.create({ name: `alive-${id.create()}` });
+      const t = await alive.createTask({
+        name: `follow-up-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const key = task.statusKey(t.key);
+      let seeLoading = (): void => {};
+      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const off = client.statuses.store.subscribe((event) => {
+        if (event.variant === "set" && event.value.variant === "loading") seeLoading();
+      }, key);
+      try {
+        await client.tasks.retrieve({ key: t.key });
+        await setRackStatus(alive.key, "success", "Driver is running");
+        vi.useFakeTimers({
+          toFake: ["setTimeout", "clearTimeout"],
+          shouldAdvanceTime: true,
+        });
+        const cmdKey = await client.tasks.executeCommand({
+          task: t.key,
+          type: "start",
+        });
+        await loading;
+        const details = {
+          task: t.key,
+          running: true,
+          cmd: cmdKey,
+          configHash: "",
+          rack: alive.key,
+          data: {},
+        };
+        const reply: task.Status = {
+          key,
+          name: "Task Status",
+          variant: "success",
+          message: "Task started successfully",
+          description: "",
+          time: TimeStamp.now(),
+          details,
+        };
+        client.statuses.store.set(key, reply);
+        // The Driver clears cmd on the statuses that follow its reply, so a hardware
+        // warning before the deadline carries none. The reply already answered.
+        const warning: task.Status = {
+          ...reply,
+          variant: "warning",
+          message: "Sensor out of range",
+          time: TimeStamp.now(),
+          details: { ...details, cmd: "" },
+        };
+        client.statuses.store.set(key, warning);
+        await vi.advanceTimersByTimeAsync(COMMAND_DEADLINE.milliseconds);
+        expect(client.statuses.store.get(key)).toMatchObject({
+          variant: "warning",
+          message: "Sensor out of range",
+          details: { running: true, cmd: "" },
+        });
+      } finally {
+        vi.useRealTimers();
+        off();
+      }
+    });
+
     it("refetches a cached task whose config was changed by another client", async () => {
       const t = await testRack.createTask({
         name: `set-config-${id.create()}`,
