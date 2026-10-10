@@ -94,7 +94,7 @@ const STATUS_NAME = "Task Status";
 /** A command awaiting the Driver's reply, with the timer that gives up on it. */
 interface CommandDeadline {
   cmd: string;
-  timer: ReturnType<typeof setTimeout>;
+  timer: NodeJS.Timeout;
 }
 
 /**
