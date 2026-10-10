@@ -17,7 +17,6 @@
 #include "driver/http/read_task.h"
 
 namespace driver::http {
-
 std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task
@@ -242,6 +241,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
     std::vector<std::string> warnings;
     std::size_t skipped = 0;
     std::size_t failed = 0;
+    std::size_t rejected = 0;
     std::size_t unreachable = 0;
 
     // Parse all response bodies up front so sampling groups can reference them.
@@ -267,10 +267,12 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
         }
 
         if (auto status_err = errors::from_status(resp.status_code); status_err) {
+            rejected++;
             const auto &req = requests[ei];
             auto msg = std::string(to_string(req.method)) + " " + req.url +
                        " returned " + std::to_string(resp.status_code);
-            if (!resp.body.empty()) msg += ": " + resp.body;
+            if (!resp.body.empty())
+                msg += ": " + x::strings::escape_line_breaks(resp.body);
             warnings.push_back(msg);
             continue;
         }
@@ -288,10 +290,14 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
         warnings.push_back(
             std::to_string(skipped) + " requests not sent, the device was unreachable"
         );
-    // An error, not a warning, so the pipeline breaker backs off from a dead device.
-    if (unreachable == this->requests.size()) {
+    // An error, not a warning, so the pipeline breaker backs off from a device that
+    // rejects every request. Always temporary: a 401 during a token refresh or a 404
+    // while a device reboots must not stop the task.
+    if (const auto failures = skipped + failed + rejected;
+        failures == this->requests.size()) {
         res.error = x::errors::Error(
-            errors::UNREACHABLE_ERROR,
+            unreachable == failures ? errors::UNREACHABLE_ERROR
+                                    : errors::TEMPORARY_ERROR,
             x::strings::join(warnings, "; ")
         );
         return res;

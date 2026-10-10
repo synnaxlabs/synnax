@@ -641,108 +641,6 @@ TEST(HTTPReadTask, MissingJSONFieldWarning) {
     EXPECT_EQ(fr.size(), 0);
 }
 
-/// @brief a 5xx status should produce a warning (not a fatal error) and skip the
-/// endpoint's sampling groups.
-TEST(HTTPReadTask, ServerErrorOn5xxWarning) {
-    mock::Server server(
-        mock::ServerConfig{
-            .routes = {{
-                .method = Method::GET,
-                .path = "/api/data",
-                .status_code = 500,
-                .response_body = R"({"error":"internal"})",
-            }},
-        }
-    );
-    ASSERT_NIL(server.start());
-    x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField field;
-    field.pointer = "/value";
-    field.channel = 1;
-
-    ReadEndpoint ep;
-    ep.method = "GET";
-    ep.path = "/api/data";
-    ep.body = "";
-    ep.fields = {field};
-
-    cfg.endpoints = {ep};
-
-    cfg.channels[1] = {.key = 1, .name = "val", .data_type = x::telem::FLOAT64_T};
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
-    ASSERT_NIL(res.error);
-    EXPECT_NE(res.warning.find("GET"), std::string::npos);
-    EXPECT_NE(res.warning.find("/api/data"), std::string::npos);
-    EXPECT_NE(res.warning.find("500"), std::string::npos);
-    EXPECT_NE(res.warning.find(R"({"error":"internal"})"), std::string::npos);
-    EXPECT_EQ(fr.size(), 0);
-}
-
-/// @brief a non-retryable 4xx status should produce a warning and skip the endpoint's
-/// sampling groups.
-TEST(HTTPReadTask, CriticalErrorOn4xxWarning) {
-    mock::Server server(
-        mock::ServerConfig{
-            .routes = {{
-                .method = Method::GET,
-                .path = "/api/data",
-                .status_code = 400,
-                .response_body = R"({"error":"bad request"})",
-            }},
-        }
-    );
-    ASSERT_NIL(server.start());
-    x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField field;
-    field.pointer = "/value";
-    field.channel = 1;
-
-    ReadEndpoint ep;
-    ep.method = "GET";
-    ep.path = "/api/data";
-    ep.body = "";
-    ep.fields = {field};
-
-    cfg.endpoints = {ep};
-
-    cfg.channels[1] = {.key = 1, .name = "val", .data_type = x::telem::FLOAT64_T};
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
-    ASSERT_NIL(res.error);
-    EXPECT_NE(res.warning.find("GET"), std::string::npos);
-    EXPECT_NE(res.warning.find("/api/data"), std::string::npos);
-    EXPECT_NE(res.warning.find("400"), std::string::npos);
-    EXPECT_NE(res.warning.find(R"({"error":"bad request"})"), std::string::npos);
-    EXPECT_EQ(fr.size(), 0);
-}
-
 /// @brief it should convert JSON types correctly (bool to uint8, string to string).
 TEST(HTTPReadTask, TypeConversions) {
     mock::Server server(
@@ -1565,6 +1463,141 @@ mock::Route value_route(const std::string &path, const x::telem::TimeSpan &delay
         .delay = delay,
     };
 }
+
+/// @brief builds a GET route that answers with the given status and body.
+/// @param path the route path.
+/// @param status_code the HTTP status code to answer with.
+/// @param body the response body to answer with.
+/// @returns the route.
+mock::Route
+status_route(const std::string &path, const int status_code, const std::string &body) {
+    return {
+        .method = Method::GET,
+        .path = path,
+        .status_code = status_code,
+        .response_body = body,
+    };
+}
+
+/// @brief polls the config once against the server.
+common::ReadResult
+read_once(ReadTaskConfig &cfg, const mock::Server &server, x::telem::Frame &fr) {
+    auto [source, processor] = make_source(cfg, server.base_url());
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    return res;
+}
+}
+
+/// @brief every endpoint rejected with a 4xx status should return a temporary error
+/// naming each status, so the pipeline backs off instead of stopping the task.
+TEST(HTTPReadTask, AllEndpoints4xxBacksOff) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {
+                status_route("/a", 401, "unauthorized"),
+                status_route("/b", 403, "forbidden"),
+            },
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    auto cfg = make_multi_endpoint_cfg({"/a", "/b"}, x::telem::Rate(10000));
+    x::telem::Frame fr;
+    const auto res = read_once(cfg, server, fr);
+    ASSERT_OCCURRED_AS(res.error, errors::TEMPORARY_ERROR);
+    EXPECT_FALSE(res.error.matches(errors::UNREACHABLE_ERROR));
+    EXPECT_FALSE(res.error.matches(errors::CRITICAL_ERROR));
+    EXPECT_EQ(fr.size(), 0);
+    EXPECT_NE(res.error.data.find("GET"), std::string::npos);
+    EXPECT_NE(res.error.data.find("/a returned 401: unauthorized"), std::string::npos);
+    EXPECT_NE(res.error.data.find("/b returned 403: forbidden"), std::string::npos);
+}
+
+/// @brief every endpoint rejected with a 5xx status should return a temporary error,
+/// so the pipeline breaker backs off.
+TEST(HTTPReadTask, AllEndpoints5xxBacksOff) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {
+                status_route("/a", 503, "unavailable"),
+                status_route("/b", 503, "unavailable"),
+            },
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    auto cfg = make_multi_endpoint_cfg({"/a", "/b"}, x::telem::Rate(10000));
+    x::telem::Frame fr;
+    const auto res = read_once(cfg, server, fr);
+    ASSERT_OCCURRED_AS(res.error, errors::TEMPORARY_ERROR);
+    EXPECT_FALSE(res.error.matches(errors::UNREACHABLE_ERROR));
+    EXPECT_EQ(fr.size(), 0);
+    EXPECT_NE(res.error.data.find("/a returned 503"), std::string::npos);
+    EXPECT_NE(res.error.data.find("/b returned 503"), std::string::npos);
+}
+
+/// @brief a mix of 4xx and 5xx rejections on every endpoint should return a temporary
+/// error carrying each code.
+TEST(HTTPReadTask, MixedStatusFailuresBackOff) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {
+                status_route("/a", 401, "unauthorized"),
+                status_route("/b", 503, "unavailable"),
+            },
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    auto cfg = make_multi_endpoint_cfg({"/a", "/b"}, x::telem::Rate(10000));
+    x::telem::Frame fr;
+    const auto res = read_once(cfg, server, fr);
+    ASSERT_OCCURRED_AS(res.error, errors::TEMPORARY_ERROR);
+    EXPECT_EQ(fr.size(), 0);
+    EXPECT_NE(res.error.data.find("401"), std::string::npos);
+    EXPECT_NE(res.error.data.find("503"), std::string::npos);
+}
+
+/// @brief a rejected endpoint beside a working one should stay a warning carrying the
+/// whole body with its line breaks escaped, and the working endpoint's data should
+/// come through.
+TEST(HTTPReadTask, PartialStatusFailureWarnsWithOneLineBody) {
+    std::string body = "<html>\n  <body>\n";
+    for (int i = 0; i < 40; i++)
+        body += "    <p>line " + std::to_string(i) + "</p>\n";
+    body += "  </body>\n</html>";
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {
+                status_route("/a", 401, body),
+                value_route("/b", x::telem::TimeSpan::ZERO()),
+            },
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    auto cfg = make_multi_endpoint_cfg({"/a", "/b"}, x::telem::Rate(10000));
+    x::telem::Frame fr;
+    const auto res = read_once(cfg, server, fr);
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(fr.size(), 1);
+    EXPECT_NEAR(fr.at<double>(2, 0), 1.0, 0.001);
+    EXPECT_NE(
+        res.warning.find("/a returned 401: <html>\\n  <body>\\n    <p>line 0</p>"),
+        std::string::npos
+    );
+    EXPECT_NE(
+        res.warning.find("<p>line 39</p>\\n  </body>\\n</html>"),
+        std::string::npos
+    );
+    EXPECT_EQ(res.warning.find('\n'), std::string::npos);
 }
 
 /// @brief endpoints not sent because the device was unreachable should collapse into

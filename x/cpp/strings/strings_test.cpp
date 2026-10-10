@@ -139,3 +139,17 @@ TEST(Unquote, KeepsUnquoted) {
     EXPECT_EQ(x::strings::unquote("\""), "\"");
     EXPECT_EQ(x::strings::unquote(""), "");
 }
+
+/// @brief a string without line breaks should come back unchanged.
+TEST(EscapeLineBreaks, KeepsSingleLine) {
+    EXPECT_EQ(x::strings::escape_line_breaks("hello  world\t"), "hello  world\t");
+    EXPECT_EQ(x::strings::escape_line_breaks(""), "");
+}
+
+/// @brief every '\n' and '\r' should become its two-character escape.
+TEST(EscapeLineBreaks, EscapesEveryLineBreak) {
+    EXPECT_EQ(
+        x::strings::escape_line_breaks("<html>\n  <body>\r\n</body>\n"),
+        "<html>\\n  <body>\\r\\n</body>\\n"
+    );
+}
