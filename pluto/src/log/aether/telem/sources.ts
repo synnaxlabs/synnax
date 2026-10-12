@@ -32,8 +32,8 @@ import { AbstractSource } from "@/telem/aether/telem";
 
 const MAX_ENTRIES = 100_000;
 
-// The stream delivers a data allocation and its index allocation in separate callbacks
-// when a burst crosses buffers, so a few recent index allocations stay in reach.
+// A data allocation and its index allocation can arrive in different stream callbacks,
+// so a few recent index allocations stay in reach.
 const MAX_INDEX_BUFFERS = 4;
 
 const rangeZ = z.discriminatedUnion("variant", [
@@ -302,9 +302,8 @@ export class MultiChannelLog
   private pushStored(meta: ChannelMeta, data: MultiSeries, index: MultiSeries): void {
     for (const s of data.series)
       for (let i = 0; i < s.length; i++) {
-        const t = index.atAlignment(sampleAlignment(s, i));
-        if (t == null) continue;
-        const time = BigInt(t as bigint);
+        const time = index.atAlignment(sampleAlignment(s, i)) as bigint | undefined;
+        if (time == null) continue;
         if (meta.streamStart != null && time >= meta.streamStart) continue;
         this.insert(meta, s, i, time);
         if (meta.highWater == null || time > meta.highWater) meta.highWater = time;
@@ -378,8 +377,8 @@ const sampleAlignment = (s: Series, i: number): bigint =>
 
 const findTime = (buffers: Series[], alignment: bigint): bigint | null => {
   for (const s of buffers) {
-    const t = s.atAlignment(alignment);
-    if (t != null) return BigInt(t as bigint);
+    const time = s.atAlignment(alignment) as bigint | undefined;
+    if (time != null) return time;
   }
   return null;
 };

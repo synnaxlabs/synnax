@@ -44,13 +44,20 @@ export const parseSpan = (input: string): number | null => {
   return total > 0 ? total : null;
 };
 
-export interface CustomInputProps {
+export interface CustomInputProps extends Omit<
+  Input.ItemProps,
+  "label" | "onChange" | "children"
+> {
   value: lineplot.CustomRange | undefined;
   onChange: (value: lineplot.CustomRange) => void;
 }
 
 /** Edits the rolling window the "custom" range key resolves to. */
-export const CustomInput = ({ value, onChange }: CustomInputProps): ReactElement => {
+export const CustomInput = ({
+  value,
+  onChange,
+  ...rest
+}: CustomInputProps): ReactElement => {
   const handleChange = useCallback(
     (raw: string) => {
       const span = parseSpan(raw);
@@ -61,7 +68,7 @@ export const CustomInput = ({ value, onChange }: CustomInputProps): ReactElement
   );
   const text = value?.variant === "dynamic" ? new TimeSpan(value.span).toString() : "";
   return (
-    <Input.Item x label="Custom">
+    <Input.Item x label="Custom" {...rest}>
       <Input.Text
         value={text}
         onChange={handleChange}

@@ -21,3 +21,7 @@
 .console-range-select__single-dialog {
     min-width: 400px;
 }
+
+.console-range-select__single {
+    width: 220px;
+}

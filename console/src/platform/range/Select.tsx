@@ -35,11 +35,6 @@ interface SelectMultipleRangesProps extends Omit<
   "resourceName" | "data" | "children"
 > {}
 
-interface SelectSingleRangeProps extends Omit<
-  Select.SingleProps<string, Resolved | undefined>,
-  "resourceName" | "data" | "getItem" | "children"
-> {}
-
 const dynamicIcon = <Icon.Dynamic className={CSS.BE("range-select", "dynamic-icon")} />;
 
 const DynamicListItem = Component.renderProp(
@@ -154,30 +149,6 @@ const singleTriggerProps: Select.SingleTriggerProps = {
     ),
 };
 
-const SelectSingleRange = (props: SelectSingleRangeProps): ReactElement => {
-  const entries = useResolveMultiple();
-  const { data, getItem, retrieve } = List.useStaticData<string, Resolved>({
-    data: entries,
-  });
-  const { fetchMore, search } = List.usePager({ retrieve });
-  return (
-    <Select.Single<string, Resolved | undefined>
-      icon={<Icon.Range />}
-      triggerProps={singleTriggerProps}
-      dialogProps={singleDialogProps}
-      onFetchMore={fetchMore}
-      onSearch={search}
-      {...props}
-      resourceName="range"
-      data={data}
-      getItem={getItem}
-      fixedItems={customItem}
-    >
-      {listItem}
-    </Select.Single>
-  );
-};
-
 export interface SelectSingleInputItemProps extends Omit<
   Input.ItemProps,
   "label" | "onChange" | "children"
@@ -193,16 +164,35 @@ export const SelectSingleInputItem = ({
   onChange,
   disabled,
   ...rest
-}: SelectSingleInputItemProps): ReactElement => (
-  <Input.Item x label="Range" {...rest}>
-    <SelectSingleRange
-      value={value}
-      onChange={onChange}
-      allowNone={false}
-      disabled={disabled}
-    />
-  </Input.Item>
-);
+}: SelectSingleInputItemProps): ReactElement => {
+  const entries = useResolveMultiple();
+  const { data, getItem, retrieve } = List.useStaticData<string, Resolved>({
+    data: entries,
+  });
+  const { fetchMore, search } = List.usePager({ retrieve });
+  return (
+    <Input.Item label="Range" {...rest}>
+      <Select.Single<string, Resolved | undefined>
+        value={value}
+        onChange={onChange}
+        allowNone={false}
+        disabled={disabled}
+        icon={<Icon.Range />}
+        triggerProps={singleTriggerProps}
+        dialogProps={singleDialogProps}
+        className={CSS.BE("range-select", "single")}
+        onFetchMore={fetchMore}
+        onSearch={search}
+        resourceName="range"
+        data={data}
+        getItem={getItem}
+        fixedItems={customItem}
+      >
+        {listItem}
+      </Select.Single>
+    </Input.Item>
+  );
+};
 
 export interface SelectMultipleInputItemProps
   extends

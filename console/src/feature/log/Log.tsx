@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type LinePlot, Log as Base, Panel as PPanel } from "@synnaxlabs/pluto";
-import { primitive, TimeRange, TimeSpan } from "@synnaxlabs/x";
+import { primitive } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
 import { Controls } from "@/feature/log/Controls";
@@ -25,19 +25,9 @@ const useResolvedRange = (): LinePlot.ResolvedRange | undefined => {
   const custom = Base.useCustomRange();
   const resolved = Range.useResolve(key);
   return useMemo(() => {
-    if (key === Range.CUSTOM_KEY) {
-      if (custom == null) return undefined;
-      return custom.variant === "dynamic"
-        ? { variant: "dynamic", span: new TimeSpan(custom.span) }
-        : {
-            variant: "static",
-            timeRange: new TimeRange(BigInt(custom.start), BigInt(custom.end)),
-          };
-    }
-    if (resolved == null) return undefined;
-    return resolved.variant === "dynamic"
-      ? { variant: "dynamic", span: new TimeSpan(resolved.span) }
-      : { variant: "static", timeRange: new TimeRange(resolved.timeRange) };
+    if (key === Range.CUSTOM_KEY)
+      return custom == null ? undefined : Range.resolveCustom(custom);
+    return resolved == null ? undefined : Range.toResolvedRange(resolved);
   }, [key, custom, resolved]);
 };
 

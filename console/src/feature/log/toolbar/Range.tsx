@@ -12,7 +12,6 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Access, Log } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
-import { CSS } from "@/platform/css";
 import { Range as PRange } from "@/platform/range";
 
 export const Range = (): ReactElement => {
@@ -30,14 +29,14 @@ export const Range = (): ReactElement => {
     [dispatch],
   );
   return (
-    <Flex.Box x className={CSS.BE("log", "toolbar", "range")}>
+    <Flex.Box x gap="large">
       <PRange.SelectSingleInputItem
         value={range}
         onChange={handleRangeChange}
         disabled={!hasEditPermission}
       />
       {range === PRange.CUSTOM_KEY && (
-        <PRange.CustomInput value={custom} onChange={handleCustomChange} />
+        <PRange.CustomInput x={false} value={custom} onChange={handleCustomChange} />
       )}
     </Flex.Box>
   );
