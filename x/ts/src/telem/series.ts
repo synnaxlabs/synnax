@@ -653,7 +653,10 @@ export class Series<T extends TelemValue = TelemValue>
     } else {
       const d = this.data as Float64Array;
       let max = -Infinity;
-      for (const v of d) if (v > max && v < Infinity) max = v;
+      for (let i = 0; i < d.length; i++) {
+        const v = d[i];
+        if (v > max && v < Infinity) max = v;
+      }
       this.cachedMax = max;
     }
     return this.cachedMax;
@@ -681,7 +684,10 @@ export class Series<T extends TelemValue = TelemValue>
     } else {
       const d = this.data as Float64Array;
       let min = Infinity;
-      for (const v of d) if (v < min && v > -Infinity) min = v;
+      for (let i = 0; i < d.length; i++) {
+        const v = d[i];
+        if (v < min && v > -Infinity) min = v;
+      }
       this.cachedMin = min;
     }
     return this.cachedMin;
