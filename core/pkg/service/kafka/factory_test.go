@@ -102,11 +102,14 @@ var _ = Describe("Factory", func() {
 					Device:      dev,
 					Topic:       "t",
 					StartOffset: kafka.StartOffsetEarliest,
-					Fields: []kafka.ReadField{{
-						Key:      "v",
-						Channel:  data.Key(),
-						Pointer:  "/v",
-						DataType: telem.Float64T,
+					Records: []kafka.ReadRecord{{
+						Key: "r",
+						Fields: []kafka.ReadField{{
+							Key:      "v",
+							Channel:  data.Key(),
+							Pointer:  "/v",
+							DataType: telem.Float64T,
+						}},
 					}},
 				}
 			}),

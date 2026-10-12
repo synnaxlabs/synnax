@@ -516,9 +516,9 @@ var _ = Describe("Read task", func() {
 		dev := createDevice(ctx, clusterProperties())
 		topic := newTopic()
 		dt, t := configure(ctx, kafka.ReadConfig{
-			Device: dev.Key,
-			Topic:  topic,
-			Fields: valueFields(index, data, telem.Float64T, &unixNs, nil),
+			Device:  dev.Key,
+			Topic:   topic,
+			Records: single(valueFields(index, data, telem.Float64T, &unixNs, nil)),
 		})
 		start(ctx, dt, t)
 		stamp := int64(1_700_000_000_000_000_001)
