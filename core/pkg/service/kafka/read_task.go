@@ -489,7 +489,7 @@ func (t *readTask) convert(
 		}
 	}
 	var doc any
-	if err := json.Unmarshal(rec.Value, &doc); err != nil {
+	if err := json.Unmarshal(rec.Value, &doc, preciseNumbers); err != nil {
 		t.skip(ctx, "Record is not JSON: "+err.Error())
 		return nil, row{}, false
 	}
@@ -558,6 +558,9 @@ func (t *readTask) write(ctx context.Context, g *readGroup, rows []row) error {
 			Sync:              new(true),
 			ErrOnUnauthorized: new(true),
 			Mode:              mode,
+			// The offsets commit once Write returns, so the index must persist every
+			// commit before then or a crash loses samples Kafka will not replay.
+			AutoIndexPersistInterval: ts.AlwaysIndexPersistOnAutoCommit,
 		})
 		if err != nil {
 			return errors.Wrapf(err, "opening writer for key %q", g.key)

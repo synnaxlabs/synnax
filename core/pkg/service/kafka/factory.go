@@ -146,10 +146,10 @@ func (f *factory) ConfigureTask(
 			f.reportConfigError(ctx, t, cmdKey, err)
 			return nil, err
 		}
-		// A successful configure writes no status: the start that follows it answers
-		// the command, and a "configured" status would answer it first.
+		// A successful configure writes no status, so a start answers the command. An
+		// auto-start that fails must answer it too, since no start follows.
 		if rt.cfg.AutoStart {
-			if err := rt.start(ctx, driver.NoCommand); err != nil {
+			if err := rt.start(ctx, cmdKey); err != nil {
 				return nil, err
 			}
 		}
@@ -161,7 +161,7 @@ func (f *factory) ConfigureTask(
 			return nil, err
 		}
 		if wt.cfg.AutoStart {
-			if err := wt.start(ctx, driver.NoCommand); err != nil {
+			if err := wt.start(ctx, cmdKey); err != nil {
 				return nil, err
 			}
 		}

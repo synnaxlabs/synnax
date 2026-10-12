@@ -10,6 +10,7 @@
 package kafka_test
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/pem"
 	"time"
@@ -18,12 +19,14 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/security/mock"
+	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/address"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/twmb/franz-go/pkg/kfake"
@@ -75,6 +78,49 @@ var _ = Describe("Factory", func() {
 			},
 		)
 	})
+
+	DescribeTable("Should answer the command when an auto-started task fails to start",
+		func(
+			ctx SpecContext,
+			typ string,
+			build func(ctx context.Context, dev device.Key) any,
+		) {
+			dev := createDevice(ctx, kafka.Properties{Brokers: []string{"127.0.0.1:1"}})
+			t := newTask(typ, build(ctx, dev.Key))
+			Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().
+				To(MatchError(ContainSubstring("connecting to cluster")))
+			stat := taskStatus(ctx, t)
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Details.Running).To(BeFalse())
+			Expect(stat.Details.Cmd).To(Equal("cmd-1"))
+		},
+		Entry("read", kafka.ReadTaskType,
+			func(ctx context.Context, dev device.Key) any {
+				_, data := createIndexed(ctx, telem.Float64T)
+				return kafka.ReadConfig{
+					AutoStart:   true,
+					Device:      dev,
+					Topic:       "t",
+					StartOffset: kafka.StartOffsetEarliest,
+					Fields: []kafka.ReadField{{
+						Key:      "v",
+						Channel:  data.Key(),
+						Pointer:  "/v",
+						DataType: telem.Float64T,
+					}},
+				}
+			}),
+		Entry("write", kafka.WriteTaskType,
+			func(ctx context.Context, dev device.Key) any {
+				_, data := createIndexed(ctx, telem.Float64T)
+				return kafka.WriteConfig{
+					AutoStart: true,
+					Device:    dev,
+					Topic:     "t",
+					Channels:  []kafka.WriteChannel{{Key: "c1", Channel: data.Key()}},
+				}
+			}),
+	)
 
 	Describe("Scan task", func() {
 		var (

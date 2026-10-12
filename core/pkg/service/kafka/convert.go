@@ -10,6 +10,8 @@
 package kafka
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"strconv"
 	"time"
 	"uuid"
@@ -19,6 +21,38 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
+
+// preciseNumbers decodes a JSON integer into an int64 or uint64, so large integers
+// and nanosecond timestamps survive the trip through an any.
+var preciseNumbers = json.WithUnmarshalers(json.UnmarshalFromFunc(
+	func(dec *jsontext.Decoder, v *any) error {
+		if dec.PeekKind() != '0' {
+			return errors.ErrUnsupported
+		}
+		raw, err := dec.ReadValue()
+		if err != nil {
+			return err
+		}
+		*v, err = parseNumber(string(raw))
+		return err
+	},
+))
+
+// parseNumber converts the text of a JSON number into an int64 or uint64 when it is an
+// integer that fits, and a float64 otherwise.
+func parseNumber(text string) (any, error) {
+	if i, err := strconv.ParseInt(text, 10, 64); err == nil {
+		return i, nil
+	}
+	if u, err := strconv.ParseUint(text, 10, 64); err == nil {
+		return u, nil
+	}
+	f, err := strconv.ParseFloat(text, 64)
+	if err != nil {
+		return nil, errors.Wrapf(validate.ErrValidation, "invalid number %q", text)
+	}
+	return f, nil
+}
 
 // timeUnit returns the span one unit of a numeric time format counts.
 func timeUnit(format http.TimeFormat) (telem.TimeSpan, error) {
@@ -53,15 +87,20 @@ func parseTimestamp(raw any, format http.TimeFormat) (telem.TimeStamp, error) {
 		}
 		return telem.NewTimeStamp(t), nil
 	}
-	f, ok := raw.(float64)
-	if !ok {
-		return 0, errors.Wrapf(validate.ErrValidation, "expected a number, got %T", raw)
-	}
 	unit, err := timeUnit(format)
 	if err != nil {
 		return 0, err
 	}
-	return telem.TimeStamp(f * float64(unit)), nil
+	switch n := raw.(type) {
+	case int64:
+		return telem.TimeStamp(n) * telem.TimeStamp(unit), nil
+	case uint64:
+		return telem.TimeStamp(n) * telem.TimeStamp(unit), nil
+	case float64:
+		return telem.TimeStamp(n * float64(unit)), nil
+	default:
+		return 0, errors.Wrapf(validate.ErrValidation, "expected a number, got %T", raw)
+	}
 }
 
 // formatTimestamp encodes ts as a JSON value in format. Nanoseconds stay integral so
@@ -125,7 +164,7 @@ func readSample(
 		return nil, errors.Wrapf(validate.ErrValidation, "unsupported data type %s", dt)
 	}
 	switch v := raw.(type) {
-	case float64, bool:
+	case float64, int64, uint64, bool:
 		return v, nil
 	case string:
 		for _, e := range enums {
@@ -141,40 +180,65 @@ func readSample(
 	}
 }
 
-// numericAt returns sample i of a fixed-density series as a float64.
-func numericAt(s telem.Series, i int) (float64, error) {
+// sampleNumber returns sample i of a fixed-density series as a JSON number. Integer
+// types stay int64 or uint64 so no precision is lost; the rest become float64.
+func sampleNumber(s telem.Series, i int) (any, error) {
 	switch s.DataType {
 	case telem.Float64T:
 		return s.ValueAt[float64](i), nil
 	case telem.Float32T:
 		return float64(s.ValueAt[float32](i)), nil
 	case telem.Int64T:
-		return float64(s.ValueAt[int64](i)), nil
+		return s.ValueAt[int64](i), nil
 	case telem.Int32T:
-		return float64(s.ValueAt[int32](i)), nil
+		return int64(s.ValueAt[int32](i)), nil
 	case telem.Int16T:
-		return float64(s.ValueAt[int16](i)), nil
+		return int64(s.ValueAt[int16](i)), nil
 	case telem.Int8T:
-		return float64(s.ValueAt[int8](i)), nil
+		return int64(s.ValueAt[int8](i)), nil
 	case telem.Uint64T:
-		return float64(s.ValueAt[uint64](i)), nil
+		return s.ValueAt[uint64](i), nil
 	case telem.Uint32T:
-		return float64(s.ValueAt[uint32](i)), nil
+		return uint64(s.ValueAt[uint32](i)), nil
 	case telem.Uint16T:
-		return float64(s.ValueAt[uint16](i)), nil
+		return uint64(s.ValueAt[uint16](i)), nil
 	case telem.Uint8T:
-		return float64(s.ValueAt[uint8](i)), nil
+		return uint64(s.ValueAt[uint8](i)), nil
 	case telem.BooleanT:
 		if s.ValueAt[bool](i) {
-			return 1, nil
+			return int64(1), nil
 		}
-		return 0, nil
+		return int64(0), nil
 	case telem.TimestampT:
-		return float64(s.ValueAt[telem.TimeStamp](i)), nil
+		return int64(s.ValueAt[telem.TimeStamp](i)), nil
 	default:
-		return 0, errors.Wrapf(
+		return nil, errors.Wrapf(
 			validate.ErrValidation, "data type %s is not numeric", s.DataType,
 		)
+	}
+}
+
+// numberFloat converts a value sampleNumber returned into a float64.
+func numberFloat(n any) float64 {
+	switch v := n.(type) {
+	case int64:
+		return float64(v)
+	case uint64:
+		return float64(v)
+	default:
+		return v.(float64)
+	}
+}
+
+// formatNumber formats a value sampleNumber returned as a decimal string.
+func formatNumber(n any) string {
+	switch v := n.(type) {
+	case int64:
+		return strconv.FormatInt(v, 10)
+	case uint64:
+		return strconv.FormatUint(v, 10)
+	default:
+		return strconv.FormatFloat(v.(float64), 'g', -1, 64)
 	}
 }
 
@@ -201,26 +265,27 @@ func writeSample(s telem.Series, i int, ch WriteChannel) (any, error) {
 		}
 		return string(s.At(i)), nil
 	}
-	f, err := numericAt(s, i)
+	n, err := sampleNumber(s, i)
 	if err != nil {
 		return nil, err
 	}
 	switch ch.JSONType {
 	case http.JSONTypeNumber:
-		return f, nil
+		return n, nil
 	case http.JSONTypeBoolean:
-		return f != 0, nil
+		return numberFloat(n) != 0, nil
 	case http.JSONTypeString:
 		if len(ch.EnumValues) == 0 {
-			return strconv.FormatFloat(f, 'g', -1, 64), nil
+			return formatNumber(n), nil
 		}
+		f := numberFloat(n)
 		for _, e := range ch.EnumValues {
 			if e.Value == f {
 				return e.Label, nil
 			}
 		}
 		return nil, errors.Wrapf(
-			validate.ErrValidation, "no enum label for value %v", f,
+			validate.ErrValidation, "no enum label for value %v", n,
 		)
 	default:
 		return nil, errors.Wrapf(

@@ -287,6 +287,9 @@ var _ = Describe("Write task", func() {
 		Entry("float64 as a string",
 			telem.Float64T, telem.NewSeriesV[float64](2.5),
 			kafka.WriteChannel{JSONType: http.JSONTypeString}, "2.5"),
+		Entry("int64 as a string",
+			telem.Int64T, telem.NewSeriesV[int64](9007199254740993),
+			kafka.WriteChannel{JSONType: http.JSONTypeString}, "9007199254740993"),
 		Entry("a timestamp in unix milliseconds",
 			telem.TimestampT, telem.NewSeriesV(10*telem.SecondTS),
 			kafka.WriteChannel{TimeFormat: &unixMs}, 10_000.0),
@@ -300,6 +303,15 @@ var _ = Describe("Write task", func() {
 			telem.UUIDT, telem.NewSeriesV(writeUUID),
 			kafka.WriteChannel{JSONType: http.JSONTypeString}, writeUUID.String()),
 	)
+
+	It("Should keep an int64 sample beyond float64 precision", func(ctx SpecContext) {
+		index, data, topic, _ := startOne(ctx, telem.Int64T, kafka.WriteChannel{})
+		writeFrame(ctx, index, data,
+			[]telem.TimeStamp{telem.TimeStamp(10 * telem.Second)},
+			telem.NewSeriesV[int64](9007199254740993))
+		recs := consume(ctx, topic, 1)
+		Expect(string(recs[0].Value)).To(ContainSubstring(`"value":9007199254740993`))
+	})
 
 	DescribeTable("Should report a sample that does not serialize",
 		func(

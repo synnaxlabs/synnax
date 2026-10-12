@@ -11,6 +11,7 @@ package kafka_test
 
 import (
 	"context"
+	"math"
 	"time"
 	"uuid"
 
@@ -470,6 +471,17 @@ var _ = Describe("Read task", func() {
 			telem.Float64T, http.TimeFormatISO8601, nil,
 			map[string]any{"ts": "1970-01-01T00:00:10Z", "v": 1.5},
 			telem.NewSeriesV[float64](1.5)),
+		Entry("an integer into a float channel",
+			telem.Float64T, http.TimeFormatUnixNs, nil,
+			map[string]any{"ts": 10e9, "v": 2}, telem.NewSeriesV[float64](2)),
+		Entry("an integer beyond float64 precision",
+			telem.Int64T, http.TimeFormatUnixNs, nil,
+			map[string]any{"ts": 10e9, "v": int64(9007199254740993)},
+			telem.NewSeriesV[int64](9007199254740993)),
+		Entry("the largest unsigned integer",
+			telem.Uint64T, http.TimeFormatUnixNs, nil,
+			map[string]any{"ts": 10e9, "v": uint64(math.MaxUint64)},
+			telem.NewSeriesV[uint64](math.MaxUint64)),
 		Entry("an enum label",
 			telem.Uint8T, http.TimeFormatUnixNs, onOff,
 			map[string]any{"ts": 10e9, "v": "ON"}, telem.NewSeriesV[uint8](1)),
@@ -481,6 +493,23 @@ var _ = Describe("Read task", func() {
 			map[string]any{"ts": 10e9, "v": readUUID.String()},
 			telem.NewSeriesV(readUUID)),
 	)
+
+	It("Should keep every nanosecond of a unix_ns timestamp", func(ctx SpecContext) {
+		index, data := createIndexed(ctx, telem.Float64T)
+		dev := createDevice(ctx, clusterProperties())
+		topic := newTopic()
+		dt, t := configure(ctx, kafka.ReadConfig{
+			Device: dev.Key,
+			Topic:  topic,
+			Fields: valueFields(index, data, telem.Float64T, &unixNs, nil),
+		})
+		start(ctx, dt, t)
+		stamp := int64(1_700_000_000_000_000_001)
+		produceJSON(ctx, producer, topic, "", map[string]any{"ts": stamp, "v": 1.5})
+		expectStored(ctx, data.Key(), 1)
+		Expect(timestamps(stored(ctx, index.Key()))).
+			To(Equal([]telem.TimeStamp{telem.TimeStamp(stamp)}))
+	})
 
 	DescribeTable("Should skip a record whose value does not convert",
 		func(
