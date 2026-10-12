@@ -10,6 +10,7 @@
 package check_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -626,6 +627,50 @@ Ranges struct {
 Channel struct {
 	key uuid @key
 	ranges Ranges
+}
+`)
+		Expect(aliasHints(run(p))).To(BeEmpty())
+	})
+
+	It("Should pass a union whose inline variant changes only a default", func() {
+		window := func(span int) string {
+			return fmt.Sprintf(`
+Window union on variant {
+	rolling {
+		span int32 = %d
+	}
+	fixed {
+		start int32
+	}
+
+	@go marshal
+}
+
+Channel struct {
+	key uuid @key
+	window Window
+
+	@go marshal
+}
+`, span)
+		}
+		write("schemas/synnax/versions/channel/v0.oracle", window(1))
+		write("schemas/synnax/versions/channel/v1.oracle", window(2))
+		p := analyzeLive(`
+@go output "core/pkg/service/channel"
+
+Window union on variant {
+	rolling {
+		span int32 = 2
+	}
+	fixed {
+		start int32
+	}
+}
+
+Channel struct {
+	key uuid @key
+	window Window
 }
 `)
 		Expect(aliasHints(run(p))).To(BeEmpty())
