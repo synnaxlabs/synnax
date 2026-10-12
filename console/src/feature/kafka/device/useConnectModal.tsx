@@ -146,6 +146,8 @@ const SASL_ITEMS = (
   </>
 );
 
+const SASL_TRIGGER_PROPS = { className: CSS.BE("kafka-connect", "sasl") };
+
 /** Selects the SASL mechanism and, for the ones that carry them, the credentials. */
 const SASLFields = () => {
   const { set } = Form.useContext();
@@ -170,6 +172,7 @@ const SASLFields = () => {
             value={sasl.mechanism}
             onChange={handleMechanism}
             resourceName="mechanism"
+            triggerProps={SASL_TRIGGER_PROPS}
           >
             {SASL_ITEMS}
           </Select.Simple>

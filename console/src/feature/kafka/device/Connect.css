@@ -26,3 +26,7 @@
         }
     }
 }
+
+.console-kafka-connect__sasl {
+    width: 180px;
+}
