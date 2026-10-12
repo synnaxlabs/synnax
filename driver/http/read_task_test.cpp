@@ -3615,7 +3615,8 @@ std::pair<x::telem::Frame, common::ReadResult> read_shared_index_group(
             }},
         }
     );
-    if (const auto err = server.start(); err) return {{}, {.error = err}};
+    if (const auto err = server.start(); err)
+        return {x::telem::Frame(), common::ReadResult{.error = err}};
     x::defer::defer stop_server([&server] { server.stop(); });
 
     ReadTaskConfig cfg;

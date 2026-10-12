@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v3"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/migrate"
@@ -28,15 +27,11 @@ var _ = Describe("Migration", func() {
 		"Should keep every read config field and leave invalid floats unfilled",
 		func(ctx SpecContext) {
 			stored := v2.ReadConfig{
-				PersistConfig: task.PersistConfig{
-					StartConfig: task.StartConfig{
-						KeyedConfig: task.KeyedConfig{Key: uuid.New()},
-						AutoStart:   true,
-					},
-					DataSavingDisabled: true,
-				},
-				Device: "dev",
-				Rate:   5,
+				Key:                uuid.New(),
+				AutoStart:          true,
+				DataSavingDisabled: true,
+				Device:             "dev",
+				Rate:               5,
 				Endpoints: []v2.ReadEndpoint{{
 					Key:    "ep",
 					Path:   "/values",
