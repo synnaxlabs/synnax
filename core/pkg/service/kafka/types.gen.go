@@ -56,6 +56,9 @@ type Record = versions.Record
 // each channel to a topic.
 type WriteConfig = versions.WriteConfig
 
+// ReadRecord is a set of fields read from the records with one Kafka key.
+type ReadRecord = versions.ReadRecord
+
 // Credentials carries the username and password of a SASL mechanism.
 type Credentials struct {
 	// Username is the SASL username.

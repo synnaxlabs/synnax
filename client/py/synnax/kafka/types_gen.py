@@ -71,8 +71,6 @@ class ReadField(BaseModel):
             timestamps. Required for timestamp channels.
         enum_values: Maps string labels in the record to numeric or boolean channel
             values.
-        record_key: Is the group the field belongs to: records with this key, or every
-            record not claimed by another group when empty. A group shares one index.
     """
 
     key: str = Field(default_factory=lambda: str(uuid4()))
@@ -83,7 +81,6 @@ class ReadField(BaseModel):
     data_type: telem.DataType = telem.DataType("float64")
     time_format: http.TimeFormat | None = None
     enum_values: list[http.EnumEntry] = Field(default_factory=list)
-    record_key: str = ""
 
     def __hash__(self) -> int:
         return hash(self.key)
@@ -165,23 +162,21 @@ SASL = Annotated[
 ]
 
 
-class ReadConfig(task.PersistConfig):
-    """Configures a Kafka read task, which consumes a topic and writes record fields
-    into channels.
+class ReadRecord(BaseModel):
+    """Is a set of fields read from the records with one Kafka key.
 
     Attributes:
-        device: Is the key of the Kafka cluster device to consume from.
-        topic: Is the topic the task consumes.
-        group: Is the consumer group the task joins. Empty derives the group from the
-            task key.
-        start_offset: Is where the group starts when it has no committed offset.
-        fields: Contains the fields extracted from every record.
+        key: Uniquely identifies the record within the task.
+        record_key: Is the Kafka key of the records read here. Empty reads every record
+            that no other record of the task claims, keyless ones included.
+        index: Is the key of the field whose channel indexes the others. Empty when the
+            task stamps samples on arrival.
+        fields: Contains the values to extract from the record.
     """
 
-    device: device_.Key = ""
-    topic: str = ""
-    group: str = ""
-    start_offset: StartOffset = "latest"
+    key: str = Field(default_factory=lambda: str(uuid4()))
+    record_key: str = ""
+    index: str = ""
     fields: list[ReadField] = Field(default_factory=list)
 
     def __hash__(self) -> int:
@@ -225,3 +220,26 @@ class Properties(BaseModel):
     tls: bool = False
     ca_certificate: str = ""
     sasl: SASL = Field(default_factory=lambda: NoneSASL(mechanism="none"))
+
+
+class ReadConfig(task.PersistConfig):
+    """Configures a Kafka read task, which consumes a topic and writes record fields
+    into channels.
+
+    Attributes:
+        device: Is the key of the Kafka cluster device to consume from.
+        topic: Is the topic the task consumes.
+        group: Is the consumer group the task joins. Empty derives the group from the
+            task key.
+        start_offset: Is where the group starts when it has no committed offset.
+        records: Contains the records the task reads, one per record key.
+    """
+
+    device: device_.Key = ""
+    topic: str = ""
+    group: str = ""
+    start_offset: StartOffset = "latest"
+    records: list[ReadRecord] = Field(default_factory=list)
+
+    def __hash__(self) -> int:
+        return hash(self.key)

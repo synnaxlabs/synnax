@@ -91,9 +91,6 @@ type ReadField struct {
 	TimeFormat *http.TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
 	// EnumValues maps string labels in the record to numeric or boolean channel values.
 	EnumValues []http.EnumEntry `json:"enum_values" msgpack:"enum_values"`
-	// RecordKey is the group the field belongs to: records with this key, or every
-	// record not claimed by another group when empty. A group shares one index.
-	RecordKey string `json:"record_key" msgpack:"record_key"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -116,8 +113,8 @@ type ReadConfig struct {
 	Group string `json:"group" msgpack:"group"`
 	// StartOffset is where the group starts when it has no committed offset.
 	StartOffset StartOffset `json:"start_offset" msgpack:"start_offset"`
-	// Fields contains the fields extracted from every record.
-	Fields []ReadField `json:"fields" msgpack:"fields"`
+	// Records contains the records the task reads, one per record key.
+	Records []ReadRecord `json:"records" msgpack:"records"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -125,8 +122,8 @@ func (r *ReadConfig) ApplyDefaults() {
 	if r.StartOffset == "" {
 		r.StartOffset = StartOffsetLatest
 	}
-	for i := range r.Fields {
-		r.Fields[i].ApplyDefaults()
+	for i := range r.Records {
+		r.Records[i].ApplyDefaults()
 	}
 }
 
@@ -248,4 +245,25 @@ func (w WriteConfig) Validate() error {
 		v.Exec(func() error { return validate.PathedError(w.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}
 	return v.Error()
+}
+
+// ReadRecord is a set of fields read from the records with one Kafka key.
+type ReadRecord struct {
+	// Key uniquely identifies the record within the task.
+	Key string `json:"key" msgpack:"key"`
+	// RecordKey is the Kafka key of the records read here. Empty reads every record
+	// that no other record of the task claims, keyless ones included.
+	RecordKey string `json:"record_key" msgpack:"record_key"`
+	// Index is the key of the field whose channel indexes the others. Empty when the
+	// task stamps samples on arrival.
+	Index string `json:"index" msgpack:"index"`
+	// Fields contains the values to extract from the record.
+	Fields []ReadField `json:"fields" msgpack:"fields"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (r *ReadRecord) ApplyDefaults() {
+	for i := range r.Fields {
+		r.Fields[i].ApplyDefaults()
+	}
 }

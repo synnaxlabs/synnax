@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -114,76 +115,90 @@ func (f *factory) configureRead(ctx context.Context, t task.Task) (*readTask, er
 	}, nil
 }
 
-// buildReadGroups resolves the enabled fields of cfg into groups and validates that
-// each group writes one even frame per record.
+// buildReadGroups resolves the enabled fields of each record in cfg into a group and
+// validates that each group writes one even frame per record.
 func buildReadGroups(
 	ctx context.Context,
 	svc *channel.Service,
 	cfg ReadConfig,
 ) (map[string]*readGroup, error) {
 	var keys channel.Keys
-	for _, fld := range cfg.Fields {
-		if fld.Disabled {
-			continue
+	for _, rec := range cfg.Records {
+		for _, fld := range rec.Fields {
+			if fld.Disabled {
+				continue
+			}
+			if fld.Pointer == "" {
+				return nil, errors.Wrapf(
+					validate.ErrValidation,
+					"field %q: pointer must not be empty",
+					fld.Key,
+				)
+			}
+			if fld.Channel == 0 {
+				return nil, errors.Wrapf(
+					validate.ErrValidation, "field %q: channel must be set", fld.Key,
+				)
+			}
+			keys = append(keys, fld.Channel)
 		}
-		if fld.Pointer == "" {
-			return nil, errors.Wrapf(
-				validate.ErrValidation, "field %q: pointer must not be empty", fld.Key,
-			)
-		}
-		if fld.Channel == 0 {
-			return nil, errors.Wrapf(
-				validate.ErrValidation, "field %q: channel must be set", fld.Key,
-			)
-		}
-		keys = append(keys, fld.Channel)
 	}
 	if len(keys) == 0 {
 		return nil, errors.Wrap(
-			validate.ErrValidation, "fields: at least one must be enabled",
+			validate.ErrValidation, "records: at least one field must be enabled",
 		)
 	}
 	channels, err := retrieveChannels(ctx, svc, keys)
 	if err != nil {
 		return nil, err
 	}
+	claimed := make(set.Set[string])
 	groups := make(map[string]*readGroup)
-	for _, fld := range cfg.Fields {
-		if fld.Disabled {
-			continue
-		}
-		ch := channels[fld.Channel]
-		if ch.DataType != fld.DataType {
+	for _, rec := range cfg.Records {
+		if claimed.Contains(rec.RecordKey) {
 			return nil, errors.Wrapf(
 				validate.ErrValidation,
-				"field %q: data type %s does not match channel %s (%s)",
-				fld.Key, fld.DataType, ch.Name, ch.DataType,
+				"record key %q: claimed by more than one record",
+				rec.RecordKey,
 			)
 		}
-		if ch.DataType == telem.TimestampT && fld.TimeFormat == nil {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"field %q: time_format is required for timestamp channel %s",
-				fld.Key, ch.Name,
-			)
-		}
-		g, ok := groups[fld.RecordKey]
-		if !ok {
-			g = &readGroup{key: fld.RecordKey, stamp: -1, replaying: true}
-			groups[fld.RecordKey] = g
-		}
-		if ch.IsIndex {
-			if g.stamp != -1 {
+		claimed.Add(rec.RecordKey)
+		g := &readGroup{key: rec.RecordKey, stamp: -1, replaying: true}
+		for _, fld := range rec.Fields {
+			if fld.Disabled {
+				continue
+			}
+			ch := channels[fld.Channel]
+			if ch.DataType != fld.DataType {
 				return nil, errors.Wrapf(
 					validate.ErrValidation,
-					"record key %q: more than one field targets an index channel",
-					g.key,
+					"field %q: data type %s does not match channel %s (%s)",
+					fld.Key, fld.DataType, ch.Name, ch.DataType,
 				)
 			}
-			g.stamp = len(g.fields)
+			if ch.DataType == telem.TimestampT && fld.TimeFormat == nil {
+				return nil, errors.Wrapf(
+					validate.ErrValidation,
+					"field %q: time_format is required for timestamp channel %s",
+					fld.Key, ch.Name,
+				)
+			}
+			if isIndex := fld.Key == rec.Index; isIndex != ch.IsIndex {
+				return nil, errors.Wrapf(
+					validate.ErrValidation,
+					"field %q: only the record's index field targets an index channel",
+					fld.Key,
+				)
+			}
+			if fld.Key == rec.Index {
+				g.stamp = len(g.fields)
+			}
+			g.fields = append(g.fields, fld)
+			g.channels = append(g.channels, ch)
 		}
-		g.fields = append(g.fields, fld)
-		g.channels = append(g.channels, ch)
+		if len(g.fields) > 0 {
+			groups[rec.RecordKey] = g
+		}
 	}
 	for _, g := range groups {
 		for i, ch := range g.channels {

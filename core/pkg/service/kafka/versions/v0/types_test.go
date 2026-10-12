@@ -53,20 +53,26 @@ var _ = Describe("ScanConfig", func() {
 var _ = Describe("ReadConfig", func() {
 	Describe("ApplyDefaults", func() {
 		It("Should default the start offset and field data types", func() {
-			cfg := v0.ReadConfig{Fields: []v0.ReadField{{Key: "f"}}}
+			cfg := v0.ReadConfig{Records: []v0.ReadRecord{{
+				Key:    "r",
+				Fields: []v0.ReadField{{Key: "f"}},
+			}}}
 			cfg.ApplyDefaults()
 			Expect(cfg.StartOffset).To(Equal(v0.StartOffsetLatest))
-			Expect(cfg.Fields[0].DataType).To(Equal(telem.Float64T))
+			Expect(cfg.Records[0].Fields[0].DataType).To(Equal(telem.Float64T))
 		})
 
 		It("Should keep the values the caller set", func() {
 			cfg := v0.ReadConfig{
 				StartOffset: v0.StartOffsetNone,
-				Fields:      []v0.ReadField{{Key: "f", DataType: telem.Uint8T}},
+				Records: []v0.ReadRecord{{
+					Key:    "r",
+					Fields: []v0.ReadField{{Key: "f", DataType: telem.Uint8T}},
+				}},
 			}
 			cfg.ApplyDefaults()
 			Expect(cfg.StartOffset).To(Equal(v0.StartOffsetNone))
-			Expect(cfg.Fields[0].DataType).To(Equal(telem.Uint8T))
+			Expect(cfg.Records[0].Fields[0].DataType).To(Equal(telem.Uint8T))
 		})
 	})
 

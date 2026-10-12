@@ -60,11 +60,6 @@ export const readFieldZ = z.object({
    * enumValues maps string labels in the record to numeric or boolean channel values.
    */
   enumValues: http.enumEntryZ.array().default(() => []),
-  /**
-   * recordKey is the group the field belongs to: records with this key, or every record
-   * not claimed by another group when empty. A group shares one index.
-   */
-  recordKey: z.string().default(""),
 });
 export interface ReadField extends z.infer<typeof readFieldZ> {}
 
@@ -158,14 +153,24 @@ export const SASL_SCHEMAS: {
   scram_sha_512: scramSha512SASLZ,
 };
 
-export const readConfigZ = task.persistConfigZ.extend({
-  device: device.keyZ.default(""),
-  topic: z.string().default(""),
-  group: z.string().default(""),
-  startOffset: startOffsetZ.default("latest"),
+/** ReadRecord is a set of fields read from the records with one Kafka key. */
+export const readRecordZ = z.object({
+  /** key uniquely identifies the record within the task. */
+  key: z.string().default(id.create),
+  /**
+   * recordKey is the Kafka key of the records read here. Empty reads every record that
+   * no other record of the task claims, keyless ones included.
+   */
+  recordKey: z.string().default(""),
+  /**
+   * index is the key of the field whose channel indexes the others. Empty when the task
+   * stamps samples on arrival.
+   */
+  index: z.string().default(""),
+  /** fields contains the values to extract from the record. */
   fields: readFieldZ.array().default(() => []),
 });
-export interface ReadConfig extends z.infer<typeof readConfigZ> {}
+export interface ReadRecord extends z.infer<typeof readRecordZ> {}
 
 export const writeConfigZ = task.startConfigZ.extend({
   device: device.keyZ.default(""),
@@ -194,3 +199,12 @@ export const propertiesZ = z.object({
   sasl: saslZ.prefault({ mechanism: "none" }),
 });
 export interface Properties extends z.infer<typeof propertiesZ> {}
+
+export const readConfigZ = task.persistConfigZ.extend({
+  device: device.keyZ.default(""),
+  topic: z.string().default(""),
+  group: z.string().default(""),
+  startOffset: startOffsetZ.default("latest"),
+  records: readRecordZ.array().default(() => []),
+});
+export interface ReadConfig extends z.infer<typeof readConfigZ> {}

@@ -50,3 +50,6 @@ type Record = v0.Record
 // WriteConfig configures a Kafka write task, which produces one record per sample of
 // each channel to a topic.
 type WriteConfig = v0.WriteConfig
+
+// ReadRecord is a set of fields read from the records with one Kafka key.
+type ReadRecord = v0.ReadRecord

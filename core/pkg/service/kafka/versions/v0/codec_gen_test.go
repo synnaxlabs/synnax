@@ -45,17 +45,23 @@ var _ = Describe("Codec", func() {
 				Topic:              "test_5",
 				Group:              "test_6",
 				StartOffset:        v0.StartOffset("latest"),
-				Fields: []v0.ReadField{
+				Records: []v0.ReadRecord{
 					{
-						Key:        "test_9",
-						Disabled:   false,
-						Name:       "test_11",
-						Channel:    channel.Key(13),
-						Pointer:    "test_13",
-						DataType:   telem.DataType("test_14"),
-						TimeFormat: new(http.TimeFormat("iso8601")),
-						EnumValues: []http.EnumEntry{{Label: "test_17", Value: 18.5}},
-						RecordKey:  "test_19",
+						Key:       "test_9",
+						RecordKey: "test_10",
+						Index:     "test_11",
+						Fields: []v0.ReadField{
+							{
+								Key:        "test_13",
+								Disabled:   false,
+								Name:       "test_15",
+								Channel:    channel.Key(17),
+								Pointer:    "test_17",
+								DataType:   telem.DataType("test_18"),
+								TimeFormat: new(http.TimeFormat("iso8601")),
+								EnumValues: []http.EnumEntry{{Label: "test_21", Value: 22.5}},
+							},
+						},
 					},
 				},
 			}),
@@ -67,7 +73,7 @@ var _ = Describe("Codec", func() {
 				Topic:              "",
 				Group:              "",
 				StartOffset:        v0.StartOffset(""),
-				Fields:             []v0.ReadField{},
+				Records:            []v0.ReadRecord{},
 			}),
 			Entry("empty collections", v0.ReadConfig{
 				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -77,7 +83,7 @@ var _ = Describe("Codec", func() {
 				Topic:              "test_5",
 				Group:              "test_6",
 				StartOffset:        v0.StartOffset("latest"),
-				Fields:             []v0.ReadField{},
+				Records:            []v0.ReadRecord{},
 			}),
 		)
 	})
@@ -101,7 +107,6 @@ var _ = Describe("Codec", func() {
 				DataType:   telem.DataType("test_6"),
 				TimeFormat: new(http.TimeFormat("iso8601")),
 				EnumValues: []http.EnumEntry{{Label: "test_9", Value: 10.5}},
-				RecordKey:  "test_11",
 			}),
 			Entry("zero values", v0.ReadField{
 				Key:        "",
@@ -112,7 +117,6 @@ var _ = Describe("Codec", func() {
 				DataType:   telem.DataType(""),
 				TimeFormat: nil,
 				EnumValues: []http.EnumEntry{},
-				RecordKey:  "",
 			}),
 			Entry("empty collections", v0.ReadField{
 				Key:        "test_1",
@@ -123,7 +127,48 @@ var _ = Describe("Codec", func() {
 				DataType:   telem.DataType("test_6"),
 				TimeFormat: new(http.TimeFormat("iso8601")),
 				EnumValues: []http.EnumEntry{},
-				RecordKey:  "test_9",
+			}),
+		)
+	})
+	Describe("ReadRecord", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.ReadRecord) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.ReadRecord
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v0.ReadRecord{
+				Key:       "test_1",
+				RecordKey: "test_2",
+				Index:     "test_3",
+				Fields: []v0.ReadField{
+					{
+						Key:        "test_5",
+						Disabled:   false,
+						Name:       "test_7",
+						Channel:    channel.Key(9),
+						Pointer:    "test_9",
+						DataType:   telem.DataType("test_10"),
+						TimeFormat: new(http.TimeFormat("iso8601")),
+						EnumValues: []http.EnumEntry{{Label: "test_13", Value: 14.5}},
+					},
+				},
+			}),
+			Entry("zero values", v0.ReadRecord{
+				Key:       "",
+				RecordKey: "",
+				Index:     "",
+				Fields:    []v0.ReadField{},
+			}),
+			Entry("empty collections", v0.ReadRecord{
+				Key:       "test_1",
+				RecordKey: "test_2",
+				Index:     "test_3",
+				Fields:    []v0.ReadField{},
 			}),
 		)
 	})
@@ -311,17 +356,23 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 		Topic:              "test_5",
 		Group:              "test_6",
 		StartOffset:        v0.StartOffset("latest"),
-		Fields: []v0.ReadField{
+		Records: []v0.ReadRecord{
 			{
-				Key:        "test_9",
-				Disabled:   false,
-				Name:       "test_11",
-				Channel:    channel.Key(13),
-				Pointer:    "test_13",
-				DataType:   telem.DataType("test_14"),
-				TimeFormat: new(http.TimeFormat("iso8601")),
-				EnumValues: []http.EnumEntry{{Label: "test_17", Value: 18.5}},
-				RecordKey:  "test_19",
+				Key:       "test_9",
+				RecordKey: "test_10",
+				Index:     "test_11",
+				Fields: []v0.ReadField{
+					{
+						Key:        "test_13",
+						Disabled:   false,
+						Name:       "test_15",
+						Channel:    channel.Key(17),
+						Pointer:    "test_17",
+						DataType:   telem.DataType("test_18"),
+						TimeFormat: new(http.TimeFormat("iso8601")),
+						EnumValues: []http.EnumEntry{{Label: "test_21", Value: 22.5}},
+					},
+				},
 			},
 		},
 	}
@@ -350,7 +401,6 @@ func BenchmarkEncodeDecodeReadField(b *testing.B) {
 		DataType:   telem.DataType("test_6"),
 		TimeFormat: new(http.TimeFormat("iso8601")),
 		EnumValues: []http.EnumEntry{{Label: "test_9", Value: 10.5}},
-		RecordKey:  "test_11",
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -360,6 +410,39 @@ func BenchmarkEncodeDecodeReadField(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v0.ReadField
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeReadRecord(b *testing.B) {
+	seed := v0.ReadRecord{
+		Key:       "test_1",
+		RecordKey: "test_2",
+		Index:     "test_3",
+		Fields: []v0.ReadField{
+			{
+				Key:        "test_5",
+				Disabled:   false,
+				Name:       "test_7",
+				Channel:    channel.Key(9),
+				Pointer:    "test_9",
+				DataType:   telem.DataType("test_10"),
+				TimeFormat: new(http.TimeFormat("iso8601")),
+				EnumValues: []http.EnumEntry{{Label: "test_13", Value: 14.5}},
+			},
+		},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.ReadRecord
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -497,17 +580,23 @@ func FuzzDecodeReadConfig(f *testing.F) {
 			Topic:              "test_5",
 			Group:              "test_6",
 			StartOffset:        v0.StartOffset("latest"),
-			Fields: []v0.ReadField{
+			Records: []v0.ReadRecord{
 				{
-					Key:        "test_9",
-					Disabled:   false,
-					Name:       "test_11",
-					Channel:    channel.Key(13),
-					Pointer:    "test_13",
-					DataType:   telem.DataType("test_14"),
-					TimeFormat: new(http.TimeFormat("iso8601")),
-					EnumValues: []http.EnumEntry{{Label: "test_17", Value: 18.5}},
-					RecordKey:  "test_19",
+					Key:       "test_9",
+					RecordKey: "test_10",
+					Index:     "test_11",
+					Fields: []v0.ReadField{
+						{
+							Key:        "test_13",
+							Disabled:   false,
+							Name:       "test_15",
+							Channel:    channel.Key(17),
+							Pointer:    "test_17",
+							DataType:   telem.DataType("test_18"),
+							TimeFormat: new(http.TimeFormat("iso8601")),
+							EnumValues: []http.EnumEntry{{Label: "test_21", Value: 22.5}},
+						},
+					},
 				},
 			},
 		}
@@ -526,7 +615,7 @@ func FuzzDecodeReadConfig(f *testing.F) {
 			Topic:              "",
 			Group:              "",
 			StartOffset:        v0.StartOffset(""),
-			Fields:             []v0.ReadField{},
+			Records:            []v0.ReadRecord{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -543,7 +632,7 @@ func FuzzDecodeReadConfig(f *testing.F) {
 			Topic:              "test_5",
 			Group:              "test_6",
 			StartOffset:        v0.StartOffset("latest"),
-			Fields:             []v0.ReadField{},
+			Records:            []v0.ReadRecord{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -584,7 +673,6 @@ func FuzzDecodeReadField(f *testing.F) {
 			DataType:   telem.DataType("test_6"),
 			TimeFormat: new(http.TimeFormat("iso8601")),
 			EnumValues: []http.EnumEntry{{Label: "test_9", Value: 10.5}},
-			RecordKey:  "test_11",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -602,7 +690,6 @@ func FuzzDecodeReadField(f *testing.F) {
 			DataType:   telem.DataType(""),
 			TimeFormat: nil,
 			EnumValues: []http.EnumEntry{},
-			RecordKey:  "",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -620,7 +707,6 @@ func FuzzDecodeReadField(f *testing.F) {
 			DataType:   telem.DataType("test_6"),
 			TimeFormat: new(http.TimeFormat("iso8601")),
 			EnumValues: []http.EnumEntry{},
-			RecordKey:  "test_9",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -640,6 +726,79 @@ func FuzzDecodeReadField(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v0.ReadField
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeReadRecord(f *testing.F) {
+	{
+		seed := v0.ReadRecord{
+			Key:       "test_1",
+			RecordKey: "test_2",
+			Index:     "test_3",
+			Fields: []v0.ReadField{
+				{
+					Key:        "test_5",
+					Disabled:   false,
+					Name:       "test_7",
+					Channel:    channel.Key(9),
+					Pointer:    "test_9",
+					DataType:   telem.DataType("test_10"),
+					TimeFormat: new(http.TimeFormat("iso8601")),
+					EnumValues: []http.EnumEntry{{Label: "test_13", Value: 14.5}},
+				},
+			},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.ReadRecord{
+			Key:       "",
+			RecordKey: "",
+			Index:     "",
+			Fields:    []v0.ReadField{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.ReadRecord{
+			Key:       "test_1",
+			RecordKey: "test_2",
+			Index:     "test_3",
+			Fields:    []v0.ReadField{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.ReadRecord
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.ReadRecord
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

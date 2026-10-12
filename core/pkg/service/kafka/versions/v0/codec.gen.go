@@ -27,11 +27,11 @@ func (rc ReadConfig) EncodeOrc(w *orc.Writer) error {
 	w.String(rc.Topic)
 	w.String(rc.Group)
 	w.String(string(rc.StartOffset))
-	w.Bool(rc.Fields != nil)
-	if rc.Fields != nil {
-		w.Uint32(uint32(len(rc.Fields)))
-		for i := range rc.Fields {
-			if err := rc.Fields[i].EncodeOrc(w); err != nil {
+	w.Bool(rc.Records != nil)
+	if rc.Records != nil {
+		w.Uint32(uint32(len(rc.Records)))
+		for i := range rc.Records {
+			if err := rc.Records[i].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
@@ -77,9 +77,9 @@ func (rc *ReadConfig) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			rc.Fields = make([]ReadField, n)
-			for i := range rc.Fields {
-				if err = rc.Fields[i].DecodeOrc(r); err != nil {
+			rc.Records = make([]ReadRecord, n)
+			for i := range rc.Records {
+				if err = rc.Records[i].DecodeOrc(r); err != nil {
 					return err
 				}
 			}
@@ -111,7 +111,6 @@ func (rf ReadField) EncodeOrc(w *orc.Writer) error {
 			}
 		}
 	}
-	w.String(rf.RecordKey)
 	return nil
 }
 
@@ -179,8 +178,55 @@ func (rf *ReadField) DecodeOrc(r *orc.Reader) error {
 			}
 		}
 	}
-	if rf.RecordKey, err = r.String(); err != nil {
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (rr ReadRecord) EncodeOrc(w *orc.Writer) error {
+	w.String(rr.Key)
+	w.String(rr.RecordKey)
+	w.String(rr.Index)
+	w.Bool(rr.Fields != nil)
+	if rr.Fields != nil {
+		w.Uint32(uint32(len(rr.Fields)))
+		for i := range rr.Fields {
+			if err := rr.Fields[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (rr *ReadRecord) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if rr.Key, err = r.String(); err != nil {
 		return err
+	}
+	if rr.RecordKey, err = r.String(); err != nil {
+		return err
+	}
+	if rr.Index, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			rr.Fields = make([]ReadField, n)
+			for i := range rr.Fields {
+				if err = rr.Fields[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	return nil
 }

@@ -68,14 +68,33 @@ ReadField struct {
             maps string labels in the record to numeric or boolean channel values.
         """
     }
-    record_key  string = "" {
-        @doc value """
-            is the group the field belongs to: records with this key, or every record
-            not claimed by another group when empty. A group shares one index.
-        """
-    }
 
     @doc value  "is a single value extracted from a record's JSON value."
+    @go marshal
+}
+
+ReadRecord struct {
+    key        string = create {
+        @doc value "uniquely identifies the record within the task."
+        @key
+    }
+    record_key string = "" {
+        @doc value """
+            is the Kafka key of the records read here. Empty reads every record that no
+            other record of the task claims, keyless ones included.
+        """
+    }
+    index      string = "" {
+        @doc value """
+            is the key of the field whose channel indexes the others. Empty when the
+            task stamps samples on arrival.
+        """
+    }
+    fields     ReadField[] {
+        @doc value "contains the values to extract from the record."
+    }
+
+    @doc value  "is a set of fields read from the records with one Kafka key."
     @go marshal
 }
 
@@ -95,8 +114,8 @@ ReadConfig struct extends task.PersistConfig {
     start_offset StartOffset = latest {
         @doc value "is where the group starts when it has no committed offset."
     }
-    fields       ReadField[] {
-        @doc value "contains the fields extracted from every record."
+    records      ReadRecord[] {
+        @doc value "contains the records the task reads, one per record key."
     }
 
     @doc value  """

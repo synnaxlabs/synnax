@@ -54,19 +54,25 @@ var _ = Describe("Service", func() {
 			Expect(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
 				"device": "dev-1",
 				"topic":  "telemetry",
-				"fields": []any{map[string]any{
-					"key":        "f-1",
-					"pointer":    "/value",
+				"records": []any{map[string]any{
+					"key":        "r-1",
 					"record_key": "press_1",
+					"fields": []any{map[string]any{
+						"key":     "f-1",
+						"pointer": "/value",
+					}},
 				}},
 			})).To(Succeed())
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["device"]).To(Equal("dev-1"))
 			Expect(data["topic"]).To(Equal("telemetry"))
-			Expect(data["fields"]).To(HaveExactElements(
+			Expect(data["records"]).To(HaveExactElements(SatisfyAll(
 				HaveKeyWithValue("record_key", "press_1"),
-			))
+				HaveKeyWithValue("fields", HaveExactElements(
+					HaveKeyWithValue("pointer", "/value"),
+				)),
+			)))
 		})
 
 		It("Should apply read config schema defaults to absent fields", func(
@@ -74,13 +80,19 @@ var _ = Describe("Service", func() {
 		) {
 			key := uuid.New()
 			Expect(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
-				"fields": []any{map[string]any{"key": "f-1"}},
+				"records": []any{map[string]any{
+					"key":    "r-1",
+					"fields": []any{map[string]any{"key": "f-1"}},
+				}},
 			})).To(Succeed())
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
 			Expect(data["start_offset"]).To(Equal("latest"))
-			Expect(data["fields"]).To(HaveExactElements(
-				HaveKeyWithValue("data_type", "float64"),
-			))
+			Expect(data["records"]).To(HaveExactElements(SatisfyAll(
+				HaveKeyWithValue("record_key", ""),
+				HaveKeyWithValue("fields", HaveExactElements(
+					HaveKeyWithValue("data_type", "float64"),
+				)),
+			)))
 		})
 
 		It("Should apply write config schema defaults to absent fields", func(

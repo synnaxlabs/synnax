@@ -119,6 +119,18 @@ var _ = Describe("Read task", func() {
 		return out
 	}
 
+	// single wraps fields into one record that reads every key, indexed by the field
+	// keyed "ts" when there is one.
+	single := func(fields []kafka.ReadField) []kafka.ReadRecord {
+		rec := kafka.ReadRecord{Key: "r", Fields: fields}
+		for _, fld := range fields {
+			if fld.Key == "ts" {
+				rec.Index = fld.Key
+			}
+		}
+		return []kafka.ReadRecord{rec}
+	}
+
 	stampedFields := func(index, data channel.Channel) []kafka.ReadField {
 		return []kafka.ReadField{
 			{
@@ -137,9 +149,9 @@ var _ = Describe("Read task", func() {
 		dev := createDevice(ctx, clusterProperties())
 		topic := newTopic()
 		dt, t := configure(ctx, kafka.ReadConfig{
-			Device: dev.Key,
-			Topic:  topic,
-			Fields: stampedFields(index, data),
+			Device:  dev.Key,
+			Topic:   topic,
+			Records: single(stampedFields(index, data)),
 		})
 		start(ctx, dt, t)
 		produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9, "v": 1.5})
@@ -163,12 +175,12 @@ var _ = Describe("Read task", func() {
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device: dev.Key,
 				Topic:  topic,
-				Fields: []kafka.ReadField{{
+				Records: single([]kafka.ReadField{{
 					Key:      "v",
 					Channel:  data.Key(),
 					Pointer:  "/v",
 					DataType: telem.Float64T,
-				}},
+				}}),
 			})
 			before := telem.Now()
 			start(ctx, dt, t)
@@ -187,9 +199,9 @@ var _ = Describe("Read task", func() {
 			dev := createDevice(ctx, clusterProperties())
 			topic := newTopic()
 			dt, t := configure(ctx, kafka.ReadConfig{
-				Device: dev.Key,
-				Topic:  topic,
-				Fields: stampedFields(index, data),
+				Device:  dev.Key,
+				Topic:   topic,
+				Records: single(stampedFields(index, data)),
 			})
 			start(ctx, dt, t)
 			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9})
@@ -208,9 +220,9 @@ var _ = Describe("Read task", func() {
 			dev := createDevice(ctx, clusterProperties())
 			topic := newTopic()
 			dt, t := configure(ctx, kafka.ReadConfig{
-				Device: dev.Key,
-				Topic:  topic,
-				Fields: stampedFields(index, data),
+				Device:  dev.Key,
+				Topic:   topic,
+				Records: single(stampedFields(index, data)),
 			})
 			start(ctx, dt, t)
 			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 20e9, "v": 1.0})
@@ -230,9 +242,9 @@ var _ = Describe("Read task", func() {
 			dev := createDevice(ctx, clusterProperties())
 			topic := newTopic()
 			cfg := kafka.ReadConfig{
-				Device: dev.Key,
-				Topic:  topic,
-				Fields: stampedFields(index, data),
+				Device:  dev.Key,
+				Topic:   topic,
+				Records: single(stampedFields(index, data)),
 			}
 			dt, t := configure(ctx, cfg)
 			start(ctx, dt, t)
@@ -257,9 +269,9 @@ var _ = Describe("Read task", func() {
 			dev := createDevice(ctx, clusterProperties())
 			topic := newTopic()
 			dt, t := configure(ctx, kafka.ReadConfig{
-				Device: dev.Key,
-				Topic:  topic,
-				Fields: stampedFields(index, data),
+				Device:  dev.Key,
+				Topic:   topic,
+				Records: single(stampedFields(index, data)),
 			})
 			start(ctx, dt, t)
 			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9, "v": 1.0})
@@ -276,18 +288,23 @@ var _ = Describe("Read task", func() {
 		indexB, dataB := createIndexed(ctx, telem.Float64T)
 		dev := createDevice(ctx, clusterProperties())
 		topic := newTopic()
-		fields := stampedFields(indexA, dataA)
-		for i := range fields {
-			fields[i].RecordKey = "a"
-		}
-		for _, fld := range stampedFields(indexB, dataB) {
-			fld.RecordKey = "b"
-			fields = append(fields, fld)
-		}
 		dt, t := configure(ctx, kafka.ReadConfig{
 			Device: dev.Key,
 			Topic:  topic,
-			Fields: fields,
+			Records: []kafka.ReadRecord{
+				{
+					Key:       "a",
+					RecordKey: "a",
+					Index:     "ts",
+					Fields:    stampedFields(indexA, dataA),
+				},
+				{
+					Key:       "b",
+					RecordKey: "b",
+					Index:     "ts",
+					Fields:    stampedFields(indexB, dataB),
+				},
+			},
 		})
 		start(ctx, dt, t)
 		produceJSON(ctx, producer, topic, "a", map[string]any{"ts": 10e9, "v": 1.0})
@@ -306,7 +323,7 @@ var _ = Describe("Read task", func() {
 				Device:      dev.Key,
 				Topic:       newTopic(),
 				StartOffset: kafka.StartOffsetNone,
-				Fields:      stampedFields(index, data),
+				Records:     single(stampedFields(index, data)),
 			})
 			dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
 			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
@@ -325,10 +342,10 @@ var _ = Describe("Read task", func() {
 			dev := createDevice(ctx, clusterProperties())
 			topic := newTopic()
 			cfg := kafka.ReadConfig{
-				Device: dev.Key,
-				Topic:  topic,
-				Group:  "group-" + topic,
-				Fields: stampedFields(index, data),
+				Device:  dev.Key,
+				Topic:   topic,
+				Group:   "group-" + topic,
+				Records: single(stampedFields(index, data)),
 			}
 			dt, t := configure(ctx, cfg)
 			start(ctx, dt, t)
@@ -349,9 +366,9 @@ var _ = Describe("Read task", func() {
 		dev := createDevice(ctx, clusterProperties())
 		topic := newTopic()
 		dt, t := configure(ctx, kafka.ReadConfig{
-			Device: dev.Key,
-			Topic:  topic,
-			Fields: stampedFields(index, data),
+			Device:  dev.Key,
+			Topic:   topic,
+			Records: single(stampedFields(index, data)),
 		})
 		start(ctx, dt, t)
 		rec := &kgo.Record{Topic: topic, Value: []byte("{")}
@@ -372,9 +389,9 @@ var _ = Describe("Read task", func() {
 			fields[0].Pointer = "/t~1s"
 			fields[1].Pointer = "/vals/1"
 			dt, t := configure(ctx, kafka.ReadConfig{
-				Device: dev.Key,
-				Topic:  topic,
-				Fields: fields,
+				Device:  dev.Key,
+				Topic:   topic,
+				Records: single(fields),
 			})
 			start(ctx, dt, t)
 			produceJSON(ctx, producer, topic, "", map[string]any{
@@ -394,9 +411,9 @@ var _ = Describe("Read task", func() {
 			fields := stampedFields(index, data)
 			fields[1].Pointer = "v"
 			dt, t := configure(ctx, kafka.ReadConfig{
-				Device: dev.Key,
-				Topic:  topic,
-				Fields: fields,
+				Device:  dev.Key,
+				Topic:   topic,
+				Records: single(fields),
 			})
 			start(ctx, dt, t)
 			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9, "v": 1.0})
@@ -447,9 +464,9 @@ var _ = Describe("Read task", func() {
 			dev := createDevice(ctx, clusterProperties())
 			topic := newTopic()
 			dt, t := configure(ctx, kafka.ReadConfig{
-				Device: dev.Key,
-				Topic:  topic,
-				Fields: valueFields(index, data, dataType, &format, enums),
+				Device:  dev.Key,
+				Topic:   topic,
+				Records: single(valueFields(index, data, dataType, &format, enums)),
 			})
 			start(ctx, dt, t)
 			produceJSON(ctx, producer, topic, "", doc)
@@ -524,9 +541,9 @@ var _ = Describe("Read task", func() {
 			dev := createDevice(ctx, clusterProperties())
 			topic := newTopic()
 			dt, t := configure(ctx, kafka.ReadConfig{
-				Device: dev.Key,
-				Topic:  topic,
-				Fields: valueFields(index, data, dataType, &format, enums),
+				Device:  dev.Key,
+				Topic:   topic,
+				Records: single(valueFields(index, data, dataType, &format, enums)),
 			})
 			start(ctx, dt, t)
 			produceJSON(ctx, producer, topic, "", doc)
@@ -576,9 +593,9 @@ var _ = Describe("Read task", func() {
 			index, data := createIndexed(ctx, telem.Float64T)
 			dev := createDevice(ctx, clusterProperties())
 			cfg := kafka.ReadConfig{
-				Device: dev.Key,
-				Topic:  "t",
-				Fields: build(ctx, index, data),
+				Device:  dev.Key,
+				Topic:   "t",
+				Records: single(build(ctx, index, data)),
 			}
 			Expect(f.ConfigureTask(ctx, newTask(kafka.ReadTaskType, cfg), "cmd-1")).
 				Error().To(SatisfyAll(
@@ -630,5 +647,41 @@ var _ = Describe("Read task", func() {
 					},
 				}
 			}, "share one index"),
+		Entry("an index field on a data channel",
+			func(_ context.Context, _, data channel.Channel) []kafka.ReadField {
+				return []kafka.ReadField{{
+					Key: "ts", Channel: data.Key(), Pointer: "/v",
+					DataType: telem.Float64T,
+				}}
+			}, "only the record's index field"),
+		Entry("a data field on an index channel",
+			func(_ context.Context, index, _ channel.Channel) []kafka.ReadField {
+				return []kafka.ReadField{{
+					Key: "t", Channel: index.Key(), Pointer: "/t",
+					DataType: telem.TimestampT, TimeFormat: &unixNs,
+				}}
+			}, "only the record's index field"),
 	)
+
+	It("Should reject two records claiming one record key", func(ctx SpecContext) {
+		index, data := createIndexed(ctx, telem.Float64T)
+		dev := createDevice(ctx, clusterProperties())
+		rec := kafka.ReadRecord{
+			RecordKey: "a",
+			Index:     "ts",
+			Fields:    stampedFields(index, data),
+		}
+		first, second := rec, rec
+		first.Key, second.Key = "r1", "r2"
+		cfg := kafka.ReadConfig{
+			Device:  dev.Key,
+			Topic:   "t",
+			Records: []kafka.ReadRecord{first, second},
+		}
+		Expect(f.ConfigureTask(ctx, newTask(kafka.ReadTaskType, cfg), "cmd-1")).
+			Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(`record key "a": claimed by more than one`)),
+		))
+	})
 })
