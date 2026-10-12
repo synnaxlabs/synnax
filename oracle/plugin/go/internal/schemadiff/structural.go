@@ -21,8 +21,9 @@ import (
 // each side's references through its own table. It is schemadiff's persisted-shape
 // equality with three tightenings: enums must match member-for-member, the declared
 // field list — omitted fields and their marshal values included — must agree, and the
-// declared defaults must agree. Wire-compatible enum additions need no migration, but
-// they are still a shape change the history must record.
+// declared defaults must agree. A union's inline variant payloads get the same checks.
+// Wire-compatible enum additions need no migration, but they are still a shape change
+// the history must record.
 func StructurallyEqual(
 	old, new resolution.Type, oldTable, newTable *resolution.Table,
 ) bool {
@@ -42,10 +43,39 @@ func StructurallyEqual(
 			}
 		}
 	}
-	if !marshalEqual(old, new) || !defaultsEqual(old, new) {
+	if !marshalEqual(old, new) || !defaultsEqual(old, new) ||
+		!inlinePayloadsEqual(old, new, oldTable, newTable) {
 		return false
 	}
 	return SchemasEqual(old, new, oldTable, newTable)
+}
+
+// inlinePayloadsEqual compares the inline variant payloads of two unions with
+// StructurallyEqual. An inline payload is part of its union's declaration, so its field
+// list and defaults are the union's.
+func inlinePayloadsEqual(
+	old, new resolution.Type, oldTable, newTable *resolution.Table,
+) bool {
+	oldForm, oldOK := old.Form.(resolution.UnionForm)
+	newForm, newOK := new.Form.(resolution.UnionForm)
+	if !oldOK || !newOK {
+		return true
+	}
+	for _, ov := range oldForm.Variants {
+		nv, ok := newForm.Variant(ov.Name)
+		if !ok || nv.Inline != ov.Inline {
+			return false
+		}
+		if !ov.Inline {
+			continue
+		}
+		op, oldFound := ov.Type.Resolve(oldTable)
+		np, newFound := nv.Type.Resolve(newTable)
+		if !oldFound || !newFound || !StructurallyEqual(op, np, oldTable, newTable) {
+			return false
+		}
+	}
+	return len(oldForm.Variants) == len(newForm.Variants)
 }
 
 // marshalEqual compares the codec surface schemadiff cannot see: the declared field
