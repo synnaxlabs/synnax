@@ -57,8 +57,7 @@ const RATE_INPUT_PROPS = {
 } as const;
 
 const NAN_FILL_INPUT_PROPS = {
-  tooltip:
-    "Write NaN for a missing or invalid float value instead of skipping the sample.",
+  tooltip: "Write NaN for invalid floats instead of skipping the sample",
 } as const;
 
 const Properties = () => (
