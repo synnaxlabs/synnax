@@ -43,6 +43,8 @@ import { Task } from "@/platform/task";
 
 const SELECT_TRIGGER_PROPS = { className: CSS.BE("kafka-select", "trigger") };
 
+const TEXT_FIELD_CLASS = CSS.BE("kafka-properties", "text");
+
 const SELECT_DIALOG_PROPS = { className: CSS.BE("kafka-select", "dialog") };
 
 const renderRecordKeySelect = Component.renderProp(
@@ -75,8 +77,9 @@ const renderTimeFormatSelect = Component.renderProp(
 const Properties = () => (
   <>
     <SelectDevice />
-    <Flex.Box x grow>
+    <Flex.Box x grow wrap>
       <PForm.TextField
+        className={TEXT_FIELD_CLASS}
         path="config.topic"
         label="Topic"
         inputProps={TOPIC_INPUT_PROPS}
@@ -87,14 +90,16 @@ const Properties = () => (
       </PForm.Field>
       <Task.Fields.AutoStart />
     </Flex.Box>
-    <Flex.Box x grow>
+    <Flex.Box x grow wrap>
       <PForm.TextField
+        className={TEXT_FIELD_CLASS}
         path="config.record.valuePointer"
         label="Value pointer"
         inputProps={VALUE_POINTER_INPUT_PROPS}
         grow
       />
       <PForm.TextField
+        className={TEXT_FIELD_CLASS}
         path="config.record.channelPointer"
         label="Channel pointer"
         optional
@@ -103,6 +108,7 @@ const Properties = () => (
         grow
       />
       <PForm.TextField
+        className={TEXT_FIELD_CLASS}
         path="config.record.timestampPointer"
         label="Timestamp pointer"
         optional

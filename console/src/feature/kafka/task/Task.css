@@ -43,3 +43,8 @@
 .console-kafka-select__dialog {
     min-width: 184px;
 }
+
+/* A text field wraps to the next line before it shrinks below its basis. */
+.console-kafka-properties__text {
+    flex-basis: 160px;
+}

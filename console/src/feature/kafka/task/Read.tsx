@@ -46,6 +46,8 @@ import { Task } from "@/platform/task";
 
 const SELECT_TRIGGER_PROPS = { className: CSS.BE("kafka-select", "trigger") };
 
+const TEXT_FIELD_CLASS = CSS.BE("kafka-properties", "text");
+
 const SELECT_DIALOG_PROPS = { className: CSS.BE("kafka-select", "dialog") };
 
 const renderStartOffsetSelect = Component.renderProp(
@@ -66,14 +68,16 @@ const renderStartOffsetSelect = Component.renderProp(
 const Properties = () => (
   <>
     <SelectDevice />
-    <Flex.Box x grow>
+    <Flex.Box x grow wrap>
       <PForm.TextField
+        className={TEXT_FIELD_CLASS}
         path="config.topic"
         label="Topic"
         inputProps={TOPIC_INPUT_PROPS}
         grow
       />
       <PForm.TextField
+        className={TEXT_FIELD_CLASS}
         path="config.group"
         label="Consumer group"
         optional
