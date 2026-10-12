@@ -370,3 +370,127 @@ Doc struct {
 		},
 	)
 })
+
+var _ = Describe("Live validation on a frozen union", func() {
+	const v0Source = `
+Payload struct {
+	size int32
+
+	@go marshal
+}
+
+Window union on variant {
+	rolling {
+		span int32
+	}
+	named Payload
+
+	@go marshal
+}
+
+Doc struct {
+	key uuid @key
+	window Window
+
+	@go marshal
+}
+`
+	const liveSource = `
+@go output "core/doc"
+
+Payload struct {
+	size int32 {
+		@validate min 1
+	}
+}
+
+Window union on variant {
+	rolling {
+		span int32 {
+			@validate min 1
+		}
+	}
+	named Payload
+}
+
+Doc struct {
+	key uuid @key
+	window Window
+	name string
+}
+`
+	generate := func(v1 string) map[string]string {
+		GinkgoHelper()
+		root := GinkgoT().TempDir()
+		write := func(rel, content string) {
+			GinkgoHelper()
+			full := filepath.Join(root, rel)
+			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+		}
+		write("schemas/synnax/versions/doc/v0.oracle", v0Source)
+		write("schemas/synnax/versions/doc/v1.oracle", v1)
+		chains := MustSucceed(versions.Discover(root))
+		resolver := versions.NewResolver(chains, analyzer.NewStandardFileLoader(root))
+		table := resolution.NewTable()
+		diag := analyzer.AnalyzeSeeded(
+			GinkgoT().Context(), liveSource, "schemas/synnax/doc.oracle", "doc",
+			analyzer.NewStandardFileLoader(root), table,
+		)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		req := &plugin.Request{Resolutions: table, RepoRoot: root, Versions: resolver}
+		resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(req))
+		byPath := make(map[string]string, len(resp.Files))
+		for _, f := range resp.Files {
+			byPath[f.Path] = string(f.Content)
+		}
+		return byPath
+	}
+	const docV1 = `
+Doc struct {
+	key uuid @key
+	window Window
+	name string
+
+	@go marshal
+}
+`
+
+	It(
+		"Should validate the variant fields of a union the current version aliases",
+		func() {
+			files := generate("Payload = v0.Payload\n\nWindow = v0.Window\n" + docV1)
+			frozen := files["core/doc/versions/v0/types.gen.go"]
+			Expect(frozen).To(ContainSubstring(`GreaterThanEq("span"`))
+			Expect(frozen).To(ContainSubstring(`GreaterThanEq("size"`))
+		},
+	)
+
+	It(
+		"Should leave a frozen union unvalidated once a later version redeclares it",
+		func() {
+			files := generate(`
+Payload struct {
+	size int32
+
+	@go marshal
+}
+
+Window union on variant {
+	rolling {
+		span int32
+	}
+	named Payload
+
+	@go marshal
+}
+` + docV1)
+			Expect(files["core/doc/versions/v0/types.gen.go"]).ToNot(ContainSubstring(
+				`GreaterThanEq("span"`,
+			))
+			Expect(files["core/doc/versions/v1/types.gen.go"]).To(ContainSubstring(
+				`GreaterThanEq("span"`,
+			))
+		},
+	)
+})

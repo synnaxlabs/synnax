@@ -303,8 +303,9 @@ func frozenFile(
 }
 
 // withLiveValidation copies the live file's @validate rules onto the version k types
-// that the chain's current version aliases. The current package's alias is the frozen
-// type, so the frozen Validate is the one the live surface runs.
+// that the chain's current version aliases, and onto the inline variant payloads of
+// those unions. The current package's alias is the frozen type, so the frozen Validate
+// is the one the live surface runs.
 func withLiveValidation(
 	ctx context.Context,
 	req *plugin.Request,
@@ -317,12 +318,29 @@ func withLiveValidation(
 	if err != nil {
 		return err
 	}
-	for i := range table.Types {
-		t := &table.Types[i]
-		if t.Namespace != ns {
+	aliased := make(set.Set[string])
+	for name, def := range surf {
+		if def.Version == k {
+			aliased.Add(ns + "." + name)
+		}
+	}
+	for _, t := range table.Types {
+		u, isUnion := t.Form.(resolution.UnionForm)
+		if !isUnion || !aliased.Contains(t.QualifiedName) {
 			continue
 		}
-		if def, ok := surf[t.Name]; !ok || def.Version != k {
+		for _, v := range u.Variants {
+			if !v.Inline {
+				continue
+			}
+			if payload, ok := v.Type.Resolve(table); ok {
+				aliased.Add(payload.QualifiedName)
+			}
+		}
+	}
+	for i := range table.Types {
+		t := &table.Types[i]
+		if !aliased.Contains(t.QualifiedName) {
 			continue
 		}
 		form, isStruct := t.Form.(resolution.StructForm)
