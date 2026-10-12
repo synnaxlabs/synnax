@@ -14,6 +14,7 @@ import { Access, Log } from "@synnaxlabs/pluto";
 import { type bounds } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
+import { Range } from "@/feature/log/toolbar/Range";
 import { CSS } from "@/platform/css";
 
 const RECEIPT_TIMESTAMP_PRECISION_BOUNDS: bounds.Bounds = { lower: 0, upper: 3 };
@@ -46,14 +47,15 @@ export const Properties = (): ReactElement => {
 
   return (
     <Flex.Box x className={CSS.BE("log", "toolbar", "properties")}>
-      <Input.Item label="Show receipt timestamp">
+      <Range />
+      <Input.Item label="Show timestamp">
         <Input.Switch
           value={!receiptTimestampHidden}
           onChange={handleShowReceiptTimestampChange}
           disabled={!hasEditPermission}
         />
       </Input.Item>
-      <Input.Item label="Receipt timestamp precision">
+      <Input.Item label="Timestamp precision">
         <Input.Numeric
           value={timestampPrecision}
           onChange={handlePrecisionChange}

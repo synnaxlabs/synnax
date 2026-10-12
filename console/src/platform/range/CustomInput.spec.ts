@@ -10,7 +10,7 @@
 import { TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { parseSpan } from "@/feature/lineplot/CustomRangeInput";
+import { parseSpan } from "@/platform/range/CustomInput";
 
 describe("parseSpan", () => {
   describe("valid durations", () => {

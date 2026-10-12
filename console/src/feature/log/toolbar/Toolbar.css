@@ -21,6 +21,11 @@
         gap: 5rem;
     }
 
+    .console-log__toolbar-range {
+        min-width: 200px;
+        max-width: 400px;
+    }
+
     .console-log__toolbar-channels {
         padding: 2rem 1rem;
         overflow: auto;

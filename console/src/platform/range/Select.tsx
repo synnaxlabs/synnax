@@ -34,6 +34,11 @@ interface SelectMultipleRangesProps extends Omit<
   "resourceName" | "data" | "children"
 > {}
 
+interface SelectSingleRangeProps extends Omit<
+  Select.SingleProps<string, Resolved | undefined>,
+  "resourceName" | "data" | "getItem" | "children"
+> {}
+
 const dynamicIcon = <Icon.Dynamic className={CSS.BE("range-select", "dynamic-icon")} />;
 
 const DynamicListItem = Component.renderProp(
@@ -134,6 +139,64 @@ const SelectMultipleRanges = (props: SelectMultipleRangesProps): ReactElement =>
     </Select.Multiple>
   );
 };
+
+const singleTriggerProps: Select.SingleTriggerProps = {
+  renderIcon: (range) =>
+    (range as Resolved | undefined)?.variant === "dynamic" ? (
+      dynamicIcon
+    ) : (
+      <Icon.Range />
+    ),
+};
+
+const SelectSingleRange = (props: SelectSingleRangeProps): ReactElement => {
+  const entries = useResolveMultiple();
+  const { data, getItem, retrieve } = List.useStaticData<string, Resolved>({
+    data: entries,
+  });
+  const { fetchMore, search } = List.usePager({ retrieve });
+  return (
+    <Select.Single<string, Resolved | undefined>
+      icon={<Icon.Range />}
+      triggerProps={singleTriggerProps}
+      onFetchMore={fetchMore}
+      onSearch={search}
+      {...props}
+      resourceName="range"
+      data={data}
+      getItem={getItem}
+      fixedItems={customItem}
+    >
+      {listItem}
+    </Select.Single>
+  );
+};
+
+export interface SelectSingleInputItemProps extends Omit<
+  Input.ItemProps,
+  "label" | "onChange" | "children"
+> {
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}
+
+/** Selects one range: a rolling window, a range the session has, or "custom". */
+export const SelectSingleInputItem = ({
+  value,
+  onChange,
+  disabled,
+  ...rest
+}: SelectSingleInputItemProps): ReactElement => (
+  <Input.Item x label="Range" {...rest}>
+    <SelectSingleRange
+      value={value}
+      onChange={onChange}
+      allowNone={false}
+      disabled={disabled}
+    />
+  </Input.Item>
+);
 
 export interface SelectMultipleInputItemProps
   extends

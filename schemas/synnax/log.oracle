@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/channel"
+import "schemas/synnax/lineplot"
 import "schemas/x/color"
 import "schemas/x/notation"
 import "schemas/x/telem"
@@ -65,7 +66,7 @@ Log struct {
         @doc value "is the unique identifier for this log."
         @key
     }
-    name                     string         {
+    name                     string                {
         @doc value         "is a human-readable name for the log."
         @validate required
     }
@@ -82,6 +83,15 @@ Log struct {
     }
     receipt_timestamp_hidden bool = false {
         @doc value "is true when the receipt timestamp column is hidden."
+    }
+    range                    string = "rolling7d" {
+        @doc value """
+            is the key of the range the log displays: a rolling window, a persisted
+            range, or "custom".
+        """
+    }
+    custom                   lineplot.CustomRange? {
+        @doc value "is the window the \"custom\" range key resolves to."
     }
 
     action Create {
@@ -227,6 +237,21 @@ Log struct {
         receipt_timestamp_hidden bool
 
         @doc value "sets whether the receipt timestamp column is hidden."
+    }
+
+    action SetRange {
+        range string
+
+        @doc value "sets the key of the range the log displays."
+    }
+
+    action SetCustomRange {
+        custom lineplot.CustomRange?
+
+        @doc value """
+            sets the window the "custom" range key resolves to. A null custom clears the
+            window.
+        """
     }
 
     @create

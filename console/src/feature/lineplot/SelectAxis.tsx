@@ -13,7 +13,6 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Channel, LinePlot } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
-import { CustomRangeInput } from "@/feature/lineplot/CustomRangeInput";
 import { Range } from "@/platform/range";
 import { Session } from "@/session";
 
@@ -84,6 +83,16 @@ export const XAxisChannelSelect = ({
       />
     </Input.Item>
   );
+};
+
+const CustomRangeInput = (): ReactElement => {
+  const custom = LinePlot.useCustomRange();
+  const dispatch = LinePlot.useSingleDispatch();
+  const handleChange = useCallback(
+    (custom: lineplot.CustomRange) => dispatch(lineplot.setCustomRange({ custom })),
+    [dispatch],
+  );
+  return <Range.CustomInput value={custom} onChange={handleChange} />;
 };
 
 export interface XAxisRangeSelectProps extends Omit<

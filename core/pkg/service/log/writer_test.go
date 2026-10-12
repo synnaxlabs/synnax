@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/color"
@@ -429,6 +430,56 @@ var _ = Describe("Writer", func() {
 				Expect(res.ChannelNamesHidden).To(BeTrue())
 				Expect(res.ReceiptTimestampHidden).To(BeTrue())
 			})
+
+			It(
+				"Should default the range to a rolling 7d window",
+				func(ctx SpecContext) {
+					l := log.Log{Name: "test"}
+					Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+					res := retrieve(ctx, l.Key)
+					Expect(res.Range).To(Equal("rolling7d"))
+					Expect(res.Custom).To(BeNil())
+				},
+			)
+
+			It("Should set the range via SetRange", func(ctx SpecContext) {
+				l := log.Log{Name: "test"}
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+				Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
+					log.NewSetRangeAction(log.SetRangePayload{Range: "rolling1h"}),
+				})).To(Succeed())
+				Expect(retrieve(ctx, l.Key).Range).To(Equal("rolling1h"))
+			})
+
+			It(
+				"Should set, replace, and clear the custom range via SetCustomRange",
+				func(ctx SpecContext) {
+					l := log.Log{Name: "test"}
+					Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+					dynamic := lineplot.CustomRange{
+						Variant: lineplot.DynamicCustomRange{Span: telem.Minute},
+					}
+					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
+						log.NewSetCustomRangeAction(
+							log.SetCustomRangePayload{Custom: &dynamic},
+						),
+					})).To(Succeed())
+					Expect(retrieve(ctx, l.Key).Custom).To(Equal(&dynamic))
+					static := lineplot.CustomRange{
+						Variant: lineplot.StaticCustomRange{Start: 0, End: 1000},
+					}
+					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
+						log.NewSetCustomRangeAction(
+							log.SetCustomRangePayload{Custom: &static},
+						),
+					})).To(Succeed())
+					Expect(retrieve(ctx, l.Key).Custom).To(Equal(&static))
+					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
+						log.NewSetCustomRangeAction(log.SetCustomRangePayload{}),
+					})).To(Succeed())
+					Expect(retrieve(ctx, l.Key).Custom).To(BeNil())
+				},
+			)
 		})
 
 		Describe("atomicity and broadcast", func() {

@@ -14,6 +14,7 @@ import { z } from "zod";
 
 import { actions } from "@/actions";
 import { channel } from "@/channel";
+import { lineplot } from "@/lineplot";
 import { channelEntryZ, keyZ, type Log, logZ } from "@/log/types.gen";
 
 /**
@@ -187,6 +188,23 @@ export type SetReceiptTimestampHiddenPayload = z.infer<
   typeof setReceiptTimestampHiddenPayloadZ
 >;
 
+/** SetRange sets the key of the range the log displays. */
+export const setRangePayloadZ = z.object({
+  range: z.string(),
+});
+
+export type SetRangePayload = z.infer<typeof setRangePayloadZ>;
+
+/**
+ * SetCustomRange sets the window the "custom" range key resolves to. A null custom
+ * clears the window.
+ */
+export const setCustomRangePayloadZ = z.object({
+  custom: zod.nullToUndefined(lineplot.customRangeZ),
+});
+
+export type SetCustomRangePayload = z.infer<typeof setCustomRangePayloadZ>;
+
 export type Action =
   | { type: "create"; create: CreatePayload }
   | { type: "rename"; rename: RenamePayload }
@@ -218,7 +236,9 @@ export type Action =
   | {
       type: "set_receipt_timestamp_hidden";
       setReceiptTimestampHidden: SetReceiptTimestampHiddenPayload;
-    };
+    }
+  | { type: "set_range"; setRange: SetRangePayload }
+  | { type: "set_custom_range"; setCustomRange: SetCustomRangePayload };
 
 export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   z.object({ type: z.literal("create"), create: createPayloadZ }),
@@ -266,6 +286,11 @@ export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("set_receipt_timestamp_hidden"),
     setReceiptTimestampHidden: setReceiptTimestampHiddenPayloadZ,
+  }),
+  z.object({ type: z.literal("set_range"), setRange: setRangePayloadZ }),
+  z.object({
+    type: z.literal("set_custom_range"),
+    setCustomRange: setCustomRangePayloadZ,
   }),
 ]);
 
@@ -403,6 +428,22 @@ export const setReceiptTimestampHidden = (
   }),
 });
 
+export const setRange = (payload: z.input<typeof setRangePayloadZ>): Action => ({
+  type: "set_range",
+  setRange: zod.parse(setRangePayloadZ, payload, {
+    label: "log set_range action payload",
+  }),
+});
+
+export const setCustomRange = (
+  payload: z.input<typeof setCustomRangePayloadZ>,
+): Action => ({
+  type: "set_custom_range",
+  setCustomRange: zod.parse(setCustomRangePayloadZ, payload, {
+    label: "log set_custom_range action payload",
+  }),
+});
+
 export type HandlerResult = actions.HandlerResult<Action>;
 
 export type ReduceAllResult = actions.ReduceAllResult<Log, Action>;
@@ -454,6 +495,8 @@ export interface Handlers {
     state: Draft<Log>,
     payload: SetReceiptTimestampHiddenPayload,
   ) => HandlerResult;
+  setRange: (state: Draft<Log>, payload: SetRangePayload) => HandlerResult;
+  setCustomRange: (state: Draft<Log>, payload: SetCustomRangePayload) => HandlerResult;
 }
 
 export const createReduceAll = (handlers: Handlers) =>
@@ -497,6 +540,10 @@ export const createReduceAll = (handlers: Handlers) =>
           state,
           action.setReceiptTimestampHidden,
         );
+      case "set_range":
+        return handlers.setRange(state, action.setRange);
+      case "set_custom_range":
+        return handlers.setCustomRange(state, action.setCustomRange);
     }
   });
 

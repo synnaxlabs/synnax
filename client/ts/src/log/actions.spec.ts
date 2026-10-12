@@ -335,6 +335,44 @@ describe("log reducer", () => {
     });
   });
 
+  describe("setRange", () => {
+    it("should default a new log to the rolling 7 day window", () => {
+      expect(createEmpty().range).toEqual("rolling7d");
+    });
+    it("should set the range and round-trip it", () => {
+      const state = createEmpty();
+      expect(apply(state, log.setRange({ range: "rolling1h" })).range).toEqual(
+        "rolling1h",
+      );
+      expect(roundTrip(state, log.setRange({ range: "rolling1h" })).range).toEqual(
+        "rolling7d",
+      );
+    });
+  });
+
+  describe("setCustomRange", () => {
+    const custom = { variant: "dynamic" as const, span: 1_000_000_000 };
+    it("should set the custom window", () => {
+      expect(apply(createEmpty(), log.setCustomRange({ custom })).custom).toEqual(
+        custom,
+      );
+    });
+    it("should clear the window through its inverse", () => {
+      expect(
+        roundTrip(createEmpty(), log.setCustomRange({ custom })).custom,
+      ).toBeUndefined();
+    });
+    it("should restore the previous window through its inverse", () => {
+      const state = createEmpty({ custom });
+      expect(
+        roundTrip(
+          state,
+          log.setCustomRange({ custom: { variant: "dynamic", span: 5 } }),
+        ).custom,
+      ).toEqual(custom);
+    });
+  });
+
   describe("log.reduceAll", () => {
     it("should apply actions sequentially", () => {
       const out = apply(

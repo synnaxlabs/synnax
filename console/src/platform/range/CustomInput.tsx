@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { lineplot } from "@synnaxlabs/client";
+import { type lineplot } from "@synnaxlabs/client";
 import { Input } from "@synnaxlabs/lyra/input";
-import { LinePlot } from "@synnaxlabs/pluto";
 import { TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
@@ -45,24 +44,26 @@ export const parseSpan = (input: string): number | null => {
   return total > 0 ? total : null;
 };
 
-/** Edits the rolling window the plot's "custom" range key resolves to. */
-export const CustomRangeInput = (): ReactElement => {
-  const custom = LinePlot.useCustomRange();
-  const dispatch = LinePlot.useSingleDispatch();
+export interface CustomInputProps {
+  value: lineplot.CustomRange | undefined;
+  onChange: (value: lineplot.CustomRange) => void;
+}
+
+/** Edits the rolling window the "custom" range key resolves to. */
+export const CustomInput = ({ value, onChange }: CustomInputProps): ReactElement => {
   const handleChange = useCallback(
     (raw: string) => {
       const span = parseSpan(raw);
       if (span == null) return;
-      dispatch(lineplot.setCustomRange({ custom: { variant: "dynamic", span } }));
+      onChange({ variant: "dynamic", span });
     },
-    [dispatch],
+    [onChange],
   );
-  const value =
-    custom?.variant === "dynamic" ? new TimeSpan(custom.span).toString() : "";
+  const text = value?.variant === "dynamic" ? new TimeSpan(value.span).toString() : "";
   return (
     <Input.Item x label="Custom">
       <Input.Text
-        value={value}
+        value={text}
         onChange={handleChange}
         onlyChangeOnBlur
         resetOnBlurIfEmpty

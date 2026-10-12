@@ -53,6 +53,18 @@ needs.
 
 <Video id="console/logs/example" />
 
+### Range
+
+The range sets which samples the log shows. Set it in the **Properties** tab of the
+toolbar. A rolling window, such as **Rolling 7d**, shows the stored samples within the
+window and then shows new samples as they arrive. **Custom** sets a rolling window of a
+different length. A saved range shows only the stored samples within it. A new log uses
+**Rolling 7d**.
+
+The log shows each sample with the time from the channel's index. A
+[virtual channel](/reference/concepts/channels#virtual-channels) has no index and stores
+no samples, so the log shows only new samples with the time the Console received them.
+
 <Divider.Divider x />
 
 ## Sharing and exporting
