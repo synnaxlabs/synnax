@@ -261,9 +261,9 @@ describe("Read", () => {
     await screen.findByRole("treeitem", { name: /\/seeded/ });
   });
 
-  it("should toggle the invalid floats as NaN switch", async () => {
+  it("should toggle the NaN fill switch", async () => {
     await renderRead();
-    const toggle = getLabeledInput("Invalid floats as NaN");
+    const toggle = getLabeledInput("NaN fill");
     expect(toggle.checked).toBe(false);
     fireEvent.click(toggle);
     expect(toggle.checked).toBe(true);

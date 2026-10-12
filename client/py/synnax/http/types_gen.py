@@ -274,15 +274,15 @@ class ReadConfig(task.PersistConfig):
         device: Is the key of the HTTP server device to poll.
         rate: Is the polling rate applied to all endpoints, in Hertz.
         endpoints: Contains the endpoints to poll.
-        invalid_floats_filled: Is true when a float field that is missing or fails to
-            convert is written as NaN. When false, the task skips every field that
-            shares the endpoint and index channel with it.
+        nan_fill_enabled: Is true when a float field that is missing or fails to convert
+            is written as NaN. When false, the task skips every field that shares the
+            endpoint and index channel with it.
     """
 
     device: device_.Key = ""
     rate: telem.Rate = telem.Rate(1)
     endpoints: list[ReadEndpoint] = Field(default_factory=list)
-    invalid_floats_filled: bool = False
+    nan_fill_enabled: bool = False
 
     def __hash__(self) -> int:
         return hash(self.key)

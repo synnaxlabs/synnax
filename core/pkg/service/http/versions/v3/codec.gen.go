@@ -32,7 +32,7 @@ func (rc ReadConfig) EncodeOrc(w *orc.Writer) error {
 			}
 		}
 	}
-	w.Bool(rc.InvalidFloatsFilled)
+	w.Bool(rc.NanFillEnabled)
 	return nil
 }
 
@@ -76,7 +76,7 @@ func (rc *ReadConfig) DecodeOrc(r *orc.Reader) error {
 			}
 		}
 	}
-	if rc.InvalidFloatsFilled, err = r.Bool(); err != nil {
+	if rc.NanFillEnabled, err = r.Bool(); err != nil {
 		return err
 	}
 	return nil

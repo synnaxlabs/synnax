@@ -73,10 +73,10 @@ type ReadConfig struct {
 	Rate telem.Rate `json:"rate" msgpack:"rate"`
 	// Endpoints contains the endpoints to poll.
 	Endpoints []ReadEndpoint `json:"endpoints" msgpack:"endpoints"`
-	// InvalidFloatsFilled is true when a float field that is missing or fails to
-	// convert is written as NaN. When false, the task skips every field that shares the
-	// endpoint and index channel with it.
-	InvalidFloatsFilled bool `json:"invalid_floats_filled" msgpack:"invalid_floats_filled"`
+	// NanFillEnabled is true when a float field that is missing or fails to convert is
+	// written as NaN. When false, the task skips every field that shares the endpoint
+	// and index channel with it.
+	NanFillEnabled bool `json:"nan_fill_enabled" msgpack:"nan_fill_enabled"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

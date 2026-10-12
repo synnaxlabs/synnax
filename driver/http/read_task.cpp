@@ -355,7 +355,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             if (!warning.empty()) {
                 warnings.push_back(std::move(warning));
                 const auto &dt = ch.data_type;
-                if (!this->cfg.invalid_floats_filled ||
+                if (!this->cfg.nan_fill_enabled ||
                     (dt != x::telem::FLOAT32_T && dt != x::telem::FLOAT64_T)) {
                     group_ok = false;
                     break;

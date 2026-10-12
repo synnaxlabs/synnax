@@ -67,10 +67,7 @@ const Properties = () => (
       />
       <Task.Fields.DataSaving />
       <Task.Fields.AutoStart />
-      <PForm.SwitchField
-        label="Invalid floats as NaN"
-        path="config.invalidFloatsFilled"
-      />
+      <PForm.SwitchField label="NaN fill" path="config.nanFillEnabled" />
     </Flex.Box>
   </>
 );

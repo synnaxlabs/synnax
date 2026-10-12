@@ -262,12 +262,12 @@ class TestHTTPReadTask:
         )
         assert config.data_saving_disabled is False
         assert config.auto_start is False
-        assert config.invalid_floats_filled is False
+        assert config.nan_fill_enabled is False
 
-    def test_read_task_invalid_floats_filled(self):
-        """Test that the ReadTask carries invalid_floats_filled into its config."""
-        task = sy.http.ReadTask(device="dev-key", invalid_floats_filled=True)
-        assert task.config.invalid_floats_filled is True
+    def test_read_task_nan_fill_enabled(self):
+        """Test that the ReadTask carries nan_fill_enabled into its config."""
+        task = sy.http.ReadTask(device="dev-key", nan_fill_enabled=True)
+        assert task.config.nan_fill_enabled is True
 
     def test_read_task_none_excluded_from_serialization(self):
         """Test that None values are excluded from serialized config."""

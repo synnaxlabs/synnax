@@ -13,6 +13,6 @@ import "github.com/synnaxlabs/x/gorp"
 
 // Migration lifts stored HTTP read task configs from v2 to v3.
 var Migration = gorp.NewEntryMigration(
-	"v60_invalid_floats_filled",
+	"v60_nan_fill_enabled",
 	autoMigrateReadConfig,
 )

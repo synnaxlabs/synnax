@@ -65,25 +65,25 @@ var _ = Describe("Codec", func() {
 						Index: "test_28",
 					},
 				},
-				InvalidFloatsFilled: true,
+				NanFillEnabled: true,
 			}),
 			Entry("zero values", v3.ReadConfig{
-				Key:                 uuid.Nil(),
-				AutoStart:           false,
-				DataSavingDisabled:  false,
-				Device:              "",
-				Rate:                telem.Rate(0),
-				Endpoints:           []v3.ReadEndpoint{},
-				InvalidFloatsFilled: false,
+				Key:                uuid.Nil(),
+				AutoStart:          false,
+				DataSavingDisabled: false,
+				Device:             "",
+				Rate:               telem.Rate(0),
+				Endpoints:          []v3.ReadEndpoint{},
+				NanFillEnabled:     false,
 			}),
 			Entry("empty collections", v3.ReadConfig{
-				Key:                 uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				AutoStart:           false,
-				DataSavingDisabled:  true,
-				Device:              "test_4",
-				Rate:                telem.Rate(5.5),
-				Endpoints:           []v3.ReadEndpoint{},
-				InvalidFloatsFilled: true,
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				Device:             "test_4",
+				Rate:               telem.Rate(5.5),
+				Endpoints:          []v3.ReadEndpoint{},
+				NanFillEnabled:     true,
 			}),
 		)
 	})
@@ -119,7 +119,7 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 				Index: "test_28",
 			},
 		},
-		InvalidFloatsFilled: true,
+		NanFillEnabled: true,
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -167,7 +167,7 @@ func FuzzDecodeReadConfig(f *testing.F) {
 					Index: "test_28",
 				},
 			},
-			InvalidFloatsFilled: true,
+			NanFillEnabled: true,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -177,13 +177,13 @@ func FuzzDecodeReadConfig(f *testing.F) {
 	}
 	{
 		seed := v3.ReadConfig{
-			Key:                 uuid.Nil(),
-			AutoStart:           false,
-			DataSavingDisabled:  false,
-			Device:              "",
-			Rate:                telem.Rate(0),
-			Endpoints:           []v3.ReadEndpoint{},
-			InvalidFloatsFilled: false,
+			Key:                uuid.Nil(),
+			AutoStart:          false,
+			DataSavingDisabled: false,
+			Device:             "",
+			Rate:               telem.Rate(0),
+			Endpoints:          []v3.ReadEndpoint{},
+			NanFillEnabled:     false,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -193,13 +193,13 @@ func FuzzDecodeReadConfig(f *testing.F) {
 	}
 	{
 		seed := v3.ReadConfig{
-			Key:                 uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			AutoStart:           false,
-			DataSavingDisabled:  true,
-			Device:              "test_4",
-			Rate:                telem.Rate(5.5),
-			Endpoints:           []v3.ReadEndpoint{},
-			InvalidFloatsFilled: true,
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			Device:             "test_4",
+			Rate:               telem.Rate(5.5),
+			Endpoints:          []v3.ReadEndpoint{},
+			NanFillEnabled:     true,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

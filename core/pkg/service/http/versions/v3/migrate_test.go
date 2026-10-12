@@ -24,7 +24,7 @@ import (
 
 var _ = Describe("Migration", func() {
 	It(
-		"Should keep every read config field and leave invalid floats unfilled",
+		"Should keep every read config field and leave NaN fill disabled",
 		func(ctx SpecContext) {
 			stored := v2.ReadConfig{
 				Key:                uuid.New(),
@@ -59,7 +59,7 @@ var _ = Describe("Migration", func() {
 			Expect(got.Device).To(Equal(stored.Device))
 			Expect(got.Rate).To(Equal(stored.Rate))
 			Expect(got.Endpoints).To(Equal(stored.Endpoints))
-			Expect(got.InvalidFloatsFilled).To(BeFalse())
+			Expect(got.NanFillEnabled).To(BeFalse())
 		},
 	)
 })

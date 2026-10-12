@@ -3598,7 +3598,7 @@ namespace {
 /// index channel.
 /// @param body the JSON body the endpoint returns.
 /// @param p2_type the data type of the p2 channel.
-/// @param filled whether invalid floats are filled with NaN.
+/// @param filled whether NaN fill is enabled.
 /// @returns the frame and the read result.
 std::pair<x::telem::Frame, common::ReadResult> read_shared_index_group(
     const std::string &body,
@@ -3624,7 +3624,7 @@ std::pair<x::telem::Frame, common::ReadResult> read_shared_index_group(
     cfg.data_saving_disabled = true;
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
-    cfg.invalid_floats_filled = filled;
+    cfg.nan_fill_enabled = filled;
 
     ReadField p2;
     p2.pointer = "/p2";
@@ -3668,7 +3668,7 @@ TEST(HTTPReadTask, MissingFloatSkipsGroupByDefault) {
 }
 
 /// @brief it should write NaN for a missing float field and keep the rest of the
-/// group when invalid floats are filled.
+/// group when NaN fill is enabled.
 TEST(HTTPReadTask, MissingFloatFilledWithNaN) {
     auto [fr, res] = read_shared_index_group(
         R"({"p3": 1.5})",
@@ -3683,8 +3683,8 @@ TEST(HTTPReadTask, MissingFloatFilledWithNaN) {
     EXPECT_GT(fr.at<int64_t>(100, 0), 0);
 }
 
-/// @brief it should write NaN for a float field that fails to convert when invalid
-/// floats are filled.
+/// @brief it should write NaN for a float field that fails to convert when NaN fill
+/// is enabled.
 TEST(HTTPReadTask, UnconvertibleFloatFilledWithNaN) {
     auto [fr, res] = read_shared_index_group(
         R"({"p2": "INVALID", "p3": 1.5})",
@@ -3699,7 +3699,7 @@ TEST(HTTPReadTask, UnconvertibleFloatFilledWithNaN) {
 }
 
 /// @brief it should skip the whole group when a non-float field is invalid, even when
-/// invalid floats are filled.
+/// NaN fill is enabled.
 TEST(HTTPReadTask, InvalidIntegerSkipsGroupWhenFilled) {
     auto [fr, res] = read_shared_index_group(
         R"({"p2": "INVALID", "p3": 1.5})",
