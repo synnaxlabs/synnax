@@ -48,7 +48,7 @@ const TEST_CONNECTION_TIMEOUT = TimeSpan.seconds(15);
 
 const INITIAL_VALUES: Device = {
   key: "",
-  name: "Kafka cluster",
+  name: "",
   make: "kafka",
   model: "cluster",
   location: "",
@@ -107,7 +107,6 @@ const BrokersField = () => (
                 value={broker}
                 onChange={(next) => onChange(value.map((b, j) => (j === i ? next : b)))}
                 placeholder="localhost:9092"
-                autoFocus={i === 0}
               />
             </Flex.Box>
             {value.length > 1 && (
@@ -148,6 +147,26 @@ const SASL_ITEMS = (
 
 const SASL_TRIGGER_PROPS = { className: CSS.BE("kafka-connect", "sasl") };
 
+/** Clears the CA certificate when TLS turns off. The Core rejects one without TLS. */
+const handleTLS = (tls: boolean, { set }: Form.ContextValue) => {
+  if (!tls) set("properties.caCertificate", "");
+};
+
+/** Takes a PEM certificate authority for brokers whose certificates the system roots
+ * do not trust. Shown only with TLS on. */
+const CAField = () => {
+  const tls = Form.useFieldValue<boolean>("properties.tls");
+  if (!tls) return null;
+  return (
+    <Form.TextField
+      path="properties.caCertificate"
+      label="CA certificate"
+      optional
+      inputProps={CA_INPUT_PROPS}
+    />
+  );
+};
+
 /** Selects the SASL mechanism and, for the ones that carry them, the credentials. */
 const SASLFields = () => {
   const { set } = Form.useContext();
@@ -177,7 +196,7 @@ const SASLFields = () => {
             {SASL_ITEMS}
           </Select.Simple>
         </Input.Item>
-        <Form.SwitchField path="properties.tls" label="TLS" />
+        <Form.SwitchField path="properties.tls" label="TLS" onChange={handleTLS} />
       </Flex.Box>
       {sasl.mechanism !== "none" && (
         <Flex.Box x justify="between">
@@ -228,6 +247,7 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
             <BrokersField />
             <Divider.Divider x padded="bottom" />
             <SASLFields />
+            <CAField />
           </Form.Form>
         </Flex.Box>
         <Modal.Footer>
@@ -266,6 +286,13 @@ const NAME_INPUT_PROPS = {
   level: "h2",
   variant: "text",
   placeholder: "Kafka cluster",
+  autoFocus: true,
+} as const;
+
+const CA_INPUT_PROPS = {
+  placeholder: "-----BEGIN CERTIFICATE-----",
+  area: true,
+  className: CSS.BE("kafka-connect", "ca"),
 } as const;
 
 const USERNAME_INPUT_PROPS = { placeholder: "username" } as const;

@@ -216,9 +216,12 @@ class Properties(BaseModel):
     Attributes:
         brokers: Contains the bootstrap broker addresses, as host:port.
         tls: Is true when every broker connection uses TLS.
+        ca_certificate: Is the PEM-encoded certificate authority that signs the brokers'
+            certificates. Empty trusts the system roots.
         sasl: Is the authentication the brokers require.
     """
 
     brokers: list[str] = Field(default_factory=list)
     tls: bool = False
+    ca_certificate: str = ""
     sasl: SASL = Field(default_factory=lambda: NoneSASL(mechanism="none"))

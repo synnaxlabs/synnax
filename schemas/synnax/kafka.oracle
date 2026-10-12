@@ -46,13 +46,19 @@ SASL union on mechanism {
 }
 
 Properties struct {
-    brokers string[] {
+    brokers        string[] {
         @doc value "contains the bootstrap broker addresses, as host:port."
     }
-    tls     bool = false {
+    tls            bool = false {
         @doc value "is true when every broker connection uses TLS."
     }
-    sasl    SASL = none {
+    ca_certificate string = "" {
+        @doc value """
+            is the PEM-encoded certificate authority that signs the brokers'
+            certificates. Empty trusts the system roots.
+        """
+    }
+    sasl           SASL = none {
         @doc value "is the authentication the brokers require."
     }
 

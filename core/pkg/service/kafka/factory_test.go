@@ -10,16 +10,23 @@
 package kafka_test
 
 import (
+	"crypto/tls"
+	"encoding/pem"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/security/cert"
+	"github.com/synnaxlabs/synnax/pkg/security/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/address"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/twmb/franz-go/pkg/kfake"
 )
 
 var _ = Describe("Factory", func() {
@@ -127,6 +134,83 @@ var _ = Describe("Factory", func() {
 				Expect(stat.Message).To(ContainSubstring("brokers"))
 			},
 		)
+
+		Describe("TLS", func() {
+			var (
+				brokers []string
+				caPEM   string
+			)
+			BeforeEach(func() {
+				certs := MustSucceed(cert.NewFactory(cert.FactoryConfig{
+					FS:      xfs.NewMem(),
+					KeySize: mock.SmallKeySize,
+				}))
+				Expect(certs.CreateCAPair()).To(Succeed())
+				ca := MustSucceed(certs.Loader.LoadCAs())[0]
+				caPEM = string(
+					pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: ca.Raw}),
+				)
+				leaf := MustSucceed(certs.SignNodeCert([]address.Address{"127.0.0.1"}))
+				tlsCluster := MustSucceed(kfake.NewCluster(
+					kfake.NumBrokers(1),
+					kfake.TLS(&tls.Config{Certificates: []tls.Certificate{*leaf}}),
+				))
+				DeferCleanup(tlsCluster.Close)
+				brokers = tlsCluster.ListenAddrs()
+			})
+
+			testConnection := func(ctx SpecContext, props kafka.Properties) task.Status {
+				Expect(dt.Exec(ctx, task.Command{
+					Task: t.Key,
+					Type: "test_connection",
+					Key:  "cmd-tls",
+					Args: toJSON(map[string]any{"connection": props}),
+				})).To(Succeed())
+				return taskStatus(ctx, t)
+			}
+
+			It(
+				"Should connect to a broker signed by the given CA",
+				func(ctx SpecContext) {
+					stat := testConnection(ctx, kafka.Properties{
+						Brokers:       brokers,
+						TLS:           true,
+						CaCertificate: caPEM,
+					})
+					Expect(stat.Variant).To(Equal(status.VariantSuccess))
+				},
+			)
+
+			It("Should reject a broker signed by a CA outside the system roots",
+				func(ctx SpecContext) {
+					stat := testConnection(
+						ctx,
+						kafka.Properties{Brokers: brokers, TLS: true},
+					)
+					Expect(stat.Variant).To(Equal(status.VariantError))
+					Expect(stat.Message).To(ContainSubstring("Connection failed"))
+				},
+			)
+
+			It("Should reject a CA certificate without TLS", func(ctx SpecContext) {
+				stat := testConnection(ctx, kafka.Properties{
+					Brokers:       brokers,
+					CaCertificate: caPEM,
+				})
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(ContainSubstring("requires TLS"))
+			})
+
+			It("Should reject a CA certificate that is not PEM", func(ctx SpecContext) {
+				stat := testConnection(ctx, kafka.Properties{
+					Brokers:       brokers,
+					TLS:           true,
+					CaCertificate: "not a certificate",
+				})
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(ContainSubstring("PEM-encoded certificate"))
+			})
+		})
 
 		It("Should reject unknown commands", func(ctx SpecContext) {
 			Expect(dt.Exec(ctx, task.Command{Task: t.Key, Type: "bogus"})).

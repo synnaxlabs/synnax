@@ -185,6 +185,11 @@ export const propertiesZ = z.object({
     .default(() => []),
   /** tls is true when every broker connection uses TLS. */
   tls: z.boolean().default(false),
+  /**
+   * caCertificate is the PEM-encoded certificate authority that signs the brokers'
+   * certificates. Empty trusts the system roots.
+   */
+  caCertificate: z.string().default(""),
   /** sasl is the authentication the brokers require. */
   sasl: saslZ.prefault({ mechanism: "none" }),
 });

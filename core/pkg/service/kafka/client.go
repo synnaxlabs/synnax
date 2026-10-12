@@ -12,6 +12,7 @@ package kafka
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/x/errors"
@@ -48,7 +49,25 @@ func validateProperties(props Properties) error {
 	for i, b := range props.Brokers {
 		v.Ternaryf("brokers", b == "", "broker %d must not be empty", i)
 	}
+	if props.CaCertificate != "" {
+		v.Ternary("ca_certificate", !props.TLS, "requires TLS")
+		v.Ternary(
+			"ca_certificate",
+			caPool(props.CaCertificate) == nil,
+			"must contain a PEM-encoded certificate",
+		)
+	}
 	return v.Error()
+}
+
+// caPool parses a PEM-encoded certificate authority into a pool, returning nil when
+// pem holds no certificate.
+func caPool(pem string) *x509.CertPool {
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM([]byte(pem)) {
+		return nil
+	}
+	return pool
 }
 
 // clientOpts translates props into franz-go client options.
@@ -59,6 +78,9 @@ func clientOpts(props Properties) ([]kgo.Opt, error) {
 	opts := []kgo.Opt{kgo.SeedBrokers(props.Brokers...)}
 	if props.TLS {
 		tlsCfg := &tls.Config{MinVersion: tls.VersionTLS12}
+		if props.CaCertificate != "" {
+			tlsCfg.RootCAs = caPool(props.CaCertificate)
+		}
 		opts = append(opts, kgo.DialTLSConfig(tlsCfg))
 	}
 	switch v := props.Sasl.Variant.(type) {

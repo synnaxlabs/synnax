@@ -193,6 +193,9 @@ type Properties struct {
 	Brokers []string `json:"brokers" msgpack:"brokers"`
 	// TLS is true when every broker connection uses TLS.
 	TLS bool `json:"tls" msgpack:"tls"`
+	// CaCertificate is the PEM-encoded certificate authority that signs the brokers'
+	// certificates. Empty trusts the system roots.
+	CaCertificate string `json:"ca_certificate" msgpack:"ca_certificate"`
 	// Sasl is the authentication the brokers require.
 	Sasl SASL `json:"sasl" msgpack:"sasl"`
 }

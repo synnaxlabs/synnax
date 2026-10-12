@@ -30,3 +30,8 @@
 .console-kafka-connect__sasl {
     width: 180px;
 }
+
+.console-kafka-connect__ca {
+    min-height: 12rem;
+    font-family: var(--pluto-font-family-mono, monospace);
+}

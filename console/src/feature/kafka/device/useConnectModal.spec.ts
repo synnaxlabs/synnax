@@ -64,6 +64,32 @@ describe("Kafka.Device.useConnectModal", () => {
     await waitFor(() => expect(screen.queryByPlaceholderText("username")).toBeNull());
   });
 
+  it("should start with an empty, focused name", async () => {
+    await renderModalOpener(Kafka.Device.useConnectModal, [{}], { client });
+    const name = await screen.findByPlaceholderText("Kafka cluster");
+    expect(name).toHaveProperty("value", "");
+    expect(document.activeElement).toBe(name);
+  });
+
+  it("should show the CA certificate only with TLS on and clear it when TLS turns off", async () => {
+    await renderModalOpener(Kafka.Device.useConnectModal, [{}], { client });
+    await screen.findByRole("dialog");
+    const caPlaceholder = "-----BEGIN CERTIFICATE-----";
+    expect(screen.queryByPlaceholderText(caPlaceholder)).toBeNull();
+    fireEvent.click(getSwitchInput("TLS"));
+    const ca = await screen.findByPlaceholderText(caPlaceholder);
+    fireEvent.change(ca, { target: { value: "pem" } });
+    fireEvent.click(getSwitchInput("TLS"));
+    await waitFor(() =>
+      expect(screen.queryByPlaceholderText(caPlaceholder)).toBeNull(),
+    );
+    fireEvent.click(getSwitchInput("TLS"));
+    expect(await screen.findByPlaceholderText(caPlaceholder)).toHaveProperty(
+      "value",
+      "",
+    );
+  });
+
   it("should report a device it connected", async () => {
     const rack = await client.racks.create({
       name: uniqueName("kafka_rack"),
@@ -77,6 +103,9 @@ describe("Kafka.Device.useConnectModal", () => {
     const analytics = createTestSink();
     await renderModalOpener(Kafka.Device.useConnectModal, [{}], { client, analytics });
     await selectFromDropdown("Select Driver", rack.name);
+    fireEvent.change(screen.getByPlaceholderText("Kafka cluster"), {
+      target: { value: uniqueName("kafka_cluster") },
+    });
     fireEvent.change(screen.getByPlaceholderText("localhost:9092"), {
       target: { value: "localhost:9092" },
     });
