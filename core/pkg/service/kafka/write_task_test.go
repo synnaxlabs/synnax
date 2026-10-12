@@ -32,7 +32,12 @@ import (
 )
 
 var _ = Describe("Write task", func() {
-	var f driver.Factory
+	var (
+		f         driver.Factory
+		unixMs    = http.TimeFormatUnixMs
+		isoFormat = http.TimeFormatISO8601
+		onOff     = []http.EnumEntry{{Label: "OFF", Value: 0}, {Label: "ON", Value: 1}}
+	)
 	BeforeEach(func() { f = newFactory() })
 
 	// startTask configures and starts a write task, stopping it when the spec ends.
@@ -224,6 +229,98 @@ var _ = Describe("Write task", func() {
 		Expect(f.ConfigureTask(ctx, newTask(kafka.WriteTaskType, cfg), "cmd-1")).
 			Error().To(MatchError(query.ErrNotFound))
 	})
+
+	// startOne configures and starts a write task producing one channel of dt.
+	startOne := func(
+		ctx context.Context,
+		dt telem.DataType,
+		cfg kafka.WriteChannel,
+	) (index, data channel.Channel, topic string, t task.Task) {
+		GinkgoHelper()
+		index, data = createIndexed(ctx, dt)
+		dev := createDevice(ctx, clusterProperties())
+		topic = uniqueTopic()
+		cfg.Key, cfg.Channel = "c1", data.Key()
+		_, t = startTask(ctx, kafka.WriteConfig{
+			Device:   dev.Key,
+			Topic:    topic,
+			Channels: []kafka.WriteChannel{cfg},
+		})
+		return index, data, topic, t
+	}
+
+	DescribeTable("Should serialize the sample as the configured JSON type",
+		func(
+			ctx SpecContext,
+			dt telem.DataType,
+			values telem.Series,
+			cfg kafka.WriteChannel,
+			expected any,
+		) {
+			index, data, topic, _ := startOne(ctx, dt, cfg)
+			writeFrame(ctx, index, data,
+				[]telem.TimeStamp{telem.TimeStamp(10 * telem.Second)}, values)
+			recs := consume(ctx, topic, 1)
+			Expect(decode(recs[0])).To(HaveKeyWithValue("value", expected))
+		},
+		Entry("float32 as a number",
+			telem.Float32T, telem.NewSeriesV[float32](1.5), kafka.WriteChannel{}, 1.5),
+		Entry("int64 as a number",
+			telem.Int64T, telem.NewSeriesV[int64](-7), kafka.WriteChannel{}, -7.0),
+		Entry("int32 as a number",
+			telem.Int32T, telem.NewSeriesV[int32](-7), kafka.WriteChannel{}, -7.0),
+		Entry("int16 as a number",
+			telem.Int16T, telem.NewSeriesV[int16](-7), kafka.WriteChannel{}, -7.0),
+		Entry("int8 as a number",
+			telem.Int8T, telem.NewSeriesV[int8](-7), kafka.WriteChannel{}, -7.0),
+		Entry("uint64 as a number",
+			telem.Uint64T, telem.NewSeriesV[uint64](7), kafka.WriteChannel{}, 7.0),
+		Entry("uint32 as a number",
+			telem.Uint32T, telem.NewSeriesV[uint32](7), kafka.WriteChannel{}, 7.0),
+		Entry("uint16 as a number",
+			telem.Uint16T, telem.NewSeriesV[uint16](7), kafka.WriteChannel{}, 7.0),
+		Entry("uint8 as a boolean",
+			telem.Uint8T, telem.NewSeriesV[uint8](1),
+			kafka.WriteChannel{JSONType: http.JSONTypeBoolean}, true),
+		Entry("float64 as a string",
+			telem.Float64T, telem.NewSeriesV[float64](2.5),
+			kafka.WriteChannel{JSONType: http.JSONTypeString}, "2.5"),
+		Entry("a timestamp in unix milliseconds",
+			telem.TimestampT, telem.NewSeriesV(10*telem.SecondTS),
+			kafka.WriteChannel{TimeFormat: &unixMs}, 10_000.0),
+		Entry("a timestamp in ISO 8601",
+			telem.TimestampT, telem.NewSeriesV(10*telem.SecondTS),
+			kafka.WriteChannel{TimeFormat: &isoFormat}, "1970-01-01T00:00:10Z"),
+		Entry("a string",
+			telem.StringT, telem.NewSeriesV("hi"),
+			kafka.WriteChannel{JSONType: http.JSONTypeString}, "hi"),
+	)
+
+	DescribeTable("Should report a sample that does not serialize",
+		func(
+			ctx SpecContext,
+			dt telem.DataType,
+			values telem.Series,
+			cfg kafka.WriteChannel,
+			msg string,
+		) {
+			index, data, _, t := startOne(ctx, dt, cfg)
+			writeFrame(ctx, index, data,
+				[]telem.TimeStamp{telem.TimeStamp(10 * telem.Second)}, values)
+			Eventually(func() string { return taskStatus(ctx, t).Message }).
+				WithTimeout(15 * time.Second).Should(ContainSubstring(msg))
+			stat := taskStatus(ctx, t)
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Details.Running).To(BeTrue())
+		},
+		Entry("a value outside the enum",
+			telem.Uint8T, telem.NewSeriesV[uint8](5),
+			kafka.WriteChannel{JSONType: http.JSONTypeString, EnumValues: onOff},
+			"no enum label for value 5"),
+		Entry("a string as a number",
+			telem.StringT, telem.NewSeriesV("hi"), kafka.WriteChannel{},
+			"only serializes as a string"),
+	)
 
 	DescribeTable("Should reject an invalid config",
 		func(

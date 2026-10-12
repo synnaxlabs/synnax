@@ -317,6 +317,212 @@ var _ = Describe("Read task", func() {
 		},
 	)
 
+	It("Should start with a none start offset once the group has a commit",
+		func(ctx SpecContext) {
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			topic := newTopic()
+			cfg := kafka.ReadConfig{
+				Device: dev.Key,
+				Topic:  topic,
+				Group:  "group-" + topic,
+				Fields: stampedFields(index, data),
+			}
+			dt, t := configure(ctx, cfg)
+			start(ctx, dt, t)
+			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9, "v": 1.0})
+			expectStored(ctx, data.Key(), 1)
+			Expect(dt.Stop(true)).To(Succeed())
+
+			cfg.StartOffset = kafka.StartOffsetNone
+			dt2, t2 := configure(ctx, cfg)
+			start(ctx, dt2, t2)
+			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 11e9, "v": 2.0})
+			Expect(floats(expectStored(ctx, data.Key(), 2))).To(Equal([]float64{1, 2}))
+		},
+	)
+
+	It("Should skip a record that is not JSON", func(ctx SpecContext) {
+		index, data := createIndexed(ctx, telem.Float64T)
+		dev := createDevice(ctx, clusterProperties())
+		topic := newTopic()
+		dt, t := configure(ctx, kafka.ReadConfig{
+			Device: dev.Key,
+			Topic:  topic,
+			Fields: stampedFields(index, data),
+		})
+		start(ctx, dt, t)
+		rec := &kgo.Record{Topic: topic, Value: []byte("{")}
+		Expect(producer.ProduceSync(ctx, rec).FirstErr()).To(Succeed())
+		Eventually(func() string { return taskStatus(ctx, t).Message }).
+			WithTimeout(15 * time.Second).
+			Should(ContainSubstring("Record is not JSON"))
+		produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9, "v": 1.0})
+		Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{1}))
+	})
+
+	It("Should resolve array indexes and escaped tokens in pointers",
+		func(ctx SpecContext) {
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			topic := newTopic()
+			fields := stampedFields(index, data)
+			fields[0].Pointer = "/t~1s"
+			fields[1].Pointer = "/vals/1"
+			dt, t := configure(ctx, kafka.ReadConfig{
+				Device: dev.Key,
+				Topic:  topic,
+				Fields: fields,
+			})
+			start(ctx, dt, t)
+			produceJSON(ctx, producer, topic, "", map[string]any{
+				"t/s": 10e9, "vals": []any{1.0, 2.5},
+			})
+			Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{2.5}))
+			Expect(timestamps(stored(ctx, index.Key()))).
+				To(Equal([]telem.TimeStamp{10 * telem.SecondTS}))
+		},
+	)
+
+	It("Should skip a record when a pointer lacks its leading slash",
+		func(ctx SpecContext) {
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			topic := newTopic()
+			fields := stampedFields(index, data)
+			fields[1].Pointer = "v"
+			dt, t := configure(ctx, kafka.ReadConfig{
+				Device: dev.Key,
+				Topic:  topic,
+				Fields: fields,
+			})
+			start(ctx, dt, t)
+			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9, "v": 1.0})
+			Eventually(func() string { return taskStatus(ctx, t).Message }).
+				WithTimeout(15 * time.Second).
+				Should(ContainSubstring(`pointer "v" must start with '/'`))
+		},
+	)
+
+	onOff := []http.EnumEntry{{Label: "OFF", Value: 0}, {Label: "ON", Value: 1}}
+
+	// valueFields reads the timestamp at /ts in format and the value at /v.
+	valueFields := func(
+		index, data channel.Channel,
+		dt telem.DataType,
+		format *http.TimeFormat,
+		enums []http.EnumEntry,
+	) []kafka.ReadField {
+		return []kafka.ReadField{
+			{
+				Key:        "ts",
+				Channel:    index.Key(),
+				Pointer:    "/ts",
+				DataType:   telem.TimestampT,
+				TimeFormat: format,
+			},
+			{
+				Key:        "v",
+				Channel:    data.Key(),
+				Pointer:    "/v",
+				DataType:   dt,
+				EnumValues: enums,
+			},
+		}
+	}
+
+	DescribeTable("Should convert the record value into the channel's data type",
+		func(
+			ctx SpecContext,
+			dt telem.DataType,
+			format http.TimeFormat,
+			enums []http.EnumEntry,
+			doc map[string]any,
+			expected telem.Series,
+		) {
+			index, data := createIndexed(ctx, dt)
+			dev := createDevice(ctx, clusterProperties())
+			topic := newTopic()
+			task_, t := configure(ctx, kafka.ReadConfig{
+				Device: dev.Key,
+				Topic:  topic,
+				Fields: valueFields(index, data, dt, &format, enums),
+			})
+			start(ctx, task_, t)
+			produceJSON(ctx, producer, topic, "", doc)
+			Expect(expectStored(ctx, data.Key(), 1).Data).To(Equal(expected.Data))
+			Expect(timestamps(stored(ctx, index.Key()))).
+				To(Equal([]telem.TimeStamp{10 * telem.SecondTS}))
+		},
+		Entry("a unix second timestamp",
+			telem.Float64T, http.TimeFormatUnixSec, nil,
+			map[string]any{"ts": 10, "v": 1.5}, telem.NewSeriesV[float64](1.5)),
+		Entry("a unix millisecond timestamp",
+			telem.Float64T, http.TimeFormatUnixMs, nil,
+			map[string]any{"ts": 10_000, "v": 1.5}, telem.NewSeriesV[float64](1.5)),
+		Entry("a unix microsecond timestamp",
+			telem.Float64T, http.TimeFormatUnixUs, nil,
+			map[string]any{"ts": 10_000_000, "v": 1.5},
+			telem.NewSeriesV[float64](1.5)),
+		Entry("an ISO 8601 timestamp",
+			telem.Float64T, http.TimeFormatISO8601, nil,
+			map[string]any{"ts": "1970-01-01T00:00:10Z", "v": 1.5},
+			telem.NewSeriesV[float64](1.5)),
+		Entry("an enum label",
+			telem.Uint8T, http.TimeFormatUnixNs, onOff,
+			map[string]any{"ts": 10e9, "v": "ON"}, telem.NewSeriesV[uint8](1)),
+		Entry("a string",
+			telem.StringT, http.TimeFormatUnixNs, nil,
+			map[string]any{"ts": 10e9, "v": "hello"}, telem.NewSeriesV("hello")),
+	)
+
+	DescribeTable("Should skip a record whose value does not convert",
+		func(
+			ctx SpecContext,
+			dt telem.DataType,
+			format http.TimeFormat,
+			enums []http.EnumEntry,
+			doc map[string]any,
+			msg string,
+		) {
+			index, data := createIndexed(ctx, dt)
+			dev := createDevice(ctx, clusterProperties())
+			topic := newTopic()
+			task_, t := configure(ctx, kafka.ReadConfig{
+				Device: dev.Key,
+				Topic:  topic,
+				Fields: valueFields(index, data, dt, &format, enums),
+			})
+			start(ctx, task_, t)
+			produceJSON(ctx, producer, topic, "", doc)
+			Eventually(func() string { return taskStatus(ctx, t).Message }).
+				WithTimeout(15 * time.Second).Should(ContainSubstring(msg))
+			stat := taskStatus(ctx, t)
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Details.Running).To(BeTrue())
+		},
+		Entry("a number where an ISO 8601 timestamp is expected",
+			telem.Float64T, http.TimeFormatISO8601, nil,
+			map[string]any{"ts": 10, "v": 1.5}, "expected an ISO 8601 string"),
+		Entry("a malformed ISO 8601 timestamp",
+			telem.Float64T, http.TimeFormatISO8601, nil,
+			map[string]any{"ts": "yesterday", "v": 1.5},
+			"invalid ISO 8601 timestamp"),
+		Entry("a string where a numeric timestamp is expected",
+			telem.Float64T, http.TimeFormatUnixNs, nil,
+			map[string]any{"ts": "10", "v": 1.5}, "expected a number"),
+		Entry("an unknown enum label",
+			telem.Uint8T, http.TimeFormatUnixNs, onOff,
+			map[string]any{"ts": 10e9, "v": "MAYBE"}, "unknown enum label"),
+		Entry("an object where a number is expected",
+			telem.Float64T, http.TimeFormatUnixNs, nil,
+			map[string]any{"ts": 10e9, "v": map[string]any{"x": 1}},
+			"expected a number or boolean"),
+		Entry("a number where a string is expected",
+			telem.StringT, http.TimeFormatUnixNs, nil,
+			map[string]any{"ts": 10e9, "v": 1}, "expected a string"),
+	)
+
 	DescribeTable("Should reject an invalid config",
 		func(
 			ctx SpecContext,
