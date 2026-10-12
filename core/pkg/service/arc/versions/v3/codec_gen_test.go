@@ -18,8 +18,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	graph "github.com/synnaxlabs/arc/graph/versions/v1"
+	irv0 "github.com/synnaxlabs/arc/ir/versions/v0"
 	ir "github.com/synnaxlabs/arc/ir/versions/v1"
 	text "github.com/synnaxlabs/arc/text/versions/v1"
+	typesv0 "github.com/synnaxlabs/arc/types/versions/v0"
 	types "github.com/synnaxlabs/arc/types/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
 	crdt "github.com/synnaxlabs/x/crdt/versions/v0"
@@ -49,7 +51,7 @@ var _ = Describe("Codec", func() {
 					Functions: []ir.Function{
 						{
 							Key:  "test_6",
-							Body: ir.Body{Raw: "test_8"},
+							Body: irv0.Body{Raw: "test_8"},
 							Inputs: []types.Param{
 								{
 									Name:  "test_10",
@@ -64,7 +66,7 @@ var _ = Describe("Codec", func() {
 									Value: any(map[string]any{"key_16": "value_16"}),
 								},
 							},
-							Channels: types.Channels{
+							Channels: typesv0.Channels{
 								Read:  map[uint32]string{19: "test_18"},
 								Write: map[uint32]string{20: "test_19"},
 							},
@@ -72,9 +74,9 @@ var _ = Describe("Codec", func() {
 					},
 					Edges: []graph.Edge{
 						{
-							Source: ir.Handle{Node: "test_22", Param: "test_23"},
-							Target: ir.Handle{Node: "test_25", Param: "test_26"},
-							Kind:   ir.EdgeKind(0),
+							Source: irv0.Handle{Node: "test_22", Param: "test_23"},
+							Target: irv0.Handle{Node: "test_25", Param: "test_26"},
+							Kind:   irv0.EdgeKind(0),
 							Key:    "test_28",
 						},
 					},
@@ -122,7 +124,7 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 			Functions: []ir.Function{
 				{
 					Key:  "test_6",
-					Body: ir.Body{Raw: "test_8"},
+					Body: irv0.Body{Raw: "test_8"},
 					Inputs: []types.Param{
 						{
 							Name:  "test_10",
@@ -137,7 +139,7 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 							Value: any(map[string]any{"key_16": "value_16"}),
 						},
 					},
-					Channels: types.Channels{
+					Channels: typesv0.Channels{
 						Read:  map[uint32]string{19: "test_18"},
 						Write: map[uint32]string{20: "test_19"},
 					},
@@ -145,9 +147,9 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 			},
 			Edges: []graph.Edge{
 				{
-					Source: ir.Handle{Node: "test_22", Param: "test_23"},
-					Target: ir.Handle{Node: "test_25", Param: "test_26"},
-					Kind:   ir.EdgeKind(0),
+					Source: irv0.Handle{Node: "test_22", Param: "test_23"},
+					Target: irv0.Handle{Node: "test_25", Param: "test_26"},
+					Kind:   irv0.EdgeKind(0),
 					Key:    "test_28",
 				},
 			},
@@ -193,7 +195,7 @@ func FuzzDecodeArc(f *testing.F) {
 				Functions: []ir.Function{
 					{
 						Key:  "test_6",
-						Body: ir.Body{Raw: "test_8"},
+						Body: irv0.Body{Raw: "test_8"},
 						Inputs: []types.Param{
 							{
 								Name:  "test_10",
@@ -208,7 +210,7 @@ func FuzzDecodeArc(f *testing.F) {
 								Value: any(map[string]any{"key_16": "value_16"}),
 							},
 						},
-						Channels: types.Channels{
+						Channels: typesv0.Channels{
 							Read:  map[uint32]string{19: "test_18"},
 							Write: map[uint32]string{20: "test_19"},
 						},
@@ -216,9 +218,9 @@ func FuzzDecodeArc(f *testing.F) {
 				},
 				Edges: []graph.Edge{
 					{
-						Source: ir.Handle{Node: "test_22", Param: "test_23"},
-						Target: ir.Handle{Node: "test_25", Param: "test_26"},
-						Kind:   ir.EdgeKind(0),
+						Source: irv0.Handle{Node: "test_22", Param: "test_23"},
+						Target: irv0.Handle{Node: "test_25", Param: "test_26"},
+						Kind:   irv0.EdgeKind(0),
 						Key:    "test_28",
 					},
 				},

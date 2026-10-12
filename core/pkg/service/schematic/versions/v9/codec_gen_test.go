@@ -21,7 +21,8 @@ import (
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v9"
 	border "github.com/synnaxlabs/x/border/versions/v0"
-	color "github.com/synnaxlabs/x/color/versions/v1"
+	color "github.com/synnaxlabs/x/color/versions/v0"
+	colorv1 "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
@@ -659,8 +660,8 @@ var _ = Describe("Codec", func() {
 					A: 18.5,
 				}),
 				Tooltip: []string{"test_19"},
-				Redline: color.Scale{
-					Bands: []color.Band{
+				Redline: colorv1.Scale{
+					Bands: []colorv1.Band{
 						{
 							Key:       "test_22",
 							Threshold: 23.5,
@@ -1381,8 +1382,8 @@ var _ = Describe("Codec", func() {
 					A: 18.5,
 				}),
 				Tooltip: []string{"test_19"},
-				Redline: color.Scale{
-					Bands: []color.Band{
+				Redline: colorv1.Scale{
+					Bands: []colorv1.Band{
 						{
 							Key:       "test_22",
 							Threshold: 23.5,
@@ -3156,8 +3157,8 @@ func FuzzDecodeElementConfig(f *testing.F) {
 				A: 18.5,
 			}),
 			Tooltip: []string{"test_19"},
-			Redline: color.Scale{
-				Bands: []color.Band{
+			Redline: colorv1.Scale{
+				Bands: []colorv1.Band{
 					{
 						Key:       "test_22",
 						Threshold: 23.5,
@@ -4713,8 +4714,8 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				A: 18.5,
 			}),
 			Tooltip: []string{"test_19"},
-			Redline: color.Scale{
-				Bands: []color.Band{
+			Redline: colorv1.Scale{
+				Bands: []colorv1.Band{
 					{
 						Key:       "test_22",
 						Threshold: 23.5,

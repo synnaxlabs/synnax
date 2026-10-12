@@ -14,7 +14,8 @@ package v1
 import (
 	"encoding/json/v2"
 
-	ir "github.com/synnaxlabs/arc/ir/versions/v1"
+	ir "github.com/synnaxlabs/arc/ir/versions/v0"
+	versionsir "github.com/synnaxlabs/arc/ir/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
@@ -112,7 +113,7 @@ func (g *Graph) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			g.Functions = make([]ir.Function, n)
+			g.Functions = make([]versionsir.Function, n)
 			for i := range g.Functions {
 				if err = g.Functions[i].DecodeOrc(r); err != nil {
 					return err

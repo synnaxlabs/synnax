@@ -14,9 +14,9 @@ package v2
 import (
 	"uuid"
 
-	device "github.com/synnaxlabs/synnax/pkg/service/device/versions/v1"
+	device "github.com/synnaxlabs/synnax/pkg/service/device/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	rackv2 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
+	rackv0 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -54,7 +54,7 @@ type Task struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Rack is the key of the rack this task deploys to. Zero for a draft that has not
 	// been assigned a rack; required to start.
-	Rack rackv2.Key `json:"rack" msgpack:"rack"`
+	Rack rackv0.Key `json:"rack" msgpack:"rack"`
 	// Name is a human-readable name for the task.
 	Name string `json:"name" msgpack:"name"`
 	// Type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').

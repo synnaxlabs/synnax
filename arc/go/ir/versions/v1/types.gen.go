@@ -13,7 +13,8 @@ package v1
 
 import (
 	v0 "github.com/synnaxlabs/arc/ir/versions/v0"
-	types "github.com/synnaxlabs/arc/types/versions/v1"
+	typesv0 "github.com/synnaxlabs/arc/types/versions/v0"
+	typesv1 "github.com/synnaxlabs/arc/types/versions/v1"
 )
 
 // Handle is a reference to a specific parameter on a specific node in the dataflow
@@ -43,11 +44,11 @@ type Function struct {
 	// Body is raw source code for user-defined functions.
 	Body Body `json:"body" msgpack:"body"`
 	// Inputs contains input parameter definitions.
-	Inputs types.Params `json:"inputs" msgpack:"inputs"`
+	Inputs typesv1.Params `json:"inputs" msgpack:"inputs"`
 	// Outputs contains output parameter definitions.
-	Outputs types.Params `json:"outputs" msgpack:"outputs"`
+	Outputs typesv1.Params `json:"outputs" msgpack:"outputs"`
 	// Channels contains channel read/write declarations.
-	Channels types.Channels `json:"channels" msgpack:"channels"`
+	Channels typesv0.Channels `json:"channels" msgpack:"channels"`
 }
 
 // Functions is a collection of function definitions in an Arc module.

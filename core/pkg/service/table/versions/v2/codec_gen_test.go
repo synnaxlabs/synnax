@@ -19,7 +19,8 @@ import (
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions/v2"
-	color "github.com/synnaxlabs/x/color/versions/v1"
+	color "github.com/synnaxlabs/x/color/versions/v0"
+	colorv1 "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
@@ -61,8 +62,8 @@ var _ = Describe("Codec", func() {
 				RollingAverage: 3,
 				Precision:      new(int32(4)),
 				Notation:       notation.Notation("standard"),
-				Redline: color.Scale{
-					Bands: []color.Band{
+				Redline: colorv1.Scale{
+					Bands: []colorv1.Band{
 						{
 							Key:       "test_7",
 							Threshold: 8.5,
@@ -324,8 +325,8 @@ func FuzzDecodeCellConfig(f *testing.F) {
 			RollingAverage: 3,
 			Precision:      new(int32(4)),
 			Notation:       notation.Notation("standard"),
-			Redline: color.Scale{
-				Bands: []color.Band{
+			Redline: colorv1.Scale{
+				Bands: []colorv1.Band{
 					{
 						Key:       "test_7",
 						Threshold: 8.5,

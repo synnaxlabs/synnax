@@ -12,7 +12,7 @@
 package v4
 
 import (
-	arc "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
+	arc "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v0"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/validate"
 )

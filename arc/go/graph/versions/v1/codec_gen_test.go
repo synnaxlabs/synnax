@@ -17,7 +17,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph/versions/v1"
-	ir "github.com/synnaxlabs/arc/ir/versions/v1"
+	ir "github.com/synnaxlabs/arc/ir/versions/v0"
+	irv1 "github.com/synnaxlabs/arc/ir/versions/v1"
+	typesv0 "github.com/synnaxlabs/arc/types/versions/v0"
 	types "github.com/synnaxlabs/arc/types/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
@@ -63,7 +65,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v1.Graph{
-				Functions: []ir.Function{
+				Functions: []irv1.Function{
 					{
 						Key:  "test_2",
 						Body: ir.Body{Raw: "test_4"},
@@ -73,12 +75,12 @@ var _ = Describe("Codec", func() {
 								Type: types.Type{
 									Inputs:        []types.Param{{}},
 									Outputs:       []types.Param{{}},
-									Kind:          types.Kind(0),
+									Kind:          typesv0.Kind(0),
 									Name:          "test_11",
 									Elem:          new(types.Type{}),
-									Unit:          new(types.Unit{}),
+									Unit:          new(typesv0.Unit{}),
 									Constraint:    new(types.Type{}),
-									ChanDirection: types.ChanDirection(0),
+									ChanDirection: typesv0.ChanDirection(0),
 								},
 								Value: any(map[string]any{"key_16": "value_16"}),
 							},
@@ -89,17 +91,17 @@ var _ = Describe("Codec", func() {
 								Type: types.Type{
 									Inputs:        []types.Param{{}},
 									Outputs:       []types.Param{{}},
-									Kind:          types.Kind(0),
+									Kind:          typesv0.Kind(0),
 									Name:          "test_23",
 									Elem:          new(types.Type{}),
-									Unit:          new(types.Unit{}),
+									Unit:          new(typesv0.Unit{}),
 									Constraint:    new(types.Type{}),
-									ChanDirection: types.ChanDirection(0),
+									ChanDirection: typesv0.ChanDirection(0),
 								},
 								Value: any(map[string]any{"key_28": "value_28"}),
 							},
 						},
-						Channels: types.Channels{
+						Channels: typesv0.Channels{
 							Read:  map[uint32]string{31: "test_30"},
 							Write: map[uint32]string{32: "test_31"},
 						},
@@ -117,13 +119,13 @@ var _ = Describe("Codec", func() {
 				Inputs: map[string]msgpack.EncodedJSON{"test_46": {"key_46": "value_46"}},
 			}),
 			Entry("zero values", v1.Graph{
-				Functions: []ir.Function{},
+				Functions: []irv1.Function{},
 				Edges:     []v1.Edge{},
 				Nodes:     []v1.Node{},
 				Inputs:    map[string]msgpack.EncodedJSON{},
 			}),
 			Entry("empty collections", v1.Graph{
-				Functions: []ir.Function{},
+				Functions: []irv1.Function{},
 				Edges:     []v1.Edge{},
 				Nodes:     []v1.Node{},
 				Inputs:    map[string]msgpack.EncodedJSON{},
@@ -171,7 +173,7 @@ func BenchmarkEncodeDecodeEdge(b *testing.B) {
 
 func BenchmarkEncodeDecodeGraph(b *testing.B) {
 	seed := v1.Graph{
-		Functions: []ir.Function{
+		Functions: []irv1.Function{
 			{
 				Key:  "test_2",
 				Body: ir.Body{Raw: "test_4"},
@@ -181,12 +183,12 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 						Type: types.Type{
 							Inputs:        []types.Param{{}},
 							Outputs:       []types.Param{{}},
-							Kind:          types.Kind(0),
+							Kind:          typesv0.Kind(0),
 							Name:          "test_11",
 							Elem:          new(types.Type{}),
-							Unit:          new(types.Unit{}),
+							Unit:          new(typesv0.Unit{}),
 							Constraint:    new(types.Type{}),
-							ChanDirection: types.ChanDirection(0),
+							ChanDirection: typesv0.ChanDirection(0),
 						},
 						Value: any(map[string]any{"key_16": "value_16"}),
 					},
@@ -197,17 +199,17 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 						Type: types.Type{
 							Inputs:        []types.Param{{}},
 							Outputs:       []types.Param{{}},
-							Kind:          types.Kind(0),
+							Kind:          typesv0.Kind(0),
 							Name:          "test_23",
 							Elem:          new(types.Type{}),
-							Unit:          new(types.Unit{}),
+							Unit:          new(typesv0.Unit{}),
 							Constraint:    new(types.Type{}),
-							ChanDirection: types.ChanDirection(0),
+							ChanDirection: typesv0.ChanDirection(0),
 						},
 						Value: any(map[string]any{"key_28": "value_28"}),
 					},
 				},
-				Channels: types.Channels{
+				Channels: typesv0.Channels{
 					Read:  map[uint32]string{31: "test_30"},
 					Write: map[uint32]string{32: "test_31"},
 				},
@@ -308,7 +310,7 @@ func FuzzDecodeEdge(f *testing.F) {
 func FuzzDecodeGraph(f *testing.F) {
 	{
 		seed := v1.Graph{
-			Functions: []ir.Function{
+			Functions: []irv1.Function{
 				{
 					Key:  "test_2",
 					Body: ir.Body{Raw: "test_4"},
@@ -318,12 +320,12 @@ func FuzzDecodeGraph(f *testing.F) {
 							Type: types.Type{
 								Inputs:        []types.Param{{}},
 								Outputs:       []types.Param{{}},
-								Kind:          types.Kind(0),
+								Kind:          typesv0.Kind(0),
 								Name:          "test_11",
 								Elem:          new(types.Type{}),
-								Unit:          new(types.Unit{}),
+								Unit:          new(typesv0.Unit{}),
 								Constraint:    new(types.Type{}),
-								ChanDirection: types.ChanDirection(0),
+								ChanDirection: typesv0.ChanDirection(0),
 							},
 							Value: any(map[string]any{"key_16": "value_16"}),
 						},
@@ -334,17 +336,17 @@ func FuzzDecodeGraph(f *testing.F) {
 							Type: types.Type{
 								Inputs:        []types.Param{{}},
 								Outputs:       []types.Param{{}},
-								Kind:          types.Kind(0),
+								Kind:          typesv0.Kind(0),
 								Name:          "test_23",
 								Elem:          new(types.Type{}),
-								Unit:          new(types.Unit{}),
+								Unit:          new(typesv0.Unit{}),
 								Constraint:    new(types.Type{}),
-								ChanDirection: types.ChanDirection(0),
+								ChanDirection: typesv0.ChanDirection(0),
 							},
 							Value: any(map[string]any{"key_28": "value_28"}),
 						},
 					},
-					Channels: types.Channels{
+					Channels: typesv0.Channels{
 						Read:  map[uint32]string{31: "test_30"},
 						Write: map[uint32]string{32: "test_31"},
 					},
@@ -369,7 +371,7 @@ func FuzzDecodeGraph(f *testing.F) {
 	}
 	{
 		seed := v1.Graph{
-			Functions: []ir.Function{},
+			Functions: []irv1.Function{},
 			Edges:     []v1.Edge{},
 			Nodes:     []v1.Node{},
 			Inputs:    map[string]msgpack.EncodedJSON{},
@@ -382,7 +384,7 @@ func FuzzDecodeGraph(f *testing.F) {
 	}
 	{
 		seed := v1.Graph{
-			Functions: []ir.Function{},
+			Functions: []irv1.Function{},
 			Edges:     []v1.Edge{},
 			Nodes:     []v1.Node{},
 			Inputs:    map[string]msgpack.EncodedJSON{},
