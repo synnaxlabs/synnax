@@ -37,7 +37,9 @@ const listItemRenderProp = Component.renderProp(
       >
         <Text.Text align="center" className={CSS.BE("device", "list-item-name")}>
           <StatusIndicator status={status} />
-          <span>{name}</span>
+          <Text.Text el="span" overflow="fade">
+            {name}
+          </Text.Text>
         </Text.Text>
         <Text.Text
           level="small"

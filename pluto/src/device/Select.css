@@ -12,10 +12,8 @@
 .pluto-device__list-item-name {
     min-width: 0;
 
-    & > span {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+    & > .pluto-text--overflow-fade {
+        min-width: 0;
     }
 }
 
