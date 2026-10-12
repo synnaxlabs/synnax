@@ -95,6 +95,32 @@ describe("Provider", () => {
     await expect.poll(drawn).toEqual(0);
   });
 
+  it("draws an open range from its start through every later viewport", async () => {
+    const client = createTestClient();
+    // Past the cap spec's window, so this range never overlaps it.
+    const start = TimeStamp.now().add(TimeSpan.days(7300));
+    const range = await client.ranges.create({
+      name: `open-${id.create()}`,
+      timeRange: new TimeRange(start, TimeStamp.MAX),
+      color: "#7C3AED",
+    });
+    try {
+      const provider = mount();
+      const drawn = (viewportStart: TimeStamp) => () => {
+        provider.render(
+          renderProps(
+            new TimeRange(viewportStart, viewportStart.add(TimeSpan.seconds(30))),
+          ),
+        );
+        return provider.state.count;
+      };
+      await expect.poll(drawn(start.sub(TimeSpan.seconds(10)))).toEqual(1);
+      await expect.poll(drawn(start.add(TimeSpan.hours(1)))).toEqual(1);
+    } finally {
+      await client.ranges.delete(range.key);
+    }
+  });
+
   it("requeries a live window once per span, not on every sample", () => {
     const retrieve = vi.spyOn(ranger.Client.prototype, "retrieve");
     try {
