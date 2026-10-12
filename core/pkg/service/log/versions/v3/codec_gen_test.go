@@ -18,7 +18,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	lineplot "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v6"
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
 	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
@@ -64,7 +63,7 @@ var _ = Describe("Codec", func() {
 				ChannelNamesHidden:     true,
 				ReceiptTimestampHidden: false,
 				Range:                  "test_19",
-				Custom:                 new(lineplot.CustomRange{Variant: lineplot.DynamicCustomRange{Span: telem.TimeSpan(22)}}),
+				Custom:                 new(telem.Window{Variant: telem.DynamicWindow{Span: telem.TimeSpan(22)}}),
 			}),
 			Entry("zero values", v3.Log{
 				Key:                    uuid.Nil(),
@@ -84,7 +83,7 @@ var _ = Describe("Codec", func() {
 				ChannelNamesHidden:     true,
 				ReceiptTimestampHidden: false,
 				Range:                  "test_7",
-				Custom:                 new(lineplot.CustomRange{Variant: lineplot.DynamicCustomRange{Span: telem.TimeSpan(10)}}),
+				Custom:                 new(telem.Window{Variant: telem.DynamicWindow{Span: telem.TimeSpan(10)}}),
 			}),
 		)
 	})
@@ -116,7 +115,7 @@ func BenchmarkEncodeDecodeLog(b *testing.B) {
 		ChannelNamesHidden:     true,
 		ReceiptTimestampHidden: false,
 		Range:                  "test_19",
-		Custom:                 new(lineplot.CustomRange{Variant: lineplot.DynamicCustomRange{Span: telem.TimeSpan(22)}}),
+		Custom:                 new(telem.Window{Variant: telem.DynamicWindow{Span: telem.TimeSpan(22)}}),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -160,7 +159,7 @@ func FuzzDecodeLog(f *testing.F) {
 			ChannelNamesHidden:     true,
 			ReceiptTimestampHidden: false,
 			Range:                  "test_19",
-			Custom:                 new(lineplot.CustomRange{Variant: lineplot.DynamicCustomRange{Span: telem.TimeSpan(22)}}),
+			Custom:                 new(telem.Window{Variant: telem.DynamicWindow{Span: telem.TimeSpan(22)}}),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -194,7 +193,7 @@ func FuzzDecodeLog(f *testing.F) {
 			ChannelNamesHidden:     true,
 			ReceiptTimestampHidden: false,
 			Range:                  "test_7",
-			Custom:                 new(lineplot.CustomRange{Variant: lineplot.DynamicCustomRange{Span: telem.TimeSpan(10)}}),
+			Custom:                 new(telem.Window{Variant: telem.DynamicWindow{Span: telem.TimeSpan(10)}}),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

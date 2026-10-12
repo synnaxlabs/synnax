@@ -13,7 +13,6 @@ import { color, notation, telem, uuid, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { channel } from "@/channel";
-import { lineplot } from "@/lineplot";
 import { ontology } from "@/ontology";
 
 /** TimestampConfig is per-channel timestamp display configuration. */
@@ -72,7 +71,7 @@ export const logZ = z.object({
    */
   range: z.string().default("rolling7d"),
   /** custom is the window the "custom" range key resolves to. */
-  custom: zod.nullToUndefined(lineplot.customRangeZ),
+  custom: zod.nullToUndefined(telem.windowZ),
 });
 export interface Log extends z.infer<typeof logZ> {}
 export interface New extends z.input<typeof logZ> {}

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type lineplot, type ranger } from "@synnaxlabs/client";
+import { type ranger } from "@synnaxlabs/client";
 import { type LinePlot, Ranger } from "@synnaxlabs/pluto";
-import { type NumericTimeRange, TimeRange, TimeSpan } from "@synnaxlabs/x";
+import { type NumericTimeRange, type telem, TimeRange, TimeSpan } from "@synnaxlabs/x";
 import { useMemo } from "react";
 
 import { Session } from "@/session";
@@ -82,12 +82,15 @@ export const toResolvedRange = (range: Resolved): LinePlot.ResolvedRange =>
     : { variant: "static", timeRange: new TimeRange(range.timeRange) };
 
 /** @returns the window a Pluto visualization reads for the "custom" range key. */
-export const resolveCustom = (custom: lineplot.CustomRange): LinePlot.ResolvedRange =>
+export const resolveCustom = (custom: telem.Window): LinePlot.ResolvedRange =>
   custom.variant === "dynamic"
     ? { variant: "dynamic", span: new TimeSpan(custom.span) }
     : {
         variant: "static",
         // BigInt, not the constructor: TimeStamp parses a bare string as a date-time,
         // not a decimal int64.
-        timeRange: new TimeRange(BigInt(custom.start), BigInt(custom.end)),
+        timeRange: new TimeRange(
+          BigInt(custom.timeRange.start),
+          BigInt(custom.timeRange.end),
+        ),
       };

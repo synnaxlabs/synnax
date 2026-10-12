@@ -20,7 +20,7 @@ Log struct {
         @doc value "is the unique identifier for this log."
         @key
     }
-    name                     string                {
+    name                     string         {
         @doc value "is a human-readable name for the log."
     }
     channels                 ChannelEntry[] = [] {
@@ -41,7 +41,7 @@ Log struct {
             range, or "custom".
         """
     }
-    custom                   lineplot.CustomRange? {
+    custom                   telem.Window?  {
         @doc value "is the window the \"custom\" range key resolves to."
     }
 

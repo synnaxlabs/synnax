@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
-	lineplot "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v6"
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/notation"
@@ -47,8 +46,8 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		l := decode(ctx, "testdata/import_v3.json")
 		Expect(l.Channels).To(HaveLen(1))
 		Expect(l.Range).To(Equal("custom"))
-		Expect(l.Custom).To(Equal(&lineplot.CustomRange{
-			Variant: lineplot.DynamicCustomRange{Span: telem.Minute},
+		Expect(l.Custom).To(Equal(&telem.Window{
+			Variant: telem.DynamicWindow{Span: telem.Minute},
 		}))
 	})
 

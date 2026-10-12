@@ -14,7 +14,6 @@ import { z } from "zod";
 
 import { actions } from "@/actions";
 import { channel } from "@/channel";
-import { lineplot } from "@/lineplot";
 import { channelEntryZ, keyZ, type Log, logZ } from "@/log/types.gen";
 
 /**
@@ -200,7 +199,7 @@ export type SetRangePayload = z.infer<typeof setRangePayloadZ>;
  * clears the window.
  */
 export const setCustomRangePayloadZ = z.object({
-  custom: zod.nullToUndefined(lineplot.customRangeZ),
+  custom: zod.nullToUndefined(telem.windowZ),
 });
 
 export type SetCustomRangePayload = z.infer<typeof setCustomRangePayloadZ>;

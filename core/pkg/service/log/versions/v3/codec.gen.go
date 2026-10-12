@@ -89,7 +89,7 @@ func (lv *Log) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv lineplot.CustomRange
+			var hv telem.Window
 			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}

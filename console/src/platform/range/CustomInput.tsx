@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type lineplot } from "@synnaxlabs/client";
 import { Input } from "@synnaxlabs/lyra/input";
-import { TimeSpan } from "@synnaxlabs/x";
+import { type telem, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 // SY-4816: Static range entry, when added, should stop at 1s, which also simplifies
@@ -48,8 +47,8 @@ export interface CustomInputProps extends Omit<
   Input.ItemProps,
   "label" | "onChange" | "children"
 > {
-  value: lineplot.CustomRange | undefined;
-  onChange: (value: lineplot.CustomRange) => void;
+  value: telem.Window | undefined;
+  onChange: (value: telem.Window) => void;
   autoFocus?: boolean;
   disabled?: boolean;
 }

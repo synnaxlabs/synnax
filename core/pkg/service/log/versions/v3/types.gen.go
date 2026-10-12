@@ -48,7 +48,7 @@ type Log struct {
 	// range, or "custom".
 	Range string `json:"range" msgpack:"range"`
 	// Custom is the window the "custom" range key resolves to.
-	Custom *lineplot.CustomRange `json:"custom,omitzero" msgpack:"custom,omitempty"`
+	Custom *telem.Window `json:"custom,omitzero" msgpack:"custom,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

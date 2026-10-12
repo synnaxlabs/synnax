@@ -13,7 +13,6 @@ package log
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
@@ -154,7 +153,7 @@ type SetRangePayload struct {
 // SetCustomRangePayload sets the window the "custom" range key resolves to. A null
 // custom clears the window.
 type SetCustomRangePayload struct {
-	Custom *lineplot.CustomRange `json:"custom,omitzero" msgpack:"custom,omitempty"`
+	Custom *telem.Window `json:"custom,omitzero" msgpack:"custom,omitempty"`
 }
 
 // Action is a discriminated union for all Log mutations. Type names

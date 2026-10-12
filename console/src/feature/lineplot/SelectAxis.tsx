@@ -11,6 +11,7 @@ import { type channel, lineplot } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Channel, LinePlot } from "@synnaxlabs/pluto";
+import { type telem } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { Range } from "@/platform/range";
@@ -89,7 +90,7 @@ const CustomRangeInput = (): ReactElement => {
   const custom = LinePlot.useCustomRange();
   const dispatch = LinePlot.useSingleDispatch();
   const handleChange = useCallback(
-    (custom: lineplot.CustomRange) => dispatch(lineplot.setCustomRange({ custom })),
+    (custom: telem.Window) => dispatch(lineplot.setCustomRange({ custom })),
     [dispatch],
   );
   return <Range.CustomInput value={custom} onChange={handleChange} />;

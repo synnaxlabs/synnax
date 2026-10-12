@@ -17,7 +17,6 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/color"
@@ -471,8 +470,8 @@ var _ = Describe("Writer", func() {
 				func(ctx SpecContext) {
 					l := log.Log{Name: "test"}
 					Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
-					dynamic := lineplot.CustomRange{
-						Variant: lineplot.DynamicCustomRange{Span: telem.Minute},
+					dynamic := telem.Window{
+						Variant: telem.DynamicWindow{Span: telem.Minute},
 					}
 					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 						log.NewSetCustomRangeAction(
@@ -480,8 +479,10 @@ var _ = Describe("Writer", func() {
 						),
 					})).To(Succeed())
 					Expect(retrieve(ctx, l.Key).Custom).To(Equal(&dynamic))
-					static := lineplot.CustomRange{
-						Variant: lineplot.StaticCustomRange{Start: 0, End: 1000},
+					static := telem.Window{
+						Variant: telem.StaticWindow{
+							TimeRange: telem.TimeRange{Start: 0, End: 1000},
+						},
 					}
 					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 						log.NewSetCustomRangeAction(

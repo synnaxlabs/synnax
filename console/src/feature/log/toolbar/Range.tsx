@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type lineplot, log } from "@synnaxlabs/client";
+import { log } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Access, Log } from "@synnaxlabs/pluto";
+import { type telem } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useState } from "react";
 
 import { Range as PlatformRange } from "@/platform/range";
@@ -30,7 +31,7 @@ export const Range = (): ReactElement => {
     [dispatch],
   );
   const handleCustomChange = useCallback(
-    (custom: lineplot.CustomRange) => dispatch(log.setCustomRange({ custom })),
+    (custom: telem.Window) => dispatch(log.setCustomRange({ custom })),
     [dispatch],
   );
   return (

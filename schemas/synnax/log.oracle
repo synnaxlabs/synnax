@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/channel"
-import "schemas/synnax/lineplot"
 import "schemas/x/color"
 import "schemas/x/notation"
 import "schemas/x/telem"
@@ -66,7 +65,7 @@ Log struct {
         @doc value "is the unique identifier for this log."
         @key
     }
-    name                     string                {
+    name                     string         {
         @doc value         "is a human-readable name for the log."
         @validate required
     }
@@ -90,7 +89,7 @@ Log struct {
             range, or "custom".
         """
     }
-    custom                   lineplot.CustomRange? {
+    custom                   telem.Window?  {
         @doc value "is the window the \"custom\" range key resolves to."
     }
 
@@ -246,7 +245,7 @@ Log struct {
     }
 
     action SetCustomRange {
-        custom lineplot.CustomRange?
+        custom telem.Window?
 
         @doc value """
             sets the window the "custom" range key resolves to. A null custom clears the
