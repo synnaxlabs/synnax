@@ -17,17 +17,8 @@ import { type LogEntry, type LogSource, type LogSourceSpec } from "./types";
 export class MockLogSource implements LogSource {
   static readonly TYPE = TEST_SOURCE_TYPE;
   private _entries: LogEntry[] = [];
-  private _evictedCount = 0;
   private activeChannels: Set<channel.Key> = new Set();
   private readonly observable = new observe.BaseObserver<void>();
-
-  get evictedCount(): number {
-    return this._evictedCount;
-  }
-
-  set evictedCount(count: number) {
-    this._evictedCount = count;
-  }
 
   value(): LogEntry[] {
     if (this.activeChannels.size === 0) return this._entries;
