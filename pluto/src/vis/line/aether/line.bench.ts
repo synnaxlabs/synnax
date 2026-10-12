@@ -276,7 +276,8 @@ const renderSource = (series: Series[]): telem.SeriesSourceSpec => {
   };
 };
 
-const mountLine = (y: (i: number) => number): Line => {
+/** @returns a function that renders one frame of a line with the given samples. */
+const mountLine = (y: (i: number) => number): (() => void) => {
   const xs: Series[] = [];
   const ys: Series[] = [];
   for (let start = 0; start < RENDER_SAMPLES; start += CHUNK) {
@@ -292,7 +293,7 @@ const mountLine = (y: (i: number) => number): Line => {
     xs.push(new Series({ data: xData, dataType, timeRange, alignment }));
     ys.push(new Series({ data: yData, dataType, timeRange, alignment }));
   }
-  const { gl } = canvasTest.createGL();
+  const { gl, calls } = canvasTest.createGL();
   const recorder = canvasTest.record();
   (recorder as { gl: unknown }).gl = gl;
   recorder.resize(RENDER_PROPS.region, 1);
@@ -312,8 +313,13 @@ const mountLine = (y: (i: number) => number): Line => {
     },
   });
   const line = h.child<Line>("line");
-  line.render(RENDER_PROPS);
-  return line;
+  // Clearing the call log keeps it from growing across frames.
+  const frame = (): void => {
+    calls.length = 0;
+    line.render(RENDER_PROPS);
+  };
+  frame();
+  return frame;
 };
 
 test("render 1M samples", async ({ bench }) => {
@@ -323,8 +329,5 @@ test("render 1M samples", async ({ bench }) => {
   const finite = mountLine((i) => Math.sin(i / 100));
   // 5000 NaN bursts of 50 samples each.
   const bursts = mountLine((i) => (i % 200 >= 150 ? NaN : Math.sin(i / 100)));
-  await bench.compare(
-    bench("all finite", () => finite.render(RENDER_PROPS)),
-    bench("NaN bursts", () => bursts.render(RENDER_PROPS)),
-  );
+  await bench.compare(bench("all finite", finite), bench("NaN bursts", bursts));
 });
