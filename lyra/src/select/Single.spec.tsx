@@ -384,7 +384,7 @@ describe("Select.Single", () => {
         );
       };
       const c = render(<Pair />);
-      const source = c.getByRole("button", { name: "Source Second Item" });
+      const source = c.getByRole("button", { name: /^Source/ });
       const target = c.getByRole("button", { name: "Targets" });
       return { source, target, onSingleChange, onMultipleChange };
     };
@@ -401,6 +401,14 @@ describe("Select.Single", () => {
     it("should not be draggable while disabled", () => {
       const { source } = renderPair({ disabled: true });
       expect(source.draggable).toBe(false);
+    });
+
+    it("should not drag a selected key with no entry", () => {
+      const { source, target, onMultipleChange } = renderPair({ value: "0" });
+      expect(source.draggable).toBe(false);
+      fireEvent.dragStart(source);
+      fireEvent.drop(target);
+      expect(onMultipleChange).not.toHaveBeenCalled();
     });
   });
 });

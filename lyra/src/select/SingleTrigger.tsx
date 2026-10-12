@@ -96,16 +96,13 @@ export const SingleTrigger = <K extends record.Key>({
       [setSelected],
     ),
   });
-  // A drag copies the selection: a single select must keep its value.
+  // A drag copies the selection: a single select must keep its value. Only a key that
+  // resolves to an entry drags, so an empty sentinel such as 0 never does.
   const draggable =
-    haulType !== "" &&
-    selected != null &&
-    !fixed &&
-    disabled !== true &&
-    preview !== true;
+    haulType !== "" && item != null && !fixed && disabled !== true && preview !== true;
   const handleDragStart = useCallback(() => {
-    if (selected != null) startDrag([{ key: selected, type: haulType }]);
-  }, [startDrag, selected, haulType]);
+    if (item != null) startDrag([{ key: item.key, type: haulType }]);
+  }, [startDrag, item, haulType]);
   const dragging = Haul.useDraggingState();
   const baseId = useId();
   const id = idProp ?? baseId;
