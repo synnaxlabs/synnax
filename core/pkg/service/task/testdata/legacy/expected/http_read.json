@@ -104,5 +104,6 @@
       ]
     }
   ],
+  "nan_fill_enabled": false,
   "rate": 2.5
 }
