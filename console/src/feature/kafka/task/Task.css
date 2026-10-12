@@ -12,6 +12,11 @@
 .console-kafka-details {
     padding: var(--console-details-padding);
     overflow-y: auto;
+
+    /* Fits "Time format", so the controls hold still when it shows or hides. */
+    &.pluto-form-sections.pluto--direction-y {
+        grid-template-columns: minmax(11rem, max-content) minmax(0, 1fr);
+    }
 }
 
 /* Long names truncate inside the row instead of widening it past the list. The label
