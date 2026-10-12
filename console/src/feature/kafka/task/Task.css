@@ -18,6 +18,6 @@
     opacity: 0.6;
 }
 
-.console-kafka-select__dialog {
-    min-width: max-content;
+.console-kafka-select__trigger {
+    width: 160px;
 }

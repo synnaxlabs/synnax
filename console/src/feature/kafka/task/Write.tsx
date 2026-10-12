@@ -41,14 +41,14 @@ import { Form as PlatformForm } from "@/platform/form";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-const SELECT_DIALOG_PROPS = { className: CSS.BE("kafka-select", "dialog") };
+const SELECT_TRIGGER_PROPS = { className: CSS.BE("kafka-select", "trigger") };
 
 const renderRecordKeySelect = Component.renderProp(
   (p: Omit<Select.SingleSimpleProps<RecordKey>, "children" | "resourceName">) => (
     <Select.Simple<RecordKey>
       {...p}
       resourceName="record key"
-      dialogProps={SELECT_DIALOG_PROPS}
+      triggerProps={SELECT_TRIGGER_PROPS}
     >
       <Select.Item itemKey="channel_name">Channel name</Select.Item>
       <Select.Item itemKey="none">None</Select.Item>
@@ -58,7 +58,11 @@ const renderRecordKeySelect = Component.renderProp(
 
 const renderTimeFormatSelect = Component.renderProp(
   (p: Omit<Select.SingleSimpleProps<TimeFormat>, "children" | "resourceName">) => (
-    <Select.Simple<TimeFormat> {...p} resourceName="time format">
+    <Select.Simple<TimeFormat>
+      {...p}
+      resourceName="time format"
+      triggerProps={SELECT_TRIGGER_PROPS}
+    >
       {TIME_FORMAT_ITEMS}
     </Select.Simple>
   ),

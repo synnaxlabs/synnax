@@ -44,14 +44,14 @@ import { Form as PlatformForm } from "@/platform/form";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-const SELECT_DIALOG_PROPS = { className: CSS.BE("kafka-select", "dialog") };
+const SELECT_TRIGGER_PROPS = { className: CSS.BE("kafka-select", "trigger") };
 
 const renderStartOffsetSelect = Component.renderProp(
   (p: Omit<Select.SingleSimpleProps<StartOffset>, "children" | "resourceName">) => (
     <Select.Simple<StartOffset>
       {...p}
       resourceName="start offset"
-      dialogProps={SELECT_DIALOG_PROPS}
+      triggerProps={SELECT_TRIGGER_PROPS}
     >
       <Select.Item itemKey="latest">Latest</Select.Item>
       <Select.Item itemKey="earliest">Earliest</Select.Item>
