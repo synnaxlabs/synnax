@@ -6,6 +6,7 @@ flag: "release059"
 import { Releases } from "@/components/releases";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
+import { Image } from "@/components/media/Media";
 
 export const components = mdxOverrides;
 
@@ -14,18 +15,21 @@ export const components = mdxOverrides;
 <Releases.Release
     version="0.59.0"
     breakingChanges
-    date="Oct 5, 2026"
+    date="Oct 7, 2026"
     title="Redline bands, symbol tooltips, and license keys"
 >
 
 Synnax v0.59 redesigns redlines as threshold bands, adds hover tooltips to schematic
 symbols, improves multi-element editing, and gives ranges an editable timeline. Task
-forms have a new sectioned layout, and line plots connect data across writer restarts. A
-Core now needs a signed license key, so read the breaking changes before you upgrade.
+forms have a new sectioned layout, line plots connect data across writer restarts, and
+Arc timers fire on their deadline. A Core now needs a license key, so read the breaking
+changes before you upgrade.
 
 <Divider.Divider x />
 
 ### Redline bands
+
+<Image id="releases/0-59-0/redline-bands" />
 
 Redlines on the schematic value symbol and the table value cell are now threshold bands
 in the units of the value. Each band has a threshold, a color, and an optional flash, so
@@ -38,7 +42,8 @@ smooth switch blends between bands. Existing redlines convert automatically.
 
 Hover over a schematic symbol to see the channels it reads and writes, with their data
 types, and the settings that change its behavior. Tooltips show in view and control mode
-and hide in edit mode.
+and hide in edit mode. A new control in the top right corner of a schematic turns them
+off.
 
 <Divider.Divider x />
 
@@ -88,6 +93,16 @@ instead of `No channel`.
 - The history of a calculated channel now draws, and stays aligned when an input has no
   sample at a timestamp.
 - Long ranges load faster, because the Core now downsamples as it reads from disk.
+
+<Divider.Divider x />
+
+### Arc timing
+
+An Arc `time.wait` or `time.interval` now fires on its deadline, in the Driver and in
+the Core. Before, it could fire up to 5 ms early. A new `Performance` select next to the
+Driver select sets how closely an Arc holds its timers: `Auto`, `Low`, `Medium`, or
+`High`. A higher level is more precise and uses more CPU. See
+[Timing](/reference/control/arc/timing).
 
 <Divider.Divider x />
 
@@ -146,8 +161,9 @@ a box for the key. A running Core does not stop when its license expires. See
 #### A Core needs a license key
 
 A Core without a license refuses every request except login, the connectivity check, and
-license activation. The 50-channel allowance without a key is removed, and a license key
-in the old format does not work. Get a new key from Synnax Labs before you upgrade.
+license activation. The 50-channel allowance without a key is removed, so get a key from
+Synnax Labs before you upgrade a Core that has none. A key in the old numeric format
+still works.
 
 #### `secure` is the only TLS switch for the Driver
 
