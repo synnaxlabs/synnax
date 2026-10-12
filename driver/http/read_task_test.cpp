@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cmath>
 #include <memory>
 #include <string>
 #include <vector>
@@ -3592,4 +3593,120 @@ TEST(HTTPReadTask, EndpointHeaders) {
     EXPECT_EQ(accept->second, "application/json");
 }
 
+namespace {
+/// @brief reads once from an endpoint whose p2 and p3 fields share a software-timed
+/// index channel.
+/// @param body the JSON body the endpoint returns.
+/// @param p2_type the data type of the p2 channel.
+/// @param filled whether invalid floats are filled with NaN.
+/// @returns the frame and the read result.
+std::pair<x::telem::Frame, common::ReadResult> read_shared_index_group(
+    const std::string &body,
+    const x::telem::DataType &p2_type,
+    const bool filled
+) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::GET,
+                .path = "/api/pressures",
+                .status_code = 200,
+                .response_body = body,
+            }},
+        }
+    );
+    if (const auto err = server.start(); err) return {{}, {.error = err}};
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving_disabled = true;
+    cfg.auto_start = false;
+    cfg.rate = x::telem::Rate(10000);
+    cfg.invalid_floats_filled = filled;
+
+    ReadField p2;
+    p2.pointer = "/p2";
+    p2.channel = 2;
+    ReadField p3;
+    p3.pointer = "/p3";
+    p3.channel = 3;
+
+    ReadEndpoint ep;
+    ep.method = "GET";
+    ep.path = "/api/pressures";
+    ep.fields = {p2, p3};
+    cfg.endpoints = {ep};
+
+    cfg.channels[2] = {.key = 2, .name = "p2", .data_type = p2_type, .index = 100};
+    cfg.channels[3] =
+        {.key = 3, .name = "p3", .data_type = x::telem::FLOAT64_T, .index = 100};
+    cfg.software_timed_indexes[100] = 0;
+
+    auto [source, processor] = make_source(cfg, server.base_url());
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    return {std::move(fr), std::move(res)};
+}
+}
+
+/// @brief it should skip the whole group when a float field is missing and invalid
+/// floats are not filled.
+TEST(HTTPReadTask, MissingFloatSkipsGroupByDefault) {
+    auto [fr, res] = read_shared_index_group(
+        R"({"p3": 1.5})",
+        x::telem::FLOAT32_T,
+        false
+    );
+    ASSERT_NIL(res.error);
+    EXPECT_NE(res.warning.find("/p2 not found"), std::string::npos);
+    EXPECT_EQ(fr.size(), 0);
+}
+
+/// @brief it should write NaN for a missing float field and keep the rest of the
+/// group when invalid floats are filled.
+TEST(HTTPReadTask, MissingFloatFilledWithNaN) {
+    auto [fr, res] = read_shared_index_group(
+        R"({"p3": 1.5})",
+        x::telem::FLOAT32_T,
+        true
+    );
+    ASSERT_NIL(res.error);
+    EXPECT_NE(res.warning.find("/p2 not found"), std::string::npos);
+    ASSERT_EQ(fr.size(), 3);
+    EXPECT_TRUE(std::isnan(fr.at<float>(2, 0)));
+    EXPECT_EQ(fr.at<double>(3, 0), 1.5);
+    EXPECT_GT(fr.at<int64_t>(100, 0), 0);
+}
+
+/// @brief it should write NaN for a float field that fails to convert when invalid
+/// floats are filled.
+TEST(HTTPReadTask, UnconvertibleFloatFilledWithNaN) {
+    auto [fr, res] = read_shared_index_group(
+        R"({"p2": "INVALID", "p3": 1.5})",
+        x::telem::FLOAT64_T,
+        true
+    );
+    ASSERT_NIL(res.error);
+    EXPECT_NE(res.warning.find("failed to convert /p2"), std::string::npos);
+    ASSERT_EQ(fr.size(), 3);
+    EXPECT_TRUE(std::isnan(fr.at<double>(2, 0)));
+    EXPECT_EQ(fr.at<double>(3, 0), 1.5);
+}
+
+/// @brief it should skip the whole group when a non-float field is invalid, even when
+/// invalid floats are filled.
+TEST(HTTPReadTask, InvalidIntegerSkipsGroupWhenFilled) {
+    auto [fr, res] = read_shared_index_group(
+        R"({"p2": "INVALID", "p3": 1.5})",
+        x::telem::INT32_T,
+        true
+    );
+    ASSERT_NIL(res.error);
+    EXPECT_NE(res.warning.find("failed to convert /p2"), std::string::npos);
+    EXPECT_EQ(fr.size(), 0);
+}
 }

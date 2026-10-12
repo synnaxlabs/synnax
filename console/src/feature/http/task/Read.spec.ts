@@ -21,7 +21,7 @@ import {
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
+import { getLabeledInput, uniqueName } from "@/testutil";
 
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
@@ -259,6 +259,14 @@ describe("Read", () => {
     const draft = await createDraft(client, config);
     await renderRead({ client, taskKey: draft.key });
     await screen.findByRole("treeitem", { name: /\/seeded/ });
+  });
+
+  it("should toggle the invalid floats as NaN switch", async () => {
+    await renderRead();
+    const toggle = getLabeledInput("Invalid floats as NaN");
+    expect(toggle.checked).toBe(false);
+    fireEvent.click(toggle);
+    expect(toggle.checked).toBe(true);
   });
 
   const client = createTestClient();

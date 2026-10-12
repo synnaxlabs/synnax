@@ -73,6 +73,9 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         instead of saving it permanently within Synnax.
     :param auto_start: Whether to start the task automatically.
     :param endpoints: The endpoints to poll.
+    :param invalid_floats_filled: Whether to write NaN for a float field that is
+        missing or fails to convert, instead of skipping every field that shares its
+        endpoint and index channel.
     """
 
     TYPE = "http_read"
@@ -89,6 +92,7 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         data_saving_disabled: bool = False,
         auto_start: bool = False,
         endpoints: list[ReadEndpoint] | None = None,
+        invalid_floats_filled: bool = False,
     ) -> None:
         if internal is not None:
             self._internal = internal
@@ -101,6 +105,7 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
             data_saving_disabled=data_saving_disabled,
             auto_start=auto_start,
             endpoints=endpoints if endpoints is not None else [],
+            invalid_floats_filled=invalid_floats_filled,
         )
         task.assign_keys(self.config.endpoints)
         for ep in self.config.endpoints:

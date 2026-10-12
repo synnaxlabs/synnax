@@ -1,0 +1,68 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/device/v0"
+import "schemas/synnax/versions/task/v2"
+import "schemas/x/versions/telem/v0"
+
+Method = v2.Method
+
+TimeFormat = v2.TimeFormat
+
+Header = v2.Header
+
+QueryParam = v2.QueryParam
+
+EnumEntry = v2.EnumEntry
+
+ReadField = v2.ReadField
+
+ReadEndpoint = v2.ReadEndpoint
+
+ReadConfig struct extends task.PersistConfig {
+    device                device.Key = "" {
+        @doc value "is the key of the HTTP server device to poll."
+    }
+    rate                  telem.Rate = 1 {
+        @doc value "is the polling rate applied to all endpoints, in Hertz."
+    }
+    endpoints             ReadEndpoint[] {
+        @doc value "contains the endpoints to poll."
+    }
+    invalid_floats_filled bool = false {
+        @doc value """
+            is true when a float field that is missing or fails to convert is written as
+            NaN. When false, the task skips every field that shares the endpoint and
+            index channel with it.
+        """
+    }
+
+    @doc value  """
+        configures an HTTP read task, which polls one or more endpoints on an HTTP
+        server device and writes extracted JSON values to Synnax channels.
+    """
+    @go marshal
+    @go migrate
+}
+
+JSONType = v2.JSONType
+
+GeneratorType = v2.GeneratorType
+
+ChannelField = v2.ChannelField
+
+BaseWriteField = v2.BaseWriteField
+
+WriteField = v2.WriteField
+
+WriteEndpoint = v2.WriteEndpoint
+
+WriteConfig = v2.WriteConfig
+
+ScanConfig = v2.ScanConfig

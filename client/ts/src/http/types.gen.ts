@@ -235,6 +235,7 @@ export const readConfigZ = task.persistConfigZ.extend({
   device: device.keyZ.default(""),
   rate: z.number().default(1),
   endpoints: readEndpointZ.array().default(() => []),
+  invalidFloatsFilled: z.boolean().default(false),
 });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 

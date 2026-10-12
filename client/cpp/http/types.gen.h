@@ -253,6 +253,11 @@ struct ReadConfig : public ::synnax::task::PersistConfig {
     ::x::telem::Rate rate = ::x::telem::Rate(1);
     /// @brief endpoints contains the endpoints to poll.
     std::vector<ReadEndpoint> endpoints;
+    /// @brief invalid_floats_filled is true when a float field that is missing or fails
+    /// to
+    /// convert is written as NaN. When false, the task skips every field that shares
+    /// the endpoint and index channel with it.
+    bool invalid_floats_filled = false;
 
     static ReadConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

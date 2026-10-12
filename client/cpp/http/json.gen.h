@@ -145,6 +145,7 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
         "endpoints",
         std::vector<ReadEndpoint>{}
     );
+    result.invalid_floats_filled = parser.field<bool>("invalid_floats_filled", false);
     return result;
 }
 
@@ -155,6 +156,7 @@ inline x::json::json ReadConfig::to_json() const {
     j["device"] = this->device;
     j["rate"] = this->rate;
     j["endpoints"] = x::json::to_array(this->endpoints);
+    j["invalid_floats_filled"] = this->invalid_floats_filled;
     return j;
 }
 
