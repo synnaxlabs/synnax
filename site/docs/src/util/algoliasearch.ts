@@ -40,36 +40,35 @@ const toPlainText = async (content: string): Promise<string> => {
 const hidden = (flag: unknown): boolean =>
   typeof flag === "string" && process.env[`FLAG_${flag.toUpperCase()}`] !== "true";
 
-const filenames = fs.readdirSync(path.join("./src/pages"), {
-  recursive: true,
-  encoding: "utf8",
-});
-const pages = filenames
-  .filter((f) => f.endsWith("mdx"))
-  .map((filename) => ({
-    filename,
-    ...matter(fs.readFileSync(`./src/pages/${filename}`)),
-  }));
+// Each version's notes live outside src/pages and render only inside /releases.
+const sources = [
+  {
+    dir: "./src/pages",
+    href: (name: string) => `/${name.replace(/(^|\/)index$/, "$1")}`,
+  },
+  { dir: "./src/releases", href: (name: string) => `/releases/#${name}` },
+];
+const pages = sources.flatMap(({ dir, href }) =>
+  fs
+    .readdirSync(dir, { recursive: true, encoding: "utf8" })
+    .filter((f) => f.endsWith("mdx"))
+    .map((filename) => ({
+      filename,
+      href: href(filename.replace(".mdx", "")),
+      ...matter(fs.readFileSync(path.join(dir, filename))),
+    })),
+);
 const skipped = pages.filter(({ data }) => hidden(data.flag));
 const data = await Promise.all(
   pages
     .filter(({ data }) => !hidden(data.flag))
-    .map(async ({ filename, data: frontmatter, content }) => {
-      let href = `/${filename.replace(".mdx", "").replace(/(^|\/)index$/, "$1")}`;
-      if (filename.includes("releases") && !filename.includes("index"))
-        href = `/releases/#${filename
-          .replace(".mdx", "")
-          .replaceAll("-", "")
-          .slice(0, -1)
-          .replace("releases/", "")}`;
-      return {
-        objectID: filename,
-        href,
-        title: frontmatter.heading ?? frontmatter.title,
-        description: frontmatter.description,
-        content: await toPlainText(purgeImports(content)),
-      };
-    }),
+    .map(async ({ filename, href, data: frontmatter, content }) => ({
+      objectID: filename,
+      href,
+      title: frontmatter.heading ?? frontmatter.title,
+      description: frontmatter.description,
+      content: await toPlainText(purgeImports(content)),
+    })),
 );
 
 console.log(`Indexing ${data.length} pages, skipping ${skipped.length} behind flags`);

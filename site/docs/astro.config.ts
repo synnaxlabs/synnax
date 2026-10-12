@@ -16,8 +16,18 @@ import { integration } from "@synnaxlabs/site-common/integration";
 import { symbols, theme } from "@synnaxlabs/site-common/shiki";
 import { layers } from "@synnaxlabs/vite-plugin";
 import { defineConfig, envField } from "astro/config";
+import fs from "fs";
 
 import { outline } from "./src/util/outline";
+
+// Each version's notes render only inside /releases, so their old routes point at the
+// version's anchor there.
+const RELEASE_REDIRECTS = Object.fromEntries(
+  fs
+    .readdirSync("./src/releases")
+    .map((f) => f.replace(/\.mdx$/, ""))
+    .map((v) => [`/releases/${v}`, `/releases/#${v}`]),
+);
 
 // https://astro.build/config
 export default defineConfig({
@@ -130,6 +140,7 @@ export default defineConfig({
     "/reference/typescript-client/timestamps": "/reference/client/time-types",
     "/reference/typescript-client/examples": "/reference/client/examples",
     "/reference/typescript-client/troubleshooting": "/reference/client/troubleshooting",
+    ...RELEASE_REDIRECTS,
   },
   site: "https://docs.synnaxlabs.com",
 });
