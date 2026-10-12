@@ -84,8 +84,8 @@ describe("LinePlot", () => {
     );
     const viewport = await waitFor(() => {
       const el = result.container.querySelector(".pluto-line-plot__viewport");
-      expect(el).not.toBeNull();
-      return el as Element;
+      if (el == null) throw new Error("the plot area did not render");
+      return el;
     });
     const drop = (): void => {
       fireEvent.dragStart(result.getByTestId("source"));
