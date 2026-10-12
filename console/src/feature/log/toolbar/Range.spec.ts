@@ -77,4 +77,10 @@ describe("log/toolbar/Range", () => {
     const button = await trigger();
     await waitFor(() => expect(button.getAttribute("aria-disabled")).toBe("true"));
   });
+
+  it("should freeze the custom window input for a viewer", async () => {
+    await renderLog(Range, { log: { range: "custom" }, as: await roles.get("Viewer") });
+    const input = await screen.findByPlaceholderText("1h 30m");
+    await waitFor(() => expect((input as HTMLInputElement).disabled).toBe(true));
+  });
 });

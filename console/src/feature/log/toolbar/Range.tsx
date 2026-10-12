@@ -12,7 +12,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Access, Log } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useState } from "react";
 
-import { Range as PRange } from "@/platform/range";
+import { Range as PlatformRange } from "@/platform/range";
 
 export const Range = (): ReactElement => {
   const key = Log.useKey();
@@ -24,7 +24,7 @@ export const Range = (): ReactElement => {
   const [customPicked, setCustomPicked] = useState(false);
   const handleRangeChange = useCallback(
     (range: string) => {
-      setCustomPicked(range === PRange.CUSTOM_KEY);
+      setCustomPicked(range === PlatformRange.CUSTOM_KEY);
       dispatch(log.setRange({ range }));
     },
     [dispatch],
@@ -35,17 +35,18 @@ export const Range = (): ReactElement => {
   );
   return (
     <Flex.Box y gap="small">
-      <PRange.SelectSingleInputItem
+      <PlatformRange.SelectSingleInputItem
         value={range}
         onChange={handleRangeChange}
         disabled={!hasEditPermission}
       />
-      {range === PRange.CUSTOM_KEY && (
-        <PRange.CustomInput
+      {range === PlatformRange.CUSTOM_KEY && (
+        <PlatformRange.CustomInput
           x={false}
           value={custom}
           onChange={handleCustomChange}
           autoFocus={customPicked}
+          disabled={!hasEditPermission}
         />
       )}
     </Flex.Box>
