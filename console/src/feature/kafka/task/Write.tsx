@@ -43,12 +43,15 @@ import { Task } from "@/platform/task";
 
 const SELECT_TRIGGER_PROPS = { className: CSS.BE("kafka-select", "trigger") };
 
+const SELECT_DIALOG_PROPS = { className: CSS.BE("kafka-select", "dialog") };
+
 const renderRecordKeySelect = Component.renderProp(
   (p: Omit<Select.SingleSimpleProps<RecordKey>, "children" | "resourceName">) => (
     <Select.Simple<RecordKey>
       {...p}
       resourceName="record key"
       triggerProps={SELECT_TRIGGER_PROPS}
+      dialogProps={SELECT_DIALOG_PROPS}
     >
       <Select.Item itemKey="channel_name">Channel name</Select.Item>
       <Select.Item itemKey="none">None</Select.Item>
@@ -62,6 +65,7 @@ const renderTimeFormatSelect = Component.renderProp(
       {...p}
       resourceName="time format"
       triggerProps={SELECT_TRIGGER_PROPS}
+      dialogProps={SELECT_DIALOG_PROPS}
     >
       {TIME_FORMAT_ITEMS}
     </Select.Simple>
