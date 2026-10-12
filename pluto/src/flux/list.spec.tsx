@@ -1272,36 +1272,43 @@ describe("list", () => {
       expect(unsubscribe).toHaveBeenCalledTimes(1);
     });
 
-    it("should close an item feed when a page takes over its key", async () => {
-      const unsubscribe = vi.fn();
-      const onChangeByKey = vi.fn().mockReturnValue(unsubscribe);
+    it("should keep a read item that leaves a page but still exists", async () => {
+      type Item = record.Keyed<number> & { name: string };
+      let onPage: (items: Item[]) => void = () => {};
+      let onItem: (item: Item) => void = () => {};
       const { result } = renderHook(
         () => {
           const { getItem, subscribe, retrieveAsync } = Flux.createList<
             {},
             number,
-            record.Keyed<number>
+            Item
           >({
             name: "Resource",
-            retrieve: async () => [{ key: 1 }],
-            retrieveByKey: async ({ key }) => ({ key }),
-            onChange: () => () => {},
-            onChangeByKey,
+            retrieve: async () => [{ key: 1, name: "a" }],
+            retrieveByKey: async ({ key }) => ({ key, name: "a" }),
+            onChange: (_, handler) => {
+              onPage = handler;
+              return () => {};
+            },
+            onChangeByKey: (_, handler) => {
+              onItem = handler;
+              return () => {};
+            },
           })();
-          const value = Flux.useListItem<number, record.Keyed<number>>({
-            subscribe,
-            getItem,
-            key: 1,
-          });
+          const value = Flux.useListItem<number, Item>({ subscribe, getItem, key: 1 });
           return { retrieveAsync, value };
         },
         { wrapper },
       );
-      await waitFor(() => expect(onChangeByKey).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(result.current.value?.name).toEqual("a"));
       await act(async () => {
         await result.current.retrieveAsync({}, { signal: controller.signal });
       });
-      expect(unsubscribe).toHaveBeenCalledTimes(1);
+      act(() => {
+        onItem({ key: 1, name: "b" });
+        onPage([]);
+      });
+      expect(result.current.value?.name).toEqual("b");
     });
 
     it("should re-subscribe on subsequent replace-mode retrieves", async () => {

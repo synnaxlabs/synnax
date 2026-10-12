@@ -226,6 +226,8 @@ export const createList =
         page.keys = filtered.map((item) => item.key);
         dropped.forEach((k) => {
           if (pagesRef.current.some((p) => p.keys.includes(k))) return;
+          // The item may only have left the query, and its own feed reports it.
+          if (itemSubsRef.current.has(k)) return;
           dataRef.current.set(k, null);
           notifyListeners(k);
         });
@@ -347,7 +349,6 @@ export const createList =
           if (mode === "replace") clearPages();
           value.forEach((v) => dataRef.current.set(v.key, v));
           openPage(query, keys);
-          keys.forEach(closeItemSub);
           keys.forEach(notifyListeners);
           // A replaced page no longer delivers changes to the items it held, so an
           // item a consumer still reads, such as a selection, needs its own feed.
@@ -370,16 +371,7 @@ export const createList =
           setResult(errorResult(`retrieve ${name}`, error));
         }
       },
-      [
-        client,
-        name,
-        filterRef,
-        clearPages,
-        openPage,
-        openItemSub,
-        closeItemSub,
-        recomputeKeys,
-      ],
+      [client, name, filterRef, clearPages, openPage, openItemSub, recomputeKeys],
     );
 
     // When the client is swapped, an active hook must re-point itself at the
