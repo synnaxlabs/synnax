@@ -34,7 +34,7 @@ export const Range = (): ReactElement => {
     [dispatch],
   );
   return (
-    <Flex.Box x gap="large">
+    <Flex.Box y gap="small">
       <PRange.SelectSingleInputItem
         value={range}
         onChange={handleRangeChange}

@@ -46,7 +46,7 @@ export const Properties = (): ReactElement => {
   );
 
   return (
-    <Flex.Box x className={CSS.BE("log", "toolbar", "properties")}>
+    <Flex.Box x align="start" className={CSS.BE("log", "toolbar", "properties")}>
       <Range />
       <Input.Item label="Show timestamp">
         <Input.Switch
