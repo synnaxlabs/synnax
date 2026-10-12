@@ -11,16 +11,17 @@ import random
 
 import synnax as sy
 from console.case import ConsoleCase
+from framework.hardware_case import HardwareCase
 
 
-class RackLifecycle(ConsoleCase):
+class RackLifecycle(HardwareCase, ConsoleCase):
     """Test the lifecycle of racks in the Console UI."""
 
     def setup(self) -> None:
         super().setup()
         self.rand_suffix: int = random.randint(1000, 9999)
         self.rack_name: str = f"TestRack_{self.rand_suffix}"
-        self.test_rack: sy.Rack = self.client.racks.create(name=self.rack_name)
+        self.test_rack: sy.Rack = self.create_test_rack(self.rack_name)
 
     def run(self) -> None:
         """Run all rack lifecycle tests."""

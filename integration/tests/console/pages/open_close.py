@@ -9,19 +9,22 @@
 
 from console.case import ConsoleCase
 from console.page import PageType
+from framework.hardware_case import HardwareCase
 from x import random_name
 
 
-class OpenClose(ConsoleCase):
+class OpenClose(HardwareCase, ConsoleCase):
     """
     Test creating and closing pages
     """
 
     _page_names: list[str]
+    _task_names: list[str]
 
     def setup(self) -> None:
         super().setup()
         self._page_names = []
+        self._task_names = []
         self._pages_deleted = False
 
     def run(self) -> None:
@@ -51,6 +54,7 @@ class OpenClose(ConsoleCase):
 
         self.log("(1/2) Create pages by cmd palette")
         all_pages = PROJECT_PAGES + TASK_PAGES
+        self._task_names = [name for _, name in TASK_PAGES]
 
         for page_type, page_name in all_pages:
             console.pages.create_by_command_palette(page_type, page_name)
@@ -76,4 +80,10 @@ class OpenClose(ConsoleCase):
     def teardown(self) -> None:
         if not self._pages_deleted:
             self._cleanup_pages.extend(self._page_names)
+        # Each task page saves its task to the Core on creation.
+        with self._try_to("find created tasks"):
+            if self._task_names:
+                self.track_test_tasks(
+                    self.client.tasks.retrieve(names=self._task_names)
+                )
         super().teardown()
