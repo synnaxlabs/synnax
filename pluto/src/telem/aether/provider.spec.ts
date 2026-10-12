@@ -97,6 +97,7 @@ describe("telem.Provider", () => {
     expect(spy).toHaveBeenCalledWith({
       feed: core.openFeed.mock.results[0].value,
       channels: core.channels,
+      readLatest: expect.any(Function),
     });
   });
 
@@ -113,6 +114,7 @@ describe("telem.Provider", () => {
     expect(spy).toHaveBeenLastCalledWith({
       feed: core.openFeed.mock.results[0].value,
       channels: core.channels,
+      readLatest: expect.any(Function),
     });
   });
 

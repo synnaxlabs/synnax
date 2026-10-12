@@ -83,13 +83,19 @@ describe("MultiChannelLog", () => {
       },
     };
 
+    readLatest = async (
+      key: channel.Key,
+      n: number,
+      tr: TimeRange,
+    ): Promise<MultiSeries> => {
+      this.readF(tr, key, n);
+      await this.readGate;
+      return this.stored.get(key) ?? new MultiSeries([]);
+    };
+
     feed = {
       readLatest: async (): Promise<MultiSeries> => new MultiSeries([]),
-      read: async (tr: TimeRange, key: channel.Key): Promise<MultiSeries> => {
-        this.readF(tr, key);
-        await this.readGate;
-        return this.stored.get(key) ?? new MultiSeries([]);
-      },
+      read: async (): Promise<MultiSeries> => new MultiSeries([]),
       stream: (
         handler: framer.StreamHandler,
         keys: channel.Key[],
@@ -391,58 +397,6 @@ describe("MultiChannelLog", () => {
     const entries = log.value();
     expect(entries).toHaveLength(2);
     expect(entries.map((e) => e.value)).toEqual(["3", "4"]);
-  });
-
-  it("should set evictedCount to 0 before any GC has run", async () => {
-    const props: MultiChannelLogProps = {
-      channels: [c.channelA.key],
-      range: { variant: "dynamic", span: TimeSpan.seconds(30) },
-    };
-    const log = new MultiChannelLog(c, props);
-    await waitForResolve(log);
-    const series = new Series({ data: new Float32Array([1, 2]) });
-    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-    expect(log.evictedCount).toBe(0);
-  });
-
-  it("should set evictedCount to the number of entries removed by GC", async () => {
-    let now = TimeStamp.milliseconds(1_000);
-    const props: MultiChannelLogProps = {
-      channels: [c.channelA.key],
-      range: { variant: "dynamic", span: TimeSpan.milliseconds(500) },
-    };
-    const log = new MultiChannelLog(c, props, undefined, () => now);
-    await waitForResolve(log);
-
-    const seriesA = new Series({ data: new Float32Array([1, 2]) });
-    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesA])]]));
-    expect(log.evictedCount).toBe(0);
-
-    now = TimeStamp.milliseconds(2_000);
-    const seriesB = new Series({ data: new Float32Array([3]) });
-    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesB])]]));
-    expect(log.evictedCount).toBe(2);
-  });
-
-  it("should reset evictedCount to 0 on a subsequent callback where no GC occurs", async () => {
-    let now = TimeStamp.milliseconds(1_000);
-    const props: MultiChannelLogProps = {
-      channels: [c.channelA.key],
-      range: { variant: "dynamic", span: TimeSpan.milliseconds(500) },
-    };
-    const log = new MultiChannelLog(c, props, undefined, () => now);
-    await waitForResolve(log);
-
-    const seriesA = new Series({ data: new Float32Array([1, 2]) });
-    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesA])]]));
-    now = TimeStamp.milliseconds(2_000);
-    const seriesB = new Series({ data: new Float32Array([3]) });
-    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesB])]]));
-    expect(log.evictedCount).toBe(2);
-
-    const seriesC = new Series({ data: new Float32Array([4]) });
-    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesC])]]));
-    expect(log.evictedCount).toBe(0);
   });
 
   describe("newline handling", () => {
@@ -935,6 +889,61 @@ describe("MultiChannelLog", () => {
       expect(log.value().map((e) => e.value)).toEqual(["a", "b"]);
     });
 
+    it("should keep a held sample when a new data allocation arrives", async () => {
+      const { log } = create();
+      await waitForResolve(log);
+      c.streamHandler?.(
+        new Map([
+          [IDX, new MultiSeries([times([90], 0n)])],
+          [DATA, new MultiSeries([strings(["a", "b"], 0n)])],
+        ]),
+      );
+      c.streamHandler?.(new Map([[DATA, new MultiSeries([strings(["c"], 2n)])]]));
+      expect(log.value().map((e) => e.value)).toEqual(["a"]);
+      c.streamHandler?.(new Map([[IDX, new MultiSeries([times([91, 92], 1n)])]]));
+      expect(log.value().map((e) => e.value)).toEqual(["a", "b", "c"]);
+    });
+
+    it("should read a kept channel's history when the channels change mid-read", async () => {
+      let release = (): void => {};
+      c.readGate = new Promise((resolve) => (release = resolve));
+      c.stored.set(IDX, new MultiSeries([times([80], 0n)]));
+      c.stored.set(DATA, new MultiSeries([strings(["x"], 0n)]));
+      const { log } = create();
+      log.value();
+      await expect.poll(() => c.readF.mock.calls.length).toBe(1);
+      log.setChannels([DATA, DATA_2]);
+      log.value();
+      release();
+      await expect.poll(() => log.value().map((e) => e.value)).toEqual(["x"]);
+    });
+
+    it("should read at most the entry limit with the index samples to time it", async () => {
+      const index = [70, 71, 72, 80];
+      c.readLatest = async (key, n, tr) => {
+        c.readF(tr, key, n);
+        if (key === DATA) return new MultiSeries([strings(["x"], 0n)]);
+        const from = Math.max(0, index.length - n);
+        return new MultiSeries([times(index.slice(from), BigInt(from))]);
+      };
+      const log = new MultiChannelLog(
+        c,
+        { channels: [DATA], range: { variant: "dynamic", span: SPAN } },
+        undefined,
+        () => NOW,
+        1,
+      );
+      await waitForResolve(log);
+      expect(log.value().map((e) => e.value)).toEqual(["x"]);
+      expect(seconds(log)).toEqual([70]);
+      expect(c.readF.mock.calls.map(([, key, n]) => [key, n])).toEqual([
+        [DATA, 1],
+        [IDX, 1],
+        [IDX, 2],
+        [IDX, 4],
+      ]);
+    });
+
     it("should read the stored samples within the span", async () => {
       c.stored.set(IDX, new MultiSeries([times([80, 81], 0n)]));
       c.stored.set(DATA, new MultiSeries([strings(["x", "y"], 0n)]));
@@ -1020,11 +1029,11 @@ describe("MultiChannelLog", () => {
     it("should read stored samples only for a channel added later", async () => {
       const { log } = create();
       await waitForResolve(log);
-      expect(c.readF.mock.calls.map(([, key]) => key)).toEqual([DATA, IDX]);
+      expect(c.readF.mock.calls.map(([, key]) => key)).toEqual([DATA]);
       c.readF.mockClear();
       log.setChannels([DATA, DATA_2]);
       await waitForResolve(log);
-      expect(c.readF.mock.calls.map(([, key]) => key)).toEqual([DATA_2, IDX_2]);
+      expect(c.readF.mock.calls.map(([, key]) => key)).toEqual([DATA_2]);
     });
 
     it("should not read stored samples for a channel without an index", async () => {

@@ -57,6 +57,7 @@ const waitForStream = async <T>(
 describe("remote", () => {
   describe("StreamChannelValue", () => {
     class MockClient implements Client {
+      readLatest = async (): Promise<MultiSeries> => new MultiSeries([]);
       key: string = id.create();
 
       streamHandler: framer.StreamHandler | null = null;
@@ -438,6 +439,7 @@ describe("remote", () => {
 
   describe("StreamChannelStringValue", () => {
     class MockClient implements Client {
+      readLatest = async (): Promise<MultiSeries> => new MultiSeries([]);
       key: string = id.create();
 
       streamHandler: framer.StreamHandler | null = null;
@@ -781,6 +783,7 @@ describe("remote", () => {
 
   describe("ChannelData", () => {
     class MockClient implements Client {
+      readLatest = async (): Promise<MultiSeries> => new MultiSeries([]);
       key: string = id.create();
       readMock = vi.fn();
       retrieveChannelMock = vi.fn();
@@ -1113,6 +1116,7 @@ describe("remote", () => {
 
   describe("StreamChannelData", () => {
     class MockClient implements Client {
+      readLatest = async (): Promise<MultiSeries> => new MultiSeries([]);
       key: string = id.create();
 
       streamHandler: framer.StreamHandler | null = null;

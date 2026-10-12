@@ -54,9 +54,13 @@ interface ChannelMeta {
   // The channel holding the sample times, or 0 when there is none. Entries of a channel
   // without an index carry the time the log received them.
   index: channel.Key;
-  leadingBuffer: Series | null;
+  // The streamed buffers not yet read in full, oldest first. The last one can still
+  // grow. readCursor is the position in the first.
+  pending: Series[];
   readCursor: number;
   skipInitialBatch: boolean;
+  // Whether the log holds the channel's stored samples.
+  historyRead: boolean;
   indexBuffers: Series[];
   // The latest sample time in the log. A streamed sample at or before it is a
   // duplicate.
@@ -91,13 +95,8 @@ export class MultiChannelLog
   private entries: LogEntry[] = [];
   private stopStreaming?: destructor.Destructor;
   private valid = false;
-  private _evictedCount: number = 0;
   private _channels: channel.Key[] = [];
   private readGeneration = 0;
-
-  get evictedCount(): number {
-    return this._evictedCount;
-  }
 
   constructor(
     client: Client | null,
@@ -131,7 +130,6 @@ export class MultiChannelLog
       this.stopStreaming = undefined;
       this.entries = [];
       this.channelMeta.clear();
-      this._evictedCount = 0;
     }
     this.notify();
   }
@@ -150,13 +148,13 @@ export class MultiChannelLog
     this.stopStreaming?.();
     this.stopStreaming = undefined;
     const { range } = this.props;
-    let added: ChannelMeta[];
+    let unread: ChannelMeta[];
     try {
       const channels = await Promise.all(
         this._channels.map(async (ch) => await client.channels.retrieve(ch)),
       );
       if (generation !== this.readGeneration) return;
-      added = this.updateChannelMeta(channels);
+      unread = this.updateChannelMeta(channels);
       if (range.variant === "dynamic") this.stream(client);
     } catch (e) {
       this.valid = false;
@@ -170,27 +168,29 @@ export class MultiChannelLog
           ? this.now().spanRange(-range.span)
           : range.timeRange;
       const stored = await Promise.all(
-        added
+        unread
           .filter(({ index }) => index !== 0)
-          .map(async (meta) => {
-            const [data, index] = await Promise.all([
-              client.feed.read(timeRange, meta.key),
-              client.feed.read(timeRange, meta.index),
-            ]);
-            return { meta, data, index };
-          }),
+          .map(async (meta) => ({
+            meta,
+            ...(await readLatest(client, meta, this.maxEntries, timeRange)),
+          })),
       );
       if (generation !== this.readGeneration) return;
-      for (const { meta, data, index } of stored) this.pushStored(meta, data, index);
-      this._evictedCount = this.gcEntries();
+      const entries = stored.flatMap(({ meta, data, index }) => {
+        meta.historyRead = true;
+        return this.storedEntries(meta, data, index);
+      });
+      // One stable sort instead of an insert per entry.
+      if (entries.length > 0) this.entries = [...this.entries, ...entries].sort(byTime);
+      this.gcEntries();
     } catch (e) {
       this.onStatusChange?.(cstatus.fromException(e, "Failed to read log channels"));
     }
     this.notify();
   }
 
-  // Keeps the state of the channels the log already shows, and returns the channels it
-  // adds. A static range rebuilds the log on each read, so all of its channels are new.
+  // Keeps the state of the channels the log already shows, and returns the channels
+  // whose stored samples it has not read. A static range rebuilds the log on each read.
   private updateChannelMeta(channels: channel.Channel[]): ChannelMeta[] {
     if (this.props.range.variant === "static") {
       this.entries = [];
@@ -205,7 +205,7 @@ export class MultiChannelLog
     // an index cannot detect the replay by sample time, so it skips the first batch.
     const isRestart = prev.size > 0;
     this.channelMeta = new Map();
-    const added: ChannelMeta[] = [];
+    const unread: ChannelMeta[] = [];
     for (const ch of channels) {
       const existing = prev.get(ch.key);
       const index = channelIndex(ch);
@@ -213,17 +213,18 @@ export class MultiChannelLog
         key: ch.key,
         dataType: new DataType(ch.dataType),
         index,
-        leadingBuffer: null,
+        pending: [],
         readCursor: 0,
         skipInitialBatch: isRestart && index === 0,
+        historyRead: existing?.historyRead ?? false,
         indexBuffers: [],
         highWater: existing?.highWater ?? null,
         streamStart: existing?.streamStart ?? null,
       };
       this.channelMeta.set(ch.key, meta);
-      if (existing == null) added.push(meta);
+      if (!meta.historyRead) unread.push(meta);
     }
-    return added;
+    return unread;
   }
 
   private stream(client: Client): void {
@@ -242,41 +243,37 @@ export class MultiChannelLog
         }
         const allocated = res.get(meta.key);
         if (allocated != null && allocated.series.length > 0) {
-          const last = allocated.series[allocated.series.length - 1];
           // First callback after channel change: skip buffered data.
           if (meta.skipInitialBatch) {
-            meta.leadingBuffer = last;
-            meta.readCursor = last.length;
+            const last = allocated.series[allocated.series.length - 1];
+            [meta.pending, meta.readCursor] = [[last], last.length];
             meta.skipInitialBatch = false;
             continue;
           }
-          // Drain unread tail of the old leading buffer before switching.
-          if (meta.leadingBuffer != null)
-            pushed += this.pushStreamed(
-              meta,
-              meta.leadingBuffer,
-              meta.readCursor,
-            ).pushed;
-          // Drain intermediate buffers (burst crossed multiple allocations).
-          for (let s = 0; s < allocated.series.length - 1; s++)
-            pushed += this.pushStreamed(meta, allocated.series[s], 0).pushed;
-          [meta.leadingBuffer, meta.readCursor] = [last, 0];
+          meta.pending.push(...allocated.series);
         }
-        const buf = meta.leadingBuffer;
-        if (buf == null || buf.length <= meta.readCursor) continue;
-        if (meta.skipInitialBatch) {
-          meta.readCursor = buf.length;
-          meta.skipInitialBatch = false;
-          continue;
-        }
-        const result = this.pushStreamed(meta, buf, meta.readCursor);
-        pushed += result.pushed;
-        meta.readCursor = result.cursor;
+        pushed += this.drain(meta);
       }
-      this._evictedCount = this.gcEntries();
+      this.gcEntries();
       if (pushed > 0) this.notify();
     };
     this.stopStreaming = client.feed.stream(handler, [...keys]).close;
+  }
+
+  // Pushes the pending samples in order, up to the first one whose index sample has not
+  // arrived. Returns the number of entries added.
+  private drain(meta: ChannelMeta): number {
+    let pushed = 0;
+    while (meta.pending.length > 0) {
+      const [buf] = meta.pending;
+      const result = this.pushStreamed(meta, buf, meta.readCursor);
+      pushed += result.pushed;
+      meta.readCursor = result.cursor;
+      if (result.cursor < buf.length || meta.pending.length === 1) break;
+      meta.pending.shift();
+      meta.readCursor = 0;
+    }
+    return pushed;
   }
 
   // Pushes the samples of buf from start on. The returned cursor stops at the first
@@ -299,51 +296,43 @@ export class MultiChannelLog
     return { pushed, cursor: buf.length };
   }
 
-  private pushStored(meta: ChannelMeta, data: MultiSeries, index: MultiSeries): void {
+  // Returns the entries of the stored samples the stream has not delivered.
+  private storedEntries(
+    meta: ChannelMeta,
+    data: MultiSeries,
+    index: MultiSeries,
+  ): LogEntry[] {
+    const entries: LogEntry[] = [];
     for (const s of data.series)
       for (let i = 0; i < s.length; i++) {
         const time = index.atAlignment(sampleAlignment(s, i)) as bigint | undefined;
         if (time == null) continue;
         if (meta.streamStart != null && time >= meta.streamStart) continue;
-        this.insert(meta, s, i, time);
+        entries.push(...toEntries(meta, s, i, time));
         if (meta.highWater == null || time > meta.highWater) meta.highWater = time;
       }
+    return entries;
   }
 
-  // Inserts sample i of buf at its place in time order. A string sample splits into one
-  // entry per line. Returns the number of entries added.
+  // Inserts sample i of buf at its place in time order. Returns the number of entries
+  // added.
   private insert(meta: ChannelMeta, buf: Series, i: number, time: bigint): number {
-    const timestamp = new TimeStamp(time);
-    const value = buf.asString(i, true);
-    const group: LogEntry[] =
-      !meta.dataType.equals(DataType.STRING) || !value.includes("\n")
-        ? [{ channelKey: meta.key, timestamp, value }]
-        : value.split(/\r?\n/).map((line, j) => ({
-            channelKey: meta.key,
-            timestamp,
-            value: line,
-            continuation: j > 0,
-          }));
+    const group = toEntries(meta, buf, i, time);
     const last = this.entries.at(-1);
     if (last == null || last.timestamp.valueOf() <= time) this.entries.push(...group);
     else this.entries.splice(upperBound(this.entries, time), 0, ...group);
     return group.length;
   }
 
-  // Evicts stale entries from the front of the array. Returns the count so
-  // the caller can adjust scroll offset and selection indices.
-  private gcEntries(): number {
-    let evicted = 0;
+  // Evicts stale entries from the front of the array.
+  private gcEntries(): void {
     const { range } = this.props;
     if (range.variant === "dynamic") {
       const threshold = this.now().sub(range.span);
       // Single splice instead of shift() loop to avoid O(n²).
       const cutoff = this.entries.findIndex((e) => e.timestamp >= threshold);
       const end = cutoff === -1 ? this.entries.length : cutoff;
-      if (end > 0) {
-        this.entries.splice(0, end);
-        evicted += end;
-      }
+      if (end > 0) this.entries.splice(0, end);
     }
     if (this.entries.length > this.maxEntries) {
       let excess = this.entries.length - this.maxEntries;
@@ -351,9 +340,7 @@ export class MultiChannelLog
       while (excess < this.entries.length && this.entries[excess].continuation)
         excess++;
       this.entries.splice(0, excess);
-      evicted += excess;
     }
-    return evicted;
   }
 
   cleanup(): void {
@@ -370,6 +357,49 @@ const channelIndex = (ch: channel.Channel): channel.Key => {
   if (ch.isIndex) return ch.key;
   if (ch.virtual && !channel.isCalculated(ch)) return 0;
   return ch.index;
+};
+
+// Returns the entries of sample i of buf. A string sample splits into one entry per
+// line.
+const toEntries = (
+  meta: ChannelMeta,
+  buf: Series,
+  i: number,
+  time: bigint,
+): LogEntry[] => {
+  const timestamp = new TimeStamp(time);
+  const value = buf.asString(i, true);
+  if (!meta.dataType.equals(DataType.STRING) || !value.includes("\n"))
+    return [{ channelKey: meta.key, timestamp, value }];
+  return value.split(/\r?\n/).map((line, j) => ({
+    channelKey: meta.key,
+    timestamp,
+    value: line,
+    continuation: j > 0,
+  }));
+};
+
+// Reads the latest n stored samples of the channel within tr, and enough index samples
+// to time them. The index can hold more samples than the channel, so its read doubles
+// until it reaches the first data sample.
+const readLatest = async (
+  client: Client,
+  meta: ChannelMeta,
+  n: number,
+  tr: TimeRange,
+): Promise<{ data: MultiSeries; index: MultiSeries }> => {
+  const data = await client.readLatest(meta.key, n, tr);
+  if (meta.index === meta.key || data.series.length === 0) return { data, index: data };
+  const first = data.series[0].alignment;
+  for (let m = n; ; m *= 2) {
+    const index = await client.readLatest(meta.index, m, tr);
+    if (index.length < m || index.series[0].alignment <= first) return { data, index };
+  }
+};
+
+const byTime = (a: LogEntry, b: LogEntry): number => {
+  const [ta, tb] = [a.timestamp.valueOf(), b.timestamp.valueOf()];
+  return ta < tb ? -1 : ta > tb ? 1 : 0;
 };
 
 const sampleAlignment = (s: Series, i: number): bigint =>

@@ -62,7 +62,11 @@ export const createProvider = (
           transform: GL_TRANSFORM,
           instrumentation: i.instrumentation,
         });
-        client = { feed: this.feed, channels: core.channels };
+        client = {
+          feed: this.feed,
+          channels: core.channels,
+          readLatest: async (ch, n, tr) => await core.readLatest(ch, n, tr),
+        };
       }
       setContext(ctx, new Context(createFactory(client)));
     }
