@@ -343,6 +343,12 @@ export const createList =
           value.forEach((v) => dataRef.current.set(v.key, v));
           openPage(query, keys);
           keys.forEach(notifyListeners);
+          // A replaced page no longer delivers changes to the items it held, so an
+          // item a consumer still reads, such as a selection, needs its own feed.
+          if (mode === "replace")
+            listItemListeners.current.forEach((_, key) => {
+              if (!keys.includes(key)) openItemSub(key);
+            });
 
           // If we've already retrieved the initial data, and it's the same as the
           // data we just retrieved, then don't notify listeners.
@@ -358,7 +364,7 @@ export const createList =
           setResult(errorResult(`retrieve ${name}`, error));
         }
       },
-      [client, name, filterRef, clearPages, openPage, recomputeKeys],
+      [client, name, filterRef, clearPages, openPage, openItemSub, recomputeKeys],
     );
 
     // When the client is swapped, an active hook must re-point itself at the

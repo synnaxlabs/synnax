@@ -161,6 +161,7 @@ export const useList = Flux.createList<ListQuery, arc.Key, arc.Arc>({
   retrieve: async ({ client, query }) => await client.arcs.retrieve(query),
   retrieveByKey: async ({ client, key }) => await client.arcs.retrieve(key),
   onChange: ({ client, query }, handler) => client.arcs.onChange(query, handler),
+  onChangeByKey: ({ client, key }, handler) => client.arcs.onChange(key, handler),
   getCached: ({ client, query }) => client.arcs.getCached(query),
 });
 
