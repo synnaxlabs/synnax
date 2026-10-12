@@ -280,6 +280,11 @@ export const createList =
     }, []);
     useEffect(() => clearItemSubs, [clearItemSubs]);
 
+    const closeItemSub = useCallback((key: Key) => {
+      itemSubsRef.current.get(key)?.();
+      itemSubsRef.current.delete(key);
+    }, []);
+
     const openPage = useCallback(
       (q: Query, keys: Key[]): void => {
         const hash = query.hash(q);
@@ -342,6 +347,7 @@ export const createList =
           if (mode === "replace") clearPages();
           value.forEach((v) => dataRef.current.set(v.key, v));
           openPage(query, keys);
+          keys.forEach(closeItemSub);
           keys.forEach(notifyListeners);
           // A replaced page no longer delivers changes to the items it held, so an
           // item a consumer still reads, such as a selection, needs its own feed.
@@ -364,7 +370,16 @@ export const createList =
           setResult(errorResult(`retrieve ${name}`, error));
         }
       },
-      [client, name, filterRef, clearPages, openPage, openItemSub, recomputeKeys],
+      [
+        client,
+        name,
+        filterRef,
+        clearPages,
+        openPage,
+        openItemSub,
+        closeItemSub,
+        recomputeKeys,
+      ],
     );
 
     // When the client is swapped, an active hook must re-point itself at the
@@ -432,20 +447,29 @@ export const createList =
       [retrieveSingle],
     );
 
-    const subscribe = useCallback((callback: () => void, key?: Key) => {
-      if (key == null) return () => {};
-      const listeners = listItemListeners.current;
-      let callbacks = listeners.get(key);
-      if (callbacks == null) {
-        callbacks = new Set();
-        listeners.set(key, callbacks);
-      }
-      callbacks.add(callback);
-      return () => {
-        callbacks.delete(callback);
-        if (callbacks.size === 0) listeners.delete(key);
-      };
-    }, []);
+    const subscribe = useCallback(
+      (callback: () => void, key?: Key) => {
+        if (key == null) return () => {};
+        const listeners = listItemListeners.current;
+        let callbacks = listeners.get(key);
+        if (callbacks == null) {
+          callbacks = new Set();
+          listeners.set(key, callbacks);
+        }
+        callbacks.add(callback);
+        return () => {
+          callbacks.delete(callback);
+          if (callbacks.size > 0) return;
+          listeners.delete(key);
+          if (!itemSubsRef.current.has(key)) return;
+          closeItemSub(key);
+          // Without a feed the copy goes stale, so the next read fetches it again.
+          if (!pagesRef.current.some((p) => p.keys.includes(key)))
+            dataRef.current.delete(key);
+        };
+      },
+      [closeItemSub],
+    );
 
     // Seeds a cold list from the cached answer for the exact query the debounced
     // retrieve will fetch, so a remount paints before the network round trip. The

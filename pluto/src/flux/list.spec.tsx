@@ -1244,6 +1244,66 @@ describe("list", () => {
       });
     });
 
+    it("should close an item feed when its last reader leaves", async () => {
+      const unsubscribe = vi.fn();
+      const onChangeByKey = vi.fn().mockReturnValue(unsubscribe);
+      const { rerender } = renderHook(
+        ({ key }: { key: number }) => {
+          const { getItem, subscribe } = Flux.createList<
+            {},
+            number,
+            record.Keyed<number>
+          >({
+            name: "Resource",
+            retrieve: async () => [],
+            retrieveByKey: async ({ key }) => ({ key }),
+            onChangeByKey,
+          })();
+          return Flux.useListItem<number, record.Keyed<number>>({
+            subscribe,
+            getItem,
+            key,
+          });
+        },
+        { wrapper, initialProps: { key: 1 } },
+      );
+      await waitFor(() => expect(onChangeByKey).toHaveBeenCalledTimes(1));
+      rerender({ key: 0 });
+      expect(unsubscribe).toHaveBeenCalledTimes(1);
+    });
+
+    it("should close an item feed when a page takes over its key", async () => {
+      const unsubscribe = vi.fn();
+      const onChangeByKey = vi.fn().mockReturnValue(unsubscribe);
+      const { result } = renderHook(
+        () => {
+          const { getItem, subscribe, retrieveAsync } = Flux.createList<
+            {},
+            number,
+            record.Keyed<number>
+          >({
+            name: "Resource",
+            retrieve: async () => [{ key: 1 }],
+            retrieveByKey: async ({ key }) => ({ key }),
+            onChange: () => () => {},
+            onChangeByKey,
+          })();
+          const value = Flux.useListItem<number, record.Keyed<number>>({
+            subscribe,
+            getItem,
+            key: 1,
+          });
+          return { retrieveAsync, value };
+        },
+        { wrapper },
+      );
+      await waitFor(() => expect(onChangeByKey).toHaveBeenCalledTimes(1));
+      await act(async () => {
+        await result.current.retrieveAsync({}, { signal: controller.signal });
+      });
+      expect(unsubscribe).toHaveBeenCalledTimes(1);
+    });
+
     it("should re-subscribe on subsequent replace-mode retrieves", async () => {
       const subscribe = vi.fn().mockReturnValue(() => {});
       const retrieve = vi.fn().mockResolvedValue([{ key: 1 }]);
