@@ -16,7 +16,7 @@ import (
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/device/versions/v1"
-	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v2"
+	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v3"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"

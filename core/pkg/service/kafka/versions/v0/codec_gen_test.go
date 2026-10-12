@@ -18,7 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v2"
+	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
