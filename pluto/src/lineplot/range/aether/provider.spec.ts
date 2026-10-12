@@ -105,14 +105,17 @@ describe("Provider", () => {
       color: "#7C3AED",
     });
     try {
-      const provider = mount();
-      const drawn = (viewportStart: TimeStamp) => () => {
-        provider.render(
-          renderProps(
-            new TimeRange(viewportStart, viewportStart.add(TimeSpan.seconds(30))),
-          ),
+      // A fresh provider per viewport, since a requery keeps the previous answer until
+      // the new one lands.
+      const drawn = (viewportStart: TimeStamp) => {
+        const provider = mount();
+        const props = renderProps(
+          new TimeRange(viewportStart, viewportStart.add(TimeSpan.seconds(30))),
         );
-        return provider.state.count;
+        return () => {
+          provider.render(props);
+          return provider.state.count;
+        };
       };
       await expect.poll(drawn(start.sub(TimeSpan.seconds(10)))).toEqual(1);
       await expect.poll(drawn(start.add(TimeSpan.hours(1)))).toEqual(1);
