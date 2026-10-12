@@ -147,19 +147,19 @@ export class Controller
    * Core is left out, so one stale symbol does not block control of the rest.
    * @returns The errors for the channels that no longer exist.
    */
-  private async updateNeedsControlOf(): Promise<NotFoundError[]> {
+  private async updateNeedsControlOf(): Promise<Error[]> {
     const { client } = this.internal;
     if (client == null) return [];
 
     const keys = new Set<channel.Key>([]);
-    const missing: NotFoundError[] = [];
+    const missing: Error[] = [];
     for (const telem of this.registry.keys())
       try {
         const telemKeys = await telem.needsControlOf(client);
         telemKeys.forEach((k) => k !== 0 && keys.add(k));
       } catch (e) {
         if (!NotFoundError.matches(e)) throw errors.fromUnknown(e);
-        missing.push(e as NotFoundError);
+        missing.push(errors.fromUnknown(e));
       }
     const nextKeys = Array.from(keys);
     if (
