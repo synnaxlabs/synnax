@@ -10,7 +10,7 @@
 import { type channel, type framer, ValidationError } from "@synnaxlabs/client";
 import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
 import { StreamClosed } from "@synnaxlabs/freighter";
-import { color, DataType, id, TimeStamp } from "@synnaxlabs/x";
+import { color, DataType, id, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 import { type z } from "zod";
 
@@ -302,6 +302,11 @@ describe("control/aether/Controller", SUITE, () => {
     expect(statusesOf(handle)).toContain(
       `Some symbols on ${CONTROLLER_NAME} use channels that no longer exist`,
     );
+    await expect(controller.set({ [deleted.key]: [1] })).rejects.toThrow();
+    await controller.set({ [ch.key]: [1] });
+    await expect
+      .poll(async () => (await client.read(TimeRange.MAX, ch.key)).length, POLL)
+      .toEqual(1);
   });
 
   it("should reopen the writer and replay the write on a closed stream", async () => {
