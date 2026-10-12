@@ -469,4 +469,165 @@ Channel struct {
 			Expect(f.FixHint).ToNot(Equal("use an alias: Channel = v0.Channel"))
 		}
 	})
+
+	aliasHints := func(report check.GateReport) []string {
+		var hints []string
+		for _, f := range report.Findings {
+			if f.FixHint != "" {
+				hints = append(hints, f.FixHint)
+			}
+		}
+		return hints
+	}
+
+	It("Should fail an unchanged union with an inline variant", func() {
+		const window = `
+Window union on variant {
+	rolling {
+		span int32
+	}
+	fixed {
+		start int32
+	}
+
+	@go marshal
+}
+`
+		write("schemas/synnax/versions/channel/v0.oracle", window+`
+Channel struct {
+	key uuid @key
+	window Window
+
+	@go marshal
+}
+`)
+		write("schemas/synnax/versions/channel/v1.oracle", window+`
+Channel struct {
+	key uuid @key
+	window Window
+	name string
+
+	@go marshal
+}
+`)
+		p := analyzeLive(`
+@go output "core/pkg/service/channel"
+
+Window union on variant {
+	rolling {
+		span int32
+	}
+	fixed {
+		start int32
+	}
+}
+
+Channel struct {
+	key uuid @key
+	window Window
+	name string
+}
+`)
+		Expect(aliasHints(run(p))).To(ConsistOf("use an alias: Window = v0.Window"))
+	})
+
+	It("Should fail two unchanged structs that reference each other", func() {
+		const pair = `
+A struct {
+	bs B[]
+
+	@go marshal
+}
+
+B struct {
+	as A[]
+
+	@go marshal
+}
+`
+		write("schemas/synnax/versions/channel/v0.oracle", pair+`
+Channel struct {
+	key uuid @key
+	a A
+
+	@go marshal
+}
+`)
+		write("schemas/synnax/versions/channel/v1.oracle", pair+`
+Channel struct {
+	key uuid @key
+	a A
+	name string
+
+	@go marshal
+}
+`)
+		p := analyzeLive(`
+@go output "core/pkg/service/channel"
+
+A struct {
+	bs B[]
+}
+
+B struct {
+	as A[]
+}
+
+Channel struct {
+	key uuid @key
+	a A
+	name string
+}
+`)
+		Expect(aliasHints(run(p))).To(ConsistOf(
+			"use an alias: A = v0.A",
+			"use an alias: B = v0.B",
+		))
+	})
+
+	It("Should pass an unchanged struct that references a changed one", func() {
+		write("schemas/synnax/versions/channel/v0.oracle", `
+Ranges struct {
+	x1 string[]
+
+	@go marshal
+}
+
+Channel struct {
+	key uuid @key
+	ranges Ranges
+
+	@go marshal
+}
+`)
+		write("schemas/synnax/versions/channel/v1.oracle", `
+Ranges struct {
+	x1 string[]
+	custom int32
+
+	@go marshal
+}
+
+Channel struct {
+	key uuid @key
+	ranges Ranges
+
+	@go marshal
+}
+`)
+		p := analyzeLive(`
+@go output "core/pkg/service/channel"
+
+Ranges struct {
+	x1 string[]
+	custom int32
+}
+
+Channel struct {
+	key uuid @key
+	ranges Ranges
+}
+`)
+		Expect(aliasHints(run(p))).To(BeEmpty())
+	})
 })
