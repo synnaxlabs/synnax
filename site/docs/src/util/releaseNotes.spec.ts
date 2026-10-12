@@ -12,7 +12,7 @@ import os from "os";
 import path from "path";
 import { describe, expect, it } from "vitest";
 
-import { anchor, list } from "@/util/releaseNotes";
+import { listReleaseNotes, releaseAnchor } from "@/util/releaseNotes";
 
 const write = (files: Record<string, string>): string => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "release-notes-"));
@@ -21,20 +21,20 @@ const write = (files: Record<string, string>): string => {
   return dir;
 };
 
-describe("anchor", () => {
+describe("releaseAnchor", () => {
   it("should join the version's parts with dashes", () => {
-    expect(anchor("0.59.0")).toBe("0-59-0");
+    expect(releaseAnchor("0.59.0")).toBe("0-59-0");
   });
 });
 
-describe("list", () => {
+describe("listReleaseNotes", () => {
   it("should anchor each file to the version it renders", () => {
     const dir = write({
       "0-31-0.mdx": '<Release version="0.31.1" date="May 1, 2024">',
       "0-59-0.mdx": '<Releases.Release\n    version="0.59.0"\n>',
       "notes.txt": "",
     });
-    expect(list(dir)).toEqual([
+    expect(listReleaseNotes(dir)).toEqual([
       { name: "0-31-0", anchor: "0-31-1" },
       { name: "0-59-0", anchor: "0-59-0" },
     ]);
@@ -42,11 +42,13 @@ describe("list", () => {
 
   it("should throw when a file passes no version", () => {
     const dir = write({ "0-60-0.mdx": "<Release />" });
-    expect(() => list(dir)).toThrow("0-60-0.mdx passes no version to its release");
+    expect(() => listReleaseNotes(dir)).toThrow(
+      "0-60-0.mdx passes no version to its release",
+    );
   });
 
   it("should give every shipped release an anchor on /releases", () => {
-    const notes = list();
+    const notes = listReleaseNotes();
     expect(notes.length).toBeGreaterThan(0);
     expect(notes.find(({ name }) => name === "0-31-0")?.anchor).toBe("0-31-1");
   });

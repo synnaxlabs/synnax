@@ -16,7 +16,7 @@ import { remark } from "remark";
 import remarkGfm from "remark-gfm";
 import stripMarkdown from "strip-markdown";
 
-import * as releaseNotes from "./releaseNotes.ts";
+import { listReleaseNotes, RELEASE_NOTES_DIR } from "./releaseNotes.ts";
 
 const client = algoliasearch(
   process.env.DOCS_ALGOLIA_APP_ID ?? "",
@@ -57,11 +57,9 @@ const pages = [
       read(PAGES_DIR, f, `/${f.replace(".mdx", "").replace(/(^|\/)index$/, "$1")}`),
     ),
   // Each version's notes render only inside /releases, under the version's anchor.
-  ...releaseNotes
-    .list()
-    .map(({ name, anchor }) =>
-      read(releaseNotes.DIR, `${name}.mdx`, `/releases/#${anchor}`),
-    ),
+  ...listReleaseNotes().map(({ name, anchor }) =>
+    read(RELEASE_NOTES_DIR, `${name}.mdx`, `/releases/#${anchor}`),
+  ),
 ];
 const skipped = pages.filter(({ data }) => hidden(data.flag));
 const data = await Promise.all(

@@ -18,14 +18,15 @@ import { layers } from "@synnaxlabs/vite-plugin";
 import { defineConfig, envField } from "astro/config";
 
 import { outline } from "./src/util/outline";
-import * as releaseNotes from "./src/util/releaseNotes";
+import { listReleaseNotes } from "./src/util/releaseNotes";
 
 // Each version's notes render only inside /releases, so their old routes point at the
 // version's anchor there.
 const RELEASE_REDIRECTS = Object.fromEntries(
-  releaseNotes
-    .list()
-    .map(({ name, anchor }) => [`/releases/${name}`, `/releases/#${anchor}`]),
+  listReleaseNotes().map(({ name, anchor }) => [
+    `/releases/${name}`,
+    `/releases/#${anchor}`,
+  ]),
 );
 
 // https://astro.build/config
