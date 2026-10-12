@@ -146,6 +146,10 @@ func checkChain(
 			return
 		}
 		fkTransient := fk.Transient()
+		redeclared := make(map[string]bool, len(fk.Defined))
+		for _, t := range fk.Defined {
+			redeclared[t.QualifiedName] = true
+		}
 		for _, t := range fk.Defined {
 			if t.Synthetic {
 				continue
@@ -153,6 +157,11 @@ func checkChain(
 			// Omit-transient declarations track the live schema and may legitimately
 			// match their predecessor.
 			if fkTransient.Contains(t.Name) {
+				continue
+			}
+			// A reference to a type redeclared at k points the declaration at the new
+			// shape, so it cannot alias its predecessor even when the shapes match.
+			if referencesAny(t, redeclared) {
 				continue
 			}
 			def, ok := surf[t.Name]
@@ -184,6 +193,32 @@ func checkChain(
 			}
 		}
 	}
+}
+
+// referencesAny reports whether t's fields, variants, or extended types name a type in
+// names, other than t itself.
+func referencesAny(t resolution.Type, names map[string]bool) bool {
+	var refs []resolution.TypeRef
+	switch form := t.Form.(type) {
+	case resolution.StructForm:
+		for _, f := range form.Fields {
+			refs = append(refs, f.Type)
+		}
+		refs = append(refs, form.Extends...)
+	case resolution.UnionForm:
+		for _, v := range form.Variants {
+			refs = append(refs, v.Type)
+		}
+		refs = append(refs, form.Extends...)
+	}
+	for len(refs) > 0 {
+		ref := refs[len(refs)-1]
+		refs = append(refs[:len(refs)-1], ref.TypeArgs...)
+		if ref.Name != t.QualifiedName && names[ref.Name] {
+			return true
+		}
+	}
+	return false
 }
 
 // fail records an error finding and flips the gate status.

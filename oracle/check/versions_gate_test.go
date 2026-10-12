@@ -406,4 +406,67 @@ Channel struct {
 		}
 		Expect(minimality).To(BeTrue(), "expected a minimality finding")
 	})
+
+	It("Should pass a redeclaration that references a type redeclared with it", func() {
+		write("schemas/synnax/versions/channel/v0.oracle", `
+Old struct {
+	a int32
+
+	@go marshal
+}
+
+Inner struct {
+	o Old
+
+	@go marshal
+}
+
+Channel struct {
+	key uuid @key
+	inner Inner
+
+	@go marshal
+}
+`)
+		write("schemas/synnax/versions/channel/v1.oracle", `
+New struct {
+	a int32
+
+	@go marshal
+}
+
+Inner struct {
+	o New
+
+	@go marshal
+}
+
+Channel struct {
+	key uuid @key
+	inner Inner
+
+	@go marshal
+}
+`)
+		p := analyzeLive(`
+@go output "core/pkg/service/channel"
+
+New struct {
+	a int32
+}
+
+Inner struct {
+	o New
+}
+
+Channel struct {
+	key uuid @key
+	inner Inner
+}
+`)
+		report := run(p)
+		for _, f := range report.Findings {
+			Expect(f.FixHint).ToNot(Equal("use an alias: Channel = v0.Channel"))
+		}
+	})
 })
