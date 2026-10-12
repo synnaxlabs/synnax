@@ -28,113 +28,41 @@ TEST(TaskConfigParsing, DefaultLoopConfig) {
     arc::TaskConfig task_cfg(parser);
     ASSERT_TRUE(parser.ok());
     EXPECT_EQ(task_cfg.loop.mode, ::arc::runtime::loop::ExecutionMode::AUTO);
-    EXPECT_EQ(task_cfg.loop.rt_priority, ::arc::runtime::loop::DEFAULT_RT_PRIORITY);
-    EXPECT_EQ(task_cfg.loop.cpu_affinity, ::arc::runtime::loop::CPU_AFFINITY_AUTO);
-    EXPECT_FALSE(task_cfg.loop.memory_locked);
 }
 
-TEST(TaskConfigParsing, ExplicitExecutionMode) {
-    nlohmann::json cfg{
-        {"arc_key", "12345678-1234-5678-1234-567812345678"},
-        {"execution_mode", "BUSY_WAIT"}
+TEST(TaskConfigParsing, PerformanceLevels) {
+    std::vector<std::pair<std::string, ::arc::runtime::loop::ExecutionMode>> levels = {
+        {"auto", ::arc::runtime::loop::ExecutionMode::AUTO},
+        {"low", ::arc::runtime::loop::ExecutionMode::EVENT_DRIVEN},
+        {"medium", ::arc::runtime::loop::ExecutionMode::HYBRID},
+        {"high", ::arc::runtime::loop::ExecutionMode::BUSY_WAIT},
     };
-    auto parser = x::json::Parser(nlohmann::to_string(cfg));
-    arc::TaskConfig task_cfg(parser);
-    ASSERT_TRUE(parser.ok());
-    EXPECT_EQ(task_cfg.loop.mode, ::arc::runtime::loop::ExecutionMode::BUSY_WAIT);
-}
-
-TEST(TaskConfigParsing, AllExecutionModes) {
-    std::vector<std::pair<std::string, ::arc::runtime::loop::ExecutionMode>> modes = {
-        {"AUTO", ::arc::runtime::loop::ExecutionMode::AUTO},
-        {"BUSY_WAIT", ::arc::runtime::loop::ExecutionMode::BUSY_WAIT},
-        {"HIGH_RATE", ::arc::runtime::loop::ExecutionMode::HIGH_RATE},
-        {"RT_EVENT", ::arc::runtime::loop::ExecutionMode::RT_EVENT},
-        {"HYBRID", ::arc::runtime::loop::ExecutionMode::HYBRID},
-        {"EVENT_DRIVEN", ::arc::runtime::loop::ExecutionMode::EVENT_DRIVEN},
-    };
-    for (const auto &[mode_str, expected_mode]: modes) {
+    for (const auto &[level, expected_mode]: levels) {
         nlohmann::json cfg{
             {"arc_key", "12345678-1234-5678-1234-567812345678"},
-            {"execution_mode", mode_str}
+            {"performance", level}
         };
         auto parser = x::json::Parser(nlohmann::to_string(cfg));
         arc::TaskConfig task_cfg(parser);
-        ASSERT_TRUE(parser.ok()) << "Failed to parse mode: " << mode_str;
-        EXPECT_EQ(task_cfg.loop.mode, expected_mode)
-            << "Mode mismatch for: " << mode_str;
+        ASSERT_TRUE(parser.ok()) << "failed to parse performance: " << level;
+        EXPECT_EQ(task_cfg.loop.mode, expected_mode) << "mode mismatch for: " << level;
     }
 }
 
-TEST(TaskConfigParsing, InvalidExecutionMode) {
+TEST(TaskConfigParsing, InvalidPerformance) {
     nlohmann::json cfg{
         {"arc_key", "12345678-1234-5678-1234-567812345678"},
-        {"execution_mode", "INVALID_MODE"}
+        {"performance", "extreme"}
     };
     auto parser = x::json::Parser(nlohmann::to_string(cfg));
     arc::TaskConfig task_cfg(parser);
-    EXPECT_FALSE(parser.ok());
-}
-
-TEST(TaskConfigParsing, RtPriority) {
-    nlohmann::json cfg{
-        {"arc_key", "12345678-1234-5678-1234-567812345678"},
-        {"rt_priority", 99}
-    };
-    auto parser = x::json::Parser(nlohmann::to_string(cfg));
-    arc::TaskConfig task_cfg(parser);
-    ASSERT_TRUE(parser.ok());
-    EXPECT_EQ(task_cfg.loop.rt_priority, 99);
-}
-
-TEST(TaskConfigParsing, CpuAffinity) {
-    nlohmann::json cfg{
-        {"arc_key", "12345678-1234-5678-1234-567812345678"},
-        {"cpu_affinity", 3}
-    };
-    auto parser = x::json::Parser(nlohmann::to_string(cfg));
-    arc::TaskConfig task_cfg(parser);
-    ASSERT_TRUE(parser.ok());
-    EXPECT_EQ(task_cfg.loop.cpu_affinity, 3);
-}
-
-TEST(TaskConfigParsing, CpuAffinityNone) {
-    nlohmann::json cfg{
-        {"arc_key", "12345678-1234-5678-1234-567812345678"},
-        {"cpu_affinity", ::arc::runtime::loop::CPU_AFFINITY_NONE}
-    };
-    auto parser = x::json::Parser(nlohmann::to_string(cfg));
-    arc::TaskConfig task_cfg(parser);
-    ASSERT_TRUE(parser.ok());
-    EXPECT_EQ(task_cfg.loop.cpu_affinity, ::arc::runtime::loop::CPU_AFFINITY_NONE);
-}
-
-TEST(TaskConfigParsing, MemoryLocked) {
-    nlohmann::json cfg{
-        {"arc_key", "12345678-1234-5678-1234-567812345678"},
-        {"memory_locked", true}
-    };
-    auto parser = x::json::Parser(nlohmann::to_string(cfg));
-    arc::TaskConfig task_cfg(parser);
-    ASSERT_TRUE(parser.ok());
-    EXPECT_TRUE(task_cfg.loop.memory_locked);
-}
-
-TEST(TaskConfigParsing, FullLoopConfig) {
-    nlohmann::json cfg{
-        {"arc_key", "12345678-1234-5678-1234-567812345678"},
-        {"execution_mode", "RT_EVENT"},
-        {"rt_priority", 80},
-        {"cpu_affinity", 7},
-        {"memory_locked", true}
-    };
-    auto parser = x::json::Parser(nlohmann::to_string(cfg));
-    arc::TaskConfig task_cfg(parser);
-    ASSERT_TRUE(parser.ok());
-    EXPECT_EQ(task_cfg.loop.mode, ::arc::runtime::loop::ExecutionMode::RT_EVENT);
-    EXPECT_EQ(task_cfg.loop.rt_priority, 80);
-    EXPECT_EQ(task_cfg.loop.cpu_affinity, 7);
-    EXPECT_TRUE(task_cfg.loop.memory_locked);
+    ASSERT_FALSE(parser.ok());
+    EXPECT_NE(
+        parser.error().data.find(
+            "invalid performance: extreme (must be auto, low, medium, or high)"
+        ),
+        std::string::npos
+    );
 }
 
 TEST(ArcTests, testCalcDoubling) {
@@ -1193,6 +1121,106 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
     }
     EXPECT_TRUE(found_stopped)
         << "Should have a success status with running=false after stop";
+}
+
+TEST(ArcStatusVerification, StopCommandStatusCarriesCommandKey) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+
+    auto input_idx_name = make_unique_channel_name("stop_cmd_input_idx");
+    auto input_name = make_unique_channel_name("stop_cmd_input");
+    auto output_idx_name = make_unique_channel_name("stop_cmd_output_idx");
+    auto output_name = make_unique_channel_name("stop_cmd_output");
+
+    auto input_idx = synnax::channel::Channel{
+        .name = input_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+        .index = 0
+    };
+    ASSERT_NIL(client->channels.create(input_idx));
+    auto output_idx = synnax::channel::Channel{
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+        .index = 0
+    };
+    ASSERT_NIL(client->channels.create(output_idx));
+
+    auto input_ch = synnax::channel::Channel{
+        .name = input_name,
+        .data_type = x::telem::FLOAT32_T,
+        .is_index = false,
+        .index = input_idx.key
+    };
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::FLOAT32_T,
+        .is_index = false,
+        .index = output_idx.key
+    };
+    ASSERT_NIL(client->channels.create(input_ch));
+    ASSERT_NIL(client->channels.create(output_ch));
+
+    synnax::arc::Arc arc_prog{
+        .name = make_unique_channel_name("stop_cmd_test"),
+        .mode = synnax::arc::MODE_TEXT
+    };
+    arc_prog.text = ::arc::text::Text{
+        .raw = "func pass(val f32) f32 { return val }\n" + input_name +
+               " -> pass{} -> " + output_name + "\n"
+    };
+    ASSERT_NIL(client->arcs.create(arc_prog));
+
+    auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("arc_stop_cmd_rack"))
+    );
+
+    synnax::task::Task task_meta{
+        .rack = rack.key,
+        .name = "arc_stop_cmd_test",
+        .type = "arc_runtime",
+    };
+    task_meta.config = nlohmann::json{{"arc_key", arc_prog.key.to_string()}};
+
+    auto parser = x::json::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+
+    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+    auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
+    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+        {input_idx.key, input_ch.key},
+        input_frames
+    );
+
+    auto ctx = std::make_shared<task::MockContext>(client);
+
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+    );
+
+    synnax::task::Command start_cmd{
+        .task = task_meta.key,
+        .type = "start",
+        .key = "stop_cmd_test_start",
+    };
+    task->exec(start_cmd);
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+
+    synnax::task::Command stop_cmd{
+        .task = task_meta.key,
+        .type = "stop",
+        .key = "stop_cmd_test_stop",
+    };
+    task->exec(stop_cmd);
+
+    bool found_stop_reply = false;
+    for (const auto &s: ctx->statuses)
+        if (s.details.cmd == stop_cmd.key && !s.details.running) {
+            found_stop_reply = true;
+            break;
+        }
+    EXPECT_TRUE(found_stop_reply)
+        << "The stop status should carry the stop command's key";
 }
 
 TEST(ArcEdgeCases, RapidStartStop) {

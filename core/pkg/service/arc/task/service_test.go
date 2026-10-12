@@ -53,15 +53,13 @@ var _ = Describe("Service", func() {
 		) {
 			key, arcKey := uuid.New(), uuid.New()
 			Expect(svc.Config.Write(ctx, nil, key, msgpack.EncodedJSON{
-				"arc_key":        arcKey.String(),
-				"execution_mode": "AUTO",
-				"rt_priority":    10,
+				"arc_key":     arcKey.String(),
+				"performance": "high",
 			})).To(Succeed())
 			data := MustSucceed(svc.Config.Read(ctx, nil, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["arc_key"]).To(Equal(arcKey.String()))
-			Expect(data["execution_mode"]).To(Equal("AUTO"))
-			Expect(data["rt_priority"]).To(BeNumerically("==", 10))
+			Expect(data["performance"]).To(Equal("high"))
 		})
 
 		It("Should apply schema defaults to absent fields", func(ctx SpecContext) {
@@ -70,18 +68,41 @@ var _ = Describe("Service", func() {
 				"arc_key": uuid.New().String(),
 			})).To(Succeed())
 			data := MustSucceed(svc.Config.Read(ctx, nil, key))
-			Expect(data["execution_mode"]).To(Equal("AUTO"))
-			Expect(data["rt_priority"]).To(BeNumerically("==", 47))
-			Expect(data["cpu_affinity"]).To(BeNumerically("==", -1))
+			Expect(data["performance"]).To(Equal("auto"))
 		})
 
-		It("Should return the config's validation error for an invalid mode", func(
-			ctx SpecContext,
-		) {
-			Expect(svc.Config.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
-				"arc_key":        uuid.New().String(),
-				"execution_mode": "BOGUS",
-			})).To(MatchError(ContainSubstring("invalid execution_mode: BOGUS")))
+		It(
+			"Should return the config's validation error for an invalid performance",
+			func(
+				ctx SpecContext,
+			) {
+				Expect(svc.Config.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+					"arc_key":     uuid.New().String(),
+					"performance": "BOGUS",
+				})).To(MatchError(ContainSubstring("invalid performance: BOGUS")))
+			},
+		)
+	})
+
+	Describe("Normalize", func() {
+		It(
+			"Should convert the loop mode of a v1 config to a performance level",
+			func() {
+				data := MustSucceed(svc.Config.Normalize(1, msgpack.EncodedJSON{
+					"arc_key":        uuid.New().String(),
+					"execution_mode": "BUSY_WAIT",
+					"rt_priority":    80,
+				}))
+				Expect(data).To(HaveKeyWithValue("performance", "high"))
+				Expect(data).ToNot(HaveKey("execution_mode"))
+			},
+		)
+
+		It("Should leave a current config unchanged", func() {
+			data := MustSucceed(svc.Config.Normalize(2, msgpack.EncodedJSON{
+				"performance": "low",
+			}))
+			Expect(data).To(Equal(msgpack.EncodedJSON{"performance": "low"}))
 		})
 	})
 })

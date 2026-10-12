@@ -214,8 +214,9 @@ var _ = Describe("Migrations", func() {
 				Name: "Stored Arc Task",
 				Type: "arc",
 				Config: msgpack.EncodedJSON{
-					"arc_key": arcModuleKey,
-					"hash":    "abc123",
+					"arc_key":        arcModuleKey,
+					"hash":           "abc123",
+					"execution_mode": "HYBRID",
 				},
 			}
 			bogusTask := v1.Task{
@@ -358,14 +359,9 @@ var _ = Describe("Migrations", func() {
 			)
 			Expect(migratedArc.Config).To(HaveKeyWithValue("hash", "abc123"))
 			Expect(migratedArc.Config).To(
-				HaveKeyWithValue("execution_mode", "AUTO"),
+				HaveKeyWithValue("performance", "medium"),
 			)
-			Expect(migratedArc.Config).To(
-				HaveKeyWithValue("rt_priority", BeEquivalentTo(47)),
-			)
-			Expect(migratedArc.Config).To(
-				HaveKeyWithValue("cpu_affinity", BeEquivalentTo(-1)),
-			)
+			Expect(migratedArc.Config).ToNot(HaveKey("execution_mode"))
 
 			var migratedScan task.Task
 			Expect(svc.NewRetrieve().

@@ -205,6 +205,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	configToMap := func(cfg arctask.Config) map[string]any {
 		GinkgoHelper()
+		cfg.ApplyDefaults()
 		cfgJSON := MustSucceed(json.Marshal(cfg))
 		var cfgMap map[string]any
 		Expect(json.Unmarshal(cfgJSON, &cfgMap)).To(Succeed())
@@ -1995,6 +1996,42 @@ var _ = Describe("Task", Ordered, func() {
 				fr.Frame.Get(dataCh.Key()).Series[0].ValueAt[uint8](0),
 			).To(Equal(uint8(42)))
 		})
+
+		DescribeTable("Should fire intervals at every performance level",
+			func(ctx SpecContext, performance arctask.Performance) {
+				outputCh := createVirtualCh(ctx, "performance", telem.Uint8T)
+				prog := arc.Text{Raw: fmt.Sprintf(`
+					func output() {
+						%s = 1
+					}
+					interval{period=10ms} -> output{}
+				`, outputCh.Name)}
+				responses, closeStreamer := openTestStreamer(
+					ctx,
+					channel.Keys{outputCh.Key()},
+					3,
+				)
+				defer closeStreamer()
+				t := MustSucceed(newTextFactory(ctx, prog).ConfigureTask(ctx, task.Task{
+					Key:  uuid.New(),
+					Name: "performance-task",
+					Type: arctask.Type,
+					Config: configToMap(arctask.Config{
+						ArcKey:      uuid.New(),
+						Performance: performance,
+					}),
+				}, "cmd-1"))
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+				for range 3 {
+					Eventually(responses).Should(Receive())
+				}
+			},
+			Entry("auto", arctask.PerformanceAuto),
+			Entry("low", arctask.PerformanceLow),
+			Entry("medium", arctask.PerformanceMedium),
+			Entry("high", arctask.PerformanceHigh),
+		)
 
 		It("Should stamp wall-clock index timestamps for interval -> channel flows",
 			func(ctx SpecContext) {

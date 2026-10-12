@@ -116,16 +116,28 @@ class SymbolEditor:
         """Return the number of detected regions."""
         return self._region_rows().count()
 
-    def _set_region_color(
-        self, swatch_index: int, hex_color: str, region_index: int
-    ) -> None:
-        swatch = (
+    def region_rows_fit(self) -> bool:
+        """Return whether every region row fits its width without overflowing."""
+        return bool(
+            self._region_rows().evaluate_all(
+                "(rows) => rows.every((row) => row.scrollWidth <= row.clientWidth)"
+            )
+        )
+
+    def _region_swatch(self, swatch_index: int, region_index: int) -> Locator:
+        return (
             self._region_rows()
             .nth(region_index)
             .locator(".pluto-color-swatch")
             .nth(swatch_index)
         )
-        color.pick(self.page, swatch, hex_color)
+
+    def _set_region_color(
+        self, swatch_index: int, hex_color: str, region_index: int
+    ) -> None:
+        color.pick(
+            self.page, self._region_swatch(swatch_index, region_index), hex_color
+        )
 
     def set_region_stroke_color(self, hex_color: str, region_index: int = 0) -> None:
         """Set the stroke color for a region (the first swatch in the row).
@@ -144,6 +156,25 @@ class SymbolEditor:
             region_index: Index of the region (0-based).
         """
         self._set_region_color(1, hex_color, region_index)
+
+    def clear_region_fill_color(self, region_index: int = 0) -> None:
+        """Set the fill color for a region back to Auto, so the SVG's own fill paints.
+
+        Args:
+            region_index: Index of the region (0-based).
+        """
+        color.pick_auto(self.page, self._region_swatch(1, region_index))
+
+    def get_region_fill_swatch_color(self, region_index: int = 0) -> str:
+        """Return the color a region's fill swatch shows, e.g. "rgba(255, 0, 0, 1)".
+
+        Args:
+            region_index: Index of the region (0-based).
+        """
+        swatch = self._region_swatch(1, region_index)
+        return str(
+            swatch.evaluate("(el) => el.style.getPropertyValue('--pluto-swatch-color')")
+        )
 
     def get_preview_fill(self, selector: str) -> str:
         """Return the computed fill (e.g. "rgb(255, 0, 0)") of a rendered preview shape.

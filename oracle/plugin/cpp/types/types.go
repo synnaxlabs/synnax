@@ -1736,6 +1736,10 @@ using {{$u.Name}} = std::variant<{{range $j, $v := $u.Variants}}{{if $j}}, {{end
 
 {{$u.Name}} parse_{{$u.SnakeName}}(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const {{$u.Name}}& value);
+{{- if $u.HasProto}}
+[[nodiscard]] std::pair<{{$u.ProtoType}}, x::errors::Error> to_proto(const {{$u.Name}}& value);
+std::pair<{{$u.Name}}, x::errors::Error> {{$u.SnakeName}}_from_proto(const {{$u.ProtoType}}& pb);
+{{- end}}
 {{- end}}
 {{- end}}
 {{- range $d := .SortedDecls}}
