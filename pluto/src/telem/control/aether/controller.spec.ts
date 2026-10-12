@@ -287,6 +287,23 @@ describe("control/aether/Controller", SUITE, () => {
     await expect.poll(() => controller.state.needsControlOf, POLL).toEqual([]);
   });
 
+  it("should control the other channels when a sink's channel was deleted", async () => {
+    const ch = await createIndexed();
+    const deleted = await createIndexed();
+    await client.channels.delete(deleted.key);
+    const { controller, source, handle } = await setup(ch.key);
+    controller.create(setChannelValue({ channel: ch.key }));
+    controller.create(setChannelValue({ channel: deleted.key }));
+    controller.acquire();
+    await expect.poll(() => source.value().variant, POLL).toEqual("success");
+    expect([...controller.state.needsControlOf].sort()).toEqual(
+      [ch.key, ch.index].sort(),
+    );
+    expect(statusesOf(handle)).toContain(
+      `Some symbols on ${CONTROLLER_NAME} use channels that no longer exist`,
+    );
+  });
+
   it("should reopen the writer and replay the write on a closed stream", async () => {
     const ch = await createIndexed();
     const { openWriter, openCount, writeCount } = interceptWrites((attempt) =>
