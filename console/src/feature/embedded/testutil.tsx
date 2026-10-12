@@ -8,16 +8,21 @@
 // included in the file licenses/APL.txt.
 
 import { Synnax } from "@synnaxlabs/pluto";
+import { scheduler } from "@synnaxlabs/x";
 import { emit } from "@tauri-apps/api/event";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
-import { cleanup, waitFor } from "@testing-library/react";
+import { act, cleanup, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { expect, type Mock, vi } from "vitest";
 
 import { Embedded } from "@/feature/embedded";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
-import { createConsoleWrapper, type TestStore } from "@/testutil";
+import {
+  createConsoleWrapper,
+  disableActEnvironment,
+  type TestStore,
+} from "@/testutil";
 
 export const RUNNING: Embedded.Status = {
   state: "running",
@@ -66,14 +71,17 @@ export const mockSupervisor = (
     emitStatus: async (status) => {
       // The app asks for the status only after its listener is in place.
       await waitFor(() => expect(commands).toHaveBeenCalledWith("supervisor_status"));
-      await emit("supervisor://status", status);
+      await act(async () => await emit("supervisor://status", status));
     },
   };
 };
 
-/** Removes the mocked shell. The tree unmounts first, while it can still unlisten. */
-export const clearSupervisor = (): void => {
+/**
+ * Unmounts the tree, then removes the mocked shell once its async cleanups unlisten.
+ */
+export const clearSupervisor = async (): Promise<void> => {
   cleanup();
+  await scheduler.flushTaskQueue();
   clearMocks();
 };
 
@@ -89,6 +97,7 @@ export const createDesktopWrapper = async (): Promise<{
   wrapper: FC<PropsWithChildren>;
   store: TestStore;
 }> => {
+  disableActEnvironment();
   const { wrapper: Console, store } = await createConsoleWrapper({ client: null });
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Embedded.Provider>

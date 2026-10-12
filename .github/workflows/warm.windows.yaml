@@ -1,0 +1,70 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# The Windows build bots lose their pnpm store and Go toolchain on every stop, and
+# merge queue runs cannot save caches, so main saves the caches they restore.
+name: Warm - Windows
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - core/go.mod
+      - pnpm-lock.yaml
+      - .github/actions/setup-pnpm/**
+      - .github/scripts/go_toolchain_cache.sh
+      - .github/workflows/warm.windows.yaml
+  workflow_dispatch:
+
+concurrency:
+  group: warm-windows
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  warm:
+    name: Warm
+    runs-on: windows-build-bot
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm and Node.js
+        uses: ./.github/actions/setup-pnpm
+        with:
+          dest: ~/setup-pnpm-${{ runner.name }}
+
+      - name: Key the Go toolchain cache
+        id: go-toolchain
+        shell: bash
+        run: .github/scripts/go_toolchain_cache.sh core/go.mod >> "$GITHUB_OUTPUT"
+
+      - name: Restore the Go toolchain
+        id: restore
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ steps.go-toolchain.outputs.path }}
+          key: ${{ steps.go-toolchain.outputs.key }}
+
+      - name: Set up Go
+        if: steps.restore.outputs.cache-hit != 'true'
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: core/go.mod
+          cache: false
+
+      - name: Save the Go toolchain
+        if: steps.restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ steps.go-toolchain.outputs.path }}
+          key: ${{ steps.go-toolchain.outputs.key }}

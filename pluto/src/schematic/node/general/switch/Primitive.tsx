@@ -38,7 +38,7 @@ export const Switch = ({
   const hold = useHold<HTMLElement>({ onClick, onClickDelay, disabled });
   const delayed = !hold.delay.isZero;
   const style: CSSProperties = {
-    [CSS.variable("switch-scale")]: scale,
+    [CSS.variable("switch-scale")]: Primitive.resolveScale(scale),
     [CSS.variable("symbol-color")]: colorVar,
     ...(delayed && {
       [CSS.variable("toggle-delay")]: `${hold.delay.seconds.toString()}s`,

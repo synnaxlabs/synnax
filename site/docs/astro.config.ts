@@ -12,15 +12,16 @@ import mdx from "@astrojs/mdx";
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
+import { integration } from "@synnaxlabs/site-common/integration";
+import { symbols, theme } from "@synnaxlabs/site-common/shiki";
 import { layers } from "@synnaxlabs/vite-plugin";
 import { defineConfig, envField } from "astro/config";
 
 import { outline } from "./src/util/outline";
-import { symbols, theme } from "./src/util/shiki";
 
 // https://astro.build/config
 export default defineConfig({
-  integrations: [react(), mdx()],
+  integrations: [integration(), react(), mdx()],
   output: "server",
   env: {
     schema: {
@@ -29,6 +30,11 @@ export default defineConfig({
         context: "client",
         access: "public",
         optional: true,
+      }),
+      FLAG_PORTAL: envField.boolean({
+        context: "client",
+        access: "public",
+        default: false,
       }),
     },
   },
@@ -39,8 +45,9 @@ export default defineConfig({
     isr: { expiration: 300, exclude: [/^\/releases\/[^/]+\/(latest|next)\.json$/] },
   }),
   vite: {
-    // Lyra is ESM with CSS imports, which Node cannot load; Vite bundles it for SSR.
-    ssr: { noExternal: ["@synnaxlabs/lyra"] },
+    // These ship ESM with CSS imports, which Node cannot load; Vite bundles them for
+    // SSR.
+    ssr: { noExternal: ["@synnaxlabs/lyra", "@synnaxlabs/site-common"] },
     css: {
       postcss: { plugins: [layers([{ name: "pluto", files: /[\\/]lyra[\\/]/ }])] },
     },

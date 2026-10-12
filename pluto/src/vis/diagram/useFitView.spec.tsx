@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { sleep, TimeSpan } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import {
   type Node,
@@ -200,7 +201,7 @@ describe("Diagram.useInitialFitView", () => {
   it("does not fit while disabled", async () => {
     const { result } = renderInitialFit(false);
     act(() => result.current.measure("a"));
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await act(() => sleep.sleep(TimeSpan.milliseconds(100)));
     expect(result.current.flow.getViewport()).toEqual({ x: 0, y: 0, zoom: 1 });
   });
 });

@@ -17,7 +17,7 @@ use std::path::Path;
 use serde::Serialize;
 use zip::write::SimpleFileOptions;
 
-use super::{History, Status};
+use super::{Exit, History, Reason, Status};
 
 /// The name of the Core log inside the log directory.
 const LOG: &str = "core.log";
@@ -71,6 +71,9 @@ pub fn log_tail(log_dir: &Path) -> io::Result<String> {
 #[serde(rename_all = "camelCase")]
 struct Summary<'a> {
     version: &'a str,
+    /// Joins the archive to what this install reported to analytics. None when the
+    /// launch could not record the install.
+    install_id: Option<&'a str>,
     os: &'static str,
     arch: &'static str,
     state: serde_json::Value,
@@ -83,6 +86,7 @@ struct Summary<'a> {
 pub fn export(
     dest: &Path,
     version: &str,
+    install_id: Option<&str>,
     status: &Status,
     history: &History,
     data_dir: &Path,
@@ -94,6 +98,7 @@ pub fn export(
     }
     let summary = Summary {
         version,
+        install_id,
         os: std::env::consts::OS,
         arch: std::env::consts::ARCH,
         state,
@@ -173,13 +178,22 @@ mod tests {
         };
         let history = History {
             starts: 2,
+            exits: 1,
+            failures: 0,
+            readies: 2,
             ready_at: Some(5),
-            last_exit: Some("exited with 3".to_string()),
+            time_to_ready_ms: Some(400),
+            last_exit: Some(Exit {
+                reason: Reason::Crashed,
+                message: "exited with 3".to_string(),
+                uptime_seconds: 12,
+            }),
         };
         let dest = dir.path().join("out.zip");
         export(
             &dest,
             "0.58.0",
+            Some("5f3c"),
             &status,
             &history,
             &dir.path().join("data"),
@@ -203,7 +217,9 @@ mod tests {
         let summary: serde_json::Value = serde_json::from_str(&summary).unwrap();
         assert_eq!(summary["state"]["state"], "running");
         assert_eq!(summary["version"], "0.58.0");
+        assert_eq!(summary["installId"], "5f3c");
         assert_eq!(summary["history"]["starts"], 2);
-        assert_eq!(summary["history"]["lastExit"], "exited with 3");
+        assert_eq!(summary["history"]["lastExit"]["reason"], "crashed");
+        assert_eq!(summary["history"]["lastExit"]["message"], "exited with 3");
     }
 }

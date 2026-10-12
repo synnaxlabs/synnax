@@ -8,14 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { TimeSpan } from "@synnaxlabs/x";
-import { act, render, renderHook } from "@testing-library/react";
+import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Status } from "@/status";
 
+const quiet: Status.Log = () => {};
+
 const wrapper = ({ children }: PropsWithChildren) => (
-  <Status.Aggregator>{children}</Status.Aggregator>
+  <Status.Aggregator log={quiet}>{children}</Status.Aggregator>
 );
 
 describe("Aggregator", () => {
@@ -88,9 +90,7 @@ describe("Aggregator", () => {
         });
       });
       expect(result.current.statuses.statuses).toHaveLength(1);
-      await expect
-        .poll(async () => result.current.statuses.statuses.length === 0)
-        .toBeTruthy();
+      await waitFor(() => expect(result.current.statuses.statuses).toHaveLength(0));
     });
   });
 
@@ -309,6 +309,36 @@ describe("Aggregator", () => {
       });
       expect(result.current.statuses.statuses).toHaveLength(1);
       expect(result.current.statuses.statuses[0].message).toEqual("Test");
+    });
+    it("should print the error through the aggregator's log", () => {
+      const log = vi.fn<Status.Log>();
+      const { result } = renderHook(Status.useErrorHandler, {
+        wrapper: ({ children }) => (
+          <Status.Aggregator log={log}>{children}</Status.Aggregator>
+        ),
+      });
+      act(() => result.current(new Error("Test"), "Custom"));
+      expect(log).toHaveBeenCalledExactlyOnceWith(
+        expect.stringContaining("ERROR: Custom"),
+      );
+    });
+    it("should neither add nor print a skipped error", () => {
+      const log = vi.fn<Status.Log>();
+      const { result } = renderHook(
+        () => ({
+          add: Status.useErrorHandler(),
+          statuses: Status.useNotifications(),
+        }),
+        {
+          wrapper: ({ children }) => (
+            <Status.Aggregator log={log}>{children}</Status.Aggregator>
+          ),
+        },
+      );
+      const error = new Error("Test");
+      act(() => result.current.add(error, undefined, { matches: (e) => e === error }));
+      expect(result.current.statuses.statuses).toHaveLength(0);
+      expect(log).not.toHaveBeenCalled();
     });
     it("should not add a status if no error is thrown", async () => {
       const { result } = renderHook(

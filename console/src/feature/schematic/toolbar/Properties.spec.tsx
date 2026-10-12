@@ -15,8 +15,8 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Schematic } from "@/feature/schematic";
 import { client, renderSchematic } from "@/feature/schematic/testutil";
+import { Toolbar } from "@/feature/schematic/toolbar/Toolbar";
 import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import {
@@ -47,7 +47,7 @@ const renderProperties = async ({
   nodeKeys.forEach((key) => (configs[key] = createConfig(key)));
   const Harness = (): ReactElement => (
     <>
-      <Schematic.Toolbar />
+      <Toolbar />
       <CaptureStatuses onStatuses={onStatuses} />
     </>
   );

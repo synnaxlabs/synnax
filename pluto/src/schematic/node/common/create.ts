@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import { schematic } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
 import { type FC } from "react";
 
 import { Form } from "@/schematic/node/common/form";
@@ -44,6 +45,17 @@ export interface DummyToggleConfig<V extends schematic.NodeConfigType>
   extends schematic.DummyToggleSymbolConfig {
   variant: V;
 }
+
+const TOGGLE_FIELDS = Object.keys(schematic.toggleSymbolConfigZ.shape).filter(
+  (key) => !(key in schematic.staticSymbolConfigZ.shape),
+);
+
+/**
+ * Wraps a toggle symbol primitive so that toggle-only config fields do not reach the
+ * DOM.
+ */
+export const withoutToggleConfig = <P extends object>(Primitive: FC<P>): FC<P> =>
+  Component.removeProps(Primitive, TOGGLE_FIELDS);
 
 /// createStatic builds a non-interactive labeled symbol: a styled SVG with a label,
 /// color, and scale, edited via the shared StyleForm. This is the most common archetype
@@ -87,6 +99,7 @@ export const createToggle = <V extends schematic.NodeConfigType>({
   node = "toggle",
 }: ToggleParams<V>) => {
   type Config = ToggleSymbolConfig<V>;
+  const Static = withoutToggleConfig(Primitive);
   const spec: Spec<V, Config> = {
     key: variant,
     name,
@@ -94,9 +107,9 @@ export const createToggle = <V extends schematic.NodeConfigType>({
     Form: Form.ToggleForm,
     Node:
       node === "labeled"
-        ? Label.createLabeled<Config>(Primitive)
+        ? Label.createLabeled<Config>(Static)
         : Toggle.createToggle<Config>(Primitive),
-    Preview: Primitive,
+    Preview: Static,
     zIndex,
   };
   return { spec };
@@ -119,7 +132,7 @@ export const createDummyToggle = <V extends schematic.NodeConfigType>({
     label,
     Form: Form.DummyToggleForm,
     Node: Toggle.createDummyToggle<Config>(Primitive),
-    Preview: Primitive,
+    Preview: Component.removeProps(Primitive, ["clickable"]),
     zIndex,
   };
   return { spec };

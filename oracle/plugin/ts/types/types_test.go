@@ -2312,6 +2312,39 @@ var _ = Describe("TS Types Plugin", func() {
 			})
 		})
 
+		Context("reference into an ancestor namespace", func() {
+			BeforeEach(func() {
+				loader.Add("schemas/ranger", `
+					@ts output "client/ts/src/ranger"
+
+					Key uuid
+				`)
+			})
+
+			It(
+				"Should import the ancestor's types.gen as a namespace",
+				func(ctx SpecContext) {
+					source := `
+					import "schemas/ranger"
+
+					@ts output "client/ts/src/ranger/kv"
+
+					Pair struct {
+						range ranger.Key
+						key string
+					}
+				`
+					resp := MustGenerate(ctx, source, "kv", loader, typesPlugin)
+					ExpectContent(resp, "types.gen.ts").
+						ToContain(
+							`import * as ranger from "@/ranger/types.gen"`,
+							`ranger.keyZ`,
+						).
+						ToNotContain(`from "@/ranger";`)
+				},
+			)
+		})
+
 		Context("snake_case cross-namespace reference", func() {
 			BeforeEach(func() {
 				loader.Add("schemas/task_config", `

@@ -26,6 +26,8 @@ export interface ExecutionStep {
 export interface Example {
   id: string;
   title: string;
+  /** The Arc source that the steps highlight, line by line. */
+  code: string;
   steps: ExecutionStep[];
 }
 
@@ -43,6 +45,24 @@ export const EXAMPLES: Example[] = [
   {
     id: "pressure",
     title: "Pressurization sequence",
+    code: `sequence main {
+    stage press {
+        1 -> press_vlv_cmd,
+        press_pt > 500 => maintain
+    }
+    stage maintain {
+        0 -> press_vlv_cmd,
+        wait{duration=5s} => vent
+    }
+    stage vent {
+        1 -> vent_vlv_cmd,
+        press_pt < 10 => complete
+    }
+    stage complete {
+        0 -> vent_vlv_cmd,
+        0 -> press_vlv_cmd
+    }
+}`,
     steps: [
       // seq main
       {
@@ -126,6 +146,24 @@ export const EXAMPLES: Example[] = [
   {
     id: "alarm",
     title: "Alarm monitoring",
+    code: `func check_pressure(p f64) u8 {
+    return p > 750.0
+}
+
+press_pt -> check_pressure{}
+    -> stable_for{duration=500ms}
+    -> select{} -> {
+        true: set_status{
+            status_key="press_alarm",
+            variant="warning",
+            message="Pressure exceeds 750 PSI"
+        },
+        false: set_status{
+            status_key="press_alarm",
+            variant="success",
+            message="Pressure nominal"
+        }
+    }`,
     steps: [
       // func definition
       {
@@ -190,6 +228,30 @@ export const EXAMPLES: Example[] = [
   {
     id: "abort",
     title: "Abort sequence",
+    code: `authority (
+    200
+    press_vlv_cmd 100
+    vent_vlv_cmd 100
+)
+
+start_cmd => main
+
+sequence main {
+    stage normal {
+        1 -> press_vlv_cmd,
+        press_pt > 800 => emergency
+    }
+    stage emergency {
+        set_authority{value=255},
+        0 -> press_vlv_cmd,
+        1 -> vent_vlv_cmd,
+        press_pt < 50 => safed
+    }
+    stage safed {
+        0 -> press_vlv_cmd,
+        0 -> vent_vlv_cmd
+    }
+}`,
     steps: [
       // authority declaration
       {

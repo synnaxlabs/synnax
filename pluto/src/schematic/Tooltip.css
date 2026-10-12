@@ -12,3 +12,7 @@
 .pluto-schematic-tooltip__divider {
     margin: 1rem 0;
 }
+
+.pluto-schematic-tooltip .pluto-icon {
+    color: var(--pluto-gray-l9);
+}

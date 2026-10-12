@@ -14,6 +14,7 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Modal } from "@synnaxlabs/lyra/modal";
 import { Progress } from "@synnaxlabs/lyra/progress";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -176,8 +177,8 @@ export const useInfoModal = Modals.create(() => {
       );
 
   return (
-    <Modals.Frame className={CSS.B("version-info")}>
-      <Modals.Header icon={<Icon.Info />}>About.Version</Modals.Header>
+    <Modal.Frame className={CSS.B("version-info")}>
+      <Modal.Header icon={<Icon.Info />}>About.Version</Modal.Header>
       <Flex.Box
         className={CSS.BE("version-info", "content")}
         align="center"
@@ -203,6 +204,6 @@ export const useInfoModal = Modals.create(() => {
           © 2022-2026 Synnax Labs, Inc. All rights reserved
         </Text.Text>
       </Flex.Box>
-    </Modals.Frame>
+    </Modal.Frame>
   );
 });

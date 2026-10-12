@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import { useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -135,8 +135,9 @@ describe("Select.Single", () => {
     const c = render(<SelectSingle />);
     fireEvent.click(c.getByText("Test Item"));
     fireEvent.click(c.getByText("First Item Option"));
-    expect(c.getByText("First Item")).toBeTruthy();
-    expect(c.queryByText("Test Item")).toBeNull();
+    expect(c.getByRole("button", { name: "Test Item First Item" }).textContent).toBe(
+      "First Item",
+    );
   });
 
   it("should allow the user to change selection", () => {
@@ -211,8 +212,9 @@ describe("Select.Single", () => {
       );
     };
     const c = render(<SelectSingle />);
-    expect(c.getByText("Second Item")).toBeTruthy();
-    expect(c.queryByText("Test Item")).toBeNull();
+    expect(c.getByRole("button", { name: "Test Item Second Item" }).textContent).toBe(
+      "Second Item",
+    );
   });
 
   it("should name the trigger by its resource", () => {
@@ -250,6 +252,59 @@ describe("Select.Single", () => {
     expect(
       c.getByRole("option", { name: "First Item Option" }).classList,
     ).not.toContain("pluto-btn--prevent-click");
+  });
+
+  describe("narrow layout", () => {
+    const select = (c: ReturnType<typeof render>): HTMLElement => {
+      fireEvent.click(c.getByText("Test Item"));
+      fireEvent.click(c.getByText("First Item Option"));
+      return c.getByRole("button", { name: "Test Item First Item" });
+    };
+
+    const hoverPastDelay = (el: HTMLElement): void => {
+      vi.useFakeTimers();
+      fireEvent.pointerOver(el, { pointerType: "mouse" });
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+      vi.useRealTimers();
+    };
+
+    const getTooltip = (): HTMLElement | null =>
+      document.querySelector<HTMLElement>(".pluto-tooltip");
+
+    it("should show the selected name in a label that fades on overflow", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle />);
+      select(c);
+      const label = c.getByText("First Item");
+      expect(label.classList).toContain("pluto-select__label");
+      expect(label.classList).toContain("pluto-text--overflow-fade");
+    });
+
+    it("should mark a collapsible trigger", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle triggerProps={{ collapsible: true }} />);
+      expect(c.getByRole("button", { name: "Test Item" }).classList).toContain(
+        "pluto-select-single-trigger--collapsible",
+      );
+    });
+
+    it("should show the name in a tooltip once the collapsed trigger hides it", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle triggerProps={{ collapsible: true }} />);
+      const trigger = select(c);
+      c.getByText("First Item").style.display = "none";
+      hoverPastDelay(trigger);
+      expect(getTooltip()?.textContent).toBe("First Item");
+    });
+
+    it("should not show the name tooltip while the name is readable", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle triggerProps={{ collapsible: true }} />);
+      hoverPastDelay(select(c));
+      expect(getTooltip()).toBeNull();
+    });
   });
 
   describe("preview", () => {

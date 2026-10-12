@@ -81,6 +81,15 @@ var _ = Describe("Manager", func() {
 		Expect(internal[1].Path).To(Equal("@/util/keys"))
 	})
 
+	It("Should return a namespace import alongside named imports", func() {
+		m.AddImport("@/channel", "channel")
+		m.AddNamespaceImport("@/ranger/types.gen", "ranger")
+		Expect(m.InternalNamedImports()).To(Equal([]imports.NamedImport{
+			{Path: "@/channel", Names: []string{"channel"}},
+			{Path: "@/ranger/types.gen", Namespace: "ranger"},
+		}))
+	})
+
 	It("Should return nil when no imports were added", func() {
 		Expect(m.SynnaxImports()).To(BeNil())
 		Expect(m.ExternalNamedImports()).To(BeNil())

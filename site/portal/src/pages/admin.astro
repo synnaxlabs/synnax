@@ -1,0 +1,49 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import Portal from "@/layouts/Portal.astro";
+import { requireStaff } from "@/access";
+import { failure, loadScoped } from "@/page";
+import { Page } from "@/ui/Page";
+import { Admin } from "@/ui/admin";
+import { type Owned, listAll } from "@/server/license/list";
+import { type Listed } from "@/server/directory";
+
+const loaded = await loadScoped(Astro);
+if (loaded instanceof Response) return loaded;
+const { portal, session, organizations, scope } = loaded;
+
+let error: string | undefined;
+let teams: Listed[] = [];
+let licenses: Owned[] = [];
+try {
+    requireStaff(session);
+    teams = await portal.directory.teams();
+    licenses = await listAll(portal.store.query);
+} catch (err) {
+    const f = failure(err);
+    Astro.response.status = f.status;
+    error = f.message;
+}
+---
+
+<Portal
+    title="Admin"
+    session={session}
+    organizations={organizations}
+    scope={scope}
+    tab="admin"
+>
+    {error != null ? (
+        <Page title="All licenses" error={error} />
+    ) : (
+        <Admin.Admin client:load teams={teams} licenses={licenses} now={portal.now()} />
+    )}
+</Portal>

@@ -404,14 +404,14 @@ describe("Arc queries", () => {
     });
   });
 
-  describe("useSetRack", () => {
+  describe("useUpdateTask", () => {
     it("creates the task stamped with the arc's hash", async () => {
       const testRack = await client.racks.create({ name: `rack_${id.create()}` });
       const created = await client.arcs.create({
         name: `arc_deploy_${id.create()}`,
         mode: "text",
       });
-      const { result } = renderHook(() => Arc.useSetRack(), { wrapper });
+      const { result } = renderHook(() => Arc.useUpdateTask(), { wrapper });
 
       await act(async () => {
         await result.current.updateAsync({ key: created.key, rack: testRack.key });
@@ -435,7 +435,7 @@ describe("Arc queries", () => {
         name: `arc_move_${id.create()}`,
         mode: "text",
       });
-      const { result } = renderHook(() => Arc.useSetRack(), { wrapper });
+      const { result } = renderHook(() => Arc.useUpdateTask(), { wrapper });
 
       await act(async () => {
         await result.current.updateAsync({ key: created.key, rack: rack1.key });
@@ -467,7 +467,7 @@ describe("Arc queries", () => {
         name: `arc_undeploy_${id.create()}`,
         mode: "text",
       });
-      const { result } = renderHook(() => Arc.useSetRack(), { wrapper });
+      const { result } = renderHook(() => Arc.useUpdateTask(), { wrapper });
 
       await act(async () => {
         await result.current.updateAsync({ key: created.key, rack: testRack.key });
@@ -484,6 +484,29 @@ describe("Arc queries", () => {
 
       await expect(client.tasks.retrieve(tsk.key)).rejects.toThrow();
       expect((await client.arcs.retrieve(created.key)).key).toEqual(created.key);
+    });
+    it("sets the performance of a bound arc", async () => {
+      const testRack = await client.racks.create({ name: `rack_${id.create()}` });
+      const created = await client.arcs.create({
+        name: `arc_performance_${id.create()}`,
+        mode: "text",
+      });
+      const { result } = renderHook(() => Arc.useUpdateTask(), { wrapper });
+
+      await act(async () => {
+        await result.current.updateAsync({ key: created.key, rack: testRack.key });
+      });
+      await act(async () => {
+        await result.current.updateAsync({ key: created.key, performance: "medium" });
+      });
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+      });
+
+      const tsk = await client.arcs.task.retrieve(created.key);
+      assert(tsk != null);
+      expect(tsk.rack).toBe(testRack.key);
+      expect(tsk.config.performance).toBe("medium");
     });
   });
 
@@ -811,7 +834,7 @@ describe("Arc queries", () => {
         name: `arc-drift-${id.create()}`,
         mode: "text",
       });
-      const tsk = await client.arcs.setRack(a.key, rck.key);
+      const tsk = await client.arcs.updateTask(a.key, { rack: rck.key });
       if (tsk == null) throw new Error("expected a deployment task");
       return { a, tsk };
     };
@@ -881,7 +904,7 @@ describe("Arc queries", () => {
       const { a, tsk } = await createDeployed();
       await setRunning(tsk);
       const other = await client.racks.create({ name: `rack-${id.create()}` });
-      await client.arcs.setRack(a.key, other.key);
+      await client.arcs.updateTask(a.key, { rack: other.key });
       const { result } = renderDrifted(a);
       await waitFor(() => expect(result.current.controls.running).toBe(true));
       await waitFor(() => expect(result.current.drifted).toBe(true));

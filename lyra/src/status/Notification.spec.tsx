@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { TimeStamp } from "@synnaxlabs/x";
-import { fireEvent, render } from "@testing-library/react";
+import { fireEvent, render, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Button } from "@/button";
@@ -117,8 +117,8 @@ describe("Notification Component", () => {
     const c = render(<Notification {...notificationProps} />);
     const copyButton = c.getByRole("button", { name: "Copy diagnostics" });
     fireEvent.click(copyButton);
-    await vi.waitFor(() => {
-      expect(writeText).toHaveBeenCalledWith(toString(notificationProps.status));
-    });
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith(toString(notificationProps.status)),
+    );
   });
 });

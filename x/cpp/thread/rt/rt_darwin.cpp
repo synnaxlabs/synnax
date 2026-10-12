@@ -54,21 +54,6 @@ bool apply_time_constraint(
     return true;
 }
 
-void disable_timesharing(const mach_port_t thread_port) {
-    thread_standard_policy_data_t policy;
-    const kern_return_t result = thread_policy_set(
-        thread_port,
-        THREAD_STANDARD_POLICY,
-        reinterpret_cast<thread_policy_t>(&policy),
-        THREAD_STANDARD_POLICY_COUNT
-    );
-    if (result != KERN_SUCCESS)
-        LOG(WARNING) << "[xthread] Failed to disable timesharing: "
-                     << mach_error_string(result);
-    else
-        VLOG(1) << "[xthread] Disabled timesharing";
-}
-
 void apply_qos_class() {
     if (pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0) != 0)
         LOG(WARNING) << "[xthread] Failed to set QOS_CLASS_USER_INTERACTIVE";
@@ -117,7 +102,6 @@ void apply_config(const Config &cfg) {
 
     if (cfg.enabled) {
         apply_qos_class();
-        disable_timesharing(thread_port);
 
         if (cfg.has_timing()) {
             const auto period = static_cast<uint32_t>(

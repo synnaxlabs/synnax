@@ -39,7 +39,11 @@ import { Provider } from "react-redux";
 import { assert } from "vitest";
 
 import { Session } from "@/session";
-import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
+import {
+  createAsyncSynnaxWrapper,
+  createSynnaxWrapper,
+  disableActEnvironment,
+} from "@/testutil/Synnax";
 
 /**
  * Generates a unique, Core-safe resource name: letters, digits, and underscores only,
@@ -191,7 +195,12 @@ export const createTestStore = async (options: ConsoleTestProviderOptions = {}) 
     runtime: new Drift.NoopRuntime(windowLabel),
     reducer: Session.reducer,
     preloadedState: deep.copy({ ...Session.ZERO_STATE, ...preloadedState }),
-    middleware: (getDefault) => getDefault().concat(...Session.BASE_MIDDLEWARE),
+    // The checks still run. Only their timing warnings, which track machine load, go.
+    middleware: (getDefault) =>
+      getDefault({
+        serializableCheck: { warnAfter: Infinity },
+        immutableCheck: { warnAfter: Infinity },
+      }).concat(...Session.BASE_MIDDLEWARE),
     enablePrerender: false,
   });
 };
@@ -358,6 +367,7 @@ export const createConnectedConsoleWrapper = async ({
   wrapper: FC<PropsWithChildren>;
   store: TestStore;
 }> => {
+  disableActEnvironment();
   const { wrapper: Console, store } = await createConsoleWrapper(args);
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
@@ -414,6 +424,7 @@ SessionSynnaxProvider.displayName = "SessionSynnaxProvider";
 export const createSessionConsoleWrapper = async (
   args: CreateConsoleWrapperParams,
 ): Promise<{ wrapper: FC<PropsWithChildren>; store: TestStore }> => {
+  disableActEnvironment();
   const { wrapper: Console, store } = await createConsoleWrapper(args);
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>

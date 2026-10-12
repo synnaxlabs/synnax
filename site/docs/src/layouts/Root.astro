@@ -12,8 +12,8 @@ import Header from "@/components/layout/Header.astro";
 import "@/styles/main.css";
 import PostHog from "@/components/analytics/PostHog.astro";
 import { ClientRouter } from "astro:transitions";
-import { SEO } from "astro-seo";
-import Footer from "@/components/layout/Footer.astro";
+import Footer from "@synnaxlabs/site-common/Footer.astro";
+import Head from "@synnaxlabs/site-common/Head.astro";
 import { enabled } from "@/flags";
 import { sectionOf } from "@/pages/_nav";
 import { normalizeRoute } from "@/util/route";
@@ -24,9 +24,6 @@ const {
 // A page behind a flag that is off does not exist.
 const hidden = flag != null && !enabled(flag);
 if (hidden) Astro.response.status = 404;
-const DEFAULT_OG_IMAGE =
-    "https://synnax.nyc3.cdn.digitaloceanspaces.com/docs/og-default.png";
-const ogImage = image || DEFAULT_OG_IMAGE;
 // Query strings (the ?client= switcher) and trailing slashes must not split a page
 // into duplicates.
 const route = normalizeRoute(Astro.url.pathname);
@@ -35,60 +32,55 @@ const section = sectionOf(route);
 const cleanTitle = title?.replace(/`/g, "");
 const pageTitle = cleanTitle && section ? `${cleanTitle} | ${section}` : cleanTitle;
 const fullTitle = pageTitle ? `${pageTitle} | Synnax` : "Synnax";
+
+const FOOTER_COLUMNS = [
+    {
+        title: "Documentation",
+        links: [
+            { label: "Reference", href: "/reference/" },
+            { label: "Concepts", href: "/reference/concepts/overview" },
+            { label: "Client libraries", href: "/reference/client/quick-start" },
+            { label: "Control", href: "/reference/control/get-started" },
+        ],
+    },
+    {
+        title: "Resources",
+        links: [
+            { label: "Blog", href: "/blog/" },
+            { label: "Releases", href: "/releases/" },
+            { label: "Reliability", href: "/reliability/" },
+            { label: "GitHub", href: "https://github.com/synnaxlabs/synnax" },
+        ],
+    },
+    {
+        title: "Company",
+        links: [
+            { label: "About", href: "https://www.synnaxlabs.com/company" },
+            { label: "Contact", href: "https://synnaxlabs.com/#contact" },
+            { label: "Privacy policy", href: "/privacy-policy" },
+        ],
+    },
+];
 ---
 
 <html lang="en" transition:animate="none">
     <head>
         <PostHog />
-        <SEO
-            title={pageTitle}
-            titleTemplate="%s | Synnax"
-            titleDefault="Synnax"
+        <Head
+            title={fullTitle}
             description={description}
             canonical={canonicalUrl}
-            openGraph={{
-                basic: {
-                    title: fullTitle,
-                    type: article == null ? "website" : "article",
-                    image: ogImage,
-                    url: canonicalUrl,
-                },
-                optional: {
-                    description: description,
-                    siteName: "Synnax",
-                },
-                image: {
-                    alt: cleanTitle || "Synnax",
-                },
-                article,
-            }}
-            twitter={{
-                card: "summary_large_image",
-                title: fullTitle,
-                description: description,
-                image: ogImage,
-            }}
-            extend={{
-                link: [
-                    { rel: "icon", href: "/favicon.ico", sizes: "48x48" },
-                    { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
-                    {
-                        rel: "alternate",
-                        type: "application/rss+xml",
-                        title: "Synnax blog",
-                        href: "/blog/rss.xml",
-                    },
-                ],
-                meta: [
-                    {
-                        name: "viewport",
-                        content: "width=device-width, initial-scale=1.0",
-                    },
-                ],
-            }}
+            image={image || undefined}
+            imageAlt={cleanTitle || "Synnax"}
+            article={article}
+        />
+        <link
+            rel="alternate"
+            type="application/rss+xml"
+            title="Synnax blog"
+            href="/blog/rss.xml"
         />
         <ClientRouter />
-        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
         <slot name="head" />
     </head>
     <body>
@@ -102,13 +94,12 @@ const fullTitle = pageTitle ? `${pageTitle} | Synnax` : "Synnax";
                 <slot />
             )}
         </main>
-        <Footer />
+        <Footer home="https://synnaxlabs.com" columns={FOOTER_COLUMNS} />
     </body>
     <script>
         import { QUERY as CLIENT_QUERY } from "@/components/client/choice";
         import { addCodeButtonListeners } from "@/components/code/codeUtil";
         import { start as startVideos } from "@/components/media/video";
-        import { start as startMobileMenu } from "@/components/nav/mobile";
         import { start as startOnThisPage } from "@/components/nav/onThisPage";
         import { start as startSidebar } from "@/components/nav/sidebar";
         import { QUERY as PLATFORM_QUERY } from "@/components/platform/choice";
@@ -118,7 +109,6 @@ const fullTitle = pageTitle ? `${pageTitle} | Synnax` : "Synnax";
         import { onDemand } from "@/util/island";
 
         startSidebar();
-        startMobileMenu();
         startVideos();
         // Before the tabs, so the outline hears the first tab change.
         startOnThisPage();

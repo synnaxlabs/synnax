@@ -12,7 +12,18 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "loop",
+    srcs = select({
+        "@platforms//os:windows": ["loop_windows.cpp"],
+        "//conditions:default": ["loop_default.cpp"],
+    }),
     hdrs = ["loop.h"],
+    copts = select({
+        "@platforms//os:windows": [
+            "/DWIN32_LEAN_AND_MEAN",
+            "/DNOMINMAX",
+        ],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
     deps = [
         "//x/cpp/breaker",

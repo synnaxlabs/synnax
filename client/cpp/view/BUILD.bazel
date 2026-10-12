@@ -34,6 +34,7 @@ cc_library(
 cc_test(
     name = "view_test",
     srcs = ["view_test.cpp"],
+    tags = ["requires-core"],
     deps = [
         ":view",
         "//client/cpp:synnax",

@@ -44,13 +44,21 @@ cc_binary(
 
 cc_test(
     name = "scheduler_test",
-    srcs = ["scheduler_test.cpp"],
+    srcs = [
+        "activation_test.cpp",
+        "dispatch_test.cpp",
+        "jump_test.cpp",
+        "kind_test.cpp",
+        "scheduler_test.cpp",
+        "transition_test.cpp",
+    ],
     deps = [
         ":scheduler",
         "//arc/cpp/ir",
         "//arc/cpp/ir/testutil",
         "//arc/cpp/runtime/errors",
         "//arc/cpp/runtime/node",
+        "//arc/cpp/runtime/scheduler/testutil",
         "//arc/cpp/runtime/state",
         "//arc/cpp/stl/time",
         "//x/cpp/errors",

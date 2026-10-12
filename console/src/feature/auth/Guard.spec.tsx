@@ -10,7 +10,14 @@
 import { channel } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Access, Synnax } from "@synnaxlabs/pluto";
-import { fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
@@ -280,7 +287,8 @@ describe("connection guard permissions", () => {
           </Auth.ConnectionGuard>
         </Auth.Guard>
       </Session.SettledProvider>,
-      { wrapper },
+      // A denied policy fetch reaches the denial boundary.
+      { wrapper, onCaughtError: () => {} },
     );
   };
 
@@ -298,7 +306,7 @@ describe("connection guard permissions", () => {
     expect(screen.queryByText("Stack trace")).toBeNull();
     expect(screen.queryByText("authenticated content")).toBeNull();
     await assignRole(client, key, "Operator");
-    fireEvent.click(findButton("Retry"));
+    await act(async () => fireEvent.click(findButton("Retry")));
     expect(
       await screen.findByText("authenticated content", {}, { timeout: 10000 }),
     ).toBeTruthy();

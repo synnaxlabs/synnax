@@ -10,8 +10,8 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { Schematic } from "@/feature/schematic";
 import { renderSchematic } from "@/feature/schematic/testutil";
+import { Toolbar } from "@/feature/schematic/toolbar/Toolbar";
 import { getSwitch } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import { captureBrowserDownloads, getIconButton, uniqueName } from "@/testutil";
@@ -20,11 +20,11 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("Schematic.Toolbar", () => {
+describe("Toolbar", () => {
   describe("when the schematic is not editable", () => {
     it("prompts to enable editing and flips the editable state on click", async () => {
       const name = uniqueName("toolbar");
-      const { key, store } = await renderSchematic(Schematic.Toolbar, {
+      const { key, store } = await renderSchematic(Toolbar, {
         schematic: { name },
         sessionState: { editable: false },
       });
@@ -40,7 +40,7 @@ describe("Schematic.Toolbar", () => {
 
     it("flips the editable state from the release-control prompt when control is acquired", async () => {
       const name = uniqueName("toolbar");
-      const { key, store } = await renderSchematic(Schematic.Toolbar, {
+      const { key, store } = await renderSchematic(Toolbar, {
         schematic: { name },
         sessionState: {
           editable: false,
@@ -58,7 +58,7 @@ describe("Schematic.Toolbar", () => {
 
   describe("when the schematic is editable", () => {
     it("switches to the properties tab and shows the empty selection hint", async () => {
-      const { key, store } = await renderSchematic(Schematic.Toolbar, {
+      const { key, store } = await renderSchematic(Toolbar, {
         sessionState: { editable: true },
       });
       fireEvent.click(await screen.findByText("Properties"));
@@ -75,7 +75,7 @@ describe("Schematic.Toolbar", () => {
     });
 
     it("switches to the control tab and updates the legend visibility", async () => {
-      const { key, store } = await renderSchematic(Schematic.Toolbar, {
+      const { key, store } = await renderSchematic(Toolbar, {
         sessionState: { editable: true },
       });
       fireEvent.click(await screen.findByText("Control"));
@@ -97,7 +97,7 @@ describe("Schematic.Toolbar", () => {
     it("downloads the schematic as a typed JSON export", async () => {
       const downloads = captureBrowserDownloads();
       const name = uniqueName("export");
-      const { result } = await renderSchematic(Schematic.Toolbar, {
+      const { result } = await renderSchematic(Toolbar, {
         schematic: { name },
         sessionState: { editable: true },
       });

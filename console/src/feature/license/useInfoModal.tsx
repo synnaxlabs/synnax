@@ -13,6 +13,7 @@ import { license, type status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Modal } from "@synnaxlabs/lyra/modal";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Tag } from "@synnaxlabs/lyra/tag";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -163,9 +164,9 @@ export const useInfoModal = Modals.create(() => {
       ? null
       : `Core ${details.nodeVersion}${address == null ? "" : ` at ${address}`}`;
   return (
-    <Modals.Frame className={CSS.B("license-info")}>
-      <Modals.Header icon={<Icon.License />}>License</Modals.Header>
-      <Modals.Body className={CSS.BE("license-info", "body")} gap="huge">
+    <Modal.Frame className={CSS.B("license-info")}>
+      <Modal.Header icon={<Icon.License />}>License</Modal.Header>
+      <Modal.Body className={CSS.BE("license-info", "body")} gap="huge">
         {result.variant === "error" ? (
           <Status.Summary level="h4" status={result.status} />
         ) : (
@@ -208,7 +209,7 @@ export const useInfoModal = Modals.create(() => {
             </Button.Copy>
           </Flex.Box>
         </Flex.Box>
-      </Modals.Body>
-    </Modals.Frame>
+      </Modal.Body>
+    </Modal.Frame>
   );
 });

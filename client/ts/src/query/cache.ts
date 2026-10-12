@@ -44,6 +44,10 @@ export interface CacheParams {
    */
   onStreamDenied?: (error: Error) => void;
   /**
+   * Receives each failed change-stream reconnect attempt. Defaults to console.warn.
+   */
+  onStreamRetry?: (error: Error) => void;
+  /**
    * Receives errors that have no caller to throw to: listener fan-out, streamer frame
    * handling, and background reconciliation. Defaults to console logging.
    */
@@ -200,8 +204,14 @@ export class Cache {
    * channels. Answers stop being maintained until a later call succeeds.
    */
   async ensureStreaming(): Promise<void> {
-    const { openStreamer, breaker, onStreamLive, onStreamDrop, onStreamDenied } =
-      this.params;
+    const {
+      openStreamer,
+      breaker,
+      onStreamLive,
+      onStreamDrop,
+      onStreamRetry,
+      onStreamDenied,
+    } = this.params;
     if (openStreamer == null) return;
     if (this.streamer == null) {
       // A reset can retire the streamer while its open is in flight; a
@@ -216,6 +226,7 @@ export class Cache {
         onError: this.onError,
         onLive: onStreamLive,
         onDrop: onStreamDrop,
+        onRetry: onStreamRetry,
         onOpen: () => {
           if (this.streamer !== streamer) return;
           this.unmaintained = false;

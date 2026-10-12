@@ -21,6 +21,7 @@ Type = simple
 User = synnax
 Group = synnax
 LimitNOFILE = 4096
+LimitRTPRIO = 99
 Restart = always
 RestartSec = 5s
 StandardOutput = /home/synnax/synnax.log
@@ -34,3 +35,6 @@ WantedBy = multi-user.target
 The unit passes the license key through `--license-file`, so the key stays out of the
 unit file and the process list. The
 [production guide](/reference/core/production#licensing) explains how to obtain one.
+
+`LimitRTPRIO` lets Arc automations on the Driver inside the Core run on a
+[real-time thread](/reference/control/arc/timing#linux).

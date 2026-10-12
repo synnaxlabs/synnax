@@ -289,7 +289,7 @@ describe("Editable", () => {
 
     it("should put the element with the given id into edit mode", () => {
       const c = render(<Editable id="tab-name" value="Hello" onChange={vi.fn()} />);
-      edit("tab-name");
+      act(() => edit("tab-name"));
       expect(c.getByText("Hello").getAttribute("contenteditable")).toBe("true");
     });
 
@@ -305,7 +305,7 @@ describe("Editable", () => {
           <Editable id="tab-name" value="Hello" onChange={vi.fn()} />
         </>,
       );
-      edit("tab-name");
+      act(() => edit("tab-name"));
       const [readOnly, editable] = c.getAllByText("Hello");
       expect(editable.getAttribute("contenteditable")).toBe("true");
       expect(readOnly.getAttribute("contenteditable")).toBeNull();

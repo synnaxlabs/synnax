@@ -48,7 +48,7 @@ describe("Core.Badge", () => {
     expect(await screen.findByText("Connected")).toBeTruthy();
   });
 
-  it("should show the signed-in user's name in the trigger", async () => {
+  it("should show the logged-in user's name in the trigger", async () => {
     const { wrapper } = await createConnectedConsoleWrapper({
       client: null,
       connParams: CONNECTION_PARAMS,

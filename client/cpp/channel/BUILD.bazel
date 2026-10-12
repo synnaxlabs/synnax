@@ -41,6 +41,7 @@ cc_library(
 cc_test(
     name = "channel_test",
     srcs = ["channel_test.cpp"],
+    tags = ["requires-core"],
     deps = [
         ":channel",
         "//client/cpp:synnax",

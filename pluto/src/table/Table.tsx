@@ -440,7 +440,7 @@ export const Table = ({
     (e: React.KeyboardEvent<HTMLTableElement>) => {
       if (!editable) return;
       const key = Triggers.eventKey(e);
-      if (!NAV_KEYS.has(key)) return;
+      if (key == null || !NAV_KEYS.has(key)) return;
       const anchor = lastSelectedRef.current;
       if (anchor == null) return;
       const pos = findCellPosition(rowsRef.current, anchor);

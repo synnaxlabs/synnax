@@ -12,6 +12,8 @@ import { Logo } from "@synnaxlabs/media";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Nav } from "@/components/Nav";
+import Drawer from "@synnaxlabs/site-common/Drawer.astro";
+import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
 ---
 
 <Flex.Box className="header" el="header" justify="center" align="center" empty>
@@ -21,29 +23,17 @@ import { Nav } from "@/components/Nav";
         </a>
         <Flex.Box x gap={4} align="center">
             <div class="header-nav">
-                <Nav client:load />
+                <Nav />
             </div>
             <Button.Button variant="filled" href="/#contact">
                 Book a demo
             </Button.Button>
-            <button class="mobile-menu-btn" aria-label="Open menu">
-                <span class="mobile-menu-icon"></span>
-            </button>
+            <MenuButton />
         </Flex.Box>
     </Flex.Box>
 </Flex.Box>
 
-<!-- Mobile drawer -->
-<div class="mobile-overlay"></div>
-<nav class="mobile-drawer">
-    <div class="mobile-drawer-header">
-        <a href="/" class="logo-link">
-            <Logo variant="title" />
-        </a>
-        <button class="mobile-close-btn" aria-label="Close menu">
-            <span class="mobile-close-icon"></span>
-        </button>
-    </div>
+<Drawer home="/">
     <div class="mobile-drawer-links">
         <span class="mobile-drawer-section-label">Product</span>
         <a href="/#visualize" class="mobile-drawer-link mobile-product-link">
@@ -76,7 +66,7 @@ import { Nav } from "@/components/Nav";
             Book a demo
         </a>
     </div>
-</nav>
+</Drawer>
 
 <style is:global>
     .header {
@@ -133,9 +123,8 @@ import { Nav } from "@/components/Nav";
     }
 
     .nav-divider {
-        width: 1px;
+        align-self: center;
         height: 2rem;
-        background: var(--pluto-gray-l4);
     }
 
     /* Nav link styles */
@@ -183,8 +172,35 @@ import { Nav } from "@/components/Nav";
         box-shadow:
             0 4px 12px rgba(0, 0, 0, 0.15),
             0 16px 40px rgba(0, 0, 0, 0.2);
-        animation: dropdown-reveal 0.15s cubic-bezier(0.16, 1, 0.3, 1);
         z-index: 20;
+        visibility: hidden;
+        opacity: 0;
+        transform: translateX(-50%) translateY(-6px) scale(0.98);
+        /* Stays open briefly after the pointer leaves. */
+        transition:
+            visibility 0s 0.15s,
+            opacity 0s 0.15s,
+            transform 0s 0.15s;
+
+        /* Keeps the hover alive while the pointer crosses the gap below the link. */
+        &::before {
+            content: "";
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            right: 0;
+            height: 1.5rem;
+        }
+    }
+
+    .nav-dropdown-wrap:hover .product-dropdown,
+    .nav-dropdown-wrap:focus-within .product-dropdown {
+        visibility: visible;
+        opacity: 1;
+        transform: translateX(-50%);
+        transition:
+            opacity 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+            transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     .product-grid {
@@ -242,172 +258,11 @@ import { Nav } from "@/components/Nav";
         }
     }
 
-    @keyframes dropdown-reveal {
-        from {
-            opacity: 0;
-            transform: translateX(-50%) translateY(-6px) scale(0.98);
-        }
-        to {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0) scale(1);
-        }
-    }
-
-    /* ── Mobile menu button ──────────────────────────────────── */
-
-    .mobile-menu-btn {
-        display: none;
-        background: none;
-        border: none;
-        cursor: pointer;
-        padding: 0.8rem;
-        margin-right: -0.8rem;
-    }
-
-    .mobile-menu-icon,
-    .mobile-menu-icon::before,
-    .mobile-menu-icon::after {
-        display: block;
-        width: 2.2rem;
-        height: 2px;
-        background: var(--pluto-gray-l9);
-        border-radius: 1px;
-        transition: all 0.2s ease;
-    }
-
-    .mobile-menu-icon {
-        position: relative;
-    }
-
-    .mobile-menu-icon::before,
-    .mobile-menu-icon::after {
-        content: "";
-        position: absolute;
-        left: 0;
-    }
-
-    .mobile-menu-icon::before {
-        top: -0.7rem;
-    }
-
-    .mobile-menu-icon::after {
-        top: 0.7rem;
-    }
-
-    /* ── Mobile overlay ──────────────────────────────────────── */
-
-    .mobile-overlay {
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.5);
-        z-index: 49;
-        opacity: 0;
-        transition: opacity 0.25s ease;
-    }
-
-    .mobile-overlay--open {
-        display: block;
-        opacity: 1;
-    }
-
     /* ── Mobile drawer ───────────────────────────────────────── */
 
+    .mobile-menu-btn,
     .mobile-drawer {
-        position: fixed;
-        inset: 0;
-        width: 100%;
-        height: 100dvh;
-        background: var(--pluto-gray-l1);
-        z-index: 50;
-        transform: translateX(100%);
-        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         display: none;
-        flex-direction: column;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-
-    .mobile-drawer--open {
-        transform: translateX(0);
-    }
-
-    .mobile-drawer-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0 2rem;
-        height: var(--nav-height);
-        border-bottom: var(--pluto-border);
-        flex-shrink: 0;
-    }
-
-    .mobile-drawer-header .logo-link .synnax-logo--title {
-        height: 3.5rem;
-    }
-
-    .mobile-close-btn {
-        background: none;
-        border: none;
-        cursor: pointer;
-        padding: 0.8rem;
-        margin-right: -0.8rem;
-    }
-
-    .mobile-close-icon {
-        display: block;
-        width: 2.2rem;
-        height: 2.2rem;
-        position: relative;
-    }
-
-    .mobile-close-icon::before,
-    .mobile-close-icon::after {
-        content: "";
-        position: absolute;
-        top: 50%;
-        left: 0;
-        width: 100%;
-        height: 2px;
-        background: var(--pluto-gray-l9);
-        border-radius: 1px;
-    }
-
-    .mobile-close-icon::before {
-        transform: rotate(45deg);
-    }
-
-    .mobile-close-icon::after {
-        transform: rotate(-45deg);
-    }
-
-    .mobile-drawer-links {
-        display: flex;
-        flex-direction: column;
-        padding: 1.5rem 0;
-    }
-
-    .mobile-drawer-section-label {
-        font-size: 1.4rem;
-        font-weight: 600;
-        color: var(--pluto-gray-l6);
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        padding: 1rem 2rem 0.5rem;
-    }
-
-    .mobile-drawer-link {
-        display: block;
-        padding: 1.2rem 2rem;
-        font-size: 1.8rem;
-        font-weight: 500;
-        color: var(--pluto-gray-l9);
-        text-decoration: none;
-
-        &:hover {
-            background: var(--pluto-gray-l2);
-            text-decoration: none;
-        }
     }
 
     .mobile-product-link {
@@ -419,12 +274,6 @@ import { Nav } from "@/components/Nav";
         color: var(--pluto-gray-l6);
         font-size: 1.5rem;
         margin-right: 0.5rem;
-    }
-
-    .mobile-drawer-divider {
-        height: 1px;
-        background: var(--pluto-gray-l3);
-        margin: 0.8rem 2rem;
     }
 
     .mobile-drawer-cta {
@@ -442,10 +291,6 @@ import { Nav } from "@/components/Nav";
         &:hover {
             text-decoration: none;
         }
-    }
-
-    body.mobile-menu-open {
-        overflow: hidden;
     }
 
     @media (max-width: 600px) {
@@ -470,38 +315,7 @@ import { Nav } from "@/components/Nav";
 </style>
 
 <script>
-    const header = document.querySelector(".header");
-    const updateHeader = () => {
-        if (window.scrollY <= 10) {
-            header?.classList.add("header--top");
-        } else {
-            header?.classList.remove("header--top");
-        }
-    };
-    updateHeader();
-    window.addEventListener("scroll", updateHeader, { passive: true });
+    import { start } from "@/components/header";
 
-    // Mobile drawer
-    const menuBtn = document.querySelector(".mobile-menu-btn");
-    const closeBtn = document.querySelector(".mobile-close-btn");
-    const overlay = document.querySelector(".mobile-overlay");
-    const drawer = document.querySelector(".mobile-drawer");
-    const drawerLinks = drawer?.querySelectorAll("a");
-
-    const openDrawer = () => {
-        drawer?.classList.add("mobile-drawer--open");
-        overlay?.classList.add("mobile-overlay--open");
-        document.body.classList.add("mobile-menu-open");
-    };
-
-    const closeDrawer = () => {
-        drawer?.classList.remove("mobile-drawer--open");
-        overlay?.classList.remove("mobile-overlay--open");
-        document.body.classList.remove("mobile-menu-open");
-    };
-
-    menuBtn?.addEventListener("click", openDrawer);
-    closeBtn?.addEventListener("click", closeDrawer);
-    overlay?.addEventListener("click", closeDrawer);
-    drawerLinks?.forEach((link) => link.addEventListener("click", closeDrawer));
+    start();
 </script>

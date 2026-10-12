@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createSeverableProxy, createTestClient } from "@synnaxlabs/client/testutil";
+import { createProxiedTestClient, createTestClient } from "@synnaxlabs/client/testutil";
 import { type breaker, TimeSpan } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
@@ -16,6 +16,9 @@ import { Synchronizer } from "@/session/synchronizer";
 import { createConsoleWrapper } from "@/testutil";
 
 const client = createTestClient();
+
+// The reconnect spec expects retries while its proxy is severed.
+const quiet = (): void => {};
 
 describe("Synchronizer.use", () => {
   it("should run reconciles sequentially in declaration order", async () => {
@@ -147,36 +150,33 @@ describe("Synchronizer.use", () => {
       maxInterval: TimeSpan.milliseconds(50),
       scale: 1.5,
     };
-    const proxy = await createSeverableProxy();
-    const local = createTestClient({ port: proxy.port, retry });
-    try {
-      let reconciles = 0;
-      const { wrapper } = await createConsoleWrapper({ client: local });
-      const { result } = renderHook(
-        () =>
-          Synchronizer.use([
-            {
-              name: "counter",
-              use: () => ({
-                reconcile: () => {
-                  reconciles++;
-                },
-              }),
-            },
-          ]),
-        { wrapper },
-      );
-      await waitFor(() => expect(result.current).toBe(true));
-      const settled = reconciles;
-      await proxy.sever();
-      await proxy.restore();
-      // The reopened stream may have missed changes, so the host re-verifies.
-      await waitFor(() => expect(reconciles).toBeGreaterThan(settled));
-      await waitFor(() => expect(result.current).toBe(true));
-    } finally {
-      await local.close();
-      await proxy.close();
-    }
+    const { proxy, client: local } = await createProxiedTestClient({
+      retry,
+      onRetry: quiet,
+    });
+    let reconciles = 0;
+    const { wrapper } = await createConsoleWrapper({ client: local });
+    const { result } = renderHook(
+      () =>
+        Synchronizer.use([
+          {
+            name: "counter",
+            use: () => ({
+              reconcile: () => {
+                reconciles++;
+              },
+            }),
+          },
+        ]),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current).toBe(true));
+    const settled = reconciles;
+    await proxy.sever();
+    await proxy.restore();
+    // The reopened stream may have missed changes, so the host re-verifies.
+    await waitFor(() => expect(reconciles).toBeGreaterThan(settled));
+    await waitFor(() => expect(result.current).toBe(true));
   });
 
   it("should not invoke anything without a client", async () => {

@@ -1789,6 +1789,28 @@ var _ = Describe("C++ Types Plugin", func() {
 			)
 
 			It(
+				"Should zero-initialize an int enum field with no default",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "out"
+
+					Mode enum {
+						automatic = 1
+						manual    = 2
+					}
+
+					Config struct {
+						mode     Mode
+						override Mode?
+					}
+				`
+					resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+					ExpectContent(resp, "types.gen.h").
+						ToContain(`Mode mode = {};`, `std::optional<Mode> override;`)
+				},
+			)
+
+			It(
 				"Should reference string enum defaults via their generated constants",
 				func(ctx SpecContext) {
 					source := `
@@ -2370,6 +2392,35 @@ var _ = Describe("C++ Union Variant Doc Coverage", func() {
 				"struct BaseConfig {",
 			)
 			commonContent.ToNotContain("struct Task {")
+		},
+	)
+	It(
+		"Should declare proto translators for a union that emits protobuf",
+		func(ctx SpecContext) {
+			source := `
+			@cpp output "arc/cpp/ir"
+			@go output "arc/go/ir"
+			@pb
+
+			Target union on type {
+				exit {}
+				step { key string }
+			}
+
+			Transition struct { target Target }
+			`
+			resp := MustGenerate(ctx, source, "ir", loader, cppPlugin)
+			ExpectContent(resp, "types.gen.h").
+				ToContain(
+					"using proto_type = ::arc::ir::pb::TargetExitPayload;",
+					"static std::pair<StepTarget, x::errors::Error> "+
+						"from_proto(const ::arc::ir::pb::TargetStepPayload& pb);",
+					"[[nodiscard]] std::pair<::arc::ir::pb::Target, x::errors::Error> "+
+						"to_proto(const Target& value);",
+					"std::pair<Target, x::errors::Error> "+
+						"target_from_proto(const ::arc::ir::pb::Target& pb);",
+					`#include "arc/go/ir/pb/ir.pb.h"`,
+				)
 		},
 	)
 })

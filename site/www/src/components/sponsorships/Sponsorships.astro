@@ -21,7 +21,7 @@ import logoUCF from "@/components/sponsorships/ucf.svg";
 import logoASU from "@/components/sponsorships/asu.svg";
 import logoDrexel from "@/components/sponsorships/drexel.svg";
 import logoConcordia from "@/components/sponsorships/concordia.svg";
-import { cdn } from "@/cdn";
+import CdnPicture from "@/components/common/CdnPicture.astro";
 
 const universities = [
     { name: "UCLA", logo: logoUCLA.src },
@@ -33,13 +33,13 @@ const universities = [
     { name: "UCF", logo: logoUCF.src, scale: 1.2 },
     { name: "Arizona State University", logo: logoASU.src, scale: 0.85 },
     { name: "Drexel University", logo: logoDrexel.src, scale: 1.2 },
-    { name: "Cal State Long Beach", logo: cdn("images/csulb.png"), scale: 1.2 },
-    { name: "UC San Diego", logo: cdn("images/ucsd.png"), scale: 0.7 },
+    { name: "Cal State Long Beach", path: "images/csulb.png", scale: 1.2 },
+    { name: "UC San Diego", path: "images/ucsd.png", scale: 0.7 },
     { name: "Concordia University", logo: logoConcordia.src },
-    { name: "Florida Rocket Lab", logo: cdn("images/frl.png") },
+    { name: "Florida Rocket Lab", path: "images/frl.png" },
     {
         name: "University of Cincinnati",
-        logo: cdn("images/cincinnati.png"),
+        path: "images/cincinnati.png",
         scale: 1.32,
     },
 ];
@@ -67,13 +67,13 @@ const universities = [
             Sponsored universities
         </Text.Text>
         <div class="sponsorships-grid">
-            {universities.map(({ name, logo, scale }) => (
-                <div class="sponsorships-cell">
-                    <img
-                        src={logo}
-                        alt={name}
-                        style={scale ? `transform: scale(${scale});` : undefined}
-                    />
+            {universities.map(({ name, logo, path, scale = 1 }) => (
+                <div class="sponsorships-cell" style={`--logo-scale: ${scale};`}>
+                    {path == null ? (
+                        <img src={logo} alt={name} />
+                    ) : (
+                        <CdnPicture path={path} alt={name} sizes="300px" />
+                    )}
                     <Text.Text level="p" className="sponsorships-cell__name">
                         {name}
                     </Text.Text>
@@ -148,6 +148,7 @@ const universities = [
             height: 10rem;
             max-width: 80%;
             object-fit: contain;
+            transform: scale(var(--logo-scale));
         }
     }
 

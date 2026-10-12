@@ -68,6 +68,19 @@ var _ = Describe("MigrateArc", func() {
 			},
 		)
 
+		DescribeTable("Should state the mode of an Arc a v0.49 Core stored without one",
+			func(ctx SpecContext, stored v0.Mode, want v3.Mode) {
+				Expect(migrateFromV0(ctx, v0.Arc{
+					Key:  uuid.New(),
+					Name: "modeless",
+					Mode: stored,
+				}).Mode).To(Equal(want))
+			},
+			Entry("blank", v0.Mode(""), v3.ModeGraph),
+			Entry("graph", v0.ModeGraph, v3.ModeGraph),
+			Entry("text", v0.ModeText, v3.ModeText),
+		)
+
 		It(
 			"Should produce an empty document when there is no prior text",
 			func(ctx SpecContext) {
@@ -246,7 +259,7 @@ func migrateFromV1(ctx SpecContext, seed v1.Arc) v3.Arc {
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:         db,
 		Namespace:  "Arc",
-		Migrations: append(applied, v3.Migration),
+		Migrations: append(applied, v3.Migration, v3.ModeMigration),
 	})).To(Succeed())
 	var got v3.Arc
 	Expect(gorp.NewRetrieve[v3.Key, v3.Arc]().
@@ -267,7 +280,7 @@ func migrateFromV0(ctx SpecContext, seed v0.Arc) v3.Arc {
 		Namespace: "Arc",
 		Migrations: slices.Concat(
 			[]migrate.Migration{v0.Migration}, v1.Migrations,
-			[]migrate.Migration{v3.Migration},
+			[]migrate.Migration{v3.Migration, v3.ModeMigration},
 		),
 	})).To(Succeed())
 	var got v3.Arc

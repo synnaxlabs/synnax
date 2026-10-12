@@ -27,15 +27,6 @@ export const discoverModules = (root: string): string[] =>
     .map((entry) => entry.name)
     .sort();
 
-/** Vite `lib.entry` map for the given modules. */
-export const moduleEntries = (
-  root: string,
-  modules: string[],
-): Record<string, string> =>
-  Object.fromEntries(
-    modules.map((name) => [name, path.join(root, "src", name, "index.ts")]),
-  );
-
 /**
  * The `exports` map a subpath-only package must carry for the given modules, plus a
  * passthrough for static files under `dist/`.
@@ -46,7 +37,7 @@ export const moduleExports = (
   ...Object.fromEntries(
     modules.map((name) => [
       `./${name}`,
-      { types: `./dist/src/${name}/index.d.ts`, default: `./dist/${name}.js` },
+      { types: `./dist/${name}/index.d.ts`, default: `./dist/${name}/index.js` },
     ]),
   ),
   "./dist/*": "./dist/*",

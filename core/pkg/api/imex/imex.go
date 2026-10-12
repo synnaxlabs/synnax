@@ -42,6 +42,9 @@ var JSONCodec http.FileCodec = xjson.NewCodec(
 	json.Deterministic(true),
 )
 
+// ImportCodec decodes import request bodies.
+var ImportCodec = imex.Codec
+
 // ResolveEncoding returns the file encoder for the named export serialization. It
 // returns a validation error scoped to the "encoding" field when name is not a
 // supported serialization.

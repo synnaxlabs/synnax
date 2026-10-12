@@ -154,11 +154,35 @@ var _ = Describe("ImEx", func() {
 				))
 			})
 
-			It("Should reject invalid UTF-8", func() {
+			// Consoles before v0.57 exported with JSON.stringify, which writes a lone
+			// surrogate as an escape.
+			It("Should replace a lone surrogate a v0.56 Console exported", func(
+				ctx SpecContext,
+			) {
 				var env imex.Envelope
-				Expect(json.Unmarshal(
-					[]byte("{\"version\":1,\"name\":\"\xff\"}"), &env,
-				)).To(MatchError(ContainSubstring("invalid UTF-8")))
+				Expect(imex.Codec.Decode(ctx, []byte(
+					`{"version":1,"type":"log","name":"Tank \ud83d level"}`,
+				), &env)).To(Succeed())
+				Expect(env.Name).To(Equal("Tank \uFFFD level"))
+				p := MustSucceed(env.Decode[struct {
+					Name string `json:"name"`
+				}](ctx))
+				Expect(p.Name).To(Equal("Tank \uFFFD level"))
+			})
+
+			It("Should replace invalid UTF-8", func(ctx SpecContext) {
+				var env imex.Envelope
+				Expect(imex.Codec.Decode(
+					ctx, []byte("{\"version\":1,\"name\":\"\xff\"}"), &env,
+				)).To(Succeed())
+				Expect(env.Name).To(Equal("\uFFFD"))
+			})
+
+			It("Should reject a duplicate object name", func(ctx SpecContext) {
+				var env imex.Envelope
+				Expect(imex.Codec.Decode(
+					ctx, []byte(`{"version":1,"name":"a","name":"b"}`), &env,
+				)).To(MatchError(ContainSubstring("failed to decode")))
 			})
 
 			It("Should accept an envelope without a type", func() {
