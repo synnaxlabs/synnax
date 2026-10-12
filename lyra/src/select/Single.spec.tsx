@@ -191,6 +191,19 @@ describe("Select.Single", () => {
     expect(c.queryByText("Third Item Option")).toBeNull();
   });
 
+  it("should show every item again after a search and a close", () => {
+    const { SelectSingle } = createSelectSingle();
+    const c = render(<SelectSingle />);
+    fireEvent.click(c.getByText("Test Item"));
+    fireEvent.change(c.getByPlaceholderText("Search Test Items..."), {
+      target: { value: "First" },
+    });
+    fireEvent.click(c.getByText("First Item Option"));
+    fireEvent.click(c.getByText("First Item"));
+    expect(c.getByText("Second Item Option")).toBeTruthy();
+    expect(c.getByText("Third Item Option")).toBeTruthy();
+  });
+
   it("should work with initial value", () => {
     const onChange = vi.fn();
     const SelectSingle = () => {

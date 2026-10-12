@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import { Dialog } from "@/dialog";
 import { Flex } from "@/flex";
+import { useSyncedRef } from "@/hooks/ref";
 import { Icon } from "@/icon";
 import { type Input } from "@/input";
 import { Text as InputText } from "@/input/Text";
@@ -30,7 +31,7 @@ export interface SearchProps {
 /**
  * The search field of a selection dialog. It hides the fixed {@link Item}s whose text
  * does not match, and passes the term to `onSearch` for the frame's data. The term
- * clears when the dialog closes.
+ * clears when the dialog closes, and `onSearch` then receives an empty term.
  */
 export const Search = ({
   placeholder = "Search...",
@@ -42,7 +43,16 @@ export const Search = ({
   const registry = useRegistryContext("Select.Search");
   const [term, setTerm] = useState("");
   const { variant } = Dialog.useContext();
-  useEffect(() => () => registry.setTerm(""), [registry]);
+  const onSearchRef = useSyncedRef(onSearch);
+  const searchedRef = useRef(false);
+  useEffect(
+    () => () => {
+      registry.setTerm("");
+      if (searchedRef.current) onSearchRef.current?.("");
+      searchedRef.current = false;
+    },
+    [registry, onSearchRef],
+  );
   if (closed) return null;
   const input = (
     <InputText
@@ -57,6 +67,7 @@ export const Search = ({
       full="x"
       onChange={(v) => {
         setTerm(v);
+        searchedRef.current = v !== "";
         registry.setTerm(v);
         onSearch?.(v);
       }}
