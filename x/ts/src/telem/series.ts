@@ -709,10 +709,10 @@ export class Series<T extends TelemValue = TelemValue>
   get nonFiniteIndices(): readonly number[] {
     if (!this.dataType.isFloat) return EMPTY_INDICES;
     const indices = (this.nonFinite ??= []);
-    const d = this.data as Float64Array;
-    for (let i = this.nonFiniteScanned; i < d.length; i++)
-      if (!Number.isFinite(d[i])) indices.push(i);
-    this.nonFiniteScanned = d.length;
+    const { data } = this;
+    for (let i = this.nonFiniteScanned; i < data.length; i++)
+      if (!Number.isFinite(data[i])) indices.push(i);
+    this.nonFiniteScanned = data.length;
     return indices;
   }
 
