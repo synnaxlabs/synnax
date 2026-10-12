@@ -166,12 +166,7 @@ const listItem = Component.renderProp(FieldListItem);
 const HIDDEN_DATA_TYPES = [DataType.UUID, DataType.BYTES];
 
 const renderSelectDataType = Component.renderProp((p: Telem.SelectDataTypeProps) => (
-  <Telem.SelectDataType
-    {...p}
-    hideDataTypes={HIDDEN_DATA_TYPES}
-    hideVariableDensity
-    location="bottom"
-  />
+  <Telem.SelectDataType {...p} hideDataTypes={HIDDEN_DATA_TYPES} location="bottom" />
 ));
 
 /**
@@ -220,6 +215,8 @@ const FieldDetails = ({ path }: Task.Views.DetailsProps) => {
   const { channel: key, dataType } = PForm.useFieldValue<ReadField>(path);
   const bound = key !== 0;
   const isTimestamp = DataType.TIMESTAMP.equals(dataType);
+  // Labels map to numbers, so only a numeric field takes an enum mapping.
+  const enumerable = !isTimestamp && !new DataType(dataType).isVariable;
   return (
     <PForm.Sections className={CSS.B("kafka-details")}>
       <PForm.Section title="Field">
@@ -249,7 +246,7 @@ const FieldDetails = ({ path }: Task.Views.DetailsProps) => {
         )}
         <ChannelNameField path={path} />
       </PForm.Section>
-      {!isTimestamp && (
+      {enumerable && (
         <PForm.Section title="Enum mapping">
           <PlatformForm.KeyValueEditor
             path={`${path}.enumValues`}

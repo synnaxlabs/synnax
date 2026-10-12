@@ -90,6 +90,20 @@ describe("Read", () => {
     await waitFor(() => expect(screen.queryByText("Enum mapping")).toBeNull());
   });
 
+  it("should offer the string type and hide the enum mapping for it", async () => {
+    const dev = await createKafkaDevice(client);
+    const draft = await createDraft(client, {
+      ...Kafka.Task.READ_SCHEMAS.config.parse({}),
+      device: dev.key,
+    });
+    const { container } = await renderRead({ client, taskKey: draft.key });
+    await screen.findByText(dev.name);
+    fireEvent.click(getIconButton(container, "add"));
+    await screen.findByText("Enum mapping");
+    await selectFromDropdown("float64", "String");
+    await waitFor(() => expect(screen.queryByText("Enum mapping")).toBeNull());
+  });
+
   it("should create an index per record key and a channel per field on deploy", async () => {
     const dev = await createKafkaDevice(client);
     const draft = await createDraft(client, {

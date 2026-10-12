@@ -103,4 +103,32 @@ describe("Write", () => {
     expect(created.config.record.valuePointer).toBe("/value");
     expect(created.config.channels[0].channel).toBe(ch.key);
   });
+
+  it("should send a string channel as a string on deploy", async () => {
+    const dev = await createKafkaDevice(client);
+    const ch = await client.channels.create({
+      name: uniqueName("kafka_out"),
+      dataType: "string",
+      virtual: true,
+    });
+    const draft = await createDraft(client, {
+      ...Kafka.Task.WRITE_SCHEMAS.config.parse({}),
+      device: dev.key,
+      topic: "samples",
+      channels: [{ ...kafka.writeChannelZ.parse({}), key: "c1", channel: ch.key }],
+    });
+    const { container } = await renderWrite({ client, taskKey: draft.key });
+    await screen.findByText(dev.name);
+    fireEvent.click((await screen.findAllByText(ch.name))[0]);
+    // The section title and the field label, once the details render.
+    await waitFor(() => expect(screen.getAllByText("Channel")).toHaveLength(2));
+    await waitFor(() => expect(screen.queryByText("JSON type")).toBeNull());
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      Kafka.Task.WRITE_SCHEMAS,
+    );
+    expect(created.config.channels[0].jsonType).toBe("string");
+  });
 });
