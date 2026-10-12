@@ -31,9 +31,22 @@ const PREVENT_DEFAULT_ON: Triggers.Trigger[] = [
   Triggers.UNGROUP,
 ];
 
+// Browsers act on these before the page sees them, so no hint may advertise them.
+const BROWSER_RESERVED: Triggers.Trigger[] = [
+  ["Control", "T"],
+  ["Control", "Shift", "T"],
+  ["Control", "N"],
+  ["Control", "Shift", "N"],
+  ["Control", "W"],
+  ["Control", "Shift", "W"],
+  ["Control", "Tab"],
+  ["Control", "Shift", "Tab"],
+];
+
 export const PROVIDER_PROPS: Triggers.ProviderProps = {
   preventDefaultOn: PREVENT_DEFAULT_ON,
   preventDefaultOptions: { double: true },
+  reserved: Session.Runtime.ENGINE === "tauri" ? [] : BROWSER_RESERVED,
 };
 
 const OVERLAY_TRIGGERS: Triggers.Trigger[] = [PPanel.OVERLAY_TRIGGER];
