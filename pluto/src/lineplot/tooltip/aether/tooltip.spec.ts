@@ -49,12 +49,12 @@ const FOUND: FindResult = {
 const strokeStyles = (recorder: canvasTest.Recorder): string[] =>
   recorder.upper2d.calls
     .filter((c) => c.op === "set:strokeStyle")
-    .map((c) => c.args[0] as string);
+    .map((c) => String(c.args[0]));
 
 const texts = (recorder: canvasTest.Recorder): string[] =>
   recorder.upper2d.calls
     .filter((c) => c.op === "fillText")
-    .map((c) => c.args[0] as string);
+    .map((c) => String(c.args[0]));
 
 const arcs = (recorder: canvasTest.Recorder): number =>
   recorder.upper2d.calls.filter((c) => c.op === "arc").length;

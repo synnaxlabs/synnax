@@ -31,7 +31,6 @@ import {
   buildDrawOperations,
   Context,
   type DrawOperation,
-  finiteRuns,
   Line,
   type LineProps,
   nearestVertex,
@@ -487,63 +486,6 @@ describe("line", () => {
     });
   });
 
-  describe("finiteRuns", () => {
-    const op = (
-      x: number[],
-      y: number[],
-      { offset = 0, downsample = 1 } = {},
-    ): DrawOperation => ({
-      x: new Series(new Float32Array(x)),
-      y: new Series(new Float32Array(y)),
-      xOffset: offset,
-      yOffset: offset,
-      count: x.length - offset,
-      downsample,
-    });
-
-    it("should return one run when every sample is finite", () => {
-      expect(finiteRuns(op([0, 1, 2], [3, 4, 5]))).toEqual([[0, 3]]);
-    });
-
-    it("should split the strip at a NaN y sample", () => {
-      expect(finiteRuns(op([0, 1, 2, 3, 4], [1, 2, NaN, 4, 5]))).toEqual([
-        [0, 2],
-        [3, 2],
-      ]);
-    });
-
-    it("should split the strip at an infinite x or y sample", () => {
-      const o = op([0, 1, 2, 3, 4, 5, 6], [1, 2, -Infinity, 4, 5, 6, 7]);
-      o.x = new Series(new Float32Array([0, 1, 2, 3, Infinity, 5, 6]));
-      expect(finiteRuns(o)).toEqual([
-        [0, 2],
-        [5, 2],
-      ]);
-    });
-
-    it("should leave out a run with one vertex", () => {
-      expect(finiteRuns(op([0, 1, 2, 3], [NaN, 1, NaN, 2]))).toEqual([]);
-    });
-
-    it("should return no runs when every sample is NaN", () => {
-      expect(finiteRuns(op([0, 1, 2], [NaN, NaN, NaN]))).toEqual([]);
-    });
-
-    it("should ignore a non-finite sample that the decimation skips", () => {
-      expect(
-        finiteRuns(op([0, 1, 2, 3, 4], [0, NaN, 2, 3, 4], { downsample: 2 })),
-      ).toEqual([[0, 2]]);
-    });
-
-    it("should map a non-finite sample to its vertex through the offset", () => {
-      const o = op([0, 1, 2, 3, 4, 5], [9, 0, 1, NaN, 3, 4], { offset: 1 });
-      expect(finiteRuns(o)).toEqual([
-        [0, 2],
-        [3, 2],
-      ]);
-    });
-  });
-
   describe("nearestVertex", () => {
     const EMPTY = new Series(new Float32Array());
     const op = (count: number, downsample: number, xOffset = 0): DrawOperation => ({
@@ -647,12 +589,16 @@ describe("line", () => {
       const draws = (): [number, number][] =>
         calls
           .filter((c) => c.op === "drawArraysInstanced")
-          .map((c) => [c.args[0] as number, c.args[2] as number]);
-      const firsts = (): number[] =>
+          .map((c) => [Number(c.args[0]), Number(c.args[2])]);
+      const strips = (): [number, number][] =>
         calls
-          .filter((c) => c.op === "drawArraysInstanced")
-          .map((c) => c.args[1] as number);
-      return { line: h.child<Line>("line"), calls, draws, firsts };
+          .filter(
+            (c) =>
+              c.op === "drawArraysInstanced" &&
+              c.args[0] === canvasTest.GL_ENUMS.LINE_STRIP,
+          )
+          .map((c) => [Number(c.args[1]), Number(c.args[2])]);
+      return { line: h.child<Line>("line"), calls, draws, strips };
     };
 
     const X1 = series([0, 1, 2], 0n, { start: 0, end: 100 });
@@ -679,16 +625,52 @@ describe("line", () => {
         expect(Array.from(upload?.args[1] as Float32Array)).toEqual([2, 30, 5, 40]);
       });
 
-      it("should leave a gap at a NaN sample", () => {
-        const x = series([0, 1, 2, 3, 4], 0n, { start: 0, end: 100 });
-        const y = series([10, 20, NaN, 40, 50], 0n, { start: 0, end: 100 });
-        const m = mount([x], [y]);
-        m.line.render(PROPS);
-        expect(m.draws()).toEqual([
-          [canvasTest.GL_ENUMS.LINE_STRIP, 2],
-          [canvasTest.GL_ENUMS.LINE_STRIP, 2],
-        ]);
-        expect(m.firsts()).toEqual([0, 3]);
+      describe("non-finite samples", () => {
+        const RANGE = { start: 0, end: 100 };
+        const strips = (x: number[], y: number[], downsample = 1, yAlignment = 0n) => {
+          const m = mount(
+            [series(x, 0n, RANGE)],
+            [series(y, yAlignment, RANGE)],
+            downsample,
+          );
+          m.line.render(PROPS);
+          return m.strips();
+        };
+
+        it("should leave a gap at a NaN y sample", () => {
+          expect(strips([0, 1, 2, 3, 4], [10, 20, NaN, 40, 50])).toEqual([
+            [0, 2],
+            [3, 2],
+          ]);
+        });
+
+        it("should leave a gap at an infinite x or y sample", () => {
+          expect(
+            strips([0, 1, 2, 3, Infinity, 5, 6], [1, 2, -Infinity, 4, 5, 6, 7]),
+          ).toEqual([
+            [0, 2],
+            [5, 2],
+          ]);
+        });
+
+        it("should draw nothing for a finite sample between two NaN samples", () => {
+          expect(strips([0, 1, 2, 3], [NaN, 1, NaN, 2])).toEqual([]);
+        });
+
+        it("should draw nothing when every sample is NaN", () => {
+          expect(strips([0, 1, 2], [NaN, NaN, NaN])).toEqual([]);
+        });
+
+        it("should ignore a non-finite sample that the decimation skips", () => {
+          expect(strips([0, 1, 2, 3, 4], [0, NaN, 2, 3, 4], 2)).toEqual([[0, 2]]);
+        });
+
+        it("should find a non-finite x sample through the x offset", () => {
+          // x starts one sample before y, so the strip begins at x[1].
+          expect(
+            strips([0, 1, 2, 3, Infinity, 5], [10, 11, 12, 13, 14], 1, 1n),
+          ).toEqual([[0, 3]]);
+        });
       });
 
       it("should not bridge two domains across an infinite sample", () => {

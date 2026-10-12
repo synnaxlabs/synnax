@@ -570,7 +570,7 @@ export const nearestVertex = (op: DrawOperation, index: number): number => {
  * @returns the [first, count] vertex ranges of op that hold only finite x and y
  * samples. A range with one vertex draws no segment, so it is left out.
  */
-export const finiteRuns = (op: DrawOperation): Array<[number, number]> => {
+const finiteRuns = (op: DrawOperation): Array<[number, number]> => {
   const total = vertexCount(op);
   const breaks = [
     ...nonFiniteVertices(op.x, op.xOffset, op.downsample, total),
