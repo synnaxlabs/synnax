@@ -20,6 +20,7 @@ import { task } from "@/task";
 import { createTestClient, spyOnSend, waitForStreamLive } from "@/testutil";
 
 const client = createTestClient();
+const writer = createTestClient();
 
 // Mirrors the deadline the task client gives an unanswered command.
 const COMMAND_DEADLINE = TimeSpan.seconds(10);
@@ -775,6 +776,25 @@ describe("Task", async () => {
     });
   };
 
+  // A task's creation placeholder echoes back over the status stream at its own pace.
+  // Statuses stream in write order, so once a later write by another client lands here,
+  // the echo cannot overwrite a status the spec sets after this returns.
+  const setRackAliveAfterEcho = async (key: rack.Key) => {
+    await waitForStreamLive(client.connection);
+    const message = `alive-${id.create()}`;
+    await writer.statuses.set({
+      key: rack.statusKey(key),
+      name: "Rack Status",
+      variant: "success",
+      message,
+      time: TimeStamp.now(),
+      details: { rack: key },
+    });
+    await expect
+      .poll(() => client.statuses.store.get(rack.statusKey(key))?.message)
+      .toBe(message);
+  };
+
   describe("onChange", () => {
     it("merges a status keyed by details.task into a subscribed single query", async () => {
       const t = await testRack.createTask({
@@ -987,7 +1007,7 @@ describe("Task", async () => {
       }, key);
       try {
         await client.tasks.retrieve({ key: t.key });
-        await setRackStatus(alive.key, "success", "Driver is running");
+        await setRackAliveAfterEcho(alive.key);
         vi.useFakeTimers({
           toFake: ["setTimeout", "clearTimeout"],
           shouldAdvanceTime: true,
@@ -1028,7 +1048,7 @@ describe("Task", async () => {
       }, key);
       try {
         await client.tasks.retrieve({ key: t.key });
-        await setRackStatus(alive.key, "success", "Driver is running");
+        await setRackAliveAfterEcho(alive.key);
         vi.useFakeTimers({
           toFake: ["setTimeout", "clearTimeout"],
           shouldAdvanceTime: true,
@@ -1084,7 +1104,7 @@ describe("Task", async () => {
       }, key);
       try {
         await client.tasks.retrieve({ key: t.key });
-        await setRackStatus(alive.key, "success", "Driver is running");
+        await setRackAliveAfterEcho(alive.key);
         vi.useFakeTimers({
           toFake: ["setTimeout", "clearTimeout"],
           shouldAdvanceTime: true,
