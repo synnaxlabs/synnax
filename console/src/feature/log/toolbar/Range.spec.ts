@@ -43,6 +43,22 @@ describe("log/toolbar/Range", () => {
     expect(await screen.findByDisplayValue("45m")).toBeDefined();
   });
 
+  it("should focus the custom window input when the user picks custom", async () => {
+    await renderLog(Range);
+    const button = await trigger();
+    await waitFor(() => expect(button.getAttribute("aria-disabled")).not.toBe("true"));
+    fireEvent.click(button);
+    fireEvent.click(await screen.findByRole("option", { name: /Custom/ }));
+    const input = await screen.findByPlaceholderText("1h 30m");
+    await waitFor(() => expect(document.activeElement).toBe(input));
+  });
+
+  it("should not focus the custom window input when the toolbar opens", async () => {
+    await renderLog(Range, { log: { range: "custom" } });
+    const input = await screen.findByPlaceholderText("1h 30m");
+    expect(document.activeElement).not.toBe(input);
+  });
+
   it("should set the custom window through the server", async () => {
     const { key } = await renderLog(Range, { log: { range: "custom" } });
     const input = await screen.findByPlaceholderText("1h 30m");

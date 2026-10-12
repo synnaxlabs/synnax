@@ -50,12 +50,14 @@ export interface CustomInputProps extends Omit<
 > {
   value: lineplot.CustomRange | undefined;
   onChange: (value: lineplot.CustomRange) => void;
+  autoFocus?: boolean;
 }
 
 /** Edits the rolling window the "custom" range key resolves to. */
 export const CustomInput = ({
   value,
   onChange,
+  autoFocus,
   ...rest
 }: CustomInputProps): ReactElement => {
   const handleChange = useCallback(
@@ -75,6 +77,7 @@ export const CustomInput = ({
         onlyChangeOnBlur
         resetOnBlurIfEmpty
         placeholder="1h 30m"
+        autoFocus={autoFocus}
         grow
       />
     </Input.Item>

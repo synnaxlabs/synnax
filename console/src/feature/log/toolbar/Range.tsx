@@ -10,7 +10,7 @@
 import { type lineplot, log } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Access, Log } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 
 import { Range as PRange } from "@/platform/range";
 
@@ -20,8 +20,13 @@ export const Range = (): ReactElement => {
   const custom = Log.useCustomRange();
   const dispatch = Log.useSingleDispatch();
   const hasEditPermission = Access.useUpdateGranted(log.ontologyID(key));
+  // Focus the custom input only when the user picks it, not when the toolbar opens.
+  const [customPicked, setCustomPicked] = useState(false);
   const handleRangeChange = useCallback(
-    (range: string) => dispatch(log.setRange({ range })),
+    (range: string) => {
+      setCustomPicked(range === PRange.CUSTOM_KEY);
+      dispatch(log.setRange({ range }));
+    },
     [dispatch],
   );
   const handleCustomChange = useCallback(
@@ -36,7 +41,12 @@ export const Range = (): ReactElement => {
         disabled={!hasEditPermission}
       />
       {range === PRange.CUSTOM_KEY && (
-        <PRange.CustomInput x={false} value={custom} onChange={handleCustomChange} />
+        <PRange.CustomInput
+          x={false}
+          value={custom}
+          onChange={handleCustomChange}
+          autoFocus={customPicked}
+        />
       )}
     </Flex.Box>
   );
