@@ -30,7 +30,11 @@ import { type CreateOptions } from "@/telem/aether/factory";
 import { type Client, DISCONNECTED_STATUS } from "@/telem/aether/remote";
 import { AbstractSource } from "@/telem/aether/telem";
 
-const MAX_ENTRIES = 100_000;
+const MAX_ENTRIES = 10_000;
+
+// A sparse channel on a dense index needs many index samples to time its own. The index
+// read stops at this multiple of the data read, and the untimed samples are left out.
+const MAX_INDEX_READ_FACTOR = 4;
 
 // A data allocation and its index allocation can arrive in different stream callbacks,
 // so a few recent index allocations stay in reach.
@@ -379,9 +383,9 @@ const toEntries = (
   }));
 };
 
-// Reads the latest n stored samples of the channel within tr, and enough index samples
-// to time them. The index can hold more samples than the channel, so its read doubles
-// until it reaches the first data sample.
+// Reads the latest n stored samples of the channel within tr, and index samples to time
+// them. The index can hold more samples than the channel, so its read doubles until it
+// reaches the first data sample or MAX_INDEX_READ_FACTOR times n.
 const readLatest = async (
   client: Client,
   meta: ChannelMeta,
@@ -393,7 +397,12 @@ const readLatest = async (
   const first = data.series[0].alignment;
   for (let m = n; ; m *= 2) {
     const index = await client.readLatest(meta.index, m, tr);
-    if (index.length < m || index.series[0].alignment <= first) return { data, index };
+    if (
+      index.length < m ||
+      index.series[0].alignment <= first ||
+      m >= n * MAX_INDEX_READ_FACTOR
+    )
+      return { data, index };
   }
 };
 

@@ -67,8 +67,8 @@ export const logStateZ = log.logZ
 
 const SCROLLBAR_RENDER_THRESHOLD = 0.98;
 const SCROLLBAR_WIDTH = 6;
-// Floor on the thumb so it stays visible at the 100k entry cap, where the
-// proportional height falls below a pixel.
+// Floor on the thumb so it stays visible at the entry cap, where the proportional
+// height falls below a pixel.
 const SCROLLBAR_MIN_HEIGHT = 32;
 const CANVAS: render.Canvas2DVariant = "lower2d";
 const CONTENT_PADDING = 6;

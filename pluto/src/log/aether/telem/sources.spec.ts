@@ -285,18 +285,18 @@ describe("MultiChannelLog", () => {
     expect(log.value()).toHaveLength(0);
   });
 
-  it("should cap entries at 100,000", async () => {
+  it("should cap entries at 10,000", async () => {
     const props: MultiChannelLogProps = {
       channels: [c.channelA.key],
       range: { variant: "dynamic", span: TimeSpan.days(1) },
     };
     const log = new MultiChannelLog(c, props);
     await waitForResolve(log);
-    const bigData = new Float32Array(100_001).fill(1);
+    const bigData = new Float32Array(10_001).fill(1);
     const series = new Series({ data: bigData });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-    expect(log.value()).toHaveLength(100_000);
-  }, 30_000);
+    expect(log.value()).toHaveLength(10_000);
+  });
 
   it("should read entries from subsequent buffer allocations", async () => {
     const props: MultiChannelLogProps = {
@@ -936,6 +936,31 @@ describe("MultiChannelLog", () => {
       await waitForResolve(log);
       expect(log.value().map((e) => e.value)).toEqual(["x"]);
       expect(seconds(log)).toEqual([70]);
+      expect(c.readF.mock.calls.map(([, key, n]) => [key, n])).toEqual([
+        [DATA, 1],
+        [IDX, 1],
+        [IDX, 2],
+        [IDX, 4],
+      ]);
+    });
+
+    it("should stop reading the index at four times the data read", async () => {
+      const index = [70, 71, 72, 73, 74, 75, 76, 77, 78, 80];
+      c.readLatest = async (key, n, tr) => {
+        c.readF(tr, key, n);
+        if (key === DATA) return new MultiSeries([strings(["x"], 0n)]);
+        const from = Math.max(0, index.length - n);
+        return new MultiSeries([times(index.slice(from), BigInt(from))]);
+      };
+      const log = new MultiChannelLog(
+        c,
+        { channels: [DATA], range: { variant: "dynamic", span: SPAN } },
+        undefined,
+        () => NOW,
+        1,
+      );
+      await waitForResolve(log);
+      expect(log.value()).toEqual([]);
       expect(c.readF.mock.calls.map(([, key, n]) => [key, n])).toEqual([
         [DATA, 1],
         [IDX, 1],
