@@ -9,8 +9,20 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-device__list-item {
-    & p:first-child {
-        min-width: 120px;
+.pluto-device__list-item-name {
+    min-width: 0;
+
+    & > span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
+}
+
+.pluto-device__list-item-location {
+    flex-shrink: 0;
+}
+
+.pluto-device-select__dialog {
+    min-width: 360px;
 }

@@ -35,11 +35,17 @@ const listItemRenderProp = Component.renderProp(
         justify="between"
         align="center"
       >
-        <Text.Text align="center">
+        <Text.Text align="center" className={CSS.BE("device", "list-item-name")}>
           <StatusIndicator status={status} />
-          {name}
+          <span>{name}</span>
         </Text.Text>
-        <Text.Text level="small" color={9} weight={450} style={LOCATION_STYLE}>
+        <Text.Text
+          level="small"
+          color={9}
+          weight={450}
+          className={CSS.BE("device", "list-item-location")}
+          style={LOCATION_STYLE}
+        >
           {location}
         </Text.Text>
       </Select.Item>
@@ -48,6 +54,8 @@ const listItemRenderProp = Component.renderProp(
 );
 
 const LOCATION_STYLE = { marginTop: "0.25rem" } as const;
+
+const DIALOG_PROPS = { className: CSS.BE("device-select", "dialog") };
 
 export interface SelectSingleProps
   extends
@@ -77,6 +85,7 @@ export const SelectSingle = ({
       onSearch={search}
       status={status}
       icon={<Icon.Device />}
+      dialogProps={DIALOG_PROPS}
       {...rest}
     >
       {listItemRenderProp}
