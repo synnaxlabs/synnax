@@ -12,8 +12,14 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { useCallback, useState } from "react";
 
 import { CSS } from "@/platform/css";
+import { Empty } from "@/platform/empty";
+import { useIsPreview } from "@/platform/task/Form";
 import { type Channel } from "@/platform/task/types";
-import { ChannelList, type ChannelListProps } from "@/platform/task/views/ChannelList";
+import {
+  ChannelList,
+  type ChannelListProps,
+  useAdd,
+} from "@/platform/task/views/ChannelList";
 import { Panes } from "@/platform/task/views/Panes";
 
 export interface CreateChannel<C extends Channel> {
@@ -57,6 +63,12 @@ export const ListAndDetails = <C extends Channel>({
     },
     [createChannel],
   );
+  const handleAdd = useAdd({
+    path,
+    createChannel: handleCreateChannel,
+    onSelect: setSelected,
+  });
+  const isPreview = useIsPreview();
   const detailsPath = selected.length > 0 ? `${path}.${selected[0]}` : null;
   return (
     <Panes
@@ -76,10 +88,17 @@ export const ListAndDetails = <C extends Channel>({
       detailsPath={detailsPath}
       title={detailsPath != null && detailsTitle?.({ path: detailsPath })}
     >
-      {detailsPath != null && (
+      {detailsPath != null ? (
         <Flex.Box y className={CSS.BE("details", "form")} empty grow>
           {details({ path: detailsPath })}
         </Flex.Box>
+      ) : (
+        <Empty.Action
+          grow
+          message="No channel selected"
+          action={isPreview ? undefined : "Add channel"}
+          onClick={handleAdd}
+        />
       )}
     </Panes>
   );

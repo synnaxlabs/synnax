@@ -45,6 +45,28 @@ const Footer = ({ onAdd }: FooterProps) => {
   );
 };
 
+export interface UseAddProps<C extends Channel> {
+  path: string;
+  createChannel: (channels: C[]) => C | null;
+  onSelect: (keys: string[]) => void;
+}
+
+/** @returns a callback that appends a new channel to the list and selects it. */
+export const useAdd = <C extends Channel>({
+  path,
+  createChannel,
+  onSelect,
+}: UseAddProps<C>): (() => void) => {
+  const ctx = Form.useContext();
+  const { push } = Form.useFieldList<C["key"], C>(path);
+  return useCallback(() => {
+    const channel = createChannel(ctx.get<C[]>(path).value);
+    if (channel == null) return;
+    push(channel);
+    onSelect([channel.key]);
+  }, [ctx, path, push, createChannel, onSelect]);
+};
+
 export interface ChannelListProps<C extends Channel> extends Omit<
   BaseProps<C>,
   "data" | "header" | "emptyContent" | "path" | "remove" | "onDuplicate" | "resolve"
@@ -85,13 +107,7 @@ export const ChannelList = <C extends Channel>({
 
   const { data, push, remove } = Form.useFieldList<C["key"], C>(path);
   const { onSelect } = rest;
-  const handleAdd = useCallback(() => {
-    const channels = ctx.get<C[]>(path).value;
-    const channel = createChannel(channels);
-    if (channel == null) return;
-    push(channel);
-    onSelect([channel.key]);
-  }, [push, createChannel, onSelect]);
+  const handleAdd = useAdd({ path, createChannel, onSelect });
   const handleDuplicate = useCallback(
     (chs: C[], keys: string[]) => {
       if (createChannels == null) return;
