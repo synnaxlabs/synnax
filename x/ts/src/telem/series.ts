@@ -106,6 +106,7 @@ export interface SeriesAllocParams extends BaseSeriesParams {
 }
 
 const FULL_BUFFER = -1;
+const EMPTY_INDICES: readonly number[] = [];
 /** Samples summarized per cached min/max block in boundsFor. */
 const BOUNDS_BLOCK_SIZE = 4096;
 
@@ -193,6 +194,9 @@ export class Series<T extends TelemValue = TelemValue>
   private blockMins?: number[];
   /** Cached per-block maximums for boundsFor. Blocks are append-only. */
   private blockMaxs?: number[];
+  /** Cached indices of non-finite samples, scanned up to nonFiniteScanned. */
+  private nonFinite?: number[];
+  private nonFiniteScanned: number = 0;
   /** The write position of the buffer. */
   private writePos: number = FULL_BUFFER;
   /** Tracks the number of entities currently using this array. */
@@ -648,12 +652,14 @@ export class Series<T extends TelemValue = TelemValue>
       this.cachedMax = d.reduce((a, b) => (a > b ? a : b));
     } else {
       const d = this.data as Float64Array;
-      this.cachedMax = d.reduce((a, b) => (a > b ? a : b));
+      let max = -Infinity;
+      for (const v of d) if (v > max && v < Infinity) max = v;
+      this.cachedMax = max;
     }
     return this.cachedMax;
   }
 
-  /** @returns the maximum value in the array */
+  /** @returns the maximum finite value in the array. */
   get max(): math.Numeric {
     return this.calcMax();
   }
@@ -674,12 +680,14 @@ export class Series<T extends TelemValue = TelemValue>
       this.cachedMin = d.reduce((a, b) => (a < b ? a : b));
     } else {
       const d = this.data as Float64Array;
-      this.cachedMin = d.reduce((a, b) => (a < b ? a : b));
+      let min = Infinity;
+      for (const v of d) if (v < min && v > -Infinity) min = v;
+      this.cachedMin = min;
     }
     return this.cachedMin;
   }
 
-  /** @returns the minimum value in the array */
+  /** @returns the minimum finite value in the array. */
   get min(): math.Numeric {
     return this.calcMin();
   }
@@ -692,14 +700,25 @@ export class Series<T extends TelemValue = TelemValue>
     return this.applyOffset(this.cachedMin);
   }
 
-  /** @returns the bounds of the series. */
+  /** @returns the bounds of the finite samples in the series. */
   get bounds(): bounds.Bounds {
     return bounds.construct(Number(this.min), Number(this.max), { makeValid: false });
   }
 
+  /** @returns the ascending indices of the NaN and ±Infinity samples in the series. */
+  get nonFiniteIndices(): readonly number[] {
+    if (!this.dataType.isFloat) return EMPTY_INDICES;
+    const indices = (this.nonFinite ??= []);
+    const d = this.data as Float64Array;
+    for (let i = this.nonFiniteScanned; i < d.length; i++)
+      if (!Number.isFinite(d[i])) indices.push(i);
+    this.nonFiniteScanned = d.length;
+    return indices;
+  }
+
   /**
-   * @returns the bounds of the samples in the index range [start, end), clamped to
-   * the series length. The result is invalid (lower > upper) when the range is
+   * @returns the bounds of the finite samples in the index range [start, end), clamped
+   * to the series length. The result is invalid (lower > upper) when the range is
    * empty. Repeated queries are cheap: min/max summaries are cached per completed
    * block, and only partial edge blocks are rescanned.
    * @param start - the inclusive start index of the range.
@@ -724,8 +743,8 @@ export class Series<T extends TelemValue = TelemValue>
       const blockEnd = (b + 1) * BOUNDS_BLOCK_SIZE;
       for (let i = b * BOUNDS_BLOCK_SIZE; i < blockEnd; i++) {
         const v = d[i];
-        if (v < min) min = v;
-        if (v > max) max = v;
+        if (v < min && v > -Infinity) min = v;
+        if (v > max && v < Infinity) max = v;
       }
       mins.push(Number(min));
       maxs.push(Number(max));
@@ -746,8 +765,8 @@ export class Series<T extends TelemValue = TelemValue>
       const stop = Math.min(hi, blockEnd);
       for (; i < stop; i++) {
         const v = d[i];
-        if (v < lower) lower = v;
-        if (v > upper) upper = v;
+        if (v < lower && v > -Infinity) lower = v;
+        if (v > upper && v < Infinity) upper = v;
       }
     }
     const offset = Number(this.sampleOffset);

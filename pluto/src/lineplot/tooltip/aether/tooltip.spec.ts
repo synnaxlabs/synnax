@@ -51,7 +51,64 @@ const strokeStyles = (recorder: canvasTest.Recorder): string[] =>
     .filter((c) => c.op === "set:strokeStyle")
     .map((c) => c.args[0] as string);
 
+const texts = (recorder: canvasTest.Recorder): string[] =>
+  recorder.upper2d.calls
+    .filter((c) => c.op === "fillText")
+    .map((c) => c.args[0] as string);
+
+const arcs = (recorder: canvasTest.Recorder): number =>
+  recorder.upper2d.calls.filter((c) => c.op === "arc").length;
+
+const mount = (): { recorder: canvasTest.Recorder; component: tooltip.Tooltip } => {
+  const recorder = canvasTest.record();
+  const h = renderAether(Requestor, {
+    state: {},
+    theming: { theme: DARK, fontURLs: [] },
+    render: recorder,
+    registry: { [tooltip.Tooltip.TYPE]: tooltip.Tooltip },
+    children: {
+      [TOOLTIP_KEY]: {
+        type: tooltip.Tooltip.TYPE,
+        state: { position: { x: 200, y: 100 } },
+      },
+    },
+  });
+  return { recorder, component: h.child<tooltip.Tooltip>(TOOLTIP_KEY) };
+};
+
+const found = (key: string, y: number): FindResult => ({
+  ...FOUND,
+  key,
+  label: key,
+  value: { x: 1, y },
+  position: { x: 0.5, y: Number.isFinite(y) ? 0.5 : NaN },
+});
+
 describe("Tooltip", () => {
+  it("should list a non-finite value without a dot", () => {
+    const { recorder, component } = mount();
+    const results = [
+      found("finite", 2),
+      found("nan", NaN),
+      found("inf", Infinity),
+      found("negInf", -Infinity),
+    ];
+    component.render({ findByXDecimal: () => results, region: REGION });
+    expect(texts(recorder)).toEqual(
+      expect.arrayContaining(["finite", "2", "nan", "NaN", "inf", "∞", "negInf", "-∞"]),
+    );
+    const finiteOnly = mount();
+    finiteOnly.component.render({ findByXDecimal: () => [results[0]], region: REGION });
+    expect(arcs(recorder)).toBe(arcs(finiteOnly.recorder));
+  });
+
+  it("should leave out a line with no sample under the cursor", () => {
+    const { recorder, component } = mount();
+    const missing = { ...found("missing", NaN), value: { x: NaN, y: NaN } };
+    component.render({ findByXDecimal: () => [FOUND, missing], region: REGION });
+    expect(texts(recorder)).not.toContain("missing");
+  });
+
   it("should draw its rule in the current theme's color after a theme change", () => {
     const recorder = canvasTest.record();
     const h = renderAether(Requestor, {
