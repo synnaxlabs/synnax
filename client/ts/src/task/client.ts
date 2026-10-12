@@ -776,9 +776,11 @@ export class Client extends query.Retriever<
   }
 
   private async fetchThrough(req: RetrieveRequest): Promise<Task[]> {
+    // A status that streams in during the fetch is newer than the fetched one.
+    const since = this.cfg.statusStore.stamp();
     const tasks = await this.execRetrieve({ ...req, includeStatus: true });
     tasks.forEach((t) => {
-      if (t.status != null) this.cfg.statusStore.ingest(t.status);
+      if (t.status != null) this.cfg.statusStore.ingest(t.status, { since });
     });
     return tasks;
   }

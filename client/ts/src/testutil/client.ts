@@ -77,3 +77,29 @@ export const createProxiedTestClient = async (
 /** Spies on the client's unary send so specs can count requests on the wire. */
 export const spyOnSend = (client: Synnax, field: "transport" = "transport") =>
   vi.spyOn(client[field].unary, "send");
+
+/**
+ * Holds each response to target until release is called. responded resolves when the
+ * first held response arrives.
+ */
+export const holdResponses = (
+  client: Synnax,
+  target: string,
+  field: "transport" = "transport",
+) => {
+  const { unary } = client[field];
+  const send = unary.send.bind(unary);
+  let respond = (): void => {};
+  const responded = new Promise<void>((resolve) => (respond = resolve));
+  let release = (): void => {};
+  const released = new Promise<void>((resolve) => (release = resolve));
+  vi.spyOn(unary, "send").mockImplementation(async (...args) => {
+    const res = await send(...args);
+    if (args[0] === target) {
+      respond();
+      await released;
+    }
+    return res;
+  });
+  return { responded, release };
+};
