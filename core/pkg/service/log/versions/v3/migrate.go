@@ -26,5 +26,13 @@ func MigrateLog(ctx context.Context, old v2.Log) (Log, error) {
 	return out, nil
 }
 
+// MigrateChannelEntry lifts a v2 channel entry to v3 unchanged.
+func MigrateChannelEntry(
+	ctx context.Context,
+	old v2.ChannelEntry,
+) (ChannelEntry, error) {
+	return autoMigrateChannelEntry(ctx, old)
+}
+
 // Migration lifts stored logs from v2 to v3.
 var Migration = gorp.NewEntryMigration("v60_log_range", MigrateLog)

@@ -7,13 +7,41 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/versions/channel/v0"
 import "schemas/synnax/versions/lineplot/v6"
+import "schemas/x/versions/color/v0"
+import "schemas/x/versions/notation/v0"
 
 Key = v0.Key
 
 TimestampConfig = v2.TimestampConfig
 
-ChannelEntry = v2.ChannelEntry
+ChannelEntry struct {
+    channel   channel.Key       {
+        @doc value "is the channel this entry references."
+    }
+    color     color.Color       {
+        @doc value "is the display color for the channel."
+    }
+    notation  notation.Notation = "standard" {
+        @doc value "is the numeric notation used to render samples."
+    }
+    precision int32 = -1 {
+        @doc value """
+            is the number of decimal digits to display. -1 means "use the log-level
+            precision"; 17 is the maximum significant digits for a float64.
+        """
+    }
+    alias     string = "" {
+        @doc value "is a human-readable alias displayed in place of the channel name."
+    }
+    timestamp TimestampConfig = { format = "preciseDate", tz = "local" } {
+        @doc value "is the per-channel timestamp display configuration."
+    }
+
+    @doc value  "is a per-channel display configuration entry within a log."
+    @go marshal
+}
 
 Log struct {
     key                      Key = create {

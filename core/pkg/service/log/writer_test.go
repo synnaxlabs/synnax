@@ -50,6 +50,21 @@ var _ = Describe("Writer", func() {
 		)
 
 		It(
+			"Should return a validation error when a channel precision exceeds 17",
+			func(ctx SpecContext) {
+				l := log.Log{
+					Name:     "test",
+					Channels: []log.ChannelEntry{{Channel: 1, Precision: 100}},
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(MatchError(
+					ContainSubstring(
+						"channels.0.precision: must be less than or equal to 17",
+					),
+				))
+			},
+		)
+
+		It(
 			"Should establish a ParentOf relationship to the project",
 			func(ctx SpecContext) {
 				l := log.Log{Name: "with-proj"}

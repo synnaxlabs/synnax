@@ -14,8 +14,11 @@ package v3
 import (
 	"strconv"
 
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	lineplot "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v6"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
+	color "github.com/synnaxlabs/x/color/versions/v1"
+	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -26,7 +29,48 @@ type Key = v2.Key
 type TimestampConfig = v2.TimestampConfig
 
 // ChannelEntry is a per-channel display configuration entry within a log.
-type ChannelEntry = v2.ChannelEntry
+type ChannelEntry struct {
+	// Channel is the channel this entry references.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+	// Color is the display color for the channel.
+	Color color.Color `json:"color" msgpack:"color"`
+	// Notation is the numeric notation used to render samples.
+	Notation notation.Notation `json:"notation" msgpack:"notation"`
+	// Precision is the number of decimal digits to display. -1 means "use the log-level
+	// precision"; 17 is the maximum significant digits for a float64.
+	Precision int32 `json:"precision" msgpack:"precision"`
+	// Alias is a human-readable alias displayed in place of the channel name.
+	Alias string `json:"alias" msgpack:"alias"`
+	// Timestamp is the per-channel timestamp display configuration.
+	Timestamp TimestampConfig `json:"timestamp" msgpack:"timestamp"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (c *ChannelEntry) ApplyDefaults() {
+	if c.Notation == "" {
+		c.Notation = "standard"
+	}
+	if c.Precision == 0 {
+		c.Precision = -1
+	}
+	if c.Timestamp.Format == "" {
+		c.Timestamp.Format = "preciseDate"
+	}
+	if c.Timestamp.Tz == "" {
+		c.Timestamp.Tz = "local"
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c ChannelEntry) Validate() error {
+	v := validate.New("ChannelEntry")
+	v.Ternaryf("notation", !c.Notation.IsValid(), "invalid notation: %v", c.Notation)
+	v.GreaterThanEq("precision", c.Precision, -1)
+	v.LessThanEq("precision", c.Precision, 17)
+	v.Exec(func() error { return validate.PathedError(c.Timestamp.Validate(), "timestamp") })
+	return v.Error()
+}
 
 // Log is a timestamped event and message logging component. Logs display chronological
 // records of events, system messages, and audit trails with filtering and formatting

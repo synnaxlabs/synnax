@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/notation"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -35,6 +36,10 @@ func newV2() v2.Log {
 			Notation:  notation.NotationScientific,
 			Precision: 3,
 			Alias:     "temp",
+			Timestamp: v2.TimestampConfig{
+				Format: telem.TimestampFormatTime,
+				Tz:     telem.TimeZoneUTC,
+			},
 		}},
 		TimestampPrecision:     2,
 		ChannelNamesHidden:     true,
@@ -48,7 +53,17 @@ var _ = Describe("MigrateLog", func() {
 		out := MustSucceed(v3.MigrateLog(ctx, in))
 		Expect(out.Key).To(Equal(in.Key))
 		Expect(out.Name).To(Equal(in.Name))
-		Expect(out.Channels).To(Equal(in.Channels))
+		Expect(out.Channels).To(Equal([]v3.ChannelEntry{{
+			Channel:   42,
+			Color:     color.MustFromHex("#ff0000"),
+			Notation:  notation.NotationScientific,
+			Precision: 3,
+			Alias:     "temp",
+			Timestamp: v3.TimestampConfig{
+				Format: telem.TimestampFormatTime,
+				Tz:     telem.TimeZoneUTC,
+			},
+		}}))
 		Expect(out.TimestampPrecision).To(Equal(in.TimestampPrecision))
 		Expect(out.ChannelNamesHidden).To(BeTrue())
 		Expect(out.ReceiptTimestampHidden).To(BeTrue())

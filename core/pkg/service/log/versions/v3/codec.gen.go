@@ -12,9 +12,58 @@
 package v3
 
 import (
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	lineplot "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v6"
 	"github.com/synnaxlabs/x/encoding/orc"
+	notation "github.com/synnaxlabs/x/notation/versions/v0"
 )
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (ce ChannelEntry) EncodeOrc(w *orc.Writer) error {
+	w.Uint32(uint32(ce.Channel))
+	if err := ce.Color.EncodeOrc(w); err != nil {
+		return err
+	}
+	w.String(string(ce.Notation))
+	w.Int32(int32(ce.Precision))
+	w.String(ce.Alias)
+	if err := ce.Timestamp.EncodeOrc(w); err != nil {
+		return err
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (ce *ChannelEntry) DecodeOrc(r *orc.Reader) error {
+	var err error
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		ce.Channel = channel.Key(rawV)
+	}
+	if err = ce.Color.DecodeOrc(r); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		ce.Notation = notation.Notation(rawV)
+	}
+	if ce.Precision, err = r.Int32(); err != nil {
+		return err
+	}
+	if ce.Alias, err = r.String(); err != nil {
+		return err
+	}
+	if err = ce.Timestamp.DecodeOrc(r); err != nil {
+		return err
+	}
+	return nil
+}
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (lv Log) EncodeOrc(w *orc.Writer) error {
