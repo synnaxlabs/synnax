@@ -95,6 +95,10 @@ multi-value setpoints.
 
 ## How-to
 
+When you create channels with a client library, give each command channel its own index
+channel. A writer that holds several commands on one index must write all of them in
+every frame.
+
 <Client.Tabs exclude={["cpp"]}>
   <Fragment slot="console">
     <Video
@@ -115,25 +119,29 @@ client = sy.Synnax()
 # Retrieve OPC UA server device
 dev = client.devices.retrieve(name="my_opc_server")
 
-# Create command time index
-cmd_time = client.channels.create(
-    name="opc_cmd_time",
+# Create command channels, each with its own index
+setpoint_cmd_time = client.channels.create(
+    name="temperature_setpoint_cmd_time",
     is_index=True,
     data_type=sy.DataType.TIMESTAMP,
     retrieve_if_name_exists=True,
 )
-
-# Create command channels
 setpoint_cmd = client.channels.create(
     name="temperature_setpoint_cmd",
-    index=cmd_time.key,
+    index=setpoint_cmd_time.key,
     data_type=sy.DataType.FLOAT32,
     retrieve_if_name_exists=True,
 )
 
+valve_cmd_time = client.channels.create(
+    name="valve_control_cmd_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
+)
 valve_cmd = client.channels.create(
     name="valve_control_cmd",
-    index=cmd_time.key,
+    index=valve_cmd_time.key,
     data_type=sy.DataType.UINT8,
     retrieve_if_name_exists=True,
 )
@@ -219,30 +227,36 @@ const client = new Synnax();
 // Retrieve OPC UA server device
 const [dev] = await client.devices.retrieve({ names: ["my_opc_server"] });
 
-// Create command time index
-const cmdTime = await client.channels.create(
+// Create command channels, each with its own index
+const setpointCmdTime = await client.channels.create(
   {
-    name: "opc_cmd_time",
+    name: "temperature_setpoint_cmd_time",
     isIndex: true,
     dataType: "timestamp",
   },
   { retrieveIfNameExists: true },
 );
-
-// Create command channels
 const setpointCmd = await client.channels.create(
   {
     name: "temperature_setpoint_cmd",
-    index: cmdTime.key,
+    index: setpointCmdTime.key,
     dataType: "float32",
   },
   { retrieveIfNameExists: true },
 );
 
+const valveCmdTime = await client.channels.create(
+  {
+    name: "valve_control_cmd_time",
+    isIndex: true,
+    dataType: "timestamp",
+  },
+  { retrieveIfNameExists: true },
+);
 const valveCmd = await client.channels.create(
   {
     name: "valve_control_cmd",
-    index: cmdTime.key,
+    index: valveCmdTime.key,
     dataType: "uint8",
   },
   { retrieveIfNameExists: true },
