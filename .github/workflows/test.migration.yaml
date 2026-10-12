@@ -46,10 +46,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-build-bot, windows-build-bot]
+        os: [ubuntu-test-bot, windows-test-bot]
         exclude:
-          - os: ${{ !inputs.ubuntu && 'ubuntu-build-bot' }}
-          - os: ${{ !inputs.windows && 'windows-build-bot' }}
+          - os: ${{ !inputs.ubuntu && 'ubuntu-test-bot' }}
+          - os: ${{ !inputs.windows && 'windows-test-bot' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7

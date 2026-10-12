@@ -78,7 +78,7 @@ export const InputShowcase = () => (
   <Flex.Box y pack empty>
     <Flex.Box x pack grow sharp>
       <SubcategorySection
-        title="Text Input Sizes & Variants"
+        title="Text input sizes and variants"
         description="Text inputs in different sizes (huge, large, medium, small, tiny) with standard, shadow, text, and preview variants"
       >
         <Flex.Box x gap="large">
@@ -126,7 +126,7 @@ export const InputShowcase = () => (
       </SubcategorySection>
 
       <SubcategorySection
-        title="Enhanced Text Inputs"
+        title="Enhanced text inputs"
         description="Text inputs with icons, end content units, and rich placeholder content"
       >
         <Flex.Box x gap="large">
@@ -154,7 +154,7 @@ export const InputShowcase = () => (
       </SubcategorySection>
 
       <SubcategorySection
-        title="Shadow Cells"
+        title="Shadow cells"
         description="Edit-in-place cells. The value always reads; the chassis and any packed neighbors appear on hover or focus"
       >
         <Flex.Box x gap="large">
@@ -193,7 +193,7 @@ export const InputShowcase = () => (
 
     <Flex.Box x pack grow sharp>
       <SubcategorySection
-        title="Numeric Inputs"
+        title="Numeric inputs"
         description="Numeric inputs for number values with optional units and formatting"
       >
         <Flex.Box x gap="large">
@@ -233,7 +233,7 @@ export const InputShowcase = () => (
       </SubcategorySection>
 
       <SubcategorySection
-        title="Switch Controls"
+        title="Switch controls"
         description="Toggle switches for boolean values in on and off states"
       >
         <Flex.Box y gap="medium">
@@ -267,7 +267,7 @@ export const InputShowcase = () => (
       </SubcategorySection>
 
       <SubcategorySection
-        title="Checkbox Controls"
+        title="Checkbox controls"
         description="Checkbox inputs for boolean selection with different sizes and states"
       >
         <Flex.Box y gap="medium">
@@ -337,7 +337,7 @@ export const InputShowcase = () => (
     </Flex.Box>
 
     <SubcategorySection
-      title="Input States & Background Contrast"
+      title="Input states and background contrast"
       description="Disabled inputs and inputs on different background contrast levels"
     >
       <Flex.Box y gap="medium">
@@ -379,7 +379,7 @@ export const InputShowcase = () => (
     </SubcategorySection>
 
     <SubcategorySection
-      title="Custom Colors"
+      title="Custom colors"
       description="Inputs with custom colors and different background contrast levels"
     >
       <Flex.Box x gap="large">
@@ -389,7 +389,7 @@ export const InputShowcase = () => (
     </SubcategorySection>
 
     <SubcategorySection
-      title="Form Items with Labels & Help Text"
+      title="Form items with labels and help text"
       description="Input components wrapped in Item containers with labels and help text in different states"
     >
       <Flex.Box x gap="large">
@@ -406,7 +406,7 @@ export const InputShowcase = () => (
     </SubcategorySection>
 
     <SubcategorySection
-      title="Text Area"
+      title="Text area"
       description="Text area component with different sizes and variants"
     >
       <Flex.Box x gap="large">
@@ -415,7 +415,7 @@ export const InputShowcase = () => (
     </SubcategorySection>
 
     <SubcategorySection
-      title="Text Area"
+      title="Text area"
       description="Text area component with different sizes and variants"
     >
       <Flex.Box x gap="large">

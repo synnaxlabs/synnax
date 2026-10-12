@@ -21,7 +21,7 @@ export const Nozzle = ({
   id,
   className,
   orientation = "right",
-  color,
+  strokeColor,
   scale = 1,
   ...rest
 }: Props): ReactElement => (
@@ -35,7 +35,7 @@ export const Nozzle = ({
     />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >
@@ -44,7 +44,7 @@ export const Nozzle = ({
       <Primitive.Path d="M24 12H34" strokeLinecap="round" />
       <Primitive.Path d="M24 23H29H34" strokeLinecap="round" />
       <Primitive.Path d="M24 33V23" strokeLinecap="round" />
-      <Label color={color} />
+      <Label strokeColor={strokeColor} />
     </Primitive.SVG>
   </Primitive.Div>
 );

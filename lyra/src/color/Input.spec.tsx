@@ -52,6 +52,21 @@ describe("Input", () => {
     expect(swatch?.className).toContain(CSS.M("auto"));
   });
 
+  it("should show Mixed and mark the swatch while mixed", () => {
+    const c = renderInput({ value: RED, mixed: true });
+    expect(textOf(c).value).toEqual("");
+    expect(textOf(c).placeholder).toEqual("Mixed");
+    const swatch = c.container.querySelector(`.${CSS.B("color-swatch")}`);
+    expect(swatch?.className).toContain(CSS.M("mixed"));
+  });
+
+  it("should apply a typed hex while mixed", () => {
+    const onChange = vi.fn();
+    const c = renderInput({ mixed: true, onChange });
+    fireEvent.change(textOf(c), { target: { value: "0000ff" } });
+    expect(color.hex(lastValue(onChange))).toEqual("#0000ff");
+  });
+
   it("should apply a complete hex as the user types", () => {
     const onChange = vi.fn();
     const c = renderInput({ value: RED, onChange });

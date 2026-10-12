@@ -22,7 +22,6 @@ describe("PagerDuty Task Commands", () => {
   it("should create an alert draft and open its resource tab from the command", async () => {
     const proj = await client.projects.create({
       name: uniqueName("proj"),
-      layout: {},
     });
     const { store, openCommandPalette, selectCommand } = await renderPalette({
       commands: PagerDuty.Task.COMMANDS,

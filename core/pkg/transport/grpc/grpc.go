@@ -75,6 +75,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	// LICENSE
 	t.LicenseRetrieve = noop.UnaryServer[license.RetrieveRequest, license.RetrieveResponse]{}
 	t.LicenseActivate = noop.UnaryServer[license.ActivateRequest, license.ActivateResponse]{}
+	t.LicenseDeactivate = noop.UnaryServer[license.DeactivateRequest, license.DeactivateResponse]{}
 
 	// CHANNEL
 	t.ChannelRename = noop.UnaryServer[apichannel.RenameRequest, struct{}]{}
@@ -104,7 +105,6 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.ProjectRetrieve = noop.UnaryServer[project.RetrieveRequest, project.RetrieveResponse]{}
 	t.ProjectDelete = noop.UnaryServer[project.DeleteRequest, struct{}]{}
 	t.ProjectRename = noop.UnaryServer[project.RenameRequest, struct{}]{}
-	t.ProjectSetLayout = noop.UnaryServer[project.SetLayoutRequest, struct{}]{}
 	t.ProjectExport = noop.UnaryServer[project.ExportRequest, project.ExportResponse]{}
 	t.ProjectImport = noop.UnaryServer[project.ImportRequest, project.ImportResponse]{}
 
@@ -172,7 +172,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 
 	// ARC
 	t.ArcDispatch = noop.UnaryServer[apiarc.DispatchRequest, struct{}]{}
-	t.ArcSetRack = noop.UnaryServer[apiarc.SetRackRequest, apiarc.SetRackResponse]{}
+	t.ArcUpdateTask = noop.UnaryServer[apiarc.UpdateTaskRequest, apiarc.UpdateTaskResponse]{}
 	t.ArcLSP = noop.StreamServer[apiarc.LSPMessage, apiarc.LSPMessage]{}
 
 	layer.BindTo(t)

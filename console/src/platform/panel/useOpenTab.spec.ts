@@ -37,9 +37,7 @@ const roles = new RoleClients(client);
 
 let projectKey: string | undefined;
 const testProject = async (): Promise<string> =>
-  (projectKey ??= (
-    await client.projects.create({ name: uniqueName("project"), layout: {} })
-  ).key);
+  (projectKey ??= (await client.projects.create({ name: uniqueName("project") })).key);
 
 const viewLeaf = (key: string, type: string): panel.New["root"] => ({
   variant: "leaf",

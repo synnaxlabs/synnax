@@ -145,7 +145,7 @@ describe("Read", () => {
     });
     fireEvent.click((await screen.findAllByText("Status"))[0]);
     fireEvent.click(await screen.findByText("Automatic (PDO)"));
-    fireEvent.click(await screen.findByText("Manual (Address)"));
+    fireEvent.click(await screen.findByText("Manual (address)"));
     await waitFor(() => expect(screen.getByText("Index (hex)")).toBeTruthy());
     expect(screen.getByText("Subindex")).toBeTruthy();
     await waitFor(() => expect(screen.getByText(slave.name)).toBeTruthy());

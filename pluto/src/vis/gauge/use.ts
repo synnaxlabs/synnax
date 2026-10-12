@@ -14,6 +14,8 @@ import { type z } from "zod";
 import { Aether } from "@/aether";
 import { gauge } from "@/vis/gauge/aether";
 
+export const colorFallback = gauge.colorFallback;
+
 type State = z.input<typeof gauge.Gauge.z>;
 
 export interface UseProps extends Omit<State, "color">, Partial<Pick<State, "color">> {

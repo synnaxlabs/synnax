@@ -52,7 +52,6 @@ const client = createTestClient();
 const createSchematicWithGraph = async (): Promise<schematic.Schematic> => {
   const proj = await client.projects.create({
     name: `project_${uuid.create()}`,
-    layout: {},
   });
   return await client.schematics.create(proj.key, {
     name: `schem_${uuid.create()}`,
@@ -217,7 +216,6 @@ describe("schematic clipboard", () => {
     const createChainSchematic = async (): Promise<schematic.Schematic> => {
       const proj = await client.projects.create({
         name: `project_${uuid.create()}`,
-        layout: {},
       });
       return await client.schematics.create(proj.key, {
         name: `schem_${uuid.create()}`,
@@ -378,7 +376,6 @@ describe("schematic clipboard", () => {
       const Wrapper = await createAsyncSynnaxWrapper({ client });
       const proj = await client.projects.create({
         name: `project_${uuid.create()}`,
-        layout: {},
       });
       const schem = await client.schematics.create(proj.key, {
         name: `schem_${uuid.create()}`,

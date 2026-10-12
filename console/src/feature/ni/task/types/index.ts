@@ -129,7 +129,7 @@ export const AI_CHANNEL_TYPE_NAMES: Record<AIChannelType, string> = {
   ai_velocity_iepe: "Velocity IEPE",
   ai_voltage: "Voltage",
   ai_voltage_rms: "Voltage RMS",
-  ai_voltage_with_excit: "Voltage with Excitation",
+  ai_voltage_with_excit: "Voltage with excitation",
 };
 
 // Types without a dedicated icon reuse their measurement category's icon.
@@ -178,7 +178,6 @@ export type CILinearVelocityUnits = ni.CILinearVelocityUnits;
 export type CIAngularVelocityUnits = ni.CIAngularVelocityUnits;
 export type CILinearPositionUnits = ni.CILinearPositionUnits;
 export type CIAngularPositionUnits = ni.CIAngularPositionUnits;
-export type ZIndexPhase = ni.ZIndexPhase;
 export type CIEdge = ni.CIEdge;
 export type CIMeasMethod = ni.CIMeasMethod;
 export type CICountDirection = ni.CICountDirection;
@@ -258,8 +257,6 @@ export const createDOChannel = (): DOChannel =>
   ni.doChannelZ.parse({ type: "digital_output" });
 
 export type DigitalChannel = DIChannel | DOChannel;
-
-export type Channel = AnalogChannel | DigitalChannel;
 
 const deployReadRateShape = {
   sampleRate: z.number().positive().max(1000000),

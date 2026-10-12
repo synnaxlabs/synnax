@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { Form as Base } from "@synnaxlabs/lyra/form";
-import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Form } from "@/schematic/node/common/form";
@@ -20,12 +19,8 @@ export const CylinderForm = (): ReactElement => (
       <Label.Form path="label" />
     </Base.Section>
     <Base.Section title="Appearance">
-      <Form.ColorField path="color" />
-      <Form.ColorField
-        path="backgroundColor"
-        label="Background color"
-        fallback={color.ZERO}
-      />
+      <Form.ColorField path="strokeColor" label="Stroke" />
+      <Form.FillField />
     </Base.Section>
     <Base.Section title="Dimensions">
       <Base.NumericField

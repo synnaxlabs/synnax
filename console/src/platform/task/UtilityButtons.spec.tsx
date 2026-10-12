@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { fireEvent, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock } from "vitest";
 
 import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
 import { createCore, createCoreState } from "@/session/core/testutil";
-import { getIconButton, queryIcon, stubClipboardWriteText } from "@/testutil";
+import { getIconButton, queryIcon } from "@/testutil";
 
 const clickIcon = (container: HTMLElement, icon: string): void => {
   fireEvent.click(getIconButton(container, icon));

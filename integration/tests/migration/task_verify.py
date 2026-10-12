@@ -141,7 +141,9 @@ class ReadTaskConsoleVerify(ConsoleCase):
         task_page = console.pages.open_from_search(TaskPage, self.task_name)
 
         layout = console.layout
-        assert layout.get_input_field("Name") == self.task_name, "Task name mismatch"
+        assert task_page.name_input().input_value() == self.task_name, (
+            "Task name mismatch"
+        )
         assert layout.get_toggle("Data saving") is True, "Data saving should be on"
         assert layout.get_toggle("Auto start") is False, "Auto start should be off"
 

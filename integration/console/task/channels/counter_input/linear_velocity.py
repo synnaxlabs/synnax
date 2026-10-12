@@ -50,7 +50,7 @@ class LinearVelocity(Counter):
         )
 
         self._configure_dropdown("Scaled units", units)
-        self._configure_input("Distance / Pulse", dist_per_pulse)
+        self._configure_input("Distance / pulse", dist_per_pulse)
         self._configure_dropdown("Decoding type", decoding_type)
         self._configure_dropdown("Input terminal A", terminal_a)
         self._configure_dropdown("Input terminal B", terminal_b)

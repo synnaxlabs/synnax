@@ -804,6 +804,15 @@ func getUnderlyingPrimitive(
 	return ""
 }
 
+func isIntEnum(typeRef resolution.TypeRef, table *resolution.Table) bool {
+	resolved, ok := typeRef.Resolve(table)
+	if !ok {
+		return false
+	}
+	form, ok := resolved.Form.(resolution.EnumForm)
+	return ok && form.IsIntEnum
+}
+
 func (p *Plugin) processField(
 	field resolution.Field,
 	entry resolution.Type,
@@ -831,6 +840,9 @@ func (p *Plugin) processField(
 	cppFieldName = keywords.Escape(cppFieldName)
 
 	defaultValue := cppDefaultValue(cppType, underlyingPrimitive)
+	if !field.Optional && isIntEnum(field.Type, data.table) {
+		defaultValue = "{}"
+	}
 	if field.Default != nil {
 		if lit := p.cppDefaultLiteral(field.Type, *field.Default, data); lit != "" {
 			defaultValue = lit
@@ -1724,6 +1736,10 @@ using {{$u.Name}} = std::variant<{{range $j, $v := $u.Variants}}{{if $j}}, {{end
 
 {{$u.Name}} parse_{{$u.SnakeName}}(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const {{$u.Name}}& value);
+{{- if $u.HasProto}}
+[[nodiscard]] std::pair<{{$u.ProtoType}}, x::errors::Error> to_proto(const {{$u.Name}}& value);
+std::pair<{{$u.Name}}, x::errors::Error> {{$u.SnakeName}}_from_proto(const {{$u.ProtoType}}& pb);
+{{- end}}
 {{- end}}
 {{- end}}
 {{- range $d := .SortedDecls}}

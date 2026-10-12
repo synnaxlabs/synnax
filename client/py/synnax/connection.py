@@ -19,6 +19,7 @@ from pydantic import BaseModel
 
 from freighter import UnaryClient
 from freighter.transport import Empty
+from synnax.license import State as LicenseState
 from synnax.util.send_required import send_required
 from x.telem import CrudeTimeSpan, TimeSpan, TimeStamp
 from x.telem.clock_skew import ClockSkewCalculator
@@ -39,12 +40,14 @@ class State:
     node_version: str = ""
     clock_skew: TimeSpan = dataclasses.field(default_factory=lambda: TimeSpan(0))
     clock_skew_exceeded: bool = False
+    license: LicenseState | None = None
 
 
 class CheckResponse(BaseModel):
     cluster_key: str = ""
     node_version: str = ""
     node_time: TimeStamp = TimeStamp(0)
+    license: LicenseState = "ok"
 
 
 def _parse_version(v: str) -> tuple[int, int] | None:
@@ -131,6 +134,7 @@ class Checker:
         with self._lock:
             prev_status = self._state.status
             prev_skew_exceeded = self._state.clock_skew_exceeded
+            prev_license = self._state.license
 
         self._skew_calc.start()
         try:
@@ -186,11 +190,13 @@ class Checker:
                 self._state.message = f"Connected to {self._name or 'cluster'}"
                 self._state.cluster_key = res.cluster_key
                 self._state.node_version = res.node_version
+                self._state.license = res.license
                 state = dataclasses.replace(self._state)
 
         changed = (
             prev_status != state.status
             or prev_skew_exceeded != state.clock_skew_exceeded
+            or prev_license != state.license
         )
         if changed and self._on_change_handlers:
             for handler in self._on_change_handlers:

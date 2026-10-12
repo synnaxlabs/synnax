@@ -395,6 +395,12 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   });
   const { shape, expand, contract } = treeProps;
   const shapeRef = useSyncedRef(shape);
+  // A placeholder's row stays mounted, so its rename can start out of view. Focusing
+  // the editable then scrolls the row into view.
+  const pinned = useMemo(
+    () => shape.keys.filter(placeholders.hasItem),
+    [shape.keys, placeholders],
+  );
 
   const getState = useCallback(
     (): TreeState => ({
@@ -568,6 +574,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         // the tree attempts to render it.
         getItem={getItem}
         emptyContent={answered ? emptyContent : null}
+        pinned={pinned}
         onContextMenu={menuProps.open}
       >
         {itemRenderProp}

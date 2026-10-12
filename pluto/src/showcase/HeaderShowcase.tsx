@@ -19,27 +19,27 @@ export const HeaderShowcase = () => (
   <Flex.Box y pack empty>
     <Flex.Box x pack grow sharp>
       <SubcategorySection
-        title="Basic Headers"
+        title="Basic headers"
         description="Headers with different text levels and basic structure"
       >
         <Flex.Box y gap="large">
           <Header.Header level="h1">
-            <Header.Title>Large Header (h1)</Header.Title>
+            <Header.Title>Large header (h1)</Header.Title>
           </Header.Header>
           <Header.Header level="h2">
-            <Header.Title>Medium Header (h2)</Header.Title>
+            <Header.Title>Medium header (h2)</Header.Title>
           </Header.Header>
           <Header.Header level="h3">
-            <Header.Title>Small Header (h3)</Header.Title>
+            <Header.Title>Small header (h3)</Header.Title>
           </Header.Header>
           <Header.Header level="p">
-            <Header.Title>Paragraph Level Header</Header.Title>
+            <Header.Title>Paragraph level header</Header.Title>
           </Header.Header>
         </Flex.Box>
       </SubcategorySection>
 
       <SubcategorySection
-        title="Headers with Icons"
+        title="Headers with icons"
         description="Headers with icons in the title"
       >
         <Flex.Box y gap="large">
@@ -67,12 +67,12 @@ export const HeaderShowcase = () => (
 
     <Flex.Box x pack grow sharp>
       <SubcategorySection
-        title="Headers with Actions"
+        title="Headers with actions"
         description="Headers with action buttons on the right side"
       >
         <Flex.Box y gap="large">
           <Header.Header level="h2">
-            <Header.Title>Project Settings</Header.Title>
+            <Header.Title>Project settings</Header.Title>
             <Header.Actions>
               <Button.Button variant="text">
                 <Icon.Edit />
@@ -116,7 +116,7 @@ export const HeaderShowcase = () => (
       </SubcategorySection>
 
       <SubcategorySection
-        title="Clickable Headers"
+        title="Clickable headers"
         description="Headers with clickable titles using ButtonTitle"
       >
         <Flex.Box y gap="large">
@@ -143,7 +143,7 @@ export const HeaderShowcase = () => (
 
     <Flex.Box x pack grow sharp>
       <SubcategorySection
-        title="Divided Headers"
+        title="Divided headers"
         description="Headers with dividers between elements"
       >
         <Flex.Box y gap="large">
@@ -176,7 +176,7 @@ export const HeaderShowcase = () => (
       </SubcategorySection>
 
       <SubcategorySection
-        title="Border Variations"
+        title="Border variations"
         description="Headers with and without borders"
       >
         <Flex.Box y gap="large">
@@ -184,7 +184,7 @@ export const HeaderShowcase = () => (
             With Border (default)
           </Text.Text>
           <Header.Header level="h3" bordered>
-            <Header.Title>Bordered Header</Header.Title>
+            <Header.Title>Bordered header</Header.Title>
             <Header.Actions>
               <Button.Button variant="text">
                 <Icon.Settings />
@@ -195,7 +195,7 @@ export const HeaderShowcase = () => (
             Without Border
           </Text.Text>
           <Header.Header level="h3" bordered={false}>
-            <Header.Title>Borderless Header</Header.Title>
+            <Header.Title>Borderless header</Header.Title>
             <Header.Actions>
               <Button.Button variant="text">
                 <Icon.Settings />
@@ -208,7 +208,7 @@ export const HeaderShowcase = () => (
 
     <Flex.Box x pack grow sharp>
       <SubcategorySection
-        title="Complex Headers"
+        title="Complex headers"
         description="Headers with multiple actions and complex layouts"
       >
         <Flex.Box y gap="large">
@@ -260,12 +260,12 @@ export const HeaderShowcase = () => (
       </SubcategorySection>
 
       <SubcategorySection
-        title="Custom Styling"
+        title="Custom styling"
         description="Headers with custom spacing and background variations"
       >
         <Flex.Box y gap="large">
           <Header.Header level="h3" style={{ padding: "2rem" }} background={1}>
-            <Header.Title>Header with Custom Padding</Header.Title>
+            <Header.Title>Header with custom padding</Header.Title>
             <Header.Actions>
               <Button.Button variant="text">
                 <Icon.Settings />

@@ -16,6 +16,7 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
@@ -40,6 +41,7 @@ import {
   SCAN_TYPE,
   TEST_CONNECTION_COMMAND_TYPE,
 } from "@/feature/http/task/types";
+import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { type Device as PlatformDevice } from "@/platform/device";
 import { Form as PlatformForm } from "@/platform/form";
@@ -104,6 +106,7 @@ const beforeSave = async ({
 
 export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
   ({ deviceKey, close }) => {
+    const { capture } = Analytics.use();
     const {
       form,
       save,
@@ -113,7 +116,10 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
       query: deviceKey == null ? null : { key: deviceKey },
       initialValues: INITIAL_VALUES,
       beforeSave,
-      afterSave: useCallback(() => close(), [close]),
+      afterSave: useCallback(() => {
+        if (deviceKey == null) capture("device_connected", { integration: "http" });
+        close();
+      }, [capture, close, deviceKey]),
     });
 
     const authType = Form.useFieldValue<AuthType, AuthType, typeof PDevice.formSchema>(
@@ -220,8 +226,8 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
     );
 
     return (
-      <Modals.Frame className={CSS.B("http-connect")}>
-        <Modals.Header icon={<Icon.Logo.HTTP />}>Server.Connect</Modals.Header>
+      <Modal.Frame className={CSS.B("http-connect")}>
+        <Modal.Header icon={<Icon.Logo.HTTP />}>Server.Connect</Modal.Header>
         <Flex.Box className={CSS.B("content")} grow gap="large">
           <Form.Form<typeof PDevice.formSchema> {...form}>
             <Flex.Box gap="small">
@@ -403,7 +409,7 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
             </Flex.Box>
           </Form.Form>
         </Flex.Box>
-        <Modals.Footer>
+        <Modal.Footer>
           <Nav.Bar.Start gap="small">
             {variant == "success" ? (
               <Triggers.SaveHelpText action="Connect" noBar />
@@ -421,8 +427,8 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
               Connect
             </Button.Button>
           </Nav.Bar.End>
-        </Modals.Footer>
-      </Modals.Frame>
+        </Modal.Footer>
+      </Modal.Frame>
     );
   },
 );

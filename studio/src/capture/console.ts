@@ -160,20 +160,6 @@ export const hideBottomToolbar = async (session: CaptureSession): Promise<void> 
   await session.waitForHidden(drawer);
 };
 
-/** closeToolbar closes the open side toolbar by clicking its selected nav icon. */
-export const closeToolbar = async (session: CaptureSession): Promise<void> => {
-  const { page } = session;
-  const selected = page.locator("button.console-main-nav__item.pluto--selected");
-  if (
-    !(await selected
-      .first()
-      .isVisible()
-      .catch(() => false))
-  )
-    return;
-  await session.click(selected.first());
-};
-
 /**
  * clickToolbarCreate clicks the "+" create action in the open toolbar's
  * header, as recorded input. The create action is always the last header
@@ -318,16 +304,6 @@ export const tab = (page: Page, name: string): Locator =>
     .locator(".pluto-tabs__tab")
     .filter({ has: page.getByText(name, { exact: true }) })
     .first();
-
-/** closeTab closes the mosaic tab with the given title via its close button. */
-export const closeTab = async (
-  session: CaptureSession,
-  name: string,
-): Promise<void> => {
-  const target = tab(session.page, name).locator(".pluto-tabs__close").first();
-  await session.click(target);
-  await session.waitForHidden(tab(session.page, name));
-};
 
 /**
  * treeItem returns a resource-tree item by its ontology type prefix (e.g.

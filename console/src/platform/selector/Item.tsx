@@ -21,7 +21,7 @@ export interface ItemProps extends Omit<Button.ButtonProps, "children"> {
   icon: Icon.ReactElement;
 }
 
-export const Item = ({ title, icon, ...rest }: ItemProps) => (
+const Item = ({ title, icon, ...rest }: ItemProps) => (
   <Button.Button variant="outlined" {...rest}>
     {icon}
     {title}

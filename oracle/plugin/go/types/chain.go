@@ -14,6 +14,7 @@ import (
 	"maps"
 	"slices"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
@@ -215,8 +216,7 @@ func ChainPaths(
 // ChainFrozenTable builds the resolution table for one frozen version package:
 // livePath's surface at k under its DepNS namespace, transitive pinned surfaces
 // alongside, and @go output annotations resolving every type to its frozen versions/vN
-// directory (or its live root, for hand-written types). The returned namespace
-// qualifies the package's own types.
+// directory. The returned namespace qualifies the package's own types.
 func ChainFrozenTable(
 	ctx context.Context,
 	req *plugin.Request,
@@ -248,6 +248,9 @@ func frozenFile(
 	}
 	table, ns, err := ChainFrozenTable(ctx, req, origPath, livePath, k)
 	if err != nil {
+		return plugin.File{}, err
+	}
+	if err = withLiveValidation(ctx, req, table, ns, livePath, f.Chain, k); err != nil {
 		return plugin.File{}, err
 	}
 	pred := predecessor{}
@@ -299,9 +302,80 @@ func frozenFile(
 	return plugin.File{Path: vkPath + "/" + fileName, Content: content}, nil
 }
 
+// withLiveValidation copies the live file's @validate rules onto the version k types
+// that the chain's current version aliases, and onto the inline variant payloads of
+// those unions. The current package's alias is the frozen type, so the frozen Validate
+// is the one the live surface runs.
+func withLiveValidation(
+	ctx context.Context,
+	req *plugin.Request,
+	table *resolution.Table,
+	ns, livePath string,
+	chain versions.Chain,
+	k int,
+) error {
+	surf, err := req.Versions.Surface(ctx, livePath, chain.Current())
+	if err != nil {
+		return err
+	}
+	aliased := make(set.Set[string])
+	for name, def := range surf {
+		if def.Version == k {
+			aliased.Add(ns + "." + name)
+		}
+	}
+	for _, t := range table.Types {
+		u, isUnion := t.Form.(resolution.UnionForm)
+		if !isUnion || !aliased.Contains(t.QualifiedName) {
+			continue
+		}
+		for _, v := range u.Variants {
+			if !v.Inline {
+				continue
+			}
+			if payload, ok := v.Type.Resolve(table); ok {
+				aliased.Add(payload.QualifiedName)
+			}
+		}
+	}
+	for i := range table.Types {
+		t := &table.Types[i]
+		if !aliased.Contains(t.QualifiedName) {
+			continue
+		}
+		form, isStruct := t.Form.(resolution.StructForm)
+		live, hasLive := liveType(req, livePath, t.Name)
+		if !isStruct || !hasLive {
+			continue
+		}
+		liveForm, ok := live.Form.(resolution.StructForm)
+		if !ok {
+			continue
+		}
+		fields := slices.Clone(form.Fields)
+		for j := range fields {
+			lf, _ := lo.Find(liveForm.Fields, func(f resolution.Field) bool {
+				return f.Name == fields[j].Name
+			})
+			rules, hasRules := lf.Domains["validate"]
+			if !hasRules {
+				continue
+			}
+			fields[j].Domains = maps.Clone(fields[j].Domains)
+			if fields[j].Domains == nil {
+				fields[j].Domains = make(map[string]resolution.Domain, 1)
+			}
+			fields[j].Domains["validate"] = rules
+		}
+		form.Fields = fields
+		t.Form = form
+	}
+	return nil
+}
+
 // annotateOutputs assigns a @go output to every namespaced type in a frozen emission
-// table: chain surfaces resolve to their versions/vN directory, and hand-written types
-// resolve to their resource's live root package.
+// table, resolving each to its versions/vN directory. A hand-written type lives there
+// too, since hand-ness is version-local.
 func annotateOutputs(
 	ctx context.Context,
 	req *plugin.Request,
@@ -338,13 +412,7 @@ func annotateOutputs(
 				}
 			}
 		}
-		path := versioning.VersionedPath(goRoot, v)
-		// A dependency's hand-written type has one Go home at its live root; the
-		// chain's own hand-written types live in the frozen directory itself.
-		if omit.IsHand(*t, "go") && lp != ownLive {
-			path = goRoot
-		}
-		withGoOutput(t, path)
+		withGoOutput(t, versioning.VersionedPath(goRoot, v))
 	}
 	return nil
 }

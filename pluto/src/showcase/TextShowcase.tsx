@@ -18,7 +18,7 @@ export const TextShowcase = () => (
   <Flex.Box y pack empty rounded>
     <Flex.Box x pack grow sharp>
       <SubcategorySection
-        title="Typography Hierarchy"
+        title="Typography hierarchy"
         description="Text levels from largest heading (h1) to smallest body text, showing proper hierarchy and sizing"
       >
         <Flex.Box y gap="small">
@@ -31,13 +31,13 @@ export const TextShowcase = () => (
             <Text.Text level="h3">Hello (H3)</Text.Text>
             <Text.Text level="h4">Hello (H4)</Text.Text>
             <Text.Text level="h5">Hello (H5)</Text.Text>
-            <Text.Text>Hello (Body)</Text.Text>
-            <Text.Text level="small">Hello (Small)</Text.Text>
+            <Text.Text>Hello (body)</Text.Text>
+            <Text.Text level="small">Hello (small)</Text.Text>
           </Flex.Box>
         </Flex.Box>
       </SubcategorySection>
       <SubcategorySection
-        title="Color Variations"
+        title="Color variations"
         description="Text color intensity levels from highest (default) to lowest contrast"
       >
         <Flex.Box y gap="small">
@@ -45,7 +45,7 @@ export const TextShowcase = () => (
             Color Levels (10 = highest contrast, 1 = lowest)
           </Text.Text>
           <Flex.Box y>
-            <Text.Text>Hello (Default)</Text.Text>
+            <Text.Text>Hello (default)</Text.Text>
             <Text.Text color={10}>Hello (10)</Text.Text>
             <Text.Text color={9}>Hello (9)</Text.Text>
             <Text.Text color={8}>Hello (8)</Text.Text>
@@ -63,7 +63,7 @@ export const TextShowcase = () => (
 
     <Flex.Box x pack grow sharp>
       <SubcategorySection
-        title="Interactive Text (Links)"
+        title="Interactive text (links)"
         description="Text components with href attributes that render as clickable links"
       >
         <Flex.Box y gap="small">
@@ -86,7 +86,7 @@ export const TextShowcase = () => (
             <Text.Text href="https://www.google.com" level="h5">
               Hello (H5 Link)
             </Text.Text>
-            <Text.Text href="https://www.google.com">Hello (Body Link)</Text.Text>
+            <Text.Text href="https://www.google.com">Hello (body link)</Text.Text>
             <Text.Text href="https://www.google.com" level="small">
               Hello (Small Link)
             </Text.Text>
@@ -95,7 +95,7 @@ export const TextShowcase = () => (
       </SubcategorySection>
 
       <SubcategorySection
-        title="Special Variants & Symbols"
+        title="Special variants and symbols"
         description="Code formatting, keyboard shortcuts, and special symbol components"
       >
         <Flex.Box y gap="medium">
@@ -103,7 +103,7 @@ export const TextShowcase = () => (
             <Text.Text level="small" weight={500}>
               Code Text
             </Text.Text>
-            <Text.Text variant="code">Hello (Code)</Text.Text>
+            <Text.Text variant="code">Hello (code)</Text.Text>
           </Flex.Box>
           <Flex.Box y gap="small">
             <Text.Text level="small" weight={500}>
@@ -133,7 +133,7 @@ export const TextShowcase = () => (
 
     <Flex.Box x pack grow sharp>
       <SubcategorySection
-        title="Text Overflow Policies"
+        title="Text overflow policies"
         description="How text behaves when it exceeds container width - ellipsis, clip, or nowrap"
       >
         <Flex.Box y gap="medium">
@@ -212,7 +212,7 @@ export const TextShowcase = () => (
       </SubcategorySection>
 
       <SubcategorySection
-        title="Status Variations"
+        title="Status variations"
         description="Text components with status variations"
       >
         <Flex.Box y gap="small">

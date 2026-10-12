@@ -38,7 +38,6 @@ const buildHarness = async ({ activeProject }: BuildHarnessParams = {}) =>
 const newProject = async (): Promise<project.Project> =>
   await client.projects.create({
     name: `proj_${id.create().replace(/-/g, "_")}`,
-    layout: {},
   });
 
 const renderCreate = (

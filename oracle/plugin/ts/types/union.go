@@ -91,11 +91,11 @@ func (p *Plugin) processUnion(
 	screaming := strings.ToUpper(lo.SnakeCase(tsName))
 	ud := unionData{
 		TSName:         tsName,
-		SchemaName:     camelCase(tsName) + "Z",
+		SchemaName:     casing.CamelAcronym(tsName) + "Z",
 		Discriminator:  fieldCamel(form.Discriminator),
 		Doc:            doc.Get(entry.Domains),
 		TypesConst:     screaming + "_TYPES",
-		TypeSchemaName: camelCase(tsName) + "TypeZ",
+		TypeSchemaName: casing.CamelAcronym(tsName) + "TypeZ",
 		TypeName:       tsName + "Type",
 		SchemasConst:   screaming + "_SCHEMAS",
 	}
@@ -104,7 +104,7 @@ func (p *Plugin) processUnion(
 		vd := unionVariantData{
 			Value:      v.Name,
 			TypeName:   typeName,
-			SchemaName: camelCase(typeName) + "Z",
+			SchemaName: casing.CamelAcronym(typeName) + "Z",
 			Doc:        doc.Get(v.Domains),
 		}
 		omitted := variantOmissions(v, table)
@@ -176,7 +176,7 @@ func omitClause(
 	var keys []string
 	for _, f := range resolution.UnifiedFields(resolved, table) {
 		if omitted.Contains(f.Name) {
-			keys = append(keys, camelCase(f.Name)+": true")
+			keys = append(keys, casing.CamelAcronym(f.Name)+": true")
 		}
 	}
 	if len(keys) == 0 {

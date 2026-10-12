@@ -15,14 +15,23 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
+// Arrow returns the Arc operator for the kind: "->" for continuous, "=>" for
+// conditional, and "?>" for any other kind.
+func (k EdgeKind) Arrow() string {
+	switch k {
+	case EdgeKindContinuous:
+		return "->"
+	case EdgeKindConditional:
+		return "=>"
+	default:
+		return "?>"
+	}
+}
+
 // String returns the string representation of the edge. Format: "source.param ->
 // target.param (continuous)" or "source.param => target.param (conditional)"
 func (e Edge) String() string {
-	arrow := "->"
-	if e.Kind == EdgeKindConditional {
-		arrow = "=>"
-	}
-	return fmt.Sprintf("%s %s %s (%s)", e.Source, arrow, e.Target, e.Kind)
+	return fmt.Sprintf("%s %s %s (%s)", e.Source, e.Kind.Arrow(), e.Target, e.Kind)
 }
 
 // DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase Go

@@ -21,7 +21,7 @@ const DIMENSIONS = { width: 72, height: 36 };
 export const FlowStraightener = ({
   className,
   orientation = "left",
-  color,
+  strokeColor,
   scale,
   ...rest
 }: FlowStraightenerProps): ReactElement => (
@@ -35,7 +35,7 @@ export const FlowStraightener = ({
     />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >

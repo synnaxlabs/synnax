@@ -44,7 +44,6 @@
         }
 
         & .pluto-text {
-            color: var(--pluto-symbol-display);
             font-weight: 500;
         }
     }

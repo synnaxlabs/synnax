@@ -26,7 +26,6 @@ const Item = Log.TREE_ITEMS.log;
 const createLog = async () => {
   const proj = await client.projects.create({
     name: uniqueName("project"),
-    layout: {},
   });
   return await client.logs.create(proj.key, { name: uniqueName("log") });
 };
@@ -79,7 +78,6 @@ describe("log ontology service", () => {
   it("should place a log layout when the resource is double-clicked", async () => {
     const proj = await client.projects.create({
       name: uniqueName("project"),
-      layout: {},
     });
     const l = await client.logs.create(proj.key, { name: uniqueName("log") });
     const { store } = await renderOntologyTree({

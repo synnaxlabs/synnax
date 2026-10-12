@@ -60,6 +60,8 @@
   },
   "scripts": {
     "check-types": "tsc --noEmit",
+    "test": "vscode-tmgrammar-test test/*.oracle",
+    "cov": "pnpm test",
     "compile": "esbuild src/extension.ts --bundle --minify --platform=node --target=node20 --external:vscode --outfile=out/extension.js",
     "watch": "pnpm compile --watch",
     "package": "pnpm check-types && pnpm compile && vsce package --allow-missing-repository --no-dependencies"
@@ -72,6 +74,7 @@
     "@types/vscode": "^1.91.0",
     "@vscode/vsce": "catalog:",
     "esbuild": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vscode-tmgrammar-test": "catalog:"
   }
 }

@@ -10,14 +10,11 @@
 import { Button } from "@synnaxlabs/lyra/button";
 import { type Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
+import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { useCallback, useState } from "react";
 
-import { Body } from "@/platform/modals/Body";
-import { createPrompt, type Prompt } from "@/platform/modals/factory";
-import { Footer } from "@/platform/modals/Footer";
-import { Frame } from "@/platform/modals/Frame";
-import { Header } from "@/platform/modals/Header";
+import { createPrompt } from "@/platform/modals/factory";
 import { Triggers } from "@/platform/triggers";
 import { type Session } from "@/session";
 
@@ -28,8 +25,6 @@ export interface RenameParams {
   title?: string;
   icon?: Icon.ReactElement;
 }
-
-export interface PromptRename extends Prompt<string, RenameParams> {}
 
 const Rename = ({
   allowEmpty = false,
@@ -47,9 +42,9 @@ const Rename = ({
     return close(name);
   }, [close, setError, name, allowEmpty]);
   return (
-    <Frame>
-      <Header icon={icon}>{title}</Header>
-      <Body>
+    <Modal.Frame>
+      <Modal.Header icon={icon}>{title}</Modal.Header>
+      <Modal.Body>
         <Input.Item
           label={label}
           required={!allowEmpty}
@@ -67,8 +62,8 @@ const Rename = ({
             selectOnFocus
           />
         </Input.Item>
-      </Body>
-      <Footer>
+      </Modal.Body>
+      <Modal.Footer>
         <Triggers.SaveHelpText action="Save" trigger={Triggers.SAVE} />
         <Nav.Bar.End x align="center">
           <Button.Button
@@ -81,8 +76,8 @@ const Rename = ({
             Save
           </Button.Button>
         </Nav.Bar.End>
-      </Footer>
-    </Frame>
+      </Modal.Footer>
+    </Modal.Frame>
   );
 };
 

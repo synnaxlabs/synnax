@@ -22,9 +22,6 @@ int32_t synnax_client_open(
     const char *username,
     const char *password,
     const int32_t secure,
-    const char *ca_cert_file,
-    const char *client_cert_file,
-    const char *client_key_file,
     const uint32_t max_retries,
     const int64_t clock_skew_threshold,
     SynnaxClient **out_client,
@@ -41,24 +38,7 @@ int32_t synnax_client_open(
         if (port != 0) c.port = port;
         c.username = str_or(username, "synnax");
         c.password = str_or(password, "seldon");
-        if (secure != 0) {
-            const std::string ca = str_or(ca_cert_file, "");
-            if (ca.empty()) {
-                set_err(
-                    err,
-                    CODE_INTERNAL,
-                    "sy.validation",
-                    "secure connection requires ca_cert_file; system-trust TLS is "
-                    "not supported"
-                );
-                return CODE_INTERNAL;
-            }
-            c.ca_cert_file = ca;
-        }
-        const std::string client_cert = str_or(client_cert_file, "");
-        if (!client_cert.empty()) c.client_cert_file = client_cert;
-        const std::string client_key = str_or(client_key_file, "");
-        if (!client_key.empty()) c.client_key_file = client_key;
+        c.secure = secure != 0;
         if (max_retries != 0) c.max_retries = max_retries;
         if (clock_skew_threshold > 0)
             c.clock_skew_threshold = x::telem::TimeSpan(clock_skew_threshold);

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type connection, type Synnax as Client } from "@synnaxlabs/client";
+import { disableActEnvironment } from "@synnaxlabs/lyra/testutil";
 import { theme } from "@synnaxlabs/lyra/theme";
 import { type FC, type PropsWithChildren, type ReactElement, Suspense } from "react";
 
@@ -42,6 +43,9 @@ const RenderContextSeed = ({
   });
   return <Aether.Composite path={path}>{children}</Aether.Composite>;
 };
+
+/** Tests assert on reported statuses, so their printed copies are noise. */
+const quiet = (): void => {};
 
 const TEST_THEME = theme.themeZ.parse(theme.SYNNAX_THEMES.synnaxLight);
 
@@ -84,6 +88,7 @@ export const createSynnaxWrapper = ({
   telemFactories,
   connectionStatus,
 }: CreateSynnaxWrapperParams): FC<PropsWithChildren> => {
+  if (client != null) disableActEnvironment();
   const AetherProvider = aetherTest.createProvider({
     ...synnax.REGISTRY,
     ...status.REGISTRY,
@@ -113,7 +118,7 @@ export const createSynnaxWrapper = ({
     if (telemFactories != null) inner = <Telem.Provider>{inner}</Telem.Provider>;
     return (
       <AetherProvider>
-        <Status.Aggregator>
+        <Status.Aggregator log={quiet}>
           <Alamos.Provider>
             <Synnax.TestProvider client={client} status={connectionStatus}>
               <Suspense fallback={null}>

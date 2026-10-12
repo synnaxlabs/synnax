@@ -21,7 +21,7 @@ export const Pulse = ({
   id,
   className,
   orientation = "right",
-  color,
+  strokeColor,
   scale = 1,
   ...rest
 }: Props): ReactElement => (
@@ -35,7 +35,7 @@ export const Pulse = ({
     />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >
@@ -45,7 +45,7 @@ export const Pulse = ({
       <Primitive.Path d="M39 21.5H47" strokeLinecap="round" />
       <Primitive.Path d="M39 13.5V21.5" strokeLinecap="round" />
       <Primitive.Path d="M31 13.5V21.5" strokeLinecap="round" />
-      <Label color={color} />
+      <Label strokeColor={strokeColor} />
     </Primitive.SVG>
   </Primitive.Div>
 );

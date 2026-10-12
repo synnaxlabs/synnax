@@ -16,12 +16,19 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { color, type notation, type text } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
 import { Notation } from "@/notation";
 import { Properties } from "@/vis/properties";
 import { Staleness } from "@/vis/staleness";
 import { Value } from "@/vis/value";
+
+/** The colors a cell paints while one of its colors is absent. */
+export const colorFallbacks = {
+  textColor: (theme: Theming.Theme): color.Color => theme.colors.gray.l11,
+  fillColor: (): color.Color => color.ZERO,
+};
 
 /** Props for a cell variant's form. */
 export interface FormProps extends Properties.SelectionProps {}
@@ -89,11 +96,15 @@ export const ValueForm = ({ tab, onTabChange }: FormProps) => {
       <Tabs.Content itemKey="style">
         <Form.Sections x>
           <Form.Section title="Appearance">
-            <Color.Field path="color" fallback={theme.colors.gray.l11} />
             <Color.Field
-              path="backgroundColor"
-              label="Background"
-              fallback={color.ZERO}
+              path="textColor"
+              label="Text"
+              fallback={colorFallbacks.textColor(theme)}
+            />
+            <Color.Field
+              path="fillColor"
+              label="Fill"
+              fallback={colorFallbacks.fillColor()}
             />
             <Form.Field<text.Level>
               path="level"
@@ -118,27 +129,44 @@ export const ValueForm = ({ tab, onTabChange }: FormProps) => {
   );
 };
 
-export const TextForm = () => (
-  <Form.Sections x>
-    <Form.Section title="Text">
-      <Form.TextField path="value" label="Text" padHelpText={false} />
-      <Form.Field<text.Level> path="level" label="Size" hideIfNull padHelpText={false}>
-        {(p) => <Select.Text.Level {...p} />}
-      </Form.Field>
-      <Form.Field<text.Weight> path="weight" label="Weight" padHelpText={false}>
-        {(p) => <Select.Text.Weight {...p} />}
-      </Form.Field>
-      <Form.Field<Flex.Alignment>
-        path="align"
-        label="Alignment"
-        hideIfNull
-        padHelpText={false}
-      >
-        {(p) => <Select.Flex.Alignment {...p} />}
-      </Form.Field>
-    </Form.Section>
-    <Form.Section title="Appearance">
-      <Color.Field path="backgroundColor" label="Background" fallback={color.ZERO} />
-    </Form.Section>
-  </Form.Sections>
-);
+export const TextForm = (): ReactElement => {
+  const theme = Theming.use();
+  return (
+    <Form.Sections x>
+      <Form.Section title="Text">
+        <Form.TextField path="value" label="Text" padHelpText={false} />
+        <Form.Field<text.Level>
+          path="level"
+          label="Size"
+          hideIfNull
+          padHelpText={false}
+        >
+          {(p) => <Select.Text.Level {...p} />}
+        </Form.Field>
+        <Form.Field<text.Weight> path="weight" label="Weight" padHelpText={false}>
+          {(p) => <Select.Text.Weight {...p} />}
+        </Form.Field>
+        <Form.Field<Flex.Alignment>
+          path="align"
+          label="Alignment"
+          hideIfNull
+          padHelpText={false}
+        >
+          {(p) => <Select.Flex.Alignment {...p} />}
+        </Form.Field>
+      </Form.Section>
+      <Form.Section title="Appearance">
+        <Color.Field
+          path="textColor"
+          label="Text"
+          fallback={colorFallbacks.textColor(theme)}
+        />
+        <Color.Field
+          path="fillColor"
+          label="Fill"
+          fallback={colorFallbacks.fillColor()}
+        />
+      </Form.Section>
+    </Form.Sections>
+  );
+};

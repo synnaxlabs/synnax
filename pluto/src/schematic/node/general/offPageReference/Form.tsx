@@ -22,8 +22,12 @@ import { Project } from "@/project";
 import { Form } from "@/schematic/node/common/form";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { PAGE_ICONS } from "@/schematic/node/general/offPageReference/config";
-import { type FormProps } from "@/schematic/node/spec";
+import { type ColorFallbacks, type FormProps } from "@/schematic/node/spec";
 import { Synnax } from "@/synnax";
+
+export const colorFallbacks = {
+  fillColor: Form.defaultFallback,
+} satisfies ColorFallbacks;
 
 const ClickModeSelect = Component.renderProp(
   ({
@@ -67,7 +71,7 @@ const useHandlePageChange = (): ((v: string | null) => void) => {
         cleared ? undefined : schematic.pageZ.parse(ontology.stringIDZ.parse(v)),
       );
       const hadPage = prev != null && prev.key.length > 0;
-      if (!hadPage && !cleared) ctx.set("color", color.hex(theme.colors.primary.z));
+      if (!hadPage && !cleared) ctx.set("fillColor", color.hex(theme.colors.primary.z));
     },
     [ctx, theme],
   );
@@ -143,7 +147,7 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
         </Base.Field>
       </Base.Section>
       <Base.Section title="Appearance">
-        <Form.ColorField path="color" />
+        <Form.FillField fallback={colorFallbacks.fillColor} />
       </Base.Section>
       <Orientation.Section path="" hideOuter />
     </Base.Sections>

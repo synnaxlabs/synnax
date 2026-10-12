@@ -172,3 +172,325 @@ Thing struct {
 		}
 	})
 })
+
+var _ = Describe("Frozen hand-written dependency", func() {
+	var req *plugin.Request
+
+	BeforeEach(func() {
+		root := GinkgoT().TempDir()
+		write := func(rel, content string) {
+			GinkgoHelper()
+			full := filepath.Join(root, rel)
+			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+		}
+		write("schemas/synnax/versions/channel/v0.oracle", `
+Key uint32 {
+	@go hand
+}
+`)
+		write("schemas/synnax/channel.oracle", `
+@go output "core/pkg/service/channel"
+
+Key uint32 {
+	@go hand
+}
+`)
+		write("schemas/synnax/versions/log/v0.oracle", `
+import "schemas/synnax/versions/channel/v0"
+
+Log struct {
+	key uuid @key
+	channel channel.Key
+
+	@go marshal
+}
+`)
+		write("schemas/synnax/versions/log/v1.oracle", `
+import "schemas/synnax/versions/channel/v0"
+
+Log struct {
+	key uuid @key
+	channel channel.Key
+	name string
+
+	@go marshal
+}
+`)
+		write("schemas/synnax/log.oracle", `
+import "schemas/synnax/channel"
+
+@go output "core/pkg/service/log"
+
+Log struct {
+	key uuid @key
+	channel channel.Key
+	name string
+}
+`)
+		chains := MustSucceed(versions.Discover(root))
+		loader := analyzer.NewStandardFileLoader(root)
+		table, diag := analyzer.Analyze(
+			GinkgoT().Context(),
+			[]string{"schemas/synnax/channel", "schemas/synnax/log"},
+			loader,
+		)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		req = &plugin.Request{
+			Resolutions: table,
+			RepoRoot:    root,
+			Versions:    versions.NewResolver(chains, loader),
+		}
+	})
+
+	// channel v0 holds its own hand-written Key, so a frozen package pinning v0 must
+	// import it there and not follow the live type.
+	It("Should import the pinned version directory of a hand-written type", func() {
+		resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(req))
+		var frozen string
+		for _, f := range resp.Files {
+			if f.Path == "core/pkg/service/log/versions/v0/types.gen.go" {
+				frozen = string(f.Content)
+			}
+		}
+		Expect(frozen).To(ContainSubstring(`service/channel/versions/v0"`))
+		Expect(frozen).ToNot(ContainSubstring(`service/channel"`))
+	})
+})
+
+var _ = Describe("Live validation on a frozen definer", func() {
+	const liveSource = `
+@go output "core/doc"
+
+Entry struct {
+	precision int32 {
+		@validate min -1
+		@validate max 17
+	}
+}
+
+Doc struct {
+	key uuid @key
+	entries Entry[]
+	name string
+}
+`
+	generate := func(v1 string) map[string]string {
+		GinkgoHelper()
+		root := GinkgoT().TempDir()
+		write := func(rel, content string) {
+			GinkgoHelper()
+			full := filepath.Join(root, rel)
+			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+		}
+		write("schemas/synnax/versions/doc/v0.oracle", `
+Entry struct {
+	precision int32
+
+	@go marshal
+}
+
+Doc struct {
+	key uuid @key
+	entries Entry[]
+
+	@go marshal
+}
+`)
+		write("schemas/synnax/versions/doc/v1.oracle", v1)
+		chains := MustSucceed(versions.Discover(root))
+		resolver := versions.NewResolver(chains, analyzer.NewStandardFileLoader(root))
+		table := resolution.NewTable()
+		diag := analyzer.AnalyzeSeeded(
+			GinkgoT().Context(), liveSource, "schemas/synnax/doc.oracle", "doc",
+			analyzer.NewStandardFileLoader(root), table,
+		)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		req := &plugin.Request{Resolutions: table, RepoRoot: root, Versions: resolver}
+		resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(req))
+		byPath := make(map[string]string, len(resp.Files))
+		for _, f := range resp.Files {
+			byPath[f.Path] = string(f.Content)
+		}
+		return byPath
+	}
+
+	It(
+		"Should validate a type the current version aliases from a frozen definer",
+		func() {
+			files := generate(`
+Entry = v0.Entry
+
+Doc struct {
+	key uuid @key
+	entries Entry[]
+	name string
+
+	@go marshal
+}
+`)
+			frozen := files["core/doc/versions/v0/types.gen.go"]
+			Expect(
+				frozen,
+			).To(ContainSubstring(`v.GreaterThanEq("precision", e.Precision, -1)`))
+			Expect(
+				frozen,
+			).To(ContainSubstring(`v.LessThanEq("precision", e.Precision, 17)`))
+			Expect(files["core/doc/versions/v1/types.gen.go"]).To(ContainSubstring(
+				"type Entry = v0.Entry",
+			))
+		},
+	)
+
+	It(
+		"Should leave a frozen definer unvalidated once a later version redeclares it",
+		func() {
+			files := generate(`
+Entry struct {
+	precision int32
+
+	@go marshal
+}
+
+Doc struct {
+	key uuid @key
+	entries Entry[]
+	name string
+
+	@go marshal
+}
+`)
+			Expect(files["core/doc/versions/v0/types.gen.go"]).ToNot(ContainSubstring(
+				`Eq("precision"`,
+			))
+			Expect(files["core/doc/versions/v1/types.gen.go"]).To(ContainSubstring(
+				`v.LessThanEq("precision", e.Precision, 17)`,
+			))
+		},
+	)
+})
+
+var _ = Describe("Live validation on a frozen union", func() {
+	const v0Source = `
+Payload struct {
+	size int32
+
+	@go marshal
+}
+
+Window union on variant {
+	rolling {
+		span int32
+	}
+	named Payload
+
+	@go marshal
+}
+
+Doc struct {
+	key uuid @key
+	window Window
+
+	@go marshal
+}
+`
+	const liveSource = `
+@go output "core/doc"
+
+Payload struct {
+	size int32 {
+		@validate min 1
+	}
+}
+
+Window union on variant {
+	rolling {
+		span int32 {
+			@validate min 1
+		}
+	}
+	named Payload
+}
+
+Doc struct {
+	key uuid @key
+	window Window
+	name string
+}
+`
+	generate := func(v1 string) map[string]string {
+		GinkgoHelper()
+		root := GinkgoT().TempDir()
+		write := func(rel, content string) {
+			GinkgoHelper()
+			full := filepath.Join(root, rel)
+			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+		}
+		write("schemas/synnax/versions/doc/v0.oracle", v0Source)
+		write("schemas/synnax/versions/doc/v1.oracle", v1)
+		chains := MustSucceed(versions.Discover(root))
+		resolver := versions.NewResolver(chains, analyzer.NewStandardFileLoader(root))
+		table := resolution.NewTable()
+		diag := analyzer.AnalyzeSeeded(
+			GinkgoT().Context(), liveSource, "schemas/synnax/doc.oracle", "doc",
+			analyzer.NewStandardFileLoader(root), table,
+		)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		req := &plugin.Request{Resolutions: table, RepoRoot: root, Versions: resolver}
+		resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(req))
+		byPath := make(map[string]string, len(resp.Files))
+		for _, f := range resp.Files {
+			byPath[f.Path] = string(f.Content)
+		}
+		return byPath
+	}
+	const docV1 = `
+Doc struct {
+	key uuid @key
+	window Window
+	name string
+
+	@go marshal
+}
+`
+
+	It(
+		"Should validate the variant fields of a union the current version aliases",
+		func() {
+			files := generate("Payload = v0.Payload\n\nWindow = v0.Window\n" + docV1)
+			frozen := files["core/doc/versions/v0/types.gen.go"]
+			Expect(frozen).To(ContainSubstring(`GreaterThanEq("span"`))
+			Expect(frozen).To(ContainSubstring(`GreaterThanEq("size"`))
+		},
+	)
+
+	It(
+		"Should leave a frozen union unvalidated once a later version redeclares it",
+		func() {
+			files := generate(`
+Payload struct {
+	size int32
+
+	@go marshal
+}
+
+Window union on variant {
+	rolling {
+		span int32
+	}
+	named Payload
+
+	@go marshal
+}
+` + docV1)
+			Expect(files["core/doc/versions/v0/types.gen.go"]).ToNot(ContainSubstring(
+				`GreaterThanEq("span"`,
+			))
+			Expect(files["core/doc/versions/v1/types.gen.go"]).To(ContainSubstring(
+				`GreaterThanEq("span"`,
+			))
+		},
+	)
+})

@@ -9,27 +9,12 @@
 
 import { type Client } from "@/components/client/choice";
 import { INFO } from "@/components/client/Client";
-import { Tabs as Base, type TabsProps as BaseProps } from "@/components/tabs/Tabs";
+import { type FilterProps, Tabs as Base } from "@/components/tabs/Tabs";
 
 const TABS = INFO.map(({ key, ...c }) => ({ ...c, tabKey: key }));
 
-export interface TabsProps extends Omit<BaseProps, "tabs" | "queryParamKey"> {
-  exclude?: Client[];
-  priority?: Client[];
-}
+export type TabsProps = FilterProps<Client>;
 
-export const Tabs = ({ exclude = [], priority = [], ...rest }: TabsProps) => {
-  const excludeSet = new Set(exclude);
-  const tabs = TABS.filter((tab) => !excludeSet.has(tab.tabKey));
-
-  if (priority.length > 0)
-    tabs.sort((a, b) => {
-      let aIndex = priority.indexOf(a.tabKey);
-      if (aIndex === -1) aIndex = priority.length;
-      let bIndex = priority.indexOf(b.tabKey);
-      if (bIndex === -1) bIndex = priority.length;
-      return aIndex - bIndex;
-    });
-
-  return <Base queryParamKey="client" tabs={tabs} {...rest} />;
-};
+export const Tabs = (props: TabsProps) => (
+  <Base queryParamKey="client" tabs={TABS} {...props} />
+);

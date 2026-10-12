@@ -12,7 +12,6 @@ import "schemas/arc/ir"
 import "schemas/arc/program"
 import "schemas/arc/text"
 import "schemas/synnax/status"
-import "schemas/synnax/task"
 import "schemas/x/crdt"
 import "schemas/x/spatial"
 
@@ -206,45 +205,4 @@ Arc struct {
     @py name       "Payload"
     @retrieve
     @search
-}
-
-ExecutionMode enum {
-    auto         = "AUTO"
-    busy_wait    = "BUSY_WAIT"
-    high_rate    = "HIGH_RATE"
-    rt_event     = "RT_EVENT"
-    hybrid       = "HYBRID"
-    event_driven = "EVENT_DRIVEN"
-
-    @doc value "selects how the Arc runtime loop schedules execution."
-    @go output "core/pkg/service/arc/task"
-    @pb omit
-}
-
-TaskConfig struct extends task.PersistConfig {
-    arc_key        Key           {
-        @doc value "is the key of the Arc module the task executes."
-    }
-    hash           string = "" {
-        @doc value "is the semantic hash of the Arc module at deploy time."
-    }
-    execution_mode ExecutionMode = auto {
-        @doc value "overrides the runtime's automatic loop mode selection."
-    }
-    rt_priority    int32 = 47 {
-        @doc value "is the thread priority used by real-time loop modes."
-    }
-    cpu_affinity   int32 = -1 {
-        @doc value "pins the loop to a CPU core. -1 selects automatically."
-    }
-    memory_locked  bool = false {
-        @doc value "is true when the runtime's memory is locked to prevent paging."
-    }
-
-    @doc value  "configures an Arc task, which runs a compiled Arc module."
-    @go marshal
-    @go migrate
-    @go name    "Config"
-    @go output  "core/pkg/service/arc/task"
-    @pb omit
 }

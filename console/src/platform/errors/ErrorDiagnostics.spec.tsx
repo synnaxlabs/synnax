@@ -11,8 +11,8 @@ import { NotFoundError, panel, status } from "@synnaxlabs/client";
 import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
 import { Unreachable } from "@synnaxlabs/freighter";
 import { Errors } from "@synnaxlabs/pluto";
-import { render, screen } from "@testing-library/react";
-import { act, type ReactElement } from "react";
+import { act, render, screen } from "@testing-library/react";
+import { type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Boundary } from "@/platform/errors/Boundary";

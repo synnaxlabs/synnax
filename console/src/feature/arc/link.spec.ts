@@ -19,9 +19,8 @@ const client = createTestClient();
 
 describe("Arc.useLink", () => {
   it("should open the arc as a tab", async () => {
-    const { layout: _, ...project } = await client.projects.create({
+    const project = await client.projects.create({
       name: id.create(),
-      layout: {},
     });
     const created = await client.arcs.create({
       name: "Control Sequence",

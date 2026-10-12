@@ -14,6 +14,7 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { type Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
@@ -48,11 +49,6 @@ const CHANNEL_SELECT_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
   placeholder: "Select channels to download",
 };
 
-export interface PromptDownloadCSV extends Modals.Prompt<
-  void,
-  DownloadCSVModalParams
-> {}
-
 export const useDownloadCSVModal = Modals.createPrompt<void, DownloadCSVModalParams>(
   ({ timeRange, channels, name, channelNames, icon, close }) => {
     const form = Form.use<typeof formSchema>({
@@ -80,9 +76,9 @@ export const useDownloadCSVModal = Modals.createPrompt<void, DownloadCSVModalPar
     );
     return (
       <Form.Form<typeof formSchema> {...form}>
-        <Modals.Frame className={CSS.B("download-csv")}>
-          <Modals.Header icon={icon}>CSV.Download</Modals.Header>
-          <Modals.Body gap="huge">
+        <Modal.Frame className={CSS.B("download-csv")}>
+          <Modal.Header icon={icon}>CSV.Download</Modal.Header>
+          <Modal.Body gap="huge">
             <Text.Text level="h3" weight={450}>
               Download data for {name} as CSV
             </Text.Text>
@@ -137,9 +133,9 @@ export const useDownloadCSVModal = Modals.createPrompt<void, DownloadCSVModalPar
                 </Text.Text>
               )}
             </Flex.Box>
-          </Modals.Body>
-          <Modals.Footer>{footer}</Modals.Footer>
-        </Modals.Frame>
+          </Modal.Body>
+          <Modal.Footer>{footer}</Modal.Footer>
+        </Modal.Frame>
       </Form.Form>
     );
   },

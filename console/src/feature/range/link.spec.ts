@@ -23,7 +23,7 @@ describe("Range.useLink", () => {
       name: "Burn Test",
       timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
     });
-    const { handler, store } = await renderLinkHook(Range.useLink);
+    const { handler, store } = await renderLinkHook(Range.useLink, { client });
     await selectTestProject(store, client);
     await handler({ client, key: range.key });
     const state = store.getState();

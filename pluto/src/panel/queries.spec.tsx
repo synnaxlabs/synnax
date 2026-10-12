@@ -268,7 +268,6 @@ describe("Panel queries", () => {
     it("should parent the panel under the given resource", async () => {
       const parentProject = await client.projects.create({
         name: `parent-${uuid.create()}`,
-        layout: {},
       });
       const parent = project.ontologyID(parentProject.key);
 
@@ -321,7 +320,6 @@ describe("Panel queries", () => {
       (
         await client.projects.create({
           name: `by-project-${uuid.create()}`,
-          layout: {},
         })
       ).key;
 

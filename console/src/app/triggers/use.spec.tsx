@@ -32,7 +32,7 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
 });
 
 import { Triggers } from "@/app/triggers";
-import { useSelectorVisible } from "@/app/vis/Selector";
+import { useSelectorVisible } from "@/app/vis/useSelectorVisible";
 import { Panel as PlatformPanel } from "@/platform/panel";
 import {
   createPanelWrapper,
@@ -333,6 +333,33 @@ describe("app/triggers", () => {
       hold(CONTROL);
       expect(fireEvent.keyDown(window, { code: "KeyJ", ctrlKey: true })).toBe(true);
       release(CONTROL, "KeyJ");
+    });
+  });
+
+  describe("reserved", () => {
+    const renderHint = (engine: Session.Runtime.Engine, trigger: PTriggers.Trigger) =>
+      render(
+        <PTriggers.Provider {...Triggers.createProviderProps(engine)}>
+          <PTriggers.Text trigger={trigger} />
+        </PTriggers.Provider>,
+      ).container;
+
+    it("should hide the hint for a shortcut the browser keeps", () => {
+      expect(renderHint("web", ["Control", "T"]).textContent).toBe("");
+    });
+
+    it("should keep the hint for a shortcut the browser passes on", () => {
+      expect(renderHint("web", ["Control", "S"]).textContent).toContain("S");
+    });
+
+    it("should keep every hint in the desktop app", () => {
+      expect(renderHint("tauri", ["Control", "T"]).textContent).toContain("T");
+    });
+
+    it("should reserve shortcuts for the runtime the specs run in", () => {
+      expect(Triggers.PROVIDER_PROPS.reserved).toEqual(
+        Triggers.createProviderProps("web").reserved,
+      );
     });
   });
 

@@ -21,7 +21,7 @@ export const FourWay = ({
   className,
   orientation = "left",
   scale,
-  color: colorVal,
+  strokeColor: colorVal,
   ...rest
 }: Props): ReactElement => (
   <Toggle.Button
@@ -38,7 +38,7 @@ export const FourWay = ({
     />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={colorVal}
+      strokeColor={colorVal}
       scale={scale}
       orientation={orientation}
     >

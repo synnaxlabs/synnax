@@ -10,7 +10,12 @@
 import { type record, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
-import { AccessDeniedError, NotFoundError } from "@/errors";
+import {
+  AccessDeniedError,
+  ExpiredLicenseError,
+  MissingLicenseError,
+  NotFoundError,
+} from "@/errors";
 import { query } from "@/query";
 import { Deleted } from "@/query/deleted";
 import { Space, type SpaceHooks } from "@/query/query";
@@ -369,6 +374,33 @@ describe("Answers", () => {
       await wait(5);
       expect(onError).not.toHaveBeenCalled();
     });
+
+    it.each([
+      ["missing", MissingLicenseError],
+      ["expired", ExpiredLicenseError],
+    ])(
+      "should stay silent when a Core with a %s license refuses the change stream",
+      async (_, LicenseError) => {
+        const table = newTable();
+        const onError = vi.fn();
+        const answers = singleSpace(
+          table,
+          async () => {
+            table.set("a", rec("a", 1));
+            return ["a"];
+          },
+          {
+            ensureStreaming: async () => {
+              throw new LicenseError("no license");
+            },
+            onError,
+          },
+        );
+        expect(await answers.retrieve(qA)).toEqual(1);
+        await wait(5);
+        expect(onError).not.toHaveBeenCalled();
+      },
+    );
   });
 
   describe("getCached", () => {
@@ -1185,6 +1217,170 @@ describe("Answers", () => {
       expect(answers.getCached({ min: 3 })).toEqual([rec("a", 5), rec("b", 6)]);
       expect(handler).toHaveBeenCalledTimes(1);
       expect(handler).toHaveBeenLastCalledWith([rec("a", 5), rec("b", 6)]);
+    });
+  });
+
+  describe("limited queries (rule 2)", () => {
+    type LimitQ = { min: number; limit?: number; offset?: number };
+    const limitSpace = (
+      table: query.Table<string, Rec>,
+      fetch: (query: LimitQ) => Promise<string[]>,
+    ) =>
+      new Space<LimitQ, Rec[], string, Rec>({
+        name: "things",
+        table,
+        fetch,
+        compose: (records) => records,
+        matches: (r, q) => r.value >= q.min,
+        serverFields: ["limit", "offset"],
+      });
+    const fetchOf = (table: query.Table<string, Rec>, members: Rec[]) =>
+      vi.fn(async () => {
+        table.set(members);
+        return members.map(({ key }) => key);
+      });
+
+    it("admits a match below the limit without refetching", async () => {
+      const table = newTable();
+      const fetch = fetchOf(table, [rec("a", 5)]);
+      const answers = limitSpace(table, fetch);
+      const handler = vi.fn();
+      answers.onChange({ min: 3, limit: 2 }, handler);
+      await answers.retrieve({ min: 3, limit: 2 });
+      table.set("b", rec("b", 4));
+      expect(handler).toHaveBeenLastCalledWith([rec("a", 5), rec("b", 4)]);
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("admits matches only up to the limit", async () => {
+      const table = newTable();
+      const fetch = fetchOf(table, [rec("a", 5)]);
+      const answers = limitSpace(table, fetch);
+      answers.onChange({ min: 3, limit: 2 }, vi.fn());
+      await answers.retrieve({ min: 3, limit: 2 });
+      table.set([rec("b", 4), rec("c", 6)]);
+      expect(answers.getCached({ min: 3, limit: 2 })).toEqual([
+        rec("a", 5),
+        rec("b", 4),
+      ]);
+    });
+
+    it("ignores a new match once the answer is full", async () => {
+      const table = newTable();
+      const fetch = fetchOf(table, [rec("a", 5), rec("b", 4)]);
+      const answers = limitSpace(table, fetch);
+      const handler = vi.fn();
+      answers.onChange({ min: 3, limit: 2 }, handler);
+      await answers.retrieve({ min: 3, limit: 2 });
+      handler.mockClear();
+      table.set("c", rec("c", 6));
+      await wait(150);
+      expect(handler).not.toHaveBeenCalled();
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("evicts a member below the limit without refetching", async () => {
+      const table = newTable();
+      const fetch = fetchOf(table, [rec("a", 5), rec("b", 4)]);
+      const answers = limitSpace(table, fetch);
+      const handler = vi.fn();
+      answers.onChange({ min: 3, limit: 3 }, handler);
+      await answers.retrieve({ min: 3, limit: 3 });
+      table.set("a", rec("a", 1));
+      expect(handler).toHaveBeenLastCalledWith([rec("b", 4)]);
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("evicts a member of a full answer, then refetches to fill its slot", async () => {
+      const table = newTable();
+      const fetch = fetchOf(table, [rec("a", 5), rec("b", 4)]);
+      const answers = limitSpace(table, fetch);
+      const handler = vi.fn();
+      answers.onChange({ min: 3, limit: 2 }, handler);
+      await answers.retrieve({ min: 3, limit: 2 });
+      fetch.mockImplementation(async () => {
+        table.set("c", rec("c", 6));
+        return ["b", "c"];
+      });
+      table.set("a", rec("a", 1));
+      expect(handler).toHaveBeenLastCalledWith([rec("b", 4)]);
+      await expect
+        .poll(() => handler.mock.lastCall?.[0])
+        .toEqual([rec("b", 4), rec("c", 6)]);
+    });
+
+    it("does not refetch when a match fills a vacated slot", async () => {
+      const table = newTable();
+      const fetch = fetchOf(table, [rec("a", 5), rec("b", 4)]);
+      const answers = limitSpace(table, fetch);
+      answers.onChange({ min: 3, limit: 2 }, vi.fn());
+      await answers.retrieve({ min: 3, limit: 2 });
+      table.set([rec("a", 1), rec("c", 6)]);
+      expect(answers.getCached({ min: 3, limit: 2 })).toEqual([
+        rec("b", 4),
+        rec("c", 6),
+      ]);
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("refetches again when a vacated answer changes during its refetch", async () => {
+      const table = newTable();
+      const fetch = fetchOf(table, [rec("a", 5), rec("b", 4)]);
+      const answers = limitSpace(table, fetch);
+      answers.onChange({ min: 3, limit: 2 }, vi.fn());
+      await answers.retrieve({ min: 3, limit: 2 });
+      let release = (): void => {};
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      fetch.mockImplementationOnce(async () => {
+        await gate;
+        return ["b"];
+      });
+      table.set("a", rec("a", 1));
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+      fetch.mockImplementation(async () => {
+        table.set([rec("c", 6), rec("d", 7)]);
+        return ["c", "d"];
+      });
+      table.set("b", rec("b", 1));
+      release();
+      await expect
+        .poll(() => answers.getCached({ min: 3, limit: 2 }))
+        .toEqual([rec("c", 6), rec("d", 7)]);
+      expect(fetch).toHaveBeenCalledTimes(3);
+    });
+
+    it("ignores a change to a record that never matched", async () => {
+      const table = newTable();
+      const fetch = fetchOf(table, [rec("a", 5), rec("b", 4)]);
+      const answers = limitSpace(table, fetch);
+      answers.onChange({ min: 3, limit: 2 }, vi.fn());
+      await answers.retrieve({ min: 3, limit: 2 });
+      table.set("z", rec("z", 1));
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("refetches wholesale when the limit is not positive", async () => {
+      const table = newTable();
+      const fetch = fetchOf(table, [rec("a", 5)]);
+      const answers = limitSpace(table, fetch);
+      answers.onChange({ min: 3, limit: 0 }, vi.fn());
+      await answers.retrieve({ min: 3, limit: 0 });
+      table.set("z", rec("z", 1));
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+    });
+
+    it("refetches wholesale when another server field is set", async () => {
+      const table = newTable();
+      const fetch = fetchOf(table, [rec("a", 5)]);
+      const answers = limitSpace(table, fetch);
+      answers.onChange({ min: 3, limit: 2, offset: 1 }, vi.fn());
+      await answers.retrieve({ min: 3, limit: 2, offset: 1 });
+      table.set("z", rec("z", 1));
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
     });
   });
 

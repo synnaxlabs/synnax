@@ -57,6 +57,8 @@ export interface SchematicProps extends Omit<
   extraMenuItems?: Component.RenderProp<Menu.ContextMenuMenuProps>;
   /** Rendered as a centered overlay when the schematic has no nodes. */
   emptyContent?: ReactElement;
+  /** Hides the tooltip that shows a symbol's configuration on hover. */
+  tooltipsDisabled?: boolean;
 }
 interface Hovered {
   nodeKey: string;
@@ -78,6 +80,7 @@ export const Schematic = ({
   extraMenuItems,
   editable,
   emptyContent,
+  tooltipsDisabled = false,
   children,
   ...props
 }: SchematicProps): ReactElement => {
@@ -307,9 +310,18 @@ export const Schematic = ({
       {...props}
     >
       {children}
-      {hovered != null && hoveredConfig != null && Node.isConfig(hoveredConfig) && (
-        <Tooltip key={hovered.nodeKey} anchor={hovered.anchor} config={hoveredConfig} />
-      )}
+      {!editable &&
+        !tooltipsDisabled &&
+        hovered != null &&
+        !contextMenu.visible &&
+        hoveredConfig != null &&
+        Node.isConfig(hoveredConfig) && (
+          <Tooltip
+            key={hovered.nodeKey}
+            anchor={hovered.anchor}
+            config={hoveredConfig}
+          />
+        )}
       {nodes.length === 0 && emptyContent != null && (
         <Flex.Box center className={CSS.BE("schematic", "empty")}>
           {emptyContent}

@@ -23,7 +23,6 @@ describe("LinePlot", () => {
     test("create one", async () => {
       const proj = await client.projects.create({
         name: "Line Plot",
-        layout: { one: 1 },
       });
       const linePlot = await client.lineplots.create(proj.key, { name: "Line Plot" });
       expect(linePlot.name).toEqual("Line Plot");
@@ -34,7 +33,6 @@ describe("LinePlot", () => {
     test("rename one", async () => {
       const proj = await client.projects.create({
         name: "Line Plot",
-        layout: { one: 1 },
       });
       const linePlot = await client.lineplots.create(proj.key, { name: "Line Plot" });
       await client.lineplots.rename(linePlot.key, "Line Plot2");
@@ -46,7 +44,6 @@ describe("LinePlot", () => {
     test("delete one", async () => {
       const proj = await client.projects.create({
         name: "Line Plot",
-        layout: { one: 1 },
       });
       const linePlot = await client.lineplots.create(proj.key, { name: "Line Plot" });
       await client.lineplots.delete(linePlot.key);

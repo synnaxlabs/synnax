@@ -16,7 +16,7 @@ import { List as Base } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { destructor, type record, type state } from "@synnaxlabs/x";
-import { type FC, type MouseEvent, type ReactElement, useCallback } from "react";
+import { type MouseEvent, type ReactElement, useCallback } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -36,8 +36,6 @@ export interface ListProps<E extends record.Keyed<string>> extends Pick<
   BaseListProps<E>,
   "inputPlaceholder" | "onChange" | "value"
 > {}
-
-export interface List<E extends record.Keyed<string>> extends FC<ListProps<E>> {}
 
 const ESCAPE_TRIGGERS: Triggers.Trigger[] = [Triggers.ESCAPE];
 

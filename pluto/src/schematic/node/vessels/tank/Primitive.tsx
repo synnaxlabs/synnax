@@ -21,7 +21,7 @@ import { Primitive } from "@/schematic/node/common/primitive";
 interface RenderProps extends Partial<
   Pick<
     schematic.TankNodeConfig,
-    "dimensions" | "borderRadius" | "color" | "backgroundColor"
+    "dimensions" | "borderRadius" | "strokeColor" | "fillColor"
   >
 > {
   className?: string;
@@ -34,8 +34,8 @@ export const Tank = ({
   dimensions = Border.DEFAULT_DIMENSIONS,
   borderRadius = Border.DEFAULT_RADIUS,
   boxBorderRadius,
-  color: colorVal,
-  backgroundColor,
+  strokeColor,
+  fillColor,
   strokeWidth = 2,
 }: RenderProps): ReactElement => {
   const detailedRadius = border.constructRadius(borderRadius);
@@ -57,17 +57,17 @@ export const Tank = ({
   const topOffset = Border.pixelToPercent(1, height);
   const bottomOffset = 100 - topOffset;
   const cssBorderRadius = boxBorderRadius ?? Border.cssRadius(detailedRadius);
-  const backgroundCSS = color.cssString(backgroundColor);
+  const fillCSS = color.cssString(fillColor);
   const style = useMemo<CSSProperties>(
     () => ({
       width,
       height,
       borderRadius: cssBorderRadius,
-      [CSS.variable("symbol-color")]: color.rgbaString(colorVal),
-      backgroundColor: backgroundCSS,
+      [CSS.variable("symbol-color")]: color.rgbaString(strokeColor),
+      backgroundColor: fillCSS,
       borderWidth: strokeWidth,
     }),
-    [width, height, cssBorderRadius, colorVal, backgroundCSS, strokeWidth],
+    [width, height, cssBorderRadius, strokeColor, fillCSS, strokeWidth],
   );
   return (
     <Primitive.Div

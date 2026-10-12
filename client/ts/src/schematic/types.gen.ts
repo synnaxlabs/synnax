@@ -171,6 +171,15 @@ export const numericTelemConfigZ = z.object({
 });
 export interface NumericTelemConfig extends z.infer<typeof numericTelemConfigZ> {}
 
+/**
+ * ScaledConfig is the base configuration for any symbol drawn at a scale multiplier.
+ */
+export const scaledConfigZ = z.object({
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().default(1),
+});
+export interface ScaledConfig extends z.infer<typeof scaledConfigZ> {}
+
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
@@ -187,8 +196,8 @@ export interface Edge extends z.infer<typeof edgeZ> {}
 
 /** SegmentedEdgeConfig is the configuration shared by every segmented edge variant. */
 export const segmentedEdgeConfigZ = z.object({
-  /** color is the stroke color of the edge. */
-  color: color.colorZ.optional(),
+  /** strokeColor is the stroke color of the edge. */
+  strokeColor: color.colorZ.optional(),
   /**
    * segments is the ordered list of orthogonal runs that trace the connector path from
    * the source handle to the target handle.
@@ -203,8 +212,6 @@ export const labeledConfigZ = z.object({
   label: labelConfigZ.prefault({}),
   /** orientation is the orientation of the symbol's primitive within the diagram. */
   orientation: spatial.outerLocationZ.default("left"),
-  /** scale is the rendered scale multiplier of the symbol. */
-  scale: z.number().default(1),
 });
 export interface LabeledConfig extends z.infer<typeof labeledConfigZ> {}
 
@@ -212,11 +219,11 @@ export const scaleIndicatorConfigZ = numericTelemConfigZ
   .extend(stalenessConfigZ.shape)
   .extend({
     bounds: spatial.boundsZ().prefault({ lower: 0, upper: 100 }),
-    color: color.colorZ.optional(),
+    levelColor: color.colorZ.optional(),
     axisColor: color.colorZ.optional(),
     textColor: color.colorZ.optional(),
     units: z.string().default(""),
-    fillHidden: z.boolean().default(false),
+    levelHidden: z.boolean().default(false),
     caretHidden: z.boolean().default(false),
     scaleHidden: z.boolean().default(false),
     side: spatial.outerLocationZ.default("right"),
@@ -306,30 +313,35 @@ export const EDGE_CONFIG_SCHEMAS: {
   data: dataEdgeConfigZ,
 };
 
-export const toggleConfigZ = labeledConfigZ.extend(stalenessConfigZ.shape).extend({
-  stateChannel: channel.keyZ.optional(),
-  commandChannel: channel.keyZ.optional(),
-  control: controlStateConfigZ.optional(),
-  onClickDelay: z.number().default(0),
-});
+export const toggleConfigZ = labeledConfigZ
+  .extend(scaledConfigZ.shape)
+  .extend(stalenessConfigZ.shape)
+  .extend({
+    stateChannel: channel.keyZ.optional(),
+    commandChannel: channel.keyZ.optional(),
+    control: controlStateConfigZ.optional(),
+    onClickDelay: z.number().default(0),
+  });
 export interface ToggleConfig extends z.infer<typeof toggleConfigZ> {}
 
-export const staticSymbolConfigZ = labeledConfigZ.extend({
-  color: color.colorZ.optional(),
+export const staticSymbolConfigZ = labeledConfigZ.extend(scaledConfigZ.shape).extend({
+  strokeColor: color.colorZ.optional(),
 });
 export interface StaticSymbolConfig extends z.infer<typeof staticSymbolConfigZ> {}
 
-export const dummyToggleSymbolConfigZ = labeledConfigZ.extend({
-  enabled: z.boolean().default(false),
-  clickable: z.boolean().default(false),
-  color: color.colorZ.optional(),
-});
+export const dummyToggleSymbolConfigZ = labeledConfigZ
+  .extend(scaledConfigZ.shape)
+  .extend({
+    enabled: z.boolean().default(false),
+    clickable: z.boolean().default(false),
+    strokeColor: color.colorZ.optional(),
+  });
 export interface DummyToggleSymbolConfig extends z.infer<
   typeof dummyToggleSymbolConfigZ
 > {}
 
 export const toggleSymbolConfigZ = toggleConfigZ.extend({
-  color: color.colorZ.optional(),
+  strokeColor: color.colorZ.optional(),
 });
 export interface ToggleSymbolConfig extends z.infer<typeof toggleSymbolConfigZ> {}
 
@@ -493,10 +505,10 @@ export interface FlowmeterOrificeNodeConfig extends z.infer<
 /** BoxNodeConfig is the configuration for box annotation symbols. */
 export const boxNodeConfigZ = labeledConfigZ.extend({
   variant: z.literal("box"),
-  /** color is the border color of the box. */
-  color: color.colorZ.optional(),
-  /** backgroundColor is the fill color of the box. */
-  backgroundColor: color.colorZ.optional(),
+  /** strokeColor is the border color of the box. */
+  strokeColor: color.colorZ.optional(),
+  /** fillColor is the fill color of the box. */
+  fillColor: color.colorZ.optional(),
   /** dimensions is the rendered size of the box in pixels. */
   dimensions: spatial.dimensionsZ.prefault({ width: 125, height: 200 }),
   /** borderRadius is the uniform corner radius of the box in pixels. */
@@ -519,8 +531,8 @@ export const buttonNodeConfigZ = labeledConfigZ.extend({
   commandChannel: channel.keyZ.optional(),
   /** mode is the actuation behavior of the button. */
   mode: buttonModeZ.default("fire"),
-  /** color is the background color of the button. */
-  color: color.colorZ.optional(),
+  /** fillColor is the fill color of the button, which its border follows. */
+  fillColor: color.colorZ.optional(),
   /** control is the control state display configuration. */
   control: controlStateConfigZ.optional(),
 });
@@ -531,10 +543,10 @@ export const circleNodeConfigZ = labeledConfigZ.extend({
   variant: z.literal("circle"),
   /** radius is the radius of the circle in pixels. */
   radius: z.number().default(20),
-  /** color is the border color of the circle. */
-  color: color.colorZ.optional(),
-  /** backgroundColor is the fill color of the circle. */
-  backgroundColor: color.colorZ.optional(),
+  /** strokeColor is the border color of the circle. */
+  strokeColor: color.colorZ.optional(),
+  /** fillColor is the fill color of the circle. */
+  fillColor: color.colorZ.optional(),
   /** strokeWidth is the border stroke width in pixels. */
   strokeWidth: z.number().default(2),
 });
@@ -548,8 +560,8 @@ export const gaugeNodeConfigZ = labeledConfigZ
     variant: z.literal("gauge"),
     /** position is the offset of the gauge contents within the symbol. */
     position: spatial.xyZ.optional(),
-    /** color is the accent color of the gauge arc. */
-    color: color.colorZ.optional(),
+    /** strokeColor is the color of the gauge arc. */
+    strokeColor: color.colorZ.optional(),
     /** bounds is the numeric range displayed by the gauge. */
     bounds: spatial.boundsZ().prefault({ lower: 0, upper: 100 }),
     /** barWidth is the thickness of the gauge arc in pixels. */
@@ -572,8 +584,8 @@ export const inputNodeConfigZ = labeledConfigZ.extend({
   commandChannel: channel.keyZ.optional(),
   /** dimensions is the rendered size of the input in pixels. */
   dimensions: spatial.dimensionsZ.optional(),
-  /** color is the accent color of the input. */
-  color: color.colorZ.optional(),
+  /** fillColor is the fill color of the send button, which the input border follows. */
+  fillColor: color.colorZ.optional(),
   /** disabled indicates whether the input rejects interaction. */
   disabled: z.boolean().default(false),
   /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
@@ -584,22 +596,27 @@ export const inputNodeConfigZ = labeledConfigZ.extend({
 export interface InputNodeConfig extends z.infer<typeof inputNodeConfigZ> {}
 
 /** LightNodeConfig is the configuration for indicator light symbols. */
-export const lightNodeConfigZ = labeledConfigZ.extend(stalenessConfigZ.shape).extend({
-  variant: z.literal("light"),
-  /** channel is the channel whose value drives the light's on state. */
-  channel: channel.keyZ.optional(),
-  /** threshold is the value range within which the light is considered on. */
-  threshold: spatial.boundsZ().optional(),
-  /** color is the illuminated color of the light. */
-  color: color.colorZ.optional(),
-});
+export const lightNodeConfigZ = labeledConfigZ
+  .extend(scaledConfigZ.shape)
+  .extend(stalenessConfigZ.shape)
+  .extend({
+    variant: z.literal("light"),
+    /** channel is the channel whose value drives the light's on state. */
+    channel: channel.keyZ.optional(),
+    /** threshold is the value range within which the light is considered on. */
+    threshold: spatial.boundsZ().optional(),
+    /** strokeColor is the outline color of the light. */
+    strokeColor: color.colorZ.optional(),
+    /** onColor is the fill color of the light while it is on. */
+    onColor: color.colorZ.optional(),
+  });
 export interface LightNodeConfig extends z.infer<typeof lightNodeConfigZ> {}
 
 /** LineNodeConfig is the configuration for straight line symbols. */
 export const lineNodeConfigZ = z.object({
   variant: z.literal("line"),
-  /** color is the stroke color of the line. */
-  color: color.colorZ.optional(),
+  /** strokeColor is the stroke color of the line. */
+  strokeColor: color.colorZ.optional(),
   /** start is the first endpoint, offset from the node position. */
   start: spatial.xyZ.prefault({ x: 0, y: 0 }),
   /** end is the second endpoint, offset from the node position. */
@@ -610,12 +627,15 @@ export const lineNodeConfigZ = z.object({
 export interface LineNodeConfig extends z.infer<typeof lineNodeConfigZ> {}
 
 /** OffPageReferenceNodeConfig is the configuration for off-page reference symbols. */
-export const offPageReferenceNodeConfigZ = labeledConfigZ.omit({ scale: true }).extend({
+export const offPageReferenceNodeConfigZ = labeledConfigZ.extend({
   variant: z.literal("off_page_reference"),
   /** orientation is the direction the reference arrow points. */
   orientation: spatial.outerLocationZ.default("right"),
-  /** color is the fill color of the reference. */
-  color: color.colorZ.optional(),
+  /**
+   * fillColor is the fill color of a linked reference. An unlinked reference draws its
+   * outline in this color.
+   */
+  fillColor: color.colorZ.optional(),
   /** page is the page this reference links to. */
   page: pageZ.optional(),
   /** dblClickNavDisabled stops double-clicking from navigating to the linked page. */
@@ -636,10 +656,10 @@ export const polygonNodeConfigZ = labeledConfigZ.extend({
   rotation: z.number().default(0),
   /** cornerRounding is the corner rounding radius in pixels. */
   cornerRounding: z.number().default(0),
-  /** color is the border color of the polygon. */
-  color: color.colorZ.optional(),
-  /** backgroundColor is the fill color of the polygon. */
-  backgroundColor: color.colorZ.optional(),
+  /** strokeColor is the border color of the polygon. */
+  strokeColor: color.colorZ.optional(),
+  /** fillColor is the fill color of the polygon. */
+  fillColor: color.colorZ.optional(),
   /** strokeWidth is the border stroke width in pixels. */
   strokeWidth: z.number().default(2),
 });
@@ -652,8 +672,10 @@ export const selectNodeConfigZ = labeledConfigZ.extend({
   size: componentSizeZ.default("medium"),
   /** commandChannel is the channel the selected value is written to. */
   commandChannel: channel.keyZ.optional(),
-  /** color is the accent color of the select. */
-  color: color.colorZ.optional(),
+  /**
+   * fillColor is the fill color of the send button, which the select border follows.
+   */
+  fillColor: color.colorZ.optional(),
   /** inlineSize is the inline size of the select in pixels. */
   inlineSize: z.number().default(100),
   /** options is the set of selectable states. */
@@ -668,28 +690,23 @@ export const selectNodeConfigZ = labeledConfigZ.extend({
 export interface SelectNodeConfig extends z.infer<typeof selectNodeConfigZ> {}
 
 /** ScaleNodeConfig is the configuration for standalone scale symbols. */
-export const scaleNodeConfigZ = labeledConfigZ.extend({
-  variant: z.literal("scale"),
-  /**
-   * orientation is the axis the bar fills along: top for vertical, right for
-   * horizontal. Any other value reads as vertical.
-   */
-  orientation: spatial.outerLocationZ.default("top"),
-  /** position is the offset of the scale contents within the symbol. */
-  position: spatial.xyZ.optional(),
-  /**
-   * dimensions is the size of the bar alone in pixels. The tick gutter beside it adds
-   * to the rendered size.
-   */
-  dimensions: spatial.dimensionsZ.prefault({ width: 34, height: 160 }),
-  /**
-   * color is the color of the fill, which is what the symbol reads as. The toolbar
-   * recolors a selection through this field.
-   */
-  color: color.colorZ.optional(),
-  /** indicator is the live indicator the scale renders. */
-  indicator: scaleIndicatorConfigZ.prefault({}),
-});
+export const scaleNodeConfigZ = labeledConfigZ
+  .extend(scaleIndicatorConfigZ.shape)
+  .extend({
+    variant: z.literal("scale"),
+    /**
+     * orientation is the axis the bar fills along: top for vertical, right for
+     * horizontal. Any other value reads as vertical.
+     */
+    orientation: spatial.outerLocationZ.default("top"),
+    /** position is the offset of the scale contents within the symbol. */
+    position: spatial.xyZ.optional(),
+    /**
+     * dimensions is the size of the bar alone in pixels. The tick gutter beside it adds
+     * to the rendered size.
+     */
+    dimensions: spatial.dimensionsZ.prefault({ width: 34, height: 160 }),
+  });
 export interface ScaleNodeConfig extends z.infer<typeof scaleNodeConfigZ> {}
 
 /** SetpointNodeConfig is the configuration for numeric setpoint symbols. */
@@ -701,8 +718,10 @@ export const setpointNodeConfigZ = labeledConfigZ.extend({
   commandChannel: channel.keyZ.optional(),
   /** dimensions is the rendered size of the setpoint in pixels. */
   dimensions: spatial.dimensionsZ.optional(),
-  /** color is the accent color of the setpoint. */
-  color: color.colorZ.optional(),
+  /**
+   * fillColor is the fill color of the set button, which the setpoint border follows.
+   */
+  fillColor: color.colorZ.optional(),
   /** units is the unit suffix displayed after the value. */
   units: z.string().default("mV"),
   /** disabled indicates whether the setpoint rejects interaction. */
@@ -721,8 +740,8 @@ export const stateIndicatorNodeConfigZ = labeledConfigZ
     variant: z.literal("state_indicator"),
     /** channel is the channel whose value selects the displayed state. */
     channel: channel.keyZ.optional(),
-    /** color is the fallback color when no state matches. */
-    color: color.colorZ.optional(),
+    /** strokeColor is the border color of the indicator. */
+    strokeColor: color.colorZ.optional(),
     /** inlineSize is the inline size of the indicator in pixels. */
     inlineSize: z.number().default(100),
     /** options is the set of displayable states. */
@@ -739,8 +758,8 @@ export const stringDisplayNodeConfigZ = labeledConfigZ
   .extend(stalenessConfigZ.shape)
   .extend({
     variant: z.literal("string_display"),
-    /** color is the background color of the display. */
-    color: color.colorZ.optional(),
+    /** strokeColor is the border color of the display. */
+    strokeColor: color.colorZ.optional(),
     /** textColor is the color of the displayed text. */
     textColor: color.colorZ.optional(),
     /** tooltip is the list of tooltip lines shown on hover. */
@@ -767,8 +786,8 @@ export interface SwitchNodeConfig extends z.infer<typeof switchNodeConfigZ> {}
 /** TextBoxNodeConfig is the configuration for text box annotation symbols. */
 export const textBoxNodeConfigZ = labeledConfigZ.extend({
   variant: z.literal("text_box"),
-  /** color is the text color. */
-  color: color.colorZ.optional(),
+  /** textColor is the text color. */
+  textColor: color.colorZ.optional(),
   /** width is the rendered width of the text box in pixels. */
   width: z.number().default(75),
   /** align is the alignment of the text within the box. */
@@ -790,15 +809,15 @@ export const valueNodeConfigZ = labeledConfigZ
     variant: z.literal("value"),
     /** position is the offset of the value contents within the symbol. */
     position: spatial.xyZ.optional(),
-    /** color is the color of the value's border and units. */
-    color: color.colorZ.optional(),
-    /** textColor is the color of the displayed text. */
+    /** strokeColor is the color of the value's border and units divider. */
+    strokeColor: color.colorZ.optional(),
+    /** textColor is the color of the displayed value and its units. */
     textColor: color.colorZ.optional(),
     /**
-     * backgroundColor is the fill behind the value where no redline band paints. When
-     * absent the value paints no fill.
+     * fillColor is the fill behind the value where no redline band paints. When absent
+     * the value paints no fill.
      */
-    backgroundColor: color.colorZ.optional(),
+    fillColor: color.colorZ.optional(),
     /** tooltip is the list of tooltip lines shown on hover. */
     tooltip: z
       .string()
@@ -1177,47 +1196,46 @@ export interface CrossJunctionNodeConfig extends z.infer<
 > {}
 
 /** CylinderNodeConfig is the configuration for cylinder vessel symbols. */
-export const cylinderNodeConfigZ = labeledConfigZ.extend({
+export const cylinderNodeConfigZ = labeledConfigZ.extend(scaledConfigZ.shape).extend({
   variant: z.literal("cylinder"),
   /** dimensions is the rendered size of the cylinder in pixels. */
   dimensions: spatial.dimensionsZ.prefault({ width: 66, height: 181 }),
   /** borderRadius is the corner radius of the cylinder. */
   borderRadius: border.radiusZ.optional(),
-  /** color is the border color of the cylinder. */
-  color: color.colorZ.optional(),
-  /** backgroundColor is the fill color of the cylinder. */
-  backgroundColor: color.colorZ.optional(),
+  /** strokeColor is the border color of the cylinder. */
+  strokeColor: color.colorZ.optional(),
+  /** fillColor is the fill color of the cylinder. */
+  fillColor: color.colorZ.optional(),
 });
 export interface CylinderNodeConfig extends z.infer<typeof cylinderNodeConfigZ> {}
 
 /** TankNodeConfig is the configuration for tank vessel symbols. */
-export const tankNodeConfigZ = labeledConfigZ.extend({
-  variant: z.literal("tank"),
-  /** position is the offset of the tank contents within the symbol. */
-  position: spatial.xyZ.optional(),
-  /** color is the border color of the tank. */
-  color: color.colorZ.optional(),
-  /** backgroundColor is the fill color of the tank. */
-  backgroundColor: color.colorZ.optional(),
-  /** dimensions is the rendered size of the tank in pixels. */
-  dimensions: spatial.dimensionsZ.prefault({ width: 125, height: 200 }),
-  /** borderRadius is the corner radius of the tank. */
-  borderRadius: border.radiusZ.prefault({
-    topLeft: { x: 50, y: 10 },
-    topRight: { x: 50, y: 10 },
-    bottomLeft: { x: 50, y: 10 },
-    bottomRight: { x: 50, y: 10 },
-  }),
-  /**
-   * fill is the live fill level drawn inside the tank. A tank without one renders its
-   * wall alone.
-   */
-  fill: scaleIndicatorConfigZ.prefault({
-    caretHidden: true,
-    scaleHidden: true,
-    side: "left",
-  }),
-});
+export const tankNodeConfigZ = labeledConfigZ
+  .extend(scaleIndicatorConfigZ.omit({ caretHidden: true, scaleHidden: true }).shape)
+  .extend({
+    variant: z.literal("tank"),
+    /** position is the offset of the tank contents within the symbol. */
+    position: spatial.xyZ.optional(),
+    /** strokeColor is the color of the tank's wall. */
+    strokeColor: color.colorZ.optional(),
+    /** fillColor is the fill color of the tank body. */
+    fillColor: color.colorZ.optional(),
+    /** dimensions is the rendered size of the tank in pixels. */
+    dimensions: spatial.dimensionsZ.prefault({ width: 125, height: 200 }),
+    /** borderRadius is the corner radius of the tank. */
+    borderRadius: border.radiusZ.prefault({
+      topLeft: { x: 50, y: 10 },
+      topRight: { x: 50, y: 10 },
+      bottomLeft: { x: 50, y: 10 },
+      bottomRight: { x: 50, y: 10 },
+    }),
+    /** caretVisible shows the caret marking the current level. */
+    caretVisible: z.boolean().default(false),
+    /** scaleVisible shows the axis and its tick labels. */
+    scaleVisible: z.boolean().default(false),
+    /** side is the edge the axis is drawn along. */
+    side: spatial.outerLocationZ.default("left"),
+  });
 export interface TankNodeConfig extends z.infer<typeof tankNodeConfigZ> {}
 
 export const tJunctionNodeConfigZ = staticSymbolConfigZ.extend({
@@ -1230,8 +1248,6 @@ export const customActuatorNodeConfigZ = toggleConfigZ.extend({
   variant: z.literal("custom_actuator"),
   /** specKey is the key of the custom symbol spec this instance renders. */
   specKey: z.string(),
-  /** color is the stroke color of the symbol. */
-  color: color.colorZ.optional(),
   /**
    * stateOverrides contains per-instance overrides of the spec's visual states, matched
    * to the spec's states by key.
@@ -1243,18 +1259,18 @@ export interface CustomActuatorNodeConfig extends z.infer<
 > {}
 
 /** CustomStaticNodeConfig is the configuration for user-defined static symbols. */
-export const customStaticNodeConfigZ = labeledConfigZ.extend({
-  variant: z.literal("custom_static"),
-  /** specKey is the key of the custom symbol spec this instance renders. */
-  specKey: z.string(),
-  /** color is the stroke color of the symbol. */
-  color: color.colorZ.optional(),
-  /**
-   * stateOverrides contains per-instance overrides of the spec's visual states, matched
-   * to the spec's states by key.
-   */
-  stateOverrides: symbol.stateZ.array().default(() => []),
-});
+export const customStaticNodeConfigZ = labeledConfigZ
+  .extend(scaledConfigZ.shape)
+  .extend({
+    variant: z.literal("custom_static"),
+    /** specKey is the key of the custom symbol spec this instance renders. */
+    specKey: z.string(),
+    /**
+     * stateOverrides contains per-instance overrides of the spec's visual states, matched
+     * to the spec's states by key.
+     */
+    stateOverrides: symbol.stateZ.array().default(() => []),
+  });
 export interface CustomStaticNodeConfig extends z.infer<
   typeof customStaticNodeConfigZ
 > {}
@@ -1871,10 +1887,10 @@ export interface FlowmeterOrificeElementConfig extends z.infer<
 /** BoxElementConfig is the configuration for box annotation symbols. */
 export const boxElementConfigZ = labeledConfigZ.extend({
   variant: z.literal("box"),
-  /** color is the border color of the box. */
-  color: color.colorZ.optional(),
-  /** backgroundColor is the fill color of the box. */
-  backgroundColor: color.colorZ.optional(),
+  /** strokeColor is the border color of the box. */
+  strokeColor: color.colorZ.optional(),
+  /** fillColor is the fill color of the box. */
+  fillColor: color.colorZ.optional(),
   /** dimensions is the rendered size of the box in pixels. */
   dimensions: spatial.dimensionsZ.prefault({ width: 125, height: 200 }),
   /** borderRadius is the uniform corner radius of the box in pixels. */
@@ -1897,8 +1913,8 @@ export const buttonElementConfigZ = labeledConfigZ.extend({
   commandChannel: channel.keyZ.optional(),
   /** mode is the actuation behavior of the button. */
   mode: buttonModeZ.default("fire"),
-  /** color is the background color of the button. */
-  color: color.colorZ.optional(),
+  /** fillColor is the fill color of the button, which its border follows. */
+  fillColor: color.colorZ.optional(),
   /** control is the control state display configuration. */
   control: controlStateConfigZ.optional(),
 });
@@ -1909,10 +1925,10 @@ export const circleElementConfigZ = labeledConfigZ.extend({
   variant: z.literal("circle"),
   /** radius is the radius of the circle in pixels. */
   radius: z.number().default(20),
-  /** color is the border color of the circle. */
-  color: color.colorZ.optional(),
-  /** backgroundColor is the fill color of the circle. */
-  backgroundColor: color.colorZ.optional(),
+  /** strokeColor is the border color of the circle. */
+  strokeColor: color.colorZ.optional(),
+  /** fillColor is the fill color of the circle. */
+  fillColor: color.colorZ.optional(),
   /** strokeWidth is the border stroke width in pixels. */
   strokeWidth: z.number().default(2),
 });
@@ -1926,8 +1942,8 @@ export const gaugeElementConfigZ = labeledConfigZ
     variant: z.literal("gauge"),
     /** position is the offset of the gauge contents within the symbol. */
     position: spatial.xyZ.optional(),
-    /** color is the accent color of the gauge arc. */
-    color: color.colorZ.optional(),
+    /** strokeColor is the color of the gauge arc. */
+    strokeColor: color.colorZ.optional(),
     /** bounds is the numeric range displayed by the gauge. */
     bounds: spatial.boundsZ().prefault({ lower: 0, upper: 100 }),
     /** barWidth is the thickness of the gauge arc in pixels. */
@@ -1950,8 +1966,8 @@ export const inputElementConfigZ = labeledConfigZ.extend({
   commandChannel: channel.keyZ.optional(),
   /** dimensions is the rendered size of the input in pixels. */
   dimensions: spatial.dimensionsZ.optional(),
-  /** color is the accent color of the input. */
-  color: color.colorZ.optional(),
+  /** fillColor is the fill color of the send button, which the input border follows. */
+  fillColor: color.colorZ.optional(),
   /** disabled indicates whether the input rejects interaction. */
   disabled: z.boolean().default(false),
   /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
@@ -1963,6 +1979,7 @@ export interface InputElementConfig extends z.infer<typeof inputElementConfigZ> 
 
 /** LightElementConfig is the configuration for indicator light symbols. */
 export const lightElementConfigZ = labeledConfigZ
+  .extend(scaledConfigZ.shape)
   .extend(stalenessConfigZ.shape)
   .extend({
     variant: z.literal("light"),
@@ -1970,16 +1987,18 @@ export const lightElementConfigZ = labeledConfigZ
     channel: channel.keyZ.optional(),
     /** threshold is the value range within which the light is considered on. */
     threshold: spatial.boundsZ().optional(),
-    /** color is the illuminated color of the light. */
-    color: color.colorZ.optional(),
+    /** strokeColor is the outline color of the light. */
+    strokeColor: color.colorZ.optional(),
+    /** onColor is the fill color of the light while it is on. */
+    onColor: color.colorZ.optional(),
   });
 export interface LightElementConfig extends z.infer<typeof lightElementConfigZ> {}
 
 /** LineElementConfig is the configuration for straight line symbols. */
 export const lineElementConfigZ = z.object({
   variant: z.literal("line"),
-  /** color is the stroke color of the line. */
-  color: color.colorZ.optional(),
+  /** strokeColor is the stroke color of the line. */
+  strokeColor: color.colorZ.optional(),
   /** start is the first endpoint, offset from the node position. */
   start: spatial.xyZ.prefault({ x: 0, y: 0 }),
   /** end is the second endpoint, offset from the node position. */
@@ -1992,19 +2011,20 @@ export interface LineElementConfig extends z.infer<typeof lineElementConfigZ> {}
 /**
  * OffPageReferenceElementConfig is the configuration for off-page reference symbols.
  */
-export const offPageReferenceElementConfigZ = labeledConfigZ
-  .omit({ scale: true })
-  .extend({
-    variant: z.literal("off_page_reference"),
-    /** orientation is the direction the reference arrow points. */
-    orientation: spatial.outerLocationZ.default("right"),
-    /** color is the fill color of the reference. */
-    color: color.colorZ.optional(),
-    /** page is the page this reference links to. */
-    page: pageZ.optional(),
-    /** dblClickNavDisabled stops double-clicking from navigating to the linked page. */
-    dblClickNavDisabled: z.boolean().default(false),
-  });
+export const offPageReferenceElementConfigZ = labeledConfigZ.extend({
+  variant: z.literal("off_page_reference"),
+  /** orientation is the direction the reference arrow points. */
+  orientation: spatial.outerLocationZ.default("right"),
+  /**
+   * fillColor is the fill color of a linked reference. An unlinked reference draws its
+   * outline in this color.
+   */
+  fillColor: color.colorZ.optional(),
+  /** page is the page this reference links to. */
+  page: pageZ.optional(),
+  /** dblClickNavDisabled stops double-clicking from navigating to the linked page. */
+  dblClickNavDisabled: z.boolean().default(false),
+});
 export interface OffPageReferenceElementConfig extends z.infer<
   typeof offPageReferenceElementConfigZ
 > {}
@@ -2020,10 +2040,10 @@ export const polygonElementConfigZ = labeledConfigZ.extend({
   rotation: z.number().default(0),
   /** cornerRounding is the corner rounding radius in pixels. */
   cornerRounding: z.number().default(0),
-  /** color is the border color of the polygon. */
-  color: color.colorZ.optional(),
-  /** backgroundColor is the fill color of the polygon. */
-  backgroundColor: color.colorZ.optional(),
+  /** strokeColor is the border color of the polygon. */
+  strokeColor: color.colorZ.optional(),
+  /** fillColor is the fill color of the polygon. */
+  fillColor: color.colorZ.optional(),
   /** strokeWidth is the border stroke width in pixels. */
   strokeWidth: z.number().default(2),
 });
@@ -2036,8 +2056,10 @@ export const selectElementConfigZ = labeledConfigZ.extend({
   size: componentSizeZ.default("medium"),
   /** commandChannel is the channel the selected value is written to. */
   commandChannel: channel.keyZ.optional(),
-  /** color is the accent color of the select. */
-  color: color.colorZ.optional(),
+  /**
+   * fillColor is the fill color of the send button, which the select border follows.
+   */
+  fillColor: color.colorZ.optional(),
   /** inlineSize is the inline size of the select in pixels. */
   inlineSize: z.number().default(100),
   /** options is the set of selectable states. */
@@ -2052,28 +2074,23 @@ export const selectElementConfigZ = labeledConfigZ.extend({
 export interface SelectElementConfig extends z.infer<typeof selectElementConfigZ> {}
 
 /** ScaleElementConfig is the configuration for standalone scale symbols. */
-export const scaleElementConfigZ = labeledConfigZ.extend({
-  variant: z.literal("scale"),
-  /**
-   * orientation is the axis the bar fills along: top for vertical, right for
-   * horizontal. Any other value reads as vertical.
-   */
-  orientation: spatial.outerLocationZ.default("top"),
-  /** position is the offset of the scale contents within the symbol. */
-  position: spatial.xyZ.optional(),
-  /**
-   * dimensions is the size of the bar alone in pixels. The tick gutter beside it adds
-   * to the rendered size.
-   */
-  dimensions: spatial.dimensionsZ.prefault({ width: 34, height: 160 }),
-  /**
-   * color is the color of the fill, which is what the symbol reads as. The toolbar
-   * recolors a selection through this field.
-   */
-  color: color.colorZ.optional(),
-  /** indicator is the live indicator the scale renders. */
-  indicator: scaleIndicatorConfigZ.prefault({}),
-});
+export const scaleElementConfigZ = labeledConfigZ
+  .extend(scaleIndicatorConfigZ.shape)
+  .extend({
+    variant: z.literal("scale"),
+    /**
+     * orientation is the axis the bar fills along: top for vertical, right for
+     * horizontal. Any other value reads as vertical.
+     */
+    orientation: spatial.outerLocationZ.default("top"),
+    /** position is the offset of the scale contents within the symbol. */
+    position: spatial.xyZ.optional(),
+    /**
+     * dimensions is the size of the bar alone in pixels. The tick gutter beside it adds
+     * to the rendered size.
+     */
+    dimensions: spatial.dimensionsZ.prefault({ width: 34, height: 160 }),
+  });
 export interface ScaleElementConfig extends z.infer<typeof scaleElementConfigZ> {}
 
 /** SetpointElementConfig is the configuration for numeric setpoint symbols. */
@@ -2085,8 +2102,10 @@ export const setpointElementConfigZ = labeledConfigZ.extend({
   commandChannel: channel.keyZ.optional(),
   /** dimensions is the rendered size of the setpoint in pixels. */
   dimensions: spatial.dimensionsZ.optional(),
-  /** color is the accent color of the setpoint. */
-  color: color.colorZ.optional(),
+  /**
+   * fillColor is the fill color of the set button, which the setpoint border follows.
+   */
+  fillColor: color.colorZ.optional(),
   /** units is the unit suffix displayed after the value. */
   units: z.string().default("mV"),
   /** disabled indicates whether the setpoint rejects interaction. */
@@ -2107,8 +2126,8 @@ export const stateIndicatorElementConfigZ = labeledConfigZ
     variant: z.literal("state_indicator"),
     /** channel is the channel whose value selects the displayed state. */
     channel: channel.keyZ.optional(),
-    /** color is the fallback color when no state matches. */
-    color: color.colorZ.optional(),
+    /** strokeColor is the border color of the indicator. */
+    strokeColor: color.colorZ.optional(),
     /** inlineSize is the inline size of the indicator in pixels. */
     inlineSize: z.number().default(100),
     /** options is the set of displayable states. */
@@ -2125,8 +2144,8 @@ export const stringDisplayElementConfigZ = labeledConfigZ
   .extend(stalenessConfigZ.shape)
   .extend({
     variant: z.literal("string_display"),
-    /** color is the background color of the display. */
-    color: color.colorZ.optional(),
+    /** strokeColor is the border color of the display. */
+    strokeColor: color.colorZ.optional(),
     /** textColor is the color of the displayed text. */
     textColor: color.colorZ.optional(),
     /** tooltip is the list of tooltip lines shown on hover. */
@@ -2153,8 +2172,8 @@ export interface SwitchElementConfig extends z.infer<typeof switchElementConfigZ
 /** TextBoxElementConfig is the configuration for text box annotation symbols. */
 export const textBoxElementConfigZ = labeledConfigZ.extend({
   variant: z.literal("text_box"),
-  /** color is the text color. */
-  color: color.colorZ.optional(),
+  /** textColor is the text color. */
+  textColor: color.colorZ.optional(),
   /** width is the rendered width of the text box in pixels. */
   width: z.number().default(75),
   /** align is the alignment of the text within the box. */
@@ -2176,15 +2195,15 @@ export const valueElementConfigZ = labeledConfigZ
     variant: z.literal("value"),
     /** position is the offset of the value contents within the symbol. */
     position: spatial.xyZ.optional(),
-    /** color is the color of the value's border and units. */
-    color: color.colorZ.optional(),
-    /** textColor is the color of the displayed text. */
+    /** strokeColor is the color of the value's border and units divider. */
+    strokeColor: color.colorZ.optional(),
+    /** textColor is the color of the displayed value and its units. */
     textColor: color.colorZ.optional(),
     /**
-     * backgroundColor is the fill behind the value where no redline band paints. When
-     * absent the value paints no fill.
+     * fillColor is the fill behind the value where no redline band paints. When absent
+     * the value paints no fill.
      */
-    backgroundColor: color.colorZ.optional(),
+    fillColor: color.colorZ.optional(),
     /** tooltip is the list of tooltip lines shown on hover. */
     tooltip: z
       .string()
@@ -2594,47 +2613,48 @@ export interface CrossJunctionElementConfig extends z.infer<
 > {}
 
 /** CylinderElementConfig is the configuration for cylinder vessel symbols. */
-export const cylinderElementConfigZ = labeledConfigZ.extend({
-  variant: z.literal("cylinder"),
-  /** dimensions is the rendered size of the cylinder in pixels. */
-  dimensions: spatial.dimensionsZ.prefault({ width: 66, height: 181 }),
-  /** borderRadius is the corner radius of the cylinder. */
-  borderRadius: border.radiusZ.optional(),
-  /** color is the border color of the cylinder. */
-  color: color.colorZ.optional(),
-  /** backgroundColor is the fill color of the cylinder. */
-  backgroundColor: color.colorZ.optional(),
-});
+export const cylinderElementConfigZ = labeledConfigZ
+  .extend(scaledConfigZ.shape)
+  .extend({
+    variant: z.literal("cylinder"),
+    /** dimensions is the rendered size of the cylinder in pixels. */
+    dimensions: spatial.dimensionsZ.prefault({ width: 66, height: 181 }),
+    /** borderRadius is the corner radius of the cylinder. */
+    borderRadius: border.radiusZ.optional(),
+    /** strokeColor is the border color of the cylinder. */
+    strokeColor: color.colorZ.optional(),
+    /** fillColor is the fill color of the cylinder. */
+    fillColor: color.colorZ.optional(),
+  });
 export interface CylinderElementConfig extends z.infer<typeof cylinderElementConfigZ> {}
 
 /** TankElementConfig is the configuration for tank vessel symbols. */
-export const tankElementConfigZ = labeledConfigZ.extend({
-  variant: z.literal("tank"),
-  /** position is the offset of the tank contents within the symbol. */
-  position: spatial.xyZ.optional(),
-  /** color is the border color of the tank. */
-  color: color.colorZ.optional(),
-  /** backgroundColor is the fill color of the tank. */
-  backgroundColor: color.colorZ.optional(),
-  /** dimensions is the rendered size of the tank in pixels. */
-  dimensions: spatial.dimensionsZ.prefault({ width: 125, height: 200 }),
-  /** borderRadius is the corner radius of the tank. */
-  borderRadius: border.radiusZ.prefault({
-    topLeft: { x: 50, y: 10 },
-    topRight: { x: 50, y: 10 },
-    bottomLeft: { x: 50, y: 10 },
-    bottomRight: { x: 50, y: 10 },
-  }),
-  /**
-   * fill is the live fill level drawn inside the tank. A tank without one renders its
-   * wall alone.
-   */
-  fill: scaleIndicatorConfigZ.prefault({
-    caretHidden: true,
-    scaleHidden: true,
-    side: "left",
-  }),
-});
+export const tankElementConfigZ = labeledConfigZ
+  .extend(scaleIndicatorConfigZ.omit({ caretHidden: true, scaleHidden: true }).shape)
+  .extend({
+    variant: z.literal("tank"),
+    /** position is the offset of the tank contents within the symbol. */
+    position: spatial.xyZ.optional(),
+    /** strokeColor is the color of the tank's wall. */
+    strokeColor: color.colorZ.optional(),
+    /** fillColor is the fill color of the tank body. */
+    fillColor: color.colorZ.optional(),
+    /** dimensions is the rendered size of the tank in pixels. */
+    dimensions: spatial.dimensionsZ.prefault({ width: 125, height: 200 }),
+    /** borderRadius is the corner radius of the tank. */
+    borderRadius: border.radiusZ.prefault({
+      topLeft: { x: 50, y: 10 },
+      topRight: { x: 50, y: 10 },
+      bottomLeft: { x: 50, y: 10 },
+      bottomRight: { x: 50, y: 10 },
+    }),
+    /** caretVisible shows the caret marking the current level. */
+    caretVisible: z.boolean().default(false),
+    /** scaleVisible shows the axis and its tick labels. */
+    scaleVisible: z.boolean().default(false),
+    /** side is the edge the axis is drawn along. */
+    side: spatial.outerLocationZ.default("left"),
+  });
 export interface TankElementConfig extends z.infer<typeof tankElementConfigZ> {}
 
 export const tJunctionElementConfigZ = staticSymbolConfigZ.extend({
@@ -2651,8 +2671,6 @@ export const customActuatorElementConfigZ = toggleConfigZ.extend({
   variant: z.literal("custom_actuator"),
   /** specKey is the key of the custom symbol spec this instance renders. */
   specKey: z.string(),
-  /** color is the stroke color of the symbol. */
-  color: color.colorZ.optional(),
   /**
    * stateOverrides contains per-instance overrides of the spec's visual states, matched
    * to the spec's states by key.
@@ -2664,18 +2682,18 @@ export interface CustomActuatorElementConfig extends z.infer<
 > {}
 
 /** CustomStaticElementConfig is the configuration for user-defined static symbols. */
-export const customStaticElementConfigZ = labeledConfigZ.extend({
-  variant: z.literal("custom_static"),
-  /** specKey is the key of the custom symbol spec this instance renders. */
-  specKey: z.string(),
-  /** color is the stroke color of the symbol. */
-  color: color.colorZ.optional(),
-  /**
-   * stateOverrides contains per-instance overrides of the spec's visual states, matched
-   * to the spec's states by key.
-   */
-  stateOverrides: symbol.stateZ.array().default(() => []),
-});
+export const customStaticElementConfigZ = labeledConfigZ
+  .extend(scaledConfigZ.shape)
+  .extend({
+    variant: z.literal("custom_static"),
+    /** specKey is the key of the custom symbol spec this instance renders. */
+    specKey: z.string(),
+    /**
+     * stateOverrides contains per-instance overrides of the spec's visual states, matched
+     * to the spec's states by key.
+     */
+    stateOverrides: symbol.stateZ.array().default(() => []),
+  });
 export interface CustomStaticElementConfig extends z.infer<
   typeof customStaticElementConfigZ
 > {}

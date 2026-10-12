@@ -51,7 +51,7 @@ export const TextBoxForm = (): ReactElement => {
         </Base.Field>
       </Base.Section>
       <Base.Section title="Appearance">
-        <Form.ColorField path="color" />
+        <Form.ColorField path="textColor" label="Text" />
         <Base.Field<number>
           onChange={(_, { set }) => set("autoFitDisabled", true)}
           path="width"

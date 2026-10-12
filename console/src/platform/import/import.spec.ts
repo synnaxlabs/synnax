@@ -36,7 +36,6 @@ describe("use", () => {
     const client = createTestClient();
     const proj = await client.projects.create({
       name: uniqueName("project"),
-      layout: {},
     });
     const original = await client.logs.create(proj.key, { name: uniqueName("log") });
     const stream = await client.imex.export(log.ontologyID(original.key), {

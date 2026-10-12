@@ -13,7 +13,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "github.com/synnaxlabs/arc/graph/versions/v1"
-	"github.com/synnaxlabs/arc/ir"
 	xmsgpack "github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
@@ -22,23 +21,6 @@ import (
 
 var _ = Describe("Graph", func() {
 	Describe("DecodeMsgpack", func() {
-		It("Should decode legacy uppercase Go field names", func() {
-			legacy := struct {
-				Functions ir.Functions
-				Edges     ir.Edges
-				Nodes     v1.Nodes
-			}{
-				Nodes: v1.Nodes{{Key: "n1"}},
-				Edges: ir.Edges{{Source: ir.Handle{Node: "n1", Param: "out"}}},
-			}
-			data := MustSucceed(msgpack.Marshal(legacy))
-			var decoded v1.Graph
-			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
-			Expect(decoded.Nodes).To(HaveLen(1))
-			Expect(decoded.Nodes[0].Key).To(Equal("n1"))
-			Expect(decoded.Edges).To(HaveLen(1))
-		})
-
 		It(
 			"Should lift legacy inline node type and config into the inputs map",
 			func() {

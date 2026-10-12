@@ -16,6 +16,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
+import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { type Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
@@ -56,14 +57,14 @@ const DeleteModal = ({
   });
   return (
     <Form.Form<typeof formSchema> {...methods}>
-      <Modals.Frame>
-        <Modals.Header icon={<Icon.Channel />}>Data.Delete</Modals.Header>
+      <Modal.Frame>
+        <Modal.Header icon={<Icon.Channel />}>Data.Delete</Modal.Header>
         {step === "form" ? (
           <FormStep onNext={() => setStep("confirm")} />
         ) : (
           <ConfirmStep onBack={() => setStep("form")} onClose={close} />
         )}
-      </Modals.Frame>
+      </Modal.Frame>
     </Form.Form>
   );
 };
@@ -101,7 +102,7 @@ const FormStep = ({ onNext }: FormStepProps): ReactElement => {
   );
   return (
     <>
-      <Modals.Body gap="large" justify="start">
+      <Modal.Body gap="large" justify="start">
         <Text.Text level="h3" weight={450}>
           Delete data
         </Text.Text>
@@ -175,8 +176,8 @@ const FormStep = ({ onNext }: FormStepProps): ReactElement => {
             </Flex.Box>
           </Flex.Box>
         </Flex.Box>
-      </Modals.Body>
-      <Modals.Footer>{footer}</Modals.Footer>
+      </Modal.Body>
+      <Modal.Footer>{footer}</Modal.Footer>
     </>
   );
 };
@@ -257,7 +258,7 @@ const ConfirmStep = ({ onBack, onClose }: ConfirmStepProps): ReactElement => {
   );
   return (
     <>
-      <Modals.Body gap="large">
+      <Modal.Body gap="large">
         <Text.Text level="h3" weight={450}>
           Are you sure you want to delete this data?
         </Text.Text>
@@ -270,8 +271,8 @@ const ConfirmStep = ({ onBack, onClose }: ConfirmStepProps): ReactElement => {
             This action cannot be undone.
           </Text.Text>
         </Flex.Box>
-      </Modals.Body>
-      <Modals.Footer>{footer}</Modals.Footer>
+      </Modal.Body>
+      <Modal.Footer>{footer}</Modal.Footer>
     </>
   );
 };

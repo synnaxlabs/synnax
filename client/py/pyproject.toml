@@ -9,7 +9,7 @@
 
 [project]
 name = "synnax"
-version = "0.58.1"
+version = "0.59.0"
 description = "Synnax Client Library"
 keywords = ["Synnax", "Synnax Python Client"]
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
@@ -82,6 +82,7 @@ markers = [
     "access: mark test as an access test",
     "arc: mark test as an arc test",
     "auth: mark test as an auth test",
+    "license: mark test as a license test",
     "channel: mark test as a channel test",
     "cli: mark test as a cli test",
     "color: mark test as a color test",

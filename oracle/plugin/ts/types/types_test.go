@@ -2312,6 +2312,39 @@ var _ = Describe("TS Types Plugin", func() {
 			})
 		})
 
+		Context("reference into an ancestor namespace", func() {
+			BeforeEach(func() {
+				loader.Add("schemas/ranger", `
+					@ts output "client/ts/src/ranger"
+
+					Key uuid
+				`)
+			})
+
+			It(
+				"Should import the ancestor's types.gen as a namespace",
+				func(ctx SpecContext) {
+					source := `
+					import "schemas/ranger"
+
+					@ts output "client/ts/src/ranger/kv"
+
+					Pair struct {
+						range ranger.Key
+						key string
+					}
+				`
+					resp := MustGenerate(ctx, source, "kv", loader, typesPlugin)
+					ExpectContent(resp, "types.gen.ts").
+						ToContain(
+							`import * as ranger from "@/ranger/types.gen"`,
+							`ranger.keyZ`,
+						).
+						ToNotContain(`from "@/ranger";`)
+				},
+			)
+		})
+
 		Context("snake_case cross-namespace reference", func() {
 			BeforeEach(func() {
 				loader.Add("schemas/task_config", `
@@ -2400,6 +2433,57 @@ var _ = Describe("TS Types Plugin", func() {
 						)
 				},
 			)
+		})
+
+		Context("cross-namespace alias reference", func() {
+			BeforeEach(func() {
+				loader.Add("schemas/common", `
+					@ts output "client/ts/src/common"
+
+					Name = string
+				`)
+			})
+
+			It("Should import the alias's namespace", func(ctx SpecContext) {
+				source := `
+					import "schemas/common"
+
+					@ts output "client/ts/src/task"
+
+					Task struct {
+						key uuid
+						name common.Name
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(`import { common } from "@/common"`, `common.nameZ`)
+			})
+		})
+
+		Context("reference into a namespace with no TS output", func() {
+			BeforeEach(func() {
+				loader.Add("schemas/common", `
+					Info struct {
+						key uuid
+					}
+				`)
+			})
+
+			It("Should import the namespace by its name", func(ctx SpecContext) {
+				source := `
+					import "schemas/common"
+
+					@ts output "client/ts/src/task"
+
+					Task struct {
+						key uuid
+						info common.Info
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").ToContain(`common.infoZ`)
+			})
 		})
 
 		Context("same-package cross-namespace reference", func() {

@@ -22,7 +22,7 @@ const client = createTestClient();
 let proj: project.Project;
 
 beforeAll(async () => {
-  proj = await client.projects.create({ name: uniqueName("project"), layout: {} });
+  proj = await client.projects.create({ name: uniqueName("project") });
   await client.connect();
 });
 

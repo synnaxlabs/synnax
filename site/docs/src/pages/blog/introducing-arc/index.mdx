@@ -206,7 +206,7 @@ execute the sequences within a bespoke runtime.
       <th>Instruction</th>
       <th>Target</th>
       <th>Value</th>
-      <th>Go-To</th>
+      <th>Go-to</th>
     </tr>
   </thead>
   <tbody>
@@ -311,8 +311,8 @@ execute the sequences within a bespoke runtime.
 </table>
 
 As it turns out, Excel ended up being so good at its job that it was used as the ground
-launch sequencer for Falcon & Dragon, the first crewed flights off of US soil since the
-space shuttle. Here's why it shined:
+launch sequencer for Falcon and Dragon, the first crewed flights off of US soil since
+the space shuttle. Here's why it shined:
 
 <figure>
   <Image
@@ -490,7 +490,7 @@ is hard and error prone.
 ### Attempt 1.5 -> Embedding a Python interpreter
 
 In February of 2025, we tried to solve problem #2 by embedding a full blown Python
-interpreter directly into the main program that runs the Synnax core. This wasn't just
+interpreter directly into the main program that runs the Synnax Core. This wasn't just
 about automation, we were also working on implementing a calculated channel engine. The
 pitch was compelling: full power of the Python ecosystem without needing to implement
 our own language or runtime.
@@ -763,7 +763,7 @@ next to engineers using our tool.
 
 This post covered the journey up to a key decision. In the next one, I'll get into the
 language design itself. Why did we choose stages and functions? Why use arrow signs like
-`->` and `=>`? How does the arc scheduler handle data integrity and concurrency without
+`->` and `=>`? How does the Arc scheduler handle data integrity and concurrency without
 threads?
 
 If you want to try Arc today, it's available in the latest release of

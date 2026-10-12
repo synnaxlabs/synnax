@@ -58,7 +58,6 @@ describe("Mosaic file drop", () => {
     });
     const proj = await client.projects.create({
       name: uniqueName("project"),
-      layout: {},
     });
     const { wrapper: Console } = await createPanelWrapper({
       client,

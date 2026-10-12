@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "zod/compile";
-
 export { Access } from "@/access";
 export { Aether } from "@/aether";
 export { Alamos } from "@/alamos";
@@ -22,6 +20,7 @@ export { Flux } from "@/flux";
 export { Group } from "@/group";
 export { JSON } from "@/json";
 export { Label } from "@/label";
+export { License } from "@/license";
 export { LinePlot } from "@/lineplot";
 export { Log } from "@/log";
 export { Mosaic } from "@/mosaic";

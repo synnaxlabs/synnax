@@ -22,7 +22,7 @@ const roles = new RoleClients(client);
 
 describe("project toolbar", () => {
   it("should list projects in the tree", async () => {
-    await client.projects.create({ name: uniqueName("project"), layout: {} });
+    await client.projects.create({ name: uniqueName("project") });
     const roots = await client.ontology.children.retrieve({ ids: ontology.ROOT_ID });
     const projectsGroup = roots.find((r) => r.name === "Projects");
     if (projectsGroup == null) throw new Error("Projects group not found");
