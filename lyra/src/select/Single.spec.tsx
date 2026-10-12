@@ -12,6 +12,7 @@ import { useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { renderProp } from "@/component/renderProp";
+import { Haul } from "@/haul";
 import { Input } from "@/input";
 import { List } from "@/list";
 import { Select } from "@/select";
@@ -341,6 +342,73 @@ describe("Select.Single", () => {
       const c = render(<SelectSingle preview />);
       fireEvent.click(c.getByText("None"));
       expect(c.queryByText("First Item Option")).toBeNull();
+    });
+  });
+
+  describe("drag", () => {
+    const HAUL_TYPE = "test-item";
+
+    const renderPair = (
+      singleProps: Partial<Select.SingleProps<string, TestEntry>> = {},
+    ) => {
+      const onSingleChange = vi.fn();
+      const onMultipleChange = vi.fn();
+      const Pair = () => {
+        const { data, getItem } = List.useStaticData<string, TestEntry>({
+          data: testData,
+        });
+        return (
+          <Haul.Provider>
+            <Select.Single<string, TestEntry>
+              getItem={getItem}
+              data={data}
+              value="2"
+              onChange={onSingleChange}
+              resourceName="Source"
+              haulType={HAUL_TYPE}
+              {...singleProps}
+            >
+              {listItemRenderProp}
+            </Select.Single>
+            <Select.Multiple<string, TestEntry>
+              getItem={getItem}
+              data={data}
+              value={[]}
+              onChange={onMultipleChange}
+              resourceName="Target"
+              haulType={HAUL_TYPE}
+            >
+              {listItemRenderProp}
+            </Select.Multiple>
+          </Haul.Provider>
+        );
+      };
+      const c = render(<Pair />);
+      const source = c.getByRole("button", { name: /^Source/ });
+      const target = c.getByRole("button", { name: "Targets" });
+      return { source, target, onSingleChange, onMultipleChange };
+    };
+
+    it("should copy the selection into a select it is dropped on", () => {
+      const { source, target, onSingleChange, onMultipleChange } = renderPair();
+      expect(source.draggable).toBe(true);
+      fireEvent.dragStart(source);
+      fireEvent.drop(target);
+      expect(onMultipleChange).toHaveBeenCalledWith(["2"], expect.anything());
+      expect(onSingleChange).not.toHaveBeenCalled();
+    });
+
+    it("should not be draggable while disabled", () => {
+      const { source } = renderPair({ disabled: true });
+      expect(source.draggable).toBe(false);
+    });
+
+    it("should not drag a selected key with no entry", () => {
+      const { source, target, onMultipleChange } = renderPair({ value: "0" });
+      expect(source.draggable).toBe(false);
+      fireEvent.dragStart(source);
+      fireEvent.drop(target);
+      expect(onMultipleChange).not.toHaveBeenCalled();
     });
   });
 });
