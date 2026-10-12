@@ -14,6 +14,7 @@ import (
 	"maps"
 	"slices"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
@@ -249,6 +250,9 @@ func frozenFile(
 	if err != nil {
 		return plugin.File{}, err
 	}
+	if err = withLiveValidation(ctx, req, table, ns, livePath, f.Chain, k); err != nil {
+		return plugin.File{}, err
+	}
 	pred := predecessor{}
 	if prev, has := f.Chain.Predecessor(k); has {
 		pred = predecessor{
@@ -296,6 +300,59 @@ func frozenFile(
 		return plugin.File{}, errors.Wrapf(err, "frozen package %s", vkPath)
 	}
 	return plugin.File{Path: vkPath + "/" + fileName, Content: content}, nil
+}
+
+// withLiveValidation copies the live file's @validate rules onto the version k types
+// that the chain's current version aliases. The current package's alias is the frozen
+// type, so the frozen Validate is the one the live surface runs.
+func withLiveValidation(
+	ctx context.Context,
+	req *plugin.Request,
+	table *resolution.Table,
+	ns, livePath string,
+	chain versions.Chain,
+	k int,
+) error {
+	surf, err := req.Versions.Surface(ctx, livePath, chain.Current())
+	if err != nil {
+		return err
+	}
+	for i := range table.Types {
+		t := &table.Types[i]
+		if t.Namespace != ns {
+			continue
+		}
+		if def, ok := surf[t.Name]; !ok || def.Version != k {
+			continue
+		}
+		form, isStruct := t.Form.(resolution.StructForm)
+		live, hasLive := liveType(req, livePath, t.Name)
+		if !isStruct || !hasLive {
+			continue
+		}
+		liveForm, ok := live.Form.(resolution.StructForm)
+		if !ok {
+			continue
+		}
+		fields := slices.Clone(form.Fields)
+		for j := range fields {
+			lf, _ := lo.Find(liveForm.Fields, func(f resolution.Field) bool {
+				return f.Name == fields[j].Name
+			})
+			rules, hasRules := lf.Domains["validate"]
+			if !hasRules {
+				continue
+			}
+			fields[j].Domains = maps.Clone(fields[j].Domains)
+			if fields[j].Domains == nil {
+				fields[j].Domains = make(map[string]resolution.Domain, 1)
+			}
+			fields[j].Domains["validate"] = rules
+		}
+		form.Fields = fields
+		t.Form = form
+	}
+	return nil
 }
 
 // annotateOutputs assigns a @go output to every namespaced type in a frozen emission
