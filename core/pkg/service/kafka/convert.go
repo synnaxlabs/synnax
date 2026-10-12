@@ -109,7 +109,19 @@ func readSample(
 		return s, nil
 	case telem.JSONT:
 		return raw, nil
-	case telem.UUIDT, telem.BytesT:
+	case telem.UUIDT:
+		s, ok := raw.(string)
+		if !ok {
+			return nil, errors.Wrapf(
+				validate.ErrValidation, "expected a UUID string, got %T", raw,
+			)
+		}
+		id, err := uuid.Parse(s)
+		if err != nil {
+			return nil, errors.Wrapf(validate.ErrValidation, "invalid UUID %q", s)
+		}
+		return id, nil
+	case telem.BytesT:
 		return nil, errors.Wrapf(validate.ErrValidation, "unsupported data type %s", dt)
 	}
 	switch v := raw.(type) {
@@ -176,13 +188,16 @@ func writeSample(s telem.Series, i int, ch WriteChannel) (any, error) {
 		}
 		return formatTimestamp(s.ValueAt[telem.TimeStamp](i), *ch.TimeFormat)
 	}
-	if s.DataType.IsVariable() {
+	if s.DataType.IsVariable() || s.DataType == telem.UUIDT {
 		if ch.JSONType != http.JSONTypeString {
 			return nil, errors.Wrapf(
 				validate.ErrValidation,
 				"data type %s only serializes as a string",
 				s.DataType,
 			)
+		}
+		if s.DataType == telem.UUIDT {
+			return uuid.UUID(s.At(i)).String(), nil
 		}
 		return string(s.At(i)), nil
 	}

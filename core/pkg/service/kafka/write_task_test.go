@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/json/v2"
 	"time"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -37,6 +38,7 @@ var _ = Describe("Write task", func() {
 		unixMs    = http.TimeFormatUnixMs
 		isoFormat = http.TimeFormatISO8601
 		onOff     = []http.EnumEntry{{Label: "OFF", Value: 0}, {Label: "ON", Value: 1}}
+		writeUUID = uuid.MustParse("6f1c2a4e-8d3b-4f5a-9c7e-2b1d0e3f4a5b")
 	)
 	BeforeEach(func() { f = newFactory() })
 
@@ -294,6 +296,9 @@ var _ = Describe("Write task", func() {
 		Entry("a string",
 			telem.StringT, telem.NewSeriesV("hi"),
 			kafka.WriteChannel{JSONType: http.JSONTypeString}, "hi"),
+		Entry("a UUID",
+			telem.UUIDT, telem.NewSeriesV(writeUUID),
+			kafka.WriteChannel{JSONType: http.JSONTypeString}, writeUUID.String()),
 	)
 
 	DescribeTable("Should report a sample that does not serialize",
@@ -319,6 +324,9 @@ var _ = Describe("Write task", func() {
 			"no enum label for value 5"),
 		Entry("a string as a number",
 			telem.StringT, telem.NewSeriesV("hi"), kafka.WriteChannel{},
+			"only serializes as a string"),
+		Entry("a UUID as a number",
+			telem.UUIDT, telem.NewSeriesV(writeUUID), kafka.WriteChannel{},
 			"only serializes as a string"),
 	)
 

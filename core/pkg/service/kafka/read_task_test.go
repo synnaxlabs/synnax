@@ -12,6 +12,7 @@ package kafka_test
 import (
 	"context"
 	"time"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -405,6 +406,7 @@ var _ = Describe("Read task", func() {
 	)
 
 	onOff := []http.EnumEntry{{Label: "OFF", Value: 0}, {Label: "ON", Value: 1}}
+	readUUID := uuid.MustParse("6f1c2a4e-8d3b-4f5a-9c7e-2b1d0e3f4a5b")
 
 	// valueFields reads the timestamp at /ts in format and the value at /v.
 	valueFields := func(
@@ -474,6 +476,10 @@ var _ = Describe("Read task", func() {
 		Entry("a string",
 			telem.StringT, http.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": "hello"}, telem.NewSeriesV("hello")),
+		Entry("a UUID",
+			telem.UUIDT, http.TimeFormatUnixNs, nil,
+			map[string]any{"ts": 10e9, "v": readUUID.String()},
+			telem.NewSeriesV(readUUID)),
 	)
 
 	DescribeTable("Should skip a record whose value does not convert",
@@ -521,6 +527,12 @@ var _ = Describe("Read task", func() {
 		Entry("a number where a string is expected",
 			telem.StringT, http.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": 1}, "expected a string"),
+		Entry("a number where a UUID is expected",
+			telem.UUIDT, http.TimeFormatUnixNs, nil,
+			map[string]any{"ts": 10e9, "v": 1}, "expected a UUID string"),
+		Entry("a malformed UUID",
+			telem.UUIDT, http.TimeFormatUnixNs, nil,
+			map[string]any{"ts": 10e9, "v": "not-a-uuid"}, "invalid UUID"),
 	)
 
 	DescribeTable("Should reject an invalid config",

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, type http, kafka, type task } from "@synnaxlabs/client";
-import { json, record } from "@synnaxlabs/x";
+import { type CrudeDataType, DataType, json, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Task } from "@/platform/task";
@@ -95,3 +95,9 @@ export const SCAN_SCHEMAS = {
   config: record.nullishToEmpty(),
   statusData: z.unknown().optional(),
 } as const satisfies task.Schemas;
+
+/** Whether a value of the data type travels as a JSON string. */
+export const isString = (dataType: CrudeDataType): boolean => {
+  const dt = new DataType(dataType);
+  return dt.isVariable || dt.equals(DataType.UUID);
+};

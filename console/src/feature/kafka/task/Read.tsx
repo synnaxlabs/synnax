@@ -32,6 +32,7 @@ import * as Device from "@/feature/kafka/device/types";
 import { TimeFormatField } from "@/feature/kafka/task/TimeFormatField";
 import {
   deployReadConfigZ,
+  isString,
   READ_SCHEMAS,
   READ_TYPE,
   type ReadField,
@@ -163,7 +164,7 @@ const FieldListItem = (props: Task.ChannelListItemProps) => {
 
 const listItem = Component.renderProp(FieldListItem);
 
-const HIDDEN_DATA_TYPES = [DataType.UUID, DataType.BYTES];
+const HIDDEN_DATA_TYPES = [DataType.BYTES];
 
 const renderSelectDataType = Component.renderProp((p: Telem.SelectDataTypeProps) => (
   <Telem.SelectDataType {...p} hideDataTypes={HIDDEN_DATA_TYPES} location="bottom" />
@@ -216,7 +217,7 @@ const FieldDetails = ({ path }: Task.Views.DetailsProps) => {
   const bound = key !== 0;
   const isTimestamp = DataType.TIMESTAMP.equals(dataType);
   // Labels map to numbers, so only a numeric field takes an enum mapping.
-  const enumerable = !isTimestamp && !new DataType(dataType).isVariable;
+  const enumerable = !isTimestamp && !isString(dataType);
   return (
     <PForm.Sections className={CSS.B("kafka-details")}>
       <PForm.Section title="Field">

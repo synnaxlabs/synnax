@@ -99,4 +99,17 @@ describe("Kafka Task Types", () => {
       expect(result.error?.issues[0].message).toBe("Value pointer is required");
     });
   });
+
+  describe("isString", () => {
+    it.each(["string", "json", "uuid"])("should send %s as a string", (dt) => {
+      expect(Kafka.Task.isString(dt)).toBe(true);
+    });
+
+    it.each(["float64", "uint8", "timestamp"])(
+      "should not send %s as a string",
+      (dt) => {
+        expect(Kafka.Task.isString(dt)).toBe(false);
+      },
+    );
+  });
 });

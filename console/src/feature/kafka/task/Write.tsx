@@ -28,6 +28,7 @@ import {
 } from "@/feature/kafka/task/TimeFormatField";
 import {
   deployWriteConfigZ,
+  isString,
   type RecordKey,
   type TimeFormat,
   WRITE_SCHEMAS,
@@ -196,15 +197,16 @@ const ChannelDetails = ({ path }: Task.Views.DetailsProps) => {
   const query = useMemo(() => (primitive.isNonZero(key) ? { key } : null), [key]);
   const { data: dataType } = PChannel.useResultDataType(query);
   const isTimestamp = dataType != null && DataType.TIMESTAMP.equals(dataType);
-  // A string or JSON channel always goes out as a string, so it has no JSON type.
-  const isVariable = dataType != null && new DataType(dataType).isVariable;
+  // A string, JSON, or UUID channel always goes out as a string, so it has no JSON
+  // type.
+  const stringOnly = dataType != null && isString(dataType);
   return (
     <PForm.Sections className={CSS.B("kafka-details")}>
       <PForm.Section title="Channel">
         <PForm.Field<channel.Key> path={`${path}.channel`} label="Channel" required>
           {renderSelectChannel}
         </PForm.Field>
-        {!isVariable && (
+        {!stringOnly && (
           <PForm.Field<string>
             path={`${path}.jsonType`}
             label="JSON type"
@@ -217,7 +219,7 @@ const ChannelDetails = ({ path }: Task.Views.DetailsProps) => {
           <TimeFormatField path={`${path}.timeFormat`} label="Time format" />
         )}
       </PForm.Section>
-      {jsonType === "string" && !isVariable && (
+      {jsonType === "string" && !stringOnly && (
         <PForm.Section title="Enum mapping">
           <PlatformForm.KeyValueEditor
             path={`${path}.enumValues`}
@@ -281,8 +283,8 @@ const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
 };
 
 /**
- * A cleared pointer is omitted from the record instead of placed at "". A string or
- * JSON channel goes out as a string, whatever JSON type the form holds.
+ * A cleared pointer is omitted from the record instead of placed at "". A string,
+ * JSON, or UUID channel goes out as a string, whatever JSON type the form holds.
  */
 const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
@@ -295,9 +297,9 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   const chs = await client.channels.retrieve(
     config.channels.map((c) => c.channel).filter((k) => k !== 0),
   );
-  const variable = new Set(chs.filter((c) => c.dataType.isVariable).map((c) => c.key));
+  const stringOnly = new Set(chs.filter((c) => isString(c.dataType)).map((c) => c.key));
   config.channels.forEach((c) => {
-    if (variable.has(c.channel)) c.jsonType = "string";
+    if (stringOnly.has(c.channel)) c.jsonType = "string";
   });
   if (config.record.channelPointer === "") delete config.record.channelPointer;
   if (config.record.timestampPointer === "") delete config.record.timestampPointer;
