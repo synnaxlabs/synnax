@@ -12,11 +12,12 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import "@/styles/release-diagrams.css";
+import { releaseAnchor } from "@/util/releaseNotes";
 const { date, version, title, breakingChanges, npmVersion = version } = Astro.props;
 const firstPart = version.split(".").slice(0, 2).join(".");
 ---
 
-<Flex.Box direction="x" id={version.split(".").join("-")} className="release" empty>
+<Flex.Box direction="x" id={releaseAnchor(version)} className="release" empty>
     <Flex.Box direction="y" className="meta" align="start" gap="large">
         <Flex.Box direction="y" empty>
             <Text.Text level="h3" weight={500}>
