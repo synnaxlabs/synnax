@@ -11,6 +11,7 @@ import "@/platform/range/Select.css";
 
 import { ranger } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
+import { type Dialog } from "@synnaxlabs/lyra/dialog";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
@@ -140,6 +141,10 @@ const SelectMultipleRanges = (props: SelectMultipleRangesProps): ReactElement =>
   );
 };
 
+const singleDialogProps: Dialog.FrameProps = {
+  className: CSS.BE("range-select", "single-dialog"),
+};
+
 const singleTriggerProps: Select.SingleTriggerProps = {
   renderIcon: (range) =>
     (range as Resolved | undefined)?.variant === "dynamic" ? (
@@ -159,6 +164,7 @@ const SelectSingleRange = (props: SelectSingleRangeProps): ReactElement => {
     <Select.Single<string, Resolved | undefined>
       icon={<Icon.Range />}
       triggerProps={singleTriggerProps}
+      dialogProps={singleDialogProps}
       onFetchMore={fetchMore}
       onSearch={search}
       {...props}
