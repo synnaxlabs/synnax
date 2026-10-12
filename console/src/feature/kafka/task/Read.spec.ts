@@ -21,7 +21,6 @@ import {
   type RenderTaskFormTabOptions,
   selectFromDropdown,
 } from "@/platform/task/testutil";
-import { getIconButton } from "@/testutil";
 
 const client = createTestClient();
 
@@ -53,37 +52,60 @@ const createField = (
   ...overrides,
 });
 
+const createRecord = (
+  key: string,
+  fields: Kafka.Task.ReadField[],
+  overrides: Partial<Kafka.Task.ReadRecord> = {},
+): Kafka.Task.ReadRecord => ({
+  ...kafka.readRecordZ.parse({}),
+  key,
+  fields,
+  ...overrides,
+});
+
 const commitPointer = (value: string): void => {
   const input = screen.getByPlaceholderText("/temperature");
   fireEvent.change(input, { target: { value } });
   fireEvent.blur(input);
 };
 
+/** Renders a draft with one record that reads any key, and adds a field to it. */
+const renderWithField = async () => {
+  const dev = await createKafkaDevice(client);
+  const draft = await createDraft(client, {
+    ...Kafka.Task.READ_SCHEMAS.config.parse({}),
+    device: dev.key,
+    records: [createRecord("r", [])],
+  });
+  await renderRead({ client, taskKey: draft.key });
+  await screen.findByText(dev.name);
+  fireEvent.click((await screen.findAllByRole("button", { name: "Add field" }))[0]);
+  await screen.findByPlaceholderText("/temperature");
+};
+
 describe("Read", () => {
-  it("should add a field, edit its pointer, and show the enum mapping editor", async () => {
+  it("should add a record that reads any key", async () => {
     const dev = await createKafkaDevice(client);
     const draft = await createDraft(client, {
       ...Kafka.Task.READ_SCHEMAS.config.parse({}),
       device: dev.key,
     });
-    const { container } = await renderRead({ client, taskKey: draft.key });
+    await renderRead({ client, taskKey: draft.key });
     await screen.findByText(dev.name);
-    fireEvent.click(getIconButton(container, "add"));
-    await screen.findByPlaceholderText("/temperature");
+    fireEvent.click(await screen.findByRole("button", { name: "Add record" }));
+    await screen.findByPlaceholderText("Any key");
+    expect(screen.getAllByText("Any key").length).toBeGreaterThan(0);
+  });
+
+  it("should add a field, edit its pointer, and show the enum mapping editor", async () => {
+    await renderWithField();
     await screen.findByText("Enum mapping");
     commitPointer("/payload/temp");
     await waitFor(() => expect(screen.getAllByText("/payload/temp")).toHaveLength(2));
   });
 
   it("should hide the enum mapping and show the time format for a timestamp field", async () => {
-    const dev = await createKafkaDevice(client);
-    const draft = await createDraft(client, {
-      ...Kafka.Task.READ_SCHEMAS.config.parse({}),
-      device: dev.key,
-    });
-    const { container } = await renderRead({ client, taskKey: draft.key });
-    await screen.findByText(dev.name);
-    fireEvent.click(getIconButton(container, "add"));
+    await renderWithField();
     await screen.findByText("Enum mapping");
     await selectFromDropdown("float64", "Timestamp");
     await screen.findByText("Time format");
@@ -91,29 +113,48 @@ describe("Read", () => {
   });
 
   it("should offer the string type and hide the enum mapping for it", async () => {
-    const dev = await createKafkaDevice(client);
-    const draft = await createDraft(client, {
-      ...Kafka.Task.READ_SCHEMAS.config.parse({}),
-      device: dev.key,
-    });
-    const { container } = await renderRead({ client, taskKey: draft.key });
-    await screen.findByText(dev.name);
-    fireEvent.click(getIconButton(container, "add"));
+    await renderWithField();
     await screen.findByText("Enum mapping");
     await selectFromDropdown("float64", "String");
     await waitFor(() => expect(screen.queryByText("Enum mapping")).toBeNull());
   });
 
-  it("should create an index per record key and a channel per field on deploy", async () => {
+  it("should stamp a record by a value it carries, hidden from the tree", async () => {
+    const dev = await createKafkaDevice(client);
+    const draft = await createDraft(client, {
+      ...Kafka.Task.READ_SCHEMAS.config.parse({}),
+      device: dev.key,
+      records: [createRecord("r", [])],
+    });
+    await renderRead({ client, taskKey: draft.key });
+    await screen.findByText(dev.name);
+    fireEvent.click(await screen.findByText("Record value"));
+    const pointer = await screen.findByPlaceholderText("/timestamp");
+    expect((pointer as HTMLInputElement).value).toBe("/timestamp");
+    await screen.findByText("Time format");
+    // The index field is edited here, never listed as a field of the record.
+    expect(screen.queryByText("New field")).toBeNull();
+    expect(screen.queryByText("/timestamp")).toBeNull();
+    fireEvent.click(screen.getByText("Arrival time"));
+    await waitFor(() => expect(screen.queryByPlaceholderText("/timestamp")).toBeNull());
+  });
+
+  it("should create an index per record and a channel per field on deploy", async () => {
     const dev = await createKafkaDevice(client);
     const draft = await createDraft(client, {
       ...Kafka.Task.READ_SCHEMAS.config.parse({}),
       device: dev.key,
       topic: "readings",
-      fields: [
-        createField("ts", "/ts", { dataType: "timestamp", timeFormat: "unix_ms" }),
-        createField("temp", "/temp", { name: "kafka_temp" }),
-        createField("rpm", "/rpm", { recordKey: "motor" }),
+      records: [
+        createRecord(
+          "any",
+          [
+            createField("ts", "/ts", { dataType: "timestamp", timeFormat: "unix_ms" }),
+            createField("temp", "/temp", { name: "kafka_temp" }),
+          ],
+          { index: "ts" },
+        ),
+        createRecord("motor", [createField("rpm", "/rpm")], { recordKey: "motor" }),
       ],
     });
     const { container } = await renderRead({ client, taskKey: draft.key });
@@ -125,10 +166,9 @@ describe("Read", () => {
       Kafka.Task.READ_SCHEMAS,
     );
     expect(created.rack).toBe(dev.rack);
-    const [ts, temp, rpm] = created.config.fields;
-    expect(ts.channel).not.toBe(0);
-    expect(temp.channel).not.toBe(0);
-    expect(rpm.channel).not.toBe(0);
+    const [any, motor] = created.config.records;
+    const [ts, temp] = any.fields;
+    const [rpm] = motor.fields;
 
     const index = await client.channels.retrieve(ts.channel);
     expect(index.isIndex).toBe(true);
@@ -139,8 +179,7 @@ describe("Read", () => {
     expect(tempCh.dataType.toString()).toBe("float64");
 
     const rpmCh = await client.channels.retrieve(rpm.channel);
-    expect(rpmCh.name).toBe(`${dev.name}_rpm`);
-    expect(rpmCh.index).not.toBe(index.key);
+    expect(rpmCh.name).toBe(`${dev.name}_motor_rpm`);
     const motorIndex = await client.channels.retrieve(rpmCh.index);
     expect(motorIndex.isIndex).toBe(true);
     expect(motorIndex.name).toBe(`${dev.name}_motor_time`);
@@ -162,9 +201,11 @@ describe("Read", () => {
       ...Kafka.Task.READ_SCHEMAS.config.parse({}),
       device: dev.key,
       topic: "readings",
-      fields: [
-        createField("a", "/a", { channel: existing.key }),
-        createField("b", "/b"),
+      records: [
+        createRecord("r", [
+          createField("a", "/a", { channel: existing.key }),
+          createField("b", "/b"),
+        ]),
       ],
     });
     const { container } = await renderRead({ client, taskKey: draft.key });
@@ -175,7 +216,7 @@ describe("Read", () => {
       draft.key,
       Kafka.Task.READ_SCHEMAS,
     );
-    const [a, b] = created.config.fields;
+    const [a, b] = created.config.records[0].fields;
     expect(a.channel).toBe(existing.key);
     const bCh = await client.channels.retrieve(b.channel);
     expect(bCh.index).toBe(index.key);

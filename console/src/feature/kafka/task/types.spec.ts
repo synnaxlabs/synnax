@@ -30,15 +30,17 @@ describe("Kafka Task Types", () => {
       const config = Kafka.Task.READ_SCHEMAS.config.parse({
         device: "dev",
         topic: "t",
-        fields: [field],
+        records: [{ key: "r", fields: [field] }],
       });
       expect(config.startOffset).toBe("latest");
-      expect(config.fields[0].recordKey).toBe("");
+      expect(config.records[0].recordKey).toBe("");
+      expect(config.records[0].index).toBe("");
     });
   });
 
   describe("deployReadConfigZ", () => {
-    const valid = { device: "dev", topic: "t", fields: [field] };
+    const record = { key: "r", fields: [field] };
+    const valid = { device: "dev", topic: "t", records: [record] };
 
     it("should accept a complete config", () => {
       expect(Kafka.Task.deployReadConfigZ.safeParse(valid).success).toBe(true);
@@ -53,7 +55,7 @@ describe("Kafka Task Types", () => {
     it("should reject a field without a pointer", () => {
       const result = Kafka.Task.deployReadConfigZ.safeParse({
         ...valid,
-        fields: [{ ...field, pointer: "" }],
+        records: [{ ...record, fields: [{ ...field, pointer: "" }] }],
       });
       expect(result.success).toBe(false);
       expect(result.error?.issues[0].message).toBe("Pointer is required");
@@ -62,12 +64,28 @@ describe("Kafka Task Types", () => {
     it("should reject a config with every field disabled", () => {
       const result = Kafka.Task.deployReadConfigZ.safeParse({
         ...valid,
-        fields: [{ ...field, disabled: true }],
+        records: [{ ...record, fields: [{ ...field, disabled: true }] }],
       });
       expect(result.success).toBe(false);
       expect(result.error?.issues[0].message).toBe(
         "At least one field must be enabled",
       );
+    });
+
+    it.each([
+      ["", "Only one record can read any key"],
+      ["pump", 'Record key "pump" is used by another record'],
+    ])("should reject two records with the key %j", (recordKey, message) => {
+      const result = Kafka.Task.deployReadConfigZ.safeParse({
+        ...valid,
+        records: [
+          { ...record, recordKey },
+          { ...record, key: "r2", recordKey },
+        ],
+      });
+      expect(result.success).toBe(false);
+      expect(result.error?.issues[0].message).toBe(message);
+      expect(result.error?.issues[0].path).toEqual(["records", 1, "recordKey"]);
     });
   });
 

@@ -36,6 +36,7 @@ import {
   READ_SCHEMAS,
   READ_TYPE,
   type ReadField,
+  type ReadRecord,
   type ReadSchemas,
   type StartOffset,
 } from "@/feature/kafka/task/types";
@@ -99,70 +100,14 @@ const TOPIC_INPUT_PROPS = { placeholder: "sensor-readings" } as const;
 const GROUP_INPUT_PROPS = { placeholder: "Derived from the task" } as const;
 
 /** The name configure gives a field's channel when the field carries none. */
-const defaultChannelName = (devName: string, pointer: string): string =>
-  channel.escapeInvalidName(devName) + channel.escapeInvalidName(pointer);
+const defaultChannelName = (devName: string, recordKey: string, pointer: string) =>
+  channel.escapeInvalidName(devName) +
+  (recordKey === "" ? "" : `_${channel.escapeInvalidName(recordKey)}`) +
+  channel.escapeInvalidName(pointer);
 
-const useDefaultChannelName = (pointer: string): string => {
-  const dev = useFromConfig();
-  return dev == null ? "" : defaultChannelName(dev.name, pointer);
-};
-
-const FieldListItem = (props: Task.ChannelListItemProps) => {
-  const { itemKey } = props;
-  const path = `config.fields.${itemKey}`;
-  const {
-    pointer,
-    recordKey,
-    channel: key,
-    disabled,
-  } = PForm.useFieldValue<ReadField>(path);
-  const defaultName = useDefaultChannelName(pointer);
-  return (
-    <Select.Item
-      {...props}
-      justify="between"
-      align="center"
-      x
-      className={CSS.cls(CSS.B("kafka-item"), disabled && CSS.M("off"))}
-    >
-      <Flex.Box x align="center" gap="small" className={CSS.BE("kafka-item", "label")}>
-        <Text.Text
-          level="p"
-          weight={500}
-          color={pointer === "" ? 8 : 10}
-          overflow="ellipsis"
-        >
-          {pointer === "" ? "New field" : pointer}
-        </Text.Text>
-        {recordKey !== "" && (
-          <Text.Text level="small" color={9}>
-            key={recordKey}
-          </Text.Text>
-        )}
-      </Flex.Box>
-      <Flex.Box
-        x
-        align="center"
-        gap="small"
-        className={CSS.BE("kafka-item", "channel")}
-      >
-        <Task.ChannelName
-          channel={key}
-          namePath={`${path}.name`}
-          defaultName={defaultName}
-          id={Task.getChannelNameID(itemKey)}
-          level="small"
-          weight={450}
-          color={9}
-          overflow="ellipsis"
-        />
-        <Task.EnabledCheckbox path={`${path}.disabled`} />
-      </Flex.Box>
-    </Select.Item>
-  );
-};
-
-const listItem = Component.renderProp(FieldListItem);
+/** The name configure gives a record's index channel when it carries none. */
+const defaultIndexName = (devName: string, recordKey: string) =>
+  defaultChannelName(devName, recordKey, "_time");
 
 const HIDDEN_DATA_TYPES = [DataType.BYTES];
 
@@ -170,13 +115,17 @@ const renderSelectDataType = Component.renderProp((p: Telem.SelectDataTypeProps)
   <Telem.SelectDataType {...p} hideDataTypes={HIDDEN_DATA_TYPES} location="bottom" />
 ));
 
+interface ChannelNameFieldProps {
+  path: string;
+  defaultName: string;
+}
+
 /**
  * Names a field's channel. Until configure creates the channel, the name lives on the
  * field; after, an edit renames the channel itself.
  */
-const ChannelNameField = ({ path }: { path: string }) => {
-  const { channel: key, pointer } = PForm.useFieldValue<ReadField>(path);
-  const defaultName = useDefaultChannelName(pointer);
+const ChannelNameField = ({ path, defaultName }: ChannelNameFieldProps) => {
+  const key = PForm.useFieldValue<channel.Key>(`${path}.channel`);
   if (key === 0)
     return (
       <PForm.TextField
@@ -212,8 +161,107 @@ const ExistingChannelNameField = ({ channel: key }: { channel: channel.Key }) =>
   );
 };
 
-const FieldDetails = ({ path }: Task.Views.DetailsProps) => {
-  const { channel: key, dataType } = PForm.useFieldValue<ReadField>(path);
+const RecordLabel = ({ path }: Task.Views.GroupProps) => {
+  const recordKey = PForm.useFieldValue<string>(`${path}.recordKey`);
+  return (
+    <Text.Text
+      level="p"
+      weight={500}
+      color={recordKey === "" ? 9 : 10}
+      variant={recordKey === "" ? undefined : "code"}
+      overflow="ellipsis"
+    >
+      {recordKey === "" ? "Any key" : recordKey}
+    </Text.Text>
+  );
+};
+
+type TimingMode = "arrival" | "value";
+
+/** Picks how a record's samples are stamped: on arrival, or by a value it carries. */
+const TimestampFields = ({ path }: { path: string }) => {
+  const { set } = PForm.useContext();
+  const { index, fields, recordKey } = PForm.useFieldValue<ReadRecord>(path);
+  const indexField = fields.find((f) => f.key === index);
+  const dev = useFromConfig();
+  const handleChange = useCallback(
+    (mode: TimingMode) => {
+      if (mode === "value" && indexField == null) {
+        const field: ReadField = {
+          ...kafka.readFieldZ.parse({}),
+          key: id.create(),
+          pointer: "/timestamp",
+          dataType: DataType.TIMESTAMP.toString(),
+          timeFormat: "unix_sec",
+        };
+        set(`${path}.fields`, [...fields, field]);
+        set(`${path}.index`, field.key);
+      } else if (mode === "arrival" && indexField != null) {
+        set(
+          `${path}.fields`,
+          fields.filter((f) => f.key !== index),
+        );
+        set(`${path}.index`, "");
+      }
+    },
+    [fields, index, indexField, path, set],
+  );
+  const fieldPath = `${path}.fields.${indexField?.key}`;
+  return (
+    <>
+      <Input.Item label="Source" padHelpText={false}>
+        <Select.Buttons<TimingMode>
+          value={indexField == null ? "arrival" : "value"}
+          onChange={handleChange}
+        >
+          <Select.Item<TimingMode> itemKey="arrival">Arrival time</Select.Item>
+          <Select.Item<TimingMode> itemKey="value">Record value</Select.Item>
+        </Select.Buttons>
+      </Input.Item>
+      {indexField != null && (
+        <>
+          <PForm.TextField
+            path={`${fieldPath}.pointer`}
+            label="Pointer"
+            padHelpText={false}
+            inputProps={TIMESTAMP_POINTER_INPUT_PROPS}
+          />
+          <TimeFormatField path={`${fieldPath}.timeFormat`} label="Time format" />
+          <ChannelNameField
+            path={fieldPath}
+            defaultName={dev == null ? "" : defaultIndexName(dev.name, recordKey)}
+          />
+        </>
+      )}
+    </>
+  );
+};
+
+const TIMESTAMP_POINTER_INPUT_PROPS = { placeholder: "/timestamp" } as const;
+
+const RecordDetails = ({ path }: Task.Views.GroupProps) => (
+  <PForm.Sections className={CSS.B("kafka-details")}>
+    <PForm.Section title="Record">
+      <PForm.TextField
+        path={`${path}.recordKey`}
+        label="Record key"
+        optional
+        padHelpText={false}
+        inputProps={RECORD_KEY_INPUT_PROPS}
+      />
+    </PForm.Section>
+    <PForm.Section title="Timestamp">
+      <TimestampFields path={path} />
+    </PForm.Section>
+  </PForm.Sections>
+);
+
+const RECORD_KEY_INPUT_PROPS = { placeholder: "Any key" } as const;
+
+const FieldDetails = ({ groupKey, path }: Task.Views.FieldProps) => {
+  const { channel: key, dataType, pointer } = PForm.useFieldValue<ReadField>(path);
+  const recordKey = PForm.useFieldValue<string>(`config.records.${groupKey}.recordKey`);
+  const dev = useFromConfig();
   const bound = key !== 0;
   const isTimestamp = DataType.TIMESTAMP.equals(dataType);
   // Labels map to numbers, so only a numeric field takes an enum mapping.
@@ -227,13 +275,6 @@ const FieldDetails = ({ path }: Task.Views.DetailsProps) => {
           padHelpText={false}
           inputProps={POINTER_INPUT_PROPS}
         />
-        <PForm.TextField
-          path={`${path}.recordKey`}
-          label="Record key"
-          optional
-          padHelpText={false}
-          inputProps={RECORD_KEY_INPUT_PROPS}
-        />
         <PForm.Field<string>
           path={`${path}.dataType`}
           label="Data type"
@@ -245,7 +286,12 @@ const FieldDetails = ({ path }: Task.Views.DetailsProps) => {
         {isTimestamp && (
           <TimeFormatField path={`${path}.timeFormat`} label="Time format" />
         )}
-        <ChannelNameField path={path} />
+        <ChannelNameField
+          path={path}
+          defaultName={
+            dev == null ? "" : defaultChannelName(dev.name, recordKey, pointer)
+          }
+        />
       </PForm.Section>
       {enumerable && (
         <PForm.Section title="Enum mapping">
@@ -263,43 +309,27 @@ const FieldDetails = ({ path }: Task.Views.DetailsProps) => {
 
 const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
 
-const RECORD_KEY_INPUT_PROPS = { placeholder: "Every record" } as const;
+const recordLabel = Component.renderProp(RecordLabel);
 
-const details = Component.renderProp(FieldDetails);
+const recordDetails = Component.renderProp(RecordDetails);
 
-const FieldTitle = ({ path }: Task.Views.DetailsProps) => {
-  const pointer = PForm.useFieldValue<string>(`${path}.pointer`);
-  return (
-    <Text.Text level="p" weight={500} color={pointer === "" ? 8 : 10}>
-      {pointer === "" ? "New field" : pointer}
-    </Text.Text>
-  );
-};
+const fieldDetails = Component.renderProp(FieldDetails);
 
-const detailsTitle = Component.renderProp(FieldTitle);
+const createRecord = (): Omit<ReadRecord, "key"> => kafka.readRecordZ.parse({});
 
-const createField = (fields: ReadField[], keyToCopy?: string): ReadField => {
-  const source = fields.find((f) => f.key === keyToCopy) ?? fields[fields.length - 1];
-  return {
-    ...(source != null
-      ? { ...source, ...Task.READ_CHANNEL_OVERRIDE }
-      : kafka.readFieldZ.parse({})),
-    key: id.create(),
-  };
-};
-
-/** The device binds no channels: the field keeps the channel configure creates. */
-const resolveNothing = () => null;
+const createField = (): Omit<ReadField, "key"> => kafka.readFieldZ.parse({});
 
 const Form: FC = () => (
-  <Task.Views.ListAndDetails<ReadField>
-    path="config.fields"
-    listItem={listItem}
-    details={details}
-    detailsTitle={detailsTitle}
-    createChannel={createField}
-    contextMenuItems={Task.readChannelContextMenuItem}
-    resolve={resolveNothing}
+  <Task.Views.GroupTree<ReadRecord, ReadField>
+    path="config.records"
+    listTitle="Records"
+    groupName="record"
+    placeholder="Select a record or field to configure"
+    createGroup={createRecord}
+    createField={createField}
+    groupLabel={recordLabel}
+    groupDetails={recordDetails}
+    fieldDetails={fieldDetails}
   />
 );
 
@@ -324,28 +354,17 @@ const retrieveChannel = async (
   }
 };
 
-const isTimestampField = (f: ReadField): boolean =>
-  DataType.TIMESTAMP.equals(f.dataType);
-
 /**
- * Creates the channels the enabled fields lack. Fields sharing a record key form one
- * group on one index: the group's first timestamp field is that index, else an index
- * is created for it and stamped with the receive time.
+ * Creates the channels the enabled fields lack. Each record writes against one index:
+ * its index field's channel when it has one, else an index stamped on arrival.
  */
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({
     key: config.device,
     schemas: Device.SCHEMAS,
   });
-  const safeDevName = channel.escapeInvalidName(dev.name);
-  const groups = new Map<string, ReadField[]>();
-  for (const field of config.fields) {
-    if (field.disabled) continue;
-    const group = groups.get(field.recordKey) ?? [];
-    group.push(field);
-    groups.set(field.recordKey, group);
-  }
-  for (const [recordKey, fields] of groups) {
+  for (const rec of config.records) {
+    const fields = rec.fields.filter((f) => !f.disabled);
     const existing = new Map<string, channel.Channel>();
     for (const field of fields) {
       if (field.channel === 0) continue;
@@ -353,18 +372,17 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       if (ch == null) field.channel = 0;
       else existing.set(field.key, ch);
     }
-    const stamp = fields.find(isTimestampField);
+    if (fields.length === 0) continue;
+    const stamp = fields.find((f) => f.key === rec.index);
     let index = 0;
     for (const ch of existing.values()) {
       index = ch.isIndex ? ch.key : ch.index;
       if (index !== 0) break;
     }
     if (index === 0) {
-      const safeKey =
-        recordKey === "" ? "" : `_${channel.escapeInvalidName(recordKey)}`;
       const name = primitive.isNonZero(stamp?.name)
         ? stamp.name
-        : `${safeDevName}${safeKey}_time`;
+        : defaultIndexName(dev.name, rec.recordKey);
       index = (
         await client.channels.create({ name, dataType: "timestamp", isIndex: true })
       ).key;
@@ -377,7 +395,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       }
       const name = primitive.isNonZero(field.name)
         ? field.name
-        : defaultChannelName(dev.name, field.pointer);
+        : defaultChannelName(dev.name, rec.recordKey, field.pointer);
       const ch = await client.channels.create({
         name,
         dataType: field.dataType,

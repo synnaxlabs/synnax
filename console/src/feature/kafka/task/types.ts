@@ -23,6 +23,8 @@ export const READ_TYPE = `${PREFIX}_read`;
 
 export interface ReadField extends kafka.ReadField {}
 
+export interface ReadRecord extends kafka.ReadRecord {}
+
 export type StartOffset = kafka.StartOffset;
 
 const readConfigZ = kafka.readConfigZ;
@@ -31,15 +33,42 @@ const deployReadFieldZ = kafka.readFieldZ.extend({
   pointer: json.pointerZ.min(1, "Pointer is required"),
 });
 
+const deployReadRecordZ = kafka.readRecordZ.extend({
+  fields: deployReadFieldZ.array().check(Task.validateReadChannels),
+});
+
+/** Flags every record whose key an earlier record already claims. */
+const validateRecordKeys = (ctx: z.core.ParsePayload<ReadRecord[]>) => {
+  const seen = new Set<string>();
+  ctx.value.forEach(({ recordKey }, i) => {
+    if (!seen.has(recordKey)) {
+      seen.add(recordKey);
+      return;
+    }
+    ctx.issues.push({
+      code: "custom",
+      input: ctx.value,
+      message:
+        recordKey === ""
+          ? "Only one record can read any key"
+          : `Record key "${recordKey}" is used by another record`,
+      path: [i, "recordKey"],
+    });
+  });
+};
+
 export const deployReadConfigZ = kafka.readConfigZ.extend({
   device: Task.deviceKeyZ,
   topic: topicZ,
-  fields: deployReadFieldZ
+  records: deployReadRecordZ
     .array()
-    .check(Task.validateReadChannels)
-    .refine((fields) => fields.some(({ disabled }) => !disabled), {
-      message: "At least one field must be enabled",
-    }),
+    .check(validateRecordKeys)
+    .refine(
+      (records) => records.some(({ fields }) => fields.some((f) => !f.disabled)),
+      {
+        message: "At least one field must be enabled",
+      },
+    ),
 });
 
 export const READ_SCHEMAS = {
