@@ -81,12 +81,7 @@ const StaticListItem = Component.renderProp(
 /** Selecting this entry reveals the consumer's custom range controls. */
 export const CUSTOM_KEY = "custom";
 
-const customItem = (
-  <Select.Item itemKey={CUSTOM_KEY}>
-    <Icon.Add />
-    Custom
-  </Select.Item>
-);
+const customItem = <Select.Item itemKey={CUSTOM_KEY}>Custom</Select.Item>;
 
 const listItem = Component.renderProp((props: List.ItemProps<string>) => {
   const range = useResolve(props.itemKey);
