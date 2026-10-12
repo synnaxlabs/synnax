@@ -11,39 +11,41 @@ import { render } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
-import { Triggers } from "@/triggers";
+import { Provider } from "@/triggers/Provider";
+import { Text } from "@/triggers/Text";
+import { type Trigger } from "@/triggers/triggers";
 
-const TAB: Triggers.Trigger = ["Control", "T"];
+const TAB: Trigger = ["Control", "T"];
 
-const reserving = (reserved: Triggers.Trigger[]) => {
+const reserving = (reserved: Trigger[]) => {
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
-    <Triggers.Provider reserved={reserved}>{children}</Triggers.Provider>
+    <Provider reserved={reserved}>{children}</Provider>
   );
   return Wrapper;
 };
 
 describe("Text", () => {
   it("should render the trigger's keycaps", () => {
-    const { container } = render(<Triggers.Text trigger={TAB} />);
+    const { container } = render(<Text trigger={TAB} />);
     expect(container.textContent).toContain("T");
   });
 
   it("should render nothing for a reserved trigger", () => {
-    const { container } = render(<Triggers.Text trigger={TAB} />, {
+    const { container } = render(<Text trigger={TAB} />, {
       wrapper: reserving([["T", "Control"]]),
     });
     expect(container.innerHTML).toBe("");
   });
 
   it("should keep the label of a reserved trigger", () => {
-    const { container } = render(<Triggers.Text trigger={TAB}>New tab</Triggers.Text>, {
+    const { container } = render(<Text trigger={TAB}>New tab</Text>, {
       wrapper: reserving([TAB]),
     });
     expect(container.textContent).toBe("New tab");
   });
 
   it("should render a trigger the provider does not reserve", () => {
-    const { container } = render(<Triggers.Text trigger={["Control", "S"]} />, {
+    const { container } = render(<Text trigger={["Control", "S"]} />, {
       wrapper: reserving([TAB]),
     });
     expect(container.textContent).toContain("S");

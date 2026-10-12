@@ -336,6 +336,27 @@ describe("app/triggers", () => {
     });
   });
 
+  describe("reserved", () => {
+    // Specs run outside Tauri, so the provider holds the browser's reservations.
+    it("should hide the hint for a shortcut the browser keeps", () => {
+      const { container } = render(
+        <PTriggers.Provider {...Triggers.PROVIDER_PROPS}>
+          <PTriggers.Text trigger={["Control", "T"]} />
+        </PTriggers.Provider>,
+      );
+      expect(container.textContent).toBe("");
+    });
+
+    it("should keep the hint for a shortcut the browser passes on", () => {
+      const { container } = render(
+        <PTriggers.Provider {...Triggers.PROVIDER_PROPS}>
+          <PTriggers.Text trigger={["Control", "S"]} />
+        </PTriggers.Provider>,
+      );
+      expect(container.textContent).toContain("S");
+    });
+  });
+
   describe("create tab", () => {
     it("should open a component selector tab in the selected panel", async () => {
       const seed = viewTab();
