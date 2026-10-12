@@ -28,48 +28,6 @@ import (
 )
 
 var _ = Describe("Codec", func() {
-	Describe("ChannelEntry", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v3.ChannelEntry) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v3.ChannelEntry
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", v3.ChannelEntry{
-				Channel: channel.Key(2),
-				Color: color.Color{
-					R: 4,
-					G: 5,
-					B: 6,
-					A: 6.5,
-				},
-				Notation:  notation.Notation("standard"),
-				Precision: 9,
-				Alias:     "test_9",
-				Timestamp: v3.TimestampConfig{
-					Format: telem.TimestampFormat("ISO"),
-					Tz:     telem.TimeZone("local"),
-				},
-			}),
-			Entry("zero values", v3.ChannelEntry{
-				Channel: channel.Key(0),
-				Color: color.Color{
-					R: 0,
-					G: 0,
-					B: 0,
-					A: 0,
-				},
-				Notation:  notation.Notation(""),
-				Precision: 0,
-				Alias:     "",
-				Timestamp: v3.TimestampConfig{Format: telem.TimestampFormat(""), Tz: telem.TimeZone("")},
-			}),
-		)
-	})
 	Describe("Log", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v3.Log) {
@@ -132,38 +90,6 @@ var _ = Describe("Codec", func() {
 	})
 })
 
-func BenchmarkEncodeDecodeChannelEntry(b *testing.B) {
-	seed := v3.ChannelEntry{
-		Channel: channel.Key(2),
-		Color: color.Color{
-			R: 4,
-			G: 5,
-			B: 6,
-			A: 6.5,
-		},
-		Notation:  notation.Notation("standard"),
-		Precision: 9,
-		Alias:     "test_9",
-		Timestamp: v3.TimestampConfig{
-			Format: telem.TimestampFormat("ISO"),
-			Tz:     telem.TimeZone("local"),
-		},
-	}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v3.ChannelEntry
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 func BenchmarkEncodeDecodeLog(b *testing.B) {
 	seed := v3.Log{
 		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -205,72 +131,6 @@ func BenchmarkEncodeDecodeLog(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
-}
-
-func FuzzDecodeChannelEntry(f *testing.F) {
-	{
-		seed := v3.ChannelEntry{
-			Channel: channel.Key(2),
-			Color: color.Color{
-				R: 4,
-				G: 5,
-				B: 6,
-				A: 6.5,
-			},
-			Notation:  notation.Notation("standard"),
-			Precision: 9,
-			Alias:     "test_9",
-			Timestamp: v3.TimestampConfig{
-				Format: telem.TimestampFormat("ISO"),
-				Tz:     telem.TimeZone("local"),
-			},
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v3.ChannelEntry{
-			Channel: channel.Key(0),
-			Color: color.Color{
-				R: 0,
-				G: 0,
-				B: 0,
-				A: 0,
-			},
-			Notation:  notation.Notation(""),
-			Precision: 0,
-			Alias:     "",
-			Timestamp: v3.TimestampConfig{Format: telem.TimestampFormat(""), Tz: telem.TimeZone("")},
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v3.ChannelEntry
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v3.ChannelEntry
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !testutil.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
 }
 
 func FuzzDecodeLog(f *testing.F) {
