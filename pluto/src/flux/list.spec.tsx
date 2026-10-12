@@ -1244,6 +1244,73 @@ describe("list", () => {
       });
     });
 
+    it("should close an item feed when its last reader leaves", async () => {
+      const unsubscribe = vi.fn();
+      const onChangeByKey = vi.fn().mockReturnValue(unsubscribe);
+      const { rerender } = renderHook(
+        ({ key }: { key: number }) => {
+          const { getItem, subscribe } = Flux.createList<
+            {},
+            number,
+            record.Keyed<number>
+          >({
+            name: "Resource",
+            retrieve: async () => [],
+            retrieveByKey: async ({ key }) => ({ key }),
+            onChangeByKey,
+          })();
+          return Flux.useListItem<number, record.Keyed<number>>({
+            subscribe,
+            getItem,
+            key,
+          });
+        },
+        { wrapper, initialProps: { key: 1 } },
+      );
+      await waitFor(() => expect(onChangeByKey).toHaveBeenCalledTimes(1));
+      rerender({ key: 0 });
+      expect(unsubscribe).toHaveBeenCalledTimes(1);
+    });
+
+    it("should keep a read item that leaves a page but still exists", async () => {
+      type Item = record.Keyed<number> & { name: string };
+      let onPage: (items: Item[]) => void = () => {};
+      let onItem: (item: Item) => void = () => {};
+      const { result } = renderHook(
+        () => {
+          const { getItem, subscribe, retrieveAsync } = Flux.createList<
+            {},
+            number,
+            Item
+          >({
+            name: "Resource",
+            retrieve: async () => [{ key: 1, name: "a" }],
+            retrieveByKey: async ({ key }) => ({ key, name: "a" }),
+            onChange: (_, handler) => {
+              onPage = handler;
+              return () => {};
+            },
+            onChangeByKey: (_, handler) => {
+              onItem = handler;
+              return () => {};
+            },
+          })();
+          const value = Flux.useListItem<number, Item>({ subscribe, getItem, key: 1 });
+          return { retrieveAsync, value };
+        },
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.value?.name).toEqual("a"));
+      await act(async () => {
+        await result.current.retrieveAsync({}, { signal: controller.signal });
+      });
+      act(() => {
+        onItem({ key: 1, name: "b" });
+        onPage([]);
+      });
+      expect(result.current.value?.name).toEqual("b");
+    });
+
     it("should re-subscribe on subsequent replace-mode retrieves", async () => {
       const subscribe = vi.fn().mockReturnValue(() => {});
       const retrieve = vi.fn().mockResolvedValue([{ key: 1 }]);
@@ -1427,6 +1494,68 @@ describe("list", () => {
 
       await act(async () => await client.ranges.rename(rng.key, "Test Range 2"));
 
+      await waitFor(() => {
+        expect(result.current.value?.name).toEqual("Test Range 2");
+      });
+    });
+
+    it("should update a read item after a replace retrieve drops it from the pages", async () => {
+      const rng = await client.ranges.create({
+        name: "Test Range",
+        timeRange: new TimeRange({
+          start: TimeSpan.seconds(12),
+          end: TimeSpan.seconds(13),
+        }),
+      });
+      const other = await client.ranges.create({
+        name: "Other Range",
+        timeRange: new TimeRange({
+          start: TimeSpan.seconds(12),
+          end: TimeSpan.seconds(13),
+        }),
+      });
+      const { result, rerender } = renderHook(
+        ({ key }: { key?: ranger.Key }) => {
+          const { getItem, subscribe, retrieveAsync } = Flux.createList<
+            { keys: ranger.Key[] },
+            ranger.Key,
+            ranger.Range
+          >({
+            name: "Resource",
+            retrieve: async ({ client, query }) =>
+              await client.ranges.retrieve({ keys: query.keys }),
+            retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
+            onChange: ({ client, query }, handler) =>
+              client.ranges.onChange({ keys: query.keys }, handler),
+            onChangeByKey: ({ client, key }, handler) =>
+              client.ranges.onChange(key, handler),
+          })();
+          const value = Flux.useListItem<ranger.Key, ranger.Range>({
+            subscribe,
+            getItem,
+            key: key ?? "",
+          });
+          return { retrieveAsync, value };
+        },
+        { wrapper, initialProps: {} },
+      );
+      await act(async () => {
+        await result.current.retrieveAsync(
+          { keys: [rng.key] },
+          { signal: controller.signal },
+        );
+      });
+      rerender({ key: rng.key });
+      await waitFor(() => {
+        expect(result.current.value?.name).toEqual("Test Range");
+      });
+      await act(async () => {
+        await result.current.retrieveAsync(
+          { keys: [other.key] },
+          { signal: controller.signal },
+        );
+      });
+      await act(async () => await client.ranges.rename(rng.key, "Test Range 2"));
       await waitFor(() => {
         expect(result.current.value?.name).toEqual("Test Range 2");
       });
