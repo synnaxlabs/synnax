@@ -278,7 +278,7 @@ public:
         if (cmd.type == "start")
             this->start(cmd.key);
         else if (cmd.type == "stop")
-            this->stop(false);
+            this->stop(cmd.key, true);
         else
             LOG(WARNING) << "[arc] unknown command type: " << cmd.type;
     }
