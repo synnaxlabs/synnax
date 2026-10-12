@@ -17,7 +17,12 @@ import { query } from "@/query";
 import { rack } from "@/rack";
 import { type status } from "@/status";
 import { task } from "@/task";
-import { createTestClient, spyOnSend, waitForStreamLive } from "@/testutil";
+import {
+  createTestClient,
+  holdResponses,
+  spyOnSend,
+  waitForStreamLive,
+} from "@/testutil";
 
 const client = createTestClient();
 const writer = createTestClient();
@@ -1161,6 +1166,49 @@ describe("Task", async () => {
         vi.useRealTimers();
         off();
       }
+    });
+
+    it("keeps a status that streams in during a fetch, whatever its time", async () => {
+      const t = await testRack.createTask({
+        name: `fence-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const key = task.statusKey(t.key);
+      const local = createTestClient();
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      const { responded, release } = holdResponses(local, "/task/retrieve");
+      const fetching = local.tasks.retrieve({ key: t.key });
+      await responded;
+      // Stamped by a Driver clock a minute behind the Core's, so only arrival order
+      // makes it the newer status.
+      const streamed: task.Status = {
+        key,
+        name: "Task Status",
+        variant: "success",
+        message: "Task started successfully",
+        description: "",
+        time: TimeStamp.now().sub(TimeSpan.minutes(1)),
+        details: {
+          task: t.key,
+          running: true,
+          cmd: "",
+          configHash: "",
+          rack: testRack.key,
+          data: {},
+        },
+      };
+      await writer.statuses.set(streamed);
+      await expect
+        .poll(() => local.statuses.store.get(key)?.message)
+        .toBe(streamed.message);
+      release();
+      await fetching;
+      expect(local.statuses.store.get(key)).toMatchObject({
+        variant: "success",
+        message: "Task started successfully",
+      });
     });
 
     it("refetches a cached task whose config was changed by another client", async () => {
