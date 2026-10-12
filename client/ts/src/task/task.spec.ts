@@ -795,6 +795,15 @@ describe("Task", async () => {
       .toBe(message);
   };
 
+  // A Driver writes its statuses to the Core. A status set only in the local store
+  // would lose to any refetch, which returns the Core's stored status.
+  const writeAndSee = async (stat: task.Status) => {
+    await writer.statuses.set(stat);
+    await expect
+      .poll(() => client.statuses.store.get(stat.key)?.message)
+      .toBe(stat.message);
+  };
+
   describe("onChange", () => {
     it("merges a status keyed by details.task into a subscribed single query", async () => {
       const t = await testRack.createTask({
@@ -1076,7 +1085,7 @@ describe("Task", async () => {
             data: {},
           },
         };
-        client.statuses.store.set(key, reply);
+        await writeAndSee(reply);
         await vi.advanceTimersByTimeAsync(COMMAND_DEADLINE.milliseconds);
         expect(client.statuses.store.get(key)).toMatchObject({
           variant: "success",
@@ -1131,7 +1140,7 @@ describe("Task", async () => {
           time: TimeStamp.now(),
           details,
         };
-        client.statuses.store.set(key, reply);
+        await writeAndSee(reply);
         // The Driver clears cmd on the statuses that follow its reply, so a hardware
         // warning before the deadline carries none. The reply already answered.
         const warning: task.Status = {
@@ -1141,7 +1150,7 @@ describe("Task", async () => {
           time: TimeStamp.now(),
           details: { ...details, cmd: "" },
         };
-        client.statuses.store.set(key, warning);
+        await writeAndSee(warning);
         await vi.advanceTimersByTimeAsync(COMMAND_DEADLINE.milliseconds);
         expect(client.statuses.store.get(key)).toMatchObject({
           variant: "warning",
