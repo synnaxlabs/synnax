@@ -36,15 +36,14 @@ const formatTime = (
   if (tr.start.equals(TimeStamp.MAX)) return null;
   const today = tr.start.isSameDay(TimeStamp.now(), displayTimeZone);
   const startFormat = today ? "time" : "dateTime";
-  let startTime = new TimeStamp(tr.start).toString(startFormat, displayTimeZone);
-  if (today) startTime = `Today ${startTime}`;
+  const startTime = new TimeStamp(tr.start).toString(startFormat, displayTimeZone);
   if (tr.end.equals(TimeStamp.MAX)) {
-    if (tr.start.before(TimeStamp.now())) return `Started ${startTime}`;
-    return `Starts ${startTime}`;
+    const verb = tr.start.before(TimeStamp.now()) ? "Started" : "Starts";
+    return today ? `${verb} today ${startTime}` : `${verb} ${startTime}`;
   }
   const endFormat = tr.end.span(tr.start) < TimeSpan.DAY ? "time" : "dateTime";
   const endTime = new TimeStamp(tr.end).toString(endFormat, displayTimeZone);
-  return [startTime, endTime];
+  return [today ? `Today ${startTime}` : startTime, endTime];
 };
 
 export const TimeRange = ({
