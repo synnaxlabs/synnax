@@ -43,11 +43,16 @@ const BROWSER_RESERVED: Triggers.Trigger[] = [
   ["Control", "Shift", "Tab"],
 ];
 
-export const PROVIDER_PROPS: Triggers.ProviderProps = {
+/** @returns the trigger provider's props for the given runtime. */
+export const createProviderProps = (
+  engine: Session.Runtime.Engine,
+): Triggers.ProviderProps => ({
   preventDefaultOn: PREVENT_DEFAULT_ON,
   preventDefaultOptions: { double: true },
-  reserved: Session.Runtime.ENGINE === "tauri" ? [] : BROWSER_RESERVED,
-};
+  reserved: engine === "tauri" ? [] : BROWSER_RESERVED,
+});
+
+export const PROVIDER_PROPS = createProviderProps(Session.Runtime.ENGINE);
 
 const OVERLAY_TRIGGERS: Triggers.Trigger[] = [PPanel.OVERLAY_TRIGGER];
 const ESCAPE_TRIGGERS: Triggers.Trigger[] = [Triggers.ESCAPE];

@@ -337,23 +337,29 @@ describe("app/triggers", () => {
   });
 
   describe("reserved", () => {
-    // Specs run outside Tauri, so the provider holds the browser's reservations.
-    it("should hide the hint for a shortcut the browser keeps", () => {
-      const { container } = render(
-        <PTriggers.Provider {...Triggers.PROVIDER_PROPS}>
-          <PTriggers.Text trigger={["Control", "T"]} />
+    const renderHint = (engine: Session.Runtime.Engine, trigger: PTriggers.Trigger) =>
+      render(
+        <PTriggers.Provider {...Triggers.createProviderProps(engine)}>
+          <PTriggers.Text trigger={trigger} />
         </PTriggers.Provider>,
-      );
-      expect(container.textContent).toBe("");
+      ).container;
+
+    it("should hide the hint for a shortcut the browser keeps", () => {
+      expect(renderHint("web", ["Control", "T"]).textContent).toBe("");
     });
 
     it("should keep the hint for a shortcut the browser passes on", () => {
-      const { container } = render(
-        <PTriggers.Provider {...Triggers.PROVIDER_PROPS}>
-          <PTriggers.Text trigger={["Control", "S"]} />
-        </PTriggers.Provider>,
+      expect(renderHint("web", ["Control", "S"]).textContent).toContain("S");
+    });
+
+    it("should keep every hint in the desktop app", () => {
+      expect(renderHint("tauri", ["Control", "T"]).textContent).toContain("T");
+    });
+
+    it("should reserve shortcuts for the runtime the specs run in", () => {
+      expect(Triggers.PROVIDER_PROPS.reserved).toEqual(
+        Triggers.createProviderProps("web").reserved,
       );
-      expect(container.textContent).toContain("S");
     });
   });
 
