@@ -40,23 +40,32 @@ const fold = (
 };
 
 /**
- * Resolves the session's ranges, reading the Core for the ones it holds.
- * @param keys - The ranges to resolve. Defaults to every one the session has.
+ * Resolves ranges, reading the Core for the ones it holds.
+ * @param keys - The ranges to resolve. Defaults to every one the session has. A key the
+ * session does not hold resolves as a Core range, after the session's ranges, and
+ * resolves to nothing if the Core does not hold it either.
  */
 export const useResolveMultiple = (keys?: string[]): Resolved[] => {
   const entries = Session.Range.useSelectMultiple(keys);
+  const all = useMemo((): Session.Range.State[] => {
+    const inSession = new Set(entries.map(({ key }) => key));
+    const outside = (keys ?? []).filter((key) => !inSession.has(key));
+    return [
+      ...entries,
+      ...outside.map((key) => ({ variant: "persisted" as const, key })),
+    ];
+  }, [entries, keys]);
   const persisted = useMemo(
-    () =>
-      entries.filter(({ variant }) => variant === "persisted").map(({ key }) => key),
-    [entries],
+    () => all.filter(({ variant }) => variant === "persisted").map(({ key }) => key),
+    [all],
   );
   const { data } = Ranger.useResultMultiple(
     persisted.length === 0 ? null : { keys: persisted },
   );
   return useMemo(() => {
     const found = new Map((data ?? []).map((range) => [range.key, range]));
-    return entries.map((entry) => fold(entry, found)).filter((entry) => entry != null);
-  }, [entries, data]);
+    return all.map((entry) => fold(entry, found)).filter((entry) => entry != null);
+  }, [all, data]);
 };
 
 /**
