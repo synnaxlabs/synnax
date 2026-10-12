@@ -2018,25 +2018,40 @@ describe("Series", () => {
     });
   });
 
-  describe("nonFiniteIndices", () => {
-    it("should return the indices of NaN and infinite samples", () => {
+  describe("nonFiniteRanges", () => {
+    it("should return the index ranges of NaN and infinite samples", () => {
       const series = new Series({
-        data: new Float64Array([1, NaN, 2, Infinity, -Infinity, 3]),
+        data: new Float64Array([1, NaN, 2, Infinity, -Infinity, 3, NaN]),
       });
-      expect(series.nonFiniteIndices).toEqual([1, 3, 4]);
+      expect(series.nonFiniteRanges).toEqual([
+        { lower: 1, upper: 2 },
+        { lower: 3, upper: 5 },
+        { lower: 6, upper: 7 },
+      ]);
     });
 
     it("should include samples that are written later", () => {
-      const series = Series.alloc({ capacity: 4, dataType: DataType.FLOAT32 });
+      const series = Series.alloc({ capacity: 6, dataType: DataType.FLOAT32 });
       series.write(new Series({ data: new Float32Array([NaN, 1]) }));
-      expect(series.nonFiniteIndices).toEqual([0]);
+      expect(series.nonFiniteRanges).toEqual([{ lower: 0, upper: 1 }]);
       series.write(new Series({ data: new Float32Array([2, NaN]) }));
-      expect(series.nonFiniteIndices).toEqual([0, 3]);
+      expect(series.nonFiniteRanges).toEqual([
+        { lower: 0, upper: 1 },
+        { lower: 3, upper: 4 },
+      ]);
     });
 
-    it("should return no indices for an integer series", () => {
+    it("should extend a range across writes", () => {
+      const series = Series.alloc({ capacity: 4, dataType: DataType.FLOAT32 });
+      series.write(new Series({ data: new Float32Array([1, NaN]) }));
+      expect(series.nonFiniteRanges).toEqual([{ lower: 1, upper: 2 }]);
+      series.write(new Series({ data: new Float32Array([NaN, 2]) }));
+      expect(series.nonFiniteRanges).toEqual([{ lower: 1, upper: 3 }]);
+    });
+
+    it("should return no ranges for an integer series", () => {
       const series = new Series({ data: new Int32Array([1, 2, 3]) });
-      expect(series.nonFiniteIndices).toEqual([]);
+      expect(series.nonFiniteRanges).toEqual([]);
     });
   });
 

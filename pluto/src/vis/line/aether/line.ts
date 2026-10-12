@@ -572,15 +572,15 @@ export const nearestVertex = (op: DrawOperation, index: number): number => {
  */
 const finiteRuns = (op: DrawOperation): Array<[number, number]> => {
   const total = vertexCount(op);
-  const breaks = [
+  const gaps = [
     ...nonFiniteVertices(op.x, op.xOffset, op.downsample, total),
     ...nonFiniteVertices(op.y, op.yOffset, op.downsample, total),
-  ].sort((a, b) => a - b);
+  ].sort((a, b) => a.lower - b.lower);
   const runs: Array<[number, number]> = [];
   let first = 0;
-  for (const b of breaks) {
-    if (b - first > 1) runs.push([first, b - first]);
-    first = Math.max(first, b + 1);
+  for (const { lower, upper } of gaps) {
+    if (lower - first > 1) runs.push([first, lower - first]);
+    first = Math.max(first, upper);
   }
   if (total - first > 1) runs.push([first, total - first]);
   return runs;
@@ -591,12 +591,15 @@ const nonFiniteVertices = (
   offset: number,
   downsample: number,
   total: number,
-): number[] => {
-  const vertices: number[] = [];
-  for (const index of series.nonFiniteIndices) {
-    const vertex = (index - offset) / downsample;
-    if (vertex >= total) break;
-    if (vertex >= 0 && Number.isInteger(vertex)) vertices.push(vertex);
+): bounds.Bounds[] => {
+  const vertices: bounds.Bounds[] = [];
+  for (const { lower, upper } of series.nonFiniteRanges) {
+    const v = {
+      lower: Math.max(0, Math.ceil((lower - offset) / downsample)),
+      upper: Math.min(total, Math.ceil((upper - offset) / downsample)),
+    };
+    if (v.lower >= total) break;
+    if (v.lower < v.upper) vertices.push(v);
   }
   return vertices;
 };

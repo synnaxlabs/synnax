@@ -106,7 +106,7 @@ export interface SeriesAllocParams extends BaseSeriesParams {
 }
 
 const FULL_BUFFER = -1;
-const EMPTY_INDICES: readonly number[] = [];
+const EMPTY_RANGES: readonly bounds.Bounds[] = [];
 /** Samples summarized per cached min/max block in boundsFor. */
 const BOUNDS_BLOCK_SIZE = 4096;
 
@@ -194,8 +194,8 @@ export class Series<T extends TelemValue = TelemValue>
   private blockMins?: number[];
   /** Cached per-block maximums for boundsFor. Blocks are append-only. */
   private blockMaxs?: number[];
-  /** Cached indices of non-finite samples, scanned up to nonFiniteScanned. */
-  private nonFinite?: number[];
+  /** Cached index ranges of non-finite samples, scanned up to nonFiniteScanned. */
+  private nonFinite?: bounds.Bounds[];
   private nonFiniteScanned: number = 0;
   /** The write position of the buffer. */
   private writePos: number = FULL_BUFFER;
@@ -711,15 +711,22 @@ export class Series<T extends TelemValue = TelemValue>
     return bounds.construct(Number(this.min), Number(this.max), { makeValid: false });
   }
 
-  /** @returns the ascending indices of the NaN and ±Infinity samples in the series. */
-  get nonFiniteIndices(): readonly number[] {
-    if (!this.dataType.isFloat) return EMPTY_INDICES;
-    const indices = (this.nonFinite ??= []);
+  /**
+   * @returns the ascending, disjoint [lower, upper) index ranges of the NaN and ±Infinity
+   * samples in the series.
+   */
+  get nonFiniteRanges(): readonly Readonly<bounds.Bounds>[] {
+    if (!this.dataType.isFloat) return EMPTY_RANGES;
+    const ranges = (this.nonFinite ??= []);
     const { data } = this;
-    for (let i = this.nonFiniteScanned; i < data.length; i++)
-      if (!Number.isFinite(data[i])) indices.push(i);
+    for (let i = this.nonFiniteScanned; i < data.length; i++) {
+      if (Number.isFinite(data[i])) continue;
+      const last = ranges.at(-1);
+      if (last?.upper === i) last.upper = i + 1;
+      else ranges.push({ lower: i, upper: i + 1 });
+    }
     this.nonFiniteScanned = data.length;
-    return indices;
+    return ranges;
   }
 
   /**
