@@ -79,11 +79,12 @@ func (p *Plugin) Requires() []string { return nil }
 // Version-laid-out packages (chain-covered output paths) emit their types into the
 // current versions/vN sub-package, with a root alias file re-exporting the surface.
 // Types whose shape is unchanged from the predecessor version alias it instead of being
-// re-defined. Version-laid-out packages pin persisted references to their dependencies'
-// current version directories (they must stay importable from frozen packages); omitted
-// fields and declarations outside the persisted closure resolve to dependency roots and
-// track the latest version, since they never reach the stored wire format. Unversioned
-// packages reference the root re-export surface.
+// re-defined. Version-laid-out packages pin persisted references to the version
+// directory that defines each referenced type, the one a frozen package imports, so a
+// freeze never moves an import. Omitted fields and declarations outside the persisted
+// closure resolve to dependency roots and track the latest version, since they never
+// reach the stored wire format. Unversioned packages reference the root re-export
+// surface.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	rewritten, pathMap, members, err := versioning.RewriteCurrent(
 		context.Background(), req.Resolutions, req.Versions,
@@ -99,16 +100,23 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	for _, current := range pathMap {
 		currentPaths.Add(current)
 	}
+	definerPaths, err := versioning.DefinerPaths(
+		context.Background(), req.Resolutions, req.Versions,
+	)
+	if err != nil {
+		return nil, err
+	}
 	closure := PersistedClosure(rewritten)
 	versionedGen := &framework.Generator{
 		Domain:      "go",
 		FilePattern: p.Options.FileNamePattern,
 		FileGenerator: &goFileGenerator{
-			preds:    preds,
-			original: req.Resolutions,
-			pathMap:  pathMap,
-			closure:  closure,
-			members:  members,
+			preds:        preds,
+			original:     req.Resolutions,
+			pathMap:      pathMap,
+			closure:      closure,
+			members:      members,
+			definerPaths: definerPaths,
 		},
 		PathFilter:      currentPaths.Contains,
 		MergeByName:     false,
@@ -274,6 +282,9 @@ type goFileGenerator struct {
 	closure set.Set[string]
 	// members holds the qualified names of every chain's current-surface members.
 	members set.Set[string]
+	// definerPaths maps each current-surface member an older version defines to its
+	// definer's versioned path, where stored references from other packages resolve.
+	definerPaths map[string]string
 }
 
 func (g *goFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, error) {
@@ -282,7 +293,7 @@ func (g *goFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, 
 	content, err := generateGoFile(
 		ctx.OutputPath, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Unions,
 		ctx.Table, ctx.RepoRoot, g.preds[ctx.OutputPath], latest, g.closure,
-		transient, nil,
+		transient, nil, g.definerPaths,
 	)
 	if err != nil {
 		return "", err
@@ -417,10 +428,11 @@ func generateGoFile(
 	closure set.Set[string],
 	transientPass bool,
 	order map[string]int,
+	definerPaths map[string]string,
 ) ([]byte, error) {
 	content, conflicts, err := renderGoFile(
 		outputPath, structs, enums, typeDefs, unions, table, repoRoot,
-		pred, latest, closure, transientPass, order, nil,
+		pred, latest, closure, transientPass, order, definerPaths, nil,
 	)
 	if err != nil || len(conflicts) == 0 {
 		return content, err
@@ -438,7 +450,7 @@ func generateGoFile(
 	}
 	content, conflicts, err = renderGoFile(
 		outputPath, structs, enums, typeDefs, unions, table, repoRoot,
-		pred, latest, closure, transientPass, order, overrides,
+		pred, latest, closure, transientPass, order, definerPaths, overrides,
 	)
 	if err != nil {
 		return nil, err
@@ -467,6 +479,7 @@ func renderGoFile(
 	closure set.Set[string],
 	transientPass bool,
 	order map[string]int,
+	definerPaths map[string]string,
 	aliasOverrides map[string]string,
 ) ([]byte, map[string][]string, error) {
 	namespace := ""
@@ -490,6 +503,7 @@ func renderGoFile(
 		RepoRoot:                      repoRoot,
 		DomainName:                    "go",
 		SubstituteDefaultedTypeParams: true,
+		DefinerPaths:                  definerPaths,
 	}
 
 	importResolver := &GoImportResolver{
@@ -531,6 +545,7 @@ func renderGoFile(
 	if latest != nil && (transientPass || pathHasMarshalRoot(structs)) {
 		lctx := *ctx
 		lctx.Table = latest
+		lctx.DefinerPaths = nil
 		ld := *data
 		ld.table = latest
 		ld.ctx = &lctx

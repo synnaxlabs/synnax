@@ -79,6 +79,7 @@ func generateEncoderCodecFile(
 	flex []FlexCodec,
 	table *resolution.Table,
 	repoRoot string,
+	definerPaths map[string]string,
 ) ([]byte, error) {
 	fo := encoderFileOutput{
 		Package:      packageName,
@@ -105,11 +106,12 @@ func generateEncoderCodecFile(
 	}
 	for _, e := range entries {
 		b := &encoderBuilder{
-			table:       table,
-			repoRoot:    repoRoot,
-			packageName: packageName,
-			parentPath:  parentPath,
-			imports:     fo.ExtraImports,
+			table:        table,
+			repoRoot:     repoRoot,
+			packageName:  packageName,
+			parentPath:   parentPath,
+			imports:      fo.ExtraImports,
+			definerPaths: definerPaths,
 		}
 		if uform, isUnion := e.Type.Form.(resolution.UnionForm); isUnion {
 			uc, err := buildUnionCodec(e.Type, uform, b)
@@ -246,11 +248,14 @@ func tpNames(tps []typeParamData) string {
 // --- Encoder builder ---
 
 type encoderBuilder struct {
-	table         *resolution.Table
-	repoRoot      string
-	packageName   string
-	parentPath    string
-	imports       map[string]string
+	table       *resolution.Table
+	repoRoot    string
+	packageName string
+	parentPath  string
+	imports     map[string]string
+	// definerPaths maps a current-surface member an older version defines to its
+	// definer's versioned path, where references from other packages resolve.
+	definerPaths  map[string]string
 	encodeLines   []string
 	decodeLines   []string
 	needsMath     bool
@@ -641,11 +646,12 @@ func buildUnionCodec(
 		}
 		if len(inlineFields) > 0 {
 			fb := &encoderBuilder{
-				table:       table,
-				repoRoot:    b.repoRoot,
-				packageName: b.packageName,
-				parentPath:  b.parentPath,
-				imports:     b.imports,
+				table:        table,
+				repoRoot:     b.repoRoot,
+				packageName:  b.packageName,
+				parentPath:   b.parentPath,
+				imports:      b.imports,
+				definerPaths: b.definerPaths,
 			}
 			if err := fb.processFields(inlineFields, "v", "v"); err != nil {
 				return concreteCodec{}, errors.Wrapf(err,
@@ -1226,6 +1232,9 @@ func (b *encoderBuilder) goTypeName(typ resolution.Type) (string, error) {
 	goPath := output.GetPath(typ, "go")
 	if goPath == "" || goPath == b.parentPath {
 		return goName, nil
+	}
+	if p, ok := b.definerPaths[typ.QualifiedName]; ok {
+		goPath = p
 	}
 	importPath, err := resolveGoImportPath(goPath, b.repoRoot)
 	if err != nil {

@@ -494,3 +494,104 @@ Window union on variant {
 		},
 	)
 })
+
+var _ = Describe("Stored reference to an aliased dependency member", func() {
+	var req *plugin.Request
+
+	BeforeEach(func() {
+		root := GinkgoT().TempDir()
+		write := func(rel, content string) {
+			GinkgoHelper()
+			full := filepath.Join(root, rel)
+			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+		}
+		write("schemas/x/versions/color/v0.oracle", `
+Color struct {
+	r uint8
+
+	@go marshal
+}
+`)
+		write("schemas/x/versions/color/v1.oracle", `
+Color = v0.Color
+
+Band struct {
+	color Color
+
+	@go marshal
+}
+`)
+		write("schemas/x/color.oracle", `
+@go output "x/go/color"
+
+Color struct {
+	r uint8
+}
+
+Band struct {
+	color Color
+}
+`)
+		write("schemas/synnax/versions/log/v0.oracle", `
+import "schemas/x/versions/color/v0"
+
+Log struct {
+	key uuid @key
+	color color.Color
+
+	@go marshal
+}
+`)
+		write("schemas/synnax/log.oracle", `
+import "schemas/x/color"
+
+@go output "core/pkg/service/log"
+
+Log struct {
+	key uuid @key
+	color color.Color
+}
+`)
+		chains := MustSucceed(versions.Discover(root))
+		loader := analyzer.NewStandardFileLoader(root)
+		table, diag := analyzer.Analyze(
+			GinkgoT().Context(),
+			[]string{"schemas/x/color", "schemas/synnax/log"},
+			loader,
+		)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		req = &plugin.Request{
+			Resolutions: table,
+			RepoRoot:    root,
+			Versions:    versions.NewResolver(chains, loader),
+		}
+	})
+
+	file := func(resp *plugin.Response, path string) string {
+		GinkgoHelper()
+		for _, f := range resp.Files {
+			if f.Path == path {
+				return string(f.Content)
+			}
+		}
+		Fail("no generated file " + path)
+		return ""
+	}
+
+	// color v1 only aliases v0's Color, so the current log package imports v0, the
+	// same package it imports once a later log version freezes it.
+	It("Should import the member's definer from a current package", func() {
+		resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(req))
+		current := file(resp, "core/pkg/service/log/versions/v0/types.gen.go")
+		Expect(current).To(ContainSubstring(`x/go/color/versions/v0"`))
+		Expect(current).ToNot(ContainSubstring(`x/go/color/versions/v1"`))
+	})
+
+	It("Should keep the alias in the dependency's current package", func() {
+		resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(req))
+		dep := file(resp, "x/go/color/versions/v1/types.gen.go")
+		Expect(dep).To(ContainSubstring("type Color = v0.Color"))
+		Expect(dep).To(ContainSubstring("Color Color"))
+	})
+})

@@ -78,6 +78,7 @@ func generateTestCodecFile(
 	entries []CodecEntry,
 	table *resolution.Table,
 	repoRoot string,
+	definerPaths map[string]string,
 ) ([]byte, error) {
 	pkgImport, err := resolveGoImportPath(parentPath, repoRoot)
 	if err != nil {
@@ -104,13 +105,14 @@ func generateTestCodecFile(
 			return nil
 		}
 		b := &testValueBuilder{
-			table:       table,
-			repoRoot:    repoRoot,
-			packageName: packageName,
-			parentPath:  parentPath,
-			imports:     fo.ExtraImports,
-			pkgPrefix:   packageName + ".",
-			mode:        modeFullyPopulated,
+			table:        table,
+			repoRoot:     repoRoot,
+			packageName:  packageName,
+			parentPath:   parentPath,
+			imports:      fo.ExtraImports,
+			definerPaths: definerPaths,
+			pkgPrefix:    packageName + ".",
+			mode:         modeFullyPopulated,
 		}
 		expr, err := b.valueExpr(typ, ref)
 		if err != nil {
@@ -180,14 +182,15 @@ func generateTestCodecFile(
 			te := testEntry{GoName: e.GoName, Receiver: recv}
 			for _, v := range uform.Variants {
 				b := &testValueBuilder{
-					table:       table,
-					repoRoot:    repoRoot,
-					packageName: packageName,
-					parentPath:  parentPath,
-					imports:     fo.ExtraImports,
-					pkgPrefix:   packageName + ".",
-					mode:        modeFullyPopulated,
-					sharedVars:  sharedVars,
+					table:        table,
+					repoRoot:     repoRoot,
+					packageName:  packageName,
+					parentPath:   parentPath,
+					imports:      fo.ExtraImports,
+					definerPaths: definerPaths,
+					pkgPrefix:    packageName + ".",
+					mode:         modeFullyPopulated,
+					sharedVars:   sharedVars,
 				}
 				valueExpr, err := b.unionExpr(e.Type, uform, v)
 				if err != nil {
@@ -260,14 +263,15 @@ func generateTestCodecFile(
 			}
 			for _, m := range modes {
 				b := &testValueBuilder{
-					table:       table,
-					repoRoot:    repoRoot,
-					packageName: packageName,
-					parentPath:  parentPath,
-					imports:     fo.ExtraImports,
-					sharedVars:  sharedVars,
-					pkgPrefix:   packageName + ".",
-					mode:        m.mode,
+					table:        table,
+					repoRoot:     repoRoot,
+					packageName:  packageName,
+					parentPath:   parentPath,
+					imports:      fo.ExtraImports,
+					definerPaths: definerPaths,
+					sharedVars:   sharedVars,
+					pkgPrefix:    packageName + ".",
+					mode:         m.mode,
 				}
 
 				fields := resolution.UnifiedFields(e.Type, table)
@@ -349,14 +353,15 @@ func generateTestCodecFile(
 					}
 				}
 				b := &testValueBuilder{
-					table:       table,
-					repoRoot:    repoRoot,
-					packageName: packageName,
-					parentPath:  parentPath,
-					imports:     fo.ExtraImports,
-					pkgPrefix:   packageName + ".",
-					mode:        m.mode,
-					sharedVars:  sharedVars,
+					table:        table,
+					repoRoot:     repoRoot,
+					packageName:  packageName,
+					parentPath:   parentPath,
+					imports:      fo.ExtraImports,
+					definerPaths: definerPaths,
+					pkgPrefix:    packageName + ".",
+					mode:         m.mode,
+					sharedVars:   sharedVars,
 				}
 				valueExpr, err := b.buildStructLiteral(e.Type, e.GoName)
 				if err != nil {
@@ -459,11 +464,14 @@ type testValueBuilder struct {
 	packageName string
 	parentPath  string
 	imports     map[string]string
-	pkgPrefix   string
-	needsUUID   bool
-	depth       int
-	fieldIndex  int
-	mode        valueMode
+	// definerPaths maps a current-surface member an older version defines to its
+	// definer's versioned path, where references from other packages resolve.
+	definerPaths map[string]string
+	pkgPrefix    string
+	needsUUID    bool
+	depth        int
+	fieldIndex   int
+	mode         valueMode
 	// sharedVars maps a struct's qualified name to a package-level fixture
 	// var that union embeds reference instead of inlining the literal. Nil
 	// while building the fixtures themselves, so they never reference each
@@ -1150,6 +1158,9 @@ func (b *testValueBuilder) goTypeName(typ resolution.Type) (string, error) {
 	goPath := output.GetPath(typ, "go")
 	if goPath == "" || goPath == b.parentPath {
 		return b.pkgPrefix + goName, nil
+	}
+	if p, ok := b.definerPaths[typ.QualifiedName]; ok {
+		goPath = p
 	}
 	importPath, err := resolveGoImportPath(goPath, b.repoRoot)
 	if err != nil {

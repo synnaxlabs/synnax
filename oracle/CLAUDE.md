@@ -74,10 +74,12 @@ or generator logic and schemas disagree.
   minimality (a redeclaration structurally identical to its resolved predecessor must be
   an alias; enum member sets compare exactly).
 - Frozen `versions/vN` Go packages are regenerated, checked outputs of the version
-  files. A frozen type that the current version aliases also gets the live `@validate`
-  rules, since the current package's alias runs its `Validate`. Hand-written frozen
-  definer files are marked `@go hand` in their version file; hand-ness is version-local
-  — an aliased member whose definer is an older version still generates in the current
+  files. A current package imports each stored reference's defining version directory,
+  the same one a frozen package imports, so a freeze never moves a generated import. A
+  frozen type that the current version aliases also gets the live `@validate` rules,
+  since the current package's alias runs its `Validate`. Hand-written frozen definer
+  files are marked `@go hand` in their version file; hand-ness is version-local — an
+  aliased member whose definer is an older version still generates in the current
   package as a backward alias. `migrate.gen.go` is a pure function of the two adjacent
   version files; hand-written transforms live in `migrate.go` (renames and
   cross-resource moves have no generated counterpart).

@@ -98,6 +98,38 @@ func Survey(
 	return entries, members, nil
 }
 
+// DefinerPaths maps the qualified name of every current-surface member that an older
+// version defines to the versioned @go output path of its definer. A stored reference
+// to such a member resolves there, as it does once its referrer's version freezes, so a
+// freeze never moves a generated import.
+func DefinerPaths(
+	ctx context.Context, table *resolution.Table, res *versions.Resolver,
+) (map[string]string, error) {
+	paths := make(map[string]string)
+	if res == nil {
+		return paths, nil
+	}
+	for livePath, chain := range res.Chains() {
+		surf, err := res.Surface(ctx, livePath, chain.Current())
+		if err != nil {
+			return nil, err
+		}
+		for _, t := range table.Types {
+			if t.FilePath != livePath+".oracle" {
+				continue
+			}
+			def, member := surf[t.Name]
+			if !member || def.Version == chain.Current() {
+				continue
+			}
+			if goPath := output.GetPath(t, "go"); goPath != "" {
+				paths[t.QualifiedName] = VersionedPath(goPath, def.Version)
+			}
+		}
+	}
+	return paths, nil
+}
+
 // RewriteCurrent returns a table with every version-laid-out package's @go output
 // rewritten to its current versions/vN sub-path, plus the applied path map keyed
 // by original path and the current-surface member set.
