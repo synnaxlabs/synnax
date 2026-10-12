@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/platform/device/Select.css";
+
 import { type device } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { type Icon } from "@synnaxlabs/lyra/icon";
@@ -14,6 +16,8 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Device, Synnax } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type JSX, useCallback, useMemo } from "react";
+
+import { CSS } from "@/platform/css";
 
 export interface SelectProps extends Pick<Device.SelectSingleProps, "filter"> {
   onConfigure: (deviceKey: device.Key) => void;
@@ -56,7 +60,13 @@ export const Select = ({
     return (d: device.Device) => baseFilter(d) && filterProp(d);
   }, [make, model, filterProp]);
   return (
-    <Form.Field<string> grow label={label} onChange={handleDeviceChange} path={path}>
+    <Form.Field<string>
+      className={CSS.B("device-select")}
+      grow
+      label={label}
+      onChange={handleDeviceChange}
+      path={path}
+    >
       {({ value, onChange, preview }) => (
         <Device.SelectSingle
           value={value}
