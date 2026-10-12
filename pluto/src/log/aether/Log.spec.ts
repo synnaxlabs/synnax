@@ -582,6 +582,38 @@ describe("log/aether/Log", () => {
     });
   });
 
+  describe("scrolling after an insert", () => {
+    it("should scroll from the anchored entry, not from the old index", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { log, source, updateState } = setup(entries);
+      updateState({
+        region: REGION_500,
+        wheelPos: 0,
+        scrolling: false,
+        empty: true,
+        visible: true,
+      });
+      updateState({
+        region: REGION_500,
+        wheelPos: 100,
+        scrolling: true,
+        empty: false,
+        visible: true,
+      });
+      const offset = log.scrollState.offset;
+      source.setEntries([makeEntry(-1), ...entries]);
+      source.notify();
+      updateState({
+        region: REGION_500,
+        wheelPos: 100,
+        scrolling: true,
+        empty: false,
+        visible: true,
+      });
+      expect(log.scrollState.offset).toBe(offset + 1);
+    });
+  });
+
   describe("scrollback offset adjustment on eviction", () => {
     it("should reduce scroll offset when entries are evicted during scrollback", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));

@@ -386,11 +386,14 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
   private reanchor(): void {
     const { start, end, scroll } = this.anchors;
     if (scroll != null && this.state.scrolling) {
-      this.scrollState.offset = Math.max(
+      const offset = Math.max(
         this.calcVisibleLineCount(this.internal.lineHeight),
         this.entries.indexOf(scroll) + 1,
       );
-      this.anchors.scroll = this.entries[this.scrollState.offset - 1];
+      // Wheel moves count from offsetRef, so it shifts with the anchored entry.
+      this.scrollState.offsetRef += offset - this.scrollState.offset;
+      this.scrollState.offset = offset;
+      this.anchors.scroll = this.entries[offset - 1];
     }
     if (start == null || end == null) return;
     const newStart = this.entries.indexOf(start);
