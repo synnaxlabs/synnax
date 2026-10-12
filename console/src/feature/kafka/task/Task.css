@@ -41,5 +41,5 @@
 /* Wide enough for the search placeholder. The trigger, and so the field, keeps its
    width. */
 .console-kafka-select__dialog {
-    min-width: 220px;
+    min-width: 184px;
 }
