@@ -16,6 +16,8 @@ import { remark } from "remark";
 import remarkGfm from "remark-gfm";
 import stripMarkdown from "strip-markdown";
 
+import * as releaseNotes from "./releaseNotes.ts";
+
 const client = algoliasearch(
   process.env.DOCS_ALGOLIA_APP_ID ?? "",
   process.env.DOCS_ALGOLIA_WRITE_API_KEY ?? "",
@@ -40,24 +42,27 @@ const toPlainText = async (content: string): Promise<string> => {
 const hidden = (flag: unknown): boolean =>
   typeof flag === "string" && process.env[`FLAG_${flag.toUpperCase()}`] !== "true";
 
-// Each version's notes live outside src/pages and render only inside /releases.
-const sources = [
-  {
-    dir: "./src/pages",
-    href: (name: string) => `/${name.replace(/(^|\/)index$/, "$1")}`,
-  },
-  { dir: "./src/releases", href: (name: string) => `/releases/#${name}` },
-];
-const pages = sources.flatMap(({ dir, href }) =>
-  fs
-    .readdirSync(dir, { recursive: true, encoding: "utf8" })
+const read = (dir: string, filename: string, href: string) => ({
+  filename,
+  href,
+  ...matter(fs.readFileSync(path.join(dir, filename))),
+});
+
+const PAGES_DIR = "./src/pages";
+const pages = [
+  ...fs
+    .readdirSync(PAGES_DIR, { recursive: true, encoding: "utf8" })
     .filter((f) => f.endsWith("mdx"))
-    .map((filename) => ({
-      filename,
-      href: href(filename.replace(".mdx", "")),
-      ...matter(fs.readFileSync(path.join(dir, filename))),
-    })),
-);
+    .map((f) =>
+      read(PAGES_DIR, f, `/${f.replace(".mdx", "").replace(/(^|\/)index$/, "$1")}`),
+    ),
+  // Each version's notes render only inside /releases, under the version's anchor.
+  ...releaseNotes
+    .list()
+    .map(({ name, anchor }) =>
+      read(releaseNotes.DIR, `${name}.mdx`, `/releases/#${anchor}`),
+    ),
+];
 const skipped = pages.filter(({ data }) => hidden(data.flag));
 const data = await Promise.all(
   pages

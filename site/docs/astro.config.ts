@@ -16,17 +16,16 @@ import { integration } from "@synnaxlabs/site-common/integration";
 import { symbols, theme } from "@synnaxlabs/site-common/shiki";
 import { layers } from "@synnaxlabs/vite-plugin";
 import { defineConfig, envField } from "astro/config";
-import fs from "fs";
 
 import { outline } from "./src/util/outline";
+import * as releaseNotes from "./src/util/releaseNotes";
 
 // Each version's notes render only inside /releases, so their old routes point at the
 // version's anchor there.
 const RELEASE_REDIRECTS = Object.fromEntries(
-  fs
-    .readdirSync("./src/releases")
-    .map((f) => f.replace(/\.mdx$/, ""))
-    .map((v) => [`/releases/${v}`, `/releases/#${v}`]),
+  releaseNotes
+    .list()
+    .map(({ name, anchor }) => [`/releases/${name}`, `/releases/#${anchor}`]),
 );
 
 // https://astro.build/config
