@@ -16,6 +16,7 @@ import { afterEach, assert, beforeAll, beforeEach, describe, expect, it } from "
 
 import { Arc } from "@/arc";
 import { Errors } from "@/errors";
+import { Flux } from "@/flux";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
@@ -94,6 +95,26 @@ describe("Arc queries", () => {
   };
 
   describe("useList", () => {
+    it("should update an item read by key when it changes", async () => {
+      const item = await client.arcs.create({ name: "original", mode: "text" });
+      const { result } = renderHook(
+        () => {
+          const list = Arc.useList({ useCachedList: false });
+          return Flux.useListItem({
+            subscribe: list.subscribe,
+            getItem: list.getItem,
+            key: item.key,
+          });
+        },
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current?.name).toEqual("original"));
+      await act(async () => {
+        await client.arcs.dispatch(item.key, [arc.rename({ name: "updated" })]);
+      });
+      await waitFor(() => expect(result.current?.name).toEqual("updated"));
+    });
+
     it("should return a list of arcs", async () => {
       const arc1 = await client.arcs.create({
         name: "arc1",
