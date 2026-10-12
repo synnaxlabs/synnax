@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, DataType } from "@synnaxlabs/client";
+import { type channel, DataType, type ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { id } from "@synnaxlabs/x";
+import { id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { type ReactElement, Suspense } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -18,9 +18,10 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { createHaulItem } from "@/channel/types";
 import { lineplot } from "@/lineplot/aether";
 import { LinePlot } from "@/lineplot/LinePlot";
-import { useYAxis } from "@/lineplot/queries";
+import { useRanges, useYAxis } from "@/lineplot/queries";
 import { range } from "@/lineplot/range/aether";
 import { Suspended } from "@/lineplot/Suspended";
+import { createHaulItem as createRangeHaulItem } from "@/ranger/types";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 import { canvasTest } from "@/vis/render/test";
 
@@ -42,15 +43,27 @@ const Source = ({ items }: SourceProps): ReactElement => {
   );
 };
 
-const Y1Channels = ({ plotKey }: { plotKey: string }): ReactElement => {
+const Probe = ({ plotKey }: { plotKey: string }): ReactElement => {
   const { channels } = useYAxis({ key: plotKey, axisKey: "y1" });
-  return <div data-testid="y1">{channels.join(",")}</div>;
+  const ranges = useRanges({ key: plotKey });
+  return (
+    <>
+      <div data-testid="y1">{channels.join(",")}</div>
+      <div data-testid="x1-ranges">{ranges.x1.join(",")}</div>
+    </>
+  );
 };
 
 describe("LinePlot", () => {
   let projectKey: string;
   let channels: channel.Channel[];
+  let rng: ranger.Range;
   beforeAll(async () => {
+    const start = TimeStamp.now();
+    rng = await client.ranges.create({
+      name: id.create(),
+      timeRange: { start, end: start.add(TimeSpan.seconds(1)) },
+    });
     projectKey = (await client.projects.create({ name: id.create() })).key;
     const index = await client.channels.create({
       name: id.create(),
@@ -76,7 +89,7 @@ describe("LinePlot", () => {
         <Suspense fallback={null}>
           <Suspended linePlotKey={plot.key}>
             <LinePlot aetherKey="plot" editable={editable} />
-            <Y1Channels plotKey={plot.key} />
+            <Probe plotKey={plot.key} />
           </Suspended>
         </Suspense>
       </Haul.Provider>,
@@ -87,13 +100,62 @@ describe("LinePlot", () => {
       if (el == null) throw new Error("the plot area did not render");
       return el;
     });
-    const drop = (): void => {
+    const xAxis = await waitFor(() => {
+      const el = result.container.querySelector(".pluto-x-axis");
+      if (el == null) throw new Error("the X axis did not render");
+      return el;
+    });
+    const drop = (target: Element = viewport): void => {
       fireEvent.dragStart(result.getByTestId("source"));
-      fireEvent.dragOver(viewport);
-      fireEvent.drop(viewport);
+      fireEvent.dragOver(target);
+      fireEvent.drop(target);
     };
-    return { ...result, drop };
+    return { ...result, drop, xAxis };
   };
+
+  describe("range drop", () => {
+    it("should add a range dropped on the plot area to the first X axis", async () => {
+      const { drop, getByTestId } = await renderPlot([
+        createRangeHaulItem(rng.payload),
+      ]);
+      drop();
+      await waitFor(() => expect(getByTestId("x1-ranges").textContent).toBe(rng.key));
+    });
+
+    it("should add a range dropped on an X axis to that axis", async () => {
+      const { drop, xAxis, getByTestId } = await renderPlot([
+        createRangeHaulItem(rng.payload),
+      ]);
+      drop(xAxis);
+      await waitFor(() => expect(getByTestId("x1-ranges").textContent).toBe(rng.key));
+    });
+
+    it("should add the channels and the ranges of one drop", async () => {
+      const [first] = channels;
+      const { drop, getByTestId } = await renderPlot([
+        createHaulItem(first.key),
+        createRangeHaulItem(rng.payload),
+      ]);
+      drop();
+      await waitFor(() => {
+        expect(getByTestId("y1").textContent).toBe(String(first.key));
+        expect(getByTestId("x1-ranges").textContent).toBe(rng.key);
+      });
+    });
+
+    it("should not add a range when the plot is not editable", async () => {
+      const { drop, getByTestId } = await renderPlot(
+        [createRangeHaulItem(rng.payload)],
+        false,
+      );
+      drop();
+      await expect(
+        waitFor(() => expect(getByTestId("x1-ranges").textContent).not.toBe(""), {
+          timeout: 300,
+        }),
+      ).rejects.toThrow();
+    });
+  });
 
   describe("plot area drop", () => {
     it("should add a dropped channel to the first Y axis", async () => {
