@@ -209,6 +209,7 @@ var _ = Describe("Factory", func() {
 			})
 
 			testConnection := func(ctx SpecContext, props kafka.Properties) task.Status {
+				GinkgoHelper()
 				Expect(dt.Exec(ctx, task.Command{
 					Task: t.Key,
 					Type: "test_connection",

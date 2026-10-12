@@ -20,8 +20,7 @@ import { Channel as PChannel } from "@synnaxlabs/pluto";
 import { DataType, id, primitive } from "@synnaxlabs/x";
 import { type FC, useMemo } from "react";
 
-import { Select as SelectDevice } from "@/feature/kafka/device/Select";
-import * as Device from "@/feature/kafka/device/types";
+import { Device } from "@/feature/kafka/device";
 import {
   TIME_FORMAT_ITEMS,
   TimeFormatField,
@@ -77,7 +76,7 @@ const renderTimeFormatSelect = Component.renderProp(
 
 const Properties = () => (
   <>
-    <SelectDevice />
+    <Device.Select />
     <Flex.Box x grow wrap>
       <PForm.TextField
         className={TEXT_FIELD_CLASS}

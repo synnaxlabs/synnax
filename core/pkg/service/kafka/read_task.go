@@ -196,9 +196,17 @@ func buildReadGroups(
 			g.fields = append(g.fields, fld)
 			g.channels = append(g.channels, ch)
 		}
-		if len(g.fields) > 0 {
-			groups[rec.RecordKey] = g
+		if len(g.fields) == 0 {
+			continue
 		}
+		if rec.Index != "" && g.stamp == -1 {
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"record key %q: index field %q is not an enabled field",
+				rec.RecordKey, rec.Index,
+			)
+		}
+		groups[rec.RecordKey] = g
 	}
 	for _, g := range groups {
 		for i, ch := range g.channels {

@@ -26,9 +26,7 @@ import { Access, Channel as PChannel, Telem } from "@synnaxlabs/pluto";
 import { DataType, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
-import { useFromConfig } from "@/feature/kafka/device/queries";
-import { Select as SelectDevice } from "@/feature/kafka/device/Select";
-import * as Device from "@/feature/kafka/device/types";
+import { Device } from "@/feature/kafka/device";
 import { TimeFormatField } from "@/feature/kafka/task/TimeFormatField";
 import {
   deployReadConfigZ,
@@ -69,7 +67,7 @@ const renderStartOffsetSelect = Component.renderProp(
 
 const Properties = () => (
   <>
-    <SelectDevice />
+    <Device.Select />
     <Flex.Box x grow wrap>
       <PForm.TextField
         className={TEXT_FIELD_CLASS}
@@ -183,7 +181,7 @@ const TimestampFields = ({ path }: { path: string }) => {
   const { set } = PForm.useContext();
   const { index, fields, recordKey } = PForm.useFieldValue<ReadRecord>(path);
   const indexField = fields.find((f) => f.key === index);
-  const dev = useFromConfig();
+  const dev = Device.useFromConfig();
   const handleChange = useCallback(
     (mode: TimingMode) => {
       if (mode === "value" && indexField == null) {
@@ -261,7 +259,7 @@ const RECORD_KEY_INPUT_PROPS = { placeholder: "Any key" } as const;
 const FieldDetails = ({ groupKey, path }: Task.Views.FieldProps) => {
   const { channel: key, dataType, pointer } = PForm.useFieldValue<ReadField>(path);
   const recordKey = PForm.useFieldValue<string>(`config.records.${groupKey}.recordKey`);
-  const dev = useFromConfig();
+  const dev = Device.useFromConfig();
   const bound = key !== 0;
   const isTimestamp = DataType.TIMESTAMP.equals(dataType);
   // Labels map to numbers, so only a numeric field takes an enum mapping.

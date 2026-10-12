@@ -29,17 +29,22 @@ const Make = "kafka"
 // returns an error wrapping validate.ErrValidation when dev is not a Kafka cluster or
 // its properties are incomplete.
 func decodeProperties(dev device.Device) (Properties, error) {
-	var props Properties
 	if dev.Make != Make {
-		return props, errors.Wrapf(
+		return Properties{}, errors.Wrapf(
 			validate.ErrValidation, "device %s is not a Kafka cluster", dev.Key,
 		)
 	}
+	var props Properties
 	if err := dev.Properties.Unmarshal(&props); err != nil {
-		return props, errors.Wrapf(err, "parsing properties of device %s", dev.Key)
+		return Properties{}, errors.Wrapf(
+			err, "parsing properties of device %s", dev.Key,
+		)
 	}
 	props.ApplyDefaults()
-	return props, validateProperties(props)
+	if err := validateProperties(props); err != nil {
+		return Properties{}, err
+	}
+	return props, nil
 }
 
 // validateProperties checks that props can open a client.

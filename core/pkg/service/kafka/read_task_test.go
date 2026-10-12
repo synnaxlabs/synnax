@@ -647,6 +647,25 @@ var _ = Describe("Read task", func() {
 					},
 				}
 			}, "share one index"),
+		Entry("an index field that is disabled",
+			func(_ context.Context, index, data channel.Channel) []kafka.ReadField {
+				return []kafka.ReadField{
+					{
+						Key:        "ts",
+						Channel:    index.Key(),
+						Pointer:    "/ts",
+						DataType:   telem.TimestampT,
+						TimeFormat: &unixNs,
+						Disabled:   true,
+					},
+					{
+						Key:      "v",
+						Channel:  data.Key(),
+						Pointer:  "/v",
+						DataType: telem.Float64T,
+					},
+				}
+			}, "not an enabled field"),
 		Entry("an index field on a data channel",
 			func(_ context.Context, _, data channel.Channel) []kafka.ReadField {
 				return []kafka.ReadField{{
