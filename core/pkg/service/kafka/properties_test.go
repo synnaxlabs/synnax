@@ -35,8 +35,10 @@ var _ = Describe("Properties", func() {
 		},
 		Entry("none", kafka.NoneSASL{}, "none"),
 		Entry("plain", kafka.PlainSASL{Credentials: creds}, "plain"),
-		Entry("scram_sha_256", kafka.ScramSha256SASL{Credentials: creds}, "scram_sha_256"),
-		Entry("scram_sha_512", kafka.ScramSha512SASL{Credentials: creds}, "scram_sha_512"),
+		Entry("scram_sha_256",
+			kafka.ScramSha256SASL{Credentials: creds}, "scram_sha_256"),
+		Entry("scram_sha_512",
+			kafka.ScramSha512SASL{Credentials: creds}, "scram_sha_512"),
 	)
 
 	It("Should encode an unset mechanism as null", func() {

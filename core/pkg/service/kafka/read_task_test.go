@@ -434,21 +434,21 @@ var _ = Describe("Read task", func() {
 	DescribeTable("Should convert the record value into the channel's data type",
 		func(
 			ctx SpecContext,
-			dt telem.DataType,
+			dataType telem.DataType,
 			format http.TimeFormat,
 			enums []http.EnumEntry,
 			doc map[string]any,
 			expected telem.Series,
 		) {
-			index, data := createIndexed(ctx, dt)
+			index, data := createIndexed(ctx, dataType)
 			dev := createDevice(ctx, clusterProperties())
 			topic := newTopic()
-			task_, t := configure(ctx, kafka.ReadConfig{
+			dt, t := configure(ctx, kafka.ReadConfig{
 				Device: dev.Key,
 				Topic:  topic,
-				Fields: valueFields(index, data, dt, &format, enums),
+				Fields: valueFields(index, data, dataType, &format, enums),
 			})
-			start(ctx, task_, t)
+			start(ctx, dt, t)
 			produceJSON(ctx, producer, topic, "", doc)
 			Expect(expectStored(ctx, data.Key(), 1).Data).To(Equal(expected.Data))
 			Expect(timestamps(stored(ctx, index.Key()))).
@@ -479,21 +479,21 @@ var _ = Describe("Read task", func() {
 	DescribeTable("Should skip a record whose value does not convert",
 		func(
 			ctx SpecContext,
-			dt telem.DataType,
+			dataType telem.DataType,
 			format http.TimeFormat,
 			enums []http.EnumEntry,
 			doc map[string]any,
 			msg string,
 		) {
-			index, data := createIndexed(ctx, dt)
+			index, data := createIndexed(ctx, dataType)
 			dev := createDevice(ctx, clusterProperties())
 			topic := newTopic()
-			task_, t := configure(ctx, kafka.ReadConfig{
+			dt, t := configure(ctx, kafka.ReadConfig{
 				Device: dev.Key,
 				Topic:  topic,
-				Fields: valueFields(index, data, dt, &format, enums),
+				Fields: valueFields(index, data, dataType, &format, enums),
 			})
-			start(ctx, task_, t)
+			start(ctx, dt, t)
 			produceJSON(ctx, producer, topic, "", doc)
 			Eventually(func() string { return taskStatus(ctx, t).Message }).
 				WithTimeout(15 * time.Second).Should(ContainSubstring(msg))
