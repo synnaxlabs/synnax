@@ -100,18 +100,17 @@ instead of `No channel`.
 
 An Arc `time.wait` or `time.interval` now fires on its deadline, in the Driver and in
 the Core. Before, it could fire up to 5 ms early. A new `Performance` select next to the
-Driver select sets how closely an Arc holds its timers: `Auto`, `Low`, `Medium`, or
-`High`. A higher level is more precise and uses more CPU. See
-[Timing](/reference/control/arc/timing).
+Driver select sets [how closely an Arc holds its timers](/reference/control/arc/timing):
+`Auto`, `Low`, `Medium`, or `High`. A higher level is more precise and uses more CPU.
 
 <Divider.Divider x />
 
 ### Licensing
 
-A Core now uses a signed license key that is bound to its machine. A Core without a
-license starts, and the Console shows an activation screen with the host fingerprint and
-a box for the key. A running Core does not stop when its license expires. See
-[Licensing](/reference/core/production#licensing).
+A Core now uses a signed [license key](/reference/core/production#licensing) that is
+bound to its machine. A Core without a license starts, and the Console shows an
+activation screen with the host fingerprint and a box for the key. A running Core does
+not stop when its license expires.
 
 <Divider.Divider x />
 
@@ -168,11 +167,12 @@ still works.
 #### `secure` is the only TLS switch for the Driver
 
 A Driver config or state file that sets `ca_cert_file` without `secure` now connects in
-plain text. Set `secure: true`. A secure connection verifies the Core against the system
-trust store, or against the PEM file that `GRPC_DEFAULT_SSL_ROOTS_FILE_PATH` names.
-`client_cert_file` and `client_key_file` are ignored, so the Driver no longer supports
-mutual TLS. In LabVIEW, the `synnax client open.vi` Call Library node must drop its
-three certificate parameters. See [Driver installation](/reference/driver/installation).
+plain text. Set `secure: true`.
+[A secure connection](/reference/driver/installation#connecting-to-a-secure-core)
+verifies the Core against the system trust store, or against the PEM file that
+`GRPC_DEFAULT_SSL_ROOTS_FILE_PATH` names. `client_cert_file` and `client_key_file` are
+ignored, so the Driver no longer supports mutual TLS. In LabVIEW, the
+`synnax client open.vi` Call Library node must drop its three certificate parameters.
 
 #### Arc arrows
 
