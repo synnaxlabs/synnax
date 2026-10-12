@@ -14,6 +14,22 @@
     overflow-y: auto;
 }
 
+/* Long names truncate inside the row instead of widening it past the list. The label
+   keeps its width up to a cap, so the channel name gives way first. */
+.console-kafka-item__label,
+.console-kafka-item__channel {
+    min-width: 0;
+
+    > .pluto-text--overflow-ellipsis {
+        min-width: 0;
+    }
+}
+
+.console-kafka-item__label {
+    flex-shrink: 0;
+    max-width: 60%;
+}
+
 .console-kafka-item--off .console-kafka-item__label {
     opacity: 0.6;
 }

@@ -132,7 +132,12 @@ const FieldListItem = (props: Task.ChannelListItemProps) => {
           </Text.Text>
         )}
       </Flex.Box>
-      <Flex.Box x align="center" gap="small">
+      <Flex.Box
+        x
+        align="center"
+        gap="small"
+        className={CSS.BE("kafka-item", "channel")}
+      >
         <Task.ChannelName
           channel={key}
           namePath={`${path}.name`}
