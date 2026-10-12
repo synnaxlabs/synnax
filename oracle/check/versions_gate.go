@@ -146,9 +146,9 @@ func checkChain(
 			return
 		}
 		fkTransient := fk.Transient()
-		redeclared := make(map[string]bool, len(fk.Defined))
+		redeclared := make(set.Set[string], len(fk.Defined))
 		for _, t := range fk.Defined {
-			redeclared[t.QualifiedName] = true
+			redeclared.Add(t.QualifiedName)
 		}
 		for _, t := range fk.Defined {
 			if t.Synthetic {
@@ -197,7 +197,7 @@ func checkChain(
 
 // referencesAny reports whether t's fields, variants, or extended types name a type in
 // names, other than t itself.
-func referencesAny(t resolution.Type, names map[string]bool) bool {
+func referencesAny(t resolution.Type, names set.Set[string]) bool {
 	var refs []resolution.TypeRef
 	switch form := t.Form.(type) {
 	case resolution.StructForm:
@@ -214,7 +214,7 @@ func referencesAny(t resolution.Type, names map[string]bool) bool {
 	for len(refs) > 0 {
 		ref := refs[len(refs)-1]
 		refs = append(refs[:len(refs)-1], ref.TypeArgs...)
-		if ref.Name != t.QualifiedName && names[ref.Name] {
+		if ref.Name != t.QualifiedName && names.Contains(ref.Name) {
 			return true
 		}
 	}
