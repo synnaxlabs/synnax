@@ -17,3 +17,7 @@
 .console-kafka-item--off .console-kafka-item__label {
     opacity: 0.6;
 }
+
+.console-kafka-select__dialog {
+    min-width: max-content;
+}

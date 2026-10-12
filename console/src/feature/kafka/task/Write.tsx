@@ -41,9 +41,15 @@ import { Form as PlatformForm } from "@/platform/form";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
+const SELECT_DIALOG_PROPS = { className: CSS.BE("kafka-select", "dialog") };
+
 const renderRecordKeySelect = Component.renderProp(
   (p: Omit<Select.SingleSimpleProps<RecordKey>, "children" | "resourceName">) => (
-    <Select.Simple<RecordKey> {...p} resourceName="record key">
+    <Select.Simple<RecordKey>
+      {...p}
+      resourceName="record key"
+      dialogProps={SELECT_DIALOG_PROPS}
+    >
       <Select.Item itemKey="channel_name">Channel name</Select.Item>
       <Select.Item itemKey="none">None</Select.Item>
     </Select.Simple>
