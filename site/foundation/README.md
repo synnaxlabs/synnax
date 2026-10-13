@@ -16,6 +16,19 @@ The package reuses Lyra components and theme tokens, Synnax media assets, and
 The contact form uses the existing Synnax Formspree endpoint. No runtime environment
 variables or application server are required.
 
+## Page flow
+
+The hero leads into how Foundation works, the integration grid, use cases and field
+deployments, engineering, principles, and contact. The system diagram includes a
+persistent equipment ↔ Foundation ↔ software summary below its four interactive steps.
+Field deployments and the solutions invitation sit together under use cases.
+
+`IntegrationGrid.astro` presents 18 equipment, software, protocol, and destination
+integrations with selectable connection details. It reuses the main site's logo
+components and adds local assets under `components/integrations` and
+`public/integrations`. The grid renders as HTML with a small interaction script, without
+a React island.
+
 ## Loading strategy
 
 - The hero, navigation, section copy, and nine unlock cards are static HTML/SVG. Inter
@@ -29,8 +42,8 @@ variables or application server are required.
   carousel is visible. Automatic prefetch respects data saver and slow networks.
 - Failed scene requests can be retried. Rapid changes cannot display a stale scene. Only
   one deployment scene is mounted at a time.
-- Hero/system animation pauses offscreen and in hidden tabs. Carousel packet motion
-  pauses offscreen. All diagrams respect reduced-motion preferences.
+- Hero/system/engineering animation pauses offscreen and in hidden tabs. Carousel packet
+  motion pauses offscreen. All diagrams respect reduced-motion preferences.
 - The contact form hydrates when visible and retains a native POST fallback.
 - Vercel serves static output at the edge. Hashed assets use immutable caching.
 
@@ -85,6 +98,12 @@ later. The canonical URL and sitemap already use the production domain.
 `IndustrialNodes.tsx` supplies shared Foundation nodes and site pads. System and
 field-deployment scenes reuse these primitives. Engineering scenes illustrate
 reliability, data transport, and deployment behavior with a separate projection.
+
+The reliability demo follows an illustrative equipment → Ignition → Foundation →
+InfluxDB path. Its five conditions cover normal flow, a silent source, delayed delivery,
+recovery with an unrecoverable gap, and a lower-priority value check. Source-reported
+quality, Foundation validation, and destination delivery status remain separate in both
+the diagram and the readable evidence panel. Values are examples, not live measurements.
 
 The deployment order is process plants, aerospace, quantum labs, energy storage, and
 marine fleets. All scenes are illustrative architecture, with no customer telemetry or
