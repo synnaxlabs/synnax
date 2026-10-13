@@ -145,4 +145,94 @@ Wire struct {
 			Expect(pathMap).To(BeEmpty())
 		})
 	})
+
+	Describe("DefinerPaths", func() {
+		var (
+			root string
+			res  *versions.Resolver
+		)
+
+		writeVersion := func(name, content string) {
+			GinkgoHelper()
+			full := filepath.Join(root, "schemas/synnax/versions/channel", name)
+			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+		}
+
+		analyzeLive := func(ctx context.Context) *resolution.Table {
+			GinkgoHelper()
+			table := resolution.NewTable()
+			diag := analyzer.AnalyzeSeeded(ctx, `
+@go output "out"
+
+Note struct {
+	text string
+
+	@go marshal
+}
+
+Channel struct {
+	key uuid @key
+	note Note
+
+	@go marshal
+}
+
+Wire struct {
+	name string
+}
+`, "schemas/synnax/channel.oracle", "channel",
+				analyzer.NewStandardFileLoader(root), table,
+			)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			return table
+		}
+
+		BeforeEach(func() {
+			root = GinkgoT().TempDir()
+			writeVersion("v0.oracle", `
+Note struct {
+	text string
+
+	@go marshal
+}
+
+Channel struct {
+	key uuid @key
+
+	@go marshal
+}
+`)
+			writeVersion("v1.oracle", `
+Note = v0.Note
+
+Channel struct {
+	key uuid @key
+	note Note
+
+	@go marshal
+}
+`)
+			chains := MustSucceed(versions.Discover(root))
+			res = versions.NewResolver(chains, analyzer.NewStandardFileLoader(root))
+		})
+
+		It("Should map a member an older version defines to that version's path",
+			func(ctx SpecContext) {
+				Expect(versioning.DefinerPaths(ctx, analyzeLive(ctx), res)).To(Equal(
+					map[string]string{"channel.Note": "out/versions/v0"},
+				))
+			})
+
+		It("Should return nothing without a resolver", func(ctx SpecContext) {
+			Expect(versioning.DefinerPaths(ctx, analyzeLive(ctx), nil)).To(BeEmpty())
+		})
+
+		It("Should return the error from reading a surface", func(ctx SpecContext) {
+			table := analyzeLive(ctx)
+			writeVersion("v1.oracle", "Channel struct {")
+			Expect(versioning.DefinerPaths(ctx, table, res)).Error().
+				To(MatchError(ContainSubstring("mismatched input '<EOF>'")))
+		})
+	})
 })

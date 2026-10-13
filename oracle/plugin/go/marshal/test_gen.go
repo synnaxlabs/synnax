@@ -12,6 +12,7 @@ package marshal
 import (
 	"bytes"
 	"fmt"
+	"maps"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -72,6 +73,9 @@ const (
 	modeEmptyCollections
 )
 
+// generateTestCodecFile renders the codec test file, then renders it again when it
+// imports more than one version of a dependency, so the aliases follow
+// naming.VersionAliases.
 func generateTestCodecFile(
 	packageName string,
 	parentPath string,
@@ -84,10 +88,41 @@ func generateTestCodecFile(
 	if err != nil {
 		return nil, err
 	}
+	imports := make(map[string]string)
+	content, err := renderTestCodecFile(
+		packageName, parentPath, pkgImport, entries, table, repoRoot, definerPaths, nil,
+		imports,
+	)
+	if err != nil {
+		return nil, err
+	}
+	aliases := naming.VersionAliases(slices.Collect(maps.Keys(imports)), pkgImport)
+	if len(aliases) == 0 {
+		return content, nil
+	}
+	return renderTestCodecFile(
+		packageName, parentPath, pkgImport, entries, table, repoRoot, definerPaths,
+		aliases, make(map[string]string),
+	)
+}
+
+// renderTestCodecFile renders the codec test file, recording its imports into
+// imports. aliases forces the alias of each import path it holds.
+func renderTestCodecFile(
+	packageName string,
+	parentPath string,
+	pkgImport string,
+	entries []CodecEntry,
+	table *resolution.Table,
+	repoRoot string,
+	definerPaths map[string]string,
+	aliases map[string]string,
+	imports map[string]string,
+) ([]byte, error) {
 	fo := testFileOutput{
 		Package:      packageName,
 		PkgImport:    pkgImport,
-		ExtraImports: make(map[string]string),
+		ExtraImports: imports,
 	}
 
 	sharedVars := make(map[string]string)
@@ -110,6 +145,7 @@ func generateTestCodecFile(
 			packageName:  packageName,
 			parentPath:   parentPath,
 			imports:      fo.ExtraImports,
+			aliases:      aliases,
 			definerPaths: definerPaths,
 			pkgPrefix:    packageName + ".",
 			mode:         modeFullyPopulated,
@@ -187,6 +223,7 @@ func generateTestCodecFile(
 					packageName:  packageName,
 					parentPath:   parentPath,
 					imports:      fo.ExtraImports,
+					aliases:      aliases,
 					definerPaths: definerPaths,
 					pkgPrefix:    packageName + ".",
 					mode:         modeFullyPopulated,
@@ -268,6 +305,7 @@ func generateTestCodecFile(
 					packageName:  packageName,
 					parentPath:   parentPath,
 					imports:      fo.ExtraImports,
+					aliases:      aliases,
 					definerPaths: definerPaths,
 					sharedVars:   sharedVars,
 					pkgPrefix:    packageName + ".",
@@ -358,6 +396,7 @@ func generateTestCodecFile(
 					packageName:  packageName,
 					parentPath:   parentPath,
 					imports:      fo.ExtraImports,
+					aliases:      aliases,
 					definerPaths: definerPaths,
 					pkgPrefix:    packageName + ".",
 					mode:         m.mode,
@@ -464,6 +503,8 @@ type testValueBuilder struct {
 	packageName string
 	parentPath  string
 	imports     map[string]string
+	// aliases forces the alias of each import path it holds.
+	aliases map[string]string
 	// definerPaths maps a current-surface member an older version defines to its
 	// definer's versioned path, where references from other packages resolve.
 	definerPaths map[string]string
@@ -1166,13 +1207,16 @@ func (b *testValueBuilder) goTypeName(typ resolution.Type) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	alias := naming.DerivePackageAlias(goPath, b.packageName)
+	alias, forced := b.aliases[importPath]
 	// A versioned sub-package (…/versions/v0) aliases to its bare resource name, which
 	// shadows that resource's root package or another already-imported package sharing
 	// the name. Disambiguate with the version-suffixed alias, matching the migration
 	// import convention (spatialv0).
-	if b.aliasCollides(importPath, alias) {
-		alias = naming.DeriveVersionedAlias(goPath, b.packageName)
+	if !forced {
+		alias = naming.DerivePackageAlias(goPath, b.packageName)
+		if b.aliasCollides(importPath, alias) {
+			alias = naming.DeriveVersionedAlias(goPath, b.packageName)
+		}
 	}
 	actualPkg := filepath.Base(importPath)
 	if alias == actualPkg {

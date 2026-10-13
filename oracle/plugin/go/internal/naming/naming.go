@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/keywords"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/set"
 )
 
 // IsScreamingCase returns true if s is all uppercase letters (possibly with
@@ -170,4 +171,60 @@ func DeriveVersionedAlias(outputPath, currentPackage string) string {
 		return parent + base
 	}
 	return base
+}
+
+// VersionAliases returns the import aliases for the version packages
+// (".../<resource>/versions/vN") among the import paths of one generated file, keyed by
+// path. When a file imports more than one version of a resource, the newest takes the
+// bare resource name and each older one takes the version-suffixed name ("irv0"). When
+// it also imports the resource's root package, the root keeps the bare name and every
+// version takes the suffixed one. The result leaves out a resource imported at one
+// version without its root, and the versions of the file's own resource that sit
+// beside currentPath.
+func VersionAliases(paths []string, currentPath string) map[string]string {
+	imported := set.New(paths...)
+	byResource := make(map[string][]string)
+	for _, p := range paths {
+		dir := filepath.Dir(p)
+		if filepath.Base(dir) != "versions" ||
+			!majorVersion.MatchString(filepath.Base(p)) ||
+			dir == filepath.Dir(currentPath) {
+			continue
+		}
+		root := filepath.Dir(dir)
+		byResource[root] = append(byResource[root], p)
+	}
+	aliases := make(map[string]string)
+	for root, versions := range byResource {
+		rootImported := imported.Contains(root)
+		if len(versions) < 2 && !rootImported {
+			continue
+		}
+		resource := filepath.Base(root)
+		newest := versions[0]
+		for _, p := range versions[1:] {
+			if newerVersion(p, newest) {
+				newest = p
+			}
+		}
+		for _, p := range versions {
+			if p == newest && !rootImported {
+				aliases[p] = keywords.Escape(resource)
+			} else {
+				aliases[p] = resource + filepath.Base(p)
+			}
+		}
+	}
+	return aliases
+}
+
+// newerVersion reports whether path a ends in a higher "vN" segment than path b. The
+// segments hold only digits, so a longer number is the larger one.
+func newerVersion(a, b string) bool {
+	na := strings.TrimPrefix(filepath.Base(a), "v")
+	nb := strings.TrimPrefix(filepath.Base(b), "v")
+	if len(na) != len(nb) {
+		return len(na) > len(nb)
+	}
+	return na > nb
 }

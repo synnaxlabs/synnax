@@ -595,3 +595,129 @@ Log struct {
 		Expect(dep).To(ContainSubstring("Color Color"))
 	})
 })
+
+// writeTwoVersionFixture writes a log whose current version, v1, reaches color's v0
+// Color and v1 Band, and aliases its own v0 Note.
+func writeTwoVersionFixture(root string) {
+	GinkgoHelper()
+	write := func(rel, content string) {
+		full := filepath.Join(root, rel)
+		Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+		Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+	}
+	write("schemas/x/versions/color/v0.oracle", `
+Color struct {
+	r uint8
+
+	@go marshal
+}
+`)
+	write("schemas/x/versions/color/v1.oracle", `
+Color = v0.Color
+
+Band struct {
+	color Color
+
+	@go marshal
+}
+`)
+	write("schemas/x/color.oracle", `
+@go output "x/go/color"
+
+Color struct {
+	r uint8
+
+	@go marshal
+}
+
+Band struct {
+	color Color
+
+	@go marshal
+}
+`)
+	write("schemas/synnax/versions/log/v0.oracle", `
+Note struct {
+	text string
+
+	@go marshal
+}
+
+Log struct {
+	key uuid @key
+	note Note
+
+	@go marshal
+}
+`)
+	write("schemas/synnax/versions/log/v1.oracle", `
+import "schemas/x/versions/color/v1"
+
+Note = v0.Note
+
+Log struct {
+	key uuid @key
+	note Note
+	colors color.Color[]
+	bands color.Band[]
+
+	@go marshal
+}
+`)
+	write("schemas/synnax/log.oracle", `
+import "schemas/x/color"
+
+@go output "core/pkg/service/log"
+
+Note struct {
+	text string
+
+	@go marshal
+}
+
+Log struct {
+	key uuid @key
+	note Note
+	colors color.Color[]
+	bands color.Band[]
+
+	@go marshal
+}
+`)
+}
+
+// twoVersionRequest analyzes the fixture writeTwoVersionFixture writes.
+func twoVersionRequest() *plugin.Request {
+	GinkgoHelper()
+	root := GinkgoT().TempDir()
+	writeTwoVersionFixture(root)
+	chains := MustSucceed(versions.Discover(root))
+	loader := analyzer.NewStandardFileLoader(root)
+	table, diag := analyzer.Analyze(
+		GinkgoT().Context(),
+		[]string{"schemas/x/color", "schemas/synnax/log"},
+		loader,
+	)
+	Expect(diag.Ok()).To(BeTrue(), diag.String())
+	return &plugin.Request{
+		Resolutions: table,
+		RepoRoot:    root,
+		Versions:    versions.NewResolver(chains, loader),
+	}
+}
+
+var _ = Describe("Import aliases for two versions of a dependency", func() {
+	It("Should give the newest version the bare name in a current package", func() {
+		resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).
+			Generate(twoVersionRequest()))
+		var current string
+		for _, f := range resp.Files {
+			if f.Path == "core/pkg/service/log/versions/v1/types.gen.go" {
+				current = string(f.Content)
+			}
+		}
+		Expect(current).To(MatchRegexp(`\scolorv0 "[^"]*/color/versions/v0"`))
+		Expect(current).To(MatchRegexp(`\scolor "[^"]*/color/versions/v1"`))
+		Expect(current).To(MatchRegexp(`\sv0 "[^"]*/log/versions/v0"`))
+	})
+})

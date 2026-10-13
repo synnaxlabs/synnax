@@ -12,6 +12,7 @@ package marshal
 import (
 	"bytes"
 	"fmt"
+	"maps"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -72,6 +73,9 @@ type encoderFileOutput struct {
 
 // --- Generation entry point ---
 
+// generateEncoderCodecFile renders the codec file, then renders it again when it
+// imports more than one version of a dependency, so the aliases follow
+// naming.VersionAliases.
 func generateEncoderCodecFile(
 	packageName string,
 	parentPath string,
@@ -81,9 +85,44 @@ func generateEncoderCodecFile(
 	repoRoot string,
 	definerPaths map[string]string,
 ) ([]byte, error) {
+	imports := make(map[string]string)
+	content, err := renderEncoderCodecFile(
+		packageName, parentPath, entries, flex, table, repoRoot, definerPaths, nil,
+		imports,
+	)
+	if err != nil {
+		return nil, err
+	}
+	current, err := resolveGoImportPath(parentPath, repoRoot)
+	if err != nil {
+		return nil, err
+	}
+	aliases := naming.VersionAliases(slices.Collect(maps.Keys(imports)), current)
+	if len(aliases) == 0 {
+		return content, nil
+	}
+	return renderEncoderCodecFile(
+		packageName, parentPath, entries, flex, table, repoRoot, definerPaths, aliases,
+		make(map[string]string),
+	)
+}
+
+// renderEncoderCodecFile renders the codec file, recording its imports into imports.
+// aliases forces the alias of each import path it holds.
+func renderEncoderCodecFile(
+	packageName string,
+	parentPath string,
+	entries []CodecEntry,
+	flex []FlexCodec,
+	table *resolution.Table,
+	repoRoot string,
+	definerPaths map[string]string,
+	aliases map[string]string,
+	imports map[string]string,
+) ([]byte, error) {
 	fo := encoderFileOutput{
 		Package:      packageName,
-		ExtraImports: make(map[string]string),
+		ExtraImports: imports,
 	}
 
 	// Generate flex methods for distinct scalar types in sorted order.
@@ -111,6 +150,7 @@ func generateEncoderCodecFile(
 			packageName:  packageName,
 			parentPath:   parentPath,
 			imports:      fo.ExtraImports,
+			aliases:      aliases,
 			definerPaths: definerPaths,
 		}
 		if uform, isUnion := e.Type.Form.(resolution.UnionForm); isUnion {
@@ -253,6 +293,8 @@ type encoderBuilder struct {
 	packageName string
 	parentPath  string
 	imports     map[string]string
+	// aliases forces the alias of each import path it holds.
+	aliases map[string]string
 	// definerPaths maps a current-surface member an older version defines to its
 	// definer's versioned path, where references from other packages resolve.
 	definerPaths  map[string]string
@@ -651,6 +693,7 @@ func buildUnionCodec(
 				packageName:  b.packageName,
 				parentPath:   b.parentPath,
 				imports:      b.imports,
+				aliases:      b.aliases,
 				definerPaths: b.definerPaths,
 			}
 			if err := fb.processFields(inlineFields, "v", "v"); err != nil {
@@ -1247,13 +1290,16 @@ func (b *encoderBuilder) goTypeName(typ resolution.Type) (string, error) {
 		}
 		return qualifier + "." + goName, nil
 	}
-	alias := naming.DerivePackageAlias(goPath, b.packageName)
-	if alias == b.packageName || b.aliasUsed(alias) {
-		parent := filepath.Base(filepath.Dir(goPath))
-		alias = parent + alias
-	}
-	for b.aliasUsed(alias) {
-		alias = alias + "x"
+	alias, forced := b.aliases[importPath]
+	if !forced {
+		alias = naming.DerivePackageAlias(goPath, b.packageName)
+		if alias == b.packageName || b.aliasUsed(alias) {
+			parent := filepath.Base(filepath.Dir(goPath))
+			alias = parent + alias
+		}
+		for b.aliasUsed(alias) {
+			alias = alias + "x"
+		}
 	}
 	// Only store an alias when it differs from the package's natural name.
 	actualPkg := filepath.Base(importPath)

@@ -15,7 +15,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"path/filepath"
 	"slices"
 	"strings"
 	"text/template"
@@ -437,17 +436,15 @@ func generateGoFile(
 	if err != nil || len(conflicts) == 0 {
 		return content, err
 	}
-	// Pinned and live imports of one dependency derive the same alias. Rebind
-	// the versioned paths to version-suffixed aliases and render again.
-	pkg := naming.DerivePackageName(outputPath)
-	overrides := make(map[string]string)
+	// Two versions of one dependency derive the same alias. Rebind them by version
+	// and render again.
+	var conflicted []string
 	for _, paths := range conflicts {
-		for _, p := range paths {
-			if filepath.Base(filepath.Dir(p)) == "versions" {
-				overrides[p] = naming.DeriveVersionedAlias(p, pkg)
-			}
-		}
+		conflicted = append(conflicted, paths...)
 	}
+	overrides := naming.VersionAliases(
+		conflicted, resolveGoImportPath(outputPath, repoRoot),
+	)
 	content, conflicts, err = renderGoFile(
 		outputPath, structs, enums, typeDefs, unions, table, repoRoot,
 		pred, latest, closure, transientPass, order, definerPaths, overrides,

@@ -163,6 +163,57 @@ var _ = Describe("DeriveVersionedAlias", func() {
 	})
 })
 
+var _ = Describe("VersionAliases", func() {
+	const current = "github.com/synnaxlabs/arc/graph/versions/v1"
+
+	It("Should give the newest version the bare name and older ones a suffix", func() {
+		Expect(naming.VersionAliases([]string{
+			"github.com/synnaxlabs/arc/types/versions/v1",
+			"github.com/synnaxlabs/arc/ir/versions/v0",
+			"github.com/synnaxlabs/arc/types/versions/v0",
+			"github.com/synnaxlabs/arc/ir/versions/v1",
+		}, current)).To(Equal(map[string]string{
+			"github.com/synnaxlabs/arc/ir/versions/v0":    "irv0",
+			"github.com/synnaxlabs/arc/ir/versions/v1":    "ir",
+			"github.com/synnaxlabs/arc/types/versions/v0": "typesv0",
+			"github.com/synnaxlabs/arc/types/versions/v1": "types",
+		}))
+	})
+
+	It("Should compare versions by number, not text", func() {
+		Expect(naming.VersionAliases([]string{
+			"github.com/synnaxlabs/x/color/versions/v10",
+			"github.com/synnaxlabs/x/color/versions/v9",
+		}, current)).To(Equal(map[string]string{
+			"github.com/synnaxlabs/x/color/versions/v10": "color",
+			"github.com/synnaxlabs/x/color/versions/v9":  "colorv9",
+		}))
+	})
+
+	It("Should suffix every version when the resource's root is imported", func() {
+		Expect(naming.VersionAliases([]string{
+			"github.com/synnaxlabs/synnax/core/status",
+			"github.com/synnaxlabs/synnax/core/status/versions/v1",
+		}, current)).To(Equal(map[string]string{
+			"github.com/synnaxlabs/synnax/core/status/versions/v1": "statusv1",
+		}))
+	})
+
+	It("Should leave out a resource imported at one version", func() {
+		Expect(naming.VersionAliases([]string{
+			"github.com/synnaxlabs/x/color/versions/v0",
+			"github.com/synnaxlabs/x/encoding/orc",
+		}, current)).To(BeEmpty())
+	})
+
+	It("Should leave out the predecessors of the file's own resource", func() {
+		Expect(naming.VersionAliases([]string{
+			"github.com/synnaxlabs/arc/graph/versions/v0",
+			"github.com/synnaxlabs/arc/ir/versions/v0",
+		}, current)).To(BeEmpty())
+	})
+})
+
 var _ = Describe("LowerFirst", func() {
 	DescribeTable("should lowercase the leading uppercase run",
 		func(input, expected string) {
