@@ -199,6 +199,39 @@ var _ = Describe("VersionAliases", func() {
 		}))
 	})
 
+	It("Should prefix resources that share a name with their parent directory", func() {
+		Expect(naming.VersionAliases([]string{
+			"github.com/synnaxlabs/synnax/core/arc/task/versions/v0",
+			"github.com/synnaxlabs/synnax/core/arc/task/versions/v1",
+			"github.com/synnaxlabs/synnax/core/rack/task/versions/v0",
+			"github.com/synnaxlabs/synnax/core/rack/task/versions/v1",
+		}, current)).To(Equal(map[string]string{
+			"github.com/synnaxlabs/synnax/core/arc/task/versions/v0":  "arctaskv0",
+			"github.com/synnaxlabs/synnax/core/arc/task/versions/v1":  "arctask",
+			"github.com/synnaxlabs/synnax/core/rack/task/versions/v0": "racktaskv0",
+			"github.com/synnaxlabs/synnax/core/rack/task/versions/v1": "racktask",
+		}))
+	})
+
+	It("Should prefix a shared name even when one resource has one version", func() {
+		Expect(naming.VersionAliases([]string{
+			"github.com/synnaxlabs/synnax/core/arc/task/versions/v0",
+			"github.com/synnaxlabs/synnax/core/rack/task/versions/v1",
+		}, current)).To(Equal(map[string]string{
+			"github.com/synnaxlabs/synnax/core/arc/task/versions/v0":  "arctask",
+			"github.com/synnaxlabs/synnax/core/rack/task/versions/v1": "racktask",
+		}))
+	})
+
+	It("Should suffix every version when another package has the resource's name", func() {
+		Expect(naming.VersionAliases([]string{
+			"github.com/synnaxlabs/pluto/color",
+			"github.com/synnaxlabs/x/color/versions/v0",
+		}, current)).To(Equal(map[string]string{
+			"github.com/synnaxlabs/x/color/versions/v0": "colorv0",
+		}))
+	})
+
 	It("Should leave out a resource imported at one version", func() {
 		Expect(naming.VersionAliases([]string{
 			"github.com/synnaxlabs/x/color/versions/v0",

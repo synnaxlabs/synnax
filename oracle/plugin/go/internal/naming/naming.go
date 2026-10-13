@@ -177,30 +177,41 @@ func DeriveVersionedAlias(outputPath, currentPackage string) string {
 // (".../<resource>/versions/vN") among the import paths of one generated file, keyed by
 // path. When a file imports more than one version of a resource, the newest takes the
 // bare resource name and each older one takes the version-suffixed name ("irv0"). When
-// it also imports the resource's root package, the root keeps the bare name and every
-// version takes the suffixed one. The result leaves out a resource imported at one
-// version without its root, and the versions of the file's own resource that sit
-// beside currentPath.
+// another import in the file is a non-version package with the resource's name, such as
+// the resource's root, every version takes the suffixed name. When two imported
+// resources share a name, both prefix it with their parent directory ("arctask",
+// "arctaskv0"). The result leaves out a resource imported at one version with no name
+// clash, and the versions of the file's own resource that sit beside currentPath.
 func VersionAliases(paths []string, currentPath string) map[string]string {
-	imported := set.New(paths...)
 	byResource := make(map[string][]string)
+	plainNames := make(set.Set[string])
 	for _, p := range paths {
 		dir := filepath.Dir(p)
-		if filepath.Base(dir) != "versions" ||
-			!majorVersion.MatchString(filepath.Base(p)) ||
-			dir == filepath.Dir(currentPath) {
+		if filepath.Base(dir) != "versions" || !majorVersion.MatchString(filepath.Base(p)) {
+			plainNames.Add(filepath.Base(p))
+			continue
+		}
+		if dir == filepath.Dir(currentPath) {
 			continue
 		}
 		root := filepath.Dir(dir)
 		byResource[root] = append(byResource[root], p)
 	}
+	rootsByName := make(map[string]int)
+	for root := range byResource {
+		rootsByName[filepath.Base(root)]++
+	}
 	aliases := make(map[string]string)
 	for root, versions := range byResource {
-		rootImported := imported.Contains(root)
-		if len(versions) < 2 && !rootImported {
+		resource := filepath.Base(root)
+		shared := rootsByName[resource] > 1
+		if shared {
+			resource = filepath.Base(filepath.Dir(root)) + resource
+		}
+		bareTaken := plainNames.Contains(resource)
+		if len(versions) < 2 && !bareTaken && !shared {
 			continue
 		}
-		resource := filepath.Base(root)
 		newest := versions[0]
 		for _, p := range versions[1:] {
 			if newerVersion(p, newest) {
@@ -208,7 +219,7 @@ func VersionAliases(paths []string, currentPath string) map[string]string {
 			}
 		}
 		for _, p := range versions {
-			if p == newest && !rootImported {
+			if p == newest && !bareTaken {
 				aliases[p] = keywords.Escape(resource)
 			} else {
 				aliases[p] = resource + filepath.Base(p)
