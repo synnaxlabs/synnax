@@ -2,6 +2,9 @@
   "name": "@synnaxlabs/pluto",
   "private": true,
   "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
   "scripts": {
     "build": "vite build",
     "check-types": "tsc --noEmit",

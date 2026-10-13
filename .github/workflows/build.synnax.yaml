@@ -307,7 +307,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      # Only the Bazel Driver build reads the vendored submodules.
       - name: Update submodules
+        if: inputs.driver && (env.DRIVER_REF_RUN_ID == '' || inputs.nilinuxrt)
         run: git submodule update --init --recursive
 
       - name: Install deps on Ubuntu
@@ -1001,9 +1003,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
-
-      - name: Update submodules
-        run: git submodule update --init --recursive
 
       - name: Download Linux Driver artifact
         if: inputs.driver

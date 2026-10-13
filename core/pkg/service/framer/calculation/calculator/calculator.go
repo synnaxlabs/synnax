@@ -200,7 +200,7 @@ func Open(ctx context.Context, cfgs ...Config) (_ *Calculator, err error) {
 		nodes[irNode.Key] = n
 	}
 
-	sched, err := scheduler.New(cfg.Module.IR, nodes, 0)
+	sched, err := scheduler.New(cfg.Module.IR, nodes)
 	if err != nil {
 		return nil, err
 	}

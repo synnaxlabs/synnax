@@ -371,6 +371,22 @@ var keptZeroColorFields = set.New("bands", "state_overrides")
 // painted as transparent when zero.
 var polygonKeptZeroColorFields = set.New("bands", "state_overrides", "fill_color")
 
+// dropNonPositiveScale deletes a stored scale that is absent, not a number, or not
+// positive, reporting whether it did, so the schema default of 1 fills it. A zero
+// scale sizes a symbol to nothing.
+func dropNonPositiveScale(cfg map[string]any) bool {
+	raw, ok := cfg["scale"]
+	if !ok {
+		return false
+	}
+	scale, isNumber := raw.(float64)
+	if isNumber && scale > 0 {
+		return false
+	}
+	delete(cfg, "scale")
+	return true
+}
+
 // stripZeroColors deletes every color-valued field of cfg holding the zero color.
 // Consoles before v9 stored transparent black for an unchosen color; v9 stores nothing,
 // so the theme picks the color instead. Fields a release painted as transparent keep
@@ -565,9 +581,11 @@ func liftIndicator(
 	}
 }
 
-// withDefaults decodes a normalized config over its variant's schema defaults. A stored
-// field keeps its value even when it is zero.
-func withDefaults(stored msgpack.EncodedJSON) (ElementConfig, error) {
+// DecodeWithDefaults decodes a normalized config over its variant's schema defaults. A
+// field the config carries keeps its value even when it is zero; only an omitted field
+// takes the default. It returns an error wrapping validate.ErrValidation when the
+// config names no known variant.
+func DecodeWithDefaults(stored msgpack.EncodedJSON) (ElementConfig, error) {
 	defaults, err := defaultConfig(stored)
 	if err != nil {
 		return ElementConfig{}, err

@@ -12,11 +12,15 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import "@/styles/release-diagrams.css";
+import { releaseAnchor } from "@/util/releaseNotes";
 const { date, version, title, breakingChanges, npmVersion = version } = Astro.props;
 const firstPart = version.split(".").slice(0, 2).join(".");
+const [major, minor] = version.split(".").map(Number);
+// From v0.59, each product has its own tag, and the Core's tag stands for the release.
+const tag = major === 0 && minor < 59 ? `synnax-v${version}` : `core/v${version}`;
 ---
 
-<Flex.Box direction="x" id={version.split(".").join("-")} className="release" empty>
+<Flex.Box direction="x" id={releaseAnchor(version)} className="release" empty>
     <Flex.Box direction="y" className="meta" align="start" gap="large">
         <Flex.Box direction="y" empty>
             <Text.Text level="h3" weight={500}>
@@ -34,9 +38,7 @@ const firstPart = version.split(".").slice(0, 2).join(".");
             )}
         </Flex.Box>
         <Flex.Box direction="x" align="center" gap="large">
-            <Text.Text
-                href={`https://github.com/synnaxlabs/synnax/tree/synnax-v${version}`}
-            >
+            <Text.Text href={`https://github.com/synnaxlabs/synnax/tree/${tag}`}>
                 <Icon.Logo.Github className="link" />
             </Text.Text>
             <Text.Text href={`https://pypi.org/project/synnax/${firstPart}/`}>

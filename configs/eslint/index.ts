@@ -165,6 +165,24 @@ const config: Linter.Config[] = [
     },
   },
   {
+    // Packages declare their JavaScript free of side effects, so a bundler skips a
+    // barrel's own body and drops any stylesheet it imports.
+    files: ["**/index.ts", "**/index.tsx", "**/external.ts", "**/external.tsx"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["*.css"],
+              message: "Import a stylesheet from the component that uses it.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     ignores: [
       "node_modules",
       "build",

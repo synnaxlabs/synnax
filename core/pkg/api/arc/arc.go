@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -130,47 +131,57 @@ func (s *Service) Dispatch(
 }
 
 type (
-	// SetRackRequest binds the arc to a rack. A zero Rack unbinds it.
-	SetRackRequest struct {
-		Key  arc.Key  `json:"key"  msgpack:"key"`
-		Rack rack.Key `json:"rack" msgpack:"rack"`
+	// UpdateTaskRequest changes the arc's task. A nil field stays as it is.
+	UpdateTaskRequest struct {
+		// Key is the key of the arc.
+		Key arc.Key `json:"key" msgpack:"key"`
+		// Rack binds the arc to the rack. A zero rack unbinds it.
+		Rack *rack.Key `json:"rack,omitempty" msgpack:"rack,omitempty"`
+		// Performance sets how closely the task's runtime holds timer deadlines.
+		Performance *arctask.Performance `json:"performance,omitempty" msgpack:"performance,omitempty"`
 	}
-	// SetRackResponse carries the arc's task, or a null Task after an unbind.
-	SetRackResponse struct {
+	// UpdateTaskResponse carries the arc's task, or a null Task after an unbind.
+	UpdateTaskResponse struct {
 		Task *task.Task `json:"task" msgpack:"task"`
 	}
 )
 
-// SetRack creates or moves the arc's task so it runs on the requested rack. A zero
-// rack unbinds the arc, deleting its task; unbinding a running arc is rejected.
-func (s *Service) SetRack(
+// UpdateTask creates, moves, or changes the arc's task. A zero rack unbinds the arc,
+// deleting its task; unbinding a running arc is rejected.
+func (s *Service) UpdateTask(
 	ctx context.Context,
 	tx gorp.Tx,
-	req SetRackRequest,
-) (SetRackResponse, error) {
+	req UpdateTaskRequest,
+) (UpdateTaskResponse, error) {
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{arc.OntologyID(req.Key)},
 	}); err != nil {
-		return SetRackResponse{}, err
+		return UpdateTaskResponse{}, err
 	}
-	taskAction := access.ActionCreate
-	if req.Rack == 0 {
-		taskAction = access.ActionDelete
+	taskAction := access.ActionUpdate
+	if req.Rack != nil {
+		taskAction = access.ActionCreate
+		if *req.Rack == 0 {
+			taskAction = access.ActionDelete
+		}
 	}
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  taskAction,
 		Objects: []ontology.ID{{Type: ontology.ResourceTypeTask}},
 	}); err != nil {
-		return SetRackResponse{}, err
+		return UpdateTaskResponse{}, err
 	}
-	tsk, err := s.internal.NewWriter(tx).SetRack(ctx, req.Key, req.Rack)
+	tsk, err := s.internal.NewWriter(tx).UpdateTask(ctx, req.Key, arc.TaskUpdate{
+		Rack:        req.Rack,
+		Performance: req.Performance,
+	})
 	if err != nil {
-		return SetRackResponse{}, err
+		return UpdateTaskResponse{}, err
 	}
-	return SetRackResponse{Task: tsk}, nil
+	return UpdateTaskResponse{Task: tsk}, nil
 }
 
 type (

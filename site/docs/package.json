@@ -31,14 +31,12 @@
     "@synnaxlabs/site-common": "catalog:",
     "@synnaxlabs/x": "catalog:",
     "astro": "catalog:",
-    "astro-seo": "catalog:",
     "hast-util-from-html": "catalog:",
     "hast-util-to-mdast": "catalog:",
     "mdast-util-gfm": "catalog:",
     "mdast-util-to-markdown": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "shiki": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

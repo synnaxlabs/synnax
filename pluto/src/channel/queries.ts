@@ -205,6 +205,8 @@ export const useList = Flux.createList<ListQuery, channel.Key, channel.Channel>(
   retrieveByKey: async ({ client, key, query: { rangeKey } }) =>
     await client.channels.retrieve(key, { rangeKey }),
   onChange: ({ client, query }, handler) => client.channels.onChange(query, handler),
+  onChangeByKey: ({ client, key, query: { rangeKey } }, handler) =>
+    client.channels.onChange({ key, rangeKey }, handler),
   getCached: ({ client, query }) => client.channels.getCached(query),
 });
 

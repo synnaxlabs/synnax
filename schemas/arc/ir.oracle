@@ -74,25 +74,61 @@ Liveness enum {
     @doc value "defines whether a Scope is continuously active or must be activated."
 }
 
+Target union on type {
+    exit {
+        @doc value "leaves the scope and yields to its parent."
+    }
+    step {
+        key string {
+            @doc value "is the key of the sibling step to activate."
+        }
+
+        @doc value "activates a sibling step of the same scope."
+    }
+    scope {
+        key string {
+            @doc value "is the key of the top-level scope to activate."
+        }
+
+        @doc value "leaves the scope, then activates a top-level scope."
+    }
+
+    @doc value "is where a transition goes when it fires."
+}
+
 Transition struct {
-    on        Handle   {
+    on     Handle   {
         @doc value "is the dataflow handle whose output fires this transition."
     }
-    kind      EdgeKind {
+    kind   EdgeKind {
         @doc value """
             is conditional when only a truthy output fires the transition (`=>`), and
             continuous when every output fires it (`->`).
         """
     }
-    targetKey string?  {
-        @doc value """
-            is the sibling step key to activate. Null when the transition exits the
-            scope, yielding to the parent.
-        """
+    target Target   {
+        @doc value "is where the transition goes when it fires."
     }
 
     @cpp methods "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Transition& t)"
-    @doc value   "is a declarative state-transition rule on a sequential Scope."
+    @doc value   """
+        is a declarative state-transition rule on a sequential Scope, or an exit from a
+        parallel Scope.
+    """
+}
+
+Activation struct {
+    on   Handle   {
+        @doc value "is the dataflow handle whose output activates the scope."
+    }
+    kind EdgeKind {
+        @doc value """
+            is conditional when only a truthy output activates the scope (`=>`), and
+            continuous when every output does (`->`).
+        """
+    }
+
+    @doc value "is a handle that activates a gated Scope without leaving any scope."
 }
 
 Member struct {
@@ -119,46 +155,39 @@ Members = Member[] {
 }
 
 Scope struct {
-    key            string       {
+    key         string       {
         @doc value "is the scope identifier."
     }
-    mode           ScopeMode    {
+    mode        ScopeMode    {
         @doc value "defines whether this scope runs steps in parallel or sequentially."
     }
-    liveness       Liveness     {
+    liveness    Liveness     {
         @doc value """
             defines whether this scope is continuously active or must be activated.
         """
     }
-    activation     Handle?      {
+    activations Activation[] {
         @doc value """
-            is the handle whose output activates a gated scope. Unset for always-live
+            contains the handles that activate a gated scope. Empty for always-live
             scopes.
         """
     }
-    activationKind EdgeKind     {
-        @doc value """
-            is conditional when only a truthy activation output activates the scope
-            (`=>`), and continuous when every output does (`->`). Unspecified when
-            activation is unset.
-        """
-    }
-    strata         Members[]    {
+    strata      Members[]    {
         @doc value """
             contains stratified execution layers for parallel scopes. On sequential
             scopes, strata hold variable nodes that run every pass alongside the active
             step. Stratum N depends only on strata 0 to N-1.
         """
     }
-    steps          Members      {
+    steps       Members      {
         @doc value """
             contains ordered steps for sequential scopes. Empty for parallel scopes.
         """
     }
-    transitions    Transition[] {
+    transitions Transition[] {
         @doc value """
-            contains state-transition rules for sequential scopes. Empty for parallel
-            scopes.
+            contains state-transition rules in source order. A parallel scope holds only
+            exits.
         """
     }
 

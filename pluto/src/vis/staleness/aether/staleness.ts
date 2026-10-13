@@ -263,12 +263,14 @@ export const useInternalRegistration = (
 
 /**
  * Resolves the color that stale content renders in.
- * @param c - The configured staleness color. An absent color resolves to the theme's
- * warning shade.
+ * @param c - The configured staleness color. An absent or zero color resolves to the
+ * theme's warning shade: Consoles before v0.59 stored transparent black for an
+ * unchosen color, and a transparent stale symbol would vanish.
  */
 export const resolveColor = (
   c: color.Crude | undefined,
   theme: theme.Theme,
-): color.Color => (c == null ? theme.colors.warning.m1 : color.construct(c));
+): color.Color =>
+  c == null || color.isZero(c) ? theme.colors.warning.m1 : color.construct(c);
 
 export const REGISTRY: aether.ComponentRegistry = { [Provider.TYPE]: Provider };

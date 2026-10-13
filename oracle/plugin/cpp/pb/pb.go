@@ -15,6 +15,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
@@ -115,6 +116,21 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		outputDistinct[cppOutputPath] = append(outputDistinct[cppOutputPath], entry)
 	}
 
+	outputUnions := make(map[string][]resolution.Type)
+	for _, u := range req.Resolutions.UnionTypes() {
+		cppOutputPath := output.GetPath(u, "cpp")
+		if cppOutputPath == "" || !hasPBFlag(u) {
+			continue
+		}
+		if omit.IsSkipped(u, "pb") || omit.IsSkipped(u, "cpp") {
+			continue
+		}
+		if !slices.Contains(outputOrder, cppOutputPath) {
+			outputOrder = append(outputOrder, cppOutputPath)
+		}
+		outputUnions[cppOutputPath] = append(outputUnions[cppOutputPath], u)
+	}
+
 	standaloneEnums := make(map[string][]resolution.Type)
 	for _, e := range req.Resolutions.EnumTypes() {
 		if omit.IsSkipped(e, "cpp") || omit.IsSkipped(e, "pb") {
@@ -148,9 +164,12 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 	for _, outputPath := range outputOrder {
 		structs := outputStructs[outputPath]
+		unions := outputUnions[outputPath]
 		namespace := ""
 		if len(structs) > 0 {
 			namespace = structs[0].Namespace
+		} else if len(unions) > 0 {
+			namespace = unions[0].Namespace
 		}
 
 		enums := enum.CollectReferenced(structs, req.Resolutions)
@@ -165,7 +184,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 
 		content, err := p.generateProto(
-			outputPath, structs, enums, namespace, jsonPaths, protoPaths, req,
+			outputPath, structs, unions, enums, namespace, jsonPaths, protoPaths, req,
 		)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate proto for %s", outputPath)
@@ -201,6 +220,7 @@ func hasExplicitPBName(t resolution.Type) bool {
 func (p *Plugin) generateProto(
 	outputPath string,
 	structs []resolution.Type,
+	unions []resolution.Type,
 	enums []resolution.Type,
 	namespace string,
 	jsonPaths set.Set[string],
@@ -208,16 +228,17 @@ func (p *Plugin) generateProto(
 	req *plugin.Request,
 ) ([]byte, error) {
 	data := &templateData{
-		Namespace:       naming.Namespace(outputPath),
-		Translators:     make([]translatorData, 0, len(structs)),
-		EnumTranslators: make([]enumTranslatorData, 0),
-		ArrayWrappers:   make([]arrayWrapperTranslatorData, 0),
-		Manager:         includes.NewManager(),
-		table:           req.Resolutions,
-		jsonPaths:       jsonPaths,
-		protoPaths:      protoPaths,
-		rawNs:           namespace,
-		processedEnums:  make(set.Set[string]),
+		Namespace:        naming.Namespace(outputPath),
+		Translators:      make([]translatorData, 0, len(structs)),
+		UnionTranslators: make([]unionTranslatorData, 0, len(unions)),
+		EnumTranslators:  make([]enumTranslatorData, 0),
+		ArrayWrappers:    make([]arrayWrapperTranslatorData, 0),
+		Manager:          includes.NewManager(),
+		table:            req.Resolutions,
+		jsonPaths:        jsonPaths,
+		protoPaths:       protoPaths,
+		rawNs:            namespace,
+		processedEnums:   make(set.Set[string]),
 	}
 
 	data.AddSystem("utility")
@@ -227,7 +248,7 @@ func (p *Plugin) generateProto(
 	data.AddInternal("x/cpp/pb/pb.h")
 
 	pbOutputPaths := make(set.Set[string])
-	for _, s := range structs {
+	for _, s := range append(slices.Clone(structs), unions...) {
 		pbPath := output.GetPBPath(s)
 		if pbPath != "" && !pbOutputPaths.Contains(pbPath) {
 			pbOutputPaths.Add(pbPath)
@@ -254,6 +275,21 @@ func (p *Plugin) generateProto(
 		if translator != nil {
 			data.Translators = append(data.Translators, *translator)
 		}
+	}
+
+	for _, u := range unions {
+		form, ok := u.Form.(resolution.UnionForm)
+		if !ok {
+			continue
+		}
+		data.UnionTranslators = append(
+			data.UnionTranslators,
+			p.processUnionForTranslation(u, form, data),
+		)
+	}
+	if len(data.UnionTranslators) > 0 {
+		data.AddSystem("variant")
+		data.AddSystem("type_traits")
 	}
 
 	// Add type_traits include only if there are generic translators
@@ -311,7 +347,7 @@ func (p *Plugin) generateProto(
 	}
 
 	if len(data.Translators) == 0 && len(data.EnumTranslators) == 0 &&
-		len(data.ArrayWrappers) == 0 {
+		len(data.ArrayWrappers) == 0 && len(data.UnionTranslators) == 0 {
 		return nil, nil
 	}
 
@@ -362,6 +398,116 @@ func (p *Plugin) resolveExtendsType(
 	}
 
 	return name
+}
+
+// processUnionForTranslation builds the translator view for a discriminated union:
+// a member translator per variant struct against its payload message, and the free
+// functions that dispatch between the std::variant and the protobuf oneof wrapper.
+// The union's extends bases are message fields on the wrapper, so the dispatch
+// converts them beside the variant payload.
+func (p *Plugin) processUnionForTranslation(
+	u resolution.Type,
+	form resolution.UnionForm,
+	data *templateData,
+) unionTranslatorData {
+	cppName := domain.GetName(u, "cpp")
+	pbNamespace := naming.PBNamespace(output.GetPBPath(u))
+	ut := unionTranslatorData{
+		CppName:   cppName,
+		SnakeName: casing.FieldSnake(cppName),
+		PBType:    fmt.Sprintf("%s::%s", pbNamespace, naming.PBName(u)),
+	}
+	for _, ext := range form.Extends {
+		base, ok := ext.Resolve(data.table)
+		if !ok {
+			continue
+		}
+		if _, isStruct := base.Form.(resolution.StructForm); !isStruct {
+			continue
+		}
+		ut.Bases = append(ut.Bases, unionBaseTranslatorData{
+			CppType:    p.resolveExtendsType(ext, base, data),
+			PBAccessor: keywords.Escape(casing.FieldSnake(base.Name)),
+		})
+	}
+	for _, v := range form.Variants {
+		payload, ok := v.Type.Resolve(data.table)
+		if !ok {
+			continue
+		}
+		variantName := naming.VariantTypeName(cppName, v.Name)
+		translator := translatorData{
+			CppName:     variantName,
+			PBName:      naming.PBName(payload),
+			PBNamespace: pbNamespace,
+			Fields:      make([]fieldTranslatorData, 0),
+		}
+		for _, field := range resolution.UnifiedFields(payload, data.table) {
+			translator.Fields = append(
+				translator.Fields,
+				p.processFieldForTranslation(field, data),
+			)
+		}
+		data.Translators = append(data.Translators, translator)
+		accessor := casing.FieldSnake(v.Name)
+		ut.Variants = append(ut.Variants, unionVariantTranslatorData{
+			TypeName:   variantName,
+			PBAccessor: keywords.Escape(accessor),
+			CaseName:   lo.PascalCase(accessor),
+		})
+	}
+	return ut
+}
+
+// unionTranslatorNames returns the to_proto and from_proto functions for a union.
+// Both are namespace-qualified: a call from inside a struct's own to_proto would
+// otherwise resolve to that member function.
+func (p *Plugin) unionTranslatorNames(
+	resolved resolution.Type,
+	data *templateData,
+) (toProto, fromProto string) {
+	fromProto = casing.FieldSnake(domain.GetName(resolved, "cpp")) + "_from_proto"
+	ns := data.Namespace
+	if resolved.Namespace != data.rawNs {
+		if targetOutputPath := output.GetPath(resolved, "cpp"); targetOutputPath != "" {
+			data.addConversionIncludes(targetOutputPath)
+			ns = naming.Namespace(targetOutputPath)
+		}
+	}
+	return fmt.Sprintf("::%s::to_proto", ns), fmt.Sprintf("::%s::%s", ns, fromProto)
+}
+
+func (p *Plugin) generateUnionConversion(
+	resolved resolution.Type,
+	isOptional bool,
+	data *templateData,
+	cppFieldName, pbAccessorName string,
+) (forward, backward string) {
+	toProto, fromProto := p.unionTranslatorNames(resolved, data)
+	if isOptional {
+		forward = fmt.Sprintf(`if (this->%s.has_value()) {
+        auto [v, err] = %s(*this->%s);
+        if (err) return {{}, err};
+        *pb.mutable_%s() = v;
+    }`, cppFieldName, toProto, cppFieldName, pbAccessorName)
+		backward = fmt.Sprintf(`if (pb.has_%s()) {
+        auto [v, err] = %s(pb.%s());
+        if (err) return {{}, err};
+        cpp.%s = v;
+    }`, pbAccessorName, fromProto, pbAccessorName, cppFieldName)
+		return forward, backward
+	}
+	forward = fmt.Sprintf(`{
+        auto [v, err] = %s(this->%s);
+        if (err) return {{}, err};
+        *pb.mutable_%s() = v;
+    }`, toProto, cppFieldName, pbAccessorName)
+	backward = fmt.Sprintf(`{
+        auto [v, err] = %s(pb.%s());
+        if (err) return {{}, err};
+        cpp.%s = v;
+    }`, fromProto, pbAccessorName, cppFieldName)
+	return forward, backward
 }
 
 func (p *Plugin) processStructForTranslation(
@@ -526,6 +672,14 @@ func (p *Plugin) generateFieldConversion(
 	case resolution.StructForm:
 		return p.generateStructConversion(
 			typeRef,
+			resolved,
+			field.Optional,
+			data,
+			cppFieldName,
+			pbAccessorName,
+		)
+	case resolution.UnionForm:
+		return p.generateUnionConversion(
 			resolved,
 			field.Optional,
 			data,
@@ -1198,6 +1352,15 @@ func (p *Plugin) generateArrayElementConversion(
 				)
 				return forward, backward
 			}
+			if _, isUnion := resolved.Form.(resolution.UnionForm); isUnion {
+				return p.generateUnionArrayConversion(
+					resolved,
+					cppFieldName,
+					pbAccessorName,
+					isOptional,
+					data,
+				)
+			}
 		}
 	}
 
@@ -1224,6 +1387,45 @@ func (p *Plugin) generateArrayElementConversion(
 		cppFieldName,
 	)
 
+	return forward, backward
+}
+
+func (p *Plugin) generateUnionArrayConversion(
+	resolved resolution.Type,
+	cppFieldName, pbAccessorName string,
+	isOptional bool,
+	data *templateData,
+) (forward, backward string) {
+	toProto, fromProto := p.unionTranslatorNames(resolved, data)
+	if isOptional {
+		forward = fmt.Sprintf(`if (this->%s.has_value()) {
+        auto* wrapper = pb.mutable_%s();
+        for (const auto& item : *this->%s) {
+            auto [v, err] = %s(item);
+            if (err) return {{}, err};
+            *wrapper->add_values() = v;
+        }
+    }`, cppFieldName, pbAccessorName, cppFieldName, toProto)
+		backward = fmt.Sprintf(`if (pb.has_%s()) {
+        cpp.%s.emplace();
+        for (const auto& item : pb.%s().values()) {
+            auto [v, err] = %s(item);
+            if (err) return {{}, err};
+            cpp.%s->push_back(v);
+        }
+    }`, pbAccessorName, cppFieldName, pbAccessorName, fromProto, cppFieldName)
+		return forward, backward
+	}
+	forward = fmt.Sprintf(`for (const auto& item : this->%s) {
+        auto [v, err] = %s(item);
+        if (err) return {{}, err};
+        *pb.add_%s() = v;
+    }`, cppFieldName, toProto, pbAccessorName)
+	backward = fmt.Sprintf(`for (const auto& item : pb.%s()) {
+        auto [v, err] = %s(item);
+        if (err) return {{}, err};
+        cpp.%s.push_back(v);
+    }`, pbAccessorName, fromProto, cppFieldName)
 	return forward, backward
 }
 
@@ -1506,14 +1708,46 @@ func primitiveToProtoType(primitive string) string {
 type templateData struct {
 	processedEnums set.Set[string]
 	*includes.Manager
-	table           *resolution.Table
-	jsonPaths       set.Set[string]
-	protoPaths      set.Set[string]
-	Namespace       string
-	rawNs           string
-	Translators     []translatorData
-	EnumTranslators []enumTranslatorData
-	ArrayWrappers   []arrayWrapperTranslatorData
+	table            *resolution.Table
+	jsonPaths        set.Set[string]
+	protoPaths       set.Set[string]
+	Namespace        string
+	rawNs            string
+	Translators      []translatorData
+	UnionTranslators []unionTranslatorData
+	EnumTranslators  []enumTranslatorData
+	ArrayWrappers    []arrayWrapperTranslatorData
+}
+
+// unionTranslatorData is the template view of the free functions that move a
+// discriminated union between its std::variant alias and its protobuf wrapper.
+type unionTranslatorData struct {
+	// CppName is the std::variant alias (e.g. "Target").
+	CppName string
+	// SnakeName names the from_proto function (e.g. target_from_proto).
+	SnakeName string
+	// PBType is the qualified protobuf wrapper message.
+	PBType string
+	// Bases are the union's extends bases, nested as message fields on the wrapper.
+	Bases []unionBaseTranslatorData
+	// Variants lists every variant in declaration order.
+	Variants []unionVariantTranslatorData
+}
+
+type unionBaseTranslatorData struct {
+	// CppType is the qualified base struct the variant structs inherit.
+	CppType string
+	// PBAccessor is the wrapper's message field for the base.
+	PBAccessor string
+}
+
+type unionVariantTranslatorData struct {
+	// TypeName is the variant struct (e.g. "ExitTarget").
+	TypeName string
+	// PBAccessor is the oneof member field (e.g. "exit").
+	PBAccessor string
+	// CaseName is the protoc oneof case without its k prefix (e.g. "Exit").
+	CaseName string
 }
 
 // jsonInclude returns the header to include for a reference to types generated at

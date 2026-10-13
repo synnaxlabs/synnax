@@ -20,7 +20,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Status } from "@/feature/status";
+import { Explorer } from "@/feature/status/explorer/Explorer";
 import { Modals } from "@/platform/modals";
 import { enableEditing, findToolbarIconButton } from "@/platform/view/testutil";
 import {
@@ -43,7 +43,7 @@ describe("status explorer", () => {
     const { wrapper } = await createConsoleWrapper({ client });
     render(
       <>
-        <Status.Explorer.Explorer />
+        <Explorer />
         <Modals.Stack />
       </>,
       { wrapper },
@@ -61,7 +61,7 @@ describe("status explorer", () => {
     const { wrapper } = await createConsoleWrapper({ client });
     render(
       <>
-        <Status.Explorer.Explorer />
+        <Explorer />
         <Modals.Stack />
       </>,
       { wrapper },
@@ -97,7 +97,7 @@ describe("status explorer permissions", () => {
     const { wrapper } = await createConsoleWrapper({ client: as });
     render(
       <>
-        <Status.Explorer.Explorer />
+        <Explorer />
         <Modals.Stack />
       </>,
       { wrapper },

@@ -1,0 +1,181 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.principles-chapter {
+    background: #090d12;
+    color: #d3dbe3;
+}
+
+.principles-inner {
+    padding-block: 104px 96px;
+}
+
+.principles-index {
+    margin: 0 0 48px;
+    color: #9ba8b6;
+    font: 500 14px/1.6 var(--foundation-mono);
+}
+
+.principles-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    column-gap: clamp(56px, 7vw, 104px);
+}
+
+.principles-thesis {
+    display: flex;
+    flex-direction: column;
+    align-items: start;
+    justify-content: space-between;
+    padding-block: 6px 18px;
+
+    h2 {
+        margin: 0;
+        color: #dce2e9;
+        font: 400 clamp(40px, 3.7vw, 56px)/1.13 var(--foundation-display);
+        letter-spacing: -0.045em;
+
+        span {
+            color: #93a6ba;
+        }
+    }
+}
+
+.principles-frame {
+    display: block;
+    width: min(100%, 340px);
+    height: auto;
+    margin: 48px 0 0 -20px;
+    overflow: visible;
+    opacity: 0.8;
+    pointer-events: none;
+}
+
+.principles-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+
+    > li {
+        display: grid;
+        grid-template-columns: 40px minmax(0, 1fr);
+        column-gap: 24px;
+        padding-block: 27px 28px;
+        border-top: 1px solid #293440;
+
+        &:first-child {
+            padding-top: 24px;
+        }
+    }
+}
+
+.principle-number {
+    padding-top: 6px;
+    color: #8193a6;
+    font: 400 12px/1.5 var(--foundation-mono);
+}
+
+.principle-copy {
+    h3 {
+        margin: 0 0 12px;
+        color: #d4dce4;
+        font: 400 23px/1.2 var(--foundation-body);
+        letter-spacing: -0.025em;
+    }
+
+    p {
+        max-width: 49ch;
+        margin: 0;
+        color: #96a3b1;
+        font: 400 15px/1.7 var(--foundation-body);
+        text-wrap: pretty;
+    }
+}
+
+@media (width <= 900px) {
+    .principles-inner {
+        padding-block: 80px;
+    }
+
+    .principles-index {
+        margin-bottom: 36px;
+    }
+
+    .principles-layout {
+        grid-template-columns: 1fr;
+        row-gap: 36px;
+    }
+
+    .principles-thesis {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 180px;
+        align-items: center;
+        gap: 24px;
+        padding: 0;
+    }
+
+    .principles-thesis h2 {
+        font-size: 38px;
+    }
+
+    .principles-frame {
+        width: 180px;
+        margin: 0;
+    }
+
+    .principle-copy p {
+        max-width: 66ch;
+    }
+}
+
+@media (width <= 600px) {
+    .principles-inner {
+        padding-block: 64px;
+    }
+
+    .principles-index {
+        margin-bottom: 32px;
+    }
+
+    .principles-thesis {
+        display: flex;
+        align-items: start;
+        gap: 0;
+
+        h2 {
+            font-size: clamp(30px, 7.2vw, 38px);
+        }
+    }
+
+    .principles-frame {
+        width: 160px;
+        margin: 24px 0 0 -12px;
+        opacity: 0.7;
+    }
+
+    .principles-frame-detail {
+        display: none;
+    }
+
+    .principles-list > li {
+        grid-template-columns: 24px minmax(0, 1fr);
+        column-gap: 16px;
+        padding-block: 24px;
+    }
+
+    .principle-number {
+        padding-top: 4px;
+    }
+
+    .principle-copy h3 {
+        font-size: 22px;
+    }
+}

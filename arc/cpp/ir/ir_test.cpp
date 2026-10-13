@@ -119,8 +119,36 @@ TEST(IRTest, testIRProtobufRoundTrip) {
     ASSERT_EQ(m.scope->mode, ScopeMode::Sequential);
     ASSERT_EQ(m.scope->steps.size(), 2);
     ASSERT_EQ(m.scope->transitions.size(), 1);
-    // An exit transition leaves target_key unset (nullopt).
-    ASSERT_FALSE(m.scope->transitions[0].target_key.has_value());
+    ASSERT_TRUE(std::holds_alternative<ExitTarget>(m.scope->transitions[0].target));
+}
+
+/// @brief it should carry every transition target through protobuf
+TEST(IRTest, testTransitionProtoRoundTripTargets) {
+    const std::vector<Target> targets = {
+        ExitTarget{},
+        StepTarget{.key = "next"},
+        ScopeTarget{.key = "abort"},
+    };
+    for (const auto &target: targets) {
+        Transition original;
+        original.on = Handle("n", "out");
+        original.kind = EdgeKind::Conditional;
+        original.target = target;
+        const auto pb = ASSERT_NIL_P(original.to_proto());
+        const auto reconstructed = ASSERT_NIL_P(Transition::from_proto(pb));
+        ASSERT_EQ(reconstructed.to_string(), original.to_string());
+        ASSERT_EQ(reconstructed.target.index(), target.index());
+    }
+}
+
+/// @brief it should reject a protobuf transition whose target is unset
+TEST(IRTest, testTransitionFromProtoRejectsAnUnsetTarget) {
+    pb::Transition pb;
+    pb.mutable_on()->set_node("n");
+    pb.mutable_on()->set_param("out");
+    const auto err = Transition::from_proto(pb).second;
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    ASSERT_EQ(err.data, "Target: no variant set");
 }
 
 /// @brief it should access nodes by key using node()
@@ -239,19 +267,27 @@ TEST(IRTest, testTransitionToStringStepKey) {
     Transition t;
     t.on = Handle("n", "out");
     t.kind = EdgeKind::Conditional;
-    t.target_key = "next";
+    t.target = StepTarget{.key = "next"};
     const auto str = t.to_string();
     ASSERT_NE(str.find("on n/out"), std::string::npos);
     ASSERT_NE(str.find("=> next"), std::string::npos);
 }
 
-/// @brief it should format a Transition with an exit (unset) target
+/// @brief it should format a Transition with the default exit target
 TEST(IRTest, testTransitionToStringExit) {
     Transition t;
     t.on = Handle("n", "out");
     t.kind = EdgeKind::Conditional;
-    // target_key left unset signals exit.
     ASSERT_NE(t.to_string().find("=> exit"), std::string::npos);
+}
+
+/// @brief it should format a Transition that exits to a top-level scope
+TEST(IRTest, testTransitionToStringExitTo) {
+    Transition t;
+    t.on = Handle("n", "out");
+    t.kind = EdgeKind::Conditional;
+    t.target = ScopeTarget{.key = "abort"};
+    ASSERT_EQ(t.to_string(), "on n/out => exit to abort");
 }
 
 /// @brief it should format a continuous Transition with ->
@@ -259,7 +295,7 @@ TEST(IRTest, testTransitionToStringContinuous) {
     Transition t;
     t.on = Handle("n", "out");
     t.kind = EdgeKind::Continuous;
-    t.target_key = "next";
+    t.target = StepTarget{.key = "next"};
     ASSERT_EQ(t.to_string(), "on n/out -> next");
 }
 
@@ -267,7 +303,7 @@ TEST(IRTest, testTransitionToStringContinuous) {
 TEST(IRTest, testTransitionToStringUnspecified) {
     Transition t;
     t.on = Handle("n", "out");
-    t.target_key = "next";
+    t.target = StepTarget{.key = "next"};
     ASSERT_EQ(t.to_string(), "on n/out ?> next");
 }
 
@@ -331,7 +367,7 @@ TEST(IRTest, testScopeToStringSequentialWithTransitions) {
     Transition t;
     t.on = Handle("first", "done");
     t.kind = EdgeKind::Conditional;
-    t.target_key = "second";
+    t.target = StepTarget{.key = "second"};
     s.transitions.push_back(t);
     const auto str = s.to_string();
     ASSERT_NE(str.find("main"), std::string::npos);

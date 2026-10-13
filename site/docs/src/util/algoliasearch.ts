@@ -16,6 +16,8 @@ import { remark } from "remark";
 import remarkGfm from "remark-gfm";
 import stripMarkdown from "strip-markdown";
 
+import { listReleaseNotes, RELEASE_NOTES_DIR } from "./releaseNotes.ts";
+
 const client = algoliasearch(
   process.env.DOCS_ALGOLIA_APP_ID ?? "",
   process.env.DOCS_ALGOLIA_WRITE_API_KEY ?? "",
@@ -40,36 +42,36 @@ const toPlainText = async (content: string): Promise<string> => {
 const hidden = (flag: unknown): boolean =>
   typeof flag === "string" && process.env[`FLAG_${flag.toUpperCase()}`] !== "true";
 
-const filenames = fs.readdirSync(path.join("./src/pages"), {
-  recursive: true,
-  encoding: "utf8",
+const read = (dir: string, filename: string, href: string) => ({
+  filename,
+  href,
+  ...matter(fs.readFileSync(path.join(dir, filename))),
 });
-const pages = filenames
-  .filter((f) => f.endsWith("mdx"))
-  .map((filename) => ({
-    filename,
-    ...matter(fs.readFileSync(`./src/pages/${filename}`)),
-  }));
+
+const PAGES_DIR = "./src/pages";
+const pages = [
+  ...fs
+    .readdirSync(PAGES_DIR, { recursive: true, encoding: "utf8" })
+    .filter((f) => f.endsWith("mdx"))
+    .map((f) =>
+      read(PAGES_DIR, f, `/${f.replace(".mdx", "").replace(/(^|\/)index$/, "$1")}`),
+    ),
+  // Each version's notes render only inside /releases, under the version's anchor.
+  ...listReleaseNotes().map(({ name, anchor }) =>
+    read(RELEASE_NOTES_DIR, `${name}.mdx`, `/releases/#${anchor}`),
+  ),
+];
 const skipped = pages.filter(({ data }) => hidden(data.flag));
 const data = await Promise.all(
   pages
     .filter(({ data }) => !hidden(data.flag))
-    .map(async ({ filename, data: frontmatter, content }) => {
-      let href = `/${filename.replace(".mdx", "").replace(/(^|\/)index$/, "$1")}`;
-      if (filename.includes("releases") && !filename.includes("index"))
-        href = `/releases/#${filename
-          .replace(".mdx", "")
-          .replaceAll("-", "")
-          .slice(0, -1)
-          .replace("releases/", "")}`;
-      return {
-        objectID: filename,
-        href,
-        title: frontmatter.heading ?? frontmatter.title,
-        description: frontmatter.description,
-        content: await toPlainText(purgeImports(content)),
-      };
-    }),
+    .map(async ({ filename, href, data: frontmatter, content }) => ({
+      objectID: filename,
+      href,
+      title: frontmatter.heading ?? frontmatter.title,
+      description: frontmatter.description,
+      content: await toPlainText(purgeImports(content)),
+    })),
 );
 
 console.log(`Indexing ${data.length} pages, skipping ${skipped.length} behind flags`);

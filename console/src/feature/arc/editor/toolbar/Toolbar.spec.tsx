@@ -15,7 +15,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { Suspense } from "react";
 import { describe, expect, it } from "vitest";
 
-import { Arc } from "@/feature/arc";
+import { Toolbar } from "@/feature/arc/editor/toolbar/Toolbar";
 import { createResourceTab } from "@/platform/panel/testutil";
 import { Session } from "@/session";
 import {
@@ -49,7 +49,7 @@ const renderToolbar = async (arcKey: string): Promise<ToolbarHandle> => {
       <PlutoPanel.Scope.Provider value={panelKey}>
         <PlutoPanel.TabScope.Provider value={tabKey}>
           <Suspense fallback={null}>
-            <Arc.Editor.Toolbar />
+            <Toolbar />
           </Suspense>
           <CaptureStatuses onStatuses={(s) => (statuses = s)} />
         </PlutoPanel.TabScope.Provider>

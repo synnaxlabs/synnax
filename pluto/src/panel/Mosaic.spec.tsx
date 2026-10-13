@@ -17,6 +17,7 @@ import { Haul } from "@synnaxlabs/lyra/haul";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { type record, TimeSpan, uuid } from "@synnaxlabs/x";
 import {
   act,
@@ -164,9 +165,11 @@ describe("Panel.Mosaic", () => {
 
   const renderMosaic = async ({
     panelKey,
+    reserved = [],
     ...props
   }: Omit<Panel.MosaicProps, "children"> & {
     panelKey: panel.Key;
+    reserved?: Triggers.Trigger[];
   }): Promise<RenderResult> => {
     let bootstrap!: RenderResult;
     await act(async () => {
@@ -185,9 +188,11 @@ describe("Panel.Mosaic", () => {
       utils = render(
         <Errors.SuspenseBoundary loading={<div>loading</div>}>
           <Panel.Suspended panelKey={panelKey}>
-            <Tooltip.Config delay={TimeSpan.milliseconds(1)}>
-              <Panel.Mosaic {...props}>{children}</Panel.Mosaic>
-            </Tooltip.Config>
+            <Triggers.Provider reserved={reserved}>
+              <Tooltip.Config delay={TimeSpan.milliseconds(1)}>
+                <Panel.Mosaic {...props}>{children}</Panel.Mosaic>
+              </Tooltip.Config>
+            </Triggers.Provider>
           </Panel.Suspended>
         </Errors.SuspenseBoundary>,
         { wrapper },
@@ -428,6 +433,29 @@ describe("Panel.Mosaic", () => {
 
       const tip = await hoverTooltip(left);
       expect(tip.textContent?.toLowerCase()).toContain("t");
+    });
+
+    it("should open no create tooltip when the host reserves the shortcut", async () => {
+      const tab = resourceTab();
+      const p = await createPanel(tab);
+      const utils = await renderMosaic({
+        panelKey: p.key,
+        selected: [tab.key],
+        reserved: [Panel.CREATE_TAB_TRIGGER],
+      });
+      await waitFor(() => expect(utils.getByText(contentText(tab))).toBeTruthy());
+      const [create] = createButtons(utils);
+      create.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 40);
+      fireEvent.pointerEnter(create);
+      await expect(
+        waitFor(
+          () => {
+            if (document.querySelector(".pluto-tooltip") == null)
+              throw new Error("no tooltip yet");
+          },
+          { timeout: 500 },
+        ),
+      ).rejects.toThrow();
     });
 
     it("should advertise escape as the way out of focus mode", async () => {

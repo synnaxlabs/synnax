@@ -45,6 +45,7 @@ cc_shared_library(
 cc_test(
     name = "synnax_test",
     srcs = ["synnax_test.cpp"],
+    tags = ["requires-core"],
     deps = [
         ":clib",
         "@googletest//:gtest_main",
@@ -54,6 +55,7 @@ cc_test(
 cc_test(
     name = "framer_test",
     srcs = ["framer/framer_test.cpp"],
+    tags = ["requires-core"],
     deps = [
         ":clib",
         "//client/cpp/testutil",
@@ -65,6 +67,7 @@ cc_test(
 cc_test(
     name = "channel_test",
     srcs = ["channel/channel_test.cpp"],
+    tags = ["requires-core"],
     deps = [
         ":clib",
         "//client/cpp/testutil",

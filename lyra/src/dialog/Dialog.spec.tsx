@@ -341,5 +341,51 @@ describe("Dialog", () => {
       expect(el.style.top).toBe(`${top}px`);
       expect(variable(el, "available-height")).toBe(`${500 - top - 6}px`);
     });
+
+    describe("a dialog that outgrows its space", () => {
+      // Stands in for the CSS limits: the dialog never grows past its own height
+      // limit or the written space.
+      const MAX_HEIGHT = 360;
+      const grow = (natural: number): void => {
+        vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(
+          function (this: HTMLElement) {
+            if (!this.classList.contains("pluto-dialog__dialog")) return 0;
+            const available = parseFloat(variable(this, "available-height"));
+            return Math.min(
+              natural,
+              MAX_HEIGHT,
+              Number.isNaN(available) ? Infinity : available,
+            );
+          },
+        );
+        resize();
+      };
+
+      it("should move above the trigger when there is more room above", () => {
+        const el = open(rect(400, 500, 100, 30), rect(0, 0, 200, 100));
+        expect(el.style.top).not.toBe("");
+        grow(300);
+        expect(el.style.top).toBe("");
+        expect(parseFloat(el.style.bottom)).toBeGreaterThanOrEqual(
+          window.innerHeight - 500,
+        );
+      });
+
+      it("should stay below the trigger when there is more room below", () => {
+        // The dialog fits on both sides, so only the order of the sides decides.
+        vi.spyOn(window, "innerHeight", "get").mockReturnValue(465);
+        const el = open(rect(400, 215, 100, 30), rect(0, 0, 200, 100));
+        grow(2000);
+        expect(el.style.bottom).toBe("");
+        expect(parseFloat(el.style.top)).toBeGreaterThanOrEqual(245);
+      });
+
+      it("should stay below the trigger when the dialog fits", () => {
+        const el = open(rect(400, 500, 100, 30), rect(0, 0, 200, 100));
+        grow(150);
+        expect(el.style.bottom).toBe("");
+        expect(parseFloat(el.style.top)).toBeGreaterThanOrEqual(530);
+      });
+    });
   });
 });

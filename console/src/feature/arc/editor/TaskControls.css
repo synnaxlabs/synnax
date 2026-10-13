@@ -40,13 +40,9 @@
             flex-grow: 1;
             min-width: 200px;
         }
-    }
-}
 
-@container (max-width: 400px) {
-    .console-arc-editor {
-        .console-rack-select {
-            display: none;
+        & .console-performance-select {
+            min-width: 160px;
         }
     }
 }
@@ -54,6 +50,42 @@
 @container (max-width: 600px) {
     .console-arc .pluto-editor {
         padding-bottom: 21rem;
+    }
+}
+
+@container (max-width: 400px) {
+    /* The rack select takes its own line, and the performance select shrinks to the
+       glyph of the selected level. */
+    .console-arc .pluto-editor {
+        padding-bottom: 27rem;
+    }
+
+    .console-arc .console-arc-editor__controls {
+        .console-task-controls__actions {
+            flex-wrap: wrap;
+        }
+
+        .console-rack-select {
+            flex: 1 0 100%;
+            min-width: 0;
+
+            .pluto-dialog__trigger {
+                min-width: 0;
+                overflow: hidden;
+            }
+        }
+
+        .console-performance-select {
+            min-width: 0;
+            flex-shrink: 0;
+        }
+    }
+
+    .console-performance-select__trigger {
+        .console-performance-select__name,
+        .pluto-caret-animated {
+            display: none;
+        }
     }
 }
 
