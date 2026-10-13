@@ -1,8 +1,8 @@
 # Turbine demo
 
-This branch combines the Kafka integration and the oscilloscope features of the line
-plot. The demo streams turbine telemetry from Kafka into a Core and shows test-bench
-waveforms on an oscilloscope.
+This branch adds the Kafka integration and spectrum mode for line plots. The demo
+streams turbine telemetry from Kafka into a Core and shows test-bench waveforms on a
+line plot.
 
 ## Requirements
 
@@ -65,11 +65,7 @@ at 2 kHz.
 
 - **Kafka:** open the "Turbines" task to show its records and fields. Then plot
   `plant_turbine_a_rpm` and `plant_turbine_b_rpm`.
-- **Oscilloscope:** run "Create oscilloscope" from the command palette. Add
-  `waveform_sine` and `waveform_noisy` to Y1, and set the trigger source to
-  `waveform_sine`. Then change the edge, level, span, and pre-trigger.
-- **Measurements:** open the Measure tab to show live statistics for each line. On a
-  triggered window it also shows frequency and rise time.
+- **Measurements:** open the Measure tab to show live statistics for each line.
 - **Spectrum:** on a line plot with a rolling range, set the mode to Spectrum. The sine
   shows peaks at 60 Hz and 180 Hz. The square wave shows a 20 Hz fundamental and its
   harmonics.
