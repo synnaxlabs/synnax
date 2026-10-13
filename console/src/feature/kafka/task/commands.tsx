@@ -13,7 +13,6 @@ import { Access } from "@synnaxlabs/pluto";
 
 import { useCreateRead } from "@/feature/kafka/task/Read";
 import { useCreateWrite } from "@/feature/kafka/task/Write";
-import { FLAGS } from "@/flags";
 import { Command } from "@/platform/command";
 
 const useVisible = () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
@@ -34,4 +33,4 @@ const CreateWriteCommand = Command.create({
   useVisible,
 });
 
-export const COMMANDS = FLAGS.kafka ? [CreateReadCommand, CreateWriteCommand] : [];
+export const COMMANDS = [CreateReadCommand, CreateWriteCommand];

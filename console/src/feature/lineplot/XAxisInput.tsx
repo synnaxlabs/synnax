@@ -15,7 +15,6 @@ import { LinePlot } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { XAxisChannelSelect } from "@/feature/lineplot/SelectAxis";
-import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { Range } from "@/platform/range";
 
@@ -118,7 +117,7 @@ export const XAxisInput = ({ axisKey }: XAxisInputProps): ReactElement => {
   const triggered =
     ranges.custom?.variant === "triggered" &&
     ranges[axisKey].includes(Range.CUSTOM_KEY);
-  const showMode = FLAGS.lineplotWindows && !triggered;
+  const showMode = !triggered;
   const spectral = showMode && axis.mode === "spectrum";
   const handleModeChange = (mode: lineplot.XAxisMode) =>
     dispatch(lineplot.setAxisMode({ key: axisKey, mode }));

@@ -24,7 +24,6 @@ import { Lines } from "@/feature/lineplot/toolbar/Lines";
 import { Measure } from "@/feature/lineplot/toolbar/Measure";
 import { Properties } from "@/feature/lineplot/toolbar/Properties";
 import { useDownloadPlotAsCSV } from "@/feature/lineplot/useDownloadAsCSV";
-import { FLAGS } from "@/flags";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -85,9 +84,7 @@ const Internal = (): ReactElement => {
                 <Tabs.Tab itemKey="axes">Axes</Tabs.Tab>
                 <Tabs.Tab itemKey="properties">Properties</Tabs.Tab>
                 <Tabs.Tab itemKey="annotations">Rules</Tabs.Tab>
-                {FLAGS.lineplotWindows && (
-                  <Tabs.Tab itemKey="measure">Measure</Tabs.Tab>
-                )}
+                <Tabs.Tab itemKey="measure">Measure</Tabs.Tab>
               </Tabs.Selector>
             )}
           </Flex.Box>
@@ -109,11 +106,9 @@ const Internal = (): ReactElement => {
             <Tabs.Content itemKey="annotations">
               <Annotations />
             </Tabs.Content>
-            {FLAGS.lineplotWindows && (
-              <Tabs.Content itemKey="measure">
-                <Measure />
-              </Tabs.Content>
-            )}
+            <Tabs.Content itemKey="measure">
+              <Measure />
+            </Tabs.Content>
           </>
         ) : (
           <Empty.Action message={`${name} is not editable`} />

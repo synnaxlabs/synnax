@@ -15,7 +15,6 @@ import { Channel, LinePlot } from "@synnaxlabs/pluto";
 import { math, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
-import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { Range } from "@/platform/range";
 
@@ -214,11 +213,9 @@ export const CustomRangeInput = ({ axisKey }: CustomRangeInputProps): ReactEleme
   const variant: Variant = custom?.variant === "triggered" ? "triggered" : "dynamic";
   return (
     <Flex.Box x wrap align="center" className={CSS.BE("line-plot", "window")}>
-      {FLAGS.lineplotWindows && (
-        <Input.Item x label="Window">
-          <SelectVariant value={variant} onChange={handleVariantChange} />
-        </Input.Item>
-      )}
+      <Input.Item x label="Window">
+        <SelectVariant value={variant} onChange={handleVariantChange} />
+      </Input.Item>
       {custom?.variant === "triggered" ? (
         <TriggeredForm value={custom} onChange={handleTriggeredChange} />
       ) : (
