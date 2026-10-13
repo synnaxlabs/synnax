@@ -240,7 +240,7 @@ func literalAssignments(
 		fields := resolution.UnifiedFields(resolved, data.table)
 		if form, ok := resolved.Form.(resolution.StructForm); ok && form.IsGeneric() {
 			fields = lo.Map(fields, func(f resolution.Field, _ int) resolution.Field {
-				f.Type = bindTypeArgs(f.Type, form.TypeParams, typeRef.TypeArgs)
+				f.Type = bindTypeArgs(f.Type, form.TypeParams, typeRef.TypeArgs, data)
 				return f
 			})
 		}
@@ -297,16 +297,23 @@ func literalAssignments(
 
 // bindTypeArgs returns ref with each of params replaced by the type argument at its
 // position in args, so a generic struct's field types name its concrete instantiation.
+// When the resolver renders defaulted parameters as their defaults, a defaulted
+// parameter stays unbound so the field keeps the type its declaration has.
 func bindTypeArgs(
 	ref resolution.TypeRef,
 	params []resolution.TypeParam,
 	args []resolution.TypeRef,
+	data *templateData,
 ) resolution.TypeRef {
 	if ref.IsTypeParam() {
 		for i, p := range params {
-			if p.Name == ref.TypeParam.Name && i < len(args) {
-				return args[i]
+			if p.Name != ref.TypeParam.Name || i >= len(args) {
+				continue
 			}
+			if p.HasDefault() && data.ctx.SubstituteDefaultedTypeParams {
+				return ref
+			}
+			return args[i]
 		}
 		return ref
 	}
@@ -317,7 +324,7 @@ func bindTypeArgs(
 	bound.TypeArgs = lo.Map(
 		ref.TypeArgs,
 		func(a resolution.TypeRef, _ int) resolution.TypeRef {
-			return bindTypeArgs(a, params, args)
+			return bindTypeArgs(a, params, args, data)
 		},
 	)
 	return bound
