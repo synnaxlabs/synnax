@@ -455,12 +455,16 @@ export class StreamChannelData
           (start, s) => (s.timeRange.start.before(start) ? s.timeRange.start : start),
           streamStart,
         );
-        const res = await client.feed.read(
-          new TimeRange(this.now().sub(timeSpan), liveStart),
-          fetched.key,
-        );
-        if (generation !== this.generation) return;
-        this.pushNew(res.series);
+        // Live data held across a long retry can start before the window.
+        const start = this.now().sub(timeSpan);
+        if (liveStart.after(start)) {
+          const res = await client.feed.read(
+            new TimeRange(start, liveStart),
+            fetched.key,
+          );
+          if (generation !== this.generation) return;
+          this.pushNew(res.series);
+        }
       } catch (e) {
         // Certain calculated channels can fail to read because they need access to
         // virtual channels that cannot be read from historically.

@@ -1434,6 +1434,38 @@ describe("remote", () => {
         cd.cleanup();
       });
 
+      it("should skip a retried back-fill when live data covers the window", async () => {
+        let releaseRetry = (): void => {};
+        const retryGate = new Promise<void>((resolve) => (releaseRetry = resolve));
+        const ranges: TimeRange[] = [];
+        c.feed.read = async (tr: TimeRange): Promise<MultiSeries> => {
+          ranges.push(tr);
+          throw new Error("transient");
+        };
+        const cd = new StreamChannelData(
+          c,
+          { timeSpan: TimeSpan.seconds(10), channel: c.channel.key },
+          {},
+          undefined,
+          { sleepFn: async () => await retryGate },
+        );
+        await waitForStream(cd, c);
+        await expect.poll(() => ranges.length).toBe(1);
+        const live = new Series({
+          data: new Float32Array([1, 2]),
+          timeRange: new TimeRange(
+            TimeStamp.now().sub(TimeSpan.seconds(20)),
+            TimeStamp.MAX,
+          ),
+        });
+        c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
+        releaseRetry();
+        // The back-fill check runs synchronously after the stream reopens.
+        await expect.poll(() => c.streamF.mock.calls.length).toBe(2);
+        expect(ranges).toHaveLength(1);
+        cd.cleanup();
+      });
+
       it("should stop retrying at cleanup", async () => {
         let calls = 0;
         c.feed.read = async (): Promise<MultiSeries> => {
