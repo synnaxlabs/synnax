@@ -74,11 +74,13 @@ or generator logic and schemas disagree.
   minimality (a redeclaration structurally identical to its resolved predecessor must be
   an alias; enum member sets compare exactly).
 - Frozen `versions/vN` Go packages are regenerated, checked outputs of the version
-  files. Hand-written frozen definer files are marked `@go hand` in their version file;
-  hand-ness is version-local — an aliased member whose definer is an older version still
-  generates in the current package as a backward alias. `migrate.gen.go` is a pure
-  function of the two adjacent version files; hand-written transforms live in
-  `migrate.go` (renames and cross-resource moves have no generated counterpart).
+  files. A frozen type that the current version aliases also gets the live `@validate`
+  rules, since the current package's alias runs its `Validate`. Hand-written frozen
+  definer files are marked `@go hand` in their version file; hand-ness is version-local
+  — an aliased member whose definer is an older version still generates in the current
+  package as a backward alias. `migrate.gen.go` is a pure function of the two adjacent
+  version files; hand-written transforms live in `migrate.go` (renames and
+  cross-resource moves have no generated counterpart).
 - Omit-transient members — types reachable from a file's `@go marshal` declarations only
   through omitted fields, e.g. task's StatusDetails — track the live shape: they always
   declare fully, may match their predecessor (exempt from the minimality gate), and

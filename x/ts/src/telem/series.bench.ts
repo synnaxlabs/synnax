@@ -83,3 +83,23 @@ test("data access", async ({ bench }) => {
     }),
   );
 });
+
+// The first pass over new data computes the bounds, the non-finite ranges, and the
+// boundsFor block summaries. Later frames read the caches.
+test("first pass over 1M samples", async ({ bench }) => {
+  const finite = new Float32Array(1_000_000);
+  for (let i = 0; i < finite.length; i++) finite[i] = Math.sin(i);
+  // 5000 NaN bursts of 50 samples each.
+  const bursts = finite.map((v, i) => (i % 200 >= 150 ? NaN : v));
+  const sink = { value: 0 };
+  const firstPass = (data: Float32Array<ArrayBuffer>): void => {
+    const series = new Series({ data, dataType: DataType.FLOAT32 });
+    sink.value += series.bounds.upper;
+    sink.value += series.nonFiniteRanges.length;
+    sink.value += series.boundsFor(1, data.length - 1).upper;
+  };
+  await bench.compare(
+    bench("all finite", () => firstPass(finite)),
+    bench("NaN bursts", () => firstPass(bursts)),
+  );
+});

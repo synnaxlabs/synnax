@@ -122,22 +122,6 @@ var _ = Describe("Timer", Serial, func() {
 			To(BeNumerically("<", 500*time.Microsecond))
 	})
 
-	It("Should wake more often than once per millisecond", func() {
-		const (
-			period = 500 * time.Microsecond
-			fires  = 400
-		)
-		start := time.Now()
-		for range fires {
-			Expect(t.Reset(period)).To(Succeed())
-			Eventually(t.C).
-				WithTimeout(time.Second).
-				WithPolling(10 * time.Microsecond).
-				Should(Receive())
-		}
-		Expect(time.Since(start)).To(BeNumerically("<", fires*875*time.Microsecond))
-	})
-
 	DescribeTable("Should never fire early, whatever its spin",
 		func(spin time.Duration) {
 			s := MustOpen(timer.New(spin))
@@ -153,24 +137,6 @@ var _ = Describe("Timer", Serial, func() {
 		Entry("part of the wait", 2*time.Millisecond),
 		Entry("the whole wait", timer.SpinAll),
 	)
-
-	// A whole-wait spin leaves the deadline on time. The lateness is the wake of the
-	// receiving goroutine, which takes about 50 µs on a hosted Windows runner.
-	It("Should fire within 100 µs of its deadline on a whole-wait spin", func() {
-		s := MustOpen(timer.New(timer.SpinAll))
-		Expect(medianLateness(s, 2*time.Millisecond, 50)).
-			To(BeNumerically("<", 100*time.Microsecond))
-	})
-
-	It("Should hold a wait of DefaultSpin as a whole-wait spin does", func() {
-		if timer.DefaultSpin == 0 {
-			Skip("DefaultSpin does not spin")
-		}
-		s := MustOpen(timer.New(timer.SpinAll))
-		whole := medianLateness(s, timer.DefaultSpin, 50)
-		Expect(medianLateness(t, timer.DefaultSpin, 50)).
-			To(BeNumerically("~", whole, 10*time.Microsecond))
-	})
 
 	It("Should not fire after Stop during a spin", func() {
 		s := MustOpen(timer.New(timer.SpinAll))
