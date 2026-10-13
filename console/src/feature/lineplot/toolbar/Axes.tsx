@@ -20,6 +20,7 @@ import { type ReactElement } from "react";
 
 import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
+import { Range } from "@/platform/range";
 
 const SelectMode = (props: Select.ButtonsProps<lineplot.XAxisMode>): ReactElement => (
   <Select.Buttons<lineplot.XAxisMode> {...props}>
@@ -69,10 +70,19 @@ interface SpectrumControlsProps {
   axis: lineplot.Axis;
 }
 
-const SpectrumControls = ({ axisKey, axis }: SpectrumControlsProps): ReactElement => {
+const ModeControl = ({ axisKey, axis }: SpectrumControlsProps): ReactElement => {
   const dispatch = LinePlot.useSingleDispatch();
   const handleModeChange = (mode: lineplot.XAxisMode) =>
     dispatch(lineplot.setAxisMode({ key: axisKey, mode }));
+  return (
+    <Input.Item label="Mode">
+      <SelectMode value={axis.mode} onChange={handleModeChange} />
+    </Input.Item>
+  );
+};
+
+const SpectrumControls = ({ axisKey, axis }: SpectrumControlsProps): ReactElement => {
+  const dispatch = LinePlot.useSingleDispatch();
   const setSpectrum = (spectrum: Partial<lineplot.Spectrum>) =>
     dispatch(
       lineplot.setAxisSpectrum({
@@ -82,33 +92,26 @@ const SpectrumControls = ({ axisKey, axis }: SpectrumControlsProps): ReactElemen
     );
   return (
     <Flex.Box x>
-      <Input.Item label="Mode">
-        <SelectMode value={axis.mode} onChange={handleModeChange} />
+      <Input.Item label="Window">
+        <SelectWindow
+          value={axis.spectrum.window}
+          onChange={(window: lineplot.WindowFunction) => setSpectrum({ window })}
+        />
       </Input.Item>
-      {axis.mode === "spectrum" && (
-        <>
-          <Input.Item label="Window">
-            <SelectWindow
-              value={axis.spectrum.window}
-              onChange={(window: lineplot.WindowFunction) => setSpectrum({ window })}
-            />
-          </Input.Item>
-          <Input.Item label="Scale">
-            <SelectScale
-              value={axis.spectrum.scale}
-              onChange={(scale: lineplot.MagnitudeScale) => setSpectrum({ scale })}
-            />
-          </Input.Item>
-          <Input.Item label="Point limit">
-            <Input.Numeric
-              value={axis.spectrum.pointLimit}
-              onChange={(pointLimit: number) => setSpectrum({ pointLimit })}
-              bounds={POINT_LIMIT_BOUNDS}
-              dragScale={POINT_LIMIT_DRAG_SCALE}
-            />
-          </Input.Item>
-        </>
-      )}
+      <Input.Item label="Scale">
+        <SelectScale
+          value={axis.spectrum.scale}
+          onChange={(scale: lineplot.MagnitudeScale) => setSpectrum({ scale })}
+        />
+      </Input.Item>
+      <Input.Item label="Point limit">
+        <Input.Numeric
+          value={axis.spectrum.pointLimit}
+          onChange={(pointLimit: number) => setSpectrum({ pointLimit })}
+          bounds={POINT_LIMIT_BOUNDS}
+          dragScale={POINT_LIMIT_DRAG_SCALE}
+        />
+      </Input.Item>
     </Flex.Box>
   );
 };
@@ -212,6 +215,15 @@ const LinePlotAxisControls = ({ axisKey }: LinePlotAxisControlsProps): ReactElem
   const handleLabelLevelChange: Input.Control<text.Level>["onChange"] = (value) =>
     dispatch(lineplot.setAxisLabelLevel({ key: axisKey, labelLevel: value }));
 
+  const ranges = LinePlot.useRanges();
+  const triggered =
+    ranges.custom?.variant === "triggered" &&
+    ranges[axisKey as lineplot.XAxisKey]?.includes(Range.CUSTOM_KEY);
+  const spectral =
+    FLAGS.lineplotWindows &&
+    !triggered &&
+    lineplot.X_AXIS_KEYS.includes(axisKey as lineplot.XAxisKey);
+
   return (
     <Flex.Box y className={CSS.BE("line-plot", "toolbar", "axes")} gap="small">
       <Flex.Box x>
@@ -251,6 +263,7 @@ const LinePlotAxisControls = ({ axisKey }: LinePlotAxisControlsProps): ReactElem
             endContent="px"
           />
         </Input.Item>
+        {spectral && <ModeControl axisKey={axisKey as lineplot.XAxisKey} axis={axis} />}
       </Flex.Box>
       <Flex.Box x>
         <Input.Item label="Label" grow>
@@ -278,10 +291,9 @@ const LinePlotAxisControls = ({ axisKey }: LinePlotAxisControlsProps): ReactElem
           />
         </Input.Item>
       </Flex.Box>
-      {FLAGS.lineplotWindows &&
-        lineplot.X_AXIS_KEYS.includes(axisKey as lineplot.XAxisKey) && (
-          <SpectrumControls axisKey={axisKey as lineplot.XAxisKey} axis={axis} />
-        )}
+      {spectral && axis.mode === "spectrum" && (
+        <SpectrumControls axisKey={axisKey as lineplot.XAxisKey} axis={axis} />
+      )}
     </Flex.Box>
   );
 };

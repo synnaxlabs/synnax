@@ -12,10 +12,11 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Channel, LinePlot } from "@synnaxlabs/pluto";
-import { TimeSpan } from "@synnaxlabs/x";
+import { math, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { FLAGS } from "@/flags";
+import { CSS } from "@/platform/css";
 import { Range } from "@/platform/range";
 
 // SY-4816: Static range entry, when added, should stop at 1s, which also simplifies
@@ -90,9 +91,11 @@ const SelectEdge = (props: Select.ButtonsProps<lineplot.TriggerEdge>): ReactElem
   </Select.Buttons>
 );
 
-const PRETRIGGER_BOUNDS = { lower: 0, upper: 1 };
-const PRETRIGGER_DRAG_SCALE = { x: 0.001, y: 0.001 };
+const PRETRIGGER_BOUNDS = { lower: 0, upper: 100 };
+const PRETRIGGER_DRAG_SCALE = { x: 0.1, y: 0.1 };
 const LEVEL_DRAG_SCALE = { x: 0.01, y: 0.01 };
+
+const FIELD_CLASS = CSS.BE("line-plot", "window-field");
 
 interface SpanInputProps extends Omit<Input.TextProps, "value" | "onChange"> {
   value: number;
@@ -130,19 +133,12 @@ const TriggeredForm = ({ value, onChange }: TriggeredFormProps): ReactElement =>
   ) => onChange({ ...value, [key]: v });
   return (
     <>
-      <Input.Item x label="Trigger">
+      <Input.Item x label="Source" className={CSS.BE("line-plot", "window-source")}>
         <Channel.SelectSingle
           value={value.channel === 0 ? undefined : value.channel}
           onChange={(ch: channel.Key | null) => set("channel", ch ?? 0)}
           allowNone
           location="top"
-        />
-      </Input.Item>
-      <Input.Item x label="Level">
-        <Input.Numeric
-          value={value.level}
-          onChange={(v: number) => set("level", v)}
-          dragScale={LEVEL_DRAG_SCALE}
         />
       </Input.Item>
       <Input.Item x label="Edge">
@@ -151,22 +147,30 @@ const TriggeredForm = ({ value, onChange }: TriggeredFormProps): ReactElement =>
           onChange={(v: lineplot.TriggerEdge) => set("edge", v)}
         />
       </Input.Item>
-      <Input.Item x label="Span">
+      <Input.Item x label="Level" className={FIELD_CLASS}>
+        <Input.Numeric
+          value={value.level}
+          onChange={(v: number) => set("level", v)}
+          dragScale={LEVEL_DRAG_SCALE}
+        />
+      </Input.Item>
+      <Input.Item x label="Span" className={FIELD_CLASS}>
         <SpanInput
           value={value.span}
           onChange={(v) => set("span", v)}
           placeholder="50ms"
         />
       </Input.Item>
-      <Input.Item x label="Pre-trigger">
+      <Input.Item x label="Pre-trigger" className={FIELD_CLASS}>
         <Input.Numeric
-          value={value.pretrigger}
-          onChange={(v: number) => set("pretrigger", v)}
+          value={math.smartRound(value.pretrigger * 100)}
+          onChange={(v: number) => set("pretrigger", v / 100)}
           bounds={PRETRIGGER_BOUNDS}
           dragScale={PRETRIGGER_DRAG_SCALE}
+          endContent="%"
         />
       </Input.Item>
-      <Input.Item x label="Timeout">
+      <Input.Item x label="Timeout" className={FIELD_CLASS}>
         <SpanInput
           value={value.timeout}
           onChange={(v) => set("timeout", v)}
@@ -209,7 +213,7 @@ export const CustomRangeInput = ({ axisKey }: CustomRangeInputProps): ReactEleme
   );
   const variant: Variant = custom?.variant === "triggered" ? "triggered" : "dynamic";
   return (
-    <Flex.Box x wrap align="center">
+    <Flex.Box x wrap align="center" className={CSS.BE("line-plot", "window")}>
       {FLAGS.lineplotWindows && (
         <Input.Item x label="Window">
           <SelectVariant value={variant} onChange={handleVariantChange} />
@@ -218,12 +222,11 @@ export const CustomRangeInput = ({ axisKey }: CustomRangeInputProps): ReactEleme
       {custom?.variant === "triggered" ? (
         <TriggeredForm value={custom} onChange={handleTriggeredChange} />
       ) : (
-        <Input.Item x label="Custom">
+        <Input.Item x label="Span" className={FIELD_CLASS}>
           <SpanInput
             value={custom?.variant === "dynamic" ? custom.span : 0}
             onChange={handleSpanChange}
             placeholder="1h 30m"
-            grow
           />
         </Input.Item>
       )}

@@ -20,6 +20,10 @@
     /* Insets the axis tab strip off the pane edge. */
     .console-line-plot__toolbar-axes-tabs {
         padding: 1rem 0.75rem;
+
+        > .pluto-tabs__content {
+            overflow-y: auto;
+        }
     }
 
     .console-line-plot__toolbar-lines {
@@ -36,6 +40,27 @@
     .console-line-plot__toolbar-axes,
     .console-line-plot__toolbar-properties {
         padding: 2rem;
+    }
+
+    /* One label column, so every field in the tab starts at the same x. */
+    .console-line-plot__toolbar-data > .pluto-input__item > .pluto-input-label,
+    .console-line-plot__toolbar-data
+        .pluto-input__item:first-child
+        > .pluto-input-label {
+        min-width: 7rem;
+    }
+
+    .console-line-plot__window {
+        column-gap: 3rem;
+        row-gap: 1rem;
+    }
+
+    .console-line-plot__window-source > :last-child {
+        width: 200px;
+    }
+
+    .console-line-plot__window-field > :last-child {
+        width: 96px;
     }
 
     .console-line-plot__toolbar-data-x {
@@ -74,4 +99,52 @@
             width: 25rem;
         }
     }
+}
+
+.console-line-plot__toolbar-measure {
+    height: 100%;
+    overflow: auto;
+}
+
+.console-line-plot__measure-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+
+    th,
+    td {
+        padding: 1rem 3rem;
+        text-align: right;
+        white-space: nowrap;
+        border-bottom: var(--pluto-border-width) solid var(--pluto-gray-l3);
+    }
+
+    th:first-child,
+    td:first-child {
+        width: 100%;
+        max-width: 0;
+        text-align: left;
+    }
+
+    thead th {
+        position: sticky;
+        top: 0;
+        background: var(--pluto-gray-l0);
+        border-bottom-color: var(--pluto-gray-l4);
+    }
+
+    tbody tr:hover {
+        background: var(--pluto-gray-l1);
+    }
+
+    tbody tr:last-child td {
+        border-bottom: none;
+    }
+}
+
+.console-line-plot__measure-swatch {
+    flex-shrink: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 0.5rem;
 }

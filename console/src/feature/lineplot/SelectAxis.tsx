@@ -104,7 +104,7 @@ export const XAxisRangeSelect = ({
     [dispatch, axisKey],
   );
   return (
-    <Flex.Box x grow>
+    <Flex.Box y gap="small" grow>
       <Range.SelectMultipleInputItem value={value} onChange={handleChange} {...rest} />
       {value.includes(Range.CUSTOM_KEY) && <CustomRangeInput axisKey={axisKey} />}
     </Flex.Box>

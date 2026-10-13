@@ -485,9 +485,10 @@ const XAxis = ({
   // trigger, so neither axis is a time axis whatever the channel's data type.
   const type = mode === "spectrum" || triggered ? "linear" : axisConfig.type;
   let label = axisConfig.label;
+  // A triggered window plots its samples even in spectrum mode.
   if (label.length === 0)
-    if (mode === "spectrum") label = "Hz";
-    else if (triggered) label = "s";
+    if (triggered) label = "s";
+    else if (mode === "spectrum") label = "Hz";
 
   const xAxis = useMemo<XAxisConfig>(() => ({ mode, spectrum }), [mode, spectrum]);
   const yAxes = useYAxisKeys({ key });
