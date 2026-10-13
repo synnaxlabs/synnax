@@ -14,6 +14,7 @@ package v1
 import (
 	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
@@ -62,6 +63,48 @@ func (rv *Range) DecodeOrc(r *orc.Reader) error {
 			}
 			rv.Color = &hv
 		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (rv Ref) EncodeOrc(w *orc.Writer) error {
+	switch v := rv.Variant.(type) {
+	case KeyRef:
+		w.String("key")
+		w.Write(v.Key[:])
+	case WindowRef:
+		w.String("window")
+		if err := v.Window.EncodeOrc(w); err != nil {
+			return err
+		}
+	default:
+		return errors.Newf("Ref: nil or unknown variant %T", rv.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (rv *Ref) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.String()
+	if err != nil {
+		return err
+	}
+	switch tag {
+	case "key":
+		var v KeyRef
+		if _, err := r.Read(v.Key[:]); err != nil {
+			return err
+		}
+		rv.Variant = v
+	case "window":
+		var v WindowRef
+		if err = v.Window.DecodeOrc(r); err != nil {
+			return err
+		}
+		rv.Variant = v
+	default:
+		return errors.Newf("Ref: unknown variant %q", tag)
 	}
 	return nil
 }

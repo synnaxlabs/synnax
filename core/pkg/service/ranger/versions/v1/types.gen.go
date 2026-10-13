@@ -12,9 +12,13 @@
 package v1
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v1"
+	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -49,4 +53,93 @@ func (r Range) Validate() error {
 	v := validate.New("Range")
 	v.NotEmptyString("name", r.Name)
 	return v.Error()
+}
+
+type RefType string
+
+const (
+	KeyRefType    RefType = "key"
+	WindowRefType RefType = "window"
+)
+
+type RefVariant interface {
+	isRefVariant()
+}
+
+// KeyRef is a range saved in the Core.
+type KeyRef struct {
+	// Key is the key of a range saved in the Core.
+	Key Key `json:"key" msgpack:"key"`
+}
+
+func (KeyRef) isRefVariant() {}
+
+// WindowRef is a window carried inline: rolling or fixed.
+type WindowRef struct {
+	// Window is the window the reference resolves to.
+	Window telem.Window `json:"window" msgpack:"window"`
+}
+
+func (WindowRef) isRefVariant() {}
+
+// Ref is the range a visualization shows: a range saved in the Core, or an inline
+// window.
+type Ref struct {
+	Variant RefVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "variant" tag injected.
+func (u Ref) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case KeyRef:
+		return json.MarshalEncode(enc, struct {
+			Type RefType `json:"variant"`
+			KeyRef
+		}{Type: KeyRefType, KeyRef: v})
+	case WindowRef:
+		return json.MarshalEncode(enc, struct {
+			Type RefType `json:"variant"`
+			WindowRef
+		}{Type: WindowRefType, WindowRef: v})
+	default:
+		return errors.Newf("Ref: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "variant" field.
+func (u *Ref) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type RefType `json:"variant"`
+	}
+	if err := json.Unmarshal(data, &disc, opts); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case KeyRefType:
+		var v KeyRef
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v
+	case WindowRefType:
+		var v WindowRef
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v
+	default:
+		return errors.Newf("Ref: unknown variant %q", disc.Type)
+	}
+	return nil
 }
