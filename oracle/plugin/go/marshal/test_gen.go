@@ -308,6 +308,7 @@ func renderTestCodecFile(
 					imports:     fo.ExtraImports,
 					aliases:     aliases,
 					pins:        pins,
+					owner:       e.Type.QualifiedName,
 					sharedVars:  sharedVars,
 					pkgPrefix:   packageName + ".",
 					mode:        m.mode,

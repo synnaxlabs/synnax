@@ -255,6 +255,98 @@ Log struct {
 	})
 })
 
+var _ = Describe("Stored reference in a generic declaration", func() {
+	// log v0's generic Wrapper pins color v0, which color v1 only aliases, so the
+	// generic fixture in the current package's specs imports v0 too.
+	It("Should import the pinned version from a generic declaration's specs", func() {
+		root := GinkgoT().TempDir()
+		write := func(rel, content string) {
+			GinkgoHelper()
+			full := filepath.Join(root, rel)
+			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+		}
+		write("schemas/x/versions/color/v0.oracle", `
+Color struct {
+	r uint8
+
+	@go marshal
+}
+`)
+		write("schemas/x/versions/color/v1.oracle", `
+Color = v0.Color
+
+Band struct {
+	color Color
+
+	@go marshal
+}
+`)
+		write("schemas/x/color.oracle", `
+@go output "x/go/color"
+
+Color struct {
+	r uint8
+
+	@go marshal
+}
+
+Band struct {
+	color Color
+
+	@go marshal
+}
+`)
+		generic := `
+Wrapper struct<D?> {
+	color color.Color
+	details D {
+		@go marshal json_only
+	}
+
+	@go marshal
+}
+
+Log struct {
+	key uuid @key
+	color color.Color
+
+	@go marshal
+}
+`
+		write("schemas/synnax/versions/log/v0.oracle",
+			"\nimport \"schemas/x/versions/color/v0\"\n"+generic)
+		write("schemas/synnax/log.oracle",
+			"\nimport \"schemas/x/color\"\n\n@go output \"core/pkg/service/log\"\n"+
+				generic)
+		chains := MustSucceed(versions.Discover(root))
+		loader := analyzer.NewStandardFileLoader(root)
+		table, diag := analyzer.Analyze(
+			GinkgoT().Context(),
+			[]string{"schemas/x/color", "schemas/synnax/log"},
+			loader,
+		)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		resp := MustSucceed(marshal.New(marshal.Options{
+			FileNamePattern:     "codec.gen.go",
+			TestFileNamePattern: "codec_gen_test.go",
+			GenerateTests:       true,
+			RequireVersioned:    true,
+		}).Generate(&plugin.Request{
+			Resolutions: table,
+			RepoRoot:    root,
+			Versions:    versions.NewResolver(chains, loader),
+		}))
+		specs := generatedFile(
+			resp,
+			"core/pkg/service/log/versions/v0/codec_gen_test.go",
+		)
+		Expect(specs).To(ContainSubstring("Wrapper["))
+		Expect(specs).To(ContainSubstring(`x/go/color/versions/v0"`))
+		Expect(specs).ToNot(ContainSubstring(`x/go/color/versions/v1"`))
+	})
+})
+
 // writePinFixture writes a log whose v0 declares Note against color v0 and whose v1
 // declares Log against color v1, where color v1 only aliases v0's Color. With frozen
 // set, a log v2 aliases both, freezing v1.
