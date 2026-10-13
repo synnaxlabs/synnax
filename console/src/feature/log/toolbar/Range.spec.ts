@@ -38,7 +38,10 @@ describe("log/toolbar/Range", () => {
   });
 
   it("should show the custom window input for the custom range", async () => {
-    const custom = { variant: "dynamic" as const, span: Number(TimeSpan.minutes(45)) };
+    const custom = {
+      variant: "dynamic" as const,
+      timeSpan: Number(TimeSpan.minutes(45)),
+    };
     await renderLog(Range, { log: { range: "custom", custom } });
     expect(await screen.findByDisplayValue("45m")).toBeDefined();
   });
@@ -67,7 +70,7 @@ describe("log/toolbar/Range", () => {
     await waitFor(async () =>
       expect((await client.logs.retrieve(key)).custom).toEqual({
         variant: "dynamic",
-        span: Number(TimeSpan.hours(2)),
+        timeSpan: Number(TimeSpan.hours(2)),
       }),
     );
   });

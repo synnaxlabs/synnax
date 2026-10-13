@@ -13,11 +13,11 @@ import { type telem } from "@synnaxlabs/x";
 /** Converts a line plot's stored custom range to the window the range input edits. */
 export const toWindow = (custom: lineplot.CustomRange): telem.Window =>
   custom.variant === "dynamic"
-    ? { variant: "dynamic", span: custom.span }
+    ? { variant: "dynamic", timeSpan: custom.span }
     : { variant: "static", timeRange: { start: custom.start, end: custom.end } };
 
 /** Converts an edited window back to a line plot's stored custom range. */
 export const fromWindow = (window: telem.Window): lineplot.CustomRange =>
   window.variant === "dynamic"
-    ? { variant: "dynamic", span: window.span }
+    ? { variant: "dynamic", span: window.timeSpan }
     : { variant: "static", start: window.timeRange.start, end: window.timeRange.end };

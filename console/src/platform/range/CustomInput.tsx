@@ -65,11 +65,12 @@ export const CustomInput = ({
     (raw: string) => {
       const span = parseSpan(raw);
       if (span == null) return;
-      onChange({ variant: "dynamic", span });
+      onChange({ variant: "dynamic", timeSpan: span });
     },
     [onChange],
   );
-  const text = value?.variant === "dynamic" ? new TimeSpan(value.span).toString() : "";
+  const text =
+    value?.variant === "dynamic" ? new TimeSpan(value.timeSpan).toString() : "";
   return (
     <Input.Item x label="Custom" {...rest}>
       <Input.Text

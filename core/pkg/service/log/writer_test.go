@@ -471,7 +471,7 @@ var _ = Describe("Writer", func() {
 					l := log.Log{Name: "test"}
 					Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
 					dynamic := telem.Window{
-						Variant: telem.DynamicWindow{Span: telem.Minute},
+						Variant: telem.DynamicWindow{TimeSpan: telem.Minute},
 					}
 					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 						log.NewSetCustomRangeAction(

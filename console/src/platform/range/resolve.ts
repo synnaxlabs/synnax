@@ -84,7 +84,7 @@ export const toResolvedRange = (range: Resolved): LinePlot.ResolvedRange =>
 /** @returns the window a Pluto visualization reads for the "custom" range key. */
 export const resolveCustom = (custom: telem.Window): LinePlot.ResolvedRange =>
   custom.variant === "dynamic"
-    ? { variant: "dynamic", span: new TimeSpan(custom.span) }
+    ? { variant: "dynamic", span: new TimeSpan(custom.timeSpan) }
     : {
         variant: "static",
         // BigInt, not the constructor: TimeStamp parses a bare string as a date-time,

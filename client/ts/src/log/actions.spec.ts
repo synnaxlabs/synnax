@@ -351,7 +351,7 @@ describe("log reducer", () => {
   });
 
   describe("setCustomRange", () => {
-    const custom = { variant: "dynamic" as const, span: 1_000_000_000 };
+    const custom = { variant: "dynamic" as const, timeSpan: 1_000_000_000 };
     it("should set the custom window", () => {
       expect(apply(createEmpty(), log.setCustomRange({ custom })).custom).toEqual(
         custom,
@@ -367,7 +367,7 @@ describe("log reducer", () => {
       expect(
         roundTrip(
           state,
-          log.setCustomRange({ custom: { variant: "dynamic", span: 5 } }),
+          log.setCustomRange({ custom: { variant: "dynamic", timeSpan: 5 } }),
         ).custom,
       ).toEqual(custom);
     });

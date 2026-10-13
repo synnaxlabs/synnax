@@ -17,7 +17,7 @@ const PAIRS: [string, lineplot.CustomRange, telem.Window][] = [
   [
     "a rolling window",
     { variant: "dynamic", span: 60 },
-    { variant: "dynamic", span: 60 },
+    { variant: "dynamic", timeSpan: 60 },
   ],
   [
     "a fixed window",

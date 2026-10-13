@@ -47,7 +47,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(l.Channels).To(HaveLen(1))
 		Expect(l.Range).To(Equal("custom"))
 		Expect(l.Custom).To(Equal(&telem.Window{
-			Variant: telem.DynamicWindow{Span: telem.Minute},
+			Variant: telem.DynamicWindow{TimeSpan: telem.Minute},
 		}))
 	})
 
