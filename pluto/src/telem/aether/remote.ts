@@ -427,6 +427,7 @@ export class StreamChannelData
   private async attempt(generation: number, client: Client): Promise<void> {
     const { channel, useIndexOfChannel, timeSpan } = this.props;
     let fetched: SelectedChannelProperties;
+    let streamStart: TimeStamp;
     try {
       fetched = await fetchChannelProperties(client, channel, useIndexOfChannel);
       if (generation !== this.generation) return;
@@ -440,6 +441,7 @@ export class StreamChannelData
         this.gcOutOfRangeData();
       };
       this.stopStreaming?.();
+      streamStart = this.now();
       this.stopStreaming = client.feed.stream(handler, [fetched.key]).close;
     } catch (e) {
       this.reportFailure(e, "Failed to stream channel data");
@@ -447,8 +449,14 @@ export class StreamChannelData
     }
     if (!fetched.virtual || fetched.isCalculated)
       try {
+        // The back-fill stops where live data starts: the cache can return a span in
+        // both representations, and overlapping series pair into stray segments.
+        const liveStart = this.data.series.reduce(
+          (start, s) => (s.timeRange.start.before(start) ? s.timeRange.start : start),
+          streamStart,
+        );
         const res = await client.feed.read(
-          this.now().spanRange(-timeSpan),
+          new TimeRange(this.now().sub(timeSpan), liveStart),
           fetched.key,
         );
         if (generation !== this.generation) return;
