@@ -9,10 +9,13 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-kafka-details {
+/* The read form's details pane has no padded wrapper of its own. */
+.console-kafka-pane {
     padding: var(--console-details-padding);
     overflow-y: auto;
+}
 
+.console-kafka-details {
     /* Fits "Time format", so the controls hold still when it shows or hides. */
     &.pluto-form-sections.pluto--direction-y {
         grid-template-columns: minmax(11rem, max-content) minmax(0, 1fr);

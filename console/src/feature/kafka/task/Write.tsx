@@ -155,7 +155,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
           color={name == null ? 8 : 10}
           overflow="ellipsis"
         >
-          {name ?? "Select a channel"}
+          {name ?? "No channel"}
         </Text.Text>
         <Text.Text level="small" color={9}>
           {jsonType}

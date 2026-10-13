@@ -47,6 +47,8 @@ const SELECT_TRIGGER_PROPS = { className: CSS.BE("kafka-select", "trigger") };
 
 const TEXT_FIELD_CLASS = CSS.BE("kafka-properties", "text");
 
+const DETAILS_CLASS = CSS.cls(CSS.B("kafka-details"), CSS.B("kafka-pane"));
+
 const SELECT_DIALOG_PROPS = { className: CSS.BE("kafka-select", "dialog") };
 
 const renderStartOffsetSelect = Component.renderProp(
@@ -236,7 +238,7 @@ const TimestampFields = ({ path }: { path: string }) => {
 const TIMESTAMP_POINTER_INPUT_PROPS = { placeholder: "/timestamp" } as const;
 
 const RecordDetails = ({ path }: Task.Views.GroupProps) => (
-  <PForm.Sections className={CSS.B("kafka-details")}>
+  <PForm.Sections className={DETAILS_CLASS}>
     <PForm.Section title="Record">
       <PForm.TextField
         path={`${path}.recordKey`}
@@ -263,7 +265,7 @@ const FieldDetails = ({ groupKey, path }: Task.Views.FieldProps) => {
   // Labels map to numbers, so only a numeric field takes an enum mapping.
   const enumerable = !isTimestamp && !isString(dataType);
   return (
-    <PForm.Sections className={CSS.B("kafka-details")}>
+    <PForm.Sections className={DETAILS_CLASS}>
       <PForm.Section title="Field">
         <PForm.TextField
           path={`${path}.pointer`}
