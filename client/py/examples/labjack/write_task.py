@@ -36,15 +36,8 @@ client = sy.Synnax()
 # Update this with the name you gave the device in the Synnax Console
 dev = client.devices.retrieve(name="My LabJack T7")
 
-# Create an index channel for command timestamps
-labjack_cmd_time = client.channels.create(
-    name="labjack_cmd_time",
-    is_index=True,
-    data_type=sy.DataType.TIMESTAMP,
-    retrieve_if_name_exists=True,
-)
-
-# Create an index channel for state feedback timestamps
+# Create an index channel for state feedback timestamps. Each command channel gets
+# its own index below, so a writer can command one channel at a time.
 labjack_state_time = client.channels.create(
     name="labjack_state_time",
     is_index=True,
@@ -53,9 +46,15 @@ labjack_state_time = client.channels.create(
 )
 
 # Create command and state channels for analog output (DAC0)
+dac0_cmd_time = client.channels.create(
+    name="dac0_cmd_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
+)
 dac0_cmd = client.channels.create(
     name="dac0_cmd",
-    index=labjack_cmd_time.key,
+    index=dac0_cmd_time.key,
     data_type=sy.DataType.FLOAT32,
     retrieve_if_name_exists=True,
 )
@@ -68,9 +67,15 @@ dac0_state = client.channels.create(
 )
 
 # Create command and state channels for digital output (FIO4)
+fio4_cmd_time = client.channels.create(
+    name="fio4_cmd_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
+)
 fio4_cmd = client.channels.create(
     name="fio4_cmd",
-    index=labjack_cmd_time.key,
+    index=fio4_cmd_time.key,
     data_type=sy.DataType.UINT8,
     retrieve_if_name_exists=True,
 )
@@ -128,8 +133,9 @@ try:
         with client.open_writer(
             start=sy.TimeStamp.now(),
             channels=[
-                labjack_cmd_time.key,
+                dac0_cmd_time.key,
                 dac0_cmd.key,
+                fio4_cmd_time.key,
                 fio4_cmd.key,
             ],
             enable_auto_commit=True,
@@ -149,9 +155,11 @@ try:
                 )
 
                 # Write all commands with timestamp
+                now = sy.TimeStamp.now()
                 writer.write(
                     {
-                        labjack_cmd_time.key: sy.TimeStamp.now(),
+                        dac0_cmd_time.key: now,
+                        fio4_cmd_time.key: now,
                         dac0_cmd.key: dac0_val,
                         fio4_cmd.key: fio4_val,
                     }
