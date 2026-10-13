@@ -129,6 +129,8 @@ export class MultiChannelLog
     if (compare.primitiveArrays(this._channels, channels) === compare.EQUAL) return;
     this._channels = channels;
     this.valid = false;
+    // A read for the old channel list must not land after this change.
+    this.readGeneration++;
     if (channels.length === 0) {
       this.stopStreaming?.();
       this.stopStreaming = undefined;
@@ -280,8 +282,8 @@ export class MultiChannelLog
     return pushed;
   }
 
-  // Pushes the samples of buf from start on. The returned cursor stops at the first
-  // sample whose index sample has not arrived yet.
+  // Pushes the samples of buf from start on, skipping samples whose index sample is
+  // gone. The returned cursor stops at the first sample whose index has not arrived.
   private pushStreamed(meta: ChannelMeta, buf: Series, start: number): PushResult {
     let pushed = 0;
     const receivedAt = this.now().valueOf();
@@ -290,8 +292,13 @@ export class MultiChannelLog
         pushed += this.insert(meta, buf, i, receivedAt);
         continue;
       }
-      const time = findTime(meta.indexBuffers, sampleAlignment(buf, i));
-      if (time == null) return { pushed, cursor: i };
+      const alignment = sampleAlignment(buf, i);
+      const time = findTime(meta.indexBuffers, alignment);
+      if (time == null) {
+        // Index samples arrive in order, so a later one means this sample's is gone.
+        if (meta.indexBuffers.some((s) => s.alignment > alignment)) continue;
+        return { pushed, cursor: i };
+      }
       if (meta.highWater != null && time <= meta.highWater) continue;
       meta.highWater = time;
       meta.streamStart ??= time;

@@ -904,6 +904,40 @@ describe("MultiChannelLog", () => {
       expect(log.value().map((e) => e.value)).toEqual(["a", "b", "c"]);
     });
 
+    it("should skip replayed samples whose index samples are gone", async () => {
+      const { log } = create();
+      await waitForResolve(log);
+      c.streamHandler?.(
+        new Map([
+          [IDX, new MultiSeries([times([92, 93], 2n)])],
+          [DATA, new MultiSeries([strings(["a", "b", "c", "d"], 0n)])],
+        ]),
+      );
+      expect(log.value().map((e) => e.value)).toEqual(["c", "d"]);
+      c.streamHandler?.(
+        new Map([
+          [IDX, new MultiSeries([times([94], 4n)])],
+          [DATA, new MultiSeries([strings(["e"], 4n)])],
+        ]),
+      );
+      expect(log.value().map((e) => e.value)).toEqual(["c", "d", "e"]);
+    });
+
+    it("should drop a stored read that finishes after all channels are removed", async () => {
+      let release = (): void => {};
+      c.readGate = new Promise((resolve) => (release = resolve));
+      c.stored.set(IDX, new MultiSeries([times([80], 0n)]));
+      c.stored.set(DATA, new MultiSeries([strings(["x"], 0n)]));
+      const { log } = create();
+      log.value();
+      await expect.poll(() => c.readF.mock.calls.length).toBe(1);
+      log.setChannels([]);
+      release();
+      // A macrotask runs after every microtask of the pending read.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(log.value()).toEqual([]);
+    });
+
     it("should read a kept channel's history when the channels change mid-read", async () => {
       let release = (): void => {};
       c.readGate = new Promise((resolve) => (release = resolve));
