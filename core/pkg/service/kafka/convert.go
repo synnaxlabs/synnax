@@ -313,7 +313,10 @@ func extraFieldValue(
 				format = *v.TimeFormat
 			}
 			value, err = formatTimestamp(ts, format)
-			return v.Pointer, value, err
+			if err != nil {
+				return "", nil, err
+			}
+			return v.Pointer, value, nil
 		default:
 			return "", nil, errors.Wrapf(
 				validate.ErrValidation, "unknown generator %q", v.Generator,

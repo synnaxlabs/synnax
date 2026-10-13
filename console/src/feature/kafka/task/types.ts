@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, type http, kafka, type task } from "@synnaxlabs/client";
+import { type http, kafka, type task } from "@synnaxlabs/client";
 import { type CrudeDataType, DataType, json, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -29,9 +29,10 @@ export type StartOffset = kafka.StartOffset;
 
 const readConfigZ = kafka.readConfigZ;
 
-const deployReadFieldZ = kafka.readFieldZ.extend({
-  pointer: json.pointerZ.min(1, "Pointer is required"),
-});
+const deployReadFieldZ = kafka.readFieldZ.refine(
+  ({ disabled, pointer }) => disabled || pointer !== "",
+  { message: "Pointer is required", path: ["pointer"] },
+);
 
 const deployReadRecordZ = kafka.readRecordZ.extend({
   fields: deployReadFieldZ.array().check(Task.validateReadChannels),
@@ -87,9 +88,10 @@ export type RecordKey = kafka.RecordKey;
 
 const writeConfigZ = kafka.writeConfigZ;
 
-const deployWriteChannelZ = kafka.writeChannelZ.extend({
-  channel: channel.keyZ.refine((key) => key !== 0, "Channel is required"),
-});
+const deployWriteChannelZ = kafka.writeChannelZ.refine(
+  ({ disabled, channel }) => disabled || channel !== 0,
+  { message: "Channel is required", path: ["channel"] },
+);
 
 export const deployWriteConfigZ = kafka.writeConfigZ.extend({
   device: Task.deviceKeyZ,

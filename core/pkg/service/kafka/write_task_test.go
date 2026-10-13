@@ -251,6 +251,34 @@ var _ = Describe("Write task", func() {
 		return index, data, topic, t
 	}
 
+	It("Should report data that arrives without its index", func(ctx SpecContext) {
+		index, data, topic, t := startOne(ctx, telem.Float64T, kafka.WriteChannel{})
+		start := telem.TimeStamp(20 * telem.Second)
+		write := func(key channel.Key, s telem.Series) {
+			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  channel.Keys{key},
+				Start: start,
+			}))
+			Expect(MustSucceed(w.Write(frame.NewUnary(key, s)))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+		}
+		write(index.Key(), telem.NewSeries([]telem.TimeStamp{start}))
+		write(data.Key(), telem.NewSeriesV[float64](1.5))
+		Eventually(func() string { return taskStatus(ctx, t).Message }).
+			Should(Equal("Channel " + data.Name + " arrived without its index"))
+		Expect(taskStatus(ctx, t).Variant).To(Equal(status.VariantError))
+		Consistently(func() []*kgo.Record {
+			cl := newKafkaClient(
+				kgo.ConsumeTopics(topic),
+				kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()),
+			)
+			defer cl.Close()
+			pollCtx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
+			defer cancel()
+			return cl.PollFetches(pollCtx).Records()
+		}).WithTimeout(500 * time.Millisecond).Should(BeEmpty())
+	})
+
 	DescribeTable("Should serialize the sample as the configured JSON type",
 		func(
 			ctx SpecContext,

@@ -10,6 +10,7 @@
 import { Read, ReadSelectable } from "@/feature/kafka/task/Read";
 import { READ_TYPE, WRITE_TYPE } from "@/feature/kafka/task/types";
 import { Write, WriteSelectable } from "@/feature/kafka/task/Write";
+import { FLAGS } from "@/flags";
 import { type Selector } from "@/platform/selector";
 import { type Task } from "@/platform/task";
 
@@ -18,9 +19,10 @@ export * from "@/feature/kafka/task/Read";
 export * from "@/feature/kafka/task/types";
 export * from "@/feature/kafka/task/Write";
 
-export const FORMS: Task.Forms = {
-  [READ_TYPE]: Read,
-  [WRITE_TYPE]: Write,
-};
+export const FORMS: Task.Forms = FLAGS.kafka
+  ? { [READ_TYPE]: Read, [WRITE_TYPE]: Write }
+  : {};
 
-export const SELECTABLES: Selector.Selectable[] = [ReadSelectable, WriteSelectable];
+export const SELECTABLES: Selector.Selectable[] = FLAGS.kafka
+  ? [ReadSelectable, WriteSelectable]
+  : [];

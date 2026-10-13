@@ -38,7 +38,6 @@ import {
   type ReadSchemas,
   type StartOffset,
 } from "@/feature/kafka/task/types";
-import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { Form as PlatformForm } from "@/platform/form";
 import { Selector } from "@/platform/selector";
@@ -421,5 +420,4 @@ export const ReadSelectable = Selector.createSelectable({
   title: "Kafka read task",
   icon: <Icon.Logo.Kafka />,
   useOnSelect: useCreateRead,
-  useVisible: () => FLAGS.kafka,
 });

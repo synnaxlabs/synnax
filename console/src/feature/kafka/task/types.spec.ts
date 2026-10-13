@@ -61,6 +61,22 @@ describe("Kafka Task Types", () => {
       expect(result.error?.issues[0].message).toBe("Pointer is required");
     });
 
+    it("should accept a disabled field without a pointer", () => {
+      const result = Kafka.Task.deployReadConfigZ.safeParse({
+        ...valid,
+        records: [
+          {
+            ...record,
+            fields: [
+              field,
+              { ...field, key: "f2", channel: 0, pointer: "", disabled: true },
+            ],
+          },
+        ],
+      });
+      expect(result.success).toBe(true);
+    });
+
     it("should reject a config with every field disabled", () => {
       const result = Kafka.Task.deployReadConfigZ.safeParse({
         ...valid,
@@ -106,6 +122,14 @@ describe("Kafka Task Types", () => {
       });
       expect(result.success).toBe(false);
       expect(result.error?.issues[0].message).toBe("Channel is required");
+    });
+
+    it("should accept a disabled channel that is not selected", () => {
+      const result = Kafka.Task.deployWriteConfigZ.safeParse({
+        ...valid,
+        channels: [...valid.channels, { key: "c2", channel: 0, disabled: true }],
+      });
+      expect(result.success).toBe(true);
     });
 
     it("should reject an empty value pointer", () => {

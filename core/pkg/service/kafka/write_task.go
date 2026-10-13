@@ -277,7 +277,9 @@ func (t *writeTask) closeClient() error {
 	return err
 }
 
-// produce emits one record per sample of every configured channel in fr.
+// produce emits one record per sample of every configured channel in fr. An indexed
+// channel takes its timestamps from its index in the same frame; a free channel takes
+// the receive time.
 func (t *writeTask) produce(ctx context.Context, fr frame.Frame) {
 	series := maps.Collect(fr.Entries())
 	now := telem.Now()
@@ -287,9 +289,13 @@ func (t *writeTask) produce(ctx context.Context, fr frame.Frame) {
 			continue
 		}
 		index, hasIndex := series[wc.ch.Index()]
+		if wc.ch.Index() != 0 && !hasIndex {
+			t.reportError(ctx, "Channel "+wc.ch.Name+" arrived without its index")
+			continue
+		}
 		for i := range int(s.Len()) {
 			ts := now
-			if hasIndex && int64(i) < index.Len() {
+			if hasIndex {
 				ts = index.ValueAt[telem.TimeStamp](i)
 			}
 			rec, err := t.record(wc, s, i, ts)

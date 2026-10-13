@@ -16,10 +16,7 @@ import { useCreateWrite } from "@/feature/kafka/task/Write";
 import { FLAGS } from "@/flags";
 import { Command } from "@/platform/command";
 
-const useVisible = () => {
-  const canCreate = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
-  return FLAGS.kafka && canCreate;
-};
+const useVisible = () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
 
 const CreateReadCommand = Command.create({
   key: "kafka_create_read_task",
@@ -37,4 +34,4 @@ const CreateWriteCommand = Command.create({
   useVisible,
 });
 
-export const COMMANDS = [CreateReadCommand, CreateWriteCommand];
+export const COMMANDS = FLAGS.kafka ? [CreateReadCommand, CreateWriteCommand] : [];
