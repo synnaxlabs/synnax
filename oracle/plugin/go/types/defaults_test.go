@@ -845,6 +845,102 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 					To(BeNumerically("<", strings.Index(content, "i.Cjc.ApplyDefaults()")))
 			},
 		)
+
+		It("Should fill the nil variant from an object literal", func(ctx SpecContext) {
+			literal := `
+				@go output "core/pkg/service/x"
+
+				CJC union on source {
+					built_in {}
+					const_val {
+						val float64 = 0
+					}
+				}
+
+				Item struct { cjc CJC = { source = "const_val", val = 5 } }
+			`
+			resp := MustGenerate(ctx, literal, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"if i.Cjc.Variant == nil {",
+				"v0 := ConstValCJC{}",
+				"v0.Val = 5",
+				"i.Cjc.Variant = v0",
+			)
+		})
+
+		It("Should fill a union literal nested in a variant", func(ctx SpecContext) {
+			nested := `
+				@go output "core/pkg/service/x"
+
+				Window union on variant {
+					dynamic {
+						span int64 = 0
+					}
+					static {
+						start int64 = 0
+					}
+				}
+
+				Ref union on variant {
+					key {
+						key string
+					}
+					window {
+						key    string
+						window Window
+					}
+				}
+
+				Log struct {
+					range Ref = {
+						variant = "window",
+						key = "r7",
+						window = { variant = "dynamic", span = 7 }
+					}
+				}
+			`
+			resp := MustGenerate(ctx, nested, "x", loader, goPlugin)
+			content := MustContentOf(resp, "types.gen.go")
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"if l.Range.Variant == nil {",
+				"v0 := WindowRef{}",
+				`v0.Key = "r7"`,
+				"v1 := DynamicWindow{}",
+				"v1.Span = 7",
+				"v0.Window.Variant = v1",
+				"l.Range.Variant = v0",
+			)
+			Expect(strings.Index(content, "v0.Window.Variant = v1")).
+				To(BeNumerically("<", strings.Index(content, "l.Range.Variant = v0")))
+		})
+
+		It(
+			"Should fill a union literal inside a struct default",
+			func(ctx SpecContext) {
+				inStruct := `
+				@go output "core/pkg/service/x"
+
+				CJC union on source {
+					built_in {}
+					const_val {
+						val float64 = 0
+					}
+				}
+
+				Item struct { cjc CJC }
+
+				Cfg struct { item Item = { cjc = { source = "const_val", val = 5 } } }
+			`
+				resp := MustGenerate(ctx, inStruct, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"func (c *Cfg) ApplyDefaults() {",
+					"if c.Item.Cjc.Variant == nil {",
+					"v0 := ConstValCJC{}",
+					"v0.Val = 5",
+					"c.Item.Cjc.Variant = v0",
+				)
+			},
+		)
 	})
 })
 

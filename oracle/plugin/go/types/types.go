@@ -1297,6 +1297,9 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 func ({{$s.Receiver}} *{{$s.Name}}) ApplyDefaults() {
 {{- range $s.DefaultFills}}
 	if {{$s.Receiver}}.{{.GoName}} == {{.ZeroLit}} {
+{{- range .Setup}}
+		{{.}}
+{{- end}}
 		{{$s.Receiver}}.{{.GoName}} = {{.Expr}}
 	}
 {{- end}}
@@ -1414,6 +1417,9 @@ func ({{.TypeName}}) {{$u.Marker}}() {}
 func ({{$vt.Receiver}} *{{$vt.TypeName}}) ApplyDefaults() {
 {{- range $vt.DefaultFills}}
 	if {{$vt.Receiver}}.{{.GoName}} == {{.ZeroLit}} {
+{{- range .Setup}}
+		{{.}}
+{{- end}}
 		{{$vt.Receiver}}.{{.GoName}} = {{.Expr}}
 	}
 {{- end}}
