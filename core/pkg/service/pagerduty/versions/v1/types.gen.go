@@ -12,7 +12,7 @@
 package v1
 
 import (
-	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v0"
+	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 )
 

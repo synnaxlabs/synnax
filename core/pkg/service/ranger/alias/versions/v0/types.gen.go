@@ -13,7 +13,7 @@ package v0
 
 import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v0"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 )
 
 // Alias associates a human-readable string alias with a channel within the context of a

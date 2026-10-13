@@ -14,7 +14,6 @@ package v1
 import (
 	"encoding/json/v2"
 
-	irv0 "github.com/synnaxlabs/arc/ir/versions/v0"
 	ir "github.com/synnaxlabs/arc/ir/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
@@ -47,7 +46,7 @@ func (e *Edge) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		e.Kind = irv0.EdgeKind(rawV)
+		e.Kind = ir.EdgeKind(rawV)
 	}
 	if e.Key, err = r.String(); err != nil {
 		return err

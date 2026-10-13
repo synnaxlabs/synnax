@@ -13,7 +13,6 @@ package v1
 
 import (
 	v0 "github.com/synnaxlabs/arc/ir/versions/v0"
-	typesv0 "github.com/synnaxlabs/arc/types/versions/v0"
 	types "github.com/synnaxlabs/arc/types/versions/v1"
 )
 
@@ -48,7 +47,7 @@ type Function struct {
 	// Outputs contains output parameter definitions.
 	Outputs types.Params `json:"outputs" msgpack:"outputs"`
 	// Channels contains channel read/write declarations.
-	Channels typesv0.Channels `json:"channels" msgpack:"channels"`
+	Channels types.Channels `json:"channels" msgpack:"channels"`
 }
 
 // Functions is a collection of function definitions in an Arc module.

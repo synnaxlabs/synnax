@@ -18,7 +18,6 @@ import (
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
-	colorv0 "github.com/synnaxlabs/x/color/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/errors"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
@@ -73,9 +72,9 @@ type TextCellConfig struct {
 	Align FlexAlignment `json:"align" msgpack:"align"`
 	// FillColor is the background color of the cell. When absent the theme picks the
 	// fill; a fully transparent value paints nothing.
-	FillColor *colorv0.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// TextColor is the color of the cell text. When absent the theme picks the color.
-	TextColor *colorv0.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 }
 
 func (TextCellConfig) isCellConfigVariant() {}
@@ -119,12 +118,12 @@ type ValueCellConfig struct {
 	Redline color.Scale `json:"redline" msgpack:"redline"`
 	// FillColor is the fill behind the value where no redline band paints. When absent
 	// the cell paints no fill.
-	FillColor *colorv0.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Level is the typography level of the displayed value.
 	Level text.Level `json:"level" msgpack:"level"`
 	// TextColor is the color of the displayed text. When absent the value renders with
 	// a theme-derived legible color.
-	TextColor *colorv0.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// Units is the unit suffix displayed after the value.
 	Units string `json:"units" msgpack:"units"`
 	// StalenessTimeout is the duration in seconds after which the value is considered
@@ -132,7 +131,7 @@ type ValueCellConfig struct {
 	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`
 	// StalenessColor is the color applied when the value is stale. When absent the
 	// value renders with the theme warning color.
-	StalenessColor *colorv0.Color `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	StalenessColor *color.Color `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
 }
 
 func (ValueCellConfig) isCellConfigVariant() {}

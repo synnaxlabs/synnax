@@ -17,9 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph/versions/v1"
-	irv0 "github.com/synnaxlabs/arc/ir/versions/v0"
 	ir "github.com/synnaxlabs/arc/ir/versions/v1"
-	typesv0 "github.com/synnaxlabs/arc/types/versions/v0"
 	types "github.com/synnaxlabs/arc/types/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
@@ -40,15 +38,15 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v1.Edge{
-				Source: irv0.Handle{Node: "test_2", Param: "test_3"},
-				Target: irv0.Handle{Node: "test_5", Param: "test_6"},
-				Kind:   irv0.EdgeKind(0),
+				Source: ir.Handle{Node: "test_2", Param: "test_3"},
+				Target: ir.Handle{Node: "test_5", Param: "test_6"},
+				Kind:   ir.EdgeKind(0),
 				Key:    "test_8",
 			}),
 			Entry("zero values", v1.Edge{
-				Source: irv0.Handle{Node: "", Param: ""},
-				Target: irv0.Handle{Node: "", Param: ""},
-				Kind:   irv0.EdgeKind(0),
+				Source: ir.Handle{Node: "", Param: ""},
+				Target: ir.Handle{Node: "", Param: ""},
+				Kind:   ir.EdgeKind(0),
 				Key:    "",
 			}),
 		)
@@ -68,19 +66,19 @@ var _ = Describe("Codec", func() {
 				Functions: []ir.Function{
 					{
 						Key:  "test_2",
-						Body: irv0.Body{Raw: "test_4"},
+						Body: ir.Body{Raw: "test_4"},
 						Inputs: []types.Param{
 							{
 								Name: "test_6",
 								Type: types.Type{
 									Inputs:        []types.Param{{}},
 									Outputs:       []types.Param{{}},
-									Kind:          typesv0.Kind(0),
+									Kind:          types.Kind(0),
 									Name:          "test_11",
 									Elem:          new(types.Type{}),
-									Unit:          new(typesv0.Unit{}),
+									Unit:          new(types.Unit{}),
 									Constraint:    new(types.Type{}),
-									ChanDirection: typesv0.ChanDirection(0),
+									ChanDirection: types.ChanDirection(0),
 								},
 								Value: any(map[string]any{"key_16": "value_16"}),
 							},
@@ -91,17 +89,17 @@ var _ = Describe("Codec", func() {
 								Type: types.Type{
 									Inputs:        []types.Param{{}},
 									Outputs:       []types.Param{{}},
-									Kind:          typesv0.Kind(0),
+									Kind:          types.Kind(0),
 									Name:          "test_23",
 									Elem:          new(types.Type{}),
-									Unit:          new(typesv0.Unit{}),
+									Unit:          new(types.Unit{}),
 									Constraint:    new(types.Type{}),
-									ChanDirection: typesv0.ChanDirection(0),
+									ChanDirection: types.ChanDirection(0),
 								},
 								Value: any(map[string]any{"key_28": "value_28"}),
 							},
 						},
-						Channels: typesv0.Channels{
+						Channels: types.Channels{
 							Read:  map[uint32]string{31: "test_30"},
 							Write: map[uint32]string{32: "test_31"},
 						},
@@ -109,9 +107,9 @@ var _ = Describe("Codec", func() {
 				},
 				Edges: []v1.Edge{
 					{
-						Source: irv0.Handle{Node: "test_34", Param: "test_35"},
-						Target: irv0.Handle{Node: "test_37", Param: "test_38"},
-						Kind:   irv0.EdgeKind(0),
+						Source: ir.Handle{Node: "test_34", Param: "test_35"},
+						Target: ir.Handle{Node: "test_37", Param: "test_38"},
+						Kind:   ir.EdgeKind(0),
 						Key:    "test_40",
 					},
 				},
@@ -151,9 +149,9 @@ var _ = Describe("Codec", func() {
 
 func BenchmarkEncodeDecodeEdge(b *testing.B) {
 	seed := v1.Edge{
-		Source: irv0.Handle{Node: "test_2", Param: "test_3"},
-		Target: irv0.Handle{Node: "test_5", Param: "test_6"},
-		Kind:   irv0.EdgeKind(0),
+		Source: ir.Handle{Node: "test_2", Param: "test_3"},
+		Target: ir.Handle{Node: "test_5", Param: "test_6"},
+		Kind:   ir.EdgeKind(0),
 		Key:    "test_8",
 	}
 	w := orc.NewWriter(0)
@@ -176,19 +174,19 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 		Functions: []ir.Function{
 			{
 				Key:  "test_2",
-				Body: irv0.Body{Raw: "test_4"},
+				Body: ir.Body{Raw: "test_4"},
 				Inputs: []types.Param{
 					{
 						Name: "test_6",
 						Type: types.Type{
 							Inputs:        []types.Param{{}},
 							Outputs:       []types.Param{{}},
-							Kind:          typesv0.Kind(0),
+							Kind:          types.Kind(0),
 							Name:          "test_11",
 							Elem:          new(types.Type{}),
-							Unit:          new(typesv0.Unit{}),
+							Unit:          new(types.Unit{}),
 							Constraint:    new(types.Type{}),
-							ChanDirection: typesv0.ChanDirection(0),
+							ChanDirection: types.ChanDirection(0),
 						},
 						Value: any(map[string]any{"key_16": "value_16"}),
 					},
@@ -199,17 +197,17 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 						Type: types.Type{
 							Inputs:        []types.Param{{}},
 							Outputs:       []types.Param{{}},
-							Kind:          typesv0.Kind(0),
+							Kind:          types.Kind(0),
 							Name:          "test_23",
 							Elem:          new(types.Type{}),
-							Unit:          new(typesv0.Unit{}),
+							Unit:          new(types.Unit{}),
 							Constraint:    new(types.Type{}),
-							ChanDirection: typesv0.ChanDirection(0),
+							ChanDirection: types.ChanDirection(0),
 						},
 						Value: any(map[string]any{"key_28": "value_28"}),
 					},
 				},
-				Channels: typesv0.Channels{
+				Channels: types.Channels{
 					Read:  map[uint32]string{31: "test_30"},
 					Write: map[uint32]string{32: "test_31"},
 				},
@@ -217,9 +215,9 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 		},
 		Edges: []v1.Edge{
 			{
-				Source: irv0.Handle{Node: "test_34", Param: "test_35"},
-				Target: irv0.Handle{Node: "test_37", Param: "test_38"},
-				Kind:   irv0.EdgeKind(0),
+				Source: ir.Handle{Node: "test_34", Param: "test_35"},
+				Target: ir.Handle{Node: "test_37", Param: "test_38"},
+				Kind:   ir.EdgeKind(0),
 				Key:    "test_40",
 			},
 		},
@@ -261,9 +259,9 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 func FuzzDecodeEdge(f *testing.F) {
 	{
 		seed := v1.Edge{
-			Source: irv0.Handle{Node: "test_2", Param: "test_3"},
-			Target: irv0.Handle{Node: "test_5", Param: "test_6"},
-			Kind:   irv0.EdgeKind(0),
+			Source: ir.Handle{Node: "test_2", Param: "test_3"},
+			Target: ir.Handle{Node: "test_5", Param: "test_6"},
+			Kind:   ir.EdgeKind(0),
 			Key:    "test_8",
 		}
 		w := orc.NewWriter(0)
@@ -274,9 +272,9 @@ func FuzzDecodeEdge(f *testing.F) {
 	}
 	{
 		seed := v1.Edge{
-			Source: irv0.Handle{Node: "", Param: ""},
-			Target: irv0.Handle{Node: "", Param: ""},
-			Kind:   irv0.EdgeKind(0),
+			Source: ir.Handle{Node: "", Param: ""},
+			Target: ir.Handle{Node: "", Param: ""},
+			Kind:   ir.EdgeKind(0),
 			Key:    "",
 		}
 		w := orc.NewWriter(0)
@@ -313,19 +311,19 @@ func FuzzDecodeGraph(f *testing.F) {
 			Functions: []ir.Function{
 				{
 					Key:  "test_2",
-					Body: irv0.Body{Raw: "test_4"},
+					Body: ir.Body{Raw: "test_4"},
 					Inputs: []types.Param{
 						{
 							Name: "test_6",
 							Type: types.Type{
 								Inputs:        []types.Param{{}},
 								Outputs:       []types.Param{{}},
-								Kind:          typesv0.Kind(0),
+								Kind:          types.Kind(0),
 								Name:          "test_11",
 								Elem:          new(types.Type{}),
-								Unit:          new(typesv0.Unit{}),
+								Unit:          new(types.Unit{}),
 								Constraint:    new(types.Type{}),
-								ChanDirection: typesv0.ChanDirection(0),
+								ChanDirection: types.ChanDirection(0),
 							},
 							Value: any(map[string]any{"key_16": "value_16"}),
 						},
@@ -336,17 +334,17 @@ func FuzzDecodeGraph(f *testing.F) {
 							Type: types.Type{
 								Inputs:        []types.Param{{}},
 								Outputs:       []types.Param{{}},
-								Kind:          typesv0.Kind(0),
+								Kind:          types.Kind(0),
 								Name:          "test_23",
 								Elem:          new(types.Type{}),
-								Unit:          new(typesv0.Unit{}),
+								Unit:          new(types.Unit{}),
 								Constraint:    new(types.Type{}),
-								ChanDirection: typesv0.ChanDirection(0),
+								ChanDirection: types.ChanDirection(0),
 							},
 							Value: any(map[string]any{"key_28": "value_28"}),
 						},
 					},
-					Channels: typesv0.Channels{
+					Channels: types.Channels{
 						Read:  map[uint32]string{31: "test_30"},
 						Write: map[uint32]string{32: "test_31"},
 					},
@@ -354,9 +352,9 @@ func FuzzDecodeGraph(f *testing.F) {
 			},
 			Edges: []v1.Edge{
 				{
-					Source: irv0.Handle{Node: "test_34", Param: "test_35"},
-					Target: irv0.Handle{Node: "test_37", Param: "test_38"},
-					Kind:   irv0.EdgeKind(0),
+					Source: ir.Handle{Node: "test_34", Param: "test_35"},
+					Target: ir.Handle{Node: "test_37", Param: "test_38"},
+					Kind:   ir.EdgeKind(0),
 					Key:    "test_40",
 				},
 			},

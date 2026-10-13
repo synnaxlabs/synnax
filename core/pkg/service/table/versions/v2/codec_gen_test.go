@@ -19,7 +19,6 @@ import (
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions/v2"
-	colorv0 "github.com/synnaxlabs/x/color/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
@@ -44,13 +43,13 @@ var _ = Describe("Codec", func() {
 				Level:  text.Level("h1"),
 				Weight: 3.5,
 				Align:  v2.FlexAlignment("start"),
-				FillColor: new(colorv0.Color{
+				FillColor: new(color.Color{
 					R: 7,
 					G: 8,
 					B: 9,
 					A: 9.5,
 				}),
-				TextColor: new(colorv0.Color{
+				TextColor: new(color.Color{
 					R: 12,
 					G: 13,
 					B: 14,
@@ -67,20 +66,20 @@ var _ = Describe("Codec", func() {
 						{
 							Key:       "test_7",
 							Threshold: 8.5,
-							Color:     colorv0.Color{},
+							Color:     color.Color{},
 							Flashing:  false,
 						},
 					},
 					Smooth: true,
 				},
-				FillColor: new(colorv0.Color{
+				FillColor: new(color.Color{
 					R: 14,
 					G: 15,
 					B: 16,
 					A: 16.5,
 				}),
 				Level: text.Level("h1"),
-				TextColor: new(colorv0.Color{
+				TextColor: new(color.Color{
 					R: 20,
 					G: 21,
 					B: 22,
@@ -88,7 +87,7 @@ var _ = Describe("Codec", func() {
 				}),
 				Units:            "test_23",
 				StalenessTimeout: 24.5,
-				StalenessColor: new(colorv0.Color{
+				StalenessColor: new(color.Color{
 					R: 27,
 					G: 28,
 					B: 29,
@@ -150,13 +149,13 @@ var _ = Describe("Codec", func() {
 						Level:  text.Level("h1"),
 						Weight: 11.5,
 						Align:  v2.FlexAlignment("start"),
-						FillColor: new(colorv0.Color{
+						FillColor: new(color.Color{
 							R: 15,
 							G: 16,
 							B: 17,
 							A: 17.5,
 						}),
-						TextColor: new(colorv0.Color{
+						TextColor: new(color.Color{
 							R: 20,
 							G: 21,
 							B: 22,
@@ -189,13 +188,13 @@ func BenchmarkEncodeDecodeCellConfig(b *testing.B) {
 		Level:  text.Level("h1"),
 		Weight: 3.5,
 		Align:  v2.FlexAlignment("start"),
-		FillColor: new(colorv0.Color{
+		FillColor: new(color.Color{
 			R: 7,
 			G: 8,
 			B: 9,
 			A: 9.5,
 		}),
-		TextColor: new(colorv0.Color{
+		TextColor: new(color.Color{
 			R: 12,
 			G: 13,
 			B: 14,
@@ -263,13 +262,13 @@ func BenchmarkEncodeDecodeTable(b *testing.B) {
 				Level:  text.Level("h1"),
 				Weight: 11.5,
 				Align:  v2.FlexAlignment("start"),
-				FillColor: new(colorv0.Color{
+				FillColor: new(color.Color{
 					R: 15,
 					G: 16,
 					B: 17,
 					A: 17.5,
 				}),
-				TextColor: new(colorv0.Color{
+				TextColor: new(color.Color{
 					R: 20,
 					G: 21,
 					B: 22,
@@ -300,13 +299,13 @@ func FuzzDecodeCellConfig(f *testing.F) {
 			Level:  text.Level("h1"),
 			Weight: 3.5,
 			Align:  v2.FlexAlignment("start"),
-			FillColor: new(colorv0.Color{
+			FillColor: new(color.Color{
 				R: 7,
 				G: 8,
 				B: 9,
 				A: 9.5,
 			}),
-			TextColor: new(colorv0.Color{
+			TextColor: new(color.Color{
 				R: 12,
 				G: 13,
 				B: 14,
@@ -330,20 +329,20 @@ func FuzzDecodeCellConfig(f *testing.F) {
 					{
 						Key:       "test_7",
 						Threshold: 8.5,
-						Color:     colorv0.Color{},
+						Color:     color.Color{},
 						Flashing:  false,
 					},
 				},
 				Smooth: true,
 			},
-			FillColor: new(colorv0.Color{
+			FillColor: new(color.Color{
 				R: 14,
 				G: 15,
 				B: 16,
 				A: 16.5,
 			}),
 			Level: text.Level("h1"),
-			TextColor: new(colorv0.Color{
+			TextColor: new(color.Color{
 				R: 20,
 				G: 21,
 				B: 22,
@@ -351,7 +350,7 @@ func FuzzDecodeCellConfig(f *testing.F) {
 			}),
 			Units:            "test_23",
 			StalenessTimeout: 24.5,
-			StalenessColor: new(colorv0.Color{
+			StalenessColor: new(color.Color{
 				R: 27,
 				G: 28,
 				B: 29,
@@ -485,13 +484,13 @@ func FuzzDecodeTable(f *testing.F) {
 					Level:  text.Level("h1"),
 					Weight: 11.5,
 					Align:  v2.FlexAlignment("start"),
-					FillColor: new(colorv0.Color{
+					FillColor: new(color.Color{
 						R: 15,
 						G: 16,
 						B: 17,
 						A: 17.5,
 					}),
-					TextColor: new(colorv0.Color{
+					TextColor: new(color.Color{
 						R: 20,
 						G: 21,
 						B: 22,

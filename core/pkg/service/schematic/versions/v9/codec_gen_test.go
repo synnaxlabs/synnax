@@ -32,7 +32,7 @@ import (
 
 var (
 	fullyPopulatedSegmentedEdgeConfig = v9.SegmentedEdgeConfig{
-		StrokeColor: new(colorv0.Color{
+		StrokeColor: new(color.Color{
 			R: 3,
 			G: 4,
 			B: 5,
@@ -51,7 +51,7 @@ var (
 		},
 		Orientation: spatial.OuterLocation("top"),
 		Scale:       9.5,
-		StrokeColor: new(colorv0.Color{
+		StrokeColor: new(color.Color{
 			R: 12,
 			G: 13,
 			B: 14,
@@ -70,7 +70,7 @@ var (
 		Orientation:      spatial.OuterLocation("top"),
 		Scale:            9.5,
 		StalenessTimeout: 10.5,
-		StalenessColor: new(colorv0.Color{
+		StalenessColor: new(color.Color{
 			R: 13,
 			G: 14,
 			B: 15,
@@ -86,7 +86,7 @@ var (
 			Orientation:     spatial.Location("top"),
 		}),
 		OnClickDelay: 24.5,
-		StrokeColor: new(colorv0.Color{
+		StrokeColor: new(color.Color{
 			R: 27,
 			G: 28,
 			B: 29,
@@ -112,7 +112,7 @@ var (
 	}
 	fullyPopulatedStalenessConfig = v9.StalenessConfig{
 		StalenessTimeout: 1.5,
-		StalenessColor: new(colorv0.Color{
+		StalenessColor: new(color.Color{
 			R: 4,
 			G: 5,
 			B: 6,
@@ -126,26 +126,26 @@ var (
 		Precision:        3.5,
 		Notation:         notation.Notation("standard"),
 		StalenessTimeout: 5.5,
-		StalenessColor: new(colorv0.Color{
+		StalenessColor: new(color.Color{
 			R: 8,
 			G: 9,
 			B: 10,
 			A: 10.5,
 		}),
 		Bounds: spatial.Bounds{Lower: 12.5, Upper: 13.5},
-		LevelColor: new(colorv0.Color{
+		LevelColor: new(color.Color{
 			R: 16,
 			G: 17,
 			B: 18,
 			A: 18.5,
 		}),
-		AxisColor: new(colorv0.Color{
+		AxisColor: new(color.Color{
 			R: 21,
 			G: 22,
 			B: 23,
 			A: 23.5,
 		}),
-		TextColor: new(colorv0.Color{
+		TextColor: new(color.Color{
 			R: 26,
 			G: 27,
 			B: 28,
@@ -172,7 +172,7 @@ var (
 		Scale:       9.5,
 		Enabled:     false,
 		Clickable:   true,
-		StrokeColor: new(colorv0.Color{
+		StrokeColor: new(color.Color{
 			R: 14,
 			G: 15,
 			B: 16,
@@ -191,7 +191,7 @@ var (
 		Orientation:      spatial.OuterLocation("top"),
 		Scale:            9.5,
 		StalenessTimeout: 10.5,
-		StalenessColor: new(colorv0.Color{
+		StalenessColor: new(color.Color{
 			R: 13,
 			G: 14,
 			B: 15,
@@ -357,13 +357,13 @@ var _ = Describe("Codec", func() {
 			}}),
 			Entry("box variant", v9.ElementConfig{Variant: v9.BoxElementConfig{
 				LabeledConfig: fullyPopulatedLabeledConfig,
-				StrokeColor: new(colorv0.Color{
+				StrokeColor: new(color.Color{
 					R: 3,
 					G: 4,
 					B: 5,
 					A: 5.5,
 				}),
-				FillColor: new(colorv0.Color{
+				FillColor: new(color.Color{
 					R: 8,
 					G: 9,
 					B: 10,
@@ -380,7 +380,7 @@ var _ = Describe("Codec", func() {
 				OnClickDelay:   3.5,
 				CommandChannel: new(channel.Key(5)),
 				Mode:           v9.ButtonMode("fire"),
-				FillColor: new(colorv0.Color{
+				FillColor: new(color.Color{
 					R: 8,
 					G: 9,
 					B: 10,
@@ -397,13 +397,13 @@ var _ = Describe("Codec", func() {
 			Entry("circle variant", v9.ElementConfig{Variant: v9.CircleElementConfig{
 				LabeledConfig: fullyPopulatedLabeledConfig,
 				Radius:        1.5,
-				StrokeColor: new(colorv0.Color{
+				StrokeColor: new(color.Color{
 					R: 4,
 					G: 5,
 					B: 6,
 					A: 6.5,
 				}),
-				FillColor: new(colorv0.Color{
+				FillColor: new(color.Color{
 					R: 9,
 					G: 10,
 					B: 11,
@@ -416,7 +416,7 @@ var _ = Describe("Codec", func() {
 				NumericTelemConfig: fullyPopulatedNumericTelemConfig,
 				StalenessConfig:    fullyPopulatedStalenessConfig,
 				Position:           new(spatial.XY{X: 2.5, Y: 3.5}),
-				StrokeColor: new(colorv0.Color{
+				StrokeColor: new(color.Color{
 					R: 6,
 					G: 7,
 					B: 8,
@@ -436,7 +436,7 @@ var _ = Describe("Codec", func() {
 				Size:           v9.ComponentSize("tiny"),
 				CommandChannel: new(channel.Key(3)),
 				Dimensions:     new(spatial.Dimensions{Width: 4.5, Height: 5.5}),
-				FillColor: new(colorv0.Color{
+				FillColor: new(color.Color{
 					R: 8,
 					G: 9,
 					B: 10,
@@ -458,13 +458,13 @@ var _ = Describe("Codec", func() {
 				StalenessConfig: fullyPopulatedStalenessConfig,
 				Channel:         new(channel.Key(2)),
 				Threshold:       new(spatial.Bounds{Lower: 3.5, Upper: 4.5}),
-				StrokeColor: new(colorv0.Color{
+				StrokeColor: new(color.Color{
 					R: 7,
 					G: 8,
 					B: 9,
 					A: 9.5,
 				}),
-				OnColor: new(colorv0.Color{
+				OnColor: new(color.Color{
 					R: 12,
 					G: 13,
 					B: 14,
@@ -472,7 +472,7 @@ var _ = Describe("Codec", func() {
 				}),
 			}}),
 			Entry("line variant", v9.ElementConfig{Variant: v9.LineElementConfig{
-				StrokeColor: new(colorv0.Color{
+				StrokeColor: new(color.Color{
 					R: 3,
 					G: 4,
 					B: 5,
@@ -484,7 +484,7 @@ var _ = Describe("Codec", func() {
 			}}),
 			Entry("off_page_reference variant", v9.ElementConfig{Variant: v9.OffPageReferenceElementConfig{
 				LabeledConfig: fullyPopulatedLabeledConfig,
-				FillColor: new(colorv0.Color{
+				FillColor: new(color.Color{
 					R: 3,
 					G: 4,
 					B: 5,
@@ -499,13 +499,13 @@ var _ = Describe("Codec", func() {
 				SideLength:     2.5,
 				Rotation:       3.5,
 				CornerRounding: 4.5,
-				StrokeColor: new(colorv0.Color{
+				StrokeColor: new(color.Color{
 					R: 7,
 					G: 8,
 					B: 9,
 					A: 9.5,
 				}),
-				FillColor: new(colorv0.Color{
+				FillColor: new(color.Color{
 					R: 12,
 					G: 13,
 					B: 14,
@@ -517,7 +517,7 @@ var _ = Describe("Codec", func() {
 				LabeledConfig:  fullyPopulatedLabeledConfig,
 				Size:           v9.ComponentSize("tiny"),
 				CommandChannel: new(channel.Key(3)),
-				FillColor: new(colorv0.Color{
+				FillColor: new(color.Color{
 					R: 5,
 					G: 6,
 					B: 7,
@@ -529,7 +529,7 @@ var _ = Describe("Codec", func() {
 						Key:   "test_10",
 						Name:  "test_11",
 						Value: 12.5,
-						Color: new(colorv0.Color{
+						Color: new(color.Color{
 							R: 15,
 							G: 16,
 							B: 17,
@@ -558,7 +558,7 @@ var _ = Describe("Codec", func() {
 				Size:           v9.ComponentSize("tiny"),
 				CommandChannel: new(channel.Key(3)),
 				Dimensions:     new(spatial.Dimensions{Width: 4.5, Height: 5.5}),
-				FillColor: new(colorv0.Color{
+				FillColor: new(color.Color{
 					R: 8,
 					G: 9,
 					B: 10,
@@ -579,7 +579,7 @@ var _ = Describe("Codec", func() {
 				LabeledConfig:   fullyPopulatedLabeledConfig,
 				StalenessConfig: fullyPopulatedStalenessConfig,
 				Channel:         new(channel.Key(2)),
-				StrokeColor: new(colorv0.Color{
+				StrokeColor: new(color.Color{
 					R: 4,
 					G: 5,
 					B: 6,
@@ -591,7 +591,7 @@ var _ = Describe("Codec", func() {
 						Key:   "test_9",
 						Name:  "test_10",
 						Value: 11.5,
-						Color: new(colorv0.Color{
+						Color: new(color.Color{
 							R: 14,
 							G: 15,
 							B: 16,
@@ -604,13 +604,13 @@ var _ = Describe("Codec", func() {
 			Entry("string_display variant", v9.ElementConfig{Variant: v9.StringDisplayElementConfig{
 				LabeledConfig:   fullyPopulatedLabeledConfig,
 				StalenessConfig: fullyPopulatedStalenessConfig,
-				StrokeColor: new(colorv0.Color{
+				StrokeColor: new(color.Color{
 					R: 3,
 					G: 4,
 					B: 5,
 					A: 5.5,
 				}),
-				TextColor: new(colorv0.Color{
+				TextColor: new(color.Color{
 					R: 8,
 					G: 9,
 					B: 10,
@@ -624,7 +624,7 @@ var _ = Describe("Codec", func() {
 			Entry("switch variant", v9.ElementConfig{Variant: v9.SwitchElementConfig{ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig}}),
 			Entry("text_box variant", v9.ElementConfig{Variant: v9.TextBoxElementConfig{
 				LabeledConfig: fullyPopulatedLabeledConfig,
-				TextColor: new(colorv0.Color{
+				TextColor: new(color.Color{
 					R: 3,
 					G: 4,
 					B: 5,
@@ -641,19 +641,19 @@ var _ = Describe("Codec", func() {
 				NumericTelemConfig: fullyPopulatedNumericTelemConfig,
 				StalenessConfig:    fullyPopulatedStalenessConfig,
 				Position:           new(spatial.XY{X: 2.5, Y: 3.5}),
-				StrokeColor: new(colorv0.Color{
+				StrokeColor: new(color.Color{
 					R: 6,
 					G: 7,
 					B: 8,
 					A: 8.5,
 				}),
-				TextColor: new(colorv0.Color{
+				TextColor: new(color.Color{
 					R: 11,
 					G: 12,
 					B: 13,
 					A: 13.5,
 				}),
-				FillColor: new(colorv0.Color{
+				FillColor: new(color.Color{
 					R: 16,
 					G: 17,
 					B: 18,
@@ -665,7 +665,7 @@ var _ = Describe("Codec", func() {
 						{
 							Key:       "test_22",
 							Threshold: 23.5,
-							Color:     colorv0.Color{},
+							Color:     color.Color{},
 							Flashing:  true,
 						},
 					},
@@ -832,13 +832,13 @@ var _ = Describe("Codec", func() {
 					BottomLeft:  spatial.XY{X: 12.5, Y: 13.5},
 					BottomRight: spatial.XY{X: 15.5, Y: 16.5},
 				}),
-				StrokeColor: new(colorv0.Color{
+				StrokeColor: new(color.Color{
 					R: 19,
 					G: 20,
 					B: 21,
 					A: 21.5,
 				}),
-				FillColor: new(colorv0.Color{
+				FillColor: new(color.Color{
 					R: 24,
 					G: 25,
 					B: 26,
@@ -852,26 +852,26 @@ var _ = Describe("Codec", func() {
 				Precision:        3.5,
 				Notation:         notation.Notation("standard"),
 				StalenessTimeout: 5.5,
-				StalenessColor: new(colorv0.Color{
+				StalenessColor: new(color.Color{
 					R: 8,
 					G: 9,
 					B: 10,
 					A: 10.5,
 				}),
 				Bounds: spatial.Bounds{Lower: 12.5, Upper: 13.5},
-				LevelColor: new(colorv0.Color{
+				LevelColor: new(color.Color{
 					R: 16,
 					G: 17,
 					B: 18,
 					A: 18.5,
 				}),
-				AxisColor: new(colorv0.Color{
+				AxisColor: new(color.Color{
 					R: 21,
 					G: 22,
 					B: 23,
 					A: 23.5,
 				}),
-				TextColor: new(colorv0.Color{
+				TextColor: new(color.Color{
 					R: 26,
 					G: 27,
 					B: 28,
@@ -882,13 +882,13 @@ var _ = Describe("Codec", func() {
 				CaretSide:   spatial.OuterLocation("top"),
 				Level:       text.Level("h1"),
 				Position:    new(spatial.XY{X: 34.5, Y: 35.5}),
-				StrokeColor: new(colorv0.Color{
+				StrokeColor: new(color.Color{
 					R: 38,
 					G: 39,
 					B: 40,
 					A: 40.5,
 				}),
-				FillColor: new(colorv0.Color{
+				FillColor: new(color.Color{
 					R: 43,
 					G: 44,
 					B: 45,
@@ -1079,13 +1079,13 @@ var _ = Describe("Codec", func() {
 			}}),
 			Entry("box variant", v9.NodeConfig{Variant: v9.BoxNodeConfig{
 				LabeledConfig: fullyPopulatedLabeledConfig,
-				StrokeColor: new(colorv0.Color{
+				StrokeColor: new(color.Color{
 					R: 3,
 					G: 4,
 					B: 5,
 					A: 5.5,
 				}),
-				FillColor: new(colorv0.Color{
+				FillColor: new(color.Color{
 					R: 8,
 					G: 9,
 					B: 10,
@@ -1102,7 +1102,7 @@ var _ = Describe("Codec", func() {
 				OnClickDelay:   3.5,
 				CommandChannel: new(channel.Key(5)),
 				Mode:           v9.ButtonMode("fire"),
-				FillColor: new(colorv0.Color{
+				FillColor: new(color.Color{
 					R: 8,
 					G: 9,
 					B: 10,
@@ -1119,13 +1119,13 @@ var _ = Describe("Codec", func() {
 			Entry("circle variant", v9.NodeConfig{Variant: v9.CircleNodeConfig{
 				LabeledConfig: fullyPopulatedLabeledConfig,
 				Radius:        1.5,
-				StrokeColor: new(colorv0.Color{
+				StrokeColor: new(color.Color{
 					R: 4,
 					G: 5,
 					B: 6,
 					A: 6.5,
 				}),
-				FillColor: new(colorv0.Color{
+				FillColor: new(color.Color{
 					R: 9,
 					G: 10,
 					B: 11,
@@ -1138,7 +1138,7 @@ var _ = Describe("Codec", func() {
 				NumericTelemConfig: fullyPopulatedNumericTelemConfig,
 				StalenessConfig:    fullyPopulatedStalenessConfig,
 				Position:           new(spatial.XY{X: 2.5, Y: 3.5}),
-				StrokeColor: new(colorv0.Color{
+				StrokeColor: new(color.Color{
 					R: 6,
 					G: 7,
 					B: 8,
@@ -1158,7 +1158,7 @@ var _ = Describe("Codec", func() {
 				Size:           v9.ComponentSize("tiny"),
 				CommandChannel: new(channel.Key(3)),
 				Dimensions:     new(spatial.Dimensions{Width: 4.5, Height: 5.5}),
-				FillColor: new(colorv0.Color{
+				FillColor: new(color.Color{
 					R: 8,
 					G: 9,
 					B: 10,
@@ -1180,13 +1180,13 @@ var _ = Describe("Codec", func() {
 				StalenessConfig: fullyPopulatedStalenessConfig,
 				Channel:         new(channel.Key(2)),
 				Threshold:       new(spatial.Bounds{Lower: 3.5, Upper: 4.5}),
-				StrokeColor: new(colorv0.Color{
+				StrokeColor: new(color.Color{
 					R: 7,
 					G: 8,
 					B: 9,
 					A: 9.5,
 				}),
-				OnColor: new(colorv0.Color{
+				OnColor: new(color.Color{
 					R: 12,
 					G: 13,
 					B: 14,
@@ -1194,7 +1194,7 @@ var _ = Describe("Codec", func() {
 				}),
 			}}),
 			Entry("line variant", v9.NodeConfig{Variant: v9.LineNodeConfig{
-				StrokeColor: new(colorv0.Color{
+				StrokeColor: new(color.Color{
 					R: 3,
 					G: 4,
 					B: 5,
@@ -1206,7 +1206,7 @@ var _ = Describe("Codec", func() {
 			}}),
 			Entry("off_page_reference variant", v9.NodeConfig{Variant: v9.OffPageReferenceNodeConfig{
 				LabeledConfig: fullyPopulatedLabeledConfig,
-				FillColor: new(colorv0.Color{
+				FillColor: new(color.Color{
 					R: 3,
 					G: 4,
 					B: 5,
@@ -1221,13 +1221,13 @@ var _ = Describe("Codec", func() {
 				SideLength:     2.5,
 				Rotation:       3.5,
 				CornerRounding: 4.5,
-				StrokeColor: new(colorv0.Color{
+				StrokeColor: new(color.Color{
 					R: 7,
 					G: 8,
 					B: 9,
 					A: 9.5,
 				}),
-				FillColor: new(colorv0.Color{
+				FillColor: new(color.Color{
 					R: 12,
 					G: 13,
 					B: 14,
@@ -1239,7 +1239,7 @@ var _ = Describe("Codec", func() {
 				LabeledConfig:  fullyPopulatedLabeledConfig,
 				Size:           v9.ComponentSize("tiny"),
 				CommandChannel: new(channel.Key(3)),
-				FillColor: new(colorv0.Color{
+				FillColor: new(color.Color{
 					R: 5,
 					G: 6,
 					B: 7,
@@ -1251,7 +1251,7 @@ var _ = Describe("Codec", func() {
 						Key:   "test_10",
 						Name:  "test_11",
 						Value: 12.5,
-						Color: new(colorv0.Color{
+						Color: new(color.Color{
 							R: 15,
 							G: 16,
 							B: 17,
@@ -1280,7 +1280,7 @@ var _ = Describe("Codec", func() {
 				Size:           v9.ComponentSize("tiny"),
 				CommandChannel: new(channel.Key(3)),
 				Dimensions:     new(spatial.Dimensions{Width: 4.5, Height: 5.5}),
-				FillColor: new(colorv0.Color{
+				FillColor: new(color.Color{
 					R: 8,
 					G: 9,
 					B: 10,
@@ -1301,7 +1301,7 @@ var _ = Describe("Codec", func() {
 				LabeledConfig:   fullyPopulatedLabeledConfig,
 				StalenessConfig: fullyPopulatedStalenessConfig,
 				Channel:         new(channel.Key(2)),
-				StrokeColor: new(colorv0.Color{
+				StrokeColor: new(color.Color{
 					R: 4,
 					G: 5,
 					B: 6,
@@ -1313,7 +1313,7 @@ var _ = Describe("Codec", func() {
 						Key:   "test_9",
 						Name:  "test_10",
 						Value: 11.5,
-						Color: new(colorv0.Color{
+						Color: new(color.Color{
 							R: 14,
 							G: 15,
 							B: 16,
@@ -1326,13 +1326,13 @@ var _ = Describe("Codec", func() {
 			Entry("string_display variant", v9.NodeConfig{Variant: v9.StringDisplayNodeConfig{
 				LabeledConfig:   fullyPopulatedLabeledConfig,
 				StalenessConfig: fullyPopulatedStalenessConfig,
-				StrokeColor: new(colorv0.Color{
+				StrokeColor: new(color.Color{
 					R: 3,
 					G: 4,
 					B: 5,
 					A: 5.5,
 				}),
-				TextColor: new(colorv0.Color{
+				TextColor: new(color.Color{
 					R: 8,
 					G: 9,
 					B: 10,
@@ -1346,7 +1346,7 @@ var _ = Describe("Codec", func() {
 			Entry("switch variant", v9.NodeConfig{Variant: v9.SwitchNodeConfig{ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig}}),
 			Entry("text_box variant", v9.NodeConfig{Variant: v9.TextBoxNodeConfig{
 				LabeledConfig: fullyPopulatedLabeledConfig,
-				TextColor: new(colorv0.Color{
+				TextColor: new(color.Color{
 					R: 3,
 					G: 4,
 					B: 5,
@@ -1363,19 +1363,19 @@ var _ = Describe("Codec", func() {
 				NumericTelemConfig: fullyPopulatedNumericTelemConfig,
 				StalenessConfig:    fullyPopulatedStalenessConfig,
 				Position:           new(spatial.XY{X: 2.5, Y: 3.5}),
-				StrokeColor: new(colorv0.Color{
+				StrokeColor: new(color.Color{
 					R: 6,
 					G: 7,
 					B: 8,
 					A: 8.5,
 				}),
-				TextColor: new(colorv0.Color{
+				TextColor: new(color.Color{
 					R: 11,
 					G: 12,
 					B: 13,
 					A: 13.5,
 				}),
-				FillColor: new(colorv0.Color{
+				FillColor: new(color.Color{
 					R: 16,
 					G: 17,
 					B: 18,
@@ -1387,7 +1387,7 @@ var _ = Describe("Codec", func() {
 						{
 							Key:       "test_22",
 							Threshold: 23.5,
-							Color:     colorv0.Color{},
+							Color:     color.Color{},
 							Flashing:  true,
 						},
 					},
@@ -1532,13 +1532,13 @@ var _ = Describe("Codec", func() {
 					BottomLeft:  spatial.XY{X: 12.5, Y: 13.5},
 					BottomRight: spatial.XY{X: 15.5, Y: 16.5},
 				}),
-				StrokeColor: new(colorv0.Color{
+				StrokeColor: new(color.Color{
 					R: 19,
 					G: 20,
 					B: 21,
 					A: 21.5,
 				}),
-				FillColor: new(colorv0.Color{
+				FillColor: new(color.Color{
 					R: 24,
 					G: 25,
 					B: 26,
@@ -1552,26 +1552,26 @@ var _ = Describe("Codec", func() {
 				Precision:        3.5,
 				Notation:         notation.Notation("standard"),
 				StalenessTimeout: 5.5,
-				StalenessColor: new(colorv0.Color{
+				StalenessColor: new(color.Color{
 					R: 8,
 					G: 9,
 					B: 10,
 					A: 10.5,
 				}),
 				Bounds: spatial.Bounds{Lower: 12.5, Upper: 13.5},
-				LevelColor: new(colorv0.Color{
+				LevelColor: new(color.Color{
 					R: 16,
 					G: 17,
 					B: 18,
 					A: 18.5,
 				}),
-				AxisColor: new(colorv0.Color{
+				AxisColor: new(color.Color{
 					R: 21,
 					G: 22,
 					B: 23,
 					A: 23.5,
 				}),
-				TextColor: new(colorv0.Color{
+				TextColor: new(color.Color{
 					R: 26,
 					G: 27,
 					B: 28,
@@ -1582,13 +1582,13 @@ var _ = Describe("Codec", func() {
 				CaretSide:   spatial.OuterLocation("top"),
 				Level:       text.Level("h1"),
 				Position:    new(spatial.XY{X: 34.5, Y: 35.5}),
-				StrokeColor: new(colorv0.Color{
+				StrokeColor: new(color.Color{
 					R: 38,
 					G: 39,
 					B: 40,
 					A: 40.5,
 				}),
-				FillColor: new(colorv0.Color{
+				FillColor: new(color.Color{
 					R: 43,
 					G: 44,
 					B: 45,
@@ -1809,7 +1809,7 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", fullyPopulatedSegmentedEdgeConfig),
 			Entry("zero values", v9.SegmentedEdgeConfig{StrokeColor: nil, Segments: []v9.Segment{}}),
 			Entry("empty collections", v9.SegmentedEdgeConfig{
-				StrokeColor: new(colorv0.Color{
+				StrokeColor: new(color.Color{
 					R: 3,
 					G: 4,
 					B: 5,
@@ -1849,7 +1849,7 @@ var _ = Describe("Codec", func() {
 				Key:   "test_1",
 				Name:  "test_2",
 				Value: 3.5,
-				Color: new(colorv0.Color{
+				Color: new(color.Color{
 					R: 6,
 					G: 7,
 					B: 8,
@@ -2250,7 +2250,7 @@ func BenchmarkEncodeDecodeStateMapping(b *testing.B) {
 		Key:   "test_1",
 		Name:  "test_2",
 		Value: 3.5,
-		Color: new(colorv0.Color{
+		Color: new(color.Color{
 			R: 6,
 			G: 7,
 			B: 8,
@@ -2742,13 +2742,13 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	{
 		seed := v9.ElementConfig{Variant: v9.BoxElementConfig{
 			LabeledConfig: fullyPopulatedLabeledConfig,
-			StrokeColor: new(colorv0.Color{
+			StrokeColor: new(color.Color{
 				R: 3,
 				G: 4,
 				B: 5,
 				A: 5.5,
 			}),
-			FillColor: new(colorv0.Color{
+			FillColor: new(color.Color{
 				R: 8,
 				G: 9,
 				B: 10,
@@ -2772,7 +2772,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 			OnClickDelay:   3.5,
 			CommandChannel: new(channel.Key(5)),
 			Mode:           v9.ButtonMode("fire"),
-			FillColor: new(colorv0.Color{
+			FillColor: new(color.Color{
 				R: 8,
 				G: 9,
 				B: 10,
@@ -2796,13 +2796,13 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		seed := v9.ElementConfig{Variant: v9.CircleElementConfig{
 			LabeledConfig: fullyPopulatedLabeledConfig,
 			Radius:        1.5,
-			StrokeColor: new(colorv0.Color{
+			StrokeColor: new(color.Color{
 				R: 4,
 				G: 5,
 				B: 6,
 				A: 6.5,
 			}),
-			FillColor: new(colorv0.Color{
+			FillColor: new(color.Color{
 				R: 9,
 				G: 10,
 				B: 11,
@@ -2822,7 +2822,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 			NumericTelemConfig: fullyPopulatedNumericTelemConfig,
 			StalenessConfig:    fullyPopulatedStalenessConfig,
 			Position:           new(spatial.XY{X: 2.5, Y: 3.5}),
-			StrokeColor: new(colorv0.Color{
+			StrokeColor: new(color.Color{
 				R: 6,
 				G: 7,
 				B: 8,
@@ -2849,7 +2849,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 			Size:           v9.ComponentSize("tiny"),
 			CommandChannel: new(channel.Key(3)),
 			Dimensions:     new(spatial.Dimensions{Width: 4.5, Height: 5.5}),
-			FillColor: new(colorv0.Color{
+			FillColor: new(color.Color{
 				R: 8,
 				G: 9,
 				B: 10,
@@ -2878,13 +2878,13 @@ func FuzzDecodeElementConfig(f *testing.F) {
 			StalenessConfig: fullyPopulatedStalenessConfig,
 			Channel:         new(channel.Key(2)),
 			Threshold:       new(spatial.Bounds{Lower: 3.5, Upper: 4.5}),
-			StrokeColor: new(colorv0.Color{
+			StrokeColor: new(color.Color{
 				R: 7,
 				G: 8,
 				B: 9,
 				A: 9.5,
 			}),
-			OnColor: new(colorv0.Color{
+			OnColor: new(color.Color{
 				R: 12,
 				G: 13,
 				B: 14,
@@ -2899,7 +2899,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := v9.ElementConfig{Variant: v9.LineElementConfig{
-			StrokeColor: new(colorv0.Color{
+			StrokeColor: new(color.Color{
 				R: 3,
 				G: 4,
 				B: 5,
@@ -2918,7 +2918,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	{
 		seed := v9.ElementConfig{Variant: v9.OffPageReferenceElementConfig{
 			LabeledConfig: fullyPopulatedLabeledConfig,
-			FillColor: new(colorv0.Color{
+			FillColor: new(color.Color{
 				R: 3,
 				G: 4,
 				B: 5,
@@ -2940,13 +2940,13 @@ func FuzzDecodeElementConfig(f *testing.F) {
 			SideLength:     2.5,
 			Rotation:       3.5,
 			CornerRounding: 4.5,
-			StrokeColor: new(colorv0.Color{
+			StrokeColor: new(color.Color{
 				R: 7,
 				G: 8,
 				B: 9,
 				A: 9.5,
 			}),
-			FillColor: new(colorv0.Color{
+			FillColor: new(color.Color{
 				R: 12,
 				G: 13,
 				B: 14,
@@ -2965,7 +2965,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 			LabeledConfig:  fullyPopulatedLabeledConfig,
 			Size:           v9.ComponentSize("tiny"),
 			CommandChannel: new(channel.Key(3)),
-			FillColor: new(colorv0.Color{
+			FillColor: new(color.Color{
 				R: 5,
 				G: 6,
 				B: 7,
@@ -2977,7 +2977,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 					Key:   "test_10",
 					Name:  "test_11",
 					Value: 12.5,
-					Color: new(colorv0.Color{
+					Color: new(color.Color{
 						R: 15,
 						G: 16,
 						B: 17,
@@ -3020,7 +3020,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 			Size:           v9.ComponentSize("tiny"),
 			CommandChannel: new(channel.Key(3)),
 			Dimensions:     new(spatial.Dimensions{Width: 4.5, Height: 5.5}),
-			FillColor: new(colorv0.Color{
+			FillColor: new(color.Color{
 				R: 8,
 				G: 9,
 				B: 10,
@@ -3048,7 +3048,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 			LabeledConfig:   fullyPopulatedLabeledConfig,
 			StalenessConfig: fullyPopulatedStalenessConfig,
 			Channel:         new(channel.Key(2)),
-			StrokeColor: new(colorv0.Color{
+			StrokeColor: new(color.Color{
 				R: 4,
 				G: 5,
 				B: 6,
@@ -3060,7 +3060,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 					Key:   "test_9",
 					Name:  "test_10",
 					Value: 11.5,
-					Color: new(colorv0.Color{
+					Color: new(color.Color{
 						R: 14,
 						G: 15,
 						B: 16,
@@ -3080,13 +3080,13 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		seed := v9.ElementConfig{Variant: v9.StringDisplayElementConfig{
 			LabeledConfig:   fullyPopulatedLabeledConfig,
 			StalenessConfig: fullyPopulatedStalenessConfig,
-			StrokeColor: new(colorv0.Color{
+			StrokeColor: new(color.Color{
 				R: 3,
 				G: 4,
 				B: 5,
 				A: 5.5,
 			}),
-			TextColor: new(colorv0.Color{
+			TextColor: new(color.Color{
 				R: 8,
 				G: 9,
 				B: 10,
@@ -3114,7 +3114,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	{
 		seed := v9.ElementConfig{Variant: v9.TextBoxElementConfig{
 			LabeledConfig: fullyPopulatedLabeledConfig,
-			TextColor: new(colorv0.Color{
+			TextColor: new(color.Color{
 				R: 3,
 				G: 4,
 				B: 5,
@@ -3138,19 +3138,19 @@ func FuzzDecodeElementConfig(f *testing.F) {
 			NumericTelemConfig: fullyPopulatedNumericTelemConfig,
 			StalenessConfig:    fullyPopulatedStalenessConfig,
 			Position:           new(spatial.XY{X: 2.5, Y: 3.5}),
-			StrokeColor: new(colorv0.Color{
+			StrokeColor: new(color.Color{
 				R: 6,
 				G: 7,
 				B: 8,
 				A: 8.5,
 			}),
-			TextColor: new(colorv0.Color{
+			TextColor: new(color.Color{
 				R: 11,
 				G: 12,
 				B: 13,
 				A: 13.5,
 			}),
-			FillColor: new(colorv0.Color{
+			FillColor: new(color.Color{
 				R: 16,
 				G: 17,
 				B: 18,
@@ -3162,7 +3162,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 					{
 						Key:       "test_22",
 						Threshold: 23.5,
-						Color:     colorv0.Color{},
+						Color:     color.Color{},
 						Flashing:  true,
 					},
 				},
@@ -3728,13 +3728,13 @@ func FuzzDecodeElementConfig(f *testing.F) {
 				BottomLeft:  spatial.XY{X: 12.5, Y: 13.5},
 				BottomRight: spatial.XY{X: 15.5, Y: 16.5},
 			}),
-			StrokeColor: new(colorv0.Color{
+			StrokeColor: new(color.Color{
 				R: 19,
 				G: 20,
 				B: 21,
 				A: 21.5,
 			}),
-			FillColor: new(colorv0.Color{
+			FillColor: new(color.Color{
 				R: 24,
 				G: 25,
 				B: 26,
@@ -3755,26 +3755,26 @@ func FuzzDecodeElementConfig(f *testing.F) {
 			Precision:        3.5,
 			Notation:         notation.Notation("standard"),
 			StalenessTimeout: 5.5,
-			StalenessColor: new(colorv0.Color{
+			StalenessColor: new(color.Color{
 				R: 8,
 				G: 9,
 				B: 10,
 				A: 10.5,
 			}),
 			Bounds: spatial.Bounds{Lower: 12.5, Upper: 13.5},
-			LevelColor: new(colorv0.Color{
+			LevelColor: new(color.Color{
 				R: 16,
 				G: 17,
 				B: 18,
 				A: 18.5,
 			}),
-			AxisColor: new(colorv0.Color{
+			AxisColor: new(color.Color{
 				R: 21,
 				G: 22,
 				B: 23,
 				A: 23.5,
 			}),
-			TextColor: new(colorv0.Color{
+			TextColor: new(color.Color{
 				R: 26,
 				G: 27,
 				B: 28,
@@ -3785,13 +3785,13 @@ func FuzzDecodeElementConfig(f *testing.F) {
 			CaretSide:   spatial.OuterLocation("top"),
 			Level:       text.Level("h1"),
 			Position:    new(spatial.XY{X: 34.5, Y: 35.5}),
-			StrokeColor: new(colorv0.Color{
+			StrokeColor: new(color.Color{
 				R: 38,
 				G: 39,
 				B: 40,
 				A: 40.5,
 			}),
-			FillColor: new(colorv0.Color{
+			FillColor: new(color.Color{
 				R: 43,
 				G: 44,
 				B: 45,
@@ -4299,13 +4299,13 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 	{
 		seed := v9.NodeConfig{Variant: v9.BoxNodeConfig{
 			LabeledConfig: fullyPopulatedLabeledConfig,
-			StrokeColor: new(colorv0.Color{
+			StrokeColor: new(color.Color{
 				R: 3,
 				G: 4,
 				B: 5,
 				A: 5.5,
 			}),
-			FillColor: new(colorv0.Color{
+			FillColor: new(color.Color{
 				R: 8,
 				G: 9,
 				B: 10,
@@ -4329,7 +4329,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			OnClickDelay:   3.5,
 			CommandChannel: new(channel.Key(5)),
 			Mode:           v9.ButtonMode("fire"),
-			FillColor: new(colorv0.Color{
+			FillColor: new(color.Color{
 				R: 8,
 				G: 9,
 				B: 10,
@@ -4353,13 +4353,13 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 		seed := v9.NodeConfig{Variant: v9.CircleNodeConfig{
 			LabeledConfig: fullyPopulatedLabeledConfig,
 			Radius:        1.5,
-			StrokeColor: new(colorv0.Color{
+			StrokeColor: new(color.Color{
 				R: 4,
 				G: 5,
 				B: 6,
 				A: 6.5,
 			}),
-			FillColor: new(colorv0.Color{
+			FillColor: new(color.Color{
 				R: 9,
 				G: 10,
 				B: 11,
@@ -4379,7 +4379,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			NumericTelemConfig: fullyPopulatedNumericTelemConfig,
 			StalenessConfig:    fullyPopulatedStalenessConfig,
 			Position:           new(spatial.XY{X: 2.5, Y: 3.5}),
-			StrokeColor: new(colorv0.Color{
+			StrokeColor: new(color.Color{
 				R: 6,
 				G: 7,
 				B: 8,
@@ -4406,7 +4406,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			Size:           v9.ComponentSize("tiny"),
 			CommandChannel: new(channel.Key(3)),
 			Dimensions:     new(spatial.Dimensions{Width: 4.5, Height: 5.5}),
-			FillColor: new(colorv0.Color{
+			FillColor: new(color.Color{
 				R: 8,
 				G: 9,
 				B: 10,
@@ -4435,13 +4435,13 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			StalenessConfig: fullyPopulatedStalenessConfig,
 			Channel:         new(channel.Key(2)),
 			Threshold:       new(spatial.Bounds{Lower: 3.5, Upper: 4.5}),
-			StrokeColor: new(colorv0.Color{
+			StrokeColor: new(color.Color{
 				R: 7,
 				G: 8,
 				B: 9,
 				A: 9.5,
 			}),
-			OnColor: new(colorv0.Color{
+			OnColor: new(color.Color{
 				R: 12,
 				G: 13,
 				B: 14,
@@ -4456,7 +4456,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 	}
 	{
 		seed := v9.NodeConfig{Variant: v9.LineNodeConfig{
-			StrokeColor: new(colorv0.Color{
+			StrokeColor: new(color.Color{
 				R: 3,
 				G: 4,
 				B: 5,
@@ -4475,7 +4475,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 	{
 		seed := v9.NodeConfig{Variant: v9.OffPageReferenceNodeConfig{
 			LabeledConfig: fullyPopulatedLabeledConfig,
-			FillColor: new(colorv0.Color{
+			FillColor: new(color.Color{
 				R: 3,
 				G: 4,
 				B: 5,
@@ -4497,13 +4497,13 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			SideLength:     2.5,
 			Rotation:       3.5,
 			CornerRounding: 4.5,
-			StrokeColor: new(colorv0.Color{
+			StrokeColor: new(color.Color{
 				R: 7,
 				G: 8,
 				B: 9,
 				A: 9.5,
 			}),
-			FillColor: new(colorv0.Color{
+			FillColor: new(color.Color{
 				R: 12,
 				G: 13,
 				B: 14,
@@ -4522,7 +4522,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			LabeledConfig:  fullyPopulatedLabeledConfig,
 			Size:           v9.ComponentSize("tiny"),
 			CommandChannel: new(channel.Key(3)),
-			FillColor: new(colorv0.Color{
+			FillColor: new(color.Color{
 				R: 5,
 				G: 6,
 				B: 7,
@@ -4534,7 +4534,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 					Key:   "test_10",
 					Name:  "test_11",
 					Value: 12.5,
-					Color: new(colorv0.Color{
+					Color: new(color.Color{
 						R: 15,
 						G: 16,
 						B: 17,
@@ -4577,7 +4577,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			Size:           v9.ComponentSize("tiny"),
 			CommandChannel: new(channel.Key(3)),
 			Dimensions:     new(spatial.Dimensions{Width: 4.5, Height: 5.5}),
-			FillColor: new(colorv0.Color{
+			FillColor: new(color.Color{
 				R: 8,
 				G: 9,
 				B: 10,
@@ -4605,7 +4605,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			LabeledConfig:   fullyPopulatedLabeledConfig,
 			StalenessConfig: fullyPopulatedStalenessConfig,
 			Channel:         new(channel.Key(2)),
-			StrokeColor: new(colorv0.Color{
+			StrokeColor: new(color.Color{
 				R: 4,
 				G: 5,
 				B: 6,
@@ -4617,7 +4617,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 					Key:   "test_9",
 					Name:  "test_10",
 					Value: 11.5,
-					Color: new(colorv0.Color{
+					Color: new(color.Color{
 						R: 14,
 						G: 15,
 						B: 16,
@@ -4637,13 +4637,13 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 		seed := v9.NodeConfig{Variant: v9.StringDisplayNodeConfig{
 			LabeledConfig:   fullyPopulatedLabeledConfig,
 			StalenessConfig: fullyPopulatedStalenessConfig,
-			StrokeColor: new(colorv0.Color{
+			StrokeColor: new(color.Color{
 				R: 3,
 				G: 4,
 				B: 5,
 				A: 5.5,
 			}),
-			TextColor: new(colorv0.Color{
+			TextColor: new(color.Color{
 				R: 8,
 				G: 9,
 				B: 10,
@@ -4671,7 +4671,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 	{
 		seed := v9.NodeConfig{Variant: v9.TextBoxNodeConfig{
 			LabeledConfig: fullyPopulatedLabeledConfig,
-			TextColor: new(colorv0.Color{
+			TextColor: new(color.Color{
 				R: 3,
 				G: 4,
 				B: 5,
@@ -4695,19 +4695,19 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			NumericTelemConfig: fullyPopulatedNumericTelemConfig,
 			StalenessConfig:    fullyPopulatedStalenessConfig,
 			Position:           new(spatial.XY{X: 2.5, Y: 3.5}),
-			StrokeColor: new(colorv0.Color{
+			StrokeColor: new(color.Color{
 				R: 6,
 				G: 7,
 				B: 8,
 				A: 8.5,
 			}),
-			TextColor: new(colorv0.Color{
+			TextColor: new(color.Color{
 				R: 11,
 				G: 12,
 				B: 13,
 				A: 13.5,
 			}),
-			FillColor: new(colorv0.Color{
+			FillColor: new(color.Color{
 				R: 16,
 				G: 17,
 				B: 18,
@@ -4719,7 +4719,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 					{
 						Key:       "test_22",
 						Threshold: 23.5,
-						Color:     colorv0.Color{},
+						Color:     color.Color{},
 						Flashing:  true,
 					},
 				},
@@ -5263,13 +5263,13 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				BottomLeft:  spatial.XY{X: 12.5, Y: 13.5},
 				BottomRight: spatial.XY{X: 15.5, Y: 16.5},
 			}),
-			StrokeColor: new(colorv0.Color{
+			StrokeColor: new(color.Color{
 				R: 19,
 				G: 20,
 				B: 21,
 				A: 21.5,
 			}),
-			FillColor: new(colorv0.Color{
+			FillColor: new(color.Color{
 				R: 24,
 				G: 25,
 				B: 26,
@@ -5290,26 +5290,26 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			Precision:        3.5,
 			Notation:         notation.Notation("standard"),
 			StalenessTimeout: 5.5,
-			StalenessColor: new(colorv0.Color{
+			StalenessColor: new(color.Color{
 				R: 8,
 				G: 9,
 				B: 10,
 				A: 10.5,
 			}),
 			Bounds: spatial.Bounds{Lower: 12.5, Upper: 13.5},
-			LevelColor: new(colorv0.Color{
+			LevelColor: new(color.Color{
 				R: 16,
 				G: 17,
 				B: 18,
 				A: 18.5,
 			}),
-			AxisColor: new(colorv0.Color{
+			AxisColor: new(color.Color{
 				R: 21,
 				G: 22,
 				B: 23,
 				A: 23.5,
 			}),
-			TextColor: new(colorv0.Color{
+			TextColor: new(color.Color{
 				R: 26,
 				G: 27,
 				B: 28,
@@ -5320,13 +5320,13 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			CaretSide:   spatial.OuterLocation("top"),
 			Level:       text.Level("h1"),
 			Position:    new(spatial.XY{X: 34.5, Y: 35.5}),
-			StrokeColor: new(colorv0.Color{
+			StrokeColor: new(color.Color{
 				R: 38,
 				G: 39,
 				B: 40,
 				A: 40.5,
 			}),
-			FillColor: new(colorv0.Color{
+			FillColor: new(color.Color{
 				R: 43,
 				G: 44,
 				B: 45,
@@ -5757,7 +5757,7 @@ func FuzzDecodeSegmentedEdgeConfig(f *testing.F) {
 	}
 	{
 		seed := v9.SegmentedEdgeConfig{
-			StrokeColor: new(colorv0.Color{
+			StrokeColor: new(color.Color{
 				R: 3,
 				G: 4,
 				B: 5,
@@ -5838,7 +5838,7 @@ func FuzzDecodeStateMapping(f *testing.F) {
 			Key:   "test_1",
 			Name:  "test_2",
 			Value: 3.5,
-			Color: new(colorv0.Color{
+			Color: new(color.Color{
 				R: 6,
 				G: 7,
 				B: 8,

@@ -13,7 +13,7 @@ package v2
 
 import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	color "github.com/synnaxlabs/x/color/versions/v0"
+	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"

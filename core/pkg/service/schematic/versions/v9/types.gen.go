@@ -20,7 +20,6 @@ import (
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v8"
 	border "github.com/synnaxlabs/x/border/versions/v0"
-	colorv0 "github.com/synnaxlabs/x/color/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/errors"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
@@ -61,7 +60,7 @@ func (s Segment) Validate() error {
 // SegmentedEdgeConfig is the configuration shared by every segmented edge variant.
 type SegmentedEdgeConfig struct {
 	// StrokeColor is the stroke color of the edge.
-	StrokeColor *colorv0.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// Segments is the ordered list of orthogonal runs that trace the connector path
 	// from the source handle to the target handle.
 	Segments []Segment `json:"segments" msgpack:"segments"`
@@ -538,7 +537,7 @@ type StaticSymbolConfig struct {
 	LabeledConfig
 	ScaledConfig
 	// StrokeColor is the stroke color of the symbol.
-	StrokeColor *colorv0.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -560,7 +559,7 @@ type ToggleSymbolConfig struct {
 	ToggleConfig
 	// StrokeColor is the stroke color of the symbol, which also fills it while it is
 	// active.
-	StrokeColor *colorv0.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -587,7 +586,7 @@ type DummyToggleSymbolConfig struct {
 	Clickable bool `json:"clickable" msgpack:"clickable"`
 	// StrokeColor is the stroke color of the symbol, which also fills it while it is
 	// active.
-	StrokeColor *colorv0.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -613,7 +612,7 @@ type StateMapping struct {
 	// Value is the channel value this state corresponds to.
 	Value float64 `json:"value" msgpack:"value"`
 	// Color is the display color associated with this state.
-	Color *colorv0.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 }
 
 type NodeConfigType string
@@ -1208,9 +1207,9 @@ func (f FlowmeterOrificeNodeConfig) Validate() error {
 type BoxNodeConfig struct {
 	LabeledConfig
 	// StrokeColor is the border color of the box.
-	StrokeColor *colorv0.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// FillColor is the fill color of the box.
-	FillColor *colorv0.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Dimensions is the rendered size of the box in pixels.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
 	// BorderRadius is the uniform corner radius of the box in pixels.
@@ -1260,7 +1259,7 @@ type ButtonNodeConfig struct {
 	// Mode is the actuation behavior of the button.
 	Mode ButtonMode `json:"mode" msgpack:"mode"`
 	// FillColor is the fill color of the button, which its border follows.
-	FillColor *colorv0.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Control is the control state display configuration.
 	Control *ControlStateConfig `json:"control,omitzero" msgpack:"control,omitempty"`
 }
@@ -1300,9 +1299,9 @@ type CircleNodeConfig struct {
 	// Radius is the radius of the circle in pixels.
 	Radius float64 `json:"radius" msgpack:"radius"`
 	// StrokeColor is the border color of the circle.
-	StrokeColor *colorv0.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// FillColor is the fill color of the circle.
-	FillColor *colorv0.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// StrokeWidth is the border stroke width in pixels.
 	StrokeWidth float64 `json:"stroke_width" msgpack:"stroke_width"`
 }
@@ -1336,7 +1335,7 @@ type GaugeNodeConfig struct {
 	// Position is the offset of the gauge contents within the symbol.
 	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
 	// StrokeColor is the color of the gauge arc.
-	StrokeColor *colorv0.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// Bounds is the numeric range displayed by the gauge.
 	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
 	// BarWidth is the thickness of the gauge arc in pixels.
@@ -1397,7 +1396,7 @@ type InputNodeConfig struct {
 	// Dimensions is the rendered size of the input in pixels.
 	Dimensions *spatial.Dimensions `json:"dimensions,omitzero" msgpack:"dimensions,omitempty"`
 	// FillColor is the fill color of the send button, which the input border follows.
-	FillColor *colorv0.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Disabled indicates whether the input rejects interaction.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
 	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
@@ -1441,9 +1440,9 @@ type LightNodeConfig struct {
 	// Threshold is the value range within which the light is considered on.
 	Threshold *spatial.Bounds `json:"threshold,omitzero" msgpack:"threshold,omitempty"`
 	// StrokeColor is the outline color of the light.
-	StrokeColor *colorv0.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// OnColor is the fill color of the light while it is on.
-	OnColor *colorv0.Color `json:"on_color,omitzero" msgpack:"on_color,omitempty"`
+	OnColor *color.Color `json:"on_color,omitzero" msgpack:"on_color,omitempty"`
 }
 
 func (LightNodeConfig) isNodeConfigVariant() {}
@@ -1466,7 +1465,7 @@ func (l LightNodeConfig) Validate() error {
 // LineNodeConfig is the configuration for straight line symbols.
 type LineNodeConfig struct {
 	// StrokeColor is the stroke color of the line.
-	StrokeColor *colorv0.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// Start is the first endpoint, offset from the node position.
 	Start spatial.XY `json:"start" msgpack:"start"`
 	// End is the second endpoint, offset from the node position.
@@ -1492,7 +1491,7 @@ type OffPageReferenceNodeConfig struct {
 	LabeledConfig
 	// FillColor is the fill color of a linked reference. An unlinked reference draws
 	// its outline in this color.
-	FillColor *colorv0.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Page is the page this reference links to.
 	Page *Page `json:"page,omitzero" msgpack:"page,omitempty"`
 	// DblClickNavDisabled stops double-clicking from navigating to the linked page.
@@ -1533,9 +1532,9 @@ type PolygonNodeConfig struct {
 	// CornerRounding is the corner rounding radius in pixels.
 	CornerRounding float64 `json:"corner_rounding" msgpack:"corner_rounding"`
 	// StrokeColor is the border color of the polygon.
-	StrokeColor *colorv0.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// FillColor is the fill color of the polygon.
-	FillColor *colorv0.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// StrokeWidth is the border stroke width in pixels.
 	StrokeWidth float64 `json:"stroke_width" msgpack:"stroke_width"`
 }
@@ -1572,7 +1571,7 @@ type SelectNodeConfig struct {
 	// CommandChannel is the channel the selected value is written to.
 	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
 	// FillColor is the fill color of the send button, which the select border follows.
-	FillColor *colorv0.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// InlineSize is the inline size of the select in pixels.
 	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
 	// Options is the set of selectable states.
@@ -1661,7 +1660,7 @@ type SetpointNodeConfig struct {
 	// Dimensions is the rendered size of the setpoint in pixels.
 	Dimensions *spatial.Dimensions `json:"dimensions,omitzero" msgpack:"dimensions,omitempty"`
 	// FillColor is the fill color of the set button, which the setpoint border follows.
-	FillColor *colorv0.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Units is the unit suffix displayed after the value.
 	Units string `json:"units" msgpack:"units"`
 	// Disabled indicates whether the setpoint rejects interaction.
@@ -1707,7 +1706,7 @@ type StateIndicatorNodeConfig struct {
 	// Channel is the channel whose value selects the displayed state.
 	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
 	// StrokeColor is the border color of the indicator.
-	StrokeColor *colorv0.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// InlineSize is the inline size of the indicator in pixels.
 	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
 	// Options is the set of displayable states.
@@ -1744,9 +1743,9 @@ type StringDisplayNodeConfig struct {
 	LabeledConfig
 	StalenessConfig
 	// StrokeColor is the border color of the display.
-	StrokeColor *colorv0.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// TextColor is the color of the displayed text.
-	TextColor *colorv0.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// Tooltip is the list of tooltip lines shown on hover.
 	Tooltip []string `json:"tooltip" msgpack:"tooltip"`
 	// InlineSize is the inline size of the display in pixels.
@@ -1803,7 +1802,7 @@ func (s SwitchNodeConfig) Validate() error {
 type TextBoxNodeConfig struct {
 	LabeledConfig
 	// TextColor is the text color.
-	TextColor *colorv0.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// Width is the rendered width of the text box in pixels.
 	Width float64 `json:"width" msgpack:"width"`
 	// Align is the alignment of the text within the box.
@@ -1853,12 +1852,12 @@ type ValueNodeConfig struct {
 	// Position is the offset of the value contents within the symbol.
 	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
 	// StrokeColor is the color of the value's border and units divider.
-	StrokeColor *colorv0.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// TextColor is the color of the displayed value and its units.
-	TextColor *colorv0.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// FillColor is the fill behind the value where no redline band paints. When absent
 	// the value paints no fill.
-	FillColor *colorv0.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Tooltip is the list of tooltip lines shown on hover.
 	Tooltip []string `json:"tooltip" msgpack:"tooltip"`
 	// Redline is the threshold band mapping applied to the background.
@@ -2984,9 +2983,9 @@ type CylinderNodeConfig struct {
 	// BorderRadius is the corner radius of the cylinder.
 	BorderRadius *border.Radius `json:"border_radius,omitzero" msgpack:"border_radius,omitempty"`
 	// StrokeColor is the border color of the cylinder.
-	StrokeColor *colorv0.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// FillColor is the fill color of the cylinder.
-	FillColor *colorv0.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 }
 
 func (CylinderNodeConfig) isNodeConfigVariant() {}
@@ -3026,16 +3025,16 @@ type TankNodeConfig struct {
 	// stale.
 	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`
 	// StalenessColor is the color applied when the value is stale.
-	StalenessColor *colorv0.Color `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	StalenessColor *color.Color `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
 	// Bounds is the numeric range the indicator maps onto its extent.
 	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
 	// LevelColor is the color of the filled portion, the caret, and the value readout
 	// border.
-	LevelColor *colorv0.Color `json:"level_color,omitzero" msgpack:"level_color,omitempty"`
+	LevelColor *color.Color `json:"level_color,omitzero" msgpack:"level_color,omitempty"`
 	// AxisColor is the color of the axis and its ticks.
-	AxisColor *colorv0.Color `json:"axis_color,omitzero" msgpack:"axis_color,omitempty"`
+	AxisColor *color.Color `json:"axis_color,omitzero" msgpack:"axis_color,omitempty"`
 	// TextColor is the color of the tick labels.
-	TextColor *colorv0.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// Units is the unit suffix displayed after each tick label.
 	Units string `json:"units" msgpack:"units"`
 	// LevelHidden hides the filled portion.
@@ -3047,9 +3046,9 @@ type TankNodeConfig struct {
 	// Position is the offset of the tank contents within the symbol.
 	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
 	// StrokeColor is the color of the tank's wall.
-	StrokeColor *colorv0.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// FillColor is the fill color of the tank body.
-	FillColor *colorv0.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Dimensions is the rendered size of the tank in pixels.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
 	// BorderRadius is the corner radius of the tank.
@@ -5525,9 +5524,9 @@ func (f FlowmeterOrificeElementConfig) Validate() error {
 type BoxElementConfig struct {
 	LabeledConfig
 	// StrokeColor is the border color of the box.
-	StrokeColor *colorv0.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// FillColor is the fill color of the box.
-	FillColor *colorv0.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Dimensions is the rendered size of the box in pixels.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
 	// BorderRadius is the uniform corner radius of the box in pixels.
@@ -5577,7 +5576,7 @@ type ButtonElementConfig struct {
 	// Mode is the actuation behavior of the button.
 	Mode ButtonMode `json:"mode" msgpack:"mode"`
 	// FillColor is the fill color of the button, which its border follows.
-	FillColor *colorv0.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Control is the control state display configuration.
 	Control *ControlStateConfig `json:"control,omitzero" msgpack:"control,omitempty"`
 }
@@ -5617,9 +5616,9 @@ type CircleElementConfig struct {
 	// Radius is the radius of the circle in pixels.
 	Radius float64 `json:"radius" msgpack:"radius"`
 	// StrokeColor is the border color of the circle.
-	StrokeColor *colorv0.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// FillColor is the fill color of the circle.
-	FillColor *colorv0.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// StrokeWidth is the border stroke width in pixels.
 	StrokeWidth float64 `json:"stroke_width" msgpack:"stroke_width"`
 }
@@ -5653,7 +5652,7 @@ type GaugeElementConfig struct {
 	// Position is the offset of the gauge contents within the symbol.
 	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
 	// StrokeColor is the color of the gauge arc.
-	StrokeColor *colorv0.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// Bounds is the numeric range displayed by the gauge.
 	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
 	// BarWidth is the thickness of the gauge arc in pixels.
@@ -5714,7 +5713,7 @@ type InputElementConfig struct {
 	// Dimensions is the rendered size of the input in pixels.
 	Dimensions *spatial.Dimensions `json:"dimensions,omitzero" msgpack:"dimensions,omitempty"`
 	// FillColor is the fill color of the send button, which the input border follows.
-	FillColor *colorv0.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Disabled indicates whether the input rejects interaction.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
 	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
@@ -5758,9 +5757,9 @@ type LightElementConfig struct {
 	// Threshold is the value range within which the light is considered on.
 	Threshold *spatial.Bounds `json:"threshold,omitzero" msgpack:"threshold,omitempty"`
 	// StrokeColor is the outline color of the light.
-	StrokeColor *colorv0.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// OnColor is the fill color of the light while it is on.
-	OnColor *colorv0.Color `json:"on_color,omitzero" msgpack:"on_color,omitempty"`
+	OnColor *color.Color `json:"on_color,omitzero" msgpack:"on_color,omitempty"`
 }
 
 func (LightElementConfig) isElementConfigVariant() {}
@@ -5783,7 +5782,7 @@ func (l LightElementConfig) Validate() error {
 // LineElementConfig is the configuration for straight line symbols.
 type LineElementConfig struct {
 	// StrokeColor is the stroke color of the line.
-	StrokeColor *colorv0.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// Start is the first endpoint, offset from the node position.
 	Start spatial.XY `json:"start" msgpack:"start"`
 	// End is the second endpoint, offset from the node position.
@@ -5809,7 +5808,7 @@ type OffPageReferenceElementConfig struct {
 	LabeledConfig
 	// FillColor is the fill color of a linked reference. An unlinked reference draws
 	// its outline in this color.
-	FillColor *colorv0.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Page is the page this reference links to.
 	Page *Page `json:"page,omitzero" msgpack:"page,omitempty"`
 	// DblClickNavDisabled stops double-clicking from navigating to the linked page.
@@ -5850,9 +5849,9 @@ type PolygonElementConfig struct {
 	// CornerRounding is the corner rounding radius in pixels.
 	CornerRounding float64 `json:"corner_rounding" msgpack:"corner_rounding"`
 	// StrokeColor is the border color of the polygon.
-	StrokeColor *colorv0.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// FillColor is the fill color of the polygon.
-	FillColor *colorv0.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// StrokeWidth is the border stroke width in pixels.
 	StrokeWidth float64 `json:"stroke_width" msgpack:"stroke_width"`
 }
@@ -5889,7 +5888,7 @@ type SelectElementConfig struct {
 	// CommandChannel is the channel the selected value is written to.
 	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
 	// FillColor is the fill color of the send button, which the select border follows.
-	FillColor *colorv0.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// InlineSize is the inline size of the select in pixels.
 	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
 	// Options is the set of selectable states.
@@ -5978,7 +5977,7 @@ type SetpointElementConfig struct {
 	// Dimensions is the rendered size of the setpoint in pixels.
 	Dimensions *spatial.Dimensions `json:"dimensions,omitzero" msgpack:"dimensions,omitempty"`
 	// FillColor is the fill color of the set button, which the setpoint border follows.
-	FillColor *colorv0.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Units is the unit suffix displayed after the value.
 	Units string `json:"units" msgpack:"units"`
 	// Disabled indicates whether the setpoint rejects interaction.
@@ -6024,7 +6023,7 @@ type StateIndicatorElementConfig struct {
 	// Channel is the channel whose value selects the displayed state.
 	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
 	// StrokeColor is the border color of the indicator.
-	StrokeColor *colorv0.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// InlineSize is the inline size of the indicator in pixels.
 	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
 	// Options is the set of displayable states.
@@ -6061,9 +6060,9 @@ type StringDisplayElementConfig struct {
 	LabeledConfig
 	StalenessConfig
 	// StrokeColor is the border color of the display.
-	StrokeColor *colorv0.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// TextColor is the color of the displayed text.
-	TextColor *colorv0.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// Tooltip is the list of tooltip lines shown on hover.
 	Tooltip []string `json:"tooltip" msgpack:"tooltip"`
 	// InlineSize is the inline size of the display in pixels.
@@ -6120,7 +6119,7 @@ func (s SwitchElementConfig) Validate() error {
 type TextBoxElementConfig struct {
 	LabeledConfig
 	// TextColor is the text color.
-	TextColor *colorv0.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// Width is the rendered width of the text box in pixels.
 	Width float64 `json:"width" msgpack:"width"`
 	// Align is the alignment of the text within the box.
@@ -6170,12 +6169,12 @@ type ValueElementConfig struct {
 	// Position is the offset of the value contents within the symbol.
 	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
 	// StrokeColor is the color of the value's border and units divider.
-	StrokeColor *colorv0.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// TextColor is the color of the displayed value and its units.
-	TextColor *colorv0.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// FillColor is the fill behind the value where no redline band paints. When absent
 	// the value paints no fill.
-	FillColor *colorv0.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Tooltip is the list of tooltip lines shown on hover.
 	Tooltip []string `json:"tooltip" msgpack:"tooltip"`
 	// Redline is the threshold band mapping applied to the background.
@@ -7301,9 +7300,9 @@ type CylinderElementConfig struct {
 	// BorderRadius is the corner radius of the cylinder.
 	BorderRadius *border.Radius `json:"border_radius,omitzero" msgpack:"border_radius,omitempty"`
 	// StrokeColor is the border color of the cylinder.
-	StrokeColor *colorv0.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// FillColor is the fill color of the cylinder.
-	FillColor *colorv0.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 }
 
 func (CylinderElementConfig) isElementConfigVariant() {}
@@ -7343,16 +7342,16 @@ type TankElementConfig struct {
 	// stale.
 	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`
 	// StalenessColor is the color applied when the value is stale.
-	StalenessColor *colorv0.Color `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	StalenessColor *color.Color `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
 	// Bounds is the numeric range the indicator maps onto its extent.
 	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
 	// LevelColor is the color of the filled portion, the caret, and the value readout
 	// border.
-	LevelColor *colorv0.Color `json:"level_color,omitzero" msgpack:"level_color,omitempty"`
+	LevelColor *color.Color `json:"level_color,omitzero" msgpack:"level_color,omitempty"`
 	// AxisColor is the color of the axis and its ticks.
-	AxisColor *colorv0.Color `json:"axis_color,omitzero" msgpack:"axis_color,omitempty"`
+	AxisColor *color.Color `json:"axis_color,omitzero" msgpack:"axis_color,omitempty"`
 	// TextColor is the color of the tick labels.
-	TextColor *colorv0.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// Units is the unit suffix displayed after each tick label.
 	Units string `json:"units" msgpack:"units"`
 	// LevelHidden hides the filled portion.
@@ -7364,9 +7363,9 @@ type TankElementConfig struct {
 	// Position is the offset of the tank contents within the symbol.
 	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
 	// StrokeColor is the color of the tank's wall.
-	StrokeColor *colorv0.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// FillColor is the fill color of the tank body.
-	FillColor *colorv0.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Dimensions is the rendered size of the tank in pixels.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
 	// BorderRadius is the corner radius of the tank.
@@ -9479,11 +9478,11 @@ type ScaleIndicatorConfig struct {
 	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
 	// LevelColor is the color of the filled portion, the caret, and the value readout
 	// border.
-	LevelColor *colorv0.Color `json:"level_color,omitzero" msgpack:"level_color,omitempty"`
+	LevelColor *color.Color `json:"level_color,omitzero" msgpack:"level_color,omitempty"`
 	// AxisColor is the color of the axis and its ticks.
-	AxisColor *colorv0.Color `json:"axis_color,omitzero" msgpack:"axis_color,omitempty"`
+	AxisColor *color.Color `json:"axis_color,omitzero" msgpack:"axis_color,omitempty"`
 	// TextColor is the color of the tick labels.
-	TextColor *colorv0.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// Units is the unit suffix displayed after each tick label.
 	Units string `json:"units" msgpack:"units"`
 	// LevelHidden hides the filled portion.
@@ -9573,7 +9572,7 @@ type StalenessConfig struct {
 	// stale.
 	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`
 	// StalenessColor is the color applied when the value is stale.
-	StalenessColor *colorv0.Color `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	StalenessColor *color.Color `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
