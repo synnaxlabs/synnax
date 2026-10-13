@@ -8,9 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, lineplot } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Channel, LinePlot } from "@synnaxlabs/pluto";
+import { primitive } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { CustomRangeInput } from "@/feature/lineplot/CustomRangeInput";
@@ -68,20 +71,34 @@ export const XAxisChannelSelect = ({
   const value = LinePlot.useXAxisChannel({ axisKey });
   const dispatch = LinePlot.useSingleDispatch();
   const rangeKey = Session.Range.useSelectSelectedKey();
+  const label = LinePlot.axisLabel(axisKey);
   const handleChange = useCallback(
     (channel: channel.Key | null) =>
       dispatch(lineplot.setXChannel({ axisKey, channel: channel ?? 0 })),
     [dispatch, axisKey],
   );
   return (
-    <Input.Item x label={LinePlot.axisLabel(axisKey)} {...rest} grow>
-      <Channel.SelectSingle
-        value={value}
-        onChange={handleChange}
-        allowNone
-        initialQuery={{ ...SEARCH_OPTIONS, rangeKey }}
-        location="top"
-      />
+    <Input.Item x label={label} {...rest} grow>
+      <Flex.Box x pack grow>
+        <Channel.SelectSingle
+          value={value}
+          onChange={handleChange}
+          allowNone
+          initialQuery={{ ...SEARCH_OPTIONS, rangeKey }}
+          location="top"
+          grow
+        />
+        {primitive.isNonZero(value) && (
+          <Button.Button
+            variant="outlined"
+            onClick={() => handleChange(null)}
+            tooltip={`Clear ${label} channel`}
+            aria-label={`Clear ${label} channel`}
+          >
+            <Icon.Close />
+          </Button.Button>
+        )}
+      </Flex.Box>
     </Input.Item>
   );
 };
