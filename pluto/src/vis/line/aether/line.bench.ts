@@ -8,18 +8,34 @@
 // included in the file licenses/APL.txt.
 
 import {
+  box,
+  color,
   DataType,
   MultiSeries,
+  scale,
   Series,
   TimeRange,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { type BenchRunOptions, test } from "vitest";
+import { type BenchRunOptions, test, vi } from "vitest";
+import { z } from "zod";
 
+import { aether } from "@/aether/aether";
+import { type telem } from "@/telem/aether";
 import { GL_TRANSFORM } from "@/telem/aether/convertSeries";
+import { telemTest } from "@/telem/aether/test";
+import { renderAether } from "@/testutil/renderAether";
 import { windowBounds } from "@/vis/line/aether/bounds";
-import { buildDrawOperations, DEFAULT_OVERLAP_THRESHOLD } from "@/vis/line/aether/line";
+import {
+  buildDrawOperations,
+  Context,
+  DEFAULT_OVERLAP_THRESHOLD,
+  Line,
+  type LineProps,
+} from "@/vis/line/aether/line";
+import { render } from "@/vis/render";
+import { canvasTest } from "@/vis/render/test";
 
 // Measures back-fill fetch speed under render-loop contention and the per-frame cost
 // the plot pays once the back-fill lands.
@@ -229,3 +245,89 @@ for (const spec of [...MATRIX, ...CHANNEL_SPECS]) {
     ).run(o);
   });
 }
+
+// Renders a 1M-sample line through a recording GL context, so the timings cover the
+// CPU side of a frame and leave out the GPU.
+class Host extends aether.Composite<typeof Host.stateZ> {
+  static readonly TYPE = "line-bench-host";
+  static readonly stateZ = z.object({});
+  schema = Host.stateZ;
+
+  afterUpdate(ctx: aether.Context): void {
+    Context.create(ctx, render.Context.use(ctx));
+    render.control(ctx, () => {});
+  }
+}
+
+const RENDER_SAMPLES = 1e6;
+const RENDER_PROPS: LineProps = {
+  region: box.construct(0, 0, 800, 600),
+  dataToDecimalScale: scale.XY.IDENTITY,
+  exposure: 0,
+};
+
+const renderSource = (series: Series[]): telem.SeriesSourceSpec => {
+  const data = new MultiSeries(series);
+  return {
+    type: telemTest.TestSource.TYPE,
+    props: { testId: telemTest.source([data.bounds, data]).id },
+    variant: "source",
+    valueType: "series",
+  };
+};
+
+/** @returns a function that renders one frame of a line with the given samples. */
+const mountLine = (y: (i: number) => number): (() => void) => {
+  const xs: Series[] = [];
+  const ys: Series[] = [];
+  for (let start = 0; start < RENDER_SAMPLES; start += CHUNK) {
+    const xData = new Float32Array(CHUNK);
+    const yData = new Float32Array(CHUNK);
+    for (let i = 0; i < CHUNK; i++) {
+      xData[i] = start + i;
+      yData[i] = y(start + i);
+    }
+    const timeRange = new TimeRange(start, start + CHUNK);
+    const alignment = BigInt(start);
+    const dataType = DataType.FLOAT32;
+    xs.push(new Series({ data: xData, dataType, timeRange, alignment }));
+    ys.push(new Series({ data: yData, dataType, timeRange, alignment }));
+  }
+  const { gl, calls } = canvasTest.createGL();
+  const recorder = canvasTest.record();
+  (recorder as { gl: unknown }).gl = gl;
+  recorder.resize(RENDER_PROPS.region, 1);
+  const h = renderAether(Host, {
+    state: {},
+    render: recorder,
+    registry: { [Line.TYPE]: Line },
+    children: {
+      line: {
+        type: Line.TYPE,
+        state: {
+          x: renderSource(xs),
+          y: renderSource(ys),
+          color: color.construct("#ff0000"),
+        },
+      },
+    },
+  });
+  const line = h.child<Line>("line");
+  // Clearing the call log keeps it from growing across frames.
+  const frame = (): void => {
+    calls.length = 0;
+    line.render(RENDER_PROPS);
+  };
+  frame();
+  return frame;
+};
+
+test("render 1M samples", async ({ bench }) => {
+  // Line reads x through the module runner's export getters, and Vitest warns that
+  // they add overhead. Every case pays the same overhead.
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+  const finite = mountLine((i) => Math.sin(i / 100));
+  // 5000 NaN bursts of 50 samples each.
+  const bursts = mountLine((i) => (i % 200 >= 150 ? NaN : Math.sin(i / 100)));
+  await bench.compare(bench("all finite", finite), bench("NaN bursts", bursts));
+});
