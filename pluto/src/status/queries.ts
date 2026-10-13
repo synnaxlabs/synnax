@@ -26,6 +26,7 @@ export const useList = Flux.createList<ListParams, status.Key, status.Status>({
   retrieve: async ({ client, query }) => await client.statuses.retrieve(query),
   retrieveByKey: async ({ client, key }) => await client.statuses.retrieve(key),
   onChange: ({ client, query }, handler) => client.statuses.onChange(query, handler),
+  onChangeByKey: ({ client, key }, handler) => client.statuses.onChange(key, handler),
   getCached: ({ client, query }) => client.statuses.getCached(query),
 });
 

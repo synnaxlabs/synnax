@@ -150,15 +150,22 @@ ReadEndpoint struct {
 }
 
 ReadConfig struct extends task.PersistConfig {
-    device    device.Key = "" {
+    device           device.Key = "" {
         @doc value "is the key of the HTTP server device to poll."
     }
-    rate      telem.Rate = 1 {
+    rate             telem.Rate = 1 {
         @doc value "is the polling rate applied to all endpoints, in Hertz."
         @ts type   "number"
     }
-    endpoints ReadEndpoint[] {
+    endpoints        ReadEndpoint[] {
         @doc value "contains the endpoints to poll."
+    }
+    nan_fill_enabled bool = false {
+        @doc value """
+            is true when a float field that is missing or fails to convert is written as
+            NaN. When false, the task skips every field that shares the endpoint and
+            index channel with it.
+        """
     }
 
     @doc value  """

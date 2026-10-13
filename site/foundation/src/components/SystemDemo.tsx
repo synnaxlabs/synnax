@@ -29,7 +29,7 @@ const layers: {
     id: "operation",
     label: "Equipment",
     title: "Start with the real world.",
-    copy: "The PLC on the production line. The instruments on the test stand. The LabVIEW application or SCADA system already running your facility.",
+    copy: "The PLC on the production line. The instruments on the test stand. Ignition or the LabVIEW application already running your facility.",
     detail:
       "Foundation nodes stream data and carry supervisory commands to and from your existing systems.",
   },
@@ -73,7 +73,7 @@ export const SystemDemo = (): ReactElement => {
             role="group"
             aria-label="How Foundation works"
           >
-            {layers.map(({ id, label }, i) => (
+            {layers.map(({ id, label }, index) => (
               <button
                 type="button"
                 key={id}
@@ -81,7 +81,9 @@ export const SystemDemo = (): ReactElement => {
                 aria-controls="diagram-explanation"
                 onClick={() => setLayer(id)}
               >
-                <span className="layer-number">0{i + 1}</span>
+                <span className="world-step-number" aria-hidden="true">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
                 {label}
               </button>
             ))}
@@ -161,6 +163,40 @@ export const SystemDemo = (): ReactElement => {
             Next step <Icon.Arrow.Right aria-hidden="true" />
           </button>
         </article>
+      </div>
+      <div
+        className="system-path"
+        role="group"
+        aria-label="The complete data and control path"
+      >
+        <ol className="system-path-stops">
+          <li>
+            <strong>Equipment & existing systems</strong>
+            <span>PLCs, DAQs, Ignition, LabVIEW</span>
+          </li>
+          <li className="system-path-foundation">
+            <strong>Foundation</strong>
+            <span>Nodes within and across sites</span>
+          </li>
+          <li>
+            <strong>Your software</strong>
+            <span>Applications, data platforms, agents</span>
+          </li>
+        </ol>
+        <div className="system-path-lanes">
+          <p className="system-path-lane system-path-telemetry">
+            <span className="system-path-route" aria-hidden="true" />
+            <span className="system-path-lane-label">
+              Telemetry<span className="system-path-destination"> to software</span>
+            </span>
+          </p>
+          <p className="system-path-lane system-path-command">
+            <span className="system-path-route" aria-hidden="true" />
+            <span className="system-path-lane-label">
+              Commands<span className="system-path-destination"> to equipment</span>
+            </span>
+          </p>
+        </div>
       </div>
     </div>
   );

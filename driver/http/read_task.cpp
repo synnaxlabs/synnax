@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <limits>
 #include <set>
 
 #include "client/cpp/http/json.gen.h"
@@ -327,36 +328,39 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
         group_data.reserve(group.fields.size());
 
         for (const auto &field: group.fields) {
-            if (!body.contains(field.pointer)) {
-                warnings.push_back(
-                    "field " + field.pointer.to_string() +
-                    " not found in response from " + ep.path
+            const auto &ch = this->cfg.channels.at(field.channel);
+            x::telem::SampleValue sample_val;
+            std::string warning;
+            if (!body.contains(field.pointer))
+                warning = "field " + field.pointer.to_string() +
+                          " not found in response from " + ep.path;
+            else {
+                auto tf = x::json::TimeFormat::ISO8601;
+                if (field.time_format.has_value()) tf = *field.time_format;
+                const auto *enum_ptr = field.enum_values.empty() ? nullptr
+                                                                 : &field.enum_values;
+                auto [val, conv_err] = x::json::to_sample_value(
+                    body.at(field.pointer),
+                    ch.data_type,
+                    tf,
+                    enum_ptr
                 );
-                group_ok = false;
-                break;
+                if (conv_err)
+                    warning = "failed to convert " + field.pointer.to_string() +
+                              " for channel " + ch.name + ": " + conv_err.message();
+                else
+                    sample_val = std::move(val);
             }
 
-            const auto &ch = this->cfg.channels.at(field.channel);
-            const auto &json_val = body.at(field.pointer);
-
-            auto tf = x::json::TimeFormat::ISO8601;
-            if (field.time_format.has_value()) tf = *field.time_format;
-
-            const auto *enum_ptr = field.enum_values.empty() ? nullptr
-                                                             : &field.enum_values;
-            auto [sample_val, conv_err] = x::json::to_sample_value(
-                json_val,
-                ch.data_type,
-                tf,
-                enum_ptr
-            );
-            if (conv_err) {
-                warnings.push_back(
-                    "failed to convert " + field.pointer.to_string() + " for channel " +
-                    ch.name + ": " + conv_err.message()
-                );
-                group_ok = false;
-                break;
+            if (!warning.empty()) {
+                warnings.push_back(std::move(warning));
+                const auto &dt = ch.data_type;
+                if (!this->cfg.nan_fill_enabled ||
+                    (dt != x::telem::FLOAT32_T && dt != x::telem::FLOAT64_T)) {
+                    group_ok = false;
+                    break;
+                }
+                sample_val = dt.cast(std::numeric_limits<double>::quiet_NaN());
             }
 
             group_data.emplace_back(field.channel, x::telem::Series(sample_val));
