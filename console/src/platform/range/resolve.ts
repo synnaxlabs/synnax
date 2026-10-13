@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
+import { ranger } from "@synnaxlabs/client";
 import { Ranger } from "@synnaxlabs/pluto";
 import { type NumericTimeRange } from "@synnaxlabs/x";
 import { useMemo } from "react";
@@ -41,15 +41,19 @@ const fold = (
 
 /**
  * Resolves ranges, reading the Core for the ones it holds.
- * @param keys - The ranges to resolve. Defaults to every one the session has. A key the
- * session does not hold resolves as a Core range, after the session's ranges, and
- * resolves to nothing if the Core does not hold it either.
+ * @param keys - The ranges to resolve. Defaults to every one the session has. A range
+ * key the session does not hold resolves as a Core range, after the session's ranges,
+ * and resolves to nothing if the Core does not hold it either. Any other key the
+ * session does not hold resolves to nothing.
  */
 export const useResolveMultiple = (keys?: string[]): Resolved[] => {
   const entries = Session.Range.useSelectMultiple(keys);
   const all = useMemo((): Session.Range.State[] => {
     const inSession = new Set(entries.map(({ key }) => key));
-    const outside = (keys ?? []).filter((key) => !inSession.has(key));
+    // The client reads a key list with any non-key entry as a list of names.
+    const outside = (keys ?? []).filter(
+      (key) => !inSession.has(key) && ranger.keyZ.safeParse(key).success,
+    );
     return [
       ...entries,
       ...outside.map((key) => ({ variant: "persisted" as const, key })),
