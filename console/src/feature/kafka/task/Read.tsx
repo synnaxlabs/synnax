@@ -166,7 +166,6 @@ const RecordLabel = ({ path }: Task.Views.GroupProps) => {
       level="p"
       weight={500}
       color={recordKey === "" ? 9 : 10}
-      variant={recordKey === "" ? undefined : "code"}
       overflow="ellipsis"
     >
       {recordKey === "" ? "Any key" : recordKey}

@@ -42,5 +42,4 @@
 .console-field-pointer {
     min-width: 0;
     flex-grow: 1;
-    font-family: var(--pluto-code-font-family);
 }
