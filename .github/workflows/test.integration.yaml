@@ -117,10 +117,10 @@ jobs:
             || 'linux' }}
         run: .github/scripts/check_artifact_cache.sh "${PLATFORMS}"
 
-      - name: Validate test coverage
+      - name: List integration jobs
         if: ${{ steps.set-outputs.outputs.FLAGS == '' }}
         id: test-matrix
-        run: integration/scripts/validate_test_coverage.sh
+        run: python3 integration/jobs.py | tee -a "$GITHUB_OUTPUT"
 
       # A matrix exclude only filters keys of the base matrix, so an include-only matrix
       # cannot drop a platform that way.

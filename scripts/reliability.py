@@ -35,6 +35,7 @@ import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 REPO = "synnaxlabs/synnax"
 ROOT = Path(__file__).resolve().parent.parent
@@ -85,9 +86,6 @@ JOBS: dict[str, tuple[str, str, list[str]]] = {
     "scripts": ("toolchain", "py", ["scripts", ".github/scripts"]),
 }
 
-# Integration matrix target -> product.
-TARGETS = {"console": "console", "driver": "driver", "arc": "arc"}
-
 # language -> (pathspec globs, declaration pattern). The first group is the name.
 LANGS = {
     "go": (["*_test.go"], r"^\s*(?:It|Entry)\(\s*(?:\"((?:[^\"\\]|\\.)*)\")?"),
@@ -119,7 +117,9 @@ TC_STATES = {
 # Matrix jobs append their runner, as in "core / Test (ubuntu-latest)"; single jobs do
 # not. The runner's OS comes from the job's labels either way.
 JOB_NAME = re.compile(r"^([a-z0-9-]+) / Test(?: \(.+\))?$")
-TC_JOB_NAME = re.compile(r"^integration / Test \((\w+)\) / (\w+)$")
+# An integration job that also runs other products' tests lists them, as in
+# "integration / Test (windows) / arc + console".
+TC_JOB_NAME = re.compile(r"^integration / Test \((\w+)\) / (\w+)(?: \+ [\w +]+)?$")
 
 
 def gh(*args: str) -> str:
@@ -185,6 +185,18 @@ def enumerate_tests(
             name = literal.group(1) if literal else f"line {lineno}"
         tests.append((path, int(lineno), name))
     return tests
+
+
+def integration_products(sources: dict[str, str]) -> dict[str, str]:
+    """Returns PRODUCTS from integration/jobs.py in sources: the product each test
+    file covers, by the file's prefix."""
+    for node in ast.parse(sources["jobs.py"]).body:
+        if isinstance(node, ast.Assign) and any(
+            isinstance(t, ast.Name) and t.id == "PRODUCTS" for t in node.targets
+        ):
+            products: dict[str, str] = ast.literal_eval(node.value)
+            return products
+    raise ValueError("integration/jobs.py has no PRODUCTS")
 
 
 def integration_sources(root: Path, sha: str) -> dict[str, str]:
@@ -450,7 +462,9 @@ def main() -> None:
         if m:
             tc_jobs[(m.group(1), m.group(2))] = job
 
-    cases = Cases(integration_sources(ROOT, sha))
+    sources = integration_sources(ROOT, sha)
+    cases = Cases(sources)
+    products = integration_products(sources)
     with tempfile.TemporaryDirectory() as tmp:
         subprocess.run(
             [
@@ -471,43 +485,46 @@ def main() -> None:
             # test-results-<runner>-<target>, e.g. test-results-ubuntu-build-bot-arc
             target = art.name.rsplit("-", 1)[1]
             runner_os = os_of(art.name.removeprefix("test-results-"))
-            summaries = sorted(art.glob("run-*/summary.json"))
-            if not summaries:
-                continue
-            summary = json.loads(summaries[-1].read_text())
             job = tc_jobs[(runner_os, target)]
-            suites.append(
-                {
-                    "job": f"integration-{target}",
-                    "product": TARGETS[target],
-                    "lang": "py",
-                    "kind": "system",
-                    "tags": ["e2e"],
-                    "os": runner_os,
-                    "conclusion": job["conclusion"],
-                    "url": job["html_url"],
-                    "count": len(summary["tests"]),
-                }
-            )
-            s = len(suites) - 1
-            for t in summary["tests"]:
-                case = cases.resolve(t["case"], t["name"])
-                state = TC_STATES[t["status"]]
-                message = t.get("error_message")
-                # tc reports an auto-passed case as PASSED.
-                if runner_os in case.skipped:
-                    state, message = "skipped", case.skipped[runner_os]
-                tests.append(
-                    [
-                        s,
-                        f"{t['case']} › {t['name']}",
-                        state,
-                        message,
-                        t.get("duration_s"),
-                        case.source,
-                        case.tags,
-                    ]
+            # Each test conductor run of the job writes its own summary, and a job can
+            # run the tests of several products.
+            by_product: dict[str, list[dict[str, Any]]] = {}
+            for path in sorted(art.glob("run-*/summary.json")):
+                for t in json.loads(path.read_text())["tests"]:
+                    by_product.setdefault(products[t["file"]], []).append(t)
+            for product, results in sorted(by_product.items()):
+                suites.append(
+                    {
+                        "job": f"integration-{target}",
+                        "product": product,
+                        "lang": "py",
+                        "kind": "system",
+                        "tags": ["e2e"],
+                        "os": runner_os,
+                        "conclusion": job["conclusion"],
+                        "url": job["html_url"],
+                        "count": len(results),
+                    }
                 )
+                s = len(suites) - 1
+                for t in results:
+                    case = cases.resolve(t["case"], t["name"])
+                    state = TC_STATES[t["status"]]
+                    message = t.get("error_message")
+                    # tc reports an auto-passed case as PASSED.
+                    if runner_os in case.skipped:
+                        state, message = "skipped", case.skipped[runner_os]
+                    tests.append(
+                        [
+                            s,
+                            f"{t['case']} › {t['name']}",
+                            state,
+                            message,
+                            t.get("duration_s"),
+                            case.source,
+                            case.tags,
+                        ]
+                    )
 
     if bool(args.manual_pass) != (args.manual_note is not None):
         sys.exit("--manual-pass and --manual-note go together")

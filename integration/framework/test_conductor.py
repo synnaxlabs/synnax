@@ -272,6 +272,7 @@ class TestConductor:
             tests_json.append(
                 {
                     "case": t.test_name,
+                    "file": t.file,
                     "name": t.name,
                     "status": t.status.name,
                     "started_at": _iso(t.started_at),
@@ -383,9 +384,8 @@ def monitor_test_execution(conductor: TestConductor) -> None:
         sy.sleep(1)
 
 
-def main() -> None:
-    """Main entry point for the test conductor."""
-
+def build_parser() -> argparse.ArgumentParser:
+    """Returns the command-line parser of the test conductor."""
     parser = argparse.ArgumentParser(
         description="Run test sequences",
         epilog="""
@@ -471,8 +471,27 @@ All matching is case-insensitive substring.
             "(sets TC_LOGS environment variable)"
         ),
     )
+    return parser
 
-    args = parser.parse_args()
+
+def filter_from_args(args: argparse.Namespace) -> TargetFilter:
+    """Returns the filter selecting the tests named by parsed conductor arguments."""
+    if args.target:
+        target_filter = parse_target(args.target)
+        if args.filter:
+            target_filter.case_filter = split_csv(args.filter)
+    elif args.filter:
+        target_filter = TargetFilter(case_filter=split_csv(args.filter))
+    else:
+        target_filter = TargetFilter()
+    if args.exclude:
+        target_filter.exclude = split_csv(args.exclude)
+    return target_filter
+
+
+def main() -> None:
+    """Main entry point for the test conductor."""
+    args = build_parser().parse_args()
 
     os.environ["PLAYWRIGHT_CONSOLE_HEADED"] = "1" if args.headed else "0"
     os.environ["PLAYWRIGHT_CONSOLE_SLOW_MO"] = str(args.slow_mo)
@@ -496,19 +515,7 @@ All matching is case-insensitive substring.
     )
 
     try:
-        if args.target:
-            target_filter = parse_target(args.target)
-            if args.filter:
-                target_filter.case_filter = split_csv(args.filter)
-        elif args.filter:
-            target_filter = TargetFilter(case_filter=split_csv(args.filter))
-        else:
-            target_filter = TargetFilter()
-
-        if args.exclude:
-            target_filter.exclude = split_csv(args.exclude)
-
-        conductor.load(target_filter)
+        conductor.load(filter_from_args(args))
         conductor.run_sequence()
         conductor.wait_for_completion()
 

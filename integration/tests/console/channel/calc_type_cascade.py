@@ -106,13 +106,7 @@ class CalcTypeCascade(ConsoleCase):
         return None
 
     def _get_data_type(self, calc_label: str) -> sy.DataType:
-        fresh = sy.Synnax(
-            host="localhost",
-            port=9090,
-            username="synnax",
-            password="seldon",
-            secure=False,
-        )
+        fresh = self.synnax_connection.create_client()
         try:
             return fresh.channels.retrieve(self.calcs[calc_label]).data_type
         finally:
