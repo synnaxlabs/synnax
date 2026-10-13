@@ -10,7 +10,7 @@
  */
 
 .unlock-section {
-    padding-block: 72px 88px;
+    padding-block: 72px 48px;
 
     .editorial-heading {
         grid-template-columns: 1.25fr 1fr;
@@ -73,18 +73,11 @@
     white-space: nowrap;
 }
 
-.unlock-number {
-    font-size: 11px;
-    font-variant-numeric: tabular-nums;
-}
-
 .unlock-detail {
     min-width: 0;
-    margin-left: auto;
     line-height: 1.2;
-    text-align: right;
     white-space: normal;
-    opacity: 0;
+    opacity: 0.8;
     transition: opacity 240ms ease;
 }
 

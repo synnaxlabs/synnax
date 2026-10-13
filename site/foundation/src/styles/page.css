@@ -168,6 +168,16 @@ a.brand {
     }
 }
 
+.desktop-nav .header-nav-link[aria-current="location"] {
+    color: #e0e7ee;
+    background: #192330;
+}
+
+.mobile-drawer-link[aria-current="location"] {
+    color: #e0e7ee;
+    background: #182333;
+}
+
 .mobile-menu-btn,
 .mobile-drawer {
     display: none;
