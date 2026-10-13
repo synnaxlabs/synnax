@@ -14,6 +14,7 @@ import (
 	"encoding/json/v2"
 	"uuid"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config/legacy"
@@ -49,16 +50,58 @@ type Store interface {
 	// to. It returns an error wrapping query.ErrNotFound when from does not exist.
 	Copy(ctx context.Context, tx gorp.Tx, from, to uuid.UUID) error
 	// Normalize converts a config blob at the given version to the current stored
-	// shape: a legacy version runs the type's legacy rewrite, the current version
-	// returns data unchanged, and a version above the current one returns an error
-	// wrapping validate.ErrValidation.
+	// shape: a legacy version runs the type's legacy rewrite and then every upgrade,
+	// an older typed version runs the upgrades above it, the current version returns
+	// data unchanged, and a version above the current one returns an error wrapping
+	// validate.ErrValidation. Upgrades read other records through tx.
 	Normalize(
+		ctx context.Context,
+		tx gorp.Tx,
 		version imex.Version,
 		data msgpack.EncodedJSON,
 	) (msgpack.EncodedJSON, error)
 	// Version returns the current version of the store's config type, stamped on
 	// exported envelopes.
 	Version() imex.Version
+}
+
+// Upgrade lifts a config blob from one typed version to the next. It reads other
+// records, such as devices, through tx, which is never nil.
+type Upgrade func(
+	ctx context.Context,
+	tx gorp.Tx,
+	data msgpack.EncodedJSON,
+) (msgpack.EncodedJSON, error)
+
+// NewUpgrade returns the Upgrade that decodes a blob as Old, runs migrate, and encodes
+// the result, so config blobs and stored records share one transform.
+func NewUpgrade[Old, New any](migrate func(context.Context, Old) (New, error)) Upgrade {
+	return func(
+		ctx context.Context,
+		_ gorp.Tx,
+		data msgpack.EncodedJSON,
+	) (msgpack.EncodedJSON, error) {
+		b, err := json.Marshal(data)
+		if err != nil {
+			return nil, err
+		}
+		var old Old
+		if err = json.Unmarshal(b, &old); err != nil {
+			return nil, err
+		}
+		n, err := migrate(ctx, old)
+		if err != nil {
+			return nil, err
+		}
+		if b, err = json.Marshal(n); err != nil {
+			return nil, err
+		}
+		var out msgpack.EncodedJSON
+		if err = json.Unmarshal(b, &out); err != nil {
+			return nil, err
+		}
+		return out, nil
+	}
 }
 
 // ServiceConfig is the configuration for opening a Service. E is the record type
@@ -76,10 +119,14 @@ type ServiceConfig[E any] struct {
 	// Migrations is the stored-shape migration chain for the record type. Empty for
 	// a type whose stored shape has never changed.
 	Migrations []migrate.Migration
-	// Version is the current version of the config type, one above the integration's
-	// legacy.LastVersion. Envelopes below it decode through Legacy; envelopes above
-	// it are rejected.
+	// Version is the current version of the config type. Envelopes above it are
+	// rejected.
 	Version imex.Version
+	// Upgrades lift typed config blobs to Version. Upgrades[i] lifts version
+	// Version-len(Upgrades)+i to the next one. Versions below Version-len(Upgrades)
+	// are legacy and decode through Legacy first.
+	// [OPTIONAL] - empty for a type whose shape has not changed since its legacy era.
+	Upgrades []Upgrade
 	// Legacy is the rewrite that converts the type's legacy config shapes. Nil
 	// applies era normalization alone.
 	Legacy *legacy.Rewrite
@@ -101,6 +148,7 @@ func (c ServiceConfig[E]) Override(other ServiceConfig[E]) ServiceConfig[E] {
 	c.SetEntryKey = override.Nil(c.SetEntryKey, other.SetEntryKey)
 	c.Migrations = override.Slice(c.Migrations, other.Migrations)
 	c.Version = override.Numeric(c.Version, other.Version)
+	c.Upgrades = override.Slice(c.Upgrades, other.Upgrades)
 	c.Legacy = override.Nil(c.Legacy, other.Legacy)
 	c.ApplyEntryDefaults = override.Nil(c.ApplyEntryDefaults, other.ApplyEntryDefaults)
 	c.ValidateEntry = override.Nil(c.ValidateEntry, other.ValidateEntry)
@@ -114,6 +162,16 @@ func (c ServiceConfig[E]) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotEmptyString("type", c.Type)
 	v.NotNil("set_entry_key", c.SetEntryKey)
+	v.Ternary(
+		"upgrades",
+		len(c.Upgrades) > 0 && imex.Version(len(c.Upgrades)) >= c.Version,
+		"must leave version 0 to legacy configs",
+	)
+	v.Ternary(
+		"upgrades",
+		lo.ContainsBy(c.Upgrades, func(u Upgrade) bool { return u == nil }),
+		"must not contain nil",
+	)
 	return v.Error()
 }
 
@@ -225,19 +283,32 @@ func (s *Service[E]) Delete(
 
 // Normalize implements Store.
 func (s *Service[E]) Normalize(
+	ctx context.Context,
+	tx gorp.Tx,
 	version imex.Version,
 	data msgpack.EncodedJSON,
 ) (msgpack.EncodedJSON, error) {
 	if version > s.cfg.Version {
 		return nil, imex.NewErrUnsupportedVersion(s.cfg.Type, version, s.cfg.Version)
 	}
-	if version == s.cfg.Version {
-		return data, nil
+	firstTyped := s.cfg.Version - imex.Version(len(s.cfg.Upgrades))
+	if version < firstTyped {
+		rewrite := legacy.Rewrite{}
+		if s.cfg.Legacy != nil {
+			rewrite = *s.cfg.Legacy
+		}
+		data, version = rewrite.Apply(data), firstTyped
 	}
-	if s.cfg.Legacy != nil {
-		return s.cfg.Legacy.Apply(data), nil
+	for ; version < s.cfg.Version; version++ {
+		var err error
+		upgrade := s.cfg.Upgrades[version-firstTyped]
+		if data, err = upgrade(ctx, gorp.OverrideTx(s.cfg.DB, tx), data); err != nil {
+			return nil, errors.Wrapf(
+				validate.ErrValidation, "upgrading %s config: %s", s.cfg.Type, err,
+			)
+		}
 	}
-	return legacy.Rewrite{}.Apply(data), nil
+	return data, nil
 }
 
 // Version implements Store.
