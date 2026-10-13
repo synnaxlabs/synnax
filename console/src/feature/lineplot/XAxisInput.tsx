@@ -8,11 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot } from "@synnaxlabs/client";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { LinePlot } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { XAxisChannelSelect } from "@/feature/lineplot/SelectAxis";
+import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { Range } from "@/platform/range";
 
@@ -99,33 +102,41 @@ const SpectrumControls = ({ axisKey, axis }: SpectrumControlsProps): ReactElemen
   );
 };
 
-export interface XAxisModeInputProps {
+export interface XAxisInputProps {
   axisKey: lineplot.XAxisKey;
 }
 
 /**
- * Switches an x axis between plotting samples and their spectrum, with the spectrum's
- * settings beside it. Renders nothing under a triggered window, which always plots
- * samples.
+ * Edits an x axis: whether it plots samples or their spectrum, then the channel the
+ * samples plot against or the spectrum's settings. A triggered window always plots
+ * samples, so it hides the mode.
  */
-export const XAxisModeInput = ({
-  axisKey,
-}: XAxisModeInputProps): ReactElement | null => {
+export const XAxisInput = ({ axisKey }: XAxisInputProps): ReactElement => {
   const axis = LinePlot.useAxis({ axisKey });
   const ranges = LinePlot.useRanges();
   const dispatch = LinePlot.useSingleDispatch();
   const triggered =
     ranges.custom?.variant === "triggered" &&
     ranges[axisKey].includes(Range.CUSTOM_KEY);
-  if (triggered) return null;
+  const showMode = FLAGS.lineplotWindows && !triggered;
+  const spectral = showMode && axis.mode === "spectrum";
   const handleModeChange = (mode: lineplot.XAxisMode) =>
     dispatch(lineplot.setAxisMode({ key: axisKey, mode }));
   return (
-    <>
-      <Input.Item x label="Mode">
-        <SelectMode value={axis.mode} onChange={handleModeChange} />
-      </Input.Item>
-      {axis.mode === "spectrum" && <SpectrumControls axisKey={axisKey} axis={axis} />}
-    </>
+    <Flex.Box x align="center" className={CSS.BE("line-plot", "toolbar", "data-x-row")}>
+      {showMode && (
+        <Input.Item x label="Mode">
+          <SelectMode value={axis.mode} onChange={handleModeChange} />
+        </Input.Item>
+      )}
+      {spectral ? (
+        <SpectrumControls axisKey={axisKey} axis={axis} />
+      ) : (
+        <XAxisChannelSelect
+          axisKey={axisKey}
+          className={CSS.BE("line-plot", "toolbar", "data-x")}
+        />
+      )}
+    </Flex.Box>
   );
 };
