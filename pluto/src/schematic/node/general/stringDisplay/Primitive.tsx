@@ -72,7 +72,7 @@ export const StringDisplay = ({
           color={
             resolvedTextColor != null ? color.cssString(resolvedTextColor) : undefined
           }
-          variant="code"
+          variant="numeric"
           overflow="ellipsis"
         >
           {value}

@@ -90,7 +90,7 @@ export const Item = (props: ItemProps): ReactElement | null => {
             level="p"
             color="gray"
             format="semantic"
-            variant="code"
+            variant="numeric"
           >
             {time}
           </Telem.Text.TimeSpanSince>
