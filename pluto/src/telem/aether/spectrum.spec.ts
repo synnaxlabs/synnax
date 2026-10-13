@@ -33,4 +33,17 @@ describe("windowSamples", () => {
     expect(Array.from(y)).toEqual(values(0, 15));
     expect(Array.from(t)).toEqual(stamps(0, 15));
   });
+
+  it("should pair data split into different series than its index", () => {
+    const index = new MultiSeries([
+      series([0, 10, 20, 30, 40, 50], DataType.FLOAT64, 0n),
+    ]);
+    const data = new MultiSeries([
+      series([0, 1], DataType.FLOAT64, 0n),
+      series([2, 3, 4, 5], DataType.FLOAT64, 2n),
+    ]);
+    const { y, t } = windowSamples(index, data, { lower: 10, upper: 40 });
+    expect(Array.from(y)).toEqual([1, 2, 3, 4]);
+    expect(Array.from(t)).toEqual([10, 20, 30, 40]);
+  });
 });

@@ -60,19 +60,33 @@ export const windowSamples = (
 ): WindowSamples => {
   const ys: number[] = [];
   const ts: number[] = [];
+  let last = -Infinity;
   for (const ix of index.series) {
     if (ix.length === 0) continue;
     const lo = ix.binarySearch(window.lower);
     let hi = ix.binarySearch(window.upper);
     if (hi < ix.length && Number(ix.at(hi, true)) === window.upper) hi++;
-    for (let i = lo; i < hi; i++) {
-      // Streamed series can overlap the ones read before them.
-      const t = Number(ix.at(i, true));
-      if (ts.length > 0 && t <= ts[ts.length - 1]) continue;
-      const v = data.atAlignment(ix.alignment + BigInt(i) * ix.alignmentMultiple);
-      if (v == null) continue;
-      ys.push(Number(v));
-      ts.push(t);
+    if (lo >= hi) continue;
+    const tData = ix.data;
+    const tOffset = Number(ix.sampleOffset);
+    // Pairs each data series once by alignment, then copies straight from the typed
+    // arrays: a per-sample alignment lookup scans every series.
+    for (const d of data.series) {
+      if (d.alignmentMultiple !== ix.alignmentMultiple) continue;
+      const shift = Number((ix.alignment - d.alignment) / ix.alignmentMultiple);
+      const from = Math.max(lo, -shift);
+      const to = Math.min(hi, d.length - shift);
+      if (from >= to) continue;
+      const yData = d.data;
+      const yOffset = Number(d.sampleOffset);
+      for (let i = from; i < to; i++) {
+        const t = Number(tData[i]) + tOffset;
+        // Streamed series can overlap the ones read before them.
+        if (t <= last) continue;
+        last = t;
+        ts.push(t);
+        ys.push(Number(yData[i + shift]) + yOffset);
+      }
     }
   }
   return { y: Float64Array.from(ys), t: Float64Array.from(ts) };
