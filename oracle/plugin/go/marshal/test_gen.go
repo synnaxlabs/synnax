@@ -831,8 +831,7 @@ func (b *testValueBuilder) valueExpr(
 				b.fieldIndex++
 				fieldGoName := naming.GetFieldName(f)
 				// A field typed by a type argument was written in the outer
-				// declaration's
-				// file, so it keeps the outer pins.
+				// declaration's file, so it keeps the outer pins.
 				b.owner = outer
 				if !actual.Synthetic && !usesTypeParam(fields[i].Type) {
 					b.owner = actual.QualifiedName
