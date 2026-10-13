@@ -10,6 +10,7 @@
 import { ranger } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -52,6 +53,7 @@ const Base = ({
     };
   }, [item]);
   const canEdit = Access.useUpdateGranted(ranger.ontologyID(itemKey));
+  const { startDrag, onDragEnd } = Haul.useDrag({ type: "range_list", key: itemKey });
   const { update: rename } = Session.Range.useRename();
   const { form } = Ranger.useForm({
     query: null,
@@ -73,6 +75,9 @@ const Base = ({
       className={CSS.cls(CSS.BE("range", "list-item"))}
       aria-label={name}
       onSelect={handleSelect}
+      draggable
+      onDragStart={() => startDrag([Ranger.createHaulItem(item.payload)])}
+      onDragEnd={onDragEnd}
       justify="between"
       selected={selected}
       hovered={hovered}
