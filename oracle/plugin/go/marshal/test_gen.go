@@ -816,7 +816,8 @@ func (b *testValueBuilder) valueExpr(
 				substituted[i].Type = resolution.SubstituteTypeRef(f.Type, typeArgMap)
 			}
 			var fieldExprs []string
-			for _, f := range substituted {
+			outer := b.owner
+			for i, f := range substituted {
 				if f.Type.Name == "nil" {
 					continue
 				}
@@ -829,6 +830,13 @@ func (b *testValueBuilder) valueExpr(
 				}
 				b.fieldIndex++
 				fieldGoName := naming.GetFieldName(f)
+				// A field typed by a type argument was written in the outer
+				// declaration's
+				// file, so it keeps the outer pins.
+				b.owner = outer
+				if !actual.Synthetic && !usesTypeParam(fields[i].Type) {
+					b.owner = actual.QualifiedName
+				}
 				var expr string
 				var err error
 				if f.Optional && b.isGoPointerField(f.Type) {
@@ -836,6 +844,7 @@ func (b *testValueBuilder) valueExpr(
 				} else {
 					expr, err = b.valueExpr(r, f.Type)
 				}
+				b.owner = outer
 				if err != nil {
 					return "", err
 				}
@@ -1451,3 +1460,8 @@ func FuzzDecode{{.GoName}}(f *testing.F) {
 	})
 }
 {{end}}`
+
+// usesTypeParam reports whether ref names one of its declaration's type parameters.
+func usesTypeParam(ref resolution.TypeRef) bool {
+	return ref.IsTypeParam() || slices.ContainsFunc(ref.TypeArgs, usesTypeParam)
+}

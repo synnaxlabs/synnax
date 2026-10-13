@@ -347,6 +347,122 @@ Log struct {
 	})
 })
 
+var _ = Describe("Stored reference in a nested generic declaration", func() {
+	// log v0's Wrapper pins color v0 and holds note v0's generic Inner, whose own
+	// version file pins color v1. Inner's color fields follow Inner's pins.
+	It(
+		"Should import each declaration's pinned version in nested generic specs",
+		func() {
+			root := GinkgoT().TempDir()
+			write := func(rel, content string) {
+				GinkgoHelper()
+				full := filepath.Join(root, rel)
+				Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+				Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+			}
+			write("schemas/x/versions/color/v0.oracle", `
+Color struct {
+	r uint8
+
+	@go marshal
+}
+`)
+			write("schemas/x/versions/color/v1.oracle", `
+Color = v0.Color
+
+Band struct {
+	color Color
+
+	@go marshal
+}
+`)
+			write("schemas/x/color.oracle", `
+@go output "x/go/color"
+
+Color struct {
+	r uint8
+
+	@go marshal
+}
+
+Band struct {
+	color Color
+
+	@go marshal
+}
+`)
+			inner := `
+Inner struct<T?> {
+	tint color.Color
+	value T {
+		@go marshal json_only
+	}
+
+	@go marshal
+}
+`
+			write("schemas/synnax/versions/note/v0.oracle",
+				"\nimport \"schemas/x/versions/color/v1\"\n"+inner)
+			write(
+				"schemas/synnax/note.oracle",
+				"\nimport \"schemas/x/color\"\n\n@go output \"core/pkg/service/note\"\n"+
+					inner,
+			)
+			log := `
+Wrapper struct<D?> {
+	color color.Color
+	inner note.Inner<D>
+
+	@go marshal
+}
+
+Log struct {
+	key uuid @key
+	color color.Color
+
+	@go marshal
+}
+`
+			write("schemas/synnax/versions/log/v0.oracle",
+				"\nimport \"schemas/x/versions/color/v0\"\n"+
+					"import \"schemas/synnax/versions/note/v0\"\n"+log)
+			write("schemas/synnax/log.oracle",
+				"\nimport \"schemas/x/color\"\nimport \"schemas/synnax/note\"\n\n"+
+					"@go output \"core/pkg/service/log\"\n"+log)
+			chains := MustSucceed(versions.Discover(root))
+			loader := analyzer.NewStandardFileLoader(root)
+			table, diag := analyzer.Analyze(
+				GinkgoT().Context(),
+				[]string{
+					"schemas/x/color",
+					"schemas/synnax/note",
+					"schemas/synnax/log",
+				},
+				loader,
+			)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			resp := MustSucceed(marshal.New(marshal.Options{
+				FileNamePattern:     "codec.gen.go",
+				TestFileNamePattern: "codec_gen_test.go",
+				GenerateTests:       true,
+				RequireVersioned:    true,
+			}).Generate(&plugin.Request{
+				Resolutions: table,
+				RepoRoot:    root,
+				Versions:    versions.NewResolver(chains, loader),
+			}))
+			specs := generatedFile(
+				resp,
+				"core/pkg/service/log/versions/v0/codec_gen_test.go",
+			)
+			Expect(specs).To(MatchRegexp(`\scolor "[^"]*/color/versions/v1"`))
+			Expect(specs).To(MatchRegexp(`\scolorv0 "[^"]*/color/versions/v0"`))
+			Expect(specs).To(MatchRegexp(`Tint:\s+color\.Color\{`))
+			Expect(specs).To(MatchRegexp(`Color:\s+colorv0\.Color\{`))
+		},
+	)
+})
+
 // writePinFixture writes a log whose v0 declares Note against color v0 and whose v1
 // declares Log against color v1, where color v1 only aliases v0's Color. With frozen
 // set, a log v2 aliases both, freezing v1.
