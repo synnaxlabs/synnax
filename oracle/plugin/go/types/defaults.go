@@ -198,6 +198,7 @@ func unionLiteral(
 		lines, ok := literalAssignments(
 			variable+"."+naming.GetFieldName(f),
 			f.Type,
+			f.Optional,
 			comp.Value,
 			data,
 			next,
@@ -211,25 +212,32 @@ func unionLiteral(
 }
 
 // literalAssignments renders the statements that assign the literal v to the Go
-// selector of type typeRef, recursing into struct and union literals.
+// selector of type typeRef, recursing into struct and union literals. An optional
+// selector is a pointer, so the statements allocate its value first.
 func literalAssignments(
 	selector string,
 	typeRef resolution.TypeRef,
+	optional bool,
 	v resolution.ExpressionValue,
 	data *templateData,
 	next *int,
 ) ([]string, bool) {
+	goType := stripPointer(data.resolver.ResolveTypeRef(typeRef, data.ctx))
 	switch v.Kind {
 	case resolution.ValueKindStruct:
+		var lines []string
+		if optional {
+			lines = append(lines, selector+" = &"+goType+"{}")
+		}
 		if setup, variable, ok := unionLiteral(typeRef, v, data, next); ok {
-			return append(setup, selector+".Variant = "+variable), true
+			lines = append(lines, setup...)
+			return append(lines, selector+".Variant = "+variable), true
 		}
 		resolved, ok := typeRef.Resolve(data.table)
 		if !ok {
 			return nil, false
 		}
 		fields := resolution.UnifiedFields(resolved, data.table)
-		var lines []string
 		for _, comp := range v.Fields {
 			f, ok := lo.Find(fields, func(f resolution.Field) bool {
 				return f.Name == comp.Name
@@ -240,6 +248,7 @@ func literalAssignments(
 			sub, ok := literalAssignments(
 				selector+"."+naming.GetFieldName(f),
 				f.Type,
+				f.Optional,
 				comp.Value,
 				data,
 				next,
@@ -254,14 +263,19 @@ func literalAssignments(
 		if len(v.Elements) == 0 {
 			return nil, true
 		}
-		fill, ok := arrayFill(selector, typeRef, &v, data)
+		setup, expr, ok := arrayLiteral(typeRef, v, data, next)
 		if !ok {
 			return nil, false
 		}
-		return []string{selector + " = " + fill.Expr}, true
+		return append(setup, selector+" = "+expr), true
 	}
 	if v.Kind == resolution.ValueKindIdent {
 		if expr, ok := emptyVariant(v.IdentValue, typeRef, data); ok {
+			if optional {
+				return []string{
+					selector + " = &" + goType + "{Variant: " + expr + "}",
+				}, true
+			}
 			return []string{selector + ".Variant = " + expr}, true
 		}
 	}
@@ -269,7 +283,52 @@ func literalAssignments(
 	if !ok {
 		return nil, false
 	}
+	if optional {
+		return []string{selector + " = new(" + goType + "(" + lit + "))"}, true
+	}
 	return []string{selector + " = " + lit}, true
+}
+
+// arrayLiteral renders the array literal v of slice type typeRef, returning the
+// statements that build its object elements in local variables and the slice
+// expression. next numbers the variables.
+func arrayLiteral(
+	typeRef resolution.TypeRef,
+	v resolution.ExpressionValue,
+	data *templateData,
+	next *int,
+) ([]string, string, bool) {
+	if typeRef.Name != "Array" || len(typeRef.TypeArgs) != 1 {
+		return nil, "", false
+	}
+	elemRef := typeRef.TypeArgs[0]
+	elemType := stripPointer(data.resolver.ResolveTypeRef(elemRef, data.ctx))
+	var setup []string
+	elems := make([]string, 0, len(v.Elements))
+	for _, elem := range v.Elements {
+		if elem.Kind != resolution.ValueKindStruct {
+			lit, ok := goLiteral(elemRef, &elem, data)
+			if !ok {
+				return nil, "", false
+			}
+			elems = append(elems, lit)
+			continue
+		}
+		variable := fmt.Sprintf("v%d", *next)
+		*next++
+		lines, ok := literalAssignments(variable, elemRef, false, elem, data, next)
+		if !ok {
+			return nil, "", false
+		}
+		setup = append(setup, variable+" := "+elemType+"{}")
+		setup = append(setup, lines...)
+		elems = append(elems, variable)
+	}
+	return setup, fmt.Sprintf(
+		"%s{%s}",
+		data.resolver.ResolveTypeRef(typeRef, data.ctx),
+		strings.Join(elems, ", "),
+	), true
 }
 
 // arrayFill returns the fill assigning the array default d to the Go selector goName of
@@ -281,25 +340,19 @@ func arrayFill(
 	d *resolution.ExpressionValue,
 	data *templateData,
 ) (defaultFillData, bool) {
-	if len(d.Elements) == 0 || typeRef.Name != "Array" || len(typeRef.TypeArgs) != 1 {
+	if len(d.Elements) == 0 {
 		return defaultFillData{}, false
 	}
-	lits := make([]string, 0, len(d.Elements))
-	for i := range d.Elements {
-		lit, ok := goLiteral(typeRef.TypeArgs[0], &d.Elements[i], data)
-		if !ok {
-			return defaultFillData{}, false
-		}
-		lits = append(lits, lit)
+	var next int
+	setup, expr, ok := arrayLiteral(typeRef, *d, data, &next)
+	if !ok {
+		return defaultFillData{}, false
 	}
 	return defaultFillData{
 		GoName:  goName,
 		ZeroLit: "nil",
-		Expr: fmt.Sprintf(
-			"%s{%s}",
-			data.resolver.ResolveTypeRef(typeRef, data.ctx),
-			strings.Join(lits, ", "),
-		),
+		Expr:    expr,
+		Setup:   setup,
 	}, true
 }
 

@@ -370,6 +370,25 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			)
 		})
 
+		It("Should fill an array default of objects", func(ctx SpecContext) {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Tab struct { name string }
+
+				Cfg struct { tabs Tab[] = [{ name = "a" }, { name = "b" }] }
+			`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"if c.Tabs == nil {",
+				"v0 := Tab{}",
+				`v0.Name = "a"`,
+				"v1 := Tab{}",
+				`v1.Name = "b"`,
+				"c.Tabs = []Tab{v0, v1}",
+			)
+		})
+
 		It("Should ignore an empty array default", func(ctx SpecContext) {
 			source := `
 				@go output "core/pkg/service/x"
@@ -913,6 +932,82 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			Expect(strings.Index(content, "v0.Window.Variant = v1")).
 				To(BeNumerically("<", strings.Index(content, "l.Range.Variant = v0")))
 		})
+
+		It(
+			"Should allocate optional fields a union literal sets",
+			func(ctx SpecContext) {
+				optional := `
+				@go output "core/pkg/service/x"
+
+				Meta struct { name string }
+
+				Ref union on variant {
+					key {
+						key string
+					}
+					window {
+						label string?
+						span  int64?
+						meta  Meta?
+					}
+				}
+
+				Log struct {
+					range Ref = {
+						variant = "window",
+						label = "x",
+						span = 7,
+						meta = { name = "m" }
+					}
+				}
+			`
+				resp := MustGenerate(ctx, optional, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"v0 := WindowRef{}",
+					`v0.Label = new(string("x"))`,
+					"v0.Span = new(int64(7))",
+					"v0.Meta = &Meta{}",
+					`v0.Meta.Name = "m"`,
+					"l.Range.Variant = v0",
+				)
+			},
+		)
+
+		It(
+			"Should build object array elements of a union literal",
+			func(ctx SpecContext) {
+				objects := `
+				@go output "core/pkg/service/x"
+
+				Tab struct { name string }
+
+				Node union on variant {
+					leaf {
+						tabs Tab[]
+					}
+					split {
+						size int64
+					}
+				}
+
+				Panel struct {
+					root Node = { variant = "leaf", tabs = [{ name = "first" }] }
+				}
+			`
+				resp := MustGenerate(ctx, objects, "x", loader, goPlugin)
+				content := MustContentOf(resp, "types.gen.go")
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"if p.Root.Variant == nil {",
+					"v0 := LeafNode{}",
+					"v1 := Tab{}",
+					`v1.Name = "first"`,
+					"v0.Tabs = []Tab{v1}",
+					"p.Root.Variant = v0",
+				)
+				Expect(strings.Index(content, `v1.Name = "first"`)).
+					To(BeNumerically("<", strings.Index(content, "v0.Tabs = []Tab{v1}")))
+			},
+		)
 
 		It(
 			"Should fill a union literal inside a struct default",
