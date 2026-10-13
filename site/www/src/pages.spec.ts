@@ -199,7 +199,7 @@ describe("pages", () => {
     it("should show each university logo once", () => {
       const names = all<HTMLImageElement>(doc, ".sponsorships img").map((i) => i.alt);
       expect(names).toContain("UCLA");
-      expect(names).toContain("University of Cincinnati");
+      expect(names).toContain("Cincinnati Aerospace Society");
       expect(new Set(names).size).toBe(names.length);
     });
 
