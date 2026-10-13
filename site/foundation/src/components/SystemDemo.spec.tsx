@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { type SystemLayer } from "@/components/IndustrialScene";
@@ -71,6 +71,29 @@ const expectStep = (index: number): void => {
 
 describe("SystemDemo", () => {
   afterEach(cleanup);
+
+  it("should explain the complete path without requiring any scene interaction", () => {
+    render(<SystemDemo />);
+    const path = screen.getByRole("group", {
+      name: "The complete data and control path",
+    });
+    expect(within(path).getByText("Equipment & existing systems")).toBeTruthy();
+    expect(within(path).getByText("Foundation")).toBeTruthy();
+    expect(within(path).getByText("Your software")).toBeTruthy();
+    expect(within(path).getByText("Telemetry").textContent).toBe(
+      "Telemetry to software",
+    );
+    expect(within(path).getByText("Commands").textContent).toBe(
+      "Commands to equipment",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Control" }));
+    expect(
+      screen.getByRole("group", {
+        name: "The complete data and control path",
+      }),
+    ).toBe(path);
+  });
 
   it("should keep the selected stage, explanation, and scene in sync", async () => {
     const { container } = render(<SystemDemo />);

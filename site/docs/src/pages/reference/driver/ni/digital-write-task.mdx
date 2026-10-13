@@ -54,6 +54,10 @@ This task follows the standard
 
 ## How-to
 
+When you create channels with a client library, give each command channel its own index
+channel. A writer that holds several commands on one index must write all of them in
+every frame.
+
 <Client.Tabs exclude={["cpp"]}>
   <Fragment slot="console">
     <Video
@@ -74,30 +78,40 @@ client = sy.Synnax()
 # Retrieve device
 digital_dev = client.devices.retrieve(name="Mod1_Digital")
 
-# Create command time index
-do_cmd_time = client.channels.create(
-    name="do_cmd_time",
+# Create command channels, each with its own index
+do_0_0_cmd_time = client.channels.create(
+    name="do_0_0_cmd_time",
     is_index=True,
     data_type=sy.DataType.TIMESTAMP,
     retrieve_if_name_exists=True,
 )
-
-# Create command channels
 do_0_0_cmd = client.channels.create(
     name="do_0_0_cmd",
-    index=do_cmd_time.key,
+    index=do_0_0_cmd_time.key,
     data_type=sy.DataType.UINT8,
+    retrieve_if_name_exists=True,
+)
+do_0_1_cmd_time = client.channels.create(
+    name="do_0_1_cmd_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
     retrieve_if_name_exists=True,
 )
 do_0_1_cmd = client.channels.create(
     name="do_0_1_cmd",
-    index=do_cmd_time.key,
+    index=do_0_1_cmd_time.key,
     data_type=sy.DataType.UINT8,
+    retrieve_if_name_exists=True,
+)
+do_1_0_cmd_time = client.channels.create(
+    name="do_1_0_cmd_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
     retrieve_if_name_exists=True,
 )
 do_1_0_cmd = client.channels.create(
     name="do_1_0_cmd",
-    index=do_cmd_time.key,
+    index=do_1_0_cmd_time.key,
     data_type=sy.DataType.UINT8,
     retrieve_if_name_exists=True,
 )
@@ -226,39 +240,53 @@ const client = new Synnax();
 // Retrieve device
 const [digitalDev] = await client.devices.retrieve({ names: ["Mod1_Digital"] });
 
-// Create command time index
-const doCmdTime = await client.channels.create(
+// Create command channels, each with its own index
+const do00CmdTime = await client.channels.create(
   {
-    name: "do_cmd_time",
+    name: "do_0_0_cmd_time",
     isIndex: true,
     dataType: "timestamp",
   },
   { retrieveIfNameExists: true },
 );
-
-// Create command channels
 const do00Cmd = await client.channels.create(
   {
     name: "do_0_0_cmd",
-    index: doCmdTime.key,
+    index: do00CmdTime.key,
     dataType: "uint8",
   },
   { retrieveIfNameExists: true },
 );
 
+const do01CmdTime = await client.channels.create(
+  {
+    name: "do_0_1_cmd_time",
+    isIndex: true,
+    dataType: "timestamp",
+  },
+  { retrieveIfNameExists: true },
+);
 const do01Cmd = await client.channels.create(
   {
     name: "do_0_1_cmd",
-    index: doCmdTime.key,
+    index: do01CmdTime.key,
     dataType: "uint8",
   },
   { retrieveIfNameExists: true },
 );
 
+const do10CmdTime = await client.channels.create(
+  {
+    name: "do_1_0_cmd_time",
+    isIndex: true,
+    dataType: "timestamp",
+  },
+  { retrieveIfNameExists: true },
+);
 const do10Cmd = await client.channels.create(
   {
     name: "do_1_0_cmd",
-    index: doCmdTime.key,
+    index: do10CmdTime.key,
     dataType: "uint8",
   },
   { retrieveIfNameExists: true },
