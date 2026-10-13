@@ -13,13 +13,15 @@ import { DECIBEL_FLOOR, fft, sampleRate } from "@/telem";
 
 const sine = (n: number, rate: number, f: number, a = 1, offset = 0): Float32Array => {
   const out = new Float32Array(n);
-  for (let i = 0; i < n; i++) out[i] = offset + a * Math.sin((2 * Math.PI * f * i) / rate);
+  for (let i = 0; i < n; i++)
+    out[i] = offset + a * Math.sin((2 * Math.PI * f * i) / rate);
   return out;
 };
 
 const peak = (magnitudes: Float32Array): number => {
   let at = 0;
-  for (let k = 1; k < magnitudes.length; k++) if (magnitudes[k] > magnitudes[at]) at = k;
+  for (let k = 1; k < magnitudes.length; k++)
+    if (magnitudes[k] > magnitudes[at]) at = k;
   return at;
 };
 

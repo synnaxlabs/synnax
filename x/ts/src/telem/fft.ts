@@ -136,7 +136,11 @@ export const sampleRate = (n: number, first: number, last: number): number => {
 export const fft = (
   samples: ArrayLike<number>,
   rate: number,
-  { window = "hann", scale = "linear", pointLimit = DEFAULT_POINT_LIMIT }: FFTOptions = {},
+  {
+    window = "hann",
+    scale = "linear",
+    pointLimit = DEFAULT_POINT_LIMIT,
+  }: FFTOptions = {},
 ): Spectrum => {
   const total = samples.length;
   if (total < 2 || !Number.isFinite(rate) || rate <= 0) return EMPTY;
@@ -166,7 +170,8 @@ export const fft = (
     frequencies[k] = (k * rate) / N;
     let m = acc[k] * norm;
     if (k !== 0 && k !== N / 2) m *= 2;
-    if (scale === "decibel") m = m > 0 ? Math.max(20 * Math.log10(m), DECIBEL_FLOOR) : DECIBEL_FLOOR;
+    if (scale === "decibel")
+      m = m > 0 ? Math.max(20 * Math.log10(m), DECIBEL_FLOOR) : DECIBEL_FLOOR;
     magnitudes[k] = m;
   }
   return { frequencies, magnitudes, blocks, blockLength: n, transformLength: N };
