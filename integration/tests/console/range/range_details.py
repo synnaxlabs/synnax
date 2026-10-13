@@ -11,6 +11,7 @@
 import synnax as sy
 from console.case import ConsoleCase
 from console.schematic import Schematic
+from framework.hardware_case import HardwareCase
 from x import random_name
 
 NI_ANALOG_READ_CONFIG = {
@@ -22,7 +23,7 @@ NI_ANALOG_READ_CONFIG = {
 }
 
 
-class RangeDetails(ConsoleCase):
+class RangeDetails(HardwareCase, ConsoleCase):
     """Test Range Details: child range context menu, metadata, and snapshot operations."""
 
     suffix: str
@@ -54,11 +55,12 @@ class RangeDetails(ConsoleCase):
         schematic.close()
 
         # Create a sim task directly in Synnax
-        self.client.tasks.create(
+        task = self.client.tasks.create(
             name=self.task_name,
             type="ni_analog_read",
             config=NI_ANALOG_READ_CONFIG,
         )
+        self.track_test_tasks([task])
         sy.sleep(1)  # SY not?
 
         self.console.ranges.favorite(self.parent_range_name)
