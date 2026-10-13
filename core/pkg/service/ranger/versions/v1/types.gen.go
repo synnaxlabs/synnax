@@ -68,17 +68,14 @@ type RefVariant interface {
 
 // KeyRef is a range saved in the Core.
 type KeyRef struct {
-	// Key is the key of a range saved in the Core, a UUID string.
-	Key string `json:"key" msgpack:"key"`
+	// Key is the key of a range saved in the Core.
+	Key Key `json:"key" msgpack:"key"`
 }
 
 func (KeyRef) isRefVariant() {}
 
 // WindowRef is a window carried inline: rolling or fixed.
 type WindowRef struct {
-	// Key is the window's stable identity, set when the window is created. Lines
-	// reference it.
-	Key string `json:"key" msgpack:"key"`
 	// Window is the window the reference resolves to.
 	Window telem.Window `json:"window" msgpack:"window"`
 }

@@ -2486,9 +2486,9 @@ describe("convertDataType", () => {
 
 describe("windowZ", () => {
   it("should parse a dynamic window", () => {
-    expect(windowZ.parse({ variant: "dynamic", span: 60e9 })).toEqual({
+    expect(windowZ.parse({ variant: "dynamic", timeSpan: 60e9 })).toEqual({
       variant: "dynamic",
-      span: 60e9,
+      timeSpan: 60e9,
     });
   });
 

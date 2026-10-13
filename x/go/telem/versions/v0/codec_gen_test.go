@@ -48,7 +48,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("dynamic variant", v0.Window{Variant: v0.DynamicWindow{Span: v0.TimeSpan(2)}}),
+			Entry("dynamic variant", v0.Window{Variant: v0.DynamicWindow{TimeSpan: v0.TimeSpan(2)}}),
 			Entry("static variant", v0.Window{Variant: v0.StaticWindow{
 				TimeRange: v0.TimeRange{Start: v0.TimeStamp(3), End: v0.TimeStamp(4)},
 			}}),
@@ -74,7 +74,7 @@ func BenchmarkEncodeDecodeTimeRange(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeWindow(b *testing.B) {
-	seed := v0.Window{Variant: v0.DynamicWindow{Span: v0.TimeSpan(2)}}
+	seed := v0.Window{Variant: v0.DynamicWindow{TimeSpan: v0.TimeSpan(2)}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -131,7 +131,7 @@ func FuzzDecodeTimeRange(f *testing.F) {
 
 func FuzzDecodeWindow(f *testing.F) {
 	{
-		seed := v0.Window{Variant: v0.DynamicWindow{Span: v0.TimeSpan(2)}}
+		seed := v0.Window{Variant: v0.DynamicWindow{TimeSpan: v0.TimeSpan(2)}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)

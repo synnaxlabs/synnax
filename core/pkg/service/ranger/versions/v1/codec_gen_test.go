@@ -77,10 +77,9 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("key variant", v1.Ref{Variant: v1.KeyRef{Key: "test_1"}}),
+			Entry("key variant", v1.Ref{Variant: v1.KeyRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")}}),
 			Entry("window variant", v1.Ref{Variant: v1.WindowRef{
-				Key:    "test_1",
-				Window: telem.Window{Variant: telem.DynamicWindow{Span: telem.TimeSpan(4)}},
+				Window: telem.Window{Variant: telem.DynamicWindow{TimeSpan: telem.TimeSpan(3)}},
 			}}),
 		)
 	})
@@ -114,7 +113,7 @@ func BenchmarkEncodeDecodeRange(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeRef(b *testing.B) {
-	seed := v1.Ref{Variant: v1.KeyRef{Key: "test_1"}}
+	seed := v1.Ref{Variant: v1.KeyRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -204,7 +203,7 @@ func FuzzDecodeRange(f *testing.F) {
 
 func FuzzDecodeRef(f *testing.F) {
 	{
-		seed := v1.Ref{Variant: v1.KeyRef{Key: "test_1"}}
+		seed := v1.Ref{Variant: v1.KeyRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -213,8 +212,7 @@ func FuzzDecodeRef(f *testing.F) {
 	}
 	{
 		seed := v1.Ref{Variant: v1.WindowRef{
-			Key:    "test_1",
-			Window: telem.Window{Variant: telem.DynamicWindow{Span: telem.TimeSpan(4)}},
+			Window: telem.Window{Variant: telem.DynamicWindow{TimeSpan: telem.TimeSpan(3)}},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

@@ -13,6 +13,7 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"io"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -23,12 +24,13 @@ import (
 )
 
 var _ = Describe("Ref", func() {
-	key := v1.Ref{Variant: v1.KeyRef{Key: "4b6b2fd6-3c93-4b7f-8f43-7d1f8a0b9c2e"}}
+	key := v1.Ref{
+		Variant: v1.KeyRef{Key: uuid.MustParse("4b6b2fd6-3c93-4b7f-8f43-7d1f8a0b9c2e")},
+	}
 	window := v1.Ref{
 		Variant: v1.WindowRef{
-			Key: "custom-1",
 			Window: telem.Window{
-				Variant: telem.DynamicWindow{Span: telem.TimeSpan(60)},
+				Variant: telem.DynamicWindow{TimeSpan: telem.TimeSpan(60)},
 			},
 		},
 	}
@@ -47,7 +49,7 @@ var _ = Describe("Ref", func() {
 			var fields map[string]jsontext.Value
 			Expect(json.Unmarshal(b, &fields)).To(Succeed())
 			Expect(fields).To(HaveKeyWithValue("variant", jsontext.Value(`"window"`)))
-			Expect(fields).To(HaveKeyWithValue("key", jsontext.Value(`"custom-1"`)))
+			Expect(fields).NotTo(HaveKey("key"))
 			var w map[string]jsontext.Value
 			Expect(json.Unmarshal(fields["window"], &w)).To(Succeed())
 			Expect(w).To(HaveKeyWithValue("variant", jsontext.Value(`"dynamic"`)))
@@ -95,7 +97,6 @@ var _ = Describe("Ref", func() {
 					To(MatchError(ContainSubstring(`within "` + path + `"`)))
 			},
 			Entry("key key", `{"variant":"key","key":true}`, "/key"),
-			Entry("window key", `{"variant":"window","key":1}`, "/key"),
 			Entry("window window", `{"variant":"window","window":true}`, "/window"),
 		)
 	})
@@ -109,7 +110,7 @@ var _ = Describe("Ref", func() {
 
 		It("Should propagate a nil window variant", func() {
 			w := orc.NewWriter(0)
-			r := v1.Ref{Variant: v1.WindowRef{Key: "custom-1"}}
+			r := v1.Ref{Variant: v1.WindowRef{}}
 			Expect(r.EncodeOrc(w)).
 				To(MatchError(ContainSubstring("Window: nil or unknown variant")))
 		})

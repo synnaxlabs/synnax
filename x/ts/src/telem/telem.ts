@@ -2082,7 +2082,7 @@ export type StringTimeStamp = z.infer<typeof stringTimeStampZ>;
 /** A rolling window that ends now. */
 export const dynamicWindowZ = z.object({
   variant: z.literal("dynamic"),
-  span: numericTimeSpanZ.default(0),
+  timeSpan: numericTimeSpanZ.default(0),
 });
 export interface DynamicWindow extends z.infer<typeof dynamicWindowZ> {}
 

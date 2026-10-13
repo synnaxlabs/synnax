@@ -72,10 +72,9 @@ func (rv Ref) EncodeOrc(w *orc.Writer) error {
 	switch v := rv.Variant.(type) {
 	case KeyRef:
 		w.String("key")
-		w.String(v.Key)
+		w.Write(v.Key[:])
 	case WindowRef:
 		w.String("window")
-		w.String(v.Key)
 		if err := v.Window.EncodeOrc(w); err != nil {
 			return err
 		}
@@ -94,15 +93,12 @@ func (rv *Ref) DecodeOrc(r *orc.Reader) error {
 	switch tag {
 	case "key":
 		var v KeyRef
-		if v.Key, err = r.String(); err != nil {
+		if _, err := r.Read(v.Key[:]); err != nil {
 			return err
 		}
 		rv.Variant = v
 	case "window":
 		var v WindowRef
-		if v.Key, err = r.String(); err != nil {
-			return err
-		}
 		if err = v.Window.DecodeOrc(r); err != nil {
 			return err
 		}

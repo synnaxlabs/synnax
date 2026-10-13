@@ -51,8 +51,8 @@ type WindowVariant interface {
 
 // DynamicWindow is a rolling window.
 type DynamicWindow struct {
-	// Span is the span of the window, which ends now.
-	Span TimeSpan `json:"span" msgpack:"span"`
+	// TimeSpan is the span of the window, which ends now.
+	TimeSpan TimeSpan `json:"time_span" msgpack:"time_span"`
 }
 
 func (DynamicWindow) isWindowVariant() {}

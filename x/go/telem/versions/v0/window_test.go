@@ -22,7 +22,7 @@ import (
 )
 
 var _ = Describe("Window", func() {
-	dynamic := telem.Window{Variant: telem.DynamicWindow{Span: telem.TimeSpan(60)}}
+	dynamic := telem.Window{Variant: telem.DynamicWindow{TimeSpan: telem.TimeSpan(60)}}
 	static := telem.Window{
 		Variant: telem.StaticWindow{
 			TimeRange: telem.TimeRange{
@@ -38,7 +38,7 @@ var _ = Describe("Window", func() {
 			var fields map[string]jsontext.Value
 			Expect(json.Unmarshal(b, &fields)).To(Succeed())
 			Expect(fields).To(HaveKeyWithValue("variant", jsontext.Value(`"dynamic"`)))
-			Expect(fields).To(HaveKey("span"))
+			Expect(fields).To(HaveKey("time_span"))
 		})
 
 		It("Should tag the static variant and nest its time range", func() {
@@ -93,7 +93,11 @@ var _ = Describe("Window", func() {
 				Expect(json.Unmarshal([]byte(payload), &decoded)).
 					To(MatchError(ContainSubstring(`within "` + path + `"`)))
 			},
-			Entry("dynamic span", `{"variant":"dynamic","span":true}`, "/span"),
+			Entry(
+				"dynamic time span",
+				`{"variant":"dynamic","time_span":true}`,
+				"/time_span",
+			),
 			Entry(
 				"static time range",
 				`{"variant":"static","time_range":true}`,

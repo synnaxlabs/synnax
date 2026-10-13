@@ -24,8 +24,7 @@ describe("refZ", () => {
   it("should parse a rolling window ref", () => {
     const ref = {
       variant: "window",
-      key: "custom-1",
-      window: { variant: "dynamic", span: 60e9 },
+      window: { variant: "dynamic", timeSpan: 60e9 },
     };
     expect(refZ.parse(ref)).toEqual(ref);
   });
@@ -34,12 +33,10 @@ describe("refZ", () => {
     expect(
       refZ.parse({
         variant: "window",
-        key: "custom-1",
         window: { variant: "static", timeRange: { start: 0, end: 1000n } },
       }),
     ).toEqual({
       variant: "window",
-      key: "custom-1",
       window: { variant: "static", timeRange: { start: "0", end: "1000" } },
     });
   });
@@ -47,11 +44,8 @@ describe("refZ", () => {
   it.each([
     ["an unknown variant", { variant: "bogus", key: KEY }],
     ["a key ref without a key", { variant: "key" }],
-    [
-      "a window ref without a key",
-      { variant: "window", window: { variant: "dynamic", span: 1 } },
-    ],
-    ["a window ref without a window", { variant: "window", key: "custom-1" }],
+    ["a key ref with a non-UUID key", { variant: "key", key: "rolling1m" }],
+    ["a window ref without a window", { variant: "window" }],
   ])("should reject %s", (_, value) => {
     expect(refZ.safeParse(value).success).toBe(false);
   });

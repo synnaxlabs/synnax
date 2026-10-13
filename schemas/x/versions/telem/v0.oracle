@@ -41,7 +41,7 @@ TimeRange struct {
 
 Window union on variant {
     dynamic {
-        span TimeSpan = 0 {
+        time_span TimeSpan = 0 {
             @doc value "is the span of the window, which ends now."
         }
 

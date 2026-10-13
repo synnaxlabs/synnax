@@ -47,7 +47,7 @@ func (wv Window) EncodeOrc(w *orc.Writer) error {
 	switch v := wv.Variant.(type) {
 	case DynamicWindow:
 		w.String("dynamic")
-		w.Int64(int64(v.Span))
+		w.Int64(int64(v.TimeSpan))
 	case StaticWindow:
 		w.String("static")
 		if err := v.TimeRange.EncodeOrc(w); err != nil {
@@ -73,7 +73,7 @@ func (wv *Window) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			v.Span = TimeSpan(rawV)
+			v.TimeSpan = TimeSpan(rawV)
 		}
 		wv.Variant = v
 	case "static":

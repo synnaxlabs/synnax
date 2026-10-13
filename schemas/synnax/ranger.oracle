@@ -79,19 +79,13 @@ Range struct {
 
 Ref union on variant {
     key {
-        key string {
-            @doc value "is the key of a range saved in the Core, a UUID string."
+        key Key {
+            @doc value "is the key of a range saved in the Core."
         }
 
         @doc value "is a range saved in the Core."
     }
     window {
-        key    string       {
-            @doc value """
-                is the window's stable identity, set when the window is created. Lines
-                reference it.
-            """
-        }
         window telem.Window {
             @doc value "is the window the reference resolves to."
         }
