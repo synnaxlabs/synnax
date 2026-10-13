@@ -1991,12 +1991,85 @@ describe("Series", () => {
       });
       expect(series.bounds).toEqual({ lower: Infinity, upper: -Infinity });
     });
+
+    it("should skip NaN samples", () => {
+      const series = new Series({ data: new Float32Array([1, NaN, 3, 2, NaN]) });
+      expect(series.bounds).toEqual({ lower: 1, upper: 3 });
+    });
+
+    it("should skip infinite samples", () => {
+      const series = new Series({
+        data: new Float32Array([Infinity, 1, -Infinity, 3]),
+      });
+      expect(series.bounds).toEqual({ lower: 1, upper: 3 });
+    });
+
+    it("should skip non-finite samples that are written later", () => {
+      const series = Series.alloc({ capacity: 4, dataType: DataType.FLOAT32 });
+      series.write(new Series({ data: new Float32Array([1, 2]) }));
+      expect(series.bounds).toEqual({ lower: 1, upper: 2 });
+      series.write(new Series({ data: new Float32Array([NaN, -Infinity]) }));
+      expect(series.bounds).toEqual({ lower: 1, upper: 2 });
+    });
+
+    it("should return invalid bounds when every sample is non-finite", () => {
+      const series = new Series({ data: new Float32Array([NaN, Infinity]) });
+      expect(series.bounds).toEqual({ lower: Infinity, upper: -Infinity });
+    });
+  });
+
+  describe("nonFiniteRanges", () => {
+    it("should return the index ranges of NaN and infinite samples", () => {
+      const series = new Series({
+        data: new Float64Array([1, NaN, 2, Infinity, -Infinity, 3, NaN]),
+      });
+      expect(series.nonFiniteRanges).toEqual([
+        { lower: 1, upper: 2 },
+        { lower: 3, upper: 5 },
+        { lower: 6, upper: 7 },
+      ]);
+    });
+
+    it("should include samples that are written later", () => {
+      const series = Series.alloc({ capacity: 6, dataType: DataType.FLOAT32 });
+      series.write(new Series({ data: new Float32Array([NaN, 1]) }));
+      expect(series.nonFiniteRanges).toEqual([{ lower: 0, upper: 1 }]);
+      series.write(new Series({ data: new Float32Array([2, NaN]) }));
+      expect(series.nonFiniteRanges).toEqual([
+        { lower: 0, upper: 1 },
+        { lower: 3, upper: 4 },
+      ]);
+    });
+
+    it("should extend a range across writes", () => {
+      const series = Series.alloc({ capacity: 4, dataType: DataType.FLOAT32 });
+      series.write(new Series({ data: new Float32Array([1, NaN]) }));
+      expect(series.nonFiniteRanges).toEqual([{ lower: 1, upper: 2 }]);
+      series.write(new Series({ data: new Float32Array([NaN, 2]) }));
+      expect(series.nonFiniteRanges).toEqual([{ lower: 1, upper: 3 }]);
+    });
+
+    it("should return no ranges for an integer series", () => {
+      const series = new Series({ data: new Int32Array([1, 2, 3]) });
+      expect(series.nonFiniteRanges).toEqual([]);
+    });
   });
 
   describe("boundsFor", () => {
     it("should bound only the samples in the index range", () => {
       const series = new Series({ data: new Float32Array([9999, -3, -2, -1, 9999]) });
       expect(series.boundsFor(1, 4)).toStrictEqual({ lower: -3, upper: -1 });
+    });
+
+    it("should skip non-finite samples in cached blocks and raw edges", () => {
+      const data = new Float32Array(10_000).fill(5);
+      data[1] = NaN;
+      data[5_000] = Infinity;
+      data[9_998] = -Infinity;
+      data[9_999] = NaN;
+      const series = new Series({ data });
+      expect(series.boundsFor(0, 10_000)).toStrictEqual({ lower: 5, upper: 5 });
+      expect(series.boundsFor(1, 10_000)).toStrictEqual({ lower: 5, upper: 5 });
     });
 
     it("should clamp out-of-range indices", () => {

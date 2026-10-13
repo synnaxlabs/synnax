@@ -13,6 +13,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { Flux } from "@/flux";
 import { Rack } from "@/rack";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
@@ -83,6 +84,26 @@ describe("queries", () => {
   });
 
   describe("useList", () => {
+    it("should update an item read by key when it changes", async () => {
+      const item = await client.racks.create({ name: "original" });
+      const { result } = renderHook(
+        () => {
+          const list = Rack.useList({ useCachedList: false });
+          return Flux.useListItem({
+            subscribe: list.subscribe,
+            getItem: list.getItem,
+            key: item.key,
+          });
+        },
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current?.name).toEqual("original"));
+      await act(async () => {
+        await client.racks.create({ ...item, name: "updated" });
+      });
+      await waitFor(() => expect(result.current?.name).toEqual("updated"));
+    });
+
     it("should return a list of rack keys", async () => {
       const rack1 = await client.racks.create({
         name: "rack1",

@@ -11,7 +11,8 @@
     "./base.css": "./src/base.css",
     "./integration": "./src/integration.ts",
     "./shiki": "./src/shiki.ts",
-    "./sitemap": "./src/sitemap.ts"
+    "./sitemap": "./src/sitemap.ts",
+    "./integrations/*": "./src/integrations/*"
   },
   "scripts": {
     "check-types": "astro check",

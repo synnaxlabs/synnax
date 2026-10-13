@@ -431,16 +431,23 @@ class LayoutClient:
         )
         return toggle.is_checked()
 
-    def get_dropdown_value(self, dropdown_label: str) -> str:
-        """Get the current value of a dropdown by label."""
-        dropdown_button = (
+    def _dropdown_button(self, dropdown_label: str) -> Locator:
+        return (
             self.page.locator(f"text={dropdown_label}")
             .locator("..")
             .locator("button")
             .first
         )
+
+    def get_dropdown_value(self, dropdown_label: str) -> str:
+        """Get the current value of a dropdown by label."""
+        dropdown_button = self._dropdown_button(dropdown_label)
         dropdown_button.wait_for(state="attached", timeout=5000)
         return dropdown_button.inner_text().strip()
+
+    def wait_for_dropdown_value(self, dropdown_label: str, value: str) -> None:
+        """Wait until a dropdown, found by label, shows the given value."""
+        expect(self._dropdown_button(dropdown_label)).to_have_text(value, timeout=5000)
 
     def get_selected_button(self, button_options: list[str]) -> str:
         """Get the currently selected button from a button group (no label)."""
