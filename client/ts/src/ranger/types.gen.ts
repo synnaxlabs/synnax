@@ -18,6 +18,45 @@ import { ontology } from "@/ontology";
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
+/** KeyRef is a range saved in the Core. */
+export const keyRefZ = z.object({
+  variant: z.literal("key"),
+  /** key is the key of a range saved in the Core, a UUID string. */
+  key: z.string(),
+});
+export interface KeyRef extends z.infer<typeof keyRefZ> {}
+
+/** WindowRef is a window carried inline: rolling or fixed. */
+export const windowRefZ = z.object({
+  variant: z.literal("window"),
+  /**
+   * key is the window's stable identity, set when the window is created. Lines
+   * reference it.
+   */
+  key: z.string(),
+  /** window is the window the reference resolves to. */
+  window: telem.windowZ,
+});
+export interface WindowRef extends z.infer<typeof windowRefZ> {}
+
+export const REF_TYPES = ["key", "window"] as const;
+export const refTypeZ = z.enum(REF_TYPES);
+export type RefType = z.infer<typeof refTypeZ>;
+
+/**
+ * Ref is the range a visualization shows: a range saved in the Core, or an inline
+ * window.
+ */
+export const refZ = z.discriminatedUnion("variant", [keyRefZ, windowRefZ]);
+export type Ref = KeyRef | WindowRef;
+
+export const REF_SCHEMAS: {
+  [K in RefType]: z.ZodType<Extract<Ref, { variant: K }>>;
+} = {
+  key: keyRefZ,
+  window: windowRefZ,
+};
+
 /**
  * Payload is a user-defined region of time in the Synnax cluster. Ranges act as a
  * method for labeling and categorizing telemetry data within specific time periods.

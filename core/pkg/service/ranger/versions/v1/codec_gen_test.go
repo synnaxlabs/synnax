@@ -66,6 +66,24 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
+	Describe("Ref", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v1.Ref) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v1.Ref
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("key variant", v1.Ref{Variant: v1.KeyRef{Key: "test_1"}}),
+			Entry("window variant", v1.Ref{Variant: v1.WindowRef{
+				Key:    "test_1",
+				Window: telem.Window{Variant: telem.DynamicWindow{Span: telem.TimeSpan(4)}},
+			}}),
+		)
+	})
 })
 
 func BenchmarkEncodeDecodeRange(b *testing.B) {
@@ -88,6 +106,23 @@ func BenchmarkEncodeDecodeRange(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v1.Range
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeRef(b *testing.B) {
+	seed := v1.Ref{Variant: v1.KeyRef{Key: "test_1"}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v1.Ref
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -157,6 +192,48 @@ func FuzzDecodeRange(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v1.Range
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeRef(f *testing.F) {
+	{
+		seed := v1.Ref{Variant: v1.KeyRef{Key: "test_1"}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v1.Ref{Variant: v1.WindowRef{
+			Key:    "test_1",
+			Window: telem.Window{Variant: telem.DynamicWindow{Span: telem.TimeSpan(4)}},
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v1.Ref
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v1.Ref
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

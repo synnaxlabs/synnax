@@ -77,6 +77,38 @@ Range struct {
     @ts name         "Payload"
 }
 
+Ref union on variant {
+    key {
+        key string {
+            @doc value "is the key of a range saved in the Core, a UUID string."
+        }
+
+        @doc value "is a range saved in the Core."
+    }
+    window {
+        key    string       {
+            @doc value """
+                is the window's stable identity, set when the window is created. Lines
+                reference it.
+            """
+        }
+        window telem.Window {
+            @doc value "is the window the reference resolves to."
+        }
+
+        @doc value "is a window carried inline: rolling or fixed."
+    }
+
+    @cpp omit
+    @doc value  """
+        is the range a visualization shows: a range saved in the Core, or an inline
+        window.
+    """
+    @go marshal
+    @pb omit
+    @py omit
+}
+
 New struct extends Range {
     -labels
     parent Range? {
