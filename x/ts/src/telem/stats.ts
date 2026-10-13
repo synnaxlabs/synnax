@@ -40,6 +40,15 @@ export const rms = (y: ArrayLike<number>): number => {
   return Math.sqrt(sum / y.length);
 };
 
+/** @returns the population standard deviation, or NaN when there are no samples. */
+export const stdDev = (y: ArrayLike<number>): number => {
+  const m = mean(y);
+  if (Number.isNaN(m)) return NaN;
+  let sum = 0;
+  for (let i = 0; i < y.length; i++) sum += (y[i] - m) ** 2;
+  return Math.sqrt(sum / y.length);
+};
+
 // Linear interpolation of the x at which y crosses level between samples i and i + 1.
 const crossingAt = (
   x: ArrayLike<number>,
@@ -52,8 +61,13 @@ const crossingAt = (
   return x[i] + ((level - y[i]) / dy) * (x[i + 1] - x[i]);
 };
 
+/** The fraction of peak to peak a signal must swing past its mean to count a cycle. */
+const HYSTERESIS = 0.1;
+
 /**
- * Estimates the fundamental frequency from the rising crossings of the mean.
+ * Estimates the fundamental frequency from the rising crossings of the mean. A crossing
+ * counts only once the signal has dipped below and then risen above a band around the
+ * mean, so noise riding on the signal does not add cycles.
  * @param x - Sample positions, in the unit whose inverse the result takes (seconds
  * give Hz).
  * @param y - Samples, paired with x.
@@ -63,15 +77,24 @@ export const frequency = (x: ArrayLike<number>, y: ArrayLike<number>): number =>
   const n = Math.min(x.length, y.length);
   if (n < 3) return NaN;
   const level = mean(y);
+  const band = HYSTERESIS * peakToPeak(y);
+  const low = level - band;
+  const high = level + band;
+  let armed = false;
+  let pending = NaN;
   let first = NaN;
   let last = NaN;
   let count = 0;
   for (let i = 0; i < n - 1; i++) {
-    if (!(y[i] < level && y[i + 1] >= level)) continue;
-    const at = crossingAt(x, y, i, level);
-    if (count === 0) first = at;
-    last = at;
+    if (y[i] < low) armed = true;
+    if (!armed) continue;
+    if (y[i] < level && y[i + 1] >= level) pending = crossingAt(x, y, i, level);
+    if (y[i + 1] < high || Number.isNaN(pending)) continue;
+    if (count === 0) first = pending;
+    last = pending;
     count++;
+    armed = false;
+    pending = NaN;
   }
   if (count < 2 || last <= first) return NaN;
   return (count - 1) / (last - first);

@@ -32,13 +32,15 @@ const statisticZ = z.number().nullable();
 export const measurementZ = z.object({
   line: z.string(),
   label: z.string().optional(),
-  units: z.string().optional(),
+  count: z.number(),
+  last: statisticZ,
   min: statisticZ,
   max: statisticZ,
   /** The x value at the maximum sample. */
   peakX: statisticZ,
   peakToPeak: statisticZ,
   mean: statisticZ,
+  stdDev: statisticZ,
   rms: statisticZ,
   /** Hz when x is time, otherwise cycles per x unit. */
   frequency: statisticZ,
@@ -228,12 +230,14 @@ export class LinePlot
           measurements.push({
             line: line.key,
             label: line.state.label,
-            units: yAxis.state.label,
+            count: y.length,
+            last: statistic(y.length === 0 ? NaN : y[y.length - 1]),
             min: statistic(stats.min(y)),
             max: statistic(stats.max(y)),
             peakX: statistic(time ? peakX(x, y) : peakX(xs, y)),
             peakToPeak: statistic(stats.peakToPeak(y)),
             mean: statistic(stats.mean(y)),
+            stdDev: statistic(stats.stdDev(y)),
             rms: statistic(stats.rms(y)),
             frequency: statistic(stats.frequency(xs, y)),
             riseTime: statistic(stats.riseTime(xs, y)),

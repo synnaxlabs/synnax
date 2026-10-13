@@ -27,13 +27,27 @@ interface Column {
 
 const EMPTY = "—";
 
-/** Below this fraction of a line's peak to peak, a value is float noise around zero. */
-const NOISE_FLOOR = 1e-6;
+const SIGNIFICANT = new Intl.NumberFormat("en-US", {
+  maximumSignificantDigits: 4,
+  useGrouping: false,
+});
 
-const value = (v: number | null, units?: string, scale?: number | null): string => {
+const value = (v: number | null, units?: string): string => {
   if (v == null) return EMPTY;
-  const rounded = Math.abs(v) < (scale ?? 0) * NOISE_FLOOR ? 0 : math.smartRound(v);
-  return units == null || units.length === 0 ? `${rounded}` : `${rounded} ${units}`;
+  const n = SIGNIFICANT.format(v);
+  return units == null ? n : `${n} ${units}`;
+};
+
+/**
+ * Formats a sample statistic to four significant digits of the line's peak to peak, so
+ * every value in a row shares one resolution and float noise around zero reads as 0.
+ */
+const sample = (v: number | null, peakToPeak: number | null): string => {
+  if (v == null) return EMPTY;
+  if (peakToPeak == null || peakToPeak === 0) return value(v);
+  const decimals = Math.min(Math.max(3 - Math.floor(Math.log10(peakToPeak)), 0), 12);
+  const fixed = v.toFixed(decimals);
+  return Number(fixed) === 0 ? (0).toFixed(decimals) : fixed;
 };
 
 const SECOND_UNITS: Array<[number, string]> = [
@@ -52,35 +66,42 @@ const seconds = (v: number | null): string => {
 };
 
 const SAMPLE_COLUMNS: Column[] = [
-  { key: "min", label: "Min", format: (m) => value(m.min, m.units) },
-  { key: "max", label: "Max", format: (m) => value(m.max, m.units) },
+  { key: "last", label: "Last", format: (m) => sample(m.last, m.peakToPeak) },
+  { key: "min", label: "Min", format: (m) => sample(m.min, m.peakToPeak) },
+  { key: "max", label: "Max", format: (m) => sample(m.max, m.peakToPeak) },
+  { key: "mean", label: "Mean", format: (m) => sample(m.mean, m.peakToPeak) },
+  { key: "stdDev", label: "Std. dev.", format: (m) => sample(m.stdDev, m.peakToPeak) },
+];
+
+const FREQUENCY_COLUMN: Column = {
+  key: "frequency",
+  label: "Frequency",
+  format: (m) => value(m.frequency, "Hz"),
+};
+
+const WAVEFORM_COLUMNS: Column[] = [
   {
     key: "peakToPeak",
     label: "Peak to peak",
-    format: (m) => value(m.peakToPeak, m.units),
+    format: (m) => sample(m.peakToPeak, m.peakToPeak),
   },
-  {
-    key: "mean",
-    label: "Mean",
-    format: (m) => value(m.mean, m.units, m.peakToPeak),
-  },
-  { key: "rms", label: "RMS", format: (m) => value(m.rms, m.units) },
-];
-
-const TIME_COLUMNS: Column[] = [
-  { key: "frequency", label: "Frequency", format: (m) => value(m.frequency, "Hz") },
+  { key: "rms", label: "RMS", format: (m) => sample(m.rms, m.peakToPeak) },
+  FREQUENCY_COLUMN,
   { key: "riseTime", label: "Rise time", format: (m) => seconds(m.riseTime) },
 ];
 
 const SPECTRUM_COLUMNS: Column[] = [
-  { key: "max", label: "Peak", format: (m) => value(m.max, m.units) },
   { key: "peakX", label: "Peak frequency", format: (m) => value(m.peakX, "Hz") },
-  {
-    key: "mean",
-    label: "Mean",
-    format: (m) => value(m.mean, m.units, m.peakToPeak),
-  },
+  { key: "max", label: "Peak magnitude", format: (m) => value(m.max) },
 ];
+
+const COUNT = new Intl.NumberFormat("en-US");
+
+const COUNT_COLUMN: Column = {
+  key: "count",
+  label: "Samples",
+  format: (m) => COUNT.format(m.count),
+};
 
 /** Reads the x1 axis to pick the statistics that make sense for what it plots. */
 const useColumns = (): Column[] => {
@@ -88,14 +109,15 @@ const useColumns = (): Column[] => {
   const ranges = LinePlot.useRanges();
   const triggered =
     ranges.x1.includes(Range.CUSTOM_KEY) && ranges.custom?.variant === "triggered";
-  if (x1.mode === "spectrum" && !triggered) return SPECTRUM_COLUMNS;
-  if (x1.type === "time" || triggered) return [...SAMPLE_COLUMNS, ...TIME_COLUMNS];
+  if (triggered) return [...SAMPLE_COLUMNS, ...WAVEFORM_COLUMNS];
+  if (x1.mode === "spectrum") return SPECTRUM_COLUMNS;
+  if (x1.type === "time") return [...SAMPLE_COLUMNS, FREQUENCY_COLUMN];
   return SAMPLE_COLUMNS;
 };
 
 export const Measure = (): ReactElement => {
   const measurements = Session.LinePlot.useSelectMeasurements();
-  const columns = useColumns();
+  const columns = [...useColumns(), COUNT_COLUMN];
   const lines = LinePlot.useLines();
   const colors = new Map(lines.map((l) => [l.key, color.cssString(l.color)]));
   if (measurements.length === 0)

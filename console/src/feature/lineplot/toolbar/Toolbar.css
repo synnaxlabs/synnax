@@ -50,8 +50,10 @@
         min-width: 7rem;
     }
 
+    /* Wide gaps keep a field's label from reading as one more option of the button
+       group before it. */
     .console-line-plot__window {
-        column-gap: 3rem;
+        column-gap: 6rem;
         row-gap: 1rem;
     }
 
@@ -64,7 +66,7 @@
     }
 
     .console-line-plot__toolbar-data-x-row {
-        column-gap: 3rem;
+        column-gap: 6rem;
     }
 
     .console-line-plot__toolbar-data-x {
@@ -110,24 +112,34 @@
     overflow: auto;
 }
 
+/* Fixed layout pins every statistic column to one width, so a column never moves when
+   the digits in it change. The line column takes the rest. */
 .console-line-plot__measure-table {
     width: 100%;
+    table-layout: fixed;
     border-collapse: collapse;
     font-variant-numeric: tabular-nums;
 
     th,
     td {
-        padding: 1rem 3rem;
+        padding: 1rem 2rem;
         text-align: right;
         white-space: nowrap;
         border-bottom: var(--pluto-border-width) solid var(--pluto-gray-l3);
     }
 
+    th:not(:first-child) {
+        width: 20rem;
+    }
+
     th:first-child,
     td:first-child {
-        width: 100%;
-        max-width: 0;
         text-align: left;
+    }
+
+    td {
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     thead th {

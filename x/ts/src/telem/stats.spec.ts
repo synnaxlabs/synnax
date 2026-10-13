@@ -42,6 +42,21 @@ describe("stats", () => {
     expect(stats.frequency(x, s)).toBeCloseTo(50, 1);
   });
 
+  it("should ignore noise that crosses the mean within the hysteresis band", () => {
+    const n = 2000;
+    const x = new Float64Array(n);
+    const s = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+      x[i] = i / 1000;
+      s[i] = Math.sin(2 * Math.PI * 5 * x[i]) + 0.05 * (i % 2 === 0 ? 1 : -1);
+    }
+    expect(stats.frequency(x, s)).toBeCloseTo(5, 1);
+  });
+
+  it("should compute the population standard deviation", () => {
+    expect(stats.stdDev([2, 4, 4, 4, 5, 5, 7, 9])).toBe(2);
+  });
+
   it("should return NaN frequency with fewer than two crossings", () => {
     expect(stats.frequency([0, 1, 2], [0, 1, 2])).toBeNaN();
   });

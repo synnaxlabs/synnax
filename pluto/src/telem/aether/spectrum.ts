@@ -46,8 +46,9 @@ export interface WindowSamples {
 }
 
 /**
- * Collects the samples of data whose index timestamp lies inside the window. Data and
- * index are paired by alignment, so both must come from channels sharing an index.
+ * Collects the samples of data whose index timestamp lies inside the window, each
+ * timestamp once. Data and index are paired by alignment, so both must come from
+ * channels sharing an index.
  * @param index - The index series, sorted by alignment.
  * @param data - The data series.
  * @param window - Inclusive timestamp bounds in nanoseconds.
@@ -65,10 +66,13 @@ export const windowSamples = (
     let hi = ix.binarySearch(window.upper);
     if (hi < ix.length && Number(ix.at(hi, true)) === window.upper) hi++;
     for (let i = lo; i < hi; i++) {
+      // Streamed series can overlap the ones read before them.
+      const t = Number(ix.at(i, true));
+      if (ts.length > 0 && t <= ts[ts.length - 1]) continue;
       const v = data.atAlignment(ix.alignment + BigInt(i) * ix.alignmentMultiple);
       if (v == null) continue;
       ys.push(Number(v));
-      ts.push(Number(ix.at(i, true)));
+      ts.push(t);
     }
   }
   return { y: Float64Array.from(ys), t: Float64Array.from(ts) };
