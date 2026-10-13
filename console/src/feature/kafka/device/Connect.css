@@ -36,5 +36,5 @@
 
 .console-kafka-connect__ca {
     min-height: 12rem;
-    font-family: var(--pluto-font-family-mono, monospace);
+    font-family: var(--pluto-code-font-family);
 }
