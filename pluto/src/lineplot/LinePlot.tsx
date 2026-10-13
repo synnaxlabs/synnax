@@ -94,7 +94,7 @@ const useUndoRedoTriggers = ({ key, enabled }: UseUndoRedoTriggersProps) => {
   Triggers.useUndoRedo({ undo, redo, enabled });
 };
 
-/** @returns a function that applies the actions as one undo step if the plot is editable. */
+/** @returns a function that applies actions as one undo step on an editable plot. */
 const useEdit = (
   key: lineplot.Key,
   editable: boolean,
@@ -396,7 +396,7 @@ const XAxis = ({
   const { dispatch } = useDispatch();
   const edit = useEdit(key, editable);
   const dropProps = Haul.useDrop({
-    type: "channel_lineplot_x_axis",
+    type: "lineplot_x_axis",
     canDrop: canDropChannelOrRange,
     onDrop: useCallback(
       ({ items }) => {
@@ -460,7 +460,7 @@ const FIRST_X_AXIS: lineplot.XAxisKey = "x1";
 const usePlotDrop = (key: lineplot.Key, editable: boolean): Haul.UseDropReturn => {
   const edit = useEdit(key, editable);
   return Haul.useDrop({
-    type: "channel_lineplot_plot",
+    type: "lineplot_plot",
     canDrop: canDropChannelOrRange,
     onDrop: useCallback(
       ({ items }) => {
