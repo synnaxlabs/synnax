@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Logo } from "@synnaxlabs/media";
 import { type ReactElement, type ReactNode, useId } from "react";
 
 export type EngineeringMode = "reliability" | "performance" | "deployment";
 type Point = readonly [number, number, number];
-type Stage = 0 | 1 | 2;
+type Stage = 0 | 1 | 2 | 3 | 4;
 
 const INK = "#dce6f2";
 const ACCENT = "#a8c2e3";
@@ -156,14 +157,8 @@ const Label = ({
   );
 };
 
-const RouteNode = ({
-  x,
-  muted = false,
-}: {
-  x: number;
-  muted?: boolean;
-}): ReactElement => (
-  <g className="eng-motion" style={{ opacity: muted ? 0.32 : 1 }}>
+const RouteNode = ({ x }: { x: number }): ReactElement => (
+  <g className="eng-motion">
     <Slab x={x} y={104} w={150} d={142} z={24} thickness={15}>
       <Face
         points={[
@@ -221,6 +216,454 @@ const RouteNode = ({
   </g>
 );
 
+const HealthNode = ({ x, label }: { x: number; label: string }): ReactElement => {
+  const [cx, cy] = project([x + 56, 177, 35]);
+  const logoPlacement = { width: 44, height: 44 };
+  return (
+    <g>
+      <Slab
+        x={x}
+        y={122}
+        w={112}
+        d={110}
+        z={27}
+        thickness={15}
+        fill="#2b3e55"
+        stroke="#829bb9"
+      >
+        <Face
+          points={[
+            [x + 12, 134, 28],
+            [x + 100, 134, 28],
+            [x + 100, 220, 28],
+            [x + 12, 220, 28],
+          ]}
+          fill="#192b3f"
+          stroke="#516985"
+        />
+        {[144, 210].map((y) => (
+          <Line
+            key={y}
+            points={[
+              [x + 15, y, 29],
+              [x + 96, y, 29],
+            ]}
+            color="#6884a2"
+          />
+        ))}
+      </Slab>
+      <g
+        transform={`translate(${cx} ${cy}) matrix(1 .2 -.48 .43 0 0) translate(-22 -22)`}
+      >
+        <Logo {...logoPlacement} color="auto" aria-hidden="true" />
+      </g>
+      <Label point={[x + 57, 279, 26]} anchor="middle" color={INK}>
+        {label}
+      </Label>
+    </g>
+  );
+};
+
+const HealthFlow = ({
+  points,
+  active = true,
+  color = ACCENT,
+  backfill = false,
+}: {
+  points: readonly Point[];
+  active?: boolean;
+  color?: string;
+  backfill?: boolean;
+}): ReactElement => (
+  <g>
+    <Line
+      points={points}
+      color={active ? "#607d9b" : "#786c5b"}
+      width={1.3}
+      dashed={!active}
+    />
+    {active && (
+      <path
+        d={path(points)}
+        className={backfill ? "eng-health-flow eng-health-backfill" : "eng-health-flow"}
+        fill="none"
+        stroke={color}
+        strokeWidth={backfill ? 2.4 : 1.8}
+        strokeDasharray={backfill ? "4 12" : "10 90"}
+      />
+    )}
+  </g>
+);
+
+const DataHealthScene = ({ stage, id }: { stage: Stage; id: string }): ReactElement => {
+  const silent = stage === 1;
+  const delayed = stage === 2;
+  const recovering = stage === 3;
+  const rangeCheck = stage === 4;
+  const bufferLevel = delayed ? 4 : recovering ? 2 : 0;
+  const description = [
+    "Equipment feeds Ignition. Foundation site and cloud nodes carry telemetry to InfluxDB, whose write acknowledgments confirm delivery. Source quality, validation, and delivery are separate signals.",
+    "The Ignition connection stays online while the stream misses its one-second update expectation. The last sample remains source-reported good, but its freshness validation is stale. The destination received that last sample.",
+    "Equipment and Ignition continue to deliver fresh data to Foundation. InfluxDB writes lag by 42 seconds and 18,400 samples wait in the local buffer. Source quality remains good. Delay does not establish data loss.",
+    "Live telemetry continues while retained samples catch up. 4,200 samples remain buffered. A four-second interval exceeded retention and remains an explicit gap; recovered delivery does not erase it.",
+    "A fresh 86.4 bar pressure reading exceeds the configured 0 to 80 bar range. Its source-reported quality remains good, its validation is out of range, and its destination write is confirmed.",
+  ][stage];
+  return (
+    <svg
+      className="eng-scene eng-health-scene"
+      viewBox="50 80 950 410"
+      role="img"
+      aria-labelledby={`${id}-title ${id}-description`}
+      data-mode="reliability"
+      data-stage={stage}
+    >
+      <title id={`${id}-title`}>
+        Telemetry health,{" "}
+        {
+          [
+            "flowing",
+            "source silent",
+            "destination delayed",
+            "recovering",
+            "value check",
+          ][stage]
+        }
+      </title>
+      <desc id={`${id}-description`}>{description}</desc>
+
+      <g opacity="0.6">
+        <Face
+          points={[
+            [0, 48, -19],
+            [753, 48, -19],
+            [753, 276, -19],
+            [0, 276, -19],
+          ]}
+          fill="#111c29"
+          stroke="#35485f"
+        />
+        {[80, 140, 200, 260].map((y) => (
+          <Line
+            key={y}
+            points={[
+              [0, y, -18],
+              [753, y, -18],
+            ]}
+            color="#34455b"
+            opacity={0.5}
+          />
+        ))}
+        {[80, 180, 280, 380, 480, 580, 680].map((x) => (
+          <Line
+            key={x}
+            points={[
+              [x, 48, -18],
+              [x, 276, -18],
+            ]}
+            color="#34455b"
+            opacity={0.5}
+          />
+        ))}
+      </g>
+
+      <Label point={[37, 390, 50]} anchor="middle">
+        EQUIPMENT
+      </Label>
+      {[21, 69].map((x, index) => (
+        <g key={x}>
+          <Slab
+            x={x}
+            y={316}
+            w={33}
+            d={43}
+            z={32 + index * 8}
+            thickness={26}
+            fill="#293a4e"
+            stroke="#7088a4"
+          />
+          <Line
+            points={[
+              [x + 7, 323, 33 + index * 8],
+              [x + 27, 323, 33 + index * 8],
+            ]}
+            color={ACCENT}
+            width={1.5}
+          />
+          <HealthFlow
+            points={[
+              [x + 16, 316, 6],
+              [x + 16, 291, 6],
+              [99, 291, 6],
+              [99, 232, 27],
+            ]}
+          />
+        </g>
+      ))}
+
+      {/* A source adapter, two routing nodes, and a destination keep distinct forms. */}
+      <Slab
+        x={50}
+        y={122}
+        w={102}
+        d={110}
+        z={27}
+        thickness={10}
+        fill="#25354a"
+        stroke={silent ? WARM : EDGE}
+      >
+        {[0, 1, 2, 3].map((row) => (
+          <Line
+            key={row}
+            points={[
+              [66, 143 + row * 21, 28],
+              [silent && row === 1 ? 108 : 137, 143 + row * 21, 28],
+            ]}
+            color={row === 1 ? (silent ? WARM : ACCENT) : "#65809f"}
+            width={row === 1 ? 2 : 1}
+          />
+        ))}
+      </Slab>
+      <Label point={[-8, 202, -16]} color={INK} anchor="end">
+        IGNITION
+      </Label>
+      <Label point={[100, 101, 4]} anchor="middle" color={silent ? WARM : "#a6bbd4"}>
+        {silent ? "ONLINE / STALE STREAM" : "SOURCE CONNECTED"}
+      </Label>
+
+      <Slab
+        x={152}
+        y={162}
+        w={98}
+        d={27}
+        z={23}
+        thickness={5}
+        fill="#1b2b3c"
+        stroke="#526881"
+      />
+      <HealthFlow
+        points={[
+          [152, 176, 25],
+          [250, 176, 25],
+        ]}
+        active={!silent}
+        color={rangeCheck ? WARM : ACCENT}
+      />
+      <Slab
+        x={362}
+        y={162}
+        w={88}
+        d={27}
+        z={23}
+        thickness={5}
+        fill="#1b2b3c"
+        stroke="#526881"
+      />
+      <HealthFlow
+        points={[
+          [362, 176, 25],
+          [450, 176, 25],
+        ]}
+        active={!silent}
+      />
+      <Slab
+        x={562}
+        y={162}
+        w={88}
+        d={27}
+        z={23}
+        thickness={5}
+        fill="#1b2b3c"
+        stroke={delayed ? WARM : "#526881"}
+      />
+      <HealthFlow
+        points={[
+          [562, 176, 25],
+          [650, 176, 25],
+        ]}
+        active={!delayed && !silent}
+      />
+      {recovering && (
+        <HealthFlow
+          points={[
+            [362, 187, 25],
+            [450, 187, 25],
+          ]}
+          backfill
+          color={WARM}
+        />
+      )}
+      {recovering && (
+        <HealthFlow
+          points={[
+            [562, 187, 25],
+            [650, 187, 25],
+          ]}
+          backfill
+          color={WARM}
+        />
+      )}
+      <HealthNode x={250} label="FOUNDATION / SITE" />
+      <HealthNode x={450} label="FOUNDATION / CLOUD" />
+
+      <Slab
+        x={650}
+        y={126}
+        w={88}
+        d={104}
+        z={27}
+        thickness={22}
+        fill="#24364a"
+        stroke={delayed ? WARM : EDGE}
+      >
+        {[0, 1, 2, 3, 4].map((index) => (
+          <Line
+            key={index}
+            points={[
+              [663, 141 + index * 17, 28],
+              [724, 141 + index * 17, 28],
+            ]}
+            color={delayed ? "#8e8069" : index === 3 ? ACCENT : "#68819d"}
+            width={index === 3 ? 1.8 : 0.8}
+          />
+        ))}
+      </Slab>
+      <g className="eng-health-annotation">
+        <path
+          d={`M 790 230 H 938 V 302 L ${coordinate([738, 230, 27])}`}
+          fill="none"
+          stroke={delayed ? "#8d7d64" : "#566e87"}
+          strokeWidth="1"
+        />
+        <text className="eng-health-callout-title" x="790" y="191">
+          INFLUXDB
+        </text>
+        <text x="790" y="215">
+          {delayed
+            ? "WRITE LAG / 42 S"
+            : recovering
+              ? "LIVE + BACKFILL"
+              : "WRITES CONFIRMED"}
+        </text>
+      </g>
+      <Line
+        points={[
+          [693, 126, 2],
+          [693, 92, 2],
+          [506, 92, 2],
+          [506, 122, 12],
+        ]}
+        color={delayed ? WARM : "#6d87a2"}
+        dashed
+        opacity={0.8}
+      />
+      <g className="eng-health-annotation">
+        <path
+          d="M 632 394 L 652 386"
+          fill="none"
+          stroke={delayed ? "#8d7d64" : "#566e87"}
+          strokeWidth="1"
+        />
+        <text x="623" y="401" textAnchor="end">
+          ACKNOWLEDGMENT
+        </text>
+      </g>
+
+      {/* Retention grows in place, so the state changes do not rearrange the topology. */}
+      <Line
+        points={[
+          [306, 122, 12],
+          [306, 66, 12],
+        ]}
+        color={bufferLevel ? WARM : EDGE}
+      />
+      <Slab
+        x={257}
+        y={9}
+        w={101}
+        d={57}
+        z={4}
+        thickness={7}
+        fill="#1a293b"
+        stroke="#58718e"
+      />
+      {[0, 1, 2, 3].map((level) => (
+        <g
+          key={level}
+          className="eng-motion"
+          style={{
+            opacity: level < bufferLevel ? 1 : 0.2,
+            transform: `translateY(${level < bufferLevel ? -level * 7 : 0}px)`,
+          }}
+        >
+          <Slab
+            x={263}
+            y={15}
+            w={89}
+            d={45}
+            z={8 + level * 2}
+            thickness={3}
+            fill={bufferLevel ? "#353b41" : "#233247"}
+            stroke={bufferLevel ? "#ac9c80" : "#526b86"}
+          />
+        </g>
+      ))}
+      <Label
+        point={[304, -22, -9]}
+        anchor="middle"
+        color={bufferLevel ? WARM : "#9eb3cb"}
+      >
+        LOCAL BUFFER
+      </Label>
+
+      {/* The inspection trace is a stream history, not a claim of a separate dashboard. */}
+      <g className="eng-health-history">
+        <text x="177" y="433" fill="#a9bad0" fontSize="11" letterSpacing="1">
+          STREAM HISTORY
+        </text>
+        <line x1="335" y1="430" x2="835" y2="430" stroke="#33475f" strokeWidth="1" />
+        {Array.from({ length: 29 }, (_, i) => {
+          const missing = recovering && i >= 10 && i <= 12;
+          const stale = silent && i > 18;
+          const pending = (delayed && i > 13) || (recovering && i > 24);
+          return (
+            <line
+              key={i}
+              x1={342 + i * 17}
+              x2={342 + i * 17}
+              y1="421"
+              y2="439"
+              stroke={
+                missing ? "#c4978a" : stale ? "#736c62" : pending ? WARM : "#8ca8c8"
+              }
+              strokeWidth={missing || stale ? 1 : 2}
+              strokeDasharray={missing || stale ? "2 3" : undefined}
+              opacity={stale ? 0.7 : 1}
+            />
+          );
+        })}
+        <text
+          x="835"
+          y="467"
+          textAnchor="end"
+          fill={recovering || silent || delayed || rangeCheck ? WARM : "#a9bad0"}
+          fontSize="11"
+          letterSpacing=".6"
+        >
+          {silent
+            ? "NO NEW SAMPLE / 18 S"
+            : delayed
+              ? "RETAINED / AWAITING DELIVERY"
+              : recovering
+                ? "4 S GAP / OUTSIDE RETENTION"
+                : rangeCheck
+                  ? "86.4 BAR / EXPECTED 0–80"
+                  : "SOURCE → DESTINATION / CONFIRMED"}
+        </text>
+      </g>
+    </svg>
+  );
+};
+
 export const EngineeringScene = ({
   mode,
   stage,
@@ -229,16 +672,14 @@ export const EngineeringScene = ({
   stage: Stage;
 }): ReactElement => {
   const id = useId().replace(/:/g, "");
-  const reliability = mode === "reliability";
+  if (mode === "reliability") return <DataHealthScene stage={stage} id={id} />;
   const performance = mode === "performance";
   const deployment = mode === "deployment";
-  const disconnected = reliability && stage === 1;
-  const catchingUp = reliability && stage === 2;
   const batched = performance && stage >= 1;
   const configured = deployment && stage === 2;
   const peerVisible = !deployment || stage >= 1;
-  const bufferLevel = disconnected ? 4 : catchingUp ? 2 : 1;
-  const title = `${mode === "reliability" ? "Distributed reliability" : performance ? "The data path" : "Deployment topology"}, step ${stage + 1}`;
+  const bufferLevel = 1;
+  const title = `${performance ? "The data path" : "Deployment topology"}, step ${stage + 1}`;
 
   return (
     <svg
@@ -251,35 +692,10 @@ export const EngineeringScene = ({
     >
       <title id={`${id}-title`}>{title}</title>
       <desc id={`${id}-description`}>
-        {reliability
-          ? disconnected
-            ? "The uplink is interrupted. The local node continues to collect data into its buffer while the remote node is disconnected."
-            : catchingUp
-              ? "The connection is restored. Buffered data moves from the local node across the uplink to the remote node and client."
-              : "Two Foundation nodes exchange data across an uplink. A local buffer sits beside the source node."
-          : performance
-            ? "Incoming channels enter the local node, are arranged into frames, and travel through the transport to the receiving node and client."
-            : "Foundation nodes share the same deployment shape. Peers join the topology, then matching configuration plates appear across the nodes."}
+        {performance
+          ? "Incoming channels enter the local node, are arranged into frames, and travel through the transport to the receiving node and client."
+          : "Foundation nodes share the same deployment shape. Peers join the topology, then matching configuration plates appear across the nodes."}
       </desc>
-      <defs>
-        <pattern id={`${id}-grid`} width="32" height="32" patternUnits="userSpaceOnUse">
-          <path
-            d="M 32 0 L 0 0 0 32"
-            fill="none"
-            stroke="#35455f"
-            strokeWidth="0.6"
-            opacity="0.32"
-          />
-        </pattern>
-      </defs>
-      <style>{`
-        .eng-motion { transition: transform 650ms cubic-bezier(.22,.7,.3,1), opacity 500ms ease; }
-        .eng-stroke { transition: stroke 450ms ease, fill 450ms ease, opacity 450ms ease; }
-        @media (prefers-reduced-motion: reduce) {
-          .eng-motion, .eng-stroke { transition: none; }
-        }
-      `}</style>
-
       {/* One finite survey surface, rather than an infinite decorative grid. */}
       <g opacity="0.48">
         <Face
@@ -359,11 +775,11 @@ export const EngineeringScene = ({
         </Label>
       </g>
 
-      {/* A cut transit rail visibly opens when the connection is lost. */}
+      {/* A transit rail connects the routing nodes. */}
       <g
         className="eng-motion"
         style={{
-          transform: disconnected ? "translate(-9px, -2px)" : "translate(0, 0)",
+          transform: "translate(0, 0)",
         }}
       >
         <Slab
@@ -373,7 +789,7 @@ export const EngineeringScene = ({
           d={36}
           z={24}
           fill="#202e40"
-          stroke={disconnected ? WARM : EDGE}
+          stroke={EDGE}
           thickness={5}
         />
         <Line
@@ -381,7 +797,7 @@ export const EngineeringScene = ({
             [230, 176, 25],
             [324, 176, 25],
           ]}
-          color={disconnected ? WARM : ACCENT}
+          color={ACCENT}
           width={1.6}
         />
         <Line
@@ -396,7 +812,7 @@ export const EngineeringScene = ({
         className="eng-motion"
         style={{
           opacity: peerVisible ? 1 : 0.22,
-          transform: disconnected ? "translate(9px, 2px)" : "translate(0, 0)",
+          transform: "translate(0, 0)",
         }}
       >
         <Slab
@@ -406,7 +822,7 @@ export const EngineeringScene = ({
           d={36}
           z={24}
           fill="#202e40"
-          stroke={disconnected ? WARM : EDGE}
+          stroke={EDGE}
           thickness={5}
         />
         <Line
@@ -414,7 +830,7 @@ export const EngineeringScene = ({
             [336, 176, 25],
             [435, 176, 25],
           ]}
-          color={disconnected ? "#65728a" : ACCENT}
+          color={ACCENT}
           width={1.6}
         />
         <Line
@@ -425,10 +841,7 @@ export const EngineeringScene = ({
           color="#657b9f"
         />
       </g>
-      <g
-        className="eng-motion"
-        style={{ opacity: disconnected ? 0 : peerVisible ? 1 : 0.22 }}
-      >
+      <g className="eng-motion" style={{ opacity: peerVisible ? 1 : 0.22 }}>
         <Slab x={324} y={162} w={12} d={36} z={24} fill="#303f55" thickness={5} />
         <Line
           points={[
@@ -439,36 +852,7 @@ export const EngineeringScene = ({
           width={1.6}
         />
       </g>
-      <g className="eng-motion" style={{ opacity: disconnected ? 1 : 0 }}>
-        <Line
-          points={[
-            [330, 145, 12],
-            [330, 214, 47],
-          ]}
-          color={WARM}
-          dashed
-        />
-        <Label point={[330, 246, 30]} color={WARM} anchor="middle">
-          LINK INTERRUPTED
-        </Label>
-        <Line
-          points={[
-            [348, 151, 26],
-            [358, 141, 26],
-          ]}
-          color={WARM}
-          width={1.4}
-        />
-        <Line
-          points={[
-            [348, 141, 26],
-            [358, 151, 26],
-          ]}
-          color={WARM}
-          width={1.4}
-        />
-      </g>
-      <g className="eng-motion" style={{ opacity: disconnected ? 0 : 1 }}>
+      <g className="eng-motion" style={{ opacity: 1 }}>
         <Label point={deployment ? [331, 112, 3] : [331, 250, 28]} anchor="middle">
           UPLINK
         </Label>
@@ -476,15 +860,12 @@ export const EngineeringScene = ({
 
       <RouteNode x={80} />
       <g className="eng-motion" style={{ opacity: peerVisible ? 1 : 0.18 }}>
-        <RouteNode x={435} muted={disconnected} />
+        <RouteNode x={435} />
       </g>
       <Label point={[98, 266, configured ? 76 : 28]} color={INK}>
         NODE 01
       </Label>
-      <Label
-        point={[453, 266, configured ? 76 : 28]}
-        color={disconnected ? "#8999b5" : INK}
-      >
+      <Label point={[453, 266, configured ? 76 : 28]} color={INK}>
         NODE 02
       </Label>
 
@@ -522,7 +903,7 @@ export const EngineeringScene = ({
             [147, 104, 9],
             [147, 70, 9],
           ]}
-          color={disconnected ? WARM : "#8b9fbf"}
+          color="#8b9fbf"
         />
         <Slab x={91} y={12} w={117} d={58} z={7} fill="#202e40" thickness={8} />
         {[0, 1, 2, 3].map((index) => {
@@ -533,7 +914,7 @@ export const EngineeringScene = ({
               className="eng-motion"
               style={{
                 opacity: visible ? 1 : 0.12,
-                transform: `translate(0, ${visible ? -index * (disconnected ? 13 : 7) : 5}px)`,
+                transform: `translate(0, ${visible ? -index * 7 : 5}px)`,
               }}
             >
               <Slab
@@ -543,8 +924,8 @@ export const EngineeringScene = ({
                 d={48}
                 z={11 + index * 2}
                 thickness={3}
-                fill={disconnected ? "#403d3b" : "#303f55"}
-                stroke={disconnected ? WARM : "#8297b7"}
+                fill="#303f55"
+                stroke="#8297b7"
               >
                 {[0, 1, 2, 3, 4].map((mark) => (
                   <Line
@@ -553,39 +934,16 @@ export const EngineeringScene = ({
                       [104 + mark * 18, 26, 12 + index * 2],
                       [104 + mark * 18, 54, 12 + index * 2],
                     ]}
-                    color={disconnected ? "#b19c7d" : "#6f87aa"}
+                    color="#6f87aa"
                   />
                 ))}
               </Slab>
             </g>
           );
         })}
-        <Label point={[91, -42, -6]} color={disconnected ? WARM : "#acbdd9"}>
+        <Label point={[91, -42, -6]} color="#acbdd9">
           LOCAL BUFFER
         </Label>
-      </g>
-
-      {/* Recovery moves a finite group out of the buffer, instead of an endless pulse. */}
-      <g
-        className="eng-motion"
-        style={{
-          opacity: catchingUp ? 1 : 0,
-          transform: catchingUp ? "translate(0, 0)" : "translate(-35px, -7px)",
-        }}
-      >
-        {[254, 278, 302, 348, 372, 396].map((x) => (
-          <Slab
-            key={x}
-            x={x}
-            y={170}
-            w={13}
-            d={11}
-            z={29}
-            thickness={3}
-            fill="#a8c2e3"
-            stroke="#d1dcef"
-          />
-        ))}
       </g>
 
       {/* Performance opens one continuous data plane into framed, parallel channels. */}
@@ -677,7 +1035,7 @@ export const EngineeringScene = ({
       {/* The client surface is intentionally distinct from a Foundation routing node. */}
       <g
         className="eng-motion"
-        style={{ opacity: disconnected || (deployment && stage === 0) ? 0.25 : 1 }}
+        style={{ opacity: deployment && stage === 0 ? 0.25 : 1 }}
       >
         <Line
           points={[

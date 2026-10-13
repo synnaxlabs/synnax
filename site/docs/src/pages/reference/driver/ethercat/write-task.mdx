@@ -132,6 +132,10 @@ Writes data to an RxPDO using explicit CoE addressing.
 
 ## How-to
 
+When you create channels with a client library, give each command channel its own index
+channel. A writer that holds several commands on one index must write all of them in
+every frame.
+
 <Client.Tabs exclude={["cpp"]}>
   <Fragment slot="console">
     <Video
@@ -152,24 +156,28 @@ client = sy.Synnax()
 # Retrieve EtherCAT device
 dev = client.devices.retrieve(name="Servo Drive")
 
-# Create command time index
-cmd_time = client.channels.create(
-    name="ec_cmd_time",
+# Create command channels, each with its own index
+control_cmd_time = client.channels.create(
+    name="control_word_cmd_time",
     is_index=True,
     data_type=sy.DataType.TIMESTAMP,
     retrieve_if_name_exists=True,
 )
-
-# Create command channels
 control_cmd = client.channels.create(
     name="control_word_cmd",
-    index=cmd_time.key,
+    index=control_cmd_time.key,
     data_type=sy.DataType.UINT16,
+    retrieve_if_name_exists=True,
+)
+target_pos_cmd_time = client.channels.create(
+    name="target_position_cmd_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
     retrieve_if_name_exists=True,
 )
 target_pos_cmd = client.channels.create(
     name="target_position_cmd",
-    index=cmd_time.key,
+    index=target_pos_cmd_time.key,
     data_type=sy.DataType.INT32,
     retrieve_if_name_exists=True,
 )
@@ -352,30 +360,36 @@ const client = new Synnax();
 // Retrieve EtherCAT device
 const [dev] = await client.devices.retrieve({ names: ["Servo Drive"] });
 
-// Create command time index
-const cmdTime = await client.channels.create(
+// Create command channels, each with its own index
+const controlCmdTime = await client.channels.create(
   {
-    name: "ec_cmd_time",
+    name: "control_word_cmd_time",
     isIndex: true,
     dataType: "timestamp",
   },
   { retrieveIfNameExists: true },
 );
-
-// Create command channels
 const controlCmd = await client.channels.create(
   {
     name: "control_word_cmd",
-    index: cmdTime.key,
+    index: controlCmdTime.key,
     dataType: "uint16",
   },
   { retrieveIfNameExists: true },
 );
 
+const targetPosCmdTime = await client.channels.create(
+  {
+    name: "target_position_cmd_time",
+    isIndex: true,
+    dataType: "timestamp",
+  },
+  { retrieveIfNameExists: true },
+);
 const targetPosCmd = await client.channels.create(
   {
     name: "target_position_cmd",
-    index: cmdTime.key,
+    index: targetPosCmdTime.key,
     dataType: "int32",
   },
   { retrieveIfNameExists: true },

@@ -10,8 +10,8 @@
  */
 
 .deployments-section {
-    background: #090d12;
-    padding-block: 12px 32px;
+    background: var(--foundation-paper);
+    padding-block: 12px 56px;
 }
 
 .deployments-heading {
@@ -19,7 +19,7 @@
     justify-content: space-between;
     align-items: end;
     gap: 40px;
-    padding-top: 52px;
+    padding-top: 36px;
     margin-bottom: 36px;
     border-top: 1px solid #293440;
 

@@ -84,7 +84,7 @@ export const SingleTrigger = <K extends record.Key>({
       staticCanDrop(hauled, haulType, allSelected, disabled),
     [haulType, allSelected, disabled],
   );
-  const dropProps = Haul.useDrop({
+  const { startDrag, onDragEnd, ...dropProps } = Haul.useDragAndDrop({
     type: haulType,
     canDrop,
     onDrop: Haul.useFilterByTypeCallback(
@@ -96,6 +96,13 @@ export const SingleTrigger = <K extends record.Key>({
       [setSelected],
     ),
   });
+  // A drag copies the selection: a single select must keep its value. Only a key that
+  // resolves to an entry drags, so an empty sentinel such as 0 never does.
+  const draggable =
+    haulType !== "" && item != null && !fixed && disabled !== true && preview !== true;
+  const handleDragStart = useCallback(() => {
+    if (item != null) startDrag([{ key: item.key, type: haulType }]);
+  }, [startDrag, item, haulType]);
   const dragging = Haul.useDraggingState();
   const baseId = useId();
   const id = idProp ?? baseId;
@@ -120,6 +127,9 @@ export const SingleTrigger = <K extends record.Key>({
         className,
       )}
       disabled={disabled}
+      draggable={draggable}
+      onDragStart={draggable ? handleDragStart : undefined}
+      onDragEnd={onDragEnd}
       {...dropProps}
       {...rest}
       aria-labelledby={
