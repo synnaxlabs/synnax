@@ -8,8 +8,10 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/telem/clockSkew";
+export * from "@/telem/fft";
 export { type GLBufferController } from "@/telem/gl";
 export * from "@/telem/series";
+export * as stats from "@/telem/stats";
 export * from "@/telem/telem";
 export {
   TIME_ZONES,

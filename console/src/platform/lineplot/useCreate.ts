@@ -18,18 +18,24 @@ import { Session } from "@/session";
 export interface UseCreateProps {
   project?: project.Key;
   tabKey?: panel.TabKey;
+  /** The toolbar tab the new plot opens on. */
+  toolbarTab?: Session.LinePlot.ToolbarTab;
 }
 
-export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
+export const useCreate = ({ project, tabKey, toolbarTab }: UseCreateProps = {}): ((
   params?: Partial<lineplot.New>,
 ) => void) => {
   const getActiveProject = Session.Project.useGetSelected();
   const getSelectedRange = Session.Range.useGetSelectedKey();
   const openTab = Panel.useOpenTab();
+  const dispatch = Session.useDispatch();
   const { capture } = Analytics.use();
   const { update } = LinePlot.useCreate({
-    afterOptimistic: ({ data: { key } }) =>
-      openTab({ variant: "resource", resource: lineplot.ontologyID(key), key: tabKey }),
+    afterOptimistic: ({ data: { key } }) => {
+      openTab({ variant: "resource", resource: lineplot.ontologyID(key), key: tabKey });
+      if (toolbarTab != null)
+        dispatch(Session.LinePlot.setActiveToolbarTab({ key, tab: toolbarTab }));
+    },
     afterSuccess: () => capture("plot_created", {}),
   });
   return useCallback(

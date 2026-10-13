@@ -23,9 +23,21 @@ export const TICK_TYPES = ["linear", "time"] as const;
 export const tickTypeZ = z.enum(TICK_TYPES);
 export type TickType = z.infer<typeof tickTypeZ>;
 
+export const X_AXIS_MODES = ["samples", "spectrum"] as const;
+export const xAxisModeZ = z.enum(X_AXIS_MODES);
+export type XAxisMode = z.infer<typeof xAxisModeZ>;
+
 export const DOWNSAMPLE_MODES = ["average", "decimate"] as const;
 export const downsampleModeZ = z.enum(DOWNSAMPLE_MODES);
 export type DownsampleMode = z.infer<typeof downsampleModeZ>;
+
+export const WINDOW_FUNCTIONS = ["hann", "rectangular", "flat_top"] as const;
+export const windowFunctionZ = z.enum(WINDOW_FUNCTIONS);
+export type WindowFunction = z.infer<typeof windowFunctionZ>;
+
+export const MAGNITUDE_SCALES = ["linear", "decibel"] as const;
+export const magnitudeScaleZ = z.enum(MAGNITUDE_SCALES);
+export type MagnitudeScale = z.infer<typeof magnitudeScaleZ>;
 
 export const X_AXIS_KEYS = ["x1", "x2"] as const;
 export const xAxisKeyZ = z.enum(X_AXIS_KEYS);
@@ -34,6 +46,10 @@ export type XAxisKey = z.infer<typeof xAxisKeyZ>;
 export const Y_AXIS_KEYS = ["y1", "y2", "y3", "y4"] as const;
 export const yAxisKeyZ = z.enum(Y_AXIS_KEYS);
 export type YAxisKey = z.infer<typeof yAxisKeyZ>;
+
+export const TRIGGER_EDGES = ["rising", "falling"] as const;
+export const triggerEdgeZ = z.enum(TRIGGER_EDGES);
+export type TriggerEdge = z.infer<typeof triggerEdgeZ>;
 
 /** Title is the plot title configuration. */
 export const titleZ = z.object({
@@ -152,6 +168,17 @@ export const ruleZ = z.object({
 });
 export interface Rule extends z.infer<typeof ruleZ> {}
 
+/** Spectrum configures the spectrum an x-axis plots in spectrum mode. */
+export const spectrumZ = z.object({
+  /** window is the window function applied to each FFT block. */
+  window: windowFunctionZ.default("hann"),
+  /** scale is the scale of the magnitudes. */
+  scale: magnitudeScaleZ.default("linear"),
+  /** pointLimit is the most samples one FFT block reads. */
+  pointLimit: z.uint32().default(65536),
+});
+export interface Spectrum extends z.infer<typeof spectrumZ> {}
+
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
@@ -173,7 +200,34 @@ export const staticCustomRangeZ = z.object({
 });
 export interface StaticCustomRange extends z.infer<typeof staticCustomRangeZ> {}
 
-export const CUSTOM_RANGE_TYPES = ["dynamic", "static"] as const;
+/**
+ * TriggeredCustomRange is a one-frame window cut around a level crossing on a trigger
+ * channel, plotted against time since the crossing.
+ */
+export const triggeredCustomRangeZ = z.object({
+  variant: z.literal("triggered"),
+  /**
+   * channel is the channel scanned for the level crossing. Zero means the first channel
+   * plotted on the axis.
+   */
+  channel: channel.keyZ.default(0),
+  /** level is the value the trigger channel crosses to fire. */
+  level: z.number().default(0),
+  /** edge is the crossing direction that fires. */
+  edge: triggerEdgeZ.default("rising"),
+  /** span is the span of one frame. */
+  span: telem.numericTimeSpanZ.default(0),
+  /** pretrigger is the fraction of the span shown before the crossing. */
+  pretrigger: z.number().default(0.1),
+  /**
+   * timeout is how long the plot waits for a crossing before it shows the latest span
+   * of data instead.
+   */
+  timeout: telem.numericTimeSpanZ.default(1000000000),
+});
+export interface TriggeredCustomRange extends z.infer<typeof triggeredCustomRangeZ> {}
+
+export const CUSTOM_RANGE_TYPES = ["dynamic", "static", "triggered"] as const;
 export const customRangeTypeZ = z.enum(CUSTOM_RANGE_TYPES);
 export type CustomRangeType = z.infer<typeof customRangeTypeZ>;
 
@@ -181,14 +235,16 @@ export type CustomRangeType = z.infer<typeof customRangeTypeZ>;
 export const customRangeZ = z.discriminatedUnion("variant", [
   dynamicCustomRangeZ,
   staticCustomRangeZ,
+  triggeredCustomRangeZ,
 ]);
-export type CustomRange = DynamicCustomRange | StaticCustomRange;
+export type CustomRange = DynamicCustomRange | StaticCustomRange | TriggeredCustomRange;
 
 export const CUSTOM_RANGE_SCHEMAS: {
   [K in CustomRangeType]: z.ZodType<Extract<CustomRange, { variant: K }>>;
 } = {
   dynamic: dynamicCustomRangeZ,
   static: staticCustomRangeZ,
+  triggered: triggeredCustomRangeZ,
 };
 
 /** Axis is the configuration for a single plot axis. */
@@ -216,6 +272,10 @@ export const axisZ = z.object({
    * carry "time" when bound to a timestamp channel.
    */
   type: tickTypeZ.optional(),
+  /** mode selects what the axis plots. Read on x-axes only. */
+  mode: xAxisModeZ.default("samples"),
+  /** spectrum configures the spectrum plotted in spectrum mode. */
+  spectrum: spectrumZ.prefault({}),
 });
 export interface Axis extends z.infer<typeof axisZ> {}
 

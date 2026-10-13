@@ -62,7 +62,23 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     );
     if (error != null) throw error;
     const p = { ...props, xDataToDecimalScale, xBounds };
-    return this.yAxes.map((el) => el.findByXValue(p, target)).flat();
+    const { type: xType, label: xUnits } = this.state;
+    return this.yAxes
+      .map((el) => el.findByXValue(p, target))
+      .flat()
+      .map((r) => ({ ...r, xType, xUnits }));
+  }
+
+  /** @returns the x range the viewport shows. */
+  visibleBounds(props: Omit<XAxisRenderProps, "canvases">): bounds.Bounds {
+    const [scale, , err] = this.dataToDecimalScale(
+      props.hold,
+      this.dataBounds.bind(this),
+      props.viewport,
+    );
+    if (err != null) throw err;
+    const reverse = scale.reverse();
+    return bounds.construct(reverse.pos(0), reverse.pos(1));
   }
 
   private renderYAxes(
@@ -92,10 +108,12 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     return bound;
   }
 
+  // Ranges are time spans, so they draw only on a time axis.
   private renderRanges(
     props: XAxisRenderProps,
     xDataToDecimalScale: scale.Scale,
   ): void {
+    if (this.state.type !== "time") return;
     const bound = this.bounds(props.hold);
     const clampedBounds = bounds.min([bound, TimeRange.MAX.numericBounds]);
     const timeRange = new TimeRange(clampedBounds.lower, clampedBounds.upper);

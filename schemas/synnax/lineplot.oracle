@@ -134,6 +134,39 @@ CustomRange union on variant {
 
         @doc value "is a fixed window."
     }
+    triggered {
+        channel    channel.Key = 0 {
+            @doc value """
+                is the channel scanned for the level crossing. Zero means the first
+                channel plotted on the axis.
+            """
+        }
+        level      float64 = 0 {
+            @doc value "is the value the trigger channel crosses to fire."
+        }
+        edge       TriggerEdge = TriggerEdgeRising {
+            @doc value "is the crossing direction that fires."
+        }
+        span       telem.TimeSpan = 0 {
+            @doc value "is the span of one frame."
+            @ts type   telem.NumericTimeSpan
+        }
+        pretrigger float64 = 0.1 {
+            @doc value "is the fraction of the span shown before the crossing."
+        }
+        timeout    telem.TimeSpan = 1000000000 {
+            @doc value """
+                is how long the plot waits for a crossing before it shows the latest
+                span of data instead.
+            """
+            @ts type   telem.NumericTimeSpan
+        }
+
+        @doc value """
+            is a one-frame window cut around a level crossing on a trigger channel,
+            plotted against time since the crossing.
+        """
+    }
 
     @doc value  "is the window a plot's synthetic \"custom\" range key resolves to."
     @go marshal
@@ -211,6 +244,12 @@ Axis struct {
             selects the tick label style. Null means default (linear). X-axes typically
             carry "time" when bound to a timestamp channel.
         """
+    }
+    mode            XAxisMode = XAxisModeSamples {
+        @doc value "selects what the axis plots. Read on x-axes only."
+    }
+    spectrum        Spectrum = {} {
+        @doc value "configures the spectrum plotted in spectrum mode."
     }
 
     @doc value  "is the configuration for a single plot axis."
@@ -516,6 +555,20 @@ LinePlot struct {
         """
     }
 
+    action SetAxisMode {
+        key  AxisKey
+        mode XAxisMode
+
+        @doc value "sets what the x-axis identified by key plots."
+    }
+
+    action SetAxisSpectrum {
+        key      AxisKey
+        spectrum Spectrum
+
+        @doc value "sets the spectrum configuration of the axis identified by key."
+    }
+
     action SetLineLabel {
         key   string
         label string?
@@ -649,4 +702,51 @@ LinePlot struct {
     @go migrate
     @ontology type "lineplot"
     @retrieve
+}
+
+XAxisMode enum {
+    samples  = "samples"
+    spectrum = "spectrum"
+
+    @doc value """
+        selects what an x-axis plots: the channel samples, or the spectrum of each
+        line's channel over the axis window with frequency on the axis.
+    """
+}
+
+WindowFunction enum {
+    hann        = "hann"
+    rectangular = "rectangular"
+    flat_top    = "flat_top"
+
+    @doc value "names the window function applied to each FFT block."
+}
+
+MagnitudeScale enum {
+    linear  = "linear"
+    decibel = "decibel"
+
+    @doc value "selects the scale of spectrum magnitudes."
+}
+
+TriggerEdge enum {
+    rising  = "rising"
+    falling = "falling"
+
+    @doc value "selects the direction of the level crossing that fires a trigger."
+}
+
+Spectrum struct {
+    window      WindowFunction = WindowFunctionHann {
+        @doc value "is the window function applied to each FFT block."
+    }
+    scale       MagnitudeScale = MagnitudeScaleLinear {
+        @doc value "is the scale of the magnitudes."
+    }
+    point_limit uint32 = 65536 {
+        @doc value "is the most samples one FFT block reads."
+    }
+
+    @doc value  "configures the spectrum an x-axis plots in spectrum mode."
+    @go marshal
 }

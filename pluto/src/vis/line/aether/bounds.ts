@@ -36,7 +36,7 @@ export const seriesOverlap = (
  * @returns the y index range [lo, hi) of samples whose paired x value falls inside
  * the window, or null when the pair shares no samples there.
  */
-const clip = (
+export const clip = (
   x: Series,
   y: Series,
   xWindow: bounds.Bounds,

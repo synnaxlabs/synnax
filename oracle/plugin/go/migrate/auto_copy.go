@@ -386,6 +386,7 @@ func (c *collector) structFuncFromForms(
 		// no copy that type-checks; the hand-written migration carries it.
 		if oldField.Optional != newField.Optional ||
 			c.unionMismatch(oldField.Type, newField.Type) ||
+			c.unionChanged(oldField.Type) ||
 			c.declarationMismatch(oldField.Type, newField.Type) ||
 			c.castMismatch(oldField.Type, newField.Type) {
 			continue
@@ -410,6 +411,21 @@ func (c *collector) unionMismatch(oldRef, newRef resolution.TypeRef) bool {
 		}
 	}
 	return false
+}
+
+// unionChanged reports whether a field's type is a union redeclared in the new
+// version. Its variant interface is a new Go type, so no cast from the old union
+// type-checks; the hand-written migration carries the field.
+func (c *collector) unionChanged(oldRef resolution.TypeRef) bool {
+	if !isUnionIn(oldRef, c.oldTable) {
+		return false
+	}
+	resolved, ok := oldRef.Resolve(c.oldTable)
+	if !ok {
+		return false
+	}
+	td, ok := c.diff[resolved.QualifiedName]
+	return ok && td.Kind == schemadiff.TypeChanged
 }
 
 // declarationMismatch reports whether a field's old and new types name different

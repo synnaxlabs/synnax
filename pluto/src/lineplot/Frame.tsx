@@ -117,13 +117,15 @@ export interface FrameProps
     Partial<
       Pick<
         z.input<typeof lineplot.linePlotStateZ>,
-        "clearOverScan" | "hold" | "visible"
+        "clearOverScan" | "hold" | "visible" | "measuring"
       >
     >,
     Omit<HTMLDivProps, "ref">,
     Aether.ComponentProps {
   resizeDebounce?: CrudeTimeSpan;
   onHold?: (hold: boolean) => void;
+  /** Called with the latest measurements while `measuring` is set. */
+  onMeasurementsChange?: (measurements: lineplot.Measurement[]) => void;
   loadingMessage?: string;
   ref?: Ref<FrameRef>;
 }
@@ -137,15 +139,17 @@ export const Frame = ({
   hold = false,
   onHold,
   visible,
+  measuring = false,
+  onMeasurementsChange,
   loadingMessage,
   ref,
   ...rest
 }: FrameProps): ReactElement => {
   const [lines, setLines] = useState<LineState>([]);
 
-  const memoProps = useMemoDeepEqual({ clearOverScan, hold, visible });
+  const memoProps = useMemoDeepEqual({ clearOverScan, hold, visible, measuring });
 
-  const [{ path }, { grid, loading }, setState, methods] = Aether.use({
+  const [{ path }, { grid, loading, measurements }, setState, methods] = Aether.use({
     aetherKey,
     type: lineplot.LinePlot.TYPE,
     schema: lineplot.linePlotStateZ,
@@ -175,6 +179,10 @@ export const Frame = ({
   ]);
 
   useEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
+
+  useEffect(() => {
+    if (measuring) onMeasurementsChange?.(measurements);
+  }, [measurements, measuring, onMeasurementsChange]);
 
   const viewportHandlers = useRef<Map<Viewport.UseHandler, null>>(new Map());
 

@@ -16,10 +16,14 @@
  * `example: IS_DEV || import.meta.env.VITE_FLAG_EXAMPLE === "true", // Owner: Name.
  * Removed in 0.60.`
  */
+const IS_DEV = import.meta.env.DEV;
+
 export const FLAGS = {
   // Owner: Patrick. SY-5105. Removed by the release that promotes the Kafka
   // integration to the Console build.
   kafka: IS_DEV || import.meta.env.VITE_FLAG_KAFKA === "true",
+  // Owner: Patrick Dotson. Removed after the release that ships RFC 0080.
+  lineplotWindows: IS_DEV || import.meta.env.VITE_FLAG_LINEPLOT_WINDOWS === "true",
 } as const satisfies Record<string, boolean>;
 
 export type Flag = keyof typeof FLAGS;

@@ -24,8 +24,10 @@ import {
   lineZ,
   manualBoundsZ,
   ruleZ,
+  spectrumZ,
   tickTypeZ,
   xAxisKeyZ,
+  xAxisModeZ,
   yAxisKeyZ,
 } from "@/lineplot/types.gen";
 
@@ -223,6 +225,22 @@ export const setAxisTypePayloadZ = z.object({
 
 export type SetAxisTypePayload = z.infer<typeof setAxisTypePayloadZ>;
 
+/** SetAxisMode sets what the x-axis identified by key plots. */
+export const setAxisModePayloadZ = z.object({
+  key: axisKeyZ,
+  mode: xAxisModeZ,
+});
+
+export type SetAxisModePayload = z.infer<typeof setAxisModePayloadZ>;
+
+/** SetAxisSpectrum sets the spectrum configuration of the axis identified by key. */
+export const setAxisSpectrumPayloadZ = z.object({
+  key: axisKeyZ,
+  spectrum: spectrumZ,
+});
+
+export type SetAxisSpectrumPayload = z.infer<typeof setAxisSpectrumPayloadZ>;
+
 /**
  * SetLineLabel sets the label of the line identified by key. Null resets it to derive
  * from the channel name at render time.
@@ -389,6 +407,8 @@ export type Action =
   | { type: "set_axis_bounds"; setAxisBounds: SetAxisBoundsPayload }
   | { type: "set_axis_tick_spacing"; setAxisTickSpacing: SetAxisTickSpacingPayload }
   | { type: "set_axis_type"; setAxisType: SetAxisTypePayload }
+  | { type: "set_axis_mode"; setAxisMode: SetAxisModePayload }
+  | { type: "set_axis_spectrum"; setAxisSpectrum: SetAxisSpectrumPayload }
   | { type: "set_line_label"; setLineLabel: SetLineLabelPayload }
   | { type: "set_line_color"; setLineColor: SetLineColorPayload }
   | { type: "set_line_stroke_width"; setLineStrokeWidth: SetLineStrokeWidthPayload }
@@ -456,6 +476,11 @@ export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
     setAxisTickSpacing: setAxisTickSpacingPayloadZ,
   }),
   z.object({ type: z.literal("set_axis_type"), setAxisType: setAxisTypePayloadZ }),
+  z.object({ type: z.literal("set_axis_mode"), setAxisMode: setAxisModePayloadZ }),
+  z.object({
+    type: z.literal("set_axis_spectrum"),
+    setAxisSpectrum: setAxisSpectrumPayloadZ,
+  }),
   z.object({ type: z.literal("set_line_label"), setLineLabel: setLineLabelPayloadZ }),
   z.object({ type: z.literal("set_line_color"), setLineColor: setLineColorPayloadZ }),
   z.object({
@@ -653,6 +678,22 @@ export const setAxisType = (payload: z.input<typeof setAxisTypePayloadZ>): Actio
   }),
 });
 
+export const setAxisMode = (payload: z.input<typeof setAxisModePayloadZ>): Action => ({
+  type: "set_axis_mode",
+  setAxisMode: zod.parse(setAxisModePayloadZ, payload, {
+    label: "line plot set_axis_mode action payload",
+  }),
+});
+
+export const setAxisSpectrum = (
+  payload: z.input<typeof setAxisSpectrumPayloadZ>,
+): Action => ({
+  type: "set_axis_spectrum",
+  setAxisSpectrum: zod.parse(setAxisSpectrumPayloadZ, payload, {
+    label: "line plot set_axis_spectrum action payload",
+  }),
+});
+
 export const setLineLabel = (
   payload: z.input<typeof setLineLabelPayloadZ>,
 ): Action => ({
@@ -835,6 +876,11 @@ export interface Handlers {
     payload: SetAxisTickSpacingPayload,
   ) => HandlerResult;
   setAxisType: (state: Draft<LinePlot>, payload: SetAxisTypePayload) => HandlerResult;
+  setAxisMode: (state: Draft<LinePlot>, payload: SetAxisModePayload) => HandlerResult;
+  setAxisSpectrum: (
+    state: Draft<LinePlot>,
+    payload: SetAxisSpectrumPayload,
+  ) => HandlerResult;
   setLineLabel: (state: Draft<LinePlot>, payload: SetLineLabelPayload) => HandlerResult;
   setLineColor: (state: Draft<LinePlot>, payload: SetLineColorPayload) => HandlerResult;
   setLineStrokeWidth: (
@@ -913,6 +959,10 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.setAxisTickSpacing(state, action.setAxisTickSpacing);
       case "set_axis_type":
         return handlers.setAxisType(state, action.setAxisType);
+      case "set_axis_mode":
+        return handlers.setAxisMode(state, action.setAxisMode);
+      case "set_axis_spectrum":
+        return handlers.setAxisSpectrum(state, action.setAxisSpectrum);
       case "set_line_label":
         return handlers.setLineLabel(state, action.setLineLabel);
       case "set_line_color":

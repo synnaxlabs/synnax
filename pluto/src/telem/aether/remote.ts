@@ -44,6 +44,7 @@ import {
   type StringSourceSpec,
   type Telem,
 } from "@/telem/aether/telem";
+import { TriggeredData } from "@/telem/aether/triggered";
 
 /** The slice of a Synnax client that remote telemetry sources consume. */
 export interface Client {
@@ -632,6 +633,7 @@ type Constructor = new (
 ) => Telem;
 
 const REGISTRY: Record<string, Constructor> = {
+  [TriggeredData.TYPE]: TriggeredData,
   [ChannelData.TYPE]: ChannelData,
   [StreamChannelData.TYPE]: StreamChannelData,
   [StreamChannelValue.TYPE]: StreamChannelValue,

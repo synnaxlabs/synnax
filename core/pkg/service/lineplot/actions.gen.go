@@ -40,6 +40,8 @@ const (
 	ActionTypeSetAxisBounds         = "set_axis_bounds"
 	ActionTypeSetAxisTickSpacing    = "set_axis_tick_spacing"
 	ActionTypeSetAxisType           = "set_axis_type"
+	ActionTypeSetAxisMode           = "set_axis_mode"
+	ActionTypeSetAxisSpectrum       = "set_axis_spectrum"
 	ActionTypeSetLineLabel          = "set_line_label"
 	ActionTypeSetLineColor          = "set_line_color"
 	ActionTypeSetLineStrokeWidth    = "set_line_stroke_width"
@@ -189,6 +191,18 @@ type SetAxisTypePayload struct {
 	Type *TickType `json:"type,omitzero" msgpack:"type,omitempty"`
 }
 
+// SetAxisModePayload sets what the x-axis identified by key plots.
+type SetAxisModePayload struct {
+	Key  AxisKey   `json:"key" msgpack:"key"`
+	Mode XAxisMode `json:"mode" msgpack:"mode"`
+}
+
+// SetAxisSpectrumPayload sets the spectrum configuration of the axis identified by key.
+type SetAxisSpectrumPayload struct {
+	Key      AxisKey  `json:"key" msgpack:"key"`
+	Spectrum Spectrum `json:"spectrum" msgpack:"spectrum"`
+}
+
 // SetLineLabelPayload sets the label of the line identified by key. Null resets it to
 // derive from the channel name at render time.
 type SetLineLabelPayload struct {
@@ -312,6 +326,8 @@ type Action struct {
 	SetAxisBounds         *SetAxisBoundsPayload         `json:"set_axis_bounds,omitzero" msgpack:"set_axis_bounds,omitempty"`
 	SetAxisTickSpacing    *SetAxisTickSpacingPayload    `json:"set_axis_tick_spacing,omitzero" msgpack:"set_axis_tick_spacing,omitempty"`
 	SetAxisType           *SetAxisTypePayload           `json:"set_axis_type,omitzero" msgpack:"set_axis_type,omitempty"`
+	SetAxisMode           *SetAxisModePayload           `json:"set_axis_mode,omitzero" msgpack:"set_axis_mode,omitempty"`
+	SetAxisSpectrum       *SetAxisSpectrumPayload       `json:"set_axis_spectrum,omitzero" msgpack:"set_axis_spectrum,omitempty"`
 	SetLineLabel          *SetLineLabelPayload          `json:"set_line_label,omitzero" msgpack:"set_line_label,omitempty"`
 	SetLineColor          *SetLineColorPayload          `json:"set_line_color,omitzero" msgpack:"set_line_color,omitempty"`
 	SetLineStrokeWidth    *SetLineStrokeWidthPayload    `json:"set_line_stroke_width,omitzero" msgpack:"set_line_stroke_width,omitempty"`
@@ -438,6 +454,16 @@ func Reduce(state LinePlot, actions ...Action) (LinePlot, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetAxisType.Handle(state)
+		case ActionTypeSetAxisMode:
+			if a.SetAxisMode == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetAxisMode.Handle(state)
+		case ActionTypeSetAxisSpectrum:
+			if a.SetAxisSpectrum == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetAxisSpectrum.Handle(state)
 		case ActionTypeSetLineLabel:
 			if a.SetLineLabel == nil {
 				return state, union.MissingPayload(a.Type)
@@ -621,6 +647,16 @@ func NewSetAxisTickSpacingAction(p SetAxisTickSpacingPayload) Action {
 // NewSetAxisTypeAction wraps a SetAxisTypePayload in an Action envelope.
 func NewSetAxisTypeAction(p SetAxisTypePayload) Action {
 	return Action{Type: ActionTypeSetAxisType, SetAxisType: &p}
+}
+
+// NewSetAxisModeAction wraps a SetAxisModePayload in an Action envelope.
+func NewSetAxisModeAction(p SetAxisModePayload) Action {
+	return Action{Type: ActionTypeSetAxisMode, SetAxisMode: &p}
+}
+
+// NewSetAxisSpectrumAction wraps a SetAxisSpectrumPayload in an Action envelope.
+func NewSetAxisSpectrumAction(p SetAxisSpectrumPayload) Action {
+	return Action{Type: ActionTypeSetAxisSpectrum, SetAxisSpectrum: &p}
 }
 
 // NewSetLineLabelAction wraps a SetLineLabelPayload in an Action envelope.

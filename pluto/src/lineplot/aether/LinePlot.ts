@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
-import { type bounds, box, xy } from "@synnaxlabs/x";
+import { type bounds, box, deep, stats, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -19,11 +19,33 @@ import { measure } from "@/lineplot/measure/aether";
 import { rule } from "@/lineplot/rule/aether";
 import { tooltip } from "@/lineplot/tooltip/aether";
 import { status } from "@/status/aether";
+import { telem } from "@/telem/aether";
 import { grid } from "@/vis/grid";
 import { type FindResult } from "@/vis/line/aether/line";
 import { render } from "@/vis/render";
 
 export type AxesBounds = Record<string, bounds.Bounds>;
+
+const statisticZ = z.number().nullable();
+
+/** Statistics of one line's samples inside the measurement window. */
+export const measurementZ = z.object({
+  line: z.string(),
+  label: z.string().optional(),
+  units: z.string().optional(),
+  min: statisticZ,
+  max: statisticZ,
+  /** The x value at the maximum sample. */
+  peakX: statisticZ,
+  peakToPeak: statisticZ,
+  mean: statisticZ,
+  rms: statisticZ,
+  /** Hz when x is time, otherwise cycles per x unit. */
+  frequency: statisticZ,
+  riseTime: statisticZ,
+});
+
+export type Measurement = z.infer<typeof measurementZ>;
 
 export const linePlotStateZ = z.object({
   container: box.box,
@@ -33,7 +55,20 @@ export const linePlotStateZ = z.object({
   visible: z.boolean().default(true),
   clearOverScan: xy.crudeZ.default(xy.ZERO),
   loading: z.boolean().default(false),
+  /** Computes measurements on every render while set. */
+  measuring: z.boolean().default(false),
+  measurements: z.array(measurementZ).default([]),
 });
+
+const MEASURE_INTERVAL = 250; // ms
+
+const statistic = (v: number): number | null => (Number.isFinite(v) ? v : null);
+
+const peakX = (x: Float64Array, y: Float64Array): number => {
+  let at = -1;
+  for (let i = 0; i < y.length; i++) if (at === -1 || y[i] > y[at]) at = i;
+  return at === -1 ? NaN : x[at];
+};
 
 const axesBoundsZ = z.record(
   z.string(),
@@ -48,6 +83,7 @@ interface InternalState {
   instrumentation: Instrumentation;
   handleError: status.ErrorHandler;
   renderCtx: render.Context;
+  measuredAt: number;
 }
 
 type Children = XAxis | tooltip.Tooltip | measure.Measure;
@@ -79,6 +115,12 @@ export class LinePlot
     this.internal.instrumentation = alamos.useInstrumentation(ctx, "lineplot");
     this.internal.handleError = status.useErrorHandler(ctx);
     this.internal.renderCtx = render.Context.use(ctx);
+    this.internal.measuredAt ??= 0;
+    if (
+      this.state.hold !== this.prevState.hold ||
+      !ctx.wasSetPreviously(telem.HOLD_CONTEXT_KEY)
+    )
+      telem.setHold(ctx, this.state.hold);
     render.control(ctx, (r) => {
       if (!this.state.visible) return;
       this.requestRender("low", r);
@@ -167,6 +209,41 @@ export class LinePlot
     return grid.visualizationBox(this.state.grid, this.state.container);
   }
 
+  // The window is the span between the measure points, or the visible x range before
+  // both are placed. Results reach React through state, throttled and only on change.
+  private measure(plot: box.Box): void {
+    const now = performance.now();
+    if (now - this.internal.measuredAt < MEASURE_INTERVAL) return;
+    this.internal.measuredAt = now;
+    const props = { ...this.state, plot, exposure: this.exposure };
+    const pointWindow = this.measures.map((m) => m.window()).find((w) => w != null);
+    const measurements: Measurement[] = [];
+    for (const xAxis of this.axes) {
+      const window = pointWindow ?? xAxis.visibleBounds(props);
+      const time = xAxis.state.type === "time";
+      for (const yAxis of xAxis.yAxes)
+        for (const line of yAxis.visibleLines) {
+          const { x, y } = line.samplesIn(window);
+          const xs = time ? x.map((v) => v / 1e9) : x;
+          measurements.push({
+            line: line.key,
+            label: line.state.label,
+            units: yAxis.state.label,
+            min: statistic(stats.min(y)),
+            max: statistic(stats.max(y)),
+            peakX: statistic(time ? peakX(x, y) : peakX(xs, y)),
+            peakToPeak: statistic(stats.peakToPeak(y)),
+            mean: statistic(stats.mean(y)),
+            rms: statistic(stats.rms(y)),
+            frequency: statistic(stats.frequency(xs, y)),
+            riseTime: statistic(stats.riseTime(xs, y)),
+          });
+        }
+    }
+    if (deep.equal(measurements, this.state.measurements)) return;
+    this.setState((p) => ({ ...p, measurements }));
+  }
+
   private render(canvases: render.CanvasVariant[]): render.Cleanup | undefined {
     const { instrumentation: ins, renderCtx, handleError } = this.internal;
     if (this.deleted) {
@@ -211,6 +288,7 @@ export class LinePlot
       this.renderAxes(plot, canvases);
       this.renderTooltips(plot, canvases);
       this.renderMeasures(plot);
+      if (this.state.measuring) this.measure(plot);
     } catch (e) {
       handleError(e, "Failed to render line plot");
     } finally {

@@ -71,6 +71,11 @@ export interface Source<V> extends Telem, observe.Observable<void> {
   /** @returns true while the source's initial read is in flight. */
   loading?: () => boolean;
   sampleTime?: () => TimeStamp | null;
+  /**
+   * Freezes or releases the source's output. A held source keeps serving its last
+   * value and ignores new data until released.
+   */
+  setHold?: (held: boolean) => void;
 }
 
 export interface Sink<V> extends Telem {
@@ -85,7 +90,8 @@ export interface SinkTransformer<I, O> extends Telem, Sink<I> {
   setSinks: (sinks: Record<string, Sink<O>>) => void;
 }
 
-export type SeriesSource = Source<[bounds.Bounds, MultiSeries]>;
+export type SeriesValue = [bounds.Bounds, MultiSeries];
+export type SeriesSource = Source<SeriesValue>;
 export const seriesSourceSpecZ = sourceSpecZ.extend({ valueType: z.literal("series") });
 export type SeriesSourceSpec = z.infer<typeof seriesSourceSpecZ>;
 
@@ -220,6 +226,10 @@ export abstract class MultiSourceTransformer<I, O, P extends z.ZodType>
   implements SourceTransformer<I, O>
 {
   sources: Record<string, Source<I>> = {};
+
+  loading(): boolean {
+    return Object.values(this.sources).some((s) => s.loading?.() ?? false);
+  }
 
   value(): O {
     const values = Object.fromEntries(
