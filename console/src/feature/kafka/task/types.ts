@@ -29,10 +29,15 @@ export type StartOffset = kafka.StartOffset;
 
 const readConfigZ = kafka.readConfigZ;
 
-const deployReadFieldZ = kafka.readFieldZ.refine(
-  ({ disabled, pointer }) => disabled || pointer !== "",
-  { message: "Pointer is required", path: ["pointer"] },
-);
+const deployReadFieldZ = kafka.readFieldZ
+  .refine(({ disabled, pointer }) => disabled || pointer !== "", {
+    message: "Pointer is required",
+    path: ["pointer"],
+  })
+  .refine(
+    ({ disabled, pointer }) => disabled || json.pointerZ.safeParse(pointer).success,
+    { message: "Pointer must be a valid JSON pointer", path: ["pointer"] },
+  );
 
 const deployReadRecordZ = kafka.readRecordZ.extend({
   fields: deployReadFieldZ.array().check(Task.validateReadChannels),

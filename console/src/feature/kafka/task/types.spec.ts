@@ -61,6 +61,17 @@ describe("Kafka Task Types", () => {
       expect(result.error?.issues[0].message).toBe("Pointer is required");
     });
 
+    it("should reject a field whose pointer is not a JSON pointer", () => {
+      const result = Kafka.Task.deployReadConfigZ.safeParse({
+        ...valid,
+        records: [{ ...record, fields: [{ ...field, pointer: "temperature" }] }],
+      });
+      expect(result.success).toBe(false);
+      expect(result.error?.issues[0].message).toBe(
+        "Pointer must be a valid JSON pointer",
+      );
+    });
+
     it("should accept a disabled field without a pointer", () => {
       const result = Kafka.Task.deployReadConfigZ.safeParse({
         ...valid,

@@ -255,6 +255,7 @@ var _ = Describe("Write task", func() {
 		index, data, topic, t := startOne(ctx, telem.Float64T, kafka.WriteChannel{})
 		start := telem.TimeStamp(20 * telem.Second)
 		write := func(key channel.Key, s telem.Series) {
+			GinkgoHelper()
 			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:  channel.Keys{key},
 				Start: start,
