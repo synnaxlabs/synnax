@@ -16,6 +16,7 @@ import {
   XAxisRangeSelect,
   YAxisChannelSelect,
 } from "@/feature/lineplot/SelectAxis";
+import { XAxisModeInput } from "@/feature/lineplot/XAxisModeInput";
 import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 
@@ -26,20 +27,36 @@ export const Data = (): ReactElement => {
   const showX2 = FLAGS.lineplotWindows && x2Ranges.length > 0;
   return (
     <Flex.Box className={CSS.BE("line-plot", "toolbar", "data")} full="x">
-      {x1.mode !== "spectrum" && (
-        <XAxisChannelSelect
-          axisKey="x1"
-          className={CSS.BE("line-plot", "toolbar", "data-x")}
-        />
-      )}
+      <Flex.Box
+        x
+        align="center"
+        className={CSS.BE("line-plot", "toolbar", "data-x-row")}
+      >
+        {x1.mode !== "spectrum" && (
+          <XAxisChannelSelect
+            axisKey="x1"
+            className={CSS.BE("line-plot", "toolbar", "data-x")}
+          />
+        )}
+        {FLAGS.lineplotWindows && <XAxisModeInput axisKey="x1" />}
+      </Flex.Box>
       <XAxisRangeSelect axisKey="x1" grow />
       <YAxisChannelSelect axisKey="y1" align="center" grow />
       <YAxisChannelSelect axisKey="y2" grow />
-      {showX2 && x2.mode !== "spectrum" && (
-        <XAxisChannelSelect
-          axisKey="x2"
-          className={CSS.BE("line-plot", "toolbar", "data-x")}
-        />
+      {showX2 && (
+        <Flex.Box
+          x
+          align="center"
+          className={CSS.BE("line-plot", "toolbar", "data-x-row")}
+        >
+          {x2.mode !== "spectrum" && (
+            <XAxisChannelSelect
+              axisKey="x2"
+              className={CSS.BE("line-plot", "toolbar", "data-x")}
+            />
+          )}
+          <XAxisModeInput axisKey="x2" />
+        </Flex.Box>
       )}
       {showX2 && <XAxisRangeSelect axisKey="x2" grow />}
     </Flex.Box>

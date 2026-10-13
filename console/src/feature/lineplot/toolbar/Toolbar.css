@@ -63,6 +63,10 @@
         width: 96px;
     }
 
+    .console-line-plot__toolbar-data-x-row {
+        column-gap: 3rem;
+    }
+
     .console-line-plot__toolbar-data-x {
         max-width: 400px;
         width: 100%;

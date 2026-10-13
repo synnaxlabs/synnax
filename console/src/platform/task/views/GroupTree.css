@@ -25,6 +25,13 @@
     .console-group-item__add {
         margin-left: auto;
         opacity: 0;
+
+        /* The tree sizes every row icon for a leading glyph; this one sits in a tiny
+           button beside the caret, so it matches the caret instead. */
+        .pluto-icon {
+            width: 2rem;
+            height: 2rem;
+        }
     }
 
     .console-group-item:is(:hover, :focus-within, .pluto--selected)
