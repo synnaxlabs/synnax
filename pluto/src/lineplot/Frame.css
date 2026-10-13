@@ -24,6 +24,11 @@
     border-radius: var(--pluto-border-radius);
 }
 
+.pluto-line-plot .pluto-haul-drop-region.pluto--drag-over {
+    background: var(--pluto-gray-l8-40);
+    border-color: var(--pluto-gray-l8-80);
+}
+
 .pluto-line-plot__viewport {
     grid-area: plot-start / plot-start / plot-end / plot-end;
 }

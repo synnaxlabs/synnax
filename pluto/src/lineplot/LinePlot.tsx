@@ -120,6 +120,26 @@ const addRanges = (
 ): lineplot.Action[] =>
   items.map(({ key }) => lineplot.addRange({ axisKey, range: key }));
 
+interface DropHighlight extends Omit<Haul.UseDragOverReturn, "over"> {
+  className?: string;
+}
+
+/**
+ * @returns props that mark an axis while it can take the dragged items, and more
+ * strongly while the drag is over it.
+ */
+const useDropHighlight = (canDrop: Haul.CanDrop): DropHighlight => {
+  const { over, ...dragOverProps } = Haul.useDragOver();
+  const droppable = canDrop(Haul.useDraggingState());
+  return {
+    className: CSS.cls(
+      CSS.dropRegion(droppable),
+      droppable && over && CSS.M("drag-over"),
+    ),
+    ...dragOverProps,
+  };
+};
+
 const canDropChannelOrRange: Haul.CanDrop = (state) =>
   Channel.canDropHaulItem(state) || Ranger.canDropHaulItem(state);
 
@@ -332,6 +352,7 @@ const YAxis = ({
   const { dispatch } = useDispatch();
   const { axis, lineKeys } = useYAxis({ key, axisKey });
   const edit = useEdit(key, editable);
+  const highlight = useDropHighlight(Channel.canDropHaulItem);
   const dropProps = Haul.useDrop({
     type: "channel_lineplot_y_axis",
     canDrop: Channel.canDropHaulItem,
@@ -353,7 +374,6 @@ const YAxis = ({
       }),
     [editable],
   );
-  const dragging = Haul.useDraggingState();
   const { key: _axisKey, ...axisConfig } = axis;
   return (
     <BaseYAxis
@@ -362,7 +382,7 @@ const YAxis = ({
       location={AXIS_LOCATIONS[axisKey]}
       axisKey={axisKey}
       showGrid={axisKey === "y1"}
-      className={CSS.cls(CSS.dropRegion(Channel.canDropHaulItem(dragging)))}
+      {...highlight}
       onLabelChange={handleLabelChange}
     >
       {lineKeys.map((lineKey) => (
@@ -395,6 +415,7 @@ const XAxis = ({
 }: XAxisProps): ReactElement => {
   const { dispatch } = useDispatch();
   const edit = useEdit(key, editable);
+  const highlight = useDropHighlight(canDropChannelOrRange);
   const dropProps = Haul.useDrop({
     type: "channel_lineplot_x_axis",
     canDrop: canDropChannelOrRange,
@@ -412,7 +433,6 @@ const XAxis = ({
       [edit, axisKey],
     ),
   });
-  const dragging = Haul.useDraggingState();
   const { key: _, ...axisConfig } = useXAxis({ key, axisKey });
   const yAxes = useYAxisKeys({ key });
   const handleLabelChange = useCallback(
@@ -429,7 +449,7 @@ const XAxis = ({
       {...dropProps}
       location={AXIS_LOCATIONS[axisKey]}
       axisKey={axisKey}
-      className={CSS.cls(CSS.dropRegion(canDropChannelOrRange(dragging)))}
+      {...highlight}
       showGrid={axisKey === "x1"}
       onLabelChange={handleLabelChange}
     >
