@@ -31,7 +31,7 @@ export const Axes = (): ReactElement => {
       <Tabs.Selector size="small">
         {axisKeys.map((key) => (
           <Tabs.Tab key={key} itemKey={key}>
-            {key.toUpperCase()}
+            {LinePlot.axisLabel(key)}
           </Tabs.Tab>
         ))}
       </Tabs.Selector>
@@ -162,7 +162,7 @@ const LinePlotAxisControls = ({ axisKey }: LinePlotAxisControlsProps): ReactElem
       <Flex.Box x>
         <Input.Item label="Label" grow>
           <Input.Text
-            placeholder={axisKey.toUpperCase()}
+            placeholder={LinePlot.axisLabel(axisKey)}
             value={axis.label}
             onChange={handleLabelChange}
           />

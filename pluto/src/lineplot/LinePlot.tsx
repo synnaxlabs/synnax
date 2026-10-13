@@ -114,7 +114,16 @@ const spectrumPipeline = (
     },
   });
 
-export const axisLabel = (key: lineplot.AxisKey): string => key.toUpperCase();
+const AXIS_LABELS: Record<lineplot.AxisKey, string> = {
+  x1: "X",
+  x2: "X2",
+  y1: "Y1",
+  y2: "Y2",
+  y3: "Y3",
+  y4: "Y4",
+};
+
+export const axisLabel = (key: lineplot.AxisKey): string => AXIS_LABELS[key];
 
 const AXIS_LOCATIONS: Record<lineplot.AxisKey, location.Outer> = {
   y1: "left",

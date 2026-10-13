@@ -32,7 +32,7 @@ const renderAxesTab = async () => {
 describe("lineplot/toolbar/Axes", () => {
   it("only renders tabs for axes with channels or defaults", async () => {
     await renderAxesTab();
-    expect(screen.getByText("X1")).toBeDefined();
+    expect(screen.getByText("X")).toBeDefined();
     expect(screen.getByText("Y1")).toBeDefined();
     expect(screen.queryByText("X2")).toBeNull();
     expect(screen.queryByText("Y2")).toBeNull();

@@ -8,25 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { LinePlot } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { XAxisRangeSelect, YAxisChannelSelect } from "@/feature/lineplot/SelectAxis";
 import { XAxisInput } from "@/feature/lineplot/XAxisInput";
-import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 
-export const Data = (): ReactElement => {
-  const x2Ranges = LinePlot.useXAxisRanges({ axisKey: "x2" });
-  const showX2 = FLAGS.lineplotWindows && x2Ranges.length > 0;
-  return (
-    <Flex.Box className={CSS.BE("line-plot", "toolbar", "data")} full="x">
-      <XAxisInput axisKey="x1" />
-      <XAxisRangeSelect axisKey="x1" grow />
-      <YAxisChannelSelect axisKey="y1" align="center" grow />
-      <YAxisChannelSelect axisKey="y2" grow />
-      {showX2 && <XAxisInput axisKey="x2" />}
-      {showX2 && <XAxisRangeSelect axisKey="x2" grow />}
-    </Flex.Box>
-  );
-};
+export const Data = (): ReactElement => (
+  <Flex.Box className={CSS.BE("line-plot", "toolbar", "data")} full="x">
+    <XAxisInput axisKey="x1" />
+    <XAxisRangeSelect axisKey="x1" grow />
+    <YAxisChannelSelect axisKey="y1" align="center" grow />
+    <YAxisChannelSelect axisKey="y2" grow />
+  </Flex.Box>
+);

@@ -18,7 +18,7 @@ from console.layout import LayoutClient
 from console.page import ConsolePage
 from framework.run_dir import resolve_results_path
 
-Axis = Literal["Y1", "Y2", "X1"]
+Axis = Literal["Y1", "Y2", "X"]
 
 
 class Plot(ConsolePage):
@@ -40,9 +40,14 @@ class Plot(ConsolePage):
             "Y1": [],
             "Y2": [],
             "Ranges": [],
-            "X1": None,
+            "X": None,
         }
         super().__init__(layout, client, page_name, pane_locator=pane_locator)
+
+    def _axis_label(self, axis: Axis) -> Locator:
+        return self.page.locator("label").filter(
+            has_text=re.compile(rf"^\s*{axis}\s*$")
+        )
 
     def add_channels(self, axis: Axis, channels: str | list[str]) -> None:
         channels = [channels] if isinstance(channels, str) else channels
@@ -50,7 +55,7 @@ class Plot(ConsolePage):
         data_tab = self.page.get_by_role("tab", name="Data", exact=True)
         data_tab.click(timeout=5000)
 
-        axis_label = self.page.locator("label").filter(has_text=axis)
+        axis_label = self._axis_label(axis)
         axis_label.wait_for(state="visible", timeout=5000)
         trigger = axis_label.locator("..").locator(".pluto-dialog__trigger")
         trigger.click(timeout=5000)
@@ -304,7 +309,7 @@ class Plot(ConsolePage):
         Args:
             channel_name: Name of the channel to drag
             channels: ChannelClient for showing/hiding channels sidebar
-            axis: Target axis (Y1, Y2, or X1)
+            axis: Target axis (Y1, Y2, or X)
         """
         self.notifications.close_all()
         channels.show_channels()
@@ -397,7 +402,7 @@ class Plot(ConsolePage):
         self.layout.get_tab(self.page_name).click()
         self.layout.show_visualization_toolbar()
         self.page.get_by_role("tab", name="Data", exact=True).click(timeout=5000)
-        axis_section = self.page.locator("label").filter(has_text=axis).locator("..")
+        axis_section = self._axis_label(axis).locator("..")
         result = axis_section.get_by_text(channel_name).count() > 0
         return result
 
