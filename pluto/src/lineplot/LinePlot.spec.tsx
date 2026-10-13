@@ -15,7 +15,7 @@ import { fireEvent, render, waitFor } from "@testing-library/react";
 import { type ReactElement, Suspense } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { createHaulItem } from "@/channel/types";
+import { Channel } from "@/channel";
 import { lineplot } from "@/lineplot/aether";
 import { LinePlot } from "@/lineplot/LinePlot";
 import { useYAxis } from "@/lineplot/queries";
@@ -98,14 +98,16 @@ describe("LinePlot", () => {
   describe("plot area drop", () => {
     it("should add a dropped channel to the first Y axis", async () => {
       const keys = channels.map(({ key }) => key);
-      const { drop, getByTestId } = await renderPlot(keys.map(createHaulItem));
+      const { drop, getByTestId } = await renderPlot(keys.map(Channel.createHaulItem));
       drop();
       await waitFor(() => expect(getByTestId("y1").textContent).toBe(keys.join(",")));
     });
 
     it("should not add a channel the first Y axis already has", async () => {
       const [first] = channels;
-      const { drop, getByTestId } = await renderPlot([createHaulItem(first.key)]);
+      const { drop, getByTestId } = await renderPlot([
+        Channel.createHaulItem(first.key),
+      ]);
       drop();
       await waitFor(() =>
         expect(getByTestId("y1").textContent).toBe(String(first.key)),
@@ -122,7 +124,7 @@ describe("LinePlot", () => {
     it("should not add a channel when the plot is not editable", async () => {
       const [first] = channels;
       const { drop, getByTestId } = await renderPlot(
-        [createHaulItem(first.key)],
+        [Channel.createHaulItem(first.key)],
         false,
       );
       drop();
