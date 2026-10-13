@@ -187,7 +187,8 @@ func VersionAliases(paths []string, currentPath string) map[string]string {
 	plainNames := make(set.Set[string])
 	for _, p := range paths {
 		dir := filepath.Dir(p)
-		if filepath.Base(dir) != "versions" || !majorVersion.MatchString(filepath.Base(p)) {
+		if filepath.Base(dir) != "versions" ||
+			!majorVersion.MatchString(filepath.Base(p)) {
 			plainNames.Add(filepath.Base(p))
 			continue
 		}

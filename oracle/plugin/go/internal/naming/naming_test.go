@@ -223,7 +223,7 @@ var _ = Describe("VersionAliases", func() {
 		}))
 	})
 
-	It("Should suffix every version when another package has the resource's name", func() {
+	It("Should suffix every version when another package takes the name", func() {
 		Expect(naming.VersionAliases([]string{
 			"github.com/synnaxlabs/pluto/color",
 			"github.com/synnaxlabs/x/color/versions/v0",
