@@ -41,6 +41,7 @@ import { Line as BaseLine } from "@/lineplot/Line";
 import { Measure } from "@/lineplot/measure";
 import { type measure } from "@/lineplot/measure/aether";
 import {
+  type DerivedLine,
   useAxisRuleKeys,
   useDispatch,
   useLegend,
@@ -67,8 +68,9 @@ import { telem } from "@/telem/aether";
 import { type Viewport } from "@/viewport";
 
 // A resolved range descriptor supplied by the consumer. Range resolution lives
-// in the consumer (Console's range slice), so the connected component receives
-// the static/dynamic time window per range key rather than reading it itself.
+// in the consumer (Console's range slice), so the connected component receives the
+// static/dynamic time window of each of the plot's ranges, in order, rather than
+// reading them itself.
 export type ResolvedRange =
   { variant: "static"; timeRange: TimeRange } | { variant: "dynamic"; span: TimeSpan };
 
@@ -116,20 +118,39 @@ const useAxisDrop = <K extends lineplot.AxisKey>(
 interface LineProps {
   pKey: lineplot.Key;
   lineKey: string;
-  resolved?: ResolvedRange;
+  resolvedRanges?: ResolvedRange[];
   visible?: boolean;
 }
 
+// Line draws a stored line as one trace per range the plot shows, styled alike. Only
+// the first trace has a legend entry, under the stored line's key.
 const Line = ({
   pKey,
   lineKey,
-  resolved,
+  resolvedRanges = [],
   visible = true,
 }: LineProps): ReactElement | null => {
-  const { key, ...line } = useLine({ key: pKey, lineKey });
+  const line = useLine({ key: pKey, lineKey });
+  if (line == null) return null;
+  return (
+    <>
+      {resolvedRanges.map((resolved, i) => (
+        <Trace key={i} line={line} resolved={resolved} index={i} visible={visible} />
+      ))}
+    </>
+  );
+};
+
+interface TraceProps {
+  line: DerivedLine;
+  resolved: ResolvedRange;
+  index: number;
+  visible: boolean;
+}
+
+const Trace = ({ line, resolved, index, visible }: TraceProps): ReactElement => {
+  const { key, xChannel, yChannel, ...rest } = line;
   const telemetry = useMemo(() => {
-    if (resolved == null) return null;
-    const { xChannel, yChannel } = line;
     const hasX = primitive.isNonZero(xChannel);
     if (resolved.variant === "dynamic") {
       const keepFor = Number(resolved.span.valueOf()) * 3;
@@ -141,11 +162,7 @@ const Line = ({
           useIndexOfChannel: !hasX,
           keepFor,
         }),
-        y: telem.streamChannelData({
-          timeSpan,
-          channel: yChannel,
-          keepFor,
-        }),
+        y: telem.streamChannelData({ timeSpan, channel: yChannel, keepFor }),
       };
     }
     return {
@@ -156,17 +173,18 @@ const Line = ({
       }),
       y: telem.channelData({ timeRange: resolved.timeRange, channel: yChannel }),
     };
-  }, [resolved, line?.xChannel, line?.yChannel]);
-  if (line == null || telemetry == null) return null;
+  }, [resolved, xChannel, yChannel]);
+  const aetherKey = index === 0 ? key : `${key}/${index}`;
   return (
     <BaseLine
-      key={key}
-      aetherKey={key}
+      key={aetherKey}
+      aetherKey={aetherKey}
       x={telemetry.x}
       y={telemetry.y}
       visible={visible}
+      legend={index === 0}
       legendGroup={line.yAxis.toUpperCase()}
-      {...line}
+      {...rest}
     />
   );
 };
@@ -241,7 +259,7 @@ const Legend = ({
 interface AxisChildrenProps {
   pKey: lineplot.Key;
   editable: boolean;
-  resolvedRanges?: Map<string, ResolvedRange>;
+  resolvedRanges?: ResolvedRange[];
   hiddenLines?: Set<string>;
   onSelectRule?: (key: string) => void;
 }
@@ -363,7 +381,7 @@ const YAxis = ({
           key={lineKey}
           pKey={key}
           lineKey={lineKey}
-          resolved={resolvedRanges?.get(lineplot.parseLineKey(lineKey).range)}
+          resolvedRanges={resolvedRanges}
           visible={hiddenLines == null || !hiddenLines.has(lineKey)}
         />
       ))}
@@ -462,7 +480,7 @@ const useViewportReset = ({
 export interface LinePlotProps extends FrameProps {
   editable?: boolean;
   enableTriggers?: Triggers.Condition;
-  resolvedRanges?: Map<string, ResolvedRange>;
+  resolvedRanges?: ResolvedRange[];
   legendVariant?: BaseLegendProps["variant"];
   enableTooltip?: boolean;
   enableMeasure?: boolean;
@@ -502,8 +520,8 @@ export const LinePlot = ({
   const xAxisKeys = useXAxisKeys({ key });
   const viewportRef = useViewportReset({ key, hold: rest.hold });
   const loadingMessage = useMemo(() => {
-    if (resolvedRanges == null || resolvedRanges.size === 0) return undefined;
-    const spans = [...resolvedRanges.values()].map((r) =>
+    if (resolvedRanges == null || resolvedRanges.length === 0) return undefined;
+    const spans = resolvedRanges.map((r) =>
       r.variant === "dynamic" ? r.span : r.timeRange.span,
     );
     const longest = spans.reduce((a, b) => (b.greaterThan(a) ? b : a));
