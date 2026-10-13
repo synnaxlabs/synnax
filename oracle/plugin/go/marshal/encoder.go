@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/typemap"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -83,11 +84,11 @@ func generateEncoderCodecFile(
 	flex []FlexCodec,
 	table *resolution.Table,
 	repoRoot string,
-	definerPaths map[string]string,
+	pins versioning.Pins,
 ) ([]byte, error) {
 	imports := make(map[string]string)
 	content, err := renderEncoderCodecFile(
-		packageName, parentPath, entries, flex, table, repoRoot, definerPaths, nil,
+		packageName, parentPath, entries, flex, table, repoRoot, pins, nil,
 		imports,
 	)
 	if err != nil {
@@ -102,7 +103,7 @@ func generateEncoderCodecFile(
 		return content, nil
 	}
 	return renderEncoderCodecFile(
-		packageName, parentPath, entries, flex, table, repoRoot, definerPaths, aliases,
+		packageName, parentPath, entries, flex, table, repoRoot, pins, aliases,
 		make(map[string]string),
 	)
 }
@@ -116,7 +117,7 @@ func renderEncoderCodecFile(
 	flex []FlexCodec,
 	table *resolution.Table,
 	repoRoot string,
-	definerPaths map[string]string,
+	pins versioning.Pins,
 	aliases map[string]string,
 	imports map[string]string,
 ) ([]byte, error) {
@@ -145,13 +146,14 @@ func renderEncoderCodecFile(
 	}
 	for _, e := range entries {
 		b := &encoderBuilder{
-			table:        table,
-			repoRoot:     repoRoot,
-			packageName:  packageName,
-			parentPath:   parentPath,
-			imports:      fo.ExtraImports,
-			aliases:      aliases,
-			definerPaths: definerPaths,
+			table:       table,
+			repoRoot:    repoRoot,
+			packageName: packageName,
+			parentPath:  parentPath,
+			imports:     fo.ExtraImports,
+			aliases:     aliases,
+			pins:        pins,
+			owner:       e.Type.QualifiedName,
 		}
 		if uform, isUnion := e.Type.Form.(resolution.UnionForm); isUnion {
 			uc, err := buildUnionCodec(e.Type, uform, b)
@@ -295,9 +297,11 @@ type encoderBuilder struct {
 	imports     map[string]string
 	// aliases forces the alias of each import path it holds.
 	aliases map[string]string
-	// definerPaths maps a current-surface member an older version defines to its
-	// definer's versioned path, where references from other packages resolve.
-	definerPaths  map[string]string
+	// pins resolves a stored reference to the dependency version that owner's version
+	// file imports.
+	pins versioning.Pins
+	// owner is the qualified name of the type whose fields the builder is processing.
+	owner         string
 	encodeLines   []string
 	decodeLines   []string
 	needsMath     bool
@@ -526,6 +530,9 @@ func (b *encoderBuilder) processStruct(
 			substituted[i] = f
 			substituted[i].Type = resolution.SubstituteTypeRef(f.Type, typeArgMap)
 		}
+		prev := b.owner
+		b.owner = actual.QualifiedName
+		defer func() { b.owner = prev }()
 		return b.processFields(substituted, getPath, setPath)
 	}
 
@@ -688,13 +695,14 @@ func buildUnionCodec(
 		}
 		if len(inlineFields) > 0 {
 			fb := &encoderBuilder{
-				table:        table,
-				repoRoot:     b.repoRoot,
-				packageName:  b.packageName,
-				parentPath:   b.parentPath,
-				imports:      b.imports,
-				aliases:      b.aliases,
-				definerPaths: b.definerPaths,
+				table:       table,
+				repoRoot:    b.repoRoot,
+				packageName: b.packageName,
+				parentPath:  b.parentPath,
+				imports:     b.imports,
+				aliases:     b.aliases,
+				pins:        b.pins,
+				owner:       b.owner,
 			}
 			if err := fb.processFields(inlineFields, "v", "v"); err != nil {
 				return concreteCodec{}, errors.Wrapf(err,
@@ -1276,7 +1284,7 @@ func (b *encoderBuilder) goTypeName(typ resolution.Type) (string, error) {
 	if goPath == "" || goPath == b.parentPath {
 		return goName, nil
 	}
-	if p, ok := b.definerPaths[typ.QualifiedName]; ok {
+	if p, ok := b.pins.Path(b.owner, typ); ok {
 		goPath = p
 	}
 	importPath, err := resolveGoImportPath(goPath, b.repoRoot)

@@ -495,7 +495,7 @@ Window union on variant {
 	)
 })
 
-var _ = Describe("Stored reference to an aliased dependency member", func() {
+var _ = Describe("Stored reference through a lagging pin", func() {
 	var req *plugin.Request
 
 	BeforeEach(func() {
@@ -579,9 +579,9 @@ Log struct {
 		return ""
 	}
 
-	// color v1 only aliases v0's Color, so the current log package imports v0, the
-	// same package it imports once a later log version freezes it.
-	It("Should import the member's definer from a current package", func() {
+	// log v0 still pins color v0, which color v1 only aliases, so the current log
+	// package imports v0, the version its version file imports.
+	It("Should import the pinned version from a current package", func() {
 		resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(req))
 		current := file(resp, "core/pkg/service/log/versions/v0/types.gen.go")
 		Expect(current).To(ContainSubstring(`x/go/color/versions/v0"`))
@@ -596,9 +596,10 @@ Log struct {
 	})
 })
 
-// writeTwoVersionFixture writes a log whose current version, v1, reaches color's v0
-// Color and v1 Band, and aliases its own v0 Note.
-func writeTwoVersionFixture(root string) {
+// writePinFixture writes a log whose v0 declares Note against color v0 and whose v1
+// declares Log against color v1, where color v1 only aliases v0's Color. With frozen
+// set, a log v2 aliases both, freezing v1.
+func writePinFixture(root string, frozen bool) {
 	GinkgoHelper()
 	write := func(rel, content string) {
 		GinkgoHelper()
@@ -638,8 +639,10 @@ Band struct {
 }
 `)
 	write("schemas/synnax/versions/log/v0.oracle", `
+import "schemas/x/versions/color/v0"
+
 Note struct {
-	text string
+	tint color.Color
 
 	@go marshal
 }
@@ -665,13 +668,20 @@ Log struct {
 	@go marshal
 }
 `)
+	if frozen {
+		write("schemas/synnax/versions/log/v2.oracle", `
+Note = v0.Note
+
+Log = v1.Log
+`)
+	}
 	write("schemas/synnax/log.oracle", `
 import "schemas/x/color"
 
 @go output "core/pkg/service/log"
 
 Note struct {
-	text string
+	tint color.Color
 
 	@go marshal
 }
@@ -687,11 +697,11 @@ Log struct {
 `)
 }
 
-// twoVersionRequest analyzes the fixture writeTwoVersionFixture writes.
-func twoVersionRequest() *plugin.Request {
+// pinRequest analyzes the fixture writePinFixture writes.
+func pinRequest(frozen bool) *plugin.Request {
 	GinkgoHelper()
 	root := GinkgoT().TempDir()
-	writeTwoVersionFixture(root)
+	writePinFixture(root, frozen)
 	chains := MustSucceed(versions.Discover(root))
 	loader := analyzer.NewStandardFileLoader(root)
 	table, diag := analyzer.Analyze(
@@ -707,18 +717,39 @@ func twoVersionRequest() *plugin.Request {
 	}
 }
 
-var _ = Describe("Import aliases for two versions of a dependency", func() {
-	It("Should give the newest version the bare name in a current package", func() {
-		resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).
-			Generate(twoVersionRequest()))
-		var current string
-		for _, f := range resp.Files {
-			if f.Path == "core/pkg/service/log/versions/v1/types.gen.go" {
-				current = string(f.Content)
-			}
+// generatedFile returns the content resp holds at path.
+func generatedFile(resp *plugin.Response, path string) string {
+	GinkgoHelper()
+	for _, f := range resp.Files {
+		if f.Path == path {
+			return string(f.Content)
 		}
-		Expect(current).To(MatchRegexp(`\scolorv0 "[^"]*/color/versions/v0"`))
-		Expect(current).To(MatchRegexp(`\scolor "[^"]*/color/versions/v1"`))
-		Expect(current).To(MatchRegexp(`\sv0 "[^"]*/log/versions/v0"`))
+	}
+	Fail("no generated file " + path)
+	return ""
+}
+
+var _ = Describe("Stored references through the importing version file", func() {
+	// log v1 imports color v1, which aliases v0's Color, so the package references
+	// color v1 only, and freezing v1 keeps that import.
+	DescribeTable("Should import the version that log v1 imports",
+		func(frozen bool) {
+			resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).
+				Generate(pinRequest(frozen)))
+			v1 := generatedFile(resp, "core/pkg/service/log/versions/v1/types.gen.go")
+			Expect(v1).To(MatchRegexp(`\scolor "[^"]*/color/versions/v1"`))
+			Expect(v1).ToNot(ContainSubstring(`color/versions/v0"`))
+			Expect(v1).To(MatchRegexp(`\sv0 "[^"]*/log/versions/v0"`))
+		},
+		Entry("current", false),
+		Entry("frozen", true),
+	)
+
+	It("Should import the version that log v0 imports", func() {
+		resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).
+			Generate(pinRequest(false)))
+		v0 := generatedFile(resp, "core/pkg/service/log/versions/v0/types.gen.go")
+		Expect(v0).To(ContainSubstring(`x/go/color/versions/v0"`))
+		Expect(v0).ToNot(ContainSubstring(`color/versions/v1"`))
 	})
 })

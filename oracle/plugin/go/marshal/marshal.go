@@ -86,7 +86,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	definerPaths, err := versioning.DefinerPaths(
+	pins, err := versioning.NewPins(
 		context.Background(), req.Resolutions, req.Versions,
 	)
 	if err != nil {
@@ -205,7 +205,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 		content, err := generateEncoderCodecFile(
 			packageName, goPath, entries, flex, req.Resolutions, req.RepoRoot,
-			definerPaths,
+			pins,
 		)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate codec for %s", goPath)
@@ -228,7 +228,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			entries := buildCodecEntries(typeMap)
 			testContent, testErr := generateTestCodecFile(
 				packageName, goPath, entries, req.Resolutions, req.RepoRoot,
-				definerPaths,
+				pins,
 			)
 			if testErr != nil {
 				return nil, errors.Wrapf(

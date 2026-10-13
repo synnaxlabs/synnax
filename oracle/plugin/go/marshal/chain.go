@@ -112,7 +112,7 @@ func (p *Plugin) frozenCodecFiles(
 	}
 	packageName := naming.DerivePackageName(vkPath)
 	content, err := generateEncoderCodecFile(
-		packageName, vkPath, entries, flex, table, req.RepoRoot, nil,
+		packageName, vkPath, entries, flex, table, req.RepoRoot, versioning.Pins{},
 	)
 	if err != nil {
 		return nil, errors.Wrapf(err, "frozen codec for %s", vkPath)
@@ -123,7 +123,7 @@ func (p *Plugin) frozenCodecFiles(
 	}}
 	if p.Options.GenerateTests && len(entries) > 0 {
 		testContent, err := generateTestCodecFile(
-			packageName, vkPath, entries, table, req.RepoRoot, nil,
+			packageName, vkPath, entries, table, req.RepoRoot, versioning.Pins{},
 		)
 		if err != nil {
 			return nil, errors.Wrapf(err, "frozen codec tests for %s", vkPath)

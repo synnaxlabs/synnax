@@ -146,15 +146,15 @@ Wire struct {
 		})
 	})
 
-	Describe("DefinerPaths", func() {
+	Describe("Pins", func() {
 		var (
 			root string
 			res  *versions.Resolver
 		)
 
-		writeVersion := func(name, content string) {
+		write := func(rel, content string) {
 			GinkgoHelper()
-			full := filepath.Join(root, "schemas/synnax/versions/channel", name)
+			full := filepath.Join(root, rel)
 			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
 			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
 		}
@@ -163,10 +163,12 @@ Wire struct {
 			GinkgoHelper()
 			table := resolution.NewTable()
 			diag := analyzer.AnalyzeSeeded(ctx, `
+import "schemas/x/color"
+
 @go output "out"
 
 Note struct {
-	text string
+	tint color.Color
 
 	@go marshal
 }
@@ -174,12 +176,9 @@ Note struct {
 Channel struct {
 	key uuid @key
 	note Note
+	tint color.Color
 
 	@go marshal
-}
-
-Wire struct {
-	name string
 }
 `, "schemas/synnax/channel.oracle", "channel",
 				analyzer.NewStandardFileLoader(root), table,
@@ -188,11 +187,33 @@ Wire struct {
 			return table
 		}
 
+		color := func(table *resolution.Table) resolution.Type {
+			GinkgoHelper()
+			return MustBeOk(table.Get("color.Color"))
+		}
+
 		BeforeEach(func() {
 			root = GinkgoT().TempDir()
-			writeVersion("v0.oracle", `
+			write("schemas/x/color.oracle", `
+@go output "colorout"
+
+Color struct {
+	r uint8
+}
+`)
+			write("schemas/x/versions/color/v0.oracle", `
+Color struct {
+	r uint8
+}
+`)
+			write("schemas/x/versions/color/v1.oracle", `
+Color = v0.Color
+`)
+			write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/x/versions/color/v0"
+
 Note struct {
-	text string
+	tint color.Color
 
 	@go marshal
 }
@@ -203,12 +224,15 @@ Channel struct {
 	@go marshal
 }
 `)
-			writeVersion("v1.oracle", `
+			write("schemas/synnax/versions/channel/v1.oracle", `
+import "schemas/x/versions/color/v1"
+
 Note = v0.Note
 
 Channel struct {
 	key uuid @key
 	note Note
+	tint color.Color
 
 	@go marshal
 }
@@ -217,21 +241,46 @@ Channel struct {
 			res = versions.NewResolver(chains, analyzer.NewStandardFileLoader(root))
 		})
 
-		It("Should map a member an older version defines to that version's path",
+		It("Should resolve a reference through the version its declaring file imports",
 			func(ctx SpecContext) {
-				Expect(versioning.DefinerPaths(ctx, analyzeLive(ctx), res)).To(Equal(
-					map[string]string{"channel.Note": "out/versions/v0"},
-				))
+				table := analyzeLive(ctx)
+				pins := MustSucceed(versioning.NewPins(ctx, table, res))
+				Expect(MustBeOk(pins.Path("channel.Note", color(table)))).
+					To(Equal("colorout/versions/v0"))
+				Expect(MustBeOk(pins.Path("channel.Channel", color(table)))).
+					To(Equal("colorout/versions/v1"))
 			})
 
-		It("Should return nothing without a resolver", func(ctx SpecContext) {
-			Expect(versioning.DefinerPaths(ctx, analyzeLive(ctx), nil)).To(BeEmpty())
+		It("Should resolve a current declaration through its schema's current pins",
+			func(ctx SpecContext) {
+				table := analyzeLive(ctx)
+				pins := MustSucceed(versioning.NewPins(ctx, table, res))
+				Expect(MustBeOk(pins.CurrentPath(
+					"schemas/synnax/channel", color(table),
+				))).To(Equal("colorout/versions/v1"))
+			})
+
+		It("Should not resolve a reference its declaring file does not pin",
+			func(ctx SpecContext) {
+				table := analyzeLive(ctx)
+				pins := MustSucceed(versioning.NewPins(ctx, table, res))
+				note := MustBeOk(table.Get("channel.Note"))
+				Expect(pins.Path("channel.Channel", note)).Error().To(BeFalse())
+				Expect(pins.Path("channel.Unknown", color(table))).Error().To(BeFalse())
+				Expect(pins.CurrentPath("schemas/x/color", color(table))).Error().
+					To(BeFalse())
+			})
+
+		It("Should resolve nothing without a resolver", func(ctx SpecContext) {
+			table := analyzeLive(ctx)
+			pins := MustSucceed(versioning.NewPins(ctx, table, nil))
+			Expect(pins.Path("channel.Note", color(table))).Error().To(BeFalse())
 		})
 
 		It("Should return the error from reading a surface", func(ctx SpecContext) {
 			table := analyzeLive(ctx)
-			writeVersion("v1.oracle", "Channel struct {")
-			Expect(versioning.DefinerPaths(ctx, table, res)).Error().
+			write("schemas/synnax/versions/channel/v1.oracle", "Channel struct {")
+			Expect(versioning.NewPins(ctx, table, res)).Error().
 				To(MatchError(ContainSubstring("mismatched input '<EOF>'")))
 		})
 	})

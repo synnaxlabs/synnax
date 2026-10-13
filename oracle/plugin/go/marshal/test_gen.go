@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/typemap"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
 	"github.com/synnaxlabs/oracle/plugin/go/types"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
@@ -82,7 +83,7 @@ func generateTestCodecFile(
 	entries []CodecEntry,
 	table *resolution.Table,
 	repoRoot string,
-	definerPaths map[string]string,
+	pins versioning.Pins,
 ) ([]byte, error) {
 	pkgImport, err := resolveGoImportPath(parentPath, repoRoot)
 	if err != nil {
@@ -90,7 +91,7 @@ func generateTestCodecFile(
 	}
 	imports := make(map[string]string)
 	content, err := renderTestCodecFile(
-		packageName, parentPath, pkgImport, entries, table, repoRoot, definerPaths, nil,
+		packageName, parentPath, pkgImport, entries, table, repoRoot, pins, nil,
 		imports,
 	)
 	if err != nil {
@@ -101,7 +102,7 @@ func generateTestCodecFile(
 		return content, nil
 	}
 	return renderTestCodecFile(
-		packageName, parentPath, pkgImport, entries, table, repoRoot, definerPaths,
+		packageName, parentPath, pkgImport, entries, table, repoRoot, pins,
 		aliases, make(map[string]string),
 	)
 }
@@ -115,7 +116,7 @@ func renderTestCodecFile(
 	entries []CodecEntry,
 	table *resolution.Table,
 	repoRoot string,
-	definerPaths map[string]string,
+	pins versioning.Pins,
 	aliases map[string]string,
 	imports map[string]string,
 ) ([]byte, error) {
@@ -140,15 +141,15 @@ func renderTestCodecFile(
 			return nil
 		}
 		b := &testValueBuilder{
-			table:        table,
-			repoRoot:     repoRoot,
-			packageName:  packageName,
-			parentPath:   parentPath,
-			imports:      fo.ExtraImports,
-			aliases:      aliases,
-			definerPaths: definerPaths,
-			pkgPrefix:    packageName + ".",
-			mode:         modeFullyPopulated,
+			table:       table,
+			repoRoot:    repoRoot,
+			packageName: packageName,
+			parentPath:  parentPath,
+			imports:     fo.ExtraImports,
+			aliases:     aliases,
+			pins:        pins,
+			pkgPrefix:   packageName + ".",
+			mode:        modeFullyPopulated,
 		}
 		expr, err := b.valueExpr(typ, ref)
 		if err != nil {
@@ -218,16 +219,16 @@ func renderTestCodecFile(
 			te := testEntry{GoName: e.GoName, Receiver: recv}
 			for _, v := range uform.Variants {
 				b := &testValueBuilder{
-					table:        table,
-					repoRoot:     repoRoot,
-					packageName:  packageName,
-					parentPath:   parentPath,
-					imports:      fo.ExtraImports,
-					aliases:      aliases,
-					definerPaths: definerPaths,
-					pkgPrefix:    packageName + ".",
-					mode:         modeFullyPopulated,
-					sharedVars:   sharedVars,
+					table:       table,
+					repoRoot:    repoRoot,
+					packageName: packageName,
+					parentPath:  parentPath,
+					imports:     fo.ExtraImports,
+					aliases:     aliases,
+					pins:        pins,
+					pkgPrefix:   packageName + ".",
+					mode:        modeFullyPopulated,
+					sharedVars:  sharedVars,
 				}
 				valueExpr, err := b.unionExpr(e.Type, uform, v)
 				if err != nil {
@@ -300,16 +301,16 @@ func renderTestCodecFile(
 			}
 			for _, m := range modes {
 				b := &testValueBuilder{
-					table:        table,
-					repoRoot:     repoRoot,
-					packageName:  packageName,
-					parentPath:   parentPath,
-					imports:      fo.ExtraImports,
-					aliases:      aliases,
-					definerPaths: definerPaths,
-					sharedVars:   sharedVars,
-					pkgPrefix:    packageName + ".",
-					mode:         m.mode,
+					table:       table,
+					repoRoot:    repoRoot,
+					packageName: packageName,
+					parentPath:  parentPath,
+					imports:     fo.ExtraImports,
+					aliases:     aliases,
+					pins:        pins,
+					sharedVars:  sharedVars,
+					pkgPrefix:   packageName + ".",
+					mode:        m.mode,
 				}
 
 				fields := resolution.UnifiedFields(e.Type, table)
@@ -391,16 +392,16 @@ func renderTestCodecFile(
 					}
 				}
 				b := &testValueBuilder{
-					table:        table,
-					repoRoot:     repoRoot,
-					packageName:  packageName,
-					parentPath:   parentPath,
-					imports:      fo.ExtraImports,
-					aliases:      aliases,
-					definerPaths: definerPaths,
-					pkgPrefix:    packageName + ".",
-					mode:         m.mode,
-					sharedVars:   sharedVars,
+					table:       table,
+					repoRoot:    repoRoot,
+					packageName: packageName,
+					parentPath:  parentPath,
+					imports:     fo.ExtraImports,
+					aliases:     aliases,
+					pins:        pins,
+					pkgPrefix:   packageName + ".",
+					mode:        m.mode,
+					sharedVars:  sharedVars,
 				}
 				valueExpr, err := b.buildStructLiteral(e.Type, e.GoName)
 				if err != nil {
@@ -505,14 +506,16 @@ type testValueBuilder struct {
 	imports     map[string]string
 	// aliases forces the alias of each import path it holds.
 	aliases map[string]string
-	// definerPaths maps a current-surface member an older version defines to its
-	// definer's versioned path, where references from other packages resolve.
-	definerPaths map[string]string
-	pkgPrefix    string
-	needsUUID    bool
-	depth        int
-	fieldIndex   int
-	mode         valueMode
+	// pins resolves a stored reference to the dependency version that owner's version
+	// file imports.
+	pins versioning.Pins
+	// owner is the qualified name of the type whose fields the builder is filling.
+	owner      string
+	pkgPrefix  string
+	needsUUID  bool
+	depth      int
+	fieldIndex int
+	mode       valueMode
 	// sharedVars maps a struct's qualified name to a package-level fixture
 	// var that union embeds reference instead of inlining the literal. Nil
 	// while building the fixtures themselves, so they never reference each
@@ -581,6 +584,12 @@ func (b *testValueBuilder) buildStructFieldExprs(
 	form, ok := typ.Form.(resolution.StructForm)
 	if !ok {
 		return nil, nil
+	}
+	// An inline payload belongs to its union, which already owns the fields.
+	if !typ.Synthetic {
+		prev := b.owner
+		b.owner = typ.QualifiedName
+		defer func() { b.owner = prev }()
 	}
 	if types.CanEmbed(form, b.table) {
 		return b.buildEmbeddedStructFieldExprs(form)
@@ -893,6 +902,9 @@ func (b *testValueBuilder) unionExpr(
 	if err != nil {
 		return "", err
 	}
+	prev := b.owner
+	b.owner = actual.QualifiedName
+	defer func() { b.owner = prev }()
 	goName := naming.GetGoName(actual)
 	variantType := strings.TrimSuffix(goType, goName) +
 		casing.VariantTypeName(goName, v.Name)
@@ -1200,7 +1212,7 @@ func (b *testValueBuilder) goTypeName(typ resolution.Type) (string, error) {
 	if goPath == "" || goPath == b.parentPath {
 		return b.pkgPrefix + goName, nil
 	}
-	if p, ok := b.definerPaths[typ.QualifiedName]; ok {
+	if p, ok := b.pins.Path(b.owner, typ); ok {
 		goPath = p
 	}
 	importPath, err := resolveGoImportPath(goPath, b.repoRoot)
