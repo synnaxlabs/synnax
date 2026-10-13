@@ -473,13 +473,19 @@ const XAxis = ({
 const FIRST_Y_AXIS: lineplot.YAxisKey = "y1";
 const FIRST_X_AXIS: lineplot.XAxisKey = "x1";
 
+interface PlotDrop extends Haul.UseDropReturn, Omit<Haul.UseDragOverReturn, "over"> {
+  className?: string;
+}
+
 /**
  * Adds a channel dropped on the plot area to the first Y axis, and a range to the first
- * X axis.
+ * X axis. Marks the plot area while a drag it can take is over it.
  */
-const usePlotDrop = (key: lineplot.Key, editable: boolean): Haul.UseDropReturn => {
+const usePlotDrop = (key: lineplot.Key, editable: boolean): PlotDrop => {
   const edit = useEdit(key, editable);
-  return Haul.useDrop({
+  const { over, ...dragOverProps } = Haul.useDragOver();
+  const droppable = canDropChannelOrRange(Haul.useDraggingState());
+  const dropProps = Haul.useDrop({
     type: "lineplot_plot",
     canDrop: canDropChannelOrRange,
     onDrop: useCallback(
@@ -495,6 +501,11 @@ const usePlotDrop = (key: lineplot.Key, editable: boolean): Haul.UseDropReturn =
       [edit],
     ),
   });
+  return {
+    ...dropProps,
+    ...dragOverProps,
+    className: CSS.cls(droppable && over && CSS.M("drag-over")),
+  };
 };
 
 interface UseViewportResetParams {

@@ -32,3 +32,10 @@
 .pluto-line-plot__viewport {
     grid-area: plot-start / plot-start / plot-end / plot-end;
 }
+
+.pluto-line-plot__viewport.pluto--drag-over {
+    background: var(--haul-background);
+    outline: var(--pluto-border);
+    outline-color: var(--haul-border-color);
+    outline-offset: -1px;
+}
