@@ -389,6 +389,25 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			)
 		})
 
+		It(
+			"Should bind a generic element's type arguments in an array default",
+			func(ctx SpecContext) {
+				source := `
+				@go output "core/pkg/service/x"
+
+				Box struct<T extends int64> { value T? }
+
+				Cfg struct { boxes Box<int64>[] = [{ value = 7 }] }
+			`
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"v0 := Box[int64]{}",
+					"v0.Value = new(int64(7))",
+					"c.Boxes = []Box[int64]{v0}",
+				)
+			},
+		)
+
 		It("Should ignore an empty array default", func(ctx SpecContext) {
 			source := `
 				@go output "core/pkg/service/x"

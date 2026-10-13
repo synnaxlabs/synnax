@@ -238,6 +238,12 @@ func literalAssignments(
 			return nil, false
 		}
 		fields := resolution.UnifiedFields(resolved, data.table)
+		if form, ok := resolved.Form.(resolution.StructForm); ok && form.IsGeneric() {
+			fields = lo.Map(fields, func(f resolution.Field, _ int) resolution.Field {
+				f.Type = bindTypeArgs(f.Type, form.TypeParams, typeRef.TypeArgs)
+				return f
+			})
+		}
 		for _, comp := range v.Fields {
 			f, ok := lo.Find(fields, func(f resolution.Field) bool {
 				return f.Name == comp.Name
@@ -287,6 +293,34 @@ func literalAssignments(
 		return []string{selector + " = new(" + goType + "(" + lit + "))"}, true
 	}
 	return []string{selector + " = " + lit}, true
+}
+
+// bindTypeArgs returns ref with each of params replaced by the type argument at its
+// position in args, so a generic struct's field types name its concrete instantiation.
+func bindTypeArgs(
+	ref resolution.TypeRef,
+	params []resolution.TypeParam,
+	args []resolution.TypeRef,
+) resolution.TypeRef {
+	if ref.IsTypeParam() {
+		for i, p := range params {
+			if p.Name == ref.TypeParam.Name && i < len(args) {
+				return args[i]
+			}
+		}
+		return ref
+	}
+	if len(ref.TypeArgs) == 0 {
+		return ref
+	}
+	bound := ref
+	bound.TypeArgs = lo.Map(
+		ref.TypeArgs,
+		func(a resolution.TypeRef, _ int) resolution.TypeRef {
+			return bindTypeArgs(a, params, args)
+		},
+	)
+	return bound
 }
 
 // arrayLiteral renders the array literal v of slice type typeRef, returning the
