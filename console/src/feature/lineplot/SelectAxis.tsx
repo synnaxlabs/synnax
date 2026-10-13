@@ -14,6 +14,7 @@ import { Channel, LinePlot } from "@synnaxlabs/pluto";
 import { type telem } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
+import { fromWindow, toWindow } from "@/feature/lineplot/customRange";
 import { Range } from "@/platform/range";
 import { Session } from "@/session";
 
@@ -90,10 +91,16 @@ const CustomRangeInput = (): ReactElement => {
   const custom = LinePlot.useCustomRange();
   const dispatch = LinePlot.useSingleDispatch();
   const handleChange = useCallback(
-    (custom: telem.Window) => dispatch(lineplot.setCustomRange({ custom })),
+    (window: telem.Window) =>
+      dispatch(lineplot.setCustomRange({ custom: fromWindow(window) })),
     [dispatch],
   );
-  return <Range.CustomInput value={custom} onChange={handleChange} />;
+  return (
+    <Range.CustomInput
+      value={custom == null ? undefined : toWindow(custom)}
+      onChange={handleChange}
+    />
+  );
 };
 
 export interface XAxisRangeSelectProps extends Omit<

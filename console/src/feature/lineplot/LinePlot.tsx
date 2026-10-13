@@ -41,6 +41,7 @@ import {
 } from "react";
 
 import { Controls } from "@/feature/lineplot/Controls";
+import { toWindow } from "@/feature/lineplot/customRange";
 import {
   type DownloadLine,
   useDownloadAsCSV,
@@ -208,7 +209,7 @@ const Internal = (): ReactElement => {
     for (const r of resolved) m.set(r.key, Range.toResolvedRange(r));
     const { custom } = ranges;
     if (custom != null && rangeKeys.includes(Range.CUSTOM_KEY))
-      m.set(Range.CUSTOM_KEY, Range.resolveCustom(custom));
+      m.set(Range.CUSTOM_KEY, Range.resolveCustom(toWindow(custom)));
     return m;
   }, [resolved, ranges.custom, rangeKeys]);
 
