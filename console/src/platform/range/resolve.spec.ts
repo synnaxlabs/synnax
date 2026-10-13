@@ -126,6 +126,15 @@ describe("Range.useResolveMultiple", () => {
     );
   });
 
+  // A line plot's custom range has the key "custom", which is not a range key.
+  it("should resolve Core ranges beside a key that is not a range key", async () => {
+    const created = await createTestRange(client);
+    const { result } = await renderResolveMultiple([], ["custom", created.key]);
+    await waitFor(() =>
+      expect(result.current.map(({ key }) => key)).toEqual([created.key]),
+    );
+  });
+
   it("should put a range the session does not hold after the session's", async () => {
     const outside = await createTestRange(client);
     const local = createLocal();
