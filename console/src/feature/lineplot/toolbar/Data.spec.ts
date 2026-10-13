@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { DataType, type lineplot } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { TimeSpan } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -18,6 +19,9 @@ import { Range } from "@/platform/range";
 import { uniqueName } from "@/testutil";
 
 const PLACEHOLDER = "1h 30m";
+
+// A separate client reads what the Core saved, not the rendering client's cache.
+const reader = createTestClient();
 
 const renderData = async (ranges?: lineplot.New["ranges"]) => {
   const handle = await renderLinePlot(Toolbar, {
@@ -49,7 +53,7 @@ describe("lineplot/toolbar/Data", () => {
     fireEvent.change(input, { target: { value: "45m" } });
     fireEvent.blur(input);
     await waitFor(async () => {
-      const plot = await client.lineplots.retrieve(key);
+      const plot = await reader.lineplots.retrieve(key);
       expect(plot.ranges.custom).toEqual({
         variant: "dynamic",
         span: Number(TimeSpan.minutes(45)),
@@ -63,12 +67,12 @@ describe("lineplot/toolbar/Data", () => {
     fireEvent.change(input, { target: { value: "45m" } });
     fireEvent.blur(input);
     await waitFor(async () => {
-      const plot = await client.lineplots.retrieve(key);
+      const plot = await reader.lineplots.retrieve(key);
       expect(plot.ranges.custom).toBeDefined();
     });
     fireEvent.change(input, { target: { value: "banana" } });
     fireEvent.blur(input);
-    const plot = await client.lineplots.retrieve(key);
+    const plot = await reader.lineplots.retrieve(key);
     expect(plot.ranges.custom).toEqual({
       variant: "dynamic",
       span: Number(TimeSpan.minutes(45)),
@@ -86,7 +90,7 @@ describe("lineplot/toolbar/Data", () => {
     });
     fireEvent.click(await screen.findByLabelText("Clear X1 channel"));
     await waitFor(async () => {
-      const plot = await client.lineplots.retrieve(key);
+      const plot = await reader.lineplots.retrieve(key);
       expect(plot.channels.x1).toBe(0);
     });
     expect(screen.queryByLabelText("Clear X1 channel")).toBeNull();
