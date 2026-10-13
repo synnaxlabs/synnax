@@ -466,7 +466,9 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			Expect(json.Unmarshal(raw, &legacy)).To(Succeed())
 			delete(legacy, "type")
 			store := MustBeOk(configs.Store(env.Type))
-			expected := MustSucceed(store.Normalize(0, legacy))
+			expected := MustSucceed(store.Normalize(ctx, 0, legacy))
+			// The store stamps the key on write, and a typed upgrade emits a zero one.
+			delete(expected, "key")
 			expectSubset(
 				"config",
 				map[string]any(expected),
@@ -475,7 +477,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 
 			// A canonical config must pass through the legacy rewrite unchanged, so
 			// re-importing an unversioned copy of a current export never rewrites it.
-			Expect(store.Normalize(0, imported.Config)).
+			Expect(store.Normalize(ctx, 0, imported.Config)).
 				To(Equal(imported.Config))
 
 			// The golden file freezes the canonical stored record independently of

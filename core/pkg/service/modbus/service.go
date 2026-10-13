@@ -14,10 +14,12 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/modbus/versions/legacy"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
@@ -71,11 +73,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.Read, err = config.OpenService(
 		ctx, config.ServiceConfig[ReadConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "modbus_read",
-			Version:            legacy.LastVersion + 1,
-			Legacy:             &legacy.Read,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            "modbus_read",
+			Version:         legacy.LastVersion + 2,
+			Legacy:          &legacy.Read,
+			Upgrades: []config.Upgrade{
+				config.NewUpgrade(v2.MigrateReadConfig),
+			},
+			Migrations:         []migrate.Migration{v2.ReadMigration},
 			SetEntryKey:        (*ReadConfig).SetKey,
 			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
 		},
@@ -84,11 +90,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.Write, err = config.OpenService(
 		ctx, config.ServiceConfig[WriteConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "modbus_write",
-			Version:            legacy.LastVersion + 1,
-			Legacy:             &legacy.Write,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            "modbus_write",
+			Version:         legacy.LastVersion + 2,
+			Legacy:          &legacy.Write,
+			Upgrades: []config.Upgrade{
+				config.NewUpgrade(v2.MigrateWriteConfig),
+			},
+			Migrations:         []migrate.Migration{v2.WriteMigration},
 			SetEntryKey:        (*WriteConfig).SetKey,
 			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
 		},

@@ -24,6 +24,7 @@ import { type FC, useCallback } from "react";
 import { useFromConfig } from "@/feature/modbus/device/queries";
 import { Select as SelectDevice } from "@/feature/modbus/device/Select";
 import * as Device from "@/feature/modbus/device/types";
+import { OrderFields } from "@/feature/modbus/task/OrderFields";
 import { SelectWriteChannelTypeField } from "@/feature/modbus/task/SelectWriteChannelTypeField";
 import {
   deployWriteConfigZ,
@@ -52,7 +53,8 @@ const Properties = () => (
 const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = `config.channels.${itemKey}`;
-  const { type, channel } = PForm.useFieldValue<WriteChannel>(path);
+  const ch = PForm.useFieldValue<WriteChannel>(path);
+  const { type, channel } = ch;
   return (
     <Select.Item {...props} justify="between" align="center" x full="x">
       <Flex.Box x pack className={CSS.B("channel-item")}>
@@ -89,6 +91,9 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
           </PForm.Field>
         )}
       </Flex.Box>
+      {ch.type === "holding_register" && (
+        <OrderFields path={path} dataType={ch.dataType} />
+      )}
       <Flex.Box x align="center" grow justify="end">
         <Task.ChannelName
           channel={channel}

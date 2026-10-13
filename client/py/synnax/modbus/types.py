@@ -167,8 +167,10 @@ class Device(device.Device):
 
     :param host: The IP address or hostname of the Modbus server.
     :param port: The TCP port number, typically 502.
-    :param swap_bytes: Whether to swap byte order within 16-bit words.
-    :param swap_words: Whether to swap word order for 32-bit and larger values.
+    :param swap_bytes: Whether register channels swap the byte order within each
+        16-bit word. A channel's bytes_swapped overrides it.
+    :param swap_words: Whether register channels swap the word order of 32-bit and
+        larger values. A channel's words_swapped overrides it.
     :param name: Human-readable name for the device.
     :param location: Physical location or description.
     :param rack: Rack key this device belongs to.

@@ -22,11 +22,17 @@ RegisterValue struct {
         @doc value "is the data type the register contents are interpreted as."
         @ts type   "string"
     }
-    bytes_swapped bool = false {
-        @doc value "is true when the byte order within each 16-bit word is swapped."
+    bytes_swapped bool?          {
+        @doc value """
+            is true when the byte order within each 16-bit word is swapped. When absent,
+            the device's byte order applies.
+        """
     }
-    words_swapped bool = false {
-        @doc value "is true when the word order of multi-register values is swapped."
+    words_swapped bool?          {
+        @doc value """
+            is true when the word order of multi-register values is swapped. When
+            absent, the device's word order applies.
+        """
     }
 
     @doc value  "interprets one or more 16-bit registers as a single typed value."

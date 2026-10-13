@@ -9,6 +9,7 @@
 
 #include <iomanip>
 #include <iostream>
+#include <optional>
 #include <thread>
 
 #include "gtest/gtest.h"
@@ -176,8 +177,38 @@ TEST(ModbusChannels, testMissingDataTypeDefaultsToUint8) {
     );
     const auto cfg = ::synnax::modbus::InputRegisterReadChannel::parse(parser);
     ASSERT_NIL(parser.error());
-    const channel::InputRegister ch(cfg);
+    const channel::InputRegister ch(cfg, device::ConnectionConfig{});
     EXPECT_EQ(ch.value_type, x::telem::UINT8_T);
+}
+
+/// @brief it should take the device's byte and word order when the channel has no
+/// override.
+TEST(ModbusChannels, testRegisterInheritsDeviceOrder) {
+    auto parser = x::json::Parser(
+        x::json::json{{"type", "holding_register"}, {"data_type", "float32"}}
+    );
+    const auto cfg = ::synnax::modbus::HoldingRegisterReadChannel::parse(parser);
+    ASSERT_NIL(parser.error());
+    const channel::InputRegister ch(cfg, device::ConnectionConfig("h", 1, true, true));
+    EXPECT_TRUE(ch.bytes_swapped);
+    EXPECT_TRUE(ch.words_swapped);
+}
+
+/// @brief it should let a channel's override win over the device's order.
+TEST(ModbusChannels, testRegisterOverrideBeatsDevice) {
+    auto parser = x::json::Parser(
+        x::json::json{
+            {"type", "input_register"},
+            {"data_type", "float32"},
+            {"bytes_swapped", false},
+            {"words_swapped", true}
+        }
+    );
+    const auto cfg = ::synnax::modbus::InputRegisterReadChannel::parse(parser);
+    ASSERT_NIL(parser.error());
+    const channel::InputRegister ch(cfg, device::ConnectionConfig("h", 1, true, false));
+    EXPECT_FALSE(ch.bytes_swapped);
+    EXPECT_TRUE(ch.words_swapped);
 }
 
 /// @brief it should parse configuration with multiple channel types.
@@ -552,6 +583,110 @@ TEST_F(ModbusReadTest, testHoldingRegisterRead) {
     ASSERT_EQ(fr.size(), 2);
     ASSERT_EQ(fr.length(), 1);
     ASSERT_EQ(fr.at<uint16_t>(data_channel.key, 0), 12345);
+}
+
+/// @brief reads one float32 holding register at address 0 from a device whose
+/// connection swaps words, and checks the task wrote pi.
+void expect_pi_from_word_swapped_device(
+    const std::shared_ptr<synnax::Synnax> &client,
+    const std::shared_ptr<task::MockContext> &ctx,
+    const synnax::rack::Rack &rack,
+    const synnax::channel::Channel &index,
+    const uint16_t first_register,
+    const uint16_t second_register,
+    const std::optional<bool> words_swapped
+) {
+    mock::SlaveConfig slave_cfg;
+    slave_cfg.holding_registers[0] = first_register;
+    slave_cfg.holding_registers[1] = second_register;
+    slave_cfg.host = "127.0.0.1";
+    slave_cfg.port = 1502;
+    auto slave = mock::Slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+
+    auto dev = synnax::device::Device{
+        .key = "modbus_word_swapped_device",
+        .rack = rack.key,
+        .location = "dev1",
+        .make = "modbus",
+        .model = "Modbus Device",
+        .name = "modbus_word_swapped_device",
+        .properties = x::json::json{
+            {"connection",
+             device::ConnectionConfig{"127.0.0.1", 1502, false, true}.to_json()}
+        }
+    };
+    ASSERT_NIL(client->devices.create(dev));
+    auto data_channel = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("float_register"),
+        x::telem::FLOAT32_T,
+        index.key,
+        false
+    ));
+    x::json::json ch = {
+        {"type", "holding_register"},
+        {"channel", data_channel.key},
+        {"address", 0},
+        {"data_type", "float32"}
+    };
+    if (words_swapped.has_value()) ch["words_swapped"] = *words_swapped;
+    x::json::json cfg = {
+        {"data_saving_disabled", true},
+        {"sample_rate", 25},
+        {"stream_rate", 25},
+        {"device", dev.key},
+        {"channels", x::json::json::array({ch})}
+    };
+    auto p = x::json::Parser(cfg);
+    auto task_cfg = std::make_unique<ReadTaskConfig>(client, p);
+    ASSERT_NIL(p.error());
+
+    auto factory = std::make_shared<pipeline::mock::WriterFactory>();
+    auto task = common::ReadTask(
+        synnax::task::Task{.rack = rack.key, .name = "swap", .type = "modbus_read"},
+        ctx,
+        x::breaker::default_config("swap"),
+        std::make_unique<ReadTaskSource>(
+            std::make_shared<device::Manager>(),
+            std::move(*task_cfg)
+        ),
+        factory
+    );
+    task.start("start_cmd");
+    ASSERT_EVENTUALLY_GE(factory->writes->size(), 1);
+    task.stop("stop_cmd", true);
+    ASSERT_FLOAT_EQ(factory->writes->at(0).at<float>(data_channel.key, 0), 3.14159274F);
+}
+
+/// @brief it should decode a channel with no override using the device's word swap.
+TEST_F(ModbusReadTest, testChannelInheritsDeviceWordSwap) {
+    // 0x40490FDB is pi as a float32. The device swaps words, so the high word comes
+    // first.
+    expect_pi_from_word_swapped_device(
+        client,
+        ctx,
+        rack,
+        index_channel,
+        0x4049,
+        0x0FDB,
+        std::nullopt
+    );
+}
+
+/// @brief it should decode a channel with an override using the channel's word order,
+/// not the device's.
+TEST_F(ModbusReadTest, testChannelOverridesDeviceWordSwap) {
+    expect_pi_from_word_swapped_device(
+        client,
+        ctx,
+        rack,
+        index_channel,
+        0x0FDB,
+        0x4049,
+        false
+    );
 }
 
 /// @brief it should read multiple channel types simultaneously.
