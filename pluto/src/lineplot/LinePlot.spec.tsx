@@ -15,13 +15,13 @@ import { fireEvent, render, waitFor } from "@testing-library/react";
 import { type ReactElement, Suspense } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { createHaulItem } from "@/channel/types";
+import { Channel } from "@/channel";
 import { lineplot } from "@/lineplot/aether";
 import { LinePlot } from "@/lineplot/LinePlot";
-import { useRanges, useYAxis } from "@/lineplot/queries";
+import { useRanges, useUndo, useYAxis } from "@/lineplot/queries";
 import { range } from "@/lineplot/range/aether";
 import { Suspended } from "@/lineplot/Suspended";
-import { createHaulItem as createRangeHaulItem } from "@/ranger/types";
+import { Ranger } from "@/ranger";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 import { canvasTest } from "@/vis/render/test";
 
@@ -46,8 +46,10 @@ const Source = ({ items }: SourceProps): ReactElement => {
 const Probe = ({ plotKey }: { plotKey: string }): ReactElement => {
   const { channels } = useYAxis({ key: plotKey, axisKey: "y1" });
   const ranges = useRanges({ key: plotKey });
+  const { undo } = useUndo({ key: plotKey });
   return (
     <>
+      <button onClick={undo}>Undo</button>
       <div data-testid="y1">{channels.join(",")}</div>
       <div data-testid="x1-ranges">{ranges.x1.join(",")}</div>
     </>
@@ -116,7 +118,7 @@ describe("LinePlot", () => {
   describe("range drop", () => {
     it("should add a range dropped on the plot area to the first X axis", async () => {
       const { drop, getByTestId } = await renderPlot([
-        createRangeHaulItem(rng.payload),
+        Ranger.createHaulItem(rng.payload),
       ]);
       drop();
       await waitFor(() => expect(getByTestId("x1-ranges").textContent).toBe(rng.key));
@@ -124,7 +126,7 @@ describe("LinePlot", () => {
 
     it("should add a range dropped on an X axis to that axis", async () => {
       const { drop, xAxis, getByTestId } = await renderPlot([
-        createRangeHaulItem(rng.payload),
+        Ranger.createHaulItem(rng.payload),
       ]);
       drop(xAxis);
       await waitFor(() => expect(getByTestId("x1-ranges").textContent).toBe(rng.key));
@@ -133,8 +135,8 @@ describe("LinePlot", () => {
     it("should add the channels and the ranges of one drop", async () => {
       const [first] = channels;
       const { drop, getByTestId } = await renderPlot([
-        createHaulItem(first.key),
-        createRangeHaulItem(rng.payload),
+        Channel.createHaulItem(first.key),
+        Ranger.createHaulItem(rng.payload),
       ]);
       drop();
       await waitFor(() => {
@@ -143,9 +145,24 @@ describe("LinePlot", () => {
       });
     });
 
+    it("should undo the channels and the ranges of one drop in one step", async () => {
+      const [first] = channels;
+      const { drop, getByTestId, getByText } = await renderPlot([
+        Channel.createHaulItem(first.key),
+        Ranger.createHaulItem(rng.payload),
+      ]);
+      drop();
+      await waitFor(() => expect(getByTestId("x1-ranges").textContent).toBe(rng.key));
+      fireEvent.click(getByText("Undo"));
+      await waitFor(() => {
+        expect(getByTestId("y1").textContent).toBe("");
+        expect(getByTestId("x1-ranges").textContent).toBe("");
+      });
+    });
+
     it("should not add a range when the plot is not editable", async () => {
       const { drop, getByTestId } = await renderPlot(
-        [createRangeHaulItem(rng.payload)],
+        [Ranger.createHaulItem(rng.payload)],
         false,
       );
       drop();
@@ -160,14 +177,16 @@ describe("LinePlot", () => {
   describe("plot area drop", () => {
     it("should add a dropped channel to the first Y axis", async () => {
       const keys = channels.map(({ key }) => key);
-      const { drop, getByTestId } = await renderPlot(keys.map(createHaulItem));
+      const { drop, getByTestId } = await renderPlot(keys.map(Channel.createHaulItem));
       drop();
       await waitFor(() => expect(getByTestId("y1").textContent).toBe(keys.join(",")));
     });
 
     it("should not add a channel the first Y axis already has", async () => {
       const [first] = channels;
-      const { drop, getByTestId } = await renderPlot([createHaulItem(first.key)]);
+      const { drop, getByTestId } = await renderPlot([
+        Channel.createHaulItem(first.key),
+      ]);
       drop();
       await waitFor(() =>
         expect(getByTestId("y1").textContent).toBe(String(first.key)),
@@ -184,7 +203,7 @@ describe("LinePlot", () => {
     it("should not add a channel when the plot is not editable", async () => {
       const [first] = channels;
       const { drop, getByTestId } = await renderPlot(
-        [createHaulItem(first.key)],
+        [Channel.createHaulItem(first.key)],
         false,
       );
       drop();
