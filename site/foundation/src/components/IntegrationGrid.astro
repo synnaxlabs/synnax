@@ -8,14 +8,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon } from "@synnaxlabs/lyra/icon";
 import NI from "@synnaxlabs/site-common/integrations/NI.astro";
 import LabJack from "@synnaxlabs/site-common/integrations/LabJack.astro";
 import Dewesoft from "@synnaxlabs/site-common/integrations/Dewesoft.astro";
-import Beckhoff from "@synnaxlabs/site-common/integrations/Beckhoff.astro";
-import Siemens from "@synnaxlabs/site-common/integrations/Siemens.astro";
-import Rockwell from "@synnaxlabs/site-common/integrations/Rockwell.astro";
 import Wago from "@synnaxlabs/site-common/integrations/Wago.astro";
-import Omron from "@synnaxlabs/site-common/integrations/Omron.astro";
 import OPCUA from "@synnaxlabs/site-common/integrations/OPCUA.astro";
 import Modbus from "@synnaxlabs/site-common/integrations/Modbus.astro";
 import EtherCAT from "@synnaxlabs/site-common/integrations/EtherCAT.astro";
@@ -23,6 +20,7 @@ import LabVIEW from "@/components/integrations/LabVIEW.astro";
 import MQTT from "@/components/integrations/MQTT.astro";
 import Kafka from "@/components/integrations/Kafka.astro";
 import InfluxDB from "@/components/integrations/InfluxDB.astro";
+import Rust from "@/components/integrations/Rust.astro";
 
 const integrations = [
     {
@@ -124,33 +122,6 @@ const integrations = [
         color: "#df997a",
     },
     {
-        name: "Beckhoff",
-        kind: "Industrial controllers",
-        detail: "Connect Beckhoff systems through the interfaces available on your controller, including OPC UA and EtherCAT.",
-        Logo: Beckhoff,
-        width: 122,
-        height: 34,
-        color: "#de8289",
-    },
-    {
-        name: "Siemens",
-        kind: "Industrial controllers",
-        detail: "Bring Siemens controller data into your software through exposed OPC UA or Modbus interfaces.",
-        Logo: Siemens,
-        width: 128,
-        height: 38,
-        color: "#74bab8",
-    },
-    {
-        name: "Rockwell",
-        kind: "Industrial controllers",
-        detail: "Connect Rockwell equipment through an OPC UA server or an existing integration gateway.",
-        Logo: Rockwell,
-        width: 128,
-        height: 39,
-        color: "#d98289",
-    },
-    {
         name: "WAGO",
         kind: "Industrial controllers",
         detail: "Connect WAGO controller and I/O data through exposed OPC UA or Modbus interfaces.",
@@ -160,13 +131,40 @@ const integrations = [
         color: "#b1c886",
     },
     {
-        name: "Omron",
-        kind: "Industrial controllers",
-        detail: "Connect Omron equipment through its available industrial protocols or an existing gateway.",
-        Logo: Omron,
-        width: 112,
-        height: 34,
-        color: "#7ca4cf",
+        name: "TypeScript",
+        kind: "SDK",
+        detail: "Read live telemetry and send supervisory commands from web applications and Node.js services with the TypeScript SDK.",
+        Logo: Icon.TypeScript,
+        width: 44,
+        height: 44,
+        color: "#81a6d3",
+    },
+    {
+        name: "Python",
+        kind: "SDK",
+        detail: "Bring live operational data into analysis, automation, and machine intelligence with the Python SDK.",
+        Logo: Icon.Python,
+        width: 46,
+        height: 46,
+        color: "#d5bd78",
+    },
+    {
+        name: "C++",
+        kind: "SDK",
+        detail: "Integrate telemetry and supervisory commands directly into native applications with the C++ SDK.",
+        Logo: Icon.CPlusPlus,
+        width: 46,
+        height: 46,
+        color: "#87b6d9",
+    },
+    {
+        name: "Rust",
+        kind: "SDK",
+        detail: "Build native services and integrations with the Rust SDK. Read telemetry and send supervisory commands through Foundation.",
+        Logo: Rust,
+        width: 50,
+        height: 50,
+        color: "#cf9c84",
     },
     {
         name: "LabVIEW",
@@ -312,8 +310,8 @@ const initial = integrations[0];
         </div>
     </div>
     <p class="integration-note">
-        Connections use device drivers, standard protocols, or the interfaces exposed by
-        your existing software.
+        Connections use device drivers, standard protocols, SDKs, or the interfaces
+        exposed by your existing software.
     </p>
 </section>
 
