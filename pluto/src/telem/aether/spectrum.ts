@@ -10,6 +10,7 @@
 import {
   bounds,
   DataType,
+  type destructor,
   DEFAULT_POINT_LIMIT,
   fft,
   magnitudeScaleZ,
@@ -92,6 +93,9 @@ export const windowSamples = (
   return { y: Float64Array.from(ys), t: Float64Array.from(ts) };
 };
 
+/** Live data arrives every frame; a spectrum read once a second is fast enough. */
+const RECOMPUTE_INTERVAL = 1000; // ms
+
 const EMPTY: SeriesValue = [bounds.INVALID, new MultiSeries([])];
 
 interface Computed {
@@ -115,11 +119,34 @@ export class Spectrum extends MultiSourceTransformer<
   schema = Spectrum.propsZ;
   private signature = "";
   private computed: Computed | null = null;
+  private computedAt = -Infinity;
   private held = false;
 
   setHold(held: boolean): void {
     this.held = held;
-    if (!held) this.signature = "";
+    if (held) return;
+    this.signature = "";
+    this.computedAt = -Infinity;
+  }
+
+  /**
+   * Passes source changes on at most once per recompute interval. A change inside the
+   * interval schedules one trailing notification, so the last change is never dropped.
+   */
+  onChange(handler: () => void): destructor.Destructor {
+    let pending: ReturnType<typeof setTimeout> | null = null;
+    const stop = super.onChange(() => {
+      const wait = this.computedAt + RECOMPUTE_INTERVAL - performance.now();
+      if (wait <= 0) return handler();
+      pending ??= setTimeout(() => {
+        pending = null;
+        handler();
+      }, wait);
+    });
+    return () => {
+      if (pending != null) clearTimeout(pending);
+      stop();
+    };
   }
 
   protected transform(values: Record<string, SeriesValue>): SeriesValue {
@@ -129,9 +156,12 @@ export class Spectrum extends MultiSourceTransformer<
     if (this.held && this.computed != null) return this.computed[this.props.output];
     const [indexBounds, ix] = index;
     const signature = `${ix.length}:${data[1].length}:${indexBounds.lower}:${indexBounds.upper}`;
-    if (signature !== this.signature || this.computed == null) {
+    const now = performance.now();
+    const due = now - this.computedAt >= RECOMPUTE_INTERVAL;
+    if (this.computed == null || (signature !== this.signature && due)) {
       this.computed = this.compute(ix, data[1], indexBounds);
       this.signature = signature;
+      this.computedAt = now;
     }
     return this.computed[this.props.output];
   }

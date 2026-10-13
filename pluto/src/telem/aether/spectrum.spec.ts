@@ -7,10 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, MultiSeries, Series } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { bounds, DataType, MultiSeries, Series } from "@synnaxlabs/x";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { windowSamples } from "@/telem/aether/spectrum";
+import { Spectrum, windowSamples } from "@/telem/aether/spectrum";
+import { type SeriesValue } from "@/telem/aether/telem";
+import { TestSource } from "@/telem/aether/test/source";
 
 const series = (data: number[], dataType: DataType, alignment: bigint): Series =>
   new Series({ data: new Float64Array(data), dataType, alignment });
@@ -45,5 +47,32 @@ describe("windowSamples", () => {
     const { y, t } = windowSamples(index, data, { lower: 10, upper: 40 });
     expect(Array.from(y)).toEqual([1, 2, 3, 4]);
     expect(Array.from(t)).toEqual([10, 20, 30, 40]);
+  });
+});
+
+describe("Spectrum", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const empty: SeriesValue = [bounds.INVALID, new MultiSeries([])];
+
+  it("should pass source changes on at most once a second", () => {
+    const data = new TestSource<SeriesValue>(empty);
+    const index = new TestSource<SeriesValue>(empty);
+    const spectrum = new Spectrum({ output: "magnitude" });
+    spectrum.setSources({ data, index });
+    const handler = vi.fn();
+    spectrum.onChange(handler);
+    spectrum.value();
+    data.setValue(empty);
+    data.setValue(empty);
+    index.setValue(empty);
+    expect(handler).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1000);
+    expect(handler).toHaveBeenCalledTimes(1);
   });
 });
