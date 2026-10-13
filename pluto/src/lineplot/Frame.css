@@ -17,16 +17,24 @@
     overflow: hidden;
 }
 
+/* The spread reaches past the tick labels, which can overhang the axis box. */
 .pluto-line-plot .pluto-haul-drop-region {
-    background: var(--haul-background);
-    border: var(--pluto-border);
-    border-color: var(--haul-border-color);
+    --pluto-drop-region-spread: 0.5rem;
+    --pluto-drop-region-background: var(--haul-background);
+
+    background: var(--pluto-drop-region-background);
+    box-shadow: 0 0 0 var(--pluto-drop-region-spread)
+        var(--pluto-drop-region-background);
+    outline: var(--pluto-border);
+    outline-color: var(--haul-border-color);
+    outline-offset: var(--pluto-drop-region-spread);
     border-radius: var(--pluto-border-radius);
 }
 
 .pluto-line-plot .pluto-haul-drop-region.pluto--drag-over {
-    background: var(--pluto-gray-l8-40);
-    border-color: var(--pluto-gray-l8-80);
+    --pluto-drop-region-background: var(--pluto-gray-l8-40);
+
+    outline-color: var(--pluto-gray-l8-80);
 }
 
 .pluto-line-plot__viewport {
