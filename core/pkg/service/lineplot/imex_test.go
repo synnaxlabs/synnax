@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -89,7 +90,7 @@ var _ = Describe("ImEx", func() {
 			)
 			Expect(res.Name).To(Equal("Server Typed"))
 			Expect(res.Channels.Y1).To(Equal([]channel.Key{1, 2}))
-			Expect(res.Ranges.X1).To(Equal([]string{"recent"}))
+			Expect(res.Ranges).To(Equal([]ranger.Ref{recentRef}))
 			// Lines are derived from the channels and ranges bindings on create.
 			Expect(res.Lines).To(HaveLen(2))
 		})
@@ -163,7 +164,7 @@ var _ = Describe("ImEx", func() {
 				original := lineplot.LinePlot{
 					Name:     "round-trip",
 					Channels: lineplot.Channels{Y1: []channel.Key{4, 5}},
-					Ranges:   lineplot.Ranges{X1: []string{"recent"}},
+					Ranges:   []ranger.Ref{recentRef},
 				}
 				Expect(
 					svc.NewWriter(nil).Create(ctx, proj.Key, &original),
@@ -191,10 +192,7 @@ var _ = Describe("ImEx", func() {
 					Y3: []channel.Key{},
 					Y4: []channel.Key{},
 				}))
-				Expect(res.Ranges).To(Equal(lineplot.Ranges{
-					X1: []string{"recent"},
-					X2: []string{},
-				}))
+				Expect(res.Ranges).To(Equal([]ranger.Ref{recentRef}))
 			},
 		)
 	})
