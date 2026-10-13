@@ -21,7 +21,7 @@ import (
 	v8 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v8"
 	border "github.com/synnaxlabs/x/border/versions/v0"
 	colorv0 "github.com/synnaxlabs/x/color/versions/v0"
-	colorv1 "github.com/synnaxlabs/x/color/versions/v1"
+	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/errors"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
@@ -1862,7 +1862,7 @@ type ValueNodeConfig struct {
 	// Tooltip is the list of tooltip lines shown on hover.
 	Tooltip []string `json:"tooltip" msgpack:"tooltip"`
 	// Redline is the threshold band mapping applied to the background.
-	Redline colorv1.Scale `json:"redline" msgpack:"redline"`
+	Redline color.Scale `json:"redline" msgpack:"redline"`
 	// Units is the unit suffix displayed after the value.
 	Units string `json:"units" msgpack:"units"`
 	// InlineSize is the inline size of the value in pixels.
@@ -6179,7 +6179,7 @@ type ValueElementConfig struct {
 	// Tooltip is the list of tooltip lines shown on hover.
 	Tooltip []string `json:"tooltip" msgpack:"tooltip"`
 	// Redline is the threshold band mapping applied to the background.
-	Redline colorv1.Scale `json:"redline" msgpack:"redline"`
+	Redline color.Scale `json:"redline" msgpack:"redline"`
 	// Units is the unit suffix displayed after the value.
 	Units string `json:"units" msgpack:"units"`
 	// InlineSize is the inline size of the value in pixels.

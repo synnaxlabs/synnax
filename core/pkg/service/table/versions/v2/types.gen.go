@@ -19,7 +19,7 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
 	colorv0 "github.com/synnaxlabs/x/color/versions/v0"
-	colorv1 "github.com/synnaxlabs/x/color/versions/v1"
+	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/errors"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	text "github.com/synnaxlabs/x/text/versions/v0"
@@ -116,7 +116,7 @@ type ValueCellConfig struct {
 	// Notation is the numeric notation used to format the value.
 	Notation notation.Notation `json:"notation" msgpack:"notation"`
 	// Redline is the threshold band mapping applied to the background.
-	Redline colorv1.Scale `json:"redline" msgpack:"redline"`
+	Redline color.Scale `json:"redline" msgpack:"redline"`
 	// FillColor is the fill behind the value where no redline band paints. When absent
 	// the cell paints no fill.
 	FillColor *colorv0.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
