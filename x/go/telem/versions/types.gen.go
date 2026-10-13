@@ -28,6 +28,24 @@ type TimeSpan = v0.TimeSpan
 // predictable boundary handling.
 type TimeRange = v0.TimeRange
 
+// Window is a window of time: a rolling span that ends now, or a fixed range.
+type Window = v0.Window
+type WindowVariant = v0.WindowVariant
+type WindowType = v0.WindowType
+
+const (
+	// DynamicWindowType is a rolling window.
+	DynamicWindowType WindowType = v0.DynamicWindowType
+	// StaticWindowType is a fixed window.
+	StaticWindowType WindowType = v0.StaticWindowType
+)
+
+// DynamicWindow is a rolling window.
+type DynamicWindow = v0.DynamicWindow
+
+// StaticWindow is a fixed window.
+type StaticWindow = v0.StaticWindow
+
 // Rate is a data sampling rate expressed in Hertz (Hz). Used to specify acquisition
 // frequencies and calculate sample counts over time intervals.
 type Rate = v0.Rate
