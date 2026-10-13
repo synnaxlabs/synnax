@@ -11,6 +11,13 @@
 
 package v0
 
+import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+
+	"github.com/synnaxlabs/x/errors"
+)
+
 // TimeStamp is a 64-bit signed integer representing nanoseconds since the Unix epoch
 // (1970-01-01 00:00:00 UTC). Provides nanosecond precision for high-frequency telemetry
 // timestamps.
@@ -29,6 +36,94 @@ type TimeRange struct {
 	Start TimeStamp `json:"start" msgpack:"start"`
 	// End is the exclusive end of the time range.
 	End TimeStamp `json:"end" msgpack:"end"`
+}
+
+type WindowType string
+
+const (
+	DynamicWindowType WindowType = "dynamic"
+	StaticWindowType  WindowType = "static"
+)
+
+type WindowVariant interface {
+	isWindowVariant()
+}
+
+// DynamicWindow is a rolling window.
+type DynamicWindow struct {
+	// Span is the span of the window, which ends now.
+	Span TimeSpan `json:"span" msgpack:"span"`
+}
+
+func (DynamicWindow) isWindowVariant() {}
+
+// StaticWindow is a fixed window.
+type StaticWindow struct {
+	// TimeRange is the fixed window, start-inclusive and end-exclusive.
+	TimeRange TimeRange `json:"time_range" msgpack:"time_range"`
+}
+
+func (StaticWindow) isWindowVariant() {}
+
+// Window is a window of time: a rolling span that ends now, or a fixed range.
+type Window struct {
+	Variant WindowVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "variant" tag injected.
+func (u Window) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case DynamicWindow:
+		return json.MarshalEncode(enc, struct {
+			Type WindowType `json:"variant"`
+			DynamicWindow
+		}{Type: DynamicWindowType, DynamicWindow: v})
+	case StaticWindow:
+		return json.MarshalEncode(enc, struct {
+			Type WindowType `json:"variant"`
+			StaticWindow
+		}{Type: StaticWindowType, StaticWindow: v})
+	default:
+		return errors.Newf("Window: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "variant" field.
+func (u *Window) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type WindowType `json:"variant"`
+	}
+	if err := json.Unmarshal(data, &disc, opts); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case DynamicWindowType:
+		var v DynamicWindow
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v
+	case StaticWindowType:
+		var v StaticWindow
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v
+	default:
+		return errors.Newf("Window: unknown variant %q", disc.Type)
+	}
+	return nil
 }
 
 // Rate is a data sampling rate expressed in Hertz (Hz). Used to specify acquisition

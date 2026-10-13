@@ -87,6 +87,31 @@ StringTimeStamp = TimeStamp {
     @ts hand
 }
 
+Window union on variant {
+    dynamic {
+        span TimeSpan = 0 {
+            @doc value "is the span of the window, which ends now."
+        }
+
+        @doc value "is a rolling window."
+    }
+    static {
+        time_range TimeRange {
+            @doc value "is the fixed window, start-inclusive and end-exclusive."
+        }
+
+        @doc value "is a fixed window."
+    }
+
+    @cpp omit
+    @doc value  "is a window of time: a rolling span that ends now, or a fixed range."
+    @go marshal
+    @pb omit
+    @py omit
+    @ts hand
+    @ts include "x/ts/src/telem/telem"
+}
+
 Rate float64 {
     @cpp hand
     @doc value """

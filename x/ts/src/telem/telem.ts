@@ -2079,6 +2079,24 @@ export const stringTimeStampZ = z.preprocess(
  */
 export type StringTimeStamp = z.infer<typeof stringTimeStampZ>;
 
+/** A rolling window that ends now. */
+export const dynamicWindowZ = z.object({
+  variant: z.literal("dynamic"),
+  span: numericTimeSpanZ.default(0),
+});
+export interface DynamicWindow extends z.infer<typeof dynamicWindowZ> {}
+
+/** A fixed window, start-inclusive and end-exclusive. */
+export const staticWindowZ = z.object({
+  variant: z.literal("static"),
+  timeRange: z.object({ start: stringTimeStampZ, end: stringTimeStampZ }),
+});
+export interface StaticWindow extends z.infer<typeof staticWindowZ> {}
+
+/** A window of time: a rolling span that ends now, or a fixed range. */
+export const windowZ = z.discriminatedUnion("variant", [dynamicWindowZ, staticWindowZ]);
+export type Window = DynamicWindow | StaticWindow;
+
 export const typedArrayZ = z.union([
   z.instanceof(Uint8Array),
   z.instanceof(Uint16Array),

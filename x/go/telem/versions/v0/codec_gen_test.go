@@ -37,6 +37,23 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v0.TimeRange{Start: v0.TimeStamp(0), End: v0.TimeStamp(0)}),
 		)
 	})
+	Describe("Window", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.Window) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.Window
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("dynamic variant", v0.Window{Variant: v0.DynamicWindow{Span: v0.TimeSpan(2)}}),
+			Entry("static variant", v0.Window{Variant: v0.StaticWindow{
+				TimeRange: v0.TimeRange{Start: v0.TimeStamp(3), End: v0.TimeStamp(4)},
+			}}),
+		)
+	})
 })
 
 func BenchmarkEncodeDecodeTimeRange(b *testing.B) {
@@ -49,6 +66,23 @@ func BenchmarkEncodeDecodeTimeRange(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v0.TimeRange
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeWindow(b *testing.B) {
+	seed := v0.Window{Variant: v0.DynamicWindow{Span: v0.TimeSpan(2)}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.Window
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -85,6 +119,47 @@ func FuzzDecodeTimeRange(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v0.TimeRange
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeWindow(f *testing.F) {
+	{
+		seed := v0.Window{Variant: v0.DynamicWindow{Span: v0.TimeSpan(2)}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.Window{Variant: v0.StaticWindow{
+			TimeRange: v0.TimeRange{Start: v0.TimeStamp(3), End: v0.TimeStamp(4)},
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.Window
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.Window
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

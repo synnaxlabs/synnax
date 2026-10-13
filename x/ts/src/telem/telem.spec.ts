@@ -22,6 +22,7 @@ import {
   TimeSpan,
   TimeStamp,
   type TimestampFormat,
+  windowZ,
 } from "@/telem";
 
 describe("TimeStamp", () => {
@@ -2480,5 +2481,32 @@ describe("convertDataType", () => {
 
   it("normalizes a zero bigint to 0 when casting to BOOLEAN", () => {
     expect(convertDataType(DataType.INT64, DataType.BOOLEAN, 0n)).toBe(0);
+  });
+});
+
+describe("windowZ", () => {
+  it("should parse a dynamic window", () => {
+    expect(windowZ.parse({ variant: "dynamic", span: 60e9 })).toEqual({
+      variant: "dynamic",
+      span: 60e9,
+    });
+  });
+
+  it("should keep a static window's endpoints as decimal strings", () => {
+    const window = {
+      variant: "static",
+      timeRange: { start: "1788000000000000123", end: "1788000000000000456" },
+    };
+    expect(windowZ.parse(window)).toEqual(window);
+  });
+
+  it("should coerce numeric static endpoints to strings", () => {
+    expect(
+      windowZ.parse({ variant: "static", timeRange: { start: 0, end: 1000n } }),
+    ).toEqual({ variant: "static", timeRange: { start: "0", end: "1000" } });
+  });
+
+  it("should reject a static window without a time range", () => {
+    expect(() => windowZ.parse({ variant: "static", start: "0", end: "1" })).toThrow();
   });
 });
