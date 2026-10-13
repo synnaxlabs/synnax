@@ -354,7 +354,8 @@ Node struct {
 		Expect(content).To(ContainSubstring("core/pkg/service/base/versions/v1"))
 	})
 
-	DescribeTable("auto-copy scenarios",
+	DescribeTable(
+		"auto-copy scenarios",
 		func(
 			resource, v0, v1, live string,
 			wantFile bool,
@@ -419,6 +420,282 @@ Board struct {
 				"Entries: entries",
 			},
 			[]string{"Entries: old.Entries"},
+		),
+		Entry("migrates a union variant by variant when a variant's base changed",
+			"modbus",
+			`Value struct {
+	swapped bool = false
+
+	@go marshal
+}
+
+Base struct {
+	key string @key
+
+	@go marshal
+}
+
+Channel union on type extends Base {
+	coil {}
+	register extends Value {
+		length int32 = 0
+	}
+
+	@go marshal
+}
+
+Config struct {
+	key uuid @key
+	channels Channel[]
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Value struct {
+	swapped bool?
+
+	@go marshal
+}
+
+Base = v0.Base
+
+Channel union on type extends v0.Base {
+	coil {}
+	register extends Value {
+		length int32 = 0
+	}
+
+	@go marshal
+}
+
+Config struct {
+	key uuid @key
+	channels Channel[]
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Value struct {
+	swapped bool?
+}
+
+Base struct {
+	key string @key
+}
+
+Channel union on type extends Base {
+	coil {}
+	register extends Value {
+		length int32 = 0
+	}
+}
+
+Config struct {
+	key uuid @key
+	channels Channel[]
+}
+`,
+			true,
+			[]string{
+				"return autoMigrateChannel(ctx, v)",
+				"switch v := old.Variant.(type) {",
+				"case v0.CoilChannel:",
+				"case v0.RegisterChannel:",
+				"nv, err := autoMigrateRegisterChannel(ctx, v)",
+				"return Channel{Variant: nv}, nil",
+				"value, err := MigrateValue(ctx, old.Value)",
+				"Length: old.Length",
+				`errors.Newf("Channel: unknown variant %T", v)`,
+			},
+			[]string{"Channel(old)"},
+		),
+		Entry("leaves a variant's default-only override to its embedded base",
+			"labjack",
+			`Base struct {
+	key string @key
+	port string = ""
+
+	@go marshal
+}
+
+Channel union on type extends Base {
+	ai { port string = "AIN0" }
+
+	@go marshal
+}
+
+Config struct {
+	key uuid @key
+	channels Channel[]
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Base struct {
+	key string @key
+	port string = ""
+	name string = ""
+
+	@go marshal
+}
+
+Channel union on type extends Base {
+	ai { port string = "AIN0" }
+
+	@go marshal
+}
+
+Config struct {
+	key uuid @key
+	channels Channel[]
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Base struct {
+	key string @key
+	port string = ""
+	name string = ""
+}
+
+Channel union on type extends Base {
+	ai { port string = "AIN0" }
+}
+
+Config struct {
+	key uuid @key
+	channels Channel[]
+}
+`,
+			true,
+			[]string{
+				"return autoMigrateChannel(ctx, v)",
+				"\treturn AIChannel{\n\t\tBase: base,\n\t}, nil",
+			},
+			nil,
+		),
+		Entry(
+			"leaves a variant that changed between inline and named to the hand migration",
+			"payload",
+			`Text struct {
+	value string
+
+	@go marshal
+}
+
+Payload union on type {
+	text Text
+	binary { data string }
+
+	@go marshal
+}
+
+Config struct {
+	key uuid @key
+	payloads Payload[]
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Payload union on type {
+	text { value string }
+	binary { data string }
+
+	@go marshal
+}
+
+Config struct {
+	key uuid @key
+	payloads Payload[]
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Payload union on type {
+	text { value string }
+	binary { data string }
+}
+
+Config struct {
+	key uuid @key
+	payloads Payload[]
+}
+`,
+			true,
+			[]string{
+				"return MigratePayload(ctx, v)",
+				"case v0.BinaryPayload:",
+				`errors.Newf("Payload: unknown variant %T", v)`,
+			},
+			[]string{"case v0.TextPayload:", "func autoMigrateTextPayload"},
+		),
+		Entry(
+			"migrates a named variant whose payload changed through the generated switch",
+			"payload",
+			`Text struct {
+	value string
+
+	@go marshal
+}
+
+Payload union on type {
+	text Text
+
+	@go marshal
+}
+
+Config struct {
+	key uuid @key
+	payloads Payload[]
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Text struct {
+	value string
+	size int32 = 0
+
+	@go marshal
+}
+
+Payload union on type {
+	text Text
+
+	@go marshal
+}
+
+Config struct {
+	key uuid @key
+	payloads Payload[]
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Text struct {
+	value string
+	size int32 = 0
+}
+
+Payload union on type {
+	text Text
+}
+
+Config struct {
+	key uuid @key
+	payloads Payload[]
+}
+`,
+			true,
+			[]string{"return autoMigratePayload(ctx, v)", "case v0.TextPayload:"},
+			nil,
 		),
 		Entry("auto-copies value types without migrate entries",
 			"color",
@@ -523,6 +800,56 @@ Board struct {
 }
 `,
 			false, nil, nil,
+		),
+		Entry("routes a union whose variants changed through its hand migration",
+			"channel",
+			`Payload union on type {
+	text {
+		value string
+	}
+
+	@go marshal
+}
+Channel struct {
+	key uuid @key
+	payloads Payload[]
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Payload union on type {
+	binary {
+		data bytes
+	}
+
+	@go marshal
+}
+Channel struct {
+	key uuid @key
+	payloads Payload[]
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Payload union on type {
+	binary {
+		data bytes
+	}
+}
+Channel struct {
+	key uuid @key
+	payloads Payload[]
+}
+`,
+			true,
+			[]string{
+				"func autoMigrateChannel",
+				"return MigratePayload(ctx, v)",
+				"func autoMigratePayload",
+			},
+			[]string{"Payload(old)"},
 		),
 		Entry("leaves a field whose union-ness changed to the hand migration",
 			"channel",
