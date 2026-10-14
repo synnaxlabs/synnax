@@ -36,6 +36,9 @@ type Context struct {
 	// don't support advanced generics (Go, Python, C++, Proto) and false for TypeScript
 	// which does support literal type narrowing.
 	SubstituteDefaultedTypeParams bool
+	// PinnedPath returns the output path a reference from another namespace resolves
+	// to, in place of the type's own output path, and false to keep the type's own.
+	PinnedPath func(resolution.Type) (string, bool)
 }
 
 // IsSameOutput checks if a resolved type is in the same output location as the current
@@ -56,12 +59,25 @@ func (c *Context) IsSameOutputEnum(resolved resolution.Type) bool {
 
 // GetOutputPath returns the output path for a resolved type.
 func (c *Context) GetOutputPath(resolved resolution.Type) string {
+	if p, ok := c.pinnedPath(resolved); ok {
+		return p
+	}
 	return output.GetPath(resolved, c.DomainName)
 }
 
 // GetEnumOutputPath returns the output path for an enum type.
 func (c *Context) GetEnumOutputPath(resolved resolution.Type) string {
+	if p, ok := c.pinnedPath(resolved); ok {
+		return p
+	}
 	return enum.FindOutputPath(resolved, c.Table, c.DomainName)
+}
+
+func (c *Context) pinnedPath(resolved resolution.Type) (string, bool) {
+	if c.PinnedPath == nil || resolved.Namespace == c.Namespace {
+		return "", false
+	}
+	return c.PinnedPath(resolved)
 }
 
 // GetNameOverride returns the language-specific name override for a type, if any.
