@@ -87,3 +87,16 @@ class TestUserClient:
         assert len(repeated_user_list) == len(new_user_list)
         for i in range(len(repeated_user_list)):
             compare_users(repeated_user_list[i], new_user_list[i])
+
+    def test_change_username(self, client: sy.Synnax, new_user):
+        user = client.users.create(user=new_user)
+        username = str(uuid())
+        client.users.change_username(user.key, username)
+        assert client.users.retrieve(key=user.key).username == username
+
+    def test_change_name(self, client: sy.Synnax, new_user):
+        user = client.users.create(user=new_user)
+        client.users.change_name(user.key, first_name="Thomas", last_name="Jefferson")
+        retrieved = client.users.retrieve(key=user.key)
+        assert retrieved.first_name == "Thomas"
+        assert retrieved.last_name == "Jefferson"
