@@ -11,11 +11,11 @@ import path from "path";
 import { type Plugin } from "vite";
 
 import { declarations } from "./declarations.js";
-import { checkExports, discoverModules } from "./modules.js";
+import { checkExports } from "./modules.js";
 import { ENTRY, transpile } from "./transpile.js";
 
 export { type Layer, layers } from "./layers.js";
-export { discoverModules, moduleExports } from "./modules.js";
+export { discoverModules, moduleExports, packageExports } from "./modules.js";
 
 export interface Options {
   name: string;
@@ -63,7 +63,7 @@ export const lib = ({
           },
         }),
         configResolved: (config) => {
-          if (modules) checkExports(config.root, discoverModules(config.root));
+          if (modules) checkExports(config.root);
         },
       },
       transpile(modules),

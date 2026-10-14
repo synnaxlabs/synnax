@@ -159,6 +159,26 @@ describe("lib", () => {
     expect(emitted(root, "b/index.js")).toBe(true);
   });
 
+  it("should require a static export when the package has a static directory", async () => {
+    const files = {
+      "src/a/index.ts": "export const a = 1;\n",
+      "static/logo.svg": "<svg />\n",
+    };
+    const missing = createPackage(files, {
+      manifest: { exports: moduleExports(["a"]) },
+      transpiled: true,
+    });
+    await expect(buildPackage(missing, { name: "pkg", modules: true })).rejects.toThrow(
+      "package.json exports do not match",
+    );
+    const present = createPackage(files, {
+      manifest: { exports: moduleExports(["a"], true) },
+      transpiled: true,
+    });
+    await buildPackage(present, { name: "pkg", modules: true });
+    expect(emitted(present, "a/index.js")).toBe(true);
+  });
+
   it("should reject a module entry that imports for side effects", async () => {
     const root = createPackage(
       {
