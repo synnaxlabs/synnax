@@ -231,11 +231,6 @@ export const Frame = ({
     [setLine],
   );
 
-  useEffect(() => {
-    setGridEntry(TOP_PADDING);
-    return () => removeGridEntry(TOP_PADDING.key);
-  }, [setGridEntry, removeGridEntry]);
-
   const cssGrid = useMemo(() => buildPlotGrid(grid), [grid]);
 
   const frameStyle = useMemo(() => ({ ...style, ...cssGrid }), [style, cssGrid]);
@@ -292,14 +287,6 @@ export const Frame = ({
       </Context>
     </div>
   );
-};
-
-// Room above the plot for the top tick label, which overhangs the plot's top edge.
-const TOP_PADDING: grid.Region = {
-  key: "top-padding",
-  size: 10,
-  order: 100,
-  loc: "top",
 };
 
 const regionsSize = (loc: location.Outer, g: grid.Grid): string =>
