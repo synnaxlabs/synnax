@@ -184,14 +184,14 @@ class Controller:
                 for i in range(len(channels))
                 if not channels[i].virtual
             }
-            self._writer.write(cast(framer.CrudeFrame, {**updated, **updated_idx}))
+            self._writer.write({**updated, **updated_idx})
             return
         ch = self._retriever.retrieve_one(channel)
         assert value is not None
         to_write: dict[channel_.Key, SampleValue] = {ch.key: value}
         if not ch.virtual:
             to_write[ch.index] = TimeStamp.now()
-        self._writer.write(cast(framer.CrudeFrame, to_write))
+        self._writer.write(to_write)
 
     @overload
     def set_authority(
