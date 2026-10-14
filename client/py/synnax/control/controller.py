@@ -409,7 +409,7 @@ class Controller:
         """
         return self._receiver.state
 
-    def __setattr__(self, key: str, value: Any) -> None:
+    def __setattr__(self, key: str, value: SampleValue) -> None:
         try:
             super().__setattr__(key, value)
         except AttributeError:
@@ -467,11 +467,8 @@ class Controller:
             method.
             """)
 
-    def __getattr__(self, item: str) -> Any:
-        try:
-            return super().__getattribute__(item)
-        except AttributeError:
-            return self[item]
+    def __getattr__(self, item: str) -> np.number | int | float:
+        return self[item]
 
     def __enter__(self) -> Controller:
         return self
