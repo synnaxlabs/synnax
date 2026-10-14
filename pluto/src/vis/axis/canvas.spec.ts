@@ -64,6 +64,15 @@ describe("axis/canvas", () => {
       }),
     );
 
+    (["left", "right"] as const).forEach((loc) =>
+      it(`should keep ${loc} end tick labels inside the axis`, () => {
+        const ys = glyphsAfter(loc, "start").map(({ y }) => y);
+        const top = PROPS.position.y;
+        expect(Math.min(...ys)).toBeGreaterThanOrEqual(top);
+        expect(Math.max(...ys)).toBeLessThanOrEqual(top + box.height(PROPS.plot));
+      }),
+    );
+
     it("should center a tick label on its tick", () => {
       const [first] = glyphsAfter("bottom", "center", "middle");
       expect(first.x).toBeCloseTo(POSITION.x - canvasTest.ATLAS_ADVANCE / 2);
