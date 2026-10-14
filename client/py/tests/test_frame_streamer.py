@@ -238,6 +238,16 @@ class TestStreamer:
                 frame = s.read(timeout=1)
                 assert np.array_equal(frame[virtual_channel.key], expect)
 
+    def test_throttle(self, virtual_channel: sy.Channel, client: sy.Synnax):
+        """Should merge the frames written in one throttle period into one frame"""
+        with client.open_streamer(virtual_channel.key, throttle_rate=1) as s:
+            with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
+                for value in [1.0, 2.0, 3.0]:
+                    w.write(virtual_channel.key, value)
+                frame = s.read(timeout=READ_TIMEOUT)
+                assert frame is not None
+                assert np.array_equal(frame[virtual_channel.key], [1.0, 2.0, 3.0])
+
     def test_downsample_negative(self, virtual_channel: sy.Channel, client: sy.Synnax):
         with pytest.raises(sy.ValidationError):
             with client.open_streamer(virtual_channel.key, -1):
