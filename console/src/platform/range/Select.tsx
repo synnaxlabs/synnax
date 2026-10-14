@@ -11,7 +11,6 @@ import "@/platform/range/Select.css";
 
 import { ranger } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
-import { type Dialog } from "@synnaxlabs/lyra/dialog";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
@@ -20,7 +19,7 @@ import { Tag } from "@synnaxlabs/lyra/tag";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Ranger, TimeSpan } from "@synnaxlabs/pluto";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import {
@@ -84,9 +83,7 @@ export const CUSTOM_KEY = "custom";
 const customItem = <Select.Item itemKey={CUSTOM_KEY}>Custom</Select.Item>;
 
 const listItem = Component.renderProp((props: List.ItemProps<string>) => {
-  const inSession = useResolve(props.itemKey);
-  const listed = List.useItem<string, Resolved>(props.itemKey);
-  const range = inSession ?? listed;
+  const range = useResolve(props.itemKey);
   if (range == null) return null;
   if (range.variant === "dynamic") return <DynamicListItem {...props} range={range} />;
   return <StaticListItem {...props} range={range} />;
@@ -130,83 +127,6 @@ const SelectMultipleRanges = (props: SelectMultipleRangesProps): ReactElement =>
     >
       {listItem}
     </Select.Multiple>
-  );
-};
-
-const singleDialogProps: Dialog.FrameProps = {
-  className: CSS.BE("range-select", "single-dialog"),
-};
-
-const singleTriggerProps: Select.SingleTriggerProps = {
-  renderIcon: (range) =>
-    (range as Resolved | undefined)?.variant === "dynamic" ? (
-      dynamicIcon
-    ) : (
-      <Icon.Range />
-    ),
-};
-
-export interface SelectSingleInputItemProps extends Omit<
-  Input.ItemProps,
-  "label" | "onChange" | "children"
-> {
-  value: string;
-  onChange: (value: string) => void;
-  disabled?: boolean;
-}
-
-/** Selects one range: a rolling window, a range the session has, or "custom". */
-export const SelectSingleInputItem = ({
-  value,
-  onChange,
-  disabled,
-  ...rest
-}: SelectSingleInputItemProps): ReactElement => {
-  const entries = useResolveMultiple();
-  // A saved range the session lacks, such as one from a shared visualization, still
-  // needs an entry to show its name.
-  const outside = value !== CUSTOM_KEY && !entries.some(({ key }) => key === value);
-  const { data: range } = Ranger.useResult(outside ? { key: value } : null);
-  const listed = useMemo(
-    () =>
-      !outside || range == null
-        ? entries
-        : [
-            ...entries,
-            {
-              variant: "persisted" as const,
-              key: range.key,
-              name: range.name,
-              timeRange: range.timeRange.numeric,
-            },
-          ],
-    [entries, outside, range],
-  );
-  const { data, getItem, retrieve } = List.useStaticData<string, Resolved>({
-    data: listed,
-  });
-  const { fetchMore, search } = List.usePager({ retrieve });
-  return (
-    <Input.Item label="Range" {...rest}>
-      <Select.Single<string, Resolved | undefined>
-        value={value}
-        onChange={onChange}
-        allowNone={false}
-        disabled={disabled}
-        icon={<Icon.Range />}
-        triggerProps={singleTriggerProps}
-        dialogProps={singleDialogProps}
-        className={CSS.BE("range-select", "single")}
-        onFetchMore={fetchMore}
-        onSearch={search}
-        resourceName="range"
-        data={data}
-        getItem={getItem}
-        fixedItems={customItem}
-      >
-        {listItem}
-      </Select.Single>
-    </Input.Item>
   );
 };
 

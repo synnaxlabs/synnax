@@ -13,8 +13,7 @@ import { type NumericTimeRange, type telem, TimeRange } from "@synnaxlabs/x";
 import { useMemo } from "react";
 
 import { resolveWindow } from "@/platform/range/resolve";
-import { CUSTOM_KEY } from "@/platform/range/Select";
-import { Session } from "@/session";
+import { type Session } from "@/session";
 
 const toStringTimeRange = ({ start, end }: NumericTimeRange): telem.StaticWindow => ({
   variant: "static",
@@ -33,26 +32,6 @@ export const toRef = (state: Session.Range.State): ranger.Ref => {
   if (state.variant === "dynamic")
     return { variant: "window", window: { variant: "dynamic", timeSpan: state.span } };
   return { variant: "window", window: toStringTimeRange(state.timeRange) };
-};
-
-const matches = (state: Session.Range.State, window: telem.Window): boolean => {
-  if (state.variant === "dynamic")
-    return window.variant === "dynamic" && window.timeSpan === state.span;
-  if (state.variant !== "static" || window.variant !== "static") return false;
-  const { start, end } = toStringTimeRange(state.timeRange).timeRange;
-  return window.timeRange.start === start && window.timeRange.end === end;
-};
-
-/**
- * @returns the key of the session range a reference picks in a range select, or
- * {@link CUSTOM_KEY} for a window no session range matches.
- */
-export const useSelectKey = (ref: ranger.Ref): string => {
-  const entries = Session.Range.useSelectMultiple();
-  return useMemo(() => {
-    if (ref.variant === "key") return ref.key;
-    return entries.find((e) => matches(e, ref.window))?.key ?? CUSTOM_KEY;
-  }, [ref, entries]);
 };
 
 /** @returns the window a Pluto visualization reads for a reference. */
