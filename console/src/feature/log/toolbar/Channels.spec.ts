@@ -68,6 +68,15 @@ describe("log/toolbar/Channels", () => {
     await waitFor(() => expect(rowsIn(result)).toHaveLength(2));
     expect(screen.queryByLabelText(`Clear ${name}`)).toBeNull();
   });
+
+  it("removes the row of a deleted channel with the clear button", async () => {
+    const deleted = await createChannel();
+    await client.channels.delete(deleted);
+    const { result } = await renderChannels([entry(deleted)]);
+    await waitFor(() => expect(rowsIn(result)).toHaveLength(2));
+    fireEvent.click(await screen.findByLabelText("Clear selection"));
+    await waitFor(() => expect(rowsIn(result)).toHaveLength(1));
+  });
 });
 
 describe("log/toolbar/Channels permissions", () => {

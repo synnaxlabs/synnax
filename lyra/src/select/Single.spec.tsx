@@ -356,6 +356,43 @@ describe("Select.Single", () => {
       expect(onChange).toHaveBeenLastCalledWith(null);
     });
 
+    interface StoredProps {
+      value: string;
+      onChange?: (key: string | null) => void;
+    }
+
+    // Holds a fixed value, which may have no entry in the data.
+    const Stored = ({ value, onChange = vi.fn() }: StoredProps) => {
+      const { data, getItem } = List.useStaticData<string, TestEntry>({
+        data: testData,
+      });
+      return (
+        <Select.Single<string, TestEntry>
+          resourceName="Test Item"
+          data={data}
+          getItem={getItem}
+          value={value}
+          onChange={onChange}
+          allowNone
+          icon={<Icon.Add />}
+        >
+          {listItemRenderProp}
+        </Select.Single>
+      );
+    };
+
+    it("should clear a selected key that has no entry", () => {
+      const onChange = vi.fn();
+      const c = render(<Stored value="missing" onChange={onChange} />);
+      fireEvent.click(c.getByLabelText("Clear selection"));
+      expect(onChange).toHaveBeenLastCalledWith(null, { clicked: null });
+    });
+
+    it("should not show the button for an empty key", () => {
+      const c = render(<Stored value="" />);
+      expect(c.queryByLabelText(/^Clear/)).toBeNull();
+    });
+
     it("should not show the button when the select requires a selection", () => {
       const { SelectSingle } = createSelectSingle();
       const c = render(<SelectSingle allowNone={false} icon={<Icon.Add />} />);

@@ -9,7 +9,7 @@
 
 import "@/select/SingleTrigger.css";
 
-import { type record } from "@synnaxlabs/x";
+import { primitive, type record } from "@synnaxlabs/x";
 import { type KeyboardEvent, type ReactElement, useCallback, useId } from "react";
 
 import { Button } from "@/button";
@@ -118,10 +118,11 @@ export const SingleTrigger = <K extends record.Key>({
   // A self-reference reads the trigger's own aria-label, so the name becomes the
   // aria-label followed by the selection.
   const shown = fixed ? fixedText : (name ?? (preview === true ? "None" : placeholder));
-  // The clear button takes the icon's place, so it needs an icon to replace.
+  // The clear button takes the icon's place, so it needs an icon to replace. A key with
+  // no entry, such as a deleted resource, can still be cleared. A zero key means none.
   const clearShown =
     clearable &&
-    item != null &&
+    primitive.isNonZero(selected) &&
     resolvedIcon != null &&
     !fixed &&
     disabled !== true &&
@@ -172,7 +173,7 @@ export const SingleTrigger = <K extends record.Key>({
           <Button.Close
             el="div"
             role="button"
-            aria-label={`Clear ${shown}`}
+            aria-label={`Clear ${name ?? "selection"}`}
             className={CSS.BE("select-single-trigger", "clear")}
             onClick={clear}
           />
