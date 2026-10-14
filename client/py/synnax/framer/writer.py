@@ -9,10 +9,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from enum import Enum
 from typing import Literal, TypeAlias, cast, overload
 from uuid import uuid4
 
+from pandas import DataFrame
 from pydantic import BaseModel
 
 import synnax.channel.payload as channel
@@ -32,7 +34,7 @@ from synnax.framer.codec import (
     LOW_PERF_SPECIAL_CHAR,
     WSFramerCodec,
 )
-from synnax.framer.frame import CrudeFrame, FramePayload
+from synnax.framer.frame import CrudeFrame, Frame, FramePayload
 from synnax.telem import CrudeSeries, CrudeTimeStamp, TimeSpan, TimeStamp
 from x.control import Authority, CrudeAuthority, Subject
 from x.lists import normalize
@@ -226,10 +228,18 @@ class Writer:
     ) -> None: ...
 
     @overload
+    def write(self, channels_or_data: Mapping[channel.Key, CrudeSeries]) -> None: ...
+
+    @overload
+    def write(self, channels_or_data: Mapping[str, CrudeSeries]) -> None: ...
+
+    @overload
     def write(
-        self,
-        channels_or_data: CrudeFrame,
+        self, channels_or_data: Mapping[channel.Payload, CrudeSeries]
     ) -> None: ...
+
+    @overload
+    def write(self, channels_or_data: Frame | FramePayload | DataFrame) -> None: ...
 
     def write(
         self,

@@ -11,11 +11,12 @@
 from __future__ import annotations
 
 import functools
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from typing import Any, cast, overload
 from uuid import UUID
 
 import numpy as np
+import pandas as pd
 from pydantic import PrivateAttr
 
 import synnax.channel.payload as channel
@@ -23,6 +24,7 @@ from freighter import UnaryClient
 from synnax import framer
 from synnax.channel.retrieve import Retriever as ChannelRetriever
 from synnax.exceptions import QueryError
+from synnax.framer.frame import FramePayload
 from synnax.ontology import Client as OntologyClient
 from synnax.ontology.payload import ID
 from synnax.ranger import alias as alias_
@@ -439,7 +441,16 @@ class Range(Payload):
     ) -> None: ...
 
     @overload
-    def write(self, channels: framer.CrudeFrame) -> None: ...
+    def write(self, channels: Mapping[channel.Key, CrudeSeries]) -> None: ...
+
+    @overload
+    def write(self, channels: Mapping[str, CrudeSeries]) -> None: ...
+
+    @overload
+    def write(self, channels: Mapping[channel.Payload, CrudeSeries]) -> None: ...
+
+    @overload
+    def write(self, channels: framer.Frame | FramePayload | pd.DataFrame) -> None: ...
 
     def write(
         self,

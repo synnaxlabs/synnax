@@ -20,7 +20,7 @@ from synnax.channel.retrieve import Retriever
 from synnax.exceptions import QueryError
 from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
 from synnax.framer.deleter import Deleter
-from synnax.framer.frame import CrudeFrame, Frame
+from synnax.framer.frame import CrudeFrame, Frame, FramePayload
 from synnax.framer.iterator import AUTO_SPAN, Iterator
 from synnax.framer.streamer import AsyncStreamer, Streamer
 from synnax.framer.writer import CrudeWriterMode, Writer, WriterMode
@@ -172,7 +172,34 @@ class Client:
     def write(
         self,
         start: CrudeTimeStamp,
-        channels: CrudeFrame,
+        channels: Mapping[channel.Key, CrudeSeries],
+        *,
+        strict: bool = False,
+    ) -> None: ...
+
+    @overload
+    def write(
+        self,
+        start: CrudeTimeStamp,
+        channels: Mapping[str, CrudeSeries],
+        *,
+        strict: bool = False,
+    ) -> None: ...
+
+    @overload
+    def write(
+        self,
+        start: CrudeTimeStamp,
+        channels: Mapping[channel.Payload, CrudeSeries],
+        *,
+        strict: bool = False,
+    ) -> None: ...
+
+    @overload
+    def write(
+        self,
+        start: CrudeTimeStamp,
+        channels: Frame | FramePayload | pd.DataFrame,
         *,
         strict: bool = False,
     ) -> None: ...
