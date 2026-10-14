@@ -22,7 +22,13 @@ import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Flux, Ranger } from "@synnaxlabs/pluto";
 import { type telem, TimeRange, TimeSpan } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo, useRef } from "react";
+import {
+  type KeyboardEvent,
+  type ReactElement,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 
 import { CSS } from "@/platform/css";
 import { setBound, toRef } from "@/platform/range/ref";
@@ -243,6 +249,43 @@ const RollingRow = ({ span, onChange }: RollingRowProps): ReactElement => {
   );
 };
 
+interface SearchFieldProps {
+  onSearch: (term: string) => void;
+  onSpan: (span: number) => void;
+}
+
+// Searches ranges. Enter on a term that reads as a span sets that rolling window
+// instead of picking the hovered range.
+const SearchField = ({ onSearch, onSpan }: SearchFieldProps): ReactElement => {
+  const { close } = Dialog.useContext();
+  const term = useRef("");
+  const handleSearch = useCallback(
+    (next: string) => {
+      term.current = next;
+      onSearch(next);
+    },
+    [onSearch],
+  );
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLInputElement>) => {
+      if (e.key !== "Enter") return;
+      const typed = TimeSpan.parse(term.current);
+      if (typed == null || typed.isZero) return;
+      e.stopPropagation();
+      onSpan(Number(typed));
+      close();
+    },
+    [onSpan, close],
+  );
+  return (
+    <Select.Search
+      placeholder="Search ranges or type a span"
+      onSearch={handleSearch}
+      onKeyDown={handleKeyDown}
+    />
+  );
+};
+
 const emptyContent = (
   <Status.Summary center variant="disabled">
     No ranges found
@@ -360,7 +403,7 @@ export const SelectRefInputItem = ({
             <Label value={value} />
           </Dialog.Trigger>
           <Select.Dialog className={CSS.BE("range-ref", "dialog")}>
-            <Select.Search placeholder="Search ranges" onSearch={search} />
+            <SearchField onSearch={search} onSpan={setRolling} />
             <RollingRow span={span} onChange={setRolling} />
             {value.variant === "window" && value.window.variant === "static" && (
               <FixedRow window={value.window} onChange={setWindow} />

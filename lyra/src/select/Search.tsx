@@ -23,6 +23,8 @@ export interface SearchProps {
   placeholder?: string;
   /** Called as the user types, to filter the frame's data. */
   onSearch?: (term: string) => void;
+  /** Called on each key pressed in the field, before the selection's own shortcuts. */
+  onKeyDown?: Input.TextProps["onKeyDown"];
   /** Buttons rendered after the field. */
   actions?: Input.TextProps["children"];
   loading?: boolean;
@@ -36,6 +38,7 @@ export interface SearchProps {
 export const Search = ({
   placeholder = "Search...",
   onSearch,
+  onKeyDown,
   actions,
   loading = false,
 }: SearchProps): ReactNode => {
@@ -65,6 +68,7 @@ export const Search = ({
       rounded
       grow
       full="x"
+      onKeyDown={onKeyDown}
       onChange={(v) => {
         setTerm(v);
         searchedRef.current = v !== "";

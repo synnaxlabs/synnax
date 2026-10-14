@@ -59,7 +59,7 @@ const trigger = async (): Promise<HTMLElement> =>
 
 const openSearch = async (): Promise<HTMLElement> => {
   fireEvent.click(await trigger());
-  return screen.getByPlaceholderText("Search ranges");
+  return screen.getByPlaceholderText("Search ranges or type a span");
 };
 
 // The rolling window's tag shows its span too, so a preset is told apart by its toggle.
@@ -118,6 +118,28 @@ describe("log/toolbar/Range", () => {
     await expectRange(key, rolling(TimeSpan.hours(1)));
   });
 
+  it("should set a rolling window from a span typed in the search", async () => {
+    const { key } = await render();
+    const search = await openSearch();
+    fireEvent.change(search, { target: { value: "14min 7s" } });
+    act(() => {
+      fireEvent.keyDown(search, { key: "Enter", code: "Enter" });
+    });
+    await expectRange(key, rolling(TimeSpan.seconds(14 * 60 + 7)));
+  });
+
+  it("should pick the hovered range on Enter when the search is not a span", async () => {
+    const created = await createTestRange(client);
+    const { key } = await render(undefined, Session.Range.fromClient(created.payload));
+    const search = await openSearch();
+    fireEvent.change(search, { target: { value: created.name } });
+    await screen.findByText(created.name);
+    act(() => {
+      fireEvent.keyDown(search, { key: "Enter", code: "Enter" });
+    });
+    await expectRange(key, { variant: "key", key: created.key });
+  });
+
   it("should ignore a typed span that does not parse", async () => {
     const { key } = await render(rolling(TimeSpan.hours(1)));
     await openSearch();
@@ -160,7 +182,11 @@ describe("log/toolbar/Range", () => {
     fireEvent.click(startBound);
     const field = screen
       .getAllByRole<HTMLInputElement>("textbox")
-      .find((f) => f.placeholder !== "Search ranges" && f.ariaLabel !== "Rolling span");
+      .find(
+        (f) =>
+          f.placeholder !== "Search ranges or type a span" &&
+          f.ariaLabel !== "Rolling span",
+      );
     assertDefined(field);
     const start = new TimeStamp(2_000_000_000n);
     fireEvent.change(field, { target: { value: start.toString("dateTime", "local") } });
