@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from types import MappingProxyType
+from typing import cast
 
 import numpy as np
 import pandas as pd
@@ -65,9 +66,8 @@ class TestFrame:
 
     def test_pandas_interop(self) -> None:
         f = sy.Frame({"big": sy.Series([1, 2, 3, 4])})
-        # Frame indexes by a mask through pandas, which its types do not model.
-        mask = f["big"] > 1  # type: ignore[operator]
-        assert len(f[mask]["big"]) == 3  # type: ignore[index, arg-type]
+        mask = f["big"] > 1
+        assert len(f[mask]["big"]) == 3
 
     def test_contains_name(self) -> None:
         """Should return True if the name is in the Frame"""
@@ -328,7 +328,7 @@ class TestWriteFrameAdapter:
         """Should raise a type error when an invalid value is adapted"""
         write_adapter, channel = adapter
         with pytest.raises(TypeError):
-            write_adapter.adapt(Exception("Invalid value"))  # type: ignore[arg-type]
+            write_adapter.adapt(cast(sy.Frame, Exception("Invalid value")))
 
     def test_adapt_dict_keys(
         self, adapter: tuple[WriteFrameAdapter, sy.Channel]
@@ -601,7 +601,7 @@ class TestReadFrameAdapter:
         # Frame with mix of key and name (ch1 as key, ch2 as name)
         # This tests the isinstance(k, ChannelKey) check in adapt method
         frame_mixed = sy.Frame(
-            [ch1.key, ch2.name],  # type: ignore[arg-type]
+            [ch1.key, ch2.name],
             [
                 sy.Series([1.0, 2.0], data_type=sy.DataType.FLOAT64),
                 sy.Series([10, 20], data_type=sy.DataType.INT64),

@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 from pydantic import BaseModel, PrivateAttr
 
-from x.interop import overload_comparison_operators
+from x.interop import ArrayOperators, overload_comparison_operators
 from x.telem.telem import (
     Alignment,
     Bounds,
@@ -35,7 +35,7 @@ from x.telem.telem import (
 VARIABLE_LENGTH_PREFIX_SIZE = 4
 
 
-class Series(BaseModel):
+class Series(BaseModel, ArrayOperators):
     """Series is a strongly typed array of telemetry samples backed by an underlying
     binary buffer. It is interoperable with np.ndarray, meaning that it can be safely
     passed as an argument to any function/method that accepts a numpy array.
@@ -287,14 +287,6 @@ class Series(BaseModel):
     def to_datetime(self) -> list[datetime]:
         return [pd.Timestamp(t).to_pydatetime() for t in self.__array__()]
 
-    def __eq__(self, other: object) -> bool:
-        if isinstance(other, Series):
-            return self.data == other.data
-        elif isinstance(other, np.ndarray):
-            return self.__array__() == other  # type: ignore[no-any-return]
-        else:
-            return False
-
 
 overload_comparison_operators(Series, "__array__")
 
@@ -335,7 +327,7 @@ def elapsed_seconds(d: np.ndarray) -> np.ndarray:
     return (d - d[0]) / TimeSpan.SECOND  # type: ignore[no-any-return]
 
 
-class MultiSeries:
+class MultiSeries(ArrayOperators):
     series: list[Series]
 
     def __init__(self, series: list[Series]):
