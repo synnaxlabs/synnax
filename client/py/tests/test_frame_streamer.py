@@ -8,16 +8,50 @@
 #  included in the file licenses/APL.txt.
 
 import asyncio
+import time
+from collections.abc import Iterator
 
 import numpy as np
 import pandas as pd
 import pytest
 
 import synnax as sy
+from freighter import Unreachable
 from tests.channel import assert_eventually_channels_are_found
+from tests.conftest import HOST, PASSWORD, PORT, USERNAME
+from tests.proxy import Proxy
 
 # Seconds to wait for a written sample to come back through the streamer.
 READ_TIMEOUT = 5
+# The Core's minimum accepted keep-alive interval.
+KEEP_ALIVE = 2 * sy.TimeSpan.SECOND
+# Three keep-alive intervals: how long a read may stay silent once armed.
+DEADLINE = 3 * KEEP_ALIVE
+# Seconds for one keep-alive interval plus slack, so the streamer has armed.
+ARMED = 2.5
+
+
+@pytest.fixture
+def proxy() -> Iterator[Proxy]:
+    p = Proxy(HOST, PORT)
+    yield p
+    p.close()
+
+
+@pytest.fixture
+def proxied_client(proxy: Proxy) -> sy.Synnax:
+    return sy.Synnax(
+        host="localhost",
+        port=proxy.port,
+        username=USERNAME,
+        password=PASSWORD,
+        secure=False,
+    )
+
+
+def write(client: sy.Synnax, ch: sy.Channel, data: list[float]) -> None:
+    with client.open_writer(sy.TimeStamp.now(), ch.key) as w:
+        w.write({ch.key: data})
 
 
 @pytest.mark.framer
@@ -333,3 +367,100 @@ class TestAsyncStreamer:
         """Should reject a negative downsample factor."""
         with pytest.raises(sy.ValidationError):
             await client.open_async_streamer(virtual_channel.key, -1)
+
+
+@pytest.mark.framer
+@pytest.mark.streamer
+class TestStreamerKeepAlive:
+    def test_keep_alives_not_surfaced(
+        self, virtual_channel: sy.Channel, client: sy.Synnax
+    ):
+        """Should skip queued keep-alives and return the next frame"""
+        with client.open_streamer(virtual_channel.key, keep_alive=KEEP_ALIVE) as s:
+            time.sleep(KEEP_ALIVE.seconds * 2.5)
+            write(client, virtual_channel, [1, 2, 3])
+            frame = s.read(timeout=READ_TIMEOUT)
+            assert frame is not None
+            assert np.array_equal(frame[virtual_channel.key], [1, 2, 3])
+
+    def test_idle_read_past_deadline(
+        self, virtual_channel: sy.Channel, client: sy.Synnax
+    ):
+        """Should return None from an idle read whose timeout exceeds the deadline"""
+        with client.open_streamer(virtual_channel.key, keep_alive=KEEP_ALIVE) as s:
+            assert s.read(timeout=DEADLINE + KEEP_ALIVE) is None
+
+    def test_interval_below_minimum(
+        self, virtual_channel: sy.Channel, client: sy.Synnax
+    ):
+        """Should reject an interval below the Core's minimum"""
+        with pytest.raises(
+            sy.ValidationError, match="must be greater than or equal to 2s"
+        ):
+            client.open_streamer(virtual_channel.key, keep_alive=1)
+
+    def test_silent_read_unreachable(
+        self, virtual_channel: sy.Channel, proxy: Proxy, proxied_client: sy.Synnax
+    ):
+        """Should raise Unreachable when a read stays silent past the deadline"""
+        s = proxied_client.open_streamer(virtual_channel.key, keep_alive=KEEP_ALIVE)
+        time.sleep(ARMED)
+        assert proxy.blackhole() > 0
+        start = sy.TimeStamp.now()
+        with pytest.raises(
+            Unreachable, match=f"streamer received no response for {DEADLINE}"
+        ):
+            s.read()
+        assert sy.TimeSpan.since(start) >= DEADLINE
+
+    def test_silent_read_user_timeout(
+        self, virtual_channel: sy.Channel, proxy: Proxy, proxied_client: sy.Synnax
+    ):
+        """Should return None when the read timeout elapses before the deadline"""
+        s = proxied_client.open_streamer(virtual_channel.key, keep_alive=KEEP_ALIVE)
+        time.sleep(ARMED)
+        assert proxy.blackhole() > 0
+        assert s.read(timeout=1) is None
+
+    def test_disabled(
+        self, virtual_channel: sy.Channel, proxy: Proxy, proxied_client: sy.Synnax
+    ):
+        """Should never arm the deadline when keep-alive is disabled"""
+        s = proxied_client.open_streamer(virtual_channel.key, keep_alive=0)
+        time.sleep(0.25)
+        assert proxy.blackhole() > 0
+        assert s.read(timeout=1) is None
+
+
+@pytest.mark.framer
+class TestAsyncStreamerKeepAlive:
+    @pytest.mark.asyncio
+    async def test_keep_alives_not_surfaced(
+        self, virtual_channel: sy.Channel, client: sy.Synnax
+    ):
+        """Should skip queued keep-alives and return the next frame"""
+        async with await client.open_async_streamer(
+            virtual_channel.key, keep_alive=KEEP_ALIVE
+        ) as s:
+            await asyncio.sleep(KEEP_ALIVE.seconds * 2.5)
+            write(client, virtual_channel, [1, 2, 3])
+            async with asyncio.timeout(READ_TIMEOUT):
+                frame = await s.read()
+            assert np.array_equal(frame[virtual_channel.key], [1, 2, 3])
+
+    @pytest.mark.asyncio
+    async def test_silent_read_unreachable(
+        self, virtual_channel: sy.Channel, proxy: Proxy, proxied_client: sy.Synnax
+    ):
+        """Should raise Unreachable when a read stays silent past the deadline"""
+        s = await proxied_client.open_async_streamer(
+            virtual_channel.key, keep_alive=KEEP_ALIVE
+        )
+        await asyncio.sleep(ARMED)
+        assert proxy.blackhole() > 0
+        start = sy.TimeStamp.now()
+        with pytest.raises(
+            Unreachable, match=f"streamer received no response for {DEADLINE}"
+        ):
+            await s.read()
+        assert sy.TimeSpan.since(start) >= DEADLINE

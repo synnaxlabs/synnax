@@ -9,6 +9,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import time
 from typing import cast, overload
 
 from pydantic import BaseModel
@@ -19,6 +21,7 @@ from freighter import (
     AsyncStream,
     AsyncWebsocketClient,
     Stream,
+    Unreachable,
     WebsocketClient,
 )
 from freighter.transport import P
@@ -28,7 +31,12 @@ from synnax.framer.adapter import ReadFrameAdapter
 from synnax.framer.codec import LOW_PERF_SPECIAL_CHAR, WSFramerCodec
 from synnax.framer.common import validate_downsample_factor
 from synnax.framer.frame import Frame, FramePayload
-from synnax.telem import TimeSpan
+from synnax.telem import CrudeTimeSpan, TimeSpan
+
+DEFAULT_KEEP_ALIVE = TimeSpan.SECOND * 5
+# Missing this many keep-alive intervals in a row fails the pending read: one is normal
+# jitter, three is a dead connection.
+_KEEP_ALIVE_DEADLINE_FACTOR = 3
 
 
 class _Request(BaseModel):
@@ -36,10 +44,16 @@ class _Request(BaseModel):
     downsample_factor: int
     throttle_rate_hz: float | None = None
     exclude_groups: list[int] = []
+    keep_alive: TimeSpan = TimeSpan(0)
 
 
 class _Response(BaseModel):
     frame: FramePayload
+    keep_alive: bool = False
+
+
+def _unreachable(deadline: TimeSpan) -> Unreachable:
+    return Unreachable(message=f"streamer received no response for {deadline}")
 
 
 class WSStreamerCodec(WSFramerCodec):
@@ -85,8 +99,14 @@ class Streamer:
         downsample_factor: int = 1,
         throttle_rate: float = 0,
         exclude_groups: list[int] | None = None,
+        keep_alive: CrudeTimeSpan = DEFAULT_KEEP_ALIVE,
     ) -> None:
         validate_downsample_factor(downsample_factor)
+        keep_alive = TimeSpan.from_seconds(keep_alive)
+        self._deadline = keep_alive * _KEEP_ALIVE_DEADLINE_FACTOR
+        # Set once the Core proves keep-alive support by sending one, so the deadline
+        # never arms against a Core that will not send them.
+        self._armed = False
         self._adapter = adapter
         client = client.with_codec(WSStreamerCodec(self._adapter.codec))
         self._stream = client.stream(_ENDPOINT, _Request, _Response)
@@ -99,9 +119,13 @@ class Streamer:
                 downsample_factor=self._downsample_factor,
                 throttle_rate_hz=self._throttle_rate,
                 exclude_groups=self._exclude_groups,
+                keep_alive=keep_alive,
             )
         )
-        self._stream.receive()
+        # A keep-alive can beat the open ack onto the wire, so the ack is the first
+        # non-keep-alive response.
+        while self._stream.receive().keep_alive:
+            pass
 
     @overload
     def read(self, timeout: float | int | TimeSpan) -> Frame | None:
@@ -138,12 +162,28 @@ class Streamer:
         frame is received.
         :return: The next frame of telemetry, or None if no frame is received within the
         timeout.
+        :raises Unreachable: If keep-alives were flowing and the stream then stays
+        silent past the keep-alive deadline: the connection is presumed dead.
         """
-        try:
-            res = self._stream.receive(TimeSpan.to_seconds(timeout))
+        seconds = TimeSpan.to_seconds(timeout)
+        end = None if seconds is None else time.monotonic() + seconds
+        while True:
+            remaining = None if end is None else max(end - time.monotonic(), 0)
+            deadline = self._deadline.seconds if self._armed else None
+            deadline_bound = deadline is not None and (
+                remaining is None or deadline < remaining
+            )
+            try:
+                res = self._stream.receive(deadline if deadline_bound else remaining)
+            except TimeoutError as e:
+                if deadline_bound:
+                    raise _unreachable(self._deadline) from e
+                return None
+            if res.keep_alive:
+                if self._deadline > 0:
+                    self._armed = True
+                continue
             return self._adapter.adapt(Frame(res.frame))
-        except TimeoutError:
-            return None
 
     def update_channels(self, channels: channel.Params) -> None:
         """Updates the list of channels to stream. This method will replace the current
@@ -223,6 +263,7 @@ class AsyncStreamer:
         downsample_factor: int,
         throttle_rate: float = 0,
         exclude_groups: list[int] | None = None,
+        keep_alive: CrudeTimeSpan = DEFAULT_KEEP_ALIVE,
     ) -> None:
         validate_downsample_factor(downsample_factor)
         self._client = client
@@ -230,6 +271,11 @@ class AsyncStreamer:
         self._downsample_factor = downsample_factor
         self._throttle_rate = throttle_rate
         self._exclude_groups = exclude_groups or []
+        self._keep_alive = TimeSpan.from_seconds(keep_alive)
+        self._deadline = self._keep_alive * _KEEP_ALIVE_DEADLINE_FACTOR
+        # Set once the Core proves keep-alive support by sending one, so the deadline
+        # never arms against a Core that will not send them.
+        self._armed = False
 
     async def _open(self) -> None:
         client = self._client.with_codec(WSStreamerCodec(self._adapter.codec))
@@ -240,16 +286,37 @@ class AsyncStreamer:
                 downsample_factor=self._downsample_factor,
                 throttle_rate_hz=self._throttle_rate,
                 exclude_groups=self._exclude_groups,
+                keep_alive=self._keep_alive,
             )
         )
-        await self._stream.receive()
+        # A keep-alive can beat the open ack onto the wire, so the ack is the first
+        # non-keep-alive response.
+        while (await self._stream.receive()).keep_alive:
+            pass
 
     async def read(self) -> Frame:
         """Reads the next frame of telemetry from the streamer. If an error occurs while
         reading the frame, an exception will be raised.
+
+        :raises Unreachable: If keep-alives were flowing and the stream then stays
+        silent past the keep-alive deadline: the connection is presumed dead.
         """
-        res = await self._stream.receive()
-        return self._adapter.adapt(Frame(res.frame))
+        while True:
+            res = await self._receive_with_deadline()
+            if res.keep_alive:
+                if self._deadline > 0:
+                    self._armed = True
+                continue
+            return self._adapter.adapt(Frame(res.frame))
+
+    async def _receive_with_deadline(self) -> _Response:
+        if not self._armed:
+            return await self._stream.receive()
+        try:
+            async with asyncio.timeout(self._deadline.seconds):
+                return await self._stream.receive()
+        except TimeoutError as e:
+            raise _unreachable(self._deadline) from e
 
     async def close_loop(self) -> None:
         """Closes the sending end of the streamer, requiring the caller to process all
@@ -265,7 +332,8 @@ class AsyncStreamer:
         """
         await self._stream.close_send()
         try:
-            await self._stream.receive()
+            while (await self._stream.receive()).keep_alive:
+                pass
         except EOF:
             return
         raise UnexpectedError(
