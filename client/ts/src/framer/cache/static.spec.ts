@@ -451,6 +451,30 @@ describe("StaticReadCache", () => {
       expect(c.gc().purgedSeries).toEqual(0);
       expect(read().series.length).toEqual(1);
     });
+
+    it("should report the span of a purged series as a gap again", async () => {
+      const c = new Static({ staleEntryThreshold: TimeSpan.milliseconds(5) });
+      const fetchedTR = TimeStamp.seconds(10).range(TimeStamp.seconds(30));
+      const purgedTR = TimeStamp.seconds(10).range(TimeStamp.seconds(20));
+      const keptTR = TimeStamp.seconds(20).range(TimeStamp.seconds(30));
+      const series = (tr: TimeRange, alignment: bigint) =>
+        new Series({
+          data: new Float32Array([1, 2]),
+          dataType: DataType.FLOAT32,
+          timeRange: tr,
+          alignment,
+        });
+      const kept = series(keptTR, 2n);
+      c.write(new MultiSeries([series(purgedTR, 0n), kept]));
+      c.markFetched(fetchedTR);
+      kept.acquire();
+      await sleep.sleep(TimeSpan.milliseconds(10));
+      expect(c.gc().purgedSeries).toEqual(1);
+      const { series: read, gaps } = c.dirtyRead(fetchedTR);
+      expect(read.series).toEqual([kept]);
+      expect(gaps).toHaveLength(1);
+      expect(gaps[0].equals(purgedTR)).toBe(true);
+    });
   });
   describe("close", () => {
     it("should remove all series from the cache", () => {
@@ -674,27 +698,6 @@ describe("StaticReadCache", () => {
       expect(series.series).toHaveLength(2);
       expect(gaps).toHaveLength(1);
       expect(gaps[0]).toEqual(TimeStamp.seconds(3).range(TimeStamp.seconds(4)));
-    });
-
-    test("should keep answering after gc purges the span's series", async () => {
-      const c = new Static({ staleEntryThreshold: TimeSpan.milliseconds(5) });
-      const tr = TimeStamp.seconds(1).spanRange(TimeSpan.seconds(1));
-      c.write(
-        new MultiSeries([
-          new Series({
-            data: new Float32Array([1]),
-            dataType: DataType.FLOAT32,
-            timeRange: tr,
-            alignment: 0n,
-          }),
-        ]),
-      );
-      c.markFetched(tr);
-      await sleep.sleep(TimeSpan.milliseconds(10));
-      expect(c.gc().purgedSeries).toEqual(1);
-      const { series, gaps } = c.dirtyRead(tr);
-      expect(series).toHaveLength(0);
-      expect(gaps).toHaveLength(0);
     });
 
     test("should restart coverage on a refetch of an expired span", async () => {

@@ -220,6 +220,19 @@ export class Static {
     return remaining;
   }
 
+  // Removes tr from the covered set, splitting any record it falls inside.
+  private uncover(tr: TimeRange): void {
+    this.covered = this.covered.flatMap((c) => {
+      if (!c.range.overlapsWith(tr)) return [c];
+      return [
+        new TimeRange(c.range.start, tr.start),
+        new TimeRange(tr.end, c.range.end),
+      ]
+        .filter((r) => r.isValid && !r.span.isZero)
+        .map((range) => ({ range, addedAt: c.addedAt }));
+    });
+  }
+
   /**
    * Garbage collects the cache, removing any stale entries.
    * @returns metrics about the garbage collection.
@@ -238,7 +251,12 @@ export class Static {
         }
         return shouldKeep;
       });
-    this.fetched = collect(this.fetched);
+    const fetched = collect(this.fetched);
+    // Purged samples take their coverage with them, or reads would skip their span.
+    this.fetched.forEach((e) => {
+      if (!fetched.includes(e)) this.uncover(e.data.timeRange);
+    });
+    this.fetched = fetched;
     this.streamed = collect(this.streamed);
     // The client cannot tell "no data yet" from "no data ever" (backfill is legal),
     // so stale coverage re-opens an empty span to one cheap fetch per staleness
