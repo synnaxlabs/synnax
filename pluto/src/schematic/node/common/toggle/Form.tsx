@@ -13,7 +13,6 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Control } from "@/schematic/node/common/control";
 import { ActivationDelayField } from "@/schematic/node/common/form/ActivationDelay";
 import { ControlChipField } from "@/schematic/node/common/form/Control";
 import { Staleness } from "@/vis/staleness";
@@ -36,7 +35,6 @@ export const ChannelForm = ({ path, omit = [] }: ChannelFormProps): ReactElement
     onChange({
       ...value,
       commandChannel: v ?? undefined,
-      control: Control.reveal(value.control),
     });
 
   return (

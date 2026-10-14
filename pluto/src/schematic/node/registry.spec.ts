@@ -124,6 +124,20 @@ describe("Schematic.Node.createConfig", () => {
     expect(config.units).toBe("bar");
   });
 
+  it("should give a commanding symbol the default control state", () => {
+    const config = createConfig({ variant: "button" });
+    expect(config.control).toEqual(schematic.controlStateConfigZ.parse({}));
+  });
+
+  it("should keep a control state the input sets", () => {
+    const config = createConfig({ variant: "button", control: { hidden: true } });
+    expect(config.control?.hidden).toBe(true);
+  });
+
+  it("should not add a control state to a symbol that has none", () => {
+    expect(createConfig({ variant: "tank" })).not.toHaveProperty("control");
+  });
+
   it("should carry a custom symbol's spec key", () => {
     const config = createConfig({ variant: "custom_static", specKey: "spec-1" });
     expect(config.specKey).toBe("spec-1");

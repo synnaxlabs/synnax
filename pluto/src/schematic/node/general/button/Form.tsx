@@ -14,7 +14,6 @@ import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Control } from "@/schematic/node/common/control";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { type ColorFallbacks, type FormProps } from "@/schematic/node/spec";
@@ -36,7 +35,6 @@ const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
     onChange({
       ...value,
       commandChannel: v ?? undefined,
-      control: Control.reveal(value.control),
     });
 
   return (

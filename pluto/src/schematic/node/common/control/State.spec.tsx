@@ -23,7 +23,7 @@ const renderState = (channel?: channel.Key) =>
       <Haul.Provider>
         <div data-id="node">
           <Grid.Grid nodeKey="node" editable={false}>
-            <Control.State config={Control.reveal()} channel={channel} />
+            <Control.State config={Control.stateConfigZ.parse({})} channel={channel} />
           </Grid.Grid>
         </div>
       </Haul.Provider>
