@@ -142,12 +142,17 @@ export class MultiChannelLog
     this.notify();
   }
 
-  /** Never rejects: a failure invalidates the read and reaches onStatusChange. */
+  /**
+   * Never rejects: a failure invalidates the read and reaches onStatusChange. The source
+   * reports loading until the read settles.
+   */
   private async read(): Promise<void> {
     this.valid = true;
+    this.loading_ = true;
     const { client } = this;
     if (client == null) {
       this.onStatusChange?.(DISCONNECTED_STATUS);
+      this.declareLoaded();
       return;
     }
     // A newer read() or cleanup() bumps the generation; older reads bail after
@@ -167,6 +172,7 @@ export class MultiChannelLog
     } catch (e) {
       this.valid = false;
       this.onStatusChange?.(cstatus.fromException(e, "Failed to stream log channels"));
+      this.declareLoaded();
       return;
     }
     // The stream opens first, so a slow read never delays live entries.
@@ -194,6 +200,7 @@ export class MultiChannelLog
     } catch (e) {
       this.onStatusChange?.(cstatus.fromException(e, "Failed to read log channels"));
     }
+    this.loading_ = false;
     this.notify();
   }
 

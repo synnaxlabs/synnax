@@ -232,6 +232,28 @@ describe("log/aether/Log", () => {
     });
   });
 
+  describe("loading", () => {
+    it("should keep its entries while the source loads", () => {
+      const { log, source } = setup([makeEntry(0), makeEntry(1)]);
+      source.isLoading = true;
+      source.setEntries([]);
+      source.notify();
+      expect(log.entries.map((e) => e.value)).toEqual(["0", "1"]);
+      expect(log.state.empty).toBe(false);
+    });
+
+    it("should replace its entries once the source has loaded", () => {
+      const { log, source } = setup([makeEntry(0)]);
+      source.isLoading = true;
+      source.setEntries([]);
+      source.notify();
+      source.isLoading = false;
+      source.setEntries([makeEntry(5)]);
+      source.notify();
+      expect(log.entries.map((e) => e.value)).toEqual(["5"]);
+    });
+  });
+
   describe("logStateZ schema", () => {
     it("should provide defaults for new selection fields", () => {
       const parsed = logStateZ.parse({

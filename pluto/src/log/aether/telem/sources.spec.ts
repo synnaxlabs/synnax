@@ -994,6 +994,24 @@ describe("MultiChannelLog", () => {
       ]);
     });
 
+    it("should report loading until the stored read settles", async () => {
+      let release = (): void => {};
+      c.readGate = new Promise((resolve) => (release = resolve));
+      const { log } = create();
+      log.value();
+      expect(log.loading()).toBe(true);
+      release();
+      await expect.poll(() => log.loading()).toBe(false);
+    });
+
+    it("should stop loading when the read fails", async () => {
+      c.readGate = Promise.reject(new Error("read failed"));
+      c.readGate.catch(() => {});
+      const { log } = create();
+      await waitForResolve(log);
+      expect(log.loading()).toBe(false);
+    });
+
     it("should drop a stored read that finishes after all channels are removed", async () => {
       let release = (): void => {};
       c.readGate = new Promise((resolve) => (release = resolve));

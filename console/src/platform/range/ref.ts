@@ -10,7 +10,7 @@
 import { type ranger } from "@synnaxlabs/client";
 import { type LinePlot, Ranger } from "@synnaxlabs/pluto";
 import { type NumericTimeRange, type telem, TimeRange } from "@synnaxlabs/x";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 import { resolveWindow } from "@/platform/range/resolve";
 import { type Session } from "@/session";
@@ -51,12 +51,22 @@ export const setBound = (
   return toStringTimeRange({ start: value > start ? start : value - span, end: value });
 };
 
-/** @returns the window a Pluto visualization reads for a reference. */
+/**
+ * @returns the window a Pluto visualization reads for a reference. While a saved range
+ * loads, it holds the last window it returned, so a range switch does not first empty
+ * the visualization.
+ */
 export const useResolveRef = (ref: ranger.Ref): LinePlot.ResolvedRange | undefined => {
-  const { data } = Ranger.useResult(ref.variant === "key" ? { key: ref.key } : null);
-  return useMemo(() => {
+  const result = Ranger.useResult(ref.variant === "key" ? { key: ref.key } : null);
+  const last = useRef<LinePlot.ResolvedRange | undefined>(undefined);
+  const resolved = useMemo((): LinePlot.ResolvedRange | undefined => {
     if (ref.variant === "window") return resolveWindow(ref.window);
-    if (data == null) return undefined;
-    return { variant: "static", timeRange: new TimeRange(data.timeRange) };
-  }, [ref, data]);
+    if (result.variant === "success")
+      return { variant: "static", timeRange: new TimeRange(result.data.timeRange) };
+    return result.variant === "loading" ? last.current : undefined;
+  }, [ref, result.variant, result.data]);
+  useEffect(() => {
+    last.current = resolved;
+  }, [resolved]);
+  return resolved;
 };

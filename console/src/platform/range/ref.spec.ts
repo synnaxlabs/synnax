@@ -7,10 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ranger } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { TimeSpan } from "@synnaxlabs/x";
+import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Range } from "@/platform/range";
+import { createTestRange } from "@/platform/range/testutil";
+import { renderHookWithConsole } from "@/testutil";
+
+const client = createTestClient();
+// Creates ranges outside the client's cache, so a lookup has to load.
+const other = createTestClient();
 
 describe("Range.toRef", () => {
   it("should reference a range the Core holds by key", () => {
@@ -72,5 +81,24 @@ describe("Range.setBound", () => {
       start: "-500",
       end: "500",
     });
+  });
+});
+
+describe("Range.useResolveRef", () => {
+  const rolling: ranger.Ref = {
+    variant: "window",
+    window: { variant: "dynamic", timeSpan: Number(TimeSpan.hours(1)) },
+  };
+
+  it("should hold the last window while a saved range loads", async () => {
+    const created = await createTestRange(other);
+    const { result, rerender } = await renderHookWithConsole(
+      ({ ref }: { ref: ranger.Ref }) => Range.useResolveRef(ref),
+      { client, initialProps: { ref: rolling } as { ref: ranger.Ref } },
+    );
+    expect(result.current?.variant).toBe("dynamic");
+    rerender({ ref: { variant: "key", key: created.key } });
+    expect(result.current?.variant).toBe("dynamic");
+    await waitFor(() => expect(result.current?.variant).toBe("static"));
   });
 });

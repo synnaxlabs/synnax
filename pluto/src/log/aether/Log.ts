@@ -260,18 +260,25 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
         }));
     }
 
-    this.entries = this.internal.telem.value();
+    this.readEntries();
     this.setAnchors(this.state.selectionStart, this.state.selectionEnd);
     this.checkEmpty();
     i.stopListeningTelem?.();
     i.stopListeningTelem = i.telem.onChange(() => {
-      this.entries = this.internal.telem.value();
+      this.readEntries();
       this.reanchor();
       this.checkEmpty();
       if (this.state.visible) this.requestRender();
     });
     if (!this.state.visible && !this.prevState.visible) return;
     this.requestRender();
+  }
+
+  // Keeps the entries on screen while the source loads, so a new range or channel set
+  // replaces them in one step instead of clearing first.
+  private readEntries(): void {
+    const { telem } = this.internal;
+    if (!telem.loading()) this.entries = telem.value();
   }
 
   private checkEmpty(): void {
