@@ -11,14 +11,28 @@ import threading
 from collections.abc import Callable
 from typing import Literal, overload
 
+import numpy as np
+
 import synnax as sy
+from synnax.telem import SampleValue
 from x import is_websocket_error, suppress_websocket_errors
+
+
+def _scalar(value: SampleValue) -> int | float | str:
+    """:raises TypeError: If value is not a number or a string."""
+    if isinstance(value, np.integer):
+        return int(value)
+    if isinstance(value, np.floating):
+        return float(value)
+    if isinstance(value, (int, float, str)):
+        return value
+    raise TypeError(f"Unsupported telemetry value {value!r}")
 
 
 class Streamer:
     """Background streamer that reads subscribed channels into a shared frame."""
 
-    WEBSOCKET_RETRY_DELAY: sy.CrudeTimeSpan = 500 * sy.TimeSpan.MILLISECOND
+    WEBSOCKET_RETRY_DELAY: sy.TimeSpan = 500 * sy.TimeSpan.MILLISECOND
 
     def __init__(
         self,
@@ -28,7 +42,7 @@ class Streamer:
         set_failed: Callable[[], None],
     ) -> None:
         self._client = client
-        self._read_timeout = read_timeout
+        self._read_timeout = sy.TimeSpan.from_seconds(read_timeout)
         self._log = log
         self._set_failed = set_failed
         self._channels: set[str] = set()
@@ -38,12 +52,12 @@ class Streamer:
         self._should_stop = False
 
     @property
-    def read_timeout(self) -> sy.CrudeTimeSpan:
+    def read_timeout(self) -> sy.TimeSpan:
         return self._read_timeout
 
     @read_timeout.setter
     def read_timeout(self, value: sy.CrudeTimeSpan) -> None:
-        self._read_timeout = value
+        self._read_timeout = sy.TimeSpan.from_seconds(value)
 
     def subscribe(
         self,
@@ -159,8 +173,10 @@ class Streamer:
                     frame = streamer.read(self._read_timeout)
                     if frame is not None:
                         with self._cond:
-                            for key, value in frame.items():
-                                self._frame[key] = value[-1]
+                            for name in self._channels:
+                                series = frame.get(name)
+                                if series is not None and len(series) > 0:
+                                    self._frame[name] = _scalar(series[-1])
                             self._cond.notify_all()
                 except Exception as e:
                     if is_websocket_error(e):

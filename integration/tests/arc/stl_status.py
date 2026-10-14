@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 import synnax as sy
 from framework.utils import create_virtual_channel
@@ -187,7 +187,7 @@ class StlStatus(ArcCase):
                 self.client.statuses.delete(keys)
         super().teardown()
 
-    def _rows(self, name: str) -> list[sy.Status]:
+    def _rows(self, name: str) -> list[sy.Status[Any]]:
         return [
             s for s in self.client.statuses.retrieve(search_term=name) if s.name == name
         ]
