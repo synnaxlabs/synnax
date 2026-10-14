@@ -34,13 +34,13 @@ var Mappings = map[string]primitives.Mapping{
 	"float32": {TargetType: "float"},
 	"float64": {TargetType: "float"},
 	"record": {
-		TargetType: "dict[str, Any]",
-		Imports:    []primitives.Import{{Category: "typing", Name: "Any"}},
+		TargetType: "dict[str, JsonValue]",
+		Imports:    []primitives.Import{{Category: "pydantic", Name: "JsonValue"}},
 	},
 	"bytes": {TargetType: "bytes"},
 	"any": {
-		TargetType: "Any",
-		Imports:    []primitives.Import{{Category: "typing", Name: "Any"}},
+		TargetType: "JsonValue",
+		Imports:    []primitives.Import{{Category: "pydantic", Name: "JsonValue"}},
 	},
 	"nil": {TargetType: "None"},
 }

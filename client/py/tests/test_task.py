@@ -65,7 +65,7 @@ class TestTaskClient:
                 f = s.read(timeout=1)
                 cmd = f["sy_task_cmd"][0]
                 client.statuses.set(
-                    sy.Status(
+                    sy.task.Status(
                         key=str(sy.task.ontology_id(cmd["task"])),
                         variant=sy.status.VARIANT_SUCCESS,
                         message="Command executed.",
@@ -95,7 +95,7 @@ class TestTaskClient:
         def noise() -> None:
             while not stop.is_set():
                 client.statuses.set(
-                    sy.Status(
+                    sy.task.Status(
                         key=str(uuid4()),
                         variant=sy.status.VARIANT_INFO,
                         message="unrelated",

@@ -84,12 +84,13 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Update device properties before task configuration."""
         dev = device_client.retrieve(key=self.config.device)
-        props = dict(dev.properties) if dev.properties is not None else {}
+        props = dict(dev.properties)
         if "read" not in props:
             props["read"] = {"index": 0, "channels": {}}
+        channels = device.ensure_object(props, "read", "channels")
         for ch in self.config.channels:
             if ch.node_id:
-                props["read"]["channels"][ch.node_id] = ch.channel
+                channels[ch.node_id] = ch.channel
         dev.properties = props
         return device_client.create(dev)
 
@@ -134,12 +135,11 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Update device properties before task configuration."""
         dev = device_client.retrieve(key=self.config.device)
-        props = dict(dev.properties) if dev.properties is not None else {}
-        if "write" not in props:
-            props["write"] = {"channels": {}}
+        props = dict(dev.properties)
+        channels = device.ensure_object(props, "write", "channels")
         for ch in self.config.channels:
             if ch.node_id:
-                props["write"]["channels"][ch.node_id] = ch.cmd_channel
+                channels[ch.node_id] = ch.cmd_channel
         dev.properties = props
         return device_client.create(dev)
 

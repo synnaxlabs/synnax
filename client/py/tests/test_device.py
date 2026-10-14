@@ -10,6 +10,7 @@
 from uuid import uuid4
 
 import pytest
+from pydantic import JsonValue
 
 import synnax as sy
 
@@ -175,3 +176,22 @@ class TestDevice:
         assert len(devices) == 2
         assert devices[0].configured is True
         assert devices[1].configured is False
+
+
+@pytest.mark.device
+class TestEnsureObject:
+    """Tests for walking and creating nested device property objects."""
+
+    def test_should_create_missing_objects(self) -> None:
+        props: dict[str, JsonValue] = {}
+        sy.device.ensure_object(props, "read", "channels")["port"] = 1
+        assert props == {"read": {"channels": {"port": 1}}}
+
+    def test_should_return_existing_object(self) -> None:
+        props: dict[str, JsonValue] = {"read": {"index": 0, "channels": {"a": 1}}}
+        sy.device.ensure_object(props, "read", "channels")["b"] = 2
+        assert props == {"read": {"index": 0, "channels": {"a": 1, "b": 2}}}
+
+    def test_should_raise_when_value_is_not_object(self) -> None:
+        with pytest.raises(TypeError):
+            sy.device.ensure_object({"read": [1]}, "read", "channels")
