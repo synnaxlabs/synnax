@@ -524,6 +524,238 @@ Board struct {
 `,
 			false, nil, nil,
 		),
+		Entry("converts a union variant by variant through a type switch",
+			"board",
+			`Base struct {
+	key uuid
+
+	@go marshal
+}
+
+View struct {
+	type string
+	args record = {}
+
+	@go marshal
+}
+
+Tab union on variant extends Base {
+	view View
+	link {
+		name string
+	}
+
+	@go marshal
+}
+
+Board struct {
+	key uuid @key
+	tabs Tab[]
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Base = v0.Base
+
+View struct {
+	type string
+
+	@go marshal
+}
+
+Tab union on variant extends v0.Base {
+	view View
+	link {
+		name string
+	}
+
+	@go marshal
+}
+
+Board struct {
+	key uuid @key
+	tabs Tab[]
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Base struct {
+	key uuid
+}
+
+View struct {
+	type string
+}
+
+Tab union on variant extends Base {
+	view View
+	link {
+		name string
+	}
+}
+
+Board struct {
+	key uuid @key
+	tabs Tab[]
+}
+`,
+			true,
+			[]string{
+				"lo.MapErr(old.Tabs, func(v v0.Tab, _ int) (Tab, error)",
+				"autoMigrateTab(ctx, v)",
+				"func autoMigrateTab(ctx context.Context, old v0.Tab) (Tab, error)",
+				"switch variant := old.Variant.(type)",
+				"case nil:",
+				"case v0.ViewTab:",
+				"view, err := MigrateView(ctx, variant.View)",
+				"return Tab{Variant: ViewTab{",
+				"Base: variant.Base,",
+				"View: view,",
+				"case v0.LinkTab:",
+				"return Tab{Variant: LinkTab{",
+				"Name: variant.Name,",
+				`errors.Newf("unknown Tab variant %T", variant)`,
+				`"github.com/synnaxlabs/x/errors"`,
+			},
+			[]string{"Tab(old)"},
+		),
+		Entry("leaves a variant the incoming version drops to the generated error",
+			"board",
+			`Tab union on variant {
+	text {
+		value string
+	}
+	link {
+		name string
+	}
+
+	@go marshal
+}
+
+Board struct {
+	key uuid @key
+	tab Tab
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Tab union on variant {
+	text {
+		value string
+	}
+
+	@go marshal
+}
+
+Board struct {
+	key uuid @key
+	tab Tab
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Tab union on variant {
+	text {
+		value string
+	}
+}
+
+Board struct {
+	key uuid @key
+	tab Tab
+}
+`,
+			true,
+			[]string{
+				"func autoMigrateTab(_ context.Context, old v0.Tab) (Tab, error)",
+				"case v0.TextTab:",
+				"Value: variant.Value,",
+			},
+			[]string{"LinkTab"},
+		),
+		Entry("converts a recursive union through its own migration",
+			"board",
+			`Leaf struct {
+	name string
+	note string
+
+	@go marshal
+}
+
+Node union on variant {
+	leaf Leaf
+	split {
+		first Node
+		last Node
+	}
+
+	@go marshal
+}
+
+Board struct {
+	key uuid @key
+	root Node
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Leaf struct {
+	name string
+
+	@go marshal
+}
+
+Node union on variant {
+	leaf Leaf
+	split {
+		first Node
+		last Node
+	}
+
+	@go marshal
+}
+
+Board struct {
+	key uuid @key
+	root Node
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Leaf struct {
+	name string
+}
+
+Node union on variant {
+	leaf Leaf
+	split {
+		first Node
+		last Node
+	}
+}
+
+Board struct {
+	key uuid @key
+	root Node
+}
+`,
+			true,
+			[]string{
+				"root, err := autoMigrateNode(ctx, old.Root)",
+				"case v0.SplitNode:",
+				"first, err := autoMigrateNode(ctx, variant.First)",
+				"last, err := autoMigrateNode(ctx, variant.Last)",
+				"return Node{Variant: SplitNode{",
+				"leaf, err := MigrateLeaf(ctx, variant.Leaf)",
+			},
+			[]string{"Node(old)"},
+		),
 		Entry("leaves a field whose union-ness changed to the hand migration",
 			"channel",
 			`Text struct {
