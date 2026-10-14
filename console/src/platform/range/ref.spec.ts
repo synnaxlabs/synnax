@@ -92,9 +92,10 @@ describe("Range.useResolveRef", () => {
 
   it("should hold the last window while a saved range loads", async () => {
     const created = await createTestRange(other);
+    const initialProps: { ref: ranger.Ref } = { ref: rolling };
     const { result, rerender } = await renderHookWithConsole(
       ({ ref }: { ref: ranger.Ref }) => Range.useResolveRef(ref),
-      { client, initialProps: { ref: rolling } as { ref: ranger.Ref } },
+      { client, initialProps },
     );
     expect(result.current?.variant).toBe("dynamic");
     rerender({ ref: { variant: "key", key: created.key } });
