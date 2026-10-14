@@ -476,8 +476,26 @@ describe("feed", () => {
     await direct.close();
   });
 
+  it("should close while a stream open is still retrying", async () => {
+    let opens = 0;
+    const direct = new Feed({
+      readRemote: async () => new Frame([], []),
+      openStreamer: async () => {
+        opens++;
+        throw new Unreachable();
+      },
+      readLatest: async () => new Frame([], []),
+      onRetry: () => {},
+    });
+    direct.stream(() => {}, [1]);
+    await expect.poll(() => opens).toBeGreaterThan(0);
+    const closed = direct.close().then(() => true);
+    const timedOut = sleep.sleep(TimeSpan.seconds(1)).then(() => false);
+    expect(await Promise.race([closed, timedOut])).toBe(true);
+  });
+
   describe("readLatest", () => {
-    const createFeed =(readLatest: LatestReader, transform?: Transform): Feed =>
+    const createFeed = (readLatest: LatestReader, transform?: Transform): Feed =>
       new Feed({
         transform,
         readLatest,
