@@ -309,6 +309,14 @@ type Panel struct {
 	Parent *ontology.ID `json:"parent,omitzero" msgpack:"parent,omitempty"`
 }
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (p *Panel) ApplyDefaults() {
+	if p.Root.Variant == nil {
+		v0 := LeafNode{}
+		p.Root.Variant = v0
+	}
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (p Panel) Validate() error {
