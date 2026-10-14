@@ -56,16 +56,8 @@ runs:
           <<< "$RELEASES" > /dev/null; then
           gh release delete "$TAG" --yes
         fi
-        GENERATE=(-f tag_name="$TAG" -f target_commitish="$GITHUB_SHA"
-          -f configuration_file_path="$CONFIG")
-        if [ -n "$PREVIOUS_TAG" ]; then
-          GENERATE+=(-f previous_tag_name="$PREVIOUS_TAG")
-        fi
-        # New contributors are counted across the whole repo, not the config's PRs.
-        BODY=$(gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
-          "${GENERATE[@]}" --jq .body | awk '/^## New Contributors/ { skip = 1 }
-          /^\*\*Full Changelog\*\*/ { skip = 0 } !skip')
-        if [ -n "$NOTES" ]; then BODY="$NOTES"$'\n\n'"$BODY"; fi
+        BODY=$(.github/scripts/release_notes.sh "$TAG" "$GITHUB_SHA" "$CONFIG" \
+          "$PREVIOUS_TAG" "$NOTES")
         ARGS=(--draft --target "$GITHUB_SHA" --title "$TITLE" --notes "$BODY")
         if [ "$PRERELEASE" = true ]; then ARGS+=(--prerelease); fi
         gh release create "$TAG" "${ARGS[@]}"
