@@ -375,6 +375,9 @@ export class ChannelData
   }
 }
 
+// How long a seam waits before its read, matching the margin the cache gives commits.
+const SEAM_SETTLE = TimeSpan.seconds(1);
+
 // The span a live source's back-fill and stream both miss.
 interface Seam {
   backfillEnd?: TimeStamp;
@@ -406,6 +409,7 @@ export class StreamChannelData
   private valid: boolean = false;
   private readonly skipLoading: boolean;
   private generation = 0;
+  private readonly breakerConfig?: breaker.Config;
   private readonly breaker: breaker.Breaker;
   private readonly retryNotifier = new sync.Notifier();
   private readonly failures: FailureReporter;
@@ -425,6 +429,7 @@ export class StreamChannelData
     const { channel, timeSpan } = this.props;
     this.skipLoading = channel === 0 || timeSpan.valueOf() <= LOADING_MIN_SPAN;
     this.loading_ = true;
+    this.breakerConfig = breakerConfig;
     this.breaker = newRetryBreaker(this.retryNotifier, breakerConfig);
     this.failures = new FailureReporter(options?.onStatusChange);
   }
@@ -569,17 +574,23 @@ export class StreamChannelData
       return;
     seam.filled = true;
     if (!liveStart.after(backfillEnd)) return;
-    try {
-      const res = await client.feed.read(
-        new TimeRange(backfillEnd, liveStart),
-        this.channel.key,
-      );
-      if (generation !== this.generation) return;
-      this.pushNew(res.series);
-      this.notify();
-    } catch (e) {
-      this.failures.report(e, "Failed to read channel data");
-    }
+    const { key } = this.channel;
+    // Samples written just before the stream opened may still be committing.
+    const settled = liveStart.add(SEAM_SETTLE);
+    const now = this.now();
+    if (now.before(settled)) await this.retryNotifier.wait(settled.span(now));
+    const brk = newRetryBreaker(this.retryNotifier, this.breakerConfig);
+    while (generation === this.generation)
+      try {
+        const res = await client.feed.read(new TimeRange(backfillEnd, liveStart), key);
+        if (generation !== this.generation) return;
+        this.pushNew(res.series);
+        this.notify();
+        return;
+      } catch (e) {
+        this.failures.report(e, "Failed to read channel data");
+        if (isDefinitive(e) || !(await brk.wait())) return;
+      }
   }
 
   // feed.read returns the live leading buffer that the stream's first delivery repeats,

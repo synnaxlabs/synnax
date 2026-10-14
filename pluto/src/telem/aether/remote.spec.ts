@@ -1479,8 +1479,37 @@ describe("remote", () => {
           timeRange: new TimeRange(liveStart, TimeStamp.MAX),
         });
         c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
-        await expect.poll(() => ranges.length).toBe(2);
+        // The seam read waits a second for its samples to commit.
+        await expect.poll(() => ranges.length, { timeout: 3000 }).toBe(2);
         expect(ranges[1]).toEqual(new TimeRange(ranges[0].end, liveStart));
+        cd.cleanup();
+      });
+
+      it("should retry a failed read of the span before the first live series", async () => {
+        const ranges: TimeRange[] = [];
+        c.feed.read = async (tr: TimeRange): Promise<MultiSeries> => {
+          ranges.push(tr);
+          if (ranges.length === 2) throw new Error("transient");
+          return new MultiSeries([]);
+        };
+        const cd = new StreamChannelData(
+          c,
+          { timeSpan: TimeSpan.seconds(10), channel: c.channel.key },
+          {},
+          undefined,
+          { sleepFn: async () => {} },
+        );
+        await waitForStream(cd, c);
+        await expect.poll(() => ranges.length).toBe(1);
+        const liveStart = ranges[0].end.add(TimeSpan.milliseconds(200));
+        const live = new Series({
+          data: new Float32Array([1, 2]),
+          timeRange: new TimeRange(liveStart, TimeStamp.MAX),
+        });
+        c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
+        // The seam read waits a second for its samples to commit.
+        await expect.poll(() => ranges.length, { timeout: 3000 }).toBe(3);
+        expect(ranges[2]).toEqual(ranges[1]);
         cd.cleanup();
       });
 
