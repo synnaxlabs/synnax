@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { log } from "@synnaxlabs/client";
+import { log, type ranger } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Access, Log } from "@synnaxlabs/pluto";
-import { type telem } from "@synnaxlabs/x";
+import { deep, type telem } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useState } from "react";
 
 import { Range as PlatformRange } from "@/platform/range";
@@ -23,21 +23,30 @@ export const Range = (): ReactElement => {
   const hasEditPermission = Access.useUpdateGranted(log.ontologyID(key));
   const entries = Session.Range.useSelectMultiple();
   const matched = PlatformRange.useSelectKey(range);
-  // Custom stays picked while the user types, even when the window they enter matches
-  // a rolling preset.
-  const [customPicked, setCustomPicked] = useState(false);
+  // The range the user picked custom over, or entered through the custom input. Custom
+  // stays picked while the stored range is that one, even when it matches a rolling
+  // preset, and lets go once an undo or another user changes it.
+  const [customOver, setCustomOver] = useState<ranger.Ref | null>(null);
+  const customPicked = customOver != null && deep.equal(customOver, range);
   const selected = customPicked ? PlatformRange.CUSTOM_KEY : matched;
   const handleRangeChange = useCallback(
     (itemKey: string) => {
-      setCustomPicked(itemKey === PlatformRange.CUSTOM_KEY);
+      if (itemKey === PlatformRange.CUSTOM_KEY) {
+        setCustomOver(range);
+        return;
+      }
+      setCustomOver(null);
       const entry = entries.find((e) => e.key === itemKey);
       if (entry != null) dispatch(log.setRange({ range: PlatformRange.toRef(entry) }));
     },
-    [dispatch, entries],
+    [dispatch, entries, range],
   );
   const handleWindowChange = useCallback(
-    (window: telem.Window) =>
-      dispatch(log.setRange({ range: { variant: "window", window } })),
+    (window: telem.Window) => {
+      const next: ranger.Ref = { variant: "window", window };
+      setCustomOver(next);
+      dispatch(log.setRange({ range: next }));
+    },
     [dispatch],
   );
   return (

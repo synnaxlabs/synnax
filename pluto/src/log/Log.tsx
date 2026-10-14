@@ -13,7 +13,7 @@ import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { primitive } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
-import { type ResolvedRange } from "@/lineplot/LinePlot";
+import { type LinePlot } from "@/lineplot";
 import { noopLogSourceSpec } from "@/log/aether/telem/noop";
 import { multiChannelLog } from "@/log/aether/telem/sources";
 import { Base, type BaseProps } from "@/log/Base";
@@ -42,7 +42,7 @@ export interface LogProps extends Omit<
   | "timestampPrecision"
 > {
   /** The window the log's range key resolves to. The log stays empty while unset. */
-  resolvedRange?: ResolvedRange;
+  resolvedRange?: LinePlot.ResolvedRange;
 }
 
 // Log is the connected log visualization. It reads the full log document from the

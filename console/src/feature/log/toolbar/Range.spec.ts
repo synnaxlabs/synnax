@@ -7,16 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
-import { RoleClients } from "@synnaxlabs/client/testutil";
+import { log, type ranger } from "@synnaxlabs/client";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { TimeSpan } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Range } from "@/feature/log/toolbar/Range";
 import { client, renderLog } from "@/feature/log/toolbar/testutil";
+import { createTestRange } from "@/platform/range/testutil";
 
 const roles = new RoleClients(client);
+const other = createTestClient();
 
 const rolling = (span: TimeSpan): ranger.Ref => ({
   variant: "window",
@@ -102,6 +104,27 @@ describe("log/toolbar/Range", () => {
       ),
     );
     expect((await trigger()).textContent).toContain("Custom");
+  });
+
+  it("should show a saved range the session does not hold", async () => {
+    const range = await createTestRange(client);
+    await renderLog(Range, { log: { range: { variant: "key", key: range.key } } });
+    expect(
+      await screen.findByRole("button", { name: new RegExp(range.name) }),
+    ).toBeDefined();
+  });
+
+  it("should let go of custom when another user changes the range", async () => {
+    const { key } = await renderLog(Range);
+    const button = await trigger();
+    await waitFor(() => expect(button.getAttribute("aria-disabled")).not.toBe("true"));
+    fireEvent.click(button);
+    fireEvent.click(await screen.findByRole("option", { name: /Custom/ }));
+    await screen.findByPlaceholderText("1h 30m");
+    await other.logs.dispatch(key, log.setRange({ range: rolling(TimeSpan.hours(1)) }));
+    await waitFor(async () =>
+      expect((await trigger()).textContent).toContain("Rolling 1h"),
+    );
   });
 
   it("should freeze the select for a viewer", async () => {

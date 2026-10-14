@@ -20,7 +20,7 @@ import { Tag } from "@synnaxlabs/lyra/tag";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Ranger, TimeSpan } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/platform/css";
 import {
@@ -84,7 +84,9 @@ export const CUSTOM_KEY = "custom";
 const customItem = <Select.Item itemKey={CUSTOM_KEY}>Custom</Select.Item>;
 
 const listItem = Component.renderProp((props: List.ItemProps<string>) => {
-  const range = useResolve(props.itemKey);
+  const inSession = useResolve(props.itemKey);
+  const listed = List.useItem<string, Resolved>(props.itemKey);
+  const range = inSession ?? listed;
   if (range == null) return null;
   if (range.variant === "dynamic") return <DynamicListItem {...props} range={range} />;
   return <StaticListItem {...props} range={range} />;
@@ -161,8 +163,27 @@ export const SelectSingleInputItem = ({
   ...rest
 }: SelectSingleInputItemProps): ReactElement => {
   const entries = useResolveMultiple();
+  // A saved range the session lacks, such as one from a shared visualization, still
+  // needs an entry to show its name.
+  const outside = value !== CUSTOM_KEY && !entries.some(({ key }) => key === value);
+  const { data: range } = Ranger.useResult(outside ? { key: value } : null);
+  const listed = useMemo(
+    () =>
+      !outside || range == null
+        ? entries
+        : [
+            ...entries,
+            {
+              variant: "persisted" as const,
+              key: range.key,
+              name: range.name,
+              timeRange: range.timeRange.numeric,
+            },
+          ],
+    [entries, outside, range],
+  );
   const { data, getItem, retrieve } = List.useStaticData<string, Resolved>({
-    data: entries,
+    data: listed,
   });
   const { fetchMore, search } = List.usePager({ retrieve });
   return (
