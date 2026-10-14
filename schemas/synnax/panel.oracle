@@ -37,18 +37,11 @@ View struct {
             select a renderer.
         """
     }
-    args record = {} {
-        @doc value        """
-            is an opaque, Console-owned configuration payload for the view. Core never
-            interprets it; it round-trips as-is.
-        """
-        @ts preserve_case
-    }
 
     @doc value  """
-        is an inline, self-describing view: a Console-owned type plus an opaque
-        configuration payload, with no backing core document. Used for app-views and
-        tools (docs, explorers, task forms, and the selector pickers).
+        is an inline, self-describing view: a Console-owned type with no backing core
+        document. Used for app-views and tools (docs, explorers, task forms, and the
+        selector pickers).
     """
     @go marshal
 }
@@ -67,8 +60,8 @@ Tab union on variant extends TabBase {
     view View {
         @doc value """
             is a tab displaying an inline, self-describing view. Unlike a resource, a
-            view has no backing core document: it carries its own type and opaque args.
-            Used for app-views and tools (docs, explorers, task forms, and the selector
+            view has no backing core document: its type alone selects the renderer. Used
+            for app-views and tools (docs, explorers, task forms, and the selector
             pickers).
         """
     }

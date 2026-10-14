@@ -19,9 +19,9 @@ type TabKey = versions.TabKey
 // TabBase carries the identity shared by every tab variant.
 type TabBase = versions.TabBase
 
-// View is an inline, self-describing view: a Console-owned type plus an opaque
-// configuration payload, with no backing core document. Used for app-views and tools
-// (docs, explorers, task forms, and the selector pickers).
+// View is an inline, self-describing view: a Console-owned type with no backing core
+// document. Used for app-views and tools (docs, explorers, task forms, and the selector
+// pickers).
 type View = versions.View
 
 // Tab is a single tab in a leaf. Tab content is a discriminated union: a resource (a
@@ -38,9 +38,9 @@ const (
 	// ResourceTabType is a tab displaying a backing core document.
 	ResourceTabType TabType = versions.ResourceTabType
 	// ViewTabType is a tab displaying an inline, self-describing view. Unlike a
-	// resource, a view has no backing core document: it carries its own type and opaque
-	// args. Used for app-views and tools (docs, explorers, task forms, and the selector
-	// pickers).
+	// resource, a view has no backing core document: its type alone selects the
+	// renderer. Used for app-views and tools (docs, explorers, task forms, and the
+	// selector pickers).
 	ViewTabType TabType = versions.ViewTabType
 )
 
@@ -48,7 +48,7 @@ const (
 type ResourceTab = versions.ResourceTab
 
 // ViewTab is a tab displaying an inline, self-describing view. Unlike a resource, a
-// view has no backing core document: it carries its own type and opaque args. Used for
+// view has no backing core document: its type alone selects the renderer. Used for
 // app-views and tools (docs, explorers, task forms, and the selector pickers).
 type ViewTab = versions.ViewTab
 

@@ -18,7 +18,7 @@ import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { type record, TimeSpan, uuid } from "@synnaxlabs/x";
+import { TimeSpan, uuid } from "@synnaxlabs/x";
 import {
   act,
   fireEvent,
@@ -58,14 +58,12 @@ const viewTab = (): panel.Tab => ({
   variant: "view",
   key: uuid.create(),
   type: "docs",
-  args: {},
 });
 
 const selectorTab = (): panel.Tab => ({
   variant: "view",
   key: uuid.create(),
   type: "selector",
-  args: {},
 });
 
 const createPanel = async (...tabs: panel.Tab[]): Promise<panel.Panel> => {
@@ -94,7 +92,6 @@ const contentText = (tab: panel.Tab): string => {
 interface Recorded {
   type: string;
   resource: ontology.ID | null;
-  args: record.Unknown | null;
 }
 
 // records captures what each tab's content probe resolved from the tab scope, so specs
@@ -107,24 +104,23 @@ const ResourceContentProbe = (): ReactElement => {
   const tabKey = Panel.useTabKey();
   const type = Panel.useTabType({});
   const resource = Panel.useTabResource({});
-  records.set(tabKey, { type, resource, args: null });
+  records.set(tabKey, { type, resource });
   return <div>{`${resource.type}:${resource.key}`}</div>;
 };
 
-// ViewContentProbe reads a view tab's args from the surrounding tab scope, records
-// them, and renders the visible content text.
+// ViewContentProbe reads a view tab's type from the surrounding tab scope, records it,
+// and renders the visible content text.
 const ViewContentProbe = (): ReactElement => {
   const tabKey = Panel.useTabKey();
   const type = Panel.useTabType({});
-  const args = Panel.useTabArgs({});
-  records.set(tabKey, { type, resource: null, args });
+  records.set(tabKey, { type, resource: null });
   const text = type === "selector" ? `empty:${tabKey}` : `${type}:${tabKey}`;
   return <div>{text}</div>;
 };
 
 // TabContentProbe dispatches on the tab's variant before touching variant-specific
 // selectors, mirroring how production renderers consume the tab scope: only a
-// resource renderer reads the resource, only a view renderer reads the args.
+// resource renderer reads the resource.
 const TabContentProbe = (): ReactElement => {
   const variant = Panel.useTabVariant({});
   if (variant === "resource") return <ResourceContentProbe />;
@@ -223,7 +219,6 @@ describe("Panel.Mosaic", () => {
       await waitFor(() => expect(utils.getByText(contentText(resource))).toBeTruthy());
 
       expect(records.get(resource.key)?.type).toEqual("lineplot");
-      expect(records.get(resource.key)?.args).toBeNull();
       expect(records.get(view.key)?.type).toEqual("docs");
       expect(records.get(view.key)?.resource).toBeNull();
       expect(records.get(selector.key)?.type).toEqual("selector");
@@ -639,7 +634,6 @@ describe("Panel.Mosaic", () => {
       const onCreateTab = (): panel.NewTab => ({
         variant: "view",
         type: "selector",
-        args: {},
       });
       const utils = await renderMosaic({ panelKey: p.key, onSelect, onCreateTab });
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
