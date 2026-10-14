@@ -565,7 +565,12 @@ describe("line", () => {
       exposure: 0,
     };
 
-    const mount = (x: Series[], y: Series[], downsample = 1) => {
+    const mount = (
+      x: Series[],
+      y: Series[],
+      downsample = 1,
+      downsampleMode: telem.DownsampleMode = "decimate",
+    ) => {
       const { gl, calls } = canvasTest.createGL();
       const recorder = canvasTest.record();
       (recorder as { gl: unknown }).gl = gl;
@@ -582,6 +587,7 @@ describe("line", () => {
               y: sourceSpec(y),
               color: color.construct("#ff0000"),
               downsample,
+              downsampleMode,
             },
           },
         },
@@ -719,6 +725,15 @@ describe("line", () => {
         const m = mount([X], [Y], 4);
         expect(m.line.findByXValue(PROPS, 3).value).toEqual({ x: 4, y: 40 });
         expect(m.line.findByXValue(PROPS, 29).value).toEqual({ x: 24, y: 240 });
+      });
+
+      it("should pair x and y by alignment when averaging", () => {
+        const x = series([0, 1, 2, 3, 4, 5, 6, 7], 0n, { start: 0, end: 100 });
+        const y1 = series([0, 10, 20, 30], 0n, { start: 0, end: 100 });
+        const y2 = series([40, 50, 60, 70], 4n, { start: 0, end: 100 });
+        const m = mount([x], [y1, y2], 2, "average");
+        m.line.render(PROPS);
+        expect(m.line.findByXValue(PROPS, 6.5).value).toEqual({ x: 6.5, y: 65 });
       });
     });
   });

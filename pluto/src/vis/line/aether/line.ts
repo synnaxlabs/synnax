@@ -365,8 +365,9 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const xSeries = xData.series[series];
     let [, yData] = yTelem.value();
     yData = this.internal.yDownsampler.transform(yData);
+    const xAlignment = xSeries.alignment + BigInt(index) * xSeries.alignmentMultiple;
     const ySeries = yData.series.find((ys) =>
-      bounds.contains(ys.alignmentBounds, xSeries.alignment + BigInt(index)),
+      bounds.contains(ys.alignmentBounds, xAlignment),
     );
     if (ySeries == null) return result;
     result.value.x = safelyGetDataValue(series, index, xData);
@@ -384,8 +385,8 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       result.value.x = safelyGetDataValue(series, index, xData);
     }
 
-    const alignmentDiff = Number(ySeries.alignment - xSeries.alignment);
-    result.value.y = Number(ySeries.at(index - alignmentDiff));
+    const offset = (ySeries.alignment - xSeries.alignment) / ySeries.alignmentMultiple;
+    result.value.y = Number(ySeries.at(index - Number(offset)));
 
     result.bounds = { ...ySeries.bounds };
 
