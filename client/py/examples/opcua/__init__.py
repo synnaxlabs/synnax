@@ -13,10 +13,15 @@ Lazy imports avoid the RuntimeWarning when running
 ``python -m examples.opcua.server``.
 """
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .server import OPCUASim, OPCUATLSAuthSim, OPCUATLSSim, run_server
+
 __all__ = ["run_server", "OPCUASim", "OPCUATLSSim", "OPCUATLSAuthSim"]
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> object:
     if name in __all__:
         from . import server
 

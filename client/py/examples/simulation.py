@@ -18,6 +18,7 @@ sensors.
 import numpy as np
 
 import synnax as sy
+from x.telem import CrudeSeries
 
 # We've logged in via the command-line interface, so there's no need to provide
 # credentials here. See https://docs.synnaxlabs.com/reference/client/quick-start.
@@ -31,7 +32,7 @@ valve_commands = list()
 valve_responses = list()
 
 # Maps the keys of valve command channels to response channels.
-command_to_response = {}
+command_to_response: dict[int, sy.Channel] = {}
 
 # Stores the timestamps for both the sensors and the valve responses.
 sensor_time_channel = client.channels.create(
@@ -104,7 +105,9 @@ read_from = [v.key for v in valve_commands]
 loop = sy.Loop(sy.Rate.HZ * 100)
 
 # Set up the initial state of the valves to 0 (closed).
-sensor_states = {v.key: np.uint8(False) for v in valve_responses}
+sensor_states: dict[int | str, CrudeSeries] = {
+    v.key: np.uint8(False) for v in valve_responses
+}
 
 # Open a streamer to listen for incoming valve commands.
 with client.open_streamer([channel.key for channel in valve_commands]) as streamer:
@@ -116,10 +119,13 @@ with client.open_streamer([channel.key for channel in valve_commands]) as stream
             # If we've received a command, update the state of the corresponding valve.
             frame = streamer.read(timeout=0)
             if frame is not None:
-                for channel in frame.channels:
+                for cmd in valve_commands:
+                    data = frame[cmd.key]
+                    if len(data) == 0:
+                        continue
                     # 1 is open, 0 is closed
-                    sensor_states[command_to_response[channel].key] = np.uint8(
-                        frame[channel][-1] > 0.9
+                    sensor_states[command_to_response[cmd.key].key] = np.uint8(
+                        data.to_numpy()[-1] > 0.9
                     )
             for j, channel in enumerate(sensors):
                 sensor_states[channel.key] = np.float32(np.sin(i / 1000) + j / 100)

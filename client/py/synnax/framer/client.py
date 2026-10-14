@@ -198,7 +198,7 @@ class Client:
         if isinstance(channels, (list, channel.Key, channel.Payload, str)):
             parsed_channels = channels
         elif isinstance(channels, dict):
-            parsed_channels = list(channels.keys())
+            parsed_channels = cast(channel.Params, list(channels.keys()))
         elif isinstance(channels, Frame):
             # Frame channels are homogeneous (all Key or all str) at runtime
             parsed_channels = cast(channel.Params, channels.channels)

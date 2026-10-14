@@ -15,10 +15,16 @@ import random
 import socket
 from pathlib import Path
 
-from asyncua import Client, Server, ua
+from asyncua import ua
+from asyncua.client.client import Client
+from asyncua.common.node import Node
 from asyncua.crypto.cert_gen import setup_self_signed_certificate
+from asyncua.crypto.permission_rules import User, UserRole
 from asyncua.crypto.validator import CertificateValidator, CertificateValidatorOptions
-from asyncua.server.user_managers import User, UserRole
+from asyncua.server.internal_server import InternalServer
+from asyncua.server.server import Server
+from asyncua.server.user_managers import UserManager
+from asyncua.ua.attribute_ids import AttributeIds
 from cryptography.x509.oid import ExtendedKeyUsageOID
 
 import synnax as sy
@@ -43,8 +49,17 @@ ERROR_FLOAT_INDEX = 2  # Which float index to inject errors into
 CERT_DIR = Path(__file__).parent / "certificates"
 
 
+async def write_array_dimensions(node: Node, size: int) -> None:
+    """Write a one-dimensional ArrayDimensions attribute. asyncua annotates
+    Node.write_array_dimensions as int, but the attribute is an array."""
+    dims = ua.Variant([size], ua.VariantType.UInt32)
+    await node.write_attribute(AttributeIds.ArrayDimensions, ua.DataValue(dims))
+
+
 # Initialization Functions
-async def create_array_variables(myobj, idx, array_size: int = DEFAULT_ARRAY_SIZE):
+async def create_array_variables(
+    myobj: Node, idx: int, array_size: int = DEFAULT_ARRAY_SIZE
+) -> list[Node]:
     """Create array variables with initial values."""
     arrays = []
     for i in range(ARRAY_COUNT):
@@ -52,12 +67,14 @@ async def create_array_variables(myobj, idx, array_size: int = DEFAULT_ARRAY_SIZ
         arr = await myobj.add_variable(
             idx, f"my_array_{i}", initial_values, ua.VariantType.Float
         )
-        await arr.write_array_dimensions([array_size])
+        await write_array_dimensions(arr, array_size)
         arrays.append(arr)
     return arrays
 
 
-async def create_time_array(myobj, idx, array_size: int = DEFAULT_ARRAY_SIZE):
+async def create_time_array(
+    myobj: Node, idx: int, array_size: int = DEFAULT_ARRAY_SIZE
+) -> Node:
     """Create timestamp array variable."""
     now = datetime.datetime.now(datetime.timezone.utc)
     initial_times = [
@@ -67,11 +84,11 @@ async def create_time_array(myobj, idx, array_size: int = DEFAULT_ARRAY_SIZE):
         idx, "my_time_array", initial_times, ua.VariantType.DateTime
     )
     await mytimearray.set_writable()
-    await mytimearray.write_array_dimensions([array_size])
+    await write_array_dimensions(mytimearray, array_size)
     return mytimearray
 
 
-async def create_float_variables(myobj, idx):
+async def create_float_variables(myobj: Node, idx: int) -> list[Node]:
     """Create scalar float variables."""
     floats = []
     for i in range(FLOAT_COUNT):
@@ -83,7 +100,7 @@ async def create_float_variables(myobj, idx):
     return floats
 
 
-async def create_bool_variables(myobj, idx):
+async def create_bool_variables(myobj: Node, idx: int) -> list[Node]:
     """Create scalar boolean variables."""
     bools = []
     for i in range(BOOL_COUNT):
@@ -95,7 +112,7 @@ async def create_bool_variables(myobj, idx):
     return bools
 
 
-async def create_command_variables(myobj, idx):
+async def create_command_variables(myobj: Node, idx: int) -> list[Node]:
     """Create writable command variables for testing write operations."""
     commands = []
     for i in range(COMMAND_COUNT):
@@ -105,7 +122,9 @@ async def create_command_variables(myobj, idx):
     return commands
 
 
-async def monitor_command_changes(commands, command_values):
+async def monitor_command_changes(
+    commands: list[Node], command_values: list[object]
+) -> None:
     """Periodically check command variables for changes and print them."""
     while True:
         for i, cmd in enumerate(commands):
@@ -118,12 +137,16 @@ async def monitor_command_changes(commands, command_values):
 
 
 # Data Generation Functions
-def generate_timestamps(start, rate, size):
+def generate_timestamps(
+    start: datetime.datetime, rate: float, size: int
+) -> list[datetime.datetime]:
     """Generate array of timestamps."""
     return [start + datetime.timedelta(seconds=j * (1 / rate)) for j in range(size)]
 
 
-def generate_sinewave_values(timestamps, start_ref):
+def generate_sinewave_values(
+    timestamps: list[datetime.datetime], start_ref: datetime.datetime
+) -> list[float]:
     """Generate sinewave values based on timestamps."""
     return [
         math.sin((timestamp - start_ref).total_seconds()) for timestamp in timestamps
@@ -131,7 +154,7 @@ def generate_sinewave_values(timestamps, start_ref):
 
 
 # Update Functions
-def inject_error(values, array_size: int = DEFAULT_ARRAY_SIZE):
+def inject_error[T](values: list[T], array_size: int = DEFAULT_ARRAY_SIZE) -> list[T]:
     """
     Generate corrupted array data for error injection.
     """
@@ -153,7 +176,7 @@ def inject_error(values, array_size: int = DEFAULT_ARRAY_SIZE):
         return values + [values[-1] for _ in range(extra)]
 
 
-async def update_arrays(arrays, values):
+async def update_arrays(arrays: list[Node], values: list[float]) -> None:
     """Update array variables with generated values.
 
     Injects random errors into ERROR_ARRAY_INDEX at ERROR_INJECTION_RATE.
@@ -167,7 +190,7 @@ async def update_arrays(arrays, values):
         await arr.set_value(offset_values, varianttype=ua.VariantType.Float)
 
 
-async def update_floats(floats, elapsed):
+async def update_floats(floats: list[Node], elapsed: float) -> None:
     """Update scalar float variables with sinewave values.
 
     Injects random errors into ERROR_FLOAT_INDEX at ERROR_INJECTION_RATE
@@ -175,30 +198,38 @@ async def update_floats(floats, elapsed):
     """
     for idx, float_var in enumerate(floats):
         value = math.sin(elapsed) + idx
+        written: float | list[float] = value
         if idx == ERROR_FLOAT_INDEX and random.random() < ERROR_INJECTION_RATE:
-            value = inject_error([value])
+            written = inject_error([value])
 
-        await float_var.set_value(value, varianttype=ua.VariantType.Float)
+        await float_var.set_value(written, varianttype=ua.VariantType.Float)
 
 
-async def update_bools(bools, elapsed):
+async def update_bools(bools: list[Node], elapsed: float) -> None:
     """Update scalar boolean variables with sequential square waves."""
     for idx, bool_var in enumerate(bools):
         offset_elapsed = elapsed + (idx * BOOL_OFFSET)
         square_wave = int(offset_elapsed) % 2 == 0
+        written: bool | list[bool] = square_wave
         if idx == ERROR_FLOAT_INDEX and random.random() < ERROR_INJECTION_RATE:
-            square_wave = inject_error([square_wave])
+            written = inject_error([square_wave])
 
-        await bool_var.set_value(square_wave, varianttype=ua.VariantType.Boolean)
+        await bool_var.set_value(written, varianttype=ua.VariantType.Boolean)
 
 
-class SimpleUserManager:
+class SimpleUserManager(UserManager):
     """A user manager that validates credentials against a static user dict."""
 
     def __init__(self, users: dict[str, str]):
         self.users = users
 
-    def get_user(self, iserver, username=None, password=None, certificate=None):
+    def get_user(
+        self,
+        iserver: InternalServer,
+        username: str | None = None,
+        password: str | None = None,
+        certificate: object = None,
+    ) -> User | None:
         if username in self.users and self.users[username] == password:
             return User(role=UserRole.User)
         return None
@@ -258,7 +289,7 @@ async def run_server(
     rate: sy.Rate = DEFAULT_RATE * sy.Rate.HZ,
     array_size: int = DEFAULT_ARRAY_SIZE,
     encrypted: bool = False,
-    user_manager=None,
+    user_manager: UserManager | None = None,
     max_sessions: int | None = None,
 ) -> None:
     # Initialize server
@@ -292,7 +323,7 @@ async def run_server(
     print("OPC UA Server Started - Monitoring Command Variables")
     print("=" * 60)
     print("\nCommand variables (writable, monitored for external writes):")
-    command_values = []
+    command_values: list[object] = []
     for i, cmd in enumerate(commands):
         node_id = cmd.nodeid.to_string()
         print(f"  command_{i}: {node_id}")
@@ -355,7 +386,7 @@ class OPCUASim(DeviceSim):
         rate: sy.Rate = 50 * sy.Rate.HZ,
         verbose: bool = False,
         encrypted: bool = False,
-        user_manager=None,
+        user_manager: UserManager | None = None,
         max_sessions: int | None = None,
     ):
         super().__init__(rate=rate, verbose=verbose)
@@ -411,8 +442,20 @@ class OPCUATLSSim(OPCUASim):
     device_name = "OPC UA TLS Server"
     endpoint = f"opc.tcp://{host}:{port}/freeopcua/server/"
 
-    def __init__(self, **kwargs):
-        super().__init__(encrypted=True, **kwargs)
+    def __init__(
+        self,
+        array_size: int = DEFAULT_ARRAY_SIZE,
+        rate: sy.Rate = 50 * sy.Rate.HZ,
+        verbose: bool = False,
+        max_sessions: int | None = None,
+    ):
+        super().__init__(
+            array_size=array_size,
+            rate=rate,
+            verbose=verbose,
+            encrypted=True,
+            max_sessions=max_sessions,
+        )
 
     @staticmethod
     def create_device(rack_key: int) -> opcua.Device:
@@ -442,11 +485,20 @@ class OPCUATLSAuthSim(OPCUASim):
     device_name = "OPC UA TLS Auth Server"
     endpoint = f"opc.tcp://{host}:{port}/freeopcua/server/"
 
-    def __init__(self, **kwargs):
+    def __init__(
+        self,
+        array_size: int = DEFAULT_ARRAY_SIZE,
+        rate: sy.Rate = 50 * sy.Rate.HZ,
+        verbose: bool = False,
+        max_sessions: int | None = None,
+    ):
         super().__init__(
+            array_size=array_size,
+            rate=rate,
+            verbose=verbose,
             encrypted=True,
             user_manager=SimpleUserManager({TLS_AUTH_USERNAME: TLS_AUTH_PASSWORD}),
-            **kwargs,
+            max_sessions=max_sessions,
         )
 
     @staticmethod
