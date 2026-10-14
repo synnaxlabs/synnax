@@ -103,7 +103,7 @@ describe("telem.Provider", () => {
     });
   });
 
-  it("tells time on the Core's clock", () => {
+  it("should tell time on the Core's clock", () => {
     const core = stubCore(TimeSpan.seconds(10));
     mockUse.mockReturnValue(core);
     const spy = vi.fn((client: telem.Client | null) => telem.createFactory(client));

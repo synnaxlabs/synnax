@@ -577,8 +577,11 @@ export class StreamChannelData
     const { key } = this.channel;
     // Samples written just before the stream opened may still be committing.
     const settled = liveStart.add(SEAM_SETTLE);
-    const now = this.now();
-    if (now.before(settled)) await this.retryNotifier.wait(settled.span(now));
+    // A wake saved by an earlier cleanup ends a wait early, so recheck the clock.
+    for (let now = this.now(); now.before(settled); now = this.now()) {
+      await this.retryNotifier.wait(settled.span(now));
+      if (generation !== this.generation) return;
+    }
     const brk = newRetryBreaker(this.retryNotifier, this.breakerConfig);
     while (generation === this.generation)
       try {

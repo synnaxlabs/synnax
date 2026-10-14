@@ -1756,6 +1756,44 @@ describe("remote", () => {
       });
     });
 
+    it("should hold the seam read after a restart until its samples settle", async () => {
+      const ranges: TimeRange[] = [];
+      c.feed.read = async (tr: TimeRange): Promise<MultiSeries> => {
+        ranges.push(tr);
+        return new MultiSeries([]);
+      };
+      const cd = new StreamChannelData(c, {
+        timeSpan: TimeSpan.seconds(10),
+        channel: c.channel.key,
+      });
+      await waitForStream(cd, c);
+      const now = TimeStamp.now();
+      const float = new Series({
+        data: new Float32Array([1, 2]),
+        timeRange: new TimeRange(now.sub(TimeSpan.seconds(1)), now),
+      });
+      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([float])]]));
+      const bytes = new Series({
+        data: new Uint8Array([3, 4]),
+        timeRange: new TimeRange(now, TimeStamp.MAX),
+      });
+      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([bytes])]]));
+      await waitForStream(cd, c);
+      const backfills = ranges.length;
+      const live = new Series({
+        data: new Uint8Array([5, 6]),
+        timeRange: new TimeRange(
+          TimeStamp.now().add(TimeSpan.milliseconds(200)),
+          TimeStamp.MAX,
+        ),
+      });
+      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
+      await new Promise((r) => setTimeout(r, 300));
+      expect(ranges).toHaveLength(backfills);
+      await expect.poll(() => ranges.length, { timeout: 3000 }).toBe(backfills + 1);
+      cd.cleanup();
+    });
+
     it("should read the channel again when its data type changes", async () => {
       c.feed.read = async (): Promise<MultiSeries> => new MultiSeries([]);
       const cd = new StreamChannelData(c, {
