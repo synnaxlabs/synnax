@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/x/versions/telem/v0"
+import "schemas/synnax/versions/ranger/v1"
 
 Key = v0.Key
 
@@ -35,14 +35,13 @@ Log struct {
     receipt_timestamp_hidden bool = false {
         @doc value "is true when the receipt timestamp column is hidden."
     }
-    range                    string = "rolling7d" {
+    range                    ranger.Ref = {
+        variant = "window",
+        window = { variant = "dynamic", time_span = 604800000000000 }
+    } {
         @doc value """
-            is the key of the range the log displays: a rolling window, a persisted
-            range, or "custom".
+            is the range the log displays. It defaults to a rolling 7-day window.
         """
-    }
-    custom                   telem.Window?  {
-        @doc value "is the window the \"custom\" range key resolves to."
     }
 
     @go imex

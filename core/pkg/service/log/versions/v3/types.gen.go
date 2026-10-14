@@ -15,6 +15,7 @@ import (
 	"strconv"
 
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -44,17 +45,18 @@ type Log struct {
 	ChannelNamesHidden bool `json:"channel_names_hidden" msgpack:"channel_names_hidden"`
 	// ReceiptTimestampHidden is true when the receipt timestamp column is hidden.
 	ReceiptTimestampHidden bool `json:"receipt_timestamp_hidden" msgpack:"receipt_timestamp_hidden"`
-	// Range is the key of the range the log displays: a rolling window, a persisted
-	// range, or "custom".
-	Range string `json:"range" msgpack:"range"`
-	// Custom is the window the "custom" range key resolves to.
-	Custom *telem.Window `json:"custom,omitzero" msgpack:"custom,omitempty"`
+	// Range is the range the log displays. It defaults to a rolling 7-day window.
+	Range ranger.Ref `json:"range" msgpack:"range"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (l *Log) ApplyDefaults() {
-	if l.Range == "" {
-		l.Range = "rolling7d"
+	if l.Range.Variant == nil {
+		v0 := ranger.WindowRef{}
+		v1 := telem.DynamicWindow{}
+		v1.TimeSpan = 604800000000000
+		v0.Window.Variant = v1
+		l.Range.Variant = v0
 	}
 	for i := range l.Channels {
 		l.Channels[i].ApplyDefaults()

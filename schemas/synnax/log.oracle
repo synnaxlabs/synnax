@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/channel"
+import "schemas/synnax/ranger"
 import "schemas/x/color"
 import "schemas/x/notation"
 import "schemas/x/telem"
@@ -83,14 +84,13 @@ Log struct {
     receipt_timestamp_hidden bool = false {
         @doc value "is true when the receipt timestamp column is hidden."
     }
-    range                    string = "rolling7d" {
+    range                    ranger.Ref = {
+        variant = "window",
+        window = { variant = "dynamic", time_span = 604800000000000 }
+    } {
         @doc value """
-            is the key of the range the log displays: a rolling window, a persisted
-            range, or "custom".
+            is the range the log displays. It defaults to a rolling 7-day window.
         """
-    }
-    custom                   telem.Window?  {
-        @doc value "is the window the \"custom\" range key resolves to."
     }
 
     action Create {
@@ -239,18 +239,9 @@ Log struct {
     }
 
     action SetRange {
-        range string
+        range ranger.Ref
 
-        @doc value "sets the key of the range the log displays."
-    }
-
-    action SetCustomRange {
-        custom telem.Window?
-
-        @doc value """
-            sets the window the "custom" range key resolves to. A null custom clears the
-            window.
-        """
+        @doc value "sets the range the log displays."
     }
 
     @create

@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/query"
@@ -450,51 +451,40 @@ var _ = Describe("Writer", func() {
 				func(ctx SpecContext) {
 					l := log.Log{Name: "test"}
 					Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
-					res := retrieve(ctx, l.Key)
-					Expect(res.Range).To(Equal("rolling7d"))
-					Expect(res.Custom).To(BeNil())
+					Expect(retrieve(ctx, l.Key).Range).To(Equal(ranger.Ref{
+						Variant: ranger.WindowRef{Window: telem.Window{
+							Variant: telem.DynamicWindow{TimeSpan: 7 * telem.Day},
+						}},
+					}))
 				},
 			)
 
-			It("Should set the range via SetRange", func(ctx SpecContext) {
-				l := log.Log{Name: "test"}
-				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
-				Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
-					log.NewSetRangeAction(log.SetRangePayload{Range: "rolling1h"}),
-				})).To(Succeed())
-				Expect(retrieve(ctx, l.Key).Range).To(Equal("rolling1h"))
-			})
-
-			It(
-				"Should set, replace, and clear the custom range via SetCustomRange",
-				func(ctx SpecContext) {
+			DescribeTable("Should set the range via SetRange",
+				func(ctx SpecContext, ref ranger.Ref) {
 					l := log.Log{Name: "test"}
 					Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
-					dynamic := telem.Window{
-						Variant: telem.DynamicWindow{TimeSpan: telem.Minute},
-					}
 					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
-						log.NewSetCustomRangeAction(
-							log.SetCustomRangePayload{Custom: &dynamic},
-						),
+						log.NewSetRangeAction(log.SetRangePayload{Range: ref}),
 					})).To(Succeed())
-					Expect(retrieve(ctx, l.Key).Custom).To(Equal(&dynamic))
-					static := telem.Window{
+					Expect(retrieve(ctx, l.Key).Range).To(Equal(ref))
+				},
+				Entry("a saved range", ranger.Ref{
+					Variant: ranger.KeyRef{Key: uuid.MustParse(
+						"11111111-2222-3333-4444-555555555555",
+					)},
+				}),
+				Entry("a rolling window", ranger.Ref{
+					Variant: ranger.WindowRef{Window: telem.Window{
+						Variant: telem.DynamicWindow{TimeSpan: telem.Minute},
+					}},
+				}),
+				Entry("a fixed window", ranger.Ref{
+					Variant: ranger.WindowRef{Window: telem.Window{
 						Variant: telem.StaticWindow{
 							TimeRange: telem.TimeRange{Start: 0, End: 1000},
 						},
-					}
-					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
-						log.NewSetCustomRangeAction(
-							log.SetCustomRangePayload{Custom: &static},
-						),
-					})).To(Succeed())
-					Expect(retrieve(ctx, l.Key).Custom).To(Equal(&static))
-					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
-						log.NewSetCustomRangeAction(log.SetCustomRangePayload{}),
-					})).To(Succeed())
-					Expect(retrieve(ctx, l.Key).Custom).To(BeNil())
-				},
+					}},
+				}),
 			)
 		})
 

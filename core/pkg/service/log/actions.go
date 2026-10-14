@@ -197,16 +197,9 @@ func (p SetReceiptTimestampHiddenPayload) Handle(state Log) (Log, error) {
 	return state, nil
 }
 
-// Handle sets the key of the range the log displays.
+// Handle sets the range the log displays.
 func (p SetRangePayload) Handle(state Log) (Log, error) {
 	state.Range = p.Range
-	return state, nil
-}
-
-// Handle sets the window the "custom" range key resolves to. A nil Custom clears the
-// window.
-func (p SetCustomRangePayload) Handle(state Log) (Log, error) {
-	state.Custom = p.Custom
 	return state, nil
 }
 

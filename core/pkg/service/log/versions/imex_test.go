@@ -17,11 +17,18 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/notation"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+var rolling7d = ranger.Ref{
+	Variant: ranger.WindowRef{Window: telem.Window{
+		Variant: telem.DynamicWindow{TimeSpan: 7 * telem.Day},
+	}},
+}
 
 var _ = Describe("DecodeImExEnvelope", func() {
 	decode := func(ctx SpecContext, path string) versions.Log {
@@ -38,16 +45,16 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(l.Channels[0].Color).To(Equal(color.Color{R: 127, G: 29, B: 29, A: 1}))
 		Expect(l.TimestampPrecision).To(Equal(int32(1)))
 		Expect(l.ReceiptTimestampHidden).To(BeTrue())
-		Expect(l.Range).To(Equal("rolling7d"))
-		Expect(l.Custom).To(BeNil())
+		Expect(l.Range).To(Equal(rolling7d))
 	})
 
-	It("Should decode a v3 envelope with a custom range", func(ctx SpecContext) {
+	It("Should decode a v3 envelope with a rolling window", func(ctx SpecContext) {
 		l := decode(ctx, "testdata/import_v3.json")
 		Expect(l.Channels).To(HaveLen(1))
-		Expect(l.Range).To(Equal("custom"))
-		Expect(l.Custom).To(Equal(&telem.Window{
-			Variant: telem.DynamicWindow{TimeSpan: telem.Minute},
+		Expect(l.Range).To(Equal(ranger.Ref{
+			Variant: ranger.WindowRef{Window: telem.Window{
+				Variant: telem.DynamicWindow{TimeSpan: telem.Minute},
+			}},
 		}))
 	})
 
@@ -62,7 +69,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		// showX on the wire inverts into hideX on the current shape.
 		Expect(l.ChannelNamesHidden).To(BeFalse())
 		Expect(l.ReceiptTimestampHidden).To(BeTrue())
-		Expect(l.Range).To(Equal("rolling7d"))
+		Expect(l.Range).To(Equal(rolling7d))
 	})
 
 	It("Should lift a Console v0 state of bare channel keys", func(ctx SpecContext) {

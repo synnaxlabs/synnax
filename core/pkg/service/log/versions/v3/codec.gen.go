@@ -11,10 +11,7 @@
 
 package v3
 
-import (
-	"github.com/synnaxlabs/x/encoding/orc"
-	telem "github.com/synnaxlabs/x/telem/versions/v0"
-)
+import "github.com/synnaxlabs/x/encoding/orc"
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (lv Log) EncodeOrc(w *orc.Writer) error {
@@ -32,14 +29,8 @@ func (lv Log) EncodeOrc(w *orc.Writer) error {
 	w.Int32(int32(lv.TimestampPrecision))
 	w.Bool(lv.ChannelNamesHidden)
 	w.Bool(lv.ReceiptTimestampHidden)
-	w.String(lv.Range)
-	if lv.Custom != nil {
-		w.Bool(true)
-		if err := lv.Custom.EncodeOrc(w); err != nil {
-			return err
-		}
-	} else {
-		w.Bool(false)
+	if err := lv.Range.EncodeOrc(w); err != nil {
+		return err
 	}
 	return nil
 }
@@ -80,21 +71,8 @@ func (lv *Log) DecodeOrc(r *orc.Reader) error {
 	if lv.ReceiptTimestampHidden, err = r.Bool(); err != nil {
 		return err
 	}
-	if lv.Range, err = r.String(); err != nil {
+	if err = lv.Range.DecodeOrc(r); err != nil {
 		return err
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv telem.Window
-			if err = hv.DecodeOrc(r); err != nil {
-				return err
-			}
-			lv.Custom = &hv
-		}
 	}
 	return nil
 }

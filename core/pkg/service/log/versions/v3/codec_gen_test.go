@@ -19,7 +19,8 @@ import (
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
-	color "github.com/synnaxlabs/x/color/versions/v1"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
+	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -62,8 +63,7 @@ var _ = Describe("Codec", func() {
 				TimestampPrecision:     17,
 				ChannelNamesHidden:     true,
 				ReceiptTimestampHidden: false,
-				Range:                  "test_19",
-				Custom:                 new(telem.Window{Variant: telem.DynamicWindow{TimeSpan: telem.TimeSpan(22)}}),
+				Range:                  ranger.Ref{Variant: ranger.KeyRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814")}},
 			}),
 			Entry("zero values", v3.Log{
 				Key:                    uuid.Nil(),
@@ -72,8 +72,7 @@ var _ = Describe("Codec", func() {
 				TimestampPrecision:     0,
 				ChannelNamesHidden:     false,
 				ReceiptTimestampHidden: false,
-				Range:                  "",
-				Custom:                 nil,
+				Range:                  ranger.Ref{Variant: ranger.KeyRef{Key: uuid.Nil()}},
 			}),
 			Entry("empty collections", v3.Log{
 				Key:                    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -82,8 +81,7 @@ var _ = Describe("Codec", func() {
 				TimestampPrecision:     5,
 				ChannelNamesHidden:     true,
 				ReceiptTimestampHidden: false,
-				Range:                  "test_7",
-				Custom:                 new(telem.Window{Variant: telem.DynamicWindow{TimeSpan: telem.TimeSpan(10)}}),
+				Range:                  ranger.Ref{Variant: ranger.KeyRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808")}},
 			}),
 		)
 	})
@@ -114,8 +112,7 @@ func BenchmarkEncodeDecodeLog(b *testing.B) {
 		TimestampPrecision:     17,
 		ChannelNamesHidden:     true,
 		ReceiptTimestampHidden: false,
-		Range:                  "test_19",
-		Custom:                 new(telem.Window{Variant: telem.DynamicWindow{TimeSpan: telem.TimeSpan(22)}}),
+		Range:                  ranger.Ref{Variant: ranger.KeyRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814")}},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -158,8 +155,7 @@ func FuzzDecodeLog(f *testing.F) {
 			TimestampPrecision:     17,
 			ChannelNamesHidden:     true,
 			ReceiptTimestampHidden: false,
-			Range:                  "test_19",
-			Custom:                 new(telem.Window{Variant: telem.DynamicWindow{TimeSpan: telem.TimeSpan(22)}}),
+			Range:                  ranger.Ref{Variant: ranger.KeyRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814")}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -175,8 +171,7 @@ func FuzzDecodeLog(f *testing.F) {
 			TimestampPrecision:     0,
 			ChannelNamesHidden:     false,
 			ReceiptTimestampHidden: false,
-			Range:                  "",
-			Custom:                 nil,
+			Range:                  ranger.Ref{Variant: ranger.KeyRef{Key: uuid.Nil()}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -192,8 +187,7 @@ func FuzzDecodeLog(f *testing.F) {
 			TimestampPrecision:     5,
 			ChannelNamesHidden:     true,
 			ReceiptTimestampHidden: false,
-			Range:                  "test_7",
-			Custom:                 new(telem.Window{Variant: telem.DynamicWindow{TimeSpan: telem.TimeSpan(10)}}),
+			Range:                  ranger.Ref{Variant: ranger.KeyRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808")}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

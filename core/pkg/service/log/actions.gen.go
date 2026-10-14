@@ -13,6 +13,7 @@ package log
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
@@ -37,7 +38,6 @@ const (
 	ActionTypeSetChannelNamesHidden     = "set_channel_names_hidden"
 	ActionTypeSetReceiptTimestampHidden = "set_receipt_timestamp_hidden"
 	ActionTypeSetRange                  = "set_range"
-	ActionTypeSetCustomRange            = "set_custom_range"
 )
 
 // CreatePayload replaces the document with the given created state. Emitted by the Core
@@ -145,15 +145,9 @@ type SetReceiptTimestampHiddenPayload struct {
 	ReceiptTimestampHidden bool `json:"receipt_timestamp_hidden" msgpack:"receipt_timestamp_hidden"`
 }
 
-// SetRangePayload sets the key of the range the log displays.
+// SetRangePayload sets the range the log displays.
 type SetRangePayload struct {
-	Range string `json:"range" msgpack:"range"`
-}
-
-// SetCustomRangePayload sets the window the "custom" range key resolves to. A null
-// custom clears the window.
-type SetCustomRangePayload struct {
-	Custom *telem.Window `json:"custom,omitzero" msgpack:"custom,omitempty"`
+	Range ranger.Ref `json:"range" msgpack:"range"`
 }
 
 // Action is a discriminated union for all Log mutations. Type names
@@ -177,7 +171,6 @@ type Action struct {
 	SetChannelNamesHidden     *SetChannelNamesHiddenPayload     `json:"set_channel_names_hidden,omitzero" msgpack:"set_channel_names_hidden,omitempty"`
 	SetReceiptTimestampHidden *SetReceiptTimestampHiddenPayload `json:"set_receipt_timestamp_hidden,omitzero" msgpack:"set_receipt_timestamp_hidden,omitempty"`
 	SetRange                  *SetRangePayload                  `json:"set_range,omitzero" msgpack:"set_range,omitempty"`
-	SetCustomRange            *SetCustomRangePayload            `json:"set_custom_range,omitzero" msgpack:"set_custom_range,omitempty"`
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on
@@ -274,11 +267,6 @@ func Reduce(state Log, actions ...Action) (Log, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetRange.Handle(state)
-		case ActionTypeSetCustomRange:
-			if a.SetCustomRange == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetCustomRange.Handle(state)
 		default:
 			continue
 		}
@@ -372,9 +360,4 @@ func NewSetReceiptTimestampHiddenAction(p SetReceiptTimestampHiddenPayload) Acti
 // NewSetRangeAction wraps a SetRangePayload in an Action envelope.
 func NewSetRangeAction(p SetRangePayload) Action {
 	return Action{Type: ActionTypeSetRange, SetRange: &p}
-}
-
-// NewSetCustomRangeAction wraps a SetCustomRangePayload in an Action envelope.
-func NewSetCustomRangeAction(p SetCustomRangePayload) Action {
-	return Action{Type: ActionTypeSetCustomRange, SetCustomRange: &p}
 }

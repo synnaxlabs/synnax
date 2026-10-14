@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
+import { color, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { log } from "@/log";
+import { type ranger } from "@/ranger";
 
 const createChannelEntry = (
   channel: number,
@@ -336,40 +337,28 @@ describe("log reducer", () => {
   });
 
   describe("setRange", () => {
+    const RANGE_KEY = "6f1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
+    const rolling1h: ranger.Ref = {
+      variant: "window",
+      window: { variant: "dynamic", timeSpan: Number(TimeSpan.hours(1)) },
+    };
     it("should default a new log to the rolling 7 day window", () => {
-      expect(createEmpty().range).toEqual("rolling7d");
+      expect(createEmpty().range).toEqual({
+        variant: "window",
+        window: { variant: "dynamic", timeSpan: Number(TimeSpan.days(7)) },
+      });
     });
-    it("should set the range and round-trip it", () => {
-      const state = createEmpty();
-      expect(apply(state, log.setRange({ range: "rolling1h" })).range).toEqual(
-        "rolling1h",
-      );
-      expect(roundTrip(state, log.setRange({ range: "rolling1h" })).range).toEqual(
-        "rolling7d",
-      );
-    });
-  });
-
-  describe("setCustomRange", () => {
-    const custom = { variant: "dynamic" as const, timeSpan: 1_000_000_000 };
-    it("should set the custom window", () => {
-      expect(apply(createEmpty(), log.setCustomRange({ custom })).custom).toEqual(
-        custom,
+    it("should set the range", () => {
+      expect(apply(createEmpty(), log.setRange({ range: rolling1h })).range).toEqual(
+        rolling1h,
       );
     });
-    it("should clear the window through its inverse", () => {
-      expect(
-        roundTrip(createEmpty(), log.setCustomRange({ custom })).custom,
-      ).toBeUndefined();
-    });
-    it("should restore the previous window through its inverse", () => {
-      const state = createEmpty({ custom });
-      expect(
-        roundTrip(
-          state,
-          log.setCustomRange({ custom: { variant: "dynamic", timeSpan: 5 } }),
-        ).custom,
-      ).toEqual(custom);
+    it("should restore the previous range through its inverse", () => {
+      const state = createEmpty({ range: { variant: "key", key: RANGE_KEY } });
+      expect(roundTrip(state, log.setRange({ range: rolling1h })).range).toEqual({
+        variant: "key",
+        key: RANGE_KEY,
+      });
     });
   });
 

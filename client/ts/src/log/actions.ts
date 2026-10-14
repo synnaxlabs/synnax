@@ -26,7 +26,6 @@ import {
   setChannels,
   setChannelTimestampFormat,
   setChannelTimestampTz,
-  setCustomRange,
   setRange,
   setReceiptTimestampHidden,
   setTimestampPrecision,
@@ -204,22 +203,9 @@ const handlers: Handlers = {
   },
 
   setRange: (state, payload) => {
-    const oldRange = state.range;
+    const oldRange = actions.snapshotDraft(state.range);
     state.range = payload.range;
     return { inverse: [setRange({ range: oldRange })], targets: [state.key] };
-  },
-
-  setCustomRange: (state, payload) => {
-    const old = state.custom;
-    state.custom = payload.custom;
-    return {
-      inverse: [
-        setCustomRange({
-          custom: old === undefined ? undefined : actions.snapshotDraft(old),
-        }),
-      ],
-      targets: [state.key],
-    };
   },
 };
 

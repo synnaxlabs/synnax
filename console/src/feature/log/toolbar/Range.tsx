@@ -14,38 +14,44 @@ import { type telem } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useState } from "react";
 
 import { Range as PlatformRange } from "@/platform/range";
+import { Session } from "@/session";
 
 export const Range = (): ReactElement => {
   const key = Log.useKey();
   const range = Log.useRange();
-  const custom = Log.useCustomRange();
   const dispatch = Log.useSingleDispatch();
   const hasEditPermission = Access.useUpdateGranted(log.ontologyID(key));
-  // Focus the custom input only when the user picks it, not when the toolbar opens.
+  const entries = Session.Range.useSelectMultiple();
+  const matched = PlatformRange.useSelectKey(range);
+  // Custom stays picked while the user types, even when the window they enter matches
+  // a rolling preset.
   const [customPicked, setCustomPicked] = useState(false);
+  const selected = customPicked ? PlatformRange.CUSTOM_KEY : matched;
   const handleRangeChange = useCallback(
-    (range: string) => {
-      setCustomPicked(range === PlatformRange.CUSTOM_KEY);
-      dispatch(log.setRange({ range }));
+    (itemKey: string) => {
+      setCustomPicked(itemKey === PlatformRange.CUSTOM_KEY);
+      const entry = entries.find((e) => e.key === itemKey);
+      if (entry != null) dispatch(log.setRange({ range: PlatformRange.toRef(entry) }));
     },
-    [dispatch],
+    [dispatch, entries],
   );
-  const handleCustomChange = useCallback(
-    (custom: telem.Window) => dispatch(log.setCustomRange({ custom })),
+  const handleWindowChange = useCallback(
+    (window: telem.Window) =>
+      dispatch(log.setRange({ range: { variant: "window", window } })),
     [dispatch],
   );
   return (
     <Flex.Box y gap="small">
       <PlatformRange.SelectSingleInputItem
-        value={range}
+        value={selected}
         onChange={handleRangeChange}
         disabled={!hasEditPermission}
       />
-      {range === PlatformRange.CUSTOM_KEY && (
+      {selected === PlatformRange.CUSTOM_KEY && (
         <PlatformRange.CustomInput
           x={false}
-          value={custom}
-          onChange={handleCustomChange}
+          value={range.variant === "window" ? range.window : undefined}
+          onChange={handleWindowChange}
           autoFocus={customPicked}
           disabled={!hasEditPermission}
         />

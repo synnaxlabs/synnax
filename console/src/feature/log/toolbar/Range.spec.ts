@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ranger } from "@synnaxlabs/client";
 import { RoleClients } from "@synnaxlabs/client/testutil";
 import { TimeSpan } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -16,6 +17,14 @@ import { Range } from "@/feature/log/toolbar/Range";
 import { client, renderLog } from "@/feature/log/toolbar/testutil";
 
 const roles = new RoleClients(client);
+
+const rolling = (span: TimeSpan): ranger.Ref => ({
+  variant: "window",
+  window: { variant: "dynamic", timeSpan: Number(span) },
+});
+
+// A window no rolling preset matches, so the select shows it as custom.
+const CUSTOM = rolling(TimeSpan.minutes(45));
 
 const trigger = async (): Promise<HTMLElement> =>
   await screen.findByRole("button", { name: /Rolling|Custom/ });
@@ -33,16 +42,20 @@ describe("log/toolbar/Range", () => {
     fireEvent.click(button);
     fireEvent.click(await screen.findByRole("option", { name: /Rolling 1h/ }));
     await waitFor(async () =>
-      expect((await client.logs.retrieve(key)).range).toBe("rolling1h"),
+      expect((await client.logs.retrieve(key)).range).toEqual(
+        rolling(TimeSpan.hours(1)),
+      ),
     );
   });
 
-  it("should show the custom window input for the custom range", async () => {
-    const custom = {
-      variant: "dynamic" as const,
-      timeSpan: Number(TimeSpan.minutes(45)),
-    };
-    await renderLog(Range, { log: { range: "custom", custom } });
+  it("should show the rolling preset a stored window matches", async () => {
+    await renderLog(Range, { log: { range: rolling(TimeSpan.hours(1)) } });
+    expect((await trigger()).textContent).toContain("Rolling 1h");
+  });
+
+  it("should show a window no preset matches as custom", async () => {
+    await renderLog(Range, { log: { range: CUSTOM } });
+    expect((await trigger()).textContent).toContain("Custom");
     expect(await screen.findByDisplayValue("45m")).toBeDefined();
   });
 
@@ -57,22 +70,38 @@ describe("log/toolbar/Range", () => {
   });
 
   it("should not focus the custom window input when the toolbar opens", async () => {
-    await renderLog(Range, { log: { range: "custom" } });
+    await renderLog(Range, { log: { range: CUSTOM } });
     const input = await screen.findByPlaceholderText("1h 30m");
     expect(document.activeElement).not.toBe(input);
   });
 
   it("should set the custom window through the server", async () => {
-    const { key } = await renderLog(Range, { log: { range: "custom" } });
+    const { key } = await renderLog(Range, { log: { range: CUSTOM } });
     const input = await screen.findByPlaceholderText("1h 30m");
     fireEvent.change(input, { target: { value: "2h" } });
     fireEvent.blur(input);
     await waitFor(async () =>
-      expect((await client.logs.retrieve(key)).custom).toEqual({
-        variant: "dynamic",
-        timeSpan: Number(TimeSpan.hours(2)),
-      }),
+      expect((await client.logs.retrieve(key)).range).toEqual(
+        rolling(TimeSpan.hours(2)),
+      ),
     );
+  });
+
+  it("should keep custom picked when the entered window matches a preset", async () => {
+    const { key } = await renderLog(Range);
+    const button = await trigger();
+    await waitFor(() => expect(button.getAttribute("aria-disabled")).not.toBe("true"));
+    fireEvent.click(button);
+    fireEvent.click(await screen.findByRole("option", { name: /Custom/ }));
+    const input = await screen.findByPlaceholderText("1h 30m");
+    fireEvent.change(input, { target: { value: "1h" } });
+    fireEvent.blur(input);
+    await waitFor(async () =>
+      expect((await client.logs.retrieve(key)).range).toEqual(
+        rolling(TimeSpan.hours(1)),
+      ),
+    );
+    expect((await trigger()).textContent).toContain("Custom");
   });
 
   it("should freeze the select for a viewer", async () => {
@@ -82,7 +111,7 @@ describe("log/toolbar/Range", () => {
   });
 
   it("should freeze the custom window input for a viewer", async () => {
-    await renderLog(Range, { log: { range: "custom" }, as: await roles.get("Viewer") });
+    await renderLog(Range, { log: { range: CUSTOM }, as: await roles.get("Viewer") });
     const input = await screen.findByPlaceholderText("1h 30m");
     await waitFor(() => expect((input as HTMLInputElement).disabled).toBe(true));
   });

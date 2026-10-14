@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/gorp"
@@ -67,8 +68,11 @@ var _ = Describe("MigrateLog", func() {
 		Expect(out.TimestampPrecision).To(Equal(in.TimestampPrecision))
 		Expect(out.ChannelNamesHidden).To(BeTrue())
 		Expect(out.ReceiptTimestampHidden).To(BeTrue())
-		Expect(out.Range).To(Equal("rolling7d"))
-		Expect(out.Custom).To(BeNil())
+		Expect(out.Range).To(Equal(ranger.Ref{
+			Variant: ranger.WindowRef{Window: telem.Window{
+				Variant: telem.DynamicWindow{TimeSpan: 7 * telem.Day},
+			}},
+		}))
 	})
 
 	It("Should round-trip the migrated log through the v3 codec",

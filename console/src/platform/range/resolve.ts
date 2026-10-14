@@ -81,16 +81,16 @@ export const toResolvedRange = (range: Resolved): LinePlot.ResolvedRange =>
     ? { variant: "dynamic", span: new TimeSpan(range.span) }
     : { variant: "static", timeRange: new TimeRange(range.timeRange) };
 
-/** @returns the window a Pluto visualization reads for the "custom" range key. */
-export const resolveCustom = (custom: telem.Window): LinePlot.ResolvedRange =>
-  custom.variant === "dynamic"
-    ? { variant: "dynamic", span: new TimeSpan(custom.timeSpan) }
+/** @returns the window a Pluto visualization reads for a stored window. */
+export const resolveWindow = (window: telem.Window): LinePlot.ResolvedRange =>
+  window.variant === "dynamic"
+    ? { variant: "dynamic", span: new TimeSpan(window.timeSpan) }
     : {
         variant: "static",
         // BigInt, not the constructor: TimeStamp parses a bare string as a date-time,
         // not a decimal int64.
         timeRange: new TimeRange(
-          BigInt(custom.timeRange.start),
-          BigInt(custom.timeRange.end),
+          BigInt(window.timeRange.start),
+          BigInt(window.timeRange.end),
         ),
       };

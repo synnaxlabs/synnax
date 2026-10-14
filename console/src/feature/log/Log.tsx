@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type LinePlot, Log as Base, Panel as PPanel } from "@synnaxlabs/pluto";
+import { Log as Base, Panel as PPanel } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
 
 import { Controls } from "@/feature/log/Controls";
 import { ContextMenu } from "@/platform/context-menu";
@@ -20,17 +20,6 @@ import { Session } from "@/session";
 
 const EXTRA_CONTEXT_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;
 
-const useResolvedRange = (): LinePlot.ResolvedRange | undefined => {
-  const key = Base.useRange();
-  const custom = Base.useCustomRange();
-  const resolved = Range.useResolve(key);
-  return useMemo(() => {
-    if (key === Range.CUSTOM_KEY)
-      return custom == null ? undefined : Range.resolveCustom(custom);
-    return resolved == null ? undefined : Range.toResolvedRange(resolved);
-  }, [key, custom, resolved]);
-};
-
 const Internal: Panel.Content = () => {
   const key = Base.useKey();
   const dispatch = Session.useDispatch();
@@ -38,7 +27,7 @@ const Internal: Panel.Content = () => {
   const channelKeys = Base.useChannelKeys();
   const hasChannels = channelKeys.some((k) => !primitive.isZero(k));
   const hold = Session.Log.useSelectHold();
-  const resolvedRange = useResolvedRange();
+  const resolvedRange = Range.useResolveRef(Base.useRange());
 
   const handleDoubleClick = useCallback(() => {
     dispatch(Session.Nav.showBottom({}));

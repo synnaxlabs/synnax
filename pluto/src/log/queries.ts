@@ -75,8 +75,6 @@ export const useIsHidingReceiptTimestamp = Scope.bindHook(
 
 export const useRange = Scope.bindHook(createSelector(({ range }) => range));
 
-export const useCustomRange = Scope.bindHook(createSelector(({ custom }) => custom));
-
 export const {
   useDispatch,
   useUndo: useUndoBase,

@@ -16,6 +16,8 @@
   "timestamp_precision": 0,
   "channel_names_hidden": false,
   "receipt_timestamp_hidden": false,
-  "range": "custom",
-  "custom": { "variant": "dynamic", "time_span": 60000000000 }
+  "range": {
+    "variant": "window",
+    "window": { "variant": "dynamic", "time_span": 60000000000 }
+  }
 }
