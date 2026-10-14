@@ -12,8 +12,8 @@ from uuid import uuid4
 import pytest
 
 import synnax as sy
+from freighter import Empty
 from freighter.mock import MockUnaryClient
-from freighter.transport import Empty
 
 
 @pytest.mark.auth
