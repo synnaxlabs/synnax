@@ -194,7 +194,7 @@ export class Static {
       entries.filter((e) => e.data.timeRange.overlapsWith(tr)).map((e) => e.data);
     const fetched = overlapping(this.fetched);
     const streamed = overlapping(this.streamed).filter(
-      (s) => !this.fetched.some((e) => e.data.timeRange.overlapsWith(s.timeRange)),
+      (s) => !this.overlapsFetched(s.timeRange),
     );
     const series = [...fetched, ...streamed];
     if (fetched.length === 0)
@@ -209,6 +209,19 @@ export class Static {
       pushGap(fetched[i - 1].timeRange.end, fetched[i].timeRange.start);
     pushGap(fetched[fetched.length - 1].timeRange.end, tr.end);
     return { series: new MultiSeries(series), gaps };
+  }
+
+  // Fetched entries are sorted and disjoint in time, so only the first one ending after
+  // tr starts can overlap it.
+  private overlapsFetched(tr: TimeRange): boolean {
+    let lo = 0;
+    let hi = this.fetched.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if (this.fetched[mid].data.timeRange.end.beforeEq(tr.start)) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo < this.fetched.length && this.fetched[lo].data.timeRange.overlapsWith(tr);
   }
 
   // Removes the covered portions of gap, returning the still-unanswered remainder.
@@ -267,9 +280,12 @@ export class Static {
       });
     const fetched = collect(this.fetched);
     // Purged samples take their coverage with them, or reads would skip their span.
-    this.fetched.forEach((e) => {
-      if (!fetched.includes(e)) this.uncover(e.data.timeRange);
-    });
+    if (fetched.length < this.fetched.length) {
+      const kept = new Set(fetched);
+      this.fetched.forEach((e) => {
+        if (!kept.has(e)) this.uncover(e.data.timeRange);
+      });
+    }
     this.fetched = fetched;
     this.streamed = collect(this.streamed);
     // The client cannot tell "no data yet" from "no data ever" (backfill is legal),
