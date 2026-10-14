@@ -7,24 +7,28 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from collections.abc import Sequence
+
+from pydantic import BaseModel
+
 from freighter.context import Context
 from freighter.transport import Middleware, MiddlewareCollector, Transport
 
 
-class MockUnaryClient[RQ, RS](Transport):
+class MockUnaryClient(Transport):
     """
     MockUnaryClient implements a mock unary client with a pre-configured set of
     responses.
     """
 
-    requests: list[RQ]
-    responses: list[RS]
+    requests: list[BaseModel]
+    responses: list[BaseModel]
     response_errors: list[Exception | None]
     _mw: MiddlewareCollector
 
     def __init__(
         self,
-        responses: list[RS] | None = None,
+        responses: Sequence[BaseModel] | None = None,
         response_errors: list[Exception | None] | None = None,
     ):
         """
@@ -33,8 +37,8 @@ class MockUnaryClient[RQ, RS](Transport):
         :param responses: List of responses to return
         :param response_errors: List of errors to return
         """
-        self.requests: list[RQ] = []
-        self.responses = responses or []
+        self.requests = []
+        self.responses = list(responses or [])
         self.response_errors = response_errors or []
         self._mw = MiddlewareCollector()
 
@@ -42,15 +46,19 @@ class MockUnaryClient[RQ, RS](Transport):
         """Implements the Transport protocol."""
         self._mw.use(*middleware)
 
-    def send(self, target: str, req: RQ, res_t: type[RS]) -> RS:
+    def send[RQ: BaseModel, RS: BaseModel](
+        self, target: str, req: RQ, res_t: type[RS]
+    ) -> RS:
         """
         Mock implementation of send that returns pre-configured responses or raises
         pre-configured errors.
 
         :param target: the target address of the server
         :param req: the request to issue to the server
+        :param res_t: the expected response type.
         :return: the next pre-configured response.
         :raises RuntimeError: when no more responses are available
+        :raises TypeError: when the next response is not an instance of res_t.
         :raises Exception: the next pre-configured error, if any.
         """
         self.requests.append(req)
@@ -68,4 +76,7 @@ class MockUnaryClient[RQ, RS](Transport):
 
         self._mw.exec(ctx, finalizer)
 
-        return self.responses.pop(0)
+        res = self.responses.pop(0)
+        if not isinstance(res, res_t):
+            raise TypeError(f"mock response {res!r} is not a {res_t.__name__}")
+        return res

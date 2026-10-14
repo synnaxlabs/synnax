@@ -129,12 +129,12 @@ class TestLabJackReadTask:
             },
         ],
     )
-    def test_parse_labjack_read_task(self, test_data):
+    def test_parse_labjack_read_task(self, test_data: dict[str, object]) -> None:
         """Test that ReadConfig can parse various channel configurations."""
         input_data = test_data["data"]
         sy.labjack.ReadConfig.model_validate(input_data)
 
-    def test_read_config_defaults(self):
+    def test_read_config_defaults(self) -> None:
         """Test that ReadConfig applies the shared task config defaults."""
         config = sy.labjack.ReadConfig(device="test-device")
         assert config.sample_rate == sy.Rate(10)
@@ -143,7 +143,7 @@ class TestLabJackReadTask:
         assert config.auto_start is False
         assert config.channels == []
 
-    def test_read_task_auto_key_generation(self):
+    def test_read_task_auto_key_generation(self) -> None:
         """Test that the ReadTask assigns keys to channels missing one."""
         task = sy.labjack.ReadTask(
             name="test",
@@ -162,7 +162,7 @@ class TestLabJackReadTask:
         assert channel.key != ""
         assert len(channel.key) > 0
 
-    def test_thermocouple_type_validation(self):
+    def test_thermocouple_type_validation(self) -> None:
         """Test that thermocouple types are validated."""
         # Valid thermocouple types
         for tc_type in ["B", "E", "J", "K", "N", "R", "S", "T", "C"]:
@@ -192,7 +192,7 @@ class TestLabJackReadTask:
                 scale=sy.labjack.NoneScale(type="none"),
             )
 
-    def test_create_and_retrieve_read_task(self, client: sy.Synnax):
+    def test_create_and_retrieve_read_task(self, client: sy.Synnax) -> None:
         """Test that ReadTask can be created and retrieved from the database."""
         task = sy.labjack.ReadTask(
             name="test-labjack-read-task",
@@ -316,12 +316,12 @@ class TestLabJackWriteTask:
             },
         ],
     )
-    def test_parse_labjack_write_task(self, test_data):
+    def test_parse_labjack_write_task(self, test_data: dict[str, object]) -> None:
         """Test that WriteConfig can parse various channel configurations."""
         input_data = test_data["data"]
         sy.labjack.WriteConfig.model_validate(input_data)
 
-    def test_write_task_disabled_channels(self):
+    def test_write_task_disabled_channels(self) -> None:
         """Test that disabled channels are handled correctly."""
         config = sy.labjack.WriteConfig(
             device="test-device",
@@ -348,7 +348,7 @@ class TestLabJackWriteTask:
         assert config.channels[0].disabled is False
         assert config.channels[1].disabled is True
 
-    def test_write_channel_auto_key_generation(self):
+    def test_write_channel_auto_key_generation(self) -> None:
         """Test that the WriteTask assigns keys to channels missing one."""
         task = sy.labjack.WriteTask(
             name="test",
@@ -367,7 +367,7 @@ class TestLabJackWriteTask:
         assert channel.key != ""
         assert len(channel.key) > 0
 
-    def test_create_and_retrieve_write_task(self, client: sy.Synnax):
+    def test_create_and_retrieve_write_task(self, client: sy.Synnax) -> None:
         """Test that WriteTask can be created and retrieved from the database."""
         task = sy.labjack.WriteTask(
             name="test-labjack-write-task",
@@ -399,7 +399,7 @@ class TestLabJackWriteTask:
         )
         sy.labjack.WriteTask(created_task)
 
-    def test_write_task_serialization_round_trip(self, client: sy.Synnax):
+    def test_write_task_serialization_round_trip(self, client: sy.Synnax) -> None:
         """Test that task can be serialized and deserialized correctly."""
         original_task = sy.labjack.WriteTask(
             name="test-round-trip",
@@ -458,7 +458,7 @@ class TestLabJackWriteTask:
 class TestLabJackDevicePropertyUpdates:
     """Tests that device properties are correctly updated with channel mappings."""
 
-    def test_read_task_updates_device_properties(self, client: sy.Synnax):
+    def test_read_task_updates_device_properties(self, client: sy.Synnax) -> None:
         """Test that configuring a ReadTask updates device properties with channel mappings."""
         # Create a rack
         rack = client.racks.retrieve_embedded_rack()
@@ -535,7 +535,7 @@ class TestLabJackDevicePropertyUpdates:
         assert "FIO4" in channels
         assert channels["FIO4"] == ch2.key
 
-    def test_write_task_updates_device_properties(self, client: sy.Synnax):
+    def test_write_task_updates_device_properties(self, client: sy.Synnax) -> None:
         """Test that configuring a WriteTask updates device properties with channel mappings."""
         # Create a rack
         rack = client.racks.retrieve_embedded_rack()

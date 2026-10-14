@@ -156,12 +156,12 @@ class TestModbusReadTask:
             },
         ],
     )
-    def test_parse_modbus_read_task(self, test_data):
+    def test_parse_modbus_read_task(self, test_data: dict[str, object]) -> None:
         """Test that ReadConfig can parse various channel configurations."""
         input_data = test_data["data"]
         sy.modbus.ReadConfig.model_validate(input_data)
 
-    def test_read_config_defaults(self):
+    def test_read_config_defaults(self) -> None:
         """Test that ReadConfig applies the shared task config defaults."""
         config = sy.modbus.ReadConfig(device="test-device")
         assert config.sample_rate == sy.Rate(10)
@@ -170,7 +170,7 @@ class TestModbusReadTask:
         assert config.auto_start is False
         assert config.channels == []
 
-    def test_read_task_auto_key_generation(self):
+    def test_read_task_auto_key_generation(self) -> None:
         """Test that the ReadTask assigns keys to channels missing one."""
         task = sy.modbus.ReadTask(
             name="test",
@@ -188,7 +188,7 @@ class TestModbusReadTask:
         assert channel.key != ""
         assert len(channel.key) > 0
 
-    def test_read_task_address_bounds(self):
+    def test_read_task_address_bounds(self) -> None:
         """Test that address validation works (0-65535)."""
         # Valid address
         sy.modbus.HoldingRegisterReadChannel(
@@ -217,7 +217,7 @@ class TestModbusReadTask:
                 data_type="float32",
             )
 
-    def test_to_payload_serializes_config(self):
+    def test_to_payload_serializes_config(self) -> None:
         """Test that to_payload() correctly serializes the config into the payload.
 
         This is a regression test for the JSONConfigMixin.to_payload() method which
@@ -255,7 +255,7 @@ class TestModbusReadTask:
         assert payload.config["channels"][0]["address"] == 0
         assert payload.config["channels"][0]["data_type"] == "float32"
 
-    def test_create_and_retrieve_read_task(self, client: sy.Synnax):
+    def test_create_and_retrieve_read_task(self, client: sy.Synnax) -> None:
         """Test that ReadTask can be created and retrieved from the database."""
         task = sy.modbus.ReadTask(
             name="test-modbus-read-task",
@@ -375,12 +375,12 @@ class TestModbusWriteTask:
             },
         ],
     )
-    def test_parse_modbus_write_task(self, test_data):
+    def test_parse_modbus_write_task(self, test_data: dict[str, object]) -> None:
         """Test that WriteConfig can parse various channel configurations."""
         input_data = test_data["data"]
         sy.modbus.WriteConfig.model_validate(input_data)
 
-    def test_write_task_disabled_channels(self):
+    def test_write_task_disabled_channels(self) -> None:
         """Test that disabled channels are handled correctly."""
         config = sy.modbus.WriteConfig(
             device="test-device",
@@ -406,7 +406,7 @@ class TestModbusWriteTask:
         assert config.channels[0].disabled is False
         assert config.channels[1].disabled is True
 
-    def test_write_channel_auto_key_generation(self):
+    def test_write_channel_auto_key_generation(self) -> None:
         """Test that the WriteTask assigns keys to channels missing one."""
         task = sy.modbus.WriteTask(
             name="test",
@@ -423,7 +423,7 @@ class TestModbusWriteTask:
         assert channel.key != ""
         assert len(channel.key) > 0
 
-    def test_to_payload_serializes_config(self):
+    def test_to_payload_serializes_config(self) -> None:
         """Test that to_payload() correctly serializes the config into the payload.
 
         This is a regression test for the JSONConfigMixin.to_payload() method which
@@ -453,7 +453,7 @@ class TestModbusWriteTask:
         assert len(payload.config["channels"]) == 1
         assert payload.config["channels"][0]["address"] == 5
 
-    def test_create_and_retrieve_write_task(self, client: sy.Synnax):
+    def test_create_and_retrieve_write_task(self, client: sy.Synnax) -> None:
         """Test that WriteTask can be created and retrieved from the database."""
         task = sy.modbus.WriteTask(
             name="test-modbus-write-task",
@@ -482,7 +482,7 @@ class TestModbusWriteTask:
         )
         sy.modbus.WriteTask(created_task)
 
-    def test_write_task_serialization_round_trip(self, client: sy.Synnax):
+    def test_write_task_serialization_round_trip(self, client: sy.Synnax) -> None:
         """Test that task can be serialized and deserialized correctly."""
         original_task = sy.modbus.WriteTask(
             name="test-round-trip",
@@ -542,7 +542,7 @@ class TestModbusWriteTask:
 class TestModbusDevicePropertyUpdates:
     """Tests that device properties are correctly updated with channel mappings."""
 
-    def test_read_task_updates_device_properties(self, client: sy.Synnax):
+    def test_read_task_updates_device_properties(self, client: sy.Synnax) -> None:
         """Test that configuring a ReadTask updates device properties with channel mappings."""
         # Create a rack
         rack = client.racks.retrieve_embedded_rack()
@@ -626,7 +626,7 @@ class TestModbusDevicePropertyUpdates:
         assert "holding-register-input-5-uint16" in channels
         assert channels["holding-register-input-5-uint16"] == ch2.key
 
-    def test_write_task_updates_device_properties(self, client: sy.Synnax):
+    def test_write_task_updates_device_properties(self, client: sy.Synnax) -> None:
         """Test that configuring a WriteTask updates device properties with channel mappings."""
         # Create a rack
         rack = client.racks.retrieve_embedded_rack()
@@ -704,7 +704,7 @@ class TestModbusDevicePropertyUpdates:
         assert "holding-register-output-20" in channels
         assert channels["holding-register-output-20"] == holding_cmd.key
 
-    def test_device_property_key_format(self):
+    def test_device_property_key_format(self) -> None:
         """Test that map keys keep the released type spellings after the rename."""
         # Test InputRegisterReadChannel key format
         ch = sy.modbus.InputRegisterReadChannel(
