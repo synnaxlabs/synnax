@@ -31,6 +31,7 @@ const waitForResolve = async <T>(source: Source<T>): Promise<T> => {
 
 describe("MultiChannelLog", () => {
   class MockClient implements Client {
+    now = (): TimeStamp => TimeStamp.now();
     key: string = id.create();
 
     streamHandler: framer.StreamHandler | null = null;

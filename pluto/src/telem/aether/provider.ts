@@ -9,6 +9,7 @@
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
 import { type framer, type Synnax } from "@synnaxlabs/client";
+import { TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -57,14 +58,19 @@ export const createProvider = (
       this.closeFeed();
       let client: Client | null = null;
       if (core != null) {
+        const { connection } = core;
+        const now = (): TimeStamp =>
+          TimeStamp.now().sub(connection.status.details.clockSkew);
         // The feed caches series in the representation this thread renders.
         this.feed = core.openFeed({
           transform: GL_TRANSFORM,
           instrumentation: i.instrumentation,
+          now,
         });
         client = {
           feed: this.feed,
           channels: core.channels,
+          now,
           readLatest: async (ch, n, tr) => await core.readLatest(ch, n, tr),
         };
       }
