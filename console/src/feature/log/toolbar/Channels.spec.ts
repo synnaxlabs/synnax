@@ -69,6 +69,21 @@ describe("log/toolbar/Channels", () => {
     expect(screen.queryByLabelText(`Clear ${name}`)).toBeNull();
   });
 
+  it("swaps a row's channel for the one picked in its select", async () => {
+    const from = await createChannel();
+    const to = await createChannel();
+    const { result } = await renderChannels([entry(from)]);
+    const [fromCh, toCh] = await client.channels.retrieve([from, to]);
+    await screen.findByLabelText(`Clear ${fromCh.name}`);
+    fireEvent.click(screen.getAllByText(fromCh.name)[0]);
+    const search = await screen.findByPlaceholderText("Search channels...");
+    fireEvent.change(search, { target: { value: toCh.name } });
+    fireEvent.click(await screen.findByRole("option", { name: new RegExp(toCh.name) }));
+    expect(await screen.findByLabelText(`Clear ${toCh.name}`)).toBeDefined();
+    expect(screen.queryByLabelText(`Clear ${fromCh.name}`)).toBeNull();
+    expect(rowsIn(result)).toHaveLength(2);
+  });
+
   it("removes the row of a deleted channel with the clear button", async () => {
     const deleted = await createChannel();
     await client.channels.delete(deleted);
