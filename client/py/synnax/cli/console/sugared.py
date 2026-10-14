@@ -64,6 +64,19 @@ class SugaredConsole:
         choices: list[R] | None = None,
         password: bool = False,
         *,
+        default: None,
+        arg: R | None = None,
+        arg_name: str | None = None,
+    ) -> R | None: ...
+
+    @overload
+    def ask(
+        self,
+        question: str,
+        type_: type[R] | None = None,
+        choices: list[R] | None = None,
+        password: bool = False,
+        *,
         default: R,
         arg: R | None = None,
         arg_name: str | None = None,

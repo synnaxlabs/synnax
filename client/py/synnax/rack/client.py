@@ -121,6 +121,7 @@ class Client:
         key: int | None = None,
         name: str | None = None,
         *,
+        keys: None = None,
         names: list[str],
         integration: str | None = None,
         embedded: bool | None = None,

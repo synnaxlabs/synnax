@@ -459,6 +459,7 @@ class Client:
     def retrieve(
         self,
         *,
+        names: None = None,
         keys: list[Key | str],
         types: list[str] | None = None,
         include_status: bool = False,
@@ -468,6 +469,8 @@ class Client:
     def retrieve(
         self,
         *,
+        names: None = None,
+        keys: None = None,
         types: list[str],
         include_status: bool = False,
     ) -> list[Task]: ...

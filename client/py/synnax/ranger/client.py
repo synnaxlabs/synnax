@@ -653,6 +653,7 @@ class Client:
     def retrieve(
         self,
         *,
+        names: None = None,
         keys: list[Key] | tuple[Key, ...],
     ) -> list[Range]: ...
 
