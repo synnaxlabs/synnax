@@ -18,6 +18,7 @@ import {
   Series,
   TimeRange,
   TimeSpan,
+  TimeStamp,
 } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -460,6 +461,33 @@ describe("line", () => {
       const d = op(f32(9, 10), f32(3, 2), 2);
       expect(vertices([a, b, c, d])).toEqual([]);
       expect(vertices([b, d])).toEqual([6, 4, 9, 3]);
+    });
+
+    describe("time order", () => {
+      const timed = (start: number, end: number, ...data: number[]): Series =>
+        new Series({
+          data: new Float32Array(data),
+          timeRange: new TimeRange(TimeStamp.seconds(start), TimeStamp.seconds(end)),
+        });
+
+      it("should join ops in time order whatever their array order", () => {
+        const a = op(timed(0, 10, 0, 1), timed(0, 10, 2, 3), 2);
+        const b = op(timed(20, 30, 5, 6), timed(20, 30, 7, 4), 2);
+        expect(vertices([b, a])).toEqual([1, 3, 5, 7]);
+      });
+
+      it("should not join two ops that hold overlapping spans", () => {
+        const whole = op(timed(0, 100, 0, 50, 99), timed(0, 100, 1, 2, 3), 3);
+        const copy = op(timed(48, 100, 48, 99), timed(48, 100, 5, 6), 2);
+        expect(vertices([whole, copy])).toEqual([]);
+      });
+
+      it("should join an x series split across two y series", () => {
+        const x = timed(0, 20, 0, 1, 2, 3);
+        const first = op(x, timed(0, 10, 4, 5), 2);
+        const second: DrawOperation = { ...op(x, timed(10, 20, 6, 7), 2), xOffset: 2 };
+        expect(vertices([second, first])).toEqual([1, 5, 2, 6]);
+      });
     });
 
     it("should map each vertex through the scale", () => {

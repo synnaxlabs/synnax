@@ -21,7 +21,9 @@ import {
   scale,
   type Series,
   type SeriesDigest,
+  TimeRange,
   TimeSpan,
+  TimeStamp,
   xy,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -605,15 +607,28 @@ const nonFiniteVertices = (
   return vertices;
 };
 
+/** @returns the time span an op draws: where its x and y series overlap. */
+const opSpan = ({ x, y }: DrawOperation): TimeRange =>
+  new TimeRange(
+    TimeStamp.max(x.timeRange.start, y.timeRange.start),
+    TimeStamp.min(x.timeRange.end, y.timeRange.end),
+  );
+
 /**
- * @returns interleaved decimal x and y of the segments joining each op to the next,
- * leaving out any segment with a non-finite end.
+ * @returns interleaved decimal x and y of the segments joining each op to the next in
+ * time, leaving out any segment with a non-finite end. Ops whose time spans overlap
+ * are not joined: they hold the same span twice, so a joining segment would run back in
+ * time.
  */
 export const bridgeVertices = (ops: DrawOperation[], s: scale.XY): Float32Array => {
   const vertices: number[] = [];
-  for (let i = 1; i < ops.length; i++) {
-    const a = ops[i - 1];
-    const b = ops[i];
+  const spans = ops
+    .map((op) => ({ op, span: opSpan(op) }))
+    .sort((a, b) => TimeStamp.sort(a.span.start, b.span.start));
+  for (let i = 1; i < spans.length; i++) {
+    const { op: a, span: aSpan } = spans[i - 1];
+    const { op: b, span: bSpan } = spans[i];
+    if (bSpan.start.before(aSpan.end)) continue;
     const last = lastVertex(a) * a.downsample;
     const segment = [
       s.x.pos(Number(a.x.at(a.xOffset + last, true))),
