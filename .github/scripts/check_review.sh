@@ -11,9 +11,10 @@
 
 # Decides the Review gate commit status for a pull request. Usage: check_review.sh
 # <pr_number>. Prints "<state>\t<description>" where state is pending (waiting on the
-# Greptile review or its score), failure (a Greptile score below 5/5), or success. Exits
-# non-zero only when the GitHub API fails. Human review is a convention documented in
-# CONTRIBUTING.md, not a gate.
+# Greptile review or its score), failure (a Greptile score below 5/5), or success. A
+# pull request Dependabot opened and wrote every commit of passes, since Greptile does
+# not review it. Exits non-zero only when the GitHub API fails. Human review is a
+# convention documented in CONTRIBUTING.md, not a gate.
 
 set -euo pipefail
 
@@ -25,7 +26,20 @@ report() {
     exit 0
 }
 
-HEAD=$(gh api "repos/${REPO}/pulls/${PR}" --jq '.head.sha')
+PULL=$(gh api "repos/${REPO}/pulls/${PR}" --jq '"\(.head.sha) \(.user.login)"')
+read -r HEAD AUTHOR <<< "$PULL"
+
+# Git author emails are free to set, so a commit counts as Dependabot's only when GitHub
+# also signed and committed it.
+if [ "$AUTHOR" = "dependabot[bot]" ]; then
+    OTHERS=$(gh api "repos/${REPO}/pulls/${PR}/commits?per_page=100" --paginate \
+        --jq '.[] | select(.author.login != "dependabot[bot]"
+            or .committer.login != "web-flow"
+            or .commit.verification.verified != true) | .sha')
+    if [ -z "$OTHERS" ]; then
+        report success "Dependabot wrote every commit"
+    fi
+fi
 
 # Only a review of the head counts: a push after the review needs a new one. The latest
 # filter keeps a rerun's verdict from being shadowed by an earlier success.
