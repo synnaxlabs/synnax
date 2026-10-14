@@ -30,7 +30,7 @@ class TestFrame:
         f = sy.Frame({1: sy.Series([1, 2, 3, 4]), 3: sy.Series([4, 5, 6, 7])})
         assert f[1][0] == 1
 
-    def test_construction_from_mapping(self):
+    def test_construction_from_mapping(self) -> None:
         """Should keep each channel's series when built from a non-dict mapping."""
         f = sy.Frame(
             MappingProxyType({1: sy.Series([1, 2, 3, 4]), 3: sy.Series([4, 5, 6, 7])})
