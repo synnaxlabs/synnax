@@ -242,6 +242,22 @@ describe("log/aether/Log", () => {
       expect(log.state.empty).toBe(false);
     });
 
+    it("should keep its entries when reading the source starts a load", () => {
+      const { log, source } = setup([makeEntry(0)]);
+      source.loadsOnValue = true;
+      source.setEntries([]);
+      source.notify();
+      expect(log.entries.map((e) => e.value)).toEqual(["0"]);
+    });
+
+    it("should read a loading source so it can restart a canceled read", () => {
+      const { source } = setup([makeEntry(0)]);
+      source.isLoading = true;
+      const before = source.valueCalls;
+      source.notify();
+      expect(source.valueCalls).toBe(before + 1);
+    });
+
     it("should replace its entries once the source has loaded", () => {
       const { log, source } = setup([makeEntry(0)]);
       source.isLoading = true;

@@ -278,7 +278,9 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
   // replaces them in one step instead of clearing first.
   private readEntries(): void {
     const { telem } = this.internal;
-    if (!telem.loading()) this.entries = telem.value();
+    // value() first, since it starts the read that puts the source in loading.
+    const next = telem.value();
+    if (!telem.loading()) this.entries = next;
   }
 
   private checkEmpty(): void {

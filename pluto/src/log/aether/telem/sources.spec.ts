@@ -1004,6 +1004,17 @@ describe("MultiChannelLog", () => {
       await expect.poll(() => log.loading()).toBe(false);
     });
 
+    it("should finish loading after a channel change cancels its read", async () => {
+      let release = (): void => {};
+      c.readGate = new Promise((resolve) => (release = resolve));
+      const { log } = create();
+      log.value();
+      log.setChannels([DATA, DATA_2]);
+      log.value();
+      release();
+      await expect.poll(() => log.loading()).toBe(false);
+    });
+
     it("should stop loading when the read fails", async () => {
       c.readGate = Promise.reject(new Error("read failed"));
       c.readGate.catch(() => {});
