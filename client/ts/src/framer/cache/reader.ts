@@ -15,6 +15,7 @@ import {
   type Series,
   TimeRange,
   TimeSpan,
+  TimeStamp,
 } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
@@ -28,6 +29,10 @@ export interface RemoteReader {
 }
 
 export const DEFAULT_BATCH_DEBOUNCE = TimeSpan.milliseconds(50);
+
+// Samples stamped this close to a fetch may commit after it answers, so a fetch never
+// marks them as covered.
+const COMMIT_MARGIN = TimeSpan.seconds(1);
 
 interface ReadRequest {
   channel: channel.Key;
@@ -163,6 +168,10 @@ export class Reader {
   private async fetchGap({ gap, channels, trackers }: BatchFetch): Promise<void> {
     const { cache } = this.props;
     let failure: unknown;
+    const answered = new TimeRange(
+      gap.start,
+      TimeStamp.min(gap.end, TimeStamp.now().sub(COMMIT_MARGIN)),
+    );
     try {
       const frame = await this.fetchWithDeadline(gap, Array.from(channels));
       if (!this.closed) {
@@ -177,7 +186,7 @@ export class Reader {
         channels.forEach((key) => {
           const unary = cache.get(key);
           unary.writeStatic(new MultiSeries(grouped.get(key) ?? []));
-          unary.markFetched(gap);
+          unary.markFetched(answered);
         });
       }
     } catch (err) {
