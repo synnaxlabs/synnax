@@ -343,6 +343,11 @@ class TestTimeSpan:
         """Should convert durations to exact integer nanoseconds"""
         assert sy.TimeSpan(crude) == expected
 
+    def test_construction_nat(self) -> None:
+        """Should reject a NaT timedelta64"""
+        with pytest.raises(ValueError, match="NaT"):
+            sy.TimeSpan(np.timedelta64("NaT"))
+
     def test_seconds(self) -> None:
         """Should return the number of seconds in the timespan"""
         assert sy.TimeSpan.SECOND.seconds == 1

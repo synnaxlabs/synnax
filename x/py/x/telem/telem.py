@@ -215,6 +215,8 @@ class TimeSpan(int):
         elif isinstance(value, timedelta):
             value = _timedelta_nanoseconds(value)
         elif isinstance(value, np.timedelta64):
+            if np.isnat(value):
+                raise ValueError("Cannot convert NaT to TimeSpan")
             value = int(value.astype("timedelta64[ns]").astype(np.int64))
         elif not isinstance(value, (int, float, np.floating, np.integer)):
             raise TypeError(f"Cannot convert {type(value)} to TimeSpan")
