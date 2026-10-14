@@ -22,7 +22,7 @@ import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Flux, Ranger } from "@synnaxlabs/pluto";
 import { type telem, TimeRange, TimeSpan } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { type ReactElement, useCallback, useMemo, useRef } from "react";
 
 import { CSS } from "@/platform/css";
 import { setBound, toRef } from "@/platform/range/ref";
@@ -189,12 +189,19 @@ const RollingRow = ({ span, onChange }: RollingRowProps): ReactElement => {
     },
     [commit],
   );
+  // The field commits on blur too, as when the user clicks a preset. Only Enter closes
+  // the dialog, so that click still lands.
+  const submitted = useRef(false);
   const handleTyped = useCallback(
     (text: string) => {
+      const closing = submitted.current;
+      submitted.current = false;
       const typed = TimeSpan.parse(text);
-      if (typed != null && !typed.isZero) commit(Number(typed));
+      if (typed != null && !typed.isZero && !typed.equals(span ?? 0))
+        onChange(Number(typed));
+      if (closing) close();
     },
-    [commit],
+    [onChange, close, span],
   );
   return (
     <Flex.Box
@@ -203,6 +210,10 @@ const RollingRow = ({ span, onChange }: RollingRowProps): ReactElement => {
       gap="medium"
       className={CSS.BE("range-ref", "row")}
       onKeyDown={(e) => e.stopPropagation()}
+      // Capture runs before the field blurs itself on Enter.
+      onKeyDownCapture={(e) => {
+        if (e.key === "Enter") submitted.current = true;
+      }}
     >
       <Text.Text className={CSS.BE("range-ref", "live-label")}>
         <Icon.Dynamic />

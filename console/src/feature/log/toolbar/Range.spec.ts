@@ -107,6 +107,17 @@ describe("log/toolbar/Range", () => {
     await expectRange(key, rolling(TimeSpan.minutes(90)));
   });
 
+  it("should let a preset click win over an edited span field", async () => {
+    const { key } = await render();
+    await openSearch();
+    const field = screen.getByRole("textbox", { name: "Rolling span" });
+    act(() => field.focus());
+    fireEvent.change(field, { target: { value: "2h" } });
+    act(() => field.blur());
+    clickPreset("1h");
+    await expectRange(key, rolling(TimeSpan.hours(1)));
+  });
+
   it("should ignore a typed span that does not parse", async () => {
     const { key } = await render(rolling(TimeSpan.hours(1)));
     await openSearch();
