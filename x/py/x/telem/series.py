@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 from pydantic import BaseModel, PrivateAttr
 
-from x.interop import overload_comparison_operators
+from x.interop import ArrayOperators, overload_comparison_operators
 from x.telem.telem import (
     Alignment,
     Bounds,
@@ -334,7 +334,7 @@ def elapsed_seconds(d: np.ndarray) -> np.ndarray:
     return (d - d[0]) / TimeSpan.SECOND  # type: ignore[no-any-return]
 
 
-class MultiSeries:
+class MultiSeries(ArrayOperators):
     series: list[Series]
 
     def __init__(self, series: list[Series]):
