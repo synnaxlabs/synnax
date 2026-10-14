@@ -111,6 +111,9 @@ describe("telem.Provider", () => {
     const client = spy.mock.calls[0][0] as telem.Client;
     const behind = TimeStamp.now().sub(TimeSpan.seconds(10));
     expect(client.now().span(behind).lessThan(TimeSpan.seconds(1))).toBe(true);
+    expect(core.openFeed).toHaveBeenCalledWith(
+      expect.objectContaining({ now: client.now }),
+    );
   });
 
   it("rebuilds the context when the core swaps", () => {

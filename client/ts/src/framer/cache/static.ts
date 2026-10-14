@@ -128,8 +128,8 @@ export class Static {
    * together.
    */
   retainDataType(dt: DataType): void {
-    const held = this.fetched[0]?.data ?? this.streamed[0]?.data;
-    if (held == null || held.dataType.equals(dt)) return;
+    const held = this.dataType;
+    if (held == null || held.equals(dt)) return;
     this.fetched = [];
     this.streamed = [];
     this.covered = [];
@@ -211,9 +211,15 @@ export class Static {
     return { series: new MultiSeries(series), gaps };
   }
 
-  // Fetched entries are sorted and disjoint in time, so only the first one ending after
-  // tr starts can overlap it.
-  private overlapsFetched(tr: TimeRange): boolean {
+  /** @returns the data type of the held series, or null when the cache is empty. */
+  get dataType(): DataType | null {
+    return (this.fetched[0]?.data ?? this.streamed[0]?.data)?.dataType ?? null;
+  }
+
+  /** @returns true when a fetched entry overlaps the given time range. */
+  overlapsFetched(tr: TimeRange): boolean {
+    // Fetched entries are sorted and disjoint in time, so only the first one ending
+    // after tr starts can overlap it.
     let lo = 0;
     let hi = this.fetched.length;
     while (lo < hi) {

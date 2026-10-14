@@ -178,6 +178,15 @@ describe("Unary", () => {
       expect(gaps).toEqual([TimeStamp.seconds(0).range(TimeStamp.seconds(15))]);
     });
 
+    it("should drop a live buffer of the old type when a fetch changes the type", () => {
+      const u = newUnary();
+      u.writeDynamic(stamped(10, 13, [1, 2, 3], LEADING_ALIGNMENT));
+      u.writeStatic(float64(0, 20, 0n));
+      expect(u.leadingBuffer).toBeNull();
+      const { series } = u.read(TimeStamp.seconds(0).range(TimeStamp.seconds(20)));
+      expect(series.dataType).toEqual(DataType.FLOAT64);
+    });
+
     it("should read only the new type after a fetched type change", () => {
       const u = newUnary();
       u.writeStatic(stamped(0, 10, [1, 2], 0n));

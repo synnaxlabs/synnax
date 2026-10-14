@@ -44,18 +44,14 @@ const createClock = (): (() => TimeStamp) => {
   };
 };
 
-/**
- * Asserts a read returned every value written so far and nothing else. A span crossing
- * the live boundary can come back in both its streamed and its fetched representation,
- * so a value may appear twice, but never more.
- */
+/** Asserts a read returned every value written so far, each exactly once. */
 const expectWrittenValues = (values: number[], writeCount: number): void => {
   const counts = new Map<number, number>();
   values.forEach((v) => counts.set(v, (counts.get(v) ?? 0) + 1));
   expect([...counts.keys()].sort((a, b) => a - b)).toEqual(
     Array.from({ length: writeCount }, (_, i) => i),
   );
-  expect([...counts.entries()].filter(([, count]) => count > 2)).toEqual([]);
+  expect([...counts.entries()].filter(([, count]) => count > 1)).toEqual([]);
 };
 
 const createChannels = async () => {
@@ -198,7 +194,7 @@ describe("feed", () => {
     sub.close();
   });
 
-  it("should include the same series object in reads that the stream delivers", async () => {
+  it("should return only the fetched form of a span the live buffer holds", async () => {
     const { time, data } = await createChannels();
     const received: Series[] = [];
     const sub = feed.stream(
@@ -226,9 +222,8 @@ describe("feed", () => {
     }
     const tr = new TimeRange(start, TimeStamp.now().add(TimeSpan.seconds(1)));
     const res = await feed.read(tr, data.key);
-    // Identity equality lets consumers that both read and stream deduplicate the
-    // live buffer.
-    expect(received.some((s) => res.series.includes(s))).toBe(true);
+    expect(res.length).toBeGreaterThan(0);
+    expect(received.some((s) => res.series.includes(s))).toBe(false);
     sub.close();
   });
 

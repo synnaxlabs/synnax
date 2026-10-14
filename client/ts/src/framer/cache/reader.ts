@@ -75,6 +75,11 @@ export interface ReaderProps {
    * @default TimeSpan.seconds(30)
    */
   fetchTimeout?: TimeSpan;
+  /**
+   * The current time on the Core's clock, which stamps every sample.
+   * @default TimeStamp.now
+   */
+  now?: () => TimeStamp;
 }
 
 /**
@@ -96,8 +101,9 @@ export class Reader {
       batchDebounce = DEFAULT_BATCH_DEBOUNCE,
       overlapThreshold = TimeSpan.milliseconds(5),
       fetchTimeout = TimeSpan.seconds(30),
+      now = () => TimeStamp.now(),
     } = props;
-    this.props = { readRemote, cache, overlapThreshold, fetchTimeout };
+    this.props = { readRemote, cache, overlapThreshold, fetchTimeout, now };
     this.batcher = new debounce.Batcher({
       interval: batchDebounce,
       exec: async (entries) => {
@@ -166,11 +172,11 @@ export class Reader {
   // Never throws: every outcome, including a deadline expiry and a post-close arrival,
   // settles through the trackers.
   private async fetchGap({ gap, channels, trackers }: BatchFetch): Promise<void> {
-    const { cache } = this.props;
+    const { cache, now } = this.props;
     let failure: unknown;
     const answered = new TimeRange(
       gap.start,
-      TimeStamp.min(gap.end, TimeStamp.now().sub(COMMIT_MARGIN)),
+      TimeStamp.min(gap.end, now().sub(COMMIT_MARGIN)),
     );
     try {
       const frame = await this.fetchWithDeadline(gap, Array.from(channels));

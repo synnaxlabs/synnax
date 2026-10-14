@@ -84,6 +84,23 @@ describe("read", () => {
     cache.close();
   });
 
+  it("should judge commit recency on the Core's clock", async () => {
+    const cache = new Cache();
+    const ranges: TimeRange[] = [];
+    const readRemote: RemoteReader = async (tr) => {
+      ranges.push(tr);
+      return new Frame([], []);
+    };
+    const coreNow = TimeStamp.now().sub(TimeSpan.minutes(5));
+    const reader = new Reader({ cache, readRemote, now: () => coreNow });
+    const tr = new TimeRange(coreNow.sub(TimeSpan.seconds(10)), coreNow);
+    await reader.read(tr, 1);
+    await reader.read(tr, 1);
+    expect(ranges).toHaveLength(2);
+    expect(ranges[1].end).toEqual(tr.end);
+    cache.close();
+  });
+
   it("should cover a span the Core answers with no data after one fetch", async () => {
     const client = createTestClient();
     const time = await client.channels.create({
@@ -334,8 +351,10 @@ describe("read", () => {
       new TimeRange(TimeSpan.seconds(10), TimeSpan.seconds(20)),
       [1],
     );
-    // Both representations return: 3 buffer samples plus the 3 fetched ones.
-    expect(res.length).toEqual(6);
+    // The fetched form of a span wins over the live buffer's.
+    expect(res.series).toHaveLength(1);
+    expect(res.series[0]).not.toBe(cache.get(1).leadingBuffer);
+    expect(res.length).toEqual(3);
     cache.close();
   });
 
