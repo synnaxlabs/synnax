@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from typing import TypeAlias, cast, overload
 
 from pandas import DataFrame
@@ -55,8 +55,8 @@ class Frame:
             | DataFrame
             | Frame
             | FramePayload
-            | dict[channel.Key, TypedCrudeSeries]
-            | dict[str, TypedCrudeSeries]
+            | Mapping[channel.Key, TypedCrudeSeries]
+            | Mapping[str, TypedCrudeSeries]
             | None
         ) = None,
         series: Sequence[TypedCrudeSeries] | None = None,
@@ -70,7 +70,7 @@ class Frame:
         elif isinstance(channels, DataFrame):
             self.channels = channels.columns.to_list()
             self.series = [Series(data=channels[k]) for k in self.channels]
-        elif isinstance(channels, dict):
+        elif isinstance(channels, Mapping):
             self.channels = cast(list[channel.Key] | list[str], list(channels.keys()))
             self.series = [Series(d) for d in channels.values()]
         elif (series is None or isinstance(series, list)) and (
