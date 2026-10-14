@@ -41,13 +41,46 @@
 @container (width < 16rem) {
     .pluto-select-single-trigger--collapsible {
         > .pluto-select__label,
-        &:has(> .pluto-icon:first-child) > .pluto-caret-animated {
+        &:has(
+                > .pluto-icon:first-child,
+                > .pluto-select-single-trigger__icon:first-child
+            )
+            > .pluto-caret-animated {
             display: none;
         }
 
         > .pluto-icon:first-child,
+        > .pluto-select-single-trigger__icon:first-child,
         > .pluto-caret-animated {
             margin-inline: auto;
         }
     }
+}
+
+/* The clear button sits on the icon and takes its place while the trigger is hovered,
+   so the trigger keeps its size. */
+.pluto-select-single-trigger__icon {
+    display: grid;
+
+    > * {
+        grid-area: 1 / 1;
+    }
+
+    > .pluto-btn.pluto-btn--close {
+        position: static;
+        transform: none;
+        width: 100%;
+        height: 100%;
+
+        & svg {
+            width: 100%;
+            height: 100%;
+        }
+    }
+}
+
+.pluto-select-single-trigger--clearable:hover
+    > .pluto-select-single-trigger__icon
+    > .pluto-icon {
+    visibility: hidden;
 }

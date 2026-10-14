@@ -29,7 +29,7 @@ export interface SingleProps<
       "emptyContent" | "status" | "onSearch" | "actions" | "footer" | "fixedItems"
     >,
     Omit<Dialog.FrameProps, "onChange" | "children" | "variant">,
-    Pick<SingleTriggerProps, "disabled" | "icon" | "haulType">,
+    Pick<SingleTriggerProps, "disabled" | "icon" | "haulType" | "clearable">,
     Pick<List.ItemsProps<K>, "children"> {
   /** Singular name of the thing being selected. It builds the placeholder and the
    * empty and error content. */
@@ -53,6 +53,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
   onChange,
   value,
   allowNone,
+  clearable,
   emptyContent,
   haulType,
   data,
@@ -94,6 +95,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
         <SingleTrigger
           haulType={haulType}
           icon={icon}
+          clearable={clearable}
           placeholder={placeholder}
           aria-label={caseconv.capitalize(resourceName)}
           disabled={disabled}

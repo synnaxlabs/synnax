@@ -13,6 +13,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { renderProp } from "@/component/renderProp";
 import { Haul } from "@/haul";
+import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { List } from "@/list";
 import { Select } from "@/select";
@@ -318,6 +319,45 @@ describe("Select.Single", () => {
       const c = render(<SelectSingle triggerProps={{ collapsible: true }} />);
       hoverPastDelay(select(c));
       expect(getTooltip()).toBeNull();
+    });
+  });
+
+  describe("clearable", () => {
+    const select = (c: ReturnType<typeof render>): void => {
+      fireEvent.click(c.getByText("Test Item"));
+      fireEvent.click(c.getByText("First Item Option"));
+    };
+
+    it("should clear the selection from the button on its icon", () => {
+      const { SelectSingle, onChange } = createSelectSingle();
+      const c = render(<SelectSingle allowNone clearable icon={<Icon.Add />} />);
+      select(c);
+      fireEvent.click(c.getByLabelText("Clear First Item"));
+      expect(onChange).toHaveBeenLastCalledWith(null);
+      expect(c.getByText("Test Item")).toBeTruthy();
+      expect(c.queryByLabelText("Clear First Item")).toBeNull();
+    });
+
+    it("should not open the dialog when the selection is cleared", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle allowNone clearable icon={<Icon.Add />} />);
+      select(c);
+      fireEvent.click(c.getByLabelText("Clear First Item"));
+      expect(c.queryByText("Second Item Option")).toBeNull();
+    });
+
+    it("should not show the button unless the select is clearable", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle allowNone icon={<Icon.Add />} />);
+      select(c);
+      expect(c.queryByLabelText("Clear First Item")).toBeNull();
+    });
+
+    it("should not show the button when there is no icon to replace", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle allowNone clearable />);
+      select(c);
+      expect(c.queryByLabelText("Clear First Item")).toBeNull();
     });
   });
 

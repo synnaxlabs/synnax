@@ -79,7 +79,7 @@ describe("lineplot/toolbar/Data", () => {
     });
   });
 
-  it("clears the X channel with the clear button", async () => {
+  it("clears the X channel with the clear button on its icon", async () => {
     const index = await client.channels.create({
       name: uniqueName("x_index"),
       dataType: DataType.TIMESTAMP,
@@ -88,17 +88,12 @@ describe("lineplot/toolbar/Data", () => {
     const { key } = await renderLinePlot(Toolbar, {
       linePlot: { channels: { x1: index.key } },
     });
-    fireEvent.click(await screen.findByLabelText("Clear X1 channel"));
+    fireEvent.click(await screen.findByLabelText(`Clear ${index.name}`));
     await waitFor(async () => {
       const plot = await reader.lineplots.retrieve(key);
       expect(plot.channels.x1).toBe(0);
     });
-    expect(screen.queryByLabelText("Clear X1 channel")).toBeNull();
-  });
-
-  it("hides the clear button when no X channel is set", async () => {
-    await renderData();
-    expect(screen.queryByLabelText("Clear X1 channel")).toBeNull();
+    expect(screen.queryByLabelText(`Clear ${index.name}`)).toBeNull();
   });
 
   it("displays the stored rolling window", async () => {
