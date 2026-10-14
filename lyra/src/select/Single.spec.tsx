@@ -346,6 +346,16 @@ describe("Select.Single", () => {
       expect(c.queryByText("Second Item Option")).toBeNull();
     });
 
+    it("should clear the selection with Delete on the focused trigger", () => {
+      const { SelectSingle, onChange } = createSelectSingle();
+      const c = render(<SelectSingle allowNone clearable icon={<Icon.Add />} />);
+      select(c);
+      const trigger = c.getByText("First Item").closest("button");
+      if (trigger == null) throw new Error("the trigger did not render");
+      fireEvent.keyDown(trigger, { key: "Delete" });
+      expect(onChange).toHaveBeenLastCalledWith(null);
+    });
+
     it("should not show the button unless the select is clearable", () => {
       const { SelectSingle } = createSelectSingle();
       const c = render(<SelectSingle allowNone icon={<Icon.Add />} />);

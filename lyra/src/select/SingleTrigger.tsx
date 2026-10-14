@@ -10,7 +10,7 @@
 import "@/select/SingleTrigger.css";
 
 import { type record } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useId } from "react";
+import { type KeyboardEvent, type ReactElement, useCallback, useId } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
@@ -36,8 +36,8 @@ export interface SingleTriggerProps extends Dialog.TriggerProps {
   /** Whether to render the icon alone, with no name and no caret. */
   iconOnly?: boolean;
   /**
-   * Whether hovering the icon shows a button that clears the selection. The select
-   * must allow no selection.
+   * Whether hovering the icon shows a button that clears the selection, and Delete or
+   * Backspace on the focused trigger clears it. The select must allow no selection.
    */
   clearable?: boolean;
   /** Chooses an icon from the selected entry, overriding `icon`. */
@@ -76,6 +76,7 @@ export const SingleTrigger = <K extends record.Key>({
   tooltip,
   hideTooltip,
   id: idProp,
+  onKeyDown,
   ...rest
 }: SingleTriggerProps): ReactElement => {
   const allSelected = useSelected<K>();
@@ -125,6 +126,13 @@ export const SingleTrigger = <K extends record.Key>({
     !fixed &&
     disabled !== true &&
     preview !== true;
+  // The clear button is not a tab stop, so the focused trigger takes the key instead.
+  const handleKeyDown = (e: KeyboardEvent<HTMLElement>): void => {
+    onKeyDown?.(e);
+    if (!clearShown || (e.key !== "Delete" && e.key !== "Backspace")) return;
+    e.preventDefault();
+    clear();
+  };
   const labelledBySelection =
     rest["aria-label"] != null &&
     !iconOnly &&
@@ -149,6 +157,7 @@ export const SingleTrigger = <K extends record.Key>({
       onDragEnd={onDragEnd}
       {...dropProps}
       {...rest}
+      onKeyDown={handleKeyDown}
       aria-labelledby={
         labelledBySelection ? `${id} ${labelId}` : rest["aria-labelledby"]
       }
