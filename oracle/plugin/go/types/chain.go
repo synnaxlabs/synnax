@@ -294,7 +294,7 @@ func frozenFile(
 	}
 	content, err := generateGoFile(
 		vkPath, structs, enums, typedefs, unions,
-		table, req.RepoRoot, pred, nil, PersistedClosure(table), false, order,
+		table, req.RepoRoot, pred, nil, PersistedClosure(table), false, order, nil,
 	)
 	if err != nil {
 		return plugin.File{}, errors.Wrapf(err, "frozen package %s", vkPath)

@@ -41,16 +41,26 @@ func generateAutoCopy(
 	mapping chainMapping,
 	wrappers map[string]string,
 ) ([]byte, error) {
-	c := &collector{
-		pkg: pkg, outputPath: outputPath, repoRoot: repoRoot,
-		diff: diff, oldTable: oldTable, newTable: newTable,
-		mapping: mapping,
-		imports: make(map[string]importEntry), generated: make(set.Set[string]),
-		wrappers: wrappers,
+	newCollector := func(aliases map[string]string) *collector {
+		return &collector{
+			pkg: pkg, outputPath: outputPath, repoRoot: repoRoot,
+			diff: diff, oldTable: oldTable, newTable: newTable,
+			mapping: mapping,
+			imports: make(map[string]importEntry), generated: make(set.Set[string]),
+			wrappers: wrappers, aliases: aliases,
+		}
 	}
-	data := c.collect(types)
+	data := newCollector(nil).collect(types)
 	if len(data.Funcs) == 0 {
 		return nil, nil
+	}
+	paths := make([]string, len(data.Imports))
+	for i, imp := range data.Imports {
+		paths[i] = imp.Path
+	}
+	current := gomod.ResolveImportPath(outputPath, repoRoot, gomod.DefaultModulePrefix)
+	if aliases := naming.VersionAliases(paths, current); len(aliases) > 0 {
+		data = newCollector(aliases).collect(types)
 	}
 	var buf bytes.Buffer
 	if err := autoCopyTmpl.Execute(&buf, data); err != nil {
@@ -228,6 +238,8 @@ type collector struct {
 	wrappers map[string]string
 	// usesLo marks that an emitted function body calls a samber/lo helper.
 	usesLo bool
+	// aliases forces the alias of each import path it holds.
+	aliases map[string]string
 }
 
 func (c *collector) collect(types []resolution.Type) fileData {
@@ -761,7 +773,13 @@ func (c *collector) addImport(goPath string) importEntry {
 	// name, matching the hand-written migration convention (v0 "…/versions/v0").
 	// Other resources import under their resource name, falling back to the
 	// versioned form only when two versions of one resource meet in a file.
-	alias := naming.DerivePackageAlias(goPath, c.pkg)
+	alias, forced := c.aliases[importPath]
+	if forced {
+		imp := importEntry{Alias: alias, Path: importPath}
+		c.imports[importPath] = imp
+		return imp
+	}
+	alias = naming.DerivePackageAlias(goPath, c.pkg)
 	if filepath.Dir(goPath) == filepath.Dir(c.outputPath) {
 		alias = filepath.Base(goPath)
 	} else {
