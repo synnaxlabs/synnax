@@ -571,6 +571,16 @@ class TestRemainsTrueForProcessor:
         assert processor.event.is_set()
         assert processor.count == 0
 
+    def test_counts_numeric_results_as_booleans(self) -> None:
+        """Should count a truthy numeric result as one true result, not as its
+        value."""
+        it = iter([2, 0, 2, 0])
+        processor = RemainsTrueFor(lambda _: cast(bool, next(it)), percentage=0.75)
+        for _ in range(4):
+            processor.process(self._state)
+        assert processor.count == 4
+        assert processor.actual == pytest.approx(0.5)
+
     def test_captures_callback_exception(self) -> None:
         """Should capture an exception raised by the callback and exit."""
 

@@ -74,7 +74,7 @@ class RemainsTrueFor(Processor):
 
     def process(self, state: Controller) -> Any:
         try:
-            v = self.callback(state)
+            v = bool(self.callback(state))
             if not v and self.target >= 1:
                 self.event.set()
             else:
