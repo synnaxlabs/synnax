@@ -109,6 +109,9 @@ type funcData struct {
 	SliceHasErr    bool
 	// Cases holds one conversion per variant a "union" function carries across.
 	Cases []unionCase
+	// recv is the identifier the function reads old fields through. No preamble
+	// variable may take it.
+	recv string
 }
 
 // unionCase converts one variant of a union. Its preamble and fields read the old
@@ -410,17 +413,23 @@ func (c *collector) structFuncFromForms(
 ) funcData {
 	fn := funcData{
 		GoName: goName, OldTypeName: oldTypeName, NewTypeName: newTypeName,
-		ZeroValue: newTypeName + "{}", Kind: "struct",
+		ZeroValue: newTypeName + "{}", Kind: "struct", recv: recv,
 	}
-	for i, ext := range oldSF.Extends {
-		if i >= len(newSF.Extends) {
-			continue
+	newExtends := make(set.Set[string], len(newSF.Extends))
+	for _, ext := range newSF.Extends {
+		if newParent, ok := ext.Resolve(c.newTable); ok {
+			newExtends.Add(naming.GetGoName(newParent))
 		}
+	}
+	for _, ext := range oldSF.Extends {
 		oldParent, ok := c.resolveRef(ext)
 		if !ok {
 			continue
 		}
 		name := naming.GetGoName(oldParent)
+		if !newExtends.Contains(name) {
+			continue
+		}
 		c.addField(&fn, ext, recv+"."+name, name, false)
 	}
 	for _, oldField := range oldSF.Fields {
@@ -624,6 +633,9 @@ func (c *collector) addField(
 		return
 	}
 	if cls.needsPreamble {
+		if cls.step.VarName == fn.recv {
+			cls.step.VarName += "Val"
+		}
 		fn.Preamble = append(fn.Preamble, cls.step)
 		fn.Fields = append(fn.Fields, field{Name: goName, Value: cls.step.VarName})
 		fn.UsesCtx = fn.UsesCtx || cls.usesCtx

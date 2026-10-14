@@ -621,6 +621,144 @@ Board struct {
 			},
 			[]string{"Tab(old)"},
 		),
+		Entry("pairs variant embeds by declaration when a union drops a base",
+			"board",
+			`Base struct {
+	key uuid
+
+	@go marshal
+}
+
+View struct {
+	type string
+	args record = {}
+
+	@go marshal
+}
+
+Tab union on variant extends Base {
+	view View
+
+	@go marshal
+}
+
+Board struct {
+	key uuid @key
+	tab Tab
+
+	@go marshal
+	@go migrate
+}
+`,
+			`View struct {
+	type string
+
+	@go marshal
+}
+
+Tab union on variant {
+	view View
+
+	@go marshal
+}
+
+Board struct {
+	key uuid @key
+	tab Tab
+
+	@go marshal
+	@go migrate
+}
+`,
+			`View struct {
+	type string
+}
+
+Tab union on variant {
+	view View
+}
+
+Board struct {
+	key uuid @key
+	tab Tab
+}
+`,
+			true,
+			[]string{
+				"view, err := MigrateView(ctx, variant.View)",
+				"View: view,",
+			},
+			[]string{"Base: variant.Base"},
+		),
+		Entry("keeps a field variable off the type switch's bound name",
+			"board",
+			`View struct {
+	type string
+	args record = {}
+
+	@go marshal
+}
+
+Tab union on kind {
+	panel {
+		variant View
+	}
+
+	@go marshal
+}
+
+Board struct {
+	key uuid @key
+	tab Tab
+
+	@go marshal
+	@go migrate
+}
+`,
+			`View struct {
+	type string
+
+	@go marshal
+}
+
+Tab union on kind {
+	panel {
+		variant View
+	}
+
+	@go marshal
+}
+
+Board struct {
+	key uuid @key
+	tab Tab
+
+	@go marshal
+	@go migrate
+}
+`,
+			`View struct {
+	type string
+}
+
+Tab union on kind {
+	panel {
+		variant View
+	}
+}
+
+Board struct {
+	key uuid @key
+	tab Tab
+}
+`,
+			true,
+			[]string{
+				"variantVal, err := MigrateView(ctx, variant.Variant)",
+				"Variant: variantVal,",
+			},
+			[]string{"variant, err :="},
+		),
 		Entry("leaves a variant the incoming version drops to the generated error",
 			"board",
 			`Tab union on variant {
