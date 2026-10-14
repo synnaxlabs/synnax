@@ -13,7 +13,7 @@ import react from "@vitejs/plugin-react";
 import { lib } from "@synnaxlabs/vite-plugin";
 import path from "path";
 import { defineConfig } from "vite";
-import { copyFileSync, mkdirSync } from "fs";
+import { copyFileSync, cpSync, mkdirSync } from "fs";
 
 export default defineConfig({
   base: "/lyra/",
@@ -21,7 +21,7 @@ export default defineConfig({
     react(),
     lib({ name: "lyra", modules: true }),
     {
-      name: "copy-app-css",
+      name: "copy-static",
       closeBundle() {
         mkdirSync("dist", { recursive: true });
         for (const file of [
@@ -34,6 +34,9 @@ export default defineConfig({
             path.resolve(`src/theming/${file}`),
             path.resolve(`dist/${path.basename(file)}`),
           );
+        cpSync(path.resolve("static"), path.resolve("dist/static"), {
+          recursive: true,
+        });
       },
     },
   ],

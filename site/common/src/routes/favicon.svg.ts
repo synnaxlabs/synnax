@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import favicon from "@synnaxlabs/media/static/logo/icon-white-favicon.svg?raw";
+import favicon from "@synnaxlabs/lyra/dist/static/logo/icon-white-favicon.svg?raw";
 import { type APIRoute } from "astro";
 
 export const prerender = true;
