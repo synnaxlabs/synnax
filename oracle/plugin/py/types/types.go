@@ -191,6 +191,13 @@ func generatePyFile(
 			})
 		case resolution.StructForm:
 			sd := processStruct(typ, table, data, keyFields)
+			if !sd.Skip && !sd.IsAlias {
+				fields := append(
+					resolution.UnifiedFields(typ, table),
+					sd.excludedInherited...,
+				)
+				sd.InitParams = buildInitParams(fields, table, data)
+			}
 			for _, f := range sd.Fields {
 				if f.Alias != "" {
 					sd.HasKeywordAlias = true
@@ -759,6 +766,7 @@ func processStruct(
 							form.OmittedFields,
 						)
 						sd.Fields = append(sd.Fields, fd)
+						sd.excludedInherited = append(sd.excludedInherited, pf)
 						break
 					}
 				}
@@ -862,7 +870,7 @@ func processField(
 		fd.Alias = field.Name
 	}
 
-	baseType := typeToPython(field.Type, table, data)
+	fd.PyType = fieldPyType(field, table, data)
 	validateDomain := field.Domains["validate"]
 	fieldConstraints := collectValidation(
 		validateDomain,
@@ -893,41 +901,51 @@ func processField(
 		fieldConstraints = append(fieldConstraints, "exclude=True")
 	}
 
-	if fd.IsArray {
-		fd.PyType = fmt.Sprintf("list[%s]", baseType)
-	} else {
-		fd.PyType = baseType
-	}
-
-	// Optional (?) fields become T | None in Python (no pointer distinction). A field
-	// typed as an optional type parameter (e.g. details Details, where Details?) is
-	// likewise optional: an unspecialized struct may omit it. A required collection
-	// defaults an absent value to its empty form, so it is always present and
-	// iterable; the server omits a nil ("not loaded") collection from the wire, so
-	// the default is what fills it. CollectionKind sees through aliases and
-	// type-parameter constraints so an alias- or type-parameter-typed collection is
-	// defaulted too.
-	isOptionalTypeParam := field.Type.IsTypeParam() &&
-		field.Type.TypeParam != nil && field.Type.TypeParam.Optional
-	if field.Optional || isOptionalTypeParam {
-		fd.PyType = fd.PyType + " | None"
-	} else if kind, isCollection := resolution.CollectionKind(field.Type, table); isCollection {
-		if kind == "Array" {
+	// A required collection defaults an absent value to its empty form, so it is
+	// always present and iterable; the server omits a nil ("not loaded") collection
+	// from the wire, so the default is what fills it. CollectionKind sees through
+	// aliases and type-parameter constraints so an alias- or type-parameter-typed
+	// collection is defaulted too.
+	optional := field.Optional || isOptionalTypeParam(field)
+	if !optional {
+		kind, isCollection := resolution.CollectionKind(field.Type, table)
+		if isCollection && kind == "Array" {
 			fieldConstraints = ensureDefaultFactory(fieldConstraints, "list")
-		} else {
+		} else if isCollection {
 			fieldConstraints = ensureDefaultFactory(fieldConstraints, "dict")
 		}
 	}
+	fd.Required = !optional && !lo.ContainsBy(fieldConstraints, func(c string) bool {
+		return strings.HasPrefix(c, "default=") ||
+			strings.HasPrefix(c, "default_factory=")
+	})
 
-	fd.Default = buildDefault(
-		field,
-		fieldConstraints,
-		fd.Alias,
-		data,
-		isOptionalTypeParam,
-	)
+	fd.Default = buildDefault(fieldConstraints, fd.Alias, data, optional)
 
 	return fd
+}
+
+// fieldPyType returns the Python annotation of a field. Optional (?) fields become
+// T | None, as do fields typed as an optional type parameter (e.g. details Details,
+// where Details?), since an unspecialized struct may omit them.
+func fieldPyType(
+	field resolution.Field,
+	table *resolution.Table,
+	data *templateData,
+) string {
+	pyType := typeToPython(field.Type, table, data)
+	if field.Type.Name == "Array" {
+		pyType = fmt.Sprintf("list[%s]", pyType)
+	}
+	if field.Optional || isOptionalTypeParam(field) {
+		pyType += " | None"
+	}
+	return pyType
+}
+
+func isOptionalTypeParam(field resolution.Field) bool {
+	return field.Type.IsTypeParam() && field.Type.TypeParam != nil &&
+		field.Type.TypeParam.Optional
 }
 
 // ensureDefaultFactory appends a default_factory constraint unless one is already
@@ -943,17 +961,14 @@ func ensureDefaultFactory(constraints []string, factory string) []string {
 }
 
 func buildDefault(
-	field resolution.Field,
 	constraints []string,
 	alias string,
 	data *templateData,
-	optionalTypeParam bool,
+	optional bool,
 ) string {
-	isAnyOptional := field.Optional || optionalTypeParam
-
 	// When field is optional, filter out any default= constraints from validation
 	// since we'll be using default=None for the optional field
-	if isAnyOptional {
+	if optional {
 		constraints = lo.Filter(constraints, func(c string, _ int) bool {
 			return !strings.HasPrefix(c, "default=")
 		})
@@ -965,7 +980,7 @@ func buildDefault(
 
 	hasConstraints := len(constraints) > 0
 
-	if isAnyOptional {
+	if optional {
 		if hasConstraints {
 			data.imports.addPydantic("Field")
 			return fmt.Sprintf(
@@ -1882,6 +1897,10 @@ type structData struct {
 	IsGeneric       bool
 	HasExtends      bool
 	HasKeywordAlias bool
+	// InitParams are the parameters of a type-checking __init__, or nil for none.
+	InitParams []initParamData
+	// excludedInherited are inherited fields redeclared with exclude=True.
+	excludedInherited []resolution.Field
 }
 
 type fieldData struct {
@@ -1892,6 +1911,8 @@ type fieldData struct {
 	Default    string
 	IsOptional bool
 	IsArray    bool
+	// Required is true when the field has no default, so the caller must set it.
+	Required bool
 }
 
 type enumData struct {
@@ -2096,10 +2117,11 @@ class {{ .PyName }}({{ range $i, $n := .ExtendsNames }}{{ if $i }}, {{ end }}{{ 
 {{- if .HasKeywordAlias }}
     model_config = ConfigDict(populate_by_name=True)
 {{ end }}
-{{- if or .Fields .KeyField }}
+{{- if or .Fields .KeyField .InitParams }}
 {{- range .Fields }}
     {{ .Name }}: {{ .PyType }}{{ .Default }}
 {{- end }}
+{{- template "init" .InitParams }}
 {{- if .KeyField }}
 
     def __hash__(self) -> int:
@@ -2121,6 +2143,7 @@ class {{ .PyName }}(BaseModel, Generic[{{ range $i, $p := .TypeParams }}{{ if $i
 {{- range .Fields }}
     {{ .Name }}: {{ .PyType }}{{ .Default }}
 {{- end }}
+{{- template "init" .InitParams }}
 {{- if .KeyField }}
 
     def __hash__(self) -> int:
@@ -2139,12 +2162,13 @@ class {{ .PyName }}(BaseModel):
 {{- range .Fields }}
     {{ .Name }}: {{ .PyType }}{{ .Default }}
 {{- end }}
+{{- template "init" .InitParams }}
 {{- if .KeyField }}
 
     def __hash__(self) -> int:
         return hash(self.{{ .KeyField }})
 {{- end }}
-{{- if and (not .Fields) (not .KeyField) (not (hasDocumentation .)) (not .HasKeywordAlias) }}
+{{- if and (not .Fields) (not .KeyField) (not (hasDocumentation .)) (not .HasKeywordAlias) (not .InitParams) }}
     pass
 {{- end }}
 {{- end }}
@@ -2164,6 +2188,7 @@ class {{ .ClassName }}({{ range $i, $p := .Parents }}{{ if $i }}, {{ end }}{{ $p
 {{- range .Fields }}
     {{ .Name }}: {{ .PyType }}{{ .Default }}
 {{- end }}
+{{- template "init" .InitParams }}
 {{- end }}
 
 
@@ -2191,5 +2216,18 @@ ONTOLOGY_TYPE = ID(type="{{ .Ontology.TypeName }}")
 def ontology_id(key: {{ .Ontology.KeyType }}) -> ID:
     return ID(type="{{ .Ontology.TypeName }}", key=str(key))
 {{- end }}
-`),
+{{ define "init" }}
+{{- if . }}
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+{{- range . }}
+            {{ .Name }}: {{ .PyType }}{{ if not .Required }} = ...{{ end }},
+{{- end }}
+        ) -> None: ...
+{{- end }}
+{{- end }}`),
 )

@@ -50,6 +50,8 @@ type unionVariantData struct {
 	// model. Populated only for inline variants, whose Synthetic payload has
 	// no standalone model to inherit.
 	Fields []fieldData
+	// InitParams are the parameters of a type-checking __init__, or nil for none.
+	InitParams []initParamData
 }
 
 // processUnion builds the template view for a discriminated union. Each variant
@@ -87,20 +89,26 @@ func processUnion(
 				)
 			}
 		}
+		bases := slices.Clone(inherited)
 		if payload, ok := v.Type.Resolve(table); ok {
 			if v.Inline {
 				pform := payload.Form.(resolution.StructForm)
-				for _, f := range append(slices.Clone(declared), pform.Fields...) {
+				declared = append(slices.Clone(declared), pform.Fields...)
+				for _, f := range declared {
 					vd.Fields = append(vd.Fields,
 						processField(f, table, data, keyFields, nil))
 				}
 			} else {
+				bases = append(bases, v.Type)
 				vd.Parents = append(
 					vd.Parents,
 					buildExtendsExpr(v.Type, payload, table, data),
 				)
 			}
 		}
+		vd.InitParams = variantInitParams(
+			ud.DiscName, v.Name, bases, declared, table, data,
+		)
 		if len(vd.Parents) == 0 {
 			data.imports.addPydantic("BaseModel")
 			vd.Parents = append(vd.Parents, "BaseModel")

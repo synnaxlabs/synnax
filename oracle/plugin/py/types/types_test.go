@@ -2385,3 +2385,135 @@ var _ = Describe("Collection type aliases and maps", func() {
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
+
+var _ = Describe("Python type-checking __init__", func() {
+	var (
+		loader      *MockFileLoader
+		typesPlugin *types.Plugin
+	)
+
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		typesPlugin = types.New(types.DefaultOptions())
+		loader.Add("schemas/telem", `
+			@py output "x/py/x/telem"
+
+			DataType string {
+				@py hand
+			}
+
+			Rate float64 {
+				@py hand
+			}
+		`)
+	})
+
+	It(
+		"Should accept the base primitive of a hand-written distinct field",
+		func(ctx SpecContext) {
+			source := `
+			import "schemas/telem"
+
+			@py output "client/py/synnax/opcua"
+
+			Channel struct {
+				name string
+				data_type telem.DataType = "float32"
+				rate telem.Rate?
+			}
+		`
+			resp := MustGenerate(ctx, source, "opcua", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").ToContain(
+				`from typing import TYPE_CHECKING`,
+				`data_type: telem.DataType = telem.DataType("float32")`,
+				`rate: telem.Rate | None = None`,
+				`    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            name: str,
+            data_type: str = ...,
+            rate: float | None = ...,
+        ) -> None: ...`,
+			)
+		},
+	)
+
+	It(
+		"Should not declare __init__ without a hand-written distinct field",
+		func(ctx SpecContext) {
+			source := `
+			@py output "client/py/synnax/opcua"
+
+			Channel struct {
+				name string
+			}
+		`
+			resp := MustGenerate(ctx, source, "opcua", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").ToNotContain(
+				`TYPE_CHECKING`,
+				`def __init__`,
+			)
+		},
+	)
+
+	It("Should list inherited fields in a subclass __init__", func(ctx SpecContext) {
+		loader.Add("schemas/task", `
+			import "schemas/telem"
+
+			@py output "client/py/synnax/task"
+
+			ReadConfig struct {
+				sample_rate telem.Rate = 10
+			}
+		`)
+		source := `
+			import "schemas/task"
+
+			@py output "client/py/synnax/opcua"
+
+			ReadConfig struct extends task.ReadConfig {
+				device string
+			}
+		`
+		resp := MustGenerate(ctx, source, "opcua", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").
+			ToContain(
+				`class ReadConfig(task.ReadConfig):`,
+				`            sample_rate: float = ...,
+            device: str,`,
+			).
+			ToNotContain(`from x import telem`)
+	})
+
+	It(
+		"Should declare __init__ on a union variant with a hand-written field",
+		func(ctx SpecContext) {
+			source := `
+			import "schemas/telem"
+
+			@py output "client/py/synnax/http"
+
+			ReadParams struct {
+				data_type telem.DataType = "float64"
+			}
+			StaticParams struct {
+				value string
+			}
+
+			Field union on type {
+				read ReadParams
+				static StaticParams
+			}
+		`
+			resp := MustGenerate(ctx, source, "http", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").ToContain(
+				`            type: Literal["read"] = ...,
+            data_type: str = ...,`,
+			)
+			content := MustContentOf(resp, "types_gen.py")
+			Expect(strings.Count(content, "def __init__")).To(Equal(2))
+		},
+	)
+})
