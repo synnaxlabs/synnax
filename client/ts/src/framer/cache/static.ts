@@ -169,7 +169,9 @@ export class Static {
    * overlap with the given time range. The series may extend before or after the range.
    * Gaps are computed against fetched entries only. Streamed entries carry provisional
    * leading alignments that cannot pair with fetched data on another channel, so they
-   * never claim coverage; the fetch they provoke evicts them.
+   * never claim coverage; the fetch they provoke evicts them. A streamed entry that
+   * overlaps a fetched one is left out: consumers order series by alignment, so the
+   * two forms of one span would join backwards in time.
    * @returns A list of series that overlap with the given time range and a list of
    * gaps, representing the regions of time the fetched series do not cover.
    */
@@ -177,7 +179,10 @@ export class Static {
     const overlapping = (entries: CacheEntry[]): Series[] =>
       entries.filter((e) => e.data.timeRange.overlapsWith(tr)).map((e) => e.data);
     const fetched = overlapping(this.fetched);
-    const series = [...fetched, ...overlapping(this.streamed)];
+    const streamed = overlapping(this.streamed).filter(
+      (s) => !this.fetched.some((e) => e.data.timeRange.overlapsWith(s.timeRange)),
+    );
+    const series = [...fetched, ...streamed];
     if (fetched.length === 0)
       return { series: new MultiSeries(series), gaps: this.subtractCovered(tr) };
     const gaps: TimeRange[] = [];

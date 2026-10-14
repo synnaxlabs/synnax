@@ -307,19 +307,49 @@ describe("StaticReadCache", () => {
       expect(gaps).toHaveLength(0);
     });
 
-    it("should keep a streamed entry a fetched write only partially covers", () => {
-      // The fetch may be stamped wider than the committed data it returned, so a
-      // partial cover must not drop the streamed samples it did not replace.
+    it("should leave out a streamed entry that a fetched entry overlaps", () => {
       const c = new Static({});
       c.write(
         streamed(TimeStamp.seconds(12).range(TimeStamp.seconds(20)), [1, 2]),
         true,
       );
       c.write(fetched(TimeStamp.seconds(10).range(TimeStamp.seconds(15)), [1, 2]));
+      const { series, gaps } = c.dirtyRead(
+        TimeStamp.seconds(10).range(TimeStamp.seconds(20)),
+      );
+      expect(series.series).toHaveLength(1);
+      expect(series.series[0].alignment).toEqual(0n);
+      expect(gaps).toHaveLength(1);
+      expect(gaps[0].equals(TimeStamp.seconds(15).range(TimeStamp.seconds(20)))).toBe(
+        true,
+      );
+    });
+
+    it("should leave out a streamed entry that fetched entries cover together", () => {
+      const c = new Static({});
+      c.write(
+        streamed(TimeStamp.seconds(12).range(TimeStamp.seconds(18)), [1, 2]),
+        true,
+      );
+      c.write(fetched(TimeStamp.seconds(10).range(TimeStamp.seconds(15)), [1, 2]));
+      c.write(fetched(TimeStamp.seconds(15).range(TimeStamp.seconds(20)), [3, 4], 2n));
       const { series } = c.dirtyRead(
         TimeStamp.seconds(10).range(TimeStamp.seconds(20)),
       );
-      expect(series.series).toHaveLength(2);
+      expect(series.series.map((s) => s.alignment)).toEqual([0n, 2n]);
+    });
+
+    it("should leave out a streamed entry written after an overlapping fetch", () => {
+      const c = new Static({});
+      c.write(fetched(TimeStamp.seconds(10).range(TimeStamp.seconds(15)), [1, 2]));
+      c.write(
+        streamed(TimeStamp.seconds(12).range(TimeStamp.seconds(20)), [1, 2]),
+        true,
+      );
+      const { series } = c.dirtyRead(
+        TimeStamp.seconds(10).range(TimeStamp.seconds(20)),
+      );
+      expect(series.series).toHaveLength(1);
     });
 
     it("should keep streamed entries that do not overlap the write", () => {
