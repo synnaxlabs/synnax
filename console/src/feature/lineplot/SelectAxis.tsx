@@ -9,6 +9,7 @@
 
 import { type channel, lineplot } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
+import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -79,7 +80,7 @@ export const XAxisChannelSelect = ({
   );
   return (
     <Input.Item x label={label} {...rest} grow>
-      <Flex.Box x pack grow>
+      <Flex.Box x grow align="center" className={CSS.M("reveals")}>
         <Channel.SelectSingle
           value={value}
           onChange={handleChange}
@@ -90,7 +91,9 @@ export const XAxisChannelSelect = ({
         />
         {primitive.isNonZero(value) && (
           <Button.Button
-            variant="outlined"
+            variant="text"
+            size="small"
+            reveal
             onClick={() => handleChange(null)}
             tooltip={`Clear ${label} channel`}
             aria-label={`Clear ${label} channel`}
