@@ -258,7 +258,7 @@ flag and workflow file.
     and a release lands on the site within minutes.
 14. **Release note categories**: `.github/release.yml` groups by the path labeler's
     labels: `console`, `driver`, `core`, `arc`, `cpp-client`, `py-client`, `ts-client`,
-    and `documentation`.
+    and `website`.
 
 ## 5 Open questions
 
