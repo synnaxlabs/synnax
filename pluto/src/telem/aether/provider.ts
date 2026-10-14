@@ -9,6 +9,7 @@
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
 import { type framer, type Synnax } from "@synnaxlabs/client";
+import { TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -62,7 +63,12 @@ export const createProvider = (
           transform: GL_TRANSFORM,
           instrumentation: i.instrumentation,
         });
-        client = { feed: this.feed, channels: core.channels };
+        const { connection } = core;
+        client = {
+          feed: this.feed,
+          channels: core.channels,
+          now: () => TimeStamp.now().sub(connection.status.details.clockSkew),
+        };
       }
       setContext(ctx, new Context(createFactory(client)));
     }

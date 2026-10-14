@@ -51,6 +51,8 @@ export interface Client {
   channels: {
     retrieve: (ch: channel.Key | channel.Name) => Promise<channel.Channel>;
   };
+  /** @returns the current time on the Core's clock, which stamps every sample. */
+  now: () => TimeStamp;
 }
 
 const readLatestSeries = async (
@@ -406,7 +408,7 @@ export class StreamChannelData
     client: Client | null,
     props: unknown,
     options?: CreateOptions,
-    now: () => TimeStamp = () => TimeStamp.now(),
+    now: () => TimeStamp = client?.now ?? (() => TimeStamp.now()),
     breakerConfig?: breaker.Config,
   ) {
     super(props);

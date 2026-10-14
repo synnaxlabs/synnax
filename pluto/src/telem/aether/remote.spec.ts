@@ -57,6 +57,7 @@ const waitForStream = async <T>(
 describe("remote", () => {
   describe("StreamChannelValue", () => {
     class MockClient implements Client {
+      now = (): TimeStamp => TimeStamp.now();
       key: string = id.create();
 
       streamHandler: framer.StreamHandler | null = null;
@@ -438,6 +439,7 @@ describe("remote", () => {
 
   describe("StreamChannelStringValue", () => {
     class MockClient implements Client {
+      now = (): TimeStamp => TimeStamp.now();
       key: string = id.create();
 
       streamHandler: framer.StreamHandler | null = null;
@@ -781,6 +783,7 @@ describe("remote", () => {
 
   describe("ChannelData", () => {
     class MockClient implements Client {
+      now = (): TimeStamp => TimeStamp.now();
       key: string = id.create();
       readMock = vi.fn();
       retrieveChannelMock = vi.fn();
@@ -1183,6 +1186,7 @@ describe("remote", () => {
 
   describe("StreamChannelData", () => {
     class MockClient implements Client {
+      now = (): TimeStamp => TimeStamp.now();
       key: string = id.create();
 
       streamHandler: framer.StreamHandler | null = null;
@@ -1443,6 +1447,17 @@ describe("remote", () => {
         expect(calls).toBe(1);
         // The live stream opened before the back-fill and stays open while parked.
         expect(c.streamDestructorF).not.toHaveBeenCalled();
+        cd.cleanup();
+      });
+
+      it("should place the back-fill window on the Core's clock", async () => {
+        const coreNow = TimeStamp.now().sub(TimeSpan.minutes(5));
+        c.now = () => coreNow;
+        const timeSpan = TimeSpan.seconds(10);
+        const cd = new StreamChannelData(c, { timeSpan, channel: c.channel.key });
+        await waitForResolve(cd);
+        const [tr] = c.readMock.mock.calls[0] as [TimeRange, channel.Key];
+        expect(tr).toEqual(new TimeRange(coreNow.sub(timeSpan), coreNow));
         cd.cleanup();
       });
 
