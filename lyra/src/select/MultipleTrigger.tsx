@@ -192,8 +192,9 @@ export const MultipleTrigger = <
       role="button"
       tabIndex={showAddButton || preview === true ? undefined : 0}
       aria-label={ariaLabel}
+      aria-disabled={disabled}
       onClick={() => {
-        if (!showAddButton) toggle();
+        if (!showAddButton && disabled !== true) toggle();
       }}
       {...dropProps}
       className={CSS.cls(

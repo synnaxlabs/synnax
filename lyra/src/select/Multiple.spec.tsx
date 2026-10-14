@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import { useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -102,6 +102,15 @@ describe("Select.Multiple", () => {
     expect(c.getByText("First Item Option")).toBeTruthy();
     expect(c.getByText("Second Item Option")).toBeTruthy();
     expect(c.getByText("Third Item Option")).toBeTruthy();
+  });
+
+  it("should not open the selection dialog when disabled", () => {
+    const { SelectMultiple } = createSelectMultiple();
+    const c = render(<SelectMultiple disabled />);
+    const trigger = c.getByRole("button", { name: "Test Items" });
+    expect(trigger.getAttribute("aria-disabled")).toBe("true");
+    fireEvent.click(trigger);
+    expect(c.queryByText("First Item Option")).toBeNull();
   });
 
   it("should close the selection dialog when the user clicks on the trigger", () => {
@@ -272,6 +281,16 @@ describe("Select.Multiple", () => {
     expect(trigger.tabIndex).toBe(0);
     fireEvent.keyDown(trigger, { key: "Enter" });
     expect(c.getByText("First Item Option")).toBeTruthy();
+  });
+
+  it("should select the initially hovered item on Enter", () => {
+    const { SelectMultiple, onChange } = createSelectMultiple();
+    const c = render(<SelectMultiple initialHover={0} />);
+    fireEvent.click(c.getByText("Test Items"));
+    act(() => {
+      fireEvent.keyDown(window, { code: "Enter" });
+    });
+    expect(onChange).toHaveBeenCalledWith(["1"]);
   });
 
   it("should prompt a selection when a visible label names the field", () => {

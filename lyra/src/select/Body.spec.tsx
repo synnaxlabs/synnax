@@ -73,6 +73,22 @@ describe("Select.Single dialog body", () => {
     expect(c.getByText("Hello")).toBeTruthy();
   });
 
+  it("should not render the empty content while a fixed item is visible", () => {
+    const c = render(
+      <Select.Single
+        visible
+        data={[]}
+        onChange={vi.fn()}
+        resourceName="result"
+        fixedItems={<Select.Item itemKey="fixed">Fixed</Select.Item>}
+      >
+        {() => <div>Hello</div>}
+      </Select.Single>,
+    );
+    expect(c.getByText("Fixed")).toBeTruthy();
+    expect(c.queryByText("No results found")).toBeNull();
+  });
+
   describe("list height", () => {
     const renderDialog = (data: string[], itemHeight: number) =>
       render(
