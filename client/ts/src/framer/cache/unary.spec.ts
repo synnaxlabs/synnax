@@ -154,6 +154,40 @@ describe("Unary", () => {
     });
   });
 
+  describe("data type changes", () => {
+    const float64 = (startSec: number, endSec: number, alignment: bigint) =>
+      new MultiSeries([
+        new Series({
+          data: new Float64Array([7, 8]),
+          dataType: DataType.FLOAT64,
+          timeRange: TimeStamp.seconds(startSec).range(TimeStamp.seconds(endSec)),
+          alignment,
+        }),
+      ]);
+
+    it("should read only the new type after a streamed type change", () => {
+      const u = newUnary();
+      u.writeStatic(stamped(0, 10, [1, 2], 0n));
+      u.writeDynamic(stamped(10, 13, [1, 2, 3], LEADING_ALIGNMENT));
+      u.writeDynamic(float64(13, 15, LEADING_ALIGNMENT + 3n));
+      const { series, gaps } = u.read(
+        TimeStamp.seconds(0).range(TimeStamp.seconds(15)),
+      );
+      expect(series.series).toEqual([u.leadingBuffer]);
+      expect(series.dataType).toEqual(DataType.FLOAT64);
+      expect(gaps).toEqual([TimeStamp.seconds(0).range(TimeStamp.seconds(15))]);
+    });
+
+    it("should read only the new type after a fetched type change", () => {
+      const u = newUnary();
+      u.writeStatic(stamped(0, 10, [1, 2], 0n));
+      u.writeStatic(float64(10, 20, 2n));
+      const { series } = u.read(TimeStamp.seconds(0).range(TimeStamp.seconds(20)));
+      expect(series.series).toHaveLength(1);
+      expect(series.dataType).toEqual(DataType.FLOAT64);
+    });
+  });
+
   describe("flushDynamic", () => {
     it("should move the leading buffer to static without claiming coverage", () => {
       const u = newUnary();

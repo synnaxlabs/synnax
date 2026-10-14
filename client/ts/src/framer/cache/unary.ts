@@ -45,6 +45,8 @@ export class Unary {
     const { flushed, allocated } = this.dynamic.write(series);
     // Flushed buffers stay streamed until a fetch replaces them.
     if (flushed.length > 0) this.static.write(flushed, true);
+    const leading = this.dynamic.leadingBuffer;
+    if (leading != null) this.static.retainDataType(leading.dataType);
     return allocated;
   }
 

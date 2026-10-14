@@ -10,6 +10,7 @@
 import { alamos } from "@synnaxlabs/alamos";
 import {
   bounds,
+  type DataType,
   MultiSeries,
   Series,
   Size,
@@ -113,12 +114,25 @@ export class Static {
    */
   write(series: MultiSeries, streamed: boolean = false): void {
     if (series.length === 0) return;
+    const converted = series.series.map((s) => this.props.transform.convert(s));
+    this.retainDataType(converted[0].dataType);
     if (!streamed) this.evictStreamed(series);
     const entries = streamed ? this.streamed : this.fetched;
-    series.series.forEach((s) =>
-      this.writeOne(this.props.transform.convert(s), entries),
-    );
+    converted.forEach((s) => this.writeOne(s, entries));
     this.repairIntegrity(series, entries);
+  }
+
+  /**
+   * Drops every entry and coverage record when the cache holds a data type other than
+   * dt. A channel's data type can change, and series of two types cannot be read
+   * together.
+   */
+  retainDataType(dt: DataType): void {
+    const held = this.fetched[0]?.data ?? this.streamed[0]?.data;
+    if (held == null || held.dataType.equals(dt)) return;
+    this.fetched = [];
+    this.streamed = [];
+    this.covered = [];
   }
 
   /**
