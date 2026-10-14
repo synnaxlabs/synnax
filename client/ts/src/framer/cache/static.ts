@@ -10,8 +10,9 @@
 import { alamos } from "@synnaxlabs/alamos";
 import {
   bounds,
+  type DataType,
   MultiSeries,
-  type Series,
+  Series,
   Size,
   TimeRange,
   TimeSpan,
@@ -113,12 +114,25 @@ export class Static {
    */
   write(series: MultiSeries, streamed: boolean = false): void {
     if (series.length === 0) return;
+    const converted = series.series.map((s) => this.props.transform.convert(s));
+    this.retainDataType(converted[0].dataType);
     if (!streamed) this.evictStreamed(series);
     const entries = streamed ? this.streamed : this.fetched;
-    series.series.forEach((s) =>
-      this.writeOne(this.props.transform.convert(s), entries),
-    );
+    converted.forEach((s) => this.writeOne(s, entries));
     this.repairIntegrity(series, entries);
+  }
+
+  /**
+   * Drops every entry and coverage record when the cache holds a data type other than
+   * dt. A channel's data type can change, and series of two types cannot be read
+   * together.
+   */
+  retainDataType(dt: DataType): void {
+    const held = this.dataType;
+    if (held == null || held.equals(dt)) return;
+    this.fetched = [];
+    this.streamed = [];
+    this.covered = [];
   }
 
   /**
@@ -169,7 +183,9 @@ export class Static {
    * overlap with the given time range. The series may extend before or after the range.
    * Gaps are computed against fetched entries only. Streamed entries carry provisional
    * leading alignments that cannot pair with fetched data on another channel, so they
-   * never claim coverage; the fetch they provoke evicts them.
+   * never claim coverage; the fetch they provoke evicts them. A streamed entry that
+   * overlaps a fetched one is left out: consumers order series by alignment, so the
+   * two forms of one span would join backwards in time.
    * @returns A list of series that overlap with the given time range and a list of
    * gaps, representing the regions of time the fetched series do not cover.
    */
@@ -177,7 +193,10 @@ export class Static {
     const overlapping = (entries: CacheEntry[]): Series[] =>
       entries.filter((e) => e.data.timeRange.overlapsWith(tr)).map((e) => e.data);
     const fetched = overlapping(this.fetched);
-    const series = [...fetched, ...overlapping(this.streamed)];
+    const streamed = overlapping(this.streamed).filter(
+      (s) => !this.overlapsFetched(s.timeRange),
+    );
+    const series = [...fetched, ...streamed];
     if (fetched.length === 0)
       return { series: new MultiSeries(series), gaps: this.subtractCovered(tr) };
     const gaps: TimeRange[] = [];
@@ -190,6 +209,25 @@ export class Static {
       pushGap(fetched[i - 1].timeRange.end, fetched[i].timeRange.start);
     pushGap(fetched[fetched.length - 1].timeRange.end, tr.end);
     return { series: new MultiSeries(series), gaps };
+  }
+
+  /** @returns the data type of the held series, or null when the cache is empty. */
+  get dataType(): DataType | null {
+    return (this.fetched[0]?.data ?? this.streamed[0]?.data)?.dataType ?? null;
+  }
+
+  /** @returns true when a fetched entry overlaps the given time range. */
+  overlapsFetched(tr: TimeRange): boolean {
+    // Fetched entries are sorted and disjoint in time, so only the first one ending
+    // after tr starts can overlap it.
+    let lo = 0;
+    let hi = this.fetched.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if (this.fetched[mid].data.timeRange.end.beforeEq(tr.start)) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo < this.fetched.length && this.fetched[lo].data.timeRange.overlapsWith(tr);
   }
 
   // Removes the covered portions of gap, returning the still-unanswered remainder.
@@ -215,6 +253,19 @@ export class Static {
     return remaining;
   }
 
+  // Removes tr from the covered set, splitting any record it falls inside.
+  private uncover(tr: TimeRange): void {
+    this.covered = this.covered.flatMap((c) => {
+      if (!c.range.overlapsWith(tr)) return [c];
+      return [
+        new TimeRange(c.range.start, tr.start),
+        new TimeRange(tr.end, c.range.end),
+      ]
+        .filter((r) => r.isValid && !r.span.isZero)
+        .map((range) => ({ range, addedAt: c.addedAt }));
+    });
+  }
+
   /**
    * Garbage collects the cache, removing any stale entries.
    * @returns metrics about the garbage collection.
@@ -233,7 +284,15 @@ export class Static {
         }
         return shouldKeep;
       });
-    this.fetched = collect(this.fetched);
+    const fetched = collect(this.fetched);
+    // Purged samples take their coverage with them, or reads would skip their span.
+    if (fetched.length < this.fetched.length) {
+      const kept = new Set(fetched);
+      this.fetched.forEach((e) => {
+        if (!kept.has(e)) this.uncover(e.data.timeRange);
+      });
+    }
+    this.fetched = fetched;
     this.streamed = collect(this.streamed);
     // The client cannot tell "no data yet" from "no data ever" (backfill is legal),
     // so stale coverage re-opens an empty span to one cheap fetch per staleness
@@ -267,9 +326,22 @@ export class Static {
     const { removeBefore, removeAfter, insertInto, deleteInBetween } = insertionPlan;
     series = series.slice(removeBefore, series.length - removeAfter);
     if (series.length === 0) return;
-    entries.splice(insertInto, deleteInBetween, {
-      data: series,
-      addedAt: TimeStamp.now(),
+    const entry = { data: series, addedAt: TimeStamp.now() };
+    entries.splice(insertInto, deleteInBetween, entry);
+    if (removeBefore === 0 && removeAfter === 0) return;
+    // A slice keeps the untrimmed time range, which would hide the trimmed span from
+    // gap computation once the neighbor it was trimmed against is gone.
+    const { start, end } = series.timeRange;
+    entry.data = new Series({
+      data: series.data,
+      dataType: series.dataType,
+      timeRange: new TimeRange(
+        removeBefore > 0 ? entries[insertInto - 1].data.timeRange.end : start,
+        removeAfter > 0 ? entries[insertInto + 1].data.timeRange.start : end,
+      ),
+      sampleOffset: series.sampleOffset,
+      alignment: series.alignment,
+      alignmentMultiple: series.alignmentMultiple,
     });
   }
 
