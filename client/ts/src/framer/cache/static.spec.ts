@@ -307,19 +307,49 @@ describe("StaticReadCache", () => {
       expect(gaps).toHaveLength(0);
     });
 
-    it("should keep a streamed entry a fetched write only partially covers", () => {
-      // The fetch may be stamped wider than the committed data it returned, so a
-      // partial cover must not drop the streamed samples it did not replace.
+    it("should leave out a streamed entry that a fetched entry overlaps", () => {
       const c = new Static({});
       c.write(
         streamed(TimeStamp.seconds(12).range(TimeStamp.seconds(20)), [1, 2]),
         true,
       );
       c.write(fetched(TimeStamp.seconds(10).range(TimeStamp.seconds(15)), [1, 2]));
+      const { series, gaps } = c.dirtyRead(
+        TimeStamp.seconds(10).range(TimeStamp.seconds(20)),
+      );
+      expect(series.series).toHaveLength(1);
+      expect(series.series[0].alignment).toEqual(0n);
+      expect(gaps).toHaveLength(1);
+      expect(gaps[0].equals(TimeStamp.seconds(15).range(TimeStamp.seconds(20)))).toBe(
+        true,
+      );
+    });
+
+    it("should leave out a streamed entry that fetched entries cover together", () => {
+      const c = new Static({});
+      c.write(
+        streamed(TimeStamp.seconds(12).range(TimeStamp.seconds(18)), [1, 2]),
+        true,
+      );
+      c.write(fetched(TimeStamp.seconds(10).range(TimeStamp.seconds(15)), [1, 2]));
+      c.write(fetched(TimeStamp.seconds(15).range(TimeStamp.seconds(20)), [3, 4], 2n));
       const { series } = c.dirtyRead(
         TimeStamp.seconds(10).range(TimeStamp.seconds(20)),
       );
-      expect(series.series).toHaveLength(2);
+      expect(series.series.map((s) => s.alignment)).toEqual([0n, 2n]);
+    });
+
+    it("should leave out a streamed entry written after an overlapping fetch", () => {
+      const c = new Static({});
+      c.write(fetched(TimeStamp.seconds(10).range(TimeStamp.seconds(15)), [1, 2]));
+      c.write(
+        streamed(TimeStamp.seconds(12).range(TimeStamp.seconds(20)), [1, 2]),
+        true,
+      );
+      const { series } = c.dirtyRead(
+        TimeStamp.seconds(10).range(TimeStamp.seconds(20)),
+      );
+      expect(series.series).toHaveLength(1);
     });
 
     it("should keep streamed entries that do not overlap the write", () => {
@@ -378,6 +408,65 @@ describe("StaticReadCache", () => {
     });
   });
 
+  describe("trimmed writes", () => {
+    const series = (tr: TimeRange, alignment: bigint, length: number) =>
+      new MultiSeries([
+        new Series({
+          data: new Float32Array(length),
+          dataType: DataType.FLOAT32,
+          timeRange: tr,
+          alignment,
+        }),
+      ]);
+
+    it("should end a series trimmed against a later entry where that entry starts", () => {
+      const c = new Static({});
+      c.write(series(TimeStamp.seconds(10).range(TimeStamp.seconds(20)), 100n, 100));
+      c.write(series(TimeStamp.seconds(0).range(TimeStamp.seconds(15)), 0n, 150));
+      const [first] = c.dirtyRead(TimeStamp.seconds(0).range(TimeStamp.seconds(20)))
+        .series.series;
+      expect(first.length).toEqual(100);
+      expect(first.timeRange).toEqual(
+        TimeStamp.seconds(0).range(TimeStamp.seconds(10)),
+      );
+    });
+
+    it("should start a series trimmed against an earlier entry where that entry ends", () => {
+      const c = new Static({});
+      c.write(series(TimeStamp.seconds(0).range(TimeStamp.seconds(10)), 0n, 100));
+      c.write(series(TimeStamp.seconds(5).range(TimeStamp.seconds(20)), 50n, 150));
+      const [, second] = c.dirtyRead(TimeStamp.seconds(0).range(TimeStamp.seconds(20)))
+        .series.series;
+      expect(second.length).toEqual(100);
+      expect(second.timeRange).toEqual(
+        TimeStamp.seconds(10).range(TimeStamp.seconds(20)),
+      );
+    });
+
+    it("should report the span a trimmed write gave up as a gap once its owner is purged", async () => {
+      const c = new Static({ staleEntryThreshold: TimeSpan.milliseconds(5) });
+      const owner = series(
+        TimeStamp.seconds(10).range(TimeStamp.seconds(20)),
+        100n,
+        100,
+      );
+      c.write(owner);
+      const trimmed = series(
+        TimeStamp.seconds(0).range(TimeStamp.seconds(15)),
+        0n,
+        150,
+      );
+      c.write(trimmed);
+      const tr = TimeStamp.seconds(0).range(TimeStamp.seconds(20));
+      c.dirtyRead(tr).series.series[0].acquire();
+      await sleep.sleep(TimeSpan.milliseconds(10));
+      expect(c.gc().purgedSeries).toEqual(1);
+      const { gaps } = c.dirtyRead(tr);
+      expect(gaps).toHaveLength(1);
+      expect(gaps[0]).toEqual(TimeStamp.seconds(10).range(TimeStamp.seconds(20)));
+    });
+  });
+
   describe("garbage collection", () => {
     it("should correctly garbage collect series that have a reference count of zero", async () => {
       const c = new Static({ staleEntryThreshold: TimeSpan.milliseconds(5) });
@@ -420,6 +509,30 @@ describe("StaticReadCache", () => {
       c.dirtyRead(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3)));
       expect(c.gc().purgedSeries).toEqual(0);
       expect(read().series.length).toEqual(1);
+    });
+
+    it("should report the span of a purged series as a gap again", async () => {
+      const c = new Static({ staleEntryThreshold: TimeSpan.milliseconds(5) });
+      const fetchedTR = TimeStamp.seconds(10).range(TimeStamp.seconds(30));
+      const purgedTR = TimeStamp.seconds(10).range(TimeStamp.seconds(20));
+      const keptTR = TimeStamp.seconds(20).range(TimeStamp.seconds(30));
+      const series = (tr: TimeRange, alignment: bigint) =>
+        new Series({
+          data: new Float32Array([1, 2]),
+          dataType: DataType.FLOAT32,
+          timeRange: tr,
+          alignment,
+        });
+      const kept = series(keptTR, 2n);
+      c.write(new MultiSeries([series(purgedTR, 0n), kept]));
+      c.markFetched(fetchedTR);
+      kept.acquire();
+      await sleep.sleep(TimeSpan.milliseconds(10));
+      expect(c.gc().purgedSeries).toEqual(1);
+      const { series: read, gaps } = c.dirtyRead(fetchedTR);
+      expect(read.series).toEqual([kept]);
+      expect(gaps).toHaveLength(1);
+      expect(gaps[0].equals(purgedTR)).toBe(true);
     });
   });
   describe("close", () => {
@@ -644,27 +757,6 @@ describe("StaticReadCache", () => {
       expect(series.series).toHaveLength(2);
       expect(gaps).toHaveLength(1);
       expect(gaps[0]).toEqual(TimeStamp.seconds(3).range(TimeStamp.seconds(4)));
-    });
-
-    test("should keep answering after gc purges the span's series", async () => {
-      const c = new Static({ staleEntryThreshold: TimeSpan.milliseconds(5) });
-      const tr = TimeStamp.seconds(1).spanRange(TimeSpan.seconds(1));
-      c.write(
-        new MultiSeries([
-          new Series({
-            data: new Float32Array([1]),
-            dataType: DataType.FLOAT32,
-            timeRange: tr,
-            alignment: 0n,
-          }),
-        ]),
-      );
-      c.markFetched(tr);
-      await sleep.sleep(TimeSpan.milliseconds(10));
-      expect(c.gc().purgedSeries).toEqual(1);
-      const { series, gaps } = c.dirtyRead(tr);
-      expect(series).toHaveLength(0);
-      expect(gaps).toHaveLength(0);
     });
 
     test("should restart coverage on a refetch of an expired span", async () => {
