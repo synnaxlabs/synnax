@@ -16,8 +16,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { ButtonForm } from "@/schematic/node/general/button/Form";
 import { createConfig } from "@/schematic/node/registry";
-import { renderForm } from "@/testutil/form";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, renderForm } from "@/testutil";
 
 const client = createTestClient();
 

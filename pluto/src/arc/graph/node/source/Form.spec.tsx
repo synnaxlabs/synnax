@@ -16,8 +16,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { configZ } from "@/arc/graph/node/source/config";
 import { Form } from "@/arc/graph/node/source/Form";
-import { renderForm } from "@/testutil/form";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, renderForm } from "@/testutil";
 
 const client = createTestClient();
 
