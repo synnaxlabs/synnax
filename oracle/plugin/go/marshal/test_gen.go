@@ -12,6 +12,7 @@ package marshal
 import (
 	"bytes"
 	"fmt"
+	"maps"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -21,6 +22,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/typemap"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
 	"github.com/synnaxlabs/oracle/plugin/go/types"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
@@ -72,21 +74,56 @@ const (
 	modeEmptyCollections
 )
 
+// generateTestCodecFile renders the codec test file, then renders it again when it
+// imports more than one version of a dependency, so the aliases follow
+// naming.VersionAliases.
 func generateTestCodecFile(
 	packageName string,
 	parentPath string,
 	entries []CodecEntry,
 	table *resolution.Table,
 	repoRoot string,
+	pins versioning.Pins,
 ) ([]byte, error) {
 	pkgImport, err := resolveGoImportPath(parentPath, repoRoot)
 	if err != nil {
 		return nil, err
 	}
+	imports := make(map[string]string)
+	content, err := renderTestCodecFile(
+		packageName, parentPath, pkgImport, entries, table, repoRoot, pins, nil,
+		imports,
+	)
+	if err != nil {
+		return nil, err
+	}
+	aliases := naming.VersionAliases(slices.Collect(maps.Keys(imports)), pkgImport)
+	if len(aliases) == 0 {
+		return content, nil
+	}
+	return renderTestCodecFile(
+		packageName, parentPath, pkgImport, entries, table, repoRoot, pins,
+		aliases, make(map[string]string),
+	)
+}
+
+// renderTestCodecFile renders the codec test file, recording its imports into
+// imports. aliases forces the alias of each import path it holds.
+func renderTestCodecFile(
+	packageName string,
+	parentPath string,
+	pkgImport string,
+	entries []CodecEntry,
+	table *resolution.Table,
+	repoRoot string,
+	pins versioning.Pins,
+	aliases map[string]string,
+	imports map[string]string,
+) ([]byte, error) {
 	fo := testFileOutput{
 		Package:      packageName,
 		PkgImport:    pkgImport,
-		ExtraImports: make(map[string]string),
+		ExtraImports: imports,
 	}
 
 	sharedVars := make(map[string]string)
@@ -109,6 +146,8 @@ func generateTestCodecFile(
 			packageName: packageName,
 			parentPath:  parentPath,
 			imports:     fo.ExtraImports,
+			aliases:     aliases,
+			pins:        pins,
 			pkgPrefix:   packageName + ".",
 			mode:        modeFullyPopulated,
 		}
@@ -185,6 +224,8 @@ func generateTestCodecFile(
 					packageName: packageName,
 					parentPath:  parentPath,
 					imports:     fo.ExtraImports,
+					aliases:     aliases,
+					pins:        pins,
 					pkgPrefix:   packageName + ".",
 					mode:        modeFullyPopulated,
 					sharedVars:  sharedVars,
@@ -265,6 +306,9 @@ func generateTestCodecFile(
 					packageName: packageName,
 					parentPath:  parentPath,
 					imports:     fo.ExtraImports,
+					aliases:     aliases,
+					pins:        pins,
+					owner:       e.Type.QualifiedName,
 					sharedVars:  sharedVars,
 					pkgPrefix:   packageName + ".",
 					mode:        m.mode,
@@ -354,6 +398,8 @@ func generateTestCodecFile(
 					packageName: packageName,
 					parentPath:  parentPath,
 					imports:     fo.ExtraImports,
+					aliases:     aliases,
+					pins:        pins,
 					pkgPrefix:   packageName + ".",
 					mode:        m.mode,
 					sharedVars:  sharedVars,
@@ -459,11 +505,18 @@ type testValueBuilder struct {
 	packageName string
 	parentPath  string
 	imports     map[string]string
-	pkgPrefix   string
-	needsUUID   bool
-	depth       int
-	fieldIndex  int
-	mode        valueMode
+	// aliases forces the alias of each import path it holds.
+	aliases map[string]string
+	// pins resolves a stored reference to the dependency version that owner's version
+	// file imports.
+	pins versioning.Pins
+	// owner is the qualified name of the type whose fields the builder is filling.
+	owner      string
+	pkgPrefix  string
+	needsUUID  bool
+	depth      int
+	fieldIndex int
+	mode       valueMode
 	// sharedVars maps a struct's qualified name to a package-level fixture
 	// var that union embeds reference instead of inlining the literal. Nil
 	// while building the fixtures themselves, so they never reference each
@@ -532,6 +585,12 @@ func (b *testValueBuilder) buildStructFieldExprs(
 	form, ok := typ.Form.(resolution.StructForm)
 	if !ok {
 		return nil, nil
+	}
+	// An inline payload belongs to its union, which already owns the fields.
+	if !typ.Synthetic {
+		prev := b.owner
+		b.owner = typ.QualifiedName
+		defer func() { b.owner = prev }()
 	}
 	if types.CanEmbed(form, b.table) {
 		return b.buildEmbeddedStructFieldExprs(form)
@@ -757,7 +816,8 @@ func (b *testValueBuilder) valueExpr(
 				substituted[i].Type = resolution.SubstituteTypeRef(f.Type, typeArgMap)
 			}
 			var fieldExprs []string
-			for _, f := range substituted {
+			outer := b.owner
+			for i, f := range substituted {
 				if f.Type.Name == "nil" {
 					continue
 				}
@@ -770,6 +830,12 @@ func (b *testValueBuilder) valueExpr(
 				}
 				b.fieldIndex++
 				fieldGoName := naming.GetFieldName(f)
+				// A field typed by a type argument was written in the outer
+				// declaration's file, so it keeps the outer pins.
+				b.owner = outer
+				if !actual.Synthetic && !usesTypeParam(fields[i].Type) {
+					b.owner = actual.QualifiedName
+				}
 				var expr string
 				var err error
 				if f.Optional && b.isGoPointerField(f.Type) {
@@ -777,6 +843,7 @@ func (b *testValueBuilder) valueExpr(
 				} else {
 					expr, err = b.valueExpr(r, f.Type)
 				}
+				b.owner = outer
 				if err != nil {
 					return "", err
 				}
@@ -844,6 +911,9 @@ func (b *testValueBuilder) unionExpr(
 	if err != nil {
 		return "", err
 	}
+	prev := b.owner
+	b.owner = actual.QualifiedName
+	defer func() { b.owner = prev }()
 	goName := naming.GetGoName(actual)
 	variantType := strings.TrimSuffix(goType, goName) +
 		casing.VariantTypeName(goName, v.Name)
@@ -1151,17 +1221,23 @@ func (b *testValueBuilder) goTypeName(typ resolution.Type) (string, error) {
 	if goPath == "" || goPath == b.parentPath {
 		return b.pkgPrefix + goName, nil
 	}
+	if p, ok := b.pins.Path(b.owner, typ); ok {
+		goPath = p
+	}
 	importPath, err := resolveGoImportPath(goPath, b.repoRoot)
 	if err != nil {
 		return "", err
 	}
-	alias := naming.DerivePackageAlias(goPath, b.packageName)
+	alias, forced := b.aliases[importPath]
 	// A versioned sub-package (…/versions/v0) aliases to its bare resource name, which
 	// shadows that resource's root package or another already-imported package sharing
 	// the name. Disambiguate with the version-suffixed alias, matching the migration
 	// import convention (spatialv0).
-	if b.aliasCollides(importPath, alias) {
-		alias = naming.DeriveVersionedAlias(goPath, b.packageName)
+	if !forced {
+		alias = naming.DerivePackageAlias(goPath, b.packageName)
+		if b.aliasCollides(importPath, alias) {
+			alias = naming.DeriveVersionedAlias(goPath, b.packageName)
+		}
 	}
 	actualPkg := filepath.Base(importPath)
 	if alias == actualPkg {
@@ -1383,3 +1459,8 @@ func FuzzDecode{{.GoName}}(f *testing.F) {
 	})
 }
 {{end}}`
+
+// usesTypeParam reports whether ref names one of its declaration's type parameters.
+func usesTypeParam(ref resolution.TypeRef) bool {
+	return ref.IsTypeParam() || slices.ContainsFunc(ref.TypeArgs, usesTypeParam)
+}

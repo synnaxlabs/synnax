@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
-import { MultiSeries } from "@synnaxlabs/x";
+import { MultiSeries, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { type aether } from "@/aether/aether";
@@ -34,9 +34,11 @@ const TELEM_KEY = "telem";
 interface StubCore {
   openFeed: Mock;
   channels: telem.Client["channels"];
+  connection: { status: { details: { clockSkew: TimeSpan } } };
 }
 
-const stubCore = (): StubCore => ({
+const stubCore = (clockSkew: TimeSpan = TimeSpan.ZERO): StubCore => ({
+  connection: { status: { details: { clockSkew } } },
   openFeed: vi.fn(() => ({
     read: async () => new MultiSeries([]),
     stream: () => telemTest.mockSubscription(() => {}),
@@ -97,7 +99,21 @@ describe("telem.Provider", () => {
     expect(spy).toHaveBeenCalledWith({
       feed: core.openFeed.mock.results[0].value,
       channels: core.channels,
+      now: expect.any(Function),
     });
+  });
+
+  it("should tell time on the Core's clock", () => {
+    const core = stubCore(TimeSpan.seconds(10));
+    mockUse.mockReturnValue(core);
+    const spy = vi.fn((client: telem.Client | null) => telem.createFactory(client));
+    mountProvider(spy);
+    const client = spy.mock.calls[0][0] as telem.Client;
+    const behind = TimeStamp.now().sub(TimeSpan.seconds(10));
+    expect(client.now().span(behind).lessThan(TimeSpan.seconds(1))).toBe(true);
+    expect(core.openFeed).toHaveBeenCalledWith(
+      expect.objectContaining({ now: client.now }),
+    );
   });
 
   it("rebuilds the context when the core swaps", () => {
@@ -113,6 +129,7 @@ describe("telem.Provider", () => {
     expect(spy).toHaveBeenLastCalledWith({
       feed: core.openFeed.mock.results[0].value,
       channels: core.channels,
+      now: expect.any(Function),
     });
   });
 
