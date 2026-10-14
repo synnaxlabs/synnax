@@ -9,7 +9,7 @@
 
 import { type ranger } from "@synnaxlabs/client";
 import { RoleClients } from "@synnaxlabs/client/testutil";
-import { TimeSpan } from "@synnaxlabs/x";
+import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -120,6 +120,34 @@ describe("log/toolbar/Range", () => {
     await render(STATIC);
     await openSearch();
     expect(screen.getByText("Fixed")).toBeDefined();
+  });
+
+  it("should keep an edited fixed bound when Enter commits it", async () => {
+    const favorite: Session.Range.StaticState = {
+      variant: "static",
+      key: "3a7b9c1d-5e2f-4a6b-8c0d-2e4f6a8b0c1d",
+      name: "Hot fire",
+      timeRange: { start: 5_000_000_000, end: 6_000_000_000 },
+    };
+    const { key } = await render(STATIC, [favorite]);
+    await openSearch();
+    await screen.findByText("Hot fire");
+    const [startBound] = document.querySelectorAll(".pluto-time-editor__trigger");
+    fireEvent.click(startBound);
+    const field = screen
+      .getAllByRole<HTMLInputElement>("textbox")
+      .find((f) => f.placeholder !== "Search ranges or type a duration");
+    assertDefined(field);
+    const start = new TimeStamp(2_000_000_000n);
+    fireEvent.change(field, { target: { value: start.toString("dateTime", "local") } });
+    act(() => {
+      fireEvent.keyDown(field, { key: "Enter", code: "Enter" });
+    });
+    await waitFor(async () => {
+      const { range } = await client.logs.retrieve(key);
+      expect(range).toMatchObject({ variant: "window", window: { variant: "static" } });
+      expect(range).not.toEqual(STATIC);
+    });
   });
 
   it("should store a range only the session holds as its fixed window", async () => {

@@ -164,8 +164,15 @@ const FixedRow = ({ window, onChange }: FixedRowProps): ReactElement => {
   const end = Number(window.timeRange.end);
   const set = (bound: "start" | "end", value: number): void =>
     onChange(setBound(window, bound, value));
+  // A bound's editor commits on Enter, which must not also pick the hovered range.
   return (
-    <Flex.Box x align="center" gap="medium" className={CSS.BE("range-ref", "row")}>
+    <Flex.Box
+      x
+      align="center"
+      gap="medium"
+      className={CSS.BE("range-ref", "row")}
+      onKeyDown={(e) => e.stopPropagation()}
+    >
       <Text.Text className={CSS.BE("range-ref", "row-label")}>
         <Icon.Range />
         Fixed
