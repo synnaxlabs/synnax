@@ -375,6 +375,13 @@ export class ChannelData
   }
 }
 
+// The span a live source's back-fill and stream both miss.
+interface Seam {
+  backfillEnd?: TimeStamp;
+  liveStart?: TimeStamp;
+  filled: boolean;
+}
+
 const streamChannelDataPropsZ = z.object({
   channel: z.number().or(z.string()),
   useIndexOfChannel: z.boolean().default(false),
@@ -478,6 +485,7 @@ export class StreamChannelData
     const { channel, useIndexOfChannel, timeSpan } = this.props;
     let fetched: SelectedChannelProperties;
     let streamStart: TimeStamp;
+    const seam: Seam = { filled: false };
     try {
       fetched = await fetchChannelProperties(client, channel, useIndexOfChannel);
       if (generation !== this.generation) return;
@@ -495,6 +503,12 @@ export class StreamChannelData
         )
           return this.restart();
         this.pushNew(series.series);
+        if (seam.liveStart == null && series.series.length > 0) {
+          seam.liveStart = TimeStamp.min(
+            ...series.series.map((s) => s.timeRange.start),
+          );
+          void this.fillSeam(generation, client, seam);
+        }
         this.notify();
         this.gcOutOfRangeData();
       };
@@ -522,6 +536,8 @@ export class StreamChannelData
           );
           if (generation !== this.generation) return;
           this.pushNew(res.series);
+          seam.backfillEnd = liveStart;
+          void this.fillSeam(generation, client, seam);
         }
       } catch (e) {
         // Certain calculated channels can fail to read because they need access to
@@ -538,6 +554,32 @@ export class StreamChannelData
         }
       }
     this.notify();
+  }
+
+  // Reads the span between the back-fill's end and the first streamed series once both
+  // are known. The stream delivers only samples written after it opens, which is later
+  // than the back-fill's end.
+  private async fillSeam(
+    generation: number,
+    client: Client,
+    seam: Seam,
+  ): Promise<void> {
+    const { backfillEnd, liveStart } = seam;
+    if (backfillEnd == null || liveStart == null || seam.filled || this.channel == null)
+      return;
+    seam.filled = true;
+    if (!liveStart.after(backfillEnd)) return;
+    try {
+      const res = await client.feed.read(
+        new TimeRange(backfillEnd, liveStart),
+        this.channel.key,
+      );
+      if (generation !== this.generation) return;
+      this.pushNew(res.series);
+      this.notify();
+    } catch (e) {
+      this.failures.report(e, "Failed to read channel data");
+    }
   }
 
   // feed.read returns the live leading buffer that the stream's first delivery repeats,

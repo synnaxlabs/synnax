@@ -1461,6 +1461,29 @@ describe("remote", () => {
         cd.cleanup();
       });
 
+      it("should read the span between the back-fill and the first live series", async () => {
+        const ranges: TimeRange[] = [];
+        c.feed.read = async (tr: TimeRange): Promise<MultiSeries> => {
+          ranges.push(tr);
+          return new MultiSeries([]);
+        };
+        const cd = new StreamChannelData(c, {
+          timeSpan: TimeSpan.seconds(10),
+          channel: c.channel.key,
+        });
+        await waitForStream(cd, c);
+        await expect.poll(() => ranges.length).toBe(1);
+        const liveStart = ranges[0].end.add(TimeSpan.milliseconds(200));
+        const live = new Series({
+          data: new Float32Array([1, 2]),
+          timeRange: new TimeRange(liveStart, TimeStamp.MAX),
+        });
+        c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
+        await expect.poll(() => ranges.length).toBe(2);
+        expect(ranges[1]).toEqual(new TimeRange(ranges[0].end, liveStart));
+        cd.cleanup();
+      });
+
       // A back-fill that overlaps the stream draws segments that cross back in time.
       it("should end the back-fill where the stream opened", async () => {
         const timeSpan = TimeSpan.seconds(10);
