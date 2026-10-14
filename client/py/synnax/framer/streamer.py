@@ -52,8 +52,42 @@ class _Response(BaseModel):
     keep_alive: bool = False
 
 
-def _unreachable(deadline: TimeSpan) -> Unreachable:
-    return Unreachable(message=f"streamer received no response for {deadline}")
+class _Liveness:
+    """Tracks when a streamer must presume its connection dead."""
+
+    def __init__(self, keep_alive: TimeSpan) -> None:
+        self.keep_alive = keep_alive
+        self.deadline = keep_alive * _KEEP_ALIVE_DEADLINE_FACTOR
+        # Set once the Core proves keep-alive support by sending one, so the deadline
+        # never arms against a Core that will not send them.
+        self._armed = False
+        self._last_response = 0.0
+        self._grace: float | None = None
+
+    def received(self, res: _Response) -> None:
+        self._last_response = time.monotonic()
+        self._grace = None
+        if res.keep_alive and self.deadline > 0:
+            self._armed = True
+
+    def dead_at(self) -> float | None:
+        """Returns the monotonic time at which the connection is presumed dead, or
+        None if the deadline is not armed.
+        """
+        if not self._armed:
+            return None
+        dead = self._last_response + self.deadline.seconds
+        now = time.monotonic()
+        if dead > now:
+            return dead
+        # The caller held the thread or loop past the deadline, so responses may sit
+        # unread in the socket. Give them one keep-alive interval, once.
+        if self._grace is None:
+            self._grace = now + self.keep_alive.seconds
+        return self._grace
+
+    def unreachable(self) -> Unreachable:
+        return Unreachable(message=f"streamer received no response for {self.deadline}")
 
 
 class WSStreamerCodec(WSFramerCodec):
@@ -91,7 +125,6 @@ class Streamer:
 
     _stream: Stream[_Request, _Response]
     _adapter: ReadFrameAdapter
-    _last_response: float
 
     def __init__(
         self,
@@ -104,10 +137,7 @@ class Streamer:
     ) -> None:
         validate_downsample_factor(downsample_factor)
         keep_alive = TimeSpan.from_seconds(keep_alive)
-        self._deadline = keep_alive * _KEEP_ALIVE_DEADLINE_FACTOR
-        # Set once the Core proves keep-alive support by sending one, so the deadline
-        # never arms against a Core that will not send them.
-        self._armed = False
+        self._liveness = _Liveness(keep_alive)
         self._adapter = adapter
         client = client.with_codec(WSStreamerCodec(self._adapter.codec))
         self._stream = client.stream(_ENDPOINT, _Request, _Response)
@@ -169,7 +199,7 @@ class Streamer:
         seconds = TimeSpan.to_seconds(timeout)
         end = None if seconds is None else time.monotonic() + seconds
         while True:
-            dead = self._last_response + self._deadline.seconds if self._armed else None
+            dead = self._liveness.dead_at()
             deadline_bound = dead is not None and (end is None or dead <= end)
             expiry = dead if deadline_bound else end
             remaining = None if expiry is None else max(expiry - time.monotonic(), 0)
@@ -177,16 +207,14 @@ class Streamer:
                 res = self._receive(remaining)
             except TimeoutError as e:
                 if deadline_bound:
-                    raise _unreachable(self._deadline) from e
+                    raise self._liveness.unreachable() from e
                 return None
             if not res.keep_alive:
                 return self._adapter.adapt(Frame(res.frame))
 
     def _receive(self, timeout: float | None) -> _Response:
         res = self._stream.receive(timeout)
-        self._last_response = time.monotonic()
-        if res.keep_alive and self._deadline > 0:
-            self._armed = True
+        self._liveness.received(res)
         return res
 
     def update_channels(self, channels: channel.Params) -> None:
@@ -259,7 +287,6 @@ class AsyncStreamer:
     _stream: AsyncStream[_Request, _Response]
     _client: AsyncWebsocketClient
     _adapter: ReadFrameAdapter
-    _last_response: float
 
     def __init__(
         self,
@@ -276,11 +303,7 @@ class AsyncStreamer:
         self._downsample_factor = downsample_factor
         self._throttle_rate = throttle_rate
         self._exclude_groups = exclude_groups or []
-        self._keep_alive = TimeSpan.from_seconds(keep_alive)
-        self._deadline = self._keep_alive * _KEEP_ALIVE_DEADLINE_FACTOR
-        # Set once the Core proves keep-alive support by sending one, so the deadline
-        # never arms against a Core that will not send them.
-        self._armed = False
+        self._liveness = _Liveness(TimeSpan.from_seconds(keep_alive))
 
     async def _open(self) -> None:
         client = self._client.with_codec(WSStreamerCodec(self._adapter.codec))
@@ -291,7 +314,7 @@ class AsyncStreamer:
                 downsample_factor=self._downsample_factor,
                 throttle_rate_hz=self._throttle_rate,
                 exclude_groups=self._exclude_groups,
-                keep_alive=self._keep_alive,
+                keep_alive=self._liveness.keep_alive,
             )
         )
         # A keep-alive can beat the open ack onto the wire, so the ack is the first
@@ -312,20 +335,18 @@ class AsyncStreamer:
                 return self._adapter.adapt(Frame(res.frame))
 
     async def _receive_with_deadline(self) -> _Response:
-        if not self._armed:
+        dead = self._liveness.dead_at()
+        if dead is None:
             return await self._receive()
-        dead = self._last_response + self._deadline.seconds
         try:
             async with asyncio.timeout(max(dead - time.monotonic(), 0)):
                 return await self._receive()
         except TimeoutError as e:
-            raise _unreachable(self._deadline) from e
+            raise self._liveness.unreachable() from e
 
     async def _receive(self) -> _Response:
         res = await self._stream.receive()
-        self._last_response = time.monotonic()
-        if res.keep_alive and self._deadline > 0:
-            self._armed = True
+        self._liveness.received(res)
         return res
 
     async def close_loop(self) -> None:
