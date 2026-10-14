@@ -77,7 +77,7 @@ class Client:
         mode: CrudeWriterMode = WriterMode.PERSIST_STREAM,
         err_on_unauthorized: bool = False,
         enable_auto_commit: bool = True,
-        auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND,
+        auto_index_persist_interval: TimeSpan = TimeSpan.SECOND,
         auto_index: bool = False,
         err_on_extra_chans: bool = True,
     ) -> Writer:
