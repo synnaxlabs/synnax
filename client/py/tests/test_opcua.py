@@ -267,4 +267,3 @@ class TestOPCWriteTask:
             assert retr_ch.node_id == orig_ch.node_id
             assert retr_ch.cmd_channel == orig_ch.cmd_channel
             assert retr_ch.disabled == orig_ch.disabled
-
