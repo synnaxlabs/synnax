@@ -256,9 +256,11 @@ flag and workflow file.
 13. **Cache TTLs**: The updater routes send `s-maxage=300, stale-while-revalidate=60`
     and `releases.ts` caches a listing for five minutes, so the CDN absorbs the polling
     and a release lands on the site within minutes.
-14. **Release note categories**: `.github/release.yml` groups by the path labeler's
-    labels: `console`, `driver`, `core`, `arc`, `cpp-client`, `py-client`, `ts-client`,
-    and `website`.
+14. **Release note categories**: Each product's notes list only the PRs labeled for what
+    it ships: the Console takes `console` and `ts-client`, the Driver `driver`, `arc`,
+    and `cpp-client`, and the Core `core` and `arc`, with links to the Console and
+    Driver it embeds. The configs live in `.github/release/`. Synnax Desktop keeps every
+    category in `.github/release.yml`.
 
 ## 5 Open questions
 
