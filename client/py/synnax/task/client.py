@@ -10,10 +10,10 @@
 from __future__ import annotations
 
 import warnings
-from collections.abc import Generator, Iterable
+from collections.abc import Generator, Iterable, Mapping
 from contextlib import contextmanager
-from typing import Any, overload
 from typing import Protocol as BaseProtocol
+from typing import overload
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, ValidationError
@@ -28,6 +28,7 @@ from synnax.rack import Client as RackClient
 from synnax.rack import Rack
 from synnax.task.types_gen import Command, Key, Payload, Status, ontology_id
 from synnax.telem import TimeSpan, TimeStamp
+from synnax.util.json import JSONValue
 from x.lists import check_for_none, normalize, override
 from x.timing import Timer
 
@@ -96,7 +97,7 @@ class Task:
     rack: int = 0
     name: str = ""
     type: str = ""
-    config: dict[str, Any] = {}
+    config: dict[str, JSONValue] = {}
     config_hash: str = ""
     snapshot: bool = False
     status: Status | None = None
@@ -109,7 +110,7 @@ class Task:
         rack: int = 0,
         name: str = "",
         type: str = "",
-        config: dict[str, Any] | None = None,
+        config: dict[str, JSONValue] | None = None,
         config_hash: str = "",
         snapshot: bool = False,
         status: Status | None = None,
@@ -174,7 +175,9 @@ class Task:
         """
         return None
 
-    def execute_command(self, type_: str, args: dict[str, Any] | None = None) -> str:
+    def execute_command(
+        self, type_: str, args: Mapping[str, object] | None = None
+    ) -> str:
         """Executes a command on the task and returns the unique key assigned to the
         command.
 
@@ -188,7 +191,7 @@ class Task:
             type=type_,
             key=str(uuid4()),
             config_hash=self.config_hash,
-            args=args or {},
+            args=dict(args) if args is not None else {},
         )
         w.write(_TASK_CMD_CHANNEL, [cmd.model_dump(mode="json")])
         w.close()
@@ -197,7 +200,7 @@ class Task:
     def execute_command_sync(
         self,
         type_: str,
-        args: dict[str, Any] | None = None,
+        args: Mapping[str, object] | None = None,
         timeout: float | TimeSpan = 5,
     ) -> Status:
         """Executes a command on the task and waits for the driver to acknowledge the
@@ -356,7 +359,7 @@ class Client:
         key: Key | str | None = None,
         name: str = "",
         type: str = "",
-        config: dict[str, Any] | BaseModel | None = None,
+        config: Mapping[str, object] | BaseModel | None = None,
         rack: int = 0,
     ) -> Task: ...
 
@@ -373,21 +376,23 @@ class Client:
         key: Key | str | None = None,
         name: str = "",
         type: str = "",
-        config: dict[str, Any] | BaseModel | None = None,
+        config: Mapping[str, object] | BaseModel | None = None,
         rack: int = 0,
     ) -> Task | list[Task]:
         is_single = True
         if config is None:
-            config = dict()
+            config_dict: dict[str, object] = {}
         elif isinstance(config, BaseModel):
-            config = config.model_dump(by_alias=True, exclude_none=True)
+            config_dict = config.model_dump(by_alias=True, exclude_none=True)
+        else:
+            config_dict = dict(config)
         if tasks is None:
             if key is None:
                 key = uuid4()
             elif isinstance(key, str):
                 key = UUID(key)
             payloads = [
-                Payload(key=key, rack=rack, name=name, type=type, config=config or {})
+                Payload(key=key, rack=rack, name=name, type=type, config=config_dict)
             ]
         elif isinstance(tasks, Task):
             payloads = [tasks.to_payload()]

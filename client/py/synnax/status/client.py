@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, overload
+from typing import Generic, TypeVar, overload
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -15,17 +15,20 @@ from pydantic import BaseModel, Field
 from freighter import Empty, UnaryClient
 from synnax.ontology import ID
 from synnax.status.types_gen import Status, Variant
+from synnax.util.json import JSONValue
 from x.lists import normalize
 from x.params import require_named_params
 
+D = TypeVar("D")
 
-class _SetRequest(BaseModel):
+
+class _SetRequest(BaseModel, Generic[D]):
     parent: ID | None = None
-    statuses: list[Status[Any]]
+    statuses: list[Status[D]]
 
 
 class _SetResponse(BaseModel):
-    statuses: list[Status[Any]]
+    statuses: list[Status[JSONValue]]
 
 
 class _RetrieveRequest(BaseModel):
@@ -39,7 +42,7 @@ class _RetrieveRequest(BaseModel):
 
 
 class _RetrieveResponse(BaseModel):
-    statuses: list[Status[Any]] = Field(default_factory=list)
+    statuses: list[Status[JSONValue]] = Field(default_factory=list)
 
 
 class _DeleteRequest(BaseModel):
@@ -75,25 +78,25 @@ class Client:
     @overload
     def set(
         self,
-        status: Status[Any],
+        status: Status[D],
         *,
         parent: ID | None = None,
-    ) -> Status[Any]: ...
+    ) -> Status[JSONValue]: ...
 
     @overload
     def set(
         self,
-        status: list[Status[Any]],
+        status: list[Status[D]],
         *,
         parent: ID | None = None,
-    ) -> list[Status[Any]]: ...
+    ) -> list[Status[JSONValue]]: ...
 
     def set(
         self,
-        status: Status[Any] | list[Status[Any]] | None = None,
+        status: Status[D] | list[Status[D]] | None = None,
         *,
         parent: ID | None = None,
-    ) -> Status[Any] | list[Status[Any]]:
+    ) -> Status[JSONValue] | list[Status[JSONValue]]:
         """Create or update a status.
 
         Args:
@@ -138,12 +141,14 @@ class Client:
         return res
 
     @overload
-    def retrieve(self, *, key: str, include_labels: bool = False) -> Status[Any]: ...
+    def retrieve(
+        self, *, key: str, include_labels: bool = False
+    ) -> Status[JSONValue]: ...
 
     @overload
     def retrieve(
         self, *, keys: list[str], include_labels: bool = False
-    ) -> list[Status[Any]]: ...
+    ) -> list[Status[JSONValue]]: ...
 
     @overload
     def retrieve(
@@ -155,7 +160,7 @@ class Client:
         include_labels: bool = False,
         has_labels: list[UUID] | None = None,
         variants: list[Variant] | None = None,
-    ) -> list[Status[Any]]: ...
+    ) -> list[Status[JSONValue]]: ...
 
     @require_named_params(example_params=("key", "'status-key-123'"))
     def retrieve(
@@ -169,7 +174,7 @@ class Client:
         include_labels: bool = False,
         has_labels: list[UUID] | None = None,
         variants: list[Variant] | None = None,
-    ) -> Status[Any] | list[Status[Any]]:
+    ) -> Status[JSONValue] | list[Status[JSONValue]]:
         """Retrieve statuses from the cluster.
 
         Args:
