@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from types import MappingProxyType
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -27,6 +29,15 @@ class TestFrame:
     def test_construction_from_dict(self):
         f = sy.Frame({1: sy.Series([1, 2, 3, 4]), 3: sy.Series([4, 5, 6, 7])})
         assert f[1][0] == 1
+
+    def test_construction_from_mapping(self):
+        """Should keep each channel's series when built from a non-dict mapping."""
+        f = sy.Frame(
+            MappingProxyType({1: sy.Series([1, 2, 3, 4]), 3: sy.Series([4, 5, 6, 7])})
+        )
+        assert f.channels == [1, 3]
+        assert list(f[1]) == [1, 2, 3, 4]
+        assert list(f[3]) == [4, 5, 6, 7]
 
     def test_construction_from_data_frame(self):
         f = sy.Frame(
