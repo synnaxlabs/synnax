@@ -207,7 +207,7 @@ class TestChannel:
             client.channels.create(data_type=np.csingle)
 
     def test_retrieve_by_key(
-        self, indexed_pair: list[sy.Channel], client: sy.Synnax
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ) -> None:
         """Should retrieve channels using a list of keys"""
         res_channels = client.channels.retrieve(
@@ -224,7 +224,7 @@ class TestChannel:
             client.channels.retrieve(1234)
 
     def test_retrieve_by_list_of_names(
-        self, indexed_pair: list[sy.Channel], client: sy.Synnax
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ) -> None:
         """Should retrieve channels using list of names"""
         names = [ch.name for ch in indexed_pair]
@@ -246,7 +246,7 @@ class TestChannel:
             client.channels.retrieve(fake_keys)
 
     def test_retrieve_numeric_string(
-        self, client: sy.Synnax, indexed_pair: list[sy.Channel]
+        self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
     ) -> None:
         names = [ch.name for ch in indexed_pair]
         channels = client.channels.retrieve(

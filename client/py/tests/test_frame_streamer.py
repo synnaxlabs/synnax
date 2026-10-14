@@ -38,7 +38,7 @@ class TestStreamer:
 
     def test_basic_stream_indexed_pair(
         self,
-        indexed_pair: list[sy.Channel],
+        indexed_pair: tuple[sy.Channel, sy.Channel],
         client: sy.Synnax,
     ) -> None:
         idx, data = indexed_pair
@@ -56,7 +56,7 @@ class TestStreamer:
 
     def test_basic_stream_multiple_writers(
         self,
-        indexed_pair: list[sy.Channel],
+        indexed_pair: tuple[sy.Channel, sy.Channel],
         virtual_channel: sy.Channel,
         client: sy.Synnax,
     ) -> None:
@@ -169,7 +169,7 @@ class TestStreamer:
 
     def test_update_channels_rapid(
         self,
-        indexed_pair: list[sy.Channel],
+        indexed_pair: tuple[sy.Channel, sy.Channel],
         virtual_channel: sy.Channel,
         client: sy.Synnax,
     ) -> None:

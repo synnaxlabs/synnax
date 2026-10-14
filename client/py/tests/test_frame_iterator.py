@@ -20,7 +20,7 @@ from x.telem import seconds_linspace
 @pytest.mark.iterator
 class TestIterator:
     def test_basic_iterate(
-        self, indexed_pair: list[sy.Channel], client: sy.Synnax
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ) -> None:
         idx_ch, _ = indexed_pair
         d = seconds_linspace(1, 50)

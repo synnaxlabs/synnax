@@ -41,7 +41,7 @@ class TestDeleter:
         )
 
     def test_delete_by_name(
-        self, indexed_pair: list[sy.Channel], client: sy.Synnax
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ) -> None:
         idx_ch, _ = indexed_pair
         with client.open_writer(sy.TimeSpan.SECOND * 1, idx_ch) as w:
@@ -75,7 +75,7 @@ class TestDeleter:
         assert data.size == 50 * 8
 
     def test_delete_with_writer(
-        self, indexed_pair: list[sy.Channel], client: sy.Synnax
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ) -> None:
         idx_ch, _ = indexed_pair
         with client.open_writer(0, idx_ch.key):
