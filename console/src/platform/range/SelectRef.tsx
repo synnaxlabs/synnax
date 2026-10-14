@@ -46,7 +46,6 @@ const ROLLING_PRESETS = [
 
 const ROLLING_KEY = "rolling";
 const STATIC_KEY = "static";
-const TYPED_KEY = "typed-rolling";
 
 const liveIcon = <Icon.Dynamic className={CSS.BE("range-ref", "live-icon")} />;
 
@@ -56,34 +55,6 @@ const rolling = (timeSpan: number): ranger.Ref => ({
   variant: "window",
   window: { variant: "dynamic", timeSpan },
 });
-
-interface RollingOptionProps {
-  span?: number;
-  onChange: (span: number) => void;
-}
-
-const RollingOption = ({ span, onChange }: RollingOptionProps): ReactElement | null => {
-  const term = Select.useSearchTerm();
-  const { close } = Dialog.useContext();
-  const typed = TimeSpan.parse(term);
-  if (typed == null || typed.isZero) return null;
-  // The search hides fixed items whose text lacks the term, so the option echoes it.
-  return (
-    <Select.Item
-      itemKey={TYPED_KEY}
-      selected={span != null && typed.equals(span)}
-      onSelect={() => {
-        onChange(Number(typed));
-        close();
-      }}
-    >
-      <Text.Text>
-        {liveIcon}
-        {term.trim()}
-      </Text.Text>
-    </Select.Item>
-  );
-};
 
 const RangeItem = Component.renderProp((props: List.ItemProps<string>) => {
   const inSession = useResolve(props.itemKey);
@@ -198,26 +169,48 @@ interface RollingRowProps {
   onChange: (span: number) => void;
 }
 
-// A frame of its own, so its toggles stay out of the list's arrow keys and search.
+const isPreset = (span?: number): boolean =>
+  span != null && ROLLING_PRESETS.includes(span);
+
+// A frame of its own, so its toggles stay out of the list's arrow keys and search. Its
+// keys stay in it too, so Enter in the span field does not pick the hovered range.
 const RollingRow = ({ span, onChange }: RollingRowProps): ReactElement => {
   const { close } = Dialog.useContext();
-  const handleChange = useCallback(
-    (key: string | null) => {
-      if (key == null) return;
-      onChange(Number(key));
+  const commit = useCallback(
+    (next: number) => {
+      onChange(next);
       close();
     },
     [onChange, close],
   );
+  const handlePreset = useCallback(
+    (key: string | null) => {
+      if (key != null) commit(Number(key));
+    },
+    [commit],
+  );
+  const handleTyped = useCallback(
+    (text: string) => {
+      const typed = TimeSpan.parse(text);
+      if (typed != null && !typed.isZero) commit(Number(typed));
+    },
+    [commit],
+  );
   return (
-    <Flex.Box x align="center" gap="medium" className={CSS.BE("range-ref", "row")}>
+    <Flex.Box
+      x
+      align="center"
+      gap="medium"
+      className={CSS.BE("range-ref", "row")}
+      onKeyDown={(e) => e.stopPropagation()}
+    >
       <Text.Text className={CSS.BE("range-ref", "live-label")}>
         <Icon.Dynamic />
         Live
       </Text.Text>
       <Select.Buttons
-        value={span == null ? undefined : String(span)}
-        onChange={handleChange}
+        value={isPreset(span) ? String(span) : undefined}
+        onChange={handlePreset}
         enableTriggers={false}
       >
         {ROLLING_PRESETS.map((preset) => (
@@ -226,6 +219,15 @@ const RollingRow = ({ span, onChange }: RollingRowProps): ReactElement => {
           </Select.Item>
         ))}
       </Select.Buttons>
+      <Input.Text
+        value={span == null || isPreset(span) ? "" : new TimeSpan(span).toString()}
+        onChange={handleTyped}
+        onlyChangeOnBlur
+        placeholder="Other"
+        aria-label="Rolling span"
+        size="small"
+        className={CSS.BE("range-ref", "span")}
+      />
     </Flex.Box>
   );
 };
@@ -264,7 +266,7 @@ export interface SelectRefInputItemProps extends Omit<
 
 /**
  * Selects one range: a rolling window, or a range the session holds. The dialog also
- * takes a typed duration and edits a fixed window's bounds.
+ * takes a typed span and edits a fixed window's bounds.
  */
 export const SelectRefInputItem = ({
   value,
@@ -347,16 +349,12 @@ export const SelectRefInputItem = ({
             <Label value={value} />
           </Dialog.Trigger>
           <Select.Dialog className={CSS.BE("range-ref", "dialog")}>
-            <Select.Search
-              placeholder="Search ranges or type a duration"
-              onSearch={search}
-            />
+            <Select.Search placeholder="Search ranges" onSearch={search} />
             <RollingRow span={span} onChange={setRolling} />
             {value.variant === "window" && value.window.variant === "static" && (
               <FixedRow window={value.window} onChange={setWindow} />
             )}
             <Select.List bordered borderColor={6} grow rounded full="x">
-              <RollingOption span={span} onChange={setRolling} />
               <Select.Items<string> emptyContent={emptyContent}>
                 {RangeItem}
               </Select.Items>

@@ -15,7 +15,7 @@
 
 /* The dialog takes the trigger's width, which is too narrow for the preset row. */
 .console-range-ref__dialog {
-    min-width: 420px;
+    min-width: 500px;
 }
 
 .console-range-ref__live-icon,
@@ -29,4 +29,8 @@
     padding: 0.5rem 1rem 0.5rem 3rem;
     border: 0 solid var(--pluto-gray-l6);
     border-width: 0 var(--pluto-border-width);
+}
+
+.console-range-ref__span {
+    width: 72px;
 }

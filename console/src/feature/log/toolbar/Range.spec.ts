@@ -59,7 +59,7 @@ const trigger = async (): Promise<HTMLElement> =>
 
 const openSearch = async (): Promise<HTMLElement> => {
   fireEvent.click(await trigger());
-  return screen.getByPlaceholderText("Search ranges or type a duration");
+  return screen.getByPlaceholderText("Search ranges");
 };
 
 // The rolling window's tag shows its span too, so a preset is told apart by its toggle.
@@ -70,9 +70,6 @@ const clickPreset = (span: string): void => {
   assertDefined(preset);
   fireEvent.click(preset);
 };
-
-const findOption = (text: string): HTMLElement | undefined =>
-  screen.queryAllByRole("option").find((o) => o.textContent?.includes(text));
 
 const expectRange = async (key: string, range: ranger.Ref): Promise<void> =>
   await waitFor(async () =>
@@ -92,28 +89,44 @@ describe("log/toolbar/Range", () => {
     await expectRange(key, rolling(TimeSpan.hours(1)));
   });
 
-  it("should set a rolling window from a typed duration", async () => {
+  const typeSpan = (text: string, key: string = "Enter"): void => {
+    const field = screen.getByRole<HTMLInputElement>("textbox", {
+      name: "Rolling span",
+    });
+    act(() => field.focus());
+    fireEvent.change(field, { target: { value: text } });
+    act(() => {
+      fireEvent.keyDown(field, { key, code: key });
+    });
+  };
+
+  it("should set a rolling window from a typed span", async () => {
     const { key } = await render();
-    fireEvent.change(await openSearch(), { target: { value: "1h 30m" } });
-    const option = findOption("1h 30m");
-    assertDefined(option);
-    fireEvent.click(option);
+    await openSearch();
+    typeSpan("1h 30m");
     await expectRange(key, rolling(TimeSpan.minutes(90)));
   });
 
-  it("should set a typed duration with Enter", async () => {
-    const { key } = await render();
-    fireEvent.change(await openSearch(), { target: { value: "2w" } });
-    act(() => {
-      fireEvent.keyDown(window, { code: "Enter" });
-    });
-    await expectRange(key, rolling(TimeSpan.days(14)));
+  it("should ignore a typed span that does not parse", async () => {
+    const { key } = await render(rolling(TimeSpan.hours(1)));
+    await openSearch();
+    typeSpan("banana");
+    await expectRange(key, rolling(TimeSpan.hours(1)));
   });
 
-  it("should offer no typed window when the search is not a duration", async () => {
+  it("should show a span no preset matches in the span field", async () => {
+    await render(rolling(TimeSpan.days(14)));
+    await openSearch();
+    expect(screen.getByRole("textbox", { name: "Rolling span" })).toHaveProperty(
+      "value",
+      "14d",
+    );
+  });
+
+  it("should not list a typed duration as a search result", async () => {
     await render();
-    fireEvent.change(await openSearch(), { target: { value: "banana" } });
-    expect(findOption("banana")).toBeUndefined();
+    fireEvent.change(await openSearch(), { target: { value: "14d" } });
+    expect(screen.queryAllByRole("option")).toHaveLength(0);
   });
 
   it("should show a fixed window's bounds for editing", async () => {
@@ -136,7 +149,7 @@ describe("log/toolbar/Range", () => {
     fireEvent.click(startBound);
     const field = screen
       .getAllByRole<HTMLInputElement>("textbox")
-      .find((f) => f.placeholder !== "Search ranges or type a duration");
+      .find((f) => f.placeholder !== "Search ranges" && f.ariaLabel !== "Rolling span");
     assertDefined(field);
     const start = new TimeStamp(2_000_000_000n);
     fireEvent.change(field, { target: { value: start.toString("dateTime", "local") } });

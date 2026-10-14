@@ -12,7 +12,7 @@ import { type ReactNode, useCallback } from "react";
 
 import { CSS } from "@/css";
 import { List } from "@/list";
-import { useRegistryContext, useVisibleCount } from "@/select/registry";
+import { useRegistryContext } from "@/select/registry";
 import { useClosed } from "@/select/scope";
 
 /** Props for {@link Items}. */
@@ -22,8 +22,7 @@ export interface ItemsProps<
 
 /**
  * Renders the frame's data as options, in its place among the fixed {@link Item}s. It
- * renders nothing while the dialog is closed, and shows `emptyContent` only while no
- * fixed item is visible.
+ * renders nothing while the dialog is closed.
  *
  * @throws if no `Select.List` of the same frame encloses it.
  */
@@ -36,7 +35,6 @@ export const Items = <
 }: ItemsProps<K>): ReactNode => {
   const closed = useClosed();
   const registry = useRegistryContext("Select.Items");
-  const fixed = useVisibleCount();
   const markerRef = useCallback(
     (element: HTMLElement | null) => {
       registry.setBlock(element);
@@ -48,9 +46,7 @@ export const Items = <
   return (
     <>
       <span ref={markerRef} className={CSS.BE("select", "block")} hidden />
-      <List.Items<K, E> emptyContent={fixed > 0 ? null : emptyContent}>
-        {children}
-      </List.Items>
+      <List.Items<K, E> emptyContent={emptyContent}>{children}</List.Items>
     </>
   );
 };
