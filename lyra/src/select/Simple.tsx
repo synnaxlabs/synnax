@@ -152,7 +152,7 @@ export const Simple = <K extends record.Key>({
         </Frame>
       ) : (
         <Frame<K, undefined> value={value} onChange={onChange} {...selection}>
-          <SingleTrigger {...triggerBase} clearable={allowNone} {...triggerProps} />
+          <SingleTrigger {...triggerBase} {...triggerProps} />
           {dialog}
         </Frame>
       )}
