@@ -18,6 +18,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MultiChannelLog, type MultiChannelLogProps } from "@/log/aether/telem/sources";
 import { type Client } from "@/telem/aether/remote";
+import { convertSeriesToSupportedGL } from "@/telem/aether/convertSeries";
 import { type Source } from "@/telem/aether/telem";
 import { telemTest } from "@/telem/aether/test";
 
@@ -922,6 +923,58 @@ describe("MultiChannelLog", () => {
         ]),
       );
       expect(log.value().map((e) => e.value)).toEqual(["c", "d", "e"]);
+    });
+
+    it("should keep samples whose streamed times round to the same float32", async () => {
+      const { log } = create();
+      await waitForResolve(log);
+      const start = TimeStamp.seconds(90).valueOf();
+      const index = new Series({
+        data: [start, start + 1_000_000_000n, start + 1_000_000_001n],
+        dataType: DataType.TIMESTAMP,
+        alignment: 0n,
+      });
+      c.streamHandler?.(
+        new Map([
+          [IDX, new MultiSeries([convertSeriesToSupportedGL(index)])],
+          [DATA, new MultiSeries([strings(["a", "b", "c"], 0n)])],
+        ]),
+      );
+      expect(log.value().map((e) => e.value)).toEqual(["a", "b", "c"]);
+    });
+
+    it("should report dropping held samples past the entry limit", async () => {
+      const statuses: cstatus.Crude[] = [];
+      const log = new MultiChannelLog(
+        c,
+        { channels: [DATA], range: { variant: "dynamic", span: SPAN } },
+        { onStatusChange: (st) => statuses.push(st) },
+        () => NOW,
+        2,
+      );
+      await waitForResolve(log);
+      c.streamHandler?.(
+        new Map([[DATA, new MultiSeries([strings(["a", "b", "c"], 0n)])]]),
+      );
+      c.streamHandler?.(new Map([[DATA, new MultiSeries([strings(["d"], 3n)])]]));
+      expect(statuses.map((st) => st.message)).toEqual([
+        "Dropped log samples with no time",
+      ]);
+      c.streamHandler?.(new Map([[IDX, new MultiSeries([times([92, 93], 2n)])]]));
+      expect(log.value().map((e) => e.value)).toEqual(["c", "d"]);
+    });
+
+    it("should read the span on the Core's clock", async () => {
+      c.now = () => NOW;
+      const log = new MultiChannelLog(c, {
+        channels: [DATA],
+        range: { variant: "dynamic", span: SPAN },
+      });
+      await waitForResolve(log);
+      const [tr] = c.readF.mock.calls[0] as [TimeRange];
+      expect([tr.start.seconds, tr.end.seconds].sort((a, b) => a - b)).toEqual([
+        70, 100,
+      ]);
     });
 
     it("should drop a stored read that finishes after all channels are removed", async () => {

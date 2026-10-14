@@ -66,12 +66,14 @@ interface ChannelMeta {
   // Whether the log holds the channel's stored samples.
   historyRead: boolean;
   indexBuffers: Series[];
-  // The latest sample time in the log. A streamed sample at or before it is a
-  // duplicate.
+  // The alignment of the latest sample in the log. A streamed sample at or before it is
+  // a duplicate. Alignments are exact, while the feed rounds streamed times to float32.
   highWater: bigint | null;
-  // The first sample time the stream delivered. A stored sample at or after it is a
-  // duplicate.
+  // The alignment of the first sample the stream delivered. A stored sample at or after
+  // it is a duplicate.
   streamStart: bigint | null;
+  // Whether the log has reported dropping samples whose index samples never arrived.
+  untimedDropReported: boolean;
 }
 
 interface PushResult {
@@ -106,7 +108,7 @@ export class MultiChannelLog
     client: Client | null,
     props: unknown,
     options?: CreateOptions,
-    now: () => TimeStamp = () => TimeStamp.now(),
+    now: () => TimeStamp = () => client?.now() ?? TimeStamp.now(),
     maxEntries: number = MAX_ENTRIES,
   ) {
     super(props);
@@ -226,6 +228,7 @@ export class MultiChannelLog
         indexBuffers: [],
         highWater: existing?.highWater ?? null,
         streamStart: existing?.streamStart ?? null,
+        untimedDropReported: existing?.untimedDropReported ?? false,
       };
       this.channelMeta.set(ch.key, meta);
       if (!meta.historyRead) unread.push(meta);
@@ -259,6 +262,7 @@ export class MultiChannelLog
           meta.pending.push(...allocated.series);
         }
         pushed += this.drain(meta);
+        this.trimPending(meta);
       }
       this.gcEntries();
       if (pushed > 0) this.notify();
@@ -282,6 +286,32 @@ export class MultiChannelLog
     return pushed;
   }
 
+  // Drops the oldest held samples past the entry limit, so a channel whose index samples
+  // never arrive cannot grow the log's memory without bound.
+  private trimPending(meta: ChannelMeta): void {
+    let held = meta.pending.reduce((n, s) => n + s.length, 0) - meta.readCursor;
+    if (held <= this.maxEntries) return;
+    while (held > this.maxEntries) {
+      const [buf] = meta.pending;
+      const excess = held - this.maxEntries;
+      const remaining = buf.length - meta.readCursor;
+      if (remaining > excess || meta.pending.length === 1) {
+        meta.readCursor += Math.min(excess, remaining);
+        break;
+      }
+      meta.pending.shift();
+      meta.readCursor = 0;
+      held -= remaining;
+    }
+    if (meta.untimedDropReported) return;
+    meta.untimedDropReported = true;
+    this.onStatusChange?.({
+      variant: "warning",
+      message: "Dropped log samples with no time",
+      description: `The index samples of channel ${meta.key} did not arrive.`,
+    });
+  }
+
   // Pushes the samples of buf from start on, skipping samples whose index sample is
   // gone. The returned cursor stops at the first sample whose index has not arrived.
   private pushStreamed(meta: ChannelMeta, buf: Series, start: number): PushResult {
@@ -299,9 +329,9 @@ export class MultiChannelLog
         if (meta.indexBuffers.some((s) => s.alignment > alignment)) continue;
         return { pushed, cursor: i };
       }
-      if (meta.highWater != null && time <= meta.highWater) continue;
-      meta.highWater = time;
-      meta.streamStart ??= time;
+      if (meta.highWater != null && alignment <= meta.highWater) continue;
+      meta.highWater = alignment;
+      meta.streamStart ??= alignment;
       pushed += this.insert(meta, buf, i, time);
     }
     return { pushed, cursor: buf.length };
@@ -316,11 +346,13 @@ export class MultiChannelLog
     const entries: LogEntry[] = [];
     for (const s of data.series)
       for (let i = 0; i < s.length; i++) {
-        const time = index.atAlignment(sampleAlignment(s, i)) as bigint | undefined;
+        const alignment = sampleAlignment(s, i);
+        const time = index.atAlignment(alignment) as bigint | undefined;
         if (time == null) continue;
-        if (meta.streamStart != null && time >= meta.streamStart) continue;
+        if (meta.streamStart != null && alignment >= meta.streamStart) continue;
         entries.push(...toEntries(meta, s, i, time));
-        if (meta.highWater == null || time > meta.highWater) meta.highWater = time;
+        if (meta.highWater == null || alignment > meta.highWater)
+          meta.highWater = alignment;
       }
     return entries;
   }
