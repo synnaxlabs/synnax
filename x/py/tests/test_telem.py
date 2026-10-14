@@ -7,7 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import time
 import uuid
+from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta, timezone
 
 import dateutil
@@ -72,6 +74,56 @@ class TestTimeStamp:
         Got: {sy.TimeStamp(crude)}
         Delta: {delta}
         """
+
+    @pytest.fixture
+    def non_utc_tz(self, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+        monkeypatch.setenv("TZ", "America/New_York")
+        time.tzset()
+        yield
+        monkeypatch.undo()
+        time.tzset()
+
+    @pytest.mark.usefixtures("non_utc_tz")
+    def test_naive_pd_timestamp_is_utc(self) -> None:
+        """Should treat a naive pd.Timestamp as UTC regardless of the local timezone"""
+        ts = sy.TimeStamp(pd.Timestamp("2022-02-22 15:41:50"))
+        assert ts == 1645544510000000000
+
+    @pytest.mark.usefixtures("non_utc_tz")
+    def test_aware_pd_timestamp(self) -> None:
+        """Should convert an aware pd.Timestamp from its own timezone"""
+        ts = sy.TimeStamp(pd.Timestamp("2022-02-22 10:41:50", tz="America/New_York"))
+        assert ts == 1645544510000000000
+
+    @pytest.mark.usefixtures("non_utc_tz")
+    def test_pd_timestamp_nanoseconds(self) -> None:
+        """Should preserve the nanoseconds of a pd.Timestamp"""
+        ts = sy.TimeStamp(pd.Timestamp(1645544510123456789))
+        assert ts == 1645544510123456789
+
+    @pytest.mark.usefixtures("non_utc_tz")
+    def test_naive_pd_timestamp_matches_datetime64(self) -> None:
+        """Should convert a naive pd.Timestamp and np.datetime64 to the same value"""
+        value = "2022-02-22T15:41:50.123456789"
+        assert sy.TimeStamp(pd.Timestamp(value)) == sy.TimeStamp(
+            np.datetime64(value, "ns")
+        )
+
+    @pytest.mark.usefixtures("non_utc_tz")
+    def test_naive_datetime_is_local(self) -> None:
+        """Should treat a naive datetime as local time with exact microseconds"""
+        ts = sy.TimeStamp(datetime(2022, 2, 22, 10, 41, 50, 123457))
+        assert ts == 1645544510123457000
+
+    def test_aware_datetime_microseconds(self) -> None:
+        """Should convert an aware datetime with exact microseconds"""
+        ts = sy.TimeStamp(datetime(2262, 4, 11, 23, 47, 16, 854775, tzinfo=UTC))
+        assert ts == 9223372036854775000
+
+    def test_timedelta_microseconds(self) -> None:
+        """Should convert a timedelta with exact microseconds"""
+        ts = sy.TimeStamp(timedelta(days=19045, microseconds=123457))
+        assert ts == 1645488000123457000
 
     def test_after_false(self) -> None:
         """Should return true if the timestamp is after the given timestamp"""
