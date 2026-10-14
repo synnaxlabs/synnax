@@ -24,6 +24,15 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+var _ = Describe("MigrateView", func() {
+	It("Should keep the view's type and drop its args", func(ctx SpecContext) {
+		Expect(v1.MigrateView(ctx, v0.View{
+			Type: "docs",
+			Args: map[string]any{"url": "/reference"},
+		})).To(Equal(v1.View{Type: "docs"}))
+	})
+})
+
 var _ = Describe("Migration", func() {
 	It("Should drop the args of every view tab in the tree", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
