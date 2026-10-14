@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import asyncio
+from types import MappingProxyType
 
 import numpy as np
 import pandas as pd
@@ -198,6 +199,23 @@ class TestWriter:
             sy.TimeRange(200 * sy.TimeSpan.SECOND, 203 * sy.TimeSpan.SECOND), idx_ch.key
         )
         assert list(f) == expected
+
+    def test_client_write_non_dict_mapping(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should write a non-dict mapping of channel names to series."""
+        idx_ch, data_ch = indexed_pair
+        client.write(
+            1 * sy.TimeSpan.SECOND,
+            MappingProxyType(
+                {
+                    idx_ch.name: seconds_linspace(1, 3),
+                    data_ch.name: np.array([1.0, 2.0, 3.0]),
+                }
+            ),
+        )
+        f = client.read(sy.TimeRange.MAX, data_ch.key)
+        assert list(f) == [1.0, 2.0, 3.0]
 
     def test_write_auto_commit(
         self, indexed_pair: list[sy.Channel], client: sy.Synnax

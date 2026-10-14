@@ -188,6 +188,15 @@ class TestWriteFrameAdapter:
         assert o.channels[0] == ch.key
         assert o.series[0].data_type == sy.DataType.FLOAT64
 
+    def test_adaptation_of_non_dict_mapping(
+        self, adapter: tuple[WriteFrameAdapter, sy.Channel]
+    ) -> None:
+        """It should adapt a non-dict mapping of channel names to series."""
+        write_adapter, ch = adapter
+        o = write_adapter.adapt(MappingProxyType({ch.name: [1.0, 2.0]}))
+        assert o.channels == [ch.key]
+        assert list(o.series[0]) == [1.0, 2.0]
+
     def test_adaptation_of_dict_float(
         self, adapter: tuple[WriteFrameAdapter, sy.Channel]
     ) -> None:
