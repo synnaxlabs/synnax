@@ -14,7 +14,8 @@ from typing import cast
 import pytest
 
 import synnax as sy
-from synnax.control.controller import Controller, RemainsTrueFor, ScheduledCommand
+from synnax.control import ScheduledCommand
+from synnax.control.controller import Controller, RemainsTrueFor
 
 # Seconds to wait for a cross-thread handshake. Generous, so a slow Core cannot fail the
 # test, but bounded, so a broken run fails instead of hanging CI.
@@ -343,7 +344,7 @@ class TestController:
         assert assertions["remained_true"]
         assert assertions["remained_true_count"] > 0
 
-    def test_remains_true_for_bare_number_is_seconds(self, client: sy.Synnax):
+    def test_remains_true_for_bare_number_is_seconds(self, client: sy.Synnax) -> None:
         """Should read a bare number duration as seconds."""
         _, _, press_en, _ = create_valve_set(client)
         with client.control.acquire(
