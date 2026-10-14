@@ -423,8 +423,10 @@ var _ = Describe("Python Types Plugin", func() {
 				Entry("any", "any", "JsonValue"),
 			)
 
-			It("Should import JsonValue from pydantic instead of Any", func(ctx SpecContext) {
-				source := `
+			It(
+				"Should import JsonValue from pydantic instead of Any",
+				func(ctx SpecContext) {
+					source := `
 					@py output "out"
 
 					Test struct {
@@ -432,15 +434,16 @@ var _ = Describe("Python Types Plugin", func() {
 						value any
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
-				ExpectContent(resp, "types_gen.py").
-					ToContain(
-						`from pydantic import BaseModel, JsonValue`,
-						`props: dict[str, JsonValue]`,
-						`value: JsonValue`,
-					).
-					ToNotContain(`Any`)
-			})
+					resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(
+							`from pydantic import BaseModel, JsonValue`,
+							`props: dict[str, JsonValue]`,
+							`value: JsonValue`,
+						).
+						ToNotContain(`Any`)
+				},
+			)
 		})
 
 		It("Should handle optional key and password fields", func(ctx SpecContext) {
