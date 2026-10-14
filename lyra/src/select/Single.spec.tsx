@@ -322,7 +322,7 @@ describe("Select.Single", () => {
     });
   });
 
-  describe("clearable", () => {
+  describe("clear", () => {
     const select = (c: ReturnType<typeof render>): void => {
       fireEvent.click(c.getByText("Test Item"));
       fireEvent.click(c.getByText("First Item Option"));
@@ -330,7 +330,7 @@ describe("Select.Single", () => {
 
     it("should clear the selection from the button on its icon", () => {
       const { SelectSingle, onChange } = createSelectSingle();
-      const c = render(<SelectSingle allowNone clearable icon={<Icon.Add />} />);
+      const c = render(<SelectSingle allowNone icon={<Icon.Add />} />);
       select(c);
       fireEvent.click(c.getByLabelText("Clear First Item"));
       expect(onChange).toHaveBeenLastCalledWith(null);
@@ -340,7 +340,7 @@ describe("Select.Single", () => {
 
     it("should not open the dialog when the selection is cleared", () => {
       const { SelectSingle } = createSelectSingle();
-      const c = render(<SelectSingle allowNone clearable icon={<Icon.Add />} />);
+      const c = render(<SelectSingle allowNone icon={<Icon.Add />} />);
       select(c);
       fireEvent.click(c.getByLabelText("Clear First Item"));
       expect(c.queryByText("Second Item Option")).toBeNull();
@@ -348,7 +348,7 @@ describe("Select.Single", () => {
 
     it("should clear the selection with Delete on the focused trigger", () => {
       const { SelectSingle, onChange } = createSelectSingle();
-      const c = render(<SelectSingle allowNone clearable icon={<Icon.Add />} />);
+      const c = render(<SelectSingle allowNone icon={<Icon.Add />} />);
       select(c);
       const trigger = c.getByText("First Item").closest("button");
       if (trigger == null) throw new Error("the trigger did not render");
@@ -356,16 +356,16 @@ describe("Select.Single", () => {
       expect(onChange).toHaveBeenLastCalledWith(null);
     });
 
-    it("should not show the button unless the select is clearable", () => {
+    it("should not show the button when the select requires a selection", () => {
       const { SelectSingle } = createSelectSingle();
-      const c = render(<SelectSingle allowNone icon={<Icon.Add />} />);
+      const c = render(<SelectSingle allowNone={false} icon={<Icon.Add />} />);
       select(c);
       expect(c.queryByLabelText("Clear First Item")).toBeNull();
     });
 
     it("should not show the button when there is no icon to replace", () => {
       const { SelectSingle } = createSelectSingle();
-      const c = render(<SelectSingle allowNone clearable />);
+      const c = render(<SelectSingle allowNone />);
       select(c);
       expect(c.queryByLabelText("Clear First Item")).toBeNull();
     });

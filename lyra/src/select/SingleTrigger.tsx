@@ -37,7 +37,8 @@ export interface SingleTriggerProps extends Dialog.TriggerProps {
   iconOnly?: boolean;
   /**
    * Whether hovering the icon shows a button that clears the selection, and Delete or
-   * Backspace on the focused trigger clears it. The select must allow no selection.
+   * Backspace on the focused trigger clears it. Single and Simple set it from
+   * `allowNone`.
    */
   clearable?: boolean;
   /** Chooses an icon from the selected entry, overriding `icon`. */

@@ -79,7 +79,6 @@ export const XAxisChannelSelect = ({
         value={value}
         onChange={handleChange}
         allowNone
-        clearable
         initialQuery={{ ...SEARCH_OPTIONS, rangeKey }}
         location="top"
       />
