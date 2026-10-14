@@ -75,6 +75,50 @@ export const DISCONNECTED_STATUS: cstatus.Crude = {
   message: "Core disconnected",
 };
 
+// Retrying only fixes connectivity; a definitive rejection recurs on every attempt.
+const isDefinitive = (e: unknown): boolean =>
+  AccessDeniedError.matches(e) || ValidationError.matches(e) || NotFoundError.matches(e);
+
+/**
+ * Backs off a source's read retries. A tall interval cap suits a source whose retries
+ * only refresh history. Notifying the notifier interrupts a pending backoff, so a
+ * retired source's retry loop ends promptly.
+ */
+const newRetryBreaker = (
+  notifier: sync.Notifier,
+  config?: breaker.Config,
+): breaker.Breaker =>
+  new breaker.Breaker({
+    baseInterval: TimeSpan.seconds(1),
+    maxInterval: TimeSpan.seconds(30),
+    maxRetries: Infinity,
+    scale: 2,
+    jitter: 0.25,
+    sleepFn: async (duration) => await notifier.wait(duration),
+    ...config,
+  });
+
+/**
+ * Posts a source's failures. Retries repeat at the breaker's pace, so an incident
+ * posts one status when it starts and again only when the failure changes.
+ */
+class FailureReporter {
+  private last?: string;
+  constructor(private readonly onStatusChange?: status.Adder) {}
+
+  report(e: unknown, message: string): void {
+    const failure = cstatus.fromException(e, message);
+    const key = `${failure.message}: ${failure.description}`;
+    if (this.last === key) return;
+    this.last = key;
+    this.onStatusChange?.(failure);
+  }
+
+  reset(): void {
+    this.last = undefined;
+  }
+}
+
 export const streamChannelValuePropsZ = z.object({
   channel: z.number().or(z.string()),
 });
@@ -235,11 +279,21 @@ export class ChannelData
   private channel: SelectedChannelProperties | null = null;
   private readonly onStatusChange?: status.Adder;
   private readonly skipLoading: boolean;
+  private readonly retryNotifier = new sync.Notifier();
+  private readonly breaker: breaker.Breaker;
+  private readonly failures: FailureReporter;
 
-  constructor(client: Client | null, props: unknown, options?: CreateOptions) {
+  constructor(
+    client: Client | null,
+    props: unknown,
+    options?: CreateOptions,
+    breakerConfig?: breaker.Config,
+  ) {
     super(props);
     this.client = client;
     this.onStatusChange = options?.onStatusChange;
+    this.breaker = newRetryBreaker(this.retryNotifier, breakerConfig);
+    this.failures = new FailureReporter(options?.onStatusChange);
     const { channel, timeRange } = this.props;
     this.skipLoading = channel === 0 || timeRange.span.isZero;
     this.loading_ = true;
@@ -247,6 +301,7 @@ export class ChannelData
 
   cleanup(): void {
     this.generation++;
+    this.retryNotifier.notify();
     this.data.release();
     this.valid = false;
     this.loading_ = false;
@@ -276,31 +331,43 @@ export class ChannelData
     return [b, data];
   }
 
-  /** Never rejects: a failure invalidates the read and reaches onStatusChange. */
+  /**
+   * Never rejects. A connectivity failure retries under the breaker; a definitive
+   * rejection parks the source. Every distinct failure reaches onStatusChange.
+   */
   private async read(): Promise<void> {
     const generation = this.generation;
     this.valid = true;
     const { client } = this;
-    try {
-      if (client == null) {
-        this.onStatusChange?.(DISCONNECTED_STATUS);
-        return;
-      }
-      const { timeRange, channel, useIndexOfChannel } = this.props;
-      const ch = await fetchChannelProperties(client, channel, useIndexOfChannel);
-      if (generation !== this.generation) return;
-      this.channel = ch;
-      const series = await client.feed.read(timeRange, ch.key);
-      if (generation !== this.generation) return;
-      series.acquire();
-      this.data = series;
-      this.notify();
-    } catch (e) {
-      this.valid = false;
-      this.onStatusChange?.(cstatus.fromException(e, "Failed to read channel data"));
-    } finally {
+    if (client == null) {
       this.declareLoaded();
+      this.onStatusChange?.(DISCONNECTED_STATUS);
+      return;
     }
+    while (generation === this.generation)
+      try {
+        await this.attempt(generation, client);
+        this.declareLoaded();
+        this.breaker.reset();
+        this.failures.reset();
+        return;
+      } catch (e) {
+        this.declareLoaded();
+        this.failures.report(e, "Failed to read channel data");
+        if (isDefinitive(e) || !(await this.breaker.wait())) return;
+      }
+  }
+
+  private async attempt(generation: number, client: Client): Promise<void> {
+    const { timeRange, channel, useIndexOfChannel } = this.props;
+    const ch = await fetchChannelProperties(client, channel, useIndexOfChannel);
+    if (generation !== this.generation) return;
+    this.channel = ch;
+    const series = await client.feed.read(timeRange, ch.key);
+    if (generation !== this.generation) return;
+    series.acquire();
+    this.data = series;
+    this.notify();
   }
 }
 
@@ -330,7 +397,7 @@ export class StreamChannelData
   private generation = 0;
   private readonly breaker: breaker.Breaker;
   private readonly retryNotifier = new sync.Notifier();
-  private lastFailure?: string;
+  private readonly failures: FailureReporter;
   schema = streamChannelDataPropsZ;
 
   constructor(
@@ -347,21 +414,8 @@ export class StreamChannelData
     const { channel, timeSpan } = this.props;
     this.skipLoading = channel === 0 || timeSpan.valueOf() <= LOADING_MIN_SPAN;
     this.loading_ = true;
-    this.breaker = new breaker.Breaker({
-      baseInterval: TimeSpan.seconds(1),
-      // A tall interval cap: live data flows independently of this loop, and a
-      // back-fill loses value as the window fills with live samples.
-      maxInterval: TimeSpan.seconds(30),
-      maxRetries: Infinity,
-      scale: 2,
-      jitter: 0.25,
-      // cleanup interrupts a pending backoff so a retired source's retry loop ends
-      // promptly instead of sleeping through it
-      sleepFn: async (duration) => {
-        await this.retryNotifier.wait(duration);
-      },
-      ...breakerConfig,
-    });
+    this.breaker = newRetryBreaker(this.retryNotifier, breakerConfig);
+    this.failures = new FailureReporter(options?.onStatusChange);
   }
 
   loading(): boolean {
@@ -404,20 +458,12 @@ export class StreamChannelData
         await this.attempt(generation, client);
         this.declareLoaded();
         this.breaker.reset();
-        this.lastFailure = undefined;
+        this.failures.reset();
         return;
       } catch (e) {
         // Declare loaded on the first failure so retries never hold loading forever.
         this.declareLoaded();
-        // Retrying only fixes connectivity; a definitive rejection recurs on every
-        // attempt.
-        if (
-          AccessDeniedError.matches(e) ||
-          ValidationError.matches(e) ||
-          NotFoundError.matches(e)
-        )
-          return;
-        if (!(await this.breaker.wait())) return;
+        if (isDefinitive(e) || !(await this.breaker.wait())) return;
       }
   }
 
@@ -444,7 +490,7 @@ export class StreamChannelData
       streamStart = this.now();
       this.stopStreaming = client.feed.stream(handler, [fetched.key]).close;
     } catch (e) {
-      this.reportFailure(e, "Failed to stream channel data");
+      this.failures.report(e, "Failed to stream channel data");
       throw errors.fromUnknown(e);
     }
     if (!fetched.virtual || fetched.isCalculated)
@@ -475,21 +521,11 @@ export class StreamChannelData
         )
           console.warn("failed to read calculated channel data", e);
         else {
-          this.reportFailure(e, "Failed to read channel data");
+          this.failures.report(e, "Failed to read channel data");
           throw errors.fromUnknown(e);
         }
       }
     this.notify();
-  }
-
-  // Retries repeat at the breaker's pace, so an incident posts one status when it
-  // starts and again only when the failure changes. Success clears the memory.
-  private reportFailure(e: unknown, message: string): void {
-    const failure = cstatus.fromException(e, message);
-    const key = `${failure.message}: ${failure.description}`;
-    if (this.lastFailure === key) return;
-    this.lastFailure = key;
-    this.onStatusChange?.(failure);
   }
 
   // feed.read returns the live leading buffer that the stream's first delivery repeats,

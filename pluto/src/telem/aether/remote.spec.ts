@@ -1109,6 +1109,76 @@ describe("remote", () => {
         expect(handleChange).not.toHaveBeenCalled();
       });
     });
+
+    describe("failures", () => {
+      const props = (): ChannelDataProps => ({
+        timeRange: TimeStamp.seconds(1).spanRange(TimeSpan.seconds(1)),
+        channel: c.channel.key,
+      });
+
+      it("should not start a read per value() call while a failed read backs off", async () => {
+        c.feed.read = async (tr: TimeRange, key: channel.Key): Promise<MultiSeries> => {
+          c.readMock(tr, key);
+          throw new Error("transient");
+        };
+        const onStatusChange = vi.fn();
+        const cd = new ChannelData(
+          c,
+          props(),
+          { onStatusChange },
+          {
+            sleepFn: async () => await new Promise(() => {}),
+          },
+        );
+        cd.value();
+        await expect.poll(() => onStatusChange.mock.calls.length).toBe(1);
+        for (let i = 0; i < 5; i++) cd.value();
+        await new Promise((r) => setTimeout(r, 10));
+        expect(c.readMock).toHaveBeenCalledTimes(1);
+        expect(onStatusChange).toHaveBeenCalledTimes(1);
+        cd.cleanup();
+      });
+
+      it("should park on a definitive rejection", async () => {
+        c.feed.read = async (tr: TimeRange, key: channel.Key): Promise<MultiSeries> => {
+          c.readMock(tr, key);
+          throw new ValidationError("bad range");
+        };
+        const onStatusChange = vi.fn();
+        const cd = new ChannelData(
+          c,
+          props(),
+          { onStatusChange },
+          {
+            sleepFn: async () => {},
+          },
+        );
+        cd.value();
+        await expect.poll(() => onStatusChange.mock.calls.length).toBe(1);
+        for (let i = 0; i < 5; i++) cd.value();
+        await new Promise((r) => setTimeout(r, 10));
+        expect(c.readMock).toHaveBeenCalledTimes(1);
+        cd.cleanup();
+      });
+
+      it("should retry a connectivity failure until the read lands", async () => {
+        const series = new Series({
+          data: new Float32Array([1, 2]),
+          timeRange: TimeStamp.seconds(1).spanRange(TimeSpan.seconds(1)),
+        });
+        let calls = 0;
+        c.feed.read = async (): Promise<MultiSeries> => {
+          calls++;
+          if (calls === 1) throw new Error("transient");
+          return new MultiSeries([series]);
+        };
+        const cd = new ChannelData(c, props(), {}, { sleepFn: async () => {} });
+        cd.value();
+        await expect.poll(() => cd.value()[1].length).toBe(2);
+        expect(calls).toBe(2);
+        cd.cleanup();
+      });
+    });
   });
 
   describe("StreamChannelData", () => {
