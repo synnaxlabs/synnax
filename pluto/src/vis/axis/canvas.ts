@@ -23,6 +23,8 @@ import { type render } from "@/vis/render";
 
 const TICK_LINE_SIZE = 5;
 const TICK_PADDING = 6;
+// Space between a y axis's widest tick label and its outer edge.
+const EDGE_PADDING = 6;
 const FILL_TEXT_OPTIONS: FillTextOptions = { useAtlas: true };
 
 const AXES: Record<
@@ -218,7 +220,7 @@ class LeftCanvas extends Base implements Axis {
       xy.translate(p, { x: gridSize, y: tick.position }),
     ]);
 
-    return { size: maxTickSize.width + TICK_LINE_SIZE * 2 };
+    return { size: maxTickSize.width + TICK_LINE_SIZE * 2 + EDGE_PADDING };
   }
 }
 
@@ -255,6 +257,6 @@ export class Right extends Base implements Axis {
       xy.translate(pos, { x: -gridSize, y: tick.position }),
     ]);
 
-    return { size: maxTickSize.width + TICK_LINE_SIZE + TICK_PADDING };
+    return { size: maxTickSize.width + TICK_LINE_SIZE + TICK_PADDING + EDGE_PADDING };
   }
 }

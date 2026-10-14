@@ -17,24 +17,38 @@
     overflow: hidden;
 }
 
-/* The spread reaches past the tick labels, which can overhang the axis box. */
+/* The highlight spans the axis's width, from its line to its outer edge, and reaches
+   past both ends to cover the end tick labels, which overhang the axis. */
 .pluto-line-plot .pluto-haul-drop-region {
     --pluto-drop-region-spread: 0.5rem;
     --pluto-drop-region-background: var(--haul-background);
+    --pluto-drop-region-border-color: var(--haul-border-color);
 
-    background: var(--pluto-drop-region-background);
-    box-shadow: 0 0 0 var(--pluto-drop-region-spread)
-        var(--pluto-drop-region-background);
-    outline: var(--pluto-border);
-    outline-color: var(--haul-border-color);
-    outline-offset: var(--pluto-drop-region-spread);
-    border-radius: var(--pluto-border-radius);
-}
+    position: relative;
 
-.pluto-line-plot .pluto-haul-drop-region.pluto--drag-over {
-    --pluto-drop-region-background: var(--pluto-gray-l8-40);
+    &::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: var(--pluto-drop-region-background);
+        border: var(--pluto-border);
+        border-color: var(--pluto-drop-region-border-color);
+        border-radius: var(--pluto-border-radius);
+        pointer-events: none;
+    }
 
-    outline-color: var(--pluto-gray-l8-80);
+    &.pluto-y-axis::before {
+        inset: calc(-1 * var(--pluto-drop-region-spread)) 0;
+    }
+
+    &.pluto-x-axis::before {
+        inset: 0 calc(-1 * var(--pluto-drop-region-spread));
+    }
+
+    &.pluto--drag-over {
+        --pluto-drop-region-background: var(--pluto-gray-l8-40);
+        --pluto-drop-region-border-color: var(--pluto-gray-l8-80);
+    }
 }
 
 .pluto-line-plot__viewport {
