@@ -37,7 +37,8 @@ export interface StreamHooks {
   onReopen: () => void;
   /** Called when the underlying stream fails and reconnection begins. */
   onDrop: (error: Error) => void;
-  /** Aborts when the streamer closes. An open still retrying must stop. */
+  /** Aborts when the streamer closes while this stream is current. A stream still
+   * opening or retrying must stop. */
   signal: AbortSignal;
 }
 
@@ -121,7 +122,9 @@ export class MultiplexedStreamer {
   // Serializes stream open, update, and close against each other. An open or update
   // retries while holding it, so close() interrupts them before acquiring it.
   private readonly connMu = sync.newMutex({ closed: false });
-  private readonly closeController = new AbortController();
+  // Belongs to the current stream, so a retired stream's abort listener is collected
+  // with it.
+  private streamAbort: AbortController | null = null;
   private readonly breaker: breaker.Breaker;
   private readonly entries = new Set<Entry>();
   private readonly statuses = new Map<channel.Key, status.Status>();
@@ -216,7 +219,7 @@ export class MultiplexedStreamer {
     this.removalTimers.forEach(clearTimeout);
     this.removalTimers.clear();
     this.connMu.closed = true;
-    this.closeController.abort();
+    this.streamAbort?.abort();
     await this.connMu.runExclusive(async () => {
       try {
         await this.releaseStream();
@@ -231,6 +234,7 @@ export class MultiplexedStreamer {
     const prevLoop = this.runLoop;
     this.streamer = null;
     this.runLoop = null;
+    this.streamAbort = null;
     prev?.close();
     if (prevLoop != null) await prevLoop;
   }
@@ -311,11 +315,12 @@ export class MultiplexedStreamer {
         if (desired.size === 0) {
           const removed = this.sentKeys;
           this.sentKeys = new Set();
-          this.statuses.clear();
+          this.pruneStatuses();
           await this.releaseStream();
           this.flushBuffers(removed);
           this.breaker.reset();
           ins.L.info("streamer closed, no keys to stream");
+          this.releaseDeferred();
           return;
         }
         if (
@@ -323,14 +328,15 @@ export class MultiplexedStreamer {
           desired.size === this.sentKeys.size &&
           desired.isSubsetOf(this.sentKeys)
         )
-          return;
+          return this.releaseDeferred();
         const removed = Array.from(this.sentKeys).filter((k) => !desired.has(k));
         if (this.streamer == null) {
           ins.L.info("creating new streamer", { keys: arrKeys });
+          this.streamAbort = new AbortController();
           const streamer = await this.props.openStreamer(
             { channels: arrKeys, throttleRate: THROTTLE_RATE },
             {
-              signal: this.closeController.signal,
+              signal: this.streamAbort.signal,
               onReopen: () =>
                 this.sentKeys.forEach((key) => this.setStatus(key, STREAMING)),
               // Frames may drop until the reopen, so the buffers' live-coverage
@@ -355,26 +361,23 @@ export class MultiplexedStreamer {
         // Existing keys keep their status so a demand change cannot clear a per-key
         // error.
         fresh.forEach((key) => this.setStatus(key, STREAMING));
-        const demanded = this.demandedKeys();
-        this.statuses.forEach((_, key) => {
-          if (!demanded.has(key)) this.statuses.delete(key);
-        });
+        this.pruneStatuses();
         this.breaker.reset();
-        if (this.deferred.length > 0) {
-          this.deferred.shift();
-          this.scheduleReconcile(TimeSpan.ZERO);
-        }
+        this.releaseDeferred();
       } catch (e) {
         ins.L.error("failed to update streamer", { error: e });
         const failure = status.fromException(e, "failed to stream channel");
-        if (isKeyRejection(e) && !this.connMu.closed) {
+        if (isKeyRejection(e) && !this.connMu.closed && fresh.length > 0) {
           // One of the new keys caused the rejection. Retry with one of them, and
           // return the rest one at a time, until the culprit fails alone.
           if (fresh.length === 1) {
             this.rejected.add(fresh[0]);
             this.setStatus(fresh[0], failure);
-          } else this.deferred.push(...fresh.slice(1));
-          this.scheduleReconcile(TimeSpan.ZERO);
+            this.releaseDeferred();
+          } else {
+            this.deferred.push(...fresh.slice(1));
+            this.scheduleReconcile(TimeSpan.ZERO);
+          }
           return;
         }
         desired.forEach((key) => {
@@ -385,6 +388,22 @@ export class MultiplexedStreamer {
     });
     if (!retry || this.connMu.closed) return;
     if (await this.breaker.wait()) this.scheduleReconcile(TimeSpan.ZERO);
+  }
+
+  // Returns one held-back key to the stream. Every reconcile that does not defer keys
+  // calls it, so narrowing a rejection always runs to completion.
+  private releaseDeferred(): void {
+    if (this.deferred.length === 0) return;
+    this.deferred.shift();
+    this.scheduleReconcile(TimeSpan.ZERO);
+  }
+
+  // Keeps statuses for demanded keys, so a rejected key keeps its error.
+  private pruneStatuses(): void {
+    const demanded = this.demandedKeys();
+    this.statuses.forEach((_, key) => {
+      if (!demanded.has(key)) this.statuses.delete(key);
+    });
   }
 
   private async run(streamer: Streamer): Promise<void> {
@@ -430,6 +449,7 @@ export class MultiplexedStreamer {
       if (!this.connMu.closed && this.streamer === streamer) {
         this.streamer = null;
         this.runLoop = null;
+        this.streamAbort = null;
         this.flushBuffers(this.sentKeys);
         this.sentKeys = new Set();
         this.scheduleReconcile(TimeSpan.ZERO);

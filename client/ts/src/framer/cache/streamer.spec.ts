@@ -185,6 +185,60 @@ describe("MultiplexedStreamer", () => {
       await streamer.close();
     });
 
+    it("should stream a key opened after a rejected one", async () => {
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: async (config) => {
+          const keys = channelsOf(config);
+          if (keys.includes(BAD)) throw new NotFoundError(`channel ${BAD} not found`);
+          return rejectingStreamer(keys);
+        },
+        instrumentation: createErrorSpy().instrumentation,
+      });
+      const sub = streamer.stream(() => {}, [BAD, 1]);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(sub.status(1).variant).toEqual("success");
+      expect(sub.status(BAD).variant).toEqual("error");
+      await streamer.close();
+    });
+
+    it("should keep a rejected key's error when no other key is demanded", async () => {
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: async () => {
+          throw new NotFoundError(`channel ${BAD} not found`);
+        },
+        instrumentation: createErrorSpy().instrumentation,
+      });
+      const sub = streamer.stream(() => {}, [BAD]);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(sub.status(BAD).variant).toEqual("error");
+      await streamer.close();
+    });
+
+    it("should give each opened stream its own abort signal", async () => {
+      const hooks: StreamHooks[] = [];
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: createStreamOpener(
+          [pendingStreamer([1]), pendingStreamer([1])],
+          hooks,
+        ),
+        removalDelay: TimeSpan.milliseconds(10),
+      });
+      const first = streamer.stream(() => {}, [1]);
+      await vi.advanceTimersByTimeAsync(200);
+      first.close();
+      await vi.advanceTimersByTimeAsync(500);
+      streamer.stream(() => {}, [1]);
+      await vi.advanceTimersByTimeAsync(200);
+      expect(hooks).toHaveLength(2);
+      expect(hooks[0].signal).not.toBe(hooks[1].signal);
+      await streamer.close();
+      expect(hooks[0].signal.aborted).toBe(false);
+      expect(hooks[1].signal.aborted).toBe(true);
+    });
+
     it("should keep streaming when an update adds a rejected key", async () => {
       const ms = rejectingStreamer([1]);
       const streamer = new MultiplexedStreamer({
