@@ -8,6 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 import re
+from collections.abc import Callable
+from typing import cast
 from uuid import uuid4
 
 import pydantic
@@ -95,8 +97,9 @@ class TestRangeClient:
 
     def test_retrieve_unnamed_parameter(self, client: sy.Synnax) -> None:
         """Should raise an error when unnamed parameters are passed in"""
+        retrieve = cast(Callable[..., object], client.ranges.retrieve)
         with pytest.raises(RequiresNamedParams):
-            client.ranges.retrieve("cat")  # type: ignore[call-overload]
+            retrieve("cat")
 
     def test_retrieve_by_name_not_found(
         self, two_ranges: list[sy.Range], client: sy.Synnax
