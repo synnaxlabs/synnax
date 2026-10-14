@@ -11,7 +11,7 @@
 from __future__ import annotations
 
 import functools
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from typing import Any, cast, overload
 from uuid import UUID
 
@@ -441,10 +441,13 @@ class Range(Payload):
     ) -> None: ...
 
     @overload
-    def write(self, channels: dict[channel.Key, CrudeSeries]) -> None: ...
+    def write(self, channels: Mapping[channel.Key, CrudeSeries]) -> None: ...
 
     @overload
-    def write(self, channels: dict[str, CrudeSeries]) -> None: ...
+    def write(self, channels: Mapping[str, CrudeSeries]) -> None: ...
+
+    @overload
+    def write(self, channels: Mapping[channel.Payload, CrudeSeries]) -> None: ...
 
     @overload
     def write(self, channels: framer.Frame | FramePayload | pd.DataFrame) -> None: ...

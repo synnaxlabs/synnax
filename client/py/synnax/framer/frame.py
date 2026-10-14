@@ -193,7 +193,8 @@ class Frame:
 CrudeFrame: TypeAlias = (
     Frame
     | FramePayload
-    | dict[channel.Key, CrudeSeries]
-    | dict[str, CrudeSeries]
+    | Mapping[channel.Key, CrudeSeries]
+    | Mapping[str, CrudeSeries]
+    | Mapping[channel.Payload, CrudeSeries]
     | DataFrame
 )

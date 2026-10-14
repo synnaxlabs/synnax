@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from collections.abc import Mapping
 from typing import cast, overload
 
 import pandas as pd
@@ -171,7 +172,7 @@ class Client:
     def write(
         self,
         start: CrudeTimeStamp,
-        channels: dict[channel.Key, CrudeSeries],
+        channels: Mapping[channel.Key, CrudeSeries],
         *,
         strict: bool = False,
     ) -> None: ...
@@ -180,7 +181,16 @@ class Client:
     def write(
         self,
         start: CrudeTimeStamp,
-        channels: dict[str, CrudeSeries],
+        channels: Mapping[str, CrudeSeries],
+        *,
+        strict: bool = False,
+    ) -> None: ...
+
+    @overload
+    def write(
+        self,
+        start: CrudeTimeStamp,
+        channels: Mapping[channel.Payload, CrudeSeries],
         *,
         strict: bool = False,
     ) -> None: ...
@@ -215,7 +225,8 @@ class Client:
         parsed_channels: channel.Params = list()
         if isinstance(channels, (list, channel.Key, channel.Payload, str)):
             parsed_channels = channels
-        elif isinstance(channels, dict):
+        elif isinstance(channels, Mapping):
+            # normalize_params rejects a mix of keys and names
             parsed_channels = cast(channel.Params, list(channels.keys()))
         elif isinstance(channels, Frame):
             # Frame channels are homogeneous (all Key or all str) at runtime

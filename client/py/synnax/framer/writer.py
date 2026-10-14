@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from enum import Enum
 from typing import Literal, TypeAlias, cast, overload
 from uuid import uuid4
@@ -227,10 +228,15 @@ class Writer:
     ) -> None: ...
 
     @overload
-    def write(self, channels_or_data: dict[channel.Key, CrudeSeries]) -> None: ...
+    def write(self, channels_or_data: Mapping[channel.Key, CrudeSeries]) -> None: ...
 
     @overload
-    def write(self, channels_or_data: dict[str, CrudeSeries]) -> None: ...
+    def write(self, channels_or_data: Mapping[str, CrudeSeries]) -> None: ...
+
+    @overload
+    def write(
+        self, channels_or_data: Mapping[channel.Payload, CrudeSeries]
+    ) -> None: ...
 
     @overload
     def write(self, channels_or_data: Frame | FramePayload | DataFrame) -> None: ...
