@@ -184,7 +184,7 @@ class Controller:
                 for i in range(len(channels))
                 if not channels[i].virtual
             }
-            self._writer.write({**updated, **updated_idx})
+            self._writer.write(cast(framer.CrudeFrame, {**updated, **updated_idx}))
             return
         ch = self._retriever.retrieve_one(channel)
         assert value is not None

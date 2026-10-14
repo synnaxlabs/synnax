@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from collections.abc import Mapping
 from typing import cast, overload
 
 import pandas as pd
@@ -197,8 +198,9 @@ class Client:
         parsed_channels: channel.Params = list()
         if isinstance(channels, (list, channel.Key, channel.Payload, str)):
             parsed_channels = channels
-        elif isinstance(channels, dict):
-            parsed_channels = list(channels.keys())
+        elif isinstance(channels, Mapping):
+            # normalize_params rejects a mix of keys and names
+            parsed_channels = cast(channel.Params, list(channels.keys()))
         elif isinstance(channels, Frame):
             # Frame channels are homogeneous (all Key or all str) at runtime
             parsed_channels = cast(channel.Params, channels.channels)
