@@ -210,10 +210,12 @@ class TimeSpan(int):
     def __new__(cls, value: CrudeTimeSpan) -> TimeSpan:
         if isinstance(value, str):
             value = int(value)
-        if isinstance(value, timedelta):
-            value = int(float(TimeSpan.SECOND) * value.total_seconds())
+        if isinstance(value, pd.Timedelta):
+            value = value.value
+        elif isinstance(value, timedelta):
+            value = _timedelta_nanoseconds(value)
         elif isinstance(value, np.timedelta64):
-            value = int(float(TimeSpan.SECOND) * pd.Timedelta(value).total_seconds())
+            value = int(value.astype("timedelta64[ns]").astype(np.int64))
         elif not isinstance(value, (int, float, np.floating, np.integer)):
             raise TypeError(f"Cannot convert {type(value)} to TimeSpan")
         return super().__new__(cls, value)

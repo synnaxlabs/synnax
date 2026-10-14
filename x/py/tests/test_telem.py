@@ -324,6 +324,25 @@ class TestTimeSpan:
     def test_construction(self, crude: sy.CrudeTimeSpan, expected: sy.TimeSpan) -> None:
         assert sy.TimeSpan(crude) == expected
 
+    @pytest.mark.parametrize(
+        "crude, expected",
+        [
+            (pd.Timedelta(1, "s") + pd.Timedelta(1, "ns"), 1_000_000_001),
+            (pd.Timedelta(days=-3, nanoseconds=7), -3 * 86_400 * 10**9 + 7),
+            (np.timedelta64(5, "ns"), 5),
+            (np.timedelta64(3, "us"), 3_000),
+            (np.timedelta64(2, "ms"), 2_000_000),
+            (np.timedelta64(-7, "s"), -7 * 10**9),
+            (np.timedelta64(1, "D"), 86_400 * 10**9),
+            (np.timedelta64(10**18 + 1, "ns"), 10**18 + 1),
+            (timedelta(days=10_000, microseconds=1), 10_000 * 86_400 * 10**9 + 1_000),
+            (timedelta(seconds=-1, microseconds=1), -999_999_000),
+        ],
+    )
+    def test_construction_exact(self, crude: sy.CrudeTimeSpan, expected: int) -> None:
+        """Should convert durations to exact integer nanoseconds"""
+        assert sy.TimeSpan(crude) == expected
+
     def test_seconds(self) -> None:
         """Should return the number of seconds in the timespan"""
         assert sy.TimeSpan.SECOND.seconds == 1
