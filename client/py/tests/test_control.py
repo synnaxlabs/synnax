@@ -7,11 +7,13 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import asyncio
 import threading
 from typing import cast
 
 import pytest
 
+import freighter
 import synnax as sy
 from synnax.control.controller import Controller, RemainsTrueFor
 
@@ -439,6 +441,41 @@ class TestController:
                 lambda c: c.get(ch.key) == 42, timeout=HANDSHAKE_TIMEOUT
             )
             assert "control_set_by_attribute" not in vars(auto)
+
+    def test_acquire_raises_when_streamer_fails_to_open(
+        self, client: sy.Synnax, login_info: tuple[str, int, str, str]
+    ):
+        """Should raise the streamer's open error instead of hanging."""
+        ch = client.channels.create(
+            name="control_streamer_open_fails",
+            data_type=sy.DataType.FLOAT64,
+            virtual=True,
+        )
+        host, port, username, password = login_info
+        other = sy.Synnax(
+            host=host, port=port, username=username, password=password, secure=False
+        )
+        other.channels.delete(ch.key)
+        with pytest.raises(freighter.StreamClosed):
+            client.control.acquire(name="Open Fails", read=[ch.key], write=None)
+
+    def test_wait_raises_when_receiver_stops(self, client: sy.Synnax):
+        """Should raise from a wait, and release cleanly, once the receiver stops."""
+        ch = client.channels.create(
+            name="control_receiver_stops",
+            data_type=sy.DataType.FLOAT64,
+            virtual=True,
+            retrieve_if_name_exists=True,
+        )
+        with client.control.acquire(
+            name="Receiver Stops", read=[ch.key], write=[ch.key]
+        ) as auto:
+            receiver = auto._receiver
+            asyncio.run_coroutine_threadsafe(
+                receiver.streamer.close_loop(), receiver.loop
+            ).result(HANDSHAKE_TIMEOUT)
+            with pytest.raises(sy.UnexpectedError):
+                auto.wait_until(lambda _: False, timeout=HANDSHAKE_TIMEOUT)
 
     def test_controller_set_authority_mechanisms(self, client: sy.Synnax):
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
