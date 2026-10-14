@@ -238,15 +238,38 @@ class TestStreamer:
                 frame = s.read(timeout=1)
                 assert np.array_equal(frame[virtual_channel.key], expect)
 
-    def test_throttle(self, virtual_channel: sy.Channel, client: sy.Synnax):
+    @staticmethod
+    def _count_frames(
+        streamer: sy.Streamer, writer: sy.Writer, key: sy.channel.Key, n: int
+    ) -> int:
+        expected = np.arange(n, dtype=np.float64)
+        for value in expected:
+            writer.write(key, value)
+        received: list[float] = []
+        frames = 0
+        while len(received) < n:
+            frame = streamer.read(timeout=READ_TIMEOUT)
+            assert frame is not None, f"timed out after {len(received)} values"
+            received.extend(frame[key].to_numpy())
+            frames += 1
+        assert np.array_equal(received, expected)
+        return frames
+
+    def test_throttle(self, virtual_channel: sy.Channel, client: sy.Synnax) -> None:
         """Should merge the frames written in one throttle period into one frame"""
+        n = 10
         with client.open_streamer(virtual_channel.key, throttle_rate=1) as s:
             with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
-                for value in [1.0, 2.0, 3.0]:
-                    w.write(virtual_channel.key, value)
-                frame = s.read(timeout=READ_TIMEOUT)
-                assert frame is not None
-                assert np.array_equal(frame[virtual_channel.key], [1.0, 2.0, 3.0])
+                frames = self._count_frames(s, w, virtual_channel.key, n)
+        # A tick between two writes can split them across two frames.
+        assert frames <= 2
+
+    def test_no_throttle(self, virtual_channel: sy.Channel, client: sy.Synnax) -> None:
+        """Should send each written frame on its own without a throttle rate"""
+        n = 10
+        with client.open_streamer(virtual_channel.key) as s:
+            with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
+                assert self._count_frames(s, w, virtual_channel.key, n) == n
 
     def test_downsample_negative(self, virtual_channel: sy.Channel, client: sy.Synnax):
         with pytest.raises(sy.ValidationError):
