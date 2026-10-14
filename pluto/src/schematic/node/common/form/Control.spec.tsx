@@ -42,25 +42,20 @@ const stored = (c: ReturnType<typeof render>): Control.StateConfig | null =>
   JSON.parse(c.getByTestId("stored").textContent ?? "null");
 
 describe("ControlChipField", () => {
-  it("should read as off for a symbol with no control state", () => {
+  it("should read as on for a symbol with no control state", () => {
     const c = renderField(undefined);
-    expect(c.getByRole("checkbox")).toHaveProperty("checked", false);
-  });
-
-  it("should leave a symbol with no control state unchanged until turned on", () => {
-    const c = renderField(undefined);
+    expect(c.getByRole("checkbox")).toHaveProperty("checked", true);
     expect(stored(c)).toBeNull();
   });
 
-  it("should add the default control state when turned on", () => {
+  it("should hide the control state of a symbol with none when turned off", () => {
     const c = renderField(undefined);
     fireEvent.click(c.getByRole("checkbox"));
-    expect(stored(c)).toEqual(Control.stateConfigZ.parse({ hidden: false }));
+    expect(stored(c)?.hidden).toBe(true);
   });
 
-  it("should hide a shown control state when turned off", () => {
+  it("should keep the rest of the control state when turned off", () => {
     const c = renderField(Control.stateConfigZ.parse({ authority: 100 }));
-    expect(c.getByRole("checkbox")).toHaveProperty("checked", true);
     fireEvent.click(c.getByRole("checkbox"));
     expect(stored(c)).toEqual(
       Control.stateConfigZ.parse({ authority: 100, hidden: true }),

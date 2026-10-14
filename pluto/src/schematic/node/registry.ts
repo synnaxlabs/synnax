@@ -74,9 +74,7 @@ export const isConfig = (config: schematic.ElementConfig): config is Config =>
  * @throws {NotFoundError} if no spec is registered for the variant.
  */
 export const createConfig = <V extends Variant>(input: Input<V>): ConfigOf<V> => {
-  // A stored config with no control state shows none, so a new one carries the
-  // defaults to show it once a channel is set. Variants with no control state strip it.
-  const config = configZ.parse({ control: {}, ...input }) as ConfigOf<V>;
+  const config = configZ.parse(input) as ConfigOf<V>;
   const spec = resolveSpec(input.variant);
   const labeled = input as { label?: { label?: string } };
   if ("label" in config && labeled.label?.label == null)

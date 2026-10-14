@@ -23,6 +23,8 @@ export type StateConfig = schematic.ControlStateConfig;
 
 export const STATE_CLASS = CSS.B("control-state");
 
+const DEFAULT_CONFIG = stateConfigZ.parse({});
+
 export interface State {
   config?: StateConfig;
   channel?: channel.Key;
@@ -67,7 +69,8 @@ const Internal = ({
 export const State = Grid.createItem<State>(({ config, channel, onChange }) => {
   // The chip and the indicator report control of the channel, so with no channel
   // there is nothing to show.
-  if (config == null || !primitive.isNonZero(channel)) return null;
+  if (!primitive.isNonZero(channel)) return null;
+  config ??= DEFAULT_CONFIG;
   const orientation = config.orientation ?? "bottom";
   return (
     <Grid.Item

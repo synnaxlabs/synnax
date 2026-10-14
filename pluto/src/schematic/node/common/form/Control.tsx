@@ -7,32 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Form } from "@synnaxlabs/lyra/form";
-import { Input } from "@synnaxlabs/lyra/input";
 import { type ReactElement } from "react";
 
-import { Control } from "@/schematic/node/common/control";
+import {
+  NegatedSwitchField,
+  type NegatedSwitchFieldProps,
+} from "@/schematic/node/common/form/NegatedSwitch";
 
-// A symbol with no control state shows none, so it reads as a hidden one.
-const HIDDEN = Control.stateConfigZ.parse({ hidden: true });
-
-/**
- * Shows or hides a symbol's control state. A symbol with no control state reads as
- * off, and turning it on adds the default state.
- */
-export const ControlChipField = (): ReactElement => (
-  <Form.Field<Control.StateConfig>
-    path="control"
+export const ControlChipField = (
+  props: Partial<NegatedSwitchFieldProps>,
+): ReactElement => (
+  <NegatedSwitchField
+    path="control.hidden"
     label="Control chip"
-    defaultValue={HIDDEN}
+    defaultValue={false}
     padHelpText={false}
-  >
-    {({ value, onChange, ...rest }) => (
-      <Input.Switch
-        {...rest}
-        value={!value.hidden}
-        onChange={(shown) => onChange({ ...value, hidden: !shown })}
-      />
-    )}
-  </Form.Field>
+    {...props}
+  />
 );
