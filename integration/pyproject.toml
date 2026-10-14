@@ -78,14 +78,14 @@ ignore_missing_imports = true
 # SETUP_VERSION, so they target old client APIs, not the workspace client.
 [[tool.mypy.overrides]]
 module = [
-  "tests.migration.channels_calc_setup",
-  "tests.migration.channels_setup",
-  "tests.migration.ranges_setup",
-  "tests.migration.rbac_setup",
-  "tests.migration.setup",
-  "tests.migration.task_modbus_setup",
-  "tests.migration.task_ni_setup",
-  "tests.migration.task_opc_setup",
+    "tests.migration.channels_calc_setup",
+    "tests.migration.channels_setup",
+    "tests.migration.ranges_setup",
+    "tests.migration.rbac_setup",
+    "tests.migration.setup",
+    "tests.migration.task_modbus_setup",
+    "tests.migration.task_ni_setup",
+    "tests.migration.task_opc_setup",
 ]
 ignore_errors = true
 
