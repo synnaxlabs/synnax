@@ -31,6 +31,16 @@ DEADLINE = 3 * KEEP_ALIVE
 ARMED = 2.5
 
 
+def connect(proxy: Proxy) -> sy.Synnax:
+    return sy.Synnax(
+        host="localhost",
+        port=proxy.port,
+        username=USERNAME,
+        password=PASSWORD,
+        secure=False,
+    )
+
+
 @pytest.fixture
 def proxy() -> Iterator[Proxy]:
     p = Proxy(HOST, PORT)
@@ -40,13 +50,15 @@ def proxy() -> Iterator[Proxy]:
 
 @pytest.fixture
 def proxied_client(proxy: Proxy) -> sy.Synnax:
-    return sy.Synnax(
-        host="localhost",
-        port=proxy.port,
-        username=USERNAME,
-        password=PASSWORD,
-        secure=False,
-    )
+    return connect(proxy)
+
+
+@pytest.fixture
+def early_proxy() -> Iterator[Proxy]:
+    """A proxy that sends a keep-alive ahead of each streamer's open ack."""
+    p = Proxy(HOST, PORT, inject_keep_alive=True)
+    yield p
+    p.close()
 
 
 def write(client: sy.Synnax, ch: sy.Channel, data: list[float]) -> None:
@@ -422,6 +434,29 @@ class TestStreamerKeepAlive:
         assert proxy.blackhole() > 0
         assert s.read(timeout=1) is None
 
+    def test_polled_read_unreachable(
+        self, virtual_channel: sy.Channel, proxy: Proxy, proxied_client: sy.Synnax
+    ):
+        """Should raise Unreachable to a caller polling with a short timeout"""
+        s = proxied_client.open_streamer(virtual_channel.key, keep_alive=KEEP_ALIVE)
+        time.sleep(ARMED)
+        assert proxy.blackhole() > 0
+        start = sy.TimeStamp.now()
+        with pytest.raises(Unreachable):
+            while sy.TimeSpan.since(start) < DEADLINE + KEEP_ALIVE:
+                assert s.read(timeout=1) is None
+
+    def test_early_keep_alive_arms(
+        self, virtual_channel: sy.Channel, early_proxy: Proxy
+    ):
+        """Should arm the deadline on a keep-alive that precedes the open ack"""
+        s = connect(early_proxy).open_streamer(
+            virtual_channel.key, keep_alive=KEEP_ALIVE
+        )
+        assert early_proxy.blackhole() > 0
+        with pytest.raises(Unreachable):
+            s.read(timeout=DEADLINE + KEEP_ALIVE)
+
     def test_disabled(
         self, virtual_channel: sy.Channel, proxy: Proxy, proxied_client: sy.Synnax
     ):
@@ -464,3 +499,33 @@ class TestAsyncStreamerKeepAlive:
         ):
             await s.read()
         assert sy.TimeSpan.since(start) >= DEADLINE
+
+    @pytest.mark.asyncio
+    async def test_polled_read_unreachable(
+        self, virtual_channel: sy.Channel, proxy: Proxy, proxied_client: sy.Synnax
+    ):
+        """Should raise Unreachable to a caller polling with a short timeout"""
+        s = await proxied_client.open_async_streamer(
+            virtual_channel.key, keep_alive=KEEP_ALIVE
+        )
+        await asyncio.sleep(ARMED)
+        assert proxy.blackhole() > 0
+        start = sy.TimeStamp.now()
+        with pytest.raises(Unreachable):
+            while sy.TimeSpan.since(start) < DEADLINE + KEEP_ALIVE:
+                with pytest.raises(TimeoutError):
+                    async with asyncio.timeout(1):
+                        await s.read()
+
+    @pytest.mark.asyncio
+    async def test_early_keep_alive_arms(
+        self, virtual_channel: sy.Channel, early_proxy: Proxy
+    ):
+        """Should arm the deadline on a keep-alive that precedes the open ack"""
+        s = await connect(early_proxy).open_async_streamer(
+            virtual_channel.key, keep_alive=KEEP_ALIVE
+        )
+        assert early_proxy.blackhole() > 0
+        with pytest.raises(Unreachable):
+            async with asyncio.timeout((DEADLINE + KEEP_ALIVE).seconds):
+                await s.read()
