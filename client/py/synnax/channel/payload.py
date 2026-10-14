@@ -32,7 +32,7 @@ OPERATION_TYPES = Literal["min", "max", "avg", "none"]
 @dataclass
 class NormalizedKeyResult:
     single: bool
-    channels: list[Key] | tuple[Key]
+    channels: list[Key]
 
 
 @dataclass

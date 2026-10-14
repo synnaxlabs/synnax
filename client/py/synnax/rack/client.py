@@ -107,9 +107,21 @@ class Client:
         self,
         key: int | None = None,
         name: str | None = None,
-        keys: list[int] | None = None,
-        names: list[str] | None = None,
         *,
+        keys: list[int],
+        names: list[str] | None = None,
+        integration: str | None = None,
+        embedded: bool | None = None,
+        host_is_node: bool | None = None,
+    ) -> list[Rack]: ...
+
+    @overload
+    def retrieve(
+        self,
+        key: int | None = None,
+        name: str | None = None,
+        *,
+        names: list[str],
         integration: str | None = None,
         embedded: bool | None = None,
         host_is_node: bool | None = None,
