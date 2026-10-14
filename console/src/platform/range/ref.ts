@@ -34,6 +34,23 @@ export const toRef = (state: Session.Range.State): ranger.Ref => {
   return { variant: "window", window: toStringTimeRange(state.timeRange) };
 };
 
+/**
+ * @returns the fixed window with one bound moved to value. A bound moved across the
+ * other carries it along, keeping the window's span.
+ */
+export const setBound = (
+  window: telem.StaticWindow,
+  bound: "start" | "end",
+  value: number,
+): telem.StaticWindow => {
+  const start = Number(window.timeRange.start);
+  const end = Number(window.timeRange.end);
+  const span = end - start;
+  if (bound === "start")
+    return toStringTimeRange({ start: value, end: value < end ? end : value + span });
+  return toStringTimeRange({ start: value > start ? start : value - span, end: value });
+};
+
 /** @returns the window a Pluto visualization reads for a reference. */
 export const useResolveRef = (ref: ranger.Ref): LinePlot.ResolvedRange | undefined => {
   const { data } = Ranger.useResult(ref.variant === "key" ? { key: ref.key } : null);

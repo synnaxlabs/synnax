@@ -18,15 +18,14 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Tag } from "@synnaxlabs/lyra/tag";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Flux, Ranger } from "@synnaxlabs/pluto";
-import { type telem, TimeSpan } from "@synnaxlabs/x";
+import { type telem, TimeRange, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 
 import { CSS } from "@/platform/css";
-import { toRef } from "@/platform/range/ref";
+import { setBound, toRef } from "@/platform/range/ref";
 import {
   type Resolved,
   useResolve,
@@ -110,96 +109,84 @@ const RangeItem = Component.renderProp((props: List.ItemProps<string>) => {
   );
 });
 
-interface RollingTagProps {
-  span: number;
-  onChange: (span: number) => void;
-  disabled?: boolean;
-}
+// The labels render as fragments, since the trigger button is already a text element.
+const SavedLabel = ({ rangeKey }: { rangeKey: string }): ReactElement => {
+  const result = Ranger.useResult({ key: rangeKey });
+  if (result.variant === "success")
+    return (
+      <>
+        <Icon.Range />
+        {result.data.name}
+      </>
+    );
+  if (result.variant !== "error") return <Icon.Loading />;
+  const { error } = result.status.details;
+  const deleted =
+    Flux.DeletedError.matches(error) || NotFoundError.matches(error.cause);
+  return (
+    <>
+      <Icon.Range />
+      {deleted ? "Deleted range" : "Unavailable range"}
+    </>
+  );
+};
 
-const RollingTag = ({ span, onChange, disabled }: RollingTagProps): ReactElement => (
-  <Tag.Tag
-    icon={liveIcon}
-    level="small"
-    size="small"
-    className={CSS.BE("range-ref", "editable")}
-  >
-    <Input.TimeSpan
-      value={span}
-      onChange={onChange}
-      variant="text"
-      size="small"
-      disabled={disabled}
-    />
-  </Tag.Tag>
-);
+const formatFixed = ({ timeRange }: telem.StaticWindow): string => {
+  const tr = new TimeRange(BigInt(timeRange.start), BigInt(timeRange.end));
+  const endFormat = tr.span.lessThan(TimeSpan.DAY) ? "time" : "dateTime";
+  return `${tr.start.toString("dateTime", "local")} → ${tr.end.toString(endFormat, "local")}`;
+};
 
-interface StaticTagProps {
+const Label = ({ value }: { value: ranger.Ref }): ReactElement => {
+  if (value.variant === "key") return <SavedLabel rangeKey={value.key} />;
+  if (value.window.variant === "dynamic")
+    return (
+      <>
+        {liveIcon}
+        {`Rolling ${new TimeSpan(value.window.timeSpan).toString()}`}
+      </>
+    );
+  return (
+    <>
+      <Icon.Range />
+      {formatFixed(value.window)}
+    </>
+  );
+};
+
+interface FixedRowProps {
   window: telem.StaticWindow;
   onChange: (window: telem.StaticWindow) => void;
-  disabled?: boolean;
 }
 
-const StaticTag = ({ window, onChange, disabled }: StaticTagProps): ReactElement => {
+const FixedRow = ({ window, onChange }: FixedRowProps): ReactElement => {
   const start = Number(window.timeRange.start);
   const end = Number(window.timeRange.end);
   const set = (bound: "start" | "end", value: number): void =>
-    onChange({
-      variant: "static",
-      timeRange: { ...window.timeRange, [bound]: BigInt(Math.trunc(value)).toString() },
-    });
+    onChange(setBound(window, bound, value));
   return (
-    <Tag.Tag
-      icon={<Icon.Range />}
-      level="small"
-      size="small"
-      className={CSS.BE("range-ref", "editable")}
-    >
+    <Flex.Box x align="center" gap="medium" className={CSS.BE("range-ref", "row")}>
+      <Text.Text className={CSS.BE("range-ref", "row-label")}>
+        <Icon.Range />
+        Fixed
+      </Text.Text>
       <Input.DateTime
         value={start}
         onChange={(next) => set("start", next)}
-        variant="text"
         size="small"
         bound="start"
         anchors={{ end }}
-        disabled={disabled}
       />
       <Icon.Arrow.Right />
       <Input.DateTime
         value={end}
         onChange={(next) => set("end", next)}
-        variant="text"
         size="small"
         bound="end"
         anchors={{ start }}
         sharedDay={start}
-        disabled={disabled}
       />
-    </Tag.Tag>
-  );
-};
-
-const SavedTag = ({ rangeKey }: { rangeKey: string }): ReactElement => {
-  const result = Ranger.useResult({ key: rangeKey });
-  let name = "";
-  let tooltip: string | undefined;
-  if (result.variant === "success") name = result.data.name;
-  else if (result.variant === "error") {
-    const { error } = result.status.details;
-    const deleted =
-      Flux.DeletedError.matches(error) || NotFoundError.matches(error.cause);
-    name = deleted ? "Deleted range" : "Unavailable range";
-    tooltip = result.status.message;
-  }
-  return (
-    <Tag.Tag
-      icon={result.variant === "loading" ? <Icon.Loading /> : <Icon.Range />}
-      level="small"
-      size="small"
-      textColor={result.variant === "error" ? 8 : undefined}
-      tooltip={tooltip}
-    >
-      {name}
-    </Tag.Tag>
+    </Flex.Box>
   );
 };
 
@@ -220,7 +207,7 @@ const RollingRow = ({ span, onChange }: RollingRowProps): ReactElement => {
     [onChange, close],
   );
   return (
-    <Flex.Box x align="center" gap="medium" className={CSS.BE("range-ref", "live")}>
+    <Flex.Box x align="center" gap="medium" className={CSS.BE("range-ref", "row")}>
       <Text.Text className={CSS.BE("range-ref", "live-label")}>
         <Icon.Dynamic />
         Live
@@ -274,8 +261,8 @@ export interface SelectRefInputItemProps extends Omit<
 }
 
 /**
- * Selects one range: a rolling window, or a range the session holds. The tag edits the
- * rolling span or the fixed window in place.
+ * Selects one range: a rolling window, or a range the session holds. The dialog also
+ * takes a typed duration and edits a fixed window's bounds.
  */
 export const SelectRefInputItem = ({
   value,
@@ -310,9 +297,11 @@ export const SelectRefInputItem = ({
           ],
     [inSession, outside, outsideRange],
   );
-  const { data, retrieve } = List.useStaticData<string>({ data: listed });
+  const { data, getItem, retrieve } = List.useStaticData<string, Listed>({
+    data: listed,
+  });
   const { fetchMore, search } = List.usePager({ retrieve });
-  const selected = useMemo(() => [selectedKey(value, listed)], [value, listed]);
+  const selected = useMemo(() => selectedKey(value, listed), [value, listed]);
   const span =
     value.variant === "window" && value.window.variant === "dynamic"
       ? value.window.timeSpan
@@ -326,61 +315,44 @@ export const SelectRefInputItem = ({
     [onChange],
   );
   const handleChange = useCallback(
-    (_: string[], { clicked }: { clicked: string | null }) => {
-      const range = listed.find(({ key }) => key === clicked);
+    (key: string) => {
+      const range = listed.find((r) => r.key === key);
       if (range != null) onChange(toRef(range));
     },
     [listed, onChange],
   );
-  const renderTag = useCallback(() => {
-    if (value.variant === "key")
-      return <SavedTag key={value.key} rangeKey={value.key} />;
-    if (value.window.variant === "dynamic")
-      return (
-        <RollingTag
-          key={ROLLING_KEY}
-          span={value.window.timeSpan}
-          onChange={setRolling}
-          disabled={disabled}
-        />
-      );
-    return (
-      <StaticTag
-        key={STATIC_KEY}
-        window={value.window}
-        onChange={setWindow}
-        disabled={disabled}
-      />
-    );
-  }, [value, setRolling, setWindow, disabled]);
   return (
     <Input.Item label="Range" {...rest}>
       <Dialog.Frame variant="connected" className={CSS.B("range-ref")}>
         <Select.Frame<string>
-          multiple
-          replaceOnSingle
-          closeDialogOnSelect
           allowNone={false}
+          closeDialogOnSelect
           value={selected}
           onChange={handleChange}
           data={data}
+          getItem={getItem}
           onFetchMore={fetchMore}
           initialHover={0}
           virtual
         >
-          <Select.MultipleTrigger<string>
-            icon={<Icon.Range />}
+          <Dialog.Trigger
+            variant="outlined"
+            gap="small"
             aria-label="Range"
             disabled={disabled}
+            full="x"
           >
-            {renderTag}
-          </Select.MultipleTrigger>
+            <Label value={value} />
+          </Dialog.Trigger>
           <Select.Dialog className={CSS.BE("range-ref", "dialog")}>
             <Select.Search
               placeholder="Search ranges or type a duration"
               onSearch={search}
             />
             <RollingRow span={span} onChange={setRolling} />
+            {value.variant === "window" && value.window.variant === "static" && (
+              <FixedRow window={value.window} onChange={setWindow} />
+            )}
             <Select.List bordered borderColor={6} grow rounded full="x">
               <RollingOption span={span} onChange={setRolling} />
               <Select.Items<string> emptyContent={emptyContent}>

@@ -42,3 +42,35 @@ describe("Range.toRef", () => {
     });
   });
 });
+
+describe("Range.setBound", () => {
+  const window = {
+    variant: "static" as const,
+    timeRange: { start: "1000", end: "2000" },
+  };
+
+  it("should move one bound", () => {
+    expect(Range.setBound(window, "start", 1500).timeRange).toEqual({
+      start: "1500",
+      end: "2000",
+    });
+    expect(Range.setBound(window, "end", 2500).timeRange).toEqual({
+      start: "1000",
+      end: "2500",
+    });
+  });
+
+  it("should carry the end along when the start crosses it", () => {
+    expect(Range.setBound(window, "start", 3000).timeRange).toEqual({
+      start: "3000",
+      end: "4000",
+    });
+  });
+
+  it("should carry the start along when the end crosses it", () => {
+    expect(Range.setBound(window, "end", 500).timeRange).toEqual({
+      start: "-500",
+      end: "500",
+    });
+  });
+});

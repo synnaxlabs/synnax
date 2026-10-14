@@ -116,13 +116,10 @@ describe("log/toolbar/Range", () => {
     expect(findOption("banana")).toBeUndefined();
   });
 
-  it("should edit the rolling window from its tag", async () => {
-    const { key } = await render(rolling(TimeSpan.minutes(45)));
-    fireEvent.click(await screen.findByText("45m"));
-    const field = screen.getByRole("textbox");
-    fireEvent.change(field, { target: { value: "10m" } });
-    fireEvent.keyDown(field, { key: "Enter" });
-    await expectRange(key, rolling(TimeSpan.minutes(10)));
+  it("should show a fixed window's bounds for editing", async () => {
+    await render(STATIC);
+    await openSearch();
+    expect(screen.getByText("Fixed")).toBeDefined();
   });
 
   it("should store a range only the session holds as its fixed window", async () => {
