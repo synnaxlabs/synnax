@@ -45,6 +45,7 @@ const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
       <Base.Section title="Command">
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
+            allowNone
             value={value.commandChannel ?? 0}
             onChange={handleSinkChange}
           />

@@ -44,6 +44,7 @@ export const ChannelForm = ({ path, omit = [] }: ChannelFormProps): ReactElement
       <Form.Section title="State">
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
+            allowNone
             value={value.stateChannel ?? 0}
             onChange={handleSourceChange}
           />
@@ -52,6 +53,7 @@ export const ChannelForm = ({ path, omit = [] }: ChannelFormProps): ReactElement
       <Form.Section title="Command">
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
+            allowNone
             value={value.commandChannel ?? 0}
             onChange={handleSinkChange}
           />

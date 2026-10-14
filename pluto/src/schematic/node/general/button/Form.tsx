@@ -32,10 +32,10 @@ export const colorFallbacks = {
 
 const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } = Base.useField<ButtonTelemFormT>(path);
-  const handleSinkChange = (v: channel.Key): void =>
+  const handleSinkChange = (v: channel.Key | null): void =>
     onChange({
       ...value,
-      commandChannel: v,
+      commandChannel: v ?? undefined,
       control: Control.reveal(value.control),
     });
 
@@ -44,6 +44,7 @@ const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
       <Base.Section title="Command">
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
+            allowNone
             value={value.commandChannel ?? 0}
             onChange={handleSinkChange}
           />
