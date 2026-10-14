@@ -31,3 +31,8 @@ jobs:
 
       - name: Run tests
         run: uvx --with psutil pytest .github/scripts scripts
+
+      - name: Type check
+        run: >-
+          uvx --with pytest --with types-psutil --with "boto3-stubs[s3]" mypy --strict
+          .github/scripts scripts
