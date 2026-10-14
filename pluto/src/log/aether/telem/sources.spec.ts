@@ -18,7 +18,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MultiChannelLog, type MultiChannelLogProps } from "@/log/aether/telem/sources";
 import { type Client } from "@/telem/aether/remote";
-import { convertSeriesToSupportedGL } from "@/telem/aether/convertSeries";
 import { type Source } from "@/telem/aether/telem";
 import { telemTest } from "@/telem/aether/test";
 
@@ -108,6 +107,8 @@ describe("MultiChannelLog", () => {
         return telemTest.mockSubscription(this.streamDestructorF);
       },
     };
+
+    exactFeed = { stream: this.feed.stream };
   }
 
   let c: MockClient;
@@ -925,7 +926,7 @@ describe("MultiChannelLog", () => {
       expect(log.value().map((e) => e.value)).toEqual(["c", "d", "e"]);
     });
 
-    it("should keep samples whose streamed times round to the same float32", async () => {
+    it("should keep samples 1 ns apart", async () => {
       const { log } = create();
       await waitForResolve(log);
       const start = TimeStamp.seconds(90).valueOf();
@@ -936,11 +937,27 @@ describe("MultiChannelLog", () => {
       });
       c.streamHandler?.(
         new Map([
-          [IDX, new MultiSeries([convertSeriesToSupportedGL(index)])],
+          [IDX, new MultiSeries([index])],
           [DATA, new MultiSeries([strings(["a", "b", "c"], 0n)])],
         ]),
       );
       expect(log.value().map((e) => e.value)).toEqual(["a", "b", "c"]);
+    });
+
+    it("should not repeat stored samples the stream delivers with leading alignments", async () => {
+      c.stored.set(IDX, new MultiSeries([times([80, 81], 0n)]));
+      c.stored.set(DATA, new MultiSeries([strings(["x", "y"], 0n)]));
+      const { log } = create();
+      await waitForResolve(log);
+      // Cesium streams unpersisted samples in a reserved domain past every stored one.
+      const leading = (BigInt(2 ** 32 - 1 - 1e6) << 32n) | 0n;
+      c.streamHandler?.(
+        new Map([
+          [IDX, new MultiSeries([times([80, 81, 82], leading)])],
+          [DATA, new MultiSeries([strings(["x", "y", "z"], leading)])],
+        ]),
+      );
+      expect(log.value().map((e) => e.value)).toEqual(["x", "y", "z"]);
     });
 
     it("should report dropping held samples past the entry limit", async () => {

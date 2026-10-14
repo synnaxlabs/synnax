@@ -90,6 +90,8 @@ describe("remote", () => {
           return telemTest.mockSubscription(this.streamDestructorF);
         },
       };
+
+      exactFeed = { stream: this.feed.stream };
     }
 
     let c: MockClient;
@@ -473,6 +475,8 @@ describe("remote", () => {
           return telemTest.mockSubscription(this.streamDestructorF);
         },
       };
+
+      exactFeed = { stream: this.feed.stream };
     }
 
     let c: MockClient;
@@ -828,6 +832,8 @@ describe("remote", () => {
         },
         stream: (): framer.Subscription => telemTest.mockSubscription(vi.fn()),
       };
+
+      exactFeed = { stream: this.feed.stream };
     }
 
     let c: MockClient;
@@ -1240,6 +1246,8 @@ describe("remote", () => {
           return telemTest.mockSubscription(this.streamDestructorF);
         },
       };
+
+      exactFeed = { stream: this.feed.stream };
     }
 
     let c: MockClient;

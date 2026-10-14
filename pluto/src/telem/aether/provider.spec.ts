@@ -95,13 +95,23 @@ describe("telem.Provider", () => {
     const spy = vi.fn((client: telem.Client | null) => telem.createFactory(client));
     mountProvider(spy);
     expect(spy).toHaveBeenCalledTimes(1);
-    expect(core.openFeed).toHaveBeenCalledTimes(1);
+    expect(core.openFeed).toHaveBeenCalledTimes(2);
     expect(spy).toHaveBeenCalledWith({
       feed: core.openFeed.mock.results[0].value,
+      exactFeed: core.openFeed.mock.results[1].value,
       channels: core.channels,
       readLatest: expect.any(Function),
       now: expect.any(Function),
     });
+  });
+
+  it("should open the exact feed without the WebGL transform", () => {
+    const core = stubCore();
+    mockUse.mockReturnValue(core);
+    mountProvider((client) => telem.createFactory(client));
+    const [[gl], [exact]] = core.openFeed.mock.calls as [[object], [object]];
+    expect(gl).toHaveProperty("transform");
+    expect(exact).not.toHaveProperty("transform");
   });
 
   it("should tell time on the Core's clock", () => {
@@ -129,6 +139,7 @@ describe("telem.Provider", () => {
     expect(spy).toHaveBeenCalledTimes(2);
     expect(spy).toHaveBeenLastCalledWith({
       feed: core.openFeed.mock.results[0].value,
+      exactFeed: core.openFeed.mock.results[1].value,
       channels: core.channels,
       readLatest: expect.any(Function),
       now: expect.any(Function),
@@ -164,7 +175,7 @@ describe("telem.Provider", () => {
   it("closes a feed once when the close re-enters the swap", () => {
     const core = stubCore();
     const close = vi.fn(async () => {});
-    core.openFeed.mockReturnValue({
+    core.openFeed.mockReturnValueOnce({
       read: async () => new MultiSeries([]),
       stream: () => telemTest.mockSubscription(() => {}),
       close,
@@ -185,7 +196,7 @@ describe("telem.Provider", () => {
   it("reports a failed feed close to the status aggregator", async () => {
     const core = stubCore();
     const err = new Error("close failed");
-    core.openFeed.mockReturnValue({
+    core.openFeed.mockReturnValueOnce({
       read: async () => new MultiSeries([]),
       stream: () => telemTest.mockSubscription(() => {}),
       close: async () => {

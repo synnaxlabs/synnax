@@ -46,6 +46,8 @@ class MockClient implements Client {
       return telemTest.mockSubscription(() => {});
     },
   };
+
+  exactFeed = { stream: this.feed.stream };
 }
 
 // The source a light, valve, or switch ships with.

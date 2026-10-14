@@ -66,11 +66,11 @@ interface ChannelMeta {
   // Whether the log holds the channel's stored samples.
   historyRead: boolean;
   indexBuffers: Series[];
-  // The alignment of the latest sample in the log. A streamed sample at or before it is
-  // a duplicate. Alignments are exact, while the feed rounds streamed times to float32.
+  // The latest sample time in the log. A streamed sample at or before it is a
+  // duplicate. Sample time is the one identity the stream and stored reads share.
   highWater: bigint | null;
-  // The alignment of the first sample the stream delivered. A stored sample at or after
-  // it is a duplicate.
+  // The first sample time the stream delivered. A stored sample at or after it is a
+  // duplicate.
   streamStart: bigint | null;
   // Whether the log has reported dropping samples whose index samples never arrived.
   untimedDropReported: boolean;
@@ -267,7 +267,8 @@ export class MultiChannelLog
       this.gcEntries();
       if (pushed > 0) this.notify();
     };
-    this.stopStreaming = client.feed.stream(handler, [...keys]).close;
+    // The exact feed, since the feed rounds sample times to float32.
+    this.stopStreaming = client.exactFeed.stream(handler, [...keys]).close;
   }
 
   // Pushes the pending samples in order, up to the first one whose index sample has not
@@ -329,9 +330,9 @@ export class MultiChannelLog
         if (meta.indexBuffers.some((s) => s.alignment > alignment)) continue;
         return { pushed, cursor: i };
       }
-      if (meta.highWater != null && alignment <= meta.highWater) continue;
-      meta.highWater = alignment;
-      meta.streamStart ??= alignment;
+      if (meta.highWater != null && time <= meta.highWater) continue;
+      meta.highWater = time;
+      meta.streamStart ??= time;
       pushed += this.insert(meta, buf, i, time);
     }
     return { pushed, cursor: buf.length };
@@ -346,13 +347,11 @@ export class MultiChannelLog
     const entries: LogEntry[] = [];
     for (const s of data.series)
       for (let i = 0; i < s.length; i++) {
-        const alignment = sampleAlignment(s, i);
-        const time = index.atAlignment(alignment) as bigint | undefined;
+        const time = index.atAlignment(sampleAlignment(s, i)) as bigint | undefined;
         if (time == null) continue;
-        if (meta.streamStart != null && alignment >= meta.streamStart) continue;
+        if (meta.streamStart != null && time >= meta.streamStart) continue;
         entries.push(...toEntries(meta, s, i, time));
-        if (meta.highWater == null || alignment > meta.highWater)
-          meta.highWater = alignment;
+        if (meta.highWater == null || time > meta.highWater) meta.highWater = time;
       }
     return entries;
   }

@@ -45,7 +45,7 @@ export const createProvider = (
     static readonly stateZ = providerStateZ;
     schema = BaseProvider.stateZ;
     prevCore: Synnax | null = null;
-    private feed: framer.Feed | null = null;
+    private feeds: framer.Feed[] = [];
 
     afterUpdate(ctx: aether.Context): void {
       const { internal: i } = this;
@@ -62,13 +62,17 @@ export const createProvider = (
         const now = (): TimeStamp =>
           TimeStamp.now().sub(connection.status.details.clockSkew);
         // The feed caches series in the representation this thread renders.
-        this.feed = core.openFeed({
+        const feed = core.openFeed({
           transform: GL_TRANSFORM,
           instrumentation: i.instrumentation,
           now,
         });
+        // Opens its stream only on demand, so it costs nothing until a source uses it.
+        const exactFeed = core.openFeed({ instrumentation: i.instrumentation, now });
+        this.feeds = [feed, exactFeed];
         client = {
-          feed: this.feed,
+          feed,
+          exactFeed,
           channels: core.channels,
           now,
           readLatest: async (ch, n, tr) => await core.readLatest(ch, n, tr),
@@ -82,15 +86,15 @@ export const createProvider = (
     }
 
     private closeFeed(): void {
-      const { feed } = this;
-      if (feed == null) return;
+      const { feeds } = this;
       // Cleared before the close is dispatched so a re-entrant swap cannot close the
-      // same feed twice.
-      this.feed = null;
-      this.internal.handleError(
-        async () => await feed.close(),
-        "failed to close telemetry feed",
-      );
+      // same feeds twice.
+      this.feeds = [];
+      for (const feed of feeds)
+        this.internal.handleError(
+          async () => await feed.close(),
+          "failed to close telemetry feed",
+        );
     }
   }
   return BaseProvider;
