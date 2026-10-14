@@ -266,6 +266,7 @@
       "types": "./dist/video/index.d.ts",
       "default": "./dist/video/index.js"
     },
-    "./dist/*": "./dist/*"
+    "./dist/*": "./dist/*",
+    "./static/*": "./static/*"
   }
 }

@@ -10,7 +10,7 @@
 import "@fontsource-variable/inter";
 import "@fontsource/geist-mono/500.css";
 
-import wordmark from "@synnaxlabs/lyra/dist/static/logo/title-white-transparent.svg";
+import wordmark from "@synnaxlabs/lyra/static/logo/title-white-transparent.svg";
 import { type ReactElement, useEffect, useState } from "react";
 import {
   AbsoluteFill,
