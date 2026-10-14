@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import re
+
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
@@ -39,25 +41,21 @@ class Log(ConsolePage):
     def clear_channels(self) -> None:
         """Remove all currently selected channels from the log.
 
-        The remove button reveals on row hover but stays under the row's own
-        content in hit-testing, so a physical click never lands; dispatch the
-        click on the button instead.
+        Clearing a row's channel select removes the row. The clear button
+        reveals on hover over the select, so dispatch the click on it instead of
+        moving the mouse there.
         """
         self.layout.show_visualization_toolbar()
         toolbar = self.page.locator(".console-log-toolbar")
+        clear = self.page.get_by_role("button", name=re.compile(r"^Clear "))
         while True:
-            rows = toolbar.locator(".console-log__channel-row").filter(
-                has=self.page.get_by_role("button", name="Remove channel", exact=True)
-            )
+            rows = toolbar.locator(".console-log__channel-row").filter(has=clear)
             count = rows.count()
             if count == 0:
                 break
-            row = rows.first
-            row.hover()
-            remove_btn = row.get_by_role(
-                "button", name="Remove channel", exact=True
-            ).first
-            remove_btn.dispatch_event("click")
+            rows.first.get_by_role(
+                "button", name=re.compile(r"^Clear ")
+            ).first.dispatch_event("click")
             # Confirm the row actually detached before rescanning; a silent
             # no-op here would loop forever.
             for _ in range(10):

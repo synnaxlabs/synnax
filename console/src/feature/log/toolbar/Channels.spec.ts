@@ -10,7 +10,7 @@
 import { type channel, DataType, log, type Synnax as Client } from "@synnaxlabs/client";
 import { RoleClients } from "@synnaxlabs/client/testutil";
 import { color, id } from "@synnaxlabs/x";
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Channels } from "@/feature/log/toolbar/Channels";
@@ -59,17 +59,14 @@ describe("log/toolbar/Channels", () => {
     expect(await screen.findByDisplayValue("pressure")).toBeDefined();
   });
 
-  it("renders an enabled remove button on each channel row for a permitted user", async () => {
-    const { result } = await renderChannels([
-      entry(await createChannel()),
-      entry(await createChannel()),
-    ]);
-    await waitFor(() => {
-      const removeButtons = result.container.querySelectorAll(
-        ".console-log__channel-row button:not([disabled])",
-      );
-      expect(removeButtons.length).toBeGreaterThanOrEqual(2);
-    });
+  it("removes a channel row with the clear button on its channel icon", async () => {
+    const removed = await createChannel();
+    const kept = await createChannel();
+    const { result } = await renderChannels([entry(removed), entry(kept)]);
+    const { name } = await client.channels.retrieve(removed);
+    fireEvent.click(await screen.findByLabelText(`Clear ${name}`));
+    await waitFor(() => expect(rowsIn(result)).toHaveLength(2));
+    expect(screen.queryByLabelText(`Clear ${name}`)).toBeNull();
   });
 });
 
