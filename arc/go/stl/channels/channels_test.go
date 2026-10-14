@@ -1090,6 +1090,36 @@ var _ = Describe("Channel", func() {
 					Expect(emittedTS("s1")).To(Equal(telem.TimeStamp(101)))
 				},
 			)
+
+			It(
+				"Should pair data written partway into an index series",
+				func(ctx SpecContext) {
+					src := newSource("s0", 10)
+					t := telem.NewSeriesV[telem.TimeStamp](100, 200, 300)
+					t.Alignment = al(0)
+					channelState.Ingest(telem.UnaryFrame[uint32](99, t))
+					writeDataOnly(10, 42, al(1))
+					Expect(firesOn(ctx, src)).To(BeTrue())
+					Expect(emittedValue("s0")).To(Equal(float32(42)))
+					out := progState.Node("s0").OutputTime(0)
+					Expect(out.Alignment).To(Equal(al(1)))
+					Expect(*out).To(telem.MatchSeriesDataV[telem.TimeStamp](200))
+				},
+			)
+
+			It(
+				"Should not pair data that runs past the end of an index series",
+				func(ctx SpecContext) {
+					src := newSource("s0", 10)
+					t := telem.NewSeriesV[telem.TimeStamp](100, 200)
+					t.Alignment = al(0)
+					channelState.Ingest(telem.UnaryFrame[uint32](99, t))
+					d := telem.NewSeriesV[float32](42, 43)
+					d.Alignment = al(1)
+					channelState.Ingest(telem.UnaryFrame[uint32](10, d))
+					Expect(firesOn(ctx, src)).To(BeFalse())
+				},
+			)
 		})
 
 		Describe("Single write fires each source once", func() {

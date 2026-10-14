@@ -63,6 +63,9 @@ class Series(BaseModel):
     """The underlying buffer"""
     alignment: Alignment = Alignment(0, 0)
     """The alignment of the Series, representing the position within an array of arrays"""
+    alignment_multiple: int = 1
+    """The number of alignment steps between consecutive samples. Above one when the
+    Core reduced the Series from a longer one."""
     _len_cache: int | None = PrivateAttr(None)
 
     def __len__(self) -> int:
@@ -87,6 +90,7 @@ class Series(BaseModel):
         data_type: CrudeDataType | None = None,
         time_range: TimeRange | None = None,
         alignment: CrudeAlignment = 0,
+        alignment_multiple: int = 1,
     ):
         if data_type is not None:
             data_type = DataType(data_type)
@@ -99,6 +103,7 @@ class Series(BaseModel):
             data_ = data.data
             time_range = data.time_range if time_range is None else time_range
             alignment = data.alignment
+            alignment_multiple = data.alignment_multiple
         elif isinstance(data, MultiSeries):
             if len(data.series) == 1:
                 data_type = data_type or data.series[0].data_type
@@ -107,6 +112,7 @@ class Series(BaseModel):
                     data.series[0].time_range if time_range is None else time_range
                 )
                 alignment = data.series[0].alignment
+                alignment_multiple = data.series[0].alignment_multiple
             else:
                 raise ValueError(
                     "[Series] - MultiSeries with more than one series cannot be converted to a Series"
@@ -168,6 +174,7 @@ class Series(BaseModel):
             data=data_,
             time_range=time_range,
             alignment=alignment,
+            alignment_multiple=alignment_multiple,
         )
         self._len_cache = None
 
@@ -270,11 +277,11 @@ class Series(BaseModel):
 
         The lower bound is the alignment of the first sample (inclusive), and the
         upper bound is the alignment just after the last sample (exclusive).
-        This represents the range [alignment, alignment + length).
+        This represents the range [alignment, alignment + length * alignment_multiple).
         """
         return Bounds(
             lower=float(int(self.alignment)),
-            upper=float(int(self.alignment) + len(self)),
+            upper=float(int(self.alignment) + len(self) * self.alignment_multiple),
         )
 
     def astype(self, data_type: DataType) -> Series:

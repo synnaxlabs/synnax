@@ -193,7 +193,7 @@ describe("Reader", () => {
         channels: [data.key],
         timeRange: { start: TimeStamp.seconds(0), end: TimeStamp.seconds(10) },
         responseType: "csv",
-        iteratorConfig: { downsampleFactor: 2 },
+        iteratorConfig: { reduction: { variant: "stride", factor: 2 } },
       });
       const records = await streamToRecords(stream);
       expect(records).toEqual([

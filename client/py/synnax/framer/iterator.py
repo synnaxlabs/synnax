@@ -21,9 +21,8 @@ from freighter.transport import P
 from freighter.websocket import Message
 from synnax.framer.adapter import ReadFrameAdapter
 from synnax.framer.codec import LOW_PERF_SPECIAL_CHAR, WSFramerCodec
-from synnax.framer.common import validate_downsample_factor
 from synnax.framer.frame import Frame, FramePayload
-from synnax.telem import TimeRange, TimeSpan, TimeStamp
+from synnax.telem import Reduction, TimeRange, TimeSpan, TimeStamp
 
 AUTO_SPAN = TimeSpan(-1)
 
@@ -53,7 +52,7 @@ class _Request(BaseModel):
     stamp: TimeStamp | None = None
     keys: list[channel.Key] | None = None
     chunk_size: int | None = None
-    downsample_factor: int | None = None
+    reduction: Reduction | None = None
 
 
 class _Response(BaseModel):
@@ -104,7 +103,7 @@ class Iterator:
     instrumentation: Instrumentation
     value: Frame
     _chunk_size: int
-    _downsample_factor: int
+    _reduction: Reduction | None
 
     def __init__(
         self,
@@ -112,17 +111,16 @@ class Iterator:
         client: WebsocketClient,
         adapter: ReadFrameAdapter,
         chunk_size: int = 100000,
-        downsample_factor: int = 1,
+        reduction: Reduction | None = None,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
-        validate_downsample_factor(downsample_factor)
         self.tr = tr
         self.instrumentation = instrumentation
         self._adapter = adapter
         client = client.with_codec(WSIteratorCodec(self._adapter.codec))
         self._stream = client.stream("/frame/iterate", _Request, _Response)
         self._chunk_size = chunk_size
-        self._downsample_factor = downsample_factor
+        self._reduction = reduction
         self._open()
 
     def _open(self) -> None:
@@ -137,7 +135,7 @@ class Iterator:
             bounds=self.tr,
             keys=self._adapter.keys,
             chunk_size=self._chunk_size,
-            downsample_factor=self._downsample_factor,
+            reduction=self._reduction,
         )
         self.value = Frame()
 
