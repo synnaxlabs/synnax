@@ -231,6 +231,11 @@ export const Frame = ({
     [setLine],
   );
 
+  useEffect(() => {
+    setGridEntry(TOP_PADDING);
+    return () => removeGridEntry(TOP_PADDING.key);
+  }, [setGridEntry, removeGridEntry]);
+
   const cssGrid = useMemo(() => buildPlotGrid(grid), [grid]);
 
   const frameStyle = useMemo(() => ({ ...style, ...cssGrid }), [style, cssGrid]);
@@ -289,7 +294,18 @@ export const Frame = ({
   );
 };
 
-const buildPlotGrid = (g: grid.Grid): CSSProperties => {
+// Room above the plot for the top tick label, which overhangs the plot's top edge.
+const TOP_PADDING: grid.Region = {
+  key: "top-padding",
+  size: 10,
+  order: 100,
+  loc: "top",
+};
+
+const regionsSize = (loc: location.Outer, g: grid.Grid): string =>
+  `${grid.regions(loc, g).reduce((total, { size }) => total + size, 0)}px`;
+
+const buildPlotGrid = (g: grid.Grid): CSSProperties & Record<`--${string}`, string> => {
   const b = CSS.newGridBuilder();
   grid
     .regions("top", g)
@@ -306,5 +322,12 @@ const buildPlotGrid = (g: grid.Grid): CSSProperties => {
   grid
     .regions("right", g)
     .forEach(({ key, size }) => b.col(`axis-start-${key}`, `axis-end-${key}`, size));
-  return b.build();
+  // The sizes of the regions on each side, for styles that reach past the plot.
+  return {
+    ...b.build(),
+    "--pluto-line-plot-top": regionsSize("top", g),
+    "--pluto-line-plot-bottom": regionsSize("bottom", g),
+    "--pluto-line-plot-left": regionsSize("left", g),
+    "--pluto-line-plot-right": regionsSize("right", g),
+  };
 };

@@ -17,10 +17,10 @@
     overflow: hidden;
 }
 
-/* The highlight spans the axis's width, from its line to its outer edge, and reaches
-   past both ends to cover the end tick labels, which overhang the axis. */
+/* The highlight spans the axis's width, from its line to its outer edge. A y axis's
+   highlight runs the frame's full height, so it covers the end tick labels and meets
+   the x axis's highlight at a clean corner. */
 .pluto-line-plot .pluto-haul-drop-region {
-    --pluto-drop-region-spread: 0.5rem;
     --pluto-drop-region-background: var(--haul-background);
     --pluto-drop-region-border-color: var(--haul-border-color);
 
@@ -38,17 +38,22 @@
     }
 
     &.pluto-y-axis::before {
-        inset: calc(-1 * var(--pluto-drop-region-spread)) 0;
-    }
-
-    &.pluto-x-axis::before {
-        inset: 0 calc(-1 * var(--pluto-drop-region-spread));
+        inset: calc(-1 * var(--pluto-line-plot-top)) 0
+            calc(-1 * var(--pluto-line-plot-bottom));
     }
 
     &.pluto--drag-over {
         --pluto-drop-region-background: var(--pluto-gray-l8-40);
         --pluto-drop-region-border-color: var(--pluto-gray-l8-80);
     }
+}
+
+/* With no y axis highlighted, an x axis's highlight runs the frame's full width to
+   cover its end tick labels. */
+.pluto-line-plot:not(:has(.pluto-y-axis.pluto-haul-drop-region))
+    .pluto-x-axis.pluto-haul-drop-region::before {
+    inset: 0 calc(-1 * var(--pluto-line-plot-right)) 0
+        calc(-1 * var(--pluto-line-plot-left));
 }
 
 .pluto-line-plot__viewport {
