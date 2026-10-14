@@ -9,6 +9,8 @@
 
 import asyncio
 import threading
+import time
+from collections.abc import Callable
 from typing import cast
 
 import pytest
@@ -20,6 +22,8 @@ from synnax.control.controller import Controller, RemainsTrueFor
 # Seconds to wait for a cross-thread handshake. Generous, so a slow Core cannot fail the
 # test, but bounded, so a broken run fails instead of hanging CI.
 HANDSHAKE_TIMEOUT = 5
+# A wait timeout long enough that only a stopped receiver can wake the wait in time.
+BLOCKED_WAIT = 30 * sy.TimeSpan.SECOND
 
 
 def create_valve_set(
@@ -459,8 +463,18 @@ class TestController:
         with pytest.raises(freighter.StreamClosed):
             client.control.acquire(name="Open Fails", read=[ch.key], write=None)
 
-    def test_wait_raises_when_receiver_stops(self, client: sy.Synnax):
-        """Should raise from a wait, and release cleanly, once the receiver stops."""
+    @pytest.mark.parametrize(
+        "wait",
+        [
+            lambda auto: auto.wait_until(lambda _: False, timeout=BLOCKED_WAIT),
+            lambda auto: auto.remains_true_for(lambda _: True, BLOCKED_WAIT),
+        ],
+        ids=["wait_until", "remains_true_for"],
+    )
+    def test_wait_raises_when_receiver_stops(
+        self, client: sy.Synnax, wait: Callable[[Controller], bool]
+    ) -> None:
+        """Should wake a blocked wait with an error once the receiver stops."""
         ch = client.channels.create(
             name="control_receiver_stops",
             data_type=sy.DataType.FLOAT64,
@@ -471,11 +485,27 @@ class TestController:
             name="Receiver Stops", read=[ch.key], write=[ch.key]
         ) as auto:
             receiver = auto._receiver
+            errors: list[Exception] = []
+
+            def run() -> None:
+                try:
+                    wait(auto)
+                except Exception as e:
+                    errors.append(e)
+
+            waiter = threading.Thread(target=run, daemon=True)
+            waiter.start()
+            deadline = time.monotonic() + HANDSHAKE_TIMEOUT
+            while not receiver.processors:
+                assert time.monotonic() < deadline, "waiter never registered"
+                time.sleep(0.01)
             asyncio.run_coroutine_threadsafe(
                 receiver.streamer.close_loop(), receiver.loop
             ).result(HANDSHAKE_TIMEOUT)
-            with pytest.raises(sy.UnexpectedError):
-                auto.wait_until(lambda _: False, timeout=HANDSHAKE_TIMEOUT)
+            waiter.join(HANDSHAKE_TIMEOUT)
+            assert not waiter.is_alive(), "blocked wait was not woken"
+            assert len(errors) == 1
+            assert isinstance(errors[0], sy.UnexpectedError)
 
     def test_controller_set_authority_mechanisms(self, client: sy.Synnax):
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
