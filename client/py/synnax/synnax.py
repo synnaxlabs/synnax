@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import warnings
 import weakref
 from importlib.metadata import version as _version
 
@@ -200,22 +199,6 @@ class Synnax(framer.Client):
         self.license = license.Client(self._transport.unary)
         self.arcs = arc.Client(self._transport.unary)
         self.access = access.Client(self._transport.unary)
-
-    @property
-    def user(self) -> user.Client:
-        """Deprecated: Use users instead."""
-        return self.users
-
-    @property
-    def hardware(self) -> "Synnax":
-        """Deprecated: Use client.devices, client.tasks, client.racks directly."""
-        warnings.warn(
-            "client.hardware is deprecated and will be removed in a future version. "
-            "Use client.devices, client.tasks, client.racks directly instead.",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self
 
     def close(self) -> None:
         """Shuts down the client and closes all connections. All open iterators or

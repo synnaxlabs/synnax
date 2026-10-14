@@ -16,7 +16,6 @@ from synnax import ontology
 from synnax.channel.types_gen import Key as Key
 from synnax.channel.types_gen import Operation as Operation
 from synnax.channel.types_gen import Payload as Payload
-from x.deprecation import deprecated_getattr
 from x.lists import normalize
 
 ONTOLOGY_TYPE = ontology.ID(type="channel")
@@ -93,12 +92,3 @@ def has_params(channels: Params | None) -> bool:
     if isinstance(channels, (Key, str, Payload)):
         return True
     return len(channels) > 0
-
-
-_DEPRECATED = {
-    "ChannelKey": "Key",
-    "ChannelParams": "Params",
-    "ChannelPayload": "Payload",
-}
-
-__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
