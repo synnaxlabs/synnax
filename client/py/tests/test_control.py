@@ -8,12 +8,13 @@
 #  included in the file licenses/APL.txt.
 
 import threading
+import time
 from typing import cast
 
 import pytest
 
 import synnax as sy
-from synnax.control.controller import Controller, RemainsTrueFor
+from synnax.control.controller import Controller, RemainsTrueFor, ScheduledCommand
 
 # Seconds to wait for a cross-thread handshake. Generous, so a slow Core cannot fail the
 # test, but bounded, so a broken run fails instead of hanging CI.
@@ -342,6 +343,16 @@ class TestController:
         assert assertions["remained_true"]
         assert assertions["remained_true_count"] > 0
 
+    def test_remains_true_for_bare_number_is_seconds(self, client: sy.Synnax):
+        """Should read a bare number duration as seconds."""
+        _, _, press_en, _ = create_valve_set(client)
+        with client.control.acquire(
+            name="Bare duration", read=[press_en.key], write=None
+        ) as auto:
+            start = time.perf_counter()
+            auto.remains_true_for(lambda _: True, duration=0.2)
+            assert time.perf_counter() - start >= 0.2
+
     def test_wait_while(self, client: sy.Synnax):
         """Test that the controller can wait for a condition to be true for a certain amount of time"""
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
@@ -573,6 +584,17 @@ class TestRemainsTrueForProcessor:
         processor.process(self._state)
         assert isinstance(processor.exc, ValueError)
         assert processor.event.is_set()
+
+
+class TestScheduledCommand:
+    def test_bare_number_delay_is_seconds(self) -> None:
+        """Should read a bare number delay as seconds."""
+        assert ScheduledCommand("ch", 1, 2).delay == 2 * sy.TimeSpan.SECOND
+
+    def test_time_span_delay_passes_through(self) -> None:
+        """Should keep a TimeSpan delay unchanged."""
+        delay = 5 * sy.TimeSpan.MILLISECOND
+        assert ScheduledCommand("ch", 1, delay).delay == delay
 
 
 @pytest.mark.control

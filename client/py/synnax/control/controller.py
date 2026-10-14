@@ -360,7 +360,8 @@ class Controller:
         :param cond: A callable that takes the controller as an argument and returns
         a boolean. The controller will execute this callback on every new sample
         received to the channels it is reading from.
-        :param duration: The duration in seconds to check that the callback returns True.
+        :param duration: The duration to check that the callback returns True. A bare
+        number is in seconds.
         :param percentage: The target percentage of the duration that the callback
         should return True. If this value is greater than 1, the controller will immediately
         unblock if the callback returns False. If this value is less than 1, the controller
@@ -371,7 +372,7 @@ class Controller:
         processor = RemainsTrueFor(cond, percentage)
         self._receiver.add_processor(processor)
         try:
-            timeout_seconds = TimeSpan(duration).seconds
+            timeout_seconds = TimeSpan.from_seconds(duration).seconds
             # If the event is set, this means the target percentage was >= 1 and the
             # callback returned False, so we just exit immediately.
             ok = not processor.event.wait(timeout=timeout_seconds)
@@ -545,7 +546,8 @@ class _Receiver(AsyncThread):
 
 class ScheduledCommand:
     """A command that can be scheduled to run at a specific time in the future. This
-    command can be sent to the controller to be executed at a later time.
+    command can be sent to the controller to be executed at a later time. A bare number
+    delay is in seconds.
     """
 
     channel: channel_.Key | str
@@ -560,4 +562,4 @@ class ScheduledCommand:
     ):
         self.channel = channel
         self.value = value
-        self.delay = TimeSpan(delay)
+        self.delay = TimeSpan.from_seconds(delay)
