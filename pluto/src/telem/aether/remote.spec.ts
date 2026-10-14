@@ -1376,6 +1376,96 @@ describe("remote", () => {
         cd.cleanup();
       });
 
+      // A back-fill that overlaps the stream draws segments that cross back in time.
+      it("should end the back-fill where the stream opened", async () => {
+        const timeSpan = TimeSpan.seconds(10);
+        // Each read of the clock moves it forward, so the stream open and the read
+        // see different times.
+        let clock = TimeStamp.now();
+        const now = (): TimeStamp => (clock = clock.add(TimeSpan.seconds(1)));
+        let openedAt: TimeStamp | undefined;
+        const stream = c.feed.stream;
+        c.feed.stream = (handler, keys) => {
+          openedAt = clock;
+          return stream(handler, keys);
+        };
+        const cd = new StreamChannelData(
+          c,
+          { timeSpan, channel: c.channel.key },
+          {},
+          now,
+        );
+        await waitForResolve(cd);
+        expect(c.readMock).toHaveBeenCalledTimes(1);
+        const [tr] = c.readMock.mock.calls[0] as [TimeRange, channel.Key];
+        expect(tr.end).toStrictEqual(openedAt);
+        cd.cleanup();
+      });
+
+      it("should end a retried back-fill at the earliest held live series", async () => {
+        let releaseRetry = (): void => {};
+        const retryGate = new Promise<void>((resolve) => (releaseRetry = resolve));
+        const ranges: TimeRange[] = [];
+        c.feed.read = async (tr: TimeRange): Promise<MultiSeries> => {
+          ranges.push(tr);
+          if (ranges.length === 1) throw new Error("transient");
+          return new MultiSeries([]);
+        };
+        const cd = new StreamChannelData(
+          c,
+          { timeSpan: TimeSpan.seconds(10), channel: c.channel.key },
+          {},
+          undefined,
+          { sleepFn: async () => await retryGate },
+        );
+        await waitForStream(cd, c);
+        await expect.poll(() => ranges.length).toBe(1);
+        // Live data that arrives during the backoff starts before the retry reopens
+        // the stream.
+        const liveStart = TimeStamp.now().sub(TimeSpan.seconds(1));
+        const live = new Series({
+          data: new Float32Array([1, 2]),
+          timeRange: new TimeRange(liveStart, TimeStamp.MAX),
+        });
+        c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
+        releaseRetry();
+        await expect.poll(() => ranges.length).toBe(2);
+        expect(ranges[1].end).toStrictEqual(liveStart);
+        cd.cleanup();
+      });
+
+      it("should skip a retried back-fill when live data covers the window", async () => {
+        let releaseRetry = (): void => {};
+        const retryGate = new Promise<void>((resolve) => (releaseRetry = resolve));
+        const ranges: TimeRange[] = [];
+        c.feed.read = async (tr: TimeRange): Promise<MultiSeries> => {
+          ranges.push(tr);
+          throw new Error("transient");
+        };
+        const cd = new StreamChannelData(
+          c,
+          { timeSpan: TimeSpan.seconds(10), channel: c.channel.key },
+          {},
+          undefined,
+          { sleepFn: async () => await retryGate },
+        );
+        await waitForStream(cd, c);
+        await expect.poll(() => ranges.length).toBe(1);
+        const live = new Series({
+          data: new Float32Array([1, 2]),
+          timeRange: new TimeRange(
+            TimeStamp.now().sub(TimeSpan.seconds(20)),
+            TimeStamp.MAX,
+          ),
+        });
+        c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
+        releaseRetry();
+        // The back-fill check runs synchronously after the stream reopens.
+        await expect.poll(() => c.streamF.mock.calls.length).toBe(2);
+        expect(ranges).toHaveLength(1);
+        cd.cleanup();
+      });
+
       it("should stop retrying at cleanup", async () => {
         let calls = 0;
         c.feed.read = async (): Promise<MultiSeries> => {
