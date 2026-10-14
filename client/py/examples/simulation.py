@@ -105,7 +105,7 @@ read_from = [v.key for v in valve_commands]
 loop = sy.Loop(sy.Rate.HZ * 100)
 
 # Set up the initial state of the valves to 0 (closed).
-sensor_states: dict[int | str, CrudeSeries] = {
+sensor_states: dict[int, CrudeSeries] = {
     v.key: np.uint8(False) for v in valve_responses
 }
 

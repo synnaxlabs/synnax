@@ -191,5 +191,9 @@ class Frame:
 
 
 CrudeFrame: TypeAlias = (
-    Frame | FramePayload | dict[channel.Key | str, CrudeSeries] | DataFrame
+    Frame
+    | FramePayload
+    | dict[channel.Key, CrudeSeries]
+    | dict[str, CrudeSeries]
+    | DataFrame
 )

@@ -74,7 +74,7 @@ with client.open_writer(
         now = sy.TimeStamp.now()
         now_2 = now + sy.TimeSpan.MICROSECOND * 3
         # Generate data to write to the first channel.
-        data_to_write: dict[int | str, CrudeSeries] = {
+        data_to_write: dict[int, CrudeSeries] = {
             time_ch_1.key: [now, now_2],
             data_ch_1.key: [np.sin(i / 10), np.sin((i + 1) / 10)],
         }

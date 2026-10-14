@@ -119,7 +119,7 @@ class TPCSimDAQ(SimDAQ):
         now = sy.TimeStamp.now()
         # Sensors start at the simulation's real initial values: a 0.0 seed would
         # write a spurious spike that pollutes plot auto-bounds.
-        initial_state: dict[str | int, CrudeSeries] = {DAQ_TIME: [now]}
+        initial_state: dict[str, CrudeSeries] = {DAQ_TIME: [now]}
         for state_ch in VALVES.values():
             initial_state[state_ch] = [0]
         for sensor in SENSORS:
@@ -148,8 +148,8 @@ class TPCSimDAQ(SimDAQ):
 
         def translate_valves(
             prev_state: dict[str, float],
-        ) -> dict[str | int, CrudeSeries]:
-            next_state: dict[str | int, CrudeSeries] = dict()
+        ) -> dict[str, CrudeSeries]:
+            next_state: dict[str, CrudeSeries] = dict()
             for sensor in SENSORS:
                 next_state[sensor] = prev_state[sensor]
             for cmd, state in VALVES.items():
