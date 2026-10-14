@@ -18,7 +18,7 @@ from synnax.channel.retrieve import Retriever as ChannelRetriever
 from synnax.channel.retrieve import retrieve_required as retrieve_required_channel
 from synnax.exceptions import PathError, ValidationError
 from synnax.framer.codec import Codec
-from synnax.framer.frame import CrudeFrame, Frame
+from synnax.framer.frame import CrudeFrame, Frame, K
 from synnax.telem import CrudeSeries, DataType, Series
 
 
@@ -145,7 +145,7 @@ class WriteFrameAdapter:
     def adapt(
         self,
         channels_or_data: (
-            channel.Payload | list[channel.Payload] | channel.Params | CrudeFrame
+            channel.Payload | list[channel.Payload] | channel.Params | CrudeFrame[K]
         ),
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> Frame:
@@ -184,7 +184,7 @@ class WriteFrameAdapter:
     def _adapt(
         self,
         channels_or_data: (
-            channel.Payload | list[channel.Payload] | channel.Params | CrudeFrame
+            channel.Payload | list[channel.Payload] | channel.Params | CrudeFrame[K]
         ),
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> Frame:
