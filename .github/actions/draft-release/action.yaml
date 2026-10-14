@@ -61,8 +61,10 @@ runs:
         if [ -n "$PREVIOUS_TAG" ]; then
           GENERATE+=(-f previous_tag_name="$PREVIOUS_TAG")
         fi
+        # New contributors are counted across the whole repo, not the config's PRs.
         BODY=$(gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
-          "${GENERATE[@]}" --jq .body)
+          "${GENERATE[@]}" --jq .body | awk '/^## New Contributors/ { skip = 1 }
+          /^\*\*Full Changelog\*\*/ { skip = 0 } !skip')
         if [ -n "$NOTES" ]; then BODY="$NOTES"$'\n\n'"$BODY"; fi
         ARGS=(--draft --target "$GITHUB_SHA" --title "$TITLE" --notes "$BODY")
         if [ "$PRERELEASE" = true ]; then ARGS+=(--prerelease); fi
