@@ -37,15 +37,11 @@ import { type Session } from "@/session";
 const ROLLING_PRESETS = [
   TimeSpan.seconds(30),
   TimeSpan.minutes(1),
-  TimeSpan.minutes(5),
   TimeSpan.minutes(15),
-  TimeSpan.minutes(30),
   TimeSpan.hours(1),
   TimeSpan.hours(6),
-  TimeSpan.hours(12),
   TimeSpan.days(1),
   TimeSpan.days(7),
-  TimeSpan.days(30),
 ].map(Number);
 
 const ROLLING_KEY = "rolling";
@@ -223,7 +219,6 @@ const RollingRow = ({ span, onChange }: RollingRowProps): ReactElement => {
         value={span == null ? undefined : String(span)}
         onChange={handleChange}
         enableTriggers={false}
-        wrap
       >
         {ROLLING_PRESETS.map((preset) => (
           <Select.Item key={String(preset)} itemKey={String(preset)}>
