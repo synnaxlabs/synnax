@@ -355,7 +355,7 @@ export const SelectRefInputItem = ({
   }, [value, setRolling, setWindow, disabled]);
   return (
     <Input.Item label="Range" {...rest}>
-      <Dialog.Frame variant="connected">
+      <Dialog.Frame variant="connected" className={CSS.B("range-ref")}>
         <Select.Frame<string>
           multiple
           replaceOnSingle
@@ -375,7 +375,7 @@ export const SelectRefInputItem = ({
           >
             {renderTag}
           </Select.MultipleTrigger>
-          <Select.Dialog>
+          <Select.Dialog className={CSS.BE("range-ref", "dialog")}>
             <Select.Search
               placeholder="Search ranges or type a duration"
               onSearch={search}

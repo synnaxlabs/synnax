@@ -9,6 +9,15 @@
  * included in the file licenses/APL.txt.
  */
 
+.console-range-ref {
+    width: 240px;
+}
+
+/* The dialog takes the trigger's width, which is too narrow for the preset row. */
+.console-range-ref__dialog {
+    min-width: 420px;
+}
+
 .console-range-ref__live-icon,
 .console-range-ref__live-label {
     color: var(--pluto-error-p1);
