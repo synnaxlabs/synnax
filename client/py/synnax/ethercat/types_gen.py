@@ -11,8 +11,8 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, Union
-from uuid import uuid4
+from typing import TYPE_CHECKING, Annotated, Literal, Union
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
@@ -36,6 +36,17 @@ class PDOAddress(BaseModel):
     sub_index: int = Field(default=0, ge=0, le=255)
     bit_length: int = Field(default=16, ge=0, le=255)
     data_type: telem.DataType = telem.DataType("uint16")
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            index: int = ...,
+            sub_index: int = ...,
+            bit_length: int = ...,
+            data_type: str = ...,
+        ) -> None: ...
 
 
 class BaseReadChannel(BaseModel):
@@ -89,6 +100,16 @@ class BaseWriteChannel(BaseModel):
 class ScanConfig(task.ScanConfig):
     """Configures an EtherCAT scan task."""
 
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            key: UUID = ...,
+            rate: float = ...,
+            disabled: bool = ...,
+        ) -> None: ...
+
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -104,6 +125,23 @@ class ManualReadChannel(BaseReadChannel, PDOAddress):
     """Specifies its PDO address inline."""
 
     type: Literal["manual"] = "manual"
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            type: Literal["manual"] = ...,
+            key: str = ...,
+            name: str = ...,
+            disabled: bool = ...,
+            channel: channel_.Key = ...,
+            device: device_.Key = ...,
+            index: int = ...,
+            sub_index: int = ...,
+            bit_length: int = ...,
+            data_type: str = ...,
+        ) -> None: ...
 
 
 # Is a single EtherCAT read channel (TxPDO, slave to master). The type field
@@ -126,6 +164,26 @@ class ManualWriteChannel(BaseWriteChannel, PDOAddress):
 
     type: Literal["manual"] = "manual"
 
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            type: Literal["manual"] = ...,
+            key: str = ...,
+            name: str = ...,
+            disabled: bool = ...,
+            cmd_channel: channel_.Key = ...,
+            state_channel: channel_.Key = ...,
+            cmd_channel_name: str = ...,
+            state_channel_name: str = ...,
+            device: device_.Key = ...,
+            index: int = ...,
+            sub_index: int = ...,
+            bit_length: int = ...,
+            data_type: str = ...,
+        ) -> None: ...
+
 
 # Is a single EtherCAT write channel (RxPDO, master to slave). The type field
 # selects how the PDO entry is addressed.
@@ -145,6 +203,19 @@ class ReadConfig(task.ReadConfig):
 
     channels: list[ReadChannel] = Field(default_factory=list)
 
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            key: UUID = ...,
+            auto_start: bool = ...,
+            data_saving_disabled: bool = ...,
+            sample_rate: float = ...,
+            stream_rate: float = ...,
+            channels: list[ReadChannel] = ...,
+        ) -> None: ...
+
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -162,6 +233,19 @@ class WriteConfig(task.PersistConfig):
     state_rate: telem.Rate = telem.Rate(25)
     execution_rate: telem.Rate = telem.Rate(1000)
     channels: list[WriteChannel] = Field(default_factory=list)
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            key: UUID = ...,
+            auto_start: bool = ...,
+            data_saving_disabled: bool = ...,
+            state_rate: float = ...,
+            execution_rate: float = ...,
+            channels: list[WriteChannel] = ...,
+        ) -> None: ...
 
     def __hash__(self) -> int:
         return hash(self.key)

@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Any, TypeAlias
+from typing import TYPE_CHECKING, Any, TypeAlias
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -103,6 +103,16 @@ class ScanConfig(KeyedConfig):
     rate: telem.Rate = telem.Rate(0.200000)
     disabled: bool = False
 
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            key: UUID = ...,
+            rate: float = ...,
+            disabled: bool = ...,
+        ) -> None: ...
+
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -169,6 +179,18 @@ class ReadConfig(PersistConfig):
 
     sample_rate: telem.Rate = telem.Rate(10)
     stream_rate: telem.Rate = telem.Rate(5)
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            key: UUID = ...,
+            auto_start: bool = ...,
+            data_saving_disabled: bool = ...,
+            sample_rate: float = ...,
+            stream_rate: float = ...,
+        ) -> None: ...
 
     def __hash__(self) -> int:
         return hash(self.key)
