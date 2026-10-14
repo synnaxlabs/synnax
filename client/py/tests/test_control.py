@@ -10,6 +10,7 @@
 import threading
 from typing import cast
 
+import numpy as np
 import pytest
 
 import synnax as sy
@@ -562,6 +563,13 @@ class TestRemainsTrueForProcessor:
         processor = self._run([True, False], percentage=1)
         assert processor.event.is_set()
         assert processor.count == 1
+
+    def test_exits_immediately_on_numpy_false(self) -> None:
+        """Should treat a NumPy false result as a failed condition."""
+        processor = RemainsTrueFor(lambda _: np.int64(3) > 5, percentage=1)
+        processor.process(self._state)
+        assert processor.event.is_set()
+        assert processor.count == 0
 
     def test_captures_callback_exception(self) -> None:
         """Should capture an exception raised by the callback and exit."""

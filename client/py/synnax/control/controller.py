@@ -75,7 +75,7 @@ class RemainsTrueFor(Processor):
     def process(self, state: Controller) -> Any:
         try:
             v = self.callback(state)
-            if v is False and self.target >= 1:
+            if not v and self.target >= 1:
                 self.event.set()
             else:
                 self.actual = (self.actual * self.count + v) / (self.count + 1)
@@ -362,9 +362,9 @@ class Controller:
         received to the channels it is reading from.
         :param duration: The duration in seconds to check that the callback returns True.
         :param percentage: The target percentage of the duration that the callback
-        should return True. If this value is greater than 1, the controller will immediately
-        unblock if the callback returns False. If this value is less than 1, the controller
-        will return the result after the entire duration has elapsed.
+        should return True. If this value is 1 or greater, the controller will
+        immediately unblock if the callback returns False. If this value is less than 1,
+        the controller will return the result after the entire duration has elapsed.
         """
         if not callable(cond):
             raise ValueError("First argument to remains_true_for must be a callable.")
