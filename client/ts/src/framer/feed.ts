@@ -81,6 +81,7 @@ export class Feed {
       breaker,
       batchDebounce,
       overlapThreshold,
+      fetchTimeout,
       onRetry,
     } = props;
     this.cache = new Cache({
@@ -96,6 +97,7 @@ export class Feed {
       cache: this.cache,
       batchDebounce,
       overlapThreshold,
+      fetchTimeout,
     });
     this.streamer = new MultiplexedStreamer({
       cache: this.cache,

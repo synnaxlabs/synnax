@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Unreachable } from "@synnaxlabs/freighter";
 import {
   DataType,
   id,
@@ -461,8 +462,22 @@ describe("feed", () => {
     await direct.close();
   });
 
+  it("should forward fetchTimeout to the reader", async () => {
+    const direct = new Feed({
+      fetchTimeout: TimeSpan.milliseconds(20),
+      readRemote: async () => await new Promise<Frame>(() => {}),
+      openStreamer: async () => {
+        throw new UnexpectedError("streamer unused");
+      },
+      readLatest: async () => new Frame([], []),
+    });
+    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
+    await expect(direct.read(tr, 1)).rejects.toThrow(Unreachable);
+    await direct.close();
+  });
+
   describe("readLatest", () => {
-    const createFeed = (readLatest: LatestReader, transform?: Transform): Feed =>
+    const createFeed =(readLatest: LatestReader, transform?: Transform): Feed =>
       new Feed({
         transform,
         readLatest,
