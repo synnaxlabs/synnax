@@ -19,13 +19,12 @@ type TabKey = v1.TabKey
 // TabBase carries the identity shared by every tab variant.
 type TabBase = v1.TabBase
 
-// View is an inline, self-describing view: a Console-owned type with no backing core
-// document. Used for app-views and tools (docs, explorers, task forms, and the selector
-// pickers).
+// View is an inline, self-describing view with no backing Core document. Used for
+// app-views and tools (docs, explorers, task forms, and the selector pickers).
 type View = v1.View
 
 // Tab is a single tab in a leaf. Tab content is a discriminated union: a resource (a
-// backing core document, e.g. a line plot) or a view (an inline, self-describing
+// backing Core document, e.g. a line plot) or a view (an inline, self-describing
 // app-view, e.g. docs). A freshly created tab is a view whose type is a selector
 // picker; SetTabResource or SetTabView swaps content in place. Display attributes
 // (name, icon, closability) are resolved at render time from the content. A resource
@@ -35,20 +34,20 @@ type TabVariant = v1.TabVariant
 type TabType = v1.TabType
 
 const (
-	// ResourceTabType is a tab displaying a backing core document.
+	// ResourceTabType is a tab displaying a backing Core document.
 	ResourceTabType TabType = v1.ResourceTabType
 	// ViewTabType is a tab displaying an inline, self-describing view. Unlike a
-	// resource, a view has no backing core document: its type alone selects the
+	// resource, a view has no backing Core document: its type alone selects the
 	// renderer. Used for app-views and tools (docs, explorers, task forms, and the
 	// selector pickers).
 	ViewTabType TabType = v1.ViewTabType
 )
 
-// ResourceTab is a tab displaying a backing core document.
+// ResourceTab is a tab displaying a backing Core document.
 type ResourceTab = v1.ResourceTab
 
 // ViewTab is a tab displaying an inline, self-describing view. Unlike a resource, a
-// view has no backing core document: its type alone selects the renderer. Used for
+// view has no backing Core document: its type alone selects the renderer. Used for
 // app-views and tools (docs, explorers, task forms, and the selector pickers).
 type ViewTab = v1.ViewTab
 

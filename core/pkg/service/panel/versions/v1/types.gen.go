@@ -30,12 +30,10 @@ type TabKey = v0.TabKey
 // TabBase carries the identity shared by every tab variant.
 type TabBase = v0.TabBase
 
-// View is an inline, self-describing view: a Console-owned type with no backing core
-// document. Used for app-views and tools (docs, explorers, task forms, and the selector
-// pickers).
+// View is an inline, self-describing view with no backing Core document. Used for
+// app-views and tools (docs, explorers, task forms, and the selector pickers).
 type View struct {
-	// Type is the Console-owned view type identifier (e.g., 'docs', 'selector') used to
-	// select a renderer.
+	// Type is the type identifier used to select a renderer.
 	Type string `json:"type" msgpack:"type"`
 }
 
@@ -50,7 +48,7 @@ type TabVariant interface {
 	isTabVariant()
 }
 
-// ResourceTab is a tab displaying a backing core document.
+// ResourceTab is a tab displaying a backing Core document.
 type ResourceTab struct {
 	TabBase
 	// Resource is the visualization resource displayed by this tab, set via
@@ -69,7 +67,7 @@ func (r ResourceTab) Validate() error {
 }
 
 // ViewTab is a tab displaying an inline, self-describing view. Unlike a resource, a
-// view has no backing core document: its type alone selects the renderer. Used for
+// view has no backing Core document: its type alone selects the renderer. Used for
 // app-views and tools (docs, explorers, task forms, and the selector pickers).
 type ViewTab struct {
 	TabBase
@@ -79,7 +77,7 @@ type ViewTab struct {
 func (ViewTab) isTabVariant() {}
 
 // Tab is a single tab in a leaf. Tab content is a discriminated union: a resource (a
-// backing core document, e.g. a line plot) or a view (an inline, self-describing
+// backing Core document, e.g. a line plot) or a view (an inline, self-describing
 // app-view, e.g. docs). A freshly created tab is a view whose type is a selector
 // picker; SetTabResource or SetTabView swaps content in place. Display attributes
 // (name, icon, closability) are resolved at render time from the content. A resource
@@ -294,9 +292,8 @@ type Panel struct {
 	Name string `json:"name" msgpack:"name"`
 	// Root is the root of the panel tree.
 	Root Node `json:"root" msgpack:"root"`
-	// Parent is the parent resource for the panel in the ontology, required on create.
-	// Parenthood lives in the ontology graph, so the field is not persisted on the
-	// panel record and is absent on retrieve.
+	// Parent is the parent resource for the panel in the ontology. Required on create
+	// and absent on retrieve.
 	Parent *ontology.ID `json:"parent,omitzero" msgpack:"parent,omitempty"`
 }
 

@@ -15,15 +15,11 @@ import { z } from "zod";
 import { ontology } from "@/ontology";
 
 /**
- * View is an inline, self-describing view: a Console-owned type with no backing core
- * document. Used for app-views and tools (docs, explorers, task forms, and the selector
- * pickers).
+ * View is an inline, self-describing view with no backing Core document. Used for
+ * app-views and tools (docs, explorers, task forms, and the selector pickers).
  */
 export const viewZ = z.object({
-  /**
-   * type is the Console-owned view type identifier (e.g., 'docs', 'selector') used to
-   * select a renderer.
-   */
+  /** type is the type identifier used to select a renderer. */
   type: z.string(),
 });
 export interface View extends z.infer<typeof viewZ> {}
@@ -45,7 +41,7 @@ export const tabBaseZ = z.object({
 });
 export interface TabBase extends z.infer<typeof tabBaseZ> {}
 
-/** ResourceTab is a tab displaying a backing core document. */
+/** ResourceTab is a tab displaying a backing Core document. */
 export const resourceTabZ = tabBaseZ.extend({
   variant: z.literal("resource"),
   /**
@@ -58,7 +54,7 @@ export interface ResourceTab extends z.infer<typeof resourceTabZ> {}
 
 /**
  * ViewTab is a tab displaying an inline, self-describing view. Unlike a resource, a
- * view has no backing core document: its type alone selects the renderer. Used for
+ * view has no backing Core document: its type alone selects the renderer. Used for
  * app-views and tools (docs, explorers, task forms, and the selector pickers).
  */
 export const viewTabZ = tabBaseZ.extend(viewZ.shape).extend({
@@ -72,7 +68,7 @@ export type TabType = z.infer<typeof tabTypeZ>;
 
 /**
  * Tab is a single tab in a leaf. Tab content is a discriminated union: a resource (a
- * backing core document, e.g. a line plot) or a view (an inline, self-describing
+ * backing Core document, e.g. a line plot) or a view (an inline, self-describing
  * app-view, e.g. docs). A freshly created tab is a view whose type is a selector
  * picker; SetTabResource or SetTabView swaps content in place. Display attributes
  * (name, icon, closability) are resolved at render time from the content. A resource
@@ -146,9 +142,8 @@ export const panelZ = z.object({
   /** root is the root of the panel tree. */
   root: nodeZ.prefault({ variant: "leaf", tabs: [] }),
   /**
-   * parent is the parent resource for the panel in the ontology, required on create.
-   * Parenthood lives in the ontology graph, so the field is not persisted on the panel
-   * record and is absent on retrieve.
+   * parent is the parent resource for the panel in the ontology. Required on create and
+   * absent on retrieve.
    */
   parent: ontology.idZ.optional(),
 });
