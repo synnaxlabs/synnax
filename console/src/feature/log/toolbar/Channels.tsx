@@ -109,6 +109,7 @@ const ChannelRow = ({
       justify="between"
       gap="large"
       className={CSS.BE("log", "channel-row")}
+      role="listitem"
       preventClick
     >
       <Flex.Box x align="center" grow>
@@ -227,7 +228,13 @@ export const Channels = (): ReactElement => {
   const key = Log.useKey();
   const hasUpdatePermission = Access.useUpdateGranted(log.ontologyID(key));
   return (
-    <Flex.Box y full="y" className={CSS.BE("log", "toolbar", "channels")}>
+    <Flex.Box
+      y
+      full="y"
+      role="list"
+      aria-label="Log channels"
+      className={CSS.BE("log", "toolbar", "channels")}
+    >
       {channelKeys.map((ch, i) =>
         primitive.isZero(ch) ? null : (
           <ChannelRow key={ch} index={i} channel={ch} disabled={!hasUpdatePermission} />
