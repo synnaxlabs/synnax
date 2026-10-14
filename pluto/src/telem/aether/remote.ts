@@ -77,7 +77,9 @@ export const DISCONNECTED_STATUS: cstatus.Crude = {
 
 // Retrying only fixes connectivity; a definitive rejection recurs on every attempt.
 const isDefinitive = (e: unknown): boolean =>
-  AccessDeniedError.matches(e) || ValidationError.matches(e) || NotFoundError.matches(e);
+  AccessDeniedError.matches(e) ||
+  ValidationError.matches(e) ||
+  NotFoundError.matches(e);
 
 /**
  * Backs off a source's read retries. A tall interval cap suits a source whose retries
@@ -482,6 +484,14 @@ export class StreamChannelData
         if (generation !== this.generation || this.channel == null) return;
         const series = res.get(this.channel.key);
         if (series == null) return;
+        // Held series of the channel's old data type cannot share a MultiSeries with
+        // the new one.
+        const { dataType } = this.data;
+        if (
+          series.series.some((s) => !s.dataType.equals(dataType)) &&
+          this.data.length > 0
+        )
+          return this.restart();
         this.pushNew(series.series);
         this.notify();
         this.gcOutOfRangeData();
@@ -529,13 +539,19 @@ export class StreamChannelData
   }
 
   // feed.read returns the live leading buffer that the stream's first delivery repeats,
-  // so series already held by identity are skipped. A late back-fill is inserted by
-  // alignment: consumers assume the array is chronological.
+  // so series already held by identity are skipped. Consumers assume the array is
+  // chronological, so a late back-fill is inserted by time. Alignment would misorder
+  // the buffers of a restarted Core, which resets its leading alignment.
   private pushNew(series: Series[]): void {
     for (const s of series) {
       if (this.data.series.includes(s)) continue;
       s.acquire();
-      const at = this.data.series.findIndex((held) => held.alignment > s.alignment);
+      const at = this.data.series.findIndex(
+        (held) =>
+          held.timeRange.start.after(s.timeRange.start) ||
+          (held.timeRange.start.equals(s.timeRange.start) &&
+            held.alignment > s.alignment),
+      );
       if (at === -1) this.data.push(s);
       else this.data.series.splice(at, 0, s);
     }
@@ -547,6 +563,13 @@ export class StreamChannelData
     if (toGC === -1) return;
     this.data.series.splice(toGC, 1).forEach((d) => d.release());
     this.gcOutOfRangeData();
+  }
+
+  // Drops everything held and reads the channel again on the next value() call.
+  private restart(): void {
+    this.cleanup();
+    this.data.series.splice(0);
+    this.notify();
   }
 
   cleanup(): void {

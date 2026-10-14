@@ -1662,6 +1662,57 @@ describe("remote", () => {
         expect(data.series[1]).toBe(live);
         cd.cleanup();
       });
+
+      it("should keep the buffers of a restarted Core after the older ones", async () => {
+        c.feed.read = async (): Promise<MultiSeries> => new MultiSeries([]);
+        const cd = new StreamChannelData(c, {
+          timeSpan: TimeSpan.MAX,
+          channel: c.channel.key,
+        });
+        await waitForStream(cd, c);
+        const now = TimeStamp.now();
+        const before = new Series({
+          data: new Float32Array([1, 2]),
+          timeRange: new TimeRange(now.sub(TimeSpan.seconds(2)), now),
+          alignment: leadingAlignment(5n, 0n),
+        });
+        const after = new Series({
+          data: new Float32Array([3, 4]),
+          timeRange: new TimeRange(now.add(TimeSpan.seconds(1)), TimeStamp.MAX),
+          alignment: leadingAlignment(0n, 0n),
+        });
+        c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([before])]]));
+        c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([after])]]));
+        const [, data] = cd.value();
+        expect(data.series).toEqual([before, after]);
+        cd.cleanup();
+      });
+    });
+
+    it("should read the channel again when its data type changes", async () => {
+      c.feed.read = async (): Promise<MultiSeries> => new MultiSeries([]);
+      const cd = new StreamChannelData(c, {
+        timeSpan: TimeSpan.MAX,
+        channel: c.channel.key,
+      });
+      await waitForStream(cd, c);
+      const now = TimeStamp.now();
+      const float = new Series({
+        data: new Float32Array([1, 2]),
+        timeRange: new TimeRange(now.sub(TimeSpan.seconds(1)), now),
+      });
+      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([float])]]));
+      const bytes = new Series({
+        data: new Uint8Array([3, 4]),
+        timeRange: new TimeRange(now, TimeStamp.MAX),
+      });
+      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([bytes])]]));
+      expect(cd.value()[1].series).toEqual([]);
+      expect(float.refCount).toBe(0);
+      await waitForStream(cd, c);
+      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([bytes])]]));
+      expect(cd.value()[1].series).toEqual([bytes]);
+      cd.cleanup();
     });
 
     it("should not subscribe when cleaned up during channel retrieval", async () => {
