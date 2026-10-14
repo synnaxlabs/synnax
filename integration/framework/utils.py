@@ -132,7 +132,7 @@ def to_float(value: SampleValue) -> float:
 
     :raises TypeError: If the sample is not numeric.
     """
-    if isinstance(value, (int, float, np.number)):
+    if isinstance(value, (int, float, np.number, np.bool_)):
         return float(value)
     raise TypeError(f"Expected a numeric sample, got {value!r}")
 
@@ -142,7 +142,7 @@ def to_int(value: SampleValue) -> int:
 
     :raises TypeError: If the sample is not an integer.
     """
-    if isinstance(value, (int, np.integer)):
+    if isinstance(value, (int, np.integer, np.bool_)):
         return int(value)
     raise TypeError(f"Expected an integer sample, got {value!r}")
 

@@ -39,7 +39,7 @@ def _latest(frame: sy.Frame, name: str) -> float | None:
     if len(data) == 0:
         return None
     value = data[-1]
-    if not isinstance(value, (int, float, np.number)):
+    if not isinstance(value, (int, float, np.number, np.bool_)):
         raise TypeError(f"{name} holds a non-numeric sample {value!r}")
     return float(value)
 

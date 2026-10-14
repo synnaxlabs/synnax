@@ -20,7 +20,7 @@ from x import is_websocket_error, suppress_websocket_errors
 
 def _scalar(value: SampleValue) -> int | float | str:
     """:raises TypeError: If value is not a number or a string."""
-    if isinstance(value, np.integer):
+    if isinstance(value, (np.integer, np.bool_)):
         return int(value)
     if isinstance(value, np.floating):
         return float(value)
