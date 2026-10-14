@@ -59,7 +59,6 @@ testpaths = ["tests"]
 markers = [
     "color: mark test as a color test",
     "control: mark test as a control test",
-    "deprecation: mark test as a deprecation test",
     "series: mark test as a series test",
     "telem: mark test as a telem test",
     "timing: mark test as a timing test",
