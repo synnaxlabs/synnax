@@ -9,7 +9,8 @@
 
 # Labels applied to a pull request from the paths it touches, one per product a user
 # knows. A package lands under the product that ships it; a per-language package under
-# the product in that language. Release notes group entries by these labels (see
+# the product in that language. Lyra and x/media ship in both the Console and the sites,
+# so they get both labels. Release notes group entries by these labels (see
 # release.yml).
 
 console:
@@ -19,6 +20,7 @@ console:
           - drift/**
           - lyra/**
           - pluto/**
+          - x/media/**
 
 driver:
   - changed-files:
@@ -43,7 +45,9 @@ arc:
 cpp-client:
   - changed-files:
       - any-glob-to-any-file:
+          - client/clib/**
           - client/cpp/**
+          - client/lv/**
           - freighter/cpp/**
           - x/cpp/**
 
@@ -63,7 +67,9 @@ ts-client:
           - freighter/ts/**
           - x/ts/**
 
-documentation:
+website:
   - changed-files:
       - any-glob-to-any-file:
-          - site/docs/**
+          - lyra/**
+          - site/**
+          - x/media/**

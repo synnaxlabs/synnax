@@ -21,7 +21,9 @@ import {
   scale,
   type Series,
   type SeriesDigest,
+  TimeRange,
   TimeSpan,
+  TimeStamp,
   xy,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -399,8 +401,9 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const xSeries = xData.series[series];
     let [, yData] = yTelem.value();
     yData = this.internal.yDownsampler.transform(yData);
+    const xAlignment = xSeries.alignment + BigInt(index) * xSeries.alignmentMultiple;
     const ySeries = yData.series.find((ys) =>
-      bounds.contains(ys.alignmentBounds, xSeries.alignment + BigInt(index)),
+      bounds.contains(ys.alignmentBounds, xAlignment),
     );
     if (ySeries == null) return result;
     result.value.x = safelyGetDataValue(series, index, xData);
@@ -418,8 +421,8 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       result.value.x = safelyGetDataValue(series, index, xData);
     }
 
-    const alignmentDiff = Number(ySeries.alignment - xSeries.alignment);
-    result.value.y = Number(ySeries.at(index - alignmentDiff));
+    const offset = (ySeries.alignment - xSeries.alignment) / ySeries.alignmentMultiple;
+    result.value.y = Number(ySeries.at(index - Number(offset)));
 
     result.bounds = { ...ySeries.bounds };
 
@@ -638,15 +641,28 @@ const nonFiniteVertices = (
   return vertices;
 };
 
+/** @returns the time span an op draws: where its x and y series overlap. */
+const opSpan = ({ x, y }: DrawOperation): TimeRange =>
+  new TimeRange(
+    TimeStamp.max(x.timeRange.start, y.timeRange.start),
+    TimeStamp.min(x.timeRange.end, y.timeRange.end),
+  );
+
 /**
- * @returns interleaved decimal x and y of the segments joining each op to the next,
- * leaving out any segment with a non-finite end.
+ * @returns interleaved decimal x and y of the segments joining each op to the next in
+ * time, leaving out any segment with a non-finite end. Ops whose time spans overlap
+ * are not joined: they hold the same span twice, so a joining segment would run back in
+ * time.
  */
 export const bridgeVertices = (ops: DrawOperation[], s: scale.XY): Float32Array => {
   const vertices: number[] = [];
-  for (let i = 1; i < ops.length; i++) {
-    const a = ops[i - 1];
-    const b = ops[i];
+  const spans = ops
+    .map((op) => ({ op, span: opSpan(op) }))
+    .sort((a, b) => TimeStamp.sort(a.span.start, b.span.start));
+  for (let i = 1; i < spans.length; i++) {
+    const { op: a, span: aSpan } = spans[i - 1];
+    const { op: b, span: bSpan } = spans[i];
+    if (bSpan.start.before(aSpan.end)) continue;
     const last = lastVertex(a) * a.downsample;
     const segment = [
       s.x.pos(Number(a.x.at(a.xOffset + last, true))),

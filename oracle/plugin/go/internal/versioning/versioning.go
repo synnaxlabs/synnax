@@ -98,6 +98,94 @@ func Survey(
 	return entries, members, nil
 }
 
+// Pins resolves a stored reference to the dependency version that the referrer's
+// version file imports. The zero value resolves nothing.
+type Pins struct {
+	// declared maps a current-surface member's qualified name to the pins of the
+	// version file that declares it.
+	declared map[string]map[string]int
+	// current maps a live schema path to the pins of its current version file.
+	current map[string]map[string]int
+	// roots maps a type's qualified name to its unversioned @go output path.
+	roots map[string]string
+}
+
+// NewPins reads the pins of every chain's current surface. It returns the zero Pins
+// without a resolver, and the error from reading any surface or version file.
+func NewPins(
+	ctx context.Context, table *resolution.Table, res *versions.Resolver,
+) (Pins, error) {
+	if res == nil {
+		return Pins{}, nil
+	}
+	p := Pins{
+		declared: make(map[string]map[string]int),
+		current:  make(map[string]map[string]int),
+		roots:    make(map[string]string),
+	}
+	byFile := make(map[string]map[string]string)
+	for _, t := range table.Types {
+		if goPath := output.GetPath(t, "go"); goPath != "" {
+			p.roots[t.QualifiedName] = goPath
+		}
+		names, ok := byFile[t.FilePath]
+		if !ok {
+			names = make(map[string]string)
+			byFile[t.FilePath] = names
+		}
+		names[t.Name] = t.QualifiedName
+	}
+	for livePath, chain := range res.Chains() {
+		surf, err := res.Surface(ctx, livePath, chain.Current())
+		if err != nil {
+			return Pins{}, err
+		}
+		if len(surf) == 0 {
+			continue
+		}
+		cur, err := res.File(ctx, livePath, chain.Current())
+		if err != nil {
+			return Pins{}, err
+		}
+		p.current[livePath] = cur.Pins
+		for name, def := range surf {
+			qn, ok := byFile[livePath+".oracle"][name]
+			if !ok {
+				continue
+			}
+			definer, err := res.File(ctx, livePath, def.Version)
+			if err != nil {
+				return Pins{}, err
+			}
+			p.declared[qn] = definer.Pins
+		}
+	}
+	return p, nil
+}
+
+// Path returns the versioned @go output path of ref as pinned by the version file that
+// declares referrer. It returns false when that file pins no version of ref's schema.
+func (p Pins) Path(referrer string, ref resolution.Type) (string, bool) {
+	return p.resolve(p.declared[referrer], ref)
+}
+
+// CurrentPath is Path for a declaration of livePath's current version file.
+func (p Pins) CurrentPath(livePath string, ref resolution.Type) (string, bool) {
+	return p.resolve(p.current[livePath], ref)
+}
+
+func (p Pins) resolve(pins map[string]int, ref resolution.Type) (string, bool) {
+	v, ok := pins[strings.TrimSuffix(ref.FilePath, ".oracle")]
+	if !ok {
+		return "", false
+	}
+	root, ok := p.roots[ref.QualifiedName]
+	if !ok {
+		return "", false
+	}
+	return VersionedPath(root, v), true
+}
+
 // RewriteCurrent returns a table with every version-laid-out package's @go output
 // rewritten to its current versions/vN sub-path, plus the applied path map keyed
 // by original path and the current-surface member set.
