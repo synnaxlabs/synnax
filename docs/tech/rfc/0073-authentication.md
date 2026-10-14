@@ -169,8 +169,9 @@ its own keys. A user with the permission, which Owner holds, creates keys for an
 and can then act as that subject. To see whether a key is in use, the Console lists its
 live sessions.
 
-**OIDC links.** `account` is the permanent ID the provider gives the person. The Core
-stores no secret for it.
+**OIDC links.** `provider` is the `name` of an entry in `oidc-providers`. It is a
+string, because providers are site configuration. `account` is the `sub` claim: the
+permanent, opaque ID the provider gives the person. The Core stores no secret for it.
 
 ### 4.2 OpenID Connect
 
@@ -342,7 +343,9 @@ There is no join token. The installer's own session does that job. A standalone 
 that loses its key needs a person to run the login command again.
 
 The built-in Host role (`core/pkg/service/access/rbac/builtin/builtin.go:111`) is
-renamed to Driver, and the Core assigns it to each rack at creation.
+renamed to Driver, and the Core assigns it to each rack at creation. The role loses rack
+create and delete, because a Driver only reads and updates its own rack. Limiting it to
+its own rack needs a policy per rack, which is access control work.
 
 ### 4.9 User and rack schemas
 
@@ -405,7 +408,8 @@ Both make the same login call on the first request:
 The response holds the token and the subject. For a rack's key the subject is a rack, so
 a client exposes the subject, and a user record only when the subject is a user.
 
-- **Client libraries** hold the proof in memory and log in again when a session ends.
+- **Client libraries** hold the proof in memory, log in again when a session ends, and
+  delete their session when the client closes, so scripts leave no sessions behind.
 - **The desktop Console** keeps the token in the keychain and sends it in the
   `Authorization` header.
 - **The browser Console** never sees the token. The Core sets it in a cookie that
@@ -526,7 +530,10 @@ Each phase is one pull request into `main`.
 - Phase 1 migrates every stored credential. Nobody resets a password.
 - Every existing token stops working at Phase 2. Clients log in again without help.
 - The old `auth/login` endpoint keeps working for one stable release.
-- A Driver with a saved username and password enrolls itself at its first start after
-  the upgrade and removes the password from its file.
-- The Console and the Python CLI delete their saved password after the first login with
-  it succeeds.
+- No Driver config file needs a manual edit. At its first start after the upgrade, a
+  Driver with a username and password logs in with them once, creates an API key for the
+  rack it already has, and saves the key to its state file. A key in the state file
+  always wins over a username and password, so a password that stays in a config file or
+  an environment variable is ignored, with a warning.
+- The Console deletes its saved password after the first login with it succeeds. The
+  Python CLI does the same, and creates and saves an API key in that step.
