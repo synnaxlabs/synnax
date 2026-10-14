@@ -104,10 +104,9 @@ Driver select sets [how closely an Arc holds its timers](/reference/control/arc/
 
 ### Licensing
 
-A Core now uses a signed [license key](/reference/core/production#licensing), usually
-bound to one machine. A Core without a license starts, and the Console shows an
-activation screen with the host fingerprint and a box for the key. A running Core does
-not stop when its license expires.
+A Core now needs a [license key](/reference/core/production#license-keys). A Core
+without one starts, and the Console shows a screen where you enter the key. A running
+Core does not stop when its license expires.
 
 <Divider.Divider x />
 
@@ -158,8 +157,8 @@ not stop when its license expires.
 
 A Core without a license refuses every request except login, the connectivity check, and
 the license requests. The 50-channel allowance without a key is removed, so get a key
-from Synnax Labs before you upgrade a Core that has none. A key in the old numeric
-format still works.
+from [Synnax Labs](https://www.synnaxlabs.com/#contact) before you upgrade a Core that
+has none.
 
 #### `secure` is the only TLS switch for the Driver
 
