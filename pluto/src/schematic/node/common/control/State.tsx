@@ -10,7 +10,7 @@
 import { type channel, schematic } from "@synnaxlabs/client";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { direction } from "@synnaxlabs/x";
+import { direction, primitive } from "@synnaxlabs/x";
 import { useMemo } from "react";
 
 import { Grid } from "@/schematic/node/common/grid";
@@ -75,7 +75,9 @@ const Internal = ({
 };
 
 export const State = Grid.createItem<State>(({ config, channel, onChange }) => {
-  if (config == null) return null;
+  // The chip and the indicator report control of the channel, so with no channel
+  // there is nothing to show.
+  if (config == null || !primitive.isNonZero(channel)) return null;
   const orientation = config.orientation ?? "bottom";
   return (
     <Grid.Item
