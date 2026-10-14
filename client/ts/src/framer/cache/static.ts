@@ -11,7 +11,7 @@ import { alamos } from "@synnaxlabs/alamos";
 import {
   bounds,
   MultiSeries,
-  type Series,
+  Series,
   Size,
   TimeRange,
   TimeSpan,
@@ -290,9 +290,22 @@ export class Static {
     const { removeBefore, removeAfter, insertInto, deleteInBetween } = insertionPlan;
     series = series.slice(removeBefore, series.length - removeAfter);
     if (series.length === 0) return;
-    entries.splice(insertInto, deleteInBetween, {
-      data: series,
-      addedAt: TimeStamp.now(),
+    const entry = { data: series, addedAt: TimeStamp.now() };
+    entries.splice(insertInto, deleteInBetween, entry);
+    if (removeBefore === 0 && removeAfter === 0) return;
+    // A slice keeps the untrimmed time range, which would hide the trimmed span from
+    // gap computation once the neighbor it was trimmed against is gone.
+    const { start, end } = series.timeRange;
+    entry.data = new Series({
+      data: series.data,
+      dataType: series.dataType,
+      timeRange: new TimeRange(
+        removeBefore > 0 ? entries[insertInto - 1].data.timeRange.end : start,
+        removeAfter > 0 ? entries[insertInto + 1].data.timeRange.start : end,
+      ),
+      sampleOffset: series.sampleOffset,
+      alignment: series.alignment,
+      alignmentMultiple: series.alignmentMultiple,
     });
   }
 

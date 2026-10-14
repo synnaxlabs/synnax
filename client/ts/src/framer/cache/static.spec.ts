@@ -408,6 +408,65 @@ describe("StaticReadCache", () => {
     });
   });
 
+  describe("trimmed writes", () => {
+    const series = (tr: TimeRange, alignment: bigint, length: number) =>
+      new MultiSeries([
+        new Series({
+          data: new Float32Array(length),
+          dataType: DataType.FLOAT32,
+          timeRange: tr,
+          alignment,
+        }),
+      ]);
+
+    it("should end a series trimmed against a later entry where that entry starts", () => {
+      const c = new Static({});
+      c.write(series(TimeStamp.seconds(10).range(TimeStamp.seconds(20)), 100n, 100));
+      c.write(series(TimeStamp.seconds(0).range(TimeStamp.seconds(15)), 0n, 150));
+      const [first] = c.dirtyRead(TimeStamp.seconds(0).range(TimeStamp.seconds(20)))
+        .series.series;
+      expect(first.length).toEqual(100);
+      expect(first.timeRange).toEqual(
+        TimeStamp.seconds(0).range(TimeStamp.seconds(10)),
+      );
+    });
+
+    it("should start a series trimmed against an earlier entry where that entry ends", () => {
+      const c = new Static({});
+      c.write(series(TimeStamp.seconds(0).range(TimeStamp.seconds(10)), 0n, 100));
+      c.write(series(TimeStamp.seconds(5).range(TimeStamp.seconds(20)), 50n, 150));
+      const [, second] = c.dirtyRead(TimeStamp.seconds(0).range(TimeStamp.seconds(20)))
+        .series.series;
+      expect(second.length).toEqual(100);
+      expect(second.timeRange).toEqual(
+        TimeStamp.seconds(10).range(TimeStamp.seconds(20)),
+      );
+    });
+
+    it("should report the span a trimmed write gave up as a gap once its owner is purged", async () => {
+      const c = new Static({ staleEntryThreshold: TimeSpan.milliseconds(5) });
+      const owner = series(
+        TimeStamp.seconds(10).range(TimeStamp.seconds(20)),
+        100n,
+        100,
+      );
+      c.write(owner);
+      const trimmed = series(
+        TimeStamp.seconds(0).range(TimeStamp.seconds(15)),
+        0n,
+        150,
+      );
+      c.write(trimmed);
+      const tr = TimeStamp.seconds(0).range(TimeStamp.seconds(20));
+      c.dirtyRead(tr).series.series[0].acquire();
+      await sleep.sleep(TimeSpan.milliseconds(10));
+      expect(c.gc().purgedSeries).toEqual(1);
+      const { gaps } = c.dirtyRead(tr);
+      expect(gaps).toHaveLength(1);
+      expect(gaps[0]).toEqual(TimeStamp.seconds(10).range(TimeStamp.seconds(20)));
+    });
+  });
+
   describe("garbage collection", () => {
     it("should correctly garbage collect series that have a reference count of zero", async () => {
       const c = new Static({ staleEntryThreshold: TimeSpan.milliseconds(5) });
