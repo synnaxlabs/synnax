@@ -32,9 +32,9 @@ changelog:
     - title: TypeScript client
       labels:
         - ts-client
-    - title: Documentation
+    - title: Website
       labels:
-        - documentation
+        - website
     - title: Other changes
       labels:
         - "*"
