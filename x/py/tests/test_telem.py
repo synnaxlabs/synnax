@@ -77,6 +77,8 @@ class TestTimeStamp:
 
     @pytest.fixture
     def non_utc_tz(self, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+        if not hasattr(time, "tzset"):
+            pytest.skip("time.tzset is not available on this platform")
         monkeypatch.setenv("TZ", "America/New_York")
         time.tzset()
         yield
