@@ -7,18 +7,24 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import asyncio
 import threading
+import time
+from collections.abc import Callable
 from typing import cast
 
 import numpy as np
 import pytest
 
+import freighter
 import synnax as sy
 from synnax.control.controller import Controller, RemainsTrueFor
 
 # Seconds to wait for a cross-thread handshake. Generous, so a slow Core cannot fail the
 # test, but bounded, so a broken run fails instead of hanging CI.
 HANDSHAKE_TIMEOUT = 5
+# A wait timeout long enough that only a stopped receiver can wake the wait in time.
+BLOCKED_WAIT = 30 * sy.TimeSpan.SECOND
 
 
 def create_valve_set(
@@ -423,6 +429,84 @@ class TestController:
             ) as auto:
                 v = auto[press_en.key]
                 assert v is None
+
+    def test_set_by_attribute(self, client: sy.Synnax):
+        """Should command the channel named by an assigned attribute."""
+        ch = client.channels.create(
+            name="control_set_by_attribute",
+            data_type=sy.DataType.FLOAT64,
+            virtual=True,
+            retrieve_if_name_exists=True,
+        )
+        with client.control.acquire(
+            name="Set By Attribute", read=[ch.key], write=[ch.key]
+        ) as auto:
+            auto.control_set_by_attribute = 42
+            assert auto.wait_until(
+                lambda c: c.get(ch.key) == 42, timeout=HANDSHAKE_TIMEOUT
+            )
+            assert "control_set_by_attribute" not in vars(auto)
+
+    def test_acquire_raises_when_streamer_fails_to_open(
+        self, client: sy.Synnax, login_info: tuple[str, int, str, str]
+    ):
+        """Should raise the streamer's open error instead of hanging."""
+        ch = client.channels.create(
+            name="control_streamer_open_fails",
+            data_type=sy.DataType.FLOAT64,
+            virtual=True,
+        )
+        host, port, username, password = login_info
+        other = sy.Synnax(
+            host=host, port=port, username=username, password=password, secure=False
+        )
+        other.channels.delete(ch.key)
+        with pytest.raises(freighter.StreamClosed):
+            client.control.acquire(name="Open Fails", read=[ch.key], write=None)
+
+    @pytest.mark.parametrize(
+        "wait",
+        [
+            lambda auto: auto.wait_until(lambda _: False, timeout=BLOCKED_WAIT),
+            lambda auto: auto.remains_true_for(lambda _: True, BLOCKED_WAIT),
+        ],
+        ids=["wait_until", "remains_true_for"],
+    )
+    def test_wait_raises_when_receiver_stops(
+        self, client: sy.Synnax, wait: Callable[[Controller], bool]
+    ) -> None:
+        """Should wake a blocked wait with an error once the receiver stops."""
+        ch = client.channels.create(
+            name="control_receiver_stops",
+            data_type=sy.DataType.FLOAT64,
+            virtual=True,
+            retrieve_if_name_exists=True,
+        )
+        with client.control.acquire(
+            name="Receiver Stops", read=[ch.key], write=[ch.key]
+        ) as auto:
+            receiver = auto._receiver
+            errors: list[Exception] = []
+
+            def run() -> None:
+                try:
+                    wait(auto)
+                except Exception as e:
+                    errors.append(e)
+
+            waiter = threading.Thread(target=run, daemon=True)
+            waiter.start()
+            deadline = time.monotonic() + HANDSHAKE_TIMEOUT
+            while not receiver.processors:
+                assert time.monotonic() < deadline, "waiter never registered"
+                time.sleep(0.01)
+            asyncio.run_coroutine_threadsafe(
+                receiver.streamer.close_loop(), receiver.loop
+            ).result(HANDSHAKE_TIMEOUT)
+            waiter.join(HANDSHAKE_TIMEOUT)
+            assert not waiter.is_alive(), "blocked wait was not woken"
+            assert len(errors) == 1
+            assert isinstance(errors[0], sy.UnexpectedError)
 
     def test_controller_set_authority_mechanisms(self, client: sy.Synnax):
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)

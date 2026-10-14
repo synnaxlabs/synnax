@@ -18,7 +18,7 @@ import numpy as np
 
 from synnax import channel as channel_
 from synnax import framer
-from synnax.exceptions import ValidationError
+from synnax.exceptions import UnexpectedError, ValidationError
 from synnax.telem import CrudeTimeSpan, SampleValue, TimeSpan, TimeStamp
 from synnax.timing import sleep
 from x.control import CrudeAuthority
@@ -26,6 +26,8 @@ from x.thread import AsyncThread
 
 
 class Processor(Protocol):
+    event: Event
+
     def process(self, state: Controller) -> Any: ...
 
 
@@ -116,6 +118,9 @@ class Controller:
             self._receiver_opt = _Receiver(frame_client, read, retriever, self)
             self._receiver.start()
             self._receiver.startup_ack.wait()
+            if self._receiver.error is not None:
+                self.release()
+                raise self._receiver.error
 
     @property
     def _writer(self) -> framer.Writer:
@@ -309,6 +314,7 @@ class Controller:
             ok = processor.event.wait(timeout=timeout_seconds)
         finally:
             self._receiver.remove_processor(processor)
+        self._receiver.raise_error()
         if processor.exc:
             raise processor.exc
         return ok
@@ -377,6 +383,7 @@ class Controller:
             ok = not processor.event.wait(timeout=timeout_seconds)
         finally:
             self._receiver.remove_processor(processor)
+        self._receiver.raise_error()
         # If we executed the callback for the entire duration and the actual percentage
         # is still less than the target percentage, we return False.
         if ok:
@@ -410,9 +417,12 @@ class Controller:
         return self._receiver.state
 
     def __setattr__(self, key: str, value: Any) -> None:
-        try:
+        """Commands the channel named key, unless key is private or a class
+        attribute.
+        """
+        if key.startswith("_") or hasattr(type(self), key):
             super().__setattr__(key, value)
-        except AttributeError:
+        else:
             self.set(key, value)
 
     @overload
@@ -486,11 +496,13 @@ class _Receiver(AsyncThread):
     client: framer.Client
     streamer: framer.AsyncStreamer
     processors: set[Processor]
-    processor_lock: Lock
+    lock: Lock
     retriever: channel_.Retriever
     controller: Controller
     startup_ack: Event
     shutdown_future: Future[None]
+    error: Exception | None
+    exited: bool
 
     def __init__(
         self,
@@ -504,20 +516,28 @@ class _Receiver(AsyncThread):
         self.client = client
         self.state = dict()
         self.controller = controller
-        self.processor_lock = Lock()
+        self.lock = Lock()
         self.startup_ack = Event()
         self.processors = set()
+        self.error = None
+        self.exited = False
 
     def add_processor(self, processor: Processor) -> None:
-        with self.processor_lock:
+        with self.lock:
+            self.raise_error()
             self.processors.add(processor)
 
     def remove_processor(self, processor: Processor) -> None:
-        with self.processor_lock:
+        with self.lock:
             self.processors.remove(processor)
 
+    def raise_error(self) -> None:
+        """Raises the error that stopped the receiver, if any."""
+        if self.error is not None:
+            raise self.error
+
     def _process(self) -> None:
-        with self.processor_lock:
+        with self.lock:
             for p in self.processors:
                 p.process(self.controller)
 
@@ -526,8 +546,22 @@ class _Receiver(AsyncThread):
         await self.streamer.close_loop()
 
     async def run_async(self) -> None:
-        self.streamer = await self.client.open_async_streamer(self.channels)
         self.shutdown_future = self.loop.create_future()
+        error: Exception | None = None
+        try:
+            await self._stream()
+        except Exception as e:
+            error = e
+        with self.lock:
+            self.exited = True
+            self.error = error
+            if error is not None:
+                for p in self.processors:
+                    p.event.set()
+        self.startup_ack.set()
+
+    async def _stream(self) -> None:
+        self.streamer = await self.client.open_async_streamer(self.channels)
         self.loop.create_task(self._listen_for_close())
         self.startup_ack.set()
         async for frame in self.streamer:
@@ -537,9 +571,13 @@ class _Receiver(AsyncThread):
                     if isinstance(v, (np.number, int, float)):
                         self.state[key] = v
             self._process()
+        if not self.shutdown_future.done():
+            raise UnexpectedError("streamer closed before the controller released")
 
     def stop(self) -> None:
-        self.loop.call_soon_threadsafe(self.shutdown_future.set_result, None)
+        with self.lock:
+            if not self.exited:
+                self.loop.call_soon_threadsafe(self.shutdown_future.set_result, None)
         self.join()
 
 
