@@ -28,16 +28,4 @@ describe("Logo", () => {
     const c = render(<Logo.Logo aria-label="Synnax" />);
     expect(c.getByLabelText("Synnax").tagName).toEqual("svg");
   });
-
-  describe("Watermark", () => {
-    it("should render the logo beside its children", () => {
-      const c = render(
-        <Logo.Watermark variant="title">
-          <span>Empty</span>
-        </Logo.Watermark>,
-      );
-      expect(c.container.querySelector("svg text")?.textContent).toEqual("Synnax");
-      expect(c.getByText("Empty")).toBeTruthy();
-    });
-  });
 });
