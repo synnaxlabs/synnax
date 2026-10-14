@@ -11,7 +11,6 @@
 from __future__ import annotations
 
 import functools
-import warnings
 from collections.abc import Callable, Iterator
 from typing import Any, cast, overload
 from uuid import UUID
@@ -467,31 +466,6 @@ class Range(Payload):
     ) -> Range:
         return self._client.create(
             Range(name=name, time_range=time_range, color=color, key=key, parent=self)
-        )
-
-    def create_sub_range(
-        self,
-        *,
-        name: str,
-        time_range: TimeRange,
-        color: str = "",
-        key: Key = UUID(int=0),
-    ) -> Range:
-        """
-        This method is deprecated and will be removed in a future release.
-        Use create_child_range instead.
-        """
-        warnings.warn(
-            "create_sub_range() is deprecated and will be removed in a future version. "
-            "Use create_child_range() instead.",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.create_child_range(
-            name=name,
-            time_range=time_range,
-            color=color,
-            key=key,
         )
 
     @property

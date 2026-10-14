@@ -312,17 +312,17 @@ class JSONConfigMixin(Protocol):
 
     @property
     def key(self) -> Key:
-        """Implements TaskProtocol protocol"""
+        """Implements the Protocol interface."""
         return self._internal.key
 
     def to_payload(self) -> Payload:
-        """Implements TaskProtocol protocol"""
+        """Implements the Protocol interface."""
         pld = self._internal.to_payload()
         pld.config = self.config.model_dump(by_alias=True, exclude_none=True)
         return pld
 
     def set_internal(self, task: Task) -> None:
-        """Implements TaskProtocol protocol"""
+        """Implements the Protocol interface."""
         self._internal = task
 
 
@@ -415,12 +415,11 @@ class Client:
         pld.rack = rack
         return pld
 
-    def configure(self, task: Protocol, timeout: float = 5) -> Protocol:
+    def configure(self, task: Protocol) -> Protocol:
         """Saves the task's configuration to the cluster. The config is deployed
         to the driver on the next start command.
 
         :param task: The task to save.
-        :param timeout: Unused. Retained for backwards compatibility.
         :returns: The saved task with its key and rack populated.
         """
         # Call task-specific device property update (e.g., for Modbus, OPC UA, LabJack)

@@ -74,7 +74,7 @@ class Client:
     @overload
     def create(self, *, users: list[New]) -> list[User]: ...
 
-    @require_named_params(example_params=("user", "NewUser(username='synnax')"))
+    @require_named_params(example_params=("user", "New(username='synnax')"))
     def create(
         self,
         *,

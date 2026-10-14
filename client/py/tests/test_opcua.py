@@ -267,18 +267,3 @@ class TestOPCWriteTask:
             assert retr_ch.node_id == orig_ch.node_id
             assert retr_ch.cmd_channel == orig_ch.cmd_channel
             assert retr_ch.disabled == orig_ch.disabled
-
-
-@pytest.mark.opcua
-class TestOPCUADeprecatedNames:
-    def test_should_resolve_released_channel_aliases(self):
-        """Test that names released clients used still resolve."""
-        assert sy.opcua.Channel is sy.opcua.ReadChannel
-        assert sy.opcua.WriteTaskConfig is sy.opcua.WriteConfig
-
-    def test_should_forward_the_hardware_module(self):
-        """Test that the deprecated synnax.hardware.opcua module still forwards."""
-        from synnax.hardware import opcua as hardware_opcua
-
-        assert hardware_opcua.ReadTask is sy.opcua.ReadTask
-        assert hardware_opcua.Device is sy.opcua.Device
