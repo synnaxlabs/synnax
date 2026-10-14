@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import warnings
+from collections.abc import Mapping
 from typing import Any, cast
 
 from pandas import DataFrame
@@ -262,7 +263,7 @@ class WriteFrameAdapter:
                         )
             return Frame(channels=adapted_channels, series=adapted_series)
 
-        if isinstance(channels_or_data, dict):
+        if isinstance(channels_or_data, Mapping):
             dict_channels: list[channel.Key] = list()
             dict_series: list[Series] = list()
             for k, v in channels_or_data.items():

@@ -23,7 +23,9 @@ READ_TIMEOUT = 5
 @pytest.mark.framer
 @pytest.mark.streamer
 class TestStreamer:
-    def test_basic_stream_virtual(self, virtual_channel: sy.Channel, client: sy.Synnax):
+    def test_basic_stream_virtual(
+        self, virtual_channel: sy.Channel, client: sy.Synnax
+    ) -> None:
         """Should correctly stream data for a virtual channel"""
         with client.open_streamer(virtual_channel.key) as s:
             with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
@@ -38,7 +40,7 @@ class TestStreamer:
         self,
         indexed_pair: list[sy.Channel],
         client: sy.Synnax,
-    ):
+    ) -> None:
         idx, data = indexed_pair
         """Should correctly stream data from a virtual/index channel pair"""
         with client.open_streamer(channels=[idx.name, data.name]) as s:
@@ -57,7 +59,7 @@ class TestStreamer:
         indexed_pair: list[sy.Channel],
         virtual_channel: sy.Channel,
         client: sy.Synnax,
-    ):
+    ) -> None:
         idx, data = indexed_pair
         start = sy.TimeStamp.now()
         with client.open_streamer(
@@ -85,7 +87,9 @@ class TestStreamer:
                                 assert frame[idx.name][0] == ts
                                 assert frame[data.name][0] == value
 
-    def test_exclude_groups(self, virtual_channel: sy.Channel, client: sy.Synnax):
+    def test_exclude_groups(
+        self, virtual_channel: sy.Channel, client: sy.Synnax
+    ) -> None:
         """Should filter out frames from a writer whose group matches exclude_groups"""
         group_id = 42
         with client.open_streamer(virtual_channel.key, exclude_groups=[group_id]) as s:
@@ -101,7 +105,7 @@ class TestStreamer:
 
     def test_exclude_groups_non_matching(
         self, virtual_channel: sy.Channel, client: sy.Synnax
-    ):
+    ) -> None:
         """Should deliver frames from a writer whose group does not match
         exclude_groups"""
         with client.open_streamer(virtual_channel.key, exclude_groups=[99]) as s:
@@ -118,7 +122,7 @@ class TestStreamer:
 
     def test_exclude_groups_zero_group_always_delivered(
         self, virtual_channel: sy.Channel, client: sy.Synnax
-    ):
+    ) -> None:
         """Should deliver frames from a writer with group=0 even if 0 is in
         exclude_groups"""
         with client.open_streamer(virtual_channel.key, exclude_groups=[0]) as s:
@@ -132,25 +136,27 @@ class TestStreamer:
                 assert frame is not None
                 assert np.array_equal(frame[virtual_channel.key], data)
 
-    def test_open_streamer_no_channels(self, client: sy.Synnax):
+    def test_open_streamer_no_channels(self, client: sy.Synnax) -> None:
         """Should not throw an exception when a streamer is opened with no channels"""
         with client.open_streamer([]):
             pass
 
-    def test_open_streamer_channel_not_found(self, client: sy.Synnax):
+    def test_open_streamer_channel_not_found(self, client: sy.Synnax) -> None:
         """Should throw an exception when a streamer is opened with an unknown channel"""
         with pytest.raises(sy.NotFoundError):
             with client.open_streamer([123]):
                 pass
 
-    def test_open_streamer_channel_key_zero(self, client: sy.Synnax):
+    def test_open_streamer_channel_key_zero(self, client: sy.Synnax) -> None:
         """Should throw an exception when a streamer is opened with a channel key of
         zero"""
         with pytest.raises(sy.NotFoundError):
             with client.open_streamer([0, 0, 0]):
                 pass
 
-    def test_update_channels(self, virtual_channel: sy.Channel, client: sy.Synnax):
+    def test_update_channels(
+        self, virtual_channel: sy.Channel, client: sy.Synnax
+    ) -> None:
         """Should update the list of channels to stream"""
         with client.open_streamer([]) as s:
             s.update_channels([virtual_channel.key])
@@ -158,6 +164,7 @@ class TestStreamer:
                 data = np.random.rand(1).astype(np.float64)
                 w.write(pd.DataFrame({virtual_channel.key: data}))
                 frame = s.read(timeout=1)
+                assert frame is not None
                 assert np.array_equal(frame[virtual_channel.key], data)
 
     def test_update_channels_rapid(
@@ -165,7 +172,7 @@ class TestStreamer:
         indexed_pair: list[sy.Channel],
         virtual_channel: sy.Channel,
         client: sy.Synnax,
-    ):
+    ) -> None:
         idx, data_ch = indexed_pair
         start = sy.TimeStamp.now()
         channel_names = [idx.name, data_ch.name, virtual_channel.name]
@@ -175,24 +182,27 @@ class TestStreamer:
                 for i in range(300):
                     ts = sy.TimeStamp.now()
                     value = np.random.rand(1)
-                    data = {
-                        idx.name: ts,
-                        data_ch.name: value,
-                        virtual_channel.name: value,
-                    }
-                    writer.write(data)
+                    writer.write(
+                        {
+                            idx.name: ts,
+                            data_ch.name: value,
+                            virtual_channel.name: value,
+                        }
+                    )
                     if i % 50 == 0:
                         c = int((i % 150) / 50) + 1
                         curr_channels = channel_names[:c]
                         s.update_channels(curr_channels)
                     frm = s.read(timeout=1)
+                    assert frm is not None
                     for channel in curr_channels:
-                        d = frm.get(channel, None)
+                        d = frm.get(channel)
+                        assert d is not None
                         if len(d) > 0:
                             assert len(d) == 1
-                            assert d[0] == data[channel]
+                            assert d[0] == (ts if channel == idx.name else value)
 
-    def test_timeout_seconds(self, client: sy.Synnax):
+    def test_timeout_seconds(self, client: sy.Synnax) -> None:
         """Should return None after the specified timeout is exceeded"""
         with client.open_streamer([]) as s:
             start = sy.TimeStamp.now()
@@ -200,7 +210,7 @@ class TestStreamer:
             assert f is None
             assert abs(sy.TimeSpan.since(start).seconds - 0.1) < 0.05
 
-    def test_timeout_timespan(self, client: sy.Synnax):
+    def test_timeout_timespan(self, client: sy.Synnax) -> None:
         """Should return None after the specified timeout is exceeded"""
         with client.open_streamer([]) as s:
             start = sy.TimeStamp.now()
@@ -208,43 +218,49 @@ class TestStreamer:
             assert f is None
             assert abs(sy.TimeSpan.since(start).seconds - 0.1) < 0.05
 
-    def test_downsample(self, virtual_channel: sy.Channel, client: sy.Synnax):
+    def test_downsample(self, virtual_channel: sy.Channel, client: sy.Synnax) -> None:
         """Should correctly stream data for a channel"""
         with client.open_streamer(virtual_channel.key, 1) as s:
             with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
                 data = np.random.rand(10).astype(np.float64)
                 w.write(pd.DataFrame({virtual_channel.key: data}))
                 frame = s.read(timeout=1)
+                assert frame is not None
                 assert np.array_equal(frame[virtual_channel.key], data)
         with client.open_streamer(virtual_channel.key, 2) as s:
             with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
-                data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
+                samples = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
                 expect = [1.0, 3.0, 5.0, 7.0, 9.0]
-                w.write(pd.DataFrame({virtual_channel.key: data}))
+                w.write(pd.DataFrame({virtual_channel.key: samples}))
                 frame = s.read(timeout=1)
+                assert frame is not None
                 assert np.array_equal(frame[virtual_channel.key], expect)
         with client.open_streamer(virtual_channel.key, 10) as s:
             with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
-                data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
+                samples = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
                 expect = [1.0]
-                w.write(pd.DataFrame({virtual_channel.key: data}))
+                w.write(pd.DataFrame({virtual_channel.key: samples}))
                 frame = s.read(timeout=1)
+                assert frame is not None
                 assert np.array_equal(frame[virtual_channel.key], expect)
         with client.open_streamer(virtual_channel.key, 20) as s:
             with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
-                data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
+                samples = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
                 expect = [1.0]
-                w.write(pd.DataFrame({virtual_channel.key: data}))
+                w.write(pd.DataFrame({virtual_channel.key: samples}))
                 frame = s.read(timeout=1)
+                assert frame is not None
                 assert np.array_equal(frame[virtual_channel.key], expect)
 
-    def test_downsample_negative(self, virtual_channel: sy.Channel, client: sy.Synnax):
+    def test_downsample_negative(
+        self, virtual_channel: sy.Channel, client: sy.Synnax
+    ) -> None:
         with pytest.raises(sy.ValidationError):
             with client.open_streamer(virtual_channel.key, -1):
                 ...
 
     @pytest.mark.multi_node
-    def test_multi_node_stream_case_1(self):
+    def test_multi_node_stream_case_1(self) -> None:
         client = sy.Synnax(cache_channels=False)
         idx = client.channels.create(
             name="idx", data_type=sy.DataType.TIMESTAMP, is_index=True, leaseholder=2
@@ -261,7 +277,7 @@ class TestStreamer:
                 assert f[data.key][0] == 1
 
     @pytest.mark.multi_node
-    def test_multi_node_stream_case_2(self):
+    def test_multi_node_stream_case_2(self) -> None:
         node_1_client = sy.Synnax(
             host="localhost",
             port=9090,
@@ -314,7 +330,7 @@ class TestAsyncStreamer:
         expected: list[float],
         virtual_channel: sy.Channel,
         client: sy.Synnax,
-    ):
+    ) -> None:
         """Should downsample a streamed frame by the given factor."""
         data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
         with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
@@ -329,7 +345,7 @@ class TestAsyncStreamer:
     @pytest.mark.asyncio
     async def test_downsample_negative(
         self, virtual_channel: sy.Channel, client: sy.Synnax
-    ):
+    ) -> None:
         """Should reject a negative downsample factor."""
         with pytest.raises(sy.ValidationError):
             await client.open_async_streamer(virtual_channel.key, -1)
