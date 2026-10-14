@@ -13,10 +13,16 @@ import ctypes
 import pathlib
 import platform
 from abc import abstractmethod
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 import synnax as sy
-from tests.driver.task import ReadTaskCase, TaskCase, WriteTaskCase
+from tests.driver.task import (
+    ReadTaskCase,
+    ReadTaskT,
+    TaskCase,
+    TaskT,
+    WriteTaskCase,
+)
 
 _NI_MAX_CONFIG = pathlib.Path(__file__).parent.parent / "fixtures" / "ni_max_config.nce"
 
@@ -50,7 +56,7 @@ def _ensure_ni_max_config(log: Callable[[str], None]) -> None:
     log("NI MAX config imported successfully")
 
 
-class _NITaskMixin(TaskCase):
+class _NITaskMixin(TaskCase[TaskT]):
     """Shared setup for all NI task tests.
 
     Auto-passes on non-Windows platforms. The NI driver scanner
@@ -89,20 +95,20 @@ class _NITaskMixin(TaskCase):
         super().setup()
 
 
-class _NIReadTaskBase(_NITaskMixin, ReadTaskCase):
+class _NIReadTaskBase(_NITaskMixin[ReadTaskT], ReadTaskCase[ReadTaskT]):
     """Shared create() for all NI read task types.
 
     Subclasses set ``_task_class`` to the concrete sy.ni task type and
     implement ``create_channels`` with the appropriate channel-type annotation.
     """
 
-    _task_class: type
+    _task_class: Callable[..., ReadTaskT]
 
     @staticmethod
     @abstractmethod
     def create_channels(
         client: sy.Synnax, devices: dict[str, sy.Device]
-    ) -> list[object]: ...
+    ) -> Sequence[object]: ...
 
     def create(
         self,
@@ -111,7 +117,7 @@ class _NIReadTaskBase(_NITaskMixin, ReadTaskCase):
         task_name: str,
         sample_rate: sy.Rate,
         stream_rate: sy.Rate,
-    ) -> sy.Task:
+    ) -> ReadTaskT:
         channels = self.create_channels(self.client, self.devices)
         return self._task_class(
             name=task_name,
@@ -122,23 +128,20 @@ class _NIReadTaskBase(_NITaskMixin, ReadTaskCase):
         )
 
 
-class _NIWriteTaskBase(_NITaskMixin, WriteTaskCase):
-    """Shared _channel_keys() and create() for all NI write task types.
+class _NIWriteTaskBase(_NITaskMixin[TaskT], WriteTaskCase[TaskT]):
+    """Shared create() for all NI write task types.
 
     Subclasses set ``_task_class`` to the concrete sy.ni task type and
     implement ``create_channels`` with the appropriate channel-type annotation.
     """
 
-    _task_class: type
-
-    def _channel_keys(self, task: sy.Task) -> list[int]:
-        return [ch.cmd_channel for ch in task.config.channels]
+    _task_class: Callable[..., TaskT]
 
     @staticmethod
     @abstractmethod
     def create_channels(
         client: sy.Synnax, devices: dict[str, sy.Device]
-    ) -> list[object]: ...
+    ) -> Sequence[object]: ...
 
     def create(
         self,
@@ -147,7 +150,7 @@ class _NIWriteTaskBase(_NITaskMixin, WriteTaskCase):
         task_name: str,
         sample_rate: sy.Rate,
         stream_rate: sy.Rate,
-    ) -> sy.Task:
+    ) -> TaskT:
         channels = self.create_channels(self.client, self.devices)
         return self._task_class(
             name=task_name,
@@ -157,7 +160,7 @@ class _NIWriteTaskBase(_NITaskMixin, WriteTaskCase):
         )
 
 
-class NIAnalogReadTaskCase(_NIReadTaskBase):
+class NIAnalogReadTaskCase(_NIReadTaskBase[sy.ni.AnalogReadTask]):
     """Base class for NI analog read task tests."""
 
     _task_class = sy.ni.AnalogReadTask
@@ -166,10 +169,13 @@ class NIAnalogReadTaskCase(_NIReadTaskBase):
     @abstractmethod
     def create_channels(
         client: sy.Synnax, devices: dict[str, sy.Device]
-    ) -> list[sy.ni.AIChannel]: ...
+    ) -> Sequence[sy.ni.AIChannel]: ...
+
+    def _channel_keys(self, task: sy.ni.AnalogReadTask) -> list[int]:
+        return [ch.channel for ch in task.config.channels]
 
 
-class NIDigitalReadTaskCase(_NIReadTaskBase):
+class NIDigitalReadTaskCase(_NIReadTaskBase[sy.ni.DigitalReadTask]):
     """Base class for NI digital read task tests."""
 
     _task_class = sy.ni.DigitalReadTask
@@ -178,10 +184,13 @@ class NIDigitalReadTaskCase(_NIReadTaskBase):
     @abstractmethod
     def create_channels(
         client: sy.Synnax, devices: dict[str, sy.Device]
-    ) -> list[sy.ni.DIChannel]: ...
+    ) -> Sequence[sy.ni.DIChannel]: ...
+
+    def _channel_keys(self, task: sy.ni.DigitalReadTask) -> list[int]:
+        return [ch.channel for ch in task.config.channels]
 
 
-class NICounterReadTaskCase(_NIReadTaskBase):
+class NICounterReadTaskCase(_NIReadTaskBase[sy.ni.CounterReadTask]):
     """Base class for NI counter read task tests."""
 
     _task_class = sy.ni.CounterReadTask
@@ -190,10 +199,13 @@ class NICounterReadTaskCase(_NIReadTaskBase):
     @abstractmethod
     def create_channels(
         client: sy.Synnax, devices: dict[str, sy.Device]
-    ) -> list[sy.ni.CIChannel]: ...
+    ) -> Sequence[sy.ni.CIChannel]: ...
+
+    def _channel_keys(self, task: sy.ni.CounterReadTask) -> list[int]:
+        return [ch.channel for ch in task.config.channels]
 
 
-class NIAnalogWriteTaskCase(_NIWriteTaskBase):
+class NIAnalogWriteTaskCase(_NIWriteTaskBase[sy.ni.AnalogWriteTask]):
     """Base class for NI analog write task tests."""
 
     _task_class = sy.ni.AnalogWriteTask
@@ -202,10 +214,13 @@ class NIAnalogWriteTaskCase(_NIWriteTaskBase):
     @abstractmethod
     def create_channels(
         client: sy.Synnax, devices: dict[str, sy.Device]
-    ) -> list[sy.ni.AOChannel]: ...
+    ) -> Sequence[sy.ni.AOChannel]: ...
+
+    def _channel_keys(self, task: sy.ni.AnalogWriteTask) -> list[int]:
+        return [ch.cmd_channel for ch in task.config.channels]
 
 
-class NIDigitalWriteTaskCase(_NIWriteTaskBase):
+class NIDigitalWriteTaskCase(_NIWriteTaskBase[sy.ni.DigitalWriteTask]):
     """Base class for NI digital write task tests."""
 
     _task_class = sy.ni.DigitalWriteTask
@@ -214,4 +229,7 @@ class NIDigitalWriteTaskCase(_NIWriteTaskBase):
     @abstractmethod
     def create_channels(
         client: sy.Synnax, devices: dict[str, sy.Device]
-    ) -> list[sy.ni.DOChannel]: ...
+    ) -> Sequence[sy.ni.DOChannel]: ...
+
+    def _channel_keys(self, task: sy.ni.DigitalWriteTask) -> list[int]:
+        return [ch.cmd_channel for ch in task.config.channels]
