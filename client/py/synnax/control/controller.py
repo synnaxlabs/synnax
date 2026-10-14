@@ -410,9 +410,12 @@ class Controller:
         return self._receiver.state
 
     def __setattr__(self, key: str, value: Any) -> None:
-        try:
+        """Commands the channel named key, unless key is private or a class
+        attribute.
+        """
+        if key.startswith("_") or hasattr(type(self), key):
             super().__setattr__(key, value)
-        except AttributeError:
+        else:
             self.set(key, value)
 
     @overload

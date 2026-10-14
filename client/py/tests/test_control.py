@@ -423,6 +423,23 @@ class TestController:
                 v = auto[press_en.key]
                 assert v is None
 
+    def test_set_by_attribute(self, client: sy.Synnax):
+        """Should command the channel named by an assigned attribute."""
+        ch = client.channels.create(
+            name="control_set_by_attribute",
+            data_type=sy.DataType.FLOAT64,
+            virtual=True,
+            retrieve_if_name_exists=True,
+        )
+        with client.control.acquire(
+            name="Set By Attribute", read=[ch.key], write=[ch.key]
+        ) as auto:
+            auto.control_set_by_attribute = 42
+            assert auto.wait_until(
+                lambda c: c.get(ch.key) == 42, timeout=HANDSHAKE_TIMEOUT
+            )
+            assert "control_set_by_attribute" not in vars(auto)
+
     def test_controller_set_authority_mechanisms(self, client: sy.Synnax):
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
 
