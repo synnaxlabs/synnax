@@ -56,7 +56,7 @@ class MockUnaryClient(Transport):
         :param target: the target address of the server
         :param req: the request to issue to the server
         :param res_t: the expected response type.
-        :return: the next pre-configured response.
+        :returns: the next pre-configured response.
         :raises RuntimeError: when no more responses are available
         :raises TypeError: when the next response is not an instance of res_t.
         :raises Exception: the next pre-configured error, if any.
