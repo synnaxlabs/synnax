@@ -34,7 +34,7 @@ from synnax.telem import TimeSpan
 class _Request(BaseModel):
     keys: list[channel.Key]
     downsample_factor: int
-    throttle_rate_hz: float | None = None
+    throttle_rate: float | None = None
     exclude_groups: list[int] = []
 
 
@@ -97,7 +97,7 @@ class Streamer:
             _Request(
                 keys=self._adapter.keys,
                 downsample_factor=self._downsample_factor,
-                throttle_rate_hz=self._throttle_rate,
+                throttle_rate=self._throttle_rate,
                 exclude_groups=self._exclude_groups,
             )
         )
@@ -157,7 +157,7 @@ class Streamer:
             _Request(
                 keys=self._adapter.keys,
                 downsample_factor=self._downsample_factor,
-                throttle_rate_hz=self._throttle_rate,
+                throttle_rate=self._throttle_rate,
                 exclude_groups=self._exclude_groups,
             )
         )
@@ -238,7 +238,7 @@ class AsyncStreamer:
             _Request(
                 keys=self._adapter.keys,
                 downsample_factor=self._downsample_factor,
-                throttle_rate_hz=self._throttle_rate,
+                throttle_rate=self._throttle_rate,
                 exclude_groups=self._exclude_groups,
             )
         )
