@@ -11,5 +11,5 @@ import synnax as sy
 from x.testutil import assert_eventually
 
 
-def assert_eventually_channels_are_found(client: sy.Synnax, keys: list[int]):
+def assert_eventually_channels_are_found(client: sy.Synnax, keys: list[int]) -> None:
     assert_eventually(lambda: client.channels.retrieve(keys))

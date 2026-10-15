@@ -13,29 +13,29 @@ from importlib.metadata import version as _version
 from alamos import NOOP, Instrumentation
 from freighter import URL
 from synnax import (
-    access,
     arc,
     auth,
     channel,
     connection,
-    control,
     device,
     framer,
     group,
-    imex,
-    license,
-    ontology,
     project,
     rack,
     ranger,
-    signals,
     status,
     task,
     user,
     view,
 )
+from synnax.access import Client as AccessClient
 from synnax.config import try_load_options_if_none_provided
+from synnax.control import Client as ControlClient
+from synnax.imex import Client as ImexClient
+from synnax.license import Client as LicenseClient
+from synnax.ontology import Client as OntologyClient
 from synnax.options import Options
+from synnax.signals import Registry as SignalsRegistry
 from synnax.telem import TimeSpan
 from synnax.transport import Transport
 
@@ -64,21 +64,21 @@ class Synnax(framer.Client):
 
     channels: channel.Client
     connectivity: connection.Checker
-    access: access.Client
+    access: AccessClient
     users: user.Client
     ranges: ranger.Client
-    control: control.Client
-    signals: signals.Registry
+    control: ControlClient
+    signals: SignalsRegistry
     racks: rack.Client
     devices: device.Client
     tasks: task.Client
-    ontology: ontology.Client
-    license: license.Client
+    ontology: OntologyClient
+    license: LicenseClient
     statuses: status.Client
     arcs: arc.Client
     groups: group.Client
     views: view.Client
-    imex: imex.Client
+    imex: ImexClient
     projects: project.Client
 
     _transport: Transport
@@ -167,15 +167,15 @@ class Synnax(framer.Client):
             instrumentation=instrumentation,
         )
         self.groups = group.Client(self._transport.unary)
-        self.ontology = ontology.Client(client=self._transport.unary)
+        self.ontology = OntologyClient(client=self._transport.unary)
         self.channels = channel.Client(self, ch_retriever, ch_creator)
         range_retriever = ranger.Retriever(self._transport.unary, instrumentation)
         range_creator = ranger.Writer(self._transport.unary, instrumentation)
-        self.signals = signals.Registry(frame_client=self, channels=ch_retriever)
+        self.signals = SignalsRegistry(frame_client=self, channels=ch_retriever)
         self.racks = rack.Client(client=self._transport.unary)
         self.devices = device.Client(client=self._transport.unary)
         self.views = view.Client(client=self._transport.unary)
-        self.imex = imex.Client(file_transport=self._transport.file_transport)
+        self.imex = ImexClient(file_transport=self._transport.file_transport)
         self.projects = project.Client(client=self._transport.unary)
         self.tasks = task.Client(
             client=self._transport.unary,
@@ -193,12 +193,12 @@ class Synnax(framer.Client):
             ontology=self.ontology,
             tasks=self.tasks,
         )
-        self.control = control.Client(self, ch_retriever, self._transport.unary)
+        self.control = ControlClient(self, ch_retriever, self._transport.unary)
         self.users = user.Client(self._transport.unary)
         self.statuses = status.Client(self._transport.unary)
-        self.license = license.Client(self._transport.unary)
+        self.license = LicenseClient(self._transport.unary)
         self.arcs = arc.Client(self._transport.unary)
-        self.access = access.Client(self._transport.unary)
+        self.access = AccessClient(self._transport.unary)
 
     def close(self) -> None:
         """Shuts down the client and closes all connections. All open iterators or

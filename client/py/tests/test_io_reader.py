@@ -14,7 +14,7 @@ import pytest
 from nptdms import ChannelObject, GroupObject, RootObject, TdmsWriter
 
 from synnax.io import IO_FACTORY
-from synnax.io.protocol import ColumnFileReader, RowFileReader
+from synnax.io.protocol import RowFileReader
 from synnax.io.tdms import TDMSReader
 
 BASE_DIR = pathlib.Path("./tests/testdata/io")
@@ -38,25 +38,25 @@ VALID_FILE_CHANNELS = [
 )
 class TestRowFileReaders:
     @pytest.fixture
-    def valid_file(self, path):
+    def valid_file(self, path: str) -> RowFileReader:
         return IO_FACTORY.new_reader(BASE_DIR / pathlib.Path(path))
 
-    def test_channels(self, valid_file: RowFileReader):
+    def test_channels(self, valid_file: RowFileReader) -> None:
         """It should correctly return a list of the channel names in the file"""
         assert [c.name for c in valid_file.channels()] == VALID_FILE_CHANNELS
 
-    def test_num_samples(self, valid_file: RowFileReader):
+    def test_num_samples(self, valid_file: RowFileReader) -> None:
         """It should return the approximate number of samples in the file"""
         ns = valid_file.nsamples()
         assert ns >= 20 and ns <= 30
 
-    def test_first_sample(self, valid_file: RowFileReader):
+    def test_first_sample(self, valid_file: RowFileReader) -> None:
         """It should return the first sample in the file"""
         valid_file.seek_first()
         d = valid_file.read()
         assert d["thermoCouple01"].to_numpy()[0] == 1.0
 
-    def test_read(self, valid_file: RowFileReader):
+    def test_read(self, valid_file: RowFileReader) -> None:
         """It should correctly iterate over the samples in the file"""
         valid_file.set_chunk_size(1)
         valid_file.seek_first()
@@ -70,28 +70,28 @@ class TestRowFileReaders:
 @pytest.mark.io
 class TestAllStringFirstCol:
     @pytest.fixture
-    def valid_file(self):
+    def valid_file(self) -> RowFileReader:
         return IO_FACTORY.new_reader(BASE_DIR / "valid_all_string_first_col.csv")
 
-    def test_channels(self, valid_file: RowFileReader):
+    def test_channels(self, valid_file: RowFileReader) -> None:
         """It should correctly return a list of the channel names in the file"""
         assert [c.name for c in valid_file.channels()] == [
             "randStringChan",
             *VALID_FILE_CHANNELS,
         ]
 
-    def test_num_samples(self, valid_file: RowFileReader):
+    def test_num_samples(self, valid_file: RowFileReader) -> None:
         """It should return the approximate number of samples in the file"""
         ns = valid_file.nsamples()
         assert ns >= 20 and ns <= 30
 
-    def test_first_sample(self, valid_file: RowFileReader):
+    def test_first_sample(self, valid_file: RowFileReader) -> None:
         """It should return the first sample in the file"""
         valid_file.seek_first()
         d = valid_file.read()
         assert d["thermoCouple01"].to_numpy()[0] == 1.0
 
-    def test_read(self, valid_file: RowFileReader):
+    def test_read(self, valid_file: RowFileReader) -> None:
         """It should correctly iterate over the samples in the file"""
         valid_file.set_chunk_size(1)
         valid_file.seek_first()
@@ -105,7 +105,7 @@ class TestAllStringFirstCol:
 @pytest.mark.tdms
 class TestTdmsReader:
     @pytest.fixture
-    def create_test_file(self):
+    def create_test_file(self) -> None:
         # Create test file
         root = RootObject()
         groupA = GroupObject("groupA")
@@ -125,26 +125,26 @@ class TestTdmsReader:
             )
 
     @pytest.fixture
-    def valid_file(self, create_test_file):
-        return TDMSReader(f"{BASE_DIR / 'tdms'}.tdms")
+    def valid_file(self, create_test_file: None) -> TDMSReader:
+        return TDMSReader(BASE_DIR / "tdms.tdms")
 
-    def test_channels(self, valid_file: ColumnFileReader):
+    def test_channels(self, valid_file: TDMSReader) -> None:
         """It should correctly return a list of the channel names in the file"""
         valid_file.set_chunk_size(1)
         assert [c.name for c in valid_file.channels()] == VALID_FILE_CHANNELS
 
-    def test_num_samples(self, valid_file: ColumnFileReader):
+    def test_num_samples(self, valid_file: TDMSReader) -> None:
         """It should return the approximate number of samples in the file"""
         valid_file.set_chunk_size(1)
         assert valid_file.nsamples() == 16
 
-    def test_first_sample(self, valid_file: ColumnFileReader):
+    def test_first_sample(self, valid_file: TDMSReader) -> None:
         """It should return the first sample in the file"""
         valid_file.seek_first()
         d = valid_file.read()
         assert d["thermoCouple01"].to_numpy()[0] == 1.0
 
-    def test_read(self, valid_file: ColumnFileReader):
+    def test_read(self, valid_file: TDMSReader) -> None:
         """It should correctly iterate over the samples in the file"""
         valid_file.set_chunk_size(1)
         valid_file.seek_first()
@@ -154,7 +154,7 @@ class TestTdmsReader:
             count += 1
         assert count == 4
 
-    def test_read_keys(self, valid_file: ColumnFileReader):
+    def test_read_keys(self, valid_file: TDMSReader) -> None:
         """It should only read the fist 3 channels"""
         valid_file.set_chunk_size(2)
         valid_file.seek_first()

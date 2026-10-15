@@ -64,7 +64,7 @@ tsk = http.WriteTask(
                 json_type="number",
                 channel=setpoint_cmd.key,
                 name="Setpoint",
-                data_type="float64",
+                data_type=sy.DataType.FLOAT64,
             ),
         ),
     ],

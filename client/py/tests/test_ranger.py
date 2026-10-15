@@ -8,6 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 import re
+from collections.abc import Callable
+from typing import cast
 from uuid import uuid4
 
 import numpy as np
@@ -37,7 +39,7 @@ class TestRangeClient:
             ]
         )
 
-    def test_create_single(self, client: sy.Synnax):
+    def test_create_single(self, client: sy.Synnax) -> None:
         """Should create a single valid range"""
         rng = client.ranges.create(
             name="test",
@@ -60,14 +62,14 @@ class TestRangeClient:
         assert rng.color is None
         assert client.ranges.retrieve(key=rng.key).color is None
 
-    def test_create_multiple(self, two_ranges: list[sy.Range]):
+    def test_create_multiple(self, two_ranges: list[sy.Range]) -> None:
         """Should create multiple valid ranges"""
         assert len(two_ranges) == 2
         for rng in two_ranges:
             assert rng.name.startswith("test")
             assert rng.key != ""
 
-    def test_create_reusing_resolved_parent(self, client: sy.Synnax):
+    def test_create_reusing_resolved_parent(self, client: sy.Synnax) -> None:
         """Should accept a created range's resolved parent (a Payload) as the parent
         of another range. The server resolves parent into a Payload, and passing it
         back through create previously raised AttributeError because Range called
@@ -91,30 +93,35 @@ class TestRangeClient:
         assert sibling.parent is not None
         assert sibling.parent.key == parent.key
 
-    def test_retrieve_by_key(self, two_ranges: list[sy.Range], client: sy.Synnax):
+    def test_retrieve_by_key(
+        self, two_ranges: list[sy.Range], client: sy.Synnax
+    ) -> None:
         """Should retrieve a range by key"""
         rng = client.ranges.retrieve(key=two_ranges[0].key)
         assert rng.name == two_ranges[0].name
         assert rng.key == two_ranges[0].key
 
-    def test_retrieve_by_name(self, two_ranges: list[sy.Range], client: sy.Synnax):
+    def test_retrieve_by_name(
+        self, two_ranges: list[sy.Range], client: sy.Synnax
+    ) -> None:
         """Should retrieve a range by name"""
         rng = client.ranges.retrieve(name=two_ranges[0].name)
         assert rng.name == two_ranges[0].name
 
-    def test_retrieve_unnamed_parameter(self, client: sy.Synnax):
+    def test_retrieve_unnamed_parameter(self, client: sy.Synnax) -> None:
         """Should raise an error when unnamed parameters are passed in"""
+        retrieve = cast(Callable[..., object], client.ranges.retrieve)
         with pytest.raises(RequiresNamedParams):
-            client.ranges.retrieve("cat")
+            retrieve("cat")
 
     def test_retrieve_by_name_not_found(
         self, two_ranges: list[sy.Range], client: sy.Synnax
-    ):
+    ) -> None:
         """Should raise an error when a range is not found"""
         with pytest.raises(sy.exceptions.QueryError):
             client.ranges.retrieve(name="not_found")
 
-    def test_search(self, two_ranges: list[sy.Range], client: sy.Synnax):
+    def test_search(self, two_ranges: list[sy.Range], client: sy.Synnax) -> None:
         """Should search for ranges"""
 
         def check() -> None:
@@ -124,7 +131,7 @@ class TestRangeClient:
 
     def test_create_retrieve_if_name_exists(
         self, two_ranges: list[sy.Range], client: sy.Synnax
-    ):
+    ) -> None:
         """Should retrieve a range if it already exists"""
         rng = client.ranges.create(
             name=two_ranges[0].name,
@@ -134,7 +141,7 @@ class TestRangeClient:
         assert rng.name == two_ranges[0].name
         assert rng.key == two_ranges[0].key
 
-    def test_create_rejects_empty_name(self, client: sy.Synnax):
+    def test_create_rejects_empty_name(self, client: sy.Synnax) -> None:
         """Should reject creation of a range with an empty name (Pydantic min_length=1)"""
         with pytest.raises(pydantic.ValidationError):
             client.ranges.create(
@@ -151,13 +158,13 @@ class TestRangeClient:
                 time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
             )
 
-        def test_delete_by_key(self, rng: sy.Range, client: sy.Synnax):
+        def test_delete_by_key(self, rng: sy.Range, client: sy.Synnax) -> None:
             """Should delete a range by key"""
             client.ranges.delete(rng.key)
             with pytest.raises(sy.exceptions.QueryError):
                 client.ranges.retrieve(key=rng.key)
 
-        def test_delete_multiple_keys(self, client: sy.Synnax):
+        def test_delete_multiple_keys(self, client: sy.Synnax) -> None:
             """Should delete multiple ranges in a single call"""
             ranges = client.ranges.create(
                 [
@@ -209,15 +216,21 @@ class TestRangeClient:
                 ]
             )
 
-        def test_access_by_key(self, rng: sy.Range, two_channels: list[sy.Channel]):
+        def test_access_by_key(
+            self, rng: sy.Range, two_channels: list[sy.Channel]
+        ) -> None:
             """Should access a channel by key"""
             assert rng[two_channels[0].key].key == two_channels[0].key
 
-        def test_access_by_name(self, rng: sy.Range, two_channels: list[sy.Channel]):
+        def test_access_by_name(
+            self, rng: sy.Range, two_channels: list[sy.Channel]
+        ) -> None:
             """Should access a channel by name"""
             assert rng[two_channels[0].name].name == two_channels[0].name
 
-        def test_access_by_regex(self, rng: sy.Range, two_channels: list[sy.Channel]):
+        def test_access_by_regex(
+            self, rng: sy.Range, two_channels: list[sy.Channel]
+        ) -> None:
             """Should access a channel by regex"""
             prefix = re.sub(r"[^A-Za-z0-9_]", "", rng.name)
             channels = rng[f"test_{prefix}_.*"]
@@ -228,7 +241,7 @@ class TestRangeClient:
 
     @pytest.mark.ranger
     class TestRangeKV:
-        def test_set_get_delete_single(self, client: sy.Synnax):
+        def test_set_get_delete_single(self, client: sy.Synnax) -> None:
             rng = client.ranges.create(
                 name=random_name(),
                 time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
@@ -239,7 +252,7 @@ class TestRangeClient:
             with pytest.raises(sy.exceptions.QueryError):
                 rng.meta_data.get("test")
 
-        def test_set_get_delete_multiple(self, client: sy.Synnax):
+        def test_set_get_delete_multiple(self, client: sy.Synnax) -> None:
             rng = client.ranges.create(
                 name=random_name(),
                 time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
@@ -253,7 +266,7 @@ class TestRangeClient:
             with pytest.raises(sy.exceptions.QueryError):
                 rng.meta_data.get(["test", "test2"])
 
-        def test_set_non_string_primitive(self, client: sy.Synnax):
+        def test_set_non_string_primitive(self, client: sy.Synnax) -> None:
             rng = client.ranges.create(
                 name="test",
                 time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
@@ -261,7 +274,7 @@ class TestRangeClient:
             rng.meta_data["key"] = 1
             assert rng.meta_data["key"] == "1"
 
-        def test_set_non_string_non_primitive(self, client: sy.Synnax):
+        def test_set_non_string_non_primitive(self, client: sy.Synnax) -> None:
             rng = client.ranges.create(
                 name="test",
                 time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
@@ -269,14 +282,14 @@ class TestRangeClient:
             with pytest.raises(sy.ValidationError):
                 rng.meta_data["key"] = object()
 
-        def test_set_non_string_str_implemented_object(self, client: sy.Synnax):
+        def test_set_non_string_str_implemented_object(self, client: sy.Synnax) -> None:
             rng = client.ranges.create(
                 name="test",
                 time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
             )
 
             class Test:
-                def __str__(self):
+                def __str__(self) -> str:
                     return "test"
 
             rng.meta_data["key"] = Test()
@@ -284,7 +297,7 @@ class TestRangeClient:
 
     @pytest.mark.ranger
     class TestRangeAlias:
-        def test_basic_alias(self, client: sy.Synnax):
+        def test_basic_alias(self, client: sy.Synnax) -> None:
             ch = client.channels.create(
                 name=random_name(), data_type=sy.DataType.INT8, virtual=True
             )
@@ -296,7 +309,7 @@ class TestRangeClient:
             assert rng["alt_test"].key == ch.key
             assert rng["alt_test"].name == ch.name
 
-        def test_alias_not_found(self, client: sy.Synnax):
+        def test_alias_not_found(self, client: sy.Synnax) -> None:
             rng = client.ranges.create(
                 name="test",
                 time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
@@ -304,7 +317,7 @@ class TestRangeClient:
             with pytest.raises(sy.exceptions.QueryError):
                 rng["not_found"]
 
-        def test_channel_not_found_on_set(self, client: sy.Synnax):
+        def test_channel_not_found_on_set(self, client: sy.Synnax) -> None:
             rng = client.ranges.create(
                 name="test",
                 time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
@@ -314,7 +327,7 @@ class TestRangeClient:
 
     @pytest.mark.ranger
     class TestRangeChildren:
-        def test_children_empty(self, client: sy.Synnax):
+        def test_children_empty(self, client: sy.Synnax) -> None:
             """Should return empty list when range has no children"""
             rng = client.ranges.create(
                 name="parent1",
@@ -324,7 +337,7 @@ class TestRangeClient:
             assert isinstance(children, list)
             assert len(children) == 0
 
-        def test_children_with_child_ranges(self, client: sy.Synnax):
+        def test_children_with_child_ranges(self, client: sy.Synnax) -> None:
             """Should return list of child ranges"""
             parent_rng = client.ranges.create(
                 name="parent2",
@@ -350,7 +363,7 @@ class TestRangeClient:
             child_names = {child.name for child in children}
             assert child_names == {"child1", "child2"}
 
-        def test_create_kwargs_with_parent_attaches(self, client: sy.Synnax):
+        def test_create_kwargs_with_parent_attaches(self, client: sy.Synnax) -> None:
             """Client.create(parent=range) should attach the child under the parent"""
             parent_rng = client.ranges.create(
                 name=random_name(),
@@ -367,7 +380,9 @@ class TestRangeClient:
             children = parent_rng.children
             assert child_name in {c.name for c in children}
 
-        def test_create_single_range_with_parent_attaches(self, client: sy.Synnax):
+        def test_create_single_range_with_parent_attaches(
+            self, client: sy.Synnax
+        ) -> None:
             """Passing a Range with .parent set should attach it under the parent"""
             parent_rng = client.ranges.create(
                 name=random_name(),
@@ -386,7 +401,7 @@ class TestRangeClient:
             children = parent_rng.children
             assert child_name in {c.name for c in children}
 
-        def test_create_list_with_parent_attaches(self, client: sy.Synnax):
+        def test_create_list_with_parent_attaches(self, client: sy.Synnax) -> None:
             """List-form create should preserve each Range's parent assignment"""
             parent_rng = client.ranges.create(
                 name=random_name(),
@@ -424,7 +439,7 @@ class TestRangeClient:
 class TestRangeConstructor:
     """Pure-Pydantic tests of Range construction — no server required."""
 
-    def test_accepts_range_as_parent(self):
+    def test_accepts_range_as_parent(self) -> None:
         """Range(parent=other_range) should store the parent's identity"""
         parent = sy.Range(
             name="parent",
@@ -439,7 +454,7 @@ class TestRangeConstructor:
         assert child.parent.key == parent.key
         assert child.parent.name == parent.name
 
-    def test_strips_grandparent(self):
+    def test_strips_grandparent(self) -> None:
         """A parent that itself has a parent should be flattened to depth 1"""
         grandparent = sy.Range(
             name="grandparent",
@@ -459,7 +474,7 @@ class TestRangeConstructor:
         assert child.parent.key == parent.key
         assert child.parent.parent is None
 
-    def test_no_parent(self):
+    def test_no_parent(self) -> None:
         """Range without a parent should have parent=None"""
         rng = sy.Range(
             name="solo",
@@ -470,7 +485,7 @@ class TestRangeConstructor:
 
 @pytest.mark.ranger
 class TestRangeData:
-    def test_basic_read(self, client: sy.Synnax):
+    def test_basic_read(self, client: sy.Synnax) -> None:
         """It should correctly read data from a channel on a range"""
         idx_ch = client.channels.create(
             name=random_name(),
@@ -534,7 +549,7 @@ class TestRangeData:
         with pytest.raises(TypeError):
             hash(scoped)
 
-    def test_basic_write(self, client: sy.Synnax):
+    def test_basic_write(self, client: sy.Synnax) -> None:
         """It should correctly write data to the range"""
         idx_ch = client.channels.create(
             name=random_name(),

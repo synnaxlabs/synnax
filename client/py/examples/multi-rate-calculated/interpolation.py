@@ -41,17 +41,22 @@ data_channel = client.channels.create(
     retrieve_if_name_exists=True,
 )
 
-current_values = dict()
+current_values: dict[int | str, sy.MultiSeries] = dict()
 
 TO_READ = ["time_ch_1", "time_ch_2", "data_ch_1", "data_ch_2"]
 
 
-def interpolate(data_ch_1_time, data_ch_1, data_ch_2_time, data_ch_2):
+def interpolate(
+    data_ch_1_time_series: sy.MultiSeries,
+    data_ch_1_series: sy.MultiSeries,
+    data_ch_2_time_series: sy.MultiSeries,
+    data_ch_2_series: sy.MultiSeries,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     # Start off by converting the data to numpy arrays
-    data_ch_1_time = np.array(data_ch_1_time)
-    data_ch_1 = np.array(data_ch_1)
-    data_ch_2_time = np.array(data_ch_2_time)
-    data_ch_2 = np.array(data_ch_2)
+    data_ch_1_time = np.array(data_ch_1_time_series)
+    data_ch_1 = np.array(data_ch_1_series)
+    data_ch_2_time = np.array(data_ch_2_time_series)
+    data_ch_2 = np.array(data_ch_2_series)
 
     # Check whether any of the timestamps overlap. If not, we can't interpolate.
     start_time = max(data_ch_1_time[0], data_ch_2_time[0])
@@ -78,7 +83,6 @@ with client.open_writer(
 ) as writer:
     with client.open_streamer(TO_READ) as streamer:
         for frame in streamer:
-            time = frame["time_ch_1"][-1]
             for k, _ in frame.items():
                 current_values[k] = frame[k]
             # If we still don't have data yet from all four channels, skip and wait for

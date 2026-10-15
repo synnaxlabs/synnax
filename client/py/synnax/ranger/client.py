@@ -642,10 +642,16 @@ class Client:
     def retrieve(
         self,
         *,
-        key: None = None,
-        name: None = None,
-        names: list[str] | tuple[str] | None = None,
-        keys: list[Key] | tuple[Key] | None = None,
+        names: list[str] | tuple[str, ...],
+        keys: list[Key] | tuple[Key, ...] | None = None,
+    ) -> list[Range]: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        names: None = None,
+        keys: list[Key] | tuple[Key, ...],
     ) -> list[Range]: ...
 
     @require_named_params(example_params=("name", "My Range"))
@@ -654,8 +660,8 @@ class Client:
         *,
         key: Key | None = None,
         name: str | None = None,
-        names: list[str] | tuple[str] | None = None,
-        keys: list[Key] | tuple[Key] | None = None,
+        names: list[str] | tuple[str, ...] | None = None,
+        keys: list[Key] | tuple[Key, ...] | None = None,
     ) -> Range | list[Range]:
         is_single = check_for_none(keys, names)
         _ranges = self._retriever.retrieve(key=key, name=name, names=names, keys=keys)
@@ -670,7 +676,7 @@ class Client:
 
     def delete(
         self,
-        key: Key | list[Key] | tuple[Key],
+        key: Key | list[Key] | tuple[Key, ...],
     ) -> None:
         self._writer.delete(normalize(key))
 
