@@ -91,12 +91,12 @@ tsk = sy.opcua.ReadTask(
         sy.opcua.ReadChannel(
             channel=my_array_0.key,
             node_id="NS=2;I=2",  # my_array_0
-            data_type="float32",
+            data_type=sy.DataType.FLOAT32,
         ),
         sy.opcua.ReadChannel(
             channel=my_array_1.key,
             node_id="NS=2;I=3",  # my_array_1
-            data_type="float32",
+            data_type=sy.DataType.FLOAT32,
         ),
     ],
 )

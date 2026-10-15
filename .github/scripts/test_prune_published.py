@@ -11,6 +11,8 @@ import io
 import json
 import sys
 import urllib.error
+import urllib.request
+from email.message import Message
 from pathlib import Path
 
 import pytest
@@ -79,9 +81,7 @@ class TestPublishedFiles:
         body = json.dumps(
             {"urls": [{"filename": "alamos-0.56.0-py3-none-any.whl"}]}
         ).encode()
-        monkeypatch.setattr(
-            prune_published.urllib.request, "urlopen", lambda url: io.BytesIO(body)
-        )
+        monkeypatch.setattr(urllib.request, "urlopen", lambda url: io.BytesIO(body))
         assert prune_published.published_files("alamos", "0.56.0") == frozenset(
             {"alamos-0.56.0-py3-none-any.whl"}
         )
@@ -92,9 +92,9 @@ class TestPublishedFiles:
         """Should treat a 404 as an unpublished release."""
 
         def raise_not_found(url: str) -> io.BytesIO:
-            raise urllib.error.HTTPError(url, 404, "Not Found", None, None)  # type: ignore[arg-type]
+            raise urllib.error.HTTPError(url, 404, "Not Found", Message(), None)
 
-        monkeypatch.setattr(prune_published.urllib.request, "urlopen", raise_not_found)
+        monkeypatch.setattr(urllib.request, "urlopen", raise_not_found)
         assert prune_published.published_files("alamos", "9.9.9") == frozenset()
 
     def test_should_propagate_other_http_errors(
@@ -103,11 +103,9 @@ class TestPublishedFiles:
         """Should not swallow non-404 failures."""
 
         def raise_server_error(url: str) -> io.BytesIO:
-            raise urllib.error.HTTPError(url, 503, "Unavailable", None, None)  # type: ignore[arg-type]
+            raise urllib.error.HTTPError(url, 503, "Unavailable", Message(), None)
 
-        monkeypatch.setattr(
-            prune_published.urllib.request, "urlopen", raise_server_error
-        )
+        monkeypatch.setattr(urllib.request, "urlopen", raise_server_error)
         with pytest.raises(urllib.error.HTTPError):
             prune_published.published_files("alamos", "0.56.0")
 
