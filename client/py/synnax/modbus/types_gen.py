@@ -11,8 +11,8 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, Union
-from uuid import uuid4
+from typing import TYPE_CHECKING, Annotated, Literal, Union
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
@@ -34,6 +34,16 @@ class RegisterValue(BaseModel):
     data_type: telem.DataType = telem.DataType("uint8")
     bytes_swapped: bool = False
     words_swapped: bool = False
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            _self,
+            *,
+            data_type: str = ...,
+            bytes_swapped: bool = ...,
+            words_swapped: bool = ...,
+        ) -> None: ...
 
 
 class BaseReadChannel(BaseModel):
@@ -81,6 +91,16 @@ class BaseWriteChannel(BaseModel):
 class ScanConfig(task.ScanConfig):
     """Configures a Modbus scan task."""
 
+    if TYPE_CHECKING:
+
+        def __init__(
+            _self,
+            *,
+            key: UUID = ...,
+            rate: float = ...,
+            disabled: bool = ...,
+        ) -> None: ...
+
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -103,12 +123,46 @@ class HoldingRegisterReadChannel(BaseReadChannel, RegisterValue):
     type: Literal["holding_register"] = "holding_register"
     string_length: int = Field(default=0, ge=-2147483648, le=2147483647)
 
+    if TYPE_CHECKING:
+
+        def __init__(
+            _self,
+            *,
+            type: Literal["holding_register"] = ...,
+            key: str = ...,
+            name: str = ...,
+            disabled: bool = ...,
+            channel: channel_.Key = ...,
+            address: int = ...,
+            data_type: str = ...,
+            bytes_swapped: bool = ...,
+            words_swapped: bool = ...,
+            string_length: int = ...,
+        ) -> None: ...
+
 
 class InputRegisterReadChannel(BaseReadChannel, RegisterValue):
     """Reads a typed value from one or more input registers."""
 
     type: Literal["input_register"] = "input_register"
     string_length: int = Field(default=0, ge=-2147483648, le=2147483647)
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            _self,
+            *,
+            type: Literal["input_register"] = ...,
+            key: str = ...,
+            name: str = ...,
+            disabled: bool = ...,
+            channel: channel_.Key = ...,
+            address: int = ...,
+            data_type: str = ...,
+            bytes_swapped: bool = ...,
+            words_swapped: bool = ...,
+            string_length: int = ...,
+        ) -> None: ...
 
 
 # Is a single Modbus read channel. The type field selects the register space the
@@ -135,6 +189,22 @@ class HoldingRegisterWriteChannel(BaseWriteChannel, RegisterValue):
 
     type: Literal["holding_register"] = "holding_register"
 
+    if TYPE_CHECKING:
+
+        def __init__(
+            _self,
+            *,
+            type: Literal["holding_register"] = ...,
+            key: str = ...,
+            name: str = ...,
+            disabled: bool = ...,
+            channel: channel_.Key = ...,
+            address: int = ...,
+            data_type: str = ...,
+            bytes_swapped: bool = ...,
+            words_swapped: bool = ...,
+        ) -> None: ...
+
 
 # Is a single Modbus write channel. The type field selects the register space the
 # channel writes to and the fields that accompany it.
@@ -154,6 +224,20 @@ class ReadConfig(task.ReadConfig):
 
     device: device_.Key = ""
     channels: list[ReadChannel] = Field(default_factory=list)
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            _self,
+            *,
+            key: UUID = ...,
+            auto_start: bool = ...,
+            data_saving_disabled: bool = ...,
+            sample_rate: float = ...,
+            stream_rate: float = ...,
+            device: device_.Key = ...,
+            channels: list[ReadChannel] = ...,
+        ) -> None: ...
 
     def __hash__(self) -> int:
         return hash(self.key)

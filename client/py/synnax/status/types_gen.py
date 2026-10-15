@@ -11,10 +11,11 @@
 
 from __future__ import annotations
 
-from typing import Generic, Literal, TypeAlias, TypeVar
+from typing import TYPE_CHECKING, Generic, Literal, TypeAlias
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, JsonValue
+from typing_extensions import TypeVar
 
 from synnax import label
 from x import telem
@@ -34,7 +35,7 @@ VARIANT_DISABLED: Literal["disabled"] = "disabled"
 
 Variant = Literal["success", "info", "warning", "error", "loading", "disabled"]
 
-Details = TypeVar("Details")
+Details = TypeVar("Details", default=JsonValue)
 
 Key: TypeAlias = str
 
@@ -69,6 +70,21 @@ class Status(BaseModel, Generic[Details]):
     )
     details: Details | None = None
     labels: list[label.Label] | None = None
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            _self,
+            *,
+            key: Key = ...,
+            name: str = ...,
+            variant: Variant,
+            message: str,
+            description: str = ...,
+            time: int = ...,
+            details: Details | None = ...,
+            labels: list[label.Label] | None = ...,
+        ) -> None: ...
 
     def __hash__(self) -> int:
         return hash(self.key)

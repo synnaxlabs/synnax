@@ -11,8 +11,8 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, Union
-from uuid import uuid4
+from typing import TYPE_CHECKING, Annotated, Literal, Union
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
@@ -726,6 +726,18 @@ class WriteConfig(task.WriteConfig):
 
     state_rate: telem.Rate = telem.Rate(10)
 
+    if TYPE_CHECKING:
+
+        def __init__(
+            _self,
+            *,
+            key: UUID = ...,
+            auto_start: bool = ...,
+            data_saving_disabled: bool = ...,
+            device: device_.Key = ...,
+            state_rate: float = ...,
+        ) -> None: ...
+
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -738,6 +750,17 @@ class ScanConfig(task.ScanConfig):
     """
 
     ignored_models: list[str] = Field(default_factory=lambda: ["^cRIO.*", "^nown.*"])
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            _self,
+            *,
+            key: UUID = ...,
+            rate: float = ...,
+            disabled: bool = ...,
+            ignored_models: list[str] = ...,
+        ) -> None: ...
 
     def __hash__(self) -> int:
         return hash(self.key)
@@ -837,6 +860,20 @@ class DigitalReadConfig(task.ReadConfig):
     device: device_.Key = ""
     channels: list[DIChannel] = Field(default_factory=list)
 
+    if TYPE_CHECKING:
+
+        def __init__(
+            _self,
+            *,
+            key: UUID = ...,
+            auto_start: bool = ...,
+            data_saving_disabled: bool = ...,
+            sample_rate: float = ...,
+            stream_rate: float = ...,
+            device: device_.Key = ...,
+            channels: list[DIChannel] = ...,
+        ) -> None: ...
+
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -849,6 +886,19 @@ class DigitalWriteConfig(WriteConfig):
     """
 
     channels: list[DOChannel] = Field(default_factory=list)
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            _self,
+            *,
+            key: UUID = ...,
+            auto_start: bool = ...,
+            data_saving_disabled: bool = ...,
+            device: device_.Key = ...,
+            state_rate: float = ...,
+            channels: list[DOChannel] = ...,
+        ) -> None: ...
 
     def __hash__(self) -> int:
         return hash(self.key)
@@ -1376,6 +1426,19 @@ class AnalogReadConfig(task.ReadConfig):
 
     channels: list[AIChannel] = Field(default_factory=list)
 
+    if TYPE_CHECKING:
+
+        def __init__(
+            _self,
+            *,
+            key: UUID = ...,
+            auto_start: bool = ...,
+            data_saving_disabled: bool = ...,
+            sample_rate: float = ...,
+            stream_rate: float = ...,
+            channels: list[AIChannel] = ...,
+        ) -> None: ...
+
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -1389,6 +1452,19 @@ class CounterReadConfig(task.ReadConfig):
 
     channels: list[CIChannel] = Field(default_factory=list)
 
+    if TYPE_CHECKING:
+
+        def __init__(
+            _self,
+            *,
+            key: UUID = ...,
+            auto_start: bool = ...,
+            data_saving_disabled: bool = ...,
+            sample_rate: float = ...,
+            stream_rate: float = ...,
+            channels: list[CIChannel] = ...,
+        ) -> None: ...
+
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -1401,6 +1477,19 @@ class AnalogWriteConfig(WriteConfig):
     """
 
     channels: list[AOChannel] = Field(default_factory=list)
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            _self,
+            *,
+            key: UUID = ...,
+            auto_start: bool = ...,
+            data_saving_disabled: bool = ...,
+            device: device_.Key = ...,
+            state_rate: float = ...,
+            channels: list[AOChannel] = ...,
+        ) -> None: ...
 
     def __hash__(self) -> int:
         return hash(self.key)

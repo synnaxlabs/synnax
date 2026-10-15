@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, TypeAlias
+from typing import TYPE_CHECKING, Literal, TypeAlias
 
 from pydantic import BaseModel, Field
 
@@ -59,6 +59,16 @@ class Operation(BaseModel):
         default=telem.TimeSpan(0), ge=-9223372036854775808, le=9223372036854775807
     )
 
+    if TYPE_CHECKING:
+
+        def __init__(
+            _self,
+            *,
+            type: OperationType,
+            reset_channel: Key = ...,
+            duration: int = ...,
+        ) -> None: ...
+
 
 class Payload(BaseModel):
     """Is a logical collection of samples emitted by or representing values from a
@@ -104,6 +114,26 @@ class Payload(BaseModel):
     operations: list[Operation] = Field(default_factory=list)
     concurrency: control.Concurrency = control.Concurrency.exclusive
     status: Status | None = None
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            _self,
+            *,
+            key: Key = ...,
+            name: Name,
+            leaseholder: node.Key = ...,
+            data_type: str,
+            is_index: bool = ...,
+            index: Key = ...,
+            alias: str | None = ...,
+            virtual: bool = ...,
+            internal: bool = ...,
+            expression: str = ...,
+            operations: list[Operation] = ...,
+            concurrency: control.Concurrency = ...,
+            status: Status | None = ...,
+        ) -> None: ...
 
     def __hash__(self) -> int:
         return hash(self.key)

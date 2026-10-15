@@ -417,9 +417,32 @@ var _ = Describe("Python Types Plugin", func() {
 				Entry(
 					"record",
 					"record",
-					"dict[str, Any] = Field(default_factory=dict)",
+					"dict[str, JsonValue] = Field(default_factory=dict)",
 				),
 				Entry("bytes", "bytes", "bytes"),
+				Entry("any", "any", "JsonValue"),
+			)
+
+			It(
+				"Should import JsonValue from pydantic instead of Any",
+				func(ctx SpecContext) {
+					source := `
+					@py output "out"
+
+					Test struct {
+						props record
+						value any
+					}
+				`
+					resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(
+							`from pydantic import BaseModel, JsonValue`,
+							`props: dict[str, JsonValue]`,
+							`value: JsonValue`,
+						).
+						ToNotContain(`Any`)
+				},
 			)
 		})
 
@@ -603,7 +626,7 @@ var _ = Describe("Python Types Plugin", func() {
 				content := MustContentOf(resp, "types_gen.py")
 				Expect(
 					content,
-				).To(ContainSubstring(`args: dict[str, Any] = Field(default_factory=dict)`))
+				).To(ContainSubstring(`args: dict[str, JsonValue] = Field(default_factory=dict)`))
 			},
 		)
 
@@ -1347,7 +1370,7 @@ var _ = Describe("Python Types Plugin", func() {
 					resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
-							`V = TypeVar("V", bound=dict[str, Any])`,
+							`V = TypeVar("V", bound=dict[str, JsonValue])`,
 							`class Container(BaseModel, Generic[V]):`,
 							`value: V`,
 						)
@@ -1368,11 +1391,13 @@ var _ = Describe("Python Types Plugin", func() {
 					resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
-							`Details = TypeVar("Details")`,
+							`from typing_extensions import TypeVar`,
+							`from pydantic import BaseModel, JsonValue`,
+							`Details = TypeVar("Details", default=JsonValue)`,
 							`class Status(BaseModel, Generic[Details]):`,
 							`details: Details | None = None`,
 						).
-						ToNotContain(`from typing_extensions import`)
+						ToNotContain(`from typing import Generic, TypeVar`)
 				},
 			)
 
@@ -1389,7 +1414,7 @@ var _ = Describe("Python Types Plugin", func() {
 					resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
 					content := MustContentOf(resp, "types_gen.py")
 					Expect(content).To(ContainSubstring(`class Task(BaseModel):`))
-					Expect(content).To(ContainSubstring(`config: dict[str, Any]`))
+					Expect(content).To(ContainSubstring(`config: dict[str, JsonValue]`))
 				},
 			)
 
@@ -1412,7 +1437,7 @@ var _ = Describe("Python Types Plugin", func() {
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
 							`class Status(BaseModel, Generic[D]):`,
-							`class TaskStatus(Status[dict[str, Any]]):`,
+							`class TaskStatus(Status[dict[str, JsonValue]]):`,
 							`task_key: UUID`,
 						)
 				},
@@ -1806,6 +1831,27 @@ ChannelStatus = status.Status<nil>
 			})
 		})
 
+		It(
+			"Should reject same-named type params with different defaults",
+			func(ctx SpecContext) {
+				source := `
+					@py output "out"
+
+					Required struct<T> {
+						value T
+					}
+
+					Optional struct<T?> {
+						value T
+					}
+				`
+				req := MustGenerateRequest(ctx, source, "api", loader)
+				Expect(typesPlugin.Generate(req)).Error().To(MatchError(
+					ContainSubstring("type parameter T of Optional conflicts"),
+				))
+			},
+		)
+
 		Context("constrained type param with comparable", func() {
 			It(
 				"Should not emit a bound and should not import Any",
@@ -1821,10 +1867,11 @@ ChannelStatus = status.Status<nil>
 					resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
+							`from typing import Generic, TypeVar`,
 							`R = TypeVar("R")`,
 							`class State(BaseModel, Generic[R]):`,
 						).
-						ToNotContain(`Any`)
+						ToNotContain(`Any`, `typing_extensions`)
 				},
 			)
 		})
@@ -2196,7 +2243,7 @@ var _ = Describe("Collection type aliases and maps", func() {
 	)
 
 	It(
-		"Should render a map<string, record> field as a dict[str, dict[str, Any]]",
+		"Should render a map<string, record> field as a dict[str, dict[str, JsonValue]]",
 		func(ctx SpecContext) {
 			loader := NewMockFileLoader()
 			typesPlugin := types.New(types.DefaultOptions())
@@ -2209,7 +2256,7 @@ var _ = Describe("Collection type aliases and maps", func() {
 		`
 			resp := MustGenerate(ctx, source, "graph", loader, typesPlugin)
 			ExpectContent(resp, "types_gen.py").ToContain(
-				"configs: dict[str, dict[str, Any]] = Field(default_factory=dict)",
+				"configs: dict[str, dict[str, JsonValue]] = Field(default_factory=dict)",
 			)
 		},
 	)
@@ -2228,7 +2275,7 @@ var _ = Describe("Collection type aliases and maps", func() {
 		`
 			resp := MustGenerate(ctx, source, "graph", loader, typesPlugin)
 			ExpectContent(resp, "types_gen.py").ToContain(
-				"configs: dict[str, dict[str, Any]] = Field(default_factory=dict)",
+				"configs: dict[str, dict[str, JsonValue]] = Field(default_factory=dict)",
 			)
 		},
 	)
@@ -2385,3 +2432,213 @@ var _ = Describe("Collection type aliases and maps", func() {
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
+
+var _ = Describe("Python type-checking __init__", func() {
+	var (
+		loader      *MockFileLoader
+		typesPlugin *types.Plugin
+	)
+
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		typesPlugin = types.New(types.DefaultOptions())
+		loader.Add("schemas/telem", `
+			@py output "x/py/x/telem"
+
+			DataType string {
+				@py hand
+			}
+
+			Rate float64 {
+				@py hand
+			}
+		`)
+	})
+
+	It(
+		"Should accept the base primitive of a hand-written distinct field",
+		func(ctx SpecContext) {
+			source := `
+			import "schemas/telem"
+
+			@py output "client/py/synnax/opcua"
+
+			Channel struct {
+				name string
+				data_type telem.DataType = "float32"
+				rate telem.Rate?
+			}
+		`
+			resp := MustGenerate(ctx, source, "opcua", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").ToContain(
+				`from typing import TYPE_CHECKING`,
+				`data_type: telem.DataType = telem.DataType("float32")`,
+				`rate: telem.Rate | None = None`,
+				`    if TYPE_CHECKING:
+
+        def __init__(
+            _self,
+            *,
+            name: str,
+            data_type: str = ...,
+            rate: float | None = ...,
+        ) -> None: ...`,
+			)
+		},
+	)
+
+	It(
+		"Should not declare __init__ without a hand-written distinct field",
+		func(ctx SpecContext) {
+			source := `
+			@py output "client/py/synnax/opcua"
+
+			Channel struct {
+				name string
+			}
+		`
+			resp := MustGenerate(ctx, source, "opcua", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").ToNotContain(
+				`TYPE_CHECKING`,
+				`def __init__`,
+			)
+		},
+	)
+
+	It("Should list inherited fields in a subclass __init__", func(ctx SpecContext) {
+		loader.Add("schemas/task", `
+			import "schemas/telem"
+
+			@py output "client/py/synnax/task"
+
+			ReadConfig struct {
+				sample_rate telem.Rate = 10
+			}
+		`)
+		source := `
+			import "schemas/task"
+
+			@py output "client/py/synnax/opcua"
+
+			ReadConfig struct extends task.ReadConfig {
+				device string
+			}
+		`
+		resp := MustGenerate(ctx, source, "opcua", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").
+			ToContain(
+				`class ReadConfig(task.ReadConfig):`,
+				`            sample_rate: float = ...,
+            device: str,`,
+			).
+			ToNotContain(`from x import telem`)
+	})
+
+	It(
+		"Should keep a field an ancestor excludes from serialization",
+		func(ctx SpecContext) {
+			source := `
+			import "schemas/telem"
+
+			@py output "client/py/synnax/opcua"
+
+			Base struct {
+				name string
+				port int32
+			}
+			Parent struct extends Base {
+				-name
+			}
+			Child struct extends Parent {
+				rate telem.Rate
+			}
+		`
+			resp := MustGenerate(ctx, source, "opcua", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").ToContain(
+				`            name: str,
+            port: int,
+            rate: float,`,
+			)
+		},
+	)
+
+	It("Should accept a field named self", func(ctx SpecContext) {
+		source := `
+			import "schemas/telem"
+
+			@py output "client/py/synnax/opcua"
+
+			Channel struct {
+				self string
+				rate telem.Rate
+			}
+		`
+		resp := MustGenerate(ctx, source, "opcua", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").ToContain(
+			`            _self,
+            *,
+            self: str,
+            rate: float,`,
+		)
+	})
+
+	It(
+		"Should declare __init__ on a union variant with a hand-written field",
+		func(ctx SpecContext) {
+			source := `
+			import "schemas/telem"
+
+			@py output "client/py/synnax/http"
+
+			ReadParams struct {
+				data_type telem.DataType = "float64"
+			}
+			StaticParams struct {
+				value string
+			}
+
+			Field union on type {
+				read ReadParams
+				static StaticParams
+			}
+		`
+			resp := MustGenerate(ctx, source, "http", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").ToContain(
+				`            type: Literal["read"] = ...,
+            data_type: str = ...,`,
+			)
+			content := MustContentOf(resp, "types_gen.py")
+			Expect(strings.Count(content, "def __init__")).To(Equal(2))
+		},
+	)
+
+	It(
+		"Should not repeat a discriminator an ancestor excludes",
+		func(ctx SpecContext) {
+			source := `
+			import "schemas/telem"
+
+			@py output "client/py/synnax/http"
+
+			Base struct {
+				type string
+			}
+			Parent struct extends Base {
+				-type
+			}
+			Payload struct extends Parent {
+				rate telem.Rate
+			}
+
+			Field union on type {
+				read Payload
+			}
+		`
+			resp := MustGenerate(ctx, source, "http", loader, typesPlugin)
+			content := MustContentOf(resp, "types_gen.py")
+			Expect(content).To(ContainSubstring(`            type: Literal["read"] = ...,
+            rate: float,`))
+			Expect(strings.Count(content, "            type: ")).To(Equal(2))
+		},
+	)
+})

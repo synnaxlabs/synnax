@@ -11,10 +11,10 @@
 
 from __future__ import annotations
 
-from typing import Any, TypeAlias
+from typing import TYPE_CHECKING, TypeAlias
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, JsonValue
 
 from synnax import device as device_
 from synnax import rack as rack_
@@ -56,7 +56,7 @@ class StatusDetails(BaseModel):
     cmd: str = ""
     config_hash: str = ""
     rack: rack_.Key = Field(default=rack_.Key(0), ge=0, le=4294967295)
-    data: dict[str, Any] | None = None
+    data: dict[str, JsonValue] | None = None
 
 
 class Command(BaseModel):
@@ -76,7 +76,7 @@ class Command(BaseModel):
     type: str
     key: str
     config_hash: str = ""
-    args: dict[str, Any] = Field(default_factory=dict)
+    args: dict[str, JsonValue] = Field(default_factory=dict)
 
 
 class StartConfig(KeyedConfig):
@@ -102,6 +102,16 @@ class ScanConfig(KeyedConfig):
 
     rate: telem.Rate = telem.Rate(0.200000)
     disabled: bool = False
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            _self,
+            *,
+            key: UUID = ...,
+            rate: float = ...,
+            disabled: bool = ...,
+        ) -> None: ...
 
     def __hash__(self) -> int:
         return hash(self.key)
@@ -149,7 +159,7 @@ class Payload(BaseModel):
     rack: rack_.Key = Field(default=rack_.Key(0), ge=0, le=4294967295)
     name: str
     type: str
-    config: dict[str, Any] = Field(default_factory=dict)
+    config: dict[str, JsonValue] = Field(default_factory=dict)
     config_hash: str = ""
     internal: bool = False
     snapshot: bool = False
@@ -169,6 +179,18 @@ class ReadConfig(PersistConfig):
 
     sample_rate: telem.Rate = telem.Rate(10)
     stream_rate: telem.Rate = telem.Rate(5)
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            _self,
+            *,
+            key: UUID = ...,
+            auto_start: bool = ...,
+            data_saving_disabled: bool = ...,
+            sample_rate: float = ...,
+            stream_rate: float = ...,
+        ) -> None: ...
 
     def __hash__(self) -> int:
         return hash(self.key)

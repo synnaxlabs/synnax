@@ -11,6 +11,7 @@ import threading
 from uuid import UUID, uuid4
 
 import pytest
+from pydantic import BaseModel, Field
 
 import synnax as sy
 
@@ -72,7 +73,7 @@ class TestTaskClient:
                 f = s.read(timeout=1)
                 cmd = f["sy_task_cmd"][0]
                 client.statuses.set(
-                    sy.Status(
+                    sy.task.Status(
                         key=str(sy.task.ontology_id(cmd["task"])),
                         variant=sy.status.VARIANT_SUCCESS,
                         message="Command executed.",
@@ -102,7 +103,7 @@ class TestTaskClient:
         def noise() -> None:
             while not stop.is_set():
                 client.statuses.set(
-                    sy.Status(
+                    sy.task.Status(
                         key=str(uuid4()),
                         variant=sy.status.VARIANT_INFO,
                         message="unrelated",
@@ -133,6 +134,47 @@ class TestTaskClient:
                 if len(matches) > 0:
                     break
             assert matches[0]["args"] == {}
+
+    def test_execute_command_converts_args_to_json(self, client: sy.Synnax):
+        """Should send a UUID in the command args as a string."""
+        tsk = client.tasks.create(name="test", type="pagerduty_alert")
+        target = uuid4()
+        with client.open_streamer("sy_task_cmd") as s:
+            key = tsk.execute_command("test", {"target": target})
+            for _ in range(10):
+                f = s.read(timeout=1)
+                assert f is not None, "timed out waiting for the command"
+                matches = [c for c in f["sy_task_cmd"] if c["key"] == key]
+                if len(matches) > 0:
+                    break
+            assert matches[0]["args"] == {"target": str(target)}
+
+    def test_create_converts_dict_config_to_json(self, client: sy.Synnax):
+        """Should store a UUID in a dict config as a string."""
+        ref = uuid4()
+        task = client.tasks.create(
+            name="test", type="pagerduty_alert", config={"routing_key": ref}
+        )
+        res = client.tasks.retrieve(key=task.key)
+        assert res.config["routing_key"] == str(ref)
+
+    def test_create_converts_model_config_by_alias(self, client: sy.Synnax):
+        """Should store a model config by its field aliases."""
+
+        class Config(BaseModel):
+            ref: UUID = Field(alias="routing_key")
+
+        ref = uuid4()
+        task = client.tasks.create(
+            name="test", type="pagerduty_alert", config=Config(routing_key=ref)
+        )
+        res = client.tasks.retrieve(key=task.key)
+        assert res.config["routing_key"] == str(ref)
+
+    def test_task_converts_config_to_json(self):
+        """Should convert a UUID in a Task config to a string."""
+        ref = uuid4()
+        assert sy.Task(config={"ref": ref}).to_payload().config == {"ref": str(ref)}
 
     def test_task_configure_saves_without_ack(self, client: sy.Synnax):
         """Should save the task without waiting for a driver acknowledgement."""

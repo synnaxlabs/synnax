@@ -170,5 +170,8 @@ when most types need it, declare it file-level and omit the exceptions.
   invent new generated shapes.
 - Wire-format or generator-wide changes hit every language at once: describe the blast
   radius and get explicit user sign-off first.
+- A `@py hand` distinct type with a primitive base (`telem.DataType`) must subclass that
+  primitive and validate from it. Generated models type its field precisely and accept
+  the base primitive in a type-checking `__init__`.
 - Schema migrations: `oracle migrate` scaffolds the next version file; sync then
   regenerates `migrate.gen.go`, the frozen packages, and the live projection.

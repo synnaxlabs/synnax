@@ -11,7 +11,8 @@
 
 from __future__ import annotations
 
-from uuid import uuid4
+from typing import TYPE_CHECKING
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
@@ -40,12 +41,35 @@ class BaseChannel(BaseModel):
     node_name: str = ""
     data_type: telem.DataType = telem.DataType("float32")
 
+    if TYPE_CHECKING:
+
+        def __init__(
+            _self,
+            *,
+            key: str = ...,
+            name: str = ...,
+            disabled: bool = ...,
+            node_id: str = ...,
+            node_name: str = ...,
+            data_type: str = ...,
+        ) -> None: ...
+
     def __hash__(self) -> int:
         return hash(self.key)
 
 
 class ScanConfig(task.ScanConfig):
     """Configures an OPC UA scan task."""
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            _self,
+            *,
+            key: UUID = ...,
+            rate: float = ...,
+            disabled: bool = ...,
+        ) -> None: ...
 
     def __hash__(self) -> int:
         return hash(self.key)
@@ -62,6 +86,21 @@ class ReadChannel(BaseChannel):
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     is_index: bool = False
 
+    if TYPE_CHECKING:
+
+        def __init__(
+            _self,
+            *,
+            key: str = ...,
+            name: str = ...,
+            disabled: bool = ...,
+            node_id: str = ...,
+            node_name: str = ...,
+            data_type: str = ...,
+            channel: channel_.Key = ...,
+            is_index: bool = ...,
+        ) -> None: ...
+
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -74,6 +113,20 @@ class WriteChannel(BaseChannel):
     """
 
     cmd_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            _self,
+            *,
+            key: str = ...,
+            name: str = ...,
+            disabled: bool = ...,
+            node_id: str = ...,
+            node_name: str = ...,
+            data_type: str = ...,
+            cmd_channel: channel_.Key = ...,
+        ) -> None: ...
 
     def __hash__(self) -> int:
         return hash(self.key)
@@ -97,6 +150,22 @@ class ReadConfig(task.ReadConfig):
     array_mode: bool = False
     array_size: int = Field(default=1, ge=-2147483648, le=2147483647)
     channels: list[ReadChannel] = Field(default_factory=list)
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            _self,
+            *,
+            key: UUID = ...,
+            auto_start: bool = ...,
+            data_saving_disabled: bool = ...,
+            sample_rate: float = ...,
+            stream_rate: float = ...,
+            device: device_.Key = ...,
+            array_mode: bool = ...,
+            array_size: int = ...,
+            channels: list[ReadChannel] = ...,
+        ) -> None: ...
 
     def __hash__(self) -> int:
         return hash(self.key)
