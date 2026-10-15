@@ -14,6 +14,7 @@ from typing import TypeAlias, cast, overload
 
 from pandas import DataFrame
 from pydantic import BaseModel, Field
+from typing_extensions import TypeVar
 
 import synnax.channel.payload as channel
 from synnax.exceptions import ValidationError
@@ -190,6 +191,10 @@ class Frame:
         return key in self.channels
 
 
-CrudeFrame: TypeAlias = (
-    Frame | FramePayload | dict[channel.Key, CrudeSeries] | DataFrame
+# Bound per call, so a typed mapping of keys, names, payloads, or a mix matches.
+K = TypeVar(
+    "K",
+    bound=channel.Key | str | channel.Payload,
+    default=channel.Key | str | channel.Payload,
 )
+CrudeFrame: TypeAlias = Frame | FramePayload | Mapping[K, CrudeSeries] | DataFrame

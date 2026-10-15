@@ -191,7 +191,7 @@ class Controller:
         to_write: dict[channel_.Key, SampleValue] = {ch.key: value}
         if not ch.virtual:
             to_write[ch.index] = TimeStamp.now()
-        self._writer.write(cast(framer.CrudeFrame, to_write))
+        self._writer.write(to_write)
 
     @overload
     def set_authority(

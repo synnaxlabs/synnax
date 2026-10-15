@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from collections.abc import Mapping
 from typing import cast, overload
 
 import pandas as pd
@@ -19,7 +20,7 @@ from synnax.channel.retrieve import Retriever
 from synnax.exceptions import QueryError
 from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
 from synnax.framer.deleter import Deleter
-from synnax.framer.frame import CrudeFrame, Frame
+from synnax.framer.frame import CrudeFrame, Frame, K
 from synnax.framer.iterator import AUTO_SPAN, Iterator
 from synnax.framer.streamer import AsyncStreamer, Streamer
 from synnax.framer.writer import CrudeWriterMode, Writer, WriterMode
@@ -171,7 +172,7 @@ class Client:
     def write(
         self,
         start: CrudeTimeStamp,
-        channels: CrudeFrame,
+        channels: CrudeFrame[K],
         *,
         strict: bool = False,
     ) -> None: ...
@@ -189,7 +190,7 @@ class Client:
     def write(
         self,
         start: CrudeTimeStamp,
-        channels: channel.Params | CrudeFrame,
+        channels: channel.Params | CrudeFrame[K],
         series: CrudeSeries | list[CrudeSeries] | None = None,
         *,
         strict: bool = False,
@@ -197,8 +198,9 @@ class Client:
         parsed_channels: channel.Params = list()
         if isinstance(channels, (list, channel.Key, channel.Payload, str)):
             parsed_channels = channels
-        elif isinstance(channels, dict):
-            parsed_channels = list(channels.keys())
+        elif isinstance(channels, Mapping):
+            # normalize_params rejects a mix of keys and names
+            parsed_channels = cast(channel.Params, list(channels.keys()))
         elif isinstance(channels, Frame):
             # Frame channels are homogeneous (all Key or all str) at runtime
             parsed_channels = cast(channel.Params, channels.channels)
