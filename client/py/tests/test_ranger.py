@@ -10,6 +10,7 @@
 import re
 from uuid import uuid4
 
+import numpy as np
 import pydantic
 import pytest
 
@@ -490,6 +491,36 @@ class TestRangeData:
         assert rng[data_ch.name][1] == 2.0
         assert rng[data_ch.name][2] == 3.0
         assert rng[data_ch.name][3] == 4.0
+
+    def test_array_operators(self, client: sy.Synnax):
+        """It should apply NumPy operators to the channel's data on the range"""
+        idx_ch = client.channels.create(
+            name=random_name(),
+            data_type="timestamp",
+            is_index=True,
+        )
+        data_ch = client.channels.create(
+            name=random_name(),
+            data_type="float32",
+            index=idx_ch.key,
+        )
+        start = sy.TimeStamp.now()
+        idx_ch.write(start, [start + i * sy.TimeSpan.SECOND for i in range(3)])
+        data_ch.write(start, [1.0, 2.0, 3.0])
+        rng = client.ranges.create(
+            name=random_name(),
+            time_range=start.span_range(3 * sy.TimeSpan.SECOND),
+        )
+        scoped = rng[data_ch.name]
+        assert np.array_equal(scoped > 1, [False, True, True])
+        assert np.array_equal(scoped * 2, [2.0, 4.0, 6.0])
+        assert np.array_equal(10 - scoped, [9.0, 8.0, 7.0])
+        assert np.array_equal(-scoped, [-1.0, -2.0, -3.0])
+        internal = next(iter(scoped))
+        assert np.array_equal(internal == 2, [False, True, False])
+        assert hash(internal) == hash(data_ch.key)
+        with pytest.raises(TypeError):
+            hash(scoped)
 
     def test_basic_write(self, client: sy.Synnax):
         """It should correctly write data to the range"""
