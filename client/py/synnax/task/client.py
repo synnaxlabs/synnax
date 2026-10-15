@@ -28,7 +28,7 @@ from synnax.rack import Client as RackClient
 from synnax.rack import Rack
 from synnax.task.types_gen import Command, Key, Payload, Status, ontology_id
 from synnax.telem import TimeSpan, TimeStamp
-from x.lists import check_for_none, normalize, override
+from x.lists import check_for_none, override
 from x.timing import Timer
 
 
@@ -74,6 +74,10 @@ _COPY_ENDPOINT = "/task/copy"
 
 _TASK_STATE_CHANNEL = "sy_status_set"
 _TASK_CMD_CHANNEL = "sy_task_cmd"
+
+
+def _parse_key(key: Key | str) -> Key:
+    return key if isinstance(key, UUID) else UUID(key)
 
 
 class _Keyed(BaseProtocol):
@@ -432,7 +436,8 @@ class Client:
         return task
 
     def delete(self, keys: Key | str | list[Key | str]) -> None:
-        req = _DeleteRequest(keys=normalize(keys))
+        key_list = keys if isinstance(keys, list) else [keys]
+        req = _DeleteRequest(keys=[_parse_key(k) for k in key_list])
         self._client.send("/task/delete", req, Empty)
 
     @overload
@@ -475,10 +480,11 @@ class Client:
             back with a null status when false.
         """
         is_single = check_for_none(names, keys, types)
+        raw_keys = [key] if key is not None else keys
         res = self._client.send(
             "/task/retrieve",
             _RetrieveRequest(
-                keys=override(key, keys),
+                keys=None if raw_keys is None else [_parse_key(k) for k in raw_keys],
                 names=override(name, names),
                 types=override(type, types),
                 include_status=include_status,
@@ -546,6 +552,6 @@ class Client:
         :param name: The name for the new task.
         :return: The newly created task.
         """
-        req = _CopyRequest(key=key, name=name, snapshot=False)
+        req = _CopyRequest(key=_parse_key(key), name=name, snapshot=False)
         res = self._client.send(_COPY_ENDPOINT, req, _CopyResponse)
         return self.sugar([res.task])[0]
