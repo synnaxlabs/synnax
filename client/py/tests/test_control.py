@@ -7,17 +7,25 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import asyncio
 import threading
+import time
+from collections.abc import Callable
 from typing import cast
 
+import numpy as np
 import pytest
 
+import freighter
 import synnax as sy
+from synnax.control import ScheduledCommand
 from synnax.control.controller import Controller, RemainsTrueFor
 
 # Seconds to wait for a cross-thread handshake. Generous, so a slow Core cannot fail the
 # test, but bounded, so a broken run fails instead of hanging CI.
 HANDSHAKE_TIMEOUT = 5
+# A wait timeout long enough that only a stopped receiver can wake the wait in time.
+BLOCKED_WAIT = 30 * sy.TimeSpan.SECOND
 
 
 def create_valve_set(
@@ -342,6 +350,16 @@ class TestController:
         assert assertions["remained_true"]
         assert assertions["remained_true_count"] > 0
 
+    def test_remains_true_for_bare_number_is_seconds(self, client: sy.Synnax) -> None:
+        """Should read a bare number duration as seconds."""
+        _, _, press_en, _ = create_valve_set(client)
+        with client.control.acquire(
+            name="Bare duration", read=[press_en.key], write=None
+        ) as auto:
+            start = time.perf_counter()
+            auto.remains_true_for(lambda _: True, duration=0.2)
+            assert time.perf_counter() - start >= 0.2
+
     def test_wait_while(self, client: sy.Synnax):
         """Test that the controller can wait for a condition to be true for a certain amount of time"""
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
@@ -422,6 +440,84 @@ class TestController:
             ) as auto:
                 v = auto[press_en.key]
                 assert v is None
+
+    def test_set_by_attribute(self, client: sy.Synnax):
+        """Should command the channel named by an assigned attribute."""
+        ch = client.channels.create(
+            name="control_set_by_attribute",
+            data_type=sy.DataType.FLOAT64,
+            virtual=True,
+            retrieve_if_name_exists=True,
+        )
+        with client.control.acquire(
+            name="Set By Attribute", read=[ch.key], write=[ch.key]
+        ) as auto:
+            auto.control_set_by_attribute = 42
+            assert auto.wait_until(
+                lambda c: c.get(ch.key) == 42, timeout=HANDSHAKE_TIMEOUT
+            )
+            assert "control_set_by_attribute" not in vars(auto)
+
+    def test_acquire_raises_when_streamer_fails_to_open(
+        self, client: sy.Synnax, login_info: tuple[str, int, str, str]
+    ):
+        """Should raise the streamer's open error instead of hanging."""
+        ch = client.channels.create(
+            name="control_streamer_open_fails",
+            data_type=sy.DataType.FLOAT64,
+            virtual=True,
+        )
+        host, port, username, password = login_info
+        other = sy.Synnax(
+            host=host, port=port, username=username, password=password, secure=False
+        )
+        other.channels.delete(ch.key)
+        with pytest.raises(freighter.StreamClosed):
+            client.control.acquire(name="Open Fails", read=[ch.key], write=None)
+
+    @pytest.mark.parametrize(
+        "wait",
+        [
+            lambda auto: auto.wait_until(lambda _: False, timeout=BLOCKED_WAIT),
+            lambda auto: auto.remains_true_for(lambda _: True, BLOCKED_WAIT),
+        ],
+        ids=["wait_until", "remains_true_for"],
+    )
+    def test_wait_raises_when_receiver_stops(
+        self, client: sy.Synnax, wait: Callable[[Controller], bool]
+    ) -> None:
+        """Should wake a blocked wait with an error once the receiver stops."""
+        ch = client.channels.create(
+            name="control_receiver_stops",
+            data_type=sy.DataType.FLOAT64,
+            virtual=True,
+            retrieve_if_name_exists=True,
+        )
+        with client.control.acquire(
+            name="Receiver Stops", read=[ch.key], write=[ch.key]
+        ) as auto:
+            receiver = auto._receiver
+            errors: list[Exception] = []
+
+            def run() -> None:
+                try:
+                    wait(auto)
+                except Exception as e:
+                    errors.append(e)
+
+            waiter = threading.Thread(target=run, daemon=True)
+            waiter.start()
+            deadline = time.monotonic() + HANDSHAKE_TIMEOUT
+            while not receiver.processors:
+                assert time.monotonic() < deadline, "waiter never registered"
+                time.sleep(0.01)
+            asyncio.run_coroutine_threadsafe(
+                receiver.streamer.close_loop(), receiver.loop
+            ).result(HANDSHAKE_TIMEOUT)
+            waiter.join(HANDSHAKE_TIMEOUT)
+            assert not waiter.is_alive(), "blocked wait was not woken"
+            assert len(errors) == 1
+            assert isinstance(errors[0], sy.UnexpectedError)
 
     def test_controller_set_authority_mechanisms(self, client: sy.Synnax):
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
@@ -563,6 +659,23 @@ class TestRemainsTrueForProcessor:
         assert processor.event.is_set()
         assert processor.count == 1
 
+    def test_exits_immediately_on_numpy_false(self) -> None:
+        """Should treat a NumPy false result as a failed condition."""
+        processor = RemainsTrueFor(lambda _: np.int64(3) > 5, percentage=1)
+        processor.process(self._state)
+        assert processor.event.is_set()
+        assert processor.count == 0
+
+    def test_counts_numeric_results_as_booleans(self) -> None:
+        """Should count a truthy numeric result as one true result, not as its
+        value."""
+        it = iter([2, 0, 2, 0])
+        processor = RemainsTrueFor(lambda _: cast(bool, next(it)), percentage=0.75)
+        for _ in range(4):
+            processor.process(self._state)
+        assert processor.count == 4
+        assert processor.actual == pytest.approx(0.5)
+
     def test_captures_callback_exception(self) -> None:
         """Should capture an exception raised by the callback and exit."""
 
@@ -573,6 +686,17 @@ class TestRemainsTrueForProcessor:
         processor.process(self._state)
         assert isinstance(processor.exc, ValueError)
         assert processor.event.is_set()
+
+
+class TestScheduledCommand:
+    def test_bare_number_delay_is_seconds(self) -> None:
+        """Should read a bare number delay as seconds."""
+        assert ScheduledCommand("ch", 1, 2).delay == 2 * sy.TimeSpan.SECOND
+
+    def test_time_span_delay_passes_through(self) -> None:
+        """Should keep a TimeSpan delay unchanged."""
+        delay = 5 * sy.TimeSpan.MILLISECOND
+        assert ScheduledCommand("ch", 1, delay).delay == delay
 
 
 @pytest.mark.control
