@@ -32,10 +32,6 @@
       "project": ["src/**/*.{ts,tsx}"],
       "ignoreDependencies": ["vscode"]
     },
-    "x/media": {
-      "entry": ["src/index.ts"],
-      "project": ["src/**/*.{ts,tsx}"]
-    },
     "x/ts": {
       "entry": ["src/index.ts", "src/bench/index.ts"],
       "project": ["src/**/*.ts"]

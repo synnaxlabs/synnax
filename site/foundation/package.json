@@ -23,7 +23,6 @@
     "@fontsource-variable/inter": "catalog:",
     "@fontsource/geist-mono": "catalog:",
     "@synnaxlabs/lyra": "catalog:",
-    "@synnaxlabs/media": "catalog:",
     "@synnaxlabs/site-common": "catalog:",
     "astro": "catalog:",
     "astro-seo": "catalog:",

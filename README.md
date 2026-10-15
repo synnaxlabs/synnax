@@ -1,5 +1,5 @@
 <a href="https://synnaxlabs.com/" style="display: flex; justify-content: center;">
-    <img src="x/media/static/logo/icon-white-padded.png" width="20%"/>
+    <img src="lyra/static/logo/icon-white-padded.png" width="20%"/>
 </a>
 
 # Synnax

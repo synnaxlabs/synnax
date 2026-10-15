@@ -141,7 +141,6 @@ const viewTab = (key: panel.TabKey = uuid.create()): panel.Tab => ({
   variant: "view",
   key,
   type: "probe",
-  args: {},
 });
 
 const leafTabs = async (key: panel.Key): Promise<panel.Tab[]> => {
