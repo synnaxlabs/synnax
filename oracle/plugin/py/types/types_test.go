@@ -2586,6 +2586,37 @@ var _ = Describe("Python type-checking __init__", func() {
 	)
 
 	It(
+		"Should keep the default of a defaulted parent type parameter",
+		func(ctx SpecContext) {
+			loader.Add("schemas/base", `
+			@py output "client/py/synnax/base"
+
+			Parent struct<T = string> {
+				value T
+			}
+		`)
+			source := `
+			import "schemas/base"
+			import "schemas/telem"
+
+			@py output "client/py/synnax/opcua"
+
+			Child struct extends base.Parent<int32> {
+				rate telem.Rate
+			}
+		`
+			resp := MustGenerate(ctx, source, "opcua", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").
+				ToContain(
+					`class Child(base.Parent):`,
+					`            value: str,
+            rate: float,`,
+				).
+				ToNotContain(`value: int`)
+		},
+	)
+
+	It(
 		"Should keep a field an ancestor excludes from serialization",
 		func(ctx SpecContext) {
 			source := `
