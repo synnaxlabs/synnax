@@ -493,7 +493,7 @@ class TestRangeData:
         assert rng[data_ch.name][2] == 3.0
         assert rng[data_ch.name][3] == 4.0
 
-    def test_array_operators(self, client: sy.Synnax):
+    def test_array_operators(self, client: sy.Synnax) -> None:
         """It should apply NumPy operators to the channel's data on the range"""
         idx_ch = client.channels.create(
             name=random_name(),
