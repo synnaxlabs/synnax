@@ -567,7 +567,7 @@ var _ = Describe("Import", func() {
 			))
 		})
 
-		It("Should keep a view tab's type and args", func(ctx SpecContext) {
+		It("Should keep a view tab's type", func(ctx SpecContext) {
 			proj := importProject(ctx, bundle())
 			overview := retrievePanel(ctx, named(
 				childrenOf(ctx, project.OntologyID(proj.Key)), "Overview",
@@ -579,9 +579,6 @@ var _ = Describe("Import", func() {
 			v, ok := leafNode.Tabs[2].Variant.(panel.ViewTab)
 			Expect(ok).To(BeTrue())
 			Expect(v.Type).To(Equal("docs"))
-			Expect(v.Args).To(HaveKeyWithValue(
-				"url", "/reference/console/panels",
-			))
 		})
 
 		It("Should create the Arc a panel tab pulls in, unparented", func(

@@ -37,18 +37,6 @@ from synnax.labjack.types_gen import (
     WriteChannel,
     WriteConfig,
 )
-from x.deprecation import deprecated_getattr
-
-_DEPRECATED: dict[str, str | tuple[str, str]] = {
-    "AIChan": "AnalogReadChannel",
-    "DIChan": "DigitalReadChannel",
-    "ThermocoupleChan": "ThermocoupleReadChannel",
-    "OutputChan": "WriteChannel",
-    "ReadTaskConfig": "ReadConfig",
-    "WriteTaskConfig": "WriteConfig",
-}
-
-__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
 
 __all__ = [
     "AnalogReadChannel",

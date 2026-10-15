@@ -54,7 +54,7 @@ export const SELECTOR_TAB_TYPE = "taskSelector";
 export const useOpenSelector = (): (() => void) => {
   const openTab = Panel.useOpenTab();
   return useCallback(
-    () => openTab({ variant: "view", type: SELECTOR_TAB_TYPE, args: {} }),
+    () => openTab({ variant: "view", type: SELECTOR_TAB_TYPE }),
     [openTab],
   );
 };

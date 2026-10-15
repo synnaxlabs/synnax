@@ -9,9 +9,8 @@
 
 # Labels applied to a pull request from the paths it touches, one per product a user
 # knows. A package lands under the product that ships it; a per-language package under
-# the product in that language. Lyra and x/media ship in both the Console and the sites,
-# so they get both labels. Release notes group entries by these labels (see
-# release.yml).
+# the product in that language. Lyra ships in both the Console and the sites, so it gets
+# both labels. Release notes group entries by these labels (see release.yml).
 
 console:
   - changed-files:
@@ -20,7 +19,6 @@ console:
           - drift/**
           - lyra/**
           - pluto/**
-          - x/media/**
 
 driver:
   - changed-files:
@@ -72,4 +70,3 @@ website:
       - any-glob-to-any-file:
           - lyra/**
           - site/**
-          - x/media/**
