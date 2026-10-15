@@ -326,6 +326,43 @@ class TestTimeSpan:
     def test_construction(self, crude: sy.CrudeTimeSpan, expected: sy.TimeSpan) -> None:
         assert sy.TimeSpan(crude) == expected
 
+    @pytest.mark.parametrize(
+        "crude, expected",
+        [
+            (pd.Timedelta(1, "s") + pd.Timedelta(1, "ns"), 1_000_000_001),
+            (pd.Timedelta(days=-3, nanoseconds=7), -3 * 86_400 * 10**9 + 7),
+            (np.timedelta64(5, "ns"), 5),
+            (np.timedelta64(3, "us"), 3_000),
+            (np.timedelta64(2, "ms"), 2_000_000),
+            (np.timedelta64(-7, "s"), -7 * 10**9),
+            (np.timedelta64(1, "D"), 86_400 * 10**9),
+            (np.timedelta64(10**18 + 1, "ns"), 10**18 + 1),
+            (timedelta(days=10_000, microseconds=1), 10_000 * 86_400 * 10**9 + 1_000),
+            (timedelta(seconds=-1, microseconds=1), -999_999_000),
+        ],
+    )
+    def test_construction_exact(self, crude: sy.CrudeTimeSpan, expected: int) -> None:
+        """Should convert durations to exact integer nanoseconds"""
+        assert sy.TimeSpan(crude) == expected
+
+    def test_construction_nat(self) -> None:
+        """Should reject a NaT timedelta64"""
+        with pytest.raises(ValueError, match="NaT"):
+            sy.TimeSpan(np.timedelta64("NaT"))
+
+    @pytest.mark.parametrize(
+        "crude",
+        [np.timedelta64(200_000, "D"), np.timedelta64(-200_000, "D")],
+    )
+    def test_construction_out_of_range(self, crude: np.timedelta64) -> None:
+        """Should reject a timedelta64 that does not fit in 64-bit nanoseconds"""
+        with pytest.raises(ValueError, match="64-bit"):
+            sy.TimeSpan(crude)
+
+    def test_construction_max(self) -> None:
+        """Should accept the largest timedelta64 that fits in 64-bit nanoseconds"""
+        assert sy.TimeSpan(np.timedelta64(2**63 - 1, "ns")) == 2**63 - 1
+
     def test_seconds(self) -> None:
         """Should return the number of seconds in the timespan"""
         assert sy.TimeSpan.SECOND.seconds == 1
