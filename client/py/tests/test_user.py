@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from collections.abc import Callable
+from typing import cast
 from uuid import uuid4 as uuid
 
 import pytest
@@ -74,10 +76,11 @@ class TestUserClient:
         )
         client.users.delete(user.key)
 
-    def test_create_params_without_password(self, client: sy.Synnax):
+    def test_create_params_without_password(self, client: sy.Synnax) -> None:
         """Should reject a username with no password."""
-        with pytest.raises(ValueError):
-            client.users.create(username=str(uuid()))
+        create = cast(Callable[..., object], client.users.create)
+        with pytest.raises(ValueError, match="password is required"):
+            create(username=str(uuid()))
 
     def test_create_user(self, client: sy.Synnax, new_user):
         repeated_user = client.users.create(user=new_user)

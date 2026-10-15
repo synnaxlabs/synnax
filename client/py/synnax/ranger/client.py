@@ -254,7 +254,7 @@ class Range(Payload):
         name: str,
         time_range: TimeRange,
         key: UUID = UUID(int=0),
-        color: str = "",
+        color: str | None = "",
         parent: Range | Payload | None = None,
         *,
         _frame_client: framer.Client | None = None,
@@ -300,7 +300,7 @@ class Range(Payload):
             name=name,
             time_range=time_range,
             key=key,
-            color=Color(color),
+            color=None if color is None else Color(color),
             parent=parent_payload,
         )
         self._cached_frame_client = _frame_client
