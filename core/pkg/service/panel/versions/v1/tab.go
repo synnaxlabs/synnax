@@ -7,4 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// <reference types="vite/client" />
+package v1
+
+import "uuid"
+
+// Key returns the stable identifier of the tab regardless of its content variant.
+// Returns uuid.Nil() for a Tab with no variant set.
+func (t Tab) Key() uuid.UUID {
+	switch v := t.Variant.(type) {
+	case ResourceTab:
+		return v.Key
+	case ViewTab:
+		return v.Key
+	default:
+		return uuid.Nil()
+	}
+}

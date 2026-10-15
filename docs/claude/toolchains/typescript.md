@@ -5,14 +5,14 @@
 pnpm workspaces with catalog dependencies: `/alamos/ts/` (instrumentation),
 `/client/ts/` (Synnax client), `/console/` (Tauri app), `/drift/` (multi-window Redux
 sync), `/freighter/ts/` (transport), `/lyra/` (UI primitives, subpath-only:
-`@synnaxlabs/lyra/<module>`), `/x/media/`, `/pluto/` (viz components), `/x/ts/` (shared
-utilities). All use Vite (ESM-only output), TypeScript strict, Vitest, ESLint flat
-config, Turbo for orchestration.
+`@synnaxlabs/lyra/<module>`), `/pluto/` (viz components), `/x/ts/` (shared utilities).
+All use Vite (ESM-only output), TypeScript strict, Vitest, ESLint flat config, Turbo for
+orchestration.
 
 ## Commands
 
 - `pnpm build` / `pnpm build:<pkg>` (console, pluto, lyra, client, x, drift, freighter,
-  alamos, media)
+  alamos)
 - `pnpm check-types` / `pnpm check-types:console`
 - `pnpm dev:console` (Tauri) / `pnpm dev:console-vite` (Vite only, faster, no Tauri
   APIs) / `pnpm dev:pluto`
@@ -191,12 +191,12 @@ identity.
 
 ### The four tiers
 
-| Tier                 | Packages                                                         | Decision        |
-| -------------------- | ---------------------------------------------------------------- | --------------- |
-| 1. Our own stack     | `@synnaxlabs/{x,freighter,alamos,client,media,drift,lyra,pluto}` | Always external |
-| 2. Framework         | `react`, `react-dom`, `react-redux`, `@reduxjs/toolkit`          | External, peer  |
-| 3. Shared vocabulary | `zod`                                                            | External        |
-| 4. Private machinery | monaco, mathjs, fuse.js, d3-scale, `@synnaxlabs/arc`             | Bundle          |
+| Tier                 | Packages                                                   | Decision        |
+| -------------------- | ---------------------------------------------------------- | --------------- |
+| 1. Our own stack     | `@synnaxlabs/{x,freighter,alamos,client,drift,lyra,pluto}` | Always external |
+| 2. Framework         | `react`, `react-dom`, `react-redux`, `@reduxjs/toolkit`    | External, peer  |
+| 3. Shared vocabulary | `zod`                                                      | External        |
+| 4. Private machinery | monaco, mathjs, fuse.js, d3-scale, `@synnaxlabs/arc`       | Bundle          |
 
 Tiers 1 to 3 cross a package boundary: a `Series` from the Client must satisfy
 `instanceof Series` in Pluto, and a Zod schema from the Client must compose with a

@@ -77,7 +77,7 @@ for i in range(1, TEST_COUNT + 1):
         color="#E0E0E0",
         retrieve_if_name_exists=True,
     )
-    child_tr_1 = parent_tr.create_sub_range(
+    child_tr_1 = parent_tr.create_child_range(
         name="Pre-test",
         time_range=sy.TimeRange(
             start=datetime(2012, 1, i, 13, 0, 0),
@@ -85,7 +85,7 @@ for i in range(1, TEST_COUNT + 1):
         ),
         color="#00FF00",
     )
-    child_tr_2 = parent_tr.create_sub_range(
+    child_tr_2 = parent_tr.create_child_range(
         name="Test Run",
         time_range=sy.TimeRange(
             start=datetime(2012, 1, i, 13, 30, 0),
@@ -93,7 +93,7 @@ for i in range(1, TEST_COUNT + 1):
         ),
         color="#0000FF",
     )
-    child_tr_3 = parent_tr.create_sub_range(
+    child_tr_3 = parent_tr.create_child_range(
         name="Post-test",
         time_range=sy.TimeRange(
             start=datetime(2012, 1, i, 14, 45, 0),

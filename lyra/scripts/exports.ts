@@ -10,10 +10,10 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-import { discoverModules, moduleExports } from "@synnaxlabs/vite-plugin";
+import { packageExports } from "@synnaxlabs/vite-plugin";
 
 const root = path.resolve(import.meta.dirname, "..");
 const manifestPath = path.join(root, "package.json");
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-manifest.exports = moduleExports(discoverModules(root));
+manifest.exports = packageExports(root);
 writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);

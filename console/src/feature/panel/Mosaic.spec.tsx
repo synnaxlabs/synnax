@@ -331,7 +331,6 @@ describe("Panel.Mosaic overlay", () => {
     variant: "view",
     key: uuid.create(),
     type: "tabProbe",
-    args: {},
   });
 
   const tabMountCount = (key: panel.TabKey): number =>
@@ -483,7 +482,6 @@ describe("Panel.Mosaic trigger scope", () => {
     variant: "view",
     key: uuid.create(),
     type: "triggerProbe",
-    args: {},
   });
 
   const pressTrigger = (): void => {

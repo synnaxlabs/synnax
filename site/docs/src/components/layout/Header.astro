@@ -8,7 +8,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Logo } from "@synnaxlabs/media";
+import { Logo } from "@synnaxlabs/lyra/logo";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -33,7 +33,7 @@ const label = version?.split(".").slice(0, -1).join(".");
         >
             <Flex.Box direction="x" align="center" gap={4}>
                 <a href="https://synnaxlabs.com" class="logo-link">
-                    <Logo variant="title" />
+                    <Logo.Logo variant="title" />
                 </a>
                 <Flex.Box direction="x" className="header-nav" align="center" gap={1}>
                     <Button.Button
