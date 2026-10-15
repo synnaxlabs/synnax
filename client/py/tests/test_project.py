@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from collections.abc import Callable
+from typing import cast
 from uuid import uuid4
 
 import pytest
@@ -82,6 +84,12 @@ class TestProject:
         """Should raise NotFoundError when retrieving a missing project by key."""
         with pytest.raises(NotFoundError):
             client.projects.retrieve(key=uuid4())
+
+    def test_retrieve_rejects_author(self, client: sy.Synnax) -> None:
+        """Should reject the removed author filter."""
+        retrieve = cast(Callable[..., object], client.projects.retrieve)
+        with pytest.raises(TypeError):
+            retrieve(author=uuid4())
 
     def test_delete(self, client: sy.Synnax):
         """Should delete a project."""
