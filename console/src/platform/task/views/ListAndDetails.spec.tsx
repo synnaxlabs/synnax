@@ -9,7 +9,7 @@
 
 import { Component } from "@synnaxlabs/lyra/component";
 import { Select } from "@synnaxlabs/lyra/select";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Task } from "@/platform/task";
@@ -87,6 +87,17 @@ describe("layouts.ListAndDetails", () => {
       expect(form.current?.get("config.channels").value).toHaveLength(2),
     );
     expect(screen.getByText("item-new_a")).toBeTruthy();
+  });
+
+  it("should add and select a channel from the empty details panel", async () => {
+    const createChannel = (): Channel => ({ key: "new", disabled: false });
+    const { form } = await renderListAndDetails([], createChannel);
+    const empty = await screen.findByText("No channel selected");
+    fireEvent.click(within(empty).getByText("Add channel"));
+    await waitFor(() =>
+      expect(screen.getByText("details-for-config.channels.new")).toBeTruthy(),
+    );
+    expect(form.current?.get("config.channels").value).toHaveLength(1);
   });
 
   it("should duplicate the selected channels through the context menu", async () => {

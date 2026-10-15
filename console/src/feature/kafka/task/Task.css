@@ -1,0 +1,55 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-kafka-details {
+    padding: var(--console-details-padding);
+    overflow-y: auto;
+
+    /* Fits "Time format", so the controls hold still when it shows or hides. */
+    &.pluto-form-sections.pluto--direction-y {
+        grid-template-columns: minmax(11rem, max-content) minmax(0, 1fr);
+    }
+}
+
+/* Long names truncate inside the row instead of widening it past the list. The label
+   keeps its width up to a cap, so the channel name gives way first. */
+.console-kafka-item__label,
+.console-kafka-item__channel {
+    min-width: 0;
+
+    > .pluto-text--overflow-ellipsis {
+        min-width: 0;
+    }
+}
+
+.console-kafka-item__label {
+    flex-shrink: 0;
+    max-width: 60%;
+}
+
+.console-kafka-item--off .console-kafka-item__label {
+    opacity: 0.6;
+}
+
+.console-kafka-select__trigger {
+    width: 160px;
+}
+
+/* Wide enough for the search placeholder. The trigger, and so the field, keeps its
+   width. */
+.console-kafka-select__dialog {
+    min-width: 184px;
+}
+
+/* A text field wraps to the next line before it shrinks below its basis. */
+.console-kafka-properties__text {
+    flex-basis: 160px;
+}

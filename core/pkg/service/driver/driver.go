@@ -104,6 +104,9 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 	}
 	cfg.L.Info("created Core driver rack", zap.Stringer("key", d.rack.Key))
 
+	if err = d.createInitialTasks(ctx); !ok(err, nil) {
+		return nil, err
+	}
 	d.startHeartbeat()
 	d.configureExistingTasks(ctx)
 	disconnect := cfg.Task.Observe().OnChange(d.handleTaskChange)
@@ -335,6 +338,42 @@ func (d *Driver) handleTaskChange(
 			d.delete(ch.Key)
 		}
 	}
+}
+
+// createInitialTasks creates the internal tasks the factories own on the rack. A
+// task whose type the rack already has is left as it is, so a restart never
+// duplicates one.
+func (d *Driver) createInitialTasks(ctx context.Context) error {
+	for _, f := range d.cfg.Factories {
+		tasks, err := f.InitialTasks(ctx, d.rack.Key)
+		if err != nil {
+			return errors.Wrapf(err, "listing initial tasks of %s", f.Name())
+		}
+		for _, t := range tasks {
+			exists, err := d.cfg.Task.NewRetrieve().
+				Where(task.And(
+					task.MatchRacks(d.rack.Key),
+					task.MatchTypes(t.Type),
+					task.MatchSnapshot(false),
+				)).
+				Exists(ctx, nil)
+			if err != nil {
+				return err
+			}
+			if exists {
+				continue
+			}
+			t.Rack = d.rack.Key
+			t.Internal = true
+			if err := d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return d.cfg.Task.NewWriter(tx).Create(ctx, &t)
+			}); err != nil {
+				return errors.Wrapf(err, "creating initial task %s", t.Name)
+			}
+			d.cfg.L.Info("created initial task", zap.Stringer("task", t))
+		}
+	}
+	return nil
 }
 
 func (d *Driver) configureExistingTasks(ctx context.Context) {

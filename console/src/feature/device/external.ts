@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { HTTP } from "@/feature/http";
+import { Kafka } from "@/feature/kafka";
 import { Modbus } from "@/feature/modbus";
 import { OPCUA } from "@/feature/opcua";
 import { type Command } from "@/platform/command";
@@ -21,6 +22,7 @@ export * from "@/platform/device/external";
 
 export const COMMANDS: Command.Command[] = [
   ...HTTP.Device.COMMANDS,
+  ...Kafka.Device.COMMANDS,
   ...Modbus.Device.COMMANDS,
   ...OPCUA.Device.COMMANDS,
 ];

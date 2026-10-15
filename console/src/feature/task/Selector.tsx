@@ -14,6 +14,7 @@ import { useCallback } from "react";
 
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
+import { Kafka } from "@/feature/kafka";
 import { LabJack } from "@/feature/labjack";
 import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
@@ -35,6 +36,7 @@ const withTaskVisibility = (Selectable: Base.Selectable): Base.Selectable => {
 export const SELECTABLES: Base.Selectable[] = [
   ...EtherCAT.Task.SELECTABLES,
   ...HTTP.Task.SELECTABLES,
+  ...Kafka.Task.SELECTABLES,
   ...LabJack.Task.SELECTABLES,
   ...Modbus.Task.SELECTABLES,
   ...NI.Task.SELECTABLES,

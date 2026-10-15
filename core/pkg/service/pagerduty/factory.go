@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
@@ -151,3 +152,8 @@ func (f *factory) setConfigStatus(
 }
 
 func (f *factory) Name() string { return "pagerduty" }
+
+// InitialTasks implements driver.Factory. PagerDuty owns no internal tasks.
+func (f *factory) InitialTasks(context.Context, rack.Key) ([]task.Task, error) {
+	return nil, nil
+}
