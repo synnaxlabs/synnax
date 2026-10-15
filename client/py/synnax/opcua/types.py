@@ -10,6 +10,8 @@
 from typing import Literal
 from uuid import uuid4
 
+from pydantic import JsonValue
+
 from synnax import device, task
 from synnax.opcua.types_gen import ReadChannel, ReadConfig, WriteChannel, WriteConfig
 from synnax.telem import CrudeRate, Rate
@@ -186,7 +188,7 @@ class Device(device.Device):
         if not key:
             key = str(uuid4())
         # The Driver expects snake_case property names.
-        connection = {
+        connection: dict[str, JsonValue] = {
             "endpoint": endpoint,
             "security_mode": security_mode,
             "security_policy": security_policy,
@@ -201,7 +203,7 @@ class Device(device.Device):
             connection["client_private_key"] = client_private_key
         if server_cert:
             connection["server_certificate"] = server_cert
-        props = {
+        props: dict[str, JsonValue] = {
             "version": "1.0.0",
             "connection": connection,
             "read": {"indexes": [], "channels": {}},

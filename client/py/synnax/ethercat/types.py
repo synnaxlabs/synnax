@@ -9,7 +9,7 @@
 
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, JsonValue
 
 from synnax import device, task
 from synnax.ethercat.types_gen import (
@@ -176,7 +176,7 @@ class Device(device.Device):
     ):
         if not key:
             key = str(uuid4())
-        props = {
+        props: dict[str, JsonValue] = {
             "network": network,
             "position": position,
             "vendor_id": vendor_id,

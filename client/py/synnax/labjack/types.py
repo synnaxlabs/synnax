@@ -10,6 +10,8 @@
 from typing import Final, Literal, TypeAlias, get_args
 from uuid import uuid4
 
+from pydantic import JsonValue
+
 from synnax import device, task
 from synnax.labjack.types_gen import (
     ReadChannel,
@@ -181,7 +183,7 @@ class Device(device.Device):
             )
         if not key:
             key = str(uuid4())
-        props = {
+        props: dict[str, JsonValue] = {
             "connection": {
                 "identifier": identifier,
                 "connection_type": connection_type,
