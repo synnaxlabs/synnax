@@ -25,7 +25,6 @@
     "@synnaxlabs/drift": "catalog:",
     "@synnaxlabs/freighter": "catalog:",
     "@synnaxlabs/lyra": "catalog:",
-    "@synnaxlabs/media": "catalog:",
     "@synnaxlabs/pluto": "catalog:",
     "@synnaxlabs/x": "catalog:",
     "@tauri-apps/api": "catalog:",

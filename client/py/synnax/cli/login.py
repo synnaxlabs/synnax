@@ -15,17 +15,14 @@ import click
 from synnax.cli.connect import connect_from_options, prompt_client_options
 from synnax.cli.console.rich import RichConsole
 from synnax.cli.flow import Context
-from synnax.cli.warning import warning
 from synnax.config import ClusterConfig, ClustersConfig, ConfigFile
 
 
 @click.command()
-@click.pass_context
-def login(ctx: click.Context) -> None:
+def login() -> None:
     """Logs the user into a Synnax cluster and saves the parameters to the configuration
     file.
     """
-    warning(ctx)
     flow_ctx = Context(console=RichConsole())
     options = prompt_client_options(flow_ctx)
     synnax = connect_from_options(flow_ctx, options)
