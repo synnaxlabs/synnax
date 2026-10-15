@@ -19,7 +19,7 @@ from x.testutil import assert_eventually
 class TestArc:
     """Tests for Arc CRUD operations."""
 
-    def test_create_from_kwargs(self, client: sy.Synnax):
+    def test_create_from_kwargs(self, client: sy.Synnax) -> None:
         """Should create an Arc from keyword arguments."""
         name = f"test-arc-{uuid4()}"
         arc = client.arcs.create(
@@ -32,7 +32,7 @@ class TestArc:
         assert arc.mode == "text"
         assert arc.text.raw == "x := 1"
 
-    def test_create_from_instance(self, client: sy.Synnax):
+    def test_create_from_instance(self, client: sy.Synnax) -> None:
         """Should create an Arc from an existing instance."""
         name = f"test-arc-{uuid4()}"
         arc = sy.Arc(
@@ -45,7 +45,7 @@ class TestArc:
         assert created.key != sy.Arc().key
         assert created.text.raw == "y := 2"
 
-    def test_create_multiple(self, client: sy.Synnax):
+    def test_create_multiple(self, client: sy.Synnax) -> None:
         """Should create multiple Arcs at once."""
         arcs = [
             sy.Arc(name=f"test-arc-multi-{uuid4()}", mode="text"),
@@ -57,7 +57,7 @@ class TestArc:
             assert arc.name.startswith("test-arc-multi-")
             assert arc.key != sy.Arc().key
 
-    def test_retrieve_by_key(self, client: sy.Synnax):
+    def test_retrieve_by_key(self, client: sy.Synnax) -> None:
         """Should retrieve an Arc by key."""
         name = f"test-arc-{uuid4()}"
         created = client.arcs.create(name=name, mode="text")
@@ -65,7 +65,7 @@ class TestArc:
         assert retrieved.key == created.key
         assert retrieved.name == name
 
-    def test_retrieve_by_name(self, client: sy.Synnax):
+    def test_retrieve_by_name(self, client: sy.Synnax) -> None:
         """Should retrieve an Arc by name."""
         name = f"test-arc-{uuid4()}"
         created = client.arcs.create(name=name, mode="text")
@@ -73,7 +73,7 @@ class TestArc:
         assert retrieved.key == created.key
         assert retrieved.name == name
 
-    def test_retrieve_multiple_by_keys(self, client: sy.Synnax):
+    def test_retrieve_multiple_by_keys(self, client: sy.Synnax) -> None:
         """Should retrieve multiple Arcs by keys."""
         arcs = [
             sy.Arc(name=f"test-arc-keys-{uuid4()}", mode="text"),
@@ -86,12 +86,12 @@ class TestArc:
         retrieved_keys = {arc.key for arc in retrieved}
         assert retrieved_keys == set(keys)
 
-    def test_retrieve_not_found(self, client: sy.Synnax):
+    def test_retrieve_not_found(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when Arc is not found."""
         with pytest.raises(sy.NotFoundError):
             client.arcs.retrieve(name=f"nonexistent-arc-{uuid4()}")
 
-    def test_delete_single(self, client: sy.Synnax):
+    def test_delete_single(self, client: sy.Synnax) -> None:
         """Should delete a single Arc."""
         name = f"test-arc-delete-{uuid4()}"
         arc = client.arcs.create(name=name, mode="text")
@@ -99,7 +99,7 @@ class TestArc:
         with pytest.raises(sy.NotFoundError):
             client.arcs.retrieve(key=arc.key)
 
-    def test_delete_multiple(self, client: sy.Synnax):
+    def test_delete_multiple(self, client: sy.Synnax) -> None:
         """Should delete multiple Arcs."""
         arcs = [
             sy.Arc(name=f"test-arc-delete-multi-{uuid4()}", mode="text"),
@@ -112,7 +112,7 @@ class TestArc:
             with pytest.raises(sy.NotFoundError):
                 client.arcs.retrieve(key=key)
 
-    def test_search(self, client: sy.Synnax):
+    def test_search(self, client: sy.Synnax) -> None:
         """Should search for Arcs by name."""
         unique_prefix = f"searchable-arc-{uuid4()}"
         client.arcs.create(
@@ -135,7 +135,7 @@ class TestArc:
 class TestArcGraph:
     """Tests for Arc graph mode functionality."""
 
-    def test_graph_with_edges(self, client: sy.Synnax):
+    def test_graph_with_edges(self, client: sy.Synnax) -> None:
         """Should create an Arc with graph nodes and edges."""
         name = f"test-arc-graph-{uuid4()}"
         graph = sy.Graph(
@@ -151,7 +151,7 @@ class TestArcGraph:
                     kind=sy.arc.ir.EdgeKind.continuous,
                 ),
             ],
-            configs={
+            inputs={
                 "node1": {"type": "constant", "value": 1},
                 "node2": {"type": "add"},
             },
@@ -169,7 +169,7 @@ class TestArcGraph:
 class TestArcTask:
     """Tests for Arc task functionality."""
 
-    def test_create_arc_task(self, client: sy.Synnax):
+    def test_create_arc_task(self, client: sy.Synnax) -> None:
         """Should create an Arc task."""
         arc = client.arcs.create(
             name=f"test-arc-task-{uuid4()}",
@@ -181,7 +181,7 @@ class TestArcTask:
         assert task.config.auto_start is False
         assert task.TYPE == "arc"
 
-    def test_arc_task_to_payload(self, client: sy.Synnax):
+    def test_arc_task_to_payload(self, client: sy.Synnax) -> None:
         """Should convert Arc task to payload."""
         arc = client.arcs.create(
             name=f"test-arc-task-{uuid4()}",
@@ -193,12 +193,12 @@ class TestArcTask:
         assert payload.name == "Test Arc Task"
         assert payload.config["arc_key"] == str(arc.key)
 
-    def test_arc_task_requires_arc_key(self):
+    def test_arc_task_requires_arc_key(self) -> None:
         """Should raise error when arc_key is not provided."""
         with pytest.raises(ValueError, match="arc_key is required"):
             sy.arc.Task(name="Test")
 
-    def test_create_arc_task_on_cluster(self, client: sy.Synnax):
+    def test_create_arc_task_on_cluster(self, client: sy.Synnax) -> None:
         """Should create an Arc task on the cluster."""
         arc = client.arcs.create(
             name=f"test-arc-task-cluster-{uuid4()}",
@@ -218,7 +218,7 @@ class TestArcTask:
         assert created.type == "arc"
         assert created.config["arc_key"] == str(arc.key)
 
-    def test_retrieve_arc_task(self, client: sy.Synnax):
+    def test_retrieve_arc_task(self, client: sy.Synnax) -> None:
         """Should retrieve an Arc task from the cluster."""
         arc = client.arcs.create(
             name=f"test-arc-task-retrieve-{uuid4()}",
@@ -235,7 +235,7 @@ class TestArcTask:
         assert retrieved.key == created.key
         assert retrieved.type == "arc"
 
-    def test_wrap_retrieved_task_as_arc_task(self, client: sy.Synnax):
+    def test_wrap_retrieved_task_as_arc_task(self, client: sy.Synnax) -> None:
         """Should wrap a retrieved task as an ArcTask."""
         arc = client.arcs.create(
             name=f"test-arc-task-wrap-{uuid4()}",
@@ -254,12 +254,12 @@ class TestArcTask:
         assert arc_task.config.arc_key == str(arc.key)
         assert arc_task.config.auto_start is False
 
-    def test_performance_defaults_to_auto(self):
+    def test_performance_defaults_to_auto(self) -> None:
         """Should default the performance level to auto."""
         task = sy.arc.Task(name="Test", arc_key=uuid4())
         assert task.to_payload().config["performance"] == "auto"
 
-    def test_keep_performance_through_retrieve(self, client: sy.Synnax):
+    def test_keep_performance_through_retrieve(self, client: sy.Synnax) -> None:
         """Should keep the performance level when a retrieved task is saved."""
         arc = client.arcs.create(name=f"test-arc-task-perf-{uuid4()}", mode="text")
         task = sy.arc.Task(

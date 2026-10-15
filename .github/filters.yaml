@@ -340,10 +340,12 @@ protobuf:
   - buf.gen.yaml
   - buf.yaml
 
-scripts:
-  - *ci
+ci_scripts:
+  - *py
   - .github/scripts/**
-  - .github/workflows/test.scripts.yaml
+
+scripts:
+  - *py
   - scripts/**
 
 console_build: &console_build

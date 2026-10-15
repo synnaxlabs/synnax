@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from alamos import NOOP, Instrumentation, trace
 from freighter import UnaryClient
 from synnax.ranger.types_gen import Key, Payload
-from x.lists import normalize
+from x.lists import override
 
 
 class _Request(BaseModel):
@@ -42,18 +42,11 @@ class Retriever:
         self,
         key: Key | None = None,
         name: str | None = None,
-        names: list[str] | tuple[str] | None = None,
-        keys: list[Key] | tuple[Key] | None = None,
+        names: list[str] | tuple[str, ...] | None = None,
+        keys: list[Key] | tuple[Key, ...] | None = None,
     ) -> list[Payload]:
-        if key is not None:
-            keys = normalize(key)
-        if name is not None:
-            names = normalize(name)
         return self._execute(
-            _Request(
-                keys=None if keys is None else list(keys),
-                names=None if names is None else list(names),
-            )
+            _Request(keys=override(key, keys), names=override(name, names))
         )
 
     @trace("debug")

@@ -25,16 +25,8 @@ def prompt_client_options(ctx: Context) -> Options:
     host = ctx.console.ask("Host", default="localhost")
     port = ctx.console.ask("Port", type_=int, default=9090)
     username = ctx.console.ask("Username", default="synnax")
-    password = ctx.console.ask("Password", password=True)
+    password = ctx.console.ask("Password", str, password=True)
     secure = ctx.console.ask("Secure Connection?", type_=bool, default=False)
-    if (
-        host is None
-        or port is None
-        or username is None
-        or password is None
-        or secure is None
-    ):
-        raise ValueError("All connection parameters are required")
     return Options(
         host=host, port=port, username=username, password=password, secure=secure
     )

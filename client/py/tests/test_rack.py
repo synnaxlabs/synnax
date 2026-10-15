@@ -16,12 +16,12 @@ import synnax as sy
 
 @pytest.mark.rack
 class TestRackClient:
-    def test_create_single(self, client: sy.Synnax):
+    def test_create_single(self, client: sy.Synnax) -> None:
         """It should correctly create a single rack"""
         rack = client.racks.create(name="test")
         assert rack.key != 0
 
-    def test_create_multiple(self, client: sy.Synnax):
+    def test_create_multiple(self, client: sy.Synnax) -> None:
         """Should create multiple racks"""
         r1 = sy.Rack(name="test1")
         r2 = sy.Rack(name="test2")
@@ -30,7 +30,7 @@ class TestRackClient:
         assert racks[0].name == "test1"
         assert racks[1].name == "test2"
 
-    def test_retrieve_by_name(self, client: sy.Synnax):
+    def test_retrieve_by_name(self, client: sy.Synnax) -> None:
         """Should retrieve a rack by name"""
         name = str(uuid4())
         rack = client.racks.create(name=name)
@@ -38,14 +38,14 @@ class TestRackClient:
         assert res.name == name
         assert res.key == rack.key
 
-    def test_retrieve_by_key(self, client: sy.Synnax):
+    def test_retrieve_by_key(self, client: sy.Synnax) -> None:
         """Should retrieve a rack by key"""
         rack = client.racks.create(name="test")
         res = client.racks.retrieve(key=rack.key)
         assert res.key == rack.key
         assert res.name == rack.name
 
-    def test_retrieve_multiple(self, client: sy.Synnax):
+    def test_retrieve_multiple(self, client: sy.Synnax) -> None:
         """Should retrieve multiple racks"""
         r1 = client.racks.create(name="test1")
         r2 = client.racks.create(name="test2")
@@ -53,14 +53,14 @@ class TestRackClient:
         assert len(racks) == 2
         assert {r.key for r in racks} == {r1.key, r2.key}
 
-    def test_delete(self, client: sy.Synnax):
+    def test_delete(self, client: sy.Synnax) -> None:
         """Should delete a rack"""
         rack = client.racks.create(name="test")
         client.racks.delete([rack.key])
         with pytest.raises(sy.NotFoundError):
             client.racks.retrieve(key=rack.key)
 
-    def test_delete_rack_attached(self, client: sy.Synnax):
+    def test_delete_rack_attached(self, client: sy.Synnax) -> None:
         """Should raise a validation error if devices are attached to the rack"""
         rack = client.racks.create(name="test")
         client.devices.create(
@@ -78,7 +78,7 @@ class TestRackClient:
         ):
             client.racks.delete([rack.key])
 
-    def test_delete_task_attached(self, client: sy.Synnax):
+    def test_delete_task_attached(self, client: sy.Synnax) -> None:
         """Should raise a validation error if tasks are attached to the rack"""
         rack = client.racks.create(name="test")
         client.tasks.create(
@@ -90,7 +90,7 @@ class TestRackClient:
         with pytest.raises(sy.ValidationError, match="tasks are still attached"):
             client.racks.delete([rack.key])
 
-    def test_create_with_integrations(self, client: sy.Synnax):
+    def test_create_with_integrations(self, client: sy.Synnax) -> None:
         """Should create a rack with integrations and persist them"""
         rack = client.racks.create(
             racks=sy.Rack(name="integ-rack", integrations=["ni", "opc", "modbus"])
@@ -98,7 +98,7 @@ class TestRackClient:
         res = client.racks.retrieve(key=rack.key)
         assert res.integrations == ["ni", "opc", "modbus"]
 
-    def test_retrieve_by_integration(self, client: sy.Synnax):
+    def test_retrieve_by_integration(self, client: sy.Synnax) -> None:
         """Should filter racks by supported integration"""
         r1 = client.racks.create(
             racks=sy.Rack(name="py-ni-rack", integrations=["ni", "opc"])
@@ -111,7 +111,7 @@ class TestRackClient:
         assert r1.key in result_keys
         assert r2.key not in result_keys
 
-    def test_update_integrations(self, client: sy.Synnax):
+    def test_update_integrations(self, client: sy.Synnax) -> None:
         """Should update integrations on upsert"""
         rack = client.racks.create(
             racks=sy.Rack(name="py-upsert-integ", integrations=["ni"])
@@ -124,7 +124,7 @@ class TestRackClient:
         res = client.racks.retrieve(key=rack.key)
         assert res.integrations == ["ni", "opc", "arc"]
 
-    def test_retrieve_embedded_rack(self, client: sy.Synnax):
+    def test_retrieve_embedded_rack(self, client: sy.Synnax) -> None:
         rack = client.racks.retrieve_embedded_rack()
         assert isinstance(rack, sy.Rack)
         # Cache should return the same rack

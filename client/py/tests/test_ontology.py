@@ -33,7 +33,7 @@ class TestOntologyID:
 
 @pytest.mark.ontology
 class TestOntology:
-    def test_retrieve_children(self, client: sy.Synnax):
+    def test_retrieve_children(self, client: sy.Synnax) -> None:
         name = str(uuid4())
         g = client.groups.create(sy.ontology.ROOT_ID, name)
         assert g.key is not None
@@ -42,7 +42,7 @@ class TestOntology:
         children = client.ontology.retrieve_children(sy.group.ontology_id(g.key))
         assert children == [sy.group.ontology_id(g2.key)]
 
-    def test_retrieve_parents(self, client: sy.Synnax):
+    def test_retrieve_parents(self, client: sy.Synnax) -> None:
         name = str(uuid4())
         g = client.groups.create(sy.ontology.ROOT_ID, name)
         assert g.key is not None
@@ -51,7 +51,7 @@ class TestOntology:
         parents = client.ontology.retrieve_parents(sy.group.ontology_id(g2.key))
         assert parents == [sy.group.ontology_id(g.key)]
 
-    def test_remove_children(self, client: sy.Synnax):
+    def test_remove_children(self, client: sy.Synnax) -> None:
         name = str(uuid4())
         g = client.groups.create(sy.ontology.ROOT_ID, name)
         assert g.key is not None
@@ -63,7 +63,7 @@ class TestOntology:
         children = client.ontology.retrieve_children(sy.group.ontology_id(g.key))
         assert len(children) == 0
 
-    def test_move_children(self, client: sy.Synnax):
+    def test_move_children(self, client: sy.Synnax) -> None:
         name = str(uuid4())
         g = client.groups.create(sy.ontology.ROOT_ID, name)
         assert g.key is not None
