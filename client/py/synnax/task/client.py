@@ -101,7 +101,7 @@ class Task:
     rack: int = 0
     name: str = ""
     type: str = ""
-    config: dict[str, JsonValue] = {}
+    config: dict[str, Any] = {}
     config_hash: str = ""
     snapshot: bool = False
     status: Status | None = None
@@ -129,7 +129,7 @@ class Task:
         self.rack = rack
         self.name = name
         self.type = type
-        self.config = to_jsonable_python(config) if config is not None else {}
+        self.config = config if config is not None else {}
         self.config_hash = config_hash
         self.internal = internal
         self.snapshot = snapshot
@@ -150,7 +150,7 @@ class Task:
             rack=self.rack,
             name=self.name,
             type=self.type,
-            config=self.config,
+            config=to_jsonable_python(self.config),
         )
 
     def set_internal(self, task: Task) -> None:

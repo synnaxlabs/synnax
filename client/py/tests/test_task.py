@@ -176,6 +176,13 @@ class TestTaskClient:
         ref = uuid4()
         assert sy.Task(config={"ref": ref}).to_payload().config == {"ref": str(ref)}
 
+    def test_task_converts_reassigned_config_to_json(self):
+        """Should convert a UUID in a config set after construction to a string."""
+        tsk = sy.Task()
+        ref = uuid4()
+        tsk.config = {"ref": ref}
+        assert tsk.to_payload().config == {"ref": str(ref)}
+
     def test_task_configure_saves_without_ack(self, client: sy.Synnax):
         """Should save the task without waiting for a driver acknowledgement."""
         tsk = sy.Task(
