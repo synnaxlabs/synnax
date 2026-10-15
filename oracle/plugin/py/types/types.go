@@ -570,7 +570,7 @@ func processStruct(
 			if !found {
 				data.TypeVars = append(data.TypeVars, tvd)
 			} else if existing != tvd {
-				return sd, errors.Newf(
+				return structData{}, errors.Newf(
 					"type parameter %s of %s conflicts with another %s in the same "+
 						"Python file; rename one of them",
 					tp.Name,
