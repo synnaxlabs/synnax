@@ -306,7 +306,6 @@ CrudeSeries: TypeAlias = (
     | list[dict[str, Any]]
     | list[uuid.UUID]
     | list[TimeStamp]
-    | list[TimeSpan]
     | np.number
     | str
     | uuid.UUID
