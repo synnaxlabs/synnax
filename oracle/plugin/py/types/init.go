@@ -33,12 +33,12 @@ type initParamData struct {
 // primitive of each hand-written distinct field, or nil when none are needed. The
 // receiver is _self because a field may be named self.
 func buildInitParams(
-	fields []resolution.Field,
+	fields []pyField,
 	table *resolution.Table,
 	data *templateData,
 ) []initParamData {
-	if !lo.SomeBy(fields, func(f resolution.Field) bool {
-		_, ok := handPrimitive(f, table)
+	if !lo.SomeBy(fields, func(f pyField) bool {
+		_, ok := handPrimitive(f.Field, table)
 		return ok
 	}) {
 		return nil
@@ -52,15 +52,15 @@ func buildInitParams(
 	params := make([]initParamData, 0, len(fields))
 	for _, f := range fields {
 		var pyType string
-		if primitive, ok := handPrimitive(f, table); ok {
+		if primitive, ok := handPrimitive(f.Field, table); ok {
 			pyType = primitiveToPython(primitive, data)
 			if f.Optional {
 				pyType += " | None"
 			}
 		} else {
-			pyType = fieldPyType(f, table, data)
+			pyType = fieldPyType(f.Field, table, data)
 		}
-		fd := processField(f, table, scratch, nil, nil)
+		fd := processField(f.Declared, table, scratch, nil, nil)
 		params = append(params, initParamData{
 			Name:     fd.Name,
 			PyType:   pyType,
@@ -113,47 +113,69 @@ func variantInitParams(
 	return append([]initParamData{disc}, params...)
 }
 
+// pyField is a field of a struct's Python class.
+type pyField struct {
+	// Field is typed as the class exposes it.
+	resolution.Field
+	// Declared is the field as rendered by the class that declares it, which decides
+	// its default.
+	Declared resolution.Field
+	// Excluded is true when the class excludes the field from serialization.
+	Excluded bool
+}
+
 // pyFields returns every field of the struct's Python class. Unlike
 // resolution.UnifiedFields, it keeps inherited fields that a subclass excludes from
-// serialization, since the Python class still inherits and accepts them.
-func pyFields(typ resolution.Type, table *resolution.Table) []resolution.Field {
+// serialization, since the Python class still inherits and accepts them. The class
+// rendering and the type-checking __init__ both read it, so the two always agree.
+func pyFields(typ resolution.Type, table *resolution.Table) []pyField {
 	form, ok := typ.Form.(resolution.StructForm)
 	if !ok {
 		return nil
 	}
-	if len(form.Extends) == 0 || resolver.HasDomainOmissions(form) {
-		return resolution.UnifiedFields(typ, table)
+	own := func(f resolution.Field) pyField {
+		return pyField{Field: f, Declared: f, Excluded: form.IsFieldOmitted(f.Name)}
 	}
-	fields := inheritedFields(form, table)
-	// A flattened class drops excluded fields instead of inheriting them.
-	if flattensParents(form, table) {
-		fields = lo.Reject(fields, func(f resolution.Field, _ int) bool {
-			return form.IsFieldOmitted(f.Name)
+	if len(form.Extends) == 0 || resolver.HasDomainOmissions(form) {
+		return lo.Map(resolution.UnifiedFields(typ, table), func(
+			f resolution.Field,
+			_ int,
+		) pyField {
+			return own(f)
 		})
 	}
-	index := make(map[string]int, len(fields))
-	for i, f := range fields {
-		index[f.Name] = i
-	}
-	for _, f := range form.Fields {
-		if i, ok := index[f.Name]; ok {
-			fields[i] = f
-			continue
+	flattened := flattensParents(form, table)
+	var fields []pyField
+	index := make(map[string]int)
+	for _, f := range inheritedFields(form, table) {
+		// A flattened class declares every field it keeps and drops the excluded ones.
+		// An inheriting class redeclares only the fields it excludes.
+		if flattened {
+			if f.Excluded || form.IsFieldOmitted(f.Name) {
+				continue
+			}
+			f = own(f.Field)
+		} else if form.IsFieldOmitted(f.Name) {
+			f = own(f.Field)
 		}
 		index[f.Name] = len(fields)
 		fields = append(fields, f)
+	}
+	for _, f := range form.Fields {
+		if i, ok := index[f.Name]; ok {
+			fields[i] = own(f)
+			continue
+		}
+		index[f.Name] = len(fields)
+		fields = append(fields, own(f))
 	}
 	return fields
 }
 
 // inheritedFields returns the fields a struct's Python class takes from its parents,
-// first parent first, typed as the class sees them. The class rendering and the
-// type-checking __init__ both read them, so the two always agree.
-func inheritedFields(
-	form resolution.StructForm,
-	table *resolution.Table,
-) []resolution.Field {
-	var fields []resolution.Field
+// first parent first, typed as the class sees them.
+func inheritedFields(form resolution.StructForm, table *resolution.Table) []pyField {
+	var fields []pyField
 	seen := make(set.Set[string])
 	for _, ext := range form.Extends {
 		parent, ok := ext.Resolve(table)
@@ -167,7 +189,7 @@ func inheritedFields(
 			}
 			seen.Add(f.Name)
 			// Substitution erases the optional type parameter that made it nullable.
-			f.Optional = f.Optional || isOptionalTypeParam(f)
+			f.Optional = f.Optional || isOptionalTypeParam(f.Field)
 			f.Type = resolution.SubstituteTypeRef(f.Type, typeArgs)
 			fields = append(fields, f)
 		}

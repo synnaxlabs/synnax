@@ -2720,6 +2720,69 @@ var _ = Describe("Python type-checking __init__", func() {
 			}`,
 			"value: int", "name: str | None = ...", "rate: float",
 		),
+		Entry(
+			"an inherited collection argument",
+			``,
+			`Parent struct<T> { value T }
+			Child struct extends Parent<record> { rate telem.Rate }`,
+			"value: dict[str, JsonValue]", "rate: float",
+		),
+		Entry(
+			"a collection argument a flattened class redeclares",
+			``,
+			`Parent struct<T> {
+				value T
+				name string
+			}
+			Child struct extends Parent<record> {
+				name string?
+				rate telem.Rate
+			}`,
+			"value: dict[str, JsonValue] = ...", "name: str | None = ...",
+			"rate: float",
+		),
+		Entry(
+			"a flattened class under an ancestor exclusion",
+			``,
+			`Base struct {
+				name string
+				port int32
+			}
+			Parent struct extends Base { -name }
+			Child struct extends Parent {
+				port int32?
+				rate telem.Rate
+			}`,
+			"port: int | None = ...", "rate: float",
+		),
+	)
+
+	It(
+		"Should drop an ancestor's excluded field from a flattened class",
+		func(ctx SpecContext) {
+			source := `
+			import "schemas/telem"
+
+			@py output "client/py/synnax/opcua"
+
+			Base struct {
+				name string
+				port int32
+			}
+			Parent struct extends Base { -name }
+			Child struct extends Parent {
+				port int32?
+				rate telem.Rate
+			}
+		`
+			resp := MustGenerate(ctx, source, "opcua", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").ToContain(
+				`class Parent(Base):
+    name: str = Field(exclude=True)`,
+				`class Child(BaseModel):
+    port: int | None = Field(`,
+			)
+		},
 	)
 
 	It(
