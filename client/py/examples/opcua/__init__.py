@@ -8,3 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 """OPC UA example package."""
+
+from .sim import OPCUASim, OPCUATLSAuthSim, OPCUATLSSim, run_server
+
+__all__ = ["run_server", "OPCUASim", "OPCUATLSSim", "OPCUATLSAuthSim"]

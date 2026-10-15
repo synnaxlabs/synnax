@@ -34,7 +34,7 @@ uv run python -m examples.opcua.server --tls
 To start a TLS-encrypted server with username/password authentication (port 4843):
 
 ```python
-from examples.opcua.server import OPCUATLSAuthSim
+from examples.opcua import OPCUATLSAuthSim
 import synnax as sy
 
 sim = OPCUATLSAuthSim(rate=50 * sy.Rate.HZ)
@@ -326,7 +326,7 @@ on port 4842 with `Basic256Sha256_SignAndEncrypt`. Self-signed certificates for 
 server and client are generated automatically under `examples/opcua/certificates/`.
 
 ```python
-from examples.opcua.server import OPCUATLSSim
+from examples.opcua import OPCUATLSSim
 
 sim = OPCUATLSSim()
 sim.start()  # Starts TLS server on opc.tcp://127.0.0.1:4842/
@@ -340,7 +340,7 @@ encryption. It runs on port 4843 with `Basic256Sha256_SignAndEncrypt` and requir
 credentials (`testuser` / `testpass`).
 
 ```python
-from examples.opcua.server import OPCUATLSAuthSim
+from examples.opcua import OPCUATLSAuthSim
 
 sim = OPCUATLSAuthSim()
 sim.start()  # Starts on opc.tcp://127.0.0.1:4843/

@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from examples.opcua.server import OPCUASim
+from examples.opcua import OPCUASim
 
 import synnax as sy
 from console.task.opcua import OPCUATask

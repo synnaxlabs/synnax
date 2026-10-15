@@ -13,7 +13,7 @@ Each test saves a task with an invalid setting and verifies the driver rejects
 it with an error status when the task is started.
 """
 
-from examples.opcua.server import OPCUASim
+from examples.opcua import OPCUASim
 
 import synnax as sy
 from tests.driver.simulator_case import SimulatorCase

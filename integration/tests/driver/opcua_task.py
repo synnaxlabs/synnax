@@ -11,7 +11,7 @@
 
 from abc import abstractmethod
 
-from examples.opcua.server import OPCUASim
+from examples.opcua import OPCUASim
 
 import synnax as sy
 from tests.driver.simulator_case import SimulatorCase
