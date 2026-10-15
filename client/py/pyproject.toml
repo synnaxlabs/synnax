@@ -67,9 +67,9 @@ select = ["F", "I"]
 known-first-party = ["synnax", "alamos", "freighter", "x"]
 
 [tool.mypy]
+mypy_path = "stubs"
 plugins = ["pydantic.mypy"]
 strict = true
-untyped_calls_exclude = ["pymodbus"]
 
 [[tool.mypy.overrides]]
 module = "nptdms.*"
