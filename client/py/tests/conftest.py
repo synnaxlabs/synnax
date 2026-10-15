@@ -7,9 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from collections.abc import Iterator
+
 import pytest
 
 import synnax as sy
+from tests.proxy import Proxy
 from x.strings import random_name
 
 HOST = "localhost"
@@ -32,6 +35,41 @@ def client() -> sy.Synnax:
         password=PASSWORD,
         secure=False,
     )
+
+
+def _connect(proxy: Proxy) -> sy.Synnax:
+    return sy.Synnax(
+        host="localhost",
+        port=proxy.port,
+        username=USERNAME,
+        password=PASSWORD,
+        secure=False,
+    )
+
+
+@pytest.fixture
+def proxy() -> Iterator[Proxy]:
+    p = Proxy(HOST, PORT)
+    yield p
+    p.close()
+
+
+@pytest.fixture
+def proxied_client(proxy: Proxy) -> sy.Synnax:
+    return _connect(proxy)
+
+
+@pytest.fixture
+def early_proxy() -> Iterator[Proxy]:
+    """A proxy that sends a keep-alive ahead of each streamer's open ack."""
+    p = Proxy(HOST, PORT, inject_keep_alive=True)
+    yield p
+    p.close()
+
+
+@pytest.fixture
+def early_proxied_client(early_proxy: Proxy) -> sy.Synnax:
+    return _connect(early_proxy)
 
 
 @pytest.fixture
