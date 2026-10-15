@@ -9,6 +9,8 @@
 
 from uuid import uuid4
 
+from pydantic import JsonValue
+
 from synnax import device, task
 from synnax.modbus.types_gen import (
     ReadChannel,
@@ -95,15 +97,16 @@ class ReadTask(
         for register channels, with underscores replaced by hyphens.
         """
         dev = device_client.retrieve(key=self.config.device)
-        props = dict(dev.properties) if dev.properties is not None else {}
+        props = dict(dev.properties)
         if "read" not in props:
             props["read"] = {"index": 0, "channels": {}}
+        channels = device.ensure_object(props, "read", "channels")
         for ch in self.config.channels:
             key = f"{_READ_NAME_TYPES[ch.type]}-{ch.address}"
             if hasattr(ch, "data_type"):
                 key += f"-{ch.data_type}"
             key = key.replace("_", "-")
-            props["read"]["channels"][key] = ch.channel
+            channels[key] = ch.channel
         dev.properties = props
         return device_client.create(dev)
 
@@ -154,12 +157,11 @@ class WriteTask(
         the driver converts values based on register type.
         """
         dev = device_client.retrieve(key=self.config.device)
-        props = dict(dev.properties) if dev.properties is not None else {}
-        if "write" not in props:
-            props["write"] = {"channels": {}}
+        props = dict(dev.properties)
+        channels = device.ensure_object(props, "write", "channels")
         for ch in self.config.channels:
             key = f"{_WRITE_NAME_TYPES[ch.type]}-{ch.address}".replace("_", "-")
-            props["write"]["channels"][key] = ch.channel
+            channels[key] = ch.channel
         dev.properties = props
         return device_client.create(dev)
 
@@ -193,7 +195,7 @@ class Device(device.Device):
     ):
         if not key:
             key = str(uuid4())
-        props = {
+        props: dict[str, JsonValue] = {
             "connection": {
                 "host": host,
                 "port": port,

@@ -417,9 +417,32 @@ var _ = Describe("Python Types Plugin", func() {
 				Entry(
 					"record",
 					"record",
-					"dict[str, Any] = Field(default_factory=dict)",
+					"dict[str, JsonValue] = Field(default_factory=dict)",
 				),
 				Entry("bytes", "bytes", "bytes"),
+				Entry("any", "any", "JsonValue"),
+			)
+
+			It(
+				"Should import JsonValue from pydantic instead of Any",
+				func(ctx SpecContext) {
+					source := `
+					@py output "out"
+
+					Test struct {
+						props record
+						value any
+					}
+				`
+					resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(
+							`from pydantic import BaseModel, JsonValue`,
+							`props: dict[str, JsonValue]`,
+							`value: JsonValue`,
+						).
+						ToNotContain(`Any`)
+				},
 			)
 		})
 
@@ -603,7 +626,7 @@ var _ = Describe("Python Types Plugin", func() {
 				content := MustContentOf(resp, "types_gen.py")
 				Expect(
 					content,
-				).To(ContainSubstring(`args: dict[str, Any] = Field(default_factory=dict)`))
+				).To(ContainSubstring(`args: dict[str, JsonValue] = Field(default_factory=dict)`))
 			},
 		)
 
@@ -1347,7 +1370,7 @@ var _ = Describe("Python Types Plugin", func() {
 					resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
-							`V = TypeVar("V", bound=dict[str, Any])`,
+							`V = TypeVar("V", bound=dict[str, JsonValue])`,
 							`class Container(BaseModel, Generic[V]):`,
 							`value: V`,
 						)
@@ -1368,11 +1391,33 @@ var _ = Describe("Python Types Plugin", func() {
 					resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
-							`Details = TypeVar("Details")`,
+							`from typing_extensions import TypeVar`,
+							`from pydantic import BaseModel, JsonValue`,
+							`Details = TypeVar("Details", default=JsonValue)`,
 							`class Status(BaseModel, Generic[Details]):`,
 							`details: Details | None = None`,
 						).
-						ToNotContain(`from typing_extensions import`)
+						ToNotContain(`from typing import Generic, TypeVar`)
+				},
+			)
+
+			It(
+				"Should default an optional bounded type param to its bound",
+				func(ctx SpecContext) {
+					source := `
+					@py output "out"
+
+					Box struct<T? extends string> {
+						value T
+					}
+				`
+					resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(
+							`from typing_extensions import TypeVar`,
+							`T = TypeVar("T", bound=str, default=str)`,
+						).
+						ToNotContain(`JsonValue`)
 				},
 			)
 
@@ -1389,7 +1434,7 @@ var _ = Describe("Python Types Plugin", func() {
 					resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
 					content := MustContentOf(resp, "types_gen.py")
 					Expect(content).To(ContainSubstring(`class Task(BaseModel):`))
-					Expect(content).To(ContainSubstring(`config: dict[str, Any]`))
+					Expect(content).To(ContainSubstring(`config: dict[str, JsonValue]`))
 				},
 			)
 
@@ -1412,7 +1457,7 @@ var _ = Describe("Python Types Plugin", func() {
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
 							`class Status(BaseModel, Generic[D]):`,
-							`class TaskStatus(Status[dict[str, Any]]):`,
+							`class TaskStatus(Status[dict[str, JsonValue]]):`,
 							`task_key: UUID`,
 						)
 				},
@@ -1806,6 +1851,27 @@ ChannelStatus = status.Status<nil>
 			})
 		})
 
+		It(
+			"Should reject same-named type params with different defaults",
+			func(ctx SpecContext) {
+				source := `
+					@py output "out"
+
+					Required struct<T> {
+						value T
+					}
+
+					Optional struct<T?> {
+						value T
+					}
+				`
+				req := MustGenerateRequest(ctx, source, "api", loader)
+				Expect(typesPlugin.Generate(req)).Error().To(MatchError(
+					ContainSubstring("type parameter T of Optional conflicts"),
+				))
+			},
+		)
+
 		Context("constrained type param with comparable", func() {
 			It(
 				"Should not emit a bound and should not import Any",
@@ -1821,10 +1887,11 @@ ChannelStatus = status.Status<nil>
 					resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
+							`from typing import Generic, TypeVar`,
 							`R = TypeVar("R")`,
 							`class State(BaseModel, Generic[R]):`,
 						).
-						ToNotContain(`Any`)
+						ToNotContain(`Any`, `typing_extensions`)
 				},
 			)
 		})
@@ -2196,7 +2263,7 @@ var _ = Describe("Collection type aliases and maps", func() {
 	)
 
 	It(
-		"Should render a map<string, record> field as a dict[str, dict[str, Any]]",
+		"Should render a map<string, record> field as a dict[str, dict[str, JsonValue]]",
 		func(ctx SpecContext) {
 			loader := NewMockFileLoader()
 			typesPlugin := types.New(types.DefaultOptions())
@@ -2209,7 +2276,7 @@ var _ = Describe("Collection type aliases and maps", func() {
 		`
 			resp := MustGenerate(ctx, source, "graph", loader, typesPlugin)
 			ExpectContent(resp, "types_gen.py").ToContain(
-				"configs: dict[str, dict[str, Any]] = Field(default_factory=dict)",
+				"configs: dict[str, dict[str, JsonValue]] = Field(default_factory=dict)",
 			)
 		},
 	)
@@ -2228,7 +2295,7 @@ var _ = Describe("Collection type aliases and maps", func() {
 		`
 			resp := MustGenerate(ctx, source, "graph", loader, typesPlugin)
 			ExpectContent(resp, "types_gen.py").ToContain(
-				"configs: dict[str, dict[str, Any]] = Field(default_factory=dict)",
+				"configs: dict[str, dict[str, JsonValue]] = Field(default_factory=dict)",
 			)
 		},
 	)

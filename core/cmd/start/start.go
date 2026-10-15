@@ -355,15 +355,15 @@ func BootupCore(
 	}
 
 	licenseInfo := serviceLayer.License.Retrieve()
-	covered := licenseInfo.State == license.StateOk
+	expired := licenseInfo.State == license.StateExpired
 	if embeddedDriver, err := driver.Open(
 		ctx,
 		driver.Config{
 			Enabled:  new(!*cfg.noDriver),
 			Insecure: cfg.insecure,
-			// An unlicensed Core refuses the Driver's rack, so the Driver retries in
-			// the background.
-			Detached: new(!covered),
+			// An expired Core refuses the Driver's rack, so the Driver retries in the
+			// background.
+			Detached: new(expired),
 			Integrations: parseIntegrations(
 				cfg.enabledIntegrations,
 				cfg.disabledIntegrations,
@@ -389,7 +389,7 @@ func BootupCore(
 		"\033[32mSynnax is running and available at %v \033[0m",
 		cfg.listeners.AdvertiseAddress(),
 	)
-	if !covered {
+	if licenseInfo.State != license.StateOk {
 		scheme := "https"
 		if *cfg.insecure {
 			scheme = "http"
