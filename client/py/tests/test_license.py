@@ -19,13 +19,13 @@ import synnax as sy
 class TestLicenseClient:
     """Tests for the license client."""
 
-    def test_retrieve(self, client: sy.Synnax):
+    def test_retrieve(self, client: sy.Synnax) -> None:
         """Should report the Core's license state and host fingerprint."""
         info = client.license.retrieve()
         assert all(re.fullmatch(r"[0-9a-f]{64}", h) for h in info.fingerprint)
         assert (info.license is None) == (info.state == "missing")
 
-    def test_activate_invalid_key(self, client: sy.Synnax):
+    def test_activate_invalid_key(self, client: sy.Synnax) -> None:
         """Should refuse a license key that cannot be verified."""
         with pytest.raises(sy.InvalidLicense):
             client.license.activate("not-a-license-key")
@@ -42,7 +42,7 @@ class TestLicenseClient:
             ("sy.license.unknown", sy.LicenseError),
         ],
     )
-    def test_decode(self, type_: str, exc: type[sy.LicenseError]):
+    def test_decode(self, type_: str, exc: type[sy.LicenseError]) -> None:
         """Should decode each license error type the Core sends."""
         err = freighter.decode_exception(
             freighter.ExceptionPayload(type=type_, data="refused")

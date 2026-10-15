@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from datetime import datetime
+from typing import TypedDict
 
 import numpy as np
 
@@ -29,7 +30,15 @@ test_time_channel_2 = client.channels.create(
     retrieve_if_name_exists=True,
 )
 
-test_channel_information = [
+
+class ChannelGroup(TypedDict):
+    name: str
+    count: int
+    data_type: sy.DataType
+    time_channel: int
+
+
+test_channel_information: list[ChannelGroup] = [
     {
         "name": "daq_4189_pressure",
         "count": 10,

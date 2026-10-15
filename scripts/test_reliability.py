@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import ast
 import subprocess
 from pathlib import Path
 
@@ -15,6 +16,7 @@ import pytest
 from reliability import (
     JOB_NAME,
     Cases,
+    auto_pass,
     enumerate_tests,
     integration_sources,
     os_of,
@@ -200,6 +202,28 @@ class TestCases:
     def test_should_reject_a_name_matching_no_class(self) -> None:
         with pytest.raises(ValueError, match="no class for driver/ni › ni"):
             Cases(CASES).resolve("driver/ni", "ni")
+
+
+class TestAutoPass:
+    """Auto-pass messages read from a platform gate."""
+
+    @pytest.mark.parametrize(
+        ("msg", "reason"),
+        [
+            ('"Windows only"', "Windows only"),
+            ("5", "Auto-passed"),
+            ("None", "Auto-passed"),
+        ],
+    )
+    def test_should_read_a_string_message_and_fall_back_otherwise(
+        self, msg: str, reason: str
+    ) -> None:
+        node = ast.parse(
+            'if platform.system().lower() != "windows":\n'
+            f"    self.auto_pass(msg={msg})\n"
+        ).body[0]
+        assert isinstance(node, ast.If)
+        assert auto_pass(node, "linux") == reason
 
 
 class TestOsOf:

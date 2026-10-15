@@ -301,9 +301,9 @@ class StarterStopperMixin:
             self.stop(timeout)
 
 
-class JSONConfigMixin(Protocol):
+class JSONConfigMixin[C: BaseModel](Protocol):
     _internal: Task
-    config: BaseModel
+    config: C
 
     @property
     def name(self) -> str:
@@ -383,8 +383,6 @@ class Client:
         if tasks is None:
             if key is None:
                 key = uuid4()
-            elif isinstance(key, str):
-                key = UUID(key)
             payloads = [
                 Payload(key=key, rack=rack, name=name, type=type, config=config or {})
             ]
@@ -447,13 +445,30 @@ class Client:
     @overload
     def retrieve(
         self,
-        key: None = None,
-        name: None = None,
-        type: None = None,
-        names: list[str] | None = None,
+        *,
+        names: list[str],
         keys: list[Key] | None = None,
         types: list[str] | None = None,
+        include_status: bool = False,
+    ) -> list[Task]: ...
+
+    @overload
+    def retrieve(
+        self,
         *,
+        names: None = None,
+        keys: list[Key],
+        types: list[str] | None = None,
+        include_status: bool = False,
+    ) -> list[Task]: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        names: None = None,
+        keys: None = None,
+        types: list[str],
         include_status: bool = False,
     ) -> list[Task]: ...
 

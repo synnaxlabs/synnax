@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Generic, NotRequired, TypedDict, cast
+from typing import Any, Generic, NotRequired, TypedDict, cast, overload
 
 from synnax.cli.console.protocol import Print, Prompt, R
 from synnax.exceptions import ValidationError
@@ -56,6 +56,44 @@ class SugaredConsole:
         if self.enabled:
             self.print.table(columns, rows)
 
+    @overload
+    def ask(
+        self,
+        question: str,
+        type_: type[R] | None = None,
+        choices: list[R] | None = None,
+        password: bool = False,
+        *,
+        default: None,
+        arg: R | None = None,
+        arg_name: str | None = None,
+    ) -> R | None: ...
+
+    @overload
+    def ask(
+        self,
+        question: str,
+        type_: type[R] | None = None,
+        choices: list[R] | None = None,
+        password: bool = False,
+        *,
+        default: R,
+        arg: R | None = None,
+        arg_name: str | None = None,
+    ) -> R: ...
+
+    @overload
+    def ask(
+        self,
+        question: str,
+        type_: type[R] | None = None,
+        choices: list[R] | None = None,
+        password: bool = False,
+        *,
+        arg: R | None = None,
+        arg_name: str | None = None,
+    ) -> R: ...
+
     def ask(
         self,
         question: str,
@@ -64,21 +102,24 @@ class SugaredConsole:
         password: bool = False,
         **kwargs: Any,
     ) -> R | None:
+        """Asks the user a question. Asks again until the user gives a value, unless
+        a default is given.
+        """
         v, default, should_return, has_default = self._validate(kwargs)
         if should_return:
             return cast(R, v)
-        v = self.prompt.ask(
-            question=question,
-            type_=type_,
-            choices=choices,
-            default=default,
-            password=password,
-        )
-        if v is not None or has_default:
-            return v
-        if self.print is not None:
-            self.print.error("You must provide a value.")
-        return self.ask(question, type_, choices, **kwargs)
+        while True:
+            v = self.prompt.ask(
+                question=question,
+                type_=type_,
+                choices=choices,
+                default=default,
+                password=password,
+            )
+            if v is not None or has_default:
+                return v
+            if self.print is not None:
+                self.print.error("You must provide a value.")
 
     def _validate(self, kwargs: dict[str, Any]) -> tuple[Any, Any, bool, bool]:
         has_default = "default" in kwargs
