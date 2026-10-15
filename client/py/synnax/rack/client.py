@@ -34,7 +34,7 @@ class _RetrieveRequest(BaseModel):
     keys: list[int] | None = None
     names: list[str] | None = None
     integration: str | None = None
-    search: str | None = None
+    search_term: str | None = None
     embedded: bool | None = None
     host_is_node: bool | None = None
     offset: int | None = None
