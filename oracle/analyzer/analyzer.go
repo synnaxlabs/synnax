@@ -2034,7 +2034,19 @@ func typeParamsOf(form resolution.TypeForm) []resolution.TypeParam {
 }
 
 func validateTypeParams(c *analysisCtx, typ resolution.Type) {
+	var omittable string
 	for _, tp := range typeParamsOf(typ.Form) {
+		if tp.Default != nil || tp.Optional {
+			omittable = tp.Name
+		} else if omittable != "" {
+			c.report(diagnostics.Errorf(
+				nil,
+				"required type parameter %s of %s cannot follow optional or defaulted type parameter %s",
+				tp.Name,
+				typ.Name,
+				omittable,
+			))
+		}
 		if tp.Constraint == nil {
 			continue
 		}
