@@ -1402,6 +1402,26 @@ var _ = Describe("Python Types Plugin", func() {
 			)
 
 			It(
+				"Should default an optional bounded type param to its bound",
+				func(ctx SpecContext) {
+					source := `
+					@py output "out"
+
+					Box struct<T? extends string> {
+						value T
+					}
+				`
+					resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(
+							`from typing_extensions import TypeVar`,
+							`T = TypeVar("T", bound=str, default=str)`,
+						).
+						ToNotContain(`JsonValue`)
+				},
+			)
+
+			It(
 				"Should skip type params with defaults in Generic[]",
 				func(ctx SpecContext) {
 					source := `
