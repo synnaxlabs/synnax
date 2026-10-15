@@ -76,10 +76,6 @@ _TASK_STATE_CHANNEL = "sy_status_set"
 _TASK_CMD_CHANNEL = "sy_task_cmd"
 
 
-def _parse_key(key: Key | str) -> Key:
-    return key if isinstance(key, UUID) else UUID(key)
-
-
 class _Keyed(BaseProtocol):
     key: str
 
@@ -109,7 +105,7 @@ class Task:
     def __init__(
         self,
         *,
-        key: Key | str | None = None,
+        key: Key | None = None,
         rack: int = 0,
         name: str = "",
         type: str = "",
@@ -120,11 +116,7 @@ class Task:
         internal: bool = False,
         _frame_client: FrameClient | None = None,
     ):
-        if key is None:
-            key = uuid4()
-        elif isinstance(key, str):
-            key = UUID(key)
-        self.key = key
+        self.key = uuid4() if key is None else key
         self.rack = rack
         self.name = name
         self.type = type
@@ -360,7 +352,7 @@ class Client:
     def create(
         self,
         *,
-        key: Key | str | None = None,
+        key: Key | None = None,
         name: str = "",
         type: str = "",
         config: dict[str, Any] | BaseModel | None = None,
@@ -377,7 +369,7 @@ class Client:
         self,
         tasks: Task | list[Task] | None = None,
         *,
-        key: Key | str | None = None,
+        key: Key | None = None,
         name: str = "",
         type: str = "",
         config: dict[str, Any] | BaseModel | None = None,
@@ -438,15 +430,14 @@ class Client:
         task.set_internal(self.sugar(tasks)[0])
         return task
 
-    def delete(self, keys: Key | str | Sequence[Key | str]) -> None:
-        key_list = [keys] if isinstance(keys, (UUID, str)) else keys
-        req = _DeleteRequest(keys=[_parse_key(k) for k in key_list])
+    def delete(self, keys: Key | Sequence[Key]) -> None:
+        req = _DeleteRequest(keys=[keys] if isinstance(keys, UUID) else list(keys))
         self._client.send("/task/delete", req, Empty)
 
     @overload
     def retrieve(
         self,
-        key: Key | str | None = None,
+        key: Key | None = None,
         name: str | None = None,
         type: str | None = None,
         *,
@@ -460,7 +451,7 @@ class Client:
         name: None = None,
         type: None = None,
         names: list[str] | None = None,
-        keys: list[Key | str] | None = None,
+        keys: list[Key] | None = None,
         types: list[str] | None = None,
         *,
         include_status: bool = False,
@@ -468,11 +459,11 @@ class Client:
 
     def retrieve(
         self,
-        key: Key | str | None = None,
+        key: Key | None = None,
         name: str | None = None,
         type: str | None = None,
         names: list[str] | None = None,
-        keys: list[Key | str] | None = None,
+        keys: list[Key] | None = None,
         types: list[str] | None = None,
         *,
         include_status: bool = False,
@@ -483,11 +474,10 @@ class Client:
             back with a null status when false.
         """
         is_single = check_for_none(names, keys, types)
-        raw_keys = [key] if key is not None else keys
         res = self._client.send(
             "/task/retrieve",
             _RetrieveRequest(
-                keys=None if raw_keys is None else [_parse_key(k) for k in raw_keys],
+                keys=override(key, keys),
                 names=override(name, names),
                 types=override(type, types),
                 include_status=include_status,
@@ -546,7 +536,7 @@ class Client:
 
     def copy(
         self,
-        key: Key | str,
+        key: Key,
         name: str,
     ) -> Task:
         """Copies an existing task with a new name.
@@ -555,6 +545,6 @@ class Client:
         :param name: The name for the new task.
         :return: The newly created task.
         """
-        req = _CopyRequest(key=_parse_key(key), name=name, snapshot=False)
+        req = _CopyRequest(key=key, name=name, snapshot=False)
         res = self._client.send(_COPY_ENDPOINT, req, _CopyResponse)
         return self.sugar([res.task])[0]

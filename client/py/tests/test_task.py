@@ -37,18 +37,11 @@ class TestTaskClient:
         assert res.name == name
         assert res.key == task.key
 
-    def test_delete_by_string_key(self, client: sy.Synnax):
-        """Should delete a task whose key is given as a string."""
-        task = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
-        client.tasks.delete(str(task.key))
-        with pytest.raises(sy.NotFoundError):
-            client.tasks.retrieve(key=task.key)
-
-    def test_delete_mixed_keys(self, client: sy.Synnax) -> None:
-        """Should delete tasks from a tuple that mixes UUID and string keys."""
+    def test_delete_multiple(self, client: sy.Synnax) -> None:
+        """Should delete every task in a tuple of keys."""
         t1 = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
         t2 = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
-        client.tasks.delete((t1.key, str(t2.key)))
+        client.tasks.delete((t1.key, t2.key))
         for key in (t1.key, t2.key):
             with pytest.raises(sy.NotFoundError):
                 client.tasks.retrieve(key=key)
