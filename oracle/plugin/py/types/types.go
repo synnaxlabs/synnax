@@ -555,12 +555,15 @@ func processStruct(
 			tpd := processTypeParam(tp, table, data)
 			sd.TypeParams = append(sd.TypeParams, tpd)
 			tvd := typeVarData{Name: tp.Name, Constraint: tpd.Constraint}
-			// An omitted optional type argument means arbitrary JSON. TypeVar
-			// defaults need typing_extensions on Python 3.12.
+			// An omitted optional type argument means its bound, or arbitrary JSON when
+			// unbounded. TypeVar defaults need typing_extensions on Python 3.12.
 			if tp.Optional {
-				data.imports.addPydantic("JsonValue")
 				data.imports.typeVarDefault = true
-				tvd.Default = "JsonValue"
+				tvd.Default = tpd.Constraint
+				if tvd.Default == "" {
+					data.imports.addPydantic("JsonValue")
+					tvd.Default = "JsonValue"
+				}
 			}
 			// TypeVars are module-level, so structs in one file share them by name.
 			existing, found := lo.Find(
