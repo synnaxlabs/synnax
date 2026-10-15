@@ -2757,6 +2757,85 @@ var _ = Describe("Python type-checking __init__", func() {
 		),
 	)
 
+	DescribeTable(
+		"Should type a union variant's parameters as its class exposes them",
+		func(ctx SpecContext, source string, params ...string) {
+			resp := MustGenerate(ctx, `import "schemas/telem"
+			@py output "client/py/synnax/opcua"
+			`+source, "opcua", loader, typesPlugin)
+			content := MustContentOf(resp, "types_gen.py")
+			lines := make([]string, len(params))
+			for i, p := range params {
+				lines[i] = "            " + p + ","
+			}
+			Expect(content).To(ContainSubstring(
+				"            *,\n" + strings.Join(lines, "\n") + "\n        ) -> None",
+			))
+		},
+		Entry(
+			"an inline variant inheriting a parent with an exclusion",
+			`Base struct {
+				name string
+				port int32
+			}
+			Parent struct extends Base { -name }
+			Field union on type {
+				read extends Parent {
+					port int32?
+					rate telem.Rate
+				}
+			}`,
+			`type: Literal["read"] = ...`, "name: str", "port: int | None = ...",
+			"rate: float",
+		),
+		Entry(
+			"an inline variant excluding a parent field",
+			`Base struct {
+				name string
+				port int32
+			}
+			Field union on type {
+				read extends Base {
+					-name
+					rate telem.Rate
+				}
+			}`,
+			`type: Literal["read"] = ...`, "port: int", "rate: float",
+		),
+		Entry(
+			"an inline variant with a generic parent",
+			`Parent struct<T> { value T }
+			Field union on type {
+				read extends Parent<int32> { rate telem.Rate }
+			}`,
+			`type: Literal["read"] = ...`, "value: int", "rate: float",
+		),
+		Entry(
+			"a variant payload that flattens its parent",
+			`Base struct {
+				name string
+				port int32
+			}
+			Payload struct extends Base {
+				port int32?
+				rate telem.Rate
+			}
+			Field union on type {
+				read Payload
+			}`,
+			`type: Literal["read"] = ...`, "name: str", "port: int | None = ...",
+			"rate: float",
+		),
+		Entry(
+			"a union extending a generic base",
+			`Base struct<T> { value T }
+			Field union on type extends Base<int32> {
+				read { rate telem.Rate }
+			}`,
+			`type: Literal["read"] = ...`, "value: int", "rate: float",
+		),
+	)
+
 	It(
 		"Should drop an ancestor's excluded field from a flattened class",
 		func(ctx SpecContext) {
