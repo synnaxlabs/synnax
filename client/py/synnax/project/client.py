@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 from typing import overload
-from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -39,7 +38,6 @@ class _RenameRequest(BaseModel):
 class _RetrieveRequest(BaseModel):
     keys: list[Key] | None = None
     search_term: str | None = None
-    author: UUID | None = None
     limit: int | None = None
     offset: int | None = None
 
@@ -126,7 +124,6 @@ class Client:
         *,
         keys: list[Key] | None = None,
         search_term: str | None = None,
-        author: UUID | None = None,
         limit: int | None = None,
         offset: int | None = None,
     ) -> list[Project]: ...
@@ -137,7 +134,6 @@ class Client:
         key: Key | None = None,
         keys: list[Key] | None = None,
         search_term: str | None = None,
-        author: UUID | None = None,
         limit: int | None = None,
         offset: int | None = None,
     ) -> Project | list[Project]:
@@ -147,7 +143,6 @@ class Client:
             project is returned and NotFoundError is raised if it does not exist.
         :param keys: The keys of the projects to retrieve.
         :param search_term: A fuzzy search term matched against project names.
-        :param author: Restrict results to projects created by this user.
         :param limit: The maximum number of projects to return.
         :param offset: The number of projects to skip before returning results.
         :returns: The matching project when ``key`` is provided, otherwise a list of
@@ -162,7 +157,6 @@ class Client:
             _RetrieveRequest(
                 keys=keys,
                 search_term=search_term,
-                author=author,
                 limit=limit,
                 offset=offset,
             ),
