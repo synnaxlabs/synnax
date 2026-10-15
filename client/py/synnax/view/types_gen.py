@@ -11,10 +11,10 @@
 
 from __future__ import annotations
 
-from typing import Any, TypeAlias
+from typing import TypeAlias
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, JsonValue
 
 from synnax.ontology.payload import ID
 
@@ -36,7 +36,7 @@ class View(BaseModel):
     key: Key = Field(default_factory=uuid4)
     name: str
     type: str
-    query: dict[str, Any] = Field(default_factory=dict)
+    query: dict[str, JsonValue] = Field(default_factory=dict)
 
     def __hash__(self) -> int:
         return hash(self.key)

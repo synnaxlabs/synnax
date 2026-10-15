@@ -11,10 +11,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated, Any, Literal, Union
-from uuid import UUID, uuid4
+from typing import Annotated, Literal, Union
+from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, JsonValue
 
 from synnax import channel as channel_
 from synnax import device as device_
@@ -129,16 +129,6 @@ class BaseWriteField(BaseModel):
 class ScanConfig(task.ScanConfig):
     """Configures an HTTP scan task."""
 
-    if TYPE_CHECKING:
-
-        def __init__(
-            _self,
-            *,
-            key: UUID = ...,
-            rate: float = ...,
-            disabled: bool = ...,
-        ) -> None: ...
-
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -166,21 +156,6 @@ class ReadField(BaseModel):
     data_type: telem.DataType = telem.DataType("float64")
     time_format: TimeFormat | None = None
     enum_values: list[EnumEntry] = Field(default_factory=list)
-
-    if TYPE_CHECKING:
-
-        def __init__(
-            _self,
-            *,
-            key: str = ...,
-            name: str = ...,
-            disabled: bool = ...,
-            channel: channel_.Key = ...,
-            pointer: str = ...,
-            data_type: str = ...,
-            time_format: TimeFormat | None = ...,
-            enum_values: list[EnumEntry] = ...,
-        ) -> None: ...
 
     def __hash__(self) -> int:
         return hash(self.key)
@@ -211,27 +186,13 @@ class ChannelField(BaseModel):
     time_format: TimeFormat | None = None
     enum_values: list[EnumEntry] = Field(default_factory=list)
 
-    if TYPE_CHECKING:
-
-        def __init__(
-            _self,
-            *,
-            pointer: str = ...,
-            json_type: JSONType = ...,
-            channel: channel_.Key = ...,
-            name: str = ...,
-            data_type: str = ...,
-            time_format: TimeFormat | None = ...,
-            enum_values: list[EnumEntry] = ...,
-        ) -> None: ...
-
 
 class StaticWriteField(BaseWriteField):
     """Places a fixed value in the request body."""
 
     type: Literal["static"] = "static"
     json_type: JSONType = "number"
-    value: Any
+    value: JsonValue
 
 
 class GeneratedWriteField(BaseWriteField):
@@ -322,20 +283,6 @@ class ReadConfig(task.PersistConfig):
     rate: telem.Rate = telem.Rate(1)
     endpoints: list[ReadEndpoint] = Field(default_factory=list)
     nan_fill_enabled: bool = False
-
-    if TYPE_CHECKING:
-
-        def __init__(
-            _self,
-            *,
-            key: UUID = ...,
-            auto_start: bool = ...,
-            data_saving_disabled: bool = ...,
-            device: device_.Key = ...,
-            rate: float = ...,
-            endpoints: list[ReadEndpoint] = ...,
-            nan_fill_enabled: bool = ...,
-        ) -> None: ...
 
     def __hash__(self) -> int:
         return hash(self.key)

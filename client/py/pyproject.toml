@@ -27,6 +27,7 @@ dependencies = [
     "pydantic>=2.13.5,<3",
     "rich>=15.0.0,<16",
     "urllib3>=2.8.0,<3",
+    "typing-extensions>=4.16.0,<5",
 ]
 
 [project.scripts]

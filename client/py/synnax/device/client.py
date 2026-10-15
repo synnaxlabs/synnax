@@ -9,7 +9,8 @@
 
 from typing import Any, Literal, overload
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, JsonValue
+from pydantic_core import to_jsonable_python
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
@@ -98,10 +99,9 @@ class Client:
         properties: dict[str, Any] | None = None,
     ) -> Device | list[Device]:
         is_single = not isinstance(devices, list)
-        if properties is None:
-            properties = dict()
-        elif isinstance(properties, BaseModel):
-            properties = properties.model_dump()
+        json_properties: dict[str, JsonValue] = (
+            to_jsonable_python(properties) if properties is not None else {}
+        )
         if devices is None:
             devices = [
                 Device(
@@ -113,7 +113,7 @@ class Client:
                     model=model,
                     configured=configured,
                     parent=parent,
-                    properties=properties if properties is not None else {},
+                    properties=json_properties,
                 )
             ]
         req = _CreateRequest(devices=normalize(devices))
