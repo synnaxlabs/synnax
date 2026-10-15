@@ -42,7 +42,7 @@ data_channel = client.channels.create(
 TO_READ = ["time_ch_1", "time_ch_2", "data_ch_1", "data_ch_2"]
 
 # Create a dictionary to store the latest values of each channel.
-current_values = dict()
+current_values: dict[int | str, float] = dict()
 
 with client.open_writer(
     start=sy.TimeStamp.now(),
@@ -50,11 +50,11 @@ with client.open_writer(
 ) as writer:
     with client.open_streamer(TO_READ) as streamer:
         for frame in streamer:
-            time = frame["time_ch_1"][-1]
+            time = frame["time_ch_1"].to_numpy()[-1]
 
             # Store the latest values in state.
-            for k, _ in frame.items():
-                current_values[k] = frame[k][-1]
+            for k, series in frame.items():
+                current_values[k] = float(series.to_numpy()[-1])
 
             # If we don't have values for all channels, skip this iteration.
             if len(current_values.items()) < 4:
