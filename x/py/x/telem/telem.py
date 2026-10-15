@@ -31,6 +31,30 @@ def _timedelta_nanoseconds(delta: timedelta) -> int:
     ) * 1_000
 
 
+_TIMEDELTA64_UNIT_NANOSECONDS = {
+    "W": 604_800 * 10**9,
+    "D": 86_400 * 10**9,
+    "h": 3_600 * 10**9,
+    "m": 60 * 10**9,
+    "s": 10**9,
+    "ms": 10**6,
+    "us": 10**3,
+    "ns": 1,
+}
+
+
+def _timedelta64_nanoseconds(delta: np.timedelta64) -> int:
+    if np.isnat(delta):
+        raise ValueError("Cannot convert NaT to TimeSpan")
+    unit, count = np.datetime_data(delta.dtype)
+    if unit not in _TIMEDELTA64_UNIT_NANOSECONDS:
+        return int(delta.astype("timedelta64[ns]").astype(np.int64))
+    ns = int(delta.astype(np.int64)) * count * _TIMEDELTA64_UNIT_NANOSECONDS[unit]
+    if not -(2**63) <= ns < 2**63:
+        raise ValueError(f"{delta} does not fit in a 64-bit TimeSpan")
+    return ns
+
+
 class TimeStamp(int):
     """TimeStamp represents a 64 bit nanosecond-precision UTC timestamp. The TimeStamp
     constructor accepts a variety of types and will attempt to convert them to a
@@ -215,9 +239,7 @@ class TimeSpan(int):
         elif isinstance(value, timedelta):
             value = _timedelta_nanoseconds(value)
         elif isinstance(value, np.timedelta64):
-            if np.isnat(value):
-                raise ValueError("Cannot convert NaT to TimeSpan")
-            value = int(value.astype("timedelta64[ns]").astype(np.int64))
+            value = _timedelta64_nanoseconds(value)
         elif not isinstance(value, (int, float, np.floating, np.integer)):
             raise TypeError(f"Cannot convert {type(value)} to TimeSpan")
         return super().__new__(cls, value)
