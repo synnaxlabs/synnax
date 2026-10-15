@@ -597,7 +597,7 @@ class TaskCase(TestCase, Generic[TaskT]):
             raise AssertionError(f"Task {task_key} does not exist (Exception): {e}")
         return task
 
-    def assert_task_deleted(self, *, task_key: str) -> None:
+    def assert_task_deleted(self, *, task_key: sy.task.Key) -> None:
         """Assert that a task has been deleted from Synnax."""
         try:
             self.client.tasks.retrieve(task_key)
