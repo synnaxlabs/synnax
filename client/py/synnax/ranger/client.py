@@ -23,6 +23,7 @@ from freighter import UnaryClient
 from synnax import framer
 from synnax.channel.retrieve import Retriever as ChannelRetriever
 from synnax.exceptions import QueryError
+from synnax.framer.frame import K
 from synnax.ontology import Client as OntologyClient
 from synnax.ontology.payload import ID
 from synnax.ranger import alias as alias_
@@ -45,6 +46,7 @@ from synnax.telem import (
     SampleValue,
     TimeRange,
 )
+from x.color import Color
 from x.interop import ArrayOperators
 from x.lists import check_for_none, normalize
 from x.params import require_named_params
@@ -248,7 +250,7 @@ class Range(Payload):
         name: str,
         time_range: TimeRange,
         key: UUID = UUID(int=0),
-        color: str = "",
+        color: str | None = "",
         parent: Range | Payload | None = None,
         *,
         _frame_client: framer.Client | None = None,
@@ -294,7 +296,7 @@ class Range(Payload):
             name=name,
             time_range=time_range,
             key=key,
-            color=color,
+            color=None if color is None else Color(color),
             parent=parent_payload,
         )
         self._cached_frame_client = _frame_client
@@ -434,16 +436,16 @@ class Range(Payload):
     ) -> None: ...
 
     @overload
-    def write(self, channels: framer.CrudeFrame) -> None: ...
+    def write(self, channels: framer.CrudeFrame[K]) -> None: ...
 
     def write(
         self,
-        channels: channel.Params | framer.CrudeFrame,
+        channels: channel.Params | framer.CrudeFrame[K],
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> None:
         start = self.time_range.start
         if series is None:
-            self._frame_client.write(start, cast(framer.CrudeFrame, channels))
+            self._frame_client.write(start, cast(framer.CrudeFrame[K], channels))
             return
         if not isinstance(channels, (int, str, list, tuple, channel.Payload)):
             raise TypeError(

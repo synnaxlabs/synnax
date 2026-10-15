@@ -2469,6 +2469,7 @@ dependencies = [
     { name = "rich" },
     { name = "synnax-freighter" },
     { name = "synnax-x" },
+    { name = "typing-extensions" },
     { name = "urllib3" },
 ]
 
@@ -2499,6 +2500,7 @@ requires-dist = [
     { name = "rich", specifier = ">=15.0.0,<16" },
     { name = "synnax-freighter", editable = "freighter/py" },
     { name = "synnax-x", editable = "x/py" },
+    { name = "typing-extensions", specifier = ">=4.16.0,<5" },
     { name = "urllib3", specifier = ">=2.8.0,<3" },
 ]
 
