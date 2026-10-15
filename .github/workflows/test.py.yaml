@@ -48,7 +48,7 @@ on:
         type: boolean
         default: true
       type_check_dir:
-        description: The directory mypy checks, relative to the package
+        description: The directories mypy checks, relative to the package
         required: false
         type: string
         default: "."
