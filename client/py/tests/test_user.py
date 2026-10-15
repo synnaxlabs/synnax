@@ -74,6 +74,11 @@ class TestUserClient:
         )
         client.users.delete(user.key)
 
+    def test_create_params_without_password(self, client: sy.Synnax):
+        """Should reject a username with no password."""
+        with pytest.raises(ValueError):
+            client.users.create(username=str(uuid()))
+
     def test_create_user(self, client: sy.Synnax, new_user):
         repeated_user = client.users.create(user=new_user)
         compare_users(repeated_user, new_user)
