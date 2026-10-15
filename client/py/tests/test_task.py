@@ -38,6 +38,13 @@ class TestTaskClient:
         assert res.name == name
         assert res.key == task.key
 
+    def test_delete_by_string_key(self, client: sy.Synnax):
+        """Should delete a task whose key is given as a string."""
+        task = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
+        client.tasks.delete(str(task.key))
+        with pytest.raises(sy.NotFoundError):
+            client.tasks.retrieve(key=task.key)
+
     def test_retrieve_by_type(self, client: sy.Synnax):
         # Task types are a fixed, registered set, so the filter cannot be made unique
         # the way the name and model tests do. Assert membership instead of identity.

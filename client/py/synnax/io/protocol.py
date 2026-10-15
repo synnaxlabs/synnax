@@ -100,6 +100,13 @@ class BaseReader(File, Protocol):
         """Seeks the reader to the first sample in the file."""
         ...
 
+    def set_chunk_size(self, chunk_size: int) -> None:
+        """Set the chunk size for the reader. It's generally unsafe to assume the reader
+        position after calling set_chunk_size, so it's recommended to call reset
+        afterwards.
+        """
+        ...
+
 
 class RowFileReader(BaseReader, Protocol):
     """Row readers implement a strategy that reads a file row.py by row.py. Because Synnax
@@ -107,13 +114,6 @@ class RowFileReader(BaseReader, Protocol):
     only be used when files cannot be read using a :class:`ColumnReader` strategy (e.g.
     csv files).
     """
-
-    def set_chunk_size(self, chunk_size: int) -> None:
-        """Set the chunk size for the reader. It's generally unsafe to assume the reader
-        position after calling set_chunk_size, so it's recommended to call reset
-        afterwards.
-        """
-        ...
 
     def read(self) -> DataFrame:
         """Read returns a dataframe with chunk size * number of columns samples. The

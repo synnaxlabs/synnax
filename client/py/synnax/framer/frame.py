@@ -9,11 +9,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from typing import TypeAlias, cast, overload
 
 from pandas import DataFrame
 from pydantic import BaseModel, Field
+from typing_extensions import TypeVar
 
 import synnax.channel.payload as channel
 from synnax.exceptions import ValidationError
@@ -55,8 +56,8 @@ class Frame:
             | DataFrame
             | Frame
             | FramePayload
-            | dict[channel.Key, TypedCrudeSeries]
-            | dict[str, TypedCrudeSeries]
+            | Mapping[channel.Key, TypedCrudeSeries]
+            | Mapping[str, TypedCrudeSeries]
             | None
         ) = None,
         series: Sequence[TypedCrudeSeries] | None = None,
@@ -70,7 +71,7 @@ class Frame:
         elif isinstance(channels, DataFrame):
             self.channels = channels.columns.to_list()
             self.series = [Series(data=channels[k]) for k in self.channels]
-        elif isinstance(channels, dict):
+        elif isinstance(channels, Mapping):
             self.channels = cast(list[channel.Key] | list[str], list(channels.keys()))
             self.series = [Series(d) for d in channels.values()]
         elif (series is None or isinstance(series, list)) and (
@@ -190,6 +191,10 @@ class Frame:
         return key in self.channels
 
 
-CrudeFrame: TypeAlias = (
-    Frame | FramePayload | dict[channel.Key, CrudeSeries] | DataFrame
+# Bound per call, so a typed mapping of keys, names, payloads, or a mix matches.
+K = TypeVar(
+    "K",
+    bound=channel.Key | str | channel.Payload,
+    default=channel.Key | str | channel.Payload,
 )
+CrudeFrame: TypeAlias = Frame | FramePayload | Mapping[K, CrudeSeries] | DataFrame
