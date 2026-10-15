@@ -101,7 +101,7 @@ class Task:
     rack: int = 0
     name: str = ""
     type: str = ""
-    config: dict[str, JsonValue] = {}
+    config: Mapping[str, object] = {}
     config_hash: str = ""
     snapshot: bool = False
     status: Status | None = None
@@ -114,7 +114,7 @@ class Task:
         rack: int = 0,
         name: str = "",
         type: str = "",
-        config: dict[str, JsonValue] | None = None,
+        config: Mapping[str, object] | None = None,
         config_hash: str = "",
         snapshot: bool = False,
         status: Status | None = None,
