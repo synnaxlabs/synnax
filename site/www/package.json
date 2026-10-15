@@ -22,7 +22,6 @@
     "@astrojs/vercel": "catalog:",
     "@synnaxlabs/arc": "catalog:",
     "@synnaxlabs/lyra": "catalog:",
-    "@synnaxlabs/media": "catalog:",
     "@synnaxlabs/site-common": "catalog:",
     "astro": "catalog:",
     "react": "catalog:",

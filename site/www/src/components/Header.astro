@@ -8,7 +8,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Logo } from "@synnaxlabs/media";
+import { Logo } from "@synnaxlabs/lyra/logo";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Nav } from "@/components/Nav";
@@ -19,7 +19,7 @@ import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
 <Flex.Box className="header" el="header" justify="center" align="center" empty>
     <Flex.Box className="header-content" direction="x" justify="between" align="center">
         <a href="/" class="logo-link">
-            <Logo variant="title" />
+            <Logo.Logo variant="title" />
         </a>
         <Flex.Box x gap={4} align="center">
             <div class="header-nav">

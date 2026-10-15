@@ -7,17 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Logo as BaseLogo } from "./Logo";
-import { LogoWatermark } from "./LogoWatermark";
+package v1_test
 
-export { type LogoProps } from "./Logo";
+import (
+	"testing"
 
-type BaseLogoType = typeof BaseLogo;
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
+)
 
-export interface LogoType extends BaseLogoType {
-  Watermark: typeof LogoWatermark;
+func TestPanelV1(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Service Panel v1 Suite")
 }
 
-export const Logo = BaseLogo as LogoType;
-
-Logo.Watermark = LogoWatermark;
+var _ = ShouldNotLeakGoroutinesPerSpec()
