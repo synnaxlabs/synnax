@@ -21,8 +21,11 @@ import (
 
 // initParamData is one keyword parameter of a model's type-checking __init__.
 type initParamData struct {
-	Name     string
-	PyType   string
+	// Name is the parameter name, escaped like its field.
+	Name string
+	// PyType is the annotation of the values the parameter accepts.
+	PyType string
+	// Required is true when the field has no default, so the caller must pass it.
 	Required bool
 }
 
