@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from examples.opcua import OPCUATLSAuthSim, OPCUATLSSim
+from examples.opcua.server import OPCUATLSAuthSim, OPCUATLSSim
 
 import synnax as sy
 from tests.driver.opcua_task import OPCUAWriteTaskCase

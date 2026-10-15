@@ -22,7 +22,7 @@ import platform
 from contextlib import ExitStack
 
 from examples.modbus import ModbusSim
-from examples.opcua import OPCUASim
+from examples.opcua.server import OPCUASim
 
 import synnax as sy
 from synnax import modbus, opcua
