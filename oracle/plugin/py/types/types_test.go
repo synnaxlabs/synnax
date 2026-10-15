@@ -2564,4 +2564,34 @@ var _ = Describe("Python type-checking __init__", func() {
 			Expect(strings.Count(content, "def __init__")).To(Equal(2))
 		},
 	)
+
+	It(
+		"Should not repeat a discriminator an ancestor excludes",
+		func(ctx SpecContext) {
+			source := `
+			import "schemas/telem"
+
+			@py output "client/py/synnax/http"
+
+			Base struct {
+				type string
+			}
+			Parent struct extends Base {
+				-type
+			}
+			Payload struct extends Parent {
+				rate telem.Rate
+			}
+
+			Field union on type {
+				read Payload
+			}
+		`
+			resp := MustGenerate(ctx, source, "http", loader, typesPlugin)
+			content := MustContentOf(resp, "types_gen.py")
+			Expect(content).To(ContainSubstring(`            type: Literal["read"] = ...,
+            rate: float,`))
+			Expect(strings.Count(content, "            type: ")).To(Equal(2))
+		},
+	)
 })

@@ -90,7 +90,8 @@ func handPrimitive(field resolution.Field, table *resolution.Table) (string, boo
 }
 
 // variantInitParams returns the type-checking __init__ parameters of a union variant
-// model: its discriminator, then the fields it inherits and declares.
+// model: its discriminator, then the fields it inherits and declares. The discriminator
+// replaces any inherited field of the same name, as the variant class overrides it.
 func variantInitParams(
 	discName string,
 	value string,
@@ -106,6 +107,9 @@ func variantInitParams(
 	if params == nil {
 		return nil
 	}
+	params = lo.Reject(params, func(p initParamData, _ int) bool {
+		return p.Name == discName
+	})
 	disc := initParamData{Name: discName, PyType: fmt.Sprintf("Literal[%q]", value)}
 	return append([]initParamData{disc}, params...)
 }
