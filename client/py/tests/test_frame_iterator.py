@@ -29,6 +29,18 @@ class TestIterator:
             for f in i:
                 assert np.array_equal(f[idx_ch.key], d)
 
+    def test_valid(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should be valid after a read and invalid after a seek."""
+        idx_ch, _ = indexed_pair
+        idx_ch.write(sy.TimeSpan.SECOND * 1, seconds_linspace(1, 5))
+        with client.open_iterator(sy.TimeRange.MAX, idx_ch.key) as i:
+            assert i.seek_first()
+            assert not i.valid()
+            assert i.next(sy.framer.AUTO_SPAN)
+            assert i.valid()
+
     def test_auto_chunk(
         self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ) -> None:

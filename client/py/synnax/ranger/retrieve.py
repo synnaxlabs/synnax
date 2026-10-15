@@ -49,7 +49,12 @@ class Retriever:
             keys = normalize(key)
         if name is not None:
             names = normalize(name)
-        return self._execute(_Request(keys=keys, names=names))
+        return self._execute(
+            _Request(
+                keys=None if keys is None else list(keys),
+                names=None if names is None else list(names),
+            )
+        )
 
     @trace("debug")
     def search(self, term: str) -> list[Payload]:
