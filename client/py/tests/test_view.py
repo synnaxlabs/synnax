@@ -28,6 +28,12 @@ class TestView:
         assert v.type == "lineplot"
         assert v.query == {"channels": ["test-1", "test-2"]}
 
+    def test_create_converts_query_to_json(self, client: sy.Synnax):
+        """Should store a UUID in the query as a string."""
+        rng = uuid4()
+        v = client.views.create(name="JSON View", type="lineplot", query={"range": rng})
+        assert v.query == {"range": str(rng)}
+
     def test_create_from_view(self, client: sy.Synnax):
         """Should create a view from a View object."""
         v = client.views.create(
