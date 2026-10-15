@@ -16,7 +16,7 @@ from typing import Protocol as BaseProtocol
 from typing import overload
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, JsonValue, ValidationError
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
@@ -28,7 +28,6 @@ from synnax.rack import Client as RackClient
 from synnax.rack import Rack
 from synnax.task.types_gen import Command, Key, Payload, Status, ontology_id
 from synnax.telem import TimeSpan, TimeStamp
-from synnax.util.json import JSONValue
 from x.lists import check_for_none, normalize, override
 from x.timing import Timer
 
@@ -97,7 +96,7 @@ class Task:
     rack: int = 0
     name: str = ""
     type: str = ""
-    config: dict[str, JSONValue] = {}
+    config: dict[str, JsonValue] = {}
     config_hash: str = ""
     snapshot: bool = False
     status: Status | None = None
@@ -110,7 +109,7 @@ class Task:
         rack: int = 0,
         name: str = "",
         type: str = "",
-        config: dict[str, JSONValue] | None = None,
+        config: dict[str, JsonValue] | None = None,
         config_hash: str = "",
         snapshot: bool = False,
         status: Status | None = None,

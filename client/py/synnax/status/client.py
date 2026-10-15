@@ -10,12 +10,11 @@
 from typing import Generic, TypeVar, overload
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, JsonValue
 
 from freighter import Empty, UnaryClient
 from synnax.ontology import ID
 from synnax.status.types_gen import Status, Variant
-from synnax.util.json import JSONValue
 from x.lists import normalize
 from x.params import require_named_params
 
@@ -28,7 +27,7 @@ class _SetRequest(BaseModel, Generic[D]):
 
 
 class _SetResponse(BaseModel):
-    statuses: list[Status[JSONValue]]
+    statuses: list[Status[JsonValue]]
 
 
 class _RetrieveRequest(BaseModel):
@@ -42,7 +41,7 @@ class _RetrieveRequest(BaseModel):
 
 
 class _RetrieveResponse(BaseModel):
-    statuses: list[Status[JSONValue]] = Field(default_factory=list)
+    statuses: list[Status[JsonValue]] = Field(default_factory=list)
 
 
 class _DeleteRequest(BaseModel):
@@ -81,7 +80,7 @@ class Client:
         status: Status[D],
         *,
         parent: ID | None = None,
-    ) -> Status[JSONValue]: ...
+    ) -> Status[JsonValue]: ...
 
     @overload
     def set(
@@ -89,14 +88,14 @@ class Client:
         status: list[Status[D]],
         *,
         parent: ID | None = None,
-    ) -> list[Status[JSONValue]]: ...
+    ) -> list[Status[JsonValue]]: ...
 
     def set(
         self,
         status: Status[D] | list[Status[D]] | None = None,
         *,
         parent: ID | None = None,
-    ) -> Status[JSONValue] | list[Status[JSONValue]]:
+    ) -> Status[JsonValue] | list[Status[JsonValue]]:
         """Create or update a status.
 
         Args:
@@ -143,12 +142,12 @@ class Client:
     @overload
     def retrieve(
         self, *, key: str, include_labels: bool = False
-    ) -> Status[JSONValue]: ...
+    ) -> Status[JsonValue]: ...
 
     @overload
     def retrieve(
         self, *, keys: list[str], include_labels: bool = False
-    ) -> list[Status[JSONValue]]: ...
+    ) -> list[Status[JsonValue]]: ...
 
     @overload
     def retrieve(
@@ -160,7 +159,7 @@ class Client:
         include_labels: bool = False,
         has_labels: list[UUID] | None = None,
         variants: list[Variant] | None = None,
-    ) -> list[Status[JSONValue]]: ...
+    ) -> list[Status[JsonValue]]: ...
 
     @require_named_params(example_params=("key", "'status-key-123'"))
     def retrieve(
@@ -174,7 +173,7 @@ class Client:
         include_labels: bool = False,
         has_labels: list[UUID] | None = None,
         variants: list[Variant] | None = None,
-    ) -> Status[JSONValue] | list[Status[JSONValue]]:
+    ) -> Status[JsonValue] | list[Status[JsonValue]]:
         """Retrieve statuses from the cluster.
 
         Args:
