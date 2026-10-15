@@ -9,6 +9,8 @@
 
 from uuid import uuid4
 
+from pydantic import JsonValue
+
 from synnax import device, task
 from synnax.modbus.types_gen import (
     ReadChannel,
@@ -191,7 +193,7 @@ class Device(device.Device):
     ):
         if not key:
             key = str(uuid4())
-        props = {
+        props: dict[str, JsonValue] = {
             "connection": {
                 "host": host,
                 "port": port,
