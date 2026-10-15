@@ -192,11 +192,7 @@ func generatePyFile(
 		case resolution.StructForm:
 			sd := processStruct(typ, table, data, keyFields)
 			if !sd.Skip && !sd.IsAlias {
-				fields := append(
-					resolution.UnifiedFields(typ, table),
-					sd.excludedInherited...,
-				)
-				sd.InitParams = buildInitParams(fields, table, data)
+				sd.InitParams = buildInitParams(pyFields(typ, table), table, data)
 			}
 			for _, f := range sd.Fields {
 				if f.Alias != "" {
@@ -634,26 +630,7 @@ func processStruct(
 				}
 			}
 
-			// Check if any child field would create a type incompatibility
-			// (overriding a required parent field as optional). If so, we
-			// inline all fields instead of using inheritance to avoid
-			// type: ignore comments.
-			hasTypeConflict := false
-			for _, field := range form.Fields {
-				if field.Optional {
-					for _, pf := range parentFields {
-						if pf.Name == field.Name && !pf.Optional {
-							hasTypeConflict = true
-							break
-						}
-					}
-				}
-				if hasTypeConflict {
-					break
-				}
-			}
-
-			if hasTypeConflict {
+			if flattensParents(form, table) {
 				// Inline all fields from parents and child into a standalone class
 				sd.HasExtends = false
 				sd.ExtendsNames = nil
@@ -766,7 +743,6 @@ func processStruct(
 							form.OmittedFields,
 						)
 						sd.Fields = append(sd.Fields, fd)
-						sd.excludedInherited = append(sd.excludedInherited, pf)
 						break
 					}
 				}
@@ -1899,8 +1875,6 @@ type structData struct {
 	HasKeywordAlias bool
 	// InitParams are the parameters of a type-checking __init__, or nil for none.
 	InitParams []initParamData
-	// excludedInherited are inherited fields redeclared with exclude=True.
-	excludedInherited []resolution.Field
 }
 
 type fieldData struct {
@@ -2222,7 +2196,7 @@ def ontology_id(key: {{ .Ontology.KeyType }}) -> ID:
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
 {{- range . }}
             {{ .Name }}: {{ .PyType }}{{ if not .Required }} = ...{{ end }},

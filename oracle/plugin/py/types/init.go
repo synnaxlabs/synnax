@@ -14,7 +14,9 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/omit"
+	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/set"
 )
 
 // initParamData is one keyword parameter of a model's type-checking __init__.
@@ -29,7 +31,8 @@ type initParamData struct {
 // correct. Type checkers synthesize __init__ parameters from field annotations, so a
 // field typed as a hand-written distinct type (e.g. telem.DataType) rejects the base
 // primitive that Pydantic accepts at runtime. The explicit __init__ types such a
-// parameter as its base primitive, while the attribute keeps the precise type.
+// parameter as its base primitive, while the attribute keeps the precise type. The
+// receiver is _self: a field may be named self, and no Pydantic field starts with _.
 func buildInitParams(
 	fields []resolution.Field,
 	table *resolution.Table,
@@ -99,10 +102,84 @@ func variantInitParams(
 	synthetic := resolution.Type{
 		Form: resolution.StructForm{Extends: bases, Fields: declared},
 	}
-	params := buildInitParams(resolution.UnifiedFields(synthetic, table), table, data)
+	params := buildInitParams(pyFields(synthetic, table), table, data)
 	if params == nil {
 		return nil
 	}
 	disc := initParamData{Name: discName, PyType: fmt.Sprintf("Literal[%q]", value)}
 	return append([]initParamData{disc}, params...)
+}
+
+// pyFields returns every field of the struct's Python class. Unlike
+// resolution.UnifiedFields, it keeps inherited fields that a subclass excludes from
+// serialization, since the Python class still inherits and accepts them.
+func pyFields(typ resolution.Type, table *resolution.Table) []resolution.Field {
+	form, ok := typ.Form.(resolution.StructForm)
+	if !ok {
+		return nil
+	}
+	if len(form.Extends) == 0 || flattensParents(form, table) {
+		return resolution.UnifiedFields(typ, table)
+	}
+	var fields []resolution.Field
+	index := make(map[string]int)
+	for _, ext := range form.Extends {
+		parent, ok := ext.Resolve(table)
+		if !ok {
+			continue
+		}
+		typeArgs := make(map[string]resolution.TypeRef)
+		pform, _ := parent.Form.(resolution.StructForm)
+		for i, tp := range pform.TypeParams {
+			if i < len(ext.TypeArgs) {
+				typeArgs[tp.Name] = ext.TypeArgs[i]
+			}
+		}
+		for _, f := range pyFields(parent, table) {
+			if _, seen := index[f.Name]; seen {
+				continue
+			}
+			f.Type = resolution.SubstituteTypeRef(f.Type, typeArgs)
+			index[f.Name] = len(fields)
+			fields = append(fields, f)
+		}
+	}
+	for _, f := range form.Fields {
+		if i, ok := index[f.Name]; ok {
+			fields[i] = f
+			continue
+		}
+		index[f.Name] = len(fields)
+		fields = append(fields, f)
+	}
+	return fields
+}
+
+// flattensParents reports whether the struct generates as a standalone class instead
+// of inheriting its parents. Python inheritance cannot express a domain removal or an
+// optional override of a required parent field.
+func flattensParents(form resolution.StructForm, table *resolution.Table) bool {
+	if resolver.HasDomainOmissions(form) {
+		return true
+	}
+	seen := make(set.Set[string])
+	required := make(set.Set[string])
+	for _, ext := range form.Extends {
+		parent, ok := ext.Resolve(table)
+		if !ok {
+			continue
+		}
+		for _, pf := range resolution.UnifiedFields(parent, table) {
+			if seen.Contains(pf.Name) {
+				continue
+			}
+			seen.Add(pf.Name)
+			if !pf.Optional {
+				required.Add(pf.Name)
+			}
+		}
+	}
+	return lo.SomeBy(form.Fields, func(f resolution.Field) bool {
+		return f.Optional && required.Contains(f.Name)
+	})
 }
