@@ -1107,6 +1107,25 @@ describe("connection", () => {
       await client.close();
     });
 
+    it("should open the stream on a Core with no license", async () => {
+      const client: connection.Client = createClient(
+        createScriptedUnary({ license: "missing" }),
+        {
+          requiresStream: true,
+          stream: {
+            reset: async () => {},
+            ensure: async () => client.notify({ type: "stream.live" }),
+          },
+        },
+      );
+      const status = await waitForStatus(
+        client,
+        (s) => s.variant === "success" && s.details.streamLive,
+      );
+      expect(status.details.license).toEqual("missing");
+      await client.close();
+    });
+
     it("should short-circuit unary calls with the expired license error", async () => {
       const client = createClient(createScriptedUnary({ license: "expired" }));
       await waitForStatus(

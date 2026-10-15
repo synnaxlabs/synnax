@@ -101,7 +101,7 @@ export const Activate = ({ onBack }: ActivateProps): ReactElement => {
           <PlatformShell.Mark />
           <Flex.Box y align="center" gap="small" full="x">
             <Text.Text level="h4" weight={500} color={11}>
-              This Core&apos;s license has expired
+              This Core's license has expired
             </Text.Text>
             <Text.Text
               level="p"

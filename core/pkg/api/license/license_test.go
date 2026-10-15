@@ -53,14 +53,13 @@ var _ = Describe("Service", Ordered, func() {
 
 	It("Should pass requests while the license is missing", func(ctx SpecContext) {
 		called := false
-		_, err := apilicense.Middleware(licenseSvc).Exec(
+		MustSucceed(apilicense.Middleware(licenseSvc).Exec(
 			freighter.Context{Context: ctx},
 			func(fctx freighter.Context) (freighter.Context, error) {
 				called = true
 				return fctx, nil
 			},
-		)
-		Expect(err).ToNot(HaveOccurred())
+		))
 		Expect(called).To(BeTrue())
 	})
 
