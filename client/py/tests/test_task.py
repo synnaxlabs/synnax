@@ -18,12 +18,12 @@ import synnax as sy
 
 @pytest.mark.task
 class TestTaskClient:
-    def test_create_single(self, client: sy.Synnax):
+    def test_create_single(self, client: sy.Synnax) -> None:
         task = client.tasks.create(name="test", type="pagerduty_alert")
         assert isinstance(task.key, UUID)
         assert task.rack != 0
 
-    def test_create_multiple(self, client: sy.Synnax):
+    def test_create_multiple(self, client: sy.Synnax) -> None:
         t1 = sy.Task(name="test1", type="pagerduty_alert")
         t2 = sy.Task(name="test2", type="pagerduty_alert")
         tasks = client.tasks.create(tasks=[t1, t2])
@@ -31,21 +31,21 @@ class TestTaskClient:
         assert tasks[0].name == "test1"
         assert tasks[1].name == "test2"
 
-    def test_retrieve_by_name(self, client: sy.Synnax):
+    def test_retrieve_by_name(self, client: sy.Synnax) -> None:
         name = str(uuid4())
         task = client.tasks.create(name=name, type="pagerduty_alert")
         res = client.tasks.retrieve(name=name)
         assert res.name == name
         assert res.key == task.key
 
-    def test_delete_by_string_key(self, client: sy.Synnax):
+    def test_delete_by_string_key(self, client: sy.Synnax) -> None:
         """Should delete a task whose key is given as a string."""
         task = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
         client.tasks.delete(str(task.key))
         with pytest.raises(sy.NotFoundError):
             client.tasks.retrieve(key=task.key)
 
-    def test_retrieve_by_type(self, client: sy.Synnax):
+    def test_retrieve_by_type(self, client: sy.Synnax) -> None:
         # Task types are a fixed, registered set, so the filter cannot be made unique
         # the way the name and model tests do. Assert membership instead of identity.
         task = client.tasks.create(type="labjack_scan")
@@ -53,12 +53,12 @@ class TestTaskClient:
         assert all(t.type == "labjack_scan" for t in res)
         assert task.key in {t.key for t in res}
 
-    def test_retrieve_without_status(self, client: sy.Synnax):
+    def test_retrieve_without_status(self, client: sy.Synnax) -> None:
         """Should leave the status unset when it is not asked for."""
         task = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
         assert client.tasks.retrieve(key=task.key).status is None
 
-    def test_retrieve_with_status(self, client: sy.Synnax):
+    def test_retrieve_with_status(self, client: sy.Synnax) -> None:
         """Should attach a parsed status when asked for one."""
         task = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
         res = client.tasks.retrieve(key=task.key, include_status=True)
@@ -66,12 +66,14 @@ class TestTaskClient:
         assert res.status.details is not None
         assert res.status.details.task == task.key
 
-    def test_execute_command_sync(self, client: sy.Synnax):
-        def driver(ev: threading.Event):
+    def test_execute_command_sync(self, client: sy.Synnax) -> None:
+        def driver(ev: threading.Event) -> None:
             with client.open_streamer("sy_task_cmd") as s:
                 ev.set()
                 f = s.read(timeout=1)
+                assert f is not None
                 cmd = f["sy_task_cmd"][0]
+                assert isinstance(cmd, dict)
                 client.statuses.set(
                     sy.task.Status(
                         key=str(sy.task.ontology_id(cmd["task"])),
@@ -122,7 +124,9 @@ class TestTaskClient:
             stop.set()
             t.join()
 
-    def test_execute_command_without_args_sends_empty_object(self, client: sy.Synnax):
+    def test_execute_command_without_args_sends_empty_object(
+        self, client: sy.Synnax
+    ) -> None:
         """Should send an empty object for args instead of null."""
         tsk = client.tasks.create(name="test", type="pagerduty_alert")
         with client.open_streamer("sy_task_cmd") as s:
@@ -130,12 +134,16 @@ class TestTaskClient:
             for _ in range(10):
                 f = s.read(timeout=1)
                 assert f is not None, "timed out waiting for the command"
-                matches = [c for c in f["sy_task_cmd"] if c["key"] == key]
+                matches = [
+                    c
+                    for c in f["sy_task_cmd"]
+                    if isinstance(c, dict) and c["key"] == key
+                ]
                 if len(matches) > 0:
                     break
             assert matches[0]["args"] == {}
 
-    def test_execute_command_converts_args_to_json(self, client: sy.Synnax):
+    def test_execute_command_converts_args_to_json(self, client: sy.Synnax) -> None:
         """Should send a UUID in the command args as a string."""
         tsk = client.tasks.create(name="test", type="pagerduty_alert")
         target = uuid4()
@@ -144,12 +152,16 @@ class TestTaskClient:
             for _ in range(10):
                 f = s.read(timeout=1)
                 assert f is not None, "timed out waiting for the command"
-                matches = [c for c in f["sy_task_cmd"] if c["key"] == key]
+                matches = [
+                    c
+                    for c in f["sy_task_cmd"]
+                    if isinstance(c, dict) and c["key"] == key
+                ]
                 if len(matches) > 0:
                     break
             assert matches[0]["args"] == {"target": str(target)}
 
-    def test_create_converts_dict_config_to_json(self, client: sy.Synnax):
+    def test_create_converts_dict_config_to_json(self, client: sy.Synnax) -> None:
         """Should store a UUID in a dict config as a string."""
         ref = uuid4()
         task = client.tasks.create(
@@ -158,7 +170,7 @@ class TestTaskClient:
         res = client.tasks.retrieve(key=task.key)
         assert res.config["routing_key"] == str(ref)
 
-    def test_create_converts_model_config_by_alias(self, client: sy.Synnax):
+    def test_create_converts_model_config_by_alias(self, client: sy.Synnax) -> None:
         """Should store a model config by its field aliases."""
 
         class Config(BaseModel):
@@ -171,19 +183,19 @@ class TestTaskClient:
         res = client.tasks.retrieve(key=task.key)
         assert res.config["routing_key"] == str(ref)
 
-    def test_task_converts_config_to_json(self):
+    def test_task_converts_config_to_json(self) -> None:
         """Should convert a UUID in a Task config to a string."""
         ref = uuid4()
         assert sy.Task(config={"ref": ref}).to_payload().config == {"ref": str(ref)}
 
-    def test_task_converts_reassigned_config_to_json(self):
+    def test_task_converts_reassigned_config_to_json(self) -> None:
         """Should convert a UUID in a config set after construction to a string."""
         tsk = sy.Task()
         ref = uuid4()
         tsk.config = {"ref": ref}
         assert tsk.to_payload().config == {"ref": str(ref)}
 
-    def test_task_configure_saves_without_ack(self, client: sy.Synnax):
+    def test_task_configure_saves_without_ack(self, client: sy.Synnax) -> None:
         """Should save the task without waiting for a driver acknowledgement."""
         tsk = sy.Task(
             name="test", type="pagerduty_alert", config={"routing_key": "rk-50"}
@@ -194,7 +206,7 @@ class TestTaskClient:
         assert res.rack != 0
         assert res.config["routing_key"] == "rk-50"
 
-    def test_task_configure_updates_config(self, client: sy.Synnax):
+    def test_task_configure_updates_config(self, client: sy.Synnax) -> None:
         """Should overwrite the stored config when configured again."""
         tsk = sy.Task(
             name="test", type="pagerduty_alert", config={"routing_key": "rk-1"}
@@ -205,7 +217,7 @@ class TestTaskClient:
         res = client.tasks.retrieve(key=tsk.key)
         assert res.config["routing_key"] == "rk-2"
 
-    def test_list_tasks(self, client: sy.Synnax):
+    def test_list_tasks(self, client: sy.Synnax) -> None:
         """Should list all tasks on the default rack."""
         # Create some tasks
         task1 = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
@@ -219,7 +231,7 @@ class TestTaskClient:
         assert task1.key in task_keys
         assert task2.key in task_keys
 
-    def test_copy_task(self, client: sy.Synnax):
+    def test_copy_task(self, client: sy.Synnax) -> None:
         """Should copy a task with a new name."""
         # Create an original task
         original_name = str(uuid4())
@@ -243,13 +255,13 @@ class TestTaskClient:
 
 @pytest.mark.task
 class TestConfigBases:
-    def test_read_config_mints_a_record_key(self):
+    def test_read_config_mints_a_record_key(self) -> None:
         """Should give a read config a record key it can hash on."""
         cfg = sy.task.ReadConfig()
         assert isinstance(cfg.key, UUID)
         assert hash(cfg) == hash(cfg.key)
 
-    def test_write_config_mints_a_record_key(self):
+    def test_write_config_mints_a_record_key(self) -> None:
         """Should give a write config a record key it can hash on."""
         cfg = sy.task.WriteConfig()
         assert isinstance(cfg.key, UUID)

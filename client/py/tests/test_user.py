@@ -17,7 +17,7 @@ import synnax as sy
 
 
 @pytest.fixture
-def new_user():
+def new_user() -> sy.user.New:
     return sy.user.New(
         username=uuid().__str__(),
         password="password",
@@ -28,7 +28,7 @@ def new_user():
 
 
 @pytest.fixture
-def new_user_list():
+def new_user_list() -> list[sy.user.New]:
     return [
         sy.user.New(
             username=uuid().__str__(),
@@ -47,7 +47,7 @@ def new_user_list():
     ]
 
 
-def compare_users(user: sy.user.User, new_user: sy.user.New):
+def compare_users(user: sy.user.User, new_user: sy.user.New) -> None:
     assert user.username == new_user.username
     assert user.first_name == new_user.first_name
     assert user.last_name == new_user.last_name
@@ -59,7 +59,7 @@ def compare_users(user: sy.user.User, new_user: sy.user.New):
 
 @pytest.mark.user
 class TestUserClient:
-    def test_create_params(self, client: sy.Synnax):
+    def test_create_params(self, client: sy.Synnax) -> None:
         user = client.users.create(username="test", password="test")
         compare_users(user, sy.user.New(username="test", password="test"))
         client.users.delete(user.key)
@@ -82,15 +82,17 @@ class TestUserClient:
         with pytest.raises(ValueError, match="password is required"):
             create(username=str(uuid()))
 
-    def test_create_user(self, client: sy.Synnax, new_user):
+    def test_create_user(self, client: sy.Synnax, new_user: sy.user.New) -> None:
         repeated_user = client.users.create(user=new_user)
         compare_users(repeated_user, new_user)
 
-    def test_create_repeated(self, client: sy.Synnax):
+    def test_create_repeated(self, client: sy.Synnax) -> None:
         with pytest.raises(sy.AuthError):
             client.users.create(username="synnax", password="test")
 
-    def test_create_many(self, client: sy.Synnax, new_user_list):
+    def test_create_many(
+        self, client: sy.Synnax, new_user_list: list[sy.user.New]
+    ) -> None:
         repeated_user_list = client.users.create(users=new_user_list)
         assert len(repeated_user_list) == len(new_user_list)
         for i in range(len(repeated_user_list)):

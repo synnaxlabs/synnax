@@ -307,9 +307,9 @@ class StarterStopperMixin:
             self.stop(timeout)
 
 
-class JSONConfigMixin(Protocol):
+class JSONConfigMixin[C: BaseModel](Protocol):
     _internal: Task
-    config: BaseModel
+    config: C
 
     @property
     def name(self) -> str:
@@ -455,13 +455,30 @@ class Client:
     @overload
     def retrieve(
         self,
-        key: None = None,
-        name: None = None,
-        type: None = None,
-        names: list[str] | None = None,
+        *,
+        names: list[str],
         keys: list[Key | str] | None = None,
         types: list[str] | None = None,
+        include_status: bool = False,
+    ) -> list[Task]: ...
+
+    @overload
+    def retrieve(
+        self,
         *,
+        names: None = None,
+        keys: list[Key | str],
+        types: list[str] | None = None,
+        include_status: bool = False,
+    ) -> list[Task]: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        names: None = None,
+        keys: None = None,
+        types: list[str],
         include_status: bool = False,
     ) -> list[Task]: ...
 

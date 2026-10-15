@@ -44,7 +44,9 @@ class PDOEntry(BaseModel):
     data_type: str
 
 
-class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
+class ReadTask(
+    task.StarterStopperMixin, task.JSONConfigMixin[ReadConfig], task.Protocol
+):
     """A read task for sampling data from EtherCAT slave devices.
 
     The task supports both automatic channels (PDO resolved by name) and manual
@@ -61,7 +63,6 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """
 
     TYPE = "ethercat_read"
-    config: ReadConfig
     _internal: task.Task
 
     def __init__(
@@ -90,7 +91,9 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         task.assign_keys(self.config.channels)
 
 
-class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
+class WriteTask(
+    task.StarterStopperMixin, task.JSONConfigMixin[WriteConfig], task.Protocol
+):
     """A write task for sending commands to EtherCAT slave devices.
 
     If a channel specifies a state_channel, the current PDO value is written back to
@@ -107,7 +110,6 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """
 
     TYPE = "ethercat_write"
-    config: WriteConfig
     _internal: task.Task
 
     def __init__(

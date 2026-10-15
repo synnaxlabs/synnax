@@ -138,7 +138,10 @@ with tsk.run():
         ctrl["ao_0_cmd"] = 0.0
         ctrl["ao_1_cmd"] = 0.0
         ctrl.wait_until(
-            lambda c: abs(c["ao_0_state"]) < 0.01 and abs(c["ao_1_state"]) < 0.01,
+            lambda c: (
+                abs(float(c["ao_0_state"])) < 0.01
+                and abs(float(c["ao_1_state"])) < 0.01
+            ),
             timeout=1,
         )
 

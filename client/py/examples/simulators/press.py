@@ -119,12 +119,9 @@ class PressSimDAQ(SimDAQ):
         loop = sy.Loop(sy.Rate.HZ * 50)
         loop_count = 0
 
-        state = {
-            "daq_time": sy.TimeStamp.now(),
-            "press_vlv_state": 0,
-            "vent_vlv_state": 0,
-            "press_pt": 0.0,
-        }
+        press_vlv_state = 0
+        vent_vlv_state = 0
+        press_pt = 0.0
 
         with self.client.open_streamer(["press_vlv_cmd", "vent_vlv_cmd"]) as streamer:
             with self.client.open_writer(
@@ -141,49 +138,51 @@ class PressSimDAQ(SimDAQ):
                     while True:
                         frame = streamer.read(timeout=0)
                         if frame is not None:
-                            vent_vlv_cmd = frame.get("vent_vlv_cmd")
+                            vent_vlv_cmd = frame["vent_vlv_cmd"]
                             if len(vent_vlv_cmd) > 0:
-                                new_val = vent_vlv_cmd[-1]
-                                if hasattr(new_val, "item"):
-                                    new_val = new_val.item()
-                                if new_val != state["vent_vlv_state"]:
+                                new_val = int(vent_vlv_cmd.to_numpy()[-1])
+                                if new_val != vent_vlv_state:
                                     self.log(
-                                        f"Vent valve: {state['vent_vlv_state']} -> {new_val}"
+                                        f"Vent valve: {vent_vlv_state} -> {new_val}"
                                     )
-                                state["vent_vlv_state"] = new_val
+                                vent_vlv_state = new_val
 
-                            press_vlv_cmd = frame.get("press_vlv_cmd")
+                            press_vlv_cmd = frame["press_vlv_cmd"]
                             if len(press_vlv_cmd) > 0:
-                                new_val = press_vlv_cmd[-1]
-                                if hasattr(new_val, "item"):
-                                    new_val = new_val.item()
-                                if new_val != state["press_vlv_state"]:
+                                new_val = int(press_vlv_cmd.to_numpy()[-1])
+                                if new_val != press_vlv_state:
                                     self.log(
-                                        f"Press valve: {state['press_vlv_state']} -> {new_val}"
+                                        f"Press valve: {press_vlv_state} -> {new_val}"
                                     )
-                                state["press_vlv_state"] = new_val
+                                press_vlv_state = new_val
                         else:
                             break
 
-                    if state["press_vlv_state"] == 1:
-                        state["press_pt"] += 0.4
+                    if press_vlv_state == 1:
+                        press_pt += 0.4
 
-                    if state["vent_vlv_state"] == 1:
-                        state["press_pt"] -= 0.4
+                    if vent_vlv_state == 1:
+                        press_pt -= 0.4
 
-                    if state["press_pt"] < 0:
-                        state["press_pt"] = 0
+                    if press_pt < 0:
+                        press_pt = 0
 
-                    state["press_pt"] += random.uniform(-0.05, 0.05)
-                    state["daq_time"] = sy.TimeStamp.now()
-                    writer.write(state)
+                    press_pt += random.uniform(-0.05, 0.05)
+                    writer.write(
+                        {
+                            "daq_time": sy.TimeStamp.now(),
+                            "press_vlv_state": press_vlv_state,
+                            "vent_vlv_state": vent_vlv_state,
+                            "press_pt": press_pt,
+                        }
+                    )
 
                     loop_count += 1
                     if loop_count % 100 == 0:
                         self.log(
-                            f"press_pt={state['press_pt']:.2f}, "
-                            f"press_vlv={state['press_vlv_state']}, "
-                            f"vent_vlv={state['vent_vlv_state']}"
+                            f"press_pt={press_pt:.2f}, "
+                            f"press_vlv={press_vlv_state}, "
+                            f"vent_vlv={vent_vlv_state}"
                         )
 
         self.log("Simulation loop stopped")
