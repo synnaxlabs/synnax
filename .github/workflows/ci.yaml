@@ -59,6 +59,7 @@ jobs:
       aspen: ${{ steps.filter.outputs.aspen }}
       buildifier: ${{ steps.filter.outputs.buildifier }}
       cesium: ${{ steps.filter.outputs.cesium }}
+      ci_scripts: ${{ steps.filter.outputs.ci_scripts }}
       client_cpp: ${{ steps.filter.outputs.client_cpp }}
       client_py: ${{ steps.filter.outputs.client_py }}
       client_ts: ${{ steps.filter.outputs.client_ts }}
@@ -193,6 +194,14 @@ jobs:
       directory: cesium
       macos: *full
       windows: *full
+    secrets: inherit
+
+  ci-scripts:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.ci_scripts == 'true'
+    uses: ./.github/workflows/test.py.yaml
+    with:
+      directory: .github/scripts
     secrets: inherit
 
   client-cpp:
@@ -552,7 +561,9 @@ jobs:
   scripts:
     needs: changes
     if: inputs.full || needs.changes.outputs.scripts == 'true'
-    uses: ./.github/workflows/test.scripts.yaml
+    uses: ./.github/workflows/test.py.yaml
+    with:
+      directory: scripts
     secrets: inherit
 
   site-common:
@@ -700,6 +711,7 @@ jobs:
       - buildifier
       - cesium
       - changes
+      - ci-scripts
       - client-cpp
       - client-py
       - client-ts
