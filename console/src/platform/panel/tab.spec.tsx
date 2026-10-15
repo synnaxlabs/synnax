@@ -54,7 +54,7 @@ describe("Panel tab", () => {
       const tabKey = uuid.create();
       const existing = await createServerPanel(client, {
         variant: "leaf",
-        tabs: [{ variant: "view", key: tabKey, type: "custom_view", args: {} }],
+        tabs: [{ variant: "view", key: tabKey, type: "custom_view" }],
       });
       const { wrapper: Base } = await createPanelWrapper({
         client,
@@ -81,7 +81,7 @@ describe("Panel tab", () => {
       const tabKey = uuid.create();
       const existing = await createServerPanel(client, {
         variant: "leaf",
-        tabs: [{ variant: "view", key: tabKey, type: "unregistered_view", args: {} }],
+        tabs: [{ variant: "view", key: tabKey, type: "unregistered_view" }],
       });
       const { wrapper: Base } = await createPanelWrapper({
         client,

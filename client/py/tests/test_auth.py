@@ -11,6 +11,7 @@ from uuid import uuid4
 
 import pytest
 
+import freighter
 import synnax as sy
 from freighter.mock import MockUnaryClient
 
@@ -73,17 +74,37 @@ class TestAuthRetry:
 
         return mock_client
 
-    def test_retry_on_invalid_token(self, auth_setup: MockUnaryClient[int, int]):
-        """Test that authentication retries when receiving an invalid token error."""
-        mock_client = auth_setup
-        mock_client.response_errors = [sy.InvalidToken("invalid token"), None]
+    @pytest.mark.parametrize(
+        "type_, exc",
+        [
+            ("sy.auth", sy.AuthError),
+            ("sy.auth.invalid-credentials", sy.exceptions.InvalidCredentials),
+            ("sy.auth.invalid_token", sy.InvalidToken),
+            ("sy.auth.expired_token", sy.ExpiredToken),
+            ("sy.auth.access_denied", sy.AccessDenied),
+            ("sy.auth.repeated-username", sy.AuthError),
+        ],
+    )
+    def test_decode(self, type_: str, exc: type[sy.AuthError]):
+        """Should decode each auth error type the Core sends."""
+        err = freighter.decode_exception(
+            freighter.ExceptionPayload(type=type_, data="refused")
+        )
+        assert type(err) is exc
+        assert str(err) == "refused"
 
-        response = mock_client.send("", 1, int)
-        assert response == 1
-
-    def test_retry_on_expired_token(self, auth_setup):
-        """Test that authentication retries when receiving an expired token error."""
+    @pytest.mark.parametrize(
+        "type_", ["sy.auth.invalid_token", "sy.auth.expired_token"]
+    )
+    def test_retry_on_decoded_token_error(
+        self, auth_setup: MockUnaryClient[int, int], type_: str
+    ):
+        """Should re-authenticate and retry after a token error from the Core."""
         mock_client = auth_setup
-        mock_client.response_errors = [sy.ExpiredToken("token expired"), None]
-        response = mock_client.send("", 1, int)
-        assert response == 1
+        mock_client.response_errors = [
+            freighter.decode_exception(
+                freighter.ExceptionPayload(type=type_, data="refused")
+            ),
+            None,
+        ]
+        assert mock_client.send("", 1, int) == 1

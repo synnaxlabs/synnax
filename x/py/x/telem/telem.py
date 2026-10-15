@@ -22,6 +22,14 @@ from pydantic_core import core_schema
 
 from x.exceptions import ContiguityError
 
+_EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
+
+
+def _timedelta_nanoseconds(delta: timedelta) -> int:
+    return (
+        (delta.days * 86_400 + delta.seconds) * 1_000_000 + delta.microseconds
+    ) * 1_000
+
 
 class TimeStamp(int):
     """TimeStamp represents a 64 bit nanosecond-precision UTC timestamp. The TimeStamp
@@ -31,7 +39,7 @@ class TimeStamp(int):
     * TimeStamp - Returns a copy of the TimeStamp.
     * TimeSpan - Treats the TimeSpan as a duration since the Unix epoch in UTC.
     * pd.TimeStamp - Converts the pandas TimeStamp to a TimeStamp. If the timestamp is
-        not timezone aware, it is assumed to be in the local timezone.
+        not timezone aware, it is assumed to be in UTC.
     * datetime - Converts the datetime to a TimeStamp.  If the datetime is not timezone
         aware, it is assumed to be in the local timezone.
     * timedelta - Treats the timedelta as a duration since the Unix epoch in UTC.
@@ -47,13 +55,11 @@ class TimeStamp(int):
         elif isinstance(value, TimeSpan):
             value = int(value)
         elif isinstance(value, pd.Timestamp):
-            value = int(
-                float(TimeSpan.SECOND) * value.to_pydatetime().astimezone().timestamp()
-            )
+            value = value.value
         elif isinstance(value, datetime):
-            value = int(float(TimeSpan.SECOND) * value.timestamp())
+            value = _timedelta_nanoseconds(value.astimezone() - _EPOCH)
         elif isinstance(value, timedelta):
-            value = int(float(TimeSpan.SECOND) * value.total_seconds())
+            value = _timedelta_nanoseconds(value)
         elif isinstance(value, np.datetime64):
             value = int(pd.Timestamp(value).value)
         elif isinstance(value, (int, float, np.integer, np.floating)):
