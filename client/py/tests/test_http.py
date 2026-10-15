@@ -307,7 +307,7 @@ class TestHTTPReadTask:
                             key="f-1",
                             pointer="/temperature",
                             channel=1234,
-                            data_type="float64",
+                            data_type=sy.DataType.FLOAT64,
                         ),
                     ],
                 ),

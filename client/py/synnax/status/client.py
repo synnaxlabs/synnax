@@ -127,7 +127,7 @@ class Client:
             raise ValueError("status parameter is required")
 
         single = not isinstance(status, list)
-        statuses = [status] if single else status
+        statuses = status if isinstance(status, list) else [status]
 
         res = self.client.send(
             _SET_ENDPOINT, _SetRequest(statuses=statuses, parent=parent), _SetResponse

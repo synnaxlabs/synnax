@@ -169,7 +169,7 @@ class TestStatusClient:
 
     def test_all_variants(self, client: sy.Synnax) -> None:
         """Should support all status variants."""
-        variants = [
+        variants: list[sy.status.Variant] = [
             sy.status.VARIANT_SUCCESS,
             sy.status.VARIANT_INFO,
             sy.status.VARIANT_WARNING,

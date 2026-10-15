@@ -141,7 +141,7 @@ class TestEtherCATReadTask:
             index=0,
             sub_index=0,
             bit_length=16,
-            data_type="uint16",
+            data_type=sy.DataType.UINT16,
             channel=1234,
         )
         sy.ethercat.ManualReadChannel(
@@ -150,7 +150,7 @@ class TestEtherCATReadTask:
             index=65535,
             sub_index=0,
             bit_length=16,
-            data_type="uint16",
+            data_type=sy.DataType.UINT16,
             channel=1234,
         )
 
@@ -162,7 +162,7 @@ class TestEtherCATReadTask:
                 index=-1,
                 sub_index=0,
                 bit_length=16,
-                data_type="uint16",
+                data_type=sy.DataType.UINT16,
                 channel=1234,
             )
         with pytest.raises(ValidationError):
@@ -172,7 +172,7 @@ class TestEtherCATReadTask:
                 index=65536,
                 sub_index=0,
                 bit_length=16,
-                data_type="uint16",
+                data_type=sy.DataType.UINT16,
                 channel=1234,
             )
 
@@ -185,7 +185,7 @@ class TestEtherCATReadTask:
             index=0x6064,
             sub_index=0,
             bit_length=32,
-            data_type="int32",
+            data_type=sy.DataType.INT32,
             channel=1234,
         )
         sy.ethercat.ManualReadChannel(
@@ -194,7 +194,7 @@ class TestEtherCATReadTask:
             index=0x6064,
             sub_index=255,
             bit_length=32,
-            data_type="int32",
+            data_type=sy.DataType.INT32,
             channel=1234,
         )
 
@@ -206,7 +206,7 @@ class TestEtherCATReadTask:
                 index=0x6064,
                 sub_index=-1,
                 bit_length=32,
-                data_type="int32",
+                data_type=sy.DataType.INT32,
                 channel=1234,
             )
         with pytest.raises(ValidationError):
@@ -216,7 +216,7 @@ class TestEtherCATReadTask:
                 index=0x6064,
                 sub_index=256,
                 bit_length=32,
-                data_type="int32",
+                data_type=sy.DataType.INT32,
                 channel=1234,
             )
 
@@ -229,7 +229,7 @@ class TestEtherCATReadTask:
             index=0x6064,
             sub_index=0,
             bit_length=1,
-            data_type="uint8",
+            data_type=sy.DataType.UINT8,
             channel=1234,
         )
         sy.ethercat.ManualReadChannel(
@@ -238,7 +238,7 @@ class TestEtherCATReadTask:
             index=0x6064,
             sub_index=0,
             bit_length=64,
-            data_type="float64",
+            data_type=sy.DataType.FLOAT64,
             channel=1234,
         )
 
@@ -250,7 +250,7 @@ class TestEtherCATReadTask:
                 index=0x6064,
                 sub_index=0,
                 bit_length=-1,
-                data_type="uint8",
+                data_type=sy.DataType.UINT8,
                 channel=1234,
             )
         with pytest.raises(ValidationError):
@@ -260,7 +260,7 @@ class TestEtherCATReadTask:
                 index=0x6064,
                 sub_index=0,
                 bit_length=256,
-                data_type="uint8",
+                data_type=sy.DataType.UINT8,
                 channel=1234,
             )
 
@@ -287,7 +287,7 @@ class TestEtherCATReadTask:
                     index=0x6077,
                     sub_index=0,
                     bit_length=16,
-                    data_type="int16",
+                    data_type=sy.DataType.INT16,
                     channel=5678,
                 ),
             ],
@@ -496,7 +496,7 @@ class TestEtherCATWriteTask:
                     index=0x6040,
                     sub_index=0,
                     bit_length=16,
-                    data_type="uint16",
+                    data_type=sy.DataType.UINT16,
                     cmd_channel=9012,
                 ),
             ],
@@ -533,7 +533,7 @@ class TestEtherCATWriteTask:
                     index=0x6040,
                     sub_index=0,
                     bit_length=16,
-                    data_type="uint16",
+                    data_type=sy.DataType.UINT16,
                     cmd_channel=9012,
                     state_channel=0,
                     disabled=True,

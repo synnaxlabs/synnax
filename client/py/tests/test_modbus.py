@@ -180,7 +180,7 @@ class TestModbusReadTask:
                     type="holding_register",
                     address=0,
                     channel=1234,
-                    data_type="float32",
+                    data_type=sy.DataType.FLOAT32,
                 )
             ],
         )
@@ -192,13 +192,16 @@ class TestModbusReadTask:
         """Test that address validation works (0-65535)."""
         # Valid address
         sy.modbus.HoldingRegisterReadChannel(
-            type="holding_register", address=0, channel=1234, data_type="float32"
+            type="holding_register",
+            address=0,
+            channel=1234,
+            data_type=sy.DataType.FLOAT32,
         )
         sy.modbus.HoldingRegisterReadChannel(
             type="holding_register",
             address=65535,
             channel=1234,
-            data_type="float32",
+            data_type=sy.DataType.FLOAT32,
         )
 
         # Invalid addresses
@@ -207,14 +210,14 @@ class TestModbusReadTask:
                 type="holding_register",
                 address=-1,
                 channel=1234,
-                data_type="float32",
+                data_type=sy.DataType.FLOAT32,
             )
         with pytest.raises(ValidationError):
             sy.modbus.HoldingRegisterReadChannel(
                 type="holding_register",
                 address=65536,
                 channel=1234,
-                data_type="float32",
+                data_type=sy.DataType.FLOAT32,
             )
 
     def test_to_payload_serializes_config(self) -> None:
@@ -236,7 +239,7 @@ class TestModbusReadTask:
                     key="holding-reg-1",
                     address=0,
                     channel=1234,
-                    data_type="float32",
+                    data_type=sy.DataType.FLOAT32,
                 ),
             ],
         )
@@ -270,7 +273,7 @@ class TestModbusReadTask:
                     key="holding-reg-1",
                     address=0,
                     channel=1234,
-                    data_type="float32",
+                    data_type=sy.DataType.FLOAT32,
                 ),
                 sy.modbus.CoilReadChannel(
                     type="coil",
@@ -471,7 +474,7 @@ class TestModbusWriteTask:
                     key="hold-cmd-1",
                     address=0,
                     channel=5678,
-                    data_type="float32",
+                    data_type=sy.DataType.FLOAT32,
                 ),
             ],
         )
@@ -501,7 +504,7 @@ class TestModbusWriteTask:
                     key="hold-cmd-1",
                     address=10,
                     channel=5678,
-                    data_type="int16",
+                    data_type=sy.DataType.INT16,
                     bytes_swapped=True,
                     words_swapped=False,
                     disabled=True,
@@ -591,13 +594,13 @@ class TestModbusDevicePropertyUpdates:
                     type="input_register",
                     channel=ch1.key,
                     address=0,
-                    data_type="uint8",
+                    data_type=sy.DataType.UINT8,
                 ),
                 sy.modbus.HoldingRegisterReadChannel(
                     type="holding_register",
                     channel=ch2.key,
                     address=5,
-                    data_type="uint16",
+                    data_type=sy.DataType.UINT16,
                 ),
             ],
         )
@@ -678,7 +681,7 @@ class TestModbusDevicePropertyUpdates:
                     type="holding_register",
                     channel=holding_cmd.key,
                     address=20,
-                    data_type="float32",
+                    data_type=sy.DataType.FLOAT32,
                 ),
             ],
         )
@@ -711,7 +714,7 @@ class TestModbusDevicePropertyUpdates:
             type="input_register",
             channel=123,
             address=5,
-            data_type="uint8",
+            data_type=sy.DataType.UINT8,
         )
         expected_key = "register-input-5-uint8"
         key = f"{_READ_NAME_TYPES[ch.type]}-{ch.address}"
@@ -725,7 +728,7 @@ class TestModbusDevicePropertyUpdates:
             type="holding_register",
             channel=456,
             address=10,
-            data_type="float32",
+            data_type=sy.DataType.FLOAT32,
         )
         expected_key2 = "holding-register-input-10-float32"
         key2 = f"{_READ_NAME_TYPES[ch2.type]}-{ch2.address}"

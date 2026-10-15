@@ -7,6 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from collections.abc import Callable
+from typing import cast
+
 import pytest
 from pydantic import ValidationError
 
@@ -165,7 +168,18 @@ class TestLabJackReadTask:
     def test_thermocouple_type_validation(self) -> None:
         """Test that thermocouple types are validated."""
         # Valid thermocouple types
-        for tc_type in ["B", "E", "J", "K", "N", "R", "S", "T", "C"]:
+        tc_types: list[sy.labjack.ThermocoupleType] = [
+            "B",
+            "E",
+            "J",
+            "K",
+            "N",
+            "R",
+            "S",
+            "T",
+            "C",
+        ]
+        for tc_type in tc_types:
             sy.labjack.ThermocoupleReadChannel(
                 type="thermocouple",
                 port="AIN0",
@@ -179,8 +193,9 @@ class TestLabJackReadTask:
             )
 
         # Invalid thermocouple type
+        channel = cast(Callable[..., object], sy.labjack.ThermocoupleReadChannel)
         with pytest.raises(ValidationError):
-            sy.labjack.ThermocoupleReadChannel(
+            channel(
                 type="thermocouple",
                 port="AIN0",
                 channel=1234,

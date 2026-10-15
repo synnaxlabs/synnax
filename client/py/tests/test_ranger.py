@@ -49,6 +49,18 @@ class TestRangeClient:
         assert rng.key != ""
         assert rng.color == sy.Color(r=255, g=0, b=0, a=1.0)
 
+    def test_create_retrieve_without_color(self, client: sy.Synnax) -> None:
+        """Should keep a missing color as None instead of coercing it to black."""
+        rng = client.ranges.create(
+            sy.Range(
+                name=random_name(),
+                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+                color=None,
+            )
+        )
+        assert rng.color is None
+        assert client.ranges.retrieve(key=rng.key).color is None
+
     def test_create_multiple(self, two_ranges: list[sy.Range]) -> None:
         """Should create multiple valid ranges"""
         assert len(two_ranges) == 2
