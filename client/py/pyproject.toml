@@ -26,6 +26,7 @@ dependencies = [
     "pandas>=3.0.6,<4",
     "pydantic>=2.13.5,<3",
     "rich>=15.0.0,<16",
+    "typing-extensions>=4.16.0,<5",
     "urllib3>=2.8.0,<3",
 ]
 
@@ -70,7 +71,7 @@ strict = true
 
 [tool.pydantic-mypy]
 init_forbid_extra = true
-init_types = true
+init_typed = true
 warn_required_dynamic_aliases = true
 
 [tool.pytest.ini_options]
