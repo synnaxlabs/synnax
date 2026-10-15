@@ -10,7 +10,10 @@
 package versions
 
 import (
+	"slices"
+
 	v0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v1"
 	"github.com/synnaxlabs/x/migrate"
 )
 
@@ -18,11 +21,16 @@ import (
 var Migrations = []migrate.Migration{v0.Migration}
 
 // CompositionMigrations is the ordered set of migrations the service layer runs after
-// every service table is open, concatenating each version's contribution.
-var CompositionMigrations = v0.CompositionMigrations
+// every service table is open, concatenating each version's contribution. The v1 lift
+// runs here, not in the table chain, because the v0 migrations before it write v0
+// panels.
+var CompositionMigrations = slices.Concat(
+	v0.CompositionMigrations,
+	[]migrate.Migration{v1.Migration},
+)
 
 // Latest is the portable schema version stamped on a panel bundle member and the
 // highest version an import accepts. It tracks the stored schema version, which the
 // bundle body mirrors: the same tree, with each resource reference rewritten to a
 // bundle path.
-const Latest = v0.Version
+const Latest = v1.Version

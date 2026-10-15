@@ -14,7 +14,7 @@ import {
   task,
 } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
-import { type record, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, assert, describe, expect, it } from "vitest";
 
@@ -115,7 +115,7 @@ const renderToolbar = async (
   return { created, store };
 };
 
-const awaitTab = async (created: CreatedPanel, type: string): Promise<record.Unknown> =>
+const awaitTab = async (created: CreatedPanel, type: string): Promise<void> =>
   await waitFor(async () => {
     const doc = await client.panels.retrieve(created.panelKey);
     assert(doc.root.variant === "leaf", "panel root is not a leaf");
@@ -123,7 +123,6 @@ const awaitTab = async (created: CreatedPanel, type: string): Promise<record.Unk
       (t): t is panel.ViewTab => t.variant === "view" && t.type === type,
     );
     assertDefined(tab, `no ${type} tab was opened`);
-    return tab.args;
   });
 
 // The task's reported status streams in after the initial list fetch. Reopen the menu
@@ -161,8 +160,7 @@ describe("task/Toolbar", () => {
     const { created } = await renderToolbar();
     await waitFor(() => getIconButton(document.body, "add"));
     fireEvent.click(getIconButton(document.body, "add"));
-    const args = await awaitTab(created, "taskSelector");
-    expect(args).toEqual({});
+    await awaitTab(created, "taskSelector");
   });
 
   it("opens the task's resource tab on double click", async () => {

@@ -24,7 +24,6 @@ packages:
   - site/portal
   - site/www
   - studio
-  - x/media
   - x/ts
 
 shellEmulator: true
@@ -94,7 +93,6 @@ catalog:
   '@synnaxlabs/eslint-config': workspace:^
   '@synnaxlabs/freighter': workspace:^
   '@synnaxlabs/lyra': workspace:^
-  '@synnaxlabs/media': workspace:^
   '@synnaxlabs/pluto': workspace:^
   '@synnaxlabs/site-common': workspace:^
   '@synnaxlabs/stylelint-config': workspace:^

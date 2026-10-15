@@ -30,22 +30,6 @@ from synnax.modbus.types_gen import (
     WriteChannel,
     WriteConfig,
 )
-from x.deprecation import deprecated_getattr
-
-_DEPRECATED: dict[str, str | tuple[str, str]] = {
-    "InputChan": "ReadChannel",
-    "OutputChan": "WriteChannel",
-    "CoilInputChan": "CoilReadChannel",
-    "CoilOutputChan": "CoilWriteChannel",
-    "DiscreteInputChan": "DiscreteInputReadChannel",
-    "HoldingRegisterInputChan": "HoldingRegisterReadChannel",
-    "HoldingRegisterOutputChan": "HoldingRegisterWriteChannel",
-    "InputRegisterChan": "InputRegisterReadChannel",
-    "ReadTaskConfig": "ReadConfig",
-    "WriteTaskConfig": "WriteConfig",
-}
-
-__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
 
 __all__ = [
     "BaseReadChannel",
