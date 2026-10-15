@@ -30,7 +30,6 @@ import synnax as sy
 from examples.simulators.device_sim import DeviceSim
 from synnax import opcua
 
-# Configuration constants
 ARRAY_COUNT = 5
 DEFAULT_ARRAY_SIZE = 5
 FLOAT_COUNT = 5
@@ -39,12 +38,10 @@ COMMAND_COUNT = 3
 DEFAULT_RATE = 50  # Hz
 BOOL_OFFSET = 0.2  # seconds between each boolean transition
 
-# Error injection configuration
-ERROR_INJECTION_RATE = 0.1  # 10% error rate for stress testing
-ERROR_ARRAY_INDEX = 2  # Which array index to inject errors into
-ERROR_FLOAT_INDEX = 2  # Which float index to inject errors into
+ERROR_INJECTION_RATE = 0.1
+ERROR_ARRAY_INDEX = 2
+ERROR_FLOAT_INDEX = 2
 
-# Encryption certificate directory
 CERT_DIR = Path(__file__).parent / "certificates"
 
 
@@ -55,7 +52,6 @@ async def write_array_dimensions(node: Node, size: int) -> None:
     await node.write_attribute(AttributeIds.ArrayDimensions, ua.DataValue(dims))
 
 
-# Initialization Functions
 async def create_array_variables(
     myobj: Node, idx: int, array_size: int = DEFAULT_ARRAY_SIZE
 ) -> list[Node]:
@@ -135,7 +131,6 @@ async def monitor_command_changes(
         await asyncio.sleep(0.1)  # Check every 100ms
 
 
-# Data Generation Functions
 def generate_timestamps(
     start: datetime.datetime, rate: float, size: int
 ) -> list[datetime.datetime]:
@@ -152,7 +147,6 @@ def generate_sinewave_values(
     ]
 
 
-# Update Functions
 def inject_error[T](values: list[T], array_size: int = DEFAULT_ARRAY_SIZE) -> list[T]:
     """
     Generate corrupted array data for error injection.
@@ -160,16 +154,13 @@ def inject_error[T](values: list[T], array_size: int = DEFAULT_ARRAY_SIZE) -> li
 
     error_chance = random.random()
 
-    # Empty array
     if error_chance < 0.333:
         return []
 
-    # Array smaller than expected
     elif error_chance < 0.667:
         size = random.randint(1, max(2, array_size - 2))
         return values[:size]
 
-    # Array larger than expected
     else:
         extra = random.randint(1, 3)
         return values + [values[-1] for _ in range(extra)]
@@ -291,7 +282,6 @@ async def run_server(
     user_manager: UserManager | None = None,
     max_sessions: int | None = None,
 ) -> None:
-    # Initialize server
     server = Server(user_manager=user_manager)
     await server.init()
     if not endpoint:
@@ -309,7 +299,6 @@ async def run_server(
     uri = "http://examples.freeopcua.github.io"
     idx = await server.register_namespace(uri)
 
-    # Create OPC UA object and variables
     myobj = await server.nodes.objects.add_object(idx, "MyObject")
     arrays = await create_array_variables(myobj, idx, array_size)
     mytimearray = await create_time_array(myobj, idx, array_size)
@@ -317,7 +306,6 @@ async def run_server(
     bools = await create_bool_variables(myobj, idx)
     commands = await create_command_variables(myobj, idx)
 
-    # Set up monitoring for command variable writes
     print("\n" + "=" * 60)
     print("OPC UA Server Started - Monitoring Command Variables")
     print("=" * 60)
@@ -335,10 +323,8 @@ async def run_server(
     print(f"  Bools:  my_bool_0 to my_bool_{BOOL_COUNT - 1}")
     print("\nWaiting for commands...\n")
 
-    # Start monitoring task
     asyncio.create_task(monitor_command_changes(commands, command_values))
 
-    # Start server loop
     start_ref = datetime.datetime.now(datetime.timezone.utc)
 
     async with server:
@@ -346,17 +332,14 @@ async def run_server(
             start = datetime.datetime.now(datetime.timezone.utc)
             elapsed = (start - start_ref).total_seconds()
 
-            # Generate data
             timestamps = generate_timestamps(start, rate, array_size)
             sinewave_values = generate_sinewave_values(timestamps, start_ref)
 
-            # Update all variables
             await update_arrays(arrays, sinewave_values)
             await mytimearray.set_value(timestamps, varianttype=ua.VariantType.DateTime)
             await update_floats(floats, elapsed)
             await update_bools(bools, elapsed)
 
-            # Sleep to maintain rate
             duration = (
                 datetime.datetime.now(datetime.timezone.utc) - start
             ).total_seconds()

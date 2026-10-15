@@ -15,6 +15,6 @@ client = sy.Synnax()
 
 with client.open_streamer("sy_task_set") as s:
     for frame in s:
-        t = client.tasks.retrieve(keys=[frame["sy_task_set"][0]])
+        t = client.tasks.retrieve(keys=[str(frame["sy_task_set"][0])])
         with open("task.json", "w") as f:
             json.dump(t[0].config, f, indent=4)
