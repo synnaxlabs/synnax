@@ -7,21 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/Logo/LogoWatermark.css";
+import "@/logo/Watermark.css";
 
 import { type PropsWithChildren, type ReactElement } from "react";
 
-import { Logo, type LogoProps } from "@/Logo/Logo";
+import { Logo, type LogoProps } from "@/logo/Logo";
 
-export interface LogoWatermarkProps extends PropsWithChildren<LogoProps> {}
+export interface WatermarkProps extends PropsWithChildren<LogoProps> {}
 
 /**
- * LogoWatermark displays the Synnax logo as a watermark in the center of the screen.
+ * Watermark displays the Synnax logo as a watermark in the center of the screen.
  */
-export const LogoWatermark = ({
-  children,
-  ...rest
-}: LogoWatermarkProps): ReactElement => (
+export const Watermark = ({ children, ...rest }: WatermarkProps): ReactElement => (
   <div className="synnax-logo-watermark__container">
     <Logo className="synnax-logo-watermark" {...rest} />
     {children}

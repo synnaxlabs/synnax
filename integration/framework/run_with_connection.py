@@ -66,9 +66,9 @@ if __name__ == "__main__":
     import importlib
 
     import synnax.synnax as _syn
-    from synnax.options import SynnaxOptions
+    from synnax.options import Options
 
-    _opts = SynnaxOptions(
+    _opts = Options(
         host=os.environ["SYNNAX_HOST"],
         port=int(os.environ["SYNNAX_PORT"]),
         username=os.environ["SYNNAX_USERNAME"],

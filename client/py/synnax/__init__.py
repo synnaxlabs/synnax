@@ -33,7 +33,6 @@ from synnax.arc import (
     Position,
     Text,
 )
-from synnax.arc import Task as ArcTask
 from synnax.channel import Channel
 from synnax.control import Controller
 from synnax.device import Device
@@ -73,8 +72,6 @@ from synnax.rack import Rack
 from synnax.ranger import Range
 from synnax.status import Status
 from synnax.synnax import Synnax
-from synnax.task import Status as TaskStatus
-from synnax.task import StatusDetails as TaskStatusDetails
 from synnax.task import Task
 from synnax.telem import (
     Alignment,
@@ -105,24 +102,12 @@ from synnax.user.payload import User
 from synnax.view import View
 from x import color
 from x.color import Color
-from x.deprecation import deprecated_getattr
 from x.exceptions import ContiguityError
 
 __version__ = _version("synnax")
 
-_DEPRECATED: dict[str, str | tuple[str, str]] = {
-    "ArcTask": ("synnax.arc.Task", "ArcTask"),
-    "TaskStatus": ("synnax.task.Status", "TaskStatus"),
-    "TaskStatusDetails": ("synnax.task.StatusDetails", "TaskStatusDetails"),
-    "SynnaxOptions": "Options",
-}
-
-__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
 
 __all__ = [
-    "ArcTask",
-    "TaskStatus",
-    "TaskStatusDetails",
     "Alignment",
     "Arc",
     "AUTO_SPAN",

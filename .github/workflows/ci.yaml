@@ -82,7 +82,6 @@ jobs:
       knip: ${{ steps.filter.outputs.knip }}
       lint_integration: ${{ steps.filter.outputs.lint_integration }}
       lyra: ${{ steps.filter.outputs.lyra }}
-      media: ${{ steps.filter.outputs.media }}
       oracle: ${{ steps.filter.outputs.oracle }}
       oracle_check: ${{ steps.filter.outputs.oracle_check }}
       oracle_language: ${{ steps.filter.outputs.oracle_language }}
@@ -488,16 +487,6 @@ jobs:
       windows: *full
     secrets: inherit
 
-  media:
-    needs: changes
-    if: inputs.full || needs.changes.outputs.media == 'true'
-    uses: ./.github/workflows/test.ts.yaml
-    with:
-      directory: x/media
-      package: media
-      test: false
-    secrets: inherit
-
   oracle:
     needs: changes
     if: inputs.full || needs.changes.outputs.oracle == 'true'
@@ -735,7 +724,6 @@ jobs:
       - knip
       - lint-integration
       - lyra
-      - media
       - oracle
       - oracle-check
       - oracle-language
