@@ -12,7 +12,7 @@ from __future__ import annotations
 from asyncio import Future
 from collections.abc import Callable
 from threading import Event, Lock
-from typing import Any, Protocol, cast, overload
+from typing import Any, Protocol, TypeAlias, cast, overload
 
 import numpy as np
 
@@ -24,6 +24,10 @@ from synnax.timing import sleep
 from x.control import CrudeAuthority
 from x.thread import AsyncThread
 
+Condition: TypeAlias = (
+    "Callable[[Controller], bool | np.bool_ | np.number | int | float]"
+)
+
 
 class Processor(Protocol):
     event: Event
@@ -33,11 +37,11 @@ class Processor(Protocol):
 
 class WaitUntil(Processor):
     event: Event
-    callback: Callable[[Controller], bool]
+    callback: Condition
     exc: Exception | None
     reverse: bool
 
-    def __init__(self, callback: Callable[[Controller], bool], reverse: bool = False):
+    def __init__(self, callback: Condition, reverse: bool = False):
         self.event = Event()
         self.callback = callback
         self.exc = None
@@ -58,7 +62,7 @@ class WaitUntil(Processor):
 
 class RemainsTrueFor(Processor):
     event: Event
-    callback: Callable[[Controller], bool]
+    callback: Condition
     exc: Exception | None
     target: float
     actual: float = 0
@@ -66,7 +70,7 @@ class RemainsTrueFor(Processor):
 
     def __init__(
         self,
-        callback: Callable[[Controller], bool],
+        callback: Condition,
         percentage: float,
     ):
         self.event = Event()
@@ -192,7 +196,7 @@ class Controller:
         to_write: dict[channel_.Key, SampleValue] = {ch.key: value}
         if not ch.virtual:
             to_write[ch.index] = TimeStamp.now()
-        self._writer.write(cast(framer.CrudeFrame, to_write))
+        self._writer.write(to_write)
 
     @overload
     def set_authority(
@@ -259,7 +263,7 @@ class Controller:
 
     def wait_until(
         self,
-        cond: Callable[[Controller], bool],
+        cond: Condition,
         timeout: CrudeTimeSpan | None = None,
     ) -> bool:
         """Blocks the controller, calling the provided callback on every new sample
@@ -287,7 +291,7 @@ class Controller:
 
     def wait_while(
         self,
-        cond: Callable[[Controller], bool],
+        cond: Condition,
         timeout: CrudeTimeSpan | None = None,
     ) -> bool:
         """Blocks the controller, calling the provided callback on every new sample
@@ -299,7 +303,7 @@ class Controller:
 
     def _internal_wait_until(
         self,
-        cond: Callable[[Controller], bool],
+        cond: Condition,
         timeout: CrudeTimeSpan | None = None,
         reverse: bool = False,
     ) -> bool:
@@ -354,7 +358,7 @@ class Controller:
 
     def remains_true_for(
         self,
-        cond: Callable[[Controller], bool],
+        cond: Condition,
         duration: CrudeTimeSpan,
         percentage: float = 1,
     ) -> bool:
