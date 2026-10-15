@@ -15,6 +15,7 @@
 #include "x/cpp/test/test.h"
 
 #include "driver/modbus/mock/slave.h"
+#include "driver/modbus/modbus.h"
 #include "driver/modbus/write_task.h"
 #include "driver/pipeline/mock/pipeline.h"
 
@@ -59,7 +60,7 @@ protected:
             .key = "modbus_test_dev",
             .rack = rack.key,
             .location = "dev1",
-            .make = "modbus",
+            .make = MAKE,
             .model = "Modbus Device",
             .name = "modbus_test_dev",
             .properties = properties,
