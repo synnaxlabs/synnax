@@ -411,7 +411,7 @@ class TimeSpan(int):
     def __sub__(self, rhs: CrudeTimeSpan) -> TimeSpan:
         return TimeSpan(super().__sub__(TimeSpan(rhs)))
 
-    def __mul__(self, rhs: CrudeTimeSpan) -> TimeSpan:
+    def __mul__(self, rhs: CrudeTimeSpan | np.integer) -> TimeSpan:
         return TimeSpan(self.nanoseconds * rhs)
 
     def __truediv__(self, rhs: CrudeTimeSpan) -> TimeSpan:
@@ -420,24 +420,24 @@ class TimeSpan(int):
     def __mod__(self, rhs: CrudeTimeSpan) -> TimeSpan:
         return TimeSpan(super().__mod__(TimeSpan(rhs)))
 
-    # override widens int's parameter type to accept CrudeTimeSpan
-    def __rmul__(self, rhs: CrudeTimeSpan) -> TimeSpan:  # type: ignore[misc]
+    # Pyright has no reflected-operand priority, so it types int * TimeSpan as int.
+    def __rmul__(self, rhs: int) -> TimeSpan:
         return self.__mul__(rhs)
 
     def __abs__(self) -> TimeSpan:
         return TimeSpan(super().__abs__())
 
-    # overrides below widen int's parameter type to accept CrudeTimeSpan
-    def __gt__(self, rhs: CrudeTimeSpan) -> bool:  # type: ignore[misc]
+    # Omits np.timedelta64: its reflected comparisons return np.bool, not bool.
+    def __gt__(self, rhs: _ComparableTimeSpan) -> bool:
         return super().__gt__(TimeSpan(rhs))
 
-    def __ge__(self, rhs: CrudeTimeSpan) -> bool:  # type: ignore[misc]
+    def __ge__(self, rhs: _ComparableTimeSpan) -> bool:
         return super().__ge__(TimeSpan(rhs))
 
-    def __lt__(self, rhs: CrudeTimeSpan) -> bool:  # type: ignore[misc]
+    def __lt__(self, rhs: _ComparableTimeSpan) -> bool:
         return super().__lt__(TimeSpan(rhs))
 
-    def __le__(self, rhs: CrudeTimeSpan) -> bool:  # type: ignore[misc]
+    def __le__(self, rhs: _ComparableTimeSpan) -> bool:
         return super().__le__(TimeSpan(rhs))
 
     def __eq__(self, rhs: object) -> bool:
@@ -742,18 +742,15 @@ class TimeRange(BaseModel):
             return False
         return self.start == rhs.start and self.end == rhs.end
 
-    # Assigning these values to None prevents pydantic
-    # from throwing a nasty missing attribute error.
-
-    MAX: ClassVar[TimeRange] = None  # type: ignore
+    MAX: ClassVar[TimeRange]
     """The maximum possible TimeRange, starting at TimeStamp.MIN and ending
     a TimeStamp.MAX
     """
-    MIN: ClassVar[TimeRange] = None  # type: ignore
+    MIN: ClassVar[TimeRange]
     """The minimum possible TimeRange, starting at TimeStamp.MAX and ending at
     TimeStamp.MIN. Note that this TimeRange is invalid.
     """
-    ZERO: ClassVar[TimeRange] = None  # type: ignore
+    ZERO: ClassVar[TimeRange]
     """A TimeRange starting and ending at the unix epoch in UTC (TimeStamp.ZERO)."""
 
 
@@ -1108,6 +1105,7 @@ CrudeTimeStamp: TypeAlias = (
 CrudeTimeSpan: TypeAlias = (
     int | float | TimeSpan | TimeStamp | timedelta | np.timedelta64
 )
+_ComparableTimeSpan: TypeAlias = int | float | timedelta
 CrudeRate: TypeAlias = int | float | TimeSpan | Rate
 CrudeDensity: TypeAlias = Density | int
 CrudeDataType: TypeAlias = (
@@ -1306,4 +1304,4 @@ CrudeAlignment: TypeAlias = int | tuple[int, int] | Alignment | str
 
 def seconds_linspace(start: int, count: int) -> list[TimeSpan]:
     """Generates a list of TimeSpan values from start to start + count."""
-    return [start * TimeSpan.SECOND + i * TimeSpan.SECOND for i in range(count)]
+    return [TimeSpan.SECOND * (start + i) for i in range(count)]
