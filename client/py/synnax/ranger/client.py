@@ -45,6 +45,7 @@ from synnax.telem import (
     SampleValue,
     TimeRange,
 )
+from x.color import Color
 from x.interop import overload_comparison_operators
 from x.lists import check_for_none, normalize
 from x.params import require_named_params
@@ -299,7 +300,7 @@ class Range(Payload):
             name=name,
             time_range=time_range,
             key=key,
-            color=color,
+            color=Color(color),
             parent=parent_payload,
         )
         self._cached_frame_client = _frame_client
