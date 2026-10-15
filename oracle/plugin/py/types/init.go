@@ -136,12 +136,16 @@ func pyFields(typ resolution.Type, table *resolution.Table) []resolution.Field {
 		for i, tp := range pform.TypeParams {
 			if i < len(ext.TypeArgs) {
 				typeArgs[tp.Name] = ext.TypeArgs[i]
+			} else if !tp.HasDefault() {
+				typeArgs[tp.Name] = typeVarDefault(tp)
 			}
 		}
 		for _, f := range pyFields(parent, table) {
 			if _, seen := index[f.Name]; seen {
 				continue
 			}
+			// Substitution erases the optional type parameter that made it nullable.
+			f.Optional = f.Optional || isOptionalTypeParam(f)
 			f.Type = resolution.SubstituteTypeRef(f.Type, typeArgs)
 			index[f.Name] = len(fields)
 			fields = append(fields, f)
@@ -156,6 +160,15 @@ func pyFields(typ resolution.Type, table *resolution.Table) []resolution.Field {
 		fields = append(fields, f)
 	}
 	return fields
+}
+
+// typeVarDefault returns the type a Python class takes for an omitted type argument:
+// the parameter's bound, or arbitrary JSON when unbounded.
+func typeVarDefault(tp resolution.TypeParam) resolution.TypeRef {
+	if tp.Constraint != nil && !resolution.IsConstraint(tp.Constraint.Name) {
+		return *tp.Constraint
+	}
+	return resolution.TypeRef{Name: "any"}
 }
 
 // flattensParents reports whether the struct generates as a standalone class instead
