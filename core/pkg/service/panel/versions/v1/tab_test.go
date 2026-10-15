@@ -7,32 +7,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v0_test
+package v1_test
 
 import (
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v1"
 )
 
 var _ = Describe("Tab", func() {
 	Describe("Key", func() {
 		It("Should return the key of a resource-backed tab", func() {
 			k := uuid.New()
-			variant := v0.ResourceTab{Key: k}
-			Expect(v0.Tab{Variant: variant}.Key()).To(Equal(k))
+			variant := v1.ResourceTab{Key: k}
+			Expect(v1.Tab{Variant: variant}.Key()).To(Equal(k))
 		})
 
 		It("Should return the key of a view-backed tab", func() {
 			k := uuid.New()
-			variant := v0.ViewTab{Key: k}
-			Expect(v0.Tab{Variant: variant}.Key()).To(Equal(k))
+			variant := v1.ViewTab{Key: k}
+			Expect(v1.Tab{Variant: variant}.Key()).To(Equal(k))
 		})
 
 		It("Should return uuid.Nil() for a tab with no variant", func() {
-			Expect(v0.Tab{}.Key()).To(Equal(uuid.Nil()))
+			Expect(v1.Tab{}.Key()).To(Equal(uuid.Nil()))
 		})
 	})
 })

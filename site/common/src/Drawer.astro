@@ -8,7 +8,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Logo } from "@synnaxlabs/media";
+import { Logo } from "@synnaxlabs/lyra/logo";
 
 import "./drawer.css";
 
@@ -24,7 +24,7 @@ const { home } = Astro.props;
 <nav class="mobile-drawer">
     <div class="mobile-drawer-header">
         <a href={home} class="logo-link">
-            <Logo variant="title" />
+            <Logo.Logo variant="title" />
         </a>
         <button class="mobile-close-btn" aria-label="Close menu" data-mobile-close>
             <span class="mobile-close-icon"></span>

@@ -15,9 +15,9 @@ import { CSS } from "@synnaxlabs/lyra/css";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Logo } from "@synnaxlabs/lyra/logo";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Logo } from "@synnaxlabs/media";
 import { errors, primitive, type record } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
@@ -77,7 +77,7 @@ const causeChain = (err: Error): string[] => {
  * <Fallback error={error} resetErrorBoundary={reset} />
  * @example
  * // With custom actions
- * <Fallback error={error} resetErrorBoundary={reset} icon={<Logo />}>
+ * <Fallback error={error} resetErrorBoundary={reset} icon={<Logo.Logo />}>
  *   <Button onClick={reset}>Try again</Button>
  *   <Button onClick={clear}>Clear storage</Button>
  * </Fallback>
@@ -153,7 +153,7 @@ export const Fallback = ({
             </Breadcrumb.Breadcrumb>
           </Nav.Bar.Start>
           <Nav.Bar.End className={CSS.BE("error-fallback", "nav-end")}>
-            <Logo variant="icon" />
+            <Logo.Logo variant="icon" />
           </Nav.Bar.End>
         </Nav.Bar>
         <Flex.Box className={CSS.BE("error-fallback", "body")}>

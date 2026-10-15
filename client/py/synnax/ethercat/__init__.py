@@ -29,18 +29,6 @@ from synnax.ethercat.types_gen import (
     WriteChannel,
     WriteConfig,
 )
-from x.deprecation import deprecated_getattr
-
-_DEPRECATED: dict[str, str | tuple[str, str]] = {
-    "AutomaticInputChan": "AutomaticReadChannel",
-    "AutomaticOutputChan": "AutomaticWriteChannel",
-    "ManualInputChan": "ManualReadChannel",
-    "ManualOutputChan": "ManualWriteChannel",
-    "ReadTaskConfig": "ReadConfig",
-    "WriteTaskConfig": "WriteConfig",
-}
-
-__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
 
 __all__ = [
     "AutomaticReadChannel",

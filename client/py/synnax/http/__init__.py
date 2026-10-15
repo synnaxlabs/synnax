@@ -36,20 +36,6 @@ from synnax.http.types_gen import (
     WriteEndpoint,
     WriteField,
 )
-from x.deprecation import deprecated_getattr
-
-_DEPRECATED: dict[str, str | tuple[str, str]] = {
-    "GeneratedField": "GeneratedWriteField",
-    "StaticField": "StaticWriteField",
-    "HeaderEntry": "Header",
-    "QueryParamEntry": "QueryParam",
-    "ReadEnumEntry": "EnumEntry",
-    "WriteEnumEntry": "EnumEntry",
-    "ReadTaskConfig": "ReadConfig",
-    "WriteTaskConfig": "WriteConfig",
-}
-
-__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
 
 __all__ = [
     "BaseWriteField",
