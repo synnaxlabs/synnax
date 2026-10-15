@@ -10,6 +10,8 @@
 package license_test
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
@@ -19,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	svcmock "github.com/synnaxlabs/synnax/pkg/service/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -32,7 +35,7 @@ var _ = Describe("Service", Ordered, func() {
 		)).Error().To(MatchError(access.ErrDenied))
 	})
 
-	It("Should report a missing license to a reader", func(ctx SpecContext) {
+	It("Should report no license to a reader", func(ctx SpecContext) {
 		reader := freshUser(ctx)
 		grantOn(
 			ctx,
@@ -44,21 +47,43 @@ var _ = Describe("Service", Ordered, func() {
 			AuthedCtx(ctx, reader),
 			apilicense.RetrieveRequest{},
 		))
-		Expect(info.State).To(Equal(license.StateMissing))
+		Expect(info.State).To(Equal(license.StateOk))
 		Expect(info.License).To(BeNil())
 	})
 
-	It("Should gate requests while the license is missing", func(ctx SpecContext) {
+	It("Should pass requests while no license key is activated", func(ctx SpecContext) {
+		called := false
+		_, err := apilicense.Middleware(licenseSvc).Exec(
+			freighter.Context{Context: ctx},
+			func(fctx freighter.Context) (freighter.Context, error) {
+				called = true
+				return fctx, nil
+			},
+		)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(called).To(BeTrue())
+	})
+
+	It("Should gate requests while the license is expired", func(ctx SpecContext) {
+		kvDB := DeferClose(memkv.New())
+		lic := svcmock.NewLicense()
+		lic.Exp = new(uint32(time.Now().Add(-100 * 24 * time.Hour).Unix()))
+		key := append([]byte("license/"), lic.Jti.String()...)
+		Expect(kvDB.Set(ctx, key, []byte(signer.Sign(lic)))).To(Succeed())
+		expired := MustOpen(license.OpenService(ctx, license.ServiceConfig{
+			DB:      kvDB,
+			Anchors: signer.Anchors,
+		}))
 		called := false
 		in := freighter.Context{Context: ctx}
-		out, err := apilicense.Middleware(licenseSvc).Exec(
+		out, err := apilicense.Middleware(expired).Exec(
 			in,
 			func(fctx freighter.Context) (freighter.Context, error) {
 				called = true
 				return fctx, nil
 			},
 		)
-		Expect(err).To(MatchError(license.ErrMissing))
+		Expect(err).To(MatchError(license.ErrExpired))
 		Expect(out).To(Equal(in))
 		Expect(called).To(BeFalse())
 	})
@@ -132,7 +157,7 @@ var _ = Describe("Service", Ordered, func() {
 			AuthedCtx(ctx, owner),
 			apilicense.DeactivateRequest{Jti: jti},
 		))
-		Expect(info.State).To(Equal(license.StateMissing))
+		Expect(info.State).To(Equal(license.StateOk))
 		Expect(info.License).To(BeNil())
 	})
 })

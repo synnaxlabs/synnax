@@ -60,8 +60,8 @@ var _ = Describe("Check", func() {
 		Expect(res.NodeVersion).To(Equal(version.Get()))
 	})
 
-	It("Should report a missing license", func(ctx SpecContext) {
-		Expect(check(ctx, openLicense(ctx)).License).To(Equal(license.StateMissing))
+	It("Should report a Core with no license key as covered", func(ctx SpecContext) {
+		Expect(check(ctx, openLicense(ctx)).License).To(Equal(license.StateOk))
 	})
 
 	It("Should report an active license", func(ctx SpecContext) {

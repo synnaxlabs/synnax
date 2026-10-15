@@ -166,7 +166,7 @@ var _ io.Closer = &Service{}
 
 // OpenService opens the service and activates cfg.Key when set. It returns an error
 // when cfg.Key is refused or the machine fingerprint cannot be read. A Core with no
-// license opens in StateMissing.
+// license key opens covered, capped at FreeChannels.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
@@ -176,7 +176,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if s.fingerprint, err = readFingerprint(); err != nil {
 		return nil, errors.Wrap(err, "failed to read the machine fingerprint")
 	}
-	s.mu.info = Info{State: StateMissing, Fingerprint: s.fingerprint}
+	s.mu.info = s.free()
 	if err = s.syncClock(ctx); err != nil {
 		return nil, err
 	}
@@ -316,16 +316,21 @@ func (s *Service) Deactivate(ctx context.Context, jti uuid.UUID) (Info, error) {
 }
 
 // CheckChannelLimit returns ErrTooMany when inUse external channels exceed the
-// license's cap, and nil while no license covers the Core.
+// license's cap, or FreeChannels when no license key applies. Returns nil while no
+// license covers the Core.
 func (s *Service) CheckChannelLimit(inUse types.Uint20) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	info := s.mu.info
-	if info.State != StateOk || info.License.Channels == 0 {
+	if info.State != StateOk {
 		return nil
 	}
-	if uint32(inUse) > info.License.Channels {
-		return newTooManyError(info.License.Channels)
+	limit := uint32(FreeChannels)
+	if info.License != nil {
+		limit = info.License.Channels
+	}
+	if limit != 0 && uint32(inUse) > limit {
+		return newTooManyError(limit)
 	}
 	return nil
 }
@@ -417,7 +422,7 @@ func (s *Service) load(ctx context.Context) error {
 		return err
 	}
 	if chosen == nil {
-		chosen = &Info{State: StateMissing, Fingerprint: s.fingerprint}
+		chosen = new(s.free())
 	}
 	s.mu.Lock()
 	s.mu.info = *chosen
@@ -440,8 +445,21 @@ func better(a, b Info) bool {
 const clockTemplate = "system clock is more than %s behind the last recorded time, " +
 	"so the license term cannot be checked"
 
-// FreeChannels is the channel cap a numeric key keeps once its term has ended.
+// FreeChannels is the channel cap of a Core with no license key, and of a numeric key
+// whose term has ended.
 const FreeChannels = 50
+
+// free is the info of a Core with no license key.
+func (s *Service) free() Info {
+	return Info{
+		State:       StateOk,
+		Fingerprint: s.fingerprint,
+		Warning: fmt.Sprintf(
+			"no license key is activated, usage is limited to %d channels",
+			FreeChannels,
+		),
+	}
+}
 
 // evaluate decides the state a license puts this Core in at the current time. A numeric
 // key whose term has ended still covers the Core, capped at FreeChannels.
@@ -542,9 +560,11 @@ func (s *Service) logState() {
 	info := s.Retrieve()
 	switch info.State {
 	case StateOk:
-		if info.License.Channels == 0 {
+		switch {
+		case info.License == nil:
+		case info.License.Channels == 0:
 			s.cfg.L.Info("license active")
-		} else {
+		default:
 			s.cfg.L.Infof("license active, limit is %d channels", info.License.Channels)
 		}
 		if info.Warning != "" {
@@ -585,7 +605,8 @@ func (s *Service) monitor(ctx context.Context) error {
 			s.logState()
 			continue
 		}
-		if info := s.Retrieve(); info.State == StateOk && info.Warning != "" {
+		info := s.Retrieve()
+		if info.State == StateOk && info.License != nil && info.Warning != "" {
 			s.cfg.L.Warn(info.Warning)
 		}
 	}
