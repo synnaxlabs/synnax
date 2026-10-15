@@ -629,18 +629,7 @@ func processStruct(
 				return sd, nil
 			}
 
-			// Get all parent fields for comparison (first parent wins on conflict)
-			parentFields := make([]resolution.Field, 0)
-			seenFields := make(set.Set[string])
-			for _, extendsRef := range form.Extends {
-				parent, _ := extendsRef.Resolve(table)
-				for _, pf := range resolution.UnifiedFields(parent, table) {
-					if !seenFields.Contains(pf.Name) {
-						seenFields.Add(pf.Name)
-						parentFields = append(parentFields, pf)
-					}
-				}
-			}
+			parentFields := inheritedFields(form, table)
 
 			if flattensParents(form, table) {
 				// Inline all fields from parents and child into a standalone class
