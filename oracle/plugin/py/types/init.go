@@ -11,6 +11,7 @@ package types
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/omit"
@@ -89,8 +90,9 @@ func handPrimitive(field resolution.Field, table *resolution.Table) (string, boo
 }
 
 // variantInitParams returns the type-checking __init__ parameters of a union variant
-// model: its discriminator, then the fields it inherits and declares. The discriminator
-// replaces any inherited field of the same name, as the variant class overrides it.
+// model: its discriminator, then the fields the variant class inherits from its bases
+// and declares itself. The discriminator replaces any inherited field of the same name,
+// as the variant class overrides it.
 func variantInitParams(
 	discName string,
 	value string,
@@ -99,10 +101,13 @@ func variantInitParams(
 	table *resolution.Table,
 	data *templateData,
 ) []initParamData {
-	synthetic := resolution.Type{
-		Form: resolution.StructForm{Extends: bases, Fields: declared},
-	}
-	params := buildInitParams(pyFields(synthetic, table), table, data)
+	fields := overlayFields(
+		inheritedFields(bases, table),
+		lo.Map(declared, func(f resolution.Field, _ int) pyField {
+			return pyField{Field: f, Declared: f}
+		}),
+	)
+	params := buildInitParams(fields, table, data)
 	if params == nil {
 		return nil
 	}
@@ -146,8 +151,7 @@ func pyFields(typ resolution.Type, table *resolution.Table) []pyField {
 	}
 	flattened := flattensParents(form, table)
 	var fields []pyField
-	index := make(map[string]int)
-	for _, f := range inheritedFields(form, table) {
+	for _, f := range inheritedFields(form.Extends, table) {
 		// A flattened class declares every field it keeps and drops the excluded ones.
 		// An inheriting class redeclares only the fields it excludes.
 		if flattened {
@@ -158,26 +162,41 @@ func pyFields(typ resolution.Type, table *resolution.Table) []pyField {
 		} else if form.IsFieldOmitted(f.Name) {
 			f = own(f.Field)
 		}
-		index[f.Name] = len(fields)
 		fields = append(fields, f)
 	}
-	for _, f := range form.Fields {
+	return overlayFields(fields, lo.Map(form.Fields, func(
+		f resolution.Field,
+		_ int,
+	) pyField {
+		return own(f)
+	}))
+}
+
+// overlayFields returns the inherited fields with each declared field replacing the
+// inherited one of the same name in place, and the remaining declared fields appended.
+func overlayFields(inherited, declared []pyField) []pyField {
+	fields := slices.Clone(inherited)
+	index := make(map[string]int, len(fields))
+	for i, f := range fields {
+		index[f.Name] = i
+	}
+	for _, f := range declared {
 		if i, ok := index[f.Name]; ok {
-			fields[i] = own(f)
+			fields[i] = f
 			continue
 		}
 		index[f.Name] = len(fields)
-		fields = append(fields, own(f))
+		fields = append(fields, f)
 	}
 	return fields
 }
 
-// inheritedFields returns the fields a struct's Python class takes from its parents,
+// inheritedFields returns the fields a Python class takes from the parents it extends,
 // first parent first, typed as the class sees them.
-func inheritedFields(form resolution.StructForm, table *resolution.Table) []pyField {
+func inheritedFields(extends []resolution.TypeRef, table *resolution.Table) []pyField {
 	var fields []pyField
 	seen := make(set.Set[string])
-	for _, ext := range form.Extends {
+	for _, ext := range extends {
 		parent, ok := ext.Resolve(table)
 		if !ok {
 			continue
