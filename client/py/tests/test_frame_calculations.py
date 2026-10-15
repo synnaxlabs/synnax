@@ -12,6 +12,7 @@ import pytest
 
 import synnax as sy
 from x.strings import random_name
+from x.telem import seconds_linspace
 from x.testutil import assert_eventually
 
 # Seconds to wait for a written sample to come back through the calculation pipeline.
@@ -165,11 +166,7 @@ class TestCalculatedChannelIteration:
             name=random_name(),
             expression=f"return {src_channel.name}",
         )
-        idx_data_1 = [
-            5 * sy.TimeSpan.SECOND,
-            6 * sy.TimeSpan.SECOND,
-            7 * sy.TimeSpan.SECOND,
-        ]
+        idx_data_1 = seconds_linspace(5, 3)
         src_data_1 = [10.0, 20.0, 30.0]
         client.write(
             5 * sy.TimeSpan.SECOND,
@@ -195,11 +192,7 @@ class TestCalculatedChannelIteration:
             data_ser, np.array(src_data_1, dtype=data_ser.data_type.np)
         )
 
-        idx_data_2 = [
-            9 * sy.TimeSpan.SECOND,
-            10 * sy.TimeSpan.SECOND,
-            11 * sy.TimeSpan.SECOND,
-        ]
+        idx_data_2 = seconds_linspace(9, 3)
         src_data_2 = [50.0, 60.0, 70.0]
         client.write(
             9 * sy.TimeSpan.SECOND,
@@ -222,7 +215,7 @@ class TestCalculatedChannelIteration:
             np.array(idx_data_1 + idx_data_2, dtype=ts_ser.data_type.np),
         )
 
-        idx_data_0 = [1 * sy.TimeSpan.SECOND, 2 * sy.TimeSpan.SECOND]
+        idx_data_0 = seconds_linspace(1, 2)
         src_data_0 = [0.0, 5.0]
         client.write(
             1 * sy.TimeSpan.SECOND,
@@ -273,11 +266,7 @@ class TestCalculatedChannelIteration:
             }}
             """,
         )
-        idx_data = [
-            5 * sy.TimeSpan.SECOND,
-            6 * sy.TimeSpan.SECOND,
-            7 * sy.TimeSpan.SECOND,
-        ]
+        idx_data = seconds_linspace(5, 3)
         src_data = [10.0, 20.0, 30.0]
         client.write(
             5 * sy.TimeSpan.SECOND,
@@ -326,11 +315,7 @@ class TestCalculatedChannelIteration:
                   return 5
               }}""",
         )
-        idx_data = [
-            5 * sy.TimeSpan.SECOND,
-            6 * sy.TimeSpan.SECOND,
-            7 * sy.TimeSpan.SECOND,
-        ]
+        idx_data = seconds_linspace(5, 3)
         src_data = [10.0, 20.0, 30.0]
         client.write(
             5 * sy.TimeSpan.SECOND,
@@ -394,13 +379,7 @@ class TestCalculatedChannelIteration:
         )
 
         # Write data
-        idx_data = [
-            1 * sy.TimeSpan.SECOND,
-            2 * sy.TimeSpan.SECOND,
-            3 * sy.TimeSpan.SECOND,
-            4 * sy.TimeSpan.SECOND,
-            5 * sy.TimeSpan.SECOND,
-        ]
+        idx_data = seconds_linspace(1, 5)
         src_data = [1.0, 2.0, 3.0, 4.0, 5.0]
         client.write(
             1 * sy.TimeSpan.SECOND,
@@ -468,13 +447,7 @@ class TestCalculatedChannelIteration:
         )
 
         # Write data
-        idx_data = [
-            1 * sy.TimeSpan.SECOND,
-            2 * sy.TimeSpan.SECOND,
-            3 * sy.TimeSpan.SECOND,
-            4 * sy.TimeSpan.SECOND,
-            5 * sy.TimeSpan.SECOND,
-        ]
+        idx_data = seconds_linspace(1, 5)
         src_data = [1.0, 2.0, 3.0, 4.0, 5.0]
         client.write(
             1 * sy.TimeSpan.SECOND,
@@ -541,13 +514,7 @@ class TestCalculatedChannelIteration:
         )
 
         # Write data
-        idx_data = [
-            1 * sy.TimeSpan.SECOND,
-            2 * sy.TimeSpan.SECOND,
-            3 * sy.TimeSpan.SECOND,
-            4 * sy.TimeSpan.SECOND,
-            5 * sy.TimeSpan.SECOND,
-        ]
+        idx_data = seconds_linspace(1, 5)
         src_data = [1.0, 2.0, 3.0, 4.0, 5.0]
         client.write(
             1 * sy.TimeSpan.SECOND,
@@ -628,13 +595,7 @@ class TestCalculatedChannelIteration:
         )
 
         # Write data
-        idx_data = [
-            1 * sy.TimeSpan.SECOND,
-            2 * sy.TimeSpan.SECOND,
-            3 * sy.TimeSpan.SECOND,
-            4 * sy.TimeSpan.SECOND,
-            5 * sy.TimeSpan.SECOND,
-        ]
+        idx_data = seconds_linspace(1, 5)
         src_data_1 = [1.0, 2.0, 3.0, 4.0, 5.0]
         src_data_2 = [-2.0, -3.0, -4.0, -5.0, -6.0]
         client.write(
@@ -2716,7 +2677,7 @@ class TestStatOperationsAlignment:
         client.write(
             1 * sy.TimeSpan.SECOND,
             {
-                ts.key: [1 * sy.TimeSpan.SECOND, 2 * sy.TimeSpan.SECOND],
+                ts.key: seconds_linspace(1, 2),
                 src.key: [10.0, 20.0],
             },
         )
@@ -2751,7 +2712,7 @@ class TestStatOperationsAlignment:
         client.write(
             1 * sy.TimeSpan.SECOND,
             {
-                ts.key: [1 * sy.TimeSpan.SECOND, 2 * sy.TimeSpan.SECOND],
+                ts.key: seconds_linspace(1, 2),
                 src.key: [10.0, 20.0],
             },
         )
@@ -2978,7 +2939,7 @@ class TestCalcChannelStress:
         ) as w:
             w.write(
                 {
-                    ts_a.key: [1 * S, 2 * S, 3 * S],
+                    ts_a.key: seconds_linspace(1, 3),
                     alpha.key: a1,
                     beta.key: b1,
                 }
@@ -2991,7 +2952,7 @@ class TestCalcChannelStress:
         ) as w:
             w.write(
                 {
-                    ts_b.key: [1 * S, 2 * S],
+                    ts_b.key: seconds_linspace(1, 2),
                     gamma.key: g1,
                 }
             )
@@ -3010,7 +2971,7 @@ class TestCalcChannelStress:
         ) as w:
             w.write(
                 {
-                    ts_a.key: [10 * S, 11 * S, 12 * S, 13 * S],
+                    ts_a.key: seconds_linspace(10, 4),
                     alpha.key: a2,
                     beta.key: b2,
                 }
@@ -3023,7 +2984,7 @@ class TestCalcChannelStress:
         ) as w:
             w.write(
                 {
-                    ts_b.key: [10 * S, 11 * S, 12 * S, 13 * S, 14 * S],
+                    ts_b.key: seconds_linspace(10, 5),
                     gamma.key: g2,
                 }
             )
@@ -3049,7 +3010,7 @@ class TestCalcChannelStress:
             ) as w:
                 w.write(
                     {
-                        ts_a.key: [20 * S, 21 * S],
+                        ts_a.key: seconds_linspace(20, 2),
                         alpha.key: a3,
                         beta.key: b3,
                     }
@@ -3068,7 +3029,7 @@ class TestCalcChannelStress:
             ) as w:
                 w.write(
                     {
-                        ts_a.key: [30 * S, 31 * S, 32 * S],
+                        ts_a.key: seconds_linspace(30, 3),
                         alpha.key: a4,
                         beta.key: b4,
                     }
@@ -3089,7 +3050,7 @@ class TestCalcChannelStress:
                 ) as w:
                     w.write(
                         {
-                            ts_a.key: [t],
+                            ts_a.key: [sy.TimeStamp(t)],
                             alpha.key: [av],
                             beta.key: [bv],
                         }
@@ -3112,7 +3073,7 @@ class TestCalcChannelStress:
                 # Write in two separate batches within the same writer
                 w.write(
                     {
-                        ts_a.key: [70 * S],
+                        ts_a.key: [sy.TimeStamp(70 * S)],
                         alpha.key: [a5[0]],
                         beta.key: [b5[0]],
                     }
@@ -3122,7 +3083,7 @@ class TestCalcChannelStress:
 
                 w.write(
                     {
-                        ts_a.key: [71 * S],
+                        ts_a.key: [sy.TimeStamp(71 * S)],
                         alpha.key: [a5[1]],
                         beta.key: [b5[1]],
                     }
@@ -3143,7 +3104,7 @@ class TestCalcChannelStress:
                 ) as wa:
                     wa.write(
                         {
-                            ts_a.key: [80 * S],
+                            ts_a.key: [sy.TimeStamp(80 * S)],
                             alpha.key: a6,
                             beta.key: b6,
                         }
@@ -3156,7 +3117,7 @@ class TestCalcChannelStress:
                 ) as wb:
                     wb.write(
                         {
-                            ts_b.key: [80 * S],
+                            ts_b.key: [sy.TimeStamp(80 * S)],
                             gamma.key: g3,
                         }
                     )

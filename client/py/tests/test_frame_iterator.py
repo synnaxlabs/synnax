@@ -217,7 +217,7 @@ class TestIterator:
     ) -> None:
         """Test reading latest when channel has only one sample."""
         idx_ch, data_ch = indexed_pair
-        idx_ch.write(sy.TimeSpan.SECOND * 1, [sy.TimeSpan.SECOND * 1])
+        idx_ch.write(sy.TimeSpan.SECOND * 1, seconds_linspace(1, 1))
         data_ch.write(sy.TimeSpan.SECOND * 1, [42.0])
 
         # Request more samples than available
@@ -332,14 +332,14 @@ class TestIterator:
         # First chunk: samples at t=1,2,3
         idx_ch.write(
             sy.TimeSpan.SECOND * 1,
-            [sy.TimeSpan.SECOND * 1, sy.TimeSpan.SECOND * 2, sy.TimeSpan.SECOND * 3],
+            seconds_linspace(1, 3),
         )
         data_ch.write(sy.TimeSpan.SECOND * 1, [1.0, 2.0, 3.0])
 
         # Second chunk: samples at t=10,11,12 (gap from 3 to 10)
         idx_ch.write(
             sy.TimeSpan.SECOND * 10,
-            [sy.TimeSpan.SECOND * 10, sy.TimeSpan.SECOND * 11, sy.TimeSpan.SECOND * 12],
+            seconds_linspace(10, 3),
         )
         data_ch.write(sy.TimeSpan.SECOND * 10, [10.0, 11.0, 12.0])
 

@@ -698,7 +698,7 @@ class TestWriter:
         ) as w:
             w.write(
                 {
-                    idx.key: [1 * sy.TimeSpan.SECOND, 2 * sy.TimeSpan.SECOND],
+                    idx.key: seconds_linspace(1, 2),
                     data.key: ["hello", "world"],
                 }
             )
@@ -725,7 +725,7 @@ class TestWriter:
             samples: list[dict[str, str | int]] = [{"key": "value"}, {"num": 42}]
             w.write(
                 {
-                    idx.key: [1 * sy.TimeSpan.SECOND, 2 * sy.TimeSpan.SECOND],
+                    idx.key: seconds_linspace(1, 2),
                     data.key: samples,
                 }
             )
@@ -786,7 +786,7 @@ class TestWriter:
         ) as w:
             w.write(
                 {
-                    idx.key: [1 * sy.TimeSpan.SECOND, 2 * sy.TimeSpan.SECOND],
+                    idx.key: seconds_linspace(1, 2),
                     data.key: ["line1\nline2", "no newline"],
                 }
             )
