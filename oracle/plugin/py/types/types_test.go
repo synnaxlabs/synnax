@@ -2555,6 +2555,37 @@ var _ = Describe("Python type-checking __init__", func() {
 	})
 
 	It(
+		"Should accept the default of an omitted parent type argument",
+		func(ctx SpecContext) {
+			loader.Add("schemas/base", `
+			@py output "client/py/synnax/base"
+
+			Parent struct<T?, B? extends string> {
+				value T
+				label B
+			}
+		`)
+			source := `
+			import "schemas/base"
+			import "schemas/telem"
+
+			@py output "client/py/synnax/opcua"
+
+			Child struct extends base.Parent {
+				rate telem.Rate
+			}
+		`
+			resp := MustGenerate(ctx, source, "opcua", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").ToContain(
+				`class Child(base.Parent):`,
+				`            value: JsonValue | None = ...,
+            label: str | None = ...,
+            rate: float,`,
+			)
+		},
+	)
+
+	It(
 		"Should keep a field an ancestor excludes from serialization",
 		func(ctx SpecContext) {
 			source := `
