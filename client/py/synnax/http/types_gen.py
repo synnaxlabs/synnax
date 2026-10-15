@@ -11,10 +11,10 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, Union
+from typing import Annotated, Literal, Union
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, JsonValue
 
 from synnax import channel as channel_
 from synnax import device as device_
@@ -192,7 +192,7 @@ class StaticWriteField(BaseWriteField):
 
     type: Literal["static"] = "static"
     json_type: JSONType = "number"
-    value: Any
+    value: JsonValue
 
 
 class GeneratedWriteField(BaseWriteField):
