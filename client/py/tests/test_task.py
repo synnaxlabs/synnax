@@ -45,6 +45,15 @@ class TestTaskClient:
         with pytest.raises(sy.NotFoundError):
             client.tasks.retrieve(key=task.key)
 
+    def test_delete_mixed_keys(self, client: sy.Synnax) -> None:
+        """Should delete tasks from a tuple that mixes UUID and string keys."""
+        t1 = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
+        t2 = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
+        client.tasks.delete((t1.key, str(t2.key)))
+        for key in (t1.key, t2.key):
+            with pytest.raises(sy.NotFoundError):
+                client.tasks.retrieve(key=key)
+
     def test_retrieve_by_type(self, client: sy.Synnax):
         # Task types are a fixed, registered set, so the filter cannot be made unique
         # the way the name and model tests do. Assert membership instead of identity.
