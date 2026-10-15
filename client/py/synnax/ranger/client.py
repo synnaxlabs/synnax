@@ -46,14 +46,14 @@ from synnax.telem import (
     SampleValue,
     TimeRange,
 )
-from x.interop import overload_comparison_operators
+from x.interop import ArrayOperators
 from x.lists import check_for_none, normalize
 from x.params import require_named_params
 
 RANGE_SET_CHANNEL = "sy_range_set"
 
 
-class _InternalScopedChannel(channel.Payload):
+class _InternalScopedChannel(ArrayOperators, channel.Payload):
     _cached_range: Range | None = PrivateAttr(None)
     """The range that this channel belongs to."""
     _cached_frame_client: framer.Client | None = PrivateAttr(None)
@@ -65,9 +65,8 @@ class _InternalScopedChannel(channel.Payload):
     _tasks: TaskClient | None = PrivateAttr(None)
     _ontology: OntologyClient | None = PrivateAttr(None)
 
-    def __new__(cls, *args: Any, **kwargs: Any) -> _InternalScopedChannel:
-        cls = overload_comparison_operators(cls, "__array__")
-        return super().__new__(cls)  # type: ignore[no-any-return]
+    # ArrayOperators clears __hash__, but writes can key data by channel payload.
+    __hash__ = channel.Payload.__hash__
 
     def __init__(
         self,
@@ -130,7 +129,7 @@ class _InternalScopedChannel(channel.Payload):
         return len(self.read())
 
 
-class ScopedChannel:
+class ScopedChannel(ArrayOperators):
     """A channel that is scoped to a particular range. This class is returned when
     accessing the channel as a key or property on a range. This channel has direct
     interoperability with numpy arrays, meaning that it can be passed as an argument
@@ -145,10 +144,6 @@ class ScopedChannel:
 
     _internal: list[_InternalScopedChannel]
     _query: str
-
-    def __new__(cls, *args: Any, **kwargs: Any) -> ScopedChannel:
-        cls = overload_comparison_operators(cls, "__array__")
-        return super().__new__(cls)  # type: ignore[no-any-return]
 
     def __init__(
         self,
