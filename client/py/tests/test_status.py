@@ -19,9 +19,9 @@ from x.testutil import assert_eventually
 class TestStatusClient:
     """Tests for the status client."""
 
-    def test_set_single_status(self, client: sy.Synnax):
+    def test_set_single_status(self, client: sy.Synnax) -> None:
         """Should create a single status."""
-        status = sy.Status(
+        status: sy.Status[None] = sy.Status(
             variant=sy.status.VARIANT_INFO,
             message="Test status message",
             name="Test Status",
@@ -34,9 +34,9 @@ class TestStatusClient:
         assert created.name == "Test Status"
         assert created.time is not None
 
-    def test_set_multiple_statuses(self, client: sy.Synnax):
+    def test_set_multiple_statuses(self, client: sy.Synnax) -> None:
         """Should create multiple statuses at once."""
-        statuses = [
+        statuses: list[sy.Status[None]] = [
             sy.Status(variant=sy.status.VARIANT_SUCCESS, message="Task 1 complete"),
             sy.Status(variant=sy.status.VARIANT_ERROR, message="Task 2 failed"),
             sy.Status(variant=sy.status.VARIANT_WARNING, message="Task 3 warning"),
@@ -48,17 +48,17 @@ class TestStatusClient:
         assert created[1].variant == sy.status.VARIANT_ERROR
         assert created[2].variant == sy.status.VARIANT_WARNING
 
-    def test_update_existing_status(self, client: sy.Synnax):
+    def test_update_existing_status(self, client: sy.Synnax) -> None:
         """Should update an existing status."""
         key = str(uuid4())
-        original = sy.Status(
+        original: sy.Status[None] = sy.Status(
             key=key,
             variant=sy.status.VARIANT_INFO,
             message="Original message",
         )
         client.statuses.set(original)
 
-        updated = sy.Status(
+        updated: sy.Status[None] = sy.Status(
             key=key,
             variant=sy.status.VARIANT_SUCCESS,
             message="Updated message",
@@ -69,9 +69,11 @@ class TestStatusClient:
         assert result.variant == sy.status.VARIANT_SUCCESS
         assert result.message == "Updated message"
 
-    def test_retrieve_by_key(self, client: sy.Synnax):
+    def test_retrieve_by_key(self, client: sy.Synnax) -> None:
         """Should retrieve a status by key."""
-        status = sy.Status(variant=sy.status.VARIANT_INFO, message="Retrievable status")
+        status: sy.Status[None] = sy.Status(
+            variant=sy.status.VARIANT_INFO, message="Retrievable status"
+        )
         created = client.statuses.set(status)
 
         retrieved = client.statuses.retrieve(key=created.key)
@@ -80,9 +82,9 @@ class TestStatusClient:
         assert retrieved.variant == created.variant
         assert retrieved.message == created.message
 
-    def test_retrieve_multiple_by_keys(self, client: sy.Synnax):
+    def test_retrieve_multiple_by_keys(self, client: sy.Synnax) -> None:
         """Should retrieve multiple statuses by keys."""
-        statuses = [
+        statuses: list[sy.Status[None]] = [
             sy.Status(variant=sy.status.VARIANT_INFO, message="Status 1"),
             sy.Status(variant=sy.status.VARIANT_SUCCESS, message="Status 2"),
             sy.Status(variant=sy.status.VARIANT_WARNING, message="Status 3"),
@@ -96,10 +98,10 @@ class TestStatusClient:
         retrieved_keys = {s.key for s in retrieved}
         assert all(k in retrieved_keys for k in keys)
 
-    def test_retrieve_with_search_term(self, client: sy.Synnax):
+    def test_retrieve_with_search_term(self, client: sy.Synnax) -> None:
         """Should search for statuses by message."""
         unique_term = f"unique_search_{uuid4()}"
-        status = sy.Status(
+        status: sy.Status[None] = sy.Status(
             variant=sy.status.VARIANT_INFO,
             message=f"Status with {unique_term}",
             name=unique_term,
@@ -113,9 +115,9 @@ class TestStatusClient:
 
         assert_eventually(check)
 
-    def test_retrieve_with_pagination(self, client: sy.Synnax):
+    def test_retrieve_with_pagination(self, client: sy.Synnax) -> None:
         """Should paginate results."""
-        statuses = [
+        statuses: list[sy.Status[None]] = [
             sy.Status(variant=sy.status.VARIANT_INFO, message=f"Paginated status {i}")
             for i in range(5)
         ]
@@ -132,9 +134,11 @@ class TestStatusClient:
         page2_keys = {s.key for s in page2}
         assert page1_keys.isdisjoint(page2_keys)
 
-    def test_delete_single_status(self, client: sy.Synnax):
+    def test_delete_single_status(self, client: sy.Synnax) -> None:
         """Should delete a status by key."""
-        status = sy.Status(variant=sy.status.VARIANT_INFO, message="To be deleted")
+        status: sy.Status[None] = sy.Status(
+            variant=sy.status.VARIANT_INFO, message="To be deleted"
+        )
         created = client.statuses.set(status)
 
         client.statuses.delete(created.key)
@@ -142,9 +146,9 @@ class TestStatusClient:
         with pytest.raises(sy.NotFoundError, match="not found"):
             client.statuses.retrieve(key=created.key)
 
-    def test_delete_multiple_statuses(self, client: sy.Synnax):
+    def test_delete_multiple_statuses(self, client: sy.Synnax) -> None:
         """Should delete multiple statuses."""
-        statuses = [
+        statuses: list[sy.Status[None]] = [
             sy.Status(variant=sy.status.VARIANT_INFO, message=f"Delete me {i}")
             for i in range(3)
         ]
@@ -156,16 +160,16 @@ class TestStatusClient:
         with pytest.raises(sy.NotFoundError, match="not found"):
             client.statuses.retrieve(keys=keys)
 
-    def test_delete_idempotent(self, client: sy.Synnax):
+    def test_delete_idempotent(self, client: sy.Synnax) -> None:
         """Should be idempotent - deleting non-existent status should not error."""
         non_existent_key = str(uuid4())
 
         # Should not raise an error
         client.statuses.delete(non_existent_key)
 
-    def test_all_variants(self, client: sy.Synnax):
+    def test_all_variants(self, client: sy.Synnax) -> None:
         """Should support all status variants."""
-        variants = [
+        variants: list[sy.status.Variant] = [
             sy.status.VARIANT_SUCCESS,
             sy.status.VARIANT_INFO,
             sy.status.VARIANT_WARNING,
@@ -173,7 +177,7 @@ class TestStatusClient:
             sy.status.VARIANT_LOADING,
         ]
 
-        statuses = [
+        statuses: list[sy.Status[None]] = [
             sy.Status(variant=variant, message=f"Testing {variant}")
             for variant in variants
         ]
@@ -183,9 +187,9 @@ class TestStatusClient:
         for i, variant in enumerate(variants):
             assert created[i].variant == variant
 
-    def test_retrieve_with_single_variant_filter(self, client: sy.Synnax):
+    def test_retrieve_with_single_variant_filter(self, client: sy.Synnax) -> None:
         """Should filter statuses by a single variant."""
-        statuses = [
+        statuses: list[sy.Status[None]] = [
             sy.Status(
                 variant=sy.status.VARIANT_SUCCESS,
                 message="Success status",
@@ -208,9 +212,9 @@ class TestStatusClient:
         assert results[0].variant == sy.status.VARIANT_ERROR
         assert results[0].message == "Error status"
 
-    def test_retrieve_with_multiple_variant_filter(self, client: sy.Synnax):
+    def test_retrieve_with_multiple_variant_filter(self, client: sy.Synnax) -> None:
         """Should filter statuses by multiple variants."""
-        statuses = [
+        statuses: list[sy.Status[None]] = [
             sy.Status(
                 variant=sy.status.VARIANT_INFO,
                 message="Info status",
@@ -235,9 +239,9 @@ class TestStatusClient:
         assert "success" in result_variants
         assert "error" not in result_variants
 
-    def test_retrieve_with_no_matching_variants(self, client: sy.Synnax):
+    def test_retrieve_with_no_matching_variants(self, client: sy.Synnax) -> None:
         """Should return empty when no statuses match the variant filter."""
-        status = sy.Status(
+        status: sy.Status[None] = sy.Status(
             variant=sy.status.VARIANT_INFO,
             message="Info only",
         )
@@ -247,9 +251,9 @@ class TestStatusClient:
 
         assert len(results) == 0
 
-    def test_status_with_description(self, client: sy.Synnax):
+    def test_status_with_description(self, client: sy.Synnax) -> None:
         """Should create status with description."""
-        status = sy.Status(
+        status: sy.Status[None] = sy.Status(
             variant=sy.status.VARIANT_INFO,
             message="Main message",
             description="Detailed description",
@@ -258,14 +262,16 @@ class TestStatusClient:
 
         assert created.description == "Detailed description"
 
-    def test_set_with_parent(self, client: sy.Synnax):
+    def test_set_with_parent(self, client: sy.Synnax) -> None:
         """Should create status with a parent ontology ID."""
         parent_group = client.groups.create(
             parent=sy.ontology.ROOT_ID, name="Status Parent Group"
         )
-        parent_id = {"type": "group", "key": str(parent_group.key)}
+        parent_id = sy.group.ontology_id(parent_group.key)
 
-        status = sy.Status(variant=sy.status.VARIANT_INFO, message="Child status")
+        status: sy.Status[None] = sy.Status(
+            variant=sy.status.VARIANT_INFO, message="Child status"
+        )
         created = client.statuses.set(status, parent=parent_id)
 
         assert created.key is not None
@@ -274,7 +280,7 @@ class TestStatusClient:
         children = client.ontology.retrieve_children(parent_id_str)
         assert any(r.key == created.key for r in children)
 
-    def test_ontology_id_helper(self):
+    def test_ontology_id_helper(self) -> None:
         """Should create proper ontology ID."""
         key = "test-status-key"
         oid = sy.status.ontology_id(key)
@@ -282,14 +288,14 @@ class TestStatusClient:
         assert oid.type == "status"
         assert oid.key == key
 
-    def test_retrieve_nonexistent_key(self, client: sy.Synnax):
+    def test_retrieve_nonexistent_key(self, client: sy.Synnax) -> None:
         """Should raise error when retrieving non-existent status."""
         with pytest.raises(sy.NotFoundError, match="not found"):
             client.statuses.retrieve(key="nonexistent-key")
 
-    def test_status_persistence(self, client: sy.Synnax):
+    def test_status_persistence(self, client: sy.Synnax) -> None:
         """Should persist status across operations."""
-        status = sy.Status(
+        status: sy.Status[None] = sy.Status(
             variant=sy.status.VARIANT_SUCCESS,
             message="Persistent status",
             name="Persistent",
@@ -300,7 +306,7 @@ class TestStatusClient:
         assert retrieved.variant == created.variant
         assert retrieved.message == created.message
         assert retrieved.name == created.name
-        updated_status = sy.Status(
+        updated_status: sy.Status[None] = sy.Status(
             key=created.key,
             variant=sy.status.VARIANT_ERROR,
             message="Updated persistent status",
