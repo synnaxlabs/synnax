@@ -29,13 +29,9 @@ type initParamData struct {
 	Required bool
 }
 
-// buildInitParams returns the parameters of a type-checking __init__ for a model whose
-// complete field set is fields, or nil when the synthesized __init__ is already
-// correct. Type checkers synthesize __init__ parameters from field annotations, so a
-// field typed as a hand-written distinct type (e.g. telem.DataType) rejects the base
-// primitive that Pydantic accepts at runtime. The explicit __init__ types such a
-// parameter as its base primitive, while the attribute keeps the precise type. The
-// receiver is _self: a field may be named self, and no Pydantic field starts with _.
+// buildInitParams returns type-checking __init__ parameters that accept the base
+// primitive of each hand-written distinct field, or nil when none are needed. The
+// receiver is _self because a field may be named self.
 func buildInitParams(
 	fields []resolution.Field,
 	table *resolution.Table,

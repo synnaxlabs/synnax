@@ -2636,7 +2636,9 @@ var _ = Describe("Python type-checking __init__", func() {
 		`
 			resp := MustGenerate(ctx, source, "http", loader, typesPlugin)
 			content := MustContentOf(resp, "types_gen.py")
-			Expect(content).To(ContainSubstring(`            type: Literal["read"] = ...,
+			Expect(
+				content,
+			).To(ContainSubstring(`            type: Literal["read"] = ...,
             rate: float,`))
 			Expect(strings.Count(content, "            type: ")).To(Equal(2))
 		},
