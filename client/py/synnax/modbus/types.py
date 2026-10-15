@@ -37,7 +37,9 @@ _WRITE_NAME_TYPES = {
 }
 
 
-class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
+class ReadTask(
+    task.StarterStopperMixin, task.JSONConfigMixin[ReadConfig], task.Protocol
+):
     """A read task for sampling data from Modbus TCP devices and writing the data to a
     Synnax cluster. For detailed information on configuring and operating a Modbus read
     task, see https://docs.synnaxlabs.com/reference/driver/modbus/read-task
@@ -56,7 +58,6 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """
 
     TYPE = "modbus_read"
-    config: ReadConfig
     _internal: task.Task
 
     def __init__(
@@ -107,7 +108,9 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         return device_client.create(dev)
 
 
-class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
+class WriteTask(
+    task.StarterStopperMixin, task.JSONConfigMixin[WriteConfig], task.Protocol
+):
     """A write task for sending commands to Modbus TCP devices. For detailed
     information on configuring and operating a Modbus write task, see
     https://docs.synnaxlabs.com/reference/driver/modbus/write-task
@@ -120,7 +123,6 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """
 
     TYPE = "modbus_write"
-    config: WriteConfig
     _internal: task.Task
 
     def __init__(
