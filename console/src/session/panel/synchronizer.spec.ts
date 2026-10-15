@@ -36,7 +36,7 @@ beforeAll(async () => {
 
 const leaf = (...tabKeys: string[]): panel.Node => ({
   variant: "leaf",
-  tabs: tabKeys.map((key) => ({ variant: "view", key, type: "t", args: {} })),
+  tabs: tabKeys.map((key) => ({ variant: "view", key, type: "t" })),
 });
 
 const createPanel = async (key: panel.Key, root: panel.Node): Promise<panel.Panel> =>

@@ -74,7 +74,7 @@ class Client:
     @overload
     def create(self, *, users: list[New]) -> list[User]: ...
 
-    @require_named_params(example_params=("user", "NewUser(username='synnax')"))
+    @require_named_params(example_params=("user", "New(username='synnax')"))
     def create(
         self,
         *,
@@ -112,7 +112,7 @@ class Client:
 
     def change_username(self, key: UUID, username: str) -> None:
         self.client.send(
-            "/user/change_username",
+            "/user/change-username",
             _ChangeUsernameRequest(key=key, username=username),
             Empty,
         )
@@ -121,7 +121,7 @@ class Client:
         self, key: UUID, *, first_name: str = "", last_name: str = ""
     ) -> None:
         self.client.send(
-            "/user/change_name",
+            "/user/rename",
             _ChangeNameRequest(key=key, first_name=first_name, last_name=last_name),
             Empty,
         )

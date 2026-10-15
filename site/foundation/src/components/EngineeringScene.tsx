@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Logo } from "@synnaxlabs/media";
+import { Logo } from "@synnaxlabs/lyra/logo";
 import { type ReactElement, type ReactNode, useId } from "react";
 
 export type EngineeringMode = "reliability" | "performance" | "deployment";
@@ -255,7 +255,7 @@ const HealthNode = ({ x, label }: { x: number; label: string }): ReactElement =>
       <g
         transform={`translate(${cx} ${cy}) matrix(1 .2 -.48 .43 0 0) translate(-22 -22)`}
       >
-        <Logo {...logoPlacement} color="auto" aria-hidden="true" />
+        <Logo.Logo {...logoPlacement} color="auto" aria-hidden="true" />
       </g>
       <Label point={[x + 57, 279, 26]} anchor="middle" color={INK}>
         {label}

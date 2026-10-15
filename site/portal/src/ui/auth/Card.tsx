@@ -10,10 +10,10 @@
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Logo } from "@synnaxlabs/lyra/logo";
 import { Nebula } from "@synnaxlabs/lyra/nebula";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Logo } from "@synnaxlabs/media";
 import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
 
 import { Root } from "@/ui/Root";
@@ -44,7 +44,7 @@ export const Card = ({
         href="https://www.synnaxlabs.com"
         aria-label="Synnax"
       >
-        <Logo variant="icon" />
+        <Logo.Logo variant="icon" />
       </a>
       <span className="portal-auth__island portal-frost">
         <Button.Button variant="text" textColor={10} href="https://docs.synnaxlabs.com">
