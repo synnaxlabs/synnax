@@ -2430,7 +2430,7 @@ var _ = Describe("Python type-checking __init__", func() {
 				`    if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             name: str,
             data_type: str = ...,
@@ -2485,6 +2485,54 @@ var _ = Describe("Python type-checking __init__", func() {
             device: str,`,
 			).
 			ToNotContain(`from x import telem`)
+	})
+
+	It(
+		"Should keep a field an ancestor excludes from serialization",
+		func(ctx SpecContext) {
+			source := `
+			import "schemas/telem"
+
+			@py output "client/py/synnax/opcua"
+
+			Base struct {
+				name string
+				port int32
+			}
+			Parent struct extends Base {
+				-name
+			}
+			Child struct extends Parent {
+				rate telem.Rate
+			}
+		`
+			resp := MustGenerate(ctx, source, "opcua", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").ToContain(
+				`            name: str,
+            port: int,
+            rate: float,`,
+			)
+		},
+	)
+
+	It("Should accept a field named self", func(ctx SpecContext) {
+		source := `
+			import "schemas/telem"
+
+			@py output "client/py/synnax/opcua"
+
+			Channel struct {
+				self string
+				rate telem.Rate
+			}
+		`
+		resp := MustGenerate(ctx, source, "opcua", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").ToContain(
+			`            _self,
+            *,
+            self: str,
+            rate: float,`,
+		)
 	})
 
 	It(
