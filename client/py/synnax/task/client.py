@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 import warnings
-from collections.abc import Generator, Iterable
+from collections.abc import Generator, Iterable, Sequence
 from contextlib import contextmanager
 from typing import Any, TypeVar, overload
 from typing import Protocol as BaseProtocol
@@ -438,8 +438,8 @@ class Client:
         task.set_internal(self.sugar(tasks)[0])
         return task
 
-    def delete(self, keys: Key | str | list[Key] | list[str]) -> None:
-        key_list = keys if isinstance(keys, list) else [keys]
+    def delete(self, keys: Key | str | Sequence[Key | str]) -> None:
+        key_list = [keys] if isinstance(keys, (UUID, str)) else keys
         req = _DeleteRequest(keys=[_parse_key(k) for k in key_list])
         self._client.send("/task/delete", req, Empty)
 
