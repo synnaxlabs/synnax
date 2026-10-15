@@ -434,7 +434,7 @@ class Client:
         task.set_internal(self.sugar(tasks)[0])
         return task
 
-    def delete(self, keys: Key | str | list[Key | str]) -> None:
+    def delete(self, keys: Key | str | list[Key] | list[str]) -> None:
         req = _DeleteRequest(keys=normalize(keys))
         self._client.send("/task/delete", req, Empty)
 

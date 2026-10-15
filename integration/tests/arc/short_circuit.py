@@ -33,9 +33,10 @@ Phase 2: ss_temp_a=400
 import threading
 
 import synnax as sy
-from framework.utils import create_indexed_pair, create_virtual_channel, to_int
+from framework.utils import create_indexed_pair, create_virtual_channel
 from synnax.telem import SampleValue
 from tests.arc.arc import ArcCase
+from x.telem import to_int
 
 SHORT_CIRCUIT_SOURCE = """
 func noop{} (input bool) bool {

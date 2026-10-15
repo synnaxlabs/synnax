@@ -26,7 +26,7 @@ from pydantic import ValidationError
 
 import synnax as sy
 from framework.test_case import TestCase
-from framework.utils import to_float, to_int
+from x.telem import to_float, to_int
 
 _STATUS_CHANNEL = "sy_status_set"
 # Allowed relative error between a task's measured and configured sample rate. Wide

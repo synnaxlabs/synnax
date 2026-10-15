@@ -12,12 +12,12 @@
 from pydantic import ValidationError
 
 import synnax as sy
-from framework.utils import to_float
 from tests.driver.ni_task import NIAnalogWriteTaskCase, NIDigitalWriteTaskCase
 from tests.driver.task import (
     create_channel,
     create_index,
 )
+from x.telem import to_float
 
 
 def _do_channels(

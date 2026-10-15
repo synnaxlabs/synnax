@@ -11,8 +11,8 @@ import numpy as np
 
 import synnax as sy
 from console.case import ConsoleCase
-from framework.utils import to_float
 from x import random_name
+from x.telem import to_float
 
 
 class CalcTypeCascade(ConsoleCase):

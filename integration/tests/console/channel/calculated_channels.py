@@ -10,8 +10,8 @@
 import synnax as sy
 from console.case import ConsoleCase
 from console.plot import Plot
-from framework.utils import to_float
 from x import random_name
+from x.telem import to_float
 
 
 class CalculatedChannels(ConsoleCase):
