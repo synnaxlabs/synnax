@@ -165,9 +165,10 @@ start. This is the first piece of a FIPS mode for the whole Core.
 **API keys.** A key is `syk_`, the record key, and 32 random bytes. The Core finds the
 record by its key and compares the hash. The key is shown once, at creation. It never
 expires, and it has no permissions of its own: it acts as its subject. A subject creates
-its own keys. A user with the permission, which Owner holds, creates keys for anyone,
-and can then act as that subject. To see whether a key is in use, the Console lists its
-live sessions.
+its own keys. Creating a key for a rack takes the permission to create racks, which the
+Engineer and Driver roles hold, so an installer needs no administrator. Creating a key
+for a user takes a permission only Owner holds, because the holder can then act as that
+user. To see whether a key is in use, the Console lists its live sessions.
 
 **OIDC links.** `provider` is the `name` of an entry in `oidc-providers`. It is a
 string, because providers are site configuration. `account` is the `sub` claim: the
@@ -181,8 +182,10 @@ needs the same entries.
 
 Only the Console logs in this way, following
 [RFC 8252](https://www.rfc-editor.org/rfc/rfc8252). It reads the provider's login
-address from `auth/methods`, opens the system browser with a PKCE challenge, and
-receives a code on a loopback redirect. The code and verifier are the proof. The Core
+address from `auth/methods`, sends the browser there with a PKCE challenge, and receives
+a code on a redirect. The desktop Console listens on a loopback port for it. The browser
+Console cannot, so its redirect target is its own page at the Core's origin, and that
+page's script holds the verifier. The code and verifier are the proof. The Core
 exchanges them with the provider, so it must reach the provider. An air-gapped site runs
 its own. A site with smart cards puts the card check in its provider.
 
