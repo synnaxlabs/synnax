@@ -143,6 +143,7 @@ struct SynnaxClusterAPI final : ClusterAPI {
         req.makes = {make};
         req.racks = {rack};
         req.include_status = true;
+        req.include_parent = true;
         return this->client->devices.retrieve(req);
     }
 
@@ -152,6 +153,7 @@ struct SynnaxClusterAPI final : ClusterAPI {
             key,
             synnax::device::RetrieveOptions{
                 .include_status = true,
+                .include_parent = true,
             }
         );
     }
@@ -494,12 +496,12 @@ public:
                     needs_update = true;
                 }
 
-                if (dev.parent != remote_dev.parent) {
+                // The Core parents a device the scanner gives no parent to its rack.
+                if (dev.parent.has_value() && dev.parent != remote_dev.parent) {
                     VLOG(1) << this->log_prefix << "device parent changed for "
                             << dev.key << " from '"
                             << (remote_dev.parent ? remote_dev.parent->string() : "")
-                            << "' to '" << (dev.parent ? dev.parent->string() : "")
-                            << "'";
+                            << "' to '" << dev.parent->string() << "'";
                     needs_update = true;
                 }
 
