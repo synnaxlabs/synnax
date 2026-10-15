@@ -133,10 +133,15 @@ func pyFields(typ resolution.Type, table *resolution.Table) []resolution.Field {
 		}
 		typeArgs := make(map[string]resolution.TypeRef)
 		pform, _ := parent.Form.(resolution.StructForm)
+		// A defaulted parameter is not a Python TypeVar, so it keeps its default
+		// whatever argument the schema passes.
 		for i, tp := range pform.TypeParams {
+			if tp.HasDefault() {
+				continue
+			}
 			if i < len(ext.TypeArgs) {
 				typeArgs[tp.Name] = ext.TypeArgs[i]
-			} else if !tp.HasDefault() {
+			} else {
 				typeArgs[tp.Name] = typeVarDefault(tp)
 			}
 		}
