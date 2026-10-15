@@ -35,7 +35,7 @@ var _ = Describe("Service", Ordered, func() {
 		)).Error().To(MatchError(access.ErrDenied))
 	})
 
-	It("Should report no license to a reader", func(ctx SpecContext) {
+	It("Should report a missing license to a reader", func(ctx SpecContext) {
 		reader := freshUser(ctx)
 		grantOn(
 			ctx,
@@ -47,11 +47,11 @@ var _ = Describe("Service", Ordered, func() {
 			AuthedCtx(ctx, reader),
 			apilicense.RetrieveRequest{},
 		))
-		Expect(info.State).To(Equal(license.StateOk))
+		Expect(info.State).To(Equal(license.StateMissing))
 		Expect(info.License).To(BeNil())
 	})
 
-	It("Should pass requests while no license key is activated", func(ctx SpecContext) {
+	It("Should pass requests while the license is missing", func(ctx SpecContext) {
 		called := false
 		_, err := apilicense.Middleware(licenseSvc).Exec(
 			freighter.Context{Context: ctx},
@@ -157,7 +157,7 @@ var _ = Describe("Service", Ordered, func() {
 			AuthedCtx(ctx, owner),
 			apilicense.DeactivateRequest{Jti: jti},
 		))
-		Expect(info.State).To(Equal(license.StateOk))
+		Expect(info.State).To(Equal(license.StateMissing))
 		Expect(info.License).To(BeNil())
 	})
 })

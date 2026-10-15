@@ -31,10 +31,9 @@ interface Standing {
   variant: status.Variant;
 }
 
-const standingOf = ({ state, warning, license: lic }: license.Info): Standing => {
+const standingOf = ({ state, warning }: license.Info): Standing => {
   if (state === "expired") return { label: "Expired", variant: "error" };
-  if (state === "missing") return { label: "Inactive", variant: "warning" };
-  if (lic == null) return { label: "Free", variant: "success" };
+  if (state === "missing") return { label: "Free", variant: "success" };
   if (warning !== "") return { label: "Expiring", variant: "warning" };
   return { label: "Active", variant: "success" };
 };

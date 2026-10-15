@@ -263,19 +263,16 @@ var _ = Describe("License", func() {
 	})
 
 	Describe("Open", func() {
-		It(
-			"should open capped at the free channels when nothing is stored",
-			func(ctx SpecContext) {
-				svc := open(ctx)
-				info := svc.Retrieve()
-				Expect(info.State).To(Equal(license.StateOk))
-				Expect(info.License).To(BeNil())
-				Expect(info.Warning).To(ContainSubstring("limited to 50 channels"))
-				Expect(svc.Check()).To(Succeed())
-				Expect(svc.CheckChannelLimit(50)).To(Succeed())
-				Expect(svc.CheckChannelLimit(51)).To(MatchError(license.ErrTooMany))
-			},
-		)
+		It("should open missing when nothing is stored", func(ctx SpecContext) {
+			svc := open(ctx)
+			info := svc.Retrieve()
+			Expect(info.State).To(Equal(license.StateMissing))
+			Expect(info.License).To(BeNil())
+			Expect(info.Warning).To(ContainSubstring("limited to 50 channels"))
+			Expect(svc.Check()).To(Succeed())
+			Expect(svc.CheckChannelLimit(50)).To(Succeed())
+			Expect(svc.CheckChannelLimit(51)).To(MatchError(license.ErrTooMany))
+		})
 		It(
 			"should accept a license key on open and load it on the next",
 			func(ctx SpecContext) {
@@ -343,7 +340,9 @@ var _ = Describe("License", func() {
 				lic := newLicense()
 				lic.Fingerprints = []string{"0000"}
 				store(ctx, lic)
-				Expect(open(ctx).Retrieve().License).To(BeNil())
+				svc := open(ctx)
+				Expect(svc.Retrieve().State).To(Equal(license.StateMissing))
+				Expect(svc.Check()).To(Succeed())
 			},
 		)
 		It(
@@ -354,7 +353,8 @@ var _ = Describe("License", func() {
 				svc := open(ctx, license.ServiceConfig{
 					Anchors: license.Anchors{keyID: other.PublicKey()},
 				})
-				Expect(svc.Retrieve().License).To(BeNil())
+				Expect(svc.Retrieve().State).To(Equal(license.StateMissing))
+				Expect(svc.Check()).To(Succeed())
 			},
 		)
 		It("should report a stored entry that no longer covers", func(ctx SpecContext) {
@@ -631,7 +631,7 @@ var _ = Describe("License", func() {
 			lic.Exp = seconds(now.Add(-20 * day))
 			Expect(svc.Activate(ctx, sign(lic))).Error().
 				To(MatchError(license.ErrExpired))
-			Expect(svc.Retrieve().License).To(BeNil())
+			Expect(svc.Retrieve().State).To(Equal(license.StateMissing))
 		})
 		perpetual := func(ceiling string) license.License {
 			lic := newLicense()
@@ -657,7 +657,7 @@ var _ = Describe("License", func() {
 						ceiling,
 					)),
 				))
-				Expect(svc.Retrieve().License).To(BeNil())
+				Expect(svc.Retrieve().State).To(Equal(license.StateMissing))
 			},
 			Entry("over", "0.59"),
 			Entry("over when compared as numbers", "0.9"),
@@ -789,23 +789,20 @@ var _ = Describe("License", func() {
 		var svc *license.Service
 		BeforeEach(func(ctx SpecContext) { svc = open(ctx) })
 
-		It(
-			"should leave the Core capped at the free channels",
-			func(ctx SpecContext) {
-				lic := newLicense()
-				MustSucceed(svc.Activate(ctx, sign(lic)))
-				info := MustSucceed(svc.Deactivate(ctx, lic.Jti))
-				Expect(info.State).To(Equal(license.StateOk))
-				Expect(info.License).To(BeNil())
-				Expect(svc.CheckChannelLimit(51)).To(MatchError(license.ErrTooMany))
-			},
-		)
+		It("should leave the Core without a license", func(ctx SpecContext) {
+			lic := newLicense()
+			MustSucceed(svc.Activate(ctx, sign(lic)))
+			info := MustSucceed(svc.Deactivate(ctx, lic.Jti))
+			Expect(info.State).To(Equal(license.StateMissing))
+			Expect(info.License).To(BeNil())
+			Expect(svc.Check()).To(Succeed())
+		})
 		It("should keep the license removed across a reopen", func(ctx SpecContext) {
 			lic := newLicense()
 			MustSucceed(svc.Activate(ctx, sign(lic)))
 			MustSucceed(svc.Deactivate(ctx, lic.Jti))
 			Expect(svc.Close()).To(Succeed())
-			Expect(open(ctx).Retrieve().License).To(BeNil())
+			Expect(open(ctx).Retrieve().State).To(Equal(license.StateMissing))
 		})
 		It("should fall back to another stored license", func(ctx SpecContext) {
 			older, newer := newLicense(), newLicense()

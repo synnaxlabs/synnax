@@ -26,7 +26,6 @@ import {
   AuthError,
   DisconnectedError,
   ExpiredLicenseError,
-  MissingLicenseError,
 } from "@/errors";
 import { license } from "@/license";
 import { query } from "@/query";
@@ -459,33 +458,32 @@ describe("connection", () => {
       expect(reasonOf(status)).toEqual("auth");
     });
 
-    it("should enter error(unlicensed) when the Core reports no license", () => {
-      const config = createConfig();
-      const status = apply(config, {
+    it("should connect when the Core reports no license", () => {
+      const status = apply(createConfig(), {
         type: "check.success",
         info: createInfo({ license: "missing" }),
       });
-      expect(reasonOf(status)).toEqual("unlicensed");
+      expect(status.variant).toEqual("success");
       expect(status.details.license).toEqual("missing");
-      expect(status.details.authenticated).toBe(true);
-      expect(MissingLicenseError.matches(status.details.error)).toBe(true);
-      expect(modeFor(status)).toEqual("checking");
     });
 
-    it("should report an expired license with its own error", () => {
+    it("should enter error(unlicensed) when the Core reports an expired license", () => {
       const status = apply(createConfig(), {
         type: "check.success",
         info: createInfo({ license: "expired" }),
       });
       expect(reasonOf(status)).toEqual("unlicensed");
+      expect(status.details.license).toEqual("expired");
+      expect(status.details.authenticated).toBe(true);
       expect(ExpiredLicenseError.matches(status.details.error)).toBe(true);
+      expect(modeFor(status)).toEqual("checking");
     });
 
     it("should leave error(unlicensed) once a check reports a license", () => {
       const config = createConfig();
       const unlicensed = apply(config, {
         type: "check.success",
-        info: createInfo({ license: "missing" }),
+        info: createInfo({ license: "expired" }),
       });
       const licensed = reduce(
         unlicensed,
@@ -501,7 +499,7 @@ describe("connection", () => {
       const config = createConfig({ requiresStream: true });
       const unlicensed = apply(config, {
         type: "check.success",
-        info: createInfo({ license: "missing" }),
+        info: createInfo({ license: "expired" }),
       });
       const checked = reduce(
         unlicensed,
@@ -516,7 +514,7 @@ describe("connection", () => {
       const config = createConfig({ escalateAfter: 2 });
       const unlicensed = apply(config, {
         type: "check.success",
-        info: createInfo({ license: "missing" }),
+        info: createInfo({ license: "expired" }),
       });
       const error = new Unreachable({ message: "server down" });
       const once = reduce(
@@ -534,7 +532,7 @@ describe("connection", () => {
       const config = createConfig();
       const unlicensed = apply(config, {
         type: "check.success",
-        info: createInfo({ license: "missing" }),
+        info: createInfo({ license: "expired" }),
       });
       const retrying = reduce(unlicensed, { type: "retry.requested" }, config);
       expect(retrying.variant).toEqual("loading");
@@ -932,7 +930,7 @@ describe("connection", () => {
 
     it("should not demand the stream until the Core is licensed", async () => {
       const ensured = vi.fn(async () => {});
-      const unary = createScriptedUnary({ license: "missing" });
+      const unary = createScriptedUnary({ license: "expired" });
       const client = createClient(unary, {
         requiresStream: true,
         stream: { reset: async () => {}, ensure: ensured },
@@ -1098,7 +1096,7 @@ describe("connection", () => {
         TimeSpan.milliseconds(5),
       );
       await waitForStatus(client, (s) => s.details.clusterKey === "first");
-      unary.setLicense("missing");
+      unary.setLicense("expired");
       unary.setClusterKey("second");
       await waitForStatus(client, (s) => s.details.clusterKey === "second");
       while (calls.length === 0) await sleep(TimeSpan.milliseconds(1));
@@ -1125,7 +1123,7 @@ describe("connection", () => {
 
     it("should check again once a license is activated", async () => {
       const client = createClient(
-        createScriptedUnary({ license: "missing" }),
+        createScriptedUnary({ license: "expired" }),
         {},
         FAST_RETRY,
         TimeSpan.seconds(60),
@@ -1148,7 +1146,7 @@ describe("connection", () => {
     });
 
     it("should short-circuit unary calls with the license error while unlicensed", async () => {
-      const client = createClient(createScriptedUnary({ license: "missing" }));
+      const client = createClient(createScriptedUnary({ license: "expired" }));
       await waitForStatus(
         client,
         (s) => s.variant === "error" && s.details.reason === "unlicensed",
@@ -1156,13 +1154,13 @@ describe("connection", () => {
       const next = vi.fn(async (ctx: Context) => ctx);
       await expect(
         client.middleware()(createUnaryContext("/channel/retrieve"), next),
-      ).rejects.toThrow(MissingLicenseError);
+      ).rejects.toThrow(ExpiredLicenseError);
       expect(next).not.toHaveBeenCalled();
       await client.close();
     });
 
     it("should exempt the license endpoints so a license can be activated", async () => {
-      const client = createClient(createScriptedUnary({ license: "missing" }));
+      const client = createClient(createScriptedUnary({ license: "expired" }));
       await waitForStatus(client, (s) => s.variant === "error");
       const mw = client.middleware();
       const next = vi.fn(async (ctx: Context) => ctx);
