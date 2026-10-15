@@ -28,7 +28,6 @@ from synnax.exceptions import NotFoundError
 class _Request(BaseModel):
     names: list[str] | None = None
     keys: list[int] | None = None
-    leaseholder: int | None = None
 
 
 class _Response(BaseModel):
