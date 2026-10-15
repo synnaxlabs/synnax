@@ -29,8 +29,13 @@ class OPCUACase(ConsoleTaskCase):
         page.select_server(self.device_name)
         page.expand_node(BROWSER_ROOT_NODE)
 
-    @staticmethod
-    def node_ids(task: sy.Task) -> set[str]:
+    @classmethod
+    def node_ids(cls, task: sy.Task) -> set[str]:
         """Return the node IDs a task config points at."""
-        channels = task.config.get("channels", [])
-        return {ch.get("node_id", ch.get("nodeId")) for ch in channels}
+        ids: set[str] = set()
+        for ch in cls.config_channels(task):
+            node_id = ch.get("node_id", ch.get("nodeId"))
+            if not isinstance(node_id, str):
+                raise TypeError(f"task config node ID {node_id!r} is not a string")
+            ids.add(node_id)
+        return ids
