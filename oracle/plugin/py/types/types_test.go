@@ -1831,6 +1831,27 @@ ChannelStatus = status.Status<nil>
 			})
 		})
 
+		It(
+			"Should reject same-named type params with different defaults",
+			func(ctx SpecContext) {
+				source := `
+					@py output "out"
+
+					Required struct<T> {
+						value T
+					}
+
+					Optional struct<T?> {
+						value T
+					}
+				`
+				req := MustGenerateRequest(ctx, source, "api", loader)
+				Expect(typesPlugin.Generate(req)).Error().To(MatchError(
+					ContainSubstring("type parameter T of Optional conflicts"),
+				))
+			},
+		)
+
 		Context("constrained type param with comparable", func() {
 			It(
 				"Should not emit a bound and should not import Any",

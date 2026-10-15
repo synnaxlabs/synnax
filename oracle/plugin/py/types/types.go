@@ -32,6 +32,7 @@ import (
 	pyprimitives "github.com/synnaxlabs/oracle/plugin/py/primitives"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -190,7 +191,10 @@ func generatePyFile(
 				TypeDef:   processTypeDef(typ, table, data),
 			})
 		case resolution.StructForm:
-			sd := processStruct(typ, table, data, keyFields)
+			sd, err := processStruct(typ, table, data, keyFields)
+			if err != nil {
+				return nil, err
+			}
 			for _, f := range sd.Fields {
 				if f.Alias != "" {
 					sd.HasKeywordAlias = true
@@ -452,15 +456,6 @@ func constraintToPython(
 	return "Any"
 }
 
-func containsTypeVar(typeVars []typeVarData, name string) bool {
-	for _, tv := range typeVars {
-		if tv.Name == name {
-			return true
-		}
-	}
-	return false
-}
-
 func typeDefBaseToPython(
 	typeRef resolution.TypeRef,
 	currentNamespace string,
@@ -528,7 +523,7 @@ func processStruct(
 	table *resolution.Table,
 	data *templateData,
 	keyFields []keyFieldData,
-) structData {
+) (structData, error) {
 	sd := structData{
 		Name:   entry.Name,
 		Doc:    doc.Get(entry.Domains),
@@ -538,14 +533,14 @@ func processStruct(
 	form, ok := entry.Form.(resolution.StructForm)
 	if !ok {
 		sd.Skip = true
-		return sd
+		return sd, nil
 	}
 
 	// Check for py domain omit or hand-written implementation
 	if domain.HasExprFromType(entry, "py", "omit") ||
 		domain.HasExprFromType(entry, "py", "hand") {
 		sd.Skip = true
-		return sd
+		return sd, nil
 	}
 	// Check for py domain name override
 	if name := domain.GetStringFromType(entry, "py", "name"); name != "" {
@@ -559,9 +554,6 @@ func processStruct(
 		for _, tp := range resolution.NonDefaultedTypeParams(form.TypeParams) {
 			tpd := processTypeParam(tp, table, data)
 			sd.TypeParams = append(sd.TypeParams, tpd)
-			if containsTypeVar(data.TypeVars, tp.Name) {
-				continue
-			}
 			tvd := typeVarData{Name: tp.Name, Constraint: tpd.Constraint}
 			// An omitted optional type argument means arbitrary JSON. TypeVar
 			// defaults need typing_extensions on Python 3.12.
@@ -570,7 +562,22 @@ func processStruct(
 				data.imports.typeVarDefault = true
 				tvd.Default = "JsonValue"
 			}
-			data.TypeVars = append(data.TypeVars, tvd)
+			// TypeVars are module-level, so structs in one file share them by name.
+			existing, found := lo.Find(
+				data.TypeVars,
+				func(tv typeVarData) bool { return tv.Name == tp.Name },
+			)
+			if !found {
+				data.TypeVars = append(data.TypeVars, tvd)
+			} else if existing != tvd {
+				return sd, errors.Newf(
+					"type parameter %s of %s conflicts with another %s in the same "+
+						"Python file; rename one of them",
+					tp.Name,
+					entry.Name,
+					tp.Name,
+				)
+			}
 		}
 	}
 
@@ -578,7 +585,7 @@ func processStruct(
 	if aliasForm, isAlias := entry.Form.(resolution.AliasForm); isAlias {
 		sd.IsAlias = true
 		sd.AliasOf = typeRefToPythonAlias(aliasForm.Target, table, data)
-		return sd
+		return sd, nil
 	}
 
 	// Handle struct extension with Pydantic inheritance (supports multiple parents)
@@ -613,7 +620,7 @@ func processStruct(
 						sd.KeyField = field.Name
 					}
 				}
-				return sd
+				return sd, nil
 			}
 
 			// Get all parent fields for comparison (first parent wins on conflict)
@@ -713,7 +720,7 @@ func processStruct(
 						sd.KeyField = field.Name
 					}
 				}
-				return sd
+				return sd, nil
 			}
 
 			sd.HasExtends = true
@@ -765,7 +772,7 @@ func processStruct(
 					}
 				}
 			}
-			return sd
+			return sd, nil
 		}
 	}
 
@@ -779,7 +786,7 @@ func processStruct(
 			sd.KeyField = field.Name
 		}
 	}
-	return sd
+	return sd, nil
 }
 
 func getPyName(typ resolution.Type) string {

@@ -2448,6 +2448,36 @@ Entry struct {
 			},
 		)
 
+		DescribeTable(
+			"Should reject a required type parameter after an omittable one",
+			func(ctx SpecContext, params string) {
+				source := `Pair struct<` + params + `> {
+					a A
+					b B
+				}`
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(
+					"required type parameter B of Pair cannot follow optional or " +
+						"defaulted type parameter A",
+				))
+			},
+			Entry("optional", "A?, B"),
+			Entry("defaulted", "A = string, B"),
+		)
+
+		It(
+			"Should accept omittable type parameters after required ones",
+			func(ctx SpecContext) {
+				source := `Pair struct<A, B?> {
+					a A
+					b B
+				}`
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue())
+			},
+		)
+
 		It(
 			"Should parse generic struct with default type parameter",
 			func(ctx SpecContext) {

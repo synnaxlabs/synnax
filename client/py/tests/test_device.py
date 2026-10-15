@@ -113,6 +113,22 @@ class TestDevice:
                 keys=["nonexistent_key1", "nonexistent_key2"], ignore_not_found=False
             )
 
+    def test_create_converts_properties_to_json(self, client: sy.Synnax):
+        """Should store a UUID in the properties as a string."""
+        r = client.racks.create(name="Test Rack")
+        ref = uuid4()
+        device = client.devices.create(
+            key=str(uuid4()),
+            name="JSON Device",
+            rack=r.key,
+            location="test-location",
+            make="test_make",
+            model="test_model",
+            properties={"ref": ref},
+        )
+        retrieved = client.devices.retrieve(key=device.key)
+        assert retrieved.properties == {"ref": str(ref)}
+
     def test_create_with_configured_true(self, client: sy.Synnax):
         """Test creating a device with configured=True."""
         r = client.racks.create(name="Test Rack")
