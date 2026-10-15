@@ -7,13 +7,17 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import operator
 import uuid
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import pandas as pd
 import pytest
 
 from x import telem
+from x.interop import ArrayOperators
 
 
 @pytest.mark.telem
@@ -635,3 +639,108 @@ class TestMultiSeries:
         arr1 = ms.__array__(copy=True)
         arr2 = ms.__array__(copy=True)
         assert not np.shares_memory(arr1, arr2)
+
+
+def _series() -> telem.Series:
+    return telem.Series(np.array([1, 2, 3], dtype=np.int64))
+
+
+def _multi_series() -> telem.MultiSeries:
+    return telem.MultiSeries(
+        [
+            telem.Series(np.array([1, 2], dtype=np.int64)),
+            telem.Series(np.array([3], dtype=np.int64)),
+        ]
+    )
+
+
+@pytest.mark.telem
+@pytest.mark.series
+@pytest.mark.parametrize("create", [_series, _multi_series])
+class TestArrayOperators:
+    def test_comparison(self, create: Callable[[], ArrayOperators]) -> None:
+        """Should compare element-wise and return a boolean array"""
+        a = create()
+        assert np.array_equal(a == 2, [False, True, False])
+        assert np.array_equal(a > 1, [False, True, True])
+
+    def test_arithmetic(self, create: Callable[[], ArrayOperators]) -> None:
+        """Should apply arithmetic element-wise"""
+        assert np.array_equal(create() * 2, [2, 4, 6])
+
+    def test_reflected(self, create: Callable[[], ArrayOperators]) -> None:
+        """Should apply a reflected operator when the left operand is a scalar"""
+        assert np.array_equal(10 - create(), [9, 8, 7])
+
+    def test_negation(self, create: Callable[[], ArrayOperators]) -> None:
+        """Should negate every sample"""
+        assert np.array_equal(-create(), [-1, -2, -3])
+
+    @pytest.mark.parametrize(
+        "op",
+        [
+            operator.eq,
+            operator.ne,
+            operator.lt,
+            operator.gt,
+            operator.le,
+            operator.ge,
+            operator.add,
+            operator.sub,
+            operator.mul,
+            operator.truediv,
+            operator.floordiv,
+            operator.mod,
+            operator.pow,
+            operator.lshift,
+            operator.rshift,
+            operator.and_,
+            operator.or_,
+            operator.xor,
+            operator.matmul,
+            divmod,
+        ],
+    )
+    def test_binary_matches_numpy(
+        self, create: Callable[[], ArrayOperators], op: Callable[[Any, Any], Any]
+    ) -> None:
+        """Should match NumPy for every binary operator in both operand orders"""
+        a = create()
+        arr = np.asarray(a)
+        # A list on the left makes Python call the reflected operator.
+        other = [3, 2, 1]
+        assert np.array_equal(op(a, other), op(arr, np.array(other)))
+        assert np.array_equal(op(other, a), op(np.array(other), arr))
+
+    @pytest.mark.parametrize(
+        "op", [operator.neg, operator.pos, operator.abs, operator.invert]
+    )
+    def test_unary_matches_numpy(
+        self, create: Callable[[], ArrayOperators], op: Callable[[Any], Any]
+    ) -> None:
+        """Should match NumPy for every unary operator"""
+        a = create()
+        assert np.array_equal(op(a), op(np.asarray(a)))
+
+    def test_in_place(self, create: Callable[[], ArrayOperators]) -> None:
+        """Should rebind an in-place operation to a new array"""
+        a: Any = create()
+        a += 1
+        assert isinstance(a, np.ndarray)
+        assert np.array_equal(a, [2, 3, 4])
+
+    def test_unhashable(self, create: Callable[[], ArrayOperators]) -> None:
+        """Should not be hashable, like a NumPy array"""
+        with pytest.raises(TypeError):
+            hash(create())
+
+
+@pytest.mark.telem
+@pytest.mark.series
+class TestSeriesModel:
+    def test_round_trip(self) -> None:
+        """Should validate and serialize with the operator mixin in place"""
+        s = _series()
+        restored = telem.Series.model_validate(s.model_dump())
+        assert restored.data == s.data
+        assert np.array_equal(restored, s)
