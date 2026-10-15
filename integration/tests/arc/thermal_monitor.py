@@ -22,8 +22,9 @@ Tests Arc features not covered by arc_press_sequence:
 from examples.simulators import ThermalSimDAQ
 
 import synnax as sy
-from framework.utils import create_indexed_pair, create_virtual_channel, to_float
+from framework.utils import create_indexed_pair, create_virtual_channel
 from tests.arc.arc import ArcCase
+from x.telem import to_float
 
 ARC_SOURCE = """
 func count_heater_cycles(heater_on u8) i64 {

@@ -25,10 +25,8 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any
 
-import numpy as np
-
 import synnax as sy
-from synnax.telem import SampleValue
+from x.telem import to_float
 
 # Fixtures directory for test data (SVGs, JSONs, etc.)
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "..", "tests", "fixtures")
@@ -125,26 +123,6 @@ def get_fixture_path(filename: str) -> str:
     if not os.path.exists(path):
         raise FileNotFoundError(f"Test fixture not found: {path}")
     return path
-
-
-def to_float(value: SampleValue) -> float:
-    """Converts a sample from a numeric channel to a float.
-
-    :raises TypeError: If the sample is not numeric.
-    """
-    if isinstance(value, (int, float, np.number, np.bool_)):
-        return float(value)
-    raise TypeError(f"Expected a numeric sample, got {value!r}")
-
-
-def to_int(value: SampleValue) -> int:
-    """Converts a sample from an integer or timestamp channel to an int.
-
-    :raises TypeError: If the sample is not an integer.
-    """
-    if isinstance(value, (int, np.integer, np.bool_)):
-        return int(value)
-    raise TypeError(f"Expected an integer sample, got {value!r}")
 
 
 def read_latest_value(client: sy.Synnax, channel_name: str) -> float | None:

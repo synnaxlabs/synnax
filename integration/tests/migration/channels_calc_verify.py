@@ -15,7 +15,6 @@ import numpy as np
 
 import synnax as sy
 from framework.test_case import TestCase
-from framework.utils import to_float
 from tests.migration.channels_calc_setup import (
     CALC_EXPR,
     CALC_EXPR_OP_CHANNELS,
@@ -34,6 +33,7 @@ from tests.migration.channels_calc_setup import (
     WIN_NUM_DOMAINS,
     _win_value,
 )
+from x.telem import to_float
 
 NpArray = np.ndarray[Any, Any]
 
