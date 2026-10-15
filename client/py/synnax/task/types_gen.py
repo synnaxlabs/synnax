@@ -106,7 +106,7 @@ class ScanConfig(KeyedConfig):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             key: UUID = ...,
             rate: float = ...,
@@ -183,7 +183,7 @@ class ReadConfig(PersistConfig):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             key: UUID = ...,
             auto_start: bool = ...,

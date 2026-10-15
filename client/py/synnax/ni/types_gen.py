@@ -729,7 +729,7 @@ class WriteConfig(task.WriteConfig):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             key: UUID = ...,
             auto_start: bool = ...,
@@ -754,7 +754,7 @@ class ScanConfig(task.ScanConfig):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             key: UUID = ...,
             rate: float = ...,
@@ -863,7 +863,7 @@ class DigitalReadConfig(task.ReadConfig):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             key: UUID = ...,
             auto_start: bool = ...,
@@ -890,7 +890,7 @@ class DigitalWriteConfig(WriteConfig):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             key: UUID = ...,
             auto_start: bool = ...,
@@ -1429,7 +1429,7 @@ class AnalogReadConfig(task.ReadConfig):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             key: UUID = ...,
             auto_start: bool = ...,
@@ -1455,7 +1455,7 @@ class CounterReadConfig(task.ReadConfig):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             key: UUID = ...,
             auto_start: bool = ...,
@@ -1481,7 +1481,7 @@ class AnalogWriteConfig(WriteConfig):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             key: UUID = ...,
             auto_start: bool = ...,

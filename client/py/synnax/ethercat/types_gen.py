@@ -40,7 +40,7 @@ class PDOAddress(BaseModel):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             index: int = ...,
             sub_index: int = ...,
@@ -103,7 +103,7 @@ class ScanConfig(task.ScanConfig):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             key: UUID = ...,
             rate: float = ...,
@@ -129,7 +129,7 @@ class ManualReadChannel(BaseReadChannel, PDOAddress):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             type: Literal["manual"] = ...,
             key: str = ...,
@@ -167,7 +167,7 @@ class ManualWriteChannel(BaseWriteChannel, PDOAddress):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             type: Literal["manual"] = ...,
             key: str = ...,
@@ -206,7 +206,7 @@ class ReadConfig(task.ReadConfig):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             key: UUID = ...,
             auto_start: bool = ...,
@@ -237,7 +237,7 @@ class WriteConfig(task.PersistConfig):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             key: UUID = ...,
             auto_start: bool = ...,

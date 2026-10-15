@@ -111,7 +111,7 @@ class ScanConfig(task.ScanConfig):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             key: UUID = ...,
             rate: float = ...,
@@ -228,7 +228,7 @@ class WriteConfig(task.WriteConfig):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             key: UUID = ...,
             auto_start: bool = ...,
@@ -263,7 +263,7 @@ class ReadConfig(task.ReadConfig):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             key: UUID = ...,
             auto_start: bool = ...,

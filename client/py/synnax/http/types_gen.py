@@ -132,7 +132,7 @@ class ScanConfig(task.ScanConfig):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             key: UUID = ...,
             rate: float = ...,
@@ -170,7 +170,7 @@ class ReadField(BaseModel):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             key: str = ...,
             name: str = ...,
@@ -214,7 +214,7 @@ class ChannelField(BaseModel):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             pointer: str = ...,
             json_type: JSONType = ...,
@@ -326,7 +326,7 @@ class ReadConfig(task.PersistConfig):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             key: UUID = ...,
             auto_start: bool = ...,

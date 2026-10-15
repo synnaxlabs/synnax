@@ -62,7 +62,7 @@ class Operation(BaseModel):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             type: OperationType,
             reset_channel: Key = ...,
@@ -118,7 +118,7 @@ class Payload(BaseModel):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             key: Key = ...,
             name: Name,

@@ -38,7 +38,7 @@ class RegisterValue(BaseModel):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             data_type: str = ...,
             bytes_swapped: bool = ...,
@@ -94,7 +94,7 @@ class ScanConfig(task.ScanConfig):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             key: UUID = ...,
             rate: float = ...,
@@ -126,7 +126,7 @@ class HoldingRegisterReadChannel(BaseReadChannel, RegisterValue):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             type: Literal["holding_register"] = ...,
             key: str = ...,
@@ -150,7 +150,7 @@ class InputRegisterReadChannel(BaseReadChannel, RegisterValue):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             type: Literal["input_register"] = ...,
             key: str = ...,
@@ -192,7 +192,7 @@ class HoldingRegisterWriteChannel(BaseWriteChannel, RegisterValue):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             type: Literal["holding_register"] = ...,
             key: str = ...,
@@ -228,7 +228,7 @@ class ReadConfig(task.ReadConfig):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             key: UUID = ...,
             auto_start: bool = ...,

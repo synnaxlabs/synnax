@@ -44,7 +44,7 @@ class BaseChannel(BaseModel):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             key: str = ...,
             name: str = ...,
@@ -64,7 +64,7 @@ class ScanConfig(task.ScanConfig):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             key: UUID = ...,
             rate: float = ...,
@@ -89,7 +89,7 @@ class ReadChannel(BaseChannel):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             key: str = ...,
             name: str = ...,
@@ -117,7 +117,7 @@ class WriteChannel(BaseChannel):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             key: str = ...,
             name: str = ...,
@@ -154,7 +154,7 @@ class ReadConfig(task.ReadConfig):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             key: UUID = ...,
             auto_start: bool = ...,

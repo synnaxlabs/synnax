@@ -73,7 +73,7 @@ class Status(BaseModel, Generic[Details]):
     if TYPE_CHECKING:
 
         def __init__(
-            self,
+            _self,
             *,
             key: Key = ...,
             name: str = ...,
