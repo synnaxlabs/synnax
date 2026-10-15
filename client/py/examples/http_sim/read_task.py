@@ -76,19 +76,19 @@ tsk = http.ReadTask(
                 http.ReadField(
                     pointer="/temperature",
                     channel=temperature.key,
-                    data_type="float64",
+                    data_type=sy.DataType.FLOAT64,
                     name="Temperature",
                 ),
                 http.ReadField(
                     pointer="/pressure",
                     channel=pressure.key,
-                    data_type="float64",
+                    data_type=sy.DataType.FLOAT64,
                     name="Pressure",
                 ),
                 http.ReadField(
                     pointer="/humidity",
                     channel=humidity.key,
-                    data_type="float64",
+                    data_type=sy.DataType.FLOAT64,
                     name="Humidity",
                 ),
             ],

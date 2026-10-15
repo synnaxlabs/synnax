@@ -13,9 +13,10 @@ import time
 
 from pymodbus import ModbusDeviceIdentification
 from pymodbus.client import ModbusTcpClient
-from pymodbus.datastore.context import SimDevice
+from pymodbus.datastore import ModbusServerContext
 from pymodbus.server import ModbusTcpServer
-from pymodbus.simulator.simdata import DataType, SimData
+from pymodbus.simulator import DataType, SimData, SimDevice
+from pymodbus.simulator.simcore import SimCore
 
 import synnax as sy
 from examples.simulators.device_sim import DeviceSim
@@ -25,7 +26,9 @@ SLAVE_ID = 0x00
 SENSOR_COUNT = 5
 
 
-async def updating_writer(context, rate: sy.Rate = 50 * sy.Rate.HZ):
+async def updating_writer(
+    context: ModbusServerContext | SimCore, rate: sy.Rate = 50 * sy.Rate.HZ
+) -> None:
     """Update Modbus registers continuously with simulated sensor data."""
     start_ref = time.time()
     i = 0
