@@ -30,7 +30,6 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/py/keywords"
 	pyprimitives "github.com/synnaxlabs/oracle/plugin/py/primitives"
-	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -608,92 +607,25 @@ func processStruct(
 		}
 
 		if allParentsValid {
-			// A domain removal (-@domain) cannot be expressed through class
-			// inheritance — the base class still carries the domain — so emit a
-			// flattened standalone class. Typeless overrides are already resolved
-			// by the analyzer.
-			if resolver.HasDomainOmissions(form) {
-				sd.HasExtends = false
-				sd.ExtendsNames = nil
-				flat := resolution.UnifiedFields(entry, table)
-				sd.Fields = make([]fieldData, 0, len(flat))
-				for _, field := range flat {
-					sd.Fields = append(
-						sd.Fields,
-						processField(field, table, data, keyFields, form.OmittedFields),
-					)
-					if hashableKey(field) {
-						sd.KeyField = field.Name
-					}
-				}
-				return sd, nil
-			}
-
-			parentFields := inheritedFields(form, table)
+			fields := pyFields(entry, table)
 
 			if flattensParents(form, table) {
-				// Inline all fields from parents and child into a standalone class
 				sd.HasExtends = false
 				sd.ExtendsNames = nil
-				childFieldsByName := make(map[string]resolution.Field)
-				for _, f := range form.Fields {
-					childFieldsByName[f.Name] = f
-				}
-				omittedSet := make(set.Set[string])
-				for _, name := range form.OmittedFields {
-					omittedSet.Add(name)
-				}
-
-				sd.Fields = make([]fieldData, 0, len(parentFields)+len(form.Fields))
-				addedFields := make(set.Set[string])
-
-				// Add parent fields, using child overrides where they exist
-				for _, pf := range parentFields {
-					if omittedSet.Contains(pf.Name) {
-						continue
-					}
-					if childField, ok := childFieldsByName[pf.Name]; ok {
-						fd := processField(
-							childField,
+				sd.Fields = make([]fieldData, 0, len(fields))
+				for _, f := range fields {
+					sd.Fields = append(
+						sd.Fields,
+						processField(
+							f.Field,
 							table,
 							data,
 							keyFields,
 							form.OmittedFields,
-						)
-						sd.Fields = append(sd.Fields, fd)
-						if hashableKey(childField) {
-							sd.KeyField = childField.Name
-						}
-					} else {
-						fd := processField(
-							pf,
-							table,
-							data,
-							keyFields,
-							form.OmittedFields,
-						)
-						sd.Fields = append(sd.Fields, fd)
-						if hashableKey(pf) {
-							sd.KeyField = pf.Name
-						}
-					}
-					addedFields.Add(pf.Name)
-				}
-				// Add child-only fields that aren't in the parent
-				for _, field := range form.Fields {
-					if addedFields.Contains(field.Name) {
-						continue
-					}
-					fd := processField(
-						field,
-						table,
-						data,
-						keyFields,
-						form.OmittedFields,
+						),
 					)
-					sd.Fields = append(sd.Fields, fd)
-					if hashableKey(field) {
-						sd.KeyField = field.Name
+					if hashableKey(f.Field) {
+						sd.KeyField = f.Name
 					}
 				}
 				return sd, nil
@@ -714,8 +646,8 @@ func processStruct(
 				}
 			}
 			// Also check parent fields for @key if not redefined
-			for _, pf := range parentFields {
-				if !redefinedFields.Contains(pf.Name) && hashableKey(pf) {
+			for _, pf := range fields {
+				if !redefinedFields.Contains(pf.Name) && hashableKey(pf.Field) {
 					sd.KeyField = pf.Name
 				}
 			}
@@ -727,7 +659,7 @@ func processStruct(
 					continue // Already handled above
 				}
 				// Find the field type from parent
-				for _, pf := range parentFields {
+				for _, pf := range fields {
 					if pf.Name == omittedName {
 						data.imports.addPydantic("Field")
 						// Run the inherited field through the normal field
@@ -737,7 +669,7 @@ func processStruct(
 						// would drop the parent's default and make an excluded
 						// defaulted field wrongly required.
 						fd := processField(
-							pf,
+							pf.Field,
 							table,
 							data,
 							keyFields,
