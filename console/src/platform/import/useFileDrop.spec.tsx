@@ -265,7 +265,7 @@ describe("Import.useFileDrop", () => {
     const seedTabKey = uuid.create();
     const existing = await createServerPanel(client, {
       variant: "leaf",
-      tabs: [{ variant: "view", key: seedTabKey, type: "seed", args: {} }],
+      tabs: [{ variant: "view", key: seedTabKey, type: "seed" }],
     });
     const { result } = await renderFileDrop({ panelKey: existing.key });
     // A right-edge drop puts the new half last, where an unplaced fallback would not

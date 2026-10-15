@@ -278,6 +278,17 @@ func diffWalk(
 		return TypeUnchanged
 	}
 
+	if oldForm, ok := old.Form.(resolution.UnionForm); ok {
+		// Walk the variant payloads and bases so a changed payload records its own
+		// diff, which routes it through its developer wrapper like a struct field.
+		for _, v := range oldForm.Variants {
+			diffRefWalk(v.Type, oldTable, newTable, counterpart, result, visiting)
+		}
+		for _, ext := range oldForm.Extends {
+			diffRefWalk(ext, oldTable, newTable, counterpart, result, visiting)
+		}
+	}
+
 	oldStruct, oldOk := old.Form.(resolution.StructForm)
 	newStruct, newOk := new.Form.(resolution.StructForm)
 	if !oldOk || !newOk {

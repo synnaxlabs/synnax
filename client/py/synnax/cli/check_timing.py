@@ -17,14 +17,11 @@ import synnax as sy
 from synnax.cli import default
 from synnax.cli.channel import select_channel
 from synnax.cli.connect import connect_client
-from synnax.cli.warning import warning
 
 
 @click.command()
-@click.pass_context
-def check_timing(ctx: click.Context) -> None:
+def check_timing() -> None:
     """Check the timing characteristics of a time channel."""
-    warning(ctx)
     client = connect_client(default.context())
     if client is None:
         return
