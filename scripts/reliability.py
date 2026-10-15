@@ -35,6 +35,7 @@ import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 REPO = "synnaxlabs/synnax"
 ROOT = Path(__file__).resolve().parent.parent
@@ -291,7 +292,7 @@ class Cases:
         path, cls = self._class(case, name)
         chain = self._ancestry(path, cls)
         names = {c.name for _, c in chain}
-        skipped = {}
+        skipped: dict[str, str] = {}
         for _, c in chain:
             for node in ast.walk(c):
                 if isinstance(node, ast.If):
@@ -338,7 +339,9 @@ def auto_pass(node: ast.If, system: str) -> str | None:
                 and call.func.attr == "auto_pass"
             ):
                 msg = call.keywords[0].value if call.keywords else call.args[0]
-                return msg.value if isinstance(msg, ast.Constant) else "Auto-passed"
+                if isinstance(msg, ast.Constant) and isinstance(msg.value, str):
+                    return msg.value
+                return "Auto-passed"
     return None
 
 
@@ -403,8 +406,8 @@ def main() -> None:
         ).splitlines()
     ]
 
-    suites: list[dict] = []
-    tests: list[list] = []
+    suites: list[dict[str, Any]] = []
+    tests: list[list[Any]] = []
 
     for job in jobs:
         m = JOB_NAME.match(job["name"])

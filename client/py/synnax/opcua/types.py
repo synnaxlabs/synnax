@@ -26,7 +26,9 @@ SecurityPolicy = Literal[
 ]
 
 
-class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
+class ReadTask(
+    task.StarterStopperMixin, task.JSONConfigMixin[ReadConfig], task.Protocol
+):
     """A read task for sampling data from OPC UA devices and writing the data to a
     Synnax cluster. For detailed information on configuring and operating an OPC UA
     read task, see https://docs.synnaxlabs.com/reference/driver/opc-ua/read-task
@@ -47,7 +49,6 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """
 
     TYPE = "opc_read"
-    config: ReadConfig
     _internal: task.Task
 
     def __init__(
@@ -94,7 +95,9 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         return device_client.create(dev)
 
 
-class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
+class WriteTask(
+    task.StarterStopperMixin, task.JSONConfigMixin[WriteConfig], task.Protocol
+):
     """A write task for sending commands to OPC UA devices. For detailed information on
     configuring and operating an OPC UA write task, see
     https://docs.synnaxlabs.com/reference/driver/opc-ua/write-task
@@ -107,7 +110,6 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """
 
     TYPE = "opc_write"
-    config: WriteConfig
     _internal: task.Task
 
     def __init__(

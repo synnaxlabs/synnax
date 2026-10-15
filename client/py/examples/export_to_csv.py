@@ -56,8 +56,8 @@ data = np.linspace(0, 100, SAMPLE_COUNT) + np.random.randn(SAMPLE_COUNT) * 5
 client.write(
     start,
     {
-        time_channel: timestamps,
-        data_channel: data,
+        time_channel.key: timestamps,
+        data_channel.key: data,
     },
 )
 
@@ -65,7 +65,7 @@ client.write(
 time_range = sy.TimeRange(start, end)
 
 # Read the data back from the Synnax cluster.
-data = client.read(time_range, [time_channel.name, data_channel.name])
+frame = client.read(time_range, [time_channel.name, data_channel.name])
 
 # Convert the data to a pandas DataFrame and export to a CSV file.
-df = data.to_df().to_csv("exported_data.csv")
+frame.to_df().to_csv("exported_data.csv")

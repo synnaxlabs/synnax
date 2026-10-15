@@ -28,7 +28,9 @@ T8: Final = "LJM_dtT8"
 SUPPORTED_MODELS: TypeAlias = Literal["LJM_dtT4", "LJM_dtT7", "LJM_dtT8"]
 
 
-class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
+class ReadTask(
+    task.StarterStopperMixin, task.JSONConfigMixin[ReadConfig], task.Protocol
+):
     """A read task for sampling data from LabJack devices and writing the data to a
     Synnax cluster. For detailed information on configuring and operating a LabJack
     read task, see https://docs.synnaxlabs.com/reference/driver/labjack/read-task
@@ -47,7 +49,6 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """
 
     TYPE = "labjack_read"
-    config: ReadConfig
     _internal: task.Task
 
     def __init__(
@@ -90,7 +91,9 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         return device_client.create(dev)
 
 
-class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
+class WriteTask(
+    task.StarterStopperMixin, task.JSONConfigMixin[WriteConfig], task.Protocol
+):
     """A write task for sending commands to LabJack devices. For detailed information
     on configuring and operating a LabJack write task, see
     https://docs.synnaxlabs.com/reference/driver/labjack/write-task
@@ -107,7 +110,6 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """
 
     TYPE = "labjack_write"
-    config: WriteConfig
     _internal: task.Task
 
     def __init__(

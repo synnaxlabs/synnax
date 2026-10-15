@@ -49,6 +49,8 @@ dev = [
     "pytest-asyncio>=1.4.0,<2",
     "pytest-cov>=7.1.0,<8",
     "scipy>=1.18.1,<2",
+    "scipy-stubs>=1.18.1.1,<2",
+    "types-pyserial>=3.5.0.20260712,<4",
 ]
 
 [tool.hatch.build.targets.wheel]

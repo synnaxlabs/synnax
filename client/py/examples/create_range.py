@@ -62,7 +62,7 @@ example_range = client.ranges.create(
 plt.plot(
     # The elapsed_seconds method converts the timestamps to seconds since the start of
     # the range.
-    sy.elapsed_seconds(example_range["create_range_time"]),
+    sy.elapsed_seconds(example_range["create_range_time"].to_numpy()),
     example_range["create_range_data"],
 )
 plt.xlabel("Time")

@@ -146,13 +146,9 @@ class Client:
 
     @overload
     def retrieve(
-        self, *, keys: list[str], include_labels: bool = False
-    ) -> list[Status[JsonValue]]: ...
-
-    @overload
-    def retrieve(
         self,
         *,
+        keys: list[str] | None = None,
         search_term: str | None = None,
         offset: int | None = None,
         limit: int | None = None,

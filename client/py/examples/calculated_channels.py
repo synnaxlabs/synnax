@@ -61,11 +61,13 @@ with client.open_writer(
         ["stream_write_time", "stream_write_data_1", "stream_write_data_2"],
     ) as streamer:
         for frame in streamer:
-            time = frame["stream_write_time"]
+            time = frame["stream_write_time"].to_numpy()
+            data_1 = frame["stream_write_data_1"].to_numpy()
+            data_2 = frame["stream_write_data_2"].to_numpy()
             # Square
-            squared = frame["stream_write_data_1"] ** 2
+            squared = data_1**2
             # Average
-            avg = (frame["stream_write_data_1"] + frame["stream_write_data_2"]) / 2
+            avg = (data_1 + data_2) / 2
             writer.write(
                 {
                     # Write back the same timestamps as raw data so they align

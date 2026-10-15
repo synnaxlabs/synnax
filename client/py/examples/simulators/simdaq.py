@@ -34,26 +34,23 @@ class SimDAQ(Simulator):
 
         if self.end_cmd_channel is not None:
             self._end_cmd_thread = threading.Thread(
-                target=self._watch_end_cmd, daemon=True
+                target=self._watch_end_cmd, args=(self.end_cmd_channel,), daemon=True
             )
             self._end_cmd_thread.start()
 
         self._thread = threading.Thread(target=self._run_loop, daemon=True)
         self._thread.start()
 
-    def _watch_end_cmd(self) -> None:
+    def _watch_end_cmd(self, end_cmd_channel: str) -> None:
         """Watch for end command and stop the simulator."""
-        with self.client.open_streamer([self.end_cmd_channel]) as streamer:
+        with self.client.open_streamer([end_cmd_channel]) as streamer:
             while self._running:
                 frame = streamer.read(timeout=1)
                 if frame is not None:
-                    data = frame.get(self.end_cmd_channel)
+                    data = frame[end_cmd_channel]
                     if len(data) > 0:
-                        val = data[-1]
-                        if hasattr(val, "item"):
-                            val = val.item()
-                        if val != 0:
-                            self.log(f"Received end command on {self.end_cmd_channel}")
+                        if data.to_numpy()[-1] != 0:
+                            self.log(f"Received end command on {end_cmd_channel}")
                             self._running = False
                             return
 
