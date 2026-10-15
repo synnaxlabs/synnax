@@ -9,7 +9,7 @@
 
 from dataclasses import dataclass
 
-from examples.opcua import OPCUASim
+from examples.opcua.server import OPCUASim
 
 import synnax as sy
 from console.case import ConsoleCase
