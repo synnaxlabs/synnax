@@ -22,12 +22,13 @@ def prompt_client_options(ctx: Context) -> Options:
     :return: The options to connect to a Synnax server.
     """
     ctx.console.info("Enter your Synnax connection parameters:")
+    host = ctx.console.ask("Host", default="localhost")
+    port = ctx.console.ask("Port", type_=int, default=9090)
+    username = ctx.console.ask("Username", default="synnax")
+    password = ctx.console.ask("Password", str, password=True)
+    secure = ctx.console.ask("Secure Connection?", type_=bool, default=False)
     return Options(
-        host=ctx.console.ask("Host", default="localhost"),
-        port=ctx.console.ask("Port", default=9090),
-        username=ctx.console.ask("Username", default="synnax"),
-        password=ctx.console.ask("Password", str, password=True),
-        secure=ctx.console.ask("Secure Connection?", default=False),
+        host=host, port=port, username=username, password=password, secure=secure
     )
 
 

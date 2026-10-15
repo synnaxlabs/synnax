@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import warnings
+from collections.abc import Mapping
 from typing import Any, cast
 
 from pandas import DataFrame
@@ -17,7 +18,7 @@ from synnax.channel.retrieve import Retriever as ChannelRetriever
 from synnax.channel.retrieve import retrieve_required as retrieve_required_channel
 from synnax.exceptions import PathError, ValidationError
 from synnax.framer.codec import Codec
-from synnax.framer.frame import CrudeFrame, Frame
+from synnax.framer.frame import CrudeFrame, Frame, K
 from synnax.telem import CrudeSeries, DataType, Series
 
 
@@ -144,7 +145,7 @@ class WriteFrameAdapter:
     def adapt(
         self,
         channels_or_data: (
-            channel.Payload | list[channel.Payload] | channel.Params | CrudeFrame
+            channel.Payload | list[channel.Payload] | channel.Params | CrudeFrame[K]
         ),
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> Frame:
@@ -183,7 +184,7 @@ class WriteFrameAdapter:
     def _adapt(
         self,
         channels_or_data: (
-            channel.Payload | list[channel.Payload] | channel.Params | CrudeFrame
+            channel.Payload | list[channel.Payload] | channel.Params | CrudeFrame[K]
         ),
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> Frame:
@@ -262,7 +263,7 @@ class WriteFrameAdapter:
                         )
             return Frame(channels=adapted_channels, series=adapted_series)
 
-        if isinstance(channels_or_data, dict):
+        if isinstance(channels_or_data, Mapping):
             dict_channels: list[channel.Key] = list()
             dict_series: list[Series] = list()
             for k, v in channels_or_data.items():
