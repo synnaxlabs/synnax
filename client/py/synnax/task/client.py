@@ -17,6 +17,7 @@ from typing import overload
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, JsonValue, ValidationError
+from pydantic_core import to_jsonable_python
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
@@ -149,7 +150,7 @@ class Task:
             rack=self.rack,
             name=self.name,
             type=self.type,
-            config=self.config,
+            config=to_jsonable_python(self.config),
         )
 
     def set_internal(self, task: Task) -> None:
@@ -194,7 +195,7 @@ class Task:
             type=type_,
             key=str(uuid4()),
             config_hash=self.config_hash,
-            args=dict(args) if args is not None else {},
+            args=to_jsonable_python(args) if args is not None else {},
         )
         w.write(_TASK_CMD_CHANNEL, [cmd.model_dump(mode="json")])
         w.close()
@@ -324,7 +325,7 @@ class JSONConfigMixin[C: BaseModel](Protocol):
     def to_payload(self) -> Payload:
         """Implements the Protocol interface."""
         pld = self._internal.to_payload()
-        pld.config = self.config.model_dump(by_alias=True, exclude_none=True)
+        pld.config = to_jsonable_python(self.config, by_alias=True, exclude_none=True)
         return pld
 
     def set_internal(self, task: Task) -> None:
@@ -383,19 +384,18 @@ class Client:
         rack: int = 0,
     ) -> Task | list[Task]:
         is_single = True
-        if config is None:
-            config_dict: dict[str, object] = {}
-        elif isinstance(config, BaseModel):
-            config_dict = config.model_dump(by_alias=True, exclude_none=True)
-        else:
-            config_dict = dict(config)
+        json_config: dict[str, JsonValue] = (
+            to_jsonable_python(config, by_alias=True, exclude_none=True)
+            if config is not None
+            else {}
+        )
         if tasks is None:
             if key is None:
                 key = uuid4()
             elif isinstance(key, str):
                 key = UUID(key)
             payloads = [
-                Payload(key=key, rack=rack, name=name, type=type, config=config_dict)
+                Payload(key=key, rack=rack, name=name, type=type, config=json_config)
             ]
         elif isinstance(tasks, Task):
             payloads = [tasks.to_payload()]

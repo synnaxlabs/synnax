@@ -10,6 +10,8 @@
 from typing import Final, Literal, TypeAlias, get_args
 from uuid import uuid4
 
+from pydantic import JsonValue
+
 from synnax import device, task
 from synnax.labjack.types_gen import (
     ReadChannel,
@@ -81,12 +83,13 @@ class ReadTask(
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Update device properties before task configuration."""
         dev = device_client.retrieve(key=self.config.device)
-        props = dict(dev.properties) if dev.properties is not None else {}
+        props = dict(dev.properties)
         if "read" not in props:
             props["read"] = {"index": 0, "channels": {}}
+        channels = device.ensure_object(props, "read", "channels")
         for ch in self.config.channels:
             # Map port location -> channel key for Console
-            props["read"]["channels"][ch.port] = ch.channel
+            channels[ch.port] = ch.channel
         dev.properties = props
         return device_client.create(dev)
 
@@ -140,12 +143,11 @@ class WriteTask(
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Update device properties before task configuration."""
         dev = device_client.retrieve(key=self.config.device)
-        props = dict(dev.properties) if dev.properties is not None else {}
-        if "write" not in props:
-            props["write"] = {"channels": {}}
+        props = dict(dev.properties)
+        channels = device.ensure_object(props, "write", "channels")
         for ch in self.config.channels:
             # Map port location -> state_channel key for Console
-            props["write"]["channels"][ch.port] = ch.state_channel
+            channels[ch.port] = ch.state_channel
         dev.properties = props
         return device_client.create(dev)
 
@@ -183,7 +185,7 @@ class Device(device.Device):
             )
         if not key:
             key = str(uuid4())
-        props = {
+        props: dict[str, JsonValue] = {
             "connection": {
                 "identifier": identifier,
                 "connection_type": connection_type,

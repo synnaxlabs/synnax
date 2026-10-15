@@ -7,12 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  AuthError,
-  connection,
-  ExpiredLicenseError,
-  license,
-} from "@synnaxlabs/client";
+import { AuthError, connection } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
@@ -39,19 +34,7 @@ const AUTH_FAILED_STATUS: connection.Status = {
   },
 };
 
-const EXPIRED_STATUS: connection.Status = {
-  ...connection.DEFAULT_STATUS,
-  variant: "error",
-  message: license.STATE_MESSAGES.expired,
-  details: {
-    ...connection.DEFAULT_STATUS.details,
-    authenticated: true,
-    reason: "unlicensed",
-    error: new ExpiredLicenseError(license.STATE_MESSAGES.expired),
-  },
-};
-
-const MISSING_TITLE = "This Core needs a license";
+const TITLE = "This Core's license has expired";
 
 const getKeyField = (): HTMLElement =>
   screen.getByRole("textbox", { name: "License key" });
@@ -71,14 +54,9 @@ describe("License.Guard", () => {
 
   it("should render the activation screen while the Core is unlicensed", async () => {
     await renderGuard(null, UNLICENSED_STATUS);
-    expect(screen.getByText(MISSING_TITLE)).toBeTruthy();
-    expect(screen.queryByText(GUARDED_CONTENT)).toBeNull();
-  });
-
-  it("should say when the license on the Core has expired", async () => {
-    await renderGuard(null, EXPIRED_STATUS);
-    expect(screen.getByText("This Core's license has expired")).toBeTruthy();
+    expect(screen.getByText(TITLE)).toBeTruthy();
     expect(screen.getByText("Get a new key from your Synnax account.")).toBeTruthy();
+    expect(screen.queryByText(GUARDED_CONTENT)).toBeNull();
   });
 
   it("should offer no way to check the connection again", async () => {
@@ -163,6 +141,6 @@ describe("License.Guard", () => {
     expect(
       screen.getByText("a license key has three parts: invalid license: license error"),
     ).toBeTruthy();
-    expect(screen.getByText(MISSING_TITLE)).toBeTruthy();
+    expect(screen.getByText(TITLE)).toBeTruthy();
   });
 });

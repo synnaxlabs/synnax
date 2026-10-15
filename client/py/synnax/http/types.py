@@ -10,7 +10,7 @@
 from typing import Any
 from uuid import uuid4
 
-from pydantic import BaseModel
+from pydantic import BaseModel, JsonValue
 
 from synnax import device, task
 from synnax.http.types_gen import (
@@ -116,16 +116,15 @@ class ReadTask(
         """Sync channel mappings to device properties."""
         dev = device_client.retrieve(key=self.config.device)
         props = dict(dev.properties)
-        if "read" not in props:
-            props["read"] = {}
+        read = device.ensure_object(props, "read")
         for ep in self.config.endpoints:
-            channels: dict[str, int] = {}
+            channels: dict[str, JsonValue] = {}
             index_key = 0
             for field in ep.fields:
                 channels[field.pointer] = field.channel
                 if ep.index != "" and field.key == ep.index:
                     index_key = field.channel
-            props["read"][ep.path] = {"index": index_key, "channels": channels}
+            read[ep.path] = {"index": index_key, "channels": channels}
         dev.properties = props
         return device_client.create(dev)
 
@@ -171,10 +170,9 @@ class WriteTask(
         """Sync channel mappings to device properties."""
         dev = device_client.retrieve(key=self.config.device)
         props = dict(dev.properties)
-        if "write" not in props:
-            props["write"] = {}
+        write = device.ensure_object(props, "write")
         for ep in self.config.endpoints:
-            props["write"][ep.path] = ep.channel.channel
+            write[ep.path] = ep.channel.channel
         dev.properties = props
         return device_client.create(dev)
 

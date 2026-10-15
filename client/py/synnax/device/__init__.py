@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.device.client import Client
+from synnax.device.properties import ensure_object
 from synnax.device.types_gen import (
     ONTOLOGY_TYPE,
     Device,
@@ -24,5 +25,6 @@ __all__ = [
     "Key",
     "Status",
     "StatusDetails",
+    "ensure_object",
     "ontology_id",
 ]
