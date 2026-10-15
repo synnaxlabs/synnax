@@ -45,7 +45,7 @@ from synnax.telem import (
     SampleValue,
     TimeRange,
 )
-from x.interop import ArrayOperators, overload_comparison_operators
+from x.interop import ArrayOperators
 from x.lists import check_for_none, normalize
 from x.params import require_named_params
 
@@ -55,7 +55,7 @@ RANGE_SET_CHANNEL = "sy_range_set"
 _model_getattr: Callable[[BaseModel, str], object] = getattr(BaseModel, "__getattr__")
 
 
-class _InternalScopedChannel(channel.Payload, ArrayOperators):
+class _InternalScopedChannel(ArrayOperators, channel.Payload):
     _cached_range: Range | None = PrivateAttr(None)
     """The range that this channel belongs to."""
     _cached_frame_client: framer.Client | None = PrivateAttr(None)
@@ -66,6 +66,9 @@ class _InternalScopedChannel(channel.Payload, ArrayOperators):
     """An internal cache to prevent repeated reads from the same channel."""
     _tasks: TaskClient | None = PrivateAttr(None)
     _ontology: OntologyClient | None = PrivateAttr(None)
+
+    # ArrayOperators clears __hash__, but writes can key data by channel payload.
+    __hash__ = channel.Payload.__hash__
 
     def __init__(
         self,
@@ -219,9 +222,6 @@ class ScopedChannel(ArrayOperators):
     def __len__(self) -> int:
         return sum(len(ch) for ch in self._internal)
 
-
-overload_comparison_operators(_InternalScopedChannel, "__array__")
-overload_comparison_operators(ScopedChannel, "__array__")
 
 _RANGE_NOT_CREATED = QueryError(
     """Cannot read from a range that has not been created.
