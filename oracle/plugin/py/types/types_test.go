@@ -1402,6 +1402,26 @@ var _ = Describe("Python Types Plugin", func() {
 			)
 
 			It(
+				"Should default an optional bounded type param to its bound",
+				func(ctx SpecContext) {
+					source := `
+					@py output "out"
+
+					Box struct<T? extends string> {
+						value T
+					}
+				`
+					resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(
+							`from typing_extensions import TypeVar`,
+							`T = TypeVar("T", bound=str, default=str)`,
+						).
+						ToNotContain(`JsonValue`)
+				},
+			)
+
+			It(
 				"Should skip type params with defaults in Generic[]",
 				func(ctx SpecContext) {
 					source := `
@@ -2636,7 +2656,9 @@ var _ = Describe("Python type-checking __init__", func() {
 		`
 			resp := MustGenerate(ctx, source, "http", loader, typesPlugin)
 			content := MustContentOf(resp, "types_gen.py")
-			Expect(content).To(ContainSubstring(`            type: Literal["read"] = ...,
+			Expect(
+				content,
+			).To(ContainSubstring(`            type: Literal["read"] = ...,
             rate: float,`))
 			Expect(strings.Count(content, "            type: ")).To(Equal(2))
 		},
