@@ -12,7 +12,7 @@ from collections.abc import Callable
 
 import pytest
 
-from synnax.cli.console.rich import RichConsole
+from synnax.cli.console import RichConsole
 
 type Answer = Callable[..., None]
 
