@@ -11,6 +11,7 @@ from typing import Any, overload
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+from pydantic_core import to_jsonable_python
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
@@ -90,7 +91,7 @@ class Client:
                     key=UUID(int=0),
                     name=name,
                     type=type,
-                    query=query if query is not None else {},
+                    query=to_jsonable_python(query) if query is not None else {},
                 )
             ]
         req = _CreateRequest(views=normalize(views))

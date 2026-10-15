@@ -10,6 +10,7 @@
 from uuid import uuid4
 
 import pytest
+from pydantic import JsonValue
 
 import synnax as sy
 
@@ -124,6 +125,22 @@ class TestDevice:
                 keys=["nonexistent_key1", "nonexistent_key2"], ignore_not_found=False
             )
 
+    def test_create_converts_properties_to_json(self, client: sy.Synnax) -> None:
+        """Should store a UUID in the properties as a string."""
+        r = client.racks.create(name="Test Rack")
+        ref = uuid4()
+        device = client.devices.create(
+            key=str(uuid4()),
+            name="JSON Device",
+            rack=r.key,
+            location="test-location",
+            make="test_make",
+            model="test_model",
+            properties={"ref": ref},
+        )
+        retrieved = client.devices.retrieve(key=device.key)
+        assert retrieved.properties == {"ref": str(ref)}
+
     def test_create_with_configured_true(self, client: sy.Synnax) -> None:
         """Test creating a device with configured=True."""
         r = client.racks.create(name="Test Rack")
@@ -187,3 +204,22 @@ class TestDevice:
         assert len(devices) == 2
         assert devices[0].configured is True
         assert devices[1].configured is False
+
+
+@pytest.mark.device
+class TestEnsureObject:
+    """Tests for walking and creating nested device property objects."""
+
+    def test_should_create_missing_objects(self) -> None:
+        props: dict[str, JsonValue] = {}
+        sy.device.ensure_object(props, "read", "channels")["port"] = 1
+        assert props == {"read": {"channels": {"port": 1}}}
+
+    def test_should_return_existing_object(self) -> None:
+        props: dict[str, JsonValue] = {"read": {"index": 0, "channels": {"a": 1}}}
+        sy.device.ensure_object(props, "read", "channels")["b"] = 2
+        assert props == {"read": {"index": 0, "channels": {"a": 1, "b": 2}}}
+
+    def test_should_raise_when_value_is_not_object(self) -> None:
+        with pytest.raises(TypeError):
+            sy.device.ensure_object({"read": [1]}, "read", "channels")
