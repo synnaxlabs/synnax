@@ -18,6 +18,7 @@ from examples.modbus import ModbusSim
 import synnax as sy
 from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import (
+    DriverTask,
     assert_configure_rejected,
     assert_start_rejected,
     cleanup_task,
@@ -233,7 +234,9 @@ class ModbusInvalidConfig(SimulatorCase):
                 "same channel — both tasks ran simultaneously"
             )
 
-    def _assert_deploy_fails(self, task: sy.Task, label: str) -> None:
+    def _assert_deploy_fails(
+        self, task: DriverTask[sy.task.StartConfig], label: str
+    ) -> None:
         """Save a task and assert the driver rejects it on start."""
         message = assert_start_rejected(self.client, task, label)
         self.log(f"  Correctly rejected ({label}): {message}")

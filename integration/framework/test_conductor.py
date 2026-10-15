@@ -114,7 +114,7 @@ class TestConductor:
         self.tests: list[Test] = []
         self.tests_lock = threading.Lock()
         self.active_tests: list[
-            tuple[TestDefinition, TestCase, sy.Range, threading.Thread]
+            tuple[TestDefinition, TestCase, sy.Range | None, threading.Thread]
         ] = []
         self.active_tests_lock = threading.Lock()
 

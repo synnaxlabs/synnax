@@ -19,12 +19,14 @@ import os
 import sys
 from abc import abstractmethod
 from collections.abc import Callable
-from contextlib import ExitStack
+from contextlib import AbstractContextManager, ExitStack
+from typing import Generic, Protocol, TypeVar
 
 from pydantic import ValidationError
 
 import synnax as sy
 from framework.test_case import TestCase
+from framework.utils import to_float, to_int
 
 _STATUS_CHANNEL = "sy_status_set"
 # Allowed relative error between a task's measured and configured sample rate. Wide
@@ -32,6 +34,41 @@ _STATUS_CHANNEL = "sy_status_set"
 # Python sims, and NI software (Windows) all at once, and a 1 s window leaves little
 # time to reach steady state.
 RATE_TOLERANCE = 0.20
+
+ConfigT = TypeVar("ConfigT", bound=sy.task.StartConfig, covariant=True)
+
+
+class DriverTask(Protocol[ConfigT]):
+    """A typed hardware task, such as ``sy.modbus.ReadTask``."""
+
+    _internal: sy.Task
+
+    @property
+    def key(self) -> sy.task.Key: ...
+
+    @property
+    def config(self) -> ConfigT: ...
+
+    @property
+    def name(self) -> str: ...
+
+    def start(self, timeout: float | sy.TimeSpan = 5) -> None: ...
+
+    def stop(self, timeout: float | sy.TimeSpan = 5) -> None: ...
+
+    def run(self, timeout: float | sy.TimeSpan = 5) -> AbstractContextManager[None]: ...
+
+    def to_payload(self) -> sy.task.Payload: ...
+
+    def set_internal(self, task: sy.Task) -> None: ...
+
+    def update_device_properties(
+        self, device_client: sy.device.Client
+    ) -> sy.Device | None: ...
+
+
+TaskT = TypeVar("TaskT", bound=DriverTask[sy.task.StartConfig])
+ReadTaskT = TypeVar("ReadTaskT", bound=DriverTask[sy.task.PersistConfig])
 
 # ── Channel creation helpers ─────────────────────────────────────
 
@@ -178,7 +215,7 @@ def send_and_verify_commands(
     )
 
 
-def cleanup_task(client: sy.Synnax, task: sy.Task) -> None:
+def cleanup_task(client: sy.Synnax, task: sy.task.Protocol) -> None:
     """Delete the task if it was assigned a key during save."""
     if task.key is not None:
         try:
@@ -189,7 +226,7 @@ def cleanup_task(client: sy.Synnax, task: sy.Task) -> None:
 
 def run_and_expect_rejection(
     client: sy.Synnax,
-    task: sy.Task,
+    task: DriverTask[sy.task.StartConfig] | sy.Task,
     *,
     timeout: sy.TimeSpan = 10 * sy.TimeSpan.SECOND,
 ) -> str | None:
@@ -200,7 +237,7 @@ def run_and_expect_rejection(
     timeout window. Returns None when no rejection arrives. The task is stopped
     before returning. Accepts both sugared tasks and plain ``sy.task.Task``.
     """
-    internal = getattr(task, "_internal", task)
+    internal = task if isinstance(task, sy.Task) else task._internal
     with client.open_streamer(["sy_status_set"]) as streamer:
         internal.execute_command("start")
         try:
@@ -225,7 +262,9 @@ def run_and_expect_rejection(
     return None
 
 
-def assert_configure_rejected(client: sy.Synnax, task: sy.Task, label: str) -> str:
+def assert_configure_rejected(
+    client: sy.Synnax, task: sy.task.Protocol, label: str
+) -> str:
     """Save a task and assert the client rejects it before it reaches the
     driver. Configure resolves the task's device to update its properties, so a
     dangling device reference fails here. Returns the rejection message."""
@@ -239,7 +278,7 @@ def assert_configure_rejected(client: sy.Synnax, task: sy.Task, label: str) -> s
 
 def assert_start_rejected(
     client: sy.Synnax,
-    task: sy.Task,
+    task: DriverTask[sy.task.StartConfig],
     label: str,
     *,
     timeout: sy.TimeSpan = 10 * sy.TimeSpan.SECOND,
@@ -301,7 +340,7 @@ def assert_streamed_values(
             continue
         for key in expected:
             if key in frame and len(frame[key]) > 0:
-                received[key] = float(frame[key][-1])
+                received[key] = to_float(frame[key][-1])
 
     for key, exp_val in expected.items():
         if received[key] != exp_val:
@@ -402,7 +441,7 @@ def assert_sample_rate(
     prefix = f"{task_name}: " if task_name else ""
     time_range = sy.TimeRange(start, sy.TimeStamp.now())
     counts: list[int] = []
-    timestamps: dict[int, sy.Series] = {}
+    timestamps: dict[int, sy.MultiSeries] = {}
     for key in channel_keys:
         ch = client.channels.retrieve(key)
         count = len(ch.read(time_range))
@@ -416,7 +455,7 @@ def assert_sample_rate(
         if ch.index not in timestamps:
             timestamps[ch.index] = client.channels.retrieve(ch.index).read(time_range)
         times = timestamps[ch.index]
-        span = sy.TimeSpan(int(times[-1]) - int(times[0]))
+        span = sy.TimeSpan(to_int(times[-1]) - to_int(times[0]))
         measured = (count - 1) / span.seconds
         error = (measured - sample_rate) / sample_rate
         log(
@@ -450,7 +489,7 @@ def delete_channels(client: sy.Synnax, keys: list[int]) -> None:
         client.channels.delete(list(index_keys))
 
 
-class TaskCase(TestCase):
+class TaskCase(TestCase, Generic[TaskT]):
     """Base class for driver task lifecycle tests.
 
     Provides setup/cleanup, channel key extraction, and generic assertions.
@@ -459,7 +498,7 @@ class TaskCase(TestCase):
 
     task_name: str
     device_name: str
-    tsk: sy.Task | None = None
+    tsk: TaskT | None = None
     SAMPLE_RATE: sy.Rate = 50 * sy.Rate.HZ
     STREAM_RATE: sy.Rate = 10 * sy.Rate.HZ
     TASK_DURATION: sy.TimeSpan = 1 * sy.TimeSpan.SECOND
@@ -473,9 +512,8 @@ class TaskCase(TestCase):
         task_name: str,
         sample_rate: sy.Rate,
         stream_rate: sy.Rate,
-    ) -> sy.Task:
+    ) -> TaskT:
         """Factory method to create protocol-specific task."""
-        pass
 
     def setup(self) -> None:
         """Create and configure task."""
@@ -509,9 +547,9 @@ class TaskCase(TestCase):
                 delete_channels(self.client, self._channel_keys(self.tsk))
         super().teardown()
 
-    def _channel_keys(self, task: sy.Task) -> list[int]:
+    @abstractmethod
+    def _channel_keys(self, task: TaskT) -> list[int]:
         """Extract channel keys from task config."""
-        return [ch.channel for ch in task.config.channels]
 
     def test_task_exists(self) -> None:
         """Verify the task exists and has the expected channels."""
@@ -525,7 +563,7 @@ class TaskCase(TestCase):
         self.assert_channel_names(task=self.tsk, expected_names=expected_names)
 
     def assert_channel_names(
-        self, *, task: sy.Task, expected_names: list[str]
+        self, *, task: TaskT, expected_names: list[str]
     ) -> list[str]:
         """Assert that the task's channels match the expected channel names."""
         actual_names = []
@@ -588,7 +626,7 @@ class TaskCase(TestCase):
             raise AssertionError(f"Unexpected error asserting device deletion: {e}")
 
 
-class ReadTaskCase(TaskCase):
+class ReadTaskCase(TaskCase[ReadTaskT]):
     """Base for read task lifecycle tests.
 
     Adds sample counting, data saving toggle, rate reconfiguration,
@@ -610,6 +648,7 @@ class ReadTaskCase(TaskCase):
 
     def test_start_and_stop(self) -> None:
         """Start the task, collect samples, and stop it."""
+        assert self.tsk is not None
         self.log("Testing: Start and stop")
         self.assert_sample_count(task=self.tsk, duration=self.TASK_DURATION)
 
@@ -633,8 +672,9 @@ class ReadTaskCase(TaskCase):
         """Halve the sample rate and verify the next start deploys the new config."""
         assert self.tsk is not None
         self.log("Testing: Reconfigure task rate")
-        new_rate = int(self.SAMPLE_RATE / 2)
-        self.tsk.config.sample_rate = new_rate
+        config = self.tsk.config
+        assert isinstance(config, sy.task.ReadConfig)
+        config.sample_rate = sy.Rate(int(self.SAMPLE_RATE / 2))
         self.client.tasks.configure(self.tsk)
         self.assert_sample_count(task=self.tsk, duration=self.TASK_DURATION)
 
@@ -666,20 +706,22 @@ class ReadTaskCase(TaskCase):
     def assert_sample_count(
         self,
         *,
-        task: sy.Task,
+        task: ReadTaskT,
         duration: sy.TimeSpan = 1 * sy.TimeSpan.SECOND,
         strict: bool = True,
     ) -> None:
         """Assert that the task collects the expected number of samples."""
         channel_keys = self._channel_keys(task)
-        frame_size = int(task.config.sample_rate / task.config.stream_rate)
+        config = task.config
+        assert isinstance(config, sy.task.ReadConfig)
+        frame_size = int(config.sample_rate / config.stream_rate)
         with task.run():
             start = collect_samples(self.client, channel_keys, duration, frame_size)
         assert_sample_rate(
             self.client,
             channel_keys=channel_keys,
             start=start,
-            sample_rate=task.config.sample_rate,
+            sample_rate=config.sample_rate,
             strict=strict,
             log=self.log,
         )
@@ -687,7 +729,7 @@ class ReadTaskCase(TaskCase):
     def assert_no_samples_persisted(
         self,
         *,
-        task: sy.Task,
+        task: ReadTaskT,
         duration: sy.TimeSpan = 1 * sy.TimeSpan.SECOND,
     ) -> None:
         """Assert that no samples are persisted while the task is running."""
@@ -716,7 +758,7 @@ class ReadTaskCase(TaskCase):
                 )
 
 
-class WriteTaskCase(TaskCase):
+class WriteTaskCase(TaskCase[TaskT]):
     """Base for write task lifecycle tests.
 
     Adds command sending and task reconfiguration testing.

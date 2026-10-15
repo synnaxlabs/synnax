@@ -77,9 +77,9 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
 
     def setup(self) -> None:
         super().setup()
-        self.extra_tasks: list[sy.Task] = []
+        self.extra_tasks: list[sy.opcua.ReadTask] = []
         self.frozen_pid: int | None = None
-        self.modbus_task: sy.Task | None = None
+        self.modbus_task: sy.modbus.ReadTask | None = None
         device = self.client.devices.retrieve(name=self.device_name)
         for i in range(1, self.NUM_TASKS):
             channels = _create_read_channels(self.client, f"concurrent_ss_{i}")
@@ -131,7 +131,7 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
         # Step 5: Health probe — can the driver still run a Modbus task?
         self._check_driver_responsive()
 
-    def _prime_pool(self, tasks: list[sy.Task]) -> bool:
+    def _prime_pool(self, tasks: list[sy.opcua.ReadTask]) -> bool:
         self.log("Priming task connection pool")
         for task in tasks:
             try:

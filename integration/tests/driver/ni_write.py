@@ -12,6 +12,7 @@
 from pydantic import ValidationError
 
 import synnax as sy
+from framework.utils import to_float
 from tests.driver.ni_task import NIAnalogWriteTaskCase, NIDigitalWriteTaskCase
 from tests.driver.task import (
     create_channel,
@@ -350,7 +351,7 @@ class NIAnalogWriteCurrent(_NIAnalogWriteCurrentBase):
 
 def _send_oob_and_assert_state_clamped(
     client: sy.Synnax,
-    tsk: sy.Task,
+    tsk: sy.ni.AnalogWriteTask,
     *,
     oob_values: list[float],
     task_name: str,
@@ -395,7 +396,7 @@ def _send_oob_and_assert_state_clamped(
                     continue
                 for key in state_keys:
                     if key in frame and len(frame[key]) > 0:
-                        received[key] = float(frame[key][-1])
+                        received[key] = to_float(frame[key][-1])
 
             for state_key, cmd_key, oob_val in zip(state_keys, cmd_keys, oob_values):
                 state_val = received[state_key]

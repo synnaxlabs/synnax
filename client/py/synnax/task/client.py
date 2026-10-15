@@ -12,7 +12,7 @@ from __future__ import annotations
 import warnings
 from collections.abc import Generator, Iterable
 from contextlib import contextmanager
-from typing import Any, overload
+from typing import Any, TypeVar, overload
 from typing import Protocol as BaseProtocol
 from uuid import UUID, uuid4
 
@@ -263,7 +263,10 @@ class Protocol(BaseProtocol):
         Returns:
             The updated device, or None if no update was performed.
         """
-        ...
+        return None
+
+
+P = TypeVar("P", bound=Protocol)
 
 
 class StarterStopperMixin:
@@ -415,7 +418,7 @@ class Client:
         pld.rack = rack
         return pld
 
-    def configure(self, task: Protocol) -> Protocol:
+    def configure(self, task: P) -> P:
         """Saves the task's configuration to the cluster. The config is deployed
         to the driver on the next start command.
 

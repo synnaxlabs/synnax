@@ -11,6 +11,7 @@ import numpy as np
 
 import synnax as sy
 from console.case import ConsoleCase
+from framework.utils import to_float
 from x import random_name
 
 
@@ -102,7 +103,7 @@ class CalcTypeCascade(ConsoleCase):
         calc_ch = self.client.channels.retrieve(self.calcs[calc_label])
         result = streamer.read(timeout=timeout)
         if result is not None and len(result[calc_ch.key]) > 0:
-            return float(result[calc_ch.key][0])
+            return to_float(result[calc_ch.key][0])
         return None
 
     def _get_data_type(self, calc_label: str) -> sy.DataType:
@@ -147,7 +148,7 @@ class CalcTypeCascade(ConsoleCase):
                     continue
                 scaled_ch = self.client.channels.retrieve(self.calcs["scaled"])
                 if len(result[scaled_ch.key]) > 0:
-                    val = float(result[scaled_ch.key][0])
+                    val = to_float(result[scaled_ch.key][0])
                     assert abs(val - 300.0) < 1.0, f"scaled: expected 300, got {val}"
                     break
 
@@ -189,7 +190,7 @@ class CalcTypeCascade(ConsoleCase):
                     self._write_raw(writer)
                     result = streamer.read(timeout=5)
                     if result is not None and len(result[monitor_ch.key]) > 0:
-                        val = float(result[monitor_ch.key][0])
+                        val = to_float(result[monitor_ch.key][0])
                         if val != 0.0:
                             assert abs(val - 3000.0) < 1.0, (
                                 f"monitor: expected 3000, got {val}"

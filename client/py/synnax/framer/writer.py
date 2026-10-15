@@ -32,7 +32,7 @@ from synnax.framer.codec import (
     LOW_PERF_SPECIAL_CHAR,
     WSFramerCodec,
 )
-from synnax.framer.frame import CrudeFrame, FramePayload
+from synnax.framer.frame import CrudeFrame, FramePayload, K
 from synnax.telem import CrudeSeries, CrudeTimeStamp, TimeSpan, TimeStamp
 from x.control import Authority, CrudeAuthority, Subject
 from x.lists import normalize
@@ -228,7 +228,7 @@ class Writer:
     @overload
     def write(
         self,
-        channels_or_data: CrudeFrame,
+        channels_or_data: CrudeFrame[K],
     ) -> None: ...
 
     def write(
@@ -240,7 +240,7 @@ class Writer:
             | tuple[channel.Key]
             | list[str]
             | tuple[str]
-            | CrudeFrame
+            | CrudeFrame[K]
         ),
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> None:

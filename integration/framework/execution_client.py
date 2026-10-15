@@ -50,7 +50,9 @@ class ExecutionClient:
         conductor_range: sy.Range | None,
         tests: list[Test],
         tests_lock: threading.Lock,
-        active_tests: list[tuple[TestDefinition, TestCase, sy.Range, threading.Thread]],
+        active_tests: list[
+            tuple[TestDefinition, TestCase, sy.Range | None, threading.Thread]
+        ],
         active_tests_lock: threading.Lock,
         log: Callable[[str, bool], None],
         on_status_change: Callable[[Test], None],
@@ -442,7 +444,7 @@ class ExecutionClient:
 
     def _timeout_monitor_loop(
         self,
-        monitor_interval: sy.CrudeTimeSpan = 500 * sy.TimeSpan.MILLISECOND,
+        monitor_interval: sy.TimeSpan = 500 * sy.TimeSpan.MILLISECOND,
     ) -> None:
         while self.is_running and not self.should_stop:
             self._check_test_timeouts()

@@ -10,6 +10,7 @@
 import synnax as sy
 from console.case import ConsoleCase
 from console.plot import Plot
+from framework.utils import to_float
 from x import random_name
 
 
@@ -74,8 +75,8 @@ class CalculatedChannels(ConsoleCase):
             frame = client.read_latest([self.calc_editable, self._ch_uptime], n=1)
             if len(frame[self._ch_uptime]) > 0:
                 break
-        uptime_val = int(frame[self._ch_uptime][-1])
-        calc_val = int(frame[self.calc_editable][-1])
+        uptime_val = int(to_float(frame[self._ch_uptime][-1]))
+        calc_val = int(to_float(frame[self.calc_editable][-1]))
         expected_val = uptime_val * updated_multiplier
         assert expected_val == calc_val, f"expected {expected_val}, got {calc_val}"
 

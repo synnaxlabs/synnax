@@ -39,7 +39,7 @@ class BenchReport(Latency):
         """
 
         cycles: int = 0
-        times: deque[sy.TimeStamp] = deque()
+        times: deque[sy.TimeSpan] = deque()
         loop_start: sy.TimeStamp = sy.TimeStamp.now()
         state_channel: str = "bench_state"
         cmd_channel: str = "bench_command"

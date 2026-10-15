@@ -25,7 +25,10 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any
 
+import numpy as np
+
 import synnax as sy
+from synnax.telem import SampleValue
 
 # Fixtures directory for test data (SVGs, JSONs, etc.)
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "..", "tests", "fixtures")
@@ -124,6 +127,26 @@ def get_fixture_path(filename: str) -> str:
     return path
 
 
+def to_float(value: SampleValue) -> float:
+    """Converts a sample from a numeric channel to a float.
+
+    :raises TypeError: If the sample is not numeric.
+    """
+    if isinstance(value, (int, float, np.number, np.bool_)):
+        return float(value)
+    raise TypeError(f"Expected a numeric sample, got {value!r}")
+
+
+def to_int(value: SampleValue) -> int:
+    """Converts a sample from an integer or timestamp channel to an int.
+
+    :raises TypeError: If the sample is not an integer.
+    """
+    if isinstance(value, (int, np.integer, np.bool_)):
+        return int(value)
+    raise TypeError(f"Expected an integer sample, got {value!r}")
+
+
 def read_latest_value(client: sy.Synnax, channel_name: str) -> float | None:
     """Read the latest sample written to a channel, or None if none arrived.
 
@@ -139,12 +162,12 @@ def read_latest_value(client: sy.Synnax, channel_name: str) -> float | None:
         for attempt in range(3):
             latest = client.read_latest(channel_name)
             if latest is not None and len(latest) > 0:
-                return float(latest[-1])
+                return to_float(latest[-1])
             now = sy.TimeStamp.now()
             recent_range = sy.TimeRange(now - sy.TimeSpan.SECOND * 3, now)
             frame = client.read(recent_range, channel_name)
             if len(frame) > 0:
-                return float(frame[-1])
+                return to_float(frame[-1])
             if attempt < 2:
                 sy.sleep(0.2)
         return None

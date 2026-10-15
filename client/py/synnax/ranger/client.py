@@ -23,6 +23,7 @@ from freighter import UnaryClient
 from synnax import framer
 from synnax.channel.retrieve import Retriever as ChannelRetriever
 from synnax.exceptions import QueryError
+from synnax.framer.frame import K
 from synnax.ontology import Client as OntologyClient
 from synnax.ontology.payload import ID
 from synnax.ranger import alias as alias_
@@ -439,16 +440,16 @@ class Range(Payload):
     ) -> None: ...
 
     @overload
-    def write(self, channels: framer.CrudeFrame) -> None: ...
+    def write(self, channels: framer.CrudeFrame[K]) -> None: ...
 
     def write(
         self,
-        channels: channel.Params | framer.CrudeFrame,
+        channels: channel.Params | framer.CrudeFrame[K],
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> None:
         start = self.time_range.start
         if series is None:
-            self._frame_client.write(start, cast(framer.CrudeFrame, channels))
+            self._frame_client.write(start, cast(framer.CrudeFrame[K], channels))
             return
         if not isinstance(channels, (int, str, list, tuple, channel.Payload)):
             raise TypeError(
