@@ -16,17 +16,6 @@ from synnax.access.policy.payload import (
     Policy,
     ontology_id,
 )
-from x.deprecation import deprecated_getattr
-
-_DEPRECATED = {
-    "PolicyClient": "Client",
-    "CREATE_ACTION": "ACTION_CREATE",
-    "DELETE_ACTION": "ACTION_DELETE",
-    "RETRIEVE_ACTION": "ACTION_RETRIEVE",
-    "UPDATE_ACTION": "ACTION_UPDATE",
-}
-
-__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
 
 __all__ = [
     "Client",

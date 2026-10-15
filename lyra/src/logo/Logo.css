@@ -10,8 +10,8 @@
  */
 
 .synnax-logo--auto {
-    --logo-color: var(--pluto-logo-color, #ffffff);
-    --text-color: var(--pluto-text-color, #ffffff);
+    --logo-color: var(--pluto-logo-color, #fff);
+    --text-color: var(--pluto-text-color, #fff);
 
     & path {
         fill: var(--logo-color);

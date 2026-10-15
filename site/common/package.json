@@ -28,7 +28,6 @@
     "@astrojs/react": "catalog:",
     "@synnaxlabs/arc": "catalog:",
     "@synnaxlabs/lyra": "catalog:",
-    "@synnaxlabs/media": "catalog:",
     "astro": "catalog:",
     "astro-seo": "catalog:",
     "shiki": "catalog:"
