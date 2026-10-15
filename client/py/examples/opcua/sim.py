@@ -35,8 +35,8 @@ DEFAULT_ARRAY_SIZE = 5
 FLOAT_COUNT = 5
 BOOL_COUNT = 5
 COMMAND_COUNT = 3
-DEFAULT_RATE = 50  # Hz
-BOOL_OFFSET = 0.2  # seconds between each boolean transition
+DEFAULT_RATE = 50 * sy.Rate.HZ
+BOOL_TRANSITION_OFFSET = 200 * sy.TimeSpan.MILLISECOND
 
 ERROR_INJECTION_RATE = 0.1
 ERROR_ARRAY_INDEX = 2
@@ -198,7 +198,7 @@ async def update_floats(floats: list[Node], elapsed: float) -> None:
 async def update_bools(bools: list[Node], elapsed: float) -> None:
     """Update scalar boolean variables with sequential square waves."""
     for idx, bool_var in enumerate(bools):
-        offset_elapsed = elapsed + (idx * BOOL_OFFSET)
+        offset_elapsed = elapsed + (idx * BOOL_TRANSITION_OFFSET.seconds)
         square_wave = int(offset_elapsed) % 2 == 0
         written: bool | list[bool] = square_wave
         if idx == ERROR_FLOAT_INDEX and random.random() < ERROR_INJECTION_RATE:
@@ -276,7 +276,7 @@ async def configure_encryption(server: Server) -> None:
 
 async def run_server(
     endpoint: str = "",
-    rate: sy.Rate = DEFAULT_RATE * sy.Rate.HZ,
+    rate: sy.Rate = DEFAULT_RATE,
     array_size: int = DEFAULT_ARRAY_SIZE,
     encrypted: bool = False,
     user_manager: UserManager | None = None,
