@@ -121,40 +121,19 @@ func pyFields(typ resolution.Type, table *resolution.Table) []resolution.Field {
 	if !ok {
 		return nil
 	}
-	if len(form.Extends) == 0 || flattensParents(form, table) {
+	if len(form.Extends) == 0 || resolver.HasDomainOmissions(form) {
 		return resolution.UnifiedFields(typ, table)
 	}
-	var fields []resolution.Field
-	index := make(map[string]int)
-	for _, ext := range form.Extends {
-		parent, ok := ext.Resolve(table)
-		if !ok {
-			continue
-		}
-		typeArgs := make(map[string]resolution.TypeRef)
-		pform, _ := parent.Form.(resolution.StructForm)
-		// A defaulted parameter is not a Python TypeVar, so it keeps its default
-		// whatever argument the schema passes.
-		for i, tp := range pform.TypeParams {
-			if tp.HasDefault() {
-				continue
-			}
-			if i < len(ext.TypeArgs) {
-				typeArgs[tp.Name] = ext.TypeArgs[i]
-			} else {
-				typeArgs[tp.Name] = typeVarDefault(tp)
-			}
-		}
-		for _, f := range pyFields(parent, table) {
-			if _, seen := index[f.Name]; seen {
-				continue
-			}
-			// Substitution erases the optional type parameter that made it nullable.
-			f.Optional = f.Optional || isOptionalTypeParam(f)
-			f.Type = resolution.SubstituteTypeRef(f.Type, typeArgs)
-			index[f.Name] = len(fields)
-			fields = append(fields, f)
-		}
+	fields := inheritedFields(form, table)
+	// A flattened class drops excluded fields instead of inheriting them.
+	if flattensParents(form, table) {
+		fields = lo.Reject(fields, func(f resolution.Field, _ int) bool {
+			return form.IsFieldOmitted(f.Name)
+		})
+	}
+	index := make(map[string]int, len(fields))
+	for i, f := range fields {
+		index[f.Name] = i
 	}
 	for _, f := range form.Fields {
 		if i, ok := index[f.Name]; ok {
@@ -167,8 +146,61 @@ func pyFields(typ resolution.Type, table *resolution.Table) []resolution.Field {
 	return fields
 }
 
-// typeVarDefault returns the type a Python class takes for an omitted type argument:
-// the parameter's bound, or arbitrary JSON when unbounded.
+// inheritedFields returns the fields a struct's Python class takes from its parents,
+// first parent first, typed as the class sees them. The class rendering and the
+// type-checking __init__ both read them, so the two always agree.
+func inheritedFields(
+	form resolution.StructForm,
+	table *resolution.Table,
+) []resolution.Field {
+	var fields []resolution.Field
+	seen := make(set.Set[string])
+	for _, ext := range form.Extends {
+		parent, ok := ext.Resolve(table)
+		if !ok {
+			continue
+		}
+		typeArgs := pyTypeArgs(parent, ext)
+		for _, f := range pyFields(parent, table) {
+			if seen.Contains(f.Name) {
+				continue
+			}
+			seen.Add(f.Name)
+			// Substitution erases the optional type parameter that made it nullable.
+			f.Optional = f.Optional || isOptionalTypeParam(f)
+			f.Type = resolution.SubstituteTypeRef(f.Type, typeArgs)
+			fields = append(fields, f)
+		}
+	}
+	return fields
+}
+
+// pyTypeArgs maps each type parameter of parent to the type its Python subclass binds
+// it to through ext. It mirrors the class rendering: a defaulted parameter is not a
+// TypeVar and stays pinned to its default, buildExtendsExpr passes the arguments of
+// the others, and an omitted argument, which only an optional parameter allows, falls
+// back to the TypeVar's default.
+func pyTypeArgs(
+	parent resolution.Type,
+	ext resolution.TypeRef,
+) map[string]resolution.TypeRef {
+	form, _ := parent.Form.(resolution.StructForm)
+	args := make(map[string]resolution.TypeRef, len(form.TypeParams))
+	for i, tp := range form.TypeParams {
+		switch {
+		case tp.HasDefault():
+			args[tp.Name] = *tp.Default
+		case i < len(ext.TypeArgs):
+			args[tp.Name] = ext.TypeArgs[i]
+		default:
+			args[tp.Name] = typeVarDefault(tp)
+		}
+	}
+	return args
+}
+
+// typeVarDefault returns the default of an optional type parameter's TypeVar: its
+// bound, or arbitrary JSON when unbounded.
 func typeVarDefault(tp resolution.TypeParam) resolution.TypeRef {
 	if tp.Constraint != nil && !resolution.IsConstraint(tp.Constraint.Name) {
 		return *tp.Constraint

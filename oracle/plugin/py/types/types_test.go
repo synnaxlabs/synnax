@@ -2554,65 +2554,196 @@ var _ = Describe("Python type-checking __init__", func() {
 			ToNotContain(`from x import telem`)
 	})
 
-	It(
-		"Should accept the default of an omitted parent type argument",
-		func(ctx SpecContext) {
-			loader.Add("schemas/base", `
-			@py output "client/py/synnax/base"
-
-			Parent struct<T?, B? extends string> {
-				value T
-				label B
+	DescribeTable(
+		"Should type inherited parameters as the class exposes them",
+		func(ctx SpecContext, base, source string, params ...string) {
+			imports := `import "schemas/telem"`
+			if base != "" {
+				loader.Add("schemas/base", `@py output "client/py/synnax/base"
+				`+base)
+				imports += "\n" + `import "schemas/base"`
 			}
-		`)
+			resp := MustGenerate(ctx, imports+`
+			@py output "client/py/synnax/opcua"
+			`+source, "opcua", loader, typesPlugin)
+			content := MustContentOf(resp, "types_gen.py")
+			Expect(strings.Count(content, "def __init__")).To(Equal(1))
+			lines := make([]string, len(params))
+			for i, p := range params {
+				lines[i] = "            " + p + ","
+			}
+			Expect(content).To(ContainSubstring(
+				"            *,\n" + strings.Join(lines, "\n") + "\n        ) -> None",
+			))
+		},
+		Entry(
+			"no generics",
+			``,
+			`Parent struct { name string }
+			Child struct extends Parent { rate telem.Rate }`,
+			"name: str", "rate: float",
+		),
+		Entry(
+			"an explicit argument",
+			``,
+			`Parent struct<T> { value T }
+			Child struct extends Parent<int32> { rate telem.Rate }`,
+			"value: int", "rate: float",
+		),
+		Entry(
+			"an omitted optional unbounded argument",
+			``,
+			`Parent struct<T?> { value T }
+			Child struct extends Parent { rate telem.Rate }`,
+			"value: JsonValue | None = ...", "rate: float",
+		),
+		Entry(
+			"an omitted optional bounded argument",
+			``,
+			`Parent struct<T? extends string> { value T }
+			Child struct extends Parent { rate telem.Rate }`,
+			"value: str | None = ...", "rate: float",
+		),
+		Entry(
+			"an optional parameter with an argument",
+			``,
+			`Parent struct<T?> { value T }
+			Child struct extends Parent<int32> { rate telem.Rate }`,
+			"value: int | None = ...", "rate: float",
+		),
+		Entry(
+			"an optional field of a parameter type",
+			``,
+			`Parent struct<T> { value T? }
+			Child struct extends Parent<int32> { rate telem.Rate }`,
+			"value: int | None = ...", "rate: float",
+		),
+		Entry(
+			"a defaulted parameter without an argument",
+			``,
+			`Parent struct<T = string> { value T }
+			Child struct extends Parent { rate telem.Rate }`,
+			"value: str", "rate: float",
+		),
+		Entry(
+			"a defaulted parameter with an argument",
+			``,
+			`Parent struct<T = string> { value T }
+			Child struct extends Parent<int32> { rate telem.Rate }`,
+			"value: str", "rate: float",
+		),
+		Entry(
+			"a hand-written distinct argument",
+			``,
+			`Parent struct<T> { value T }
+			Child struct extends Parent<telem.Rate> { name string }`,
+			"value: float", "name: str",
+		),
+		Entry(
+			"a parameter bound to the child's own parameter",
+			``,
+			`Parent struct<T> { value T }
+			Child struct<U> extends Parent<U> { rate telem.Rate }`,
+			"value: U", "rate: float",
+		),
+		Entry(
+			"an argument passed through a generic parent",
+			``,
+			`GrandParent struct<T> { value T }
+			Parent struct<U> extends GrandParent<U> {}
+			Child struct extends Parent<int32> { rate telem.Rate }`,
+			"value: int", "rate: float",
+		),
+		Entry(
+			"an argument bound in the middle of a chain",
+			``,
+			`GrandParent struct<T> { value T }
+			Parent struct extends GrandParent<string> {}
+			Child struct extends Parent { rate telem.Rate }`,
+			"value: str", "rate: float",
+		),
+		Entry(
+			"a defaulted ancestor parameter a descendant parameter shadows",
+			``,
+			`GrandParent struct<X = string> { value X }
+			Parent struct<X> extends GrandParent { other X }
+			Child struct extends Parent<int32> { rate telem.Rate }`,
+			"value: str", "other: int", "rate: float",
+		),
+		Entry(
+			"a defaulted ancestor parameter given a descendant's argument",
+			``,
+			`GrandParent struct<X = string> { value X }
+			Parent struct<X> extends GrandParent<X> { other X }
+			Child struct extends Parent<int32> { rate telem.Rate }`,
+			"value: str", "other: int", "rate: float",
+		),
+		Entry(
+			"a chain mixing every kind of parameter",
+			``,
+			`GrandParent struct<A, B? extends string, C = int32> {
+				a A
+				b B
+				c C
+			}
+			Parent struct<D> extends GrandParent<D> { d D? }
+			Child struct extends Parent<float64> { rate telem.Rate }`,
+			"a: float", "b: str | None = ...", "c: int",
+			"d: float | None = ...", "rate: float",
+		),
+		Entry(
+			"a parent in another schema",
+			`Parent struct<T, D = string> {
+				value T
+				label D
+			}`,
+			`Child struct extends base.Parent<int32, int64> { rate telem.Rate }`,
+			"value: int", "label: str", "rate: float",
+		),
+		Entry(
+			"a chain across schemas",
+			`GrandParent struct<X = string> { value X }
+			Parent struct<X> extends GrandParent<X> { other X }`,
+			`Child struct extends base.Parent<float32> { rate telem.Rate }`,
+			"value: str", "other: float", "rate: float",
+		),
+		Entry(
+			"a flattened class with a generic parent",
+			``,
+			`Parent struct<T> {
+				value T
+				name string
+			}
+			Child struct extends Parent<int32> {
+				name string?
+				rate telem.Rate
+			}`,
+			"value: int", "name: str | None = ...", "rate: float",
+		),
+	)
+
+	It(
+		"Should type a flattened class's inherited field by its argument",
+		func(ctx SpecContext) {
 			source := `
-			import "schemas/base"
 			import "schemas/telem"
 
 			@py output "client/py/synnax/opcua"
 
-			Child struct extends base.Parent {
+			Parent struct<T> {
+				value T
+				name string
+			}
+			Child struct extends Parent<int32> {
+				name string?
 				rate telem.Rate
 			}
 		`
 			resp := MustGenerate(ctx, source, "opcua", loader, typesPlugin)
 			ExpectContent(resp, "types_gen.py").ToContain(
-				`class Child(base.Parent):`,
-				`            value: JsonValue | None = ...,
-            label: str | None = ...,
-            rate: float,`,
+				`class Child(BaseModel):
+    value: int = Field(`,
 			)
-		},
-	)
-
-	It(
-		"Should keep the default of a defaulted parent type parameter",
-		func(ctx SpecContext) {
-			loader.Add("schemas/base", `
-			@py output "client/py/synnax/base"
-
-			Parent struct<T = string> {
-				value T
-			}
-		`)
-			source := `
-			import "schemas/base"
-			import "schemas/telem"
-
-			@py output "client/py/synnax/opcua"
-
-			Child struct extends base.Parent<int32> {
-				rate telem.Rate
-			}
-		`
-			resp := MustGenerate(ctx, source, "opcua", loader, typesPlugin)
-			ExpectContent(resp, "types_gen.py").
-				ToContain(
-					`class Child(base.Parent):`,
-					`            value: str,
-            rate: float,`,
-				).
-				ToNotContain(`value: int`)
 		},
 	)
 
