@@ -150,9 +150,7 @@ def read_latest_value(client: sy.Synnax, channel_name: str) -> float | None:
                 sy.sleep(0.2)
         return None
     except Exception as e:
-        raise RuntimeError(
-            f'Could not get value for channel "{channel_name}": {e}'
-        ) from e
+        raise RuntimeError(f'Could not get value for channel "{channel_name}"') from e
 
 
 def create_time_index(client: sy.Synnax, name: str) -> sy.Channel:

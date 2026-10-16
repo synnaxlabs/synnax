@@ -136,7 +136,7 @@ class ConfigClient:
             except FileNotFoundError:
                 raise FileNotFoundError(f"Test file not found: {test_file}") from None
             except json.JSONDecodeError as e:
-                raise ValueError(f"Invalid JSON in test file '{test_file}': {e}") from e
+                raise ValueError(f"Invalid JSON in test file '{test_file}'") from e
 
         if not all_sequences:
             raise FileNotFoundError("No valid sequences found")
@@ -313,7 +313,7 @@ class ConfigClient:
 
         except Exception as e:
             raise ImportError(
-                f"Failed to expand test classes for {test_def.case}: {e}"
+                f"Failed to expand test classes for {test_def.case}"
             ) from e
 
     # ----- Dynamic class loading -----
@@ -416,7 +416,7 @@ class ConfigClient:
 
         except Exception as e:
             raise ImportError(
-                f"Failed to load test class(es) from {test_def.case}: {e}\n"
+                f"Failed to load test class(es) from {test_def.case}"
             ) from e
 
     def load_test_class(self, test_def: TestDefinition) -> type[TestCase]:

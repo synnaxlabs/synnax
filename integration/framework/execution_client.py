@@ -433,9 +433,7 @@ class ExecutionClient:
                 ),
             )
         except Exception as e:
-            raise RuntimeError(
-                f"Failed to finalize range '{test_range.name}': {e}"
-            ) from e
+            raise RuntimeError(f"Failed to finalize range '{test_range.name}'") from e
 
     # ----- Timeout monitoring -----
 
