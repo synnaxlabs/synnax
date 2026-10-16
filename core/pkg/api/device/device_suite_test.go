@@ -33,6 +33,8 @@ func TestAPIDevice(t *testing.T) {
 	RunSpecs(t, "API Device Suite")
 }
 
+var _ = ShouldNotLeakGoroutinesPerSpec()
+
 var (
 	svc    *service.Layer
 	apiSvc *apidevice.Service
