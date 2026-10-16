@@ -162,9 +162,11 @@ def send_and_verify_commands(
                     expected = {
                         key: float(v) for key, v in zip(cmd_keys, command_values[0])
                     }
-                    writer.write(
-                        {**expected, **{k: sy.TimeStamp.now() for k in index_keys}}
-                    )
+                    frame: dict[int, float | sy.TimeStamp] = {
+                        **expected,
+                        **{k: sy.TimeStamp.now() for k in index_keys},
+                    }
+                    writer.write(frame)
                     assert_streamed_values(
                         client,
                         streamer,
@@ -176,9 +178,11 @@ def send_and_verify_commands(
                     expected = {
                         key: float(v) for key, v in zip(cmd_keys, command_values[1])
                     }
-                    writer.write(
-                        {**expected, **{k: sy.TimeStamp.now() for k in index_keys}}
-                    )
+                    frame = {
+                        **expected,
+                        **{k: sy.TimeStamp.now() for k in index_keys},
+                    }
+                    writer.write(frame)
                     assert_streamed_values(
                         client,
                         streamer,
@@ -593,7 +597,7 @@ class TaskCase(TestCase, Generic[TaskT]):
             raise AssertionError(f"Task {task_key} does not exist (Exception): {e}")
         return task
 
-    def assert_task_deleted(self, *, task_key: str) -> None:
+    def assert_task_deleted(self, *, task_key: sy.task.Key) -> None:
         """Assert that a task has been deleted from Synnax."""
         try:
             self.client.tasks.retrieve(task_key)

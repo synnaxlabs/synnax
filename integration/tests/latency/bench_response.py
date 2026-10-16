@@ -62,7 +62,7 @@ class BenchResponse(Latency):
                     while sy.TimeStamp.since(start) < timeout and not self._should_stop:
                         frame = stream.read(timeout=3)
                         if frame is not None:
-                            writer.write(state_channel, frame[cmd_channel])
+                            writer.write(state_channel, frame[cmd_channel].to_numpy())
 
         except Exception as e:
             raise Exception(f"EXCEPTION: {e}")
