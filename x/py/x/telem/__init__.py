@@ -16,6 +16,8 @@ from x.telem.series import (
     Series,
     TypedCrudeSeries,
     elapsed_seconds,
+    to_float,
+    to_int,
 )
 from x.telem.telem import (
     Alignment,
@@ -60,6 +62,8 @@ __all__ = [
     "MultiSeries",
     "Rate",
     "SampleValue",
+    "to_float",
+    "to_int",
     "Series",
     "Size",
     "Subject",

@@ -26,6 +26,7 @@ from contextlib import contextmanager
 from typing import Any
 
 import synnax as sy
+from x.telem import to_float
 
 # Fixtures directory for test data (SVGs, JSONs, etc.)
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "..", "tests", "fixtures")
@@ -139,12 +140,12 @@ def read_latest_value(client: sy.Synnax, channel_name: str) -> float | None:
         for attempt in range(3):
             latest = client.read_latest(channel_name)
             if latest is not None and len(latest) > 0:
-                return float(latest[-1])
+                return to_float(latest[-1])
             now = sy.TimeStamp.now()
             recent_range = sy.TimeRange(now - sy.TimeSpan.SECOND * 3, now)
             frame = client.read(recent_range, channel_name)
             if len(frame) > 0:
-                return float(frame[-1])
+                return to_float(frame[-1])
             if attempt < 2:
                 sy.sleep(0.2)
         return None

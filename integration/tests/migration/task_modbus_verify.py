@@ -19,7 +19,7 @@ from tests.migration.task_modbus_setup import (
 from tests.migration.task_verify import ReadTaskConsoleVerify, ReadTaskMigrationVerify
 
 
-class ModbusReadVerify(ReadTaskMigrationVerify, ModbusReadTaskCase):
+class ModbusReadVerify(ReadTaskMigrationVerify[sy.modbus.ReadTask], ModbusReadTaskCase):
     """Verify Modbus task config survived and task can still run."""
 
     task_name = TASK_NAME

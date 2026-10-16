@@ -33,7 +33,7 @@ class NIAnalogReadHS(NIAnalogReadTaskCase):
     @staticmethod
     def create_channels(
         client: sy.Synnax, devices: dict[str, sy.Device]
-    ) -> list[sy.ni.AIVoltageChannel]:
+    ) -> list[sy.ni.AIChannel]:
         idx = create_index(client, "ni_aiv_index")
         return [
             sy.ni.AIVoltageChannel(
@@ -954,7 +954,7 @@ class NICounterReadFrequency(NICounterReadTaskCase):
     @staticmethod
     def create_channels(
         client: sy.Synnax, devices: dict[str, sy.Device]
-    ) -> list[sy.ni.CIFrequencyChannel]:
+    ) -> list[sy.ni.CIChannel]:
         idx = create_index(client, "ni_ci_freq_index")
         return [
             sy.ni.CIFrequencyChannel(

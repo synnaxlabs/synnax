@@ -74,7 +74,7 @@ if __name__ == "__main__":
         username=os.environ["SYNNAX_USERNAME"],
         password=os.environ["SYNNAX_PASSWORD"],
     )
-    _syn.try_load_options_if_none_provided = lambda *a, **k: _opts
+    setattr(_syn, "try_load_options_if_none_provided", lambda *a, **k: _opts)
 
     _module = sys.argv[1]
     sys.argv = [_module]  # Clean argv so argparse in imported modules works
