@@ -309,8 +309,8 @@ registers its own tree items, context menu, link handler, and palette commands, 
 layouts do. Modules are named for the resource: `server` for OPC UA, Modbus, and HTTP,
 `master` and `slave` for EtherCAT, `chassis` and `device` for NI.
 `console/src/feature/device/make.tsx` loses one entry per integration moved and is
-deleted with the last one. The unconfigured-device toast moves into the three
-discovered makes, each on its own `sy_<type>_set`. `platform/device` keeps `Configure`,
+deleted with the last one. The unconfigured-device toast moves into the three discovered
+makes, each on its own `sy_<type>_set`. `platform/device` keeps `Configure`,
 `wrapTaskForm`, and the menu items as generics over a resource with an `identifier`. The
 Console property migrators for OPC UA and HTTP are deleted; the Core's migration chain
 owns both.
