@@ -116,11 +116,11 @@ export class PreciseTimeScale {
     return bestStep;
   }
 
-  /** Formats a tick label, in microseconds below a 50µs span and milliseconds above. */
+  /** Formats a tick label, in microseconds below a 50μs span and milliseconds above. */
   formatTick(value: TimeStamp): string {
     if (this._span.lessThan(MICROSECOND_FORMAT_THRESHOLD)) {
       const remainder = value.remainder(TimeSpan.MILLISECOND);
-      return `${remainder.microseconds.toString()}µs`;
+      return `${remainder.microseconds.toString()}μs`;
     }
     const remainder = value.remainder(TimeSpan.SECOND);
     return `${remainder.milliseconds.toString()}ms`;

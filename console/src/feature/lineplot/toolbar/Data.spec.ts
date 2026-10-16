@@ -79,6 +79,6 @@ describe("lineplot/toolbar/Data", () => {
       ...CUSTOM_SELECTED,
       custom: { variant: "dynamic", span: Number(TimeSpan.minutes(45)) },
     });
-    expect(await screen.findByDisplayValue("45m")).toBeDefined();
+    expect(await screen.findByDisplayValue("45min")).toBeDefined();
   });
 });

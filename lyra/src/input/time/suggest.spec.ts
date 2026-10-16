@@ -25,7 +25,7 @@ describe("suggestTimeStamps", () => {
   it("should lead with the grammar's exact reading", () => {
     const [first] = suggestTimeStamps("now - 5m", { anchors: { now: NOW } });
     expect(first.value.equals(NOW.sub(TimeSpan.minutes(5)))).toBe(true);
-    expect(first.reading).toBe("5m before now");
+    expect(first.reading).toBe("5min before now");
   });
 
   it("should name the anchor and the side of it an offset lands on", () => {
