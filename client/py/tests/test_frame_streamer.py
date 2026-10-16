@@ -74,30 +74,30 @@ class TestStreamer:
     ):
         idx, data = indexed_pair
         start = sy.TimeStamp.now()
-        with client.open_streamer(
-            channels=[idx.name, data.name, virtual_channel.name]
-        ) as s:
-            with client.open_writer(start, channels=indexed_pair) as idx_writer:
-                with client.open_writer(
-                    start,
-                    channels=virtual_channel,
-                ) as virtual_writer:
-                    for i in range(10):
-                        ts = sy.TimeStamp.now()
-                        value = np.random.rand(1)
-                        v_value = np.random.rand(1)
-                        idx_writer.write(pd.DataFrame({idx.name: ts, data.name: value}))
-                        virtual_writer.write(
-                            pd.DataFrame({virtual_channel.name: v_value})
-                        )
-                        for _ in range(2):
-                            frame = s.read(timeout=READ_TIMEOUT)
-                            assert frame is not None, f"read {i} timed out"
-                            if len(frame.channels) == 1:
-                                assert frame[virtual_channel.name] == v_value
-                            else:
-                                assert frame[idx.name][0] == ts
-                                assert frame[data.name][0] == value
+        with (
+            client.open_streamer(
+                channels=[idx.name, data.name, virtual_channel.name]
+            ) as s,
+            client.open_writer(start, channels=indexed_pair) as idx_writer,
+        ):
+            with client.open_writer(
+                start,
+                channels=virtual_channel,
+            ) as virtual_writer:
+                for i in range(10):
+                    ts = sy.TimeStamp.now()
+                    value = np.random.rand(1)
+                    v_value = np.random.rand(1)
+                    idx_writer.write(pd.DataFrame({idx.name: ts, data.name: value}))
+                    virtual_writer.write(pd.DataFrame({virtual_channel.name: v_value}))
+                    for _ in range(2):
+                        frame = s.read(timeout=READ_TIMEOUT)
+                        assert frame is not None, f"read {i} timed out"
+                        if len(frame.channels) == 1:
+                            assert frame[virtual_channel.name] == v_value
+                        else:
+                            assert frame[idx.name][0] == ts
+                            assert frame[data.name][0] == value
 
     def test_exclude_groups(self, virtual_channel: sy.Channel, client: sy.Synnax):
         """Should filter out frames from a writer whose group matches exclude_groups"""
@@ -153,16 +153,14 @@ class TestStreamer:
 
     def test_open_streamer_channel_not_found(self, client: sy.Synnax):
         """Should throw an exception when a streamer is opened with an unknown channel"""
-        with pytest.raises(sy.NotFoundError):
-            with client.open_streamer([123]):
-                pass
+        with pytest.raises(sy.NotFoundError), client.open_streamer([123]):
+            pass
 
     def test_open_streamer_channel_key_zero(self, client: sy.Synnax):
         """Should throw an exception when a streamer is opened with a channel key of
         zero"""
-        with pytest.raises(sy.NotFoundError):
-            with client.open_streamer([0, 0, 0]):
-                pass
+        with pytest.raises(sy.NotFoundError), client.open_streamer([0, 0, 0]):
+            pass
 
     def test_update_channels(self, virtual_channel: sy.Channel, client: sy.Synnax):
         """Should update the list of channels to stream"""
@@ -347,7 +345,7 @@ class TestStreamer:
 class TestAsyncStreamer:
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        "downsample_factor, expected",
+        ("downsample_factor", "expected"),
         [
             (1, [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]),
             (2, [1.0, 3.0, 5.0, 7.0, 9.0]),

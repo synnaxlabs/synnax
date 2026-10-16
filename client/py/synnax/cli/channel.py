@@ -113,7 +113,7 @@ def group_channel_names(
     grouped = {}
     for entry in matchers:
         entry = entry.strip()
-        channels = list()
+        channels = []
         if entry.isdigit():
             index = int(entry)
             if index < 0 or index >= len(options):
@@ -123,9 +123,11 @@ def group_channel_names(
                 continue
             channels.append(options[index])
         else:
-            for channel in options:
-                if fnmatch.fnmatch(channel, entry) or channel == entry:
-                    channels.append(channel)
+            channels.extend(
+                channel
+                for channel in options
+                if fnmatch.fnmatch(channel, entry) or channel == entry
+            )
             if len(channels) == 0:
                 ctx.console.error(f"[red]No channels found matching {entry}[/]")
                 if not ctx.console.ask("Continue?", bool, default=True):

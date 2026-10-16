@@ -162,10 +162,7 @@ class BenchReport(Latency):
         max_p99 = 15
         max_average_jitter = 5
 
-        if platform.system().lower() == "windows":
-            max_peak_to_peak_jitter = 40
-        else:
-            max_peak_to_peak_jitter = 20
+        max_peak_to_peak_jitter = 40 if platform.system().lower() == "windows" else 20
 
         # Print statistics
         p90_msg = f"P90: {p90:.2f}ms"

@@ -25,8 +25,8 @@ class Registry:
     _channel_retriever: channel.Retriever
 
     def __init__(self, frame_client: framer.Client, channels: channel.Retriever):
-        self._handlers = list()
-        self._channels = list()
+        self._handlers = []
+        self._channels = []
         self._frame_client = frame_client
         self._channel_retriever = channels
 

@@ -35,7 +35,7 @@ class ConfigFile:
         """
         if not self.config_file.exists():
             self.save()
-        with open(self.config_file, "r") as f:
+        with open(self.config_file) as f:
             self.config = json.load(f)
 
     def save(self) -> None:

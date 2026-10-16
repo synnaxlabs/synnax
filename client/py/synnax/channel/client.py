@@ -97,7 +97,7 @@ class Channel(Payload):
         .channels.create() and .channels.retrieve() and should not be set by the caller.
         """
         if operations is None:
-            operations = list()
+            operations = []
         if virtual is None:
             virtual = len(expression) > 0
         super().__init__(
@@ -303,7 +303,7 @@ class Client:
             if is_index and data_type == DataType.UNKNOWN:
                 data_type = DataType.TIMESTAMP
             if operations is None:
-                operations = list()
+                operations = []
             _channels = [
                 Payload(
                     name=name,
@@ -321,7 +321,7 @@ class Client:
         else:
             _channels = [c.to_payload() for c in channels]
 
-        created = list()
+        created = []
         if retrieve_if_name_exists:
             created = self._sugar(
                 self._retriever.retrieve([ch.name for ch in _channels])
@@ -374,7 +374,6 @@ class Client:
         :param names: The new name for the channel.
         :returns: None.
         """
-        ...
 
     @overload
     def rename(
@@ -386,7 +385,6 @@ class Client:
         :param names: The new names for the channels.
         :returns: None.
         """
-        ...
 
     def rename(
         self,
@@ -423,7 +421,7 @@ The channels found were:
     # append a max of five results to the error message. If we have more than five,
     # we'll just say "and x more" at the end.
     for i in range(min(5, len(results))):
-        msg += f"{str(results[i])}, "
+        msg += f"{results[i]!s}, "
 
     if len(results) > 5:
         msg += f"and {len(results) - 5} more."

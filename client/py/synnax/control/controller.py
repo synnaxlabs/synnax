@@ -519,7 +519,7 @@ class _Receiver(AsyncThread):
         super().__init__()
         self.channels = retriever.retrieve(channels)
         self.client = client
-        self.state = dict()
+        self.state = {}
         self.controller = controller
         self.lock = Lock()
         self.startup_ack = Event()

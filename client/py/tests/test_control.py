@@ -91,9 +91,11 @@ def acknowledge_valve_cycle(
 class TestController:
     def test_valve_toggle(self, client: sy.Synnax):
         """A happy path test that asserts basic functionality on the controller"""
-        press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
+        _press_end_cmd_time, press_en_cmd, press_en, _daq_time = create_valve_set(
+            client
+        )
 
-        assertions = dict()
+        assertions = {}
 
         def sequence(ev: threading.Event):
             # Wait for the simulated DAQ to boot up
@@ -137,9 +139,11 @@ class TestController:
 
     def test_remains_true_for_false(self, client: sy.Synnax):
         """Should return False when the condition stops holding during the window."""
-        press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
+        _press_end_cmd_time, press_en_cmd, press_en, _daq_time = create_valve_set(
+            client
+        )
 
-        assertions = dict()
+        assertions = {}
         acked = threading.Event()
         stop = threading.Event()
 
@@ -206,9 +210,11 @@ class TestController:
 
     def test_remains_true_for_true(self, client: sy.Synnax):
         """Should return True when the condition holds for the entire window."""
-        press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
+        _press_end_cmd_time, press_en_cmd, press_en, _daq_time = create_valve_set(
+            client
+        )
 
-        assertions = dict()
+        assertions = {}
         stop = threading.Event()
 
         def sequence(ev: threading.Event):
@@ -269,9 +275,11 @@ class TestController:
     def test_remains_true_for_target_percent(self, client: sy.Synnax):
         """Should return True when the condition holds for more than the target
         percentage of the window."""
-        press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
+        _press_end_cmd_time, press_en_cmd, press_en, _daq_time = create_valve_set(
+            client
+        )
 
-        assertions = dict()
+        assertions = {}
         acked = threading.Event()
         stop = threading.Event()
 
@@ -362,9 +370,11 @@ class TestController:
 
     def test_wait_while(self, client: sy.Synnax):
         """Test that the controller can wait for a condition to be true for a certain amount of time"""
-        press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
+        _press_end_cmd_time, press_en_cmd, press_en, _daq_time = create_valve_set(
+            client
+        )
 
-        assertions = dict()
+        assertions = {}
 
         def sequence(ev: threading.Event):
             # Wait for the simulated DAQ to boot up
@@ -431,8 +441,10 @@ class TestController:
 
     def test_controller_channel_not_found(self, client: sy.Synnax):
         """Test that the controller raises a KeyError when a channel is not found"""
-        press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
-        with pytest.raises(KeyError, match="Channel .* not found in controller state"):
+        _press_end_cmd_time, press_en_cmd, press_en, _daq_time = create_valve_set(
+            client
+        )
+        with pytest.raises(KeyError, match=r"Channel .* not found in controller state"):
             with client.control.acquire(
                 name="Basic Valve Toggle",
                 read=[press_en_cmd.key],
@@ -520,7 +532,9 @@ class TestController:
             assert isinstance(errors[0], sy.UnexpectedError)
 
     def test_controller_set_authority_mechanisms(self, client: sy.Synnax):
-        press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
+        _press_end_cmd_time, press_en_cmd, press_en, _daq_time = create_valve_set(
+            client
+        )
 
         with client.control.acquire(
             name="Basic Valve Toggle",
@@ -541,9 +555,11 @@ class TestController:
 
     def test_controller_authority_transfer(self, client: sy.Synnax):
         """Test that the controller can transfer authority to another controller"""
-        press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
+        _press_end_cmd_time, press_en_cmd, press_en, _daq_time = create_valve_set(
+            client
+        )
 
-        assertions = dict()
+        assertions = {}
         daq_ready = threading.Event()
         seq_two_acquired = threading.Event()
         seq_one_blocked = threading.Event()

@@ -304,7 +304,7 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
 
     def test_delete_task(self) -> None:
         """Delete a single task and multiple tasks via context menu."""
-        remaining = TASK_NAMES[1:] + ["Renamed Read Task"]
+        remaining = [*TASK_NAMES[1:], "Renamed Read Task"]
 
         self.log("Testing: Stop all tasks before deletion")
         self.console.tasks.stop_many(remaining)

@@ -151,7 +151,7 @@ class TestDevice:
             location="test-location",
             make="test_make",
             model="test_model",
-            properties=dict(),
+            properties={},
             configured=True,
         )
         assert device.configured is True
@@ -169,7 +169,7 @@ class TestDevice:
             location="test-location",
             make="test_make",
             model="test_model",
-            properties=dict(),
+            properties={},
             configured=False,
         )
         assert device.configured is False
@@ -187,7 +187,7 @@ class TestDevice:
             location="loc1",
             make="test_make",
             model="test_model",
-            properties=dict(),
+            properties={},
             configured=True,
         )
         d2 = sy.Device(
@@ -197,7 +197,7 @@ class TestDevice:
             location="loc2",
             make="test_make",
             model="test_model",
-            properties=dict(),
+            properties={},
             configured=False,
         )
         devices = client.devices.create(devices=[d1, d2])

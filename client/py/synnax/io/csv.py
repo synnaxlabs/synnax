@@ -58,7 +58,7 @@ class CSVReader(CSVMatcher):  # type: ignore
         self._cached_reader = None
 
     def _detect_delimiter(self) -> str:
-        with open(self._path, "r") as file:
+        with open(self._path) as file:
             sample = file.read(1024)
             dialect = csv.Sniffer().sniff(sample)
             return dialect.delimiter
@@ -111,7 +111,7 @@ class CSVReader(CSVMatcher):  # type: ignore
                 self._path, nrows=0, delimiter=self._detect_delimiter()
             ).columns
             self._channels = [
-                ChannelMeta(name=name.strip(), meta_data=dict()) for name in cols
+                ChannelMeta(name=name.strip(), meta_data={}) for name in cols
             ]
         return self._channels
 
@@ -151,7 +151,7 @@ class CSVReader(CSVMatcher):  # type: ignore
 
 def estimate_row_count(path: Path) -> int:
     """Estimates the number of rows in a CSV file."""
-    with open(path, "r") as f:
+    with open(path) as f:
         f.readline()
         row = f.readline()
         row_size = len(row.encode("utf-8"))

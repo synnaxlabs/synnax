@@ -391,7 +391,7 @@ class TestCodec:
         frame = sy.Frame(
             channels=[1], series=[sy.Series(data=np.array([1, 2, 3], dtype=np.int32))]
         )
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Codec has not been updated"):
             codec.encode(frame)
 
     def test_iterator_ws_codec_data_response(self):

@@ -149,7 +149,7 @@ class TPCSimDAQ(SimDAQ):
         def translate_valves(
             prev_state: dict[str, float],
         ) -> dict[str, CrudeSeries]:
-            next_state: dict[str, CrudeSeries] = dict()
+            next_state: dict[str, CrudeSeries] = {}
             for sensor in SENSORS:
                 next_state[sensor] = prev_state[sensor]
             for cmd, state in VALVES.items():
@@ -161,10 +161,10 @@ class TPCSimDAQ(SimDAQ):
                 state[pt] = max(0, state[pt])
             return state
 
-        with self.client.open_streamer([cmd for cmd in VALVES.keys()]) as streamer:
+        with self.client.open_streamer(list(VALVES.keys())) as streamer:
             with self.client.open_writer(
                 sy.TimeStamp.now(),
-                channels=[*SENSORS, *[state for state in VALVES.values()], DAQ_TIME],
+                channels=[*SENSORS, *list(VALVES.values()), DAQ_TIME],
                 name="TPC Sim DAQ",
             ) as writer:
                 while self._running and loop.wait():

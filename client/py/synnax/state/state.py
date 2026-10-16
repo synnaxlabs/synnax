@@ -20,7 +20,7 @@ class State:
 
     def __init__(self, retriever: channel.Retriever):
         self._retriever = retriever
-        self.value = dict()
+        self.value = {}
 
     def update(self, frame: Frame) -> None:
         for key in frame.channels:

@@ -301,17 +301,15 @@ class ConfigClient:
             if len(test_classes) == 1:
                 return [test_def]
 
-            expanded_defs: list[TestDefinition] = []
-            for test_class in test_classes:
-                expanded_defs.append(
-                    TestDefinition(
-                        case=test_def.case,
-                        name=test_class.__name__,
-                        parameters=test_def.parameters.copy(),
-                        matrix=test_def.matrix,
-                    )
+            return [
+                TestDefinition(
+                    case=test_def.case,
+                    name=test_class.__name__,
+                    parameters=test_def.parameters.copy(),
+                    matrix=test_def.matrix,
                 )
-            return expanded_defs
+                for test_class in test_classes
+            ]
 
         except Exception as e:
             raise ImportError(

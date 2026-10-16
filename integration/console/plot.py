@@ -107,7 +107,7 @@ class Plot(ConsolePage):
         download = download_info.value
         save_path = resolve_results_path(f"{self.page_name}.csv")
         download.save_as(save_path)
-        with open(save_path, "r", encoding="utf-8") as f:
+        with open(save_path, encoding="utf-8") as f:
             return f.read()
 
     def set_axis(self, axis: Axis, config: dict[str, Any]) -> None:
@@ -400,8 +400,7 @@ class Plot(ConsolePage):
         self.layout.show_visualization_toolbar()
         self.page.get_by_role("tab", name="Data", exact=True).click(timeout=5000)
         axis_section = self.page.locator("label").filter(has_text=axis).locator("..")
-        result = axis_section.get_by_text(channel_name).count() > 0
-        return result
+        return axis_section.get_by_text(channel_name).count() > 0
 
     def focus(self) -> None:
         """Bring focus onto the plot pane so keyboard triggers fire on it."""

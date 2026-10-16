@@ -56,15 +56,21 @@ class SetpointPressAuto(TestCase):
             # Wait for test_flag_cmd == 1 (user starts Test 1)
             while self.should_continue:
                 frame = streamer.read(timeout=0.1)
-                if frame is not None and "test_flag_cmd" in frame:
-                    if frame["test_flag_cmd"][-1] == 1:
-                        break
+                if (
+                    frame is not None
+                    and "test_flag_cmd" in frame
+                    and frame["test_flag_cmd"][-1] == 1
+                ):
+                    break
             # Wait for test_flag_cmd == 0 (user completes Test 1)
             while self.should_continue:
                 frame = streamer.read(timeout=0.1)
-                if frame is not None and "test_flag_cmd" in frame:
-                    if frame["test_flag_cmd"][-1] == 0:
-                        break
+                if (
+                    frame is not None
+                    and "test_flag_cmd" in frame
+                    and frame["test_flag_cmd"][-1] == 0
+                ):
+                    break
 
         # ------------- Test 2: Basic Control --------------
         # setpoint_press_user will control setpoint via the console schematic.

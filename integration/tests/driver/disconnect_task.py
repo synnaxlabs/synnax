@@ -108,12 +108,8 @@ class DisconnectOpcua(DisconnectTask[sy.opcua.ReadTask], OPCUAReadMixed):
     OPC UA disconnect/reconnect test.
     """
 
-    pass
-
 
 class DisconnectModbus(DisconnectTask[sy.modbus.ReadTask], ModbusReadMixed):
     """
     Modbus TCP disconnect/reconnect test.
     """
-
-    pass

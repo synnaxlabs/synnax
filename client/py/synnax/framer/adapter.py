@@ -31,7 +31,7 @@ class ReadFrameAdapter:
     def __init__(self, retriever: ChannelRetriever):
         self.retriever = retriever
         self._adapter = None
-        self.keys = list()
+        self.keys = []
         self.codec = Codec()
 
     def update(self, channels: channel.Params) -> None:
@@ -100,7 +100,7 @@ class WriteFrameAdapter:
     ):
         self.retriever = retriever
         self._adapter = None
-        self._keys = list()
+        self._keys = []
         self._err_on_extra_chans = err_on_extra_chans
         self._strict_data_types = strict_data_types
         self._suppress_warnings = suppress_warnings
@@ -118,8 +118,8 @@ class WriteFrameAdapter:
     def adapt_dict_keys(
         self, data: dict[channel.Payload | channel.Key | str, Any]
     ) -> dict[channel.Key, Any]:
-        out = dict()
-        for k in data.keys():
+        out = {}
+        for k in data:
             out[self._adapt_to_key(k)] = data[k]
         return out
 
@@ -165,7 +165,7 @@ class WriteFrameAdapter:
                             + f"not match series data type {series.data_type}.",
                         ),
                     )
-                elif not self._suppress_warnings and not (
+                if not self._suppress_warnings and not (
                     ch.data_type == DataType.TIMESTAMP
                     and series.data_type == DataType.INT64
                 ):
@@ -222,8 +222,8 @@ class WriteFrameAdapter:
                 if not isinstance(series, list)
                 else cast(list[CrudeSeries], series)
             )
-            channels: list[channel.Key] = list()
-            o_series: list[Series] = list()
+            channels: list[channel.Key] = []
+            o_series: list[Series] = []
             for i, ch in enumerate(channels_or_data):
                 pld = self._adapt_ch(ch)
                 if i >= len(series_list):
@@ -248,8 +248,8 @@ class WriteFrameAdapter:
                     if isinstance(channels_or_data, DataFrame)
                     else channels_or_data
                 )
-            adapted_channels: list[channel.Key] = list()
-            adapted_series: list[Series] = list()
+            adapted_channels: list[channel.Key] = []
+            adapted_series: list[Series] = []
             for col in cols:
                 try:
                     adapted_channels.append(
@@ -265,8 +265,8 @@ class WriteFrameAdapter:
             return Frame(channels=adapted_channels, series=adapted_series)
 
         if isinstance(channels_or_data, Mapping):
-            dict_channels: list[channel.Key] = list()
-            dict_series: list[Series] = list()
+            dict_channels: list[channel.Key] = []
+            dict_series: list[Series] = []
             for k, v in channels_or_data.items():
                 pld = self._adapt_ch(k)
                 dict_channels.append(pld.key)

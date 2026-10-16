@@ -419,16 +419,15 @@ class TestChannel:
 
     @pytest.fixture(scope="class")
     def hundred_channels(self, client: sy.Synnax) -> list[sy.Channel]:
-        data = []
-        for i in range(100):
-            data.append(
-                sy.Channel(
-                    name=f"sensor_{i + 1}_{channel_name()}",
-                    virtual=True,
-                    data_type=sy.DataType.FLOAT64,
-                    internal=True,
-                )
+        data = [
+            sy.Channel(
+                name=f"sensor_{i + 1}_{channel_name()}",
+                virtual=True,
+                data_type=sy.DataType.FLOAT64,
+                internal=True,
             )
+            for i in range(100)
+        ]
         return client.channels.create(data)
 
     def test_create_list(self, hundred_channels: list[sy.Channel]):

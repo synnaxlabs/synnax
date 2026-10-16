@@ -239,7 +239,7 @@ class Range(Payload):
     """Key-value store for storing metadata about the range."""
     _cached_aliaser: alias_.Client | None = PrivateAttr(None)
     """For setting and resolving aliases."""
-    _cache: dict[channel.Key, _InternalScopedChannel] = PrivateAttr(dict())
+    _cache: dict[channel.Key, _InternalScopedChannel] = PrivateAttr({})
     """A writer for creating child ranges"""
     _cached_client: Client | None = PrivateAttr(None)
     _cached_tasks: TaskClient | None = PrivateAttr(None)
@@ -334,7 +334,7 @@ class Range(Payload):
     def _splice_cached(
         self, channels: list[channel.Payload]
     ) -> list[_InternalScopedChannel]:
-        results = list()
+        results = []
         for pld in channels:
             cached = self._cache.get(pld.key, None)
             if cached is None:
@@ -538,7 +538,6 @@ class Client:
         :param parent: An optional parent range. Retrieve or create the parent first,
         then pass it directly.
         """
-        ...
 
     @overload
     def create(
@@ -555,7 +554,6 @@ class Client:
         if it already exists. This method will throw a ValidationError if the range
         already exists and has a DIFFERENT time range.
         """
-        ...
 
     @overload
     def create(
@@ -572,7 +570,6 @@ class Client:
         if it already exists. This method will throw a ValidationError if the range
         already exists and has a DIFFERENT time range.
         """
-        ...
 
     def create(
         self,
@@ -602,7 +599,7 @@ class Client:
             is_single = False
             to_create = [r.to_payload() for r in ranges]
 
-        res: list[Range] = list()
+        res: list[Range] = []
         if retrieve_if_name_exists:
             res = self.retrieve(names=[r.name for r in to_create])
             if is_single and len(res) > 1:
@@ -670,7 +667,7 @@ class Client:
             return sug
         if len(sug) == 0:
             raise QueryError(f"Range {names} not found")
-        elif len(sug) > 1:
+        if len(sug) > 1:
             raise QueryError(f"Multiple ranges matching {names} found")
         return sug[0]
 

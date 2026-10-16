@@ -309,7 +309,7 @@ class TestWriteFrameAdapter:
 
     def test_type_error_when_invalid_value_is_adapted(self, adapter):
         """Should raise a type error when an invalid value is adapted"""
-        adapter, channel = adapter
+        adapter, _channel = adapter
         with pytest.raises(TypeError):
             adapter.adapt(Exception("Invalid value"))
 
