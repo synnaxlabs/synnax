@@ -111,7 +111,7 @@ class TestDeleter:
         ch1.write(0, np.array(timestamps))
         ch2.write(0, np.array([0, 1, 2, 3, 4], dtype=np.float32))
 
-        with pytest.raises(Exception):
+        with pytest.raises(Exception, match="cannot delete index channel"):
             client.delete(
                 [ch1.key],
                 sy.TimeRange(

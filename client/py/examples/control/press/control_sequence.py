@@ -62,7 +62,7 @@ with client.control.acquire(
     ctrl[VENT_VALVE] = False
 
     # Pressurize the system five times in 20 psi increments
-    for i in range(5):
+    for _ in range(5):
         # Open the pressurization valve
         ctrl[PRESS_VALVE] = True
         if ctrl.wait_until(

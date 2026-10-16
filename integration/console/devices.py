@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import json
+from typing import ClassVar
 
 from playwright.sync_api import Locator
 
@@ -179,7 +180,7 @@ class DevicesClient(ResourceClient):
         self.tree.wait_for_removal(self.DEVICE_PREFIX, name, exact=False)
 
     # Map CSS color variables to status variants.
-    _COLOR_TO_VARIANT: dict[str, str] = {
+    _COLOR_TO_VARIANT: ClassVar[dict[str, str]] = {
         "--pluto-primary-z": "success",
         "--pluto-gray-l8": "disabled",
         "--pluto-warning-m1": "warning",

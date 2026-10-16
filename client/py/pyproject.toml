@@ -62,10 +62,17 @@ line-length = 88
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["F", "I"]
+select = ["F", "I", "B", "DTZ", "E7", "E9", "PLE", "RUF012"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["synnax", "alamos", "freighter", "x"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["uuid.UUID"]
+
+[tool.ruff.lint.per-file-ignores]
+# Controller.wait_until calls its condition before the loop moves on.
+"examples/control/**" = ["B023"]
 
 [tool.mypy]
 mypy_path = "stubs"

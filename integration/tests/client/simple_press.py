@@ -62,7 +62,7 @@ class SimplePress(SimDaqCase):
             ctrl[VENT_VALVE_CMD] = False
 
             # Pressurize the system
-            for i in range(4):
+            for _ in range(4):
                 if self.should_stop:
                     return
                 # Open press valve and wait

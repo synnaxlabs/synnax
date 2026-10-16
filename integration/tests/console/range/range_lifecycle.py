@@ -376,7 +376,7 @@ class RangeLifecycle(ConsoleCase):
             name=self.timeline_range_name
         ).time_range.start
 
-        end = (datetime.now() + timedelta(days=1)).replace(microsecond=0)
+        end = (datetime.now().astimezone() + timedelta(days=1)).replace(microsecond=0)
         self.console.ranges.overview.set_end_time(
             end.year, end.month, end.day, end.hour, end.minute, end.second
         )
@@ -398,7 +398,7 @@ class RangeLifecycle(ConsoleCase):
         before = self.client.ranges.retrieve(name=self.timeline_range_name)
         duration = int(before.time_range.end) - int(before.time_range.start)
 
-        start = (datetime.now() + timedelta(days=2)).replace(microsecond=0)
+        start = (datetime.now().astimezone() + timedelta(days=2)).replace(microsecond=0)
         self.console.ranges.overview.set_start_time(
             start.year, start.month, start.day, start.hour, start.minute, start.second
         )

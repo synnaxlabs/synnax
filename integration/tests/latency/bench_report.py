@@ -58,7 +58,7 @@ class BenchReport(Latency):
                         cycles += 1
 
         except Exception as e:
-            raise Exception(f"EXCEPTION: {e}")
+            raise Exception(f"EXCEPTION: {e}") from e
 
         self.log(f"Cycles/second: {cycles / bench_time.seconds:.2f}")
 

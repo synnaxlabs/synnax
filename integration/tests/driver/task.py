@@ -160,7 +160,8 @@ def send_and_verify_commands(
                 )
                 try:
                     expected = {
-                        key: float(v) for key, v in zip(cmd_keys, command_values[0])
+                        key: float(v)
+                        for key, v in zip(cmd_keys, command_values[0], strict=True)
                     }
                     writer.write(
                         {**expected, **{k: sy.TimeStamp.now() for k in index_keys}}
@@ -174,7 +175,8 @@ def send_and_verify_commands(
                     )
 
                     expected = {
-                        key: float(v) for key, v in zip(cmd_keys, command_values[1])
+                        key: float(v)
+                        for key, v in zip(cmd_keys, command_values[1], strict=True)
                     }
                     writer.write(
                         {**expected, **{k: sy.TimeStamp.now() for k in index_keys}}
@@ -584,46 +586,32 @@ class TaskCase(TestCase, Generic[TaskT]):
     def assert_task_exists(self, *, task_key: sy.task.Key) -> sy.Task:
         """Assert that a task exists in Synnax."""
         try:
-            task = self.client.tasks.retrieve(task_key)
-            if task is None:
-                raise AssertionError(f"Task {task_key} does not exist (None)")
-        except sy.NotFoundError:
-            raise AssertionError(f"Task {task_key} does not exist (NotFoundError)")
-        except Exception as e:
-            raise AssertionError(f"Task {task_key} does not exist (Exception): {e}")
-        return task
+            return self.client.tasks.retrieve(task_key)
+        except sy.NotFoundError as e:
+            raise AssertionError(f"Task {task_key} does not exist") from e
 
     def assert_task_deleted(self, *, task_key: str) -> None:
         """Assert that a task has been deleted from Synnax."""
         try:
             self.client.tasks.retrieve(task_key)
-            raise AssertionError(f"Task {task_key} still exists after deletion")
         except sy.NotFoundError:
-            return  # Win condition
-        except Exception as e:
-            raise AssertionError(f"Unexpected error asserting task deletion: {e}")
+            return
+        raise AssertionError(f"Task {task_key} still exists after deletion")
 
     def assert_device_exists(self, *, device_key: str) -> sy.Device:
         """Assert that a device exists in Synnax."""
         try:
-            device = self.client.devices.retrieve(key=device_key)
-            if device is None:
-                raise AssertionError(f"Device {device_key} does not exist (None)")
-        except sy.NotFoundError:
-            raise AssertionError(f"Device {device_key} does not exist (NotFoundError)")
-        except Exception as e:
-            raise AssertionError(f"Device {device_key} does not exist (Exception): {e}")
-        return device
+            return self.client.devices.retrieve(key=device_key)
+        except sy.NotFoundError as e:
+            raise AssertionError(f"Device {device_key} does not exist") from e
 
     def assert_device_deleted(self, *, device_key: str) -> None:
         """Assert that a device has been deleted from Synnax."""
         try:
             device = self.client.devices.retrieve(key=device_key)
-            raise AssertionError(f"Device '{device.name}' still exists after deletion")
         except sy.NotFoundError:
             return
-        except Exception as e:
-            raise AssertionError(f"Unexpected error asserting device deletion: {e}")
+        raise AssertionError(f"Device '{device.name}' still exists after deletion")
 
 
 class ReadTaskCase(TaskCase[ReadTaskT]):

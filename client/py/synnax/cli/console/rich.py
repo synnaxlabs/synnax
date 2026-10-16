@@ -86,20 +86,20 @@ class RichConsole:
                 type_ = type(choices[0])
             else:
                 type_ = str  # type: ignore
-        if type_ == bool:
+        if type_ is bool:
             return Confirm.ask(
                 question,
                 default=default,
                 show_default=True,
                 show_choices=True,
             )
-        if type_ == int:
+        if type_ is int:
             return IntPrompt.ask(
                 question,
                 default=default,
                 choices=[str(choice) for choice in choices] if choices else None,  # type: ignore
             )
-        if type_ == float:
+        if type_ is float:
             return FloatPrompt.ask(
                 question,
                 default=default,

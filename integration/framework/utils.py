@@ -150,7 +150,9 @@ def read_latest_value(client: sy.Synnax, channel_name: str) -> float | None:
                 sy.sleep(0.2)
         return None
     except Exception as e:
-        raise RuntimeError(f'Could not get value for channel "{channel_name}": {e}')
+        raise RuntimeError(
+            f'Could not get value for channel "{channel_name}": {e}'
+        ) from e
 
 
 def create_time_index(client: sy.Synnax, name: str) -> sy.Channel:
@@ -256,7 +258,9 @@ def assert_link_format(
     try:
         uuid.UUID(cluster_id)
     except ValueError:
-        raise AssertionError(f"Cluster ID should be a valid UUID, got: {cluster_id}")
+        raise AssertionError(
+            f"Cluster ID should be a valid UUID, got: {cluster_id}"
+        ) from None
 
     assert actual_type == resource_type, (
         f"Resource type should be '{resource_type}', got: {actual_type}"
@@ -272,7 +276,7 @@ def assert_link_format(
         except ValueError:
             raise AssertionError(
                 f"Resource ID should be a valid UUID, got: {actual_id}"
-            )
+            ) from None
 
 
 def assert_envelope(

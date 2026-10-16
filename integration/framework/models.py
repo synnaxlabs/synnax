@@ -42,7 +42,7 @@ class SYMBOLS(Enum):
             return "\u2753"
 
 
-@dataclass
+@dataclass(frozen=True)
 class SynnaxConnection:
     """Data class representing the Synnax connection parameters."""
 

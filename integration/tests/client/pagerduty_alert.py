@@ -177,10 +177,7 @@ class PagerDutyAlert(TestCase):
         incident_id = matching[0]["id"]
 
         def check_resolved() -> bool | None:
-            rget = getattr(self.rest, "rget")
-            if not callable(rget):
-                return None
-            incident = rget(f"/incidents/{incident_id}")
+            incident = self.rest.rget(f"/incidents/{incident_id}")
             return True if incident.get("status") == "resolved" else None
 
         resolved = sy.poll(

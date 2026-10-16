@@ -65,4 +65,4 @@ class BenchResponse(Latency):
                             writer.write(state_channel, frame[cmd_channel])
 
         except Exception as e:
-            raise Exception(f"EXCEPTION: {e}")
+            raise Exception(f"EXCEPTION: {e}") from e

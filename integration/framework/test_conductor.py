@@ -84,7 +84,7 @@ class TestConductor:
         try:
             self.client = self.synnax_connection.create_client()
         except Exception as e:
-            raise RuntimeError(f"Failed to initialize client: {e}")
+            raise RuntimeError(f"Failed to initialize client: {e}") from e
 
         self.log_client = LogClient(
             name=self.name,
@@ -102,7 +102,7 @@ class TestConductor:
                 time_range=sy.TimeRange(start=sy.TimeStamp.now(), end=sy.TimeStamp.MAX),
             )
         except Exception as e:
-            raise RuntimeError(f"Failed to create range: {e}")
+            raise RuntimeError(f"Failed to create range: {e}") from e
 
         self.config_client = ConfigClient(log=self.log)
 

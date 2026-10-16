@@ -44,10 +44,23 @@ line-length = 88
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["F", "I"]
+select = ["F", "I", "B", "DTZ", "E7", "E9", "PLE", "RUF012"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["synnax", "alamos", "freighter", "x"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["framework.models.SynnaxConnection"]
+
+[tool.ruff.lint.per-file-ignores]
+# Test cases configure subclasses with class-level lists that nothing mutates.
+"tests/**" = ["RUF012"]
+# Optional hooks with no-op defaults.
+"console/schematic/symbol.py" = ["B027"]
+"framework/test_case.py" = ["B027"]
+# Controller.wait_until calls its condition before the loop moves on.
+"tests/client/simple_press.py" = ["B023"]
+"tests/latency/driver_ni_digital_write.py" = ["B023"]
 
 [tool.mypy]
 mypy_path = "stubs"

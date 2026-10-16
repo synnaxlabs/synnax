@@ -265,7 +265,7 @@ class ExecutionClient:
             f"Waiting for {len(threads)} tests in sequence '{seq_name}' to complete...",
             True,
         )
-        pending = list(zip(threads, futures, tests))
+        pending = list(zip(threads, futures, tests, strict=True))
         while pending:
             still_pending = []
             for t, ft, td in pending:

@@ -49,6 +49,7 @@ CALC_TYPE_CHANNELS_TYPED: list[tuple[str, str, sy.DataType]] = [
             sy.DataType.FLOAT64,
             sy.DataType.INT64,
         ],
+        strict=True,
     )
 ]
 

@@ -241,10 +241,10 @@ class TestCodec:
             ),
             Spec(
                 name="Variable Data Types",
-                channels=[1, 2],
+                channels=[1, 2, 3],
                 data_types=[sy.DataType.UINT8, sy.DataType.STRING, sy.DataType.JSON],
                 frame=sy.Frame(
-                    channels=[1, 2],
+                    channels=[1, 2, 3],
                     series=[
                         sy.Series(
                             data_type=sy.DataType.UINT8,
