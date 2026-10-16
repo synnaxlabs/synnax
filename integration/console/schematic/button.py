@@ -142,7 +142,7 @@ class Button(Symbol):
                         props["mode"] = option
                         break
             except Exception as e:
-                raise RuntimeError(f"Error getting mode property: {e}") from e
+                raise RuntimeError("Error getting mode property") from e
 
         return props
 

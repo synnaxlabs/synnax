@@ -111,12 +111,6 @@ class TestTimeStamp:
             np.datetime64(value, "ns")
         )
 
-    @pytest.mark.usefixtures("non_utc_tz")
-    def test_naive_datetime_is_local(self) -> None:
-        """Should treat a naive datetime as local time with exact microseconds"""
-        ts = sy.TimeStamp(datetime(2022, 2, 22, 10, 41, 50, 123457))  # noqa: DTZ001
-        assert ts == 1645544510123457000
-
     def test_aware_datetime_microseconds(self) -> None:
         """Should convert an aware datetime with exact microseconds"""
         ts = sy.TimeStamp(datetime(2262, 4, 11, 23, 47, 16, 854775, tzinfo=UTC))

@@ -522,7 +522,7 @@ class TestCase(ABC):
                 try:
                     self.tlm[self._ch_state] = value.value
                 except Exception as e:
-                    raise RuntimeError(f"Failed to set status: {e}") from e
+                    raise RuntimeError("Failed to set status") from e
         else:
             self.log(f"Invalid status change: {self._status} -> {value}")
 

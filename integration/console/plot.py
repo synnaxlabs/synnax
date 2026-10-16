@@ -138,9 +138,7 @@ class Plot(ConsolePage):
             else:
                 self.page.locator(key).fill(str(value), timeout=5000)
         except Exception as e:
-            raise ValueError(
-                f'Failed to set axis property "{key}" to "{value}": {e}'
-            ) from e
+            raise ValueError(f'Failed to set axis property "{key}" to "{value}"') from e
 
     def _set_input_field(self, key: str, value: Any) -> None:
         """Set an input field value."""
