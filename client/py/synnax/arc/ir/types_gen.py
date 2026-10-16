@@ -192,12 +192,12 @@ class Member(BaseModel):
     transitions) is derived from the set variant via Member.key().
 
     Attributes:
-        nodeKey: Is the key of the referenced node in IR.nodes. Null when this member is
-            a nested scope.
+        node_key: Is the key of the referenced node in IR.nodes. Null when this member
+            is a nested scope.
         scope: Is set when this member is a nested scope.
     """
 
-    nodeKey: str | None = None
+    node_key: str | None = None
     scope: Scope | None = None
 
 
