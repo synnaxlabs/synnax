@@ -14,10 +14,13 @@ from synnax.telem import MultiSeries, SampleValue
 
 class State:
     value: dict[channel.Key, MultiSeries]
-    _retriever: channel.Retriever
+    _keys: dict[str, channel.Key]
 
-    def __init__(self, retriever: channel.Retriever):
-        self._retriever = retriever
+    def __init__(self, channels: list[channel.Payload]):
+        """
+        :param channels: The channels whose values the state holds.
+        """
+        self._keys = {ch.name: ch.key for ch in channels}
         self.value = dict()
 
     def update(self, frame: Frame) -> None:
@@ -26,8 +29,7 @@ class State:
                 self.value[key] = frame[key]
 
     def __getitem__(self, ch: channel.Key | str) -> MultiSeries:
-        payload = channel.retrieve_required(self._retriever, ch)[0]
-        return self.value[payload.key]
+        return self.value[self._keys[ch] if isinstance(ch, str) else ch]
 
     def __getattr__(self, name: str) -> MultiSeries:
         return self.__getitem__(name)
