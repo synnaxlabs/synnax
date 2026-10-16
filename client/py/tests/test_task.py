@@ -14,6 +14,7 @@ import pytest
 from pydantic import BaseModel, Field
 
 import synnax as sy
+from x.testutil import assert_eventually
 
 
 @pytest.mark.task
@@ -67,6 +68,41 @@ class TestTaskClient:
         assert isinstance(res.status, sy.task.Status)
         assert res.status.details is not None
         assert res.status.details.task == task.key
+
+    def test_retrieve_by_rack(self, client: sy.Synnax) -> None:
+        """Should return a list of only the tasks on the given rack."""
+        rack = client.racks.create(name=str(uuid4()))
+        task = client.tasks.create(name="test", type="pagerduty_alert", rack=rack.key)
+        res = client.tasks.retrieve(rack=rack.key)
+        assert [t.key for t in res] == [task.key]
+
+    def test_retrieve_by_internal_and_snapshot(self, client: sy.Synnax) -> None:
+        """Should exclude user tasks when filtering for internal or snapshot tasks."""
+        rack = client.racks.create(name=str(uuid4()))
+        task = client.tasks.create(name="test", type="pagerduty_alert", rack=rack.key)
+        assert client.tasks.retrieve(rack=rack.key, internal=True) == []
+        assert client.tasks.retrieve(rack=rack.key, snapshot=True) == []
+        res = client.tasks.retrieve(rack=rack.key, internal=False, snapshot=False)
+        assert [t.key for t in res] == [task.key]
+
+    def test_retrieve_with_limit_and_offset(self, client: sy.Synnax) -> None:
+        """Should page through the tasks on a rack."""
+        rack = client.racks.create(name=str(uuid4()))
+        for i in range(3):
+            client.tasks.create(name=f"t{i}", type="pagerduty_alert", rack=rack.key)
+        assert len(client.tasks.retrieve(rack=rack.key, limit=2)) == 2
+        assert len(client.tasks.retrieve(rack=rack.key, offset=2)) == 1
+
+    def test_retrieve_by_search_term(self, client: sy.Synnax) -> None:
+        """Should return the tasks whose names match the search term."""
+        name = f"searchable-task-{uuid4()}"
+        task = client.tasks.create(name=name, type="pagerduty_alert")
+
+        def check() -> None:
+            res = client.tasks.retrieve(search_term=name)
+            assert task.key in {t.key for t in res}
+
+        assert_eventually(check)
 
     def test_execute_command_sync(self, client: sy.Synnax) -> None:
         def driver(ev: threading.Event) -> None:

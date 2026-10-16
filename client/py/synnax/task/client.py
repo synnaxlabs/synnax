@@ -62,6 +62,9 @@ class _RetrieveRequest(BaseModel):
     include_status: bool = False
     internal: bool | None = None
     snapshot: bool | None = None
+    search_term: str | None = None
+    limit: int | None = None
+    offset: int | None = None
 
 
 class _RetrieveResponse(BaseModel):
@@ -448,29 +451,15 @@ class Client:
     def retrieve(
         self,
         *,
-        names: list[str],
+        names: list[str] | None = None,
         keys: list[Key] | None = None,
         types: list[str] | None = None,
-        include_status: bool = False,
-    ) -> list[Task]: ...
-
-    @overload
-    def retrieve(
-        self,
-        *,
-        names: None = None,
-        keys: list[Key],
-        types: list[str] | None = None,
-        include_status: bool = False,
-    ) -> list[Task]: ...
-
-    @overload
-    def retrieve(
-        self,
-        *,
-        names: None = None,
-        keys: None = None,
-        types: list[str],
+        search_term: str | None = None,
+        rack: int | None = None,
+        internal: bool | None = None,
+        snapshot: bool | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
         include_status: bool = False,
     ) -> list[Task]: ...
 
@@ -483,20 +472,43 @@ class Client:
         keys: list[Key] | None = None,
         types: list[str] | None = None,
         *,
+        search_term: str | None = None,
+        rack: int | None = None,
+        internal: bool | None = None,
+        snapshot: bool | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
         include_status: bool = False,
     ) -> list[Task] | Task:
-        """Retrieves tasks matching the given filters.
+        """Retrieves tasks matching the given filters. Returns one task when only a
+        key, name, or type is given, and a list otherwise.
 
+        :param search_term: A fuzzy search term matched against task names.
+        :param rack: Only return tasks on the rack with this key.
+        :param internal: Only return internal tasks when true, or only user tasks when
+            false.
+        :param snapshot: Only return snapshot tasks when true, or only live tasks when
+            false.
+        :param limit: The maximum number of tasks to return.
+        :param offset: The number of tasks to skip.
         :param include_status: Whether to populate each task's status. Tasks come
             back with a null status when false.
         """
-        is_single = check_for_none(names, keys, types)
+        is_single = check_for_none(
+            names, keys, types, search_term, rack, internal, snapshot, limit, offset
+        )
         res = self._client.send(
             "/task/retrieve",
             _RetrieveRequest(
                 keys=override(key, keys),
                 names=override(name, names),
                 types=override(type, types),
+                search_term=search_term,
+                rack=rack,
+                internal=internal,
+                snapshot=snapshot,
+                limit=limit,
+                offset=offset,
                 include_status=include_status,
             ),
             _RetrieveResponse,

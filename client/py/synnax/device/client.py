@@ -38,7 +38,13 @@ class _RetrieveRequest(BaseModel):
     makes: list[str] | None = None
     models: list[str] | None = None
     locations: list[str] | None = None
+    racks: list[int] | None = None
+    search_term: str | None = None
+    limit: int | None = None
+    offset: int | None = None
     ignore_not_found: bool = False
+    include_status: bool = False
+    include_parent: bool = False
 
 
 class _RetrieveResponse(BaseModel):
@@ -133,6 +139,8 @@ class Client:
         name: str | None = None,
         model: str | None = None,
         location: str | None = None,
+        include_status: bool = False,
+        include_parent: bool = False,
         ignore_not_found: Literal[True],
     ) -> Device | None: ...
 
@@ -145,6 +153,12 @@ class Client:
         models: list[str] | None = None,
         names: list[str] | None = None,
         locations: list[str] | None = None,
+        racks: list[int] | None = None,
+        search_term: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        include_status: bool = False,
+        include_parent: bool = False,
         ignore_not_found: Literal[True],
     ) -> list[Device]: ...
 
@@ -157,6 +171,8 @@ class Client:
         name: str | None = None,
         model: str | None = None,
         location: str | None = None,
+        include_status: bool = False,
+        include_parent: bool = False,
         ignore_not_found: Literal[False] = ...,
     ) -> Device: ...
 
@@ -169,6 +185,12 @@ class Client:
         models: list[str] | None = None,
         names: list[str] | None = None,
         locations: list[str] | None = None,
+        racks: list[int] | None = None,
+        search_term: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        include_status: bool = False,
+        include_parent: bool = False,
         ignore_not_found: Literal[False] = ...,
     ) -> list[Device]: ...
 
@@ -185,9 +207,30 @@ class Client:
         models: list[str] | None = None,
         names: list[str] | None = None,
         locations: list[str] | None = None,
+        racks: list[int] | None = None,
+        search_term: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        include_status: bool = False,
+        include_parent: bool = False,
         ignore_not_found: bool = False,
     ) -> list[Device] | Device | None:
-        is_single = check_for_none(keys, makes, models, locations, names)
+        """Retrieves devices matching the given filters. Returns one device unless a
+        plural filter, a search term, a limit, or an offset is given.
+
+        :param racks: Only return devices on the racks with these keys.
+        :param search_term: A fuzzy search term matched against device names.
+        :param limit: The maximum number of devices to return.
+        :param offset: The number of devices to skip.
+        :param include_status: Whether to populate each device's status.
+        :param include_parent: Whether to populate each device's parent ontology ID.
+        :param ignore_not_found: Whether to return None instead of raising when a
+            single device is requested and none matches.
+        :raises NotFoundError: If a single device is requested and none matches.
+        """
+        is_single = check_for_none(
+            keys, makes, models, locations, names, racks, search_term, limit, offset
+        )
         res = self._client.send(
             "/device/retrieve",
             _RetrieveRequest(
@@ -196,7 +239,13 @@ class Client:
                 models=override(model, models),
                 locations=override(location, locations),
                 names=override(name, names),
+                racks=racks,
+                search_term=search_term,
+                limit=limit,
+                offset=offset,
                 ignore_not_found=ignore_not_found,
+                include_status=include_status,
+                include_parent=include_parent,
             ),
             _RetrieveResponse,
         )

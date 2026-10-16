@@ -13,6 +13,7 @@ import pytest
 from pydantic import JsonValue
 
 import synnax as sy
+from x.testutil import assert_eventually
 
 
 def basic_device(rack: int, n: int) -> sy.Device:
@@ -204,6 +205,46 @@ class TestDevice:
         assert len(devices) == 2
         assert devices[0].configured is True
         assert devices[1].configured is False
+
+    def test_retrieve_by_racks(self, client: sy.Synnax) -> None:
+        """Should return a list of only the devices on the given racks."""
+        rack = client.racks.create(name=str(uuid4()))
+        dev = client.devices.create(basic_device(rack.key, 1))
+        res = client.devices.retrieve(racks=[rack.key])
+        assert [d.key for d in res] == [dev.key]
+
+    def test_retrieve_with_limit_and_offset(self, client: sy.Synnax) -> None:
+        """Should page through the devices on a rack."""
+        rack = client.racks.create(name=str(uuid4()))
+        client.devices.create([basic_device(rack.key, i) for i in range(3)])
+        assert len(client.devices.retrieve(racks=[rack.key], limit=2)) == 2
+        assert len(client.devices.retrieve(racks=[rack.key], offset=2)) == 1
+
+    def test_retrieve_by_search_term(self, client: sy.Synnax) -> None:
+        """Should return the devices whose names match the search term."""
+        rack = client.racks.create(name=str(uuid4()))
+        dev = client.devices.create(basic_device(rack.key, 1))
+
+        def check() -> None:
+            res = client.devices.retrieve(search_term=dev.name)
+            assert dev.key in {d.key for d in res}
+
+        assert_eventually(check)
+
+    def test_retrieve_with_status_and_parent(self, client: sy.Synnax) -> None:
+        """Should attach the status and parent only when asked for them."""
+        rack = client.racks.create(name=str(uuid4()))
+        dev = client.devices.create(basic_device(rack.key, 1))
+        plain = client.devices.retrieve(key=dev.key)
+        assert plain.status is None
+        assert plain.parent is None
+        res = client.devices.retrieve(
+            key=dev.key, include_status=True, include_parent=True
+        )
+        assert res.status is not None
+        assert res.status.details is not None
+        assert res.status.details.device == dev.key
+        assert res.parent == sy.rack.ontology_id(rack.key)
 
 
 @pytest.mark.device

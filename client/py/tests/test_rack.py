@@ -12,6 +12,7 @@ from uuid import uuid4
 import pytest
 
 import synnax as sy
+from x.testutil import assert_eventually
 
 
 @pytest.mark.rack
@@ -130,3 +131,32 @@ class TestRackClient:
         # Cache should return the same rack
         cached_rack = client.racks.retrieve_embedded_rack()
         assert rack.key == cached_rack.key
+
+    def test_retrieve_with_status(self, client: sy.Synnax) -> None:
+        """Should attach the rack status when asked for it."""
+        rack = client.racks.create(name=str(uuid4()))
+        assert client.racks.retrieve(key=rack.key).status is None
+        res = client.racks.retrieve(key=rack.key, include_status=True)
+        assert res.status is not None
+        assert res.status.details is not None
+        assert res.status.details.rack == rack.key
+
+    def test_retrieve_with_limit_and_offset(self, client: sy.Synnax) -> None:
+        """Should page through the matching racks."""
+        racks = client.racks.create(
+            racks=[sy.Rack(name=str(uuid4())) for _ in range(3)]
+        )
+        keys = [r.key for r in racks]
+        assert len(client.racks.retrieve(keys=keys, limit=2)) == 2
+        assert len(client.racks.retrieve(keys=keys, offset=2)) == 1
+
+    def test_retrieve_by_search_term(self, client: sy.Synnax) -> None:
+        """Should return a list of the racks whose names match the search term."""
+        name = f"searchable-rack-{uuid4()}"
+        rack = client.racks.create(name=name)
+
+        def check() -> None:
+            res = client.racks.retrieve(search_term=name)
+            assert rack.key in {r.key for r in res}
+
+        assert_eventually(check)
