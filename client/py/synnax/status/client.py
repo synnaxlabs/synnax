@@ -42,6 +42,11 @@ class _RetrieveResponse(BaseModel):
     statuses: list[Status[Any]] = Field(default_factory=list)
 
 
+class _RenameRequest(BaseModel):
+    key: Key
+    name: str
+
+
 class _DeleteRequest(BaseModel):
     keys: list[str]
 
@@ -233,10 +238,9 @@ class Client:
 
         :param key: The key of the status to rename.
         :param name: The new name for the status.
-        :raises ValueError: If no status has the given key.
+        :raises NotFoundError: If no status has the given key.
         """
-        status = self.retrieve(key=key)
-        self.set(status.model_copy(update={"name": name}))
+        self.client.send("/status/rename", _RenameRequest(key=key, name=name), Empty)
 
     def delete(self, keys: str | list[str]) -> None:
         """Delete statuses by their keys.

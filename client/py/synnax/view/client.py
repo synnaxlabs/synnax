@@ -27,6 +27,11 @@ class _CreateRequest(BaseModel):
 _CreateResponse = _CreateRequest
 
 
+class _RenameRequest(BaseModel):
+    key: Key
+    name: str
+
+
 class _DeleteRequest(BaseModel):
     keys: list[Key]
 
@@ -110,8 +115,7 @@ class Client:
         :param name: The new name for the view.
         :raises NotFoundError: If no view has the given key.
         """
-        view = self.retrieve(key=key)
-        self.create(view.model_copy(update={"name": name}))
+        self._client.send("/view/rename", _RenameRequest(key=key, name=name), Empty)
 
     @overload
     def retrieve(

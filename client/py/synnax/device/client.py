@@ -28,6 +28,11 @@ class _CreateRequest(BaseModel):
 _CreateResponse = _CreateRequest
 
 
+class _RenameRequest(BaseModel):
+    key: Key
+    name: str
+
+
 class _DeleteRequest(BaseModel):
     keys: list[str]
 
@@ -131,8 +136,7 @@ class Client:
         :param name: The new name for the device.
         :raises NotFoundError: If no device has the given key.
         """
-        device = self.retrieve(key=key)
-        self.create(device.model_copy(update={"name": name}))
+        self._client.send("/device/rename", _RenameRequest(key=key, name=name), Empty)
 
     @overload
     def retrieve(

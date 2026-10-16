@@ -23,7 +23,6 @@ from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax.device import Client as DeviceClient
 from synnax.device import Device
-from synnax.exceptions import NotFoundError
 from synnax.framer import Client as FrameClient
 from synnax.ontology.payload import ID
 from synnax.rack import Client as RackClient
@@ -39,6 +38,11 @@ class _CreateRequest(BaseModel):
 
 
 _CreateResponse = _CreateRequest
+
+
+class _RenameRequest(BaseModel):
+    key: Key
+    name: str
 
 
 class _DeleteRequest(BaseModel):
@@ -442,13 +446,7 @@ class Client:
         :param name: The new name for the task.
         :raises NotFoundError: If no task has the given key.
         """
-        res = self._client.send(
-            _RETRIEVE_ENDPOINT, _RetrieveRequest(keys=[key]), _RetrieveResponse
-        )
-        if len(res.tasks) == 0:
-            raise NotFoundError(f"Task with key {key} not found")
-        renamed = res.tasks[0].model_copy(update={"name": name})
-        self._exec_create(_CreateRequest(tasks=[renamed]))
+        self._client.send("/task/rename", _RenameRequest(key=key, name=name), Empty)
 
     @overload
     def retrieve(
