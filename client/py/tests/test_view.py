@@ -28,6 +28,16 @@ class TestView:
         assert v.type == "lineplot"
         assert v.query == {"channels": ["test-1", "test-2"]}
 
+    def test_rename(self, client: sy.Synnax) -> None:
+        """Should rename a view and keep its query."""
+        v = client.views.create(
+            name="Before Rename", type="lineplot", query={"channels": ["a"]}
+        )
+        client.views.rename(v.key, "After Rename")
+        renamed = client.views.retrieve(key=v.key)
+        assert renamed.name == "After Rename"
+        assert renamed.query == {"channels": ["a"]}
+
     def test_create_converts_query_to_json(self, client: sy.Synnax) -> None:
         """Should store a UUID in the query as a string."""
         rng = uuid4()

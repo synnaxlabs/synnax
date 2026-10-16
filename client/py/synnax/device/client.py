@@ -15,7 +15,7 @@ from pydantic_core import to_jsonable_python
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax import rack as rack_
-from synnax.device.types_gen import Device
+from synnax.device.types_gen import Device, Key
 from synnax.exceptions import NotFoundError
 from synnax.ontology.payload import ID as OntologyID
 from x.lists import check_for_none, normalize, override
@@ -26,6 +26,11 @@ class _CreateRequest(BaseModel):
 
 
 _CreateResponse = _CreateRequest
+
+
+class _RenameRequest(BaseModel):
+    key: Key
+    name: str
 
 
 class _DeleteRequest(BaseModel):
@@ -123,6 +128,15 @@ class Client:
     def delete(self, keys: list[str]) -> None:
         req = _DeleteRequest(keys=keys)
         self._client.send("/device/delete", req, Empty)
+
+    def rename(self, key: Key, name: str) -> None:
+        """Renames a device.
+
+        :param key: The key of the device to rename.
+        :param name: The new name for the device.
+        :raises NotFoundError: If no device has the given key.
+        """
+        self._client.send("/device/rename", _RenameRequest(key=key, name=name), Empty)
 
     @overload
     def retrieve(
