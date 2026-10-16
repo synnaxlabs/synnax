@@ -553,6 +553,20 @@ class TestRangeRetrieveFilters:
         assert many[0].parent is not None
         assert many[0].parent.key == parent.key
 
+    def test_include_labels_only(
+        self, client: sy.Synnax, window_ranges: list[sy.Range]
+    ) -> None:
+        """Should return a list when given include_labels without a key or name"""
+        res = client.ranges.retrieve(include_labels=True)
+        assert {r.key for r in window_ranges} <= {r.key for r in res}
+
+    def test_include_parent_only(
+        self, client: sy.Synnax, window_ranges: list[sy.Range]
+    ) -> None:
+        """Should return a list when given include_parent without a key or name"""
+        res = client.ranges.retrieve(include_parent=True)
+        assert {r.key for r in window_ranges} <= {r.key for r in res}
+
 
 @pytest.mark.ranger
 class TestRangeConstructor:

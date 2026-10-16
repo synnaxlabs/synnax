@@ -48,7 +48,7 @@ from synnax.telem import (
 )
 from x.color import Color
 from x.interop import ArrayOperators
-from x.lists import check_for_none, normalize, override
+from x.lists import normalize, override
 from x.params import require_named_params
 
 RANGE_SET_CHANNEL = "sy_range_set"
@@ -641,8 +641,16 @@ class Client:
     def retrieve(
         self,
         *,
-        key: Key | None = None,
-        name: str | None = None,
+        key: Key,
+        include_labels: bool = False,
+        include_parent: bool = False,
+    ) -> Range: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        name: str,
         include_labels: bool = False,
         include_parent: bool = False,
     ) -> Range: ...
@@ -695,14 +703,7 @@ class Client:
         :returns: The range for a key or name, else a list of the matching ranges.
         :raises QueryError: If a single range is not found, or more than one matches.
         """
-        is_single = (
-            check_for_none(keys, names)
-            and search_term is None
-            and overlaps_with is None
-            and has_labels is None
-            and limit is None
-            and offset is None
-        )
+        is_single = key is not None or name is not None
         req = Request(
             keys=override(key, keys),
             names=override(name, names),
