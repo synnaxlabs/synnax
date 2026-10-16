@@ -1264,6 +1264,40 @@ var _ = Describe("Python Types Plugin", func() {
 				},
 			)
 
+			DescribeTable(
+				"Should hash by the snake_case name of a mixed-case @key field",
+				func(ctx SpecContext, decl string) {
+					source := `
+					@py output "out"
+
+					` + decl
+					resp := MustGenerate(ctx, source, "node", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(`node_key: str`, `return hash(self.node_key)`).
+						ToNotContain(`self.nodeKey`)
+				},
+				Entry("standalone struct", `
+					Node struct {
+						nodeKey string @key
+					}
+				`),
+				Entry("generic struct", `
+					Node struct<T> {
+						nodeKey string @key
+						value T
+					}
+				`),
+				Entry("extending struct", `
+					Base struct {
+						name string
+					}
+
+					Node struct extends Base {
+						nodeKey string @key
+					}
+				`),
+			)
+
 			It(
 				"Should not generate __hash__ when an override makes the key optional",
 				func(ctx SpecContext) {
