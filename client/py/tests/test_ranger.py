@@ -17,6 +17,7 @@ import pydantic
 import pytest
 
 import synnax as sy
+from synnax.state import LatestState, State
 from x.params import RequiresNamedParams
 from x.strings import random_name
 from x.testutil import assert_eventually
@@ -587,3 +588,54 @@ class TestRangeData:
                 ],
             }
         )
+
+
+@pytest.mark.ranger
+class TestOnCreate:
+    """Tests for the handler that on_create registers on the range set channel."""
+
+    class Retriever:
+        """Adapts the channel client to the retriever protocol that State takes."""
+
+        def __init__(self, client: sy.Synnax):
+            self._client = client
+
+        def retrieve(self, channels: sy.channel.Params) -> list[sy.channel.Payload]:
+            assert isinstance(channels, str)
+            return [self._client.channels.retrieve(channels)]
+
+        def retrieve_one(self, param: sy.channel.Key | str) -> sy.channel.Payload:
+            return self._client.channels.retrieve(param)
+
+    def latest_state(self, client: sy.Synnax, sample: sy.Series) -> LatestState:
+        key = client.channels.retrieve("sy_range_set").key
+        state = State(self.Retriever(client))
+        state.update(sy.Frame([key], [sample]))
+        return LatestState(state)
+
+    def test_valid_sample(self, client: sy.Synnax) -> None:
+        """Should pass the range in a JSON object sample to the callback"""
+        received: list[sy.Range] = []
+        handler = client.ranges.on_create(received.append)
+        key = uuid4()
+        start = sy.TimeStamp.now()
+        sample = {
+            "key": str(key),
+            "name": "on_create",
+            "time_range": {"start": int(start), "end": int(start + 1)},
+        }
+        handler(self.latest_state(client, sy.Series([sample], data_type="json")))
+        assert len(received) == 1
+        assert received[0].key == key
+        assert received[0].name == "on_create"
+        assert received[0].time_range == sy.TimeRange(start, start + 1)
+
+    def test_non_object_sample(self, client: sy.Synnax) -> None:
+        """Should raise a TypeError when the sample is not a JSON object"""
+        handler = client.ranges.on_create(lambda _: None)
+        with pytest.raises(TypeError, match="JSON object"):
+            handler(
+                self.latest_state(
+                    client, sy.Series(["not an object"], data_type="json")
+                )
+            )

@@ -10,6 +10,7 @@
 import pytest
 
 import synnax as sy
+from tests.json_value import arr, obj
 from x.strings import random_name
 
 
@@ -283,11 +284,11 @@ class TestHTTPReadTask:
             ],
         )
         payload = task.to_payload()
-        ep = payload.config["endpoints"][0]
+        ep = obj(arr(payload.config, "endpoints")[0])
         assert ep["body"] == ""
         assert ep["headers"] == []
         assert ep["query_params"] == []
-        field = ep["fields"][0]
+        field = obj(arr(ep, "fields")[0])
         assert "timestamp_format" not in field
         assert field["enum_values"] == []
 
@@ -572,10 +573,10 @@ class TestHTTPWriteTask:
             ],
         )
         payload = task.to_payload()
-        ep = payload.config["endpoints"][0]
+        ep = obj(arr(payload.config, "endpoints")[0])
         assert ep["headers"] == []
         assert ep["query_params"] == []
-        assert "time_format" not in ep["channel"]
+        assert "time_format" not in obj(ep, "channel")
 
     def test_create_and_retrieve_write_task(self, client: sy.Synnax) -> None:
         """Test that WriteTask can be created and retrieved from the database."""
@@ -685,8 +686,9 @@ class TestHTTPDevice:
         assert props["timeout_ms"] == 5000
         assert props["max_concurrent_requests"] == 2
         assert props["verify_ssl"] is False
-        assert props["auth"]["type"] == "bearer"
-        assert props["auth"]["token"] == "my-token"
+        auth = obj(props, "auth")
+        assert auth["type"] == "bearer"
+        assert auth["token"] == "my-token"
 
     @pytest.mark.parametrize("value", [0, -1])
     def test_device_rejects_non_positive_max_concurrent_requests(
@@ -702,7 +704,7 @@ class TestHTTPDevice:
             host="localhost:8080",
             auth={"type": "basic", "username": "admin", "password": "secret"},
         )
-        auth = dev.properties["auth"]
+        auth = obj(dev.properties, "auth")
         assert auth["type"] == "basic"
         assert auth["username"] == "admin"
         assert auth["password"] == "secret"
@@ -718,7 +720,7 @@ class TestHTTPDevice:
                 "key": "abc123",
             },
         )
-        auth = dev.properties["auth"]
+        auth = obj(dev.properties, "auth")
         assert auth["type"] == "api_key"
         assert auth["send_as"] == "header"
         assert auth["header"] == "X-API-Key"
@@ -735,7 +737,7 @@ class TestHTTPDevice:
                 "key": "abc123",
             },
         )
-        auth = dev.properties["auth"]
+        auth = obj(dev.properties, "auth")
         assert auth["type"] == "api_key"
         assert auth["send_as"] == "query_param"
         assert auth["parameter"] == "api_key"
@@ -795,7 +797,7 @@ class TestHTTPHealthCheck:
     def test_health_check_none_excluded_from_device_properties(self) -> None:
         """Test that None values are excluded from health check in device properties."""
         dev = sy.http.Device(host="localhost:8080")
-        hc = dev.properties["health_check"]
+        hc = obj(dev.properties, "health_check")
         assert "headers" not in hc
         assert "query_params" not in hc
         assert "body" not in hc
@@ -810,7 +812,7 @@ class TestHTTPHealthCheck:
                 headers=[sy.http.Header(name="Accept", value="application/json")],
             ),
         )
-        hc = dev.properties["health_check"]
+        hc = obj(dev.properties, "health_check")
         assert hc["path"] == "/api/status"
         assert hc["method"] == "GET"
         assert hc["headers"] == [{"name": "Accept", "value": "application/json"}]
@@ -818,7 +820,7 @@ class TestHTTPHealthCheck:
     def test_health_check_validate_response_flag(self) -> None:
         """Test that validate_response mirrors whether a response is configured."""
         dev = sy.http.Device(host="localhost:8080")
-        assert dev.properties["health_check"]["validate_response"] is False
+        assert obj(dev.properties, "health_check")["validate_response"] is False
         dev = sy.http.Device(
             host="localhost:8080",
             health_check=sy.http.HealthCheck(
@@ -829,7 +831,7 @@ class TestHTTPHealthCheck:
                 ),
             ),
         )
-        assert dev.properties["health_check"]["validate_response"] is True
+        assert obj(dev.properties, "health_check")["validate_response"] is True
 
 
 @pytest.mark.http
@@ -903,10 +905,11 @@ class TestHTTPDevicePropertyUpdates:
         updated = client.devices.retrieve(key=device.key)
         props = updated.properties
         assert "read" in props
-        assert "/api/v1/data" in props["read"]
-        ep_props = props["read"]["/api/v1/data"]
-        assert ep_props["channels"]["/temperature"] == temp_ch.key
-        assert ep_props["channels"]["/pressure"] == pres_ch.key
+        assert "/api/v1/data" in obj(props, "read")
+        ep_props = obj(props, "read", "/api/v1/data")
+        channels = obj(ep_props, "channels")
+        assert channels["/temperature"] == temp_ch.key
+        assert channels["/pressure"] == pres_ch.key
         assert ep_props["index"] == 0
 
     def test_read_task_stores_index_channel_key(self, client: sy.Synnax) -> None:
@@ -951,8 +954,8 @@ class TestHTTPDevicePropertyUpdates:
         )
         task.update_device_properties(client.devices)
 
-        ep_props = client.devices.retrieve(key=device.key).properties["read"]
-        assert ep_props["/api/v1/data"]["index"] == time_ch.key
+        props = client.devices.retrieve(key=device.key).properties
+        assert obj(props, "read", "/api/v1/data")["index"] == time_ch.key
 
     def test_write_task_updates_device_properties(self, client: sy.Synnax) -> None:
         """Test that configuring a WriteTask updates device properties."""
@@ -996,5 +999,5 @@ class TestHTTPDevicePropertyUpdates:
         updated = client.devices.retrieve(key=device.key)
         props = updated.properties
         assert "write" in props
-        assert "/api/v1/setpoint" in props["write"]
-        assert props["write"]["/api/v1/setpoint"] == cmd_ch.key
+        assert "/api/v1/setpoint" in obj(props, "write")
+        assert obj(props, "write")["/api/v1/setpoint"] == cmd_ch.key
