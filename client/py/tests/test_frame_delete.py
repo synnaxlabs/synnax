@@ -21,7 +21,7 @@ from x.telem import seconds_linspace
 class TestDeleter:
     def test_basic_delete(
         self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
-    ):
+    ) -> None:
         idx_ch, _ = indexed_pair
         with client.open_writer(sy.TimeSpan.SECOND * 1, idx_ch) as w:
             data = seconds_linspace(1, 50)
@@ -33,14 +33,16 @@ class TestDeleter:
             sy.TimeRange(0, sy.TimeStamp(25 * sy.TimeSpan.SECOND)),
         )
 
-        data = idx_ch.read(sy.TimeRange.MAX)
-        assert data.to_numpy().size == 26
-        assert data.time_range == sy.TimeRange(
+        series = idx_ch.read(sy.TimeRange.MAX)
+        assert series.to_numpy().size == 26
+        assert series.time_range == sy.TimeRange(
             sy.TimeStamp(25 * sy.TimeSpan.SECOND),
             sy.TimeStamp(50 * sy.TimeSpan.SECOND) + 1,
         )
 
-    def test_delete_by_name(self, indexed_pair: list[sy.Channel], client: sy.Synnax):
+    def test_delete_by_name(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
         idx_ch, _ = indexed_pair
         with client.open_writer(sy.TimeSpan.SECOND * 1, idx_ch) as w:
             data = seconds_linspace(1, 50)
@@ -52,16 +54,16 @@ class TestDeleter:
             sy.TimeRange(0, sy.TimeStamp(25 * sy.TimeSpan.SECOND)),
         )
 
-        data = idx_ch.read(sy.TimeRange.MAX)
-        assert data.to_numpy().size == 26
-        assert data.time_range == sy.TimeRange(
+        series = idx_ch.read(sy.TimeRange.MAX)
+        assert series.to_numpy().size == 26
+        assert series.time_range == sy.TimeRange(
             sy.TimeStamp(25 * sy.TimeSpan.SECOND),
             sy.TimeStamp(50 * sy.TimeSpan.SECOND) + 1,
         )
 
     def test_delete_channel_not_found_key(
         self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
-    ):
+    ) -> None:
         idx_ch, data_ch = indexed_pair
         client.write(0, idx_ch.key, seconds_linspace(1, 50))
         # Delete the data channel first so we know the keys are not found
@@ -73,8 +75,8 @@ class TestDeleter:
         assert data.size == 50 * 8
 
     def test_delete_with_writer(
-        self, indexed_pair: list[sy.Channel], client: sy.Synnax
-    ):
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
         idx_ch, _ = indexed_pair
         with client.open_writer(0, idx_ch.key):
             with pytest.raises(sy.UnauthorizedError):
@@ -87,7 +89,7 @@ class TestDeleter:
                     ),
                 )
 
-    def test_delete_index_alone(self, client: sy.Synnax):
+    def test_delete_index_alone(self, client: sy.Synnax) -> None:
         ch1 = client.channels.create(
             sy.Channel(
                 name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
