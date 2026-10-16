@@ -165,15 +165,18 @@ type Transport struct {
 	RackCreate   freighter.UnaryServer[rack.CreateRequest, rack.CreateResponse]
 	RackRetrieve freighter.UnaryServer[rack.RetrieveRequest, rack.RetrieveResponse]
 	RackDelete   freighter.UnaryServer[rack.DeleteRequest, struct{}]
+	RackRename   freighter.UnaryServer[rack.RenameRequest, struct{}]
 	// TASK
 	TaskCreate   freighter.UnaryServer[task.CreateRequest, task.CreateResponse]
 	TaskRetrieve freighter.UnaryServer[task.RetrieveRequest, task.RetrieveResponse]
 	TaskDelete   freighter.UnaryServer[task.DeleteRequest, struct{}]
 	TaskCopy     freighter.UnaryServer[task.CopyRequest, task.CopyResponse]
+	TaskRename   freighter.UnaryServer[task.RenameRequest, struct{}]
 	// DEVICE
 	DeviceCreate   freighter.UnaryServer[device.CreateRequest, device.CreateResponse]
 	DeviceRetrieve freighter.UnaryServer[device.RetrieveRequest, device.RetrieveResponse]
 	DeviceDelete   freighter.UnaryServer[device.DeleteRequest, struct{}]
+	DeviceRename   freighter.UnaryServer[device.RenameRequest, struct{}]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[access.CreatePolicyRequest, access.CreatePolicyResponse]
 	AccessDeletePolicy   freighter.UnaryServer[access.DeletePolicyRequest, struct{}]
@@ -187,6 +190,7 @@ type Transport struct {
 	StatusSet            freighter.UnaryServer[status.SetRequest, status.SetResponse]
 	StatusRetrieve       freighter.UnaryServer[status.RetrieveRequest, status.RetrieveResponse]
 	StatusDelete         freighter.UnaryServer[status.DeleteRequest, struct{}]
+	StatusRename         freighter.UnaryServer[status.RenameRequest, struct{}]
 	StatusSetByKeyOrName freighter.UnaryServer[status.SetByKeyOrNameRequest, status.SetByKeyOrNameResponse]
 	// ARC
 	ArcCreate     freighter.UnaryServer[arc.CreateRequest, arc.CreateResponse]
@@ -199,6 +203,7 @@ type Transport struct {
 	ViewCreate   freighter.UnaryServer[view.CreateRequest, view.CreateResponse]
 	ViewRetrieve freighter.UnaryServer[view.RetrieveRequest, view.RetrieveResponse]
 	ViewDelete   freighter.UnaryServer[view.DeleteRequest, struct{}]
+	ViewRename   freighter.UnaryServer[view.RenameRequest, struct{}]
 	// IMPORT/EXPORT
 	ImExImport freighter.UnaryServer[imex.ImportRequest, imex.ImportResponse]
 	ImExExport freighter.UnaryServer[imex.ExportRequest, imex.ExportResponse]
@@ -386,17 +391,20 @@ func (l *Layer) BindTo(t Transport) {
 		t.RackCreate,
 		t.RackRetrieve,
 		t.RackDelete,
+		t.RackRename,
 
 		// TASK
 		t.TaskCreate,
 		t.TaskRetrieve,
 		t.TaskDelete,
 		t.TaskCopy,
+		t.TaskRename,
 
 		// DEVICE
 		t.DeviceCreate,
 		t.DeviceRetrieve,
 		t.DeviceDelete,
+		t.DeviceRename,
 
 		// ACCESS
 		t.AccessCreatePolicy,
@@ -412,12 +420,14 @@ func (l *Layer) BindTo(t Transport) {
 		t.StatusSet,
 		t.StatusRetrieve,
 		t.StatusDelete,
+		t.StatusRename,
 		t.StatusSetByKeyOrName,
 
 		// VIEW
 		t.ViewCreate,
 		t.ViewRetrieve,
 		t.ViewDelete,
+		t.ViewRename,
 
 		// ARC
 		t.ArcCreate,
@@ -582,17 +592,20 @@ func (l *Layer) BindTo(t Transport) {
 	t.RackCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Rack.Create))
 	t.RackRetrieve.BindHandler(l.Rack.Retrieve)
 	t.RackDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Rack.Delete))
+	t.RackRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Rack.Rename))
 
 	// TASK
 	t.TaskCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Create))
 	t.TaskRetrieve.BindHandler(l.Task.Retrieve)
 	t.TaskDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Delete))
 	t.TaskCopy.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Copy))
+	t.TaskRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Rename))
 
 	// DEVICE
 	t.DeviceCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Device.Create))
 	t.DeviceRetrieve.BindHandler(l.Device.Retrieve)
 	t.DeviceDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Device.Delete))
+	t.DeviceRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Device.Rename))
 
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(
@@ -620,6 +633,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.StatusSet.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Status.Set))
 	t.StatusRetrieve.BindHandler(l.Status.Retrieve)
 	t.StatusDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Status.Delete))
+	t.StatusRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Status.Rename))
 	t.StatusSetByKeyOrName.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.Status.SetByKeyOrName),
 	)
@@ -628,6 +642,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.ViewCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.View.Create))
 	t.ViewRetrieve.BindHandler(l.View.Retrieve)
 	t.ViewDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.View.Delete))
+	t.ViewRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.View.Rename))
 
 	// ARC
 	t.ArcCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Create))

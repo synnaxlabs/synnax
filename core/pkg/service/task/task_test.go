@@ -540,6 +540,77 @@ var _ = Describe("Task", Ordered, func() {
 		})
 	})
 
+	Describe("Rename", func() {
+		It(
+			"Should rename a task and its status, keeping every other field",
+			func(ctx SpecContext) {
+				m := &task.Task{
+					Type:     testType,
+					Rack:     testRack.Key,
+					Name:     "Before",
+					Internal: true,
+					Snapshot: true,
+				}
+				Expect(w.Create(ctx, m)).To(Succeed())
+				Expect(w.Rename(ctx, m.Key, "After")).To(Succeed())
+				var res task.Task
+				Expect(svc.NewRetrieve().
+					Where(task.MatchKeys(m.Key)).
+					Entry(&res).
+					Exec(ctx, tx)).To(Succeed())
+				expected := *m
+				expected.Name = "After"
+				expected.Status = nil
+				Expect(res).To(Equal(expected))
+				var renamed task.Status
+				Expect(stat.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchKeys[task.StatusDetails](m.OntologyID().String())).
+					Entry(&renamed).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(renamed.Name).To(Equal("After"))
+				Expect(renamed.Variant).To(Equal(m.Status.Variant))
+				Expect(renamed.Message).To(Equal(m.Status.Message))
+				Expect(renamed.Details.Task).To(Equal(m.Key))
+			},
+		)
+		It("Should return a validation error for an empty name", func(ctx SpecContext) {
+			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Before"}
+			Expect(w.Create(ctx, m)).To(Succeed())
+			Expect(w.Rename(ctx, m.Key, "")).
+				To(MatchError(ContainSubstring("name: required")))
+		})
+		It("Should return a not found error for a missing task", func(ctx SpecContext) {
+			Expect(w.Rename(ctx, uuid.New(), "After")).
+				To(MatchError(query.ErrNotFound))
+		})
+		It("Should succeed when the task has no status row", func(ctx SpecContext) {
+			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Before"}
+			Expect(w.Create(ctx, m)).To(Succeed())
+			Expect(stat.NewWriter(tx).Delete(ctx, m.OntologyID().String())).
+				To(Succeed())
+			Expect(w.Rename(ctx, m.Key, "After")).To(Succeed())
+		})
+		It("Should notify observers of the rename", func(ctx SpecContext) {
+			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Before"}
+			Expect(svc.NewWriter(db).Create(ctx, m)).To(Succeed())
+			renameTx := db.OpenTx()
+			defer func() { Expect(renameTx.Close()).To(Succeed()) }()
+			Expect(svc.NewWriter(renameTx).Rename(ctx, m.Key, "After")).To(Succeed())
+			var names []string
+			disconnect := svc.Observe().OnChange(func(
+				ctx context.Context,
+				r gorp.TxReader[task.Key, task.Task],
+			) {
+				for c := range r {
+					names = append(names, c.Value.Name)
+				}
+			})
+			defer disconnect()
+			Expect(renameTx.Commit(ctx)).To(Succeed())
+			Expect(names).To(Equal([]string{"After"}))
+		})
+	})
+
 	Describe("Retrieve", func() {
 		It("Should correctly retrieve a task", func(ctx SpecContext) {
 			m := &task.Task{

@@ -171,6 +171,57 @@ var _ = Describe("Status", Ordered, func() {
 			})
 		})
 
+		Describe("Rename", func() {
+			It(
+				"Should rename a status, keeping every other field",
+				func(ctx SpecContext) {
+					type details struct {
+						Device string `json:"device" msgpack:"device"`
+					}
+					s := &status.Status[details]{
+						Name:        "Before",
+						Key:         "rename-key",
+						Variant:     status.VariantSuccess,
+						Message:     "Connected",
+						Description: "Device is connected",
+						Time:        telem.Now(),
+						Details:     details{Device: "dev1"},
+					}
+					Expect(w.Set(ctx, s)).To(Succeed())
+					Expect(w.Rename(ctx, "rename-key", "After")).To(Succeed())
+					var res status.Status[details]
+					Expect(svc.NewRetrieve[details]().
+						Where(status.MatchKeys[details]("rename-key")).
+						Entry(&res).
+						Exec(ctx, tx)).To(Succeed())
+					expected := *s
+					expected.Name = "After"
+					Expect(res).To(Equal(expected))
+				},
+			)
+			It(
+				"Should return a validation error for an empty name",
+				func(ctx SpecContext) {
+					s := &status.Status[any]{
+						Name:    "Before",
+						Key:     "rename-empty-key",
+						Variant: status.VariantSuccess,
+						Time:    telem.Now(),
+					}
+					Expect(w.Set(ctx, s)).To(Succeed())
+					Expect(w.Rename(ctx, "rename-empty-key", "")).
+						To(MatchError(ContainSubstring("name: required")))
+				},
+			)
+			It(
+				"Should return a not found error for a missing status",
+				func(ctx SpecContext) {
+					Expect(w.Rename(ctx, "missing-rename-key", "After")).
+						To(MatchError(query.ErrNotFound))
+				},
+			)
+		})
+
 		Describe("Delete", func() {
 			It("Should delete a status", func(ctx SpecContext) {
 				s := &status.Status[any]{

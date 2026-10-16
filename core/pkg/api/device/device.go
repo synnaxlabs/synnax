@@ -187,6 +187,28 @@ func (s *Service) Retrieve(
 	return res, nil
 }
 
+type RenameRequest struct {
+	// Name is the new name. It must not be empty.
+	Name string `json:"name" msgpack:"name"`
+	// Key selects the device to rename.
+	Key device.Key `json:"key" msgpack:"key"`
+}
+
+func (s *Service) Rename(
+	ctx context.Context,
+	tx gorp.Tx,
+	req RenameRequest,
+) (struct{}, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{device.OntologyID(req.Key)},
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.device.NewWriter(tx).Rename(ctx, req.Key, req.Name)
+}
+
 type DeleteRequest struct {
 	Keys []device.Key `json:"keys" msgpack:"keys"`
 }
