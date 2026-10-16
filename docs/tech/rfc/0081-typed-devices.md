@@ -283,9 +283,16 @@ the typed struct. The generic `client.devices`, Python `sy.Device`, and
 `synnax::device::Client` are deleted. The Python per-make classes keep their keyword
 constructors as thin wrappers over the generated types.
 
-Pluto's `device` module keeps its machinery as factories over a resource client: the
-cache table, `createRetrieve`, `createForm`, `SelectSingle`, and `StatusIndicator`
-(`pluto/src/device/queries.ts:113-326`). The untyped defaults go away.
+The cache table is the TS client's, not Pluto's
+(`client/ts/src/device/client.ts:184-218`), and each resource client owns its own, as
+every client resource does. Pluto's `device` module exists to bind Flux to
+`client.devices` and to re-parse untyped cached records through a make's Zod schemas
+(`pluto/src/device/queries.ts:46-110`). Both jobs end: a resource client returns typed
+records, and each integration binds `Flux.createRetrieve`, `createList`, and
+`createForm` to its own client in the Console, as EtherCAT already does
+(`console/src/feature/ethercat/device/queries.ts`). `StatusIndicator` reads only
+`variant` and `message`, so it becomes a status-level component. The module is deleted
+in Phase 24.
 
 ### 4.6 Driver
 
@@ -297,10 +304,12 @@ opens by `serial` (`driver/labjack/read_task.h:535` uses the key today).
 
 ### 4.7 Console
 
-Each integration's `device` folder consumes its generated types and resource client, and
+Each integration's Console code consumes its generated types and resource client, and
 registers its own tree items, context menu, link handler, and palette commands, as task
-layouts do. `console/src/feature/device/make.tsx` loses one entry per integration moved
-and is deleted with the last one. The unconfigured-device toast moves into the three
+layouts do. Modules are named for the resource: `server` for OPC UA, Modbus, and HTTP,
+`master` and `slave` for EtherCAT, `chassis` and `device` for NI.
+`console/src/feature/device/make.tsx` loses one entry per integration moved and is
+deleted with the last one. The unconfigured-device toast moves into the three
 discovered makes, each on its own `sy_<type>_set`. `platform/device` keeps `Configure`,
 `wrapTaskForm`, and the menu items as generics over a resource with an `identifier`. The
 Console property migrators for OPC UA and HTTP are deleted; the Core's migration chain
@@ -379,8 +388,8 @@ green at every step. The migration brings 0.59 data forward near the end.
   config migrations of §4.8 step 3 reading the map.
 - **Phase 23: Migration.** §4.8 steps 1, 2, 4, and 5, and the policy rewrite.
 - **Phase 24: Delete the legacy path.** The legacy service, `/device/*` routes,
-  `client.devices`, `sy.Device`, `synnax::device::Client`, and the Console's generic
-  device layer.
+  `client.devices`, `sy.Device`, `synnax::device::Client`, `pluto/src/device`, and the
+  Console's generic device layer.
 - **Phase 25: Documentation.** Device pages per integration and the Python and
   TypeScript examples.
 
