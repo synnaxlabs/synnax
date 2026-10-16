@@ -652,6 +652,26 @@ class TestControllerChannelResolution:
                 ctrl.set_authority(cmd.name, 200)
             assert counter.count == 0
 
+    def test_access_by_numeric_string_key(
+        self, counted_client: tuple[sy.Synnax, RetrieveCounter]
+    ) -> None:
+        """Should treat a numeric string as a channel key, as JSON object keys are"""
+        client, counter = counted_client
+        cmd = client.channels.create(
+            name=f"test_{random_name()}", virtual=True, data_type=sy.DataType.FLOAT64
+        )
+        key = str(cmd.key)
+        with client.control.acquire(
+            name="resolution", read=[cmd.key], write=[cmd.key]
+        ) as ctrl:
+            counter.count = 0
+            ctrl.set_authority({key: 200})
+            ctrl.set({key: 7.0})
+            assert ctrl.wait_until(
+                lambda c: c.get(key) == 7.0, timeout=HANDSHAKE_TIMEOUT
+            )
+            assert counter.count == 0
+
     def test_unacquired_channel_by_name(self, client: sy.Synnax) -> None:
         """Should retrieve a channel that was not acquired from the Core"""
         read = client.channels.create(

@@ -138,8 +138,9 @@ class Controller:
         """Resolves an acquired channel locally, and any other channel from the Core."""
         if isinstance(ch, channel_.Payload):
             return ch
-        pld = self._channels.get(ch)
-        return pld if pld is not None else self._retriever.retrieve_one(ch)
+        param = channel_.normalize_params(ch).channels[0]
+        pld = self._channels.get(param)
+        return pld if pld is not None else self._retriever.retrieve_one(param)
 
     @property
     def _writer(self) -> framer.Writer:
@@ -259,11 +260,12 @@ class Controller:
             auth = cast(
                 dict[channel_.Key | str | channel_.Payload, CrudeAuthority], value
             )
-            for ch in [self._resolve(k) for k in auth.keys()]:
-                resolved = auth.get(ch.key) or auth.get(ch.name)
-                if resolved is not None:
-                    auth[ch.index] = resolved
-            self._writer.set_authority(auth)
+            resolved: dict[channel_.Key | str | channel_.Payload, CrudeAuthority] = {}
+            for k, a in auth.items():
+                ch = self._resolve(k)
+                resolved[ch.key] = a
+                resolved[ch.index] = a
+            self._writer.set_authority(resolved)
         elif authority is not None:
             ch = self._resolve(value)
             self._writer.set_authority({ch.key: authority, ch.index: authority})
