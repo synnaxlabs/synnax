@@ -10,10 +10,10 @@
 from __future__ import annotations
 
 import warnings
-from collections.abc import Generator, Iterable, Sequence
+from collections.abc import Generator, Iterable, Mapping, Sequence
 from contextlib import contextmanager
-from typing import Any, TypeVar, overload
 from typing import Protocol as BaseProtocol
+from typing import TypeVar, overload
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, JsonValue, ValidationError
@@ -102,7 +102,7 @@ class Task:
     rack: int = 0
     name: str = ""
     type: str = ""
-    config: dict[str, Any] = {}
+    config: Mapping[str, object] = {}
     config_hash: str = ""
     snapshot: bool = False
     status: Status | None = None
@@ -115,7 +115,7 @@ class Task:
         rack: int = 0,
         name: str = "",
         type: str = "",
-        config: dict[str, Any] | None = None,
+        config: Mapping[str, object] | None = None,
         config_hash: str = "",
         snapshot: bool = False,
         status: Status | None = None,
@@ -176,7 +176,9 @@ class Task:
         """
         return None
 
-    def execute_command(self, type_: str, args: dict[str, Any] | None = None) -> str:
+    def execute_command(
+        self, type_: str, args: Mapping[str, object] | None = None
+    ) -> str:
         """Executes a command on the task and returns the unique key assigned to the
         command.
 
@@ -199,7 +201,7 @@ class Task:
     def execute_command_sync(
         self,
         type_: str,
-        args: dict[str, Any] | None = None,
+        args: Mapping[str, object] | None = None,
         timeout: float | TimeSpan = 5,
     ) -> Status:
         """Executes a command on the task and waits for the driver to acknowledge the
@@ -361,7 +363,7 @@ class Client:
         key: Key | None = None,
         name: str = "",
         type: str = "",
-        config: dict[str, Any] | BaseModel | None = None,
+        config: Mapping[str, object] | BaseModel | None = None,
         rack: int = 0,
     ) -> Task: ...
 
@@ -378,7 +380,7 @@ class Client:
         key: Key | None = None,
         name: str = "",
         type: str = "",
-        config: dict[str, Any] | BaseModel | None = None,
+        config: Mapping[str, object] | BaseModel | None = None,
         rack: int = 0,
     ) -> Task | list[Task]:
         is_single = True
