@@ -62,7 +62,7 @@ class ClusterRetriever:
     def retrieve(self, channels: Params) -> list[Payload]:
         normal = normalize_params(channels)
         if len(normal.channels) == 0:
-            return list()
+            return []
         if isinstance(normal, NormalizedNameResult):
             req = _Request(names=normal.channels)
         else:
@@ -96,8 +96,8 @@ class CacheRetriever:
         retriever: Retriever,
         instrumentation: Instrumentation,
     ) -> None:
-        self._channels = dict()
-        self._names_to_keys = dict()
+        self._channels = {}
+        self._names_to_keys = {}
         self.instrumentation = instrumentation
         self._retriever = retriever
 
@@ -142,7 +142,7 @@ class CacheRetriever:
             ch = self._channels.get(param)
             return [ch] if ch is not None else None
         keys = self._names_to_keys.get(param, set())
-        channels = list()
+        channels = []
         for key in keys:
             ch = self._channels.get(key)
             if ch is not None:

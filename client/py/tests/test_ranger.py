@@ -30,11 +30,11 @@ class TestRangeClient:
         return client.ranges.create(
             [
                 sy.Range(
-                    name=f"test-{str(uuid4())}",
+                    name=f"test-{uuid4()!s}",
                     time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
                 ),
                 sy.Range(
-                    name=f"test-{str(uuid4())}",
+                    name=f"test-{uuid4()!s}",
                     time_range=sy.TimeStamp.now().span_range(30 * sy.TimeSpan.SECOND),
                 ),
             ]

@@ -28,8 +28,8 @@ NUM_VALVES = 10
 NUM_SENSORS = 10
 
 # Some lists to store our channels.
-valve_commands = list()
-valve_responses = list()
+valve_commands = []
+valve_responses = []
 
 # Maps the keys of valve command channels to response channels.
 command_to_response: dict[int, sy.Channel] = {}

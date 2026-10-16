@@ -71,7 +71,7 @@ async def create_time_array(
     myobj: Node, idx: int, array_size: int = DEFAULT_ARRAY_SIZE
 ) -> Node:
     """Create timestamp array variable."""
-    now = datetime.datetime.now(datetime.timezone.utc)
+    now = datetime.datetime.now(datetime.UTC)
     initial_times = [
         now + datetime.timedelta(milliseconds=j) for j in range(array_size)
     ]
@@ -159,13 +159,12 @@ def inject_error[T](values: list[T], array_size: int = DEFAULT_ARRAY_SIZE) -> li
     if error_chance < 0.333:
         return []
 
-    elif error_chance < 0.667:
+    if error_chance < 0.667:
         size = random.randint(1, max(2, array_size - 2))
         return values[:size]
 
-    else:
-        extra = random.randint(1, 3)
-        return values + [values[-1] for _ in range(extra)]
+    extra = random.randint(1, 3)
+    return values + [values[-1] for _ in range(extra)]
 
 
 async def update_arrays(arrays: list[Node], values: list[float]) -> None:
@@ -325,13 +324,12 @@ async def run_server(
     print(f"  Bools:  my_bool_0 to my_bool_{BOOL_COUNT - 1}")
     print("\nWaiting for commands...\n")
 
-    asyncio.create_task(monitor_command_changes(commands, command_values))
+    start_ref = datetime.datetime.now(datetime.UTC)
 
-    start_ref = datetime.datetime.now(datetime.timezone.utc)
-
-    async with server:
+    async with server, asyncio.TaskGroup() as tg:
+        tg.create_task(monitor_command_changes(commands, command_values))
         while True:
-            start = datetime.datetime.now(datetime.timezone.utc)
+            start = datetime.datetime.now(datetime.UTC)
             elapsed = (start - start_ref).total_seconds()
 
             timestamps = generate_timestamps(start, rate, array_size)
@@ -342,9 +340,7 @@ async def run_server(
             await update_floats(floats, elapsed)
             await update_bools(bools, elapsed)
 
-            duration = (
-                datetime.datetime.now(datetime.timezone.utc) - start
-            ).total_seconds()
+            duration = (datetime.datetime.now(datetime.UTC) - start).total_seconds()
             await asyncio.sleep(max(0, (1 / rate) - duration))
 
 

@@ -207,7 +207,7 @@ class TestIterator:
         self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ) -> None:
         """Test reading latest from an empty channel."""
-        idx_ch, data_ch = indexed_pair
+        _idx_ch, data_ch = indexed_pair
         # Don't write any data
         result = client.read_latest(data_ch.key, 5)
         assert len(result) == 0
@@ -446,11 +446,11 @@ class TestIterator:
         large factor rather than as an error.
         """
         _, data_ch = indexed_pair
-        with pytest.raises(sy.ValidationError):
-            with client.open_iterator(
-                sy.TimeRange.MAX, data_ch.key, downsample_factor=-1
-            ):
-                ...
+        with (
+            pytest.raises(sy.ValidationError),
+            client.open_iterator(sy.TimeRange.MAX, data_ch.key, downsample_factor=-1),
+        ):
+            ...
 
     def test_downsample_multiple_domains(self, client: sy.Synnax) -> None:
         """Test downsampling across multiple domains."""

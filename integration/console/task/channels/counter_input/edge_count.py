@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from console.layout import LayoutClient
 from console.task.channels.counter import Counter
@@ -30,12 +30,11 @@ class EdgeCount(Counter):
         layout: LayoutClient,
         name: str,
         device: str,
-        active_edge: Optional[Literal["Rising", "Falling"]] = None,
-        count_direction: Optional[
-            Literal["Count up", "Count down", "Externally controlled"]
-        ] = None,
-        terminal: Optional[str] = None,
-        initial_count: Optional[int] = None,
+        active_edge: Literal["Rising", "Falling"] | None = None,
+        count_direction: Literal["Count up", "Count down", "Externally controlled"]
+        | None = None,
+        terminal: str | None = None,
+        initial_count: int | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize edge count channel with configuration."""

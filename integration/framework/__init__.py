@@ -23,6 +23,8 @@ from framework.target_filter import TargetFilter, parse_target
 from framework.telemetry import TelemetryClient, TelemetryWriter
 
 __all__ = [
+    "STATUS",
+    "SYMBOLS",
     "ConfigClient",
     "ExecutionClient",
     "LogClient",
@@ -30,8 +32,6 @@ __all__ = [
     "LogMode",
     "LogSink",
     "ReportClient",
-    "STATUS",
-    "SYMBOLS",
     "Sequence",
     "StdoutSink",
     "SynnaxChannelSink",

@@ -260,10 +260,7 @@ class TestCase(ABC):
         append_name: bool = True,
     ) -> None:
         """Create a telemetry channel with name {self.name}_{name}."""
-        if append_name:
-            tlm_name = f"{self.name}_{name}"
-        else:
-            tlm_name = name
+        tlm_name = f"{self.name}_{name}" if append_name else name
 
         create_indexed_channel(self.client, tlm_name, data_type, self.time_index.key)
 

@@ -11,4 +11,4 @@
 
 from .sim import OPCUASim, OPCUATLSAuthSim, OPCUATLSSim, run_server
 
-__all__ = ["run_server", "OPCUASim", "OPCUATLSSim", "OPCUATLSAuthSim"]
+__all__ = ["OPCUASim", "OPCUATLSAuthSim", "OPCUATLSSim", "run_server"]
