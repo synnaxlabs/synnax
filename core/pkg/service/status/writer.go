@@ -129,8 +129,14 @@ func (w Writer) SetManyWithParent[D any](
 }
 
 // Rename renames the status with the given key, keeping every other field. It returns
-// query.ErrNotFound if no status with the key exists.
+// query.ErrNotFound if no status with the key exists and a validation error if name is
+// empty.
 func (w Writer) Rename(ctx context.Context, key Key, name string) error {
+	v := validate.New("status.status")
+	v.NotEmptyString("name", name)
+	if err := v.Error(); err != nil {
+		return err
+	}
 	return w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Status[any]](key)).
 		Change(func(_ gorp.Context, s Status[any]) Status[any] {

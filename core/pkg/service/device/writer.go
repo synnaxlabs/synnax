@@ -158,7 +158,10 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 		Where(gorp.MatchKeys[Key, Device](key)).
 		ChangeErr(func(_ gorp.Context, d Device) (Device, error) {
 			d.Name = name
-			return d, d.Validate()
+			if err := d.Validate(); err != nil {
+				return Device{}, err
+			}
+			return d, nil
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err

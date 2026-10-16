@@ -126,7 +126,10 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 		Where(gorp.MatchKeys[Key, Rack](key)).
 		ChangeErr(func(_ gorp.Context, r Rack) (Rack, error) {
 			r.Name = name
-			return r, r.Validate()
+			if err := r.Validate(); err != nil {
+				return Rack{}, err
+			}
+			return r, nil
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err

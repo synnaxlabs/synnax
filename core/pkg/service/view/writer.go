@@ -73,7 +73,10 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 		Where(gorp.MatchKeys[Key, View](key)).
 		ChangeErr(func(_ gorp.Context, v View) (View, error) {
 			v.Name = name
-			return v, w.validate(v)
+			if err := w.validate(v); err != nil {
+				return View{}, err
+			}
+			return v, nil
 		}).
 		Exec(ctx, w.tx)
 }
