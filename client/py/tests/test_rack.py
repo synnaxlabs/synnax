@@ -7,7 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import assert_type
+from collections.abc import Callable
+from typing import assert_type, cast
 from uuid import uuid4
 
 import pytest
@@ -167,9 +168,12 @@ class TestRackClient:
         assert rack.key in {r.key for r in res}
 
     def test_retrieve_singular_with_list_filter(self, client: sy.Synnax) -> None:
-        """Should raise a ValueError when a singular filter is mixed with a list one."""
+        """Should raise a ValueError when singular selectors are mixed with others."""
+        retrieve = cast(Callable[..., object], client.racks.retrieve)
         with pytest.raises(ValueError):
-            client.racks.retrieve(name="test", limit=1)  # type: ignore[call-overload]
+            retrieve(name="test", limit=1)
+        with pytest.raises(ValueError):
+            retrieve(key=1, name="test")
 
     def test_retrieve_single_with_status_typed(self, client: sy.Synnax) -> None:
         """Should return one rack when a key or name is given."""

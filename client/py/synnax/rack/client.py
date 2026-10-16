@@ -135,10 +135,13 @@ class Client:
         :param limit: The maximum number of racks to return.
         :param offset: The number of racks to skip.
         :param include_status: Whether to populate each rack's status.
-        :raises ValueError: If a key or name is combined with a list filter.
+        :raises ValueError: If two singular selectors are given, or one is
+            combined with a list filter.
         :raises NotFoundError: If a single rack is requested and none matches.
         """
         is_single = not check_for_none(key, name)
+        if sum(v is not None for v in (key, name)) > 1:
+            raise ValueError("only one of key and name can be given")
         if is_single and not check_for_none(
             keys,
             names,

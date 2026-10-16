@@ -8,7 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 import threading
-from typing import assert_type
+from collections.abc import Callable
+from typing import assert_type, cast
 from uuid import UUID, uuid4
 
 import pytest
@@ -115,9 +116,12 @@ class TestTaskClient:
         assert task.key in {t.key for t in res}
 
     def test_retrieve_singular_with_list_filter(self, client: sy.Synnax) -> None:
-        """Should raise a ValueError when a singular filter is mixed with a list one."""
+        """Should raise a ValueError when singular selectors are mixed with others."""
+        retrieve = cast(Callable[..., object], client.tasks.retrieve)
         with pytest.raises(ValueError):
-            client.tasks.retrieve(name="test", rack=1)  # type: ignore[call-overload]
+            retrieve(name="test", rack=1)
+        with pytest.raises(ValueError):
+            retrieve(name="test", type="pagerduty_alert")
 
     def test_retrieve_by_internal_and_snapshot(self, client: sy.Synnax) -> None:
         """Should exclude user tasks when filtering for internal or snapshot tasks."""

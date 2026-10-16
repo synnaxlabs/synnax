@@ -7,7 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import assert_type
+from collections.abc import Callable
+from typing import assert_type, cast
 from uuid import uuid4
 
 import pytest
@@ -253,11 +254,12 @@ class TestDevice:
         assert dev.key in {d.key for d in res}
 
     def test_retrieve_singular_with_list_filter(self, client: sy.Synnax) -> None:
-        """Should raise a ValueError when a singular filter is mixed with a list one."""
+        """Should raise a ValueError when singular selectors are mixed with others."""
+        retrieve = cast(Callable[..., object], client.devices.retrieve)
         with pytest.raises(ValueError):
-            client.devices.retrieve(  # type: ignore[call-overload]
-                model="test", racks=[1]
-            )
+            retrieve(model="test", racks=[1])
+        with pytest.raises(ValueError):
+            retrieve(make="LabJack", model="T7")
 
     def test_retrieve_with_limit_and_offset(self, client: sy.Synnax) -> None:
         """Should page through the devices on a rack."""

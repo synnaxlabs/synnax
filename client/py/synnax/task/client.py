@@ -492,9 +492,12 @@ class Client:
         :param offset: The number of tasks to skip.
         :param include_status: Whether to populate each task's status. Tasks come
             back with a null status when false.
-        :raises ValueError: If a key, name, or type is combined with a list filter.
+        :raises ValueError: If two singular selectors are given, or one is
+            combined with a list filter.
         """
         is_single = not check_for_none(key, name, type)
+        if sum(v is not None for v in (key, name, type)) > 1:
+            raise ValueError("only one of key, name, and type can be given")
         if is_single and not check_for_none(
             keys, names, types, search_term, rack, internal, snapshot, limit, offset
         ):
