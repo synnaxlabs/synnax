@@ -41,7 +41,7 @@ class ModbusReadVerify(ReadTaskMigrationVerify[sy.modbus.ReadTask], ModbusReadTa
                     index=idx.key,
                 ),
                 address=i,
-                data_type="float32",
+                data_type=sy.DataType.FLOAT32,
             )
             for i in range(NUM_CHANNELS)
         ]

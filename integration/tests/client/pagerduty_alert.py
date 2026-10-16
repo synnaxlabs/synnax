@@ -24,6 +24,7 @@ class PagerDutyAlert(TestCase):
     """Integration test that configures a PagerDuty alert task, triggers an incident
     via a Synnax status change, and verifies the incident was created in PagerDuty."""
 
+    routing_key: str
     events: pagerduty.EventsApiV2Client
     rest: pagerduty.RestApiV2Client
 
@@ -35,7 +36,8 @@ class PagerDutyAlert(TestCase):
             raise RuntimeError("PAGERDUTY_ROUTING_KEY must be set")
         if API_KEY is None:
             raise RuntimeError("PAGERDUTY_API_KEY must be set")
-        self.events = pagerduty.EventsApiV2Client(ROUTING_KEY)
+        self.routing_key = ROUTING_KEY
+        self.events = pagerduty.EventsApiV2Client(self.routing_key)
         self.rest = pagerduty.RestApiV2Client(API_KEY)
         self.open_alert_key: str | None = None
         super().setup()
@@ -78,7 +80,7 @@ class PagerDutyAlert(TestCase):
             name=f"PD Integration Test {self.suffix}",
             type="pagerduty_alert",
             config=sy.pagerduty.TaskConfig(
-                routing_key=ROUTING_KEY,
+                routing_key=self.routing_key,
                 auto_start=True,
                 alerts=[
                     sy.pagerduty.Alert(

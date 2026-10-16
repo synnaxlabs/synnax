@@ -72,7 +72,7 @@ class OPCUAInvalidConfig(SimulatorCase):
                         index=idx.key,
                     ),
                     node_id="NS=2;I=8",
-                    data_type="float32",
+                    data_type=sy.DataType.FLOAT32,
                 ),
             ],
         )
@@ -97,7 +97,7 @@ class OPCUAInvalidConfig(SimulatorCase):
                         index=idx.key,
                     ),
                     node_id="NS=2;I=8",
-                    data_type="float32",
+                    data_type=sy.DataType.FLOAT32,
                     disabled=True,
                 ),
             ],
@@ -122,7 +122,7 @@ class OPCUAInvalidConfig(SimulatorCase):
                         index=idx.key,
                     ),
                     node_id="NS=2;I=8",
-                    data_type="float32",
+                    data_type=sy.DataType.FLOAT32,
                 ),
             ],
         )
@@ -140,7 +140,7 @@ class OPCUAInvalidConfig(SimulatorCase):
                 sy.opcua.ReadChannel(
                     channel=999999999,
                     node_id="NS=2;I=8",
-                    data_type="float32",
+                    data_type=sy.DataType.FLOAT32,
                 ),
             ],
         )
@@ -164,7 +164,7 @@ class OPCUAInvalidConfig(SimulatorCase):
                         index=idx.key,
                     ),
                     node_id="NS=99;I=99999",
-                    data_type="float32",
+                    data_type=sy.DataType.FLOAT32,
                 ),
             ],
         )
@@ -191,7 +191,7 @@ class OPCUAInvalidConfig(SimulatorCase):
                     sy.opcua.ReadChannel(
                         channel=shared_ch_key,
                         node_id="NS=2;I=8",
-                        data_type="float32",
+                        data_type=sy.DataType.FLOAT32,
                     ),
                 ],
             )
