@@ -95,7 +95,7 @@ class TestArc:
         )
         retrieved = client.arcs.retrieve(key=created.key, compile=True)
         assert retrieved.program is not None
-        assert len(retrieved.program.wasm) > 0
+        assert retrieved.program.wasm.startswith(b"\x00asm")
 
     def test_retrieve_not_compiled(self, client: sy.Synnax) -> None:
         """Should return no program when compile is not set."""
