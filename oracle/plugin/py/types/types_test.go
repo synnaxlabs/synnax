@@ -1659,6 +1659,44 @@ var _ = Describe("Python Types Plugin", func() {
 			})
 		})
 
+		Context("field name casing", func() {
+			It(
+				"Should snake_case PascalCase, acronym, and camelCase field names",
+				func(ctx SpecContext) {
+					source := `
+					@py output "out"
+
+					Output struct {
+						WASM bytes
+						OutputMemoryBases map<string, uint32>
+						nodeKey string
+					}
+				`
+					resp := MustGenerate(ctx, source, "compiler", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(
+							`wasm: bytes`,
+							`output_memory_bases: dict[str, int]`,
+							`node_key: str`,
+						).
+						ToNotContain("WASM:", "OutputMemoryBases:", "nodeKey:")
+				},
+			)
+
+			It("Should escape a snake_cased keyword field", func(ctx SpecContext) {
+				source := `
+					@py output "out"
+
+					Example struct {
+						From string
+					}
+				`
+				resp := MustGenerate(ctx, source, "example", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(`from_: str = Field(alias="from")`)
+			})
+		})
+
 		Context("typedef with non-primitive base", func() {
 			It(
 				"Should generate TypeAlias for distinct typedef referencing another typedef",
@@ -2065,7 +2103,7 @@ var _ = Describe("Python Union Generation", func() {
 				content,
 			).To(ContainSubstring("class AIVoltageChannel(BaseAIChan, VoltageFields):\n    type: Literal[\"ai_voltage\"] = \"ai_voltage\"\n"))
 			Expect(content).To(ContainSubstring(`enabled: bool`))
-			Expect(content).To(ContainSubstring(`minVal: float`))
+			Expect(content).To(ContainSubstring(`min_val: float`))
 		},
 	)
 
@@ -2119,7 +2157,7 @@ var _ = Describe("Python Union Generation", func() {
 		`
 		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
 		ExpectContent(resp, "types_gen.py").
-			ToContain(`customScale: Scale`)
+			ToContain(`custom_scale: Scale`)
 	})
 
 	It("Should emit pass for an empty variant struct", func(ctx SpecContext) {

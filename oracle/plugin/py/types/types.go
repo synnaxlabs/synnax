@@ -127,12 +127,12 @@ func generatePyFile(
 	for _, s := range structs {
 		if form, ok := s.Form.(resolution.StructForm); ok {
 			for _, field := range form.Fields {
-				data.imports.registerFieldName(field.Name)
+				data.imports.registerFieldName(fieldName(field.Name))
 			}
 		}
 		// Also collect unified fields (which include inherited fields)
 		for _, field := range resolution.UnifiedFields(s, table) {
-			data.imports.registerFieldName(field.Name)
+			data.imports.registerFieldName(fieldName(field.Name))
 		}
 	}
 
@@ -863,15 +863,15 @@ func processField(
 	keyFields []keyFieldData,
 	excludedFields []string,
 ) fieldData {
-	escapedName := keywords.Escape(field.Name)
+	wireName := casing.FieldSnake(field.Name)
 	fd := fieldData{
-		Name:       escapedName,
+		Name:       fieldName(field.Name),
 		Doc:        doc.Get(field.Domains),
 		IsOptional: field.Optional,
 		IsArray:    field.Type.Name == "Array",
 	}
-	if escapedName != field.Name {
-		fd.Alias = field.Name
+	if fd.Name != wireName {
+		fd.Alias = wireName
 	}
 
 	baseType := typeToPython(field.Type, table, data)
@@ -1139,7 +1139,7 @@ func collectValidation(
 				constraints = append(constraints, fmt.Sprintf(
 					"default_factory=lambda: %s(%s=%q)",
 					unionVariantToPython(uv, table, data),
-					keywords.Escape(uv.Union.Discriminator),
+					fieldName(uv.Union.Discriminator),
 					uv.Variant.Name,
 				))
 			}
@@ -1294,7 +1294,7 @@ func pyStructLiteral(
 			parts,
 			fmt.Sprintf(
 				"%s=%s",
-				keywords.Escape(fv.Name),
+				fieldName(fv.Name),
 				pyDefaultLiteral(fieldsByName[fv.Name].Type, fv.Value, table, data),
 			),
 		)
@@ -2019,6 +2019,12 @@ func hasTypeParams(params []typeParamData) bool {
 	return len(params) > 0
 }
 
+// fieldName returns the Python attribute name for a schema field: its snake_case wire
+// key, escaped when it collides with a Python keyword.
+func fieldName(name string) string {
+	return keywords.Escape(casing.FieldSnake(name))
+}
+
 func toScreamingSnake(s string) string {
 	return strings.ToUpper(lo.SnakeCase(s))
 }
@@ -2034,6 +2040,7 @@ var templateFuncs = template.FuncMap{
 	"pyDocComment":           pyDocComment,
 	"genericArg":             genericArg,
 	"hasTypeParams":          hasTypeParams,
+	"fieldName":              fieldName,
 }
 
 var fileTemplate = template.Must(
@@ -2138,7 +2145,7 @@ class {{ .PyName }}({{ range $i, $n := .ExtendsNames }}{{ if $i }}, {{ end }}{{ 
 {{- if .KeyField }}
 
     def __hash__(self) -> int:
-        return hash(self.{{ .KeyField }})
+        return hash(self.{{ fieldName .KeyField }})
 {{- end }}
 {{- else if not (hasDocumentation .) }}
     pass
