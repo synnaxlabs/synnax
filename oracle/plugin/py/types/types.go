@@ -620,7 +620,7 @@ func processStruct(
 						processField(field, table, data, keyFields, form.OmittedFields),
 					)
 					if hashableKey(field) {
-						sd.KeyField = field.Name
+						sd.KeyField = fieldName(field.Name)
 					}
 				}
 				return sd, nil
@@ -689,7 +689,7 @@ func processStruct(
 						)
 						sd.Fields = append(sd.Fields, fd)
 						if hashableKey(childField) {
-							sd.KeyField = childField.Name
+							sd.KeyField = fieldName(childField.Name)
 						}
 					} else {
 						fd := processField(
@@ -701,7 +701,7 @@ func processStruct(
 						)
 						sd.Fields = append(sd.Fields, fd)
 						if hashableKey(pf) {
-							sd.KeyField = pf.Name
+							sd.KeyField = fieldName(pf.Name)
 						}
 					}
 					addedFields.Add(pf.Name)
@@ -720,7 +720,7 @@ func processStruct(
 					)
 					sd.Fields = append(sd.Fields, fd)
 					if hashableKey(field) {
-						sd.KeyField = field.Name
+						sd.KeyField = fieldName(field.Name)
 					}
 				}
 				return sd, nil
@@ -737,13 +737,13 @@ func processStruct(
 				sd.Fields = append(sd.Fields, fd)
 				// Only a required @key field yields a __hash__.
 				if hashableKey(field) {
-					sd.KeyField = field.Name
+					sd.KeyField = fieldName(field.Name)
 				}
 			}
 			// Also check parent fields for @key if not redefined
 			for _, pf := range parentFields {
 				if !redefinedFields.Contains(pf.Name) && hashableKey(pf) {
-					sd.KeyField = pf.Name
+					sd.KeyField = fieldName(pf.Name)
 				}
 			}
 
@@ -786,7 +786,7 @@ func processStruct(
 		sd.Fields = append(sd.Fields, processField(field, table, data, keyFields, nil))
 		// Only a required @key field yields a __hash__.
 		if hashableKey(field) {
-			sd.KeyField = field.Name
+			sd.KeyField = fieldName(field.Name)
 		}
 	}
 	return sd, nil
@@ -2145,7 +2145,7 @@ class {{ .PyName }}({{ range $i, $n := .ExtendsNames }}{{ if $i }}, {{ end }}{{ 
 {{- if .KeyField }}
 
     def __hash__(self) -> int:
-        return hash(self.{{ fieldName .KeyField }})
+        return hash(self.{{ .KeyField }})
 {{- end }}
 {{- else if not (hasDocumentation .) }}
     pass
