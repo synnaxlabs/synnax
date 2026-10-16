@@ -17,6 +17,8 @@ import pydantic
 import pytest
 
 import synnax as sy
+from synnax import label
+from synnax.ontology import ID
 from x.params import RequiresNamedParams
 from x.strings import random_name
 from x.testutil import assert_eventually
@@ -433,6 +435,122 @@ class TestRangeClient:
             child_names = {c.name for c in children}
             assert names[0] in child_names
             assert names[1] in child_names
+
+
+class _LabelCreateRequest(pydantic.BaseModel):
+    labels: list[label.Label]
+
+
+class _LabelSetRequest(pydantic.BaseModel):
+    id: ID
+    labels: list[label.Key]
+
+
+class _Empty(pydantic.BaseModel):
+    pass
+
+
+def _create_label(client: sy.Synnax, rng: sy.Range) -> label.Label:
+    lbl = label.Label(name=random_name(), color=sy.Color(r=255, g=0, b=0, a=1.0))
+    unary = client._transport.unary
+    unary.send("/label/create", _LabelCreateRequest(labels=[lbl]), _Empty)
+    req = _LabelSetRequest(id=rng.ontology_id, labels=[lbl.key])
+    unary.send("/label/set", req, _Empty)
+    return lbl
+
+
+@pytest.fixture(scope="class")
+def window() -> sy.TimeRange:
+    start = sy.TimeStamp(int(uuid4().int % 10**9) * sy.TimeSpan.SECOND)
+    return start.span_range(100 * sy.TimeSpan.SECOND)
+
+
+@pytest.fixture(scope="class")
+def window_ranges(client: sy.Synnax, window: sy.TimeRange) -> list[sy.Range]:
+    start = window.start
+    return client.ranges.create(
+        [
+            sy.Range(
+                name=random_name(),
+                time_range=(start + i * 40 * sy.TimeSpan.SECOND).span_range(
+                    10 * sy.TimeSpan.SECOND
+                ),
+            )
+            for i in range(3)
+        ]
+    )
+
+
+@pytest.mark.ranger
+class TestRangeRetrieveFilters:
+    """Tests the filters accepted by the range client's retrieve method."""
+
+    def test_overlaps_with(
+        self,
+        client: sy.Synnax,
+        window: sy.TimeRange,
+        window_ranges: list[sy.Range],
+    ) -> None:
+        """Should keep only ranges that overlap the time range"""
+        tr = window.start.span_range(50 * sy.TimeSpan.SECOND)
+        res = client.ranges.retrieve(overlaps_with=tr)
+        assert {r.key for r in res} == {r.key for r in window_ranges[:2]}
+
+    def test_limit_offset(
+        self,
+        client: sy.Synnax,
+        window: sy.TimeRange,
+        window_ranges: list[sy.Range],
+    ) -> None:
+        """Should page through the matching ranges"""
+        first = client.ranges.retrieve(overlaps_with=window, limit=2)
+        rest = client.ranges.retrieve(overlaps_with=window, limit=2, offset=2)
+        assert len(first) == 2
+        assert len(rest) == 1
+        keys = {r.key for r in first} | {r.key for r in rest}
+        assert keys == {r.key for r in window_ranges}
+
+    def test_search_term(
+        self, client: sy.Synnax, window_ranges: list[sy.Range]
+    ) -> None:
+        """Should retrieve ranges whose names match the search term"""
+        name = window_ranges[0].name
+
+        def check() -> None:
+            res = client.ranges.retrieve(search_term=name)
+            assert window_ranges[0].key in {r.key for r in res}
+
+        assert_eventually(check)
+
+    def test_has_labels(self, client: sy.Synnax, window_ranges: list[sy.Range]) -> None:
+        """Should keep only ranges with the label and attach labels on request"""
+        rng = window_ranges[1]
+        lbl = _create_label(client, rng)
+        res = client.ranges.retrieve(has_labels=[lbl.key])
+        assert [r.key for r in res] == [rng.key]
+        assert res[0].labels is None
+        res = client.ranges.retrieve(has_labels=[lbl.key], include_labels=True)
+        assert res[0].labels is not None
+        assert [lb.key for lb in res[0].labels] == [lbl.key]
+        single = client.ranges.retrieve(key=rng.key, include_labels=True)
+        assert single.labels is not None
+        assert [lb.name for lb in single.labels] == [lbl.name]
+
+    def test_include_parent(
+        self, client: sy.Synnax, window_ranges: list[sy.Range]
+    ) -> None:
+        """Should attach the parent of each range on request"""
+        parent = window_ranges[2]
+        child = parent.create_child_range(
+            name=random_name(), time_range=parent.time_range
+        )
+        assert client.ranges.retrieve(key=child.key).parent is None
+        res = client.ranges.retrieve(key=child.key, include_parent=True)
+        assert res.parent is not None
+        assert res.parent.key == parent.key
+        many = client.ranges.retrieve(keys=[child.key], include_parent=True)
+        assert many[0].parent is not None
+        assert many[0].parent.key == parent.key
 
 
 @pytest.mark.ranger
