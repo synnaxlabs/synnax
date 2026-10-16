@@ -365,8 +365,11 @@ class ExecutionClient:
             if test.range is not None:
                 try:
                     test.range = self._finalize_range(test.range)
-                except RuntimeError as e:
-                    self._log(f"Warning: Could not finalize range: {e}", True)
+                except Exception as e:
+                    self._log(
+                        f"Warning: Could not finalize range '{test.range.name}': {e}",
+                        True,
+                    )
 
             if test_instance is not None and test_instance._status != STATUS.KILLED:
                 if test.status in (
@@ -423,17 +426,14 @@ class ExecutionClient:
         server_log.slice_to(bundle / "server.log", start_offset, end_offset)
 
     def _finalize_range(self, test_range: sy.Range) -> sy.Range:
-        try:
-            return self._client.ranges.create(
-                key=test_range.key,
-                name=test_range.name,
-                time_range=sy.TimeRange(
-                    start=test_range.time_range.start,
-                    end=sy.TimeStamp.now(),
-                ),
-            )
-        except Exception as e:
-            raise RuntimeError(f"Failed to finalize range '{test_range.name}'") from e
+        return self._client.ranges.create(
+            key=test_range.key,
+            name=test_range.name,
+            time_range=sy.TimeRange(
+                start=test_range.time_range.start,
+                end=sy.TimeStamp.now(),
+            ),
+        )
 
     # ----- Timeout monitoring -----
 
@@ -502,9 +502,10 @@ class ExecutionClient:
                     )
                     try:
                         finalized_range = self._finalize_range(test_range)
-                    except RuntimeError as e:
+                    except Exception as e:
                         self._log(
-                            f"Warning: Could not finalize range for killed test: {e}",
+                            f"Warning: Could not finalize range '{test_range.name}' "
+                            f"for killed test: {e}",
                             True,
                         )
                         finalized_range = test_range
