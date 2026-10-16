@@ -200,6 +200,20 @@ var _ = Describe("Status", Ordered, func() {
 				},
 			)
 			It(
+				"Should return a validation error for an empty name",
+				func(ctx SpecContext) {
+					s := &status.Status[any]{
+						Name:    "Before",
+						Key:     "rename-empty-key",
+						Variant: status.VariantSuccess,
+						Time:    telem.Now(),
+					}
+					Expect(w.Set(ctx, s)).To(Succeed())
+					Expect(w.Rename(ctx, "rename-empty-key", "")).
+						To(MatchError(ContainSubstring("name: required")))
+				},
+			)
+			It(
 				"Should return a not found error for a missing status",
 				func(ctx SpecContext) {
 					Expect(w.Rename(ctx, "missing-rename-key", "After")).

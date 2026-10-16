@@ -573,6 +573,12 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(renamed.Details.Task).To(Equal(m.Key))
 			},
 		)
+		It("Should return a validation error for an empty name", func(ctx SpecContext) {
+			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Before"}
+			Expect(w.Create(ctx, m)).To(Succeed())
+			Expect(w.Rename(ctx, m.Key, "")).
+				To(MatchError(ContainSubstring("name: required")))
+		})
 		It("Should return a not found error for a missing task", func(ctx SpecContext) {
 			Expect(w.Rename(ctx, uuid.New(), "After")).
 				To(MatchError(query.ErrNotFound))

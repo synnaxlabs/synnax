@@ -167,8 +167,10 @@ func (s *Service) Retrieve(
 }
 
 type RenameRequest struct {
-	Name string   `json:"name" msgpack:"name"`
-	Key  task.Key `json:"key"  msgpack:"key"`
+	// Name is the new name. It must not be empty.
+	Name string `json:"name" msgpack:"name"`
+	// Key selects the task to rename.
+	Key task.Key `json:"key" msgpack:"key"`
 }
 
 func (s *Service) Rename(
