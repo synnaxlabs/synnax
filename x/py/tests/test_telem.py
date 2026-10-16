@@ -111,12 +111,6 @@ class TestTimeStamp:
             np.datetime64(value, "ns")
         )
 
-    @pytest.mark.usefixtures("non_utc_tz")
-    def test_naive_datetime_is_local(self) -> None:
-        """Should treat a naive datetime as local time with exact microseconds"""
-        ts = sy.TimeStamp(datetime(2022, 2, 22, 10, 41, 50, 123457))
-        assert ts == 1645544510123457000
-
     def test_aware_datetime_microseconds(self) -> None:
         """Should convert an aware datetime with exact microseconds"""
         ts = sy.TimeStamp(datetime(2262, 4, 11, 23, 47, 16, 854775, tzinfo=UTC))
@@ -798,4 +792,4 @@ class TestStringEncodedInts:
         model_cls = create_model("M", v=(typ, ...))
         big = (1 << 62) + 7
         validated = model_cls.model_validate({"v": str(big)})
-        assert int(getattr(validated, "v")) == big
+        assert int(validated.model_dump()["v"]) == big

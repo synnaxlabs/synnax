@@ -54,7 +54,7 @@ from x.params import require_named_params
 RANGE_SET_CHANNEL = "sy_range_set"
 
 # Pydantic declares BaseModel.__getattr__ only at runtime.
-_model_getattr: Callable[[BaseModel, str], object] = getattr(BaseModel, "__getattr__")
+_model_getattr: Callable[[BaseModel, str], object] = vars(BaseModel)["__getattr__"]
 
 
 class _InternalScopedChannel(ArrayOperators, channel.Payload):

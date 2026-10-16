@@ -61,10 +61,13 @@ line-length = 88
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["F", "I"]
+select = ["F", "I", "B", "DTZ", "E7", "E9", "PLE", "RUF012"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["synnax", "alamos", "freighter", "x"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["uuid.UUID"]
 
 [tool.mypy]
 mypy_path = "stubs"

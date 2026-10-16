@@ -126,7 +126,7 @@ class MockPrompt:
             password=password,
             response=response,
         )
-        if type(response) != resolved_type:
+        if type(response) is not resolved_type:
             raise TypeError(f"""
                 Mock Prompt: Invalid response type
                 Question: {question}
@@ -141,7 +141,7 @@ class MockConsole(MockPrint, MockPrompt):
 
     def __init__(
         self,
-        output: Output = Output(),
+        output: Output | None = None,
         responses: list[Any] | None = None,
         verbose: bool = False,
     ):
@@ -150,6 +150,7 @@ class MockConsole(MockPrint, MockPrompt):
         :param responses: A list of responses to return in order. These responses
         must be valid for the type of prompt being used.
         """
+        output = output if output is not None else Output()
         MockPrint.__init__(self, output, verbose)
         MockPrompt.__init__(self, output, responses or list())
 

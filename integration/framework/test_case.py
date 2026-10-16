@@ -175,7 +175,7 @@ class TestCase(ABC):
         else:
             self.log(f"Writer thread error: {e}\n {traceback.format_exc()}")
             self.STATUS = STATUS.FAILED
-            raise
+            raise e
 
     def log(self, message: str) -> None:
         """Log a message. Buffered and dumped on failure unless `tc --logs` is set."""
@@ -522,7 +522,7 @@ class TestCase(ABC):
                 try:
                     self.tlm[self._ch_state] = value.value
                 except Exception as e:
-                    raise RuntimeError(f"Failed to set status: {e}")
+                    raise RuntimeError("Failed to set status") from e
         else:
             self.log(f"Invalid status change: {self._status} -> {value}")
 

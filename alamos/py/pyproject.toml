@@ -27,7 +27,7 @@ line-length = 88
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["F", "I"]
+select = ["F", "I", "B", "DTZ", "E7", "E9", "PLE", "RUF012"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["alamos"]

@@ -176,7 +176,8 @@ class WriteFrameAdapter:
                         and is not recommended. To suppress this warning,
                         set suppress_warnings=True when constructing the writer. To
                         raise an error instead, set strict=True when constructing
-                        the writer."""
+                        the writer.""",
+                        stacklevel=3,
                     )
                 frame.series[i] = series.astype(ch.data_type)
         return frame
@@ -260,7 +261,7 @@ class WriteFrameAdapter:
                         raise ValidationError(
                             f"Channel {e} was not provided in the list of "
                             f"channels when the writer was opened."
-                        )
+                        ) from e
             return Frame(channels=adapted_channels, series=adapted_series)
 
         if isinstance(channels_or_data, Mapping):

@@ -265,7 +265,7 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
             pane.get_by_text(name).first.wait_for(state="visible", timeout=10000)
 
         self.log("Testing: Rename channels back from task config form")
-        for old_name, new_name in zip(renamed_names, original_names):
+        for old_name, new_name in zip(renamed_names, original_names, strict=True):
             channel_text = pane.get_by_text(old_name).first
             channel_text.wait_for(state="visible", timeout=5000)
             self.console.layout.ctx_menu.action(channel_text, "Rename")
