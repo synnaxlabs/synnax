@@ -11,6 +11,7 @@ import pytest
 from pydantic import ValidationError
 
 import synnax as sy
+from tests.json_value import arr, obj
 
 
 @pytest.mark.ethercat
@@ -627,10 +628,12 @@ class TestEtherCATDevice:
         assert props["position"] == 0
         assert props["vendor_id"] == 0x00000002
         assert props["product_code"] == 0x12345678
-        assert len(props["pdos"]["inputs"]) == 2
-        assert len(props["pdos"]["outputs"]) == 1
-        assert props["pdos"]["inputs"][0]["name"] == "Position actual value"
-        assert props["pdos"]["outputs"][0]["name"] == "Target velocity"
+        inputs = arr(props, "pdos", "inputs")
+        outputs = arr(props, "pdos", "outputs")
+        assert len(inputs) == 2
+        assert len(outputs) == 1
+        assert obj(inputs[0])["name"] == "Position actual value"
+        assert obj(outputs[0])["name"] == "Target velocity"
 
     def test_device_auto_key_generation(self) -> None:
         """Test that Device auto-generates key if not provided."""

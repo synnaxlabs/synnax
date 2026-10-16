@@ -10,6 +10,7 @@
 import os
 import platform
 from collections import deque
+from collections.abc import Callable
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -20,6 +21,11 @@ from tests.latency.latency import Latency
 from x import get_cpu_cores, get_machine_info, get_memory_info
 
 matplotlib.use("Agg")  # Use non-interactive backend
+
+
+def _equals(channel: int, value: int) -> Callable[[sy.Controller], bool]:
+    """Returns a condition that holds once the channel's value equals value."""
+    return lambda c: bool(c[channel] == value)
 
 
 class DriverNIDigitalWrite(Latency):
@@ -117,7 +123,7 @@ class DriverNIDigitalWrite(Latency):
 
                     # Wait for state to match command
                     ctrl.wait_until(
-                        lambda c, state=int(cmd_state): c[do_1_state.key] == state,
+                        _equals(do_1_state.key, int(cmd_state)),
                         timeout=1,
                     )
                     state_timestamp_loop = sy.TimeStamp.now()

@@ -33,10 +33,10 @@ class TestCodec:
         def __init__(
             self,
             name: str,
-            channels: list[Key] | tuple[Key],
+            channels: list[Key],
             data_types: list[sy.DataType],
             frame: sy.Frame,
-        ):
+        ) -> None:
             self.name = name
             self.channels = channels
             self.data_types = data_types
@@ -332,7 +332,7 @@ class TestCodec:
             ),
         ],
     )
-    def test_encoder_decoder(self, spec: Spec):
+    def test_encoder_decoder(self, spec: Spec) -> None:
         codec = Codec(spec.channels, spec.data_types)
         encoded = codec.encode(spec.frame)
         decoded = codec.decode(encoded)
@@ -340,14 +340,14 @@ class TestCodec:
         for i, key in enumerate(decoded.keys):
             dec_ser = decoded.series[i]
             or_ser = spec.frame[key].series[0]
-            assert np.array_equal(list(dec_ser), list(or_ser))
+            assert list(dec_ser) == list(or_ser)
             if or_ser.time_range is None:
                 assert dec_ser.time_range == sy.TimeRange.ZERO
             else:
                 assert dec_ser.time_range == or_ser.time_range
             assert dec_ser.alignment == or_ser.alignment
 
-    def test_bool_reference_vector(self):
+    def test_bool_reference_vector(self) -> None:
         """The reference vector [1,0,1,1,0,0,0,1,1] must pack to bytes [0x8D, 0x01]
         LSB-first across all language codecs. Any divergence here is a cross-language
         wire-format bug.
@@ -360,7 +360,7 @@ class TestCodec:
         unpacked = _unpack_bool_bits(memoryview(packed), len(samples))
         assert unpacked == samples
 
-    def test_dynamic_codec_update(self):
+    def test_dynamic_codec_update(self) -> None:
         """Tests that the codec can be updated with new channels and correctly encode/decode after update"""
         codec = Codec()
         # First update and verification
@@ -372,7 +372,7 @@ class TestCodec:
         decoded = codec.decode(encoded)
         assert len(decoded.keys) == 1
         assert decoded.keys[0] == 1
-        assert np.array_equal(list(decoded.series[0]), [1, 2, 3])
+        assert list(decoded.series[0]) == [1, 2, 3]
 
         # Second update and verification
         codec.update([2], [sy.DataType.INT64])
@@ -383,9 +383,9 @@ class TestCodec:
         decoded2 = codec.decode(encoded2)
         assert len(decoded2.keys) == 1
         assert decoded2.keys[0] == 2
-        assert np.array_equal(list(decoded2.series[0]), [1, 2, 3])
+        assert list(decoded2.series[0]) == [1, 2, 3]
 
-    def test_uninitialized_codec(self):
+    def test_uninitialized_codec(self) -> None:
         """Tests that using an uninitialized codec raises appropriate errors"""
         codec = Codec()
         frame = sy.Frame(
@@ -394,7 +394,7 @@ class TestCodec:
         with pytest.raises(ValueError):
             codec.encode(frame)
 
-    def test_iterator_ws_codec_data_response(self):
+    def test_iterator_ws_codec_data_response(self) -> None:
         """Should binary-decode a data variant response and synthesize variant=Data"""
         base = Codec([1], [sy.DataType.INT32])
         codec = WSIteratorCodec(base)
@@ -408,9 +408,9 @@ class TestCodec:
         assert msg.payload is not None
         assert msg.payload.variant == _ResponseVariant.DATA
         assert msg.payload.frame.keys == [1]
-        assert np.array_equal(list(msg.payload.frame.series[0]), [1, 2, 3])
+        assert list(msg.payload.frame.series[0]) == [1, 2, 3]
 
-    def test_iterator_ws_codec_ack_response(self):
+    def test_iterator_ws_codec_ack_response(self) -> None:
         """Should JSON-decode an ack variant response prefixed with the low-perf char"""
         base = Codec([1], [sy.DataType.INT32])
         codec = WSIteratorCodec(base)
@@ -431,7 +431,7 @@ class TestCodec:
         assert decoded.payload.variant == _ResponseVariant.ACK
         assert decoded.payload.ack is True
 
-    def test_iterator_ws_codec_request_is_json(self):
+    def test_iterator_ws_codec_request_is_json(self) -> None:
         """Should JSON-encode an iterator request without a special-char prefix"""
         base = Codec([1], [sy.DataType.INT32])
         codec = WSIteratorCodec(base)
@@ -445,7 +445,7 @@ class TestCodec:
         encoded = codec.encode(req)
         assert encoded[0] in (ord("{"), ord("["))
 
-    def test_out_of_sync_codecs(self):
+    def test_out_of_sync_codecs(self) -> None:
         """Tests correct behavior when encoder and decoder are out of sync with different states"""
         encoder = Codec()
         decoder = Codec()
@@ -460,7 +460,7 @@ class TestCodec:
         decoded = decoder.decode(encoded)
         assert len(decoded.keys) == 1
         assert decoded.keys[0] == 1
-        assert np.array_equal(list(decoded.series[0]), [1, 2, 3])
+        assert list(decoded.series[0]) == [1, 2, 3]
 
         # Decoder updates but encoder doesn't - should still work with old format
         decoder.update([2], [sy.DataType.INT64])
@@ -468,7 +468,7 @@ class TestCodec:
         decoded = decoder.decode(encoded)
         assert len(decoded.keys) == 1
         assert decoded.keys[0] == 1
-        assert np.array_equal(list(decoded.series[0]), [1, 2, 3])
+        assert list(decoded.series[0]) == [1, 2, 3]
 
         # Encoder updates - old frame should now fail
         encoder.update([2], [sy.DataType.INT64])
@@ -483,4 +483,4 @@ class TestCodec:
         decoded2 = decoder.decode(encoded2)
         assert len(decoded2.keys) == 1
         assert decoded2.keys[0] == 2
-        assert np.array_equal(list(decoded2.series[0]), [1, 2, 3])
+        assert list(decoded2.series[0]) == [1, 2, 3]

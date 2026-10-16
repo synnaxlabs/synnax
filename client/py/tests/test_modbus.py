@@ -12,6 +12,7 @@ from pydantic import ValidationError
 
 import synnax as sy
 from synnax.modbus.types import _READ_NAME_TYPES, _WRITE_NAME_TYPES
+from tests.json_value import arr, obj
 from x.strings import random_name
 
 
@@ -254,9 +255,10 @@ class TestModbusReadTask:
         assert payload.config["device"] == "some-device-key"
         assert payload.config["data_saving_disabled"] is False
         assert payload.config["auto_start"] is False
-        assert len(payload.config["channels"]) == 1
-        assert payload.config["channels"][0]["address"] == 0
-        assert payload.config["channels"][0]["data_type"] == "float32"
+        channels = arr(payload.config, "channels")
+        assert len(channels) == 1
+        assert obj(channels[0])["address"] == 0
+        assert obj(channels[0])["data_type"] == "float32"
 
     def test_create_and_retrieve_read_task(self, client: sy.Synnax) -> None:
         """Test that ReadTask can be created and retrieved from the database."""
@@ -453,8 +455,9 @@ class TestModbusWriteTask:
         assert isinstance(payload.config, dict)
         assert payload.config["device"] == "some-device-key"
         assert payload.config["auto_start"] is False
-        assert len(payload.config["channels"]) == 1
-        assert payload.config["channels"][0]["address"] == 5
+        channels = arr(payload.config, "channels")
+        assert len(channels) == 1
+        assert obj(channels[0])["address"] == 5
 
     def test_create_and_retrieve_write_task(self, client: sy.Synnax) -> None:
         """Test that WriteTask can be created and retrieved from the database."""
@@ -613,12 +616,12 @@ class TestModbusDevicePropertyUpdates:
 
         # Verify read.channels mapping exists
         assert "read" in updated_device.properties
-        assert "channels" in updated_device.properties["read"]
+        assert "channels" in obj(updated_device.properties, "read")
 
         # Verify channel keys match Console format:
         # InputRegisterReadChannel: "register-input-{address}-{dataType}"
         # HoldingRegisterReadChannel: "holding-register-input-{address}-{dataType}"
-        channels = updated_device.properties["read"]["channels"]
+        channels = obj(updated_device.properties, "read", "channels")
 
         # Check InputRegisterReadChannel mapping (type-address-dataType,
         # underscores replaced with hyphens)
@@ -694,10 +697,10 @@ class TestModbusDevicePropertyUpdates:
 
         # Verify write.channels mapping exists
         assert "write" in updated_device.properties
-        assert "channels" in updated_device.properties["write"]
+        assert "channels" in obj(updated_device.properties, "write")
 
         # Verify channel keys match Console format (type-address, no dataType for write)
-        channels = updated_device.properties["write"]["channels"]
+        channels = obj(updated_device.properties, "write", "channels")
 
         # Check coil output mapping (type-address, underscores replaced with hyphens)
         assert "coil-output-10" in channels

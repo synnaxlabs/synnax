@@ -10,6 +10,7 @@
 import pytest
 
 import synnax as sy
+from tests.json_value import arr, obj
 
 
 @pytest.mark.pagerduty
@@ -149,8 +150,9 @@ class TestPagerDutyAlertTask:
         payload = task.to_payload()
         assert payload.config["routing_key"] == "12345678901234567890123456789012"
         assert payload.config["auto_start"] is True
-        assert len(payload.config["alerts"]) == 1
-        alert = payload.config["alerts"][0]
+        alerts = arr(payload.config, "alerts")
+        assert len(alerts) == 1
+        alert = obj(alerts[0])
         assert alert["status"] == "db-health"
         assert alert["class"] == "db_error"
         assert "class_" not in alert
