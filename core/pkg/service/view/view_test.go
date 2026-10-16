@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -113,6 +114,46 @@ var _ = Describe("View", func() {
 				)).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
 				Expect(retrieved).To(HaveLen(2))
 			})
+		})
+
+		Describe("Rename", func() {
+			It(
+				"Should rename a view, keeping every other field",
+				func(ctx SpecContext) {
+					s := &view.View{
+						Name:  "Before",
+						Key:   uuid.New(),
+						Type:  "lineplot",
+						Query: msgpack.EncodedJSON{"channels": "temp"},
+					}
+					Expect(w.Create(ctx, s)).To(Succeed())
+					Expect(w.Rename(ctx, s.Key, "After")).To(Succeed())
+					var res view.View
+					Expect(svc.NewRetrieve().
+						Where(view.MatchKeys(s.Key)).
+						Entry(&res).
+						Exec(ctx, tx)).To(Succeed())
+					expected := *s
+					expected.Name = "After"
+					Expect(res).To(Equal(expected))
+				},
+			)
+			It(
+				"Should return a validation error for an empty name",
+				func(ctx SpecContext) {
+					s := &view.View{Name: "Before", Key: uuid.New(), Type: "test"}
+					Expect(w.Create(ctx, s)).To(Succeed())
+					Expect(w.Rename(ctx, s.Key, "")).
+						To(MatchError(ContainSubstring("name: required")))
+				},
+			)
+			It(
+				"Should return a not found error for a missing view",
+				func(ctx SpecContext) {
+					Expect(w.Rename(ctx, uuid.New(), "After")).
+						To(MatchError(query.ErrNotFound))
+				},
+			)
 		})
 
 		Describe("Delete", func() {

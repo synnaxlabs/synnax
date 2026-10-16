@@ -200,6 +200,25 @@ func (w Writer) CreateMany(ctx context.Context, tasks *[]Task) error {
 	return nil
 }
 
+// Rename renames the task with the given key and its status, keeping every other field,
+// including its config. It returns query.ErrNotFound if no task with the key exists.
+func (w Writer) Rename(ctx context.Context, key Key, name string) error {
+	if err := w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Task](key)).
+		Change(func(_ gorp.Context, t Task) Task {
+			t.Name = name
+			return t
+		}).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	// A missing status row is valid: the next Create heals it.
+	return errors.Skip(
+		w.status.Rename(ctx, OntologyID(key).String(), name),
+		query.ErrNotFound,
+	)
+}
+
 // Delete deletes the task with the given key, its config record, and its associated
 // status.
 func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
