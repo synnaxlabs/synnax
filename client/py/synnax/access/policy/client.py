@@ -14,8 +14,7 @@ from pydantic import BaseModel, Field
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
-from synnax.access.policy.payload import Key, Policy
-from synnax.exceptions import NotFoundError
+from synnax.access.policy.payload import Policy
 from synnax.ontology.payload import ID
 from x.lists import normalize
 
@@ -93,15 +92,3 @@ class Client:
     def delete(self, keys: UUID | list[UUID]) -> None:
         req = _DeleteRequest(keys=normalize(keys))
         self._client.send("/access/policy/delete", req, Empty)
-
-    def rename(self, key: Key, name: str) -> None:
-        """Renames a policy.
-
-        :param key: The key of the policy to rename.
-        :param name: The new name for the policy.
-        :raises NotFoundError: If no policy has the given key.
-        """
-        policies = self.retrieve(keys=[key])
-        if len(policies) == 0:
-            raise NotFoundError(f"Policy with key {key} not found")
-        self.create(policies[0].model_copy(update={"name": name}))

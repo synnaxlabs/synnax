@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
-from synnax.access.role.types_gen import Key, Role
+from synnax.access.role.types_gen import Role
 from x.lists import normalize
 
 
@@ -123,15 +123,6 @@ class Client:
     def delete(self, keys: UUID | list[UUID]) -> None:
         req = _DeleteRequest(keys=normalize(keys))
         self._client.send("/access/role/delete", req, Empty)
-
-    def rename(self, key: Key, name: str) -> None:
-        """Renames a role.
-
-        :param key: The key of the role to rename.
-        :param name: The new name for the role.
-        """
-        role = self.retrieve(key)
-        self.create(role.model_copy(update={"name": name}))
 
     def assign(self, user: UUID, role: UUID) -> None:
         """Assign a role to a user.
