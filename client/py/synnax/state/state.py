@@ -29,7 +29,8 @@ class State:
                 self.value[key] = frame[key]
 
     def __getitem__(self, ch: channel.Key | str) -> MultiSeries:
-        return self.value[self._keys[ch] if isinstance(ch, str) else ch]
+        param = channel.normalize_params(ch).channels[0]
+        return self.value[self._keys[param] if isinstance(param, str) else param]
 
     def __getattr__(self, name: str) -> MultiSeries:
         return self.__getitem__(name)
