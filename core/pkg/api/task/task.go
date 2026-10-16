@@ -166,6 +166,26 @@ func (s *Service) Retrieve(
 	return res, nil
 }
 
+type RenameRequest struct {
+	Name string   `json:"name" msgpack:"name"`
+	Key  task.Key `json:"key"  msgpack:"key"`
+}
+
+func (s *Service) Rename(
+	ctx context.Context,
+	tx gorp.Tx,
+	req RenameRequest,
+) (struct{}, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{task.OntologyID(req.Key)},
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.task.NewWriter(tx).Rename(ctx, req.Key, req.Name)
+}
+
 type DeleteRequest struct {
 	Keys []task.Key `json:"keys" msgpack:"keys"`
 }

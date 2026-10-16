@@ -65,6 +65,19 @@ func (w Writer) CreateMany(ctx context.Context, views *[]View) error {
 	return nil
 }
 
+// Rename renames the view with the given key, keeping every other field. It returns
+// query.ErrNotFound if no view with the key exists and a validation error if name is
+// empty.
+func (w Writer) Rename(ctx context.Context, key Key, name string) error {
+	return w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, View](key)).
+		ChangeErr(func(_ gorp.Context, v View) (View, error) {
+			v.Name = name
+			return v, w.validate(v)
+		}).
+		Exec(ctx, w.tx)
+}
+
 // Delete deletes the views with the given keys. Delete is idempotent.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	if err := w.table.NewDelete().Where(gorp.MatchKeys[Key, View](keys...)).
