@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/channel"
+import "schemas/synnax/ranger"
 import "schemas/x/color"
 import "schemas/x/notation"
 import "schemas/x/telem"
@@ -82,6 +83,14 @@ Log struct {
     }
     receipt_timestamp_hidden bool = false {
         @doc value "is true when the receipt timestamp column is hidden."
+    }
+    range                    ranger.Ref = {
+        variant = "window",
+        window = { variant = "dynamic", time_span = 604800000000000 }
+    } {
+        @doc value """
+            is the range the log displays. It defaults to a rolling 7-day window.
+        """
     }
 
     action Create {
@@ -227,6 +236,12 @@ Log struct {
         receipt_timestamp_hidden bool
 
         @doc value "sets whether the receipt timestamp column is hidden."
+    }
+
+    action SetRange {
+        range ranger.Ref
+
+        @doc value "sets the range the log displays."
     }
 
     @create

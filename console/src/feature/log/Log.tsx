@@ -15,6 +15,7 @@ import { Controls } from "@/feature/log/Controls";
 import { ContextMenu } from "@/platform/context-menu";
 import { Empty } from "@/platform/empty";
 import { type Panel } from "@/platform/panel";
+import { Range } from "@/platform/range";
 import { Session } from "@/session";
 
 const EXTRA_CONTEXT_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;
@@ -26,6 +27,7 @@ const Internal: Panel.Content = () => {
   const channelKeys = Base.useChannelKeys();
   const hasChannels = channelKeys.some((k) => !primitive.isZero(k));
   const hold = Session.Log.useSelectHold();
+  const resolvedRange = Range.useResolveRef(Base.useRange());
 
   const handleDoubleClick = useCallback(() => {
     dispatch(Session.Nav.showBottom({}));
@@ -55,6 +57,7 @@ const Internal: Panel.Content = () => {
         />
       }
       visible={visible}
+      resolvedRange={resolvedRange}
     >
       <Controls />
     </Base.Log>

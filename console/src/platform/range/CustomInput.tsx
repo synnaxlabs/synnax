@@ -7,10 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { lineplot } from "@synnaxlabs/client";
 import { Input } from "@synnaxlabs/lyra/input";
-import { LinePlot } from "@synnaxlabs/pluto";
-import { TimeSpan } from "@synnaxlabs/x";
+import { type telem, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 // SY-4816: Static range entry, when added, should stop at 1s, which also simplifies
@@ -45,28 +43,44 @@ export const parseSpan = (input: string): number | null => {
   return total > 0 ? total : null;
 };
 
-/** Edits the rolling window the plot's "custom" range key resolves to. */
-export const CustomRangeInput = (): ReactElement => {
-  const custom = LinePlot.useCustomRange();
-  const dispatch = LinePlot.useSingleDispatch();
+export interface CustomInputProps extends Omit<
+  Input.ItemProps,
+  "label" | "onChange" | "children"
+> {
+  value: telem.Window | undefined;
+  onChange: (value: telem.Window) => void;
+  autoFocus?: boolean;
+  disabled?: boolean;
+}
+
+/** Edits the rolling window the "custom" range key resolves to. */
+export const CustomInput = ({
+  value,
+  onChange,
+  autoFocus,
+  disabled,
+  ...rest
+}: CustomInputProps): ReactElement => {
   const handleChange = useCallback(
     (raw: string) => {
       const span = parseSpan(raw);
       if (span == null) return;
-      dispatch(lineplot.setCustomRange({ custom: { variant: "dynamic", span } }));
+      onChange({ variant: "dynamic", timeSpan: span });
     },
-    [dispatch],
+    [onChange],
   );
-  const value =
-    custom?.variant === "dynamic" ? new TimeSpan(custom.span).toString() : "";
+  const text =
+    value?.variant === "dynamic" ? new TimeSpan(value.timeSpan).toString() : "";
   return (
-    <Input.Item x label="Custom">
+    <Input.Item x label="Custom" {...rest}>
       <Input.Text
-        value={value}
+        value={text}
         onChange={handleChange}
         onlyChangeOnBlur
         resetOnBlurIfEmpty
         placeholder="1h 30m"
+        autoFocus={autoFocus}
+        disabled={disabled}
         grow
       />
     </Input.Item>

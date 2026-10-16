@@ -14,6 +14,7 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { ontology } from "@/ontology";
+import { ranger } from "@/ranger";
 
 /** TimestampConfig is per-channel timestamp display configuration. */
 export const timestampConfigZ = z.object({
@@ -65,6 +66,11 @@ export const logZ = z.object({
   channelNamesHidden: z.boolean().default(false),
   /** receiptTimestampHidden is true when the receipt timestamp column is hidden. */
   receiptTimestampHidden: z.boolean().default(false),
+  /** range is the range the log displays. It defaults to a rolling 7-day window. */
+  range: ranger.refZ.prefault({
+    variant: "window",
+    window: { variant: "dynamic", timeSpan: 604800000000000 },
+  }),
 });
 export interface Log extends z.infer<typeof logZ> {}
 export interface New extends z.input<typeof logZ> {}

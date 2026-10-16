@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/query"
@@ -45,6 +46,21 @@ var _ = Describe("Writer", func() {
 				l := log.Log{}
 				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).
 					To(MatchError(ContainSubstring("name: required")))
+			},
+		)
+
+		It(
+			"Should return a validation error when a channel precision exceeds 17",
+			func(ctx SpecContext) {
+				l := log.Log{
+					Name:     "test",
+					Channels: []log.ChannelEntry{{Channel: 1, Precision: 100}},
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(MatchError(
+					ContainSubstring(
+						"channels.0.precision: must be less than or equal to 17",
+					),
+				))
 			},
 		)
 
@@ -429,6 +445,47 @@ var _ = Describe("Writer", func() {
 				Expect(res.ChannelNamesHidden).To(BeTrue())
 				Expect(res.ReceiptTimestampHidden).To(BeTrue())
 			})
+
+			It(
+				"Should default the range to a rolling 7d window",
+				func(ctx SpecContext) {
+					l := log.Log{Name: "test"}
+					Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+					Expect(retrieve(ctx, l.Key).Range).To(Equal(ranger.Ref{
+						Variant: ranger.WindowRef{Window: telem.Window{
+							Variant: telem.DynamicWindow{TimeSpan: 7 * telem.Day},
+						}},
+					}))
+				},
+			)
+
+			DescribeTable("Should set the range via SetRange",
+				func(ctx SpecContext, ref ranger.Ref) {
+					l := log.Log{Name: "test"}
+					Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
+						log.NewSetRangeAction(log.SetRangePayload{Range: ref}),
+					})).To(Succeed())
+					Expect(retrieve(ctx, l.Key).Range).To(Equal(ref))
+				},
+				Entry("a saved range", ranger.Ref{
+					Variant: ranger.KeyRef{Key: uuid.MustParse(
+						"11111111-2222-3333-4444-555555555555",
+					)},
+				}),
+				Entry("a rolling window", ranger.Ref{
+					Variant: ranger.WindowRef{Window: telem.Window{
+						Variant: telem.DynamicWindow{TimeSpan: telem.Minute},
+					}},
+				}),
+				Entry("a fixed window", ranger.Ref{
+					Variant: ranger.WindowRef{Window: telem.Window{
+						Variant: telem.StaticWindow{
+							TimeRange: telem.TimeRange{Start: 0, End: 1000},
+						},
+					}},
+				}),
+			)
 		})
 
 		Describe("atomicity and broadcast", func() {

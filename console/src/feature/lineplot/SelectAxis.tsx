@@ -11,9 +11,10 @@ import { type channel, lineplot } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Channel, LinePlot } from "@synnaxlabs/pluto";
+import { type telem } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
-import { CustomRangeInput } from "@/feature/lineplot/CustomRangeInput";
+import { fromWindow, toWindow } from "@/feature/lineplot/customRange";
 import { Range } from "@/platform/range";
 import { Session } from "@/session";
 
@@ -83,6 +84,22 @@ export const XAxisChannelSelect = ({
         location="top"
       />
     </Input.Item>
+  );
+};
+
+const CustomRangeInput = (): ReactElement => {
+  const custom = LinePlot.useCustomRange();
+  const dispatch = LinePlot.useSingleDispatch();
+  const handleChange = useCallback(
+    (window: telem.Window) =>
+      dispatch(lineplot.setCustomRange({ custom: fromWindow(window) })),
+    [dispatch],
+  );
+  return (
+    <Range.CustomInput
+      value={custom == null ? undefined : toWindow(custom)}
+      onChange={handleChange}
+    />
   );
 };
 

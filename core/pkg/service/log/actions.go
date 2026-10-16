@@ -197,6 +197,12 @@ func (p SetReceiptTimestampHiddenPayload) Handle(state Log) (Log, error) {
 	return state, nil
 }
 
+// Handle sets the range the log displays.
+func (p SetRangePayload) Handle(state Log) (Log, error) {
+	state.Range = p.Range
+	return state, nil
+}
+
 // channelEntryIndex returns the index of the entry referencing the given channel,
 // or -1 when no entry references it.
 func channelEntryIndex(entries []ChannelEntry, key channel.Key) int {

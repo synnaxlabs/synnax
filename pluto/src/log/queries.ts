@@ -73,6 +73,8 @@ export const useIsHidingReceiptTimestamp = Scope.bindHook(
   createSelector(({ receiptTimestampHidden }) => receiptTimestampHidden),
 );
 
+export const useRange = Scope.bindHook(createSelector(({ range }) => range));
+
 export const {
   useDispatch,
   useUndo: useUndoBase,

@@ -26,6 +26,7 @@ import {
   setChannels,
   setChannelTimestampFormat,
   setChannelTimestampTz,
+  setRange,
   setReceiptTimestampHidden,
   setTimestampPrecision,
   swapChannel,
@@ -199,6 +200,12 @@ const handlers: Handlers = {
       inverse: [setReceiptTimestampHidden({ receiptTimestampHidden: oldValue })],
       targets: [state.key],
     };
+  },
+
+  setRange: (state, payload) => {
+    const oldRange = actions.snapshotDraft(state.range);
+    state.range = payload.range;
+    return { inverse: [setRange({ range: oldRange })], targets: [state.key] };
   },
 };
 

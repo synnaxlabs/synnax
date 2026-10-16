@@ -19,6 +19,7 @@ import { telemTest } from "@/telem/aether/test";
 import { withinBounds } from "@/telem/aether/transformers";
 
 class MockClient implements Client {
+  readLatest = async (): Promise<MultiSeries> => new MultiSeries([]);
   now = (): TimeStamp => TimeStamp.now();
   key = id.create();
   streamHandler: framer.StreamHandler | null = null;
@@ -45,6 +46,8 @@ class MockClient implements Client {
       return telemTest.mockSubscription(() => {});
     },
   };
+
+  exactFeed = { stream: this.feed.stream };
 }
 
 // The source a light, valve, or switch ships with.

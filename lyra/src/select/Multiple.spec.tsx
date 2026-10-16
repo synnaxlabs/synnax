@@ -104,6 +104,15 @@ describe("Select.Multiple", () => {
     expect(c.getByText("Third Item Option")).toBeTruthy();
   });
 
+  it("should not open the selection dialog when disabled", () => {
+    const { SelectMultiple } = createSelectMultiple();
+    const c = render(<SelectMultiple disabled />);
+    const trigger = c.getByRole("button", { name: "Test Items" });
+    expect(trigger.getAttribute("aria-disabled")).toBe("true");
+    fireEvent.click(trigger);
+    expect(c.queryByText("First Item Option")).toBeNull();
+  });
+
   it("should close the selection dialog when the user clicks on the trigger", () => {
     const { SelectMultiple } = createSelectMultiple();
     const c = render(<SelectMultiple />);

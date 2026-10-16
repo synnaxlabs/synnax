@@ -232,6 +232,44 @@ describe("log/aether/Log", () => {
     });
   });
 
+  describe("loading", () => {
+    it("should keep its entries while the source loads", () => {
+      const { log, source } = setup([makeEntry(0), makeEntry(1)]);
+      source.isLoading = true;
+      source.setEntries([]);
+      source.notify();
+      expect(log.entries.map((e) => e.value)).toEqual(["0", "1"]);
+      expect(log.state.empty).toBe(false);
+    });
+
+    it("should keep its entries when reading the source starts a load", () => {
+      const { log, source } = setup([makeEntry(0)]);
+      source.loadsOnValue = true;
+      source.setEntries([]);
+      source.notify();
+      expect(log.entries.map((e) => e.value)).toEqual(["0"]);
+    });
+
+    it("should read a loading source so it can restart a canceled read", () => {
+      const { source } = setup([makeEntry(0)]);
+      source.isLoading = true;
+      const before = source.valueCalls;
+      source.notify();
+      expect(source.valueCalls).toBe(before + 1);
+    });
+
+    it("should replace its entries once the source has loaded", () => {
+      const { log, source } = setup([makeEntry(0)]);
+      source.isLoading = true;
+      source.setEntries([]);
+      source.notify();
+      source.isLoading = false;
+      source.setEntries([makeEntry(5)]);
+      source.notify();
+      expect(log.entries.map((e) => e.value)).toEqual(["5"]);
+    });
+  });
+
   describe("logStateZ schema", () => {
     it("should provide defaults for new selection fields", () => {
       const parsed = logStateZ.parse({
@@ -467,7 +505,6 @@ describe("log/aether/Log", () => {
         selectionEnd: 10,
       });
 
-      source.evictedCount = 3;
       source.setEntries(entries.slice(3));
       source.notify();
 
@@ -489,7 +526,6 @@ describe("log/aether/Log", () => {
         selectionEnd: 2,
       });
 
-      source.evictedCount = 5;
       source.setEntries(entries.slice(5));
       source.notify();
 
@@ -512,7 +548,6 @@ describe("log/aether/Log", () => {
         selectionEnd: 10,
       });
 
-      source.evictedCount = 0;
       source.notify();
 
       expect(log.state.selectionStart).toBe(5);
@@ -534,12 +569,86 @@ describe("log/aether/Log", () => {
       });
 
       // Evict 4 entries — start goes negative, end stays positive
-      source.evictedCount = 4;
       source.setEntries(entries.slice(4));
       source.notify();
 
       expect(log.state.selectionStart).toBe(0);
       expect(log.state.selectionEnd).toBe(4);
+    });
+  });
+
+  describe("anchoring on insert", () => {
+    it("should keep the selection on its entries when an earlier one arrives", () => {
+      const entries = Array.from({ length: 20 }, (_, i) => makeEntry(i));
+      const { log, source, updateState } = setup(entries);
+      updateState({
+        region: REGION_500,
+        wheelPos: 0,
+        scrolling: false,
+        empty: true,
+        visible: true,
+        selectionStart: 5,
+        selectionEnd: 10,
+      });
+      source.setEntries([makeEntry(-1), ...entries]);
+      source.notify();
+      expect(log.state.selectionStart).toBe(6);
+      expect(log.state.selectionEnd).toBe(11);
+    });
+
+    it("should keep the paused view on its entries when an earlier one arrives", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { log, source, updateState } = setup(entries);
+      updateState({
+        region: REGION_500,
+        wheelPos: 0,
+        scrolling: false,
+        empty: true,
+        visible: true,
+      });
+      updateState({
+        region: REGION_500,
+        wheelPos: 100,
+        scrolling: true,
+        empty: false,
+        visible: true,
+      });
+      const offset = log.scrollState.offset;
+      source.setEntries([makeEntry(-1), ...entries]);
+      source.notify();
+      expect(log.scrollState.offset).toBe(offset + 1);
+    });
+  });
+
+  describe("scrolling after an insert", () => {
+    it("should scroll from the anchored entry, not from the old index", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { log, source, updateState } = setup(entries);
+      updateState({
+        region: REGION_500,
+        wheelPos: 0,
+        scrolling: false,
+        empty: true,
+        visible: true,
+      });
+      updateState({
+        region: REGION_500,
+        wheelPos: 100,
+        scrolling: true,
+        empty: false,
+        visible: true,
+      });
+      const offset = log.scrollState.offset;
+      source.setEntries([makeEntry(-1), ...entries]);
+      source.notify();
+      updateState({
+        region: REGION_500,
+        wheelPos: 100,
+        scrolling: true,
+        empty: false,
+        visible: true,
+      });
+      expect(log.scrollState.offset).toBe(offset + 1);
     });
   });
 
@@ -566,7 +675,6 @@ describe("log/aether/Log", () => {
 
       const offsetBeforeEviction = log.scrollState.offset;
 
-      source.evictedCount = 10;
       source.setEntries(entries.slice(10));
       source.notify();
 

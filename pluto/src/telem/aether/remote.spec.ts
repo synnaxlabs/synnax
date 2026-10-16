@@ -57,6 +57,7 @@ const waitForStream = async <T>(
 describe("remote", () => {
   describe("StreamChannelValue", () => {
     class MockClient implements Client {
+      readLatest = async (): Promise<MultiSeries> => new MultiSeries([]);
       now = (): TimeStamp => TimeStamp.now();
       key: string = id.create();
 
@@ -89,6 +90,8 @@ describe("remote", () => {
           return telemTest.mockSubscription(this.streamDestructorF);
         },
       };
+
+      exactFeed = { stream: this.feed.stream };
     }
 
     let c: MockClient;
@@ -439,6 +442,7 @@ describe("remote", () => {
 
   describe("StreamChannelStringValue", () => {
     class MockClient implements Client {
+      readLatest = async (): Promise<MultiSeries> => new MultiSeries([]);
       now = (): TimeStamp => TimeStamp.now();
       key: string = id.create();
 
@@ -471,6 +475,8 @@ describe("remote", () => {
           return telemTest.mockSubscription(this.streamDestructorF);
         },
       };
+
+      exactFeed = { stream: this.feed.stream };
     }
 
     let c: MockClient;
@@ -783,6 +789,7 @@ describe("remote", () => {
 
   describe("ChannelData", () => {
     class MockClient implements Client {
+      readLatest = async (): Promise<MultiSeries> => new MultiSeries([]);
       now = (): TimeStamp => TimeStamp.now();
       key: string = id.create();
       readMock = vi.fn();
@@ -825,6 +832,8 @@ describe("remote", () => {
         },
         stream: (): framer.Subscription => telemTest.mockSubscription(vi.fn()),
       };
+
+      exactFeed = { stream: this.feed.stream };
     }
 
     let c: MockClient;
@@ -1186,6 +1195,7 @@ describe("remote", () => {
 
   describe("StreamChannelData", () => {
     class MockClient implements Client {
+      readLatest = async (): Promise<MultiSeries> => new MultiSeries([]);
       now = (): TimeStamp => TimeStamp.now();
       key: string = id.create();
 
@@ -1236,6 +1246,8 @@ describe("remote", () => {
           return telemTest.mockSubscription(this.streamDestructorF);
         },
       };
+
+      exactFeed = { stream: this.feed.stream };
     }
 
     let c: MockClient;
