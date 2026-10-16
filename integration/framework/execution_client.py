@@ -229,8 +229,7 @@ class ExecutionClient:
                 True,
             )
 
-        threads: list[threading.Thread] = []
-        futures: list[Future[Test]] = []
+        pending: list[tuple[threading.Thread, Future[Test], TestDefinition]] = []
 
         def _run(td: TestDefinition, ft: Future[Test], idx: int) -> None:
             if semaphore is not None:
@@ -257,15 +256,13 @@ class ExecutionClient:
                 target=_run,
                 args=(test_def, future, global_idx),
             )
-            threads.append(t)
-            futures.append(future)
+            pending.append((t, future, test_def))
             t.start()
 
         self._log(
-            f"Waiting for {len(threads)} tests in sequence '{seq_name}' to complete...",
+            f"Waiting for {len(pending)} tests in sequence '{seq_name}' to complete...",
             True,
         )
-        pending = list(zip(threads, futures, tests, strict=True))
         while pending:
             still_pending = []
             for t, ft, td in pending:
