@@ -17,6 +17,7 @@ import pydantic
 import pytest
 
 import synnax as sy
+from synnax.channel.retrieve import Request as ChannelRequest
 from synnax.state import LatestState, State
 from x.params import RequiresNamedParams
 from x.strings import random_name
@@ -597,6 +598,9 @@ class TestOnCreate:
 
         def retrieve_one(self, param: sy.channel.Key | str) -> sy.channel.Payload:
             return self._client.channels.retrieve(param)
+
+        def filter(self, req: ChannelRequest) -> list[sy.channel.Payload]:
+            raise NotImplementedError("State does not filter channels")
 
     def latest_state(self, client: sy.Synnax, sample: sy.Series) -> LatestState:
         key = client.channels.retrieve("sy_range_set").key
