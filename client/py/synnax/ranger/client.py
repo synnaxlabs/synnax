@@ -48,7 +48,7 @@ from synnax.telem import (
 )
 from x.color import Color
 from x.interop import ArrayOperators
-from x.lists import normalize, override
+from x.lists import check_for_none, normalize, override
 from x.params import require_named_params
 
 RANGE_SET_CHANNEL = "sy_range_set"
@@ -702,8 +702,18 @@ class Client:
         :param include_parent: Attaches the parent of each range.
         :returns: The range for a key or name, else a list of the matching ranges.
         :raises QueryError: If a single range is not found, or more than one matches.
+        :raises ValueError: If key and name are both given, or either is combined with
+            a list filter.
         """
         is_single = key is not None or name is not None
+        if key is not None and name is not None:
+            raise ValueError("key and name cannot be combined; use keys or names")
+        if is_single and not check_for_none(
+            keys, names, search_term, overlaps_with, has_labels, limit, offset
+        ):
+            raise ValueError(
+                "key and name cannot be combined with list filters; use keys or names"
+            )
         req = Request(
             keys=override(key, keys),
             names=override(name, names),

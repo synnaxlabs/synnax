@@ -486,6 +486,17 @@ def window_ranges(client: sy.Synnax, window: sy.TimeRange) -> list[sy.Range]:
 class TestRangeRetrieveFilters:
     """Tests the filters accepted by the range client's retrieve method."""
 
+    def test_rejects_mixed_selectors(self, client: sy.Synnax) -> None:
+        """Should reject a key or name combined with another selector or a list filter"""
+        retrieve = cast(Callable[..., object], client.ranges.retrieve)
+        key = uuid4()
+        with pytest.raises(ValueError):
+            retrieve(key=key, name="a")
+        with pytest.raises(ValueError):
+            retrieve(key=key, limit=1)
+        with pytest.raises(ValueError):
+            retrieve(name="a", keys=[key])
+
     def test_overlaps_with(
         self,
         client: sy.Synnax,
