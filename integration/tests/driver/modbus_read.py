@@ -27,7 +27,7 @@ class ModbusReadInputRegister(ModbusReadTaskCase):
                     index=idx.key,
                 ),
                 address=i,
-                data_type="uint8",
+                data_type=sy.DataType.UINT8,
             )
             for i in range(2)
         ]
@@ -48,7 +48,7 @@ class ModbusReadHoldingRegister(ModbusReadTaskCase):
                     index=idx.key,
                 ),
                 address=i,
-                data_type="uint8",
+                data_type=sy.DataType.UINT8,
             )
             for i in range(2)
         ]
@@ -109,7 +109,7 @@ class ModbusReadMixed(ModbusReadTaskCase):
                     index=idx.key,
                 ),
                 address=i,
-                data_type="uint8",
+                data_type=sy.DataType.UINT8,
             )
             for i in range(2)
         ]

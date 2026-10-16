@@ -66,7 +66,7 @@ class HTTPDeployOnStart(SimulatorCase):
                                 data_type=sy.DataType.FLOAT64,
                                 index=idx.key,
                             ),
-                            data_type="float64",
+                            data_type=sy.DataType.FLOAT64,
                         ),
                     ],
                 ),
