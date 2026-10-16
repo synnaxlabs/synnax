@@ -77,28 +77,47 @@ class TestTaskClient:
         res = client.tasks.retrieve(rack=rack.key)
         assert [t.key for t in res] == [task.key]
 
-    def test_retrieve_by_type_and_rack(self, client: sy.Synnax) -> None:
-        """Should return a list when a singular filter is combined with a rack."""
+    def test_retrieve_by_types_and_rack(self, client: sy.Synnax) -> None:
+        """Should return a list of the tasks matching both the types and the rack."""
         rack = client.racks.create(name=str(uuid4()))
         task = client.tasks.create(name="test", type="pagerduty_alert", rack=rack.key)
-        res = client.tasks.retrieve(type="pagerduty_alert", rack=rack.key)
+        res = client.tasks.retrieve(types=["pagerduty_alert"], rack=rack.key)
         assert_type(res, list[sy.Task])
         assert [t.key for t in res] == [task.key]
 
-    def test_retrieve_by_name_with_limit(self, client: sy.Synnax) -> None:
-        """Should return a list when a singular filter is combined with a limit."""
+    def test_retrieve_by_names_with_limit(self, client: sy.Synnax) -> None:
+        """Should return a list when names are combined with a limit."""
         name = str(uuid4())
         task = client.tasks.create(name=name, type="pagerduty_alert")
-        res = client.tasks.retrieve(name=name, limit=1)
+        res = client.tasks.retrieve(names=[name], limit=1)
         assert_type(res, list[sy.Task])
         assert [t.key for t in res] == [task.key]
 
     def test_retrieve_single_with_status(self, client: sy.Synnax) -> None:
-        """Should return one task when only singular filters are given."""
+        """Should return one task when a key, name, or type is given."""
+        name = str(uuid4())
+        task = client.tasks.create(name=name, type="pagerduty_alert")
+        by_key = client.tasks.retrieve(key=task.key, include_status=True)
+        assert_type(by_key, sy.Task)
+        assert by_key.key == task.key
+        by_name = client.tasks.retrieve(name=name, include_status=True)
+        assert_type(by_name, sy.Task)
+        assert by_name.key == task.key
+        by_type = client.tasks.retrieve(type="pagerduty_alert", include_status=True)
+        assert_type(by_type, sy.Task)
+        assert by_type.type == "pagerduty_alert"
+
+    def test_retrieve_no_filters(self, client: sy.Synnax) -> None:
+        """Should return a list of every task when no filter is given."""
         task = client.tasks.create(name="test", type="pagerduty_alert")
-        res = client.tasks.retrieve(key=task.key, include_status=True)
-        assert_type(res, sy.Task)
-        assert res.key == task.key
+        res = client.tasks.retrieve()
+        assert_type(res, list[sy.Task])
+        assert task.key in {t.key for t in res}
+
+    def test_retrieve_singular_with_list_filter(self, client: sy.Synnax) -> None:
+        """Should raise a ValueError when a singular filter is mixed with a list one."""
+        with pytest.raises(ValueError):
+            client.tasks.retrieve(name="test", rack=1)  # type: ignore[call-overload]
 
     def test_retrieve_by_internal_and_snapshot(self, client: sy.Synnax) -> None:
         """Should exclude user tasks when filtering for internal or snapshot tasks."""

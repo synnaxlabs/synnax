@@ -92,147 +92,67 @@ class Client:
         req = _DeleteRequest(keys=keys)
         self._client.send("/rack/delete", req, Empty)
 
-    # Each list overload requires one filter that makes the result a list. The last
-    # overload covers calls that pass those filters as possibly None.
     @overload
-    def retrieve(
-        self,
-        key: int | None = None,
-        name: str | None = None,
-        *,
-        integration: str | None = None,
-        embedded: bool | None = None,
-        host_is_node: bool | None = None,
-        include_status: bool = False,
-    ) -> Rack: ...
+    def retrieve(self, key: int, *, include_status: bool = False) -> Rack: ...
+
+    @overload
+    def retrieve(self, *, name: str, include_status: bool = False) -> Rack: ...
 
     @overload
     def retrieve(
         self,
-        key: int | None = None,
-        name: str | None = None,
         *,
-        keys: list[int],
+        keys: list[int] | None = None,
         names: list[str] | None = None,
         search_term: str | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
         integration: str | None = None,
         embedded: bool | None = None,
         host_is_node: bool | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
         include_status: bool = False,
     ) -> list[Rack]: ...
 
-    @overload
     def retrieve(
         self,
         key: int | None = None,
-        name: str | None = None,
         *,
-        keys: list[int] | None = None,
-        names: list[str],
-        search_term: str | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
-        integration: str | None = None,
-        embedded: bool | None = None,
-        host_is_node: bool | None = None,
-        include_status: bool = False,
-    ) -> list[Rack]: ...
-
-    @overload
-    def retrieve(
-        self,
-        key: int | None = None,
-        name: str | None = None,
-        *,
-        keys: list[int] | None = None,
-        names: list[str] | None = None,
-        search_term: str,
-        limit: int | None = None,
-        offset: int | None = None,
-        integration: str | None = None,
-        embedded: bool | None = None,
-        host_is_node: bool | None = None,
-        include_status: bool = False,
-    ) -> list[Rack]: ...
-
-    @overload
-    def retrieve(
-        self,
-        key: int | None = None,
-        name: str | None = None,
-        *,
-        keys: list[int] | None = None,
-        names: list[str] | None = None,
-        search_term: str | None = None,
-        limit: int,
-        offset: int | None = None,
-        integration: str | None = None,
-        embedded: bool | None = None,
-        host_is_node: bool | None = None,
-        include_status: bool = False,
-    ) -> list[Rack]: ...
-
-    @overload
-    def retrieve(
-        self,
-        key: int | None = None,
-        name: str | None = None,
-        *,
-        keys: list[int] | None = None,
-        names: list[str] | None = None,
-        search_term: str | None = None,
-        limit: int | None = None,
-        offset: int,
-        integration: str | None = None,
-        embedded: bool | None = None,
-        host_is_node: bool | None = None,
-        include_status: bool = False,
-    ) -> list[Rack]: ...
-
-    @overload
-    def retrieve(
-        self,
-        key: int | None = None,
-        name: str | None = None,
-        *,
-        keys: list[int] | None = None,
-        names: list[str] | None = None,
-        search_term: str | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
-        integration: str | None = None,
-        embedded: bool | None = None,
-        host_is_node: bool | None = None,
-        include_status: bool = False,
-    ) -> Rack | list[Rack]: ...
-
-    def retrieve(
-        self,
-        key: int | None = None,
         name: str | None = None,
         keys: list[int] | None = None,
         names: list[str] | None = None,
-        *,
         search_term: str | None = None,
+        integration: str | None = None,
+        embedded: bool | None = None,
+        host_is_node: bool | None = None,
         limit: int | None = None,
         offset: int | None = None,
-        integration: str | None = None,
-        host_is_node: bool | None = None,
-        embedded: bool | None = None,
         include_status: bool = False,
     ) -> Rack | list[Rack]:
-        """Retrieves racks matching the given filters. Returns one rack unless keys,
-        names, a search term, a limit, or an offset is given.
+        """Retrieves racks matching the given filters. Returns one rack when a key or
+        name is given, and a list otherwise.
 
         :param search_term: A fuzzy search term matched against rack names.
         :param limit: The maximum number of racks to return.
         :param offset: The number of racks to skip.
         :param include_status: Whether to populate each rack's status.
+        :raises ValueError: If a key or name is combined with a list filter.
         :raises NotFoundError: If a single rack is requested and none matches.
         """
-        is_single = check_for_none(keys, names, search_term, limit, offset)
+        is_single = not check_for_none(key, name)
+        if is_single and not check_for_none(
+            keys,
+            names,
+            search_term,
+            integration,
+            embedded,
+            host_is_node,
+            limit,
+            offset,
+        ):
+            raise ValueError(
+                "key and name cannot be combined with list filters; use keys or "
+                "names instead"
+            )
         res = self._client.send(
             "/rack/retrieve",
             _RetrieveRequest(
@@ -256,5 +176,8 @@ class Client:
 
     def retrieve_embedded_rack(self) -> Rack:
         if self._embedded_rack is None:
-            self._embedded_rack = self.retrieve(embedded=True, host_is_node=True)
+            racks = self.retrieve(embedded=True, host_is_node=True, limit=1)
+            if len(racks) == 0:
+                raise NotFoundError("Embedded rack not found")
+            self._embedded_rack = racks[0]
         return self._embedded_rack

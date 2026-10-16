@@ -151,20 +151,35 @@ class TestRackClient:
         assert len(client.racks.retrieve(keys=keys, limit=2)) == 2
         assert len(client.racks.retrieve(keys=keys, offset=2)) == 1
 
-    def test_retrieve_by_name_with_limit(self, client: sy.Synnax) -> None:
-        """Should return a list when a name is combined with a limit."""
+    def test_retrieve_by_names_with_limit(self, client: sy.Synnax) -> None:
+        """Should return a list when names are combined with a limit."""
         name = str(uuid4())
         rack = client.racks.create(name=name)
-        res = client.racks.retrieve(name=name, limit=1)
+        res = client.racks.retrieve(names=[name], limit=1)
         assert_type(res, list[sy.Rack])
         assert [r.key for r in res] == [rack.key]
 
+    def test_retrieve_no_filters(self, client: sy.Synnax) -> None:
+        """Should return a list of every rack when no filter is given."""
+        rack = client.racks.create(name=str(uuid4()))
+        res = client.racks.retrieve()
+        assert_type(res, list[sy.Rack])
+        assert rack.key in {r.key for r in res}
+
+    def test_retrieve_singular_with_list_filter(self, client: sy.Synnax) -> None:
+        """Should raise a ValueError when a singular filter is mixed with a list one."""
+        with pytest.raises(ValueError):
+            client.racks.retrieve(name="test", limit=1)  # type: ignore[call-overload]
+
     def test_retrieve_single_with_status_typed(self, client: sy.Synnax) -> None:
-        """Should return one rack when only singular filters are given."""
+        """Should return one rack when a key or name is given."""
         rack = client.racks.create(name=str(uuid4()))
         res = client.racks.retrieve(name=rack.name, include_status=True)
         assert_type(res, sy.Rack)
         assert res.key == rack.key
+        by_key = client.racks.retrieve(rack.key, include_status=True)
+        assert_type(by_key, sy.Rack)
+        assert by_key.key == rack.key
 
     def test_retrieve_by_search_term(self, client: sy.Synnax) -> None:
         """Should return a list of the racks whose names match the search term."""

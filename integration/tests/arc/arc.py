@@ -84,7 +84,7 @@ class ArcCase(SimDaqCase, TestCase):
         if rack_key:
             self.rack = self.client.racks.retrieve(rack_key)
         else:
-            self.rack = self.client.racks.retrieve(embedded=False)
+            self.rack = self.client.racks.retrieve(embedded=False, limit=1)[0]
         assert self.rack is not None, "Failed to retrieve rack"
         self.log(f"Selecting rack: {self.rack.name} (key: {self.rack.key})")
 
