@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import assert_type
 from uuid import uuid4
 
 import pytest
@@ -211,6 +212,22 @@ class TestDevice:
         rack = client.racks.create(name=str(uuid4()))
         dev = client.devices.create(basic_device(rack.key, 1))
         res = client.devices.retrieve(racks=[rack.key])
+        assert [d.key for d in res] == [dev.key]
+
+    def test_retrieve_by_model_and_racks(self, client: sy.Synnax) -> None:
+        """Should return a list when a singular filter is combined with racks."""
+        rack = client.racks.create(name=str(uuid4()))
+        dev = client.devices.create(basic_device(rack.key, 1))
+        res = client.devices.retrieve(model="test_model", racks=[rack.key])
+        assert_type(res, list[sy.Device])
+        assert [d.key for d in res] == [dev.key]
+
+    def test_retrieve_by_name_with_limit(self, client: sy.Synnax) -> None:
+        """Should return a list when a name is combined with a limit."""
+        rack = client.racks.create(name=str(uuid4()))
+        dev = client.devices.create(basic_device(rack.key, 1))
+        res = client.devices.retrieve(name=dev.name, limit=1, ignore_not_found=True)
+        assert_type(res, list[sy.Device])
         assert [d.key for d in res] == [dev.key]
 
     def test_retrieve_with_limit_and_offset(self, client: sy.Synnax) -> None:

@@ -92,6 +92,8 @@ class Client:
         req = _DeleteRequest(keys=keys)
         self._client.send("/rack/delete", req, Empty)
 
+    # Each list overload requires one filter that makes the result a list. The last
+    # overload covers calls that pass those filters as possibly None.
     @overload
     def retrieve(
         self,
@@ -107,6 +109,93 @@ class Client:
     @overload
     def retrieve(
         self,
+        key: int | None = None,
+        name: str | None = None,
+        *,
+        keys: list[int],
+        names: list[str] | None = None,
+        search_term: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        integration: str | None = None,
+        embedded: bool | None = None,
+        host_is_node: bool | None = None,
+        include_status: bool = False,
+    ) -> list[Rack]: ...
+
+    @overload
+    def retrieve(
+        self,
+        key: int | None = None,
+        name: str | None = None,
+        *,
+        keys: list[int] | None = None,
+        names: list[str],
+        search_term: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        integration: str | None = None,
+        embedded: bool | None = None,
+        host_is_node: bool | None = None,
+        include_status: bool = False,
+    ) -> list[Rack]: ...
+
+    @overload
+    def retrieve(
+        self,
+        key: int | None = None,
+        name: str | None = None,
+        *,
+        keys: list[int] | None = None,
+        names: list[str] | None = None,
+        search_term: str,
+        limit: int | None = None,
+        offset: int | None = None,
+        integration: str | None = None,
+        embedded: bool | None = None,
+        host_is_node: bool | None = None,
+        include_status: bool = False,
+    ) -> list[Rack]: ...
+
+    @overload
+    def retrieve(
+        self,
+        key: int | None = None,
+        name: str | None = None,
+        *,
+        keys: list[int] | None = None,
+        names: list[str] | None = None,
+        search_term: str | None = None,
+        limit: int,
+        offset: int | None = None,
+        integration: str | None = None,
+        embedded: bool | None = None,
+        host_is_node: bool | None = None,
+        include_status: bool = False,
+    ) -> list[Rack]: ...
+
+    @overload
+    def retrieve(
+        self,
+        key: int | None = None,
+        name: str | None = None,
+        *,
+        keys: list[int] | None = None,
+        names: list[str] | None = None,
+        search_term: str | None = None,
+        limit: int | None = None,
+        offset: int,
+        integration: str | None = None,
+        embedded: bool | None = None,
+        host_is_node: bool | None = None,
+        include_status: bool = False,
+    ) -> list[Rack]: ...
+
+    @overload
+    def retrieve(
+        self,
+        key: int | None = None,
+        name: str | None = None,
         *,
         keys: list[int] | None = None,
         names: list[str] | None = None,
@@ -117,7 +206,7 @@ class Client:
         embedded: bool | None = None,
         host_is_node: bool | None = None,
         include_status: bool = False,
-    ) -> list[Rack]: ...
+    ) -> Rack | list[Rack]: ...
 
     def retrieve(
         self,

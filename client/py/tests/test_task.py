@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import threading
+from typing import assert_type
 from uuid import UUID, uuid4
 
 import pytest
@@ -75,6 +76,29 @@ class TestTaskClient:
         task = client.tasks.create(name="test", type="pagerduty_alert", rack=rack.key)
         res = client.tasks.retrieve(rack=rack.key)
         assert [t.key for t in res] == [task.key]
+
+    def test_retrieve_by_type_and_rack(self, client: sy.Synnax) -> None:
+        """Should return a list when a singular filter is combined with a rack."""
+        rack = client.racks.create(name=str(uuid4()))
+        task = client.tasks.create(name="test", type="pagerduty_alert", rack=rack.key)
+        res = client.tasks.retrieve(type="pagerduty_alert", rack=rack.key)
+        assert_type(res, list[sy.Task])
+        assert [t.key for t in res] == [task.key]
+
+    def test_retrieve_by_name_with_limit(self, client: sy.Synnax) -> None:
+        """Should return a list when a singular filter is combined with a limit."""
+        name = str(uuid4())
+        task = client.tasks.create(name=name, type="pagerduty_alert")
+        res = client.tasks.retrieve(name=name, limit=1)
+        assert_type(res, list[sy.Task])
+        assert [t.key for t in res] == [task.key]
+
+    def test_retrieve_single_with_status(self, client: sy.Synnax) -> None:
+        """Should return one task when only singular filters are given."""
+        task = client.tasks.create(name="test", type="pagerduty_alert")
+        res = client.tasks.retrieve(key=task.key, include_status=True)
+        assert_type(res, sy.Task)
+        assert res.key == task.key
 
     def test_retrieve_by_internal_and_snapshot(self, client: sy.Synnax) -> None:
         """Should exclude user tasks when filtering for internal or snapshot tasks."""

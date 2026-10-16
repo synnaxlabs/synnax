@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import assert_type
 from uuid import uuid4
 
 import pytest
@@ -149,6 +150,21 @@ class TestRackClient:
         keys = [r.key for r in racks]
         assert len(client.racks.retrieve(keys=keys, limit=2)) == 2
         assert len(client.racks.retrieve(keys=keys, offset=2)) == 1
+
+    def test_retrieve_by_name_with_limit(self, client: sy.Synnax) -> None:
+        """Should return a list when a name is combined with a limit."""
+        name = str(uuid4())
+        rack = client.racks.create(name=name)
+        res = client.racks.retrieve(name=name, limit=1)
+        assert_type(res, list[sy.Rack])
+        assert [r.key for r in res] == [rack.key]
+
+    def test_retrieve_single_with_status_typed(self, client: sy.Synnax) -> None:
+        """Should return one rack when only singular filters are given."""
+        rack = client.racks.create(name=str(uuid4()))
+        res = client.racks.retrieve(name=rack.name, include_status=True)
+        assert_type(res, sy.Rack)
+        assert res.key == rack.key
 
     def test_retrieve_by_search_term(self, client: sy.Synnax) -> None:
         """Should return a list of the racks whose names match the search term."""

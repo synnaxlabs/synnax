@@ -437,6 +437,8 @@ class Client:
         req = _DeleteRequest(keys=[keys] if isinstance(keys, UUID) else list(keys))
         self._client.send("/task/delete", req, Empty)
 
+    # Each list overload requires one filter that makes the result a list. The last
+    # overload covers calls that pass those filters as possibly None.
     @overload
     def retrieve(
         self,
@@ -450,6 +452,180 @@ class Client:
     @overload
     def retrieve(
         self,
+        key: Key | None = None,
+        name: str | None = None,
+        type: str | None = None,
+        *,
+        names: list[str],
+        keys: list[Key] | None = None,
+        types: list[str] | None = None,
+        search_term: str | None = None,
+        rack: int | None = None,
+        internal: bool | None = None,
+        snapshot: bool | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        include_status: bool = False,
+    ) -> list[Task]: ...
+
+    @overload
+    def retrieve(
+        self,
+        key: Key | None = None,
+        name: str | None = None,
+        type: str | None = None,
+        *,
+        names: list[str] | None = None,
+        keys: list[Key],
+        types: list[str] | None = None,
+        search_term: str | None = None,
+        rack: int | None = None,
+        internal: bool | None = None,
+        snapshot: bool | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        include_status: bool = False,
+    ) -> list[Task]: ...
+
+    @overload
+    def retrieve(
+        self,
+        key: Key | None = None,
+        name: str | None = None,
+        type: str | None = None,
+        *,
+        names: list[str] | None = None,
+        keys: list[Key] | None = None,
+        types: list[str],
+        search_term: str | None = None,
+        rack: int | None = None,
+        internal: bool | None = None,
+        snapshot: bool | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        include_status: bool = False,
+    ) -> list[Task]: ...
+
+    @overload
+    def retrieve(
+        self,
+        key: Key | None = None,
+        name: str | None = None,
+        type: str | None = None,
+        *,
+        names: list[str] | None = None,
+        keys: list[Key] | None = None,
+        types: list[str] | None = None,
+        search_term: str,
+        rack: int | None = None,
+        internal: bool | None = None,
+        snapshot: bool | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        include_status: bool = False,
+    ) -> list[Task]: ...
+
+    @overload
+    def retrieve(
+        self,
+        key: Key | None = None,
+        name: str | None = None,
+        type: str | None = None,
+        *,
+        names: list[str] | None = None,
+        keys: list[Key] | None = None,
+        types: list[str] | None = None,
+        search_term: str | None = None,
+        rack: int,
+        internal: bool | None = None,
+        snapshot: bool | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        include_status: bool = False,
+    ) -> list[Task]: ...
+
+    @overload
+    def retrieve(
+        self,
+        key: Key | None = None,
+        name: str | None = None,
+        type: str | None = None,
+        *,
+        names: list[str] | None = None,
+        keys: list[Key] | None = None,
+        types: list[str] | None = None,
+        search_term: str | None = None,
+        rack: int | None = None,
+        internal: bool,
+        snapshot: bool | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        include_status: bool = False,
+    ) -> list[Task]: ...
+
+    @overload
+    def retrieve(
+        self,
+        key: Key | None = None,
+        name: str | None = None,
+        type: str | None = None,
+        *,
+        names: list[str] | None = None,
+        keys: list[Key] | None = None,
+        types: list[str] | None = None,
+        search_term: str | None = None,
+        rack: int | None = None,
+        internal: bool | None = None,
+        snapshot: bool,
+        limit: int | None = None,
+        offset: int | None = None,
+        include_status: bool = False,
+    ) -> list[Task]: ...
+
+    @overload
+    def retrieve(
+        self,
+        key: Key | None = None,
+        name: str | None = None,
+        type: str | None = None,
+        *,
+        names: list[str] | None = None,
+        keys: list[Key] | None = None,
+        types: list[str] | None = None,
+        search_term: str | None = None,
+        rack: int | None = None,
+        internal: bool | None = None,
+        snapshot: bool | None = None,
+        limit: int,
+        offset: int | None = None,
+        include_status: bool = False,
+    ) -> list[Task]: ...
+
+    @overload
+    def retrieve(
+        self,
+        key: Key | None = None,
+        name: str | None = None,
+        type: str | None = None,
+        *,
+        names: list[str] | None = None,
+        keys: list[Key] | None = None,
+        types: list[str] | None = None,
+        search_term: str | None = None,
+        rack: int | None = None,
+        internal: bool | None = None,
+        snapshot: bool | None = None,
+        limit: int | None = None,
+        offset: int,
+        include_status: bool = False,
+    ) -> list[Task]: ...
+
+    @overload
+    def retrieve(
+        self,
+        key: Key | None = None,
+        name: str | None = None,
+        type: str | None = None,
         *,
         names: list[str] | None = None,
         keys: list[Key] | None = None,
@@ -461,7 +637,7 @@ class Client:
         limit: int | None = None,
         offset: int | None = None,
         include_status: bool = False,
-    ) -> list[Task]: ...
+    ) -> Task | list[Task]: ...
 
     def retrieve(
         self,

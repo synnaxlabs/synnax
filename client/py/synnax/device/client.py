@@ -130,6 +130,8 @@ class Client:
         req = _DeleteRequest(keys=keys)
         self._client.send("/device/delete", req, Empty)
 
+    # Each list overload requires one filter that makes the result a list. The last
+    # overload covers calls that pass those filters as possibly None.
     @overload
     def retrieve(
         self,
@@ -148,7 +150,26 @@ class Client:
     def retrieve(
         self,
         *,
-        keys: list[str] | None = None,
+        key: str | None = None,
+        make: str | None = None,
+        name: str | None = None,
+        model: str | None = None,
+        location: str | None = None,
+        include_status: bool = False,
+        include_parent: bool = False,
+        ignore_not_found: Literal[False] = False,
+    ) -> Device: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: str | None = None,
+        make: str | None = None,
+        name: str | None = None,
+        model: str | None = None,
+        location: str | None = None,
+        keys: list[str],
         makes: list[str] | None = None,
         models: list[str] | None = None,
         names: list[str] | None = None,
@@ -159,7 +180,7 @@ class Client:
         offset: int | None = None,
         include_status: bool = False,
         include_parent: bool = False,
-        ignore_not_found: Literal[True],
+        ignore_not_found: bool = False,
     ) -> list[Device]: ...
 
     @overload
@@ -171,15 +192,190 @@ class Client:
         name: str | None = None,
         model: str | None = None,
         location: str | None = None,
+        keys: list[str] | None = None,
+        makes: list[str],
+        models: list[str] | None = None,
+        names: list[str] | None = None,
+        locations: list[str] | None = None,
+        racks: list[int] | None = None,
+        search_term: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
         include_status: bool = False,
         include_parent: bool = False,
-        ignore_not_found: Literal[False] = ...,
-    ) -> Device: ...
+        ignore_not_found: bool = False,
+    ) -> list[Device]: ...
 
     @overload
     def retrieve(
         self,
         *,
+        key: str | None = None,
+        make: str | None = None,
+        name: str | None = None,
+        model: str | None = None,
+        location: str | None = None,
+        keys: list[str] | None = None,
+        makes: list[str] | None = None,
+        models: list[str],
+        names: list[str] | None = None,
+        locations: list[str] | None = None,
+        racks: list[int] | None = None,
+        search_term: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        include_status: bool = False,
+        include_parent: bool = False,
+        ignore_not_found: bool = False,
+    ) -> list[Device]: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: str | None = None,
+        make: str | None = None,
+        name: str | None = None,
+        model: str | None = None,
+        location: str | None = None,
+        keys: list[str] | None = None,
+        makes: list[str] | None = None,
+        models: list[str] | None = None,
+        names: list[str],
+        locations: list[str] | None = None,
+        racks: list[int] | None = None,
+        search_term: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        include_status: bool = False,
+        include_parent: bool = False,
+        ignore_not_found: bool = False,
+    ) -> list[Device]: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: str | None = None,
+        make: str | None = None,
+        name: str | None = None,
+        model: str | None = None,
+        location: str | None = None,
+        keys: list[str] | None = None,
+        makes: list[str] | None = None,
+        models: list[str] | None = None,
+        names: list[str] | None = None,
+        locations: list[str],
+        racks: list[int] | None = None,
+        search_term: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        include_status: bool = False,
+        include_parent: bool = False,
+        ignore_not_found: bool = False,
+    ) -> list[Device]: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: str | None = None,
+        make: str | None = None,
+        name: str | None = None,
+        model: str | None = None,
+        location: str | None = None,
+        keys: list[str] | None = None,
+        makes: list[str] | None = None,
+        models: list[str] | None = None,
+        names: list[str] | None = None,
+        locations: list[str] | None = None,
+        racks: list[int],
+        search_term: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        include_status: bool = False,
+        include_parent: bool = False,
+        ignore_not_found: bool = False,
+    ) -> list[Device]: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: str | None = None,
+        make: str | None = None,
+        name: str | None = None,
+        model: str | None = None,
+        location: str | None = None,
+        keys: list[str] | None = None,
+        makes: list[str] | None = None,
+        models: list[str] | None = None,
+        names: list[str] | None = None,
+        locations: list[str] | None = None,
+        racks: list[int] | None = None,
+        search_term: str,
+        limit: int | None = None,
+        offset: int | None = None,
+        include_status: bool = False,
+        include_parent: bool = False,
+        ignore_not_found: bool = False,
+    ) -> list[Device]: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: str | None = None,
+        make: str | None = None,
+        name: str | None = None,
+        model: str | None = None,
+        location: str | None = None,
+        keys: list[str] | None = None,
+        makes: list[str] | None = None,
+        models: list[str] | None = None,
+        names: list[str] | None = None,
+        locations: list[str] | None = None,
+        racks: list[int] | None = None,
+        search_term: str | None = None,
+        limit: int,
+        offset: int | None = None,
+        include_status: bool = False,
+        include_parent: bool = False,
+        ignore_not_found: bool = False,
+    ) -> list[Device]: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: str | None = None,
+        make: str | None = None,
+        name: str | None = None,
+        model: str | None = None,
+        location: str | None = None,
+        keys: list[str] | None = None,
+        makes: list[str] | None = None,
+        models: list[str] | None = None,
+        names: list[str] | None = None,
+        locations: list[str] | None = None,
+        racks: list[int] | None = None,
+        search_term: str | None = None,
+        limit: int | None = None,
+        offset: int,
+        include_status: bool = False,
+        include_parent: bool = False,
+        ignore_not_found: bool = False,
+    ) -> list[Device]: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: str | None = None,
+        make: str | None = None,
+        name: str | None = None,
+        model: str | None = None,
+        location: str | None = None,
         keys: list[str] | None = None,
         makes: list[str] | None = None,
         models: list[str] | None = None,
@@ -191,8 +387,8 @@ class Client:
         offset: int | None = None,
         include_status: bool = False,
         include_parent: bool = False,
-        ignore_not_found: Literal[False] = ...,
-    ) -> list[Device]: ...
+        ignore_not_found: bool = False,
+    ) -> Device | list[Device] | None: ...
 
     def retrieve(
         self,
