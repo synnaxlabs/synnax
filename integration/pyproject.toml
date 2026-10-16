@@ -58,9 +58,6 @@ extend-immutable-calls = ["framework.models.SynnaxConnection"]
 # Optional hooks with no-op defaults.
 "console/schematic/symbol.py" = ["B027"]
 "framework/test_case.py" = ["B027"]
-# Controller.wait_until calls its condition before the loop moves on.
-"tests/client/simple_press.py" = ["B023"]
-"tests/latency/driver_ni_digital_write.py" = ["B023"]
 
 [tool.mypy]
 mypy_path = "stubs"

@@ -72,7 +72,7 @@ class SimplePress(SimDaqCase):
                     timeout=3 * sy.TimeSpan.SECOND,
                 )
                 if ctrl.wait_until(
-                    lambda c: c[PRESSURE] > target_pressure,
+                    lambda c, target=target_pressure: c[PRESSURE] > target,
                     timeout=10 * sy.TimeSpan.SECOND,
                 ):
                     self.log(

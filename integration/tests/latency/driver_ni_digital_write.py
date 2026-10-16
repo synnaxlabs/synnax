@@ -117,7 +117,8 @@ class DriverNIDigitalWrite(Latency):
 
                     # Wait for state to match command
                     ctrl.wait_until(
-                        lambda c: c[do_1_state.key] == int(cmd_state), timeout=1
+                        lambda c, state=int(cmd_state): c[do_1_state.key] == state,
+                        timeout=1,
                     )
                     state_timestamp_loop = sy.TimeStamp.now()
 

@@ -70,10 +70,6 @@ known-first-party = ["synnax", "alamos", "freighter", "x"]
 [tool.ruff.lint.flake8-bugbear]
 extend-immutable-calls = ["uuid.UUID"]
 
-[tool.ruff.lint.per-file-ignores]
-# Controller.wait_until calls its condition before the loop moves on.
-"examples/control/**" = ["B023"]
-
 [tool.mypy]
 mypy_path = "stubs"
 plugins = ["pydantic.mypy"]
