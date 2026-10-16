@@ -641,6 +641,38 @@ class TestMultiSeries:
         assert not np.shares_memory(arr1, arr2)
 
 
+@pytest.mark.telem
+@pytest.mark.series
+class TestSampleConversion:
+    @pytest.mark.parametrize(
+        "value, expected",
+        [(3, 3.0), (2.5, 2.5), (np.float32(1.5), 1.5), (np.int64(4), 4.0)],
+    )
+    def test_to_float(self, value: telem.SampleValue, expected: float) -> None:
+        """Should convert a numeric sample to a float"""
+        assert telem.to_float(value) == expected
+
+    @pytest.mark.parametrize(
+        "value, expected",
+        [(3, 3), (np.int64(4), 4), (telem.TimeStamp(7), 7)],
+    )
+    def test_to_int(self, value: telem.SampleValue, expected: int) -> None:
+        """Should convert an integer or timestamp sample to an int"""
+        assert telem.to_int(value) == expected
+
+    @pytest.mark.parametrize("value", ["a", uuid.uuid4(), {"a": 1}])
+    def test_to_float_rejects(self, value: telem.SampleValue) -> None:
+        """Should reject a sample that is not numeric"""
+        with pytest.raises(TypeError):
+            telem.to_float(value)
+
+    @pytest.mark.parametrize("value", [1.5, np.float64(2.0), "a"])
+    def test_to_int_rejects(self, value: telem.SampleValue) -> None:
+        """Should reject a sample that is not an integer"""
+        with pytest.raises(TypeError):
+            telem.to_int(value)
+
+
 def _series() -> telem.Series:
     return telem.Series(np.array([1, 2, 3], dtype=np.int64))
 

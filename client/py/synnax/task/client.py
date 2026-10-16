@@ -10,10 +10,10 @@
 from __future__ import annotations
 
 import warnings
-from collections.abc import Generator, Iterable, Mapping
+from collections.abc import Generator, Iterable, Mapping, Sequence
 from contextlib import contextmanager
 from typing import Protocol as BaseProtocol
-from typing import overload
+from typing import TypeVar, overload
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, JsonValue, ValidationError
@@ -77,10 +77,6 @@ _TASK_STATE_CHANNEL = "sy_status_set"
 _TASK_CMD_CHANNEL = "sy_task_cmd"
 
 
-def _parse_key(key: Key | str) -> Key:
-    return key if isinstance(key, UUID) else UUID(key)
-
-
 class _Keyed(BaseProtocol):
     key: str
 
@@ -110,7 +106,7 @@ class Task:
     def __init__(
         self,
         *,
-        key: Key | str | None = None,
+        key: Key | None = None,
         rack: int = 0,
         name: str = "",
         type: str = "",
@@ -121,11 +117,7 @@ class Task:
         internal: bool = False,
         _frame_client: FrameClient | None = None,
     ):
-        if key is None:
-            key = uuid4()
-        elif isinstance(key, str):
-            key = UUID(key)
-        self.key = key
+        self.key = uuid4() if key is None else key
         self.rack = rack
         self.name = name
         self.type = type
@@ -273,6 +265,9 @@ class Protocol(BaseProtocol):
         return None
 
 
+P = TypeVar("P", bound=Protocol)
+
+
 class StarterStopperMixin:
     _internal: Task
 
@@ -360,7 +355,7 @@ class Client:
     def create(
         self,
         *,
-        key: Key | str | None = None,
+        key: Key | None = None,
         name: str = "",
         type: str = "",
         config: Mapping[str, object] | BaseModel | None = None,
@@ -377,7 +372,7 @@ class Client:
         self,
         tasks: Task | list[Task] | None = None,
         *,
-        key: Key | str | None = None,
+        key: Key | None = None,
         name: str = "",
         type: str = "",
         config: Mapping[str, object] | BaseModel | None = None,
@@ -392,8 +387,6 @@ class Client:
         if tasks is None:
             if key is None:
                 key = uuid4()
-            elif isinstance(key, str):
-                key = UUID(key)
             payloads = [
                 Payload(key=key, rack=rack, name=name, type=type, config=json_config)
             ]
@@ -423,7 +416,7 @@ class Client:
         pld.rack = rack
         return pld
 
-    def configure(self, task: Protocol) -> Protocol:
+    def configure(self, task: P) -> P:
         """Saves the task's configuration to the cluster. The config is deployed
         to the driver on the next start command.
 
@@ -439,15 +432,14 @@ class Client:
         task.set_internal(self.sugar(tasks)[0])
         return task
 
-    def delete(self, keys: Key | str | list[Key | str]) -> None:
-        key_list = keys if isinstance(keys, list) else [keys]
-        req = _DeleteRequest(keys=[_parse_key(k) for k in key_list])
+    def delete(self, keys: Key | Sequence[Key]) -> None:
+        req = _DeleteRequest(keys=[keys] if isinstance(keys, UUID) else list(keys))
         self._client.send("/task/delete", req, Empty)
 
     @overload
     def retrieve(
         self,
-        key: Key | str | None = None,
+        key: Key | None = None,
         name: str | None = None,
         type: str | None = None,
         *,
@@ -459,7 +451,7 @@ class Client:
         self,
         *,
         names: list[str],
-        keys: list[Key | str] | None = None,
+        keys: list[Key] | None = None,
         types: list[str] | None = None,
         include_status: bool = False,
     ) -> list[Task]: ...
@@ -469,7 +461,7 @@ class Client:
         self,
         *,
         names: None = None,
-        keys: list[Key | str],
+        keys: list[Key],
         types: list[str] | None = None,
         include_status: bool = False,
     ) -> list[Task]: ...
@@ -486,11 +478,11 @@ class Client:
 
     def retrieve(
         self,
-        key: Key | str | None = None,
+        key: Key | None = None,
         name: str | None = None,
         type: str | None = None,
         names: list[str] | None = None,
-        keys: list[Key | str] | None = None,
+        keys: list[Key] | None = None,
         types: list[str] | None = None,
         *,
         include_status: bool = False,
@@ -501,11 +493,10 @@ class Client:
             back with a null status when false.
         """
         is_single = check_for_none(names, keys, types)
-        raw_keys = [key] if key is not None else keys
         res = self._client.send(
             "/task/retrieve",
             _RetrieveRequest(
-                keys=None if raw_keys is None else [_parse_key(k) for k in raw_keys],
+                keys=override(key, keys),
                 names=override(name, names),
                 types=override(type, types),
                 include_status=include_status,
@@ -564,7 +555,7 @@ class Client:
 
     def copy(
         self,
-        key: Key | str,
+        key: Key,
         name: str,
     ) -> Task:
         """Copies an existing task with a new name.
@@ -573,6 +564,6 @@ class Client:
         :param name: The name for the new task.
         :return: The newly created task.
         """
-        req = _CopyRequest(key=_parse_key(key), name=name, snapshot=False)
+        req = _CopyRequest(key=key, name=name, snapshot=False)
         res = self._client.send(_COPY_ENDPOINT, req, _CopyResponse)
         return self.sugar([res.task])[0]

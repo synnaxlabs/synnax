@@ -73,14 +73,14 @@ class HTTPDeployOnStart(SimulatorCase):
             ],
         )
 
-    def _start(self, task: sy.Task) -> sy.task.Status:
+    def _start(self, task: sy.http.ReadTask) -> sy.task.Status:
         """Start the task and return the driver's acknowledgment status."""
         status = task._internal.execute_command_sync("start", timeout=15)
         if status.variant == "error":
             self.fail(f"start failed: {status.message}")
         return status
 
-    def _channel_keys(self, task: sy.Task) -> list[int]:
+    def _channel_keys(self, task: sy.http.ReadTask) -> list[int]:
         return [
             field.channel
             for ep in task.config.endpoints
@@ -88,7 +88,7 @@ class HTTPDeployOnStart(SimulatorCase):
             if field.channel != 0
         ]
 
-    def _assert_streaming(self, task: sy.Task, label: str) -> None:
+    def _assert_streaming(self, task: sy.http.ReadTask, label: str) -> None:
         with self.client.open_streamer(self._channel_keys(task)) as streamer:
             frame = streamer.read(timeout=10)
             assert frame is not None, f"task is not streaming data {label}"
@@ -106,7 +106,7 @@ class HTTPDeployOnStart(SimulatorCase):
             assert first.details.config_hash != "", "status is missing a config hash"
             self.log(f"  Deployed with hash {first.details.config_hash}")
 
-            task.config.rate = 20
+            task.config.rate = sy.Rate(20)
             self.client.tasks.configure(task)
             second = self._start(task)
             assert second.details is not None

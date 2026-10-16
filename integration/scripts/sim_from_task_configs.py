@@ -24,7 +24,24 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 import synnax as sy
+
+
+def _latest(frame: sy.Frame, name: str) -> float | None:
+    """Returns the latest sample of a numeric channel in frame, or None if the frame
+    holds no samples for it.
+
+    :raises TypeError: If the latest sample is not numeric.
+    """
+    data = frame[name]
+    if len(data) == 0:
+        return None
+    value = data[-1]
+    if not isinstance(value, (int, float, np.number, np.bool_)):
+        raise TypeError(f"{name} holds a non-numeric sample {value!r}")
+    return float(value)
 
 
 class SimDAQ:
@@ -405,19 +422,16 @@ class SimDAQ:
                         if frame is not None:
                             # Process valve commands
                             for cmd_name, state_name in self.valve_pairs:
-                                data = frame.get(cmd_name, [])
-                                if len(data) > 0:
-                                    self.valve_states[state_name] = float(data[-1])
-                                    if data[-1] != 0:
-                                        print(
-                                            f"  [{timestamp}] {cmd_name} = {data[-1]}"
-                                        )
+                                value = _latest(frame, cmd_name)
+                                if value is not None:
+                                    self.valve_states[state_name] = value
+                                    if value != 0:
+                                        print(f"  [{timestamp}] {cmd_name} = {value}")
 
                             # Process analog output commands
                             for cmd_name, state_name in self.ao_pairs:
-                                data = frame.get(cmd_name, [])
-                                if len(data) > 0:
-                                    target = float(data[-1])
+                                target = _latest(frame, cmd_name)
+                                if target is not None:
                                     current = self.ao_states.get(state_name, 0.0)
                                     self.ao_states[state_name] = current + 0.8 * (
                                         target - current
@@ -431,7 +445,7 @@ class SimDAQ:
                             print(f"  ⚠ Error: {e}")
 
                 # Build frame
-                frame_data = {"daq_time": timestamp}
+                frame_data: dict[str, sy.TimeStamp | float] = {"daq_time": timestamp}
 
                 # Add sensor data
                 for name, ch_type in self.sensor_channels:

@@ -33,6 +33,7 @@ from tests.migration.channels_calc_setup import (
     WIN_NUM_DOMAINS,
     _win_value,
 )
+from x.telem import to_float
 
 NpArray = np.ndarray[Any, Any]
 
@@ -102,7 +103,7 @@ class CalcChannelsVerify(TestCase):
                 frame = streamer.read(timeout=5)
                 assert frame is not None, "No streamer frame received"
                 for name, exp_val in expected.items():
-                    actual = float(frame[channels[name].key][0])
+                    actual = to_float(frame[channels[name].key][0])
                     assert abs(actual - exp_val) < 0.01, (
                         f"{name}: expected {exp_val}, got {actual}"
                     )
@@ -252,7 +253,7 @@ class CalcChannelsVerify(TestCase):
             ("quadratic", calc_quad, 0.5),
         ]:
             actual = np.array(
-                [float(s[0]) for s in frame[calc_ch.key].series[:WIN_NUM_DOMAINS]]
+                [to_float(s[0]) for s in frame[calc_ch.key].series[:WIN_NUM_DOMAINS]]
             )
             expected = np.array([_win_value(seed, d) for d in range(len(actual))])
             rmse = float(np.sqrt(np.mean((actual - expected) ** 2)))

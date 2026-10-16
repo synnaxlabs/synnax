@@ -18,7 +18,7 @@ from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import ReadTaskCase, WriteTaskCase, assert_sample_counts_in_range
 
 
-class HTTPReadTaskCase(SimulatorCase, ReadTaskCase):
+class HTTPReadTaskCase(SimulatorCase, ReadTaskCase[sy.http.ReadTask]):
     """Base class for HTTP read task tests."""
 
     sim_classes = [HTTPSim]
@@ -50,7 +50,7 @@ class HTTPReadTaskCase(SimulatorCase, ReadTaskCase):
             endpoints=endpoints,
         )
 
-    def _channel_keys(self, task: sy.Task) -> list[int]:
+    def _channel_keys(self, task: sy.http.ReadTask) -> list[int]:
         """Extract channel keys from HTTP read task config."""
         keys = []
         for ep in task.config.endpoints:
@@ -62,7 +62,7 @@ class HTTPReadTaskCase(SimulatorCase, ReadTaskCase):
     def assert_sample_count(
         self,
         *,
-        task: sy.Task,
+        task: sy.http.ReadTask,
         duration: sy.TimeSpan = 1 * sy.TimeSpan.SECOND,
         strict: bool = True,
     ) -> None:
@@ -102,13 +102,12 @@ class HTTPReadTaskCase(SimulatorCase, ReadTaskCase):
         """Halve the polling rate and verify the next start deploys the new config."""
         assert self.tsk is not None
         self.log("Testing: Reconfigure task rate")
-        new_rate = self.tsk.config.rate / 2
-        self.tsk.config.rate = new_rate
+        self.tsk.config.rate = sy.Rate(self.tsk.config.rate / 2)
         self.client.tasks.configure(self.tsk)
         self.assert_sample_count(task=self.tsk, duration=self.TASK_DURATION)
 
 
-class HTTPWriteTaskCase(SimulatorCase, WriteTaskCase):
+class HTTPWriteTaskCase(SimulatorCase, WriteTaskCase[sy.http.WriteTask]):
     """Base class for HTTP write task tests."""
 
     sim_classes = [HTTPSim]
@@ -137,6 +136,6 @@ class HTTPWriteTaskCase(SimulatorCase, WriteTaskCase):
             endpoints=endpoints,
         )
 
-    def _channel_keys(self, task: sy.Task) -> list[int]:
+    def _channel_keys(self, task: sy.http.WriteTask) -> list[int]:
         """Extract command channel keys from HTTP write task config."""
         return [ep.channel.channel for ep in task.config.endpoints]
