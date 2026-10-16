@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Generic, Literal, TypeAlias
+from typing import Generic, Literal, TypeAlias
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, JsonValue
@@ -70,21 +70,6 @@ class Status(BaseModel, Generic[Details]):
     )
     details: Details | None = None
     labels: list[label.Label] | None = None
-
-    if TYPE_CHECKING:
-
-        def __init__(
-            _self,
-            *,
-            key: Key = ...,
-            name: str = ...,
-            variant: Variant,
-            message: str,
-            description: str = ...,
-            time: int = ...,
-            details: Details | None = ...,
-            labels: list[label.Label] | None = ...,
-        ) -> None: ...
 
     def __hash__(self) -> int:
         return hash(self.key)

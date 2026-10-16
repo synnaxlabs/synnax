@@ -11,8 +11,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated, Literal, Union
-from uuid import UUID, uuid4
+from typing import Annotated, Literal, Union
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
@@ -107,17 +107,6 @@ class ScanConfig(task.ScanConfig):
     """
 
     tcp_scan_multiplier: int = Field(default=10, ge=-2147483648, le=2147483647)
-
-    if TYPE_CHECKING:
-
-        def __init__(
-            _self,
-            *,
-            key: UUID = ...,
-            rate: float = ...,
-            disabled: bool = ...,
-            tcp_scan_multiplier: int = ...,
-        ) -> None: ...
 
     def __hash__(self) -> int:
         return hash(self.key)
@@ -225,19 +214,6 @@ class WriteConfig(task.WriteConfig):
     state_rate: telem.Rate = telem.Rate(10)
     channels: list[WriteChannel] = Field(default_factory=list)
 
-    if TYPE_CHECKING:
-
-        def __init__(
-            _self,
-            *,
-            key: UUID = ...,
-            auto_start: bool = ...,
-            data_saving_disabled: bool = ...,
-            device: device_.Key = ...,
-            state_rate: float = ...,
-            channels: list[WriteChannel] = ...,
-        ) -> None: ...
-
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -259,22 +235,6 @@ class ReadConfig(task.ReadConfig):
     channels: list[ReadChannel] = Field(default_factory=list)
     device_scan_backlog_warn_on_count: int = Field(default=0, ge=0, le=4294967295)
     ljm_scan_backlog_warn_on_count: int = Field(default=0, ge=0, le=4294967295)
-
-    if TYPE_CHECKING:
-
-        def __init__(
-            _self,
-            *,
-            key: UUID = ...,
-            auto_start: bool = ...,
-            data_saving_disabled: bool = ...,
-            sample_rate: float = ...,
-            stream_rate: float = ...,
-            device: device_.Key = ...,
-            channels: list[ReadChannel] = ...,
-            device_scan_backlog_warn_on_count: int = ...,
-            ljm_scan_backlog_warn_on_count: int = ...,
-        ) -> None: ...
 
     def __hash__(self) -> int:
         return hash(self.key)
