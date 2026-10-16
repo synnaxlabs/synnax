@@ -12,11 +12,11 @@ from __future__ import annotations
 
 import functools
 from collections.abc import Callable, Iterator
-from typing import Any, cast, overload
+from typing import cast, overload
 from uuid import UUID
 
 import numpy as np
-from pydantic import PrivateAttr
+from pydantic import BaseModel, PrivateAttr
 
 import synnax.channel.payload as channel
 from freighter import UnaryClient
@@ -52,6 +52,9 @@ from x.lists import check_for_none, normalize
 from x.params import require_named_params
 
 RANGE_SET_CHANNEL = "sy_range_set"
+
+# Pydantic declares BaseModel.__getattr__ only at runtime.
+_model_getattr: Callable[[BaseModel, str], object] = getattr(BaseModel, "__getattr__")
 
 
 class _InternalScopedChannel(ArrayOperators, channel.Payload):
@@ -95,10 +98,12 @@ class _InternalScopedChannel(ArrayOperators, channel.Payload):
     def time_range(self) -> TimeRange:
         return self._range.time_range
 
-    def __array__(self, *args: Any, **kwargs: Any) -> np.ndarray:
+    def __array__(
+        self, dtype: np.dtype | None = None, copy: bool | None = None
+    ) -> np.ndarray:
         """Converts the channel to a numpy array. This method is necessary
         for numpy interop."""
-        return self.read().__array__(*args, **kwargs)
+        return self.read().__array__(dtype, copy)
 
     def __getitem__(self, index: int) -> SampleValue:
         return self.read().__getitem__(index)
@@ -162,11 +167,13 @@ class ScopedChannel(ArrayOperators):
             """
             )
 
-    def __array__(self, *args: object, **kwargs: object) -> np.ndarray:
+    def __array__(
+        self, dtype: np.dtype | None = None, copy: bool | None = None
+    ) -> np.ndarray:
         """Converts the scoped channel to a numpy array. This method is necessary
         for numpy interop."""
         self._guard()
-        return self._internal[0].__array__(*args, **kwargs)
+        return self._internal[0].__array__(dtype, copy)
 
     def __getitem__(self, index: int) -> SampleValue:
         self._guard()
@@ -316,8 +323,8 @@ class Range(Payload):
 
     def __getattr__(self, query: str) -> ScopedChannel:
         try:
-            # BaseModel.__getattr__ exists at runtime but not in mypy stubs
-            return super().__getattr__(query)  # type: ignore[misc,no-any-return]
+            # Private attributes resolve here. Type checkers use their declarations.
+            return cast(ScopedChannel, _model_getattr(self, query))
         except AttributeError:
             pass
         channels = self._channel_retriever.retrieve(query)
@@ -709,6 +716,8 @@ class Client:
         @functools.wraps(f)
         def wrapper(state: LatestState) -> None:
             d = state[RANGE_SET_CHANNEL]
+            if not isinstance(d, dict):
+                raise TypeError(f"expected a JSON object on {RANGE_SET_CHANNEL}")
             f(
                 Range(
                     name=d["name"],
