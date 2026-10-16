@@ -7,11 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any
-
 from synnax import channel
 from synnax.framer import Frame
-from synnax.telem import MultiSeries
+from synnax.telem import MultiSeries, SampleValue
 
 
 class State:
@@ -31,7 +29,7 @@ class State:
         payload = channel.retrieve_required(self._retriever, ch)[0]
         return self.value[payload.key]
 
-    def __getattr__(self, name: str) -> Any:
+    def __getattr__(self, name: str) -> MultiSeries:
         return self.__getitem__(name)
 
 
@@ -41,8 +39,8 @@ class LatestState:
     def __init__(self, state: State) -> None:
         self._state = state
 
-    def __getitem__(self, ch: channel.Key | str) -> Any:
+    def __getitem__(self, ch: channel.Key | str) -> SampleValue:
         return self._state[ch][-1]
 
-    def __getattr__(self, name: str) -> Any:
+    def __getattr__(self, name: str) -> SampleValue:
         return self.__getitem__(name)
