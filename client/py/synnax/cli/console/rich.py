@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import cast
+
 from rich import print
 from rich.prompt import Confirm, FloatPrompt, IntPrompt, Prompt
 
@@ -79,34 +81,42 @@ class RichConsole:
         default: R | None = None,
         password: bool = False,
     ) -> R | None:
-        if type_ is None:
-            if default is not None:
-                type_ = type(default)
-            elif choices is not None and len(choices) > 0:
-                type_ = type(choices[0])
-            else:
-                type_ = str  # type: ignore
-        if type_ == bool:
-            return Confirm.ask(
-                question,
-                default=default,
-                show_default=True,
-                show_choices=True,
+        resolved: type[object] = str
+        if type_ is not None:
+            resolved = type_
+        elif default is not None:
+            resolved = type(default)
+        elif choices is not None and len(choices) > 0:
+            resolved = type(choices[0])
+        # mypy checks this body once per constraint of R, so each branch casts its
+        # prompt's result back to R.
+        if resolved is bool:
+            return cast(
+                R | None,
+                Confirm.ask(
+                    question,
+                    default=default,
+                    show_default=True,
+                    show_choices=True,
+                ),
             )
-        if type_ == int:
-            return IntPrompt.ask(
-                question,
-                default=default,
-                choices=[str(choice) for choice in choices] if choices else None,  # type: ignore
+        if resolved is int:
+            return cast(
+                R | None,
+                IntPrompt.ask(
+                    question,
+                    default=default,
+                    choices=[str(choice) for choice in choices] if choices else None,
+                ),
             )
-        if type_ == float:
-            return FloatPrompt.ask(
+        if resolved is float:
+            return cast(R | None, FloatPrompt.ask(question, default=default))
+        return cast(
+            R | None,
+            Prompt.ask(
                 question,
+                choices=[str(choice) for choice in choices] if choices else None,
                 default=default,
-            )  # type: ignore
-        return Prompt.ask(
-            question,
-            choices=choices,  # type: ignore
-            default=default,
-            password=password,
+                password=password,
+            ),
         )
