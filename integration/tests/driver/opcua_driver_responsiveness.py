@@ -45,7 +45,7 @@ def _create_read_channels(client: sy.Synnax, prefix: str) -> list[sy.opcua.ReadC
                 index=idx.key,
             ),
             node_id=f"NS=2;I={8 + i}",
-            data_type="float32",
+            data_type=sy.DataType.FLOAT32,
         )
         for i in range(2)
     ]

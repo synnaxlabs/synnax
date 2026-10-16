@@ -98,7 +98,7 @@ def virtual_channel(client: sy.Synnax) -> sy.Channel:
     )
 
 
-def pytest_addoption(parser):
+def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
         "--run-multi-node",
         action="store_true",
@@ -107,13 +107,15 @@ def pytest_addoption(parser):
     )
 
 
-def pytest_configure(config):
+def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers", "multi-node: tests that run only when a flag is provided"
     )
 
 
-def pytest_collection_modifyitems(config, items):
+def pytest_collection_modifyitems(
+    config: pytest.Config, items: list[pytest.Item]
+) -> None:
     if config.getoption("--run-multi-node"):
         # If the flag is provided, no filtering is needed
         return

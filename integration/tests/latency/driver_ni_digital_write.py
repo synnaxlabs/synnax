@@ -10,6 +10,7 @@
 import os
 import platform
 from collections import deque
+from collections.abc import Callable
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -20,6 +21,11 @@ from tests.latency.latency import Latency
 from x import get_cpu_cores, get_machine_info, get_memory_info
 
 matplotlib.use("Agg")  # Use non-interactive backend
+
+
+def _equals(channel: int, value: int) -> Callable[[sy.Controller], bool]:
+    """Returns a condition that holds once the channel's value equals value."""
+    return lambda c: bool(c[channel] == value)
 
 
 class DriverNIDigitalWrite(Latency):
@@ -96,52 +102,51 @@ class DriverNIDigitalWrite(Latency):
 
         # Run NI DO Task
         self.log("Running NI DO Task")
-        with (
-            tsk.run(),
-            client.control.acquire(
+        with tsk.run():
+            with client.control.acquire(
                 name="NI Digital Write Latency Test",
                 read=[do_1_state.key, do_state_time.key],
                 write=[do_1_cmd.key],
                 write_authorities=sy.Authority.ABSOLUTE,
-            ) as ctrl,
-        ):
-            start_time = sy.TimeStamp.now()
-            cmd_state: bool = False
+            ) as ctrl:
+                start_time = sy.TimeStamp.now()
+                cmd_state: bool = False
 
-            self.log("Begin latency test")
-            while (sy.TimeStamp.now() - start_time) < sy.TimeSpan.SECOND * 3:
-                # Prepare
-                cmd_state = not cmd_state
+                self.log("Begin latency test")
+                while (sy.TimeStamp.now() - start_time) < sy.TimeSpan.SECOND * 3:
+                    # Prepare
+                    cmd_state = not cmd_state
 
-                # Write
-                ctrl[do_1_cmd.key] = int(cmd_state)
-                write_time = sy.TimeStamp.now()
+                    # Write
+                    ctrl[do_1_cmd.key] = int(cmd_state)
+                    write_time = sy.TimeStamp.now()
 
-                # Wait for state to match command
-                ctrl.wait_until(
-                    lambda c: c[do_1_state.key] == int(cmd_state), timeout=1
-                )
-                state_timestamp_loop = sy.TimeStamp.now()
+                    # Wait for state to match command
+                    ctrl.wait_until(
+                        _equals(do_1_state.key, int(cmd_state)),
+                        timeout=1,
+                    )
+                    state_timestamp_loop = sy.TimeStamp.now()
 
-                # Get the core timestamp from the last received value
-                state_timestamp_core = sy.TimeStamp(int(ctrl[do_state_time.key]))
+                    # Get the core timestamp from the last received value
+                    state_timestamp_core = sy.TimeStamp(int(ctrl[do_state_time.key]))
 
-                # Calculate latency
-                latency_core = sy.TimeSpan(
-                    state_timestamp_core - write_time
-                ).milliseconds
-                latency_loop = sy.TimeSpan(
-                    state_timestamp_loop - write_time
-                ).milliseconds
+                    # Calculate latency
+                    latency_core = sy.TimeSpan(
+                        state_timestamp_core - write_time
+                    ).milliseconds
+                    latency_loop = sy.TimeSpan(
+                        state_timestamp_loop - write_time
+                    ).milliseconds
 
-                # Store
-                time_index.append(write_time)
-                latencies_core.append(latency_core)
-                latencies_loop.append(latency_loop)
+                    # Store
+                    time_index.append(write_time)
+                    latencies_core.append(latency_core)
+                    latencies_loop.append(latency_loop)
 
-            # Set back to 0
-            ctrl[do_1_cmd.key] = int(False)
-            ctrl.wait_until(lambda c: c[do_1_state.key] == 0, timeout=1)
+                # Set back to 0
+                ctrl[do_1_cmd.key] = int(False)
+                ctrl.wait_until(lambda c: c[do_1_state.key] == 0, timeout=1)
 
         self.log(f"Total samples: {len(latencies_core)}")
 

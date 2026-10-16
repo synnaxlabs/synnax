@@ -17,14 +17,14 @@ import pandas as pd
 from pandas.io.parsers import TextFileReader
 
 from synnax.io.df_converter import convert_df
-from synnax.io.matcher import new_extension_matcher
+from synnax.io.matcher import ExtensionMatcher
 from synnax.io.protocol import ChannelMeta, FileWriter, ReaderType, RowFileReader
 
-CSVMatcher = new_extension_matcher(["csv"])
 
-
-class CSVReader(CSVMatcher):  # type: ignore
+class CSVReader(ExtensionMatcher):
     """A RowReader implementation for CSV files."""
+
+    _extensions = ("csv",)
 
     channel_keys: list[str] | None
     chunk_size: int
@@ -160,8 +160,10 @@ def estimate_row_count(path: Path) -> int:
     return (file_size // row_size) - 1
 
 
-class CSVWriter(CSVMatcher):  # type: ignore
+class CSVWriter(ExtensionMatcher):
     """A Writer implementation for CSV files."""
+
+    _extensions = ("csv",)
 
     _path: Path
     _header: bool

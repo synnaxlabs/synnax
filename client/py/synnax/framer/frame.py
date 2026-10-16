@@ -12,6 +12,8 @@ from __future__ import annotations
 from collections.abc import Iterator, Mapping, Sequence
 from typing import TypeAlias, cast, overload
 
+import numpy as np
+import numpy.typing as npt
 from pandas import DataFrame
 from pydantic import BaseModel, Field
 from typing_extensions import TypeVar
@@ -46,6 +48,15 @@ class Frame:
     channels: list[channel.Key] | list[str]
     series: list[Series] = Field(default_factory=list)
 
+    @overload
+    def __init__(
+        self,
+        channels: list[channel.Key | str],
+        series: Sequence[TypedCrudeSeries] | None = None,
+    ) -> None:
+        """Builds a frame from a list that mixes channel keys and names."""
+
+    @overload
     def __init__(
         self,
         channels: (
@@ -61,7 +72,25 @@ class Frame:
             | None
         ) = None,
         series: Sequence[TypedCrudeSeries] | None = None,
-    ):
+    ) -> None: ...
+
+    def __init__(
+        self,
+        channels: (
+            list[channel.Key | str]
+            | list[channel.Key]
+            | tuple[channel.Key]
+            | list[str]
+            | tuple[str]
+            | DataFrame
+            | Frame
+            | FramePayload
+            | Mapping[channel.Key, TypedCrudeSeries]
+            | Mapping[str, TypedCrudeSeries]
+            | None
+        ) = None,
+        series: Sequence[TypedCrudeSeries] | None = None,
+    ) -> None:
         if isinstance(channels, Frame):
             self.channels = channels.channels
             self.series = channels.series
@@ -134,7 +163,16 @@ class Frame:
         """
         return zip(self.channels, self.series, strict=True)
 
-    def __getitem__(self, key: channel.Key | str) -> MultiSeries:
+    @overload
+    def __getitem__(self, key: channel.Key | str) -> MultiSeries: ...
+
+    @overload
+    def __getitem__(self, key: npt.NDArray[np.bool_]) -> DataFrame:
+        """Selects the rows where the boolean mask is true, through pandas."""
+
+    def __getitem__(
+        self, key: channel.Key | str | npt.NDArray[np.bool_]
+    ) -> MultiSeries | DataFrame:
         if not isinstance(key, (channel.Key, str)):
             return self.to_df()[key]
         indexes = [i for i, k in enumerate(self.channels) if k == key]

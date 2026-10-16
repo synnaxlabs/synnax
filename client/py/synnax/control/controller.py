@@ -421,7 +421,7 @@ class Controller:
         """
         return self._receiver.state
 
-    def __setattr__(self, key: str, value: Any) -> None:
+    def __setattr__(self, key: str, value: SampleValue) -> None:
         """Commands the channel named key, unless key is private or a class
         attribute.
         """
@@ -482,11 +482,8 @@ class Controller:
             method.
             """) from None
 
-    def __getattr__(self, item: str) -> Any:
-        try:
-            return super().__getattribute__(item)
-        except AttributeError:
-            return self[item]
+    def __getattr__(self, item: str) -> np.number | int | float:
+        return self[item]
 
     def __enter__(self) -> Controller:
         return self
