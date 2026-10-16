@@ -47,6 +47,7 @@ const TelemForm = () => {
       <Form.Section title="Source">
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
+            allowNone
             value={value.channel}
             onChange={(key: channel.Key | null) =>
               onChange({ ...value, channel: key ?? 0 })

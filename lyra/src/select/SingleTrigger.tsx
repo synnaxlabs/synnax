@@ -9,9 +9,10 @@
 
 import "@/select/SingleTrigger.css";
 
-import { type record } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useId } from "react";
+import { primitive, type record } from "@synnaxlabs/x";
+import { type KeyboardEvent, type ReactElement, useCallback, useId } from "react";
 
+import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
@@ -34,6 +35,11 @@ export interface SingleTriggerProps extends Dialog.TriggerProps {
   icon?: Icon.ReactElement;
   /** Whether to render the icon alone, with no name and no caret. */
   iconOnly?: boolean;
+  /**
+   * Whether hovering the icon shows a button that clears the selection, and Delete or
+   * Backspace on the focused trigger clears it. Single sets it from `allowNone`.
+   */
+  clearable?: boolean;
   /** Chooses an icon from the selected entry, overriding `icon`. */
   renderIcon?: (entry: unknown) => Icon.ReactElement | undefined;
   /**
@@ -64,15 +70,17 @@ export const SingleTrigger = <K extends record.Key>({
   hideCaret = false,
   renderIcon,
   collapsible = false,
+  clearable = false,
   preview,
   className,
   tooltip,
   hideTooltip,
   id: idProp,
+  onKeyDown,
   ...rest
 }: SingleTriggerProps): ReactElement => {
   const allSelected = useSelected<K>();
-  const { setSelected } = useContext<K>();
+  const { setSelected, clear } = useContext<K>();
   const [selected] = allSelected;
   const fixed = useIsFixed(selected);
   const fixedText = useText(selected);
@@ -110,6 +118,22 @@ export const SingleTrigger = <K extends record.Key>({
   // A self-reference reads the trigger's own aria-label, so the name becomes the
   // aria-label followed by the selection.
   const shown = fixed ? fixedText : (name ?? (preview === true ? "None" : placeholder));
+  // The clear button takes the icon's place, so it needs an icon to replace. A key with
+  // no entry, such as a deleted resource, can still be cleared. A zero key means none.
+  const clearShown =
+    clearable &&
+    primitive.isNonZero(selected) &&
+    resolvedIcon != null &&
+    !fixed &&
+    disabled !== true &&
+    preview !== true;
+  // The clear button is not a tab stop, so the focused trigger takes the key instead.
+  const handleKeyDown = (e: KeyboardEvent<HTMLElement>): void => {
+    onKeyDown?.(e);
+    if (!clearShown || (e.key !== "Delete" && e.key !== "Backspace")) return;
+    e.preventDefault();
+    clear();
+  };
   const labelledBySelection =
     rest["aria-label"] != null &&
     !iconOnly &&
@@ -124,6 +148,8 @@ export const SingleTrigger = <K extends record.Key>({
         CSS.dropRegion(canDrop(dragging)),
         name == null && !fixed ? CSS.BM("select-single-trigger", "empty") : null,
         collapsible && CSS.BM("select-single-trigger", "collapsible"),
+        clearShown && CSS.M("reveals"),
+        clearShown && CSS.BM("select-single-trigger", "clearable"),
         className,
       )}
       disabled={disabled}
@@ -132,6 +158,7 @@ export const SingleTrigger = <K extends record.Key>({
       onDragEnd={onDragEnd}
       {...dropProps}
       {...rest}
+      onKeyDown={handleKeyDown}
       aria-labelledby={
         labelledBySelection ? `${id} ${labelId}` : rest["aria-labelledby"]
       }
@@ -140,7 +167,20 @@ export const SingleTrigger = <K extends record.Key>({
       preview={preview}
       hideCaret={hideCaret || iconOnly}
     >
-      {resolvedIcon}
+      {clearShown ? (
+        <span className={CSS.BE("select-single-trigger", "icon")}>
+          {resolvedIcon}
+          <Button.Close
+            el="div"
+            role="button"
+            aria-label={`Clear ${name ?? "selection"}`}
+            className={CSS.BE("select-single-trigger", "clear")}
+            onClick={clear}
+          />
+        </span>
+      ) : (
+        resolvedIcon
+      )}
       {!iconOnly && (
         <Label itemKey={selected} id={labelId}>
           {shown}
