@@ -53,6 +53,12 @@ class TestRackClient:
         assert len(racks) == 2
         assert {r.key for r in racks} == {r1.key, r2.key}
 
+    def test_rename(self, client: sy.Synnax) -> None:
+        """Should rename a rack."""
+        rack = client.racks.create(name="Before Rename")
+        client.racks.rename(rack.key, "After Rename")
+        assert client.racks.retrieve(key=rack.key).name == "After Rename"
+
     def test_delete(self, client: sy.Synnax) -> None:
         """Should delete a rack"""
         rack = client.racks.create(name="test")

@@ -82,6 +82,20 @@ class TestStatusClient:
         assert retrieved.variant == created.variant
         assert retrieved.message == created.message
 
+    def test_rename(self, client: sy.Synnax) -> None:
+        """Should rename a status and keep its message."""
+        created = client.statuses.set(
+            sy.Status(
+                name="Before Rename",
+                variant=sy.status.VARIANT_INFO,
+                message="Renamed status",
+            )
+        )
+        client.statuses.rename(created.key, "After Rename")
+        renamed = client.statuses.retrieve(key=created.key)
+        assert renamed.name == "After Rename"
+        assert renamed.message == "Renamed status"
+
     def test_retrieve_multiple_by_keys(self, client: sy.Synnax) -> None:
         """Should retrieve multiple statuses by keys."""
         statuses: list[sy.Status[None]] = [

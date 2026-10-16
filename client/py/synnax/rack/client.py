@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax.exceptions import NotFoundError
-from synnax.rack.types_gen import Rack
+from synnax.rack.types_gen import Key, Rack
 from x.lists import check_for_none, override
 
 
@@ -90,6 +90,16 @@ class Client:
     def delete(self, keys: list[int]) -> None:
         req = _DeleteRequest(keys=keys)
         self._client.send("/rack/delete", req, Empty)
+
+    def rename(self, key: Key, name: str) -> None:
+        """Renames a rack.
+
+        :param key: The key of the rack to rename.
+        :param name: The new name for the rack.
+        :raises NotFoundError: If no rack has the given key.
+        """
+        rack = self.retrieve(key=key)
+        self.create(rack.model_copy(update={"name": name}))
 
     @overload
     def retrieve(

@@ -103,6 +103,16 @@ class Client:
             keys = [keys]
         self._client.send("/view/delete", _DeleteRequest(keys=keys), Empty)
 
+    def rename(self, key: Key, name: str) -> None:
+        """Renames a view.
+
+        :param key: The key of the view to rename.
+        :param name: The new name for the view.
+        :raises NotFoundError: If no view has the given key.
+        """
+        view = self.retrieve(key=key)
+        self.create(view.model_copy(update={"name": name}))
+
     @overload
     def retrieve(
         self,

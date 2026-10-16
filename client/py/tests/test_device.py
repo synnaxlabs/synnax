@@ -111,6 +111,14 @@ class TestDevice:
         with pytest.raises(sy.NotFoundError):
             client.devices.retrieve(key=d1.key)
 
+    def test_rename(self, client: sy.Synnax, new_devices: BasicDevices) -> None:
+        """Should rename a device and keep its properties."""
+        dev = client.devices.create(new_devices[0])
+        client.devices.rename(dev.key, "After Rename")
+        renamed = client.devices.retrieve(key=dev.key)
+        assert renamed.name == "After Rename"
+        assert renamed.properties == {"foo": "bar"}
+
     def test_retrieve_ignore_not_found(self, client: sy.Synnax) -> None:
         # Test multiple device retrieval
         devices = client.devices.retrieve(

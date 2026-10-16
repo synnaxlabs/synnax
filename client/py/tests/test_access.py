@@ -61,6 +61,16 @@ class TestAccessClient:
         assert policy.name == p.name
         assert policy.objects == p.objects
 
+    def test_rename(self, client: sy.Synnax) -> None:
+        """Should rename a policy and keep its actions."""
+        policy = client.access.policies.create(
+            sy.Policy(name="Before Rename", actions=["create"])
+        )
+        client.access.policies.rename(policy.key, "After Rename")
+        renamed = client.access.policies.retrieve(keys=[policy.key])[0]
+        assert renamed.name == "After Rename"
+        assert renamed.actions == ["create"]
+
     def test_retrieve_by_subject_not_found(self, client: sy.Synnax) -> None:
         """Should handle retrieving policies for non-existent subjects."""
         # Retrieving by subjects that don't exist returns empty list (no policies assigned)
@@ -138,6 +148,16 @@ class TestRoleClient:
         assert role.key is not None
         assert role.name == "Editor"
         assert role.description == "Can edit resources"
+
+    def test_rename(self, client: sy.Synnax) -> None:
+        """Should rename a role and keep its description."""
+        role = client.access.roles.create(
+            sy.Role(name="Before Rename", description="Renamed role")
+        )
+        client.access.roles.rename(role.key, "After Rename")
+        renamed = client.access.roles.retrieve(key=role.key)
+        assert renamed.name == "After Rename"
+        assert renamed.description == "Renamed role"
 
     def test_retrieve_by_key(self, two_roles: list[sy.Role], client: sy.Synnax) -> None:
         """Should retrieve a role by key."""
