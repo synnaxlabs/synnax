@@ -105,7 +105,6 @@ export const Status = ({
         <Text.Text
           level="p"
           color={9}
-          variant="code"
           className={CSS.BE("task-status", "description")}
         >
           {stat.description}
