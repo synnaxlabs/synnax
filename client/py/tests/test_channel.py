@@ -634,6 +634,15 @@ class TestChannelRetrieveFilters:
 
         assert_eventually(check)
 
+    def test_single_with_filter(
+        self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
+    ) -> None:
+        """Should apply filters to a single key or name"""
+        virt = channels[2]
+        assert client.channels.retrieve(virt.name, virtual=True).key == virt.key
+        with pytest.raises(sy.NotFoundError):
+            client.channels.retrieve(virt.key, virtual=False)
+
     def test_data_types(
         self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
     ) -> None:

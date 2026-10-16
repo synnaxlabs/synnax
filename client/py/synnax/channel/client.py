@@ -340,7 +340,16 @@ class Client:
         self,
         channel: Key | str,
         *,
+        search_term: str | None = None,
+        data_types: list[CrudeDataType] | None = None,
+        not_data_types: list[CrudeDataType] | None = None,
+        virtual: bool | None = None,
+        is_index: bool | None = None,
+        internal: bool | None = None,
         range_key: UUID | None = None,
+        node_key: int | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
     ) -> Channel: ...
 
     @overload
