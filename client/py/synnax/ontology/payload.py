@@ -47,6 +47,14 @@ ROOT_ID = ID(key="root", type="builtin")
 CrudeID = str | ID
 
 
+class Resource(BaseModel):
+    """A node in the ontology."""
+
+    id: ID
+    name: str
+    data: dict[str, object] | None = None
+
+
 class Relationship(BaseModel):
     from_: ID
     type: str

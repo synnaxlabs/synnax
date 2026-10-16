@@ -8,12 +8,14 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.ontology.client import Client
-from synnax.ontology.payload import ID, ROOT_ID, CrudeID
+from synnax.ontology.payload import ID, ROOT_ID, CrudeID, Resource
+from synnax.ontology.types_gen import ResourceType
 
 __all__ = [
     "Client",
     "CrudeID",
     "ID",
-    "Payload",
     "ROOT_ID",
+    "Resource",
+    "ResourceType",
 ]
