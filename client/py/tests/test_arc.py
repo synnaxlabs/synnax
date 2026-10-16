@@ -86,6 +86,26 @@ class TestArc:
         retrieved_keys = {arc.key for arc in retrieved}
         assert retrieved_keys == set(keys)
 
+    def test_retrieve_compiled(self, client: sy.Synnax) -> None:
+        """Should return the compiled program when compile is True."""
+        created = client.arcs.create(
+            name=f"test-arc-{uuid4()}",
+            mode="text",
+            text=sy.Text(raw="func f() {}"),
+        )
+        retrieved = client.arcs.retrieve(key=created.key, compile=True)
+        assert retrieved.program is not None
+        assert retrieved.program.wasm.startswith(b"\x00asm")
+
+    def test_retrieve_not_compiled(self, client: sy.Synnax) -> None:
+        """Should return no program when compile is not set."""
+        created = client.arcs.create(
+            name=f"test-arc-{uuid4()}",
+            mode="text",
+            text=sy.Text(raw="func f() {}"),
+        )
+        assert client.arcs.retrieve(key=created.key).program is None
+
     def test_retrieve_not_found(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when Arc is not found."""
         with pytest.raises(sy.NotFoundError):
