@@ -89,13 +89,13 @@ def acknowledge_valve_cycle(
 
 @pytest.mark.control
 class TestController:
-    def test_valve_toggle(self, client: sy.Synnax):
+    def test_valve_toggle(self, client: sy.Synnax) -> None:
         """A happy path test that asserts basic functionality on the controller"""
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
 
         assertions = dict()
 
-        def sequence(ev: threading.Event):
+        def sequence(ev: threading.Event) -> None:
             # Wait for the simulated DAQ to boot up
             ev.wait()
             with client.control.acquire(
@@ -114,7 +114,7 @@ class TestController:
                     timeout=2 * sy.TimeSpan.SECOND,
                 )
 
-        def daq(ev: threading.Event):
+        def daq(ev: threading.Event) -> None:
             with client.control.acquire(
                 name="Basic Valve Toggle",
                 read=[press_en_cmd.key],
@@ -135,7 +135,7 @@ class TestController:
         assert assertions["seq_first_ack"]
         assert assertions["seq_second_ack"]
 
-    def test_remains_true_for_false(self, client: sy.Synnax):
+    def test_remains_true_for_false(self, client: sy.Synnax) -> None:
         """Should return False when the condition stops holding during the window."""
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
 
@@ -143,7 +143,7 @@ class TestController:
         acked = threading.Event()
         stop = threading.Event()
 
-        def sequence(ev: threading.Event):
+        def sequence(ev: threading.Event) -> None:
             # Wait for the simulated DAQ to boot up
             ev.wait()
             try:
@@ -170,7 +170,7 @@ class TestController:
             finally:
                 stop.set()
 
-        def daq(ev: threading.Event):
+        def daq(ev: threading.Event) -> None:
             with client.control.acquire(
                 name="Basic Valve Toggle",
                 read=[press_en_cmd.key],
@@ -204,14 +204,14 @@ class TestController:
         assert assertions["seq_second_ack"]
         assert not assertions["remained_true"]
 
-    def test_remains_true_for_true(self, client: sy.Synnax):
+    def test_remains_true_for_true(self, client: sy.Synnax) -> None:
         """Should return True when the condition holds for the entire window."""
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
 
         assertions = dict()
         stop = threading.Event()
 
-        def sequence(ev: threading.Event):
+        def sequence(ev: threading.Event) -> None:
             # Wait for the simulated DAQ to boot up
             ev.wait()
             try:
@@ -237,7 +237,7 @@ class TestController:
             finally:
                 stop.set()
 
-        def daq(ev: threading.Event):
+        def daq(ev: threading.Event) -> None:
             with client.control.acquire(
                 name="Basic Valve Toggle",
                 read=[press_en_cmd.key],
@@ -266,16 +266,16 @@ class TestController:
         assert assertions["seq_second_ack"]
         assert assertions["remained_true"]
 
-    def test_remains_true_for_target_percent(self, client: sy.Synnax):
+    def test_remains_true_for_target_percent(self, client: sy.Synnax) -> None:
         """Should return True when the condition holds for more than the target
         percentage of the window."""
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
 
-        assertions = dict()
+        assertions: dict[str, bool | int] = {}
         acked = threading.Event()
         stop = threading.Event()
 
-        def sequence(ev: threading.Event):
+        def sequence(ev: threading.Event) -> None:
             # Wait for the simulated DAQ to boot up
             ev.wait()
             try:
@@ -297,7 +297,7 @@ class TestController:
                     acked.set()
                     c = 0
 
-                    def is_closed(auto):
+                    def is_closed(auto: Controller) -> bool:
                         nonlocal c
                         c += 1
                         return not auto[press_en.key]
@@ -311,7 +311,7 @@ class TestController:
             finally:
                 stop.set()
 
-        def daq(ev: threading.Event):
+        def daq(ev: threading.Event) -> None:
             with client.control.acquire(
                 name="Basic Valve Toggle",
                 read=[press_en_cmd.key],
@@ -360,13 +360,13 @@ class TestController:
             auto.remains_true_for(lambda _: True, duration=0.2)
             assert time.perf_counter() - start >= 0.2
 
-    def test_wait_while(self, client: sy.Synnax):
+    def test_wait_while(self, client: sy.Synnax) -> None:
         """Test that the controller can wait for a condition to be true for a certain amount of time"""
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
 
-        assertions = dict()
+        assertions: dict[str, bool | int] = {}
 
-        def sequence(ev: threading.Event):
+        def sequence(ev: threading.Event) -> None:
             # Wait for the simulated DAQ to boot up
             ev.wait()
             with client.control.acquire(
@@ -386,7 +386,7 @@ class TestController:
                 )
                 c = 0
 
-                def is_closed(auto):
+                def is_closed(auto: Controller) -> bool:
                     nonlocal c
                     c += 1
                     observing.set()
@@ -396,7 +396,7 @@ class TestController:
                 assertions["remained_true"] = remained_true
                 assertions["remained_true_count"] = c
 
-        def daq(ev: threading.Event):
+        def daq(ev: threading.Event) -> None:
             with client.control.acquire(
                 name="Basic Valve Toggle",
                 read=[press_en_cmd.key],
@@ -429,7 +429,7 @@ class TestController:
         assert assertions["remained_true"]
         assert assertions["remained_true_count"] > 0
 
-    def test_controller_channel_not_found(self, client: sy.Synnax):
+    def test_controller_channel_not_found(self, client: sy.Synnax) -> None:
         """Test that the controller raises a KeyError when a channel is not found"""
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
         with pytest.raises(KeyError, match="Channel .* not found in controller state"):
@@ -441,7 +441,7 @@ class TestController:
                 v = auto[press_en.key]
                 assert v is None
 
-    def test_set_by_attribute(self, client: sy.Synnax):
+    def test_set_by_attribute(self, client: sy.Synnax) -> None:
         """Should command the channel named by an assigned attribute."""
         ch = client.channels.create(
             name="control_set_by_attribute",
@@ -460,7 +460,7 @@ class TestController:
 
     def test_acquire_raises_when_streamer_fails_to_open(
         self, client: sy.Synnax, login_info: tuple[str, int, str, str]
-    ):
+    ) -> None:
         """Should raise the streamer's open error instead of hanging."""
         ch = client.channels.create(
             name="control_streamer_open_fails",
@@ -519,7 +519,7 @@ class TestController:
             assert len(errors) == 1
             assert isinstance(errors[0], sy.UnexpectedError)
 
-    def test_controller_set_authority_mechanisms(self, client: sy.Synnax):
+    def test_controller_set_authority_mechanisms(self, client: sy.Synnax) -> None:
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
 
         with client.control.acquire(
@@ -539,7 +539,7 @@ class TestController:
             auto.set_authority(100)
             auto.set_authority(press_en_cmd.key, 50)
 
-    def test_controller_authority_transfer(self, client: sy.Synnax):
+    def test_controller_authority_transfer(self, client: sy.Synnax) -> None:
         """Test that the controller can transfer authority to another controller"""
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
 
@@ -550,7 +550,7 @@ class TestController:
         seq_two_lowered = threading.Event()
         seq_one_done = threading.Event()
 
-        def sequence_one():
+        def sequence_one() -> None:
             daq_ready.wait(HANDSHAKE_TIMEOUT)
             with client.control.acquire(
                 name="Basic Valve Toggle",
@@ -574,7 +574,7 @@ class TestController:
                 seq_one_done.set()
                 auto[press_en_cmd.key] = False
 
-        def sequence_two():
+        def sequence_two() -> None:
             daq_ready.wait(HANDSHAKE_TIMEOUT)
             with client.control.acquire(
                 name="Basic Valve Toggle",
@@ -592,7 +592,7 @@ class TestController:
                 seq_two_lowered.set()
                 seq_one_done.wait(HANDSHAKE_TIMEOUT)
 
-        def daq():
+        def daq() -> None:
             with client.control.acquire(
                 name="Basic Valve Toggle",
                 read=[press_en_cmd.key],
@@ -701,7 +701,7 @@ class TestScheduledCommand:
 
 @pytest.mark.control
 class TestRetrieve:
-    def test_retrieve_held_channel(self, client: sy.Synnax):
+    def test_retrieve_held_channel(self, client: sy.Synnax) -> None:
         """Should return the state of a channel a writer holds."""
         ch = client.channels.create(
             name="control_retrieve_held",
@@ -717,7 +717,7 @@ class TestRetrieve:
             assert state.resource == ch.key
             assert state.subject.name == "philadelphia"
 
-    def test_retrieve_uncontrolled_channel(self, client: sy.Synnax):
+    def test_retrieve_uncontrolled_channel(self, client: sy.Synnax) -> None:
         """Should return None for a channel no subject controls."""
         ch = client.channels.create(
             name="control_retrieve_unheld",
@@ -727,7 +727,7 @@ class TestRetrieve:
         )
         assert client.control.retrieve(key=ch.key) is None
 
-    def test_retrieve_by_name(self, client: sy.Synnax):
+    def test_retrieve_by_name(self, client: sy.Synnax) -> None:
         """Should resolve a channel name before reading its state."""
         ch = client.channels.create(
             name="control_retrieve_by_name",
@@ -742,7 +742,7 @@ class TestRetrieve:
             assert state is not None
             assert state.subject.name == "denver"
 
-    def test_retrieve_all(self, client: sy.Synnax):
+    def test_retrieve_all(self, client: sy.Synnax) -> None:
         """Should return every controlled channel when no params are given."""
         ch = client.channels.create(
             name="control_retrieve_all",
@@ -756,7 +756,7 @@ class TestRetrieve:
             states = client.control.retrieve()
             assert any(s.resource == ch.key for s in states)
 
-    def test_retrieve_several(self, client: sy.Synnax):
+    def test_retrieve_several(self, client: sy.Synnax) -> None:
         """Should return the state of each held channel and omit the rest."""
         held = client.channels.create(
             name="control_retrieve_several_held",
@@ -779,10 +779,12 @@ class TestRetrieve:
             assert [s.resource for s in states] == [held.key]
 
     @pytest.mark.parametrize("params", [{"keys": []}, {"names": []}])
-    def test_retrieve_empty_params(self, client: sy.Synnax, params: dict):
+    def test_retrieve_empty_params(
+        self, client: sy.Synnax, params: dict[str, list[str]]
+    ) -> None:
         """Should return no states when an empty set of channels is requested."""
         assert client.control.retrieve(**params) == []
 
-    def test_retrieve_unknown_names(self, client: sy.Synnax):
+    def test_retrieve_unknown_names(self, client: sy.Synnax) -> None:
         """Should return no states when no requested name resolves to a channel."""
         assert client.control.retrieve(names=["control_retrieve_does_not_exist"]) == []
