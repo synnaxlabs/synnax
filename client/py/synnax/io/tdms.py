@@ -14,18 +14,18 @@ from pathlib import Path
 import pandas as pd
 from nptdms import TdmsFile
 
-from synnax.io.matcher import new_extension_matcher
+from synnax.io.matcher import ExtensionMatcher
 from synnax.io.protocol import (
     ChannelMeta,
     ColumnFileReader,
     ReaderType,
 )
 
-TDMSMatcher = new_extension_matcher(["tdms"])
 
-
-class TDMSReader(TDMSMatcher):  # type: ignore
+class TDMSReader(ExtensionMatcher):
     """A ColReader implementation for TDMS files."""
+
+    _extensions = ["tdms"]
 
     channel_keys: set[str]
     chunk_size: int
@@ -128,6 +128,9 @@ class TDMSReader(TDMSMatcher):  # type: ignore
             self._current_chunk += 1
 
         return pd.DataFrame(data)
+
+    def close(self) -> None:
+        """Every read opens and closes the file, so there is nothing to close."""
 
     def __iter__(self) -> Iterator[pd.DataFrame]:
         return (self.read() for _ in range(self.n_chunks))

@@ -14,6 +14,7 @@ import pytest
 from pydantic import ValidationError
 
 import synnax as sy
+from tests.json_value import obj
 from x.strings import random_name
 
 
@@ -541,10 +542,10 @@ class TestLabJackDevicePropertyUpdates:
 
         # Verify read.channels mapping exists
         assert "read" in props
-        assert "channels" in props["read"]
+        assert "channels" in obj(props, "read")
 
         # Verify port -> channel key mapping
-        channels = props["read"]["channels"]
+        channels = obj(props, "read", "channels")
         assert "AIN0" in channels
         assert channels["AIN0"] == ch1.key
         assert "FIO4" in channels
@@ -636,10 +637,10 @@ class TestLabJackDevicePropertyUpdates:
 
         # Verify write.channels mapping exists
         assert "write" in props
-        assert "channels" in props["write"]
+        assert "channels" in obj(props, "write")
 
         # Verify port -> state_channel key mapping
-        channels = props["write"]["channels"]
+        channels = obj(props, "write", "channels")
         assert "DAC0" in channels
         assert channels["DAC0"] == dac0_state.key
         assert "FIO4" in channels

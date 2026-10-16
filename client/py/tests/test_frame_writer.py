@@ -22,7 +22,9 @@ from x.telem import seconds_linspace
 @pytest.mark.framer
 @pytest.mark.writer
 class TestWriter:
-    def test_basic_write(self, indexed_pair: list[sy.Channel], client: sy.Synnax):
+    def test_basic_write(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
         """Should write a small amount of data to Synnax"""
         idx_ch, data_ch = indexed_pair
         with client.open_writer(
@@ -43,7 +45,9 @@ class TestWriter:
             )
             w.commit()
 
-    def test_write_by_name(self, indexed_pair: list[sy.Channel], client: sy.Synnax):
+    def test_write_by_name(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
         """Should write data by name to the Synnax cluster"""
         idx_ch, data_ch = indexed_pair
         with client.open_writer(
@@ -69,9 +73,9 @@ class TestWriter:
 
     def test_write_frame_unknown_channel_name(
         self,
-        indexed_pair: list[sy.Channel],
+        indexed_pair: tuple[sy.Channel, sy.Channel],
         client: sy.Synnax,
-    ):
+    ) -> None:
         """Should throw a validation error when writing to an unknown channel"""
         with client.open_writer(start=sy.TimeStamp.now(), channels=indexed_pair) as w:
             data = np.random.rand(10).astype(np.float64)
@@ -80,9 +84,9 @@ class TestWriter:
 
     def test_write_frame_unknown_channel_key(
         self,
-        indexed_pair: list[sy.Channel],
+        indexed_pair: tuple[sy.Channel, sy.Channel],
         client: sy.Synnax,
-    ):
+    ) -> None:
         """Should throw a validation error when writing an unknown frame by key"""
         with client.open_writer(start=sy.TimeStamp.now(), channels=indexed_pair) as w:
             data = np.random.rand(10).astype(np.float64)
@@ -93,7 +97,7 @@ class TestWriter:
         self,
         indexed_pair: tuple[sy.Channel, sy.Channel],
         client: sy.Synnax,
-    ):
+    ) -> None:
         """Should throw a validation error on close when writing an indexed frame
         w/o the correct timing
         """
@@ -106,8 +110,8 @@ class TestWriter:
                 w.write(pd.DataFrame({data_ch.key: data}))
 
     def test_auto_index_generates_timestamps_for_data_only_writer(
-        self, indexed_pair: list[sy.Channel], client: sy.Synnax
-    ):
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
         """Should generate timestamps for a writer opened with only a data channel
         when auto_index is true."""
         idx_ch, data_ch = indexed_pair
@@ -124,8 +128,8 @@ class TestWriter:
         assert len(f) == 4
 
     def test_auto_index_omitted_index_in_mixed_writer(
-        self, indexed_pair: list[sy.Channel], client: sy.Synnax
-    ):
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
         """Should auto-stamp the index when the caller opens with both index and data
         channels but omits the index series from a write."""
         idx_ch, data_ch = indexed_pair
@@ -142,8 +146,8 @@ class TestWriter:
         assert len(f) == 3
 
     def test_auto_index_mixes_user_provided_and_generated_in_one_writer(
-        self, indexed_pair: list[sy.Channel], client: sy.Synnax
-    ):
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
         """Should let a single writer alternate between user-provided and auto-stamped
         index series across separate write calls."""
         idx_ch, data_ch = indexed_pair
@@ -173,8 +177,8 @@ class TestWriter:
         assert len(auto_f) == 3
 
     def test_auto_index_leaves_user_provided_index_untouched(
-        self, indexed_pair: list[sy.Channel], client: sy.Synnax
-    ):
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
         """Should leave user-provided index timestamps exactly as written when
         auto_index is enabled."""
         idx_ch, data_ch = indexed_pair
@@ -213,7 +217,9 @@ class TestWriter:
         f = client.read(sy.TimeRange.MAX, data_ch.key)
         assert list(f) == [1.0, 2.0, 3.0]
 
-    def test_write_auto_commit(self, indexed_pair: list[sy.Channel], client: sy.synnax):
+    def test_write_auto_commit(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
         """Should open an auto-committing writer to write data that persists after 1s"""
         idx_ch, data_ch = indexed_pair
         with client.open_writer(
@@ -230,7 +236,7 @@ class TestWriter:
         f = client.read(sy.TimeRange.MAX, data_ch.key)
         assert len(f) == 6
 
-    def test_write_bool_channel(self, client: sy.Synnax):
+    def test_write_bool_channel(self, client: sy.Synnax) -> None:
         """Should round-trip bool samples through a BOOLEAN channel, verifying
         bit-packed wire format and byte-packed persistence."""
         idx = client.channels.create(
@@ -258,8 +264,8 @@ class TestWriter:
         assert [bool(v) for v in list(f)] == samples
 
     def test_write_err_on_unauthorized(
-        self, indexed_pair: list[sy.Channel], client: sy.Synnax
-    ):
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
         """Should throw an error when a writer is opened to error on unauthorized"""
         start = sy.TimeStamp.now()
         w1 = client.open_writer(start=start, channels=indexed_pair, name="writer1")
@@ -272,11 +278,11 @@ class TestWriter:
             ):
                 ...
 
-        assert w1.close() is None
+        w1.close()
 
     def test_write_err_first_timestamp_before_start(
-        self, client: sy.Synnax, indexed_pair: list[sy.Channel]
-    ):
+        self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
+    ) -> None:
         """Should raise a validation error when the first timestamp written to an index
         channel is before the start time of the writer."""
         time_ch, data_ch = indexed_pair
@@ -289,8 +295,8 @@ class TestWriter:
                     w.write({time_ch.key: [i], data_ch.key: [i]})
 
     def test_write_out_of_order_timestamps(
-        self, client: sy.Synnax, indexed_pair: list[sy.Channel]
-    ):
+        self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
+    ) -> None:
         """Should raise a validation error when writing timestamps that are out of
         order"""
         time_ch, data_ch = indexed_pair
@@ -306,8 +312,8 @@ class TestWriter:
     def test_write_invalid_data_type(
         self,
         client: sy.Synnax,
-        indexed_pair: list[sy.Channel],
-    ):
+        indexed_pair: tuple[sy.Channel, sy.Channel],
+    ) -> None:
         """Should raise a validation error when writing a series with an invalid
         data type"""
         time_ch, data_ch = indexed_pair
@@ -327,9 +333,9 @@ class TestWriter:
     @pytest.mark.asyncio
     async def test_write_persist_only_mode(
         self,
-        indexed_pair: list[sy.Channel],
+        indexed_pair: tuple[sy.Channel, sy.Channel],
         client: sy.Synnax,
-    ):
+    ) -> None:
         """Should not stream written data"""
         idx_ch, data_ch = indexed_pair
         with client.open_writer(
@@ -345,7 +351,7 @@ class TestWriter:
                     async with asyncio.timeout(0.2):
                         await s.read()
 
-    def test_write_persist_stream_regression(self, client: sy.Synnax):
+    def test_write_persist_stream_regression(self, client: sy.Synnax) -> None:
         """Should work"""
         idx = client.channels.create(
             name=random_name(),
@@ -397,7 +403,9 @@ class TestWriter:
         assert len(f2[data_2.key]) == 1
         assert len(f2[data_3.key]) == 1
 
-    def test_set_authority(self, client: sy.Synnax, indexed_pair: list[sy.Channel]):
+    def test_set_authority(
+        self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
+    ) -> None:
         start = sy.TimeSpan.SECOND * 1
         idx_ch, data_ch = indexed_pair
         w1 = client.open_writer(start=start, channels=indexed_pair, authorities=100)
@@ -429,8 +437,8 @@ class TestWriter:
             w2.close()
 
     def test_set_authority_data_channel_only(
-        self, client: sy.Synnax, indexed_pair: list[sy.Channel]
-    ):
+        self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
+    ) -> None:
         """A per-channel authority change naming only a data channel must also
         cover its index, since a data sample cannot be written without its
         timestamp."""
@@ -465,8 +473,8 @@ class TestWriter:
             w2.close()
 
     def test_set_authority_by_name(
-        self, client: sy.Synnax, indexed_pair: list[sy.Channel]
-    ):
+        self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
+    ) -> None:
         start = sy.TimeSpan.SECOND * 1
         idx_ch, data_ch = indexed_pair
         w1 = client.open_writer(start=start, channels=indexed_pair, authorities=100)
@@ -498,8 +506,8 @@ class TestWriter:
             w2.close()
 
     def test_set_authority_by_name_data_channel_only(
-        self, client: sy.Synnax, indexed_pair: list[sy.Channel]
-    ):
+        self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
+    ) -> None:
         """The by-name form of a per-channel authority change naming only a
         data channel must also cover its index."""
         start = sy.TimeSpan.SECOND * 1
@@ -533,8 +541,8 @@ class TestWriter:
             w2.close()
 
     def test_set_authority_by_name_value_data_channel_only(
-        self, client: sy.Synnax, indexed_pair: list[sy.Channel]
-    ):
+        self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
+    ) -> None:
         """The (name, value) form of a per-channel authority change naming only
         a data channel must also cover its index."""
         start = sy.TimeSpan.SECOND * 1
@@ -568,8 +576,8 @@ class TestWriter:
             w2.close()
 
     def test_set_authority_by_name_value(
-        self, client: sy.Synnax, indexed_pair: list[sy.Channel]
-    ):
+        self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
+    ) -> None:
         start = sy.TimeSpan.SECOND * 1
         idx_ch, data_ch = indexed_pair
         w1 = client.open_writer(start=start, channels=indexed_pair, authorities=100)
@@ -604,8 +612,8 @@ class TestWriter:
     def test_writer_overlap_err(
         self,
         client: sy.Synnax,
-        indexed_pair: list[sy.Channel],
-    ):
+        indexed_pair: tuple[sy.Channel, sy.Channel],
+    ) -> None:
         idx_ch, data_ch = indexed_pair
         start = sy.TimeSpan.SECOND * 30
         with client.open_writer(start=start, channels=indexed_pair) as w:
@@ -623,8 +631,8 @@ class TestWriter:
                 ...
 
     def test_set_authority_on_all_channels(
-        self, client: sy.Synnax, indexed_pair: list[sy.Channel]
-    ):
+        self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
+    ) -> None:
         start = sy.TimeSpan.SECOND * 1
         idx_ch, data_ch = indexed_pair
         w1 = client.open_writer(start=start, channels=indexed_pair, authorities=100)
@@ -656,8 +664,8 @@ class TestWriter:
             w2.close()
 
     def test_writer_close_idempotency(
-        self, indexed_pair: list[sy.Channel], client: sy.Synnax
-    ):
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
         """Should allow the caller to call close() as many times as they want"""
         idx_ch, data_ch = indexed_pair
         w = client.open_writer(start=1 * sy.TimeSpan.SECOND, channels=indexed_pair)
@@ -672,7 +680,7 @@ class TestWriter:
         w.close()
         w.close()
 
-    def test_write_string_channel(self, client: sy.Synnax):
+    def test_write_string_channel(self, client: sy.Synnax) -> None:
         """Should write and read persisted string data"""
         idx = client.channels.create(
             name=random_name(),
@@ -690,7 +698,7 @@ class TestWriter:
         ) as w:
             w.write(
                 {
-                    idx.key: [1 * sy.TimeSpan.SECOND, 2 * sy.TimeSpan.SECOND],
+                    idx.key: seconds_linspace(1, 2),
                     data.key: ["hello", "world"],
                 }
             )
@@ -698,7 +706,7 @@ class TestWriter:
         f = client.read(sy.TimeRange.MAX, data.key)
         assert list(f) == ["hello", "world"]
 
-    def test_write_json_channel(self, client: sy.Synnax):
+    def test_write_json_channel(self, client: sy.Synnax) -> None:
         """Should write and read persisted JSON data"""
         idx = client.channels.create(
             name=random_name(),
@@ -714,10 +722,11 @@ class TestWriter:
             start=1 * sy.TimeSpan.SECOND,
             channels=[idx.key, data.key],
         ) as w:
+            samples: list[dict[str, str | int]] = [{"key": "value"}, {"num": 42}]
             w.write(
                 {
-                    idx.key: [1 * sy.TimeSpan.SECOND, 2 * sy.TimeSpan.SECOND],
-                    data.key: [{"key": "value"}, {"num": 42}],
+                    idx.key: seconds_linspace(1, 2),
+                    data.key: samples,
                 }
             )
             w.commit()
@@ -726,7 +735,7 @@ class TestWriter:
         assert f[0] == {"key": "value"}
         assert f[1] == {"num": 42}
 
-    def test_write_mixed_fixed_and_variable(self, client: sy.Synnax):
+    def test_write_mixed_fixed_and_variable(self, client: sy.Synnax) -> None:
         """Should write fixed and variable channels sharing an index"""
         idx = client.channels.create(
             name=random_name(),
@@ -759,7 +768,7 @@ class TestWriter:
         assert len(f[float_ch.key]) == 3
         assert list(f[str_ch.key]) == ["a", "b", "c"]
 
-    def test_write_string_with_newlines(self, client: sy.Synnax):
+    def test_write_string_with_newlines(self, client: sy.Synnax) -> None:
         """Should persist strings containing newlines correctly"""
         idx = client.channels.create(
             name=random_name(),
@@ -777,7 +786,7 @@ class TestWriter:
         ) as w:
             w.write(
                 {
-                    idx.key: [1 * sy.TimeSpan.SECOND, 2 * sy.TimeSpan.SECOND],
+                    idx.key: seconds_linspace(1, 2),
                     data.key: ["line1\nline2", "no newline"],
                 }
             )
