@@ -15,21 +15,17 @@ import { type ReactElement, useCallback } from "react";
 
 // SY-4816: Static range entry, when added, should stop at 1s, which also simplifies
 // its selector and UX.
-/** Parses a positive duration like "45min" or "1h 30min" into nanoseconds. */
-export const parseSpan = (input: string): number | null => {
-  const span = TimeSpan.parse(input);
-  return span == null || span.isZero ? null : Number(span);
-};
-
 /** Edits the rolling window the plot's "custom" range key resolves to. */
 export const CustomRangeInput = (): ReactElement => {
   const custom = LinePlot.useCustomRange();
   const dispatch = LinePlot.useSingleDispatch();
   const handleChange = useCallback(
     (raw: string) => {
-      const span = parseSpan(raw);
-      if (span == null) return;
-      dispatch(lineplot.setCustomRange({ custom: { variant: "dynamic", span } }));
+      const span = TimeSpan.parse(raw);
+      if (span == null || span.isZero) return;
+      dispatch(
+        lineplot.setCustomRange({ custom: { variant: "dynamic", span: Number(span) } }),
+      );
     },
     [dispatch],
   );
