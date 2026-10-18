@@ -45,6 +45,12 @@ type Driver struct {
 		instances map[task.Key]instance
 		sync.RWMutex
 	}
+	// rackName is the rack's current name, kept up to date by the rack observer so
+	// the heartbeat never overwrites a rename.
+	rackName struct {
+		value string
+		sync.Mutex
+	}
 }
 
 // instance is a live task and the config hash it was built from. Start commands
@@ -89,6 +95,9 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 	}
 	cfg.L.Info("created Core driver rack", zap.Stringer("key", d.rack.Key))
 
+	d.rackName.value = d.rack.Name
+	disconnectRack := cfg.Rack.Observe().OnChange(d.handleRackChange)
+	ok(nil, io.NoFailCloserFunc(disconnectRack))
 	d.startHeartbeat()
 	d.configureExistingTasks(ctx)
 	disconnect := cfg.Task.Observe().OnChange(d.handleTaskChange)
@@ -106,17 +115,13 @@ func (d *Driver) startHeartbeat() {
 		sCtx,
 		d.cfg.HeartbeatInterval,
 		func(ctx context.Context, _ time.Time) error {
+			d.rackName.Lock()
+			name := d.rackName.value
+			d.rackName.Unlock()
 			if err := d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				var r rack.Rack
-				if err := d.cfg.Rack.NewRetrieve().
-					Where(rack.MatchKeys(d.rack.Key)).
-					Entry(&r).
-					Exec(ctx, tx); err != nil {
-					return err
-				}
 				return d.cfg.Status.NewWriter(tx).Set(ctx, &rack.Status{
-					Key:     rack.StatusKey(r.Key),
-					Name:    r.Name,
+					Key:     rack.StatusKey(d.rack.Key),
+					Name:    name,
 					Time:    telem.Now(),
 					Variant: status.VariantSuccess,
 					Message: "Driver is running",
@@ -325,6 +330,21 @@ func (d *Driver) exec(ctx context.Context, t Task, cmd task.Command) {
 			zap.Stringer("command", cmd),
 			zap.Error(err),
 		)
+	}
+}
+
+// handleRackChange records a new name for the Driver's rack.
+func (d *Driver) handleRackChange(
+	_ context.Context,
+	reader gorp.TxReader[rack.Key, rack.Rack],
+) {
+	for ch := range reader {
+		if ch.Variant != change.VariantSet || ch.Key != d.rack.Key {
+			continue
+		}
+		d.rackName.Lock()
+		d.rackName.value = ch.Value.Name
+		d.rackName.Unlock()
 	}
 }
 
