@@ -76,10 +76,10 @@ func (w Writer) healStatus(ctx context.Context, stat *Status) (*Status, error) {
 		Exec(ctx, w.tx)
 	if err == nil {
 		if existing.Name != stat.Name {
-			if err = w.status.Rename(ctx, existing.Key, stat.Name); err != nil {
+			existing.Name = stat.Name
+			if err = w.status.Set(ctx, &existing); err != nil {
 				return nil, err
 			}
-			existing.Name = stat.Name
 		}
 		return &existing, nil
 	}
