@@ -94,6 +94,9 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 	if t.Key == uuid.Nil() {
 		t.Key = uuid.New()
 	}
+	if err := t.Validate(); err != nil {
+		return err
+	}
 	store, ok := w.configs.Store(t.Type)
 	if !ok {
 		return errors.Wrapf(validate.ErrValidation, "unknown task type %q", t.Type)
@@ -263,12 +266,12 @@ func (w Writer) Copy(
 	var res Task
 	if err := w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Task](key)).
-		Change(func(_ gorp.Context, t Task) Task {
+		ChangeErr(func(_ gorp.Context, t Task) (Task, error) {
 			t.Key = newKey
 			t.Name = name
 			t.Snapshot = snapshot
 			res = t
-			return t
+			return t, t.Validate()
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return Task{}, err

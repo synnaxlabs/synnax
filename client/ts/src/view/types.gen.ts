@@ -25,7 +25,7 @@ export const viewZ = z.object({
   /** key is the unique identifier for this view. */
   key: keyZ.default(uuid.create),
   /** name is a human-readable name for the view. */
-  name: z.string(),
+  name: z.string().min(1, "name is required"),
   /** type is the view type identifier (e.g., 'lineplot', 'table', 'schematic'). */
   type: z.string(),
   /**

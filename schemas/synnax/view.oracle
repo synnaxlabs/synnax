@@ -23,7 +23,8 @@ View struct {
         @key
     }
     name  string {
-        @doc value "is a human-readable name for the view."
+        @doc value         "is a human-readable name for the view."
+        @validate required
     }
     type  string {
         @doc value """
