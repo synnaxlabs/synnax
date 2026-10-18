@@ -1084,7 +1084,6 @@ const UNIT_NAMES: [TimeSpan, string[]][] = [
   [TimeSpan.seconds(10), ["das", "decasecond", "decaseconds"]],
   [TimeSpan.milliseconds(100), ["ds", "decisecond", "deciseconds"]],
   [TimeSpan.milliseconds(10), ["cs", "centisecond", "centiseconds"]],
-  [TimeSpan.milliseconds(10), ["jiffy", "jiffies"]],
   [TimeSpan.nanoseconds(10), ["shake", "shakes"]],
 ];
 

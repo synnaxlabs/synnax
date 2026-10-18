@@ -1456,8 +1456,6 @@ describe("TimeSpan", () => {
         ["2 shakes", TimeSpan.nanoseconds(20)],
         ["3cs", TimeSpan.milliseconds(30)],
         ["3 centiseconds", TimeSpan.milliseconds(30)],
-        ["1 jiffy", TimeSpan.milliseconds(10)],
-        ["2 jiffies", TimeSpan.milliseconds(20)],
         ["4ds", TimeSpan.milliseconds(400)],
         ["1 decisecond", TimeSpan.milliseconds(100)],
         ["2das", TimeSpan.seconds(20)],
