@@ -9,6 +9,8 @@
 
 from __future__ import annotations
 
+from uuid import UUID
+
 from pydantic import BaseModel, Field
 
 from alamos import NOOP, Instrumentation, trace
@@ -21,11 +23,24 @@ from synnax.channel.payload import (
     normalize_params,
 )
 from synnax.exceptions import NotFoundError
+from x.telem import DataType
 
 
-class _Request(BaseModel):
+class Request(BaseModel):
+    """The filters for a channel retrieval. A field left as None does not filter."""
+
     names: list[str] | None = None
     keys: list[int] | None = None
+    search_term: str | None = None
+    data_types: list[DataType] | None = None
+    not_data_types: list[DataType] | None = None
+    virtual: bool | None = None
+    is_index: bool | None = None
+    internal: bool | None = None
+    range_key: UUID | None = None
+    node_key: int | None = None
+    limit: int | None = None
+    offset: int | None = None
 
 
 class _Response(BaseModel):
@@ -53,14 +68,14 @@ class Retriever:
         if len(normal.channels) == 0:
             return list()
         if isinstance(normal, NormalizedNameResult):
-            req = _Request(names=normal.channels)
+            req = Request(names=normal.channels)
         else:
-            req = _Request(keys=normal.channels)
+            req = Request(keys=normal.channels)
         return self._exec_retrieve(req)
 
     @trace("debug")
     def retrieve_one(self, param: Key | str) -> Payload:
-        req = _Request()
+        req = Request()
         if isinstance(param, Key):
             req.keys = [param]
         else:
@@ -70,7 +85,11 @@ class Retriever:
             raise NotFoundError(f"Could not find channel matching {param}")
         return channels[0]
 
-    def _exec_retrieve(self, req: _Request) -> list[Payload]:
+    @trace("debug")
+    def filter(self, req: Request) -> list[Payload]:
+        return self._exec_retrieve(req)
+
+    def _exec_retrieve(self, req: Request) -> list[Payload]:
         return self._client.send("/channel/retrieve", req, _Response).channels
 
 
