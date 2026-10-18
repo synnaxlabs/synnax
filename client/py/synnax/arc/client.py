@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field, PrivateAttr
 
 from freighter import Empty, UnaryClient
 from synnax.arc.graph import Graph
+from synnax.arc.program import Program
 from synnax.arc.text import Text
 from synnax.arc.types_gen import Key, Mode, Payload, ontology_id
 from synnax.exceptions import MultipleFoundError, NotFoundError
@@ -37,6 +38,7 @@ class _RetrieveRequest(BaseModel):
     search_term: str | None = None
     limit: int | None = None
     offset: int | None = None
+    compile: bool = False
 
 
 class _RetrieveResponse(BaseModel):
@@ -65,6 +67,7 @@ class Arc(Payload):
         graph: Graph | None = None,
         text: Text | None = None,
         mode: Mode = "text",
+        program: Program | None = None,
         _client: Client | None = None,
     ):
         super().__init__(
@@ -73,6 +76,7 @@ class Arc(Payload):
             graph=graph if graph is not None else Graph(),
             text=text if text is not None else Text(),
             mode=mode,
+            program=program,
         )
         self._client = _client
 
@@ -147,10 +151,10 @@ class Client:
         return created[0] if is_single else created
 
     @overload
-    def retrieve(self, *, key: Key) -> Arc: ...
+    def retrieve(self, *, key: Key, compile: bool = False) -> Arc: ...
 
     @overload
-    def retrieve(self, *, name: str) -> Arc: ...
+    def retrieve(self, *, name: str, compile: bool = False) -> Arc: ...
 
     @overload
     def retrieve(
@@ -161,6 +165,7 @@ class Client:
         search_term: str | None = None,
         limit: int | None = None,
         offset: int | None = None,
+        compile: bool = False,
     ) -> list[Arc]: ...
 
     def retrieve(
@@ -173,7 +178,11 @@ class Client:
         search_term: str | None = None,
         limit: int | None = None,
         offset: int | None = None,
+        compile: bool = False,
     ) -> Arc | list[Arc]:
+        """Retrieve Arcs. When compile is True, the Core compiles each Arc and sets
+        its program, raising an error if any Arc fails to compile.
+        """
         if key is not None:
             keys = [key]
         if name is not None:
@@ -188,6 +197,7 @@ class Client:
                 search_term=search_term,
                 limit=limit,
                 offset=offset,
+                compile=compile,
             ),
             _RetrieveResponse,
         )
@@ -214,6 +224,7 @@ class Client:
                 graph=p.graph,
                 text=p.text,
                 mode=p.mode,
+                program=p.program,
                 _client=self,
             )
             for p in payloads
