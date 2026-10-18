@@ -79,7 +79,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("auth")
 	v.NotNil("db", c.DB)
-	v.Ternary("authenticators", len(c.Authenticators) > 0, "must not be empty")
+	v.Ternary("authenticators", len(c.Authenticators) == 0, "must not be empty")
 	v.Positive("idle_timeout", c.IdleTimeout)
 	v.NotNil("clock", c.Clock)
 	return v.Error()

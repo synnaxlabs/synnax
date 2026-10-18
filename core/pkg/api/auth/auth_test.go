@@ -10,21 +10,31 @@
 package auth_test
 
 import (
+	"context"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/address"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+const remote address.Address = "10.0.0.1:4242"
 
 // request builds a login request for the given username and password.
 func request(username, pwd string) apiauth.LoginRequest {
 	creds := auth.Credentials{Username: username, Password: pwd}
 	return apiauth.LoginRequest{Credentials: creds}
+}
+
+// requestCtx wraps ctx the way a transport does, with the client's address.
+func requestCtx(ctx context.Context) freighter.Context {
+	return freighter.Context{Context: ctx, Params: freighter.Params{}, Remote: remote}
 }
 
 var _ = Describe("NewService", func() {
@@ -39,10 +49,13 @@ var _ = Describe("Login", func() {
 		"Should return a token for the user and the cluster info",
 		func(ctx SpecContext) {
 			res := MustSucceed(
-				apiSvc.Login(ctx, request(creds.Username, creds.Password)),
+				apiSvc.Login(requestCtx(ctx), request(creds.Username, creds.Password)),
 			)
 			Expect(res.User).To(Equal(root))
-			Expect(MustSucceed(tokenSvc.Validate(res.Token))).To(Equal(root.Key))
+			session := MustSucceed(authSvc.Authenticate(ctx, res.Token))
+			Expect(session.Subject).To(Equal(root.OntologyID()))
+			Expect(session.Method).To(Equal(auth.MethodPassword))
+			Expect(session.Address).To(Equal(string(remote)))
 			Expect(res.ClusterInfo.ClusterKey).To(Equal(node.Cluster.Key().String()))
 			Expect(res.ClusterInfo.NodeKey).To(Equal(node.Cluster.HostKey()))
 			Expect(res.ClusterInfo.NodeTime).ToNot(BeZero())
@@ -50,13 +63,13 @@ var _ = Describe("Login", func() {
 	)
 	It("Should reject a wrong password", func(ctx SpecContext) {
 		Expect(
-			apiSvc.Login(ctx, request(creds.Username, "wrong")),
+			apiSvc.Login(requestCtx(ctx), request(creds.Username, "wrong")),
 		).Error().
 			To(MatchError(auth.ErrInvalidCredentials))
 	})
 	It("Should reject an unknown username", func(ctx SpecContext) {
 		Expect(
-			apiSvc.Login(ctx, request("nobody", creds.Password)),
+			apiSvc.Login(requestCtx(ctx), request("nobody", creds.Password)),
 		).Error().
 			To(MatchError(auth.ErrInvalidCredentials))
 	})
@@ -74,23 +87,55 @@ var _ = Describe("ChangePassword", func() {
 	It(
 		"Should replace the password when the current one is right",
 		func(ctx SpecContext) {
-			Expect(apiSvc.ChangePassword(ctx, nil, apiauth.ChangePasswordRequest{
-				Credentials: own,
-				NewPassword: "new",
-			})).Error().ToNot(HaveOccurred())
+			Expect(
+				apiSvc.ChangePassword(
+					requestCtx(ctx),
+					nil,
+					apiauth.ChangePasswordRequest{
+						Credentials: own,
+						NewPassword: "new",
+					},
+				),
+			).Error().
+				ToNot(HaveOccurred())
 			MustSucceed(
-				apiSvc.Login(ctx, request(own.Username, "new")),
+				apiSvc.Login(requestCtx(ctx), request(own.Username, "new")),
 			)
-			Expect(apiSvc.Login(ctx, request(own.Username, own.Password))).Error().
+			Expect(
+				apiSvc.Login(requestCtx(ctx), request(own.Username, own.Password)),
+			).Error().
 				To(MatchError(auth.ErrInvalidCredentials))
 		},
 	)
 	It("Should keep the password when the current one is wrong", func(ctx SpecContext) {
 		creds := auth.Credentials{Username: own.Username, Password: "wrong"}
-		Expect(apiSvc.ChangePassword(ctx, nil, apiauth.ChangePasswordRequest{
-			Credentials: creds,
-			NewPassword: "new",
-		})).Error().To(MatchError(auth.ErrInvalidCredentials))
-		MustSucceed(apiSvc.Login(ctx, request(own.Username, own.Password)))
+		Expect(
+			apiSvc.ChangePassword(requestCtx(ctx), nil, apiauth.ChangePasswordRequest{
+				Credentials: creds,
+				NewPassword: "new",
+			}),
+		).Error().
+			To(MatchError(auth.ErrInvalidCredentials))
+		MustSucceed(apiSvc.Login(requestCtx(ctx), request(own.Username, own.Password)))
 	})
+	It(
+		"Should end the password's other sessions and keep the caller's",
+		func(ctx SpecContext) {
+			kept := MustSucceed(
+				apiSvc.Login(requestCtx(ctx), request(own.Username, own.Password)),
+			)
+			other := MustSucceed(
+				apiSvc.Login(requestCtx(ctx), request(own.Username, own.Password)),
+			)
+			fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
+			fctx.Set("Session", MustSucceed(authSvc.Authenticate(ctx, kept.Token)).Key)
+			Expect(apiSvc.ChangePassword(fctx, nil, apiauth.ChangePasswordRequest{
+				Credentials: own,
+				NewPassword: "new",
+			})).Error().ToNot(HaveOccurred())
+			MustSucceed(authSvc.Authenticate(ctx, kept.Token))
+			Expect(authSvc.Authenticate(ctx, other.Token)).Error().
+				To(MatchError(auth.ErrInvalidToken))
+		},
+	)
 })
