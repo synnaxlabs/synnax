@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
+	"github.com/synnaxlabs/synnax/pkg/api/view"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/arc"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/auth"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/channel"
@@ -43,7 +44,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/status"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/task"
-	"github.com/synnaxlabs/synnax/pkg/transport/grpc/view"
 )
 
 // Bind constructs the gRPC transport for every API service, binds the API layer's
@@ -65,7 +65,6 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 		device.New(&t),
 		status.New(&t),
 		arc.New(&t),
-		view.New(&t),
 		control.New(&t),
 	}
 
@@ -142,6 +141,11 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.LogRetrieve = noop.UnaryServer[log.RetrieveRequest, log.RetrieveResponse]{}
 	t.LogDelete = noop.UnaryServer[log.DeleteRequest, struct{}]{}
 	t.LogDispatch = noop.UnaryServer[log.DispatchRequest, struct{}]{}
+
+	// VIEW
+	t.ViewCreate = noop.UnaryServer[view.CreateRequest, view.CreateResponse]{}
+	t.ViewRetrieve = noop.UnaryServer[view.RetrieveRequest, view.RetrieveResponse]{}
+	t.ViewDelete = noop.UnaryServer[view.DeleteRequest, struct{}]{}
 
 	// TABLE
 	t.TableCreate = noop.UnaryServer[table.CreateRequest, table.CreateResponse]{}
