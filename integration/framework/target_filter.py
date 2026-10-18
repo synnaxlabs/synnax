@@ -28,7 +28,7 @@ class TargetFilter:
     """Flexible test filter supporting substring matching at every level."""
 
     file_filter: list[str] | None = None
-    sequence_filter: str | None = None
+    sequence_filter: list[str] | None = None
     case_filter: list[str] | None = None
     exclude: list[str] | None = None
 
@@ -44,7 +44,7 @@ class TargetFilter:
     def matches_sequence(self, seq_name: str) -> bool:
         if self.sequence_filter is None:
             return True
-        return self.sequence_filter.lower() in seq_name.lower()
+        return _any_match(self.sequence_filter, seq_name)
 
     def matches_case(self, case_path: str) -> bool:
         if self.case_filter is None:
@@ -65,12 +65,13 @@ def parse_target(target: str) -> TargetFilter:
         "console/lifecycle/..."    -> file=console, sequence_filter="lifecycle"
         "console/lifecycle/label"  -> file=console, sequence_filter="lifecycle",
                                       case_filter="label"
+        "console/user,cluster/..." -> file=console, sequence_filter="user,cluster"
 
     2-part paths treat the second segment as a case_filter (substring),
     so "driver/modbus" matches cases like "driver/modbus_read".
 
     3-part paths use the second segment as a sequence_filter and the third
-    as a case_filter.
+    as a case_filter. Every segment takes a comma-separated list.
 
     "..." at any position is treated as a wildcard (no filter).
     """
@@ -86,7 +87,7 @@ def parse_target(target: str) -> TargetFilter:
     if not file_filter:
         raise ValueError(f"Target path cannot be empty: {target!r}")
 
-    sequence_filter: str | None = None
+    sequence_filter: list[str] | None = None
     case_filter: list[str] | None = None
 
     if len(parts) == 2:
@@ -94,7 +95,7 @@ def parse_target(target: str) -> TargetFilter:
             case_filter = split_csv(parts[1])
     elif len(parts) >= 3:
         if parts[1] != "...":
-            sequence_filter = parts[1]
+            sequence_filter = split_csv(parts[1])
         if parts[2] != "...":
             case_filter = split_csv(parts[2])
 

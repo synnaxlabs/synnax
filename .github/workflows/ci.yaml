@@ -481,7 +481,6 @@ jobs:
     uses: ./.github/workflows/test.py.yaml
     with:
       directory: integration
-      test: false
     secrets: inherit
 
   lyra:
