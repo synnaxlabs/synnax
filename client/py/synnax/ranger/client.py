@@ -249,6 +249,8 @@ class Range(Payload):
     """For setting and resolving aliases."""
     _cache: dict[channel.Key, _InternalScopedChannel] = PrivateAttr(dict())
     """A writer for creating child ranges"""
+    _scoped: dict[channel.Key | str, ScopedChannel] = PrivateAttr(dict())
+    """Resolved channel queries, so each name or key is retrieved once."""
     _cached_client: Client | None = PrivateAttr(None)
     _cached_tasks: TaskClient | None = PrivateAttr(None)
     _cached_ontology: OntologyClient | None = PrivateAttr(None)
@@ -328,16 +330,25 @@ class Range(Payload):
             return cast(ScopedChannel, _model_getattr(self, query))
         except AttributeError:
             pass
+        scoped = self._scoped.get(query)
+        if scoped is not None:
+            return scoped
         channels = self._channel_retriever.retrieve(query)
         aliases = self._aliaser.resolve([query])
         channels.extend(self._channel_retriever.retrieve(list(aliases.values())))
-        return self._get_scoped_channel(channels, query)
+        scoped = self._get_scoped_channel(channels, query)
+        self._scoped[query] = scoped
+        return scoped
 
     def __getitem__(self, name: str | channel.Key) -> ScopedChannel:
-        if isinstance(name, channel.Key):
+        if not isinstance(name, channel.Key):
+            return self.__getattr__(name)
+        scoped = self._scoped.get(name)
+        if scoped is None:
             channels = self._channel_retriever.retrieve(name)
-            return self._get_scoped_channel(channels, name.__str__())
-        return self.__getattr__(name)
+            scoped = self._get_scoped_channel(channels, name.__str__())
+            self._scoped[name] = scoped
+        return scoped
 
     def _splice_cached(
         self, channels: list[channel.Payload]
@@ -428,6 +439,7 @@ class Range(Payload):
             else:
                 corrected[ch] = alias
         self._aliaser.set(corrected)
+        self._scoped.clear()
 
     def to_payload(self) -> Payload:
         return Payload(
