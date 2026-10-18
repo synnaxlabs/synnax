@@ -802,6 +802,18 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(res.Integrations).To(Equal([]string{"arc"}))
 			},
 		)
+		It(
+			"Should return a zero rack when the embedded rack fails to save",
+			func(ctx SpecContext) {
+				r, err := svc.RetrieveOrCreateEmbedded(
+					ctx,
+					"invalid embedded",
+					func(r *rack.Rack) { r.Name = "" },
+				)
+				Expect(err).To(HaveOccurred())
+				Expect(r).To(Equal(rack.Rack{}))
+			},
+		)
 	})
 
 	Describe("Status", func() {
