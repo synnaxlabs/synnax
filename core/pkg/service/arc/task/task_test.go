@@ -2474,6 +2474,18 @@ var _ = Describe("Task", Ordered, func() {
 				},
 			)
 		}
+		// writes reports whether a new writer at authority a can write to c.
+		writes := func(ctx context.Context, c writeCh, a control.Authority) bool {
+			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+				Keys:        keysOf(c),
+				Start:       telem.Now(),
+				Authorities: []control.Authority{a},
+				Sync:        new(true),
+			}))
+			ok := MustSucceed(w.Write(sample(c, 99)))
+			Expect(w.Close()).To(Succeed())
+			return ok
+		}
 		variants := []struct {
 			name   string
 			create func(ctx context.Context, prefix string) writeCh
@@ -2790,24 +2802,9 @@ var _ = Describe("Task", Ordered, func() {
 						).To(BeTrue())
 						Expect(trigW.Close()).To(Succeed())
 
-						// Receive data frames to ensure the runtime has processed
-						// the trigger
-						Eventually(responses).Should(Receive(&fr))
-						Eventually(responses).Should(Receive(&fr))
-
-						w := MustSucceed(framerSvc.OpenWriter(
-							ctx,
-							framer.WriterConfig{
-								Keys:  keysOf(c),
-								Start: telem.Now(),
-								Authorities: []control.Authority{
-									control.Authority(150),
-								},
-								Sync: new(true),
-							},
-						))
-						defer func() { Expect(w.Close()).To(Succeed()) }()
-						Expect(w.Write(sample(c, 99))).To(BeFalse())
+						Eventually(func() bool {
+							return writes(ctx, c, 150)
+						}).Should(BeFalse())
 					},
 				)
 
@@ -2854,19 +2851,7 @@ var _ = Describe("Task", Ordered, func() {
 						var fr framer.StreamerResponse
 						Eventually(responses).Should(Receive(&fr))
 
-						wBefore := MustSucceed(framerSvc.OpenWriter(
-							ctx,
-							framer.WriterConfig{
-								Keys:  keysOf(c),
-								Start: telem.Now(),
-								Authorities: []control.Authority{
-									control.Authority(100),
-								},
-								Sync: new(true),
-							},
-						))
-						Expect(wBefore.Write(sample(c, 99))).To(BeFalse())
-						Expect(wBefore.Close()).To(Succeed())
+						Expect(writes(ctx, c, 100)).To(BeFalse())
 
 						trigW := MustSucceed(framerSvc.OpenWriter(
 							ctx,
@@ -2883,24 +2868,9 @@ var _ = Describe("Task", Ordered, func() {
 						).To(BeTrue())
 						Expect(trigW.Close()).To(Succeed())
 
-						// Receive data frames to ensure the runtime has processed
-						// the trigger
-						Eventually(responses).Should(Receive(&fr))
-						Eventually(responses).Should(Receive(&fr))
-
-						wAfter := MustSucceed(framerSvc.OpenWriter(
-							ctx,
-							framer.WriterConfig{
-								Keys:  keysOf(c),
-								Start: telem.Now(),
-								Authorities: []control.Authority{
-									control.Authority(100),
-								},
-								Sync: new(true),
-							},
-						))
-						defer func() { Expect(wAfter.Close()).To(Succeed()) }()
-						Expect(wAfter.Write(sample(c, 99))).To(BeTrue())
+						Eventually(func() bool {
+							return writes(ctx, c, 100)
+						}).Should(BeTrue())
 					},
 				)
 
