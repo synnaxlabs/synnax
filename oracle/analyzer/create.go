@@ -25,10 +25,10 @@ import (
 //
 // A struct synthesizes the namespace-canonical `New` (one per namespace: a hand-written
 // New is respected, and only the first @create struct wins). A union named after its
-// namespace (`view.View`) is the namespace's core item and synthesizes `New` too. Any
-// other union synthesizes `New`+its type name (e.g. `Tab` derives `NewTab`), so a
-// namespace may hold both a struct `New` and any number of union projections without
-// colliding.
+// namespace (`view.View`) is the namespace's core item and claims `New` too, unless a
+// struct declared before it already did. Any other union synthesizes `New`+its type
+// name (e.g. `Tab` derives `NewTab`), so a namespace may hold both a struct `New` and
+// any number of union projections without colliding.
 //
 // Defaulted fields become optional automatically through `z.input`, so they need no
 // per-field handling here.
@@ -75,8 +75,9 @@ func synthesizeCreateTypes(c *analysisCtx) {
 			structNewSynthesized = true
 		case resolution.UnionForm:
 			name := "New" + typ.Name
-			if casing.TypeSnake(typ.Name) == c.namespace {
+			if casing.TypeSnake(typ.Name) == c.namespace && !structNewSynthesized {
 				name = "New"
+				structNewSynthesized = true
 			}
 			qname := c.namespace + "." + name
 			if _, exists := c.table.Get(qname); exists {

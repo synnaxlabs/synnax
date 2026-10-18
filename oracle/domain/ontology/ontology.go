@@ -27,17 +27,23 @@ type Data struct {
 type SkipFunc func(resolution.Type) bool
 
 // Extract finds ontology metadata from struct or union types with an @ontology domain.
-// Returns nil if no ontology domain is found or if there are no key fields.
-func Extract(types []resolution.Type, keyFields []key.Field, skip SkipFunc) *Data {
-	if len(keyFields) == 0 {
-		return nil
-	}
+// A struct takes the first of keyFields. A union takes the key of its base structs,
+// wherever they are generated. Returns nil if no ontology domain or key is found.
+func Extract(
+	types []resolution.Type,
+	keyFields []key.Field,
+	skip SkipFunc,
+	table *resolution.Table,
+) *Data {
 	for _, typ := range types {
 		if skip != nil && skip(typ) {
 			continue
 		}
-		switch typ.Form.(type) {
-		case resolution.StructForm, resolution.UnionForm:
+		fields := keyFields
+		switch form := typ.Form.(type) {
+		case resolution.StructForm:
+		case resolution.UnionForm:
+			fields = key.Collect(bases(form, table), table, nil)
 		default:
 			continue
 		}
@@ -52,14 +58,24 @@ func Extract(types []resolution.Type, keyFields []key.Field, skip SkipFunc) *Dat
 				break
 			}
 		}
-		if typeName == "" {
+		if typeName == "" || len(fields) == 0 {
 			continue
 		}
 		return &Data{
 			TypeName:   typeName,
 			StructName: typ.Name,
-			KeyField:   &keyFields[0],
+			KeyField:   &fields[0],
 		}
 	}
 	return nil
+}
+
+func bases(form resolution.UnionForm, table *resolution.Table) []resolution.Type {
+	var result []resolution.Type
+	for _, ext := range form.Extends {
+		if base, ok := ext.Resolve(table); ok {
+			result = append(result, base)
+		}
+	}
+	return result
 }

@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/pluralize"
 )
 
@@ -89,6 +90,14 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 
 	for _, e := range entries {
+		// Every entry emits the same Retrieve, Filter, and MatchKeys names.
+		if len(e.structs) > 1 {
+			return nil, errors.Newf(
+				"%s: only one @retrieve type is allowed per output, found %d",
+				e.path,
+				len(e.structs),
+			)
+		}
 		content, err := generateRetrieveFile(
 			e.path,
 			e.structs,
@@ -344,7 +353,7 @@ func extractRetrieveInfo(
 		// A union entry holds its fields behind Variant, so generated filters cannot
 		// read them.
 		if isUnion {
-			return nil, fmt.Errorf(
+			return nil, errors.Newf(
 				"%s: @filter and @index are not supported on union fields (%s)",
 				typ.QualifiedName,
 				field.Name,

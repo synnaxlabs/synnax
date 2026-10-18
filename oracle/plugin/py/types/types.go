@@ -117,12 +117,11 @@ func generatePyFile(
 	}
 	allStructs := lo.Filter(table.StructTypes(), inOutput)
 	allRawKeyFields := key.Collect(allStructs, table, nil)
-	allKeyFields := convertKeyFields(allRawKeyFields, data)
 	data.Ontology = extractOntology(
 		slices.Concat(allStructs, lo.Filter(table.UnionTypes(), inOutput)),
 		allRawKeyFields,
-		allKeyFields,
 		nil,
+		table,
 	)
 	if data.Ontology != nil {
 		data.imports.addOntology("ID")
@@ -249,11 +248,11 @@ func convertKeyFields(fields []key.Field, data *templateData) []keyFieldData {
 func extractOntology(
 	types []resolution.Type,
 	rawFields []key.Field,
-	keyFields []keyFieldData,
 	skip ontology.SkipFunc,
+	table *resolution.Table,
 ) *ontologyData {
-	data := ontology.Extract(types, rawFields, skip)
-	if data == nil || len(keyFields) == 0 {
+	data := ontology.Extract(types, rawFields, skip, table)
+	if data == nil {
 		return nil
 	}
 	return &ontologyData{

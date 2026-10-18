@@ -446,7 +446,7 @@ func (p *Plugin) extractOntology(
 	skip ontology.SkipFunc,
 	table *resolution.Table,
 ) *ontologyData {
-	data := ontology.Extract(structs, keyFields, skip)
+	data := ontology.Extract(structs, keyFields, skip, table)
 	if data == nil {
 		return nil
 	}

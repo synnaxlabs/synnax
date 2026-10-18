@@ -501,7 +501,7 @@ var _ = Describe("Go PB Plugin", func() {
 					@go output "core/test"
 					@pb
 
-					Key = uuid
+					Key uuid
 
 					Test struct {
 						keys Key[]
@@ -510,7 +510,7 @@ var _ = Describe("Go PB Plugin", func() {
 					resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
 					ExpectContent(resp, "translator.gen.go").
 						ToContain(
-							"Keys: lo.Map(r.Keys, func(u test.Key, _ int) string",
+							"Keys: lo.Map(r.Keys, func(u test.Key, _ int) string { return uuid.UUID(u).String() })",
 							"r.Keys, err = func() ([]test.Key, error)",
 							"result[i] = test.Key(parsed)",
 						)
