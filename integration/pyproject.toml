@@ -65,9 +65,6 @@ ignore = ["UP040", "UP046", "UP047", "SIM105", "SIM115", "SIM117", "PT012", "RUF
 [tool.ruff.lint.isort]
 known-first-party = ["synnax", "alamos", "freighter", "x"]
 
-[tool.ruff.lint.flake8-bugbear]
-extend-immutable-calls = ["framework.models.SynnaxConnection"]
-
 [tool.ruff.lint.per-file-ignores]
 # Test cases configure subclasses with class-level lists that nothing mutates.
 "tests/**" = ["RUF012"]

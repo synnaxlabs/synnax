@@ -14,7 +14,7 @@ from examples.opcua import OPCUASim
 import synnax as sy
 from console.case import ConsoleCase
 from console.task_page import TaskPage
-from framework.models import SynnaxConnection
+from framework.models import DEFAULT_CONNECTION, SynnaxConnection
 from framework.run_with_connection import run_scripts
 from framework.utils import assert_envelope, assert_link_format
 from tests.driver.simulator_case import SimulatorCase
@@ -79,7 +79,7 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
 
     def __init__(
         self,
-        synnax_connection: SynnaxConnection = SynnaxConnection(),
+        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
         *,
         name: str,
         **params: object,

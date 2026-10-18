@@ -62,6 +62,10 @@ class SynnaxConnection:
         )
 
 
+DEFAULT_CONNECTION = SynnaxConnection()
+"""Connection to a local Core with the default credentials."""
+
+
 @dataclass
 class Test:
     """Data class to store test execution results."""

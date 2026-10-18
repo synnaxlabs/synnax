@@ -23,7 +23,7 @@ from typing import Any, Literal, NoReturn, overload
 
 import synnax as sy
 from framework.log_client import LogClient, LogMode, SynnaxChannelSink
-from framework.models import STATUS, SYMBOLS, SynnaxConnection
+from framework.models import DEFAULT_CONNECTION, STATUS, SYMBOLS, SynnaxConnection
 from framework.recorder import Notifications, TaskStatus
 from framework.streamer import Streamer
 from framework.telemetry import TelemetryWriter
@@ -91,7 +91,7 @@ class TestCase(ABC):
 
     def __init__(
         self,
-        synnax_connection: SynnaxConnection = SynnaxConnection(),
+        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
         *,
         name: str,
         **params: Any,
