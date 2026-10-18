@@ -66,9 +66,6 @@ select = ["F", "I", "B", "DTZ", "E7", "E9", "PLE", "RUF012"]
 [tool.ruff.lint.isort]
 known-first-party = ["synnax", "alamos", "freighter", "x"]
 
-[tool.ruff.lint.flake8-bugbear]
-extend-immutable-calls = ["uuid.UUID"]
-
 [tool.mypy]
 mypy_path = "stubs"
 plugins = ["pydantic.mypy"]
