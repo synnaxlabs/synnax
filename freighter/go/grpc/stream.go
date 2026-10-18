@@ -12,6 +12,7 @@ package grpc
 import (
 	"context"
 	"io"
+	"sync"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
@@ -66,7 +67,7 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) Handler(
 			attachedInitialMetaData = true
 			if err := stream.SendHeader(metadata.Pairs()); err != nil {
 				if md.Err() != nil {
-					return md, s.handler(md, s.adaptStream(stream))
+					return md, s.handler(md, s.adaptStream(md.Context, stream))
 				}
 				return md, err
 			}
@@ -74,7 +75,7 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) Handler(
 				Context:  md.Context,
 				Protocol: md.Protocol,
 				Params:   make(freighter.Params),
-			}, s.handler(md, s.adaptStream(stream))
+			}, s.handler(md, s.adaptStream(md.Context, stream))
 		}),
 	)
 	if !attachedInitialMetaData {
@@ -148,6 +149,7 @@ func (s *StreamClient[RQ, RQT, RS, RST]) Stream(
 }
 
 func (s *StreamServerCore[RQ, RQT, RS, RST]) adaptStream(
+	ctx context.Context,
 	stream grpcServerStream[RQT, RST],
 ) freighter.ServerStream[RQ, RS] {
 	var (
@@ -158,6 +160,7 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) adaptStream(
 		requestTranslator, responseTranslator = s.CreateTranslators()
 	}
 	return &ServerStream[RQ, RQT, RS, RST]{
+		ctx:                ctx,
 		requestTranslator:  requestTranslator,
 		responseTranslator: responseTranslator,
 		internal:           stream,
@@ -176,23 +179,63 @@ func (s *StreamClient[RQ, RQT, RS, RST]) adaptStream(
 
 // ServerStream wraps a grpc stream to implement the freighter.ServerStream interface.
 type ServerStream[RQ, RQT, RS, RST freighter.Payload] struct {
+	// ctx is the handler's context. Receive stops waiting when it ends, which the
+	// transport's own receive does not do.
+	ctx                context.Context
 	internal           grpcServerStream[RQT, RST]
 	requestTranslator  Translator[RQ, RQT]
 	responseTranslator Translator[RS, RST]
+	recvOnce           sync.Once
+	recv               chan recvResult[RQT]
 }
 
-// Receive implements the freighter.ClientStream interface.
-func (s *ServerStream[RQ, RQT, RS, RST]) Receive() (req RQ, err error) {
-	tReq, err := s.internal.Recv()
-	if err != nil {
-		return req, translateGRPCError(err)
+// recvResult is one message the receive loop pulled off the transport.
+type recvResult[RQT freighter.Payload] struct {
+	msg RQT
+	err error
+}
+
+// receiveLoop pulls messages off the transport until it fails, which it does once the
+// handler returns and the RPC ends, and hands them to Receive.
+func (s *ServerStream[RQ, RQT, RS, RST]) receiveLoop() {
+	defer close(s.recv)
+	for {
+		msg, err := s.internal.Recv()
+		select {
+		case s.recv <- recvResult[RQT]{msg: msg, err: err}:
+		case <-s.ctx.Done():
+			return
+		}
+		if err != nil {
+			return
+		}
 	}
-	return s.requestTranslator.Backward(s.internal.Context(), tReq)
+}
+
+// Receive implements the freighter.ServerStream interface. It returns the handler
+// context's cause when that context ends before a message arrives.
+func (s *ServerStream[RQ, RQT, RS, RST]) Receive() (req RQ, err error) {
+	s.recvOnce.Do(func() {
+		s.recv = make(chan recvResult[RQT])
+		go s.receiveLoop()
+	})
+	select {
+	case <-s.ctx.Done():
+		return req, context.Cause(s.ctx)
+	case r, ok := <-s.recv:
+		if !ok {
+			return req, context.Cause(s.ctx)
+		}
+		if r.err != nil {
+			return req, translateGRPCError(r.err)
+		}
+		return s.requestTranslator.Backward(s.ctx, r.msg)
+	}
 }
 
 // Send implements the freighter.ClientStream interface.
 func (s *ServerStream[RQ, RQT, RS, RST]) Send(res RS) error {
-	tRes, err := s.responseTranslator.Forward(s.internal.Context(), res)
+	tRes, err := s.responseTranslator.Forward(s.ctx, res)
 	if err != nil {
 		return err
 	}

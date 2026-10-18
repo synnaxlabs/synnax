@@ -57,7 +57,12 @@ type WSMessage[P freighter.Payload] struct {
 
 const (
 	contextCancelledCloseCode = websocket.CloseGoingAway
-	closeReadWriteDeadline    = 500 * time.Millisecond
+	// serverErrorCloseCode is a private close code whose reason carries the encoded
+	// error that ended the stream on the server.
+	serverErrorCloseCode = 4001
+	// maxCloseReasonLen is the longest reason a close frame can carry.
+	maxCloseReasonLen      = 123
+	closeReadWriteDeadline = 500 * time.Millisecond
 )
 
 func newStreamCore[RQ, RS freighter.Payload](
@@ -79,6 +84,10 @@ type streamCoreConfig struct {
 	conn  *websocket.Conn
 	alamos.Instrumentation
 	writeDeadline time.Duration
+	// cause returns why the server shut the stream down, once serverShutdownSig
+	// closes. The peer receives it in the close frame when it is not a plain
+	// cancellation. Nil means the plain cancellation.
+	cause func() error
 }
 
 // streamCore is the common functionality implemented by both the client and server
@@ -130,6 +139,11 @@ func (c *streamCore[I, O]) Receive() (I, error) {
 			c.peerCloseErr = freighter.EOF
 		} else if websocket.IsCloseError(err, contextCancelledCloseCode) {
 			c.peerCloseErr = context.Canceled
+		} else if closeErr := new(websocket.CloseError); errors.As(err, &closeErr) &&
+			closeErr.Code == serverErrorCloseCode {
+			var p errors.Payload
+			p.Unmarshal(closeErr.Text)
+			c.peerCloseErr = errors.Decode(context.TODO(), p)
 		} else {
 			c.peerCloseErr = freighter.ErrStreamClosed
 		}
@@ -152,6 +166,24 @@ func (c *streamCore[I, O]) close() error {
 	return c.conn.Close()
 }
 
+// shutdownCloseMessage formats the close frame for a server shutdown: the plain
+// cancellation code, or the error code carrying the encoded cause when the server gave
+// one that fits a control frame.
+func (c *streamCore[I, O]) shutdownCloseMessage() []byte {
+	if c.cause == nil {
+		return websocket.FormatCloseMessage(contextCancelledCloseCode, "")
+	}
+	cause := c.cause()
+	if cause == nil || errors.Is(cause, context.Canceled) {
+		return websocket.FormatCloseMessage(contextCancelledCloseCode, "")
+	}
+	text := errors.Encode(context.TODO(), cause, false).Error()
+	if len(text) > maxCloseReasonLen {
+		return websocket.FormatCloseMessage(serverErrorCloseCode, "")
+	}
+	return websocket.FormatCloseMessage(serverErrorCloseCode, text)
+}
+
 // listenForContextCancellation is a goroutine that listens for the context to be
 // canceled and shuts down the stream forcefully if it is. We need this as the websocket
 // implementation itself doesn't support context cancellation.
@@ -163,7 +195,7 @@ func (c *streamCore[I, O]) listenForContextCancellation() {
 	case <-c.serverShutdownSig:
 		if err := c.conn.WriteControl(
 			websocket.CloseMessage,
-			websocket.FormatCloseMessage(contextCancelledCloseCode, ""),
+			c.shutdownCloseMessage(),
 			time.Now().Add(closeReadWriteDeadline),
 		); err != nil && !errors.Is(err, websocket.ErrCloseSent) {
 			c.L.Error("error sending close message: %v \n", zap.Error(err))

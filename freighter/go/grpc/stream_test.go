@@ -13,12 +13,14 @@ import (
 	"context"
 
 	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	. "github.com/synnaxlabs/freighter/grpc/testutil"
 	v1 "github.com/synnaxlabs/freighter/grpc/v1"
 	"github.com/synnaxlabs/freighter/test"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 	"google.golang.org/grpc"
 )
@@ -40,6 +42,45 @@ func (s *streamServer) BindTo(reg grpc.ServiceRegistrar) {
 	v1.RegisterTestStreamServiceServer(reg, s)
 }
 
+// startPair serves a fresh stream server and returns it with a client for it.
+func startPair() (
+	freighter.StreamServer[test.Request, test.Response],
+	freighter.StreamClient[test.Request, test.Response],
+	address.Address,
+) {
+	var (
+		server freighter.StreamServer[test.Request, test.Response]
+		client freighter.StreamClient[test.Request, test.Response]
+	)
+	addr := StartServer(func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool) {
+		sServer := &streamServer{
+			RequestTranslator:  requestTranslator{},
+			ResponseTranslator: responseTranslator{},
+			ServiceDesc:        &v1.TestStreamService_ServiceDesc,
+			Internal:           true,
+		}
+		sServer.BindTo(reg)
+		server = &sServer.StreamServerCore
+
+		client = &fgrpc.StreamClient[
+			test.Request, *v1.Request,
+			test.Response, *v1.Response,
+		]{
+			RequestTranslator:  requestTranslator{},
+			ResponseTranslator: responseTranslator{},
+			Pool:               pool,
+			ServiceDesc:        &v1.TestStreamService_ServiceDesc,
+			ClientFunc: func(
+				ctx context.Context,
+				conn grpc.ClientConnInterface,
+			) (fgrpc.GRPCClientStream[*v1.Request, *v1.Response], error) {
+				return v1.NewTestStreamServiceClient(conn).Exec(ctx)
+			},
+		}
+	})
+	return server, client, addr
+}
+
 var _ = Describe("Stream", Ordered, Serial, func() {
 	var (
 		server freighter.StreamServer[test.Request, test.Response]
@@ -49,32 +90,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 
 	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
-		addr = StartServer(func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool) {
-			sServer := &streamServer{
-				RequestTranslator:  requestTranslator{},
-				ResponseTranslator: responseTranslator{},
-				ServiceDesc:        &v1.TestStreamService_ServiceDesc,
-				Internal:           true,
-			}
-			sServer.BindTo(reg)
-			server = &sServer.StreamServerCore
-
-			client = &fgrpc.StreamClient[
-				test.Request, *v1.Request,
-				test.Response, *v1.Response,
-			]{
-				RequestTranslator:  requestTranslator{},
-				ResponseTranslator: responseTranslator{},
-				Pool:               pool,
-				ServiceDesc:        &v1.TestStreamService_ServiceDesc,
-				ClientFunc: func(
-					ctx context.Context,
-					conn grpc.ClientConnInterface,
-				) (fgrpc.GRPCClientStream[*v1.Request, *v1.Response], error) {
-					return v1.NewTestStreamServiceClient(conn).Exec(ctx)
-				},
-			}
-		})
+		server, client, addr = startPair()
 	})
 
 	test.StreamSuite(func() (
@@ -84,4 +100,50 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 	) {
 		return server, client, addr
 	})
+
+	It(
+		"Should unblock a parked handler and tell the peer why when middleware cancels",
+		func(ctx SpecContext) {
+			server, client, addr := startPair()
+			errEnded := errors.New("session ended")
+			endSession := make(chan struct{})
+			server.Use(freighter.MiddlewareFunc(func(
+				ctx freighter.Context,
+				next freighter.Next,
+			) (freighter.Context, error) {
+				dCtx, cancel := context.WithCancelCause(ctx.Context)
+				defer cancel(nil)
+				go func() {
+					select {
+					case <-endSession:
+						cancel(errEnded)
+					case <-dCtx.Done():
+					}
+				}()
+				ctx.Context = dCtx
+				oCtx, err := next(ctx)
+				if cause := context.Cause(dCtx); errors.Is(cause, errEnded) {
+					return oCtx, cause
+				}
+				return oCtx, err
+			}))
+			handlerEntered := make(chan struct{})
+			received := make(chan error, 1)
+			server.BindHandler(func(
+				_ context.Context,
+				stream freighter.ServerStream[test.Request, test.Response],
+			) error {
+				close(handlerEntered)
+				_, err := stream.Receive()
+				received <- err
+				return err
+			})
+			stream := MustSucceed(client.Stream(ctx, addr))
+			Eventually(handlerEntered).Should(BeClosed())
+			close(endSession)
+			Eventually(received).Should(Receive(MatchError(errEnded)))
+			Expect(stream.Receive()).Error().
+				To(MatchError(ContainSubstring("session ended")))
+		},
+	)
 })
