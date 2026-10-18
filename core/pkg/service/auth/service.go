@@ -55,6 +55,11 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to the system clock.
 	Clock xtime.Clock
+	// HoldCheckInterval is how often held sessions are checked against storage, so a
+	// revocation the change feed dropped still ends its streams.
+	//
+	// [OPTIONAL] - Defaults to 30 seconds.
+	HoldCheckInterval time.Duration
 	// Instrumentation is for logging, tracing, metrics, etc.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -65,8 +70,9 @@ var (
 	_ config.Config[ServiceConfig] = ServiceConfig{}
 	// DefaultServiceConfig is the default configuration for opening a [Service].
 	DefaultServiceConfig = ServiceConfig{
-		IdleTimeout: 7 * 24 * time.Hour,
-		Clock:       xtime.Real,
+		IdleTimeout:       7 * 24 * time.Hour,
+		Clock:             xtime.Real,
+		HoldCheckInterval: 30 * time.Second,
 	}
 )
 
@@ -77,6 +83,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Authenticators = override.Nil(c.Authenticators, other.Authenticators)
 	c.IdleTimeout = override.Numeric(c.IdleTimeout, other.IdleTimeout)
 	c.Clock = override.Nil(c.Clock, other.Clock)
+	c.HoldCheckInterval = override.Numeric(c.HoldCheckInterval, other.HoldCheckInterval)
 	return c
 }
 
@@ -87,6 +94,7 @@ func (c ServiceConfig) Validate() error {
 	v.Ternary("authenticators", len(c.Authenticators) == 0, "must not be empty")
 	v.Positive("idle_timeout", c.IdleTimeout)
 	v.NotNil("clock", c.Clock)
+	v.Positive("hold_check_interval", c.HoldCheckInterval)
 	return v.Error()
 }
 
@@ -144,6 +152,18 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		signal.WithRetryOnPanic(),
 		signal.WithKey("session_sweep"),
 	)
+	signal.GoTick(
+		sCtx,
+		s.cfg.HoldCheckInterval,
+		func(ctx context.Context, _ time.Time) error {
+			if err := s.CheckHolds(ctx); err != nil {
+				s.cfg.L.Error("failed to check held sessions", zap.Error(err))
+			}
+			return nil
+		},
+		signal.WithRetryOnPanic(),
+		signal.WithKey("session_hold_check"),
+	)
 	return s, nil
 }
 
@@ -162,23 +182,16 @@ func (s *Service) Hold(
 	ctx context.Context,
 	key SessionKey,
 ) (ended <-chan struct{}, release func(), err error) {
-	exists, err := s.NewRetrieve().Where(MatchKeys(key)).Exists(ctx, nil)
-	if err != nil {
-		return nil, nil, err
-	}
-	if !exists {
-		return nil, nil, ErrInvalidToken
-	}
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	h, ok := s.mu.holds[key]
 	if !ok {
 		h = &hold{ended: make(chan struct{})}
 		s.mu.holds[key] = h
 	}
 	h.count++
+	s.mu.Unlock()
 	var once sync.Once
-	return h.ended, func() {
+	release = func() {
 		once.Do(func() {
 			s.mu.Lock()
 			defer s.mu.Unlock()
@@ -186,7 +199,54 @@ func (s *Service) Hold(
 				delete(s.mu.holds, key)
 			}
 		})
-	}, nil
+	}
+	// The hold is registered before the lookup, so a deletion that lands between the
+	// two still reaches endDeletedHolds and closes the channel.
+	exists, err := s.NewRetrieve().Where(MatchKeys(key)).Exists(ctx, nil)
+	if err != nil || !exists {
+		release()
+		if err != nil {
+			return nil, nil, err
+		}
+		return nil, nil, ErrInvalidToken
+	}
+	return h.ended, release, nil
+}
+
+// CheckHolds ends every held session that storage no longer has. The change feed
+// normally does this as a session is deleted, but it can drop notifications under load.
+func (s *Service) CheckHolds(ctx context.Context) error {
+	held := s.held()
+	if len(held) == 0 {
+		return nil
+	}
+	var sessions []Session
+	if err := s.NewRetrieve().
+		Where(MatchKeys(held...)).
+		Entries(&sessions).
+		Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
+		return err
+	}
+	stored := make(set.Set[SessionKey], len(sessions))
+	for _, e := range sessions {
+		stored.Add(e.Key)
+	}
+	for _, key := range held {
+		if !stored.Contains(key) {
+			s.endHold(key)
+		}
+	}
+	return nil
+}
+
+// endHold closes the ended channel of the hold on key, if the hold is still open.
+func (s *Service) endHold(key SessionKey) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if h, ok := s.mu.holds[key]; ok && !h.over {
+		h.over = true
+		close(h.ended)
+	}
 }
 
 // endDeletedHolds closes the ended channel of every held session a change deleted.
@@ -207,11 +267,18 @@ func (s *Service) endDeletedHolds(
 	}
 }
 
-// held returns the keys of every session a stream on this node holds.
+// held returns the keys of every session a stream on this node holds and that has not
+// ended.
 func (s *Service) held() []SessionKey {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return lo.Keys(s.mu.holds)
+	keys := make([]SessionKey, 0, len(s.mu.holds))
+	for k, h := range s.mu.holds {
+		if !h.over {
+			keys = append(keys, k)
+		}
+	}
+	return keys
 }
 
 // NewRetrieve opens a query for sessions.
@@ -355,7 +422,12 @@ func (s *Service) Sweep(ctx context.Context) error {
 	now := s.now()
 	held := s.held()
 	for _, key := range held {
-		if err := s.touch(ctx, key, now); err != nil {
+		err := s.touch(ctx, key, now)
+		if errors.Is(err, query.ErrNotFound) {
+			s.endHold(key)
+			continue
+		}
+		if err != nil {
 			return err
 		}
 	}

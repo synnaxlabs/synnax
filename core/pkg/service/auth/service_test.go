@@ -57,10 +57,11 @@ var _ = Describe("ServiceConfig", func() {
 		pw := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 		auths = map[auth.Method]auth.Authenticator{auth.MethodPassword: pw}
 		cfg = auth.ServiceConfig{
-			DB:             db,
-			Authenticators: auths,
-			IdleTimeout:    time.Hour,
-			Clock:          xtime.Real,
+			DB:                db,
+			Authenticators:    auths,
+			IdleTimeout:       time.Hour,
+			Clock:             xtime.Real,
+			HoldCheckInterval: time.Second,
 		}
 	})
 	Describe("Override", func() {
@@ -70,6 +71,7 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(result.Authenticators).To(Equal(auths))
 			Expect(result.IdleTimeout).To(Equal(time.Hour))
 			Expect(result.Clock).To(Equal(xtime.Real))
+			Expect(result.HoldCheckInterval).To(Equal(time.Second))
 		})
 		It("Should keep each field from the base when the override is zero", func() {
 			result := cfg.Override(auth.ServiceConfig{})
@@ -77,6 +79,7 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(result.Authenticators).To(Equal(auths))
 			Expect(result.IdleTimeout).To(Equal(time.Hour))
 			Expect(result.Clock).To(Equal(xtime.Real))
+			Expect(result.HoldCheckInterval).To(Equal(time.Second))
 		})
 	})
 	Describe("Validate", func() {
@@ -105,6 +108,11 @@ var _ = Describe("ServiceConfig", func() {
 				"idle_timeout",
 			),
 			Entry("clock", func(c *auth.ServiceConfig) { c.Clock = nil }, "clock"),
+			Entry(
+				"hold check interval",
+				func(c *auth.ServiceConfig) { c.HoldCheckInterval = 0 },
+				"hold_check_interval",
+			),
 		)
 	})
 })
@@ -308,6 +316,39 @@ var _ = Describe("Service", func() {
 			).Error().
 				To(MatchError(auth.ErrInvalidToken))
 		})
+		It(
+			"Should end a hold whose session storage lost behind the feed",
+			func(ctx SpecContext) {
+				session, _ := login(ctx)
+				ended, release := MustSucceed2(svc.Hold(ctx, session.Key))
+				defer release()
+				Expect(gorp.WrapWriter[auth.SessionKey, auth.Session](db).
+					Delete(ctx, session.Key)).To(Succeed())
+				Expect(svc.CheckHolds(ctx)).To(Succeed())
+				Eventually(ended).Should(BeClosed())
+			},
+		)
+		It("Should check holds when nothing is held", func(ctx SpecContext) {
+			Expect(svc.CheckHolds(ctx)).To(Succeed())
+		})
+		It(
+			"Should finish a sweep when a held session is gone",
+			func(ctx SpecContext) {
+				session, _ := login(ctx)
+				ended, release := MustSucceed2(svc.Hold(ctx, session.Key))
+				defer release()
+				stale, _ := login(ctx)
+				Expect(gorp.WrapWriter[auth.SessionKey, auth.Session](db).
+					Delete(ctx, session.Key)).To(Succeed())
+				clock.Advance(idle + time.Second)
+				Expect(svc.Sweep(ctx)).To(Succeed())
+				Eventually(ended).Should(BeClosed())
+				Expect(
+					svc.NewRetrieve().Where(auth.MatchKeys(stale.Key)).Exists(ctx, nil),
+				).
+					To(BeFalse())
+			},
+		)
 		It(
 			"Should close the channel when the session is logged out",
 			func(ctx SpecContext) {
