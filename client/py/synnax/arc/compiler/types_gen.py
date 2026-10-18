@@ -19,10 +19,10 @@ class Output(BaseModel):
     memory layout.
 
     Attributes:
-        WASM: Is compiled WebAssembly bytecode for sandboxed execution.
-        OutputMemoryBases: Contains memory base addresses for multi-output functions,
+        wasm: Is compiled WebAssembly bytecode for sandboxed execution.
+        output_memory_bases: Contains memory base addresses for multi-output functions,
             mapping function keys to their base addresses.
     """
 
-    WASM: bytes
-    OutputMemoryBases: dict[str, int] = Field(default_factory=dict)
+    wasm: bytes
+    output_memory_bases: dict[str, int] = Field(default_factory=dict)
