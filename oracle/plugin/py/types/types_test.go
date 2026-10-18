@@ -419,9 +419,22 @@ var _ = Describe("Python Types Plugin", func() {
 					"record",
 					"dict[str, JsonValue] = Field(default_factory=dict)",
 				),
-				Entry("bytes", "bytes", "bytes"),
+				Entry("bytes", "bytes", "Bytes"),
 				Entry("any", "any", "JsonValue"),
 			)
+
+			It("Should import Bytes from x.codec", func(ctx SpecContext) {
+				source := `
+					@py output "out"
+
+					Test struct {
+						data bytes
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(`from x.codec import Bytes`, `data: Bytes`)
+			})
 
 			It(
 				"Should import JsonValue from pydantic instead of Any",
@@ -1709,7 +1722,7 @@ var _ = Describe("Python Types Plugin", func() {
 					resp := MustGenerate(ctx, source, "compiler", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
-							`wasm: bytes`,
+							`wasm: Bytes`,
 							`output_memory_bases: dict[str, int]`,
 							`node_key: str`,
 						).

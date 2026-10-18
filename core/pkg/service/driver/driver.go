@@ -159,6 +159,7 @@ func (d *Driver) startCommandStreaming(ctx context.Context) error {
 	)
 	select {
 	case <-ctx.Done():
+		streamerRequests.Close()
 		return ctx.Err()
 	case <-open:
 		return nil
