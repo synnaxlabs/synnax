@@ -36,10 +36,6 @@ export const passwordProofZ = credentialsZ.extend({
 });
 export interface PasswordProof extends z.infer<typeof passwordProofZ> {}
 
-export const PROOF_TYPES = ["password"] as const;
-export const proofTypeZ = z.enum(PROOF_TYPES);
-export type ProofType = z.infer<typeof proofTypeZ>;
-
 /**
  * Proof is what a subject presents to log in. The method selects the authenticator that
  * checks it.
@@ -48,7 +44,7 @@ export const proofZ = z.discriminatedUnion("method", [passwordProofZ]);
 export type Proof = PasswordProof;
 
 export const PROOF_SCHEMAS: {
-  [K in ProofType]: z.ZodType<Extract<Proof, { method: K }>>;
+  [K in Method]: z.ZodType<Extract<Proof, { method: K }>>;
 } = {
   password: passwordProofZ,
 };

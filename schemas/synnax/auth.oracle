@@ -94,7 +94,7 @@ APISession struct {
     }
 
     @doc value "is a session as the API returns it: the stored record without its hash."
-    @go output "core/pkg/api/auth"
+    @go omit
     @py name   "Session"
     @ts name   "Session"
 }

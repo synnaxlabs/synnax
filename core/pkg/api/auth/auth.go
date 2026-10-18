@@ -81,7 +81,10 @@ func (s *Service) Login(
 	ctx context.Context,
 	req LoginRequest,
 ) (LoginResponse, error) {
-	res, err := s.CreateSession(ctx, SessionCreateRequest{Proof: proofOf(req.Credentials)})
+	res, err := s.CreateSession(
+		ctx,
+		SessionCreateRequest{Proof: proofOf(req.Credentials)},
+	)
 	if err != nil {
 		return LoginResponse{}, err
 	}

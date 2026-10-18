@@ -35,7 +35,7 @@ type SessionCreateResponse struct {
 	// Token is the session token to send with every later request.
 	Token string `json:"token" msgpack:"token"`
 	// Session is the session the proof opened.
-	Session APISession `json:"session" msgpack:"session"`
+	Session Session `json:"session" msgpack:"session"`
 	// User is the user record of the subject, when the subject is a user.
 	User *user.User `json:"user,omitempty" msgpack:"user,omitempty"`
 	// ClusterInfo is the information about the cluster.
@@ -91,7 +91,7 @@ type SessionRetrieveRequest struct {
 // SessionRetrieveResponse lists sessions without their hashes.
 type SessionRetrieveResponse struct {
 	// Sessions are the sessions that matched.
-	Sessions []APISession `json:"sessions" msgpack:"sessions"`
+	Sessions []Session `json:"sessions" msgpack:"sessions"`
 }
 
 // RetrieveSessions lists the caller's sessions, or the sessions of the given subjects
@@ -105,7 +105,12 @@ func (s *Service) RetrieveSessions(
 	if len(subjects) == 0 {
 		subjects = []ontology.ID{caller}
 	}
-	if err := s.enforceOthers(ctx, caller, access.ActionRetrieve, subjects); err != nil {
+	if err := s.enforceOthers(
+		ctx,
+		caller,
+		access.ActionRetrieve,
+		subjects,
+	); err != nil {
 		return SessionRetrieveResponse{}, err
 	}
 	var sessions []auth.Session
@@ -118,7 +123,7 @@ func (s *Service) RetrieveSessions(
 	return SessionRetrieveResponse{Sessions: lo.Map(sessions, func(
 		e auth.Session,
 		_ int,
-	) APISession {
+	) Session {
 		return apiSession(e)
 	})}, nil
 }
@@ -176,8 +181,27 @@ func (s *Service) enforceOthers(
 	})
 }
 
-func apiSession(e auth.Session) APISession {
-	return APISession{
+// Session is a session as the API returns it: the stored record without its hash.
+type Session struct {
+	// Key is the unique identifier for this session.
+	Key auth.SessionKey `json:"key" msgpack:"key"`
+	// Subject is the user or rack that logged in.
+	Subject ontology.ID `json:"subject" msgpack:"subject"`
+	// Method is the method the subject logged in with.
+	Method auth.Method `json:"method" msgpack:"method"`
+	// Credential is the key of the credential record the login matched.
+	Credential uuid.UUID `json:"credential" msgpack:"credential"`
+	// Address is the network address the login came from.
+	Address string `json:"address" msgpack:"address"`
+	// Created is when the subject logged in.
+	Created telem.TimeStamp `json:"created" msgpack:"created"`
+	// LastActive is the last time a request used the session, to the nearest quarter of
+	// the idle timeout.
+	LastActive telem.TimeStamp `json:"last_active" msgpack:"last_active"`
+}
+
+func apiSession(e auth.Session) Session {
+	return Session{
 		Key:        e.Key,
 		Subject:    e.Subject,
 		Method:     e.Method,
