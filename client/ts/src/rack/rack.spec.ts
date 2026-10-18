@@ -74,7 +74,7 @@ describe("Rack", () => {
         integrations: ["ni", "opc"],
       });
       await client.racks.rename(r.key, "rack-renamed");
-      const retrieved = await client.racks.retrieve(r.key);
+      const retrieved = await createTestClient().racks.retrieve(r.key);
       expect(retrieved.name).toBe("rack-renamed");
       expect(retrieved.integrations).toEqual(["ni", "opc"]);
     });
@@ -87,13 +87,13 @@ describe("Rack", () => {
         async () => await client.racks.rename(embedded.key, embedded.name),
       );
       await client.racks.rename(embedded.key, `embedded-${id.create()}`);
-      const retrieved = await client.racks.retrieve(embedded.key);
+      const retrieved = await createTestClient().racks.retrieve(embedded.key);
       expect(retrieved.embedded).toBe(true);
     });
     it("should rename the status of the rack", async () => {
       const r = await client.racks.create({ name: "rack-rename-status" });
       await client.racks.rename(r.key, "rack-renamed-status");
-      const retrieved = await client.racks.retrieve({
+      const retrieved = await createTestClient().racks.retrieve({
         key: r.key,
         includeStatus: true,
       });
@@ -113,7 +113,9 @@ describe("Rack", () => {
     it("should reject an empty name", async () => {
       const r = await client.racks.create({ name: "rack-rename-empty" });
       await expect(client.racks.rename(r.key, "")).rejects.toThrow();
-      expect((await client.racks.retrieve(r.key)).name).toBe("rack-rename-empty");
+      expect((await createTestClient().racks.retrieve(r.key)).name).toBe(
+        "rack-rename-empty",
+      );
     });
   });
   describe("retrieve", () => {

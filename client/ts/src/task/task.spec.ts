@@ -120,7 +120,7 @@ describe("Task", async () => {
         type: "pagerduty_alert",
       });
       await client.tasks.rename(m.key, "task-renamed");
-      const retrieved = await client.tasks.retrieve(m.key);
+      const retrieved = await createTestClient().tasks.retrieve(m.key);
       expect(retrieved.name).toBe("task-renamed");
       expect(retrieved.type).toBe("pagerduty_alert");
       expect(retrieved.config).toEqual(m.config);
@@ -146,7 +146,9 @@ describe("Task", async () => {
         type: "pagerduty_alert",
       });
       await expect(client.tasks.rename(m.key, "")).rejects.toThrow();
-      expect((await client.tasks.retrieve(m.key)).name).toBe("task-rename-empty");
+      expect((await createTestClient().tasks.retrieve(m.key)).name).toBe(
+        "task-rename-empty",
+      );
     });
   });
   describe("retrieve", () => {

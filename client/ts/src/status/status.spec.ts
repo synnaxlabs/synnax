@@ -430,7 +430,7 @@ describe("Status", () => {
         time: TimeStamp.now(),
       });
       await client.statuses.rename(key, "status-renamed");
-      const retrieved = await client.statuses.retrieve({ key });
+      const retrieved = await createTestClient().statuses.retrieve({ key });
       expect(retrieved.name).toBe("status-renamed");
       expect(retrieved.variant).toBe("warning");
       expect(retrieved.message).toBe("keep me");
@@ -465,7 +465,7 @@ describe("Status", () => {
         time: TimeStamp.now(),
       });
       await expect(client.statuses.rename(key, "")).rejects.toThrow();
-      expect((await client.statuses.retrieve({ key })).name).toBe(
+      expect((await createTestClient().statuses.retrieve({ key })).name).toBe(
         "status-rename-empty",
       );
     });

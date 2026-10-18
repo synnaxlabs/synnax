@@ -167,7 +167,7 @@ describe("Device", async () => {
     it("should rename a device and keep its properties", async () => {
       const d = await createDevice("device-rename");
       await client.devices.rename(d.key, "device-renamed");
-      const retrieved = await client.devices.retrieve(d.key);
+      const retrieved = await createTestClient().devices.retrieve(d.key);
       expect(retrieved.name).toBe("device-renamed");
       expect(retrieved.properties).toEqual({ cat: "dog" });
       expect(retrieved.make).toBe("ni");
@@ -187,7 +187,9 @@ describe("Device", async () => {
     it("should reject an empty name", async () => {
       const d = await createDevice("device-rename-empty");
       await expect(client.devices.rename(d.key, "")).rejects.toThrow();
-      expect((await client.devices.retrieve(d.key)).name).toBe("device-rename-empty");
+      expect((await createTestClient().devices.retrieve(d.key)).name).toBe(
+        "device-rename-empty",
+      );
     });
   });
 

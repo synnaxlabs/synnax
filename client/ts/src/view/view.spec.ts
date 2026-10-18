@@ -138,7 +138,7 @@ describe("View", () => {
         query: { channels: ["rename-1"] },
       });
       await client.views.rename(v.key, "view-renamed");
-      const retrieved = await client.views.retrieve({ key: v.key });
+      const retrieved = await createTestClient().views.retrieve({ key: v.key });
       expect(retrieved.name).toBe("view-renamed");
       expect(retrieved.type).toBe("lineplot");
       expect(retrieved.query).toEqual({ channels: ["rename-1"] });
@@ -169,7 +169,7 @@ describe("View", () => {
         query: {},
       });
       await expect(client.views.rename(v.key, "")).rejects.toThrow();
-      expect((await client.views.retrieve({ key: v.key })).name).toBe(
+      expect((await createTestClient().views.retrieve({ key: v.key })).name).toBe(
         "view-rename-empty",
       );
     });
