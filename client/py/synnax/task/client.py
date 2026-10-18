@@ -67,6 +67,9 @@ class _RetrieveRequest(BaseModel):
     include_status: bool = False
     internal: bool | None = None
     snapshot: bool | None = None
+    search_term: str | None = None
+    limit: int | None = None
+    offset: int | None = None
 
 
 class _RetrieveResponse(BaseModel):
@@ -451,68 +454,85 @@ class Client:
         self._client.send("/task/rename", _RenameRequest(key=key, name=name), Empty)
 
     @overload
-    def retrieve(
-        self,
-        key: Key | None = None,
-        name: str | None = None,
-        type: str | None = None,
-        *,
-        include_status: bool = False,
-    ) -> Task: ...
+    def retrieve(self, key: Key, *, include_status: bool = False) -> Task: ...
+
+    @overload
+    def retrieve(self, *, name: str, include_status: bool = False) -> Task: ...
+
+    @overload
+    def retrieve(self, *, type: str, include_status: bool = False) -> Task: ...
 
     @overload
     def retrieve(
         self,
         *,
-        names: list[str],
         keys: list[Key] | None = None,
-        types: list[str] | None = None,
-        include_status: bool = False,
-    ) -> list[Task]: ...
-
-    @overload
-    def retrieve(
-        self,
-        *,
-        names: None = None,
-        keys: list[Key],
-        types: list[str] | None = None,
-        include_status: bool = False,
-    ) -> list[Task]: ...
-
-    @overload
-    def retrieve(
-        self,
-        *,
-        names: None = None,
-        keys: None = None,
-        types: list[str],
-        include_status: bool = False,
-    ) -> list[Task]: ...
-
-    def retrieve(
-        self,
-        key: Key | None = None,
-        name: str | None = None,
-        type: str | None = None,
         names: list[str] | None = None,
-        keys: list[Key] | None = None,
         types: list[str] | None = None,
+        search_term: str | None = None,
+        rack: int | None = None,
+        internal: bool | None = None,
+        snapshot: bool | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        include_status: bool = False,
+    ) -> list[Task]: ...
+
+    def retrieve(
+        self,
+        key: Key | None = None,
         *,
+        name: str | None = None,
+        type: str | None = None,
+        keys: list[Key] | None = None,
+        names: list[str] | None = None,
+        types: list[str] | None = None,
+        search_term: str | None = None,
+        rack: int | None = None,
+        internal: bool | None = None,
+        snapshot: bool | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
         include_status: bool = False,
     ) -> list[Task] | Task:
-        """Retrieves tasks matching the given filters.
+        """Retrieves tasks matching the given filters. Returns one task when a key,
+        name, or type is given, and a list otherwise.
 
+        :param search_term: A fuzzy search term matched against task names.
+        :param rack: Only return tasks on the rack with this key.
+        :param internal: Only return internal tasks when true, or only user tasks when
+            false.
+        :param snapshot: Only return snapshot tasks when true, or only live tasks when
+            false.
+        :param limit: The maximum number of tasks to return.
+        :param offset: The number of tasks to skip.
         :param include_status: Whether to populate each task's status. Tasks come
             back with a null status when false.
+        :raises ValueError: If two singular selectors are given, or one is
+            combined with a list filter.
         """
-        is_single = check_for_none(names, keys, types)
+        is_single = not check_for_none(key, name, type)
+        if sum(v is not None for v in (key, name, type)) > 1:
+            raise ValueError("only one of key, name, and type can be given")
+        if is_single and not check_for_none(
+            keys, names, types, search_term, rack, internal, snapshot, limit, offset
+        ):
+            raise ValueError(
+                "key, name, and type cannot be combined with list filters; use "
+                "keys, names, or types instead"
+            )
         res = self._client.send(
             "/task/retrieve",
             _RetrieveRequest(
                 keys=override(key, keys),
                 names=override(name, names),
                 types=override(type, types),
+                search_term=search_term,
+                rack=rack,
+                internal=internal,
+                snapshot=snapshot,
+                limit=limit,
+                offset=offset,
                 include_status=include_status,
             ),
             _RetrieveResponse,

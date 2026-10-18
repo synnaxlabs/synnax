@@ -7,12 +7,15 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from collections.abc import Callable
+from typing import assert_type, cast
 from uuid import uuid4
 
 import pytest
 from pydantic import JsonValue
 
 import synnax as sy
+from x.testutil import assert_eventually
 
 
 def basic_device(rack: int, n: int) -> sy.Device:
@@ -212,6 +215,92 @@ class TestDevice:
         assert len(devices) == 2
         assert devices[0].configured is True
         assert devices[1].configured is False
+
+    def test_retrieve_by_racks(self, client: sy.Synnax) -> None:
+        """Should return a list of only the devices on the given racks."""
+        rack = client.racks.create(name=str(uuid4()))
+        dev = client.devices.create(basic_device(rack.key, 1))
+        res = client.devices.retrieve(racks=[rack.key])
+        assert [d.key for d in res] == [dev.key]
+
+    def test_retrieve_by_models_and_racks(self, client: sy.Synnax) -> None:
+        """Should return a list of the devices matching both the models and racks."""
+        rack = client.racks.create(name=str(uuid4()))
+        dev = client.devices.create(basic_device(rack.key, 1))
+        res = client.devices.retrieve(models=["test_model"], racks=[rack.key])
+        assert_type(res, list[sy.Device])
+        assert [d.key for d in res] == [dev.key]
+
+    def test_retrieve_by_names_with_limit(self, client: sy.Synnax) -> None:
+        """Should return a list when names are combined with a limit."""
+        rack = client.racks.create(name=str(uuid4()))
+        dev = client.devices.create(basic_device(rack.key, 1))
+        res = client.devices.retrieve(names=[dev.name], limit=1, ignore_not_found=True)
+        assert_type(res, list[sy.Device])
+        assert [d.key for d in res] == [dev.key]
+
+    def test_retrieve_single_by_each_filter(self, client: sy.Synnax) -> None:
+        """Should return one device for each singular filter."""
+        rack = client.racks.create(name=str(uuid4()))
+        dev = client.devices.create(basic_device(rack.key, 1))
+        by_name = client.devices.retrieve(name=dev.name, include_status=True)
+        assert_type(by_name, sy.Device)
+        assert by_name.key == dev.key
+        by_model = client.devices.retrieve(model=dev.model)
+        assert_type(by_model, sy.Device)
+        assert by_model.model == dev.model
+        missing = client.devices.retrieve(location=str(uuid4()), ignore_not_found=True)
+        assert_type(missing, sy.Device | None)
+        assert missing is None
+
+    def test_retrieve_no_filters(self, client: sy.Synnax) -> None:
+        """Should return a list of every device when no filter is given."""
+        rack = client.racks.create(name=str(uuid4()))
+        dev = client.devices.create(basic_device(rack.key, 1))
+        res = client.devices.retrieve()
+        assert_type(res, list[sy.Device])
+        assert dev.key in {d.key for d in res}
+
+    def test_retrieve_singular_with_list_filter(self, client: sy.Synnax) -> None:
+        """Should raise a ValueError when singular selectors are mixed with others."""
+        retrieve = cast(Callable[..., object], client.devices.retrieve)
+        with pytest.raises(ValueError):
+            retrieve(model="test", racks=[1])
+        with pytest.raises(ValueError):
+            retrieve(make="LabJack", model="T7")
+
+    def test_retrieve_with_limit_and_offset(self, client: sy.Synnax) -> None:
+        """Should page through the devices on a rack."""
+        rack = client.racks.create(name=str(uuid4()))
+        client.devices.create([basic_device(rack.key, i) for i in range(3)])
+        assert len(client.devices.retrieve(racks=[rack.key], limit=2)) == 2
+        assert len(client.devices.retrieve(racks=[rack.key], offset=2)) == 1
+
+    def test_retrieve_by_search_term(self, client: sy.Synnax) -> None:
+        """Should return the devices whose names match the search term."""
+        rack = client.racks.create(name=str(uuid4()))
+        dev = client.devices.create(basic_device(rack.key, 1))
+
+        def check() -> None:
+            res = client.devices.retrieve(search_term=dev.name)
+            assert dev.key in {d.key for d in res}
+
+        assert_eventually(check)
+
+    def test_retrieve_with_status_and_parent(self, client: sy.Synnax) -> None:
+        """Should attach the status and parent only when asked for them."""
+        rack = client.racks.create(name=str(uuid4()))
+        dev = client.devices.create(basic_device(rack.key, 1))
+        plain = client.devices.retrieve(key=dev.key)
+        assert plain.status is None
+        assert plain.parent is None
+        res = client.devices.retrieve(
+            key=dev.key, include_status=True, include_parent=True
+        )
+        assert res.status is not None
+        assert res.status.details is not None
+        assert res.status.details.device == dev.key
+        assert res.parent == sy.rack.ontology_id(rack.key)
 
 
 @pytest.mark.device
