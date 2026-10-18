@@ -58,6 +58,16 @@ var _ = Describe("Rename", func() {
 		Expect(renamed.Snapshot).To(BeTrue())
 		Expect(renamed.Config).To(Equal(t.Config))
 	})
+	It("Should reject an empty name", func(ctx SpecContext) {
+		u := createUser(ctx)
+		t := createTask(ctx)
+		grantUpdateOn(ctx, u.OntologyID(), t.OntologyID())
+		Expect(apiSvc.Rename(
+			AuthedCtx(ctx, u), nil,
+			apitask.RenameRequest{Key: t.Key, Name: ""},
+		)).Error().To(MatchError(ContainSubstring("name: required")))
+		Expect(retrieveTask(ctx, t.Key).Name).To(Equal("Before"))
+	})
 	It("Should return a not found error for a missing task", func(ctx SpecContext) {
 		u := createUser(ctx)
 		key := uuid.New()

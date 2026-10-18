@@ -339,6 +339,19 @@ var _ = Describe("Service.Rename", func() {
 		Expect(renamed.Variant).To(Equal(status.VariantInfo))
 	})
 
+	It("Should reject an empty name", func(ctx SpecContext) {
+		u := freshUser(ctx)
+		s := createStatus(ctx)
+		grantOn(ctx, u.OntologyID(),
+			[]access.Action{access.ActionUpdate},
+			status.OntologyID(s.Key))
+		Expect(apiSvc.Rename(
+			AuthedCtx(ctx, u), nil,
+			apistatus.RenameRequest{Key: s.Key, Name: ""},
+		)).Error().To(MatchError(ContainSubstring("name: required")))
+		Expect(retrieveStatus(ctx, s.Key).Name).To(Equal("Before"))
+	})
+
 	It("Should return a not found error for a missing status", func(ctx SpecContext) {
 		u := freshUser(ctx)
 		key := uuid.New().String()
