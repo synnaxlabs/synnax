@@ -64,7 +64,7 @@ class TestRackClient:
 
     def test_rename_embedded(self, client: sy.Synnax) -> None:
         """Should rename the embedded rack and keep it embedded."""
-        rack = client.racks.retrieve(embedded=True, host_is_node=True)
+        rack = client.racks.retrieve_embedded_rack()
         try:
             client.racks.rename(rack.key, "After Rename")
             renamed = client.racks.retrieve(key=rack.key)
