@@ -13,7 +13,10 @@
 
 #include <string>
 #include <utility>
+#include <variant>
+#include <vector>
 
+#include "client/cpp/label/types.gen.h"
 #include "client/cpp/ontology/id.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
@@ -23,34 +26,102 @@
 
 namespace synnax::view {
 
-struct View;
+struct RangeQuery;
+struct StatusQuery;
+struct Base;
 
 using Key = x::uuid::UUID;
 
-/// @brief View is a persisted view configuration storing visualization settings and
-/// query parameters for line plots, tables, schematics, and other view types.
-struct View {
+/// @brief RangeQuery filters the ranges shown by a range view.
+struct RangeQuery {
+    /// @brief has_labels restricts the view to ranges carrying any of these labels.
+    std::vector<::synnax::label::Key> has_labels = {};
+
+    static RangeQuery parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::view::pb::RangeQuery;
+    [[nodiscard]] std::pair<::service::view::pb::RangeQuery, x::errors::Error>
+    to_proto() const;
+    static std::pair<RangeQuery, x::errors::Error>
+    from_proto(const ::service::view::pb::RangeQuery &pb);
+};
+
+/// @brief StatusQuery filters the statuses shown by a status view.
+struct StatusQuery {
+    /// @brief has_labels restricts the view to statuses carrying any of these labels.
+    std::vector<::synnax::label::Key> has_labels = {};
+    /// @brief variants restricts the view to statuses of these variants.
+    std::vector<std::string> variants = {};
+
+    static StatusQuery parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::view::pb::StatusQuery;
+    [[nodiscard]] std::pair<::service::view::pb::StatusQuery, x::errors::Error>
+    to_proto() const;
+    static std::pair<StatusQuery, x::errors::Error>
+    from_proto(const ::service::view::pb::StatusQuery &pb);
+};
+
+/// @brief Base carries the fields shared by every view variant.
+struct Base {
     /// @brief key is the unique identifier for this view.
     Key key;
     /// @brief name is a human-readable name for the view.
     std::string name;
-    /// @brief type is the view type identifier (e.g., 'lineplot', 'table',
-    /// 'schematic').
-    std::string type;
-    /// @brief query is a type-agnostic JSON object containing view-specific
-    /// configuration
-    /// and query parameters.
-    x::json::json::object_t query;
 
-    static View parse(x::json::Parser parser);
+    static Base parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::view::pb::View;
-    [[nodiscard]] std::pair<::service::view::pb::View, x::errors::Error>
+    using proto_type = ::service::view::pb::Base;
+    [[nodiscard]] std::pair<::service::view::pb::Base, x::errors::Error>
     to_proto() const;
-    static std::pair<View, x::errors::Error>
-    from_proto(const ::service::view::pb::View &pb);
+    static std::pair<Base, x::errors::Error>
+    from_proto(const ::service::view::pb::Base &pb);
 };
+
+/// @brief RangeView is a saved view of ranges.
+struct RangeView : public Base {
+    std::string type = "range";
+    /// @brief query filters the ranges the view shows.
+    RangeQuery query;
+
+    static RangeView parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::view::pb::ViewRangePayload;
+    [[nodiscard]] std::pair<::service::view::pb::ViewRangePayload, x::errors::Error>
+    to_proto() const;
+    static std::pair<RangeView, x::errors::Error>
+    from_proto(const ::service::view::pb::ViewRangePayload &pb);
+};
+
+/// @brief StatusView is a saved view of statuses.
+struct StatusView : public Base {
+    std::string type = "status";
+    /// @brief query filters the statuses the view shows.
+    StatusQuery query;
+
+    static StatusView parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::view::pb::ViewStatusPayload;
+    [[nodiscard]] std::pair<::service::view::pb::ViewStatusPayload, x::errors::Error>
+    to_proto() const;
+    static std::pair<StatusView, x::errors::Error>
+    from_proto(const ::service::view::pb::ViewStatusPayload &pb);
+};
+
+/// @brief View is a saved, named filter over a list of resources. The type selects the
+/// resource the view lists and the shape of its query.
+using View = std::variant<RangeView, StatusView>;
+
+View parse_view(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const View &value);
+[[nodiscard]] std::pair<::service::view::pb::View, x::errors::Error>
+to_proto(const View &value);
+std::pair<View, x::errors::Error> view_from_proto(const ::service::view::pb::View &pb);
 
 const synnax::ontology::ID ONTOLOGY_TYPE("view", "");
 

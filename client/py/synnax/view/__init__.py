@@ -11,6 +11,10 @@ from synnax.view.client import Client
 from synnax.view.types_gen import (
     ONTOLOGY_TYPE,
     Key,
+    RangeQuery,
+    RangeView,
+    StatusQuery,
+    StatusView,
     View,
     ontology_id,
 )
@@ -19,6 +23,10 @@ __all__ = [
     "Client",
     "Key",
     "ONTOLOGY_TYPE",
+    "RangeQuery",
+    "RangeView",
+    "StatusQuery",
+    "StatusView",
     "View",
     "ontology_id",
 ]

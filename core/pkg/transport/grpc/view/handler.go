@@ -108,8 +108,10 @@ func (retrieveRequestTranslator) Forward(
 ) (*RetrieveRequest, error) {
 	keys := lo.Map(req.Keys, func(k view.Key, _ int) string { return k.String() })
 	return &RetrieveRequest{
-		Keys:       keys,
-		Types:      req.Types,
+		Keys: keys,
+		Types: lo.Map(req.Types, func(t view.Type, _ int) string {
+			return string(t)
+		}),
 		SearchTerm: req.SearchTerm,
 		Limit:      int32(req.Limit),
 		Offset:     int32(req.Offset),
@@ -127,8 +129,10 @@ func (retrieveRequestTranslator) Backward(
 		return view.RetrieveRequest{}, err
 	}
 	return view.RetrieveRequest{
-		Keys:       keys,
-		Types:      req.Types,
+		Keys: keys,
+		Types: lo.Map(req.Types, func(t string, _ int) view.Type {
+			return view.Type(t)
+		}),
 		SearchTerm: req.SearchTerm,
 		Limit:      int(req.Limit),
 		Offset:     int(req.Offset),

@@ -17,11 +17,24 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+func rangeView(name string) view.View {
+	return view.View{
+		Variant: view.RangeView{Base: view.Base{Key: uuid.New(), Name: name}},
+	}
+}
+
+func statusView(name string) view.View {
+	return view.View{
+		Variant: view.StatusView{Base: view.Base{Key: uuid.New(), Name: name}},
+	}
+}
 
 var _ = Describe("View", func() {
 	var (
@@ -63,53 +76,52 @@ var _ = Describe("View", func() {
 				"Should create a new view with an auto-generated key",
 				func(ctx SpecContext) {
 					s := &view.View{
-						Name: "Test View",
-						Type: "test",
+						Variant: view.RangeView{Base: view.Base{Name: "Test"}},
 					}
 					Expect(w.Create(ctx, s)).To(Succeed())
-					Expect(s.Key).ToNot(Equal(uuid.Nil()))
+					Expect(s.GorpKey()).ToNot(Equal(uuid.Nil()))
 				},
 			)
+			It("Should reject a view with no variant", func(ctx SpecContext) {
+				Expect(w.Create(ctx, &view.View{})).
+					To(MatchError(ContainSubstring("type: required")))
+			})
+			It("Should reject a view with no name", func(ctx SpecContext) {
+				s := rangeView("")
+				Expect(
+					w.Create(ctx, &s),
+				).To(MatchError(ContainSubstring("name: required")))
+			})
 			It("Should update an existing view", func(ctx SpecContext) {
-				s := &view.View{
-					Name: "Test View",
-					Key:  uuid.New(),
-					Type: "test",
-				}
-				Expect(w.Create(ctx, s)).To(Succeed())
-				s.Name = "Updated Name"
-				Expect(w.Create(ctx, s)).To(Succeed())
+				s := rangeView("Test View")
+				Expect(w.Create(ctx, &s)).To(Succeed())
+				updated := view.View{Variant: view.StatusView{
+					Base: view.Base{Key: s.GorpKey(), Name: "Updated Name"},
+					Query: view.StatusQuery{
+						Variants: []status.Variant{status.VariantError},
+					},
+				}}
+				Expect(w.Create(ctx, &updated)).To(Succeed())
 				var retrieved view.View
 				Expect(
 					svc.NewRetrieve().
-						Where(view.MatchKeys(s.Key)).
+						Where(view.MatchKeys(s.GorpKey())).
 						Entry(&retrieved).
 						Exec(ctx, tx),
 				).To(Succeed())
-				Expect(retrieved.Name).To(Equal("Updated Name"))
+				Expect(retrieved).To(Equal(updated))
 			})
 		})
 
 		Describe("CreateMany", func() {
 			It("Should create multiple views", func(ctx SpecContext) {
-				views := []view.View{
-					{
-						Name: "View 1",
-						Key:  uuid.New(),
-						Type: "test",
-					},
-					{
-						Name: "View 2",
-						Key:  uuid.New(),
-						Type: "test",
-					},
-				}
+				views := []view.View{rangeView("View 1"), statusView("View 2")}
 				Expect(w.CreateMany(ctx, &views)).To(Succeed())
 
 				var retrieved []view.View
 				Expect(svc.NewRetrieve().Where(view.MatchKeys(
-					views[0].Key,
-					views[1].Key,
+					views[0].GorpKey(),
+					views[1].GorpKey(),
 				)).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
 				Expect(retrieved).To(HaveLen(2))
 			})
@@ -117,17 +129,13 @@ var _ = Describe("View", func() {
 
 		Describe("Delete", func() {
 			It("Should delete a view", func(ctx SpecContext) {
-				s := &view.View{
-					Name: "To Delete",
-					Key:  uuid.New(),
-					Type: "test",
-				}
-				Expect(w.Create(ctx, s)).To(Succeed())
-				Expect(w.Delete(ctx, s.Key)).To(Succeed())
+				s := rangeView("To Delete")
+				Expect(w.Create(ctx, &s)).To(Succeed())
+				Expect(w.Delete(ctx, s.GorpKey())).To(Succeed())
 
 				Expect(
 					svc.NewRetrieve().
-						Where(view.MatchKeys(s.Key)).
+						Where(view.MatchKeys(s.GorpKey())).
 						Entry(&view.View{}).
 						Exec(ctx, tx),
 				).To(MatchError(query.ErrNotFound))
@@ -138,24 +146,15 @@ var _ = Describe("View", func() {
 			})
 
 			It("Should delete multiple views", func(ctx SpecContext) {
-				views := []view.View{
-					{
-						Name: "Del 1",
-						Key:  uuid.New(),
-						Type: "test",
-					},
-					{
-						Name: "Del 2",
-						Key:  uuid.New(),
-						Type: "test",
-					},
-				}
+				views := []view.View{rangeView("Del 1"), rangeView("Del 2")}
 				Expect(w.CreateMany(ctx, &views)).To(Succeed())
-				Expect(w.Delete(ctx, views[0].Key, views[1].Key)).To(Succeed())
+				Expect(
+					w.Delete(ctx, views[0].GorpKey(), views[1].GorpKey()),
+				).To(Succeed())
 
 				Expect(
 					svc.NewRetrieve().
-						Where(view.MatchKeys(views[0].Key, views[1].Key)).
+						Where(view.MatchKeys(views[0].GorpKey(), views[1].GorpKey())).
 						Exec(ctx, tx),
 				).To(MatchError(query.ErrNotFound))
 			})
@@ -166,21 +165,9 @@ var _ = Describe("View", func() {
 		var views []view.View
 		BeforeEach(func(ctx SpecContext) {
 			views = []view.View{
-				{
-					Name: "View A",
-					Key:  uuid.New(),
-					Type: "testa",
-				},
-				{
-					Name: "View B",
-					Key:  uuid.New(),
-					Type: "testa",
-				},
-				{
-					Name: "View C",
-					Key:  uuid.New(),
-					Type: "testb",
-				},
+				rangeView("View A"),
+				rangeView("View B"),
+				statusView("View C"),
 			}
 			tx = db.OpenTx()
 			w = svc.NewWriter(tx)
@@ -192,19 +179,19 @@ var _ = Describe("View", func() {
 				var s view.View
 				Expect(
 					svc.NewRetrieve().
-						Where(view.MatchKeys(views[0].Key)).
+						Where(view.MatchKeys(views[0].GorpKey())).
 						Entry(&s).
 						Exec(ctx, tx),
 				).To(Succeed())
-				Expect(s.Key).To(Equal(views[0].Key))
-				Expect(s.Name).To(Equal("View A"))
+				Expect(s.GorpKey()).To(Equal(views[0].GorpKey()))
+				Expect(s.Base().Name).To(Equal("View A"))
 			})
 
 			It("Should retrieve multiple views by keys", func(ctx SpecContext) {
 				var resViews []view.View
 				Expect(
 					svc.NewRetrieve().
-						Where(view.MatchKeys(views[0].Key, views[1].Key)).
+						Where(view.MatchKeys(views[0].GorpKey(), views[1].GorpKey())).
 						Entries(&resViews).
 						Exec(ctx, tx),
 				).To(Succeed())
@@ -217,7 +204,7 @@ var _ = Describe("View", func() {
 				var resViews []view.View
 				Expect(
 					svc.NewRetrieve().
-						Where(view.MatchTypes("testa")).
+						Where(view.MatchTypes(view.RangeViewType)).
 						Entries(&resViews).
 						Exec(ctx, tx),
 				).To(Succeed())
@@ -227,13 +214,13 @@ var _ = Describe("View", func() {
 				var resViews []view.View
 				Expect(
 					svc.NewRetrieve().
-						Where(view.MatchTypes("testa")).
-						Where(view.MatchKeys(views[0].Key)).
+						Where(view.MatchTypes(view.RangeViewType)).
+						Where(view.MatchKeys(views[0].GorpKey())).
 						Entries(&resViews).
 						Exec(ctx, tx),
 				).To(Succeed())
 				Expect(resViews).To(HaveLen(1))
-				Expect(resViews[0].Key).To(Equal(views[0].Key))
+				Expect(resViews[0].GorpKey()).To(Equal(views[0].GorpKey()))
 			})
 		})
 
@@ -262,7 +249,7 @@ var _ = Describe("View", func() {
 				DeferCleanup(func(ctx SpecContext) {
 					keys := make([]view.Key, len(views))
 					for i, v := range views {
-						keys[i] = v.Key
+						keys[i] = v.GorpKey()
 					}
 					Expect(svc.NewWriter(nil).Delete(ctx, keys...)).To(Succeed())
 				})
@@ -270,7 +257,7 @@ var _ = Describe("View", func() {
 					svc.NewRetrieve().Search("View A").Entries(&resViews).Exec(ctx, db),
 				).To(Succeed())
 				Expect(len(resViews)).To(BeNumerically(">", 1))
-				Expect(resViews[0].Key).To(Equal(views[0].Key))
+				Expect(resViews[0].GorpKey()).To(Equal(views[0].GorpKey()))
 			})
 		})
 	})

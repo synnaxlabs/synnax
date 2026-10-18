@@ -34,8 +34,8 @@ func (w Writer) Create(ctx context.Context, view *View) error {
 	if err := w.validate(*view); err != nil {
 		return err
 	}
-	if view.Key == uuid.Nil() {
-		view.Key = uuid.New()
+	if view.GorpKey() == uuid.Nil() {
+		*view = view.WithKey(uuid.New())
 	}
 	if err := w.table.NewCreate().
 		Entry(view).
@@ -76,7 +76,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 
 func (w Writer) validate(v View) error {
 	vld := validate.New("view.view")
-	vld.NotEmptyString("name", v.Name)
-	vld.NotEmptyString("type", v.Type)
+	vld.NotEmptyString("name", v.Base().Name)
+	vld.NotEmptyString("type", v.Type())
 	return vld.Error()
 }

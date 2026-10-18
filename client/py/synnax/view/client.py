@@ -7,11 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, overload
-from uuid import UUID
+from typing import overload
 
 from pydantic import BaseModel, Field
-from pydantic_core import to_jsonable_python
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
@@ -56,44 +54,13 @@ class Client:
         self.instrumentation = instrumentation
 
     @overload
-    def create(
-        self,
-        *,
-        name: str,
-        type: str,
-        query: dict[str, Any] | None = None,
-    ) -> View: ...
+    def create(self, views: View) -> View: ...
 
     @overload
-    def create(
-        self,
-        views: View,
-    ) -> View: ...
+    def create(self, views: list[View]) -> list[View]: ...
 
-    @overload
-    def create(
-        self,
-        views: list[View],
-    ) -> list[View]: ...
-
-    def create(
-        self,
-        views: list[View] | View | None = None,
-        *,
-        name: str = "",
-        type: str = "",
-        query: dict[str, Any] | None = None,
-    ) -> View | list[View]:
+    def create(self, views: View | list[View]) -> View | list[View]:
         is_single = not isinstance(views, list)
-        if views is None:
-            views = [
-                View(
-                    key=UUID(int=0),
-                    name=name,
-                    type=type,
-                    query=to_jsonable_python(query) if query is not None else {},
-                )
-            ]
         req = _CreateRequest(views=normalize(views))
         res = self._client.send("/view/create", req, _CreateResponse)
         return res.views[0] if is_single else res.views

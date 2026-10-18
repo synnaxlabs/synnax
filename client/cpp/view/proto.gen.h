@@ -11,47 +11,189 @@
 
 #pragma once
 
+#include <type_traits>
 #include <utility>
+#include <variant>
 
+#include "client/cpp/status/json.gen.h"
+#include "client/cpp/status/proto.gen.h"
 #include "client/cpp/view/json.gen.h"
 #include "client/cpp/view/types.gen.h"
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/json/struct.h"
 #include "x/cpp/pb/pb.h"
 
 #include "core/pkg/service/view/pb/view.pb.h"
 
 namespace synnax::view {
 
-inline std::pair<::service::view::pb::View, x::errors::Error> View::to_proto() const {
-    ::service::view::pb::View pb;
+inline std::pair<::service::view::pb::Base, x::errors::Error> Base::to_proto() const {
+    ::service::view::pb::Base pb;
     pb.set_key(this->key.to_string());
     pb.set_name(this->name);
-    pb.set_type(this->type);
-    {
-        auto [v, err] = x::json::to_struct(this->query);
-        if (err) return {{}, err};
-        *pb.mutable_query() = v;
-    }
     return {pb, x::errors::NIL};
 }
 
-inline std::pair<View, x::errors::Error>
-View::from_proto(const ::service::view::pb::View &pb) {
-    View cpp;
+inline std::pair<Base, x::errors::Error>
+Base::from_proto(const ::service::view::pb::Base &pb) {
+    Base cpp;
     {
         auto [v, err] = x::uuid::UUID::parse(pb.key());
         if (err) return {{}, err};
         cpp.key = v;
     }
     cpp.name = pb.name();
-    cpp.type = pb.type();
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::view::pb::RangeQuery, x::errors::Error>
+RangeQuery::to_proto() const {
+    ::service::view::pb::RangeQuery pb;
+    for (const auto &item: this->has_labels) {
+        pb.add_has_labels(item.to_string());
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<RangeQuery, x::errors::Error>
+RangeQuery::from_proto(const ::service::view::pb::RangeQuery &pb) {
+    RangeQuery cpp;
+    for (const auto &item: pb.has_labels()) {
+        auto [v, err] = x::uuid::UUID::parse(item);
+        if (err) return {{}, err};
+        cpp.has_labels.push_back(v);
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::view::pb::StatusQuery, x::errors::Error>
+StatusQuery::to_proto() const {
+    ::service::view::pb::StatusQuery pb;
+    for (const auto &item: this->has_labels) {
+        pb.add_has_labels(item.to_string());
+    }
+    for (const auto &item: this->variants) {
+        auto [v, err] = ::synnax::status::variant_to_pb(item);
+        if (err) return {{}, err};
+        pb.add_variants(v);
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<StatusQuery, x::errors::Error>
+StatusQuery::from_proto(const ::service::view::pb::StatusQuery &pb) {
+    StatusQuery cpp;
+    for (const auto &item: pb.has_labels()) {
+        auto [v, err] = x::uuid::UUID::parse(item);
+        if (err) return {{}, err};
+        cpp.has_labels.push_back(v);
+    }
+    for (const auto &item: pb.variants()) {
+        auto [v, err] = ::synnax::status::variant_from_pb(
+            static_cast<::service::status::pb::Variant>(item)
+        );
+        if (err) return {{}, err};
+        cpp.variants.push_back(v);
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::view::pb::ViewRangePayload, x::errors::Error>
+RangeView::to_proto() const {
+    ::service::view::pb::ViewRangePayload pb;
     {
-        auto [v, err] = x::json::from_struct(pb.query());
+        auto [v, err] = this->query.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_query() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<RangeView, x::errors::Error>
+RangeView::from_proto(const ::service::view::pb::ViewRangePayload &pb) {
+    RangeView cpp;
+    {
+        auto [v, err] = RangeQuery::from_proto(pb.query());
         if (err) return {{}, err};
         cpp.query = v;
     }
     return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::view::pb::ViewStatusPayload, x::errors::Error>
+StatusView::to_proto() const {
+    ::service::view::pb::ViewStatusPayload pb;
+    {
+        auto [v, err] = this->query.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_query() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<StatusView, x::errors::Error>
+StatusView::from_proto(const ::service::view::pb::ViewStatusPayload &pb) {
+    StatusView cpp;
+    {
+        auto [v, err] = StatusQuery::from_proto(pb.query());
+        if (err) return {{}, err};
+        cpp.query = v;
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::view::pb::View, x::errors::Error>
+to_proto(const View &value) {
+    ::service::view::pb::View pb;
+    const auto visit_err = std::visit(
+        [&pb](const auto &v) -> x::errors::Error {
+            using V = std::decay_t<decltype(v)>;
+            auto [inner, err] = v.to_proto();
+            if (err) return err;
+            {
+                auto [base, base_err] = static_cast<const Base &>(v).to_proto();
+                if (base_err) return base_err;
+                *pb.mutable_base() = base;
+            }
+            if constexpr (std::is_same_v<V, RangeView>)
+                *pb.mutable_range() = inner;
+            else if constexpr (std::is_same_v<V, StatusView>)
+                *pb.mutable_status() = inner;
+            return x::errors::NIL;
+        },
+        value
+    );
+    return {pb, visit_err};
+}
+
+inline std::pair<View, x::errors::Error>
+view_from_proto(const ::service::view::pb::View &pb) {
+    switch (pb.variant_case()) {
+        case ::service::view::pb::View::kRange: {
+            auto [v, err] = RangeView::from_proto(pb.range());
+            if (err) return {{}, err};
+            {
+                auto [base, base_err] = Base::from_proto(pb.base());
+                if (base_err) return {{}, base_err};
+                static_cast<Base &>(v) = base;
+            }
+            return {v, x::errors::NIL};
+        }
+        case ::service::view::pb::View::kStatus: {
+            auto [v, err] = StatusView::from_proto(pb.status());
+            if (err) return {{}, err};
+            {
+                auto [base, base_err] = Base::from_proto(pb.base());
+                if (base_err) return {{}, base_err};
+                static_cast<Base &>(v) = base;
+            }
+            return {v, x::errors::NIL};
+        }
+        default:
+            return {
+                {},
+                x::errors::Error(x::errors::VALIDATION, "View: no variant set")
+            };
+    }
 }
 
 }

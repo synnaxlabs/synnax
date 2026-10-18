@@ -12,28 +12,118 @@
 #pragma once
 
 #include <string>
+#include <variant>
+#include <vector>
 
+#include "client/cpp/label/json.gen.h"
 #include "client/cpp/view/types.gen.h"
 #include "x/cpp/json/json.h"
 
 namespace synnax::view {
 
-inline View View::parse(x::json::Parser parser) {
-    return View{
+inline Base Base::parse(x::json::Parser parser) {
+    return Base{
         .key = parser.field<Key>("key", x::uuid::create()),
         .name = parser.field<std::string>("name"),
-        .type = parser.field<std::string>("type"),
-        .query = parser.field<x::json::json::object_t>("query"),
     };
 }
 
-inline x::json::json View::to_json() const {
+inline x::json::json Base::to_json() const {
     x::json::json j;
     j["key"] = this->key.to_json();
     j["name"] = this->name;
-    j["type"] = this->type;
-    j["query"] = this->query;
     return j;
+}
+
+inline RangeQuery RangeQuery::parse(x::json::Parser parser) {
+    return RangeQuery{
+        .has_labels = parser.field<std::vector<::synnax::label::Key>>(
+            "has_labels",
+            std::vector<::synnax::label::Key>{}
+        ),
+    };
+}
+
+inline x::json::json RangeQuery::to_json() const {
+    x::json::json j;
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->has_labels)
+            arr.push_back(item.to_json());
+        j["has_labels"] = arr;
+    }
+    return j;
+}
+
+inline StatusQuery StatusQuery::parse(x::json::Parser parser) {
+    return StatusQuery{
+        .has_labels = parser.field<std::vector<::synnax::label::Key>>(
+            "has_labels",
+            std::vector<::synnax::label::Key>{}
+        ),
+        .variants = parser.field<std::vector<std::string>>(
+            "variants",
+            std::vector<std::string>{}
+        ),
+    };
+}
+
+inline x::json::json StatusQuery::to_json() const {
+    x::json::json j;
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->has_labels)
+            arr.push_back(item.to_json());
+        j["has_labels"] = arr;
+    }
+    j["variants"] = this->variants;
+    return j;
+}
+
+inline RangeView RangeView::parse(x::json::Parser parser) {
+    RangeView result;
+    static_cast<Base &>(result) = Base::parse(parser);
+    result.query = parser.field<RangeQuery>("query");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json RangeView::to_json() const {
+    x::json::json j;
+    for (auto &[k, v]: Base::to_json().items())
+        j[k] = v;
+    j["query"] = this->query.to_json();
+    j["type"] = this->type;
+    return j;
+}
+
+inline StatusView StatusView::parse(x::json::Parser parser) {
+    StatusView result;
+    static_cast<Base &>(result) = Base::parse(parser);
+    result.query = parser.field<StatusQuery>("query");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json StatusView::to_json() const {
+    x::json::json j;
+    for (auto &[k, v]: Base::to_json().items())
+        j[k] = v;
+    j["query"] = this->query.to_json();
+    j["type"] = this->type;
+    return j;
+}
+
+inline View parse_view(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "range") return RangeView::parse(parser);
+    if (discriminator == "status") return StatusView::parse(parser);
+    parser.field_err("type", "unknown View type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const View &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 
 }

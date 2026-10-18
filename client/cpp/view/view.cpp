@@ -30,7 +30,7 @@ std::pair<View, x::errors::Error> Client::retrieve(const Key &key) const {
     if (err) return {View(), err};
     if (res.views_size() == 0)
         return {View(), errors::not_found_error("view", "key " + key.to_string())};
-    auto [v, proto_err] = View::from_proto(res.views(0));
+    auto [v, proto_err] = view_from_proto(res.views(0));
     if (proto_err) return {View(), proto_err};
     return {std::move(v), x::errors::NIL};
 }
@@ -46,7 +46,7 @@ Client::retrieve(const std::vector<Key> &keys) const {
     std::vector<View> views;
     views.reserve(res.views_size());
     for (const auto &v: res.views()) {
-        auto [pld, proto_err] = View::from_proto(v);
+        auto [pld, proto_err] = view_from_proto(v);
         if (proto_err) return {std::vector<View>(), proto_err};
         views.push_back(std::move(pld));
     }
@@ -55,15 +55,15 @@ Client::retrieve(const std::vector<Key> &keys) const {
 
 x::errors::Error Client::create(View &view) const {
     auto req = grpc::view::CreateRequest();
-    auto [pb, pb_err] = view.to_proto();
+    auto [pb, pb_err] = to_proto(view);
     if (pb_err) return pb_err;
     *req.add_views() = pb;
     auto [res, err] = this->create_client->send("/view/create", req);
     if (err) return err;
     if (res.views_size() == 0) return errors::unexpected_missing_error("view");
-    auto [parsed_key, parse_err] = x::uuid::UUID::parse(res.views().at(0).key());
+    auto [created, parse_err] = view_from_proto(res.views(0));
     if (parse_err) return parse_err;
-    view.key = parsed_key;
+    view = std::move(created);
     return x::errors::NIL;
 }
 
@@ -71,16 +71,16 @@ x::errors::Error Client::create(std::vector<View> &views) const {
     auto req = grpc::view::CreateRequest();
     req.mutable_views()->Reserve(static_cast<int>(views.size()));
     for (const auto &view: views) {
-        auto [pb, pb_err] = view.to_proto();
+        auto [pb, pb_err] = to_proto(view);
         if (pb_err) return pb_err;
         *req.add_views() = pb;
     }
     auto [res, err] = this->create_client->send("/view/create", req);
     if (err) return err;
     for (int i = 0; i < res.views_size() && i < static_cast<int>(views.size()); i++) {
-        auto [parsed_key, parse_err] = x::uuid::UUID::parse(res.views(i).key());
+        auto [created, parse_err] = view_from_proto(res.views(i));
         if (parse_err) return parse_err;
-        views[i].key = parsed_key;
+        views[i] = std::move(created);
     }
     return x::errors::NIL;
 }

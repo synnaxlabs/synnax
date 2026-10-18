@@ -14,21 +14,323 @@ package pb
 import (
 	"uuid"
 
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
+	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
-	"google.golang.org/protobuf/types/known/structpb"
+	"github.com/synnaxlabs/x/errors"
 )
 
-// ViewToPB converts View to View.
-func ViewToPB(r view.View) (*View, error) {
-	queryVal, err := structpb.NewStruct(r.Query)
+// BaseToPB converts Base to Base.
+func BaseToPB(r view.Base) (*Base, error) {
+	pb := &Base{
+		Name: r.Name,
+		Key:  r.Key.String(),
+	}
+	return pb, nil
+}
+
+// BaseFromPB converts Base to Base.
+func BaseFromPB(pb *Base) (view.Base, error) {
+	var r view.Base
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	parsedKey, err := uuid.Parse(pb.Key)
+	if err != nil {
+		return view.Base{}, err
+	}
+	r.Key = view.Key(parsedKey)
+	r.Name = pb.Name
+	return r, nil
+}
+
+// BasesToPB converts a slice of Base to Base.
+func BasesToPB(rs []view.Base) ([]*Base, error) {
+	result := make([]*Base, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = BaseToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// BasesFromPB converts a slice of Base to Base.
+func BasesFromPB(pbs []*Base) ([]view.Base, error) {
+	result := make([]view.Base, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = BaseFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RangeQueryToPB converts RangeQuery to RangeQuery.
+func RangeQueryToPB(r view.RangeQuery) (*RangeQuery, error) {
+	pb := &RangeQuery{
+		HasLabels: lo.Map(r.HasLabels, func(u label.Key, _ int) string { return u.String() }),
+	}
+	return pb, nil
+}
+
+// RangeQueryFromPB converts RangeQuery to RangeQuery.
+func RangeQueryFromPB(pb *RangeQuery) (view.RangeQuery, error) {
+	var r view.RangeQuery
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.HasLabels, err = func() ([]label.Key, error) {
+		result := make([]label.Key, len(pb.HasLabels))
+		for i, s := range pb.HasLabels {
+			parsed, err := uuid.Parse(s)
+			if err != nil {
+				return nil, err
+			}
+			result[i] = label.Key(parsed)
+		}
+		return result, nil
+	}()
+	if err != nil {
+		return view.RangeQuery{}, err
+	}
+	return r, nil
+}
+
+// RangeQueriesToPB converts a slice of RangeQuery to RangeQuery.
+func RangeQueriesToPB(rs []view.RangeQuery) ([]*RangeQuery, error) {
+	result := make([]*RangeQuery, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = RangeQueryToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RangeQueriesFromPB converts a slice of RangeQuery to RangeQuery.
+func RangeQueriesFromPB(pbs []*RangeQuery) ([]view.RangeQuery, error) {
+	result := make([]view.RangeQuery, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = RangeQueryFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// StatusQueryToPB converts StatusQuery to StatusQuery.
+func StatusQueryToPB(r view.StatusQuery) (*StatusQuery, error) {
+	variantsVal, err := lo.MapErr(r.Variants, func(v status.Variant, _ int) (statuspb.Variant, error) { return statuspb.VariantToPB(v) })
 	if err != nil {
 		return nil, err
 	}
-	pb := &View{
-		Name:  r.Name,
-		Type:  r.Type,
-		Key:   r.Key.String(),
+	pb := &StatusQuery{
+		HasLabels: lo.Map(r.HasLabels, func(u label.Key, _ int) string { return u.String() }),
+		Variants:  variantsVal,
+	}
+	return pb, nil
+}
+
+// StatusQueryFromPB converts StatusQuery to StatusQuery.
+func StatusQueryFromPB(pb *StatusQuery) (view.StatusQuery, error) {
+	var r view.StatusQuery
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.HasLabels, err = func() ([]label.Key, error) {
+		result := make([]label.Key, len(pb.HasLabels))
+		for i, s := range pb.HasLabels {
+			parsed, err := uuid.Parse(s)
+			if err != nil {
+				return nil, err
+			}
+			result[i] = label.Key(parsed)
+		}
+		return result, nil
+	}()
+	if err != nil {
+		return view.StatusQuery{}, err
+	}
+	r.Variants, err = lo.MapErr(pb.Variants, func(v statuspb.Variant, _ int) (status.Variant, error) { return statuspb.VariantFromPB(v) })
+	if err != nil {
+		return view.StatusQuery{}, err
+	}
+	return r, nil
+}
+
+// StatusQueriesToPB converts a slice of StatusQuery to StatusQuery.
+func StatusQueriesToPB(rs []view.StatusQuery) ([]*StatusQuery, error) {
+	result := make([]*StatusQuery, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = StatusQueryToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// StatusQueriesFromPB converts a slice of StatusQuery to StatusQuery.
+func StatusQueriesFromPB(pbs []*StatusQuery) ([]view.StatusQuery, error) {
+	result := make([]view.StatusQuery, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = StatusQueryFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RangeViewToPB converts RangeView to ViewRangePayload.
+func RangeViewToPB(r view.RangeView) (*ViewRangePayload, error) {
+	queryVal, err := RangeQueryToPB(r.Query)
+	if err != nil {
+		return nil, err
+	}
+	pb := &ViewRangePayload{
 		Query: queryVal,
+	}
+	return pb, nil
+}
+
+// RangeViewFromPB converts ViewRangePayload to RangeView.
+func RangeViewFromPB(pb *ViewRangePayload) (view.RangeView, error) {
+	var r view.RangeView
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Query, err = RangeQueryFromPB(pb.Query)
+	if err != nil {
+		return view.RangeView{}, err
+	}
+	return r, nil
+}
+
+// RangeViewsToPB converts a slice of RangeView to ViewRangePayload.
+func RangeViewsToPB(rs []view.RangeView) ([]*ViewRangePayload, error) {
+	result := make([]*ViewRangePayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = RangeViewToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RangeViewsFromPB converts a slice of ViewRangePayload to RangeView.
+func RangeViewsFromPB(pbs []*ViewRangePayload) ([]view.RangeView, error) {
+	result := make([]view.RangeView, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = RangeViewFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// StatusViewToPB converts StatusView to ViewStatusPayload.
+func StatusViewToPB(r view.StatusView) (*ViewStatusPayload, error) {
+	queryVal, err := StatusQueryToPB(r.Query)
+	if err != nil {
+		return nil, err
+	}
+	pb := &ViewStatusPayload{
+		Query: queryVal,
+	}
+	return pb, nil
+}
+
+// StatusViewFromPB converts ViewStatusPayload to StatusView.
+func StatusViewFromPB(pb *ViewStatusPayload) (view.StatusView, error) {
+	var r view.StatusView
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Query, err = StatusQueryFromPB(pb.Query)
+	if err != nil {
+		return view.StatusView{}, err
+	}
+	return r, nil
+}
+
+// StatusViewsToPB converts a slice of StatusView to ViewStatusPayload.
+func StatusViewsToPB(rs []view.StatusView) ([]*ViewStatusPayload, error) {
+	result := make([]*ViewStatusPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = StatusViewToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// StatusViewsFromPB converts a slice of ViewStatusPayload to StatusView.
+func StatusViewsFromPB(pbs []*ViewStatusPayload) ([]view.StatusView, error) {
+	result := make([]view.StatusView, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = StatusViewFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ViewToPB converts View to View.
+func ViewToPB(r view.View) (*View, error) {
+	if r.Variant == nil {
+		return nil, nil
+	}
+	pb := &View{}
+	switch v := r.Variant.(type) {
+	case view.RangeView:
+		inner, err := RangeViewToPB(v)
+		if err != nil {
+			return nil, err
+		}
+		pb.Base, err = BaseToPB(v.Base)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &View_Range{Range: inner}
+	case view.StatusView:
+		inner, err := StatusViewToPB(v)
+		if err != nil {
+			return nil, err
+		}
+		pb.Base, err = BaseToPB(v.Base)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &View_Status{Status: inner}
+	default:
+		return nil, errors.Newf("View: unknown variant %T", r.Variant)
 	}
 	return pb, nil
 }
@@ -39,15 +341,30 @@ func ViewFromPB(pb *View) (view.View, error) {
 	if pb == nil {
 		return r, nil
 	}
-	var err error
-	parsedKey, err := uuid.Parse(pb.Key)
-	if err != nil {
-		return view.View{}, err
+	switch v := pb.Variant.(type) {
+	case *View_Range:
+		inner, err := RangeViewFromPB(v.Range)
+		if err != nil {
+			return r, err
+		}
+		m := inner
+		m.Base, err = BaseFromPB(pb.Base)
+		if err != nil {
+			return r, err
+		}
+		r.Variant = m
+	case *View_Status:
+		inner, err := StatusViewFromPB(v.Status)
+		if err != nil {
+			return r, err
+		}
+		m := inner
+		m.Base, err = BaseFromPB(pb.Base)
+		if err != nil {
+			return r, err
+		}
+		r.Variant = m
 	}
-	r.Key = view.Key(parsedKey)
-	r.Query = pb.Query.AsMap()
-	r.Name = pb.Name
-	r.Type = pb.Type
 	return r, nil
 }
 
