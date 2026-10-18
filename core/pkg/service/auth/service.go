@@ -13,6 +13,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"io"
+	"sync"
 	"time"
 	"uuid"
 
@@ -25,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	xtime "github.com/synnaxlabs/x/time"
@@ -90,6 +92,11 @@ type Service struct {
 	cfg      ServiceConfig
 	table    *gorp.Table[SessionKey, Session]
 	shutdown io.Closer
+	// mu guards seen.
+	mu sync.Mutex
+	// seen holds the last request time of each session this node has checked. The
+	// stored mark lags it by up to a quarter of the idle timeout.
+	seen map[SessionKey]telem.TimeStamp
 }
 
 // OpenService opens a [Service] with the given configurations. It sweeps idle sessions
@@ -99,7 +106,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg}
+	s := &Service{cfg: cfg, seen: make(map[SessionKey]telem.TimeStamp)}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[SessionKey, Session]{
 		DB:              cfg.DB,
 		Instrumentation: cfg.Instrumentation,
@@ -201,14 +208,15 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Session, erro
 		return Session{}, ErrInvalidToken
 	}
 	now := s.now()
-	idle := time.Duration(now - session.LastActive)
-	if idle > s.cfg.IdleTimeout {
+	last := max(session.LastActive, s.lastSeen(key))
+	if time.Duration(now-last) > s.cfg.IdleTimeout {
 		if err = s.Logout(ctx, key); err != nil {
 			return Session{}, err
 		}
 		return Session{}, ErrExpiredToken
 	}
-	if idle > s.cfg.IdleTimeout/4 {
+	s.see(key, now)
+	if time.Duration(now-session.LastActive) > s.cfg.IdleTimeout/4 {
 		if err = s.touch(ctx, key, now); err != nil {
 			return Session{}, err
 		}
@@ -217,8 +225,39 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Session, erro
 	return session, nil
 }
 
+func (s *Service) lastSeen(key SessionKey) telem.TimeStamp {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.seen[key]
+}
+
+func (s *Service) see(key SessionKey, at telem.TimeStamp) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.seen[key] = at
+}
+
+// forget drops the activity of the given sessions. When keep is set, it also drops
+// every session not in keep, so sessions deleted elsewhere do not linger.
+func (s *Service) forget(keep set.Set[SessionKey], keys ...SessionKey) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, k := range keys {
+		delete(s.seen, k)
+	}
+	if keep == nil {
+		return
+	}
+	for k := range s.seen {
+		if !keep.Contains(k) {
+			delete(s.seen, k)
+		}
+	}
+}
+
 // Logout ends the sessions with the given keys. Unknown keys are ignored.
 func (s *Service) Logout(ctx context.Context, keys ...SessionKey) error {
+	s.forget(nil, keys...)
 	return s.table.NewDelete().
 		Where(gorp.MatchKeys[SessionKey, Session](keys...)).
 		Exec(ctx, s.cfg.DB)
@@ -227,22 +266,31 @@ func (s *Service) Logout(ctx context.Context, keys ...SessionKey) error {
 // Sweep ends every session that has been idle for the idle timeout.
 func (s *Service) Sweep(ctx context.Context) error {
 	cutoff := s.now() - telem.TimeStamp(s.cfg.IdleTimeout)
-	var idle []Session
-	if err := s.NewRetrieve().
-		Where(Match(func(_ gorp.Context, _ Retrieve, e *Session) (bool, error) {
-			return e.LastActive < cutoff, nil
-		})).
-		Entries(&idle).
-		Exec(ctx, nil); err != nil {
+	var all []Session
+	if err := s.NewRetrieve().Entries(&all).Exec(ctx, nil); err != nil {
 		return err
 	}
+	keep := make(set.Set[SessionKey], len(all))
+	var idle []SessionKey
+	for _, e := range all {
+		keep.Add(e.Key)
+		if e.LastActive >= cutoff {
+			continue
+		}
+		if seen := s.lastSeen(e.Key); seen >= cutoff {
+			if err := s.touch(ctx, e.Key, seen); err != nil {
+				return err
+			}
+			continue
+		}
+		idle = append(idle, e.Key)
+	}
+	s.forget(keep, idle...)
 	if len(idle) == 0 {
 		return nil
 	}
 	s.cfg.L.Info("ending idle sessions", zap.Int("count", len(idle)))
-	return s.Logout(ctx, lo.Map(idle, func(e Session, _ int) SessionKey {
-		return e.Key
-	})...)
+	return s.Logout(ctx, idle...)
 }
 
 func (s *Service) now() telem.TimeStamp { return telem.NewTimeStamp(s.cfg.Clock.Now()) }

@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	xtime "github.com/synnaxlabs/x/time"
 	"github.com/synnaxlabs/x/validate"
@@ -266,6 +267,24 @@ var _ = Describe("Service", func() {
 			},
 		)
 		It(
+			"Should count a request made before the stored mark moved",
+			func(ctx SpecContext) {
+				session, token := login(ctx)
+				clock.Advance(idle/4 - time.Minute)
+				MustSucceed(svc.Authenticate(ctx, token))
+				clock.Advance(idle*3/4 + 2*time.Minute)
+				MustSucceed(svc.Authenticate(ctx, token))
+				clock.Advance(idle/4 - time.Minute)
+				MustSucceed(svc.Authenticate(ctx, token))
+				Expect(svc.Sweep(ctx)).To(Succeed())
+				Expect(
+					svc.NewRetrieve().
+						Where(auth.MatchKeys(session.Key)).
+						Exists(ctx, nil),
+				).To(BeTrue())
+			},
+		)
+		It(
 			"Should keep an active session alive past the timeout",
 			func(ctx SpecContext) {
 				_, token := login(ctx)
@@ -282,6 +301,22 @@ var _ = Describe("Service", func() {
 		})
 	})
 	Describe("Sweep", func() {
+		It("Should store the activity this node saw instead of ending the session",
+			func(ctx SpecContext) {
+				session, token := login(ctx)
+				clock.Advance(idle/4 - time.Minute)
+				MustSucceed(svc.Authenticate(ctx, token))
+				seen := telem.NewTimeStamp(clock.Now())
+				clock.Advance(idle*3/4 + 2*time.Minute)
+				Expect(svc.Sweep(ctx)).To(Succeed())
+				var stored auth.Session
+				Expect(
+					svc.NewRetrieve().Where(auth.MatchKeys(session.Key)).Entry(&stored).
+						Exec(ctx, nil),
+				).To(Succeed())
+				Expect(stored.LastActive).To(Equal(seen))
+			},
+		)
 		It("Should end idle sessions and keep active ones", func(ctx SpecContext) {
 			stale, staleToken := login(ctx)
 			clock.Advance(idle / 2)
