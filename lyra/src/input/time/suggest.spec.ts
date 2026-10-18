@@ -95,6 +95,13 @@ describe("suggestTimeSpans", () => {
     expect(first.value.equals(TimeSpan.minutes(150))).toBe(true);
   });
 
+  it("should read Ms only as megaseconds", () => {
+    const suggestions = suggestTimeSpans("5Ms");
+    expect(suggestions.length).toBeGreaterThan(0);
+    for (const { value } of suggestions)
+      expect(value.equals(TimeSpan.seconds(5e6))).toBe(true);
+  });
+
   it("should read natural language durations", () => {
     expect(
       suggestTimeSpans("an hour and a half")[0].value.equals(TimeSpan.minutes(90)),
