@@ -11,10 +11,9 @@ package auth
 
 import (
 	"context"
-	"uuid"
 
-	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
@@ -46,6 +45,7 @@ type Service struct {
 	auth     *auth.Service
 	password *password.Service
 	user     *user.Service
+	access   *rbac.Service
 	cluster  cluster.Cluster
 }
 
@@ -58,6 +58,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		auth:     cfg.Service.Auth,
 		password: cfg.Service.Password,
 		user:     cfg.Service.User,
+		access:   cfg.Service.RBAC,
 		cluster:  cfg.Distribution.Cluster,
 	}, nil
 }
@@ -74,43 +75,33 @@ type LoginResponse struct {
 type LoginRequest struct{ Credentials }
 
 // Login opens a session for the user with the provided credentials. If successful,
-// returns a response containing the session token along with the user's details.
+// returns a response containing the session token along with the user's details. It
+// is kept for clients built before CreateSession existed.
 func (s *Service) Login(
 	ctx context.Context,
 	req LoginRequest,
 ) (LoginResponse, error) {
-	startTime := telem.Now()
-	session, tk, err := s.auth.Login(
-		ctx,
-		proofOf(req.Credentials),
-		freighter.MDFromContext(ctx).Remote,
-	)
+	res, err := s.CreateSession(ctx, SessionCreateRequest{Proof: proofOf(req.Credentials)})
 	if err != nil {
 		return LoginResponse{}, err
 	}
-	key, err := uuid.Parse(session.Subject.Key)
-	if err != nil {
-		return LoginResponse{}, err
-	}
-	var u user.User
-	if err := s.user.NewRetrieve().
-		Where(user.MatchKeys(key)).
-		Entry(&u).
-		Exec(ctx, nil); err != nil {
-		return LoginResponse{}, err
-	}
-	endTime := telem.Now()
-	midPoint := startTime + (endTime-startTime)/2
 	return LoginResponse{
-		User:  u,
-		Token: tk,
-		ClusterInfo: ClusterInfo{
-			ClusterKey:  s.cluster.Key().String(),
-			NodeKey:     s.cluster.HostKey(),
-			NodeVersion: version.Get(),
-			NodeTime:    midPoint,
-		},
+		User:        *res.User,
+		Token:       res.Token,
+		ClusterInfo: res.ClusterInfo,
 	}, nil
+}
+
+// clusterInfo describes this node, with the node time at the midpoint of a request
+// that started at start.
+func (s *Service) clusterInfo(start telem.TimeStamp) ClusterInfo {
+	end := telem.Now()
+	return ClusterInfo{
+		ClusterKey:  s.cluster.Key().String(),
+		NodeKey:     s.cluster.HostKey(),
+		NodeVersion: version.Get(),
+		NodeTime:    start + (end-start)/2,
+	}
 }
 
 type ChangePasswordRequest struct {

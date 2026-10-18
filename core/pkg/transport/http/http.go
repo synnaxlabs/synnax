@@ -56,6 +56,18 @@ func Bind(layer *api.Layer, router *http.Router) {
 		AuthChangePassword: router.NewUnaryServer[auth.ChangePasswordRequest, struct{}](
 			"/api/v1/auth/change-password",
 		),
+		AuthSessionCreate: router.NewUnaryServer[auth.SessionCreateRequest, auth.SessionCreateResponse](
+			"/api/v1/auth/session/create",
+		),
+		AuthSessionRenew: router.NewUnaryServer[struct{}, struct{}](
+			"/api/v1/auth/session/renew",
+		),
+		AuthSessionRetrieve: router.NewUnaryServer[auth.SessionRetrieveRequest, auth.SessionRetrieveResponse](
+			"/api/v1/auth/session/retrieve",
+		),
+		AuthSessionDelete: router.NewUnaryServer[auth.SessionDeleteRequest, struct{}](
+			"/api/v1/auth/session/delete",
+		),
 
 		// USER
 		UserRename: router.NewUnaryServer[user.RenameRequest, struct{}](
