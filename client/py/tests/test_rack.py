@@ -70,6 +70,7 @@ class TestRackClient:
             renamed = client.racks.retrieve(key=rack.key)
             assert renamed.name == "After Rename"
             assert renamed.embedded
+            assert client.racks.retrieve_embedded_rack().name == "After Rename"
         finally:
             client.racks.rename(rack.key, rack.name)
 

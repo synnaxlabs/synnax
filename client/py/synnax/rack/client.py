@@ -105,6 +105,8 @@ class Client:
         :raises NotFoundError: If no rack has the given key.
         """
         self._client.send("/rack/rename", _RenameRequest(key=key, name=name), Empty)
+        if self._embedded_rack is not None and self._embedded_rack.key == key:
+            self._embedded_rack = None
 
     @overload
     def retrieve(self, key: int, *, include_status: bool = False) -> Rack: ...
