@@ -983,6 +983,35 @@ var _ = Describe("Task", Ordered, func() {
 		)
 
 		It(
+			"Should rename a live status row when a re-configure renames the task",
+			func(ctx SpecContext) {
+				t := &task.Task{
+					Type: testType,
+					Rack: testRack.Key,
+					Name: "Before Task",
+					Status: &task.Status{
+						Variant: status.VariantSuccess,
+						Message: "Task is running",
+						Time:    telem.Now(),
+					},
+				}
+				Expect(w.Create(ctx, t)).To(Succeed())
+
+				reconfigured := &task.Task{Key: t.Key, Name: "After Task", Type: testType}
+				Expect(w.Create(ctx, reconfigured)).To(Succeed())
+				Expect(reconfigured.Status.Name).To(Equal("After Task"))
+
+				var renamed task.Status
+				Expect(stat.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+					Entry(&renamed).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(renamed.Name).To(Equal("After Task"))
+				Expect(renamed.Message).To(Equal("Task is running"))
+			},
+		)
+
+		It(
 			"Should return the status it wrote for a new task",
 			func(ctx SpecContext) {
 				m := &task.Task{
