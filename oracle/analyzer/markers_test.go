@@ -133,6 +133,35 @@ var _ = Describe("Create and Output markers", func() {
 	)
 
 	It(
+		"Should synthesize New for a @create union named after its namespace",
+		func(ctx SpecContext) {
+			source := `
+			Base struct {
+				key uuid = create { @key }
+			}
+			X union on type extends Base {
+				first {
+					name string
+				}
+				second {
+					size int32
+				}
+				@create
+			}
+		`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			newType, ok := table.Get("x.New")
+			Expect(ok).To(BeTrue())
+			form := newType.Form.(resolution.StructForm)
+			Expect(form.Extends).To(HaveLen(1))
+			Expect(form.Extends[0].Name).To(Equal("x.X"))
+			_, ok = table.Get("x.NewX")
+			Expect(ok).To(BeFalse())
+		},
+	)
+
+	It(
 		"Should synthesize both a struct New and a union New<Name> in one namespace",
 		func(ctx SpecContext) {
 			source := `

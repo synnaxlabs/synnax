@@ -71,6 +71,24 @@ var _ = Describe("Extract", func() {
 		Expect(result.KeyField.Primitive).To(Equal("uuid"))
 	})
 
+	It("should extract ontology data from a union", func() {
+		types := []resolution.Type{{
+			Name: "View",
+			Form: resolution.UnionForm{},
+			Domains: map[string]resolution.Domain{
+				"ontology": {Expressions: []resolution.Expression{{
+					Name:   "type",
+					Values: []resolution.ExpressionValue{{StringValue: "view"}},
+				}}},
+			},
+		}}
+		keyFields := []key.Field{{Name: "key", Primitive: "uuid"}}
+		result := ontology.Extract(types, keyFields, nil)
+		Expect(result).NotTo(BeNil())
+		Expect(result.TypeName).To(Equal("view"))
+		Expect(result.StructName).To(Equal("View"))
+	})
+
 	It("should skip types when skip function returns true", func() {
 		types := []resolution.Type{{
 			Name: "Skipped",

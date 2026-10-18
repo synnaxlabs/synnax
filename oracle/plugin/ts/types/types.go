@@ -309,7 +309,12 @@ func (p *Plugin) generateFile(
 	}
 	skip := func(s resolution.Type) bool { return omit.IsSkipped(s, "ts") }
 	rawKeyFields := key.Collect(structs, req.Resolutions, skip)
-	data.Ontology = p.extractOntology(structs, rawKeyFields, skip, req.Resolutions)
+	data.Ontology = p.extractOntology(
+		slices.Concat(structs, unions),
+		rawKeyFields,
+		skip,
+		req.Resolutions,
+	)
 	if data.Ontology != nil {
 		data.AddImport("@/ontology", "ontology")
 	}

@@ -112,12 +112,18 @@ func generatePyFile(
 	skip := func(typ resolution.Type) bool { return omit.IsSkipped(typ, "py") }
 	rawKeyFields := key.Collect(structs, table, skip)
 	keyFields := convertKeyFields(rawKeyFields, data)
-	allStructs := lo.Filter(table.StructTypes(), func(typ resolution.Type, _ int) bool {
+	inOutput := func(typ resolution.Type, _ int) bool {
 		return output.GetPath(typ, "py") == outputPath
-	})
+	}
+	allStructs := lo.Filter(table.StructTypes(), inOutput)
 	allRawKeyFields := key.Collect(allStructs, table, nil)
 	allKeyFields := convertKeyFields(allRawKeyFields, data)
-	data.Ontology = extractOntology(allStructs, allRawKeyFields, allKeyFields, nil)
+	data.Ontology = extractOntology(
+		slices.Concat(allStructs, lo.Filter(table.UnionTypes(), inOutput)),
+		allRawKeyFields,
+		allKeyFields,
+		nil,
+	)
 	if data.Ontology != nil {
 		data.imports.addOntology("ID")
 	}
