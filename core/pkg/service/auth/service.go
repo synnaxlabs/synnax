@@ -174,7 +174,7 @@ func (s *Service) Login(
 	session := Session{
 		Key:        uuid.New(),
 		Subject:    identity.Subject,
-		Method:     identity.Method,
+		Method:     method,
 		Credential: identity.Credential,
 		Address:    string(address),
 		Created:    now,
