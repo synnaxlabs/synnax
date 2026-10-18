@@ -1684,6 +1684,8 @@ func primitiveToPython(primitive string, data *templateData) string {
 			data.imports.addPydantic(imp.Name)
 		case "synnax":
 			data.imports.addSynnax(imp.Name)
+		case "codec":
+			data.imports.addCodec(imp.Name)
 		}
 	}
 	return mapping.TargetType
@@ -1702,6 +1704,8 @@ type importManager struct {
 	synnax         []string
 	// ontology holds imports from synnax.ontology.payload.
 	ontology []string
+	// codec holds imports from x.codec.
+	codec []string
 	// namespaces maps alias to path.
 	namespaces []namespaceImportData
 	// modules holds module imports (for "from parent import module").
@@ -1747,6 +1751,12 @@ func (m *importManager) addPydantic(name string) {
 func (m *importManager) addSynnax(name string) {
 	if !lo.Contains(m.synnax, name) {
 		m.synnax = append(m.synnax, name)
+	}
+}
+
+func (m *importManager) addCodec(name string) {
+	if !lo.Contains(m.codec, name) {
+		m.codec = append(m.codec, name)
 	}
 }
 
@@ -1866,6 +1876,7 @@ func (d *templateData) EnumImports() []string     { return d.imports.enum }
 func (d *templateData) PydanticImports() []string { return d.imports.pydantic }
 func (d *templateData) SynnaxImports() []string   { return d.imports.synnax }
 func (d *templateData) OntologyImports() []string { return d.imports.ontology }
+func (d *templateData) CodecImports() []string    { return d.imports.codec }
 
 func (d *templateData) NamespaceImports() []namespaceImportData { return d.imports.namespaces }
 
@@ -2069,6 +2080,9 @@ from synnax.telem import {{ join .SynnaxImports ", " }}
 {{- end }}
 {{- if .OntologyImports }}
 from synnax.ontology.payload import {{ join .OntologyImports ", " }}
+{{- end }}
+{{- if .CodecImports }}
+from x.codec import {{ join .CodecImports ", " }}
 {{- end }}
 {{- range .NamespaceImports }}
 from {{ .Path }} import {{ .Alias }}
