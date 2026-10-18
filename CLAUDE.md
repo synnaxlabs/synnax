@@ -195,6 +195,8 @@ Red flags. If any of these appear, rewrite immediately:
 
 ### Doc comments
 
+- Doc comments are for the public surface. A private or unexported identifier gets one
+  only when its name cannot carry the meaning.
 - Write from the caller's perspective: what it does, arguments, returns, errors,
   preconditions, side effects. Never narrate implementation ("calls X, uses Y, stores in
   Z, then does W").
