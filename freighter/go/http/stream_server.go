@@ -161,18 +161,29 @@ func (s *streamServer[RQ, RS]) handleSocket(
 	codec encoding.Codec,
 	c *fiberws.Conn,
 ) {
-	newStream := func(ctx freighter.Context) *serverStream[RQ, RS] {
-		return &serverStream[RQ, RS]{streamCore: newStreamCore[RQ, RS](
-			streamCoreConfig{
-				writeDeadline: s.writeDeadline,
-				conn:          c.Conn,
-				codec:         codec,
-				cause:         func() error { return context.Cause(ctx.Context) },
+	var (
+		// forced closes when a middleware ends the handler's context with a cause, so
+		// a parked reader unblocks and the handler can return that cause.
+		forced     = make(chan struct{})
+		exited     = make(chan struct{})
+		handlerCtx context.Context
+	)
+	defer close(exited)
+	stream := &serverStream[RQ, RS]{streamCore: newStreamCore[RQ, RS](
+		streamCoreConfig{
+			writeDeadline: s.writeDeadline,
+			conn:          c.Conn,
+			codec:         codec,
+			forced:        forced,
+			cause: func() error {
+				if handlerCtx == nil {
+					return nil
+				}
+				return context.Cause(handlerCtx)
 			},
-			ctx.Done(),
-		)}
-	}
-	var stream *serverStream[RQ, RS]
+		},
+		ctx.Done(),
+	)}
 	// Register the stream with the server so it gets gracefully shut down.
 	s.wg.Add(1)
 	defer s.wg.Done()
@@ -181,10 +192,8 @@ func (s *streamServer[RQ, RS]) handleSocket(
 		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
 			oCtx := ctx
 			oCtx.Params = make(freighter.Params)
-			// The stream watches the handler's context, which a middleware may have
-			// derived from the request's, so a middleware's cancellation reaches the
-			// peer and unblocks the reader.
-			stream = newStream(ctx)
+			handlerCtx = ctx.Context
+			go watchForcedEnd(ctx.Context, forced, exited)
 			// Send a confirmation message to the client that the stream is open.
 			if err := stream.send(WSMessage[RS]{Type: WSMessageTypeOpen}); err != nil {
 				return oCtx, err
@@ -192,10 +201,6 @@ func (s *streamServer[RQ, RS]) handleSocket(
 			return oCtx, s.handler(ctx, stream)
 		}),
 	)
-	if stream == nil {
-		// A middleware refused the stream before it opened.
-		stream = newStream(ctx)
-	}
 	// These errors occur when the client abruptly closes the connection (e.g. reloading
 	// web pages, closing the app). They're not anomalous.
 	if err := errors.Skip(
@@ -205,6 +210,25 @@ func (s *streamServer[RQ, RS]) handleSocket(
 		syscall.ECONNRESET,
 	); err != nil {
 		s.L.Error("error closing connection", zap.Error(err))
+	}
+}
+
+// watchForcedEnd closes forced when ctx ends with a cause other than a plain
+// cancellation, and returns once the socket handler exits.
+func watchForcedEnd(
+	ctx context.Context,
+	forced chan<- struct{},
+	exited <-chan struct{},
+) {
+	select {
+	case <-ctx.Done():
+		if cause := context.Cause(
+			ctx,
+		); cause != nil &&
+			!errors.Is(cause, context.Canceled) {
+			close(forced)
+		}
+	case <-exited:
 	}
 }
 

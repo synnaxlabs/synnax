@@ -187,6 +187,9 @@ type ServerStream[RQ, RQT, RS, RST freighter.Payload] struct {
 	responseTranslator Translator[RS, RST]
 	recvOnce           sync.Once
 	recv               chan recvResult[RQT]
+	// recvErr is the error that ended the transport's receive side. Every later
+	// Receive returns it again.
+	recvErr error
 }
 
 // recvResult is one message the receive loop pulled off the transport.
@@ -215,6 +218,9 @@ func (s *ServerStream[RQ, RQT, RS, RST]) receiveLoop() {
 // Receive implements the freighter.ServerStream interface. It returns the handler
 // context's cause when that context ends before a message arrives.
 func (s *ServerStream[RQ, RQT, RS, RST]) Receive() (req RQ, err error) {
+	if s.recvErr != nil {
+		return req, s.recvErr
+	}
 	s.recvOnce.Do(func() {
 		s.recv = make(chan recvResult[RQT])
 		go s.receiveLoop()
@@ -227,7 +233,8 @@ func (s *ServerStream[RQ, RQT, RS, RST]) Receive() (req RQ, err error) {
 			return req, context.Cause(s.ctx)
 		}
 		if r.err != nil {
-			return req, translateGRPCError(r.err)
+			s.recvErr = translateGRPCError(r.err)
+			return req, s.recvErr
 		}
 		return s.requestTranslator.Backward(s.ctx, r.msg)
 	}

@@ -101,6 +101,28 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		return server, client, addr
 	})
 
+	It("Should return EOF on every receive after the client closes its send side",
+		func(ctx SpecContext) {
+			server, client, addr := startPair()
+			errs := make(chan error, 2)
+			server.BindHandler(func(
+				_ context.Context,
+				stream freighter.ServerStream[test.Request, test.Response],
+			) error {
+				_, err := stream.Receive()
+				errs <- err
+				_, err = stream.Receive()
+				errs <- err
+				return nil
+			})
+			stream := MustSucceed(client.Stream(ctx, addr))
+			Expect(stream.CloseSend()).To(Succeed())
+			Eventually(errs).Should(Receive(MatchError(freighter.EOF)))
+			Eventually(errs).Should(Receive(MatchError(freighter.EOF)))
+			Expect(stream.Receive()).Error().To(MatchError(freighter.EOF))
+		},
+	)
+
 	It(
 		"Should unblock a parked handler and tell the peer why when middleware cancels",
 		func(ctx SpecContext) {

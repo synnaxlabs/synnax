@@ -57,12 +57,7 @@ type WSMessage[P freighter.Payload] struct {
 
 const (
 	contextCancelledCloseCode = websocket.CloseGoingAway
-	// serverErrorCloseCode is a private close code whose reason carries the encoded
-	// error that ended the stream on the server.
-	serverErrorCloseCode = 4001
-	// maxCloseReasonLen is the longest reason a close frame can carry.
-	maxCloseReasonLen      = 123
-	closeReadWriteDeadline = 500 * time.Millisecond
+	closeReadWriteDeadline    = 500 * time.Millisecond
 )
 
 func newStreamCore[RQ, RS freighter.Payload](
@@ -84,9 +79,12 @@ type streamCoreConfig struct {
 	conn  *websocket.Conn
 	alamos.Instrumentation
 	writeDeadline time.Duration
-	// cause returns why the server shut the stream down, once serverShutdownSig
-	// closes. The peer receives it in the close frame when it is not a plain
-	// cancellation. Nil means the plain cancellation.
+	// forced closes when a server middleware ends the handler's context with a cause.
+	// The reader is unblocked without a close frame, so the handler returns and the
+	// stream closes through the normal path carrying that cause. Nil on a client.
+	forced <-chan struct{}
+	// cause returns the handler context's cause, read when the reader unblocks. Nil on
+	// a client.
 	cause func() error
 }
 
@@ -130,7 +128,9 @@ func (c *streamCore[I, O]) Receive() (I, error) {
 	}
 	msg, err := c.receiveRaw()
 	if err != nil {
-		if websocket.IsCloseError(
+		if cause := c.forcedCause(); cause != nil {
+			c.peerCloseErr = cause
+		} else if websocket.IsCloseError(
 			err,
 			websocket.CloseNormalClosure,
 			websocket.CloseNoStatusReceived,
@@ -139,11 +139,6 @@ func (c *streamCore[I, O]) Receive() (I, error) {
 			c.peerCloseErr = freighter.EOF
 		} else if websocket.IsCloseError(err, contextCancelledCloseCode) {
 			c.peerCloseErr = context.Canceled
-		} else if closeErr := new(websocket.CloseError); errors.As(err, &closeErr) &&
-			closeErr.Code == serverErrorCloseCode {
-			var p errors.Payload
-			p.Unmarshal(closeErr.Text)
-			c.peerCloseErr = errors.Decode(context.TODO(), p)
 		} else {
 			c.peerCloseErr = freighter.ErrStreamClosed
 		}
@@ -166,22 +161,17 @@ func (c *streamCore[I, O]) close() error {
 	return c.conn.Close()
 }
 
-// shutdownCloseMessage formats the close frame for a server shutdown: the plain
-// cancellation code, or the error code carrying the encoded cause when the server gave
-// one that fits a control frame.
-func (c *streamCore[I, O]) shutdownCloseMessage() []byte {
+// forcedCause returns the cause a server middleware ended the handler's context with,
+// or nil when the stream was not forced closed that way.
+func (c *streamCore[I, O]) forcedCause() error {
 	if c.cause == nil {
-		return websocket.FormatCloseMessage(contextCancelledCloseCode, "")
+		return nil
 	}
 	cause := c.cause()
 	if cause == nil || errors.Is(cause, context.Canceled) {
-		return websocket.FormatCloseMessage(contextCancelledCloseCode, "")
+		return nil
 	}
-	text := errors.Encode(context.TODO(), cause, false).Error()
-	if len(text) > maxCloseReasonLen {
-		return websocket.FormatCloseMessage(serverErrorCloseCode, "")
-	}
-	return websocket.FormatCloseMessage(serverErrorCloseCode, text)
+	return cause
 }
 
 // listenForContextCancellation is a goroutine that listens for the context to be
@@ -195,7 +185,7 @@ func (c *streamCore[I, O]) listenForContextCancellation() {
 	case <-c.serverShutdownSig:
 		if err := c.conn.WriteControl(
 			websocket.CloseMessage,
-			c.shutdownCloseMessage(),
+			websocket.FormatCloseMessage(contextCancelledCloseCode, ""),
 			time.Now().Add(closeReadWriteDeadline),
 		); err != nil && !errors.Is(err, websocket.ErrCloseSent) {
 			c.L.Error("error sending close message: %v \n", zap.Error(err))
@@ -206,6 +196,12 @@ func (c *streamCore[I, O]) listenForContextCancellation() {
 			time.Now().Add(closeReadWriteDeadline),
 		); err != nil {
 			c.L.Error("error setting close read deadline", zap.Error(err))
+		}
+	case <-c.forced:
+		// Only the reader is unblocked. The handler returns, and the normal close path
+		// sends the peer the cause before the close frame.
+		if err := c.conn.SetReadDeadline(time.Now()); err != nil {
+			c.L.Error("error setting forced read deadline", zap.Error(err))
 		}
 	}
 }
