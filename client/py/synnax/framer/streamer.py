@@ -388,7 +388,7 @@ class AsyncStreamer:
         try:
             return await self.read()
         except EOF:
-            raise StopAsyncIteration
+            raise StopAsyncIteration from None
 
     async def __aexit__(
         self, exc_type: object, exc_val: object, exc_tb: object

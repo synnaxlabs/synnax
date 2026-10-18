@@ -166,7 +166,7 @@ class Frame:
         Returns a generator of tuples containing the channel and series for each channel
         in the frame.
         """
-        return zip(self.channels, self.series)
+        return zip(self.channels, self.series, strict=True)
 
     @overload
     def __getitem__(self, key: channel.Key | str) -> MultiSeries: ...
