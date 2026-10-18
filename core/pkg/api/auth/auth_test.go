@@ -13,6 +13,7 @@ import (
 	"context"
 	"uuid"
 
+	"github.com/gofiber/fiber/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
@@ -21,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -138,4 +140,83 @@ var _ = Describe("ChangePassword", func() {
 				To(MatchError(auth.ErrInvalidToken))
 		},
 	)
+})
+
+var _ = Describe("Middleware", func() {
+	var (
+		mw    freighter.Middleware
+		token string
+	)
+	BeforeEach(func(ctx SpecContext) {
+		mw = apiauth.Middleware(authSvc)
+		token = MustSucceed(apiSvc.Login(requestCtx(ctx), request(
+			creds.Username,
+			creds.Password,
+		))).Token
+	})
+	withToken := func(ctx context.Context, variant freighter.Variant) freighter.Context {
+		fctx := requestCtx(ctx)
+		fctx.Variant = variant
+		fctx.Set(fiber.HeaderAuthorization, "Bearer "+token)
+		return fctx
+	}
+	// exec runs the middleware and returns only its error. A middleware returns the
+	// request context alongside its error by contract, so the context is not a result
+	// to assert on.
+	exec := func(fctx freighter.Context, next freighter.Next) error {
+		_, err := mw.Exec(fctx, next)
+		return err
+	}
+	passthrough := freighter.FinalizerFunc(
+		func(c freighter.Context) (freighter.Context, error) { return c, nil },
+	)
+	It("Should put the session on a unary request", func(ctx SpecContext) {
+		var seen freighter.Context
+		MustSucceed(mw.Exec(
+			withToken(ctx, freighter.VariantUnary),
+			freighter.FinalizerFunc(
+				func(c freighter.Context) (freighter.Context, error) {
+					seen = c
+					return c, nil
+				},
+			),
+		))
+		Expect(apiauth.GetSubject(seen)).To(Equal(root.OntologyID()))
+		Expect(apiauth.GetSession(seen)).To(Equal(
+			MustSucceed(authSvc.Authenticate(ctx, token)).Key,
+		))
+		Expect(apiauth.GetCredential(seen)).ToNot(Equal(uuid.Nil()))
+	})
+	It("Should reject a request without a token", func(ctx SpecContext) {
+		Expect(exec(requestCtx(ctx), passthrough)).To(MatchError(auth.ErrAuth))
+	})
+	It("Should close a stream when its session ends", func(ctx SpecContext) {
+		key := MustSucceed(authSvc.Authenticate(ctx, token)).Key
+		errs := make(chan error, 1)
+		go func() {
+			errs <- exec(
+				withToken(ctx, freighter.VariantStream),
+				freighter.FinalizerFunc(
+					func(c freighter.Context) (freighter.Context, error) {
+						<-c.Done()
+						return c, c.Err()
+					},
+				),
+			)
+		}()
+		Consistently(errs).ShouldNot(Receive())
+		Expect(authSvc.Logout(ctx, key)).To(Succeed())
+		Eventually(errs).Should(Receive(MatchError(auth.ErrSessionEnded)))
+	})
+	It("Should pass a stream's own error through", func(ctx SpecContext) {
+		errBoom := errors.New("boom")
+		Expect(exec(
+			withToken(ctx, freighter.VariantStream),
+			freighter.FinalizerFunc(
+				func(c freighter.Context) (freighter.Context, error) {
+					return c, errBoom
+				},
+			),
+		)).To(MatchError(errBoom))
+	})
 })

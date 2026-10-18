@@ -301,6 +301,86 @@ var _ = Describe("Service", func() {
 			Expect(svc.Logout(ctx, uuid.New())).To(Succeed())
 		})
 	})
+	Describe("Hold", func() {
+		It("Should reject a session that does not exist", func(ctx SpecContext) {
+			Expect(
+				svc.Hold(ctx, uuid.New()),
+			).Error().
+				To(MatchError(auth.ErrInvalidToken))
+		})
+		It(
+			"Should close the channel when the session is logged out",
+			func(ctx SpecContext) {
+				session, _ := login(ctx)
+				ended, release := MustSucceed2(svc.Hold(ctx, session.Key))
+				defer release()
+				Consistently(ended).ShouldNot(BeClosed())
+				Expect(svc.Logout(ctx, session.Key)).To(Succeed())
+				Eventually(ended).Should(BeClosed())
+			},
+		)
+		It(
+			"Should close the channel when the subject is deleted",
+			func(ctx SpecContext) {
+				session, _ := login(ctx)
+				ended, release := MustSucceed2(svc.Hold(ctx, session.Key))
+				defer release()
+				Expect(svc.NewWriter(nil).DeleteFor(ctx, alice)).To(Succeed())
+				Eventually(ended).Should(BeClosed())
+			},
+		)
+		It(
+			"Should close the channel when the credential is revoked",
+			func(ctx SpecContext) {
+				session, _ := login(ctx)
+				ended, release := MustSucceed2(svc.Hold(ctx, session.Key))
+				defer release()
+				Expect(svc.NewWriter(nil).RevokeCredential(
+					ctx,
+					session.Method,
+					session.Credential,
+				)).To(Succeed())
+				Eventually(ended).Should(BeClosed())
+			},
+		)
+		It(
+			"Should share one channel between holders of a session",
+			func(ctx SpecContext) {
+				session, _ := login(ctx)
+				first, releaseFirst := MustSucceed2(svc.Hold(ctx, session.Key))
+				second, releaseSecond := MustSucceed2(svc.Hold(ctx, session.Key))
+				releaseFirst()
+				releaseFirst()
+				Expect(svc.Logout(ctx, session.Key)).To(Succeed())
+				Eventually(first).Should(BeClosed())
+				Eventually(second).Should(BeClosed())
+				releaseSecond()
+			},
+		)
+		It(
+			"Should keep a held session alive past the idle timeout",
+			func(ctx SpecContext) {
+				session, token := login(ctx)
+				_, release := MustSucceed2(svc.Hold(ctx, session.Key))
+				clock.Advance(idle / 2)
+				Expect(svc.Sweep(ctx)).To(Succeed())
+				var refreshed auth.Session
+				Expect(svc.NewRetrieve().Where(auth.MatchKeys(session.Key)).
+					Entry(&refreshed).Exec(ctx, nil)).To(Succeed())
+				Expect(refreshed.LastActive).To(Equal(telem.NewTimeStamp(clock.Now())))
+				clock.Advance(idle + time.Second)
+				Expect(svc.Sweep(ctx)).To(Succeed())
+				Expect(
+					MustSucceed(svc.Authenticate(ctx, token)).Key,
+				).To(Equal(session.Key))
+				release()
+				clock.Advance(idle + time.Second)
+				Expect(svc.Sweep(ctx)).To(Succeed())
+				Expect(svc.Authenticate(ctx, token)).Error().
+					To(MatchError(auth.ErrInvalidToken))
+			},
+		)
+	})
 	Describe("Sweep", func() {
 		It("Should store the activity this node saw instead of ending the session",
 			func(ctx SpecContext) {

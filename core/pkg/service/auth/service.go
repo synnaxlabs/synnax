@@ -13,6 +13,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"io"
+	"iter"
 	"sync"
 	"time"
 	"uuid"
@@ -21,9 +22,11 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
@@ -89,14 +92,24 @@ func (c ServiceConfig) Validate() error {
 
 // Service logs subjects in and checks the session tokens their requests carry.
 type Service struct {
-	cfg      ServiceConfig
-	table    *gorp.Table[SessionKey, Session]
-	shutdown io.Closer
-	// mu guards seen.
-	mu sync.Mutex
-	// seen holds the last request time of each session this node has checked. The
-	// stored mark lags it by up to a quarter of the idle timeout.
-	seen map[SessionKey]telem.TimeStamp
+	cfg        ServiceConfig
+	table      *gorp.Table[SessionKey, Session]
+	shutdown   io.Closer
+	disconnect observe.Disconnect
+	mu         struct {
+		sync.Mutex
+		holds map[SessionKey]*hold
+		// seen holds the last request time of each session this node has checked. The
+		// stored mark lags it by up to a quarter of the idle timeout.
+		seen map[SessionKey]telem.TimeStamp
+	}
+}
+
+// hold is a session that streams on this node keep open.
+type hold struct {
+	count int
+	ended chan struct{}
+	over  bool
 }
 
 // OpenService opens a [Service] with the given configurations. It sweeps idle sessions
@@ -106,13 +119,16 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, seen: make(map[SessionKey]telem.TimeStamp)}
+	s := &Service{cfg: cfg}
+	s.mu.holds = make(map[SessionKey]*hold)
+	s.mu.seen = make(map[SessionKey]telem.TimeStamp)
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[SessionKey, Session]{
 		DB:              cfg.DB,
 		Instrumentation: cfg.Instrumentation,
 	}); err != nil {
 		return nil, err
 	}
+	s.disconnect = s.table.Observe().OnChange(s.endDeletedHolds)
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
 	s.shutdown = signal.NewHardShutdown(sCtx, cancel)
 	signal.GoTick(
@@ -133,7 +149,69 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 
 // Close stops the sweep and releases the service's resources.
 func (s *Service) Close() error {
+	s.disconnect()
 	return errors.Combine(s.shutdown.Close(), s.table.Close())
+}
+
+// Hold marks the session as kept open by a stream on this node. A held session counts
+// as active, so it never idles out, and every Sweep writes its activity for other
+// nodes. The returned channel closes when the session ends, by revocation or by any
+// node's sweep. The caller must call release when the stream closes. Hold returns
+// [ErrInvalidToken] when no session has the key.
+func (s *Service) Hold(
+	ctx context.Context,
+	key SessionKey,
+) (ended <-chan struct{}, release func(), err error) {
+	exists, err := s.NewRetrieve().Where(MatchKeys(key)).Exists(ctx, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !exists {
+		return nil, nil, ErrInvalidToken
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	h, ok := s.mu.holds[key]
+	if !ok {
+		h = &hold{ended: make(chan struct{})}
+		s.mu.holds[key] = h
+	}
+	h.count++
+	var once sync.Once
+	return h.ended, func() {
+		once.Do(func() {
+			s.mu.Lock()
+			defer s.mu.Unlock()
+			if h.count--; h.count == 0 {
+				delete(s.mu.holds, key)
+			}
+		})
+	}, nil
+}
+
+// endDeletedHolds closes the ended channel of every held session a change deleted.
+func (s *Service) endDeletedHolds(
+	_ context.Context,
+	changes iter.Seq[change.Change[SessionKey, Session]],
+) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for ch := range changes {
+		if ch.Variant != change.VariantDelete {
+			continue
+		}
+		if h, ok := s.mu.holds[ch.Key]; ok && !h.over {
+			h.over = true
+			close(h.ended)
+		}
+	}
+}
+
+// held returns the keys of every session a stream on this node holds.
+func (s *Service) held() []SessionKey {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return lo.Keys(s.mu.holds)
 }
 
 // NewRetrieve opens a query for sessions.
@@ -234,13 +312,13 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Session, erro
 func (s *Service) lastSeen(key SessionKey) telem.TimeStamp {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.seen[key]
+	return s.mu.seen[key]
 }
 
 func (s *Service) see(key SessionKey, at telem.TimeStamp) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.seen[key] = at
+	s.mu.seen[key] = at
 }
 
 // forget drops the activity of the given sessions. When keep is set, it also drops
@@ -249,14 +327,14 @@ func (s *Service) forget(keep set.Set[SessionKey], keys ...SessionKey) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, k := range keys {
-		delete(s.seen, k)
+		delete(s.mu.seen, k)
 	}
 	if keep == nil {
 		return
 	}
-	for k := range s.seen {
+	for k := range s.mu.seen {
 		if !keep.Contains(k) {
-			delete(s.seen, k)
+			delete(s.mu.seen, k)
 		}
 	}
 }
@@ -269,11 +347,19 @@ func (s *Service) Logout(ctx context.Context, keys ...SessionKey) error {
 		Exec(ctx, s.cfg.DB)
 }
 
-// Sweep ends every session whose stored activity is older than the idle timeout plus
-// a quarter. A node writes a session's activity up to a quarter period late, so a
-// younger stored mark may hide a session that is live on another node.
+// Sweep writes the activity of every held session, then ends every other session whose
+// stored activity is older than the idle timeout plus a quarter. A node writes a
+// session's activity up to a quarter period late, so a younger stored mark may hide a
+// session that is live on another node.
 func (s *Service) Sweep(ctx context.Context) error {
-	cutoff := s.now() - telem.TimeStamp(s.cfg.IdleTimeout+s.cfg.IdleTimeout/4)
+	now := s.now()
+	held := s.held()
+	for _, key := range held {
+		if err := s.touch(ctx, key, now); err != nil {
+			return err
+		}
+	}
+	cutoff := now - telem.TimeStamp(s.cfg.IdleTimeout+s.cfg.IdleTimeout/4)
 	var all []Session
 	if err := s.NewRetrieve().Entries(&all).Exec(ctx, nil); err != nil {
 		return err
@@ -282,7 +368,7 @@ func (s *Service) Sweep(ctx context.Context) error {
 	var idle []SessionKey
 	for _, e := range all {
 		keep.Add(e.Key)
-		if e.LastActive >= cutoff {
+		if e.LastActive >= cutoff || lo.Contains(held, e.Key) {
 			continue
 		}
 		if seen := s.lastSeen(e.Key); seen >= cutoff {
