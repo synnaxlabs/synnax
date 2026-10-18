@@ -10,11 +10,10 @@
 import "schemas/synnax/label"
 import "schemas/synnax/status"
 
-@cpp output "client/cpp/view"
-@go output  "core/pkg/service/view"
+@go output "core/pkg/service/view"
 @pb
-@py output  "client/py/synnax/view"
-@ts output  "client/ts/src/view"
+@py output "client/py/synnax/view"
+@ts output "client/ts/src/view"
 
 Key = uuid {
     @doc value "is a unique identifier for a saved view configuration."

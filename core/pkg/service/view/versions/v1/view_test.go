@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	statusv1 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v1"
+	"github.com/synnaxlabs/x/encoding/orc"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -132,5 +133,48 @@ var _ = Describe("View", func() {
 			Expect(json.Unmarshal([]byte(`{"type":"lineplot","name":"x"}`), &decoded)).
 				To(MatchError(ContainSubstring(`unknown type "lineplot"`)))
 		})
+	})
+
+	Describe("Orc", func() {
+		It("Should not encode a view with no variant", func() {
+			Expect(v1.View{}.EncodeOrc(orc.NewWriter(0))).
+				To(MatchError(ContainSubstring("nil or unknown variant")))
+		})
+
+		It("Should reject an unknown variant tag", func() {
+			w := orc.NewWriter(0)
+			w.String("lineplot")
+			var v v1.View
+			r := orc.NewReader(nil)
+			r.ResetBytes(w.Bytes())
+			Expect(
+				v.DecodeOrc(r),
+			).To(MatchError(ContainSubstring(`unknown variant "lineplot"`)))
+		})
+
+		DescribeTable("should fail to decode every truncation of a view",
+			func(view v1.View) {
+				w := orc.NewWriter(0)
+				Expect(view.EncodeOrc(w)).To(Succeed())
+				b := w.Bytes()
+				for n := range len(b) {
+					var decoded v1.View
+					r := orc.NewReader(nil)
+					r.ResetBytes(b[:n])
+					Expect(decoded.DecodeOrc(r)).ToNot(Succeed(), "prefix length %d", n)
+				}
+			},
+			Entry("range", v1.View{Variant: v1.RangeView{
+				Base:  v1.Base{Key: uuid.New(), Name: "Ranges"},
+				Query: v1.RangeQuery{HasLabels: []uuid.UUID{uuid.New()}},
+			}}),
+			Entry("status", v1.View{Variant: v1.StatusView{
+				Base: v1.Base{Key: uuid.New(), Name: "Statuses"},
+				Query: v1.StatusQuery{
+					HasLabels: []uuid.UUID{uuid.New()},
+					Variants:  []statusv1.Variant{statusv1.VariantError},
+				},
+			}}),
+		)
 	})
 })
