@@ -96,7 +96,6 @@ class Synnax(framer.Client):
         keep_alive: TimeSpan = TimeSpan.SECOND * 30,
         max_retries: int = 3,
         instrumentation: Instrumentation = NOOP,
-        cache_channels: bool = True,
         clock_skew_threshold: TimeSpan = TimeSpan.SECOND,
     ):
         """Creates a new client. Connection parameters can be provided as arguments, or,
@@ -143,22 +142,9 @@ class Synnax(framer.Client):
         # that, and when an unclosed client is garbage collected.
         self._finalizer = weakref.finalize(self, self.connectivity.stop)
 
-        cluster_retriever = channel.ClusterRetriever(
-            self._transport.unary, instrumentation
-        )
-        cache_retriever: channel.CacheRetriever | None = None
-        ch_retriever: channel.Retriever
-        if cache_channels:
-            cache_retriever = channel.CacheRetriever(cluster_retriever, instrumentation)
-            ch_retriever = cache_retriever
-        else:
-            ch_retriever = cluster_retriever
+        ch_retriever = channel.Retriever(self._transport.unary, instrumentation)
         deleter = framer.Deleter(self._transport.unary, instrumentation)
-        ch_creator = channel.Writer(
-            self._transport.unary,
-            instrumentation,
-            cache_retriever,
-        )
+        ch_creator = channel.Writer(self._transport.unary, instrumentation)
         super().__init__(
             stream_client=self._transport.stream,
             async_client=self._transport.stream_async,

@@ -20,6 +20,8 @@ import freighter
 import synnax as sy
 from synnax.control import ScheduledCommand
 from synnax.control.controller import Controller, RemainsTrueFor
+from tests.channel import RetrieveCounter
+from x.strings import random_name
 
 # Seconds to wait for a cross-thread handshake. Generous, so a slow Core cannot fail the
 # test, but bounded, so a broken run fails instead of hanging CI.
@@ -468,12 +470,21 @@ class TestController:
             virtual=True,
         )
         host, port, username, password = login_info
-        other = sy.Synnax(
+        subject = sy.Synnax(
             host=host, port=port, username=username, password=password, secure=False
         )
-        other.channels.delete(ch.key)
+
+        async def delete_before_open(
+            ctx: freighter.Context, next: freighter.AsyncNext
+        ) -> freighter.Context:
+            # The transports put the URL in protocol, so check both fields.
+            if "/frame/stream" in ctx.target + ctx.protocol:
+                client.channels.delete(ch.key)
+            return await next(ctx)
+
+        subject._transport.use_async(delete_before_open)
         with pytest.raises(freighter.StreamClosed):
-            client.control.acquire(name="Open Fails", read=[ch.key], write=None)
+            subject.control.acquire(name="Open Fails", read=[ch.key], write=None)
 
     @pytest.mark.parametrize(
         "wait",
@@ -613,6 +624,68 @@ class TestController:
 
         assert assertions["seq_one_first_ack"] is False
         assert assertions["seq_one_second_ack"] is True
+
+
+@pytest.mark.control
+class TestControllerChannelResolution:
+    """Tests that a controller resolves its channels once, when it acquires them."""
+
+    def test_access_by_name_sends_no_retrieves(
+        self, counted_client: tuple[sy.Synnax, RetrieveCounter]
+    ) -> None:
+        """Should read, command, and set authority by name without retrieving"""
+        client, counter = counted_client
+        read = client.channels.create(
+            name=f"test_{random_name()}", virtual=True, data_type=sy.DataType.FLOAT64
+        )
+        cmd = client.channels.create(
+            name=f"test_{random_name()}", virtual=True, data_type=sy.DataType.FLOAT64
+        )
+        with client.control.acquire(
+            name="resolution", read=[read.name], write=[cmd.name]
+        ) as ctrl:
+            counter.count = 0
+            for i in range(100):
+                ctrl.get(read.name)
+                ctrl.set(cmd.name, i)
+                ctrl.set({cmd.name: i})
+                ctrl.set_authority(cmd.name, 200)
+            assert counter.count == 0
+
+    def test_access_by_numeric_string_key(
+        self, counted_client: tuple[sy.Synnax, RetrieveCounter]
+    ) -> None:
+        """Should treat a numeric string as a channel key, as JSON object keys are"""
+        client, counter = counted_client
+        cmd = client.channels.create(
+            name=f"test_{random_name()}", virtual=True, data_type=sy.DataType.FLOAT64
+        )
+        key = str(cmd.key)
+        with client.control.acquire(
+            name="resolution", read=[cmd.key], write=[cmd.key]
+        ) as ctrl:
+            counter.count = 0
+            ctrl.set_authority({key: 200})
+            ctrl.set({key: 7.0})
+            assert ctrl.wait_until(
+                lambda c: c.get(key) == 7.0, timeout=HANDSHAKE_TIMEOUT
+            )
+            assert counter.count == 0
+
+    def test_unacquired_channel_by_name(self, client: sy.Synnax) -> None:
+        """Should retrieve a channel that was not acquired from the Core"""
+        read = client.channels.create(
+            name=f"test_{random_name()}", virtual=True, data_type=sy.DataType.FLOAT64
+        )
+        other = client.channels.create(
+            name=f"test_{random_name()}", virtual=True, data_type=sy.DataType.FLOAT64
+        )
+        with client.control.acquire(
+            name="resolution", read=[read.name], write=None
+        ) as ctrl:
+            assert ctrl.get(other.name, 42) == 42
+            with pytest.raises(sy.NotFoundError):
+                ctrl.get(f"test_{random_name()}")
 
 
 @pytest.mark.control
