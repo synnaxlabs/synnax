@@ -85,7 +85,7 @@ class NotificationsClient:
                         notifications.append(notification_data)
 
                     except Exception as e:
-                        raise RuntimeError(f"Error parsing notification: {e}")
+                        raise RuntimeError("Error parsing notification") from e
 
                 return notifications
 

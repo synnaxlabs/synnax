@@ -110,7 +110,7 @@ with task.run():
     with client.open_streamer(
         ["voltage_chan", "current_chan", "temp_chan"]
     ) as streamer:
-        for i in range(total_reads):
+        for _ in range(total_reads):
             frame.append(streamer.read())
 
 frame.to_df().to_csv("analog_read_result.csv")

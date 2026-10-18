@@ -493,7 +493,7 @@ class Controller:
             2. No data has been received for the channel yet. If you'd like to block
             until a value exists for the channel in state, use the wait_until_defined
             method.
-            """)
+            """) from None
 
     def __getattr__(self, item: str) -> np.number | int | float:
         return self[item]

@@ -68,7 +68,7 @@ class _NITaskMixin(TaskCase[TaskT]):
     """
 
     device_locations: list[str] = []
-    devices: dict[str, sy.Device] = {}
+    devices: dict[str, sy.Device]
 
     @property
     def _device_key(self) -> str:

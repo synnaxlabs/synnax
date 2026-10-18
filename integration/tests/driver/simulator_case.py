@@ -31,7 +31,7 @@ from examples.simulators.device_sim import DeviceSim
 
 import synnax as sy
 from framework.hardware_case import HardwareCase
-from framework.models import SynnaxConnection
+from framework.models import DEFAULT_CONNECTION, SynnaxConnection
 
 
 def _listener_pids(port: int) -> list[int]:
@@ -72,7 +72,7 @@ class SimulatorCase(HardwareCase):
 
     def __init__(
         self,
-        synnax_connection: SynnaxConnection = SynnaxConnection(),
+        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
         *,
         name: str,
         **params: object,
