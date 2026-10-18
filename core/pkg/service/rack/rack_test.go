@@ -810,7 +810,7 @@ var _ = Describe("Rack", Ordered, func() {
 					"invalid embedded",
 					func(r *rack.Rack) { r.Name = "" },
 				)
-				Expect(err).To(HaveOccurred())
+				Expect(err).To(MatchError(ContainSubstring("name: required")))
 				Expect(r).To(Equal(rack.Rack{}))
 			},
 		)
