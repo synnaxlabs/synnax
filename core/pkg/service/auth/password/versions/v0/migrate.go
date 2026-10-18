@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
 
@@ -74,7 +75,10 @@ func move(
 		}
 		usernames = append(usernames, old.Username)
 		if cfg.SubjectByUsername == nil {
-			return errors.New("stored credentials need a subject lookup to migrate")
+			return errors.Wrap(
+				validate.ErrValidation,
+				"stored credentials need a subject lookup to migrate",
+			)
 		}
 		subject, err := cfg.SubjectByUsername(ctx, tx, old.Username)
 		if errors.Is(err, query.ErrNotFound) {

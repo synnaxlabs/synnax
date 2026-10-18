@@ -191,7 +191,10 @@ var _ = Describe("OpenService", func() {
 		})
 		It("Should refuse to open without a lookup", func(ctx SpecContext) {
 			Expect(password.OpenService(ctx, password.ServiceConfig{DB: db})).Error().
-				To(MatchError(ContainSubstring("subject lookup")))
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("subject lookup")),
+				))
 		})
 		It("Should move credentials once", func(ctx SpecContext) {
 			svc := MustOpen(password.OpenService(ctx, password.ServiceConfig{

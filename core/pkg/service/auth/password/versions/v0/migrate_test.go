@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Password", func() {
@@ -96,7 +97,10 @@ var _ = Describe("NewMove", func() {
 		"Should fail when credentials exist and no lookup is set",
 		func(ctx SpecContext) {
 			Expect(run(ctx, v0.MoveConfig{})).
-				To(MatchError(ContainSubstring("subject lookup")))
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("subject lookup")),
+				))
 		},
 	)
 	It("Should succeed with no lookup when nothing is stored", func(ctx SpecContext) {
