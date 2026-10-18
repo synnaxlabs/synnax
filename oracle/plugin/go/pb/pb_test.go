@@ -517,8 +517,10 @@ var _ = Describe("Go PB Plugin", func() {
 				},
 			)
 
-			It("Should translate an enum array element by element", func(ctx SpecContext) {
-				source := `
+			It(
+				"Should translate an enum array element by element",
+				func(ctx SpecContext) {
+					source := `
 					@go output "core/test"
 					@pb
 
@@ -531,14 +533,15 @@ var _ = Describe("Go PB Plugin", func() {
 						variants Variant[]
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
-				ExpectContent(resp, "translator.gen.go").
-					ToContain(
-						"lo.MapErr(r.Variants, func(v test.Variant, _ int) (Variant, error) { return VariantToPB(v) })",
-						"lo.MapErr(pb.Variants, func(v Variant, _ int) (test.Variant, error) { return VariantFromPB(v) })",
-						"func VariantToPB(",
-					)
-			})
+					resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
+					ExpectContent(resp, "translator.gen.go").
+						ToContain(
+							"lo.MapErr(r.Variants, func(v test.Variant, _ int) (Variant, error) { return VariantToPB(v) })",
+							"lo.MapErr(pb.Variants, func(v Variant, _ int) (test.Variant, error) { return VariantFromPB(v) })",
+							"func VariantToPB(",
+						)
+				},
+			)
 
 			It("Should handle string array passthrough", func(ctx SpecContext) {
 				source := `

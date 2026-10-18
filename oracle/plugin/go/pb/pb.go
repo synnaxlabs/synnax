@@ -1832,7 +1832,12 @@ func (p *Plugin) generateArrayConversion(
 		}
 	}
 
-	if uuidGoName, isUUID := p.uuidElemGoName(elemType, elemResolved, ok, data); isUUID {
+	if uuidGoName, isUUID := p.uuidElemGoName(
+		elemType,
+		elemResolved,
+		ok,
+		data,
+	); isUUID {
 		data.AddExternal("uuid")
 		data.AddExternal("github.com/samber/lo")
 		// Forward conversion uses lo.Map (no error possible) Backward conversion
