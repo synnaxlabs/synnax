@@ -23,7 +23,7 @@ import (
 
 // NewMigration returns the migration that lifts stored views to v1. It types the query
 // of every range and status view. It deletes every view of another type, and every view
-// whose query does not decode into its typed query, along with the view's ontology
+// whose query does not decode into a valid typed query, along with the view's ontology
 // resource and relationships.
 func NewMigration(otg *ontology.Ontology) migrate.Migration {
 	return gorp.NewMigration(
@@ -69,7 +69,7 @@ func NewMigration(otg *ontology.Ontology) migrate.Migration {
 }
 
 // lift returns an error if v1 has no variant for the view's type or the view's query
-// does not decode into the variant's query.
+// does not decode into a valid query for the variant.
 func lift(old v0.View) (View, error) {
 	base := Base{Key: old.Key, Name: old.Name}
 	switch ViewType(old.Type) {
@@ -83,6 +83,11 @@ func lift(old v0.View) (View, error) {
 		var q StatusQuery
 		if err := old.Query.Unmarshal(&q); err != nil {
 			return View{}, err
+		}
+		for _, v := range q.Variants {
+			if !v.IsValid() {
+				return View{}, errors.Newf("invalid status variant %q", v)
+			}
 		}
 		return View{Variant: StatusView{Base: base, Query: q}}, nil
 	}

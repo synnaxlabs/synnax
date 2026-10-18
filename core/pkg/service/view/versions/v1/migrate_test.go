@@ -125,11 +125,19 @@ var _ = Describe("Migration", func() {
 				Type:  "range",
 				Query: msgpack.EncodedJSON{"has_labels": []any{"team-a"}},
 			}
-			create(ctx, kept, dropped, undecodable)
+			badVariant := v0.View{
+				Key:   uuid.New(),
+				Name:  "Bogus",
+				Type:  "status",
+				Query: msgpack.EncodedJSON{"variants": []any{"bogus"}},
+			}
+			create(ctx, kept, dropped, undecodable, badVariant)
 			run(ctx)
 			Expect(retrieve(ctx, dropped.Key)).Error().
 				To(MatchError(query.ErrNotFound))
 			Expect(retrieve(ctx, undecodable.Key)).Error().
+				To(MatchError(query.ErrNotFound))
+			Expect(retrieve(ctx, badVariant.Key)).Error().
 				To(MatchError(query.ErrNotFound))
 			Expect(retrieve(ctx, kept.Key)).Error().ToNot(HaveOccurred())
 			Expect(gorp.NewRetrieve[string, ontology.Resource]().
