@@ -269,17 +269,23 @@ var _ = Describe("Service", func() {
 					To(MatchError(auth.ErrInvalidCredentials))
 			},
 		)
-		It(
+		DescribeTable(
 			"Should fail on a malformed hash without blaming the password",
-			func(ctx SpecContext) {
+			func(ctx SpecContext, hash string) {
 				bob := subject()
 				name := uuid.New().String()
-				createHash(ctx, db, bob, name, []byte("$argon2id$garbage"))
+				createHash(ctx, db, bob, name, []byte(hash))
 				Expect(svc.Authenticate(ctx, proof(name, "p"))).Error().To(SatisfyAll(
 					MatchError(ContainSubstring("malformed")),
 					Not(MatchError(auth.ErrInvalidCredentials)),
 				))
 			},
+			Entry("argon2id with too few parts", "$argon2id$garbage"),
+			Entry("argon2id with a bad salt", "$argon2id$v=19$m=1,t=1,p=1$!!$AAAA"),
+			Entry("argon2id with a bad key", "$argon2id$v=19$m=1,t=1,p=1$AAAA$!!"),
+			Entry("argon2id with bad parameters", "$argon2id$v=19$m=x$AAAA$AAAA"),
+			Entry("pbkdf2 with bad parameters", "$pbkdf2-sha256$i=x$AAAA$AAAA"),
+			Entry("bcrypt with a bad body", "$2a$garbage"),
 		)
 	})
 	Describe("DeleteFor", func() {

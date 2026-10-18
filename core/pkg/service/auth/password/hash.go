@@ -28,16 +28,21 @@ import (
 // errMalformedHash is returned when a stored hash does not parse as its tag claims.
 var errMalformedHash = errors.New("malformed password hash")
 
-// hasher makes and checks the hashes of one algorithm. Hashes carry a tag naming the
-// algorithm, so a hasher can tell which stored hashes are its own.
-type hasher interface {
-	// hash returns a new tagged hash of plaintext.
-	hash(plaintext string) ([]byte, error)
+// verifier checks the hashes of one algorithm. Hashes carry a tag naming the algorithm,
+// so a verifier can tell which stored hashes are its own.
+type verifier interface {
 	// verify returns nil when plaintext matches hash, [auth.ErrInvalidCredentials]
 	// when it does not, and another error when hash is malformed.
 	verify(hash []byte, plaintext string) error
 	// made reports whether this algorithm produced hash.
 	made(hash []byte) bool
+}
+
+// hasher is a verifier that also makes new hashes.
+type hasher interface {
+	verifier
+	// hash returns a new tagged hash of plaintext.
+	hash(plaintext string) ([]byte, error)
 }
 
 const (
@@ -191,14 +196,11 @@ func (pbkdf2SHA256) made(hash []byte) bool {
 	return bytes.HasPrefix(hash, []byte(pbkdf2Tag))
 }
 
-// bcryptHasher checks the bcrypt hashes stored before this package existed.
-type bcryptHasher struct{}
+// bcryptVerifier checks the bcrypt hashes stored before this package existed. It never
+// makes a new one.
+type bcryptVerifier struct{}
 
-func (bcryptHasher) hash(plaintext string) ([]byte, error) {
-	return bcrypt.GenerateFromPassword([]byte(plaintext), bcrypt.DefaultCost)
-}
-
-func (bcryptHasher) verify(hash []byte, plaintext string) error {
+func (bcryptVerifier) verify(hash []byte, plaintext string) error {
 	err := bcrypt.CompareHashAndPassword(hash, []byte(plaintext))
 	if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
 		return auth.ErrInvalidCredentials
@@ -209,15 +211,15 @@ func (bcryptHasher) verify(hash []byte, plaintext string) error {
 	return nil
 }
 
-func (bcryptHasher) made(hash []byte) bool {
+func (bcryptVerifier) made(hash []byte) bool {
 	return bytes.HasPrefix(hash, []byte("$2"))
 }
 
-// hashers returns the hasher for new passwords and every hasher whose hashes may be
+// hashers returns the hasher for new passwords and every verifier whose hashes may be
 // checked. With fips on, only PBKDF2 is allowed in either role.
-func hashers(fips bool) (current hasher, accepted []hasher) {
+func hashers(fips bool) (current hasher, accepted []verifier) {
 	if fips {
-		return pbkdf2SHA256{}, []hasher{pbkdf2SHA256{}}
+		return pbkdf2SHA256{}, []verifier{pbkdf2SHA256{}}
 	}
-	return argon2id{}, []hasher{argon2id{}, bcryptHasher{}, pbkdf2SHA256{}}
+	return argon2id{}, []verifier{argon2id{}, bcryptVerifier{}, pbkdf2SHA256{}}
 }

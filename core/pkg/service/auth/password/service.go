@@ -83,8 +83,8 @@ type Service struct {
 	indexes indexes
 	// current makes the hash of every new password.
 	current hasher
-	// accepted holds every hasher whose stored hashes the service checks.
-	accepted []hasher
+	// accepted holds every verifier whose stored hashes the service checks.
+	accepted []verifier
 }
 
 var _ auth.Authenticator = (*Service)(nil)
@@ -160,7 +160,7 @@ func (s *Service) Authenticate(
 		}
 		return auth.Identity{}, err
 	}
-	h, ok := s.hasherFor(p.Hash)
+	h, ok := s.verifierFor(p.Hash)
 	if !ok {
 		return auth.Identity{}, errors.Wrap(
 			auth.ErrInvalidCredentials,
@@ -187,7 +187,7 @@ func (s *Service) DeleteFor(ctx context.Context, subjects ...ontology.ID) error 
 	return s.NewWriter(nil).DeleteFor(ctx, subjects...)
 }
 
-func (s *Service) hasherFor(hash []byte) (hasher, bool) {
+func (s *Service) verifierFor(hash []byte) (verifier, bool) {
 	for _, h := range s.accepted {
 		if h.made(hash) {
 			return h, true
