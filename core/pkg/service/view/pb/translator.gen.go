@@ -76,7 +76,7 @@ func BasesFromPB(pbs []*Base) ([]view.Base, error) {
 // RangeQueryToPB converts RangeQuery to RangeQuery.
 func RangeQueryToPB(r view.RangeQuery) (*RangeQuery, error) {
 	pb := &RangeQuery{
-		HasLabels: lo.Map(r.HasLabels, func(u label.Key, _ int) string { return u.String() }),
+		HasLabels: lo.Map(r.HasLabels, func(u label.Key, _ int) string { return uuid.UUID(u).String() }),
 	}
 	return pb, nil
 }
@@ -138,7 +138,7 @@ func StatusQueryToPB(r view.StatusQuery) (*StatusQuery, error) {
 		return nil, err
 	}
 	pb := &StatusQuery{
-		HasLabels: lo.Map(r.HasLabels, func(u label.Key, _ int) string { return u.String() }),
+		HasLabels: lo.Map(r.HasLabels, func(u label.Key, _ int) string { return uuid.UUID(u).String() }),
 		Variants:  variantsVal,
 	}
 	return pb, nil
