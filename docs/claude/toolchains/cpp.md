@@ -33,8 +33,9 @@ variables, `UPPER_CASE`/`kPascalCase` constants, lowercase namespaces.
 brace only. Claude sessions add these constantly. Delete on sight when editing a file
 that has them.
 
-Docs: Doxygen `///` with `@brief`/`@param`/`@returns` on functions (`@` tags, never
-`\brief`); `/// @brief` above each struct/class member. The universal body-comment and
+Docs: Doxygen `///` with `@brief`/`@param`/`@returns` on public functions (`@` tags,
+never `\brief`); `/// @brief` above each public struct/class member. A private member
+gets one only when its name cannot carry the meaning. The universal body-comment and
 doc-comment rules in the root CLAUDE.md apply.
 
 ```cpp
