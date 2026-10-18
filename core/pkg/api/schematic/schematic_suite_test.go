@@ -72,11 +72,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:    groupSvc,
 		Search:   searchIdx,
 	}))
-	MustSucceed(user.ProvisionRoot(ctx, user.RootConfig{
-		Users:       userSvc,
-		Passwords:   passwordSvc,
-		Credentials: auth.Credentials{Username: "suite-root", Password: "p"},
-	}))
+	MustSucceed(
+		user.ProvisionRoot(
+			ctx,
+			userSvc,
+			passwordSvc,
+			auth.Credentials{Username: "suite-root", Password: "p"},
+		),
+	)
 	panelSvc := MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
 		DB:       db,
 		Ontology: otg,

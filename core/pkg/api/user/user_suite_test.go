@@ -63,11 +63,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:    groupSvc,
 		Search:   searchIdx,
 	}))
-	MustSucceed(user.ProvisionRoot(ctx, user.RootConfig{
-		Users:       userSvc,
-		Passwords:   passwordSvc,
-		Credentials: auth.Credentials{Username: "api-user-suite-root", Password: "p"},
-	}))
+	MustSucceed(
+		user.ProvisionRoot(
+			ctx,
+			userSvc,
+			passwordSvc,
+			auth.Credentials{Username: "api-user-suite-root", Password: "p"},
+		),
+	)
 	writer = userSvc.NewWriter(nil)
 	rbacSvc := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 		DB:       db,

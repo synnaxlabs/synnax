@@ -60,11 +60,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: db, Ontology: otg, Group: groupSvc, Search: searchIdx,
 	}))
 	passwordSvc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
-	root = MustSucceed(user.ProvisionRoot(ctx, user.RootConfig{
-		Users:       userSvc,
-		Passwords:   passwordSvc,
-		Credentials: creds,
-	}))
+	root = MustSucceed(user.ProvisionRoot(ctx, userSvc, passwordSvc, creds))
 	sec := MustSucceed(security.NewProvider(security.ProviderConfig{
 		Insecure: new(true),
 		KeySize:  secmock.SmallKeySize,

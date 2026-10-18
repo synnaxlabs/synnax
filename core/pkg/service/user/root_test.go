@@ -24,11 +24,12 @@ import (
 // provision runs root provisioning against the suite-level services.
 func provision(ctx context.Context, username, pwd string) user.User {
 	GinkgoHelper()
-	return MustSucceed(user.ProvisionRoot(ctx, user.RootConfig{
-		Users:       svc,
-		Passwords:   passwordSvc,
-		Credentials: auth.Credentials{Username: username, Password: pwd},
-	}))
+	return MustSucceed(user.ProvisionRoot(
+		ctx,
+		svc,
+		passwordSvc,
+		auth.Credentials{Username: username, Password: pwd},
+	))
 }
 
 // login proves username and pwd against the suite-level password service.
@@ -118,64 +119,11 @@ func purgeUsers(ctx context.Context) {
 	})).To(Succeed())
 }
 
-var _ = Describe("RootConfig", func() {
-	var cfg user.RootConfig
-	BeforeEach(func() {
-		cfg = user.RootConfig{
-			Users:       svc,
-			Passwords:   passwordSvc,
-			Credentials: auth.Credentials{Username: "u", Password: "p"},
-		}
-	})
-	Describe("Override", func() {
-		It("Should take each field from the override when the base is zero", func() {
-			result := user.RootConfig{}.Override(cfg)
-			Expect(result).To(Equal(cfg))
-		})
-		It("Should keep each field from the base when the override is zero", func() {
-			result := cfg.Override(user.RootConfig{})
-			Expect(result).To(Equal(cfg))
-		})
-	})
-	Describe("Validate", func() {
-		It("Should succeed when every field is set", func() {
-			Expect(cfg.Validate()).To(Succeed())
-		})
-		DescribeTable(
-			"Should return an error when a field is missing",
-			func(mutate func(*user.RootConfig), errorMsg string) {
-				mutate(&cfg)
-				Expect(cfg.Validate()).To(MatchError(ContainSubstring(errorMsg)))
-			},
-			Entry(
-				"users",
-				func(c *user.RootConfig) { c.Users = nil },
-				"users: must be non-nil",
-			),
-			Entry(
-				"passwords",
-				func(c *user.RootConfig) { c.Passwords = nil },
-				"passwords: must be non-nil",
-			),
-			Entry(
-				"username",
-				func(c *user.RootConfig) { c.Credentials.Username = "" },
-				"username: required",
-			),
-			Entry(
-				"password",
-				func(c *user.RootConfig) { c.Credentials.Password = "" },
-				"password: required",
-			),
-		)
-	})
-})
-
 var _ = Describe("ProvisionRoot", Serial, func() {
 	BeforeEach(func(ctx SpecContext) { purgeUsers(ctx) })
-	It("Should return an error when the config is invalid", func(ctx SpecContext) {
-		Expect(user.ProvisionRoot(ctx, user.RootConfig{})).Error().
-			To(MatchError(ContainSubstring("users: must be non-nil")))
+	It("Should reject incomplete credentials", func(ctx SpecContext) {
+		Expect(user.ProvisionRoot(ctx, svc, passwordSvc, auth.Credentials{})).Error().
+			To(MatchError(ContainSubstring("username: required")))
 	})
 	It("Should create a root user on a fresh Core", func(ctx SpecContext) {
 		root := provision(ctx, "alpha", "p1")

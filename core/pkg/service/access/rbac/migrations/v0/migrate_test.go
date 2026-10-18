@@ -84,11 +84,14 @@ var _ = Describe("Legacy Permission Migration", func() {
 				Group:    groupSvc,
 				Search:   searchIdx,
 			}))
-			MustSucceed(user.ProvisionRoot(ctx, user.RootConfig{
-				Users:       userSvc,
-				Passwords:   passwordSvc,
-				Credentials: auth.Credentials{Username: "root", Password: "p"},
-			}))
+			MustSucceed(
+				user.ProvisionRoot(
+					ctx,
+					userSvc,
+					passwordSvc,
+					auth.Credentials{Username: "root", Password: "p"},
+				),
+			)
 
 			// Create test users
 			tx := DeferClose(db.OpenTx())
@@ -248,11 +251,14 @@ var _ = Describe("Legacy Permission Migration", func() {
 			Group:    groupSvc,
 			Search:   searchIdx,
 		}))
-		MustSucceed(user.ProvisionRoot(ctx, user.RootConfig{
-			Users:       userSvc,
-			Passwords:   passwordSvc,
-			Credentials: auth.Credentials{Username: "suite-root", Password: "p"},
-		}))
+		MustSucceed(
+			user.ProvisionRoot(
+				ctx,
+				userSvc,
+				passwordSvc,
+				auth.Credentials{Username: "suite-root", Password: "p"},
+			),
+		)
 
 		policySvc := MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
 			DB:       db,
@@ -307,11 +313,14 @@ var _ = Describe("Legacy Permission Migration", func() {
 			Group:    groupSvc,
 			Search:   searchIdx,
 		}))
-		MustSucceed(user.ProvisionRoot(ctx, user.RootConfig{
-			Users:       userSvc,
-			Passwords:   passwordSvc,
-			Credentials: auth.Credentials{Username: "root", Password: "p"},
-		}))
+		MustSucceed(
+			user.ProvisionRoot(
+				ctx,
+				userSvc,
+				passwordSvc,
+				auth.Credentials{Username: "root", Password: "p"},
+			),
+		)
 		policySvc := MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
 			DB:       db,
 			Ontology: otg,

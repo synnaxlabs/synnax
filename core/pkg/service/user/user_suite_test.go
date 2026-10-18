@@ -59,11 +59,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:    groupSvc,
 		Search:   searchIdx,
 	}))
-	MustSucceed(user.ProvisionRoot(ctx, user.RootConfig{
-		Users:       svc,
-		Passwords:   passwordSvc,
-		Credentials: auth.Credentials{Username: "suite-root", Password: "p"},
-	}))
+	MustSucceed(
+		user.ProvisionRoot(
+			ctx,
+			svc,
+			passwordSvc,
+			auth.Credentials{Username: "suite-root", Password: "p"},
+		),
+	)
 	writer = svc.NewWriter(nil)
 	Expect(searchIdx.Initialize(ctx)).To(Succeed())
 })

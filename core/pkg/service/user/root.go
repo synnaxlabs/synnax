@@ -14,83 +14,45 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
 
-// RootConfig configures [ProvisionRoot].
-type RootConfig struct {
-	// Users holds the root user's record.
-	//
-	// [REQUIRED]
-	Users *Service
-	// Passwords stores the root user's password.
-	//
-	// [REQUIRED]
-	Passwords *password.Service
-	// Credentials are the username and password the root user has after the call.
-	//
-	// [REQUIRED]
-	Credentials auth.Credentials
-}
-
-var _ config.Config[RootConfig] = RootConfig{}
-
-// Override implements [config.Config].
-func (c RootConfig) Override(other RootConfig) RootConfig {
-	c.Users = override.Nil(c.Users, other.Users)
-	c.Passwords = override.Nil(c.Passwords, other.Passwords)
-	c.Credentials = override.Zero(c.Credentials, other.Credentials)
-	return c
-}
-
-// Validate implements [config.Config].
-func (c RootConfig) Validate() error {
-	v := validate.New("user.root")
-	v.NotNil("users", c.Users)
-	v.NotNil("passwords", c.Passwords)
-	v.Exec(c.Credentials.Validate)
-	return v.Error()
-}
-
-// ProvisionRoot makes exactly one user the root user and sets its password from
-// cfg.Credentials. The Core calls it at every start, so the start settings own the
-// root password. A root user whose username already matches keeps its record. Else a
-// user holding the username is promoted in place. Else a root user record is created.
-// Every other root user is demoted and keeps its roles. The whole call runs in one
-// transaction and returns the root user.
-func ProvisionRoot(ctx context.Context, cfgs ...RootConfig) (User, error) {
-	cfg, err := config.New(RootConfig{}, cfgs...)
-	if err != nil {
+// ProvisionRoot makes exactly one user the root user and sets its password to creds.
+// The Core calls it at every start, so the start settings own the root password. A root
+// user whose username already matches keeps its record. Else a user holding the
+// username
+// is promoted in place. Else a root user record is created. Every other root user is
+// demoted and keeps its roles. The whole call runs in one transaction and returns the
+// root user. It returns a validation error when creds is incomplete.
+func ProvisionRoot(
+	ctx context.Context,
+	users *Service,
+	passwords *password.Service,
+	creds auth.Credentials,
+) (User, error) {
+	if err := creds.Validate(); err != nil {
 		return User{}, err
 	}
 	var root User
-	if err := cfg.Users.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		roots, err := cfg.Users.loadRootUsers(ctx, tx)
+	if err := users.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		roots, err := users.loadRootUsers(ctx, tx)
 		if err != nil {
 			return err
 		}
-		if root, err = cfg.Users.resolveRoot(
-			ctx,
-			tx,
-			roots,
-			cfg.Credentials.Username,
-		); err != nil {
+		if root, err = users.resolveRoot(ctx, tx, roots, creds.Username); err != nil {
 			return err
 		}
 		for _, r := range roots {
 			if r.Key != root.Key {
-				if err := cfg.Users.demoteRoot(ctx, tx, r); err != nil {
+				if err := users.demoteRoot(ctx, tx, r); err != nil {
 					return err
 				}
 			}
 		}
-		return cfg.Passwords.NewWriter(tx).Set(ctx, root.OntologyID(), cfg.Credentials)
+		return passwords.NewWriter(tx).Set(ctx, root.OntologyID(), creds)
 	}); err != nil {
 		return User{}, err
 	}
