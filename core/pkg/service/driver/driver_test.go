@@ -232,7 +232,6 @@ var _ = Describe("Driver", func() {
 				},
 			}
 			openDriver(ctx, factory)
-			time.Sleep(50 * time.Millisecond)
 
 			t := newTask(embeddedRackKey(ctx))
 			taskKey.Store(t.Key)
@@ -263,7 +262,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				// Never created: the deploy fetch fails with not-found, which
 				// must stay silent so the driver cannot recreate a status the
@@ -322,7 +320,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				t := newTask(embeddedRackKey(ctx))
 				t.Config = map[string]any{"routing_key": "rk-1"}
@@ -388,7 +385,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				t := newTask(embeddedRackKey(ctx))
 				t.Config = map[string]any{"routing_key": "rk-1"}
@@ -432,7 +428,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 				countAfterOpen := configuredCount.Load()
 
 				otherRack := rack.Rack{Name: "Other Rack"}
@@ -483,7 +478,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
@@ -525,7 +519,6 @@ var _ = Describe("Driver", func() {
 				},
 			}
 			openDriver(ctx, factory)
-			time.Sleep(50 * time.Millisecond)
 			countAfterOpen := configuredCount.Load()
 
 			t := newTask(embeddedRackKey(ctx))
@@ -565,7 +558,6 @@ var _ = Describe("Driver", func() {
 				},
 			}
 			openDriver(ctx, factory)
-			time.Sleep(50 * time.Millisecond)
 
 			t := newTask(embeddedRackKey(ctx))
 			taskKey.Store(t.Key)
@@ -624,7 +616,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
@@ -678,7 +669,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
@@ -722,7 +712,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
@@ -767,7 +756,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
@@ -799,7 +787,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
@@ -831,7 +818,6 @@ var _ = Describe("Driver", func() {
 			func(ctx SpecContext) {
 				factory := &mockFactory{name: "test"}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				t := newTask(embeddedRackKey(ctx))
 				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
@@ -886,7 +872,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				// First task: configuration fails.
 				t1 := newTask(embeddedRackKey(ctx))
@@ -941,7 +926,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				t1 := newTask(embeddedRackKey(ctx))
 				knownKeys.Store(t1.Key, true)
@@ -994,7 +978,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				t := newTask(embeddedRackKey(ctx))
 				t.Config = map[string]any{"routing_key": "rk-1"}
@@ -1101,7 +1084,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				t := newTask(embeddedRackKey(ctx))
 				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
@@ -1422,7 +1404,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				// Write valid JSON that won't unmarshal into task.Command
 				// (task field expects a UUID string).
@@ -1523,7 +1504,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
@@ -1562,7 +1542,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				t := newTask(embeddedRackKey(ctx))
 				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
@@ -1595,7 +1574,6 @@ var _ = Describe("Driver", func() {
 				},
 			}
 			openDriver(ctx, factory)
-			time.Sleep(50 * time.Millisecond)
 
 			unknownTaskKey := uuid.New()
 			cmd := task.Command{
@@ -1630,7 +1608,6 @@ var _ = Describe("Driver", func() {
 				},
 			}
 			openDriver(ctx, factory)
-			time.Sleep(50 * time.Millisecond)
 
 			otherRack := rack.Rack{Name: "Other Rack for Commands"}
 			Expect(rackService.NewWriter(nil).Create(ctx, &otherRack)).To(Succeed())
@@ -1674,7 +1651,6 @@ var _ = Describe("Driver", func() {
 				},
 			}
 			openDriver(ctx, factory)
-			time.Sleep(50 * time.Millisecond)
 
 			t := newTask(embeddedRackKey(ctx))
 			taskKey.Store(t.Key)
@@ -1719,7 +1695,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
@@ -1781,7 +1756,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
