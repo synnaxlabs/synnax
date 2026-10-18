@@ -13,6 +13,7 @@ package query
 import (
 	"bytes"
 	"fmt"
+	"slices"
 	"strings"
 	"text/template"
 
@@ -56,7 +57,8 @@ func (p *Plugin) Domains() []string { return []string{"go"} }
 // Requires returns plugin dependencies.
 func (p *Plugin) Requires() []string { return []string{"go/types"} }
 
-// Generate produces retrieve.gen.go files for structs with @retrieve annotation.
+// Generate produces retrieve.gen.go files for structs and unions with a @retrieve
+// annotation.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 
@@ -67,7 +69,10 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 	entries := make(map[string]*entry)
 
-	for _, typ := range req.Resolutions.StructTypes() {
+	for _, typ := range slices.Concat(
+		req.Resolutions.StructTypes(),
+		req.Resolutions.UnionTypes(),
+	) {
 		if !plugindomain.HasDomainFromType(typ, "retrieve") {
 			continue
 		}
@@ -193,7 +198,10 @@ func generateRetrieveFile(
 
 	var infos []retrieveInfo
 	for _, typ := range structs {
-		info := extractRetrieveInfo(typ, table, r, ctx)
+		info, err := extractRetrieveInfo(typ, table, r, ctx)
+		if err != nil {
+			return nil, err
+		}
 		if info != nil {
 			infos = append(infos, *info)
 		}
@@ -269,10 +277,12 @@ func extractRetrieveInfo(
 	table *resolution.Table,
 	r *resolver.Resolver,
 	ctx *resolver.Context,
-) *retrieveInfo {
-	if _, ok := typ.Form.(resolution.StructForm); !ok {
-		return nil
+) (*retrieveInfo, error) {
+	_, isUnion := typ.Form.(resolution.UnionForm)
+	if _, isStruct := typ.Form.(resolution.StructForm); !isStruct && !isUnion {
+		return nil, nil
 	}
+	allFields := retrieveFields(typ, table)
 
 	// Resolve the key type. A struct-level `@retrieve key "TypeName"` override takes
 	// precedence; this is useful when the entry type has a computed GorpKey that is not
@@ -293,15 +303,14 @@ func extractRetrieveInfo(
 		keyPrimitive = key.ResolvePrimitive(keyRef, table)
 	} else {
 		var keyField *resolution.Field
-		fields := resolution.UnifiedFields(typ, table)
-		for i := range fields {
-			if plugindomain.HasDomainFromField(fields[i], "key") {
-				keyField = &fields[i]
+		for i := range allFields {
+			if plugindomain.HasDomainFromField(allFields[i], "key") {
+				keyField = &allFields[i]
 				break
 			}
 		}
 		if keyField == nil {
-			return nil
+			return nil, nil
 		}
 		keyType = r.ResolveTypeRef(keyField.Type, ctx)
 		keyPrimitive = key.ResolvePrimitive(keyField.Type, table)
@@ -326,12 +335,20 @@ func extractRetrieveInfo(
 	// never referenced in retrieve.gen.go.
 	var filters []filterInfo
 	var indexes []indexInfo
-	allFields := resolution.UnifiedFields(typ, table)
 	for _, field := range allFields {
 		hasFilter := plugindomain.HasDomainFromField(field, "filter")
 		hasIndex := plugindomain.HasDomainFromField(field, "index")
 		if !hasFilter && !hasIndex {
 			continue
+		}
+		// A union entry holds its fields behind Variant, so generated filters cannot
+		// read them.
+		if isUnion {
+			return nil, fmt.Errorf(
+				"%s: @filter and @index are not supported on union fields (%s)",
+				typ.QualifiedName,
+				field.Name,
+			)
 		}
 
 		primitive := key.ResolvePrimitive(field.Type, table)
@@ -387,7 +404,23 @@ func extractRetrieveInfo(
 		KeysFromOntologyIDsHasError: keyPrimitive != "string",
 		Filters:                     filters,
 		Indexes:                     indexes,
+	}, nil
+}
+
+// retrieveFields returns a struct's fields, or the fields a union shares through its
+// base structs.
+func retrieveFields(typ resolution.Type, table *resolution.Table) []resolution.Field {
+	form, ok := typ.Form.(resolution.UnionForm)
+	if !ok {
+		return resolution.UnifiedFields(typ, table)
 	}
+	var fields []resolution.Field
+	for _, ext := range form.Extends {
+		if base, ok := ext.Resolve(table); ok {
+			fields = append(fields, resolution.UnifiedFields(base, table)...)
+		}
+	}
+	return fields
 }
 
 type templateData struct {

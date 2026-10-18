@@ -87,6 +87,60 @@ var _ = Describe("Go Query Plugin", func() {
 			)
 		})
 
+		Context("union entry", func() {
+			It("Should take the key from the union's base", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/view"
+
+					Base struct {
+						key uuid @key
+						name string
+					}
+
+					View union on type extends Base {
+						first {
+							size int32
+						}
+						second {
+							count int32
+						}
+						@ontology type "view"
+						@retrieve
+						@search
+					}
+				`
+				resp := MustGenerate(ctx, source, "view", loader, p)
+				ExpectContent(resp, "retrieve.gen.go").
+					ToContain(
+						"gorp.Retrieve[uuid.UUID, View]",
+						"func MatchKeys(keys ...uuid.UUID) Filter",
+						"func (r Retrieve) Search(term string) Retrieve",
+					)
+			})
+
+			It("Should reject a @filter on a union field", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/view"
+
+					Base struct {
+						key uuid @key
+						name string @filter
+					}
+
+					View union on type extends Base {
+						first {
+							size int32
+						}
+						@retrieve
+					}
+				`
+				req := MustGenerateRequest(ctx, source, "view", loader)
+				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+					"@filter and @index are not supported on union fields",
+				)))
+			})
+		})
+
 		Context("inherited key", func() {
 			It(
 				"Should find the @key field on a base struct",
