@@ -12,6 +12,7 @@ from collections.abc import Iterator
 import pytest
 
 import synnax as sy
+from tests.channel import RetrieveCounter
 from tests.proxy import Proxy
 from x.strings import random_name
 
@@ -35,6 +36,21 @@ def client() -> sy.Synnax:
         password=PASSWORD,
         secure=False,
     )
+
+
+@pytest.fixture
+def counted_client() -> tuple[sy.Synnax, RetrieveCounter]:
+    """A client that counts the channel retrieve requests it sends."""
+    c = sy.Synnax(
+        host=HOST,
+        port=PORT,
+        username=USERNAME,
+        password=PASSWORD,
+        secure=False,
+    )
+    counter = RetrieveCounter()
+    c._transport.use(counter)
+    return c, counter
 
 
 def _connect(proxy: Proxy) -> sy.Synnax:
