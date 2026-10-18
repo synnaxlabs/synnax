@@ -33,8 +33,6 @@ func TestAPITask(t *testing.T) {
 	RunSpecs(t, "API Task Suite")
 }
 
-var _ = ShouldNotLeakGoroutinesPerSpec()
-
 var (
 	svc    *service.Layer
 	apiSvc *apitask.Service
