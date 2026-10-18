@@ -3167,7 +3167,7 @@ var _ = Describe("Task", Ordered, func() {
 						Expect(startW.Close()).To(Succeed())
 
 						var fr framer.StreamerResponse
-						Eventually(responses, 500*time.Millisecond).Should(Receive(&fr))
+						Eventually(responses).Should(Receive(&fr))
 
 						clearW := MustSucceed(framerSvc.OpenWriter(
 							ctx,
@@ -3200,35 +3200,11 @@ var _ = Describe("Task", Ordered, func() {
 						).To(BeTrue())
 						Expect(stopW.Close()).To(Succeed())
 
-						time.Sleep(300 * time.Millisecond)
-
-						w1 := MustSucceed(framerSvc.OpenWriter(
-							ctx,
-							framer.WriterConfig{
-								Keys:  keysOf(c1),
-								Start: telem.Now(),
-								Authorities: []control.Authority{
-									control.Authority(1),
-								},
-								Sync: new(true),
-							},
-						))
-						defer func() { Expect(w1.Close()).To(Succeed()) }()
-						Expect(w1.Write(sample(c1, 99))).To(BeTrue())
-
-						w2 := MustSucceed(framerSvc.OpenWriter(
-							ctx,
-							framer.WriterConfig{
-								Keys:  keysOf(c2),
-								Start: telem.Now(),
-								Authorities: []control.Authority{
-									control.Authority(1),
-								},
-								Sync: new(true),
-							},
-						))
-						defer func() { Expect(w2.Close()).To(Succeed()) }()
-						Expect(w2.Write(sample(c2, 99))).To(BeTrue())
+						for _, c := range []writeCh{c1, c2} {
+							Eventually(func() bool {
+								return writes(ctx, c, 1)
+							}).Should(BeTrue())
+						}
 					},
 				)
 
@@ -3268,7 +3244,7 @@ var _ = Describe("Task", Ordered, func() {
 						Expect(startW.Close()).To(Succeed())
 
 						var fr framer.StreamerResponse
-						Eventually(responses, 500*time.Millisecond).Should(Receive(&fr))
+						Eventually(responses).Should(Receive(&fr))
 
 						stopW := MustSucceed(framerSvc.OpenWriter(
 							ctx,
@@ -3285,35 +3261,14 @@ var _ = Describe("Task", Ordered, func() {
 						).To(BeTrue())
 						Expect(stopW.Close()).To(Succeed())
 
-						time.Sleep(300 * time.Millisecond)
-
-						w1 := MustSucceed(framerSvc.OpenWriter(
-							ctx,
-							framer.WriterConfig{
-								Keys:  keysOf(c1),
-								Start: telem.Now(),
-								Authorities: []control.Authority{
-									control.Authority(100),
-								},
-								Sync: new(true),
-							},
-						))
-						defer func() { Expect(w1.Close()).To(Succeed()) }()
-						Expect(w1.Write(sample(c1, 99))).To(BeTrue())
-
-						w2 := MustSucceed(framerSvc.OpenWriter(
-							ctx,
-							framer.WriterConfig{
-								Keys:  keysOf(c2),
-								Start: telem.Now(),
-								Authorities: []control.Authority{
-									control.Authority(100),
-								},
-								Sync: new(true),
-							},
-						))
-						defer func() { Expect(w2.Close()).To(Succeed()) }()
-						Expect(w2.Write(sample(c2, 99))).To(BeTrue())
+						for _, c := range []writeCh{c1, c2} {
+							Eventually(func() bool {
+								return writes(ctx, c, 100)
+							}).Should(BeTrue())
+							Consistently(func() bool {
+								return writes(ctx, c, 100)
+							}, 200*time.Millisecond).Should(BeTrue())
+						}
 					},
 				)
 			})
