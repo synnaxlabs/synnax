@@ -13,10 +13,10 @@ import (
 	"context"
 	"uuid"
 
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -43,7 +43,7 @@ type ClusterInfo struct {
 
 // Service is the core authentication service for the Synnax API.
 type Service struct {
-	token    *token.Service
+	auth     *auth.Service
 	password *password.Service
 	user     *user.Service
 	cluster  cluster.Cluster
@@ -55,7 +55,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		token:    cfg.Service.Token,
+		auth:     cfg.Service.Auth,
 		password: cfg.Service.Password,
 		user:     cfg.Service.User,
 		cluster:  cfg.Distribution.Cluster,
@@ -65,7 +65,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 type LoginResponse struct {
 	// User is the user the token is associated with.
 	User user.User `json:"user" msgpack:"user"`
-	// Token is the JWT.
+	// Token is the session token to send with every later request.
 	Token string `json:"token" msgpack:"token"`
 	// ClusterInfo is the information about the cluster.
 	ClusterInfo ClusterInfo `json:"cluster_info" msgpack:"cluster_info"`
@@ -73,18 +73,22 @@ type LoginResponse struct {
 
 type LoginRequest struct{ Credentials }
 
-// Login attempts to authenticate a user with the provided credentials. If successful,
-// returns a response containing a valid JWT along with the user's details.
+// Login opens a session for the user with the provided credentials. If successful,
+// returns a response containing the session token along with the user's details.
 func (s *Service) Login(
 	ctx context.Context,
 	req LoginRequest,
 ) (LoginResponse, error) {
 	startTime := telem.Now()
-	identity, err := s.authenticate(ctx, req.Credentials)
+	session, tk, err := s.auth.Login(
+		ctx,
+		proofOf(req.Credentials),
+		freighter.MDFromContext(ctx).Remote,
+	)
 	if err != nil {
 		return LoginResponse{}, err
 	}
-	key, err := uuid.Parse(identity.Subject.Key)
+	key, err := uuid.Parse(session.Subject.Key)
 	if err != nil {
 		return LoginResponse{}, err
 	}
@@ -95,7 +99,6 @@ func (s *Service) Login(
 		Exec(ctx, nil); err != nil {
 		return LoginResponse{}, err
 	}
-	tk, err := s.token.New(u.Key)
 	endTime := telem.Now()
 	midPoint := startTime + (endTime-startTime)/2
 	return LoginResponse{
@@ -107,7 +110,7 @@ func (s *Service) Login(
 			NodeVersion: version.Get(),
 			NodeTime:    midPoint,
 		},
-	}, err
+	}, nil
 }
 
 type ChangePasswordRequest struct {
@@ -115,25 +118,29 @@ type ChangePasswordRequest struct {
 	NewPassword string `json:"new_password" msgpack:"new_password"`
 }
 
-// ChangePassword changes the password for the user with the provided credentials.
+// ChangePassword changes the password for the user with the provided credentials and
+// ends every other session that password opened.
 func (s *Service) ChangePassword(
 	ctx context.Context,
 	tx gorp.Tx,
 	req ChangePasswordRequest,
 ) (struct{}, error) {
-	identity, err := s.authenticate(ctx, req.Credentials)
+	identity, err := s.password.Authenticate(ctx, proofOf(req.Credentials))
 	if err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, s.password.NewWriter(tx).
-		ChangePassword(ctx, identity.Subject, req.NewPassword)
+	if err = s.password.NewWriter(tx).
+		ChangePassword(ctx, identity.Subject, req.NewPassword); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.auth.NewWriter(tx).RevokeCredential(
+		ctx,
+		identity.Method,
+		identity.Credential,
+		GetSession(ctx),
+	)
 }
 
-func (s *Service) authenticate(
-	ctx context.Context,
-	creds Credentials,
-) (auth.Identity, error) {
-	return s.password.Authenticate(ctx, auth.Proof{
-		Variant: auth.PasswordProof{Credentials: creds},
-	})
+func proofOf(creds Credentials) auth.Proof {
+	return auth.Proof{Variant: auth.PasswordProof{Credentials: creds}}
 }

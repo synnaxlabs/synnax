@@ -206,7 +206,7 @@ provider token is discarded.
 ### 4.3 The interface
 
 ```go
-func (s *Service) Login(ctx context.Context, proof Proof) (Session, string, error)
+func (s *Service) Login(ctx context.Context, proof Proof, from address.Address) (Session, string, error)
 func (s *Service) Authenticate(ctx context.Context, token string) (Session, error)
 func (s *Service) Logout(ctx context.Context, keys ...SessionKey) error
 ```
@@ -218,8 +218,8 @@ on every request. Neither names a subject type or a method. Each method implemen
 type Authenticator interface {
     // Authenticate checks the proof and returns the subject and the credential used.
     Authenticate(ctx context.Context, proof Proof) (Identity, error)
-    // DeleteFor removes every credential of the given subjects.
-    DeleteFor(ctx context.Context, subjects ...ontology.ID) error
+    // DeleteFor removes every credential of the given subjects within tx.
+    DeleteFor(ctx context.Context, tx gorp.Tx, subjects ...ontology.ID) error
 }
 ```
 

@@ -22,7 +22,6 @@ import (
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
@@ -98,6 +97,10 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL] - Defaults to false.
 	FIPS *bool
+	// SessionIdleTimeout ends a session that no request has used for this long.
+	//
+	// [OPTIONAL] - Defaults to 7 days.
+	SessionIdleTimeout time.Duration
 	// License configures the license service. The layer supplies its DB and
 	// instrumentation.
 	//
@@ -131,6 +134,10 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.Storage = override.Nil(c.Storage, other.Storage)
 	c.RootCredentials = override.Zero(c.RootCredentials, other.RootCredentials)
 	c.FIPS = override.Nil(c.FIPS, other.FIPS)
+	c.SessionIdleTimeout = override.Numeric(
+		c.SessionIdleTimeout,
+		other.SessionIdleTimeout,
+	)
 	c.License = c.License.Override(other.License)
 	c.ValidateChannelNames = override.Nil(
 		c.ValidateChannelNames, other.ValidateChannelNames,
@@ -164,8 +171,8 @@ type Layer struct {
 	RBAC *rbac.Service
 	// Password stores passwords and checks proofs of them.
 	Password *password.Service
-	// Token is for creating and validating authentication tokens.
-	Token *token.Service
+	// Auth logs subjects in and checks the session tokens their requests carry.
+	Auth *auth.Service
 	// Ranger is for working with ranges.
 	Ranger *ranger.Service
 	// Alias is for working with channel aliases on ranges.
@@ -444,11 +451,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.RBAC) {
 		return nil, err
 	}
-	if l.Token, err = token.NewService(token.ServiceConfig{
-		KeyProvider:      cfg.Security,
-		Expiration:       24 * time.Hour,
-		RefreshThreshold: 1 * time.Hour,
-	}); !ok(err, nil) {
+	if l.Auth, err = auth.OpenService(ctx, auth.ServiceConfig{
+		Instrumentation: cfg.Child("auth"),
+		DB:              cfg.Distribution.DB,
+		Authenticators: map[auth.Method]auth.Authenticator{
+			auth.MethodPassword: l.Password,
+		},
+		IdleTimeout: cfg.SessionIdleTimeout,
+	}); !ok(err, l.Auth) {
 		return nil, err
 	}
 	if l.Ranger, err = ranger.OpenService(ctx, ranger.ServiceConfig{

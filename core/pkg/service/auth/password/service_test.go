@@ -342,7 +342,7 @@ var _ = Describe("Service", func() {
 	})
 	Describe("DeleteFor", func() {
 		It("Should remove the subject's password", func(ctx SpecContext) {
-			Expect(svc.DeleteFor(ctx, alice)).To(Succeed())
+			Expect(svc.DeleteFor(ctx, nil, alice)).To(Succeed())
 			Expect(svc.Authenticate(ctx, proof(username, "secret"))).Error().
 				To(MatchError(auth.ErrInvalidCredentials))
 		})

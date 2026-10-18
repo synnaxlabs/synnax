@@ -17,14 +17,15 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/errors"
 	"go.uber.org/zap"
 )
 
-func TokenMiddleware(svc *token.Service) freighter.Middleware {
+// Middleware authenticates the session token on every request and puts the session's
+// subject, credential, and key on the request for handlers to read.
+func Middleware(svc *auth.Service) freighter.Middleware {
 	return freighter.MiddlewareFunc(func(
 		ctx freighter.Context,
 		next freighter.Next,
@@ -33,16 +34,14 @@ func TokenMiddleware(svc *token.Service) freighter.Middleware {
 		if err != nil {
 			return ctx, err
 		}
-		userKey, newTK, err := svc.ValidateMaybeRefresh(tk)
+		session, err := svc.Authenticate(ctx, tk)
 		if err != nil {
 			return ctx, err
 		}
-		ctx.Set(subjectKey, user.OntologyID(userKey))
-		oCtx, err := next(ctx)
-		if newTK != "" {
-			oCtx.Set("Refresh-Token", newTK)
-		}
-		return oCtx, err
+		ctx.Set(subjectKey, session.Subject)
+		ctx.Set(credentialKey, session.Credential)
+		ctx.Set(sessionKey, session.Key)
+		return next(ctx)
 	})
 }
 
@@ -80,8 +79,13 @@ func tryParseToken(params freighter.Params) (string, error) {
 	return strings.TrimPrefix(tkStr, tokenParamPrefix), nil
 }
 
-const subjectKey = "Subject"
+const (
+	subjectKey    = "Subject"
+	credentialKey = "Credential"
+	sessionKey    = "Session"
+)
 
+// GetSubject returns the subject of the request's session.
 func GetSubject(ctx context.Context) ontology.ID {
 	s, ok := freighter.MDFromContext(ctx).Get(subjectKey)
 	if !ok {
@@ -89,4 +93,25 @@ func GetSubject(ctx context.Context) ontology.ID {
 		return user.OntologyID(uuid.Nil())
 	}
 	return s.(ontology.ID)
+}
+
+// GetCredential returns the key of the credential the request's session was opened
+// with.
+func GetCredential(ctx context.Context) uuid.UUID {
+	c, ok := freighter.MDFromContext(ctx).Get(credentialKey)
+	if !ok {
+		zap.S().DPanic("[api] - no credential found in context")
+		return uuid.Nil()
+	}
+	return c.(uuid.UUID)
+}
+
+// GetSession returns the key of the request's session.
+func GetSession(ctx context.Context) auth.SessionKey {
+	s, ok := freighter.MDFromContext(ctx).Get(sessionKey)
+	if !ok {
+		zap.S().DPanic("[api] - no session found in context")
+		return uuid.Nil()
+	}
+	return s.(auth.SessionKey)
 }

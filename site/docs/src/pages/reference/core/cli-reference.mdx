@@ -145,6 +145,12 @@ synnax start -l localhost:9090 -im
         "Enables debug logging output. We recommend against using this in production, as it generates a very large amount of output.",
     },
     {
+      option: "--session-idle-timeout",
+      default: "168h",
+      description:
+        "Ends a login session after this long without a request from its client. Any request or open stream counts as activity.",
+    },
+    {
       option: "--slow-consumer-timeout",
       default: "2500000000",
       description:
@@ -261,6 +267,7 @@ Command line flags will take precedence over environment variables.
     { option: "--password", env: "SYNNAX_PASSWORD" },
     { option: "--license-key", env: "SYNNAX_LICENSE_KEY" },
     { option: "--debug", env: "SYNNAX_DEBUG" },
+    { option: "--session-idle-timeout", env: "SYNNAX_SESSION_IDLE_TIMEOUT" },
     { option: "--slow-consumer-timeout", env: "SYNNAX_SLOW_CONSUMER_TIMEOUT" },
     { option: "--no-driver", env: "SYNNAX_NO_DRIVER" },
     { option: "--stop-on-stdin-close", env: "SYNNAX_STOP_ON_STDIN_CLOSE" },

@@ -183,8 +183,12 @@ func (s *Service) Authenticate(
 }
 
 // DeleteFor implements [auth.Authenticator].
-func (s *Service) DeleteFor(ctx context.Context, subjects ...ontology.ID) error {
-	return s.NewWriter(nil).DeleteFor(ctx, subjects...)
+func (s *Service) DeleteFor(
+	ctx context.Context,
+	tx gorp.Tx,
+	subjects ...ontology.ID,
+) error {
+	return s.NewWriter(tx).DeleteFor(ctx, subjects...)
 }
 
 func (s *Service) verifierFor(hash []byte) (verifier, bool) {

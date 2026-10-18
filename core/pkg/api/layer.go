@@ -241,7 +241,7 @@ type Layer struct {
 // BindTo binds the API layer to the provided Transport implementation.
 func (l *Layer) BindTo(t Transport) {
 	var (
-		tk              = auth.TokenMiddleware(l.config.Service.Token)
+		tk              = auth.Middleware(l.config.Service.Auth)
 		instrumentation = lo.Must(
 			alamos.Middleware(alamos.Config{Instrumentation: l.config.Instrumentation}),
 		)
