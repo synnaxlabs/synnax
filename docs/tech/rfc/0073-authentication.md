@@ -123,6 +123,7 @@ Password struct {
     subject  ontology.ID
     username string        // indexed, unique
     hash     bytes         // tagged with its algorithm
+    created  timestamp
 }
 
 APIKey struct {
@@ -142,7 +143,9 @@ OIDCLink struct {
 ```
 
 A subject holds one password, any number of API keys, and one link per provider. A hash
-never leaves the Core.
+never leaves the Core. Passwords and API keys record `created` so that a later age
+policy, such as password rotation or key expiry, applies to credentials that already
+exist. A link has no lifecycle of its own, so it carries no date.
 
 **Passwords.** The username lives here, so a rename edits one field. New passwords use
 Argon2id, the
