@@ -110,7 +110,7 @@ var _ = Describe("Migration", func() {
 	})
 
 	It(
-		"Should delete views of other types and their ontology resources",
+		"Should delete views it cannot hold and their ontology resources",
 		func(ctx SpecContext) {
 			kept := v0.View{Key: uuid.New(), Name: "Ranges", Type: "range"}
 			dropped := v0.View{
@@ -119,9 +119,17 @@ var _ = Describe("Migration", func() {
 				Type:  "lineplot",
 				Query: msgpack.EncodedJSON{"channels": []any{"a"}},
 			}
-			create(ctx, kept, dropped)
+			undecodable := v0.View{
+				Key:   uuid.New(),
+				Name:  "Team",
+				Type:  "range",
+				Query: msgpack.EncodedJSON{"has_labels": []any{"team-a"}},
+			}
+			create(ctx, kept, dropped, undecodable)
 			run(ctx)
 			Expect(retrieve(ctx, dropped.Key)).Error().
+				To(MatchError(query.ErrNotFound))
+			Expect(retrieve(ctx, undecodable.Key)).Error().
 				To(MatchError(query.ErrNotFound))
 			Expect(retrieve(ctx, kept.Key)).Error().ToNot(HaveOccurred())
 			Expect(gorp.NewRetrieve[string, ontology.Resource]().

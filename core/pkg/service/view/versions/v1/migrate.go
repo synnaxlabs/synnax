@@ -22,8 +22,9 @@ import (
 )
 
 // NewMigration returns the migration that lifts stored views to v1. It types the query
-// of every range and status view, and deletes every view of another type along with its
-// ontology resource and relationships.
+// of every range and status view. It deletes every view of another type, and every view
+// whose query does not decode into its typed query, along with the view's ontology
+// resource and relationships.
 func NewMigration(otg *ontology.Ontology) migrate.Migration {
 	return gorp.NewMigration(
 		"v60_typed_views",
@@ -37,15 +38,13 @@ func NewMigration(otg *ontology.Ontology) migrate.Migration {
 				deleted []Key
 			)
 			for _, old := range olds {
-				v, ok, err := lift(old)
+				v, err := lift(old)
 				if err != nil {
-					return errors.Wrapf(err, "view %s", old.Key)
-				}
-				if !ok {
-					ins.L.Info(
-						"deleting view of unsupported type",
+					ins.L.Warn(
+						"deleting view that v1 cannot hold",
 						zap.Stringer("key", old.Key),
 						zap.String("type", old.Type),
+						zap.Error(err),
 					)
 					deleted = append(deleted, old.Key)
 					continue
@@ -69,24 +68,25 @@ func NewMigration(otg *ontology.Ontology) migrate.Migration {
 	)
 }
 
-// lift returns false if v1 has no variant for the view's type.
-func lift(old v0.View) (View, bool, error) {
+// lift returns an error if v1 has no variant for the view's type or the view's query
+// does not decode into the variant's query.
+func lift(old v0.View) (View, error) {
 	base := Base{Key: old.Key, Name: old.Name}
 	switch ViewType(old.Type) {
 	case RangeViewType:
 		var q RangeQuery
 		if err := old.Query.Unmarshal(&q); err != nil {
-			return View{}, false, err
+			return View{}, err
 		}
-		return View{Variant: RangeView{Base: base, Query: q}}, true, nil
+		return View{Variant: RangeView{Base: base, Query: q}}, nil
 	case StatusViewType:
 		var q StatusQuery
 		if err := old.Query.Unmarshal(&q); err != nil {
-			return View{}, false, err
+			return View{}, err
 		}
-		return View{Variant: StatusView{Base: base, Query: q}}, true, nil
+		return View{Variant: StatusView{Base: base, Query: q}}, nil
 	}
-	return View{}, false, nil
+	return View{}, errors.Newf("unsupported type %q", old.Type)
 }
 
 func collect(ctx context.Context, tx gorp.Tx) ([]v0.View, error) {
