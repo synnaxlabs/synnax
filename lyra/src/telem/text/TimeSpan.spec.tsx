@@ -17,12 +17,12 @@ describe("TimeSpan", () => {
   it("should render timespan with default format", () => {
     const span = XTimeSpan.seconds(90);
     const c = render(<Telem.Text.TimeSpan>{span}</Telem.Text.TimeSpan>);
-    expect(c.getByText("1m 30s")).toBeTruthy();
+    expect(c.getByText("1min 30s")).toBeTruthy();
   });
   it("should render timespan with hours", () => {
     const span = XTimeSpan.hours(2.5);
     const c = render(<Telem.Text.TimeSpan>{span}</Telem.Text.TimeSpan>);
-    expect(c.getByText("2h 30m")).toBeTruthy();
+    expect(c.getByText("2h 30min")).toBeTruthy();
   });
   it("should render timespan with days", () => {
     const span = XTimeSpan.days(1.5);
@@ -37,7 +37,7 @@ describe("TimeSpan", () => {
   it("should accept number timespan in microseconds", () => {
     const span = XTimeSpan.seconds(90).valueOf();
     const c = render(<Telem.Text.TimeSpan>{span}</Telem.Text.TimeSpan>);
-    expect(c.getByText("1m 30s")).toBeTruthy();
+    expect(c.getByText("1min 30s")).toBeTruthy();
   });
   it("should pass through text props", () => {
     const span = XTimeSpan.seconds(60);
