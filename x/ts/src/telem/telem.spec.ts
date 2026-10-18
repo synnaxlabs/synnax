@@ -1451,6 +1451,46 @@ describe("TimeSpan", () => {
         expect(TimeSpan.parse(text)?.equals(expected), text).toBe(true);
     });
 
+    it("should parse uncommon units", () => {
+      const cases: [string, TimeSpan][] = [
+        ["2 shakes", TimeSpan.nanoseconds(20)],
+        ["3cs", TimeSpan.milliseconds(30)],
+        ["3 centiseconds", TimeSpan.milliseconds(30)],
+        ["1 jiffy", TimeSpan.milliseconds(10)],
+        ["2 jiffies", TimeSpan.milliseconds(20)],
+        ["4ds", TimeSpan.milliseconds(400)],
+        ["1 decisecond", TimeSpan.milliseconds(100)],
+        ["2das", TimeSpan.seconds(20)],
+        ["1 decasecond", TimeSpan.seconds(10)],
+        ["3hs", TimeSpan.seconds(300)],
+        ["1 hectosecond", TimeSpan.seconds(100)],
+        ["2ks", TimeSpan.seconds(2000)],
+        ["1 kilosecond", TimeSpan.seconds(1000)],
+        ["1Ms", TimeSpan.seconds(1e6)],
+        ["1 megasecond", TimeSpan.seconds(1e6)],
+        ["1 milliday", TimeSpan.milliseconds(86400)],
+        ["2 moments", TimeSpan.seconds(180)],
+        ["1 centiday", TimeSpan.seconds(864)],
+        ["1 deciday", TimeSpan.seconds(8640)],
+        ["1 decaday", TimeSpan.days(10)],
+        ["1 fortnight", TimeSpan.days(14)],
+        ["1 microfortnight", TimeSpan.microseconds(1209600)],
+        ["1 semester", TimeSpan.days(180)],
+        ["1 olympiad", TimeSpan.days(1460)],
+        ["2 lustra", TimeSpan.days(3650)],
+        ["1 decade", TimeSpan.days(3650)],
+        ["1 decade 2 decadays", TimeSpan.days(3670)],
+      ];
+      for (const [text, expected] of cases)
+        expect(TimeSpan.parse(text)?.equals(expected), text).toBe(true);
+    });
+
+    it("should read Ms as megaseconds and other cases of it as milliseconds", () => {
+      expect(TimeSpan.parse("5Ms")?.equals(TimeSpan.seconds(5e6))).toBe(true);
+      for (const text of ["5ms", "5MS", "5mS"])
+        expect(TimeSpan.parse(text)?.equals(TimeSpan.milliseconds(5)), text).toBe(true);
+    });
+
     it("should parse clock form as hours, minutes, and seconds", () => {
       const cases: [string, TimeSpan][] = [
         ["1:30", TimeSpan.minutes(90)],

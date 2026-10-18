@@ -736,7 +736,8 @@ export class TimeSpan
   /**
    * Parses a run of amounts and units, such as `30s`, `2h 30min`, `1.5 hours`, or
    * `.5d`. It reads every form {@link toString} prints, plus years (365 days), months
-   * (30 days), weeks, and common long and plural names for each unit, in any case. It
+   * (30 days), weeks, uncommon units such as `fortnight` and `shake`, SI multiples of
+   * the second (`ks`, `Ms`), and long and plural names, in any case except `Ms`. It
    * also reads clock form: `1:30` is hours and minutes, `1:30:29.5` adds seconds.
    * @returns the span, or null when the text is not a unit run or a clock.
    */
@@ -756,7 +757,8 @@ export class TimeSpan
       const match = UNIT_RUN_RE.exec(rest);
       if (match == null) return null;
       const [whole, amount, unit] = match;
-      total = total.add(SPAN_UNITS[unit.toLowerCase()].mult(Number(amount)));
+      const span = CASED_SPAN_UNITS[unit] ?? SPAN_UNITS[unit.toLowerCase()];
+      total = total.add(span.mult(Number(amount)));
       rest = rest.slice(whole.length);
     }
     return total;
@@ -1065,17 +1067,42 @@ const UNIT_NAMES: [TimeSpan, string[]][] = [
     ["μs", "µs", "us", "usec", "usecs", "microsecond", "microseconds"],
   ],
   [TimeSpan.NANOSECOND, ["ns", "nsec", "nsecs", "nanosecond", "nanoseconds"]],
+  [TimeSpan.days(10 * SIMPLE_DAYS_IN_YEAR), ["decade", "decades"]],
+  [TimeSpan.days(5 * SIMPLE_DAYS_IN_YEAR), ["lustrum", "lustra", "lustrums"]],
+  [TimeSpan.days(4 * SIMPLE_DAYS_IN_YEAR), ["olympiad", "olympiads"]],
+  [TimeSpan.days(6 * SIMPLE_DAYS_IN_MONTH), ["semester", "semesters"]],
+  [TimeSpan.days(14), ["fortnight", "fortnights"]],
+  [TimeSpan.days(10), ["decaday", "decadays"]],
+  [TimeSpan.seconds(8640), ["deciday", "decidays"]],
+  [TimeSpan.seconds(864), ["centiday", "centidays"]],
+  [TimeSpan.seconds(90), ["moment", "moments"]],
+  [TimeSpan.milliseconds(86400), ["milliday", "millidays"]],
+  [TimeSpan.microseconds(1209600), ["microfortnight", "microfortnights"]],
+  [TimeSpan.seconds(1e6), ["megasecond", "megaseconds"]],
+  [TimeSpan.seconds(1000), ["ks", "kilosecond", "kiloseconds"]],
+  [TimeSpan.seconds(100), ["hs", "hectosecond", "hectoseconds"]],
+  [TimeSpan.seconds(10), ["das", "decasecond", "decaseconds"]],
+  [TimeSpan.milliseconds(100), ["ds", "decisecond", "deciseconds"]],
+  [TimeSpan.milliseconds(10), ["cs", "centisecond", "centiseconds"]],
+  [TimeSpan.milliseconds(10), ["jiffy", "jiffies"]],
+  [TimeSpan.nanoseconds(10), ["shake", "shakes"]],
 ];
 
 const SPAN_UNITS: Record<string, TimeSpan> = Object.fromEntries(
   UNIT_NAMES.flatMap(([span, names]) => names.map((name) => [name, span])),
 );
 
+// Matched in exact case, since lowercase they collide with another unit.
+const CASED_SPAN_UNITS: Record<string, TimeSpan> = { Ms: TimeSpan.seconds(1e6) };
+
 const CLOCK_RE = /^(\d+):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?$/;
 
 // Longest first, so `ms` and `min` win over `m`.
 const UNIT_RUN_RE = new RegExp(
-  `^(\\d+(?:\\.\\d+)?|\\.\\d+)\\s*(${Object.keys(SPAN_UNITS)
+  `^(\\d+(?:\\.\\d+)?|\\.\\d+)\\s*(${[
+    ...Object.keys(SPAN_UNITS),
+    ...Object.keys(CASED_SPAN_UNITS),
+  ]
     .sort((a, b) => b.length - a.length)
     .join("|")})\\s*`,
   "i",
