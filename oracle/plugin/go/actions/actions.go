@@ -223,11 +223,17 @@ import (
 )
 {{- end}}
 
+{{- if eq (len .Actions) 1}}
+{{- with index .Actions 0}}
+const ActionType{{.Name}} = "{{.TypeName}}"
+{{- end}}
+{{- else}}
 const (
 {{- range .Actions}}
 	ActionType{{.Name}} = "{{.TypeName}}"
 {{- end}}
 )
+{{- end}}
 {{range .Actions}}
 {{- if .Doc}}
 {{formatDoc (printf "%sPayload" .Name) .Doc}}
