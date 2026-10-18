@@ -72,7 +72,7 @@ class ModbusInvalidConfig(SimulatorCase):
                         index=idx.key,
                     ),
                     address=0,
-                    data_type="uint8",
+                    data_type=sy.DataType.UINT8,
                 ),
             ],
         )
@@ -101,7 +101,7 @@ class ModbusInvalidConfig(SimulatorCase):
                         index=idx.key,
                     ),
                     address=0,
-                    data_type="uint8",
+                    data_type=sy.DataType.UINT8,
                 ),
             ],
         )
@@ -135,7 +135,7 @@ class ModbusInvalidConfig(SimulatorCase):
                         index=idx.key,
                     ),
                     address=0,
-                    data_type="uint8",
+                    data_type=sy.DataType.UINT8,
                 ),
             ],
         )
@@ -153,7 +153,7 @@ class ModbusInvalidConfig(SimulatorCase):
                 sy.modbus.InputRegisterReadChannel(
                     channel=999999999,
                     address=0,
-                    data_type="uint8",
+                    data_type=sy.DataType.UINT8,
                 ),
             ],
         )
@@ -177,7 +177,7 @@ class ModbusInvalidConfig(SimulatorCase):
                         index=idx.key,
                     ),
                     address=65000,
-                    data_type="uint8",
+                    data_type=sy.DataType.UINT8,
                 ),
             ],
         )
@@ -204,7 +204,7 @@ class ModbusInvalidConfig(SimulatorCase):
                     sy.modbus.InputRegisterReadChannel(
                         channel=shared_ch_key,
                         address=0,
-                        data_type="uint8",
+                        data_type=sy.DataType.UINT8,
                     ),
                 ],
             )
