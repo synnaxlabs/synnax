@@ -1264,6 +1264,40 @@ var _ = Describe("Python Types Plugin", func() {
 				},
 			)
 
+			DescribeTable(
+				"Should hash by the snake_case name of a mixed-case @key field",
+				func(ctx SpecContext, decl string) {
+					source := `
+					@py output "out"
+
+					` + decl
+					resp := MustGenerate(ctx, source, "node", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(`node_key: str`, `return hash(self.node_key)`).
+						ToNotContain(`self.nodeKey`)
+				},
+				Entry("standalone struct", `
+					Node struct {
+						nodeKey string @key
+					}
+				`),
+				Entry("generic struct", `
+					Node struct<T> {
+						nodeKey string @key
+						value T
+					}
+				`),
+				Entry("extending struct", `
+					Base struct {
+						name string
+					}
+
+					Node struct extends Base {
+						nodeKey string @key
+					}
+				`),
+			)
+
 			It(
 				"Should not generate __hash__ when an override makes the key optional",
 				func(ctx SpecContext) {
@@ -1656,6 +1690,44 @@ var _ = Describe("Python Types Plugin", func() {
 						`name: str`,
 						`model_config = ConfigDict(populate_by_name=True)`,
 					)
+			})
+		})
+
+		Context("field name casing", func() {
+			It(
+				"Should snake_case PascalCase, acronym, and camelCase field names",
+				func(ctx SpecContext) {
+					source := `
+					@py output "out"
+
+					Output struct {
+						WASM bytes
+						OutputMemoryBases map<string, uint32>
+						nodeKey string
+					}
+				`
+					resp := MustGenerate(ctx, source, "compiler", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(
+							`wasm: bytes`,
+							`output_memory_bases: dict[str, int]`,
+							`node_key: str`,
+						).
+						ToNotContain("WASM:", "OutputMemoryBases:", "nodeKey:")
+				},
+			)
+
+			It("Should escape a snake_cased keyword field", func(ctx SpecContext) {
+				source := `
+					@py output "out"
+
+					Example struct {
+						From string
+					}
+				`
+				resp := MustGenerate(ctx, source, "example", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(`from_: str = Field(alias="from")`)
 			})
 		})
 
@@ -2065,7 +2137,7 @@ var _ = Describe("Python Union Generation", func() {
 				content,
 			).To(ContainSubstring("class AIVoltageChannel(BaseAIChan, VoltageFields):\n    type: Literal[\"ai_voltage\"] = \"ai_voltage\"\n"))
 			Expect(content).To(ContainSubstring(`enabled: bool`))
-			Expect(content).To(ContainSubstring(`minVal: float`))
+			Expect(content).To(ContainSubstring(`min_val: float`))
 		},
 	)
 
@@ -2119,7 +2191,7 @@ var _ = Describe("Python Union Generation", func() {
 		`
 		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
 		ExpectContent(resp, "types_gen.py").
-			ToContain(`customScale: Scale`)
+			ToContain(`custom_scale: Scale`)
 	})
 
 	It("Should emit pass for an empty variant struct", func(ctx SpecContext) {
