@@ -22,6 +22,7 @@ from synnax.arc.types_gen import Key, Mode, Payload, ontology_id
 from synnax.exceptions import MultipleFoundError, NotFoundError
 from synnax.ontology.payload import ID
 from x.lists import normalize
+from x.uuid import NIL
 
 
 class _CreateRequest(BaseModel):
@@ -62,7 +63,7 @@ class Arc(Payload):
     def __init__(
         self,
         *,
-        key: UUID = UUID(int=0),
+        key: UUID = NIL,
         name: str = "",
         graph: Graph | None = None,
         text: Text | None = None,

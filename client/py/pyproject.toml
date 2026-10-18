@@ -83,9 +83,6 @@ ignore = ["UP040", "UP046", "UP047", "SIM105", "SIM115", "SIM117", "PT012", "RUF
 [tool.ruff.lint.isort]
 known-first-party = ["synnax", "alamos", "freighter", "x"]
 
-[tool.ruff.lint.flake8-bugbear]
-extend-immutable-calls = ["uuid.UUID"]
-
 [tool.mypy]
 mypy_path = "stubs"
 plugins = ["pydantic.mypy"]
