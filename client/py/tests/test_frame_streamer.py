@@ -308,7 +308,7 @@ class TestStreamer:
 
     @pytest.mark.multi_node
     def test_multi_node_stream_case_1(self) -> None:
-        client = sy.Synnax(cache_channels=False)
+        client = sy.Synnax()
         idx = client.channels.create(
             name="idx", data_type=sy.DataType.TIMESTAMP, is_index=True, leaseholder=2
         )
@@ -331,7 +331,6 @@ class TestStreamer:
             username="synnax",
             password="seldon",
             secure=False,
-            cache_channels=False,
         )
         node_2_client = sy.Synnax(
             host="localhost",
@@ -339,7 +338,6 @@ class TestStreamer:
             username="synnax",
             password="seldon",
             secure=False,
-            cache_channels=False,
         )
         idx = node_2_client.channels.create(
             name="idx", data_type=sy.DataType.TIMESTAMP, is_index=True, leaseholder=2
