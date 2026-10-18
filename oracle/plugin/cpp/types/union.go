@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
 	cppnaming "github.com/synnaxlabs/oracle/plugin/cpp/naming"
 	"github.com/synnaxlabs/oracle/plugin/domain"
+	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -89,14 +90,26 @@ func (p *Plugin) processUnion(
 
 	enumType, borrows := form.Enum.Resolve(data.table)
 	borrows = borrows && form.BorrowsEnum()
+	if borrows && enumType.Namespace != data.rawNs {
+		if path := enum.FindOutputPath(enumType, data.table, "cpp"); path != "" {
+			data.AddInternal(fmt.Sprintf("%s/types.gen.h", path))
+		}
+	}
 	variants := make([]structData, 0, len(form.Variants))
 	for _, v := range form.Variants {
 		variantName := cppnaming.VariantTypeName(name, v.Name)
 		discDefault := fmt.Sprintf("%q", v.Name)
 		if borrows {
+			member, ok := enumMember(enumType, v.Name)
+			if !ok {
+				panic(fmt.Sprintf(
+					"union %s variant %q has no member in enum %s",
+					name, v.Name, enumType.Name,
+				))
+			}
 			discDefault = p.cppEnumVariantRef(validation.EnumVariant{
 				Type:    enumType,
-				Variant: enumMember(enumType, v.Name),
+				Variant: member,
 			}, data)
 		}
 		sd := structData{
@@ -165,13 +178,14 @@ func (p *Plugin) processUnion(
 	return variants, ud
 }
 
-// enumMember returns the member of enumType whose value is value.
-func enumMember(enumType resolution.Type, value string) resolution.EnumValue {
+// enumMember returns the member of enumType whose value is value. The analyzer
+// guarantees one exists for every variant of a union that borrows the enum.
+func enumMember(enumType resolution.Type, value string) (resolution.EnumValue, bool) {
 	form := enumType.Form.(resolution.EnumForm)
 	for _, m := range form.Values {
 		if m.StringValue() == value {
-			return m
+			return m, true
 		}
 	}
-	return resolution.EnumValue{Name: value, Value: value}
+	return resolution.EnumValue{}, false
 }

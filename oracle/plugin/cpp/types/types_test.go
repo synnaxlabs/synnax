@@ -2119,6 +2119,32 @@ var _ = Describe("C++ Union Generation", func() {
 		},
 	)
 
+	It("Should include the header of a borrowed enum from another namespace", func(
+		ctx SpecContext,
+	) {
+		loader.Add("schemas/auth", `
+			@cpp output "client/cpp/auth"
+
+			Method enum {
+				password = "password"
+			}
+		`)
+		source := `
+			import "schemas/auth"
+
+			@cpp output "client/cpp/login"
+
+			Credentials struct { username string }
+
+			Proof union on method auth.Method {
+				password Credentials
+			}
+		`
+		resp := MustGenerate(ctx, source, "login", loader, cppPlugin)
+		ExpectContent(resp, "types.gen.h").
+			ToContain(`#include "client/cpp/auth/types.gen.h"`, `METHOD_PASSWORD;`)
+	})
+
 	It(
 		"Should declare inline variant fields directly on the variant struct",
 		func(ctx SpecContext) {

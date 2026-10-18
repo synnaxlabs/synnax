@@ -1032,6 +1032,14 @@ func collectTypeRef(
 	return ref
 }
 
+// plainTypeRef reports whether tr names a type with no type arguments, array
+// modifier, or optionality marker.
+func plainTypeRef(tr parser.ITypeRefContext) bool {
+	normal, ok := tr.(*parser.TypeRefNormalContext)
+	return ok && normal.TypeArgs() == nil && normal.ArrayModifier() == nil &&
+		normal.TypeModifiers() == nil
+}
+
 func collectMapTypeRef(
 	mapCtx *parser.TypeRefMapContext,
 	typeParams []resolution.TypeParam,
@@ -1298,6 +1306,15 @@ func collectUnion(c *analysisCtx, def parser.IUnionDefContext) {
 
 	form := resolution.UnionForm{Discriminator: discriminator}
 	if tr := def.TypeRef(); tr != nil {
+		if !plainTypeRef(tr) {
+			c.report(diagnostics.Errorf(
+				def,
+				"union %s: the discriminator type must be a plain enum reference, got %q",
+				name,
+				tr.GetText(),
+			))
+			return
+		}
 		form.Enum = collectTypeRef(tr, nil)
 	}
 
@@ -2082,19 +2099,6 @@ func validateTypeParams(c *analysisCtx, typ resolution.Type) {
 	}
 }
 
-// validateUnion checks the structural constraints on a discriminated union:
-//
-//   - At least one variant is declared.
-//   - Variant names (the JSON discriminator string values) are unique.
-//   - Each Extends target resolves to a struct type.
-//   - No two base structs contribute the same field name.
-//   - Each variant references a struct type.
-//   - Neither the base structs nor the variant structs redeclare the
-//     discriminator field; the union declaration owns it exclusively.
-//
-// Generic variant/base types are permitted but not yet type-checked: an open question
-// for a follow-up that introduces unions parameterized by a type argument applied to
-// every variant.
 // ruleCtx returns the parser rule a type or variant was collected from, or nil when
 // the AST is not one.
 func ruleCtx(ast any) antlr.ParserRuleContext {
@@ -2153,6 +2157,19 @@ func validateUnionEnum(c *analysisCtx, typ resolution.Type, form resolution.Unio
 	}
 }
 
+// validateUnion checks the structural constraints on a discriminated union:
+//
+//   - At least one variant is declared.
+//   - Variant names (the JSON discriminator string values) are unique.
+//   - Each Extends target resolves to a struct type.
+//   - No two base structs contribute the same field name.
+//   - Each variant references a struct type.
+//   - Neither the base structs nor the variant structs redeclare the
+//     discriminator field; the union declaration owns it exclusively.
+//
+// Generic variant/base types are permitted but not yet type-checked: an open question
+// for a follow-up that introduces unions parameterized by a type argument applied to
+// every variant.
 func validateUnion(c *analysisCtx, typ resolution.Type) {
 	form, ok := typ.Form.(resolution.UnionForm)
 	if !ok {

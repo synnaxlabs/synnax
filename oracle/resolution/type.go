@@ -308,6 +308,9 @@ func refersTo(
 				return true
 			}
 		}
+		if form.BorrowsEnum() && refersTo(form.Enum, targetQN, table, visited) {
+			return true
+		}
 		for _, v := range form.Variants {
 			if refersTo(v.Type, targetQN, table, visited) {
 				return true

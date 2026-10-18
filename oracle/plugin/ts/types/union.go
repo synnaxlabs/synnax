@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/domain"
+	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
 )
@@ -105,6 +106,15 @@ func (p *Plugin) processUnion(
 	if form.BorrowsEnum() {
 		ud.BorrowsEnum = true
 		ud.TypeName = p.typeRefToTS(&form.Enum, table, data, true)
+		if enumType, ok := form.Enum.Resolve(table); ok &&
+			enumType.Namespace != data.Namespace {
+			ns := importNamespace(
+				enumType.Namespace,
+				output.GetPath(enumType, "ts"),
+				data,
+			)
+			ud.TypeName = ns + "." + domain.GetName(enumType, "ts")
+		}
 	}
 	for _, v := range form.Variants {
 		typeName := casing.VariantTypeName(tsName, v.Name)

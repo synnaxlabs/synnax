@@ -3184,6 +3184,30 @@ var _ = Describe("TS Union Generation", func() {
 			ToNotContain(`PROOF_TYPES`, `proofTypeZ`, `export type ProofType`)
 	})
 
+	It("Should import a borrowed enum from another namespace", func(ctx SpecContext) {
+		loader.Add("schemas/auth", `
+			@ts output "client/ts/src/auth"
+
+			Method enum {
+				password = "password"
+			}
+		`)
+		source := `
+			import "schemas/auth"
+
+			@ts output "client/ts/src/login"
+
+			Credentials struct { username string }
+
+			Proof union on method auth.Method {
+				password Credentials
+			}
+		`
+		resp := MustGenerate(ctx, source, "login", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(`import { auth } from "@/auth"`, `[K in auth.Method]`)
+	})
+
 	Describe("Lazy variants", func() {
 		unionSource := func(count int) string {
 			var b strings.Builder
