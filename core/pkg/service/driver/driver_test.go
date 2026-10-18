@@ -210,6 +210,35 @@ var _ = Describe("Driver", func() {
 			_, err := driver.Open(ctx, driver.Config{})
 			Expect(err).To(HaveOccurred())
 		})
+
+		It(
+			"should return when the context is canceled during startup",
+			func(ctx SpecContext) {
+				cfg := driver.Config{
+					DB:        node.DB,
+					Rack:      rackService,
+					Task:      taskService,
+					Framer:    framerSvc,
+					Channel:   channelSvc,
+					Status:    statusSvc,
+					Factories: []driver.Factory{&mockFactory{name: "test"}},
+					Host:      hostProvider,
+				}
+				Expect(MustSucceed(driver.Open(ctx, cfg)).Close()).To(Succeed())
+				t := newTask(embeddedRackKey(ctx))
+				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				cCtx, cancel := context.WithCancel(ctx)
+				cfg.Factories = []driver.Factory{&mockFactory{
+					name: "test",
+					configureFunc: func(context.Context, task.Task) (driver.Task, error) {
+						cancel()
+						return nil, driver.ErrTaskNotHandled
+					},
+				}}
+				Expect(driver.Open(cCtx, cfg)).Error().To(MatchError(context.Canceled))
+			},
+			NodeTimeout(10*time.Second),
+		)
 	})
 
 	Describe("Task Management", func() {

@@ -176,6 +176,7 @@ var _ = Describe("Status", Ordered, func() {
 				"Should rename a status, keeping every other field",
 				func(ctx SpecContext) {
 					type details struct {
+						// Device is the key of the device the status reports on.
 						Device string `json:"device" msgpack:"device"`
 					}
 					s := &status.Status[details]{
