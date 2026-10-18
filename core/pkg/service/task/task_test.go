@@ -997,7 +997,11 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				Expect(w.Create(ctx, t)).To(Succeed())
 
-				reconfigured := &task.Task{Key: t.Key, Name: "After Task", Type: testType}
+				reconfigured := &task.Task{
+					Key:  t.Key,
+					Name: "After Task",
+					Type: testType,
+				}
 				Expect(w.Create(ctx, reconfigured)).To(Succeed())
 				Expect(reconfigured.Status.Name).To(Equal("After Task"))
 
@@ -1008,6 +1012,17 @@ var _ = Describe("Task", Ordered, func() {
 					Exec(ctx, tx)).To(Succeed())
 				Expect(renamed.Name).To(Equal("After Task"))
 				Expect(renamed.Message).To(Equal("Task is running"))
+			},
+		)
+
+		It(
+			"Should re-configure a task with an empty name",
+			func(ctx SpecContext) {
+				t := &task.Task{Type: testType, Rack: testRack.Key, Name: "Named Task"}
+				Expect(w.Create(ctx, t)).To(Succeed())
+				reconfigured := &task.Task{Key: t.Key, Type: testType}
+				Expect(w.Create(ctx, reconfigured)).To(Succeed())
+				Expect(reconfigured.Status.Name).To(BeEmpty())
 			},
 		)
 
