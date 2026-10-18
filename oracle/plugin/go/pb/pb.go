@@ -1854,7 +1854,7 @@ func (p *Plugin) generateArrayConversion(
 		return result, nil
 	}()`, uuidGoName, uuidGoName, pbField, pbField, uuidGoName)
 		return fmt.Sprintf(
-				"lo.Map(%s, func(u %s, _ int) string { return u.String() })",
+				"lo.Map(%s, func(u %s, _ int) string { return uuid.UUID(u).String() })",
 				goField,
 				uuidGoName,
 			),

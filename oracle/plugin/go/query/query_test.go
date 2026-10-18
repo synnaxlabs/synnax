@@ -10,8 +10,6 @@
 package query_test
 
 import (
-	"strings"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/go/query"
@@ -117,6 +115,35 @@ var _ = Describe("Go Query Plugin", func() {
 						"func (r Retrieve) Search(term string) Retrieve",
 					)
 			})
+
+			It(
+				"Should reject two @retrieve types in one output",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/view"
+
+					Base struct {
+						key uuid @key
+					}
+
+					View union on type extends Base {
+						first {
+							size int32
+						}
+						@retrieve
+					}
+
+					Other struct {
+						key uuid @key
+						@retrieve
+					}
+				`
+					req := MustGenerateRequest(ctx, source, "view", loader)
+					Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+						"only one @retrieve type is allowed per output, found 2",
+					)))
+				},
+			)
 
 			It("Should reject a @filter on a union field", func(ctx SpecContext) {
 				source := `
@@ -934,34 +961,25 @@ var _ = Describe("Go Query Plugin", func() {
 
 		Context("multiple structs in same output", func() {
 			It(
-				"Should generate methods for both structs in one file",
+				"Should reject two @retrieve structs in one output",
 				func(ctx SpecContext) {
 					source := `
 					@go output "core/pkg/service/views"
 
 					LinePlot struct {
-						key uuid {
-							@key
-						}
-						name string
-						@ontology type "lineplot"
+						key uuid @key
 						@retrieve
 					}
 
 					Table struct {
-						key uuid {
-							@key
-						}
-						data string
-						@ontology type "table"
+						key uuid @key
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "views", loader, p)
-					Expect(resp.Files).To(HaveLen(1))
-
-					content := MustContentOf(resp, "retrieve.gen.go")
-					Expect(strings.Count(content, "type Retrieve struct")).To(Equal(2))
+					req := MustGenerateRequest(ctx, source, "views", loader)
+					Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+						"only one @retrieve type is allowed per output, found 2",
+					)))
 				},
 			)
 		})

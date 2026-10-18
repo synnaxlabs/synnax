@@ -1480,13 +1480,16 @@ func (p *Plugin) extractOntology(
 	unions := lo.Filter(table.UnionTypes(), func(typ resolution.Type, _ int) bool {
 		return output.GetPath(typ, "cpp") == data.OutputPath
 	})
-	ontData := ontology.Extract(slices.Concat(structs, unions), rawKeyFields, skip)
-	if ontData == nil || len(rawKeyFields) == 0 {
+	ontData := ontology.Extract(
+		slices.Concat(structs, unions),
+		rawKeyFields,
+		skip,
+		table,
+	)
+	if ontData == nil {
 		return nil
 	}
-
-	// Determine the C++ key type name
-	keyType := "Key" // Default - most schemas define a Key type
+	keyType := p.typeRefToCpp(ontData.KeyField.Type, data)
 
 	// Determine key conversion based on the underlying primitive type
 	primitive := ontData.KeyField.Primitive

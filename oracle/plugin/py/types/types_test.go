@@ -1190,6 +1190,34 @@ var _ = Describe("Python Types Plugin", func() {
 			})
 		})
 
+		Context("ontology on a union with a split base", func() {
+			It(
+				"Should generate ontology_id when the base has another output",
+				func(ctx SpecContext) {
+					source := `
+					@py output "out"
+
+					Key uuid
+
+					Base struct {
+						key Key @key
+						@py output "out/base"
+					}
+
+					View union on type extends Base {
+						first {
+							name string
+						}
+						@ontology type "view"
+					}
+				`
+					resp := MustGenerate(ctx, source, "view", loader, typesPlugin)
+					ExpectContent(resp, "out/types_gen.py").
+						ToContain(`ONTOLOGY_TYPE = ID(type="view")`)
+				},
+			)
+		})
+
 		Context("type aliases", func() {
 			It(
 				"Should generate TypeAlias for simple type alias",

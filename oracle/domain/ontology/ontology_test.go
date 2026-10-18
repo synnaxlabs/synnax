@@ -28,7 +28,7 @@ var _ = Describe("Extract", func() {
 				}}},
 			},
 		}}
-		Expect(ontology.Extract(types, nil, nil)).To(BeNil())
+		Expect(ontology.Extract(types, nil, nil, nil)).To(BeNil())
 	})
 
 	It("should return nil when no type has ontology domain", func() {
@@ -37,7 +37,7 @@ var _ = Describe("Extract", func() {
 			Domains: map[string]resolution.Domain{},
 		}}
 		keyFields := []key.Field{{Name: "key", Primitive: "uuid"}}
-		Expect(ontology.Extract(types, keyFields, nil)).To(BeNil())
+		Expect(ontology.Extract(types, keyFields, nil, nil)).To(BeNil())
 	})
 
 	It("should return nil when ontology has no type expression", func() {
@@ -48,7 +48,7 @@ var _ = Describe("Extract", func() {
 			},
 		}}
 		keyFields := []key.Field{{Name: "key", Primitive: "uuid"}}
-		Expect(ontology.Extract(types, keyFields, nil)).To(BeNil())
+		Expect(ontology.Extract(types, keyFields, nil, nil)).To(BeNil())
 	})
 
 	It("should extract ontology data", func() {
@@ -63,7 +63,7 @@ var _ = Describe("Extract", func() {
 			},
 		}}
 		keyFields := []key.Field{{Name: "key", Primitive: "uuid"}}
-		result := ontology.Extract(types, keyFields, nil)
+		result := ontology.Extract(types, keyFields, nil, nil)
 		Expect(result).NotTo(BeNil())
 		Expect(result.TypeName).To(Equal("user"))
 		Expect(result.StructName).To(Equal("User"))
@@ -71,10 +71,23 @@ var _ = Describe("Extract", func() {
 		Expect(result.KeyField.Primitive).To(Equal("uuid"))
 	})
 
-	It("should extract ontology data from a union", func() {
+	It("should take a union's key from its base", func() {
+		table := resolution.NewTable()
+		Expect(table.Add(resolution.Type{
+			Name:          "Base",
+			Namespace:     "view",
+			QualifiedName: "view.Base",
+			Form: resolution.StructForm{Fields: []resolution.Field{{
+				Name:    "key",
+				Type:    resolution.TypeRef{Name: "uuid"},
+				Domains: map[string]resolution.Domain{"key": {}},
+			}}},
+		})).To(Succeed())
 		types := []resolution.Type{{
 			Name: "View",
-			Form: resolution.UnionForm{},
+			Form: resolution.UnionForm{
+				Extends: []resolution.TypeRef{{Name: "view.Base"}},
+			},
 			Domains: map[string]resolution.Domain{
 				"ontology": {Expressions: []resolution.Expression{{
 					Name:   "type",
@@ -82,11 +95,12 @@ var _ = Describe("Extract", func() {
 				}}},
 			},
 		}}
-		keyFields := []key.Field{{Name: "key", Primitive: "uuid"}}
-		result := ontology.Extract(types, keyFields, nil)
+		result := ontology.Extract(types, nil, nil, table)
 		Expect(result).NotTo(BeNil())
 		Expect(result.TypeName).To(Equal("view"))
 		Expect(result.StructName).To(Equal("View"))
+		Expect(result.KeyField.Name).To(Equal("key"))
+		Expect(result.KeyField.Primitive).To(Equal("uuid"))
 	})
 
 	It("should skip types when skip function returns true", func() {
@@ -102,7 +116,7 @@ var _ = Describe("Extract", func() {
 		}}
 		keyFields := []key.Field{{Name: "key", Primitive: "uuid"}}
 		skip := func(t resolution.Type) bool { return t.Name == "Skipped" }
-		Expect(ontology.Extract(types, keyFields, skip)).To(BeNil())
+		Expect(ontology.Extract(types, keyFields, skip, nil)).To(BeNil())
 	})
 
 	It("should use first matching type with ontology domain", func() {
@@ -124,7 +138,7 @@ var _ = Describe("Extract", func() {
 			},
 		}
 		keyFields := []key.Field{{Name: "key", Primitive: "uint32"}}
-		result := ontology.Extract(types, keyFields, nil)
+		result := ontology.Extract(types, keyFields, nil, nil)
 		Expect(result.StructName).To(Equal("Second"))
 		Expect(result.TypeName).To(Equal("task"))
 	})

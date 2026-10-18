@@ -2124,6 +2124,27 @@ var _ = Describe("C++ Union Generation", func() {
 			)
 	})
 
+	It("Should type union ontology helpers by a primitive key", func(ctx SpecContext) {
+		source := `
+			@cpp output "out"
+
+			Base struct {
+				key uuid @key
+			}
+
+			View union on type extends Base {
+				first {
+					name string
+				}
+
+				@ontology type "view"
+			}
+		`
+		resp := MustGenerate(ctx, source, "view", loader, cppPlugin)
+		ExpectContent(resp, "types.gen.h").
+			ToContain(`ontology_id(const x::uuid::UUID& key)`)
+	})
+
 	It(
 		"Should declare inline variant fields directly on the variant struct",
 		func(ctx SpecContext) {
