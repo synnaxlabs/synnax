@@ -28,6 +28,7 @@ x::errors::Error Manager::open_streamer() {
         synnax::task::DELETE_CHANNEL,
         synnax::task::CMD_CHANNEL,
         synnax::control::CHANNEL_NAME,
+        synnax::rack::SET_CHANNEL,
     };
 
     auto [channels, retrieve_err] = this->ctx->client->channels.retrieve(chan_names);
@@ -46,6 +47,8 @@ x::errors::Error Manager::open_streamer() {
             this->channels.task_cmd = channel;
         else if (channel.name == synnax::control::CHANNEL_NAME)
             this->channels.control_state = channel;
+        else if (channel.name == synnax::rack::SET_CHANNEL)
+            this->channels.rack_set = channel;
 
     if (this->exit_early) return x::errors::NIL;
     // The open runs unlocked: it blocks on the network, and the workers, the
@@ -56,7 +59,8 @@ x::errors::Error Manager::open_streamer() {
                 this->channels.task_set.key,
                 this->channels.task_delete.key,
                 this->channels.task_cmd.key,
-                this->channels.control_state.key
+                this->channels.control_state.key,
+                this->channels.rack_set.key,
             }
         }
     );
@@ -188,6 +192,8 @@ x::errors::Error Manager::run(std::function<void()> on_started) {
                 this->process_task_cmd(series);
             else if (key == this->channels.control_state.key)
                 this->control_states_->apply(series);
+            else if (key == this->channels.rack_set.key)
+                this->process_rack_set(series);
         }
     } while (true);
     this->stop_all_tasks();
@@ -208,6 +214,19 @@ void Manager::retrieve_initial_control_states() {
         return;
     }
     this->control_states_->set(states);
+}
+
+void Manager::process_rack_set(const x::telem::Series &series) {
+    for (const auto &rack_str: series.strings()) {
+        auto parser = x::json::Parser(rack_str);
+        const auto key = parser.field<synnax::rack::Key>("key");
+        const auto name = parser.field<std::string>("name");
+        if (!parser.ok()) {
+            LOG(WARNING) << "failed to parse rack: " << parser.error_json().dump();
+            continue;
+        }
+        if (key == this->rack.key) this->ctx->set_rack_name(name);
+    }
 }
 
 void Manager::process_task_set(const x::telem::Series &series) {

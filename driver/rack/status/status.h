@@ -72,26 +72,21 @@ public:
         this->ctx->set_status(stat);
         while (breaker.running()) {
             this->loop.wait(breaker);
-            // The rack is re-read on each beat so a rename is never overwritten.
-            auto [rack, rack_err] = this->ctx->client->racks.retrieve(this->rack_key);
-            if (rack_err) {
-                LOG(ERROR) << "[rack_status] error retrieving rack: " << rack_err;
-                continue;
-            }
             synnax::rack::Status status{
-                .key = synnax::rack::ontology_id(rack.key).string(),
-                .name = rack.name,
+                .key = synnax::rack::ontology_id(this->rack_key).string(),
+                .name = this->ctx->rack_name(),
                 .variant = ::synnax::status::VARIANT_SUCCESS,
                 .message = "Driver is running",
                 .time = x::telem::TimeStamp::now(),
-                .details = synnax::rack::StatusDetails{.rack = rack.key}
+                .details = synnax::rack::StatusDetails{.rack = this->rack_key}
             };
             if (const auto err = this->ctx->client->statuses
                                      .set<synnax::rack::StatusDetails>(status);
                 err)
                 LOG(ERROR) << "[rack_status] error updating status: " << err;
             else
-                VLOG(1) << "[rack_status] successfully set status for " << rack;
+                VLOG(1) << "[rack_status] successfully set status for rack "
+                        << this->rack_key;
         }
         stat.message = "Stopped";
         stat.time = x::telem::TimeStamp::now();

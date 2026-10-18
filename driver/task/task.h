@@ -55,6 +55,9 @@ public:
 /// driver. This context provides access to the Synnax client and allows tasks to
 /// easily update their state.
 class Context {
+    std::mutex rack_name_mu;
+    std::string rack_name_;
+
 public:
     /// @brief the client used to communicate with the Synnax server.
     std::shared_ptr<synnax::Synnax> client;
@@ -75,6 +78,18 @@ public:
     /// @brief returns the rack key for this driver, used as the group identity for
     /// Core-side deduplication filtering.
     virtual synnax::rack::Key rack_key() { return 0; }
+
+    /// @brief returns the current name of the driver's rack. Safe for concurrent use.
+    std::string rack_name() {
+        std::lock_guard lock{this->rack_name_mu};
+        return this->rack_name_;
+    }
+
+    /// @brief records a new name for the driver's rack. Safe for concurrent use.
+    void set_rack_name(std::string name) {
+        std::lock_guard lock{this->rack_name_mu};
+        this->rack_name_ = std::move(name);
+    }
 
     /// @brief updates the state of the task in the Synnax cluster.
     virtual void set_status(synnax::task::Status &status) = 0;
@@ -274,7 +289,9 @@ public:
         op_timeout(cfg.op_timeout),
         poll_interval(cfg.poll_interval),
         shutdown_timeout(cfg.shutdown_timeout),
-        worker_count(cfg.worker_count) {}
+        worker_count(cfg.worker_count) {
+        this->ctx->set_rack_name(this->rack.name);
+    }
 
     /// @brief runs the main task manager loop, blocking until stop() is called.
     /// Safe to call stop() from another thread.
@@ -380,6 +397,7 @@ private:
         synnax::channel::Channel task_delete;
         synnax::channel::Channel task_cmd;
         synnax::channel::Channel control_state;
+        synnax::channel::Channel rack_set;
     } channels;
 
     /// @brief opens the streamer for task set/delete/cmd channels.
@@ -391,6 +409,8 @@ private:
     x::errors::Error configure_initial_tasks();
     /// @brief stops all running tasks.
     void stop_all_tasks();
+    /// @brief records a new name for this rack in the shared context.
+    void process_rack_set(const x::telem::Series &series);
     /// @brief refreshes the local row for each changed task. Never deploys or stops;
     /// a rack move is acted on by the next start command.
     void process_task_set(const x::telem::Series &series);

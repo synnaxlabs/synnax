@@ -55,7 +55,7 @@ TEST(stateTests, Nominal) {
     ASSERT_NIL(streamer.close());
 }
 
-/// @brief it should keep a renamed rack's name in later heartbeats.
+/// @brief it should send the context's current rack name in each heartbeat.
 TEST(stateTests, RenamedRack) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
@@ -63,6 +63,7 @@ TEST(stateTests, RenamedRack) {
         client->channels.retrieve(synnax::status::STATUS_SET_CHANNEL_NAME)
     );
     auto ctx = std::make_shared<driver::task::SynnaxContext>(client);
+    ctx->set_rack_name(rack.name);
     auto task = synnax::task::Task{
         .name = "state",
         .type = driver::rack::status::TASK_TYPE,
@@ -89,8 +90,7 @@ TEST(stateTests, RenamedRack) {
     };
     ASSERT_EQ(next_beat_name(), "test_rack");
 
-    rack.name = "renamed_rack";
-    ASSERT_NIL(client->racks.create(rack));
+    ctx->set_rack_name("renamed_rack");
     // A beat in flight during the rename may still carry the old name.
     bool renamed = false;
     for (int i = 0; i < 3 && !renamed; i++)
