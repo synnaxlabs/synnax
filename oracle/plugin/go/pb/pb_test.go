@@ -494,6 +494,52 @@ var _ = Describe("Go PB Plugin", func() {
 					ToContain("r.Keys, err = func() ([]uuid.UUID, error)")
 			})
 
+			It(
+				"Should handle an array of a distinct type over uuid",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/test"
+					@pb
+
+					Key = uuid
+
+					Test struct {
+						keys Key[]
+					}
+				`
+					resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
+					ExpectContent(resp, "translator.gen.go").
+						ToContain(
+							"Keys: lo.Map(r.Keys, func(u test.Key, _ int) string",
+							"r.Keys, err = func() ([]test.Key, error)",
+							"result[i] = test.Key(parsed)",
+						)
+				},
+			)
+
+			It("Should translate an enum array element by element", func(ctx SpecContext) {
+				source := `
+					@go output "core/test"
+					@pb
+
+					Variant enum {
+						success = "success"
+						error = "error"
+					}
+
+					Test struct {
+						variants Variant[]
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"lo.MapErr(r.Variants, func(v test.Variant, _ int) (Variant, error) { return VariantToPB(v) })",
+						"lo.MapErr(pb.Variants, func(v Variant, _ int) (test.Variant, error) { return VariantFromPB(v) })",
+						"func VariantToPB(",
+					)
+			})
+
 			It("Should handle string array passthrough", func(ctx SpecContext) {
 				source := `
 					@go output "core/test"
