@@ -29,6 +29,7 @@ const createReqZ = z.object({ views: viewZ.array() });
 const createResZ = z.object({ views: viewZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
+const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
@@ -108,7 +109,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Vi
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const v = await this.retrieve(key);
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
       this.cfg.ontology.cache.renameResource(ontologyID(key), name),
@@ -116,9 +116,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Vi
     await query.optimistic({
       rollbacks: rename(),
       onOptimistic: opts.onOptimistic,
-      commit: async () => {
-        await this.create({ ...v, name });
-      },
+      commit: async () =>
+        await this.cfg.unary.send("/view/rename", { key, name }, renameReqZ, emptyResZ),
     });
     rename();
   }

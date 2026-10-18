@@ -16,7 +16,7 @@ import { group } from "@/group";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { status } from "@/status";
-import { createTestClient, expectLive, spyOnSend } from "@/testutil";
+import { createTestClient, expectLive, spyOnSend, waitForStreamLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -416,6 +416,58 @@ describe("Status", () => {
       expect(retrieved.details).toBeDefined();
       expect(retrieved.details.name).toBe(s.details.name);
       expect(retrieved.details.key).toBe(s.details.key);
+    });
+  });
+
+  describe("rename", () => {
+    it("should rename a status and keep its other fields", async () => {
+      const key = `status-rename-${id.create()}`;
+      await client.statuses.set({
+        name: "status-rename",
+        key,
+        variant: "warning",
+        message: "keep me",
+        time: TimeStamp.now(),
+      });
+      await client.statuses.rename(key, "status-renamed");
+      const retrieved = await client.statuses.retrieve({ key });
+      expect(retrieved.name).toBe("status-renamed");
+      expect(retrieved.variant).toBe("warning");
+      expect(retrieved.message).toBe("keep me");
+    });
+    it("should update the cache of another client", async () => {
+      const remote = createTestClient();
+      const key = `status-rename-remote-${id.create()}`;
+      await client.statuses.set({
+        name: "status-rename-remote",
+        key,
+        variant: "info",
+        message: "",
+        time: TimeStamp.now(),
+      });
+      expect((await client.statuses.retrieve({ key })).name).toBe(
+        "status-rename-remote",
+      );
+      const name = `status-renamed-${id.create()}`;
+      await waitForStreamLive(client.connection);
+      await remote.statuses.rename(key, name);
+      await expect
+        .poll(async () => (await client.statuses.retrieve({ key })).name)
+        .toBe(name);
+    });
+    it("should reject an empty name", async () => {
+      const key = `status-rename-empty-${id.create()}`;
+      await client.statuses.set({
+        name: "status-rename-empty",
+        key,
+        variant: "info",
+        message: "",
+        time: TimeStamp.now(),
+      });
+      await expect(client.statuses.rename(key, "")).rejects.toThrow();
+      expect((await client.statuses.retrieve({ key })).name).toBe(
+        "status-rename-empty",
+      );
     });
   });
 

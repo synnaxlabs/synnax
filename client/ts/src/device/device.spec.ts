@@ -14,7 +14,7 @@ import { z } from "zod";
 import { device } from "@/device";
 import { NotFoundError } from "@/errors";
 import { query } from "@/query";
-import { createTestClient, expectLive, spyOnSend } from "@/testutil";
+import { createTestClient, expectLive, spyOnSend, waitForStreamLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -151,6 +151,44 @@ describe("Device", async () => {
     const retrieved = await client.devices.retrieve(d.key);
     expect(retrieved.key).toEqual(d.key);
     expect(retrieved.properties).toEqual(properties);
+  });
+
+  describe("rename", () => {
+    const createDevice = async (name: string) =>
+      await client.devices.create({
+        rack: testRack.key,
+        location: "Dev1",
+        key: id.create(),
+        name,
+        make: "ni",
+        model: "dog",
+        properties: { cat: "dog" },
+      });
+    it("should rename a device and keep its properties", async () => {
+      const d = await createDevice("device-rename");
+      await client.devices.rename(d.key, "device-renamed");
+      const retrieved = await client.devices.retrieve(d.key);
+      expect(retrieved.name).toBe("device-renamed");
+      expect(retrieved.properties).toEqual({ cat: "dog" });
+      expect(retrieved.make).toBe("ni");
+      expect(retrieved.rack).toBe(testRack.key);
+    });
+    it("should update the cache of another client", async () => {
+      const remote = createTestClient();
+      const d = await createDevice("device-rename-remote");
+      expect((await client.devices.retrieve(d.key)).name).toBe("device-rename-remote");
+      const name = `device-renamed-${id.create()}`;
+      await waitForStreamLive(client.connection);
+      await remote.devices.rename(d.key, name);
+      await expect
+        .poll(async () => (await client.devices.retrieve(d.key)).name)
+        .toBe(name);
+    });
+    it("should reject an empty name", async () => {
+      const d = await createDevice("device-rename-empty");
+      await expect(client.devices.rename(d.key, "")).rejects.toThrow();
+      expect((await client.devices.retrieve(d.key)).name).toBe("device-rename-empty");
+    });
   });
 
   describe("retrieve", () => {
