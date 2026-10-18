@@ -9,7 +9,7 @@
 
 // Package password authenticates subjects by username and password. It stores one
 // [Password] per subject and implements [auth.Authenticator] for
-// [auth.PasswordProofType].
+// [auth.MethodPassword].
 package password
 
 import (
@@ -178,7 +178,6 @@ func (s *Service) Authenticate(
 	}
 	return auth.Identity{
 		Subject:    p.Subject,
-		Method:     auth.PasswordProofType,
 		Credential: p.Key,
 	}, nil
 }

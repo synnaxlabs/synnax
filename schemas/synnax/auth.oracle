@@ -9,6 +9,12 @@
 
 @go output "core/pkg/service/auth"
 
+Method enum {
+    password = "password"
+
+    @doc value "names an authentication method."
+}
+
 Credentials struct {
     username string {
         @doc value         "is the login name of the password being proven."
@@ -22,7 +28,7 @@ Credentials struct {
     @doc value "is a plaintext username and password pair presented at login."
 }
 
-Proof union on method {
+Proof union on method Method {
     password Credentials {
         @doc value "proves a password."
     }

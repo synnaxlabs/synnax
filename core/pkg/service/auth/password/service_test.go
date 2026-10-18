@@ -225,7 +225,6 @@ var _ = Describe("Service", func() {
 		It("Should return the identity the password proves", func(ctx SpecContext) {
 			identity := MustSucceed(svc.Authenticate(ctx, proof(username, "secret")))
 			Expect(identity.Subject).To(Equal(alice))
-			Expect(identity.Method).To(Equal(auth.PasswordProofType))
 			var p password.Password
 			Expect(svc.NewRetrieve().Where(password.MatchSubjects(alice)).Entry(&p).
 				Exec(ctx, nil)).To(Succeed())

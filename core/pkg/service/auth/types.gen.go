@@ -19,6 +19,22 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Method names an authentication method.
+type Method string
+
+const MethodPassword Method = "password"
+
+// IsValid reports whether m is one of the defined Method
+// values.
+func (m Method) IsValid() bool {
+	switch m {
+	case MethodPassword:
+		return true
+	default:
+		return false
+	}
+}
+
 // Credentials is a plaintext username and password pair presented at login.
 type Credentials struct {
 	// Username is the login name of the password being proven.
@@ -35,12 +51,6 @@ func (c Credentials) Validate() error {
 	v.NotEmptyString("password", c.Password)
 	return v.Error()
 }
-
-type ProofType string
-
-const (
-	PasswordProofType ProofType = "password"
-)
 
 type ProofVariant interface {
 	isProofVariant()
@@ -74,9 +84,9 @@ func (u Proof) MarshalJSONTo(enc *jsontext.Encoder) error {
 		return enc.WriteToken(jsontext.Null)
 	case PasswordProof:
 		return json.MarshalEncode(enc, struct {
-			Type ProofType `json:"method"`
+			Type Method `json:"method"`
 			PasswordProof
-		}{Type: PasswordProofType, PasswordProof: v})
+		}{Type: MethodPassword, PasswordProof: v})
 	default:
 		return errors.Newf("Proof: unknown variant %T", v)
 	}
@@ -94,13 +104,13 @@ func (u *Proof) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	}
 	opts := dec.Options()
 	var disc struct {
-		Type ProofType `json:"method"`
+		Type Method `json:"method"`
 	}
 	if err := json.Unmarshal(data, &disc, opts); err != nil {
 		return err
 	}
 	switch disc.Type {
-	case PasswordProofType:
+	case MethodPassword:
 		var v PasswordProof
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err

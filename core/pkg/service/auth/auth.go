@@ -29,8 +29,6 @@ func (c Credentials) IsZero() bool { return c == Credentials{} }
 type Identity struct {
 	// Subject is the user or rack that logged in.
 	Subject ontology.ID
-	// Method is the method the proof used.
-	Method ProofType
 	// Credential is the key of the credential record the proof matched.
 	Credential uuid.UUID
 }
