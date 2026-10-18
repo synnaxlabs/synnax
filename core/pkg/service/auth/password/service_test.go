@@ -54,9 +54,9 @@ func storedHash(
 	return p.Hash
 }
 
-// seedHash stores a password row with the given hash, bypassing the writer so a spec
+// createHash stores a password row with the given hash, bypassing the writer so a spec
 // can plant a hash made by any algorithm.
-func seedHash(
+func createHash(
 	ctx context.Context,
 	db *gorp.DB,
 	subject ontology.ID,
@@ -120,9 +120,9 @@ var _ = Describe("OpenService", func() {
 			db    *gorp.DB
 			alice = subject()
 		)
-		// seedLegacy writes credential rows in the untagged MessagePack shape a Core
+		// createLegacy writes credential rows in the untagged MessagePack shape a Core
 		// before 0.59 persisted.
-		seedLegacy := func(ctx context.Context, kvDB kv.DB, hash []byte) {
+		createLegacy := func(ctx context.Context, kvDB kv.DB, hash []byte) {
 			GinkgoHelper()
 			legacyDB := gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec))
 			Expect(gorp.WrapWriter[string, authv0.SecureCredentials](legacyDB).Set(ctx,
@@ -142,7 +142,7 @@ var _ = Describe("OpenService", func() {
 			hash := MustSucceed(
 				bcrypt.GenerateFromPassword([]byte("p"), bcrypt.MinCost),
 			)
-			seedLegacy(ctx, kvDB, hash)
+			createLegacy(ctx, kvDB, hash)
 		})
 		noCredentials := func(ctx context.Context, username string) {
 			GinkgoHelper()
@@ -234,10 +234,10 @@ var _ = Describe("Service", func() {
 		It(
 			"Should return the same error for a wrong password and an unknown username",
 			func(ctx SpecContext) {
-				_, wrongPassword := svc.Authenticate(ctx, proof(username, "wrong"))
-				_, unknownUser := svc.Authenticate(ctx, proof("nobody", "secret"))
-				Expect(wrongPassword).To(MatchError(auth.ErrInvalidCredentials))
-				Expect(unknownUser).To(Equal(wrongPassword))
+				Expect(svc.Authenticate(ctx, proof(username, "wrong"))).Error().
+					To(MatchError(auth.ErrInvalidCredentials))
+				Expect(svc.Authenticate(ctx, proof("nobody", "secret"))).Error().
+					To(MatchError(auth.ErrInvalidCredentials))
 			},
 		)
 		It("Should reject a proof of another method", func(ctx SpecContext) {
@@ -255,7 +255,7 @@ var _ = Describe("Service", func() {
 				hash := MustSucceed(
 					bcrypt.GenerateFromPassword([]byte("p"), bcrypt.MinCost),
 				)
-				seedHash(ctx, db, bob, uuid.New().String(), hash)
+				createHash(ctx, db, bob, uuid.New().String(), hash)
 				var p password.Password
 				Expect(svc.NewRetrieve().Where(password.MatchSubjects(bob)).Entry(&p).
 					Exec(ctx, nil)).To(Succeed())
@@ -274,10 +274,11 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				bob := subject()
 				name := uuid.New().String()
-				seedHash(ctx, db, bob, name, []byte("$argon2id$garbage"))
-				_, err := svc.Authenticate(ctx, proof(name, "p"))
-				Expect(err).To(MatchError(ContainSubstring("malformed")))
-				Expect(err).ToNot(MatchError(auth.ErrInvalidCredentials))
+				createHash(ctx, db, bob, name, []byte("$argon2id$garbage"))
+				Expect(svc.Authenticate(ctx, proof(name, "p"))).Error().To(SatisfyAll(
+					MatchError(ContainSubstring("malformed")),
+					Not(MatchError(auth.ErrInvalidCredentials)),
+				))
 			},
 		)
 	})
@@ -314,7 +315,7 @@ var _ = Describe("Service with FIPS", func() {
 	It("Should refuse a bcrypt hash", func(ctx SpecContext) {
 		name := uuid.New().String()
 		hash := MustSucceed(bcrypt.GenerateFromPassword([]byte("p"), bcrypt.MinCost))
-		seedHash(ctx, db, subject(), name, hash)
+		createHash(ctx, db, subject(), name, hash)
 		Expect(svc.Authenticate(ctx, proof(name, "p"))).Error().To(SatisfyAll(
 			MatchError(auth.ErrInvalidCredentials),
 			MatchError(ContainSubstring("does not accept")),

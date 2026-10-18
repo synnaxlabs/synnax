@@ -12,6 +12,7 @@
 package password
 
 import (
+	"bytes"
 	"context"
 
 	"github.com/synnaxlabs/alamos"
@@ -24,7 +25,6 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 // SubjectLookup resolves the subject that owns a username. It is called once per
@@ -171,7 +171,7 @@ func (s *Service) Authenticate(
 		return auth.Identity{}, err
 	}
 	if h != s.current {
-		if err := s.rehash(ctx, p, creds.Password); err != nil {
+		if err := s.rehash(ctx, p.Key, p.Hash, creds.Password); err != nil {
 			return auth.Identity{}, err
 		}
 	}
@@ -196,19 +196,28 @@ func (s *Service) hasherFor(hash []byte) (hasher, bool) {
 	return nil, false
 }
 
-func (s *Service) rehash(ctx context.Context, p Password, plaintext string) error {
+// rehash stores the password again with the current algorithm. It leaves the record
+// alone when the stored hash is no longer checked, because a password change landed in
+// between.
+func (s *Service) rehash(
+	ctx context.Context,
+	key Key,
+	checked []byte,
+	plaintext string,
+) error {
 	hash, err := s.current.hash(plaintext)
 	if err != nil {
 		return err
 	}
-	s.cfg.L.Info("storing password with the current algorithm",
-		zap.String("username", p.Username),
-	)
-	return s.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, Password](p.Key)).
-		Change(func(_ gorp.Context, p Password) Password {
-			p.Hash = hash
-			return p
-		}).
-		Exec(ctx, s.cfg.DB)
+	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.table.NewUpdate().
+			Where(gorp.MatchKeys[Key, Password](key)).
+			Change(func(_ gorp.Context, p Password) Password {
+				if bytes.Equal(p.Hash, checked) {
+					p.Hash = hash
+				}
+				return p
+			}).
+			Exec(ctx, tx)
+	})
 }

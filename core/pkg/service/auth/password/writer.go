@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer sets, renames, and deletes passwords in one transaction. It makes no identity
@@ -64,6 +65,35 @@ func (w Writer) Set(
 		Where(gorp.MatchKeys[Key, Password](p.Key)).
 		Change(func(_ gorp.Context, p Password) Password {
 			p.Username = creds.Username
+			p.Hash = hash
+			p.Created = telem.Now()
+			return p
+		}).
+		Exec(ctx, w.tx)
+}
+
+// ChangePassword replaces the subject's password and keeps its username. It returns an
+// error wrapping query.ErrNotFound when the subject has no password and a validation
+// error when password is empty.
+func (w Writer) ChangePassword(
+	ctx context.Context,
+	subject ontology.ID,
+	password string,
+) error {
+	if password == "" {
+		return errors.Wrap(validate.ErrValidation, "password: required")
+	}
+	hash, err := w.svc.current.hash(password)
+	if err != nil {
+		return err
+	}
+	p, err := w.retrieve(ctx, subject)
+	if err != nil {
+		return err
+	}
+	return w.svc.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Password](p.Key)).
+		Change(func(_ gorp.Context, p Password) Password {
 			p.Hash = hash
 			p.Created = telem.Now()
 			return p

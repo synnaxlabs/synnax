@@ -85,6 +85,31 @@ var _ = Describe("Writer", func() {
 				To(MatchError(ContainSubstring("password: required")))
 		})
 	})
+	Describe("ChangePassword", func() {
+		It("Should replace the hash and keep the username", func(ctx SpecContext) {
+			before := retrieve(ctx, alice)
+			Expect(w.ChangePassword(ctx, alice, "q")).To(Succeed())
+			after := retrieve(ctx, alice)
+			Expect(after.Key).To(Equal(before.Key))
+			Expect(after.Username).To(Equal(name))
+			Expect(after.Hash).ToNot(Equal(before.Hash))
+			MustSucceed(svc.Authenticate(ctx, proof(name, "q")))
+			Expect(svc.Authenticate(ctx, proof(name, "p"))).Error().
+				To(MatchError(auth.ErrInvalidCredentials))
+		})
+		It("Should reject an empty password", func(ctx SpecContext) {
+			Expect(w.ChangePassword(ctx, alice, "")).
+				To(MatchError(ContainSubstring("password: required")))
+		})
+		It(
+			"Should return not found for a subject without a password",
+			func(ctx SpecContext) {
+				Expect(
+					w.ChangePassword(ctx, subject(), "q"),
+				).To(MatchError(query.ErrNotFound))
+			},
+		)
+	})
 	Describe("Rename", func() {
 		It("Should change the username", func(ctx SpecContext) {
 			renamed := uuid.New().String()

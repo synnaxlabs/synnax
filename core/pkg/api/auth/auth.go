@@ -125,10 +125,8 @@ func (s *Service) ChangePassword(
 	if err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, s.password.NewWriter(tx).Set(ctx, identity.Subject, Credentials{
-		Username: req.Username,
-		Password: req.NewPassword,
-	})
+	return struct{}{}, s.password.NewWriter(tx).
+		ChangePassword(ctx, identity.Subject, req.NewPassword)
 }
 
 func (s *Service) authenticate(
