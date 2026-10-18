@@ -58,6 +58,8 @@ type instance struct {
 type commandSink struct {
 	confluence.UnarySink[framer.StreamerResponse]
 	driver *Driver
+	// open is closed on the streamer's open acknowledgment.
+	open chan struct{}
 }
 
 // Open creates and starts a new Go driver. The driver is fully initialized and ready to
@@ -144,14 +146,16 @@ func (d *Driver) startCommandStreaming(ctx context.Context) error {
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
 	d.closer = append(d.closer, signal.NewGracefulShutdown(sCtx, cancel))
 	streamer, err := d.cfg.Framer.NewStreamer(ctx, framer.StreamerConfig{
-		Keys: channel.Keys{d.cfg.Task.CommandChannelKey()},
+		Keys:        channel.Keys{d.cfg.Task.CommandChannelKey()},
+		SendOpenAck: true,
 	})
 	if err != nil {
 		return err
 	}
 	p := plumber.New()
 	p.SetSegment[framer.StreamerRequest, framer.StreamerResponse]("streamer", streamer)
-	sink := &commandSink{driver: d}
+	open := make(chan struct{})
+	sink := &commandSink{driver: d, open: open}
 	sink.Sink = sink.process
 	p.SetSink[framer.StreamerResponse]("driver", sink)
 	p.MustConnect[framer.StreamerResponse]("streamer", "driver", 10)
@@ -163,10 +167,20 @@ func (d *Driver) startCommandStreaming(ctx context.Context) error {
 		confluence.CloseOutputInletsOnExit(),
 		confluence.RecoverWithErrOnPanic(),
 	)
-	return nil
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-open:
+		return nil
+	}
 }
 
 func (s *commandSink) process(ctx context.Context, res framer.StreamerResponse) error {
+	if s.open != nil {
+		close(s.open)
+		s.open = nil
+		return nil
+	}
 	s.driver.processCommand(ctx, res.Frame)
 	return nil
 }
