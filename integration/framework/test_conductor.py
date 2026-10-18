@@ -16,6 +16,7 @@ import string
 import sys
 import threading
 import time
+import traceback
 from collections.abc import Callable
 from datetime import datetime, timezone
 from enum import Enum, auto
@@ -516,7 +517,8 @@ All matching is case-insensitive substring.
         conductor.log("Keyboard interrupt received. Shutting down gracefully...")
         conductor.shutdown()
     except Exception as e:
-        conductor.log(f"Error occurred: {e}")
+        # os._exit in finally skips Python's traceback, so log the chain here.
+        conductor.log("Error occurred:\n" + "".join(traceback.format_exception(e)))
         conductor.shutdown()
         raise
     finally:
