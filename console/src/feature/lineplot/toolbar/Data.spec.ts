@@ -16,7 +16,7 @@ import { client, renderLinePlot } from "@/feature/lineplot/testutil";
 import { Toolbar } from "@/feature/lineplot/toolbar";
 import { Range } from "@/platform/range";
 
-const PLACEHOLDER = "1h 30m";
+const PLACEHOLDER = "1h 30min";
 
 const renderData = async (ranges?: lineplot.New["ranges"]) => {
   const handle = await renderLinePlot(Toolbar, {

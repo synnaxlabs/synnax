@@ -15,7 +15,7 @@ import { type ReactElement, useCallback } from "react";
 
 // SY-4816: Static range entry, when added, should stop at 1s, which also simplifies
 // its selector and UX.
-/** Parses a positive duration like "45min" or "1h 30m" into nanoseconds. */
+/** Parses a positive duration like "45min" or "1h 30min" into nanoseconds. */
 export const parseSpan = (input: string): number | null => {
   const span = TimeSpan.parse(input);
   return span == null || span.isZero ? null : Number(span);
@@ -42,7 +42,7 @@ export const CustomRangeInput = (): ReactElement => {
         onChange={handleChange}
         onlyChangeOnBlur
         resetOnBlurIfEmpty
-        placeholder="1h 30m"
+        placeholder="1h 30min"
         grow
       />
     </Input.Item>

@@ -67,7 +67,7 @@ class Plot(ConsolePage):
         self,
         ranges: list[
             Literal[
-                "Rolling 30s", "Rolling 1m", "Rolling 5m", "Rolling 15m", "Rolling 30m"
+                "Rolling 30s", "Rolling 1min", "Rolling 5min", "Rolling 15min", "Rolling 30min"
             ]
         ],
     ) -> None:
