@@ -70,7 +70,7 @@ func ProvisionRoot(ctx context.Context, cfgs ...RootConfig) (User, error) {
 		return User{}, err
 	}
 	var root User
-	return root, cfg.Users.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+	if err := cfg.Users.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		roots, err := cfg.Users.loadRootUsers(ctx, tx)
 		if err != nil {
 			return err
@@ -91,7 +91,10 @@ func ProvisionRoot(ctx context.Context, cfgs ...RootConfig) (User, error) {
 			}
 		}
 		return cfg.Passwords.NewWriter(tx).Set(ctx, root.OntologyID(), cfg.Credentials)
-	})
+	}); err != nil {
+		return User{}, err
+	}
+	return root, nil
 }
 
 // loadRootUsers returns every user record with RootUser=true.
