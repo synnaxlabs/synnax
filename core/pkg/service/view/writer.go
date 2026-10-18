@@ -11,6 +11,7 @@ package view
 
 import (
 	"context"
+	"strconv"
 	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -78,5 +79,15 @@ func (w Writer) validate(v View) error {
 	vld := validate.New("view.view")
 	vld.NotEmptyString("name", v.Base().Name)
 	vld.NotEmptyString("type", v.Type())
+	if status, ok := v.Variant.(StatusView); ok {
+		for i, variant := range status.Query.Variants {
+			vld.Ternaryf(
+				"query.variants."+strconv.Itoa(i),
+				!variant.IsValid(),
+				"invalid status variant %q",
+				variant,
+			)
+		}
+	}
 	return vld.Error()
 }

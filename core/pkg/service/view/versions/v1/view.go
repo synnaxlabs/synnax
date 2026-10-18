@@ -52,10 +52,13 @@ func (v View) WithKey(key Key) View {
 	return v
 }
 
+// GorpKey returns the view's storage key.
 func (v View) GorpKey() Key { return v.Base().Key }
 
+// SetOptions returns no additional storage options.
 func (View) SetOptions() []any { return nil }
 
+// OntologyID returns the view's ontology identifier.
 func (v View) OntologyID() ontology.ID {
 	return ontology.ID{Type: ontology.ResourceTypeView, Key: v.Base().Key.String()}
 }

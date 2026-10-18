@@ -11,6 +11,7 @@ package v1_test
 
 import (
 	"encoding/json/v2"
+	"io"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -161,7 +162,10 @@ var _ = Describe("View", func() {
 					var decoded v1.View
 					r := orc.NewReader(nil)
 					r.ResetBytes(b[:n])
-					Expect(decoded.DecodeOrc(r)).ToNot(Succeed(), "prefix length %d", n)
+					Expect(decoded.DecodeOrc(r)).To(SatisfyAny(
+						MatchError(io.EOF),
+						MatchError(io.ErrUnexpectedEOF),
+					), "prefix length %d", n)
 				}
 			},
 			Entry("range", v1.View{Variant: v1.RangeView{

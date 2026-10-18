@@ -86,6 +86,17 @@ var _ = Describe("View", func() {
 				Expect(w.Create(ctx, &view.View{})).
 					To(MatchError(ContainSubstring("type: required")))
 			})
+			It(
+				"Should reject a status view with an invalid variant",
+				func(ctx SpecContext) {
+					s := view.View{Variant: view.StatusView{
+						Base:  view.Base{Name: "Bogus"},
+						Query: view.StatusQuery{Variants: []status.Variant{"bogus"}},
+					}}
+					Expect(w.Create(ctx, &s)).
+						To(MatchError(ContainSubstring(`invalid status variant "bogus"`)))
+				},
+			)
 			It("Should reject a view with no name", func(ctx SpecContext) {
 				s := rangeView("")
 				Expect(
