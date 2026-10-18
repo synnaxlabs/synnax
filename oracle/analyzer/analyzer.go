@@ -1297,6 +1297,9 @@ func collectUnion(c *analysisCtx, def parser.IUnionDefContext) {
 	}
 
 	form := resolution.UnionForm{Discriminator: discriminator}
+	if tr := def.TypeRef(); tr != nil {
+		form.Enum = collectTypeRef(tr, nil)
+	}
 
 	if def.EXTENDS() != nil {
 		if typeRefList := def.TypeRefList(); typeRefList != nil {
@@ -1644,6 +1647,9 @@ func resolveTypeRefs(c *analysisCtx, typ *resolution.Type) {
 		}
 		typ.Form = form
 	case resolution.UnionForm:
+		if form.BorrowsEnum() {
+			resolveTypeRef(c, typ, &form.Enum)
+		}
 		for i := range form.Extends {
 			resolveTypeRef(c, typ, &form.Extends[i])
 		}
@@ -2089,6 +2095,64 @@ func validateTypeParams(c *analysisCtx, typ resolution.Type) {
 // Generic variant/base types are permitted but not yet type-checked: an open question
 // for a follow-up that introduces unions parameterized by a type argument applied to
 // every variant.
+// ruleCtx returns the parser rule a type or variant was collected from, or nil when
+// the AST is not one.
+func ruleCtx(ast any) antlr.ParserRuleContext {
+	ctx, _ := ast.(antlr.ParserRuleContext)
+	return ctx
+}
+
+// validateUnionEnum checks the enum a union borrows as its discriminator: it must
+// resolve to a string enum whose members are exactly the union's variant names.
+func validateUnionEnum(c *analysisCtx, typ resolution.Type, form resolution.UnionForm) {
+	if !form.BorrowsEnum() {
+		return
+	}
+	enumType, ok := form.Enum.Resolve(c.table)
+	if !ok {
+		c.report(diagnostics.Errorf(ruleCtx(typ.AST),
+			"union %s borrows unresolved type %s as its discriminator",
+			typ.Name, form.Enum.Name))
+		return
+	}
+	enumForm, isEnum := enumType.Form.(resolution.EnumForm)
+	if !isEnum {
+		c.report(diagnostics.Errorf(ruleCtx(typ.AST),
+			"union %s borrows %s as its discriminator, which is not an enum",
+			typ.Name, enumType.Name))
+		return
+	}
+	if enumForm.IsIntEnum {
+		c.report(diagnostics.Errorf(
+			ruleCtx(typ.AST),
+			"union %s borrows int enum %s as its discriminator; the discriminator is a string",
+			typ.Name,
+			enumType.Name,
+		))
+		return
+	}
+	members := set.New[string]()
+	for _, v := range enumForm.Values {
+		members.Add(v.StringValue())
+	}
+	variants := set.New[string]()
+	for _, v := range form.Variants {
+		variants.Add(v.Name)
+		if !members.Contains(v.Name) {
+			c.report(diagnostics.Errorf(ruleCtx(v.AST),
+				"union %s declares variant %q, which enum %s has no member for",
+				typ.Name, v.Name, enumType.Name))
+		}
+	}
+	for _, v := range enumForm.Values {
+		if !variants.Contains(v.StringValue()) {
+			c.report(diagnostics.Errorf(ruleCtx(typ.AST),
+				"enum %s member %q has no variant in union %s",
+				enumType.Name, v.StringValue(), typ.Name))
+		}
+	}
+}
+
 func validateUnion(c *analysisCtx, typ resolution.Type) {
 	form, ok := typ.Form.(resolution.UnionForm)
 	if !ok {
@@ -2100,6 +2164,8 @@ func validateUnion(c *analysisCtx, typ resolution.Type) {
 		c.report(d)
 		return
 	}
+
+	validateUnionEnum(c, typ, form)
 
 	seenValues := set.New[string]()
 	for _, variant := range form.Variants {

@@ -1411,6 +1411,7 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 {{- end}}
 {{- with .Union}}
 {{- $u := .}}
+{{- if not .BorrowsEnum}}
 
 type {{.DiscType}} string
 
@@ -1419,6 +1420,7 @@ const (
 	{{.ConstName}} {{$u.DiscType}} = "{{.Value}}"
 {{- end}}
 )
+{{- end}}
 
 type {{.InterfaceName}} interface {
 	{{.Marker}}()

@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/domain/omit"
+	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
 	cppnaming "github.com/synnaxlabs/oracle/plugin/cpp/naming"
@@ -86,16 +87,25 @@ func (p *Plugin) processUnion(
 		}
 	}
 
+	enumType, borrows := form.Enum.Resolve(data.table)
+	borrows = borrows && form.BorrowsEnum()
 	variants := make([]structData, 0, len(form.Variants))
 	for _, v := range form.Variants {
 		variantName := cppnaming.VariantTypeName(name, v.Name)
+		discDefault := fmt.Sprintf("%q", v.Name)
+		if borrows {
+			discDefault = p.cppEnumVariantRef(validation.EnumVariant{
+				Type:    enumType,
+				Variant: enumMember(enumType, v.Name),
+			}, data)
+		}
 		sd := structData{
 			Name: variantName,
 			Doc:  doc.Get(v.Domains),
 			Fields: []fieldData{{
 				Name:         discField,
 				CppType:      "std::string",
-				DefaultValue: fmt.Sprintf("%q", v.Name),
+				DefaultValue: discDefault,
 			}},
 		}
 		inherited, declared := resolver.VariantBases(form, v, data.table)
@@ -153,4 +163,15 @@ func (p *Plugin) processUnion(
 		})
 	}
 	return variants, ud
+}
+
+// enumMember returns the member of enumType whose value is value.
+func enumMember(enumType resolution.Type, value string) resolution.EnumValue {
+	form := enumType.Form.(resolution.EnumForm)
+	for _, m := range form.Values {
+		if m.StringValue() == value {
+			return m
+		}
+	}
+	return resolution.EnumValue{Name: value, Value: value}
 }
