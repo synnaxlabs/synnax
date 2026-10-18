@@ -37,7 +37,10 @@ var Mappings = map[string]primitives.Mapping{
 		TargetType: "dict[str, JsonValue]",
 		Imports:    []primitives.Import{{Category: "pydantic", Name: "JsonValue"}},
 	},
-	"bytes": {TargetType: "bytes"},
+	"bytes": {
+		TargetType: "Bytes",
+		Imports:    []primitives.Import{{Category: "codec", Name: "Bytes"}},
+	},
 	"any": {
 		TargetType: "JsonValue",
 		Imports:    []primitives.Import{{Category: "pydantic", Name: "JsonValue"}},

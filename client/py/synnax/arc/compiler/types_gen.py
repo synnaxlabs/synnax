@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+from x.codec import Bytes
+
 
 class Output(BaseModel):
     """Is compiled output from the Arc compiler including WebAssembly bytecode and
@@ -24,5 +26,5 @@ class Output(BaseModel):
             mapping function keys to their base addresses.
     """
 
-    wasm: bytes
+    wasm: Bytes
     output_memory_bases: dict[str, int] = Field(default_factory=dict)
