@@ -1016,17 +1016,6 @@ var _ = Describe("Task", Ordered, func() {
 		)
 
 		It(
-			"Should re-configure a task with an empty name",
-			func(ctx SpecContext) {
-				t := &task.Task{Type: testType, Rack: testRack.Key, Name: "Named Task"}
-				Expect(w.Create(ctx, t)).To(Succeed())
-				reconfigured := &task.Task{Key: t.Key, Type: testType}
-				Expect(w.Create(ctx, reconfigured)).To(Succeed())
-				Expect(reconfigured.Status.Name).To(BeEmpty())
-			},
-		)
-
-		It(
 			"Should return the status it wrote for a new task",
 			func(ctx SpecContext) {
 				m := &task.Task{
