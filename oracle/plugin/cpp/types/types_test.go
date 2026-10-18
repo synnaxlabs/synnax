@@ -2095,6 +2095,35 @@ var _ = Describe("C++ Union Generation", func() {
 		},
 	)
 
+	It("Should emit ontology helpers for a union", func(ctx SpecContext) {
+		source := `
+			@cpp output "out"
+
+			Key uuid
+
+			Base struct {
+				key Key @key
+			}
+
+			View union on type extends Base {
+				first {
+					name string
+				}
+				second {
+					size int32
+				}
+
+				@ontology type "view"
+			}
+		`
+		resp := MustGenerate(ctx, source, "view", loader, cppPlugin)
+		ExpectContent(resp, "types.gen.h").
+			ToContain(
+				`const synnax::ontology::ID ONTOLOGY_TYPE("view", "");`,
+				`return synnax::ontology::ID("view", key.to_string());`,
+			)
+	})
+
 	It(
 		"Should declare inline variant fields directly on the variant struct",
 		func(ctx SpecContext) {
