@@ -88,6 +88,20 @@ var _ = Describe("NewMove", func() {
 			Expect(ps[0].Created).ToNot(BeZero())
 		},
 	)
+	It("Should derive the same key on every node", func(ctx SpecContext) {
+		Expect(run(ctx, v0.MoveConfig{SubjectByUsername: lookup})).To(Succeed())
+		first := passwords(ctx)
+		db = DeferClose(gorp.Wrap(memkv.New()))
+		Expect(gorp.WrapWriter[string, authv1.SecureCredentials](db).Set(ctx,
+			authv1.SecureCredentials{Username: "alice", Password: []byte("hash")},
+		)).To(Succeed())
+		Expect(run(ctx, v0.MoveConfig{SubjectByUsername: lookup})).To(Succeed())
+		second := passwords(ctx)
+		Expect(first).To(HaveLen(1))
+		Expect(second).To(HaveLen(1))
+		Expect(second[0].Key).To(Equal(first[0].Key))
+		Expect(second[0].Key.String()[14]).To(Equal(byte('5')))
+	})
 	It("Should delete every credential row, owned or not", func(ctx SpecContext) {
 		Expect(run(ctx, v0.MoveConfig{SubjectByUsername: lookup})).To(Succeed())
 		Expect(gorp.NewRetrieve[string, authv1.SecureCredentials]().
