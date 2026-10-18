@@ -29,7 +29,7 @@ const auto EMISSION_RATE = x::telem::HERTZ * 1;
 
 class Source final : public driver::pipeline::Base {
     /// @brief the key of the rack the heartbeat is for.
-    const synnax::rack::Rack rack;
+    const synnax::rack::Key rack_key;
     const synnax::task::Task task;
     /// @brief the loop used to control the emission rate of the heartbeat.
     x::loop::Timer loop;
@@ -51,7 +51,7 @@ public:
             },
             TASK_NAME
         ),
-        rack(rack),
+        rack_key(rack.key),
         task(task),
         loop(x::loop::Timer(EMISSION_RATE)),
         ctx(ctx) {}
@@ -72,20 +72,26 @@ public:
         this->ctx->set_status(stat);
         while (breaker.running()) {
             this->loop.wait(breaker);
+            // The rack is re-read on each beat so a rename is never overwritten.
+            auto [rack, rack_err] = this->ctx->client->racks.retrieve(this->rack_key);
+            if (rack_err) {
+                LOG(ERROR) << "[rack_status] error retrieving rack: " << rack_err;
+                continue;
+            }
             synnax::rack::Status status{
-                .key = synnax::rack::ontology_id(this->rack.key).string(),
-                .name = this->rack.name,
+                .key = synnax::rack::ontology_id(rack.key).string(),
+                .name = rack.name,
                 .variant = ::synnax::status::VARIANT_SUCCESS,
                 .message = "Driver is running",
                 .time = x::telem::TimeStamp::now(),
-                .details = synnax::rack::StatusDetails{.rack = this->rack.key}
+                .details = synnax::rack::StatusDetails{.rack = rack.key}
             };
             if (const auto err = this->ctx->client->statuses
                                      .set<synnax::rack::StatusDetails>(status);
                 err)
                 LOG(ERROR) << "[rack_status] error updating status: " << err;
             else
-                VLOG(1) << "[rack_status] successfully set status for " << this->rack;
+                VLOG(1) << "[rack_status] successfully set status for " << rack;
         }
         stat.message = "Stopped";
         stat.time = x::telem::TimeStamp::now();
