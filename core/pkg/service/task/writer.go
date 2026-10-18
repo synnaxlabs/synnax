@@ -66,7 +66,8 @@ func resolveStatus(t *Task, provided *Status, existed bool) *Status {
 
 // healStatus returns the task's effective status, writing stat first if no row exists.
 // Tasks are re-created on every scan cycle, so on a no-op update the placeholder must
-// not overwrite a status the driver has already reported.
+// not overwrite a status the driver has already reported. An existing row takes the
+// task's current name.
 func (w Writer) healStatus(ctx context.Context, stat *Status) (*Status, error) {
 	var existing Status
 	err := gorp.NewRetrieve[string, Status]().
@@ -74,6 +75,12 @@ func (w Writer) healStatus(ctx context.Context, stat *Status) (*Status, error) {
 		Entry(&existing).
 		Exec(ctx, w.tx)
 	if err == nil {
+		if existing.Name != stat.Name {
+			if err = w.status.Rename(ctx, existing.Key, stat.Name); err != nil {
+				return nil, err
+			}
+			existing.Name = stat.Name
+		}
 		return &existing, nil
 	}
 	if !errors.Is(err, query.ErrNotFound) {
