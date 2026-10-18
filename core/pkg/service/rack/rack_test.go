@@ -748,6 +748,60 @@ var _ = Describe("Rack", Ordered, func() {
 			).To(Succeed())
 			Expect(embeddedRack.Embedded).To(BeTrue())
 		})
+		It(
+			"Should keep a renamed embedded rack across restarts",
+			func(ctx SpecContext) {
+				restartDB := DeferClose(gorp.Wrap(memkv.New()))
+				before := openStack(ctx, restartDB, rack.ServiceConfig{})
+				key := before.rack.EmbeddedKey
+				Expect(
+					before.rack.NewWriter(nil).Rename(ctx, key, "Renamed"),
+				).To(Succeed())
+				Expect(before.Close()).To(Succeed())
+				after := DeferClose(openStack(ctx, restartDB, rack.ServiceConfig{}))
+				Expect(after.rack.EmbeddedKey).To(Equal(key))
+				var embedded []rack.Rack
+				Expect(after.rack.NewRetrieve().
+					Where(rack.MatchEmbedded(true)).
+					Entries(&embedded).
+					Exec(ctx, nil)).To(Succeed())
+				Expect(embedded).To(HaveLen(1))
+				Expect(embedded[0].Name).To(Equal("Renamed"))
+			},
+		)
+		It(
+			"Should find an embedded rack stored without a key binding by its name",
+			func(ctx SpecContext) {
+				restartDB := DeferClose(gorp.Wrap(memkv.New()))
+				before := openStack(ctx, restartDB, rack.ServiceConfig{})
+				key := before.rack.EmbeddedKey
+				Expect(before.Close()).To(Succeed())
+				Expect(restartDB.Delete(
+					ctx,
+					[]byte("1.rack.embedded.Node 1 Embedded Driver"),
+				)).To(Succeed())
+				after := DeferClose(openStack(ctx, restartDB, rack.ServiceConfig{}))
+				Expect(after.rack.EmbeddedKey).To(Equal(key))
+			},
+		)
+		It(
+			"Should apply edit to the embedded rack before saving it",
+			func(ctx SpecContext) {
+				r := MustSucceed(svc.RetrieveOrCreateEmbedded(
+					ctx,
+					"edited embedded",
+					func(r *rack.Rack) { r.Integrations = []string{"arc"} },
+				))
+				var res rack.Rack
+				Expect(svc.NewRetrieve().
+					Where(rack.MatchKeys(r.Key)).
+					Entry(&res).
+					Exec(ctx, nil)).To(Succeed())
+				Expect(res.Name).To(Equal("edited embedded"))
+				Expect(res.Embedded).To(BeTrue())
+				Expect(res.Integrations).To(Equal([]string{"arc"}))
+			},
+		)
 	})
 
 	Describe("Status", func() {

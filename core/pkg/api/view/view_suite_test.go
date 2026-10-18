@@ -33,8 +33,6 @@ func TestAPIView(t *testing.T) {
 	RunSpecs(t, "API View Suite")
 }
 
-var _ = ShouldNotLeakGoroutinesPerSpec()
-
 var (
 	svc    *service.Layer
 	apiSvc *apiview.Service

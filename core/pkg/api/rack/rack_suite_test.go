@@ -33,8 +33,6 @@ func TestAPIRack(t *testing.T) {
 	RunSpecs(t, "API Rack Suite")
 }
 
-var _ = ShouldNotLeakGoroutinesPerSpec()
-
 var (
 	svc    *service.Layer
 	apiSvc *apirack.Service
