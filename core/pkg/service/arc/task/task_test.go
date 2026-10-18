@@ -2476,6 +2476,7 @@ var _ = Describe("Task", Ordered, func() {
 		}
 		// writes reports whether a new writer at authority a can write to c.
 		writes := func(ctx context.Context, c writeCh, a control.Authority) bool {
+			GinkgoHelper()
 			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:        keysOf(c),
 				Start:       telem.Now(),
