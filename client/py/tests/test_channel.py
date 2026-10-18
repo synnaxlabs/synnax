@@ -589,28 +589,26 @@ class TestChannel:
         assert retrieved.operations[0].duration == sy.TimeSpan.SECOND * 15
 
 
-@pytest.fixture(scope="class")
-def prefix() -> str:
-    return channel_name()
-
-
-@pytest.fixture(scope="class")
-def channels(
-    client: sy.Synnax, prefix: str
-) -> tuple[sy.Channel, sy.Channel, sy.Channel]:
-    idx = client.channels.create(name=f"{prefix}_idx", is_index=True)
-    data = client.channels.create(
-        name=f"{prefix}_data", index=idx.key, data_type=sy.DataType.FLOAT32
-    )
-    virt = client.channels.create(
-        name=f"{prefix}_virt", virtual=True, data_type=sy.DataType.FLOAT64
-    )
-    return idx, data, virt
-
-
 @pytest.mark.channel
 class TestChannelRetrieveFilters:
     """Tests the filters accepted by the channel client's retrieve method."""
+
+    @pytest.fixture(scope="class")
+    def prefix(self) -> str:
+        return channel_name()
+
+    @pytest.fixture(scope="class")
+    def create_channels(
+        self, client: sy.Synnax, prefix: str
+    ) -> tuple[sy.Channel, sy.Channel, sy.Channel]:
+        idx = client.channels.create(name=f"{prefix}_idx", is_index=True)
+        data = client.channels.create(
+            name=f"{prefix}_data", index=idx.key, data_type=sy.DataType.FLOAT32
+        )
+        virt = client.channels.create(
+            name=f"{prefix}_virt", virtual=True, data_type=sy.DataType.FLOAT64
+        )
+        return idx, data, virt
 
     @staticmethod
     def names(channels: tuple[sy.Channel, ...]) -> list[str]:
@@ -624,107 +622,125 @@ class TestChannelRetrieveFilters:
         self,
         client: sy.Synnax,
         prefix: str,
-        channels: tuple[sy.Channel, sy.Channel, sy.Channel],
+        create_channels: tuple[sy.Channel, sy.Channel, sy.Channel],
     ) -> None:
         """Should retrieve channels whose names match the search term"""
 
         def check() -> None:
             res = client.channels.retrieve(search_term=prefix)
-            assert self.keys(list(channels)) <= self.keys(res)
+            assert self.keys(list(create_channels)) <= self.keys(res)
 
         assert_eventually(check)
 
     def test_single_with_filter(
-        self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
+        self,
+        client: sy.Synnax,
+        create_channels: tuple[sy.Channel, sy.Channel, sy.Channel],
     ) -> None:
         """Should apply filters to a single key or name"""
-        virt = channels[2]
+        virt = create_channels[2]
         assert client.channels.retrieve(virt.name, virtual=True).key == virt.key
         with pytest.raises(sy.NotFoundError):
             client.channels.retrieve(virt.key, virtual=False)
 
     def test_data_types(
-        self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
+        self,
+        client: sy.Synnax,
+        create_channels: tuple[sy.Channel, sy.Channel, sy.Channel],
     ) -> None:
         """Should keep only channels with one of the data types"""
         res = client.channels.retrieve(
-            self.names(channels), data_types=[sy.DataType.FLOAT32, "float64"]
+            self.names(create_channels), data_types=[sy.DataType.FLOAT32, "float64"]
         )
-        assert self.keys(res) == {channels[1].key, channels[2].key}
+        assert self.keys(res) == {create_channels[1].key, create_channels[2].key}
 
     def test_not_data_types(
-        self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
+        self,
+        client: sy.Synnax,
+        create_channels: tuple[sy.Channel, sy.Channel, sy.Channel],
     ) -> None:
         """Should drop channels with one of the data types"""
         res = client.channels.retrieve(
-            self.names(channels), not_data_types=[sy.DataType.TIMESTAMP]
+            self.names(create_channels), not_data_types=[sy.DataType.TIMESTAMP]
         )
-        assert self.keys(res) == {channels[1].key, channels[2].key}
+        assert self.keys(res) == {create_channels[1].key, create_channels[2].key}
 
     def test_virtual(
-        self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
+        self,
+        client: sy.Synnax,
+        create_channels: tuple[sy.Channel, sy.Channel, sy.Channel],
     ) -> None:
         """Should keep only virtual or only non-virtual channels"""
-        names = self.names(channels)
+        names = self.names(create_channels)
         assert self.keys(client.channels.retrieve(names, virtual=True)) == {
-            channels[2].key
+            create_channels[2].key
         }
         assert self.keys(client.channels.retrieve(names, virtual=False)) == {
-            channels[0].key,
-            channels[1].key,
+            create_channels[0].key,
+            create_channels[1].key,
         }
 
     def test_is_index(
-        self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
+        self,
+        client: sy.Synnax,
+        create_channels: tuple[sy.Channel, sy.Channel, sy.Channel],
     ) -> None:
         """Should keep only index or only non-index channels"""
-        names = self.names(channels)
+        names = self.names(create_channels)
         assert self.keys(client.channels.retrieve(names, is_index=True)) == {
-            channels[0].key
+            create_channels[0].key
         }
         assert self.keys(client.channels.retrieve(names, is_index=False)) == {
-            channels[1].key,
-            channels[2].key,
+            create_channels[1].key,
+            create_channels[2].key,
         }
 
     def test_internal(
-        self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
+        self,
+        client: sy.Synnax,
+        create_channels: tuple[sy.Channel, sy.Channel, sy.Channel],
     ) -> None:
         """Should keep only internal or only non-internal channels"""
-        names = self.names(channels)
+        names = self.names(create_channels)
         assert client.channels.retrieve(names, internal=True) == []
         assert len(client.channels.retrieve(names, internal=False)) == 3
 
     def test_node_key(
-        self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
+        self,
+        client: sy.Synnax,
+        create_channels: tuple[sy.Channel, sy.Channel, sy.Channel],
     ) -> None:
         """Should keep only channels leased by the node"""
-        idx, data, _ = channels
+        idx, data, _ = create_channels
         names = self.names((idx, data))
         res = client.channels.retrieve(names, node_key=idx.leaseholder)
         assert self.keys(res) == {idx.key, data.key}
         assert client.channels.retrieve(names, node_key=idx.leaseholder + 1) == []
 
     def test_limit_offset(
-        self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
+        self,
+        client: sy.Synnax,
+        create_channels: tuple[sy.Channel, sy.Channel, sy.Channel],
     ) -> None:
         """Should page through the matching channels"""
-        names = self.names(channels)
+        names = self.names(create_channels)
         first = client.channels.retrieve(names, limit=2)
         rest = client.channels.retrieve(names, limit=2, offset=2)
         assert len(first) == 2
         assert len(rest) == 1
-        assert self.keys(first) | self.keys(rest) == self.keys(list(channels))
+        assert self.keys(first) | self.keys(rest) == self.keys(list(create_channels))
 
     def test_no_params(self, client: sy.Synnax) -> None:
         """Should retrieve a list of channels when no key or name is given"""
         assert len(client.channels.retrieve(limit=1)) == 1
 
     def test_range_key(
-        self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
+        self,
+        client: sy.Synnax,
+        create_channels: tuple[sy.Channel, sy.Channel, sy.Channel],
     ) -> None:
         """Should set the alias of the channel in the range without caching it"""
-        data = channels[1]
+        data = create_channels[1]
         rng = client.ranges.create(
             name=random_name(),
             time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
