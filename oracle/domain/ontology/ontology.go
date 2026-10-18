@@ -43,7 +43,7 @@ func Extract(
 		switch form := typ.Form.(type) {
 		case resolution.StructForm:
 		case resolution.UnionForm:
-			fields = key.Collect(bases(form, table), table, nil)
+			fields = baseKeys(form, table)
 		default:
 			continue
 		}
@@ -70,11 +70,23 @@ func Extract(
 	return nil
 }
 
-func bases(form resolution.UnionForm, table *resolution.Table) []resolution.Type {
-	var result []resolution.Type
+// baseKeys returns the key fields of a union's base structs, including the fields
+// those bases inherit.
+func baseKeys(form resolution.UnionForm, table *resolution.Table) []key.Field {
+	var result []key.Field
 	for _, ext := range form.Extends {
-		if base, ok := ext.Resolve(table); ok {
-			result = append(result, base)
+		base, ok := ext.Resolve(table)
+		if !ok {
+			continue
+		}
+		for _, f := range resolution.UnifiedFields(base, table) {
+			if key.HasKey(f) {
+				result = append(result, key.Field{
+					Name:      f.Name,
+					Primitive: key.ResolvePrimitive(f.Type, table),
+					Type:      f.Type,
+				})
+			}
 		}
 	}
 	return result

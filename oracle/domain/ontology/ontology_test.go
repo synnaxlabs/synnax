@@ -103,6 +103,43 @@ var _ = Describe("Extract", func() {
 		Expect(result.KeyField.Primitive).To(Equal("uuid"))
 	})
 
+	It("should take a union's key inherited by its base", func() {
+		table := resolution.NewTable()
+		Expect(table.Add(resolution.Type{
+			Name:          "Root",
+			Namespace:     "view",
+			QualifiedName: "view.Root",
+			Form: resolution.StructForm{Fields: []resolution.Field{{
+				Name:    "key",
+				Type:    resolution.TypeRef{Name: "uuid"},
+				Domains: map[string]resolution.Domain{"key": {}},
+			}}},
+		})).To(Succeed())
+		Expect(table.Add(resolution.Type{
+			Name:          "Base",
+			Namespace:     "view",
+			QualifiedName: "view.Base",
+			Form: resolution.StructForm{
+				Extends: []resolution.TypeRef{{Name: "view.Root"}},
+			},
+		})).To(Succeed())
+		types := []resolution.Type{{
+			Name: "View",
+			Form: resolution.UnionForm{
+				Extends: []resolution.TypeRef{{Name: "view.Base"}},
+			},
+			Domains: map[string]resolution.Domain{
+				"ontology": {Expressions: []resolution.Expression{{
+					Name:   "type",
+					Values: []resolution.ExpressionValue{{StringValue: "view"}},
+				}}},
+			},
+		}}
+		result := ontology.Extract(types, nil, nil, table)
+		Expect(result).NotTo(BeNil())
+		Expect(result.KeyField.Name).To(Equal("key"))
+	})
+
 	It("should skip types when skip function returns true", func() {
 		types := []resolution.Type{{
 			Name: "Skipped",
