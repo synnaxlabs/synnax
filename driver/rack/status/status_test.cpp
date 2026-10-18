@@ -17,7 +17,7 @@
 
 namespace driver::rack::status {
 /// @brief it should report nominal driver status via state streamer.
-TEST(stateTests, testNominal) {
+TEST(stateTests, Nominal) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
     auto ch = ASSERT_NIL_P(
@@ -56,7 +56,7 @@ TEST(stateTests, testNominal) {
 }
 
 /// @brief it should keep a renamed rack's name in later heartbeats.
-TEST(stateTests, testRenamedRack) {
+TEST(stateTests, RenamedRack) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
     auto ch = ASSERT_NIL_P(
@@ -103,7 +103,7 @@ TEST(stateTests, testRenamedRack) {
 
 /// @brief it should report the task as running while the heartbeat is live, and as
 /// not running once it stops.
-TEST(stateTests, testTaskRunningTransitions) {
+TEST(stateTests, TaskRunningTransitions) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
     auto ch = ASSERT_NIL_P(
