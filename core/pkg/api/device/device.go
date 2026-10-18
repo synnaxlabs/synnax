@@ -187,6 +187,7 @@ func (s *Service) Retrieve(
 	return res, nil
 }
 
+// RenameRequest names the device to rename and the name to give it.
 type RenameRequest struct {
 	// Name is the new name. It must not be empty.
 	Name string `json:"name" msgpack:"name"`
@@ -194,6 +195,7 @@ type RenameRequest struct {
 	Key device.Key `json:"key" msgpack:"key"`
 }
 
+// Rename renames the device. It requires update access on it.
 func (s *Service) Rename(
 	ctx context.Context,
 	tx gorp.Tx,

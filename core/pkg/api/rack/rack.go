@@ -163,6 +163,7 @@ func (s *Service) Retrieve(
 	return RetrieveResponse{Racks: resRacks}, nil
 }
 
+// RenameRequest names the rack to rename and the name to give it.
 type RenameRequest struct {
 	// Name is the new name. It must not be empty.
 	Name string `json:"name" msgpack:"name"`
@@ -170,6 +171,7 @@ type RenameRequest struct {
 	Key rack.Key `json:"key" msgpack:"key"`
 }
 
+// Rename renames the rack. It requires update access on it.
 func (s *Service) Rename(
 	ctx context.Context,
 	tx gorp.Tx,

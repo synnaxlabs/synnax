@@ -224,6 +224,7 @@ func (s *Service) Retrieve(
 	return res, nil
 }
 
+// RenameRequest names the status to rename and the name to give it.
 type RenameRequest struct {
 	// Name is the new name. It must not be empty.
 	Name string `json:"name" msgpack:"name"`
@@ -231,6 +232,7 @@ type RenameRequest struct {
 	Key status.Key `json:"key" msgpack:"key"`
 }
 
+// Rename renames the status. It requires update access on it.
 func (s *Service) Rename(
 	ctx context.Context,
 	tx gorp.Tx,
