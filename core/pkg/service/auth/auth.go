@@ -25,19 +25,12 @@ var _ override.Zeroable = Credentials{}
 // IsZero implements override.Zeroable.
 func (c Credentials) IsZero() bool { return c == Credentials{} }
 
-// Method names an authentication method. It selects the [Authenticator] that checks a
-// [Proof].
-type Method = ProofType
-
-// MethodPassword proves a username and password.
-const MethodPassword = PasswordProofType
-
 // Identity is the subject a proof resolved to and the credential that proved it.
 type Identity struct {
 	// Subject is the user or rack that logged in.
 	Subject ontology.ID
 	// Method is the method the proof used.
-	Method Method
+	Method ProofType
 	// Credential is the key of the credential record the proof matched.
 	Credential uuid.UUID
 }

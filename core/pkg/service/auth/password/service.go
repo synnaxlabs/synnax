@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 // Package password authenticates subjects by username and password. It stores one
-// [Password] per subject and implements [auth.Authenticator] for [auth.MethodPassword].
+// [Password] per subject and implements [auth.Authenticator] for
+// [auth.PasswordProofType].
 package password
 
 import (
@@ -177,7 +178,7 @@ func (s *Service) Authenticate(
 	}
 	return auth.Identity{
 		Subject:    p.Subject,
-		Method:     auth.MethodPassword,
+		Method:     auth.PasswordProofType,
 		Credential: p.Key,
 	}, nil
 }
