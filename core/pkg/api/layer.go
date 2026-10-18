@@ -165,18 +165,21 @@ type Transport struct {
 	RackCreate   freighter.UnaryServer[rack.CreateRequest, rack.CreateResponse]
 	RackRetrieve freighter.UnaryServer[rack.RetrieveRequest, rack.RetrieveResponse]
 	RackDelete   freighter.UnaryServer[rack.DeleteRequest, struct{}]
-	RackRename   freighter.UnaryServer[rack.RenameRequest, struct{}]
+	// RackRename renames a rack.
+	RackRename freighter.UnaryServer[rack.RenameRequest, struct{}]
 	// TASK
 	TaskCreate   freighter.UnaryServer[task.CreateRequest, task.CreateResponse]
 	TaskRetrieve freighter.UnaryServer[task.RetrieveRequest, task.RetrieveResponse]
 	TaskDelete   freighter.UnaryServer[task.DeleteRequest, struct{}]
 	TaskCopy     freighter.UnaryServer[task.CopyRequest, task.CopyResponse]
-	TaskRename   freighter.UnaryServer[task.RenameRequest, struct{}]
+	// TaskRename renames a task.
+	TaskRename freighter.UnaryServer[task.RenameRequest, struct{}]
 	// DEVICE
 	DeviceCreate   freighter.UnaryServer[device.CreateRequest, device.CreateResponse]
 	DeviceRetrieve freighter.UnaryServer[device.RetrieveRequest, device.RetrieveResponse]
 	DeviceDelete   freighter.UnaryServer[device.DeleteRequest, struct{}]
-	DeviceRename   freighter.UnaryServer[device.RenameRequest, struct{}]
+	// DeviceRename renames a device.
+	DeviceRename freighter.UnaryServer[device.RenameRequest, struct{}]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[access.CreatePolicyRequest, access.CreatePolicyResponse]
 	AccessDeletePolicy   freighter.UnaryServer[access.DeletePolicyRequest, struct{}]
@@ -187,9 +190,10 @@ type Transport struct {
 	AccessAssignRole     freighter.UnaryServer[access.AssignRoleRequest, struct{}]
 	AccessUnassignRole   freighter.UnaryServer[access.UnassignRoleRequest, struct{}]
 	// STATUS
-	StatusSet            freighter.UnaryServer[status.SetRequest, status.SetResponse]
-	StatusRetrieve       freighter.UnaryServer[status.RetrieveRequest, status.RetrieveResponse]
-	StatusDelete         freighter.UnaryServer[status.DeleteRequest, struct{}]
+	StatusSet      freighter.UnaryServer[status.SetRequest, status.SetResponse]
+	StatusRetrieve freighter.UnaryServer[status.RetrieveRequest, status.RetrieveResponse]
+	StatusDelete   freighter.UnaryServer[status.DeleteRequest, struct{}]
+	// StatusRename renames a status.
 	StatusRename         freighter.UnaryServer[status.RenameRequest, struct{}]
 	StatusSetByKeyOrName freighter.UnaryServer[status.SetByKeyOrNameRequest, status.SetByKeyOrNameResponse]
 	// ARC
@@ -203,7 +207,8 @@ type Transport struct {
 	ViewCreate   freighter.UnaryServer[view.CreateRequest, view.CreateResponse]
 	ViewRetrieve freighter.UnaryServer[view.RetrieveRequest, view.RetrieveResponse]
 	ViewDelete   freighter.UnaryServer[view.DeleteRequest, struct{}]
-	ViewRename   freighter.UnaryServer[view.RenameRequest, struct{}]
+	// ViewRename renames a view.
+	ViewRename freighter.UnaryServer[view.RenameRequest, struct{}]
 	// IMPORT/EXPORT
 	ImExImport freighter.UnaryServer[imex.ImportRequest, imex.ImportResponse]
 	ImExExport freighter.UnaryServer[imex.ExportRequest, imex.ExportResponse]

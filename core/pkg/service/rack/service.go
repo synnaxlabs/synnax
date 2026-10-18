@@ -246,7 +246,10 @@ func (s *Service) RetrieveOrCreateEmbedded(
 			binary.LittleEndian.AppendUint32(nil, uint32(r.Key)),
 		)
 	})
-	return r, err
+	if err != nil {
+		return Rack{}, err
+	}
+	return r, nil
 }
 
 func (s *Service) Close() error { return s.closer.Close() }
