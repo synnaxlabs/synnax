@@ -21,6 +21,11 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+// request builds a login request for the given username and password.
+func request(username, pwd string) apiauth.LoginRequest {
+	return apiauth.LoginRequest{Username: username, Password: pwd}
+}
+
 var _ = Describe("NewService", func() {
 	It("Should return an error when the config is invalid", func() {
 		Expect(apiauth.NewService(apicfg.LayerConfig{})).Error().
@@ -33,7 +38,7 @@ var _ = Describe("Login", func() {
 		"Should return a token for the user and the cluster info",
 		func(ctx SpecContext) {
 			res := MustSucceed(
-				apiSvc.Login(ctx, apiauth.LoginRequest{Credentials: creds}),
+				apiSvc.Login(ctx, request(creds.Username, creds.Password)),
 			)
 			Expect(res.User).To(Equal(root))
 			Expect(MustSucceed(tokenSvc.Validate(res.Token))).To(Equal(root.Key))
@@ -43,16 +48,16 @@ var _ = Describe("Login", func() {
 		},
 	)
 	It("Should reject a wrong password", func(ctx SpecContext) {
-		Expect(apiSvc.Login(ctx, apiauth.LoginRequest{Credentials: {
-			Username: creds.Username,
-			Password: "wrong",
-		}})).Error().To(MatchError(auth.ErrInvalidCredentials))
+		Expect(
+			apiSvc.Login(ctx, request(creds.Username, "wrong")),
+		).Error().
+			To(MatchError(auth.ErrInvalidCredentials))
 	})
 	It("Should reject an unknown username", func(ctx SpecContext) {
-		Expect(apiSvc.Login(ctx, apiauth.LoginRequest{Credentials: {
-			Username: "nobody",
-			Password: creds.Password,
-		}})).Error().To(MatchError(auth.ErrInvalidCredentials))
+		Expect(
+			apiSvc.Login(ctx, request("nobody", creds.Password)),
+		).Error().
+			To(MatchError(auth.ErrInvalidCredentials))
 	})
 })
 
@@ -73,20 +78,18 @@ var _ = Describe("ChangePassword", func() {
 				NewPassword: "new",
 			})).Error().ToNot(HaveOccurred())
 			MustSucceed(
-				apiSvc.Login(ctx, apiauth.LoginRequest{Credentials: {
-					Username: own.Username,
-					Password: "new",
-				}}),
+				apiSvc.Login(ctx, request(own.Username, "new")),
 			)
-			Expect(apiSvc.Login(ctx, apiauth.LoginRequest{Credentials: own})).Error().
+			Expect(apiSvc.Login(ctx, request(own.Username, own.Password))).Error().
 				To(MatchError(auth.ErrInvalidCredentials))
 		},
 	)
 	It("Should keep the password when the current one is wrong", func(ctx SpecContext) {
 		Expect(apiSvc.ChangePassword(ctx, nil, apiauth.ChangePasswordRequest{
-			Credentials: auth.Credentials{Username: own.Username, Password: "wrong"},
+			Username:    own.Username,
+			Password:    "wrong",
 			NewPassword: "new",
 		})).Error().To(MatchError(auth.ErrInvalidCredentials))
-		MustSucceed(apiSvc.Login(ctx, apiauth.LoginRequest{Credentials: own}))
+		MustSucceed(apiSvc.Login(ctx, request(own.Username, own.Password)))
 	})
 })
