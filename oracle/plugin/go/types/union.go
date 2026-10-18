@@ -10,6 +10,7 @@
 package types
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 
@@ -290,7 +291,8 @@ func embedFieldName(rendered string) string {
 }
 
 // enumConstName returns the Go constant of the enum member whose value is value, as
-// the enum's own package declares it.
+// the enum's own package declares it. The analyzer guarantees a member exists for
+// every variant of a union that borrows the enum, so a miss is a generator bug.
 func enumConstName(enumType resolution.Type, value string) string {
 	form := enumType.Form.(resolution.EnumForm)
 	for _, m := range form.Values {
@@ -298,5 +300,5 @@ func enumConstName(enumType resolution.Type, value string) string {
 			return naming.GetGoName(enumType) + naming.ToPascalCase(m.Name)
 		}
 	}
-	return naming.GetGoName(enumType) + naming.ToPascalCase(value)
+	panic(fmt.Sprintf("enum %s has no member with value %q", enumType.Name, value))
 }
