@@ -1451,6 +1451,18 @@ describe("TimeSpan", () => {
         expect(TimeSpan.parse(text)?.equals(expected), text).toBe(true);
     });
 
+    it("should parse clock form as hours, minutes, and seconds", () => {
+      const cases: [string, TimeSpan][] = [
+        ["1:30", TimeSpan.minutes(90)],
+        ["0:05", TimeSpan.minutes(5)],
+        ["1:30:29", TimeSpan.minutes(90).add(TimeSpan.seconds(29))],
+        ["36:00:00", TimeSpan.hours(36)],
+        ["0:00:30.25", TimeSpan.milliseconds(30250)],
+      ];
+      for (const [text, expected] of cases)
+        expect(TimeSpan.parse(text)?.equals(expected), text).toBe(true);
+    });
+
     it("should round trip through toString", () => {
       const span = TimeSpan.days(2)
         .add(TimeSpan.hours(3))
@@ -1460,12 +1472,15 @@ describe("TimeSpan", () => {
       expect(TimeSpan.parse(span.toString())?.equals(span)).toBe(true);
     });
 
-    it("should return null for text that is not a unit run", () => {
+    it("should return null for text that is not a unit run or a clock", () => {
       for (const text of [
         "",
         "soon",
         "5 parsecs",
-        "1:30:00",
+        "1:",
+        "1:30:",
+        "1:30:00:00",
+        "1h 1:30",
         "45",
         "2h and 5m",
         "5 minutesx",

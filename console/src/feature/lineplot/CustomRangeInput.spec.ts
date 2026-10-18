@@ -31,6 +31,13 @@ describe("parseSpan", () => {
     expect(parseSpan("1h 30m")).toEqual(Number(TimeSpan.minutes(90)));
   });
 
+  it("should parse clock form as hours, minutes, and seconds", () => {
+    expect(parseSpan("1:30")).toEqual(Number(TimeSpan.minutes(90)));
+    expect(parseSpan("1:30:29")).toEqual(
+      Number(TimeSpan.minutes(90).add(TimeSpan.seconds(29))),
+    );
+  });
+
   it("should reject zero durations", () => {
     expect(parseSpan("0s")).toBeNull();
     expect(parseSpan("0h 0min")).toBeNull();

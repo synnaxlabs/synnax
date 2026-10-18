@@ -736,12 +736,21 @@ export class TimeSpan
   /**
    * Parses a run of amounts and units, such as `30s`, `2h 30min`, `1.5 hours`, or
    * `.5d`. It reads every form {@link toString} prints, plus years (365 days), months
-   * (30 days), weeks, and common long and plural names for each unit, in any case.
-   * @returns the span, or null when the text is not a unit run.
+   * (30 days), weeks, and common long and plural names for each unit, in any case. It
+   * also reads clock form: `1:30` is hours and minutes, `1:30:29.5` adds seconds.
+   * @returns the span, or null when the text is not a unit run or a clock.
    */
   static parse(text: string): TimeSpan | null {
     let rest = text.trim();
     if (rest.length === 0) return null;
+    const clock = CLOCK_RE.exec(rest);
+    if (clock != null) {
+      const [, hours, minutes, seconds = "0", fraction = ""] = clock;
+      return TimeSpan.hours(Number(hours))
+        .add(TimeSpan.minutes(Number(minutes)))
+        .add(TimeSpan.seconds(Number(seconds)))
+        .add(new TimeSpan(BigInt(fraction.padEnd(9, "0").slice(0, 9))));
+    }
     let total = TimeSpan.ZERO;
     while (rest.length > 0) {
       const match = UNIT_RUN_RE.exec(rest);
@@ -1061,6 +1070,8 @@ const UNIT_NAMES: [TimeSpan, string[]][] = [
 const SPAN_UNITS: Record<string, TimeSpan> = Object.fromEntries(
   UNIT_NAMES.flatMap(([span, names]) => names.map((name) => [name, span])),
 );
+
+const CLOCK_RE = /^(\d+):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?$/;
 
 // Longest first, so `ms` and `min` win over `m`.
 const UNIT_RUN_RE = new RegExp(
