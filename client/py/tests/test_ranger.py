@@ -20,6 +20,7 @@ import synnax as sy
 from synnax import label
 from synnax.ontology import ID
 from synnax.state import LatestState, State
+from tests.channel import RetrieveCounter
 from x.params import RequiresNamedParams
 from x.strings import random_name
 from x.testutil import assert_eventually
@@ -241,6 +242,21 @@ class TestRangeClient:
             for _ in channels:
                 found += 1
             assert found == 2
+
+        def test_repeated_access_retrieves_once(
+            self,
+            counted_client: tuple[sy.Synnax, RetrieveCounter],
+            rng: sy.Range,
+            two_channels: list[sy.Channel],
+        ) -> None:
+            """Should retrieve a channel once when accessed many times"""
+            client, counter = counted_client
+            r = client.ranges.retrieve(key=rng.key)
+            counter.count = 0
+            for _ in range(100):
+                assert r[two_channels[0].name].key == two_channels[0].key
+                assert r[two_channels[1].key].key == two_channels[1].key
+            assert counter.count == 2
 
     @pytest.mark.ranger
     class TestRangeKV:
@@ -728,23 +744,10 @@ class TestRangeData:
 class TestOnCreate:
     """Tests for the handler that on_create registers on the range set channel."""
 
-    class Retriever:
-        """Adapts the channel client to the retriever protocol that State takes."""
-
-        def __init__(self, client: sy.Synnax):
-            self._client = client
-
-        def retrieve(self, channels: sy.channel.Params) -> list[sy.channel.Payload]:
-            assert isinstance(channels, str)
-            return [self._client.channels.retrieve(channels)]
-
-        def retrieve_one(self, param: sy.channel.Key | str) -> sy.channel.Payload:
-            return self._client.channels.retrieve(param)
-
     def latest_state(self, client: sy.Synnax, sample: sy.Series) -> LatestState:
-        key = client.channels.retrieve("sy_range_set").key
-        state = State(self.Retriever(client))
-        state.update(sy.Frame([key], [sample]))
+        ch = client.channels.retrieve("sy_range_set")
+        state = State([ch])
+        state.update(sy.Frame([ch.key], [sample]))
         return LatestState(state)
 
     def test_valid_sample(self, client: sy.Synnax) -> None:

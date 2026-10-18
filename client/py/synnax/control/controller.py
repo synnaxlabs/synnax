@@ -95,8 +95,8 @@ class RemainsTrueFor(Processor):
 class Controller:
     _writer_opt: framer.Writer | None = None
     _receiver_opt: _Receiver | None = None
-    _idx_map: dict[channel_.Key, channel_.Key]
     _retriever: channel_.Retriever
+    _channels: dict[channel_.Key | str, channel_.Payload]
 
     def __init__(
         self,
@@ -108,8 +108,10 @@ class Controller:
         write_authorities: CrudeAuthority | list[CrudeAuthority],
     ) -> None:
         self._retriever = retriever
+        self._channels = {}
         if write is not None and channel_.has_params(write):
             write_channels = channel_.retrieve_required(self._retriever, write)
+            self._index(write_channels)
             write_keys = [ch.index for ch in write_channels if ch.index != 0]
             write_keys.extend([ch.key for ch in write_channels])
             self._writer_opt = frame_client.open_writer(
@@ -120,11 +122,25 @@ class Controller:
             )
         if read is not None and channel_.has_params(read):
             self._receiver_opt = _Receiver(frame_client, read, retriever, self)
+            self._index(self._receiver.channels)
             self._receiver.start()
             self._receiver.startup_ack.wait()
             if self._receiver.error is not None:
                 self.release()
                 raise self._receiver.error
+
+    def _index(self, channels: list[channel_.Payload]) -> None:
+        for ch in channels:
+            self._channels[ch.key] = ch
+            self._channels[ch.name] = ch
+
+    def _resolve(self, ch: channel_.Key | str | channel_.Payload) -> channel_.Payload:
+        """Resolves an acquired channel locally, and any other channel from the Core."""
+        if isinstance(ch, channel_.Payload):
+            return ch
+        param = channel_.normalize_params(ch).channels[0]
+        pld = self._channels.get(param)
+        return pld if pld is not None else self._retriever.retrieve_one(param)
 
     @property
     def _writer(self) -> framer.Writer:
@@ -179,9 +195,7 @@ class Controller:
         """
         if isinstance(channel, dict):
             values = list(channel.values())
-            # Overloads guarantee keys are homogeneous (all Key or all str)
-            ch_keys = cast(channel_.Params, list(channel.keys()))
-            channels = channel_.retrieve_required(self._retriever, ch_keys)
+            channels = [self._resolve(ch) for ch in channel]
             now = TimeStamp.now()
             updated = {channels[i].key: values[i] for i in range(len(channels))}
             updated_idx = {
@@ -191,7 +205,7 @@ class Controller:
             }
             self._writer.write({**updated, **updated_idx})
             return
-        ch = self._retriever.retrieve_one(channel)
+        ch = self._resolve(channel)
         assert value is not None
         to_write: dict[channel_.Key, SampleValue] = {ch.key: value}
         if not ch.virtual:
@@ -246,15 +260,14 @@ class Controller:
             auth = cast(
                 dict[channel_.Key | str | channel_.Payload, CrudeAuthority], value
             )
-            auth_keys = cast(channel_.Params, list(auth.keys()))
-            channels = channel_.retrieve_required(self._retriever, auth_keys)
-            for ch in channels:
-                resolved = auth.get(ch.key) or auth.get(ch.name)
-                if resolved is not None:
-                    auth[ch.index] = resolved
-            self._writer.set_authority(auth)
+            resolved: dict[channel_.Key | str | channel_.Payload, CrudeAuthority] = {}
+            for k, a in auth.items():
+                ch = self._resolve(k)
+                resolved[ch.key] = a
+                resolved[ch.index] = a
+            self._writer.set_authority(resolved)
         elif authority is not None:
-            ch = self._retriever.retrieve_one(value)
+            ch = self._resolve(value)
             self._writer.set_authority({ch.key: authority, ch.index: authority})
         elif isinstance(value, str):
             raise TypeError("authority must be provided when setting by channel name")
@@ -353,7 +366,7 @@ class Controller:
         >>> controller.wait_until_defined("my_channel")
         >>> controller.wait_until_defined(["channel_1", "channel_2"])
         """
-        res = channel_.retrieve_required(self._retriever, channels)
+        res = [self._resolve(ch) for ch in channel_.normalize_params(channels).channels]
         return self.wait_until(lambda c: all(v.key in c.state for v in res), timeout)
 
     def remains_true_for(
@@ -452,7 +465,7 @@ class Controller:
         >>> controller.get("my_channel")
         >>> controller.get("my_channel", 42)
         """
-        ch_pld = self._retriever.retrieve_one(ch)
+        ch_pld = self._resolve(ch)
         return self._receiver.state.get(ch_pld.key, default)
 
     def schedule(
@@ -467,7 +480,7 @@ class Controller:
         return start, True
 
     def __getitem__(self, item: channel_.Key | str) -> np.number | int | float:
-        ch = self._retriever.retrieve_one(item)
+        ch = self._resolve(item)
         try:
             return self._receiver.state[ch.key]
         except KeyError:
@@ -494,7 +507,7 @@ class Controller:
 
 class _Receiver(AsyncThread):
     state: dict[channel_.Key, np.number | int | float]
-    channels: channel_.Params
+    channels: list[channel_.Payload]
     client: framer.Client
     streamer: framer.AsyncStreamer
     processors: set[Processor]

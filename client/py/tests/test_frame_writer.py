@@ -15,6 +15,7 @@ import pandas as pd
 import pytest
 
 import synnax as sy
+from tests.channel import RetrieveCounter
 from x.strings import random_name
 from x.telem import seconds_linspace
 
@@ -70,6 +71,27 @@ class TestWriter:
                 )
             )
             w.commit()
+
+    def test_write_by_name_sends_no_retrieves(
+        self, counted_client: tuple[sy.Synnax, RetrieveCounter]
+    ) -> None:
+        """Should resolve channel names once when the writer opens"""
+        client, counter = counted_client
+        v = random_name()
+        idx = client.channels.create(
+            name=f"test_{v}_time", is_index=True, data_type=sy.DataType.TIMESTAMP
+        )
+        data = client.channels.create(
+            name=f"test_{v}_data", index=idx.key, data_type=sy.DataType.FLOAT64
+        )
+        with client.open_writer(
+            start=1 * sy.TimeSpan.SECOND, channels=[idx.name, data.name]
+        ) as w:
+            counter.count = 0
+            for i in range(1, 101):
+                w.write({idx.name: i * sy.TimeSpan.SECOND, data.name: float(i)})
+                w.set_authority({data.name: 200})
+            assert counter.count == 0
 
     def test_write_frame_unknown_channel_name(
         self,

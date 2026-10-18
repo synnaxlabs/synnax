@@ -71,7 +71,6 @@ class Scheduler:
     _channels: list[channel.Key]
     _state: State
     _frame_client: framer.Client
-    _channel_retriever: channel.Retriever
 
     def __init__(
         self,
@@ -83,8 +82,7 @@ class Scheduler:
         self._frame_client = frame_client
         self._channels = channels
         self._handlers = handlers
-        self._channel_retriever = channel_retriever
-        self._state = State(channel_retriever)
+        self._state = State(channel_retriever.retrieve(channels))
 
     async def start(self) -> None:
         self._streamer = await self._frame_client.open_async_streamer(self._channels)

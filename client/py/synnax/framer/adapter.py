@@ -83,6 +83,7 @@ class ReadFrameAdapter:
 
 class WriteFrameAdapter:
     _adapter: dict[str, channel.Key] | None
+    _channels: dict[channel.Key, channel.Payload]
     _keys: list[channel.Key]
     _err_on_extra_chans: bool
     _strict_data_types: bool
@@ -100,6 +101,7 @@ class WriteFrameAdapter:
     ):
         self.retriever = retriever
         self._adapter = None
+        self._channels = {}
         self._keys = []
         self._err_on_extra_chans = err_on_extra_chans
         self._strict_data_types = strict_data_types
@@ -109,6 +111,7 @@ class WriteFrameAdapter:
     def update(self, channels: channel.Params) -> None:
         results = retrieve_required_channel(self.retriever, channels)
         self._adapter = {ch.name: ch.key for ch in results}
+        self._channels = {ch.key: ch for ch in results}
         self._keys = [ch.key for ch in results]
         self.codec.update(
             self._keys,
@@ -132,15 +135,8 @@ class WriteFrameAdapter:
             return ch
         if isinstance(ch, channel.Payload):
             return ch.key
-        # If it's not a payload or key already, it has to be a name,
-        # which means we need to resolve the key from a remote source
-        # (either cache or server)
-        return self._adapt_ch(ch).key
-
-    def _adapt_ch(self, ch: channel.Key | str | channel.Payload) -> channel.Payload:
-        if isinstance(ch, (channel.Key, str)):
-            return self.retriever.retrieve_one(ch)
-        return ch
+        key = None if self._adapter is None else self._adapter.get(ch)
+        return key if key is not None else self.retriever.retrieve_one(ch).key
 
     def adapt(
         self,
@@ -155,7 +151,7 @@ class WriteFrameAdapter:
             raise PathError("keys", ValidationError(f"frame has extra keys {extra}"))
 
         for i, (col, series) in enumerate(frame.items()):
-            ch = self.retriever.retrieve(col)[0]
+            ch = self._channels[cast(channel.Key, col)]
             if series.data_type != ch.data_type:
                 if self._strict_data_types:
                     raise PathError(
@@ -207,8 +203,8 @@ class WriteFrameAdapter:
                     """
                     )
 
-            pld = self._adapt_ch(channels_or_data)
-            return Frame([pld.key], [Series(cast(CrudeSeries, series))])
+            key = self._adapt_to_key(channels_or_data)
+            return Frame([key], [Series(cast(CrudeSeries, series))])
 
         if isinstance(channels_or_data, list):
             if series is None:
@@ -225,14 +221,14 @@ class WriteFrameAdapter:
             channels: list[channel.Key] = []
             o_series: list[Series] = []
             for i, ch in enumerate(channels_or_data):
-                pld = self._adapt_ch(ch)
+                key = self._adapt_to_key(ch)
                 if i >= len(series_list):
                     raise ValidationError(
                         f"""
                     Received {len(channels_or_data)} channels but only {len(series_list)} series.
                     """
                     )
-                channels.append(pld.key)
+                channels.append(key)
                 o_series.append(Series(series_list[i]))
 
             return Frame(channels, o_series)
@@ -268,8 +264,7 @@ class WriteFrameAdapter:
             dict_channels: list[channel.Key] = []
             dict_series: list[Series] = []
             for k, v in channels_or_data.items():
-                pld = self._adapt_ch(k)
-                dict_channels.append(pld.key)
+                dict_channels.append(self._adapt_to_key(k))
                 dict_series.append(Series(v))
 
             return Frame(dict_channels, dict_series)
