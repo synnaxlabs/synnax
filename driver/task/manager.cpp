@@ -176,6 +176,7 @@ x::errors::Error Manager::run(std::function<void()> on_started) {
     // Read after the streamer opens so a transfer arriving during the read is held by
     // the stream instead of lost; the read loop then applies it on top.
     this->retrieve_initial_control_states();
+    this->retrieve_rack_name();
     LOG(INFO) << x::log::GREEN() << "started successfully" << x::log::RESET();
     if (on_started) on_started();
     do {
@@ -214,6 +215,15 @@ void Manager::retrieve_initial_control_states() {
         return;
     }
     this->control_states_->set(states);
+}
+
+void Manager::retrieve_rack_name() {
+    auto [rack, err] = this->ctx->client->racks.retrieve(this->rack.key);
+    if (err) {
+        LOG(WARNING) << "failed to retrieve rack name: " << err;
+        return;
+    }
+    this->ctx->set_rack_name(rack.name);
 }
 
 void Manager::process_rack_set(const x::telem::Series &series) {

@@ -409,7 +409,9 @@ private:
     x::errors::Error configure_initial_tasks();
     /// @brief stops all running tasks.
     void stop_all_tasks();
-    /// @brief records a new name for this rack in the shared context.
+    /// @brief re-reads this rack's name so a rename made before the streamer opened
+    /// is not lost. Best-effort: a failed read is logged and keeps the boot name.
+    void retrieve_rack_name();
     void process_rack_set(const x::telem::Series &series);
     /// @brief refreshes the local row for each changed task. Never deploys or stops;
     /// a rack move is acted on by the next start command.
