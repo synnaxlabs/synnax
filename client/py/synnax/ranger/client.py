@@ -20,7 +20,7 @@ from pydantic import BaseModel, PrivateAttr
 
 import synnax.channel.payload as channel
 from freighter import UnaryClient
-from synnax import framer
+from synnax import framer, label
 from synnax.channel.retrieve import Retriever as ChannelRetriever
 from synnax.exceptions import QueryError
 from synnax.framer.frame import K
@@ -28,7 +28,7 @@ from synnax.ontology import Client as OntologyClient
 from synnax.ontology.payload import ID
 from synnax.ranger import alias as alias_
 from synnax.ranger import kv
-from synnax.ranger.retrieve import Retriever
+from synnax.ranger.retrieve import Request, Retriever
 from synnax.ranger.types_gen import (
     Key,
     Payload,
@@ -48,7 +48,7 @@ from synnax.telem import (
 )
 from x.color import Color
 from x.interop import ArrayOperators
-from x.lists import check_for_none, normalize
+from x.lists import check_for_none, normalize, override
 from x.params import require_named_params
 
 RANGE_SET_CHANNEL = "sy_range_set"
@@ -641,24 +641,33 @@ class Client:
     def retrieve(
         self,
         *,
-        key: Key | None = None,
-        name: str | None = None,
+        key: Key,
+        include_labels: bool = False,
+        include_parent: bool = False,
     ) -> Range: ...
 
     @overload
     def retrieve(
         self,
         *,
-        names: list[str] | tuple[str, ...],
-        keys: list[Key] | tuple[Key, ...] | None = None,
-    ) -> list[Range]: ...
+        name: str,
+        include_labels: bool = False,
+        include_parent: bool = False,
+    ) -> Range: ...
 
     @overload
     def retrieve(
         self,
         *,
-        names: None = None,
-        keys: list[Key] | tuple[Key, ...],
+        names: list[str] | tuple[str, ...] | None = None,
+        keys: list[Key] | tuple[Key, ...] | None = None,
+        search_term: str | None = None,
+        overlaps_with: TimeRange | None = None,
+        has_labels: list[label.Key] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        include_labels: bool = False,
+        include_parent: bool = False,
     ) -> list[Range]: ...
 
     @require_named_params(example_params=("name", "My Range"))
@@ -669,16 +678,60 @@ class Client:
         name: str | None = None,
         names: list[str] | tuple[str, ...] | None = None,
         keys: list[Key] | tuple[Key, ...] | None = None,
+        search_term: str | None = None,
+        overlaps_with: TimeRange | None = None,
+        has_labels: list[label.Key] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        include_labels: bool = False,
+        include_parent: bool = False,
     ) -> Range | list[Range]:
-        is_single = check_for_none(keys, names)
-        _ranges = self._retriever.retrieve(key=key, name=name, names=names, keys=keys)
-        sug = self._sugar(_ranges)
+        """Retrieves one range by key or name, or a list of ranges that match the
+        given filters. A filter left as None does not filter.
+
+        :param key: The key of one range to retrieve.
+        :param name: The name of one range to retrieve.
+        :param names: Keeps ranges with one of these names.
+        :param keys: Keeps ranges with one of these keys.
+        :param search_term: Fuzzy matches range names.
+        :param overlaps_with: Keeps ranges whose time range overlaps this one.
+        :param has_labels: Keeps ranges that have one of these labels.
+        :param limit: The maximum number of ranges to return.
+        :param offset: The number of matching ranges to skip.
+        :param include_labels: Attaches the labels of each range.
+        :param include_parent: Attaches the parent of each range.
+        :returns: The range for a key or name, else a list of the matching ranges.
+        :raises QueryError: If a single range is not found, or more than one matches.
+        :raises ValueError: If key and name are both given, or either is combined with
+            a list filter.
+        """
+        is_single = key is not None or name is not None
+        if key is not None and name is not None:
+            raise ValueError("key and name cannot be combined; use keys or names")
+        if is_single and not check_for_none(
+            keys, names, search_term, overlaps_with, has_labels, limit, offset
+        ):
+            raise ValueError(
+                "key and name cannot be combined with list filters; use keys or names"
+            )
+        req = Request(
+            keys=override(key, keys),
+            names=override(name, names),
+            search_term=search_term,
+            overlaps_with=overlaps_with,
+            has_labels=has_labels,
+            limit=limit,
+            offset=offset,
+            include_labels=include_labels or None,
+            include_parent=include_parent or None,
+        )
+        sug = self._sugar(self._retriever.retrieve(req))
         if not is_single:
             return sug
         if len(sug) == 0:
-            raise QueryError(f"Range {names} not found")
+            raise QueryError(f"Range {key or name} not found")
         elif len(sug) > 1:
-            raise QueryError(f"Multiple ranges matching {names} found")
+            raise QueryError(f"Multiple ranges matching {key or name} found")
         return sug[0]
 
     def delete(
@@ -691,8 +744,7 @@ class Client:
         self,
         term: str,
     ) -> list[Range]:
-        _ranges = self._retriever.search(term)
-        return self._sugar(_ranges)
+        return self._sugar(self._retriever.retrieve(Request(search_term=term)))
 
     def _sugar(self, ranges: list[Payload]) -> list[Range]:
         result: list[Range] = []
@@ -707,6 +759,7 @@ class Client:
                 _ontology=self._ontology,
                 _tasks=self._tasks,
             )
+            rng.labels = r.labels
             if r.parent is not None:
                 rng.parent = r.parent
             result.append(rng)
