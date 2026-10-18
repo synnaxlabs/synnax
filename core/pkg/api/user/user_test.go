@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
+	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
 	apiuser "github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
@@ -368,5 +369,12 @@ var _ = Describe("Service", func() {
 					To(BeTrue())
 			},
 		)
+	})
+})
+
+var _ = Describe("NewService", func() {
+	It("Should return an error when the config is invalid", func() {
+		Expect(apiuser.NewService(apicfg.LayerConfig{})).Error().
+			To(MatchError(ContainSubstring("service: must be non-nil")))
 	})
 })

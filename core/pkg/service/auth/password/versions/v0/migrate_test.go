@@ -33,6 +33,13 @@ var _ = Describe("Password", func() {
 	It("Should return no options", func() {
 		Expect(v0.Password{}.SetOptions()).To(BeNil())
 	})
+	It("Should validate its subject", func() {
+		Expect(v0.Password{}.Validate()).To(MatchError(ContainSubstring("subject")))
+		Expect(v0.Password{Subject: ontology.ID{
+			Type: ontology.ResourceTypeUser,
+			Key:  uuid.New().String(),
+		}}.Validate()).To(Succeed())
+	})
 })
 
 var _ = Describe("NewMove", func() {

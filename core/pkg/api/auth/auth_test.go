@@ -23,7 +23,8 @@ import (
 
 // request builds a login request for the given username and password.
 func request(username, pwd string) apiauth.LoginRequest {
-	return apiauth.LoginRequest{Username: username, Password: pwd}
+	creds := auth.Credentials{Username: username, Password: pwd}
+	return apiauth.LoginRequest{Credentials: creds}
 }
 
 var _ = Describe("NewService", func() {
@@ -85,9 +86,9 @@ var _ = Describe("ChangePassword", func() {
 		},
 	)
 	It("Should keep the password when the current one is wrong", func(ctx SpecContext) {
+		creds := auth.Credentials{Username: own.Username, Password: "wrong"}
 		Expect(apiSvc.ChangePassword(ctx, nil, apiauth.ChangePasswordRequest{
-			Username:    own.Username,
-			Password:    "wrong",
+			Credentials: creds,
 			NewPassword: "new",
 		})).Error().To(MatchError(auth.ErrInvalidCredentials))
 		MustSucceed(apiSvc.Login(ctx, request(own.Username, own.Password)))

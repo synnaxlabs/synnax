@@ -288,6 +288,56 @@ var _ = Describe("Service", func() {
 			Entry("bcrypt with a bad body", "$2a$garbage"),
 		)
 	})
+	Describe("NewRetrieve", func() {
+		var bob ontology.ID
+		BeforeEach(func(ctx SpecContext) {
+			bob = subject()
+			Expect(svc.NewWriter(nil).Set(ctx, bob, auth.Credentials{
+				Username: uuid.New().String(),
+				Password: "secret",
+			})).To(Succeed())
+		})
+		It("Should find a password by key", func(ctx SpecContext) {
+			var p password.Password
+			Expect(svc.NewRetrieve().Where(password.MatchSubjects(alice)).Entry(&p).
+				Exec(ctx, nil)).To(Succeed())
+			var byKey password.Password
+			Expect(svc.NewRetrieve().Where(password.MatchKeys(p.Key)).Entry(&byKey).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(byKey).To(Equal(p))
+		})
+		It("Should compose filters", func(ctx SpecContext) {
+			var ps []password.Password
+			Expect(svc.NewRetrieve().Where(password.Or(
+				password.MatchSubjects(alice),
+				password.MatchSubjects(bob),
+			)).Entries(&ps).Exec(ctx, nil)).To(Succeed())
+			Expect(ps).To(HaveLen(2))
+			Expect(svc.NewRetrieve().Where(password.And(
+				password.MatchSubjects(alice),
+				password.Not(password.MatchSubjects(alice)),
+			)).Count(ctx, nil)).To(Equal(0))
+			Expect(svc.NewRetrieve().Where(password.Match(
+				func(_ gorp.Context, _ password.Retrieve, p *password.Password) (bool, error) {
+					return p.Subject == bob, nil
+				},
+			)).Count(ctx, nil)).To(Equal(1))
+		})
+		It("Should page through passwords", func(ctx SpecContext) {
+			both := password.Or(
+				password.MatchSubjects(alice),
+				password.MatchSubjects(bob),
+			)
+			var first, second []password.Password
+			Expect(svc.NewRetrieve().Where(both).Limit(1).Entries(&first).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(both).Limit(1).Offset(1).Entries(&second).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(first).To(HaveLen(1))
+			Expect(second).To(HaveLen(1))
+			Expect(first[0].Key).ToNot(Equal(second[0].Key))
+		})
+	})
 	Describe("DeleteFor", func() {
 		It("Should remove the subject's password", func(ctx SpecContext) {
 			Expect(svc.DeleteFor(ctx, alice)).To(Succeed())
