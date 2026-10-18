@@ -43,13 +43,13 @@ var _ = Describe("Login", func() {
 		},
 	)
 	It("Should reject a wrong password", func(ctx SpecContext) {
-		Expect(apiSvc.Login(ctx, apiauth.LoginRequest{Credentials: auth.Credentials{
+		Expect(apiSvc.Login(ctx, apiauth.LoginRequest{Credentials: {
 			Username: creds.Username,
 			Password: "wrong",
 		}})).Error().To(MatchError(auth.ErrInvalidCredentials))
 	})
 	It("Should reject an unknown username", func(ctx SpecContext) {
-		Expect(apiSvc.Login(ctx, apiauth.LoginRequest{Credentials: auth.Credentials{
+		Expect(apiSvc.Login(ctx, apiauth.LoginRequest{Credentials: {
 			Username: "nobody",
 			Password: creds.Password,
 		}})).Error().To(MatchError(auth.ErrInvalidCredentials))
@@ -73,7 +73,7 @@ var _ = Describe("ChangePassword", func() {
 				NewPassword: "new",
 			})).Error().ToNot(HaveOccurred())
 			MustSucceed(
-				apiSvc.Login(ctx, apiauth.LoginRequest{Credentials: auth.Credentials{
+				apiSvc.Login(ctx, apiauth.LoginRequest{Credentials: {
 					Username: own.Username,
 					Password: "new",
 				}}),
