@@ -9,17 +9,26 @@
 
 @go output "core/pkg/service/auth"
 
-SecureCredentials struct {
+Credentials struct {
     username string {
-        @doc value "is the unique login name the credentials belong to."
+        @doc value         "is the login name of the password being proven."
+        @validate required
     }
-    password bytes  {
-        @doc value "is the bcrypt hash of the user's password."
+    password string {
+        @doc value         "is the plaintext password. It is never stored."
+        @validate required
     }
 
-    @doc value  """
-        is a persisted username and password-hash pair used to authenticate a user.
+    @doc value "is a plaintext username and password pair presented at login."
+}
+
+Proof union on method {
+    password Credentials {
+        @doc value "proves a password."
+    }
+
+    @doc value """
+        is what a subject presents to log in. The method selects the authenticator that
+        checks it.
     """
-    @go marshal
-    @go migrate
 }

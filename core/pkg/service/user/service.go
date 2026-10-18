@@ -9,8 +9,8 @@
 
 // Package user provides the user management for the Synnax cluster. user includes a
 // service for managing users, a writer for creating and updating users, and a reader
-// for reading users. Authentication and authorization of users is done separately in
-// package auth.
+// for reading users. Authentication is done separately by the method packages under
+// package auth, and authorization by package access.
 package user
 
 import (
@@ -18,7 +18,6 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
@@ -52,27 +51,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Search *search.Index
-	// Auth is the auth service used to register and rotate credentials for the root
-	// user during startup-time reconciliation.
-	//
-	// [OPTIONAL] - Required when [ServiceConfig.RootCredentials] is set; ignored
-	// otherwise.
-	Auth *auth.Service
 	// Signals is used to propagate user changes through the Synnax signals' channel
 	// communication mechanism.
 	//
 	// [OPTIONAL]
 	Signals *signals.Provider
-	// RootCredentials is the username/password pair the cluster's root user must
-	// satisfy after startup. When non-zero, [OpenService] runs root-user
-	// reconciliation: it ensures exactly one user has RootUser=true with this username,
-	// and the stored credentials match this password (rotating the password if it
-	// diverges, registering it if no row exists).
-	//
-	// [OPTIONAL] - When the zero value is provided, root-user reconciliation limits
-	// itself to demoting all but one stale root user (if multiple exist) and otherwise
-	// leaves cluster state untouched.
-	RootCredentials auth.Credentials
 	// Instrumentation for logging, tracing, and metrics.
 	//
 	// [OPTIONAL]
@@ -88,9 +71,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Search = override.Nil(c.Search, other.Search)
-	c.Auth = override.Nil(c.Auth, other.Auth)
 	c.Signals = override.Nil(c.Signals, other.Signals)
-	c.RootCredentials = override.Zero(c.RootCredentials, other.RootCredentials)
 	return c
 }
 
@@ -101,10 +82,6 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("ontology", c.Ontology)
 	v.NotNil("group", c.Group)
 	v.NotNil("search", c.Search)
-	if c.RootCredentials.Username != "" {
-		v.NotNil("auth", c.Auth)
-		v.Exec(c.RootCredentials.Validate)
-	}
 	return v.Error()
 }
 
@@ -147,12 +124,6 @@ func OpenService(
 			return nil, err
 		}
 	}
-	// reconcileRootUser makes sure that there is exactly one root user that matches the
-	// credentials in cfg.RootCredentials, or — when no credentials are configured —
-	// collapses multiple stale roots into one.
-	if err = s.reconcileRootUser(ctx); !ok(err, nil) {
-		return nil, err
-	}
 	return s, nil
 }
 
@@ -174,6 +145,23 @@ func (s *Service) NewRetrieve() Retrieve {
 		baseTX:  s.cfg.DB,
 		indexes: s.indexes,
 	}
+}
+
+// SubjectByUsername returns the ontology ID of the user with the given username. It
+// returns an error wrapping query.ErrNotFound when no user has it.
+func (s *Service) SubjectByUsername(
+	ctx context.Context,
+	tx gorp.Tx,
+	username string,
+) (ontology.ID, error) {
+	var u User
+	if err := s.NewRetrieve().
+		Where(MatchUsernames(username)).
+		Entry(&u).
+		Exec(ctx, tx); err != nil {
+		return ontology.ID{}, err
+	}
+	return u.OntologyID(), nil
 }
 
 // Close closes the [Service] and stops any signal publishing.

@@ -10,6 +10,7 @@
 package user_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -21,6 +22,7 @@ import (
 	svc "github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
@@ -38,12 +40,12 @@ func TestAPIUser(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db      *gorp.DB
-	authSvc *auth.Service
-	userSvc *user.Service
-	writer  user.Writer
-	apiSvc  *apiuser.Service
-	root    user.User
+	db          *gorp.DB
+	passwordSvc *password.Service
+	userSvc     *user.Service
+	writer      user.Writer
+	apiSvc      *apiuser.Service
+	root        user.User
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -54,17 +56,17 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db, Ontology: otg, Search: searchIdx,
 	}))
-	authSvc = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
+	passwordSvc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
 		Search:   searchIdx,
-		Auth:     authSvc,
-		RootCredentials: auth.Credentials{
-			Username: "api-user-suite-root",
-			Password: "p",
-		},
+	}))
+	MustSucceed(user.ProvisionRoot(ctx, user.RootConfig{
+		Users:       userSvc,
+		Passwords:   passwordSvc,
+		Credentials: auth.Credentials{Username: "api-user-suite-root", Password: "p"},
 	}))
 	writer = userSvc.NewWriter(nil)
 	rbacSvc := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
@@ -77,13 +79,22 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	apiSvc = MustSucceed(apiuser.NewService(apicfg.LayerConfig{
 		Distribution: &distribution.Layer{DB: db},
 		Service: &svc.Layer{
-			User: userSvc,
-			RBAC: rbacSvc,
-			Auth: authSvc,
+			User:     userSvc,
+			RBAC:     rbacSvc,
+			Password: passwordSvc,
 		},
 	}))
 	root = findRoot(ctx, userSvc, "api-user-suite-root")
 })
+
+// login proves username and pwd against the suite-level password service.
+func login(ctx context.Context, username, pwd string) (auth.Identity, error) {
+	return passwordSvc.Authenticate(ctx, auth.Proof{
+		Variant: auth.PasswordProof{
+			Credentials: auth.Credentials{Username: username, Password: pwd},
+		},
+	})
+}
 
 func findRoot(ctx SpecContext, svc *user.Service, username string) user.User {
 	GinkgoHelper()

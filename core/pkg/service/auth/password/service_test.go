@@ -1,0 +1,350 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package password_test
+
+import (
+	"context"
+	"uuid"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
+	authversions "github.com/synnaxlabs/synnax/pkg/service/auth/versions"
+	authv0 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v0"
+	authv1 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/query"
+	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
+	"golang.org/x/crypto/bcrypt"
+)
+
+func subject() ontology.ID {
+	return ontology.ID{Type: ontology.ResourceTypeUser, Key: uuid.New().String()}
+}
+
+func proof(username, pwd string) auth.Proof {
+	return auth.Proof{Variant: auth.PasswordProof{
+		Credentials: auth.Credentials{Username: username, Password: pwd},
+	}}
+}
+
+// storedHash returns the hash the service holds for the subject.
+func storedHash(
+	ctx context.Context,
+	svc *password.Service,
+	subject ontology.ID,
+) []byte {
+	GinkgoHelper()
+	var p password.Password
+	Expect(svc.NewRetrieve().Where(password.MatchSubjects(subject)).Entry(&p).
+		Exec(ctx, nil)).To(Succeed())
+	return p.Hash
+}
+
+// seedHash stores a password row with the given hash, bypassing the writer so a spec
+// can plant a hash made by any algorithm.
+func seedHash(
+	ctx context.Context,
+	db *gorp.DB,
+	subject ontology.ID,
+	username string,
+	hash []byte,
+) {
+	GinkgoHelper()
+	Expect(
+		gorp.WrapWriter[password.Key, password.Password](db).Set(ctx, password.Password{
+			Key:      uuid.New(),
+			Subject:  subject,
+			Username: username,
+			Hash:     hash,
+		}),
+	).To(Succeed())
+}
+
+var _ = Describe("ServiceConfig", func() {
+	var cfg password.ServiceConfig
+	BeforeEach(func() {
+		cfg = password.ServiceConfig{DB: db, FIPS: new(true)}
+	})
+	Describe("Override", func() {
+		It("Should take each field from the override when the base is zero", func() {
+			result := password.ServiceConfig{}.Override(cfg)
+			Expect(result.DB).To(Equal(db))
+			Expect(*result.FIPS).To(BeTrue())
+		})
+		It("Should keep each field from the base when the override is zero", func() {
+			result := cfg.Override(password.ServiceConfig{})
+			Expect(result.DB).To(Equal(db))
+			Expect(*result.FIPS).To(BeTrue())
+		})
+	})
+	Describe("Validate", func() {
+		It("Should succeed when every required field is set", func() {
+			Expect(cfg.Validate()).To(Succeed())
+		})
+		It("Should return an error when DB is nil", func() {
+			cfg.DB = nil
+			Expect(
+				cfg.Validate(),
+			).To(MatchError(ContainSubstring("db: must be non-nil")))
+		})
+		It("Should return an error when FIPS is nil", func() {
+			cfg.FIPS = nil
+			Expect(
+				cfg.Validate(),
+			).To(MatchError(ContainSubstring("fips: must be non-nil")))
+		})
+	})
+})
+
+var _ = Describe("OpenService", func() {
+	It("Should return an error when the config is invalid", func(ctx SpecContext) {
+		Expect(password.OpenService(ctx, password.ServiceConfig{})).Error().
+			To(MatchError(ContainSubstring("db: must be non-nil")))
+	})
+	Describe("Upgrade from the credentials table", func() {
+		var (
+			db    *gorp.DB
+			alice = subject()
+		)
+		// seedLegacy writes credential rows in the untagged MessagePack shape a Core
+		// before 0.59 persisted.
+		seedLegacy := func(ctx context.Context, kvDB kv.DB, hash []byte) {
+			GinkgoHelper()
+			legacyDB := gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec))
+			Expect(gorp.WrapWriter[string, authv0.SecureCredentials](legacyDB).Set(ctx,
+				authv0.SecureCredentials{Username: "alice", Password: hash},
+				authv0.SecureCredentials{Username: "ghost", Password: hash},
+			)).To(Succeed())
+		}
+		lookup := func(_ context.Context, _ gorp.Tx, username string) (ontology.ID, error) {
+			if username == "alice" {
+				return alice, nil
+			}
+			return ontology.ID{}, query.ErrNotFound
+		}
+		BeforeEach(func(ctx SpecContext) {
+			kvDB := DeferClose(memkv.New())
+			db = gorp.Wrap(kvDB)
+			hash := MustSucceed(
+				bcrypt.GenerateFromPassword([]byte("p"), bcrypt.MinCost),
+			)
+			seedLegacy(ctx, kvDB, hash)
+		})
+		noCredentials := func(ctx context.Context, username string) {
+			GinkgoHelper()
+			Expect(gorp.NewRetrieve[string, authv1.SecureCredentials]().
+				Where(gorp.MatchKeys[string, authv1.SecureCredentials](username)).
+				Exists(ctx, db)).To(BeFalse())
+		}
+		It(
+			"Should move each credential to the subject that owns it",
+			func(ctx SpecContext) {
+				svc := MustOpen(password.OpenService(ctx, password.ServiceConfig{
+					DB:                db,
+					SubjectByUsername: lookup,
+				}))
+				identity := MustSucceed(svc.Authenticate(ctx, proof("alice", "p")))
+				Expect(identity.Subject).To(Equal(alice))
+				Expect(storedHash(ctx, svc, alice)).To(HavePrefix("$argon2id$"))
+				noCredentials(ctx, "alice")
+			},
+		)
+		It(
+			"Should move credentials a Core already lifted to Orc",
+			func(ctx SpecContext) {
+				Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+					DB:         db,
+					Namespace:  authversions.Namespace,
+					Migrations: authversions.Migrations,
+				})).To(Succeed())
+				svc := MustOpen(password.OpenService(ctx, password.ServiceConfig{
+					DB:                db,
+					SubjectByUsername: lookup,
+				}))
+				Expect(MustSucceed(svc.Authenticate(ctx, proof("alice", "p"))).Subject).
+					To(Equal(alice))
+				noCredentials(ctx, "alice")
+			},
+		)
+		It("Should drop a credential that no subject owns", func(ctx SpecContext) {
+			svc := MustOpen(password.OpenService(ctx, password.ServiceConfig{
+				DB:                db,
+				SubjectByUsername: lookup,
+			}))
+			Expect(svc.Authenticate(ctx, proof("ghost", "p"))).Error().
+				To(MatchError(auth.ErrInvalidCredentials))
+			noCredentials(ctx, "ghost")
+		})
+		It("Should refuse to open without a lookup", func(ctx SpecContext) {
+			Expect(password.OpenService(ctx, password.ServiceConfig{DB: db})).Error().
+				To(MatchError(ContainSubstring("subject lookup")))
+		})
+		It("Should move credentials once", func(ctx SpecContext) {
+			svc := MustOpen(password.OpenService(ctx, password.ServiceConfig{
+				DB:                db,
+				SubjectByUsername: lookup,
+			}))
+			first := storedHash(ctx, svc, alice)
+			Expect(svc.Close()).To(Succeed())
+			again := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
+			Expect(storedHash(ctx, again, alice)).To(Equal(first))
+		})
+	})
+})
+
+var _ = Describe("Service", func() {
+	var (
+		svc      *password.Service
+		alice    ontology.ID
+		username string
+	)
+	BeforeEach(func(ctx SpecContext) {
+		svc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
+		alice = subject()
+		username = uuid.New().String()
+		Expect(svc.NewWriter(nil).Set(ctx, alice, auth.Credentials{
+			Username: username,
+			Password: "secret",
+		})).To(Succeed())
+	})
+	Describe("Authenticate", func() {
+		It("Should return the identity the password proves", func(ctx SpecContext) {
+			identity := MustSucceed(svc.Authenticate(ctx, proof(username, "secret")))
+			Expect(identity.Subject).To(Equal(alice))
+			Expect(identity.Method).To(Equal(auth.MethodPassword))
+			var p password.Password
+			Expect(svc.NewRetrieve().Where(password.MatchSubjects(alice)).Entry(&p).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(identity.Credential).To(Equal(p.Key))
+		})
+		It(
+			"Should return the same error for a wrong password and an unknown username",
+			func(ctx SpecContext) {
+				_, wrongPassword := svc.Authenticate(ctx, proof(username, "wrong"))
+				_, unknownUser := svc.Authenticate(ctx, proof("nobody", "secret"))
+				Expect(wrongPassword).To(MatchError(auth.ErrInvalidCredentials))
+				Expect(unknownUser).To(Equal(wrongPassword))
+			},
+		)
+		It("Should reject a proof of another method", func(ctx SpecContext) {
+			Expect(svc.Authenticate(ctx, auth.Proof{})).Error().
+				To(MatchError(validate.ErrValidation))
+		})
+		It("Should reject empty credentials", func(ctx SpecContext) {
+			Expect(svc.Authenticate(ctx, proof(username, ""))).Error().
+				To(MatchError(ContainSubstring("password: required")))
+		})
+		It(
+			"Should check a bcrypt hash and store it again as Argon2id",
+			func(ctx SpecContext) {
+				bob := subject()
+				hash := MustSucceed(
+					bcrypt.GenerateFromPassword([]byte("p"), bcrypt.MinCost),
+				)
+				seedHash(ctx, db, bob, uuid.New().String(), hash)
+				var p password.Password
+				Expect(svc.NewRetrieve().Where(password.MatchSubjects(bob)).Entry(&p).
+					Exec(ctx, nil)).To(Succeed())
+				Expect(
+					MustSucceed(svc.Authenticate(ctx, proof(p.Username, "p"))).Subject,
+				).
+					To(Equal(bob))
+				Expect(storedHash(ctx, svc, bob)).To(HavePrefix("$argon2id$"))
+				MustSucceed(svc.Authenticate(ctx, proof(p.Username, "p")))
+				Expect(svc.Authenticate(ctx, proof(p.Username, "wrong"))).Error().
+					To(MatchError(auth.ErrInvalidCredentials))
+			},
+		)
+		It(
+			"Should fail on a malformed hash without blaming the password",
+			func(ctx SpecContext) {
+				bob := subject()
+				name := uuid.New().String()
+				seedHash(ctx, db, bob, name, []byte("$argon2id$garbage"))
+				_, err := svc.Authenticate(ctx, proof(name, "p"))
+				Expect(err).To(MatchError(ContainSubstring("malformed")))
+				Expect(err).ToNot(MatchError(auth.ErrInvalidCredentials))
+			},
+		)
+	})
+	Describe("DeleteFor", func() {
+		It("Should remove the subject's password", func(ctx SpecContext) {
+			Expect(svc.DeleteFor(ctx, alice)).To(Succeed())
+			Expect(svc.Authenticate(ctx, proof(username, "secret"))).Error().
+				To(MatchError(auth.ErrInvalidCredentials))
+		})
+	})
+})
+
+var _ = Describe("Service with FIPS", func() {
+	var svc *password.Service
+	BeforeEach(func(ctx SpecContext) {
+		svc = MustOpen(password.OpenService(ctx, password.ServiceConfig{
+			DB:   db,
+			FIPS: new(true),
+		}))
+	})
+	It("Should hash new passwords with PBKDF2", func(ctx SpecContext) {
+		alice := subject()
+		name := uuid.New().String()
+		Expect(svc.NewWriter(nil).Set(ctx, alice, auth.Credentials{
+			Username: name,
+			Password: "secret",
+		})).To(Succeed())
+		Expect(storedHash(ctx, svc, alice)).To(HavePrefix("$pbkdf2-sha256$"))
+		Expect(MustSucceed(svc.Authenticate(ctx, proof(name, "secret"))).Subject).
+			To(Equal(alice))
+		Expect(svc.Authenticate(ctx, proof(name, "wrong"))).Error().
+			To(MatchError(auth.ErrInvalidCredentials))
+	})
+	It("Should refuse a bcrypt hash", func(ctx SpecContext) {
+		name := uuid.New().String()
+		hash := MustSucceed(bcrypt.GenerateFromPassword([]byte("p"), bcrypt.MinCost))
+		seedHash(ctx, db, subject(), name, hash)
+		Expect(svc.Authenticate(ctx, proof(name, "p"))).Error().To(SatisfyAll(
+			MatchError(auth.ErrInvalidCredentials),
+			MatchError(ContainSubstring("does not accept")),
+		))
+	})
+	It("Should refuse an Argon2id hash", func(ctx SpecContext) {
+		alice := subject()
+		name := uuid.New().String()
+		plain := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
+		Expect(plain.NewWriter(nil).Set(ctx, alice, auth.Credentials{
+			Username: name,
+			Password: "p",
+		})).To(Succeed())
+		Expect(svc.Authenticate(ctx, proof(name, "p"))).Error().To(SatisfyAll(
+			MatchError(auth.ErrInvalidCredentials),
+			MatchError(ContainSubstring("does not accept")),
+		))
+	})
+	It(
+		"Should let a Core without FIPS check and replace a PBKDF2 hash",
+		func(ctx SpecContext) {
+			alice := subject()
+			name := uuid.New().String()
+			Expect(svc.NewWriter(nil).Set(ctx, alice, auth.Credentials{
+				Username: name,
+				Password: "p",
+			})).To(Succeed())
+			plain := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
+			MustSucceed(plain.Authenticate(ctx, proof(name, "p")))
+			Expect(storedHash(ctx, plain, alice)).To(HavePrefix("$argon2id$"))
+		},
+	)
+})

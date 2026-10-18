@@ -60,9 +60,7 @@ var _ = Describe("Service", func() {
 				Expect(res.Users[0].FirstName).To(Equal("First"))
 				Expect(res.Users[0].LastName).To(Equal("Last"))
 				Expect(res.Users[0].Key).ToNot(Equal(uuid.Nil()))
-				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-					Username: username, Password: "p",
-				})).To(Succeed())
+				MustSucceed(login(ctx, username, "p"))
 			},
 		)
 		It(
@@ -78,12 +76,11 @@ var _ = Describe("Service", func() {
 			},
 		)
 		It(
-			"Should roll back the auth row when user creation fails inside the tx",
+			"Should roll back the password when user creation fails inside the tx",
 			func(ctx SpecContext) {
-				// Trigger a per-tx rollback by requesting two users whose usernames
-				// collide: the first auth row registers, then the second user-record
-				// create returns auth.ErrRepeatedUsername, which must roll back the
-				// first auth row.
+				// Two users with one username: the first is created with its password,
+				// then the second create returns auth.ErrRepeatedUsername, which must
+				// roll back the first.
 				username := "rollback-" + uuid.New().String()
 				tx := DeferClose(db.OpenTx())
 				Expect(apiSvc.Create(rootCtx(ctx), tx, apiuser.CreateRequest{
@@ -98,9 +95,8 @@ var _ = Describe("Service", func() {
 						},
 					},
 				})).Error().To(MatchError(auth.ErrRepeatedUsername))
-				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-					Username: username, Password: "p",
-				})).To(MatchError(auth.ErrInvalidCredentials))
+				Expect(login(ctx, username, "p")).Error().
+					To(MatchError(auth.ErrInvalidCredentials))
 			},
 		)
 	})
@@ -189,16 +185,19 @@ var _ = Describe("Service", func() {
 
 	Describe("ChangeUsername", func() {
 		It(
-			"Should rename the user and rotate the matching auth row",
+			"Should rename the user and its password",
 			func(ctx SpecContext) {
 				oldName := "change-username-" + uuid.New().String()
 				newName := "change-username-new-" + uuid.New().String()
 				u := MustSucceed(writer.Create(ctx, user.User{
 					Username: oldName,
 				}))
-				Expect(authSvc.NewWriter(nil).Register(ctx, auth.Credentials{
-					Username: oldName, Password: "p",
-				})).To(Succeed())
+				Expect(
+					passwordSvc.NewWriter(nil).
+						Set(ctx, u.OntologyID(), auth.Credentials{
+							Username: oldName, Password: "p",
+						}),
+				).To(Succeed())
 
 				Expect(
 					apiSvc.ChangeUsername(
@@ -216,12 +215,9 @@ var _ = Describe("Service", func() {
 				Expect(userSvc.NewRetrieve().Where(user.MatchKeys(u.Key)).
 					Entry(&updated).Exec(ctx, nil)).To(Succeed())
 				Expect(updated.Username).To(Equal(newName))
-				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-					Username: newName, Password: "p",
-				})).To(Succeed())
-				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-					Username: oldName, Password: "p",
-				})).To(MatchError(auth.ErrInvalidCredentials))
+				MustSucceed(login(ctx, newName, "p"))
+				Expect(login(ctx, oldName, "p")).Error().
+					To(MatchError(auth.ErrInvalidCredentials))
 			},
 		)
 		It(
@@ -330,10 +326,11 @@ var _ = Describe("Service", func() {
 				created := MustSucceed(
 					writer.Create(ctx, user.User{Username: username}),
 				)
-				Expect(authSvc.NewWriter(nil).Register(ctx, auth.Credentials{
-					Username: username,
-					Password: "password",
-				})).To(Succeed())
+				Expect(passwordSvc.NewWriter(nil).Set(
+					ctx,
+					created.OntologyID(),
+					auth.Credentials{Username: username, Password: "password"},
+				)).To(Succeed())
 				Expect(apiSvc.Delete(
 					rootCtx(ctx),
 					db,
@@ -345,10 +342,8 @@ var _ = Describe("Service", func() {
 						Exists(ctx, nil),
 				).
 					To(BeFalse())
-				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-					Username: username,
-					Password: "password",
-				})).To(MatchError(auth.ErrInvalidCredentials))
+				Expect(login(ctx, username, "password")).Error().
+					To(MatchError(auth.ErrInvalidCredentials))
 			},
 		)
 		It(
