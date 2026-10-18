@@ -221,8 +221,10 @@ class TestIterator:
         frame = client.read_latest([idx_ch.key, data_ch.key], 5)
         data_series = frame.get(data_ch.key)
         idx_series = frame.get(idx_ch.key)
-        assert data_series is not None and len(data_series) == 0
-        assert idx_series is not None and len(idx_series) == 0
+        assert data_series is not None
+        assert len(data_series) == 0
+        assert idx_series is not None
+        assert len(idx_series) == 0
 
     def test_read_latest_single_sample(
         self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax

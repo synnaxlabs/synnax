@@ -490,11 +490,11 @@ class TestRangeRetrieveFilters:
         """Should reject a key or name combined with another selector or a list filter"""
         retrieve = cast(Callable[..., object], client.ranges.retrieve)
         key = uuid4()
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="cannot be combined; use keys"):
             retrieve(key=key, name="a")
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="cannot be combined with list filters"):
             retrieve(key=key, limit=1)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="cannot be combined with list filters"):
             retrieve(name="a", keys=[key])
 
     def test_overlaps_with(
