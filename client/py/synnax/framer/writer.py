@@ -120,8 +120,8 @@ def parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
     if isinstance(mode, int):
         try:
             return WriterMode(mode)
-        except:
-            ...
+        except ValueError:
+            pass
     raise ValueError(f"invalid writer mode {mode}")
 
 

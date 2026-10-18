@@ -134,9 +134,9 @@ class ConfigClient:
                 if "sequences" in file_data:
                     all_sequences.extend(file_data["sequences"])
             except FileNotFoundError:
-                raise FileNotFoundError(f"Test file not found: {test_file}")
+                raise FileNotFoundError(f"Test file not found: {test_file}") from None
             except json.JSONDecodeError as e:
-                raise ValueError(f"Invalid JSON in test file '{test_file}': {e}") from e
+                raise ValueError(f"Invalid JSON in test file '{test_file}'") from e
 
         if not all_sequences:
             raise FileNotFoundError("No valid sequences found")
@@ -275,7 +275,7 @@ class ConfigClient:
 
         expanded: list[TestDefinition] = []
         for combo in combinations:
-            combo_params = dict(zip(param_keys, combo))
+            combo_params = dict(zip(param_keys, combo, strict=True))
             merged_params = {**single_params, **combo_params}
 
             matrix_suffix = "_".join(str(v) for v in combo)
@@ -315,7 +315,7 @@ class ConfigClient:
 
         except Exception as e:
             raise ImportError(
-                f"Failed to expand test classes for {test_def.case}: {e}"
+                f"Failed to expand test classes for {test_def.case}"
             ) from e
 
     # ----- Dynamic class loading -----
@@ -418,8 +418,8 @@ class ConfigClient:
 
         except Exception as e:
             raise ImportError(
-                f"Failed to load test class(es) from {test_def.case}: {e}\n"
-            )
+                f"Failed to load test class(es) from {test_def.case}"
+            ) from e
 
     def load_test_class(self, test_def: TestDefinition) -> type[TestCase]:
         """Load a single test class (first match) from a case identifier."""

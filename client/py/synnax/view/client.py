@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 from typing import Any, overload
-from uuid import UUID
 
 from pydantic import BaseModel, Field
 from pydantic_core import to_jsonable_python
@@ -18,6 +17,7 @@ from freighter import Empty, UnaryClient
 from synnax.exceptions import NotFoundError
 from synnax.view.types_gen import Key, View
 from x.lists import normalize
+from x.uuid import NIL
 
 
 class _CreateRequest(BaseModel):
@@ -88,7 +88,7 @@ class Client:
         if views is None:
             views = [
                 View(
-                    key=UUID(int=0),
+                    key=NIL,
                     name=name,
                     type=type,
                     query=to_jsonable_python(query) if query is not None else {},
