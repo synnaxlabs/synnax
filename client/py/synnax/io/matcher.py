@@ -14,7 +14,7 @@ from typing import ClassVar
 class ExtensionMatcher:
     """Matches files whose extension is in the subclass's ``_extensions``."""
 
-    _extensions: ClassVar[list[str]]
+    _extensions: ClassVar[tuple[str, ...]]
 
     @classmethod
     def match(cls, path: Path) -> bool:
@@ -22,4 +22,4 @@ class ExtensionMatcher:
 
     @classmethod
     def extensions(cls) -> list[str]:
-        return cls._extensions
+        return list(cls._extensions)

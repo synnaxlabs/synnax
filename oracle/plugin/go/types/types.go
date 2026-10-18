@@ -1413,12 +1413,19 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 {{- $u := .}}
 
 type {{.DiscType}} string
+{{- if eq (len .Variants) 1}}
+{{- with index .Variants 0}}
+
+const {{.ConstName}} {{$u.DiscType}} = "{{.Value}}"
+{{- end}}
+{{- else}}
 
 const (
 {{- range .Variants}}
 	{{.ConstName}} {{$u.DiscType}} = "{{.Value}}"
 {{- end}}
 )
+{{- end}}
 
 type {{.InterfaceName}} interface {
 	{{.Marker}}()

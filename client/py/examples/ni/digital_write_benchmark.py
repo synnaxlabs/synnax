@@ -83,7 +83,7 @@ with tsk.run():
         write=["do_1_cmd"],
         write_authorities=50,
     ) as ctrl:
-        for i in range(2500):
+        for _ in range(2500):
             ctrl["do_1_cmd"] = 1
             start = sy.TimeStamp.now()
             ctrl.wait_until(lambda c: c["do_1_state"] == 1)

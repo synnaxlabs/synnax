@@ -112,12 +112,17 @@ func generatePyFile(
 	skip := func(typ resolution.Type) bool { return omit.IsSkipped(typ, "py") }
 	rawKeyFields := key.Collect(structs, table, skip)
 	keyFields := convertKeyFields(rawKeyFields, data)
-	allStructs := lo.Filter(table.StructTypes(), func(typ resolution.Type, _ int) bool {
+	inOutput := func(typ resolution.Type, _ int) bool {
 		return output.GetPath(typ, "py") == outputPath
-	})
+	}
+	allStructs := lo.Filter(table.StructTypes(), inOutput)
 	allRawKeyFields := key.Collect(allStructs, table, nil)
-	allKeyFields := convertKeyFields(allRawKeyFields, data)
-	data.Ontology = extractOntology(allStructs, allRawKeyFields, allKeyFields, nil)
+	data.Ontology = extractOntology(
+		slices.Concat(allStructs, lo.Filter(table.UnionTypes(), inOutput)),
+		allRawKeyFields,
+		nil,
+		table,
+	)
 	if data.Ontology != nil {
 		data.imports.addOntology("ID")
 	}
@@ -243,11 +248,11 @@ func convertKeyFields(fields []key.Field, data *templateData) []keyFieldData {
 func extractOntology(
 	types []resolution.Type,
 	rawFields []key.Field,
-	keyFields []keyFieldData,
 	skip ontology.SkipFunc,
+	table *resolution.Table,
 ) *ontologyData {
-	data := ontology.Extract(types, rawFields, skip)
-	if data == nil || len(keyFields) == 0 {
+	data := ontology.Extract(types, rawFields, skip, table)
+	if data == nil {
 		return nil
 	}
 	return &ontologyData{

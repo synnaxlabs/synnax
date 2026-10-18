@@ -210,6 +210,53 @@ var _ = Describe("C++ PB Plugin", func() {
 						"pb.add_names(item)",
 					)
 			})
+
+			It("Should convert uuid arrays element by element", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Key = uuid
+
+					Data struct {
+						keys Key[]
+					}
+				`
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+				ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						"pb.add_keys(item.to_string());",
+						"auto [v, err] = x::uuid::UUID::parse(item);",
+						"cpp.keys.push_back(v);",
+					)
+			})
+
+			It(
+				"Should translate string enum arrays element by element",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Variant enum {
+						success = "success"
+						error = "error"
+					}
+
+					Data struct {
+						variants Variant[]
+					}
+				`
+					resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+					ExpectContent(resp, "proto.gen.h").
+						ToContain(
+							"auto [v, err] = variant_to_pb(item);",
+							"pb.add_variants(v);",
+							"variant_from_pb(static_cast<",
+							"cpp.variants.push_back(v);",
+						)
+				},
+			)
 		})
 
 		Context("optional struct fields", func() {

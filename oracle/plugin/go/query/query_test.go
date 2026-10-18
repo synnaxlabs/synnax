@@ -10,8 +10,6 @@
 package query_test
 
 import (
-	"strings"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/go/query"
@@ -85,6 +83,89 @@ var _ = Describe("Go Query Plugin", func() {
 						)
 				},
 			)
+		})
+
+		Context("union entry", func() {
+			It("Should take the key from the union's base", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/view"
+
+					Base struct {
+						key uuid @key
+						name string
+					}
+
+					View union on type extends Base {
+						first {
+							size int32
+						}
+						second {
+							count int32
+						}
+						@ontology type "view"
+						@retrieve
+						@search
+					}
+				`
+				resp := MustGenerate(ctx, source, "view", loader, p)
+				ExpectContent(resp, "retrieve.gen.go").
+					ToContain(
+						"gorp.Retrieve[uuid.UUID, View]",
+						"func MatchKeys(keys ...uuid.UUID) Filter",
+						"func (r Retrieve) Search(term string) Retrieve",
+					)
+			})
+
+			It(
+				"Should reject two @retrieve types in one output",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/view"
+
+					Base struct {
+						key uuid @key
+					}
+
+					View union on type extends Base {
+						first {
+							size int32
+						}
+						@retrieve
+					}
+
+					Other struct {
+						key uuid @key
+						@retrieve
+					}
+				`
+					req := MustGenerateRequest(ctx, source, "view", loader)
+					Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+						"only one @retrieve type is allowed per output, found 2",
+					)))
+				},
+			)
+
+			It("Should reject a @filter on a union field", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/view"
+
+					Base struct {
+						key uuid @key
+						name string @filter
+					}
+
+					View union on type extends Base {
+						first {
+							size int32
+						}
+						@retrieve
+					}
+				`
+				req := MustGenerateRequest(ctx, source, "view", loader)
+				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+					"@filter and @index are not supported on union fields",
+				)))
+			})
 		})
 
 		Context("inherited key", func() {
@@ -880,34 +961,25 @@ var _ = Describe("Go Query Plugin", func() {
 
 		Context("multiple structs in same output", func() {
 			It(
-				"Should generate methods for both structs in one file",
+				"Should reject two @retrieve structs in one output",
 				func(ctx SpecContext) {
 					source := `
 					@go output "core/pkg/service/views"
 
 					LinePlot struct {
-						key uuid {
-							@key
-						}
-						name string
-						@ontology type "lineplot"
+						key uuid @key
 						@retrieve
 					}
 
 					Table struct {
-						key uuid {
-							@key
-						}
-						data string
-						@ontology type "table"
+						key uuid @key
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "views", loader, p)
-					Expect(resp.Files).To(HaveLen(1))
-
-					content := MustContentOf(resp, "retrieve.gen.go")
-					Expect(strings.Count(content, "type Retrieve struct")).To(Equal(2))
+					req := MustGenerateRequest(ctx, source, "views", loader)
+					Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+						"only one @retrieve type is allowed per output, found 2",
+					)))
 				},
 			)
 		})

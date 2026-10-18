@@ -490,7 +490,7 @@ class ChannelClient(ResourceClient):
             if len(normalized_names.channels) != len(normalized_new_names.channels):
                 return False
             for old_name, new_name in zip(
-                normalized_names.channels, normalized_new_names.channels
+                normalized_names.channels, normalized_new_names.channels, strict=True
             ):
                 self._rename_single_channel(
                     old_name=str(old_name), new_name=str(new_name)

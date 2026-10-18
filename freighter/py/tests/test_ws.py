@@ -141,7 +141,7 @@ class TestAsyncWebsocket:
         """Should correctly use a custom codec for the websocket client."""
         async_client = async_client.with_codec(MyVerySpecialCustomCodec())
         stream = await async_client.stream("/echo", Message, Message)
-        for i in range(1):
+        for _ in range(1):
             await stream.send(Message(id=12, message="what we send here is ignored"))
             msg = await stream.receive()
             assert msg.id == 4201
@@ -242,7 +242,7 @@ class TestSyncWebsocket:
     def test_exit_immediately_with_err(self, sync_client: WebsocketClient) -> None:
         """Should correctly return the error to the stream"""
         stream = sync_client.stream("/immediatelyExitWithErr", Message, Message)
-        for i in range(100):
+        for _ in range(100):
             try:
                 stream.send(Message(id=1, message="hello"))
             except freighter.EOF:
@@ -257,7 +257,7 @@ class TestSyncWebsocket:
         """Should correctly use a custom codec for the websocket client."""
         sync_client = sync_client.with_codec(MyVerySpecialCustomCodec())
         stream = sync_client.stream("/echo", Message, Message)
-        for i in range(1):
+        for _ in range(1):
             stream.send(Message(id=12, message="what we send here is ignored"))
             msg = stream.receive()
             assert msg.id == 4201

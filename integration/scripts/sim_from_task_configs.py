@@ -133,7 +133,7 @@ class SimDAQ:
 
         state_idx = self.get_index("daq_time")
 
-        for i, ch in enumerate(channels):
+        for ch in channels:
             if not ch.get("enabled", True):
                 continue
 
@@ -231,7 +231,7 @@ class SimDAQ:
 
         state_idx = self.get_index("daq_time")
 
-        for i, ch in enumerate(channels):
+        for ch in channels:
             if not ch.get("enabled", True):
                 continue
 
