@@ -118,7 +118,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	signal.GoTick(
 		sCtx,
 		s.cfg.IdleTimeout/4,
-		func(ctx context.Context, _ time.Time) error { return s.Sweep(ctx) },
+		func(ctx context.Context, _ time.Time) error {
+			// A failed sweep must not stop the ticker, so the next one runs on time.
+			if err := s.Sweep(ctx); err != nil {
+				s.cfg.L.Error("failed to sweep idle sessions", zap.Error(err))
+			}
+			return nil
+		},
 		signal.WithRetryOnPanic(),
 		signal.WithKey("session_sweep"),
 	)
