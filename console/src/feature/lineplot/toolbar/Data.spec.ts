@@ -16,7 +16,7 @@ import { client, renderLinePlot } from "@/feature/lineplot/testutil";
 import { Toolbar } from "@/feature/lineplot/toolbar";
 import { Range } from "@/platform/range";
 
-const PLACEHOLDER = "1h 30m";
+const PLACEHOLDER = "1h 30min";
 
 const renderData = async (ranges?: lineplot.New["ranges"]) => {
   const handle = await renderLinePlot(Toolbar, {
@@ -74,11 +74,29 @@ describe("lineplot/toolbar/Data", () => {
     });
   });
 
+  it("keeps the stored window when the input is zero", async () => {
+    const { key } = await renderData(CUSTOM_SELECTED);
+    const input = await screen.findByPlaceholderText(PLACEHOLDER);
+    fireEvent.change(input, { target: { value: "45m" } });
+    fireEvent.blur(input);
+    await waitFor(async () => {
+      const plot = await client.lineplots.retrieve(key);
+      expect(plot.ranges.custom).toBeDefined();
+    });
+    fireEvent.change(input, { target: { value: "0s" } });
+    fireEvent.blur(input);
+    const plot = await client.lineplots.retrieve(key);
+    expect(plot.ranges.custom).toEqual({
+      variant: "dynamic",
+      span: Number(TimeSpan.minutes(45)),
+    });
+  });
+
   it("displays the stored rolling window", async () => {
     await renderData({
       ...CUSTOM_SELECTED,
       custom: { variant: "dynamic", span: Number(TimeSpan.minutes(45)) },
     });
-    expect(await screen.findByDisplayValue("45m")).toBeDefined();
+    expect(await screen.findByDisplayValue("45min")).toBeDefined();
   });
 });

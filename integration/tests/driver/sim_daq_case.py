@@ -30,7 +30,7 @@ Usage with ConsoleCase:
 
 from examples.simulators.simdaq import SimDAQ
 
-from framework.models import SynnaxConnection
+from framework.models import DEFAULT_CONNECTION, SynnaxConnection
 from framework.test_case import TestCase
 
 
@@ -46,7 +46,7 @@ class SimDaqCase(TestCase):
 
     def __init__(
         self,
-        synnax_connection: SynnaxConnection = SynnaxConnection(),
+        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
         *,
         name: str,
         **params: object,

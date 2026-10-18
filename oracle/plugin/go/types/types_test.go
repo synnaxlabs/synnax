@@ -2834,6 +2834,25 @@ var _ = Describe("Go Union Generation", func() {
 	)
 
 	It(
+		"Should emit a single discriminator constant on one line",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			LinearParams struct { slope float64 }
+
+			Scale union on type {
+				linear LinearParams
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain(`type ScaleType string`, "\nconst LinearScaleType ScaleType = \"linear\"\n").
+				ToNotContain("const (\n\tLinearScaleType")
+		},
+	)
+
+	It(
 		"Should generate a sealed interface with variant structs",
 		func(ctx SpecContext) {
 			source := `

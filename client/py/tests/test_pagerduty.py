@@ -180,7 +180,7 @@ class TestPagerDutyAlertTask:
         assert tsk.config.routing_key == task.config.routing_key
         assert tsk.config.auto_start == task.config.auto_start
         assert len(tsk.config.alerts) == len(task.config.alerts)
-        for orig, retr in zip(task.config.alerts, tsk.config.alerts):
+        for orig, retr in zip(task.config.alerts, tsk.config.alerts, strict=True):
             assert retr.status == orig.status
             assert retr.disabled == orig.disabled
             assert retr.errors_critical == orig.errors_critical
@@ -220,7 +220,9 @@ class TestPagerDutyAlertTask:
         assert retrieved.config.routing_key == original.config.routing_key
         assert retrieved.config.auto_start == original.config.auto_start
         assert len(retrieved.config.alerts) == len(original.config.alerts)
-        for orig, retr in zip(original.config.alerts, retrieved.config.alerts):
+        for orig, retr in zip(
+            original.config.alerts, retrieved.config.alerts, strict=True
+        ):
             assert retr.status == orig.status
             assert retr.disabled == orig.disabled
             assert retr.errors_critical == orig.errors_critical

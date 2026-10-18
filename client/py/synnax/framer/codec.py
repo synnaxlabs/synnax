@@ -103,7 +103,7 @@ class CodecState:
 
     def __init__(self, keys: list[channel.Key], data_types: list[DataType]) -> None:
         self.keys = sorted(keys)
-        self.data_types = {k: dt for k, dt in zip(keys, data_types)}
+        self.data_types = {k: dt for k, dt in zip(keys, data_types, strict=True)}
         self.has_variable_data_types = any(dt.is_variable for dt in data_types)
 
 

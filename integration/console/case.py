@@ -25,7 +25,7 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 import synnax as sy
 from console.console import Console
-from framework.models import STATUS, SynnaxConnection
+from framework.models import DEFAULT_CONNECTION, STATUS, SynnaxConnection
 from framework.run_dir import resolve_results_path
 from framework.test_case import TestCase
 
@@ -54,7 +54,7 @@ class ConsoleCase(TestCase):
 
     def __init__(
         self,
-        synnax_connection: SynnaxConnection = SynnaxConnection(),
+        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
         *,
         name: str,
         **params: object,

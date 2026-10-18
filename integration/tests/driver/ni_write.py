@@ -378,7 +378,9 @@ def _send_oob_and_assert_state_clamped(
             enable_auto_commit=True,
         )
         try:
-            cmd_frame = {key: float(v) for key, v in zip(cmd_keys, oob_values)}
+            cmd_frame = {
+                key: float(v) for key, v in zip(cmd_keys, oob_values, strict=True)
+            }
             cmd_frame.update({k: sy.TimeStamp.now() for k in index_keys})
             writer.write(cmd_frame)
 
@@ -398,7 +400,9 @@ def _send_oob_and_assert_state_clamped(
                     if key in frame and len(frame[key]) > 0:
                         received[key] = to_float(frame[key][-1])
 
-            for state_key, cmd_key, oob_val in zip(state_keys, cmd_keys, oob_values):
+            for state_key, cmd_key, oob_val in zip(
+                state_keys, cmd_keys, oob_values, strict=True
+            ):
                 state_val = received[state_key]
                 if state_val == oob_val:
                     cmd_ch = client.channels.retrieve(cmd_key)

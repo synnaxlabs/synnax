@@ -531,7 +531,7 @@ class TestModbusWriteTask:
         assert len(retrieved_task.config.channels) == len(original_task.config.channels)
 
         for orig_ch, retr_ch in zip(
-            original_task.config.channels, retrieved_task.config.channels
+            original_task.config.channels, retrieved_task.config.channels, strict=True
         ):
             assert retr_ch.key == orig_ch.key
             assert retr_ch.address == orig_ch.address

@@ -23,7 +23,7 @@ from typing import Any, Literal, NoReturn, overload
 
 import synnax as sy
 from framework.log_client import LogClient, LogMode, SynnaxChannelSink
-from framework.models import STATUS, SYMBOLS, SynnaxConnection
+from framework.models import DEFAULT_CONNECTION, STATUS, SYMBOLS, SynnaxConnection
 from framework.recorder import Notifications, TaskStatus
 from framework.streamer import Streamer
 from framework.telemetry import TelemetryWriter
@@ -91,7 +91,7 @@ class TestCase(ABC):
 
     def __init__(
         self,
-        synnax_connection: SynnaxConnection = SynnaxConnection(),
+        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
         *,
         name: str,
         **params: Any,
@@ -175,7 +175,7 @@ class TestCase(ABC):
         else:
             self.log(f"Writer thread error: {e}\n {traceback.format_exc()}")
             self.STATUS = STATUS.FAILED
-            raise
+            raise e
 
     def log(self, message: str) -> None:
         """Log a message. Buffered and dumped on failure unless `tc --logs` is set."""
@@ -522,7 +522,7 @@ class TestCase(ABC):
                 try:
                     self.tlm[self._ch_state] = value.value
                 except Exception as e:
-                    raise RuntimeError(f"Failed to set status: {e}")
+                    raise RuntimeError("Failed to set status") from e
         else:
             self.log(f"Invalid status change: {self._status} -> {value}")
 

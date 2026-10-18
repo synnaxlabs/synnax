@@ -16,6 +16,7 @@ import string
 import sys
 import threading
 import time
+import traceback
 from collections.abc import Callable
 from datetime import datetime, timezone
 from enum import Enum, auto
@@ -84,7 +85,7 @@ class TestConductor:
         try:
             self.client = self.synnax_connection.create_client()
         except Exception as e:
-            raise RuntimeError(f"Failed to initialize client: {e}")
+            raise RuntimeError("Failed to initialize client") from e
 
         self.log_client = LogClient(
             name=self.name,
@@ -102,7 +103,7 @@ class TestConductor:
                 time_range=sy.TimeRange(start=sy.TimeStamp.now(), end=sy.TimeStamp.MAX),
             )
         except Exception as e:
-            raise RuntimeError(f"Failed to create range: {e}")
+            raise RuntimeError("Failed to create range") from e
 
         self.config_client = ConfigClient(log=self.log)
 
@@ -516,7 +517,8 @@ All matching is case-insensitive substring.
         conductor.log("Keyboard interrupt received. Shutting down gracefully...")
         conductor.shutdown()
     except Exception as e:
-        conductor.log(f"Error occurred: {e}")
+        # os._exit in finally skips Python's traceback, so log the chain here.
+        conductor.log("Error occurred:\n" + "".join(traceback.format_exception(e)))
         conductor.shutdown()
         raise
     finally:

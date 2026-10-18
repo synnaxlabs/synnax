@@ -17,7 +17,7 @@ with client.open_streamer([FUEL_PT_1, DAQ_TIME]) as streamer:
     for frame in streamer:
         pressures = frame[FUEL_PT_1].to_numpy()
         times = frame[DAQ_TIME].to_numpy()
-        for pressure, raw_time in zip(pressures, times):
+        for pressure, raw_time in zip(pressures, times, strict=True):
             time = sy.TimeStamp(raw_time)
             if pressure > 20 and not above_threshold:
                 above_threshold = time

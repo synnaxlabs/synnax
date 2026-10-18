@@ -50,16 +50,16 @@ class TestIterator:
         with client.open_iterator(sy.TimeRange.MAX, idx_ch.key, chunk_size=4) as i:
             assert i.seek_first()
             i.next(sy.framer.AUTO_SPAN)
-            l = i.value[idx_ch.key].to_numpy().tolist()
-            assert np.array_equal(l, seconds_linspace(1, 4))
+            values = i.value[idx_ch.key].to_numpy().tolist()
+            assert np.array_equal(values, seconds_linspace(1, 4))
 
             i.next(sy.framer.AUTO_SPAN)
-            l = i.value[idx_ch.key].to_numpy().tolist()
-            assert np.array_equal(l, seconds_linspace(5, 4))
+            values = i.value[idx_ch.key].to_numpy().tolist()
+            assert np.array_equal(values, seconds_linspace(5, 4))
 
             i.next(sy.framer.AUTO_SPAN)
-            l = i.value[idx_ch.key].to_numpy().tolist()
-            assert np.array_equal(l, seconds_linspace(9, 2))
+            values = i.value[idx_ch.key].to_numpy().tolist()
+            assert np.array_equal(values, seconds_linspace(9, 2))
 
             assert not i.next(sy.framer.AUTO_SPAN)
 
@@ -72,16 +72,16 @@ class TestIterator:
         with client.open_iterator(sy.TimeRange.MAX, idx_ch.key, chunk_size=4) as i:
             assert i.seek_last()
             assert i.prev(sy.framer.AUTO_SPAN)
-            l = i.value[idx_ch.key].to_numpy().tolist()
-            assert np.array_equal(l, seconds_linspace(7, 4))
+            values = i.value[idx_ch.key].to_numpy().tolist()
+            assert np.array_equal(values, seconds_linspace(7, 4))
 
             assert i.prev(sy.framer.AUTO_SPAN)
-            l = i.value[idx_ch.key].to_numpy().tolist()
-            assert np.array_equal(l, seconds_linspace(3, 4))
+            values = i.value[idx_ch.key].to_numpy().tolist()
+            assert np.array_equal(values, seconds_linspace(3, 4))
 
             assert i.prev(sy.framer.AUTO_SPAN)
-            l = i.value[idx_ch.key].to_numpy().tolist()
-            assert np.array_equal(l, seconds_linspace(1, 2))
+            values = i.value[idx_ch.key].to_numpy().tolist()
+            assert np.array_equal(values, seconds_linspace(1, 2))
 
             assert not i.prev(sy.framer.AUTO_SPAN)
 
@@ -137,22 +137,22 @@ class TestIterator:
         with client.open_iterator(sy.TimeRange.MAX, data_ch.key) as i:
             assert i.seek_ge(sy.TimeStamp(16 * sy.TimeSpan.SECOND))
             assert i.next(4 * sy.TimeSpan.SECOND)
-            l = i.value[data_ch.key].to_numpy().tolist()
-            assert l == [16, 17, 18, 19]
+            values = i.value[data_ch.key].to_numpy().tolist()
+            assert values == [16, 17, 18, 19]
 
             assert i.seek_last()
             assert i.prev(4 * sy.TimeSpan.SECOND)
-            l = i.value[data_ch.key].to_numpy().tolist()
-            assert l == [16, 17, 18, 19]
+            values = i.value[data_ch.key].to_numpy().tolist()
+            assert values == [16, 17, 18, 19]
 
             assert i.prev(11 * sy.TimeSpan.SECOND)
-            l = i.value[data_ch.key].to_numpy().tolist()
-            assert l == [5, 10, 11, 12, 13, 15]
+            values = i.value[data_ch.key].to_numpy().tolist()
+            assert values == [5, 10, 11, 12, 13, 15]
 
             assert i.seek_le(sy.TimeStamp(6 * sy.TimeSpan.SECOND))
             assert i.prev(3 * sy.TimeSpan.SECOND)
-            l = i.value[data_ch.key].to_numpy().tolist()
-            assert l == [3, 4, 5]
+            values = i.value[data_ch.key].to_numpy().tolist()
+            assert values == [3, 4, 5]
 
             assert not i.seek_le(sy.TimeStamp(-1))
             assert not i.seek_ge(sy.TimeStamp(20 * sy.TimeSpan.SECOND))
