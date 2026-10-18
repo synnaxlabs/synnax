@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from datetime import datetime
+import time
 
 from pandas import DataFrame
 from rich.progress import (
@@ -76,10 +76,10 @@ class RowIngestionEngine:
                 task = progress.add_task("ingest", total=self.reader.nsamples(), tp=0)
                 while True:
                     try:
-                        t0 = datetime.now()
+                        t0 = time.perf_counter()
                         chunk = self.reader.read()
                         self._write(chunk)
-                        tp = chunk.size / (datetime.now() - t0).total_seconds()
+                        tp = chunk.size / (time.perf_counter() - t0)
                         progress.update(task, advance=chunk.size, tp=int(tp))
                     except StopIteration:
                         break

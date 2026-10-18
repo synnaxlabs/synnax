@@ -102,14 +102,14 @@ def assign_keys(records: Iterable[_Keyed]) -> None:
 
 class Task:
     key: Key
-    rack: int = 0
-    name: str = ""
-    type: str = ""
-    config: Mapping[str, object] = {}
-    config_hash: str = ""
-    snapshot: bool = False
-    status: Status | None = None
-    _cached_frame_client: FrameClient | None = None
+    rack: int
+    name: str
+    type: str
+    config: Mapping[str, object]
+    config_hash: str
+    snapshot: bool
+    status: Status | None
+    _cached_frame_client: FrameClient | None
 
     def __init__(
         self,
@@ -229,7 +229,9 @@ class Task:
                         f"timed out waiting for driver to acknowledge {type_} command"
                     )
                 elif _TASK_STATE_CHANNEL not in frame:
-                    warnings.warn("task - unexpected missing state in frame")
+                    warnings.warn(
+                        "task - unexpected missing state in frame", stacklevel=2
+                    )
                     continue
                 # A frame can carry several statuses, and only some of them answer
                 # this command.

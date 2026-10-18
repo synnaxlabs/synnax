@@ -50,11 +50,12 @@ from x.color import Color
 from x.interop import ArrayOperators
 from x.lists import check_for_none, normalize, override
 from x.params import require_named_params
+from x.uuid import NIL
 
 RANGE_SET_CHANNEL = "sy_range_set"
 
 # Pydantic declares BaseModel.__getattr__ only at runtime.
-_model_getattr: Callable[[BaseModel, str], object] = getattr(BaseModel, "__getattr__")
+_model_getattr: Callable[[BaseModel, str], object] = vars(BaseModel)["__getattr__"]
 
 
 class _InternalScopedChannel(ArrayOperators, channel.Payload):
@@ -258,7 +259,7 @@ class Range(Payload):
         self,
         name: str,
         time_range: TimeRange,
-        key: UUID = UUID(int=0),
+        key: UUID = NIL,
         color: str | None = "",
         parent: Range | Payload | None = None,
         *,
@@ -478,7 +479,7 @@ class Range(Payload):
         name: str,
         time_range: TimeRange,
         color: str = "",
-        key: Key = UUID(int=0),
+        key: Key = NIL,
     ) -> Range:
         return self._client.create(
             Range(name=name, time_range=time_range, color=color, key=key, parent=self)
@@ -543,7 +544,7 @@ class Client:
         color: str = "",
         retrieve_if_name_exists: bool = False,
         parent: Range | Payload | None = None,
-        key: Key = UUID(int=0),
+        key: Key = NIL,
     ) -> Range:
         """Creates a named range spanning a region of time. This range is persisted
         to the cluster and is visible to all clients.
@@ -597,7 +598,7 @@ class Client:
         self,
         ranges: Range | list[Range] | None = None,
         *,
-        key: Key = UUID(int=0),
+        key: Key = NIL,
         name: str = "",
         time_range: TimeRange | None = None,
         color: str = "",

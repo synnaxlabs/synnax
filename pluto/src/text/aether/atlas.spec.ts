@@ -226,6 +226,10 @@ describe("MonospacedAtlas", () => {
       expect(Object.fromEntries(got)).toEqual(shifts);
     });
 
+    it("should draw every character of a microsecond tick label", () => {
+      expect(setup().copy("25μs", 0, 0)).toHaveLength(4);
+    });
+
     it("should advance one character width per character", () => {
       const { copy } = setup();
       const [first, second] = copy("12", 40, 60);

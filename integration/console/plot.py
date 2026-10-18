@@ -67,7 +67,11 @@ class Plot(ConsolePage):
         self,
         ranges: list[
             Literal[
-                "Rolling 30s", "Rolling 1m", "Rolling 5m", "Rolling 15m", "Rolling 30m"
+                "Rolling 30s",
+                "Rolling 1min",
+                "Rolling 5min",
+                "Rolling 15min",
+                "Rolling 30min",
             ]
         ],
     ) -> None:
@@ -138,7 +142,7 @@ class Plot(ConsolePage):
             else:
                 self.page.locator(key).fill(str(value), timeout=5000)
         except Exception as e:
-            raise ValueError(f'Failed to set axis property "{key}" to "{value}": {e}')
+            raise ValueError(f'Failed to set axis property "{key}" to "{value}"') from e
 
     def _set_input_field(self, key: str, value: Any) -> None:
         """Set an input field value."""

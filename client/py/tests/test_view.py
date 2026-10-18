@@ -153,7 +153,7 @@ class TestView:
             query={},
         )
         client.views.delete(v.key)
-        with pytest.raises(Exception):
+        with pytest.raises(sy.NotFoundError):
             client.views.retrieve(key=v.key)
 
     def test_delete_multiple(self, client: sy.Synnax) -> None:
@@ -169,5 +169,5 @@ class TestView:
             query={},
         )
         client.views.delete([v1.key, v2.key])
-        with pytest.raises(Exception):
+        with pytest.raises(sy.NotFoundError):
             client.views.retrieve(keys=[v1.key, v2.key])
