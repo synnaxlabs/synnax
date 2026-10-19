@@ -14,7 +14,6 @@ package password
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -32,6 +31,7 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
+	subject  *gorp.LookupIndex[Key, Password, ontology.ID]
 	username *gorp.LookupIndex[Key, Password, string]
 }
 
@@ -40,6 +40,10 @@ type indexes struct {
 // result on the Service struct.
 func newIndexes() indexes {
 	return indexes{
+		subject: gorp.NewLookupIndex[Key, Password, ontology.ID](
+			"subject",
+			func(e *Password) ontology.ID { return e.Subject },
+		),
 		username: gorp.NewLookupIndex[Key, Password, string](
 			"username",
 			func(e *Password) string { return e.Username },
@@ -51,6 +55,7 @@ func newIndexes() indexes {
 // via gorp.TableConfig.Indexes when opening the underlying table.
 func (i indexes) all() []gorp.Index[Key, Password] {
 	return []gorp.Index[Key, Password]{
+		i.subject,
 		i.username,
 	}
 }
@@ -103,9 +108,7 @@ func MatchKeys(keys ...Key) Filter {
 // provided values.
 func MatchSubjects(vals ...ontology.ID) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Password] {
-		return gorp.Match(func(_ gorp.Context, e *Password) (bool, error) {
-			return lo.Contains(vals, e.Subject), nil
-		})
+		return r.indexes.subject.Filter(vals...)
 	}
 }
 

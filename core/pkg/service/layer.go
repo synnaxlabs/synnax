@@ -269,7 +269,8 @@ func revokePasswordSessions(
 		Exec(ctx, nil); err != nil {
 		return errors.Wrap(err, "load the root password")
 	}
-	return sessions.NewWriter(nil).RevokeCredential(ctx, auth.MethodPassword, p.Key)
+	return sessions.NewWriter(nil).
+		RevokeCredential(ctx, auth.MethodPassword, nil, p.Key)
 }
 
 // OpenLayer opens the service layer using the provided configurations. Later
