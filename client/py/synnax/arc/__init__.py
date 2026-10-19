@@ -24,19 +24,7 @@ from synnax.arc.types_gen import (
     StatusDetails,
     ontology_id,
 )
-from x.deprecation import deprecated_getattr
 from x.spatial import XY as Position
-
-_DEPRECATED = {
-    "ArcTask": "Task",
-    "ArcTaskConfig": "TaskConfig",
-    "ArcClient": "Client",
-    "ArcKey": "Key",
-    "ArcMode": "Mode",
-    "ArcPayload": "Payload",
-}
-
-__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
 
 __all__ = [
     "ONTOLOGY_TYPE",

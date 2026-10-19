@@ -36,25 +36,11 @@
 #include "core/pkg/transport/grpc/status/status.pb.h"
 #include "core/pkg/transport/grpc/task/task.grpc.pb.h"
 #include "core/pkg/transport/grpc/task/task.pb.h"
-#include "core/pkg/transport/grpc/view/view.grpc.pb.h"
-#include "core/pkg/transport/grpc/view/view.pb.h"
 
 namespace synnax::details {
-Transport::Transport(
-    const uint16_t port,
-    const std::string &ip,
-    const std::string &ca_cert_file,
-    const std::string &client_cert_file,
-    const std::string &client_key_file,
-    const bool secure
-) {
+Transport::Transport(const uint16_t port, const std::string &ip, const bool secure) {
     auto base_target = x::url::URL(ip, port, "").to_string();
-    auto pool = secure ? std::make_shared<freighter::grpc::Pool>(
-                             ca_cert_file,
-                             client_cert_file,
-                             client_key_file
-                         )
-                       : std::make_shared<freighter::grpc::Pool>();
+    auto pool = std::make_shared<freighter::grpc::Pool>(secure);
     this->auth_login = std::make_unique<freighter::grpc::UnaryClient<
         grpc::auth::LoginRequest,
         grpc::auth::LoginResponse,
@@ -167,18 +153,6 @@ Transport::Transport(
         grpc::arc::DeleteRequest,
         google::protobuf::Empty,
         grpc::arc::ArcDeleteService>>(pool, base_target);
-    this->view_create = std::make_unique<freighter::grpc::UnaryClient<
-        grpc::view::CreateRequest,
-        grpc::view::CreateResponse,
-        grpc::view::ViewCreateService>>(pool, base_target);
-    this->view_retrieve = std::make_unique<freighter::grpc::UnaryClient<
-        grpc::view::RetrieveRequest,
-        grpc::view::RetrieveResponse,
-        grpc::view::ViewRetrieveService>>(pool, base_target);
-    this->view_delete = std::make_unique<freighter::grpc::UnaryClient<
-        grpc::view::DeleteRequest,
-        google::protobuf::Empty,
-        grpc::view::ViewDeleteService>>(pool, base_target);
     this->connectivity_check = std::make_unique<freighter::grpc::UnaryClient<
         google::protobuf::Empty,
         grpc::connectivity::CheckResponse,
@@ -213,8 +187,5 @@ void Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {
     arc_create->use(mw);
     arc_retrieve->use(mw);
     arc_delete->use(mw);
-    view_create->use(mw);
-    view_retrieve->use(mw);
-    view_delete->use(mw);
 }
 }

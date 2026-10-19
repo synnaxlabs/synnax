@@ -25,6 +25,7 @@ import {
   createAsyncErrorHandler,
   createErrorHandler,
   type ErrorHandler,
+  type Log,
 } from "@/status/errorHandler";
 import { create, type Status } from "@/status/status";
 
@@ -39,10 +40,31 @@ const [AdderContext, useAdder] = context.create<Adder>({
 });
 export { useAdder };
 
+interface Handlers {
+  error: ErrorHandler;
+  async: AsyncErrorHandler;
+}
+
+const createHandlers = (add: Adder, log: Log): Handlers => ({
+  error: createErrorHandler(add, log),
+  async: createAsyncErrorHandler(add, log),
+});
+
+const [HandlersContext, useHandlers] = context.create<Handlers>({
+  // Reads console.error at call time, so a test's replacement applies.
+  defaultValue: createHandlers(
+    () => {},
+    (message) => console.error(message),
+  ),
+  displayName: "Status.HandlersContext",
+});
+
 /** Props for {@link Aggregator}. */
 export interface AggregatorProps extends PropsWithChildren {
   /** Statuses kept before the oldest are dropped. Defaults to 500. */
   maxHistory?: number;
+  /** Prints each error reported through an error handler. Defaults to console.error. */
+  log?: Log;
 }
 
 const TRUNCATE_FACTOR = 0.9;
@@ -51,7 +73,11 @@ const TRUNCATE_FACTOR = 0.9;
  * Collects statuses from its subtree and hands them to {@link useNotifications} and
  * the status list. Mount one near the root of the app.
  */
-export const Aggregator = ({ children, maxHistory = 500 }: AggregatorProps) => {
+export const Aggregator = ({
+  children,
+  maxHistory = 500,
+  log = console.error,
+}: AggregatorProps) => {
   const [statuses, setStatuses] = useState<Status[]>([]);
   if (statuses.length > maxHistory)
     setStatuses(statuses.slice(0, Math.floor(maxHistory * TRUNCATE_FACTOR)));
@@ -59,9 +85,12 @@ export const Aggregator = ({ children, maxHistory = 500 }: AggregatorProps) => {
     const stat = create(spec);
     setStatuses((prev) => [stat, ...prev.filter((s) => s.key != stat.key)]);
   }, []);
+  const handlers = useMemo(() => createHandlers(handleAdd, log), [handleAdd, log]);
   return (
     <Context value={statuses}>
-      <AdderContext value={handleAdd}>{children}</AdderContext>
+      <AdderContext value={handleAdd}>
+        <HandlersContext value={handlers}>{children}</HandlersContext>
+      </AdderContext>
     </Context>
   );
 };
@@ -72,19 +101,13 @@ export const Aggregator = ({ children, maxHistory = 500 }: AggregatorProps) => {
  *
  * @example handleError(err, "failed to save the range");
  */
-export const useErrorHandler = (): ErrorHandler => {
-  const add = useAdder();
-  return useMemo(() => createErrorHandler(add), [add]);
-};
+export const useErrorHandler = (): ErrorHandler => useHandlers().error;
 
 /**
  * @returns a handler that runs an async function and reports a rejection as an error
  * status. Use it wherever an effect or a click handler would otherwise float a promise.
  */
-export const useAsyncErrorHandler = (): AsyncErrorHandler => {
-  const add = useAdder();
-  return useMemo(() => createAsyncErrorHandler(add), [add]);
-};
+export const useAsyncErrorHandler = (): AsyncErrorHandler => useHandlers().async;
 
 /** A status shown as a notification, with how many identical ones it stands for. */
 export type NotificationSpec<Details extends z.ZodType = z.ZodNever> =

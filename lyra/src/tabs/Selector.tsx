@@ -493,7 +493,7 @@ export const Selector = ({
       const key = Triggers.eventKey(e);
       const next = horizontal ? "ArrowRight" : "ArrowDown";
       const prev = horizontal ? "ArrowLeft" : "ArrowUp";
-      if (![next, prev, "Home", "End"].includes(key)) return;
+      if (key == null || ![next, prev, "Home", "End"].includes(key)) return;
       // Only hover when a tab itself is focused: arrow keys pressed inside a tab's
       // children (an editable name, a close button) must keep their own meaning.
       if (!(e.target instanceof HTMLElement) || e.target.getAttribute("role") !== "tab")

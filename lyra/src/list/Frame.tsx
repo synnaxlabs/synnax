@@ -126,6 +126,8 @@ export interface FrameProps<
   itemHeight?: number;
   /** Called when the list scrolls near its end. */
   onFetchMore?: () => void;
+  /** Keys of items to keep mounted while they are out of view. */
+  pinned?: K[];
 }
 
 /** @returns a scroller for the enclosing {@link Frame}, stable as the list scrolls. */
@@ -315,6 +317,8 @@ const NO_PIN = (): void => {};
 
 const INITIAL_WINDOW_HEIGHT = 800;
 
+const NO_INDEXES: ReadonlySet<number> = new Set();
+
 const VirtualFrame = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
@@ -326,6 +330,7 @@ const VirtualFrame = <
   onFetchMore,
   overscan = 10,
   itemHeight = 33,
+  pinned,
 }: FrameProps<K, E>): ReactElement => {
   const ref = useRef<HTMLDivElement>(null);
   const [scrollMargin, setScrollMargin] = useState(0);
@@ -358,25 +363,31 @@ const VirtualFrame = <
   const refCallback = useFetchMoreRefCallback(ref, hasData, onFetchMore);
   const dataRef = useSyncedRef(data);
   const pinnedRef = useRef<record.Key | null>(null);
-  // The index of the pinned row when it is mounted only because it is pinned.
-  const pinnedOutsideRef = useRef<number | null>(null);
+  // The indexes of the rows that are mounted only because they are pinned.
+  const pinnedOutsideRef = useRef<ReadonlySet<number>>(NO_INDEXES);
   const indexesRef = useRef<number[]>([]);
-  const extract = useCallback((range: Range) => {
+  const extract = useCallback((range: Range, pinned?: readonly record.Key[]) => {
     let indexes = defaultRangeExtractor(range);
-    pinnedOutsideRef.current = null;
-    const pinned = pinnedRef.current;
     const keys: readonly record.Key[] = dataRef.current;
-    const index = pinned == null ? -1 : keys.indexOf(pinned);
-    if (index !== -1 && !indexes.includes(index)) {
-      pinnedOutsideRef.current = index;
-      indexes = [...indexes, index].sort((a, b) => a - b);
-    }
+    let outside: Set<number> | undefined;
+    const addPinned = (key: record.Key): void => {
+      const index = keys.indexOf(key);
+      if (index !== -1 && !indexes.includes(index)) (outside ??= new Set()).add(index);
+    };
+    if (pinnedRef.current != null) addPinned(pinnedRef.current);
+    pinned?.forEach(addPinned);
+    if (outside != null) indexes = [...indexes, ...outside].sort((a, b) => a - b);
+    pinnedOutsideRef.current = outside ?? NO_INDEXES;
     indexesRef.current = indexes;
     return indexes;
   }, []);
   // The virtualizer extracts the range again only when an input changes, so a new
   // extractor mounts a pinned row that is out of view.
-  const [rangeExtractor, setRangeExtractor] = useState(() => extract);
+  const [pinExtractor, setRangeExtractor] = useState(() => extract);
+  const rangeExtractor = useMemo(
+    () => (range: Range) => pinExtractor(range, pinned),
+    [pinExtractor, pinned],
+  );
   const pin = useCallback(
     (key: record.Key | null) => {
       pinnedRef.current = key;
@@ -384,7 +395,10 @@ const VirtualFrame = <
       const keys: readonly record.Key[] = dataRef.current;
       const index = keys.indexOf(key);
       if (index !== -1 && !indexesRef.current.includes(index))
-        setRangeExtractor(() => (range: Range) => extract(range));
+        setRangeExtractor(
+          () => (range: Range, pinned?: readonly record.Key[]) =>
+            extract(range, pinned),
+        );
     },
     [extract],
   );
@@ -403,7 +417,7 @@ const VirtualFrame = <
       (v: Virtualizer<HTMLDivElement, HTMLDivElement>) => {
         const last = v
           .getVirtualItems()
-          .findLast(({ index }) => index !== pinnedOutsideRef.current);
+          .findLast(({ index }) => !pinnedOutsideRef.current.has(index));
         if (last?.index === data.length - 1) onFetchMore?.();
       },
       [data.length, onFetchMore],

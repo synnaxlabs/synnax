@@ -42,9 +42,9 @@ def _parse_exception_payload(
     """
     if isinstance(pld_or_type, Exception):
         return pld_or_type
-    elif isinstance(pld_or_type, ExceptionPayload):
+    if isinstance(pld_or_type, ExceptionPayload):
         return ExceptionPayload(type=pld_or_type.type, data=pld_or_type.data)
-    elif data is not None:
+    if data is not None:
         return ExceptionPayload(type=pld_or_type, data=data)
     try:
         type_, data = pld_or_type.split("---", 1)
@@ -67,7 +67,7 @@ class _Registry:
     providers: list[_ExceptionProvider]
 
     def __init__(self) -> None:
-        self.providers = list()
+        self.providers = []
 
     def register(self, provider: _ExceptionProvider) -> None:
         self.providers.append(provider)

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/vis/render/test/atlas";
+export * from "@/vis/render/test/gl";
 export * from "@/vis/render/test/record";
 export * from "@/vis/render/test/Recorder";
 export * from "@/vis/render/test/RenderProvider";

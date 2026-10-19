@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 	"time"
 	"uuid"
 
@@ -204,6 +205,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	configToMap := func(cfg arctask.Config) map[string]any {
 		GinkgoHelper()
+		cfg.ApplyDefaults()
 		cfgJSON := MustSucceed(json.Marshal(cfg))
 		var cfgMap map[string]any
 		Expect(json.Unmarshal(cfgJSON, &cfgMap)).To(Succeed())
@@ -1995,6 +1997,42 @@ var _ = Describe("Task", Ordered, func() {
 			).To(Equal(uint8(42)))
 		})
 
+		DescribeTable("Should fire intervals at every performance level",
+			func(ctx SpecContext, performance arctask.Performance) {
+				outputCh := createVirtualCh(ctx, "performance", telem.Uint8T)
+				prog := arc.Text{Raw: fmt.Sprintf(`
+					func output() {
+						%s = 1
+					}
+					interval{period=10ms} -> output{}
+				`, outputCh.Name)}
+				responses, closeStreamer := openTestStreamer(
+					ctx,
+					channel.Keys{outputCh.Key()},
+					3,
+				)
+				defer closeStreamer()
+				t := MustSucceed(newTextFactory(ctx, prog).ConfigureTask(ctx, task.Task{
+					Key:  uuid.New(),
+					Name: "performance-task",
+					Type: arctask.Type,
+					Config: configToMap(arctask.Config{
+						ArcKey:      uuid.New(),
+						Performance: performance,
+					}),
+				}, "cmd-1"))
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+				for range 3 {
+					Eventually(responses).Should(Receive())
+				}
+			},
+			Entry("auto", arctask.PerformanceAuto),
+			Entry("low", arctask.PerformanceLow),
+			Entry("medium", arctask.PerformanceMedium),
+			Entry("high", arctask.PerformanceHigh),
+		)
+
 		It("Should stamp wall-clock index timestamps for interval -> channel flows",
 			func(ctx SpecContext) {
 				idxCh := &channel.Channel{
@@ -2436,6 +2474,19 @@ var _ = Describe("Task", Ordered, func() {
 				},
 			)
 		}
+		// writes reports whether a new writer at authority a can write to c.
+		writes := func(ctx context.Context, c writeCh, a control.Authority) bool {
+			GinkgoHelper()
+			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+				Keys:        keysOf(c),
+				Start:       telem.Now(),
+				Authorities: []control.Authority{a},
+				Sync:        new(true),
+			}))
+			ok := MustSucceed(w.Write(sample(c, 99)))
+			Expect(w.Close()).To(Succeed())
+			return ok
+		}
 		variants := []struct {
 			name   string
 			create func(ctx context.Context, prefix string) writeCh
@@ -2752,24 +2803,9 @@ var _ = Describe("Task", Ordered, func() {
 						).To(BeTrue())
 						Expect(trigW.Close()).To(Succeed())
 
-						// Receive data frames to ensure the runtime has processed
-						// the trigger
-						Eventually(responses).Should(Receive(&fr))
-						Eventually(responses).Should(Receive(&fr))
-
-						w := MustSucceed(framerSvc.OpenWriter(
-							ctx,
-							framer.WriterConfig{
-								Keys:  keysOf(c),
-								Start: telem.Now(),
-								Authorities: []control.Authority{
-									control.Authority(150),
-								},
-								Sync: new(true),
-							},
-						))
-						defer func() { Expect(w.Close()).To(Succeed()) }()
-						Expect(w.Write(sample(c, 99))).To(BeFalse())
+						Eventually(func() bool {
+							return writes(ctx, c, 150)
+						}).Should(BeFalse())
 					},
 				)
 
@@ -2816,19 +2852,7 @@ var _ = Describe("Task", Ordered, func() {
 						var fr framer.StreamerResponse
 						Eventually(responses).Should(Receive(&fr))
 
-						wBefore := MustSucceed(framerSvc.OpenWriter(
-							ctx,
-							framer.WriterConfig{
-								Keys:  keysOf(c),
-								Start: telem.Now(),
-								Authorities: []control.Authority{
-									control.Authority(100),
-								},
-								Sync: new(true),
-							},
-						))
-						Expect(wBefore.Write(sample(c, 99))).To(BeFalse())
-						Expect(wBefore.Close()).To(Succeed())
+						Expect(writes(ctx, c, 100)).To(BeFalse())
 
 						trigW := MustSucceed(framerSvc.OpenWriter(
 							ctx,
@@ -2845,24 +2869,9 @@ var _ = Describe("Task", Ordered, func() {
 						).To(BeTrue())
 						Expect(trigW.Close()).To(Succeed())
 
-						// Receive data frames to ensure the runtime has processed
-						// the trigger
-						Eventually(responses).Should(Receive(&fr))
-						Eventually(responses).Should(Receive(&fr))
-
-						wAfter := MustSucceed(framerSvc.OpenWriter(
-							ctx,
-							framer.WriterConfig{
-								Keys:  keysOf(c),
-								Start: telem.Now(),
-								Authorities: []control.Authority{
-									control.Authority(100),
-								},
-								Sync: new(true),
-							},
-						))
-						defer func() { Expect(wAfter.Close()).To(Succeed()) }()
-						Expect(wAfter.Write(sample(c, 99))).To(BeTrue())
+						Eventually(func() bool {
+							return writes(ctx, c, 100)
+						}).Should(BeTrue())
 					},
 				)
 
@@ -3158,7 +3167,7 @@ var _ = Describe("Task", Ordered, func() {
 						Expect(startW.Close()).To(Succeed())
 
 						var fr framer.StreamerResponse
-						Eventually(responses, 500*time.Millisecond).Should(Receive(&fr))
+						Eventually(responses).Should(Receive(&fr))
 
 						clearW := MustSucceed(framerSvc.OpenWriter(
 							ctx,
@@ -3191,35 +3200,11 @@ var _ = Describe("Task", Ordered, func() {
 						).To(BeTrue())
 						Expect(stopW.Close()).To(Succeed())
 
-						time.Sleep(300 * time.Millisecond)
-
-						w1 := MustSucceed(framerSvc.OpenWriter(
-							ctx,
-							framer.WriterConfig{
-								Keys:  keysOf(c1),
-								Start: telem.Now(),
-								Authorities: []control.Authority{
-									control.Authority(1),
-								},
-								Sync: new(true),
-							},
-						))
-						defer func() { Expect(w1.Close()).To(Succeed()) }()
-						Expect(w1.Write(sample(c1, 99))).To(BeTrue())
-
-						w2 := MustSucceed(framerSvc.OpenWriter(
-							ctx,
-							framer.WriterConfig{
-								Keys:  keysOf(c2),
-								Start: telem.Now(),
-								Authorities: []control.Authority{
-									control.Authority(1),
-								},
-								Sync: new(true),
-							},
-						))
-						defer func() { Expect(w2.Close()).To(Succeed()) }()
-						Expect(w2.Write(sample(c2, 99))).To(BeTrue())
+						for _, c := range []writeCh{c1, c2} {
+							Eventually(func() bool {
+								return writes(ctx, c, 1)
+							}).Should(BeTrue())
+						}
 					},
 				)
 
@@ -3259,7 +3244,7 @@ var _ = Describe("Task", Ordered, func() {
 						Expect(startW.Close()).To(Succeed())
 
 						var fr framer.StreamerResponse
-						Eventually(responses, 500*time.Millisecond).Should(Receive(&fr))
+						Eventually(responses).Should(Receive(&fr))
 
 						stopW := MustSucceed(framerSvc.OpenWriter(
 							ctx,
@@ -3276,35 +3261,14 @@ var _ = Describe("Task", Ordered, func() {
 						).To(BeTrue())
 						Expect(stopW.Close()).To(Succeed())
 
-						time.Sleep(300 * time.Millisecond)
-
-						w1 := MustSucceed(framerSvc.OpenWriter(
-							ctx,
-							framer.WriterConfig{
-								Keys:  keysOf(c1),
-								Start: telem.Now(),
-								Authorities: []control.Authority{
-									control.Authority(100),
-								},
-								Sync: new(true),
-							},
-						))
-						defer func() { Expect(w1.Close()).To(Succeed()) }()
-						Expect(w1.Write(sample(c1, 99))).To(BeTrue())
-
-						w2 := MustSucceed(framerSvc.OpenWriter(
-							ctx,
-							framer.WriterConfig{
-								Keys:  keysOf(c2),
-								Start: telem.Now(),
-								Authorities: []control.Authority{
-									control.Authority(100),
-								},
-								Sync: new(true),
-							},
-						))
-						defer func() { Expect(w2.Close()).To(Succeed()) }()
-						Expect(w2.Write(sample(c2, 99))).To(BeTrue())
+						for _, c := range []writeCh{c1, c2} {
+							Eventually(func() bool {
+								return writes(ctx, c, 100)
+							}).Should(BeTrue())
+							Consistently(func() bool {
+								return writes(ctx, c, 100)
+							}, 200*time.Millisecond).Should(BeTrue())
+						}
 					},
 				)
 			})
@@ -3677,6 +3641,183 @@ var _ = Describe("Task", Ordered, func() {
 			Entry("with a single writer session", 0, false),
 			Entry("after index-less sessions on the trigger channel", 6, false),
 			Entry("with index-less sessions injected while watching", 6, true),
+		)
+	})
+
+	Describe("Mixed writes to one channel", func() {
+		createIndexed := func(ctx context.Context, prefix string) (idx, data channel.Channel) {
+			GinkgoHelper()
+			idx = channel.Channel{
+				Name:     prefix + "_time_" + uuid.New().String()[:8],
+				IsIndex:  true,
+				DataType: telem.TimestampT,
+			}
+			Expect(channelWriter.Create(ctx, &idx)).To(Succeed())
+			data = channel.Channel{
+				Name:       prefix + "_" + uuid.New().String()[:8],
+				LocalIndex: idx.LocalKey,
+				DataType:   telem.Uint8T,
+			}
+			Expect(channelWriter.Create(ctx, &data)).To(Succeed())
+			return idx, data
+		}
+
+		readStored := func(
+			ctx context.Context,
+			idx, data channel.Channel,
+		) (values []uint8, stamps []telem.TimeStamp) {
+			GinkgoHelper()
+			iter := MustOpen(framerSvc.OpenIterator(ctx, framer.IteratorConfig{
+				Keys:   []channel.Key{idx.Key(), data.Key()},
+				Bounds: telem.TimeRangeMax,
+			}))
+			if !iter.SeekFirst() {
+				return nil, nil
+			}
+			for iter.Next(iterator.AutoSpan) {
+				for _, ser := range iter.Value().Get(data.Key()).Series {
+					for i := range int(ser.Len()) {
+						values = append(values, ser.ValueAt[uint8](i))
+					}
+				}
+				for _, ser := range iter.Value().Get(idx.Key()).Series {
+					for i := range int(ser.Len()) {
+						stamps = append(stamps, ser.ValueAt[telem.TimeStamp](i))
+					}
+				}
+			}
+			return values, stamps
+		}
+
+		DescribeTable(
+			"Should store a body write and a flow write from one cycle in time order",
+			func(ctx SpecContext, indexedSource bool, program string, expected []uint8) {
+				outIdx, out := createIndexed(ctx, "mixed_out")
+				var src channel.Channel
+				if indexedSource {
+					_, src = createIndexed(ctx, "mixed_src")
+				} else {
+					src = *createVirtualCh(ctx, "mixed_src", telem.Uint8T)
+				}
+				prog := arc.Text{Raw: strings.NewReplacer(
+					"OUT", out.Name,
+					"SRC", src.Name,
+				).Replace(program)}
+				t := newTask(ctx, newTextFactory(ctx, prog))
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+				time.Sleep(20 * time.Millisecond)
+
+				srcStamp := telem.Now()
+				keys := []channel.Key{src.Key()}
+				series := []telem.Series{telem.NewSeriesV[uint8](1)}
+				if indexedSource {
+					keys = append(keys, src.Index())
+					series = append(series, telem.NewSeriesV(srcStamp))
+				}
+				fw := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  keys,
+					Start: srcStamp,
+				}))
+				Expect(fw.Write(frame.NewMulti(keys, series))).To(BeTrue())
+				Expect(fw.Close()).To(Succeed())
+
+				Eventually(func(g Gomega) {
+					values, stamps := readStored(ctx, outIdx, out)
+					g.Expect(values).To(Equal(expected))
+					g.Expect(stamps).To(HaveLen(2))
+					g.Expect(stamps[1]).To(BeNumerically(">", stamps[0]))
+					if indexedSource {
+						g.Expect(stamps[0]).To(Equal(srcStamp))
+					}
+				}).Should(Succeed())
+			},
+			Entry(
+				"indexed source, func line first",
+				true,
+				"func vent() {\n    OUT = 2\n}\nSRC -> vent{}\nSRC -> OUT\n",
+				[]uint8{1, 2},
+			),
+			Entry(
+				"indexed source, flow line first",
+				true,
+				"func vent() {\n    OUT = 2\n}\nSRC -> OUT\nSRC -> vent{}\n",
+				[]uint8{1, 2},
+			),
+			Entry(
+				"virtual source, func line first",
+				false,
+				"func vent() {\n    OUT = 2\n}\nSRC -> vent{}\nSRC -> OUT\n",
+				[]uint8{2, 1},
+			),
+			Entry(
+				"virtual source, flow line first",
+				false,
+				"func vent() {\n    OUT = 2\n}\nSRC -> OUT\nSRC -> vent{}\n",
+				[]uint8{1, 2},
+			),
+			Entry(
+				"literal flow in a stage",
+				false,
+				"func vent() {\n    OUT = 2\n}\n"+
+					"sequence main {\n    stage a {\n        1 -> OUT\n    }\n}\n"+
+					"SRC -> vent{}\nSRC => main\n",
+				[]uint8{1, 2},
+			),
+		)
+
+		It(
+			"Should store a stage's literal after a body write from the stage it leaves",
+			func(ctx SpecContext) {
+				outIdx, out := createIndexed(ctx, "abort_out")
+				start := createVirtualCh(ctx, "abort_start", telem.Uint8T)
+				src := createVirtualCh(ctx, "abort_src", telem.Uint8T)
+				cmd := createVirtualCh(ctx, "abort_cmd", telem.Uint8T)
+				prog := arc.Text{Raw: strings.NewReplacer(
+					"OUT", out.Name,
+					"START", start.Name,
+					"SRC", src.Name,
+					"CMD", cmd.Name,
+				).Replace(`func guide() {
+    OUT = 2
+}
+sequence main {
+    stage fly {
+        SRC -> guide{}
+        CMD == 1 => abort
+    }
+    stage abort {
+        1 -> OUT
+    }
+}
+START => main
+`)}
+				t := newTask(ctx, newTextFactory(ctx, prog))
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+				time.Sleep(20 * time.Millisecond)
+				write := func(keys []channel.Key) {
+					series := make([]telem.Series, len(keys))
+					for i := range series {
+						series[i] = telem.NewSeriesV[uint8](1)
+					}
+					fw := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+						Keys:  keys,
+						Start: telem.Now(),
+					}))
+					Expect(fw.Write(frame.NewMulti(keys, series))).To(BeTrue())
+					Expect(fw.Close()).To(Succeed())
+				}
+				write([]channel.Key{start.Key()})
+				time.Sleep(20 * time.Millisecond)
+				write([]channel.Key{src.Key(), cmd.Key()})
+				Eventually(func(g Gomega) {
+					values, stamps := readStored(ctx, outIdx, out)
+					g.Expect(values).To(Equal([]uint8{2, 1}))
+					g.Expect(stamps).To(HaveLen(2))
+					g.Expect(stamps[1]).To(BeNumerically(">", stamps[0]))
+				}).Should(Succeed())
+			},
 		)
 	})
 })

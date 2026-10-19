@@ -11,24 +11,24 @@
 from __future__ import annotations
 
 import functools
-import warnings
 from collections.abc import Callable, Iterator
-from typing import Any, cast, overload
+from typing import cast, overload
 from uuid import UUID
 
 import numpy as np
-from pydantic import PrivateAttr
+from pydantic import BaseModel, PrivateAttr
 
 import synnax.channel.payload as channel
 from freighter import UnaryClient
-from synnax import framer
+from synnax import framer, label
 from synnax.channel.retrieve import Retriever as ChannelRetriever
 from synnax.exceptions import QueryError
+from synnax.framer.frame import K
 from synnax.ontology import Client as OntologyClient
 from synnax.ontology.payload import ID
 from synnax.ranger import alias as alias_
 from synnax.ranger import kv
-from synnax.ranger.retrieve import Retriever
+from synnax.ranger.retrieve import Request, Retriever
 from synnax.ranger.types_gen import (
     Key,
     Payload,
@@ -46,14 +46,19 @@ from synnax.telem import (
     SampleValue,
     TimeRange,
 )
-from x.interop import overload_comparison_operators
-from x.lists import check_for_none, normalize
+from x.color import Color
+from x.interop import ArrayOperators
+from x.lists import check_for_none, normalize, override
 from x.params import require_named_params
+from x.uuid import NIL
 
 RANGE_SET_CHANNEL = "sy_range_set"
 
+# Pydantic declares BaseModel.__getattr__ only at runtime.
+_model_getattr: Callable[[BaseModel, str], object] = vars(BaseModel)["__getattr__"]
 
-class _InternalScopedChannel(channel.Payload):
+
+class _InternalScopedChannel(ArrayOperators, channel.Payload):
     _cached_range: Range | None = PrivateAttr(None)
     """The range that this channel belongs to."""
     _cached_frame_client: framer.Client | None = PrivateAttr(None)
@@ -65,9 +70,8 @@ class _InternalScopedChannel(channel.Payload):
     _tasks: TaskClient | None = PrivateAttr(None)
     _ontology: OntologyClient | None = PrivateAttr(None)
 
-    def __new__(cls, *args: Any, **kwargs: Any) -> _InternalScopedChannel:
-        cls = overload_comparison_operators(cls, "__array__")
-        return super().__new__(cls)  # type: ignore[no-any-return]
+    # ArrayOperators clears __hash__, but writes can key data by channel payload.
+    __hash__ = channel.Payload.__hash__
 
     def __init__(
         self,
@@ -95,10 +99,12 @@ class _InternalScopedChannel(channel.Payload):
     def time_range(self) -> TimeRange:
         return self._range.time_range
 
-    def __array__(self, *args: Any, **kwargs: Any) -> np.ndarray:
+    def __array__(
+        self, dtype: np.dtype | None = None, copy: bool | None = None
+    ) -> np.ndarray:
         """Converts the channel to a numpy array. This method is necessary
         for numpy interop."""
-        return self.read().__array__(*args, **kwargs)
+        return self.read().__array__(dtype, copy)
 
     def __getitem__(self, index: int) -> SampleValue:
         return self.read().__getitem__(index)
@@ -130,7 +136,7 @@ class _InternalScopedChannel(channel.Payload):
         return len(self.read())
 
 
-class ScopedChannel:
+class ScopedChannel(ArrayOperators):
     """A channel that is scoped to a particular range. This class is returned when
     accessing the channel as a key or property on a range. This channel has direct
     interoperability with numpy arrays, meaning that it can be passed as an argument
@@ -145,10 +151,6 @@ class ScopedChannel:
 
     _internal: list[_InternalScopedChannel]
     _query: str
-
-    def __new__(cls, *args: Any, **kwargs: Any) -> ScopedChannel:
-        cls = overload_comparison_operators(cls, "__array__")
-        return super().__new__(cls)  # type: ignore[no-any-return]
 
     def __init__(
         self,
@@ -166,11 +168,13 @@ class ScopedChannel:
             """
             )
 
-    def __array__(self, *args: object, **kwargs: object) -> np.ndarray:
+    def __array__(
+        self, dtype: np.dtype | None = None, copy: bool | None = None
+    ) -> np.ndarray:
         """Converts the scoped channel to a numpy array. This method is necessary
         for numpy interop."""
         self._guard()
-        return self._internal[0].__array__(*args, **kwargs)
+        return self._internal[0].__array__(dtype, copy)
 
     def __getitem__(self, index: int) -> SampleValue:
         self._guard()
@@ -243,8 +247,10 @@ class Range(Payload):
     """Key-value store for storing metadata about the range."""
     _cached_aliaser: alias_.Client | None = PrivateAttr(None)
     """For setting and resolving aliases."""
-    _cache: dict[channel.Key, _InternalScopedChannel] = PrivateAttr(dict())
+    _cache: dict[channel.Key, _InternalScopedChannel] = PrivateAttr({})
     """A writer for creating child ranges"""
+    _scoped: dict[channel.Key | str, ScopedChannel] = PrivateAttr({})
+    """Resolved channel queries, so each name or key is retrieved once."""
     _cached_client: Client | None = PrivateAttr(None)
     _cached_tasks: TaskClient | None = PrivateAttr(None)
     _cached_ontology: OntologyClient | None = PrivateAttr(None)
@@ -253,8 +259,8 @@ class Range(Payload):
         self,
         name: str,
         time_range: TimeRange,
-        key: UUID = UUID(int=0),
-        color: str = "",
+        key: UUID = NIL,
+        color: str | None = "",
         parent: Range | Payload | None = None,
         *,
         _frame_client: framer.Client | None = None,
@@ -300,7 +306,7 @@ class Range(Payload):
             name=name,
             time_range=time_range,
             key=key,
-            color=color,
+            color=None if color is None else Color(color),
             parent=parent_payload,
         )
         self._cached_frame_client = _frame_client
@@ -320,25 +326,34 @@ class Range(Payload):
 
     def __getattr__(self, query: str) -> ScopedChannel:
         try:
-            # BaseModel.__getattr__ exists at runtime but not in mypy stubs
-            return super().__getattr__(query)  # type: ignore[misc,no-any-return]
+            # Private attributes resolve here. Type checkers use their declarations.
+            return cast(ScopedChannel, _model_getattr(self, query))
         except AttributeError:
             pass
+        scoped = self._scoped.get(query)
+        if scoped is not None:
+            return scoped
         channels = self._channel_retriever.retrieve(query)
         aliases = self._aliaser.resolve([query])
         channels.extend(self._channel_retriever.retrieve(list(aliases.values())))
-        return self._get_scoped_channel(channels, query)
+        scoped = self._get_scoped_channel(channels, query)
+        self._scoped[query] = scoped
+        return scoped
 
     def __getitem__(self, name: str | channel.Key) -> ScopedChannel:
-        if isinstance(name, channel.Key):
+        if not isinstance(name, channel.Key):
+            return self.__getattr__(name)
+        scoped = self._scoped.get(name)
+        if scoped is None:
             channels = self._channel_retriever.retrieve(name)
-            return self._get_scoped_channel(channels, name.__str__())
-        return self.__getattr__(name)
+            scoped = self._get_scoped_channel(channels, name.__str__())
+            self._scoped[name] = scoped
+        return scoped
 
     def _splice_cached(
         self, channels: list[channel.Payload]
     ) -> list[_InternalScopedChannel]:
-        results = list()
+        results = []
         for pld in channels:
             cached = self._cache.get(pld.key, None)
             if cached is None:
@@ -424,6 +439,7 @@ class Range(Payload):
             else:
                 corrected[ch] = alias
         self._aliaser.set(corrected)
+        self._scoped.clear()
 
     def to_payload(self) -> Payload:
         return Payload(
@@ -440,16 +456,16 @@ class Range(Payload):
     ) -> None: ...
 
     @overload
-    def write(self, channels: framer.CrudeFrame) -> None: ...
+    def write(self, channels: framer.CrudeFrame[K]) -> None: ...
 
     def write(
         self,
-        channels: channel.Params | framer.CrudeFrame,
+        channels: channel.Params | framer.CrudeFrame[K],
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> None:
         start = self.time_range.start
         if series is None:
-            self._frame_client.write(start, cast(framer.CrudeFrame, channels))
+            self._frame_client.write(start, cast(framer.CrudeFrame[K], channels))
             return
         if not isinstance(channels, (int, str, list, tuple, channel.Payload)):
             raise TypeError(
@@ -463,35 +479,10 @@ class Range(Payload):
         name: str,
         time_range: TimeRange,
         color: str = "",
-        key: Key = UUID(int=0),
+        key: Key = NIL,
     ) -> Range:
         return self._client.create(
             Range(name=name, time_range=time_range, color=color, key=key, parent=self)
-        )
-
-    def create_sub_range(
-        self,
-        *,
-        name: str,
-        time_range: TimeRange,
-        color: str = "",
-        key: Key = UUID(int=0),
-    ) -> Range:
-        """
-        This method is deprecated and will be removed in a future release.
-        Use create_child_range instead.
-        """
-        warnings.warn(
-            "create_sub_range() is deprecated and will be removed in a future version. "
-            "Use create_child_range() instead.",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.create_child_range(
-            name=name,
-            time_range=time_range,
-            color=color,
-            key=key,
         )
 
     @property
@@ -553,7 +544,7 @@ class Client:
         color: str = "",
         retrieve_if_name_exists: bool = False,
         parent: Range | Payload | None = None,
-        key: Key = UUID(int=0),
+        key: Key = NIL,
     ) -> Range:
         """Creates a named range spanning a region of time. This range is persisted
         to the cluster and is visible to all clients.
@@ -567,7 +558,6 @@ class Client:
         :param parent: An optional parent range. Retrieve or create the parent first,
         then pass it directly.
         """
-        ...
 
     @overload
     def create(
@@ -584,7 +574,6 @@ class Client:
         if it already exists. This method will throw a ValidationError if the range
         already exists and has a DIFFERENT time range.
         """
-        ...
 
     @overload
     def create(
@@ -601,13 +590,12 @@ class Client:
         if it already exists. This method will throw a ValidationError if the range
         already exists and has a DIFFERENT time range.
         """
-        ...
 
     def create(
         self,
         ranges: Range | list[Range] | None = None,
         *,
-        key: Key = UUID(int=0),
+        key: Key = NIL,
         name: str = "",
         time_range: TimeRange | None = None,
         color: str = "",
@@ -631,7 +619,7 @@ class Client:
             is_single = False
             to_create = [r.to_payload() for r in ranges]
 
-        res: list[Range] = list()
+        res: list[Range] = []
         if retrieve_if_name_exists:
             res = self.retrieve(names=[r.name for r in to_create])
             if is_single and len(res) > 1:
@@ -663,18 +651,33 @@ class Client:
     def retrieve(
         self,
         *,
-        key: Key | None = None,
-        name: str | None = None,
+        key: Key,
+        include_labels: bool = False,
+        include_parent: bool = False,
     ) -> Range: ...
 
     @overload
     def retrieve(
         self,
         *,
-        key: None = None,
-        name: None = None,
-        names: list[str] | tuple[str] | None = None,
-        keys: list[Key] | tuple[Key] | None = None,
+        name: str,
+        include_labels: bool = False,
+        include_parent: bool = False,
+    ) -> Range: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        names: list[str] | tuple[str, ...] | None = None,
+        keys: list[Key] | tuple[Key, ...] | None = None,
+        search_term: str | None = None,
+        overlaps_with: TimeRange | None = None,
+        has_labels: list[label.Key] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        include_labels: bool = False,
+        include_parent: bool = False,
     ) -> list[Range]: ...
 
     @require_named_params(example_params=("name", "My Range"))
@@ -683,23 +686,67 @@ class Client:
         *,
         key: Key | None = None,
         name: str | None = None,
-        names: list[str] | tuple[str] | None = None,
-        keys: list[Key] | tuple[Key] | None = None,
+        names: list[str] | tuple[str, ...] | None = None,
+        keys: list[Key] | tuple[Key, ...] | None = None,
+        search_term: str | None = None,
+        overlaps_with: TimeRange | None = None,
+        has_labels: list[label.Key] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        include_labels: bool = False,
+        include_parent: bool = False,
     ) -> Range | list[Range]:
-        is_single = check_for_none(keys, names)
-        _ranges = self._retriever.retrieve(key=key, name=name, names=names, keys=keys)
-        sug = self._sugar(_ranges)
+        """Retrieves one range by key or name, or a list of ranges that match the
+        given filters. A filter left as None does not filter.
+
+        :param key: The key of one range to retrieve.
+        :param name: The name of one range to retrieve.
+        :param names: Keeps ranges with one of these names.
+        :param keys: Keeps ranges with one of these keys.
+        :param search_term: Fuzzy matches range names.
+        :param overlaps_with: Keeps ranges whose time range overlaps this one.
+        :param has_labels: Keeps ranges that have one of these labels.
+        :param limit: The maximum number of ranges to return.
+        :param offset: The number of matching ranges to skip.
+        :param include_labels: Attaches the labels of each range.
+        :param include_parent: Attaches the parent of each range.
+        :returns: The range for a key or name, else a list of the matching ranges.
+        :raises QueryError: If a single range is not found, or more than one matches.
+        :raises ValueError: If key and name are both given, or either is combined with
+            a list filter.
+        """
+        is_single = key is not None or name is not None
+        if key is not None and name is not None:
+            raise ValueError("key and name cannot be combined; use keys or names")
+        if is_single and not check_for_none(
+            keys, names, search_term, overlaps_with, has_labels, limit, offset
+        ):
+            raise ValueError(
+                "key and name cannot be combined with list filters; use keys or names"
+            )
+        req = Request(
+            keys=override(key, keys),
+            names=override(name, names),
+            search_term=search_term,
+            overlaps_with=overlaps_with,
+            has_labels=has_labels,
+            limit=limit,
+            offset=offset,
+            include_labels=include_labels or None,
+            include_parent=include_parent or None,
+        )
+        sug = self._sugar(self._retriever.retrieve(req))
         if not is_single:
             return sug
         if len(sug) == 0:
-            raise QueryError(f"Range {names} not found")
-        elif len(sug) > 1:
-            raise QueryError(f"Multiple ranges matching {names} found")
+            raise QueryError(f"Range {key or name} not found")
+        if len(sug) > 1:
+            raise QueryError(f"Multiple ranges matching {key or name} found")
         return sug[0]
 
     def delete(
         self,
-        key: Key | list[Key] | tuple[Key],
+        key: Key | list[Key] | tuple[Key, ...],
     ) -> None:
         self._writer.delete(normalize(key))
 
@@ -707,8 +754,7 @@ class Client:
         self,
         term: str,
     ) -> list[Range]:
-        _ranges = self._retriever.search(term)
-        return self._sugar(_ranges)
+        return self._sugar(self._retriever.retrieve(Request(search_term=term)))
 
     def _sugar(self, ranges: list[Payload]) -> list[Range]:
         result: list[Range] = []
@@ -723,6 +769,7 @@ class Client:
                 _ontology=self._ontology,
                 _tasks=self._tasks,
             )
+            rng.labels = r.labels
             if r.parent is not None:
                 rng.parent = r.parent
             result.append(rng)
@@ -732,6 +779,8 @@ class Client:
         @functools.wraps(f)
         def wrapper(state: LatestState) -> None:
             d = state[RANGE_SET_CHANNEL]
+            if not isinstance(d, dict):
+                raise TypeError(f"expected a JSON object on {RANGE_SET_CHANNEL}")
             f(
                 Range(
                     name=d["name"],

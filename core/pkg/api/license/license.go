@@ -13,6 +13,7 @@ package license
 
 import (
 	"context"
+	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
@@ -45,7 +46,11 @@ type (
 	ActivateRequest  struct {
 		Key string `json:"key" msgpack:"key"`
 	}
-	ActivateResponse = license.Info
+	ActivateResponse  = license.Info
+	DeactivateRequest struct {
+		Jti uuid.UUID `json:"jti" msgpack:"jti"`
+	}
+	DeactivateResponse = license.Info
 )
 
 // objectID names the license as a builtin singleton, so the built-in roles' builtin
@@ -81,4 +86,20 @@ func (s *Service) Activate(
 		return ActivateResponse{}, err
 	}
 	return s.internal.Activate(ctx, req.Key)
+}
+
+// Deactivate removes the license key with the given ID from this Core and returns the
+// resulting state.
+func (s *Service) Deactivate(
+	ctx context.Context,
+	req DeactivateRequest,
+) (DeactivateResponse, error) {
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{objectID},
+	}); err != nil {
+		return DeactivateResponse{}, err
+	}
+	return s.internal.Deactivate(ctx, req.Jti)
 }

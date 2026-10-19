@@ -9,7 +9,7 @@
 
 import "@/feature/license/Activate.css";
 
-import { ExpiredLicenseError, status } from "@synnaxlabs/client";
+import { status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -27,9 +27,6 @@ import { Runtime } from "@/platform/runtime";
 import { Shell as PlatformShell } from "@/platform/shell";
 import { Session } from "@/session";
 
-/** The portal page that issues a license key for a host fingerprint. */
-const PORTAL_ACTIVATE_URL = "https://docs.synnaxlabs.com/licenses/activate";
-
 const KEY_FILE_EXTENSION = "lic";
 
 const ACTIVATE_TRIGGER: Triggers.Trigger = ["Enter"];
@@ -37,21 +34,25 @@ const ACTIVATE_TRIGGER: Triggers.Trigger = ["Enter"];
 const decoder = new TextDecoder();
 
 const portalURL = (fingerprint: string[]): string => {
-  if (fingerprint.length === 0) return PORTAL_ACTIVATE_URL;
+  if (fingerprint.length === 0) return License.ACTIVATE_URL;
   const params = new URLSearchParams({
     fingerprint: License.joinFingerprint(fingerprint),
   });
-  return `${PORTAL_ACTIVATE_URL}?${params.toString()}`;
+  return `${License.ACTIVATE_URL}?${params.toString()}`;
 };
+
+export interface ActivateProps {
+  /** Offers a way back to the screen that led here. */
+  onBack?: () => void;
+}
 
 /**
  * Full-screen activation surface for a Core that refuses requests until a license
  * applies. The connection check keeps polling, so the screen leaves on its own once a
  * license applies from anywhere.
  */
-export const Activate = (): ReactElement => {
+export const Activate = ({ onBack }: ActivateProps): ReactElement => {
   const client = Synnax.use();
-  const { details } = Synnax.useConnectionStatus();
   const target = Session.Core.useSelectSelected();
   const logout = Session.useLogout();
   const handleError = Status.useErrorHandler();
@@ -60,7 +61,6 @@ export const Activate = (): ReactElement => {
   const [activating, setActivating] = useState(false);
   const [error, setError] = useState<status.Status | null>(null);
   const fingerprint = result.data?.fingerprint ?? [];
-  const expired = ExpiredLicenseError.matches(details.error);
   const noHardware = result.data != null && fingerprint.length === 0;
 
   const pickFile = (): void =>
@@ -87,10 +87,9 @@ export const Activate = (): ReactElement => {
     }
   };
 
-  let description = "Get a key from your Synnax account, then paste it here.";
-  if (noHardware)
-    description = "This Core reports no network hardware. Ask for a floating license.";
-  else if (expired) description = "Get a new key from your Synnax account.";
+  const description = noHardware
+    ? "This Core reports no network hardware. Ask for a floating license."
+    : "Get a new key from your Synnax account.";
 
   return (
     <Shell.Frame
@@ -102,9 +101,7 @@ export const Activate = (): ReactElement => {
           <PlatformShell.Mark />
           <Flex.Box y align="center" gap="small" full="x">
             <Text.Text level="h4" weight={500} color={11}>
-              {expired
-                ? "This Core's license has expired"
-                : "This Core needs a license"}
+              This Core's license has expired
             </Text.Text>
             <Text.Text
               level="p"
@@ -179,6 +176,11 @@ export const Activate = (): ReactElement => {
           {!Session.Runtime.CORE_EMBEDDED && (
             <Button.Button variant="text" size="small" textColor={9} onClick={logout}>
               Log out
+            </Button.Button>
+          )}
+          {onBack != null && (
+            <Button.Button variant="text" size="small" textColor={9} onClick={onBack}>
+              Back
             </Button.Button>
           )}
         </Flex.Box>

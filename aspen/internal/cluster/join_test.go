@@ -150,6 +150,34 @@ var _ = Describe("Open", func() {
 				},
 			)
 
+			It("Should recover the state a v0.58.2 Core stored", func(ctx SpecContext) {
+				const clusterKey = "99d12f78-679c-4664-a9b3-4a2ffedb0e88"
+				kvDB := DeferClose(memkv.New())
+				Expect(kvDB.Set(ctx, []byte("aspen.cluster"), []byte(
+					`{"Nodes":{"1":{"Address":"localhost:9125","Heartbeat":`+
+						`{"Generation":0,"Version":4},"State":0,"Key":1}},"HostKey":1,`+
+						`"ClusterKey":"`+clusterKey+`"}`,
+				))).To(Succeed())
+				gossipT := gossipNet.UnaryServer("localhost:9125")
+				c := MustOpen(cluster.Open(ctx, cluster.Config{
+					HostAddress: gossipT.Address(),
+					Pledge: pledge.Config{
+						TransportClient: pledgeNet.UnaryClient(),
+						TransportServer: pledgeNet.UnaryServer(gossipT.Address()),
+					},
+					Gossip: gossip.Config{
+						TransportClient: gossipNet.UnaryClient(),
+						TransportServer: gossipT,
+						Interval:        100 * time.Millisecond,
+					},
+					Storage: kvDB,
+				}))
+				Expect(c.Key().String()).To(Equal(clusterKey))
+				Expect(c.HostKey()).To(Equal(node.Key(1)))
+				Expect(c.Nodes()).To(HaveLen(1))
+				Expect(c.Host().Address).To(Equal(address.Address("localhost:9125")))
+			})
+
 			It(
 				"Should recover state written by msgpack (v0.39 to v0.53 upgrade)",
 				func(ctx SpecContext) {

@@ -63,7 +63,7 @@ CORE_DIR = INTEGRATION_DIR.parent / "core"
 
 
 def log(msg: str) -> None:
-    ts = datetime.now().strftime("%H:%M:%S.%f")[:-4]
+    ts = datetime.now().astimezone().strftime("%H:%M:%S.%f")[:-4]
     print(f"{ts} | {msg}")
 
 

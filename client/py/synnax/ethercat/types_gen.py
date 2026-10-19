@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, Union
+from typing import Annotated, Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -109,7 +109,7 @@ class ManualReadChannel(BaseReadChannel, PDOAddress):
 # Is a single EtherCAT read channel (TxPDO, slave to master). The type field
 # selects how the PDO entry is addressed.
 ReadChannel = Annotated[
-    Union[AutomaticReadChannel, ManualReadChannel],
+    AutomaticReadChannel | ManualReadChannel,
     Field(discriminator="type"),
 ]
 
@@ -130,7 +130,7 @@ class ManualWriteChannel(BaseWriteChannel, PDOAddress):
 # Is a single EtherCAT write channel (RxPDO, master to slave). The type field
 # selects how the PDO entry is addressed.
 WriteChannel = Annotated[
-    Union[AutomaticWriteChannel, ManualWriteChannel],
+    AutomaticWriteChannel | ManualWriteChannel,
     Field(discriminator="type"),
 ]
 

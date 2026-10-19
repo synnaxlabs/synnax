@@ -75,7 +75,9 @@ const ANCHOR_NAMES: Record<keyof Anchors, string> = {
 
 const SIGNED_RE = /^([+-])\s*(.+)$/;
 
+// Looked up in exact case before lowercase, so `Ms` stays apart from `ms`.
 const ABBREVIATIONS: Record<string, string> = {
+  Ms: "megaseconds",
   ms: "milliseconds",
   s: "seconds",
   sec: "seconds",
@@ -96,7 +98,8 @@ const ABBREVIATIONS: Record<string, string> = {
 const expandAbbreviations = (text: string): string =>
   text.replace(
     /(\d+(?:\.\d+)?)\s*(ms|secs?|s|mins?|m|hrs?|h|d|wks?|w)\b/gi,
-    (_, n: string, unit: string) => `${n} ${ABBREVIATIONS[unit.toLowerCase()]}`,
+    (_, n: string, unit: string) =>
+      `${n} ${ABBREVIATIONS[unit] ?? ABBREVIATIONS[unit.toLowerCase()]}`,
   );
 
 const localZone = (): string => Intl.DateTimeFormat().resolvedOptions().timeZone;

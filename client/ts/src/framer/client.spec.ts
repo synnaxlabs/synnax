@@ -7,14 +7,40 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { Unreachable } from "@synnaxlabs/freighter";
+import { id, TimeSpan, TimeStamp, url } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
+import { Client } from "@/framer/client";
 import { createTestClient } from "@/testutil";
+import { Transport } from "@/transport";
 
 const client = createTestClient();
 
 describe("Client", () => {
+  describe("openFeed", () => {
+    it("should report each failed stream reconnect to onRetry", async () => {
+      const transport = new Transport(new url.URL({ host: "localhost", port: 9090 }));
+      const retries: Error[] = [];
+      const unreachable = new Client({
+        stream: transport.stream,
+        unary: transport.unary,
+        retrieveChannels: async () => {
+          throw new Unreachable({ message: "core down" });
+        },
+        onRetry: (error) => retries.push(error),
+      });
+      const feed = unreachable.openFeed({
+        breaker: { maxRetries: 3, baseInterval: TimeSpan.milliseconds(1) },
+      });
+      const sub = feed.stream(() => {}, [1]);
+      await expect.poll(() => retries.length).toBeGreaterThan(1);
+      expect(retries.every((error) => Unreachable.matches(error.cause))).toBe(true);
+      sub.close();
+      await feed.close();
+    });
+  });
+
   describe("read + write", () => {
     it("should correctly write and read a frame of data", async () => {
       const time = await client.channels.create({

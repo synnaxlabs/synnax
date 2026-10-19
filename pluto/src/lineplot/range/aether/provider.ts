@@ -36,6 +36,7 @@ export type ProviderState = z.infer<typeof providerStateZ>;
 
 interface InternalState {
   retrieve: flux.Retrieve<aetherRanger.ListQuery, ranger.Range[]>;
+  window?: TimeRange;
   client: Synnax | null;
   render: render.Context;
   requestRender: render.Requestor;
@@ -51,26 +52,31 @@ export interface ProviderProps {
 }
 
 /**
- * The most ranges the annotation strip draws for one window. A denser window draws
+ * The most ranges the annotation strip draws for one viewport. A denser viewport draws
  * none: the strip cannot label them legibly in 32 pixels, and the Core answers a
  * limited query in key order, so drawing a truncated answer would show an arbitrary
- * subset that changes as the window moves.
+ * subset that changes as the viewport moves.
  */
 export const MAX_ANNOTATIONS = 100;
 
-// Snaps fetch boundaries outward to a grid roughly an eighth of the viewport wide,
-// so a requery takes a meaningful pan or zoom at any zoom level. Power-of-two grid
-// sizes nest, keeping boundaries stable as the viewport zooms.
-const quantize = (timeRange: TimeRange): TimeRange => {
-  const span = timeRange.span.valueOf();
-  if (span < 8n) return timeRange;
-  const quantum = 1n << BigInt(Math.floor(Math.log2(Number(span) / 8)));
-  const mod = (v: bigint): bigint => ((v % quantum) + quantum) % quantum;
-  const start = timeRange.start.valueOf();
-  const end = timeRange.end.valueOf();
-  const rem = mod(end);
-  return new TimeRange(start - mod(start), rem === 0n ? end : end + quantum - rem);
-};
+// The fetch window is the viewport padded by its span on each side, so a pan or a live
+// plot's slide requeries at most once per viewport span.
+const WINDOW_SPANS = 3n;
+
+// One over the cap, so a saturated answer is distinguishable from a full one.
+const FETCH_LIMIT = Number(WINDOW_SPANS) * MAX_ANNOTATIONS + 1;
+
+const pad = (viewport: TimeRange): TimeRange =>
+  new TimeRange(
+    viewport.start.sub(viewport.span),
+    viewport.end.add(viewport.span),
+  ).boundBy(TimeRange.MAX);
+
+// Zooming in 2x also requeries, so a saturated answer does not blank the strip at
+// every deeper zoom.
+const covers = (window: TimeRange, viewport: TimeRange): boolean =>
+  window.contains(viewport) &&
+  window.span.valueOf() <= 2n * WINDOW_SPANS * viewport.span.valueOf();
 
 export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> {
   static readonly TYPE = "range-provider";
@@ -103,15 +109,18 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
   render(props: ProviderProps): void {
     const { dataToDecimalScale, region, viewport, timeRange } = props;
     const { internal: i } = this;
+    if (i.window == null || !covers(i.window, timeRange)) i.window = pad(timeRange);
     if (i.client != null)
-      i.retrieve.update(i.client, {
-        overlapsWith: quantize(timeRange),
-        // One over the cap, so a saturated answer is distinguishable from a full one.
-        limit: MAX_ANNOTATIONS + 1,
-      });
+      i.retrieve.update(i.client, { overlapsWith: i.window, limit: FETCH_LIMIT });
     const { draw } = i;
     const fetched = i.retrieve.value ?? [];
-    const ranges = fetched.length > MAX_ANNOTATIONS ? [] : fetched;
+    const start = timeRange.start.valueOf();
+    const end = timeRange.end.valueOf();
+    const inView = fetched.filter(
+      (r) => r.timeRange.end.valueOf() >= start && r.timeRange.start.valueOf() <= end,
+    );
+    const ranges =
+      fetched.length >= FETCH_LIMIT || inView.length > MAX_ANNOTATIONS ? [] : inView;
     const visible = this.state.visible !== false;
     const regionScale = dataToDecimalScale.scale(box.xBounds(region));
     const cursor = this.state.cursor == null ? null : this.state.cursor.x;
@@ -131,7 +140,6 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       const c = cRes.data;
       let startPos = regionScale.pos(Number(r.timeRange.start.valueOf()));
       const endPos = regionScale.pos(Number(r.timeRange.end.valueOf()));
-      if (endPos < box.left(region) || startPos > box.right(region)) return;
       visibleCount++;
       if (!visible) return;
       startPos = bounds.clamp(

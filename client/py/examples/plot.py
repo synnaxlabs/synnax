@@ -56,8 +56,8 @@ data = np.linspace(0, 100, SAMPLE_COUNT) + np.random.randn(SAMPLE_COUNT) * 5
 client.write(
     start,
     {
-        time_channel: timestamps,
-        data_channel: data,
+        time_channel.key: timestamps,
+        data_channel.key: data,
     },
 )
 
@@ -65,17 +65,17 @@ client.write(
 time_range = sy.TimeRange(start, end)
 
 # Read the data back from the Synnax cluster.
-data = client.read(time_range, [time_channel.name, data_channel.name])
+frame = client.read(time_range, [time_channel.name, data_channel.name])
 
 # For plotting, we want to convert the time to seconds since the start of the range. We
 # will convert it to numpy, and then remove the start timestamp value from each sample,
 # and then convert from nanoseconds to seconds.
-time_data = data[time_channel.name].to_numpy()
+time_data = frame[time_channel.name].to_numpy()
 time_data = time_data - time_data[0]
 time_data = time_data / sy.TimeSpan.SECOND
 
 # Plot the data
-plt.plot(time_data, data[data_channel.name])
+plt.plot(time_data, frame[data_channel.name])
 plt.xlabel(time_channel.name)
 plt.ylabel(data_channel.name)
 plt.title(f"Plot of {data_channel.name} vs {time_channel.name}")

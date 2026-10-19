@@ -24,16 +24,14 @@
 #include "client/cpp/status/status.h"
 #include "client/cpp/transport.h"
 #include "client/cpp/version/version.h"
-#include "client/cpp/view/view.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/log/log.h"
-#include "x/cpp/path/path.h"
 
 namespace synnax {
 ///// @brief Internal namespace. Do not use.
 namespace details {
-/// @brief Does a best effort check to ensure the machine is little endian, and
-/// warns the user if it is not.
+/// @brief Does a best effort check to ensure the machine is little endian, and warns
+/// the user if it is not.
 inline void check_little_endian() {
     int num = 1;
     if (*reinterpret_cast<char *>(&num) == 1) return;
@@ -46,28 +44,16 @@ inline void check_little_endian() {
 /// @brief Configuration for opening a Synnax client.
 /// @see Synnax
 struct Config {
-    /// @brief the host of a node in the cluster.
+    /// @brief the host of a Core to connect to.
     std::string host = "localhost";
     /// @brief the port for the specified host.
     std::uint16_t port = 9090;
-    /// @brief the username to use when authenticating with the node.
+    /// @brief the username to use when authenticating with the Core.
     std::string username = "synnax";
-    /// @brief the password to use when authenticating with the node.
+    /// @brief the password to use when authenticating with the Core.
     std::string password = "seldon";
-    /// @brief path to the CA certificate file to use when connecting to a secure
-    /// node. This is only required if the node is configured to use TLS.
-    std::string ca_cert_file;
-    /// @brief path to the client certificate file to use when connecting to a
-    /// secure node and using client authentication. This is not required when in
-    /// insecure mode or using username/password authentication.
-    std::string client_cert_file;
-    /// @brief path to the client key file to use when connecting to a secure node
-    /// and using client authentication. This is not required when in insecure mode
-    /// or using username/password authentication.
-    std::string client_key_file;
-    /// @brief use TLS encryption. When true without a ca_cert_file, the system trust
-    /// store verifies the server. Defaults to true when overridden from config that
-    /// predates this field but names a certificate.
+    /// @brief use TLS encryption. The system trust store verifies the Core's
+    /// certificate.
     bool secure = false;
     /// @brief sets the clock skew threshold at which a warning will be logged.
     x::telem::TimeSpan clock_skew_threshold = x::telem::SECOND * 1;
@@ -80,17 +66,7 @@ struct Config {
         this->port = parser.field("port", this->port);
         this->username = parser.field("username", this->username);
         this->password = parser.field("password", this->password);
-        this->client_cert_file = parser.field(
-            "client_cert_file",
-            this->client_cert_file
-        );
-        this->client_key_file = parser.field("client_key_file", this->client_key_file);
-        this->ca_cert_file = parser.field("ca_cert_file", this->ca_cert_file);
-        this->secure = parser.field(
-            "secure",
-            !this->ca_cert_file.empty() ||
-                (!this->client_cert_file.empty() && !this->client_key_file.empty())
-        );
+        this->secure = parser.field("secure", this->secure);
         this->clock_skew_threshold = x::telem::TimeSpan(parser.field(
             "clock_skew_threshold",
             this->clock_skew_threshold.nanoseconds()
@@ -107,17 +83,10 @@ struct Config {
            << x::log::sensitive_string(cfg.password) << "\n"
            << "  " << x::log::SHALE() << "secure" << x::log::RESET() << ": "
            << x::log::bool_to_str(cfg.secure);
-        if (!cfg.secure) return os;
-        os << "\n  " << x::log::SHALE() << "ca_cert_file" << x::log::RESET() << ": "
-           << x::path::resolve_relative(cfg.ca_cert_file) << "\n"
-           << "  " << x::log::SHALE() << "client_cert_file" << x::log::RESET() << ": "
-           << x::path::resolve_relative(cfg.client_cert_file) << "\n"
-           << "  " << x::log::SHALE() << "client_key_file" << x::log::RESET() << ": "
-           << x::path::resolve_relative(cfg.client_key_file);
         return os;
     }
 
-    /// @brief returns the address of the cluster in the form "host:port".
+    /// @brief returns the address of the Core in the form "host:port".
     [[nodiscard]]
     std::string address() const {
         return this->host + ":" + std::to_string(this->port);
@@ -129,9 +98,6 @@ struct Config {
             {"port", this->port},
             {"username", this->username},
             {"password", this->password},
-            {"ca_cert_file", this->ca_cert_file},
-            {"client_cert_file", this->client_cert_file},
-            {"client_key_file", this->client_key_file},
             {"secure", this->secure},
             {"clock_skew_threshold", this->clock_skew_threshold.nanoseconds()},
             {"max_retries", this->max_retries}
@@ -139,21 +105,21 @@ struct Config {
     }
 };
 
-/// @brief Client to perform operations against a Synnax cluster.
+/// @brief Client to perform operations against a Synnax Core.
 class Synnax {
     details::Transport t;
 
 public:
-    /// @brief Client for creating and retrieving channels in a cluster.
+    /// @brief Client for creating and retrieving channels from the Core.
     channel::Client channels;
     std::shared_ptr<auth::Middleware> auth;
-    /// @brief Connectivity checker that polls the cluster for health and clock skew.
+    /// @brief Connectivity checker that polls the Core for health and clock skew.
     std::shared_ptr<connection::Checker> connectivity;
-    /// @brief Client for creating, retrieving, and performing operations on ranges
-    /// in a cluster.
+    /// @brief Client for creating, retrieving, and performing operations on ranges from
+    /// the Core.
     ranger::Client ranges;
     task::Client tasks;
-    /// @brief Client for reading and writing telemetry to a cluster.
+    /// @brief Client for reading and writing telemetry to the Core.
     framer::Client telem;
     /// @brief Client for managing racks.
     rack::Client racks;
@@ -163,19 +129,12 @@ public:
     status::Client statuses;
     /// @brief Client for managing Arc automation programs.
     arc::Client arcs;
-    /// @brief Client for managing views.
-    view::Client views;
     /// @brief Client for reading the control state of channels.
     control::Client control;
 
     /// @brief constructs the Synnax client from the provided configuration.
     explicit Synnax(const Config &cfg):
-        t(cfg.port,
-          cfg.host,
-          cfg.ca_cert_file,
-          cfg.client_cert_file,
-          cfg.client_key_file,
-          cfg.secure),
+        t(cfg.port, cfg.host, cfg.secure),
         channels(this->t.chan_retrieve, this->t.chan_create),
         auth([&]() -> std::shared_ptr<auth::Middleware> {
             auto mw = std::make_shared<auth::Middleware>(
@@ -229,11 +188,6 @@ public:
             this->t.status_set_by_key_or_name
         ),
         arcs(this->t.arc_retrieve, this->t.arc_create, this->t.arc_delete),
-        views(
-            std::move(this->t.view_create),
-            std::move(this->t.view_retrieve),
-            std::move(this->t.view_delete)
-        ),
         control(this->t.control_retrieve) {
         details::check_little_endian();
     }

@@ -13,6 +13,7 @@ import { license, type status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Modal } from "@synnaxlabs/lyra/modal";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Tag } from "@synnaxlabs/lyra/tag";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -24,18 +25,6 @@ import { CSS } from "@/platform/css";
 import { License } from "@/platform/license";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
-
-interface Standing {
-  label: string;
-  variant: status.Variant;
-}
-
-const standingOf = ({ state, warning }: license.Info): Standing => {
-  if (state === "expired") return { label: "Expired", variant: "error" };
-  if (state === "missing") return { label: "Inactive", variant: "warning" };
-  if (warning !== "") return { label: "Expiring", variant: "warning" };
-  return { label: "Active", variant: "success" };
-};
 
 const BINDINGS: Record<License.Binding, string> = {
   floating: "Runs on any machine",
@@ -108,7 +97,7 @@ interface HeadlineProps {
 }
 
 const Headline = ({ info }: HeadlineProps): ReactElement => {
-  const { label, variant } = standingOf(info);
+  const { label, variant } = License.standing(info);
   const lic = info.license;
   const description =
     info.warning !== ""
@@ -163,9 +152,9 @@ export const useInfoModal = Modals.create(() => {
       ? null
       : `Core ${details.nodeVersion}${address == null ? "" : ` at ${address}`}`;
   return (
-    <Modals.Frame className={CSS.B("license-info")}>
-      <Modals.Header icon={<Icon.License />}>License</Modals.Header>
-      <Modals.Body className={CSS.BE("license-info", "body")} gap="huge">
+    <Modal.Frame className={CSS.B("license-info")}>
+      <Modal.Header icon={<Icon.License />}>License</Modal.Header>
+      <Modal.Body className={CSS.BE("license-info", "body")} gap="huge">
         {result.variant === "error" ? (
           <Status.Summary level="h4" status={result.status} />
         ) : (
@@ -208,7 +197,7 @@ export const useInfoModal = Modals.create(() => {
             </Button.Copy>
           </Flex.Box>
         </Flex.Box>
-      </Modals.Body>
-    </Modals.Frame>
+      </Modal.Body>
+    </Modal.Frame>
   );
 });

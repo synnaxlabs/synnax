@@ -91,7 +91,7 @@ class ArcClient(ResourceClient):
             return
         for attempt in range(max_retries):
             self.layout.press_key("ControlOrMeta+a")
-            self.layout.page.evaluate(f"navigator.clipboard.writeText({repr(source)})")
+            self.layout.page.evaluate(f"navigator.clipboard.writeText({source!r})")
             self.layout.sleep(100)
             self.layout.press_key("ControlOrMeta+v")
             self.layout.sleep(500)

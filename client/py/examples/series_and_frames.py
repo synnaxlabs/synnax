@@ -66,8 +66,8 @@ print(series.data_type)  # int64
 print(series.data_type == sy.DataType.STRING)  # False
 
 series = sy.Series([1, 2, 3, 4, 5])
-print(max(series))  # 5
-print(min(series))  # 1
+print(series.to_numpy().max())  # 5
+print(series.to_numpy().min())  # 1
 
 # Construct a frame for the given channel names.
 frame = sy.Frame(
@@ -90,22 +90,13 @@ frame = sy.Frame(
 
 # Or construct a frame with multiple series for a single channel
 frame = sy.Frame(
-    {
-        "channel1": [
-            sy.Series([1, 2, 3, 4, 5]),
-            sy.Series([5, 4, 3, 2, 1]),
-            sy.Series([1, 1, 1, 1, 1]),
-        ],
-        "channel2": [sy.Series([1, 2, 3, 4, 5])],
-    }
-)
-
-frame = sy.Frame(
-    {
-        "channel1": [sy.Series([1, 2]), sy.Series([3, 4, 5])],
-        "channel2": sy.Series([5, 4, 3, 2, 1]),
-        "channel3": sy.Series([1, 1, 1, 1, 1]),
-    }
+    ["channel1", "channel1", "channel2", "channel3"],
+    [
+        sy.Series([1, 2]),
+        sy.Series([3, 4, 5]),
+        sy.Series([5, 4, 3, 2, 1]),
+        sy.Series([1, 1, 1, 1, 1]),
+    ],
 )
 
 multi_series = frame["channel1"]

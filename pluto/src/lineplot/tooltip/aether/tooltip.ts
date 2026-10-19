@@ -83,7 +83,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     const scale_ = scale.XY.scale(box.DECIMAL).scale(region);
     const reverseScale = scale.XY.scale(region).scale(box.DECIMAL);
     const values = props.findByXDecimal(reverseScale.x.pos(this.state.position.x));
-    const validValues = values.filter((c) => xy.isFinite(c.value));
+    const validValues = values.filter((c) => Number.isFinite(c.value.x));
     const { draw } = this.internal;
 
     const avgXPosition =
@@ -105,6 +105,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     });
 
     validValues.forEach((r) => {
+      if (!Number.isFinite(r.value.y)) return;
       const position = scale_.pos(r.position);
       draw.circle({ fill: color.setAlpha(r.color, 0.5), radius: 8, position });
       draw.circle({ fill: color.setAlpha(r.color, 0.8), radius: 5, position });
@@ -148,7 +149,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
         } else {
           const v = validValues[i - 1];
           label = v.label ?? "";
-          value = math.smartRound(v.value.y, v.bounds).toString();
+          value = formatValue(v);
           color = v.color;
         }
         draw.text({
@@ -170,6 +171,12 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     });
   }
 }
+
+const formatValue = ({ value: { y }, bounds }: FindResult): string => {
+  if (y === Infinity) return "∞";
+  if (y === -Infinity) return "-∞";
+  return math.smartRound(y, bounds).toString();
+};
 
 export const REGISTRY: aether.ComponentRegistry = {
   [Tooltip.TYPE]: Tooltip,

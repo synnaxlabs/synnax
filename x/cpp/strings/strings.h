@@ -9,11 +9,29 @@
 
 #pragma once
 
+#include <cctype>
 #include <string>
 #include <string_view>
 #include <vector>
 
 namespace x::strings {
+
+/// @brief escapes the line breaks in s so it occupies one line.
+/// @param s the string to escape.
+/// @returns s with each '\n' and '\r' replaced by the two characters "\\n" and
+/// "\\r". Every other byte is kept as is.
+[[nodiscard]] inline std::string escape_line_breaks(const std::string &s) {
+    std::string out;
+    out.reserve(s.size());
+    for (const char c: s)
+        if (c == '\n')
+            out += "\\n";
+        else if (c == '\r')
+            out += "\\r";
+        else
+            out += c;
+    return out;
+}
 
 /// @brief writes v as a zero-padded decimal of the given width into the buffer at p.
 /// @param p pointer to at least width writable chars.
@@ -24,6 +42,26 @@ inline void write_number(char *p, int v, int width) noexcept {
         p[i] = char('0' + (v % 10));
         v /= 10;
     }
+}
+
+/// @brief removes leading and trailing spaces, tabs, and carriage returns.
+/// @param s the string to trim.
+/// @returns the trimmed string, or an empty string when s is all whitespace.
+[[nodiscard]] inline std::string trim(const std::string &s) {
+    const auto first = s.find_first_not_of(" \t\r");
+    if (first == std::string::npos) return {};
+    return s.substr(first, s.find_last_not_of(" \t\r") - first + 1);
+}
+
+/// @brief removes one layer of matching single or double quotes.
+/// @param s the string to unquote.
+/// @returns the contents of the quotes, or s unchanged when it is not quoted.
+[[nodiscard]] inline std::string unquote(const std::string &s) {
+    if (s.size() < 2) return s;
+    const char quote = s.front();
+    if ((quote == '"' || quote == '\'') && s.back() == quote)
+        return s.substr(1, s.size() - 2);
+    return s;
 }
 
 /// @brief joins a vector of strings with the given separator.

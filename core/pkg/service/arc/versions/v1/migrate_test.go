@@ -124,6 +124,29 @@ var _ = Describe("Migrations", func() {
 		},
 	)
 
+	DescribeTable("Should keep a set_status node's status key",
+		func(ctx SpecContext, config msgpack.EncodedJSON) {
+			got := migrateSeed(ctx, v0.Arc{
+				Key:  uuid.New(),
+				Name: "Stored Status Graph",
+				Mode: v0.ModeGraph,
+				Graph: graph.Graph{Nodes: graph.Nodes{
+					{Key: "alarm", Type: "set_status", Config: config},
+				}},
+			})
+			Expect(got.Graph.Nodes[0].Config).To(
+				HaveKeyWithValue("key_or_name", "ox_alarm"),
+			)
+		},
+		Entry("stored in snake case by the TS client", msgpack.EncodedJSON{
+			"message": "High", "status_key": "ox_alarm", "variant": "error",
+		}),
+		Entry("stored in camel case", msgpack.EncodedJSON{"statusKey": "ox_alarm"}),
+		Entry("stored in both cases", msgpack.EncodedJSON{
+			"status_key": "ox_alarm", "statusKey": "stale",
+		}),
+	)
+
 	It("Should default missing set_status config parameters", func(ctx SpecContext) {
 		got := migrateSeed(ctx, v0.Arc{
 			Key:   uuid.New(),

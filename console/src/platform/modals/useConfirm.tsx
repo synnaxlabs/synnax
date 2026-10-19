@@ -12,16 +12,13 @@ import "@/platform/modals/useConfirm.css";
 import { type status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { type Icon } from "@synnaxlabs/lyra/icon";
+import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
 
 import { CSS } from "@/platform/css";
-import { Body } from "@/platform/modals/Body";
 import { createPrompt } from "@/platform/modals/factory";
-import { Footer } from "@/platform/modals/Footer";
-import { Frame } from "@/platform/modals/Frame";
-import { Header } from "@/platform/modals/Header";
 import { Triggers } from "@/platform/triggers";
 import { type Session } from "@/session";
 
@@ -87,22 +84,22 @@ const Confirm = ({
   icon,
   close,
 }: Session.Modals.ContentProps<ConfirmParams, boolean>) => (
-  <Frame className={CSS.B("confirm")}>
-    <Header icon={icon}>{title}</Header>
-    <Body>
+  <Modal.Frame className={CSS.B("confirm")}>
+    <Modal.Header icon={icon}>{title}</Modal.Header>
+    <Modal.Body>
       <Text.Text level="h3" weight={450}>
         {message}
       </Text.Text>
       <Text.Text weight={450}>{description}</Text.Text>
-    </Body>
-    <Footer>
+    </Modal.Body>
+    <Modal.Footer>
       <Triggers.SaveHelpText action={confirm.label ?? DEFAULT_CONFIRM_LABEL} />
       <Nav.Bar.End x align="center">
         <CancelButton {...cancel} onClick={() => close(false)} />
         <ConfirmButton {...confirm} onClick={() => close(true)} />
       </Nav.Bar.End>
-    </Footer>
-  </Frame>
+    </Modal.Footer>
+  </Modal.Frame>
 );
 
 export const useConfirm = createPrompt<boolean, ConfirmParams>(Confirm);

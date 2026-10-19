@@ -45,14 +45,16 @@ var CompositionMigrations = []migrate.Migration{
 }
 
 // migratableLayoutTypes maps the Console layout types whose layout key is the key of a
-// backing core document to that document's ontology resource type.
+// backing core document to that document's ontology resource type. Consoles up to v0.50
+// stored Arc editors as arc_editor.
 var migratableLayoutTypes = map[string]ontology.ResourceType{
-	"arc":       ontology.ResourceTypeArc,
-	"lineplot":  ontology.ResourceTypeLineplot,
-	"log":       ontology.ResourceTypeLog,
-	"overview":  ontology.ResourceTypeRange,
-	"schematic": ontology.ResourceTypeSchematic,
-	"table":     ontology.ResourceTypeTable,
+	"arc":        ontology.ResourceTypeArc,
+	"arc_editor": ontology.ResourceTypeArc,
+	"lineplot":   ontology.ResourceTypeLineplot,
+	"log":        ontology.ResourceTypeLog,
+	"overview":   ontology.ResourceTypeRange,
+	"schematic":  ontology.ResourceTypeSchematic,
+	"table":      ontology.ResourceTypeTable,
 }
 
 // viewLayoutTypes maps the legacy Console layout types that render inline app views

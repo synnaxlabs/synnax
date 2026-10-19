@@ -11,9 +11,9 @@
 
 from __future__ import annotations
 
-from typing import Any, TypeAlias
+from typing import TypeAlias
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, JsonValue
 
 from synnax import ontology
 from synnax import rack as rack_
@@ -68,7 +68,7 @@ class Device(BaseModel):
     model: str
     name: str
     configured: bool = False
-    properties: dict[str, Any] = Field(default_factory=dict)
+    properties: dict[str, JsonValue] = Field(default_factory=dict)
     status: Status | None = None
     parent: ontology.ID | None = None
 

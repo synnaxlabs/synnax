@@ -26,6 +26,7 @@ import { primitive, TimeSpan } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 import { type z } from "zod";
 
+import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Errors } from "@/platform/errors";
 import { Controls } from "@/platform/task/controls";
@@ -143,6 +144,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
   const Wrapped: FC<FormTabProps> = ({ taskKey }) => {
     const client = PSynnax.use();
     const handleError = Status.useErrorHandler();
+    const { capture } = Analytics.use();
     const { form, saveAsync } = useForm({
       query: { key: taskKey },
       autoSave: true,
@@ -175,8 +177,9 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
           if (!(await saveAsync())) return;
         }
         await client.tasks.executeCommand({ task: taskKey, type: "start" });
+        capture("task_started", { type });
       }, "Failed to start task");
-    }, [client, form, saveAsync, taskKey, handleError, canEdit]);
+    }, [client, form, saveAsync, taskKey, handleError, canEdit, capture]);
 
     const handleStop = useCallback(() => {
       handleError(async () => {

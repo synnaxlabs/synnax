@@ -9,10 +9,9 @@
  * included in the file licenses/APL.txt.
  */
 
-/* Release-page diagram styles. Loaded globally so they apply on both standalone
-   release pages (/releases/0-XX-X) and the aggregated index (/releases). Astro 6
-   does not bubble component styles through nested MDX imports, so a global CSS file
-   is the only reliable way to make these visible on the index page. */
+/* Release-page diagram styles. Loaded globally because Astro 6 does not bubble
+   component styles through nested MDX imports, so a global CSS file is the only
+   reliable way to make these visible on /releases. */
 
 .release-diagram--labjack {
     margin: 5rem 0;

@@ -58,6 +58,7 @@ export const useList = Flux.createList<ListQuery, label.Key, label.Label>({
   retrieve: async ({ client, query }) => await client.labels.retrieve(query),
   retrieveByKey: async ({ client, key }) => await client.labels.retrieve(key),
   onChange: ({ client, query }, handler) => client.labels.onChange(query, handler),
+  onChangeByKey: ({ client, key }, handler) => client.labels.onChange(key, handler),
   getCached: ({ client, query }) => client.labels.getCached(query),
 });
 

@@ -21,6 +21,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useCallback, useMemo, useState } from "react";
 
 import { Button } from "@/platform/button";
+import { Clipboard } from "@/platform/clipboard";
 import { ContextMenu } from "@/platform/context-menu";
 import { Item, nameID } from "@/platform/core/list/Item";
 import { useConnectModal } from "@/platform/core/useConnectModal";
@@ -54,6 +55,14 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
   const handleRename = (key: string): void => Text.edit(nameID(key));
 
   const handleLink = Link.useCopyToClipboard();
+
+  const copy = Clipboard.useCopy();
+
+  const handleCopyAddress = (key: string): void => {
+    const core = allCores.find((c) => c.key === key);
+    if (core == null) return;
+    copy(`${core.host}:${core.port}`, "Core address");
+  };
 
   const openConnect = useConnectModal();
 
@@ -112,6 +121,10 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
             Refresh connection
           </Menu.Item>
           <Menu.Divider />
+          <Menu.Item itemKey="copyAddress" onClick={() => handleCopyAddress(key)}>
+            <Icon.Copy />
+            Copy address
+          </Menu.Item>
           <Link.CopyContextMenuItem
             onClick={() => {
               const core = allCores.find((c) => c.key === key);
@@ -129,7 +142,7 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
         </ContextMenu.Menu>
       );
     },
-    [handleRemove, handleRetest, handleEdit],
+    [handleRemove, handleRetest, handleEdit, handleCopyAddress],
   );
 
   return (

@@ -41,4 +41,5 @@ const useLinks = (): void => {
   Link.useDeep(Core.useLink(), linkHandlers);
 };
 
+// Synnax Desktop takes one link, its login, and Account.Guard handles that one.
 export const useDeep: () => void = Session.Runtime.LINKS_DISABLED ? () => {} : useLinks;

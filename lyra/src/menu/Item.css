@@ -30,6 +30,6 @@
         --pluto-hover-border-color: var(--pluto-selected-list-border-color);
         --pluto-active-border-color: var(--pluto-selected-list-border-color);
 
-        color: unset;
+        color: var(--pluto-text-color);
     }
 }

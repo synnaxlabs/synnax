@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { deep } from "@/deep";
 
@@ -152,7 +152,16 @@ describe("copy", () => {
   it("should produce a snapshot detached from a revocable proxy source", () => {
     const target = { nested: { value: 1 }, list: [1, 2, 3] };
     const { proxy, revoke } = Proxy.revocable(target, {});
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const trace = vi.spyOn(console, "trace").mockImplementation(() => {});
     const copied = deep.copy(proxy);
+    expect(warn).toHaveBeenCalledExactlyOnceWith(
+      "Failed to deep copy object, falling back to JSON.parse(JSON.stringify)",
+      proxy,
+    );
+    expect(trace).toHaveBeenCalledOnce();
+    warn.mockRestore();
+    trace.mockRestore();
     revoke();
     expect(copied).toEqual({ nested: { value: 1 }, list: [1, 2, 3] });
     expect(copied.nested).not.toBe(target.nested);

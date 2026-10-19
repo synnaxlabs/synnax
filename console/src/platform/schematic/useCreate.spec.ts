@@ -13,6 +13,7 @@ import { id, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { createTestSink, wrapWithSink } from "@/platform/analytics/testutil";
 import { Schematic } from "@/platform/schematic";
 import { Session } from "@/session";
 import { createConsoleWrapper } from "@/testutil";
@@ -147,6 +148,22 @@ describe("schematic useCreate", () => {
       await waitFor(async () => await client.schematics.retrieve(key));
       expect(Session.Project.selectSelected(harness.store.getState())).toBe(
         beforeActive,
+      );
+    });
+  });
+
+  describe("analytics", () => {
+    it("reports the schematic it created", async () => {
+      const harness = await buildHarness({ activeProject: projectA });
+      const analytics = createTestSink();
+      const { result } = renderHook(() => Schematic.useCreate(), {
+        wrapper: wrapWithSink(harness.wrapper, analytics),
+      });
+      await act(async () => {
+        result.current({ key: uuid.create(), name: "Reported" });
+      });
+      await waitFor(() =>
+        expect(analytics.capture).toHaveBeenCalledWith("schematic_created", {}),
       );
     });
   });
