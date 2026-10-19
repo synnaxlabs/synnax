@@ -7,7 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from datetime import datetime
+from datetime import UTC, datetime
+from typing import TypedDict
 
 import numpy as np
 
@@ -29,7 +30,15 @@ test_time_channel_2 = client.channels.create(
     retrieve_if_name_exists=True,
 )
 
-test_channel_information = [
+
+class ChannelGroup(TypedDict):
+    name: str
+    count: int
+    data_type: sy.DataType
+    time_channel: int
+
+
+test_channel_information: list[ChannelGroup] = [
     {
         "name": "daq_4189_pressure",
         "count": 10,
@@ -50,26 +59,24 @@ test_channel_information = [
     },
 ]
 
-channels_to_create: list[sy.Channel] = []
-
-for info in test_channel_information:
-    for i in range(info["count"]):
-        channels_to_create.append(
-            sy.Channel(
-                name=f"{info['name']}_{i}",
-                data_type=info["data_type"],
-                index=info["time_channel"],
-            )
-        )
+channels_to_create = [
+    sy.Channel(
+        name=f"{info['name']}_{i}",
+        data_type=info["data_type"],
+        index=info["time_channel"],
+    )
+    for info in test_channel_information
+    for i in range(info["count"])
+]
 
 client.channels.create(channels_to_create, retrieve_if_name_exists=True)
 
-all_channels = [test_time_channel_1, test_time_channel_2] + channels_to_create
+all_channels = [test_time_channel_1, test_time_channel_2, *channels_to_create]
 
 for i in range(1, TEST_COUNT + 1):
     test_tr = sy.TimeRange(
-        start=datetime(2012, 1, i, 13, 0, 0),  # January i, 2012 1:00 PM
-        end=datetime(2012, 1, i, 14, 45, 0),  # January i, 2012 3:00 PM
+        start=datetime(2012, 1, i, 13, 0, 0, tzinfo=UTC),  # January i, 2012 1:00 PM
+        end=datetime(2012, 1, i, 14, 45, 0, tzinfo=UTC),  # January i, 2012 3:00 PM
     )
     parent_tr = client.ranges.create(
         name=f"Test January {i}",
@@ -80,24 +87,24 @@ for i in range(1, TEST_COUNT + 1):
     child_tr_1 = parent_tr.create_child_range(
         name="Pre-test",
         time_range=sy.TimeRange(
-            start=datetime(2012, 1, i, 13, 0, 0),
-            end=datetime(2012, 1, i, 13, 30, 0),
+            start=datetime(2012, 1, i, 13, 0, 0, tzinfo=UTC),
+            end=datetime(2012, 1, i, 13, 30, 0, tzinfo=UTC),
         ),
         color="#00FF00",
     )
     child_tr_2 = parent_tr.create_child_range(
         name="Test Run",
         time_range=sy.TimeRange(
-            start=datetime(2012, 1, i, 13, 30, 0),
-            end=datetime(2012, 1, i, 14, 45, 0),
+            start=datetime(2012, 1, i, 13, 30, 0, tzinfo=UTC),
+            end=datetime(2012, 1, i, 14, 45, 0, tzinfo=UTC),
         ),
         color="#0000FF",
     )
     child_tr_3 = parent_tr.create_child_range(
         name="Post-test",
         time_range=sy.TimeRange(
-            start=datetime(2012, 1, i, 14, 45, 0),
-            end=datetime(2012, 1, i, 15, 0, 0),
+            start=datetime(2012, 1, i, 14, 45, 0, tzinfo=UTC),
+            end=datetime(2012, 1, i, 15, 0, 0, tzinfo=UTC),
         ),
         color="#FF00FF",
     )
@@ -175,8 +182,8 @@ for i in range(1, TEST_COUNT + 1):
                     ),
                 )
             )
-    daq_4189_frame = sy.Frame({key: series for key, series in daq_4189_series})
-    daq_9000_frame = sy.Frame({key: series for key, series in daq_9000_series})
+    daq_4189_frame = sy.Frame(dict(daq_4189_series))
+    daq_9000_frame = sy.Frame(dict(daq_9000_series))
     # Write the data to the channels
     client.write(test_tr.start, daq_4189_frame)
     client.write(test_tr.start, daq_9000_frame)

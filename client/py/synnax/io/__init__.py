@@ -19,13 +19,13 @@ from .protocol import (
 )
 
 __all__ = [
+    "IO_FACTORY",
     "BaseReader",
+    "ChannelMeta",
     "ColumnFileReader",
     "DataFrameWriter",
     "FileWriter",
-    "IO_FACTORY",
     "IOFactory",
     "ReaderType",
     "RowFileReader",
-    "ChannelMeta",
 ]

@@ -76,6 +76,7 @@ class DeviceSim(Simulator):
 
     def _wait_for_ready(self) -> None:
         """Poll until the server is accepting connections on its port."""
+        assert self.process is not None, "start() must run before _wait_for_ready()"
         timeout = self.startup_timeout
         timer = sy.Timer()
         while timer.elapsed() < timeout:

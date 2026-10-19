@@ -7,10 +7,17 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from collections.abc import Callable
+
 from examples.simulators import PressSimDAQ
 
 import synnax as sy
 from tests.driver.sim_daq_case import SimDaqCase
+
+
+def _above(channel: str, target: float) -> Callable[[sy.Controller], bool]:
+    """Returns a condition that holds once the channel's value exceeds target."""
+    return lambda c: bool(c[channel] > target)
 
 
 class SimplePress(SimDaqCase):
@@ -62,7 +69,7 @@ class SimplePress(SimDaqCase):
             ctrl[VENT_VALVE_CMD] = False
 
             # Pressurize the system
-            for i in range(4):
+            for _ in range(4):
                 if self.should_stop:
                     return
                 # Open press valve and wait
@@ -72,7 +79,7 @@ class SimplePress(SimDaqCase):
                     timeout=3 * sy.TimeSpan.SECOND,
                 )
                 if ctrl.wait_until(
-                    lambda c: c[PRESSURE] > target_pressure,
+                    _above(PRESSURE, target_pressure),
                     timeout=10 * sy.TimeSpan.SECOND,
                 ):
                     self.log(

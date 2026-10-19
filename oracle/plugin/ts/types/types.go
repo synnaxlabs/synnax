@@ -309,7 +309,12 @@ func (p *Plugin) generateFile(
 	}
 	skip := func(s resolution.Type) bool { return omit.IsSkipped(s, "ts") }
 	rawKeyFields := key.Collect(structs, req.Resolutions, skip)
-	data.Ontology = p.extractOntology(structs, rawKeyFields, skip, req.Resolutions)
+	data.Ontology = p.extractOntology(
+		slices.Concat(structs, unions),
+		rawKeyFields,
+		skip,
+		req.Resolutions,
+	)
 	if data.Ontology != nil {
 		data.AddImport("@/ontology", "ontology")
 	}
@@ -441,7 +446,7 @@ func (p *Plugin) extractOntology(
 	skip ontology.SkipFunc,
 	table *resolution.Table,
 ) *ontologyData {
-	data := ontology.Extract(structs, keyFields, skip)
+	data := ontology.Extract(structs, keyFields, skip, table)
 	if data == nil {
 		return nil
 	}
@@ -3520,11 +3525,13 @@ export const {{ .SchemaName }} = {{ if .ParentSchemas }}{{ range $i, $p := .Pare
 export interface {{ .TypeName }} extends z.infer<typeof {{ .SchemaName }}> {}
 {{- end }}
 {{- end }}
+{{- if not .BorrowsEnum }}
 
 export const {{ .TypesConst }} = [{{ range $i, $v := .Variants }}{{ if $i }}, {{ end }}"{{ $v.Value }}"{{ end }}] as const;
 export const {{ .TypeSchemaName }} = z.enum({{ .TypesConst }});
 {{- if $.GenerateTypes }}
 export type {{ .TypeName }} = z.infer<typeof {{ .TypeSchemaName }}>;
+{{- end }}
 {{- end }}
 
 {{ if .Doc -}}

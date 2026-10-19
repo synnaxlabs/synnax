@@ -145,9 +145,10 @@ an app-startup function) instead.
 The universal body-comment and doc-comment rules in the root CLAUDE.md apply.
 Go-specific form:
 
-**Doc comments are encouraged on all identifiers, exported and unexported.** Standard Go
-conventions: start with the identifier's name, complete sentences ending in periods,
-single `//` block directly above the declaration.
+**Every exported identifier gets a doc comment.** Standard Go conventions: start with
+the identifier's name, complete sentences ending in periods, single `//` block directly
+above the declaration. An unexported identifier gets one only when its name cannot carry
+the meaning: a subtle invariant, lock discipline, a surprising constraint.
 
 ```go
 // Create persists a new channel with the given name and returns its populated
@@ -155,10 +156,10 @@ single `//` block directly above the declaration.
 func (s *Service) Create(ctx context.Context, name string) (Channel, error)
 ```
 
-**Struct fields, including unexported, get a tight one-line `//` comment above the
-field**: semantic role, units, valid range, invariants, or lock discipline
-(`// mu guards pending and closed.`). Not mutation history, not a restatement of the
-type, never trailing inline.
+**Exported struct fields get a tight one-line `//` comment above the field**: semantic
+role, units, valid range, invariants. An unexported field gets one only for a real
+invariant or lock discipline (`// mu guards pending and closed.`). Never a restatement
+of the type, never trailing inline.
 
 ## Testing (Ginkgo/Gomega)
 
