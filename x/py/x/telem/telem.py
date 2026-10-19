@@ -631,8 +631,10 @@ class Rate(float):
     def span(self, sample_count: int) -> TimeSpan:
         """:returns: the TimeSpan that corresponds to the given number of samples at
         this rate."""
-        span = Fraction(sample_count * int(TimeSpan.SECOND)) / Fraction(float(self))
-        return TimeSpan(int(span))
+        # repr gives the shortest decimal that round-trips, so Rate(0.1) is 1/10 and
+        # not the binary float just below it.
+        rate = Fraction(repr(float(self)))
+        return TimeSpan(int(Fraction(sample_count * int(TimeSpan.SECOND)) / rate))
 
     def size_span(self, size: Size, density: Density) -> TimeSpan:
         """:returns: the TimeSpan that corresponds to the given number of bytes at this
@@ -759,7 +761,7 @@ class TimeRange(BaseModel):
         other = tr.make_valid()
         rng = self.make_valid()
         if rng == other:
-            return True
+            return rng.span >= TimeSpan(delta)
         if other.end == rng.start or rng.end == other.start:
             return False
         start = max(rng.start, other.start)
