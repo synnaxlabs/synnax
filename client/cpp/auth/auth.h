@@ -110,8 +110,7 @@ struct Session {
 /// and attaches its token to every request. Middleware has no preference on order when
 /// provided to use. It is safe to use concurrently.
 class Middleware final : public freighter::PassthroughMiddleware {
-    /// @brief attaches the token the owning Middleware holds, so the session requests
-    /// the Middleware sends itself carry it.
+    /// @brief adds the token to the session requests the Middleware sends itself.
     class TokenHeader final : public freighter::PassthroughMiddleware {
         std::function<std::string()> token;
 
@@ -126,7 +125,6 @@ class Middleware final : public freighter::PassthroughMiddleware {
         }
     };
 
-    /// @brief bounds a request so a Core that never answers cannot hang the caller.
     class Deadline final : public freighter::PassthroughMiddleware {
         std::chrono::milliseconds timeout;
 
@@ -140,9 +138,8 @@ class Middleware final : public freighter::PassthroughMiddleware {
         }
     };
 
-    /// Token to be used for authentication. Empty until authenticated.
     std::string token;
-    /// The session the token belongs to. Valid only when authenticated.
+    /// Valid only when authenticated.
     Session session;
     /// Whether the middleware has successfully authenticated with the server.
     std::atomic<bool> authenticated = false;
@@ -161,7 +158,6 @@ class Middleware final : public freighter::PassthroughMiddleware {
         return this->token;
     }
 
-    /// @brief drops the session so the next request logs in again.
     void forget() {
         std::lock_guard lock(mu);
         this->authenticated = false;

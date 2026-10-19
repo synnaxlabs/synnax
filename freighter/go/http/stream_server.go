@@ -162,8 +162,6 @@ func (s *streamServer[RQ, RS]) handleSocket(
 	c *fiberws.Conn,
 ) {
 	var (
-		// forced closes when a middleware ends the handler's context with a cause, so
-		// a parked reader unblocks and the handler can return that cause.
 		forced     = make(chan struct{})
 		exited     = make(chan struct{})
 		handlerCtx context.Context
@@ -213,8 +211,7 @@ func (s *streamServer[RQ, RS]) handleSocket(
 	}
 }
 
-// watchForcedEnd closes forced when ctx ends with a cause other than a plain
-// cancellation, and returns once the socket handler exits.
+// watchForcedEnd ignores a plain cancellation.
 func watchForcedEnd(
 	ctx context.Context,
 	forced chan<- struct{},

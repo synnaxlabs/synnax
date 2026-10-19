@@ -169,12 +169,10 @@ TEST(TestAuth, Logout) {
     ASSERT_EQ(del->requests[0].keys_size(), 1);
     ASSERT_EQ(del->requests[0].keys(0), key);
     ASSERT_EQ(mw->current_session().key, "");
-    // A second logout has nothing to end.
     ASSERT_NIL(mw->logout());
     ASSERT_EQ(del->requests.size(), 1);
 }
 
-/// @brief a middleware that records whether each request carried a deadline.
 class DeadlineProbe final : public freighter::PassthroughMiddleware {
 public:
     std::vector<bool> deadlines;

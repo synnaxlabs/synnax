@@ -22,7 +22,6 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// provision runs root provisioning against the suite-level services.
 func provision(ctx context.Context, username, pwd string) user.User {
 	GinkgoHelper()
 	root, _ := MustSucceed2(user.ProvisionRoot(
@@ -34,7 +33,6 @@ func provision(ctx context.Context, username, pwd string) user.User {
 	return root
 }
 
-// storedHash returns the password hash stored for username.
 func storedHash(ctx context.Context, username string) []byte {
 	GinkgoHelper()
 	var p password.Password
@@ -45,7 +43,6 @@ func storedHash(ctx context.Context, username string) []byte {
 	return p.Hash
 }
 
-// login proves username and pwd against the suite-level password service.
 func login(ctx context.Context, username, pwd string) (auth.Identity, error) {
 	return passwordSvc.Authenticate(ctx, auth.Proof{
 		Variant: auth.PasswordProof{
@@ -54,8 +51,7 @@ func login(ctx context.Context, username, pwd string) (auth.Identity, error) {
 	})
 }
 
-// createUser stores a user record and its password. A root record goes through the raw
-// gorp writer, because [user.Writer.Create] rejects RootUser=true.
+// createUser writes root records raw, because [user.Writer.Create] rejects them.
 func createUser(ctx context.Context, username, pwd string, root bool) user.User {
 	GinkgoHelper()
 	var u user.User
@@ -103,8 +99,7 @@ func rootUsers(ctx context.Context) []user.User {
 	return roots
 }
 
-// purgeUsers deletes every user record and password from the suite-level db. It uses
-// the raw gorp writer because [user.Writer.Delete] rejects root users by design.
+// purgeUsers deletes raw, because [user.Writer.Delete] rejects root users.
 func purgeUsers(ctx context.Context) {
 	GinkgoHelper()
 	var users []user.User

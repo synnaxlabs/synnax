@@ -207,7 +207,6 @@ func (s *Service) DeleteSessions(
 	return struct{}{}, s.auth.Logout(ctx, req.Keys...)
 }
 
-// enforceOthers checks that caller may take action on every subject other than itself.
 func (s *Service) enforceOthers(
 	ctx context.Context,
 	caller ontology.ID,

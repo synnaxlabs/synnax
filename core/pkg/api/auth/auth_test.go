@@ -31,19 +31,15 @@ import (
 
 const remote address.Address = "10.0.0.1:4242"
 
-// request builds a login request for the given username and password.
 func request(username, pwd string) apiauth.LoginRequest {
 	creds := auth.Credentials{Username: username, Password: pwd}
 	return apiauth.LoginRequest{Credentials: creds}
 }
 
-// requestCtx wraps ctx the way a transport does, with the client's address.
 func requestCtx(ctx context.Context) freighter.Context {
 	return freighter.Context{Context: ctx, Params: freighter.Params{}, Remote: remote}
 }
 
-// authed runs the token through the middleware and returns the request context a
-// handler sees for it.
 func authed(ctx context.Context, token string) freighter.Context {
 	GinkgoHelper()
 	fctx := requestCtx(ctx)
@@ -59,7 +55,6 @@ func authed(ctx context.Context, token string) freighter.Context {
 	return seen
 }
 
-// createUser stores a user with a password and returns it.
 func createUser(ctx context.Context, username, pwd string) user.User {
 	GinkgoHelper()
 	u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{Username: username}))
@@ -197,9 +192,6 @@ var _ = Describe("Middleware", func() {
 		fctx.Set(fiber.HeaderAuthorization, "Bearer "+token)
 		return fctx
 	}
-	// exec runs the middleware and returns only its error. A middleware returns the
-	// request context alongside its error by contract, so the context is not a result
-	// to assert on.
 	exec := func(fctx freighter.Context, next freighter.Next) error {
 		_, err := mw.Exec(fctx, next)
 		return err

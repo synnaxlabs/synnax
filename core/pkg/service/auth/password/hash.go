@@ -25,23 +25,18 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// errMalformedHash is returned when a stored hash does not parse as its tag claims.
 var errMalformedHash = errors.New("malformed password hash")
 
-// verifier checks the hashes of one algorithm. Hashes carry a tag naming the algorithm,
-// so a verifier can tell which stored hashes are its own.
+// verifier checks the hashes one algorithm tagged.
 type verifier interface {
 	// verify returns nil when plaintext matches hash, [auth.ErrInvalidCredentials]
 	// when it does not, and another error when hash is malformed.
 	verify(hash []byte, plaintext string) error
-	// made reports whether this algorithm produced hash.
 	made(hash []byte) bool
 }
 
-// hasher is a verifier that also makes new hashes.
 type hasher interface {
 	verifier
-	// hash returns a new tagged hash of plaintext.
 	hash(plaintext string) ([]byte, error)
 }
 
@@ -83,7 +78,7 @@ func compare(stored, computed []byte) error {
 	return nil
 }
 
-// argon2id hashes with Argon2id at the parameters OWASP recommends.
+// argon2id uses the parameters OWASP recommends.
 type argon2id struct{}
 
 const (
@@ -149,8 +144,7 @@ func (argon2id) made(hash []byte) bool {
 	return bytes.HasPrefix(hash, []byte(argon2idTag))
 }
 
-// pbkdf2SHA256 hashes with PBKDF2-HMAC-SHA256, the one password hash NIST approves,
-// at the iteration count OWASP recommends.
+// pbkdf2SHA256 is the one password hash NIST approves, at OWASP's iteration count.
 type pbkdf2SHA256 struct{}
 
 const (
@@ -196,8 +190,7 @@ func (pbkdf2SHA256) made(hash []byte) bool {
 	return bytes.HasPrefix(hash, []byte(pbkdf2Tag))
 }
 
-// bcryptVerifier checks the bcrypt hashes stored before this package existed. It never
-// makes a new one.
+// bcryptVerifier only checks hashes stored before Argon2id; it never makes one.
 type bcryptVerifier struct{}
 
 func (bcryptVerifier) verify(hash []byte, plaintext string) error {
@@ -215,8 +208,7 @@ func (bcryptVerifier) made(hash []byte) bool {
 	return bytes.HasPrefix(hash, []byte("$2"))
 }
 
-// hashers returns the hasher for new passwords and every verifier whose hashes may be
-// checked. With fips on, only PBKDF2 is allowed in either role.
+// hashers allows only PBKDF2 in either role when fips is on.
 func hashers(fips bool) (current hasher, accepted []verifier) {
 	if fips {
 		return pbkdf2SHA256{}, []verifier{pbkdf2SHA256{}}

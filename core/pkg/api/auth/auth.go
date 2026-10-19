@@ -95,8 +95,7 @@ func (s *Service) Login(
 	}, nil
 }
 
-// clusterInfo describes this node, with the node time at the midpoint of a request
-// that started at start.
+// clusterInfo stamps the node time at the midpoint since start.
 func (s *Service) clusterInfo(start telem.TimeStamp) ClusterInfo {
 	end := telem.Now()
 	return ClusterInfo{
