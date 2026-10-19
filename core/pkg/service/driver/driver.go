@@ -107,22 +107,18 @@ func (d *Driver) startHeartbeat() {
 		d.cfg.HeartbeatInterval,
 		func(ctx context.Context, _ time.Time) error {
 			if err := d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				// The stored status carries the rack's current name, since a rename
-				// renames the status too.
-				key := rack.StatusKey(d.rack.Key)
-				name := d.rack.Name
-				var prev rack.Status
-				if err := d.cfg.Status.NewRetrieve[rack.StatusDetails]().
-					Where(status.MatchKeys[rack.StatusDetails](key)).
-					Entry(&prev).
-					Exec(ctx, tx); err == nil {
-					name = prev.Name
-				} else if !errors.Is(err, query.ErrNotFound) {
+				// Reading the rack each beat means a rename that races a beat is
+				// overwritten for at most that one beat.
+				var r rack.Rack
+				if err := d.cfg.Rack.NewRetrieve().
+					Where(rack.MatchKeys(d.rack.Key)).
+					Entry(&r).
+					Exec(ctx, tx); err != nil {
 					return err
 				}
 				return d.cfg.Status.NewWriter(tx).Set(ctx, &rack.Status{
-					Key:     key,
-					Name:    name,
+					Key:     rack.StatusKey(d.rack.Key),
+					Name:    r.Name,
 					Time:    telem.Now(),
 					Variant: status.VariantSuccess,
 					Message: "Driver is running",
