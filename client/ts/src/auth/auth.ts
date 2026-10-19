@@ -52,9 +52,9 @@ const retrieveResZ = z.object({ sessions: sessionZ.array() });
 const deleteReqZ = z.object({ keys: sessionKeyZ.array() });
 const emptyResZ = z.object({});
 
-/** Opens a session from a proof. Works without a token. */
 /** The login route a Core without sessions serves. Kept exempt for one release. */
 export const LEGACY_LOGIN_ENDPOINT = "/auth/login";
+/** Opens a session from a proof. Works without a token. */
 export const SESSION_CREATE_ENDPOINT = "/auth/session/create";
 /** Reports activity on the caller's session. */
 export const SESSION_RENEW_ENDPOINT = "/auth/session/renew";
@@ -156,7 +156,11 @@ export class Client {
     this.credentials.password = newPassword;
   }
 
-  /** Reports activity on the session so it does not idle out. */
+  /**
+   * Reports activity on the session so it does not idle out.
+   * @throws {AuthError} when the login before the request fails.
+   * @throws {SessionEndedError} when the session ends and the retries run out.
+   */
   async renew(): Promise<void> {
     await this.client.send(SESSION_RENEW_ENDPOINT, undefined, z.void(), emptyResZ);
   }
@@ -164,6 +168,9 @@ export class Client {
   /**
    * Lists sessions: the caller's own by default, or those of the given subjects when
    * the caller may retrieve them.
+   * @throws {AccessDeniedError} when the caller may not retrieve another subject's
+   * sessions.
+   * @throws {AuthError} when the login before the request fails.
    */
   async retrieveSessions(subjects?: ontology.ID[]): Promise<Session[]> {
     const res = await this.client.send(
@@ -175,7 +182,11 @@ export class Client {
     return res.sessions;
   }
 
-  /** Ends the given sessions. Unknown keys are ignored. */
+  /**
+   * Ends the given sessions. Unknown keys are ignored.
+   * @throws {AccessDeniedError} when the caller may not end another subject's sessions.
+   * @throws {AuthError} when the login before the request fails.
+   */
   async deleteSessions(...keys: SessionKey[]): Promise<void> {
     await this.client.send(SESSION_DELETE_ENDPOINT, { keys }, deleteReqZ, emptyResZ);
   }
@@ -183,6 +194,8 @@ export class Client {
   /**
    * Ends the client's own session and forgets it. A later request logs in again. A
    * session the Core already ended counts as logged out.
+   * @throws {Error} when the Core cannot be reached or rejects the delete for another
+   * reason.
    */
   async logout(): Promise<void> {
     const { authState } = this;
@@ -212,7 +225,7 @@ export class Client {
       next: Next,
       retries: number,
     ): Promise<Context> => {
-      // a logout ends the session its token belongs to; a dead one must not log in again
+      // a logout ends its own token's session; a dead one must not log in again
       if (this.logoutToken != null && reqCtx.target.endsWith(SESSION_DELETE_ENDPOINT)) {
         reqCtx.params.Authorization = `Bearer ${this.logoutToken}`;
         return await next(reqCtx);
@@ -252,13 +265,17 @@ export class Client {
           throw err;
         }
       }
-      reqCtx.params.Authorization = `Bearer ${this.token}`;
+      const sent = this.token;
+      reqCtx.params.Authorization = `Bearer ${sent}`;
       try {
         return await next(reqCtx);
       } catch (err) {
         if (RETRY_ON.some((e) => e.matches(err)) && retries < MAX_RETRIES) {
-          this.authState = { authenticated: false };
-          this.authenticating = undefined;
+          // a failure on an older session must not erase one logged in since
+          if (this.token === sent) {
+            this.authState = { authenticated: false };
+            this.authenticating = undefined;
+          }
           return await attempt(reqCtx, next, retries + 1);
         }
         throw errors.fromUnknown(err);

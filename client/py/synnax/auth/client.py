@@ -158,6 +158,11 @@ class Client:
         finally:
             self._logout_token = None
 
+    def _forget(self, token: str) -> None:
+        # A failure on an older session must not erase one logged in since.
+        if self.token == token:
+            self.authenticated = False
+
     def _prepare(self, ctx: Context) -> bool:
         """Attaches the token and reports whether a rejected token may log in again."""
         target = ctx.target.rstrip("/")
@@ -177,12 +182,13 @@ class Client:
     def middleware(self) -> Middleware:
         def mw(ctx: Context, _next: Next) -> Context:
             retry = self._prepare(ctx)
+            sent = self.token
             try:
                 return _next(ctx)
             except RETRY_ON_ERRORS:
                 if not retry:
                     raise
-                self.authenticated = False
+                self._forget(sent)
                 return mw(ctx, _next)
 
         return mw
@@ -190,12 +196,13 @@ class Client:
     def async_middleware(self) -> AsyncMiddleware:
         async def mw(ctx: Context, _next: AsyncNext) -> Context:
             retry = self._prepare(ctx)
+            sent = self.token
             try:
                 return await _next(ctx)
             except RETRY_ON_ERRORS:
                 if not retry:
                     raise
-                self.authenticated = False
+                self._forget(sent)
                 return await mw(ctx, _next)
 
         return mw

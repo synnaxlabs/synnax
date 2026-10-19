@@ -13,7 +13,7 @@ import pytest
 
 import freighter
 import synnax as sy
-from freighter import Empty
+from freighter import Context, Empty, Next
 from freighter.mock import MockUnaryClient
 from tests.proxy import Proxy
 
@@ -120,6 +120,41 @@ class TestAuthRetry:
             None,
         ]
         assert mock_client.send("", Empty(), Empty) == Empty()
+
+    def test_stale_failure_keeps_newer_session(self) -> None:
+        """Should keep a session logged in while a request on an older one fails."""
+        session = sy.auth.Session(
+            key=uuid4(),
+            subject=sy.ontology.ID(key=str(uuid4()), type="user"),
+            method="password",
+            credential=uuid4(),
+            address="127.0.0.1:1",
+            created=sy.TimeStamp(0),
+            last_active=sy.TimeStamp(0),
+        )
+        login = MockUnaryClient(
+            responses=[
+                sy.auth.SessionCreateResponse(token=t, session=session)
+                for t in ("abc", "def")
+            ]
+        )
+        auth = sy.auth.Client(login, "synnax", "seldon")
+        mock_client = MockUnaryClient(responses=[Empty()])
+        failed = False
+
+        def relogin_then_end(ctx: Context, _next: Next) -> Context:
+            nonlocal failed
+            if failed:
+                return _next(ctx)
+            failed = True
+            auth.authenticate()
+            raise sy.SessionEnded("ended")
+
+        mock_client.use(relogin_then_end)
+        mock_client.use(auth.middleware())
+        assert mock_client.send("", Empty(), Empty) == Empty()
+        assert auth.token == "def"
+        assert len(login.requests) == 2
 
 
 @pytest.mark.auth
