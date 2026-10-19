@@ -240,13 +240,13 @@ bazel --version
 
 ### 9.1 Install clang-format
 
-We format all C++ with clang-format. CI pins version 22, and other versions format
+We format all C++ with clang-format. CI pins version 23, and other versions format
 differently, so install that release. Homebrew keeps it keg-only, which means you must
 add it to your `PATH` yourself.
 
 ```zsh
-brew install llvm@22
-echo 'export PATH="$(brew --prefix llvm@22)/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc
+brew install llvm@23
+echo 'export PATH="$(brew --prefix llvm@23)/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc
 ```
 
 Format the Driver with

@@ -265,8 +265,8 @@ We format all C++ with clang-format, which the LLVM toolchain provides.
 winget install LLVM.LLVM
 ```
 
-CI pins clang-format 22, and other versions format differently. If your diffs show
-formatting changes you did not make, install LLVM 22 from the
+CI pins clang-format 23, and other versions format differently. If your diffs show
+formatting changes you did not make, install LLVM 23 from the
 [LLVM releases](https://github.com/llvm/llvm-project/releases) page.
 
 ### 8.2 Build the Driver
