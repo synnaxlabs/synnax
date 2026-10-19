@@ -22,8 +22,6 @@ import (
 // sets it HttpOnly, so page scripts never read it.
 const SessionCookie = "synnax-session"
 
-// unary builds a unary server on router that accepts a session cookie in place of the
-// Authorization header and sets or clears the cookie when a handler asks.
 func unary[RQ, RS freighter.Payload](
 	router *http.Router,
 	path string,
@@ -34,8 +32,6 @@ func unary[RQ, RS freighter.Payload](
 	return s
 }
 
-// stream builds a stream server on router that accepts a session cookie in place of
-// the Authorization header.
 func stream[RQ, RS freighter.Payload](
 	router *http.Router,
 	path string,
@@ -46,9 +42,7 @@ func stream[RQ, RS freighter.Payload](
 	return s
 }
 
-// sessionCookieMiddleware lets a request authenticate with the session cookie when it
-// carries no Authorization header, and turns a handler's [auth.SessionCookieParam] into
-// a Set-Cookie header. A clear is sent only to a client that authenticated by cookie.
+// sessionCookieMiddleware sends a clear only to a client that authenticated by cookie.
 func sessionCookieMiddleware() freighter.Middleware {
 	return freighter.MiddlewareFunc(func(
 		ctx freighter.Context,
@@ -78,8 +72,6 @@ func sessionCookieMiddleware() freighter.Middleware {
 	})
 }
 
-// sessionCookieValue returns the session cookie's value from the request's Cookie
-// header, or an empty string when there is none.
 func sessionCookieValue(params freighter.Params) string {
 	raw, ok := params.Get(fiber.HeaderCookie)
 	if !ok {
@@ -101,8 +93,7 @@ func sessionCookieValue(params freighter.Params) string {
 	return ""
 }
 
-// sessionCookieHeader renders the Set-Cookie value for token. An empty token clears
-// the cookie.
+// sessionCookieHeader clears the cookie for an empty token.
 func sessionCookieHeader(token string, secure bool) string {
 	c := nethttp.Cookie{
 		Name:     SessionCookie,

@@ -104,7 +104,6 @@ func (s *Service) RenewSession(
 	return SessionRenewResponse{Session: apiSession(session), User: u}, nil
 }
 
-// userOf returns the user record behind subject, or nil when subject is not a user.
 func (s *Service) userOf(ctx context.Context, subject ontology.ID) (*user.User, error) {
 	if subject.Type != ontology.ResourceTypeUser {
 		return nil, nil

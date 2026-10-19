@@ -249,8 +249,6 @@ var _ = Describe("HTTP", func() {
 				FailOnTimeout: true,
 			}))
 		}
-		// loginWithCookie logs in asking for a cookie and returns the session cookie
-		// the Core set.
 		loginWithCookie := func() *http.Cookie {
 			GinkgoHelper()
 			res := post(
@@ -273,7 +271,7 @@ var _ = Describe("HTTP", func() {
 			Expect(cookies[0].Value).To(HavePrefix("sys_"))
 			return cookies[0]
 		}
-		// withCookie sends the cookie back the way a browser does: name and value only.
+		// a browser sends back the name and value only
 		withCookie := func(c *http.Cookie) map[string]string {
 			return map[string]string{fiber.HeaderCookie: c.Name + "=" + c.Value}
 		}

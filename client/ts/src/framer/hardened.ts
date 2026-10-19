@@ -168,11 +168,9 @@ export class HardenedStreamer implements Streamer {
         this.current = null;
         if (this.closed) break;
         const err = errors.fromUnknown(e);
-        // Retrying only fixes connectivity; a definitive rejection recurs on every
-        // attempt. Expired and invalid tokens and ended sessions are not definitive:
-        // the auth middleware logs in again, and a later attempt gets a fresh budget.
-        // Rejected credentials last until the client is given new ones, and a license
-        // refusal until activation; the connection reopens after either.
+        // Retrying only fixes connectivity. Token errors are not definitive: the auth
+        // middleware logs in again. Rejected credentials last until new ones are given,
+        // and a license refusal until activation.
         if (
           (AuthError.matches(err) &&
             !InvalidTokenError.matches(err) &&
