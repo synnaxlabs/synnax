@@ -278,6 +278,7 @@ export class Client {
    * Lets go of the session when the client closes. A session this client opened with
    * credentials ends unless it is persistent; one resumed from a saved token or cookie
    * stays open for whoever saved it.
+   * @throws {Error} if the Core cannot be reached or refuses to end the session.
    */
   async release(): Promise<void> {
     if (this.ownsSession && !this.persistent) return await this.logout();
