@@ -69,6 +69,10 @@ const TOKENLESS_ENDPOINTS = [SESSION_CREATE_ENDPOINT, LEGACY_LOGIN_ENDPOINT];
 
 const MAX_RETRIES = 3;
 
+// marks a request that carries its own token and never logs in: a logout or a resume.
+// The middleware strips it before the request leaves.
+const OWN_TOKEN_PARAM = "synnax-own-token";
+
 const changePasswordReqZ = z.object({
   username: z.string(),
   password: z.string(),
@@ -112,9 +116,6 @@ export class Client {
   private authState: AuthState = { authenticated: false };
   authenticating: Promise<Error | null> | undefined;
   private generation = 0;
-  // requests that carry a token of their own and never log in: a logout and a resume,
-  // keyed by endpoint
-  private readonly passthrough = new Map<string, string>();
   // whether this client opened the session with credentials; a resumed session
   // belongs to whoever saved its token or cookie
   private ownsSession = false;
@@ -292,12 +293,9 @@ export class Client {
     reqZ: RQ,
     resZ: RS,
   ): Promise<z.output<RS>> {
-    this.passthrough.set(target, token);
-    try {
-      return await this.client.send(target, req, reqZ, resZ);
-    } finally {
-      this.passthrough.delete(target);
-    }
+    return await this.client.send(target, req, reqZ, resZ, {
+      [OWN_TOKEN_PARAM]: token,
+    });
   }
 
   /**
@@ -367,12 +365,10 @@ export class Client {
       next: Next,
       retries: number,
     ): Promise<Context> => {
-      const own = [...this.passthrough].find(([target]) =>
-        reqCtx.target.endsWith(target),
-      );
+      const own = reqCtx.params[OWN_TOKEN_PARAM];
       if (own != null) {
-        const [, token] = own;
-        if (token !== "") reqCtx.params.Authorization = `Bearer ${token}`;
+        delete reqCtx.params[OWN_TOKEN_PARAM];
+        if (own !== "") reqCtx.params.Authorization = `Bearer ${own}`;
         return await next(reqCtx);
       }
       const tokenless = TOKENLESS_ENDPOINTS.some((t) => reqCtx.target.endsWith(t));
