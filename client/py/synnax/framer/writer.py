@@ -299,7 +299,6 @@ class Writer:
         :param value: The authority level to set (0-255). Use Authority.ABSOLUTE (255)
             for exclusive control or Authority.DEFAULT (1) for standard priority.
         """
-        ...
 
     @overload
     def set_authority(
@@ -312,7 +311,6 @@ class Writer:
         :param value: The key or name of the channel to set authority for.
         :param authority: The authority level to set (0-255).
         """
-        ...
 
     @overload
     def set_authority(
@@ -323,7 +321,6 @@ class Writer:
 
         :param value: A dictionary mapping channel keys/names to their authority levels.
         """
-        ...
 
     def set_authority(
         self,

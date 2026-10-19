@@ -67,7 +67,7 @@ class Client:
     def set(self, key: dict[str, Any]) -> None: ...
 
     def set(self, key: str | dict[str, Any], value: Any = None) -> None:
-        pairs = list()
+        pairs = []
         if isinstance(key, str):
             pairs.append(Pair(range=self._rng_key, key=key, value=value))
         else:

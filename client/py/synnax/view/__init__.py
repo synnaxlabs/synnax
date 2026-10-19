@@ -16,9 +16,9 @@ from synnax.view.types_gen import (
 )
 
 __all__ = [
+    "ONTOLOGY_TYPE",
     "Client",
     "Key",
-    "ONTOLOGY_TYPE",
     "View",
     "ontology_id",
 ]

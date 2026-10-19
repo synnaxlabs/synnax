@@ -66,7 +66,7 @@ class Retriever:
     def retrieve(self, channels: Params) -> list[Payload]:
         normal = normalize_params(channels)
         if len(normal.channels) == 0:
-            return list()
+            return []
         if isinstance(normal, NormalizedNameResult):
             req = Request(names=normal.channels)
         else:

@@ -116,30 +116,28 @@ try:
     # Hide cursor for clean output
     print("\033[?25l", end="", flush=True)
 
-    with tsk.run():
-        with client.open_streamer(["my_bool_0", "my_bool_1"]) as streamer:
-            sample_count = 0
-            start_time = sy.TimeStamp.now()
+    with tsk.run(), client.open_streamer(["my_bool_0", "my_bool_1"]) as streamer:
+        sample_count = 0
+        start_time = sy.TimeStamp.now()
 
-            while True:
-                frame = streamer.read()
-                if frame:
-                    # Print the latest values from each channel
-                    if "my_bool_0" in frame and len(frame["my_bool_0"]) > 0:
-                        val0 = frame["my_bool_0"][-1]
-                        val1 = frame["my_bool_1"][-1]
+        while True:
+            frame = streamer.read()
+            # Print the latest values from each channel
+            if frame and "my_bool_0" in frame and len(frame["my_bool_0"]) > 0:
+                val0 = frame["my_bool_0"][-1]
+                val1 = frame["my_bool_1"][-1]
 
-                        elapsed = sy.TimeStamp.now().span(start_time).seconds
+                elapsed = sy.TimeStamp.now().span(start_time).seconds
 
-                        sample_count += 1
-                        # Convert uint8 to True/False for display
-                        bool0 = "True " if val0 else "False"
-                        bool1 = "True " if val1 else "False"
-                        print(
-                            f"{sample_count:<8} {elapsed:<12.1f} {bool0:>12} {bool1:>12}",
-                            end="\r",
-                            flush=True,
-                        )
+                sample_count += 1
+                # Convert uint8 to True/False for display
+                bool0 = "True " if val0 else "False"
+                bool1 = "True " if val1 else "False"
+                print(
+                    f"{sample_count:<8} {elapsed:<12.1f} {bool0:>12} {bool1:>12}",
+                    end="\r",
+                    flush=True,
+                )
 
 # Output summary
 except KeyboardInterrupt:

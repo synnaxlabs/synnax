@@ -210,7 +210,7 @@ def _configure_transport(
     max_retries: int,
     instrumentation: Instrumentation = NOOP,
 ) -> Transport:
-    t = Transport(
+    return Transport(
         instrumentation=instrumentation,
         url=URL(host=opts.host, port=opts.port),
         secure=opts.secure,
@@ -219,4 +219,3 @@ def _configure_transport(
         keep_alive=keep_alive,
         max_retries=max_retries,
     )
-    return t

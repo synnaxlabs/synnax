@@ -42,24 +42,26 @@ data_channel = client.channels.create(
 TO_READ = ["time_ch_1", "time_ch_2", "data_ch_1", "data_ch_2"]
 
 # Create a dictionary to store the latest values of each channel.
-current_values: dict[int | str, float] = dict()
+current_values: dict[int | str, float] = {}
 
-with client.open_writer(
-    start=sy.TimeStamp.now(),
-    channels=["simple_average_time", "simple_average_data"],
-) as writer:
-    with client.open_streamer(TO_READ) as streamer:
-        for frame in streamer:
-            time = frame["time_ch_1"].to_numpy()[-1]
+with (
+    client.open_writer(
+        start=sy.TimeStamp.now(),
+        channels=["simple_average_time", "simple_average_data"],
+    ) as writer,
+    client.open_streamer(TO_READ) as streamer,
+):
+    for frame in streamer:
+        time = frame["time_ch_1"].to_numpy()[-1]
 
-            # Store the latest values in state.
-            for k, series in frame.items():
-                current_values[k] = float(series.to_numpy()[-1])
+        # Store the latest values in state.
+        for k, series in frame.items():
+            current_values[k] = float(series.to_numpy()[-1])
 
-            # If we don't have values for all channels, skip this iteration.
-            if len(current_values.items()) < 4:
-                continue
+        # If we don't have values for all channels, skip this iteration.
+        if len(current_values.items()) < 4:
+            continue
 
-            # Caluclate and write the average.
-            avg = (current_values["data_ch_1"] + current_values["data_ch_2"]) / 2
-            writer.write({"simple_average_time": time, "simple_average_data": avg})
+        # Caluclate and write the average.
+        avg = (current_values["data_ch_1"] + current_values["data_ch_2"]) / 2
+        writer.write({"simple_average_time": time, "simple_average_data": avg})
