@@ -149,6 +149,7 @@ public:
             auto mw = std::make_shared<auth::Middleware>(
                 std::move(this->t.auth_session_create),
                 std::move(this->t.auth_session_renew),
+                std::move(this->t.auth_session_retrieve),
                 std::move(this->t.auth_session_delete),
                 cfg.api_key.empty() ? auth::password_proof(cfg.username, cfg.password)
                                     : auth::api_key_proof(cfg.api_key)
