@@ -32,6 +32,18 @@ import (
 // TaskType is the task type for tasks that execute an Arc module.
 const TaskType = "arc"
 
+// A module's name is the identifier other Arcs import it by.
+func validateModuleName(a Arc) error {
+	if a.Type != TypeModule || validate.IsIdentifier(a.Name) {
+		return nil
+	}
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"module name %q must contain only letters, digits, and underscores",
+		a.Name,
+	)
+}
+
 // Writer is used to create, update, and delete arcs within Synnax. The writer
 // executes all operations within the transaction provided to the Service.NewWriter
 // method. If no transaction is provided, the writer will execute operations directly
@@ -69,6 +81,9 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 		a.Text.Doc = text.Create(a.Text.Raw)
 	}
 	if err = a.Validate(); err != nil {
+		return err
+	}
+	if err = validateModuleName(*a); err != nil {
 		return err
 	}
 	if err = w.table.NewCreate().Entry(a).Exec(ctx, w.tx); err != nil {
@@ -165,7 +180,7 @@ type TaskUpdate struct {
 // UpdateTask changes the task of the arc with the given key. It returns the task, or
 // nil after an unbind. It returns an error wrapping validate.ErrValidation when
 // unbinding a running task, when unbinding and setting the performance in one update,
-// or when setting the performance of an arc with no task.
+// when setting the performance of an arc with no task, or when the arc is a module.
 func (w Writer) UpdateTask(
 	ctx context.Context,
 	key Key,
@@ -194,6 +209,9 @@ func (w Writer) UpdateTask(
 		Entry(&a).
 		Exec(ctx, w.tx); err != nil {
 		return nil, err
+	}
+	if a.Type == TypeModule {
+		return nil, errors.Wrap(validate.ErrValidation, "cannot bind a module to a rack")
 	}
 	if len(existing) > 0 {
 		if tsk, cfg, err = w.retrieveTask(ctx, existing[0]); err != nil {

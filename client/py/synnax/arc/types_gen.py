@@ -22,6 +22,13 @@ from synnax.arc import program as program_
 from synnax.arc import text as text_
 from synnax.ontology.payload import ID
 
+TYPE_AUTOMATION: Literal["automation"] = "automation"
+
+TYPE_MODULE: Literal["module"] = "module"
+
+
+Type = Literal["automation", "module"]
+
 MODE_TEXT: Literal["text"] = "text"
 
 MODE_GRAPH: Literal["graph"] = "graph"
@@ -52,6 +59,7 @@ class Payload(BaseModel):
     Attributes:
         key: Is the unique identifier for this module.
         name: Is a human-readable name for the module.
+        type: Specifies whether this Arc is an automation or a module.
         mode: Specifies the representation mode for this module. Either "text" for
             text-based Arc code or "graph" for visual dataflow.
         graph: Is the visual dataflow graph representation of the module.
@@ -62,6 +70,7 @@ class Payload(BaseModel):
 
     key: Key = Field(default_factory=uuid4)
     name: str
+    type: Type = "automation"
     mode: Mode
     graph: graph_.Graph = Field(default_factory=lambda: graph_.Graph())
     text: text_.Text = Field(default_factory=lambda: text_.Text())

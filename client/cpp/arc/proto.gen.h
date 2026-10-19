@@ -32,6 +32,30 @@
 
 namespace synnax::arc {
 
+inline std::pair<::service::arc::pb::Type, x::errors::Error>
+type_to_pb(const std::string &cpp) {
+    static const std::unordered_map<std::string, ::service::arc::pb::Type> kMap = {
+        {TYPE_AUTOMATION, ::service::arc::pb::TYPE_AUTOMATION},
+        {TYPE_MODULE, ::service::arc::pb::TYPE_MODULE},
+    };
+    auto it = kMap.find(cpp);
+    if (it == kMap.end())
+        return {{}, x::errors::Error("unrecognized Type value: " + cpp)};
+    return {it->second, x::errors::NIL};
+}
+
+inline std::pair<std::string, x::errors::Error>
+type_from_pb(::service::arc::pb::Type pb) {
+    switch (pb) {
+        case ::service::arc::pb::TYPE_AUTOMATION:
+            return {TYPE_AUTOMATION, x::errors::NIL};
+        case ::service::arc::pb::TYPE_MODULE:
+            return {TYPE_MODULE, x::errors::NIL};
+        default:
+            return {"", x::errors::Error("unrecognized Type protobuf value")};
+    }
+}
+
 inline std::pair<::service::arc::pb::Mode, x::errors::Error>
 mode_to_pb(const std::string &cpp) {
     static const std::unordered_map<std::string, ::service::arc::pb::Mode> kMap = {
@@ -75,6 +99,11 @@ inline std::pair<::service::arc::pb::Arc, x::errors::Error> Arc::to_proto() cons
     pb.set_key(this->key.to_string());
     pb.set_name(this->name);
     {
+        auto [v, err] = type_to_pb(this->type);
+        if (err) return {{}, err};
+        pb.set_type(v);
+    }
+    {
         auto [v, err] = mode_to_pb(this->mode);
         if (err) return {{}, err};
         pb.set_mode(v);
@@ -111,6 +140,11 @@ Arc::from_proto(const ::service::arc::pb::Arc &pb) {
         cpp.key = v;
     }
     cpp.name = pb.name();
+    {
+        auto [v, err] = type_from_pb(pb.type());
+        if (err) return {{}, err};
+        cpp.type = v;
+    }
     {
         auto [v, err] = mode_from_pb(pb.mode());
         if (err) return {{}, err};

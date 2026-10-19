@@ -31,6 +31,9 @@ namespace synnax::arc {
 struct StatusDetails;
 struct Arc;
 
+constexpr const char *TYPE_AUTOMATION = "automation";
+constexpr const char *TYPE_MODULE = "module";
+
 constexpr const char *MODE_TEXT = "text";
 constexpr const char *MODE_GRAPH = "graph";
 
@@ -61,6 +64,8 @@ struct Arc {
     Key key;
     /// @brief name is a human-readable name for the module.
     std::string name;
+    /// @brief type specifies whether this Arc is an automation or a module.
+    std::string type = TYPE_AUTOMATION;
     /// @brief mode specifies the representation mode for this module. Either "text" for
     /// text-based Arc code or "graph" for visual dataflow.
     std::string mode;

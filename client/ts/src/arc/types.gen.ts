@@ -18,6 +18,10 @@ import { text } from "@/arc/text";
 import { ontology } from "@/ontology";
 import { status } from "@/status";
 
+export const TYPES = ["automation", "module"] as const;
+export const typeZ = z.enum(TYPES);
+export type Type = z.infer<typeof typeZ>;
+
 export const MODES = ["text", "graph"] as const;
 export const modeZ = z.enum(MODES);
 export type Mode = z.infer<typeof modeZ>;
@@ -44,6 +48,8 @@ export const arcZ = z.object({
   key: keyZ.default(uuid.create),
   /** name is a human-readable name for the module. */
   name: z.string().min(1, "name is required"),
+  /** type specifies whether this Arc is an automation or a module. */
+  type: typeZ.default("automation"),
   /**
    * mode specifies the representation mode for this module. Either "text" for
    * text-based Arc code or "graph" for visual dataflow.

@@ -16,6 +16,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // MatchVirtual returns a filter for channels that are virtual if virtual is true, or
@@ -80,7 +81,7 @@ func MatchNames(names ...string) Filter {
 // back to the regex matcher to preserve the historical contract.
 func allLiteralNames(names []string) bool {
 	for _, n := range names {
-		if !validNamePattern.MatchString(n) {
+		if !validate.IsIdentifier(n) {
 			return false
 		}
 	}

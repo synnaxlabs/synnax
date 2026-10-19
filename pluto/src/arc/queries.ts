@@ -179,11 +179,13 @@ export const { useUpdate: useDelete } = Flux.createUpdate<arc.Key | arc.Key[]>({
 export const formSchema = z.object({
   key: arc.keyZ.optional(),
   name: z.string().min(1, "Name is required"),
+  type: arc.typeZ,
   mode: arc.modeZ,
 });
 
 export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   name: "",
+  type: "automation",
   mode: "text",
 };
 

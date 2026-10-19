@@ -56,6 +56,9 @@ Arc struct {
         @filter
         @validate required
     }
+    type    Type = automation {
+        @doc value "specifies whether this Arc is an automation or a module."
+    }
     mode    Mode             {
         @doc value """
             specifies the representation mode for this module. Either "text" for
@@ -205,4 +208,14 @@ Arc struct {
     @py name       "Payload"
     @retrieve
     @search
+}
+
+Type enum {
+    automation = "automation"
+    module     = "module"
+
+    @doc value """
+        specifies whether an Arc runs on a rack as an automation, or holds code for
+        other Arcs to import as a module.
+    """
 }

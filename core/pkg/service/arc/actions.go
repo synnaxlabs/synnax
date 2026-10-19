@@ -29,7 +29,7 @@ func (p CreatePayload) Handle(Arc) (Arc, error) {
 // Handle replaces the Arc module's name.
 func (p RenamePayload) Handle(state Arc) (Arc, error) {
 	state.Name = p.Name
-	return state, nil
+	return state, validateModuleName(state)
 }
 
 // Handle inserts the node if no node with the same key exists, otherwise

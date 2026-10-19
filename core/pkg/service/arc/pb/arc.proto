@@ -20,6 +20,13 @@ import "core/pkg/service/status/pb/status.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/arc/pb";
 
+// Type specifies whether an Arc runs on a rack as an automation, or holds code for
+// other Arcs to import as a module.
+enum Type {
+  TYPE_AUTOMATION = 0;
+  TYPE_MODULE = 1;
+}
+
 // Mode specifies whether an Arc module uses text-based or graph-based representation.
 enum Mode {
   MODE_TEXT = 0;
@@ -39,15 +46,17 @@ message Arc {
   string key = 1;
   // name is a human-readable name for the module.
   string name = 2;
+  // type specifies whether this Arc is an automation or a module.
+  Type type = 3;
   // mode specifies the representation mode for this module. Either "text" for
   // text-based Arc code or "graph" for visual dataflow.
-  Mode mode = 3;
+  Mode mode = 4;
   // graph is the visual dataflow graph representation of the module.
-  .arc.graph.pb.Graph graph = 4;
+  .arc.graph.pb.Graph graph = 5;
   // text is the text-based Arc source code.
-  .arc.text.pb.Text text = 5;
+  .arc.text.pb.Text text = 6;
   // program is the compiled module output including IR and WebAssembly bytecode.
-  optional .arc.program.pb.Program program = 6;
+  optional .arc.program.pb.Program program = 7;
   // status is the current execution status of the module.
-  optional .service.status.pb.Status status = 7;
+  optional .service.status.pb.Status status = 8;
 }

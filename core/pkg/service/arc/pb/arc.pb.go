@@ -36,6 +36,54 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Type specifies whether an Arc runs on a rack as an automation, or holds code for
+// other Arcs to import as a module.
+type Type int32
+
+const (
+	Type_TYPE_AUTOMATION Type = 0
+	Type_TYPE_MODULE     Type = 1
+)
+
+// Enum value maps for Type.
+var (
+	Type_name = map[int32]string{
+		0: "TYPE_AUTOMATION",
+		1: "TYPE_MODULE",
+	}
+	Type_value = map[string]int32{
+		"TYPE_AUTOMATION": 0,
+		"TYPE_MODULE":     1,
+	}
+)
+
+func (x Type) Enum() *Type {
+	p := new(Type)
+	*p = x
+	return p
+}
+
+func (x Type) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Type) Descriptor() protoreflect.EnumDescriptor {
+	return file_core_pkg_service_arc_pb_arc_proto_enumTypes[0].Descriptor()
+}
+
+func (Type) Type() protoreflect.EnumType {
+	return &file_core_pkg_service_arc_pb_arc_proto_enumTypes[0]
+}
+
+func (x Type) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Type.Descriptor instead.
+func (Type) EnumDescriptor() ([]byte, []int) {
+	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{0}
+}
+
 // Mode specifies whether an Arc module uses text-based or graph-based representation.
 type Mode int32
 
@@ -67,11 +115,11 @@ func (x Mode) String() string {
 }
 
 func (Mode) Descriptor() protoreflect.EnumDescriptor {
-	return file_core_pkg_service_arc_pb_arc_proto_enumTypes[0].Descriptor()
+	return file_core_pkg_service_arc_pb_arc_proto_enumTypes[1].Descriptor()
 }
 
 func (Mode) Type() protoreflect.EnumType {
-	return &file_core_pkg_service_arc_pb_arc_proto_enumTypes[0]
+	return &file_core_pkg_service_arc_pb_arc_proto_enumTypes[1]
 }
 
 func (x Mode) Number() protoreflect.EnumNumber {
@@ -80,7 +128,7 @@ func (x Mode) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Mode.Descriptor instead.
 func (Mode) EnumDescriptor() ([]byte, []int) {
-	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{0}
+	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{1}
 }
 
 // StatusDetails contains Arc-specific status details for execution state.
@@ -137,17 +185,19 @@ type Arc struct {
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// name is a human-readable name for the module.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// type specifies whether this Arc is an automation or a module.
+	Type Type `protobuf:"varint,3,opt,name=type,proto3,enum=service.arc.pb.Type" json:"type,omitempty"`
 	// mode specifies the representation mode for this module. Either "text" for
 	// text-based Arc code or "graph" for visual dataflow.
-	Mode Mode `protobuf:"varint,3,opt,name=mode,proto3,enum=service.arc.pb.Mode" json:"mode,omitempty"`
+	Mode Mode `protobuf:"varint,4,opt,name=mode,proto3,enum=service.arc.pb.Mode" json:"mode,omitempty"`
 	// graph is the visual dataflow graph representation of the module.
-	Graph *pb.Graph `protobuf:"bytes,4,opt,name=graph,proto3" json:"graph,omitempty"`
+	Graph *pb.Graph `protobuf:"bytes,5,opt,name=graph,proto3" json:"graph,omitempty"`
 	// text is the text-based Arc source code.
-	Text *pb1.Text `protobuf:"bytes,5,opt,name=text,proto3" json:"text,omitempty"`
+	Text *pb1.Text `protobuf:"bytes,6,opt,name=text,proto3" json:"text,omitempty"`
 	// program is the compiled module output including IR and WebAssembly bytecode.
-	Program *pb2.Program `protobuf:"bytes,6,opt,name=program,proto3,oneof" json:"program,omitempty"`
+	Program *pb2.Program `protobuf:"bytes,7,opt,name=program,proto3,oneof" json:"program,omitempty"`
 	// status is the current execution status of the module.
-	Status        *pb3.Status `protobuf:"bytes,7,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	Status        *pb3.Status `protobuf:"bytes,8,opt,name=status,proto3,oneof" json:"status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -196,6 +246,13 @@ func (x *Arc) GetName() string {
 	return ""
 }
 
+func (x *Arc) GetType() Type {
+	if x != nil {
+		return x.Type
+	}
+	return Type_TYPE_AUTOMATION
+}
+
 func (x *Arc) GetMode() Mode {
 	if x != nil {
 		return x.Mode
@@ -237,18 +294,22 @@ const file_core_pkg_service_arc_pb_arc_proto_rawDesc = "" +
 	"\n" +
 	"!core/pkg/service/arc/pb/arc.proto\x12\x0eservice.arc.pb\x1a\x1barc/go/graph/pb/graph.proto\x1a\x1farc/go/program/pb/program.proto\x1a\x19arc/go/text/pb/text.proto\x1a'core/pkg/service/status/pb/status.proto\")\n" +
 	"\rStatusDetails\x12\x18\n" +
-	"\arunning\x18\x01 \x01(\bR\arunning\"\xae\x02\n" +
+	"\arunning\x18\x01 \x01(\bR\arunning\"\xd8\x02\n" +
 	"\x03Arc\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12(\n" +
-	"\x04mode\x18\x03 \x01(\x0e2\x14.service.arc.pb.ModeR\x04mode\x12)\n" +
-	"\x05graph\x18\x04 \x01(\v2\x13.arc.graph.pb.GraphR\x05graph\x12%\n" +
-	"\x04text\x18\x05 \x01(\v2\x11.arc.text.pb.TextR\x04text\x126\n" +
-	"\aprogram\x18\x06 \x01(\v2\x17.arc.program.pb.ProgramH\x00R\aprogram\x88\x01\x01\x126\n" +
-	"\x06status\x18\a \x01(\v2\x19.service.status.pb.StatusH\x01R\x06status\x88\x01\x01B\n" +
+	"\x04type\x18\x03 \x01(\x0e2\x14.service.arc.pb.TypeR\x04type\x12(\n" +
+	"\x04mode\x18\x04 \x01(\x0e2\x14.service.arc.pb.ModeR\x04mode\x12)\n" +
+	"\x05graph\x18\x05 \x01(\v2\x13.arc.graph.pb.GraphR\x05graph\x12%\n" +
+	"\x04text\x18\x06 \x01(\v2\x11.arc.text.pb.TextR\x04text\x126\n" +
+	"\aprogram\x18\a \x01(\v2\x17.arc.program.pb.ProgramH\x00R\aprogram\x88\x01\x01\x126\n" +
+	"\x06status\x18\b \x01(\v2\x19.service.status.pb.StatusH\x01R\x06status\x88\x01\x01B\n" +
 	"\n" +
 	"\b_programB\t\n" +
-	"\a_status*%\n" +
+	"\a_status*,\n" +
+	"\x04Type\x12\x13\n" +
+	"\x0fTYPE_AUTOMATION\x10\x00\x12\x0f\n" +
+	"\vTYPE_MODULE\x10\x01*%\n" +
 	"\x04Mode\x12\r\n" +
 	"\tMODE_TEXT\x10\x00\x12\x0e\n" +
 	"\n" +
@@ -267,28 +328,30 @@ func file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP() []byte {
 	return file_core_pkg_service_arc_pb_arc_proto_rawDescData
 }
 
-var file_core_pkg_service_arc_pb_arc_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_core_pkg_service_arc_pb_arc_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_core_pkg_service_arc_pb_arc_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_core_pkg_service_arc_pb_arc_proto_goTypes = []any{
-	(Mode)(0),             // 0: service.arc.pb.Mode
-	(*StatusDetails)(nil), // 1: service.arc.pb.StatusDetails
-	(*Arc)(nil),           // 2: service.arc.pb.Arc
-	(*pb.Graph)(nil),      // 3: arc.graph.pb.Graph
-	(*pb1.Text)(nil),      // 4: arc.text.pb.Text
-	(*pb2.Program)(nil),   // 5: arc.program.pb.Program
-	(*pb3.Status)(nil),    // 6: service.status.pb.Status
+	(Type)(0),             // 0: service.arc.pb.Type
+	(Mode)(0),             // 1: service.arc.pb.Mode
+	(*StatusDetails)(nil), // 2: service.arc.pb.StatusDetails
+	(*Arc)(nil),           // 3: service.arc.pb.Arc
+	(*pb.Graph)(nil),      // 4: arc.graph.pb.Graph
+	(*pb1.Text)(nil),      // 5: arc.text.pb.Text
+	(*pb2.Program)(nil),   // 6: arc.program.pb.Program
+	(*pb3.Status)(nil),    // 7: service.status.pb.Status
 }
 var file_core_pkg_service_arc_pb_arc_proto_depIdxs = []int32{
-	0, // 0: service.arc.pb.Arc.mode:type_name -> service.arc.pb.Mode
-	3, // 1: service.arc.pb.Arc.graph:type_name -> arc.graph.pb.Graph
-	4, // 2: service.arc.pb.Arc.text:type_name -> arc.text.pb.Text
-	5, // 3: service.arc.pb.Arc.program:type_name -> arc.program.pb.Program
-	6, // 4: service.arc.pb.Arc.status:type_name -> service.status.pb.Status
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	0, // 0: service.arc.pb.Arc.type:type_name -> service.arc.pb.Type
+	1, // 1: service.arc.pb.Arc.mode:type_name -> service.arc.pb.Mode
+	4, // 2: service.arc.pb.Arc.graph:type_name -> arc.graph.pb.Graph
+	5, // 3: service.arc.pb.Arc.text:type_name -> arc.text.pb.Text
+	6, // 4: service.arc.pb.Arc.program:type_name -> arc.program.pb.Program
+	7, // 5: service.arc.pb.Arc.status:type_name -> service.status.pb.Status
+	6, // [6:6] is the sub-list for method output_type
+	6, // [6:6] is the sub-list for method input_type
+	6, // [6:6] is the sub-list for extension type_name
+	6, // [6:6] is the sub-list for extension extendee
+	0, // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_arc_pb_arc_proto_init() }
@@ -302,7 +365,7 @@ func file_core_pkg_service_arc_pb_arc_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_arc_pb_arc_proto_rawDesc), len(file_core_pkg_service_arc_pb_arc_proto_rawDesc)),
-			NumEnums:      1,
+			NumEnums:      2,
 			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,

@@ -11,6 +11,7 @@ package validate
 
 import (
 	"reflect"
+	"regexp"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/errors"
@@ -142,3 +143,9 @@ func (v *Validator) NotEmptySlice[T any](field string, value []T) bool {
 func (v *Validator) NotEmptyString[T ~string](field string, value T) bool {
 	return v.Ternary(field, value == "", "required")
 }
+
+var identifierPattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+
+// IsIdentifier reports whether s is a letter or underscore followed by letters, digits,
+// and underscores.
+func IsIdentifier(s string) bool { return identifierPattern.MatchString(s) }

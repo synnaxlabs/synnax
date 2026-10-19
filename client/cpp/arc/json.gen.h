@@ -39,6 +39,7 @@ inline Arc Arc::parse(x::json::Parser parser) {
     return Arc{
         .key = parser.field<Key>("key", x::uuid::create()),
         .name = parser.field<std::string>("name"),
+        .type = parser.field<std::string>("type", "automation"),
         .mode = parser.field<std::string>("mode"),
         .graph = parser.field<::arc::graph::Graph>("graph"),
         .text = parser.field<::arc::text::Text>("text"),
@@ -51,6 +52,7 @@ inline x::json::json Arc::to_json() const {
     x::json::json j;
     j["key"] = this->key.to_json();
     j["name"] = this->name;
+    j["type"] = this->type;
     j["mode"] = this->mode;
     j["graph"] = this->graph.to_json();
     j["text"] = this->text.to_json();
