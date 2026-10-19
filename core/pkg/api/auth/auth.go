@@ -15,9 +15,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	xconfig "github.com/synnaxlabs/x/config"
@@ -44,6 +46,8 @@ type ClusterInfo struct {
 type Service struct {
 	auth     *auth.Service
 	password *password.Service
+	apiKey   *apikey.Service
+	ontology *ontology.Ontology
 	user     *user.Service
 	access   *rbac.Service
 	cluster  cluster.Cluster
@@ -57,6 +61,8 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	return &Service{
 		auth:     cfg.Service.Auth,
 		password: cfg.Service.Password,
+		apiKey:   cfg.Service.APIKey,
+		ontology: cfg.Service.Ontology,
 		user:     cfg.Service.User,
 		access:   cfg.Service.RBAC,
 		cluster:  cfg.Distribution.Cluster,

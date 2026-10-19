@@ -74,6 +74,18 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/auth/session/delete",
 		),
+		AuthKeyCreate: unary[auth.KeyCreateRequest, auth.KeyCreateResponse](
+			router,
+			"/api/v1/auth/key/create",
+		),
+		AuthKeyRetrieve: unary[auth.KeyRetrieveRequest, auth.KeyRetrieveResponse](
+			router,
+			"/api/v1/auth/key/retrieve",
+		),
+		AuthKeyDelete: unary[auth.KeyDeleteRequest, struct{}](
+			router,
+			"/api/v1/auth/key/delete",
+		),
 
 		// USER
 		UserRename: unary[user.RenameRequest, struct{}](
