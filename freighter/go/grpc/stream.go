@@ -80,13 +80,14 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) Handler(
 	)
 	if !attachedInitialMetaData {
 		md := metadata.Pairs()
-		for k, v := range oCtx.Params {
-			if vStr, ok := v.(string); ok {
-				md.Append(k, vStr)
-			}
-		}
 		if err != nil {
 			md.Append("error", errors.Encode(ctx, err, s.Internal).Error())
+		} else {
+			for k, v := range oCtx.Params {
+				if vStr, ok := v.(string); ok {
+					md.Append(k, vStr)
+				}
+			}
 		}
 		if err := stream.SendHeader(md); err != nil {
 			return err
@@ -95,7 +96,6 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) Handler(
 	if err == nil || errors.Is(err, io.EOF) {
 		return nil
 	}
-	oCtx = attachContext(oCtx)
 	return errors.Encode(ctx, err, s.Internal)
 }
 
