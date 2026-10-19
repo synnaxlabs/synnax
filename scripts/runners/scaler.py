@@ -57,10 +57,10 @@ def job_pool(labels: set[str]) -> Pool | None:
 
 
 class Scaler(Commander):
-    """Busy runners and instances up less than boot_grace whose runner is offline
-    are never touched. While disabled, the writer is closed and nothing is
-    written, but idle time keeps accruing and each decision is logged once, marked
-    [DISABLED], so enabling clears whatever backlog built up."""
+    """Busy runners, runners with a job in progress, and instances up less than
+    boot_grace whose runner is offline are never touched. While disabled, the writer
+    is closed and nothing is written, but idle time keeps accruing and each decision
+    is logged once, marked [DISABLED], so enabling clears whatever backlog built up."""
 
     def __init__(
         self,
@@ -91,13 +91,15 @@ class Scaler(Commander):
         labels: dict[str, set[str]],
         queued: dict[Pool, int],
         found: dict[str, dict],
+        running: set[str],
     ) -> None:
         now = sy.TimeStamp.now()
         self.refresh_writer(known)
 
         def idle_on(r: str) -> bool:
             iid = instance_for(r, found)
-            if iid is None or not found[iid]["running"]:
+            # A job in progress outranks a runner status that says offline.
+            if iid is None or not found[iid]["running"] or r in running:
                 return False
             if status.get(r) == IDLE:
                 return True
