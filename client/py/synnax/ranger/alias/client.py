@@ -52,7 +52,7 @@ class Client:
     def resolve(self, aliases: str | list[str]) -> dict[str, channel.Key] | channel.Key:
         is_single = isinstance(aliases, str)
         normalized_aliases = normalize(aliases)
-        to_fetch: list[str] = list()
+        to_fetch: list[str] = []
 
         results: dict[str, channel.Key] = {}
         for alias in normalized_aliases:

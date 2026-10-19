@@ -42,19 +42,19 @@ class RichConsole:
 
     def info(self, message: str) -> None:
         print(f"[{self.info_color}]{message}[/]")
-        return None
+        return
 
     def warn(self, message: str) -> None:
         print(f"[{self.warn_color}]{message}[/]")
-        return None
+        return
 
     def error(self, message: str) -> None:
         print(f"[{self.error_color}]{message}[/]")
-        return None
+        return
 
     def success(self, message: str) -> None:
         print(f"[{self.success_color}]{message}[/]")
-        return None
+        return
 
     def table(
         self,
@@ -71,7 +71,7 @@ class RichConsole:
             table.add_row(*[row[column] for column in columns])
 
         print(table)
-        return None
+        return
 
     def ask(
         self,

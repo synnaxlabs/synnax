@@ -17,13 +17,13 @@ from pandas import DataFrame
 from synnax.io.meta import ChannelMeta
 
 __all__ = [
-    "ChannelMeta",
-    "ReaderType",
     "BaseReader",
-    "RowFileReader",
+    "ChannelMeta",
     "ColumnFileReader",
     "DataFrameWriter",
     "FileWriter",
+    "ReaderType",
+    "RowFileReader",
 ]
 
 
@@ -148,7 +148,7 @@ class DataFrameWriter(Closer, Protocol):
     such as a Synnax cluster.
     """
 
-    def write(self, df: DataFrame) -> None | bool:
+    def write(self, df: DataFrame) -> bool | None:
         """Writes the given dataframe to the buffer."""
         ...
 

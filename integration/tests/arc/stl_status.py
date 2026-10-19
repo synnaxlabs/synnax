@@ -138,7 +138,7 @@ class StlStatus(ArcCase):
     arc_source = ARC_STL_STATUS_SOURCE
     arc_name_prefix = "ArcStlStatus"
     start_cmd_channel = "start_stl_status_cmd"
-    subscribe_channels = KEY_CHANNELS + [DUP_FUNC_KEY, SEQ_DONE]
+    subscribe_channels = [*KEY_CHANNELS, DUP_FUNC_KEY, SEQ_DONE]
     collect_notifications = True
 
     def setup(self) -> None:

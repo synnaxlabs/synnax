@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import Annotated, Literal, TypeAlias, Union
+from typing import Annotated, Literal, TypeAlias
 
 from pydantic import BaseModel, Field
 
@@ -111,7 +111,7 @@ class ScopeTarget(BaseModel):
 
 # Is where a transition goes when it fires.
 Target = Annotated[
-    Union[ExitTarget, StepTarget, ScopeTarget],
+    ExitTarget | StepTarget | ScopeTarget,
     Field(discriminator="type"),
 ]
 

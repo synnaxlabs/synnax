@@ -88,7 +88,7 @@ def _assert_driver_rejects_value(
         try:
             writer.write(
                 {
-                    **{k: value for k in cmd_keys},
+                    **dict.fromkeys(cmd_keys, value),
                     **{k: sy.TimeStamp.now() for k in index_keys},
                 }
             )

@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from console.layout import LayoutClient
 from console.task.channels.counter import Counter
@@ -30,8 +30,8 @@ class DutyCycle(Counter):
         layout: LayoutClient,
         name: str,
         device: str,
-        edge: Optional[Literal["Rising", "Falling"]] = None,
-        terminal: Optional[str] = None,
+        edge: Literal["Rising", "Falling"] | None = None,
+        terminal: str | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize duty cycle channel with configuration."""

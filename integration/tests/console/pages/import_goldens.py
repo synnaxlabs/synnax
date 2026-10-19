@@ -318,7 +318,7 @@ class ImportGoldens(ConsoleCase):
                 for file_name in sorted(os.listdir(directory)):
                     path = os.path.join(directory, file_name)
                     if file_name == "manifest.json":
-                        with open(path, "r", encoding="utf-8") as f:
+                        with open(path, encoding="utf-8") as f:
                             manifest = json.load(f)
                         manifest["name"] = name
                         zf.writestr(file_name, json.dumps(manifest))
