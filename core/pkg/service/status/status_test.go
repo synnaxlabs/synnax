@@ -178,6 +178,9 @@ var _ = Describe("Status", Ordered, func() {
 					type details struct {
 						// Device is the key of the device the status reports on.
 						Device string `json:"device" msgpack:"device"`
+						// Count is past float64 precision, so a lossy rename changes
+						// it.
+						Count int64 `json:"count" msgpack:"count"`
 					}
 					s := &status.Status[details]{
 						Name:        "Before",
@@ -186,7 +189,7 @@ var _ = Describe("Status", Ordered, func() {
 						Message:     "Connected",
 						Description: "Device is connected",
 						Time:        telem.Now(),
-						Details:     details{Device: "dev1"},
+						Details:     details{Device: "dev1", Count: 9007199254740993},
 					}
 					Expect(w.Set(ctx, s)).To(Succeed())
 					Expect(w.Rename(ctx, "rename-key", "After")).To(Succeed())

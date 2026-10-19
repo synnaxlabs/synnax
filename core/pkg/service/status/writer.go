@@ -11,6 +11,7 @@ package status
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -137,9 +138,11 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 	if err := v.Error(); err != nil {
 		return err
 	}
-	return w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, Status[any]](key)).
-		Change(func(_ gorp.Context, s Status[any]) Status[any] {
+	// Raw details round-trip byte for byte. Decoding them as any would round numbers
+	// past float64 precision.
+	return gorp.NewUpdate[Key, Status[json.RawMessage]]().
+		Where(gorp.MatchKeys[Key, Status[json.RawMessage]](key)).
+		Change(func(_ gorp.Context, s Status[json.RawMessage]) Status[json.RawMessage] {
 			s.Name = name
 			return s
 		}).
