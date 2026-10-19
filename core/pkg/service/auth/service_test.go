@@ -10,6 +10,7 @@
 package auth_test
 
 import (
+	"sync"
 	"time"
 	"uuid"
 
@@ -458,6 +459,31 @@ var _ = Describe("Service", func() {
 						Where(auth.MatchKeys(session.Key)).
 						Exists(ctx, nil),
 				).To(BeFalse())
+			},
+		)
+		It(
+			"Should mark the other held sessions when one ends during the sweep",
+			func(ctx SpecContext) {
+				kept, _ := login(ctx)
+				_, release := MustSucceed2(svc.Hold(ctx, kept.Key))
+				defer release()
+				for range 50 {
+					ended, _ := login(ctx)
+					_, releaseEnded := MustSucceed2(svc.Hold(ctx, ended.Key))
+					clock.Advance(time.Second)
+					var wg sync.WaitGroup
+					wg.Go(func() {
+						defer GinkgoRecover()
+						Expect(svc.Logout(ctx, ended.Key)).To(Succeed())
+					})
+					Expect(svc.Sweep(ctx)).To(Succeed())
+					wg.Wait()
+					releaseEnded()
+					var stored auth.Session
+					Expect(svc.NewRetrieve().Where(auth.MatchKeys(kept.Key)).
+						Entry(&stored).Exec(ctx, nil)).To(Succeed())
+					Expect(stored.LastActive).To(Equal(telem.NewTimeStamp(clock.Now())))
+				}
 			},
 		)
 		It("Should end idle sessions and keep active ones", func(ctx SpecContext) {
