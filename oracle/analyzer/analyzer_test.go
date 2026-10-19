@@ -4089,3 +4089,121 @@ var _ = Describe("Analyze", func() {
 		Expect(files).To(ContainElement("broken.oracle"))
 	})
 })
+
+var _ = Describe("Union enum discriminator", func() {
+	var loader *MockFileLoader
+	BeforeEach(func() { loader = NewMockFileLoader() })
+	const prelude = `
+		Method enum {
+			password = "password"
+			api_key  = "api_key"
+		}
+		Credentials struct { username string }
+		APIKey struct { key string }
+	`
+	It("Should borrow a declared enum as the discriminator", func(ctx SpecContext) {
+		source := prelude + `
+			Proof union on method Method {
+				password Credentials
+				api_key  APIKey
+			}
+		`
+		table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		form := table.MustGet("test.Proof").Form.(resolution.UnionForm)
+		Expect(form.Discriminator).To(Equal("method"))
+		Expect(form.BorrowsEnum()).To(BeTrue())
+		Expect(form.Enum.Name).To(Equal("test.Method"))
+	})
+	It("Should leave the enum unset when none is named", func(ctx SpecContext) {
+		source := prelude + `
+			Proof union on method {
+				password Credentials
+				api_key  APIKey
+			}
+		`
+		table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		Expect(table.MustGet("test.Proof").Form.(resolution.UnionForm).BorrowsEnum()).
+			To(BeFalse())
+	})
+	DescribeTable("Should reject a borrowed enum that does not fit",
+		func(ctx SpecContext, union, message string) {
+			_, diag := analyzer.AnalyzeSource(ctx, prelude+union, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring(message))
+		},
+		Entry("variant without a member", `
+			Proof union on method Method {
+				password Credentials
+				api_key  APIKey
+				oidc     Credentials
+			}
+		`, `union Proof declares variant "oidc", which enum Method has no member for`),
+		Entry("member without a variant", `
+			Proof union on method Method {
+				password Credentials
+			}
+		`, `enum Method member "api_key" has no variant in union Proof`),
+		Entry("a struct instead of an enum", `
+			Proof union on method Credentials {
+				password Credentials
+				api_key  APIKey
+			}
+		`, "union Proof borrows Credentials as its discriminator, which is not an enum"),
+		Entry("an unresolved type", `
+			Proof union on method Missing {
+				password Credentials
+				api_key  APIKey
+			}
+		`, "union Proof borrows unresolved type"),
+		Entry("an int enum", `
+			Level enum {
+				password = 1
+				api_key  = 2
+			}
+			Proof union on method Level {
+				password Credentials
+				api_key  APIKey
+			}
+		`, "union Proof borrows int enum Level as its discriminator"),
+		Entry("an array of the enum", `
+			Proof union on method Method[] {
+				password Credentials
+				api_key  APIKey
+			}
+		`, "union Proof: the discriminator type must be a plain enum reference"),
+		Entry("an optional enum", `
+			Proof union on method Method? {
+				password Credentials
+				api_key  APIKey
+			}
+		`, "union Proof: the discriminator type must be a plain enum reference"),
+		Entry("a map", `
+			Proof union on method map<string, Method> {
+				password Credentials
+				api_key  APIKey
+			}
+		`, "union Proof: the discriminator type must be a plain enum reference"),
+	)
+	It("Should reject an enum omitted in a language the union generates in", func(
+		ctx SpecContext,
+	) {
+		source := `
+			@ts output "out"
+			Method enum {
+				password = "password"
+				@ts omit
+			}
+			Credentials struct { username string }
+			Proof union on method Method {
+				password Credentials
+			}
+		`
+		_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+		Expect(diag.String()).To(ContainSubstring(
+			"test.Proof generates for ts but its discriminator enum references " +
+				"test.Method, which is omitted in ts",
+		))
+	})
+})
