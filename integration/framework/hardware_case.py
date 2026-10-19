@@ -12,10 +12,8 @@
 Designed for multiple inheritance with TestCase subclasses.
 """
 
-from uuid import UUID
-
 import synnax as sy
-from framework.models import SynnaxConnection
+from framework.models import DEFAULT_CONNECTION, SynnaxConnection
 from framework.test_case import TestCase
 
 
@@ -29,7 +27,7 @@ class HardwareCase(TestCase):
 
     def __init__(
         self,
-        synnax_connection: SynnaxConnection = SynnaxConnection(),
+        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
         *,
         name: str,
         **params: object,
@@ -37,7 +35,7 @@ class HardwareCase(TestCase):
         super().__init__(synnax_connection, name=name, **params)
         self._test_rack_keys: list[int] = []
         self._test_device_keys: list[str] = []
-        self._test_task_keys: list[UUID] = []
+        self._test_task_keys: list[sy.task.Key] = []
 
     def create_test_rack(self, name: str) -> sy.Rack:
         """Create a rack that teardown deletes."""

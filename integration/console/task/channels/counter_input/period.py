@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from console.layout import LayoutClient
 from console.task.channels.counter import Counter
@@ -32,17 +32,16 @@ class Period(Counter):
         layout: LayoutClient,
         name: str,
         device: str,
-        starting_edge: Optional[Literal["Rising", "Falling"]] = None,
-        units: Optional[Literal["Seconds", "Ticks", "Custom"]] = None,
-        terminal: Optional[str] = None,
-        meas_method: Optional[
-            Literal[
-                "One counter (low frequency)",
-                "Two counters (high frequency)",
-                "Two counters (large range)",
-                "Dynamic averaging",
-            ]
-        ] = None,
+        starting_edge: Literal["Rising", "Falling"] | None = None,
+        units: Literal["Seconds", "Ticks", "Custom"] | None = None,
+        terminal: str | None = None,
+        meas_method: Literal[
+            "One counter (low frequency)",
+            "Two counters (high frequency)",
+            "Two counters (large range)",
+            "Dynamic averaging",
+        ]
+        | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize period channel with configuration."""

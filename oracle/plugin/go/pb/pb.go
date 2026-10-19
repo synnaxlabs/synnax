@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
@@ -1596,14 +1597,21 @@ func (p *Plugin) generateEnumConversion(
 	goField, pbField string,
 	isOptional bool,
 ) (forward, backward string) {
-	enumName := resolved.Name
 	forwardArg := goField
 	backwardArg := pbField
 	if isOptional {
 		forwardArg = "*" + goField
 		backwardArg = "*" + pbField
 	}
+	pbName := p.enumPBName(resolved, data)
+	return fmt.Sprintf("%sToPB(%s)", pbName, forwardArg),
+		fmt.Sprintf("%sFromPB(%s)", pbName, backwardArg)
+}
 
+// enumPBName returns the name of an enum's proto type as the translator file refers to
+// it, which also prefixes the enum's ToPB and FromPB translators. It registers the
+// import or the local translator the name needs.
+func (p *Plugin) enumPBName(resolved resolution.Type, data *templateData) string {
 	if resolved.Namespace != data.Namespace {
 		pbPath := enum.FindPBOutputPath(resolved, data.table)
 		if pbPath != "" {
@@ -1611,18 +1619,38 @@ func (p *Plugin) generateEnumConversion(
 			if err == nil {
 				alias := strings.ToLower(resolved.Namespace) + "pb"
 				data.AddInternal(alias, importPath)
-				return fmt.Sprintf("%s.%sToPB(%s)", alias, enumName, forwardArg),
-					fmt.Sprintf("%s.%sFromPB(%s)", alias, enumName, backwardArg)
+				return alias + "." + resolved.Name
 			}
 		}
 	}
-
 	if _, exists := data.usedEnums[resolved.QualifiedName]; !exists {
 		data.usedEnums[resolved.QualifiedName] = &resolved
 	}
+	return resolved.Name
+}
 
-	return fmt.Sprintf("%sToPB(%s)", enumName, forwardArg),
-		fmt.Sprintf("%sFromPB(%s)", enumName, backwardArg)
+// generateEnumArrayConversion translates a slice of enums element by element. Both
+// directions return an error.
+func (p *Plugin) generateEnumArrayConversion(
+	resolved resolution.Type,
+	data *templateData,
+	goField, pbField string,
+) (forward, backward string, ok bool) {
+	goName, ok := p.qualifiedDistinctGoName(resolved, data)
+	if !ok {
+		return "", "", false
+	}
+	pbName := p.enumPBName(resolved, data)
+	data.AddExternal("github.com/samber/lo")
+	forward = fmt.Sprintf(
+		"lo.MapErr(%s, func(v %s, _ int) (%s, error) { return %sToPB(v) })",
+		goField, goName, pbName, pbName,
+	)
+	backward = fmt.Sprintf(
+		"lo.MapErr(%s, func(v %s, _ int) (%s, error) { return %sFromPB(v) })",
+		pbField, pbName, goName, pbName,
+	)
+	return forward, backward, true
 }
 
 func (p *Plugin) generateTypeDefConversion(
@@ -1739,6 +1767,16 @@ func (p *Plugin) generateArrayConversion(
 
 	elemResolved, ok := elemType.Resolve(data.table)
 	if ok {
+		if _, isEnum := elemResolved.Form.(resolution.EnumForm); isEnum {
+			if f, b, ok := p.generateEnumArrayConversion(
+				elemResolved,
+				data,
+				goField,
+				pbField,
+			); ok {
+				return f, b, true, true
+			}
+		}
 		if _, isUnion := elemResolved.Form.(resolution.UnionForm); isUnion {
 			prefix, name := p.resolveUnionTranslatorName(elemResolved, data)
 			pluralName := pluralizeDistinct(name)
@@ -1794,30 +1832,33 @@ func (p *Plugin) generateArrayConversion(
 		}
 	}
 
-	if resolution.IsPrimitive(elemType.Name) {
-		switch elemType.Name {
-		case "uuid":
-			data.AddExternal("uuid")
-			data.AddExternal("github.com/samber/lo")
-			// Forward conversion uses lo.Map (no error possible) Backward conversion
-			// uses IIFE with proper error handling
-			backward = fmt.Sprintf(`func() ([]uuid.UUID, error) {
-		result := make([]uuid.UUID, len(%s))
+	if uuidGoName, isUUID := p.uuidElemGoName(
+		elemType,
+		elemResolved,
+		ok,
+		data,
+	); isUUID {
+		data.AddExternal("uuid")
+		data.AddExternal("github.com/samber/lo")
+		// Forward conversion uses lo.Map (no error possible) Backward conversion
+		// uses IIFE with proper error handling
+		backward = fmt.Sprintf(`func() ([]%s, error) {
+		result := make([]%s, len(%s))
 		for i, s := range %s {
 			parsed, err := uuid.Parse(s)
 			if err != nil {
 				return nil, err
 			}
-			result[i] = parsed
+			result[i] = %s(parsed)
 		}
 		return result, nil
-	}()`, pbField, pbField)
-			return fmt.Sprintf(
-					"lo.Map(%s, func(u uuid.UUID, _ int) string { return u.String() })",
-					goField,
-				),
-				backward, false, true
-		}
+	}()`, uuidGoName, uuidGoName, pbField, pbField, uuidGoName)
+		return fmt.Sprintf(
+				"lo.Map(%s, func(u %s, _ int) string { return uuid.UUID(u).String() })",
+				goField,
+				uuidGoName,
+			),
+			backward, false, true
 	}
 
 	// Distinct element types over primitive bases require per-element casts:
@@ -1852,6 +1893,23 @@ func (p *Plugin) generateArrayConversion(
 	}
 
 	return goField, pbField, false, false
+}
+
+// uuidElemGoName reports whether an array element is a uuid, directly or through
+// distinct types and aliases, and returns the element's Go type name.
+func (p *Plugin) uuidElemGoName(
+	elemType resolution.TypeRef,
+	resolved resolution.Type,
+	resolvedOK bool,
+	data *templateData,
+) (string, bool) {
+	if elemType.Name == "uuid" {
+		return "uuid.UUID", true
+	}
+	if !resolvedOK || key.ResolvePrimitive(elemType, data.table) != "uuid" {
+		return "", false
+	}
+	return p.qualifiedDistinctGoName(resolved, data)
 }
 
 // qualifiedDistinctGoName returns the Go identifier for a distinct type as it should

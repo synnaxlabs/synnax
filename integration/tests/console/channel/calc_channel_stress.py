@@ -115,20 +115,18 @@ class CalcChannelStress(ConsoleCase):
             retrieve_if_name_exists=True,
         )
 
-        all_channels = (
-            [timestamp_channel]
-            + constant_channels
-            + sine_channels
-            + [cosine_channel]
-            + linear_channels
-            + sine_50_channels
-            + linear_50_channels
-            + [
-                calc_avg_sum_div_50_sine,
-                calc_avg_explicit_50_sine,
-                calc_avg_pairwise_50_sine,
-            ]
-        )
+        all_channels = [
+            timestamp_channel,
+            *constant_channels,
+            *sine_channels,
+            cosine_channel,
+            *linear_channels,
+            *sine_50_channels,
+            *linear_50_channels,
+            calc_avg_sum_div_50_sine,
+            calc_avg_explicit_50_sine,
+            calc_avg_pairwise_50_sine,
+        ]
 
         def write_loop() -> None:
             loop = sy.Loop(sy.Rate.HZ * self.rate)

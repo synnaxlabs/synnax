@@ -16,4 +16,4 @@ KV = Client
 KVPair = Pair
 """Deprecated: Use Pair instead."""
 
-__all__ = ["Client", "Pair", "KV", "KVPair"]
+__all__ = ["KV", "Client", "KVPair", "Pair"]

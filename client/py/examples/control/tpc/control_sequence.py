@@ -23,6 +23,7 @@ Terminal 2 - Run the control sequence:
 
 import dataclasses
 import time
+from collections.abc import Callable
 
 import numpy as np
 from scipy.signal import find_peaks
@@ -41,6 +42,11 @@ from examples.control.tpc.common import (
     PRESS_ISO_CMD,
     PRESS_PT_1,
 )
+
+
+def above(channel: str, target: float) -> Callable[[sy.Controller], bool]:
+    """Returns a condition that holds once the channel's value exceeds target."""
+    return lambda c: bool(c[channel] > target)
 
 
 @dataclasses.dataclass
@@ -87,11 +93,11 @@ auto_logs = client.channels.create(
 )
 
 
-def start_sim_cmd(aut: sy.Controller):
+def start_sim_cmd(aut: sy.Controller) -> bool:
     return sim_cmd.key in aut.state and aut[START_SIM_CMD] == 1
 
 
-def log(aut: sy.Controller, msg: str):
+def log(aut: sy.Controller, msg: str) -> None:
     aut.set(
         AUTO_LOGS,
         f"TPC  {sy.TimeStamp.now().datetime().strftime('%H:%M:%S.%f')}  {msg}",
@@ -99,17 +105,16 @@ def log(aut: sy.Controller, msg: str):
 
 
 def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Range:
-    def run_tpc(auto: sy.Controller):
+    def run_tpc(auto: sy.Controller) -> bool | np.bool_:
         pressure = auto[FUEL_TANK_PT]
         one_open = auto[TPC_CMD_ACK]
         if pressure > params.tpc_upper_bound:
             if one_open:
                 auto[TPC_CMD] = False
                 log(auto, "TPC Valve Closed")
-        elif pressure < params.tpc_lower_bound:
-            if not one_open:
-                auto[TPC_CMD] = True
-                log(auto, "TPC Valve Open")
+        elif pressure < params.tpc_lower_bound and not one_open:
+            auto[TPC_CMD] = True
+            log(auto, "TPC Valve Open")
         return pressure < 15
 
     with client.control.acquire(
@@ -154,7 +159,7 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
             while True:
                 log(ctrl, f"Pressing L-Stand to {curr_target} PSI")
                 ctrl[SUPPLY_CMD] = True
-                ctrl.wait_until(lambda c: c[FUEL_TANK_PT] > curr_target)
+                ctrl.wait_until(above(FUEL_TANK_PT, curr_target))
                 ctrl[SUPPLY_CMD] = False
                 curr_target += params.press_1_step
                 curr_target = min(curr_target, params.l_stand_press_target)
@@ -186,7 +191,7 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
             while True:
                 log(ctrl, f"Pressing Press Tank to {curr_target} PSI")
                 ctrl[SUPPLY_CMD] = True
-                ctrl.wait_until(lambda c: c[PRESS_TANK_PT] > curr_target)
+                ctrl.wait_until(above(PRESS_TANK_PT, curr_target))
                 ctrl[SUPPLY_CMD] = False
                 curr_target += params.press_2_step
                 curr_target = min(curr_target, params.scuba_press_target)
@@ -255,6 +260,7 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
                     MPV_CMD: 1,
                 }
             )
+            raise
 
 
 def perform_analysis(params: TPCParameters, rng: sy.Range) -> TPCParameters:
