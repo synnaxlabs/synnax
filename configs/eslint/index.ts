@@ -131,6 +131,7 @@ const config: Linter.Config[] = [
         { allowInterfaces: "with-single-extends", allowObjectTypes: "always" },
       ],
       "@typescript-eslint/no-mixed-enums": "error",
+      "@typescript-eslint/no-unsafe-enum-assignment": "error",
       "@typescript-eslint/unified-signatures": "error",
       "@typescript-eslint/require-await": "off",
       "@typescript-eslint/no-duplicate-type-constituents": "off",
