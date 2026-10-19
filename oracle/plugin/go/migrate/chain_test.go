@@ -894,6 +894,118 @@ Board struct {
 			},
 			[]string{"Node(old)"},
 		),
+		Entry(
+			"migrates a named variant whose payload changed through the generated switch",
+			"payload",
+			`Text struct {
+	value string
+
+	@go marshal
+}
+
+Payload union on type {
+	text Text
+
+	@go marshal
+}
+
+Config struct {
+	key uuid @key
+	payloads Payload[]
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Text struct {
+	value string
+	size int32 = 0
+
+	@go marshal
+}
+
+Payload union on type {
+	text Text
+
+	@go marshal
+}
+
+Config struct {
+	key uuid @key
+	payloads Payload[]
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Text struct {
+	value string
+	size int32 = 0
+}
+
+Payload union on type {
+	text Text
+}
+
+Config struct {
+	key uuid @key
+	payloads Payload[]
+}
+`,
+			true,
+			[]string{"return autoMigratePayload(ctx, v)", "case v0.TextPayload:"},
+			nil,
+		),
+		Entry("routes a union whose variants changed through its hand migration",
+			"channel",
+			`Payload union on type {
+	text {
+		value string
+	}
+
+	@go marshal
+}
+Channel struct {
+	key uuid @key
+	payloads Payload[]
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Payload union on type {
+	binary {
+		data bytes
+	}
+
+	@go marshal
+}
+Channel struct {
+	key uuid @key
+	payloads Payload[]
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Payload union on type {
+	binary {
+		data bytes
+	}
+}
+Channel struct {
+	key uuid @key
+	payloads Payload[]
+}
+`,
+			true,
+			[]string{
+				"func autoMigrateChannel",
+				"return MigratePayload(ctx, v)",
+				"func autoMigratePayload",
+			},
+			[]string{"Payload(old)"},
+		),
 		Entry("leaves a field whose union-ness changed to the hand migration",
 			"channel",
 			`Text struct {
