@@ -80,6 +80,9 @@ var _ config.Config[CoreConfig] = CoreConfig{}
 
 var DefaultCoreConfig = CoreConfig{
 	certFactoryConfig: cert.DefaultFactoryConfig,
+	// A Core installed before the flag existed starts without it, so the default fills
+	// in rather than failing validation.
+	sessionIdleTimeout: auth.DefaultServiceConfig.IdleTimeout,
 }
 
 // driverEnabled reports whether the embedded Driver starts with this Core.
@@ -111,7 +114,7 @@ func (c CoreConfig) Validate() error {
 	}
 	v.NotEmptyString("data_path", c.dataPath)
 	v.NonZero("slow_consumer_timeout", c.slowConsumerTimeout)
-	v.NonZero("session_idle_timeout", c.sessionIdleTimeout)
+	v.Positive("session_idle_timeout", c.sessionIdleTimeout)
 	v.NotNil("no_driver", c.noDriver)
 	v.Exec(c.rootCredentials.Validate)
 	v.NonZero("task_op_timeout", c.taskOpTimeout)

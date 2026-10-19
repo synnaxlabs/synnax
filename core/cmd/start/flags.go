@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/cmd/listener"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 )
 
 // Flag names used for starting a Synnax Core.
@@ -92,7 +93,7 @@ func AddFlags(cmd *cobra.Command) {
 	)
 	cmd.Flags().Duration(
 		FlagSessionIdleTimeout,
-		7*24*time.Hour,
+		auth.DefaultServiceConfig.IdleTimeout,
 		"End a session after this long without a request from its client",
 	)
 	cmd.Flags().Duration(

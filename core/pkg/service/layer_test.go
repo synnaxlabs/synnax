@@ -72,6 +72,7 @@ var _ = Describe("Layer", func() {
 		func(ctx SpecContext) {
 			node := mock.NewNode(ctx)
 			open := func(pwd string) *service.Layer {
+				GinkgoHelper()
 				return MustSucceed(svcmock.OpenLayer(ctx, node, service.LayerConfig{
 					RootCredentials: auth.Credentials{Username: "root", Password: pwd},
 				}))
