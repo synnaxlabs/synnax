@@ -284,6 +284,9 @@ func (t *Table) collectDependencies(typ Type) []string {
 		for _, extendsRef := range form.Extends {
 			addDep(extendsRef)
 		}
+		if form.BorrowsEnum() {
+			addDep(form.Enum)
+		}
 		for _, variant := range form.Variants {
 			addDep(variant.Type)
 			if !variant.Inline {

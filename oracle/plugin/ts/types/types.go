@@ -3525,11 +3525,13 @@ export const {{ .SchemaName }} = {{ if .ParentSchemas }}{{ range $i, $p := .Pare
 export interface {{ .TypeName }} extends z.infer<typeof {{ .SchemaName }}> {}
 {{- end }}
 {{- end }}
+{{- if not .BorrowsEnum }}
 
 export const {{ .TypesConst }} = [{{ range $i, $v := .Variants }}{{ if $i }}, {{ end }}"{{ $v.Value }}"{{ end }}] as const;
 export const {{ .TypeSchemaName }} = z.enum({{ .TypesConst }});
 {{- if $.GenerateTypes }}
 export type {{ .TypeName }} = z.infer<typeof {{ .TypeSchemaName }}>;
+{{- end }}
 {{- end }}
 
 {{ if .Doc -}}

@@ -731,6 +731,11 @@ var _ = Describe("Format", func() {
 			).To(Equal("Empty union on type {}\n"))
 		})
 
+		It("should keep the enum a union borrows as its discriminator", func() {
+			source := "Kind enum {\n  a = \"a\"\n}\nA struct {}\nFoo union on kind Kind {\n  a A\n}\n"
+			Expect(format(source)).To(ContainSubstring("Foo union on kind Kind {"))
+		})
+
 		It("should format a simple union with variants", func() {
 			source := "A struct {}\nB struct {}\nFoo union on type {\n  a A\n  b B\n}\n"
 			result := format(source)

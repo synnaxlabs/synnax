@@ -119,7 +119,12 @@ func typesEqual(
 		newForm, ok := new.Form.(resolution.UnionForm)
 		if !ok || oldForm.Discriminator != newForm.Discriminator ||
 			len(oldForm.Variants) != len(newForm.Variants) ||
-			len(oldForm.Extends) != len(newForm.Extends) {
+			len(oldForm.Extends) != len(newForm.Extends) ||
+			oldForm.BorrowsEnum() != newForm.BorrowsEnum() {
+			return false
+		}
+		if oldForm.BorrowsEnum() &&
+			!refsEqual(oldForm.Enum, newForm.Enum, oldTable, newTable, visiting) {
 			return false
 		}
 		for i := range oldForm.Variants {
