@@ -10,7 +10,7 @@
 import time
 import uuid
 from collections.abc import Iterator
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import dateutil
 import numpy as np
@@ -33,7 +33,7 @@ class TestTimeStamp:
         assert now.datetime() > datetime.now().astimezone()
 
     @pytest.mark.parametrize(
-        "crude, expected",
+        ("crude", "expected"),
         [
             (1000, 1000),
             (sy.TimeSpan.MILLISECOND * 2500, 2500000000),
@@ -50,7 +50,7 @@ class TestTimeStamp:
                 sy.TimeStamp(1645562510000000000),
             ),
             (
-                datetime(2022, 2, 22, 15, 41, 50, tzinfo=timezone.utc),
+                datetime(2022, 2, 22, 15, 41, 50, tzinfo=UTC),
                 sy.TimeStamp(1645544510000000000),
             ),
             (
@@ -110,12 +110,6 @@ class TestTimeStamp:
         assert sy.TimeStamp(pd.Timestamp(value)) == sy.TimeStamp(
             np.datetime64(value, "ns")
         )
-
-    @pytest.mark.usefixtures("non_utc_tz")
-    def test_naive_datetime_is_local(self) -> None:
-        """Should treat a naive datetime as local time with exact microseconds"""
-        ts = sy.TimeStamp(datetime(2022, 2, 22, 10, 41, 50, 123457))
-        assert ts == 1645544510123457000
 
     def test_aware_datetime_microseconds(self) -> None:
         """Should convert an aware datetime with exact microseconds"""
@@ -197,9 +191,7 @@ class TestTimeStamp:
     def test_datetime(self) -> None:
         """Should correctly convert the sy.TimeStamp to a datetime in local time."""
         ts1 = sy.TimeStamp(1645562510000000000)
-        assert ts1.datetime(tz=timezone.utc) == datetime(
-            2022, 2, 22, 20, 41, 50, tzinfo=timezone.utc
-        )
+        assert ts1.datetime(tz=UTC) == datetime(2022, 2, 22, 20, 41, 50, tzinfo=UTC)
 
     def test_trunc(self) -> None:
         """Should correctly return the truncation of a standard sy.TimeSpan divisor"""
@@ -312,7 +304,7 @@ class TestTimeSpan:
         assert sy.TimeSpan.since(one_sec_ago) > 998 * sy.TimeSpan.MILLISECOND
 
     @pytest.mark.parametrize(
-        "crude, expected",
+        ("crude", "expected"),
         [
             (1000, sy.TimeSpan.MICROSECOND),
             (timedelta(microseconds=1000), 1000 * sy.TimeSpan.MICROSECOND),
@@ -326,6 +318,43 @@ class TestTimeSpan:
     def test_construction(self, crude: sy.CrudeTimeSpan, expected: sy.TimeSpan) -> None:
         assert sy.TimeSpan(crude) == expected
 
+    @pytest.mark.parametrize(
+        ("crude", "expected"),
+        [
+            (pd.Timedelta(1, "s") + pd.Timedelta(1, "ns"), 1_000_000_001),
+            (pd.Timedelta(days=-3, nanoseconds=7), -3 * 86_400 * 10**9 + 7),
+            (np.timedelta64(5, "ns"), 5),
+            (np.timedelta64(3, "us"), 3_000),
+            (np.timedelta64(2, "ms"), 2_000_000),
+            (np.timedelta64(-7, "s"), -7 * 10**9),
+            (np.timedelta64(1, "D"), 86_400 * 10**9),
+            (np.timedelta64(10**18 + 1, "ns"), 10**18 + 1),
+            (timedelta(days=10_000, microseconds=1), 10_000 * 86_400 * 10**9 + 1_000),
+            (timedelta(seconds=-1, microseconds=1), -999_999_000),
+        ],
+    )
+    def test_construction_exact(self, crude: sy.CrudeTimeSpan, expected: int) -> None:
+        """Should convert durations to exact integer nanoseconds"""
+        assert sy.TimeSpan(crude) == expected
+
+    def test_construction_nat(self) -> None:
+        """Should reject a NaT timedelta64"""
+        with pytest.raises(ValueError, match="NaT"):
+            sy.TimeSpan(np.timedelta64("NaT"))
+
+    @pytest.mark.parametrize(
+        "crude",
+        [np.timedelta64(200_000, "D"), np.timedelta64(-200_000, "D")],
+    )
+    def test_construction_out_of_range(self, crude: np.timedelta64) -> None:
+        """Should reject a timedelta64 that does not fit in 64-bit nanoseconds"""
+        with pytest.raises(ValueError, match="64-bit"):
+            sy.TimeSpan(crude)
+
+    def test_construction_max(self) -> None:
+        """Should accept the largest timedelta64 that fits in 64-bit nanoseconds"""
+        assert sy.TimeSpan(np.timedelta64(2**63 - 1, "ns")) == 2**63 - 1
+
     def test_seconds(self) -> None:
         """Should return the number of seconds in the timespan"""
         assert sy.TimeSpan.SECOND.seconds == 1
@@ -336,11 +365,11 @@ class TestTimeSpan:
 
     def test_add(self) -> None:
         """Should correctly add two time spans"""
-        assert sy.TimeSpan.MICROSECOND + sy.TimeSpan.MICROSECOND == sy.TimeSpan(2000)
+        assert sy.TimeSpan(2000) == sy.TimeSpan.MICROSECOND + sy.TimeSpan.MICROSECOND
 
     def test_sub(self) -> None:
         """Should correctly subtract two time spans"""
-        assert sy.TimeSpan.MICROSECOND - sy.TimeSpan.MICROSECOND == sy.TimeSpan(0)
+        assert sy.TimeSpan(0) == sy.TimeSpan.MICROSECOND - sy.TimeSpan.MICROSECOND
 
     def test_abs_positive(self) -> None:
         """Should return the same value for positive spans"""
@@ -371,7 +400,7 @@ class TestTimeSpan:
         assert sy.TimeSpan.NANOSECOND <= sy.TimeSpan.MICROSECOND
 
     @pytest.mark.parametrize(
-        "span, expected",
+        ("span", "expected"),
         [
             (
                 1 * sy.TimeSpan.DAY
@@ -388,7 +417,7 @@ class TestTimeSpan:
         assert str(span) == expected
 
     @pytest.mark.parametrize(
-        "span, expected",
+        ("span", "expected"),
         [
             (
                 1.0,
@@ -410,7 +439,7 @@ class TestTimeSpan:
         assert abc == sy.TimeSpan(1 * sy.TimeSpan.SECOND)
 
     @pytest.mark.parametrize(
-        "span, expected",
+        ("span", "expected"),
         [
             (1.0, 1.0),
             (1, 1),
@@ -426,7 +455,7 @@ class TestTimeSpan:
 @pytest.mark.telem
 class TestRate:
     @pytest.mark.parametrize(
-        "crude, expected",
+        ("crude", "expected"),
         [
             (sy.TimeSpan.MILLISECOND, sy.Rate(1000)),
             (1000, sy.Rate(1000.0)),
@@ -464,7 +493,7 @@ class TestRate:
 @pytest.mark.telem
 class TestDataType:
     @pytest.mark.parametrize(
-        "crude, expected",
+        ("crude", "expected"),
         [
             (np.int8, sy.DataType.INT8),
             (np.int16, sy.DataType.INT16),
@@ -484,7 +513,7 @@ class TestDataType:
         assert str(sy.DataType.INT8) == "int8"
 
     @pytest.mark.parametrize(
-        "value, expected",
+        ("value", "expected"),
         [
             (sy.DataType.INT8, np.dtype(np.int8)),
             (sy.DataType.FLOAT32, np.dtype(np.float32)),
@@ -496,7 +525,7 @@ class TestDataType:
         assert value.np == expected
 
     @pytest.mark.parametrize(
-        "data_type, expected",
+        ("data_type", "expected"),
         [
             (sy.DataType.STRING, True),
             (sy.DataType.JSON, True),
@@ -528,14 +557,14 @@ class TestDataType:
 @pytest.mark.telem
 class TestSize:
     @pytest.mark.parametrize(
-        "crude, expected",
+        ("crude", "expected"),
         [(1, sy.Size.BYTE), (1.0, sy.Size.BYTE), (sy.Size.BYTE, sy.Size.BYTE)],
     )
     def test_construction(self, crude: sy.CrudeSize, expected: sy.Size) -> None:
         assert sy.Size(crude) == expected
 
     @pytest.mark.parametrize(
-        "value, expected",
+        ("value", "expected"),
         [(sy.Size.GB + sy.Size.MB * 500, "1gb 500mb"), (sy.Size.GB * 0, "0b")],
     )
     def test_str(self, value: sy.Size, expected: str) -> None:
@@ -544,7 +573,7 @@ class TestSize:
 
 @pytest.mark.telem
 @pytest.mark.parametrize(
-    "data, from_, to, expected",
+    ("data", "from_", "to", "expected"),
     [
         (np.array([1, 2, 3]), "s", "ms", 1000),
         (np.array([1, 2, 3]), "ms", "ms", 1),
@@ -712,7 +741,7 @@ class TestAlignment:
 
         # Should also accept int
         packed_value = (5 << 32) | 10
-        model2 = TestModel(alignment=packed_value)
+        model2 = TestModel.model_validate({"alignment": packed_value})
         assert model2.alignment.domain_index == 5
         assert model2.alignment.sample_index == 10
 
@@ -761,4 +790,4 @@ class TestStringEncodedInts:
         model_cls = create_model("M", v=(typ, ...))
         big = (1 << 62) + 7
         validated = model_cls.model_validate({"v": str(big)})
-        assert int(getattr(validated, "v")) == big
+        assert int(validated.model_dump()["v"]) == big

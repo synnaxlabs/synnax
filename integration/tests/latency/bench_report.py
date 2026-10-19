@@ -39,26 +39,22 @@ class BenchReport(Latency):
         """
 
         cycles: int = 0
-        times: deque[sy.TimeStamp] = deque()
+        times: deque[sy.TimeSpan] = deque()
         loop_start: sy.TimeStamp = sy.TimeStamp.now()
         state_channel: str = "bench_state"
         cmd_channel: str = "bench_command"
         bench_time: sy.TimeSpan = sy.TimeSpan.SECOND * 3
 
-        try:
-            with self.report_client.open_streamer(state_channel) as stream:
-                with self.report_client.open_writer(
-                    sy.TimeStamp.now(), cmd_channel
-                ) as writer:
-                    while sy.TimeStamp.since(loop_start) < bench_time:
-                        start = sy.TimeStamp.now()
-                        writer.write(cmd_channel, True)
-                        stream.read()
-                        times.append(sy.TimeStamp.since(start))
-                        cycles += 1
-
-        except Exception as e:
-            raise Exception(f"EXCEPTION: {e}")
+        with self.report_client.open_streamer(state_channel) as stream:
+            with self.report_client.open_writer(
+                sy.TimeStamp.now(), cmd_channel
+            ) as writer:
+                while sy.TimeStamp.since(loop_start) < bench_time:
+                    start = sy.TimeStamp.now()
+                    writer.write(cmd_channel, True)
+                    stream.read()
+                    times.append(sy.TimeStamp.since(start))
+                    cycles += 1
 
         self.log(f"Cycles/second: {cycles / bench_time.seconds:.2f}")
 
@@ -162,10 +158,7 @@ class BenchReport(Latency):
         max_p99 = 15
         max_average_jitter = 5
 
-        if platform.system().lower() == "windows":
-            max_peak_to_peak_jitter = 40
-        else:
-            max_peak_to_peak_jitter = 20
+        max_peak_to_peak_jitter = 40 if platform.system().lower() == "windows" else 20
 
         # Print statistics
         p90_msg = f"P90: {p90:.2f}ms"

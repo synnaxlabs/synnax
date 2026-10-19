@@ -45,10 +45,6 @@ func validateOmitRefs(
 		if getPath(t, lang) == "" || omit.IsSkipped(t, lang) {
 			continue
 		}
-		form, ok := t.Form.(resolution.StructForm)
-		if !ok {
-			continue
-		}
 		check := func(ref resolution.TypeRef, context string) {
 			var visit func(r resolution.TypeRef)
 			visit = func(r resolution.TypeRef) {
@@ -74,14 +70,21 @@ func validateOmitRefs(
 			}
 			visit(ref)
 		}
-		for _, ext := range form.Extends {
-			check(ext, "its extends clause")
-		}
-		for _, f := range form.Fields {
-			if fieldEscapesLang(f, lang) {
-				continue
+		switch form := t.Form.(type) {
+		case resolution.UnionForm:
+			if form.BorrowsEnum() {
+				check(form.Enum, "its discriminator enum")
 			}
-			check(f.Type, "field "+f.Name)
+		case resolution.StructForm:
+			for _, ext := range form.Extends {
+				check(ext, "its extends clause")
+			}
+			for _, f := range form.Fields {
+				if fieldEscapesLang(f, lang) {
+					continue
+				}
+				check(f.Type, "field "+f.Name)
+			}
 		}
 	}
 }

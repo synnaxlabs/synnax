@@ -37,7 +37,9 @@ class Repo:
         for name in names:
             self.git("tag", name)
 
-    def resolve(self, product: str, bump: str, prerelease: bool = False) -> dict:
+    def resolve(
+        self, product: str, bump: str, prerelease: bool = False
+    ) -> dict[str, str]:
         result = subprocess.run(
             [str(SCRIPT), product, bump, "true" if prerelease else "false"],
             cwd=self.path,

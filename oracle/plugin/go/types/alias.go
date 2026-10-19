@@ -205,6 +205,12 @@ func buildAliasDecls(d orderedDecl, prefix string, data *templateData) []aliasDe
 		name := naming.GetGoName(d.typ)
 		addType(name, doc.Get(d.typ.Domains), nil)
 		addType(name+"Variant", "", nil)
+		if form.BorrowsEnum() {
+			for _, v := range form.Variants {
+				addType(casing.VariantTypeName(name, v.Name), doc.Get(v.Domains), nil)
+			}
+			return decls
+		}
 		discType := name + "Type"
 		addType(discType, "", nil)
 		discDecl := len(decls) - 1

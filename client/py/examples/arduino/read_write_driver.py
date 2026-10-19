@@ -51,23 +51,25 @@ arduino_value = client.channels.create(
     retrieve_if_name_exists=True,
 )
 
-with client.open_streamer(["arduino_command"]) as streamer:
-    with client.open_writer(
+with (
+    client.open_streamer(["arduino_command"]) as streamer,
+    client.open_writer(
         start=sy.TimeStamp.now(),
         channels=["arduino_time", "arduino_state", "arduino_value"],
-    ) as writer:
-        while True:
-            frame = streamer.read(timeout=0)
-            if frame is not None:
-                command = str(frame["arduino_command"][0])
-                ser.write(command.encode("utf-8"))
-            data = ser.readline().decode("utf-8").rstrip()
-            if data:
-                split = data.split(",")
-                writer.write(
-                    {
-                        "arduino_time": sy.TimeStamp.now(),
-                        "arduino_state": int(split[0]),
-                        "arduino_value": float(split[1]),
-                    }
-                )
+    ) as writer,
+):
+    while True:
+        frame = streamer.read(timeout=0)
+        if frame is not None:
+            command = str(frame["arduino_command"][0])
+            ser.write(command.encode("utf-8"))
+        data = ser.readline().decode("utf-8").rstrip()
+        if data:
+            split = data.split(",")
+            writer.write(
+                {
+                    "arduino_time": sy.TimeStamp.now(),
+                    "arduino_state": int(split[0]),
+                    "arduino_value": float(split[1]),
+                }
+            )
