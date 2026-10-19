@@ -93,7 +93,7 @@ func AddFlags(cmd *cobra.Command) {
 	)
 	cmd.Flags().Duration(
 		FlagSessionIdleTimeout,
-		auth.DefaultServiceConfig.IdleTimeout,
+		auth.DefaultIdleTimeout,
 		"End a session after this long without a request from its client",
 	)
 	cmd.Flags().Duration(
