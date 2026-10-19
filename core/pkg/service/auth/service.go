@@ -112,7 +112,7 @@ type Service struct {
 	}
 }
 
-// hold is a session that streams on this node keep open.
+// hold counts the streams on this node that keep a session open.
 type hold struct {
 	count int
 	ended chan struct{}
@@ -199,8 +199,7 @@ func (s *Service) Hold(
 			}
 		})
 	}
-	// The hold is registered before the lookup, so a deletion that lands between the
-	// two still reaches endDeletedHolds and closes the channel.
+	// registered before the lookup, so a deletion in between still ends the hold
 	exists, err := s.NewRetrieve().Where(MatchKeys(key)).Exists(ctx, nil)
 	if err != nil || !exists {
 		release()
@@ -238,7 +237,6 @@ func (s *Service) CheckHolds(ctx context.Context) error {
 	return nil
 }
 
-// endHold closes the ended channel of the hold on key, if the hold is still open.
 func (s *Service) endHold(key SessionKey) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -248,7 +246,6 @@ func (s *Service) endHold(key SessionKey) {
 	}
 }
 
-// endDeletedHolds closes the ended channel of every held session a change deleted.
 func (s *Service) endDeletedHolds(
 	_ context.Context,
 	changes iter.Seq[change.Change[SessionKey, Session]],
@@ -266,8 +263,7 @@ func (s *Service) endDeletedHolds(
 	}
 }
 
-// held returns the keys of every session a stream on this node holds and that has not
-// ended.
+// held skips ended holds.
 func (s *Service) held() []SessionKey {
 	s.mu.Lock()
 	defer s.mu.Unlock()

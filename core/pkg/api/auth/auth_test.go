@@ -158,9 +158,6 @@ var _ = Describe("Middleware", func() {
 		fctx.Set(fiber.HeaderAuthorization, "Bearer "+token)
 		return fctx
 	}
-	// exec runs the middleware and returns only its error. A middleware returns the
-	// request context alongside its error by contract, so the context is not a result
-	// to assert on.
 	exec := func(fctx freighter.Context, next freighter.Next) error {
 		_, err := mw.Exec(fctx, next)
 		return err

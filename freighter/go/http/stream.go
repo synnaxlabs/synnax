@@ -80,11 +80,9 @@ type streamCoreConfig struct {
 	alamos.Instrumentation
 	writeDeadline time.Duration
 	// forced closes when a server middleware ends the handler's context with a cause.
-	// The reader is unblocked without a close frame, so the handler returns and the
-	// stream closes through the normal path carrying that cause. Nil on a client.
+	// Nil on a client.
 	forced <-chan struct{}
-	// cause returns the handler context's cause, read when the reader unblocks. Nil on
-	// a client.
+	// cause is nil on a client.
 	cause func() error
 }
 
@@ -161,8 +159,6 @@ func (c *streamCore[I, O]) close() error {
 	return c.conn.Close()
 }
 
-// forcedCause returns the cause a server middleware ended the handler's context with,
-// or nil when the stream was not forced closed that way.
 func (c *streamCore[I, O]) forcedCause() error {
 	if c.cause == nil {
 		return nil
@@ -198,8 +194,7 @@ func (c *streamCore[I, O]) listenForContextCancellation() {
 			c.L.Error("error setting close read deadline", zap.Error(err))
 		}
 	case <-c.forced:
-		// Only the reader is unblocked. The handler returns, and the normal close path
-		// sends the peer the cause before the close frame.
+		// no close frame: the handler returns and the normal close sends the cause
 		if err := c.conn.SetReadDeadline(time.Now()); err != nil {
 			c.L.Error("error setting forced read deadline", zap.Error(err))
 		}

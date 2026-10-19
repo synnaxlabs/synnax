@@ -45,7 +45,6 @@ func (s *streamServer) BindTo(reg grpc.ServiceRegistrar) {
 	v1.RegisterTestStreamServiceServer(reg, s)
 }
 
-// startPair serves a fresh stream server and returns it with a client for it.
 func startPair() (
 	freighter.StreamServer[test.Request, test.Response],
 	freighter.StreamClient[test.Request, test.Response],
