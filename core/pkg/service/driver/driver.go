@@ -49,6 +49,9 @@ type Driver struct {
 	// the heartbeat never overwrites a rename.
 	rackName struct {
 		value string
+		// observed is true once the observer has set value, so the startup read
+		// cannot overwrite a newer name.
+		observed bool
 		sync.Mutex
 	}
 }
@@ -95,9 +98,21 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 	}
 	cfg.L.Info("created Core driver rack", zap.Stringer("key", d.rack.Key))
 
-	d.rackName.value = d.rack.Name
 	disconnectRack := cfg.Rack.Observe().OnChange(d.handleRackChange)
 	ok(nil, io.NoFailCloserFunc(disconnectRack))
+	// Read the name after subscribing so a rename between the two is not lost.
+	var current rack.Rack
+	if err = cfg.Rack.NewRetrieve().
+		Where(rack.MatchKeys(d.rack.Key)).
+		Entry(&current).
+		Exec(ctx, nil); !ok(err, nil) {
+		return nil, err
+	}
+	d.rackName.Lock()
+	if !d.rackName.observed {
+		d.rackName.value = current.Name
+	}
+	d.rackName.Unlock()
 	d.startHeartbeat()
 	d.configureExistingTasks(ctx)
 	disconnect := cfg.Task.Observe().OnChange(d.handleTaskChange)
@@ -344,6 +359,7 @@ func (d *Driver) handleRackChange(
 		}
 		d.rackName.Lock()
 		d.rackName.value = ch.Value.Name
+		d.rackName.observed = true
 		d.rackName.Unlock()
 	}
 }
