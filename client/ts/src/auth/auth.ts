@@ -241,8 +241,9 @@ export class Client {
   }
 
   /**
-   * Ends the client's own session and forgets it. A later request logs in again. A
-   * session the Core already ended counts as logged out.
+   * Ends the client's own session and forgets it and the credentials, so later requests
+   * fail until new credentials are set. A session the Core already ended counts as
+   * logged out.
    * @throws {Error} when the Core cannot be reached or rejects the delete for another
    * reason.
    */
@@ -267,6 +268,7 @@ export class Client {
       if (this.authState.authenticated && this.authState.session.key === key) {
         this.authState = { authenticated: false };
         this.authenticating = undefined;
+        this.credentials = undefined;
       }
     }
   }
