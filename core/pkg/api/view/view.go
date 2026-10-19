@@ -40,6 +40,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 
 type (
 	Key  = view.Key
+	Type = view.ViewType
 	View = view.View
 )
 
@@ -72,7 +73,7 @@ func (s *Service) Create(
 type RetrieveRequest struct {
 	SearchTerm string     `json:"search_term" msgpack:"search_term"`
 	Keys       []view.Key `json:"keys"        msgpack:"keys"`
-	Types      []string   `json:"types"       msgpack:"types"`
+	Types      []Type     `json:"types"       msgpack:"types"`
 	Limit      int        `json:"limit"       msgpack:"limit"`
 	Offset     int        `json:"offset"      msgpack:"offset"`
 }
