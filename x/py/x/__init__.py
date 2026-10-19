@@ -27,17 +27,17 @@ from x.websocket import (
 )
 
 __all__ = [
-    "Platform",
     "WEBSOCKET_ERROR_PATTERNS",
+    "Platform",
     "WebSocketErrorFilter",
     "get_cpu_cores",
     "get_machine_info",
     "get_memory_info",
     "get_platform",
-    "random_name",
     "ignore_websocket_errors",
     "is_ci",
     "is_websocket_error",
+    "random_name",
     "suppress_websocket_errors",
     "validate_and_sanitize_name",
 ]

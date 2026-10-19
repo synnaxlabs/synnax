@@ -41,7 +41,7 @@ data_channel = client.channels.create(
     retrieve_if_name_exists=True,
 )
 
-current_values: dict[int | str, sy.MultiSeries] = dict()
+current_values: dict[int | str, sy.MultiSeries] = {}
 
 TO_READ = ["time_ch_1", "time_ch_2", "data_ch_1", "data_ch_2"]
 
@@ -83,7 +83,7 @@ with client.open_writer(
 ) as writer:
     with client.open_streamer(TO_READ) as streamer:
         for frame in streamer:
-            for k, _ in frame.items():
+            for k in frame.channels:
                 current_values[k] = frame[k]
             # If we still don't have data yet from all four channels, skip and wait for
             # the next frame.

@@ -162,7 +162,7 @@ class TestDevice:
             location="test-location",
             make="test_make",
             model="test_model",
-            properties=dict(),
+            properties={},
             configured=True,
         )
         assert device.configured is True
@@ -180,7 +180,7 @@ class TestDevice:
             location="test-location",
             make="test_make",
             model="test_model",
-            properties=dict(),
+            properties={},
             configured=False,
         )
         assert device.configured is False
@@ -198,7 +198,7 @@ class TestDevice:
             location="loc1",
             make="test_make",
             model="test_model",
-            properties=dict(),
+            properties={},
             configured=True,
         )
         d2 = sy.Device(
@@ -208,7 +208,7 @@ class TestDevice:
             location="loc2",
             make="test_make",
             model="test_model",
-            properties=dict(),
+            properties={},
             configured=False,
         )
         devices = client.devices.create(devices=[d1, d2])
@@ -264,9 +264,9 @@ class TestDevice:
     def test_retrieve_singular_with_list_filter(self, client: sy.Synnax) -> None:
         """Should raise a ValueError when singular selectors are mixed with others."""
         retrieve = cast(Callable[..., object], client.devices.retrieve)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="cannot be combined"):
             retrieve(model="test", racks=[1])
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="only one of"):
             retrieve(make="LabJack", model="T7")
 
     def test_retrieve_with_limit_and_offset(self, client: sy.Synnax) -> None:

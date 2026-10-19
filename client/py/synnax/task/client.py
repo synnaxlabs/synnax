@@ -228,7 +228,7 @@ class Task:
                     raise TimeoutError(
                         f"timed out waiting for driver to acknowledge {type_} command"
                     )
-                elif _TASK_STATE_CHANNEL not in frame:
+                if _TASK_STATE_CHANNEL not in frame:
                     warnings.warn(
                         "task - unexpected missing state in frame", stacklevel=2
                     )

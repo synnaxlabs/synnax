@@ -19,7 +19,7 @@ def normalize[T](*args: T | tuple[T, ...] | list[T] | None) -> list[T]:
     Returns:
         A flattened list.
     """
-    results: list[T] = list()
+    results: list[T] = []
     if args[0] is None:
         return results
     for arg in args:

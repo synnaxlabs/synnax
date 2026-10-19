@@ -170,7 +170,6 @@ class Streamer:
         :return: The next frame of telemetry, or None if no frame is received within the
         timeout.
         """
-        ...
 
     @overload
     def read(self) -> Frame:
@@ -178,7 +177,6 @@ class Streamer:
         is received. If an error occurs while reading the frame, an exception will be
         raised.
         """
-        ...
 
     def read(self, timeout: float | None = None) -> Frame | None:
         """Reads the next frame of telemetry from the streamer. If a timeout is provided,
