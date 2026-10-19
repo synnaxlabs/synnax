@@ -361,7 +361,7 @@ class Client:
         self,
         *,
         key: Key | None = None,
-        name: str = "",
+        name: str,
         type: str = "",
         config: Mapping[str, object] | BaseModel | None = None,
         rack: int = 0,

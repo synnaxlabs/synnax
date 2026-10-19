@@ -163,6 +163,10 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(m.Key).ToNot(Equal(uuid.Nil()))
 			Expect(m.Rack.IsZero()).To(BeTrue())
 		})
+		It("Should reject a task with an empty name", func(ctx SpecContext) {
+			m := &task.Task{Type: testType, Rack: testRack.Key}
+			Expect(w.Create(ctx, m)).To(MatchError(ContainSubstring("name: required")))
+		})
 	})
 
 	Describe("ConfigHash", func() {
@@ -537,6 +541,13 @@ var _ = Describe("Task", Ordered, func() {
 			t := MustSucceed(w.Copy(ctx, m.Key, "Snapshotted Task", true))
 			Expect(t.Key).ToNot(Equal(m.Key))
 			Expect(t.Snapshot).To(BeTrue())
+		})
+
+		It("Should reject a copy with an empty name", func(ctx SpecContext) {
+			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Test Task"}
+			Expect(w.Create(ctx, m)).To(Succeed())
+			Expect(w.Copy(ctx, m.Key, "", false)).Error().
+				To(MatchError(ContainSubstring("name: required")))
 		})
 	})
 
