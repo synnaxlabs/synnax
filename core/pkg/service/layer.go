@@ -65,6 +65,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
@@ -253,6 +254,23 @@ type Layer struct {
 // Close shuts down the service layer, returning any error encountered.
 func (l *Layer) Close() error { return l.closer.Close() }
 
+// revokePasswordSessions ends every session subject opened with its password.
+func revokePasswordSessions(
+	ctx context.Context,
+	passwords *password.Service,
+	sessions *auth.Service,
+	subject ontology.ID,
+) error {
+	var p password.Password
+	if err := passwords.NewRetrieve().
+		Where(password.MatchSubjects(subject)).
+		Entry(&p).
+		Exec(ctx, nil); err != nil {
+		return errors.Wrap(err, "load the root password")
+	}
+	return sessions.NewWriter(nil).RevokeCredential(ctx, auth.MethodPassword, p.Key)
+}
+
 // OpenLayer opens the service layer using the provided configurations. Later
 // configurations override the fields set in previous ones. If the configuration is
 // invalid, or any services fail to open, Open returns a nil layer and an error. If the
@@ -430,8 +448,12 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Password) {
 		return nil, err
 	}
+	var (
+		root                user.User
+		rootPasswordChanged bool
+	)
 	if !cfg.RootCredentials.IsZero() {
-		if _, _, err = user.ProvisionRoot(
+		if root, rootPasswordChanged, err = user.ProvisionRoot(
 			ctx,
 			l.User,
 			l.Password,
@@ -460,6 +482,16 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		IdleTimeout: cfg.SessionIdleTimeout,
 	}); !ok(err, l.Auth) {
 		return nil, err
+	}
+	if rootPasswordChanged {
+		if err = revokePasswordSessions(
+			ctx,
+			l.Password,
+			l.Auth,
+			root.OntologyID(),
+		); !ok(err, nil) {
+			return nil, err
+		}
 	}
 	if l.Ranger, err = ranger.OpenService(ctx, ranger.ServiceConfig{
 		Instrumentation: cfg.Child("ranger"),
