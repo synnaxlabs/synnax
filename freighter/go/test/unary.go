@@ -11,6 +11,7 @@ package test
 
 import (
 	"context"
+	"net"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
@@ -83,5 +84,32 @@ func UnarySuite(
 			)).Error().ToNot(gomega.HaveOccurred())
 			gomega.Expect(c).To(gomega.Equal(2))
 		})
+		ginkgo.It(
+			"Should give the middleware the client's address",
+			func(ctx ginkgo.SpecContext) {
+				server, client, addr := deps()
+				var remote address.Address
+				server.Use(freighter.MiddlewareFunc(func(
+					ctx freighter.Context,
+					next freighter.Next,
+				) (freighter.Context, error) {
+					remote = ctx.Remote
+					return next(ctx)
+				}))
+				server.BindHandler(
+					func(ctx context.Context, req Request) (Response, error) {
+						return Response{}, nil
+					},
+				)
+				testutil.MustSucceed(client.Send(ctx, addr, Request{ID: 1}))
+				host := string(remote)
+				if h, _, err := net.SplitHostPort(host); err == nil {
+					host = h
+				}
+				ip := net.ParseIP(host)
+				gomega.Expect(ip).ToNot(gomega.BeNil())
+				gomega.Expect(ip.IsLoopback()).To(gomega.BeTrue())
+			},
+		)
 	})
 }
