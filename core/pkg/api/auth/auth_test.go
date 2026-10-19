@@ -198,7 +198,7 @@ var _ = Describe("Middleware", func() {
 				withToken(ctx, freighter.VariantStream),
 				freighter.FinalizerFunc(
 					func(c freighter.Context) (freighter.Context, error) {
-						<-c.Done()
+						Eventually(c.Done()).Should(BeClosed())
 						return c, c.Err()
 					},
 				),
