@@ -32,7 +32,7 @@ def populate(num_channels: int, num_ranges: int, num_samples: int) -> None:
         channel_name = generate_channel_name(channel_index)
         client.create_channel(channel_name)
 
-        for range_index in range(num_ranges):
+        for _ in range(num_ranges):
             range_data = generate_fake_data(num_samples)
             client.populate_range(channel_name, range_data)
 

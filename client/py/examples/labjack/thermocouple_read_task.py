@@ -121,19 +121,22 @@ try:
 
             while True:
                 frame = streamer.read()
-                if frame:
-                    # Print the latest values from both channels
-                    if "thermocouple_0" in frame and len(frame["thermocouple_0"]) > 0:
-                        temp_c = frame["thermocouple_0"][-1]
-                        temp_f = frame["thermocouple_1"][-1]
-                        elapsed = sy.TimeStamp.now().span(start_time).seconds
+                # Print the latest values from both channels
+                if (
+                    frame
+                    and "thermocouple_0" in frame
+                    and len(frame["thermocouple_0"]) > 0
+                ):
+                    temp_c = frame["thermocouple_0"][-1]
+                    temp_f = frame["thermocouple_1"][-1]
+                    elapsed = sy.TimeStamp.now().span(start_time).seconds
 
-                        sample_count += 1
-                        print(
-                            f"{sample_count:<10} {elapsed:<10.1f} {temp_c:>12.1f} {temp_f:>12.1f}",
-                            end="\r",
-                            flush=True,
-                        )
+                    sample_count += 1
+                    print(
+                        f"{sample_count:<10} {elapsed:<10.1f} {temp_c:>12.1f} {temp_f:>12.1f}",
+                        end="\r",
+                        flush=True,
+                    )
 
 # Output summary
 except KeyboardInterrupt:

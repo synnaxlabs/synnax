@@ -54,15 +54,11 @@ class BenchResponse(Latency):
         )
         start = sy.TimeStamp.now()
 
-        try:
-            with self.bench_client.open_streamer(cmd_channel) as stream:
-                with self.bench_client.open_writer(
-                    sy.TimeStamp.now(), state_channel
-                ) as writer:
-                    while sy.TimeStamp.since(start) < timeout and not self._should_stop:
-                        frame = stream.read(timeout=3)
-                        if frame is not None:
-                            writer.write(state_channel, frame[cmd_channel])
-
-        except Exception as e:
-            raise Exception(f"EXCEPTION: {e}")
+        with self.bench_client.open_streamer(cmd_channel) as stream:
+            with self.bench_client.open_writer(
+                sy.TimeStamp.now(), state_channel
+            ) as writer:
+                while sy.TimeStamp.since(start) < timeout and not self._should_stop:
+                    frame = stream.read(timeout=3)
+                    if frame is not None:
+                        writer.write(state_channel, frame[cmd_channel].to_numpy())

@@ -24,6 +24,7 @@ from examples.simulators import ThermalSimDAQ
 import synnax as sy
 from framework.utils import create_indexed_pair, create_virtual_channel
 from tests.arc.arc import ArcCase
+from x.telem import to_float
 
 ARC_SOURCE = """
 func count_heater_cycles(heater_on u8) i64 {
@@ -152,7 +153,7 @@ class ThermalMonitor(ArcCase):
         if len(recent) == 0:
             self.fail("no recent temp_sensor samples to verify temp_error against")
             return
-        closest = min(abs(temp_error - (float(s) - 50.0)) for s in recent)
+        closest = min(abs(temp_error - (to_float(s) - 50.0)) for s in recent)
         self.log(
             f"Temp error: {temp_error:.1f} (closest window mismatch {closest:.2f})"
         )

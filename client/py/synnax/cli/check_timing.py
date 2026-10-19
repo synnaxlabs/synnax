@@ -65,11 +65,11 @@ def collect_samples(
     list[sy.TimeSpan], list[sy.TimeSpan], list[sy.TimeStamp], sy.TimeStamp, sy.TimeStamp
 ]:
     # Tracks the offset between the local clock and the time channel
-    offsets: list[sy.TimeSpan] = list()
+    offsets: list[sy.TimeSpan] = []
     # Tracks the spacing between the samples inside individual reads
-    diffs: list[sy.TimeSpan] = list()
+    diffs: list[sy.TimeSpan] = []
     # Tracks all the times received
-    times: list[sy.TimeStamp] = list()
+    times: list[sy.TimeStamp] = []
     # Track local start time
     local_start = sy.TimeStamp.now()
 

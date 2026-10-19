@@ -16,12 +16,7 @@ from synnax.channel.payload import (
     has_params,
     normalize_params,
 )
-from synnax.channel.retrieve import (
-    CacheRetriever,
-    ClusterRetriever,
-    Retriever,
-    retrieve_required,
-)
+from synnax.channel.retrieve import Retriever, retrieve_required
 from synnax.channel.types_gen import Operation, Payload
 from synnax.channel.writer import Writer
 
@@ -29,16 +24,14 @@ __all__ = [
     "Channel",
     "Client",
     "Key",
+    "NormalizedKeyResult",
+    "NormalizedNameResult",
     "Operation",
     "Params",
     "Payload",
-    "normalize_params",
-    "CacheRetriever",
-    "ClusterRetriever",
     "Retriever",
-    "retrieve_required",
     "Writer",
     "has_params",
-    "NormalizedNameResult",
-    "NormalizedKeyResult",
+    "normalize_params",
+    "retrieve_required",
 ]

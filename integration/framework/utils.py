@@ -26,6 +26,7 @@ from contextlib import contextmanager
 from typing import Any
 
 import synnax as sy
+from x.telem import to_float
 
 # Fixtures directory for test data (SVGs, JSONs, etc.)
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "..", "tests", "fixtures")
@@ -65,7 +66,7 @@ def named_envelope_copy(path: str, name: str) -> Iterator[str]:
     :param name: Name the import must produce.
     :returns: A context manager yielding the temp copy's path.
     """
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         envelope = json.load(f)
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = os.path.join(tmp_dir, f"{name}.json")
@@ -139,17 +140,17 @@ def read_latest_value(client: sy.Synnax, channel_name: str) -> float | None:
         for attempt in range(3):
             latest = client.read_latest(channel_name)
             if latest is not None and len(latest) > 0:
-                return float(latest[-1])
+                return to_float(latest[-1])
             now = sy.TimeStamp.now()
             recent_range = sy.TimeRange(now - sy.TimeSpan.SECOND * 3, now)
             frame = client.read(recent_range, channel_name)
             if len(frame) > 0:
-                return float(frame[-1])
+                return to_float(frame[-1])
             if attempt < 2:
                 sy.sleep(0.2)
         return None
     except Exception as e:
-        raise RuntimeError(f'Could not get value for channel "{channel_name}": {e}')
+        raise RuntimeError(f'Could not get value for channel "{channel_name}"') from e
 
 
 def create_time_index(client: sy.Synnax, name: str) -> sy.Channel:
@@ -255,7 +256,9 @@ def assert_link_format(
     try:
         uuid.UUID(cluster_id)
     except ValueError:
-        raise AssertionError(f"Cluster ID should be a valid UUID, got: {cluster_id}")
+        raise AssertionError(
+            f"Cluster ID should be a valid UUID, got: {cluster_id}"
+        ) from None
 
     assert actual_type == resource_type, (
         f"Resource type should be '{resource_type}', got: {actual_type}"
@@ -271,7 +274,7 @@ def assert_link_format(
         except ValueError:
             raise AssertionError(
                 f"Resource ID should be a valid UUID, got: {actual_id}"
-            )
+            ) from None
 
 
 def assert_envelope(
