@@ -39,6 +39,7 @@ def try_load_options_if_none_provided(
     username: str = "",
     password: str = "",
     secure: bool = False,
+    api_key: str = "",
 ) -> Options:
     if len(host) == 0:
         opts = load_options()
@@ -50,5 +51,6 @@ def try_load_options_if_none_provided(
         port=port,
         username=username,
         password=password,
+        api_key=api_key,
         secure=secure,
     )

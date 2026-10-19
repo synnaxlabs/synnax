@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from uuid import UUID
+
 from pydantic import BaseModel
 
 from freighter import (
@@ -19,7 +21,7 @@ from freighter import (
     UnaryClient,
 )
 from synnax import ontology
-from synnax.auth.types_gen import PasswordProof, Proof, Session, SessionKey
+from synnax.auth.types_gen import Proof, Session, SessionKey
 from synnax.exceptions import ExpiredToken, InvalidToken, SessionEnded
 from synnax.user.payload import User
 from synnax.util.send_required import send_required
@@ -61,10 +63,48 @@ class SessionDeleteRequest(BaseModel):
     keys: list[SessionKey] = []
 
 
+class APIKey(BaseModel):
+    """An API key as the API returns it: the stored record without its hash."""
+
+    key: UUID
+    """The unique identifier for this API key."""
+    subject: ontology.ID
+    """The user or rack the key logs in as."""
+    name: str
+    """A label that tells the subject's keys apart."""
+    created: TimeStamp
+    """When the key was created."""
+
+
+class KeyCreateRequest(BaseModel):
+    subject: ontology.ID | None = None
+    name: str
+
+
+class KeyCreateResponse(BaseModel):
+    token: str
+    key: APIKey
+
+
+class KeyRetrieveRequest(BaseModel):
+    subjects: list[ontology.ID] = []
+
+
+class KeyRetrieveResponse(BaseModel):
+    keys: list[APIKey] = []
+
+
+class KeyDeleteRequest(BaseModel):
+    keys: list[UUID] = []
+
+
 SESSION_CREATE_ENDPOINT = "/auth/session/create"
 SESSION_RENEW_ENDPOINT = "/auth/session/renew"
 SESSION_RETRIEVE_ENDPOINT = "/auth/session/retrieve"
 SESSION_DELETE_ENDPOINT = "/auth/session/delete"
+KEY_CREATE_ENDPOINT = "/auth/key/create"
+KEY_RETRIEVE_ENDPOINT = "/auth/key/retrieve"
+KEY_DELETE_ENDPOINT = "/auth/key/delete"
 
 AUTHORIZATION_HEADER = "Authorization"
 RETRY_ON_ERRORS = (InvalidToken, ExpiredToken, SessionEnded)
@@ -72,13 +112,12 @@ TOKEN_PREFIX = "Bearer "
 
 
 class Client:
-    """Logs in with a username and password, holds the session, and attaches its token
-    to every request.
+    """Logs in with a proof, holds the session, and attaches its token to every
+    request.
     """
 
     client: UnaryClient
-    username: str
-    password: str
+    proof: Proof
     token: str
     session: Session | None
     user: User | None
@@ -87,12 +126,10 @@ class Client:
     def __init__(
         self,
         transport: UnaryClient,
-        username: str,
-        password: str,
+        proof: Proof,
     ) -> None:
         self.client = transport
-        self.username = username
-        self.password = password
+        self.proof = proof
         self.token = ""
         self.session = None
         self.user = None
@@ -100,13 +137,11 @@ class Client:
         self._logout_token: str | None = None
 
     def authenticate(self) -> None:
-        """Opens a session with the stored username and password."""
+        """Opens a session with the stored proof."""
         res = send_required(
             self.client,
             SESSION_CREATE_ENDPOINT,
-            SessionCreateRequest(
-                proof=PasswordProof(username=self.username, password=self.password)
-            ),
+            SessionCreateRequest(proof=self.proof),
             SessionCreateResponse,
         )
         self.token = res.token
@@ -151,6 +186,41 @@ class Client:
             SESSION_DELETE_ENDPOINT,
             SessionDeleteRequest(keys=list(keys)),
             Empty,
+        )
+
+    def create_key(
+        self, name: str, subject: ontology.ID | None = None
+    ) -> tuple[str, APIKey]:
+        """Creates an API key for the subject, or for the caller when none is given.
+
+        :returns: the token to log in with, the only copy of its secret, and the key.
+        :raises AccessDenied: if the caller may not create a key for the subject.
+        :raises NotFoundError: if the subject does not exist.
+        """
+        res = send_required(
+            self.client,
+            KEY_CREATE_ENDPOINT,
+            KeyCreateRequest(subject=subject, name=name),
+            KeyCreateResponse,
+        )
+        return res.token, res.key
+
+    def retrieve_keys(self, subjects: list[ontology.ID] | None = None) -> list[APIKey]:
+        """Lists the caller's API keys, or those of the given subjects when the caller
+        may retrieve them.
+        """
+        res = send_required(
+            self.client,
+            KEY_RETRIEVE_ENDPOINT,
+            KeyRetrieveRequest(subjects=subjects or []),
+            KeyRetrieveResponse,
+        )
+        return res.keys
+
+    def delete_keys(self, *keys: UUID) -> None:
+        """Deletes API keys and ends their sessions. Unknown keys are ignored."""
+        send_required(
+            self.client, KEY_DELETE_ENDPOINT, KeyDeleteRequest(keys=list(keys)), Empty
         )
 
     def logout(self) -> None:

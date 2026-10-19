@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.auth.client import (
+    APIKey,
     Client,
     ClusterInfo,
     SessionCreateRequest,
@@ -17,6 +18,8 @@ from synnax.auth.client import (
     SessionRetrieveResponse,
 )
 from synnax.auth.types_gen import (
+    APIKeyCredentials,
+    ApiKeyProof,
     Credentials,
     Method,
     PasswordProof,
@@ -26,6 +29,9 @@ from synnax.auth.types_gen import (
 )
 
 __all__ = [
+    "APIKey",
+    "APIKeyCredentials",
+    "ApiKeyProof",
     "Client",
     "ClusterInfo",
     "Credentials",

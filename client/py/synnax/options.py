@@ -17,4 +17,5 @@ class Options(BaseModel):
     port: int
     username: str = ""
     password: str = ""
+    api_key: str = ""
     secure: bool = False

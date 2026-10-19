@@ -18,6 +18,7 @@ import { z } from "zod";
 
 import {
   type Credentials,
+  type Proof,
   proofZ,
   type Session,
   type SessionKey,
@@ -53,6 +54,35 @@ const retrieveResZ = z.object({ sessions: sessionZ.array() });
 const deleteReqZ = z.object({ keys: sessionKeyZ.array() });
 const emptyResZ = z.object({});
 
+export const apiKeyKeyZ = z.uuid();
+export type APIKeyKey = z.infer<typeof apiKeyKeyZ>;
+
+/** APIKey is an API key as the API returns it: the stored record without its hash. */
+export const apiKeyZ = z.object({
+  /** key is the unique identifier for this API key. */
+  key: apiKeyKeyZ,
+  /** subject is the user or rack the key logs in as. */
+  subject: ontology.idZ,
+  /** name is a label that tells the subject's keys apart. */
+  name: z.string(),
+  /** created is when the key was created. */
+  created: TimeStamp.z,
+});
+export interface APIKey extends z.infer<typeof apiKeyZ> {}
+
+export interface NewAPIKey {
+  /** The user or rack the key logs in as. Defaults to the caller. */
+  subject?: ontology.ID;
+  /** A label that tells the subject's keys apart. */
+  name: string;
+}
+
+const keyCreateReqZ = z.object({ subject: ontology.idZ.optional(), name: z.string() });
+const keyCreateResZ = z.object({ token: z.string(), key: apiKeyZ });
+const keyRetrieveReqZ = z.object({ subjects: ontology.idZ.array().optional() });
+const keyRetrieveResZ = z.object({ keys: apiKeyZ.array() });
+const keyDeleteReqZ = z.object({ keys: apiKeyKeyZ.array() });
+
 /** The login route a Core without sessions serves. Kept exempt for one release. */
 export const LEGACY_LOGIN_ENDPOINT = "/auth/login";
 /** Opens a session from a proof. Works without a token. */
@@ -63,6 +93,9 @@ export const SESSION_RENEW_ENDPOINT = "/auth/session/renew";
 export const SESSION_RETRIEVE_ENDPOINT = "/auth/session/retrieve";
 /** Ends sessions. */
 export const SESSION_DELETE_ENDPOINT = "/auth/session/delete";
+const KEY_CREATE_ENDPOINT = "/auth/key/create";
+const KEY_RETRIEVE_ENDPOINT = "/auth/key/retrieve";
+const KEY_DELETE_ENDPOINT = "/auth/key/delete";
 
 // routes the Core serves without a token, so a request to one never logs in
 const TOKENLESS_ENDPOINTS = [SESSION_CREATE_ENDPOINT, LEGACY_LOGIN_ENDPOINT];
@@ -86,6 +119,8 @@ type AuthState =
 export interface Authority {
   /** A username and password to log in with. */
   credentials?: Credentials;
+  /** An API key to log in with, in place of credentials. */
+  apiKey?: string;
   /** The token of an earlier login to resume. */
   token?: string;
   /** Whether the Core keeps the token in a cookie the client never sees. */
@@ -105,6 +140,7 @@ export interface Observer {
 export class Client {
   private readonly client: UnaryClient;
   private credentials?: Credentials;
+  private apiKey?: string;
   private resumeToken?: string;
   private readonly cookie: boolean;
   private readonly persistent: boolean;
@@ -123,6 +159,7 @@ export class Client {
     this.client = client;
     this.credentials =
       authority.credentials == null ? undefined : { ...authority.credentials };
+    this.apiKey = authority.apiKey;
     this.resumeToken = authority.token;
     this.cookie = authority.cookie ?? false;
     this.persistent = authority.persistent ?? false;
@@ -132,6 +169,7 @@ export class Client {
   /** Replaces the stored credentials and clears auth state for a fresh login. */
   setCredentials({ username, password }: Credentials): void {
     this.credentials = { username, password };
+    this.apiKey = undefined;
     this.resumeToken = undefined;
     this.authState = { authenticated: false };
     this.authenticating = undefined;
@@ -241,6 +279,44 @@ export class Client {
   }
 
   /**
+   * Creates an API key. The returned token is the only copy of the key's secret.
+   * @throws {AccessDeniedError} when the caller may not create a key for the subject.
+   * @throws {NotFoundError} when the subject does not exist.
+   */
+  async createKey(key: NewAPIKey): Promise<{ token: string; key: APIKey }> {
+    return await this.client.send(
+      KEY_CREATE_ENDPOINT,
+      key,
+      keyCreateReqZ,
+      keyCreateResZ,
+    );
+  }
+
+  /**
+   * Lists API keys: the caller's own by default, or those of the given subjects when
+   * the caller may retrieve them.
+   * @throws {AccessDeniedError} when the caller may not retrieve another subject's
+   * keys.
+   */
+  async retrieveKeys(subjects?: ontology.ID[]): Promise<APIKey[]> {
+    const res = await this.client.send(
+      KEY_RETRIEVE_ENDPOINT,
+      { subjects },
+      keyRetrieveReqZ,
+      keyRetrieveResZ,
+    );
+    return res.keys;
+  }
+
+  /**
+   * Deletes API keys and ends their sessions. Unknown keys are ignored.
+   * @throws {AccessDeniedError} when the caller may not delete another subject's keys.
+   */
+  async deleteKeys(...keys: APIKeyKey[]): Promise<void> {
+    await this.client.send(KEY_DELETE_ENDPOINT, { keys }, keyDeleteReqZ, emptyResZ);
+  }
+
+  /**
    * Ends the client's own session and forgets it. A later request logs in again. A
    * session the Core already ended counts as logged out.
    * @throws {Error} when the Core cannot be reached or rejects the delete for another
@@ -299,9 +375,9 @@ export class Client {
   }
 
   /**
-   * Logs in with the credentials, or resumes the session a token or cookie names. A
-   * token the Core rejects is forgotten, so the next attempt needs credentials; a Core
-   * that cannot be reached has not rejected it.
+   * Logs in with the credentials or API key, or resumes the session a token or cookie
+   * names. A token the Core rejects is forgotten, so the next attempt needs
+   * credentials; a Core that cannot be reached has not rejected it.
    */
   private async login(): Promise<Error | null> {
     // a login issued before a setCredentials is stale: its result must not touch the
@@ -310,13 +386,11 @@ export class Client {
     try {
       let state: AuthState;
       let owned: boolean;
-      if (this.credentials != null) {
+      const proof = this.proof();
+      if (proof != null) {
         const res = await this.client.send(
           SESSION_CREATE_ENDPOINT,
-          {
-            proof: { method: "password", ...this.credentials },
-            cookie: this.cookie || undefined,
-          },
+          { proof, cookie: this.cookie || undefined },
           createReqZ,
           createResZ,
         );
@@ -339,7 +413,8 @@ export class Client {
         );
         state = { authenticated: true, token, session: res.session, user: res.user };
         owned = false;
-      } else throw new AuthError("no credentials, token, or cookie to log in with");
+      } else
+        throw new AuthError("no credentials, API key, token, or cookie to log in with");
       if (generation !== this.generation) return null;
       this.authState = state;
       this.ownsSession = owned;
@@ -355,6 +430,12 @@ export class Client {
       }
       return parsed;
     }
+  }
+
+  private proof(): Proof | undefined {
+    if (this.credentials != null) return { method: "password", ...this.credentials };
+    if (this.apiKey != null) return { method: "api_key", key: this.apiKey };
+    return undefined;
   }
 
   middleware(): Middleware {
