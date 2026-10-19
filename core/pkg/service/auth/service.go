@@ -94,8 +94,7 @@ type Service struct {
 	shutdown io.Closer
 	// mu guards seen.
 	mu sync.Mutex
-	// seen holds the last request time of each session this node has checked. The
-	// stored mark lags it by up to a quarter of the idle timeout.
+	// seen leads the stored activity by up to a quarter of the idle timeout.
 	seen map[SessionKey]telem.TimeStamp
 }
 
@@ -119,7 +118,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		sCtx,
 		s.cfg.IdleTimeout/4,
 		func(ctx context.Context, _ time.Time) error {
-			// A failed sweep must not stop the ticker, so the next one runs on time.
+			// an error would stop the ticker
 			if err := s.Sweep(ctx); err != nil {
 				s.cfg.L.Error("failed to sweep idle sessions", zap.Error(err))
 			}
@@ -243,8 +242,7 @@ func (s *Service) see(key SessionKey, at telem.TimeStamp) {
 	s.seen[key] = at
 }
 
-// forget drops the activity of the given sessions. When keep is set, it also drops
-// every session not in keep, so sessions deleted elsewhere do not linger.
+// forget also drops every session not in a non-nil keep.
 func (s *Service) forget(keep set.Set[SessionKey], keys ...SessionKey) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

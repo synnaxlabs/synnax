@@ -256,7 +256,6 @@ type Layer struct {
 // Close shuts down the service layer, returning any error encountered.
 func (l *Layer) Close() error { return l.closer.Close() }
 
-// revokePasswordSessions ends every session subject opened with its password.
 func revokePasswordSessions(
 	ctx context.Context,
 	passwords *password.Service,

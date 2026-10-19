@@ -31,7 +31,6 @@ func request(username, pwd string) apiauth.LoginRequest {
 	return apiauth.LoginRequest{Credentials: creds}
 }
 
-// requestCtx wraps ctx the way a transport does, with the client's address.
 func requestCtx(ctx context.Context) freighter.Context {
 	return freighter.Context{Context: ctx, Params: freighter.Params{}, Remote: remote}
 }
