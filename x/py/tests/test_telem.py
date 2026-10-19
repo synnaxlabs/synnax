@@ -368,7 +368,7 @@ class TestTimeSpan:
     def test_construction_nat(self) -> None:
         """Should reject a NaT timedelta64"""
         with pytest.raises(ValueError, match="NaT"):
-            sy.TimeSpan(np.timedelta64("NaT"))
+            sy.TimeSpan(np.timedelta64("NaT", "ns"))
 
     @pytest.mark.parametrize(
         "crude",

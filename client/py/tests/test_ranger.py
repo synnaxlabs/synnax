@@ -29,7 +29,8 @@ from x.testutil import assert_eventually
 @pytest.mark.ranger
 class TestRangeClient:
     @pytest.fixture(scope="class")
-    def two_ranges(self, client: sy.Synnax) -> list[sy.Range]:
+    @classmethod
+    def two_ranges(cls, client: sy.Synnax) -> list[sy.Range]:
         return client.ranges.create(
             [
                 sy.Range(
@@ -156,7 +157,8 @@ class TestRangeClient:
     @pytest.mark.ranger
     class TestRangeDelete:
         @pytest.fixture(scope="class")
-        def rng(self, client: sy.Synnax) -> sy.Range:
+        @classmethod
+        def rng(cls, client: sy.Synnax) -> sy.Range:
             return client.ranges.create(
                 name="test",
                 time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
@@ -195,7 +197,8 @@ class TestRangeClient:
     @pytest.mark.ranger
     class TestRangeChannelResolution:
         @pytest.fixture(scope="class")
-        def rng(self, client: sy.Synnax) -> sy.Range:
+        @classmethod
+        def rng(cls, client: sy.Synnax) -> sy.Range:
             name = f"test_{random_name()}"
             return client.ranges.create(
                 name=name,
@@ -203,7 +206,8 @@ class TestRangeClient:
             )
 
         @pytest.fixture(scope="class", autouse=True)
-        def two_channels(self, client: sy.Synnax, rng: sy.Range) -> list[sy.Channel]:
+        @classmethod
+        def two_channels(cls, client: sy.Synnax, rng: sy.Range) -> list[sy.Channel]:
             prefix = re.sub(r"[^A-Za-z0-9_]", "", rng.name)
             return client.channels.create(
                 [
