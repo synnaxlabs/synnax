@@ -95,7 +95,6 @@ class Synnax(framer.Client):
         port: int = 0,
         username: str = "",
         password: str = "",
-        api_key: str = "",
         secure: bool = False,
         open_timeout: TimeSpan = TimeSpan.SECOND * 5,
         read_timeout: TimeSpan = TimeSpan.SECOND * 5,
@@ -103,6 +102,8 @@ class Synnax(framer.Client):
         max_retries: int = 3,
         instrumentation: Instrumentation = NOOP,
         clock_skew_threshold: TimeSpan = TimeSpan.SECOND,
+        *,
+        api_key: str = "",
     ):
         """Creates a new client. Connection parameters can be provided as arguments, or,
         if none are provided, the client will attempt to load them from the Synnax
@@ -117,11 +118,11 @@ class Synnax(framer.Client):
         :param port: Port of the Core.
         :param username: Username to authenticate with.
         :param password: Password to authenticate with.
-        :param api_key: API key to authenticate with, in place of a username and
-            password.
         :param secure: Whether to use TLS when connecting to the Core.
         :param clock_skew_threshold: The maximum allowable clock skew between this
             host and Synnax Core before a warning is issued. Defaults to 1 second.
+        :param api_key: API key to authenticate with, in place of a username and
+            password.
         """
         if api_key and (username or password):
             raise ValidationError(
