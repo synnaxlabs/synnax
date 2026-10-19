@@ -10,13 +10,19 @@
 package versions
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v0"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v1"
 	"github.com/synnaxlabs/x/migrate"
 )
 
-// Migrations is the ordered migration chain for stored views.
-var Migrations = []migrate.Migration{
-	v0.NormalizeKeys,
-	v0.Migration,
-	v0.NameMigration,
+// NewMigrations returns the ordered migration chain for stored views. The ontology
+// removes the resources of views the chain deletes.
+func NewMigrations(otg *ontology.Ontology) []migrate.Migration {
+	return []migrate.Migration{
+		v0.NormalizeKeys,
+		v0.Migration,
+		v0.NameMigration,
+		v1.NewMigration(otg),
+	}
 }

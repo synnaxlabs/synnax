@@ -15,7 +15,6 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a saved view configuration.
@@ -33,12 +32,4 @@ type View struct {
 	// Query is a type-agnostic JSON object containing view-specific configuration and
 	// query parameters.
 	Query msgpack.EncodedJSON `json:"query" msgpack:"query"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (vi View) Validate() error {
-	v := validate.New("View")
-	v.NotEmptyString("name", vi.Name)
-	return v.Error()
 }
