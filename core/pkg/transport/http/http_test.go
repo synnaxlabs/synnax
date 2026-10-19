@@ -201,6 +201,34 @@ var _ = Describe("HTTP", func() {
 			Expect(json.Unmarshal(body, &pld)).To(Succeed())
 			Expect(errors.Decode(ctx, pld)).To(MatchError(license.ErrExpired))
 		})
+
+		It("Should keep a cookie's token out of a refused response", func() {
+			req := httptest.NewRequest(
+				http.MethodPost,
+				"/api/v1/auth/session/create",
+				bytes.NewReader(MustSucceed(json.Marshal(apiauth.SessionCreateRequest{
+					Proof:  auth.Proof{Variant: auth.PasswordProof{Credentials: creds}},
+					Cookie: true,
+				}))),
+			)
+			req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+			req.Header.Set(fiber.HeaderAccept, fiber.MIMEApplicationJSON)
+			created := MustSucceed(app.Test(req))
+			Expect(created.StatusCode).To(Equal(http.StatusOK))
+			cookies := created.Cookies()
+			Expect(cookies).To(HaveLen(1))
+			req = httptest.NewRequest(
+				http.MethodPost,
+				"/api/v1/channel/retrieve",
+				bytes.NewReader(MustSucceed(json.Marshal(channel.RetrieveRequest{}))),
+			)
+			req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+			req.Header.Set(fiber.HeaderAccept, fiber.MIMEApplicationJSON)
+			req.Header.Set(fiber.HeaderCookie, cookies[0].Name+"="+cookies[0].Value)
+			res := MustSucceed(app.Test(req))
+			Expect(res.StatusCode).To(Equal(http.StatusBadRequest))
+			Expect(res.Header.Get(fiber.HeaderAuthorization)).To(BeEmpty())
+		})
 	})
 	Describe("Session cookie", func() {
 		var app *fiber.App

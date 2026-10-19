@@ -43,16 +43,23 @@ func stream[RQ, RS freighter.Payload](
 }
 
 // sessionCookieMiddleware sends a clear only to a client that authenticated by cookie.
+// A token it reads from the cookie never reaches the response headers, even when a
+// later middleware fails and returns the request context.
 func sessionCookieMiddleware() freighter.Middleware {
 	return freighter.MiddlewareFunc(func(
 		ctx freighter.Context,
 		next freighter.Next,
 	) (freighter.Context, error) {
 		fromCookie := sessionCookieValue(ctx.Params)
-		if _, ok := ctx.Get(fiber.HeaderAuthorization); !ok && fromCookie != "" {
+		_, hasHeader := ctx.Get(fiber.HeaderAuthorization)
+		injected := !hasHeader && fromCookie != ""
+		if injected {
 			ctx.Set(fiber.HeaderAuthorization, "Bearer "+fromCookie)
 		}
 		oCtx, err := next(ctx)
+		if injected {
+			delete(oCtx.Params, fiber.HeaderAuthorization)
+		}
 		v, ok := ctx.Get(auth.SessionCookieParam)
 		if !ok {
 			return oCtx, err
