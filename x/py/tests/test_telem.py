@@ -298,6 +298,12 @@ class TestTimeRange:
         assert tr.overlaps_with(tr2, delta=5)
         assert not tr.overlaps_with(tr2, delta=6)
 
+    def test_range_overlaps_equal_delta(self) -> None:
+        """Should not overlap an equal range sharing less than delta"""
+        tr = sy.TimeRange(0, 10)
+        assert tr.overlaps_with(sy.TimeRange(0, 10), delta=10)
+        assert not tr.overlaps_with(sy.TimeRange(0, 10), delta=11)
+
     def test_range_valid(self) -> None:
         """Should return true if the range is valid"""
         tr = sy.TimeRange(0, 1000)
@@ -536,6 +542,22 @@ class TestRate:
     def test_span_exact(self) -> None:
         """Should compute the span without truncating the period first"""
         assert sy.Rate(3).span(3_000_000_000) == 10**9 * sy.TimeSpan.SECOND
+
+    @pytest.mark.parametrize(
+        ("rate", "count", "expected"),
+        [
+            (0.1, 1, 10 * sy.TimeSpan.SECOND),
+            (0.5, 1, 2 * sy.TimeSpan.SECOND),
+            (2.5, 1, 400 * sy.TimeSpan.MILLISECOND),
+            (2.5, 5, 2 * sy.TimeSpan.SECOND),
+            (1 / 3, 1, 3 * sy.TimeSpan.SECOND),
+        ],
+    )
+    def test_span_fractional(
+        self, rate: float, count: int, expected: sy.TimeSpan
+    ) -> None:
+        """Should give the decimal answer for a fractional rate"""
+        assert sy.Rate(rate).span(count) == expected
 
     def test_byte_span_invalid(self) -> None:
         """Should raise a contiguity error if the size is not a multiple of the density"""
@@ -900,8 +922,17 @@ class TestTimeProperties:
         """Should compute an integer rate's span without rounding"""
         assert int(sy.Rate(rate).span(count)) == count * 10**9 // rate
 
-    @given(_STAMP, _STAMP, _STAMP, _STAMP)
-    def test_overlaps_with_symmetric(self, a: int, b: int, c: int, d: int) -> None:
+    @given(st.integers(1, 10**6), st.integers(0, 3), st.integers(0, 10**6))
+    def test_rate_span_decimal(self, digits: int, places: int, count: int) -> None:
+        """Should compute a decimal rate's span as the decimal value written"""
+        rate = Fraction(digits, 10**places)
+        expected = int(count * 10**9 / rate)
+        assert int(sy.Rate(float(rate)).span(count)) == expected
+
+    @given(_STAMP, _STAMP, _STAMP, _STAMP, st.integers(0, 2**62))
+    def test_overlaps_with_symmetric(
+        self, a: int, b: int, c: int, d: int, delta: int
+    ) -> None:
         """Should overlap symmetrically, and when non-empty ranges share time"""
         r1 = sy.TimeRange(min(a, b), max(a, b))
         r2 = sy.TimeRange(min(c, d), max(c, d))
@@ -909,3 +940,7 @@ class TestTimeProperties:
         if r1.start < r1.end and r2.start < r2.end:
             shares = max(r1.start, r2.start) < min(r1.end, r2.end)
             assert r1.overlaps_with(r2) == shares
+        shared = min(r1.end, r2.end) - max(r1.start, r2.start)
+        if r1.overlaps_with(r2, delta=delta):
+            assert r1.overlaps_with(r2)
+            assert shared >= delta
