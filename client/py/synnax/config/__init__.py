@@ -10,21 +10,28 @@
 import os
 from pathlib import Path
 
+import keyring
+
 from synnax.config.clusters import ClusterConfig, ClustersConfig
 from synnax.config.file import ConfigFile
 from synnax.exceptions import ValidationError
 from synnax.options import Options
 
-__all__ = ["ClusterConfig", "ClustersConfig", "ConfigFile"]
+__all__ = ["ClusterConfig", "ClustersConfig", "ConfigFile", "default_clusters"]
 
 CONFIG_FILE_PATH = Path(os.path.expanduser("~/.synnax"))
+
+
+def default_clusters() -> ClustersConfig:
+    """Returns the clusters saved in the user's config file and OS keyring."""
+    return ClustersConfig(ConfigFile(CONFIG_FILE_PATH), keyring.get_keyring())
 
 
 def load_options() -> Options | None:
     """Loads the connection parameters from a configuration file.
     :return: The options to connect to a Synnax server.
     """
-    cluster = ClustersConfig(ConfigFile(CONFIG_FILE_PATH)).get()
+    cluster = default_clusters().get()
     return None if cluster is None else cluster.options
 
 

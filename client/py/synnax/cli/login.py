@@ -7,33 +7,33 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import os
-from pathlib import Path
-
 import click
 
-from synnax.cli.connect import connect_from_options, prompt_client_options
+from synnax.cli.connect import (
+    connect_from_options,
+    prompt_client_options,
+    save_api_key,
+)
 from synnax.cli.console.rich import RichConsole
 from synnax.cli.flow import Context
-from synnax.config import ClusterConfig, ClustersConfig, ConfigFile
+from synnax.config import default_clusters
 
 
 @click.command()
 def login() -> None:
-    """Logs the user into a Synnax cluster and saves the parameters to the configuration
-    file.
+    """Logs the user into a Synnax cluster, creates an API key, and saves the key and
+    the connection parameters.
     """
     flow_ctx = Context(console=RichConsole())
     options = prompt_client_options(flow_ctx)
     synnax = connect_from_options(flow_ctx, options)
     if synnax is None:
         return
-    cfg = ClustersConfig(ConfigFile(Path(os.path.expanduser("~/.synnax"))))
-    cfg.set(ClusterConfig(options=options))
+    save_api_key(synnax, options, default_clusters())
     flow_ctx.console.info(SUCCESSFUL_LOGIN)
 
 
-SUCCESSFUL_LOGIN = """Saved credentials. You can now use the Synnax Client
+SUCCESSFUL_LOGIN = """Saved an API key. You can now use the Synnax Client
 without having to log in. To connect the cluster in a Python shell, use the following:
 
 from synnax import Synnax

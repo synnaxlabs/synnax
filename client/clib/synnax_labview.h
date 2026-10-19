@@ -38,6 +38,7 @@ SYNNAX_EXPORT int32_t synnax_client_open(
     uint16_t port,
     const char *username,
     const char *password,
+    const char *api_key,
     int32_t secure,
     uint32_t max_retries,
     int64_t clock_skew_threshold,

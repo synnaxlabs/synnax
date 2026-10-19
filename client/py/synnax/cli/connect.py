@@ -7,10 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import socket
+
 from freighter.exceptions import Unreachable
 from synnax import Synnax
 from synnax.cli.flow import Context
-from synnax.config import load_options
+from synnax.config import ClusterConfig, ClustersConfig
 from synnax.exceptions import AuthError
 from synnax.options import Options
 
@@ -32,19 +34,37 @@ def prompt_client_options(ctx: Context) -> Options:
     )
 
 
-def connect_client(ctx: Context) -> Synnax | None:
+def connect_client(ctx: Context, clusters: ClustersConfig) -> Synnax | None:
     """Connects to a Synnax server. Prompts the user for the connection parameters if
-    no configuration file exists.
+    none are saved. A saved password is replaced with an API key after the connection
+    succeeds.
 
     :param ctx: The context of the current flow.
+    :param clusters: The saved connection parameters.
     :return: The connected Synnax py, or None if the connection failed.
     """
-    opts = load_options()
-    if opts is None:
-        opts = prompt_client_options(ctx)
-    else:
-        ctx.console.info("Using saved credentials.")
-    return connect_from_options(ctx, opts)
+    cluster = clusters.get()
+    if cluster is None:
+        return connect_from_options(ctx, prompt_client_options(ctx))
+    ctx.console.info("Using saved credentials.")
+    client = connect_from_options(ctx, cluster.options)
+    if client is not None and not cluster.options.api_key:
+        save_api_key(client, cluster.options, clusters)
+    return client
+
+
+def save_api_key(client: Synnax, opts: Options, clusters: ClustersConfig) -> None:
+    """Creates an API key for the logged-in user and saves it with opts in place of
+    the username and password.
+    """
+    token, _ = client.auth.create_key(name=f"Python CLI on {socket.gethostname()}")
+    clusters.set(
+        ClusterConfig(
+            options=Options(
+                host=opts.host, port=opts.port, secure=opts.secure, api_key=token
+            )
+        )
+    )
 
 
 def connect_from_options(ctx: Context, opts: Options) -> Synnax | None:

@@ -17,12 +17,13 @@ import synnax as sy
 from synnax.cli import default
 from synnax.cli.channel import select_channel
 from synnax.cli.connect import connect_client
+from synnax.config import default_clusters
 
 
 @click.command()
 def check_timing() -> None:
     """Check the timing characteristics of a time channel."""
-    client = connect_client(default.context())
+    client = connect_client(default.context(), default_clusters())
     if client is None:
         return
 

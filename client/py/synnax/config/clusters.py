@@ -7,7 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import keyring
+from keyring.backend import KeyringBackend
+from keyring.errors import PasswordDeleteError
 from pydantic import BaseModel
 
 from synnax.config.file import ConfigFile
@@ -18,22 +19,40 @@ class ClusterConfig(BaseModel):
     options: Options
 
 
-class ClustersConfig:
-    internal: ConfigFile
+PASSWORD_SERVICE = "synnax"
+API_KEY_SERVICE = "synnax.api_key"
 
-    def __init__(self, config: ConfigFile):
+
+class ClustersConfig:
+    """Saves connection options per cluster. The API key lives in the keyring and the
+    rest in the config file. Reads a password that an older CLI saved, so that
+    connecting can replace it with a key.
+    """
+
+    internal: ConfigFile
+    keyring: KeyringBackend
+
+    def __init__(self, config: ConfigFile, keyring: KeyringBackend):
         self.internal = config
+        self.keyring = keyring
 
     def get(self, key: str = "default") -> ClusterConfig | None:
         c = self.internal.get(f"clusters.{key}")
         if c is None:
             return None
         opts = c["options"]
-        pwd = keyring.get_password("synnax", key)
-        pwd = pwd or ""
+        api_key = self.keyring.get_password(API_KEY_SERVICE, key)
+        if api_key:
+            return ClusterConfig(options=Options(**opts, api_key=api_key))
+        pwd = self.keyring.get_password(PASSWORD_SERVICE, key) or ""
         return ClusterConfig(options=Options(**opts, password=pwd))
 
     def set(self, c: ClusterConfig, key: str = "default") -> None:
-        p = c.model_dump()
-        keyring.set_password("synnax", key, p["options"].pop("password"))
+        """Saves the options and their API key, and deletes any saved password."""
+        p = c.model_dump(exclude={"options": {"username", "password"}})
+        self.keyring.set_password(API_KEY_SERVICE, key, p["options"].pop("api_key"))
+        try:
+            self.keyring.delete_password(PASSWORD_SERVICE, key)
+        except PasswordDeleteError:
+            pass
         self.internal.set(f"clusters.{key}", p)
