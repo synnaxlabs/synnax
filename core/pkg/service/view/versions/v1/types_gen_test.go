@@ -17,7 +17,7 @@ import (
 
 var _ = Describe("Validate", func() {
 	It("Should accept a named view", func() {
-		Expect(v1.RangeView{Base: v1.Base{Name: "Named"}}.Validate()).To(Succeed())
+		Expect(v1.RangeView{Name: "Named"}.Validate()).To(Succeed())
 	})
 	It("Should reject an empty name", func() {
 		Expect(v1.StatusView{}.Validate()).
