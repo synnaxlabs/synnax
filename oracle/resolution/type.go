@@ -91,6 +91,10 @@ func (f EnumForm) IsExtension() bool { return len(f.Extends) > 0 }
 type UnionForm struct {
 	// Discriminator is the JSON field name whose string value selects a variant.
 	Discriminator string
+	// Enum names the declared enum the discriminator borrows its type from. Its
+	// members are the variant names, so plugins emit no discriminator type of their
+	// own. The zero TypeRef means the union generates one.
+	Enum TypeRef
 	// Variants lists every concrete shape the union admits, in declaration order.
 	Variants []UnionVariant
 	// Declared holds the variants the union's own body declares, set only when
@@ -105,6 +109,9 @@ type UnionForm struct {
 }
 
 func (UnionForm) typeForm() {}
+
+// BorrowsEnum reports whether the discriminator takes its type from a declared enum.
+func (f UnionForm) BorrowsEnum() bool { return f.Enum.Name != "" }
 
 func (f UnionForm) Variant(name string) (UnionVariant, bool) {
 	return lo.Find(f.Variants, func(v UnionVariant) bool { return v.Name == name })
@@ -300,6 +307,9 @@ func refersTo(
 			if refersTo(ext, targetQN, table, visited) {
 				return true
 			}
+		}
+		if form.BorrowsEnum() && refersTo(form.Enum, targetQN, table, visited) {
+			return true
 		}
 		for _, v := range form.Variants {
 			if refersTo(v.Type, targetQN, table, visited) {
