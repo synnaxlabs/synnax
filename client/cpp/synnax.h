@@ -24,7 +24,6 @@
 #include "client/cpp/status/status.h"
 #include "client/cpp/transport.h"
 #include "client/cpp/version/version.h"
-#include "client/cpp/view/view.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/log/log.h"
 
@@ -130,8 +129,6 @@ public:
     status::Client statuses;
     /// @brief Client for managing Arc automation programs.
     arc::Client arcs;
-    /// @brief Client for managing views.
-    view::Client views;
     /// @brief Client for reading the control state of channels.
     control::Client control;
 
@@ -193,11 +190,6 @@ public:
             this->t.status_set_by_key_or_name
         ),
         arcs(this->t.arc_retrieve, this->t.arc_create, this->t.arc_delete),
-        views(
-            std::move(this->t.view_create),
-            std::move(this->t.view_retrieve),
-            std::move(this->t.view_delete)
-        ),
         control(this->t.control_retrieve) {
         details::check_little_endian();
     }

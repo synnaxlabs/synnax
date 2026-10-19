@@ -72,6 +72,7 @@ import (
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 // LayerConfig is the configuration for opening the service layer. See fields for
@@ -460,6 +461,12 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			cfg.RootCredentials,
 		); !ok(err, nil) {
 			return nil, err
+		}
+		if rootPasswordChanged {
+			cfg.L.Info(
+				"rotated root user password to match the start settings",
+				zap.String("username", cfg.RootCredentials.Username),
+			)
 		}
 	}
 	if l.RBAC, err = rbac.OpenService(ctx, rbac.ServiceConfig{
