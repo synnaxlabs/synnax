@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, Union
+from typing import Annotated, Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -138,7 +138,7 @@ class NoneScale(BaseModel):
 
 # Determines how raw sensor values are transformed to engineering units.
 Scale = Annotated[
-    Union[LinearScale, MapScale, NoneScale],
+    LinearScale | MapScale | NoneScale,
     Field(discriminator="type"),
 ]
 
@@ -159,7 +159,7 @@ class DigitalWriteChannel(BaseWriteChannel):
 
 # Is a single LabJack write channel. The type field selects the output mode.
 WriteChannel = Annotated[
-    Union[AnalogWriteChannel, DigitalWriteChannel],
+    AnalogWriteChannel | DigitalWriteChannel,
     Field(discriminator="type"),
 ]
 
@@ -198,7 +198,7 @@ class ThermocoupleReadChannel(BaseReadChannel):
 # Is a single LabJack read channel. The type field selects the input mode and the
 # fields that accompany it.
 ReadChannel = Annotated[
-    Union[AnalogReadChannel, DigitalReadChannel, ThermocoupleReadChannel],
+    AnalogReadChannel | DigitalReadChannel | ThermocoupleReadChannel,
     Field(discriminator="type"),
 ]
 

@@ -93,14 +93,14 @@ class ChannelLifecycle(ConsoleCase):
         channels: list[dict[str, str | int | bool]] = [
             {"name": index_name, "is_index": True}
         ]
-        for dt in data_types:
-            channels.append(
-                {
-                    "name": f"{str(dt)}_ch_{suffix}",
-                    "data_type": dt,
-                    "index": index_name,
-                }
-            )
+        channels.extend(
+            {
+                "name": f"{dt!s}_ch_{suffix}",
+                "data_type": dt,
+                "index": index_name,
+            }
+            for dt in data_types
+        )
 
         created = console.channels.create_with_create_more(channels)
 

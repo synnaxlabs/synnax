@@ -33,9 +33,9 @@ class FramePayload(BaseModel):
         series: list[Series] | None = None,
     ):
         if series is None:
-            series = list()
+            series = []
         if keys is None:
-            keys = list()
+            keys = []
         super().__init__(series=series, keys=keys)
 
 
@@ -55,7 +55,6 @@ class Frame:
         series: Sequence[TypedCrudeSeries] | None = None,
     ) -> None:
         """Builds a frame from a list that mixes channel keys and names."""
-        ...
 
     @overload
     def __init__(
@@ -107,11 +106,9 @@ class Frame:
         elif (series is None or isinstance(series, list)) and (
             channels is None or isinstance(channels, list)
         ):
-            self.series = list() if series is None else [Series(d) for d in series]
+            self.series = [] if series is None else [Series(d) for d in series]
             self.channels = (
-                cast(list[channel.Key] | list[str], list(channels))
-                if channels
-                else list()
+                cast(list[channel.Key] | list[str], list(channels)) if channels else []
             )
         else:
             raise ValueError(f"""
@@ -128,14 +125,12 @@ class Frame:
         :param col_or_frame: The channel key or name to append the series to.
         :param series: The series to append to the frame
         """
-        ...
 
     @overload
     def append(self, col_or_frame: Frame) -> None:
         """Appends the given frame to the current frame, modifying the current frame in place.
         :param col_or_frame: The frame to append to the current frame.
         """
-        ...
 
     def append(
         self,
@@ -174,7 +169,6 @@ class Frame:
     @overload
     def __getitem__(self, key: npt.NDArray[np.bool_]) -> DataFrame:
         """Selects the rows where the boolean mask is true, through pandas."""
-        ...
 
     def __getitem__(
         self, key: channel.Key | str | npt.NDArray[np.bool_]
@@ -215,7 +209,7 @@ class Frame:
         """Converts the frame to a pandas DataFrame. Each column in the DataFrame
         corresponds to a channel in the frame.
         """
-        base: dict[channel.Key | str, object] = dict()
+        base: dict[channel.Key | str, object] = {}
         channels = cast(list[channel.Key | str], self.channels)
         for k in set(channels):
             v = self.get(k)

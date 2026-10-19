@@ -276,7 +276,7 @@ class TestStatusClient:
 
         assert created.key is not None
 
-        parent_id_str = f"group:{str(parent_group.key)}"
+        parent_id_str = f"group:{parent_group.key!s}"
         children = client.ontology.retrieve_children(parent_id_str)
         assert any(r.key == created.key for r in children)
 

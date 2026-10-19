@@ -18,7 +18,7 @@ import threading
 import time
 import traceback
 from collections.abc import Callable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum, auto
 from typing import Any
 
@@ -268,24 +268,23 @@ class TestConductor:
     def _write_summary(self) -> None:
         ended_at = time.time()
         stats = self.report_client.get_statistics() if self.tests else {}
-        tests_json: list[dict[str, Any]] = []
-        for t in self.tests:
-            tests_json.append(
-                {
-                    "case": t.test_name,
-                    "name": t.name,
-                    "status": t.status.name,
-                    "started_at": _iso(t.started_at),
-                    "ended_at": _iso(t.ended_at),
-                    "duration_s": _duration(t.started_at, t.ended_at),
-                    "error_message": t.error_message,
-                    "bundle_dir": (
-                        os.path.relpath(t.bundle_dir, str(self.run_dir))
-                        if t.bundle_dir
-                        else None
-                    ),
-                }
-            )
+        tests_json: list[dict[str, Any]] = [
+            {
+                "case": t.test_name,
+                "name": t.name,
+                "status": t.status.name,
+                "started_at": _iso(t.started_at),
+                "ended_at": _iso(t.ended_at),
+                "duration_s": _duration(t.started_at, t.ended_at),
+                "error_message": t.error_message,
+                "bundle_dir": (
+                    os.path.relpath(t.bundle_dir, str(self.run_dir))
+                    if t.bundle_dir
+                    else None
+                ),
+            }
+            for t in self.tests
+        ]
         summary = {
             "run": {
                 "name": self.name,
@@ -318,7 +317,7 @@ class TestConductor:
 def _iso(ts: float | None) -> str | None:
     if ts is None:
         return None
-    return datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.fromtimestamp(ts, tz=UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _duration(start: float | None, end: float | None) -> float | None:

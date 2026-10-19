@@ -695,7 +695,9 @@ class TestHTTPDevice:
         self, value: int
     ) -> None:
         """Test that Device rejects a max_concurrent_requests below 1."""
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError, match="max_concurrent_requests must be at least 1"
+        ):
             sy.http.Device(host="127.0.0.1:8080", max_concurrent_requests=value)
 
     def test_device_basic_auth(self) -> None:
