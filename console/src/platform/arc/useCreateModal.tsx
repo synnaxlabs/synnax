@@ -112,6 +112,50 @@ export const useCreateModal = Modals.createPrompt<CreateModalResult, CreateModal
                 </Select.Buttons>
               )}
             </Form.Field>
+            <Form.Field<arc.Type> path="type" label="Type" full="x">
+              {({ value, onChange }) => (
+                <Select.Buttons
+                  value={value}
+                  onChange={onChange}
+                  variant="outlined"
+                  pack={false}
+                  gap="tiny"
+                  x
+                  full="x"
+                >
+                  <Select.Item
+                    itemKey="automation"
+                    className={MODE_CLASS}
+                    y
+                    grow
+                    alignSelf="stretch"
+                    justify="start"
+                  >
+                    <Text.Text>
+                      <Icon.Arc /> Automation
+                    </Text.Text>
+                    <Text.Text color={9} level="small" wrap overflow="wrap">
+                      Deploys to a driver to monitor and control hardware
+                    </Text.Text>
+                  </Select.Item>
+                  <Select.Item
+                    itemKey="module"
+                    className={MODE_CLASS}
+                    y
+                    grow
+                    alignSelf="stretch"
+                    justify="start"
+                  >
+                    <Text.Text>
+                      <Icon.Module /> Module
+                    </Text.Text>
+                    <Text.Text color={9} level="small" wrap overflow="wrap">
+                      Reusable logic for other Arcs to import
+                    </Text.Text>
+                  </Select.Item>
+                </Select.Buttons>
+              )}
+            </Form.Field>
           </Form.Form>
         </Modal.Body>
         <Modal.Footer>

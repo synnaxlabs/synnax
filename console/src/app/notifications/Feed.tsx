@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Arc } from "@/feature/arc";
 import { Core } from "@/feature/core";
 import { Device } from "@/feature/device";
 import { Rack } from "@/feature/rack";
@@ -16,6 +17,7 @@ import { Version } from "@/platform/version";
 
 const NOTIFICATIONS: Notifications.Notification[] = [
   ...(DESKTOP ? [] : Core.NOTIFICATIONS),
+  ...Arc.NOTIFICATIONS,
   ...Device.NOTIFICATIONS,
   ...Rack.NOTIFICATIONS,
   ...Task.NOTIFICATIONS,

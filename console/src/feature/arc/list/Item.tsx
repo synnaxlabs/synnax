@@ -9,6 +9,7 @@
 
 import { arc } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -21,6 +22,16 @@ export interface ItemProps extends List.ItemProps<arc.Key> {
   textIdPrefix?: string;
 }
 
+const MODE_ICONS: Record<arc.Mode, Icon.ReactElement> = {
+  text: <Icon.Text />,
+  graph: <Icon.Schematic />,
+};
+
+const TYPE_ICONS: Record<arc.Type, Icon.ReactElement> = {
+  automation: <Icon.Arc />,
+  module: <Icon.Module />,
+};
+
 export const Item = ({ onRename, textIdPrefix = "text", ...props }: ItemProps) => {
   const { itemKey } = props;
   const item = List.useItem<arc.Key, arc.Arc>(itemKey);
@@ -28,7 +39,7 @@ export const Item = ({ onRename, textIdPrefix = "text", ...props }: ItemProps) =
   const canRename = Access.useUpdateGranted(arc.ontologyID(itemKey));
 
   if (item == null) return null;
-  const { name } = item;
+  const { name, mode, type } = item;
 
   return (
     <List.Item
@@ -54,6 +65,10 @@ export const Item = ({ onRename, textIdPrefix = "text", ...props }: ItemProps) =
           onChange={canRename ? onRename : undefined}
           allowDoubleClick={false}
         />
+      </Flex.Box>
+      <Flex.Box x align="center">
+        {TYPE_ICONS[type]}
+        {MODE_ICONS[mode]}
       </Flex.Box>
     </List.Item>
   );

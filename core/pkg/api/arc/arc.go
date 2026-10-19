@@ -257,6 +257,29 @@ func (s *Service) Retrieve(
 		}
 	}
 
+	// An automation has no status of its own, so a key with none is not an error.
+	if req.IncludeStatus {
+		keys := make([]string, len(res.Arcs))
+		for i, a := range res.Arcs {
+			keys[i] = a.OntologyID().String()
+		}
+		var statuses []arc.Status
+		err := s.status.NewRetrieve[arc.StatusDetails]().
+			Where(status.MatchKeys[arc.StatusDetails](keys...)).
+			Entries(&statuses).
+			Exec(ctx, nil)
+		if err = errors.Skip(err, query.ErrNotFound); err != nil {
+			return RetrieveResponse{}, err
+		}
+		byKey := make(map[string]*arc.Status, len(statuses))
+		for i := range statuses {
+			byKey[statuses[i].Key] = &statuses[i]
+		}
+		for i, key := range keys {
+			res.Arcs[i].Status = byKey[key]
+		}
+	}
+
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,

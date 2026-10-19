@@ -30,6 +30,8 @@ export const TaskControls = () => {
     Arc.useTaskControls(key, name, { afterSuccess: captureDeploy });
   const drifted = Arc.useDrifted({ arcKey: key });
   const canControl = Framer.useCanCommand();
+  const module = Arc.useType() === "module";
+  const arcStatus = Arc.useStatus();
   const { update: updateTask } = Arc.useUpdateTask();
   const bound = primitive.isNonZero(taskRack);
 
@@ -45,10 +47,10 @@ export const TaskControls = () => {
   return (
     <Task.Controls.Bar
       className={CSS.BE("arc-editor", "controls")}
-      status={taskStatus}
+      status={module ? (arcStatus ?? Arc.notCompiledYet(name)) : taskStatus}
       running={running}
       drifted={drifted}
-      hideActions={!canControl}
+      hideActions={!canControl || module}
       disabled={!bound}
       onDeploy={onStart}
       onStop={onStop}

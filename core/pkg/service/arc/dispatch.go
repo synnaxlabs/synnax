@@ -12,10 +12,12 @@ package arc
 import (
 	"context"
 
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
 
@@ -78,10 +80,11 @@ func (s *Service) Dispatch(
 	})
 }
 
-// resyncTask rewrites the Arc's task config from its current content. It runs on the
-// task-sync debouncer, so it has no caller to return errors to and logs them instead. A
-// cancelled context (the service closed) and a deleted Arc are not errors.
-func (s *Service) resyncTask(ctx context.Context, key Key) {
+// resync rewrites the Arc's task config from its current content, or compiles a
+// module, which has no task. It runs on the task-sync debouncer, so it has no caller
+// to return errors to and logs them instead. A cancelled context (the service closed)
+// and a deleted Arc are not errors.
+func (s *Service) resync(ctx context.Context, key Key) {
 	err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		var a Arc
 		if err := s.table.NewRetrieve().
@@ -90,6 +93,9 @@ func (s *Service) resyncTask(ctx context.Context, key Key) {
 			Exec(ctx, tx); err != nil {
 			return err
 		}
+		if a.Type == TypeModule {
+			return s.setCompileStatus(ctx, tx, a)
+		}
 		return s.NewWriter(tx).syncTask(ctx, a)
 	})
 	if err == nil || errors.Is(err, context.Canceled) ||
@@ -97,4 +103,21 @@ func (s *Service) resyncTask(ctx context.Context, key Key) {
 		return
 	}
 	s.cfg.L.Error("failed to sync arc task", zap.Error(err), zap.Stringer("key", key))
+}
+
+// setCompileStatus compiles the module and records the result as its status: an
+// error carrying the diagnostics, or success.
+func (s *Service) setCompileStatus(ctx context.Context, tx gorp.Tx, a Arc) error {
+	stat := Status{
+		Key:     a.OntologyID().String(),
+		Name:    a.Name,
+		Variant: status.VariantSuccess,
+		Message: "Compiled",
+		Time:    telem.Now(),
+	}
+	if _, err := s.compile(ctx, a); err != nil {
+		stat.Variant = status.VariantError
+		stat.Message = err.Error()
+	}
+	return s.cfg.Status.NewWriter(tx).Set(ctx, &stat)
 }

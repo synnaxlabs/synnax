@@ -35,11 +35,13 @@ interface EmptyContentProps {
   onCreate: () => void;
 }
 
+const isAutomation = (a: arc.Arc): boolean => a.type === "automation";
+
 const EmptyContent = ({ onCreate }: EmptyContentProps) => {
   const hasCreatePermission = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
   return (
     <Empty.Action
-      message="No Arcs"
+      message="No Arc automations"
       action={hasCreatePermission ? "Create Arc automation" : undefined}
       onClick={onCreate}
     />
@@ -51,7 +53,9 @@ const Content = () => {
   const menuProps = Menu.useContextMenu();
   const openTab = Panel.useOpenTab();
 
-  const { data, getItem, subscribe, retrieve, answered } = Arc.useList({});
+  const { data, getItem, subscribe, retrieve, answered } = Arc.useList({
+    filter: isAutomation,
+  });
   const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
 
   const { update: handleRename } = Arc.useRename();
@@ -74,7 +78,7 @@ const Content = () => {
         <Toolbar.Header>
           <Toolbar.Title>
             <Icon.Arc />
-            Arcs
+            Arc automations
           </Toolbar.Title>
           <Actions handleCreate={create} />
         </Toolbar.Header>
@@ -144,7 +148,7 @@ export const TOOLBAR: Nav.Toolbar = {
   icon: <Icon.Arc />,
   content: <Content />,
   trigger: ["A"],
-  tooltip: "Arcs",
+  tooltip: "Arc automations",
   sizeBounds: { lower: 225, upper: 400 },
   initialSize: 300,
   useVisible: () => Access.useRetrieveGranted(arc.TYPE_ONTOLOGY_ID),

@@ -96,6 +96,9 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 	} else if err = w.syncTask(ctx, *a); err != nil {
 		return err
 	}
+	if a.Type == TypeModule {
+		w.taskSync.Trigger(a.Key)
+	}
 	// Notify last: a create rejected by ontology validation must not be broadcast.
 	w.dispatcher.Notify(
 		ctx, a.Key, "", []Action{NewCreateAction(CreatePayload{Arc: *a})},
@@ -129,6 +132,10 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	}
 	for _, key := range keys {
 		if err := w.otgWriter.DeleteResources(ctx, OntologyID(key)); err != nil {
+			return err
+		}
+		if err := w.status.NewWriter(w.tx).
+			Delete(ctx, OntologyID(key).String()); err != nil {
 			return err
 		}
 		w.sweeper.forget(key)

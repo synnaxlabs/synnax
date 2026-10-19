@@ -32,7 +32,15 @@ import {
   scopedActionZ,
 } from "@/arc/actions.gen";
 import { type Performance, performanceZ } from "@/arc/task/types.gen";
-import { type Arc, arcZ, type Key, keyZ, type New, ontologyID } from "@/arc/types.gen";
+import {
+  type Arc,
+  arcZ,
+  type Key,
+  keyZ,
+  type New,
+  ontologyID,
+  statusZ,
+} from "@/arc/types.gen";
 import { NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
@@ -43,6 +51,17 @@ import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_arc_set";
 export const DELETE_CHANNEL_NAME = "sy_arc_delete";
+
+/** @returns the key of the status that reports on the Arc with the given key. */
+export const statusKey = (key: Key): string => ontology.idToString(ontologyID(key));
+
+/** @returns the key of the Arc a status change affects, or null when none. */
+const affectedKeys = (
+  event: query.TableEvent<status.Key, status.Status>,
+): Key[] | null => {
+  const [type, key] = event.key.split(":");
+  return type === "arc" && primitive.isNonZero(key) ? [key] : null;
+};
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
@@ -179,9 +198,16 @@ export class Client extends query.Retriever<
       createOf,
     });
     cache.listen(dispatcher.listener(SET_CHANNEL_NAME, scopedActionZ));
+    const composed = cache.derive<Key, Arc, Arc>({
+      name: "arc.composed",
+      source: store,
+      compose: (record) => this.compose(record),
+      equal: deep.equal,
+      watch: [query.deriveWatch(cfg.statusStore, (event) => affectedKeys(event))],
+    });
     const single = cache.queries<SingleRetrieveParams, Arc, Key, Arc>({
       name: "Arc",
-      table: store,
+      table: composed,
       fetch: async (q) => [(await this.fetchSingle(q)).key],
       compose: (records) => records[0],
       keyOf: (q) => ("key" in q ? q.key : null),
@@ -196,7 +222,9 @@ export class Client extends query.Retriever<
         fetch: async (req) =>
           (await this.execRetrieve(req)).map((a) => this.hydrate(a)),
         matches: (a, req) => requestFilter(req)(a),
+        watch: [query.watch(cfg.statusStore, (event) => affectedKeys(event))],
       },
+      compose: (record) => this.compose(record),
       single: { schema: singleQueryZ, space: single },
     });
     this.cfg = cfg;
@@ -417,14 +445,19 @@ export class Client extends query.Retriever<
     );
   }
 
+  // A status that streams in during the fetch is newer than the fetched one.
   private async execRetrieve(params: RetrieveParams): Promise<Arc[]> {
+    const since = this.cfg.statusStore.stamp();
     const res = await this.cfg.unary.send(
       "/arc/retrieve",
-      params,
+      { ...params, includeStatus: true },
       retrieveParamsZ,
       retrieveResZ,
     );
-    return res.arcs;
+    return res.arcs.map(({ status: stat, ...a }) => {
+      if (stat != null) this.cfg.statusStore.ingest(stat, { since });
+      return a;
+    });
   }
 
   // Dispatch mutates documents server-side (including materialized text), so a cached
@@ -449,6 +482,16 @@ export class Client extends query.Retriever<
     if (prev != null && deep.equal(prev, a)) return prev;
     this.store.ingest(a, { mode: "set" });
     return a;
+  }
+
+  // The status is parsed because the status table holds every domain's statuses
+  // generically.
+  private compose(cached: Arc): Arc {
+    const cachedStatus = this.cfg.statusStore.get(statusKey(cached.key));
+    if (cachedStatus == null) return cached;
+    const parsed = statusZ.safeParse(cachedStatus);
+    if (!parsed.success) return cached;
+    return { ...cached, status: parsed.data };
   }
 
   // The status is parsed because the status table holds every domain's statuses

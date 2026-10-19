@@ -117,6 +117,10 @@ export const useHasText = Scope.bindHook(
 
 export const useName = Scope.bindHook(createSelector(({ name }) => name));
 
+export const useType = Scope.bindHook(createSelector(({ type }) => type));
+
+export const useStatus = Scope.bindHook(createSelector(({ status }) => status));
+
 export interface AddNodeProps {
   key: string;
   type: string;
@@ -282,6 +286,10 @@ export interface UseTaskControlsReturn {
   onStartStop: () => void;
   taskStatus: status.Status;
 }
+
+/** The status of a module the Core has not compiled yet. */
+export const notCompiledYet = (name: string): status.Status =>
+  status.create({ name, variant: "disabled", message: "Not compiled yet" });
 
 const notDeployedYet = (name: string) =>
   status.create({ name, variant: "disabled", message: "Not deployed yet" });

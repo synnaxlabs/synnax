@@ -209,19 +209,21 @@ func (s *Service) CompileProgram(ctx context.Context, key Key) (Arc, error) {
 	if err != nil {
 		return Arc{}, err
 	}
-	var prog arc.Program
-	if entry.Mode == ModeText {
-		prog, err = arc.CompileText(ctx, entry.Text.Materialize(), s.NewRoot(nil),
-			arc.WithAllowDashedNames(s.AllowDashedNames()))
-	} else {
-		prog, err = arc.CompileGraph(ctx, entry.Graph, s.NewRoot(nil),
-			arc.WithAllowDashedNames(s.AllowDashedNames()))
-	}
+	prog, err := s.compile(ctx, entry)
 	if err != nil {
 		return Arc{}, err
 	}
 	entry.Program = &prog
 	return entry, nil
+}
+
+// compile compiles the Arc's content in its mode against the service's symbol root.
+func (s *Service) compile(ctx context.Context, a Arc) (arc.Program, error) {
+	opt := arc.WithAllowDashedNames(s.AllowDashedNames())
+	if a.Mode == ModeText {
+		return arc.CompileText(ctx, a.Text.Materialize(), s.NewRoot(nil), opt)
+	}
+	return arc.CompileGraph(ctx, a.Graph, s.NewRoot(nil), opt)
 }
 
 // OpenService instantiates a new Arc service using the provided configurations. Each
@@ -261,7 +263,7 @@ func OpenService(
 	if s.taskSync, err = debounce.NewKeyed(debounce.KeyedConfig[Key]{
 		Delay:    cfg.TaskSyncDebounce.Duration(),
 		MaxDelay: cfg.TaskSyncDebounce.Duration() * 4,
-		Callback: s.resyncTask,
+		Callback: s.resync,
 	}); !ok(err, s.taskSync) {
 		return nil, err
 	}
