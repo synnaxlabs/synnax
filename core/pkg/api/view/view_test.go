@@ -23,7 +23,7 @@ import (
 
 func createView(ctx SpecContext) view.View {
 	GinkgoHelper()
-	v := view.View{Variant: view.RangeView{Base: view.Base{Name: "Before"}}}
+	v := view.View{Variant: view.RangeView{Name: "Before"}}
 	Expect(svc.View.NewWriter(nil).Create(ctx, &v)).To(Succeed())
 	return v
 }
