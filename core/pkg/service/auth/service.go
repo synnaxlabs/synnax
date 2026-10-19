@@ -49,7 +49,7 @@ type ServiceConfig struct {
 	Authenticators map[Method]Authenticator
 	// IdleTimeout ends a session that no request has used for this long.
 	//
-	// [OPTIONAL] - Defaults to 7 days.
+	// [OPTIONAL] - Defaults to [DefaultIdleTimeout].
 	IdleTimeout time.Duration
 	// Clock tells the time, for the idle timeout.
 	//
@@ -66,15 +66,10 @@ type ServiceConfig struct {
 	alamos.Instrumentation
 }
 
-var (
-	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultServiceConfig is the default configuration for opening a [Service].
-	DefaultServiceConfig = ServiceConfig{
-		IdleTimeout:       7 * 24 * time.Hour,
-		Clock:             xtime.Real,
-		HoldCheckInterval: 30 * time.Second,
-	}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
+
+// DefaultIdleTimeout is the default [ServiceConfig.IdleTimeout].
+const DefaultIdleTimeout = 7 * 24 * time.Hour
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
@@ -122,7 +117,14 @@ type hold struct {
 // OpenService opens a [Service] with the given configurations. It sweeps idle sessions
 // in the background until Close.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	cfg, err := config.New(
+		ServiceConfig{
+			IdleTimeout:       DefaultIdleTimeout,
+			Clock:             xtime.Real,
+			HoldCheckInterval: 30 * time.Second,
+		},
+		cfgs...,
+	)
 	if err != nil {
 		return nil, err
 	}
