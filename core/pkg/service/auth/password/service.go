@@ -44,11 +44,7 @@ type ServiceConfig struct {
 	alamos.Instrumentation
 }
 
-var (
-	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultServiceConfig is the default configuration for opening a [Service].
-	DefaultServiceConfig = ServiceConfig{FIPS: new(false)}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
@@ -79,7 +75,7 @@ var _ auth.Authenticator = (*Service)(nil)
 
 // OpenService opens a [Service] with the given configurations.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	cfg, err := config.New(ServiceConfig{FIPS: new(false)}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
