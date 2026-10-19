@@ -25,7 +25,7 @@ from synnax.io.protocol import (
 class TDMSReader(ExtensionMatcher):
     """A ColReader implementation for TDMS files."""
 
-    _extensions = ["tdms"]
+    _extensions = ("tdms",)
 
     channel_keys: set[str]
     chunk_size: int

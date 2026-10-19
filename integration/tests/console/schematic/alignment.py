@@ -94,7 +94,9 @@ def assert_distribution(
     positions = [symbol.position for symbol in symbols]
 
     if distribution == "horizontal":
-        sorted_data = sorted(zip(symbols, positions), key=lambda x: box_left(x[1]))
+        sorted_data = sorted(
+            zip(symbols, positions, strict=True), key=lambda x: box_left(x[1])
+        )
         sorted_symbols = [item[0] for item in sorted_data]
         sorted_positions = [item[1] for item in sorted_data]
 
@@ -116,7 +118,9 @@ def assert_distribution(
             )
         return
 
-    sorted_data = sorted(zip(symbols, positions), key=lambda x: box_top(x[1]))
+    sorted_data = sorted(
+        zip(symbols, positions, strict=True), key=lambda x: box_top(x[1])
+    )
     sorted_symbols = [item[0] for item in sorted_data]
     sorted_positions = [item[1] for item in sorted_data]
 

@@ -108,7 +108,7 @@ class TimeStamp(int):
     @classmethod
     def now(cls) -> TimeStamp:
         """:returns: the current time as a TimeStamp."""
-        return TimeStamp(datetime.now())
+        return TimeStamp(datetime.now(UTC))
 
     @classmethod
     def since(cls, ts: CrudeTimeStamp) -> TimeSpan:

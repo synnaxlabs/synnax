@@ -414,7 +414,7 @@ class TestChannel:
         )
         new_names = [channel_name(), channel_name()]
         client.channels.rename([channel.key for channel in channels], new_names)
-        for i, name in enumerate(new_names):
+        for name in new_names:
             retrieved = client.channels.retrieve(name)
             assert retrieved.name == name
 

@@ -36,13 +36,13 @@ GROUP_ALL = "__all__"
 @click.command()
 @click.argument("path_", type=click.Path(exists=True), required=False, default=None)
 def ingest(path_: str | None) -> None:
-    return pure_ingest(path_)
+    return pure_ingest(path_, ctx=default.context())
 
 
 def pure_ingest(
     path_: Path | str | None,
+    ctx: Context,
     client: Synnax | None = None,
-    ctx: Context = default.context(),
 ) -> None:
     flow: Flow[Any] = Flow(ctx)
     flow.add("initialize_reader", initialize_reader)
@@ -137,7 +137,7 @@ def channels_to_ingest(ctx: Context, cli: IngestionCLI) -> str | None:
     grouped = prompt_group_channel_names(ctx, [ch.name for ch in channels])
     if grouped is None or len(grouped) == 0:
         return None
-    all_names = [v for l in grouped.values() for v in l]
+    all_names = [name for names in grouped.values() for name in names]
     cli.filtered_channels = [ch for ch in channels if ch.name in all_names]
     return "skip_invalid_channels"
 
