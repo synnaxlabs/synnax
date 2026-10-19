@@ -1645,18 +1645,6 @@ wheels = [
 ]
 
 [[package]]
-name = "nptdms"
-version = "1.11.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "numpy" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/54/9a/ed578455d628a61f9a0bbd96273e470dd98bd64f276055f35ae487c5d0d5/nptdms-1.11.0.tar.gz", hash = "sha256:2c783b10fb52774ad5d94d05db84f4e529ebf2581363a2b551a92b7acd01e986", size = 182408, upload-time = "2026-06-24T15:25:49.193Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/ce/d9/15d8ffe3c727d1ab6c6e60e48a9e06116003c09b55a76642904f60dd1bc5/nptdms-1.11.0-py3-none-any.whl", hash = "sha256:813aa026991ad675715ee9bb205d89bc942243219f63c66afc4cbd793b8f5bb6", size = 169938, upload-time = "2026-06-24T15:25:47.67Z" },
-]
-
-[[package]]
 name = "numpy"
 version = "2.5.3"
 source = { registry = "https://pypi.org/simple" }
@@ -2542,7 +2530,6 @@ dependencies = [
     { name = "click" },
     { name = "keyring" },
     { name = "matplotlib" },
-    { name = "nptdms" },
     { name = "numpy" },
     { name = "pandas" },
     { name = "pydantic" },
@@ -2575,7 +2562,6 @@ requires-dist = [
     { name = "click", specifier = ">=8.5.0,<9" },
     { name = "keyring", specifier = ">=25.7.0,<26" },
     { name = "matplotlib", specifier = ">=3.11.2,<4" },
-    { name = "nptdms", specifier = ">=1.11.0,<2" },
     { name = "numpy", specifier = ">=2.5.3,<3" },
     { name = "pandas", specifier = ">=3.0.6,<4" },
     { name = "pydantic", specifier = ">=2.13.5,<3" },
