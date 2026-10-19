@@ -472,13 +472,18 @@ func (s *Service) touch(
 	}
 	keys := slices.Collect(maps.Keys(marks))
 	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.table.NewUpdate().
+		var sessions []Session
+		// a session that ended since the caller read it has no activity to mark
+		if err := s.table.NewRetrieve().
 			Where(gorp.MatchKeys[SessionKey, Session](keys...)).
-			Change(func(_ gorp.Context, e Session) Session {
-				e.LastActive = marks[e.Key]
-				return e
-			}).
-			Exec(ctx, tx)
+			Entries(&sessions).
+			Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+			return err
+		}
+		for i := range sessions {
+			sessions[i].LastActive = marks[sessions[i].Key]
+		}
+		return s.table.NewCreate().Entries(&sessions).Exec(ctx, tx)
 	})
 }
 
