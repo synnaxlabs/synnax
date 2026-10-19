@@ -48,3 +48,5 @@ ignore = ["UP040", "UP046", "UP047", "SIM105", "SIM115", "SIM117", "PT012", "RUF
 
 [tool.mypy]
 strict = true
+# Its own workspace member, checked by the runners CI job.
+exclude = ["^runners/"]
