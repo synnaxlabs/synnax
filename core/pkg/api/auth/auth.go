@@ -130,7 +130,7 @@ func (s *Service) ChangePassword(
 		ctx,
 		auth.MethodPassword,
 		identity.Credential,
-		GetSession(ctx),
+		GetSession(ctx).Key,
 	)
 }
 
