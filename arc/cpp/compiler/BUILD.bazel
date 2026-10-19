@@ -12,7 +12,6 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "compiler",
     hdrs = [
-        "compiler.h",
         "json.gen.h",
         "types.gen.h",
     ],
