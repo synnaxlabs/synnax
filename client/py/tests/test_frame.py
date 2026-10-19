@@ -7,6 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from types import MappingProxyType
+from typing import cast
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -14,21 +17,31 @@ import pytest
 import synnax as sy
 from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
 from synnax.framer.frame import FramePayload
+from synnax.telem import CrudeSeries
 from x.strings import random_name
 
 
 @pytest.mark.framer
 @pytest.mark.telem
 class TestFrame:
-    def test_construction_from_cols_and_series(self):
+    def test_construction_from_cols_and_series(self) -> None:
         f = sy.Frame(["big", "red", "dog"], [np.array([1, 2, 3]), np.array([4, 5, 6])])
         assert f["big"][0] == 1
 
-    def test_construction_from_dict(self):
+    def test_construction_from_dict(self) -> None:
         f = sy.Frame({1: sy.Series([1, 2, 3, 4]), 3: sy.Series([4, 5, 6, 7])})
         assert f[1][0] == 1
 
-    def test_construction_from_data_frame(self):
+    def test_construction_from_mapping(self) -> None:
+        """Should keep each channel's series when built from a non-dict mapping."""
+        f = sy.Frame(
+            MappingProxyType({1: sy.Series([1, 2, 3, 4]), 3: sy.Series([4, 5, 6, 7])})
+        )
+        assert f.channels == [1, 3]
+        assert list(f[1]) == [1, 2, 3, 4]
+        assert list(f[3]) == [4, 5, 6, 7]
+
+    def test_construction_from_data_frame(self) -> None:
         f = sy.Frame(
             pd.DataFrame(
                 {"big": sy.Series([1, 2, 3, 4]), "dog": sy.Series([4, 5, 6, 7])}
@@ -36,36 +49,37 @@ class TestFrame:
         )
         assert f["dog"][0] == 4
 
-    def test_construction_from_keys_and_series(self):
+    def test_construction_from_keys_and_series(self) -> None:
         f = sy.Frame({1: sy.Series([1, 2, 3, 4]), 2: sy.Series([4, 5, 6, 7])})
         assert f[1][0] == 1
 
-    def test_construction_from_frame(self):
+    def test_construction_from_frame(self) -> None:
         f = sy.Frame({"big": sy.Series([1, 2, 3, 4])})
         f2 = sy.Frame(f)
         assert f is not f2
         assert f.series[0] is f2.series[0]
 
-    def test_construction_from_payload(self):
+    def test_construction_from_payload(self) -> None:
         pld = FramePayload([1, 2], [sy.Series([1, 2, 3]), sy.Series([4, 5, 6])])
         f = sy.Frame(pld)
         assert f[1][1] == 2
 
-    def test_pandas_interop(self):
+    def test_pandas_interop(self) -> None:
         f = sy.Frame({"big": sy.Series([1, 2, 3, 4])})
-        assert len(f[f["big"] > 1]["big"]) == 3
+        mask = f["big"] > 1
+        assert len(f[mask]["big"]) == 3
 
-    def test_contains_name(self):
+    def test_contains_name(self) -> None:
         """Should return True if the name is in the Frame"""
         f = sy.Frame({"big": sy.Series([1, 2, 3, 4])})
         assert "big" in f
 
-    def test_contains_key(self):
+    def test_contains_key(self) -> None:
         """Should return True if the key is in the Frame"""
         f = sy.Frame({122: sy.Series([1, 2, 3, 4])})
         assert 122 in f
 
-    def test_not_contains_name(self):
+    def test_not_contains_name(self) -> None:
         """Should return False if the name is not in the Frame"""
         f = sy.Frame({"big": sy.Series([1, 2, 3, 4])})
         assert "small" not in f
@@ -88,10 +102,10 @@ class TestWriteFrameAdapter:
 
     def test_adaptation_of_keys_frame(
         self, adapter: tuple[WriteFrameAdapter, sy.Channel]
-    ):
+    ) -> None:
         """It should correctly adapt of a Frame keyed by channel key."""
-        adapter, ch = adapter
-        o = adapter.adapt(
+        write_adapter, ch = adapter
+        o = write_adapter.adapt(
             sy.Frame([ch.key], [sy.Series([1, 2, 3], data_type=sy.DataType.FLOAT64)])
         )
         assert o.channels[0] == ch.key
@@ -99,10 +113,10 @@ class TestWriteFrameAdapter:
 
     def test_adaptation_of_names_frame(
         self, adapter: tuple[WriteFrameAdapter, sy.Channel]
-    ):
+    ) -> None:
         """It should correctly adapt of a Frame keyed by channel name."""
-        adapter, ch = adapter
-        o = adapter.adapt(
+        write_adapter, ch = adapter
+        o = write_adapter.adapt(
             sy.Frame([ch.name], [sy.Series([1, 2, 3], data_type=sy.DataType.FLOAT64)])
         )
         assert len(o.channels) == 1
@@ -112,11 +126,13 @@ class TestWriteFrameAdapter:
 
     def test_adaptation_of_name_series(
         self, adapter: tuple[WriteFrameAdapter, sy.Channel]
-    ):
+    ) -> None:
         """It should correctly adapt a first argument of a channel name and a second
         argument of a series."""
-        adapter, ch = adapter
-        o = adapter.adapt(ch.name, sy.Series([1, 2, 3], data_type=sy.DataType.FLOAT64))
+        write_adapter, ch = adapter
+        o = write_adapter.adapt(
+            ch.name, sy.Series([1, 2, 3], data_type=sy.DataType.FLOAT64)
+        )
         assert len(o.channels) == 1
         assert len(o.series) == 1
         assert o.channels[0] == ch.key
@@ -124,11 +140,11 @@ class TestWriteFrameAdapter:
 
     def test_adaptation_of_name_float(
         self, adapter: tuple[WriteFrameAdapter, sy.Channel]
-    ):
+    ) -> None:
         """It should correctly adapt a first argument of a channel name and a second
         argument of a float."""
-        adapter, ch = adapter
-        o = adapter.adapt(ch.name, 1.0)
+        write_adapter, ch = adapter
+        o = write_adapter.adapt(ch.name, 1.0)
         assert len(o.channels) == 1
         assert len(o.series) == 1
         assert o.channels[0] == ch.key
@@ -136,11 +152,11 @@ class TestWriteFrameAdapter:
 
     def test_adaptation_of_name_int(
         self, adapter: tuple[WriteFrameAdapter, sy.Channel]
-    ):
+    ) -> None:
         """It should correctly adapt a first argument of a channel name and a second
         argument of an int."""
-        adapter, ch = adapter
-        o = adapter.adapt(ch.name, 1)
+        write_adapter, ch = adapter
+        o = write_adapter.adapt(ch.name, 1)
         assert len(o.channels) == 1
         assert len(o.series) == 1
         assert o.channels[0] == ch.key
@@ -148,13 +164,14 @@ class TestWriteFrameAdapter:
 
     def test_adaptation_of_names_series(
         self, adapter: tuple[WriteFrameAdapter, sy.Channel]
-    ):
+    ) -> None:
         """It should correctly adapt a first argument of a channel name and a second
         argument of a series."""
-        adapter, ch = adapter
-        o = adapter.adapt(
-            [ch.name], [sy.Series([1, 2, 3], data_type=sy.DataType.FLOAT64)]
-        )
+        write_adapter, ch = adapter
+        series: list[CrudeSeries] = [
+            sy.Series([1, 2, 3], data_type=sy.DataType.FLOAT64)
+        ]
+        o = write_adapter.adapt([ch.name], series)
         assert len(o.channels) == 1
         assert len(o.series) == 1
         assert o.channels[0] == ch.key
@@ -162,21 +179,30 @@ class TestWriteFrameAdapter:
 
     def test_adaptation_of_dict_series(
         self, adapter: tuple[WriteFrameAdapter, sy.Channel]
-    ):
+    ) -> None:
         """It should correctly adapt a dict of channel names to series."""
-        adapter, ch = adapter
-        o = adapter.adapt({ch.name: sy.Series([1, 2, 3])})
+        write_adapter, ch = adapter
+        o = write_adapter.adapt({ch.name: sy.Series([1, 2, 3])})
         assert len(o.channels) == 1
         assert len(o.series) == 1
         assert o.channels[0] == ch.key
         assert o.series[0].data_type == sy.DataType.FLOAT64
 
+    def test_adaptation_of_non_dict_mapping(
+        self, adapter: tuple[WriteFrameAdapter, sy.Channel]
+    ) -> None:
+        """It should adapt a non-dict mapping of channel names to series."""
+        write_adapter, ch = adapter
+        o = write_adapter.adapt(MappingProxyType({ch.name: [1.0, 2.0]}))
+        assert o.channels == [ch.key]
+        assert list(o.series[0]) == [1.0, 2.0]
+
     def test_adaptation_of_dict_float(
         self, adapter: tuple[WriteFrameAdapter, sy.Channel]
-    ):
+    ) -> None:
         """It should correctly adapt a dict of channel names to floats."""
-        adapter, ch = adapter
-        o = adapter.adapt(
+        write_adapter, ch = adapter
+        o = write_adapter.adapt(
             {
                 ch.name: 1.0,
             }
@@ -186,7 +212,7 @@ class TestWriteFrameAdapter:
         assert o.channels[0] == ch.key
         assert o.series[0].data_type == sy.DataType.FLOAT64
 
-    def test_adaptation_of_dict_timestamp(self, client: sy.Synnax):
+    def test_adaptation_of_dict_timestamp(self, client: sy.Synnax) -> None:
         """It should correctly adapt a dict of channel names to timestamps."""
         ch = client.channels.create(
             sy.Channel(
@@ -205,10 +231,10 @@ class TestWriteFrameAdapter:
 
     def test_adaptation_of_channel_dict(
         self, adapter: tuple[WriteFrameAdapter, sy.Channel]
-    ):
+    ) -> None:
         """It should correctly adapt a dict of channels to series."""
-        adapter, ch = adapter
-        o = adapter.adapt(
+        write_adapter, ch = adapter
+        o = write_adapter.adapt(
             {
                 ch: 1.0,
             }
@@ -220,20 +246,20 @@ class TestWriteFrameAdapter:
 
     def test_adaptation_of_channel_payload(
         self, adapter: tuple[WriteFrameAdapter, sy.Channel]
-    ):
+    ) -> None:
         """It should correctly adapt a FramePayload keyed by channel key."""
-        adapter, ch = adapter
-        o = adapter.adapt(ch, sy.TimeStamp.now())
+        write_adapter, ch = adapter
+        o = write_adapter.adapt(ch, sy.TimeStamp.now())
         assert o.channels[0] == ch.key
         assert o.series[0].data_type == sy.DataType.FLOAT64
 
     def test_adaptation_of_multiple_payloads(
         self,
         adapter: tuple[WriteFrameAdapter, sy.Channel],
-    ):
+    ) -> None:
         """Should correctly adapt multiple channels and a single list of values"""
-        adapter, ch = adapter
-        o = adapter.adapt([ch], [1.0])
+        write_adapter, ch = adapter
+        o = write_adapter.adapt([ch], [1.0])
         assert o.channels[0] == ch.key
         assert o.series[0].data_type == sy.DataType.FLOAT64
         assert o.series[0][0] == 1.0
@@ -241,65 +267,78 @@ class TestWriteFrameAdapter:
     def test_adaptation_of_list(
         self,
         adapter: tuple[WriteFrameAdapter, sy.Channel],
-    ):
+    ) -> None:
         """Should correctly adapt a channel and a list of values"""
-        adapter, ch = adapter
-        o = adapter.adapt(ch, [1.0, 2.0, 3.0])
+        write_adapter, ch = adapter
+        o = write_adapter.adapt(ch, [1.0, 2.0, 3.0])
         assert o.channels[0] == ch.key
         assert o.series[0].data_type == sy.DataType.FLOAT64
         assert len(o.series[0]) == 3
 
-    def test_adaptation_of_multiple_series_and_single_payload(self, adapter):
+    def test_adaptation_of_multiple_series_and_single_payload(
+        self, adapter: tuple[WriteFrameAdapter, sy.Channel]
+    ) -> None:
         """Should raise a validation error when there are more series than channels"""
-        adapter, ch = adapter
+        write_adapter, ch = adapter
         with pytest.raises(sy.ValidationError):
-            adapter.adapt(ch, [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+            series: list[CrudeSeries] = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
+            write_adapter.adapt(ch, series)
 
-    def test_adaptation_of_single_channel_and_no_data(self, adapter):
+    def test_adaptation_of_single_channel_and_no_data(
+        self, adapter: tuple[WriteFrameAdapter, sy.Channel]
+    ) -> None:
         """Should raise a validation error when there are no series"""
-        adapter, ch = adapter
+        write_adapter, ch = adapter
         with pytest.raises(sy.ValidationError):
-            adapter.adapt(ch)
+            write_adapter.adapt(ch)
 
-    def test_adaptation_of_multiple_channels_and_no_data(self, adapter):
+    def test_adaptation_of_multiple_channels_and_no_data(
+        self, adapter: tuple[WriteFrameAdapter, sy.Channel]
+    ) -> None:
         """Should raise a validation error when there are no series"""
-        adapter, ch = adapter
+        write_adapter, ch = adapter
         with pytest.raises(sy.ValidationError):
-            adapter.adapt([ch, ch])
+            write_adapter.adapt([ch, ch])
 
-    def test_mismatch_of_channels_and_series_length(self, adapter):
+    def test_mismatch_of_channels_and_series_length(
+        self, adapter: tuple[WriteFrameAdapter, sy.Channel]
+    ) -> None:
         """Should raise a validation error when there are more channels than series"""
-        adapter, ch = adapter
+        write_adapter, ch = adapter
         with pytest.raises(sy.ValidationError):
-            adapter.adapt([ch, ch], [1.0])
+            write_adapter.adapt([ch, ch], [1.0])
 
     def test_validation_error_when_frame_with_nonexistent_channel_name_is_adapted(
-        self, adapter
-    ):
+        self, adapter: tuple[WriteFrameAdapter, sy.Channel]
+    ) -> None:
         """Should raise a validation error when a Frame with a nonexistent channel
         key is adapted
         """
-        adapter, _ = adapter
+        write_adapter, _ = adapter
         with pytest.raises(sy.ValidationError):
-            adapter.adapt(
+            write_adapter.adapt(
                 sy.Frame(
                     ["caramela"], [sy.Series([1, 2, 3], data_type=sy.DataType.FLOAT64)]
                 )
             )
 
-    def test_type_error_when_invalid_value_is_adapted(self, adapter):
+    def test_type_error_when_invalid_value_is_adapted(
+        self, adapter: tuple[WriteFrameAdapter, sy.Channel]
+    ) -> None:
         """Should raise a type error when an invalid value is adapted"""
-        adapter, channel = adapter
+        write_adapter, _ = adapter
         with pytest.raises(TypeError):
-            adapter.adapt(Exception("Invalid value"))
+            write_adapter.adapt(cast(sy.Frame, Exception("Invalid value")))
 
-    def test_adapt_dict_keys(self, adapter):
+    def test_adapt_dict_keys(
+        self, adapter: tuple[WriteFrameAdapter, sy.Channel]
+    ) -> None:
         """Should raise a type error when an invalid value is adapted"""
-        adapter, ch = adapter
-        adapted = adapter.adapt_dict_keys({ch.name: 123})
+        write_adapter, ch = adapter
+        adapted = write_adapter.adapt_dict_keys({ch.name: 123})
         assert adapted[ch.key] == 123
 
-    def test_adapt_single_string(self, client):
+    def test_adapt_single_string(self, client: sy.Synnax) -> None:
         """Should correctly adapt a single string into a string based series"""
         ch = client.channels.create(
             name=f"test_{random_name()}",
@@ -311,7 +350,7 @@ class TestWriteFrameAdapter:
         adapted = adapter.adapt({ch.name: "hello"})
         assert adapted[ch.key][0] == "hello"
 
-    def test_adapt_single_string_name_value_pair(self, client):
+    def test_adapt_single_string_name_value_pair(self, client: sy.Synnax) -> None:
         ch = client.channels.create(
             name=f"test_{random_name()}",
             virtual=True,
@@ -347,7 +386,7 @@ class TestReadFrameAdapter:
         )
         return ch1, ch2, ch3
 
-    def test_initialization(self, client: sy.Synnax):
+    def test_initialization(self, client: sy.Synnax) -> None:
         """Should successfully initialize a ReadFrameAdapter."""
         adapter = ReadFrameAdapter(client.channels._retriever)
         assert adapter.retriever is not None
@@ -356,7 +395,7 @@ class TestReadFrameAdapter:
 
     def test_update_with_keys(
         self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
-    ):
+    ) -> None:
         """Should update adapter with channel keys without creating name mapping."""
         ch1, ch2, _ = channels
         adapter = ReadFrameAdapter(client.channels._retriever)
@@ -367,7 +406,7 @@ class TestReadFrameAdapter:
 
     def test_update_with_names(
         self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
-    ):
+    ) -> None:
         """Should update adapter with channel names and create key->name mapping."""
         ch1, ch2, _ = channels
         adapter = ReadFrameAdapter(client.channels._retriever)
@@ -376,7 +415,7 @@ class TestReadFrameAdapter:
         # Should store keys (not names)
         assert adapter.keys == [ch1.key, ch2.key]
 
-    def test_update_with_nonexistent_channel(self, client: sy.Synnax):
+    def test_update_with_nonexistent_channel(self, client: sy.Synnax) -> None:
         """Should raise KeyError when updating with a nonexistent channel name."""
         adapter = ReadFrameAdapter(client.channels._retriever)
         with pytest.raises(KeyError):
@@ -384,7 +423,7 @@ class TestReadFrameAdapter:
 
     def test_adapt_with_keys_no_conversion(
         self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
-    ):
+    ) -> None:
         """Should return frame unchanged when adapter was updated with keys."""
         ch1, ch2, _ = channels
         adapter = ReadFrameAdapter(client.channels._retriever)
@@ -409,7 +448,7 @@ class TestReadFrameAdapter:
 
     def test_adapt_with_names_conversion(
         self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
-    ):
+    ) -> None:
         """Should convert channel keys to names when adapter was updated with names."""
         ch1, ch2, _ = channels
         adapter = ReadFrameAdapter(client.channels._retriever)
@@ -434,7 +473,7 @@ class TestReadFrameAdapter:
 
     def test_adapt_filters_extra_channels(
         self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
-    ):
+    ) -> None:
         """Should filter out channels not in the adapter mapping."""
         ch1, ch2, ch3 = channels
         adapter = ReadFrameAdapter(client.channels._retriever)
@@ -465,7 +504,7 @@ class TestReadFrameAdapter:
 
     def test_adapt_with_empty_frame(
         self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
-    ):
+    ) -> None:
         """Should handle empty frames gracefully."""
         ch1, ch2, _ = channels
         adapter = ReadFrameAdapter(client.channels._retriever)
@@ -481,7 +520,7 @@ class TestReadFrameAdapter:
 
     def test_adapt_with_no_matching_channels(
         self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
-    ):
+    ) -> None:
         """Should return empty frame when no channels match the adapter mapping."""
         ch1, ch2, ch3 = channels
         adapter = ReadFrameAdapter(client.channels._retriever)
@@ -502,7 +541,7 @@ class TestReadFrameAdapter:
 
     def test_adapt_with_partial_matches(
         self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
-    ):
+    ) -> None:
         """Should keep only matching channels and filter non-matching ones."""
         ch1, ch2, ch3 = channels
         adapter = ReadFrameAdapter(client.channels._retriever)
@@ -531,7 +570,7 @@ class TestReadFrameAdapter:
 
     def test_adapt_preserves_series_data_types(
         self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
-    ):
+    ) -> None:
         """Should preserve series data types during adaptation."""
         ch1, ch2, _ = channels
         adapter = ReadFrameAdapter(client.channels._retriever)
@@ -553,7 +592,7 @@ class TestReadFrameAdapter:
 
     def test_adapt_with_mixed_keys_and_names(
         self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
-    ):
+    ) -> None:
         """Should handle frames with mixed keys and names (though unusual)."""
         ch1, ch2, _ = channels
         adapter = ReadFrameAdapter(client.channels._retriever)
@@ -578,7 +617,7 @@ class TestReadFrameAdapter:
 
     def test_adapt_preserves_series_order(
         self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
-    ):
+    ) -> None:
         """Should preserve the order of series when adapting."""
         ch1, ch2, ch3 = channels
         adapter = ReadFrameAdapter(client.channels._retriever)
@@ -602,7 +641,7 @@ class TestReadFrameAdapter:
 
     def test_codec_update(
         self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
-    ):
+    ) -> None:
         """Should update codec with channel keys and data types."""
         ch1, ch2, _ = channels
         adapter = ReadFrameAdapter(client.channels._retriever)
@@ -621,7 +660,7 @@ class TestReadFrameAdapter:
 
     def test_multiple_updates(
         self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
-    ):
+    ) -> None:
         """Should handle multiple update calls correctly."""
         ch1, ch2, ch3 = channels
         adapter = ReadFrameAdapter(client.channels._retriever)
@@ -651,7 +690,7 @@ class TestReadFrameAdapter:
 
     def test_update_switches_between_keys_and_names(
         self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
-    ):
+    ) -> None:
         """Should correctly switch between key mode and name mode."""
         ch1, ch2, _ = channels
         adapter = ReadFrameAdapter(client.channels._retriever)

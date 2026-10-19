@@ -18,11 +18,11 @@ from synnax.rack.types_gen import (
 )
 
 __all__ = [
+    "ONTOLOGY_TYPE",
     "Client",
     "Key",
     "Rack",
     "Status",
     "StatusDetails",
-    "ONTOLOGY_TYPE",
     "ontology_id",
 ]

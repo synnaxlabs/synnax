@@ -111,19 +111,18 @@ try:
 
             while True:
                 frame = streamer.read()
-                if frame:
-                    # Print the latest values from both channels
-                    if "labjack_ain0" in frame and len(frame["labjack_ain0"]) > 0:
-                        val0 = frame["labjack_ain0"][-1]
-                        val1 = frame["labjack_ain1"][-1]
-                        elapsed = sy.TimeStamp.now().span(start_time).seconds
+                # Print the latest values from both channels
+                if frame and "labjack_ain0" in frame and len(frame["labjack_ain0"]) > 0:
+                    val0 = frame["labjack_ain0"][-1]
+                    val1 = frame["labjack_ain1"][-1]
+                    elapsed = sy.TimeStamp.now().span(start_time).seconds
 
-                        sample_count += 1
-                        print(
-                            f"{sample_count:<10} {elapsed:<10.1f} {val0:>12.3f} {val1:>12.3f}",
-                            end="\r",
-                            flush=True,
-                        )
+                    sample_count += 1
+                    print(
+                        f"{sample_count:<10} {elapsed:<10.1f} {val0:>12.3f} {val1:>12.3f}",
+                        end="\r",
+                        flush=True,
+                    )
 
 # Output summary
 except KeyboardInterrupt:

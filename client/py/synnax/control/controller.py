@@ -12,7 +12,7 @@ from __future__ import annotations
 from asyncio import Future
 from collections.abc import Callable
 from threading import Event, Lock
-from typing import Any, Protocol, cast, overload
+from typing import Any, Protocol, TypeAlias, cast, overload
 
 import numpy as np
 
@@ -24,6 +24,10 @@ from synnax.timing import sleep
 from x.control import CrudeAuthority
 from x.thread import AsyncThread
 
+Condition: TypeAlias = (
+    "Callable[[Controller], bool | np.bool_ | np.number | int | float]"
+)
+
 
 class Processor(Protocol):
     event: Event
@@ -33,11 +37,11 @@ class Processor(Protocol):
 
 class WaitUntil(Processor):
     event: Event
-    callback: Callable[[Controller], bool]
+    callback: Condition
     exc: Exception | None
     reverse: bool
 
-    def __init__(self, callback: Callable[[Controller], bool], reverse: bool = False):
+    def __init__(self, callback: Condition, reverse: bool = False):
         self.event = Event()
         self.callback = callback
         self.exc = None
@@ -58,7 +62,7 @@ class WaitUntil(Processor):
 
 class RemainsTrueFor(Processor):
     event: Event
-    callback: Callable[[Controller], bool]
+    callback: Condition
     exc: Exception | None
     target: float
     actual: float = 0
@@ -66,7 +70,7 @@ class RemainsTrueFor(Processor):
 
     def __init__(
         self,
-        callback: Callable[[Controller], bool],
+        callback: Condition,
         percentage: float,
     ):
         self.event = Event()
@@ -91,8 +95,8 @@ class RemainsTrueFor(Processor):
 class Controller:
     _writer_opt: framer.Writer | None = None
     _receiver_opt: _Receiver | None = None
-    _idx_map: dict[channel_.Key, channel_.Key]
     _retriever: channel_.Retriever
+    _channels: dict[channel_.Key | str, channel_.Payload]
 
     def __init__(
         self,
@@ -104,8 +108,10 @@ class Controller:
         write_authorities: CrudeAuthority | list[CrudeAuthority],
     ) -> None:
         self._retriever = retriever
+        self._channels = {}
         if write is not None and channel_.has_params(write):
             write_channels = channel_.retrieve_required(self._retriever, write)
+            self._index(write_channels)
             write_keys = [ch.index for ch in write_channels if ch.index != 0]
             write_keys.extend([ch.key for ch in write_channels])
             self._writer_opt = frame_client.open_writer(
@@ -116,11 +122,25 @@ class Controller:
             )
         if read is not None and channel_.has_params(read):
             self._receiver_opt = _Receiver(frame_client, read, retriever, self)
+            self._index(self._receiver.channels)
             self._receiver.start()
             self._receiver.startup_ack.wait()
             if self._receiver.error is not None:
                 self.release()
                 raise self._receiver.error
+
+    def _index(self, channels: list[channel_.Payload]) -> None:
+        for ch in channels:
+            self._channels[ch.key] = ch
+            self._channels[ch.name] = ch
+
+    def _resolve(self, ch: channel_.Key | str | channel_.Payload) -> channel_.Payload:
+        """Resolves an acquired channel locally, and any other channel from the Core."""
+        if isinstance(ch, channel_.Payload):
+            return ch
+        param = channel_.normalize_params(ch).channels[0]
+        pld = self._channels.get(param)
+        return pld if pld is not None else self._retriever.retrieve_one(param)
 
     @property
     def _writer(self) -> framer.Writer:
@@ -175,9 +195,7 @@ class Controller:
         """
         if isinstance(channel, dict):
             values = list(channel.values())
-            # Overloads guarantee keys are homogeneous (all Key or all str)
-            ch_keys = cast(channel_.Params, list(channel.keys()))
-            channels = channel_.retrieve_required(self._retriever, ch_keys)
+            channels = [self._resolve(ch) for ch in channel]
             now = TimeStamp.now()
             updated = {channels[i].key: values[i] for i in range(len(channels))}
             updated_idx = {
@@ -187,12 +205,12 @@ class Controller:
             }
             self._writer.write({**updated, **updated_idx})
             return
-        ch = self._retriever.retrieve_one(channel)
+        ch = self._resolve(channel)
         assert value is not None
         to_write: dict[channel_.Key, SampleValue] = {ch.key: value}
         if not ch.virtual:
             to_write[ch.index] = TimeStamp.now()
-        self._writer.write(cast(framer.CrudeFrame, to_write))
+        self._writer.write(to_write)
 
     @overload
     def set_authority(
@@ -242,15 +260,14 @@ class Controller:
             auth = cast(
                 dict[channel_.Key | str | channel_.Payload, CrudeAuthority], value
             )
-            auth_keys = cast(channel_.Params, list(auth.keys()))
-            channels = channel_.retrieve_required(self._retriever, auth_keys)
-            for ch in channels:
-                resolved = auth.get(ch.key) or auth.get(ch.name)
-                if resolved is not None:
-                    auth[ch.index] = resolved
-            self._writer.set_authority(auth)
+            resolved: dict[channel_.Key | str | channel_.Payload, CrudeAuthority] = {}
+            for k, a in auth.items():
+                ch = self._resolve(k)
+                resolved[ch.key] = a
+                resolved[ch.index] = a
+            self._writer.set_authority(resolved)
         elif authority is not None:
-            ch = self._retriever.retrieve_one(value)
+            ch = self._resolve(value)
             self._writer.set_authority({ch.key: authority, ch.index: authority})
         elif isinstance(value, str):
             raise TypeError("authority must be provided when setting by channel name")
@@ -259,7 +276,7 @@ class Controller:
 
     def wait_until(
         self,
-        cond: Callable[[Controller], bool],
+        cond: Condition,
         timeout: CrudeTimeSpan | None = None,
     ) -> bool:
         """Blocks the controller, calling the provided callback on every new sample
@@ -287,7 +304,7 @@ class Controller:
 
     def wait_while(
         self,
-        cond: Callable[[Controller], bool],
+        cond: Condition,
         timeout: CrudeTimeSpan | None = None,
     ) -> bool:
         """Blocks the controller, calling the provided callback on every new sample
@@ -299,7 +316,7 @@ class Controller:
 
     def _internal_wait_until(
         self,
-        cond: Callable[[Controller], bool],
+        cond: Condition,
         timeout: CrudeTimeSpan | None = None,
         reverse: bool = False,
     ) -> bool:
@@ -349,12 +366,12 @@ class Controller:
         >>> controller.wait_until_defined("my_channel")
         >>> controller.wait_until_defined(["channel_1", "channel_2"])
         """
-        res = channel_.retrieve_required(self._retriever, channels)
+        res = [self._resolve(ch) for ch in channel_.normalize_params(channels).channels]
         return self.wait_until(lambda c: all(v.key in c.state for v in res), timeout)
 
     def remains_true_for(
         self,
-        cond: Callable[[Controller], bool],
+        cond: Condition,
         duration: CrudeTimeSpan,
         percentage: float = 1,
     ) -> bool:
@@ -366,7 +383,8 @@ class Controller:
         :param cond: A callable that takes the controller as an argument and returns
         a boolean. The controller will execute this callback on every new sample
         received to the channels it is reading from.
-        :param duration: The duration in seconds to check that the callback returns True.
+        :param duration: The duration to check that the callback returns True. A bare
+        number is in seconds.
         :param percentage: The target percentage of the duration that the callback
         should return True. If this value is 1 or greater, the controller will
         immediately unblock if the callback returns False. If this value is less than 1,
@@ -377,7 +395,7 @@ class Controller:
         processor = RemainsTrueFor(cond, percentage)
         self._receiver.add_processor(processor)
         try:
-            timeout_seconds = TimeSpan(duration).seconds
+            timeout_seconds = TimeSpan.from_seconds(duration).seconds
             # If the event is set, this means the target percentage was >= 1 and the
             # callback returned False, so we just exit immediately.
             ok = not processor.event.wait(timeout=timeout_seconds)
@@ -416,7 +434,7 @@ class Controller:
         """
         return self._receiver.state
 
-    def __setattr__(self, key: str, value: Any) -> None:
+    def __setattr__(self, key: str, value: SampleValue) -> None:
         """Commands the channel named key, unless key is private or a class
         attribute.
         """
@@ -447,7 +465,7 @@ class Controller:
         >>> controller.get("my_channel")
         >>> controller.get("my_channel", 42)
         """
-        ch_pld = self._retriever.retrieve_one(ch)
+        ch_pld = self._resolve(ch)
         return self._receiver.state.get(ch_pld.key, default)
 
     def schedule(
@@ -462,7 +480,7 @@ class Controller:
         return start, True
 
     def __getitem__(self, item: channel_.Key | str) -> np.number | int | float:
-        ch = self._retriever.retrieve_one(item)
+        ch = self._resolve(item)
         try:
             return self._receiver.state[ch.key]
         except KeyError:
@@ -475,13 +493,10 @@ class Controller:
             2. No data has been received for the channel yet. If you'd like to block
             until a value exists for the channel in state, use the wait_until_defined
             method.
-            """)
+            """) from None
 
-    def __getattr__(self, item: str) -> Any:
-        try:
-            return super().__getattribute__(item)
-        except AttributeError:
-            return self[item]
+    def __getattr__(self, item: str) -> np.number | int | float:
+        return self[item]
 
     def __enter__(self) -> Controller:
         return self
@@ -492,7 +507,7 @@ class Controller:
 
 class _Receiver(AsyncThread):
     state: dict[channel_.Key, np.number | int | float]
-    channels: channel_.Params
+    channels: list[channel_.Payload]
     client: framer.Client
     streamer: framer.AsyncStreamer
     processors: set[Processor]
@@ -514,7 +529,7 @@ class _Receiver(AsyncThread):
         super().__init__()
         self.channels = retriever.retrieve(channels)
         self.client = client
-        self.state = dict()
+        self.state = {}
         self.controller = controller
         self.lock = Lock()
         self.startup_ack = Event()
@@ -583,7 +598,8 @@ class _Receiver(AsyncThread):
 
 class ScheduledCommand:
     """A command that can be scheduled to run at a specific time in the future. This
-    command can be sent to the controller to be executed at a later time.
+    command can be sent to the controller to be executed at a later time. A bare number
+    delay is in seconds.
     """
 
     channel: channel_.Key | str
@@ -598,4 +614,4 @@ class ScheduledCommand:
     ):
         self.channel = channel
         self.value = value
-        self.delay = TimeSpan(delay)
+        self.delay = TimeSpan.from_seconds(delay)

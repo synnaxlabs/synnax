@@ -18,7 +18,7 @@ from x.telem import CrudeTimeSpan, Rate, TimeSpan, TimeStamp
 
 T = TypeVar("T")
 
-RESOLUTION = (100 * TimeSpan.MICROSECOND).seconds
+RESOLUTION = (TimeSpan.MICROSECOND * 100).seconds
 
 
 def _precise_sleep(dur: float | int) -> None:

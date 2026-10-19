@@ -14,7 +14,7 @@ from examples.opcua import OPCUASim
 import synnax as sy
 from console.case import ConsoleCase
 from console.task_page import TaskPage
-from framework.models import SynnaxConnection
+from framework.models import DEFAULT_CONNECTION, SynnaxConnection
 from framework.run_with_connection import run_scripts
 from framework.utils import assert_envelope, assert_link_format
 from tests.driver.simulator_case import SimulatorCase
@@ -79,7 +79,7 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
 
     def __init__(
         self,
-        synnax_connection: SynnaxConnection = SynnaxConnection(),
+        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
         *,
         name: str,
         **params: object,
@@ -265,7 +265,7 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
             pane.get_by_text(name).first.wait_for(state="visible", timeout=10000)
 
         self.log("Testing: Rename channels back from task config form")
-        for old_name, new_name in zip(renamed_names, original_names):
+        for old_name, new_name in zip(renamed_names, original_names, strict=True):
             channel_text = pane.get_by_text(old_name).first
             channel_text.wait_for(state="visible", timeout=5000)
             self.console.layout.ctx_menu.action(channel_text, "Rename")
@@ -304,7 +304,7 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
 
     def test_delete_task(self) -> None:
         """Delete a single task and multiple tasks via context menu."""
-        remaining = TASK_NAMES[1:] + ["Renamed Read Task"]
+        remaining = [*TASK_NAMES[1:], "Renamed Read Task"]
 
         self.log("Testing: Stop all tasks before deletion")
         self.console.tasks.stop_many(remaining)

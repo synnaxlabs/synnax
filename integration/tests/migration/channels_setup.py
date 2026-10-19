@@ -319,7 +319,7 @@ def setup(client: sy.Synnax, log: Callable[[str], None]) -> None:
         enable_auto_commit=True,
     ) as writer:
         payload: dict[int, np.ndarray] = {idx.key: timestamps}
-        for ch, (_, _, expected) in zip(data_channels, DATA_CHANNELS):
+        for ch, (_, _, expected) in zip(data_channels, DATA_CHANNELS, strict=True):
             payload[ch.key] = expected
         writer.write(payload)
 

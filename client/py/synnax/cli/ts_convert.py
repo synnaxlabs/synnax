@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from datetime import datetime
+import time
 from pathlib import Path
 
 import click
@@ -179,13 +179,13 @@ def pure_tsconvert(
         ) as progress:
             task = progress.add_task("convert", total=reader.nsamples(), tp=0)
             for chunk in reader:
-                t0 = datetime.now()
+                t0 = time.perf_counter()
                 converted = convert_time_units(
                     chunk[input_channel].to_numpy(), input_precision, output_precision
                 )
                 chunk[output_channel] = converted
                 writer.write(chunk)
-                tp = chunk.size / (datetime.now() - t0).total_seconds()
+                tp = chunk.size / (time.perf_counter() - t0)
                 progress.update(task, advance=chunk.size, tp=int(tp))
     finally:
         reader.close()
@@ -208,6 +208,5 @@ def ask_channel_and_check_exists(
         ctx.console.error(f"Channel not found: {_ch}")
         if arg is None:
             return ask_channel_and_check_exists(ctx, reader, question, arg_name, arg)
-        else:
-            ctx.console.error(f"Channel not found: {_ch}")
+        ctx.console.error(f"Channel not found: {_ch}")
     return _ch

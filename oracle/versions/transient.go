@@ -99,6 +99,9 @@ func (f *File) closure(roots []string, persistedOnly bool) set.Set[string] {
 			for _, e := range form.Extends {
 				edge(e)
 			}
+			if form.BorrowsEnum() {
+				edge(form.Enum)
+			}
 		case resolution.DistinctForm:
 			edge(form.Base)
 		case resolution.AliasForm:

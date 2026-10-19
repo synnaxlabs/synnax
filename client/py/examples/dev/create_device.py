@@ -11,8 +11,7 @@ import synnax as sy
 
 client = sy.Synnax()
 
-racks = client.racks.retrieve()
-rack_key = racks[0].key if isinstance(racks, list) else racks.key
+rack_key = client.racks.retrieve()[0].key
 print(f"Using rack: {rack_key}")
 
 client.devices.create(

@@ -31,6 +31,30 @@ def _timedelta_nanoseconds(delta: timedelta) -> int:
     ) * 1_000
 
 
+_TIMEDELTA64_UNIT_NANOSECONDS = {
+    "W": 604_800 * 10**9,
+    "D": 86_400 * 10**9,
+    "h": 3_600 * 10**9,
+    "m": 60 * 10**9,
+    "s": 10**9,
+    "ms": 10**6,
+    "us": 10**3,
+    "ns": 1,
+}
+
+
+def _timedelta64_nanoseconds(delta: np.timedelta64) -> int:
+    if np.isnat(delta):
+        raise ValueError("Cannot convert NaT to TimeSpan")
+    unit, count = np.datetime_data(delta.dtype)
+    if unit not in _TIMEDELTA64_UNIT_NANOSECONDS:
+        return int(delta.astype("timedelta64[ns]").astype(np.int64))
+    ns = int(delta.astype(np.int64)) * count * _TIMEDELTA64_UNIT_NANOSECONDS[unit]
+    if not -(2**63) <= ns < 2**63:
+        raise ValueError(f"{delta} does not fit in a 64-bit TimeSpan")
+    return ns
+
+
 class TimeStamp(int):
     """TimeStamp represents a 64 bit nanosecond-precision UTC timestamp. The TimeStamp
     constructor accepts a variety of types and will attempt to convert them to a
@@ -84,7 +108,7 @@ class TimeStamp(int):
     @classmethod
     def now(cls) -> TimeStamp:
         """:returns: the current time as a TimeStamp."""
-        return TimeStamp(datetime.now())
+        return TimeStamp(datetime.now(UTC))
 
     @classmethod
     def since(cls, ts: CrudeTimeStamp) -> TimeSpan:
@@ -210,10 +234,12 @@ class TimeSpan(int):
     def __new__(cls, value: CrudeTimeSpan) -> TimeSpan:
         if isinstance(value, str):
             value = int(value)
-        if isinstance(value, timedelta):
-            value = int(float(TimeSpan.SECOND) * value.total_seconds())
+        if isinstance(value, pd.Timedelta):
+            value = value.value
+        elif isinstance(value, timedelta):
+            value = _timedelta_nanoseconds(value)
         elif isinstance(value, np.timedelta64):
-            value = int(float(TimeSpan.SECOND) * pd.Timedelta(value).total_seconds())
+            value = _timedelta64_nanoseconds(value)
         elif not isinstance(value, (int, float, np.floating, np.integer)):
             raise TypeError(f"Cannot convert {type(value)} to TimeSpan")
         return super().__new__(cls, value)
@@ -411,7 +437,7 @@ class TimeSpan(int):
     def __sub__(self, rhs: CrudeTimeSpan) -> TimeSpan:
         return TimeSpan(super().__sub__(TimeSpan(rhs)))
 
-    def __mul__(self, rhs: CrudeTimeSpan) -> TimeSpan:
+    def __mul__(self, rhs: CrudeTimeSpan | np.integer) -> TimeSpan:
         return TimeSpan(self.nanoseconds * rhs)
 
     def __truediv__(self, rhs: CrudeTimeSpan) -> TimeSpan:
@@ -420,24 +446,24 @@ class TimeSpan(int):
     def __mod__(self, rhs: CrudeTimeSpan) -> TimeSpan:
         return TimeSpan(super().__mod__(TimeSpan(rhs)))
 
-    # override widens int's parameter type to accept CrudeTimeSpan
-    def __rmul__(self, rhs: CrudeTimeSpan) -> TimeSpan:  # type: ignore[misc]
+    # Pyright has no reflected-operand priority, so it types int * TimeSpan as int.
+    def __rmul__(self, rhs: int) -> TimeSpan:
         return self.__mul__(rhs)
 
     def __abs__(self) -> TimeSpan:
         return TimeSpan(super().__abs__())
 
-    # overrides below widen int's parameter type to accept CrudeTimeSpan
-    def __gt__(self, rhs: CrudeTimeSpan) -> bool:  # type: ignore[misc]
+    # Omits np.timedelta64: its reflected comparisons return np.bool, not bool.
+    def __gt__(self, rhs: _ComparableTimeSpan) -> bool:
         return super().__gt__(TimeSpan(rhs))
 
-    def __ge__(self, rhs: CrudeTimeSpan) -> bool:  # type: ignore[misc]
+    def __ge__(self, rhs: _ComparableTimeSpan) -> bool:
         return super().__ge__(TimeSpan(rhs))
 
-    def __lt__(self, rhs: CrudeTimeSpan) -> bool:  # type: ignore[misc]
+    def __lt__(self, rhs: _ComparableTimeSpan) -> bool:
         return super().__lt__(TimeSpan(rhs))
 
-    def __le__(self, rhs: CrudeTimeSpan) -> bool:  # type: ignore[misc]
+    def __le__(self, rhs: _ComparableTimeSpan) -> bool:
         return super().__le__(TimeSpan(rhs))
 
     def __eq__(self, rhs: object) -> bool:
@@ -742,18 +768,15 @@ class TimeRange(BaseModel):
             return False
         return self.start == rhs.start and self.end == rhs.end
 
-    # Assigning these values to None prevents pydantic
-    # from throwing a nasty missing attribute error.
-
-    MAX: ClassVar[TimeRange] = None  # type: ignore
+    MAX: ClassVar[TimeRange]
     """The maximum possible TimeRange, starting at TimeStamp.MIN and ending
     a TimeStamp.MAX
     """
-    MIN: ClassVar[TimeRange] = None  # type: ignore
+    MIN: ClassVar[TimeRange]
     """The minimum possible TimeRange, starting at TimeStamp.MAX and ending at
     TimeStamp.MIN. Note that this TimeRange is invalid.
     """
-    ZERO: ClassVar[TimeRange] = None  # type: ignore
+    ZERO: ClassVar[TimeRange]
     """A TimeRange starting and ending at the unix epoch in UTC (TimeStamp.ZERO)."""
 
 
@@ -819,7 +842,7 @@ Density.BIT8 = Density(1)
 
 class Size(int):
     def __mul__(self, rhs: CrudeSize) -> Size:
-        return Size(super(Size, self).__mul__(Size(rhs)))
+        return Size(super().__mul__(Size(rhs)))
 
     def __str__(self) -> str:
         tot_gb = self.trunc(Size.GB)
@@ -1108,6 +1131,7 @@ CrudeTimeStamp: TypeAlias = (
 CrudeTimeSpan: TypeAlias = (
     int | float | TimeSpan | TimeStamp | timedelta | np.timedelta64
 )
+_ComparableTimeSpan: TypeAlias = int | float | timedelta
 CrudeRate: TypeAlias = int | float | TimeSpan | Rate
 CrudeDensity: TypeAlias = Density | int
 CrudeDataType: TypeAlias = (
@@ -1218,7 +1242,7 @@ class Alignment(int):
             value = int(value)
         if isinstance(value, Alignment):
             return value
-        elif isinstance(value, tuple):
+        if isinstance(value, tuple):
             if len(value) != 2:
                 raise ValueError(
                     f"Alignment tuple must have exactly 2 elements (domain_idx, sample_idx), got {len(value)}"
@@ -1304,6 +1328,7 @@ class Alignment(int):
 CrudeAlignment: TypeAlias = int | tuple[int, int] | Alignment | str
 
 
-def seconds_linspace(start: int, count: int) -> list[TimeSpan]:
-    """Generates a list of TimeSpan values from start to start + count."""
-    return [start * TimeSpan.SECOND + i * TimeSpan.SECOND for i in range(count)]
+def seconds_linspace(start: int, count: int) -> list[TimeStamp]:
+    """Generates count TimeStamps one second apart, starting start seconds after the
+    Unix epoch."""
+    return [TimeStamp(TimeSpan.SECOND * (start + i)) for i in range(count)]

@@ -64,7 +64,7 @@ tsk = http.WriteTask(
                 json_type="number",
                 channel=setpoint_cmd.key,
                 name="Setpoint",
-                data_type="float64",
+                data_type=sy.DataType.FLOAT64,
             ),
         ),
     ],
@@ -83,23 +83,25 @@ print("Writing 10 setpoint values at 1 Hz (10 seconds)\n")
 print(f"{'Cycle':<8} {'Setpoint':>12}")
 print("-" * 70)
 
-with tsk.run():
-    with client.open_writer(
+with (
+    tsk.run(),
+    client.open_writer(
         start=sy.TimeStamp.now(),
         channels=[http_cmd_time.key, setpoint_cmd.key],
         enable_auto_commit=True,
-    ) as writer:
-        for i in range(10):
-            setpoint_val = 20.0 + i * 5.0
-            print(f"{i + 1:<8} {setpoint_val:>12.1f}")
-            writer.write(
-                {
-                    http_cmd_time.key: sy.TimeStamp.now(),
-                    setpoint_cmd.key: setpoint_val,
-                }
-            )
-            writer.commit()
-            time.sleep(1)
+    ) as writer,
+):
+    for i in range(10):
+        setpoint_val = 20.0 + i * 5.0
+        print(f"{i + 1:<8} {setpoint_val:>12.1f}")
+        writer.write(
+            {
+                http_cmd_time.key: sy.TimeStamp.now(),
+                setpoint_cmd.key: setpoint_val,
+            }
+        )
+        writer.commit()
+        time.sleep(1)
 
 print("-" * 70)
 print("✓ Write task completed successfully!")
