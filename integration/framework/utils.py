@@ -66,7 +66,7 @@ def named_envelope_copy(path: str, name: str) -> Iterator[str]:
     :param name: Name the import must produce.
     :returns: A context manager yielding the temp copy's path.
     """
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         envelope = json.load(f)
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = os.path.join(tmp_dir, f"{name}.json")

@@ -386,11 +386,10 @@ def assert_sample_counts_in_range(
                     f"expected {expected_samples} ±50% "
                     f"({min_samples}-{max_samples})"
                 )
-            else:
-                raise AssertionError(
-                    f"{prefix}Channel '{ch.name}' has {num_samples} samples, "
-                    f"expected at least {min_samples} sample(s)"
-                )
+            raise AssertionError(
+                f"{prefix}Channel '{ch.name}' has {num_samples} samples, "
+                f"expected at least {min_samples} sample(s)"
+            )
 
     if len(set(sample_counts)) > 1:
         raise AssertionError(

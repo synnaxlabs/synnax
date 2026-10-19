@@ -21,17 +21,17 @@ from console.schematic.valve_threeway import ValveThreeWay
 from console.schematic.valve_threeway_ball import ValveThreeWayBall
 
 __all__ = [
+    "SCHEMATIC_VERSION",
     "Button",
     "CustomSymbol",
     "OffPageReference",
-    "SCHEMATIC_VERSION",
     "Schematic",
     "Select",
     "Setpoint",
     "StateIndicator",
     "Symbol",
+    "Value",
     "Valve",
     "ValveThreeWay",
     "ValveThreeWayBall",
-    "Value",
 ]

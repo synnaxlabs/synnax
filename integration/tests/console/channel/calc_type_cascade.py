@@ -259,6 +259,6 @@ class CalcTypeCascade(ConsoleCase):
                 pass
         if calc_keys:
             self.client.channels.delete(calc_keys)
-        raw_names = list(self.raw.values()) + [f"ts_{self.suffix}"]
+        raw_names = [*self.raw.values(), f"ts_{self.suffix}"]
         self.client.channels.delete(raw_names)
         super().teardown()

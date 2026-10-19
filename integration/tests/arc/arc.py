@@ -199,4 +199,3 @@ class ArcCase(SimDaqCase, TestCase):
     @abstractmethod
     def verify_sequence_execution(self) -> None:
         """Override to implement test-specific verification logic."""
-        pass

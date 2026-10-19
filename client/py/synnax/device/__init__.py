@@ -19,9 +19,9 @@ from synnax.device.types_gen import (
 )
 
 __all__ = [
+    "ONTOLOGY_TYPE",
     "Client",
     "Device",
-    "ONTOLOGY_TYPE",
     "Key",
     "Status",
     "StatusDetails",
