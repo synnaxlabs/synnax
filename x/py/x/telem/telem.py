@@ -997,9 +997,7 @@ class DataType(str):
             types = {DataType._from_sample(v) for v in value}
             if len(types) == 1:
                 return types.pop()
-            if all(t.is_number for t in types):
-                return DataType(np.result_type(*(t.np for t in types)))
-            raise TypeError(f"Cannot infer one data type from {sorted(types)}")
+            return DataType._promote(types, value)
 
         result = DataType._FROM_NUMPY.get(np.dtype(value), None)
         if result is not None:
@@ -1029,10 +1027,25 @@ class DataType(str):
                 return result
         raise TypeError(f"Cannot convert {type(value)} to DataType")
 
-    @property
-    def is_number(self) -> bool:
-        """:returns: True if the data type holds integers or floats, not timestamps."""
-        return self != DataType.TIMESTAMP and self.has_np and self.np.kind in "iuf"
+    @staticmethod
+    def _promote(types: set[DataType], samples: list[Any]) -> DataType:
+        """Returns one numeric type that holds every sample exactly, or raises."""
+        if not all(
+            t != DataType.TIMESTAMP and t.has_np and t.np.kind in "iuf" for t in types
+        ):
+            raise TypeError(f"Cannot infer one data type from {sorted(types)}")
+        promoted = DataType(np.result_type(*(t.np for t in types)))
+        if promoted.np.kind != "f":
+            return promoted
+        ints = [int(v) for v in samples if isinstance(v, (int, np.integer))]
+        if len(ints) == len(samples):
+            if all(-(2**63) <= i < 2**63 for i in ints):
+                return DataType.INT64
+            if all(0 <= i < 2**64 for i in ints):
+                return DataType.UINT64
+        elif all(int(promoted.np.type(i)) == i for i in ints):
+            return promoted
+        raise TypeError(f"No data type in {sorted(types)} holds every value exactly")
 
     @classmethod
     def __get_pydantic_core_schema__(

@@ -310,6 +310,29 @@ class TestSeries:
         assert s.data_type == telem.DataType.FLOAT64
         assert list(s) == [1.0, 2.5]
 
+    @pytest.mark.parametrize(
+        ("values", "data_type"),
+        [
+            ([2**53 + 1, np.uint64(1)], telem.DataType.INT64),
+            ([np.uint64(2**63), 1], telem.DataType.UINT64),
+        ],
+    )
+    def test_infer_mixed_ints_keeps_values(
+        self, values: list[Any], data_type: telem.DataType
+    ) -> None:
+        """Should pick an integer type that holds every mixed integer exactly"""
+        s = telem.Series(values)
+        assert s.data_type == data_type
+        assert np.asarray(s).tolist() == [int(v) for v in values]
+
+    @pytest.mark.parametrize(
+        "values", [[np.uint64(2**63), np.int64(-1)], [2**53 + 1, 0.5]]
+    )
+    def test_infer_rejects_lossy_promotion(self, values: list[Any]) -> None:
+        """Should reject a mix that no inferred type holds exactly"""
+        with pytest.raises(TypeError):
+            telem.Series(values)
+
     def test_infer_rejects_bool_and_number_list(self) -> None:
         """Should reject a list that mixes booleans and numbers"""
         with pytest.raises(TypeError):
@@ -843,6 +866,17 @@ class TestSeriesProperties:
         """Should keep every value of a mixed int and float list"""
         s = telem.Series(values)
         assert np.asarray(s).tolist() == [float(v) for v in values]
+
+    @given(
+        st.lists(
+            st.integers(0, 2**63 - 1) | st.integers(0, 2**64 - 1).map(np.uint64),
+            min_size=1,
+            max_size=50,
+        )
+    )
+    def test_mixed_int_kinds_round_trip(self, values: list[Any]) -> None:
+        """Should round-trip mixed int64 and uint64 values exactly"""
+        assert np.asarray(telem.Series(values)).tolist() == [int(v) for v in values]
 
     @given(st.lists(_TEXT, min_size=1, max_size=20))
     def test_string_round_trip(self, values: list[str]) -> None:
