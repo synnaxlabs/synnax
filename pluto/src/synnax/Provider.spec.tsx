@@ -79,4 +79,39 @@ describe("Synnax.Provider", () => {
     expect(worker.auth.session?.key).toEqual(pageClient.auth.session?.key);
     unmount();
   });
+
+  it("should not hand the worker one Core's token for another Core", async () => {
+    disableActEnvironment();
+    const AetherProvider = aetherTest.createProvider({
+      ...synnax.REGISTRY,
+      ...status.REGISTRY,
+      [Probe.TYPE]: Probe,
+    });
+    const pages: Client[] = [];
+    const Tree = ({ host }: { host: string }): ReactElement => (
+      <AetherProvider>
+        <Status.Aggregator log={() => {}}>
+          <Synnax.Provider connParams={{ ...TEST_CLIENT_PARAMS, host }}>
+            <PageClient onClient={(c) => c != null && pages.push(c)} />
+            <ProbeComponent />
+          </Synnax.Provider>
+        </Status.Aggregator>
+      </AetherProvider>
+    );
+    seen.length = 0;
+    const tokenOf = (host: string): string | undefined =>
+      pages.findLast((p) => p.params.host === host)?.auth.token;
+    const { rerender, unmount } = render(<Tree host="localhost" />);
+    await waitFor(() => expect(seen.at(-1)?.params.host).toEqual("localhost"));
+    const first = tokenOf("localhost");
+    rerender(<Tree host="127.0.0.1" />);
+    await waitFor(() => expect(seen.at(-1)?.params.host).toEqual("127.0.0.1"));
+    const second = tokenOf("127.0.0.1");
+    expect(second).not.toEqual(first);
+    const tokens = seen
+      .filter((w) => w?.params.host === "127.0.0.1")
+      .map((w) => w?.params.token);
+    expect(tokens).not.toContain(first);
+    unmount();
+  });
 });
