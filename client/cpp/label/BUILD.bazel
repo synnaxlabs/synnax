@@ -13,7 +13,6 @@ cc_library(
     name = "label",
     hdrs = [
         "json.gen.h",
-        "label.h",
         "proto.gen.h",
         "types.gen.h",
     ],

@@ -33,31 +33,27 @@ def get_machine_info() -> str:
                     if chip in cpu_info:
                         return f"Apple Silicon {chip}"
                 return "Apple Silicon Mac"
-            else:
-                return "Intel Mac"
-        else:
-            raise RuntimeError(
-                f"Failed to get macOS CPU information: "
-                f"sysctl command returned {result.returncode}"
-            )
+            return "Intel Mac"
+        raise RuntimeError(
+            f"Failed to get macOS CPU information: "
+            f"sysctl command returned {result.returncode}"
+        )
 
-    elif system == "Linux":
+    if system == "Linux":
         result = subprocess.run(
             ["lsb_release", "-d"], capture_output=True, text=True, timeout=5
         )
         if result.returncode == 0:
             return result.stdout.split("\t")[1].strip()
-        else:
-            with open("/etc/os-release", "r") as f:
-                for line in f:
-                    if line.startswith("PRETTY_NAME="):
-                        return line.split("=")[1].strip().strip('"')
-            raise RuntimeError(
-                "Unable to determine Linux distribution "
-                "from lsb_release or /etc/os-release"
-            )
+        with open("/etc/os-release") as f:
+            for line in f:
+                if line.startswith("PRETTY_NAME="):
+                    return line.split("=")[1].strip().strip('"')
+        raise RuntimeError(
+            "Unable to determine Linux distribution from lsb_release or /etc/os-release"
+        )
 
-    elif system == "Windows":
+    if system == "Windows":
         result = subprocess.run(
             [
                 "powershell",
@@ -70,14 +66,12 @@ def get_machine_info() -> str:
         )
         if result.returncode == 0:
             return result.stdout.strip()
-        else:
-            raise RuntimeError(
-                f"Failed to get Windows version: "
-                f"PowerShell command returned {result.returncode}"
-            )
+        raise RuntimeError(
+            f"Failed to get Windows version: "
+            f"PowerShell command returned {result.returncode}"
+        )
 
-    else:
-        return system
+    return system
 
 
 def get_memory_info() -> str:
@@ -96,7 +90,7 @@ def get_memory_info() -> str:
             return f"{mem_bytes // (1024**3)}GB RAM"
 
     elif system == "Linux":
-        with open("/proc/meminfo", "r") as f:
+        with open("/proc/meminfo") as f:
             for line in f:
                 if line.startswith("MemTotal:"):
                     mem_kb = int(line.split()[1])
@@ -130,8 +124,8 @@ def get_platform() -> Platform:
     system = platform.system()
     if system == "Linux":
         return "linux"
-    elif system == "Darwin":
+    if system == "Darwin":
         return "macos"
-    elif system == "Windows":
+    if system == "Windows":
         return "windows"
     raise RuntimeError(f"Unsupported platform: {system}")

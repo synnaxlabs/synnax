@@ -10,7 +10,7 @@
 import time
 import uuid
 from collections.abc import Iterator
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import dateutil
 import numpy as np
@@ -33,7 +33,7 @@ class TestTimeStamp:
         assert now.datetime() > datetime.now().astimezone()
 
     @pytest.mark.parametrize(
-        "crude, expected",
+        ("crude", "expected"),
         [
             (1000, 1000),
             (sy.TimeSpan.MILLISECOND * 2500, 2500000000),
@@ -50,7 +50,7 @@ class TestTimeStamp:
                 sy.TimeStamp(1645562510000000000),
             ),
             (
-                datetime(2022, 2, 22, 15, 41, 50, tzinfo=timezone.utc),
+                datetime(2022, 2, 22, 15, 41, 50, tzinfo=UTC),
                 sy.TimeStamp(1645544510000000000),
             ),
             (
@@ -191,9 +191,7 @@ class TestTimeStamp:
     def test_datetime(self) -> None:
         """Should correctly convert the sy.TimeStamp to a datetime in local time."""
         ts1 = sy.TimeStamp(1645562510000000000)
-        assert ts1.datetime(tz=timezone.utc) == datetime(
-            2022, 2, 22, 20, 41, 50, tzinfo=timezone.utc
-        )
+        assert ts1.datetime(tz=UTC) == datetime(2022, 2, 22, 20, 41, 50, tzinfo=UTC)
 
     def test_trunc(self) -> None:
         """Should correctly return the truncation of a standard sy.TimeSpan divisor"""
@@ -306,7 +304,7 @@ class TestTimeSpan:
         assert sy.TimeSpan.since(one_sec_ago) > 998 * sy.TimeSpan.MILLISECOND
 
     @pytest.mark.parametrize(
-        "crude, expected",
+        ("crude", "expected"),
         [
             (1000, sy.TimeSpan.MICROSECOND),
             (timedelta(microseconds=1000), 1000 * sy.TimeSpan.MICROSECOND),
@@ -321,7 +319,7 @@ class TestTimeSpan:
         assert sy.TimeSpan(crude) == expected
 
     @pytest.mark.parametrize(
-        "crude, expected",
+        ("crude", "expected"),
         [
             (pd.Timedelta(1, "s") + pd.Timedelta(1, "ns"), 1_000_000_001),
             (pd.Timedelta(days=-3, nanoseconds=7), -3 * 86_400 * 10**9 + 7),
@@ -367,11 +365,11 @@ class TestTimeSpan:
 
     def test_add(self) -> None:
         """Should correctly add two time spans"""
-        assert sy.TimeSpan.MICROSECOND + sy.TimeSpan.MICROSECOND == sy.TimeSpan(2000)
+        assert sy.TimeSpan(2000) == sy.TimeSpan.MICROSECOND + sy.TimeSpan.MICROSECOND
 
     def test_sub(self) -> None:
         """Should correctly subtract two time spans"""
-        assert sy.TimeSpan.MICROSECOND - sy.TimeSpan.MICROSECOND == sy.TimeSpan(0)
+        assert sy.TimeSpan(0) == sy.TimeSpan.MICROSECOND - sy.TimeSpan.MICROSECOND
 
     def test_abs_positive(self) -> None:
         """Should return the same value for positive spans"""
@@ -402,7 +400,7 @@ class TestTimeSpan:
         assert sy.TimeSpan.NANOSECOND <= sy.TimeSpan.MICROSECOND
 
     @pytest.mark.parametrize(
-        "span, expected",
+        ("span", "expected"),
         [
             (
                 1 * sy.TimeSpan.DAY
@@ -419,7 +417,7 @@ class TestTimeSpan:
         assert str(span) == expected
 
     @pytest.mark.parametrize(
-        "span, expected",
+        ("span", "expected"),
         [
             (
                 1.0,
@@ -441,7 +439,7 @@ class TestTimeSpan:
         assert abc == sy.TimeSpan(1 * sy.TimeSpan.SECOND)
 
     @pytest.mark.parametrize(
-        "span, expected",
+        ("span", "expected"),
         [
             (1.0, 1.0),
             (1, 1),
@@ -457,7 +455,7 @@ class TestTimeSpan:
 @pytest.mark.telem
 class TestRate:
     @pytest.mark.parametrize(
-        "crude, expected",
+        ("crude", "expected"),
         [
             (sy.TimeSpan.MILLISECOND, sy.Rate(1000)),
             (1000, sy.Rate(1000.0)),
@@ -495,7 +493,7 @@ class TestRate:
 @pytest.mark.telem
 class TestDataType:
     @pytest.mark.parametrize(
-        "crude, expected",
+        ("crude", "expected"),
         [
             (np.int8, sy.DataType.INT8),
             (np.int16, sy.DataType.INT16),
@@ -515,7 +513,7 @@ class TestDataType:
         assert str(sy.DataType.INT8) == "int8"
 
     @pytest.mark.parametrize(
-        "value, expected",
+        ("value", "expected"),
         [
             (sy.DataType.INT8, np.dtype(np.int8)),
             (sy.DataType.FLOAT32, np.dtype(np.float32)),
@@ -527,7 +525,7 @@ class TestDataType:
         assert value.np == expected
 
     @pytest.mark.parametrize(
-        "data_type, expected",
+        ("data_type", "expected"),
         [
             (sy.DataType.STRING, True),
             (sy.DataType.JSON, True),
@@ -559,14 +557,14 @@ class TestDataType:
 @pytest.mark.telem
 class TestSize:
     @pytest.mark.parametrize(
-        "crude, expected",
+        ("crude", "expected"),
         [(1, sy.Size.BYTE), (1.0, sy.Size.BYTE), (sy.Size.BYTE, sy.Size.BYTE)],
     )
     def test_construction(self, crude: sy.CrudeSize, expected: sy.Size) -> None:
         assert sy.Size(crude) == expected
 
     @pytest.mark.parametrize(
-        "value, expected",
+        ("value", "expected"),
         [(sy.Size.GB + sy.Size.MB * 500, "1gb 500mb"), (sy.Size.GB * 0, "0b")],
     )
     def test_str(self, value: sy.Size, expected: str) -> None:
@@ -575,7 +573,7 @@ class TestSize:
 
 @pytest.mark.telem
 @pytest.mark.parametrize(
-    "data, from_, to, expected",
+    ("data", "from_", "to", "expected"),
     [
         (np.array([1, 2, 3]), "s", "ms", 1000),
         (np.array([1, 2, 3]), "ms", "ms", 1),
