@@ -52,12 +52,12 @@ class HTTPReadTaskCase(SimulatorCase, ReadTaskCase[sy.http.ReadTask]):
 
     def _channel_keys(self, task: sy.http.ReadTask) -> list[int]:
         """Extract channel keys from HTTP read task config."""
-        keys = []
-        for ep in task.config.endpoints:
-            for field in ep.fields:
-                if field.channel != 0:
-                    keys.append(field.channel)
-        return keys
+        return [
+            field.channel
+            for ep in task.config.endpoints
+            for field in ep.fields
+            if field.channel != 0
+        ]
 
     def assert_sample_count(
         self,

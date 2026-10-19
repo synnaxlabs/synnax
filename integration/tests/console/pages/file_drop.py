@@ -134,7 +134,7 @@ class FileDrop(ConsoleCase):
             shutil.rmtree(imported_dir)
         os.rename(export_dir, imported_dir)
         manifest_path = os.path.join(imported_dir, "manifest.json")
-        with open(manifest_path, "r", encoding="utf-8") as f:
+        with open(manifest_path, encoding="utf-8") as f:
             manifest = json.load(f)
         manifest["name"] = imported
         with open(manifest_path, "w", encoding="utf-8") as f:

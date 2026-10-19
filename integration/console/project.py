@@ -99,7 +99,7 @@ class ProjectClient(ResourceClient):
         expected_name = os.path.basename(directory_path.rstrip(os.sep))
         manifest_path = os.path.join(directory_path, "manifest.json")
         if os.path.isfile(manifest_path):
-            with open(manifest_path, "r", encoding="utf-8") as f:
+            with open(manifest_path, encoding="utf-8") as f:
                 expected_name = json.load(f).get("name") or expected_name
         self.layout.command_palette("Import project")
         with self.layout.page.expect_file_chooser() as fc_info:

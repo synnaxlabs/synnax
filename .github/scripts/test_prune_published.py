@@ -9,6 +9,7 @@
 
 import io
 import json
+import re
 import sys
 import urllib.error
 import urllib.request
@@ -67,7 +68,7 @@ class TestParseNameVersion:
     )
     def test_should_reject_malformed_file_names(self, filename: str) -> None:
         """Should raise instead of querying a nonexistent release."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=re.escape(filename)):
             prune_published.parse_name_version(filename)
 
 

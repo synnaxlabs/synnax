@@ -124,12 +124,12 @@ class SugaredConsole:
     def _validate(self, kwargs: dict[str, Any]) -> tuple[Any, Any, bool, bool]:
         has_default = "default" in kwargs
 
-        default = kwargs.get("default", None)
-        arg = kwargs.get("arg", None)
+        default = kwargs.get("default")
+        arg = kwargs.get("arg")
         if arg is not None:
             return arg, default, True, has_default
 
-        arg_name = kwargs.get("arg_name", None)
+        arg_name = kwargs.get("arg_name")
         if not self.enabled and not has_default:
             raise ValueError(f"Missing required argument: {arg_name}")
 
@@ -160,17 +160,17 @@ class SugaredConsole:
             raise ValidationError("Missing key argument.")
         _key: str = key or "value"
 
-        _rows: list[dict[str, Any]] = list()
+        _rows: list[dict[str, Any]] = []
         default_idx = 0
         no_cols = columns is None
-        _columns = columns or list()
+        _columns: list[str] = columns or []
 
         for i, row in enumerate(rows):
             if isinstance(row, dict):
                 is_default = row[_key] == default
                 _rows.append({"choice": str(i), **row})
                 if no_cols:
-                    for k in row.keys():
+                    for k in row:
                         if k not in _columns:
                             _columns.append(k)
             else:
@@ -186,7 +186,7 @@ class SugaredConsole:
             _columns = ["value"]
 
         if "choice" not in _columns:
-            _columns = ["choice"] + _columns
+            _columns = ["choice", *_columns]
 
         if should_return:
             return v, default_idx
@@ -195,7 +195,7 @@ class SugaredConsole:
         selected: int | None = self.ask(
             "Select an option #",
             int,
-            choices=[i for i in range(len(rows))],
+            choices=list(range(len(rows))),
             default=default_idx,
         )
 

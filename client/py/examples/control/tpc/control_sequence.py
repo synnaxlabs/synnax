@@ -112,10 +112,9 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
             if one_open:
                 auto[TPC_CMD] = False
                 log(auto, "TPC Valve Closed")
-        elif pressure < params.tpc_lower_bound:
-            if not one_open:
-                auto[TPC_CMD] = True
-                log(auto, "TPC Valve Open")
+        elif pressure < params.tpc_lower_bound and not one_open:
+            auto[TPC_CMD] = True
+            log(auto, "TPC Valve Open")
         return pressure < 15
 
     with client.control.acquire(
