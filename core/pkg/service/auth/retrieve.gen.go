@@ -15,7 +15,6 @@ import (
 	"context"
 	"uuid"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -23,8 +22,43 @@ import (
 // Retrieve is used to retrieve Session records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {
-	baseTX gorp.Tx
-	gorp   gorp.Retrieve[SessionKey, Session]
+	baseTX  gorp.Tx
+	gorp    gorp.Retrieve[SessionKey, Session]
+	indexes indexes
+}
+
+// indexes bundles the per-Service secondary indexes registered on the
+// Session table. Each index is constructed via newIndexes and threaded
+// onto the Retrieve so filter functions can resolve them off r.indexes
+// instead of relying on package-level state.
+type indexes struct {
+	subject    *gorp.LookupIndex[SessionKey, Session, ontology.ID]
+	credential *gorp.LookupIndex[SessionKey, Session, uuid.UUID]
+}
+
+// newIndexes constructs a fresh indexes value, allocating one index instance
+// per registered field. Call once per Service in OpenService and store the
+// result on the Service struct.
+func newIndexes() indexes {
+	return indexes{
+		subject: gorp.NewLookupIndex[SessionKey, Session, ontology.ID](
+			"subject",
+			func(e *Session) ontology.ID { return e.Subject },
+		),
+		credential: gorp.NewLookupIndex[SessionKey, Session, uuid.UUID](
+			"credential",
+			func(e *Session) uuid.UUID { return e.Credential },
+		),
+	}
+}
+
+// all returns the indexes packaged as a heterogeneous slice for registration
+// via gorp.TableConfig.Indexes when opening the underlying table.
+func (i indexes) all() []gorp.Index[SessionKey, Session] {
+	return []gorp.Index[SessionKey, Session]{
+		i.subject,
+		i.credential,
+	}
 }
 
 // Filter is a per-service filter that is bound to the Retrieve when passed to
@@ -75,9 +109,7 @@ func MatchKeys(keys ...SessionKey) Filter {
 // provided values.
 func MatchSubjects(vals ...ontology.ID) Filter {
 	return func(r Retrieve) gorp.Filter[SessionKey, Session] {
-		return gorp.Match(func(_ gorp.Context, e *Session) (bool, error) {
-			return lo.Contains(vals, e.Subject), nil
-		})
+		return r.indexes.subject.Filter(vals...)
 	}
 }
 
@@ -86,9 +118,7 @@ func MatchSubjects(vals ...ontology.ID) Filter {
 // provided values.
 func MatchCredentials(vals ...uuid.UUID) Filter {
 	return func(r Retrieve) gorp.Filter[SessionKey, Session] {
-		return gorp.Match(func(_ gorp.Context, e *Session) (bool, error) {
-			return lo.Contains(vals, e.Credential), nil
-		})
+		return r.indexes.credential.Filter(vals...)
 	}
 }
 

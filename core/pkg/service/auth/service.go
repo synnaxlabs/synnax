@@ -17,7 +17,6 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/address"
@@ -87,6 +86,7 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	cfg      ServiceConfig
 	table    *gorp.Table[SessionKey, Session]
+	indexes  indexes
 	shutdown io.Closer
 	// mu guards seen.
 	mu sync.Mutex
@@ -104,9 +104,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, seen: make(map[SessionKey]telem.TimeStamp)}
+	s := &Service{
+		cfg:     cfg,
+		indexes: newIndexes(),
+		seen:    make(map[SessionKey]telem.TimeStamp),
+	}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[SessionKey, Session]{
 		DB:              cfg.DB,
+		Indexes:         s.indexes.all(),
 		Instrumentation: cfg.Instrumentation,
 	}); err != nil {
 		return nil, err
@@ -136,7 +141,7 @@ func (s *Service) Close() error {
 
 // NewRetrieve opens a query for sessions.
 func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{gorp: s.table.NewRetrieve(), baseTX: s.cfg.DB}
+	return Retrieve{gorp: s.table.NewRetrieve(), baseTX: s.cfg.DB, indexes: s.indexes}
 }
 
 // NewWriter opens a [Writer] that runs in tx.
@@ -212,14 +217,13 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Session, erro
 		return Session{}, ErrInvalidToken
 	}
 	now := s.now()
-	last := max(session.LastActive, s.lastSeen(key))
+	last := max(session.LastActive, s.see(key, now))
 	if time.Duration(now-last) > s.cfg.IdleTimeout {
 		if err = s.Logout(ctx, key); err != nil {
 			return Session{}, err
 		}
 		return Session{}, ErrExpiredToken
 	}
-	s.see(key, now)
 	if time.Duration(now-session.LastActive) > s.cfg.IdleTimeout/4 {
 		if err = s.touch(ctx, key, now); err != nil {
 			return Session{}, err
@@ -235,10 +239,13 @@ func (s *Service) lastSeen(key SessionKey) telem.TimeStamp {
 	return s.seen[key]
 }
 
-func (s *Service) see(key SessionKey, at telem.TimeStamp) {
+// see marks key as active at and returns the previous mark.
+func (s *Service) see(key SessionKey, at telem.TimeStamp) telem.TimeStamp {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	prev := s.seen[key]
 	s.seen[key] = at
+	return prev
 }
 
 // forget also drops every session not in a non-nil keep.
@@ -330,24 +337,24 @@ func (w Writer) DeleteFor(ctx context.Context, subjects ...ontology.ID) error {
 		}
 	}
 	return w.svc.table.NewDelete().
-		Where(gorp.Match(func(_ gorp.Context, e *Session) (bool, error) {
-			return lo.Contains(subjects, e.Subject), nil
-		})).
+		Where(MatchSubjects(subjects...)(w.svc.NewRetrieve())).
 		Exec(ctx, w.tx)
 }
 
-// RevokeCredential ends every session the credential opened, except those in keep.
+// RevokeCredential ends every session the credentials opened, except those in keep.
 func (w Writer) RevokeCredential(
 	ctx context.Context,
 	method Method,
-	credential uuid.UUID,
-	keep ...SessionKey,
+	keep []SessionKey,
+	credentials ...uuid.UUID,
 ) error {
+	kept := set.New(keep...)
 	return w.svc.table.NewDelete().
-		Where(gorp.Match(func(_ gorp.Context, e *Session) (bool, error) {
-			return e.Method == method &&
-				e.Credential == credential &&
-				!lo.Contains(keep, e.Key), nil
-		})).
+		Where(And(
+			MatchCredentials(credentials...),
+			Match(func(_ gorp.Context, _ Retrieve, e *Session) (bool, error) {
+				return e.Method == method && !kept.Contains(e.Key), nil
+			}),
+		)(w.svc.NewRetrieve())).
 		Exec(ctx, w.tx)
 }
