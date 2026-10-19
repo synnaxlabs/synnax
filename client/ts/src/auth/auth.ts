@@ -29,8 +29,6 @@ import {
 import { ontology } from "@/ontology";
 import { user } from "@/user";
 
-export * from "@/auth/types.gen";
-
 const clusterInfoZ = z.object({
   clusterKey: z.string(),
   nodeVersion: z.string().optional(),
@@ -53,9 +51,9 @@ const emptyResZ = z.object({});
 /** Opens a session from a proof. Works without a token. */
 export const SESSION_CREATE_ENDPOINT = "/auth/session/create";
 /** Reports activity on the caller's session. */
-export const SESSION_RENEW_ENDPOINT = "/auth/session/renew";
+const SESSION_RENEW_ENDPOINT = "/auth/session/renew";
 /** Lists sessions. */
-export const SESSION_RETRIEVE_ENDPOINT = "/auth/session/retrieve";
+const SESSION_RETRIEVE_ENDPOINT = "/auth/session/retrieve";
 /** Ends sessions. */
 export const SESSION_DELETE_ENDPOINT = "/auth/session/delete";
 
@@ -243,5 +241,3 @@ export class Client {
     return mw;
   }
 }
-
-export { type Credentials, credentialsZ };
