@@ -17,29 +17,13 @@ import (
 	"github.com/synnaxlabs/alamos"
 	authv1 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	userv0 "github.com/synnaxlabs/synnax/pkg/service/user/versions/v0"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/migrate"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
-
-// SubjectLookup resolves the subject that owns the username of a stored credential.
-// It returns an error wrapping query.ErrNotFound when no subject has the username.
-type SubjectLookup func(
-	ctx context.Context,
-	tx gorp.Tx,
-	username string,
-) (ontology.ID, error)
-
-// MoveConfig configures [NewMove].
-type MoveConfig struct {
-	// SubjectByUsername finds the subject of each stored credential. It is called once
-	// per credential, so it may be nil when none are stored.
-	SubjectByUsername SubjectLookup
-}
 
 // keyNamespace salts the keys the move derives, so they cannot collide with a key
 // derived from the same subject by anything else.
@@ -60,24 +44,42 @@ func migratedKey(subject ontology.ID) Key {
 }
 
 // NewMove returns the migration that moves every row of the credentials table into
-// the password table. The hash moves as it is, still tagged bcrypt. A credential whose
-// username no subject holds is dropped with a warning. Each password gets a key derived
-// from its subject, so the move is the same on every node.
-func NewMove(cfg MoveConfig) migrate.Migration {
-	return gorp.NewMigration(
-		"v0.move_credentials_to_passwords",
-		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
-			return move(ctx, tx, ins, cfg)
-		},
-	)
+// the password table, matching each username to a user in the user table. The hash
+// moves as it is, still tagged bcrypt. A credential whose username no user holds is
+// dropped with a warning. Each password gets a key derived from its subject, so the
+// move is the same on every node. It reads users in their v0 shape, so it must run
+// after the user table's migrations.
+func NewMove() migrate.Migration {
+	return gorp.NewMigration("v0.move_credentials_to_passwords", move)
 }
 
-func move(
+// subjectsByUsername maps every stored user's username to its ontology ID.
+func subjectsByUsername(
 	ctx context.Context,
 	tx gorp.Tx,
-	ins alamos.Instrumentation,
-	cfg MoveConfig,
-) (err error) {
+) (_ map[string]ontology.ID, err error) {
+	iter, err := gorp.WrapReader[userv0.Key, userv0.User](tx).
+		OpenIterator(gorp.IterOptions{})
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errors.Combine(err, iter.Close()) }()
+	subjects := make(map[string]ontology.ID)
+	for iter.First(); iter.Valid(); iter.Next() {
+		u := iter.Value(ctx)
+		if err = iter.Error(); err != nil {
+			return nil, err
+		}
+		subjects[u.Username] = u.OntologyID()
+	}
+	return subjects, nil
+}
+
+func move(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) (err error) {
+	subjects, err := subjectsByUsername(ctx, tx)
+	if err != nil {
+		return err
+	}
 	reader := gorp.WrapReader[string, authv1.SecureCredentials](tx)
 	iter, err := reader.OpenIterator(gorp.IterOptions{})
 	if err != nil {
@@ -94,22 +96,13 @@ func move(
 			return err
 		}
 		usernames = append(usernames, old.Username)
-		if cfg.SubjectByUsername == nil {
-			return errors.Wrap(
-				validate.ErrValidation,
-				"stored credentials need a subject lookup to migrate",
-			)
-		}
-		subject, err := cfg.SubjectByUsername(ctx, tx, old.Username)
-		if errors.Is(err, query.ErrNotFound) {
+		subject, ok := subjects[old.Username]
+		if !ok {
 			ins.L.Warn(
 				"dropping stored credential with no user",
 				zap.String("username", old.Username),
 			)
 			continue
-		}
-		if err != nil {
-			return errors.Wrapf(err, "credential %q", old.Username)
 		}
 		passwords = append(passwords, Password{
 			Key:      migratedKey(subject),

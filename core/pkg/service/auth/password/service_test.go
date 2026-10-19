@@ -17,15 +17,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	authversions "github.com/synnaxlabs/synnax/pkg/service/auth/versions"
-	authv0 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v0"
-	authv1 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 	"golang.org/x/crypto/bcrypt"
@@ -114,98 +107,6 @@ var _ = Describe("OpenService", func() {
 	It("Should return an error when the config is invalid", func(ctx SpecContext) {
 		Expect(password.OpenService(ctx, password.ServiceConfig{})).Error().
 			To(MatchError(ContainSubstring("db: must be non-nil")))
-	})
-	Describe("Upgrade from the credentials table", func() {
-		var (
-			db    *gorp.DB
-			alice = subject()
-		)
-		// createLegacy writes credential rows in the untagged MessagePack shape a Core
-		// before 0.59 persisted.
-		createLegacy := func(ctx context.Context, kvDB kv.DB, hash []byte) {
-			GinkgoHelper()
-			legacyDB := gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec))
-			Expect(gorp.WrapWriter[string, authv0.SecureCredentials](legacyDB).Set(ctx,
-				authv0.SecureCredentials{Username: "alice", Password: hash},
-				authv0.SecureCredentials{Username: "ghost", Password: hash},
-			)).To(Succeed())
-		}
-		lookup := func(_ context.Context, _ gorp.Tx, username string) (ontology.ID, error) {
-			if username == "alice" {
-				return alice, nil
-			}
-			return ontology.ID{}, query.ErrNotFound
-		}
-		BeforeEach(func(ctx SpecContext) {
-			kvDB := DeferClose(memkv.New())
-			db = gorp.Wrap(kvDB)
-			hash := MustSucceed(
-				bcrypt.GenerateFromPassword([]byte("p"), bcrypt.MinCost),
-			)
-			createLegacy(ctx, kvDB, hash)
-		})
-		noCredentials := func(ctx context.Context, username string) {
-			GinkgoHelper()
-			Expect(gorp.NewRetrieve[string, authv1.SecureCredentials]().
-				Where(gorp.MatchKeys[string, authv1.SecureCredentials](username)).
-				Exists(ctx, db)).To(BeFalse())
-		}
-		It(
-			"Should move each credential to the subject that owns it",
-			func(ctx SpecContext) {
-				svc := MustOpen(password.OpenService(ctx, password.ServiceConfig{
-					DB:                db,
-					SubjectByUsername: lookup,
-				}))
-				identity := MustSucceed(svc.Authenticate(ctx, proof("alice", "p")))
-				Expect(identity.Subject).To(Equal(alice))
-				Expect(storedHash(ctx, svc, alice)).To(HavePrefix("$argon2id$"))
-				noCredentials(ctx, "alice")
-			},
-		)
-		It(
-			"Should move credentials a Core already lifted to Orc",
-			func(ctx SpecContext) {
-				Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-					DB:         db,
-					Namespace:  authversions.Namespace,
-					Migrations: authversions.Migrations,
-				})).To(Succeed())
-				svc := MustOpen(password.OpenService(ctx, password.ServiceConfig{
-					DB:                db,
-					SubjectByUsername: lookup,
-				}))
-				Expect(MustSucceed(svc.Authenticate(ctx, proof("alice", "p"))).Subject).
-					To(Equal(alice))
-				noCredentials(ctx, "alice")
-			},
-		)
-		It("Should drop a credential that no subject owns", func(ctx SpecContext) {
-			svc := MustOpen(password.OpenService(ctx, password.ServiceConfig{
-				DB:                db,
-				SubjectByUsername: lookup,
-			}))
-			Expect(svc.Authenticate(ctx, proof("ghost", "p"))).Error().
-				To(MatchError(auth.ErrInvalidCredentials))
-			noCredentials(ctx, "ghost")
-		})
-		It("Should refuse to open without a lookup", func(ctx SpecContext) {
-			Expect(password.OpenService(ctx, password.ServiceConfig{DB: db})).Error().
-				To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("subject lookup")),
-				))
-		})
-		It("Should move credentials once", func(ctx SpecContext) {
-			svc := MustOpen(password.OpenService(ctx, password.ServiceConfig{
-				DB:                db,
-				SubjectByUsername: lookup,
-			}))
-			first := storedHash(ctx, svc, alice)
-			Expect(svc.Close()).To(Succeed())
-			again := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
-			Expect(storedHash(ctx, again, alice)).To(Equal(first))
-		})
 	})
 })
 

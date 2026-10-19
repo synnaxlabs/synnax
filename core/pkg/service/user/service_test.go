@@ -138,18 +138,4 @@ var _ = Describe("Service", func() {
 			},
 		)
 	})
-	Describe("SubjectByUsername", func() {
-		It("Should return the ontology ID of the user", func(ctx SpecContext) {
-			tx := DeferClose(db.OpenTx())
-			created := MustSucceed(
-				svc.NewWriter(tx).Create(ctx, user.User{Username: uuid.New().String()}),
-			)
-			Expect(svc.SubjectByUsername(ctx, tx, created.Username)).
-				To(Equal(created.OntologyID()))
-		})
-		It("Should return not found for an unknown username", func(ctx SpecContext) {
-			Expect(svc.SubjectByUsername(ctx, nil, "does-not-exist")).Error().
-				To(MatchError(query.ErrNotFound))
-		})
-	})
 })
