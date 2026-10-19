@@ -194,6 +194,7 @@ var _ = Describe("Middleware", func() {
 		key := MustSucceed(authSvc.Authenticate(ctx, token)).Key
 		errs := make(chan error, 1)
 		go func() {
+			defer GinkgoRecover()
 			errs <- exec(
 				withToken(ctx, freighter.VariantStream),
 				freighter.FinalizerFunc(
