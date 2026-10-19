@@ -10,17 +10,29 @@
 package http
 
 import (
+	"net"
 	nethttp "net/http"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 )
 
-// SessionCookie is the cookie that carries a browser client's session token. The Core
-// sets it HttpOnly, so page scripts never read it.
-const SessionCookie = "synnax-session"
+// sessionCookiePrefix starts the name of the cookie that carries a browser client's
+// session token. The port the browser reached the Core on ends the name, since cookies
+// do not separate Cores that share a host. The Core sets it HttpOnly, so page scripts
+// never read it.
+const sessionCookiePrefix = "synnax-session-"
+
+func sessionCookieName(host string, tls bool) string {
+	_, port, err := net.SplitHostPort(host)
+	if err != nil || port == "" {
+		port = lo.Ternary(tls, "443", "80")
+	}
+	return sessionCookiePrefix + port
+}
 
 func unary[RQ, RS freighter.Payload](
 	router *http.Router,
@@ -50,7 +62,9 @@ func sessionCookieMiddleware() freighter.Middleware {
 		ctx freighter.Context,
 		next freighter.Next,
 	) (freighter.Context, error) {
-		fromCookie := sessionCookieValue(ctx.Params)
+		host, _ := ctx.Params.GetDefault(fiber.HeaderHost, "").(string)
+		name := sessionCookieName(host, ctx.Sec.TLS.Used)
+		fromCookie := sessionCookieValue(ctx.Params, name)
 		_, hasHeader := ctx.Get(fiber.HeaderAuthorization)
 		injected := !hasHeader && fromCookie != ""
 		if injected {
@@ -73,13 +87,13 @@ func sessionCookieMiddleware() freighter.Middleware {
 		}
 		oCtx.Set(
 			fiber.HeaderSetCookie,
-			sessionCookieHeader(token, ctx.Sec.TLS.Used),
+			sessionCookieHeader(name, token, ctx.Sec.TLS.Used),
 		)
 		return oCtx, err
 	})
 }
 
-func sessionCookieValue(params freighter.Params) string {
+func sessionCookieValue(params freighter.Params, name string) string {
 	raw, ok := params.Get(fiber.HeaderCookie)
 	if !ok {
 		return ""
@@ -93,7 +107,7 @@ func sessionCookieValue(params freighter.Params) string {
 		return ""
 	}
 	for _, c := range cookies {
-		if c.Name == SessionCookie {
+		if c.Name == name {
 			return c.Value
 		}
 	}
@@ -101,9 +115,9 @@ func sessionCookieValue(params freighter.Params) string {
 }
 
 // sessionCookieHeader clears the cookie for an empty token.
-func sessionCookieHeader(token string, secure bool) string {
+func sessionCookieHeader(name, token string, secure bool) string {
 	c := nethttp.Cookie{
-		Name:     SessionCookie,
+		Name:     name,
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,

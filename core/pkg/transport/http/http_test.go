@@ -14,13 +14,16 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	fhttp "github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -272,16 +275,19 @@ var _ = Describe("HTTP", func() {
 			for k, v := range headers {
 				req.Header.Set(k, v)
 			}
+			if host, ok := headers[fiber.HeaderHost]; ok {
+				req.Host = host
+			}
 			return MustSucceed(app.Test(req, fiber.TestConfig{
 				Timeout:       10 * time.Second,
 				FailOnTimeout: true,
 			}))
 		}
-		loginWithCookie := func() *http.Cookie {
+		loginWithCookie := func(host string) *http.Cookie {
 			GinkgoHelper()
 			res := post(
 				"/api/v1/auth/session/create",
-				nil,
+				map[string]string{fiber.HeaderHost: host},
 				apiauth.SessionCreateRequest{
 					Proof:  auth.Proof{Variant: auth.PasswordProof{Credentials: creds}},
 					Cookie: true,
@@ -294,20 +300,27 @@ var _ = Describe("HTTP", func() {
 			Expect(parsed.Token).To(BeEmpty())
 			cookies := res.Cookies()
 			Expect(cookies).To(HaveLen(1))
-			Expect(cookies[0].Name).To(Equal(thttp.SessionCookie))
+			_, port := MustSucceed2(net.SplitHostPort(host))
+			Expect(cookies[0].Name).To(Equal("synnax-session-" + port))
 			Expect(cookies[0].HttpOnly).To(BeTrue())
 			Expect(cookies[0].Value).To(HavePrefix("sys_"))
 			return cookies[0]
 		}
-		// a browser sends back the name and value only
-		withCookie := func(c *http.Cookie) map[string]string {
-			return map[string]string{fiber.HeaderCookie: c.Name + "=" + c.Value}
+		// a browser sends back the name and value only, for every Core on the host
+		withCookie := func(host string, cs ...*http.Cookie) map[string]string {
+			pairs := lo.Map(cs, func(c *http.Cookie, _ int) string {
+				return c.Name + "=" + c.Value
+			})
+			return map[string]string{
+				fiber.HeaderHost:   host,
+				fiber.HeaderCookie: strings.Join(pairs, "; "),
+			}
 		}
 		It("Should authenticate a request that carries only the cookie", func() {
-			cookie := loginWithCookie()
+			cookie := loginWithCookie("localhost:9090")
 			res := post(
 				"/api/v1/auth/session/renew",
-				withCookie(cookie),
+				withCookie("localhost:9090", cookie),
 				struct{}{},
 			)
 			body := MustSucceed(io.ReadAll(res.Body))
@@ -317,22 +330,41 @@ var _ = Describe("HTTP", func() {
 			Expect(parsed.User).ToNot(BeNil())
 			Expect(parsed.User.Username).To(Equal(creds.Username))
 		})
+		It("Should keep the sessions of Cores on different ports apart", func() {
+			first := loginWithCookie("localhost:9090")
+			second := loginWithCookie("localhost:9091")
+			Expect(first.Name).ToNot(Equal(second.Name))
+			renew := func(host string) apiauth.SessionRenewResponse {
+				GinkgoHelper()
+				res := post(
+					"/api/v1/auth/session/renew",
+					withCookie(host, first, second),
+					struct{}{},
+				)
+				Expect(res.StatusCode).To(Equal(http.StatusOK))
+				var parsed apiauth.SessionRenewResponse
+				Expect(json.NewDecoder(res.Body).Decode(&parsed)).To(Succeed())
+				return parsed
+			}
+			Expect(renew("localhost:9090").Session.Key).
+				ToNot(Equal(renew("localhost:9091").Session.Key))
+		})
 		It("Should refuse a request with neither header nor cookie", func() {
 			res := post("/api/v1/auth/session/renew", nil, struct{}{})
 			Expect(res.StatusCode).To(Equal(http.StatusBadRequest))
 		})
 		It("Should clear the cookie when the session logs out", func() {
-			cookie := loginWithCookie()
+			cookie := loginWithCookie("localhost:9090")
 			renew := post(
 				"/api/v1/auth/session/renew",
-				withCookie(cookie),
+				withCookie("localhost:9090", cookie),
 				struct{}{},
 			)
 			var parsed apiauth.SessionRenewResponse
 			Expect(json.NewDecoder(renew.Body).Decode(&parsed)).To(Succeed())
 			res := post(
 				"/api/v1/auth/session/delete",
-				withCookie(cookie),
+				withCookie("localhost:9090", cookie),
 				apiauth.SessionDeleteRequest{
 					Keys: []auth.SessionKey{parsed.Session.Key},
 				},
@@ -344,7 +376,7 @@ var _ = Describe("HTTP", func() {
 			Expect(cleared[0].MaxAge).To(BeNumerically("<", 0))
 			again := post(
 				"/api/v1/auth/session/renew",
-				withCookie(cookie),
+				withCookie("localhost:9090", cookie),
 				struct{}{},
 			)
 			Expect(again.StatusCode).To(Equal(http.StatusBadRequest))
