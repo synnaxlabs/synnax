@@ -73,9 +73,10 @@ Both write commands at authority 254 for the instant of a write, so the Console
 Own channels: runner_controller_heartbeat (true every 5 s, false on clean exit),
 runner_controller_log (every line logged here).
 
-Needs GH_TOKEN or `gh auth token`, GH_WEBHOOK_SECRET, and AWS credentials from the
-boto3 chain that may DescribeInstances, DescribeVolumes, cloudwatch:GetMetricData,
-ce:GetCostAndUsage, ce:GetCostForecast, and pricing:GetProducts.
+Reads the GH_TOKEN, GH_WEBHOOK_SECRET, and SYNNAX_PASSWORD secrets (see common.secret).
+Needs AWS credentials from the boto3 chain that may DescribeInstances, DescribeVolumes,
+cloudwatch:GetMetricData, ce:GetCostAndUsage, ce:GetCostForecast, pricing:GetProducts,
+and ssm:GetParameter on /runners/*.
 """
 
 import argparse
