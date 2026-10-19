@@ -22,6 +22,7 @@ import (
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
+	passwordversions "github.com/synnaxlabs/synnax/pkg/service/auth/password/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
@@ -441,11 +442,17 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.User) {
 		return nil, err
 	}
+	if err = passwordversions.MoveLegacy(
+		ctx,
+		cfg.Distribution.DB,
+		cfg.Child("password"),
+	); !ok(err, nil) {
+		return nil, err
+	}
 	if l.Password, err = password.OpenService(ctx, password.ServiceConfig{
-		Instrumentation:   cfg.Child("password"),
-		DB:                cfg.Distribution.DB,
-		FIPS:              cfg.FIPS,
-		SubjectByUsername: l.User.SubjectByUsername,
+		Instrumentation: cfg.Child("password"),
+		DB:              cfg.Distribution.DB,
+		FIPS:            cfg.FIPS,
 	}); !ok(err, l.Password) {
 		return nil, err
 	}
