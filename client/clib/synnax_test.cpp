@@ -128,7 +128,7 @@ TEST(ClibClient, testConnectsToLocalCluster) {
 }
 
 /// @brief it should connect with an API key in place of a username and password.
-TEST(ClibClient, testConnectsWithAPIKey) {
+TEST(ClibClient, ConnectsWithAPIKey) {
     auto admin = new_test_client();
     const auto created = ASSERT_NIL_P(admin.api_keys.create("clib"));
     SynnaxError err;
@@ -152,7 +152,7 @@ TEST(ClibClient, testConnectsWithAPIKey) {
 }
 
 /// @brief it should reject an API key given alongside a username and password.
-TEST(ClibClient, testOpenWithAPIKeyAndPasswordReturnsValidationError) {
+TEST(ClibClient, OpenWithAPIKeyAndPasswordReturnsValidationError) {
     SynnaxError err;
     SynnaxClient *client = nullptr;
     const int32_t code = synnax_client_open(
