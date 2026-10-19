@@ -81,7 +81,7 @@ var _ config.Config[CoreConfig] = CoreConfig{}
 var DefaultCoreConfig = CoreConfig{
 	certFactoryConfig: cert.DefaultFactoryConfig,
 	// a Core installed before the flag existed starts without it
-	sessionIdleTimeout: auth.DefaultServiceConfig.IdleTimeout,
+	sessionIdleTimeout: auth.DefaultIdleTimeout,
 }
 
 // driverEnabled reports whether the embedded Driver starts with this Core.
