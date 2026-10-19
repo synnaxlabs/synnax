@@ -135,8 +135,9 @@ async def run_server(
     identity.MajorMinorRevision = "1.0.0"
 
     server = ModbusTcpServer(context=dev, identity=identity, address=(host, port))
-    asyncio.create_task(updating_writer(server.context, rate))
-    await server.serve_forever()
+    async with asyncio.TaskGroup() as tg:
+        tg.create_task(updating_writer(server.context, rate))
+        await server.serve_forever()
 
 
 if __name__ == "__main__":

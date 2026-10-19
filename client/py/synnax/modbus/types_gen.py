@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, Union
+from typing import Annotated, Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -114,12 +114,10 @@ class InputRegisterReadChannel(BaseReadChannel, RegisterValue):
 # Is a single Modbus read channel. The type field selects the register space the
 # channel reads from and the fields that accompany it.
 ReadChannel = Annotated[
-    Union[
-        CoilReadChannel,
-        DiscreteInputReadChannel,
-        HoldingRegisterReadChannel,
-        InputRegisterReadChannel,
-    ],
+    CoilReadChannel
+    | DiscreteInputReadChannel
+    | HoldingRegisterReadChannel
+    | InputRegisterReadChannel,
     Field(discriminator="type"),
 ]
 
@@ -139,7 +137,7 @@ class HoldingRegisterWriteChannel(BaseWriteChannel, RegisterValue):
 # Is a single Modbus write channel. The type field selects the register space the
 # channel writes to and the fields that accompany it.
 WriteChannel = Annotated[
-    Union[CoilWriteChannel, HoldingRegisterWriteChannel],
+    CoilWriteChannel | HoldingRegisterWriteChannel,
     Field(discriminator="type"),
 ]
 

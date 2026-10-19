@@ -196,7 +196,7 @@ class Client:
         *,
         strict: bool = False,
     ) -> None:
-        parsed_channels: channel.Params = list()
+        parsed_channels: channel.Params = []
         if isinstance(channels, (list, channel.Key, channel.Payload, str)):
             parsed_channels = channels
         elif isinstance(channels, Mapping):

@@ -118,9 +118,9 @@ class TestTaskClient:
     def test_retrieve_singular_with_list_filter(self, client: sy.Synnax) -> None:
         """Should raise a ValueError when singular selectors are mixed with others."""
         retrieve = cast(Callable[..., object], client.tasks.retrieve)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="cannot be combined"):
             retrieve(name="test", rack=1)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="only one of"):
             retrieve(name="test", type="pagerduty_alert")
 
     def test_retrieve_by_internal_and_snapshot(self, client: sy.Synnax) -> None:

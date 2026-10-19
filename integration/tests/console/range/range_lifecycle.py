@@ -9,7 +9,7 @@
 
 import random
 from collections.abc import Callable
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import synnax as sy
 from console.case import ConsoleCase
@@ -290,8 +290,8 @@ class RangeLifecycle(ConsoleCase):
         # edit reaches the server before asserting.
         for _ in range(10):
             rng = self.client.ranges.retrieve(name=self.labeled_range_name)
-            start_utc = sy.TimeStamp(rng.time_range.start).datetime(timezone.utc)
-            end_utc = sy.TimeStamp(rng.time_range.end).datetime(timezone.utc)
+            start_utc = sy.TimeStamp(rng.time_range.start).datetime(UTC)
+            end_utc = sy.TimeStamp(rng.time_range.end).datetime(UTC)
             if end_utc.day == 2:
                 break
             sy.sleep(0.5)

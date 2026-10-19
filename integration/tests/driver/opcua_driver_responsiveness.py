@@ -112,7 +112,7 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
             self.fail("Primary task not configured")
             return
 
-        all_tasks = [self.tsk] + self.extra_tasks
+        all_tasks = [self.tsk, *self.extra_tasks]
 
         # Step 1-2: Prime the pool
         if not self._prime_pool(all_tasks):

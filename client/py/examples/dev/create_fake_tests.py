@@ -59,21 +59,19 @@ test_channel_information: list[ChannelGroup] = [
     },
 ]
 
-channels_to_create: list[sy.Channel] = []
-
-for info in test_channel_information:
-    for i in range(info["count"]):
-        channels_to_create.append(
-            sy.Channel(
-                name=f"{info['name']}_{i}",
-                data_type=info["data_type"],
-                index=info["time_channel"],
-            )
-        )
+channels_to_create = [
+    sy.Channel(
+        name=f"{info['name']}_{i}",
+        data_type=info["data_type"],
+        index=info["time_channel"],
+    )
+    for info in test_channel_information
+    for i in range(info["count"])
+]
 
 client.channels.create(channels_to_create, retrieve_if_name_exists=True)
 
-all_channels = [test_time_channel_1, test_time_channel_2] + channels_to_create
+all_channels = [test_time_channel_1, test_time_channel_2, *channels_to_create]
 
 for i in range(1, TEST_COUNT + 1):
     test_tr = sy.TimeRange(
@@ -184,8 +182,8 @@ for i in range(1, TEST_COUNT + 1):
                     ),
                 )
             )
-    daq_4189_frame = sy.Frame({key: series for key, series in daq_4189_series})
-    daq_9000_frame = sy.Frame({key: series for key, series in daq_9000_series})
+    daq_4189_frame = sy.Frame(dict(daq_4189_series))
+    daq_9000_frame = sy.Frame(dict(daq_9000_series))
     # Write the data to the channels
     client.write(test_tr.start, daq_4189_frame)
     client.write(test_tr.start, daq_9000_frame)

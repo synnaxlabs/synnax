@@ -31,13 +31,13 @@ from synnax.ethercat.types_gen import (
 )
 
 __all__ = [
+    "MAKE",
+    "MODEL",
     "AutomaticReadChannel",
     "AutomaticWriteChannel",
     "BaseReadChannel",
     "BaseWriteChannel",
     "Device",
-    "MAKE",
-    "MODEL",
     "ManualReadChannel",
     "ManualWriteChannel",
     "PDOAddress",

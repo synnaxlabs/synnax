@@ -24,7 +24,7 @@ transparently route writes into the active test's bundle.
 
 import os
 import threading
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 RESULTS_ROOT = Path(__file__).resolve().parent.parent / "tests" / "results"
@@ -41,7 +41,7 @@ def init_run_dir(name: str | None = None) -> Path:
     that support symlinks.
     """
     global _run_dir
-    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     slug = f"run-{ts}" if not name else f"run-{ts}-{name}"
     _run_dir = RESULTS_ROOT / slug
     _run_dir.mkdir(parents=True, exist_ok=True)

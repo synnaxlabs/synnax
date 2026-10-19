@@ -12,7 +12,6 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "graph",
     hdrs = [
-        "graph.h",
         "json.gen.h",
         "proto.gen.h",
         "types.gen.h",

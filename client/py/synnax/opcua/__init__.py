@@ -26,10 +26,10 @@ from synnax.opcua.types_gen import (
 )
 
 __all__ = [
-    "BaseChannel",
-    "Device",
     "MAKE",
     "MODEL",
+    "BaseChannel",
+    "Device",
     "ReadChannel",
     "ReadConfig",
     "ReadTask",
