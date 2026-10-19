@@ -40,8 +40,6 @@ func requestCtx(ctx context.Context) freighter.Context {
 	return freighter.Context{Context: ctx, Params: freighter.Params{}, Remote: remote}
 }
 
-// authed runs the token through the middleware and returns the request context a
-// handler sees for it.
 func authed(ctx context.Context, token string) freighter.Context {
 	GinkgoHelper()
 	fctx := requestCtx(ctx)
@@ -57,7 +55,6 @@ func authed(ctx context.Context, token string) freighter.Context {
 	return seen
 }
 
-// createUser stores a user with a password and returns it.
 func createUser(ctx context.Context, username, pwd string) user.User {
 	GinkgoHelper()
 	u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{Username: username}))
