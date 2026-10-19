@@ -295,11 +295,11 @@ def _render_network(summary: TraceSummary) -> list[str]:
         return []
     out: list[str] = ["### Network failures", ""]
     out.append("```")
-    for f in summary.network_failures[:MAX_NETWORK_FAILURES]:
-        out.append(
-            f"{f['status']} {f['status_text']:<15} {f['method']} "
-            f"{_truncate(f['url'], 100)}".rstrip()
-        )
+    out.extend(
+        f"{f['status']} {f['status_text']:<15} {f['method']} "
+        f"{_truncate(f['url'], 100)}".rstrip()
+        for f in summary.network_failures[:MAX_NETWORK_FAILURES]
+    )
     if len(summary.network_failures) > MAX_NETWORK_FAILURES:
         out.append(f"... +{len(summary.network_failures) - MAX_NETWORK_FAILURES} more")
     out.append("```")

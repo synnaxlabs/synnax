@@ -20,8 +20,6 @@ from freighter.context import Context
 class Empty(BaseModel):
     """Empty represents an empty payload."""
 
-    pass
-
 
 RQ = TypeVar("RQ", bound=BaseModel, contravariant=True)
 """Represents a general request payload."""

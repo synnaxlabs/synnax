@@ -31,7 +31,7 @@ def noop(
 
     def wrapper(self: T, /, *args: P.args, **kwargs: P.kwargs) -> None:
         if self.noop:
-            return
+            return None
         return f(self, *args, **kwargs)
 
     return wrapper

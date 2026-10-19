@@ -842,7 +842,7 @@ Density.BIT8 = Density(1)
 
 class Size(int):
     def __mul__(self, rhs: CrudeSize) -> Size:
-        return Size(super(Size, self).__mul__(Size(rhs)))
+        return Size(super().__mul__(Size(rhs)))
 
     def __str__(self) -> str:
         tot_gb = self.trunc(Size.GB)
@@ -1242,7 +1242,7 @@ class Alignment(int):
             value = int(value)
         if isinstance(value, Alignment):
             return value
-        elif isinstance(value, tuple):
+        if isinstance(value, tuple):
             if len(value) != 2:
                 raise ValueError(
                     f"Alignment tuple must have exactly 2 elements (domain_idx, sample_idx), got {len(value)}"

@@ -284,7 +284,7 @@ def create_app(auth_type: str = "none", delay_ms: int = 0) -> Flask:
     @app.route("/api/v1/headers", methods=["GET"])
     def api_headers() -> tuple[Response, int]:
         """Echoes back all request headers as JSON. Tests per-endpoint headers."""
-        headers = {k: v for k, v in request.headers}
+        headers = dict(request.headers)
         return jsonify({"headers": headers}), 200
 
     @app.route("/api/v1/query", methods=["GET"])
@@ -407,9 +407,9 @@ def _generate_self_signed_cert(cert_dir: str) -> tuple[str, str]:
         .issuer_name(issuer)
         .public_key(key.public_key())
         .serial_number(x509.random_serial_number())
-        .not_valid_before(datetime.datetime.now(datetime.timezone.utc))
+        .not_valid_before(datetime.datetime.now(datetime.UTC))
         .not_valid_after(
-            datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=365)
+            datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=365)
         )
         .add_extension(
             x509.SubjectAlternativeName(

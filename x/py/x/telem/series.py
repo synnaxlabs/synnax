@@ -355,9 +355,10 @@ class MultiSeries(ArrayOperators):
             first_dt = series[0].data_type
             same_dt = all(s.data_type == first_dt for s in series)
             if not same_dt:
+                data_types = {s.data_type for s in series}
                 raise ValueError(f"""
                     [MultiSeries] - All series must have the same data type. Received
-                    {first_dt} and {set(s.data_type for s in series)}.
+                    {first_dt} and {data_types}.
                     """)
 
     def __array__(

@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, Union
+from typing import Annotated, Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, JsonValue
@@ -206,7 +206,7 @@ class GeneratedWriteField(BaseWriteField):
 # Is an additional body field on a write endpoint. The type field selects whether
 # the value is fixed or generated per request.
 WriteField = Annotated[
-    Union[StaticWriteField, GeneratedWriteField],
+    StaticWriteField | GeneratedWriteField,
     Field(discriminator="type"),
 ]
 

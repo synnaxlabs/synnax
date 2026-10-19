@@ -41,7 +41,6 @@ def assert_properties(
     assert props["show_control_legend"] == show_control_legend, (
         f"Show control state legend mismatch! Actual: {props['show_control_legend']}, Expected: {show_control_legend}"
     )
-    ...
 
 
 def assert_symbol_properties(symbol: Symbol, expected_props: PropertyDict) -> None:

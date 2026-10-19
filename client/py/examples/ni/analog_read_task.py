@@ -106,11 +106,11 @@ total_reads = 100
 
 frame = sy.Frame()
 
-with task.run():
-    with client.open_streamer(
-        ["voltage_chan", "current_chan", "temp_chan"]
-    ) as streamer:
-        for _ in range(total_reads):
-            frame.append(streamer.read())
+with (
+    task.run(),
+    client.open_streamer(["voltage_chan", "current_chan", "temp_chan"]) as streamer,
+):
+    for _ in range(total_reads):
+        frame.append(streamer.read())
 
 frame.to_df().to_csv("analog_read_result.csv")

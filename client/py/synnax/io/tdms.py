@@ -64,13 +64,11 @@ class TDMSReader(ExtensionMatcher):
         if self._channels is not None:
             return self._channels
 
-        self._channels: list[ChannelMeta] = list()
+        self._channels: list[ChannelMeta] = []
         with TdmsFile.open(self._path) as tdms_file:
             for group in tdms_file.groups():
                 for channel in group.channels():
-                    self._channels.append(
-                        ChannelMeta(name=channel.name, meta_data=dict())
-                    )
+                    self._channels.append(ChannelMeta(name=channel.name, meta_data={}))
 
         return self._channels
 
@@ -81,7 +79,7 @@ class TDMSReader(ExtensionMatcher):
         self.channel_keys = set(keys)
 
     def set_keys_from_file(self) -> set[str]:
-        self.channel_keys = set([ch.name for ch in self.channels()])
+        self.channel_keys = {ch.name for ch in self.channels()}
         return self.channel_keys
 
     @classmethod
@@ -114,7 +112,7 @@ class TDMSReader(ExtensionMatcher):
         # https://nptdms.readthedocs.io/en/stable/reading.html
         # https://github.com/adamreeve/npTDMS/issues/263
         # https://nptdms.readthedocs.io/en/stable/reading.html
-        data = dict()
+        data = {}
         with TdmsFile.open(self._path) as tdms_file:
             for group in tdms_file.groups():
                 for channel in group.channels():
