@@ -18,7 +18,6 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -27,10 +26,6 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
-
-// SubjectLookup resolves the subject that owns a username. It is called once per
-// stored credential when a Core upgrades from the credentials table.
-type SubjectLookup = versions.SubjectLookup
 
 // ServiceConfig is the configuration for opening a [Service].
 type ServiceConfig struct {
@@ -43,11 +38,6 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to false.
 	FIPS *bool
-	// SubjectByUsername resolves the subject of each credential stored before this
-	// service existed. The first open after an upgrade calls it once per credential.
-	//
-	// [OPTIONAL] - Required when such credentials exist.
-	SubjectByUsername SubjectLookup
 	// Instrumentation is for logging, tracing, metrics, etc.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -65,7 +55,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.FIPS = override.Nil(c.FIPS, other.FIPS)
-	c.SubjectByUsername = override.Nil(c.SubjectByUsername, other.SubjectByUsername)
 	return c
 }
 
@@ -79,19 +68,16 @@ func (c ServiceConfig) Validate() error {
 
 // Service stores passwords and checks proofs of them.
 type Service struct {
-	cfg     ServiceConfig
-	table   *gorp.Table[Key, Password]
-	indexes indexes
-	// current makes the hash of every new password.
-	current hasher
-	// accepted holds every verifier whose stored hashes the service checks.
+	cfg      ServiceConfig
+	table    *gorp.Table[Key, Password]
+	indexes  indexes
+	current  hasher
 	accepted []verifier
 }
 
 var _ auth.Authenticator = (*Service)(nil)
 
-// OpenService opens a [Service] with the given configurations. On the first open after
-// an upgrade it moves every row of the credentials table into the password table.
+// OpenService opens a [Service] with the given configurations.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
@@ -99,16 +85,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 	s := &Service{cfg: cfg, indexes: newIndexes()}
 	s.current, s.accepted = hashers(*cfg.FIPS)
-	if err = gorp.Migrate(ctx, gorp.MigrateConfig{
-		DB:        cfg.DB,
-		Namespace: versions.LegacyNamespace,
-		Migrations: versions.NewLegacyMigrations(versions.LegacyConfig{
-			SubjectByUsername: cfg.SubjectByUsername,
-		}),
-		Instrumentation: cfg.Instrumentation,
-	}); err != nil {
-		return nil, err
-	}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Password]{
 		DB:              cfg.DB,
 		Indexes:         s.indexes.all(),
@@ -200,9 +176,7 @@ func (s *Service) verifierFor(hash []byte) (verifier, bool) {
 	return nil, false
 }
 
-// rehash stores the password again with the current algorithm. It leaves the record
-// alone when the stored hash is no longer checked, because a password change landed in
-// between.
+// rehash leaves the record alone when its hash changed after the check.
 func (s *Service) rehash(
 	ctx context.Context,
 	key Key,

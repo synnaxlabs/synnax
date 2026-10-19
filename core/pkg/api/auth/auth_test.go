@@ -28,13 +28,11 @@ import (
 
 const remote address.Address = "10.0.0.1:4242"
 
-// request builds a login request for the given username and password.
 func request(username, pwd string) apiauth.LoginRequest {
 	creds := auth.Credentials{Username: username, Password: pwd}
 	return apiauth.LoginRequest{Credentials: creds}
 }
 
-// requestCtx wraps ctx the way a transport does, with the client's address.
 func requestCtx(ctx context.Context) freighter.Context {
 	return freighter.Context{Context: ctx, Params: freighter.Params{}, Remote: remote}
 }

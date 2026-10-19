@@ -147,22 +147,5 @@ func (s *Service) NewRetrieve() Retrieve {
 	}
 }
 
-// SubjectByUsername returns the ontology ID of the user with the given username. It
-// returns an error wrapping query.ErrNotFound when no user has it.
-func (s *Service) SubjectByUsername(
-	ctx context.Context,
-	tx gorp.Tx,
-	username string,
-) (ontology.ID, error) {
-	var u User
-	if err := s.NewRetrieve().
-		Where(MatchUsernames(username)).
-		Entry(&u).
-		Exec(ctx, tx); err != nil {
-		return ontology.ID{}, err
-	}
-	return u.OntologyID(), nil
-}
-
 // Close closes the [Service] and stops any signal publishing.
 func (s *Service) Close() error { return s.closer.Close() }

@@ -18,12 +18,11 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/auth/password/versions/v0"
 	authv1 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	userv0 "github.com/synnaxlabs/synnax/pkg/service/user/versions/v0"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/migrate"
-	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Password", func() {
@@ -46,19 +45,13 @@ var _ = Describe("Password", func() {
 var _ = Describe("NewMove", func() {
 	var (
 		db    *gorp.DB
-		alice = ontology.ID{Type: ontology.ResourceTypeUser, Key: uuid.New().String()}
+		alice userv0.User
 	)
-	lookup := func(_ context.Context, _ gorp.Tx, username string) (ontology.ID, error) {
-		if username == "alice" {
-			return alice, nil
-		}
-		return ontology.ID{}, query.ErrNotFound
-	}
-	run := func(ctx context.Context, cfg v0.MoveConfig) error {
+	run := func(ctx context.Context) error {
 		return gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  "test",
-			Migrations: []migrate.Migration{v0.NewMove(cfg)},
+			Migrations: []migrate.Migration{v0.NewMove()},
 		})
 	}
 	passwords := func(ctx context.Context) []v0.Password {
@@ -68,34 +61,41 @@ var _ = Describe("NewMove", func() {
 			To(Succeed())
 		return ps
 	}
-	BeforeEach(func(ctx SpecContext) {
+	create := func(ctx context.Context, usernames ...string) {
+		GinkgoHelper()
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		Expect(gorp.WrapWriter[string, authv1.SecureCredentials](db).Set(ctx,
-			authv1.SecureCredentials{Username: "alice", Password: []byte("hash")},
-			authv1.SecureCredentials{Username: "ghost", Password: []byte("hash")},
-		)).To(Succeed())
+		Expect(gorp.WrapWriter[userv0.Key, userv0.User](db).Set(ctx, alice)).
+			To(Succeed())
+		creds := make([]authv1.SecureCredentials, len(usernames))
+		for i, u := range usernames {
+			creds[i] = authv1.SecureCredentials{Username: u, Password: []byte("hash")}
+		}
+		Expect(
+			gorp.WrapWriter[string, authv1.SecureCredentials](db).Set(ctx, creds...),
+		).
+			To(Succeed())
+	}
+	BeforeEach(func(ctx SpecContext) {
+		alice = userv0.User{Key: uuid.New(), Username: "alice"}
+		create(ctx, "alice", "ghost")
 	})
 	It(
-		"Should move each credential to its subject and keep the hash",
+		"Should move each credential to the user that holds its username",
 		func(ctx SpecContext) {
-			Expect(run(ctx, v0.MoveConfig{SubjectByUsername: lookup})).To(Succeed())
+			Expect(run(ctx)).To(Succeed())
 			ps := passwords(ctx)
 			Expect(ps).To(HaveLen(1))
-			Expect(ps[0].Subject).To(Equal(alice))
+			Expect(ps[0].Subject).To(Equal(alice.OntologyID()))
 			Expect(ps[0].Username).To(Equal("alice"))
 			Expect(ps[0].Hash).To(Equal([]byte("hash")))
-			Expect(ps[0].Key).ToNot(Equal(uuid.Nil()))
 			Expect(ps[0].Created).ToNot(BeZero())
 		},
 	)
 	It("Should derive the same key on every node", func(ctx SpecContext) {
-		Expect(run(ctx, v0.MoveConfig{SubjectByUsername: lookup})).To(Succeed())
+		Expect(run(ctx)).To(Succeed())
 		first := passwords(ctx)
-		db = DeferClose(gorp.Wrap(memkv.New()))
-		Expect(gorp.WrapWriter[string, authv1.SecureCredentials](db).Set(ctx,
-			authv1.SecureCredentials{Username: "alice", Password: []byte("hash")},
-		)).To(Succeed())
-		Expect(run(ctx, v0.MoveConfig{SubjectByUsername: lookup})).To(Succeed())
+		create(ctx, "alice")
+		Expect(run(ctx)).To(Succeed())
 		second := passwords(ctx)
 		Expect(first).To(HaveLen(1))
 		Expect(second).To(HaveLen(1))
@@ -103,23 +103,13 @@ var _ = Describe("NewMove", func() {
 		Expect(second[0].Key.String()[14]).To(Equal(byte('5')))
 	})
 	It("Should delete every credential row, owned or not", func(ctx SpecContext) {
-		Expect(run(ctx, v0.MoveConfig{SubjectByUsername: lookup})).To(Succeed())
+		Expect(run(ctx)).To(Succeed())
 		Expect(gorp.NewRetrieve[string, authv1.SecureCredentials]().
 			Exists(ctx, db)).To(BeFalse())
 	})
-	It(
-		"Should fail when credentials exist and no lookup is set",
-		func(ctx SpecContext) {
-			Expect(run(ctx, v0.MoveConfig{})).
-				To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("subject lookup")),
-				))
-		},
-	)
-	It("Should succeed with no lookup when nothing is stored", func(ctx SpecContext) {
+	It("Should succeed when nothing is stored", func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		Expect(run(ctx, v0.MoveConfig{})).To(Succeed())
+		Expect(run(ctx)).To(Succeed())
 		Expect(passwords(ctx)).To(BeEmpty())
 	})
 })
