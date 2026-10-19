@@ -170,6 +170,15 @@ jobs:
           Add-Content $env:GITHUB_ENV "GOMODCACHE=$env:RUNNER_TEMP\gomod"
           Add-Content $env:GITHUB_ENV "GOTMPDIR=$env:RUNNER_TEMP\gotmp"
 
+      # The Ubuntu image ships toolchains these tests never use, and a --race --cover
+      # build of the Core overflows the disk they leave free.
+      - name: Free disk space
+        if: runner.os == 'Linux'
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+          df -h /
+
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
