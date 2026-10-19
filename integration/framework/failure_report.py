@@ -38,7 +38,7 @@ MAX_NETWORK_FAILURES = 10
 MAX_SERVER_LOG_LINES = 30
 CODE_SNIPPET_CONTEXT = 4
 
-FAILED_STATUSES = (STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED)
+FAILED_STATUSES = (STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED, STATUS.FLAKY)
 
 
 @dataclass
@@ -205,6 +205,10 @@ def _render_test(idx: int, test: Test, run_dir: Path) -> list[str]:
         f"**Bundle:** `{rel_bundle}/`",
         "",
     ]
+    if test.status == STATUS.FLAKY:
+        out.append("Passed on retry. The error and artifacts below are from the failed")
+        out.append("attempt.")
+        out.append("")
     if test.error_message:
         out.append("### Error")
         out.append("")

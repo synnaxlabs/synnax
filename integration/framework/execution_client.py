@@ -168,10 +168,10 @@ class ExecutionClient:
         retry_total = sum(len(defs) for _, defs in retries)
         self._log(f"==== RETRYING {retry_total} FAILED TEST(S) ====\n", True)
 
+        first_attempts = {str(r): r for r in failed if str(r) in retry_keys}
         with self._tests_lock:
-            for result in failed:
-                if str(result) in retry_keys:
-                    self._tests.remove(result)
+            for result in first_attempts.values():
+                self._tests.remove(result)
             self._tests_offset = len(self._tests)
 
         self._total_tests = retry_total
@@ -187,6 +187,9 @@ class ExecutionClient:
             for test in self._tests:
                 if str(test) in retry_keys and test.status == STATUS.PASSED:
                     test.status = STATUS.FLAKY
+                    first = first_attempts[str(test)]
+                    test.error_message = first.error_message
+                    test.error_traceback = first.error_traceback
                     self._on_status_change(test)
 
     # ----- Sequential execution -----
