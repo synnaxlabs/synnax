@@ -985,58 +985,52 @@ class DataType(str):
         if isinstance(value, str):
             return super().__new__(cls, value)
 
-        if isinstance(value, np.number):
-            result = DataType._FROM_NUMPY.get(np.dtype(value), None)
-            if result is not None:
-                return result
-
-        if isinstance(value, (bool, np.bool_)):
-            return DataType.BOOLEAN
-
-        if isinstance(value, float):
-            return DataType.FLOAT64
-
-        if isinstance(value, int):
-            return DataType.INT64
-
-        if isinstance(value, uuid.UUID):
-            return DataType.UUID
+        if isinstance(value, (int, float, np.number, np.bool_, dict, uuid.UUID)):
+            return DataType._from_sample(value)
 
         if isinstance(value, list):
             if len(value) == 0:
                 raise ValueError("Cannot extract a data type from an empty list")
 
-            if isinstance(value[0], TimeStamp):
-                return DataType.TIMESTAMP
-
-            if isinstance(value[0], (bool, np.bool_)):
-                return DataType.BOOLEAN
-
-            if isinstance(value[0], float):
-                return DataType.FLOAT64
-
-            if isinstance(value[0], int):
-                return DataType.INT64
-
-            if isinstance(value[0], str):
-                return DataType.STRING
-
-            if isinstance(value[0], uuid.UUID):
-                return DataType.UUID
-
-            if isinstance(value[0], dict):
-                return DataType.JSON
-
-            raise TypeError(f"Cannot convert {type(value)} to DataType")
-
-        if isinstance(value, dict):
-            return DataType.JSON
+            types = {DataType._from_sample(v) for v in value}
+            if len(types) == 1:
+                return types.pop()
+            if all(t.is_number for t in types):
+                return DataType(np.result_type(*(t.np for t in types)))
+            raise TypeError(f"Cannot infer one data type from {sorted(types)}")
 
         result = DataType._FROM_NUMPY.get(np.dtype(value), None)
         if result is not None:
             return result
 
         raise TypeError(f"Cannot convert {type(value)} to DataType")
+
+    @staticmethod
+    def _from_sample(value: Any) -> DataType:
+        if isinstance(value, str):
+            return DataType.STRING
+        if isinstance(value, dict):
+            return DataType.JSON
+        if isinstance(value, TimeStamp):
+            return DataType.TIMESTAMP
+        if isinstance(value, (bool, np.bool_)):
+            return DataType.BOOLEAN
+        if isinstance(value, float):
+            return DataType.FLOAT64
+        if isinstance(value, int):
+            return DataType.INT64
+        if isinstance(value, uuid.UUID):
+            return DataType.UUID
+        if isinstance(value, np.number):
+            result = DataType._FROM_NUMPY.get(np.dtype(value), None)
+            if result is not None:
+                return result
+        raise TypeError(f"Cannot convert {type(value)} to DataType")
+
+    @property
+    def is_number(self) -> bool:
+        """:returns: True if the data type holds integers or floats, not timestamps."""
+        return self != DataType.TIMESTAMP and self.has_np and self.np.kind in "iuf"
 
     @classmethod
     def __get_pydantic_core_schema__(

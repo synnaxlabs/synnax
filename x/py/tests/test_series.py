@@ -15,6 +15,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from x import telem
 from x.interop import ArrayOperators
@@ -291,6 +293,43 @@ class TestSeries:
         )
         s2 = telem.Series(s1)
         assert s2.alignment == s1.alignment
+
+    def test_alignment_override_from_series(self) -> None:
+        """Should use a given alignment over the source series' alignment"""
+        s1 = telem.Series([1, 2, 3], alignment=telem.Alignment(1, 2))
+        assert telem.Series(s1, alignment=5).alignment == 5
+
+    def test_astype_keeps_alignment(self) -> None:
+        """Should keep the alignment when casting"""
+        s = telem.Series([1, 2, 3], alignment=7)
+        assert s.astype(telem.DataType.FLOAT64).alignment == 7
+
+    def test_infer_mixed_numeric_list(self) -> None:
+        """Should infer a float series when ints and floats are mixed"""
+        s = telem.Series([1, 2.5])
+        assert s.data_type == telem.DataType.FLOAT64
+        assert list(s) == [1.0, 2.5]
+
+    def test_infer_rejects_bool_and_number_list(self) -> None:
+        """Should reject a list that mixes booleans and numbers"""
+        with pytest.raises(TypeError):
+            telem.Series([True, 2])
+
+    def test_infer_timestamp_scalar(self) -> None:
+        """Should infer a timestamp series from a single TimeStamp"""
+        assert telem.Series(telem.TimeStamp(5)).data_type == telem.DataType.TIMESTAMP
+
+    def test_uuid_list_rejects_non_uuid(self) -> None:
+        """Should reject a value that is not a UUID instead of dropping it"""
+        values: list[Any] = [uuid.uuid4(), "not-a-uuid"]
+        with pytest.raises(TypeError):
+            telem.Series(values, data_type=telem.DataType.UUID)
+
+    def test_json_from_scalar_string(self) -> None:
+        """Should encode a bare string as one JSON value, like a one-item list"""
+        s = telem.Series("hello", data_type=telem.DataType.JSON)
+        assert s.data_type == telem.DataType.JSON
+        assert s.data == telem.Series(["hello"], data_type=telem.DataType.JSON).data
 
 
 @pytest.mark.telem
@@ -776,3 +815,55 @@ class TestSeriesModel:
         restored = telem.Series.model_validate(s.model_dump())
         assert restored.data == s.data
         assert np.array_equal(restored, s)
+
+
+_INT64 = st.integers(min_value=-(2**63), max_value=2**63 - 1)
+_FLOAT = st.floats(allow_nan=False, allow_infinity=False)
+_TEXT = st.text(max_size=20)
+_JSON = st.dictionaries(_TEXT, st.integers() | _TEXT | st.booleans(), max_size=4)
+
+
+@pytest.mark.telem
+@pytest.mark.series
+class TestSeriesProperties:
+    @given(st.lists(_INT64, min_size=1, max_size=50))
+    def test_int_round_trip(self, values: list[int]) -> None:
+        """Should round-trip a list of int64 values"""
+        s = telem.Series(values)
+        assert s.data_type == telem.DataType.INT64
+        assert np.asarray(s).tolist() == values
+
+    @given(st.lists(_FLOAT, min_size=1, max_size=50))
+    def test_float_round_trip(self, values: list[float]) -> None:
+        """Should round-trip a list of float64 values"""
+        assert np.asarray(telem.Series(values)).tolist() == values
+
+    @given(st.lists(st.integers(-(2**31), 2**31) | _FLOAT, min_size=1, max_size=50))
+    def test_mixed_numbers_keep_values(self, values: list[int | float]) -> None:
+        """Should keep every value of a mixed int and float list"""
+        s = telem.Series(values)
+        assert np.asarray(s).tolist() == [float(v) for v in values]
+
+    @given(st.lists(_TEXT, min_size=1, max_size=20))
+    def test_string_round_trip(self, values: list[str]) -> None:
+        """Should round-trip a list of strings"""
+        assert list(telem.Series(values)) == values
+
+    @given(st.lists(_JSON, min_size=1, max_size=10))
+    def test_json_round_trip(self, values: list[dict[str, Any]]) -> None:
+        """Should round-trip a list of JSON objects"""
+        assert list(telem.Series(values)) == values
+
+    @given(st.lists(st.uuids(), min_size=1, max_size=20))
+    def test_uuid_round_trip(self, values: list[uuid.UUID]) -> None:
+        """Should round-trip a list of UUIDs"""
+        assert list(telem.Series(values)) == values
+
+    @given(st.lists(_INT64, min_size=1, max_size=20), st.integers(0, 2**32 - 1))
+    def test_alignment_survives_copy_and_cast(
+        self, values: list[int], align: int
+    ) -> None:
+        """Should keep the alignment through a copy and a cast"""
+        s = telem.Series(values, alignment=align)
+        assert telem.Series(s).alignment == align
+        assert s.astype(telem.DataType.FLOAT64).alignment == align
