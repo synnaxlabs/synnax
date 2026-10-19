@@ -51,7 +51,10 @@ const x::errors::Error ERR_INVALID_TOKEN = ERR.sub("invalid_token");
 const x::errors::Error ERR_EXPIRED_TOKEN = ERR.sub("expired_token");
 const x::errors::Error ERR_SESSION_ENDED = ERR.sub("session_ended");
 const x::errors::Error ERR_INVALID_CREDENTIALS = ERR.sub("invalid-credentials");
-const std::vector RETRY_ON_ERRORS = {
+/// @brief errors after which a request logs in again and retries.
+const std::vector RETRY_ON_ERRORS = {ERR_INVALID_TOKEN, ERR_EXPIRED_TOKEN};
+/// @brief errors meaning the Core no longer holds the session.
+const std::vector ENDED_ERRORS = {
     ERR_INVALID_TOKEN,
     ERR_EXPIRED_TOKEN,
     ERR_SESSION_ENDED
@@ -222,7 +225,7 @@ public:
             if (const auto err = this->authenticate()) return err;
         google::protobuf::Empty req;
         auto [_, err] = renew_client->send("/auth/session/renew", req);
-        if (err.matches(RETRY_ON_ERRORS)) this->forget();
+        if (err.matches(ENDED_ERRORS)) this->forget();
         return err;
     }
 
@@ -235,7 +238,7 @@ public:
         grpc::auth::SessionDeleteRequest req;
         req.add_keys(key);
         auto [_, err] = delete_client->send("/auth/session/delete", req);
-        if (err && !err.matches(RETRY_ON_ERRORS)) return err;
+        if (err && !err.matches(ENDED_ERRORS)) return err;
         std::lock_guard lock(mu);
         // A request that re-logged in while the delete was in flight holds a session
         // this logout did not end.
@@ -254,6 +257,12 @@ public:
             if (const auto err = this->authenticate()) return {context, err};
         context.set(HEADER_KEY, HEADER_VALUE_PREFIX + this->current_token());
         auto [res_ctx, err] = next(context);
+        // A session ending under an open stream closes that stream for good, so it
+        // goes back to the caller to reopen.
+        if (err.matches(ERR_SESSION_ENDED)) {
+            this->forget();
+            return {res_ctx, err};
+        }
         if (err.matches(RETRY_ON_ERRORS)) {
             this->authenticated = false;
             return this->operator()(context, next);
