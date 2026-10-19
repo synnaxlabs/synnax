@@ -340,7 +340,7 @@ var _ = Describe("Service", func() {
 				stale, _ := login(ctx)
 				Expect(gorp.WrapWriter[auth.SessionKey, auth.Session](db).
 					Delete(ctx, session.Key)).To(Succeed())
-				clock.Advance(idle + time.Second)
+				clock.Advance(idle*5/4 + time.Second)
 				Expect(svc.Sweep(ctx)).To(Succeed())
 				Eventually(ended).Should(BeClosed())
 				Expect(
@@ -415,7 +415,7 @@ var _ = Describe("Service", func() {
 					MustSucceed(svc.Authenticate(ctx, token)).Key,
 				).To(Equal(session.Key))
 				release()
-				clock.Advance(idle + time.Second)
+				clock.Advance(idle*5/4 + time.Second)
 				Expect(svc.Sweep(ctx)).To(Succeed())
 				Expect(svc.Authenticate(ctx, token)).Error().
 					To(MatchError(auth.ErrInvalidToken))
