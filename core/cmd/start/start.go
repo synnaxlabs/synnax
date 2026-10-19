@@ -80,8 +80,7 @@ var _ config.Config[CoreConfig] = CoreConfig{}
 
 var DefaultCoreConfig = CoreConfig{
 	certFactoryConfig: cert.DefaultFactoryConfig,
-	// A Core installed before the flag existed starts without it, so the default fills
-	// in rather than failing validation.
+	// a Core installed before the flag existed starts without it
 	sessionIdleTimeout: auth.DefaultServiceConfig.IdleTimeout,
 }
 

@@ -107,13 +107,12 @@ type Service struct {
 	mu         struct {
 		sync.Mutex
 		holds map[SessionKey]*hold
-		// seen holds the last request time of each session this node has checked. The
-		// stored mark lags it by up to a quarter of the idle timeout.
+		// seen leads the stored activity by up to a quarter of the idle timeout.
 		seen map[SessionKey]telem.TimeStamp
 	}
 }
 
-// hold is a session that streams on this node keep open.
+// hold counts the streams on this node that keep a session open.
 type hold struct {
 	count int
 	ended chan struct{}
@@ -143,7 +142,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		sCtx,
 		s.cfg.IdleTimeout/4,
 		func(ctx context.Context, _ time.Time) error {
-			// A failed sweep must not stop the ticker, so the next one runs on time.
+			// an error would stop the ticker
 			if err := s.Sweep(ctx); err != nil {
 				s.cfg.L.Error("failed to sweep idle sessions", zap.Error(err))
 			}
@@ -200,8 +199,7 @@ func (s *Service) Hold(
 			}
 		})
 	}
-	// The hold is registered before the lookup, so a deletion that lands between the
-	// two still reaches endDeletedHolds and closes the channel.
+	// registered before the lookup, so a deletion in between still ends the hold
 	exists, err := s.NewRetrieve().Where(MatchKeys(key)).Exists(ctx, nil)
 	if err != nil || !exists {
 		release()
@@ -239,7 +237,6 @@ func (s *Service) CheckHolds(ctx context.Context) error {
 	return nil
 }
 
-// endHold closes the ended channel of the hold on key, if the hold is still open.
 func (s *Service) endHold(key SessionKey) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -249,7 +246,6 @@ func (s *Service) endHold(key SessionKey) {
 	}
 }
 
-// endDeletedHolds closes the ended channel of every held session a change deleted.
 func (s *Service) endDeletedHolds(
 	_ context.Context,
 	changes iter.Seq[change.Change[SessionKey, Session]],
@@ -267,8 +263,7 @@ func (s *Service) endDeletedHolds(
 	}
 }
 
-// held returns the keys of every session a stream on this node holds and that has not
-// ended.
+// held skips ended holds.
 func (s *Service) held() []SessionKey {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -388,8 +383,7 @@ func (s *Service) see(key SessionKey, at telem.TimeStamp) {
 	s.mu.seen[key] = at
 }
 
-// forget drops the activity of the given sessions. When keep is set, it also drops
-// every session not in keep, so sessions deleted elsewhere do not linger.
+// forget also drops every session not in a non-nil keep.
 func (s *Service) forget(keep set.Set[SessionKey], keys ...SessionKey) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

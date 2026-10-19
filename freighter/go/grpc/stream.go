@@ -179,26 +179,21 @@ func (s *StreamClient[RQ, RQT, RS, RST]) adaptStream(
 
 // ServerStream wraps a grpc stream to implement the freighter.ServerStream interface.
 type ServerStream[RQ, RQT, RS, RST freighter.Payload] struct {
-	// ctx is the handler's context. Receive stops waiting when it ends, which the
-	// transport's own receive does not do.
+	// ctx is the handler's context, which a parked Receive or Send also watches.
 	ctx                context.Context
 	internal           grpcServerStream[RQT, RST]
 	requestTranslator  Translator[RQ, RQT]
 	responseTranslator Translator[RS, RST]
 	recvOnce           sync.Once
 	recv               chan recvResult[RQT]
-	// recvErr is the error that ended the transport's receive side. Every later
-	// Receive returns it again.
+	// recvErr is returned again by every later Receive.
 	recvErr  error
 	sendOnce sync.Once
 	sendReq  chan RST
-	// sendRes holds one result so the send loop never blocks on a Send that stopped
-	// waiting.
+	// sendRes buffers one result so the loop never blocks on a Send that gave up.
 	sendRes chan error
 }
 
-// sendLoop writes messages to the transport for Send, so a Send blocked by a peer
-// that stopped reading can return when the handler's context ends.
 func (s *ServerStream[RQ, RQT, RS, RST]) sendLoop() {
 	for {
 		select {
@@ -210,14 +205,11 @@ func (s *ServerStream[RQ, RQT, RS, RST]) sendLoop() {
 	}
 }
 
-// recvResult is one message the receive loop pulled off the transport.
 type recvResult[RQT freighter.Payload] struct {
 	msg RQT
 	err error
 }
 
-// receiveLoop pulls messages off the transport until it fails, which it does once the
-// handler returns and the RPC ends, and hands them to Receive.
 func (s *ServerStream[RQ, RQT, RS, RST]) receiveLoop() {
 	defer close(s.recv)
 	for {

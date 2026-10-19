@@ -20,14 +20,10 @@ import (
 	"go.uber.org/zap"
 )
 
-// ProvisionRoot makes exactly one user the root user and sets its password to creds.
-// The Core calls it at every start, so the start settings own the root password. A root
-// user whose username already matches keeps its record. Else a user holding the
-// username is promoted in place. Else a root user record is created. Every other root
-// user is demoted and keeps its roles. The password is written only when creds does
-// not verify against the stored one, and the returned bool reports that write. The
-// caller ends the other sessions of a changed password. The whole call runs in one
-// transaction. It returns a validation error when creds is incomplete.
+// ProvisionRoot makes the user holding creds.Username the only root user, promoting or
+// creating it, and demotes every other root user without touching its roles. It writes
+// the password only when creds does not verify, and reports that write. It runs in one
+// transaction and returns a validation error when creds is incomplete.
 func ProvisionRoot(
 	ctx context.Context,
 	users *Service,
@@ -67,8 +63,7 @@ func ProvisionRoot(
 	return root, changed, nil
 }
 
-// passwordChanged reports whether creds fails to verify against the stored password
-// for its username. A missing record counts as changed.
+// passwordChanged counts a missing record as changed.
 func passwordChanged(
 	ctx context.Context,
 	passwords *password.Service,
@@ -98,9 +93,6 @@ func (s *Service) loadRootUsers(ctx context.Context, tx gorp.Tx) ([]User, error)
 	return roots, nil
 }
 
-// resolveRoot returns the user that holds username as the root user: an existing root
-// with that username, else a user with that username promoted in place, else a new
-// root user record.
 func (s *Service) resolveRoot(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -139,8 +131,6 @@ func (s *Service) resolveRoot(
 	return existing, nil
 }
 
-// demoteRoot clears the RootUser flag on u and keeps its roles. It always logs a
-// warning so operators notice the change of ownership.
 func (s *Service) demoteRoot(ctx context.Context, tx gorp.Tx, u User) error {
 	if err := s.NewWriter(tx).setRootUser(ctx, u.Key, false); err != nil {
 		return errors.Wrapf(err, "demote root user %q", u.Username)

@@ -24,7 +24,6 @@ const secretLen = 32
 
 var tokenEncoding = base64.RawURLEncoding
 
-// newToken returns a token for the session key and the hash of the secret it carries.
 func newToken(key SessionKey) (string, []byte, error) {
 	secret := make([]byte, secretLen)
 	if _, err := rand.Read(secret); err != nil {
@@ -34,8 +33,7 @@ func newToken(key SessionKey) (string, []byte, error) {
 	return TokenPrefix + tokenEncoding.EncodeToString(raw), hashSecret(secret), nil
 }
 
-// parseToken splits a token into its session key and the hash of its secret. It returns
-// [ErrInvalidToken] when the token is not shaped like one.
+// parseToken returns [ErrInvalidToken] for a malformed token.
 func parseToken(token string) (SessionKey, []byte, error) {
 	if !strings.HasPrefix(token, TokenPrefix) {
 		return uuid.Nil(), nil, ErrInvalidToken
