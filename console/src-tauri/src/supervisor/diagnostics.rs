@@ -17,7 +17,7 @@ use std::path::Path;
 use serde::Serialize;
 use zip::write::SimpleFileOptions;
 
-use super::{Exit, History, Reason, Status};
+use super::{History, Status};
 
 /// The name of the Core log inside the log directory.
 const LOG: &str = "core.log";
@@ -131,7 +131,7 @@ pub fn export(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::supervisor::Connection;
+    use crate::supervisor::{Connection, Exit, Reason};
 
     #[test]
     fn sums_the_files_of_a_tree_and_counts_an_absent_one_as_empty() {
