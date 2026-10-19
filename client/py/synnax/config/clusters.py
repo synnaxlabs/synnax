@@ -43,16 +43,26 @@ class ClustersConfig:
         opts = c["options"]
         api_key = self.keyring.get_password(API_KEY_SERVICE, key)
         if api_key:
-            return ClusterConfig(options=Options(**opts, api_key=api_key))
+            # A saved key wins over a username left by an interrupted migration.
+            return ClusterConfig(
+                options=Options(
+                    host=opts["host"],
+                    port=opts["port"],
+                    secure=opts.get("secure", False),
+                    api_key=api_key,
+                )
+            )
         pwd = self.keyring.get_password(PASSWORD_SERVICE, key) or ""
         return ClusterConfig(options=Options(**opts, password=pwd))
 
     def set(self, c: ClusterConfig, key: str = "default") -> None:
-        """Saves the options and their API key, and deletes any saved password."""
+        """Saves the options and their API key, and deletes any saved password. A
+        failure at any step leaves options that still connect.
+        """
         p = c.model_dump(exclude={"options": {"username", "password"}})
         self.keyring.set_password(API_KEY_SERVICE, key, p["options"].pop("api_key"))
+        self.internal.set(f"clusters.{key}", p)
         try:
             self.keyring.delete_password(PASSWORD_SERVICE, key)
         except PasswordDeleteError:
             pass
-        self.internal.set(f"clusters.{key}", p)

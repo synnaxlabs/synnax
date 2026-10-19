@@ -88,6 +88,22 @@ class TestClustersConfig:
         assert (PASSWORD_SERVICE, "default") not in keyring.values
         assert "username" not in clusters.internal.get("clusters.default.options")
 
+    def test_get_after_interrupted_migration(
+        self, clusters: ClustersConfig, keyring: MemoryKeyring
+    ) -> None:
+        """Should connect with a saved key even when the config file still holds the
+        old username and the keyring the old password.
+        """
+        save_legacy_password(
+            clusters,
+            keyring,
+            Options(host="h", port=1, username="u", password="p"),
+        )
+        keyring.set_password(API_KEY_SERVICE, "default", "syk_secret")
+        got = clusters.get()
+        assert got is not None
+        assert got.options == Options(host="h", port=1, api_key="syk_secret")
+
     def test_get_legacy_password(
         self, clusters: ClustersConfig, keyring: MemoryKeyring
     ) -> None:
