@@ -33,7 +33,6 @@ class TestTrace:
         """Should not raise an exception."""
         with instrumentation.T.prod("test") as span:
             assert span.key == "dev.test"
-            pass
 
     def test_trace_decorator(self, instrumentation: Instrumentation) -> None:
         """Should not raise an exception"""

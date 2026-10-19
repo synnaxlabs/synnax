@@ -63,6 +63,25 @@ var _ = Describe("Ruff Formatter", func() {
 		Expect(string(first)).To(Equal(string(second)))
 	})
 
+	It("Should format the output of lint fixes", func(ctx SpecContext) {
+		absFile, root := installRuffFixture()
+		Expect(os.WriteFile(filepath.Join(root, "pyproject.toml"), []byte(`[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["UP007"]
+`), 0o644)).To(Succeed())
+		raw := []byte("from typing import Union\n\n\ndef f(x: Union[" +
+			"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA, BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB, " +
+			"CCCCCCCCCCCCCCCCCCCCCCCCCCCCCC]) -> None: ...\n")
+		r := &format.Ruff{Bin: "ruff"}
+		first := MustSucceed(r.Format(ctx, raw, absFile))
+		Expect(string(first)).ToNot(ContainSubstring("Union["))
+		second := MustSucceed(r.Format(ctx, first, absFile))
+		Expect(string(second)).To(Equal(string(first)))
+	})
+
 	It("Should surface a parse error for invalid Python", func(ctx SpecContext) {
 		absFile, _ := installRuffFixture()
 		raw := []byte("def foo(:\n")

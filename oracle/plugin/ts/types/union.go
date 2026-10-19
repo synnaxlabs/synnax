@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/domain"
+	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
 )
@@ -42,6 +43,9 @@ type unionData struct {
 	TypeName string
 	// SchemasConst is the per-variant schema map (e.g. "SCALE_SCHEMAS").
 	SchemasConst string
+	// BorrowsEnum reports that TypeName is a declared enum, so the union emits no
+	// discriminator values, schema, or type of its own.
+	BorrowsEnum bool
 	// Variants lists every variant in declaration order.
 	Variants []unionVariantData
 	// LazyVariants wraps each variant in z.lazy. See lazyVariantThreshold.
@@ -98,6 +102,19 @@ func (p *Plugin) processUnion(
 		TypeSchemaName: casing.CamelAcronym(tsName) + "TypeZ",
 		TypeName:       tsName + "Type",
 		SchemasConst:   screaming + "_SCHEMAS",
+	}
+	if form.BorrowsEnum() {
+		ud.BorrowsEnum = true
+		ud.TypeName = p.typeRefToTS(&form.Enum, table, data, true)
+		if enumType, ok := form.Enum.Resolve(table); ok &&
+			enumType.Namespace != data.Namespace {
+			ns := importNamespace(
+				enumType.Namespace,
+				output.GetPath(enumType, "ts"),
+				data,
+			)
+			ud.TypeName = ns + "." + domain.GetName(enumType, "ts")
+		}
 	}
 	for _, v := range form.Variants {
 		typeName := casing.VariantTypeName(tsName, v.Name)

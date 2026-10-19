@@ -25,6 +25,17 @@ var _ = Describe("UnionForm", func() {
 		},
 	}
 
+	Describe("BorrowsEnum", func() {
+		It("Should be false when no enum is named", func() {
+			Expect(form.BorrowsEnum()).To(BeFalse())
+		})
+		It("Should be true when the discriminator names an enum", func() {
+			borrowed := form
+			borrowed.Enum = resolution.TypeRef{Name: "test.Method"}
+			Expect(borrowed.BorrowsEnum()).To(BeTrue())
+		})
+	})
+
 	Describe("Variant", func() {
 		It("Should return the variant matching the discriminator value", func() {
 			v := MustBeOk(form.Variant("linear"))

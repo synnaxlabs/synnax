@@ -13,12 +13,13 @@ import pytest
 
 import freighter
 import synnax as sy
+from freighter import Empty
 from freighter.mock import MockUnaryClient
 
 
 @pytest.mark.auth
 class TestClusterAuth:
-    def test_invalid_credentials(self, login_info: tuple[str, int, str, str]):
+    def test_invalid_credentials(self, login_info: tuple[str, int, str, str]) -> None:
         """
         Should raise an AuthError
         """
@@ -31,7 +32,7 @@ class TestClusterAuth:
                 password="wrong",
             )
 
-    def test_no_password_provided(self, login_info: tuple[str, int, str, str]):
+    def test_no_password_provided(self, login_info: tuple[str, int, str, str]) -> None:
         """
         Should raise a ValidationError
         """
@@ -46,8 +47,8 @@ class TestClusterAuth:
 
 @pytest.mark.auth
 class TestAuthRetry:
-    @pytest.fixture(scope="function")
-    def auth_setup(self) -> MockUnaryClient[int, int]:
+    @pytest.fixture
+    def auth_setup(self) -> MockUnaryClient:
         """Fixture that provides the mock clients and auth setup for retry tests."""
         # Setup mock login client with two successful login responses
         res = sy.auth.TokenResponse(
@@ -55,13 +56,11 @@ class TestAuthRetry:
             user=sy.User(
                 key=uuid4(),
                 username="synnax",
-                password="seldon",
-                email="synnax@synnax.com",
                 first_name="Synnax",
                 last_name="Labs",
             ),
         )
-        mock_login_client = MockUnaryClient[sy.auth.Credentials, sy.auth.TokenResponse](
+        mock_login_client = MockUnaryClient(
             responses=[res, res], response_errors=[None, None]
         )
 
@@ -69,13 +68,13 @@ class TestAuthRetry:
         auth = sy.auth.Client(mock_login_client, "synnax", "seldon")
 
         # Create base mock client
-        mock_client = MockUnaryClient[int, int](responses=[1, 1])
+        mock_client = MockUnaryClient(responses=[Empty(), Empty()])
         mock_client.use(auth.middleware())
 
         return mock_client
 
     @pytest.mark.parametrize(
-        "type_, exc",
+        ("type_", "exc"),
         [
             ("sy.auth", sy.AuthError),
             ("sy.auth.invalid-credentials", sy.exceptions.InvalidCredentials),
@@ -85,7 +84,7 @@ class TestAuthRetry:
             ("sy.auth.repeated-username", sy.AuthError),
         ],
     )
-    def test_decode(self, type_: str, exc: type[sy.AuthError]):
+    def test_decode(self, type_: str, exc: type[sy.AuthError]) -> None:
         """Should decode each auth error type the Core sends."""
         err = freighter.decode_exception(
             freighter.ExceptionPayload(type=type_, data="refused")
@@ -97,8 +96,8 @@ class TestAuthRetry:
         "type_", ["sy.auth.invalid_token", "sy.auth.expired_token"]
     )
     def test_retry_on_decoded_token_error(
-        self, auth_setup: MockUnaryClient[int, int], type_: str
-    ):
+        self, auth_setup: MockUnaryClient, type_: str
+    ) -> None:
         """Should re-authenticate and retry after a token error from the Core."""
         mock_client = auth_setup
         mock_client.response_errors = [
@@ -107,4 +106,4 @@ class TestAuthRetry:
             ),
             None,
         ]
-        assert mock_client.send("", 1, int) == 1
+        assert mock_client.send("", Empty(), Empty) == Empty()

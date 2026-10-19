@@ -10,16 +10,18 @@
 from __future__ import annotations
 
 from typing import overload
+from uuid import UUID
 
 from pydantic import PrivateAttr
 
 from synnax import framer
 from synnax.channel.payload import (
     Key,
+    NormalizedNameResult,
     Params,
     normalize_params,
 )
-from synnax.channel.retrieve import Retriever
+from synnax.channel.retrieve import Request, Retriever
 from synnax.channel.types_gen import (
     Operation,
     Payload,
@@ -97,7 +99,7 @@ class Channel(Payload):
         .channels.create() and .channels.retrieve() and should not be set by the caller.
         """
         if operations is None:
-            operations = list()
+            operations = []
         if virtual is None:
             virtual = len(expression) > 0
         super().__init__(
@@ -303,7 +305,7 @@ class Client:
             if is_index and data_type == DataType.UNKNOWN:
                 data_type = DataType.TIMESTAMP
             if operations is None:
-                operations = list()
+                operations = []
             _channels = [
                 Payload(
                     name=name,
@@ -321,7 +323,7 @@ class Client:
         else:
             _channels = [c.to_payload() for c in channels]
 
-        created = list()
+        created = []
         if retrieve_if_name_exists:
             created = self._sugar(
                 self._retriever.retrieve([ch.name for ch in _channels])
@@ -334,29 +336,99 @@ class Client:
         return created if isinstance(channels, list) else created[0]
 
     @overload
-    def retrieve(self, channel: Key | str) -> Channel: ...
+    def retrieve(
+        self,
+        channel: Key | str,
+        *,
+        search_term: str | None = None,
+        data_types: list[CrudeDataType] | None = None,
+        not_data_types: list[CrudeDataType] | None = None,
+        virtual: bool | None = None,
+        is_index: bool | None = None,
+        internal: bool | None = None,
+        range_key: UUID | None = None,
+        node_key: int | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> Channel: ...
 
     @overload
     def retrieve(
         self,
-        channel: list[Key] | tuple[Key] | list[str] | tuple[str],
+        channel: list[Key] | tuple[Key] | list[str] | tuple[str] | None = None,
+        *,
+        search_term: str | None = None,
+        data_types: list[CrudeDataType] | None = None,
+        not_data_types: list[CrudeDataType] | None = None,
+        virtual: bool | None = None,
+        is_index: bool | None = None,
+        internal: bool | None = None,
+        range_key: UUID | None = None,
+        node_key: int | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
     ) -> list[Channel]: ...
 
-    def retrieve(self, channel: Params) -> Channel | list[Channel]:
-        """Retrieves a channel or set of channels from the cluster.
+    def retrieve(
+        self,
+        channel: Params | None = None,
+        *,
+        search_term: str | None = None,
+        data_types: list[CrudeDataType] | None = None,
+        not_data_types: list[CrudeDataType] | None = None,
+        virtual: bool | None = None,
+        is_index: bool | None = None,
+        internal: bool | None = None,
+        range_key: UUID | None = None,
+        node_key: int | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> Channel | list[Channel]:
+        """Retrieves a channel or set of channels from the Core. A filter left as None
+        does not filter.
 
-        Overload 1:
-
-        :param channel: The key or name of the channel to retrieve. If this is
-        :returns: The associated channel.
-        :raises QueryError: If the channel is not found.
-
-        Overload 2 + 3:
-        :param channel: The list of keys or the list of names for the channels to retrieve.
-        :returns: The retrieved channels.
+        :param channel: The key or name of one channel, or a list of keys or names. A
+            single key or name returns one channel. A list, or None, returns a list.
+        :param search_term: Fuzzy matches channel names.
+        :param data_types: Keeps channels with one of these data types.
+        :param not_data_types: Drops channels with one of these data types.
+        :param virtual: Keeps only virtual or only non-virtual channels.
+        :param is_index: Keeps only index or only non-index channels.
+        :param internal: Keeps only internal or only non-internal channels.
+        :param range_key: Sets each channel's alias from this range. With a search
+            term, also matches channels by their alias in the range.
+        :param node_key: Keeps channels whose leaseholder is this node.
+        :param limit: The maximum number of channels to return.
+        :param offset: The number of matching channels to skip.
+        :returns: The retrieved channel, or a list of the retrieved channels.
+        :raises NotFoundError: If a single channel is requested and not found.
+        :raises MultipleFoundError: If a single name matches more than one channel.
         """
+        req = Request(
+            search_term=search_term,
+            data_types=_data_types(data_types),
+            not_data_types=_data_types(not_data_types),
+            virtual=virtual,
+            is_index=is_index,
+            internal=internal,
+            range_key=range_key,
+            node_key=node_key,
+            limit=limit,
+            offset=offset,
+        )
+        if channel is None:
+            return self._sugar(self._retriever.filter(req))
         normal = normalize_params(channel)
-        res = self._retriever.retrieve(channel)
+        if len(req.model_dump(exclude_none=True)) == 0:
+            res = self._retriever.retrieve(channel)
+        elif len(normal.channels) == 0:
+            res = []
+        else:
+            if isinstance(normal, NormalizedNameResult):
+                req.names = normal.channels
+            else:
+                req.keys = normal.channels
+            res = self._retriever.filter(req)
         sug = self._sugar(res)
         if not normal.single:
             return sug
@@ -374,7 +446,6 @@ class Client:
         :param names: The new name for the channel.
         :returns: None.
         """
-        ...
 
     @overload
     def rename(
@@ -386,7 +457,6 @@ class Client:
         :param names: The new names for the channels.
         :returns: None.
         """
-        ...
 
     def rename(
         self,
@@ -408,6 +478,10 @@ class Client:
         ]
 
 
+def _data_types(data_types: list[CrudeDataType] | None) -> list[DataType] | None:
+    return None if data_types is None else [DataType(dt) for dt in data_types]
+
+
 def _multiple_results_error(
     channel: Params,
     results: list[Payload],
@@ -423,7 +497,7 @@ The channels found were:
     # append a max of five results to the error message. If we have more than five,
     # we'll just say "and x more" at the end.
     for i in range(min(5, len(results))):
-        msg += f"{str(results[i])}, "
+        msg += f"{results[i]!s}, "
 
     if len(results) > 5:
         msg += f"and {len(results) - 5} more."

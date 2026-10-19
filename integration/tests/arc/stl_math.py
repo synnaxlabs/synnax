@@ -269,9 +269,7 @@ class StlMath(ArcCase):
             )
             create_virtual_channel(self.client, xxc.out_ch, out_dtype)
 
-        all_ch: list[str] = ["pow_cc_trigger"]
-        for cc in CC_CASES:
-            all_ch.append(cc.out_ch)
+        all_ch: list[str] = ["pow_cc_trigger", *(cc.out_ch for cc in CC_CASES)]
         for fc in FLOW_CASES:
             assert fc.in_ch is not None
             all_ch.extend([fc.in_ch, fc.out_ch])
