@@ -163,6 +163,26 @@ describe("auth", () => {
       await admin.close();
     });
 
+    it("should keep a session another request opened during the logout", async () => {
+      const client = makeClient();
+      await login(client);
+      const first = client.session?.key;
+      const logout = client.logout();
+      // A rejected token makes the middleware log in again while the delete is
+      // still in flight.
+      await expect(
+        client.middleware()(DUMMY_CTX, async () => {
+          throw new InvalidTokenError();
+        }),
+      ).rejects.toThrow(InvalidTokenError);
+      await logout;
+      expect(client.authenticated).toBe(true);
+      expect(client.session?.key).toBeDefined();
+      expect(client.session?.key).not.toEqual(first);
+      await client.logout();
+      expect(client.authenticated).toBe(false);
+    });
+
     it("should decode a session ended error", () => {
       expect(
         SessionEndedError.matches(

@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Middleware, type UnaryClient } from "@synnaxlabs/freighter";
+import {
+  type Context,
+  type Middleware,
+  type Next,
+  type UnaryClient,
+} from "@synnaxlabs/freighter";
 import { errors, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -85,7 +90,6 @@ export class Client {
   private readonly observer: Observer;
   private authState: AuthState = { authenticated: false };
   authenticating: Promise<Error | null> | undefined;
-  private retryCount: number;
   private generation = 0;
   private logoutToken: string | undefined;
 
@@ -93,7 +97,6 @@ export class Client {
     this.client = client;
     this.credentials = credentials;
     this.observer = observer;
-    this.retryCount = 0;
   }
 
   /** Replaces the stored credentials and clears auth state for a fresh login. */
@@ -102,7 +105,6 @@ export class Client {
     this.credentials.password = password;
     this.authState = { authenticated: false };
     this.authenticating = undefined;
-    this.retryCount = 0;
     this.generation += 1;
   }
 
@@ -183,20 +185,31 @@ export class Client {
   async logout(): Promise<void> {
     const { authState } = this;
     if (!authState.authenticated) return;
+    const { key } = authState.session;
     this.logoutToken = authState.token;
     try {
-      await this.deleteSessions(authState.session.key);
+      await this.deleteSessions(key);
     } catch (err) {
       if (!RETRY_ON.some((e) => e.matches(err))) throw errors.fromUnknown(err);
     } finally {
       this.logoutToken = undefined;
-      this.authState = { authenticated: false };
-      this.authenticating = undefined;
+      // a request that logged in again during the delete holds a session this logout
+      // did not end
+      if (this.authState.authenticated && this.authState.session.key === key) {
+        this.authState = { authenticated: false };
+        this.authenticating = undefined;
+      }
     }
   }
 
   middleware(): Middleware {
-    const mw: Middleware = async (reqCtx, next) => {
+    // retries count per request: the login a retry issues passes through this same
+    // middleware, so a shared counter would reset on its success
+    const attempt = async (
+      reqCtx: Context,
+      next: Next,
+      retries: number,
+    ): Promise<Context> => {
       // a logout ends the session its token belongs to; a dead one must not log in again
       if (this.logoutToken != null && reqCtx.target.endsWith(SESSION_DELETE_ENDPOINT)) {
         reqCtx.params.Authorization = `Bearer ${this.logoutToken}`;
@@ -239,20 +252,16 @@ export class Client {
       }
       reqCtx.params.Authorization = `Bearer ${this.token}`;
       try {
-        const resCtx = await next(reqCtx);
-        this.retryCount = 0;
-        return resCtx;
+        return await next(reqCtx);
       } catch (err) {
-        if (RETRY_ON.some((e) => e.matches(err)) && this.retryCount < MAX_RETRIES) {
+        if (RETRY_ON.some((e) => e.matches(err)) && retries < MAX_RETRIES) {
           this.authState = { authenticated: false };
           this.authenticating = undefined;
-          this.retryCount += 1;
-          return await mw(reqCtx, next);
+          return await attempt(reqCtx, next, retries + 1);
         }
-        this.retryCount = 0;
         throw errors.fromUnknown(err);
       }
     };
-    return mw;
+    return async (reqCtx, next) => await attempt(reqCtx, next, 0);
   }
 }
