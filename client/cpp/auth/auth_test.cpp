@@ -37,23 +37,13 @@ std::shared_ptr<Middleware> middleware_with(
     if (renew == nullptr)
         renew = std::make_unique<freighter::mock::UnaryClient<
             google::protobuf::Empty,
-            google::protobuf::Empty>>(google::protobuf::Empty(), x::errors::NIL);
-    return std::make_shared<Middleware>(
-        std::move(create),
-<<<<<<< HEAD
-        std::make_unique<freighter::mock::UnaryClient<
-            google::protobuf::Empty,
             grpc::auth::SessionRenewResponse>>(
             grpc::auth::SessionRenewResponse(),
             x::errors::NIL
-        ),
-||||||| 68d666e394
-        std::make_unique<freighter::mock::UnaryClient<
-            google::protobuf::Empty,
-            google::protobuf::Empty>>(google::protobuf::Empty(), x::errors::NIL),
-=======
+        );
+    return std::make_shared<Middleware>(
+        std::move(create),
         std::move(renew),
->>>>>>> sy-5134-session-endpoints
         std::move(del),
         "synnax",
         "seldon"
@@ -214,9 +204,10 @@ TEST(TestAuth, RenewForgetsEndedSession) {
         std::vector<x::errors::Error>{x::errors::NIL, x::errors::NIL}
     );
     auto *create = mock_create_client.get();
-    auto mock_renew_client = std::make_unique<
-        freighter::mock::UnaryClient<google::protobuf::Empty, google::protobuf::Empty>>(
-        google::protobuf::Empty(),
+    auto mock_renew_client = std::make_unique<freighter::mock::UnaryClient<
+        google::protobuf::Empty,
+        grpc::auth::SessionRenewResponse>>(
+        grpc::auth::SessionRenewResponse(),
         x::errors::Error(ERR_SESSION_ENDED, "")
     );
     const auto mw = middleware_with(

@@ -65,11 +65,7 @@ export const SESSION_RETRIEVE_ENDPOINT = "/auth/session/retrieve";
 export const SESSION_DELETE_ENDPOINT = "/auth/session/delete";
 
 // routes the Core serves without a token, so a request to one never logs in
-const TOKENLESS_ENDPOINTS = [
-  SESSION_CREATE_ENDPOINT,
-  LEGACY_LOGIN_ENDPOINT,
-  "/connectivity/check",
-];
+const TOKENLESS_ENDPOINTS = [SESSION_CREATE_ENDPOINT, LEGACY_LOGIN_ENDPOINT];
 
 const MAX_RETRIES = 3;
 

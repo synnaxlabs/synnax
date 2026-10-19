@@ -352,17 +352,6 @@ describe("auth", () => {
       );
     });
 
-    it("should not log in to check connectivity", async () => {
-      const client = makeClient();
-      await login(client);
-      await client.logout();
-      await client.middleware()(
-        { ...DUMMY_CTX, target: "http://localhost/api/v1/connectivity/check" },
-        async (ctx) => ctx,
-      );
-      expect(client.authenticated).toBe(false);
-    });
-
     it("should decode a session ended error", () => {
       expect(
         SessionEndedError.matches(

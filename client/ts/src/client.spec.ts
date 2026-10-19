@@ -71,6 +71,13 @@ describe("connect", () => {
     await client.close();
   });
 
+  it("should reject bad credentials without a change stream", async () => {
+    const client = createTestClient({ password: "definitely-wrong", cache: false });
+    await expect(client.connect()).rejects.toThrow(AuthError);
+    expect(reasonOf(client.connection.status)).toEqual("auth");
+    await client.close();
+  });
+
   it("should reject on timeout", async () => {
     // the backoff outlasts the timeout, so the timeout is what rejects rather
     // than an escalation to error(unreachable)

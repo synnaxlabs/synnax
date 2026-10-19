@@ -19,6 +19,8 @@ export const accountOf = ({ host, port }: Target): string => `${host}:${port}`;
 /**
  * Reads the session token the keychain holds for the Core. Resolves undefined when
  * none is stored, and always on the web, which has no keychain.
+ *
+ * @throws if the keychain cannot be read.
  */
 export const readToken = async (core: Target): Promise<string | undefined> => {
   if (Session.Runtime.ENGINE !== "tauri") return undefined;
@@ -28,13 +30,21 @@ export const readToken = async (core: Target): Promise<string | undefined> => {
   return token ?? undefined;
 };
 
-/** Stores the Core's session token in the keychain. A no-op on the web. */
+/**
+ * Stores the Core's session token in the keychain. A no-op on the web.
+ *
+ * @throws if the keychain cannot be written.
+ */
 export const writeToken = async (core: Target, token: string): Promise<void> => {
   if (Session.Runtime.ENGINE !== "tauri") return;
   await invoke("keychain_set", { account: accountOf(core), secret: token });
 };
 
-/** Removes the Core's session token from the keychain. A no-op on the web. */
+/**
+ * Removes the Core's session token from the keychain. A no-op on the web.
+ *
+ * @throws if the keychain cannot be written.
+ */
 export const deleteToken = async (core: Target): Promise<void> => {
   if (Session.Runtime.ENGINE !== "tauri") return;
   await invoke("keychain_delete", { account: accountOf(core) });

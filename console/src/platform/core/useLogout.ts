@@ -28,8 +28,11 @@ export const useLogout = (): (() => void) => {
   return useCallback(() => {
     const ending = client;
     handleError(async () => {
-      await ending?.auth.logout();
-      if (core != null) await deleteToken(core);
+      try {
+        await ending?.auth.logout();
+      } finally {
+        if (core != null) await deleteToken(core);
+      }
     }, "Failed to log out");
     clearSession();
     if (core != null) dispatch(Session.Core.set({ ...core, password: "" }));

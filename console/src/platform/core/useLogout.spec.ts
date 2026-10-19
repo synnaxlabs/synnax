@@ -52,4 +52,24 @@ describe("Core.useLogout", () => {
     const keys = (await other.auth.retrieveSessions()).map(({ key }) => key);
     expect(keys).not.toContain(session.key);
   });
+
+  it("should forget the token when the Core cannot end the session", async () => {
+    mocks.engine = "tauri";
+    const deleted: unknown[] = [];
+    mockIPC((cmd, args) => {
+      if (cmd === "keychain_delete") deleted.push(args);
+      return undefined;
+    });
+    onTestFinished(clearMocks);
+    const client = createTestClient();
+    await client.connect();
+    vi.spyOn(client.auth, "logout").mockRejectedValueOnce(new Error("unreachable"));
+    const core = createCore("Local", { password: "typed" });
+    const { result } = await renderHookWithConsole(() => Core.useLogout(), {
+      client,
+      preloadedState: createCoreState([core], core.key),
+    });
+    act(() => result.current());
+    await waitFor(() => expect(deleted).toEqual([{ account: "localhost:9090" }]));
+  });
 });
