@@ -22,8 +22,9 @@ APIKey struct {
         @key
     }
     subject ontology.ID     {
-        @doc value "is the user or rack the key logs in as."
+        @doc value    "is the user or rack the key logs in as."
         @filter
+        @index lookup
     }
     hash    bytes           {
         @doc value "is the SHA-256 hash of the secret in the key."

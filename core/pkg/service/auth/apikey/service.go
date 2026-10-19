@@ -59,8 +59,9 @@ func (c ServiceConfig) Validate() error {
 
 // Service stores API keys and checks proofs of them.
 type Service struct {
-	cfg   ServiceConfig
-	table *gorp.Table[Key, APIKey]
+	cfg     ServiceConfig
+	table   *gorp.Table[Key, APIKey]
+	indexes indexes
 }
 
 var _ auth.Authenticator = (*Service)(nil)
@@ -71,9 +72,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg}
+	s := &Service{cfg: cfg, indexes: newIndexes()}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, APIKey]{
 		DB:              cfg.DB,
+		Indexes:         s.indexes.all(),
 		Instrumentation: cfg.Instrumentation,
 	}); err != nil {
 		return nil, err
@@ -86,7 +88,7 @@ func (s *Service) Close() error { return s.table.Close() }
 
 // NewRetrieve opens a query for stored API keys.
 func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{gorp: s.table.NewRetrieve(), baseTX: s.cfg.DB}
+	return Retrieve{gorp: s.table.NewRetrieve(), baseTX: s.cfg.DB, indexes: s.indexes}
 }
 
 // NewWriter opens a [Writer] that runs in tx.

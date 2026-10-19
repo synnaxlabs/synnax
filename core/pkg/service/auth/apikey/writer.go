@@ -13,7 +13,6 @@ import (
 	"context"
 	"uuid"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
@@ -60,8 +59,6 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 // DeleteFor removes the API keys of the given subjects.
 func (w Writer) DeleteFor(ctx context.Context, subjects ...ontology.ID) error {
 	return w.svc.table.NewDelete().
-		Where(gorp.Match(func(_ gorp.Context, k *APIKey) (bool, error) {
-			return lo.Contains(subjects, k.Subject), nil
-		})).
+		Where(MatchSubjects(subjects...)(w.svc.NewRetrieve())).
 		Exec(ctx, w.tx)
 }
