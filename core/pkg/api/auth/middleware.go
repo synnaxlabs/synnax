@@ -34,11 +34,11 @@ func Middleware(svc *auth.Service) freighter.Middleware {
 	) (freighter.Context, error) {
 		tk, err := tryParseToken(ctx.Params)
 		if err != nil {
-			return ctx, err
+			return freighter.Context{}, err
 		}
 		session, err := svc.Authenticate(ctx, tk)
 		if err != nil {
-			return ctx, err
+			return freighter.Context{}, err
 		}
 		ctx.Set(subjectKey, session.Subject)
 		ctx.Set(sessionKey, session)
@@ -57,7 +57,7 @@ func holdSession(
 ) (freighter.Context, error) {
 	ended, release, err := svc.Hold(ctx, key)
 	if err != nil {
-		return ctx, err
+		return freighter.Context{}, err
 	}
 	defer release()
 	streamCtx, cancel := context.WithCancelCause(ctx.Context)
@@ -72,7 +72,7 @@ func holdSession(
 	ctx.Context = streamCtx
 	oCtx, err := next(ctx)
 	if cause := context.Cause(streamCtx); errors.Is(cause, auth.ErrSessionEnded) {
-		return oCtx, cause
+		return freighter.Context{}, cause
 	}
 	return oCtx, err
 }
