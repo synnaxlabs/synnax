@@ -243,7 +243,7 @@ class Project(ConsoleCase):
         # document, and one envelope per panel whose resource tabs reference the member
         # files by path.
         with open(
-            os.path.join(self._export_dir, "manifest.json"), "r", encoding="utf-8"
+            os.path.join(self._export_dir, "manifest.json"), encoding="utf-8"
         ) as f:
             manifest = json.load(f)
         assert manifest["type"] == "project", f"Unexpected manifest: {manifest}"
@@ -265,9 +265,7 @@ class Project(ConsoleCase):
         for entry in os.listdir(self._export_dir):
             if not entry.endswith(".json") or entry == "manifest.json":
                 continue
-            with open(
-                os.path.join(self._export_dir, entry), "r", encoding="utf-8"
-            ) as f:
+            with open(os.path.join(self._export_dir, entry), encoding="utf-8") as f:
                 envelope = json.load(f)
             if envelope.get("type") == "panel":
                 collect_references(envelope["root"], referenced)
@@ -283,7 +281,7 @@ class Project(ConsoleCase):
             assert os.path.exists(member_path), (
                 f"Export should contain {page_name}.json"
             )
-            with open(member_path, "r", encoding="utf-8") as f:
+            with open(member_path, encoding="utf-8") as f:
                 member = json.load(f)
             assert member["type"] == page_type, (
                 f"{page_name}.json should have type {page_type}, "
@@ -304,7 +302,7 @@ class Project(ConsoleCase):
             shutil.rmtree(imported_dir)
         os.rename(self._export_dir, imported_dir)
         manifest_path = os.path.join(imported_dir, "manifest.json")
-        with open(manifest_path, "r", encoding="utf-8") as f:
+        with open(manifest_path, encoding="utf-8") as f:
             manifest = json.load(f)
         manifest["name"] = "ImportedSpace"
         with open(manifest_path, "w", encoding="utf-8") as f:

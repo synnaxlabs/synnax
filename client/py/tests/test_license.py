@@ -31,7 +31,7 @@ class TestLicenseClient:
             client.license.activate("not-a-license-key")
 
     @pytest.mark.parametrize(
-        "type_, exc",
+        ("type_", "exc"),
         [
             ("sy.license", sy.LicenseError),
             ("sy.license.missing", sy.MissingLicense),

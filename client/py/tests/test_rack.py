@@ -170,9 +170,9 @@ class TestRackClient:
     def test_retrieve_singular_with_list_filter(self, client: sy.Synnax) -> None:
         """Should raise a ValueError when singular selectors are mixed with others."""
         retrieve = cast(Callable[..., object], client.racks.retrieve)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="cannot be combined"):
             retrieve(name="test", limit=1)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="only one of"):
             retrieve(key=1, name="test")
 
     def test_retrieve_single_with_status_typed(self, client: sy.Synnax) -> None:

@@ -48,7 +48,7 @@ class TestClusterAuth:
 
 @pytest.mark.auth
 class TestAuthRetry:
-    @pytest.fixture(scope="function")
+    @pytest.fixture
     def auth_setup(self) -> MockUnaryClient:
         """Fixture that provides the mock clients and auth setup for retry tests."""
         # Setup mock login client with two successful login responses
@@ -85,7 +85,7 @@ class TestAuthRetry:
         return mock_client
 
     @pytest.mark.parametrize(
-        "type_, exc",
+        ("type_", "exc"),
         [
             ("sy.auth", sy.AuthError),
             ("sy.auth.invalid-credentials", sy.exceptions.InvalidCredentials),

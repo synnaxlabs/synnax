@@ -21,7 +21,7 @@ class State:
         :param channels: The channels whose values the state holds.
         """
         self._keys = {ch.name: ch.key for ch in channels}
-        self.value = dict()
+        self.value = {}
 
     def update(self, frame: Frame) -> None:
         for key in frame.channels:

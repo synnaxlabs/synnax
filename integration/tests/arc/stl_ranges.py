@@ -200,7 +200,7 @@ class StlRanges(ArcCase):
         with self._try_to("delete created ranges"):
             keys = [
                 r.key
-                for r in self.client.ranges.retrieve(names=NAMES + [BAD_COLOR_NAME])
+                for r in self.client.ranges.retrieve(names=[*NAMES, BAD_COLOR_NAME])
             ]
             if keys:
                 self.client.ranges.delete(keys)

@@ -36,7 +36,7 @@ class Output(BaseModel):
     entries: list[Entry[Any]]
 
     def __init__(self, entries: list[Entry[Any]] | None = None):
-        super().__init__(entries=entries or list())
+        super().__init__(entries=entries or [])
 
     def append(self, entry: Entry[Any]) -> None:
         assert self.entries is not None
@@ -152,7 +152,7 @@ class MockConsole(MockPrint, MockPrompt):
         """
         output = output if output is not None else Output()
         MockPrint.__init__(self, output, verbose)
-        MockPrompt.__init__(self, output, responses or list())
+        MockPrompt.__init__(self, output, responses or [])
 
     def _(self) -> Console:
         return self
