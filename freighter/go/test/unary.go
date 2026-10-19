@@ -12,6 +12,7 @@ package test
 import (
 	"context"
 	"net"
+	"sync/atomic"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
@@ -120,10 +121,17 @@ func UnarySuite(
 						return Response{}, nil
 					},
 				)
+				// the server outlives this spec, so the middleware must stop rejecting
+				var rejecting atomic.Bool
+				rejecting.Store(true)
+				ginkgo.DeferCleanup(func() { rejecting.Store(false) })
 				server.Use(freighter.MiddlewareFunc(func(
-					freighter.Context,
-					freighter.Next,
+					ctx freighter.Context,
+					next freighter.Next,
 				) (freighter.Context, error) {
+					if !rejecting.Load() {
+						return next(ctx)
+					}
 					return freighter.Context{}, ErrCustom
 				}))
 				gomega.Expect(client.Send(ctx, addr, Request{ID: 1})).Error().
