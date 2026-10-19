@@ -553,6 +553,29 @@ class TestDataType:
         """Should report BIT8 density for BOOLEAN"""
         assert sy.DataType.BOOLEAN.density == sy.Density.BIT8
 
+    def test_all(self) -> None:
+        """ALL should contain every data type exactly once."""
+        assert set(sy.DataType.ALL) == {
+            sy.DataType.UNKNOWN,
+            sy.DataType.UINT8,
+            sy.DataType.UINT16,
+            sy.DataType.UINT32,
+            sy.DataType.UINT64,
+            sy.DataType.INT8,
+            sy.DataType.INT16,
+            sy.DataType.INT32,
+            sy.DataType.INT64,
+            sy.DataType.FLOAT32,
+            sy.DataType.FLOAT64,
+            sy.DataType.BOOLEAN,
+            sy.DataType.TIMESTAMP,
+            sy.DataType.UUID,
+            sy.DataType.STRING,
+            sy.DataType.JSON,
+            sy.DataType.BYTES,
+        }
+        assert len(sy.DataType.ALL) == len(set(sy.DataType.ALL))
+
 
 @pytest.mark.telem
 class TestSize:
