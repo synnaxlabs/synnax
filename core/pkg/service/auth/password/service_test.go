@@ -34,7 +34,6 @@ func proof(username, pwd string) auth.Proof {
 	}}
 }
 
-// storedHash returns the hash the service holds for the subject.
 func storedHash(
 	ctx context.Context,
 	svc *password.Service,
@@ -47,8 +46,7 @@ func storedHash(
 	return p.Hash
 }
 
-// createHash stores a password row with the given hash, bypassing the writer so a spec
-// can plant a hash made by any algorithm.
+// createHash bypasses the writer to plant a hash made by any algorithm.
 func createHash(
 	ctx context.Context,
 	db *gorp.DB,

@@ -25,13 +25,9 @@ import (
 	"go.uber.org/zap"
 )
 
-// keyNamespace salts the keys the move derives, so they cannot collide with a key
-// derived from the same subject by anything else.
 var keyNamespace = uuid.MustParse("3f3a1b0e-7c2e-4a8f-9d6b-2a1c5e8f0b41")
 
-// migratedKey derives the password key from its subject as a name-based UUID (RFC
-// 9562, version 5). Every node of a Core that runs the move writes the same record,
-// so two nodes migrating before replication meets cannot leave two passwords behind.
+// migratedKey is a name-based UUID of the subject, so every node writes one record.
 func migratedKey(subject ontology.ID) Key {
 	h := sha1.New()
 	h.Write(keyNamespace[:])
@@ -43,17 +39,13 @@ func migratedKey(subject ontology.ID) Key {
 	return key
 }
 
-// NewMove returns the migration that moves every row of the credentials table into
-// the password table, matching each username to a user in the user table. The hash
-// moves as it is, still tagged bcrypt. A credential whose username no user holds is
-// dropped with a warning. Each password gets a key derived from its subject, so the
-// move is the same on every node. It reads users in their v0 shape, so it must run
-// after the user table's migrations.
+// NewMove returns the migration that moves each stored credential to the user with its
+// username, keeping the bcrypt hash. A credential no user holds is dropped with a
+// warning. It reads users in their v0 shape, so it runs after the user migrations.
 func NewMove() migrate.Migration {
 	return gorp.NewMigration("v0.move_credentials_to_passwords", move)
 }
 
-// subjectsByUsername maps every stored user's username to its ontology ID.
 func subjectsByUsername(
 	ctx context.Context,
 	tx gorp.Tx,

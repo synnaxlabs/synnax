@@ -68,19 +68,16 @@ func (c ServiceConfig) Validate() error {
 
 // Service stores passwords and checks proofs of them.
 type Service struct {
-	cfg     ServiceConfig
-	table   *gorp.Table[Key, Password]
-	indexes indexes
-	// current makes the hash of every new password.
-	current hasher
-	// accepted holds every verifier whose stored hashes the service checks.
+	cfg      ServiceConfig
+	table    *gorp.Table[Key, Password]
+	indexes  indexes
+	current  hasher
 	accepted []verifier
 }
 
 var _ auth.Authenticator = (*Service)(nil)
 
-// OpenService opens a [Service] with the given configurations. On the first open after
-// an upgrade it moves every row of the credentials table into the password table.
+// OpenService opens a [Service] with the given configurations.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
@@ -175,9 +172,7 @@ func (s *Service) verifierFor(hash []byte) (verifier, bool) {
 	return nil, false
 }
 
-// rehash stores the password again with the current algorithm. It leaves the record
-// alone when the stored hash is no longer checked, because a password change landed in
-// between.
+// rehash leaves the record alone when its hash changed after the check.
 func (s *Service) rehash(
 	ctx context.Context,
 	key Key,

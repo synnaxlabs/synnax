@@ -90,7 +90,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	root = findRoot(ctx, userSvc, "api-user-suite-root")
 })
 
-// login proves username and pwd against the suite-level password service.
 func login(ctx context.Context, username, pwd string) (auth.Identity, error) {
 	return passwordSvc.Authenticate(ctx, auth.Proof{
 		Variant: auth.PasswordProof{

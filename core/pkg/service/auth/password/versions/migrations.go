@@ -18,8 +18,7 @@ import (
 func MoveLegacy(ctx context.Context, db *gorp.DB, ins alamos.Instrumentation) error {
 	return gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB: db,
-		// the credentials table's own namespace, so steps a Core already ran are
-		// skipped
+		// steps a Core already ran under this namespace are skipped
 		Namespace: authversions.Namespace,
 		Migrations: slices.Concat(
 			authversions.Migrations,

@@ -21,7 +21,6 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// request builds a login request for the given username and password.
 func request(username, pwd string) apiauth.LoginRequest {
 	creds := auth.Credentials{Username: username, Password: pwd}
 	return apiauth.LoginRequest{Credentials: creds}

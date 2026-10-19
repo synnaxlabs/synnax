@@ -79,9 +79,7 @@ var _ = Describe("Service", func() {
 		It(
 			"Should roll back the password when user creation fails inside the tx",
 			func(ctx SpecContext) {
-				// Two users with one username: the first is created with its password,
-				// then the second create returns auth.ErrRepeatedUsername, which must
-				// roll back the first.
+				// the second user's repeated username must roll back the first
 				username := "rollback-" + uuid.New().String()
 				tx := DeferClose(db.OpenTx())
 				Expect(apiSvc.Create(rootCtx(ctx), tx, apiuser.CreateRequest{
