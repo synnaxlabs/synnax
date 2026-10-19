@@ -26,6 +26,7 @@ import (
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	apilicense "github.com/synnaxlabs/synnax/pkg/api/license"
+	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/service"
@@ -33,6 +34,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	svcmock "github.com/synnaxlabs/synnax/pkg/service/mock"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	thttp "github.com/synnaxlabs/synnax/pkg/transport/http"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
@@ -398,6 +400,58 @@ var _ = Describe("HTTP", func() {
 			)).To(Equal(http.StatusOK))
 			Expect(call("/api/v1/auth/session/renew", keyToken, struct{}{}, nil)).
 				To(Equal(http.StatusBadRequest))
+		})
+		It("Should delete a rack's keys and end their sessions with the rack", func() {
+			rootToken := login(
+				auth.Proof{Variant: auth.PasswordProof{Credentials: creds}},
+			)
+			var racks apirack.CreateResponse
+			Expect(call(
+				"/api/v1/rack/create",
+				rootToken,
+				apirack.CreateRequest{
+					Racks: []rack.Rack{{Name: "gone"}, {Name: "kept"}},
+				},
+				&racks,
+			)).To(Equal(http.StatusOK))
+			keyFor := func(r rack.Rack) string {
+				GinkgoHelper()
+				var created apiauth.KeyCreateResponse
+				Expect(call(
+					"/api/v1/auth/key/create",
+					rootToken,
+					apiauth.KeyCreateRequest{
+						Subject: rack.OntologyIDs([]rack.Key{r.Key})[0],
+					},
+					&created,
+				)).To(Equal(http.StatusOK))
+				return created.Token
+			}
+			keyProof := func(key string) auth.Proof {
+				return auth.Proof{Variant: auth.ApiKeyProof{
+					APIKeyCredentials: auth.APIKeyCredentials{Key: key},
+				}}
+			}
+			goneKey, keptKey := keyFor(racks.Racks[0]), keyFor(racks.Racks[1])
+			goneSession := login(keyProof(goneKey))
+			keptSession := login(keyProof(keptKey))
+			Expect(call(
+				"/api/v1/rack/delete",
+				rootToken,
+				apirack.DeleteRequest{Keys: []rack.Key{racks.Racks[0].Key}},
+				nil,
+			)).To(Equal(http.StatusOK))
+			Expect(call("/api/v1/auth/session/renew", goneSession, struct{}{}, nil)).
+				To(Equal(http.StatusBadRequest))
+			Expect(call(
+				"/api/v1/auth/session/create",
+				"",
+				apiauth.SessionCreateRequest{Proof: keyProof(goneKey)},
+				nil,
+			)).To(Equal(http.StatusBadRequest))
+			Expect(call("/api/v1/auth/session/renew", keptSession, struct{}{}, nil)).
+				To(Equal(http.StatusOK))
+			login(keyProof(keptKey))
 		})
 	})
 })
