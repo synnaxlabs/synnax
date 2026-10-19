@@ -284,6 +284,85 @@ describe("auth", () => {
       await admin.close();
     });
 
+    it("should keep a newer login when an older renew answers late", async () => {
+      const admin = createTestClient();
+      const second = { username: id.create(), password: "seldon" };
+      await admin.users.create(second);
+      const client = makeClient();
+      await login(client);
+      const first = client.session?.key;
+      const renewing = client.renew();
+      client.setCredentials(second);
+      await login(client);
+      const newer = client.session?.key;
+      await renewing;
+      expect(newer).not.toEqual(first);
+      expect(client.session?.key).toEqual(newer);
+      expect(client.user?.username).toEqual(second.username);
+      await admin.close();
+    });
+
+    it("should keep a newer login when an older request is rejected late", async () => {
+      const admin = createTestClient();
+      const second = { username: id.create(), password: "seldon" };
+      await admin.users.create(second);
+      const client = makeClient();
+      await login(client);
+      let reject: (() => void) | undefined;
+      let calls = 0;
+      const late = client.middleware()(DUMMY_CTX, async (ctx) => {
+        calls += 1;
+        if (calls > 1) return ctx;
+        await new Promise<void>((resolve) => (reject = resolve));
+        throw new InvalidTokenError();
+      });
+      await expect.poll(() => reject).toBeDefined();
+      client.setCredentials(second);
+      await login(client);
+      const newer = client.session?.key;
+      reject?.();
+      await late;
+      expect(client.session?.key).toEqual(newer);
+      expect(client.user?.username).toEqual(second.username);
+      await admin.close();
+    });
+
+    it("should end its own session when released", async () => {
+      const client = makeClient();
+      await login(client);
+      const key = client.session?.key;
+      await client.release();
+      expect(client.authenticated).toBe(false);
+      const observer = makeClient();
+      const sessions = await observer.retrieveSessions();
+      expect(sessions.map((s) => s.key)).not.toContain(key);
+    });
+
+    it("should leave a resumed session open when released", async () => {
+      const owner = makeClient();
+      await login(owner);
+      const token = owner.token;
+      if (token == null) throw new Error("expected a token");
+      const resumed = makeResumed(token);
+      await login(resumed);
+      await resumed.release();
+      expect(resumed.authenticated).toBe(false);
+      await expect(owner.renew().then((s) => s.key)).resolves.toEqual(
+        owner.session?.key,
+      );
+    });
+
+    it("should not log in to check connectivity", async () => {
+      const client = makeClient();
+      await login(client);
+      await client.logout();
+      await client.middleware()(
+        { ...DUMMY_CTX, target: "http://localhost/api/v1/connectivity/check" },
+        async (ctx) => ctx,
+      );
+      expect(client.authenticated).toBe(false);
+    });
+
     it("should decode a session ended error", () => {
       expect(
         SessionEndedError.matches(

@@ -59,6 +59,18 @@ describe("Core.useConnParams", () => {
     expect(result.current?.sessionCookie).toBe(false);
   });
 
+  it("should ask for a cookie from a secure Core on the page's default port", async () => {
+    pinLocationOrigin("https://example.com");
+    const { result } = await renderParams({ ...CORE, port: 443, secure: true });
+    expect(result.current?.sessionCookie).toBe(true);
+  });
+
+  it("should not ask for a cookie when the page and the Core differ in scheme", async () => {
+    pinLocationOrigin("https://example.com:9095");
+    const { result } = await renderParams();
+    expect(result.current?.sessionCookie).toBe(false);
+  });
+
   it("should keep the Core's name and cluster out of the connection", async () => {
     const { result } = await renderParams();
     expect(result.current).not.toHaveProperty("name");

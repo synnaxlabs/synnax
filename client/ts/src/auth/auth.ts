@@ -53,9 +53,9 @@ const retrieveResZ = z.object({ sessions: sessionZ.array() });
 const deleteReqZ = z.object({ keys: sessionKeyZ.array() });
 const emptyResZ = z.object({});
 
-/** Opens a session from a proof. Works without a token. */
 /** The login route a Core without sessions serves. Kept exempt for one release. */
 export const LEGACY_LOGIN_ENDPOINT = "/auth/login";
+/** Opens a session from a proof. Works without a token. */
 export const SESSION_CREATE_ENDPOINT = "/auth/session/create";
 /** Reports activity on the caller's session. */
 export const SESSION_RENEW_ENDPOINT = "/auth/session/renew";
@@ -63,6 +63,13 @@ export const SESSION_RENEW_ENDPOINT = "/auth/session/renew";
 export const SESSION_RETRIEVE_ENDPOINT = "/auth/session/retrieve";
 /** Ends sessions. */
 export const SESSION_DELETE_ENDPOINT = "/auth/session/delete";
+
+// routes the Core serves without a token, so a request to one never logs in
+const TOKENLESS_ENDPOINTS = [
+  SESSION_CREATE_ENDPOINT,
+  LEGACY_LOGIN_ENDPOINT,
+  "/connectivity/check",
+];
 
 const MAX_RETRIES = 3;
 
@@ -355,7 +362,8 @@ export class Client {
         if (token !== "") reqCtx.params.Authorization = `Bearer ${token}`;
         return await next(reqCtx);
       }
-      if (!this.authenticated && !reqCtx.target.endsWith(SESSION_CREATE_ENDPOINT)) {
+      const tokenless = TOKENLESS_ENDPOINTS.some((t) => reqCtx.target.endsWith(t));
+      if (!this.authenticated && !tokenless) {
         this.authenticating ??= this.login();
         const err = await this.authenticating;
         if (err != null) {
@@ -365,14 +373,19 @@ export class Client {
         }
       }
       // a cookie session has no token to send; the browser attaches the cookie
-      if (this.token != null && this.token !== "")
-        reqCtx.params.Authorization = `Bearer ${this.token}`;
+      const { authState } = this;
+      if (authState.authenticated && authState.token !== "")
+        reqCtx.params.Authorization = `Bearer ${authState.token}`;
       try {
         return await next(reqCtx);
       } catch (err) {
         if (RETRY_ON.some((e) => e.matches(err)) && retries < MAX_RETRIES) {
-          this.authState = { authenticated: false };
-          this.authenticating = undefined;
+          // only the session this request carried is dead; a login that finished in
+          // the meantime holds a different one
+          if (this.authState === authState) {
+            this.authState = { authenticated: false };
+            this.authenticating = undefined;
+          }
           return await attempt(reqCtx, next, retries + 1);
         }
         throw errors.fromUnknown(err);
