@@ -249,7 +249,7 @@ func generateRetrieveFile(
 	}
 
 	// Index-routed filters use the index's .Filter(...) method, so only non-indexed,
-	// non-slice variadic filters need a set.
+	// non-slice variadic filters need set.Contains.
 	hasVariadicFilter := lo.SomeBy(infos, func(i retrieveInfo) bool {
 		return lo.SomeBy(i.Filters, func(f filterInfo) bool {
 			return !f.IsScalar && !f.IsSlice && f.IndexFieldName == ""
@@ -679,16 +679,18 @@ func Match{{.GoName}}(v {{.GoType}}) Filter {
 // {{$ret.GoName | toLower | pluralize}} whose {{.GoName}} matches any of the
 // provided values.
 func Match{{.GoName | pluralize}}(vals ...{{.GoType}}) Filter {
-	return func(r Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
 {{- if .IndexFieldName}}
+	return func(r Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
 		return r.indexes.{{.IndexFieldName}}.Filter(vals...)
-{{- else}}
-		s := set.New(vals...)
-		return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
-			return s.Contains(e.{{.GoName}}), nil
-		})
-{{- end}}
 	}
+{{- else}}
+	contains := set.Contains(vals...)
+	return func(Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
+		return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
+			return contains(e.{{.GoName}}), nil
+		})
+	}
+{{- end}}
 }
 {{end}}
 {{- end}}

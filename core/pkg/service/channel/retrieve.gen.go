@@ -116,10 +116,10 @@ func MatchKeys(keys ...Key) Filter {
 // channels whose Leaseholder matches any of the
 // provided values.
 func MatchLeaseholders(vals ...node.Key) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Channel] {
-		s := set.New(vals...)
+	contains := set.Contains(vals...)
+	return func(Retrieve) gorp.Filter[Key, Channel] {
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
-			return s.Contains(e.Leaseholder), nil
+			return contains(e.Leaseholder), nil
 		})
 	}
 }
@@ -128,10 +128,10 @@ func MatchLeaseholders(vals ...node.Key) Filter {
 // channels whose DataType matches any of the
 // provided values.
 func MatchDataTypes(vals ...telem.DataType) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Channel] {
-		s := set.New(vals...)
+	contains := set.Contains(vals...)
+	return func(Retrieve) gorp.Filter[Key, Channel] {
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
-			return s.Contains(e.DataType), nil
+			return contains(e.DataType), nil
 		})
 	}
 }

@@ -79,10 +79,10 @@ func MatchKeys(keys ...Key) Filter {
 // roles whose Name matches any of the
 // provided values.
 func MatchNames(vals ...string) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Role] {
-		s := set.New(vals...)
+	contains := set.Contains(vals...)
+	return func(Retrieve) gorp.Filter[Key, Role] {
 		return gorp.Match(func(_ gorp.Context, e *Role) (bool, error) {
-			return s.Contains(e.Name), nil
+			return contains(e.Name), nil
 		})
 	}
 }

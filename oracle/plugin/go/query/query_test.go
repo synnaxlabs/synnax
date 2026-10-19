@@ -255,7 +255,7 @@ var _ = Describe("Go Query Plugin", func() {
 					).
 					ToNotContain(
 						"MatchInternals(",
-						"set.New(",
+						"set.Contains(",
 						"func (r Retrieve) MatchInternal(",
 					)
 			})
@@ -309,8 +309,8 @@ var _ = Describe("Go Query Plugin", func() {
 					ToContain(
 						"type Filter = gorp.BoundFilter[Retrieve, uuid.UUID, User]",
 						"func MatchUsernames(vals ...string) Filter",
-						"s := set.New(vals...)",
-						"s.Contains(e.Username)",
+						"contains := set.Contains(vals...)\n\treturn func(Retrieve)",
+						"contains(e.Username)",
 					).
 					ToNotContain("func (r Retrieve) MatchUsernames(")
 			})
@@ -378,7 +378,7 @@ var _ = Describe("Go Query Plugin", func() {
 						ToContain(
 							"type Filter = gorp.BoundFilter[Retrieve, string, Device]",
 							"func MatchRacks(vals ...rack.Key) Filter",
-							"s.Contains(e.Rack)",
+							"contains(e.Rack)",
 						).
 						ToNotContain("func (r Retrieve) MatchRacks(")
 				},
@@ -470,7 +470,7 @@ var _ = Describe("Go Query Plugin", func() {
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
 							"func MatchNames(vals ...string) Filter",
-							"return func(r Retrieve) gorp.Filter[uint32, Rack]",
+							"return func(Retrieve) gorp.Filter[uint32, Rack]",
 						)
 				},
 			)
@@ -850,7 +850,7 @@ var _ = Describe("Go Query Plugin", func() {
 							"ByUsername",
 							"OrderByUsername",
 							"gorp.NewSortedIndex",
-							"set.New(",
+							"set.Contains(",
 						)
 				},
 			)
