@@ -14,11 +14,11 @@ package device
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/set"
 )
 
 // Retrieve is used to retrieve Device records from the database using a
@@ -81,8 +81,9 @@ func MatchKeys(keys ...Key) Filter {
 // provided values.
 func MatchRacks(vals ...rack.Key) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Device] {
+		s := set.New(vals...)
 		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
-			return lo.Contains(vals, e.Rack), nil
+			return s.Contains(e.Rack), nil
 		})
 	}
 }
@@ -92,8 +93,9 @@ func MatchRacks(vals ...rack.Key) Filter {
 // provided values.
 func MatchLocations(vals ...string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Device] {
+		s := set.New(vals...)
 		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
-			return lo.Contains(vals, e.Location), nil
+			return s.Contains(e.Location), nil
 		})
 	}
 }
@@ -103,8 +105,9 @@ func MatchLocations(vals ...string) Filter {
 // provided values.
 func MatchMakes(vals ...string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Device] {
+		s := set.New(vals...)
 		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
-			return lo.Contains(vals, e.Make), nil
+			return s.Contains(e.Make), nil
 		})
 	}
 }
@@ -114,8 +117,9 @@ func MatchMakes(vals ...string) Filter {
 // provided values.
 func MatchModels(vals ...string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Device] {
+		s := set.New(vals...)
 		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
-			return lo.Contains(vals, e.Model), nil
+			return s.Contains(e.Model), nil
 		})
 	}
 }
@@ -125,8 +129,9 @@ func MatchModels(vals ...string) Filter {
 // provided values.
 func MatchNames(vals ...string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Device] {
+		s := set.New(vals...)
 		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
-			return lo.Contains(vals, e.Name), nil
+			return s.Contains(e.Name), nil
 		})
 	}
 }

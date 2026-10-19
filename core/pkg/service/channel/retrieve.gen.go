@@ -14,11 +14,11 @@ package channel
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -117,8 +117,9 @@ func MatchKeys(keys ...Key) Filter {
 // provided values.
 func MatchLeaseholders(vals ...node.Key) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Channel] {
+		s := set.New(vals...)
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
-			return lo.Contains(vals, e.Leaseholder), nil
+			return s.Contains(e.Leaseholder), nil
 		})
 	}
 }
@@ -128,8 +129,9 @@ func MatchLeaseholders(vals ...node.Key) Filter {
 // provided values.
 func MatchDataTypes(vals ...telem.DataType) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Channel] {
+		s := set.New(vals...)
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
-			return lo.Contains(vals, e.DataType), nil
+			return s.Contains(e.DataType), nil
 		})
 	}
 }

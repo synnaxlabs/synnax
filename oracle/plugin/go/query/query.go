@@ -248,16 +248,18 @@ func generateRetrieveFile(
 		)
 	}
 
-	// Check if any info needs lo for variadic Match filters. Index-routed filters use
-	// the index's .Filter(...) method instead of lo.Contains, so only non-indexed,
-	// non-slice variadic filters contribute.
+	// Index-routed filters use the index's .Filter(...) method, so only non-indexed,
+	// non-slice variadic filters need a set.
 	hasVariadicFilter := lo.SomeBy(infos, func(i retrieveInfo) bool {
 		return lo.SomeBy(i.Filters, func(f filterInfo) bool {
 			return !f.IsScalar && !f.IsSlice && f.IndexFieldName == ""
 		})
 	})
 	if hasVariadicFilter {
-		imps.AddExternal("github.com/samber/lo")
+		imps.AddInternal(
+			"set",
+			gomod.ResolveImportPath("x/go/set", repoRoot, gomod.DefaultModulePrefix),
+		)
 	}
 
 	// Check if any info needs the slices stdlib package for slice-contains filters.
@@ -681,8 +683,9 @@ func Match{{.GoName | pluralize}}(vals ...{{.GoType}}) Filter {
 {{- if .IndexFieldName}}
 		return r.indexes.{{.IndexFieldName}}.Filter(vals...)
 {{- else}}
+		s := set.New(vals...)
 		return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
-			return lo.Contains(vals, e.{{.GoName}}), nil
+			return s.Contains(e.{{.GoName}}), nil
 		})
 {{- end}}
 	}

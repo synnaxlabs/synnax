@@ -15,10 +15,10 @@ import (
 	"context"
 	"slices"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/set"
 )
 
 // Filter is a per-service filter that is bound to the Retrieve when passed to
@@ -72,8 +72,9 @@ func MatchKeys(keys ...Key) Filter {
 // provided values.
 func MatchNames(vals ...string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Rack] {
+		s := set.New(vals...)
 		return gorp.Match(func(_ gorp.Context, e *Rack) (bool, error) {
-			return lo.Contains(vals, e.Name), nil
+			return s.Contains(e.Name), nil
 		})
 	}
 }

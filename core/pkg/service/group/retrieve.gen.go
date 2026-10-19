@@ -14,8 +14,8 @@ package group
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/set"
 )
 
 // Retrieve is used to retrieve Group records from the database using a
@@ -73,8 +73,9 @@ func MatchKeys(keys ...Key) Filter {
 // provided values.
 func MatchNames(vals ...string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Group] {
+		s := set.New(vals...)
 		return gorp.Match(func(_ gorp.Context, e *Group) (bool, error) {
-			return lo.Contains(vals, e.Name), nil
+			return s.Contains(e.Name), nil
 		})
 	}
 }
