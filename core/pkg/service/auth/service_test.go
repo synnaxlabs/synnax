@@ -379,6 +379,7 @@ var _ = Describe("Service", func() {
 				Expect(svc.NewWriter(nil).RevokeCredential(
 					ctx,
 					session.Method,
+					nil,
 					session.Credential,
 				)).To(Succeed())
 				Eventually(ended).Should(BeClosed())
@@ -519,18 +520,41 @@ var _ = Describe("Service", func() {
 				Expect(svc.NewWriter(nil).RevokeCredential(
 					ctx,
 					kept.Method,
+					[]auth.SessionKey{kept.Key},
 					kept.Credential,
-					kept.Key,
 				)).To(Succeed())
 				MustSucceed(svc.Authenticate(ctx, keptToken))
 				Expect(svc.Authenticate(ctx, otherToken)).Error().
 					To(MatchError(auth.ErrInvalidToken))
+			})
+			It("Should end the sessions of several credentials", func(ctx SpecContext) {
+				a, aToken := login(ctx)
+				bobName := uuid.New().String()
+				Expect(pw.NewWriter(nil).Set(ctx, subject(), auth.Credentials{
+					Username: bobName,
+					Password: "secret",
+				})).To(Succeed())
+				b, bToken := MustSucceed2(
+					svc.Login(ctx, proof(bobName, "secret"), "10.0.0.1:1234"),
+				)
+				Expect(svc.NewWriter(nil).RevokeCredential(
+					ctx,
+					auth.MethodPassword,
+					nil,
+					a.Credential,
+					b.Credential,
+				)).To(Succeed())
+				for _, token := range []string{aToken, bToken} {
+					Expect(svc.Authenticate(ctx, token)).Error().
+						To(MatchError(auth.ErrInvalidToken))
+				}
 			})
 			It("Should leave other credentials alone", func(ctx SpecContext) {
 				_, token := login(ctx)
 				Expect(svc.NewWriter(nil).RevokeCredential(
 					ctx,
 					auth.MethodPassword,
+					nil,
 					uuid.New(),
 				)).To(Succeed())
 				MustSucceed(svc.Authenticate(ctx, token))

@@ -175,11 +175,6 @@ func (s *Service) DeleteKeys(
 	if err := s.apiKey.NewWriter(tx).Delete(ctx, stored...); err != nil {
 		return struct{}{}, err
 	}
-	sessions := s.auth.NewWriter(tx)
-	for _, k := range stored {
-		if err := sessions.RevokeCredential(ctx, auth.MethodAPIKey, k); err != nil {
-			return struct{}{}, err
-		}
-	}
-	return struct{}{}, nil
+	return struct{}{}, s.auth.NewWriter(tx).
+		RevokeCredential(ctx, auth.MethodAPIKey, nil, stored...)
 }

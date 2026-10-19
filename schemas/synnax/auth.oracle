@@ -34,15 +34,17 @@ Session struct {
         @doc value "is the SHA-256 hash of the secret in the session's token."
     }
     subject     ontology.ID     {
-        @doc value "is the user or rack that logged in."
+        @doc value    "is the user or rack that logged in."
         @filter
+        @index lookup
     }
     method      Method          {
         @doc value "is the method the subject logged in with."
     }
     credential  uuid            {
-        @doc value "is the key of the credential record the login matched."
+        @doc value    "is the key of the credential record the login matched."
         @filter
+        @index lookup
     }
     address     string          {
         @doc value "is the network address the login came from."
