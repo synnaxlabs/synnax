@@ -326,7 +326,7 @@ class TestWriteFrameAdapter:
         self, adapter: tuple[WriteFrameAdapter, sy.Channel]
     ) -> None:
         """Should raise a type error when an invalid value is adapted"""
-        write_adapter, channel = adapter
+        write_adapter, _ = adapter
         with pytest.raises(TypeError):
             write_adapter.adapt(cast(sy.Frame, Exception("Invalid value")))
 

@@ -33,6 +33,7 @@ from x.spatial.types_gen import (
 )
 
 __all__ = [
+    "XY",
     "Alignment",
     "AngularDirection",
     "Bounds",
@@ -53,6 +54,5 @@ __all__ = [
     "StickyXY",
     "Viewport",
     "XLocation",
-    "XY",
     "YLocation",
 ]

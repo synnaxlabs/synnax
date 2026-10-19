@@ -124,12 +124,14 @@ class TestWriter:
         w/o the correct timing
         """
         [idx, data_ch] = indexed_pair
-        with pytest.raises(
-            sy.ValidationError, match="received no data for index channel"
+        with (
+            pytest.raises(
+                sy.ValidationError, match="received no data for index channel"
+            ),
+            client.open_writer(0, [idx.key, data_ch.key]) as w,
         ):
-            with client.open_writer(0, [idx.key, data_ch.key]) as w:
-                data = np.random.rand(10).astype(np.float64)
-                w.write(pd.DataFrame({data_ch.key: data}))
+            data = np.random.rand(10).astype(np.float64)
+            w.write(pd.DataFrame({data_ch.key: data}))
 
     def test_auto_index_generates_timestamps_for_data_only_writer(
         self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
@@ -291,14 +293,16 @@ class TestWriter:
         """Should throw an error when a writer is opened to error on unauthorized"""
         start = sy.TimeStamp.now()
         w1 = client.open_writer(start=start, channels=indexed_pair, name="writer1")
-        with pytest.raises(sy.UnauthorizedError):
-            with client.open_writer(
+        with (
+            pytest.raises(sy.UnauthorizedError),
+            client.open_writer(
                 start=start,
                 channels=indexed_pair,
                 err_on_unauthorized=True,
                 name="writer2",
-            ):
-                ...
+            ),
+        ):
+            ...
 
         w1.close()
 
@@ -646,11 +650,13 @@ class TestWriter:
                 }
             )
 
-        with pytest.raises(sy.ValidationError):
-            with client.open_writer(
+        with (
+            pytest.raises(sy.ValidationError),
+            client.open_writer(
                 start=start + sy.TimeSpan.SECOND * 3, channels=indexed_pair
-            ):
-                ...
+            ),
+        ):
+            ...
 
     def test_set_authority_on_all_channels(
         self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
