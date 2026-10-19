@@ -211,7 +211,7 @@ export class Client {
   /**
    * Changes the logged-in user's password.
    * @throws {Error} if the client is not logged in, or holds no current password
-   * because it resumed a session from a token or cookie.
+   * because it logged in with an API key or resumed a session from a token or cookie.
    */
   async changePassword(newPassword: string): Promise<void> {
     if (!this.authenticated) throw new Error("Not authenticated");
