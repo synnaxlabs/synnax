@@ -112,6 +112,88 @@ Channel struct {
 	})
 })
 
+var _ = Describe("Frozen union with a borrowed enum", func() {
+	It("Should type the frozen discriminator with the frozen enum", func() {
+		root := GinkgoT().TempDir()
+		write := func(rel, content string) {
+			GinkgoHelper()
+			full := filepath.Join(root, rel)
+			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+		}
+		const decls = `
+Method enum {
+	password = "password"
+}
+
+Credentials struct {
+	username string
+}
+
+Proof union on method Method {
+	password Credentials
+
+	@go marshal
+}
+`
+		write("schemas/synnax/versions/auth/v0.oracle", decls)
+		write("schemas/synnax/versions/auth/v1.oracle", `
+Method enum {
+	password = "password"
+	api_key  = "api_key"
+}
+
+Credentials = v0.Credentials
+
+Proof union on method Method {
+	password v0.Credentials
+	api_key  v0.Credentials
+
+	@go marshal
+}
+`)
+		chains := MustSucceed(versions.Discover(root))
+		resolver := versions.NewResolver(
+			chains, analyzer.NewStandardFileLoader(root),
+		)
+		table := resolution.NewTable()
+		diag := analyzer.AnalyzeSeeded(
+			GinkgoT().Context(), `@go output "core/pkg/service/auth"`+"\n"+`
+Method enum {
+	password = "password"
+	api_key  = "api_key"
+}
+
+Credentials struct {
+	username string
+}
+
+Proof union on method Method {
+	password Credentials
+	api_key  Credentials
+
+	@go marshal
+}
+`,
+			"schemas/synnax/auth.oracle", "auth",
+			analyzer.NewStandardFileLoader(root), table,
+		)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		req := &plugin.Request{Resolutions: table, RepoRoot: root, Versions: resolver}
+		resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(req))
+		var frozen string
+		for _, f := range resp.Files {
+			if f.Path == "core/pkg/service/auth/versions/v0/types.gen.go" {
+				frozen = string(f.Content)
+			}
+		}
+		Expect(frozen).ToNot(BeEmpty())
+		Expect(frozen).To(ContainSubstring("Type Method `json:\"method\"`"))
+		Expect(frozen).To(ContainSubstring("MethodPassword Method"))
+		Expect(frozen).ToNot(ContainSubstring("ProofType"))
+	})
+})
+
 var _ = Describe("Ended chain", func() {
 	var req *plugin.Request
 

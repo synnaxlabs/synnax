@@ -10,12 +10,14 @@
 package types
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/domain"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
@@ -37,8 +39,11 @@ type unionData struct {
 	InterfaceName string
 	// Marker is the unexported sealing method (e.g. "isScaleVariant").
 	Marker string
-	// DiscType is the string discriminator type (e.g. "ScaleType").
+	// DiscType is the discriminator type (e.g. "ScaleType", or the borrowed enum).
 	DiscType string
+	// BorrowsEnum reports that DiscType is a declared enum, so the union emits no
+	// discriminator type or constants of its own.
+	BorrowsEnum bool
 	// DiscJSONName is the discriminator JSON tag (e.g. "type").
 	DiscJSONName string
 	// Variants lists every variant in declaration order.
@@ -111,6 +116,24 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 		DiscType:      name + "Type",
 		DiscJSONName:  casing.FieldSnake(form.Discriminator),
 	}
+	constName := func(v resolution.UnionVariant) string {
+		return casing.VariantConstName(name, v.Name)
+	}
+	if form.BorrowsEnum() {
+		enumType, ok := form.Enum.Resolve(data.table)
+		if !ok {
+			panic(fmt.Sprintf(
+				"union %s borrows unresolved enum %s as its discriminator",
+				name, form.Enum.Name,
+			))
+		}
+		ud.BorrowsEnum = true
+		ud.DiscType = data.resolver.ResolveTypeRef(form.Enum, data.ctx)
+		prefix, _, _ := strings.Cut(ud.DiscType, naming.GetGoName(enumType))
+		constName = func(v resolution.UnionVariant) string {
+			return prefix + enumConstName(enumType, v.Name)
+		}
+	}
 
 	embedBases := func(refs []resolution.TypeRef) []embeddedType {
 		var out []embeddedType
@@ -131,7 +154,7 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 	for _, v := range form.Variants {
 		vd := unionVariantData{
 			TypeName:  casing.VariantTypeName(name, v.Name),
-			ConstName: casing.VariantConstName(name, v.Name),
+			ConstName: constName(v),
 			Value:     v.Name,
 			Doc:       doc.Get(v.Domains),
 		}
@@ -270,4 +293,17 @@ func embedFieldName(rendered string) string {
 		return name
 	}
 	return rendered
+}
+
+// enumConstName returns the Go constant of the enum member whose value is value, as
+// the enum's own package declares it. The analyzer guarantees a member exists for
+// every variant of a union that borrows the enum, so a miss is a generator bug.
+func enumConstName(enumType resolution.Type, value string) string {
+	form := enumType.Form.(resolution.EnumForm)
+	for _, m := range form.Values {
+		if m.StringValue() == value {
+			return naming.GetGoName(enumType) + naming.ToPascalCase(m.Name)
+		}
+	}
+	panic(fmt.Sprintf("enum %s has no member with value %q", enumType.Name, value))
 }
