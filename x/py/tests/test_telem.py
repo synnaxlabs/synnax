@@ -11,11 +11,14 @@ import time
 import uuid
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
+from fractions import Fraction
 
 import dateutil
 import numpy as np
 import pandas as pd
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 import x.telem as sy
 from x.exceptions import ContiguityError
@@ -276,6 +279,31 @@ class TestTimeRange:
         tr2 = sy.TimeRange(1500, 2000)
         assert not tr.overlaps_with(tr2)
 
+    def test_range_overlaps_partial(self) -> None:
+        """Should overlap a range that starts inside it, in either direction"""
+        tr = sy.TimeRange(0, 10)
+        tr2 = sy.TimeRange(5, 20)
+        assert tr.overlaps_with(tr2)
+        assert tr2.overlaps_with(tr)
+
+    def test_range_overlaps_touching(self) -> None:
+        """Should not overlap a range that only touches its boundary"""
+        assert not sy.TimeRange(0, 10).overlaps_with(sy.TimeRange(10, 20))
+        assert not sy.TimeRange(10, 20).overlaps_with(sy.TimeRange(0, 10))
+
+    def test_range_overlaps_delta(self) -> None:
+        """Should overlap only when the shared span is at least delta"""
+        tr = sy.TimeRange(0, 10)
+        tr2 = sy.TimeRange(5, 20)
+        assert tr.overlaps_with(tr2, delta=5)
+        assert not tr.overlaps_with(tr2, delta=6)
+
+    def test_range_overlaps_equal_delta(self) -> None:
+        """Should not overlap an equal range sharing less than delta"""
+        tr = sy.TimeRange(0, 10)
+        assert tr.overlaps_with(sy.TimeRange(0, 10), delta=10)
+        assert not tr.overlaps_with(sy.TimeRange(0, 10), delta=11)
+
     def test_range_valid(self) -> None:
         """Should return true if the range is valid"""
         tr = sy.TimeRange(0, 1000)
@@ -453,6 +481,33 @@ class TestTimeSpan:
 
 
 @pytest.mark.telem
+class TestTimeSpanPrecision:
+    big = sy.TimeSpan(2**60 + 1)
+
+    def test_nanoseconds(self) -> None:
+        """Should return the exact nanosecond count"""
+        assert self.big.nanoseconds == 2**60 + 1
+
+    def test_mul(self) -> None:
+        """Should multiply without rounding through a float"""
+        assert int(self.big * 3) == (2**60 + 1) * 3
+
+    def test_div(self) -> None:
+        """Should divide without rounding through a float"""
+        assert int(self.big / 1) == 2**60 + 1
+        assert int(sy.TimeSpan(-7) / 2) == -3
+
+    def test_trunc(self) -> None:
+        """Should truncate without rounding up"""
+        span = sy.TimeSpan(10**18 - 1)
+        assert span.trunc(sy.TimeSpan.SECOND) == sy.TimeSpan(999999999 * 10**9)
+
+    def test_str_max(self) -> None:
+        """Should format the maximum span exactly"""
+        assert str(sy.TimeSpan.MAX) == "106751d 23h 47m 16s 854ms 775us 807ns"
+
+
+@pytest.mark.telem
 class TestRate:
     @pytest.mark.parametrize(
         ("crude", "expected"),
@@ -483,6 +538,26 @@ class TestRate:
             sy.Rate(1.0).size_span(sy.Size(40), sy.Density.BIT64)
             == 5 * sy.TimeSpan.SECOND
         )
+
+    def test_span_exact(self) -> None:
+        """Should compute the span without truncating the period first"""
+        assert sy.Rate(3).span(3_000_000_000) == 10**9 * sy.TimeSpan.SECOND
+
+    @pytest.mark.parametrize(
+        ("rate", "count", "expected"),
+        [
+            (0.1, 1, 10 * sy.TimeSpan.SECOND),
+            (0.5, 1, 2 * sy.TimeSpan.SECOND),
+            (2.5, 1, 400 * sy.TimeSpan.MILLISECOND),
+            (2.5, 5, 2 * sy.TimeSpan.SECOND),
+            (1 / 3, 1, 3 * sy.TimeSpan.SECOND),
+        ],
+    )
+    def test_span_fractional(
+        self, rate: float, count: int, expected: sy.TimeSpan
+    ) -> None:
+        """Should give the decimal answer for a fractional rate"""
+        assert sy.Rate(rate).span(count) == expected
 
     def test_byte_span_invalid(self) -> None:
         """Should raise a contiguity error if the size is not a multiple of the density"""
@@ -565,7 +640,11 @@ class TestSize:
 
     @pytest.mark.parametrize(
         ("value", "expected"),
-        [(sy.Size.GB + sy.Size.MB * 500, "1gb 500mb"), (sy.Size.GB * 0, "0b")],
+        [
+            (sy.Size.GB + sy.Size.MB * 500, "1gb 500mb"),
+            (sy.Size.GB * 0, "0b"),
+            (sy.Size(2048), "2kb"),
+        ],
     )
     def test_str(self, value: sy.Size, expected: str) -> None:
         assert str(value) == expected
@@ -578,6 +657,7 @@ class TestSize:
         (np.array([1, 2, 3]), "s", "ms", 1000),
         (np.array([1, 2, 3]), "ms", "ms", 1),
         (np.array([sy.TimeStamp(0).datetime().isoformat()]), "iso", "ns", 0),
+        (np.array([1_700_000_000_123_456_789]), "ns", "ns", 1_700_000_000_123_456_789),
     ],
 )
 def test_convert_time_units(
@@ -665,6 +745,12 @@ class TestAlignment:
         align = align.add_samples(1)
         assert align.sample_index == 0xFFFFFFFF
         assert align.domain_index == 2
+
+    def test_add_samples_wrap(self) -> None:
+        """Should wrap a sample index past 32 bits without changing the domain"""
+        align = sy.Alignment(2, 0xFFFFFFFF).add_samples(1)
+        assert align.domain_index == 2
+        assert align.sample_index == 0
 
     def test_add(self) -> None:
         """Should add both domain and sample indices"""
@@ -791,3 +877,70 @@ class TestStringEncodedInts:
         big = (1 << 62) + 7
         validated = model_cls.model_validate({"v": str(big)})
         assert int(validated.model_dump()["v"]) == big
+
+
+_INT64 = st.integers(min_value=-(2**63), max_value=2**63 - 1)
+_SPAN = st.integers(min_value=-(2**62), max_value=2**62)
+_NONZERO = _SPAN.filter(lambda v: v != 0)
+_STAMP = st.integers(min_value=0, max_value=2**62)
+
+
+@pytest.mark.telem
+class TestTimeProperties:
+    @given(_INT64)
+    def test_nanoseconds_exact(self, value: int) -> None:
+        """Should keep every nanosecond of a span"""
+        assert sy.TimeSpan(value).nanoseconds == value
+
+    @given(_SPAN, st.integers(min_value=-1000, max_value=1000))
+    def test_mul_exact(self, value: int, factor: int) -> None:
+        """Should multiply a span by an integer exactly"""
+        assert int(sy.TimeSpan(value) * factor) == value * factor
+
+    @given(_SPAN, _NONZERO)
+    def test_div_truncates(self, a: int, b: int) -> None:
+        """Should divide spans exactly, truncating toward zero"""
+        assert int(sy.TimeSpan(a) / sy.TimeSpan(b)) == int(Fraction(a, b))
+
+    @given(_SPAN, st.integers(min_value=1, max_value=2**40))
+    def test_trunc_bounds(self, value: int, step: int) -> None:
+        """Should truncate to a multiple of the step no farther than one step away"""
+        truncated = int(sy.TimeSpan(value).trunc(step))
+        assert truncated % step == 0
+        assert abs(value - truncated) < step
+        assert abs(truncated) <= abs(value)
+
+    @given(_STAMP)
+    def test_timestamp_round_trip(self, value: int) -> None:
+        """Should round-trip a timestamp through pandas and NumPy"""
+        ts = sy.TimeStamp(value)
+        assert sy.TimeStamp(pd.Timestamp(ts, unit="ns", tz=UTC)) == ts
+        assert sy.TimeStamp(np.datetime64(value, "ns")) == ts
+
+    @given(st.integers(min_value=1, max_value=100_000), st.integers(0, 10**9))
+    def test_rate_span_exact(self, rate: int, count: int) -> None:
+        """Should compute an integer rate's span without rounding"""
+        assert int(sy.Rate(rate).span(count)) == count * 10**9 // rate
+
+    @given(st.integers(1, 10**6), st.integers(0, 3), st.integers(0, 10**6))
+    def test_rate_span_decimal(self, digits: int, places: int, count: int) -> None:
+        """Should compute a decimal rate's span as the decimal value written"""
+        rate = Fraction(digits, 10**places)
+        expected = int(count * 10**9 / rate)
+        assert int(sy.Rate(float(rate)).span(count)) == expected
+
+    @given(_STAMP, _STAMP, _STAMP, _STAMP, st.integers(0, 2**62))
+    def test_overlaps_with_symmetric(
+        self, a: int, b: int, c: int, d: int, delta: int
+    ) -> None:
+        """Should overlap symmetrically, and when non-empty ranges share time"""
+        r1 = sy.TimeRange(min(a, b), max(a, b))
+        r2 = sy.TimeRange(min(c, d), max(c, d))
+        assert r1.overlaps_with(r2) == r2.overlaps_with(r1)
+        if r1.start < r1.end and r2.start < r2.end:
+            shares = max(r1.start, r2.start) < min(r1.end, r2.end)
+            assert r1.overlaps_with(r2) == shares
+        shared = min(r1.end, r2.end) - max(r1.start, r2.start)
+        if r1.overlaps_with(r2, delta=delta):
+            assert r1.overlaps_with(r2)
+            assert shared >= delta

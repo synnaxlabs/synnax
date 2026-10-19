@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime, timedelta, tzinfo
+from fractions import Fraction
 from math import trunc
 from typing import Any, ClassVar, Literal, TypeAlias
 
@@ -409,7 +410,7 @@ class TimeSpan(int):
     @property
     def nanoseconds(self) -> int:
         """:returns: The integer number of nanoseconds in the TimeSpan."""
-        return int(self / TimeSpan.NANOSECOND)
+        return int(self)
 
     def trunc(self, span: CrudeTimeSpan) -> TimeSpan:
         """Truncates the TimeSpan to the nearest integer multiple of the given span.
@@ -424,7 +425,8 @@ class TimeSpan(int):
 
         :param span: The TimeSpan to truncate by.
         """
-        return TimeSpan(trunc(self / span) * span)
+        step = int(TimeSpan(span))
+        return TimeSpan(_div_toward_zero(int(self), step) * step)
 
     @property
     def timedelta(self) -> timedelta:
@@ -438,10 +440,12 @@ class TimeSpan(int):
         return TimeSpan(super().__sub__(TimeSpan(rhs)))
 
     def __mul__(self, rhs: CrudeTimeSpan | np.integer) -> TimeSpan:
-        return TimeSpan(self.nanoseconds * rhs)
+        if isinstance(rhs, np.integer):
+            rhs = int(rhs)
+        return TimeSpan(int(self) * rhs)
 
     def __truediv__(self, rhs: CrudeTimeSpan) -> TimeSpan:
-        return TimeSpan(super().__truediv__(TimeSpan(rhs)))
+        return TimeSpan(_div_toward_zero(int(self), int(TimeSpan(rhs))))
 
     def __mod__(self, rhs: CrudeTimeSpan) -> TimeSpan:
         return TimeSpan(super().__mod__(TimeSpan(rhs)))
@@ -538,6 +542,13 @@ TimeStamp.MIN = TimeStamp(0)
 TimeStamp.ZERO = TimeStamp.MIN
 TimeStamp.MAX = TimeStamp(2**63 - 1)
 
+
+def _div_toward_zero(a: int, b: int) -> int:
+    """Divides integers exactly, truncating toward zero like int(a / b)."""
+    q = abs(a) // abs(b)
+    return q if (a < 0) == (b < 0) else -q
+
+
 TimeSpanUnits = Literal["ns", "us", "ms", "s", "m", "h", "d", "iso"]
 
 
@@ -562,6 +573,8 @@ def convert_time_units(
     if t == 0:
         raise ValueError(f"Invalid output time unit {to}")
 
+    if to == TimeSpan.NANOSECOND_UNITS and np.issubdtype(data.dtype, np.integer):
+        return data.astype(np.int64) * int(f)
     converted = data * f / t
     if to == TimeSpan.SECOND_UNITS:
         return converted.astype(np.float64)
@@ -618,7 +631,10 @@ class Rate(float):
     def span(self, sample_count: int) -> TimeSpan:
         """:returns: the TimeSpan that corresponds to the given number of samples at
         this rate."""
-        return self.period * sample_count
+        # repr gives the shortest decimal that round-trips, so Rate(0.1) is 1/10 and
+        # not the binary float just below it.
+        rate = Fraction(repr(float(self)))
+        return TimeSpan(int(Fraction(sample_count * int(TimeSpan.SECOND)) / rate))
 
     def size_span(self, size: Size, density: Density) -> TimeSpan:
         """:returns: the TimeSpan that corresponds to the given number of bytes at this
@@ -736,11 +752,23 @@ class TimeRange(BaseModel):
         pv = TimeStamp(value)
         return pv.after_eq(self.start) and pv.before(self.end)
 
-    def overlaps_with(self, tr: TimeRange) -> bool:
-        """:returns: True if the time ranges overlap.
+    def overlaps_with(self, tr: TimeRange, delta: CrudeTimeSpan = 0) -> bool:
+        """:returns: True if the time ranges share at least delta of time. Ranges that
+        only touch at a boundary do not overlap.
         :param tr: The time range to compare against.
+        :param delta: The minimum shared span. Defaults to zero.
         """
-        return self == tr or self.contains(tr.end) or tr.contains(self)
+        other = tr.make_valid()
+        rng = self.make_valid()
+        if rng == other:
+            return rng.span >= TimeSpan(delta)
+        if other.end == rng.start or rng.end == other.start:
+            return False
+        start = max(rng.start, other.start)
+        end = min(rng.end, other.end)
+        if end < start:
+            return False
+        return TimeSpan(int(end) - int(start)) >= TimeSpan(delta)
 
     def swap(self) -> TimeRange:
         """:returns: A new TimeRange with the start and end values swapped. Note that
@@ -899,7 +927,7 @@ class Size(int):
     def kb_int(self) -> int:
         """:returns: The integer number of kilobytes in the Size, NOT including
         fractional gigabytes"""
-        return int(self / Size.GB)
+        return int(self / Size.KB)
 
     @property
     def bytes(self) -> int:
@@ -1201,6 +1229,11 @@ class Bounds:
         return self.lower < value <= self.upper
 
 
+def _pack_alignment(domain_idx: int, sample_idx: int) -> int:
+    """Packs uint32 indices, wrapping each like the Go Alignment's uint32 fields."""
+    return ((domain_idx & 0xFFFFFFFF) << 32) | (sample_idx & 0xFFFFFFFF)
+
+
 class Alignment(int):
     """Alignment is two array index values that can be used to represent
     the location of a sample within an array of arrays. For example, if you have two arrays
@@ -1248,10 +1281,9 @@ class Alignment(int):
                     f"Alignment tuple must have exactly 2 elements (domain_idx, sample_idx), got {len(value)}"
                 )
             domain_idx, sample_idx = value
-            packed_value = (int(domain_idx) << 32) | int(sample_idx)
+            packed_value = _pack_alignment(int(domain_idx), int(sample_idx))
         elif sample_idx is not None:
-            # Called as Alignment(domain_idx, sample_idx)
-            packed_value = (int(value) << 32) | int(sample_idx)
+            packed_value = _pack_alignment(int(value), sample_idx)
         elif isinstance(value, (int, np.integer)):
             # Packed value or zero
             packed_value = int(value)
