@@ -83,10 +83,7 @@ if response in ("", "y", "yes"):
         print(f"Using rack: {rack.name} (key={rack.key})")
 
         # Determine location string based on connection type
-        if IDENTIFIER == "ANY":
-            location = CONNECTION_TYPE
-        else:
-            location = IDENTIFIER
+        location = CONNECTION_TYPE if IDENTIFIER == "ANY" else IDENTIFIER
 
         device = sy.labjack.Device(
             model=MODEL,

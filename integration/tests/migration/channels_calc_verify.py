@@ -89,25 +89,25 @@ class CalcChannelsVerify(TestCase):
         """Write VERIFY_SRC_DATA, stream calc results, assert scalar values."""
         channels = {name: self.client.channels.retrieve(name) for name in expected}
         start = sy.TimeStamp.now()
-        with self.client.open_streamer(
-            [ch.key for ch in channels.values()]
-        ) as streamer:
-            with self.client.open_writer(
+        with (
+            self.client.open_streamer([ch.key for ch in channels.values()]) as streamer,
+            self.client.open_writer(
                 start, [self._calc_idx.key, self._src.key]
-            ) as writer:
-                writer.write(
-                    {
-                        self._calc_idx.key: _timestamps(start, len(VERIFY_SRC_DATA)),
-                        self._src.key: VERIFY_SRC_DATA,
-                    }
+            ) as writer,
+        ):
+            writer.write(
+                {
+                    self._calc_idx.key: _timestamps(start, len(VERIFY_SRC_DATA)),
+                    self._src.key: VERIFY_SRC_DATA,
+                }
+            )
+            frame = streamer.read(timeout=5)
+            assert frame is not None, "No streamer frame received"
+            for name, exp_val in expected.items():
+                actual = to_float(frame[channels[name].key][0])
+                assert abs(actual - exp_val) < 0.01, (
+                    f"{name}: expected {exp_val}, got {actual}"
                 )
-                frame = streamer.read(timeout=5)
-                assert frame is not None, "No streamer frame received"
-                for name, exp_val in expected.items():
-                    actual = to_float(frame[channels[name].key][0])
-                    assert abs(actual - exp_val) < 0.01, (
-                        f"{name}: expected {exp_val}, got {actual}"
-                    )
 
     def test_calc_operations(self) -> None:
         self.log("Testing: Calc channel operations metadata")

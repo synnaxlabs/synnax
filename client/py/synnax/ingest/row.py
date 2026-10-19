@@ -46,7 +46,7 @@ class RowIngestionEngine:
         soft_mem_limit: int = 10 * Size.MB,
     ):
         self.channels = channels
-        self.idx_grouped = {ch: list() for ch in channels if ch.is_index}
+        self.idx_grouped = {ch: [] for ch in channels if ch.is_index}
         for ch in self.idx_grouped:
             self.idx_grouped[ch] = [_ch for _ch in channels if _ch.index == ch.key]
         self.mem_limit = soft_mem_limit

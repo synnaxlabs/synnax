@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import pytest
+from pydantic import ValidationError
 
 from x.color import Color
 
@@ -177,11 +178,11 @@ class TestColor:
         ],
     )
     def test_channel_outside_range_rejected(self, value: object) -> None:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValidationError):
             Color(value)
 
     def test_channel_outside_range_rejected_on_construction(self) -> None:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValidationError):
             Color(r=300, g=0, b=0)
 
     @pytest.mark.parametrize("value", [[1.7, 0, 0, 1], {"rgba255": [1.7, 0, 0, 255]}])

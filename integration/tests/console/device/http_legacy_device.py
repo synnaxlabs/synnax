@@ -122,9 +122,8 @@ class HTTPLegacyDevice(SimulatorCase, ConsoleCase):
             ],
         )
         self.client.tasks.configure(self.tsk)
-        with self.tsk.run():
-            with self.client.open_streamer([key]) as streamer:
-                frame = streamer.read(timeout=10)
+        with self.tsk.run(), self.client.open_streamer([key]) as streamer:
+            frame = streamer.read(timeout=10)
         if frame is None or key not in frame:
             self.fail("Read task delivered no data")
 

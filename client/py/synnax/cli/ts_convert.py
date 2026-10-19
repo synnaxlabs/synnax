@@ -208,6 +208,5 @@ def ask_channel_and_check_exists(
         ctx.console.error(f"Channel not found: {_ch}")
         if arg is None:
             return ask_channel_and_check_exists(ctx, reader, question, arg_name, arg)
-        else:
-            ctx.console.error(f"Channel not found: {_ch}")
+        ctx.console.error(f"Channel not found: {_ch}")
     return _ch

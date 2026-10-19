@@ -48,7 +48,8 @@ class TestRowFileReaders:
     def test_num_samples(self, valid_file: RowFileReader) -> None:
         """It should return the approximate number of samples in the file"""
         ns = valid_file.nsamples()
-        assert ns >= 20 and ns <= 30
+        assert ns >= 20
+        assert ns <= 30
 
     def test_first_sample(self, valid_file: RowFileReader) -> None:
         """It should return the first sample in the file"""
@@ -83,7 +84,8 @@ class TestAllStringFirstCol:
     def test_num_samples(self, valid_file: RowFileReader) -> None:
         """It should return the approximate number of samples in the file"""
         ns = valid_file.nsamples()
-        assert ns >= 20 and ns <= 30
+        assert ns >= 20
+        assert ns <= 30
 
     def test_first_sample(self, valid_file: RowFileReader) -> None:
         """It should return the first sample in the file"""
