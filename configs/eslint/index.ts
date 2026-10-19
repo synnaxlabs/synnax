@@ -111,19 +111,23 @@ const config: Linter.Config[] = [
       "@eslint-react/jsx-no-useless-fragment": "error",
       "@eslint-react/dom-no-unsafe-target-blank": "error",
       // Off until a SY-5149 follow-up PR fixes their hits.
-      "@eslint-react/no-unstable-context-value": "off",
-      "@eslint-react/no-use-context": "off",
       "@eslint-react/jsx-no-key-after-spread": "off",
-      "@eslint-react/no-nested-component-definitions": "off",
       "@eslint-react/web-api-no-leaked-event-listener": "off",
       "@eslint-react/web-api-no-leaked-timeout": "off",
       "@eslint-react/use-state": "off",
-      // Off until a hook audit (SY-5149 follow-up): fixes change render behavior.
+      // Off until a SY-5149 hook audit: the fixes change render behavior.
       "@eslint-react/exhaustive-deps": "off",
       "@eslint-react/rules-of-hooks": "off",
-      "@eslint-react/static-components": "off",
       "@eslint-react/set-state-in-effect": "off",
       "@eslint-react/purity": "off",
+      // Off: matches our own useContext hooks from context.create by name.
+      "@eslint-react/no-use-context": "off",
+      // Off: flags a call that returns a primitive key.
+      "@eslint-react/no-unstable-context-value": "off",
+      // Off: flags stable components read from a registry.
+      "@eslint-react/static-components": "off",
+      // Off: our nested components are memoized on purpose.
+      "@eslint-react/no-nested-component-definitions": "off",
       // Off: false hits on Select.useMemo, which takes a selector.
       "@eslint-react/use-memo": "off",
       // Off: false hits on hook slots (useVisible) and Aether use functions.
