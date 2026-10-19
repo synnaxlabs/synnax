@@ -183,14 +183,18 @@ var _ = Describe("Middleware", func() {
 		Expect(apiauth.GetCredential(seen)).ToNot(Equal(uuid.Nil()))
 	})
 	It("Should reject a request without a token", func(ctx SpecContext) {
-		Expect(exec(requestCtx(ctx), passthrough)).To(MatchError(auth.ErrAuth))
+		oCtx, err := mw.Exec(requestCtx(ctx), passthrough)
+		Expect(err).To(MatchError(auth.ErrAuth))
+		Expect(oCtx).To(BeZero())
 	})
 	It("Should close a stream when its session ends", func(ctx SpecContext) {
 		key := MustSucceed(authSvc.Authenticate(ctx, token)).Key
 		errs := make(chan error, 1)
+		var oCtx freighter.Context
 		go func() {
 			defer GinkgoRecover()
-			errs <- exec(
+			var err error
+			oCtx, err = mw.Exec(
 				withToken(ctx, freighter.VariantStream),
 				freighter.FinalizerFunc(
 					func(c freighter.Context) (freighter.Context, error) {
@@ -199,10 +203,12 @@ var _ = Describe("Middleware", func() {
 					},
 				),
 			)
+			errs <- err
 		}()
 		Consistently(errs).ShouldNot(Receive())
 		Expect(authSvc.Logout(ctx, key)).To(Succeed())
 		Eventually(errs).Should(Receive(MatchError(auth.ErrSessionEnded)))
+		Expect(oCtx).To(BeZero())
 	})
 	It("Should pass a stream's own error through", func(ctx SpecContext) {
 		errBoom := errors.New("boom")
