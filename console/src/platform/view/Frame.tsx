@@ -47,17 +47,21 @@ export interface FrameProps extends PropsWithChildren {
   icon: string;
 }
 
+const ZERO_VARIANTS: {
+  [K in view.ViewType]: Omit<Extract<view.View, { type: K }>, keyof view.Base>;
+} = {
+  range: { type: "range", query: { hasLabels: [] } },
+  status: { type: "status", query: { hasLabels: [], variants: [] } },
+};
+
 export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElement => {
   const staticViewKey = useMemo(() => uuid.create(), []);
   const staticViews = useMemo<StaticView[]>(
     () => [
       {
-        ...view.viewZ.parse({
-          key: staticViewKey,
-          name: `All ${plural(resourceType)}`,
-          type: resourceType,
-          query: {},
-        }),
+        key: staticViewKey,
+        name: `All ${plural(resourceType)}`,
+        ...ZERO_VARIANTS[resourceType],
         static: true,
       },
     ],
