@@ -188,9 +188,10 @@ class Synnax(framer.Client):
         self.access = AccessClient(self._transport.unary)
 
     def close(self) -> None:
-        """Shuts down the client and closes all connections. All open iterators or
-        writers must be closed before calling this method.
+        """Logs out, shuts down the client, and closes all connections. All open
+        iterators or writers must be closed before calling this method.
         """
+        self.auth.logout()
         self._finalizer()
 
 

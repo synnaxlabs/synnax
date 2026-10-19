@@ -10,8 +10,11 @@
 #pragma once
 
 #include <atomic>
+#include <functional>
 #include <mutex>
 #include <string>
+
+#include "google/protobuf/empty.pb.h"
 
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
@@ -26,16 +29,29 @@ namespace synnax::auth {
 const std::string HEADER_KEY = "authorization";
 /// @brief auth token prefix that will be parsed by the cluster.
 const std::string HEADER_VALUE_PREFIX = "Bearer ";
+/// @brief the method of a username and password proof.
+const std::string METHOD_PASSWORD = "password";
 
-/// @brief type alias for the auth login transport.
-using LoginClient = freighter::
-    UnaryClient<grpc::auth::LoginRequest, grpc::auth::LoginResponse>;
+/// @brief transport that opens a session from a proof.
+using SessionCreateClient = freighter::
+    UnaryClient<grpc::auth::SessionCreateRequest, grpc::auth::SessionCreateResponse>;
+/// @brief transport that reports activity on the caller's session.
+using SessionRenewClient = freighter::
+    UnaryClient<google::protobuf::Empty, google::protobuf::Empty>;
+/// @brief transport that ends sessions.
+using SessionDeleteClient = freighter::
+    UnaryClient<grpc::auth::SessionDeleteRequest, google::protobuf::Empty>;
 
 const x::errors::Error ERR = x::errors::SY.sub("auth");
 const x::errors::Error ERR_INVALID_TOKEN = ERR.sub("invalid_token");
 const x::errors::Error ERR_EXPIRED_TOKEN = ERR.sub("expired_token");
+const x::errors::Error ERR_SESSION_ENDED = ERR.sub("session_ended");
 const x::errors::Error ERR_INVALID_CREDENTIALS = ERR.sub("invalid-credentials");
-const std::vector RETRY_ON_ERRORS = {ERR_INVALID_TOKEN, ERR_EXPIRED_TOKEN};
+const std::vector RETRY_ON_ERRORS = {
+    ERR_INVALID_TOKEN,
+    ERR_EXPIRED_TOKEN,
+    ERR_SESSION_ENDED
+};
 
 /// @brief diagnostic information about the Synnax Core.
 struct ClusterInfo {
@@ -58,49 +74,139 @@ struct ClusterInfo {
         node_time(info.node_time()) {}
 };
 
-/// @brief auth::Middleware for authenticating requests using a bearer token.
-/// auth::Middleware has no preference on order when provided to use. Middleware is safe
-/// to use concurrently.
+/// @brief the subject a session belongs to: a user or a rack.
+struct Subject {
+    /// @brief the resource type of the subject.
+    std::string type;
+    /// @brief the key of the subject within its type.
+    std::string key;
+};
+
+/// @brief the session a login opened, without its token.
+struct Session {
+    /// @brief the unique key of the session.
+    std::string key;
+    /// @brief the subject that logged in.
+    Subject subject;
+    /// @brief the method the subject logged in with.
+    std::string method;
+
+    Session() = default;
+
+    explicit Session(const grpc::auth::Session &s):
+        key(s.key()),
+        subject{s.subject().type(), s.subject().key()},
+        method(s.method()) {}
+};
+
+/// @brief auth::Middleware logs in with a username and password, holds the session,
+/// and attaches its token to every request. Middleware has no preference on order when
+/// provided to use. It is safe to use concurrently.
 class Middleware final : public freighter::PassthroughMiddleware {
-    /// Token to be used for authentication. Empty when auth_attempted is false or error
-    /// is not nil.
+    /// @brief attaches the token the owning Middleware holds, so the session requests
+    /// the Middleware sends itself carry it.
+    class TokenHeader final : public freighter::PassthroughMiddleware {
+        std::function<std::string()> token;
+
+    public:
+        explicit TokenHeader(std::function<std::string()> token):
+            token(std::move(token)) {}
+
+        std::pair<freighter::Context, x::errors::Error>
+        operator()(freighter::Context context, freighter::Next &next) override {
+            context.set(HEADER_KEY, HEADER_VALUE_PREFIX + this->token());
+            return next(context);
+        }
+    };
+
+    /// Token to be used for authentication. Empty until authenticated.
     std::string token;
+    /// The session the token belongs to. Valid only when authenticated.
+    Session session;
     /// Whether the middleware has successfully authenticated with the server.
     std::atomic<bool> authenticated = false;
-    /// Transport for authentication requests.
-    std::unique_ptr<LoginClient> login_client;
+    std::unique_ptr<SessionCreateClient> create_client;
+    std::unique_ptr<SessionRenewClient> renew_client;
+    std::unique_ptr<SessionDeleteClient> delete_client;
     /// Username to be used for authentication.
     std::string username;
     /// Password to be used for authentication.
     std::string password;
-    /// @brief
+    /// Guards token, session, and cluster_info.
     std::mutex mu;
+
+    std::string current_token() {
+        std::lock_guard lock(mu);
+        return this->token;
+    }
 
 public:
     /// Cluster information.
     ClusterInfo cluster_info = ClusterInfo();
 
     Middleware(
-        std::unique_ptr<LoginClient> login_client,
+        std::unique_ptr<SessionCreateClient> create_client,
+        std::unique_ptr<SessionRenewClient> renew_client,
+        std::unique_ptr<SessionDeleteClient> delete_client,
         std::string username,
         std::string password
     ):
-        login_client(std::move(login_client)),
+        create_client(std::move(create_client)),
+        renew_client(std::move(renew_client)),
+        delete_client(std::move(delete_client)),
         username(std::move(username)),
-        password(std::move(password)) {}
+        password(std::move(password)) {
+        const auto header = std::make_shared<TokenHeader>([this] {
+            return this->current_token();
+        });
+        if (this->renew_client) this->renew_client->use(header);
+        if (this->delete_client) this->delete_client->use(header);
+    }
 
-    /// @brief authenticates with the credentials provided when constructing the
+    /// @brief opens a session with the credentials provided when constructing the
     /// Synnax client.
     x::errors::Error authenticate() {
         std::lock_guard lock(mu);
-        grpc::auth::LoginRequest req;
-        req.set_username(this->username);
-        req.set_password(this->password);
-        auto [res, err] = login_client->send("/auth/login", req);
+        grpc::auth::SessionCreateRequest req;
+        req.mutable_proof()->set_method(METHOD_PASSWORD);
+        req.mutable_proof()->set_username(this->username);
+        req.mutable_proof()->set_password(this->password);
+        auto [res, err] = create_client->send("/auth/session/create", req);
         if (err) return err;
         this->token = res.token();
+        this->session = Session(res.session());
         this->cluster_info = ClusterInfo(res.cluster_info());
         this->authenticated = true;
+        return x::errors::NIL;
+    }
+
+    /// @brief returns the session the client holds. Only valid once authenticated.
+    Session current_session() {
+        std::lock_guard lock(mu);
+        return this->session;
+    }
+
+    /// @brief reports activity on the session so it does not idle out.
+    x::errors::Error renew() {
+        if (!this->authenticated)
+            if (const auto err = this->authenticate()) return err;
+        google::protobuf::Empty req;
+        auto [_, err] = renew_client->send("/auth/session/renew", req);
+        return err;
+    }
+
+    /// @brief ends the client's own session and forgets it. A later request logs in
+    /// again. Does nothing when no session is open.
+    x::errors::Error logout() {
+        if (!this->authenticated) return x::errors::NIL;
+        grpc::auth::SessionDeleteRequest req;
+        req.add_keys(this->current_session().key);
+        auto [_, err] = delete_client->send("/auth/session/delete", req);
+        if (err) return err;
+        std::lock_guard lock(mu);
+        this->authenticated = false;
+        this->token.clear();
+        this->session = Session();
         return x::errors::NIL;
     }
 
@@ -110,7 +216,7 @@ public:
     operator()(freighter::Context context, freighter::Next &next) override {
         if (!this->authenticated)
             if (const auto err = this->authenticate()) return {context, err};
-        context.set(HEADER_KEY, HEADER_VALUE_PREFIX + this->token);
+        context.set(HEADER_KEY, HEADER_VALUE_PREFIX + this->current_token());
         auto [res_ctx, err] = next(context);
         if (err.matches(RETRY_ON_ERRORS)) {
             this->authenticated = false;

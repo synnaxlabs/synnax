@@ -7,26 +7,23 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-
 from pydantic import BaseModel
 
 from freighter import (
     AsyncMiddleware,
     AsyncNext,
     Context,
+    Empty,
     Middleware,
     Next,
     UnaryClient,
 )
-from synnax.exceptions import ExpiredToken, InvalidToken
+from synnax import ontology
+from synnax.auth.types_gen import PasswordProof, Proof, Session, SessionKey
+from synnax.exceptions import ExpiredToken, InvalidToken, SessionEnded
 from synnax.user.payload import User
 from synnax.util.send_required import send_required
 from x.telem import TimeStamp
-
-
-class Credentials(BaseModel):
-    username: str
-    password: str
 
 
 class ClusterInfo(BaseModel):
@@ -36,24 +33,50 @@ class ClusterInfo(BaseModel):
     node_time: TimeStamp = TimeStamp(0)
 
 
-class TokenResponse(BaseModel):
+class SessionCreateRequest(BaseModel):
+    proof: Proof
+
+
+class SessionCreateResponse(BaseModel):
     token: str
-    user: User
+    session: Session
+    user: User | None = None
     cluster_info: ClusterInfo = ClusterInfo()
 
 
+class SessionRetrieveRequest(BaseModel):
+    subjects: list[ontology.ID] = []
+
+
+class SessionRetrieveResponse(BaseModel):
+    sessions: list[Session] = []
+
+
+class SessionDeleteRequest(BaseModel):
+    keys: list[SessionKey] = []
+
+
+SESSION_CREATE_ENDPOINT = "/auth/session/create"
+SESSION_RENEW_ENDPOINT = "/auth/session/renew"
+SESSION_RETRIEVE_ENDPOINT = "/auth/session/retrieve"
+SESSION_DELETE_ENDPOINT = "/auth/session/delete"
+
 AUTHORIZATION_HEADER = "Authorization"
-TOKEN_REFRESH_HEADER = "Refresh-Token"
-RETRY_ON_ERRORS = (InvalidToken, ExpiredToken)
+RETRY_ON_ERRORS = (InvalidToken, ExpiredToken, SessionEnded)
 TOKEN_PREFIX = "Bearer "
 
 
 class Client:
+    """Logs in with a username and password, holds the session, and attaches its token
+    to every request.
+    """
+
     client: UnaryClient
     username: str
     password: str
     token: str
-    user: User
+    session: Session | None
+    user: User | None
     authenticated: bool
 
     def __init__(
@@ -65,57 +88,95 @@ class Client:
         self.client = transport
         self.username = username
         self.password = password
+        self.token = ""
+        self.session = None
+        self.user = None
         self.authenticated = False
 
     def authenticate(self) -> None:
+        """Opens a session with the stored username and password."""
         res = send_required(
             self.client,
-            "/auth/login",
-            Credentials(username=self.username, password=self.password),
-            TokenResponse,
+            SESSION_CREATE_ENDPOINT,
+            SessionCreateRequest(
+                proof=PasswordProof(username=self.username, password=self.password)
+            ),
+            SessionCreateResponse,
         )
         self.token = res.token
+        self.session = res.session
         self.user = res.user
         self.authenticated = True
 
+    @property
+    def subject(self) -> ontology.ID | None:
+        """The subject the client logged in as, once logged in."""
+        return None if self.session is None else self.session.subject
+
+    def renew(self) -> None:
+        """Reports activity on the session so it does not idle out."""
+        send_required(self.client, SESSION_RENEW_ENDPOINT, Empty(), Empty)
+
+    def retrieve_sessions(
+        self, subjects: list[ontology.ID] | None = None
+    ) -> list[Session]:
+        """Lists the caller's sessions, or those of the given subjects when the caller
+        may retrieve them.
+        """
+        res = send_required(
+            self.client,
+            SESSION_RETRIEVE_ENDPOINT,
+            SessionRetrieveRequest(subjects=subjects or []),
+            SessionRetrieveResponse,
+        )
+        return res.sessions
+
+    def delete_sessions(self, *keys: SessionKey) -> None:
+        """Ends the given sessions. Unknown keys are ignored."""
+        send_required(
+            self.client,
+            SESSION_DELETE_ENDPOINT,
+            SessionDeleteRequest(keys=list(keys)),
+            Empty,
+        )
+
+    def logout(self) -> None:
+        """Ends the client's own session and forgets it. A later request logs in
+        again.
+        """
+        if not self.authenticated or self.session is None:
+            return
+        self.delete_sessions(self.session.key)
+        self.authenticated = False
+        self.token = ""
+        self.session = None
+
+    def _prepare(self, ctx: Context) -> None:
+        # The login request itself carries no token, and must not trigger a login.
+        if ctx.target.rstrip("/").endswith(SESSION_CREATE_ENDPOINT):
+            return
+        if not self.authenticated:
+            self.authenticate()
+        ctx.set(AUTHORIZATION_HEADER, TOKEN_PREFIX + self.token)
+
     def middleware(self) -> Middleware:
         def mw(ctx: Context, _next: Next) -> Context:
-            if not self.authenticated:
-                self.authenticate()
-
-            ctx.set(AUTHORIZATION_HEADER, TOKEN_PREFIX + self.token)
+            self._prepare(ctx)
             try:
-                out_ctx = _next(ctx)
+                return _next(ctx)
             except RETRY_ON_ERRORS:
                 self.authenticated = False
-                out_ctx = mw(ctx, _next)
-
-            self.maybe_refresh_token(out_ctx)
-            return out_ctx
+                return mw(ctx, _next)
 
         return mw
 
     def async_middleware(self) -> AsyncMiddleware:
         async def mw(ctx: Context, _next: AsyncNext) -> Context:
-            if not self.authenticated:
-                self.authenticate()
-
-            ctx.set(AUTHORIZATION_HEADER, TOKEN_PREFIX + self.token)
+            self._prepare(ctx)
             try:
-                out_ctx = await _next(ctx)
+                return await _next(ctx)
             except RETRY_ON_ERRORS:
                 self.authenticated = False
-                out_ctx = await mw(ctx, _next)
-
-            self.maybe_refresh_token(out_ctx)
-            return out_ctx
+                return await mw(ctx, _next)
 
         return mw
-
-    def maybe_refresh_token(
-        self,
-        ctx: Context,
-    ) -> None:
-        refresh = ctx.get(TOKEN_REFRESH_HEADER, None)
-        if refresh is not None:
-            self.token = refresh

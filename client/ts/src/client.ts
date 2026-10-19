@@ -328,7 +328,11 @@ export default class Synnax extends framer.Client {
    * @throws {AggregateError} carrying every underlying close failure.
    */
   async close(): Promise<void> {
-    const results = await Promise.allSettled([this.conn.close(), this.cache.close()]);
+    const results = await Promise.allSettled([
+      this.auth.logout(),
+      this.conn.close(),
+      this.cache.close(),
+    ]);
     const failures = results.filter((r) => r.status === "rejected");
     if (failures.length > 0)
       throw new AggregateError(

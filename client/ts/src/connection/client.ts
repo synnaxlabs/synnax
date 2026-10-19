@@ -311,7 +311,8 @@ export class Client implements Handle {
   middleware(): Middleware {
     const EXEMPT = [
       CHECK_ENDPOINT,
-      auth.LOGIN_ENDPOINT,
+      auth.SESSION_CREATE_ENDPOINT,
+      auth.SESSION_DELETE_ENDPOINT,
       license.RETRIEVE_ENDPOINT,
       license.ACTIVATE_ENDPOINT,
       license.DEACTIVATE_ENDPOINT,

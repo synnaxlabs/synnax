@@ -51,10 +51,20 @@ class TestAuthRetry:
     def auth_setup(self) -> MockUnaryClient:
         """Fixture that provides the mock clients and auth setup for retry tests."""
         # Setup mock login client with two successful login responses
-        res = sy.auth.TokenResponse(
+        user_key = uuid4()
+        res = sy.auth.SessionCreateResponse(
             token="abc",
-            user=sy.User(
+            session=sy.auth.Session(
                 key=uuid4(),
+                subject=sy.ontology.ID(key=str(user_key), type="user"),
+                method="password",
+                credential=uuid4(),
+                address="127.0.0.1:1",
+                created=sy.TimeStamp(0),
+                last_active=sy.TimeStamp(0),
+            ),
+            user=sy.User(
+                key=user_key,
                 username="synnax",
                 first_name="Synnax",
                 last_name="Labs",
@@ -81,6 +91,7 @@ class TestAuthRetry:
             ("sy.auth.invalid_token", sy.InvalidToken),
             ("sy.auth.expired_token", sy.ExpiredToken),
             ("sy.auth.access_denied", sy.AccessDenied),
+            ("sy.auth.session_ended", sy.SessionEnded),
             ("sy.auth.repeated-username", sy.AuthError),
         ],
     )
@@ -93,7 +104,8 @@ class TestAuthRetry:
         assert str(err) == "refused"
 
     @pytest.mark.parametrize(
-        "type_", ["sy.auth.invalid_token", "sy.auth.expired_token"]
+        "type_",
+        ["sy.auth.invalid_token", "sy.auth.expired_token", "sy.auth.session_ended"],
     )
     def test_retry_on_decoded_token_error(
         self, auth_setup: MockUnaryClient, type_: str
@@ -107,3 +119,26 @@ class TestAuthRetry:
             None,
         ]
         assert mock_client.send("", Empty(), Empty) == Empty()
+
+
+@pytest.mark.auth
+class TestSessions:
+    def test_session_lifecycle(self, login_info: tuple[str, int, str, str]) -> None:
+        """Should open a session on login, renew it, list it, and end it on logout."""
+        host, port, username, password = login_info
+        client = sy.Synnax(host=host, port=port, username=username, password=password)
+        session = client.auth.session
+        assert session is not None
+        assert client.auth.subject is not None
+        assert client.auth.subject.type == "user"
+        client.auth.renew()
+        keys = [s.key for s in client.auth.retrieve_sessions()]
+        assert session.key in keys
+        client.auth.logout()
+        assert not client.auth.authenticated
+        # The next request logs in again with a fresh session.
+        keys = [s.key for s in client.auth.retrieve_sessions()]
+        assert session.key not in keys
+        assert client.auth.session is not None
+        assert client.auth.session.key in keys
+        client.close()

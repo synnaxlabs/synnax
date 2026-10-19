@@ -8,11 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { type Context } from "@synnaxlabs/freighter";
-import { url } from "@synnaxlabs/x";
+import { errors, url } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
 import { auth } from "@/auth";
-import { AuthError, ExpiredTokenError, InvalidTokenError } from "@/errors";
+import {
+  AuthError,
+  ExpiredTokenError,
+  InvalidTokenError,
+  SessionEndedError,
+} from "@/errors";
 import { TEST_CLIENT_PARAMS } from "@/testutil";
 import { Transport } from "@/transport";
 
@@ -96,6 +101,53 @@ describe("auth", () => {
           throw new InvalidTokenError();
         }),
       ).rejects.toThrow(InvalidTokenError);
+    });
+  });
+
+  describe("sessions", () => {
+    const makeClient = (): auth.Client => {
+      const transport = new Transport(
+        new url.URL({
+          host: TEST_CLIENT_PARAMS.host,
+          port: Number(TEST_CLIENT_PARAMS.port),
+        }),
+      );
+      const client = new auth.Client(transport.unary, TEST_CLIENT_PARAMS);
+      transport.use(client.middleware());
+      return client;
+    };
+
+    it("should hold the session and subject after login", async () => {
+      const client = makeClient();
+      await client.middleware()(DUMMY_CTX, async () => DUMMY_CTX);
+      expect(client.session).toBeDefined();
+      expect(client.subject?.type).toEqual("user");
+      expect(client.user?.username).toEqual(TEST_CLIENT_PARAMS.username);
+    });
+
+    it("should renew, list, and end its session", async () => {
+      const client = makeClient();
+      await client.middleware()(DUMMY_CTX, async () => DUMMY_CTX);
+      const key = client.session?.key;
+      expect(key).toBeDefined();
+      await client.renew();
+      const before = await client.retrieveSessions();
+      expect(before.map((s) => s.key)).toContain(key);
+      await client.logout();
+      expect(client.authenticated).toBe(false);
+      // the next request logs in again with a fresh session
+      const after = await client.retrieveSessions();
+      expect(after.map((s) => s.key)).not.toContain(key);
+      expect(client.session?.key).toBeDefined();
+      expect(after.map((s) => s.key)).toContain(client.session?.key);
+    });
+
+    it("should decode a session ended error", () => {
+      expect(
+        SessionEndedError.matches(
+          errors.decode({ type: "sy.auth.session_ended", data: "ended" }),
+        ),
+      ).toBe(true);
     });
   });
 });

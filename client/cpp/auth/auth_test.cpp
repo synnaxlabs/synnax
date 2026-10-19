@@ -18,37 +18,71 @@
 #include "core/pkg/transport/grpc/auth/auth.pb.h"
 
 namespace synnax::auth {
-/// @brief it should correctly authenticate with a Synnax cluster.
-TEST(TestAuth, testLoginHappyPath) {
-    auto res = grpc::auth::LoginResponse();
-    res.set_token("abc");
-    auto mock_login_client = std::make_unique<freighter::mock::UnaryClient<
-        grpc::auth::LoginRequest,
-        grpc::auth::LoginResponse>>(res, x::errors::NIL);
-    const auto mw = std::make_shared<auth::Middleware>(
-        std::move(mock_login_client),
+namespace {
+grpc::auth::SessionCreateResponse session_response(const std::string &token) {
+    grpc::auth::SessionCreateResponse res;
+    res.set_token(token);
+    res.mutable_session()->set_key("3f3a1b0e-7c2e-4a8f-9d6b-2a1c5e8f0b41");
+    res.mutable_session()->mutable_subject()->set_type("user");
+    res.mutable_session()->mutable_subject()->set_key("u");
+    res.mutable_session()->set_method(METHOD_PASSWORD);
+    return res;
+}
+
+std::shared_ptr<Middleware> middleware_with(
+    std::unique_ptr<SessionCreateClient> create,
+    std::unique_ptr<SessionDeleteClient> del = nullptr
+) {
+    return std::make_shared<Middleware>(
+        std::move(create),
+        std::make_unique<freighter::mock::UnaryClient<
+            google::protobuf::Empty,
+            google::protobuf::Empty>>(google::protobuf::Empty(), x::errors::NIL),
+        std::move(del),
         "synnax",
         "seldon"
     );
+}
+}
+
+/// @brief it should correctly authenticate with a Synnax cluster.
+TEST(TestAuth, testLoginHappyPath) {
+    auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<
+        grpc::auth::SessionCreateRequest,
+        grpc::auth::SessionCreateResponse>>(session_response("abc"), x::errors::NIL);
+    const auto mw = middleware_with(std::move(mock_create_client));
     auto mock_client = freighter::mock::UnaryClient<int, int>{1, x::errors::NIL};
     mock_client.use(mw);
     auto v = 1;
     const auto r = ASSERT_NIL_P(mock_client.send("", v));
     ASSERT_EQ(r, 1);
+    ASSERT_EQ(mw->current_session().subject.type, "user");
+    ASSERT_EQ(mw->current_session().method, METHOD_PASSWORD);
+}
+
+/// @brief it should send a password proof when logging in.
+TEST(TestAuth, testLoginSendsPasswordProof) {
+    auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<
+        grpc::auth::SessionCreateRequest,
+        grpc::auth::SessionCreateResponse>>(session_response("abc"), x::errors::NIL);
+    auto *create = mock_create_client.get();
+    const auto mw = middleware_with(std::move(mock_create_client));
+    ASSERT_NIL(mw->authenticate());
+    ASSERT_EQ(create->requests.size(), 1);
+    ASSERT_EQ(create->requests[0].proof().method(), METHOD_PASSWORD);
+    ASSERT_EQ(create->requests[0].proof().username(), "synnax");
+    ASSERT_EQ(create->requests[0].proof().password(), "seldon");
 }
 
 /// @brief it should return an error if credentials are invalid.
 TEST(TestAuth, testLoginInvalidCredentials) {
-    auto res = grpc::auth::LoginResponse();
-    res.set_token("abc");
-    auto mock_login_client = std::make_unique<freighter::mock::UnaryClient<
-        grpc::auth::LoginRequest,
-        grpc::auth::LoginResponse>>(res, ERR_INVALID_CREDENTIALS);
-    const auto mw = std::make_shared<auth::Middleware>(
-        std::move(mock_login_client),
-        "synnax",
-        "seldon"
+    auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<
+        grpc::auth::SessionCreateRequest,
+        grpc::auth::SessionCreateResponse>>(
+        session_response("abc"),
+        ERR_INVALID_CREDENTIALS
     );
+    const auto mw = middleware_with(std::move(mock_create_client));
     auto mock_client = freighter::mock::UnaryClient<int, int>{1, x::errors::NIL};
     mock_client.use(mw);
     auto v = 1;
@@ -58,19 +92,13 @@ TEST(TestAuth, testLoginInvalidCredentials) {
 
 /// @brief it should retry authentication if the authentication token is invalid.
 TEST(TestAuth, testLoginRetry) {
-    auto res = grpc::auth::LoginResponse();
-    res.set_token("abc");
-    auto mock_login_client = std::make_unique<freighter::mock::UnaryClient<
-        grpc::auth::LoginRequest,
-        grpc::auth::LoginResponse>>(
-        std::vector<grpc::auth::LoginResponse>{res, res},
+    auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<
+        grpc::auth::SessionCreateRequest,
+        grpc::auth::SessionCreateResponse>>(
+        std::vector{session_response("abc"), session_response("def")},
         std::vector<x::errors::Error>{x::errors::NIL, x::errors::NIL}
     );
-    const auto mw = std::make_shared<auth::Middleware>(
-        std::move(mock_login_client),
-        "synnax",
-        "seldon"
-    );
+    const auto mw = middleware_with(std::move(mock_create_client));
     auto mock_client = freighter::mock::UnaryClient<int, int>{
         {1, 1},
         {x::errors::Error(ERR_INVALID_TOKEN, ""), x::errors::NIL}
@@ -81,51 +109,28 @@ TEST(TestAuth, testLoginRetry) {
     ASSERT_EQ(r, 1);
 }
 
-class TestAuthRetry : public ::testing::Test {
-protected:
-    grpc::auth::LoginResponse res;
-    std::unique_ptr<freighter::mock::UnaryClient<
-        grpc::auth::LoginRequest,
-        grpc::auth::LoginResponse>>
-        mock_login_client;
-    std::shared_ptr<auth::Middleware> mw;
-    freighter::mock::UnaryClient<int, int> mock_client;
-
-    void SetUp() override { res.set_token("abc"); }
-
-    void setupTest(x::errors::Error first_error) {
-        mock_login_client = std::make_unique<freighter::mock::UnaryClient<
-            grpc::auth::LoginRequest,
-            grpc::auth::LoginResponse>>(
-            std::vector<grpc::auth::LoginResponse>{res, res},
-            std::vector<x::errors::Error>{x::errors::NIL, x::errors::NIL}
-        );
-        mw = std::make_shared<auth::Middleware>(
-            std::move(mock_login_client),
-            "synnax",
-            "seldon"
-        );
-        mock_client = freighter::mock::UnaryClient<int, int>{
-            {1, 1},
-            {first_error, x::errors::NIL}
-        };
-        mock_client.use(mw);
-    }
-};
-
-/// @brief it should retry authentication if the authentication token is invalid.
-TEST_F(TestAuthRetry, RetryOnInvalidToken) {
-    setupTest(x::errors::Error(ERR_INVALID_TOKEN, ""));
-    auto v = 1;
-    const auto r = ASSERT_NIL_P(mock_client.send("", v));
-    ASSERT_EQ(r, 1);
-}
-
-/// @brief it should retry authentication if the authentication token is expired.
-TEST_F(TestAuthRetry, RetryOnExpiredToken) {
-    setupTest(x::errors::Error(ERR_EXPIRED_TOKEN, ""));
-    auto v = 1;
-    const auto r = ASSERT_NIL_P(mock_client.send("", v));
-    ASSERT_EQ(r, 1);
+/// @brief it should end the session on logout and send the token with the request.
+TEST(TestAuth, testLogout) {
+    auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<
+        grpc::auth::SessionCreateRequest,
+        grpc::auth::SessionCreateResponse>>(session_response("abc"), x::errors::NIL);
+    auto mock_delete_client = std::make_unique<freighter::mock::UnaryClient<
+        grpc::auth::SessionDeleteRequest,
+        google::protobuf::Empty>>(google::protobuf::Empty(), x::errors::NIL);
+    auto *del = mock_delete_client.get();
+    const auto mw = middleware_with(
+        std::move(mock_create_client),
+        std::move(mock_delete_client)
+    );
+    ASSERT_NIL(mw->authenticate());
+    const auto key = mw->current_session().key;
+    ASSERT_NIL(mw->logout());
+    ASSERT_EQ(del->requests.size(), 1);
+    ASSERT_EQ(del->requests[0].keys_size(), 1);
+    ASSERT_EQ(del->requests[0].keys(0), key);
+    ASSERT_EQ(mw->current_session().key, "");
+    // A second logout has nothing to end.
+    ASSERT_NIL(mw->logout());
+    ASSERT_EQ(del->requests.size(), 1);
 }
 }
