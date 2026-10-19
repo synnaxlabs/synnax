@@ -105,6 +105,8 @@ jobs:
           - os: ubuntu-build-bot
             format: true
     runs-on: ${{ matrix.os }}
+    # About 1.5x the slowest successful cold-cache job on each OS.
+    timeout-minutes: ${{ matrix.os == 'ubuntu-build-bot' && 75 || 30 }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
