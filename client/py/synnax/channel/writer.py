@@ -18,7 +18,6 @@ from synnax.channel.payload import (
     Payload,
     normalize_params,
 )
-from synnax.channel.retrieve import CacheRetriever
 
 
 class _CreateRequest(BaseModel):
@@ -41,18 +40,15 @@ class _RenameRequest(BaseModel):
 
 class Writer:
     _client: UnaryClient
-    _cache: CacheRetriever | None
     instrumentation: Instrumentation
 
     def __init__(
         self,
         client: UnaryClient,
         instrumentation: Instrumentation,
-        cache: CacheRetriever | None,
     ):
         self._client = client
         self.instrumentation = instrumentation
-        self._cache = cache
 
     @trace("debug")
     def create(
@@ -60,10 +56,7 @@ class Writer:
         channels: list[Payload],
     ) -> list[Payload]:
         req = _CreateRequest(channels=channels)
-        res = self._client.send("/channel/create", req, _Response)
-        if self._cache is not None:
-            self._cache.set(res.channels)
-        return res.channels
+        return self._client.send("/channel/create", req, _Response).channels
 
     @trace("debug")
     def delete(self, channels: Params) -> None:
@@ -73,8 +66,6 @@ class Writer:
         else:
             req = _DeleteRequest(keys=normal.channels)
         self._client.send("/channel/delete", req, Empty)
-        if self._cache is not None:
-            self._cache.delete(normal.channels)
 
     @trace("debug")
     def rename(
@@ -82,5 +73,3 @@ class Writer:
     ) -> None:
         req = _RenameRequest(keys=keys, names=names)
         self._client.send("/channel/rename", req, Empty)
-        if self._cache is not None:
-            self._cache.rename(list(keys), list(names))

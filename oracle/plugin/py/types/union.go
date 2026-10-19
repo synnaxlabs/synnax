@@ -14,7 +14,6 @@ import (
 
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/internal/casing"
-	"github.com/synnaxlabs/oracle/plugin/py/keywords"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 )
@@ -70,7 +69,7 @@ func processUnion(
 	ud := unionData{
 		Name:     getPyName(entry),
 		Doc:      doc.Get(entry.Domains),
-		DiscName: keywords.Escape(form.Discriminator),
+		DiscName: fieldName(form.Discriminator),
 	}
 	for _, v := range form.Variants {
 		vd := unionVariantData{

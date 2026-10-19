@@ -18,7 +18,7 @@ from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import ReadTaskCase, WriteTaskCase
 
 
-class OPCUAReadTaskCase(SimulatorCase, ReadTaskCase):
+class OPCUAReadTaskCase(SimulatorCase, ReadTaskCase[sy.opcua.ReadTask]):
     """Base class for OPC UA read task tests."""
 
     sim_classes = [OPCUASim]
@@ -29,6 +29,9 @@ class OPCUAReadTaskCase(SimulatorCase, ReadTaskCase):
     @staticmethod
     @abstractmethod
     def create_channels(client: sy.Synnax) -> list[sy.opcua.ReadChannel]: ...
+
+    def _channel_keys(self, task: sy.opcua.ReadTask) -> list[int]:
+        return [ch.channel for ch in task.config.channels]
 
     def create(
         self,
@@ -52,13 +55,13 @@ class OPCUAReadTaskCase(SimulatorCase, ReadTaskCase):
         )
 
 
-class OPCUAWriteTaskCase(SimulatorCase, WriteTaskCase):
+class OPCUAWriteTaskCase(SimulatorCase, WriteTaskCase[sy.opcua.WriteTask]):
     """Base class for OPC UA write task tests."""
 
     sim_classes = [OPCUASim]
     SAMPLE_RATE = 50 * sy.Rate.HZ
 
-    def _channel_keys(self, task: sy.Task) -> list[int]:
+    def _channel_keys(self, task: sy.opcua.WriteTask) -> list[int]:
         return [ch.cmd_channel for ch in task.config.channels]
 
     @staticmethod

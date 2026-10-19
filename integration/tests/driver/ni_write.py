@@ -17,6 +17,7 @@ from tests.driver.task import (
     create_channel,
     create_index,
 )
+from x.telem import to_float
 
 
 def _do_channels(
@@ -87,7 +88,7 @@ def _assert_driver_rejects_value(
         try:
             writer.write(
                 {
-                    **{k: value for k in cmd_keys},
+                    **dict.fromkeys(cmd_keys, value),
                     **{k: sy.TimeStamp.now() for k in index_keys},
                 }
             )
@@ -350,7 +351,7 @@ class NIAnalogWriteCurrent(_NIAnalogWriteCurrentBase):
 
 def _send_oob_and_assert_state_clamped(
     client: sy.Synnax,
-    tsk: sy.Task,
+    tsk: sy.ni.AnalogWriteTask,
     *,
     oob_values: list[float],
     task_name: str,
@@ -377,7 +378,9 @@ def _send_oob_and_assert_state_clamped(
             enable_auto_commit=True,
         )
         try:
-            cmd_frame = {key: float(v) for key, v in zip(cmd_keys, oob_values)}
+            cmd_frame = {
+                key: float(v) for key, v in zip(cmd_keys, oob_values, strict=True)
+            }
             cmd_frame.update({k: sy.TimeStamp.now() for k in index_keys})
             writer.write(cmd_frame)
 
@@ -395,9 +398,11 @@ def _send_oob_and_assert_state_clamped(
                     continue
                 for key in state_keys:
                     if key in frame and len(frame[key]) > 0:
-                        received[key] = float(frame[key][-1])
+                        received[key] = to_float(frame[key][-1])
 
-            for state_key, cmd_key, oob_val in zip(state_keys, cmd_keys, oob_values):
+            for state_key, cmd_key, oob_val in zip(
+                state_keys, cmd_keys, oob_values, strict=True
+            ):
                 state_val = received[state_key]
                 if state_val == oob_val:
                     cmd_ch = client.channels.retrieve(cmd_key)

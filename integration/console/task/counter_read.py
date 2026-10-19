@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Type
+from typing import Any
 
 from console.task.channels.counter import Counter
 from console.task.channels.counter_input import (
@@ -26,7 +26,7 @@ from console.task.channels.counter_input import (
 from console.task.ni import NIChannel, NITask
 
 # Valid channel types for NI Counter Read tasks
-COUNTER_READ_CHANNEL_TYPES: dict[str, Type[Counter]] = {
+COUNTER_READ_CHANNEL_TYPES: dict[str, type[Counter]] = {
     "Position angular": AngularPosition,
     "Velocity angular": AngularVelocity,
     "Duty cycle": DutyCycle,

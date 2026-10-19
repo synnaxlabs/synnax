@@ -12,6 +12,7 @@ import pytest
 
 import synnax as sy
 from x.strings import random_name
+from x.telem import seconds_linspace
 from x.testutil import assert_eventually
 
 # Seconds to wait for a written sample to come back through the calculation pipeline.
@@ -21,7 +22,7 @@ READ_TIMEOUT = 5
 @pytest.mark.framer
 @pytest.mark.calculations
 class TestCalculatedChannelStreaming:
-    def test_basic_calculated_channel_stream(self, client: sy.Synnax):
+    def test_basic_calculated_channel_stream(self, client: sy.Synnax) -> None:
         """Should correctly create and read from a basic calculated channel using streaming"""
         timestamp_channel = client.channels.create(
             name=random_name(),
@@ -89,7 +90,7 @@ class TestCalculatedChannelStreaming:
                         alignment_hwm = ser.alignment
                     assert np.array_equal(frame[calc_channel.key], value)
 
-    def test_stream_passthrough_virtual_channel(self, client: sy.Synnax):
+    def test_stream_passthrough_virtual_channel(self, client: sy.Synnax) -> None:
         virt = client.channels.create(
             name=random_name(),
             data_type=sy.DataType.FLOAT32,
@@ -101,22 +102,24 @@ class TestCalculatedChannelStreaming:
         )
         start = sy.TimeStamp.now()
         value = np.array([3], dtype=np.uint8)
-        with client.open_streamer(calc.key) as streamer:
-            with client.open_writer(
+        with (
+            client.open_streamer(calc.key) as streamer,
+            client.open_writer(
                 start,
                 [virt.key],
-            ) as writer:
-                writer.write(
-                    {
-                        virt.key: value,
-                    }
-                )
-                writer.commit()
-                frame = streamer.read(timeout=2)
-                assert frame is not None
-                assert np.array_equal(frame[calc.key], value * 2)
+            ) as writer,
+        ):
+            writer.write(
+                {
+                    virt.key: value,
+                }
+            )
+            writer.commit()
+            frame = streamer.read(timeout=2)
+            assert frame is not None
+            assert np.array_equal(frame[calc.key], value * 2)
 
-    def test_stream_passthrough_virtual_u8_channel(self, client: sy.Synnax):
+    def test_stream_passthrough_virtual_u8_channel(self, client: sy.Synnax) -> None:
         virt = client.channels.create(
             name=random_name(),
             data_type=sy.DataType.UINT8,
@@ -128,26 +131,28 @@ class TestCalculatedChannelStreaming:
         )
         start = sy.TimeStamp.now()
         value = np.array([3], dtype=np.uint8)
-        with client.open_streamer(calc.key) as streamer:
-            with client.open_writer(
+        with (
+            client.open_streamer(calc.key) as streamer,
+            client.open_writer(
                 start,
                 [virt.key],
-            ) as writer:
-                writer.write(
-                    {
-                        virt.key: value,
-                    }
-                )
-                writer.commit()
-                frame = streamer.read(timeout=2)
-                assert frame is not None
-                assert np.array_equal(frame[calc.key], value * 2)
+            ) as writer,
+        ):
+            writer.write(
+                {
+                    virt.key: value,
+                }
+            )
+            writer.commit()
+            frame = streamer.read(timeout=2)
+            assert frame is not None
+            assert np.array_equal(frame[calc.key], value * 2)
 
 
 @pytest.mark.framer
 @pytest.mark.calculations
 class TestCalculatedChannelIteration:
-    def test_basic_calculated_channel_iterate(self, client: sy.Synnax):
+    def test_basic_calculated_channel_iterate(self, client: sy.Synnax) -> None:
         """Should correctly create and read from a basic calculated channel using iteration"""
         timestamp_channel = client.channels.create(
             name=random_name(),
@@ -165,11 +170,7 @@ class TestCalculatedChannelIteration:
             name=random_name(),
             expression=f"return {src_channel.name}",
         )
-        idx_data_1 = [
-            5 * sy.TimeSpan.SECOND,
-            6 * sy.TimeSpan.SECOND,
-            7 * sy.TimeSpan.SECOND,
-        ]
+        idx_data_1 = seconds_linspace(5, 3)
         src_data_1 = [10.0, 20.0, 30.0]
         client.write(
             5 * sy.TimeSpan.SECOND,
@@ -195,11 +196,7 @@ class TestCalculatedChannelIteration:
             data_ser, np.array(src_data_1, dtype=data_ser.data_type.np)
         )
 
-        idx_data_2 = [
-            9 * sy.TimeSpan.SECOND,
-            10 * sy.TimeSpan.SECOND,
-            11 * sy.TimeSpan.SECOND,
-        ]
+        idx_data_2 = seconds_linspace(9, 3)
         src_data_2 = [50.0, 60.0, 70.0]
         client.write(
             9 * sy.TimeSpan.SECOND,
@@ -222,7 +219,7 @@ class TestCalculatedChannelIteration:
             np.array(idx_data_1 + idx_data_2, dtype=ts_ser.data_type.np),
         )
 
-        idx_data_0 = [1 * sy.TimeSpan.SECOND, 2 * sy.TimeSpan.SECOND]
+        idx_data_0 = seconds_linspace(1, 2)
         src_data_0 = [0.0, 5.0]
         client.write(
             1 * sy.TimeSpan.SECOND,
@@ -249,7 +246,7 @@ class TestCalculatedChannelIteration:
             np.array(src_data_0 + src_data_1 + src_data_2, dtype=data_ser.data_type.np),
         )
 
-    def test_conditional_calculated_channel(self, client: sy.Synnax):
+    def test_conditional_calculated_channel(self, client: sy.Synnax) -> None:
         """Should correctly create and read from a basic calculated channel using iteration"""
         timestamp_channel = client.channels.create(
             name=random_name(),
@@ -273,11 +270,7 @@ class TestCalculatedChannelIteration:
             }}
             """,
         )
-        idx_data = [
-            5 * sy.TimeSpan.SECOND,
-            6 * sy.TimeSpan.SECOND,
-            7 * sy.TimeSpan.SECOND,
-        ]
+        idx_data = seconds_linspace(5, 3)
         src_data = [10.0, 20.0, 30.0]
         client.write(
             5 * sy.TimeSpan.SECOND,
@@ -303,7 +296,7 @@ class TestCalculatedChannelIteration:
             data_ser, np.array([5, 4, 4], dtype=data_ser.data_type.np)
         )
 
-    def test_calculation_deleted_channel(self, client: sy.Synnax):
+    def test_calculation_deleted_channel(self, client: sy.Synnax) -> None:
         """Should correctly create and read from a basic calculated channel using iteration"""
         timestamp_channel = client.channels.create(
             name=random_name(),
@@ -326,11 +319,7 @@ class TestCalculatedChannelIteration:
                   return 5
               }}""",
         )
-        idx_data = [
-            5 * sy.TimeSpan.SECOND,
-            6 * sy.TimeSpan.SECOND,
-            7 * sy.TimeSpan.SECOND,
-        ]
+        idx_data = seconds_linspace(5, 3)
         src_data = [10.0, 20.0, 30.0]
         client.write(
             5 * sy.TimeSpan.SECOND,
@@ -365,7 +354,7 @@ class TestCalculatedChannelIteration:
                 ],
             )
 
-    def test_nested_calculated_channels_2_level(self, client: sy.Synnax):
+    def test_nested_calculated_channels_2_level(self, client: sy.Synnax) -> None:
         """Should correctly handle 2-level nested calculated channels (C → B → A)"""
         # Create index and base concrete channel
         timestamp_channel = client.channels.create(
@@ -394,13 +383,7 @@ class TestCalculatedChannelIteration:
         )
 
         # Write data
-        idx_data = [
-            1 * sy.TimeSpan.SECOND,
-            2 * sy.TimeSpan.SECOND,
-            3 * sy.TimeSpan.SECOND,
-            4 * sy.TimeSpan.SECOND,
-            5 * sy.TimeSpan.SECOND,
-        ]
+        idx_data = seconds_linspace(1, 5)
         src_data = [1.0, 2.0, 3.0, 4.0, 5.0]
         client.write(
             1 * sy.TimeSpan.SECOND,
@@ -433,7 +416,7 @@ class TestCalculatedChannelIteration:
         )
         assert np.array_equal(ts_ser, np.array(idx_data, dtype=ts_ser.data_type.np))
 
-    def test_nested_calculated_channels_3_level(self, client: sy.Synnax):
+    def test_nested_calculated_channels_3_level(self, client: sy.Synnax) -> None:
         """Should correctly handle 3-level nested calculated channels (D → C → B → A)"""
         # Create index and base concrete channel
         timestamp_channel = client.channels.create(
@@ -468,13 +451,7 @@ class TestCalculatedChannelIteration:
         )
 
         # Write data
-        idx_data = [
-            1 * sy.TimeSpan.SECOND,
-            2 * sy.TimeSpan.SECOND,
-            3 * sy.TimeSpan.SECOND,
-            4 * sy.TimeSpan.SECOND,
-            5 * sy.TimeSpan.SECOND,
-        ]
+        idx_data = seconds_linspace(1, 5)
         src_data = [1.0, 2.0, 3.0, 4.0, 5.0]
         client.write(
             1 * sy.TimeSpan.SECOND,
@@ -506,7 +483,7 @@ class TestCalculatedChannelIteration:
         )
         assert np.array_equal(ts_ser, np.array(idx_data, dtype=ts_ser.data_type.np))
 
-    def test_nested_calculated_channels_diamond(self, client: sy.Synnax):
+    def test_nested_calculated_channels_diamond(self, client: sy.Synnax) -> None:
         """Should correctly handle diamond dependency pattern (E → C & D → A)"""
         # Create index and base concrete channel
         timestamp_channel = client.channels.create(
@@ -541,13 +518,7 @@ class TestCalculatedChannelIteration:
         )
 
         # Write data
-        idx_data = [
-            1 * sy.TimeSpan.SECOND,
-            2 * sy.TimeSpan.SECOND,
-            3 * sy.TimeSpan.SECOND,
-            4 * sy.TimeSpan.SECOND,
-            5 * sy.TimeSpan.SECOND,
-        ]
+        idx_data = seconds_linspace(1, 5)
         src_data = [1.0, 2.0, 3.0, 4.0, 5.0]
         client.write(
             1 * sy.TimeSpan.SECOND,
@@ -579,7 +550,7 @@ class TestCalculatedChannelIteration:
         )
         assert np.array_equal(ts_ser, np.array(idx_data, dtype=ts_ser.data_type.np))
 
-    def test_circular_dependency_detection(self, client: sy.Synnax):
+    def test_circular_dependency_detection(self, client: sy.Synnax) -> None:
         """Should detect circular dependencies at channel creation time"""
         # In Python/API, Arc validates channel references at creation time,
         # so circular dependencies are caught immediately when trying to create
@@ -592,7 +563,7 @@ class TestCalculatedChannelIteration:
                 expression="return nonexistent_channel + 1",
             )
 
-    def test_mixed_calculated_and_concrete_channels(self, client: sy.Synnax):
+    def test_mixed_calculated_and_concrete_channels(self, client: sy.Synnax) -> None:
         """Should correctly handle requesting both calculated and concrete channels together"""
         # Create index and base concrete channels
         timestamp_channel = client.channels.create(
@@ -628,13 +599,7 @@ class TestCalculatedChannelIteration:
         )
 
         # Write data
-        idx_data = [
-            1 * sy.TimeSpan.SECOND,
-            2 * sy.TimeSpan.SECOND,
-            3 * sy.TimeSpan.SECOND,
-            4 * sy.TimeSpan.SECOND,
-            5 * sy.TimeSpan.SECOND,
-        ]
+        idx_data = seconds_linspace(1, 5)
         src_data_1 = [1.0, 2.0, 3.0, 4.0, 5.0]
         src_data_2 = [-2.0, -3.0, -4.0, -5.0, -6.0]
         client.write(
@@ -681,7 +646,7 @@ class TestCalculatedChannelIteration:
 @pytest.mark.framer
 @pytest.mark.calculations
 class TestCalculationOperations:
-    def test_avg_operation_accumulates_across_batches(self, client: sy.Synnax):
+    def test_avg_operation_accumulates_across_batches(self, client: sy.Synnax) -> None:
         idx = client.channels.create(
             name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
@@ -730,12 +695,13 @@ class TestCalculationOperations:
                     }
                 )
                 frame = streamer.read(timeout=1)
+                assert frame is not None
                 assert len(frame[calc.key]) == 1
                 assert frame[calc.key][0] == pytest.approx(35.0)
                 ser = frame[calc.key]
                 assert ser.alignment == first_alignment + 1
 
-    def test_avg_duration_reset_triggers_on_boundary(self, client: sy.Synnax):
+    def test_avg_duration_reset_triggers_on_boundary(self, client: sy.Synnax) -> None:
         idx = client.channels.create(
             name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
@@ -786,7 +752,7 @@ class TestCalculationOperations:
                 assert len(frame[calc.key]) == 1
                 assert frame[calc.key][0] == pytest.approx(45.0)
 
-    def test_min_operation_duration_reset(self, client: sy.Synnax):
+    def test_min_operation_duration_reset(self, client: sy.Synnax) -> None:
         idx = client.channels.create(
             name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
@@ -842,7 +808,7 @@ class TestCalculationOperations:
                 ser = frame[calc.key]
                 assert ser.alignment == first_alignment + 1
 
-    def test_max_operation_duration_reset(self, client: sy.Synnax):
+    def test_max_operation_duration_reset(self, client: sy.Synnax) -> None:
         idx = client.channels.create(
             name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
@@ -898,7 +864,7 @@ class TestCalculationOperations:
                 ser = frame[calc.key]
                 assert ser.alignment == first_alignment + 1
 
-    def test_avg_signal_reset_triggers_on_channel(self, client: sy.Synnax):
+    def test_avg_signal_reset_triggers_on_channel(self, client: sy.Synnax) -> None:
         idx = client.channels.create(
             name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
@@ -952,7 +918,7 @@ class TestCalculationOperations:
                 assert len(frame[calc.key]) == 1
                 assert frame[calc.key][0] == pytest.approx(45.0)
 
-    def test_min_signal_reset_clears_state(self, client: sy.Synnax):
+    def test_min_signal_reset_clears_state(self, client: sy.Synnax) -> None:
         idx = client.channels.create(
             name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
@@ -1006,7 +972,7 @@ class TestCalculationOperations:
                 assert len(frame[calc.key]) == 1
                 assert frame[calc.key][0] == pytest.approx(40.0)
 
-    def test_max_signal_reset_clears_state(self, client: sy.Synnax):
+    def test_max_signal_reset_clears_state(self, client: sy.Synnax) -> None:
         idx = client.channels.create(
             name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
@@ -1060,7 +1026,7 @@ class TestCalculationOperations:
                 assert len(frame[calc.key]) == 1
                 assert frame[calc.key][0] == pytest.approx(25.0)
 
-    def test_operations_with_single_sample(self, client: sy.Synnax):
+    def test_operations_with_single_sample(self, client: sy.Synnax) -> None:
         idx = client.channels.create(
             name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
@@ -1083,25 +1049,25 @@ class TestCalculationOperations:
             operations=[sy.channel.Operation(type="avg")],
         )
         start = sy.TimeStamp.now()
-        with client.open_streamer(
-            [calc_min.key, calc_max.key, calc_avg.key]
-        ) as streamer:
-            with client.open_writer(start, [idx.key, data.key]) as writer:
-                writer.write(
-                    {
-                        idx.key: np.array(
-                            [start + 1 * sy.TimeSpan.SECOND], dtype=np.int64
-                        ),
-                        data.key: np.array([42.0], dtype=np.float32),
-                    }
-                )
-                frame = streamer.read(timeout=1)
-                assert frame is not None
-                assert frame[calc_min.key][0] == pytest.approx(42.0)
-                assert frame[calc_max.key][0] == pytest.approx(42.0)
-                assert frame[calc_avg.key][0] == pytest.approx(42.0)
+        with (
+            client.open_streamer(
+                [calc_min.key, calc_max.key, calc_avg.key]
+            ) as streamer,
+            client.open_writer(start, [idx.key, data.key]) as writer,
+        ):
+            writer.write(
+                {
+                    idx.key: np.array([start + 1 * sy.TimeSpan.SECOND], dtype=np.int64),
+                    data.key: np.array([42.0], dtype=np.float32),
+                }
+            )
+            frame = streamer.read(timeout=1)
+            assert frame is not None
+            assert frame[calc_min.key][0] == pytest.approx(42.0)
+            assert frame[calc_max.key][0] == pytest.approx(42.0)
+            assert frame[calc_avg.key][0] == pytest.approx(42.0)
 
-    def test_avg_multiple_duration_resets(self, client: sy.Synnax):
+    def test_avg_multiple_duration_resets(self, client: sy.Synnax) -> None:
         idx = client.channels.create(
             name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
@@ -1152,7 +1118,7 @@ class TestCalculationOperations:
                 assert frame is not None
                 assert frame[calc.key][0] == pytest.approx(30.0)
 
-    def test_avg_combined_duration_and_signal_reset(self, client: sy.Synnax):
+    def test_avg_combined_duration_and_signal_reset(self, client: sy.Synnax) -> None:
         idx = client.channels.create(
             name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
@@ -1217,7 +1183,7 @@ class TestCalculationOperations:
                 assert frame is not None
                 assert frame[calc.key][0] == pytest.approx(35.0)
 
-    def test_operations_with_identical_values(self, client: sy.Synnax):
+    def test_operations_with_identical_values(self, client: sy.Synnax) -> None:
         idx = client.channels.create(
             name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
@@ -1240,31 +1206,33 @@ class TestCalculationOperations:
             operations=[sy.channel.Operation(type="avg")],
         )
         start = sy.TimeStamp.now()
-        with client.open_streamer(
-            [calc_min.key, calc_max.key, calc_avg.key]
-        ) as streamer:
-            with client.open_writer(start, [idx.key, data.key]) as writer:
-                writer.write(
-                    {
-                        idx.key: np.array(
-                            [
-                                start + 1 * sy.TimeSpan.SECOND,
-                                start + 2 * sy.TimeSpan.SECOND,
-                                start + 3 * sy.TimeSpan.SECOND,
-                                start + 4 * sy.TimeSpan.SECOND,
-                            ],
-                            dtype=np.int64,
-                        ),
-                        data.key: np.array([5.0, 5.0, 5.0, 5.0], dtype=np.float32),
-                    }
-                )
-                frame = streamer.read(timeout=1)
-                assert frame is not None
-                assert frame[calc_min.key][0] == pytest.approx(5.0)
-                assert frame[calc_max.key][0] == pytest.approx(5.0)
-                assert frame[calc_avg.key][0] == pytest.approx(5.0)
+        with (
+            client.open_streamer(
+                [calc_min.key, calc_max.key, calc_avg.key]
+            ) as streamer,
+            client.open_writer(start, [idx.key, data.key]) as writer,
+        ):
+            writer.write(
+                {
+                    idx.key: np.array(
+                        [
+                            start + 1 * sy.TimeSpan.SECOND,
+                            start + 2 * sy.TimeSpan.SECOND,
+                            start + 3 * sy.TimeSpan.SECOND,
+                            start + 4 * sy.TimeSpan.SECOND,
+                        ],
+                        dtype=np.int64,
+                    ),
+                    data.key: np.array([5.0, 5.0, 5.0, 5.0], dtype=np.float32),
+                }
+            )
+            frame = streamer.read(timeout=1)
+            assert frame is not None
+            assert frame[calc_min.key][0] == pytest.approx(5.0)
+            assert frame[calc_max.key][0] == pytest.approx(5.0)
+            assert frame[calc_avg.key][0] == pytest.approx(5.0)
 
-    def test_avg_signal_reset_fast_pulse(self, client: sy.Synnax):
+    def test_avg_signal_reset_fast_pulse(self, client: sy.Synnax) -> None:
         idx = client.channels.create(
             name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
@@ -1316,7 +1284,7 @@ class TestCalculationOperations:
                 assert frame is not None
                 assert frame[calc.key][0] == pytest.approx(40.0)
 
-    def test_derivative_computes_rate_of_change(self, client: sy.Synnax):
+    def test_derivative_computes_rate_of_change(self, client: sy.Synnax) -> None:
         """Should compute pointwise derivative in units per second."""
         idx = client.channels.create(
             name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
@@ -1353,7 +1321,7 @@ class TestCalculationOperations:
                 assert vals[1] == pytest.approx(10.0, abs=0.01)
                 assert vals[2] == pytest.approx(10.0, abs=0.01)
 
-    def test_derivative_maintains_state_across_batches(self, client: sy.Synnax):
+    def test_derivative_maintains_state_across_batches(self, client: sy.Synnax) -> None:
         """Should use previous batch state for derivative computation."""
         idx = client.channels.create(
             name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
@@ -1399,7 +1367,7 @@ class TestCalculationOperations:
                 assert len(vals) == 1
                 assert vals[0] == pytest.approx(10.0, abs=0.01)
 
-    def test_derivative_negative_rate_of_change(self, client: sy.Synnax):
+    def test_derivative_negative_rate_of_change(self, client: sy.Synnax) -> None:
         """Should correctly compute negative derivatives for decreasing signals."""
         idx = client.channels.create(
             name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
@@ -1447,7 +1415,7 @@ class TestCalculationsAcrossDomains:
     Each test verifies both the calculated values AND the alignment metadata.
     """
 
-    def test_basic_calculation_across_two_domains(self, client: sy.Synnax):
+    def test_basic_calculation_across_two_domains(self, client: sy.Synnax) -> None:
         """Should correctly calculate values across two separate write domains
         with correct alignment for each domain."""
         idx = client.channels.create(
@@ -1534,7 +1502,7 @@ class TestCalculationsAcrossDomains:
         assert calc_multi.series[0].alignment == idx_multi.series[0].alignment
         assert calc_multi.series[1].alignment == idx_multi.series[1].alignment
 
-    def test_nested_calculation_2_level_across_domains(self, client: sy.Synnax):
+    def test_nested_calculation_2_level_across_domains(self, client: sy.Synnax) -> None:
         """Should correctly handle 2-level nested calculations across domains
         with proper alignment preservation."""
         idx = client.channels.create(
@@ -1629,7 +1597,7 @@ class TestCalculationsAcrossDomains:
         assert calc_multi.series[0].alignment == idx_multi.series[0].alignment
         assert calc_multi.series[1].alignment == idx_multi.series[1].alignment
 
-    def test_nested_calculation_3_level_across_domains(self, client: sy.Synnax):
+    def test_nested_calculation_3_level_across_domains(self, client: sy.Synnax) -> None:
         """Should correctly handle 3-level nested calculations across domains
         with proper alignment preservation."""
         idx = client.channels.create(
@@ -1735,7 +1703,7 @@ class TestCalculationsAcrossDomains:
         assert calc_multi.series[0].alignment == idx_multi.series[0].alignment
         assert calc_multi.series[1].alignment == idx_multi.series[1].alignment
 
-    def test_diamond_dependency_across_domains(self, client: sy.Synnax):
+    def test_diamond_dependency_across_domains(self, client: sy.Synnax) -> None:
         """Should correctly handle diamond dependency pattern across domains
         with proper alignment preservation.
 
@@ -1847,7 +1815,9 @@ class TestCalculationsAcrossDomains:
         assert calc_multi.series[0].alignment == idx_multi.series[0].alignment
         assert calc_multi.series[1].alignment == idx_multi.series[1].alignment
 
-    def test_mixed_calculated_and_concrete_across_domains(self, client: sy.Synnax):
+    def test_mixed_calculated_and_concrete_across_domains(
+        self, client: sy.Synnax
+    ) -> None:
         """Should correctly handle requesting both calculated and concrete channels
         with proper alignment for each."""
         idx = client.channels.create(
@@ -1990,7 +1960,7 @@ class TestCalculationsAcrossDomains:
             np.array([6.0, 6.0, 6.0, 6.0, 6.0], dtype=np.float32),
         )
 
-    def test_three_domains_calculation(self, client: sy.Synnax):
+    def test_three_domains_calculation(self, client: sy.Synnax) -> None:
         """Should correctly calculate values across three separate write domains
         with correct alignment for each."""
         idx = client.channels.create(
@@ -2082,7 +2052,7 @@ class TestCalculationsAcrossDomains:
         for i in range(3):
             assert calc_multi.series[i].alignment == idx_multi.series[i].alignment
 
-    def test_calculation_with_gap_between_domains(self, client: sy.Synnax):
+    def test_calculation_with_gap_between_domains(self, client: sy.Synnax) -> None:
         """Should correctly handle calculations when there's a large gap between domains
         while preserving proper alignment."""
         idx = client.channels.create(
@@ -2158,7 +2128,9 @@ class TestCalculationsAcrossDomains:
             np.array([1100.0, 1101.0, 1102.0], dtype=np.float32),
         )
 
-    def test_multiple_calculations_same_source_across_domains(self, client: sy.Synnax):
+    def test_multiple_calculations_same_source_across_domains(
+        self, client: sy.Synnax
+    ) -> None:
         """Should correctly handle multiple calculations depending on the same source
         with consistent alignments across all calculated channels."""
         idx = client.channels.create(
@@ -2257,7 +2229,9 @@ class TestCalculationsAcrossDomains:
             plus_ten_multi.series[1], np.array([14.0, 15.0], dtype=np.float32)
         )
 
-    def test_calculation_with_conditional_across_domains(self, client: sy.Synnax):
+    def test_calculation_with_conditional_across_domains(
+        self, client: sy.Synnax
+    ) -> None:
         """Should correctly handle conditional calculations across domains
         with proper alignment."""
         idx = client.channels.create(
@@ -2350,7 +2324,9 @@ class TestCalculationsAcrossDomains:
         for i in range(3):
             assert calc_multi.series[i].alignment == idx_multi.series[i].alignment
 
-    def test_two_source_channels_same_writes_across_domains(self, client: sy.Synnax):
+    def test_two_source_channels_same_writes_across_domains(
+        self, client: sy.Synnax
+    ) -> None:
         """Should handle calculations with two source channels written together
         across domains with proper alignment - reading ONLY calculated channels."""
         idx = client.channels.create(
@@ -2446,7 +2422,7 @@ class TestCalculationsAcrossDomains:
 class TestStatOperationsAlignment:
     """Tests that statistical operations correctly propagate alignment metadata across domains."""
 
-    def test_avg_operation_alignment_across_domains(self, client: sy.Synnax):
+    def test_avg_operation_alignment_across_domains(self, client: sy.Synnax) -> None:
         """Should correctly calculate avg with proper alignment per domain."""
         idx = client.channels.create(
             name=random_name(),
@@ -2525,7 +2501,7 @@ class TestStatOperationsAlignment:
         assert calc_multi.series[0].alignment == idx_multi.series[0].alignment
         assert calc_multi.series[1].alignment == idx_multi.series[1].alignment
 
-    def test_min_operation_alignment_across_domains(self, client: sy.Synnax):
+    def test_min_operation_alignment_across_domains(self, client: sy.Synnax) -> None:
         """Should correctly calculate min with proper alignment per domain."""
         idx = client.channels.create(
             name=random_name(),
@@ -2603,7 +2579,7 @@ class TestStatOperationsAlignment:
         assert calc_multi.series[0].alignment == idx_multi.series[0].alignment
         assert calc_multi.series[1].alignment == idx_multi.series[1].alignment
 
-    def test_max_operation_alignment_across_domains(self, client: sy.Synnax):
+    def test_max_operation_alignment_across_domains(self, client: sy.Synnax) -> None:
         """Should correctly calculate max with proper alignment per domain."""
         idx = client.channels.create(
             name=random_name(),
@@ -2681,7 +2657,7 @@ class TestStatOperationsAlignment:
         assert calc_multi.series[0].alignment == idx_multi.series[0].alignment
         assert calc_multi.series[1].alignment == idx_multi.series[1].alignment
 
-    def test_literal_minus_f32_should_succeed(self, client: sy.Synnax):
+    def test_literal_minus_f32_should_succeed(self, client: sy.Synnax) -> None:
         """Regression: literal on left side of f32 channel should coerce to f32.
 
         Previously, `1000 - f32_channel` would create successfully but fail on
@@ -2707,7 +2683,7 @@ class TestStatOperationsAlignment:
         client.write(
             1 * sy.TimeSpan.SECOND,
             {
-                ts.key: [1 * sy.TimeSpan.SECOND, 2 * sy.TimeSpan.SECOND],
+                ts.key: seconds_linspace(1, 2),
                 src.key: [10.0, 20.0],
             },
         )
@@ -2717,7 +2693,7 @@ class TestStatOperationsAlignment:
         )
         assert len(res[calc.key]) == 2
 
-    def test_float_literal_div_f32_should_succeed(self, client: sy.Synnax):
+    def test_float_literal_div_f32_should_succeed(self, client: sy.Synnax) -> None:
         """Regression: float literal on left side of f32 channel should coerce.
 
         Previously, `1000.0 / f32_channel` would create successfully but fail
@@ -2742,7 +2718,7 @@ class TestStatOperationsAlignment:
         client.write(
             1 * sy.TimeSpan.SECOND,
             {
-                ts.key: [1 * sy.TimeSpan.SECOND, 2 * sy.TimeSpan.SECOND],
+                ts.key: seconds_linspace(1, 2),
                 src.key: [10.0, 20.0],
             },
         )
@@ -2754,7 +2730,7 @@ class TestStatOperationsAlignment:
 
     def test_mixed_f32_f64_with_literal_should_reject_at_creation(
         self, client: sy.Synnax
-    ):
+    ) -> None:
         """Regression: mixed f32/f64 channels with literal should be caught at creation.
 
         Previously, `1000.0 - f32_ch + f64_ch` was accepted at creation because
@@ -2793,7 +2769,9 @@ class TestCalcChannelStress:
     """Stress test: deep calc chains, multi-domain writes, writer/streamer lifecycle
     chaos, cross-index references, and full numerical verification."""
 
-    def test_deep_chain_multi_domain_writer_streamer_chaos(self, client: sy.Synnax):
+    def test_deep_chain_multi_domain_writer_streamer_chaos(
+        self, client: sy.Synnax
+    ) -> None:
         S = sy.TimeSpan.SECOND
 
         # ── TOPOLOGY ──────────────────────────────────────────────────────
@@ -2890,7 +2868,7 @@ class TestCalcChannelStress:
         )
 
         # ── EXPECTED VALUE FUNCTIONS ──────────────────────────────────────
-        def expect_a(a_vals, b_vals):
+        def expect_a(a_vals: list[float], b_vals: list[float]) -> dict[int, np.ndarray]:
             """Return dict of calc_key -> expected numpy array for index A calcs."""
             a = np.array(a_vals, dtype=np.float32)
             b = np.array(b_vals, dtype=np.float32)
@@ -2908,7 +2886,7 @@ class TestCalcChannelStress:
                 c_mega4.key: (((a + 10) * 3 - (1000 - a)) + 10000.0 / a) / 10,
             }
 
-        def expect_b(g_vals):
+        def expect_b(g_vals: list[float]) -> dict[int, np.ndarray]:
             """Return dict of calc_key -> expected numpy array for index B calcs."""
             g = np.array(g_vals, dtype=np.float32)
             gamma_off = g * 3 + 7
@@ -2917,7 +2895,9 @@ class TestCalcChannelStress:
                 c_gamma_chain.key: gamma_off**2,
             }
 
-        def verify_read(res, expected, label=""):
+        def verify_read(
+            res: sy.Frame, expected: dict[int, np.ndarray], label: str = ""
+        ) -> None:
             for key, exp in expected.items():
                 actual = np.array(res[key], dtype=np.float32)
                 np.testing.assert_allclose(
@@ -2927,7 +2907,10 @@ class TestCalcChannelStress:
                     err_msg=f"{label} key={key}",
                 )
 
-        def verify_stream_frame(frame, expected, label=""):
+        def verify_stream_frame(
+            frame: sy.Frame | None, expected: dict[int, np.ndarray], label: str = ""
+        ) -> None:
+            assert frame is not None
             for key, exp in expected.items():
                 if key not in frame.channels:
                     continue
@@ -2962,7 +2945,7 @@ class TestCalcChannelStress:
         ) as w:
             w.write(
                 {
-                    ts_a.key: [1 * S, 2 * S, 3 * S],
+                    ts_a.key: seconds_linspace(1, 3),
                     alpha.key: a1,
                     beta.key: b1,
                 }
@@ -2975,7 +2958,7 @@ class TestCalcChannelStress:
         ) as w:
             w.write(
                 {
-                    ts_b.key: [1 * S, 2 * S],
+                    ts_b.key: seconds_linspace(1, 2),
                     gamma.key: g1,
                 }
             )
@@ -2994,7 +2977,7 @@ class TestCalcChannelStress:
         ) as w:
             w.write(
                 {
-                    ts_a.key: [10 * S, 11 * S, 12 * S, 13 * S],
+                    ts_a.key: seconds_linspace(10, 4),
                     alpha.key: a2,
                     beta.key: b2,
                 }
@@ -3007,7 +2990,7 @@ class TestCalcChannelStress:
         ) as w:
             w.write(
                 {
-                    ts_b.key: [10 * S, 11 * S, 12 * S, 13 * S, 14 * S],
+                    ts_b.key: seconds_linspace(10, 5),
                     gamma.key: g2,
                 }
             )
@@ -3033,7 +3016,7 @@ class TestCalcChannelStress:
             ) as w:
                 w.write(
                     {
-                        ts_a.key: [20 * S, 21 * S],
+                        ts_a.key: seconds_linspace(20, 2),
                         alpha.key: a3,
                         beta.key: b3,
                     }
@@ -3052,7 +3035,7 @@ class TestCalcChannelStress:
             ) as w:
                 w.write(
                     {
-                        ts_a.key: [30 * S, 31 * S, 32 * S],
+                        ts_a.key: seconds_linspace(30, 3),
                         alpha.key: a4,
                         beta.key: b4,
                     }
@@ -3073,7 +3056,7 @@ class TestCalcChannelStress:
                 ) as w:
                     w.write(
                         {
-                            ts_a.key: [t],
+                            ts_a.key: [sy.TimeStamp(t)],
                             alpha.key: [av],
                             beta.key: [bv],
                         }
@@ -3096,7 +3079,7 @@ class TestCalcChannelStress:
                 # Write in two separate batches within the same writer
                 w.write(
                     {
-                        ts_a.key: [70 * S],
+                        ts_a.key: [sy.TimeStamp(70 * S)],
                         alpha.key: [a5[0]],
                         beta.key: [b5[0]],
                     }
@@ -3106,7 +3089,7 @@ class TestCalcChannelStress:
 
                 w.write(
                     {
-                        ts_a.key: [71 * S],
+                        ts_a.key: [sy.TimeStamp(71 * S)],
                         alpha.key: [a5[1]],
                         beta.key: [b5[1]],
                     }
@@ -3127,7 +3110,7 @@ class TestCalcChannelStress:
                 ) as wa:
                     wa.write(
                         {
-                            ts_a.key: [80 * S],
+                            ts_a.key: [sy.TimeStamp(80 * S)],
                             alpha.key: a6,
                             beta.key: b6,
                         }
@@ -3140,7 +3123,7 @@ class TestCalcChannelStress:
                 ) as wb:
                     wb.write(
                         {
-                            ts_b.key: [80 * S],
+                            ts_b.key: [sy.TimeStamp(80 * S)],
                             gamma.key: g3,
                         }
                     )

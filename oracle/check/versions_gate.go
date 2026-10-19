@@ -416,6 +416,9 @@ func classifyDeps(f *versions.File) (stored, referenced set.Set[string]) {
 			for _, e := range form.Included {
 				visit(e)
 			}
+			if form.BorrowsEnum() {
+				visit(form.Enum)
+			}
 		case resolution.DistinctForm:
 			visit(form.Base)
 		case resolution.AliasForm:
@@ -598,6 +601,9 @@ func storedRefs(
 		for _, v := range form.Variants {
 			locals = append(locals, localRefNames(f, v.Type)...)
 		}
+		if form.BorrowsEnum() {
+			locals = append(locals, localRefNames(f, form.Enum)...)
+		}
 	case resolution.DistinctForm:
 		locals = localRefNames(f, form.Base)
 	case resolution.AliasForm:
@@ -682,6 +688,9 @@ func membersOf(f *versions.File, ns string) []string {
 		case resolution.UnionForm:
 			for _, v := range form.Variants {
 				walkRef(v.Type)
+			}
+			if form.BorrowsEnum() {
+				walkRef(form.Enum)
 			}
 		case resolution.DistinctForm:
 			walkRef(form.Base)

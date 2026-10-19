@@ -68,7 +68,7 @@ class SymbolEditor:
         """
         import os
 
-        with open(svg_path, "r", encoding="utf-8") as f:
+        with open(svg_path, encoding="utf-8") as f:
             svg_content = f.read()
 
         filename = os.path.basename(svg_path)
