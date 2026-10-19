@@ -32,7 +32,8 @@ grpc::auth::SessionCreateResponse session_response(const std::string &token) {
 std::shared_ptr<Middleware> middleware_with(
     std::unique_ptr<SessionCreateClient> create,
     std::unique_ptr<SessionDeleteClient> del = nullptr,
-    std::unique_ptr<SessionRenewClient> renew = nullptr
+    std::unique_ptr<SessionRenewClient> renew = nullptr,
+    std::unique_ptr<SessionRetrieveClient> retrieve = nullptr
 ) {
     if (renew == nullptr)
         renew = std::make_unique<freighter::mock::UnaryClient<
@@ -44,6 +45,7 @@ std::shared_ptr<Middleware> middleware_with(
     return std::make_shared<Middleware>(
         std::move(create),
         std::move(renew),
+        std::move(retrieve),
         std::move(del),
         "synnax",
         "seldon"
@@ -282,6 +284,70 @@ TEST(TestAuth, LogoutAfterSessionEnded) {
     );
     ASSERT_NIL(mw->authenticate());
     ASSERT_NIL(mw->logout());
+    ASSERT_EQ(mw->current_session().key, "");
+}
+
+/// @brief it should list sessions for the requested subjects.
+TEST(TestAuth, RetrieveSessions) {
+    auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<
+        grpc::auth::SessionCreateRequest,
+        grpc::auth::SessionCreateResponse>>(session_response("abc"), x::errors::NIL);
+    grpc::auth::SessionRetrieveResponse res;
+    *res.add_sessions() = session_response("abc").session();
+    res.mutable_sessions(0)->set_address("127.0.0.1:1");
+    auto mock_retrieve_client = std::make_unique<freighter::mock::UnaryClient<
+        grpc::auth::SessionRetrieveRequest,
+        grpc::auth::SessionRetrieveResponse>>(res, x::errors::NIL);
+    auto *retrieve = mock_retrieve_client.get();
+    const auto mw = middleware_with(
+        std::move(mock_create_client),
+        nullptr,
+        nullptr,
+        std::move(mock_retrieve_client)
+    );
+    const auto sessions = ASSERT_NIL_P(mw->retrieve_sessions({{"user", "u"}}));
+    ASSERT_EQ(sessions.size(), 1);
+    ASSERT_EQ(sessions[0].key, mw->current_session().key);
+    ASSERT_EQ(sessions[0].subject.key, "u");
+    ASSERT_EQ(sessions[0].address, "127.0.0.1:1");
+    ASSERT_EQ(retrieve->requests.size(), 1);
+    ASSERT_EQ(retrieve->requests[0].subjects_size(), 1);
+    ASSERT_EQ(retrieve->requests[0].subjects(0).type(), "user");
+}
+
+/// @brief it should keep its own session when ending another one.
+TEST(TestAuth, DeleteOtherSession) {
+    auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<
+        grpc::auth::SessionCreateRequest,
+        grpc::auth::SessionCreateResponse>>(session_response("abc"), x::errors::NIL);
+    auto mock_delete_client = std::make_unique<freighter::mock::UnaryClient<
+        grpc::auth::SessionDeleteRequest,
+        google::protobuf::Empty>>(google::protobuf::Empty(), x::errors::NIL);
+    auto *del = mock_delete_client.get();
+    const auto mw = middleware_with(
+        std::move(mock_create_client),
+        std::move(mock_delete_client)
+    );
+    ASSERT_NIL(mw->delete_sessions({"other"}));
+    ASSERT_EQ(del->requests.size(), 1);
+    ASSERT_EQ(del->requests[0].keys(0), "other");
+    ASSERT_NE(mw->current_session().key, "");
+}
+
+/// @brief it should forget its own session when ending it.
+TEST(TestAuth, DeleteOwnSession) {
+    auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<
+        grpc::auth::SessionCreateRequest,
+        grpc::auth::SessionCreateResponse>>(session_response("abc"), x::errors::NIL);
+    auto mock_delete_client = std::make_unique<freighter::mock::UnaryClient<
+        grpc::auth::SessionDeleteRequest,
+        google::protobuf::Empty>>(google::protobuf::Empty(), x::errors::NIL);
+    const auto mw = middleware_with(
+        std::move(mock_create_client),
+        std::move(mock_delete_client)
+    );
+    ASSERT_NIL(mw->authenticate());
+    ASSERT_NIL(mw->delete_sessions({mw->current_session().key}));
     ASSERT_EQ(mw->current_session().key, "");
 }
 }
