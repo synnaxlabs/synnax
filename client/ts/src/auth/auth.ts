@@ -183,8 +183,6 @@ export class Client {
   async logout(): Promise<void> {
     const { authState } = this;
     if (!authState.authenticated) return;
-    this.authState = { authenticated: false };
-    this.authenticating = undefined;
     this.logoutToken = authState.token;
     try {
       await this.deleteSessions(authState.session.key);
@@ -192,6 +190,8 @@ export class Client {
       if (!RETRY_ON.some((e) => e.matches(err))) throw errors.fromUnknown(err);
     } finally {
       this.logoutToken = undefined;
+      this.authState = { authenticated: false };
+      this.authenticating = undefined;
     }
   }
 

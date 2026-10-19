@@ -11,7 +11,6 @@ import {
   array,
   breaker,
   type CrudeTimeSpan,
-  errors,
   TimeSpan,
   TimeStamp,
   url,
@@ -324,25 +323,24 @@ export default class Synnax extends framer.Client {
   }
 
   /**
-   * Logs out, then closes the client, stopping the connection check loop and tearing
-   * down the query cache and its change stream. Resolves once both are closed. When
-   * the Core cannot be reached the session is left to idle out.
+   * Closes the client: stops the connection check loop, tears down the query cache and
+   * its change stream, then logs out. Resolves once all three are done. When the Core
+   * cannot be reached the session is left to idle out.
    * @throws {AggregateError} carrying every underlying close failure.
    */
   async close(): Promise<void> {
-    const results = await Promise.allSettled([
-      this.auth.logout().catch((err: unknown) => {
-        if (!isConnectionError(err)) throw errors.fromUnknown(err);
-      }),
-      this.conn.close(),
-      this.cache.close(),
-    ]);
-    const failures = results.filter((r) => r.status === "rejected");
+    const results = await Promise.allSettled([this.conn.close(), this.cache.close()]);
+    const failures: unknown[] = results
+      .filter((r) => r.status === "rejected")
+      .map((r) => r.reason);
+    // Nothing sends requests any more, so no check can log in again during the logout.
+    try {
+      await this.auth.logout();
+    } catch (err) {
+      if (!isConnectionError(err)) failures.push(err);
+    }
     if (failures.length > 0)
-      throw new AggregateError(
-        failures.map((f) => f.reason),
-        "failed to close the client",
-      );
+      throw new AggregateError(failures, "failed to close the client");
   }
 }
 

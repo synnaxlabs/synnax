@@ -170,6 +170,30 @@ class TestSessions:
         other.close()
         admin.close()
 
+    def test_close_leaves_no_session(
+        self, login_info: tuple[str, int, str, str]
+    ) -> None:
+        """Should end the client's only session on close, so none stays open behind
+        the connectivity thread.
+        """
+        host, port, username, password = login_info
+        admin = sy.Synnax(host=host, port=port, username=username, password=password)
+        user = admin.users.create(username=str(uuid4()), password="seldon")
+        closing = sy.Synnax(
+            host=host, port=port, username=user.username, password="seldon"
+        )
+        other = sy.Synnax(
+            host=host, port=port, username=user.username, password="seldon"
+        )
+        assert other.auth.session is not None
+        assert len(other.auth.retrieve_sessions()) == 2
+        closing.close()
+        assert not closing.connectivity._thread.is_alive()
+        keys = [s.key for s in other.auth.retrieve_sessions()]
+        assert keys == [other.auth.session.key]
+        other.close()
+        admin.close()
+
     def test_close_stops_connectivity_when_unreachable(
         self, proxied_client: sy.Synnax, proxy: Proxy
     ) -> None:

@@ -193,12 +193,13 @@ class Synnax(framer.Client):
         iterators or writers must be closed before calling this method. When the Core
         cannot be reached the session is left to idle out.
         """
+        # The connectivity thread stops first: a check during the logout would log in
+        # again and leave that session open.
+        self._finalizer()
         try:
             self.auth.logout()
         except Unreachable:
             pass
-        finally:
-            self._finalizer()
 
 
 def _configure_transport(
