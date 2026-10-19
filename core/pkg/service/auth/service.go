@@ -14,11 +14,12 @@ import (
 	"crypto/subtle"
 	"io"
 	"iter"
+	"maps"
+	"slices"
 	"sync"
 	"time"
 	"uuid"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/address"
@@ -366,7 +367,7 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Session, erro
 		return Session{}, ErrExpiredToken
 	}
 	if time.Duration(now-session.LastActive) > s.cfg.IdleTimeout/4 {
-		if err = s.touch(ctx, key, now); err != nil {
+		if err = s.touch(ctx, map[SessionKey]telem.TimeStamp{key: now}); err != nil {
 			return Session{}, err
 		}
 		session.LastActive = now
@@ -420,36 +421,37 @@ func (s *Service) Logout(ctx context.Context, keys ...SessionKey) error {
 // session that is live on another node.
 func (s *Service) Sweep(ctx context.Context) error {
 	now := s.now()
-	held := s.held()
-	for _, key := range held {
-		err := s.touch(ctx, key, now)
-		if errors.Is(err, query.ErrNotFound) {
-			s.endHold(key)
-			continue
-		}
-		if err != nil {
-			return err
-		}
-	}
 	cutoff := now - telem.TimeStamp(s.cfg.IdleTimeout+s.cfg.IdleTimeout/4)
 	var all []Session
 	if err := s.NewRetrieve().Entries(&all).Exec(ctx, nil); err != nil {
 		return err
 	}
+	held := set.New(s.held()...)
 	keep := make(set.Set[SessionKey], len(all))
+	marks := make(map[SessionKey]telem.TimeStamp)
 	var idle []SessionKey
 	for _, e := range all {
 		keep.Add(e.Key)
-		if e.LastActive >= cutoff || lo.Contains(held, e.Key) {
+		if held.Contains(e.Key) {
+			marks[e.Key] = now
+			continue
+		}
+		if e.LastActive >= cutoff {
 			continue
 		}
 		if seen := s.lastSeen(e.Key); seen >= cutoff {
-			if err := s.touch(ctx, e.Key, seen); err != nil {
-				return err
-			}
+			marks[e.Key] = seen
 			continue
 		}
 		idle = append(idle, e.Key)
+	}
+	for key := range held {
+		if !keep.Contains(key) {
+			s.endHold(key)
+		}
+	}
+	if err := s.touch(ctx, marks); err != nil {
+		return err
 	}
 	s.forget(keep, idle...)
 	if len(idle) == 0 {
@@ -463,16 +465,21 @@ func (s *Service) now() telem.TimeStamp { return telem.NewTimeStamp(s.cfg.Clock.
 
 func (s *Service) touch(
 	ctx context.Context,
-	key SessionKey,
-	now telem.TimeStamp,
+	marks map[SessionKey]telem.TimeStamp,
 ) error {
-	return s.table.NewUpdate().
-		Where(gorp.MatchKeys[SessionKey, Session](key)).
-		Change(func(_ gorp.Context, e Session) Session {
-			e.LastActive = now
-			return e
-		}).
-		Exec(ctx, s.cfg.DB)
+	if len(marks) == 0 {
+		return nil
+	}
+	keys := slices.Collect(maps.Keys(marks))
+	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.table.NewUpdate().
+			Where(gorp.MatchKeys[SessionKey, Session](keys...)).
+			Change(func(_ gorp.Context, e Session) Session {
+				e.LastActive = marks[e.Key]
+				return e
+			}).
+			Exec(ctx, tx)
+	})
 }
 
 // Writer removes credentials and the sessions they opened in one transaction. It makes
