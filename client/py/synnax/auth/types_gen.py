@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias, Union
+from typing import Annotated, Literal, TypeAlias
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -73,6 +73,6 @@ class PasswordProof(Credentials):
 # Is what a subject presents to log in. The method selects the authenticator that
 # checks it.
 Proof = Annotated[
-    Union[PasswordProof],
+    PasswordProof,
     Field(discriminator="method"),
 ]
