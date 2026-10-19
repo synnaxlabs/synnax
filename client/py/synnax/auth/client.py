@@ -92,6 +92,7 @@ class Client:
         self.session = None
         self.user = None
         self.authenticated = False
+        self._logout_token: str | None = None
 
     def authenticate(self) -> None:
         """Opens a session with the stored username and password."""
@@ -142,29 +143,45 @@ class Client:
 
     def logout(self) -> None:
         """Ends the client's own session and forgets it. A later request logs in
-        again.
+        again. A session the Core already ended counts as logged out.
         """
         if not self.authenticated or self.session is None:
             return
-        self.delete_sessions(self.session.key)
+        key, self._logout_token = self.session.key, self.token
         self.authenticated = False
         self.token = ""
         self.session = None
+        try:
+            self.delete_sessions(key)
+        except RETRY_ON_ERRORS:
+            pass
+        finally:
+            self._logout_token = None
 
-    def _prepare(self, ctx: Context) -> None:
+    def _prepare(self, ctx: Context) -> bool:
+        """Attaches the token and reports whether a rejected token may log in again."""
+        target = ctx.target.rstrip("/")
         # The login request itself carries no token, and must not trigger a login.
-        if ctx.target.rstrip("/").endswith(SESSION_CREATE_ENDPOINT):
-            return
+        if target.endswith(SESSION_CREATE_ENDPOINT):
+            return False
+        # A logout ends the session its token belongs to; a dead one must not log in
+        # again.
+        if self._logout_token is not None and target.endswith(SESSION_DELETE_ENDPOINT):
+            ctx.set(AUTHORIZATION_HEADER, TOKEN_PREFIX + self._logout_token)
+            return False
         if not self.authenticated:
             self.authenticate()
         ctx.set(AUTHORIZATION_HEADER, TOKEN_PREFIX + self.token)
+        return True
 
     def middleware(self) -> Middleware:
         def mw(ctx: Context, _next: Next) -> Context:
-            self._prepare(ctx)
+            retry = self._prepare(ctx)
             try:
                 return _next(ctx)
             except RETRY_ON_ERRORS:
+                if not retry:
+                    raise
                 self.authenticated = False
                 return mw(ctx, _next)
 
@@ -172,10 +189,12 @@ class Client:
 
     def async_middleware(self) -> AsyncMiddleware:
         async def mw(ctx: Context, _next: AsyncNext) -> Context:
-            self._prepare(ctx)
+            retry = self._prepare(ctx)
             try:
                 return await _next(ctx)
             except RETRY_ON_ERRORS:
+                if not retry:
+                    raise
                 self.authenticated = False
                 return await mw(ctx, _next)
 

@@ -11,6 +11,7 @@ import {
   array,
   breaker,
   type CrudeTimeSpan,
+  errors,
   TimeSpan,
   TimeStamp,
   url,
@@ -26,7 +27,7 @@ import { channel } from "@/channel";
 import { connection } from "@/connection";
 import { control } from "@/control";
 import { device } from "@/device";
-import { errorsMiddleware } from "@/errors";
+import { errorsMiddleware, isConnectionError } from "@/errors";
 import { framer } from "@/framer";
 import { group } from "@/group";
 import { imex } from "@/imex";
@@ -323,13 +324,16 @@ export default class Synnax extends framer.Client {
   }
 
   /**
-   * Closes the client, stopping the connection check loop and tearing down the
-   * query cache and its change stream. Resolves once both are closed.
+   * Logs out, then closes the client, stopping the connection check loop and tearing
+   * down the query cache and its change stream. Resolves once both are closed. When
+   * the Core cannot be reached the session is left to idle out.
    * @throws {AggregateError} carrying every underlying close failure.
    */
   async close(): Promise<void> {
     const results = await Promise.allSettled([
-      this.auth.logout(),
+      this.auth.logout().catch((err: unknown) => {
+        if (!isConnectionError(err)) throw errors.fromUnknown(err);
+      }),
       this.conn.close(),
       this.cache.close(),
     ]);

@@ -1065,15 +1065,16 @@ describe("connection", () => {
       await client.close();
     });
 
-    it("should exempt the check and login endpoints so the connection can heal", async () => {
+    it("should exempt the check and session endpoints so the connection can heal", async () => {
       const unary = createScriptedUnary({ failing: true });
       const client = createClient(unary, { escalateAfter: 1 });
       await waitForStatus(client, (s) => s.variant === "error");
       const mw = client.middleware();
       const next = vi.fn(async (ctx: Context) => ctx);
       await mw(createUnaryContext("/api/v1/connectivity/check"), next);
-      await mw(createUnaryContext("/api/v1/auth/login"), next);
-      expect(next).toHaveBeenCalledTimes(2);
+      await mw(createUnaryContext("/api/v1/auth/session/create"), next);
+      await mw(createUnaryContext("/api/v1/auth/session/delete"), next);
+      expect(next).toHaveBeenCalledTimes(3);
       await client.close();
     });
 

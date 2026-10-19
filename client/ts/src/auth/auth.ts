@@ -13,7 +13,6 @@ import { z } from "zod";
 
 import {
   type Credentials,
-  credentialsZ,
   proofZ,
   type Session,
   type SessionKey,
@@ -88,6 +87,7 @@ export class Client {
   authenticating: Promise<Error | null> | undefined;
   private retryCount: number;
   private generation = 0;
+  private logoutToken: string | undefined;
 
   constructor(client: UnaryClient, credentials: Credentials, observer: Observer = {}) {
     this.client = client;
@@ -176,17 +176,32 @@ export class Client {
     await this.client.send(SESSION_DELETE_ENDPOINT, { keys }, deleteReqZ, emptyResZ);
   }
 
-  /** Ends the client's own session and forgets it. A later request logs in again. */
+  /**
+   * Ends the client's own session and forgets it. A later request logs in again. A
+   * session the Core already ended counts as logged out.
+   */
   async logout(): Promise<void> {
     const { authState } = this;
     if (!authState.authenticated) return;
-    await this.deleteSessions(authState.session.key);
     this.authState = { authenticated: false };
     this.authenticating = undefined;
+    this.logoutToken = authState.token;
+    try {
+      await this.deleteSessions(authState.session.key);
+    } catch (err) {
+      if (!RETRY_ON.some((e) => e.matches(err))) throw errors.fromUnknown(err);
+    } finally {
+      this.logoutToken = undefined;
+    }
   }
 
   middleware(): Middleware {
     const mw: Middleware = async (reqCtx, next) => {
+      // a logout ends the session its token belongs to; a dead one must not log in again
+      if (this.logoutToken != null && reqCtx.target.endsWith(SESSION_DELETE_ENDPOINT)) {
+        reqCtx.params.Authorization = `Bearer ${this.logoutToken}`;
+        return await next(reqCtx);
+      }
       if (!this.authenticated && !reqCtx.target.endsWith(SESSION_CREATE_ENDPOINT)) {
         this.authenticating ??= (async (): Promise<Error | null> => {
           // logins issued before a setCredentials are stale; their result must

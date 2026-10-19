@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Context } from "@synnaxlabs/freighter";
-import { errors, url } from "@synnaxlabs/x";
+import { errors, id, url } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
 import { auth } from "@/auth";
@@ -18,7 +18,7 @@ import {
   InvalidTokenError,
   SessionEndedError,
 } from "@/errors";
-import { TEST_CLIENT_PARAMS } from "@/testutil";
+import { createTestClient, TEST_CLIENT_PARAMS } from "@/testutil";
 import { Transport } from "@/transport";
 
 const DUMMY_CTX: Context = {
@@ -105,16 +105,19 @@ describe("auth", () => {
   });
 
   describe("sessions", () => {
-    const makeClient = (): auth.Client => {
+    const makeClient = (credentials: auth.Credentials = TEST_CLIENT_PARAMS) => {
       const transport = new Transport(
         new url.URL({
           host: TEST_CLIENT_PARAMS.host,
           port: Number(TEST_CLIENT_PARAMS.port),
         }),
       );
-      const client = new auth.Client(transport.unary, TEST_CLIENT_PARAMS);
+      const client = new auth.Client(transport.unary, credentials);
       transport.use(client.middleware());
       return client;
+    };
+    const login = async (client: auth.Client) => {
+      await client.middleware()(DUMMY_CTX, async () => DUMMY_CTX);
     };
 
     it("should hold the session and subject after login", async () => {
@@ -140,6 +143,24 @@ describe("auth", () => {
       expect(after.map((s) => s.key)).not.toContain(key);
       expect(client.session?.key).toBeDefined();
       expect(after.map((s) => s.key)).toContain(client.session?.key);
+    });
+
+    it("should not open a new session when logging out of an ended session", async () => {
+      const admin = createTestClient();
+      const credentials = { username: id.create(), password: "seldon" };
+      await admin.users.create(credentials);
+      const ending = makeClient(credentials);
+      const other = makeClient(credentials);
+      await login(ending);
+      await login(other);
+      const key = ending.session?.key;
+      if (key == null) throw new Error("expected a session");
+      await other.deleteSessions(key);
+      await ending.logout();
+      expect(ending.authenticated).toBe(false);
+      const sessions = await other.retrieveSessions();
+      expect(sessions.map((s) => s.key)).toEqual([other.session?.key]);
+      await admin.close();
     });
 
     it("should decode a session ended error", () => {

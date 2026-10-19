@@ -46,7 +46,7 @@ std::shared_ptr<Middleware> middleware_with(
 }
 
 /// @brief it should correctly authenticate with a Synnax cluster.
-TEST(TestAuth, testLoginHappyPath) {
+TEST(TestAuth, LoginHappyPath) {
     auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<
         grpc::auth::SessionCreateRequest,
         grpc::auth::SessionCreateResponse>>(session_response("abc"), x::errors::NIL);
@@ -61,7 +61,7 @@ TEST(TestAuth, testLoginHappyPath) {
 }
 
 /// @brief it should send a password proof when logging in.
-TEST(TestAuth, testLoginSendsPasswordProof) {
+TEST(TestAuth, LoginSendsPasswordProof) {
     auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<
         grpc::auth::SessionCreateRequest,
         grpc::auth::SessionCreateResponse>>(session_response("abc"), x::errors::NIL);
@@ -75,7 +75,7 @@ TEST(TestAuth, testLoginSendsPasswordProof) {
 }
 
 /// @brief it should return an error if credentials are invalid.
-TEST(TestAuth, testLoginInvalidCredentials) {
+TEST(TestAuth, LoginInvalidCredentials) {
     auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<
         grpc::auth::SessionCreateRequest,
         grpc::auth::SessionCreateResponse>>(
@@ -91,7 +91,7 @@ TEST(TestAuth, testLoginInvalidCredentials) {
 }
 
 /// @brief it should retry authentication if the authentication token is invalid.
-TEST(TestAuth, testLoginRetry) {
+TEST(TestAuth, LoginRetry) {
     auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<
         grpc::auth::SessionCreateRequest,
         grpc::auth::SessionCreateResponse>>(
@@ -110,7 +110,7 @@ TEST(TestAuth, testLoginRetry) {
 }
 
 /// @brief it should end the session on logout and send the token with the request.
-TEST(TestAuth, testLogout) {
+TEST(TestAuth, Logout) {
     auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<
         grpc::auth::SessionCreateRequest,
         grpc::auth::SessionCreateResponse>>(session_response("abc"), x::errors::NIL);
@@ -132,5 +132,25 @@ TEST(TestAuth, testLogout) {
     // A second logout has nothing to end.
     ASSERT_NIL(mw->logout());
     ASSERT_EQ(del->requests.size(), 1);
+}
+
+/// @brief it should treat a session the Core already ended as logged out.
+TEST(TestAuth, LogoutAfterSessionEnded) {
+    auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<
+        grpc::auth::SessionCreateRequest,
+        grpc::auth::SessionCreateResponse>>(session_response("abc"), x::errors::NIL);
+    auto mock_delete_client = std::make_unique<freighter::mock::UnaryClient<
+        grpc::auth::SessionDeleteRequest,
+        google::protobuf::Empty>>(
+        google::protobuf::Empty(),
+        x::errors::Error(ERR_SESSION_ENDED, "")
+    );
+    const auto mw = middleware_with(
+        std::move(mock_create_client),
+        std::move(mock_delete_client)
+    );
+    ASSERT_NIL(mw->authenticate());
+    ASSERT_NIL(mw->logout());
+    ASSERT_EQ(mw->current_session().key, "");
 }
 }

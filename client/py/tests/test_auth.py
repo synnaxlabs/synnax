@@ -15,6 +15,7 @@ import freighter
 import synnax as sy
 from freighter import Empty
 from freighter.mock import MockUnaryClient
+from tests.proxy import Proxy
 
 
 @pytest.mark.auth
@@ -142,3 +143,39 @@ class TestSessions:
         assert client.auth.session is not None
         assert client.auth.session.key in keys
         client.close()
+
+    def test_logout_after_session_ended(
+        self, login_info: tuple[str, int, str, str]
+    ) -> None:
+        """Should not open a new session when logging out of a session the Core
+        already ended.
+        """
+        host, port, username, password = login_info
+        admin = sy.Synnax(host=host, port=port, username=username, password=password)
+        user = admin.users.create(username=str(uuid4()), password="seldon")
+        ending = sy.Synnax(
+            host=host, port=port, username=user.username, password="seldon"
+        )
+        other = sy.Synnax(
+            host=host, port=port, username=user.username, password="seldon"
+        )
+        assert ending.auth.session is not None
+        assert other.auth.session is not None
+        other.auth.delete_sessions(ending.auth.session.key)
+        ending.auth.logout()
+        assert not ending.auth.authenticated
+        keys = [s.key for s in other.auth.retrieve_sessions()]
+        assert keys == [other.auth.session.key]
+        ending.close()
+        other.close()
+        admin.close()
+
+    def test_close_stops_connectivity_when_unreachable(
+        self, proxied_client: sy.Synnax, proxy: Proxy
+    ) -> None:
+        """Should close without error and stop the connectivity thread when logout
+        cannot reach the Core.
+        """
+        proxy.close()
+        proxied_client.close()
+        assert not proxied_client.connectivity._thread.is_alive()

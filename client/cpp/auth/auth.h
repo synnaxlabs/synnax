@@ -196,14 +196,19 @@ public:
     }
 
     /// @brief ends the client's own session and forgets it. A later request logs in
-    /// again. Does nothing when no session is open.
+    /// again. Does nothing when no session is open, and a session the Core already
+    /// ended counts as logged out.
     x::errors::Error logout() {
         if (!this->authenticated) return x::errors::NIL;
+        const auto key = this->current_session().key;
         grpc::auth::SessionDeleteRequest req;
-        req.add_keys(this->current_session().key);
+        req.add_keys(key);
         auto [_, err] = delete_client->send("/auth/session/delete", req);
-        if (err) return err;
+        if (err && !err.matches(RETRY_ON_ERRORS)) return err;
         std::lock_guard lock(mu);
+        // A request that re-logged in while the delete was in flight holds a session
+        // this logout did not end.
+        if (this->session.key != key) return x::errors::NIL;
         this->authenticated = false;
         this->token.clear();
         this->session = Session();
