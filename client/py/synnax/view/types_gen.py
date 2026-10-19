@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias, Union
+from typing import Annotated, Literal, TypeAlias
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -76,7 +76,7 @@ class StatusView(Base):
 # Is a saved, named filter over a list of resources. The type selects the resource
 # the view lists and the shape of its query.
 View = Annotated[
-    Union[RangeView, StatusView],
+    RangeView | StatusView,
     Field(discriminator="type"),
 ]
 
