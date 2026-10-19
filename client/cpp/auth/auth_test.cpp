@@ -134,6 +134,38 @@ TEST(TestAuth, Logout) {
     ASSERT_EQ(del->requests.size(), 1);
 }
 
+/// @brief a middleware that records whether each request carried a deadline.
+class DeadlineProbe final : public freighter::PassthroughMiddleware {
+public:
+    std::vector<bool> deadlines;
+
+    std::pair<freighter::Context, x::errors::Error>
+    operator()(freighter::Context context, freighter::Next &next) override {
+        deadlines.push_back(context.deadline.has_value());
+        return next(context);
+    }
+};
+
+/// @brief it should bound the logout request so an unanswered Core cannot hang it.
+TEST(TestAuth, LogoutCarriesDeadline) {
+    auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<
+        grpc::auth::SessionCreateRequest,
+        grpc::auth::SessionCreateResponse>>(session_response("abc"), x::errors::NIL);
+    auto mock_delete_client = std::make_unique<freighter::mock::UnaryClient<
+        grpc::auth::SessionDeleteRequest,
+        google::protobuf::Empty>>(google::protobuf::Empty(), x::errors::NIL);
+    auto *del = mock_delete_client.get();
+    const auto mw = middleware_with(
+        std::move(mock_create_client),
+        std::move(mock_delete_client)
+    );
+    const auto probe = std::make_shared<DeadlineProbe>();
+    del->use(probe);
+    ASSERT_NIL(mw->authenticate());
+    ASSERT_NIL(mw->logout());
+    ASSERT_EQ(probe->deadlines, std::vector{true});
+}
+
 /// @brief it should treat a session the Core already ended as logged out.
 TEST(TestAuth, LogoutAfterSessionEnded) {
     auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<

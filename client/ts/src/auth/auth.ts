@@ -53,11 +53,13 @@ const deleteReqZ = z.object({ keys: sessionKeyZ.array() });
 const emptyResZ = z.object({});
 
 /** Opens a session from a proof. Works without a token. */
+/** The login route a Core without sessions serves. Kept exempt for one release. */
+export const LEGACY_LOGIN_ENDPOINT = "/auth/login";
 export const SESSION_CREATE_ENDPOINT = "/auth/session/create";
 /** Reports activity on the caller's session. */
-const SESSION_RENEW_ENDPOINT = "/auth/session/renew";
+export const SESSION_RENEW_ENDPOINT = "/auth/session/renew";
 /** Lists sessions. */
-const SESSION_RETRIEVE_ENDPOINT = "/auth/session/retrieve";
+export const SESSION_RETRIEVE_ENDPOINT = "/auth/session/retrieve";
 /** Ends sessions. */
 export const SESSION_DELETE_ENDPOINT = "/auth/session/delete";
 

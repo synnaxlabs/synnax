@@ -10,6 +10,7 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <functional>
 #include <mutex>
 #include <string>
@@ -31,6 +32,9 @@ const std::string HEADER_KEY = "authorization";
 const std::string HEADER_VALUE_PREFIX = "Bearer ";
 /// @brief the method of a username and password proof.
 const std::string METHOD_PASSWORD = "password";
+/// @brief how long a logout waits for the Core before giving up. The client's
+/// destructor logs out, so an unanswered request must not hang it.
+constexpr auto LOGOUT_TIMEOUT = std::chrono::seconds(5);
 
 /// @brief transport that opens a session from a proof.
 using SessionCreateClient = freighter::
@@ -119,6 +123,20 @@ class Middleware final : public freighter::PassthroughMiddleware {
         }
     };
 
+    /// @brief bounds a request so a Core that never answers cannot hang the caller.
+    class Deadline final : public freighter::PassthroughMiddleware {
+        std::chrono::milliseconds timeout;
+
+    public:
+        explicit Deadline(const std::chrono::milliseconds timeout): timeout(timeout) {}
+
+        std::pair<freighter::Context, x::errors::Error>
+        operator()(freighter::Context context, freighter::Next &next) override {
+            context.deadline = std::chrono::system_clock::now() + this->timeout;
+            return next(context);
+        }
+    };
+
     /// Token to be used for authentication. Empty until authenticated.
     std::string token;
     /// The session the token belongs to. Valid only when authenticated.
@@ -160,7 +178,10 @@ public:
             return this->current_token();
         });
         if (this->renew_client) this->renew_client->use(header);
-        if (this->delete_client) this->delete_client->use(header);
+        if (this->delete_client) {
+            this->delete_client->use(header);
+            this->delete_client->use(std::make_shared<Deadline>(LOGOUT_TIMEOUT));
+        }
     }
 
     /// @brief opens a session with the credentials provided when constructing the
