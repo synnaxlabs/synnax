@@ -111,5 +111,24 @@ func UnarySuite(
 				gomega.Expect(ip.IsLoopback()).To(gomega.BeTrue())
 			},
 		)
+		ginkgo.It(
+			"Should return the error when a middleware rejects with a zero context",
+			func(ctx ginkgo.SpecContext) {
+				server, client, addr := deps()
+				server.BindHandler(
+					func(ctx context.Context, req Request) (Response, error) {
+						return Response{}, nil
+					},
+				)
+				server.Use(freighter.MiddlewareFunc(func(
+					freighter.Context,
+					freighter.Next,
+				) (freighter.Context, error) {
+					return freighter.Context{}, ErrCustom
+				}))
+				gomega.Expect(client.Send(ctx, addr, Request{ID: 1})).Error().
+					To(gomega.MatchError(ErrCustom))
+			},
+		)
 	})
 }
