@@ -308,7 +308,7 @@ var _ = Describe("Service", func() {
 				clock.Advance(idle/4 - time.Minute)
 				MustSucceed(svc.Authenticate(ctx, token))
 				seen := telem.NewTimeStamp(clock.Now())
-				clock.Advance(idle*3/4 + 2*time.Minute)
+				clock.Advance(idle + 2*time.Minute)
 				Expect(svc.Sweep(ctx)).To(Succeed())
 				var stored auth.Session
 				Expect(
@@ -318,11 +318,31 @@ var _ = Describe("Service", func() {
 				Expect(stored.LastActive).To(Equal(seen))
 			},
 		)
+		It(
+			"Should keep a session another node may have seen within the last quarter",
+			func(ctx SpecContext) {
+				session, _ := login(ctx)
+				clock.Advance(idle + time.Minute)
+				Expect(svc.Sweep(ctx)).To(Succeed())
+				Expect(
+					svc.NewRetrieve().
+						Where(auth.MatchKeys(session.Key)).
+						Exists(ctx, nil),
+				).To(BeTrue())
+				clock.Advance(idle / 4)
+				Expect(svc.Sweep(ctx)).To(Succeed())
+				Expect(
+					svc.NewRetrieve().
+						Where(auth.MatchKeys(session.Key)).
+						Exists(ctx, nil),
+				).To(BeFalse())
+			},
+		)
 		It("Should end idle sessions and keep active ones", func(ctx SpecContext) {
 			stale, staleToken := login(ctx)
 			clock.Advance(idle / 2)
 			fresh, freshToken := login(ctx)
-			clock.Advance(idle/2 + time.Second)
+			clock.Advance(idle*3/4 + time.Second)
 			Expect(svc.Sweep(ctx)).To(Succeed())
 			Expect(svc.NewRetrieve().Where(auth.MatchKeys(stale.Key)).Exists(ctx, nil)).
 				To(BeFalse())

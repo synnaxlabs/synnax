@@ -269,9 +269,11 @@ func (s *Service) Logout(ctx context.Context, keys ...SessionKey) error {
 		Exec(ctx, s.cfg.DB)
 }
 
-// Sweep ends every session that has been idle for the idle timeout.
+// Sweep ends every session whose stored activity is older than the idle timeout plus
+// a quarter. A node writes a session's activity up to a quarter period late, so a
+// younger stored mark may hide a session that is live on another node.
 func (s *Service) Sweep(ctx context.Context) error {
-	cutoff := s.now() - telem.TimeStamp(s.cfg.IdleTimeout)
+	cutoff := s.now() - telem.TimeStamp(s.cfg.IdleTimeout+s.cfg.IdleTimeout/4)
 	var all []Session
 	if err := s.NewRetrieve().Entries(&all).Exec(ctx, nil); err != nil {
 		return err
