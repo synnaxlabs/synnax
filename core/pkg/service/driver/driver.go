@@ -45,15 +45,6 @@ type Driver struct {
 		instances map[task.Key]instance
 		sync.RWMutex
 	}
-	// rackName is the rack's current name, kept up to date by the rack observer so
-	// the heartbeat never overwrites a rename.
-	rackName struct {
-		value string
-		// observed is true once the observer has set value, so the startup read
-		// cannot overwrite a newer name.
-		observed bool
-		sync.Mutex
-	}
 }
 
 // instance is a live task and the config hash it was built from. Start commands
@@ -98,21 +89,6 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 	}
 	cfg.L.Info("created Core driver rack", zap.Stringer("key", d.rack.Key))
 
-	disconnectRack := cfg.Rack.Observe().OnChange(d.handleRackChange)
-	ok(nil, io.NoFailCloserFunc(disconnectRack))
-	// Read the name after subscribing so a rename between the two is not lost.
-	var current rack.Rack
-	if err = cfg.Rack.NewRetrieve().
-		Where(rack.MatchKeys(d.rack.Key)).
-		Entry(&current).
-		Exec(ctx, nil); !ok(err, nil) {
-		return nil, err
-	}
-	d.rackName.Lock()
-	if !d.rackName.observed {
-		d.rackName.value = current.Name
-	}
-	d.rackName.Unlock()
 	d.startHeartbeat()
 	d.configureExistingTasks(ctx)
 	disconnect := cfg.Task.Observe().OnChange(d.handleTaskChange)
@@ -130,12 +106,22 @@ func (d *Driver) startHeartbeat() {
 		sCtx,
 		d.cfg.HeartbeatInterval,
 		func(ctx context.Context, _ time.Time) error {
-			d.rackName.Lock()
-			name := d.rackName.value
-			d.rackName.Unlock()
 			if err := d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				// The stored status carries the rack's current name, since a rename
+				// renames the status too.
+				key := rack.StatusKey(d.rack.Key)
+				name := d.rack.Name
+				var prev rack.Status
+				if err := d.cfg.Status.NewRetrieve[rack.StatusDetails]().
+					Where(status.MatchKeys[rack.StatusDetails](key)).
+					Entry(&prev).
+					Exec(ctx, tx); err == nil {
+					name = prev.Name
+				} else if !errors.Is(err, query.ErrNotFound) {
+					return err
+				}
 				return d.cfg.Status.NewWriter(tx).Set(ctx, &rack.Status{
-					Key:     rack.StatusKey(d.rack.Key),
+					Key:     key,
 					Name:    name,
 					Time:    telem.Now(),
 					Variant: status.VariantSuccess,
@@ -345,22 +331,6 @@ func (d *Driver) exec(ctx context.Context, t Task, cmd task.Command) {
 			zap.Stringer("command", cmd),
 			zap.Error(err),
 		)
-	}
-}
-
-// handleRackChange records a new name for the Driver's rack.
-func (d *Driver) handleRackChange(
-	_ context.Context,
-	reader gorp.TxReader[rack.Key, rack.Rack],
-) {
-	for ch := range reader {
-		if ch.Variant != change.VariantSet || ch.Key != d.rack.Key {
-			continue
-		}
-		d.rackName.Lock()
-		d.rackName.value = ch.Value.Name
-		d.rackName.observed = true
-		d.rackName.Unlock()
 	}
 }
 
