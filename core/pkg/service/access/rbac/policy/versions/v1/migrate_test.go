@@ -56,3 +56,30 @@ var _ = Describe("WorkspaceObjectsMigration", func() {
 		}))
 	})
 })
+
+var _ = Describe("NameMigration", func() {
+	migrated := func(ctx SpecContext, in v1.Policy) v1.Policy {
+		GinkgoHelper()
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		Expect(gorp.NewCreate[v1.Key, v1.Policy]().Entry(&in).Exec(ctx, db)).
+			To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "Policy",
+			Migrations: []migrate.Migration{v1.NameMigration},
+		})).To(Succeed())
+		var out v1.Policy
+		Expect(gorp.NewRetrieve[v1.Key, v1.Policy]().
+			Where(gorp.MatchKeys[v1.Key, v1.Policy](in.Key)).
+			Entry(&out).Exec(ctx, db)).To(Succeed())
+		return out
+	}
+	It("Should name a policy that has an empty name", func(ctx SpecContext) {
+		in := v1.Policy{Key: uuid.New()}
+		Expect(migrated(ctx, in).Name).To(Equal("Policy " + in.Key.String()[:8]))
+	})
+	It("Should keep the name of a named policy", func(ctx SpecContext) {
+		in := v1.Policy{Key: uuid.New(), Name: "Named"}
+		Expect(migrated(ctx, in).Name).To(Equal("Named"))
+	})
+})
