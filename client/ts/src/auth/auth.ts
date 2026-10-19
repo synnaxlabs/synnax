@@ -248,12 +248,14 @@ export class Client {
 
   /**
    * Ends the client's own session and forgets it and the credentials, so later requests
-   * fail until new credentials are set. A session the Core already ended counts as
-   * logged out.
+   * fail until new credentials are set. Waits for a login in flight, then ends its
+   * session too. A session the Core already ended counts as logged out.
    * @throws {Error} when the Core cannot be reached or rejects the delete for another
    * reason.
    */
   async logout(): Promise<void> {
+    // a login still in flight would open a session this logout never ends
+    if (!this.authState.authenticated) await this.authenticating;
     const { authState } = this;
     if (!authState.authenticated) return;
     const { key } = authState.session;

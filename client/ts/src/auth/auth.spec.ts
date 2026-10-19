@@ -189,6 +189,22 @@ describe("auth", () => {
       await admin.close();
     });
 
+    it("should end a session whose resume is still in flight", async () => {
+      const owner = makeClient();
+      await login(owner);
+      const token = owner.token;
+      if (token == null) throw new Error("expected a token");
+      const resumed = makeResumed(token);
+      const resuming = login(resumed);
+      await resumed.logout();
+      await resuming;
+      expect(resumed.authenticated).toBe(false);
+      const observer = makeClient();
+      const keys = (await observer.retrieveSessions()).map((s) => s.key);
+      expect(keys).not.toContain(owner.session?.key);
+      await observer.logout();
+    });
+
     it("should end each session when two logouts overlap", async () => {
       const client = makeClient();
       await login(client);
