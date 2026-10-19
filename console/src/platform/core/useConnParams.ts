@@ -38,8 +38,9 @@ const servesPage = ({ host, port, secure }: Session.Core.Core): boolean => {
  * The parameters a client needs to reach the selected Core. A password the user has
  * just entered logs in; otherwise the saved session resumes, from the keychain on
  * desktop and from the session cookie on a page the Core serves. Undefined while no
- * Core is selected and, on desktop, until the keychain has answered. Fields that only
- * describe the Core stay out, so renaming it keeps the connection.
+ * Core is selected and, on desktop, until the keychain has answered. A saved session
+ * outlives the client. Fields that only describe the Core stay out, so renaming it
+ * keeps the connection.
  */
 export const useConnParams = (): SynnaxParams | undefined => {
   const core = Session.Core.useSelectSelected();
@@ -73,9 +74,11 @@ export const useConnParams = (): SynnaxParams | undefined => {
       username,
       password: password === "" ? undefined : password,
     };
-    if (Session.Runtime.ENGINE !== "tauri")
-      return { ...params, sessionCookie: servesPage(core) };
+    if (Session.Runtime.ENGINE !== "tauri") {
+      const cookie = servesPage(core);
+      return { ...params, sessionCookie: cookie, sessionPersistent: cookie };
+    }
     if (stored == null || stored.account !== account) return undefined;
-    return { ...params, token: stored.token };
+    return { ...params, token: stored.token, sessionPersistent: true };
   }, [core, stored, account]);
 };

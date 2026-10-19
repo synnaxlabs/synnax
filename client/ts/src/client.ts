@@ -63,6 +63,8 @@ export const synnaxParamsZ = z.object({
    * browser client served by the Core itself.
    */
   sessionCookie: z.boolean().default(false),
+  /** Whether the session outlives the client, for a caller that saves its token. */
+  sessionPersistent: z.boolean().default(false),
   connectivityPollFrequency: TimeSpan.z.default(TimeSpan.seconds(30)),
   clockSkewThreshold: TimeSpan.z.default(TimeSpan.seconds(1)),
   secure: z.boolean().default(false),
@@ -99,11 +101,13 @@ const authorityOf = ({
   password,
   token,
   sessionCookie,
+  sessionPersistent,
 }: ParsedSynnaxParams): auth.Authority => ({
   credentials:
     username != null && password != null ? { username, password } : undefined,
   token,
   cookie: sessionCookie,
+  persistent: sessionPersistent,
 });
 
 /**
@@ -156,6 +160,8 @@ export default class Synnax extends framer.Client {
    * @param props.token - The token of an earlier login to resume instead.
    * @param props.sessionCookie - Whether the Core keeps the token in a cookie the page
    * never sees, for a browser client the Core serves.
+   * @param props.sessionPersistent - Whether closing the client leaves its session open,
+   * for a caller that saves the session token.
    * @param props.connectivityPollFrequency - Heartbeat cadence while the connection is
    * healthy. Defaults to 30 seconds.
    * @param props.secure - Whether to connect to the cluster using TLS. The cluster must

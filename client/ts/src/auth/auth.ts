@@ -90,6 +90,8 @@ export interface Authority {
   token?: string;
   /** Whether the Core keeps the token in a cookie the client never sees. */
   cookie?: boolean;
+  /** Whether the session outlives the client, so closing the client leaves it open. */
+  persistent?: boolean;
 }
 
 /** Login outcome hooks. The connection machine is the sole consumer. */
@@ -105,6 +107,7 @@ export class Client {
   private credentials?: Credentials;
   private resumeToken?: string;
   private readonly cookie: boolean;
+  private readonly persistent: boolean;
   private readonly observer: Observer;
   private authState: AuthState = { authenticated: false };
   authenticating: Promise<Error | null> | undefined;
@@ -122,6 +125,7 @@ export class Client {
       authority.credentials == null ? undefined : { ...authority.credentials };
     this.resumeToken = authority.token;
     this.cookie = authority.cookie ?? false;
+    this.persistent = authority.persistent ?? false;
     this.observer = observer;
   }
 
@@ -269,11 +273,11 @@ export class Client {
 
   /**
    * Lets go of the session when the client closes. A session this client opened with
-   * credentials ends; one resumed from a saved token or cookie stays open for whoever
-   * saved it.
+   * credentials ends unless it is persistent; one resumed from a saved token or cookie
+   * stays open for whoever saved it.
    */
   async release(): Promise<void> {
-    if (this.ownsSession) return await this.logout();
+    if (this.ownsSession && !this.persistent) return await this.logout();
     this.authState = { authenticated: false };
     this.authenticating = undefined;
   }

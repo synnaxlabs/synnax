@@ -48,6 +48,7 @@ describe("Core.useConnParams", () => {
       host: "example.com",
       port: 9095,
       sessionCookie: true,
+      sessionPersistent: true,
     });
     expect(result.current?.password).toBeUndefined();
     expect(result.current?.token).toBeUndefined();
@@ -57,6 +58,7 @@ describe("Core.useConnParams", () => {
     pinLocationOrigin("http://localhost:5173");
     const { result } = await renderParams();
     expect(result.current?.sessionCookie).toBe(false);
+    expect(result.current?.sessionPersistent).toBe(false);
   });
 
   it("should ask for a cookie from a secure Core on the page's default port", async () => {
@@ -96,6 +98,7 @@ describe("Core.useConnParams", () => {
     expect(result.current).toBeUndefined();
     await waitFor(() => expect(result.current?.token).toBe("sys_saved"));
     expect(result.current?.sessionCookie).toBeUndefined();
+    expect(result.current?.sessionPersistent).toBe(true);
     expect(result.current).not.toHaveProperty("name");
     expect(reads).toEqual([{ account: "example.com:9095" }]);
   });

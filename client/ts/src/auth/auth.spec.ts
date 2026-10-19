@@ -338,6 +338,28 @@ describe("auth", () => {
       expect(sessions.map((s) => s.key)).not.toContain(key);
     });
 
+    it("should leave a persistent session open when released", async () => {
+      const transport = new Transport(
+        new url.URL({
+          host: TEST_CLIENT_PARAMS.host,
+          port: Number(TEST_CLIENT_PARAMS.port),
+        }),
+      );
+      const client = new auth.Client(transport.unary, {
+        credentials: TEST_CREDENTIALS,
+        persistent: true,
+      });
+      transport.use(client.middleware());
+      await login(client);
+      const token = client.token;
+      if (token == null) throw new Error("expected a token");
+      await client.release();
+      const resumed = makeResumed(token);
+      await login(resumed);
+      expect(resumed.authenticated).toBe(true);
+      await resumed.logout();
+    });
+
     it("should leave a resumed session open when released", async () => {
       const owner = makeClient();
       await login(owner);

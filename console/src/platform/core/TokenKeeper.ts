@@ -25,7 +25,7 @@ export const TokenKeeper = (): null => {
   const core = Session.Core.useSelectSelected();
   const handleError = Status.useErrorHandler();
   const rejected = status.variant === "error" && status.details.reason === "auth";
-  const token = status.variant === "success" ? client?.auth.token : undefined;
+  const token = status.details.authenticated ? client?.auth.token : undefined;
   useEffect(() => {
     if (core == null || Session.Runtime.ENGINE !== "tauri") return;
     if (rejected)
