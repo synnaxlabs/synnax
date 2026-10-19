@@ -66,7 +66,8 @@ func resolveStatus(t *Task, provided *Status, existed bool) *Status {
 
 // healStatus returns the task's effective status, writing stat first if no row exists.
 // Tasks are re-created on every scan cycle, so on a no-op update the placeholder must
-// not overwrite a status the driver has already reported.
+// not overwrite a status the driver has already reported. An existing row takes the
+// task's current name.
 func (w Writer) healStatus(ctx context.Context, stat *Status) (*Status, error) {
 	var existing Status
 	err := gorp.NewRetrieve[string, Status]().
@@ -74,6 +75,12 @@ func (w Writer) healStatus(ctx context.Context, stat *Status) (*Status, error) {
 		Entry(&existing).
 		Exec(ctx, w.tx)
 	if err == nil {
+		if existing.Name != stat.Name {
+			if err = w.status.Rename(ctx, existing.Key, stat.Name); err != nil {
+				return nil, err
+			}
+			existing.Name = stat.Name
+		}
 		return &existing, nil
 	}
 	if !errors.Is(err, query.ErrNotFound) {
@@ -198,6 +205,31 @@ func (w Writer) CreateMany(ctx context.Context, tasks *[]Task) error {
 		}
 	}
 	return nil
+}
+
+// Rename renames the task with the given key and its status, keeping every other field,
+// including its config. It returns query.ErrNotFound if no task with the key exists and
+// a validation error if name is empty.
+func (w Writer) Rename(ctx context.Context, key Key, name string) error {
+	v := validate.New("task.task")
+	v.NotEmptyString("name", name)
+	if err := v.Error(); err != nil {
+		return err
+	}
+	if err := w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Task](key)).
+		Change(func(_ gorp.Context, t Task) Task {
+			t.Name = name
+			return t
+		}).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	// A missing status row is valid: the next Create heals it.
+	return errors.Skip(
+		w.status.Rename(ctx, OntologyID(key).String(), name),
+		query.ErrNotFound,
+	)
 }
 
 // Delete deletes the task with the given key, its config record, and its associated
