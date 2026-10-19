@@ -50,11 +50,12 @@ from x.color import Color
 from x.interop import ArrayOperators
 from x.lists import check_for_none, normalize, override
 from x.params import require_named_params
+from x.uuid import NIL
 
 RANGE_SET_CHANNEL = "sy_range_set"
 
 # Pydantic declares BaseModel.__getattr__ only at runtime.
-_model_getattr: Callable[[BaseModel, str], object] = getattr(BaseModel, "__getattr__")
+_model_getattr: Callable[[BaseModel, str], object] = vars(BaseModel)["__getattr__"]
 
 
 class _InternalScopedChannel(ArrayOperators, channel.Payload):
@@ -248,6 +249,8 @@ class Range(Payload):
     """For setting and resolving aliases."""
     _cache: dict[channel.Key, _InternalScopedChannel] = PrivateAttr(dict())
     """A writer for creating child ranges"""
+    _scoped: dict[channel.Key | str, ScopedChannel] = PrivateAttr(dict())
+    """Resolved channel queries, so each name or key is retrieved once."""
     _cached_client: Client | None = PrivateAttr(None)
     _cached_tasks: TaskClient | None = PrivateAttr(None)
     _cached_ontology: OntologyClient | None = PrivateAttr(None)
@@ -256,7 +259,7 @@ class Range(Payload):
         self,
         name: str,
         time_range: TimeRange,
-        key: UUID = UUID(int=0),
+        key: UUID = NIL,
         color: str | None = "",
         parent: Range | Payload | None = None,
         *,
@@ -327,16 +330,25 @@ class Range(Payload):
             return cast(ScopedChannel, _model_getattr(self, query))
         except AttributeError:
             pass
+        scoped = self._scoped.get(query)
+        if scoped is not None:
+            return scoped
         channels = self._channel_retriever.retrieve(query)
         aliases = self._aliaser.resolve([query])
         channels.extend(self._channel_retriever.retrieve(list(aliases.values())))
-        return self._get_scoped_channel(channels, query)
+        scoped = self._get_scoped_channel(channels, query)
+        self._scoped[query] = scoped
+        return scoped
 
     def __getitem__(self, name: str | channel.Key) -> ScopedChannel:
-        if isinstance(name, channel.Key):
+        if not isinstance(name, channel.Key):
+            return self.__getattr__(name)
+        scoped = self._scoped.get(name)
+        if scoped is None:
             channels = self._channel_retriever.retrieve(name)
-            return self._get_scoped_channel(channels, name.__str__())
-        return self.__getattr__(name)
+            scoped = self._get_scoped_channel(channels, name.__str__())
+            self._scoped[name] = scoped
+        return scoped
 
     def _splice_cached(
         self, channels: list[channel.Payload]
@@ -427,6 +439,7 @@ class Range(Payload):
             else:
                 corrected[ch] = alias
         self._aliaser.set(corrected)
+        self._scoped.clear()
 
     def to_payload(self) -> Payload:
         return Payload(
@@ -466,7 +479,7 @@ class Range(Payload):
         name: str,
         time_range: TimeRange,
         color: str = "",
-        key: Key = UUID(int=0),
+        key: Key = NIL,
     ) -> Range:
         return self._client.create(
             Range(name=name, time_range=time_range, color=color, key=key, parent=self)
@@ -531,7 +544,7 @@ class Client:
         color: str = "",
         retrieve_if_name_exists: bool = False,
         parent: Range | Payload | None = None,
-        key: Key = UUID(int=0),
+        key: Key = NIL,
     ) -> Range:
         """Creates a named range spanning a region of time. This range is persisted
         to the cluster and is visible to all clients.
@@ -585,7 +598,7 @@ class Client:
         self,
         ranges: Range | list[Range] | None = None,
         *,
-        key: Key = UUID(int=0),
+        key: Key = NIL,
         name: str = "",
         time_range: TimeRange | None = None,
         color: str = "",

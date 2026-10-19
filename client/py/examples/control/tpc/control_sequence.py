@@ -23,6 +23,7 @@ Terminal 2 - Run the control sequence:
 
 import dataclasses
 import time
+from collections.abc import Callable
 
 import numpy as np
 from scipy.signal import find_peaks
@@ -41,6 +42,11 @@ from examples.control.tpc.common import (
     PRESS_ISO_CMD,
     PRESS_PT_1,
 )
+
+
+def above(channel: str, target: float) -> Callable[[sy.Controller], bool]:
+    """Returns a condition that holds once the channel's value exceeds target."""
+    return lambda c: bool(c[channel] > target)
 
 
 @dataclasses.dataclass
@@ -154,7 +160,7 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
             while True:
                 log(ctrl, f"Pressing L-Stand to {curr_target} PSI")
                 ctrl[SUPPLY_CMD] = True
-                ctrl.wait_until(lambda c: c[FUEL_TANK_PT] > curr_target)
+                ctrl.wait_until(above(FUEL_TANK_PT, curr_target))
                 ctrl[SUPPLY_CMD] = False
                 curr_target += params.press_1_step
                 curr_target = min(curr_target, params.l_stand_press_target)
@@ -186,7 +192,7 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
             while True:
                 log(ctrl, f"Pressing Press Tank to {curr_target} PSI")
                 ctrl[SUPPLY_CMD] = True
-                ctrl.wait_until(lambda c: c[PRESS_TANK_PT] > curr_target)
+                ctrl.wait_until(above(PRESS_TANK_PT, curr_target))
                 ctrl[SUPPLY_CMD] = False
                 curr_target += params.press_2_step
                 curr_target = min(curr_target, params.scuba_press_target)

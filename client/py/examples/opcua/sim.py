@@ -125,7 +125,9 @@ async def monitor_command_changes(
         for i, cmd in enumerate(commands):
             current_value = await cmd.read_value()
             if command_values[i] != current_value:
-                timestamp = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
+                timestamp = (
+                    datetime.datetime.now().astimezone().strftime("%H:%M:%S.%f")[:-3]
+                )
                 print(f"[{timestamp}] COMMAND RECEIVED -> command_{i}: {current_value}")
                 command_values[i] = current_value
         await asyncio.sleep(0.1)  # Check every 100ms

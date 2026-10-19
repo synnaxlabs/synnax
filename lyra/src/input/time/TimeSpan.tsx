@@ -48,7 +48,7 @@ const useElapsed = (since: number | undefined): string | null => {
 };
 
 /**
- * A duration input. The value is nanoseconds. At rest it reads `2h 30m 12s`; clicking
+ * A duration input. The value is nanoseconds. At rest it reads `2h 30min 12s`; clicking
  * opens an editor that accepts any duration the grammar does (`30s`, `1:30:00`,
  * `1.5h`) and commits on Enter or a click outside. Unlisted props go to the trigger.
  */
@@ -95,9 +95,9 @@ export const TimeSpan = ({
       initialText={elapsed == null ? formatted : ""}
       suggest={suggest}
       onCommit={handleCommit}
-      hint="Try 2h 30m, 1:30:00, 90, or an hour and a half"
+      hint="Try 2h 30min, 1:30:00, 90, or an hour and a half"
       unreadMessage="Not a duration"
-      fieldPlaceholder={elapsed ?? "2h 30m"}
+      fieldPlaceholder={elapsed ?? "2h 30min"}
       {...rest}
     >
       {({ value: span, reading }) => (

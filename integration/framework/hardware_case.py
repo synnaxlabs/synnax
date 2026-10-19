@@ -13,7 +13,7 @@ Designed for multiple inheritance with TestCase subclasses.
 """
 
 import synnax as sy
-from framework.models import SynnaxConnection
+from framework.models import DEFAULT_CONNECTION, SynnaxConnection
 from framework.test_case import TestCase
 
 
@@ -27,7 +27,7 @@ class HardwareCase(TestCase):
 
     def __init__(
         self,
-        synnax_connection: SynnaxConnection = SynnaxConnection(),
+        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
         *,
         name: str,
         **params: object,
