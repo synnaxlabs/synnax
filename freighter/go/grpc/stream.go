@@ -189,7 +189,25 @@ type ServerStream[RQ, RQT, RS, RST freighter.Payload] struct {
 	recv               chan recvResult[RQT]
 	// recvErr is the error that ended the transport's receive side. Every later
 	// Receive returns it again.
-	recvErr error
+	recvErr  error
+	sendOnce sync.Once
+	sendReq  chan RST
+	// sendRes holds one result so the send loop never blocks on a Send that stopped
+	// waiting.
+	sendRes chan error
+}
+
+// sendLoop writes messages to the transport for Send, so a Send blocked by a peer
+// that stopped reading can return when the handler's context ends.
+func (s *ServerStream[RQ, RQT, RS, RST]) sendLoop() {
+	for {
+		select {
+		case msg := <-s.sendReq:
+			s.sendRes <- s.internal.Send(msg)
+		case <-s.ctx.Done():
+			return
+		}
+	}
 }
 
 // recvResult is one message the receive loop pulled off the transport.
@@ -240,13 +258,32 @@ func (s *ServerStream[RQ, RQT, RS, RST]) Receive() (req RQ, err error) {
 	}
 }
 
-// Send implements the freighter.ClientStream interface.
+// Send implements the freighter.ServerStream interface. It returns the handler
+// context's cause when that context ends before the transport accepts the message.
 func (s *ServerStream[RQ, RQT, RS, RST]) Send(res RS) error {
+	if s.ctx.Err() != nil {
+		return context.Cause(s.ctx)
+	}
 	tRes, err := s.responseTranslator.Forward(s.ctx, res)
 	if err != nil {
 		return err
 	}
-	return translateGRPCError(s.internal.Send(tRes))
+	s.sendOnce.Do(func() {
+		s.sendReq = make(chan RST)
+		s.sendRes = make(chan error, 1)
+		go s.sendLoop()
+	})
+	select {
+	case s.sendReq <- tRes:
+	case <-s.ctx.Done():
+		return context.Cause(s.ctx)
+	}
+	select {
+	case err := <-s.sendRes:
+		return translateGRPCError(err)
+	case <-s.ctx.Done():
+		return context.Cause(s.ctx)
+	}
 }
 
 // ClientStream wraps a grpc stream to implement the freighter.ClientStream interface.
