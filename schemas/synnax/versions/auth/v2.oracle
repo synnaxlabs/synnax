@@ -12,6 +12,7 @@ import "schemas/x/versions/telem/v0"
 
 Method enum {
     password = "password"
+    api_key  = "api_key"
 
     @doc value "names an authentication method."
 }

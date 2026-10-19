@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -34,6 +35,7 @@ type (
 
 type Service struct {
 	access *rbac.Service
+	auth   *svcauth.Service
 	rack   *rack.Service
 	device *device.Service
 	task   *task.Service
@@ -51,6 +53,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		task:   cfg.Service.Task,
 		status: cfg.Service.Status,
 		access: cfg.Service.RBAC,
+		auth:   cfg.Service.Auth,
 	}, nil
 }
 
@@ -221,5 +224,6 @@ func (s *Service) Delete(
 	if err := s.task.NewWriter(tx).DeleteByRacks(ctx, req.Keys...); err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, nil
+	return struct{}{}, s.auth.NewWriter(tx).
+		DeleteFor(ctx, rack.OntologyIDs(req.Keys)...)
 }

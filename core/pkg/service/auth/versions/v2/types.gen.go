@@ -22,13 +22,16 @@ import (
 // Method names an authentication method.
 type Method string
 
-const MethodPassword Method = "password"
+const (
+	MethodPassword Method = "password"
+	MethodAPIKey   Method = "api_key"
+)
 
 // IsValid reports whether m is one of the defined Method
 // values.
 func (m Method) IsValid() bool {
 	switch m {
-	case MethodPassword:
+	case MethodPassword, MethodAPIKey:
 		return true
 	default:
 		return false

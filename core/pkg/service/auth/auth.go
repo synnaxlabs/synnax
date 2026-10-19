@@ -10,7 +10,7 @@
 // Package auth logs subjects in and keeps their sessions. A subject presents a [Proof];
 // the [Authenticator] for its method checks it; the [Service] then issues a session
 // token that every later request carries. Each method lives in its own package, such as
-// password.
+// password and apikey.
 package auth
 
 import (
@@ -35,6 +35,8 @@ func (p Proof) Method() (Method, error) {
 	switch p.Variant.(type) {
 	case PasswordProof:
 		return MethodPassword, nil
+	case ApiKeyProof:
+		return MethodAPIKey, nil
 	}
 	return "", errors.Wrapf(
 		validate.ErrValidation,
