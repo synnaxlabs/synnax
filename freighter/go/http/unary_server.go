@@ -129,9 +129,9 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx fiber.Ctx) error {
 			return oCtx, err
 		}),
 	)
-	setResponseCtx(fCtx, oMD)
 	fErr := errors.Encode(fCtx.RequestCtx(), err, false)
 	if fErr.Type == errors.TypeNil {
+		setResponseCtx(fCtx, oMD)
 		return encodeAndWrite(fCtx, encoder, res)
 	}
 	errEncoder, ok := s.resolveErrorEncoder(fCtx)

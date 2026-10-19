@@ -422,11 +422,12 @@ func (s *Service) Logout(ctx context.Context, keys ...SessionKey) error {
 func (s *Service) Sweep(ctx context.Context) error {
 	now := s.now()
 	cutoff := now - telem.TimeStamp(s.cfg.IdleTimeout+s.cfg.IdleTimeout/4)
+	// collected before the read, so a hold registered after it is never ended here
+	held := set.New(s.held()...)
 	var all []Session
 	if err := s.NewRetrieve().Entries(&all).Exec(ctx, nil); err != nil {
 		return err
 	}
-	held := set.New(s.held()...)
 	keep := make(set.Set[SessionKey], len(all))
 	marks := make(map[SessionKey]telem.TimeStamp)
 	var idle []SessionKey
