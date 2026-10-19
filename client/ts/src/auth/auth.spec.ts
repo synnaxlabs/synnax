@@ -352,6 +352,28 @@ describe("auth", () => {
       );
     });
 
+    it("should keep a newer session when a request on an older one fails", async () => {
+      const client = makeClient();
+      await login(client);
+      let newer: string | undefined;
+      let failed = false;
+      await client.middleware()(DUMMY_CTX, async (ctx) => {
+        if (failed) return ctx;
+        failed = true;
+        let rejected = false;
+        await client.middleware()(DUMMY_CTX, async (inner) => {
+          if (rejected) return inner;
+          rejected = true;
+          throw new InvalidTokenError();
+        });
+        newer = client.token;
+        throw new SessionEndedError();
+      });
+      expect(newer).toBeDefined();
+      expect(client.token).toEqual(newer);
+      await client.logout();
+    });
+
     it("should decode a session ended error", () => {
       expect(
         SessionEndedError.matches(

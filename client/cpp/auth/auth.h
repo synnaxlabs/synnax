@@ -158,8 +158,11 @@ class Middleware final : public freighter::PassthroughMiddleware {
         return this->token;
     }
 
-    void forget() {
+    /// Clears the session only if it still holds token, so a late failure from an
+    /// older session does not erase a newer one.
+    void forget(const std::string &token) {
         std::lock_guard lock(mu);
+        if (this->token != token) return;
         this->authenticated = false;
         this->token.clear();
         this->session = Session();
@@ -219,9 +222,10 @@ public:
     x::errors::Error renew() {
         if (!this->authenticated)
             if (const auto err = this->authenticate()) return err;
+        const auto sent = this->current_token();
         google::protobuf::Empty req;
         auto [_, err] = renew_client->send("/auth/session/renew", req);
-        if (err.matches(ENDED_ERRORS)) this->forget();
+        if (err.matches(ENDED_ERRORS)) this->forget(sent);
         return err;
     }
 
@@ -230,18 +234,12 @@ public:
     /// ended counts as logged out.
     x::errors::Error logout() {
         if (!this->authenticated) return x::errors::NIL;
-        const auto key = this->current_session().key;
+        const auto sent = this->current_token();
         grpc::auth::SessionDeleteRequest req;
-        req.add_keys(key);
+        req.add_keys(this->current_session().key);
         auto [_, err] = delete_client->send("/auth/session/delete", req);
         if (err && !err.matches(ENDED_ERRORS)) return err;
-        std::lock_guard lock(mu);
-        // A request that re-logged in while the delete was in flight holds a session
-        // this logout did not end.
-        if (this->session.key != key) return x::errors::NIL;
-        this->authenticated = false;
-        this->token.clear();
-        this->session = Session();
+        this->forget(sent);
         return x::errors::NIL;
     }
 
@@ -251,16 +249,17 @@ public:
     operator()(freighter::Context context, freighter::Next &next) override {
         if (!this->authenticated)
             if (const auto err = this->authenticate()) return {context, err};
-        context.set(HEADER_KEY, HEADER_VALUE_PREFIX + this->current_token());
+        const auto sent = this->current_token();
+        context.set(HEADER_KEY, HEADER_VALUE_PREFIX + sent);
         auto [res_ctx, err] = next(context);
         // A session ending under an open stream closes that stream for good, so it
         // goes back to the caller to reopen.
         if (err.matches(ERR_SESSION_ENDED)) {
-            this->forget();
+            this->forget(sent);
             return {res_ctx, err};
         }
         if (err.matches(RETRY_ON_ERRORS)) {
-            this->authenticated = false;
+            this->forget(sent);
             return this->operator()(context, next);
         }
         return {res_ctx, err};

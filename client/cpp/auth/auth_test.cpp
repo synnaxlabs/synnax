@@ -132,9 +132,49 @@ TEST(TestAuth, SessionEndedReturnsWithoutRetry) {
     };
     mock_client.use(mw);
     auto v = 1;
-    auto [r, err] = mock_client.send("", v);
-    ASSERT_OCCURRED_AS(err, ERR_SESSION_ENDED);
+    ASSERT_OCCURRED_AS_P(mock_client.send("", v), ERR_SESSION_ENDED);
     ASSERT_EQ(create->requests.size(), 1);
+    ASSERT_NIL_P(mock_client.send("", v));
+    ASSERT_EQ(create->requests.size(), 2);
+}
+
+/// @brief logs in again once while a request is in flight, then fails that request as
+/// if its older session had ended.
+class ReloginThenEnd final : public freighter::PassthroughMiddleware {
+    auth::Middleware &mw;
+    bool done = false;
+
+public:
+    explicit ReloginThenEnd(auth::Middleware &mw): mw(mw) {}
+
+    std::pair<freighter::Context, x::errors::Error>
+    operator()(freighter::Context context, freighter::Next &next) override {
+        if (this->done) return next(context);
+        this->done = true;
+        if (const auto err = this->mw.authenticate()) return {context, err};
+        return {context, x::errors::Error(ERR_SESSION_ENDED, "")};
+    }
+};
+
+/// @brief it should keep a newer session when a request on an older one fails.
+TEST(TestAuth, StaleFailureKeepsNewerSession) {
+    auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<
+        grpc::auth::SessionCreateRequest,
+        grpc::auth::SessionCreateResponse>>(
+        std::vector{session_response("abc"), session_response("def")},
+        std::vector<x::errors::Error>{x::errors::NIL, x::errors::NIL}
+    );
+    auto *create = mock_create_client.get();
+    const auto mw = middleware_with(std::move(mock_create_client));
+    auto mock_client = freighter::mock::UnaryClient<int, int>{
+        {1, 1},
+        {x::errors::NIL, x::errors::NIL}
+    };
+    mock_client.use(mw);
+    mock_client.use(std::make_shared<ReloginThenEnd>(*mw));
+    auto v = 1;
+    ASSERT_OCCURRED_AS_P(mock_client.send("", v), ERR_SESSION_ENDED);
+    ASSERT_EQ(create->requests.size(), 2);
     ASSERT_NIL_P(mock_client.send("", v));
     ASSERT_EQ(create->requests.size(), 2);
 }

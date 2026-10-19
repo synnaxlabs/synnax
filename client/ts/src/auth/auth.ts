@@ -185,6 +185,8 @@ export class Client {
   /**
    * Reports activity on the session so it does not idle out, and returns the session
    * the Core sees.
+   * @throws {AuthError} when the login before the request fails.
+   * @throws {SessionEndedError} when the session ends and the retries run out.
    */
   async renew(): Promise<Session> {
     const generation = this.generation;
@@ -211,6 +213,9 @@ export class Client {
   /**
    * Lists sessions: the caller's own by default, or those of the given subjects when
    * the caller may retrieve them.
+   * @throws {AccessDeniedError} when the caller may not retrieve another subject's
+   * sessions.
+   * @throws {AuthError} when the login before the request fails.
    */
   async retrieveSessions(subjects?: ontology.ID[]): Promise<Session[]> {
     const res = await this.client.send(
@@ -222,7 +227,11 @@ export class Client {
     return res.sessions;
   }
 
-  /** Ends the given sessions. Unknown keys are ignored. */
+  /**
+   * Ends the given sessions. Unknown keys are ignored.
+   * @throws {AccessDeniedError} when the caller may not end another subject's sessions.
+   * @throws {AuthError} when the login before the request fails.
+   */
   async deleteSessions(...keys: SessionKey[]): Promise<void> {
     await this.client.send(SESSION_DELETE_ENDPOINT, { keys }, deleteReqZ, emptyResZ);
   }
@@ -230,6 +239,8 @@ export class Client {
   /**
    * Ends the client's own session and forgets it. A later request logs in again. A
    * session the Core already ended counts as logged out.
+   * @throws {Error} when the Core cannot be reached or rejects the delete for another
+   * reason.
    */
   async logout(): Promise<void> {
     const { authState } = this;
