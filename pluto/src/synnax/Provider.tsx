@@ -12,7 +12,7 @@ import { context } from "@synnaxlabs/lyra/context";
 import { useCombinedStateAndRef } from "@synnaxlabs/lyra/hooks";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { Status } from "@synnaxlabs/lyra/status";
-import { migrate } from "@synnaxlabs/x";
+import { migrate, record } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -153,10 +153,20 @@ export const Provider = ({
   // the cue for latched error boundaries to try again.
   const [resetKey, setResetKey] = useState(0);
 
+  // The worker joins the page client's session instead of opening its own, so ending
+  // the page's session ends the worker's access too.
+  const token = state.status.details.authenticated
+    ? state.client?.auth.token
+    : undefined;
+  const workerParams = useMemo((): SynnaxParams | null => {
+    if (connParams == null || token == null) return null;
+    const shared = record.omit(connParams, "username", "password", "token");
+    return token === "" ? { ...shared, sessionCookie: true } : { ...shared, token };
+  }, [connParams, token]);
   const { path } = Aether.useUnidirectional({
     type: synnax.Provider.TYPE,
     schema: synnax.Provider.stateZ,
-    state: { props: connParams ?? null },
+    state: { props: workerParams },
   });
 
   const addStatus = Status.useAdder();

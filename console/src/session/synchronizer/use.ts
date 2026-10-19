@@ -59,12 +59,15 @@ export const use = <S, A extends Action>(
     const reconcile = (): void => {
       const gen = generation;
       handleError(async () => {
-        for (const synchronizer of entriesRef.current)
+        for (const synchronizer of entriesRef.current) {
+          // a client change or cold reset ends the pass; its client may be closed
+          if (gen !== generation) return;
           try {
             await synchronizer.reconcile?.(params);
           } catch (err) {
             console.error(`${synchronizer.name} reconcile failed`, err);
           }
+        }
         if (gen === generation) setVerified(true);
       });
     };
