@@ -112,6 +112,7 @@ var _ = Describe("ServiceConfig", func() {
 var _ = Describe("Service", func() {
 	const idle = time.Hour
 	var (
+		db       *gorp.DB
 		svc      *auth.Service
 		pw       *password.Service
 		clock    *xtime.Fake
@@ -124,7 +125,7 @@ var _ = Describe("Service", func() {
 	}
 	BeforeEach(func(ctx SpecContext) {
 		// Every spec gets its own db so sweeps and clocks never cross.
-		db := DeferClose(gorp.Wrap(memkv.New()))
+		db = DeferClose(gorp.Wrap(memkv.New()))
 		pw = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 		clock = xtime.NewFake(time.Unix(1_700_000_000, 0))
 		svc = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
@@ -356,12 +357,18 @@ var _ = Describe("Service", func() {
 				},
 			)
 			It("Should run in the caller's transaction", func(ctx SpecContext) {
-				_, token := login(ctx)
+				session, token := login(ctx)
 				tx := db.OpenTx()
 				Expect(svc.NewWriter(tx).DeleteFor(ctx, alice)).To(Succeed())
+				Expect(svc.NewRetrieve().Where(auth.MatchKeys(session.Key)).
+					Exists(ctx, tx)).To(BeFalse())
+				Expect(pw.NewRetrieve().Where(password.MatchSubjects(alice)).
+					Exists(ctx, tx)).To(BeFalse())
 				MustSucceed(svc.Authenticate(ctx, token))
 				Expect(tx.Close()).To(Succeed())
 				MustSucceed(svc.Authenticate(ctx, token))
+				Expect(pw.NewRetrieve().Where(password.MatchSubjects(alice)).
+					Exists(ctx, nil)).To(BeTrue())
 			})
 		})
 		Describe("RevokeCredential", func() {
