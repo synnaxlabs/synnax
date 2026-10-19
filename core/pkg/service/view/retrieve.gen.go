@@ -14,7 +14,6 @@ package view
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/gorp"
@@ -72,17 +71,6 @@ func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 func MatchKeys(keys ...Key) Filter {
 	return func(_ Retrieve) gorp.Filter[Key, View] {
 		return gorp.MatchKeys[Key, View](keys...)
-	}
-}
-
-// MatchTypes returns a filter for
-// views whose Type matches any of the
-// provided values.
-func MatchTypes(vals ...string) Filter {
-	return func(r Retrieve) gorp.Filter[Key, View] {
-		return gorp.Match(func(_ gorp.Context, e *View) (bool, error) {
-			return lo.Contains(vals, e.Type), nil
-		})
 	}
 }
 

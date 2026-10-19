@@ -35,7 +35,7 @@ const schema = z.object({
 const Fixture = ({ hasLabels }: { hasLabels: label.Key[] }): ReactElement => {
   const methods = Form.use({ schema, values: { query: { hasLabels } } });
   return (
-    <View.Frame resourceType="label" icon="Label">
+    <View.Frame resourceType="range" icon="Label">
       <Form.Form<typeof schema> {...methods}>
         <Label.Filter.Chips />
         <Form.Field<label.Key[]> path="query.hasLabels" showLabel={false}>
@@ -76,7 +76,7 @@ describe("Label.Filter.Chips", () => {
   it("should render nothing when no labels are selected", async () => {
     const { wrapper } = await createConsoleWrapper({ client });
     render(<Fixture hasLabels={[]} />, { wrapper });
-    await waitFor(() => expect(screen.getByText("All labels")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("All ranges")).toBeTruthy());
     expect(screen.queryByText("Labels")).toBeNull();
   });
 });
