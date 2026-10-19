@@ -125,6 +125,30 @@ TEST(TestAuth, LoginRetry) {
     ASSERT_EQ(r, 1);
 }
 
+/// @brief it should return a session-ended error instead of retrying, and log in again
+/// on the next request.
+TEST(TestAuth, SessionEndedReturnsWithoutRetry) {
+    auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<
+        grpc::auth::SessionCreateRequest,
+        grpc::auth::SessionCreateResponse>>(
+        std::vector{session_response("abc"), session_response("def")},
+        std::vector<x::errors::Error>{x::errors::NIL, x::errors::NIL}
+    );
+    auto *create = mock_create_client.get();
+    const auto mw = middleware_with(std::move(mock_create_client));
+    auto mock_client = freighter::mock::UnaryClient<int, int>{
+        {1, 1},
+        {x::errors::Error(ERR_SESSION_ENDED, ""), x::errors::NIL}
+    };
+    mock_client.use(mw);
+    auto v = 1;
+    auto [r, err] = mock_client.send("", v);
+    ASSERT_OCCURRED_AS(err, ERR_SESSION_ENDED);
+    ASSERT_EQ(create->requests.size(), 1);
+    ASSERT_NIL_P(mock_client.send("", v));
+    ASSERT_EQ(create->requests.size(), 2);
+}
+
 /// @brief it should end the session on logout and send the token with the request.
 TEST(TestAuth, Logout) {
     auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<

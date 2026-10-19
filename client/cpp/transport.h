@@ -19,7 +19,6 @@
 #include "client/cpp/rack/rack.h"
 #include "client/cpp/ranger/ranger.h"
 #include "client/cpp/status/status.h"
-#include "client/cpp/view/view.h"
 
 namespace synnax::details {
 struct Transport {
@@ -56,9 +55,6 @@ struct Transport {
     std::shared_ptr<arc::CreateClient> arc_create;
     std::shared_ptr<arc::RetrieveClient> arc_retrieve;
     std::shared_ptr<arc::DeleteClient> arc_delete;
-    std::unique_ptr<view::CreateClient> view_create;
-    std::unique_ptr<view::RetrieveClient> view_retrieve;
-    std::unique_ptr<view::DeleteClient> view_delete;
     std::unique_ptr<connection::CheckClient> connectivity_check;
     std::shared_ptr<control::RetrieveClient> control_retrieve;
 };

@@ -11,6 +11,7 @@ import {
   array,
   breaker,
   type CrudeTimeSpan,
+  sleep,
   TimeSpan,
   TimeStamp,
   url,
@@ -337,8 +338,9 @@ export default class Synnax extends framer.Client {
   /**
    * Closes the client: stops the connection check loop, tears down the query cache and
    * its change stream, then lets go of the session. A session this client logged in
-   * with ends; one resumed from a saved token or cookie stays open. When the Core
-   * cannot be reached the session is left to idle out.
+   * with ends; one resumed from a saved token or cookie stays open. Waits at most
+   * LOGOUT_DEADLINE for the Core to end it. When the Core cannot be reached or does not
+   * answer in time, the session is left to idle out.
    * @throws {AggregateError} carrying every underlying close failure.
    */
   async close(): Promise<void> {
@@ -348,7 +350,7 @@ export default class Synnax extends framer.Client {
       .map((r) => r.reason);
     // Nothing sends requests any more, so no check can log in again during the logout.
     try {
-      await this.auth.release();
+      await Promise.race([this.auth.release(), sleep.sleep(LOGOUT_DEADLINE)]);
     } catch (err) {
       if (!isConnectionError(err)) failures.push(err);
     }
@@ -356,6 +358,9 @@ export default class Synnax extends framer.Client {
       throw new AggregateError(failures, "failed to close the client");
   }
 }
+
+/** The longest close waits for the Core to end the client's session. */
+export const LOGOUT_DEADLINE = TimeSpan.seconds(3);
 
 export interface ConnectOptions {
   /**

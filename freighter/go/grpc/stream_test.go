@@ -11,6 +11,9 @@ package grpc_test
 
 import (
 	"context"
+	"strings"
+	"sync/atomic"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -166,6 +169,59 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			Eventually(received).Should(Receive(MatchError(errEnded)))
 			Expect(stream.Receive()).Error().
 				To(MatchError(ContainSubstring("session ended")))
+		},
+	)
+
+	It(
+		"Should unblock a handler stuck sending to a peer that stopped reading",
+		func(ctx SpecContext) {
+			server, client, addr := startPair()
+			errEnded := errors.New("session ended")
+			endSession := make(chan struct{})
+			server.Use(freighter.MiddlewareFunc(func(
+				ctx freighter.Context,
+				next freighter.Next,
+			) (freighter.Context, error) {
+				dCtx, cancel := context.WithCancelCause(ctx.Context)
+				defer cancel(nil)
+				go func() {
+					select {
+					case <-endSession:
+						cancel(errEnded)
+					case <-dCtx.Done():
+					}
+				}()
+				ctx.Context = dCtx
+				return next(ctx)
+			}))
+			var (
+				sent     atomic.Int64
+				lastSend atomic.Int64
+				sendErr  = make(chan error, 1)
+				payload  = strings.Repeat("x", 256*1024)
+			)
+			server.BindHandler(func(
+				_ context.Context,
+				stream freighter.ServerStream[test.Request, test.Response],
+			) error {
+				for {
+					if err := stream.Send(test.Response{Message: payload}); err != nil {
+						sendErr <- err
+						return err
+					}
+					sent.Add(1)
+					lastSend.Store(time.Now().UnixNano())
+				}
+			})
+			stream := MustSucceed(client.Stream(ctx, addr))
+			Eventually(func() bool {
+				last := lastSend.Load()
+				return sent.Load() > 0 &&
+					time.Since(time.Unix(0, last)) > 250*time.Millisecond
+			}).WithTimeout(10 * time.Second).Should(BeTrue())
+			close(endSession)
+			Eventually(sendErr).Should(Receive(MatchError(errEnded)))
+			Expect(stream.CloseSend()).To(Succeed())
 		},
 	)
 })

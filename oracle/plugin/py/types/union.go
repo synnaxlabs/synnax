@@ -19,7 +19,7 @@ import (
 )
 
 // unionData is the template view of a discriminated union. A union renders as
-// one Pydantic BaseModel per variant plus an Annotated[Union[...],
+// one Pydantic BaseModel per variant plus an Annotated[A | B,
 // Field(discriminator=...)] alias that ties them together.
 type unionData struct {
 	// Name is the union alias name (e.g. "Scale").
@@ -64,7 +64,6 @@ func processUnion(
 	form := entry.Form.(resolution.UnionForm)
 	data.imports.addPydantic("Field")
 	data.imports.addTyping("Annotated")
-	data.imports.addTyping("Union")
 	data.imports.addTyping("Literal")
 	ud := unionData{
 		Name:     getPyName(entry),
