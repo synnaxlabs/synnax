@@ -16,7 +16,7 @@ from synnax.cli.connect import (
 )
 from synnax.cli.console.rich import RichConsole
 from synnax.cli.flow import Context
-from synnax.config import default_clusters
+from synnax.config import ClustersConfig, default_clusters
 
 
 @click.command()
@@ -24,13 +24,19 @@ def login() -> None:
     """Logs the user into a Synnax cluster, creates an API key, and saves the key and
     the connection parameters.
     """
-    flow_ctx = Context(console=RichConsole())
-    options = prompt_client_options(flow_ctx)
-    synnax = connect_from_options(flow_ctx, options)
+    run(Context(console=RichConsole()), default_clusters())
+
+
+def run(ctx: Context, clusters: ClustersConfig) -> None:
+    """Prompts for connection parameters, connects, and saves an API key for the
+    logged-in user to clusters.
+    """
+    options = prompt_client_options(ctx)
+    synnax = connect_from_options(ctx, options)
     if synnax is None:
         return
-    save_api_key(synnax, options, default_clusters())
-    flow_ctx.console.info(SUCCESSFUL_LOGIN)
+    save_api_key(synnax, options, clusters)
+    ctx.console.info(SUCCESSFUL_LOGIN)
 
 
 SUCCESSFUL_LOGIN = """Saved an API key. You can now use the Synnax Client

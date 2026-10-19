@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from pathlib import Path
+from uuid import UUID
 
 import pytest
 from keyring.backend import KeyringBackend
@@ -17,6 +18,7 @@ import synnax as sy
 from synnax.cli.connect import connect_client
 from synnax.cli.console.mock import MockConsole
 from synnax.cli.flow import Context
+from synnax.cli.login import run as login
 from synnax.config import ClusterConfig, ClustersConfig, ConfigFile
 from synnax.config.clusters import API_KEY_SERVICE, PASSWORD_SERVICE
 from synnax.options import Options
@@ -115,8 +117,45 @@ class TestClustersConfig:
         assert got.options == opts
 
 
+def delete_new_keys(client: sy.Synnax, before: set[UUID]) -> None:
+    client.auth.delete_keys(
+        *[k.key for k in client.auth.retrieve_keys() if k.key not in before]
+    )
+
+
+@pytest.mark.cli
+class TestLogin:
+    def test_saves_api_key(
+        self,
+        clusters: ClustersConfig,
+        keyring: MemoryKeyring,
+        login_info: tuple[str, int, str, str],
+        client: sy.Synnax,
+    ) -> None:
+        """Should save an API key in place of the password it logged in with."""
+        host, port, username, password = login_info
+        before = {k.key for k in client.auth.retrieve_keys()}
+        console = MockConsole(responses=[host, port, username, password, False])
+        login(Context(console=console), clusters)
+        saved = clusters.get()
+        assert saved is not None
+        assert saved.options.api_key.startswith("syk_")
+        assert saved.options.username == ""
+        assert (PASSWORD_SERVICE, "default") not in keyring.values
+        delete_new_keys(client, before)
+
+
 @pytest.mark.cli
 class TestConnectClient:
+    def test_prompts_without_saved_options(
+        self, clusters: ClustersConfig, login_info: tuple[str, int, str, str]
+    ) -> None:
+        """Should prompt for options and save nothing when none are saved."""
+        host, port, username, password = login_info
+        console = MockConsole(responses=[host, port, username, password, False])
+        assert connect_client(Context(console=console), clusters) is not None
+        assert clusters.get() is None
+
     def test_replaces_saved_password(
         self,
         clusters: ClustersConfig,
@@ -142,6 +181,4 @@ class TestConnectClient:
         assert keyed is not None
         assert keyed.auth.session is not None
         assert keyed.auth.session.method == "api_key"
-        client.auth.delete_keys(
-            *[k.key for k in client.auth.retrieve_keys() if k.key not in before]
-        )
+        delete_new_keys(client, before)
