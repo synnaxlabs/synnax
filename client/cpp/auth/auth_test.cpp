@@ -31,13 +31,16 @@ grpc::auth::SessionCreateResponse session_response(const std::string &token) {
 
 std::shared_ptr<Middleware> middleware_with(
     std::unique_ptr<SessionCreateClient> create,
-    std::unique_ptr<SessionDeleteClient> del = nullptr
+    std::unique_ptr<SessionDeleteClient> del = nullptr,
+    std::unique_ptr<SessionRenewClient> renew = nullptr
 ) {
+    if (renew == nullptr)
+        renew = std::make_unique<freighter::mock::UnaryClient<
+            google::protobuf::Empty,
+            google::protobuf::Empty>>(google::protobuf::Empty(), x::errors::NIL);
     return std::make_shared<Middleware>(
         std::move(create),
-        std::make_unique<freighter::mock::UnaryClient<
-            google::protobuf::Empty,
-            google::protobuf::Empty>>(google::protobuf::Empty(), x::errors::NIL),
+        std::move(renew),
         std::move(del),
         "synnax",
         "seldon"
@@ -164,6 +167,36 @@ TEST(TestAuth, LogoutCarriesDeadline) {
     ASSERT_NIL(mw->authenticate());
     ASSERT_NIL(mw->logout());
     ASSERT_EQ(probe->deadlines, std::vector{true});
+}
+
+/// @brief it should forget a session the Core no longer accepts on renew, so the next
+/// request logs in again instead of resending the dead token.
+TEST(TestAuth, RenewForgetsEndedSession) {
+    auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<
+        grpc::auth::SessionCreateRequest,
+        grpc::auth::SessionCreateResponse>>(
+        std::vector{session_response("abc"), session_response("def")},
+        std::vector<x::errors::Error>{x::errors::NIL, x::errors::NIL}
+    );
+    auto *create = mock_create_client.get();
+    auto mock_renew_client = std::make_unique<
+        freighter::mock::UnaryClient<google::protobuf::Empty, google::protobuf::Empty>>(
+        google::protobuf::Empty(),
+        x::errors::Error(ERR_SESSION_ENDED, "")
+    );
+    const auto mw = middleware_with(
+        std::move(mock_create_client),
+        nullptr,
+        std::move(mock_renew_client)
+    );
+    ASSERT_NIL(mw->authenticate());
+    ASSERT_OCCURRED_AS(mw->renew(), ERR_SESSION_ENDED);
+    ASSERT_EQ(mw->current_session().key, "");
+    auto mock_client = freighter::mock::UnaryClient<int, int>{1, x::errors::NIL};
+    mock_client.use(mw);
+    auto v = 1;
+    ASSERT_NIL_P(mock_client.send("", v));
+    ASSERT_EQ(create->requests.size(), 2);
 }
 
 /// @brief it should treat a session the Core already ended as logged out.

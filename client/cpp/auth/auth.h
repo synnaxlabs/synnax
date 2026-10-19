@@ -158,6 +158,14 @@ class Middleware final : public freighter::PassthroughMiddleware {
         return this->token;
     }
 
+    /// @brief drops the session so the next request logs in again.
+    void forget() {
+        std::lock_guard lock(mu);
+        this->authenticated = false;
+        this->token.clear();
+        this->session = Session();
+    }
+
 public:
     /// Cluster information.
     ClusterInfo cluster_info = ClusterInfo();
@@ -207,12 +215,14 @@ public:
         return this->session;
     }
 
-    /// @brief reports activity on the session so it does not idle out.
+    /// @brief reports activity on the session so it does not idle out. A session the
+    /// Core no longer accepts is forgotten, and the next request logs in again.
     x::errors::Error renew() {
         if (!this->authenticated)
             if (const auto err = this->authenticate()) return err;
         google::protobuf::Empty req;
         auto [_, err] = renew_client->send("/auth/session/renew", req);
+        if (err.matches(RETRY_ON_ERRORS)) this->forget();
         return err;
     }
 
