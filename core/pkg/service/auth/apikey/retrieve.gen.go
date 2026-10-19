@@ -14,7 +14,6 @@ package apikey
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -22,8 +21,37 @@ import (
 // Retrieve is used to retrieve APIKey records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {
-	baseTX gorp.Tx
-	gorp   gorp.Retrieve[Key, APIKey]
+	baseTX  gorp.Tx
+	gorp    gorp.Retrieve[Key, APIKey]
+	indexes indexes
+}
+
+// indexes bundles the per-Service secondary indexes registered on the
+// APIKey table. Each index is constructed via newIndexes and threaded
+// onto the Retrieve so filter functions can resolve them off r.indexes
+// instead of relying on package-level state.
+type indexes struct {
+	subject *gorp.LookupIndex[Key, APIKey, ontology.ID]
+}
+
+// newIndexes constructs a fresh indexes value, allocating one index instance
+// per registered field. Call once per Service in OpenService and store the
+// result on the Service struct.
+func newIndexes() indexes {
+	return indexes{
+		subject: gorp.NewLookupIndex[Key, APIKey, ontology.ID](
+			"subject",
+			func(e *APIKey) ontology.ID { return e.Subject },
+		),
+	}
+}
+
+// all returns the indexes packaged as a heterogeneous slice for registration
+// via gorp.TableConfig.Indexes when opening the underlying table.
+func (i indexes) all() []gorp.Index[Key, APIKey] {
+	return []gorp.Index[Key, APIKey]{
+		i.subject,
+	}
 }
 
 // Filter is a per-service filter that is bound to the Retrieve when passed to
@@ -74,9 +102,7 @@ func MatchKeys(keys ...Key) Filter {
 // provided values.
 func MatchSubjects(vals ...ontology.ID) Filter {
 	return func(r Retrieve) gorp.Filter[Key, APIKey] {
-		return gorp.Match(func(_ gorp.Context, e *APIKey) (bool, error) {
-			return lo.Contains(vals, e.Subject), nil
-		})
+		return r.indexes.subject.Filter(vals...)
 	}
 }
 
