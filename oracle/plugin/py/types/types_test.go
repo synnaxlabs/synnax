@@ -2128,6 +2128,28 @@ var _ = Describe("Python Union Generation", func() {
 			)
 	})
 
+	It("Should keep literal discriminators for a borrowed enum", func(ctx SpecContext) {
+		source := `
+			@py output "out"
+
+			Method enum {
+				password = "password"
+			}
+			Credentials struct { username string }
+
+			Proof union on method Method {
+				password Credentials
+			}
+		`
+		resp := MustGenerate(ctx, source, "auth", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").
+			ToContain(
+				`Method = Literal["password"]`,
+				`method: Literal["password"] = "password"`,
+				`Field(discriminator="method"),`,
+			)
+	})
+
 	It(
 		"Should declare inline variant fields directly on the variant model",
 		func(ctx SpecContext) {

@@ -1411,6 +1411,7 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 {{- end}}
 {{- with .Union}}
 {{- $u := .}}
+{{- if not .BorrowsEnum}}
 
 type {{.DiscType}} string
 {{- if eq (len .Variants) 1}}
@@ -1425,6 +1426,7 @@ const (
 	{{.ConstName}} {{$u.DiscType}} = "{{.Value}}"
 {{- end}}
 )
+{{- end}}
 {{- end}}
 
 type {{.InterfaceName}} interface {

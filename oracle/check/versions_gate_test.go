@@ -372,6 +372,53 @@ Channel struct {
 		Expect(currency).To(BeTrue(), "expected a pin-currency finding")
 	})
 
+	It("Should fail a stored pin that only a borrowed enum reaches", func() {
+		write("schemas/x/versions/auth/v0.oracle", `
+Method enum {
+	password = "password"
+}
+`)
+		write("schemas/x/versions/auth/v1.oracle", `
+Method enum {
+	password = "password"
+	key = "key"
+}
+`)
+		write("schemas/x/auth.oracle", `
+Method enum {
+	password = "password"
+	key = "key"
+}
+`)
+		write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/x/versions/auth/v0"
+
+Channel struct {
+	key uuid @key
+	proof Proof
+
+	@go marshal
+}
+
+Credentials struct { username string }
+
+Proof union on method auth.Method {
+	password Credentials
+}
+`)
+		p := analyzeLive(liveV0)
+		report := run(p)
+		Expect(report.Status).To(Equal(check.StatusFail))
+		var currency bool
+		for _, f := range report.Findings {
+			if f.Message == "schemas/synnax/channel's current surface resolves "+
+				"auth at v0, but schemas/x/auth's current version is v1" {
+				currency = true
+			}
+		}
+		Expect(currency).To(BeTrue(), "expected a pin-currency finding")
+	})
+
 	It("Should fail a redeclaration identical to its predecessor", func() {
 		write("schemas/synnax/versions/channel/v0.oracle", `
 Channel struct {
