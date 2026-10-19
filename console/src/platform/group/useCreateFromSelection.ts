@@ -74,7 +74,7 @@ const beforeUpdate = async ({
   setNodes([...nextNodes]);
   setSelection([newIDString]);
   const [groupName, renamed] = await Text.asyncEdit(List.itemNameID(newIDString));
-  if (!renamed || groupName === "") return false;
+  if (!renamed) return false;
   return { ...data, group: { ...data.group, name: groupName } };
 };
 
