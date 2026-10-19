@@ -74,12 +74,14 @@ var _ = Describe("NameMigration", func() {
 			Entry(&out).Exec(ctx, db)).To(Succeed())
 		return out
 	}
-	It("Should name a policy that has an empty name", func(ctx SpecContext) {
-		in := v1.Policy{Key: uuid.New()}
-		Expect(migrated(ctx, in).Name).To(Equal("Policy " + in.Key.String()[:8]))
-	})
-	It("Should keep the name of a named policy", func(ctx SpecContext) {
-		in := v1.Policy{Key: uuid.New(), Name: "Named"}
-		Expect(migrated(ctx, in).Name).To(Equal("Named"))
-	})
+	key := uuid.MustParse("1a2b3c4d-0000-0000-0000-000000000000")
+	DescribeTable(
+		"Should name only nameless policys",
+		func(ctx SpecContext, name, expected string) {
+			Expect(migrated(ctx, v1.Policy{Key: key, Name: name}).Name).
+				To(Equal(expected))
+		},
+		Entry("empty name", "", "Policy 1a2b3c4d"),
+		Entry("named policy", "Named", "Named"),
+	)
 })

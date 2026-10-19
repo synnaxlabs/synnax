@@ -470,17 +470,15 @@ var _ = Describe("NameMigration", func() {
 			Entry(&out).Exec(ctx, db)).To(Succeed())
 		return out
 	}
-	It("Should name a nameless task after its type and key", func(ctx SpecContext) {
-		in := v2.Task{Key: uuid.New(), Type: "ni_analog_read"}
-		Expect(migrated(ctx, in).Name).
-			To(Equal("ni_analog_read " + in.Key.String()[:8]))
-	})
-	It("Should name a nameless task with no type \"Task\"", func(ctx SpecContext) {
-		in := v2.Task{Key: uuid.New()}
-		Expect(migrated(ctx, in).Name).To(Equal("Task " + in.Key.String()[:8]))
-	})
-	It("Should keep the name of a named task", func(ctx SpecContext) {
-		in := v2.Task{Key: uuid.New(), Name: "Named", Type: "ni_analog_read"}
-		Expect(migrated(ctx, in).Name).To(Equal("Named"))
-	})
+	key := uuid.MustParse("1a2b3c4d-0000-0000-0000-000000000000")
+	DescribeTable(
+		"Should name only nameless tasks",
+		func(ctx SpecContext, name, taskType, expected string) {
+			in := v2.Task{Key: key, Name: name, Type: taskType}
+			Expect(migrated(ctx, in).Name).To(Equal(expected))
+		},
+		Entry("type and key", "", "ni_analog_read", "ni_analog_read 1a2b3c4d"),
+		Entry("no type", "", "", "Task 1a2b3c4d"),
+		Entry("named task", "Named", "ni_analog_read", "Named"),
+	)
 })
