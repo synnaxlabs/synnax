@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import { act, waitFor } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
@@ -24,7 +25,7 @@ import { createCore, createCoreState } from "@/session/core/testutil";
 import { renderHookWithConsole } from "@/testutil";
 
 describe("Core.useLogout", () => {
-  it("should clear the selection and forget the token and password", async () => {
+  it("should end the session and forget the token, password, and selection", async () => {
     mocks.engine = "tauri";
     const deleted: unknown[] = [];
     mockIPC((cmd, args) => {
@@ -32,14 +33,23 @@ describe("Core.useLogout", () => {
       return undefined;
     });
     onTestFinished(clearMocks);
+    const client = createTestClient();
+    await client.connect();
+    const session = client.auth.session;
+    if (session == null) throw new Error("expected a session after connecting");
     const core = createCore("Local", { password: "typed" });
     const { result, store } = await renderHookWithConsole(() => Core.useLogout(), {
+      client,
       preloadedState: createCoreState([core], core.key),
     });
     act(() => result.current());
     const state = store.getState();
     expect(Session.Core.selectSelectedKey(state)).toBeUndefined();
     expect(Session.Core.selectState(state, core.key)?.password).toBe("");
+    await waitFor(() => expect(client.auth.authenticated).toBe(false));
     await waitFor(() => expect(deleted).toEqual([{ account: "localhost:9090" }]));
+    const other = createTestClient();
+    const keys = (await other.auth.retrieveSessions()).map(({ key }) => key);
+    expect(keys).not.toContain(session.key);
   });
 });

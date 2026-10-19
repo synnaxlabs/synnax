@@ -20,10 +20,26 @@ interface StoredToken {
 }
 
 /**
+ * Reports whether the Core serves the page itself. Only then does the browser send the
+ * session cookie back, so only then may the session live in one.
+ */
+const servesPage = ({ host, port, secure }: Session.Core.Core): boolean => {
+  const origin = new URL(window.location.origin);
+  const originPort =
+    origin.port !== "" ? Number(origin.port) : origin.protocol === "https:" ? 443 : 80;
+  return (
+    host === origin.hostname &&
+    port === originPort &&
+    secure === (origin.protocol === "https:")
+  );
+};
+
+/**
  * The parameters a client needs to reach the selected Core. A password the user has
  * just entered logs in; otherwise the saved session resumes, from the keychain on
- * desktop and from the session cookie on the web. Undefined while no Core is selected
- * and, on desktop, until the keychain has answered.
+ * desktop and from the session cookie on a page the Core serves. Undefined while no
+ * Core is selected and, on desktop, until the keychain has answered. Fields that only
+ * describe the Core stay out, so renaming it keeps the connection.
  */
 export const useConnParams = (): SynnaxParams | undefined => {
   const core = Session.Core.useSelectSelected();
@@ -49,11 +65,16 @@ export const useConnParams = (): SynnaxParams | undefined => {
   }, [account]);
   return useMemo(() => {
     if (core == null) return undefined;
-    const params = {
-      ...core,
-      password: core.password === "" ? undefined : core.password,
+    const { host, port, secure, username, password } = core;
+    const params: SynnaxParams = {
+      host,
+      port,
+      secure,
+      username,
+      password: password === "" ? undefined : password,
     };
-    if (Session.Runtime.ENGINE !== "tauri") return { ...params, sessionCookie: true };
+    if (Session.Runtime.ENGINE !== "tauri")
+      return { ...params, sessionCookie: servesPage(core) };
     if (stored == null || stored.account !== account) return undefined;
     return { ...params, token: stored.token };
   }, [core, stored, account]);

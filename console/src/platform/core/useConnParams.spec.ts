@@ -20,7 +20,7 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
 
 import { Core } from "@/platform/core";
 import { createCore, createCoreState } from "@/session/core/testutil";
-import { renderHookWithConsole } from "@/testutil";
+import { pinLocationOrigin, renderHookWithConsole } from "@/testutil";
 
 const CORE = createCore("Alpha", { host: "example.com", port: 9095, password: "" });
 
@@ -41,7 +41,8 @@ describe("Core.useConnParams", () => {
     expect(result.current).toBeUndefined();
   });
 
-  it("should resume from the session cookie on the web", async () => {
+  it("should resume from the session cookie on a page the Core serves", async () => {
+    pinLocationOrigin("http://example.com:9095");
     const { result } = await renderParams();
     expect(result.current).toMatchObject({
       host: "example.com",
@@ -50,6 +51,19 @@ describe("Core.useConnParams", () => {
     });
     expect(result.current?.password).toBeUndefined();
     expect(result.current?.token).toBeUndefined();
+  });
+
+  it("should not ask for a cookie from a Core on another origin", async () => {
+    pinLocationOrigin("http://localhost:5173");
+    const { result } = await renderParams();
+    expect(result.current?.sessionCookie).toBe(false);
+  });
+
+  it("should keep the Core's name and cluster out of the connection", async () => {
+    const { result } = await renderParams();
+    expect(result.current).not.toHaveProperty("name");
+    expect(result.current).not.toHaveProperty("clusterKey");
+    expect(result.current).not.toHaveProperty("key");
   });
 
   it("should log in with a password the user entered", async () => {
@@ -70,6 +84,7 @@ describe("Core.useConnParams", () => {
     expect(result.current).toBeUndefined();
     await waitFor(() => expect(result.current?.token).toBe("sys_saved"));
     expect(result.current?.sessionCookie).toBeUndefined();
+    expect(result.current).not.toHaveProperty("name");
     expect(reads).toEqual([{ account: "example.com:9095" }]);
   });
 

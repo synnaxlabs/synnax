@@ -8,24 +8,30 @@
 // included in the file licenses/APL.txt.
 
 import { Status } from "@synnaxlabs/lyra/status";
+import { Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { deleteToken } from "@/platform/core/token";
 import { Session } from "@/session";
 
 /**
- * Logs out of the selected Core. Clearing the selection disposes the client, and
- * closing it ends the session on the Core; the saved token and the password go too.
+ * Logs out of the selected Core: ends its session, forgets the saved token and the
+ * password, and clears the session state. The local state clears at once, and the Core
+ * side follows; a session the Core cannot be asked to end idles out.
  */
 export const useLogout = (): (() => void) => {
+  const client = Synnax.use();
   const core = Session.Core.useSelectSelected();
   const dispatch = Session.useDispatch();
   const clearSession = Session.useLogout();
   const handleError = Status.useErrorHandler();
   return useCallback(() => {
+    const ending = client;
+    handleError(async () => {
+      await ending?.auth.logout();
+      if (core != null) await deleteToken(core);
+    }, "Failed to log out");
     clearSession();
-    if (core == null) return;
-    dispatch(Session.Core.set({ ...core, password: "" }));
-    handleError(async () => await deleteToken(core), "Failed to forget the session");
-  }, [core, dispatch, clearSession, handleError]);
+    if (core != null) dispatch(Session.Core.set({ ...core, password: "" }));
+  }, [client, core, dispatch, clearSession, handleError]);
 };

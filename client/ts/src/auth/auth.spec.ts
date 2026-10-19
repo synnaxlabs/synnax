@@ -119,6 +119,17 @@ describe("auth", () => {
       transport.use(client.middleware());
       return client;
     };
+    const makeResumed = (token: string, observer: auth.Observer = {}) => {
+      const transport = new Transport(
+        new url.URL({
+          host: TEST_CLIENT_PARAMS.host,
+          port: Number(TEST_CLIENT_PARAMS.port),
+        }),
+      );
+      const client = new auth.Client(transport.unary, { token }, observer);
+      transport.use(client.middleware());
+      return client;
+    };
     const login = async (client: auth.Client) => {
       await client.middleware()(DUMMY_CTX, async () => DUMMY_CTX);
     };
@@ -232,6 +243,45 @@ describe("auth", () => {
       ).rejects.toSatisfy((e) => AuthError.matches(e));
       expect(failure).toBeDefined();
       expect(client.authenticated).toBe(false);
+    });
+
+    it("should keep a saved token when the Core cannot be reached", async () => {
+      const transport = new Transport(new url.URL({ host: "localhost", port: 1 }));
+      let failure: Error | undefined;
+      const client = new auth.Client(
+        transport.unary,
+        { token: "sys_saved" },
+        { onFailure: (e) => (failure = e) },
+      );
+      transport.use(client.middleware());
+      const attempt = async () =>
+        await client.middleware()(DUMMY_CTX, async () => DUMMY_CTX);
+      await expect(attempt()).rejects.toSatisfy((e) => !AuthError.matches(e));
+      // The token is still there to try: a second attempt reaches for the Core again
+      // instead of failing for want of credentials.
+      await expect(attempt()).rejects.toSatisfy((e) => !AuthError.matches(e));
+      expect(failure).toBeUndefined();
+    });
+
+    it("should need credentials once the Core has rejected the token", async () => {
+      const client = makeResumed("sys_dead");
+      const attempt = async () =>
+        await client.middleware()(DUMMY_CTX, async () => DUMMY_CTX);
+      await expect(attempt()).rejects.toSatisfy((e) => AuthError.matches(e));
+      await expect(attempt()).rejects.toThrow("no credentials, token, or cookie");
+    });
+
+    it("should let the newest login win when two interleave", async () => {
+      const admin = createTestClient();
+      const second = { username: id.create(), password: "seldon" };
+      await admin.users.create(second);
+      const client = makeClient();
+      const first = client.middleware()(DUMMY_CTX, async () => DUMMY_CTX);
+      client.setCredentials(second);
+      await login(client);
+      await first;
+      expect(client.user?.username).toEqual(second.username);
+      await admin.close();
     });
 
     it("should decode a session ended error", () => {

@@ -77,7 +77,7 @@ const RETRY_ON = [InvalidTokenError, ExpiredTokenError, SessionEndedError] as co
 
 type AuthState =
   | { authenticated: false }
-  | { authenticated: true; token: string; session?: Session; user?: user.User };
+  | { authenticated: true; token: string; session: Session; user?: user.User };
 
 /** How a client proves who it is on its first request. One field is enough. */
 export interface Authority {
@@ -105,9 +105,13 @@ export class Client {
   private readonly observer: Observer;
   private authState: AuthState = { authenticated: false };
   authenticating: Promise<Error | null> | undefined;
-  private validating = false;
   private generation = 0;
-  private logoutToken: string | undefined;
+  // requests that carry a token of their own and never log in: a logout and a resume,
+  // keyed by endpoint
+  private readonly passthrough = new Map<string, string>();
+  // whether this client opened the session with credentials; a resumed session
+  // belongs to whoever saved its token or cookie
+  private ownsSession = false;
 
   constructor(client: UnaryClient, authority: Authority, observer: Observer = {}) {
     this.client = client;
@@ -143,7 +147,7 @@ export class Client {
 
   /** The subject the client logged in as, once logged in. */
   get subject(): ontology.ID | undefined {
-    return this.authState.authenticated ? this.authState.session?.subject : undefined;
+    return this.authState.authenticated ? this.authState.session.subject : undefined;
   }
 
   get token(): string | undefined {
@@ -180,13 +184,19 @@ export class Client {
    * the Core sees.
    */
   async renew(): Promise<Session> {
+    const generation = this.generation;
     const res = await this.client.send(
       SESSION_RENEW_ENDPOINT,
       undefined,
       z.void(),
       renewResZ,
     );
-    if (this.authState.authenticated)
+    // a session another login replaced in the meantime keeps its own record
+    if (
+      generation === this.generation &&
+      this.authState.authenticated &&
+      this.authState.session.key === res.session.key
+    )
       this.authState = {
         ...this.authState,
         session: res.session,
@@ -221,18 +231,22 @@ export class Client {
   async logout(): Promise<void> {
     const { authState } = this;
     if (!authState.authenticated) return;
-    const { key } = authState.session ?? (await this.renew());
-    this.logoutToken = authState.token;
+    const { key } = authState.session;
     try {
-      await this.deleteSessions(key);
+      await this.sendAs(
+        authState.token,
+        SESSION_DELETE_ENDPOINT,
+        { keys: [key] },
+        deleteReqZ,
+        emptyResZ,
+      );
     } catch (err) {
       if (!RETRY_ON.some((e) => e.matches(err))) throw errors.fromUnknown(err);
     } finally {
-      this.logoutToken = undefined;
       this.resumeToken = undefined;
       // a request that logged in again during the delete holds a session this logout
       // did not end
-      if (this.authState.authenticated && this.authState.session?.key === key) {
+      if (this.authState.authenticated && this.authState.session.key === key) {
         this.authState = { authenticated: false };
         this.authenticating = undefined;
       }
@@ -240,14 +254,44 @@ export class Client {
   }
 
   /**
+   * Lets go of the session when the client closes. A session this client opened with
+   * credentials ends; one resumed from a saved token or cookie stays open for whoever
+   * saved it.
+   */
+  async release(): Promise<void> {
+    if (this.ownsSession) return await this.logout();
+    this.authState = { authenticated: false };
+    this.authenticating = undefined;
+  }
+
+  /** Sends a request that carries the given token and never logs in or retries. */
+  private async sendAs<RQ extends z.ZodType, RS extends z.ZodType>(
+    token: string,
+    target: string,
+    req: z.input<RQ>,
+    reqZ: RQ,
+    resZ: RS,
+  ): Promise<z.output<RS>> {
+    this.passthrough.set(target, token);
+    try {
+      return await this.client.send(target, req, reqZ, resZ);
+    } finally {
+      this.passthrough.delete(target);
+    }
+  }
+
+  /**
    * Logs in with the credentials, or resumes the session a token or cookie names. A
-   * token the Core rejects is forgotten, so the next attempt needs credentials.
+   * token the Core rejects is forgotten, so the next attempt needs credentials; a Core
+   * that cannot be reached has not rejected it.
    */
   private async login(): Promise<Error | null> {
-    // logins issued before a setCredentials are stale; their result must not reach
-    // the observer
+    // a login issued before a setCredentials is stale: its result must not touch the
+    // state or reach the observer
     const generation = this.generation;
     try {
+      let state: AuthState;
+      let owned: boolean;
       if (this.credentials != null) {
         const res = await this.client.send(
           SESSION_CREATE_ENDPOINT,
@@ -258,33 +302,39 @@ export class Client {
           createReqZ,
           createResZ,
         );
-        if (generation !== this.generation) return null;
-        this.authState = {
+        state = {
           authenticated: true,
           token: res.token,
           session: res.session,
           user: res.user,
         };
+        owned = true;
       } else if (this.resumeToken != null || this.cookie) {
-        // the renew request below needs the token on it, so the state is
-        // authenticated before the Core has confirmed it
-        this.authState = { authenticated: true, token: this.resumeToken ?? "" };
-        this.validating = true;
-        try {
-          await this.renew();
-        } finally {
-          this.validating = false;
-        }
-        if (generation !== this.generation) return null;
+        // a cookie session has no token; the browser attaches the cookie
+        const token = this.resumeToken ?? "";
+        const res = await this.sendAs(
+          token,
+          SESSION_RENEW_ENDPOINT,
+          undefined,
+          z.void(),
+          renewResZ,
+        );
+        state = { authenticated: true, token, session: res.session, user: res.user };
+        owned = false;
       } else throw new AuthError("no credentials, token, or cookie to log in with");
+      if (generation !== this.generation) return null;
+      this.authState = state;
+      this.ownsSession = owned;
       this.observer.onSuccess?.();
       return null;
     } catch (err) {
       const parsed = errors.fromUnknown(err);
+      if (generation !== this.generation) return null;
       this.authState = { authenticated: false };
-      this.resumeToken = undefined;
-      if (generation === this.generation && AuthError.matches(parsed))
+      if (AuthError.matches(parsed)) {
+        this.resumeToken = undefined;
         this.observer.onFailure?.(parsed);
+      }
       return parsed;
     }
   }
@@ -297,11 +347,12 @@ export class Client {
       next: Next,
       retries: number,
     ): Promise<Context> => {
-      // a logout ends the session its token belongs to; a dead one must not log in
-      // again. A cookie session has no token, and the cookie goes with the request.
-      if (this.logoutToken != null && reqCtx.target.endsWith(SESSION_DELETE_ENDPOINT)) {
-        if (this.logoutToken !== "")
-          reqCtx.params.Authorization = `Bearer ${this.logoutToken}`;
+      const own = [...this.passthrough].find(([target]) =>
+        reqCtx.target.endsWith(target),
+      );
+      if (own != null) {
+        const [, token] = own;
+        if (token !== "") reqCtx.params.Authorization = `Bearer ${token}`;
         return await next(reqCtx);
       }
       if (!this.authenticated && !reqCtx.target.endsWith(SESSION_CREATE_ENDPOINT)) {
@@ -319,11 +370,7 @@ export class Client {
       try {
         return await next(reqCtx);
       } catch (err) {
-        if (
-          !this.validating &&
-          RETRY_ON.some((e) => e.matches(err)) &&
-          retries < MAX_RETRIES
-        ) {
+        if (RETRY_ON.some((e) => e.matches(err)) && retries < MAX_RETRIES) {
           this.authState = { authenticated: false };
           this.authenticating = undefined;
           return await attempt(reqCtx, next, retries + 1);
