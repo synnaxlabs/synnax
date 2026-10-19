@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
-import { render, waitFor } from "@testing-library/react";
+import { act, render, waitFor } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
@@ -20,7 +21,7 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
 
 import { Core } from "@/platform/core";
 import { createCore, createCoreState } from "@/session/core/testutil";
-import { createSessionConsoleWrapper } from "@/testutil";
+import { createSessionConsoleWrapper, createStatusConsoleWrapper } from "@/testutil";
 
 /** Records the keychain writes and deletes the keeper issues. */
 const recordKeychain = () => {
@@ -62,5 +63,21 @@ describe("Core.TokenKeeper", () => {
       cmd: "keychain_delete",
       args: { account: "localhost:9090" },
     });
+  });
+
+  it("should leave the keychain alone while the client belongs to another Core", async () => {
+    mocks.engine = "tauri";
+    const calls = recordKeychain();
+    const client = createTestClient();
+    await client.connect();
+    const core = createCore("Other", { port: 9095 });
+    const { wrapper } = await createStatusConsoleWrapper({
+      client,
+      status: client.connection.status,
+      preloadedState: createCoreState([core], core.key),
+    });
+    render(<Core.TokenKeeper />, { wrapper });
+    await act(async () => {});
+    expect(calls).toEqual([]);
   });
 });
