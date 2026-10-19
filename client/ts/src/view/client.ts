@@ -19,6 +19,7 @@ import {
   type New,
   ontologyID,
   type View,
+  viewTypeZ,
   viewZ,
 } from "@/view/types.gen";
 
@@ -33,7 +34,7 @@ const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
-  types: z.string().array().optional(),
+  types: viewTypeZ.array().optional(),
   searchTerm: z.string().optional(),
   offset: z.number().optional(),
   limit: z.number().optional(),

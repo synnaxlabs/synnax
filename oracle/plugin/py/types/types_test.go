@@ -2116,14 +2116,14 @@ var _ = Describe("Python Union Generation", func() {
 		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
 		ExpectContent(resp, "types_gen.py").
 			ToContain(
-				`from typing import Annotated, Union, Literal`,
+				`from typing import Annotated, Literal`,
 				`from pydantic import BaseModel, Field`,
 				`class LinearScale(LinearParams):`,
 				`type: Literal["linear"]`,
 				`class NoneScale(NoneParams):`,
 				`type: Literal["none"]`,
 				`Scale = Annotated[`,
-				`Union[LinearScale, NoneScale],`,
+				`LinearScale | NoneScale,`,
 				`Field(discriminator="type"),`,
 			)
 	})

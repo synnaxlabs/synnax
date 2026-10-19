@@ -23,7 +23,7 @@ import (
 
 func createView(ctx SpecContext) view.View {
 	GinkgoHelper()
-	v := view.View{Name: "Before", Type: "lineplot"}
+	v := view.View{Variant: view.RangeView{Base: view.Base{Name: "Before"}}}
 	Expect(svc.View.NewWriter(nil).Create(ctx, &v)).To(Succeed())
 	return v
 }
@@ -45,11 +45,11 @@ var _ = Describe("Rename", func() {
 		grantUpdateOn(ctx, u.OntologyID(), v.OntologyID())
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
-			apiview.RenameRequest{Key: v.Key, Name: "After"},
+			apiview.RenameRequest{Key: v.GorpKey(), Name: "After"},
 		)).Error().ToNot(HaveOccurred())
-		renamed := retrieveView(ctx, v.Key)
-		Expect(renamed.Name).To(Equal("After"))
-		Expect(renamed.Type).To(Equal("lineplot"))
+		renamed := retrieveView(ctx, v.GorpKey())
+		Expect(renamed.Base().Name).To(Equal("After"))
+		Expect(renamed.Type()).To(Equal(view.RangeViewType))
 	})
 	It("Should reject an empty name", func(ctx SpecContext) {
 		u := createUser(ctx)
@@ -57,9 +57,9 @@ var _ = Describe("Rename", func() {
 		grantUpdateOn(ctx, u.OntologyID(), v.OntologyID())
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
-			apiview.RenameRequest{Key: v.Key, Name: ""},
+			apiview.RenameRequest{Key: v.GorpKey(), Name: ""},
 		)).Error().To(MatchError(ContainSubstring("name: required")))
-		Expect(retrieveView(ctx, v.Key).Name).To(Equal("Before"))
+		Expect(retrieveView(ctx, v.GorpKey()).Base().Name).To(Equal("Before"))
 	})
 	It("Should return a not found error for a missing view", func(ctx SpecContext) {
 		u := createUser(ctx)
@@ -75,8 +75,8 @@ var _ = Describe("Rename", func() {
 		v := createView(ctx)
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
-			apiview.RenameRequest{Key: v.Key, Name: "After"},
+			apiview.RenameRequest{Key: v.GorpKey(), Name: "After"},
 		)).Error().To(MatchError(access.ErrDenied))
-		Expect(retrieveView(ctx, v.Key).Name).To(Equal("Before"))
+		Expect(retrieveView(ctx, v.GorpKey()).Base().Name).To(Equal("Before"))
 	})
 })

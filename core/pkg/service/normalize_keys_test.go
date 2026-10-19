@@ -69,5 +69,5 @@ var _ = DescribeTable("Pre-v0.54 key normalization",
 	Entry("table", tableversions.Migrations),
 	Entry("task", taskversions.NewMigrations(taskversions.MigrationsConfig{})),
 	Entry("user", userversions.Migrations),
-	Entry("view", viewversions.Migrations),
+	Entry("view", viewversions.NewMigrations(nil)),
 )
