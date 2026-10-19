@@ -153,7 +153,7 @@ test in the repo change together to keep `main` green.
 
 ## 4 Migration of stored programs
 
-Open to the opinions of the reviewers.
-
-- **Migrate**: Rewrite each stored program on upgrade with the three rules of §1.2.
-- **Do not migrate**: Rewrite the programs with each customer.
+Each stored program is rewritten on upgrade with the three rules of §1.2. The rewrite is
+a new entry in the stored-arc migration chain (`core/pkg/service/arc/versions`). It
+materializes the text, moves the brackets, and rebuilds the text document from the
+result. Only text-mode Arcs change.
