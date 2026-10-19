@@ -40,13 +40,14 @@ const clusterInfoZ = z.object({
   nodeTime: TimeStamp.z,
 });
 
-const createReqZ = z.object({ proof: proofZ });
+const createReqZ = z.object({ proof: proofZ, cookie: z.boolean().optional() });
 const createResZ = z.object({
   token: z.string(),
   session: sessionZ,
   user: user.userZ.optional(),
   clusterInfo: clusterInfoZ.optional(),
 });
+const renewResZ = z.object({ session: sessionZ, user: user.userZ.optional() });
 const retrieveReqZ = z.object({ subjects: ontology.idZ.array().optional() });
 const retrieveResZ = z.object({ sessions: sessionZ.array() });
 const deleteReqZ = z.object({ keys: sessionKeyZ.array() });
@@ -76,7 +77,17 @@ const RETRY_ON = [InvalidTokenError, ExpiredTokenError, SessionEndedError] as co
 
 type AuthState =
   | { authenticated: false }
-  | { authenticated: true; session: Session; user?: user.User; token: string };
+  | { authenticated: true; token: string; session?: Session; user?: user.User };
+
+/** How a client proves who it is on its first request. One field is enough. */
+export interface Authority {
+  /** A username and password to log in with. */
+  credentials?: Credentials;
+  /** The token of an earlier login to resume. */
+  token?: string;
+  /** Whether the Core keeps the token in a cookie the client never sees. */
+  cookie?: boolean;
+}
 
 /** Login outcome hooks. The connection machine is the sole consumer. */
 export interface Observer {
@@ -88,23 +99,29 @@ export interface Observer {
 
 export class Client {
   private readonly client: UnaryClient;
-  private readonly credentials: Credentials;
+  private credentials?: Credentials;
+  private resumeToken?: string;
+  private readonly cookie: boolean;
   private readonly observer: Observer;
   private authState: AuthState = { authenticated: false };
   authenticating: Promise<Error | null> | undefined;
+  private validating = false;
   private generation = 0;
   private logoutToken: string | undefined;
 
-  constructor(client: UnaryClient, credentials: Credentials, observer: Observer = {}) {
+  constructor(client: UnaryClient, authority: Authority, observer: Observer = {}) {
     this.client = client;
-    this.credentials = credentials;
+    this.credentials =
+      authority.credentials == null ? undefined : { ...authority.credentials };
+    this.resumeToken = authority.token;
+    this.cookie = authority.cookie ?? false;
     this.observer = observer;
   }
 
   /** Replaces the stored credentials and clears auth state for a fresh login. */
   setCredentials({ username, password }: Credentials): void {
-    this.credentials.username = username;
-    this.credentials.password = password;
+    this.credentials = { username, password };
+    this.resumeToken = undefined;
     this.authState = { authenticated: false };
     this.authenticating = undefined;
     this.generation += 1;
@@ -126,7 +143,7 @@ export class Client {
 
   /** The subject the client logged in as, once logged in. */
   get subject(): ontology.ID | undefined {
-    return this.authState.authenticated ? this.authState.session.subject : undefined;
+    return this.authState.authenticated ? this.authState.session?.subject : undefined;
   }
 
   get token(): string | undefined {
@@ -143,6 +160,8 @@ export class Client {
 
   async changePassword(newPassword: string): Promise<void> {
     if (!this.authenticated) throw new Error("Not authenticated");
+    if (this.credentials == null)
+      throw new Error("Cannot change a password without the current one");
     await this.client.send(
       "/auth/change-password",
       {
@@ -156,9 +175,24 @@ export class Client {
     this.credentials.password = newPassword;
   }
 
-  /** Reports activity on the session so it does not idle out. */
-  async renew(): Promise<void> {
-    await this.client.send(SESSION_RENEW_ENDPOINT, undefined, z.void(), emptyResZ);
+  /**
+   * Reports activity on the session so it does not idle out, and returns the session
+   * the Core sees.
+   */
+  async renew(): Promise<Session> {
+    const res = await this.client.send(
+      SESSION_RENEW_ENDPOINT,
+      undefined,
+      z.void(),
+      renewResZ,
+    );
+    if (this.authState.authenticated)
+      this.authState = {
+        ...this.authState,
+        session: res.session,
+        user: res.user ?? this.authState.user,
+      };
+    return res.session;
   }
 
   /**
@@ -187,7 +221,7 @@ export class Client {
   async logout(): Promise<void> {
     const { authState } = this;
     if (!authState.authenticated) return;
-    const { key } = authState.session;
+    const { key } = authState.session ?? (await this.renew());
     this.logoutToken = authState.token;
     try {
       await this.deleteSessions(key);
@@ -195,12 +229,63 @@ export class Client {
       if (!RETRY_ON.some((e) => e.matches(err))) throw errors.fromUnknown(err);
     } finally {
       this.logoutToken = undefined;
+      this.resumeToken = undefined;
       // a request that logged in again during the delete holds a session this logout
       // did not end
-      if (this.authState.authenticated && this.authState.session.key === key) {
+      if (this.authState.authenticated && this.authState.session?.key === key) {
         this.authState = { authenticated: false };
         this.authenticating = undefined;
       }
+    }
+  }
+
+  /**
+   * Logs in with the credentials, or resumes the session a token or cookie names. A
+   * token the Core rejects is forgotten, so the next attempt needs credentials.
+   */
+  private async login(): Promise<Error | null> {
+    // logins issued before a setCredentials are stale; their result must not reach
+    // the observer
+    const generation = this.generation;
+    try {
+      if (this.credentials != null) {
+        const res = await this.client.send(
+          SESSION_CREATE_ENDPOINT,
+          {
+            proof: { method: "password", ...this.credentials },
+            cookie: this.cookie || undefined,
+          },
+          createReqZ,
+          createResZ,
+        );
+        if (generation !== this.generation) return null;
+        this.authState = {
+          authenticated: true,
+          token: res.token,
+          session: res.session,
+          user: res.user,
+        };
+      } else if (this.resumeToken != null || this.cookie) {
+        // the renew request below needs the token on it, so the state is
+        // authenticated before the Core has confirmed it
+        this.authState = { authenticated: true, token: this.resumeToken ?? "" };
+        this.validating = true;
+        try {
+          await this.renew();
+        } finally {
+          this.validating = false;
+        }
+        if (generation !== this.generation) return null;
+      } else throw new AuthError("no credentials, token, or cookie to log in with");
+      this.observer.onSuccess?.();
+      return null;
+    } catch (err) {
+      const parsed = errors.fromUnknown(err);
+      this.authState = { authenticated: false };
+      this.resumeToken = undefined;
+      if (generation === this.generation && AuthError.matches(parsed))
+        this.observer.onFailure?.(parsed);
+      return parsed;
     }
   }
 
@@ -212,39 +297,15 @@ export class Client {
       next: Next,
       retries: number,
     ): Promise<Context> => {
-      // a logout ends the session its token belongs to; a dead one must not log in again
+      // a logout ends the session its token belongs to; a dead one must not log in
+      // again. A cookie session has no token, and the cookie goes with the request.
       if (this.logoutToken != null && reqCtx.target.endsWith(SESSION_DELETE_ENDPOINT)) {
-        reqCtx.params.Authorization = `Bearer ${this.logoutToken}`;
+        if (this.logoutToken !== "")
+          reqCtx.params.Authorization = `Bearer ${this.logoutToken}`;
         return await next(reqCtx);
       }
       if (!this.authenticated && !reqCtx.target.endsWith(SESSION_CREATE_ENDPOINT)) {
-        this.authenticating ??= (async (): Promise<Error | null> => {
-          // logins issued before a setCredentials are stale; their result must
-          // not reach the observer
-          const generation = this.generation;
-          try {
-            const res = await this.client.send(
-              SESSION_CREATE_ENDPOINT,
-              { proof: { method: "password", ...this.credentials } },
-              createReqZ,
-              createResZ,
-            );
-            if (generation !== this.generation) return null;
-            this.authState = {
-              authenticated: true,
-              session: res.session,
-              user: res.user,
-              token: res.token,
-            };
-            this.observer.onSuccess?.();
-            return null;
-          } catch (err) {
-            const parsed = errors.fromUnknown(err);
-            if (generation === this.generation && AuthError.matches(parsed))
-              this.observer.onFailure?.(parsed);
-            return parsed;
-          }
-        })();
+        this.authenticating ??= this.login();
         const err = await this.authenticating;
         if (err != null) {
           // clear the memoized failure so the next request retries the login
@@ -252,11 +313,17 @@ export class Client {
           throw err;
         }
       }
-      reqCtx.params.Authorization = `Bearer ${this.token}`;
+      // a cookie session has no token to send; the browser attaches the cookie
+      if (this.token != null && this.token !== "")
+        reqCtx.params.Authorization = `Bearer ${this.token}`;
       try {
         return await next(reqCtx);
       } catch (err) {
-        if (RETRY_ON.some((e) => e.matches(err)) && retries < MAX_RETRIES) {
+        if (
+          !this.validating &&
+          RETRY_ON.some((e) => e.matches(err)) &&
+          retries < MAX_RETRIES
+        ) {
           this.authState = { authenticated: false };
           this.authenticating = undefined;
           return await attempt(reqCtx, next, retries + 1);

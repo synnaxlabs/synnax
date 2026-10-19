@@ -29,7 +29,7 @@ import {
 } from "@/errors";
 import { license } from "@/license";
 import { query } from "@/query";
-import { TEST_CLIENT_PARAMS, waitForStatus } from "@/testutil";
+import { TEST_CLIENT_PARAMS, TEST_CREDENTIALS, waitForStatus } from "@/testutil";
 import { Transport } from "@/transport";
 
 const liveUnary = (): UnaryClient => {
@@ -39,7 +39,7 @@ const liveUnary = (): UnaryClient => {
       port: Number(TEST_CLIENT_PARAMS.port),
     }),
   );
-  const client = new auth.Client(transport.unary, TEST_CLIENT_PARAMS);
+  const client = new auth.Client(transport.unary, { credentials: TEST_CREDENTIALS });
   transport.use(client.middleware());
   return transport.unary;
 };

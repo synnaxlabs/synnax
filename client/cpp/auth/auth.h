@@ -41,7 +41,7 @@ using SessionCreateClient = freighter::
     UnaryClient<grpc::auth::SessionCreateRequest, grpc::auth::SessionCreateResponse>;
 /// @brief transport that reports activity on the caller's session.
 using SessionRenewClient = freighter::
-    UnaryClient<google::protobuf::Empty, google::protobuf::Empty>;
+    UnaryClient<google::protobuf::Empty, grpc::auth::SessionRenewResponse>;
 /// @brief transport that ends sessions.
 using SessionDeleteClient = freighter::
     UnaryClient<grpc::auth::SessionDeleteRequest, google::protobuf::Empty>;

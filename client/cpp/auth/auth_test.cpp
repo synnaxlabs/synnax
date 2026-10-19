@@ -37,7 +37,10 @@ std::shared_ptr<Middleware> middleware_with(
         std::move(create),
         std::make_unique<freighter::mock::UnaryClient<
             google::protobuf::Empty,
-            google::protobuf::Empty>>(google::protobuf::Empty(), x::errors::NIL),
+            grpc::auth::SessionRenewResponse>>(
+            grpc::auth::SessionRenewResponse(),
+            x::errors::NIL
+        ),
         std::move(del),
         "synnax",
         "seldon"

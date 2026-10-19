@@ -18,7 +18,7 @@ import {
   InvalidTokenError,
   SessionEndedError,
 } from "@/errors";
-import { createTestClient, TEST_CLIENT_PARAMS } from "@/testutil";
+import { createTestClient, TEST_CLIENT_PARAMS, TEST_CREDENTIALS } from "@/testutil";
 import { Transport } from "@/transport";
 
 const DUMMY_CTX: Context = {
@@ -36,7 +36,7 @@ describe("auth", () => {
         port: Number(TEST_CLIENT_PARAMS.port),
       }),
     );
-    const client = new auth.Client(transport.unary, TEST_CLIENT_PARAMS);
+    const client = new auth.Client(transport.unary, { credentials: TEST_CREDENTIALS });
     const mw = client.middleware();
     const res = await mw(DUMMY_CTX, async () => DUMMY_CTX);
     expect(res).toEqual(DUMMY_CTX);
@@ -50,8 +50,7 @@ describe("auth", () => {
       }),
     );
     const client = new auth.Client(transport.unary, {
-      ...TEST_CLIENT_PARAMS,
-      password: "wrong",
+      credentials: { username: TEST_CREDENTIALS.username, password: "wrong" },
     });
     const mw = client.middleware();
     await expect(mw(DUMMY_CTX, async () => DUMMY_CTX)).rejects.toThrow(AuthError);
@@ -67,7 +66,9 @@ describe("auth", () => {
             port: Number(TEST_CLIENT_PARAMS.port),
           }),
         );
-        const client = new auth.Client(transport.unary, TEST_CLIENT_PARAMS);
+        const client = new auth.Client(transport.unary, {
+          credentials: TEST_CREDENTIALS,
+        });
         const mw = client.middleware();
         let isFirst = true;
         let tkOne: string | undefined;
@@ -94,7 +95,9 @@ describe("auth", () => {
           port: Number(TEST_CLIENT_PARAMS.port),
         }),
       );
-      const client = new auth.Client(transport.unary, TEST_CLIENT_PARAMS);
+      const client = new auth.Client(transport.unary, {
+        credentials: TEST_CREDENTIALS,
+      });
       const mw = client.middleware();
       await expect(
         mw(DUMMY_CTX, async () => {
@@ -105,14 +108,14 @@ describe("auth", () => {
   });
 
   describe("sessions", () => {
-    const makeClient = (credentials: auth.Credentials = TEST_CLIENT_PARAMS) => {
+    const makeClient = (credentials: auth.Credentials = TEST_CREDENTIALS) => {
       const transport = new Transport(
         new url.URL({
           host: TEST_CLIENT_PARAMS.host,
           port: Number(TEST_CLIENT_PARAMS.port),
         }),
       );
-      const client = new auth.Client(transport.unary, credentials);
+      const client = new auth.Client(transport.unary, { credentials });
       transport.use(client.middleware());
       return client;
     };
@@ -125,7 +128,7 @@ describe("auth", () => {
       await client.middleware()(DUMMY_CTX, async () => DUMMY_CTX);
       expect(client.session).toBeDefined();
       expect(client.subject?.type).toEqual("user");
-      expect(client.user?.username).toEqual(TEST_CLIENT_PARAMS.username);
+      expect(client.user?.username).toEqual(TEST_CREDENTIALS.username);
     });
 
     it("should renew, list, and end its session", async () => {
@@ -180,6 +183,54 @@ describe("auth", () => {
       expect(client.session?.key).toBeDefined();
       expect(client.session?.key).not.toEqual(first);
       await client.logout();
+      expect(client.authenticated).toBe(false);
+    });
+
+    it("should resume a session from its token", async () => {
+      const first = makeClient();
+      await first.middleware()(DUMMY_CTX, async () => DUMMY_CTX);
+      const token = first.token;
+      expect(token).toBeDefined();
+      const transport = new Transport(
+        new url.URL({
+          host: TEST_CLIENT_PARAMS.host,
+          port: Number(TEST_CLIENT_PARAMS.port),
+        }),
+      );
+      let succeeded = false;
+      const resumed = new auth.Client(
+        transport.unary,
+        { token },
+        { onSuccess: () => (succeeded = true) },
+      );
+      transport.use(resumed.middleware());
+      await resumed.middleware()(DUMMY_CTX, async () => DUMMY_CTX);
+      expect(succeeded).toBe(true);
+      expect(resumed.session?.key).toEqual(first.session?.key);
+      expect(resumed.user?.username).toEqual(TEST_CREDENTIALS.username);
+      await expect(resumed.renew().then((s) => s.key)).resolves.toEqual(
+        first.session?.key,
+      );
+    });
+
+    it("should report a dead token as a credential failure", async () => {
+      const transport = new Transport(
+        new url.URL({
+          host: TEST_CLIENT_PARAMS.host,
+          port: Number(TEST_CLIENT_PARAMS.port),
+        }),
+      );
+      let failure: Error | undefined;
+      const client = new auth.Client(
+        transport.unary,
+        { token: "sys_dead" },
+        { onFailure: (e) => (failure = e) },
+      );
+      transport.use(client.middleware());
+      await expect(
+        client.middleware()(DUMMY_CTX, async () => DUMMY_CTX),
+      ).rejects.toSatisfy((e) => AuthError.matches(e));
+      expect(failure).toBeDefined();
       expect(client.authenticated).toBe(false);
     });
 

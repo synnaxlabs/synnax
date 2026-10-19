@@ -171,4 +171,126 @@ var _ = Describe("HTTP", func() {
 			Expect(errors.Decode(ctx, pld)).To(MatchError(license.ErrExpired))
 		})
 	})
+	Describe("Session cookie", func() {
+		var app *fiber.App
+		creds := auth.Credentials{Username: "root", Password: "root"}
+		BeforeEach(func(ctx SpecContext) {
+			node := mock.NewNode(ctx)
+			signer := svcmock.NewSigner()
+			lic := svcmock.NewLicense()
+			key := append([]byte("license/"), lic.Jti.String()...)
+			Expect(node.Layer.DB.KV().Set(ctx, key, []byte(signer.Sign(lic)))).
+				To(Succeed())
+			sec := MustSucceed(security.NewProvider(security.ProviderConfig{
+				Insecure: new(true),
+			}))
+			svc := MustOpen(service.OpenLayer(ctx, service.LayerConfig{
+				Distribution:    node.Layer,
+				Security:        sec,
+				Storage:         node.Storage,
+				RootCredentials: creds,
+				License:         license.ServiceConfig{Anchors: signer.Anchors},
+			}))
+			layer := MustSucceed(api.NewLayer(api.LayerConfig{
+				Service:      svc,
+				Distribution: node.Layer,
+			}))
+			router := MustSucceed(fhttp.NewRouter())
+			thttp.Bind(layer, router)
+			app = fiber.New()
+			router.BindTo(app)
+			DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
+		})
+		post := func(path string, headers map[string]string, body any) *http.Response {
+			GinkgoHelper()
+			req := httptest.NewRequest(
+				http.MethodPost,
+				path,
+				bytes.NewReader(MustSucceed(json.Marshal(body))),
+			)
+			req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+			req.Header.Set(fiber.HeaderAccept, fiber.MIMEApplicationJSON)
+			for k, v := range headers {
+				req.Header.Set(k, v)
+			}
+			return MustSucceed(app.Test(req, fiber.TestConfig{
+				Timeout:       10 * time.Second,
+				FailOnTimeout: true,
+			}))
+		}
+		// loginWithCookie logs in asking for a cookie and returns the session cookie
+		// the Core set.
+		loginWithCookie := func() *http.Cookie {
+			GinkgoHelper()
+			res := post(
+				"/api/v1/auth/session/create",
+				nil,
+				apiauth.SessionCreateRequest{
+					Proof:  auth.Proof{Variant: auth.PasswordProof{Credentials: creds}},
+					Cookie: true,
+				},
+			)
+			body := MustSucceed(io.ReadAll(res.Body))
+			Expect(res.StatusCode).To(Equal(http.StatusOK), string(body))
+			var parsed apiauth.SessionCreateResponse
+			Expect(json.Unmarshal(body, &parsed)).To(Succeed())
+			Expect(parsed.Token).To(BeEmpty())
+			cookies := res.Cookies()
+			Expect(cookies).To(HaveLen(1))
+			Expect(cookies[0].Name).To(Equal(thttp.SessionCookie))
+			Expect(cookies[0].HttpOnly).To(BeTrue())
+			Expect(cookies[0].Value).To(HavePrefix("sys_"))
+			return cookies[0]
+		}
+		// withCookie sends the cookie back the way a browser does: name and value only.
+		withCookie := func(c *http.Cookie) map[string]string {
+			return map[string]string{fiber.HeaderCookie: c.Name + "=" + c.Value}
+		}
+		It("Should authenticate a request that carries only the cookie", func() {
+			cookie := loginWithCookie()
+			res := post(
+				"/api/v1/auth/session/renew",
+				withCookie(cookie),
+				struct{}{},
+			)
+			body := MustSucceed(io.ReadAll(res.Body))
+			Expect(res.StatusCode).To(Equal(http.StatusOK), string(body))
+			var parsed apiauth.SessionRenewResponse
+			Expect(json.Unmarshal(body, &parsed)).To(Succeed())
+			Expect(parsed.User).ToNot(BeNil())
+			Expect(parsed.User.Username).To(Equal(creds.Username))
+		})
+		It("Should refuse a request with neither header nor cookie", func() {
+			res := post("/api/v1/auth/session/renew", nil, struct{}{})
+			Expect(res.StatusCode).To(Equal(http.StatusBadRequest))
+		})
+		It("Should clear the cookie when the session logs out", func() {
+			cookie := loginWithCookie()
+			renew := post(
+				"/api/v1/auth/session/renew",
+				withCookie(cookie),
+				struct{}{},
+			)
+			var parsed apiauth.SessionRenewResponse
+			Expect(json.NewDecoder(renew.Body).Decode(&parsed)).To(Succeed())
+			res := post(
+				"/api/v1/auth/session/delete",
+				withCookie(cookie),
+				apiauth.SessionDeleteRequest{
+					Keys: []auth.SessionKey{parsed.Session.Key},
+				},
+			)
+			Expect(res.StatusCode).To(Equal(http.StatusOK))
+			cleared := res.Cookies()
+			Expect(cleared).To(HaveLen(1))
+			Expect(cleared[0].Value).To(BeEmpty())
+			Expect(cleared[0].MaxAge).To(BeNumerically("<", 0))
+			again := post(
+				"/api/v1/auth/session/renew",
+				withCookie(cookie),
+				struct{}{},
+			)
+			Expect(again.StatusCode).To(Equal(http.StatusBadRequest))
+		})
+	})
 })

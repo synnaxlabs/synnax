@@ -53,8 +53,15 @@ export const synnaxParamsZ = z.object({
   port: z
     .number({ error: "Port is required" })
     .or(z.string({ error: "Port is required" })),
-  username: z.string().min(1, "Username is required"),
-  password: z.string().min(1, "Password is required"),
+  username: z.string().min(1, "Username is required").optional(),
+  password: z.string().min(1, "Password is required").optional(),
+  /** The token of an earlier login to resume, in place of a username and password. */
+  token: z.string().min(1).optional(),
+  /**
+   * Whether the Core keeps the session token in a cookie the page never sees. For a
+   * browser client served by the Core itself.
+   */
+  sessionCookie: z.boolean().default(false),
   connectivityPollFrequency: TimeSpan.z.default(TimeSpan.seconds(30)),
   clockSkewThreshold: TimeSpan.z.default(TimeSpan.seconds(1)),
   secure: z.boolean().default(false),
@@ -81,6 +88,22 @@ export const synnaxParamsZ = z.object({
 
 export interface SynnaxParams extends z.input<typeof synnaxParamsZ> {}
 export interface ParsedSynnaxParams extends z.infer<typeof synnaxParamsZ> {}
+
+/**
+ * The authority a client logs in with: its credentials when both are given, else the
+ * token or cookie. A client with none fails its first request with an AuthError.
+ */
+const authorityOf = ({
+  username,
+  password,
+  token,
+  sessionCookie,
+}: ParsedSynnaxParams): auth.Authority => ({
+  credentials:
+    username != null && password != null ? { username, password } : undefined,
+  token,
+  cookie: sessionCookie,
+});
 
 /**
  * Client to perform operations against a Synnax cluster.
@@ -127,10 +150,11 @@ export default class Synnax extends framer.Client {
   /**
    * @param props.host - Hostname of a node in the cluster.
    * @param props.port - Port of the node in the cluster.
-   * @param props.username - Username for authentication. Not required if the cluster is
-   * insecure.
-   * @param props.password - Password for authentication. Not required if the cluster is
-   * insecure.
+   * @param props.username - Username for authentication, with props.password.
+   * @param props.password - Password for authentication, with props.username.
+   * @param props.token - The token of an earlier login to resume instead.
+   * @param props.sessionCookie - Whether the Core keeps the token in a cookie the page
+   * never sees, for a browser client the Core serves.
    * @param props.connectivityPollFrequency - Heartbeat cadence while the connection is
    * healthy. Defaults to 30 seconds.
    * @param props.secure - Whether to connect to the cluster using TLS. The cluster must
@@ -140,16 +164,8 @@ export default class Synnax extends framer.Client {
    */
   constructor(params: SynnaxParams) {
     const parsedParams = zod.parse(synnaxParamsZ, params);
-    const {
-      host,
-      port,
-      username,
-      password,
-      connectivityPollFrequency,
-      clockSkewThreshold,
-      secure,
-      retry,
-    } = parsedParams;
+    const { host, port, connectivityPollFrequency, clockSkewThreshold, secure, retry } =
+      parsedParams;
     const transport = new Transport(
       new url.URL({ host, port: Number(port) }),
       retry,
@@ -201,14 +217,10 @@ export default class Synnax extends framer.Client {
     transport.unary.use(this.conn.middleware());
     // The auth client fails fast: login retries belong to the request that triggered
     // them (the breaker-wrapped unary or the check loop), never stacked beneath it.
-    this.auth = new auth.Client(
-      transport.unaryNoRetry,
-      { username, password },
-      {
-        onSuccess: () => this.conn.notify({ type: "auth.success" }),
-        onFailure: (error) => this.conn.notify({ type: "auth.failure", error }),
-      },
-    );
+    this.auth = new auth.Client(transport.unaryNoRetry, authorityOf(parsedParams), {
+      onSuccess: () => this.conn.notify({ type: "auth.success" }),
+      onFailure: (error) => this.conn.notify({ type: "auth.failure", error }),
+    });
     transport.use(this.auth.middleware());
     const chCreator = new channel.Writer(transport.unary);
     this.key = uuid.create();
