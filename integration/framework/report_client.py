@@ -57,7 +57,7 @@ class ReportClient:
             failed = sum(1 for r in self._tests if r.status == STATUS.FAILED)
             killed = sum(1 for r in self._tests if r.status == STATUS.KILLED)
             timeout = sum(1 for r in self._tests if r.status == STATUS.TIMEOUT)
-            total_failed = failed + killed + timeout
+            total_failed = failed + killed + timeout + flaky
 
             return {
                 "total": len(self._tests),
@@ -157,7 +157,8 @@ class ReportClient:
         self._log(
             f"Failed: {stats['total_failed']} "
             f"(includes {stats['failed']} failed, "
-            f"{stats['killed']} killed, {stats['timeout']} timeout)",
+            f"{stats['killed']} killed, {stats['timeout']} timeout, "
+            f"{stats['flaky']} flaky)",
             False,
         )
         self._log("=" * 60, False)

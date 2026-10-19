@@ -341,7 +341,7 @@ The layout and inspection workflow are identical between local dev and CI.
    This is the LLM-friendly entry point. Read it first.
 2. **Cross-reference `summary.json`** for run-level stats and per-test paths.
    ```bash
-   jq '.tests[] | select(.status != "PASSED" and .status != "FLAKY")' summary.json
+   jq '.tests[] | select(.status != "PASSED")' summary.json
    ```
 3. **Drill into `tests/<name>/`** for the raw artifacts behind a section:
    - `trace.zip` -> full Playwright trace (only on FAILED/TIMEOUT/KILLED)
