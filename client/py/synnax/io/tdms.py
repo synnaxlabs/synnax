@@ -14,18 +14,18 @@ from pathlib import Path
 import pandas as pd
 from nptdms import TdmsFile
 
-from synnax.io.matcher import new_extension_matcher
+from synnax.io.matcher import ExtensionMatcher
 from synnax.io.protocol import (
     ChannelMeta,
     ColumnFileReader,
     ReaderType,
 )
 
-TDMSMatcher = new_extension_matcher(["tdms"])
 
-
-class TDMSReader(TDMSMatcher):  # type: ignore
+class TDMSReader(ExtensionMatcher):
     """A ColReader implementation for TDMS files."""
+
+    _extensions = ("tdms",)
 
     channel_keys: set[str]
     chunk_size: int
@@ -64,13 +64,11 @@ class TDMSReader(TDMSMatcher):  # type: ignore
         if self._channels is not None:
             return self._channels
 
-        self._channels: list[ChannelMeta] = list()
+        self._channels: list[ChannelMeta] = []
         with TdmsFile.open(self._path) as tdms_file:
             for group in tdms_file.groups():
                 for channel in group.channels():
-                    self._channels.append(
-                        ChannelMeta(name=channel.name, meta_data=dict())
-                    )
+                    self._channels.append(ChannelMeta(name=channel.name, meta_data={}))
 
         return self._channels
 
@@ -81,7 +79,7 @@ class TDMSReader(TDMSMatcher):  # type: ignore
         self.channel_keys = set(keys)
 
     def set_keys_from_file(self) -> set[str]:
-        self.channel_keys = set([ch.name for ch in self.channels()])
+        self.channel_keys = {ch.name for ch in self.channels()}
         return self.channel_keys
 
     @classmethod
@@ -114,7 +112,7 @@ class TDMSReader(TDMSMatcher):  # type: ignore
         # https://nptdms.readthedocs.io/en/stable/reading.html
         # https://github.com/adamreeve/npTDMS/issues/263
         # https://nptdms.readthedocs.io/en/stable/reading.html
-        data = dict()
+        data = {}
         with TdmsFile.open(self._path) as tdms_file:
             for group in tdms_file.groups():
                 for channel in group.channels():
@@ -128,6 +126,9 @@ class TDMSReader(TDMSMatcher):  # type: ignore
             self._current_chunk += 1
 
         return pd.DataFrame(data)
+
+    def close(self) -> None:
+        """Every read opens and closes the file, so there is nothing to close."""
 
     def __iter__(self) -> Iterator[pd.DataFrame]:
         return (self.read() for _ in range(self.n_chunks))

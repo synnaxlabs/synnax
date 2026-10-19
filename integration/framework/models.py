@@ -42,7 +42,7 @@ class SYMBOLS(Enum):
             return "\u2753"
 
 
-@dataclass
+@dataclass(frozen=True)
 class SynnaxConnection:
     """Data class representing the Synnax connection parameters."""
 
@@ -60,6 +60,10 @@ class SynnaxConnection:
             password=self.password,
             secure=self.secure,
         )
+
+
+DEFAULT_CONNECTION = SynnaxConnection()
+"""Connection to a local Core with the default credentials."""
 
 
 @dataclass

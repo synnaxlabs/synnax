@@ -66,6 +66,28 @@ var _ = Describe("Go Actions Plugin", func() {
 		})
 
 		Context("structs with actions", func() {
+			It(
+				"Should emit a single action type constant on one line",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/counter"
+
+					Counter struct {
+						key   uuid
+						value int32
+
+						action SetValue {
+							value int32
+						}
+					}
+				`
+					resp := MustGenerate(ctx, source, "counter", loader, p)
+					ExpectContent(resp, "actions.gen.go").
+						ToContain("\nconst ActionTypeSetValue = \"set_value\"\n").
+						ToNotContain("const (\n\tActionTypeSetValue")
+				},
+			)
+
 			It("Should emit a discriminated-union codec", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/service/counter"

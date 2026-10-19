@@ -24,10 +24,13 @@ class Writer:
 
     def write(
         self,
-        channel_or_data: str | dict[str, int | float | str | None],
+        channel_or_data: str | dict[str, int | float | str],
         value: int | float | str | None = None,
     ) -> None:
+        data: dict[str, int | float | str]
         if isinstance(channel_or_data, str):
+            if value is None:
+                raise ValueError(f"no value to write to {channel_or_data}")
             data = {channel_or_data: value}
         else:
             data = channel_or_data

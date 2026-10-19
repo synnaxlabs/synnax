@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 )
 
-// Ruff is a Formatter that runs `ruff format` followed by `ruff check --fix` over its
+// Ruff is a Formatter that runs `ruff check --fix` followed by `ruff format` over its
 // input via stdin. The command runs from the nearest pyproject.toml directory so `uv
 // run` resolves the package-local ruff binary and the package's configuration applies.
 type Ruff struct {
@@ -27,7 +27,8 @@ type Ruff struct {
 // NewRuff returns a Ruff formatter using `uv run ruff`.
 func NewRuff() *Ruff { return &Ruff{Bin: "uv", Args: []string{"run", "ruff"}} }
 
-// Format runs `ruff format` then `ruff check --fix` with content on stdin.
+// Format runs `ruff check --fix` then `ruff format` with content on stdin, so the
+// output of a lint fix is also formatted.
 func (r *Ruff) Format(
 	ctx context.Context,
 	content []byte,
@@ -36,17 +37,6 @@ func (r *Ruff) Format(
 	dir := findProjectDir(absPath, "pyproject.toml")
 	if dir == "" {
 		dir = filepath.Dir(absPath)
-	}
-	formatArgs := append([]string{}, r.Args...)
-	formatArgs = append(formatArgs, "format", "--stdin-filename", absPath, "-")
-	formatted, err := stdinRun{
-		Name:  r.Bin,
-		Args:  formatArgs,
-		Dir:   dir,
-		Stdin: content,
-	}.run(ctx)
-	if err != nil {
-		return nil, err
 	}
 	checkArgs := append([]string{}, r.Args...)
 	checkArgs = append(
@@ -58,10 +48,21 @@ func (r *Ruff) Format(
 		absPath,
 		"-",
 	)
-	return stdinRun{
+	fixed, err := stdinRun{
 		Name:  r.Bin,
 		Args:  checkArgs,
 		Dir:   dir,
-		Stdin: formatted,
+		Stdin: content,
+	}.run(ctx)
+	if err != nil {
+		return nil, err
+	}
+	formatArgs := append([]string{}, r.Args...)
+	formatArgs = append(formatArgs, "format", "--stdin-filename", absPath, "-")
+	return stdinRun{
+		Name:  r.Bin,
+		Args:  formatArgs,
+		Dir:   dir,
+		Stdin: fixed,
 	}.run(ctx)
 }

@@ -27,18 +27,18 @@ from synnax.status.types_gen import (
 )
 
 __all__ = [
-    "Client",
     "DELETE_CHANNEL",
-    "Key",
     "ONTOLOGY_TYPE",
     "SET_CHANNEL",
-    "Status",
     "VARIANT_DISABLED",
     "VARIANT_ERROR",
     "VARIANT_INFO",
     "VARIANT_LOADING",
     "VARIANT_SUCCESS",
     "VARIANT_WARNING",
-    "ontology_id",
+    "Client",
+    "Key",
+    "Status",
     "Variant",
+    "ontology_id",
 ]

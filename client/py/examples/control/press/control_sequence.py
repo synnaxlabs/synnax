@@ -27,7 +27,15 @@ to a line plot and making a schematic that shows valves representing press_vlv_c
 vent_vlv_cmd and a tank with a value representing press_pt.
 """
 
+from collections.abc import Callable
+
 import synnax as sy
+
+
+def above(channel: str, target: float) -> Callable[[sy.Controller], bool]:
+    """Returns a condition that holds once the channel's value exceeds target."""
+    return lambda c: bool(c[channel] > target)
+
 
 # We've logged in via the command-line interface, so there's no need to provide
 # credentials here. See https://docs.synnaxlabs.com/reference/client/quick-start.
@@ -62,12 +70,12 @@ with client.control.acquire(
     ctrl[VENT_VALVE] = False
 
     # Pressurize the system five times in 20 psi increments
-    for i in range(5):
+    for _ in range(5):
         # Open the pressurization valve
         ctrl[PRESS_VALVE] = True
         if ctrl.wait_until(
             # Wait until the pressure is greater than the current target
-            lambda c: c[PRESSURE] > target_pressure,
+            above(PRESSURE, target_pressure),
             # If the pressure doesn't reach the target in 20 seconds, break the loop and
             # vent the system
             timeout=20 * sy.TimeSpan.SECOND,

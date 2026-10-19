@@ -12,101 +12,56 @@ from uuid import uuid4
 import pytest
 
 import synnax as sy
+from synnax.view import RangeQuery, RangeView, StatusQuery, StatusView
 from x.testutil import assert_eventually
 
 
 @pytest.mark.view
 class TestView:
-    def test_create(self, client: sy.Synnax):
+    def test_create(self, client: sy.Synnax) -> None:
         """Should create a single view."""
+        label = uuid4()
         v = client.views.create(
-            name="Test View",
-            type="lineplot",
-            query={"channels": ["test-1", "test-2"]},
+            RangeView(name="Test View", query=RangeQuery(has_labels=[label]))
         )
+        assert isinstance(v, RangeView)
         assert v.name == "Test View"
-        assert v.type == "lineplot"
-        assert v.query == {"channels": ["test-1", "test-2"]}
+        assert v.query.has_labels == [label]
 
-    def test_create_from_view(self, client: sy.Synnax):
-        """Should create a view from a View object."""
-        v = client.views.create(
-            sy.View(
-                key=sy.view.Key(int=0),
-                name="From Object",
-                type="table",
-                query={"columns": ["col-1"]},
-            )
-        )
-        assert v.name == "From Object"
-        assert v.type == "table"
-
-    def test_create_multiple(self, client: sy.Synnax):
-        """Should create multiple views."""
+    def test_create_multiple(self, client: sy.Synnax) -> None:
+        """Should create multiple views of different types."""
         views = client.views.create(
             [
-                sy.View(
-                    key=sy.view.Key(int=0),
-                    name="Multi 1",
-                    type="lineplot",
-                    query={"channels": ["ch-1"]},
-                ),
-                sy.View(
-                    key=sy.view.Key(int=0),
-                    name="Multi 2",
-                    type="table",
-                    query={"columns": ["col-1"]},
-                ),
+                RangeView(name="Multi 1", query=RangeQuery()),
+                StatusView(name="Multi 2", query=StatusQuery(variants=["error"])),
             ]
         )
         assert len(views) == 2
-        assert views[0].name == "Multi 1"
-        assert views[1].name == "Multi 2"
+        assert isinstance(views[0], RangeView)
+        assert isinstance(views[1], StatusView)
+        assert views[1].query.variants == ["error"]
 
-    def test_retrieve_by_key(self, client: sy.Synnax):
+    def test_retrieve_by_key(self, client: sy.Synnax) -> None:
         """Should retrieve a view by key."""
         created = client.views.create(
-            name="Retrieve Me",
-            type="lineplot",
-            query={"channels": ["test"]},
+            StatusView(name="Retrieve Me", query=StatusQuery(variants=["success"]))
         )
-        retrieved = client.views.retrieve(key=created.key)
-        assert retrieved.key == created.key
-        assert retrieved.name == "Retrieve Me"
-        assert retrieved.query == {"channels": ["test"]}
+        assert client.views.retrieve(key=created.key) == created
 
-    def test_retrieve_by_keys(self, client: sy.Synnax):
+    def test_retrieve_by_keys(self, client: sy.Synnax) -> None:
         """Should retrieve multiple views by keys."""
-        v1 = client.views.create(
-            name="View A",
-            type="lineplot",
-            query={"channels": ["a"]},
-        )
-        v2 = client.views.create(
-            name="View B",
-            type="table",
-            query={"columns": ["b"]},
-        )
+        v1 = client.views.create(RangeView(name="View A", query=RangeQuery()))
+        v2 = client.views.create(StatusView(name="View B", query=StatusQuery()))
         views = client.views.retrieve(keys=[v1.key, v2.key])
         assert len(views) == 2
 
-    def test_retrieve_with_search_term(self, client: sy.Synnax):
+    def test_retrieve_with_search_term(self, client: sy.Synnax) -> None:
         """Should search for views by name."""
         prefix = f"searchable-view-{uuid4()}"
         client.views.create(
             [
-                sy.View(
-                    key=sy.view.Key(int=0),
-                    name=f"{prefix}-1",
-                    type="lineplot",
-                    query={},
-                ),
-                sy.View(
-                    key=sy.view.Key(int=0),
-                    name=f"{prefix}-2",
-                    type="table",
-                    query={},
-                ),
+                RangeView(name=f"{prefix}-1", query=RangeQuery()),
+                StatusView(name=f"{prefix}-2", query=StatusQuery()),
             ]
         )
 
@@ -117,41 +72,29 @@ class TestView:
 
         assert_eventually(check)
 
-    def test_retrieve_by_type(self, client: sy.Synnax):
+    def test_retrieve_by_type(self, client: sy.Synnax) -> None:
         """Should retrieve views filtered by type."""
-        unique_type = f"test_type_{sy.view.Key(int=0)}"
-        client.views.create(
-            name="Typed View",
-            type=unique_type,
-            query={},
+        views = client.views.create(
+            [
+                RangeView(name="Range", query=RangeQuery()),
+                StatusView(name="Status", query=StatusQuery()),
+            ]
         )
-        views = client.views.retrieve(types=[unique_type])
-        assert len(views) >= 1
-        assert all(v.type == unique_type for v in views)
+        res = client.views.retrieve(keys=[v.key for v in views], types=["status"])
+        assert len(res) == 1
+        assert res[0].name == "Status"
 
-    def test_delete(self, client: sy.Synnax):
+    def test_delete(self, client: sy.Synnax) -> None:
         """Should delete a view."""
-        v = client.views.create(
-            name="To Delete",
-            type="table",
-            query={},
-        )
+        v = client.views.create(RangeView(name="To Delete", query=RangeQuery()))
         client.views.delete(v.key)
-        with pytest.raises(Exception):
+        with pytest.raises(sy.NotFoundError):
             client.views.retrieve(key=v.key)
 
-    def test_delete_multiple(self, client: sy.Synnax):
+    def test_delete_multiple(self, client: sy.Synnax) -> None:
         """Should delete multiple views."""
-        v1 = client.views.create(
-            name="Delete 1",
-            type="table",
-            query={},
-        )
-        v2 = client.views.create(
-            name="Delete 2",
-            type="lineplot",
-            query={},
-        )
+        v1 = client.views.create(RangeView(name="Delete 1", query=RangeQuery()))
+        v2 = client.views.create(StatusView(name="Delete 2", query=StatusQuery()))
         client.views.delete([v1.key, v2.key])
-        with pytest.raises(Exception):
+        with pytest.raises(sy.NotFoundError):
             client.views.retrieve(keys=[v1.key, v2.key])

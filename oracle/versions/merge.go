@@ -309,6 +309,9 @@ func referencedNamespaces(
 		for _, e := range f.Included {
 			walkRef(e)
 		}
+		if f.BorrowsEnum() {
+			walkRef(f.Enum)
+		}
 	case resolution.DistinctForm:
 		walkRef(f.Base)
 	case resolution.AliasForm:

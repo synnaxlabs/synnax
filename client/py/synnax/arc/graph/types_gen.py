@@ -11,9 +11,9 @@
 
 from __future__ import annotations
 
-from typing import Any, TypeAlias
+from typing import TypeAlias
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, JsonValue
 
 from synnax.arc import ir
 from x import spatial
@@ -67,4 +67,4 @@ class Graph(BaseModel):
     functions: ir.Functions = Field(default_factory=list)
     edges: Edges = Field(default_factory=list)
     nodes: Nodes = Field(default_factory=list)
-    inputs: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    inputs: dict[str, dict[str, JsonValue]] = Field(default_factory=dict)
