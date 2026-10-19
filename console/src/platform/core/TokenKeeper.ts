@@ -11,7 +11,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
 import { useEffect } from "react";
 
-import { deleteToken, writeToken } from "@/platform/core/token";
+import { accountOf, deleteToken, writeToken } from "@/platform/core/token";
 import { Session } from "@/session";
 
 /**
@@ -24,8 +24,15 @@ export const TokenKeeper = (): null => {
   const status = Synnax.useConnectionStatus();
   const core = Session.Core.useSelectSelected();
   const handleError = Status.useErrorHandler();
-  const rejected = status.variant === "error" && status.details.reason === "auth";
-  const token = status.details.authenticated ? client?.auth.token : undefined;
+  // for a moment after a Core switch, the status still belongs to the old Core's client
+  const current =
+    client != null &&
+    core != null &&
+    accountOf(core) ===
+      accountOf({ host: client.params.host, port: Number(client.params.port) });
+  const rejected =
+    current && status.variant === "error" && status.details.reason === "auth";
+  const token = current && status.details.authenticated ? client.auth.token : undefined;
   useEffect(() => {
     if (core == null || Session.Runtime.ENGINE !== "tauri") return;
     if (rejected)

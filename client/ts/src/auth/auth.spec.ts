@@ -152,11 +152,23 @@ describe("auth", () => {
       expect(before.map((s) => s.key)).toContain(key);
       await client.logout();
       expect(client.authenticated).toBe(false);
-      // the next request logs in again with a fresh session
-      const after = await client.retrieveSessions();
+      const observer = makeClient();
+      const after = await observer.retrieveSessions();
       expect(after.map((s) => s.key)).not.toContain(key);
-      expect(client.session?.key).toBeDefined();
-      expect(after.map((s) => s.key)).toContain(client.session?.key);
+    });
+
+    it("should stay logged out until new credentials are set", async () => {
+      const client = makeClient();
+      await login(client);
+      await client.logout();
+      await expect(client.retrieveSessions()).rejects.toThrow(
+        "no credentials, API key, token, or cookie",
+      );
+      expect(client.authenticated).toBe(false);
+      client.setCredentials(TEST_CREDENTIALS);
+      await login(client);
+      expect(client.authenticated).toBe(true);
+      await client.logout();
     });
 
     it("should not open a new session when logging out of an ended session", async () => {
@@ -442,6 +454,18 @@ describe("auth", () => {
       await keyed.retrieveSessions();
       await owner.deleteKeys(key.key);
       await expect(keyed.retrieveSessions()).rejects.toThrow(AuthError);
+    });
+
+    it("should forget its key on logout", async () => {
+      const owner = makeClient({ credentials: TEST_CREDENTIALS });
+      const { token, key } = await owner.createKey({ name: "logout" });
+      const keyed = makeClient({ apiKey: token });
+      await keyed.retrieveSessions();
+      await keyed.logout();
+      await expect(keyed.retrieveSessions()).rejects.toThrow(
+        "no credentials, API key, token, or cookie",
+      );
+      await owner.deleteKeys(key.key);
     });
 
     it("should reject a key the Core never issued", async () => {
