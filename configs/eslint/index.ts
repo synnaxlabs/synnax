@@ -111,8 +111,6 @@ const config: Linter.Config[] = [
       "@eslint-react/jsx-no-useless-fragment": "error",
       "@eslint-react/dom-no-unsafe-target-blank": "error",
       // Off until a SY-5149 follow-up PR fixes their hits.
-      "@eslint-react/web-api-no-leaked-event-listener": "off",
-      "@eslint-react/web-api-no-leaked-timeout": "off",
       "@eslint-react/use-state": "off",
       // Off until a SY-5149 hook audit: the fixes change render behavior.
       "@eslint-react/exhaustive-deps": "off",

@@ -76,6 +76,9 @@ export const useVirtualDrag = ({
       onEnd?.(box.construct(start, xy.construct(e)), mouseKey, e);
     };
 
-    return () => el.removeEventListener("pointerdown", handleDown);
+    return () => {
+      el.removeEventListener("pointerdown", handleDown);
+      el.removeEventListener("pointerup", handleUp);
+    };
   }, [onMove, onStart, onEnd]);
 };
