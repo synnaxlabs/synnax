@@ -424,15 +424,12 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	if !cfg.RootCredentials.IsZero() {
-		if _, err = user.ProvisionRoot(
+		if _, _, err = user.ProvisionRoot(
 			ctx,
 			l.User,
 			l.Password,
 			cfg.RootCredentials,
-		); !ok(
-			err,
-			nil,
-		) {
+		); !ok(err, nil) {
 			return nil, err
 		}
 	}

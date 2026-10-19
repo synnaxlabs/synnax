@@ -23,18 +23,23 @@ import (
 // ProvisionRoot makes exactly one user the root user and sets its password to creds.
 // The Core calls it at every start, so the start settings own the root password. A root
 // user whose username already matches keeps its record. Else a user holding the
-// username
-// is promoted in place. Else a root user record is created. Every other root user is
-// demoted and keeps its roles. The whole call runs in one transaction and returns the
-// root user. It returns a validation error when creds is incomplete.
+// username is promoted in place. Else a root user record is created. Every other root
+// user is demoted and keeps its roles. The password is written only when creds does
+// not verify against the stored one, and the returned bool reports that write. The
+// caller ends the other sessions of a changed password. The whole call runs in one
+// transaction. It returns a validation error when creds is incomplete.
 func ProvisionRoot(
 	ctx context.Context,
 	users *Service,
 	passwords *password.Service,
 	creds auth.Credentials,
-) (User, error) {
+) (User, bool, error) {
 	if err := creds.Validate(); err != nil {
-		return User{}, err
+		return User{}, false, err
+	}
+	changed, err := passwordChanged(ctx, passwords, creds)
+	if err != nil {
+		return User{}, false, err
 	}
 	var root User
 	if err := users.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
@@ -52,11 +57,33 @@ func ProvisionRoot(
 				}
 			}
 		}
+		if !changed {
+			return nil
+		}
 		return passwords.NewWriter(tx).Set(ctx, root.OntologyID(), creds)
 	}); err != nil {
-		return User{}, err
+		return User{}, false, err
 	}
-	return root, nil
+	return root, changed, nil
+}
+
+// passwordChanged reports whether creds fails to verify against the stored password
+// for its username. A missing record counts as changed.
+func passwordChanged(
+	ctx context.Context,
+	passwords *password.Service,
+	creds auth.Credentials,
+) (bool, error) {
+	_, err := passwords.Authenticate(ctx, auth.Proof{
+		Variant: auth.PasswordProof{Credentials: creds},
+	})
+	if err == nil {
+		return false, nil
+	}
+	if errors.Is(err, auth.ErrInvalidCredentials) {
+		return true, nil
+	}
+	return false, err
 }
 
 // loadRootUsers returns every user record with RootUser=true.

@@ -84,7 +84,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 				Group:    groupSvc,
 				Search:   searchIdx,
 			}))
-			MustSucceed(
+			MustSucceed2(
 				user.ProvisionRoot(
 					ctx,
 					userSvc,
@@ -251,7 +251,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 			Group:    groupSvc,
 			Search:   searchIdx,
 		}))
-		MustSucceed(
+		MustSucceed2(
 			user.ProvisionRoot(
 				ctx,
 				userSvc,
@@ -313,7 +313,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 			Group:    groupSvc,
 			Search:   searchIdx,
 		}))
-		MustSucceed(
+		MustSucceed2(
 			user.ProvisionRoot(
 				ctx,
 				userSvc,

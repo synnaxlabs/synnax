@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
 	. "github.com/synnaxlabs/x/testutil"
@@ -24,12 +25,24 @@ import (
 // provision runs root provisioning against the suite-level services.
 func provision(ctx context.Context, username, pwd string) user.User {
 	GinkgoHelper()
-	return MustSucceed(user.ProvisionRoot(
+	root, _ := MustSucceed2(user.ProvisionRoot(
 		ctx,
 		svc,
 		passwordSvc,
 		auth.Credentials{Username: username, Password: pwd},
 	))
+	return root
+}
+
+// storedHash returns the password hash stored for username.
+func storedHash(ctx context.Context, username string) []byte {
+	GinkgoHelper()
+	var p password.Password
+	Expect(passwordSvc.NewRetrieve().
+		Where(password.MatchUsernames(username)).
+		Entry(&p).
+		Exec(ctx, nil)).To(Succeed())
+	return p.Hash
 }
 
 // login proves username and pwd against the suite-level password service.
@@ -140,10 +153,34 @@ var _ = Describe("ProvisionRoot", Serial, func() {
 	})
 	It("Should set the root password from the settings", func(ctx SpecContext) {
 		provision(ctx, "alpha", "p1")
-		provision(ctx, "alpha", "p2")
+		_, changed := MustSucceed2(user.ProvisionRoot(
+			ctx,
+			svc,
+			passwordSvc,
+			auth.Credentials{Username: "alpha", Password: "p2"},
+		))
+		Expect(changed).To(BeTrue())
 		MustSucceed(login(ctx, "alpha", "p2"))
 		Expect(login(ctx, "alpha", "p1")).Error().
 			To(MatchError(auth.ErrInvalidCredentials))
+	})
+	It("Should keep the stored hash when the password matches", func(ctx SpecContext) {
+		_, changed := MustSucceed2(user.ProvisionRoot(
+			ctx,
+			svc,
+			passwordSvc,
+			auth.Credentials{Username: "alpha", Password: "p1"},
+		))
+		Expect(changed).To(BeTrue())
+		before := storedHash(ctx, "alpha")
+		_, changed = MustSucceed2(user.ProvisionRoot(
+			ctx,
+			svc,
+			passwordSvc,
+			auth.Credentials{Username: "alpha", Password: "p1"},
+		))
+		Expect(changed).To(BeFalse())
+		Expect(storedHash(ctx, "alpha")).To(Equal(before))
 	})
 	It(
 		"Should demote the previous root when the username changes",

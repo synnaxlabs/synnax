@@ -63,7 +63,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:    groupSvc,
 		Search:   searchIdx,
 	}))
-	MustSucceed(
+	MustSucceed2(
 		user.ProvisionRoot(
 			ctx,
 			userSvc,
