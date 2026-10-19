@@ -1307,6 +1307,27 @@ var _ = Describe("Driver", func() {
 			}).Should(Succeed())
 		})
 
+		It(
+			"should recreate a deleted status with the current name",
+			func(ctx SpecContext) {
+				openDriverWithInterval(ctx, 25*time.Millisecond)
+				key := embeddedRackKey(ctx)
+				renameRack(ctx, key, "Renamed Driver")
+				Expect(statusSvc.NewWriter(nil).Delete(ctx, rack.StatusKey(key))).
+					To(Succeed())
+				deletedAt := telem.Now()
+				Eventually(func(g Gomega) {
+					var stat rack.Status
+					g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
+						Where(status.MatchKeys[rack.StatusDetails](rack.StatusKey(key))).
+						Entry(&stat).
+						Exec(ctx, node.DB)).To(Succeed())
+					g.Expect(stat.Time).To(BeNumerically(">", deletedAt))
+					g.Expect(stat.Name).To(Equal("Renamed Driver"))
+				}).Should(Succeed())
+			},
+		)
+
 		It("should send periodic status updates", func(ctx SpecContext) {
 			MustOpen(driver.Open(ctx, driver.Config{
 				DB:                node.DB,
