@@ -62,7 +62,7 @@ func sessionCookieMiddleware() freighter.Middleware {
 		ctx freighter.Context,
 		next freighter.Next,
 	) (freighter.Context, error) {
-		host, _ := ctx.Params.GetDefault(fiber.HeaderHost, "").(string)
+		host, _ := ctx.GetDefault(fiber.HeaderHost, "").(string)
 		name := sessionCookieName(host, ctx.Sec.TLS.Used)
 		fromCookie := sessionCookieValue(ctx.Params, name)
 		_, hasHeader := ctx.Get(fiber.HeaderAuthorization)
