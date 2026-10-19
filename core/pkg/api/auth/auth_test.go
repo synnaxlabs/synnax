@@ -162,7 +162,7 @@ var _ = Describe("ChangePassword", func() {
 				apiSvc.Login(requestCtx(ctx), request(own.Username, own.Password)),
 			)
 			fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
-			fctx.Set("Session", MustSucceed(authSvc.Authenticate(ctx, kept.Token)).Key)
+			fctx.Set("Session", MustSucceed(authSvc.Authenticate(ctx, kept.Token)))
 			Expect(apiSvc.ChangePassword(fctx, nil, apiauth.ChangePasswordRequest{
 				Credentials: own,
 				NewPassword: "new",
@@ -211,10 +211,11 @@ var _ = Describe("Middleware", func() {
 			),
 		))
 		Expect(apiauth.GetSubject(seen)).To(Equal(root.OntologyID()))
-		Expect(apiauth.GetSession(seen)).To(Equal(
+		session := apiauth.GetSession(seen)
+		Expect(session.Key).To(Equal(
 			MustSucceed(authSvc.Authenticate(ctx, token)).Key,
 		))
-		Expect(apiauth.GetCredential(seen)).ToNot(Equal(uuid.Nil()))
+		Expect(session.Credential).ToNot(Equal(uuid.Nil()))
 	})
 	It("Should reject a request without a token", func(ctx SpecContext) {
 		Expect(exec(requestCtx(ctx), passthrough)).To(MatchError(auth.ErrAuth))

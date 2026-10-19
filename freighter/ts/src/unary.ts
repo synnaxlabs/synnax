@@ -22,6 +22,7 @@ export interface UnaryClient extends Transport {
   /**
    * Sends a request to the target server and waits until a response is received.
    * @param resSchema - The schema to validate the response against.
+   * @param params - Context params this request starts with, ahead of any middleware.
    * @returns the decoded response.
    * @throws Error: if the server returns an error or the transport fails.
    */
@@ -30,6 +31,7 @@ export interface UnaryClient extends Transport {
     req: z.input<RQ> | z.infer<RQ>,
     reqSchema: RQ,
     resSchema: RS,
+    params?: Record<string, string>,
   ) => Promise<z.infer<RS>>;
 }
 
@@ -58,11 +60,12 @@ export const unaryWithBreaker = (
       req: z.input<RQ> | z.infer<RQ>,
       reqSchema: RQ,
       resSchema: RS,
+      params?: Record<string, string>,
     ): Promise<z.infer<RS>> {
       const brk = new breaker.Breaker(cfg);
       do
         try {
-          return await this.wrapped.send(target, req, reqSchema, resSchema);
+          return await this.wrapped.send(target, req, reqSchema, resSchema, params);
         } catch (err) {
           const e = errors.fromUnknown(err);
           if (!Unreachable.matches(e) || !brk.canRetry) throw e;

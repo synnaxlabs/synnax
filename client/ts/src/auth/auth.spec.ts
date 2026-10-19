@@ -189,6 +189,23 @@ describe("auth", () => {
       await admin.close();
     });
 
+    it("should end each session when two logouts overlap", async () => {
+      const client = makeClient();
+      await login(client);
+      const first = client.session?.key;
+      const firstLogout = client.logout();
+      client.setCredentials(TEST_CREDENTIALS);
+      await login(client);
+      const second = client.session?.key;
+      await Promise.all([firstLogout, client.logout()]);
+      expect(second).not.toEqual(first);
+      const observer = makeClient();
+      const keys = (await observer.retrieveSessions()).map((s) => s.key);
+      expect(keys).not.toContain(first);
+      expect(keys).not.toContain(second);
+      await observer.logout();
+    });
+
     it("should keep a session another request opened during the logout", async () => {
       const client = makeClient();
       await login(client);
