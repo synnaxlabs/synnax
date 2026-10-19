@@ -120,13 +120,18 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 		return casing.VariantConstName(name, v.Name)
 	}
 	if form.BorrowsEnum() {
-		if enumType, ok := form.Enum.Resolve(data.table); ok {
-			ud.BorrowsEnum = true
-			ud.DiscType = data.resolver.ResolveTypeRef(form.Enum, data.ctx)
-			prefix, _, _ := strings.Cut(ud.DiscType, naming.GetGoName(enumType))
-			constName = func(v resolution.UnionVariant) string {
-				return prefix + enumConstName(enumType, v.Name)
-			}
+		enumType, ok := form.Enum.Resolve(data.table)
+		if !ok {
+			panic(fmt.Sprintf(
+				"union %s borrows unresolved enum %s as its discriminator",
+				name, form.Enum.Name,
+			))
+		}
+		ud.BorrowsEnum = true
+		ud.DiscType = data.resolver.ResolveTypeRef(form.Enum, data.ctx)
+		prefix, _, _ := strings.Cut(ud.DiscType, naming.GetGoName(enumType))
+		constName = func(v resolution.UnionVariant) string {
+			return prefix + enumConstName(enumType, v.Name)
 		}
 	}
 
