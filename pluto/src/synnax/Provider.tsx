@@ -155,9 +155,16 @@ export const Provider = ({
 
   // The worker joins the page client's session instead of opening its own, so ending
   // the page's session ends the worker's access too.
-  const token = state.status.details.authenticated
-    ? state.client?.auth.token
-    : undefined;
+  const { client: pageClient } = state;
+  // for a moment after a switch, the page client still belongs to the previous Core
+  const current =
+    pageClient != null &&
+    connParams != null &&
+    pageClient.params.host === connParams.host &&
+    Number(pageClient.params.port) === Number(connParams.port) &&
+    pageClient.params.secure === (connParams.secure ?? false);
+  const token =
+    current && state.status.details.authenticated ? pageClient.auth.token : undefined;
   const workerParams = useMemo((): SynnaxParams | null => {
     if (connParams == null || token == null) return null;
     const shared = record.omit(connParams, "username", "password", "token");
