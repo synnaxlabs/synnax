@@ -9,11 +9,13 @@
 
 #pragma once
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <functional>
 #include <mutex>
 #include <string>
+#include <vector>
 
 #include "google/protobuf/empty.pb.h"
 
@@ -42,6 +44,10 @@ using SessionCreateClient = freighter::
 /// @brief transport that reports activity on the caller's session.
 using SessionRenewClient = freighter::
     UnaryClient<google::protobuf::Empty, google::protobuf::Empty>;
+/// @brief transport that lists sessions.
+using SessionRetrieveClient = freighter::UnaryClient<
+    grpc::auth::SessionRetrieveRequest,
+    grpc::auth::SessionRetrieveResponse>;
 /// @brief transport that ends sessions.
 using SessionDeleteClient = freighter::
     UnaryClient<grpc::auth::SessionDeleteRequest, google::protobuf::Empty>;
@@ -89,7 +95,7 @@ struct Subject {
     std::string key;
 };
 
-/// @brief the session a login opened, without its token.
+/// @brief a session a login opened, without its token.
 struct Session {
     /// @brief the unique key of the session.
     std::string key;
@@ -97,13 +103,25 @@ struct Session {
     Subject subject;
     /// @brief the method the subject logged in with.
     std::string method;
+    /// @brief the key of the credential the login matched.
+    std::string credential;
+    /// @brief the network address the login came from.
+    std::string address;
+    /// @brief when the subject logged in.
+    x::telem::TimeStamp created = x::telem::TimeStamp(0);
+    /// @brief the last time a request used the session.
+    x::telem::TimeStamp last_active = x::telem::TimeStamp(0);
 
     Session() = default;
 
     explicit Session(const grpc::auth::Session &s):
         key(s.key()),
         subject{s.subject().type(), s.subject().key()},
-        method(s.method()) {}
+        method(s.method()),
+        credential(s.credential()),
+        address(s.address()),
+        created(s.created()),
+        last_active(s.last_active()) {}
 };
 
 /// @brief auth::Middleware logs in with a username and password, holds the session,
@@ -145,6 +163,7 @@ class Middleware final : public freighter::PassthroughMiddleware {
     std::atomic<bool> authenticated = false;
     std::unique_ptr<SessionCreateClient> create_client;
     std::unique_ptr<SessionRenewClient> renew_client;
+    std::unique_ptr<SessionRetrieveClient> retrieve_client;
     std::unique_ptr<SessionDeleteClient> delete_client;
     /// Username to be used for authentication.
     std::string username;
@@ -175,12 +194,14 @@ public:
     Middleware(
         std::unique_ptr<SessionCreateClient> create_client,
         std::unique_ptr<SessionRenewClient> renew_client,
+        std::unique_ptr<SessionRetrieveClient> retrieve_client,
         std::unique_ptr<SessionDeleteClient> delete_client,
         std::string username,
         std::string password
     ):
         create_client(std::move(create_client)),
         renew_client(std::move(renew_client)),
+        retrieve_client(std::move(retrieve_client)),
         delete_client(std::move(delete_client)),
         username(std::move(username)),
         password(std::move(password)) {
@@ -188,6 +209,7 @@ public:
             return this->current_token();
         });
         if (this->renew_client) this->renew_client->use(header);
+        if (this->retrieve_client) this->retrieve_client->use(header);
         if (this->delete_client) {
             this->delete_client->use(header);
             this->delete_client->use(std::make_shared<Deadline>(LOGOUT_TIMEOUT));
@@ -227,6 +249,50 @@ public:
         auto [_, err] = renew_client->send("/auth/session/renew", req);
         if (err.matches(ENDED_ERRORS)) this->forget(sent);
         return err;
+    }
+
+    /// @brief lists sessions: the client's own when subjects is empty, otherwise the
+    /// sessions of the given subjects. Returns an access-denied error when the client
+    /// may not retrieve another subject.
+    std::pair<std::vector<Session>, x::errors::Error>
+    retrieve_sessions(const std::vector<Subject> &subjects = {}) {
+        if (!this->authenticated)
+            if (const auto err = this->authenticate()) return {{}, err};
+        const auto sent = this->current_token();
+        grpc::auth::SessionRetrieveRequest req;
+        for (const auto &subject: subjects) {
+            auto *s = req.add_subjects();
+            s->set_type(subject.type);
+            s->set_key(subject.key);
+        }
+        auto [res, err] = retrieve_client->send("/auth/session/retrieve", req);
+        if (err) {
+            if (err.matches(ENDED_ERRORS)) this->forget(sent);
+            return {{}, err};
+        }
+        std::vector<Session> sessions;
+        sessions.reserve(res.sessions_size());
+        for (const auto &s: res.sessions())
+            sessions.emplace_back(s);
+        return {sessions, x::errors::NIL};
+    }
+
+    /// @brief ends the given sessions. Unknown keys are ignored. Returns an
+    /// access-denied error when the client may not end another subject's sessions.
+    /// Ending the client's own session forgets it, and a later request logs in again.
+    x::errors::Error delete_sessions(const std::vector<std::string> &keys) {
+        if (!this->authenticated)
+            if (const auto err = this->authenticate()) return err;
+        const auto sent = this->current_token();
+        const auto own = this->current_session().key;
+        grpc::auth::SessionDeleteRequest req;
+        for (const auto &key: keys)
+            req.add_keys(key);
+        auto [_, err] = delete_client->send("/auth/session/delete", req);
+        if (err.matches(ENDED_ERRORS)) this->forget(sent);
+        if (err) return err;
+        if (std::find(keys.begin(), keys.end(), own) != keys.end()) this->forget(sent);
+        return x::errors::NIL;
     }
 
     /// @brief ends the client's own session and forgets it. A later request logs in

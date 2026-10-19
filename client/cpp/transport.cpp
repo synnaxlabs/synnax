@@ -49,6 +49,10 @@ Transport::Transport(const uint16_t port, const std::string &ip, const bool secu
         google::protobuf::Empty,
         google::protobuf::Empty,
         grpc::auth::AuthSessionRenewService>>(pool, base_target);
+    this->auth_session_retrieve = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::auth::SessionRetrieveRequest,
+        grpc::auth::SessionRetrieveResponse,
+        grpc::auth::AuthSessionRetrieveService>>(pool, base_target);
     this->auth_session_delete = std::make_unique<freighter::grpc::UnaryClient<
         grpc::auth::SessionDeleteRequest,
         google::protobuf::Empty,

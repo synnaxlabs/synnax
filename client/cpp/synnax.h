@@ -140,6 +140,7 @@ public:
             auto mw = std::make_shared<auth::Middleware>(
                 std::move(this->t.auth_session_create),
                 std::move(this->t.auth_session_renew),
+                std::move(this->t.auth_session_retrieve),
                 std::move(this->t.auth_session_delete),
                 cfg.username,
                 cfg.password
