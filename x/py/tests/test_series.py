@@ -108,8 +108,8 @@ class TestSeries:
 
     def test_construct_from_buffer_no_data_type(self) -> None:
         """Should throw a ValueError"""
-        with pytest.raises(ValueError):
-            assert telem.Series(b"57678")
+        with pytest.raises(ValueError, match="data_type must be specified"):
+            telem.Series(b"57678")
 
     def test_construction_from_bool_list(self) -> None:
         """Should infer BOOLEAN from a list of Python booleans"""
@@ -429,13 +429,13 @@ class TestVariableLengthSeries:
         """Should iterate in insertion order"""
         values = ["first", "second", "third", "fourth"]
         s = telem.Series(values)
-        assert [v for v in s] == values
+        assert list(s) == values
 
     def test_json_iteration_order(self) -> None:
         """Should iterate JSON values in insertion order"""
         values = [{"i": 0}, {"i": 1}, {"i": 2}]
         s = telem.Series(values)
-        assert [v for v in s] == values
+        assert list(s) == values
 
     def test_string_size_bytes(self) -> None:
         """Should report the correct raw byte size including prefixes"""
@@ -466,7 +466,7 @@ class TestMultiSeries:
         """Should throw a ValueError"""
         s1 = telem.Series([1, 2, 3], data_type=telem.DataType.INT8)
         s2 = telem.Series([4, 5, 6], data_type=telem.DataType.INT16)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="must have the same data type"):
             telem.MultiSeries([s1, s2])
 
     def test_construction_from_none(self) -> None:
@@ -645,7 +645,7 @@ class TestMultiSeries:
 @pytest.mark.series
 class TestSampleConversion:
     @pytest.mark.parametrize(
-        "value, expected",
+        ("value", "expected"),
         [(3, 3.0), (2.5, 2.5), (np.float32(1.5), 1.5), (np.int64(4), 4.0)],
     )
     def test_to_float(self, value: telem.SampleValue, expected: float) -> None:
@@ -653,7 +653,7 @@ class TestSampleConversion:
         assert telem.to_float(value) == expected
 
     @pytest.mark.parametrize(
-        "value, expected",
+        ("value", "expected"),
         [(3, 3), (np.int64(4), 4), (telem.TimeStamp(7), 7)],
     )
     def test_to_int(self, value: telem.SampleValue, expected: int) -> None:

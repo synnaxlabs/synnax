@@ -289,20 +289,19 @@ class SimDAQ:
         if ch_type == "ai_voltage":
             return f"voltage_{port}"
 
-        elif ch_type == "ai_current":
+        if ch_type == "ai_current":
             return f"current_{port}"
 
-        elif ch_type == "ai_bridge":
+        if ch_type == "ai_bridge":
             return f"bridge_{port}"
 
-        elif ch_type == "ai_thermocouple":
+        if ch_type == "ai_thermocouple":
             tc_type = ch.get("thermocoupleType", "K")
             return f"temp_tc{tc_type}_{port}"
 
-        elif ch_type == "ai_rtd":
+        if ch_type == "ai_rtd":
             return f"temp_rtd_{port}"
-        else:
-            return f"sensor_{index}"
+        return f"sensor_{index}"
 
     def _save_channel_mapping(self) -> None:
         """Save channel mapping to JSON file."""
@@ -335,10 +334,9 @@ class SimDAQ:
         if "voltage" in name_lower:
             if "24" in name_lower:
                 return 12 + base * 6 + noise
-            elif "5" in name_lower:
+            if "5" in name_lower:
                 return 2.5 + base * 1.5 + noise * 0.5
-            else:
-                return 0.015 + base * 0.01 + noise * 0.001
+            return 0.015 + base * 0.01 + noise * 0.001
 
         # Current sensors
         if "current" in name_lower or ch_type == "ai_current":
@@ -379,7 +377,7 @@ class SimDAQ:
         state_channels = [state for _, state in self.valve_pairs] + [
             state for _, state in self.ao_pairs
         ]
-        write_channels = ["daq_time"] + sensor_names + state_channels
+        write_channels = ["daq_time", *sensor_names, *state_channels]
 
         print("\nConfiguration:")
         print(f"  Writing {len(write_channels)} channels at 100 Hz")

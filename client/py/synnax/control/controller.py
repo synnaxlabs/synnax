@@ -195,7 +195,7 @@ class Controller:
         """
         if isinstance(channel, dict):
             values = list(channel.values())
-            channels = [self._resolve(ch) for ch in channel.keys()]
+            channels = [self._resolve(ch) for ch in channel]
             now = TimeStamp.now()
             updated = {channels[i].key: values[i] for i in range(len(channels))}
             updated_idx = {
@@ -529,7 +529,7 @@ class _Receiver(AsyncThread):
         super().__init__()
         self.channels = retriever.retrieve(channels)
         self.client = client
-        self.state = dict()
+        self.state = {}
         self.controller = controller
         self.lock = Lock()
         self.startup_ack = Event()

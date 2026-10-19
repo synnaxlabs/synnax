@@ -48,11 +48,10 @@ class SimDAQ(Simulator):
                 frame = streamer.read(timeout=1)
                 if frame is not None:
                     data = frame[end_cmd_channel]
-                    if len(data) > 0:
-                        if data.to_numpy()[-1] != 0:
-                            self.log(f"Received end command on {end_cmd_channel}")
-                            self._running = False
-                            return
+                    if len(data) > 0 and data.to_numpy()[-1] != 0:
+                        self.log(f"Received end command on {end_cmd_channel}")
+                        self._running = False
+                        return
 
     def stop(self, timeout: sy.TimeSpan = 5 * sy.TimeSpan.SECOND) -> None:
         """Stop simulation and wait for threads to finish."""
@@ -66,12 +65,10 @@ class SimDAQ(Simulator):
     @abstractmethod
     def _create_channels(self) -> None:
         """Create required Synnax channels."""
-        pass
 
     @abstractmethod
     def _run_loop(self) -> None:
         """Main simulation loop. Check self._running to know when to stop."""
-        pass
 
     @classmethod
     def main(cls) -> None:
