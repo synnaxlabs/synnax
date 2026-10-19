@@ -13,7 +13,6 @@ import (
 	"context"
 	"uuid"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
@@ -128,9 +127,7 @@ func (w Writer) Rename(
 // DeleteFor removes the passwords of the given subjects.
 func (w Writer) DeleteFor(ctx context.Context, subjects ...ontology.ID) error {
 	return w.svc.table.NewDelete().
-		Where(gorp.Match(func(_ gorp.Context, p *Password) (bool, error) {
-			return lo.Contains(subjects, p.Subject), nil
-		})).
+		Where(MatchSubjects(subjects...)(w.svc.NewRetrieve())).
 		Exec(ctx, w.tx)
 }
 

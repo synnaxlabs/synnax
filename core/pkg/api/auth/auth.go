@@ -129,8 +129,8 @@ func (s *Service) ChangePassword(
 	return struct{}{}, s.auth.NewWriter(tx).RevokeCredential(
 		ctx,
 		auth.MethodPassword,
+		[]auth.SessionKey{GetSession(ctx).Key},
 		identity.Credential,
-		GetSession(ctx).Key,
 	)
 }
 
