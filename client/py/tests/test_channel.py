@@ -419,7 +419,8 @@ class TestChannel:
             assert retrieved.name == name
 
     @pytest.fixture(scope="class")
-    def hundred_channels(self, client: sy.Synnax) -> list[sy.Channel]:
+    @classmethod
+    def hundred_channels(cls, client: sy.Synnax) -> list[sy.Channel]:
         data = [
             sy.Channel(
                 name=f"sensor_{i + 1}_{channel_name()}",
@@ -593,12 +594,14 @@ class TestChannelRetrieveFilters:
     """Tests the filters accepted by the channel client's retrieve method."""
 
     @pytest.fixture(scope="class")
-    def prefix(self) -> str:
+    @classmethod
+    def prefix(cls) -> str:
         return channel_name()
 
     @pytest.fixture(scope="class")
+    @classmethod
     def create_channels(
-        self, client: sy.Synnax, prefix: str
+        cls, client: sy.Synnax, prefix: str
     ) -> tuple[sy.Channel, sy.Channel, sy.Channel]:
         idx = client.channels.create(name=f"{prefix}_idx", is_index=True)
         data = client.channels.create(

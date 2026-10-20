@@ -70,6 +70,12 @@ synnax start -l localhost:9090 -im
         "Starts the node without TLS encryption. This is not recommended for production use.",
     },
     {
+      option: "--fips",
+      default: "false",
+      description:
+        "Restricts password hashing to PBKDF2, the one password hash NIST approves. With it on, the Core refuses to check a password stored with another algorithm until an administrator sets it again.",
+    },
+    {
       option: "--mem/-m",
       default: "false",
       description: `Starts the node with an in-memory data store. In this mode, all data will
@@ -244,6 +250,7 @@ Command line flags will take precedence over environment variables.
     { option: "--data/-d", env: "SYNNAX_DATA" },
     { option: "--verbose/-v", env: "SYNNAX_VERBOSE" },
     { option: "--insecure/-i", env: "SYNNAX_INSECURE" },
+    { option: "--fips", env: "SYNNAX_FIPS" },
     { option: "--mem/-m", env: "SYNNAX_MEM" },
     { option: "--config/c", env: "SYNNAX_CONFIG" },
     { option: "--certs-dir", env: "SYNNAX_CERTS_DIR" },
