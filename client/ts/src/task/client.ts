@@ -389,7 +389,8 @@ const createReqZ = <S extends Schemas = Schemas>(schemas?: S) =>
 const createResZ = <S extends Schemas = Schemas>(schemas?: S) =>
   z.object({ tasks: payloadZ(schemas).array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
-const deleteResZ = z.object({});
+const emptyResZ = z.object({});
+const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const copyReqZ = z.object({ key: keyZ, name: z.string(), snapshot: z.boolean() });
 const copyResZ = <S extends Schemas = Schemas>(schemas?: S) =>
   z.object({ task: payloadZ(schemas) });
@@ -580,7 +581,7 @@ export class Client extends query.Retriever<
           "/task/delete",
           { keys: keysArr },
           deleteReqZ,
-          deleteResZ,
+          emptyResZ,
         ),
     });
     drop();
@@ -596,10 +597,8 @@ export class Client extends query.Retriever<
     await query.optimistic({
       rollbacks: rename(),
       onOptimistic: opts.onOptimistic,
-      commit: async () => {
-        const t = await this.retrieve(key);
-        await this.create({ ...t.payload, name });
-      },
+      commit: async () =>
+        await this.cfg.unary.send("/task/rename", { key, name }, renameReqZ, emptyResZ),
     });
     rename();
   }

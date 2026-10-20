@@ -15,22 +15,12 @@ import { renderProp } from "@/component/renderProp";
 import { Input } from "@/input";
 import { List } from "@/list";
 import { Select } from "@/select";
-import { mockBoundingClientRect } from "@/testutil/dom";
+import { mockGeometry } from "@/testutil/dom";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 
 describe("Select.Multiple", () => {
-  beforeAll(() => {
-    Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
-    Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
-      configurable: true,
-      get: () => 100,
-    });
-    Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
-      configurable: true,
-      get: () => 100,
-    });
-  });
+  beforeAll(() => mockGeometry(100, 100));
   interface TestEntry {
     key: string;
     name: string;

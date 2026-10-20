@@ -34,6 +34,11 @@ var _ = Describe("Writer", func() {
 	AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
 
 	Describe("Create", func() {
+		It("Should reject a role with an empty name", func(ctx SpecContext) {
+			Expect(w.Create(ctx, &role.Role{})).
+				To(MatchError(ContainSubstring("name: required")))
+		})
+
 		It("Should create a role with auto-generated UUID", func(ctx SpecContext) {
 			r := &role.Role{
 				Name:        "admin",
