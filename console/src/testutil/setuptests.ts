@@ -132,6 +132,14 @@ beforeAll(() => {
     writable: true,
     value: () => RECT,
   });
+  Object.defineProperty(Element.prototype, "clientWidth", {
+    configurable: true,
+    get: () => RECT.width,
+  });
+  Object.defineProperty(Element.prototype, "clientHeight", {
+    configurable: true,
+    get: () => RECT.height,
+  });
   if (typeof globalThis.CSS === "undefined")
     vi.stubGlobal("CSS", { escape: cssEscape });
   else if (typeof globalThis.CSS.escape !== "function")

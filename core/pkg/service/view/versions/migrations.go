@@ -19,5 +19,10 @@ import (
 // NewMigrations returns the ordered migration chain for stored views. The ontology
 // removes the resources of views the chain deletes.
 func NewMigrations(otg *ontology.Ontology) []migrate.Migration {
-	return []migrate.Migration{v0.NormalizeKeys, v0.Migration, v1.NewMigration(otg)}
+	return []migrate.Migration{
+		v0.NormalizeKeys,
+		v0.Migration,
+		v0.NameMigration,
+		v1.NewMigration(otg),
+	}
 }
