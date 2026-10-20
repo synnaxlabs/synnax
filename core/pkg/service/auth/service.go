@@ -22,7 +22,6 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -297,7 +296,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 func (s *Service) Login(
 	ctx context.Context,
 	proof Proof,
-	address address.Address,
 ) (Session, string, error) {
 	method, err := proof.Method()
 	if err != nil {
@@ -315,15 +313,11 @@ func (s *Service) Login(
 	if err != nil {
 		return Session{}, "", err
 	}
-	now := s.now()
 	session := Session{
 		Key:        uuid.New(),
 		Subject:    identity.Subject,
-		Method:     method,
 		Credential: identity.Credential,
-		Address:    string(address),
-		Created:    now,
-		LastActive: now,
+		LastActive: s.now(),
 	}
 	token, hash, err := NewToken(TokenPrefix, session.Key)
 	if err != nil {
@@ -511,7 +505,6 @@ func (w Writer) DeleteFor(ctx context.Context, subjects ...ontology.ID) error {
 // RevokeCredential ends every session the credentials opened, except those in keep.
 func (w Writer) RevokeCredential(
 	ctx context.Context,
-	method Method,
 	keep []SessionKey,
 	credentials ...uuid.UUID,
 ) error {
@@ -520,7 +513,7 @@ func (w Writer) RevokeCredential(
 		Where(And(
 			MatchCredentials(credentials...),
 			Match(func(_ gorp.Context, _ Retrieve, e *Session) (bool, error) {
-				return e.Method == method && !kept.Contains(e.Key), nil
+				return !kept.Contains(e.Key), nil
 			}),
 		)(w.svc.NewRetrieve())).
 		Exec(ctx, w.tx)

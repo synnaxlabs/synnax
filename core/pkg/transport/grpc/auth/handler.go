@@ -219,10 +219,7 @@ func sessionForward(s auth.Session) *Session {
 	return &Session{
 		Key:        s.Key.String(),
 		Subject:    subjectForward(s.Subject),
-		Method:     string(s.Method),
 		Credential: s.Credential.String(),
-		Address:    s.Address,
-		Created:    int64(s.Created),
 		LastActive: int64(s.LastActive),
 	}
 }
@@ -239,10 +236,7 @@ func sessionBackward(s *Session) (auth.Session, error) {
 	return auth.Session{
 		Key:        key,
 		Subject:    subjectBackward(s.Subject),
-		Method:     svcauth.Method(s.Method),
 		Credential: credential,
-		Address:    s.Address,
-		Created:    telem.TimeStamp(s.Created),
 		LastActive: telem.TimeStamp(s.LastActive),
 	}, nil
 }

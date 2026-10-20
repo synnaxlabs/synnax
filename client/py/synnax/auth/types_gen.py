@@ -57,20 +57,14 @@ class Session(BaseModel):
     Attributes:
         key: Is the unique identifier for this session.
         subject: Is the user or rack that logged in.
-        method: Is the method the subject logged in with.
         credential: Is the key of the credential record the login matched.
-        address: Is the network address the login came from.
-        created: Is when the subject logged in.
         last_active: Is the last time a request used the session, to the nearest quarter
             of the idle timeout.
     """
 
     key: SessionKey
     subject: ontology.ID
-    method: Method
     credential: UUID
-    address: str
-    created: telem.TimeStamp = Field(ge=-9223372036854775808, le=9223372036854775807)
     last_active: telem.TimeStamp = Field(
         ge=-9223372036854775808, le=9223372036854775807
     )

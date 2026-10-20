@@ -25,7 +25,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	panelversions "github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 	projectv0 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
-	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
@@ -82,7 +81,7 @@ var _ = Describe("Layer", func() {
 				Variant: auth.PasswordProof{
 					Credentials: auth.Credentials{Username: "root", Password: "p1"},
 				},
-			}, address.Address("")))
+			}))
 			Expect(first.Close()).To(Succeed())
 			second := open("p1")
 			MustSucceed(second.Auth.Authenticate(ctx, token))

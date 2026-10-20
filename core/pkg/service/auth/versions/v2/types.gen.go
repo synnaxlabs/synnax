@@ -19,25 +19,6 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Method names an authentication method.
-type Method string
-
-const (
-	MethodPassword Method = "password"
-	MethodAPIKey   Method = "api_key"
-)
-
-// IsValid reports whether m is one of the defined Method
-// values.
-func (m Method) IsValid() bool {
-	switch m {
-	case MethodPassword, MethodAPIKey:
-		return true
-	default:
-		return false
-	}
-}
-
 // SessionKey is a unique identifier for a session.
 type SessionKey = uuid.UUID
 
@@ -50,14 +31,8 @@ type Session struct {
 	Hash []byte `json:"hash" msgpack:"hash"`
 	// Subject is the user or rack that logged in.
 	Subject ontology.ID `json:"subject" msgpack:"subject"`
-	// Method is the method the subject logged in with.
-	Method Method `json:"method" msgpack:"method"`
 	// Credential is the key of the credential record the login matched.
 	Credential uuid.UUID `json:"credential" msgpack:"credential"`
-	// Address is the network address the login came from.
-	Address string `json:"address" msgpack:"address"`
-	// Created is when the subject logged in.
-	Created telem.TimeStamp `json:"created" msgpack:"created"`
 	// LastActive is the last time a request used the session, to the nearest quarter of
 	// the idle timeout.
 	LastActive telem.TimeStamp `json:"last_active" msgpack:"last_active"`
@@ -67,7 +42,6 @@ type Session struct {
 // schema constraints.
 func (s Session) Validate() error {
 	v := validate.New("Session")
-	v.Ternaryf("method", !s.Method.IsValid(), "invalid method: %v", s.Method)
 	v.Exec(func() error { return validate.PathedError(s.Subject.Validate(), "subject") })
 	return v.Error()
 }
