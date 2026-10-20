@@ -223,3 +223,17 @@ func (p *ArcParser) TokensAdjacent(prev, next antlr.Token) bool {
 	// Adjacent means next starts exactly where prev ends + 1
 	return prev.GetStop()+1 == next.GetStart()
 }
+
+// CalleeTouchesParen reports whether the upcoming name, bare or dotted, is followed by
+// '(' with no whitespace between them. A flow node instantiates a function only in that
+// case; `name (x)` is a bare name and a separate parenthesized item.
+func (p *ArcParser) CalleeTouchesParen() bool {
+	stream := p.GetTokenStream()
+	nameIndex := 1
+	if dot := stream.LT(2); dot != nil && dot.GetTokenType() == ArcLexerDOT {
+		nameIndex = 3
+	}
+	paren := stream.LT(nameIndex + 1)
+	return paren != nil && paren.GetTokenType() == ArcLexerLPAREN &&
+		p.TokensAdjacent(stream.LT(nameIndex), paren)
+}

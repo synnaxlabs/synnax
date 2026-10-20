@@ -53,16 +53,18 @@ and an input in the new form, and nothing in the text says which one.
 ### 1.0 Declaration
 
 ```
-FunctionDeclaration ::= 'func' Identifier '(' InputList? ')' '{' TriggerList? '}'
+FunctionDeclaration ::= 'func' Identifier '(' InputList? ')' ('{' TriggerList? '}')?
                         OutputType? Block
 ```
 
 Today the trigger parens are required and the input braces are optional
-(`arc/go/parser/ArcParser.g4:77`). After the swap, the input parens and the trigger
-braces are both required. Each can be empty.
+(`arc/go/parser/ArcParser.g4:77`). After the swap, the input parens are required and the
+trigger braces are optional. Either can be empty. A declaration with no trigger braces
+has no triggers.
 
-A declaration has one form. The first `{` is always the trigger braces, so the parser
-never has to tell them from the body. The outputs do not change. More than one output
+The last brace block is the body. The parser reads a `{...}` after the input parens as
+the trigger list when another block follows it. `func f() { ... }` has no triggers.
+`func f() {x f64} { ... }` has one. The outputs do not change. More than one output
 keeps its parens, after the trigger braces.
 
 Nothing below the syntax changes:
@@ -93,8 +95,8 @@ today, such as `len(channel) -> output`, does not change.
 
 ### 1.2 Rewrite of existing code
 
-Three rules. `{inputs}` becomes `(inputs)`. `(triggers)` becomes `{triggers}`. A missing
-pair is added empty.
+Three rules. `{inputs}` becomes `(inputs)`, or `()` when missing. `(triggers)` becomes
+`{triggers}`. Empty trigger parens are dropped.
 
 | Old                                                    | New                                                    |
 | ------------------------------------------------------ | ------------------------------------------------------ |
@@ -102,8 +104,8 @@ pair is added empty.
 | `func add(x f64, y f64) f64`                           | `func add() {x f64, y f64} f64`                        |
 | `func split(value f64) (high f64, low f64)`            | `func split() {value f64} (high f64, low f64)`         |
 | `func band{limit f64} (value f64) (high f64, low f64)` | `func band(limit f64) {value f64} (high f64, low f64)` |
-| `func log{ch chan f64} ()`                             | `func log(ch chan f64) {}`                             |
-| `func tick()`                                          | `func tick() {}`                                       |
+| `func log{ch chan f64} ()`                             | `func log(ch chan f64)`                                |
+| `func tick()`                                          | `func tick()`                                          |
 | `sensor -> scale{factor=2.0} -> out`                   | `sensor -> scale(factor=2.0) -> out`                   |
 | `sensor -> split{} -> {high: 1 -> hi, low: 1 -> lo}`   | `sensor -> split() -> {high: 1 -> hi, low: 1 -> lo}`   |
 | `time.wait{2s}`                                        | `time.wait(2s)`                                        |
