@@ -213,5 +213,6 @@ class TestConnectClient:
         keyed = connect_client(Context(console=MockConsole()), clusters)
         assert keyed is not None
         assert keyed.auth.session is not None
-        assert keyed.auth.session.method == "api_key"
+        created = {k.key for k in client.auth.retrieve_keys()} - before
+        assert keyed.auth.session.credential in created
         delete_new_keys(client, before)
