@@ -179,7 +179,6 @@ class Tracer:
     class _Setter(Setter[Carrier]):
         @staticmethod
         def set(carrier: Carrier, key: str, value: str) -> None:
-            print("setting", key, value)
             carrier.set(key, value)
 
     @noopd

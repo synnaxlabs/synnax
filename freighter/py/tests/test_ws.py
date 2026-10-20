@@ -7,17 +7,20 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import threading
 import time
+from collections.abc import Iterator
 from uuid import uuid4
 
 import pytest
 from pydantic import BaseModel
 from websockets.protocol import State
+from websockets.sync.server import ServerConnection, serve
 
 import freighter.exceptions
 from freighter.context import Context
 from freighter.http import HTTPClient
-from freighter.transport import AsyncNext, Next, P
+from freighter.transport import AsyncNext, Empty, Next, P
 from freighter.url import URL
 from freighter.websocket import (
     AsyncWebsocketClient,
@@ -62,6 +65,48 @@ def sync_client(endpoint: URL) -> WebsocketClient:
 @pytest.fixture
 def unary_client(endpoint: URL) -> HTTPClient:
     return HTTPClient(endpoint.child("unary"), JSONCodec())
+
+
+@pytest.fixture
+def errorless_close_endpoint() -> Iterator[URL]:
+    """Serves a stream that acks the open, then closes without an error."""
+    codec = JSONCodec()
+
+    def handler(ws: ServerConnection) -> None:
+        ws.send(codec.encode(WebsocketMessage[Empty](type="open", payload=Empty())))
+        ws.send(codec.encode(WebsocketMessage[Empty](type="close", payload=Empty())))
+        for _ in ws:
+            pass
+
+    with serve(handler, "localhost", 0) as server:
+        thread = threading.Thread(target=server.serve_forever)
+        thread.start()
+        yield URL("localhost", server.socket.getsockname()[1])
+        server.shutdown()
+        thread.join()
+
+
+class TestServerCloseWithoutError:
+    @pytest.mark.asyncio
+    async def test_async(self, errorless_close_endpoint: URL) -> None:
+        """Should raise EOF when the server closes without an error."""
+        client = AsyncWebsocketClient(
+            encoder=JSONCodec(), base_url=errorless_close_endpoint
+        )
+        stream = await client.stream("/", Empty, Empty)
+        with pytest.raises(freighter.EOF):
+            await stream.receive()
+        with pytest.raises(freighter.EOF):
+            await stream.receive()
+
+    def test_sync(self, errorless_close_endpoint: URL) -> None:
+        """Should raise EOF when the server closes without an error."""
+        client = WebsocketClient(encoder=JSONCodec(), base_url=errorless_close_endpoint)
+        stream = client.stream("/", Empty, Empty)
+        with pytest.raises(freighter.EOF):
+            stream.receive()
+        with pytest.raises(freighter.EOF):
+            stream.receive()
 
 
 @pytest.mark.ws
