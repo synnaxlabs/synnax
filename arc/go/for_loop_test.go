@@ -46,7 +46,7 @@ var _ = Describe("For loops", func() {
 				"sum_out": {types.I64(), 101},
 			})
 			h := newRuntimeHarness(ctx, `
-			func sum_to(n i32) i64 {
+			func sum_to() {n i32} i64 {
 			    total i64 := 0
 			    for i := range(n, i64(100)) {
 			        total = total + i
@@ -54,7 +54,7 @@ var _ = Describe("For loops", func() {
 			    return total
 			}
 
-			start -> sum_to{} -> sum_out`, resolver,
+			start -> sum_to() -> sum_out`, resolver,
 				channels.Digest{Key: 100, DataType: telem.Int32T},
 				channels.Digest{Key: 101, DataType: telem.Int64T},
 			)
@@ -100,7 +100,7 @@ var _ = Describe("For loops", func() {
 			Expect(lastI64(out, 101)).To(Equal(expected))
 		},
 		Entry("empty series yields zero iterations", `
-			func compute(t u8) i64 {
+			func compute() {t u8} i64 {
 			    data series i64 := []
 			    total i64 := 0
 			    for x := data {
@@ -108,9 +108,9 @@ var _ = Describe("For loops", func() {
 			    }
 			    return total
 			}
-			trig -> compute{} -> sum_out`, int64(0)),
+			trig -> compute() -> sum_out`, int64(0)),
 		Entry("three-element series sums correctly", `
-			func compute(t u8) i64 {
+			func compute() {t u8} i64 {
 			    data series i64 := [10, 20, 30]
 			    total i64 := 0
 			    for x := data {
@@ -118,7 +118,7 @@ var _ = Describe("For loops", func() {
 			    }
 			    return total
 			}
-			trig -> compute{} -> sum_out`, int64(60)),
+			trig -> compute() -> sum_out`, int64(60)),
 	)
 
 	// loop.go:172-191 branches on step sign: positive step uses >= for
@@ -151,31 +151,31 @@ var _ = Describe("For loops", func() {
 			Expect(lastI64(out, 101)).To(Equal(expected))
 		},
 		Entry("range(10, 0, -2) yields 10,8,6,4,2", `
-			func compute(t u8) i64 {
+			func compute() {t u8} i64 {
 			    total i64 := 0
 			    for i := range(10, 0, -2) {
 			        total = total + i
 			    }
 			    return total
 			}
-			trig -> compute{} -> sum_out`, int64(30)),
+			trig -> compute() -> sum_out`, int64(30)),
 		Entry("range(0, 10, -1) is empty (start < end with negative step)", `
-			func compute(t u8) i64 {
+			func compute() {t u8} i64 {
 			    total i64 := 0
 			    for i := range(0, 10, -1) {
 			        total = total + i
 			    }
 			    return total
 			}
-			trig -> compute{} -> sum_out`, int64(0)),
+			trig -> compute() -> sum_out`, int64(0)),
 		Entry("range(5, 0, -100) runs exactly once even though step overshoots end", `
-			func compute(t u8) i64 {
+			func compute() {t u8} i64 {
 			    total i64 := 0
 			    for i := range(5, 0, -100) {
 			        total = total + i
 			    }
 			    return total
 			}
-			trig -> compute{} -> sum_out`, int64(5)),
+			trig -> compute() -> sum_out`, int64(5)),
 	)
 })

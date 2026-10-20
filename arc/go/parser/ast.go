@@ -330,28 +330,6 @@ func FunctionName(fn IFunctionContext) string {
 	return head + "." + tail
 }
 
-// FunctionArguments returns the argument expressions of a function context in source
-// order, whether named or positional.
-func FunctionArguments(fn IFunctionContext) []IExpressionContext {
-	values := fn.InputValues()
-	if values == nil {
-		return nil
-	}
-	if named := values.NamedInputValues(); named != nil {
-		var exprs []IExpressionContext
-		for _, value := range named.AllNamedInputValue() {
-			if expr := value.Expression(); expr != nil {
-				exprs = append(exprs, expr)
-			}
-		}
-		return exprs
-	}
-	if anon := values.AnonymousInputValues(); anon != nil {
-		return anon.AllExpression()
-	}
-	return nil
-}
-
 // PrimaryNameParts returns the head and tail of a primary expression's
 // identifier. Bare (x) returns (name, ""); qualified (math.avg) returns
 // (head, tail). Returns ("", "") when the primary is not an identifier.

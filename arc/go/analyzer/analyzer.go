@@ -63,8 +63,8 @@ func liftReassignedVarReads(ctx acontext.Context[parser.IProgramContext]) {
 			}
 			flow.LiftVarReads(ctx, c, ast)
 		case parser.IFunctionContext:
-			for _, arg := range parser.FunctionArguments(ast) {
-				flow.LiftVarReads(ctx, c, arg)
+			for _, arg := range symbol.FunctionArguments(ast) {
+				flow.LiftVarReads(ctx, c, arg.Expr)
 			}
 		}
 	}

@@ -455,7 +455,7 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 		scope,
 		funcName,
 		scope.Type,
-		inputArguments(funcCalls[0]),
+		symbol.CallArguments(funcCalls[0]),
 		funcCalls[0],
 	)
 }
@@ -478,7 +478,7 @@ func AnalyzeCallSite[T antlr.ParserRuleContext](
 	if callerFn != nil && callee.Exec == symbol.ExecFlow {
 		ctx.Diagnostics.Add(diagnostics.Errorf(
 			ctx.AST,
-			"function '%s' cannot be called inside a func block. Use it as a flow statement instead: %s{}",
+			"function '%s' cannot be called inside a func block. Use it as a flow statement instead: %s()",
 			funcName,
 			funcName,
 		))
@@ -512,21 +512,6 @@ func AnalyzeCallSite[T antlr.ParserRuleContext](
 func hasMultipleNamedOutputs(t basetypes.Type) bool {
 	_, hasDefault := t.Outputs.Get(ir.DefaultOutputParam)
 	return len(t.Outputs) > 1 || (len(t.Outputs) == 1 && !hasDefault)
-}
-
-// inputArguments adapts the arguments in a call's parens `(...)` form into the
-// unified []symbol.Argument shape.
-func inputArguments(funcCall parser.IFunctionCallSuffixContext) []symbol.Argument {
-	argList := funcCall.ArgumentList()
-	if argList == nil {
-		return nil
-	}
-	exprs := argList.AllExpression()
-	args := make([]symbol.Argument, len(exprs))
-	for i, expr := range exprs {
-		args[i] = symbol.Argument{Index: i, Expr: expr, AST: expr}
-	}
-	return args
 }
 
 func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {

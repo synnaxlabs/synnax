@@ -34,32 +34,13 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/compare"
-	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 )
-
-// Argument is one call argument: a value expression bound to a param by Name,
-// or by position (Index) when Name is empty.
-type Argument struct {
-	// Index is the argument's position in the call's argument list.
-	Index int
-	// Name is the param this argument binds to, or empty if positional.
-	Name string
-	// Expr is the argument's value expression.
-	Expr parser.IExpressionContext
-	// AST is the argument's parser node, for diagnostic source locations.
-	AST antlr.ParserRuleContext
-}
-
-// ArgumentsHook runs optional symbol-specific argument validation, reporting any
-// findings to the analyzer's diagnostics sink.
-type ArgumentsHook func(diags *diagnostics.Diagnostics, args []Argument)
 
 // TriggerBinding declares what an upstream wire does to a symbol in flow context.
 type TriggerBinding struct {

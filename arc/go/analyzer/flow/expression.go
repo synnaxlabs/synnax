@@ -145,7 +145,7 @@ func analyzeWASMCall(
 		return
 	}
 	blockCtx := ctx.WithScope(blockScope)
-	args := inputArguments(blockCtx, ctx.AST.InputValues())
+	args := inputArguments(blockCtx, ctx.AST)
 	expression.AnalyzeCallSite(blockCtx, callee, name, freshType, args, ctx.AST)
 }
 

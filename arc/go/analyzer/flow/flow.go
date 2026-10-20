@@ -46,7 +46,7 @@ func AnalyzeSingleFunction(ctx context.Context[parser.IFunctionContext]) {
 		return
 	}
 	freshType := types.Freshen(funcType.Type, freshenKey(ctx.AST, name))
-	args := inputArguments(ctx, ctx.AST.InputValues())
+	args := inputArguments(ctx, ctx.AST)
 	expression.AnalyzeCall(
 		ctx,
 		name,
@@ -161,7 +161,7 @@ func parseFunction(
 	}
 
 	freshType := types.Freshen(funcType.Type, freshenKey(ctx.AST, name))
-	args := inputArguments(ctx, ctx.AST.InputValues())
+	args := inputArguments(ctx, ctx.AST)
 
 	var externallySatisfied []string
 	if prevNode != nil && funcType.Trigger.Target != "" {
@@ -498,40 +498,14 @@ func resolveFuncOutput[T antlr.ParserRuleContext](
 	return types.Type{}
 }
 
-// inputArguments adapts the arguments in a call's paren `(...)` form into the
-// unified []symbol.Argument shape, analyzing each value expression as it goes.
+// inputArguments analyzes each argument of a flow function node and returns them.
 func inputArguments[T antlr.ParserRuleContext](
 	ctx context.Context[T],
-	inputValues parser.IInputValuesContext,
+	fn parser.IFunctionContext,
 ) []symbol.Argument {
-	if inputValues == nil {
-		return nil
-	}
-	var args []symbol.Argument
-	if namedVals := inputValues.NamedInputValues(); namedVals != nil {
-		for _, val := range namedVals.AllNamedInputValue() {
-			expr := val.Expression()
-			if expr == nil {
-				continue
-			}
-			expression.Analyze(ctx.Child(expr))
-			args = append(args, symbol.Argument{
-				Name: val.IDENTIFIER().GetText(),
-				Expr: expr,
-				AST:  val,
-			})
-		}
-		return args
-	}
-	if anonVals := inputValues.AnonymousInputValues(); anonVals != nil {
-		for i, expr := range anonVals.AllExpression() {
-			expression.Analyze(ctx.Child(expr))
-			args = append(args, symbol.Argument{
-				Index: i,
-				Expr:  expr,
-				AST:   expr,
-			})
-		}
+	args := symbol.FunctionArguments(fn)
+	for _, arg := range args {
+		expression.Analyze(ctx.Child(arg.Expr))
 	}
 	return args
 }
@@ -882,7 +856,7 @@ func analyzeRoutingTargetWithParam(
 			return
 		}
 
-		args := inputArguments(ctx, fn.InputValues())
+		args := inputArguments(ctx, fn)
 		var externallySatisfied []string
 		if fnType.Trigger.Target != "" {
 			externallySatisfied = append(externallySatisfied, fnType.Trigger.Target)
