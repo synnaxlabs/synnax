@@ -1,0 +1,83 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package v4_test
+
+import (
+	"encoding/json/v2"
+	"uuid"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/program"
+	text "github.com/synnaxlabs/arc/text/versions/v1"
+	v4 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v4"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+var _ = Describe("Arc", func() {
+	Describe("GorpKey", func() {
+		It("Should return the Arc's key", func() {
+			k := uuid.New()
+			Expect(v4.Arc{Key: k}.GorpKey()).To(Equal(k))
+		})
+	})
+
+	Describe("SetOptions", func() {
+		It("Should return no options", func() {
+			Expect(v4.Arc{}.SetOptions()).To(BeNil())
+		})
+	})
+	Describe("OntologyID", func() {
+		It("Should return the Arc ontology identifier", func() {
+			k := uuid.New()
+			Expect(v4.Arc{Key: k}.OntologyID()).To(Equal(ontology.ID{
+				Type: ontology.ResourceTypeArc, Key: k.String(),
+			}))
+		})
+	})
+})
+
+var _ = Describe("ExportBody", func() {
+	body := func(a v4.Arc) map[string]any {
+		GinkgoHelper()
+		data := MustSucceed(json.Marshal(a.ExportBody()))
+		var m map[string]any
+		Expect(json.Unmarshal(data, &m)).To(Succeed())
+		return m
+	}
+
+	It("Should carry the text as materialized source", func() {
+		a := v4.Arc{
+			Name: "startup",
+			Mode: v4.ModeText,
+			Text: text.Text{Doc: text.Create("x := 1")},
+		}
+		Expect(body(a)["text"]).To(Equal(map[string]any{"raw": "x := 1"}))
+	})
+
+	It("Should carry the name, mode, and graph", func() {
+		a := v4.Arc{Name: "abort", Mode: v4.ModeGraph}
+		m := body(a)
+		Expect(m["name"]).To(Equal("abort"))
+		Expect(m["mode"]).To(BeEquivalentTo(v4.ModeGraph))
+		Expect(m).To(HaveKey("graph"))
+	})
+
+	It("Should leave off the key and the derived program", func() {
+		a := v4.Arc{
+			Key:     uuid.New(),
+			Name:    "derived",
+			Mode:    v4.ModeText,
+			Program: &program.Program{},
+		}
+		Expect(body(a)).To(SatisfyAll(Not(HaveKey("key")), Not(HaveKey("program"))))
+	})
+})
