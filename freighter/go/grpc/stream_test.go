@@ -50,6 +50,7 @@ func startPair() (
 	freighter.StreamClient[test.Request, test.Response],
 	address.Address,
 ) {
+	GinkgoHelper()
 	var (
 		server freighter.StreamServer[test.Request, test.Response]
 		client freighter.StreamClient[test.Request, test.Response]
