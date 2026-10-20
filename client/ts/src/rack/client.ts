@@ -79,7 +79,8 @@ const createReqZ = z.object({ racks: newZ.array() });
 const createResZ = z.object({ racks: payloadZ.array() });
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
-const deleteResZ = z.object({});
+const emptyResZ = z.object({});
+const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
 /** Query fields only the server can evaluate. */
 const SERVER_FIELDS = ["searchTerm", "limit", "offset", "hostIsNode"] as const;
@@ -216,7 +217,7 @@ export class Client extends query.Retriever<
           "/rack/delete",
           { keys: keysArr },
           deleteReqZ,
-          deleteResZ,
+          emptyResZ,
         ),
     });
     drop();
@@ -230,10 +231,8 @@ export class Client extends query.Retriever<
     await query.optimistic({
       rollbacks: rename(),
       onOptimistic: opts.onOptimistic,
-      commit: async () => {
-        const r = await this.retrieve(key);
-        await this.create({ ...r.payload, name });
-      },
+      commit: async () =>
+        await this.cfg.unary.send("/rack/rename", { key, name }, renameReqZ, emptyResZ),
     });
     rename();
   }

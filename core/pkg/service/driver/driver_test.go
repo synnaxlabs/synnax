@@ -59,6 +59,32 @@ var _ = Describe("Driver", func() {
 		}))
 	}
 
+	openDriverWithInterval := func(
+		ctx context.Context,
+		interval time.Duration,
+	) *driver.Driver {
+		GinkgoHelper()
+		return MustOpen(driver.Open(ctx, driver.Config{
+			DB:                node.DB,
+			Rack:              rackService,
+			Task:              taskService,
+			Framer:            framerSvc,
+			Channel:           channelSvc,
+			Status:            statusSvc,
+			Factories:         []driver.Factory{&mockFactory{name: "test"}},
+			Host:              hostProvider,
+			HeartbeatInterval: interval,
+		}))
+	}
+
+	renameRack := func(ctx context.Context, key rack.Key, name string) {
+		GinkgoHelper()
+		Expect(rackService.NewWriter(nil).Rename(ctx, key, name)).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(rackService.NewWriter(nil).Rename(ctx, key, "Node 1")).To(Succeed())
+		})
+	}
+
 	newTask := func(rackKey rack.Key) task.Task {
 		return task.Task{
 			Key:  uuid.New(),
@@ -162,6 +188,23 @@ var _ = Describe("Driver", func() {
 				Expect(r.Integrations).To(Equal([]string{"arc", "ni", "opc"}))
 			},
 		)
+
+		It("should reuse a renamed rack when reopened", func(ctx SpecContext) {
+			d1 := openDriverWithInterval(ctx, time.Second)
+			key := embeddedRackKey(ctx)
+			Expect(d1.Close()).To(Succeed())
+			renameRack(ctx, key, "Renamed Driver")
+			openDriverWithInterval(ctx, time.Second)
+			var r rack.Rack
+			Expect(rackService.NewRetrieve().
+				Where(rack.MatchKeys(key)).
+				Entry(&r).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(r.Name).To(Equal("Renamed Driver"))
+			Expect(rackService.NewRetrieve().
+				Where(rack.And(rack.MatchEmbedded(true), rack.MatchNames("Node 1"))).
+				Exists(ctx, nil)).To(BeFalse())
+		})
 
 		It("should fail with invalid config", func(ctx SpecContext) {
 			_, err := driver.Open(ctx, driver.Config{})
@@ -1248,6 +1291,43 @@ var _ = Describe("Driver", func() {
 	})
 
 	Describe("Heartbeat", func() {
+		It("should publish the rack's current name", func(ctx SpecContext) {
+			openDriverWithInterval(ctx, 25*time.Millisecond)
+			key := embeddedRackKey(ctx)
+			renameRack(ctx, key, "Renamed Driver")
+			renamedAt := telem.Now()
+			Eventually(func(g Gomega) {
+				var stat rack.Status
+				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
+					Where(status.MatchKeys[rack.StatusDetails](rack.StatusKey(key))).
+					Entry(&stat).
+					Exec(ctx, node.DB)).To(Succeed())
+				g.Expect(stat.Time).To(BeNumerically(">", renamedAt))
+				g.Expect(stat.Name).To(Equal("Renamed Driver"))
+			}).Should(Succeed())
+		})
+
+		It(
+			"should recreate a deleted status with the current name",
+			func(ctx SpecContext) {
+				openDriverWithInterval(ctx, 25*time.Millisecond)
+				key := embeddedRackKey(ctx)
+				renameRack(ctx, key, "Renamed Driver")
+				Expect(statusSvc.NewWriter(nil).Delete(ctx, rack.StatusKey(key))).
+					To(Succeed())
+				deletedAt := telem.Now()
+				Eventually(func(g Gomega) {
+					var stat rack.Status
+					g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
+						Where(status.MatchKeys[rack.StatusDetails](rack.StatusKey(key))).
+						Entry(&stat).
+						Exec(ctx, node.DB)).To(Succeed())
+					g.Expect(stat.Time).To(BeNumerically(">", deletedAt))
+					g.Expect(stat.Name).To(Equal("Renamed Driver"))
+				}).Should(Succeed())
+			},
+		)
+
 		It("should send periodic status updates", func(ctx SpecContext) {
 			MustOpen(driver.Open(ctx, driver.Config{
 				DB:                node.DB,
