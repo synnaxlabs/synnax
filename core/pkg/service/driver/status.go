@@ -15,7 +15,9 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -92,8 +94,19 @@ func (h *StatusHandler) stamp() task.Status {
 	return h.stat
 }
 
+// write keeps the stored status name, since a rename updates it while the instance
+// runs.
 func (h *StatusHandler) write(ctx context.Context, stat task.Status) error {
 	return h.db.WithTx(ctx, func(tx gorp.Tx) error {
+		var prev task.Status
+		if err := h.svc.NewRetrieve[task.StatusDetails]().
+			Where(status.MatchKeys[task.StatusDetails](stat.Key)).
+			Entry(&prev).
+			Exec(ctx, tx); err == nil {
+			stat.Name = prev.Name
+		} else if !errors.Is(err, query.ErrNotFound) {
+			return err
+		}
 		return h.svc.NewWriter(tx).Set(ctx, &stat)
 	})
 }

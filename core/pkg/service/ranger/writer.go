@@ -131,8 +131,14 @@ func (w Writer) CreateMany(ctx context.Context, ranges *[]Range) error {
 	return nil
 }
 
-// Rename renames the range with the given key.
+// Rename renames the range with the given key. It returns query.ErrNotFound if no range
+// with the key exists and a validation error if name is empty.
 func (w Writer) Rename(ctx context.Context, key Key, name string) error {
+	v := validate.New("ranger.range")
+	v.NotEmptyString("name", name)
+	if err := v.Error(); err != nil {
+		return err
+	}
 	return w.table.
 		NewUpdate().
 		Where(gorp.MatchKeys[Key, Range](key)).

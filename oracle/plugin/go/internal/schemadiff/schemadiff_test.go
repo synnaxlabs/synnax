@@ -325,6 +325,115 @@ Keys Nested[] {
 			"channel.Keys":   schemadiff.TypeDescendantChanged,
 			"channel.Nested": schemadiff.TypeChanged,
 		}),
+	Entry("walks union variant payloads",
+		unionSrc("text", "type"),
+		`Text struct {
+	value string
+	extra string
+}
+Binary struct {
+	data bytes
+}
+Payload union on type {
+	text Text
+	binary Binary
+}
+`,
+		"Payload",
+		map[string]schemadiff.TypeChangeKind{
+			"channel.Payload": schemadiff.TypeDescendantChanged,
+			"channel.Text":    schemadiff.TypeChanged,
+		}),
+	Entry("walks union bases",
+		`Base struct {
+	key string
+}
+Text struct {
+	value string
+}
+Payload union on type extends Base {
+	text Text
+}
+`,
+		`Base struct {
+	key string
+	name string
+}
+Text struct {
+	value string
+}
+Payload union on type extends Base {
+	text Text
+}
+`,
+		"Payload",
+		map[string]schemadiff.TypeChangeKind{
+			"channel.Payload": schemadiff.TypeDescendantChanged,
+			"channel.Base":    schemadiff.TypeChanged,
+		}),
+	Entry("marks a union whose base was replaced",
+		`A struct {
+	key string
+}
+B struct {
+	key string
+}
+Text struct {
+	value string
+}
+Payload union on type extends A {
+	text Text
+}
+`,
+		`A struct {
+	key string
+}
+B struct {
+	key string
+}
+Text struct {
+	value string
+}
+Payload union on type extends B {
+	text Text
+}
+`,
+		"Payload",
+		map[string]schemadiff.TypeChangeKind{
+			"channel.Payload": schemadiff.TypeChanged,
+		}),
+	Entry("marks a union whose inline variant's base was replaced",
+		`A struct {
+	key string
+}
+B struct {
+	key string
+}
+Payload union on type {
+	text extends A { value string }
+}
+`,
+		`A struct {
+	key string
+}
+B struct {
+	key string
+}
+Payload union on type {
+	text extends B { value string }
+}
+`,
+		"Payload",
+		map[string]schemadiff.TypeChangeKind{
+			"channel.Payload": schemadiff.TypeChanged,
+		}),
+	Entry("marks a union whose variants changed",
+		unionSrc("text", "type"),
+		unionSrc("words", "type"),
+		"Payload",
+		map[string]schemadiff.TypeChangeKind{
+			"channel.Payload": schemadiff.TypeChanged,
+		}),
 	Entry("reports non-struct entries through deep equality",
 		"State enum {\n\tidle = 0\n\trunning = 1\n}\n",
 		"State enum {\n\tidle = 0\n\trunning = 2\n}\n",
