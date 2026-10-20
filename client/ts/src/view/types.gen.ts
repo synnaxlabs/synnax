@@ -40,7 +40,7 @@ export const baseZ = z.object({
   /** key is the unique identifier for this view. */
   key: keyZ.default(uuid.create),
   /** name is a human-readable name for the view. */
-  name: z.string(),
+  name: z.string().min(1, "name is required"),
 });
 export interface Base extends z.infer<typeof baseZ> {}
 

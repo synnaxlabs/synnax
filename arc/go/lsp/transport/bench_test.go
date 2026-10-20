@@ -85,7 +85,9 @@ func newHarness(b *testing.B) *benchHarness {
 	}()
 	b.Cleanup(func() {
 		cancel()
-		<-errCh
+		if err := <-errCh; err != nil {
+			b.Errorf("serve freighter: %v", err)
+		}
 	})
 	h := &benchHarness{b: b, stream: clientStream}
 	h.request("initialize", map[string]any{
