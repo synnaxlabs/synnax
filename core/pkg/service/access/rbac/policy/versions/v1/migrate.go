@@ -33,3 +33,15 @@ var WorkspaceObjectsMigration = gorp.NewEntryMigration(
 		return p, nil
 	},
 )
+
+// NameMigration names each stored policy that has an empty name "Policy <key>",
+// where <key> is the first eight characters of its key.
+var NameMigration = gorp.NewEntryMigration(
+	"v60_require_name",
+	func(_ context.Context, p Policy) (Policy, error) {
+		if p.Name == "" {
+			p.Name = "Policy " + p.Key.String()[:8]
+		}
+		return p, nil
+	},
+)

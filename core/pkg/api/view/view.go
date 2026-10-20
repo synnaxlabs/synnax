@@ -116,6 +116,30 @@ func (s *Service) Retrieve(
 	return RetrieveResponse{Views: views}, nil
 }
 
+// RenameRequest names the view to rename and the name to give it.
+type RenameRequest struct {
+	// Name is the new name. It must not be empty.
+	Name string `json:"name" msgpack:"name"`
+	// Key selects the view to rename.
+	Key view.Key `json:"key" msgpack:"key"`
+}
+
+// Rename renames the view. It requires update access on it.
+func (s *Service) Rename(
+	ctx context.Context,
+	tx gorp.Tx,
+	req RenameRequest,
+) (struct{}, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{view.OntologyID(req.Key)},
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
+}
+
 type DeleteRequest struct {
 	Keys []view.Key `json:"keys" msgpack:"keys"`
 }

@@ -21,8 +21,9 @@ Group struct {
         @key
     }
     name string {
-        @doc value "is a human-readable name for the group."
+        @doc value         "is a human-readable name for the group."
         @filter
+        @validate required
     }
 
     @doc value     """

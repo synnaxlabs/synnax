@@ -166,6 +166,30 @@ func (s *Service) Retrieve(
 	return RetrieveResponse{Racks: resRacks}, nil
 }
 
+// RenameRequest names the rack to rename and the name to give it.
+type RenameRequest struct {
+	// Name is the new name. It must not be empty.
+	Name string `json:"name" msgpack:"name"`
+	// Key selects the rack to rename.
+	Key rack.Key `json:"key" msgpack:"key"`
+}
+
+// Rename renames the rack. It requires update access on it.
+func (s *Service) Rename(
+	ctx context.Context,
+	tx gorp.Tx,
+	req RenameRequest,
+) (struct{}, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{req.Key.OntologyID()},
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.rack.NewWriter(tx).Rename(ctx, req.Key, req.Name)
+}
+
 type DeleteRequest struct {
 	Keys []rack.Key `json:"keys" msgpack:"keys"`
 }

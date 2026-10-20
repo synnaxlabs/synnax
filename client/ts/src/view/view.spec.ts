@@ -11,7 +11,7 @@ import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { NotFoundError } from "@/errors";
-import { createTestClient } from "@/testutil";
+import { createTestClient, waitForStreamLive } from "@/testutil";
 
 describe("View", () => {
   describe("create", () => {
@@ -101,6 +101,54 @@ describe("View", () => {
           return results.find((v) => v.name === name);
         })
         .toMatchObject({ type: "range" });
+    });
+  });
+
+  describe("rename", () => {
+    it("should rename a view and keep its query", async () => {
+      const client = createTestClient();
+      const v = await client.views.create({
+        name: "view-rename",
+        type: "status",
+        query: { variants: ["error"] },
+      });
+      await client.views.rename(v.key, "view-renamed");
+      const retrieved = await createTestClient().views.retrieve({ key: v.key });
+      expect(retrieved.name).toBe("view-renamed");
+      expect(retrieved).toMatchObject({
+        type: "status",
+        query: { variants: ["error"] },
+      });
+    });
+    it("should update the cache of another client", async () => {
+      const client = createTestClient();
+      const remote = createTestClient();
+      const v = await client.views.create({
+        name: "view-rename-remote",
+        type: "range",
+        query: {},
+      });
+      expect((await client.views.retrieve({ key: v.key })).name).toBe(
+        "view-rename-remote",
+      );
+      const name = `view-renamed-${id.create()}`;
+      await waitForStreamLive(client.connection);
+      await remote.views.rename(v.key, name);
+      await expect
+        .poll(async () => (await client.views.retrieve({ key: v.key })).name)
+        .toBe(name);
+    });
+    it("should reject an empty name", async () => {
+      const client = createTestClient();
+      const v = await client.views.create({
+        name: "view-rename-empty",
+        type: "range",
+        query: {},
+      });
+      await expect(client.views.rename(v.key, "")).rejects.toThrow();
+      expect((await createTestClient().views.retrieve({ key: v.key })).name).toBe(
+        "view-rename-empty",
+      );
     });
   });
 
