@@ -80,29 +80,12 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 		integrations[i] = f.Name()
 	}
 
-	if err = cfg.Rack.NewRetrieve().
-		Where(rack.MatchEmbedded(true)).
-		Where(rack.MatchNames(fmt.Sprintf("Node %d", cfg.Host.HostKey()))).
-		Entry(&d.rack).Exec(ctx, nil); errors.Is(err, query.ErrNotFound) {
-		d.rack = rack.Rack{
-			Name:         fmt.Sprintf("Node %d", cfg.Host.HostKey()),
-			Embedded:     true,
-			Integrations: integrations,
-		}
-		if err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-			return cfg.Rack.NewWriter(tx).Create(ctx, &d.rack)
-		}); !ok(err, nil) {
-			return nil, err
-		}
-	} else if !ok(err, nil) {
+	if d.rack, err = cfg.Rack.RetrieveOrCreateEmbedded(
+		ctx,
+		fmt.Sprintf("Node %d", cfg.Host.HostKey()),
+		func(r *rack.Rack) { r.Integrations = integrations },
+	); !ok(err, nil) {
 		return nil, err
-	} else {
-		d.rack.Integrations = integrations
-		if err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-			return cfg.Rack.NewWriter(tx).Create(ctx, &d.rack)
-		}); !ok(err, nil) {
-			return nil, err
-		}
 	}
 	cfg.L.Info("created Core driver rack", zap.Stringer("key", d.rack.Key))
 
@@ -124,9 +107,18 @@ func (d *Driver) startHeartbeat() {
 		d.cfg.HeartbeatInterval,
 		func(ctx context.Context, _ time.Time) error {
 			if err := d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				// Reading the rack each beat means a rename that races a beat is
+				// overwritten for at most that one beat.
+				var r rack.Rack
+				if err := d.cfg.Rack.NewRetrieve().
+					Where(rack.MatchKeys(d.rack.Key)).
+					Entry(&r).
+					Exec(ctx, tx); err != nil {
+					return err
+				}
 				return d.cfg.Status.NewWriter(tx).Set(ctx, &rack.Status{
 					Key:     rack.StatusKey(d.rack.Key),
-					Name:    d.rack.Name,
+					Name:    r.Name,
 					Time:    telem.Now(),
 					Variant: status.VariantSuccess,
 					Message: "Driver is running",

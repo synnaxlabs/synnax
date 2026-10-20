@@ -52,7 +52,8 @@ Base struct {
         @key
     }
     name string {
-        @doc value "is a human-readable name for the view."
+        @doc value         "is a human-readable name for the view."
+        @validate required
     }
 
     @doc value  "carries the fields shared by every view variant."
