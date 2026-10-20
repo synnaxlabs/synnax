@@ -14,8 +14,8 @@ from typing import Literal, overload
 import numpy as np
 
 import synnax as sy
+from framework.websocket import is_websocket_error, suppress_websocket_errors
 from synnax.telem import SampleValue
-from x import is_websocket_error, suppress_websocket_errors
 
 
 def _scalar(value: SampleValue) -> int | float | str:
