@@ -82,17 +82,24 @@ class TestPublishedFiles:
         body = json.dumps(
             {"urls": [{"filename": "alamos-0.56.0-py3-none-any.whl"}]}
         ).encode()
-        monkeypatch.setattr(urllib.request, "urlopen", lambda url: io.BytesIO(body))
+        timeouts: list[float] = []
+
+        def urlopen(url: str, timeout: float) -> io.BytesIO:
+            timeouts.append(timeout)
+            return io.BytesIO(body)
+
+        monkeypatch.setattr(urllib.request, "urlopen", urlopen)
         assert prune_published.published_files("alamos", "0.56.0") == frozenset(
             {"alamos-0.56.0-py3-none-any.whl"}
         )
+        assert timeouts == [prune_published.REQUEST_TIMEOUT_SECONDS]
 
     def test_should_return_empty_set_for_missing_release(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Should treat a 404 as an unpublished release."""
 
-        def raise_not_found(url: str) -> io.BytesIO:
+        def raise_not_found(url: str, timeout: float) -> io.BytesIO:
             raise urllib.error.HTTPError(url, 404, "Not Found", Message(), None)
 
         monkeypatch.setattr(urllib.request, "urlopen", raise_not_found)
@@ -103,7 +110,7 @@ class TestPublishedFiles:
     ) -> None:
         """Should not swallow non-404 failures."""
 
-        def raise_server_error(url: str) -> io.BytesIO:
+        def raise_server_error(url: str, timeout: float) -> io.BytesIO:
             raise urllib.error.HTTPError(url, 503, "Unavailable", Message(), None)
 
         monkeypatch.setattr(urllib.request, "urlopen", raise_server_error)

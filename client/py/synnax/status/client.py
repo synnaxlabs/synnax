@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field, JsonValue
 
 from freighter import Empty, UnaryClient
 from synnax.ontology import ID
-from synnax.status.types_gen import Status, Variant
+from synnax.status.types_gen import Key, Status, Variant
 from x.lists import normalize
 from x.params import require_named_params
 
@@ -42,6 +42,11 @@ class _RetrieveRequest(BaseModel):
 
 class _RetrieveResponse(BaseModel):
     statuses: list[Status[JsonValue]] = Field(default_factory=list)
+
+
+class _RenameRequest(BaseModel):
+    key: Key
+    name: str
 
 
 class _DeleteRequest(BaseModel):
@@ -231,6 +236,15 @@ class Client:
                 raise ValueError(f"Status with key '{key}' not found")
             return res[0]
         return res
+
+    def rename(self, key: Key, name: str) -> None:
+        """Renames a status.
+
+        :param key: The key of the status to rename.
+        :param name: The new name for the status.
+        :raises NotFoundError: If no status has the given key.
+        """
+        self.client.send("/status/rename", _RenameRequest(key=key, name=name), Empty)
 
     def delete(self, keys: str | list[str]) -> None:
         """Delete statuses by their keys.

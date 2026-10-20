@@ -34,6 +34,7 @@ dev = [
     "pytest>=9.1.1,<10",
     "ruff>=0.16.8,<1",
     "types-python-dateutil>=2.9.0.20260807,<3",
+    "hypothesis>=6.170.2,<7",
 ]
 
 [tool.hatch.build.targets.wheel]
