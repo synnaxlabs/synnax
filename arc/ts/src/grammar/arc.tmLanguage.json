@@ -162,7 +162,7 @@
         },
         {
           "name": "keyword.other.arc",
-          "match": "\\b(func|sequence|stage|next|authority|import|as)\\b"
+          "match": "\\b(func|sequence|stage|next|authority|import|export|as)\\b"
         }
       ]
     },

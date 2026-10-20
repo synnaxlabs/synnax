@@ -18,6 +18,7 @@ const (
 	LiteralBREAK         = "break"
 	LiteralCONTINUE      = "continue"
 	LiteralIMPORT        = "import"
+	LiteralEXPORT        = "export"
 	LiteralAS            = "as"
 	LiteralSEQUENCE      = "sequence"
 	LiteralSTAGE         = "stage"
