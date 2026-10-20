@@ -420,7 +420,7 @@ class Client:
             node_key=node_key,
             limit=limit,
             offset=offset,
-            include_status=include_status,
+            status_included=include_status,
         )
         if channel is None:
             return self._sugar(self._retriever.filter(req))
