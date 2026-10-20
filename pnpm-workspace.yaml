@@ -44,6 +44,16 @@ trustPolicyExclude:
   - '@vercel/oidc@4.0.1'
   - '@vercel/oidc-aws-credentials-provider@3.3.13'
   - '@vercel/routing-utils@6.6.0'
+lockfile:
+  includeResolutionSettings: true
+
+overrides:
+  # GHSA-9wv6-86v2-598j. Lift when @vercel/routing-utils ships a fixed version.
+  '@vercel/routing-utils>path-to-regexp': 6.3.0
+  # GHSA-p98j-92pf-mc4p and GHSA-6688-9rhm-gjv2. Lift when @codingame/monaco-vscode-api
+  # ships a fixed version.
+  '@codingame/monaco-vscode-api>dompurify': 3.4.16
+
 catalogMode: strict
 catalogPrune: true
 autoDedupe: true
