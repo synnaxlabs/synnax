@@ -14,6 +14,8 @@
 package schemadiff
 
 import (
+	"slices"
+
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
@@ -281,16 +283,11 @@ func diffWalk(
 			return TypeDescendantChanged
 		}
 		return TypeUnchanged
-	}
-
-	if oldForm, ok := old.Form.(resolution.UnionForm); ok {
-		// Walk the variant payloads and bases so a changed payload records its own
-		// diff, which routes it through its developer wrapper like a struct field.
-		for _, v := range oldForm.Variants {
-			diffRefWalk(v.Type, oldTable, newTable, counterpart, result, visiting)
-		}
-		for _, ext := range oldForm.Extends {
-			diffRefWalk(ext, oldTable, newTable, counterpart, result, visiting)
+	case resolution.UnionForm:
+		if _, ok := new.Form.(resolution.UnionForm); ok {
+			return diffUnion(
+				old, new, oldForm, oldTable, newTable, counterpart, result, visiting,
+			)
 		}
 	}
 
@@ -307,7 +304,9 @@ func diffWalk(
 		return TypeUnchanged
 	}
 
-	selfChanged := structFieldsChanged(oldStruct, newStruct, oldTable, newTable)
+	selfChanged := structFieldsChanged(
+		oldStruct, newStruct, oldTable, newTable, func(qn string) string { return qn },
+	)
 
 	hasDescendantChange := false
 	for _, f := range PersistedFields(oldStruct.Fields) {
@@ -342,9 +341,119 @@ func diffWalk(
 	return TypeUnchanged
 }
 
+// diffUnion walks a union's bases and variant payloads, so a type that changed inside
+// a variant gets its own diff entry.
+func diffUnion(
+	old, new resolution.Type,
+	form resolution.UnionForm,
+	oldTable, newTable *resolution.Table,
+	counterpart func(string) string,
+	result map[string]TypeDiff,
+	visiting set.Set[string],
+) TypeChangeKind {
+	refs := slices.Clone(form.Extends)
+	for _, v := range form.Variants {
+		refs = append(refs, v.Type)
+	}
+	hasDescendantChange := false
+	for _, ref := range refs {
+		if diffRefWalk(
+			ref, oldTable, newTable, counterpart, result, visiting,
+		) != TypeUnchanged {
+			hasDescendantChange = true
+		}
+	}
+	kind := TypeUnchanged
+	if unionShapeChanged(form, new, oldTable, newTable, counterpart) {
+		kind = TypeChanged
+	} else if hasDescendantChange {
+		kind = TypeDescendantChanged
+	}
+	if kind != TypeUnchanged {
+		result[old.QualifiedName] = TypeDiff{
+			QualifiedName: old.QualifiedName,
+			Kind:          kind,
+		}
+	}
+	return kind
+}
+
+// unionShapeChanged reports whether a union's own shape changed: its discriminator,
+// variants, bases, or the fields of an inline variant. A type the union references
+// still matches when the new version redeclares it, since a change inside that type is
+// a descendant change.
+func unionShapeChanged(
+	old resolution.UnionForm,
+	newType resolution.Type,
+	oldTable, newTable *resolution.Table,
+	counterpart func(string) string,
+) bool {
+	new, ok := newType.Form.(resolution.UnionForm)
+	if !ok || old.Discriminator != new.Discriminator ||
+		len(old.Variants) != len(new.Variants) ||
+		!refsListIdentityEqual(
+			old.Extends,
+			new.Extends,
+			oldTable,
+			newTable,
+			counterpart,
+		) {
+		return true
+	}
+	for i, ov := range old.Variants {
+		nv := new.Variants[i]
+		if ov.Name != nv.Name || ov.Inline != nv.Inline {
+			return true
+		}
+		if !ov.Inline {
+			if !refsIdentityEqual(ov.Type, nv.Type, oldTable, newTable, counterpart) {
+				return true
+			}
+			continue
+		}
+		op, oOk := ov.Type.Resolve(oldTable)
+		np, nOk := nv.Type.Resolve(newTable)
+		if !oOk || !nOk {
+			return oOk != nOk
+		}
+		of, oOk := op.Form.(resolution.StructForm)
+		nf, nOk := np.Form.(resolution.StructForm)
+		if !oOk || !nOk ||
+			!refsListIdentityEqual(
+				of.Extends,
+				nf.Extends,
+				oldTable,
+				newTable,
+				counterpart,
+			) ||
+			!slices.Equal(of.OmittedFields, nf.OmittedFields) ||
+			structFieldsChanged(of, nf, oldTable, newTable, counterpart) {
+			return true
+		}
+	}
+	return false
+}
+
+func refsListIdentityEqual(
+	old, new []resolution.TypeRef,
+	oldTable, newTable *resolution.Table,
+	counterpart func(string) string,
+) bool {
+	if len(old) != len(new) {
+		return false
+	}
+	for i := range old {
+		if !refsIdentityEqual(old[i], new[i], oldTable, newTable, counterpart) {
+			return false
+		}
+	}
+	return true
+}
+
 func structFieldsChanged(
 	old, new resolution.StructForm,
 	oldTable, newTable *resolution.Table,
+	counterpart func(string) string,
 ) bool {
 	oldFields, newFields := PersistedFields(old.Fields), PersistedFields(new.Fields)
 	if len(oldFields) != len(newFields) {
@@ -363,7 +472,7 @@ func structFieldsChanged(
 		nf, exists := newByName[of.Name]
 		if !exists ||
 			of.Optional != nf.Optional ||
-			!refsIdentityEqual(of.Type, nf.Type, oldTable, newTable) ||
+			!refsIdentityEqual(of.Type, nf.Type, oldTable, newTable, counterpart) ||
 			domain.GetStringFromField(of, "go", "marshal") !=
 				domain.GetStringFromField(nf, "go", "marshal") {
 			return true
@@ -373,16 +482,20 @@ func structFieldsChanged(
 }
 
 // refsIdentityEqual checks if two type references point to the same type by qualified
-// name (not deep structural comparison).
+// name (not deep structural comparison). A new type matches an old one when it is the
+// same type or the old type's counterpart.
 func refsIdentityEqual(
 	old, new resolution.TypeRef,
 	oldTable, newTable *resolution.Table,
+	counterpart func(string) string,
 ) bool {
 	if len(old.TypeArgs) != len(new.TypeArgs) {
 		return false
 	}
 	for i := range old.TypeArgs {
-		if !refsIdentityEqual(old.TypeArgs[i], new.TypeArgs[i], oldTable, newTable) {
+		if !refsIdentityEqual(
+			old.TypeArgs[i], new.TypeArgs[i], oldTable, newTable, counterpart,
+		) {
 			return false
 		}
 	}
@@ -398,7 +511,8 @@ func refsIdentityEqual(
 	if !oldOk {
 		return old.Name == new.Name
 	}
-	return oldResolved.QualifiedName == newResolved.QualifiedName
+	return newResolved.QualifiedName == oldResolved.QualifiedName ||
+		newResolved.QualifiedName == counterpart(oldResolved.QualifiedName)
 }
 
 func diffRefWalk(

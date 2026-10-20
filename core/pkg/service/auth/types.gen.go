@@ -11,8 +11,123 @@
 
 package auth
 
-import "github.com/synnaxlabs/synnax/pkg/service/auth/versions"
+import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 
-// SecureCredentials is a persisted username and password-hash pair used to authenticate
-// a user.
-type SecureCredentials = versions.SecureCredentials
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
+)
+
+// Method names an authentication method.
+type Method string
+
+const MethodPassword Method = "password"
+
+// IsValid reports whether m is one of the defined Method
+// values.
+func (m Method) IsValid() bool {
+	switch m {
+	case MethodPassword:
+		return true
+	default:
+		return false
+	}
+}
+
+// Credentials is a plaintext username and password pair presented at login.
+type Credentials struct {
+	// Username is the login name of the password being proven.
+	Username string `json:"username" msgpack:"username"`
+	// Password is the plaintext password. It is never stored.
+	Password string `json:"password" msgpack:"password"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c Credentials) Validate() error {
+	v := validate.New("Credentials")
+	v.NotEmptyString("username", c.Username)
+	v.NotEmptyString("password", c.Password)
+	return v.Error()
+}
+
+type ProofVariant interface {
+	isProofVariant()
+}
+
+// PasswordProof proves a password.
+type PasswordProof struct {
+	Credentials
+}
+
+func (PasswordProof) isProofVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (p PasswordProof) Validate() error {
+	v := validate.New("PasswordProof")
+	v.Exec(p.Credentials.Validate)
+	return v.Error()
+}
+
+// Proof is what a subject presents to log in. The method selects the authenticator that
+// checks it.
+type Proof struct {
+	Variant ProofVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "method" tag injected.
+func (u Proof) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case PasswordProof:
+		return json.MarshalEncode(enc, struct {
+			Type Method `json:"method"`
+			PasswordProof
+		}{Type: MethodPassword, PasswordProof: v})
+	default:
+		return errors.Newf("Proof: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "method" field.
+func (u *Proof) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type Method `json:"method"`
+	}
+	if err := json.Unmarshal(data, &disc, opts); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case MethodPassword:
+		var v PasswordProof
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v
+	default:
+		return errors.Newf("Proof: unknown method %q", disc.Type)
+	}
+	return nil
+}
+
+// Validate returns an error wrapping validate.ErrValidation if the active variant
+// violates its schema constraints.
+func (u Proof) Validate() error {
+	switch variant := u.Variant.(type) {
+	case PasswordProof:
+		return variant.Validate()
+	}
+	return nil
+}

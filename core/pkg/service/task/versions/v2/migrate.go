@@ -339,3 +339,20 @@ func collectEntries[K gorp.Key, E gorp.Entry[K]](
 	}
 	return out, iter.Error()
 }
+
+// NameMigration names each stored task that has an empty name "<type> <key>", where
+// <key> is the first eight characters of its key. A task with no type uses "Task".
+var NameMigration = gorp.NewEntryMigration(
+	"v60_require_name",
+	func(_ context.Context, t Task) (Task, error) {
+		if t.Name != "" {
+			return t, nil
+		}
+		prefix := t.Type
+		if prefix == "" {
+			prefix = "Task"
+		}
+		t.Name = prefix + " " + t.Key.String()[:8]
+		return t, nil
+	},
+)
