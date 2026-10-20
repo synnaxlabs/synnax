@@ -11,6 +11,7 @@ import socket
 import threading
 
 _CHUNK_SIZE = 65536
+_UPGRADED = b"HTTP/1.1 101"
 _KEEP_ALIVE = (
     b'\xfe{"payload":{"frame":{"keys":[],"series":[]},"group":0,"keep_alive":true},'
     b'"error":{"type":"","data":""},"type":"data"}'
@@ -71,6 +72,7 @@ class _Pair:
         self.upstream = upstream
         self.injector = injector
         self.blackholed = False
+        self.head = b""
         self.upgraded: bool | None = None
 
 
@@ -122,7 +124,9 @@ class Proxy:
         try:
             while data := src.recv(_CHUNK_SIZE):
                 if src is pair.upstream and pair.upgraded is None:
-                    pair.upgraded = data.startswith(b"HTTP/1.1 101")
+                    pair.head += data
+                    if len(pair.head) >= len(_UPGRADED):
+                        pair.upgraded = pair.head.startswith(_UPGRADED)
                 if src is pair.upstream and pair.injector is not None:
                     data = pair.injector.feed(data)
                 # A blackholed client's writes are read and dropped so backpressure
