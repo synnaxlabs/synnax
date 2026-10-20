@@ -35,19 +35,10 @@ Session struct {
         @filter
         @index lookup
     }
-    method      Method          {
-        @doc value "is the method the subject logged in with."
-    }
     credential  uuid            {
         @doc value    "is the key of the credential record the login matched."
         @filter
         @index lookup
-    }
-    address     string          {
-        @doc value "is the network address the login came from."
-    }
-    created     telem.TimeStamp {
-        @doc value "is when the subject logged in."
     }
     last_active telem.TimeStamp {
         @doc value """

@@ -21,12 +21,9 @@ import (
 	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
-
-const remote address.Address = "10.0.0.1:4242"
 
 func request(username, pwd string) apiauth.LoginRequest {
 	creds := auth.Credentials{Username: username, Password: pwd}
@@ -34,7 +31,7 @@ func request(username, pwd string) apiauth.LoginRequest {
 }
 
 func requestCtx(ctx context.Context) freighter.Context {
-	return freighter.Context{Context: ctx, Params: freighter.Params{}, Remote: remote}
+	return freighter.Context{Context: ctx, Params: freighter.Params{}}
 }
 
 var _ = Describe("NewService", func() {
@@ -54,8 +51,6 @@ var _ = Describe("Login", func() {
 			Expect(res.User).To(Equal(root))
 			session := MustSucceed(authSvc.Authenticate(ctx, res.Token))
 			Expect(session.Subject).To(Equal(root.OntologyID()))
-			Expect(session.Method).To(Equal(auth.MethodPassword))
-			Expect(session.Address).To(Equal(string(remote)))
 			Expect(res.ClusterInfo.ClusterKey).To(Equal(node.Cluster.Key().String()))
 			Expect(res.ClusterInfo.NodeKey).To(Equal(node.Cluster.HostKey()))
 			Expect(res.ClusterInfo.NodeTime).ToNot(BeZero())
