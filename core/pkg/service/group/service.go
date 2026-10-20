@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -33,6 +34,9 @@ type ServiceConfig struct {
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
 	Search   *search.Index
+	// IdentifierRoots names the groups directly below root under which every group
+	// name must be an identifier: letters, digits, and underscores.
+	IdentifierRoots []string
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -43,6 +47,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Search = override.Nil(c.Search, other.Search)
+	c.IdentifierRoots = override.Slice(c.IdentifierRoots, other.IdentifierRoots)
 	return c
 }
 
@@ -87,10 +92,7 @@ func (s *Service) CreateOrRetrieve(
 ) (Group, error) {
 	var res Group
 	if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		var (
-			g   Group
-			err = s.NewRetrieve().Entry(&g).Where(MatchNames(groupName)).Exec(ctx, tx)
-		)
+		g, err := s.retrieveChild(ctx, tx, groupName, parent)
 		if errors.Skip(err, query.ErrNotFound) != nil {
 			return err
 		}
@@ -107,6 +109,34 @@ func (s *Service) CreateOrRetrieve(
 	return res, nil
 }
 
+// retrieveChild returns the group with the given name whose parent is parent. A group
+// with that name elsewhere in the tree does not match.
+func (s *Service) retrieveChild(
+	ctx context.Context,
+	tx gorp.Tx,
+	name string,
+	parent ontology.ID,
+) (Group, error) {
+	var groups []Group
+	if err := s.NewRetrieve().
+		Entries(&groups).
+		Where(MatchNames(name)).
+		Exec(ctx, tx); err != nil {
+		return Group{}, err
+	}
+	for _, g := range groups {
+		isChild, err := s.cfg.Ontology.RelationshipExists(ctx, tx, ontology.Relationship{
+			From: parent,
+			Type: ontology.RelationshipTypeParentOf,
+			To:   g.OntologyID(),
+		})
+		if err != nil || isChild {
+			return g, err
+		}
+	}
+	return Group{}, errors.Wrapf(query.ErrNotFound, "group %q under %s", name, parent)
+}
+
 // Observe returns an observable that notifies callers of changes to group entries.
 func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Group]] {
 	return s.table.Observe()
@@ -114,10 +144,11 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Group]] {
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:        gorp.OverrideTx(s.cfg.DB, tx),
-		otgWriter: s.cfg.Ontology.NewWriter(tx),
-		otg:       s.cfg.Ontology,
-		table:     s.table,
+		tx:              gorp.OverrideTx(s.cfg.DB, tx),
+		otgWriter:       s.cfg.Ontology.NewWriter(tx),
+		otg:             s.cfg.Ontology,
+		identifierRoots: set.New(s.cfg.IdentifierRoots...),
+		table:           s.table,
 	}
 }
 
@@ -133,10 +164,94 @@ func (s *Service) Close() error {
 }
 
 type Writer struct {
-	tx        gorp.Tx
-	otgWriter ontology.Writer
-	otg       *ontology.Ontology
-	table     *gorp.Table[Key, Group]
+	tx              gorp.Tx
+	otgWriter       ontology.Writer
+	otg             *ontology.Ontology
+	identifierRoots set.Set[string]
+	table           *gorp.Table[Key, Group]
+}
+
+// validateName applies the identifier rule to name when the resource at id sits at or
+// below one of the identifier roots.
+func (w Writer) validateName(ctx context.Context, id ontology.ID, name string) error {
+	below, err := w.belowIdentifierRoot(ctx, id)
+	if err != nil || !below || validate.IsIdentifier(name) {
+		return err
+	}
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"group name %q must contain only letters, digits, and underscores",
+		name,
+	)
+}
+
+// belowIdentifierRoot walks from id up to the root and reports whether id or one of
+// its ancestors is an identifier root: a group with a configured name whose parent is
+// root.
+func (w Writer) belowIdentifierRoot(
+	ctx context.Context,
+	id ontology.ID,
+) (bool, error) {
+	if len(w.identifierRoots) == 0 {
+		return false, nil
+	}
+	var (
+		frontier = []ontology.ID{id}
+		visited  = set.New(id)
+	)
+	for len(frontier) > 0 {
+		keys := make([]Key, 0, len(frontier))
+		for _, fid := range frontier {
+			if fid.Type != ontology.ResourceTypeGroup {
+				continue
+			}
+			key, err := uuid.Parse(fid.Key)
+			if err != nil {
+				return false, err
+			}
+			keys = append(keys, key)
+		}
+		if len(keys) > 0 {
+			var groups []Group
+			if err := w.table.NewRetrieve().
+				Where(gorp.MatchKeys[Key, Group](keys...)).
+				Entries(&groups).
+				Exec(ctx, w.tx); err != nil {
+				return false, err
+			}
+			for _, g := range groups {
+				if !w.identifierRoots.Contains(g.Name) {
+					continue
+				}
+				atRoot, err := w.otg.RelationshipExists(ctx, w.tx, ontology.Relationship{
+					From: ontology.RootID,
+					Type: ontology.RelationshipTypeParentOf,
+					To:   g.OntologyID(),
+				})
+				if err != nil || atRoot {
+					return atRoot, err
+				}
+			}
+		}
+		var parents []ontology.Resource
+		if err := w.otg.NewRetrieve().
+			WhereIDs(frontier...).
+			TraverseTo(ontology.ParentsTraverser).
+			ExcludeFieldData(true).
+			Entries(&parents).
+			Exec(ctx, w.tx); err != nil {
+			return false, err
+		}
+		frontier = frontier[:0]
+		for _, p := range parents {
+			if visited.Contains(p.ID) {
+				continue
+			}
+			visited.Add(p.ID)
+			frontier = append(frontier, p.ID)
+		}
+	}
+	return false, nil
 }
 
 // Create creates a new Group with the given name and parent.
@@ -145,6 +260,9 @@ func (w Writer) Create(
 	name string,
 	parent ontology.ID,
 ) (Group, error) {
+	if err := w.validateName(ctx, parent, name); err != nil {
+		return Group{}, err
+	}
 	g := Group{Key: uuid.New(), Name: name}
 	id := g.OntologyID()
 	if err := w.table.NewCreate().Entry(&g).Exec(ctx, w.tx); err != nil {
@@ -170,6 +288,9 @@ func (w Writer) CreateWithKey(
 	name string,
 	parent ontology.ID,
 ) (Group, error) {
+	if err := w.validateName(ctx, parent, name); err != nil {
+		return Group{}, err
+	}
 	g := Group{Key: key, Name: name}
 	if g.Key == uuid.Nil() {
 		g.Key = uuid.New()
@@ -227,6 +348,9 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 
 // Rename renames the Group with the given key.
 func (w Writer) Rename(ctx context.Context, key Key, name string) error {
+	if err := w.validateName(ctx, OntologyID(key), name); err != nil {
+		return err
+	}
 	return w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Group](key)).
 		Change(func(_ gorp.Context, g Group) Group {

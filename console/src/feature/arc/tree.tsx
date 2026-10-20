@@ -7,9 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, query, task } from "@synnaxlabs/client";
+import { arc, ontology, query, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Access, Arc, Task } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 
@@ -18,10 +21,21 @@ import { ContextMenu } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Framer } from "@/platform/framer";
+import { Group } from "@/platform/group";
 import { Link } from "@/platform/link";
 import { Panel } from "@/platform/panel";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
+
+const MODE_ICONS: Record<arc.Mode, Icon.ReactElement> = {
+  text: <Icon.Text />,
+  graph: <Icon.Schematic />,
+};
+
+const TYPE_ICONS: Record<arc.Type, Icon.ReactElement> = {
+  automation: <Icon.Arc />,
+  module: <Icon.Module />,
+};
 
 const useRename = Tree.createUseRename({
   query: Arc.useRename,
@@ -42,13 +56,14 @@ const useDelete = Tree.createUseDelete({
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     client,
-    selection: { ids },
-    state: { getResource },
+    selection: { ids, rootID },
+    state: { getResource, shape },
   } = props;
   const keys = ids.map((id) => id.key);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const canControl = Framer.useCanCommand();
+  const groupFromSelection = Group.useCreateFromSelection();
   const captureDeploy = PlatformArc.useCaptureDeploy();
   const { update: runCommand } = Task.useCommand({ afterSuccess: captureDeploy });
   const rename = useRename(props);
@@ -84,6 +99,14 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       {hasUpdatePermission && singleResource && (
         <ContextMenu.RenameItem onClick={rename} />
       )}
+      {hasUpdatePermission && (
+        <Group.ContextMenuItem
+          ids={ids}
+          shape={shape}
+          rootID={rootID}
+          onClick={() => groupFromSelection(props)}
+        />
+      )}
       <Menu.Divider />
       {singleResource && (
         <Link.CopyContextMenuItem
@@ -98,11 +121,32 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
+const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
+  const { data } = Arc.useResult({ key: resource.id.key });
+  return (
+    <PTree.Item {...rest}>
+      <Text.MaybeEditable
+        id={List.itemNameID(ontology.idToString(resource.id))}
+        value={resource.name}
+        onChange
+        allowDoubleClick={false}
+        className={CSS.BE("tree-item", "name")}
+        overflow="fade"
+        grow
+      />
+      {data != null && TYPE_ICONS[data.type]}
+      {data != null && MODE_ICONS[data.mode]}
+    </PTree.Item>
+  );
+};
+
 const TreeItem = Tree.createItem({
   type: "arc",
   icon: <Icon.Arc />,
+  hasChildren: false,
   canDrop: () => true,
   useOnSelect: Panel.useOpenResource,
+  Content,
   ContextMenu: TreeContextMenu,
 });
 

@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	taskversions "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -52,6 +53,7 @@ type Writer struct {
 	tx         gorp.Tx
 	otgWriter  ontology.Writer
 	otg        *ontology.Ontology
+	group      group.Group
 	tasks      *task.Service
 	status     *status.Service
 	table      *gorp.Table[Key, Arc]
@@ -91,6 +93,14 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 	}
 	if !exists {
 		if err = w.otgWriter.DefineResources(ctx, a.OntologyID()); err != nil {
+			return err
+		}
+		if err = w.otgWriter.DefineRelationships(
+			ctx,
+			w.group.OntologyID(),
+			ontology.RelationshipTypeParentOf,
+			a.OntologyID(),
+		); err != nil {
 			return err
 		}
 	} else if err = w.syncTask(ctx, *a); err != nil {

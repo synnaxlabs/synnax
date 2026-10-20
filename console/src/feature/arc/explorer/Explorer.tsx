@@ -9,19 +9,10 @@
 
 import { Arc } from "@synnaxlabs/pluto";
 
-import { List } from "@/feature/arc/list/List";
 import { type Panel } from "@/platform/panel";
+import { Tree } from "@/platform/tree";
 
 export const Explorer: Panel.Content = () => {
-  const { data, getItem, subscribe, retrieve } = Arc.useList({});
-  return (
-    <List
-      data={data}
-      getItem={getItem}
-      subscribe={subscribe}
-      retrieve={retrieve}
-      enableSearch
-      textIdPrefix="arc-explorer-text"
-    />
-  );
+  const groupID = Arc.useGroupID({});
+  return <Tree.Tree root={groupID} />;
 };

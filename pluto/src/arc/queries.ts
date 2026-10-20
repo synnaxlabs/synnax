@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, type rack, status, task } from "@synnaxlabs/client";
+import { arc, ontology, type rack, status, task } from "@synnaxlabs/client";
 import { type List } from "@synnaxlabs/lyra/list";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { compare, type record, verbs, xy } from "@synnaxlabs/x";
@@ -56,6 +56,19 @@ export const { use, useEnsure, useTombstone, useResult, createSelector } =
       client.arcs.getCached({ key, includeStatus }),
     awaitCreation: true,
   });
+
+export type RetrieveGroupQuery = Record<string, never>;
+
+export const { use: useGroupID } = Flux.createRetrieve<
+  RetrieveGroupQuery,
+  ontology.ID | undefined
+>({
+  name: "arc group",
+  retrieve: async ({ client }) => {
+    const res = await client.ontology.children.retrieve({ ids: ontology.ROOT_ID });
+    return res.find((r) => r.name === "Arcs")?.id;
+  },
+});
 
 // useAllNodes returns every graph node of the Arc with the given key as diagram
 // nodes. graph.Node is a structural superset of Diagram.Node, so the cached array

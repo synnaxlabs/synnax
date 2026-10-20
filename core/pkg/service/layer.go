@@ -268,6 +268,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		DB:              cfg.Distribution.DB,
 		Ontology:        l.Ontology,
 		Search:          l.Search,
+		IdentifierRoots: []string{arc.GroupName},
 	}); !ok(err, l.Group) {
 		return nil, err
 	}
@@ -632,6 +633,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Instrumentation: cfg.Child("arc"),
 			DB:              cfg.Distribution.DB,
 			Ontology:        l.Ontology,
+			Group:           l.Group,
 			Search:          l.Search,
 			Channel:         l.Channel,
 			Task:            l.Task,
