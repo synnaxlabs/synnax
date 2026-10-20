@@ -7,12 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/arc/tree.css";
+
 import { arc, ontology, query, task } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
+import { stopPropagation } from "@synnaxlabs/lyra/util";
 import { Access, Arc, Task } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 
@@ -26,16 +32,6 @@ import { Link } from "@/platform/link";
 import { Panel } from "@/platform/panel";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
-
-const MODE_ICONS: Record<arc.Mode, Icon.ReactElement> = {
-  text: <Icon.Text />,
-  graph: <Icon.Schematic />,
-};
-
-const TYPE_ICONS: Record<arc.Type, Icon.ReactElement> = {
-  automation: <Icon.Arc />,
-  module: <Icon.Module />,
-};
 
 const useRename = Tree.createUseRename({
   query: Arc.useRename,
@@ -122,20 +118,83 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
 };
 
 const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
-  const { data } = Arc.useResult({ key: resource.id.key });
+  const key = resource.id.key;
+  const { data } = Arc.useResult({ key });
+  const module = data?.type === "module";
+  const hasUpdatePermission = Access.useUpdateGranted(resource.id);
+  const canControl = Framer.useCanCommand();
+  const captureDeploy = PlatformArc.useCaptureDeploy();
+  const { running, onStartStop, taskStatus } = Arc.useTaskControls(
+    key,
+    resource.name,
+    { afterSuccess: captureDeploy },
+  );
+  const drifted = Arc.useDrifted({ arcKey: key });
+  const status = module
+    ? (data.status ?? Arc.notCompiledYet(resource.name))
+    : taskStatus;
+  let message = status.message;
+  if (!module)
+    message = status.variant === "error" ? "Error" : running ? "Running" : "Stopped";
   return (
-    <PTree.Item {...rest}>
-      <Text.MaybeEditable
-        id={List.itemNameID(ontology.idToString(resource.id))}
-        value={resource.name}
-        onChange
-        allowDoubleClick={false}
-        className={CSS.BE("tree-item", "name")}
-        overflow="fade"
-        grow
-      />
-      {data != null && TYPE_ICONS[data.type]}
-      {data != null && MODE_ICONS[data.mode]}
+    <PTree.Item {...rest} className={CSS.B("arc-tree-item")}>
+      <Flex.Box
+        x
+        align="center"
+        gap="small"
+        className={CSS.BE("arc-tree-item", "leading")}
+      >
+        <Flex.Box
+          x
+          align="center"
+          gap="small"
+          className={CSS.BE("arc-tree-item", "title")}
+        >
+          <Text.MaybeEditable
+            id={List.itemNameID(ontology.idToString(resource.id))}
+            value={resource.name}
+            onChange
+            allowDoubleClick={false}
+            className={CSS.BE("arc-tree-item", "name")}
+            overflow="fade"
+          />
+          {data?.mode === "graph" && PlatformArc.MODE_ICONS.graph}
+        </Flex.Box>
+        {!module && drifted && (
+          <Tooltip.Dialog>
+            <Text.Text level="small">Configuration changed since deploy</Text.Text>
+            <Text.Text level="small" status="warning">
+              <Icon.Refresh />
+            </Text.Text>
+          </Tooltip.Dialog>
+        )}
+      </Flex.Box>
+      <Text.Text
+        level="small"
+        status={status.variant}
+        overflow="ellipsis"
+        className={CSS.BE("arc-tree-item", "state")}
+      >
+        {message}
+      </Text.Text>
+      {module && (
+        <Flex.Box center className={CSS.BE("arc-tree-item", "control")}>
+          {PlatformArc.TYPE_ICONS.module}
+        </Flex.Box>
+      )}
+      {!module && hasUpdatePermission && canControl && (
+        <Button.Button
+          className={CSS.BE("arc-tree-item", "control")}
+          variant="outlined"
+          size="tiny"
+          status={status.variant === "loading" ? "loading" : running ? "error" : undefined}
+          onClick={onStartStop}
+          onDoubleClick={stopPropagation}
+          tooltip={`${running ? "Stop" : "Start"} ${resource.name}`}
+        >
+          {running ? <Icon.Stop /> : <Icon.Play />}
+        </Button.Button>
+      )}
     </PTree.Item>
   );
 };

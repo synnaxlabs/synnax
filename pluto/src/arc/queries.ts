@@ -43,17 +43,15 @@ export interface KeyParams {
 
 export type RetrieveQuery = {
   key: arc.Key;
-  includeStatus?: boolean;
 };
 
 export const { use, useEnsure, useTombstone, useResult, createSelector } =
   Flux.createRetrieve<RetrieveQuery, arc.Arc>({
     name: RESOURCE_NAME,
     retrieve: async ({ client, query }) => await client.arcs.retrieve(query),
-    onChange: ({ client, query: { key, includeStatus } }, handler) =>
-      client.arcs.onChange({ key, includeStatus }, handler),
-    getCached: ({ client, query: { key, includeStatus } }) =>
-      client.arcs.getCached({ key, includeStatus }),
+    onChange: ({ client, query: { key } }, handler) =>
+      client.arcs.onChange({ key }, handler),
+    getCached: ({ client, query: { key } }) => client.arcs.getCached({ key }),
     awaitCreation: true,
   });
 
@@ -174,7 +172,6 @@ export type ListQuery = List.PagerParams & {
 
 export const useList = Flux.createList<ListQuery, arc.Key, arc.Arc>({
   name: PLURAL_RESOURCE_NAME,
-  normalizeQuery: (query) => ({ ...query, includeStatus: true }),
   retrieve: async ({ client, query }) => await client.arcs.retrieve(query),
   retrieveByKey: async ({ client, key }) => await client.arcs.retrieve(key),
   onChange: ({ client, query }, handler) => client.arcs.onChange(query, handler),

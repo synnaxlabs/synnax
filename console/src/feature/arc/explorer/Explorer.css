@@ -1,0 +1,38 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-arc-explorer__toolbar {
+    padding: 1.5rem;
+}
+
+.console-arc-explorer__filter-menu {
+    padding: 1rem;
+}
+
+/* Needs a non-virtual tree: an absolutely positioned row sits in no column. */
+.console-arc-explorer .pluto-tree > .pluto-list__virtualizer {
+    display: grid;
+
+    /* Names size to the longest one, the state takes what is left. */
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    column-gap: 1.5rem;
+    align-items: center;
+}
+
+.console-arc-explorer .pluto-tree__item {
+    grid-column: 1 / -1;
+}
+
+.console-arc-explorer .console-arc-tree-item {
+    display: grid;
+    grid-template-columns: subgrid;
+    align-items: center;
+}

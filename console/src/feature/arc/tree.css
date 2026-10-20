@@ -1,0 +1,52 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-arc-tree-item__leading {
+    grid-column: 1;
+    min-width: 0;
+}
+
+.console-arc-tree-item__state {
+    grid-column: 2;
+    text-align: right;
+    min-width: 0;
+}
+
+.console-arc-tree-item__control {
+    grid-column: 3;
+    justify-self: center;
+    margin-left: 0.5rem;
+
+    --pluto-height-tiny: 3rem;
+}
+
+/* The name sizes to its text so the graph icon sits right after it, and shrinks
+   before anything else when the row runs out of room. */
+.console-arc-tree-item__title {
+    min-width: 0;
+}
+
+.pluto-tree .pluto-tree__item .console-arc-tree-item__title .pluto-icon {
+    width: 2rem;
+    height: 2rem;
+}
+
+.console-arc-tree-item__name {
+    user-select: none;
+    min-width: 0;
+}
+
+/* The tree sizes and colors every icon in a row. The control button keeps its own. */
+.pluto-tree .pluto-tree__item .pluto-btn.console-arc-tree-item__control .pluto-icon {
+    width: round(1.1em, 1px);
+    height: round(1.1em, 1px);
+    color: inherit;
+}

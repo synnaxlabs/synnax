@@ -57,6 +57,8 @@ import { type Action, type State } from "@/session/store";
 
 interface InternalProps {
   root: ontology.ID;
+  filter?: Filter;
+  virtual?: boolean;
   emptyContent?: ReactNode;
 }
 
@@ -179,7 +181,46 @@ const toNodes = (
       children: resolveItem(r.id.type).hasChildren ? [] : undefined,
     }));
 
-const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
+/** Accepts a leaf. ancestors runs from the root's child down to the leaf's parent. */
+export interface Filter {
+  (resource: ontology.Resource, ancestors: ontology.Resource[]): boolean;
+}
+
+// A parent stays while a leaf below it is accepted. A parent whose children are not
+// loaded yet may still hold one, so it stays until its answer says otherwise.
+const prune = (
+  tree: Base.Node<string>[],
+  filter: Filter,
+  loaded: Set<string>,
+  getResource: (key: string) => ontology.Resource | undefined,
+  ancestors: ontology.Resource[] = [],
+): Base.Node<string>[] =>
+  tree.flatMap((node) => {
+    const resource = getResource(node.key);
+    if (node.children == null)
+      return resource != null && filter(resource, ancestors) ? [node] : [];
+    if (!loaded.has(node.key)) return [node];
+    const children = prune(
+      node.children,
+      filter,
+      loaded,
+      getResource,
+      resource == null ? ancestors : [...ancestors, resource],
+    );
+    return children.length === 0 ? [] : [{ ...node, children }];
+  });
+
+const parentKeys = (tree: Base.Node<string>[]): string[] =>
+  tree.flatMap((node) =>
+    node.children == null ? [] : [node.key, ...parentKeys(node.children)],
+  );
+
+const Internal = ({
+  root,
+  filter,
+  virtual,
+  emptyContent,
+}: InternalProps): ReactElement => {
   const items = useItems();
   const resolveItem = useCallback(
     (type: ontology.ResourceType): Item => items[type] ?? DefaultItem,
@@ -201,6 +242,10 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   // An unanswered root has no children yet and no empty content: they are the
   // same node list, and only the answer tells them apart.
   const [answered, setAnswered] = useState(seed != null);
+  // Parents whose children answer has been applied at least once.
+  const [loaded, setLoaded] = useState<Set<string>>(() =>
+    seed == null ? new Set() : new Set([ontology.idToString(root)]),
+  );
   const loadingListenersRef = useInitializerRef(() => new Set<observe.Handler<void>>());
 
   // Placeholder resources back tree items (e.g. a just-created group awaiting its
@@ -232,6 +277,10 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         ),
         ...keepLoadedChildren(prevChildren, next),
       ];
+      setLoaded((prev) => {
+        const key = ontology.idToString(parent);
+        return prev.has(key) ? prev : new Set(prev).add(key);
+      });
       if (ontology.idsEqual(parent, root)) {
         setNodes(merge);
         setAnswered(true);
@@ -386,15 +435,34 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     [getResourceByKey],
   );
 
+  const visibleNodes = useMemo(
+    () => (filter == null ? nodes : prune(nodes, filter, loaded, getResourceByKey)),
+    [nodes, filter, loaded, getResourceByKey],
+  );
+
   const treeProps = Base.use({
-    nodes,
+    nodes: visibleNodes,
     onExpand: handleExpand,
     selected,
     onSelectedChange: setSelected,
     sort,
   });
-  const { shape, expand, contract } = treeProps;
+  const { shape, expand, contract, expanded } = treeProps;
   const shapeRef = useSyncedRef(shape);
+
+  // Expanding a parent is what loads its children, so a filter expands every parent.
+  const filteredRef = useRef(filter != null);
+  useEffect(() => {
+    if (filter == null) {
+      if (filteredRef.current) contract(...expanded);
+      filteredRef.current = false;
+      return;
+    }
+    filteredRef.current = true;
+    parentKeys(visibleNodes)
+      .filter((key) => !expanded.includes(key))
+      .forEach(expand);
+  }, [filter, visibleNodes, expanded, expand, contract]);
   // A placeholder's row stays mounted, so its rename can start out of view. Focusing
   // the editable then scrolls the row into view.
   const pinned = useMemo(
@@ -575,6 +643,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         getItem={getItem}
         emptyContent={answered ? emptyContent : null}
         pinned={pinned}
+        virtual={virtual}
         onContextMenu={menuProps.open}
       >
         {itemRenderProp}
@@ -585,6 +654,13 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
 
 export interface TreeProps {
   root?: ontology.ID | null;
+  /**
+   * When set, the tree is pruned to the leaves it accepts and the parents above them,
+   * all expanded. Unset shows the whole tree.
+   */
+  filter?: Filter;
+  /** Rows are virtualized by default. False lays every row out in flow. */
+  virtual?: boolean;
   emptyContent?: ReactNode;
 }
 
