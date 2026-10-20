@@ -9,16 +9,17 @@
 
 import { type APIRoute } from "astro";
 
-import { blob, ordered } from "@/util/reliability";
+import { blob, ordered, runs } from "@/util/reliability";
 
 export const prerender = true;
 
 /**
  * Test details for the reliability wall's hover card, in wall order. Sources are paths
- * relative to `blob`, which is sent once. Tests index into the few distinct tag lists.
+ * relative to `blob`, which is sent once. Tests index into the few distinct tag lists,
+ * and runs into the suites.
  */
 export const GET: APIRoute = () => {
-  const suites = [...new Set(ordered.map((t) => t.suite))];
+  const suites = [...new Set(runs.map((r) => r.suite))];
   const index = new Map(suites.map((s, i) => [s, i]));
   const tags = [...new Set(ordered.map((t) => t.tags.join(" ")))];
   const tagIndex = new Map(tags.map((t, i) => [t, i]));
@@ -28,11 +29,10 @@ export const GET: APIRoute = () => {
       suites: suites.map((s) => ({ job: s.job, os: s.os })),
       tags: tags.map((t) => t.split(" ")),
       tests: ordered.map((t) => [
-        index.get(t.suite),
         t.name,
-        t.duration,
         t.source.slice(blob.length),
         tagIndex.get(t.tags.join(" ")),
+        t.runs.map((r) => [index.get(r.suite), r.state, r.duration]),
       ]),
     }),
     { headers: { "Content-Type": "application/json" } },

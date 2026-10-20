@@ -17,11 +17,22 @@ import Stat from "@/components/reliability/Stat.astro";
 import Subsystems from "@/components/reliability/Subsystems.astro";
 import Wall from "@/components/reliability/Wall.astro";
 import Root from "@/layouts/Root.astro";
-import { ordered, products, run, type State, totals } from "@/util/reliability";
+import {
+    id,
+    ordered,
+    products,
+    RANK,
+    run,
+    runs,
+    type State,
+    systems,
+    totals,
+} from "@/util/reliability";
 
 export const prerender = true;
 
 const fmt = (n: number) => n.toLocaleString("en-US");
+const list = new Intl.ListFormat("en-US").format(systems);
 const minutes = Math.round(
     (Date.parse(run.ended_at) - Date.parse(run.started_at)) / 60000,
 );
@@ -50,7 +61,7 @@ const RESULTS: StatProps[] = [
 ];
 
 const SCOPE: StatProps[] = [
-    { label: "Test suites", value: fmt(new Set(ordered.map((t) => t.suite)).size) },
+    { label: "Test suites", value: fmt(new Set(runs.map((r) => r.suite)).size) },
     { label: "CI jobs", value: fmt(run.jobs) },
     { label: "Run time", value: `${minutes} min` },
 ];
@@ -131,32 +142,26 @@ const LABELS: Record<State, string> = {
     unknown: "Unknown",
 };
 
-const RANK: Record<State, number> = {
-    failed: 0,
-    flaky: 1,
-    unknown: 2,
-    skipped: 3,
-    passed: 4,
-};
-
-const unclean = ordered
-    .filter((t) => t.state !== "passed" && t.state !== "skipped")
+const unclean = runs
+    .filter((r) => r.state !== "passed" && r.state !== "skipped")
     .sort((a, b) => RANK[a.state] - RANK[b.state]);
 
 // Skip reason -> the tests skipped for it, when they were all run by hand and passed.
 const byHand = Object.entries(
     Object.groupBy(
-        ordered.filter((t) => t.passedByHand),
+        runs.filter((r) => r.passedByHand),
         (t) => t.message!,
     ),
 );
 
-const where = (tests: typeof ordered) =>
-    tests.every((t) => t.tags.includes("windows-only")) ? " on Windows" : "";
+const where = (group: typeof runs) =>
+    group.every((r) => r.tags.includes("windows-only")) ? " on Windows" : "";
+
+const distinct = (group: typeof runs) => new Set(group.map(id)).size;
 
 const skipped = Object.entries(
     Object.groupBy(
-        ordered.filter((t) => t.state === "skipped"),
+        runs.filter((r) => r.state === "skipped"),
         (t) => t.message ?? "No reason given",
     ),
 );
@@ -178,14 +183,15 @@ const skipped = Object.entries(
                 </Text.Text>
                 <Text.Text level="p" color={9} className="reliability-prose">
                     <span>
-                        Each square below is one test we ran on Synnax v{run.version}{" "}
-                        (commit{" "}
+                        We ran these tests on {list}, for {fmt(runs.length)} runs on
+                        Synnax v{run.version} (commit{" "}
                         <a href={`${REPO}/commit/${run.sha}`}>
                             <code>{run.sha.slice(0, 7)}</code>
                         </a>
-                        ). Flaky and skipped tests are marked, and listed at the end of
-                        the page with the reason. Hover over a square to see its test,
-                        and click it to read the code.
+                        ). Each square below is one test, and shows its worst result on
+                        any operating system. Flaky and skipped tests are marked, and
+                        listed at the end of the page with the reason. Hover over a
+                        square to see its test, and click it to read the code.
                     </span>
                 </Text.Text>
                 <Flex.Box x wrap gap="huge" className="reliability-stats">
@@ -202,7 +208,7 @@ const skipped = Object.entries(
                         <Text.Text level="small" x gap="small" align="center">
                             <Icon.Check className="reliability-hand" />
                             <strong>
-                                {`${tests!.length} skipped tests passed manually${where(tests!)}.`}
+                                {`${distinct(tests!)} skipped tests passed manually${where(tests!)}.`}
                             </strong>
                         </Text.Text>
                         <Text.Text
@@ -297,7 +303,7 @@ const skipped = Object.entries(
                                 Skipped
                             </Text.Text>
                             <Text.Text level="small" color={9}>
-                                {`${tests!.length} tests: ${reason}`}
+                                {`${distinct(tests!)} tests: ${reason}`}
                             </Text.Text>
                             {tests!.every((t) => t.passedByHand) && (
                                 <Text.Text

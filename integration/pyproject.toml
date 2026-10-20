@@ -13,6 +13,7 @@ version = "0.0.0"
 requires-python = ">=3.12,<4"
 dependencies = [
     "synnax",
+    "synnax-freighter",
     "synnax-x",
     "flask>=3.1.3,<4",
     "matplotlib>=3.11.2,<4",
@@ -34,7 +35,12 @@ migration-conductor = "migration_conductor:main"
 mc = "migration_conductor:main"
 
 [dependency-groups]
-dev = ["mypy>=2.4.0,<3", "ruff>=0.17.1,<1", "types-psutil>=7.2.2.20260906,<8"]
+dev = [
+    "mypy>=2.4.0,<3",
+    "pytest>=9.1.1,<10",
+    "ruff>=0.17.1,<1",
+    "types-psutil>=7.2.2.20260906,<8",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["console", "framework", "tests"]
@@ -108,6 +114,11 @@ ignore_errors = true
 init_forbid_extra = true
 init_typed = true
 warn_required_dynamic_aliases = true
+
+# The integration tests run through the conductor; pytest runs only the framework's
+# unit tests.
+[tool.pytest.ini_options]
+testpaths = ["framework/tests"]
 
 [build-system]
 requires = ["hatchling"]
