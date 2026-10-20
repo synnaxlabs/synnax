@@ -9,11 +9,18 @@
 
 import random
 from collections.abc import Callable
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import synnax as sy
 from console.case import ConsoleCase
 from console.plot import Plot
+
+
+def _local_days_from_now(days: int) -> datetime:
+    """Return the local wall time ``days`` from now, whole seconds, with the UTC
+    offset in force on that date."""
+    wall = datetime.now().astimezone() + timedelta(days=days)
+    return wall.replace(microsecond=0, tzinfo=None).astimezone()
 
 
 class RangeLifecycle(ConsoleCase):
@@ -283,8 +290,8 @@ class RangeLifecycle(ConsoleCase):
         # edit reaches the server before asserting.
         for _ in range(10):
             rng = self.client.ranges.retrieve(name=self.labeled_range_name)
-            start_utc = sy.TimeStamp(rng.time_range.start).datetime(timezone.utc)
-            end_utc = sy.TimeStamp(rng.time_range.end).datetime(timezone.utc)
+            start_utc = sy.TimeStamp(rng.time_range.start).datetime(UTC)
+            end_utc = sy.TimeStamp(rng.time_range.end).datetime(UTC)
             if end_utc.day == 2:
                 break
             sy.sleep(0.5)
@@ -376,12 +383,12 @@ class RangeLifecycle(ConsoleCase):
             name=self.timeline_range_name
         ).time_range.start
 
-        end = (datetime.now() + timedelta(days=1)).replace(microsecond=0)
+        end = _local_days_from_now(1)
         self.console.ranges.overview.set_end_time(
             end.year, end.month, end.day, end.hour, end.minute, end.second
         )
 
-        expected = sy.TimeStamp(end.astimezone())
+        expected = sy.TimeStamp(end)
         rng = self.wait_for_range(
             self.timeline_range_name, lambda r: r.time_range.end == expected
         )
@@ -398,12 +405,12 @@ class RangeLifecycle(ConsoleCase):
         before = self.client.ranges.retrieve(name=self.timeline_range_name)
         duration = int(before.time_range.end) - int(before.time_range.start)
 
-        start = (datetime.now() + timedelta(days=2)).replace(microsecond=0)
+        start = _local_days_from_now(2)
         self.console.ranges.overview.set_start_time(
             start.year, start.month, start.day, start.hour, start.minute, start.second
         )
 
-        expected = sy.TimeStamp(start.astimezone())
+        expected = sy.TimeStamp(start)
         rng = self.wait_for_range(
             self.timeline_range_name, lambda r: r.time_range.start == expected
         )

@@ -10,13 +10,13 @@
 from synnax.access.policy.types_gen import Key, Policy, ontology_id
 
 __all__ = [
-    "Key",
-    "Policy",
-    "ontology_id",
     "ACTION_CREATE",
     "ACTION_DELETE",
     "ACTION_RETRIEVE",
     "ACTION_UPDATE",
+    "Key",
+    "Policy",
+    "ontology_id",
 ]
 
 ACTION_CREATE = "create"

@@ -7,13 +7,30 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import base64
 import json
-from typing import Protocol, TypeVar
+from typing import Annotated, Protocol, TypeVar
 
 import msgpack
-from pydantic import BaseModel
+from pydantic import BaseModel, BeforeValidator, PlainSerializer
 
 P = TypeVar("P", bound=BaseModel)
+
+
+def _decode_base64(value: object) -> object:
+    return base64.b64decode(value) if isinstance(value, str) else value
+
+
+def _encode_base64(value: bytes) -> str:
+    return base64.b64encode(value).decode()
+
+
+Bytes = Annotated[
+    bytes,
+    BeforeValidator(_decode_base64),
+    PlainSerializer(_encode_base64, when_used="json"),
+]
+"""Binary data that crosses JSON as base64 text and MessagePack as raw bytes."""
 
 
 class Codec(Protocol):

@@ -62,6 +62,14 @@ export const mockGeometry = (width: number, height: number): void => {
     configurable: true,
     get: () => width,
   });
+  Object.defineProperty(Element.prototype, "clientHeight", {
+    configurable: true,
+    get: () => height,
+  });
+  Object.defineProperty(Element.prototype, "clientWidth", {
+    configurable: true,
+    get: () => width,
+  });
 };
 
 export const mockBoundingClientRect = (

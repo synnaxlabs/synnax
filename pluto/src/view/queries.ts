@@ -10,7 +10,7 @@
 import { query, view } from "@synnaxlabs/client";
 import { verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
-import { type z } from "zod";
+import { z } from "zod";
 
 import { Flux } from "@/flux";
 import { Synnax } from "@/synnax";
@@ -48,12 +48,15 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   },
 });
 
-export const formSchema = view.viewZ.partial({ key: true });
+export const formSchema = z.discriminatedUnion("type", [
+  view.rangeViewZ.partial({ key: true }),
+  view.statusViewZ.partial({ key: true }),
+]);
 
 const ZERO_VALUES: z.infer<typeof formSchema> = {
   name: "",
-  type: "",
-  query: {},
+  type: "range",
+  query: { hasLabels: [] },
 };
 export type FormQuery = view.RetrieveSingleParams;
 

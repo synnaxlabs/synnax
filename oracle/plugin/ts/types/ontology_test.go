@@ -105,6 +105,61 @@ var _ = Describe("Ontology Generation", func() {
 		},
 	)
 
+	It("Should emit ontology metadata for a union", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			Base struct {
+				key uuid @key
+			}
+
+			View union on type extends Base {
+				first {
+					name string
+				}
+				second {
+					size int32
+				}
+
+				@ontology type "view"
+			}
+		`
+		resp := MustGenerate(ctx, source, "view", loader, p)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(
+				`export const ontologyID = ontology.createIDFactory<Key>("view");`,
+				`export const TYPE_ONTOLOGY_ID = ontologyID("");`,
+			)
+	})
+
+	It(
+		"Should emit ontology metadata for a union whose base has another output",
+		func(ctx SpecContext) {
+			source := `
+			@ts output "out"
+
+			Key = uuid
+
+			Base struct {
+				key Key @key
+
+				@ts output "out/base"
+			}
+
+			View union on type extends Base {
+				first {
+					name string
+				}
+
+				@ontology type "view"
+			}
+		`
+			resp := MustGenerate(ctx, source, "view", loader, p)
+			ExpectContent(resp, "out/types.gen.ts").
+				ToContain(`export const ontologyID = ontology.createIDFactory<Key>("view");`)
+		},
+	)
+
 	It(
 		"Should not emit ontology metadata for structs without @ontology",
 		func(ctx SpecContext) {

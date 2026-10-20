@@ -35,6 +35,7 @@ from console.task.channels.analog_input.velocity_iepe import VelocityIEPE
 from console.task.channels.analog_input.voltage import Voltage
 
 __all__ = [
+    "RTD",
     "Accelerometer",
     "Bridge",
     "Current",
@@ -45,7 +46,6 @@ __all__ = [
     "PressureBridgeTable",
     "PressureBridgeTwoPointLinear",
     "Resistance",
-    "RTD",
     "StrainGauge",
     "TemperatureBuiltInSensor",
     "Thermocouple",

@@ -9,6 +9,8 @@
 
 from typing import Any, TypeVar
 
+from pydantic import JsonValue
+
 import synnax as sy
 from console.case import ConsoleCase
 from console.task_page import TaskPage
@@ -72,13 +74,32 @@ class ConsoleTaskCase(SimulatorCase, ConsoleCase):
         return tasks[0]
 
     @staticmethod
-    def channel_keys(task: sy.Task) -> list[int]:
+    def config_channels(task: sy.Task) -> list[dict[str, JsonValue]]:
+        """Return the channel objects in a task config.
+
+        :raises TypeError: If the config channels are not a list of objects.
+        """
+        channels = task.config.get("channels", [])
+        if not isinstance(channels, list):
+            raise TypeError(f"task config channels is a {type(channels).__name__}")
+        objects: list[dict[str, JsonValue]] = []
+        for ch in channels:
+            if not isinstance(ch, dict):
+                raise TypeError(f"task config channel is a {type(ch).__name__}")
+            objects.append(ch)
+        return objects
+
+    @classmethod
+    def channel_keys(cls, task: sy.Task) -> list[int]:
         """Return the Synnax channel keys a read or write task config points at."""
         keys: list[int] = []
-        for ch in task.config.get("channels", []):
+        for ch in cls.config_channels(task):
             key = ch.get("channel", ch.get("cmd_channel", ch.get("cmdChannel")))
-            if key:
-                keys.append(int(key))
+            if not key:
+                continue
+            if not isinstance(key, int):
+                raise TypeError(f"task config channel key {key!r} is not an int")
+            keys.append(key)
         return keys
 
     def set_rates(self, page: TaskPage) -> None:

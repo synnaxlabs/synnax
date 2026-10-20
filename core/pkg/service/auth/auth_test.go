@@ -10,9 +10,12 @@
 package auth_test
 
 import (
+	"encoding/json/v2"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Credentials", func() {
@@ -47,6 +50,33 @@ var _ = Describe("Credentials", func() {
 		It("Should succeed when both fields are set", func() {
 			Expect(auth.Credentials{Username: "u", Password: "p"}.Validate()).
 				To(Succeed())
+		})
+	})
+})
+
+var _ = Describe("Proof", func() {
+	Describe("JSON", func() {
+		It("Should round trip a password proof with its method", func() {
+			proof := auth.Proof{Variant: auth.PasswordProof{
+				Credentials: auth.Credentials{Username: "u", Password: "p"},
+			}}
+			data := MustSucceed(json.Marshal(proof))
+			Expect(string(data)).To(ContainSubstring(`"method":"password"`))
+			var decoded auth.Proof
+			Expect(json.Unmarshal(data, &decoded)).To(Succeed())
+			Expect(decoded).To(Equal(proof))
+		})
+		It("Should reject an unknown method", func() {
+			var decoded auth.Proof
+			Expect(json.Unmarshal([]byte(`{"method":"telepathy"}`), &decoded)).
+				To(MatchError(ContainSubstring("unknown method")))
+		})
+		It("Should encode and decode null as no variant", func() {
+			data := MustSucceed(json.Marshal(auth.Proof{}))
+			Expect(string(data)).To(Equal("null"))
+			var decoded auth.Proof
+			Expect(json.Unmarshal(data, &decoded)).To(Succeed())
+			Expect(decoded.Variant).To(BeNil())
 		})
 	})
 })

@@ -8,14 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { id, TimeStamp, zod } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { NotFoundError } from "@/errors";
 import { query } from "@/query";
 import { type rack } from "@/rack";
 import { statusKey } from "@/rack/client";
 import { status } from "@/status";
-import { createTestClient, spyOnSend } from "@/testutil";
+import { createTestClient, spyOnSend, waitForStreamLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -65,6 +65,57 @@ describe("Rack", () => {
       expect(updated.name).toBe("updated");
       const retrieved = await client.racks.retrieve(r.key);
       expect(retrieved.name).toBe("updated");
+    });
+  });
+  describe("rename", () => {
+    it("should rename a rack and keep its integrations", async () => {
+      const r = await client.racks.create({
+        name: "rack-rename",
+        integrations: ["ni", "opc"],
+      });
+      await client.racks.rename(r.key, "rack-renamed");
+      const retrieved = await createTestClient().racks.retrieve(r.key);
+      expect(retrieved.name).toBe("rack-renamed");
+      expect(retrieved.integrations).toEqual(["ni", "opc"]);
+    });
+    it("should keep the embedded flag of the embedded rack", async () => {
+      const racks = await client.racks.retrieve({});
+      const embedded = racks.find((r) => r.embedded);
+      expect(embedded).toBeDefined();
+      if (embedded == null) return;
+      onTestFinished(
+        async () => await client.racks.rename(embedded.key, embedded.name),
+      );
+      await client.racks.rename(embedded.key, `embedded-${id.create()}`);
+      const retrieved = await createTestClient().racks.retrieve(embedded.key);
+      expect(retrieved.embedded).toBe(true);
+    });
+    it("should rename the status of the rack", async () => {
+      const r = await client.racks.create({ name: "rack-rename-status" });
+      await client.racks.rename(r.key, "rack-renamed-status");
+      const retrieved = await createTestClient().racks.retrieve({
+        key: r.key,
+        includeStatus: true,
+      });
+      expect(retrieved.status?.name).toBe("rack-renamed-status");
+    });
+    it("should update the cache of another client", async () => {
+      const remote = createTestClient();
+      const r = await client.racks.create({ name: "rack-rename-remote" });
+      expect((await client.racks.retrieve(r.key)).name).toBe("rack-rename-remote");
+      const name = `rack-renamed-${id.create()}`;
+      await waitForStreamLive(client.connection);
+      await remote.racks.rename(r.key, name);
+      await expect
+        .poll(async () => (await client.racks.retrieve(r.key)).name)
+        .toBe(name);
+    });
+    it("should reject an empty name", async () => {
+      const r = await client.racks.create({ name: "rack-rename-empty" });
+      await expect(client.racks.rename(r.key, "")).rejects.toThrow();
+      expect((await createTestClient().racks.retrieve(r.key)).name).toBe(
+        "rack-rename-empty",
+      );
     });
   });
   describe("retrieve", () => {

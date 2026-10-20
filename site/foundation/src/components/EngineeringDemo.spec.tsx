@@ -15,7 +15,7 @@ import {
   screen,
   within,
 } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { EngineeringDemo } from "@/components/EngineeringDemo";
 
@@ -23,6 +23,9 @@ const signal = (name: string): HTMLElement =>
   screen.getByText(name, { selector: "dt" }).parentElement!;
 
 describe("EngineeringDemo", () => {
+  beforeAll(async () => {
+    await import("@/components/EngineeringScene");
+  });
   afterEach(cleanup);
 
   it("distinguishes source silence from connection health and preserves the last sample quality", async () => {

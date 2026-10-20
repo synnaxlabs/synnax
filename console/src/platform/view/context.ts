@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, type view } from "@synnaxlabs/client";
+import { type view } from "@synnaxlabs/client";
 import { context } from "@synnaxlabs/lyra/context";
 
 export interface FormContextValue {
@@ -20,16 +20,12 @@ export const [FormContext, useFormContext] = context.create<FormContextValue>({
   providerName: "View.Form",
 });
 
-export interface View extends view.View {
-  static?: true;
-}
+export type View = view.View & { static?: true };
 
-export interface StaticView extends View {
-  static: true;
-}
+export type StaticView = View & { static: true };
 
 export interface ContextValue {
-  resourceType: ontology.ResourceType;
+  resourceType: view.ViewType;
   selected: view.Key;
   select: (key: view.Key) => void;
   editable: boolean;
