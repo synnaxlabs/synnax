@@ -61,6 +61,11 @@ var _ = Describe("HTTP", func() {
 			Entry("unary channel create", http.MethodPost, "/api/v1/channel/create"),
 			Entry("unary frame delete", http.MethodPost, "/api/v1/frame/delete"),
 			Entry("stream frame writer", http.MethodGet, "/api/v1/frame/write"),
+			Entry("unary task rename", http.MethodPost, "/api/v1/task/rename"),
+			Entry("unary device rename", http.MethodPost, "/api/v1/device/rename"),
+			Entry("unary rack rename", http.MethodPost, "/api/v1/rack/rename"),
+			Entry("unary status rename", http.MethodPost, "/api/v1/status/rename"),
+			Entry("unary view rename", http.MethodPost, "/api/v1/view/rename"),
 		)
 
 		It("Should not register a route for an unknown path", func() {

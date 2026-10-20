@@ -438,6 +438,9 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/rack/delete",
 		),
+		RackRename: router.NewUnaryServer[rack.RenameRequest, struct{}](
+			"/api/v1/rack/rename",
+		),
 
 		// TASK
 		TaskCreate: unary[task.CreateRequest, task.CreateResponse](
@@ -456,6 +459,9 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/task/copy",
 		),
+		TaskRename: router.NewUnaryServer[task.RenameRequest, struct{}](
+			"/api/v1/task/rename",
+		),
 
 		// DEVICE
 		DeviceCreate: unary[device.CreateRequest, device.CreateResponse](
@@ -469,6 +475,9 @@ func Bind(layer *api.Layer, router *http.Router) {
 		DeviceDelete: unary[device.DeleteRequest, struct{}](
 			router,
 			"/api/v1/device/delete",
+		),
+		DeviceRename: router.NewUnaryServer[device.RenameRequest, struct{}](
+			"/api/v1/device/rename",
 		),
 
 		// ACCESS
@@ -545,6 +554,9 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/status/set-by-key-or-name",
 		),
+		StatusRename: router.NewUnaryServer[status.RenameRequest, struct{}](
+			"/api/v1/status/rename",
+		),
 
 		// VIEW
 		ViewCreate: unary[view.CreateRequest, view.CreateResponse](
@@ -558,6 +570,9 @@ func Bind(layer *api.Layer, router *http.Router) {
 		ViewDelete: unary[view.DeleteRequest, struct{}](
 			router,
 			"/api/v1/view/delete",
+		),
+		ViewRename: router.NewUnaryServer[view.RenameRequest, struct{}](
+			"/api/v1/view/rename",
 		),
 
 		// IMPORT/EXPORT

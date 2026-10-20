@@ -63,6 +63,12 @@ var _ = Describe("Writer", func() {
 			).To(Succeed())
 			Expect(res.Name).To(Equal("test2"))
 		})
+		It("Should return a validation error for an empty name", func(ctx SpecContext) {
+			proj := project.Project{Name: "test"}
+			Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
+			Expect(svc.NewWriter(tx).Rename(ctx, proj.Key, "")).
+				To(MatchError(ContainSubstring("name: required")))
+		})
 	})
 	Describe("DeleteChannel", func() {
 		It("Should delete a project", func(ctx SpecContext) {
