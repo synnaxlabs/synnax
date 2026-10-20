@@ -24,7 +24,7 @@ Scanner::Scanner(
 
 common::ScannerConfig Scanner::config() const {
     return common::ScannerConfig{
-        .make = INTEGRATION_NAME,
+        .make = MAKE,
         .log_prefix = SCAN_LOG_PREFIX,
     };
 }

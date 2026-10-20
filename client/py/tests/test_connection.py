@@ -55,9 +55,7 @@ class TestVersionsCompatible:
 class TestChecker:
     def test_connected_on_valid_response(self) -> None:
         """Should report connected status on a valid connectivity response."""
-        mock = MockUnaryClient[None, CheckResponse](
-            responses=[_make_response(), _make_response()]
-        )
+        mock = MockUnaryClient(responses=[_make_response(), _make_response()])
         checker = Checker(
             mock,
             poll_freq=TimeSpan.SECOND * 30,
@@ -69,7 +67,7 @@ class TestChecker:
 
     def test_failed_on_error(self) -> None:
         """Should report failed status when the server is unreachable."""
-        mock = MockUnaryClient[None, CheckResponse](
+        mock = MockUnaryClient(
             responses=[CheckResponse()],
             response_errors=[Unreachable("localhost:9090")],
         )
@@ -85,7 +83,7 @@ class TestChecker:
     def test_clock_skew_exceeded(self) -> None:
         """Should detect clock skew when server time is far from local time."""
         far_future = TimeStamp.now() + TimeSpan.HOUR
-        mock = MockUnaryClient[None, CheckResponse](
+        mock = MockUnaryClient(
             responses=[_make_response(node_time=far_future), _make_response()]
         )
         checker = Checker(
@@ -99,9 +97,7 @@ class TestChecker:
 
     def test_clock_skew_within_threshold(self) -> None:
         """Should not flag skew when server time is close to local time."""
-        mock = MockUnaryClient[None, CheckResponse](
-            responses=[_make_response(), _make_response()]
-        )
+        mock = MockUnaryClient(responses=[_make_response(), _make_response()])
         checker = Checker(
             mock,
             poll_freq=TimeSpan.SECOND * 30,
@@ -123,7 +119,7 @@ class TestChecker:
             None,
             None,
         ]
-        mock = MockUnaryClient[None, CheckResponse](
+        mock = MockUnaryClient(
             responses=responses,
             response_errors=errors,
         )
@@ -142,7 +138,7 @@ class TestChecker:
 
     def test_stop_halts_background_thread(self) -> None:
         """Should stop the background polling thread."""
-        mock = MockUnaryClient[None, CheckResponse](responses=[_make_response()] * 10)
+        mock = MockUnaryClient(responses=[_make_response()] * 10)
         checker = Checker(
             mock,
             poll_freq=TimeSpan.SECOND * 30,
@@ -154,7 +150,7 @@ class TestChecker:
 
     def test_license_state_from_check(self) -> None:
         """Should carry the license state the Core reports."""
-        mock = MockUnaryClient[None, CheckResponse](
+        mock = MockUnaryClient(
             responses=[_make_response(license="missing"), _make_response()]
         )
         checker = Checker(mock, poll_freq=TimeSpan.SECOND * 30)
@@ -163,7 +159,7 @@ class TestChecker:
 
     def test_on_change_fires_on_license_transition(self) -> None:
         """Should fire onChange when only the license state changes."""
-        mock = MockUnaryClient[None, CheckResponse](
+        mock = MockUnaryClient(
             responses=[_make_response(license="missing"), _make_response()]
         )
         checker = Checker(mock, poll_freq=TimeSpan.SECOND * 30)
@@ -178,7 +174,7 @@ class TestChecker:
 
     def test_version_incompatible(self) -> None:
         """Should report incompatible versions when major.minor differs."""
-        mock = MockUnaryClient[None, CheckResponse](
+        mock = MockUnaryClient(
             responses=[_make_response(node_version="99.0.0"), _make_response()]
         )
         checker = Checker(
@@ -191,7 +187,7 @@ class TestChecker:
 
     def test_version_compatible(self) -> None:
         """Should report compatible versions when major.minor matches."""
-        mock = MockUnaryClient[None, CheckResponse](
+        mock = MockUnaryClient(
             responses=[_make_response(node_version="0.54.1"), _make_response()]
         )
         checker = Checker(

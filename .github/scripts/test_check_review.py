@@ -83,7 +83,7 @@ class Harness:
         payload = {"head": {"sha": "head"}, "user": {"login": author}}
         (self.data / "pull.json").write_text(json.dumps(payload))
 
-    def commits(self, *commits: dict) -> None:
+    def commits(self, *commits: dict[str, object]) -> None:
         """Sets the commits on the pull request's branch."""
         (self.data / "commits.json").write_text(json.dumps(list(commits)))
 
@@ -92,7 +92,7 @@ class Harness:
         payload = {"check_runs": [{"name": n, "conclusion": c} for n, c in runs]}
         (self.data / f"check-runs-{sha}.json").write_text(json.dumps(payload))
 
-    def edits(self, *edits: dict) -> None:
+    def edits(self, *edits: dict[str, object]) -> None:
         """Sets the description revisions, newest first, as GitHub serves them."""
         payload = {
             "data": {
@@ -117,7 +117,7 @@ def commit(
     author: str = "dependabot[bot]",
     committer: str = "web-flow",
     verified: bool = True,
-) -> dict:
+) -> dict[str, object]:
     """A commit on the pull request's branch."""
     return {
         "sha": "sha",
@@ -127,7 +127,9 @@ def commit(
     }
 
 
-def edit(body: str | None, login: str = "author", kind: str = "User") -> dict:
+def edit(
+    body: str | None, login: str = "author", kind: str = "User"
+) -> dict[str, object]:
     """A description revision by an account of the given kind."""
     return {"editor": {"__typename": kind, "login": login}, "diff": body}
 
@@ -139,7 +141,7 @@ def greptile_body(*scores: int, sha: str = "head") -> str:
     return f'{markers}<sub>Last reviewed commit: ["Fix"]({link}</sub>'
 
 
-def greptile_edit(*scores: int, sha: str = "head") -> dict:
+def greptile_edit(*scores: int, sha: str = "head") -> dict[str, object]:
     """A description revision Greptile wrote after it scores a commit."""
     return edit(greptile_body(*scores, sha=sha), "greptile-apps", "Bot")
 

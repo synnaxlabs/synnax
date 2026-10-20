@@ -14,7 +14,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -31,7 +30,6 @@ var _ = Describe("ServiceConfig", func() {
 			Ontology: otg,
 			Group:    groupSvc,
 			Search:   searchIdx,
-			Auth:     authSvc,
 		}
 	})
 	Describe("Override", func() {
@@ -43,7 +41,6 @@ var _ = Describe("ServiceConfig", func() {
 				Expect(result.Ontology).To(Equal(otg))
 				Expect(result.Group).To(Equal(groupSvc))
 				Expect(result.Search).To(Equal(searchIdx))
-				Expect(result.Auth).To(Equal(authSvc))
 			},
 		)
 		It(
@@ -54,45 +51,12 @@ var _ = Describe("ServiceConfig", func() {
 				Expect(result.Ontology).To(Equal(otg))
 				Expect(result.Group).To(Equal(groupSvc))
 				Expect(result.Search).To(Equal(searchIdx))
-				Expect(result.Auth).To(Equal(authSvc))
-			},
-		)
-		It("Should take RootCredentials from the override when set", func() {
-			creds := auth.Credentials{Username: "u", Password: "p"}
-			result := cfg.Override(user.ServiceConfig{RootCredentials: creds})
-			Expect(result.RootCredentials).To(Equal(creds))
-		})
-		It(
-			"Should keep RootCredentials from the base when the override is zero",
-			func() {
-				creds := auth.Credentials{Username: "u", Password: "p"}
-				cfg.RootCredentials = creds
-				result := cfg.Override(user.ServiceConfig{})
-				Expect(result.RootCredentials).To(Equal(creds))
 			},
 		)
 	})
 	Describe("Validate", func() {
 		It("Should succeed when every required field is set", func() {
 			Expect(cfg.Validate()).To(Succeed())
-		})
-		It(
-			"Should succeed without Auth when no root credentials are configured",
-			func() {
-				cfg.Auth = nil
-				Expect(cfg.Validate()).To(Succeed())
-			},
-		)
-		It("Should require Auth when root credentials are configured", func() {
-			cfg.Auth = nil
-			cfg.RootCredentials = auth.Credentials{Username: "u", Password: "p"}
-			Expect(
-				cfg.Validate(),
-			).To(MatchError(ContainSubstring("auth: must be non-nil")))
-		})
-		It("Should reject root credentials with an empty password", func() {
-			cfg.RootCredentials = auth.Credentials{Username: "u", Password: ""}
-			Expect(cfg.Validate()).To(MatchError(ContainSubstring("password")))
 		})
 		DescribeTable(
 			"Should return an error when a required field is missing",

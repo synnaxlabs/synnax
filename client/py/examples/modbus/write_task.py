@@ -109,12 +109,12 @@ tsk = sy.modbus.WriteTask(
         sy.modbus.HoldingRegisterWriteChannel(
             channel=holding_reg_cmd_0.key,
             address=2,
-            data_type="uint8",
+            data_type=sy.DataType.UINT8,
         ),
         sy.modbus.HoldingRegisterWriteChannel(
             channel=holding_reg_cmd_1.key,
             address=3,
-            data_type="uint8",
+            data_type=sy.DataType.UINT8,
         ),
     ],
 )

@@ -10,6 +10,7 @@
 import random
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from pydantic import JsonValue
 
 import synnax as sy
 from console.case import ConsoleCase
@@ -167,7 +168,7 @@ class DevicesToolbar(ConsoleCase):
         location: str,
         parent: str = "",
         configured: bool = False,
-        properties: dict[str, object] | None = None,
+        properties: dict[str, JsonValue] | None = None,
     ) -> sy.Device:
         """Create a device with auto-suffixed key/name and track for teardown."""
         parent_id = sy.ontology.ID(type="device", key=parent) if parent else None

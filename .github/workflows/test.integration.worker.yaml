@@ -70,7 +70,7 @@ jobs:
         run: integration/scripts/download_artifacts.sh
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.2.0
+        uses: astral-sh/setup-uv@v10.3.0
         with:
           version: latest-known
 

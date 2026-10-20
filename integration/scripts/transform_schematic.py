@@ -47,22 +47,20 @@ def transform_value(value: Any, key_map: dict[int, int], stats: dict[str, int]) 
     """
     if isinstance(value, dict):
         return {k: transform_value(v, key_map, stats) for k, v in value.items()}
-    elif isinstance(value, list):
+    if isinstance(value, list):
         return [transform_value(item, key_map, stats) for item in value]
-    elif isinstance(value, int):
+    if isinstance(value, int):
         # If in key map, use the synnax key
         if value in key_map:
             stats["mapped_replacements"] += 1
             return key_map[value]
         # If it looks like a channel key (> 1000000) but not in our configs, set to 0
-        elif value > 1000000:
+        if value > 1000000:
             stats["unknown_to_zero"] += 1
             return 0
         # Otherwise keep the value as-is
-        else:
-            return value
-    else:
         return value
+    return value
 
 
 def transform_schematic(

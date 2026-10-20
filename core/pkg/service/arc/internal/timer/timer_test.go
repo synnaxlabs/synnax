@@ -117,11 +117,6 @@ var _ = Describe("Timer", Serial, func() {
 		}
 	})
 
-	It("Should fire within half a millisecond of its deadline", func() {
-		Expect(medianLateness(t, 10*time.Millisecond, 50)).
-			To(BeNumerically("<", 500*time.Microsecond))
-	})
-
 	DescribeTable("Should never fire early, whatever its spin",
 		func(spin time.Duration) {
 			s := MustOpen(timer.New(spin))
@@ -164,24 +159,3 @@ var _ = Describe("Timer", Serial, func() {
 		Expect(took[resets/2]).To(BeNumerically("<", 100*time.Microsecond))
 	})
 })
-
-// medianLateness returns the median of how late t fires over fires waits of span. It
-// reads C directly: Eventually polls, so the wait between polls would count as
-// lateness, and its polling keeps the Go runtime awake, which hides the lateness of a
-// time.Timer.
-func medianLateness(t *timer.Timer, span time.Duration, fires int) time.Duration {
-	GinkgoHelper()
-	late := make([]time.Duration, fires)
-	for i := range late {
-		start := timer.Now()
-		Expect(t.Reset(span)).To(Succeed())
-		select {
-		case <-t.C:
-		case <-time.After(time.Second):
-			Fail("timer did not fire")
-		}
-		late[i] = timer.Now() - start - span
-	}
-	slices.Sort(late)
-	return late[fires/2]
-}

@@ -76,19 +76,19 @@ tsk = http.ReadTask(
                 http.ReadField(
                     pointer="/temperature",
                     channel=temperature.key,
-                    data_type="float64",
+                    data_type=sy.DataType.FLOAT64,
                     name="Temperature",
                 ),
                 http.ReadField(
                     pointer="/pressure",
                     channel=pressure.key,
-                    data_type="float64",
+                    data_type=sy.DataType.FLOAT64,
                     name="Pressure",
                 ),
                 http.ReadField(
                     pointer="/humidity",
                     channel=humidity.key,
-                    data_type="float64",
+                    data_type=sy.DataType.FLOAT64,
                     name="Humidity",
                 ),
             ],
@@ -116,23 +116,25 @@ print("-" * 70)
 try:
     print("\033[?25l", end="", flush=True)
 
-    with tsk.run():
-        with client.open_streamer(
+    with (
+        tsk.run(),
+        client.open_streamer(
             ["http_temperature", "http_pressure", "http_humidity"]
-        ) as streamer:
-            sample_count = 0
-            while True:
-                frame = streamer.read()
-                if frame and "http_temperature" in frame:
-                    temp = frame["http_temperature"][-1]
-                    pres = frame["http_pressure"][-1]
-                    hum = frame["http_humidity"][-1]
-                    sample_count += 1
-                    print(
-                        f"{sample_count:<10} {temp:>12.2f} {pres:>16.2f} {hum:>14.2f}",
-                        end="\r",
-                        flush=True,
-                    )
+        ) as streamer,
+    ):
+        sample_count = 0
+        while True:
+            frame = streamer.read()
+            if frame and "http_temperature" in frame:
+                temp = frame["http_temperature"][-1]
+                pres = frame["http_pressure"][-1]
+                hum = frame["http_humidity"][-1]
+                sample_count += 1
+                print(
+                    f"{sample_count:<10} {temp:>12.2f} {pres:>16.2f} {hum:>14.2f}",
+                    end="\r",
+                    flush=True,
+                )
 
 except KeyboardInterrupt:
     print("\n" + "-" * 70)
