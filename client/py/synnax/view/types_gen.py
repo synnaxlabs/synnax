@@ -11,35 +11,74 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
+from typing import Annotated, Literal, TypeAlias
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, JsonValue
+from pydantic import BaseModel, Field
 
+from synnax import label, status
 from synnax.ontology.payload import ID
 
 Key: TypeAlias = UUID
 
 
-class View(BaseModel):
-    """Is a persisted view configuration storing visualization settings and query
-    parameters for line plots, tables, schematics, and other view types.
+class RangeQuery(BaseModel):
+    """Filters the ranges shown by a range view.
+
+    Attributes:
+        has_labels: Restricts the view to ranges carrying any of these labels.
+    """
+
+    has_labels: list[label.Key] = Field(default_factory=list)
+
+
+class StatusQuery(BaseModel):
+    """Filters the statuses shown by a status view.
+
+    Attributes:
+        has_labels: Restricts the view to statuses carrying any of these labels.
+        variants: Restricts the view to statuses of these variants.
+    """
+
+    has_labels: list[label.Key] = Field(default_factory=list)
+    variants: list[status.Variant] = Field(default_factory=list)
+
+
+class Base(BaseModel):
+    """Carries the fields shared by every view variant.
 
     Attributes:
         key: Is the unique identifier for this view.
         name: Is a human-readable name for the view.
-        type: Is the view type identifier (e.g., 'lineplot', 'table', 'schematic').
-        query: Is a type-agnostic JSON object containing view-specific configuration and
-            query parameters.
     """
 
     key: Key = Field(default_factory=uuid4)
     name: str
-    type: str
-    query: dict[str, JsonValue] = Field(default_factory=dict)
 
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class RangeView(Base):
+    """Is a saved view of ranges."""
+
+    type: Literal["range"] = "range"
+    query: RangeQuery
+
+
+class StatusView(Base):
+    """Is a saved view of statuses."""
+
+    type: Literal["status"] = "status"
+    query: StatusQuery
+
+
+# Is a saved, named filter over a list of resources. The type selects the resource
+# the view lists and the shape of its query.
+View = Annotated[
+    RangeView | StatusView,
+    Field(discriminator="type"),
+]
 
 
 ONTOLOGY_TYPE = ID(type="view")

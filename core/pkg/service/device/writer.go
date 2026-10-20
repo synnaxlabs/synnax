@@ -150,6 +150,29 @@ func (w Writer) CreateMany(ctx context.Context, devices *[]Device) error {
 	return nil
 }
 
+// Rename renames the device with the given key and its status, keeping every other
+// field. It returns query.ErrNotFound if no device with the key exists and a validation
+// error if name is empty.
+func (w Writer) Rename(ctx context.Context, key Key, name string) error {
+	if err := w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Device](key)).
+		ChangeErr(func(_ gorp.Context, d Device) (Device, error) {
+			d.Name = name
+			if err := d.Validate(); err != nil {
+				return Device{}, err
+			}
+			return d, nil
+		}).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	// A missing status row is valid: the next Create heals it.
+	return errors.Skip(
+		w.status.Rename(ctx, OntologyID(key).String(), name),
+		query.ErrNotFound,
+	)
+}
+
 // Delete deletes the device with the given key and its associated status.
 func (w Writer) Delete(ctx context.Context, key Key) error {
 	if err := w.otg.DeleteResources(ctx, OntologyID(key)); err != nil {

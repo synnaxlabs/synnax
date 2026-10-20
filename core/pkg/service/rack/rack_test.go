@@ -628,6 +628,80 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(res.Integrations).To(ConsistOf([]string{"opc", "modbus"}))
 		})
 	})
+	Describe("Rename", func() {
+		It(
+			"Should rename the embedded rack and its status, keeping every other field",
+			func(ctx SpecContext) {
+				var before rack.Rack
+				Expect(svc.NewRetrieve().
+					Where(rack.MatchKeys(svc.EmbeddedKey)).
+					Entry(&before).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(writer.Rename(ctx, svc.EmbeddedKey, "Renamed Embedded")).
+					To(Succeed())
+				var after rack.Rack
+				Expect(svc.NewRetrieve().
+					Where(rack.MatchKeys(svc.EmbeddedKey)).
+					Entry(&after).
+					Exec(ctx, tx)).To(Succeed())
+				expected := before
+				expected.Name = "Renamed Embedded"
+				Expect(after).To(Equal(expected))
+				Expect(after.Embedded).To(BeTrue())
+				var renamed rack.Status
+				Expect(stat.NewRetrieve[rack.StatusDetails]().
+					Where(status.MatchKeys[rack.StatusDetails](
+						rack.StatusKey(svc.EmbeddedKey),
+					)).
+					Entry(&renamed).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(renamed.Name).To(Equal("Renamed Embedded"))
+				Expect(renamed.Details.Rack).To(Equal(svc.EmbeddedKey))
+			},
+		)
+		It("Should keep a rack's integrations", func(ctx SpecContext) {
+			r := &rack.Rack{Name: "rename-integ-rack", Integrations: []string{"ni"}}
+			Expect(writer.Create(ctx, r)).To(Succeed())
+			Expect(writer.Rename(ctx, r.Key, "renamed-integ-rack")).To(Succeed())
+			var res rack.Rack
+			Expect(svc.NewRetrieve().
+				Where(rack.MatchKeys(r.Key)).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res.Name).To(Equal("renamed-integ-rack"))
+			Expect(res.Integrations).To(Equal([]string{"ni"}))
+		})
+		It("Should return a validation error for an empty name", func(ctx SpecContext) {
+			r := &rack.Rack{Name: "rename-empty-rack"}
+			Expect(writer.Create(ctx, r)).To(Succeed())
+			Expect(writer.Rename(ctx, r.Key, "")).
+				To(MatchError(ContainSubstring("name: required")))
+		})
+		It("Should return a not found error for a missing rack", func(ctx SpecContext) {
+			Expect(writer.Rename(ctx, rack.NewKey(1, 60000), "renamed")).
+				To(MatchError(query.ErrNotFound))
+		})
+		It("Should notify observers of the rename", func(ctx SpecContext) {
+			r := &rack.Rack{Name: "observed-rack"}
+			Expect(noTxWriter.Create(ctx, r)).To(Succeed())
+			renameTx := db.OpenTx()
+			defer func() { Expect(renameTx.Close()).To(Succeed()) }()
+			Expect(svc.NewWriter(renameTx).Rename(ctx, r.Key, "renamed")).
+				To(Succeed())
+			var names []string
+			disconnect := svc.Observe().OnChange(func(
+				_ context.Context,
+				reader gorp.TxReader[rack.Key, rack.Rack],
+			) {
+				for c := range reader {
+					names = append(names, c.Value.Name)
+				}
+			})
+			defer disconnect()
+			Expect(renameTx.Commit(ctx)).To(Succeed())
+			Expect(names).To(Equal([]string{"renamed"}))
+		})
+	})
 	Describe("Delete", func() {
 		It("Should delete a rack and its associated status", func(ctx SpecContext) {
 			r := &rack.Rack{Name: "rack4"}
@@ -674,6 +748,72 @@ var _ = Describe("Rack", Ordered, func() {
 			).To(Succeed())
 			Expect(embeddedRack.Embedded).To(BeTrue())
 		})
+		It(
+			"Should keep a renamed embedded rack across restarts",
+			func(ctx SpecContext) {
+				restartDB := DeferClose(gorp.Wrap(memkv.New()))
+				before := openStack(ctx, restartDB, rack.ServiceConfig{})
+				key := before.rack.EmbeddedKey
+				Expect(
+					before.rack.NewWriter(nil).Rename(ctx, key, "Renamed"),
+				).To(Succeed())
+				Expect(before.Close()).To(Succeed())
+				after := DeferClose(openStack(ctx, restartDB, rack.ServiceConfig{}))
+				Expect(after.rack.EmbeddedKey).To(Equal(key))
+				var embedded []rack.Rack
+				Expect(after.rack.NewRetrieve().
+					Where(rack.MatchEmbedded(true)).
+					Entries(&embedded).
+					Exec(ctx, nil)).To(Succeed())
+				Expect(embedded).To(HaveLen(1))
+				Expect(embedded[0].Name).To(Equal("Renamed"))
+			},
+		)
+		It(
+			"Should find an embedded rack stored without a key binding by its name",
+			func(ctx SpecContext) {
+				restartDB := DeferClose(gorp.Wrap(memkv.New()))
+				before := openStack(ctx, restartDB, rack.ServiceConfig{})
+				key := before.rack.EmbeddedKey
+				Expect(before.Close()).To(Succeed())
+				Expect(restartDB.Delete(
+					ctx,
+					[]byte("1.rack.embedded.Node 1 Embedded Driver"),
+				)).To(Succeed())
+				after := DeferClose(openStack(ctx, restartDB, rack.ServiceConfig{}))
+				Expect(after.rack.EmbeddedKey).To(Equal(key))
+			},
+		)
+		It(
+			"Should apply edit to the embedded rack before saving it",
+			func(ctx SpecContext) {
+				r := MustSucceed(svc.RetrieveOrCreateEmbedded(
+					ctx,
+					"edited embedded",
+					func(r *rack.Rack) { r.Integrations = []string{"arc"} },
+				))
+				var res rack.Rack
+				Expect(svc.NewRetrieve().
+					Where(rack.MatchKeys(r.Key)).
+					Entry(&res).
+					Exec(ctx, nil)).To(Succeed())
+				Expect(res.Name).To(Equal("edited embedded"))
+				Expect(res.Embedded).To(BeTrue())
+				Expect(res.Integrations).To(Equal([]string{"arc"}))
+			},
+		)
+		It(
+			"Should return a zero rack when the embedded rack fails to save",
+			func(ctx SpecContext) {
+				r, err := svc.RetrieveOrCreateEmbedded(
+					ctx,
+					"invalid embedded",
+					func(r *rack.Rack) { r.Name = "" },
+				)
+				Expect(err).To(MatchError(ContainSubstring("name: required")))
+				Expect(r).To(Equal(rack.Rack{}))
+			},
+		)
 	})
 
 	Describe("Status", func() {

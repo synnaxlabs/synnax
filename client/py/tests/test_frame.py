@@ -88,7 +88,8 @@ class TestFrame:
 @pytest.mark.framer
 class TestWriteFrameAdapter:
     @pytest.fixture(scope="class")
-    def adapter(self, client: sy.Synnax) -> tuple[WriteFrameAdapter, sy.Channel]:
+    @classmethod
+    def adapter(cls, client: sy.Synnax) -> tuple[WriteFrameAdapter, sy.Channel]:
         ch = client.channels.create(
             name=f"test_{random_name()}",
             leaseholder=1,
@@ -367,7 +368,8 @@ class TestReadFrameAdapter:
     """Comprehensive tests for ReadFrameAdapter functionality."""
 
     @pytest.fixture(scope="class")
-    def channels(self, client: sy.Synnax) -> tuple[sy.Channel, sy.Channel, sy.Channel]:
+    @classmethod
+    def channels(cls, client: sy.Synnax) -> tuple[sy.Channel, sy.Channel, sy.Channel]:
         """Create three test channels for adapter testing."""
         ch1 = client.channels.create(
             name=f"test_read_adapter_ch1_{random_name()}",

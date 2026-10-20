@@ -7,17 +7,15 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, overload
+from typing import overload
 
 from pydantic import BaseModel, Field
-from pydantic_core import to_jsonable_python
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax.exceptions import NotFoundError
 from synnax.view.types_gen import Key, View
 from x.lists import normalize
-from x.uuid import NIL
 
 
 class _CreateRequest(BaseModel):
@@ -25,6 +23,11 @@ class _CreateRequest(BaseModel):
 
 
 _CreateResponse = _CreateRequest
+
+
+class _RenameRequest(BaseModel):
+    key: Key
+    name: str
 
 
 class _DeleteRequest(BaseModel):
@@ -56,44 +59,13 @@ class Client:
         self.instrumentation = instrumentation
 
     @overload
-    def create(
-        self,
-        *,
-        name: str,
-        type: str,
-        query: dict[str, Any] | None = None,
-    ) -> View: ...
+    def create(self, views: View) -> View: ...
 
     @overload
-    def create(
-        self,
-        views: View,
-    ) -> View: ...
+    def create(self, views: list[View]) -> list[View]: ...
 
-    @overload
-    def create(
-        self,
-        views: list[View],
-    ) -> list[View]: ...
-
-    def create(
-        self,
-        views: list[View] | View | None = None,
-        *,
-        name: str = "",
-        type: str = "",
-        query: dict[str, Any] | None = None,
-    ) -> View | list[View]:
+    def create(self, views: View | list[View]) -> View | list[View]:
         is_single = not isinstance(views, list)
-        if views is None:
-            views = [
-                View(
-                    key=NIL,
-                    name=name,
-                    type=type,
-                    query=to_jsonable_python(query) if query is not None else {},
-                )
-            ]
         req = _CreateRequest(views=normalize(views))
         res = self._client.send("/view/create", req, _CreateResponse)
         return res.views[0] if is_single else res.views
@@ -102,6 +74,15 @@ class Client:
         if not isinstance(keys, list):
             keys = [keys]
         self._client.send("/view/delete", _DeleteRequest(keys=keys), Empty)
+
+    def rename(self, key: Key, name: str) -> None:
+        """Renames a view.
+
+        :param key: The key of the view to rename.
+        :param name: The new name for the view.
+        :raises NotFoundError: If no view has the given key.
+        """
+        self._client.send("/view/rename", _RenameRequest(key=key, name=name), Empty)
 
     @overload
     def retrieve(
