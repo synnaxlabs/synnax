@@ -20,7 +20,7 @@ from synnax.cli.console.mock import MockConsole
 from synnax.cli.flow import Context
 from synnax.cli.login import run as login
 from synnax.config import ClusterConfig, ClustersConfig, ConfigFile
-from synnax.config.clusters import API_KEY_SERVICE, PASSWORD_SERVICE
+from synnax.config.clusters import API_KEY_SERVICE, PASSWORD_SERVICE, api_key_entry
 from synnax.options import Options
 
 
@@ -71,7 +71,9 @@ class TestClustersConfig:
         clusters.set(
             ClusterConfig(options=Options(host="h", port=1, api_key="syk_secret"))
         )
-        assert keyring.values == {(API_KEY_SERVICE, "default"): "syk_secret"}
+        assert keyring.values == {
+            (API_KEY_SERVICE, api_key_entry("default", "h", 1)): "syk_secret"
+        }
         assert "api_key" not in clusters.internal.get("clusters.default.options")
         got = clusters.get()
         assert got is not None
@@ -101,10 +103,41 @@ class TestClustersConfig:
             keyring,
             Options(host="h", port=1, username="u", password="p"),
         )
-        keyring.set_password(API_KEY_SERVICE, "default", "syk_secret")
+        keyring.set_password(
+            API_KEY_SERVICE, api_key_entry("default", "h", 1), "syk_secret"
+        )
         got = clusters.get()
         assert got is not None
         assert got.options == Options(host="h", port=1, api_key="syk_secret")
+
+    def test_set_new_address(
+        self, clusters: ClustersConfig, keyring: MemoryKeyring
+    ) -> None:
+        """Should delete the key of the old address once the new one is saved."""
+        clusters.set(ClusterConfig(options=Options(host="a", port=1, api_key="ka")))
+        clusters.set(ClusterConfig(options=Options(host="b", port=1, api_key="kb")))
+        assert keyring.values == {
+            (API_KEY_SERVICE, api_key_entry("default", "b", 1)): "kb"
+        }
+
+    def test_set_failed_write_keeps_old_pair(
+        self,
+        clusters: ClustersConfig,
+        keyring: MemoryKeyring,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Should keep the old address with its own key when the config write fails."""
+        clusters.set(ClusterConfig(options=Options(host="a", port=1, api_key="ka")))
+
+        def fail(*_: object) -> None:
+            raise OSError("disk full")
+
+        monkeypatch.setattr(clusters.internal, "set", fail)
+        with pytest.raises(OSError, match="disk full"):
+            clusters.set(ClusterConfig(options=Options(host="b", port=1, api_key="kb")))
+        got = clusters.get()
+        assert got is not None
+        assert got.options == Options(host="a", port=1, api_key="ka")
 
     def test_get_legacy_password(
         self, clusters: ClustersConfig, keyring: MemoryKeyring
