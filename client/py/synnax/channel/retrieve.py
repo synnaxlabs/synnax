@@ -41,6 +41,7 @@ class Request(BaseModel):
     node_key: int | None = None
     limit: int | None = None
     offset: int | None = None
+    include_status: bool = False
 
 
 class _Response(BaseModel):
