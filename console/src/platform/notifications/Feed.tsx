@@ -163,7 +163,6 @@ export const Inbox = ({ notifications }: FeedProps): ReactElement => {
         size="medium"
         variant="text"
         tooltip="Notifications"
-        tooltipLocation={location.BOTTOM_LEFT}
         className={CSS.cls(
           CSS.BE("inbox", "trigger"),
           unread.length > 0 && CSS.M("unread"),
