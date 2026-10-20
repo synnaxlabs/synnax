@@ -99,7 +99,7 @@ var _ = Describe("Function Analyzer", func() {
 			It(
 				"should collect function with only input params",
 				func(bCtx SpecContext) {
-					ctx := analyzeExpectSuccess(bCtx, `func foo{x i32}() {}`, nil)
+					ctx := analyzeExpectSuccess(bCtx, `func foo(x i32) {}`, nil)
 					fn := ctx.Scope.Children()[0]
 					Expect(fn.Type.Inputs).To(HaveLen(1))
 					Expect(
@@ -109,7 +109,7 @@ var _ = Describe("Function Analyzer", func() {
 				},
 			)
 			It("should collect input with channel type", func(bCtx SpecContext) {
-				ctx := analyzeExpectSuccess(bCtx, `func foo{sensor chan f64}() {}`, nil)
+				ctx := analyzeExpectSuccess(bCtx, `func foo(sensor chan f64) {}`, nil)
 				fn := ctx.Scope.Children()[0]
 				Expect(fn.Type.Inputs).To(HaveLen(1))
 				Expect(
@@ -117,12 +117,12 @@ var _ = Describe("Function Analyzer", func() {
 				).To(Equal(types.Param{Name: "sensor", Type: types.Chan(types.F64())}))
 			})
 			It("should handle empty input block", func(bCtx SpecContext) {
-				ctx := analyzeExpectSuccess(bCtx, `func foo{}() {}`, nil)
+				ctx := analyzeExpectSuccess(bCtx, `func foo() {}`, nil)
 				fn := ctx.Scope.Children()[0]
 				Expect(fn.Type.Inputs).To(BeEmpty())
 			})
 			It("should collect input with default value", func(bCtx SpecContext) {
-				ctx := analyzeExpectSuccess(bCtx, `func foo{gain f64 = 1.0}() {}`, nil)
+				ctx := analyzeExpectSuccess(bCtx, `func foo(gain f64 = 1.0) {}`, nil)
 				fn := ctx.Scope.Children()[0]
 				Expect(fn.Type.Inputs).To(HaveLen(1))
 				Expect(fn.Type.Inputs[0].Name).To(Equal("gain"))
@@ -134,7 +134,7 @@ var _ = Describe("Function Analyzer", func() {
 				func(bCtx SpecContext) {
 					ctx := analyzeExpectSuccess(
 						bCtx,
-						`func foo{setpoint f64, gain f64 = 1.0}() {}`,
+						`func foo(setpoint f64, gain f64 = 1.0) {}`,
 						nil,
 					)
 					fn := ctx.Scope.Children()[0]
@@ -150,7 +150,7 @@ var _ = Describe("Function Analyzer", func() {
 				func(bCtx SpecContext) {
 					analyzeExpectError(
 						bCtx,
-						`func foo{gain f64 = 1.0, setpoint f64}() {}`,
+						`func foo(gain f64 = 1.0, setpoint f64) {}`,
 						nil,
 						ContainSubstring(
 							"required input parameter setpoint cannot follow optional input parameters",
@@ -160,7 +160,7 @@ var _ = Describe("Function Analyzer", func() {
 			)
 			It("should reject invalid default value for input", func(bCtx SpecContext) {
 				analyzeExpectError(bCtx,
-					`func foo{x i8 = 128}() {}`,
+					`func foo(x i8 = 128) {}`,
 					nil,
 					ContainSubstring("out of range for i8"),
 				)
@@ -172,7 +172,7 @@ var _ = Describe("Function Analyzer", func() {
 				func(bCtx SpecContext) {
 					ctx := analyzeExpectSuccess(
 						bCtx,
-						`func foo(a i32, b f64, c u8) {}`,
+						`func foo() {a i32, b f64, c u8} {}`,
 						nil,
 					)
 					fn := ctx.Scope.Children()[0]
@@ -191,7 +191,7 @@ var _ = Describe("Function Analyzer", func() {
 			It("should collect all optional inputs", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(
 					bCtx,
-					`func foo(x i32 = 1, y i32 = 2) {}`,
+					`func foo() {x i32 = 1, y i32 = 2} {}`,
 					nil,
 				)
 				fn := ctx.Scope.Children()[0]
@@ -206,7 +206,7 @@ var _ = Describe("Function Analyzer", func() {
 				func(bCtx SpecContext) {
 					ctx := analyzeExpectSuccess(
 						bCtx,
-						`func foo(a i32, b i32, c i32 = 10) {}`,
+						`func foo() {a i32, b i32, c i32 = 10} {}`,
 						nil,
 					)
 					fn := ctx.Scope.Children()[0]
@@ -228,36 +228,40 @@ var _ = Describe("Function Analyzer", func() {
 				},
 			)
 			It(
-				"should be TriggerOnly for a function with only brace-block inputs",
+				"should be TriggerOnly for a function with only inputs",
 				func(bCtx SpecContext) {
-					ctx := analyzeExpectSuccess(bCtx, `func foo{a i32}() {}`, nil)
+					ctx := analyzeExpectSuccess(bCtx, `func foo(a i32) {}`, nil)
 					Expect(
 						ctx.Scope.Children()[0].Trigger,
 					).To(Equal(symbol.TriggerOnly))
 				},
 			)
 			It(
-				"should bind the trigger to the sole parens param",
+				"should bind the trigger to the sole trigger param",
 				func(bCtx SpecContext) {
-					ctx := analyzeExpectSuccess(bCtx, `func foo(x i32) {}`, nil)
+					ctx := analyzeExpectSuccess(bCtx, `func foo() {x i32} {}`, nil)
 					Expect(
 						ctx.Scope.Children()[0].Trigger,
 					).To(Equal(symbol.TriggerInput("x")))
 				},
 			)
 			It(
-				"should bind the trigger to the first parens param",
+				"should bind the trigger to the first trigger param",
 				func(bCtx SpecContext) {
-					ctx := analyzeExpectSuccess(bCtx, `func foo(x i32, y f64) {}`, nil)
+					ctx := analyzeExpectSuccess(
+						bCtx,
+						`func foo() {x i32, y f64} {}`,
+						nil,
+					)
 					Expect(
 						ctx.Scope.Children()[0].Trigger,
 					).To(Equal(symbol.TriggerInput("x")))
 				},
 			)
 			It(
-				"should bind the trigger to the first parens param, not the leading brace-block input",
+				"should bind the trigger to the first trigger param, not the leading input",
 				func(bCtx SpecContext) {
-					ctx := analyzeExpectSuccess(bCtx, `func foo{a i32}(x i32) {}`, nil)
+					ctx := analyzeExpectSuccess(bCtx, `func foo(a i32) {x i32} {}`, nil)
 					fn := ctx.Scope.Children()[0]
 					Expect(fn.Type.Inputs).To(HaveLen(2))
 					Expect(fn.Type.Inputs[0].Name).To(Equal("a"))
@@ -364,7 +368,7 @@ var _ = Describe("Function Analyzer", func() {
 
 			It("should diagnose duplicate parameter names", func(bCtx SpecContext) {
 				analyzeExpectError(bCtx, `
-					func dog(age i32, age i32) {}
+					func dog() {age i32, age i32} {}
 				`, nil, ContainSubstring("name age conflicts with existing input parameter"))
 			})
 		})
@@ -376,7 +380,7 @@ var _ = Describe("Function Analyzer", func() {
 				"should bind input and output types to the function signature",
 				func(bCtx SpecContext) {
 					ctx := analyzeExpectSuccess(bCtx, `
-					func add(x f64, y f64) f64 {
+					func add() {x f64, y f64} f64 {
 						return x + y
 					}
 				`, nil)
@@ -413,11 +417,11 @@ var _ = Describe("Function Analyzer", func() {
 				"should bind input, trigger, and output types correctly",
 				func(bCtx SpecContext) {
 					ctx := analyzeExpectSuccess(bCtx, `
-					func controller{
+					func controller(
 						setpoint f64,
 						sensor chan f64,
 						actuator chan f64
-					} (enable u8) f64 {
+					) {enable u8} f64 {
 						return 1.0
 					}
 				`, nil)
@@ -460,10 +464,10 @@ var _ = Describe("Function Analyzer", func() {
 				"should diagnose duplicate input parameter names",
 				func(bCtx SpecContext) {
 					analyzeExpectError(bCtx, `
-					func controller{
+					func controller(
 						gain f64,
 						gain f64
-					} () {}
+					) {}
 				`, nil, ContainSubstring("name gain conflicts with existing input parameter"))
 				},
 			)
@@ -486,12 +490,12 @@ var _ = Describe("Function Analyzer", func() {
 					},
 				}
 				analyzeExpectSuccess(bCtx, `
-					func pid{
+					func pid(
 						kp f32,
 						ki f32,
 						kd f32,
 						setpoint f32
-					} (input u8) f64 {
+					) {input u8} f64 {
 						error := setpoint - measurement
 						p := kp * error
 						last_measurement_time $= measurement_time
@@ -552,19 +556,19 @@ var _ = Describe("Function Analyzer", func() {
 				}`,
 				Equal("function 'dog' must return a value of type f64 on all paths")),
 			Entry("concrete f64 expression returned from f32 function",
-				`func dog(x f64) f32 { return x * 2.0 }`,
+				`func dog() {x f64} f32 { return x * 2.0 }`,
 				ContainSubstring("cannot return f64 from 'dog': expected f32")),
 			Entry("concrete f32 expression returned from f64 function",
-				`func dog(x f32) f64 { return x * 2.0 }`,
+				`func dog() {x f32} f64 { return x * 2.0 }`,
 				ContainSubstring("cannot return f32 from 'dog': expected f64")),
 			Entry("concrete i64 expression returned from f32 function",
-				`func dog(x i64) f32 { return x * 2 }`,
+				`func dog() {x i64} f32 { return x * 2 }`,
 				ContainSubstring("cannot return i64 from 'dog': expected f32")),
 			Entry("concrete f64 expression returned from i32 function",
-				`func dog(x f64) i32 { return x * 2.0 }`,
+				`func dog() {x f64} i32 { return x * 2.0 }`,
 				ContainSubstring("cannot return f64 from 'dog': expected i32")),
 			Entry("concrete i32 expression returned from f32 function",
-				`func dog(x i32) f32 { return x * 2 }`,
+				`func dog() {x i32} f32 { return x * 2 }`,
 				ContainSubstring("cannot return i32 from 'dog': expected f32")),
 		)
 
@@ -777,7 +781,7 @@ var _ = Describe("Function Analyzer", func() {
 						},
 					}
 					ctx := analyzeExpectSuccess(bCtx, `
-					func dog(cat f32) {
+					func dog() {cat f32} {
 						virt = cat
 					}
 					func abc() {
@@ -837,13 +841,13 @@ var _ = Describe("Function Analyzer", func() {
 						},
 					}
 					ctx := analyzeExpectSuccess(bCtx, `
-					func abc3(val f32) {
+					func abc3() {val f32} {
 						virt = val
 					}
-					func abc2(val f32) {
+					func abc2() {val f32} {
 						abc3(val)
 					}
-					func abc1(val f32) {
+					func abc1() {val f32} {
 						abc2(val)
 					}
 					func abc_entry() {
@@ -941,7 +945,7 @@ var _ = Describe("Function Analyzer", func() {
 						},
 					}
 					ctx := analyzeExpectSuccess(bCtx, `
-					func helper(my_chan chan f32) {
+					func helper() {my_chan chan f32} {
 						my_chan = 1.0
 					}
 					func abc() {
@@ -970,7 +974,7 @@ var _ = Describe("Function Analyzer", func() {
 						},
 					}
 					ctx := analyzeExpectSuccess(bCtx, `
-					func helper(my_chan chan f32) {
+					func helper() {my_chan chan f32} {
 						my_chan = 1.0
 					}
 					func abc() {
@@ -998,7 +1002,7 @@ var _ = Describe("Function Analyzer", func() {
 						},
 					}
 					ctx := analyzeExpectSuccess(bCtx, `
-					func helper(my_chan chan f32) f32 {
+					func helper() {my_chan chan f32} f32 {
 						return my_chan
 					}
 					func abc() f32 {
@@ -1024,10 +1028,10 @@ var _ = Describe("Function Analyzer", func() {
 						},
 					}
 					ctx := analyzeExpectSuccess(bCtx, `
-					func leaf(ch chan f32) {
+					func leaf() {ch chan f32} {
 						ch = 1.0
 					}
-					func middle(ch chan f32) {
+					func middle() {ch chan f32} {
 						leaf(ch)
 					}
 					func top() {
@@ -1059,7 +1063,7 @@ var _ = Describe("Function Analyzer", func() {
 						},
 					}
 					ctx := analyzeExpectSuccess(bCtx, `
-					func process(input chan f32, output chan f32) {
+					func process() {input chan f32, output chan f32} {
 						output = input * 2.0
 					}
 					func abc() {
@@ -1094,7 +1098,7 @@ var _ = Describe("Function Analyzer", func() {
 						},
 					}
 					ctx := analyzeExpectSuccess(bCtx, `
-					func write_to(ch chan f32) {
+					func write_to() {ch chan f32} {
 						ch = 1.0
 					}
 					func abc() {
@@ -1128,7 +1132,7 @@ var _ = Describe("Function Analyzer", func() {
 					func top() {
 						middle(ox_pt_1)
 					}
-					func middle(ch chan f32) {
+					func middle() {ch chan f32} {
 						ch = 1.0
 					}
 				`, resolver)
@@ -1148,7 +1152,7 @@ var _ = Describe("Function Analyzer", func() {
 			It("should parse single optional parameter", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(
 					bCtx,
-					`func add(x i64, y i64 = 0) i64 { return x + y }`,
+					`func add() {x i64, y i64 = 0} i64 { return x + y }`,
 					nil,
 				)
 				funcScope := ctx.Scope.Children()[0]
@@ -1164,7 +1168,7 @@ var _ = Describe("Function Analyzer", func() {
 			It("should parse multiple optional parameters", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(
 					bCtx,
-					`func multi(a i32, b f64 = 1.5, c u8 = 10) f64 { return f64(a) + b + f64(c) }`,
+					`func multi() {a i32, b f64 = 1.5, c u8 = 10} f64 { return f64(a) + b + f64(c) }`,
 					nil,
 				)
 				funcScope := ctx.Scope.Children()[0]
@@ -1182,7 +1186,7 @@ var _ = Describe("Function Analyzer", func() {
 				func(bCtx SpecContext) {
 					ctx := analyzeExpectSuccess(
 						bCtx,
-						`func multiply(x i64, y i64) i64 { return x * y }`,
+						`func multiply() {x i64, y i64} i64 { return x * y }`,
 						nil,
 					)
 					funcScope := ctx.Scope.Children()[0]
@@ -1201,16 +1205,16 @@ var _ = Describe("Function Analyzer", func() {
 				},
 				Entry(
 					"required after optional",
-					`func add(x i64 = 0, y i64) i64 { return x + y }`,
+					`func add() {x i64 = 0, y i64} i64 { return x + y }`,
 					ContainSubstring(
 						"required parameter y cannot follow optional parameters",
 					),
 				),
 				Entry("overflow in default value",
-					`func foo(x i8 = 128) i8 { return x }`,
+					`func foo() {x i8 = 128} i8 { return x }`,
 					ContainSubstring("out of range for i8")),
 				Entry("non-integer float to int",
-					`func foo(x i32 = 3.14) i32 { return x }`,
+					`func foo() {x i32 = 3.14} i32 { return x }`,
 					ContainSubstring("cannot convert non-integer float")),
 			)
 		})
@@ -1301,7 +1305,7 @@ var _ = Describe("Function Analyzer", func() {
 					// This tests error handling when a named output conflicts with an
 					// existing symbol
 					analyzeExpectError(bCtx, `
-					func compute{result f64}() result f64 {
+					func compute(result f64) result f64 {
 						result = 42.0
 					}
 				`, nil, ContainSubstring("name result conflicts with existing input parameter"))
