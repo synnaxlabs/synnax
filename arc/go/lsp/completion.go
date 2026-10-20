@@ -451,7 +451,7 @@ func (s *Server) getCompletionItems(
 
 	var root *symbol.Symbol
 	if s.cfg.NewRoot != nil {
-		root = s.cfg.NewRoot()
+		root = s.cfg.NewRoot(ctx)
 	}
 
 	if completionCtx == ContextAuthorityEntry {
@@ -613,6 +613,10 @@ func (s *Server) getCompletionItems(
 						}
 						item := symbolCompletionItem(sym)
 						if sym.Kind == symbol.KindModule {
+							// import a.b.c binds c, so the body names the last segment.
+							if _, alias, ok := strings.CutLast(sym.Name, "."); ok {
+								item.InsertText = protocol.NewOptional(alias)
+							}
 							item.AdditionalTextEdits = buildAutoImportEdit(
 								doc,
 								sym.Name,
@@ -712,9 +716,20 @@ func getImportPathCompletions(
 			}
 			seen.Add(child.Name)
 			items = append(items, protocol.CompletionItem{
-				Label:  child.Name,
-				Kind:   protocol.CompletionItemKindModule,
-				Detail: protocol.NewOptional("module"),
+				Label:      child.Name,
+				Kind:       protocol.CompletionItemKindModule,
+				Detail:     protocol.NewOptional("module"),
+				FilterText: protocol.NewOptional(child.Name),
+				TextEdit: &protocol.TextEdit{
+					Range: protocol.Range{
+						Start: protocol.Position{
+							Line:      pos.Line,
+							Character: pos.Character - uint32(len(prefix)),
+						},
+						End: pos,
+					},
+					NewText: child.Name,
+				},
 			})
 		}
 	}

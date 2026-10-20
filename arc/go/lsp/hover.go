@@ -97,7 +97,7 @@ func (s *Server) Hover(
 		if d.IR.Symbols != nil {
 			scopeAtCursor = d.findScopeAtPosition(params.Position)
 		} else {
-			scopeAtCursor = s.cfg.NewRoot()
+			scopeAtCursor = s.cfg.NewRoot(ctx)
 		}
 		contents = s.getUserSymbolHover(
 			ctx,

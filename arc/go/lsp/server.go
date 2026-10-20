@@ -52,7 +52,7 @@ type Config struct {
 	// into the returned root.
 	//
 	// [REQUIRED]
-	NewRoot func() *symbol.Symbol
+	NewRoot func(context.Context) *symbol.Symbol
 	// AllowDashedNames permits '-' inside channel-name identifiers, set when Core runs
 	// with channel-name validation disabled.
 	//
@@ -468,7 +468,7 @@ func (s *Server) analyze(
 		if err != nil {
 			pDiagnostics = lsp.TranslateDiagnostics(*err, translateSource)
 		} else {
-			aCtx := acontext.NewRoot(ctx, t, s.cfg.NewRoot()).WithConfig(cfg)
+			aCtx := acontext.NewRoot(ctx, t, s.cfg.NewRoot(ctx)).WithConfig(cfg)
 			statement.AnalyzeFunctionBody(aCtx)
 			docIR = ir.IR{Symbols: aCtx.Scope}
 			docDiag = *aCtx.Diagnostics
@@ -479,7 +479,7 @@ func (s *Server) analyze(
 		if diag != nil {
 			pDiagnostics = lsp.TranslateDiagnostics(*diag, translateSource)
 		} else {
-			analyzedIR, analysisDiag := text.Analyze(ctx, t, s.cfg.NewRoot(), cfg)
+			analyzedIR, analysisDiag := text.Analyze(ctx, t, s.cfg.NewRoot(ctx), cfg)
 			docIR = analyzedIR
 			if analysisDiag != nil {
 				docDiag = *analysisDiag

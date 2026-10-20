@@ -42,6 +42,7 @@ import (
 	xsync "github.com/synnaxlabs/x/sync"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 // GroupName is the name of the root group that holds every Arc.
@@ -167,21 +168,29 @@ type Service struct {
 	taskSync *debounce.Keyed[Key]
 }
 
-// NewRoot builds the production analysis root: the STL, status, and ranges modules
-// plus the Core channel resolver. tx is consulted for channel lookups; nil uses the DB.
-func (s *Service) NewRoot(tx gorp.Tx) *symbol.Symbol {
+// NewRoot builds the production analysis root: the STL, status, and ranges modules,
+// user modules, and the Core channel resolver. tx is consulted for lookups; nil uses
+// the DB.
+func (s *Service) NewRoot(ctx context.Context, tx gorp.Tx) *symbol.Symbol {
 	syms := slices.Concat(
 		stl.NewSymbols(),
 		arcstatus.NewSymbols(),
 		ranges.NewSymbols(),
 	)
+	paths, err := s.retrieveModulePaths(ctx, tx)
+	if err != nil {
+		s.cfg.L.Error("retrieve module paths", zap.Error(err))
+	}
+	for _, path := range paths {
+		syms = append(syms, &symbol.Symbol{Name: path, Kind: symbol.KindModule})
+	}
 	return symbol.NewRoot(s.cfg.Channel.NewArcSymbolResolver(tx), syms)
 }
 
 func (s *Service) NewLSP() (*lsp.Server, error) {
 	return lsp.New(lsp.Config{
 		Instrumentation:  s.cfg.Child("lsp"),
-		NewRoot:          func() *symbol.Symbol { return s.NewRoot(nil) },
+		NewRoot: func(ctx context.Context) *symbol.Symbol { return s.NewRoot(ctx, nil) },
 		AllowDashedNames: s.AllowDashedNames(),
 		OnRename: func(
 			ctx context.Context,
@@ -233,9 +242,9 @@ func (s *Service) CompileProgram(ctx context.Context, key Key) (Arc, error) {
 func (s *Service) compile(ctx context.Context, a Arc) (arc.Program, error) {
 	opt := arc.WithAllowDashedNames(s.AllowDashedNames())
 	if a.Mode == ModeText {
-		return arc.CompileText(ctx, a.Text.Materialize(), s.NewRoot(nil), opt)
+		return arc.CompileText(ctx, a.Text.Materialize(), s.NewRoot(ctx, nil), opt)
 	}
-	return arc.CompileGraph(ctx, a.Graph, s.NewRoot(nil), opt)
+	return arc.CompileGraph(ctx, a.Graph, s.NewRoot(ctx, nil), opt)
 }
 
 // OpenService instantiates a new Arc service using the provided configurations. Each

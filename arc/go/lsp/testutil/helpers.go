@@ -23,7 +23,7 @@ import (
 
 // defaultNewRoot builds an STL-populated root with no dynamic resolver.
 // Used as the default for test servers that don't override NewRoot.
-func defaultNewRoot() *symbol.Symbol {
+func defaultNewRoot(context.Context) *symbol.Symbol {
 	root := symbol.NewRoot(nil, stl.NewSymbols())
 	return root
 }
