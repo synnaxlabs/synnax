@@ -23,23 +23,24 @@ import { status } from "@/status/aether";
 import { Synnax } from "@/synnax";
 import { synnax } from "@/synnax/aether";
 
-const seen: Array<Client | null> = [];
+const PROBE_TYPE = "SynnaxProbe";
 
 const probeStateZ = z.object({});
 
-class Probe extends aether.Leaf<typeof probeStateZ> {
-  static readonly TYPE = "SynnaxProbe";
-  schema = probeStateZ;
+const createProbe = (seen: Array<Client | null>) =>
+  class Probe extends aether.Leaf<typeof probeStateZ> {
+    static readonly TYPE = PROBE_TYPE;
+    schema = probeStateZ;
 
-  afterUpdate(ctx: aether.Context): void {
-    seen.push(synnax.use(ctx));
-  }
+    afterUpdate(ctx: aether.Context): void {
+      seen.push(synnax.use(ctx));
+    }
 
-  afterDelete(): void {}
-}
+    afterDelete(): void {}
+  };
 
 const ProbeComponent = (): null => {
-  Aether.useLifecycle({ type: Probe.TYPE, schema: probeStateZ, initialState: {} });
+  Aether.useLifecycle({ type: PROBE_TYPE, schema: probeStateZ, initialState: {} });
   return null;
 };
 
@@ -51,10 +52,11 @@ const PageClient = ({ onClient }: { onClient: (c: Client | null) => void }): nul
 describe("Synnax.Provider", () => {
   it("should have the worker join the page client's session", async () => {
     disableActEnvironment();
+    const seen: Array<Client | null> = [];
     const AetherProvider = aetherTest.createProvider({
       ...synnax.REGISTRY,
       ...status.REGISTRY,
-      [Probe.TYPE]: Probe,
+      [PROBE_TYPE]: createProbe(seen),
     });
     let page: Client | null = null;
     const Tree = (): ReactElement => (
@@ -82,10 +84,11 @@ describe("Synnax.Provider", () => {
 
   it("should not hand the worker one Core's token for another Core", async () => {
     disableActEnvironment();
+    const seen: Array<Client | null> = [];
     const AetherProvider = aetherTest.createProvider({
       ...synnax.REGISTRY,
       ...status.REGISTRY,
-      [Probe.TYPE]: Probe,
+      [PROBE_TYPE]: createProbe(seen),
     });
     const pages: Client[] = [];
     const Tree = ({ host }: { host: string }): ReactElement => (
@@ -98,7 +101,6 @@ describe("Synnax.Provider", () => {
         </Status.Aggregator>
       </AetherProvider>
     );
-    seen.length = 0;
     const tokenOf = (host: string): string | undefined =>
       pages.findLast((p) => p.params.host === host)?.auth.token;
     const { rerender, unmount } = render(<Tree host="localhost" />);
