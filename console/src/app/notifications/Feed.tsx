@@ -56,7 +56,7 @@ const DEMO_DRIP: status.Crude[] = [
   { variant: "success", name: "Arc", message: "Sequence press_and_hold deployed" },
 ];
 
-const DEMO_INTERVAL_MS = 20_000;
+const DEMO_INTERVAL_MS = 1_000;
 
 const useDemoStatuses = (): void => {
   const add = Status.useAdder();
