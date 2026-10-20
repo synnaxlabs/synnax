@@ -9,6 +9,7 @@
 
 import json
 import uuid
+import warnings
 from pathlib import Path
 
 import pytest
@@ -26,6 +27,14 @@ from .interface import Error, Message
 @pytest.fixture
 def client(endpoint: URL) -> HTTPClient:
     return HTTPClient(endpoint.child("unary"), JSONCodec())
+
+
+class TestConstruction:
+    def test_warning_filters_unchanged(self, endpoint: URL) -> None:
+        """Should not change the process warning filters."""
+        before = list(warnings.filters)
+        HTTPClient(endpoint, JSONCodec())
+        assert warnings.filters == before
 
 
 @pytest.mark.http
