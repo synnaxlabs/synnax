@@ -71,6 +71,7 @@ class _Pair:
         self.upstream = upstream
         self.injector = injector
         self.blackholed = False
+        self.upgraded: bool | None = None
 
 
 class Proxy:
@@ -120,6 +121,8 @@ class Proxy:
     def _forward(self, pair: _Pair, src: socket.socket, dst: socket.socket) -> None:
         try:
             while data := src.recv(_CHUNK_SIZE):
+                if src is pair.upstream and pair.upgraded is None:
+                    pair.upgraded = data.startswith(b"HTTP/1.1 101")
                 if src is pair.upstream and pair.injector is not None:
                     data = pair.injector.feed(data)
                 # A blackholed client's writes are read and dropped so backpressure
@@ -140,6 +143,12 @@ class Proxy:
             except OSError:
                 pass
             s.close()
+
+    @property
+    def websockets(self) -> int:
+        """The number of live WebSocket connections."""
+        with self._lock:
+            return sum(1 for p in self._pairs if p.upgraded)
 
     def blackhole(self) -> int:
         """Kills the Core side of every live connection and holds the client side open
