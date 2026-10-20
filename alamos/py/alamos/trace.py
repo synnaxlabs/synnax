@@ -199,6 +199,7 @@ class Tracer:
         t = Tracer(
             otel_provider=self._otel_provider,
             otel_propagator=self._otel_propagator,
+            filter_=self._filter,
         )
         t._meta = meta
         return t
