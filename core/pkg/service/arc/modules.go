@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
@@ -41,7 +42,8 @@ func (s *Service) newModuleResolver(tx gorp.Tx) *moduleResolver {
 }
 
 // ResolveModule implements symbol.ModuleResolver. The module is analyzed against a
-// root sharing this resolver, so its own imports resolve the same way.
+// root sharing this resolver, so its own imports resolve the same way. That root
+// becomes the module symbol.
 func (r *moduleResolver) ResolveModule(
 	ctx context.Context,
 	path string,
@@ -57,22 +59,15 @@ func (r *moduleResolver) ResolveModule(
 	defer r.visiting.Remove(path)
 	cfg := parser.Config{AllowDashedNames: r.svc.AllowDashedNames()}
 	t, diag := text.Parse(a.Text.Materialize(), cfg)
+	var i ir.IR
+	if diag == nil {
+		i, diag = text.Analyze(ctx, t, r.svc.newRoot(r.tx, r), true, cfg)
+	}
 	if diag != nil && !diag.Ok() {
 		return nil, errors.Newf("module %q does not compile", path)
 	}
-	i, diag := text.Analyze(ctx, t, r.svc.newRoot(r.tx, r), true, cfg)
-	if diag != nil && !diag.Ok() {
-		return nil, errors.Newf("module %q does not compile", path)
-	}
-	mod := &symbol.Symbol{Name: path, Kind: symbol.KindModule}
-	for _, child := range i.Symbols.Children() {
-		if !child.Exported {
-			continue
-		}
-		member := *child
-		member.Parent = nil
-		mod.AddChild(&member)
-	}
+	mod := i.Symbols
+	mod.Name, mod.Kind, mod.AST, mod.TypeMap = path, symbol.KindModule, t.AST, i.TypeMap
 	return mod, nil
 }
 

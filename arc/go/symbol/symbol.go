@@ -212,8 +212,12 @@ type Symbol struct {
 	// reference them, but remain visible to the compiler's resolve.Resolver
 	// which passes IncludeInternal to bypass the filter.
 	Internal bool
-	// Exported marks a module declaration that importers can see.
+	// Exported marks a module declaration that importers can see. On a module it
+	// marks every member.
 	Exported bool
+	// TypeMap holds the expression types of a module compiled from source. Nil for
+	// a host module.
+	TypeMap map[antlr.ParserRuleContext]types.Type
 	// Reassigned marks a flow-level value variable written after declaration
 	// (`x = v` or `-> x`), which lowers to a variable node instead of a constant.
 	Reassigned bool
@@ -306,6 +310,7 @@ func NewRoot(dynamicResolver Resolver, ambientGlobals []*Symbol) *Symbol {
 	ambient.AddChild(root)
 	for _, sym := range ambientGlobals {
 		clone := *sym
+		clone.Exported = clone.Kind == KindModule
 		ambient.AddChild(&clone)
 	}
 	return root
@@ -547,6 +552,9 @@ type resolveOpts struct {
 	// KindModule filter. Used by the compiler to reach host-function
 	// shims and module members that user code is not allowed to see.
 	includeInternal bool
+	// exportedOnly limits a lookup through an alias to the Exported members of a
+	// module that does not export every member.
+	exportedOnly bool
 	// suppressUsage stops Resolve from recording that a module alias was
 	// consulted. Read-only callers operating on an already-analyzed tree
 	// set this so the lookup leaves no trace; see WithoutUsageTracking.
@@ -620,9 +628,12 @@ func (s *Symbol) resolve(
 	origin *Symbol,
 ) (*Symbol, error) {
 	if s.Kind == KindModuleAlias && s.Target != nil {
+		opts.exportedOnly = !s.Target.Exported
 		return s.Target.resolve(ctx, name, opts, origin)
 	}
-	matches := func(child *Symbol) bool { return child.Name == name }
+	matches := func(child *Symbol) bool {
+		return child.Name == name && (!opts.exportedOnly || child.Exported)
+	}
 	if id, err := strconv.ParseUint(name, 10, 32); err == nil {
 		matches = func(child *Symbol) bool { return child.ID == int(id) }
 	}
@@ -634,7 +645,7 @@ func (s *Symbol) resolve(
 			return child, nil
 		}
 	}
-	if s.globalResolver != nil {
+	if s.globalResolver != nil && !opts.exportedOnly {
 		if sym, err := s.globalResolver.Resolve(ctx, name); err == nil {
 			if opts.includeInternal || !sym.Internal {
 				return sym, nil

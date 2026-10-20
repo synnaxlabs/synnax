@@ -1016,7 +1016,8 @@ func appendModuleMemberCompletions(
 				continue
 			}
 			for _, member := range mod.Children() {
-				if member.Internal || member.Name == "" {
+				if member.Internal || member.Name == "" ||
+					(!mod.Exported && !member.Exported) {
 					continue
 				}
 				if member.Kind == symbol.KindFunction &&

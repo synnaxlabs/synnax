@@ -193,7 +193,7 @@ func compileItem(
 	outputs types.Params,
 	outputMemoryBase uint32,
 ) (compiledFunction, error) {
-	scope, err := rootCtx.Scope.Resolve(rootCtx, key)
+	scope, err := functionScope(rootCtx, key)
 	if err != nil {
 		return compiledFunction{}, err
 	}
@@ -240,11 +240,29 @@ func compileItem(
 	}
 
 	return compiledFunction{
-		scopeName: ctx.Scope.Name,
+		scopeName: key,
 		typeIdx:   typeIdx,
 		locals:    collectLocals(ctx.Scope),
 		writer:    ctx.Writer,
 	}, nil
+}
+
+// functionScope returns the scope of the function compiled under key. A dotted key
+// names a member of an imported module.
+func functionScope(
+	ctx ccontext.Context[antlr.ParserRuleContext],
+	key string,
+) (*symbol.Symbol, error) {
+	path, name, ok := strings.CutLast(key, ".")
+	if !ok {
+		return ctx.Scope.Resolve(ctx, key, symbol.IncludeInternal)
+	}
+	for _, mod := range ctx.Scope.ImportedModules() {
+		if mod.Name == path {
+			return mod.Resolve(ctx, name, symbol.IncludeInternal)
+		}
+	}
+	return nil, errors.Newf("function %q has no module %q", key, path)
 }
 
 func compileExpression(ctx ccontext.Context[parser.IExpressionContext]) error {
@@ -263,7 +281,7 @@ func compileFmtStrSynthetic(
 	if err != nil {
 		return compiledFunction{}, err
 	}
-	scope, err := rootCtx.Scope.Resolve(rootCtx, fn.Key, symbol.IncludeInternal)
+	scope, err := functionScope(rootCtx, fn.Key)
 	if err != nil {
 		return compiledFunction{}, err
 	}

@@ -31,11 +31,12 @@ type Module struct {
 }
 
 func (w *Module) Create(cfg node.Config) (node.Node, error) {
-	irFn, ok := cfg.Program.Functions.Find(cfg.Node.Type)
+	key := cfg.QualifiedType()
+	irFn, ok := cfg.Program.Functions.Find(key)
 	if !ok {
 		return nil, query.ErrNotFound
 	}
-	fn := w.Module.ExportedFunction(cfg.Node.Type)
+	fn := w.Module.ExportedFunction(key)
 	if fn == nil {
 		return nil, query.ErrNotFound
 	}
@@ -43,7 +44,7 @@ func (w *Module) Create(cfg node.Config) (node.Node, error) {
 	if len(irFn.Inputs) != len(def.ParamTypes()) {
 		return nil, errors.Newf(
 			"node %s declares %d inputs, but %q takes %d params",
-			cfg.Node.Key, len(irFn.Inputs), cfg.Node.Type, len(def.ParamTypes()),
+			cfg.Node.Key, len(irFn.Inputs), key, len(def.ParamTypes()),
 		)
 	}
 	// Each input fills one WASM param slot. Edge-fed inputs (nil Value) are streamed
@@ -70,7 +71,7 @@ func (w *Module) Create(cfg node.Config) (node.Node, error) {
 		params[i] = val
 	}
 
-	base := cfg.Program.OutputMemoryBases[cfg.Node.Type]
+	base := cfg.Program.OutputMemoryBases[key]
 	memOffsets := make([]uint32, len(irFn.Outputs))
 	offset := base + 8
 	for i, t := range irFn.Outputs {

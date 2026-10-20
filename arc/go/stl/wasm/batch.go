@@ -58,7 +58,7 @@ func (w *Module) newBatchCall(
 	irFn ir.Function,
 	outputMemoryBase uint32,
 ) *batchCall {
-	fn := w.Module.ExportedFunction(cfg.Node.Type + compiler.BatchSuffix)
+	fn := w.Module.ExportedFunction(cfg.QualifiedType() + compiler.BatchSuffix)
 	if fn == nil || outputMemoryBase != 0 {
 		return nil
 	}

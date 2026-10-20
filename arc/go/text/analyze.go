@@ -471,8 +471,8 @@ func analyzeIdentifierByRole(
 	shell *shellBuilder,
 	isFirst, isSink bool,
 ) (flowNodeResult, bool) {
-	name := ctx.AST.IDENTIFIER().GetText()
-	sym, err := ctx.Scope.Resolve(ctx, name)
+	name := parser.IdentifierName(ctx.AST)
+	sym, err := ctx.ResolveQualified(parser.IdentifierParts(ctx.AST))
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return flowNodeResult{}, false
@@ -556,6 +556,10 @@ func isExprReadVar(sym *symbol.Symbol) bool {
 // holds its value in its register, an alias its key, an exprRead an index.
 func collectVarNodes(s *symbol.Symbol, kg *keyGenerator, shell *shellBuilder) {
 	for _, c := range s.Children() {
+		// Imported modules collect in their own pass.
+		if c.Kind == symbol.KindModuleAlias {
+			continue
+		}
 		if c.Reassigned && isConstVar(c) {
 			shell.registerVar(c, varEntry{register: buildVariableNode(c, kg, "f0")})
 		}
@@ -1074,7 +1078,7 @@ func analyzeNamedRef(
 				return transitionIntent{}, false
 			}
 		}
-		return transitionIntent{activateKey: sym.Name}, true
+		return transitionIntent{activateKey: sym.QualifiedName()}, true
 	}
 	ctx.Diagnostics.Add(diagnostics.Errorf(
 		ctx.AST,
@@ -1278,9 +1282,9 @@ func tryAnalyzeFmtStrLiteral(
 		return nodeResult{}, false, false
 	}
 	key := kg.generate("fmt", "")
-	synthKey := compiler.FmtStrSyntheticPrefix + key
 	// Renamed so the compiler resolves the synthetic's scope by function key.
-	sym.Name = synthKey
+	sym.Name = compiler.FmtStrSyntheticPrefix + key
+	synthKey := sym.QualifiedName()
 	*kg.synthFuncs = append(*kg.synthFuncs, ir.Function{
 		Key:      synthKey,
 		Body:     ir.Body{Raw: body},
@@ -1353,7 +1357,7 @@ func analyzeExpression(
 	outputType := ctx.Constraints.ApplySubstitutions(freshType.Outputs[0].Type)
 	n := ir.Node{
 		Key:      key,
-		Type:     sym.Name,
+		Type:     sym.QualifiedName(),
 		Channels: sym.Channels.Copy(),
 		Inputs:   freshType.Inputs,
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
@@ -1415,6 +1419,95 @@ func wireVarEdges(
 	}
 }
 
+// collectFunctions appends an ir.Function for every function declared in scope with
+// a body, keyed by qualified name.
+func collectFunctions(fns ir.Functions, scope *symbol.Symbol) ir.Functions {
+	for _, c := range scope.Children() {
+		if c.Kind != symbol.KindFunction || c.AST == nil {
+			continue
+		}
+		// Format-string fns compile from their raw body as fmt$ synthetics.
+		if expr, ok := c.AST.(parser.IExpressionContext); ok && parser.IsLiteral(expr) {
+			continue
+		}
+		fnDecl, ok := c.AST.(parser.IFunctionDeclarationContext)
+		var bodyAst antlr.ParserRuleContext = fnDecl
+		if ok {
+			bodyAst = fnDecl.Block()
+		}
+		exprDecl, ok := c.AST.(parser.IExpressionContext)
+		if ok {
+			bodyAst = exprDecl
+		}
+		fns = append(fns, ir.Function{
+			Key:      c.QualifiedName(),
+			Body:     ir.Body{Raw: bodyAst.GetText(), AST: bodyAst},
+			Inputs:   c.Type.Inputs,
+			Outputs:  c.Type.Outputs,
+			Channels: c.Channels,
+		})
+	}
+	return fns
+}
+
+// lowerTopLevelItems lowers the top-level items of a program into i and returns
+// their members for the root scope.
+func lowerTopLevelItems(
+	ctx acontext.Context[parser.IProgramContext],
+	kg *keyGenerator,
+	shell *shellBuilder,
+	i *ir.IR,
+) (ir.Members, bool) {
+	var members ir.Members
+	for _, item := range ctx.AST.AllTopLevelItem() {
+		if decl := item.VariableDeclaration(); decl != nil {
+			if !lowerExprReadDecl(ctx.Child(decl), kg, shell) {
+				return nil, false
+			}
+		} else if flow := item.FlowStatement(); flow != nil {
+			nodes, edges, inlineMembers, _, ok := analyzeFlow(
+				ctx.Child(flow),
+				kg,
+				shell,
+			)
+			if !ok {
+				return nil, false
+			}
+			for _, n := range nodes {
+				members = append(members, ir.Member{NodeKey: new(n.Key)})
+			}
+			members = append(members, inlineMembers...)
+			i.Nodes = append(i.Nodes, nodes...)
+			i.Edges = append(i.Edges, edges...)
+		} else if seqDecl := item.SequenceDeclaration(); seqDecl != nil {
+			seqScope, nodes, edges, ok := analyzeSequence(
+				ctx.Child(seqDecl),
+				kg,
+				shell,
+			)
+			if !ok {
+				return nil, false
+			}
+			members = append(members, ir.Member{Scope: &seqScope})
+			i.Nodes = append(i.Nodes, nodes...)
+			i.Edges = append(i.Edges, edges...)
+		} else if stageDecl := item.StageDeclaration(); stageDecl != nil {
+			stgScope, nodes, edges, ok := analyzeTopLevelStage(
+				ctx.Child(stageDecl),
+				kg,
+				shell,
+			)
+			if !ok {
+				return nil, false
+			}
+			members = append(members, ir.Member{Scope: &stgScope})
+			i.Nodes = append(i.Nodes, nodes...)
+			i.Edges = append(i.Edges, edges...)
+		}
+	}
+	return members, true
+}
+
 // Analyze performs semantic analysis on parsed Arc code and builds the IR.
 // Returns a partially complete IR even on errors for LSP support.
 //
@@ -1442,34 +1535,28 @@ func Analyze(
 		return i, aCtx.Diagnostics
 	}
 
-	for _, c := range i.Symbols.Children() {
-		if c.Kind != symbol.KindFunction || c.AST == nil {
-			continue
+	// Imported modules lower beside the program: their functions, variables, and
+	// scopes join the IR under qualified keys.
+	var modules []*symbol.Symbol
+	for _, mod := range aCtx.Scope.ImportedModules() {
+		if mod.AST != nil {
+			modules = append(modules, mod)
 		}
-		// Format-string fns compile from their raw body as fmt$ synthetics.
-		if expr, ok := c.AST.(parser.IExpressionContext); ok && parser.IsLiteral(expr) {
-			continue
-		}
-		fnDecl, ok := c.AST.(parser.IFunctionDeclarationContext)
-		var bodyAst antlr.ParserRuleContext = fnDecl
-		if ok {
-			bodyAst = fnDecl.Block()
-		}
-		exprDecl, ok := c.AST.(parser.IExpressionContext)
-		if ok {
-			bodyAst = exprDecl
-		}
-		i.Functions = append(i.Functions, ir.Function{
-			Key:      c.Name,
-			Body:     ir.Body{Raw: bodyAst.GetText(), AST: bodyAst},
-			Inputs:   c.Type.Inputs,
-			Outputs:  c.Type.Outputs,
-			Channels: c.Channels,
-		})
+	}
+	i.Functions = collectFunctions(i.Functions, aCtx.Scope)
+	for _, mod := range modules {
+		i.Functions = collectFunctions(i.Functions, mod)
 	}
 	kg := newKeyGenerator(&i.Functions)
-	shell := newShellBuilder(collectSynthByAST(aCtx.Scope.Root()))
+	synth := collectSynthByAST(aCtx.Scope.Root())
+	for _, mod := range modules {
+		maps.Copy(synth, collectSynthByAST(mod))
+	}
+	shell := newShellBuilder(synth)
 	collectVarNodes(aCtx.Scope.Root(), kg, shell)
+	for _, mod := range modules {
+		collectVarNodes(mod, kg, shell)
+	}
 
 	// The root scope is always parallel and always-live.
 	i.Root = ir.Scope{
@@ -1478,54 +1565,23 @@ func Analyze(
 	}
 	// rootMembers accumulates every top-level item as a Member of the root
 	// scope. Module-scope flow nodes become leaf-node members; top-level
-	// sequence and stage declarations become nested Scope members.
-	var rootMembers ir.Members
-
-	for _, item := range t.AST.AllTopLevelItem() {
-		if decl := item.VariableDeclaration(); decl != nil {
-			if !lowerExprReadDecl(aCtx.Child(decl), kg, shell) {
-				return i, aCtx.Diagnostics
-			}
-		} else if flow := item.FlowStatement(); flow != nil {
-			nodes, edges, inlineMembers, _, ok := analyzeFlow(
-				aCtx.Child(flow),
-				kg,
-				shell,
-			)
-			if !ok {
-				return i, aCtx.Diagnostics
-			}
-			for _, n := range nodes {
-				rootMembers = append(rootMembers, ir.Member{NodeKey: new(n.Key)})
-			}
-			rootMembers = append(rootMembers, inlineMembers...)
-			i.Nodes = append(i.Nodes, nodes...)
-			i.Edges = append(i.Edges, edges...)
-		} else if seqDecl := item.SequenceDeclaration(); seqDecl != nil {
-			seqScope, nodes, edges, ok := analyzeSequence(
-				aCtx.Child(seqDecl),
-				kg,
-				shell,
-			)
-			if !ok {
-				return i, aCtx.Diagnostics
-			}
-			rootMembers = append(rootMembers, ir.Member{Scope: &seqScope})
-			i.Nodes = append(i.Nodes, nodes...)
-			i.Edges = append(i.Edges, edges...)
-		} else if stageDecl := item.StageDeclaration(); stageDecl != nil {
-			stgScope, nodes, edges, ok := analyzeTopLevelStage(
-				aCtx.Child(stageDecl),
-				kg,
-				shell,
-			)
-			if !ok {
-				return i, aCtx.Diagnostics
-			}
-			rootMembers = append(rootMembers, ir.Member{Scope: &stgScope})
-			i.Nodes = append(i.Nodes, nodes...)
-			i.Edges = append(i.Edges, edges...)
+	// sequence and stage declarations become nested Scope members. Imported
+	// modules add theirs in their own scope.
+	rootMembers, ok := lowerTopLevelItems(aCtx, kg, shell, &i)
+	if !ok {
+		return i, aCtx.Diagnostics
+	}
+	for _, mod := range modules {
+		members, ok := lowerTopLevelItems(
+			aCtx.WithScope(mod).Child(mod.AST.(parser.IProgramContext)),
+			kg,
+			shell,
+			&i,
+		)
+		if !ok {
+			return i, aCtx.Diagnostics
 		}
+		rootMembers = append(rootMembers, members...)
 	}
 
 	// Inline bodies live as members of their enclosing scope; their flat IR
@@ -2030,6 +2086,9 @@ func collectSynthByAST(root *symbol.Symbol) map[antlr.ParserRuleContext]*symbol.
 	var walk func(s *symbol.Symbol)
 	walk = func(s *symbol.Symbol) {
 		for _, child := range s.Children() {
+			if child.Kind == symbol.KindModuleAlias {
+				continue
+			}
 			if child.AST != nil && strings.HasPrefix(child.Name, ir.InlinePrefix) {
 				m[child.AST] = child
 			}
@@ -2309,7 +2368,7 @@ func analyzeSequence(
 		liveness = ir.LivenessGated
 	}
 	scope := ir.Scope{
-		Key:      seqName,
+		Key:      seqScope.QualifiedName(),
 		Mode:     ir.ScopeModeSequential,
 		Liveness: liveness,
 	}
@@ -2480,7 +2539,7 @@ func analyzeTopLevelStage(
 	if !ok {
 		return ir.Scope{}, nil, nil, false
 	}
-	scope.Key = stageSym.Name
+	scope.Key = stageSym.QualifiedName()
 	scope.Transitions = jumps
 	return scope, nodes, edges, true
 }

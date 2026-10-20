@@ -698,11 +698,15 @@ func formatSequenceStagesList(sym *symbol.Symbol) []string {
 
 // formatModuleMembersList returns a list of formatted user-visible member
 // names for a module symbol (or a module alias, which dispatches to its
-// target's children). Internal members are skipped.
+// target's children). Internal and unexported members are skipped.
 func formatModuleMembersList(sym *symbol.Symbol) []string {
+	mod := sym
+	if sym.Kind == symbol.KindModuleAlias && sym.Target != nil {
+		mod = sym.Target
+	}
 	var members []string
 	for _, child := range sym.Children() {
-		if child.Internal || child.Name == "" {
+		if child.Internal || child.Name == "" || (!mod.Exported && !child.Exported) {
 			continue
 		}
 		members = append(members, "`"+child.Name+"`")

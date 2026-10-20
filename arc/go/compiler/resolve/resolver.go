@@ -93,12 +93,12 @@ func (r *Resolver) RecordPlaceholder(writerID int, handle uint32, offset int) {
 // placeholder at the writer's current offset. target's position in the
 // symbol tree determines the WASM coordinate:
 //
-//   - A member of a KindModule (target.Parent.Kind == KindModule) becomes
-//     a WASM import under (target.Parent.Name, target.Name). Any type
-//     variables in target.Type are reconciled against concreteType to
-//     produce a per-instantiation type suffix.
-//   - Anything else is treated as a locally-compiled function looked up at
-//     link time via RegisterLocal(target.Name, ...).
+//   - A bodiless member of a KindModule (target.AST == nil) becomes a WASM
+//     import under (target.Parent.Name, target.Name). Any type variables in
+//     target.Type are reconciled against concreteType to produce a
+//     per-instantiation type suffix.
+//   - Anything else is a locally-compiled function looked up at link time via
+//     RegisterLocal(target.QualifiedName(), ...).
 func (r *Resolver) EmitCall(
 	w *wasm.Writer,
 	writerID int,
@@ -106,13 +106,15 @@ func (r *Resolver) EmitCall(
 	concreteType types.Type,
 ) {
 	var module, suffix string
-	if target.Parent != nil && target.Parent.Kind == symbol.KindModule {
-		module = target.Parent.Name
+	name := target.QualifiedName()
+	if target.Parent != nil && target.Parent.Kind == symbol.KindModule &&
+		target.AST == nil {
+		module, name = target.Parent.Name, target.Name
 		suffix = DeriveTypeSuffix(target.Type, concreteType)
 	}
 	r.record(w, writerID, pendingRef{
 		module:       module,
-		name:         target.Name,
+		name:         name,
 		typeSuffix:   suffix,
 		concreteType: concreteType,
 	})

@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 )
 
 // ErrModuleNotFound is returned when no module exists at an import path.
@@ -21,7 +22,7 @@ var ErrModuleNotFound = errors.New("module not found")
 // ModuleResolver supplies modules that are not in the ambient prelude, such as user
 // modules stored in a Core, by their import path.
 type ModuleResolver interface {
-	// ResolveModule returns the module at path with its exported members as children.
+	// ResolveModule returns the module at path with its declarations as children.
 	// Returns ErrModuleNotFound when there is none.
 	ResolveModule(ctx context.Context, path string) (*Symbol, error)
 	// SearchModules returns the import paths that start with prefix, sorted.
@@ -49,4 +50,27 @@ func (s *Symbol) SearchModules(ctx context.Context, prefix string) ([]string, er
 		return nil, nil
 	}
 	return r.SearchModules(ctx, prefix)
+}
+
+// ImportedModules returns every module that s imports, directly or through another
+// module, each once in import order.
+func (s *Symbol) ImportedModules() []*Symbol {
+	var (
+		modules []*Symbol
+		seen    = set.New[*Symbol]()
+		walk    func(scope *Symbol)
+	)
+	walk = func(scope *Symbol) {
+		for _, child := range scope.children {
+			if child.Kind != KindModuleAlias || child.Target == nil ||
+				seen.Contains(child.Target) {
+				continue
+			}
+			seen.Add(child.Target)
+			modules = append(modules, child.Target)
+			walk(child.Target)
+		}
+	}
+	walk(s)
+	return modules
 }

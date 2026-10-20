@@ -28,6 +28,16 @@ type Config struct {
 	State *State
 	// Program contains the Arc program for accessing global state and functions.
 	Program program.Program
+	// Module is the module prefix stripped from Node.Type, empty for a bare type.
+	Module string
+}
+
+// QualifiedType returns Node.Type with its module prefix restored.
+func (c Config) QualifiedType() string {
+	if c.Module == "" {
+		return c.Node.Type
+	}
+	return c.Module + "." + c.Node.Type
 }
 
 // Factory creates node instances from IR definitions. Implementations check the node
@@ -53,17 +63,16 @@ func (f CompoundFactory) Create(cfg Config) (Node, error) {
 	// Strip module prefix from the node type so factories only match bare names. The
 	// compiler emits qualified names (e.g. "time.interval", "control.set_authority")
 	// into the IR; normalizing here keeps prefix awareness out of individual factories.
-	var modulePrefix string
 	if prefix, bare, ok := strings.CutLast(cfg.Node.Type, "."); ok {
-		modulePrefix, cfg.Node.Type = prefix, bare
+		cfg.Module, cfg.Node.Type = prefix, bare
 	}
 	for _, factory := range f {
 		// When the IR node has a module prefix (e.g. "control" from
 		// "control.set_authority"), skip factories belonging to a different module.
 		// Factories that don't implement ModuleNamer are always considered.
-		if modulePrefix != "" {
+		if cfg.Module != "" {
 			if namer, ok := factory.(ModuleNamer); ok {
-				if name := namer.ModuleName(); name != "" && name != modulePrefix {
+				if name := namer.ModuleName(); name != "" && name != cfg.Module {
 					continue
 				}
 			}

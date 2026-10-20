@@ -320,6 +320,25 @@ func FunctionNameParts(fn IFunctionContext) (head, tail string) {
 	return fn.IDENTIFIER().GetText(), ""
 }
 
+// IdentifierParts splits a flow identifier into its module alias and member name.
+// The tail is empty for a bare identifier.
+func IdentifierParts(id IIdentifierContext) (head, tail string) {
+	if qid := id.QualifiedIdentifier(); qid != nil {
+		return QualifiedNameParts(qid)
+	}
+	return id.IDENTIFIER().GetText(), ""
+}
+
+// IdentifierName returns the joined name of a flow identifier. For resolution use
+// IdentifierParts.
+func IdentifierName(id IIdentifierContext) string {
+	head, tail := IdentifierParts(id)
+	if tail == "" {
+		return head
+	}
+	return head + "." + tail
+}
+
 // FunctionName extracts the joined name from a function context. For
 // resolution use FunctionNameParts.
 func FunctionName(fn IFunctionContext) string {

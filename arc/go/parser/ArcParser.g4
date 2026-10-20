@@ -201,6 +201,7 @@ flowNode
 
 identifier
     : IDENTIFIER
+    | qualifiedIdentifier
     ;
 
 function
