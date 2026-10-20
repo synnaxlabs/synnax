@@ -324,7 +324,7 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
         socket_container: list[AsyncWebsocketStream[RQ, RS] | None] = [None]
 
         async def finalizer(ctx: Context) -> Context:
-            out_ctx = Context(target, "websocket", "client")
+            out_ctx = Context("websocket", target, "client")
             ws = await connect(
                 self._endpoint.child(target).stringify(),
                 additional_headers=self.additional_headers(ctx.params),
@@ -336,7 +336,7 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
             socket_container[0] = socket
             return out_ctx
 
-        await self.exec(Context(target, "websocket", "client"), finalizer)
+        await self.exec(Context("websocket", target, "client"), finalizer)
 
         socket = socket_container[0]
         assert socket is not None
@@ -378,7 +378,7 @@ class WebsocketClient(_Base, MiddlewareCollector, StreamClient):
         socket_container: list[SyncWebsocketStream[RQ, RS] | None] = [None]
 
         def finalizer(ctx: Context) -> Context:
-            out_ctx = Context(target, "websocket", "client")
+            out_ctx = Context("websocket", target, "client")
             connector = sync_connect(
                 self._endpoint.child(target).stringify(),
                 additional_headers=self.additional_headers(ctx.params),
@@ -391,7 +391,7 @@ class WebsocketClient(_Base, MiddlewareCollector, StreamClient):
             socket_container[0] = socket
             return out_ctx
 
-        self.exec(Context(target, "websocket", "client"), finalizer)
+        self.exec(Context("websocket", target, "client"), finalizer)
         socket = socket_container[0]
         assert socket is not None
         return socket
