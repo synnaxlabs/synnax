@@ -183,9 +183,8 @@ var _ = Describe("Middleware", func() {
 		Expect(apiauth.GetCredential(seen)).ToNot(Equal(uuid.Nil()))
 	})
 	It("Should reject a request without a token", func(ctx SpecContext) {
-		oCtx, err := mw.Exec(requestCtx(ctx), passthrough)
-		Expect(err).To(MatchError(auth.ErrAuth))
-		Expect(oCtx).To(BeZero())
+		Expect(mw.Exec(requestCtx(ctx), passthrough)).Error().
+			To(MatchError(auth.ErrAuth))
 	})
 	It("Should close a stream when its session ends", func(ctx SpecContext) {
 		key := MustSucceed(authSvc.Authenticate(ctx, token)).Key
