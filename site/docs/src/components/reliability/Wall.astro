@@ -24,16 +24,16 @@ const { products } = Astro.props;
 
 const CODES = { flaky: "f", failed: "x", skipped: "s", unknown: "u" } as const;
 
-// One character per cell. Passed cells alternate between two shades by suite so suite
+// One character per cell. Passed cells alternate between two shades by job so job
 // boundaries show in the wall.
 const encode = ({ tests }: Product): string => {
     let out = "";
     let shade = false;
-    let last = tests[0]?.suite;
+    let last = tests[0]?.job;
     for (const t of tests) {
-        if (t.suite !== last) {
+        if (t.job !== last) {
             shade = !shade;
-            last = t.suite;
+            last = t.job;
         }
         if (t.state === "passed") out += shade ? "b" : "a";
         // Draws as skipped. The hover card says it passed by hand.
@@ -118,7 +118,8 @@ const LEGEND = [
         blob: string;
         suites: { job: string; os: string }[];
         tags: string[][];
-        tests: [number, string, number | null, string, number][];
+        // Name, source, tag list, and runs as suite, state, and duration.
+        tests: [string, string, number, [number, string, number | null][]][];
     };
 
     const STATE_NAMES: Record<string, string> = {
@@ -289,7 +290,7 @@ const LEGEND = [
             const open = async (i: number) => {
                 const d = await load();
                 window.open(
-                    d.blob + d.tests[Number(canvas.dataset.offset) + i][3],
+                    d.blob + d.tests[Number(canvas.dataset.offset) + i][1],
                     "_blank",
                 );
             };
@@ -304,9 +305,20 @@ const LEGEND = [
             ) => {
                 const d = await load();
                 if (!active()) return;
-                const [suite, name, duration, , tags] =
-                    d.tests[Number(canvas.dataset.offset) + i];
-                const s = d.suites[suite];
+                const [name, , tags, runs] = d.tests[Number(canvas.dataset.offset) + i];
+                // Names each run's state only when the runs disagree.
+                const mixed = runs.some(([, state]) => state !== runs[0][1]);
+                const results = runs
+                    .map(([suite, state, duration]) =>
+                        [
+                            d.suites[suite].os,
+                            mixed ? state : null,
+                            duration != null ? `(${duration.toFixed(1)} s)` : null,
+                        ]
+                            .filter(Boolean)
+                            .join(" "),
+                    )
+                    .join(", ");
                 cardName.textContent = name;
                 cardTags.replaceChildren(
                     ...d.tags[tags].map((t) => {
@@ -326,8 +338,8 @@ const LEGEND = [
                         : "Passed manually";
                 cardMeta.textContent = [
                     STATE_NAMES[canvas.dataset.cells![i]],
-                    `${s.job} on ${s.os}`,
-                    duration != null ? `${duration.toFixed(1)} s` : null,
+                    d.suites[runs[0][0]].job,
+                    results,
                     hint,
                 ]
                     .filter(Boolean)
