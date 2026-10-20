@@ -30,11 +30,10 @@ class TaskConfig(BaseModel):
     """How closely the task holds its timing deadlines. A higher level uses more CPU."""
 
 
-class Task(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
+class Task(task.StarterStopperMixin, task.JSONConfigMixin[TaskConfig], task.Protocol):
     """A task for executing Arc programs on a Synnax cluster."""
 
     TYPE = TASK_TYPE
-    config: TaskConfig
     _internal: task.Task
 
     def __init__(

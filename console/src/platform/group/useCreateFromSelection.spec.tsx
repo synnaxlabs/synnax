@@ -165,6 +165,20 @@ describe("useCreateFromSelection", () => {
     });
   });
 
+  it("should not create a group and should restore the tree when the rename is empty", async () => {
+    const { parentID, a, b, editable } = await setup();
+    await act(async () => {
+      commitTextEdit(editable, "");
+    });
+    await awaitTextEditingExit();
+    await waitFor(() => {
+      expect(screen.getByText(a.name)).toBeTruthy();
+      expect(screen.getByText(b.name)).toBeTruthy();
+    });
+    const children = await client.ontology.children.retrieve({ ids: parentID });
+    expect(children.map((c) => c.id.key).sort()).toEqual([a.key, b.key].sort());
+  });
+
   it("should not create a group and should restore the tree when the rename is escaped", async () => {
     const { parentID, a, b, editable } = await setup();
     await act(async () => {

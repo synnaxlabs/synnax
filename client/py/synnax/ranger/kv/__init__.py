@@ -10,10 +10,4 @@
 from synnax.ranger.kv.client import Client
 from synnax.ranger.kv.payload import Pair
 
-KV = Client
-"""Deprecated: Use Client instead."""
-
-KVPair = Pair
-"""Deprecated: Use Pair instead."""
-
-__all__ = ["Client", "Pair", "KV", "KVPair"]
+__all__ = ["Client", "Pair"]

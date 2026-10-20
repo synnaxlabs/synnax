@@ -26,6 +26,11 @@ class _DeleteRequest(BaseModel):
     keys: list[Key]
 
 
+class _RenameRequest(BaseModel):
+    key: Key
+    name: str
+
+
 class Writer:
     _client: UnaryClient
     instrumentation: Instrumentation
@@ -47,3 +52,7 @@ class Writer:
     def delete(self, keys: list[Key]) -> None:
         req = _DeleteRequest(keys=keys)
         self._client.send("/range/delete", req, Empty)
+
+    @trace("debug", "range.rename")
+    def rename(self, key: Key, name: str) -> None:
+        self._client.send("/range/rename", _RenameRequest(key=key, name=name), Empty)

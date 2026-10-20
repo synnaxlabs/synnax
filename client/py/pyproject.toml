@@ -21,11 +21,11 @@ dependencies = [
     "click>=8.5.0,<9",
     "keyring>=25.7.0,<26",
     "matplotlib>=3.11.2,<4",
-    "npTDMS>=1.11.0,<2",
     "numpy>=2.5.3,<3",
     "pandas>=3.0.6,<4",
     "pydantic>=2.13.5,<3",
     "rich>=15.0.0,<16",
+    "typing-extensions>=4.16.0,<5",
     "urllib3>=2.8.0,<3",
 ]
 
@@ -48,33 +48,48 @@ dev = [
     "pytest-asyncio>=1.4.0,<2",
     "pytest-cov>=7.1.0,<8",
     "scipy>=1.18.1,<2",
+    "scipy-stubs>=1.18.1.1,<2",
+    "types-pyserial>=3.5.0.20260712,<4",
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["synnax", "examples"]
+packages = ["synnax"]
 
 [tool.ruff]
 line-length = 88
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["F", "I"]
+select = [
+    "F",
+    "I",
+    "B",
+    "DTZ",
+    "E7",
+    "E9",
+    "PLE",
+    "UP",
+    "SIM",
+    "C4",
+    "RET",
+    "PIE",
+    "PERF",
+    "RUF",
+    "PT",
+]
+ignore = ["UP040", "UP046", "UP047", "SIM105", "SIM115", "SIM117", "PT012", "RUF001"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["synnax", "alamos", "freighter", "x"]
 
 [tool.mypy]
+mypy_path = "stubs"
 plugins = ["pydantic.mypy"]
 strict = true
 
-[[tool.mypy.overrides]]
-module = "nptdms.*"
-ignore_missing_imports = true
-follow_imports = "skip"
-
 [tool.pydantic-mypy]
 init_forbid_extra = true
-init_types = true
+init_typed = true
 warn_required_dynamic_aliases = true
 
 [tool.pytest.ini_options]
@@ -114,7 +129,6 @@ markers = [
     "series: mark test as a series test",
     "status: mark test as a status test",
     "task: mark test as a task test",
-    "tdms: mark test as a tdms test",
     "telem: mark test as a telem test",
     "timing: mark test as a timing test",
     "tsconvert: mark test as a tsconvert test",

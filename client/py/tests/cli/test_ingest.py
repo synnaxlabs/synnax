@@ -20,7 +20,7 @@ from .data import DATA_DIR
 
 @pytest.mark.cli
 class TestIngest:
-    def test_valid_ingest(self, client: Synnax):
+    def test_valid_ingest(self, client: Synnax) -> None:
         try:
             c = MockConsole(
                 responses=[

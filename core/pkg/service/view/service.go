@@ -99,7 +99,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, View]{
 		DB:              s.cfg.DB,
-		Migrations:      versions.Migrations,
+		Migrations:      versions.NewMigrations(s.cfg.Ontology),
 		Instrumentation: s.cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err

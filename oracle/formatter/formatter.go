@@ -1546,6 +1546,10 @@ func (f *formatter) formatUnionDef(ctx parser.IUnionDefContext) {
 	f.write(idents[0].GetText())
 	f.write(" union on ")
 	f.write(idents[2].GetText())
+	if tr := ctx.TypeRef(); tr != nil {
+		f.write(" ")
+		f.formatTypeRef(tr)
+	}
 
 	if ctx.EXTENDS() != nil && ctx.TypeRefList() != nil {
 		f.write(" extends ")

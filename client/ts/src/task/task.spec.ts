@@ -112,6 +112,45 @@ describe("Task", async () => {
       expect(retrieved.name).toBe("updated");
     });
   });
+  describe("rename", () => {
+    it("should rename a task and keep its config", async () => {
+      const m = await testRack.createTask({
+        name: "task-rename",
+        config: { routingKey: "rk-rename" },
+        type: "pagerduty_alert",
+      });
+      await client.tasks.rename(m.key, "task-renamed");
+      const retrieved = await createTestClient().tasks.retrieve(m.key);
+      expect(retrieved.name).toBe("task-renamed");
+      expect(retrieved.type).toBe("pagerduty_alert");
+      expect(retrieved.config).toEqual(m.config);
+    });
+    it("should update the cache of another client", async () => {
+      const m = await testRack.createTask({
+        name: "task-rename-remote",
+        config: { routingKey: "rk" },
+        type: "pagerduty_alert",
+      });
+      expect((await client.tasks.retrieve(m.key)).name).toBe("task-rename-remote");
+      const name = `task-renamed-${id.create()}`;
+      await waitForStreamLive(client.connection);
+      await writer.tasks.rename(m.key, name);
+      await expect
+        .poll(async () => (await client.tasks.retrieve(m.key)).name)
+        .toBe(name);
+    });
+    it("should reject an empty name", async () => {
+      const m = await testRack.createTask({
+        name: "task-rename-empty",
+        config: { routingKey: "rk" },
+        type: "pagerduty_alert",
+      });
+      await expect(client.tasks.rename(m.key, "")).rejects.toThrow();
+      expect((await createTestClient().tasks.retrieve(m.key)).name).toBe(
+        "task-rename-empty",
+      );
+    });
+  });
   describe("retrieve", () => {
     it("coalesces concurrent single retrieves into one request", async () => {
       const created = [

@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/resolution"
 	. "github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Create and Output markers", func() {
@@ -130,6 +131,74 @@ var _ = Describe("Create and Output markers", func() {
 			Expect(py.Expressions).To(HaveLen(1))
 			Expect(py.Expressions[0].Name).To(Equal("omit"))
 		},
+	)
+
+	It(
+		"Should synthesize New for a @create union named after its namespace",
+		func(ctx SpecContext) {
+			source := `
+			Base struct {
+				key uuid = create { @key }
+			}
+			X union on type extends Base {
+				first {
+					name string
+				}
+				second {
+					size int32
+				}
+				@create
+			}
+		`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			form := MustBeOk(table.Get("x.New")).Form.(resolution.StructForm)
+			Expect(form.Extends).To(HaveLen(1))
+			Expect(form.Extends[0].Name).To(Equal("x.X"))
+			_, ok := table.Get("x.NewX")
+			Expect(ok).To(BeFalse())
+		},
+	)
+
+	DescribeTable(
+		"Should give New to whichever of a struct and a namespace union comes first",
+		func(ctx SpecContext, source, newBase, unionNew string) {
+			table, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			form := MustBeOk(table.Get("x.New")).Form.(resolution.StructForm)
+			Expect(form.Extends[0].Name).To(Equal(newBase))
+			MustBeOk(table.Get(unionNew))
+		},
+		Entry("struct first", `
+			Thing struct {
+				key uuid @key
+				@create
+			}
+			Base struct {
+				key uuid = create { @key }
+			}
+			X union on type extends Base {
+				first {
+					name string
+				}
+				@create
+			}
+		`, "x.Thing", "x.NewX"),
+		Entry("union first", `
+			Base struct {
+				key uuid = create { @key }
+			}
+			X union on type extends Base {
+				first {
+					name string
+				}
+				@create
+			}
+			Thing struct {
+				key uuid @key
+				@create
+			}
+		`, "x.X", "x.New"),
 	)
 
 	It(

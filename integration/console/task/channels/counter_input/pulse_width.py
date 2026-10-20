@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from console.layout import LayoutClient
 from console.task.channels.counter import Counter
@@ -31,9 +31,9 @@ class PulseWidth(Counter):
         layout: LayoutClient,
         name: str,
         device: str,
-        starting_edge: Optional[Literal["Rising", "Falling"]] = None,
-        units: Optional[Literal["Seconds", "Ticks", "Custom"]] = None,
-        terminal: Optional[str] = None,
+        starting_edge: Literal["Rising", "Falling"] | None = None,
+        units: Literal["Seconds", "Ticks", "Custom"] | None = None,
+        terminal: str | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize pulse width channel with configuration."""

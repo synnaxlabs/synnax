@@ -16,6 +16,8 @@ from x.telem.series import (
     Series,
     TypedCrudeSeries,
     elapsed_seconds,
+    to_float,
+    to_int,
 )
 from x.telem.telem import (
     Alignment,
@@ -41,10 +43,9 @@ from x.telem.telem import (
 
 __all__ = [
     "Alignment",
-    "ClockSkewCalculator",
     "Authority",
     "Bounds",
-    "convert_time_units",
+    "ClockSkewCalculator",
     "CrudeAlignment",
     "CrudeAuthority",
     "CrudeDataType",
@@ -56,7 +57,6 @@ __all__ = [
     "CrudeTimeStamp",
     "DataType",
     "Density",
-    "elapsed_seconds",
     "MultiSeries",
     "Rate",
     "SampleValue",
@@ -68,5 +68,9 @@ __all__ = [
     "TimeSpanUnits",
     "TimeStamp",
     "TypedCrudeSeries",
+    "convert_time_units",
+    "elapsed_seconds",
     "seconds_linspace",
+    "to_float",
+    "to_int",
 ]
