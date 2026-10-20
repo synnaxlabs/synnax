@@ -224,9 +224,9 @@ type Authenticator interface {
 ```
 
 `Proof` is an Oracle union on `Method`, like `Tab` in the panel schema. `Identity` is a
-subject, a method, and a credential key. The service takes a `map[Method]Authenticator`
-in its config. A proof for a method not in the map is a validation error. An unknown
-username and a wrong password return the same error.
+subject and a credential key. The service takes a `map[Method]Authenticator` in its
+config. A proof for a method not in the map is a validation error. An unknown username
+and a wrong password return the same error.
 
 Credential management is not in the interface, because the operations differ: a person
 sets a password, creates a key, or links an account. Each method package has its own

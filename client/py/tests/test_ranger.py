@@ -29,7 +29,8 @@ from x.testutil import assert_eventually
 @pytest.mark.ranger
 class TestRangeClient:
     @pytest.fixture(scope="class")
-    def two_ranges(self, client: sy.Synnax) -> list[sy.Range]:
+    @classmethod
+    def two_ranges(cls, client: sy.Synnax) -> list[sy.Range]:
         return client.ranges.create(
             [
                 sy.Range(
@@ -145,6 +146,25 @@ class TestRangeClient:
         assert rng.name == two_ranges[0].name
         assert rng.key == two_ranges[0].key
 
+    def test_rename(self, client: sy.Synnax) -> None:
+        """Should rename a range."""
+        rng = client.ranges.create(
+            name="Before Rename",
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+        )
+        client.ranges.rename(rng.key, "After Rename")
+        assert client.ranges.retrieve(key=rng.key).name == "After Rename"
+
+    def test_rename_rejects_empty_name(self, client: sy.Synnax) -> None:
+        """Should reject renaming a range to an empty name."""
+        rng = client.ranges.create(
+            name="Before Rename",
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+        )
+        with pytest.raises(sy.ValidationError):
+            client.ranges.rename(rng.key, "")
+        assert client.ranges.retrieve(key=rng.key).name == "Before Rename"
+
     def test_create_rejects_empty_name(self, client: sy.Synnax) -> None:
         """Should reject creation of a range with an empty name (Pydantic min_length=1)"""
         with pytest.raises(pydantic.ValidationError):
@@ -156,7 +176,8 @@ class TestRangeClient:
     @pytest.mark.ranger
     class TestRangeDelete:
         @pytest.fixture(scope="class")
-        def rng(self, client: sy.Synnax) -> sy.Range:
+        @classmethod
+        def rng(cls, client: sy.Synnax) -> sy.Range:
             return client.ranges.create(
                 name="test",
                 time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
@@ -195,7 +216,8 @@ class TestRangeClient:
     @pytest.mark.ranger
     class TestRangeChannelResolution:
         @pytest.fixture(scope="class")
-        def rng(self, client: sy.Synnax) -> sy.Range:
+        @classmethod
+        def rng(cls, client: sy.Synnax) -> sy.Range:
             name = f"test_{random_name()}"
             return client.ranges.create(
                 name=name,
@@ -203,7 +225,8 @@ class TestRangeClient:
             )
 
         @pytest.fixture(scope="class", autouse=True)
-        def two_channels(self, client: sy.Synnax, rng: sy.Range) -> list[sy.Channel]:
+        @classmethod
+        def two_channels(cls, client: sy.Synnax, rng: sy.Range) -> list[sy.Channel]:
             prefix = re.sub(r"[^A-Za-z0-9_]", "", rng.name)
             return client.channels.create(
                 [

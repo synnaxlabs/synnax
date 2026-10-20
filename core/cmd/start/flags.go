@@ -23,6 +23,7 @@ const (
 	FlagData                         = "data"
 	FlagMem                          = "mem"
 	FlagInsecure                     = "insecure"
+	FlagFIPS                         = "fips"
 	FlagUsername                     = "username"
 	FlagPassword                     = "password"
 	FlagNoDriver                     = "no-driver"
@@ -69,6 +70,11 @@ func AddFlags(cmd *cobra.Command) {
 		"i",
 		false,
 		"Disable encryption, authentication, and authorization",
+	)
+	cmd.Flags().Bool(
+		FlagFIPS,
+		false,
+		"Restrict password hashing to PBKDF2, the one password hash NIST approves",
 	)
 	cmd.Flags().String(FlagUsername, "synnax", "Username for the admin user")
 	cmd.Flags().String(FlagPassword, "seldon", "Password for the admin user")

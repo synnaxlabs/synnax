@@ -166,6 +166,30 @@ func (s *Service) Retrieve(
 	return res, nil
 }
 
+// RenameRequest names the task to rename and the name to give it.
+type RenameRequest struct {
+	// Name is the new name. It must not be empty.
+	Name string `json:"name" msgpack:"name"`
+	// Key selects the task to rename.
+	Key task.Key `json:"key" msgpack:"key"`
+}
+
+// Rename renames the task. It requires update access on it.
+func (s *Service) Rename(
+	ctx context.Context,
+	tx gorp.Tx,
+	req RenameRequest,
+) (struct{}, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{task.OntologyID(req.Key)},
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.task.NewWriter(tx).Rename(ctx, req.Key, req.Name)
+}
+
 type DeleteRequest struct {
 	Keys []task.Key `json:"keys" msgpack:"keys"`
 }
