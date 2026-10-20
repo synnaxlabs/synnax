@@ -98,14 +98,13 @@ func UnarySuite(
 				}))
 				server.BindHandler(
 					func(ctx context.Context, req Request) (Response, error) {
-						return Response{}, nil
+						return Response{ID: req.ID}, nil
 					},
 				)
-				testutil.MustSucceed(client.Send(ctx, addr, Request{ID: 1}))
-				host := string(remote)
-				if h, _, err := net.SplitHostPort(host); err == nil {
-					host = h
-				}
+				gomega.Expect(client.Send(ctx, addr, Request{ID: 1})).
+					To(gomega.Equal(Response{ID: 1}))
+				host, _, err := net.SplitHostPort(string(remote))
+				gomega.Expect(err).ToNot(gomega.HaveOccurred())
 				ip := net.ParseIP(host)
 				gomega.Expect(ip).ToNot(gomega.BeNil())
 				gomega.Expect(ip.IsLoopback()).To(gomega.BeTrue())
