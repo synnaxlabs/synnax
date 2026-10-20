@@ -56,3 +56,32 @@ var _ = Describe("WorkspaceObjectsMigration", func() {
 		}))
 	})
 })
+
+var _ = Describe("NameMigration", func() {
+	migrated := func(ctx SpecContext, in v1.Policy) v1.Policy {
+		GinkgoHelper()
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		Expect(gorp.NewCreate[v1.Key, v1.Policy]().Entry(&in).Exec(ctx, db)).
+			To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "Policy",
+			Migrations: []migrate.Migration{v1.NameMigration},
+		})).To(Succeed())
+		var out v1.Policy
+		Expect(gorp.NewRetrieve[v1.Key, v1.Policy]().
+			Where(gorp.MatchKeys[v1.Key, v1.Policy](in.Key)).
+			Entry(&out).Exec(ctx, db)).To(Succeed())
+		return out
+	}
+	key := uuid.MustParse("1a2b3c4d-0000-0000-0000-000000000000")
+	DescribeTable(
+		"Should name only nameless policys",
+		func(ctx SpecContext, name, expected string) {
+			Expect(migrated(ctx, v1.Policy{Key: key, Name: name}).Name).
+				To(Equal(expected))
+		},
+		Entry("empty name", "", "Policy 1a2b3c4d"),
+		Entry("named policy", "Named", "Named"),
+	)
+})

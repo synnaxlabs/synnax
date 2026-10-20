@@ -24,7 +24,7 @@ export const groupZ = z.object({
   /** key is the unique identifier for this group. */
   key: keyZ,
   /** name is a human-readable name for the group. */
-  name: z.string(),
+  name: z.string().min(1, "name is required"),
 });
 export interface Group extends z.infer<typeof groupZ> {}
 
