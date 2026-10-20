@@ -216,3 +216,21 @@ class TestDownload:
         client.download("/echo", Message(id=1, message=big), out)
         parsed = Message.model_validate_json(out.read_bytes())
         assert parsed.message == big
+
+
+class TestContext:
+    def test_protocol_and_target(self, endpoint: URL) -> None:
+        """Should give middleware the protocol and the full request URL as target."""
+        client = HTTPClient(endpoint.child("unary"), JSONCodec())
+        contexts: list[Context] = []
+
+        def mw(ctx: Context, _: Next) -> Context:
+            contexts.append(ctx)
+            raise RuntimeError("stop")
+
+        client.use(mw)
+        with pytest.raises(RuntimeError, match="stop"):
+            client.send("/echo", Message(id=1, message="hello"), Message)
+        assert contexts[0].protocol == "http"
+        assert contexts[0].target == "http://localhost:8080/unary/echo/"
+        assert contexts[0].role == "client"
