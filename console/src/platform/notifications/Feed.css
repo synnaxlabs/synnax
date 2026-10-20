@@ -35,3 +35,57 @@
         }
     }
 }
+
+.console-inbox__trigger {
+    position: relative;
+
+    .console-inbox__badge {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        width: 0.875rem;
+        height: 0.875rem;
+        border-radius: 50%;
+        background: var(--pluto-primary-z);
+        box-shadow: 0 0 0 0.25rem var(--pluto-gray-l1);
+        pointer-events: none;
+
+        &.console--error {
+            background: var(--pluto-error-z);
+        }
+        &.console--warning {
+            background: var(--pluto-warning-z);
+        }
+    }
+}
+
+.console-inbox {
+    width: 310px;
+    max-height: 60vh;
+    display: flex;
+    flex-direction: column;
+
+    .console-inbox__header {
+        flex-shrink: 0;
+        padding: 1rem 1.5rem;
+        border-bottom: var(--pluto-border);
+    }
+    .console-inbox__list {
+        min-height: 0;
+        overflow-y: auto;
+        padding: 1rem;
+
+        > * {
+            flex-shrink: 0;
+        }
+        .pluto-notification {
+            width: 100%;
+            box-shadow: none;
+            animation: none;
+        }
+    }
+    .console-inbox__empty {
+        padding: 2rem;
+        text-align: center;
+    }
+}

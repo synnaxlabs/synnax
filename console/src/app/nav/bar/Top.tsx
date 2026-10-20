@@ -13,6 +13,7 @@ import { OS } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { useBottomActions } from "@/app/nav/bar/bottom";
+import { Notifications } from "@/app/notifications";
 import { Toolbars } from "@/app/toolbars";
 import { Core } from "@/feature/core";
 import { Docs } from "@/feature/docs";
@@ -81,6 +82,7 @@ export const Top = ({ secondary = false }: TopProps): ReactElement => {
         ) : (
           <>
             <Version.Badge />
+            <Notifications.Inbox />
             <Docs.OpenButton />
             {DESKTOP ? <Embedded.Indicator /> : <Core.Badge />}
           </>

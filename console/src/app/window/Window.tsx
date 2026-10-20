@@ -17,7 +17,6 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { OS } from "@synnaxlabs/pluto";
 import { memo, type ReactElement, useEffect } from "react";
 
-import { Notifications } from "@/app/notifications";
 import { Primary } from "@/app/window/Primary";
 import { Secondary } from "@/app/window/Secondary";
 import { ContextMenu } from "@/platform/context-menu";
@@ -70,7 +69,6 @@ export const Window = memo((): ReactElement | null => {
       onContextMenu={menuProps.open}
     >
       <Modals.Stack />
-      <Notifications.Feed />
       <Menu.ContextMenu menu={menu} {...menuProps}>
         {isMain ? <Primary /> : <Secondary />}
       </Menu.ContextMenu>

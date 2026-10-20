@@ -11,8 +11,12 @@ import "@/platform/notifications/Feed.css";
 
 import { type status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { location, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -74,15 +78,21 @@ interface FeedProps {
 
 const VISIBLE_CAP = 4;
 
-export const Feed = ({ notifications }: FeedProps): ReactElement => {
-  const { statuses, silence, silenceAll } = Status.useNotifications();
-  const [expanded, setExpanded] = useState(false);
-  const rendered = statuses
+const resolve = (
+  statuses: Status.NotificationSpec[],
+  notifications: Notification[],
+): { status: Status.NotificationSpec; Render: Notification }[] =>
+  statuses
     .map((status) => ({
       status,
       Render: notifications.find((n) => n.match(status)) ?? Default,
     }))
     .filter(({ Render }) => Render.suppress !== true);
+
+export const Feed = ({ notifications }: FeedProps): ReactElement => {
+  const { statuses, silence, silenceAll } = Status.useNotifications();
+  const [expanded, setExpanded] = useState(false);
+  const rendered = resolve(statuses, notifications);
   const overflow = rendered.length - VISIBLE_CAP;
   const showAll = expanded && overflow > 0;
   useEffect(() => {
@@ -117,5 +127,78 @@ export const Feed = ({ notifications }: FeedProps): ReactElement => {
       )}
     </Flex.Box>,
     document.getElementById("root") as HTMLElement,
+  );
+};
+
+const INBOX_EXPIRATION = TimeSpan.days(1);
+
+/**
+ * A bell button that holds notifications in a dropdown instead of popping them up. A
+ * dot on the bell marks notifications that arrived since the dropdown last opened.
+ */
+export const Inbox = ({ notifications }: FeedProps): ReactElement => {
+  const { statuses, silence, silenceAll } = Status.useNotifications({
+    expiration: INBOX_EXPIRATION,
+  });
+  const [visible, setVisible] = useState(false);
+  const [lastSeen, setLastSeen] = useState(() => TimeStamp.now());
+  const rendered = resolve(statuses, notifications).sort((a, b) =>
+    Number(b.status.time.valueOf() - a.status.time.valueOf()),
+  );
+  const unread = rendered.filter(({ status }) => status.time.after(lastSeen));
+  const unreadVariant = unread.some(({ status }) => status.variant === "error")
+    ? "error"
+    : unread.some(({ status }) => status.variant === "warning")
+      ? "warning"
+      : "info";
+  useEffect(() => setLastSeen(TimeStamp.now()), [visible]);
+  return (
+    <Dialog.Frame
+      visible={visible}
+      onVisibleChange={setVisible}
+      location={location.BOTTOM_RIGHT}
+    >
+      <Dialog.Trigger
+        hideCaret
+        size="small"
+        variant="text"
+        tooltip="Notifications"
+        tooltipLocation={location.BOTTOM_LEFT}
+        className={CSS.BE("inbox", "trigger")}
+      >
+        <Icon.Notification />
+        {unread.length > 0 && (
+          <span className={CSS.cls(CSS.BE("inbox", "badge"), CSS.M(unreadVariant))} />
+        )}
+      </Dialog.Trigger>
+      <Dialog.Dialog background={1} pack={false} className={CSS.B("inbox")}>
+        <Flex.Box
+          x
+          justify="between"
+          align="center"
+          className={CSS.BE("inbox", "header")}
+        >
+          <Text.Text level="small" weight={500} color={10}>
+            Notifications
+          </Text.Text>
+          {rendered.length > 0 && (
+            <Button.Button size="small" variant="text" onClick={silenceAll}>
+              Clear all
+            </Button.Button>
+          )}
+        </Flex.Box>
+        <Flex.Box y gap="small" className={CSS.BE("inbox", "list")}>
+          {rendered.length === 0 ? (
+            <Text.Text level="small" color={9} className={CSS.BE("inbox", "empty")}>
+              No notifications
+            </Text.Text>
+          ) : (
+            rendered.map(({ status, Render }) => (
+              <Render key={status.key} status={status} silence={silence} />
+            ))
+          )}
+        </Flex.Box>
+      </Dialog.Dialog>
+    </Dialog.Frame>
   );
 };

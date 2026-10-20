@@ -23,3 +23,5 @@ const NOTIFICATIONS: Notifications.Notification[] = [
 ];
 
 export const Feed = () => <Notifications.Feed notifications={NOTIFICATIONS} />;
+
+export const Inbox = () => <Notifications.Inbox notifications={NOTIFICATIONS} />;
