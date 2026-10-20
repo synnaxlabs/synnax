@@ -21,4 +21,5 @@ var Migrations = []migrate.Migration{
 	v0.Migration,
 	v1.Migration,
 	v1.WorkspaceObjectsMigration,
+	v1.NameMigration,
 }

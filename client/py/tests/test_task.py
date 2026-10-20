@@ -34,6 +34,19 @@ class TestTaskClient:
         assert tasks[0].name == "test1"
         assert tasks[1].name == "test2"
 
+    def test_rename(self, client: sy.Synnax) -> None:
+        """Should rename a task and keep its config."""
+        task = client.tasks.create(
+            name="Before Rename",
+            type="pagerduty_alert",
+            config={"routing_key": "abc"},
+        )
+        client.tasks.rename(task.key, "After Rename")
+        renamed = client.tasks.retrieve(key=task.key)
+        assert renamed.name == "After Rename"
+        assert renamed.config == task.config
+        assert renamed.config["routing_key"] == "abc"
+
     def test_retrieve_by_name(self, client: sy.Synnax) -> None:
         name = str(uuid4())
         task = client.tasks.create(name=name, type="pagerduty_alert")
@@ -53,7 +66,7 @@ class TestTaskClient:
     def test_retrieve_by_type(self, client: sy.Synnax) -> None:
         # Task types are a fixed, registered set, so the filter cannot be made unique
         # the way the name and model tests do. Assert membership instead of identity.
-        task = client.tasks.create(type="labjack_scan")
+        task = client.tasks.create(name="test", type="labjack_scan")
         res = client.tasks.retrieve(types=["labjack_scan"])
         assert all(t.type == "labjack_scan" for t in res)
         assert task.key in {t.key for t in res}

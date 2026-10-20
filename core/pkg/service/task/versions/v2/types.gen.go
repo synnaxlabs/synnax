@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a task.
@@ -73,6 +74,14 @@ type Task struct {
 	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
 	// Status is the current execution status of the task.
 	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (t Task) Validate() error {
+	v := validate.New("Task")
+	v.NotEmptyString("name", t.Name)
+	return v.Error()
 }
 
 // KeyedConfig is the base for every stored task configuration record.

@@ -19,6 +19,7 @@ import (
 	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v0"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a saved view configuration.
@@ -44,6 +45,14 @@ type RangeView struct {
 
 func (RangeView) isViewVariant() {}
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r RangeView) Validate() error {
+	v := validate.New("RangeView")
+	v.Exec(r.Base.Validate)
+	return v.Error()
+}
+
 // StatusView is a saved view of statuses.
 type StatusView struct {
 	Base
@@ -52,6 +61,14 @@ type StatusView struct {
 }
 
 func (StatusView) isViewVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s StatusView) Validate() error {
+	v := validate.New("StatusView")
+	v.Exec(s.Base.Validate)
+	return v.Error()
+}
 
 // View is a saved, named filter over a list of resources. The type selects the resource
 // the view lists and the shape of its query.
@@ -115,12 +132,32 @@ func (u *View) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// Validate returns an error wrapping validate.ErrValidation if the active variant
+// violates its schema constraints.
+func (u View) Validate() error {
+	switch variant := u.Variant.(type) {
+	case RangeView:
+		return variant.Validate()
+	case StatusView:
+		return variant.Validate()
+	}
+	return nil
+}
+
 // Base carries the fields shared by every view variant.
 type Base struct {
 	// Key is the unique identifier for this view.
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the view.
 	Name string `json:"name" msgpack:"name"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (b Base) Validate() error {
+	v := validate.New("Base")
+	v.NotEmptyString("name", b.Name)
+	return v.Error()
 }
 
 // RangeQuery filters the ranges shown by a range view.
