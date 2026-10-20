@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from contextvars import ContextVar
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -134,7 +135,11 @@ class Client:
         self.session = None
         self.user = None
         self.authenticated = False
-        self._logout_token: str | None = None
+        # Scoped to the caller's thread or task, so only the logout's own request
+        # carries the ended token.
+        self._logout_token: ContextVar[str | None] = ContextVar(
+            "logout_token", default=None
+        )
 
     def authenticate(self) -> None:
         """Opens a session with the stored proof."""
@@ -229,7 +234,7 @@ class Client:
         """
         if not self.authenticated or self.session is None:
             return
-        key, self._logout_token = self.session.key, self.token
+        key, reset = self.session.key, self._logout_token.set(self.token)
         self.authenticated = False
         self.token = ""
         self.session = None
@@ -238,7 +243,7 @@ class Client:
         except RETRY_ON_ERRORS:
             pass
         finally:
-            self._logout_token = None
+            self._logout_token.reset(reset)
 
     def _forget(self, token: str) -> None:
         # A failure on an older session must not erase one logged in since.
@@ -253,8 +258,9 @@ class Client:
             return False
         # A logout ends the session its token belongs to; a dead one must not log in
         # again.
-        if self._logout_token is not None and target.endswith(SESSION_DELETE_ENDPOINT):
-            ctx.set(AUTHORIZATION_HEADER, TOKEN_PREFIX + self._logout_token)
+        logout_token = self._logout_token.get()
+        if logout_token is not None and target.endswith(SESSION_DELETE_ENDPOINT):
+            ctx.set(AUTHORIZATION_HEADER, TOKEN_PREFIX + logout_token)
             return False
         if not self.authenticated:
             self.authenticate()
