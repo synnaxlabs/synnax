@@ -248,25 +248,14 @@ func generateRetrieveFile(
 		)
 	}
 
-	// Index-routed filters use the index's .Filter(...) method, so only non-indexed,
-	// non-slice variadic filters need set.Contains.
-	hasVariadicFilter := lo.SomeBy(infos, func(i retrieveInfo) bool {
+	// Index-routed filters use the index's .Filter(...) method, so only slice and
+	// non-indexed variadic filters need slices.Contains.
+	needsSlices := lo.SomeBy(infos, func(i retrieveInfo) bool {
 		return lo.SomeBy(i.Filters, func(f filterInfo) bool {
-			return !f.IsScalar && !f.IsSlice && f.IndexFieldName == ""
+			return f.IsSlice || (!f.IsScalar && f.IndexFieldName == "")
 		})
 	})
-	if hasVariadicFilter {
-		imps.AddInternal(
-			"set",
-			gomod.ResolveImportPath("x/go/set", repoRoot, gomod.DefaultModulePrefix),
-		)
-	}
-
-	// Check if any info needs the slices stdlib package for slice-contains filters.
-	hasArrayFilter := lo.SomeBy(infos, func(i retrieveInfo) bool {
-		return lo.SomeBy(i.Filters, func(f filterInfo) bool { return f.IsSlice })
-	})
-	if hasArrayFilter {
+	if needsSlices {
 		imps.AddExternal("slices")
 	}
 
@@ -679,18 +668,15 @@ func Match{{.GoName}}(v {{.GoType}}) Filter {
 // {{$ret.GoName | toLower | pluralize}} whose {{.GoName}} matches any of the
 // provided values.
 func Match{{.GoName | pluralize}}(vals ...{{.GoType}}) Filter {
-{{- if .IndexFieldName}}
 	return func(r Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
+{{- if .IndexFieldName}}
 		return r.indexes.{{.IndexFieldName}}.Filter(vals...)
-	}
 {{- else}}
-	contains := set.Contains(vals...)
-	return func(Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
 		return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
-			return contains(e.{{.GoName}}), nil
+			return slices.Contains(vals, e.{{.GoName}}), nil
 		})
-	}
 {{- end}}
+	}
 }
 {{end}}
 {{- end}}

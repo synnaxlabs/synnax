@@ -79,7 +79,7 @@ var _ = Describe("Go Query Plugin", func() {
 						ToNotContain(
 							"Search(",
 							"execSearch",
-							"x/go/set\"",
+							"\"slices\"",
 						)
 				},
 			)
@@ -255,7 +255,7 @@ var _ = Describe("Go Query Plugin", func() {
 					).
 					ToNotContain(
 						"MatchInternals(",
-						"set.Contains(",
+						"slices.Contains(vals",
 						"func (r Retrieve) MatchInternal(",
 					)
 			})
@@ -309,8 +309,7 @@ var _ = Describe("Go Query Plugin", func() {
 					ToContain(
 						"type Filter = gorp.BoundFilter[Retrieve, uuid.UUID, User]",
 						"func MatchUsernames(vals ...string) Filter",
-						"contains := set.Contains(vals...)\n\treturn func(Retrieve)",
-						"contains(e.Username)",
+						"slices.Contains(vals, e.Username)",
 					).
 					ToNotContain("func (r Retrieve) MatchUsernames(")
 			})
@@ -378,7 +377,7 @@ var _ = Describe("Go Query Plugin", func() {
 						ToContain(
 							"type Filter = gorp.BoundFilter[Retrieve, string, Device]",
 							"func MatchRacks(vals ...rack.Key) Filter",
-							"contains(e.Rack)",
+							"slices.Contains(vals, e.Rack)",
 						).
 						ToNotContain("func (r Retrieve) MatchRacks(")
 				},
@@ -470,7 +469,7 @@ var _ = Describe("Go Query Plugin", func() {
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
 							"func MatchNames(vals ...string) Filter",
-							"return func(Retrieve) gorp.Filter[uint32, Rack]",
+							"return func(r Retrieve) gorp.Filter[uint32, Rack]",
 						)
 				},
 			)
@@ -688,12 +687,12 @@ var _ = Describe("Go Query Plugin", func() {
 							"\"context\"",
 						).
 						ToNotContain(
-							"x/go/set\"",
+							"\"slices\"",
 						)
 				},
 			)
 
-			It("Should import set for variadic filters", func(ctx SpecContext) {
+			It("Should import slices for variadic filters", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/service/user"
 
@@ -711,10 +710,10 @@ var _ = Describe("Go Query Plugin", func() {
 				resp := MustGenerate(ctx, source, "user", loader, p)
 
 				ExpectContent(resp, "retrieve.gen.go").
-					ToContain("x/go/set\"")
+					ToContain("\"slices\"")
 			})
 
-			It("Should not import set for bool-only filters", func(ctx SpecContext) {
+			It("Should not import slices for bool-only filters", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/service/task"
 
@@ -732,7 +731,7 @@ var _ = Describe("Go Query Plugin", func() {
 				resp := MustGenerate(ctx, source, "task", loader, p)
 
 				ExpectContent(resp, "retrieve.gen.go").
-					ToNotContain("x/go/set\"")
+					ToNotContain("\"slices\"")
 			})
 
 			It("Should import search and ontology for @search", func(ctx SpecContext) {
@@ -850,7 +849,7 @@ var _ = Describe("Go Query Plugin", func() {
 							"ByUsername",
 							"OrderByUsername",
 							"gorp.NewSortedIndex",
-							"set.Contains(",
+							"slices.Contains(vals",
 						)
 				},
 			)

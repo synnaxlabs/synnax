@@ -13,12 +13,12 @@ package channel
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -116,10 +116,9 @@ func MatchKeys(keys ...Key) Filter {
 // channels whose Leaseholder matches any of the
 // provided values.
 func MatchLeaseholders(vals ...node.Key) Filter {
-	contains := set.Contains(vals...)
-	return func(Retrieve) gorp.Filter[Key, Channel] {
+	return func(r Retrieve) gorp.Filter[Key, Channel] {
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
-			return contains(e.Leaseholder), nil
+			return slices.Contains(vals, e.Leaseholder), nil
 		})
 	}
 }
@@ -128,10 +127,9 @@ func MatchLeaseholders(vals ...node.Key) Filter {
 // channels whose DataType matches any of the
 // provided values.
 func MatchDataTypes(vals ...telem.DataType) Filter {
-	contains := set.Contains(vals...)
-	return func(Retrieve) gorp.Filter[Key, Channel] {
+	return func(r Retrieve) gorp.Filter[Key, Channel] {
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
-			return contains(e.DataType), nil
+			return slices.Contains(vals, e.DataType), nil
 		})
 	}
 }

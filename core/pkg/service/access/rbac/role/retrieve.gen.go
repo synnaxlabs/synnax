@@ -13,11 +13,11 @@ package role
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/set"
 )
 
 // Retrieve is used to retrieve Role records from the database using a
@@ -79,10 +79,9 @@ func MatchKeys(keys ...Key) Filter {
 // roles whose Name matches any of the
 // provided values.
 func MatchNames(vals ...string) Filter {
-	contains := set.Contains(vals...)
-	return func(Retrieve) gorp.Filter[Key, Role] {
+	return func(r Retrieve) gorp.Filter[Key, Role] {
 		return gorp.Match(func(_ gorp.Context, e *Role) (bool, error) {
-			return contains(e.Name), nil
+			return slices.Contains(vals, e.Name), nil
 		})
 	}
 }

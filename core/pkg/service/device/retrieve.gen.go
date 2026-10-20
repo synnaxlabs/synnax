@@ -13,12 +13,12 @@ package device
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/set"
 )
 
 // Retrieve is used to retrieve Device records from the database using a
@@ -80,10 +80,9 @@ func MatchKeys(keys ...Key) Filter {
 // devices whose Rack matches any of the
 // provided values.
 func MatchRacks(vals ...rack.Key) Filter {
-	contains := set.Contains(vals...)
-	return func(Retrieve) gorp.Filter[Key, Device] {
+	return func(r Retrieve) gorp.Filter[Key, Device] {
 		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
-			return contains(e.Rack), nil
+			return slices.Contains(vals, e.Rack), nil
 		})
 	}
 }
@@ -92,10 +91,9 @@ func MatchRacks(vals ...rack.Key) Filter {
 // devices whose Location matches any of the
 // provided values.
 func MatchLocations(vals ...string) Filter {
-	contains := set.Contains(vals...)
-	return func(Retrieve) gorp.Filter[Key, Device] {
+	return func(r Retrieve) gorp.Filter[Key, Device] {
 		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
-			return contains(e.Location), nil
+			return slices.Contains(vals, e.Location), nil
 		})
 	}
 }
@@ -104,10 +102,9 @@ func MatchLocations(vals ...string) Filter {
 // devices whose Make matches any of the
 // provided values.
 func MatchMakes(vals ...string) Filter {
-	contains := set.Contains(vals...)
-	return func(Retrieve) gorp.Filter[Key, Device] {
+	return func(r Retrieve) gorp.Filter[Key, Device] {
 		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
-			return contains(e.Make), nil
+			return slices.Contains(vals, e.Make), nil
 		})
 	}
 }
@@ -116,10 +113,9 @@ func MatchMakes(vals ...string) Filter {
 // devices whose Model matches any of the
 // provided values.
 func MatchModels(vals ...string) Filter {
-	contains := set.Contains(vals...)
-	return func(Retrieve) gorp.Filter[Key, Device] {
+	return func(r Retrieve) gorp.Filter[Key, Device] {
 		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
-			return contains(e.Model), nil
+			return slices.Contains(vals, e.Model), nil
 		})
 	}
 }
@@ -128,10 +124,9 @@ func MatchModels(vals ...string) Filter {
 // devices whose Name matches any of the
 // provided values.
 func MatchNames(vals ...string) Filter {
-	contains := set.Contains(vals...)
-	return func(Retrieve) gorp.Filter[Key, Device] {
+	return func(r Retrieve) gorp.Filter[Key, Device] {
 		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
-			return contains(e.Name), nil
+			return slices.Contains(vals, e.Name), nil
 		})
 	}
 }
