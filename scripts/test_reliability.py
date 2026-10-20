@@ -7,17 +7,22 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import ast
 import subprocess
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from reliability import (
     JOB_NAME,
     Cases,
+    auto_pass,
+    ci_jobs,
     enumerate_tests,
     integration_sources,
     os_of,
+    suite_jobs,
 )
 
 FILES = {
@@ -192,6 +197,10 @@ class TestCases:
             "macos": "Windows DAQmx drivers required",
         }
 
+    def test_should_resolve_a_matrix_name_to_its_class(self) -> None:
+        case = Cases(CASES).resolve("driver/ni", "NIRead_65537")
+        assert case.source == "integration/tests/driver/ni.py#L6"
+
     def test_should_skip_a_not_windows_case_on_windows(self) -> None:
         case = Cases(CASES).resolve("driver/ni", "NIMissing")
         assert case.tags == ["headless", "driver", "not-windows"]
@@ -200,6 +209,28 @@ class TestCases:
     def test_should_reject_a_name_matching_no_class(self) -> None:
         with pytest.raises(ValueError, match="no class for driver/ni › ni"):
             Cases(CASES).resolve("driver/ni", "ni")
+
+
+class TestAutoPass:
+    """Auto-pass messages read from a platform gate."""
+
+    @pytest.mark.parametrize(
+        ("msg", "reason"),
+        [
+            ('"Windows only"', "Windows only"),
+            ("5", "Auto-passed"),
+            ("None", "Auto-passed"),
+        ],
+    )
+    def test_should_read_a_string_message_and_fall_back_otherwise(
+        self, msg: str, reason: str
+    ) -> None:
+        node = ast.parse(
+            'if platform.system().lower() != "windows":\n'
+            f"    self.auto_pass(msg={msg})\n"
+        ).body[0]
+        assert isinstance(node, ast.If)
+        assert auto_pass(node, "linux") == reason
 
 
 class TestOsOf:
@@ -244,3 +275,61 @@ class TestJobName:
     )
     def test_should_reject_other_jobs(self, name: str) -> None:
         assert JOB_NAME.match(name) is None
+
+
+class TestCiJobs:
+    """CI jobs read from the run of a workflow."""
+
+    def test_should_keep_every_job_of_a_ci_run(self) -> None:
+        jobs = [{"name": "core / Test (ubuntu-latest)"}, {"name": "changes"}]
+        assert ci_jobs(".github/workflows/ci.yaml", jobs) == jobs
+
+    def test_should_keep_only_called_ci_jobs_without_their_prefix(self) -> None:
+        jobs = [
+            {"name": "CI / core / Test (ubuntu-latest)", "conclusion": "success"},
+            {"name": "CI / integration / Test (windows) / arc"},
+            {"name": "Publish Core"},
+        ]
+        assert ci_jobs(".github/workflows/release.yaml", jobs) == [
+            {"name": "core / Test (ubuntu-latest)", "conclusion": "success"},
+            {"name": "integration / Test (windows) / arc"},
+        ]
+
+    def test_should_return_nothing_for_a_workflow_that_does_not_call_ci(
+        self,
+    ) -> None:
+        jobs = [{"name": "Deploy"}]
+        assert ci_jobs(".github/workflows/deploy.docs.yaml", jobs) == []
+
+
+def job(name: str, runner: str, conclusion: str = "success") -> dict[str, Any]:
+    return {"name": name, "labels": [runner], "conclusion": conclusion}
+
+
+class TestSuiteJobs:
+    """Unit suites read from CI jobs."""
+
+    def test_should_key_a_suite_by_its_job_and_os(self) -> None:
+        core = job("core / Test (macos-latest)", "macos-latest")
+        assert suite_jobs([core, job("changes", "ubuntu-latest")]) == {
+            ("core", "macos"): core
+        }
+
+    def test_should_report_a_sharded_suite_through_a_shard_that_failed(self) -> None:
+        failed = job("console / Test (ubuntu-latest, 2/3)", "ubuntu-latest", "failure")
+        assert suite_jobs(
+            [
+                job("console / Test (ubuntu-latest, 1/3)", "ubuntu-latest"),
+                failed,
+                job("console / Test (ubuntu-latest, 3/3)", "ubuntu-latest"),
+            ]
+        ) == {("console", "ubuntu"): failed}
+
+    def test_should_leave_out_unlisted_jobs(self) -> None:
+        assert suite_jobs([job("www / Test (ubuntu-latest)", "ubuntu-latest")]) == {}
+
+    def test_should_reject_a_job_with_no_entry(self) -> None:
+        with pytest.raises(
+            ValueError, match="no JOBS or UNLISTED entry for new / Test"
+        ):
+            suite_jobs([job("new / Test", "ubuntu-latest")])

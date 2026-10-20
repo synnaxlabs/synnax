@@ -12,7 +12,7 @@ import { type MultiSeries, Series, sleep, TimeSpan, TimeStamp } from "@synnaxlab
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { type channel } from "@/channel";
-import { UnexpectedError } from "@/errors";
+import { NotFoundError, UnexpectedError } from "@/errors";
 import { type framer } from "@/framer";
 import { Cache } from "@/framer/cache/cache";
 import { MultiplexedStreamer, type StreamHooks } from "@/framer/cache/streamer";
@@ -144,6 +144,146 @@ describe("MultiplexedStreamer", () => {
   });
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  describe("key rejections", () => {
+    const BAD = 3;
+    const channelsOf = (config: framer.StreamerConfig): channel.Key[] =>
+      (typeof config === "object" && "channels" in config
+        ? config.channels
+        : config) as channel.Key[];
+    const rejectingStreamer = (keys: channel.Key[]): MockStreamer => {
+      const ms = pendingStreamer(keys);
+      ms.update = async (next) => {
+        if ((next as channel.Key[]).includes(BAD))
+          throw new NotFoundError(`channel ${BAD} not found`);
+        ms.updateVi(next);
+      };
+      return ms;
+    };
+
+    it("should stream every other key when the open rejects one", async () => {
+      const opened: channel.Key[][] = [];
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: async (config) => {
+          const keys = channelsOf(config);
+          opened.push(keys);
+          if (keys.includes(BAD)) throw new NotFoundError(`channel ${BAD} not found`);
+          return rejectingStreamer(keys);
+        },
+        instrumentation: createErrorSpy().instrumentation,
+      });
+      const sub = streamer.stream(() => {}, [1, 2, BAD]);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(sub.status(1).variant).toEqual("success");
+      expect(sub.status(2).variant).toEqual("success");
+      expect(sub.status(BAD).variant).toEqual("error");
+      const opens = opened.length;
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(opened).toHaveLength(opens);
+      await streamer.close();
+    });
+
+    it("should stream a key opened after a rejected one", async () => {
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: async (config) => {
+          const keys = channelsOf(config);
+          if (keys.includes(BAD)) throw new NotFoundError(`channel ${BAD} not found`);
+          return rejectingStreamer(keys);
+        },
+        instrumentation: createErrorSpy().instrumentation,
+      });
+      const sub = streamer.stream(() => {}, [BAD, 1]);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(sub.status(1).variant).toEqual("success");
+      expect(sub.status(BAD).variant).toEqual("error");
+      await streamer.close();
+    });
+
+    it("should keep a rejected key's error when no other key is demanded", async () => {
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: async () => {
+          throw new NotFoundError(`channel ${BAD} not found`);
+        },
+        instrumentation: createErrorSpy().instrumentation,
+      });
+      const sub = streamer.stream(() => {}, [BAD]);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(sub.status(BAD).variant).toEqual("error");
+      await streamer.close();
+    });
+
+    it("should give each opened stream its own abort signal", async () => {
+      const hooks: StreamHooks[] = [];
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: createStreamOpener(
+          [pendingStreamer([1]), pendingStreamer([1])],
+          hooks,
+        ),
+        removalDelay: TimeSpan.milliseconds(10),
+      });
+      const first = streamer.stream(() => {}, [1]);
+      await vi.advanceTimersByTimeAsync(200);
+      first.close();
+      await vi.advanceTimersByTimeAsync(500);
+      streamer.stream(() => {}, [1]);
+      await vi.advanceTimersByTimeAsync(200);
+      expect(hooks).toHaveLength(2);
+      expect(hooks[0].signal).not.toBe(hooks[1].signal);
+      await streamer.close();
+      expect(hooks[0].signal.aborted).toBe(false);
+      expect(hooks[1].signal.aborted).toBe(true);
+    });
+
+    it("should keep streaming when an update adds a rejected key", async () => {
+      const ms = rejectingStreamer([1]);
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: createStreamOpener([ms]),
+        instrumentation: createErrorSpy().instrumentation,
+      });
+      const first = streamer.stream(() => {}, [1]);
+      await vi.advanceTimersByTimeAsync(200);
+      const second = streamer.stream(() => {}, [2, BAD]);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(first.status(1).variant).toEqual("success");
+      expect(second.status(2).variant).toEqual("success");
+      expect(second.status(BAD).variant).toEqual("error");
+      expect(ms.updateVi).toHaveBeenLastCalledWith([1, 2]);
+      await streamer.close();
+    });
+
+    it("should retry a rejected key once its demand returns", async () => {
+      let attempts = 0;
+      const ms = rejectingStreamer([1]);
+      const update = ms.update.bind(ms);
+      ms.update = async (next) => {
+        if ((next as channel.Key[]).includes(BAD)) attempts++;
+        await update(next);
+      };
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: createStreamOpener([ms]),
+        removalDelay: TimeSpan.milliseconds(10),
+        instrumentation: createErrorSpy().instrumentation,
+      });
+      streamer.stream(() => {}, [1]);
+      await vi.advanceTimersByTimeAsync(200);
+      const bad = streamer.stream(() => {}, [BAD]);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(attempts).toBe(1);
+      bad.close();
+      await vi.advanceTimersByTimeAsync(1000);
+      const again = streamer.stream(() => {}, [BAD]);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(attempts).toBe(2);
+      expect(again.status(BAD).variant).toEqual("error");
+      await streamer.close();
+    });
   });
 
   describe("construction", () => {

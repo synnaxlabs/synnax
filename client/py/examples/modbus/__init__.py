@@ -11,4 +11,4 @@
 
 from .server import ModbusSim, run_server
 
-__all__ = ["run_server", "ModbusSim"]
+__all__ = ["ModbusSim", "run_server"]

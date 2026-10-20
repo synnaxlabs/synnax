@@ -10,20 +10,16 @@
 import { type breaker, sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import Synnax from "@/client";
 import { DisconnectedError, isConnectionError } from "@/errors";
 import {
-  createSeverableProxy,
+  createProxiedTestClient,
   FAST_RETRY,
-  type SeverableProxy,
-  TEST_CLIENT_PARAMS,
+  type ProxiedTestClient,
   waitForStatus,
   waitForStreamLive,
 } from "@/testutil";
 
-interface ProxiedClient {
-  proxy: SeverableProxy;
-  client: Synnax;
+interface ProxiedClient extends ProxiedTestClient {
   internal: Error[];
   retries: Error[];
 }
@@ -31,14 +27,9 @@ interface ProxiedClient {
 const createProxiedClient = async (
   retry: breaker.Config = FAST_RETRY,
 ): Promise<ProxiedClient> => {
-  const proxy = await createSeverableProxy();
   const internal: Error[] = [];
   const retries: Error[] = [];
-  const client = new Synnax({
-    host: "localhost",
-    port: proxy.port,
-    username: TEST_CLIENT_PARAMS.username,
-    password: TEST_CLIENT_PARAMS.password,
+  const { proxy, client } = await createProxiedTestClient({
     retry,
     onInternalError: (error) => internal.push(error),
     onRetry: (error) => retries.push(error),
@@ -59,63 +50,51 @@ const chainOf = (err: unknown): string => {
 describe("downtime", () => {
   it("should reconnect to the same cluster after escalated downtime", async () => {
     const { proxy, client, internal, retries } = await createProxiedClient();
-    try {
-      await client.connect();
-      const firstKey = client.connection.status.details.clusterKey;
-      const project = await client.projects.create({ name: "survivor" });
-      await client.projects.retrieve({ keys: [project.key] });
-      await proxy.sever();
-      // The default 30s heartbeat cannot notice the outage this fast: reaching
-      // error proves the dropped change stream drove the state machine.
-      await waitForStatus(
-        client.connection,
-        ({ variant, details }) =>
-          variant === "error" && details.reason === "unreachable",
-      );
-      // A cached read never leaves the process, so it survives the outage.
-      const offline = await client.projects.retrieve({ keys: [project.key] });
-      expect(offline).toHaveLength(1);
-      // A write must reach the cluster, so it short-circuits instead of hanging.
-      await expect(client.projects.create({ name: "unreachable" })).rejects.toThrow(
-        DisconnectedError,
-      );
-      await proxy.restore();
-      const status = await waitForStreamLive(client.connection);
-      expect(status.details.clusterKey).toBe(firstKey);
-      // A fresh write proves the unary path recovered, not just the check loop.
-      const recovered = await client.projects.create({ name: "recovered" });
-      expect(recovered.name).toBe("recovered");
-      expect(internal.map(chainOf)).toEqual([]);
-      expect(retries).not.toHaveLength(0);
-    } finally {
-      await client.close();
-      await proxy.close();
-    }
+    await client.connect();
+    const firstKey = client.connection.status.details.clusterKey;
+    const project = await client.projects.create({ name: "survivor" });
+    await client.projects.retrieve({ keys: [project.key] });
+    await proxy.sever();
+    // The default 30s heartbeat cannot notice the outage this fast: reaching
+    // error proves the dropped change stream drove the state machine.
+    await waitForStatus(
+      client.connection,
+      ({ variant, details }) => variant === "error" && details.reason === "unreachable",
+    );
+    // A cached read never leaves the process, so it survives the outage.
+    const offline = await client.projects.retrieve({ keys: [project.key] });
+    expect(offline).toHaveLength(1);
+    // A write must reach the cluster, so it short-circuits instead of hanging.
+    await expect(client.projects.create({ name: "unreachable" })).rejects.toThrow(
+      DisconnectedError,
+    );
+    await proxy.restore();
+    const status = await waitForStreamLive(client.connection);
+    expect(status.details.clusterKey).toBe(firstKey);
+    // A fresh write proves the unary path recovered, not just the check loop.
+    const recovered = await client.projects.create({ name: "recovered" });
+    expect(recovered.name).toBe("recovered");
+    expect(internal.map(chainOf)).toEqual([]);
+    expect(retries).not.toHaveLength(0);
   });
 
   it("should classify wire and short-circuit failures alike as connection errors", async () => {
     const { proxy, client, internal } = await createProxiedClient();
-    try {
-      await client.connect();
-      await proxy.sever();
-      // Still degraded, so the request reaches the wire and dies there.
-      await expect(client.projects.create({ name: "on-the-wire" })).rejects.toSatisfy(
-        isConnectionError,
-      );
-      await waitForStatus(
-        client.connection,
-        ({ variant, details }) =>
-          variant === "error" && details.reason === "unreachable",
-      );
-      // Escalated, so the connection short circuits before the wire.
-      await expect(
-        client.projects.create({ name: "short-circuited" }),
-      ).rejects.toSatisfy(isConnectionError);
-      expect(internal.map(chainOf)).toEqual([]);
-    } finally {
-      await client.close();
-      await proxy.close();
-    }
+    await client.connect();
+    await proxy.sever();
+    // Still degraded, so the request reaches the wire and dies there.
+    await expect(client.projects.create({ name: "on-the-wire" })).rejects.toSatisfy(
+      isConnectionError,
+    );
+    await waitForStatus(
+      client.connection,
+      ({ variant, details }) => variant === "error" && details.reason === "unreachable",
+    );
+    // Escalated, so the connection short circuits before the wire.
+    await expect(client.projects.create({ name: "short-circuited" })).rejects.toSatisfy(
+      isConnectionError,
+    );
+    expect(internal.map(chainOf)).toEqual([]);
   });
 
   it("should carry an in-flight request through a brief blip", async () => {
@@ -125,21 +104,16 @@ describe("downtime", () => {
       baseInterval: TimeSpan.milliseconds(250),
       scale: 1.5,
     });
-    try {
-      await client.connect();
-      await proxy.sever();
-      // A create cannot be served from cache, so the breaker must retry it
-      // across the outage and land it once the link returns.
-      const inFlight = client.projects.create({ name: "blip" });
-      await sleep.sleep(TimeSpan.milliseconds(50));
-      await proxy.restore();
-      const created = await inFlight;
-      expect(created.name).toBe("blip");
-      await waitForStreamLive(client.connection);
-      expect(internal.map(chainOf)).toEqual([]);
-    } finally {
-      await client.close();
-      await proxy.close();
-    }
+    await client.connect();
+    await proxy.sever();
+    // A create cannot be served from cache, so the breaker must retry it
+    // across the outage and land it once the link returns.
+    const inFlight = client.projects.create({ name: "blip" });
+    await sleep.sleep(TimeSpan.milliseconds(50));
+    await proxy.restore();
+    const created = await inFlight;
+    expect(created.name).toBe("blip");
+    await waitForStreamLive(client.connection);
+    expect(internal.map(chainOf)).toEqual([]);
   });
 });

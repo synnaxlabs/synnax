@@ -134,7 +134,7 @@ export const payloadZ = <
   z.object({
     key: keyZ.default(uuid.create),
     rack: rack.keyZ.default(0),
-    name: z.string(),
+    name: z.string().min(1, "name is required"),
     type: type ?? z.string(),
     config: config ?? record.unknownZ().default(() => ({})),
     configHash: z.string().default(""),

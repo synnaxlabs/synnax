@@ -18,13 +18,14 @@ from playwright.sync_api import (
     BrowserContext,
     BrowserType,
     Page,
+    Playwright,
     sync_playwright,
 )
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 import synnax as sy
 from console.console import Console
-from framework.models import STATUS, SynnaxConnection
+from framework.models import DEFAULT_CONNECTION, STATUS, SynnaxConnection
 from framework.run_dir import resolve_results_path
 from framework.test_case import TestCase
 
@@ -42,6 +43,7 @@ class ConsoleCase(TestCase):
     Per-case ``headed`` and ``slow_mo`` parameters override the environment.
     """
 
+    playwright: Playwright | None
     browser: Browser
     context: BrowserContext
     page: Page
@@ -52,14 +54,23 @@ class ConsoleCase(TestCase):
 
     def __init__(
         self,
-        synnax_connection: SynnaxConnection = SynnaxConnection(),
+        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
         *,
         name: str,
         **params: object,
     ) -> None:
         super().__init__(synnax_connection, name=name, **params)
+        self.playwright = None
         self._cleanup_pages: list[str] = []
         self._project: sy.Project | None = None
+
+    def execute(self) -> None:
+        # Teardown errors are logged, not raised, so a subclass cleanup that raises
+        # before super().teardown() would otherwise leave the driver running.
+        try:
+            super().execute()
+        finally:
+            self._close_browser()
 
     def setup(self) -> None:
         self._launch_browser()
@@ -185,10 +196,12 @@ class ConsoleCase(TestCase):
                 self.client.projects.delete(project.key)
             except Exception as e:
                 self.log(f"Failed to delete project {project.name}: {e}")
-        self.context.close()
-        self.browser.close()
-        self.playwright.stop()
         super().teardown()
+
+    def _close_browser(self) -> None:
+        # Stopping the driver also closes every browser it launched.
+        if self.playwright is not None:
+            self.playwright.stop()
 
     def _stop_tracing(self) -> None:
         failed_states = (STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED)

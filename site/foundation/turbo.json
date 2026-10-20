@@ -1,0 +1,15 @@
+{
+  "$schema": "https://turborepo.org/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      "inputs": [
+        "src/**",
+        "public/**",
+        "astro.config.ts",
+        "tsconfig*.json",
+        "package.json"
+      ]
+    }
+  }
+}

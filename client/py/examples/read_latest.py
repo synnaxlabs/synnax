@@ -42,7 +42,7 @@ data_channel = client.channels.create(
     data_type=sy.DataType.FLOAT32,
 )
 
-SAMPLE_COUNT = int(100)
+SAMPLE_COUNT = 100
 
 # We'll start our write at the current time. This timestamp should be the same as or
 # just before the first timestamp we write.

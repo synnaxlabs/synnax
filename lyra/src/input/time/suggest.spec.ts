@@ -25,7 +25,7 @@ describe("suggestTimeStamps", () => {
   it("should lead with the grammar's exact reading", () => {
     const [first] = suggestTimeStamps("now - 5m", { anchors: { now: NOW } });
     expect(first.value.equals(NOW.sub(TimeSpan.minutes(5)))).toBe(true);
-    expect(first.reading).toBe("5m before now");
+    expect(first.reading).toBe("5min before now");
   });
 
   it("should name the anchor and the side of it an offset lands on", () => {
@@ -93,6 +93,13 @@ describe("suggestTimeSpans", () => {
   it("should lead with the grammar's reading", () => {
     const [first] = suggestTimeSpans("2h 30m");
     expect(first.value.equals(TimeSpan.minutes(150))).toBe(true);
+  });
+
+  it("should read Ms only as megaseconds", () => {
+    const suggestions = suggestTimeSpans("5Ms");
+    expect(suggestions.length).toBeGreaterThan(0);
+    for (const { value } of suggestions)
+      expect(value.equals(TimeSpan.seconds(5e6))).toBe(true);
   });
 
   it("should read natural language durations", () => {

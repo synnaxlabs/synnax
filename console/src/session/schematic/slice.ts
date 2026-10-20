@@ -63,6 +63,7 @@ export const stateZ = z.object({
   toolbar: toolbarStateZ.prefault({}),
   editable: z.boolean().default(true),
   fitViewOnResize: z.boolean().default(false),
+  tooltipsDisabled: z.boolean().default(false),
   viewport: viewportZ.prefault({}),
 });
 export interface State extends z.infer<typeof stateZ> {}
@@ -136,6 +137,10 @@ export interface SetEditablePayload extends KeyedPayload {
 
 export interface SetFitViewOnResizePayload extends KeyedPayload {
   fitViewOnResize: boolean;
+}
+
+export interface SetTooltipsDisabledPayload extends KeyedPayload {
+  tooltipsDisabled: boolean;
 }
 
 export interface SetViewportPayload extends KeyedPayload {
@@ -226,6 +231,11 @@ export const { actions, reducer } = createSlice({
         state.fitViewOnResize = fitViewOnResize;
       },
     ),
+    setTooltipsDisabled: withSelectedState<SetTooltipsDisabledPayload, SliceState>(
+      (state, { payload: { tooltipsDisabled } }) => {
+        state.tooltipsDisabled = tooltipsDisabled;
+      },
+    ),
     setViewport: withSelectedState<SetViewportPayload, SliceState>(
       (state, { payload: { viewport } }) => {
         state.viewport = { ...state.viewport, ...viewport };
@@ -256,6 +266,7 @@ export const {
   setPropertiesTab,
   setEditable,
   setFitViewOnResize,
+  setTooltipsDisabled,
   setViewport,
   setViewportMode,
   remove,
@@ -290,6 +301,7 @@ export const MIDDLEWARE = [
     setPropertiesTab,
     setEditable,
     setFitViewOnResize,
+    setTooltipsDisabled,
     setViewport,
     setViewportMode,
   ]),

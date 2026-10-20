@@ -35,6 +35,8 @@ export interface RenewDeps {
   interval: TimeSpan;
   /** The Core's license API. Defaults to the connected client's. */
   license: Pick<license.Client, "retrieve" | "activate" | "deactivate">;
+  /** Receives a failed renewal while the license has weeks to run. */
+  onError: (error: Error) => void;
 }
 
 /**
@@ -47,6 +49,7 @@ export const useRenew = ({
   renew: renewKey = renew,
   interval = CHECK_INTERVAL,
   license: injected,
+  onError = console.error,
 }: Partial<RenewDeps> = {}): void => {
   const client = Synnax.use();
   const api = injected ?? client?.license;
@@ -67,7 +70,7 @@ export const useRenew = ({
           result = await renewKey(secret);
         } catch (e) {
           if (!lasting(license)) throw errors.fromUnknown(e);
-          console.error("failed to renew the license", e);
+          onError(new Error("failed to renew the license", { cause: e }));
           return;
         }
         if (controller.signal.aborted) return;
@@ -91,5 +94,5 @@ export const useRenew = ({
       controller.abort();
       clearInterval(timer);
     };
-  }, [api, secret, renewKey, interval, dispatch, addStatus, handleError]);
+  }, [api, secret, renewKey, interval, onError, dispatch, addStatus, handleError]);
 };

@@ -12,6 +12,7 @@ package marshal
 import (
 	"bytes"
 	"fmt"
+	"maps"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -22,6 +23,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/typemap"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -72,6 +74,9 @@ type encoderFileOutput struct {
 
 // --- Generation entry point ---
 
+// generateEncoderCodecFile renders the codec file, then renders it again when it
+// imports more than one version of a dependency, so the aliases follow
+// naming.VersionAliases.
 func generateEncoderCodecFile(
 	packageName string,
 	parentPath string,
@@ -79,10 +84,46 @@ func generateEncoderCodecFile(
 	flex []FlexCodec,
 	table *resolution.Table,
 	repoRoot string,
+	pins versioning.Pins,
+) ([]byte, error) {
+	imports := make(map[string]string)
+	content, err := renderEncoderCodecFile(
+		packageName, parentPath, entries, flex, table, repoRoot, pins, nil,
+		imports,
+	)
+	if err != nil {
+		return nil, err
+	}
+	current, err := resolveGoImportPath(parentPath, repoRoot)
+	if err != nil {
+		return nil, err
+	}
+	aliases := naming.VersionAliases(slices.Collect(maps.Keys(imports)), current)
+	if len(aliases) == 0 {
+		return content, nil
+	}
+	return renderEncoderCodecFile(
+		packageName, parentPath, entries, flex, table, repoRoot, pins, aliases,
+		make(map[string]string),
+	)
+}
+
+// renderEncoderCodecFile renders the codec file, recording its imports into imports.
+// aliases forces the alias of each import path it holds.
+func renderEncoderCodecFile(
+	packageName string,
+	parentPath string,
+	entries []CodecEntry,
+	flex []FlexCodec,
+	table *resolution.Table,
+	repoRoot string,
+	pins versioning.Pins,
+	aliases map[string]string,
+	imports map[string]string,
 ) ([]byte, error) {
 	fo := encoderFileOutput{
 		Package:      packageName,
-		ExtraImports: make(map[string]string),
+		ExtraImports: imports,
 	}
 
 	// Generate flex methods for distinct scalar types in sorted order.
@@ -110,6 +151,9 @@ func generateEncoderCodecFile(
 			packageName: packageName,
 			parentPath:  parentPath,
 			imports:     fo.ExtraImports,
+			aliases:     aliases,
+			pins:        pins,
+			owner:       e.Type.QualifiedName,
 		}
 		if uform, isUnion := e.Type.Form.(resolution.UnionForm); isUnion {
 			uc, err := buildUnionCodec(e.Type, uform, b)
@@ -246,11 +290,18 @@ func tpNames(tps []typeParamData) string {
 // --- Encoder builder ---
 
 type encoderBuilder struct {
-	table         *resolution.Table
-	repoRoot      string
-	packageName   string
-	parentPath    string
-	imports       map[string]string
+	table       *resolution.Table
+	repoRoot    string
+	packageName string
+	parentPath  string
+	imports     map[string]string
+	// aliases forces the alias of each import path it holds.
+	aliases map[string]string
+	// pins resolves a stored reference to the dependency version that owner's version
+	// file imports.
+	pins versioning.Pins
+	// owner is the qualified name of the type whose fields the builder is processing.
+	owner         string
 	encodeLines   []string
 	decodeLines   []string
 	needsMath     bool
@@ -479,6 +530,9 @@ func (b *encoderBuilder) processStruct(
 			substituted[i] = f
 			substituted[i].Type = resolution.SubstituteTypeRef(f.Type, typeArgMap)
 		}
+		prev := b.owner
+		b.owner = actual.QualifiedName
+		defer func() { b.owner = prev }()
 		return b.processFields(substituted, getPath, setPath)
 	}
 
@@ -646,6 +700,9 @@ func buildUnionCodec(
 				packageName: b.packageName,
 				parentPath:  b.parentPath,
 				imports:     b.imports,
+				aliases:     b.aliases,
+				pins:        b.pins,
+				owner:       b.owner,
 			}
 			if err := fb.processFields(inlineFields, "v", "v"); err != nil {
 				return concreteCodec{}, errors.Wrapf(err,
@@ -1227,6 +1284,9 @@ func (b *encoderBuilder) goTypeName(typ resolution.Type) (string, error) {
 	if goPath == "" || goPath == b.parentPath {
 		return goName, nil
 	}
+	if p, ok := b.pins.Path(b.owner, typ); ok {
+		goPath = p
+	}
 	importPath, err := resolveGoImportPath(goPath, b.repoRoot)
 	if err != nil {
 		return "", err
@@ -1238,13 +1298,16 @@ func (b *encoderBuilder) goTypeName(typ resolution.Type) (string, error) {
 		}
 		return qualifier + "." + goName, nil
 	}
-	alias := naming.DerivePackageAlias(goPath, b.packageName)
-	if alias == b.packageName || b.aliasUsed(alias) {
-		parent := filepath.Base(filepath.Dir(goPath))
-		alias = parent + alias
-	}
-	for b.aliasUsed(alias) {
-		alias = alias + "x"
+	alias, forced := b.aliases[importPath]
+	if !forced {
+		alias = naming.DerivePackageAlias(goPath, b.packageName)
+		if alias == b.packageName || b.aliasUsed(alias) {
+			parent := filepath.Base(filepath.Dir(goPath))
+			alias = parent + alias
+		}
+		for b.aliasUsed(alias) {
+			alias = alias + "x"
+		}
 	}
 	// Only store an alias when it differs from the package's natural name.
 	actualPkg := filepath.Base(importPath)

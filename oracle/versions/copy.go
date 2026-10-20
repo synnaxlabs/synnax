@@ -53,6 +53,9 @@ func copyForm(form resolution.TypeForm, rw func(string) string) resolution.TypeF
 		f.Declared = copyVariants(f.Declared, rw)
 		f.Extends = copyRefs(f.Extends, rw)
 		f.Included = copyRefs(f.Included, rw)
+		if f.BorrowsEnum() {
+			f.Enum = copyRef(f.Enum, rw)
+		}
 		return f
 	case resolution.DistinctForm:
 		f.Base = copyRef(f.Base, rw)

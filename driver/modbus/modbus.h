@@ -13,6 +13,8 @@
 #include "driver/task/task.h"
 
 namespace driver::modbus {
+/// @brief the make the Console and clients write on Modbus server devices.
+const std::string MAKE = "Modbus";
 /// @brief integration name for modbus.
 const std::string INTEGRATION_NAME = "modbus";
 

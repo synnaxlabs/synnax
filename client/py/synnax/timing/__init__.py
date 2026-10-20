@@ -12,7 +12,7 @@ from x.timing import Loop, Timer, poll, sleep
 
 __all__ = [
     "Loop",
+    "Timer",
     "poll",
     "sleep",
-    "Timer",
 ]

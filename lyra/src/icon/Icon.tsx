@@ -82,6 +82,8 @@ const parseColor = (c?: color.Crude | Theming.Shade): string | undefined => {
  * `aria-label` they are hidden from the accessibility tree, so they never leak into
  * an ancestor's accessible name.
  */
+// This and the factories below are marked pure, so a bundler drops unused icons.
+/* #__NO_SIDE_EFFECTS__ */
 export const wrapSVGIcon = (
   Base: SVGFC,
   name: string,
@@ -117,6 +119,7 @@ const STACK_COPY_STYLE = { fontSize: BASE_SIZE };
  * copy shifted up and right, a front copy shifted down and left. A halo painted in the
  * surface color sits under the front copy so the two silhouettes stay separable.
  */
+/* #__NO_SIDE_EFFECTS__ */
 export const createStacked = (Base: FC): FC => {
   const Stacked = ({ className, color: c, ...rest }: IconProps) => (
     <svg
@@ -154,6 +157,7 @@ export const createStacked = (Base: FC): FC => {
  *
  * @example createComposite(Icon.Channel, { bottomRight: Icon.Add })
  */
+/* #__NO_SIDE_EFFECTS__ */
 export const createComposite = (
   Base: FC,
   { topRight, topLeft, bottomLeft, bottomRight }: Record<string, FC | undefined>,

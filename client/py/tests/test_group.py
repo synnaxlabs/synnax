@@ -18,14 +18,14 @@ import synnax as sy
 class TestGroupClient:
     """Tests for the group client."""
 
-    def test_create(self, client: sy.Synnax):
+    def test_create(self, client: sy.Synnax) -> None:
         """Should create a group under the root."""
         name = str(uuid4())
         g = client.groups.create(sy.ontology.ROOT_ID, name)
         assert g.key is not None
         assert g.name == name
 
-    def test_create_nested(self, client: sy.Synnax):
+    def test_create_nested(self, client: sy.Synnax) -> None:
         """Should create a group nested under another group."""
         parent = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
         child = client.groups.create(sy.group.ontology_id(parent.key), str(uuid4()))
@@ -33,38 +33,38 @@ class TestGroupClient:
         children = client.ontology.retrieve_children(sy.group.ontology_id(parent.key))
         assert children == [sy.group.ontology_id(child.key)]
 
-    def test_retrieve(self, client: sy.Synnax):
+    def test_retrieve(self, client: sy.Synnax) -> None:
         """Should retrieve a group by its key."""
         g = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
         assert client.groups.retrieve(g.key) == g
 
-    def test_retrieve_multiple(self, client: sy.Synnax):
+    def test_retrieve_multiple(self, client: sy.Synnax) -> None:
         """Should retrieve multiple groups by their keys."""
         g1 = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
         g2 = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
         groups = client.groups.retrieve(keys=[g1.key, g2.key])
         assert sorted(g.name for g in groups) == sorted([g1.name, g2.name])
 
-    def test_retrieve_not_found(self, client: sy.Synnax):
+    def test_retrieve_not_found(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when the group does not exist."""
         with pytest.raises(sy.NotFoundError):
             client.groups.retrieve(uuid4())
 
-    def test_rename(self, client: sy.Synnax):
+    def test_rename(self, client: sy.Synnax) -> None:
         """Should rename an existing group."""
         g = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
         new_name = str(uuid4())
         client.groups.rename(g.key, new_name)
         assert client.groups.retrieve(g.key).name == new_name
 
-    def test_delete(self, client: sy.Synnax):
+    def test_delete(self, client: sy.Synnax) -> None:
         """Should delete a group."""
         g = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
         client.groups.delete([g.key])
         children = client.ontology.retrieve_children(sy.ontology.ROOT_ID)
         assert all(c.key != str(g.key) for c in children)
 
-    def test_delete_multiple(self, client: sy.Synnax):
+    def test_delete_multiple(self, client: sy.Synnax) -> None:
         """Should delete multiple groups at once."""
         g1 = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
         g2 = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))

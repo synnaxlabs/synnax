@@ -14,11 +14,11 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Logo } from "@synnaxlabs/lyra/logo";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Progress } from "@synnaxlabs/lyra/progress";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Logo } from "@synnaxlabs/media";
 import { Size } from "@synnaxlabs/x";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
@@ -187,7 +187,7 @@ export const useInfoModal = Modals.create(() => {
       >
         <Flex.Box y gap="small" justify="center" align="center">
           <a href="https://synnaxlabs.com" target="_blank" rel="noreferrer">
-            <Logo variant="title" className={CSS.BE("version-info", "logo")} />
+            <Logo.Logo variant="title" className={CSS.BE("version-info", "logo")} />
           </a>
           <Text.Text level="h3" weight={350}>
             Console v{version}

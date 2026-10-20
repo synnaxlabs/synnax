@@ -35,4 +35,12 @@ describe("removeProps", () => {
     expect(c.queryByText("should pass")).not.toBeNull();
     expect(c.queryByText("should not pass")).toBeNull();
   });
+
+  it("should not pass the removed key to the component at all", () => {
+    const Keys = (props: object) => <div>{Object.keys(props).join(",")}</div>;
+    Keys.displayName = "Keys";
+    const WrappedComponent = removeProps(Keys, ["unwantedProp"]);
+    const c = render(<WrappedComponent {...{ unwantedProp: "a", anotherProp: "b" }} />);
+    expect(c.container.textContent).toBe("anotherProp");
+  });
 });

@@ -62,6 +62,7 @@ const sourceSpec = (data: number[]): telem.SeriesSourceSpec => {
 interface MountProps {
   hidden?: string[];
   axis?: Record<string, unknown>;
+  xAxis?: Record<string, unknown>;
 }
 
 interface Mount {
@@ -77,7 +78,7 @@ describe("YAxis", () => {
     teardowns.length = 0;
   });
 
-  const mount = ({ hidden = [], axis = {} }: MountProps = {}): Mount => {
+  const mount = ({ hidden = [], axis = {}, xAxis = {} }: MountProps = {}): Mount => {
     const recorder = canvasTest.record();
     (recorder as { gl: unknown }).gl = GL;
     const stack = buildStack({
@@ -92,7 +93,11 @@ describe("YAxis", () => {
     const xPath = [...stack.basePath, "host", "x1"];
     const path = [...xPath, "y1"];
     stack.driver.update(xPath.slice(0, -1), Host.TYPE, {});
-    stack.driver.update(xPath, XAxis.TYPE, { location: "bottom", autoBoundPadding: 0 });
+    stack.driver.update(xPath, XAxis.TYPE, {
+      location: "bottom",
+      autoBoundPadding: 0,
+      ...xAxis,
+    });
     stack.driver.update(path, YAxis.TYPE, {
       location: "left",
       autoBoundPadding: 0,
@@ -116,6 +121,17 @@ describe("YAxis", () => {
       setVisible,
     };
   };
+
+  describe("autoBoundPadding", () => {
+    it("should default to 10% on a y axis and 1% on an x axis", () => {
+      const m = mount({
+        axis: { autoBoundPadding: undefined },
+        xAxis: { autoBoundPadding: undefined },
+      });
+      expect(m.axis.state.autoBoundPadding).toBe(0.1);
+      expect(m.xAxis.state.autoBoundPadding).toBe(0.01);
+    });
+  });
 
   describe("bounds", () => {
     it("should cover every visible line", () => {

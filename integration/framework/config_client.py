@@ -134,9 +134,9 @@ class ConfigClient:
                 if "sequences" in file_data:
                     all_sequences.extend(file_data["sequences"])
             except FileNotFoundError:
-                raise FileNotFoundError(f"Test file not found: {test_file}")
+                raise FileNotFoundError(f"Test file not found: {test_file}") from None
             except json.JSONDecodeError as e:
-                raise ValueError(f"Invalid JSON in test file '{test_file}': {e}") from e
+                raise ValueError(f"Invalid JSON in test file '{test_file}'") from e
 
         if not all_sequences:
             raise FileNotFoundError("No valid sequences found")
@@ -275,7 +275,7 @@ class ConfigClient:
 
         expanded: list[TestDefinition] = []
         for combo in combinations:
-            combo_params = dict(zip(param_keys, combo))
+            combo_params = dict(zip(param_keys, combo, strict=True))
             merged_params = {**single_params, **combo_params}
 
             matrix_suffix = "_".join(str(v) for v in combo)
@@ -301,21 +301,19 @@ class ConfigClient:
             if len(test_classes) == 1:
                 return [test_def]
 
-            expanded_defs: list[TestDefinition] = []
-            for test_class in test_classes:
-                expanded_defs.append(
-                    TestDefinition(
-                        case=test_def.case,
-                        name=test_class.__name__,
-                        parameters=test_def.parameters.copy(),
-                        matrix=test_def.matrix,
-                    )
+            return [
+                TestDefinition(
+                    case=test_def.case,
+                    name=test_class.__name__,
+                    parameters=test_def.parameters.copy(),
+                    matrix=test_def.matrix,
                 )
-            return expanded_defs
+                for test_class in test_classes
+            ]
 
         except Exception as e:
             raise ImportError(
-                f"Failed to expand test classes for {test_def.case}: {e}"
+                f"Failed to expand test classes for {test_def.case}"
             ) from e
 
     # ----- Dynamic class loading -----
@@ -403,18 +401,23 @@ class ConfigClient:
                 raise AttributeError(f"No TestCase subclass found in {file_path}")
 
             if test_def.name:
+                # A parameter matrix adds a suffix to the class name.
                 matching = [
-                    cls for cls in test_classes if cls.__name__ == test_def.name
+                    cls
+                    for cls in test_classes
+                    if test_def.name == cls.__name__
+                    or test_def.name.startswith(f"{cls.__name__}_")
                 ]
                 if matching:
-                    return [matching[0]]
+                    # The longest name is the most exact match.
+                    return [max(matching, key=lambda cls: len(cls.__name__))]
 
             return test_classes
 
         except Exception as e:
             raise ImportError(
-                f"Failed to load test class(es) from {test_def.case}: {e}\n"
-            )
+                f"Failed to load test class(es) from {test_def.case}"
+            ) from e
 
     def load_test_class(self, test_def: TestDefinition) -> type[TestCase]:
         """Load a single test class (first match) from a case identifier."""

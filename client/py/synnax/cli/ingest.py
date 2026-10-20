@@ -25,7 +25,6 @@ from synnax.cli.connect import connect_client
 from synnax.cli.flow import Context, Flow
 from synnax.cli.io import prompt_file
 from synnax.cli.telem import select_data_type
-from synnax.cli.warning import warning
 from synnax.ingest.row import RowIngestionEngine
 from synnax.io import IO_FACTORY, ChannelMeta, IOFactory, ReaderType, RowFileReader
 from synnax.telem import DataType, Rate, TimeRange, TimeStamp
@@ -35,17 +34,15 @@ GROUP_ALL = "__all__"
 
 
 @click.command()
-@click.pass_context
 @click.argument("path_", type=click.Path(exists=True), required=False, default=None)
-def ingest(ctx: click.Context, path_: str | None) -> None:
-    warning(ctx)
-    return pure_ingest(path_)
+def ingest(path_: str | None) -> None:
+    return pure_ingest(path_, ctx=default.context())
 
 
 def pure_ingest(
     path_: Path | str | None,
+    ctx: Context,
     client: Synnax | None = None,
-    ctx: Context = default.context(),
 ) -> None:
     flow: Flow[Any] = Flow(ctx)
     flow.add("initialize_reader", initialize_reader)
@@ -128,8 +125,7 @@ def ingest_all(ctx: Context, cli: IngestionCLI) -> str | None:
     if ctx.console.ask("Would you like to ingest all channels?", default=True):
         cli.filtered_channels = cli.reader.channels()
         return "skip_invalid_channels"
-    else:
-        return "channels_to_ingest"
+    return "channels_to_ingest"
 
 
 def channels_to_ingest(ctx: Context, cli: IngestionCLI) -> str | None:
@@ -140,7 +136,7 @@ def channels_to_ingest(ctx: Context, cli: IngestionCLI) -> str | None:
     grouped = prompt_group_channel_names(ctx, [ch.name for ch in channels])
     if grouped is None or len(grouped) == 0:
         return None
-    all_names = [v for l in grouped.values() for v in l]
+    all_names = [name for names in grouped.values() for name in names]
     cli.filtered_channels = [ch for ch in channels if ch.name in all_names]
     return "skip_invalid_channels"
 
@@ -154,12 +150,12 @@ def skip_invalid_channels(ctx: Context, cli: IngestionCLI) -> str | None:
     }
     if len(data_types) > 0:
         ctx.console.info("The following channels have non-numeric data types")
-        channel_name_table(ctx, [ch for ch in data_types.keys()])
+        channel_name_table(ctx, list(data_types))
         if not ctx.console.ask("Skip these channels?", default=True):
             return None
         assert cli.filtered_channels is not None
         cli.filtered_channels = [
-            ch for ch in cli.filtered_channels if ch.name not in data_types.keys()
+            ch for ch in cli.filtered_channels if ch.name not in data_types
         ]
     return "validate_channels_exist"
 
@@ -182,7 +178,7 @@ def validate_data_types(ctx: Context, cli: IngestionCLI) -> str | None:
         if not np.can_cast(samples_type, ch_type):
             cannot_cast_error(ctx, samples_type, ch)
             return None
-        elif samples_type != ch_type:
+        if samples_type != ch_type:
             ctx.console.warn(
                 f"""Channel {ch.name} has data type {ch_type} but the file data type is
                 {samples_type}. Synnax can cast between them safely, but you have been
@@ -222,8 +218,8 @@ def validate_channels_exist(ctx: Context, cli: IngestionCLI) -> str | None:
     assert cli.client is not None
 
     ctx.console.info("Validating that channels exist...")
-    cli.not_found = list()
-    cli.db_channels = list()
+    cli.not_found = []
+    cli.db_channels = []
     for channel in cli.filtered_channels:
         ch = maybe_select_channel(
             ctx,
@@ -327,7 +323,7 @@ def assign_data_type(
             else:
                 assigned[dt].append(ch)
         return assigned
-    elif opt == DATA_TYPE_OPTIONS[2]:
+    if opt == DATA_TYPE_OPTIONS[2]:
         groups = prompt_group_channel_names(ctx, [ch.name for ch in cli.not_found])
         if groups is None or len(groups) == 0:
             return None
@@ -378,19 +374,18 @@ def assign_index_or_rate(
         assert _choice is not None
         if _choice.replace(".", "").isdigit():
             return Rate(float(_choice))
-        else:
-            # If the user entered a string, we have an index channel, and we
-            # need to make sure that the string is a valid index.
-            res = client.channels.retrieve([_choice])
-            idx = maybe_select_channel(ctx, res, _choice)
-            if not idx:
-                ctx.console.warn(f"Index channel with key {_choice} not found")
-                if ctx.console.ask("Try again?", default=True):
-                    return assign_to_group(key, group)
-                return None
-            return idx.key
+        # If the user entered a string, we have an index channel, and we
+        # need to make sure that the string is a valid index.
+        res = client.channels.retrieve([_choice])
+        idx = maybe_select_channel(ctx, res, _choice)
+        if not idx:
+            ctx.console.warn(f"Index channel with key {_choice} not found")
+            if ctx.console.ask("Try again?", default=True):
+                return assign_to_group(key, group)
+            return None
+        return idx.key
 
-    assigned: dict[Rate | int, list[ChannelMeta]] = dict()
+    assigned: dict[Rate | int, list[ChannelMeta]] = {}
     for key, group in grouped.items():
         idx = assign_to_group(key, group)
         if idx is None:
@@ -412,21 +407,18 @@ def create_channels(ctx: Context, cli: IngestionCLI) -> str | None:
     if idx_grouped is None or dt_grouped is None:
         return None
 
-    to_create = list()
+    to_create: list[Channel] = []
     for rate_or_index, channels in idx_grouped.items():
-        if isinstance(rate_or_index, Rate):
-            index = 0
-        else:
-            index = rate_or_index
-        for ch in channels:
-            to_create.append(
-                Channel(
-                    name=ch.name,
-                    is_index=False,
-                    index=index,
-                    data_type=[dt for dt, chs in dt_grouped.items() if ch in chs][0],
-                )
+        index = 0 if isinstance(rate_or_index, Rate) else rate_or_index
+        to_create.extend(
+            Channel(
+                name=ch.name,
+                is_index=False,
+                index=index,
+                data_type=next(dt for dt, chs in dt_grouped.items() if ch in chs),
             )
+            for ch in channels
+        )
 
     cli.db_channels.extend(cli.client.channels.create(to_create))
 
