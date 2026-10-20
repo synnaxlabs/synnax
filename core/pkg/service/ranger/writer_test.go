@@ -461,6 +461,41 @@ var _ = Describe("Writer", func() {
 		)
 	})
 
+	Describe("Rename", func() {
+		It("Should rename a range", func(ctx SpecContext) {
+			r := ranger.Range{
+				Name: "before",
+				TimeRange: telem.TimeRange{
+					Start: telem.SecondTS,
+					End:   telem.SecondTS * 5,
+				},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+			Expect(svc.NewWriter(tx).Rename(ctx, r.Key, "after")).To(Succeed())
+			var updated ranger.Range
+			Expect(svc.NewRetrieve().Where(ranger.MatchKeys(r.Key)).Entry(&updated).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(updated.Name).To(Equal("after"))
+		})
+
+		It("Should return a validation error for an empty name", func(ctx SpecContext) {
+			r := ranger.Range{
+				Name: "before",
+				TimeRange: telem.TimeRange{
+					Start: telem.SecondTS,
+					End:   telem.SecondTS * 5,
+				},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+			Expect(svc.NewWriter(tx).Rename(ctx, r.Key, "")).
+				To(MatchError(ContainSubstring("name: required")))
+			var unchanged ranger.Range
+			Expect(svc.NewRetrieve().Where(ranger.MatchKeys(r.Key)).Entry(&unchanged).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(unchanged.Name).To(Equal("before"))
+		})
+	})
+
 	Describe("SetEnd", func() {
 		It(
 			"Should set the end bound while preserving the start",
