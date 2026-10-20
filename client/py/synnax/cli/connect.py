@@ -27,8 +27,19 @@ def prompt_client_options(ctx: Context) -> Options:
     username = ctx.console.ask("Username", default="synnax")
     password = ctx.console.ask("Password", str, password=True)
     secure = ctx.console.ask("Secure Connection?", type_=bool, default=False)
+    ca_cert = None
+    if secure:
+        ca_cert = (
+            ctx.console.ask("CA certificate path (empty for system roots)", default="")
+            or None
+        )
     return Options(
-        host=host, port=port, username=username, password=password, secure=secure
+        host=host,
+        port=port,
+        username=username,
+        password=password,
+        secure=secure,
+        ca_cert=ca_cert,
     )
 
 

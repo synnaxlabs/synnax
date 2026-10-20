@@ -59,7 +59,8 @@ class Synnax(framer.Client):
             port=9090,
             username="synnax",
             password="seldon",
-            secure=True
+            secure=True,
+            ca_cert="/path/to/ca.crt",
         )
     """
 
@@ -91,6 +92,7 @@ class Synnax(framer.Client):
         username: str = "",
         password: str = "",
         secure: bool = False,
+        ca_cert: str | None = None,
         open_timeout: TimeSpan = TimeSpan.SECOND * 5,
         read_timeout: TimeSpan = TimeSpan.SECOND * 5,
         keep_alive: TimeSpan = TimeSpan.SECOND * 30,
@@ -111,11 +113,17 @@ class Synnax(framer.Client):
         :param port: Port of the Core.
         :param username: Username to authenticate with.
         :param password: Password to authenticate with.
-        :param secure: Whether to use TLS when connecting to the Core.
+        :param secure: Whether to use TLS when connecting to the Core. The client
+            verifies the Core's certificate against ca_cert, or the system trust roots
+            when ca_cert is None.
+        :param ca_cert: The path to a PEM file of CA certificates that sign the Core's
+            certificate, such as the ca.crt that the Core generates.
         :param clock_skew_threshold: The maximum allowable clock skew between this
             host and Synnax Core before a warning is issued. Defaults to 1 second.
         """
-        opts = try_load_options_if_none_provided(host, port, username, password, secure)
+        opts = try_load_options_if_none_provided(
+            host, port, username, password, secure, ca_cert
+        )
         self._transport = _configure_transport(
             opts=opts,
             open_timeout=open_timeout,
@@ -206,6 +214,7 @@ def _configure_transport(
         instrumentation=instrumentation,
         url=URL(host=opts.host, port=opts.port),
         secure=opts.secure,
+        ca_cert=opts.ca_cert,
         open_timeout=open_timeout,
         read_timeout=read_timeout,
         keep_alive=keep_alive,

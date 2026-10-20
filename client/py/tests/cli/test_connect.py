@@ -27,3 +27,16 @@ class TestPromptClientOptions:
             password="secret",
             secure=True,
         )
+
+    def test_ca_cert(self) -> None:
+        """Should store the CA certificate path for a secure connection."""
+        console = MockConsole(
+            responses=["127.0.0.1", 9091, "admin", "secret", True, "/certs/ca.crt"]
+        )
+        opts = prompt_client_options(Context(console=console))
+        assert opts.ca_cert == "/certs/ca.crt"
+
+    def test_insecure_skips_ca_cert(self) -> None:
+        """Should not ask for a CA certificate for an insecure connection."""
+        console = MockConsole(responses=["127.0.0.1", 9091, "admin", "secret", False])
+        assert prompt_client_options(Context(console=console)).ca_cert is None

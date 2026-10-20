@@ -10,6 +10,7 @@
 import json
 import os
 import pathlib
+import ssl
 from collections.abc import Iterable
 from typing import IO, Any
 from urllib.parse import urlencode
@@ -72,20 +73,21 @@ class HTTPClient(MiddlewareCollector):
         self,
         url: URL,
         codec: Codec,
-        secure: bool = False,
+        ssl_context: ssl.SSLContext | None = None,
         **kwargs: Any,
     ) -> None:
         """
         :param url: The base URL for the client.
         :param codec: The codec used to encode and decode typed request and response
             payloads.
-        :param secure: Whether to use HTTPS.
+        :param ssl_context: The TLS context that verifies the server. The client uses
+            HTTPS when set and plain HTTP when None.
         """
         super().__init__()
         self._endpoint = url
-        self._endpoint.protocol = "https" if secure else "http"
+        self._endpoint.protocol = "http" if ssl_context is None else "https"
         self._codec = codec
-        self._pool = PoolManager(cert_reqs="CERT_NONE", **kwargs)
+        self._pool = PoolManager(ssl_context=ssl_context, **kwargs)
         urllib3.disable_warnings()
 
     def send(self, target: str, req: RQ, res_t: type[RS]) -> RS:
