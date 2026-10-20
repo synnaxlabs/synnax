@@ -95,7 +95,6 @@ var _ = Describe("API keys", func() {
 				login(ctx, keyProof(res.Token)),
 			))
 			Expect(session.Subject).To(Equal(bob.OntologyID()))
-			Expect(session.Method).To(Equal(auth.MethodAPIKey))
 			Expect(session.Credential).To(Equal(res.Key.Key))
 		})
 		It("Should let an Engineer create a key for a rack", func(ctx SpecContext) {

@@ -58,10 +58,7 @@ class TestAuthRetry:
             session=sy.auth.Session(
                 key=uuid4(),
                 subject=sy.ontology.ID(key=str(user_key), type="user"),
-                method="password",
                 credential=uuid4(),
-                address="127.0.0.1:1",
-                created=sy.TimeStamp(0),
                 last_active=sy.TimeStamp(0),
             ),
             user=sy.User(
@@ -129,10 +126,7 @@ class TestAuthRetry:
         session = sy.auth.Session(
             key=uuid4(),
             subject=sy.ontology.ID(key=str(uuid4()), type="user"),
-            method="password",
             credential=uuid4(),
-            address="127.0.0.1:1",
-            created=sy.TimeStamp(0),
             last_active=sy.TimeStamp(0),
         )
         login = MockUnaryClient(
@@ -279,7 +273,7 @@ class TestAPIKeys:
         keyed = sy.Synnax(host=host, port=port, api_key=token)
         assert keyed.auth.subject == owner.auth.subject
         assert keyed.auth.session is not None
-        assert keyed.auth.session.method == "api_key"
+        assert keyed.auth.session.credential == key.key
         assert [k.key for k in owner.auth.retrieve_keys()] == [key.key]
         owner.auth.delete_keys(key.key)
         assert owner.auth.retrieve_keys() == []

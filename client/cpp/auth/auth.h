@@ -213,14 +213,8 @@ struct Session {
     std::string key;
     /// @brief the subject that logged in.
     Subject subject;
-    /// @brief the method the subject logged in with.
-    std::string method;
     /// @brief the key of the credential the login matched.
     std::string credential;
-    /// @brief the network address the login came from.
-    std::string address;
-    /// @brief when the subject logged in.
-    x::telem::TimeStamp created = x::telem::TimeStamp(0);
     /// @brief the last time a request used the session.
     x::telem::TimeStamp last_active = x::telem::TimeStamp(0);
 
@@ -229,10 +223,7 @@ struct Session {
     explicit Session(const grpc::auth::Session &s):
         key(s.key()),
         subject{s.subject().type(), s.subject().key()},
-        method(s.method()),
         credential(s.credential()),
-        address(s.address()),
-        created(s.created()),
         last_active(s.last_active()) {}
 };
 

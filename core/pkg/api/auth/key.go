@@ -14,7 +14,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
@@ -175,6 +174,5 @@ func (s *Service) DeleteKeys(
 	if err := s.apiKey.NewWriter(tx).Delete(ctx, stored...); err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, s.auth.NewWriter(tx).
-		RevokeCredential(ctx, auth.MethodAPIKey, nil, stored...)
+	return struct{}{}, s.auth.NewWriter(tx).RevokeCredential(ctx, nil, stored...)
 }
