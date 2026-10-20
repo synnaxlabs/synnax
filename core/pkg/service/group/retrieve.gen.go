@@ -63,7 +63,7 @@ func Not(f Filter) Filter {
 // r.Where(MatchKeys(...))) dispatches Exec to the multi-get fast path; composing
 // inside Or / Not falls back to a full scan.
 func MatchKeys(keys ...Key) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Group] {
+	return func(Retrieve) gorp.Filter[Key, Group] {
 		return gorp.MatchKeys[Key, Group](keys...)
 	}
 }
@@ -72,7 +72,7 @@ func MatchKeys(keys ...Key) Filter {
 // groups whose Name matches any of the
 // provided values.
 func MatchNames(vals ...string) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Group] {
+	return func(Retrieve) gorp.Filter[Key, Group] {
 		return gorp.Match(func(_ gorp.Context, e *Group) (bool, error) {
 			return slices.Contains(vals, e.Name), nil
 		})

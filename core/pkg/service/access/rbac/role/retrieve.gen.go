@@ -70,7 +70,7 @@ func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 // r.Where(MatchKeys(...))) dispatches Exec to the multi-get fast path; composing
 // inside Or / Not falls back to a full scan.
 func MatchKeys(keys ...Key) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Role] {
+	return func(Retrieve) gorp.Filter[Key, Role] {
 		return gorp.MatchKeys[Key, Role](keys...)
 	}
 }
@@ -79,7 +79,7 @@ func MatchKeys(keys ...Key) Filter {
 // roles whose Name matches any of the
 // provided values.
 func MatchNames(vals ...string) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Role] {
+	return func(Retrieve) gorp.Filter[Key, Role] {
 		return gorp.Match(func(_ gorp.Context, e *Role) (bool, error) {
 			return slices.Contains(vals, e.Name), nil
 		})
@@ -89,7 +89,7 @@ func MatchNames(vals ...string) Filter {
 // MatchInternal returns a filter for roles by their
 // Internal field.
 func MatchInternal(v bool) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Role] {
+	return func(Retrieve) gorp.Filter[Key, Role] {
 		return gorp.Match(func(_ gorp.Context, e *Role) (bool, error) {
 			return e.Internal == v, nil
 		})

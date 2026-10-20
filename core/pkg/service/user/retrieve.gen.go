@@ -91,7 +91,7 @@ func Not(f Filter) Filter {
 // r.Where(MatchKeys(...))) dispatches Exec to the multi-get fast path; composing
 // inside Or / Not falls back to a full scan.
 func MatchKeys(keys ...Key) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, User] {
+	return func(Retrieve) gorp.Filter[Key, User] {
 		return gorp.MatchKeys[Key, User](keys...)
 	}
 }
@@ -108,7 +108,7 @@ func MatchUsernames(vals ...string) Filter {
 // MatchRootUser returns a filter for users by their
 // RootUser field.
 func MatchRootUser(v bool) Filter {
-	return func(r Retrieve) gorp.Filter[Key, User] {
+	return func(Retrieve) gorp.Filter[Key, User] {
 		return gorp.Match(func(_ gorp.Context, e *User) (bool, error) {
 			return e.RootUser == v, nil
 		})

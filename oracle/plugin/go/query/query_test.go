@@ -469,7 +469,7 @@ var _ = Describe("Go Query Plugin", func() {
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
 							"func MatchNames(vals ...string) Filter",
-							"return func(r Retrieve) gorp.Filter[uint32, Rack]",
+							"return func(Retrieve) gorp.Filter[uint32, Rack]",
 						)
 				},
 			)
@@ -562,7 +562,7 @@ var _ = Describe("Go Query Plugin", func() {
 						ToContain(
 							"type Filter = gorp.BoundFilter[Retrieve, Key, Channel]",
 							"func MatchNames(vals ...string) Filter",
-							"return func(_ Retrieve) gorp.Filter[Key, Channel]",
+							"return func(Retrieve) gorp.Filter[Key, Channel]",
 							"func MatchKeys(keys ...Key) Filter",
 						)
 				},

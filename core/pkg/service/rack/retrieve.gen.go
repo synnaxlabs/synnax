@@ -61,7 +61,7 @@ func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 // r.Where(MatchKeys(...))) dispatches Exec to the multi-get fast path; composing
 // inside Or / Not falls back to a full scan.
 func MatchKeys(keys ...Key) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Rack] {
+	return func(Retrieve) gorp.Filter[Key, Rack] {
 		return gorp.MatchKeys[Key, Rack](keys...)
 	}
 }
@@ -70,7 +70,7 @@ func MatchKeys(keys ...Key) Filter {
 // racks whose Name matches any of the
 // provided values.
 func MatchNames(vals ...string) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Rack] {
+	return func(Retrieve) gorp.Filter[Key, Rack] {
 		return gorp.Match(func(_ gorp.Context, e *Rack) (bool, error) {
 			return slices.Contains(vals, e.Name), nil
 		})
@@ -80,7 +80,7 @@ func MatchNames(vals ...string) Filter {
 // MatchEmbedded returns a filter for racks by their
 // Embedded field.
 func MatchEmbedded(v bool) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Rack] {
+	return func(Retrieve) gorp.Filter[Key, Rack] {
 		return gorp.Match(func(_ gorp.Context, e *Rack) (bool, error) {
 			return e.Embedded == v, nil
 		})
@@ -91,7 +91,7 @@ func MatchEmbedded(v bool) Filter {
 // racks whose Integrations contains the provided
 // value.
 func MatchIntegration(v string) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Rack] {
+	return func(Retrieve) gorp.Filter[Key, Rack] {
 		return gorp.Match(func(_ gorp.Context, e *Rack) (bool, error) {
 			return slices.Contains(e.Integrations, v), nil
 		})
