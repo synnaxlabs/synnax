@@ -159,8 +159,8 @@ pnpm --version && node --version
 The output should look something like
 
 ```text
-12.6.0
-v24.21.0
+12.14.0
+v24.22.0
 ```
 
 pnpm reads the versions this repository needs from the `devEngines` field in the root
