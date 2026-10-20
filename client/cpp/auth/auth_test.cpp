@@ -25,7 +25,6 @@ grpc::auth::SessionCreateResponse session_response(const std::string &token) {
     res.mutable_session()->set_key("3f3a1b0e-7c2e-4a8f-9d6b-2a1c5e8f0b41");
     res.mutable_session()->mutable_subject()->set_type("user");
     res.mutable_session()->mutable_subject()->set_key("u");
-    res.mutable_session()->set_method(METHOD_PASSWORD);
     return res;
 }
 
@@ -65,7 +64,6 @@ TEST(TestAuth, LoginHappyPath) {
     const auto r = ASSERT_NIL_P(mock_client.send("", v));
     ASSERT_EQ(r, 1);
     ASSERT_EQ(mw->current_session().subject.type, "user");
-    ASSERT_EQ(mw->current_session().method, METHOD_PASSWORD);
 }
 
 /// @brief it should send a password proof when logging in.
@@ -294,7 +292,7 @@ TEST(TestAuth, RetrieveSessions) {
         grpc::auth::SessionCreateResponse>>(session_response("abc"), x::errors::NIL);
     grpc::auth::SessionRetrieveResponse res;
     *res.add_sessions() = session_response("abc").session();
-    res.mutable_sessions(0)->set_address("127.0.0.1:1");
+    res.mutable_sessions(0)->set_credential("c");
     auto mock_retrieve_client = std::make_unique<freighter::mock::UnaryClient<
         grpc::auth::SessionRetrieveRequest,
         grpc::auth::SessionRetrieveResponse>>(res, x::errors::NIL);
@@ -309,7 +307,7 @@ TEST(TestAuth, RetrieveSessions) {
     ASSERT_EQ(sessions.size(), 1);
     ASSERT_EQ(sessions[0].key, mw->current_session().key);
     ASSERT_EQ(sessions[0].subject.key, "u");
-    ASSERT_EQ(sessions[0].address, "127.0.0.1:1");
+    ASSERT_EQ(sessions[0].credential, "c");
     ASSERT_EQ(retrieve->requests.size(), 1);
     ASSERT_EQ(retrieve->requests[0].subjects_size(), 1);
     ASSERT_EQ(retrieve->requests[0].subjects(0).type(), "user");

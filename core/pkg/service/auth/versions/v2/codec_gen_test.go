@@ -40,20 +40,14 @@ var _ = Describe("Codec", func() {
 				Key:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Hash:       []byte{2, 3, 4},
 				Subject:    ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_5"},
-				Method:     v2.Method("password"),
-				Credential: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"),
-				Address:    "test_8",
-				Created:    telem.TimeStamp(10),
-				LastActive: telem.TimeStamp(11),
+				Credential: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
+				LastActive: telem.TimeStamp(8),
 			}),
 			Entry("zero values", v2.Session{
 				Key:        uuid.Nil(),
 				Hash:       nil,
 				Subject:    ontology.ID{Type: ontology.ResourceType(""), Key: ""},
-				Method:     v2.Method(""),
 				Credential: uuid.Nil(),
-				Address:    "",
-				Created:    telem.TimeStamp(0),
 				LastActive: telem.TimeStamp(0),
 			}),
 		)
@@ -65,11 +59,8 @@ func BenchmarkEncodeDecodeSession(b *testing.B) {
 		Key:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Hash:       []byte{2, 3, 4},
 		Subject:    ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_5"},
-		Method:     v2.Method("password"),
-		Credential: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"),
-		Address:    "test_8",
-		Created:    telem.TimeStamp(10),
-		LastActive: telem.TimeStamp(11),
+		Credential: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
+		LastActive: telem.TimeStamp(8),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -92,11 +83,8 @@ func FuzzDecodeSession(f *testing.F) {
 			Key:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Hash:       []byte{2, 3, 4},
 			Subject:    ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_5"},
-			Method:     v2.Method("password"),
-			Credential: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"),
-			Address:    "test_8",
-			Created:    telem.TimeStamp(10),
-			LastActive: telem.TimeStamp(11),
+			Credential: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
+			LastActive: telem.TimeStamp(8),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -109,10 +97,7 @@ func FuzzDecodeSession(f *testing.F) {
 			Key:        uuid.Nil(),
 			Hash:       nil,
 			Subject:    ontology.ID{Type: ontology.ResourceType(""), Key: ""},
-			Method:     v2.Method(""),
 			Credential: uuid.Nil(),
-			Address:    "",
-			Created:    telem.TimeStamp(0),
 			LastActive: telem.TimeStamp(0),
 		}
 		w := orc.NewWriter(0)

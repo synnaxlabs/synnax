@@ -381,11 +381,8 @@ type Session struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	Subject       *Subject               `protobuf:"bytes,2,opt,name=subject,proto3" json:"subject,omitempty"`
-	Method        string                 `protobuf:"bytes,3,opt,name=method,proto3" json:"method,omitempty"`
-	Credential    string                 `protobuf:"bytes,4,opt,name=credential,proto3" json:"credential,omitempty"`
-	Address       string                 `protobuf:"bytes,5,opt,name=address,proto3" json:"address,omitempty"`
-	Created       int64                  `protobuf:"varint,6,opt,name=created,proto3" json:"created,omitempty"`
-	LastActive    int64                  `protobuf:"varint,7,opt,name=last_active,json=lastActive,proto3" json:"last_active,omitempty"`
+	Credential    string                 `protobuf:"bytes,3,opt,name=credential,proto3" json:"credential,omitempty"`
+	LastActive    int64                  `protobuf:"varint,4,opt,name=last_active,json=lastActive,proto3" json:"last_active,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -434,32 +431,11 @@ func (x *Session) GetSubject() *Subject {
 	return nil
 }
 
-func (x *Session) GetMethod() string {
-	if x != nil {
-		return x.Method
-	}
-	return ""
-}
-
 func (x *Session) GetCredential() string {
 	if x != nil {
 		return x.Credential
 	}
 	return ""
-}
-
-func (x *Session) GetAddress() string {
-	if x != nil {
-		return x.Address
-	}
-	return ""
-}
-
-func (x *Session) GetCreated() int64 {
-	if x != nil {
-		return x.Created
-	}
-	return 0
 }
 
 func (x *Session) GetLastActive() int64 {
@@ -792,17 +768,14 @@ const file_core_pkg_transport_grpc_auth_auth_proto_rawDesc = "" +
 	"\bpassword\x18\x03 \x01(\tR\bpassword\"/\n" +
 	"\aSubject\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\x10\n" +
-	"\x03key\x18\x02 \x01(\tR\x03key\"\xd6\x01\n" +
+	"\x03key\x18\x02 \x01(\tR\x03key\"\x8a\x01\n" +
 	"\aSession\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
-	"\asubject\x18\x02 \x01(\v2\x12.grpc.auth.SubjectR\asubject\x12\x16\n" +
-	"\x06method\x18\x03 \x01(\tR\x06method\x12\x1e\n" +
+	"\asubject\x18\x02 \x01(\v2\x12.grpc.auth.SubjectR\asubject\x12\x1e\n" +
 	"\n" +
-	"credential\x18\x04 \x01(\tR\n" +
-	"credential\x12\x18\n" +
-	"\aaddress\x18\x05 \x01(\tR\aaddress\x12\x18\n" +
-	"\acreated\x18\x06 \x01(\x03R\acreated\x12\x1f\n" +
-	"\vlast_active\x18\a \x01(\x03R\n" +
+	"credential\x18\x03 \x01(\tR\n" +
+	"credential\x12\x1f\n" +
+	"\vlast_active\x18\x04 \x01(\x03R\n" +
 	"lastActive\">\n" +
 	"\x14SessionCreateRequest\x12&\n" +
 	"\x05proof\x18\x01 \x01(\v2\x10.grpc.auth.ProofR\x05proof\"\xc9\x01\n" +

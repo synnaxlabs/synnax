@@ -26,10 +26,7 @@ func (s Session) EncodeOrc(w *orc.Writer) error {
 	if err := s.Subject.EncodeOrc(w); err != nil {
 		return err
 	}
-	w.String(string(s.Method))
 	w.Write(s.Credential[:])
-	w.String(s.Address)
-	w.Int64(int64(s.Created))
 	w.Int64(int64(s.LastActive))
 	return nil
 }
@@ -55,25 +52,8 @@ func (s *Session) DecodeOrc(r *orc.Reader) error {
 	if err = s.Subject.DecodeOrc(r); err != nil {
 		return err
 	}
-	{
-		rawV, err := r.String()
-		if err != nil {
-			return err
-		}
-		s.Method = Method(rawV)
-	}
 	if _, err := r.Read(s.Credential[:]); err != nil {
 		return err
-	}
-	if s.Address, err = r.String(); err != nil {
-		return err
-	}
-	{
-		rawV, err := r.Int64()
-		if err != nil {
-			return err
-		}
-		s.Created = telem.TimeStamp(rawV)
 	}
 	{
 		rawV, err := r.Int64()

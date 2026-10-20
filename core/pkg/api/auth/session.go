@@ -58,14 +58,13 @@ func (s *Service) CreateSession(
 	req SessionCreateRequest,
 ) (SessionCreateResponse, error) {
 	start := telem.Now()
-	md := freighter.MDFromContext(ctx)
-	session, tk, err := s.auth.Login(ctx, req.Proof, md.Remote)
+	session, tk, err := s.auth.Login(ctx, req.Proof)
 	if err != nil {
 		return SessionCreateResponse{}, err
 	}
 	res := SessionCreateResponse{Token: tk, Session: apiSession(session)}
 	if req.Cookie {
-		md.Set(SessionCookieParam, tk)
+		freighter.MDFromContext(ctx).Set(SessionCookieParam, tk)
 		res.Token = ""
 	}
 	if res.User, err = s.userOf(ctx, session.Subject); err != nil {
@@ -225,14 +224,8 @@ type Session struct {
 	Key auth.SessionKey `json:"key" msgpack:"key"`
 	// Subject is the user or rack that logged in.
 	Subject ontology.ID `json:"subject" msgpack:"subject"`
-	// Method is the method the subject logged in with.
-	Method auth.Method `json:"method" msgpack:"method"`
 	// Credential is the key of the credential record the login matched.
 	Credential uuid.UUID `json:"credential" msgpack:"credential"`
-	// Address is the network address the login came from.
-	Address string `json:"address" msgpack:"address"`
-	// Created is when the subject logged in.
-	Created telem.TimeStamp `json:"created" msgpack:"created"`
 	// LastActive is the last time a request used the session, to the nearest quarter of
 	// the idle timeout.
 	LastActive telem.TimeStamp `json:"last_active" msgpack:"last_active"`
@@ -242,10 +235,7 @@ func apiSession(e auth.Session) Session {
 	return Session{
 		Key:        e.Key,
 		Subject:    e.Subject,
-		Method:     e.Method,
 		Credential: e.Credential,
-		Address:    e.Address,
-		Created:    e.Created,
 		LastActive: e.LastActive,
 	}
 }
