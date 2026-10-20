@@ -122,7 +122,7 @@ class Synnax(framer.Client):
         :param clock_skew_threshold: The maximum allowable clock skew between this
             host and Synnax Core before a warning is issued. Defaults to 1 second.
         :param api_key: API key to authenticate with, in place of a username and
-            password.
+            password. Requires a host.
         """
         if api_key and (username or password):
             raise ValidationError(
