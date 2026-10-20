@@ -231,7 +231,7 @@ jobs:
       coverage_flag: client-py
       coverage_module: synnax
       directory: client/py
-      type_check_dir: ./synnax ./examples
+      type_check_dir: ./synnax ./examples ./tests
     secrets: inherit
 
   client-ts:

@@ -36,6 +36,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -449,5 +450,35 @@ var _ = Describe("Migrations", func() {
 				Expect(blobCloser.Close()).To(Succeed())
 			}
 		},
+	)
+})
+
+var _ = Describe("NameMigration", func() {
+	migrated := func(ctx SpecContext, in v2.Task) v2.Task {
+		GinkgoHelper()
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		Expect(gorp.NewCreate[v2.Key, v2.Task]().Entry(&in).Exec(ctx, db)).
+			To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "Task",
+			Migrations: []migrate.Migration{v2.NameMigration},
+		})).To(Succeed())
+		var out v2.Task
+		Expect(gorp.NewRetrieve[v2.Key, v2.Task]().
+			Where(gorp.MatchKeys[v2.Key, v2.Task](in.Key)).
+			Entry(&out).Exec(ctx, db)).To(Succeed())
+		return out
+	}
+	key := uuid.MustParse("1a2b3c4d-0000-0000-0000-000000000000")
+	DescribeTable(
+		"Should name only nameless tasks",
+		func(ctx SpecContext, name, taskType, expected string) {
+			in := v2.Task{Key: key, Name: name, Type: taskType}
+			Expect(migrated(ctx, in).Name).To(Equal(expected))
+		},
+		Entry("type and key", "", "ni_analog_read", "ni_analog_read 1a2b3c4d"),
+		Entry("no type", "", "", "Task 1a2b3c4d"),
+		Entry("named task", "Named", "ni_analog_read", "Named"),
 	)
 })
