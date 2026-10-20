@@ -47,7 +47,7 @@ var _ = Describe("AnalyzeArguments hook (flow form)", func() {
 					gotArgs = args
 				},
 			}
-			ast := MustSucceed(parser.Parse(`trig -> hooked{x=1}`))
+			ast := MustSucceed(parser.Parse(`trig -> hooked(x=1)`))
 			ctx := acontext.NewRoot(bCtx, ast, NewRoot(nil, trig, hooked))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
@@ -72,7 +72,7 @@ var _ = Describe("AnalyzeArguments hook (flow form)", func() {
 				Exec: symbol.ExecBoth,
 				Type: types.Function(types.FunctionProperties{Inputs: params}),
 			}
-			ast := MustSucceed(parser.Parse(`trig -> plain{x=1}`))
+			ast := MustSucceed(parser.Parse(`trig -> plain(x=1)`))
 			ctx := acontext.NewRoot(bCtx, ast, NewRoot(nil, trig, plain))
 			Expect(func() { analyzer.AnalyzeProgram(ctx) }).ToNot(Panic())
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())

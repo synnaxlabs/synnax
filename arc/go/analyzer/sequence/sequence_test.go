@@ -556,7 +556,7 @@ var _ = Describe("Sequence Analyzer", func() {
 			`),
 			Entry("top-level stage with inline routing case body", `
 				stage main {
-					start_cmd -> select{} -> {
+					start_cmd -> select() -> {
 						true: stage { 1 -> abort_btn },
 						false: stage { 1 -> abort_btn }
 					}
@@ -565,7 +565,7 @@ var _ = Describe("Sequence Analyzer", func() {
 			Entry("top-level stage containing a nested sequence with inline routing", `
 				stage main {
 					sequence inner {
-						start_cmd -> select{} -> {
+						start_cmd -> select() -> {
 							true: stage { 1 -> abort_btn }
 						}
 					}
@@ -595,7 +595,7 @@ var _ = Describe("Sequence Analyzer", func() {
 			Entry("inline stage in routing case body (stage context)", `
 				sequence main {
 					stage hold {
-						start_cmd -> select{} -> {
+						start_cmd -> select() -> {
 							true: stage { 1 -> abort_btn }
 						}
 					}
@@ -604,7 +604,7 @@ var _ = Describe("Sequence Analyzer", func() {
 			Entry("inline sequence in routing case body (stage context)", `
 				sequence main {
 					stage hold {
-						start_cmd -> select{} -> {
+						start_cmd -> select() -> {
 							true: sequence {
 								1 -> abort_btn
 							}
@@ -614,7 +614,7 @@ var _ = Describe("Sequence Analyzer", func() {
 			`),
 			Entry("inline routing directly in sequence body", `
 				sequence main {
-					start_cmd -> select{} -> {
+					start_cmd -> select() -> {
 						true: stage { 1 -> abort_btn }
 					}
 				}
@@ -623,7 +623,7 @@ var _ = Describe("Sequence Analyzer", func() {
 				sequence main {
 					stage hold {
 						sequence inner {
-							start_cmd -> select{} -> {
+							start_cmd -> select() -> {
 								true: stage { 1 -> abort_btn }
 							}
 						}
@@ -633,7 +633,7 @@ var _ = Describe("Sequence Analyzer", func() {
 			Entry("empty inline stage body", `
 				sequence main {
 					stage hold {
-						start_cmd -> select{} -> {
+						start_cmd -> select() -> {
 							true: stage { },
 							false: stage { 1 -> abort_btn }
 						}
@@ -643,7 +643,7 @@ var _ = Describe("Sequence Analyzer", func() {
 			Entry("empty inline sequence body", `
 				sequence main {
 					stage hold {
-						start_cmd -> select{} -> {
+						start_cmd -> select() -> {
 							true: sequence { },
 							false: stage { 1 -> abort_btn }
 						}
@@ -660,7 +660,7 @@ var _ = Describe("Sequence Analyzer", func() {
 			Entry("named inline stage", `
 				sequence main {
 					stage hold {
-						start_cmd -> select{} -> {
+						start_cmd -> select() -> {
 							true: stage my_stage { 1 -> abort_btn }
 						}
 					}
@@ -669,7 +669,7 @@ var _ = Describe("Sequence Analyzer", func() {
 			Entry("named inline sequence", `
 				sequence main {
 					stage hold {
-						start_cmd -> select{} -> {
+						start_cmd -> select() -> {
 							true: sequence my_seq { 1 -> abort_btn }
 						}
 					}

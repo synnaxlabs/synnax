@@ -116,7 +116,7 @@ var _ = Describe("Format String Analyzer Diagnostics", func() {
 		return `func f() {
 ` + body + `
 }
-trig -> f{}`
+trig -> f()`
 	}
 
 	Describe("Body parse errors (literal.FmtStrParse)", func() {
@@ -194,7 +194,7 @@ trig -> f{}`
 				// Source line 2: `    log = f"pre {undeclared} post"`
 				// '{' sits at col 16 and '}' at col 27 in the analyzer's column scheme,
 				// so the placeholder span runs [16, 28).
-				code := "func f() {\n    log = f\"pre {undeclared} post\"\n}\ntrig -> f{}"
+				code := "func f() {\n    log = f\"pre {undeclared} post\"\n}\ntrig -> f()"
 				diags := analyze(specCtx, code)
 				Expect(diags.Ok()).To(BeFalse())
 				d := findError(diags, `placeholder "undeclared"`)
@@ -371,7 +371,7 @@ trig -> f{}`
 		It(
 			"accepts an rf-prefixed multi-line format string with placeholders across newlines",
 			func(specCtx SpecContext) {
-				code := "func f() {\n    log = rf`v={chI32}\nt={chF64}`\n}\ntrig -> f{}"
+				code := "func f() {\n    log = rf`v={chI32}\nt={chF64}`\n}\ntrig -> f()"
 				expectSuccess(specCtx, code)
 			},
 		)
@@ -381,7 +381,7 @@ trig -> f{}`
 		It(
 			"anchors a placeholder spec error on the same line as the literal",
 			func(specCtx SpecContext) {
-				code := "func f() {\n    log = f\"{chStr:d}\"\n}\ntrig -> f{}"
+				code := "func f() {\n    log = f\"{chStr:d}\"\n}\ntrig -> f()"
 				d := expectError(specCtx, code, "invalid format spec")
 				Expect(d.Range.Start.Line).To(Equal(uint32(1)),
 					"expected diagnostic on line 2, got line %d (col %d)", d.Range.Start.Line, d.Range.Start.Character)
@@ -398,7 +398,7 @@ trig -> f{}`
 		It(
 			"anchors a placeholder spec error on a later line for a multi-line format string",
 			func(specCtx SpecContext) {
-				code := "func f() {\n    log = f`line1\nline2\n{chStr:d}`\n}\ntrig -> f{}"
+				code := "func f() {\n    log = f`line1\nline2\n{chStr:d}`\n}\ntrig -> f()"
 				d := expectError(specCtx, code, "invalid format spec")
 				Expect(d.Range.Start.Line).To(Equal(uint32(3)),
 					"expected diagnostic on line 4 (third line of literal), got line %d col %d",
@@ -409,7 +409,7 @@ trig -> f{}`
 		It(
 			"anchors a placeholder error past the opening quote on a single-line literal",
 			func(specCtx SpecContext) {
-				code := "func f() {\n    log = f\"pre {chStr:d} post\"\n}\ntrig -> f{}"
+				code := "func f() {\n    log = f\"pre {chStr:d} post\"\n}\ntrig -> f()"
 				d := expectError(specCtx, code, "invalid format spec")
 				Expect(d.Range.Start.Line).To(Equal(uint32(1)))
 				Expect(d.Range.Start.Character).To(BeNumerically(">", 11),
@@ -444,7 +444,7 @@ trig -> f{}`
 			"emits a diagnostic when string token text lacks delimiters",
 			func(specCtx SpecContext) {
 				ast := MustSucceed(
-					parser.Parse("func f() {\n    log = f\"x\"\n}\ntrig -> f{}"),
+					parser.Parse("func f() {\n    log = f\"x\"\n}\ntrig -> f()"),
 				)
 				strTerm := findStringTerminal(ast)
 				Expect(strTerm).ToNot(BeNil())

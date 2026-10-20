@@ -41,7 +41,8 @@ func AnalyzeSingleFunction(ctx context.Context[parser.IFunctionContext]) {
 	if funcType == nil {
 		return
 	}
-	if rejectWASMFlowNode(ctx, funcType, name) {
+	if funcType.Exec == symbol.ExecWASM {
+		analyzeWASMCall(ctx, funcType, name)
 		return
 	}
 	freshType := types.Freshen(funcType.Type, freshenKey(ctx.AST, name))
@@ -154,7 +155,8 @@ func parseFunction(
 	if funcType == nil {
 		return
 	}
-	if rejectWASMFlowNode(ctx, funcType, name) {
+	if funcType.Exec == symbol.ExecWASM {
+		analyzeWASMCall(ctx, funcType, name)
 		return
 	}
 
@@ -472,25 +474,6 @@ func resolveFunc[T antlr.ParserRuleContext](
 	return sym, name
 }
 
-// rejectWASMFlowNode reports an error and returns true when fn is a WASM-only
-// function, which is callable inside a func block but cannot be a flow node.
-func rejectWASMFlowNode(
-	ctx context.Context[parser.IFunctionContext],
-	fn *symbol.Symbol,
-	name string,
-) bool {
-	if fn.Exec != symbol.ExecWASM {
-		return false
-	}
-	ctx.Diagnostics.Add(diagnostics.Errorf(
-		ctx.AST,
-		"function '%s' cannot be used as a flow statement. Call it inside a func block instead: %s()",
-		name,
-		name,
-	))
-	return true
-}
-
 // resolveFuncOutput returns fn's default output type for chained use, emitting
 // a diagnostic when fn has named outputs or no return value. downstreamDesc
 // is embedded in the no-return message to describe the unsatisfied consumer.
@@ -515,17 +498,17 @@ func resolveFuncOutput[T antlr.ParserRuleContext](
 	return types.Type{}
 }
 
-// inputArguments adapts the arguments in a call's brace `{...}` form into the
+// inputArguments adapts the arguments in a call's paren `(...)` form into the
 // unified []symbol.Argument shape, analyzing each value expression as it goes.
 func inputArguments[T antlr.ParserRuleContext](
 	ctx context.Context[T],
-	braceBlock parser.IInputValuesContext,
+	inputValues parser.IInputValuesContext,
 ) []symbol.Argument {
-	if braceBlock == nil {
+	if inputValues == nil {
 		return nil
 	}
 	var args []symbol.Argument
-	if namedVals := braceBlock.NamedInputValues(); namedVals != nil {
+	if namedVals := inputValues.NamedInputValues(); namedVals != nil {
 		for _, val := range namedVals.AllNamedInputValue() {
 			expr := val.Expression()
 			if expr == nil {
@@ -540,7 +523,7 @@ func inputArguments[T antlr.ParserRuleContext](
 		}
 		return args
 	}
-	if anonVals := braceBlock.AnonymousInputValues(); anonVals != nil {
+	if anonVals := inputValues.AnonymousInputValues(); anonVals != nil {
 		for i, expr := range anonVals.AllExpression() {
 			expression.Analyze(ctx.Child(expr))
 			args = append(args, symbol.Argument{
@@ -892,6 +875,10 @@ func analyzeRoutingTargetWithParam(
 	if fn := ctx.AST.Function(); fn != nil {
 		fnType, fnName := resolveFunc(ctx, fn)
 		if fnType == nil {
+			return
+		}
+		if fnType.Exec == symbol.ExecWASM {
+			analyzeWASMCall(ctx.Child(fn), fnType, fnName)
 			return
 		}
 

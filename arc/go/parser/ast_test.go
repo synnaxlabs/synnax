@@ -328,7 +328,7 @@ var _ = Describe("AST Utilities", func() {
 		})
 	})
 
-	Describe("FunctionNameParts and FunctionName", func() {
+	Describe("FunctionNameParts, FunctionName, and FunctionArguments", func() {
 		var findFunction func(t antlr.Tree) parser.IFunctionContext
 		findFunction = func(t antlr.Tree) parser.IFunctionContext {
 			if fn, ok := t.(parser.IFunctionContext); ok {
@@ -367,6 +367,16 @@ var _ = Describe("AST Utilities", func() {
 			Expect(parser.FunctionName(functionOf("x -> calc()"))).To(Equal("calc"))
 			Expect(parser.FunctionName(functionOf("x -> math.avg()"))).
 				To(Equal("math.avg"))
+		})
+
+		It("Should return the argument expressions in order", func() {
+			args := parser.FunctionArguments(functionOf("x -> calc(1, 2)"))
+			Expect(args).To(HaveLen(2))
+			Expect(args[1].GetText()).To(Equal("2"))
+			args = parser.FunctionArguments(functionOf("x -> calc(a=1, b=2)"))
+			Expect(args).To(HaveLen(2))
+			Expect(args[1].GetText()).To(Equal("2"))
+			Expect(parser.FunctionArguments(functionOf("x -> calc()"))).To(BeEmpty())
 		})
 	})
 
