@@ -36,7 +36,8 @@
       "endpoints": ["https://docs.synnaxlabs.com/releases/console/latest.json"],
       "requireSignedVersion": true
     },
-    "deep-link": { "mobile": [], "desktop": { "schemes": ["synnax"] } }
+    "deep-link": { "mobile": [], "desktop": { "schemes": ["synnax"] } },
+    "fs": { "scopeDroppedPaths": false }
   },
   "app": {
     "windows": [
