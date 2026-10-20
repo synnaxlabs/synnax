@@ -212,6 +212,8 @@ type Symbol struct {
 	// reference them, but remain visible to the compiler's resolve.Resolver
 	// which passes IncludeInternal to bypass the filter.
 	Internal bool
+	// Exported marks a module declaration that importers can see.
+	Exported bool
 	// Reassigned marks a flow-level value variable written after declaration
 	// (`x = v` or `-> x`), which lowers to a variable node instead of a constant.
 	Reassigned bool

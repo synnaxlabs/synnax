@@ -240,11 +240,14 @@ func (s *Service) CompileProgram(ctx context.Context, key Key) (Arc, error) {
 
 // compile compiles the Arc's content in its mode against the service's symbol root.
 func (s *Service) compile(ctx context.Context, a Arc) (arc.Program, error) {
-	opt := arc.WithAllowDashedNames(s.AllowDashedNames())
-	if a.Mode == ModeText {
-		return arc.CompileText(ctx, a.Text.Materialize(), s.NewRoot(ctx, nil), opt)
+	opts := []arc.Option{
+		arc.WithAllowDashedNames(s.AllowDashedNames()),
+		arc.WithModule(a.Type == TypeModule),
 	}
-	return arc.CompileGraph(ctx, a.Graph, s.NewRoot(ctx, nil), opt)
+	if a.Mode == ModeText {
+		return arc.CompileText(ctx, a.Text.Materialize(), s.NewRoot(ctx, nil), opts...)
+	}
+	return arc.CompileGraph(ctx, a.Graph, s.NewRoot(ctx, nil), opts...)
 }
 
 // OpenService instantiates a new Arc service using the provided configurations. Each

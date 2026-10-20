@@ -44,7 +44,8 @@ type (
 type Option func(*options)
 
 type options struct {
-	cfg parser.Config
+	cfg    parser.Config
+	module bool
 }
 
 func newOptions(opts []Option) options {
@@ -60,6 +61,11 @@ func newOptions(opts []Option) options {
 // disabled.
 func WithAllowDashedNames(allow bool) Option {
 	return func(o *options) { o.cfg.AllowDashedNames = allow }
+}
+
+// WithModule analyzes the program as a module.
+func WithModule(module bool) Option {
+	return func(o *options) { o.module = module }
 }
 
 // NewRoot returns a program root with the standard library symbols and
@@ -113,7 +119,7 @@ func CompileText(
 	if err != nil {
 		return Program{}, err
 	}
-	inter, diagnostics := text.Analyze(ctx, textWithAST, root, o.cfg)
+	inter, diagnostics := text.Analyze(ctx, textWithAST, root, o.module, o.cfg)
 	if !diagnostics.Ok() {
 		return Program{}, diagnostics
 	}

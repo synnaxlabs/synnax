@@ -1420,15 +1420,19 @@ func wireVarEdges(
 //
 // The root parameter is the pre-built program root. Callers construct it
 // (typically via stl.NewRoot) so the text package never needs to know
-// which built-ins are loaded or where external symbols come from.
+// which built-ins are loaded or where external symbols come from. module analyzes
+// the program as a module.
 func Analyze(
 	ctx context.Context,
 	t Text,
 	root *symbol.Symbol,
+	module bool,
 	cfgs ...parser.Config,
 ) (ir.IR, *diagnostics.Diagnostics) {
 	var (
-		aCtx = acontext.NewRoot(ctx, t.AST, root).WithConfig(parser.ConfigOf(cfgs...))
+		aCtx = acontext.NewRoot(ctx, t.AST, root).
+			WithConfig(parser.ConfigOf(cfgs...)).
+			WithModule(module)
 		i    = ir.IR{Symbols: aCtx.Scope, TypeMap: aCtx.TypeMap}
 	)
 

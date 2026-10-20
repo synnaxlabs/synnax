@@ -39,6 +39,8 @@ type (
 	Key = arc.Key
 )
 
+const TypeModule = arc.TypeModule
+
 type Service struct {
 	access   *rbac.Service
 	internal *arc.Service
@@ -317,7 +319,13 @@ func (s *Service) compile(ctx context.Context, arc *Arc) error {
 	if diag != nil && !diag.Ok() {
 		return CompileError{Diagnostics: diag.Error()}
 	}
-	ir, diag := arctext.Analyze(ctx, parsed, s.internal.NewRoot(ctx, nil), cfg)
+	ir, diag := arctext.Analyze(
+		ctx,
+		parsed,
+		s.internal.NewRoot(ctx, nil),
+		arc.Type == TypeModule,
+		cfg,
+	)
 	if diag != nil && !diag.Ok() {
 		return CompileError{Diagnostics: diag.Error()}
 	}

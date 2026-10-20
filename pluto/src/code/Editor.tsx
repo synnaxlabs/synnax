@@ -145,6 +145,8 @@ interface UseProps {
   onEdit?: (changes: readonly Monaco.editor.IModelContentChange[]) => void;
   language: string;
   isBlock?: boolean;
+  /** Marks the document as an Arc module for the language server. */
+  isModule?: boolean;
   scrollBeyondLastLine?: boolean;
   openContextMenu?: Menu.ContextMenuProps["open"];
   extensions?: EditorExtension[];
@@ -333,6 +335,7 @@ const use = ({
   onEdit,
   language,
   isBlock = false,
+  isModule = false,
   scrollBeyondLastLine = false,
   openContextMenu,
   extensions,
@@ -357,10 +360,12 @@ const use = ({
   const cursorRenameable = useRenameAvailable(editor, monaco);
 
   const customURIRef = useRef<string | undefined>(undefined);
-  if (customURIRef.current === undefined && isBlock) {
-    const encoded = url.encodeBase64(JSON.stringify({ is_block: true }));
+  if (customURIRef.current === undefined && (isBlock || isModule)) {
     const id = Math.random().toString(36).substring(7);
-    customURIRef.current = `arc://block/${id}#${encoded}`;
+    if (isBlock) {
+      const encoded = url.encodeBase64(JSON.stringify({ is_block: true }));
+      customURIRef.current = `arc://block/${id}#${encoded}`;
+    } else customURIRef.current = `arc://module/${id}`;
   }
   const customURI = customURIRef.current;
 
@@ -482,6 +487,7 @@ const EditorInternal = ({
   className,
   language,
   isBlock,
+  isModule,
   scrollBeyondLastLine,
   extensions,
   placeholder,
@@ -497,6 +503,7 @@ const EditorInternal = ({
     onValueChange,
     language,
     isBlock,
+    isModule,
     scrollBeyondLastLine,
     openContextMenu: menuProps.open,
     extensions,

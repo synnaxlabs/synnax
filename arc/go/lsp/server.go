@@ -405,9 +405,10 @@ func (s *Server) runAnalysis(
 	s.mu.RLock()
 	content := doc.Content
 	isBlock := doc.metadata.isFunctionBlock
+	isModule := doc.metadata.isModule
 	s.mu.RUnlock()
 
-	pDiagnostics, docIR, docDiag := s.analyze(ctx, content, isBlock)
+	pDiagnostics, docIR, docDiag := s.analyze(ctx, content, isBlock, isModule)
 	if ctx.Err() != nil {
 		return
 	}
@@ -453,6 +454,7 @@ func (s *Server) analyze(
 	ctx context.Context,
 	content string,
 	isBlock bool,
+	isModule bool,
 ) ([]protocol.Diagnostic, ir.IR, diagnostics.Diagnostics) {
 	s.cfg.L.Debug("analyzing program")
 	var (
@@ -479,7 +481,13 @@ func (s *Server) analyze(
 		if diag != nil {
 			pDiagnostics = lsp.TranslateDiagnostics(*diag, translateSource)
 		} else {
-			analyzedIR, analysisDiag := text.Analyze(ctx, t, s.cfg.NewRoot(ctx), cfg)
+			analyzedIR, analysisDiag := text.Analyze(
+				ctx,
+				t,
+				s.cfg.NewRoot(ctx),
+				isModule,
+				cfg,
+			)
 			docIR = analyzedIR
 			if analysisDiag != nil {
 				docDiag = *analysisDiag
@@ -504,9 +512,10 @@ func (s *Server) publishDiagnostics(
 		return
 	}
 	isBlock := doc.metadata.isFunctionBlock
+	isModule := doc.metadata.isModule
 	s.mu.RUnlock()
 
-	pDiagnostics, docIR, docDiag := s.analyze(ctx, content, isBlock)
+	pDiagnostics, docIR, docDiag := s.analyze(ctx, content, isBlock, isModule)
 
 	s.mu.Lock()
 	if _, stillOpen := s.documents[docURI]; stillOpen {

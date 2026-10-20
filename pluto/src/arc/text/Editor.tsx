@@ -27,6 +27,8 @@ export interface EditorProps extends Pick<
 export const Editor = ({ autoFocus = false, extraMenuItems }: EditorProps) => {
   const resourceKey = useKey();
   const client = Synnax.use();
+  const cached = client?.arcs.getCached(resourceKey);
+  const isModule = query.isLive(cached) && cached.type === "module";
   const dispatch = useSingleDispatch();
   const hasText = useName();
 
@@ -71,6 +73,7 @@ export const Editor = ({ autoFocus = false, extraMenuItems }: EditorProps) => {
       initialValue={value}
       onEdit={handleEdit}
       language={NAME}
+      isModule={isModule}
       background={0}
       placeholder={PLACEHOLDER}
       autoFocus={autoFocus && value.length === 0}
