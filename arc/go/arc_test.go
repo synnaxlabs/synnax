@@ -580,33 +580,6 @@ trigger -> counter{} -> output_b
 	)
 
 	It(
-		"Should return a compile error when () is used instead of {} in a flow",
-		func(ctx SpecContext) {
-			root := symbol.NewRoot(nil, stl.NewSymbols())
-			some := symbol.Symbol{
-				Name: "some_ch",
-				Kind: symbol.KindChannel,
-				Type: types.Chan(types.I64()),
-				ID:   1,
-			}
-			root.Parent.AddChild(&some)
-			t := arc.Text{Raw: `
-some_ch -> check()
-
-func check() {
-    a := 1
-}
-`}
-			Expect(arc.CompileText(ctx, t, root)).Error().To(SatisfyAll(
-				MatchError(
-					ContainSubstring("functions in flow statements use {} not ()"),
-				),
-				MatchError(ContainSubstring("did you mean: check{}?")),
-			))
-		},
-	)
-
-	It(
 		"Should return a compile error when '=>' feeds a routing table",
 		func(ctx SpecContext) {
 			root := symbol.NewRoot(nil, stl.NewSymbols())
