@@ -58,15 +58,13 @@ def _freighter_encode(exc: Exception) -> ExceptionPayload | None:
 
 
 def _freighter_decode(exc: ExceptionPayload) -> Exception | None:
-    if exc.type is None or not exc.type.startswith(_FREIGHTER_EXCEPTION_TYPE):
-        return None
     if exc.type == Unreachable.TYPE:
         return Unreachable(message=exc.data) if exc.data is not None else Unreachable()
     if exc.type == StreamClosed.TYPE:
         return StreamClosed()
     if exc.type == EOF.TYPE:
         return EOF()
-    raise ValueError(f"Unknown error type: {exc.type}")
+    return None
 
 
 register_exception(_freighter_encode, _freighter_decode)
