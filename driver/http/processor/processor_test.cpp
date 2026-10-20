@@ -1790,7 +1790,17 @@ TEST(ProcessorTest, ShutdownFailsActiveAndWaitingRequests) {
     auto proc = std::make_unique<Processor>();
     std::vector<std::pair<Response, x::errors::Error>> results;
     std::thread caller([&, p = proc.get()] { results = p->execute(reqs); });
-    ASSERT_EVENTUALLY_EQ(server.received_requests().size(), 1);
+    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
+        server.received_requests().size(),
+        1,
+        std::chrono::seconds(10),
+        std::chrono::milliseconds(1)
+    );
+    // The wait only records a failure, so keep proc alive until the caller ends.
+    if (HasFailure()) {
+        caller.join();
+        return;
+    }
     proc.reset();
     caller.join();
 
@@ -1976,7 +1986,17 @@ TEST(ProcessorTest, ShutdownWakesActivePoll) {
     auto proc = std::make_unique<Processor>(1 * x::telem::SECOND);
     std::pair<Response, x::errors::Error> result;
     std::thread caller([&, p = proc.get()] { result = p->execute(req); });
-    ASSERT_EVENTUALLY_EQ(server.received_requests().size(), 1);
+    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
+        server.received_requests().size(),
+        1,
+        std::chrono::seconds(10),
+        std::chrono::milliseconds(1)
+    );
+    // The wait only records a failure, so keep proc alive until the caller ends.
+    if (HasFailure()) {
+        caller.join();
+        return;
+    }
 
     const auto start = std::chrono::steady_clock::now();
     proc.reset();
