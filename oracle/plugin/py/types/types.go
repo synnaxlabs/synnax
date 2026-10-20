@@ -2231,7 +2231,7 @@ class {{ .ClassName }}({{ range $i, $p := .Parents }}{{ if $i }}, {{ end }}{{ $p
 {{ if .Doc }}{{ pyDocComment .Doc }}
 {{ end -}}
 {{ .Name }} = Annotated[
-    Union[{{ range $i, $v := .Variants }}{{ if $i }}, {{ end }}{{ $v.ClassName }}{{ end }}],
+    {{ range $i, $v := .Variants }}{{ if $i }} | {{ end }}{{ $v.ClassName }}{{ end }},
     Field(discriminator="{{ .DiscName }}"),
 ]
 {{- end }}
