@@ -74,11 +74,8 @@ message Subject {
 message Session {
   string key = 1;
   Subject subject = 2;
-  string method = 3;
-  string credential = 4;
-  string address = 5;
-  int64 created = 6;
-  int64 last_active = 7;
+  string credential = 3;
+  int64 last_active = 4;
 }
 
 message SessionCreateRequest {

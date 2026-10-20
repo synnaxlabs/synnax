@@ -55,14 +55,8 @@ export const sessionZ = z.object({
   key: sessionKeyZ,
   /** subject is the user or rack that logged in. */
   subject: ontology.idZ,
-  /** method is the method the subject logged in with. */
-  method: methodZ,
   /** credential is the key of the credential record the login matched. */
   credential: z.uuid(),
-  /** address is the network address the login came from. */
-  address: z.string(),
-  /** created is when the subject logged in. */
-  created: telem.timeStampZ,
   /**
    * lastActive is the last time a request used the session, to the nearest quarter of
    * the idle timeout.

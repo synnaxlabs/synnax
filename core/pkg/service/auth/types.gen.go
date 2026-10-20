@@ -19,17 +19,28 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Method names an authentication method.
-type Method = versions.Method
-
-const MethodPassword Method = versions.MethodPassword
-
 // SessionKey is a unique identifier for a session.
 type SessionKey = versions.SessionKey
 
 // Session is a logged-in subject. It ends when it is revoked or when no request has
 // used it for the idle timeout.
 type Session = versions.Session
+
+// Method names an authentication method.
+type Method string
+
+const MethodPassword Method = "password"
+
+// IsValid reports whether m is one of the defined Method
+// values.
+func (m Method) IsValid() bool {
+	switch m {
+	case MethodPassword:
+		return true
+	default:
+		return false
+	}
+}
 
 // Credentials is a plaintext username and password pair presented at login.
 type Credentials struct {
