@@ -160,7 +160,7 @@ export const Inbox = ({ notifications }: FeedProps): ReactElement => {
     >
       <Dialog.Trigger
         hideCaret
-        size="small"
+        size="medium"
         variant="text"
         tooltip="Notifications"
         tooltipLocation={location.BOTTOM_LEFT}

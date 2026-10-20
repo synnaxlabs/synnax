@@ -18,7 +18,7 @@ export const OpenButton = (): ReactElement => {
   const handleOpen = useOpen();
   return (
     <Button.Button
-      size="small"
+      size="medium"
       variant="text"
       onClick={handleOpen}
       className={CSS.BE("docs", "open-button")}
