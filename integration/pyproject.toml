@@ -78,14 +78,6 @@ plugins = ["pydantic.mypy"]
 strict = true
 
 [[tool.mypy.overrides]]
-module = "synnax.*"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "examples.*"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
 module = "nidaqmx.*"
 ignore_missing_imports = true
 

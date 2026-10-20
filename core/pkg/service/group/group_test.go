@@ -67,6 +67,11 @@ var _ = Describe("Group", Ordered, func() {
 			child := MustSucceed(w.Create(ctx, "child", parent.OntologyID()))
 			Expect(child.Name).To(Equal("child"))
 		})
+
+		It("Should reject a group with an empty name", func(ctx SpecContext) {
+			Expect(w.Create(ctx, "", ontology.RootID)).Error().
+				To(MatchError(ContainSubstring("name: required")))
+		})
 	})
 
 	Describe("Retrieve", func() {
@@ -127,6 +132,12 @@ var _ = Describe("Group", Ordered, func() {
 					Exec(ctx, nil),
 			).To(Succeed())
 			Expect(g.Name).To(Equal(newName))
+		})
+
+		It("Should reject an empty name", func(ctx SpecContext) {
+			created := MustSucceed(w.Create(ctx, "keep-name", ontology.RootID))
+			Expect(w.Rename(ctx, created.Key, "")).
+				To(MatchError(ContainSubstring("name: required")))
 		})
 	})
 
