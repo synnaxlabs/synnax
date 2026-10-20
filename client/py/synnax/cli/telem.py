@@ -36,7 +36,7 @@ def select_data_type(
     :param allow_none: Whether to allow the user to select None.
     """
     selected, _ = ctx.console.select(
-        rows=[str(name) for name in DataType.ALL],
+        rows=[str(dt) for dt in DataType.ALL if dt != DataType.UNKNOWN],
         type_=str,
         columns=["data_type"],
         **kwargs,

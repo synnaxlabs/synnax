@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type Writer struct {
@@ -67,11 +68,18 @@ func (w Writer) CreateMany(
 	return nil
 }
 
+// Rename renames the project with the given key. It returns query.ErrNotFound if no
+// project with the key exists and a validation error if name is empty.
 func (w Writer) Rename(
 	ctx context.Context,
 	key Key,
 	name string,
 ) error {
+	v := validate.New("project.project")
+	v.NotEmptyString("name", name)
+	if err := v.Error(); err != nil {
+		return err
+	}
 	return w.table.NewUpdate().Where(gorp.MatchKeys[Key, Project](key)).
 		Change(func(_ gorp.Context, p Project) Project {
 			p.Name = name
