@@ -11,9 +11,11 @@ package auth
 
 import (
 	"context"
+	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
@@ -41,10 +43,10 @@ type ClusterInfo struct {
 
 // Service is the core authentication service for the Synnax API.
 type Service struct {
-	token   *token.Service
-	auth    *auth.Service
-	user    *user.Service
-	cluster cluster.Cluster
+	token    *token.Service
+	password *password.Service
+	user     *user.Service
+	cluster  cluster.Cluster
 }
 
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {
@@ -53,10 +55,10 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		token:   cfg.Service.Token,
-		auth:    cfg.Service.Auth,
-		user:    cfg.Service.User,
-		cluster: cfg.Distribution.Cluster,
+		token:    cfg.Service.Token,
+		password: cfg.Service.Password,
+		user:     cfg.Service.User,
+		cluster:  cfg.Distribution.Cluster,
 	}, nil
 }
 
@@ -78,12 +80,17 @@ func (s *Service) Login(
 	req LoginRequest,
 ) (LoginResponse, error) {
 	startTime := telem.Now()
-	if err := s.auth.Authenticate(ctx, nil, req.Credentials); err != nil {
+	identity, err := s.authenticate(ctx, req.Credentials)
+	if err != nil {
+		return LoginResponse{}, err
+	}
+	key, err := uuid.Parse(identity.Subject.Key)
+	if err != nil {
 		return LoginResponse{}, err
 	}
 	var u user.User
 	if err := s.user.NewRetrieve().
-		Where(user.MatchUsernames(req.Username)).
+		Where(user.MatchKeys(key)).
 		Entry(&u).
 		Exec(ctx, nil); err != nil {
 		return LoginResponse{}, err
@@ -114,11 +121,19 @@ func (s *Service) ChangePassword(
 	tx gorp.Tx,
 	req ChangePasswordRequest,
 ) (struct{}, error) {
-	if err := s.auth.Authenticate(ctx, tx, req.Credentials); err != nil {
+	identity, err := s.authenticate(ctx, req.Credentials)
+	if err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, s.auth.NewWriter(tx).ChangePassword(ctx, Credentials{
-		Username: req.Username,
-		Password: req.NewPassword,
+	return struct{}{}, s.password.NewWriter(tx).
+		ChangePassword(ctx, identity.Subject, req.NewPassword)
+}
+
+func (s *Service) authenticate(
+	ctx context.Context,
+	creds Credentials,
+) (auth.Identity, error) {
+	return s.password.Authenticate(ctx, auth.Proof{
+		Variant: auth.PasswordProof{Credentials: creds},
 	})
 }
