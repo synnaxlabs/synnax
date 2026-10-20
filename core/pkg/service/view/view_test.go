@@ -138,6 +138,42 @@ var _ = Describe("View", func() {
 			})
 		})
 
+		Describe("Rename", func() {
+			It(
+				"Should rename a view, keeping every other field",
+				func(ctx SpecContext) {
+					s := view.View{Variant: view.StatusView{
+						Base:  view.Base{Key: uuid.New(), Name: "Before"},
+						Query: view.StatusQuery{Variants: []status.Variant{"success"}},
+					}}
+					Expect(w.Create(ctx, &s)).To(Succeed())
+					Expect(w.Rename(ctx, s.GorpKey(), "After")).To(Succeed())
+					var res view.View
+					Expect(svc.NewRetrieve().
+						Where(view.MatchKeys(s.GorpKey())).
+						Entry(&res).
+						Exec(ctx, tx)).To(Succeed())
+					Expect(res).To(Equal(s.WithName("After")))
+				},
+			)
+			It(
+				"Should return a validation error for an empty name",
+				func(ctx SpecContext) {
+					s := rangeView("Before")
+					Expect(w.Create(ctx, &s)).To(Succeed())
+					Expect(w.Rename(ctx, s.GorpKey(), "")).
+						To(MatchError(ContainSubstring("name: required")))
+				},
+			)
+			It(
+				"Should return a not found error for a missing view",
+				func(ctx SpecContext) {
+					Expect(w.Rename(ctx, uuid.New(), "After")).
+						To(MatchError(query.ErrNotFound))
+				},
+			)
+		})
+
 		Describe("Delete", func() {
 			It("Should delete a view", func(ctx SpecContext) {
 				s := rangeView("To Delete")
