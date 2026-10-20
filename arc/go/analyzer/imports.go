@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // checkImportOrder reports any import statement that appears after a
@@ -48,13 +49,9 @@ func collectImports(ctx acontext.Context[parser.IProgramContext]) {
 	root := ctx.Scope.Root()
 	ambient := ambientOf(root)
 	for _, entry := range parser.Imports(ctx.AST) {
-		module := lookupModule(ambient, entry.Path)
-		if module == nil {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
-				entry.AST,
-				"unknown module %q",
-				entry.Path,
-			))
+		module, err := lookupModule(ctx, root, ambient, entry.Path)
+		if err != nil {
+			ctx.Diagnostics.Add(diagnostics.Error(err, entry.AST))
 			continue
 		}
 		alias := symbol.Symbol{
@@ -101,18 +98,23 @@ func ambientOf(root *symbol.Symbol) *symbol.Symbol {
 	return nil
 }
 
-// lookupModule searches the ambient prelude for a KindModule child with the
-// given canonical path. Internal modules are skipped so user `import`
-// statements cannot reach compiler-only modules (channels, strings,
-// series, stateful). Returns nil when ambient is nil, the module is not
-// present, or the matched module is Internal.
-func lookupModule(ambient *symbol.Symbol, path string) *symbol.Symbol {
-	if ambient == nil {
-		return nil
+// lookupModule finds the module at path: the ambient prelude first, then the root's
+// ModuleResolver. Internal modules are skipped so user `import` statements cannot
+// reach compiler-only modules (channels, strings, series, stateful).
+func lookupModule(
+	ctx acontext.Context[parser.IProgramContext],
+	root, ambient *symbol.Symbol,
+	path string,
+) (*symbol.Symbol, error) {
+	if ambient != nil {
+		child := ambient.FindChild(path)
+		if child != nil && child.Kind == symbol.KindModule && !child.Internal {
+			return child, nil
+		}
 	}
-	child := ambient.FindChild(path)
-	if child == nil || child.Kind != symbol.KindModule || child.Internal {
-		return nil
+	module, err := root.ResolveModule(ctx, path)
+	if errors.Is(err, symbol.ErrModuleNotFound) {
+		return nil, errors.Newf("unknown module %q", path)
 	}
-	return child
+	return module, err
 }

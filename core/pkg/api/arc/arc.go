@@ -322,7 +322,7 @@ func (s *Service) compile(ctx context.Context, arc *Arc) error {
 	ir, diag := arctext.Analyze(
 		ctx,
 		parsed,
-		s.internal.NewRoot(ctx, nil),
+		s.internal.NewRoot(nil),
 		arc.Type == TypeModule,
 		cfg,
 	)

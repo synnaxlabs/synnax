@@ -279,6 +279,9 @@ type Symbol struct {
 	// in the symbol tree (e.g., global channels). Consulted by Resolve
 	// when a name is not found among Children. Set on the root only via NewRoot.
 	globalResolver Resolver
+	// moduleResolver supplies modules by import path. Set on the root only via
+	// SetModuleResolver.
+	moduleResolver ModuleResolver
 }
 
 // NewRoot creates a user-program root attached to an empty ambient

@@ -12,7 +12,12 @@ package arc
 import (
 	"context"
 	"slices"
+	"strings"
 
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
@@ -20,6 +25,118 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 )
+
+// moduleResolver resolves user modules for one analysis root. visiting holds the
+// paths under analysis, so an import cycle stops instead of recursing.
+type moduleResolver struct {
+	svc      *Service
+	tx       gorp.Tx
+	visiting set.Set[string]
+}
+
+var _ symbol.ModuleResolver = (*moduleResolver)(nil)
+
+func (s *Service) newModuleResolver(tx gorp.Tx) *moduleResolver {
+	return &moduleResolver{svc: s, tx: tx, visiting: set.New[string]()}
+}
+
+// ResolveModule implements symbol.ModuleResolver. The module is analyzed against a
+// root sharing this resolver, so its own imports resolve the same way.
+func (r *moduleResolver) ResolveModule(
+	ctx context.Context,
+	path string,
+) (*symbol.Symbol, error) {
+	if r.visiting.Contains(path) {
+		return nil, errors.Newf("import cycle through %q", path)
+	}
+	a, err := r.svc.retrieveModule(ctx, r.tx, path)
+	if err != nil {
+		return nil, err
+	}
+	r.visiting.Add(path)
+	defer r.visiting.Remove(path)
+	cfg := parser.Config{AllowDashedNames: r.svc.AllowDashedNames()}
+	t, diag := text.Parse(a.Text.Materialize(), cfg)
+	if diag != nil && !diag.Ok() {
+		return nil, errors.Newf("module %q does not compile", path)
+	}
+	i, diag := text.Analyze(ctx, t, r.svc.newRoot(r.tx, r), true, cfg)
+	if diag != nil && !diag.Ok() {
+		return nil, errors.Newf("module %q does not compile", path)
+	}
+	mod := &symbol.Symbol{Name: path, Kind: symbol.KindModule}
+	for _, child := range i.Symbols.Children() {
+		if !child.Exported {
+			continue
+		}
+		member := *child
+		member.Parent = nil
+		mod.AddChild(&member)
+	}
+	return mod, nil
+}
+
+// SearchModules implements symbol.ModuleResolver.
+func (r *moduleResolver) SearchModules(
+	ctx context.Context,
+	prefix string,
+) ([]string, error) {
+	paths, err := r.svc.retrieveModulePaths(ctx, r.tx)
+	if err != nil {
+		return nil, err
+	}
+	return lo.Filter(paths, func(p string, _ int) bool {
+		return strings.HasPrefix(p, prefix)
+	}), nil
+}
+
+// retrieveModule returns the module Arc at path, or symbol.ErrModuleNotFound.
+func (s *Service) retrieveModule(
+	ctx context.Context,
+	tx gorp.Tx,
+	path string,
+) (Arc, error) {
+	notFound := errors.Wrapf(symbol.ErrModuleNotFound, "unknown module %q", path)
+	segments := strings.Split(path, ".")
+	parent := s.group.OntologyID()
+	for _, name := range segments[:len(segments)-1] {
+		groups, err := s.retrieveChildren(ctx, tx, parent, ontology.ResourceTypeGroup, false)
+		if err != nil {
+			return Arc{}, err
+		}
+		g, ok := lo.Find(groups, func(r ontology.Resource) bool { return r.Name == name })
+		if !ok {
+			return Arc{}, notFound
+		}
+		parent = g.ID
+	}
+	arcs, err := s.retrieveChildren(ctx, tx, parent, ontology.ResourceTypeArc, true)
+	if err != nil {
+		return Arc{}, err
+	}
+	if len(arcs) == 0 {
+		return Arc{}, notFound
+	}
+	keys, err := KeysFromOntologyIDs(ontology.ResourceIDs(arcs))
+	if err != nil {
+		return Arc{}, err
+	}
+	var entries []Arc
+	if err = s.NewRetrieve().
+		Where(MatchKeys(keys...)).
+		Entries(&entries).
+		Exec(ctx, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
+		return Arc{}, err
+	}
+	name := segments[len(segments)-1]
+	a, ok := lo.Find(entries, func(a Arc) bool {
+		return a.Name == name && a.Type == TypeModule
+	})
+	if !ok {
+		return Arc{}, notFound
+	}
+	return a, nil
+}
 
 // retrieveModulePaths returns the import path of every module below the Arcs group,
 // sorted. A path joins the group names from the Arcs group down to the module with ".".

@@ -451,7 +451,7 @@ func (s *Server) getCompletionItems(
 
 	var root *symbol.Symbol
 	if s.cfg.NewRoot != nil {
-		root = s.cfg.NewRoot(ctx)
+		root = s.cfg.NewRoot()
 	}
 
 	if completionCtx == ContextAuthorityEntry {
@@ -459,7 +459,7 @@ func (s *Server) getCompletionItems(
 	}
 
 	if completionCtx == ContextImportPath {
-		return getImportPathCompletions(doc, prefix, pos, root)
+		return s.getImportPathCompletions(ctx, doc, prefix, pos, root)
 	}
 
 	if completionCtx == ContextInputParamName ||
@@ -613,10 +613,6 @@ func (s *Server) getCompletionItems(
 						}
 						item := symbolCompletionItem(sym)
 						if sym.Kind == symbol.KindModule {
-							// import a.b.c binds c, so the body names the last segment.
-							if _, alias, ok := strings.CutLast(sym.Name, "."); ok {
-								item.InsertText = protocol.NewOptional(alias)
-							}
 							item.AdditionalTextEdits = buildAutoImportEdit(
 								doc,
 								sym.Name,
@@ -688,7 +684,8 @@ func symbolCompletionItem(sym *symbol.Symbol) protocol.CompletionItem {
 // scope chain, surfaced as Module completion items. Used when the cursor
 // sits in the module-name slot of an `import` statement, where only
 // module names are valid suggestions.
-func getImportPathCompletions(
+func (s *Server) getImportPathCompletions(
+	ctx context.Context,
 	doc *Document,
 	prefix string,
 	pos protocol.Position,
@@ -715,25 +712,45 @@ func getImportPathCompletions(
 				continue
 			}
 			seen.Add(child.Name)
-			items = append(items, protocol.CompletionItem{
-				Label:      child.Name,
-				Kind:       protocol.CompletionItemKindModule,
-				Detail:     protocol.NewOptional("module"),
-				FilterText: protocol.NewOptional(child.Name),
-				TextEdit: &protocol.TextEdit{
-					Range: protocol.Range{
-						Start: protocol.Position{
-							Line:      pos.Line,
-							Character: pos.Character - uint32(len(prefix)),
-						},
-						End: pos,
-					},
-					NewText: child.Name,
-				},
-			})
+			items = append(items, moduleCompletionItem(child.Name, prefix, pos))
 		}
 	}
+	paths, err := scope.SearchModules(ctx, prefix)
+	if err != nil {
+		s.cfg.L.Error("search modules", zap.Error(err))
+	}
+	for _, path := range paths {
+		if seen.Contains(path) {
+			continue
+		}
+		seen.Add(path)
+		items = append(items, moduleCompletionItem(path, prefix, pos))
+	}
 	return items
+}
+
+// moduleCompletionItem completes an import path, replacing the typed prefix so a
+// dotted path is not appended to its own head.
+func moduleCompletionItem(
+	name, prefix string,
+	pos protocol.Position,
+) protocol.CompletionItem {
+	return protocol.CompletionItem{
+		Label:      name,
+		Kind:       protocol.CompletionItemKindModule,
+		Detail:     protocol.NewOptional("module"),
+		FilterText: protocol.NewOptional(name),
+		TextEdit: &protocol.TextEdit{
+			Range: protocol.Range{
+				Start: protocol.Position{
+					Line:      pos.Line,
+					Character: pos.Character - uint32(len(prefix)),
+				},
+				End: pos,
+			},
+			NewText: name,
+		},
+	}
 }
 
 // isModuleImportedInSource reports whether the document text contains a
@@ -1009,7 +1026,7 @@ func appendModuleMemberCompletions(
 				if !strings.HasPrefix(member.Name, prefix) {
 					continue
 				}
-				qualifiedName := mod.Name + "." + member.Name
+				qualifiedName := child.Name + "." + member.Name
 				if seen.Contains(qualifiedName) {
 					continue
 				}
