@@ -40,6 +40,11 @@ class _CreateRequest(BaseModel):
 _CreateResponse = _CreateRequest
 
 
+class _RenameRequest(BaseModel):
+    key: Key
+    name: str
+
+
 class _DeleteRequest(BaseModel):
     keys: list[Key]
 
@@ -361,7 +366,7 @@ class Client:
         self,
         *,
         key: Key | None = None,
-        name: str = "",
+        name: str,
         type: str = "",
         config: Mapping[str, object] | BaseModel | None = None,
         rack: int = 0,
@@ -440,6 +445,15 @@ class Client:
     def delete(self, keys: Key | Sequence[Key]) -> None:
         req = _DeleteRequest(keys=[keys] if isinstance(keys, UUID) else list(keys))
         self._client.send("/task/delete", req, Empty)
+
+    def rename(self, key: Key, name: str) -> None:
+        """Renames a task.
+
+        :param key: The key of the task to rename.
+        :param name: The new name for the task.
+        :raises NotFoundError: If no task has the given key.
+        """
+        self._client.send("/task/rename", _RenameRequest(key=key, name=name), Empty)
 
     @overload
     def retrieve(self, key: Key, *, include_status: bool = False) -> Task: ...
