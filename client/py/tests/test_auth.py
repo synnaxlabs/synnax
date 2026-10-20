@@ -273,7 +273,7 @@ class TestAPIKeys:
         keyed = sy.Synnax(host=host, port=port, api_key=token)
         assert keyed.auth.subject == owner.auth.subject
         assert keyed.auth.session is not None
-        assert keyed.auth.session.method == "api_key"
+        assert keyed.auth.session.credential == key.key
         assert [k.key for k in owner.auth.retrieve_keys()] == [key.key]
         owner.auth.delete_keys(key.key)
         assert owner.auth.retrieve_keys() == []

@@ -38,7 +38,7 @@ TEST(TestKeys, Lifecycle) {
     const auto keyed = keyed_client(created.token);
     ASSERT_NIL(keyed.auth->authenticate());
     const auto session = keyed.auth->current_session();
-    ASSERT_EQ(session.method, METHOD_API_KEY);
+    ASSERT_EQ(session.credential, created.key.key);
     ASSERT_EQ(session.subject.key, created.key.subject.key);
     ASSERT_TRUE(holds(ASSERT_NIL_P(client.api_keys.retrieve()), created.key.key));
     ASSERT_NIL(client.api_keys.del({created.key.key}));

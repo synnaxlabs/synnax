@@ -473,7 +473,7 @@ describe("auth", () => {
       expect(key.subject).toEqual(owner.subject);
       const keyed = makeClient({ apiKey: token });
       await keyed.retrieveSessions();
-      expect(keyed.session?.method).toEqual("api_key");
+      expect(keyed.session?.credential).toEqual(key.key);
       expect(keyed.subject).toEqual(owner.subject);
       expect((await owner.retrieveKeys()).map((k) => k.key)).toContain(key.key);
       await owner.deleteKeys(key.key);
