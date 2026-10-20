@@ -1789,8 +1789,8 @@ TEST(ProcessorTest, ShutdownFailsActiveAndWaitingRequests) {
 
     auto proc = std::make_unique<Processor>();
     std::vector<std::pair<Response, x::errors::Error>> results;
-    std::thread caller([&] { results = proc->execute(reqs); });
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    std::thread caller([&, p = proc.get()] { results = p->execute(reqs); });
+    ASSERT_EVENTUALLY_EQ(server.received_requests().size(), 1);
     proc.reset();
     caller.join();
 
@@ -1975,8 +1975,8 @@ TEST(ProcessorTest, ShutdownWakesActivePoll) {
 
     auto proc = std::make_unique<Processor>(1 * x::telem::SECOND);
     std::pair<Response, x::errors::Error> result;
-    std::thread caller([&] { result = proc->execute(req); });
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    std::thread caller([&, p = proc.get()] { result = p->execute(req); });
+    ASSERT_EVENTUALLY_EQ(server.received_requests().size(), 1);
 
     const auto start = std::chrono::steady_clock::now();
     proc.reset();
