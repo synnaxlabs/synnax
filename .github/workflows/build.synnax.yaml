@@ -365,6 +365,9 @@ jobs:
       - name: Build Driver (macOS)
         if:
           inputs.driver && env.DRIVER_REF_RUN_ID == '' && startsWith(matrix.os, 'macos')
+        env:
+          # The HTTP/2 client in Go stalls Bazelisk downloads on the Mac build bots.
+          GODEBUG: http2client=0
         run: |
           bazel build $BAZEL_BUILD_FLAGS \
             --config=opt-unix //driver
