@@ -524,5 +524,11 @@ describe("auth", () => {
         /either an API key or a username and password/,
       );
     });
+
+    it("should reject an auth client given both credentials and an API key", () => {
+      expect(() =>
+        makeClient({ credentials: TEST_CREDENTIALS, apiKey: "syk_key" }),
+      ).toThrow(/either an API key or a username and password/);
+    });
   });
 });
