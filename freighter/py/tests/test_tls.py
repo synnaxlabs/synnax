@@ -18,7 +18,13 @@ import pytest
 import trustme
 from websockets.asyncio.server import Server, ServerConnection, serve
 
-from freighter import URL, HTTPClient, Unreachable, WebsocketClient
+from freighter import (
+    URL,
+    AsyncWebsocketClient,
+    HTTPClient,
+    Unreachable,
+    WebsocketClient,
+)
 from x.codec import JSONCodec
 
 from .interface import Message
@@ -105,6 +111,13 @@ def _stream(url: URL, ctx: ssl.SSLContext) -> None:
     client.stream("/stream", Message, Message).close_send()
 
 
+async def _stream_async(url: URL, ctx: ssl.SSLContext) -> None:
+    client = AsyncWebsocketClient(
+        encoder=JSONCodec(), base_url=url, ssl_context=ctx
+    ).with_codec(JSONCodec())
+    await (await client.stream("/stream", Message, Message)).close_send()
+
+
 class TestHTTP:
     """The HTTP client verifies the server's certificate and hostname."""
 
@@ -141,3 +154,23 @@ class TestWebsocket:
         """Should reject a trusted certificate issued for a different host."""
         with pytest.raises(ssl.SSLCertVerificationError):
             _stream(ws_url, trusted_ctx)
+
+
+@pytest.mark.asyncio
+class TestAsyncWebsocket:
+    """The async WebSocket client verifies the server's certificate and hostname."""
+
+    async def test_untrusted(self, ws_url: URL) -> None:
+        """Should reject a certificate that no trusted CA signs."""
+        with pytest.raises(ssl.SSLCertVerificationError):
+            await _stream_async(ws_url, ssl.create_default_context())
+
+    async def test_trusted(self, ws_url: URL, trusted_ctx: ssl.SSLContext) -> None:
+        """Should accept a certificate that the given CA signs."""
+        await _stream_async(ws_url, trusted_ctx)
+
+    @pytest.mark.parametrize("cert_host", ["example.com"])
+    async def test_hostname(self, ws_url: URL, trusted_ctx: ssl.SSLContext) -> None:
+        """Should reject a trusted certificate issued for a different host."""
+        with pytest.raises(ssl.SSLCertVerificationError):
+            await _stream_async(ws_url, trusted_ctx)

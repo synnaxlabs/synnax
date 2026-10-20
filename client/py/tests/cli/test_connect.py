@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from pathlib import Path
+
 import pytest
 
 from synnax.cli.connect import prompt_client_options
@@ -29,12 +31,12 @@ class TestPromptClientOptions:
         )
 
     def test_ca_cert(self) -> None:
-        """Should store the CA certificate path for a secure connection."""
+        """Should store the absolute CA certificate path for a secure connection."""
         console = MockConsole(
-            responses=["127.0.0.1", 9091, "admin", "secret", True, "/certs/ca.crt"]
+            responses=["127.0.0.1", 9091, "admin", "secret", True, "certs/ca.crt"]
         )
         opts = prompt_client_options(Context(console=console))
-        assert opts.ca_cert == "/certs/ca.crt"
+        assert opts.ca_cert == str(Path("certs/ca.crt").resolve())
 
     def test_insecure_skips_ca_cert(self) -> None:
         """Should not ask for a CA certificate for an insecure connection."""

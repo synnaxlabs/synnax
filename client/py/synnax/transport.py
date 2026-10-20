@@ -40,11 +40,11 @@ class Transport:
         url: URL,
         instrumentation: Instrumentation,
         secure: bool = False,
-        ca_cert: str | None = None,
         open_timeout: TimeSpan = TimeSpan.SECOND * 5,
         read_timeout: TimeSpan = TimeSpan.SECOND * 5,
         keep_alive: TimeSpan = TimeSpan.SECOND * 30,
         max_retries: int = 3,
+        ca_cert: str | None = None,
     ) -> None:
         """
         :param secure: Whether to use TLS. The client then verifies the Core's

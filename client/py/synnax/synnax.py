@@ -92,13 +92,13 @@ class Synnax(framer.Client):
         username: str = "",
         password: str = "",
         secure: bool = False,
-        ca_cert: str | None = None,
         open_timeout: TimeSpan = TimeSpan.SECOND * 5,
         read_timeout: TimeSpan = TimeSpan.SECOND * 5,
         keep_alive: TimeSpan = TimeSpan.SECOND * 30,
         max_retries: int = 3,
         instrumentation: Instrumentation = NOOP,
         clock_skew_threshold: TimeSpan = TimeSpan.SECOND,
+        ca_cert: str | None = None,
     ):
         """Creates a new client. Connection parameters can be provided as arguments, or,
         if none are provided, the client will attempt to load them from the Synnax
@@ -116,10 +116,10 @@ class Synnax(framer.Client):
         :param secure: Whether to use TLS when connecting to the Core. The client
             verifies the Core's certificate against ca_cert, or the system trust roots
             when ca_cert is None.
-        :param ca_cert: The path to a PEM file of CA certificates that sign the Core's
-            certificate, such as the ca.crt that the Core generates.
         :param clock_skew_threshold: The maximum allowable clock skew between this
             host and Synnax Core before a warning is issued. Defaults to 1 second.
+        :param ca_cert: The path to a PEM file of CA certificates that sign the Core's
+            certificate, such as the ca.crt that the Core generates.
         """
         opts = try_load_options_if_none_provided(
             host, port, username, password, secure, ca_cert

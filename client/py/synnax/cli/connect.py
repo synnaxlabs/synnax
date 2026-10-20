@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from pathlib import Path
+
 from freighter.exceptions import Unreachable
 from synnax import Synnax
 from synnax.cli.flow import Context
@@ -29,10 +31,11 @@ def prompt_client_options(ctx: Context) -> Options:
     secure = ctx.console.ask("Secure Connection?", type_=bool, default=False)
     ca_cert = None
     if secure:
-        ca_cert = (
-            ctx.console.ask("CA certificate path (empty for system roots)", default="")
-            or None
+        path = ctx.console.ask(
+            "CA certificate path (empty for system roots)", default=""
         )
+        if path:
+            ca_cert = str(Path(path).expanduser().resolve())
     return Options(
         host=host,
         port=port,
