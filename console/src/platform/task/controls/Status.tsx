@@ -102,11 +102,7 @@ export const Status = ({
       </Flex.Box>
       <ExpansionIcon className={CSS.BE("task-status", "expand-indicator")} />
       {expanded && hasDescription && (
-        <Text.Text
-          level="p"
-          color={9}
-          className={CSS.BE("task-status", "description")}
-        >
+        <Text.Text level="p" color={9} className={CSS.BE("task-status", "description")}>
           {stat.description}
         </Text.Text>
       )}
