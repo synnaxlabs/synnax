@@ -49,6 +49,8 @@ def try_load_options_if_none_provided(
     api_key: str = "",
 ) -> Options:
     if len(host) == 0:
+        if api_key:
+            raise ValidationError("give a host with an API key")
         opts = load_options()
         if opts is None:
             raise ValidationError(NO_OPTIONS_MSG)

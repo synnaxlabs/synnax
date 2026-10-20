@@ -156,7 +156,10 @@ export class Client {
   // belongs to whoever saved its token or cookie
   private ownsSession = false;
 
+  /** @throws {Error} when the authority holds both credentials and an API key. */
   constructor(client: UnaryClient, authority: Authority, observer: Observer = {}) {
+    if (authority.credentials != null && authority.apiKey != null)
+      throw new Error("Give either an API key or a username and password, not both");
     this.client = client;
     this.credentials =
       authority.credentials == null ? undefined : { ...authority.credentials };
