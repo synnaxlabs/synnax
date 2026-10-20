@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fixupPluginRules } from "@eslint/compat";
 import pluginJs from "@eslint/js";
-import pluginReact2 from "@eslint-react/eslint-plugin";
+import pluginReact from "@eslint-react/eslint-plugin";
+import stylistic from "@stylistic/eslint-plugin";
 import type { Linter } from "eslint";
 import { includeIgnoreFile } from "eslint/config";
-import pluginReact from "eslint-plugin-react";
 import simpleImportSort from "eslint-plugin-simple-import-sort";
 import globals from "globals";
 import path from "path";
@@ -20,14 +19,19 @@ import tseslint from "typescript-eslint";
 
 const gitignorePath = path.join(import.meta.dirname, "../../.gitignore");
 
+const reactPreset = pluginReact.configs["recommended-type-checked"];
+
 const config: Linter.Config[] = [
   includeIgnoreFile(gitignorePath),
   { languageOptions: { globals: globals.browser } },
   pluginJs.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
   {
-    ...pluginReact.configs.flat.recommended,
-    plugins: { react: fixupPluginRules(pluginReact) },
+    ...reactPreset,
+    // The preset warns on most rules, and a warning does not fail lint.
+    rules: Object.fromEntries(
+      Object.keys(reactPreset.rules ?? {}).map((rule) => [rule, "error" as const]),
+    ),
   },
   {
     languageOptions: {
@@ -35,14 +39,13 @@ const config: Linter.Config[] = [
       sourceType: "module",
       globals: { ...globals.browser },
       parserOptions: {
-        ecmaFeatures: { jsx: true },
         ecmaVersion: "latest",
         sourceType: "module",
         projectService: true,
         tsconfigRootDir: import.meta.dirname,
       },
     },
-    plugins: { "simple-import-sort": simpleImportSort, "@eslint-react": pluginReact2 },
+    plugins: { "simple-import-sort": simpleImportSort, "@stylistic": stylistic },
     rules: {
       "new-cap": ["error", { capIsNew: false }],
       "no-constant-condition": ["error", { checkLoops: false }],
@@ -91,24 +94,61 @@ const config: Linter.Config[] = [
       ],
       "simple-import-sort/imports": "error",
       "simple-import-sort/exports": "error",
-      "react/react-in-jsx-scope": "off",
-      "react/prop-types": "off",
-      "react/jsx-curly-brace-presence": [
+      "@stylistic/jsx-curly-brace-presence": [
         "error",
         { props: "never", children: "never" },
       ],
-      "react/no-unescaped-entities": "off",
-      "react/jsx-filename-extension": [
+      "no-restricted-syntax": [
         "error",
-        { allow: "as-needed", extensions: [".jsx", ".tsx"] },
+        {
+          selector:
+            "JSXAttribute > JSXExpressionContainer > Literal.expression[value=true]",
+          message: "Write a true boolean attribute without a value.",
+        },
       ],
-      "react/display-name": ["error", { checkContextObjects: true }],
-      "react/jsx-boolean-value": "error",
-      "react/jsx-no-undef": "error",
-      "react/jsx-no-constructed-context-values": "error",
-      "react/jsx-no-useless-fragment": "error",
-      "@eslint-react/no-context-provider": "error",
+      "@eslint-react/no-missing-component-display-name": "error",
       "@eslint-react/no-missing-context-display-name": "error",
+      "@eslint-react/jsx-no-useless-fragment": "error",
+      "@eslint-react/dom-no-unsafe-target-blank": "error",
+      // Off until a SY-5149 follow-up PR fixes their hits.
+      "@eslint-react/jsx-no-key-after-spread": "off",
+      "@eslint-react/web-api-no-leaked-event-listener": "off",
+      "@eslint-react/web-api-no-leaked-timeout": "off",
+      "@eslint-react/use-state": "off",
+      // Off until a SY-5149 hook audit: the fixes change render behavior.
+      "@eslint-react/exhaustive-deps": "off",
+      "@eslint-react/rules-of-hooks": "off",
+      "@eslint-react/set-state-in-effect": "off",
+      "@eslint-react/purity": "off",
+      // Off: matches our own useContext hooks from context.create by name.
+      "@eslint-react/no-use-context": "off",
+      // Off: flags a call that returns a primitive key.
+      "@eslint-react/no-unstable-context-value": "off",
+      // Off: flags stable components read from a registry.
+      "@eslint-react/static-components": "off",
+      // Off: our nested components are memoized on purpose.
+      "@eslint-react/no-nested-component-definitions": "off",
+      // Off: false hits on Select.useMemo, which takes a selector.
+      "@eslint-react/use-memo": "off",
+      // Off: false hits on hook slots (useVisible) and Aether use functions.
+      "@eslint-react/no-unnecessary-use-prefix": "off",
+      // Off: our index keys are on static lists with no stable ID.
+      "@eslint-react/no-array-index-key": "off",
+      // Off: Lyra primitives use these APIs on purpose.
+      "@eslint-react/no-children-count": "off",
+      "@eslint-react/no-children-for-each": "off",
+      "@eslint-react/no-children-map": "off",
+      "@eslint-react/no-children-to-array": "off",
+      "@eslint-react/no-clone-element": "off",
+      "@eslint-react/dom-no-flush-sync": "off",
+      // Off: the docs and site render trusted, pre-built HTML.
+      "@eslint-react/dom-no-dangerously-set-innerhtml": "off",
+      // Off: flags try blocks in specs that render nothing inside them.
+      "@eslint-react/error-boundaries": "off",
+      // Off: names follow our namespace rules, not fixed suffixes.
+      "@eslint-react/naming-convention-context-name": "off",
+      "@eslint-react/naming-convention-id-name": "off",
+      "@eslint-react/naming-convention-ref-name": "off",
       "@typescript-eslint/no-deprecated": "error",
       "@typescript-eslint/use-unknown-in-catch-callback-variable": "error",
       "@typescript-eslint/only-throw-error": [
@@ -162,7 +202,6 @@ const config: Linter.Config[] = [
         typescript: {}, // this loads <rootdir>/tsconfig.json to eslint
         node: { extensions: [".js", ".jsx", ".ts", ".tsx"] },
       },
-      react: { version: "19.0.0" },
     },
   },
   {
