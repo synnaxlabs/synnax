@@ -13,7 +13,6 @@ import (
 	"context"
 	"uuid"
 
-	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
@@ -80,11 +79,7 @@ func (s *Service) Login(
 	req LoginRequest,
 ) (LoginResponse, error) {
 	startTime := telem.Now()
-	session, tk, err := s.auth.Login(
-		ctx,
-		proofOf(req.Credentials),
-		freighter.MDFromContext(ctx).Remote,
-	)
+	session, tk, err := s.auth.Login(ctx, proofOf(req.Credentials))
 	if err != nil {
 		return LoginResponse{}, err
 	}

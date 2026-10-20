@@ -206,7 +206,7 @@ provider token is discarded.
 ### 4.3 The interface
 
 ```go
-func (s *Service) Login(ctx context.Context, proof Proof, from address.Address) (Session, string, error)
+func (s *Service) Login(ctx context.Context, proof Proof) (Session, string, error)
 func (s *Service) Authenticate(ctx context.Context, token string) (Session, error)
 func (s *Service) Logout(ctx context.Context, keys ...SessionKey) error
 ```
@@ -246,8 +246,6 @@ Session struct {
     hash        bytes        // SHA-256 of the token's secret
     subject     ontology.ID
     credential  uuid
-    address     string
-    created     timestamp
     last_active timestamp
 }
 ```
@@ -255,8 +253,7 @@ Session struct {
 A session is a Gorp record, so it survives a restart and every node sees it. It replaces
 the JWT, which cannot be revoked, gives a stream nothing to watch, and needs a signing
 key on every node. The cost is one replicated write per login. `credential` lets a
-deleted credential end its sessions. `address` and `created` let an administrator tell
-sessions apart before revoking one.
+deleted credential end its sessions.
 
 A token is `sys_`, the session key, and 32 random bytes, the same layout as an API key.
 That exceeds the [64 bit minimum](https://pages.nist.gov/800-63-4/sp800-63b.html) for a

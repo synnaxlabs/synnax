@@ -33,10 +33,6 @@ type Session struct {
 	Subject ontology.ID `json:"subject" msgpack:"subject"`
 	// Credential is the key of the credential record the login matched.
 	Credential uuid.UUID `json:"credential" msgpack:"credential"`
-	// Address is the network address the login came from.
-	Address string `json:"address" msgpack:"address"`
-	// Created is when the subject logged in.
-	Created telem.TimeStamp `json:"created" msgpack:"created"`
 	// LastActive is the last time a request used the session, to the nearest quarter of
 	// the idle timeout.
 	LastActive telem.TimeStamp `json:"last_active" msgpack:"last_active"`

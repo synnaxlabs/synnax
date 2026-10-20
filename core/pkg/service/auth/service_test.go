@@ -121,7 +121,7 @@ var _ = Describe("Service", func() {
 	)
 	login := func(ctx SpecContext) (auth.Session, string) {
 		GinkgoHelper()
-		return MustSucceed2(svc.Login(ctx, proof(username, "secret"), "10.0.0.1:1234"))
+		return MustSucceed2(svc.Login(ctx, proof(username, "secret")))
 	}
 	BeforeEach(func(ctx SpecContext) {
 		// Every spec gets its own db so sweeps and clocks never cross.
@@ -154,8 +154,6 @@ var _ = Describe("Service", func() {
 				session, token := login(ctx)
 				Expect(token).To(HavePrefix(auth.TokenPrefix))
 				Expect(session.Subject).To(Equal(alice))
-				Expect(session.Address).To(Equal("10.0.0.1:1234"))
-				Expect(session.Created).To(Equal(session.LastActive))
 				var stored auth.Session
 				Expect(
 					svc.NewRetrieve().Where(auth.MatchKeys(session.Key)).Entry(&stored).
@@ -174,11 +172,11 @@ var _ = Describe("Service", func() {
 			Expect(session.Hash).To(HaveLen(32))
 		})
 		It("Should return the authenticator's error", func(ctx SpecContext) {
-			Expect(svc.Login(ctx, proof(username, "wrong"), "")).Error().
+			Expect(svc.Login(ctx, proof(username, "wrong"))).Error().
 				To(MatchError(auth.ErrInvalidCredentials))
 		})
 		It("Should reject a proof with no method", func(ctx SpecContext) {
-			Expect(svc.Login(ctx, auth.Proof{}, "")).Error().
+			Expect(svc.Login(ctx, auth.Proof{})).Error().
 				To(MatchError(validate.ErrValidation))
 		})
 		It("Should reject a method with no authenticator", func(ctx SpecContext) {
@@ -187,7 +185,7 @@ var _ = Describe("Service", func() {
 				Authenticators: map[auth.Method]auth.Authenticator{"other": pw},
 			}))
 			Expect(
-				lonely.Login(ctx, proof(username, "secret"), ""),
+				lonely.Login(ctx, proof(username, "secret")),
 			).Error().
 				To(SatisfyAll(
 					MatchError(validate.ErrValidation),
@@ -364,7 +362,7 @@ var _ = Describe("Service", func() {
 						Username: bobName,
 						Password: "p",
 					})).To(Succeed())
-					_, bobToken := MustSucceed2(svc.Login(ctx, proof(bobName, "p"), ""))
+					_, bobToken := MustSucceed2(svc.Login(ctx, proof(bobName, "p")))
 					Expect(svc.NewWriter(nil).DeleteFor(ctx, alice)).To(Succeed())
 					Expect(svc.Authenticate(ctx, token)).Error().
 						To(MatchError(auth.ErrInvalidToken))
@@ -411,7 +409,7 @@ var _ = Describe("Service", func() {
 					Password: "secret",
 				})).To(Succeed())
 				b, bToken := MustSucceed2(
-					svc.Login(ctx, proof(bobName, "secret"), "10.0.0.1:1234"),
+					svc.Login(ctx, proof(bobName, "secret")),
 				)
 				Expect(svc.NewWriter(nil).RevokeCredential(
 					ctx,

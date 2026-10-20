@@ -28,12 +28,6 @@ Session struct {
     credential  uuid            {
         @doc value "is the key of the credential record the login matched."
     }
-    address     string          {
-        @doc value "is the network address the login came from."
-    }
-    created     telem.TimeStamp {
-        @doc value "is when the subject logged in."
-    }
     last_active telem.TimeStamp {
         @doc value """
             is the last time a request used the session, to the nearest quarter of the

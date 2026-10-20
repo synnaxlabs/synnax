@@ -27,8 +27,6 @@ func (s Session) EncodeOrc(w *orc.Writer) error {
 		return err
 	}
 	w.Write(s.Credential[:])
-	w.String(s.Address)
-	w.Int64(int64(s.Created))
 	w.Int64(int64(s.LastActive))
 	return nil
 }
@@ -56,16 +54,6 @@ func (s *Session) DecodeOrc(r *orc.Reader) error {
 	}
 	if _, err := r.Read(s.Credential[:]); err != nil {
 		return err
-	}
-	if s.Address, err = r.String(); err != nil {
-		return err
-	}
-	{
-		rawV, err := r.Int64()
-		if err != nil {
-			return err
-		}
-		s.Created = telem.TimeStamp(rawV)
 	}
 	{
 		rawV, err := r.Int64()

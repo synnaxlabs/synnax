@@ -19,7 +19,6 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -155,7 +154,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 func (s *Service) Login(
 	ctx context.Context,
 	proof Proof,
-	address address.Address,
 ) (Session, string, error) {
 	method, err := proof.Method()
 	if err != nil {
@@ -173,14 +171,11 @@ func (s *Service) Login(
 	if err != nil {
 		return Session{}, "", err
 	}
-	now := s.now()
 	session := Session{
 		Key:        uuid.New(),
 		Subject:    identity.Subject,
 		Credential: identity.Credential,
-		Address:    string(address),
-		Created:    now,
-		LastActive: now,
+		LastActive: s.now(),
 	}
 	token, hash, err := newToken(session.Key)
 	if err != nil {
