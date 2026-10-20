@@ -164,12 +164,13 @@ export const Inbox = ({ notifications }: FeedProps): ReactElement => {
         variant="text"
         tooltip="Notifications"
         tooltipLocation={location.BOTTOM_LEFT}
-        className={CSS.BE("inbox", "trigger")}
+        className={CSS.cls(
+          CSS.BE("inbox", "trigger"),
+          unread.length > 0 && CSS.M("unread"),
+          CSS.M(unreadVariant),
+        )}
       >
         <Icon.Notification />
-        {unread.length > 0 && (
-          <span className={CSS.cls(CSS.BE("inbox", "badge"), CSS.M(unreadVariant))} />
-        )}
       </Dialog.Trigger>
       <Dialog.Dialog background={1} pack={false} className={CSS.B("inbox")}>
         <Flex.Box

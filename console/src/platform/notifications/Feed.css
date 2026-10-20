@@ -39,23 +39,25 @@
 .console-inbox__trigger {
     position: relative;
 
-    .console-inbox__badge {
+    /* Anchored to the button centre so the dot sits on the bell's top-right edge at any
+       button size. */
+    &.console--unread::after {
+        content: "";
         position: absolute;
-        top: 0.5rem;
-        right: 0.5rem;
+        top: calc(50% - 0.65em);
+        left: calc(50% + 0.15em);
         width: 0.875rem;
         height: 0.875rem;
         border-radius: 50%;
         background: var(--pluto-primary-z);
         box-shadow: 0 0 0 0.25rem var(--pluto-gray-l1);
         pointer-events: none;
-
-        &.console--error {
-            background: var(--pluto-error-z);
-        }
-        &.console--warning {
-            background: var(--pluto-warning-z);
-        }
+    }
+    &.console--error::after {
+        background: var(--pluto-error-z);
+    }
+    &.console--warning::after {
+        background: var(--pluto-warning-z);
     }
 }
 
