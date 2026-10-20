@@ -275,3 +275,36 @@ class TestSyncWebsocket:
             stream.receive()
         state = stream._internal.state
         assert state is State.CLOSED
+
+
+class TestContext:
+    def test_sync_protocol_and_target(self, sync_client: WebsocketClient) -> None:
+        """Should give middleware the websocket protocol and the stream target."""
+        contexts: list[Context] = []
+
+        def mw(ctx: Context, _: Next) -> Context:
+            contexts.append(ctx)
+            raise RuntimeError("stop")
+
+        sync_client.use(mw)
+        with pytest.raises(RuntimeError, match="stop"):
+            sync_client.stream("/echo", Message, Message)
+        assert contexts[0].protocol == "websocket"
+        assert contexts[0].target == "/echo"
+
+    @pytest.mark.asyncio
+    async def test_async_protocol_and_target(
+        self, async_client: AsyncWebsocketClient
+    ) -> None:
+        """Should give middleware the websocket protocol and the stream target."""
+        contexts: list[Context] = []
+
+        async def mw(ctx: Context, _: AsyncNext) -> Context:
+            contexts.append(ctx)
+            raise RuntimeError("stop")
+
+        async_client.use(mw)
+        with pytest.raises(RuntimeError, match="stop"):
+            await async_client.stream("/echo", Message, Message)
+        assert contexts[0].protocol == "websocket"
+        assert contexts[0].target == "/echo"

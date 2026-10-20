@@ -51,7 +51,7 @@ resource_type_to_pb(const std::string &cpp) {
             {RESOURCE_TYPE_TASK, ::service::ontology::pb::RESOURCE_TYPE_TASK},
             {RESOURCE_TYPE_USER, ::service::ontology::pb::RESOURCE_TYPE_USER},
             {RESOURCE_TYPE_VIEW, ::service::ontology::pb::RESOURCE_TYPE_VIEW},
-        };
+    };
     auto it = kMap.find(cpp);
     if (it == kMap.end())
         return {{}, x::errors::Error("unrecognized ResourceType value: " + cpp)};

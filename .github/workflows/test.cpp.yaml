@@ -101,9 +101,6 @@ jobs:
           - os: ${{ !inputs.macos && 'macos-build-bot' }}
           - os: ${{ !inputs.ubuntu && 'ubuntu-build-bot' }}
           - os: ${{ !inputs.windows && 'windows-build-bot' }}
-        include:
-          - os: ubuntu-build-bot
-            format: true
     runs-on: ${{ matrix.os }}
     # About 1.5x the slowest successful cold-cache job on each OS.
     timeout-minutes: ${{ matrix.os == 'ubuntu-build-bot' && 75 || 30 }}
@@ -132,11 +129,11 @@ jobs:
           repository-cache: false
 
       - name: Install clang-format
-        if: matrix.format && inputs.directories != ''
+        if: runner.os == 'Linux' && inputs.directories != ''
         run: scripts/install_clang_format.sh
 
       - name: Check formatting
-        if: matrix.format && inputs.directories != ''
+        if: runner.os == 'Linux' && inputs.directories != ''
         run: |
           for directory in ${{ inputs.directories }}; do
             scripts/check_clang_format.sh "$directory"
