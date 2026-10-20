@@ -146,6 +146,25 @@ class TestRangeClient:
         assert rng.name == two_ranges[0].name
         assert rng.key == two_ranges[0].key
 
+    def test_rename(self, client: sy.Synnax) -> None:
+        """Should rename a range."""
+        rng = client.ranges.create(
+            name="Before Rename",
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+        )
+        client.ranges.rename(rng.key, "After Rename")
+        assert client.ranges.retrieve(key=rng.key).name == "After Rename"
+
+    def test_rename_rejects_empty_name(self, client: sy.Synnax) -> None:
+        """Should reject renaming a range to an empty name."""
+        rng = client.ranges.create(
+            name="Before Rename",
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+        )
+        with pytest.raises(sy.ValidationError):
+            client.ranges.rename(rng.key, "")
+        assert client.ranges.retrieve(key=rng.key).name == "Before Rename"
+
     def test_create_rejects_empty_name(self, client: sy.Synnax) -> None:
         """Should reject creation of a range with an empty name (Pydantic min_length=1)"""
         with pytest.raises(pydantic.ValidationError):
