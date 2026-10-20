@@ -750,6 +750,14 @@ class Client:
     ) -> None:
         self._writer.delete(normalize(key))
 
+    def rename(self, key: Key, name: str) -> None:
+        """Renames a range.
+
+        :param key: The key of the range to rename.
+        :param name: The new name for the range.
+        """
+        self._writer.rename(key, name)
+
     def search(
         self,
         term: str,

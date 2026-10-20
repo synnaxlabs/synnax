@@ -27,6 +27,9 @@ import urllib.request
 from functools import cache
 from pathlib import Path
 
+# Bounds a stalled PyPI request so it fails the deploy job instead of hanging it.
+REQUEST_TIMEOUT_SECONDS = 30
+
 
 def parse_name_version(filename: str) -> tuple[str, str]:
     """Extracts the PEP 503 normalized project name and version from a wheel or
@@ -58,7 +61,7 @@ def published_files(name: str, version: str) -> frozenset[str]:
     an empty set if the release does not exist."""
     url = f"https://pypi.org/pypi/{name}/{version}/json"
     try:
-        with urllib.request.urlopen(url) as resp:
+        with urllib.request.urlopen(url, timeout=REQUEST_TIMEOUT_SECONDS) as resp:
             release = json.load(resp)
     except urllib.error.HTTPError as e:
         if e.code == 404:
