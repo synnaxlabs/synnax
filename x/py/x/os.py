@@ -73,7 +73,8 @@ def get_linux_distribution(
 
     :param lsb_release: The lsb_release command to run.
     :param os_release: The os-release file to read on fallback.
-    :raises RuntimeError: If neither source gives the distribution name.
+    :raises OSError: If lsb_release fails and os_release cannot be read.
+    :raises RuntimeError: If lsb_release fails and os_release has no PRETTY_NAME.
     """
     with suppress(FileNotFoundError):
         result = subprocess.run(
