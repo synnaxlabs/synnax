@@ -17,6 +17,7 @@ import (
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
+	apidevice "github.com/synnaxlabs/synnax/pkg/api/device"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
@@ -26,9 +27,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/ontology"
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
+	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
+	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/api/table"
+	apitask "github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/arc"
@@ -106,6 +110,13 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.ProjectRename = noop.UnaryServer[project.RenameRequest, struct{}]{}
 	t.ProjectExport = noop.UnaryServer[project.ExportRequest, project.ExportResponse]{}
 	t.ProjectImport = noop.UnaryServer[project.ImportRequest, project.ImportResponse]{}
+
+	// RENAME
+	t.RackRename = noop.UnaryServer[apirack.RenameRequest, struct{}]{}
+	t.TaskRename = noop.UnaryServer[apitask.RenameRequest, struct{}]{}
+	t.DeviceRename = noop.UnaryServer[apidevice.RenameRequest, struct{}]{}
+	t.StatusRename = noop.UnaryServer[apistatus.RenameRequest, struct{}]{}
+	t.ViewRename = noop.UnaryServer[view.RenameRequest, struct{}]{}
 
 	// SCHEMATIC
 	t.SchematicCreate = noop.UnaryServer[schematic.CreateRequest, schematic.CreateResponse]{}
