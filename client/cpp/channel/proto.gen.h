@@ -37,7 +37,7 @@ operation_type_to_pb(const std::string &cpp) {
             {OPERATION_TYPE_NONE, ::service::channel::pb::OPERATION_TYPE_NONE},
             {OPERATION_TYPE_DERIVATIVE,
              ::service::channel::pb::OPERATION_TYPE_DERIVATIVE},
-        };
+    };
     auto it = kMap.find(cpp);
     if (it == kMap.end())
         return {{}, x::errors::Error("unrecognized OperationType value: " + cpp)};

@@ -18,26 +18,14 @@ from x.os import (
     get_platform,
 )
 from x.strings import random_name, validate_and_sanitize_name
-from x.websocket import (
-    WEBSOCKET_ERROR_PATTERNS,
-    WebSocketErrorFilter,
-    ignore_websocket_errors,
-    is_websocket_error,
-    suppress_websocket_errors,
-)
 
 __all__ = [
-    "WEBSOCKET_ERROR_PATTERNS",
     "Platform",
-    "WebSocketErrorFilter",
     "get_cpu_cores",
     "get_machine_info",
     "get_memory_info",
     "get_platform",
-    "ignore_websocket_errors",
     "is_ci",
-    "is_websocket_error",
     "random_name",
-    "suppress_websocket_errors",
     "validate_and_sanitize_name",
 ]
