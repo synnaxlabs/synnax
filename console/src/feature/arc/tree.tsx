@@ -158,7 +158,7 @@ const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
             className={CSS.BE("arc-tree-item", "name")}
             overflow="fade"
           />
-          {data?.mode === "graph" && PlatformArc.MODE_ICONS.graph}
+          {data?.mode === "graph" && <PlatformArc.MODE_ICONS.graph />}
         </Flex.Box>
         {!module && drifted && (
           <Tooltip.Dialog>
@@ -179,7 +179,7 @@ const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
       </Text.Text>
       {module && (
         <Flex.Box center className={CSS.BE("arc-tree-item", "control")}>
-          {PlatformArc.TYPE_ICONS.module}
+          <PlatformArc.TYPE_ICONS.module />
         </Flex.Box>
       )}
       {!module && hasUpdatePermission && canControl && (

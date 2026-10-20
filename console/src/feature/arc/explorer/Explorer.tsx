@@ -46,24 +46,30 @@ const MODE_TRIGGER_PROPS: Select.MultipleTriggerProps<arc.Mode> = {
   variant: "text",
 };
 
-const TYPE_ITEMS: ReactElement[] = arc.TYPES.map((type) => (
-  <Select.Item<arc.Type> key={type} itemKey={type}>
-    {PlatformArc.TYPE_ICONS[type]}
-    {caseconv.capitalize(type)}
-  </Select.Item>
-));
+const TYPE_ITEMS: ReactElement[] = arc.TYPES.map((type) => {
+  const TypeIcon = PlatformArc.TYPE_ICONS[type];
+  return (
+    <Select.Item<arc.Type> key={type} itemKey={type}>
+      <TypeIcon />
+      {caseconv.capitalize(type)}
+    </Select.Item>
+  );
+});
 
-const MODE_ITEMS: ReactElement[] = arc.MODES.map((mode) => (
-  <Select.Item<arc.Mode> key={mode} itemKey={mode}>
-    {PlatformArc.MODE_ICONS[mode]}
-    {caseconv.capitalize(mode)}
-  </Select.Item>
-));
+const MODE_ITEMS: ReactElement[] = arc.MODES.map((mode) => {
+  const ModeIcon = PlatformArc.MODE_ICONS[mode];
+  return (
+    <Select.Item<arc.Mode> key={mode} itemKey={mode}>
+      <ModeIcon />
+      {caseconv.capitalize(mode)}
+    </Select.Item>
+  );
+});
 
 interface ChipsProps<K extends string> {
   label: string;
   values: K[];
-  icons: Record<K, Icon.ReactElement>;
+  icons: Record<K, Icon.FC>;
   onChange: (values: K[]) => void;
 }
 
@@ -77,16 +83,19 @@ const Chips = <K extends string>({
   return (
     <Flex.Box x pack background={0}>
       <View.FilterChip>{label}</View.FilterChip>
-      {values.map((value) => (
-        <Tag.Tag
-          key={value}
-          icon={icons[value]}
-          size="small"
-          onClose={() => onChange(values.filter((v) => v !== value))}
-        >
-          {caseconv.capitalize(value)}
-        </Tag.Tag>
-      ))}
+      {values.map((value) => {
+        const ChipIcon = icons[value];
+        return (
+          <Tag.Tag
+            key={value}
+            icon={<ChipIcon />}
+            size="small"
+            onClose={() => onChange(values.filter((v) => v !== value))}
+          >
+            {caseconv.capitalize(value)}
+          </Tag.Tag>
+        );
+      })}
     </Flex.Box>
   );
 };

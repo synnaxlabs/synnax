@@ -10,12 +10,12 @@
 import { type arc } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-export const TYPE_ICONS: Record<arc.Type, Icon.ReactElement> = {
-  automation: <Icon.Arc />,
-  module: <Icon.Module />,
+export const TYPE_ICONS: Record<arc.Type, Icon.FC> = {
+  automation: Icon.Arc,
+  module: Icon.Module,
 };
 
-export const MODE_ICONS: Record<arc.Mode, Icon.ReactElement> = {
-  text: <Icon.Text />,
-  graph: <Icon.Schematic />,
+export const MODE_ICONS: Record<arc.Mode, Icon.FC> = {
+  text: Icon.Text,
+  graph: Icon.Schematic,
 };
