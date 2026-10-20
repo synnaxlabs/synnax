@@ -59,10 +59,7 @@ def assert_alignment(
     positions = [symbol.position for symbol in symbols]
 
     if tolerance is None:
-        if alignment in ["horizontal", "vertical"]:
-            tolerance = 15.0
-        else:
-            tolerance = 3.0
+        tolerance = 15.0 if alignment in ["horizontal", "vertical"] else 3.0
 
     extractor = ALIGNMENT_EXTRACTORS[alignment]
     first_coord = extractor(positions[0])
@@ -94,7 +91,9 @@ def assert_distribution(
     positions = [symbol.position for symbol in symbols]
 
     if distribution == "horizontal":
-        sorted_data = sorted(zip(symbols, positions), key=lambda x: box_left(x[1]))
+        sorted_data = sorted(
+            zip(symbols, positions, strict=True), key=lambda x: box_left(x[1])
+        )
         sorted_symbols = [item[0] for item in sorted_data]
         sorted_positions = [item[1] for item in sorted_data]
 
@@ -116,7 +115,9 @@ def assert_distribution(
             )
         return
 
-    sorted_data = sorted(zip(symbols, positions), key=lambda x: box_top(x[1]))
+    sorted_data = sorted(
+        zip(symbols, positions, strict=True), key=lambda x: box_top(x[1])
+    )
     sorted_symbols = [item[0] for item in sorted_data]
     sorted_positions = [item[1] for item in sorted_data]
 
@@ -257,20 +258,20 @@ def _assert_individual_rotation_ordering(
                 initial_diff = initial_j_val - initial_i_val
                 current_diff = current_j_val - current_i_val
 
-                if abs(initial_diff) > ordering_separation_threshold:
-                    if (initial_diff > 0 and current_diff < 0) or (
-                        initial_diff < 0 and current_diff > 0
-                    ):
-                        violations.append(
-                            {
-                                "i": i,
-                                "j": j,
-                                "initial_i": initial_i_val,
-                                "initial_j": initial_j_val,
-                                "current_i": current_i_val,
-                                "current_j": current_j_val,
-                            }
-                        )
+                if abs(initial_diff) > ordering_separation_threshold and (
+                    (initial_diff > 0 and current_diff < 0)
+                    or (initial_diff < 0 and current_diff > 0)
+                ):
+                    violations.append(
+                        {
+                            "i": i,
+                            "j": j,
+                            "initial_i": initial_i_val,
+                            "initial_j": initial_j_val,
+                            "current_i": current_i_val,
+                            "current_j": current_j_val,
+                        }
+                    )
 
         if violations:
             msg = f"{alignment.capitalize()} ordering changed for well-separated symbols!\n"

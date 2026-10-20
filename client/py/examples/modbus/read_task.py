@@ -67,11 +67,11 @@ tsk = sy.modbus.ReadTask(
     channels=[
         # Input register (16-bit R-only) at address 0
         sy.modbus.InputRegisterReadChannel(
-            channel=input_reg_0.key, address=0, data_type="uint8"
+            channel=input_reg_0.key, address=0, data_type=sy.DataType.UINT8
         ),
         # Input register (16-bit R-only) at address 1
         sy.modbus.InputRegisterReadChannel(
-            channel=input_reg_1.key, address=1, data_type="uint8"
+            channel=input_reg_1.key, address=1, data_type=sy.DataType.UINT8
         ),
     ],
 )
@@ -105,22 +105,22 @@ try:
 
             while True:
                 frame = streamer.read()
-                if frame:
-                    # Print the latest values from both channels
-                    if (
-                        "input_register_0" in frame
-                        and len(frame["input_register_0"]) > 0
-                    ):
-                        val0 = frame["input_register_0"][-1]
-                        val1 = frame["input_register_1"][-1]
-                        elapsed = sy.TimeStamp.now().span(start_time).seconds
+                # Print the latest values from both channels
+                if (
+                    frame
+                    and "input_register_0" in frame
+                    and len(frame["input_register_0"]) > 0
+                ):
+                    val0 = frame["input_register_0"][-1]
+                    val1 = frame["input_register_1"][-1]
+                    elapsed = sy.TimeStamp.now().span(start_time).seconds
 
-                        sample_count += 1
-                        print(
-                            f"{sample_count:<10} {elapsed:<10.1f} {val0:>10} {val1:>10}",
-                            end="\r",
-                            flush=True,
-                        )
+                    sample_count += 1
+                    print(
+                        f"{sample_count:<10} {elapsed:<10.1f} {val0:>10} {val1:>10}",
+                        end="\r",
+                        flush=True,
+                    )
 
 # Output summary
 except KeyboardInterrupt:

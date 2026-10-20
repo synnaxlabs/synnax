@@ -123,6 +123,15 @@ the "did you forget" check impossible to write.
 
 `?` and `= value` are mutually exclusive; the analyzer rejects a field carrying both.
 
+## Union discriminators
+
+A union's discriminator is a generated `<Union>Type` with one constant per variant. When
+a declared enum already names the same set, borrow it:
+`Proof union on method Method { ... }`. The discriminator then has the enum's type in
+every language, the variant constants are the enum's members, and no `<Union>Type` is
+emitted. The enum must be a string enum whose values are exactly the variant names; the
+analyzer rejects a variant without a member and a member without a variant.
+
 ## Default groups
 
 `@default group "<name>"` on two or more fields makes their defaults fill as a unit: the

@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
@@ -1364,6 +1365,31 @@ func (p *Plugin) generateArrayElementConversion(
 		}
 	}
 
+	if toPB, fromPB, ok := p.elementConversion(elemType, data); ok {
+		if isOptional {
+			forward = fmt.Sprintf(`if (this->%s.has_value()) {
+        auto* wrapper = pb.mutable_%s();
+        for (const auto& item : *this->%s) {
+            %s
+        }
+    }`, cppFieldName, pbAccessorName, cppFieldName, toPB("wrapper->add_values"))
+			backward = fmt.Sprintf(`if (pb.has_%s()) {
+        cpp.%s.emplace();
+        for (const auto& item : pb.%s().values()) {
+            %s
+        }
+    }`, pbAccessorName, cppFieldName, pbAccessorName, fromPB("cpp."+cppFieldName+"->"))
+			return forward, backward
+		}
+		forward = fmt.Sprintf(`for (const auto& item : this->%s) {
+        %s
+    }`, cppFieldName, toPB("pb.add_"+pbAccessorName))
+		backward = fmt.Sprintf(`for (const auto& item : pb.%s()) {
+        %s
+    }`, pbAccessorName, fromPB("cpp."+cppFieldName+"."))
+		return forward, backward
+	}
+
 	if isOptional {
 		forward = fmt.Sprintf(`if (this->%s.has_value()) {
         auto* wrapper = pb.mutable_%s();
@@ -1388,6 +1414,71 @@ func (p *Plugin) generateArrayElementConversion(
 	)
 
 	return forward, backward
+}
+
+// elementConversion returns the per-item statements that translate an array element
+// that proto cannot hold as is: a uuid (directly or through aliases and distinct types)
+// or an enum. toPB takes the proto adder and fromPB takes the C++ container prefix
+// ("cpp.field." or "cpp.field->"). Both read the loop variable item.
+func (p *Plugin) elementConversion(
+	elemType resolution.TypeRef,
+	data *templateData,
+) (toPB, fromPB func(string) string, ok bool) {
+	if key.ResolvePrimitive(elemType, data.table) == "uuid" {
+		toPB = func(add string) string {
+			return fmt.Sprintf("%s(item.to_string());", add)
+		}
+		fromPB = func(dst string) string {
+			return fmt.Sprintf(`auto [v, err] = x::uuid::UUID::parse(item);
+            if (err) return {{}, err};
+            %spush_back(v);`, dst)
+		}
+		return toPB, fromPB, true
+	}
+	resolved, ok := elemType.Resolve(data.table)
+	if !ok {
+		return nil, nil, false
+	}
+	form, ok := resolved.Form.(resolution.EnumForm)
+	if !ok {
+		return nil, nil, false
+	}
+	cppEnumType := domain.GetName(resolved, "cpp")
+	funcNamespace := ""
+	if resolved.Namespace != data.rawNs {
+		if target := output.GetPath(resolved, "cpp"); target != "" {
+			data.addConversionIncludes(target)
+			ns := naming.Namespace(target)
+			cppEnumType = fmt.Sprintf("::%s::%s", ns, cppEnumType)
+			funcNamespace = fmt.Sprintf("::%s::", ns)
+		}
+	}
+	pbEnumType := fmt.Sprintf(
+		"%s::%s",
+		naming.PBNamespace(enum.FindPBOutputPath(resolved, data.table)),
+		resolved.Name,
+	)
+	if form.IsIntEnum {
+		toPB = func(add string) string {
+			return fmt.Sprintf("%s(static_cast<%s>(item));", add, pbEnumType)
+		}
+		fromPB = func(dst string) string {
+			return fmt.Sprintf("%spush_back(static_cast<%s>(item));", dst, cppEnumType)
+		}
+		return toPB, fromPB, true
+	}
+	funcName := funcNamespace + casing.TypeSnake(resolved.Name)
+	toPB = func(add string) string {
+		return fmt.Sprintf(`auto [v, err] = %s_to_pb(item);
+            if (err) return {{}, err};
+            %s(v);`, funcName, add)
+	}
+	fromPB = func(dst string) string {
+		return fmt.Sprintf(`auto [v, err] = %s_from_pb(static_cast<%s>(item));
+            if (err) return {{}, err};
+            %spush_back(v);`, funcName, pbEnumType, dst)
+	}
+	return toPB, fromPB, true
 }
 
 func (p *Plugin) generateUnionArrayConversion(

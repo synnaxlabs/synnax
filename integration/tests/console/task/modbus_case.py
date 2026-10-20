@@ -19,11 +19,16 @@ class ModbusCase(ConsoleTaskCase):
 
     sim_classes = [ModbusSim]
 
-    @staticmethod
-    def registers(task: sy.Task) -> set[tuple[str, int]]:
+    @classmethod
+    def registers(cls, task: sy.Task) -> set[tuple[str, int]]:
         """Return the (type, address) pairs a task config points at."""
-        channels = task.config.get("channels", [])
-        return {(ch["type"], int(ch["address"])) for ch in channels}
+        pairs: set[tuple[str, int]] = set()
+        for ch in cls.config_channels(task):
+            type_, address = ch["type"], ch["address"]
+            if not isinstance(type_, str) or not isinstance(address, int):
+                raise TypeError(f"register ({type_!r}, {address!r}) is not (str, int)")
+            pairs.add((type_, address))
+        return pairs
 
     @staticmethod
     def assert_rows(page: ModbusTask, expected: list[tuple[str, int]]) -> None:

@@ -53,6 +53,7 @@ import (
 
 type CoreConfig struct {
 	insecure             *bool
+	fips                 *bool
 	debug                *bool
 	autoCert             *bool
 	validateChannelNames *bool
@@ -99,6 +100,7 @@ func DriverTrustAnchors(insecure bool, lc cert.LoaderConfig) ([]byte, error) {
 func (c CoreConfig) Validate() error {
 	v := validate.New("core.config")
 	v.NotNil("insecure", c.insecure)
+	v.NotNil("fips", c.fips)
 	v.NotNil("debug", c.debug)
 	v.NotNil("auto_cert", c.autoCert)
 	v.NotNil("mem_backed", c.memBacked)
@@ -123,6 +125,7 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 	return CoreConfig{
 		Instrumentation: override.Zero(c.Instrumentation, other.Instrumentation),
 		insecure:        override.Nil(c.insecure, other.insecure),
+		fips:            override.Nil(c.fips, other.fips),
 		debug:           override.Nil(c.debug, other.debug),
 		autoCert:        override.Nil(c.autoCert, other.autoCert),
 		licenseKey:      override.String(c.licenseKey, other.licenseKey),
@@ -257,6 +260,7 @@ func BootupCore(
 		Security:        securityProvider,
 		Storage:         storageLayer,
 		RootCredentials: cfg.rootCredentials,
+		FIPS:            cfg.fips,
 		License: license.ServiceConfig{
 			Key:     cfg.licenseKey,
 			Version: version.Get(),
@@ -355,15 +359,15 @@ func BootupCore(
 	}
 
 	licenseInfo := serviceLayer.License.Retrieve()
-	covered := licenseInfo.State == license.StateOk
+	expired := licenseInfo.State == license.StateExpired
 	if embeddedDriver, err := driver.Open(
 		ctx,
 		driver.Config{
 			Enabled:  new(!*cfg.noDriver),
 			Insecure: cfg.insecure,
-			// An unlicensed Core refuses the Driver's rack, so the Driver retries in
-			// the background.
-			Detached: new(!covered),
+			// An expired Core refuses the Driver's rack, so the Driver retries in the
+			// background.
+			Detached: new(expired),
 			Integrations: parseIntegrations(
 				cfg.enabledIntegrations,
 				cfg.disabledIntegrations,
@@ -389,7 +393,7 @@ func BootupCore(
 		"\033[32mSynnax is running and available at %v \033[0m",
 		cfg.listeners.AdvertiseAddress(),
 	)
-	if !covered {
+	if licenseInfo.State != license.StateOk {
 		scheme := "https"
 		if *cfg.insecure {
 			scheme = "http"

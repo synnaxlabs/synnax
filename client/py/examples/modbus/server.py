@@ -13,9 +13,10 @@ import time
 
 from pymodbus import ModbusDeviceIdentification
 from pymodbus.client import ModbusTcpClient
-from pymodbus.datastore.context import SimDevice
+from pymodbus.datastore import ModbusServerContext
 from pymodbus.server import ModbusTcpServer
-from pymodbus.simulator.simdata import DataType, SimData
+from pymodbus.simulator import DataType, SimData, SimDevice
+from pymodbus.simulator.simcore import SimCore
 
 import synnax as sy
 from examples.simulators.device_sim import DeviceSim
@@ -25,7 +26,9 @@ SLAVE_ID = 0x00
 SENSOR_COUNT = 5
 
 
-async def updating_writer(context, rate: sy.Rate = 50 * sy.Rate.HZ):
+async def updating_writer(
+    context: ModbusServerContext | SimCore, rate: sy.Rate = 50 * sy.Rate.HZ
+) -> None:
     """Update Modbus registers continuously with simulated sensor data."""
     start_ref = time.time()
     i = 0
@@ -132,8 +135,9 @@ async def run_server(
     identity.MajorMinorRevision = "1.0.0"
 
     server = ModbusTcpServer(context=dev, identity=identity, address=(host, port))
-    asyncio.create_task(updating_writer(server.context, rate))
-    await server.serve_forever()
+    async with asyncio.TaskGroup() as tg:
+        tg.create_task(updating_writer(server.context, rate))
+        await server.serve_forever()
 
 
 if __name__ == "__main__":

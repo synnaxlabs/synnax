@@ -100,7 +100,8 @@ class TestTrainRule:
         repo.manifests("0.58.4", **{"client/ts": "0.59.0"})
         result = repo.check()
         assert result.returncode != 0
-        assert "Node (" in result.stderr and "client/ts" in result.stderr
+        assert "Node (" in result.stderr
+        assert "client/ts" in result.stderr
 
     def test_should_reject_a_split_cpp_client(self, repo: Repo) -> None:
         repo.manifests("0.58.4", cpp="0.59.0")
