@@ -9,7 +9,4 @@
 
 from synnax.ranger.alias.client import Client
 
-Aliaser = Client
-"""Deprecated: Use Client instead."""
-
-__all__ = ["Aliaser", "Client"]
+__all__ = ["Client"]
