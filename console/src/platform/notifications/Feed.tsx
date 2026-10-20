@@ -181,14 +181,11 @@ export const Inbox = ({ notifications }: FeedProps): ReactElement => {
           <Text.Text level="small" weight={500} color={10}>
             Notifications
           </Text.Text>
-          <Button.Button
-            size="small"
-            variant="text"
-            onClick={silenceAll}
-            disabled={rendered.length === 0}
-          >
-            Clear all
-          </Button.Button>
+          {rendered.length > 0 && (
+            <Button.Button size="small" variant="text" onClick={silenceAll}>
+              Clear all
+            </Button.Button>
+          )}
         </Flex.Box>
         <Flex.Box y gap="small" className={CSS.BE("inbox", "list")}>
           {rendered.length === 0 ? (

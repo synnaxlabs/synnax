@@ -67,6 +67,8 @@
 
     .console-inbox__header {
         flex-shrink: 0;
+        box-sizing: content-box;
+        min-height: var(--pluto-height-small);
         padding: 1rem 1.5rem;
         border-bottom: var(--pluto-border);
     }
