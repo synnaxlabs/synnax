@@ -147,7 +147,7 @@ describe("Select.Single", () => {
     expect(c.queryByText("First Item")).toBeNull();
   });
 
-  it("should allow the user to deselect an item when allowNone is true", () => {
+  it("should keep the selection when the user picks it again with allowNone", () => {
     const { SelectSingle, onChange } = createSelectSingle();
     const c = render(<SelectSingle allowNone />);
     fireEvent.click(c.getByText("Test Item"));
@@ -155,8 +155,8 @@ describe("Select.Single", () => {
 
     fireEvent.click(c.getByText("First Item"));
     fireEvent.click(c.getByText("First Item Option"));
-    expect(onChange).toHaveBeenLastCalledWith(null);
-    expect(c.getByText("Test Item")).toBeTruthy();
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(c.getByText("First Item")).toBeTruthy();
   });
 
   it("should not allow the user to deselect when allowNone is false", () => {

@@ -175,11 +175,7 @@ class Symbol(ABC):
 
     def set_channel(self, *, section: str, channel_name: str) -> None:
         if channel_name is not None:
-            trigger = self.channel_trigger(section)
-            # A clearable select clears when its selected entry is picked again.
-            if trigger.inner_text().strip() == channel_name:
-                return
-            self.layout.click(trigger)
+            self.layout.click(self.channel_trigger(section))
             self.layout.select_from_dropdown(channel_name, "Search", exact=True)
 
     def set_value(self, value: float) -> None:
