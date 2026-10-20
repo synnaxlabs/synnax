@@ -845,17 +845,17 @@ func (c *collector) requireFunc(typ resolution.Type) string {
 		if !c.generated.Contains(typ.QualifiedName) {
 			c.pending = append(c.pending, typ)
 		}
-		// Every changed struct gets a MigrateX/migrateX wrapper in the
+		// Every changed struct or union gets a MigrateX/migrateX wrapper in the
 		// developer template; route local references through it so
 		// hand-written fixups in the wrapper apply to nested occurrences too.
-		if td, ok := c.diff[typ.QualifiedName]; ok &&
-			td.Kind == schemadiff.TypeChanged {
-			if _, isStruct := typ.Form.(resolution.StructForm); isStruct {
-				if n, ok := c.wrappers[typ.QualifiedName]; ok {
-					return n
-				}
-				return "Migrate" + goName
+		td, hasDiff := c.diff[typ.QualifiedName]
+		_, isStruct := typ.Form.(resolution.StructForm)
+		_, isUnion := typ.Form.(resolution.UnionForm)
+		if hasDiff && td.Kind == schemadiff.TypeChanged && (isStruct || isUnion) {
+			if n, ok := c.wrappers[typ.QualifiedName]; ok {
+				return n
 			}
+			return "Migrate" + goName
 		}
 		return "autoMigrate" + goName
 	}

@@ -32,6 +32,8 @@ from synnax.modbus.types_gen import (
 )
 
 __all__ = [
+    "MAKE",
+    "MODEL",
     "BaseReadChannel",
     "BaseWriteChannel",
     "CoilReadChannel",
@@ -41,8 +43,6 @@ __all__ = [
     "HoldingRegisterReadChannel",
     "HoldingRegisterWriteChannel",
     "InputRegisterReadChannel",
-    "MAKE",
-    "MODEL",
     "ReadChannel",
     "ReadConfig",
     "ReadTask",

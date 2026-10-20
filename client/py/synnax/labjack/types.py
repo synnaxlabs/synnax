@@ -10,6 +10,8 @@
 from typing import Final, Literal, TypeAlias, get_args
 from uuid import uuid4
 
+from pydantic import JsonValue
+
 from synnax import device, task
 from synnax.labjack.types_gen import (
     ReadChannel,
@@ -28,7 +30,9 @@ T8: Final = "LJM_dtT8"
 SUPPORTED_MODELS: TypeAlias = Literal["LJM_dtT4", "LJM_dtT7", "LJM_dtT8"]
 
 
-class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
+class ReadTask(
+    task.StarterStopperMixin, task.JSONConfigMixin[ReadConfig], task.Protocol
+):
     """A read task for sampling data from LabJack devices and writing the data to a
     Synnax cluster. For detailed information on configuring and operating a LabJack
     read task, see https://docs.synnaxlabs.com/reference/driver/labjack/read-task
@@ -47,7 +51,6 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """
 
     TYPE = "labjack_read"
-    config: ReadConfig
     _internal: task.Task
 
     def __init__(
@@ -80,17 +83,20 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Update device properties before task configuration."""
         dev = device_client.retrieve(key=self.config.device)
-        props = dict(dev.properties) if dev.properties is not None else {}
+        props = dict(dev.properties)
         if "read" not in props:
             props["read"] = {"index": 0, "channels": {}}
+        channels = device.ensure_object(props, "read", "channels")
         for ch in self.config.channels:
             # Map port location -> channel key for Console
-            props["read"]["channels"][ch.port] = ch.channel
+            channels[ch.port] = ch.channel
         dev.properties = props
         return device_client.create(dev)
 
 
-class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
+class WriteTask(
+    task.StarterStopperMixin, task.JSONConfigMixin[WriteConfig], task.Protocol
+):
     """A write task for sending commands to LabJack devices. For detailed information
     on configuring and operating a LabJack write task, see
     https://docs.synnaxlabs.com/reference/driver/labjack/write-task
@@ -107,7 +113,6 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """
 
     TYPE = "labjack_write"
-    config: WriteConfig
     _internal: task.Task
 
     def __init__(
@@ -138,12 +143,11 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Update device properties before task configuration."""
         dev = device_client.retrieve(key=self.config.device)
-        props = dict(dev.properties) if dev.properties is not None else {}
-        if "write" not in props:
-            props["write"] = {"channels": {}}
+        props = dict(dev.properties)
+        channels = device.ensure_object(props, "write", "channels")
         for ch in self.config.channels:
             # Map port location -> state_channel key for Console
-            props["write"]["channels"][ch.port] = ch.state_channel
+            channels[ch.port] = ch.state_channel
         dev.properties = props
         return device_client.create(dev)
 
@@ -181,7 +185,7 @@ class Device(device.Device):
             )
         if not key:
             key = str(uuid4())
-        props = {
+        props: dict[str, JsonValue] = {
             "connection": {
                 "identifier": identifier,
                 "connection_type": connection_type,

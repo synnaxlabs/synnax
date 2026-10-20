@@ -7,25 +7,27 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, overload
+from typing import Generic, TypeVar, overload
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, JsonValue
 
 from freighter import Empty, UnaryClient
 from synnax.ontology import ID
-from synnax.status.types_gen import Status, Variant
+from synnax.status.types_gen import Key, Status, Variant
 from x.lists import normalize
 from x.params import require_named_params
 
+D = TypeVar("D")
 
-class _SetRequest(BaseModel):
+
+class _SetRequest(BaseModel, Generic[D]):
     parent: ID | None = None
-    statuses: list[Status[Any]]
+    statuses: list[Status[D]]
 
 
 class _SetResponse(BaseModel):
-    statuses: list[Status[Any]]
+    statuses: list[Status[JsonValue]]
 
 
 class _RetrieveRequest(BaseModel):
@@ -39,7 +41,12 @@ class _RetrieveRequest(BaseModel):
 
 
 class _RetrieveResponse(BaseModel):
-    statuses: list[Status[Any]] = Field(default_factory=list)
+    statuses: list[Status[JsonValue]] = Field(default_factory=list)
+
+
+class _RenameRequest(BaseModel):
+    key: Key
+    name: str
 
 
 class _DeleteRequest(BaseModel):
@@ -75,25 +82,25 @@ class Client:
     @overload
     def set(
         self,
-        status: Status[Any],
+        status: Status[D],
         *,
         parent: ID | None = None,
-    ) -> Status[Any]: ...
+    ) -> Status[JsonValue]: ...
 
     @overload
     def set(
         self,
-        status: list[Status[Any]],
+        status: list[Status[D]],
         *,
         parent: ID | None = None,
-    ) -> list[Status[Any]]: ...
+    ) -> list[Status[JsonValue]]: ...
 
     def set(
         self,
-        status: Status[Any] | list[Status[Any]] | None = None,
+        status: Status[D] | list[Status[D]] | None = None,
         *,
         parent: ID | None = None,
-    ) -> Status[Any] | list[Status[Any]]:
+    ) -> Status[JsonValue] | list[Status[JsonValue]]:
         """Create or update a status.
 
         Args:
@@ -127,7 +134,7 @@ class Client:
             raise ValueError("status parameter is required")
 
         single = not isinstance(status, list)
-        statuses = [status] if single else status
+        statuses = status if isinstance(status, list) else [status]
 
         res = self.client.send(
             _SET_ENDPOINT, _SetRequest(statuses=statuses, parent=parent), _SetResponse
@@ -138,24 +145,22 @@ class Client:
         return res
 
     @overload
-    def retrieve(self, *, key: str, include_labels: bool = False) -> Status[Any]: ...
-
-    @overload
     def retrieve(
-        self, *, keys: list[str], include_labels: bool = False
-    ) -> list[Status[Any]]: ...
+        self, *, key: str, include_labels: bool = False
+    ) -> Status[JsonValue]: ...
 
     @overload
     def retrieve(
         self,
         *,
+        keys: list[str] | None = None,
         search_term: str | None = None,
         offset: int | None = None,
         limit: int | None = None,
         include_labels: bool = False,
         has_labels: list[UUID] | None = None,
         variants: list[Variant] | None = None,
-    ) -> list[Status[Any]]: ...
+    ) -> list[Status[JsonValue]]: ...
 
     @require_named_params(example_params=("key", "'status-key-123'"))
     def retrieve(
@@ -169,7 +174,7 @@ class Client:
         include_labels: bool = False,
         has_labels: list[UUID] | None = None,
         variants: list[Variant] | None = None,
-    ) -> Status[Any] | list[Status[Any]]:
+    ) -> Status[JsonValue] | list[Status[JsonValue]]:
         """Retrieve statuses from the cluster.
 
         Args:
@@ -231,6 +236,15 @@ class Client:
                 raise ValueError(f"Status with key '{key}' not found")
             return res[0]
         return res
+
+    def rename(self, key: Key, name: str) -> None:
+        """Renames a status.
+
+        :param key: The key of the status to rename.
+        :param name: The new name for the status.
+        :raises NotFoundError: If no status has the given key.
+        """
+        self.client.send("/status/rename", _RenameRequest(key=key, name=name), Empty)
 
     def delete(self, keys: str | list[str]) -> None:
         """Delete statuses by their keys.

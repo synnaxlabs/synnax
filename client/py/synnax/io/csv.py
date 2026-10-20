@@ -17,14 +17,14 @@ import pandas as pd
 from pandas.io.parsers import TextFileReader
 
 from synnax.io.df_converter import convert_df
-from synnax.io.matcher import new_extension_matcher
+from synnax.io.matcher import ExtensionMatcher
 from synnax.io.protocol import ChannelMeta, FileWriter, ReaderType, RowFileReader
 
-CSVMatcher = new_extension_matcher(["csv"])
 
-
-class CSVReader(CSVMatcher):  # type: ignore
+class CSVReader(ExtensionMatcher):
     """A RowReader implementation for CSV files."""
+
+    _extensions = ("csv",)
 
     channel_keys: list[str] | None
     chunk_size: int
@@ -58,7 +58,7 @@ class CSVReader(CSVMatcher):  # type: ignore
         self._cached_reader = None
 
     def _detect_delimiter(self) -> str:
-        with open(self._path, "r") as file:
+        with open(self._path) as file:
             sample = file.read(1024)
             dialect = csv.Sniffer().sniff(sample)
             return dialect.delimiter
@@ -111,7 +111,7 @@ class CSVReader(CSVMatcher):  # type: ignore
                 self._path, nrows=0, delimiter=self._detect_delimiter()
             ).columns
             self._channels = [
-                ChannelMeta(name=name.strip(), meta_data=dict()) for name in cols
+                ChannelMeta(name=name.strip(), meta_data={}) for name in cols
             ]
         return self._channels
 
@@ -151,7 +151,7 @@ class CSVReader(CSVMatcher):  # type: ignore
 
 def estimate_row_count(path: Path) -> int:
     """Estimates the number of rows in a CSV file."""
-    with open(path, "r") as f:
+    with open(path) as f:
         f.readline()
         row = f.readline()
         row_size = len(row.encode("utf-8"))
@@ -160,8 +160,10 @@ def estimate_row_count(path: Path) -> int:
     return (file_size // row_size) - 1
 
 
-class CSVWriter(CSVMatcher):  # type: ignore
+class CSVWriter(ExtensionMatcher):
     """A Writer implementation for CSV files."""
+
+    _extensions = ("csv",)
 
     _path: Path
     _header: bool

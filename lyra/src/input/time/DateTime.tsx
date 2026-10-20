@@ -212,9 +212,9 @@ export const DateTime = ({
       nudge={nudgeText}
       onCommit={(next) => commit(Number(next.valueOf()))}
       onClear={emptyValue == null ? undefined : () => commit(emptyValue)}
-      hint="Try 14:05, tomorrow 3pm, now - 5m, or 2h"
+      hint="Try 14:05, tomorrow 3pm, now - 5min, or 2h"
       unreadMessage="Not a time"
-      fieldPlaceholder="14:05, tomorrow 3pm, now - 5m"
+      fieldPlaceholder="14:05, tomorrow 3pm, now - 5min"
       actions={actions}
       effect={
         effect == null

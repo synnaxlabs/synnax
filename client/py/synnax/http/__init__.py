@@ -38,6 +38,8 @@ from synnax.http.types_gen import (
 )
 
 __all__ = [
+    "MAKE",
+    "MODEL",
     "BaseWriteField",
     "ChannelField",
     "Device",
@@ -48,8 +50,6 @@ __all__ = [
     "Header",
     "HealthCheck",
     "JSONType",
-    "MAKE",
-    "MODEL",
     "Method",
     "QueryParam",
     "ReadConfig",

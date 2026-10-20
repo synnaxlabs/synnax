@@ -107,7 +107,6 @@ class Symbol(ABC):
 
         This method should call set_properties() with the symbol's configuration.
         """
-        pass
 
     def _disable_edit_mode(self) -> None:
         self.notifications.close_all()
@@ -169,7 +168,6 @@ class Symbol(ABC):
         Returns:
             Dictionary of applied properties
         """
-        pass
 
     def channel_trigger(self, section: str) -> Locator:
         """The channel select in the form section with the given title."""
@@ -182,11 +180,9 @@ class Symbol(ABC):
 
     def set_value(self, value: float) -> None:
         """Set the symbol's value if applicable. Default implementation does nothing."""
-        pass
 
     def press(self) -> None:
         """Press/activate the symbol if applicable. Default implementation does nothing."""
-        pass
 
     @contextmanager
     def hold(self) -> Iterator[None]:

@@ -15,7 +15,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -114,6 +116,26 @@ func (w Writer) CreateMany(ctx context.Context, racks *[]Rack) error {
 		}
 	}
 	return nil
+}
+
+// Rename renames the rack with the given key and its status, keeping every other field.
+// It returns query.ErrNotFound if no rack with the key exists and a validation error if
+// name is empty.
+func (w Writer) Rename(ctx context.Context, key Key, name string) error {
+	if err := w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Rack](key)).
+		ChangeErr(func(_ gorp.Context, r Rack) (Rack, error) {
+			r.Name = name
+			if err := r.Validate(); err != nil {
+				return Rack{}, err
+			}
+			return r, nil
+		}).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	// A missing status row is valid: the next Create heals it.
+	return errors.Skip(w.status.Rename(ctx, StatusKey(key), name), query.ErrNotFound)
 }
 
 // Delete deletes the rack with the provided key and its associated status. Delete is

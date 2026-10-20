@@ -18,11 +18,11 @@ from synnax.access.policy.payload import (
 )
 
 __all__ = [
-    "Client",
-    "Policy",
     "ACTION_CREATE",
     "ACTION_DELETE",
     "ACTION_RETRIEVE",
     "ACTION_UPDATE",
+    "Client",
+    "Policy",
     "ontology_id",
 ]
