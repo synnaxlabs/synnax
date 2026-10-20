@@ -53,6 +53,7 @@ import (
 
 type CoreConfig struct {
 	insecure             *bool
+	fips                 *bool
 	debug                *bool
 	autoCert             *bool
 	validateChannelNames *bool
@@ -99,6 +100,7 @@ func DriverTrustAnchors(insecure bool, lc cert.LoaderConfig) ([]byte, error) {
 func (c CoreConfig) Validate() error {
 	v := validate.New("core.config")
 	v.NotNil("insecure", c.insecure)
+	v.NotNil("fips", c.fips)
 	v.NotNil("debug", c.debug)
 	v.NotNil("auto_cert", c.autoCert)
 	v.NotNil("mem_backed", c.memBacked)
@@ -123,6 +125,7 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 	return CoreConfig{
 		Instrumentation: override.Zero(c.Instrumentation, other.Instrumentation),
 		insecure:        override.Nil(c.insecure, other.insecure),
+		fips:            override.Nil(c.fips, other.fips),
 		debug:           override.Nil(c.debug, other.debug),
 		autoCert:        override.Nil(c.autoCert, other.autoCert),
 		licenseKey:      override.String(c.licenseKey, other.licenseKey),
@@ -257,6 +260,7 @@ func BootupCore(
 		Security:        securityProvider,
 		Storage:         storageLayer,
 		RootCredentials: cfg.rootCredentials,
+		FIPS:            cfg.fips,
 		License: license.ServiceConfig{
 			Key:     cfg.licenseKey,
 			Version: version.Get(),

@@ -28,6 +28,17 @@ class TestView:
         assert v.name == "Test View"
         assert v.query.has_labels == [label]
 
+    def test_rename(self, client: sy.Synnax) -> None:
+        """Should rename a view and keep its query."""
+        v = client.views.create(
+            StatusView(name="Before Rename", query=StatusQuery(variants=["error"]))
+        )
+        client.views.rename(v.key, "After Rename")
+        renamed = client.views.retrieve(key=v.key)
+        assert isinstance(renamed, StatusView)
+        assert renamed.name == "After Rename"
+        assert renamed.query.variants == ["error"]
+
     def test_create_multiple(self, client: sy.Synnax) -> None:
         """Should create multiple views of different types."""
         views = client.views.create(

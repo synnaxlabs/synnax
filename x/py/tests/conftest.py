@@ -7,11 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from hypothesis import settings
 
-import synnax as sy
-
-client = sy.Synnax()
-
-with client.open_streamer(["sy_rack_heartbeat"]) as s:
-    for frame in s:
-        print(frame)
+# Derandomized so a CI failure reproduces on every run.
+settings.register_profile("x", max_examples=200, derandomize=True, deadline=None)
+settings.load_profile("x")
