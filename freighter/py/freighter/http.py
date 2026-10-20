@@ -167,7 +167,7 @@ class HTTPClient(MiddlewareCollector):
             finally:
                 http_res.release_conn()
 
-        in_ctx = Context(url, self._endpoint.protocol, "client")
+        in_ctx = Context(self._endpoint.protocol, url, "client")
         self.exec(in_ctx, finalizer)
 
     def _build_url(self, target: str, params: dict[str, str] | None = None) -> str:
@@ -187,7 +187,7 @@ class HTTPClient(MiddlewareCollector):
         params: dict[str, str] | None = None,
     ) -> RS:
         url = self._build_url(target, params)
-        in_ctx = Context(url, self._endpoint.protocol, "client")
+        in_ctx = Context(self._endpoint.protocol, url, "client")
         res_container: list[RS | None] = [None]
 
         def finalizer(ctx: Context) -> Context:
@@ -228,7 +228,7 @@ class HTTPClient(MiddlewareCollector):
         defers to the pool default; pass False to disable retries (e.g. for an
         unreplayable streaming body).
         """
-        out_ctx = Context(url, self._endpoint.protocol, "client")
+        out_ctx = Context(self._endpoint.protocol, url, "client")
         headers = {"Content-Type": content_type, "Accept": accept, **ctx.params}
         try:
             http_res = self._pool.request(
