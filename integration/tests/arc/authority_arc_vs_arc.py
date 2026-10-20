@@ -22,7 +22,7 @@ start_low_cmd => main
 sequence main {
     stage active {
         0 -> press_vlv_cmd
-        time.wait{100ms} => active
+        time.wait(100ms) => active
     }
 }
 """
@@ -37,14 +37,14 @@ start_high_cmd => main
 sequence main {
     stage active {
         1 -> press_vlv_cmd
-        time.wait{100ms} => active_hold
+        time.wait(100ms) => active_hold
     }
     stage active_hold {
         1 -> press_vlv_cmd
-        time.wait{5s} => done
+        time.wait(5s) => done
     }
     stage done {
-        control.set_authority{0}
+        control.set_authority(0)
     }
 }
 """

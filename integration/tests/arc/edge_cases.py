@@ -72,24 +72,24 @@ func fwd_callee() {
     edge_fwd = 55.0
 }
 // Edge case 6: Basic write through chan input param.
-func chan_write(ch chan f32) {
+func chan_write() {ch chan f32} {
     ch = 77.0
 }
 func test_chan_param_write() {
     chan_write(edge_chan_basic)
 }
 // Edge case 7: Multi-level chain through chan params.
-func chan_chain_leaf(ch chan f32) {
+func chan_chain_leaf() {ch chan f32} {
     ch = 88.0
 }
-func chan_chain_mid(ch chan f32) {
+func chan_chain_mid() {ch chan f32} {
     chan_chain_leaf(ch)
 }
 func test_chan_chain() {
     chan_chain_mid(edge_chan_chain)
 }
 // Edge case 8: Same function called with different chan args.
-func chan_set(ch chan f32) {
+func chan_set() {ch chan f32} {
     ch = 33.0
 }
 func test_chan_diff_args() {
@@ -97,7 +97,7 @@ func test_chan_diff_args() {
     chan_set(edge_chan_arg_b)
 }
 // Edge case 9: Multiple chan params written in one function.
-func chan_multi_write(a chan f32, b chan f32) {
+func chan_multi_write() {a chan f32, b chan f32} {
     a = 11.0
     b = 22.0
 }
@@ -108,20 +108,20 @@ func test_chan_multi_param() {
 func test_chan_fwd_ref() {
     chan_fwd_callee(edge_chan_fwd)
 }
-func chan_fwd_callee(ch chan f32) {
+func chan_fwd_callee() {ch chan f32} {
     ch = 66.0
 }
 
-start_edge_case_cmd -> test_same_channel_write{}
-start_edge_case_cmd -> test_diamond{}
-start_edge_case_cmd -> test_multi_callee{}
-start_edge_case_cmd -> test_chain{}
-start_edge_case_cmd -> test_fwd_ref{}
-start_edge_case_cmd -> test_chan_param_write{}
-start_edge_case_cmd -> test_chan_chain{}
-start_edge_case_cmd -> test_chan_diff_args{}
-start_edge_case_cmd -> test_chan_multi_param{}
-start_edge_case_cmd -> test_chan_fwd_ref{}
+start_edge_case_cmd -> test_same_channel_write()
+start_edge_case_cmd -> test_diamond()
+start_edge_case_cmd -> test_multi_callee()
+start_edge_case_cmd -> test_chain()
+start_edge_case_cmd -> test_fwd_ref()
+start_edge_case_cmd -> test_chan_param_write()
+start_edge_case_cmd -> test_chan_chain()
+start_edge_case_cmd -> test_chan_diff_args()
+start_edge_case_cmd -> test_chan_multi_param()
+start_edge_case_cmd -> test_chan_fwd_ref()
 """
 
 # ── Read-only monitor (no write channels, only status.set) ──
@@ -135,16 +135,16 @@ start_read_only_monitor_cmd => main
 
 sequence main {
     stage on {
-        edge_monitor_input > 30 => status.set{
+        edge_monitor_input > 30 => status.set(
             key_or_name = "press_monitor_status",
             variant = "warning",
             message = "Pressure high"
-        }
-        edge_monitor_input < 30 => status.set{
+        )
+        edge_monitor_input < 30 => status.set(
             key_or_name = "press_monitor_status",
             variant = "success",
             message = "Pressure nominal"
-        }
+        )
     }
 }
 """
@@ -160,7 +160,7 @@ func self_rec() {
     ch1 = 1.0
     self_rec()
 }
-start_edge_case_cmd -> self_rec{}
+start_edge_case_cmd -> self_rec()
 """
 
 # Callee called in ALL branches of if-else (no exit path)
@@ -176,7 +176,7 @@ func ping() {
 func pong() {
     ping()
 }
-start_edge_case_cmd -> ping{}
+start_edge_case_cmd -> ping()
 """
 
 # Tangled web of 5 functions forming one big cycle. Branches decide arithmetic,
@@ -220,7 +220,7 @@ func commit() {
     ch1 = 50.0
     init_seq()
 }
-start_edge_case_cmd -> init_seq{}
+start_edge_case_cmd -> init_seq()
 """
 
 # ── ExecContext violations (invalid, caught at configure time) ──
@@ -231,14 +231,14 @@ func bad() {
     ch1 = 1.0
     interval(100)
 }
-start_edge_case_cmd -> bad{}
+start_edge_case_cmd -> bad()
 """
 
 # WASM-only function used as a flow node
 ARC_WASM_IN_FLOW = """
-func print{} () {
+func print() {
 }
-ch1 -> len{} -> print{}
+ch1 -> len() -> print()
 """
 
 
@@ -271,7 +271,7 @@ ARC_IMPORT_MISSING = """
 func get_now() i64 {
     return time.now()
 }
-start_edge_case_cmd -> get_now{}
+start_edge_case_cmd -> get_now()
 """
 
 # Module imported but never referenced.
@@ -280,7 +280,7 @@ import time
 func passthrough() {
     ch1 = ch1 + 1.0
 }
-start_edge_case_cmd -> passthrough{}
+start_edge_case_cmd -> passthrough()
 """
 
 # Import names a module the resolver does not expose.
@@ -289,7 +289,7 @@ import banana
 func passthrough() {
     ch1 = ch1 + 1.0
 }
-start_edge_case_cmd -> passthrough{}
+start_edge_case_cmd -> passthrough()
 """
 
 # Same module listed twice in one block.
@@ -298,7 +298,7 @@ import ( time time )
 func get_now() i64 {
     return time.now()
 }
-start_edge_case_cmd -> get_now{}
+start_edge_case_cmd -> get_now()
 """
 
 
@@ -342,8 +342,8 @@ ARC_UNIT_MISMATCH_PSI_BAR = """
 func producer() f32 psi {
     return 5psi
 }
-func consumer(v f32 bar) {}
-producer{} -> consumer{}
+func consumer() {v f32 bar} {}
+producer() -> consumer()
 """
 
 
@@ -366,7 +366,7 @@ TYPE_MISMATCH_CASES = [
 
 # A routing key selects its entry, so `=>` before the table has nothing to gate.
 ARC_TRANSITION_INTO_ROUTING_TABLE = """
-ch1 > 0.0 -> select{} => {
+ch1 > 0.0 -> select() => {
     true: 1.0 -> edge_diamond,
     false: 0.0 -> edge_diamond,
 }
@@ -374,7 +374,7 @@ ch1 > 0.0 -> select{} => {
 
 # `=>` only passes true, so select's false entry could never run.
 ARC_TRANSITION_INTO_SELECT = """
-ch1 > 0.0 => select{} -> {
+ch1 > 0.0 => select() -> {
     true: 1.0 -> edge_diamond,
     false: 0.0 -> edge_diamond,
 }
@@ -412,7 +412,7 @@ func self_rec() {
         self_rec()
     }
 }
-start_edge_case_cmd -> self_rec{}
+start_edge_case_cmd -> self_rec()
 """
 
 # Same tangled web but route_beta wraps its call in if ch1 > 0, providing one exit path.
@@ -457,7 +457,7 @@ func commit() {
     ch1 = 50.0
     init_seq()
 }
-start_edge_case_cmd -> init_seq{}
+start_edge_case_cmd -> init_seq()
 """
 
 CHANNEL_VIRTUAL = [

@@ -48,7 +48,7 @@ var _ = Describe("Stat Flow Chains", func() {
 				"my_sensor":     {types.F64(), 100},
 				"output_sensor": {types.F64(), 200},
 			})
-			h := newTextHarness(ctx, `my_sensor -> avg{} -> output_sensor`, resolver,
+			h := newTextHarness(ctx, `my_sensor -> avg() -> output_sensor`, resolver,
 				channels.Digest{Key: 100, DataType: telem.Float64T},
 				channels.Digest{Key: 200, DataType: telem.Float64T},
 			)
@@ -88,7 +88,7 @@ var _ = Describe("Stat Flow Chains", func() {
 				"sensor":  {types.I32(), 100},
 				"avg_out": {types.I32(), 200},
 			})
-			h := newTextHarness(ctx, `sensor -> avg{} -> avg_out`, resolver,
+			h := newTextHarness(ctx, `sensor -> avg() -> avg_out`, resolver,
 				channels.Digest{Key: 100, DataType: telem.Int32T},
 				channels.Digest{Key: 200, DataType: telem.Int32T},
 			)
@@ -116,7 +116,7 @@ var _ = Describe("Stat Flow Chains", func() {
 				"my_sensor":     {types.F64(), 100},
 				"output_sensor": {types.F64(), 200},
 			})
-			h := newTextHarness(ctx, `my_sensor -> min{} -> output_sensor`, resolver,
+			h := newTextHarness(ctx, `my_sensor -> min() -> output_sensor`, resolver,
 				channels.Digest{Key: 100, DataType: telem.Float64T},
 				channels.Digest{Key: 200, DataType: telem.Float64T},
 			)
@@ -144,7 +144,7 @@ var _ = Describe("Stat Flow Chains", func() {
 				"my_sensor":     {types.F64(), 100},
 				"output_sensor": {types.F64(), 200},
 			})
-			h := newTextHarness(ctx, `my_sensor -> max{} -> output_sensor`, resolver,
+			h := newTextHarness(ctx, `my_sensor -> max() -> output_sensor`, resolver,
 				channels.Digest{Key: 100, DataType: telem.Float64T},
 				channels.Digest{Key: 200, DataType: telem.Float64T},
 			)
@@ -176,7 +176,7 @@ var _ = Describe("Stat Flow Chains", func() {
 				})
 				h := newTextHarness(
 					ctx,
-					`my_sensor -> derivative{} -> rate_out`,
+					`my_sensor -> derivative() -> rate_out`,
 					resolver,
 					channels.Digest{Key: 100, DataType: telem.Float64T},
 					channels.Digest{Key: 200, DataType: telem.Float64T},
@@ -212,7 +212,7 @@ var _ = Describe("Stat Flow Chains", func() {
 				})
 				h := newTextHarness(
 					ctx,
-					`my_sensor -> avg{} -> output_sensor`,
+					`my_sensor -> avg() -> output_sensor`,
 					resolver,
 					channels.Digest{Key: 100, DataType: telem.Float64T},
 					channels.Digest{Key: 200, DataType: telem.Float64T},
@@ -245,7 +245,7 @@ var _ = Describe("Stat Flow Chains", func() {
 					"pressure": {types.F64(), 100},
 					"min_psi":  {types.F64(), 200},
 				})
-				h := newTextHarness(ctx, `pressure -> min{} -> min_psi`, resolver,
+				h := newTextHarness(ctx, `pressure -> min() -> min_psi`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Float64T},
 					channels.Digest{Key: 200, DataType: telem.Float64T},
 				)

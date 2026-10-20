@@ -277,20 +277,20 @@ var _ = Describe("Task", Ordered, func() {
 
 				sequence bb {
 					stage start {
-						set_authority{value=220, channel=%s},
-						set_authority{value=220, channel=%s},
-						interval{period=50ms} -> high_bang{},
-						interval{period=50ms} -> low_bang{},
+						set_authority(value=220, channel=%s),
+						set_authority(value=220, channel=%s),
+						interval(period=50ms) -> high_bang(),
+						interval(period=50ms) -> low_bang(),
 						%s => stop
 					}
 					stage stop {
 						0 -> %s,
 						0 -> %s,
-						wait{duration=100ms} => yield
+						wait(duration=100ms) => yield
 					}
 					stage yield {
-						set_authority{value=0, channel=%s},
-						set_authority{value=0, channel=%s},
+						set_authority(value=0, channel=%s),
+						set_authority(value=0, channel=%s),
 						%s => start
 					}
 				}
@@ -386,7 +386,7 @@ var _ = Describe("Task", Ordered, func() {
 			func(ctx SpecContext) {
 				out := createVirtualCh(ctx, "zero_period", telem.Uint8T)
 				factory := newTextFactory(ctx, arc.Text{Raw: fmt.Sprintf(
-					"interval{period=0ms} -> %s\n", out.Name,
+					"interval(period=0ms) -> %s\n", out.Name,
 				)})
 				svcTask := task.Task{
 					Key:    uuid.New(),
@@ -1013,10 +1013,10 @@ var _ = Describe("Task", Ordered, func() {
 				import status
 
 				sequence main {
-				    status.set{key_or_name="%[1]s_a", message="m", variant="info"},
-				    status.set{key_or_name="%[1]s_b", message="m", variant="error"},
-				    status.set{key_or_name="%[1]s_c", message="m", variant="warning"},
-				    status.set{key_or_name="%[1]s_d", message="m", variant="loading"},
+				    status.set(key_or_name="%[1]s_a", message="m", variant="info"),
+				    status.set(key_or_name="%[1]s_b", message="m", variant="error"),
+				    status.set(key_or_name="%[1]s_c", message="m", variant="warning"),
+				    status.set(key_or_name="%[1]s_d", message="m", variant="loading"),
 				}
 
 				%[2]s => main
@@ -1080,7 +1080,7 @@ var _ = Describe("Task", Ordered, func() {
 
 					sequence main {
 					    stage report {
-					        status.set{key_or_name="%s", message="m", variant="info"}
+					        status.set(key_or_name="%s", message="m", variant="info")
 					    }
 					}
 
@@ -1143,7 +1143,7 @@ var _ = Describe("Task", Ordered, func() {
 
 					sequence main {
 					    stage report {
-					        ranges.create{name="%s"}
+					        ranges.create(name="%s")
 					    }
 					}
 
@@ -1203,12 +1203,12 @@ var _ = Describe("Task", Ordered, func() {
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import status
 
-					%s -> select{} -> {
-					    true: status.set{
+					%s -> select() -> {
+					    true: status.set(
 					        key_or_name="%s",
 					        message="tank pressure above limit",
 					        variant="warning"
-					    } -> %s
+					    ) -> %s
 					}
 				`, data.Name, name, out.Name)}
 
@@ -1271,12 +1271,12 @@ var _ = Describe("Task", Ordered, func() {
 					sequence main {
 					    stage watch {
 					        v str := ""
-					        %s -> select{} -> {
-					            true: status.set{
+					        %s -> select() -> {
+					            true: status.set(
 					                key_or_name="%s",
 					                message="tank pressure above limit",
 					                variant="warning"
-					            } -> v
+					            ) -> v
 					        }
 					    }
 					}
@@ -1348,12 +1348,12 @@ var _ = Describe("Task", Ordered, func() {
 					sequence main {
 					    stage watch {
 					        sink := %s
-					        %s -> select{} -> {
-					            true: status.set{
+					        %s -> select() -> {
+					            true: status.set(
 					                key_or_name="%s",
 					                message="tank pressure above limit",
 					                variant="warning"
-					            } -> sink
+					            ) -> sink
 					        }
 					    }
 					}
@@ -1421,8 +1421,8 @@ var _ = Describe("Task", Ordered, func() {
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import ranges
 
-					%s -> select{} -> {
-					    true: ranges.create{name="%s"} -> %s
+					%s -> select() -> {
+					    true: ranges.create(name="%s") -> %s
 					}
 				`, data.Name, name, out.Name)}
 
@@ -1489,8 +1489,8 @@ var _ = Describe("Task", Ordered, func() {
 					sequence main {
 					    stage watch {
 					        v str := ""
-					        %s -> select{} -> {
-					            true: ranges.create{name="%s"} -> v
+					        %s -> select() -> {
+					            true: ranges.create(name="%s") -> v
 					        }
 					    }
 					}
@@ -1566,8 +1566,8 @@ var _ = Describe("Task", Ordered, func() {
 					sequence main {
 					    stage watch {
 					        sink := %s
-					        %s -> select{} -> {
-					            true: ranges.create{name="%s"} -> sink
+					        %s -> select() -> {
+					            true: ranges.create(name="%s") -> sink
 					        }
 					    }
 					}
@@ -1638,8 +1638,8 @@ var _ = Describe("Task", Ordered, func() {
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import ranges
 
-					%s -> select{} -> {
-					    true: ranges.create{name="%s"} -> %s
+					%s -> select() -> {
+					    true: ranges.create(name="%s") -> %s
 					}
 				`, data.Name, name, out.Name)}
 
@@ -1705,8 +1705,8 @@ var _ = Describe("Task", Ordered, func() {
 					sequence main {
 					    stage watch {
 					        v str := ""
-					        %s -> select{} -> {
-					            true: ranges.create{name="%s"} -> v
+					        %s -> select() -> {
+					            true: ranges.create(name="%s") -> v
 					        }
 					        v -> %s
 					    }
@@ -1781,8 +1781,8 @@ var _ = Describe("Task", Ordered, func() {
 					sequence main {
 					    stage watch {
 					        sink := %s
-					        %s -> select{} -> {
-					            true: ranges.create{name="%s"} -> sink
+					        %s -> select() -> {
+					            true: ranges.create(name="%s") -> sink
 					        }
 					    }
 					}
@@ -1963,7 +1963,7 @@ var _ = Describe("Task", Ordered, func() {
 					func output() {
 						%s = 42.0
 					}
-					interval{period=50ms} -> output{}
+					interval(period=50ms) -> output()
 				`, dataCh.Name),
 			}
 
@@ -2004,7 +2004,7 @@ var _ = Describe("Task", Ordered, func() {
 					func output() {
 						%s = 1
 					}
-					interval{period=10ms} -> output{}
+					interval(period=10ms) -> output()
 				`, outputCh.Name)}
 				responses, closeStreamer := openTestStreamer(
 					ctx,
@@ -2049,7 +2049,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(channelWriter.Create(ctx, dataCh)).To(Succeed())
 
 				prog := arc.Text{Raw: fmt.Sprintf(
-					"interval{period=50ms} -> %s\n", dataCh.Name,
+					"interval(period=50ms) -> %s\n", dataCh.Name,
 				)}
 				responses, closeStreamer := openTestStreamer(
 					ctx, channel.Keys{idxCh.Key(), dataCh.Key()}, 10,
@@ -2166,8 +2166,8 @@ var _ = Describe("Task", Ordered, func() {
 					func tick() {
 						%s = 1
 					}
-					%s -> passthrough{}
-					interval{period=50ms} -> tick{}
+					%s -> passthrough()
+					interval(period=50ms) -> tick()
 				`, outputCh.Name, inputCh.Name, intervalCh.Name, inputCh.Name),
 			}
 
@@ -2204,7 +2204,7 @@ var _ = Describe("Task", Ordered, func() {
 					func output() {
 						%s = 1
 					}
-					wait{duration=50ms} -> output{}
+					wait(duration=50ms) -> output()
 				`, outputCh.Name),
 			}
 
@@ -2241,8 +2241,8 @@ var _ = Describe("Task", Ordered, func() {
 					func tick2() {
 						%s = 2
 					}
-					interval{period=60ms} -> tick1{}
-					interval{period=90ms} -> tick2{}
+					interval(period=60ms) -> tick1()
+					interval(period=90ms) -> tick2()
 				`, output1Ch.Name, output2Ch.Name),
 				}
 
@@ -2286,7 +2286,7 @@ var _ = Describe("Task", Ordered, func() {
 					func tick() {
 						%s = 1
 					}
-					interval{period=10ms} -> tick{}
+					interval(period=10ms) -> tick()
 				`, outputCh.Name),
 			}
 
@@ -2339,7 +2339,7 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				42 -> %s
 				40 + 2 -> %s
-				%s -> pass{}
+				%s -> pass()
 			`, triggerOut.Name, triggerCh.Name, constOut.Name, exprOut.Name, triggerCh.Name)}
 
 				responses, closeStreamer := openTestStreamer(ctx, channel.Keys{
@@ -2406,7 +2406,7 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				42 -> %s
 				40 + 2 -> %s
-				interval{period=20ms} -> tick{}
+				interval(period=20ms) -> tick()
 			`, tickOut.Name, constOut.Name, exprOut.Name)}
 
 				responses, closeStreamer := openTestStreamer(ctx, channel.Keys{
@@ -2530,7 +2530,7 @@ var _ = Describe("Task", Ordered, func() {
 							func output() {
 								%s = 42
 							}
-							interval{period=50ms} -> output{}
+							interval(period=50ms) -> output()
 						`, c.ch.Name),
 						}
 
@@ -2574,7 +2574,7 @@ var _ = Describe("Task", Ordered, func() {
 							func output() {
 								%s = 42
 							}
-							interval{period=50ms} -> output{}
+							interval(period=50ms) -> output()
 						`, c.ch.Name),
 						}
 
@@ -2617,7 +2617,7 @@ var _ = Describe("Task", Ordered, func() {
 							func output() {
 								%s = 42
 							}
-							interval{period=50ms} -> output{}
+							interval(period=50ms) -> output()
 						`, c.ch.Name),
 						}
 
@@ -2663,7 +2663,7 @@ var _ = Describe("Task", Ordered, func() {
 								%s = 1
 								%s = 2
 							}
-							interval{period=50ms} -> output{}
+							interval(period=50ms) -> output()
 						`, c1.ch.Name, c1.ch.Name, c2.ch.Name),
 						}
 
@@ -2721,7 +2721,7 @@ var _ = Describe("Task", Ordered, func() {
 							func output() {
 								%s = 42
 							}
-							interval{period=50ms} -> output{}
+							interval(period=50ms) -> output()
 						`, c.ch.Name),
 						}
 
@@ -2766,11 +2766,11 @@ var _ = Describe("Task", Ordered, func() {
 
 							sequence seq {
 								stage escalated {
-									1 -> set_authority{value=200}
+									1 -> set_authority(value=200)
 								}
 							}
 
-							interval{period=50ms} -> output{}
+							interval(period=50ms) -> output()
 						`, c.ch.Name, triggerCh.Name),
 						}
 
@@ -2830,11 +2830,11 @@ var _ = Describe("Task", Ordered, func() {
 
 							sequence seq {
 								stage deescalated {
-									1 -> set_authority{value=50}
+									1 -> set_authority(value=50)
 								}
 							}
 
-							interval{period=50ms} -> output{}
+							interval(period=50ms) -> output()
 						`, c.ch.Name, triggerCh.Name),
 						}
 
@@ -2893,11 +2893,11 @@ var _ = Describe("Task", Ordered, func() {
 
 							sequence seq {
 								stage escalated {
-									1 -> set_authority{value=210, channel=%s}
+									1 -> set_authority(value=210, channel=%s)
 								}
 							}
 
-							interval{period=50ms} -> output{}
+							interval(period=50ms) -> output()
 						`, c.ch.Name, triggerCh.Name, c.ch.Name),
 						}
 
@@ -2983,15 +2983,15 @@ var _ = Describe("Task", Ordered, func() {
 
 							sequence seq {
 								stage escalated {
-									1 -> set_authority{value=210, channel=%s},
+									1 -> set_authority(value=210, channel=%s),
 									%s => released
 								}
 								stage released {
-									1 -> set_authority{value=0, channel=%s}
+									1 -> set_authority(value=0, channel=%s)
 								}
 							}
 
-							interval{period=50ms} -> output{}
+							interval(period=50ms) -> output()
 						`,
 								c.ch.Name,
 								startCh.Name,
@@ -3086,11 +3086,11 @@ var _ = Describe("Task", Ordered, func() {
 
 							sequence seq {
 								stage escalated {
-									1 -> set_authority{value=200}
+									1 -> set_authority(value=200)
 								}
 							}
 
-							interval{period=50ms} -> output{}
+							interval(period=50ms) -> output()
 						`, c.ch.Name, triggerCh.Name),
 						}
 
@@ -3287,7 +3287,7 @@ var _ = Describe("Task", Ordered, func() {
 					func divide_test() {
 						%s = 10 / %s
 					}
-					%s -> divide_test{}
+					%s -> divide_test()
 				`, outputCh.Name, inputCh.Name, inputCh.Name),
 				}
 
@@ -3338,7 +3338,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			prog := arc.Text{
 				Raw: fmt.Sprintf(`
-					func count_rising_test{counter_ch chan f32, max_ch chan f32}(input u8) {
+					func count_rising_test(counter_ch chan f32, max_ch chan f32){input u8} {
 						prev $= input
 						counter f32 $= 0
 						read_val := max_ch + f32(0.0)
@@ -3355,7 +3355,7 @@ var _ = Describe("Task", Ordered, func() {
 						prev = input
 					}
 
-					%s -> count_rising_test{counter_ch=%s, max_ch=%s}
+					%s -> count_rising_test(counter_ch=%s, max_ch=%s)
 				`, inputCh.Name, counterCh.Name, maxCh.Name),
 			}
 
@@ -3426,7 +3426,7 @@ var _ = Describe("Task", Ordered, func() {
 					func divide_recover() {
 						%s = 10 / %s
 					}
-					%s -> divide_recover{}
+					%s -> divide_recover()
 				`, outputCh.Name, inputCh.Name, inputCh.Name),
 			}
 
@@ -3636,7 +3636,7 @@ var _ = Describe("Task", Ordered, func() {
 				}
 
 				Eventually(markerOut, time.Second*5).Should(Receive(),
-					"cooldown transition never fired: on{} trigger stalled after index-less sessions")
+					"cooldown transition never fired: on() trigger stalled after index-less sessions")
 			},
 			Entry("with a single writer session", 0, false),
 			Entry("after index-less sessions on the trigger channel", 6, false),
@@ -3735,25 +3735,25 @@ var _ = Describe("Task", Ordered, func() {
 			Entry(
 				"indexed source, func line first",
 				true,
-				"func vent() {\n    OUT = 2\n}\nSRC -> vent{}\nSRC -> OUT\n",
+				"func vent() {\n    OUT = 2\n}\nSRC -> vent()\nSRC -> OUT\n",
 				[]uint8{1, 2},
 			),
 			Entry(
 				"indexed source, flow line first",
 				true,
-				"func vent() {\n    OUT = 2\n}\nSRC -> OUT\nSRC -> vent{}\n",
+				"func vent() {\n    OUT = 2\n}\nSRC -> OUT\nSRC -> vent()\n",
 				[]uint8{1, 2},
 			),
 			Entry(
 				"virtual source, func line first",
 				false,
-				"func vent() {\n    OUT = 2\n}\nSRC -> vent{}\nSRC -> OUT\n",
+				"func vent() {\n    OUT = 2\n}\nSRC -> vent()\nSRC -> OUT\n",
 				[]uint8{2, 1},
 			),
 			Entry(
 				"virtual source, flow line first",
 				false,
-				"func vent() {\n    OUT = 2\n}\nSRC -> OUT\nSRC -> vent{}\n",
+				"func vent() {\n    OUT = 2\n}\nSRC -> OUT\nSRC -> vent()\n",
 				[]uint8{1, 2},
 			),
 			Entry(
@@ -3761,7 +3761,7 @@ var _ = Describe("Task", Ordered, func() {
 				false,
 				"func vent() {\n    OUT = 2\n}\n"+
 					"sequence main {\n    stage a {\n        1 -> OUT\n    }\n}\n"+
-					"SRC -> vent{}\nSRC => main\n",
+					"SRC -> vent()\nSRC => main\n",
 				[]uint8{1, 2},
 			),
 		)
@@ -3783,7 +3783,7 @@ var _ = Describe("Task", Ordered, func() {
 }
 sequence main {
     stage fly {
-        SRC -> guide{}
+        SRC -> guide()
         CMD == 1 => abort
     }
     stage abort {

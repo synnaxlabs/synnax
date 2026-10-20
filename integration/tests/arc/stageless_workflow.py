@@ -18,7 +18,7 @@ sequence {
     1 -> sw_a
     1 -> sw_b
     1 -> sw_c
-    wait{500ms}
+    wait(500ms)
     sw_pressure > 50
     0 -> sw_a
     0 -> sw_b
@@ -41,7 +41,7 @@ class StagelessWorkflow(ArcCase):
 
     The body covers every stageless construct in one workflow: write
     cascading (three consecutive writes that fire on a single tick), a
-    ``wait{}`` gate that blocks progression until a duration elapses, a
+    ``wait()`` gate that blocks progression until a duration elapses, a
     bare expression gate that blocks until a channel crosses a threshold,
     and a final cascade of three writes after the gates open.
 
