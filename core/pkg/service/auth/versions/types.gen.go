@@ -13,14 +13,6 @@ package versions
 
 import "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v2"
 
-// Method names an authentication method.
-type Method = v2.Method
-
-const (
-	MethodPassword Method = v2.MethodPassword
-	MethodAPIKey   Method = v2.MethodAPIKey
-)
-
 // SessionKey is a unique identifier for a session.
 type SessionKey = v2.SessionKey
 
