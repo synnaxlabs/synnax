@@ -162,7 +162,7 @@ var _ = Describe("Server Diagnostics", func() {
 					server,
 					ctx,
 					docURI,
-					"func add(x i64, y i64) i64 { return x + y }\nfunc test() { z := add(1) }",
+					"func add() {x i64, y i64} i64 { return x + y }\nfunc test() { z := add(1) }",
 				)
 
 				Expect(client.Diagnostics()).To(HaveLen(1))
@@ -177,7 +177,7 @@ var _ = Describe("Server Diagnostics", func() {
 					server,
 					ctx,
 					docURI,
-					"func process(x i32) i32 { return x }\nfunc test() { z := process(\"hello\") }",
+					"func process() {x i32} i32 { return x }\nfunc test() { z := process(\"hello\") }",
 				)
 
 				Expect(client.Diagnostics()).To(HaveLen(1))
@@ -194,7 +194,7 @@ var _ = Describe("Server Diagnostics", func() {
 					server,
 					ctx,
 					docURI,
-					"func add(x i64, y i64) i64 { return x + y }\nfunc test() { z := add(1) }",
+					"func add() {x i64, y i64} i64 { return x + y }\nfunc test() { z := add(1) }",
 				)
 
 				Expect(client.Diagnostics()).To(HaveLen(1))

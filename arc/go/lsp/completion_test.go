@@ -675,12 +675,12 @@ var _ = Describe("Completion", func() {
 		})
 
 		It(
-			"should suggest all input parameters in empty input block",
+			"should suggest all input parameters in empty input parens",
 			func(ctx SpecContext) {
-				content := "func test() {\n    myTask{}\n}"
+				content := "myTask()"
 				OpenArcDocument(server, ctx, docURI, content)
 
-				completions := Completion(server, ctx, docURI, 1, 11)
+				completions := Completion(server, ctx, docURI, 0, 7)
 				Expect(completions).ToNot(BeNil())
 
 				Expect(
@@ -696,10 +696,10 @@ var _ = Describe("Completion", func() {
 		)
 
 		It("should filter out already-provided parameters", func(ctx SpecContext) {
-			content := "func test() {\n    myTask{threshold=1.0, timeout=100}\n}"
+			content := "myTask(threshold=1.0, timeout=100)"
 			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, docURI, 1, 26)
+			completions := Completion(server, ctx, docURI, 0, 22)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(
@@ -711,10 +711,10 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("should filter by prefix when typing parameter name", func(ctx SpecContext) {
-			content := "func test() {\n    myTask{threshold=1.0}\n}"
+			content := "myTask(threshold=1.0)"
 			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, docURI, 1, 13)
+			completions := Completion(server, ctx, docURI, 0, 9)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(
@@ -726,10 +726,10 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("should show type details for input parameters", func(ctx SpecContext) {
-			content := "func test() {\n    myTask{}\n}"
+			content := "myTask()"
 			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, docURI, 1, 11)
+			completions := Completion(server, ctx, docURI, 0, 7)
 			Expect(completions).ToNot(BeNil())
 
 			thresholdItem, found := FindCompletion(completions.Items, "threshold")
@@ -741,10 +741,10 @@ var _ = Describe("Completion", func() {
 		It(
 			"should suggest channel symbols for chan type parameters",
 			func(ctx SpecContext) {
-				content := "func test() {\n    myTask{channel=sensorCh}\n}"
+				content := "myTask(channel=sensorCh)"
 				OpenArcDocument(server, ctx, docURI, content)
 
-				completions := Completion(server, ctx, docURI, 1, 19)
+				completions := Completion(server, ctx, docURI, 0, 15)
 				Expect(completions).ToNot(BeNil())
 
 				Expect(
@@ -756,10 +756,10 @@ var _ = Describe("Completion", func() {
 		It(
 			"should suggest the remaining parameters on the line after a comma",
 			func(ctx SpecContext) {
-				content := "func test() {\n    myTask{threshold=1.0,\n        ti\n    }\n}"
+				content := "myTask(threshold=1.0,\n    ti\n)"
 				OpenArcDocument(server, ctx, docURI, content)
 
-				completions := Completion(server, ctx, docURI, 2, 10)
+				completions := Completion(server, ctx, docURI, 1, 6)
 				Expect(completions).ToNot(BeNil())
 
 				Expect(
@@ -1190,7 +1190,7 @@ var _ = Describe("Completion", func() {
 				Expect(ItemTextEdit(item)).ToNot(BeNil())
 				Expect(
 					ItemTextEdit(item).NewText,
-				).To(Equal("control.set_authority{$0}"))
+				).To(Equal("control.set_authority($0)"))
 			},
 		)
 
@@ -1288,7 +1288,7 @@ var _ = Describe("Completion", func() {
 				item, found := FindCompletion(completions.Items, "avg")
 				Expect(found).To(BeTrue())
 				Expect(ItemTextEdit(item)).ToNot(BeNil())
-				Expect(ItemTextEdit(item).NewText).To(Equal("math.avg{$0}"))
+				Expect(ItemTextEdit(item).NewText).To(Equal("math.avg($0)"))
 				Expect(
 					item.InsertTextFormat,
 				).To(Equal(protocol.InsertTextFormatSnippet))
@@ -1794,11 +1794,8 @@ var _ = Describe("Completion", func() {
 		)
 
 		It(
-			"appends an input-block snippet when a function completes in a flow context",
+			"appends a call-parens snippet when a function completes in a flow context",
 			func(ctx SpecContext) {
-				// Flow contexts (sequence body, stage body, top level) invoke
-				// functions with an input block — the inserted text must end
-				// in `{$0}` and use snippet format so the cursor lands inside.
 				OpenArcDocument(
 					server,
 					ctx,
@@ -1809,7 +1806,7 @@ var _ = Describe("Completion", func() {
 				item, found := FindCompletion(completions.Items, "avg")
 				Expect(found).To(BeTrue())
 				Expect(ItemTextEdit(item)).ToNot(BeNil())
-				Expect(ItemTextEdit(item).NewText).To(Equal("math.avg{$0}"))
+				Expect(ItemTextEdit(item).NewText).To(Equal("math.avg($0)"))
 				Expect(
 					item.InsertTextFormat,
 				).To(Equal(protocol.InsertTextFormatSnippet))
@@ -1839,16 +1836,14 @@ var _ = Describe("Completion", func() {
 		)
 
 		It(
-			"appends an input-block snippet for bare-name deep-search results in a flow context",
+			"appends a call-parens snippet for bare-name deep-search results in a flow context",
 			func(ctx SpecContext) {
-				// The deep-search path that surfaces `time.wait` for a bare
-				// `wai` prefix must follow the same context-aware suffix rule.
 				OpenArcDocument(server, ctx, docURI, "sequence main {\n    wai\n}")
 				completions := Completion(server, ctx, docURI, 1, 7)
 				item, found := FindCompletion(completions.Items, "time.wait")
 				Expect(found).To(BeTrue())
 				Expect(ItemTextEdit(item)).ToNot(BeNil())
-				Expect(ItemTextEdit(item).NewText).To(Equal("time.wait{$0}"))
+				Expect(ItemTextEdit(item).NewText).To(Equal("time.wait($0)"))
 				Expect(
 					item.InsertTextFormat,
 				).To(Equal(protocol.InsertTextFormatSnippet))
@@ -1859,7 +1854,7 @@ var _ = Describe("Completion", func() {
 			"does not append an invocation suffix to non-function symbols",
 			func(ctx SpecContext) {
 				// Channels are values, not callable — completing a channel
-				// must not wrap it in `{}` or `()`.
+				// must not wrap it in `()`.
 				channels := []symbol.Symbol{
 					{
 						Name: "temperature_sensor",

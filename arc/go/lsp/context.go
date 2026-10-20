@@ -46,53 +46,54 @@ type inputContextInfo struct {
 	currentParamName string
 }
 
-type inputBraceResult struct {
-	inputBraceIndex int
-	functionName    string
+type inputParenResult struct {
+	parenIndex   int
+	functionName string
 }
 
-func findInputBrace(tokens []antlr.Token) *inputBraceResult {
-	if len(tokens) == 0 {
-		return nil
-	}
-	braceDepth := 0
-	inputBraceIndex := -1
+// findInputParen matches the unmatched `(` of a flow node's input values.
+func findInputParen(tokens []antlr.Token) *inputParenResult {
+	parenDepth := 0
+	parenIndex := -1
 	for i, token := range slices.Backward(tokens) {
-		tokenType := token.GetTokenType()
-		switch tokenType {
-		case parser.ArcLexerRBRACE:
-			braceDepth++
-		case parser.ArcLexerLBRACE:
-			if braceDepth > 0 {
-				braceDepth--
+		switch token.GetTokenType() {
+		case parser.ArcLexerRPAREN:
+			parenDepth++
+		case parser.ArcLexerLPAREN:
+			if parenDepth > 0 {
+				parenDepth--
 			} else {
-				inputBraceIndex = i
+				parenIndex = i
 			}
 		}
-		if inputBraceIndex >= 0 {
+		if parenIndex >= 0 {
 			break
 		}
 	}
-	if inputBraceIndex < 1 {
+	if parenIndex < 1 {
 		return nil
 	}
-	prevToken := tokens[inputBraceIndex-1]
-	if prevToken.GetTokenType() != parser.ArcLexerIDENTIFIER {
+	prevToken := tokens[parenIndex-1]
+	if prevToken.GetTokenType() != parser.ArcLexerIDENTIFIER ||
+		!tokensAdjacent(prevToken, tokens[parenIndex]) {
 		return nil
 	}
-	if inputBraceIndex >= 2 {
-		prevPrevToken := tokens[inputBraceIndex-2]
-		prevPrevType := prevPrevToken.GetTokenType()
-		if prevPrevType == parser.ArcLexerRPAREN ||
-			prevPrevType == parser.ArcLexerSTAGE ||
-			prevPrevType == parser.ArcLexerSEQUENCE {
-			return nil
-		}
+	if parenIndex >= 2 && tokens[parenIndex-2].GetTokenType() == parser.ArcLexerFUNC {
+		return nil
 	}
-	return &inputBraceResult{
-		inputBraceIndex: inputBraceIndex,
-		functionName:    prevToken.GetText(),
+	// A call inside a func body takes positional arguments.
+	if detectNesting(tokens[:parenIndex]) == NestingFunction {
+		return nil
 	}
+	return &inputParenResult{
+		parenIndex:   parenIndex,
+		functionName: prevToken.GetText(),
+	}
+}
+
+func tokensAdjacent(a, b antlr.Token) bool {
+	return a.GetLine() == b.GetLine() &&
+		a.GetColumn()+len(a.GetText()) == b.GetColumn()
 }
 
 func DetectCompletionContext(content string, pos protocol.Position) CompletionContext {
@@ -335,56 +336,74 @@ func isTypeAnnotationContext(tokens []antlr.Token, lastToken antlr.Token) bool {
 	if len(tokens) < 2 {
 		return false
 	}
-	if !isFuncParamParentheses(tokens) {
+	if !isFuncParamList(tokens) {
 		return false
 	}
-	prevToken := tokens[len(tokens)-2]
-	prevType := prevToken.GetTokenType()
-	if prevType == parser.ArcLexerLPAREN || prevType == parser.ArcLexerCOMMA {
+	prevType := tokens[len(tokens)-2].GetTokenType()
+	if startsParam(prevType) {
 		return true
 	}
 	if prevType == parser.ArcLexerIDENTIFIER && len(tokens) >= 3 {
-		prevPrevToken := tokens[len(tokens)-3]
-		prevPrevType := prevPrevToken.GetTokenType()
-		if prevPrevType == parser.ArcLexerLPAREN ||
-			prevPrevType == parser.ArcLexerCOMMA {
-			return true
+		return startsParam(tokens[len(tokens)-3].GetTokenType())
+	}
+	return false
+}
+
+func startsParam(tokenType int) bool {
+	return tokenType == parser.ArcLexerLPAREN ||
+		tokenType == parser.ArcLexerLBRACE ||
+		tokenType == parser.ArcLexerCOMMA
+}
+
+// isFuncParamList reports whether the innermost unmatched `(` or `{` opens a func
+// declaration's input list or trigger list.
+func isFuncParamList(tokens []antlr.Token) bool {
+	parenDepth, braceDepth := 0, 0
+	for i, token := range slices.Backward(tokens) {
+		switch token.GetTokenType() {
+		case parser.ArcLexerRPAREN:
+			parenDepth++
+		case parser.ArcLexerLPAREN:
+			if parenDepth > 0 {
+				parenDepth--
+			} else {
+				return isInputListParen(tokens, i)
+			}
+		case parser.ArcLexerRBRACE:
+			braceDepth++
+		case parser.ArcLexerLBRACE:
+			if braceDepth > 0 {
+				braceDepth--
+			} else {
+				return isTriggerListBrace(tokens, i)
+			}
 		}
 	}
 	return false
 }
 
-// isFuncParamParentheses checks whether the innermost unmatched LPAREN is part
-// of a function declaration parameter list. This handles both simple declarations
-// (FUNC IDENTIFIER LPAREN) and declarations with input blocks
-// (FUNC IDENTIFIER LBRACE ... RBRACE LPAREN).
-func isFuncParamParentheses(tokens []antlr.Token) bool {
+func isInputListParen(tokens []antlr.Token, i int) bool {
+	return i >= 2 &&
+		tokens[i-1].GetTokenType() == parser.ArcLexerIDENTIFIER &&
+		tokens[i-2].GetTokenType() == parser.ArcLexerFUNC
+}
+
+// isTriggerListBrace matches the `{` after a func declaration's input list when the
+// cursor is still on its line. A body statement on a later line is not a param.
+func isTriggerListBrace(tokens []antlr.Token, i int) bool {
+	if i < 1 || tokens[i-1].GetTokenType() != parser.ArcLexerRPAREN ||
+		tokens[i].GetLine() != tokens[len(tokens)-1].GetLine() {
+		return false
+	}
 	depth := 0
-	for i, token := range slices.Backward(tokens) {
-		switch token.GetTokenType() {
+	for j := i - 1; j >= 0; j-- {
+		switch tokens[j].GetTokenType() {
 		case parser.ArcLexerRPAREN:
 			depth++
 		case parser.ArcLexerLPAREN:
-			if depth > 0 {
-				depth--
-			} else {
-				j := i - 1
-				if j >= 0 && tokens[j].GetTokenType() == parser.ArcLexerRBRACE {
-					blockDepth := 1
-					j--
-					for j >= 0 && blockDepth > 0 {
-						switch tokens[j].GetTokenType() {
-						case parser.ArcLexerRBRACE:
-							blockDepth++
-						case parser.ArcLexerLBRACE:
-							blockDepth--
-						}
-						j--
-					}
-				}
-				return j >= 1 &&
-					tokens[j].GetTokenType() == parser.ArcLexerIDENTIFIER &&
-					tokens[j-1].GetTokenType() == parser.ArcLexerFUNC
+			depth--
+			if depth == 0 {
+				return isInputListParen(tokens, j)
 			}
 		}
 	}
@@ -472,8 +491,7 @@ func isExpressionLevelComma(tokens []antlr.Token) bool {
 // the most recent token, when that token is an opening brace. The check is used
 // to suppress completions immediately after typing the `{` of a func, sequence,
 // or stage body so suggestions only appear once the cursor moves to the next
-// line. Input braces (e.g. `myFunc{`) are filtered out earlier in
-// DetectCompletionContext, so they keep their existing parameter completions.
+// line.
 func isSameLineAfterOpenBrace(lastToken antlr.Token, pos protocol.Position) bool {
 	if lastToken.GetTokenType() != parser.ArcLexerLBRACE {
 		return false
@@ -578,7 +596,7 @@ func extractAuthorityExistingChannels(content string, pos protocol.Position) []s
 }
 
 func detectInputContext(tokens []antlr.Token) CompletionContext {
-	result := findInputBrace(tokens)
+	result := findInputParen(tokens)
 	if result == nil {
 		return ContextUnknown
 	}
@@ -587,7 +605,7 @@ func detectInputContext(tokens []antlr.Token) CompletionContext {
 	if lastTokenType == parser.ArcLexerASSIGN {
 		return ContextInputParamValue
 	}
-	if lastTokenType == parser.ArcLexerLBRACE ||
+	if lastTokenType == parser.ArcLexerLPAREN ||
 		lastTokenType == parser.ArcLexerCOMMA ||
 		lastTokenType == parser.ArcLexerIDENTIFIER {
 		return ContextInputParamName
@@ -647,7 +665,7 @@ func detectNesting(tokens []antlr.Token) NestingKind {
 func extractInputContext(content string, pos protocol.Position) *inputContextInfo {
 	tokens := tokenizeContent(content)
 	tokensBeforeCursor := getTokensBeforeCursor(tokens, pos)
-	result := findInputBrace(tokensBeforeCursor)
+	result := findInputParen(tokensBeforeCursor)
 	if result == nil {
 		return nil
 	}
@@ -655,7 +673,7 @@ func extractInputContext(content string, pos protocol.Position) *inputContextInf
 		functionName:   result.functionName,
 		existingParams: []string{},
 	}
-	for i := result.inputBraceIndex + 1; i < len(tokensBeforeCursor); i++ {
+	for i := result.parenIndex + 1; i < len(tokensBeforeCursor); i++ {
 		t := tokensBeforeCursor[i]
 		if t.GetTokenType() == parser.ArcLexerIDENTIFIER {
 			if i+1 < len(tokensBeforeCursor) &&

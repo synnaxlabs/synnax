@@ -46,15 +46,17 @@ var _ = Describe("Context Detection", func() {
 			"func foo(x i32, y ", uint32(0), uint32(18), lsp.ContextTypeAnnotation),
 		Entry("partial type annotation",
 			"func foo(x i", uint32(0), uint32(12), lsp.ContextTypeAnnotation),
-		Entry("type annotation in func with empty input block",
-			"func foo{} (x ", uint32(0), uint32(14), lsp.ContextTypeAnnotation),
+		Entry("type annotation in trigger list after empty input list",
+			"func foo() {x ", uint32(0), uint32(14), lsp.ContextTypeAnnotation),
 		Entry(
-			"type annotation in func with input block params",
-			"func controller{sensor chan f64} (enable ",
+			"type annotation in trigger list after input list",
+			"func controller(sensor chan f64) {enable ",
 			uint32(0),
 			uint32(41),
 			lsp.ContextTypeAnnotation,
 		),
+		Entry("identifier on a new line after the body brace is a statement start",
+			"func foo() {\n    x ", uint32(1), uint32(6), lsp.ContextStatementStart),
 
 		// Expression Context
 		Entry("expression after DECLARE",
@@ -72,9 +74,11 @@ var _ = Describe("Context Detection", func() {
 		Entry("expression after RETURN",
 			"return ", uint32(0), uint32(7), lsp.ContextExpression),
 		Entry("expression after LPAREN in function call",
-			"foo(", uint32(0), uint32(4), lsp.ContextExpression),
+			"func f() {\n    foo(", uint32(1), uint32(8), lsp.ContextExpression),
 		Entry("expression after COMMA in function call",
-			"foo(a, ", uint32(0), uint32(7), lsp.ContextExpression),
+			"func f() {\n    foo(a, ", uint32(1), uint32(11), lsp.ContextExpression),
+		Entry("expression after a paren that does not touch the name",
+			"foo (", uint32(0), uint32(5), lsp.ContextExpression),
 		Entry("expression inside parenthesized expression after return",
 			"return (o", uint32(0), uint32(9), lsp.ContextExpression),
 		Entry("expression inside nested parentheses in assignment",
@@ -158,8 +162,13 @@ var _ = Describe("Context Detection", func() {
 		// whether the cursor wraps to the next line. Guards the fix above
 		// against widening too far and breaking multi-line function calls or
 		// array literals.
-		Entry("expression-level comma in function call wraps to next line",
-			"foo(a,\n    ", uint32(1), uint32(4), lsp.ContextExpression),
+		Entry(
+			"expression-level comma in function call wraps to next line",
+			"func f() {\n    foo(a,\n        ",
+			uint32(2),
+			uint32(8),
+			lsp.ContextExpression,
+		),
 		Entry("expression-level comma in array literal wraps to next line",
 			"[1,\n    ", uint32(1), uint32(4), lsp.ContextExpression),
 
@@ -168,17 +177,17 @@ var _ = Describe("Context Detection", func() {
 			"func foo() i32", uint32(0), uint32(14), lsp.ContextUnknown),
 
 		// Input Param Name Context
-		Entry("input param name in empty braces",
-			"myFunc{", uint32(0), uint32(7), lsp.ContextInputParamName),
+		Entry("input param name in empty parens",
+			"myFunc(", uint32(0), uint32(7), lsp.ContextInputParamName),
 		Entry("input param name after comma",
-			"myFunc{a=1, ", uint32(0), uint32(12), lsp.ContextInputParamName),
+			"myFunc(a=1, ", uint32(0), uint32(12), lsp.ContextInputParamName),
 		Entry("input param name when typing",
-			"myFunc{thr", uint32(0), uint32(10), lsp.ContextInputParamName),
+			"myFunc(thr", uint32(0), uint32(10), lsp.ContextInputParamName),
 		Entry("input param name after comma with partial name",
-			"myFunc{a=1, b", uint32(0), uint32(13), lsp.ContextInputParamName),
+			"myFunc(a=1, b", uint32(0), uint32(13), lsp.ContextInputParamName),
 		Entry(
 			"input context for function inside stage",
-			"sequence main {\n    stage press {\n        wait{",
+			"sequence main {\n    stage press {\n        wait(",
 			uint32(2),
 			uint32(13),
 			lsp.ContextInputParamName,
@@ -186,9 +195,9 @@ var _ = Describe("Context Detection", func() {
 
 		// Input Param Value Context
 		Entry("input param value after equals",
-			"myFunc{threshold=", uint32(0), uint32(17), lsp.ContextInputParamValue),
+			"myFunc(threshold=", uint32(0), uint32(17), lsp.ContextInputParamValue),
 		Entry("input param value with multiple params",
-			"myFunc{a=1, b=", uint32(0), uint32(14), lsp.ContextInputParamValue),
+			"myFunc(a=1, b=", uint32(0), uint32(14), lsp.ContextInputParamValue),
 	)
 
 	DescribeTable("should not detect input context in body contexts",
