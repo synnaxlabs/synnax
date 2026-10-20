@@ -121,7 +121,7 @@
     "cycles:client": "knip --workspace client/ts --cycles",
     "cycles:console": "knip --workspace console --cycles",
     "cycles:docs": "knip --workspace site/docs --cycles",
-    "cycles:eslint-config": "knip --workspace configs/eslint --cycles",
+    "cycles:eslint-config": "turbo build --filter @synnaxlabs/vite-plugin && knip --workspace configs/eslint --cycles",
     "cycles:foundation": "knip --workspace site/foundation --cycles",
     "cycles:drift": "knip --workspace drift --cycles",
     "cycles:freighter": "knip --workspace freighter/ts --cycles",
