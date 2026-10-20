@@ -2600,7 +2600,7 @@ var _ = Describe("Sequence", func() {
 	})
 
 	Describe("Routing table => transitions", func() {
-		// select{} routes flag to one of two sibling stages via `=>`.
+		// select() routes flag to one of two sibling stages via `=>`.
 		selectProg := `
 			sequence WU {
 			    stage router {

@@ -3481,7 +3481,7 @@ sensor -> math.avg() -> output`
 							ID:   200,
 						},
 					}
-					// The juxtaposition `(1 > 0) select{}` never wires the comparison
+					// The juxtaposition `(1 > 0) select()` never wires the comparison
 					// into select's selector, leaving select's required bool input with
 					// no source. Previously this compiled and panicked at runtime when
 					// the node state tried to materialize a series from a nil value.

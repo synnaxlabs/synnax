@@ -19,7 +19,7 @@
 // Basic usage:
 //
 //	tree, err := parser.Parse(`
-//	    func add(x f64, y f64) f64 {
+//	    func add() {x f64, y f64} f64 {
 //	        return x + y
 //	    }
 //	`)
@@ -94,7 +94,7 @@ func NewLexer(source string, cfg Config) *ArcLexer {
 // Example:
 //
 //	tree, err := parser.Parse(`
-//	    func double(x f64) f64 {
+//	    func double() {x f64} f64 {
 //	        return x * 2
 //	    }
 //	`)

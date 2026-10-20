@@ -142,7 +142,7 @@ tick(period=50ms) -> sim_daq`))
 				Expect((*ctx.Diagnostics)[0].Notes).To(HaveLen(1))
 				Expect(
 					(*ctx.Diagnostics)[0].Notes[0].Message,
-				).To(Equal("use sim_daq{} to instantiate the function"))
+				).To(Equal("use sim_daq() to instantiate the function"))
 			},
 		)
 
@@ -161,7 +161,7 @@ sensor_chan -> sim_daq`))
 				Expect((*ctx.Diagnostics)[0].Notes).To(HaveLen(1))
 				Expect(
 					(*ctx.Diagnostics)[0].Notes[0].Message,
-				).To(Equal("use sim_daq{} to instantiate the function"))
+				).To(Equal("use sim_daq() to instantiate the function"))
 			},
 		)
 
@@ -180,7 +180,7 @@ sensor_chan > 100 -> sim_daq`))
 				Expect((*ctx.Diagnostics)[0].Notes).To(HaveLen(1))
 				Expect(
 					(*ctx.Diagnostics)[0].Notes[0].Message,
-				).To(Equal("use sim_daq{} to instantiate the function"))
+				).To(Equal("use sim_daq() to instantiate the function"))
 			},
 		)
 	})
@@ -1726,7 +1726,7 @@ sequence main {
 		)
 
 		It(
-			"Should accept select{} with boolean discriminator and string-literal chain bodies",
+			"Should accept select() with boolean discriminator and string-literal chain bodies",
 			func(bCtx SpecContext) {
 				customResolver := StaticResolver{
 					{
@@ -1751,7 +1751,7 @@ sequence main {
 			},
 		)
 
-		It("Should accept select{} with => chain bodies", func(bCtx SpecContext) {
+		It("Should accept select() with => chain bodies", func(bCtx SpecContext) {
 			customResolver := StaticResolver{
 				{
 					Name: "flag",
@@ -3724,7 +3724,7 @@ var _ = Describe("Routing entry strictness", func() {
 			analyzer.AnalyzeProgram(ctx)
 			errs := ctx.Diagnostics.Errors()
 			Expect(errs).To(HaveLen(1))
-			Expect(errs[0].Message).To(ContainSubstring("'=>' cannot feed select{}"))
+			Expect(errs[0].Message).To(ContainSubstring("'=>' cannot feed select()"))
 			line := strings.Split(source, "\n")[errs[0].Range.Start.Line]
 			Expect(int(errs[0].Range.Start.Character)).To(
 				Equal(strings.Index(line, "=>")),
@@ -3772,7 +3772,7 @@ var _ = Describe("Routing entry strictness", func() {
 		errs := ctx.Diagnostics.Errors()
 		Expect(errs).To(HaveLen(2))
 		for _, err := range errs {
-			Expect(err.Message).To(ContainSubstring("'=>' cannot feed select{}"))
+			Expect(err.Message).To(ContainSubstring("'=>' cannot feed select()"))
 		}
 	})
 

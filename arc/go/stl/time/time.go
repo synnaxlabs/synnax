@@ -41,12 +41,12 @@ var (
 	intervalDoc = doc.New(
 		doc.Paragraph("Fires repeatedly at a specified period."),
 		doc.Divider(),
-		doc.Code("arc", "time.interval{period=1s} -> tick"),
+		doc.Code("arc", "time.interval(period=1s) -> tick"),
 	)
 	waitDoc = doc.New(
 		doc.Paragraph("Fires once after a specified duration."),
 		doc.Divider(),
-		doc.Code("arc", "time.wait{duration=500ms} -> done"),
+		doc.Code("arc", "time.wait(duration=500ms) -> done"),
 	)
 	nowDoc = doc.New(
 		doc.Paragraph("Returns the current timestamp."),

@@ -76,7 +76,7 @@ func Analyze(ctx context.Context[parser.IFlowStatementContext]) {
 	warnNumericTransitions(ctx)
 }
 
-// rejectTransitionIntoBranch blocks a `=>` feeding a routing table or select{}.
+// rejectTransitionIntoBranch blocks a `=>` feeding a routing table or select().
 func rejectTransitionIntoBranch[T antlr.ParserRuleContext](ctx context.Context[T]) {
 	children := ctx.AST.GetChildren()
 	for i, child := range children {
@@ -95,7 +95,7 @@ func rejectTransitionIntoBranch[T antlr.ParserRuleContext](ctx context.Context[T
 				continue
 			}
 			ctx.Diagnostics.Add(diagnostics.Errorf(op,
-				"'=>' cannot feed select{}, use '->'",
+				"'=>' cannot feed select(), use '->'",
 			))
 		}
 	}
@@ -366,7 +366,7 @@ func analyzeIdentifier(
 		if !validTarget {
 			d := diagnostics.Errorf(ctx.AST, "%s is not a channel", name)
 			if sym.Kind == symbol.KindFunction {
-				d = d.WithNote("use " + name + "{} to instantiate the function")
+				d = d.WithNote("use " + name + "() to instantiate the function")
 			}
 			ctx.Diagnostics.Add(d)
 			return
