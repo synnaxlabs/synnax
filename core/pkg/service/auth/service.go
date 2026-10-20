@@ -177,7 +177,6 @@ func (s *Service) Login(
 	session := Session{
 		Key:        uuid.New(),
 		Subject:    identity.Subject,
-		Method:     method,
 		Credential: identity.Credential,
 		Address:    string(address),
 		Created:    now,
@@ -344,7 +343,6 @@ func (w Writer) DeleteFor(ctx context.Context, subjects ...ontology.ID) error {
 // RevokeCredential ends every session the credentials opened, except those in keep.
 func (w Writer) RevokeCredential(
 	ctx context.Context,
-	method Method,
 	keep []SessionKey,
 	credentials ...uuid.UUID,
 ) error {
@@ -353,7 +351,7 @@ func (w Writer) RevokeCredential(
 		Where(And(
 			MatchCredentials(credentials...),
 			Match(func(_ gorp.Context, _ Retrieve, e *Session) (bool, error) {
-				return e.Method == method && !kept.Contains(e.Key), nil
+				return !kept.Contains(e.Key), nil
 			}),
 		)(w.svc.NewRetrieve())).
 		Exec(ctx, w.tx)

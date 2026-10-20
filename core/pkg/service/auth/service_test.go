@@ -154,7 +154,6 @@ var _ = Describe("Service", func() {
 				session, token := login(ctx)
 				Expect(token).To(HavePrefix(auth.TokenPrefix))
 				Expect(session.Subject).To(Equal(alice))
-				Expect(session.Method).To(Equal(auth.MethodPassword))
 				Expect(session.Address).To(Equal("10.0.0.1:1234"))
 				Expect(session.Created).To(Equal(session.LastActive))
 				var stored auth.Session
@@ -397,7 +396,6 @@ var _ = Describe("Service", func() {
 				_, otherToken := login(ctx)
 				Expect(svc.NewWriter(nil).RevokeCredential(
 					ctx,
-					kept.Method,
 					[]auth.SessionKey{kept.Key},
 					kept.Credential,
 				)).To(Succeed())
@@ -417,7 +415,6 @@ var _ = Describe("Service", func() {
 				)
 				Expect(svc.NewWriter(nil).RevokeCredential(
 					ctx,
-					auth.MethodPassword,
 					nil,
 					a.Credential,
 					b.Credential,
@@ -431,7 +428,6 @@ var _ = Describe("Service", func() {
 				_, token := login(ctx)
 				Expect(svc.NewWriter(nil).RevokeCredential(
 					ctx,
-					auth.MethodPassword,
 					nil,
 					uuid.New(),
 				)).To(Succeed())

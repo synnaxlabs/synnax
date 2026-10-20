@@ -245,7 +245,6 @@ Session struct {
     key         Key
     hash        bytes        // SHA-256 of the token's secret
     subject     ontology.ID
-    method      Method
     credential  uuid
     address     string
     created     timestamp
@@ -255,9 +254,9 @@ Session struct {
 
 A session is a Gorp record, so it survives a restart and every node sees it. It replaces
 the JWT, which cannot be revoked, gives a stream nothing to watch, and needs a signing
-key on every node. The cost is one replicated write per login. `method` and `credential`
-let a deleted credential end its sessions. `address` and `created` let an administrator
-tell sessions apart before revoking one.
+key on every node. The cost is one replicated write per login. `credential` lets a
+deleted credential end its sessions. `address` and `created` let an administrator tell
+sessions apart before revoking one.
 
 A token is `sys_`, the session key, and 32 random bytes, the same layout as an API key.
 That exceeds the [64 bit minimum](https://pages.nist.gov/800-63-4/sp800-63b.html) for a

@@ -52,7 +52,6 @@ var _ = Describe("Login", func() {
 			Expect(res.User).To(Equal(root))
 			session := MustSucceed(authSvc.Authenticate(ctx, res.Token))
 			Expect(session.Subject).To(Equal(root.OntologyID()))
-			Expect(session.Method).To(Equal(auth.MethodPassword))
 			Expect(session.Address).To(Equal(string(remote)))
 			Expect(res.ClusterInfo.ClusterKey).To(Equal(node.Cluster.Key().String()))
 			Expect(res.ClusterInfo.NodeKey).To(Equal(node.Cluster.HostKey()))
