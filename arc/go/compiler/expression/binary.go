@@ -17,8 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
-// firstOperandHint gives a literal-only first operand the analyzer's type for the
-// expression when a later operand is typed, so an outer hint cannot retype it.
+// firstOperandHint keeps an outer hint from retyping a literal-only first operand.
 func firstOperandHint[N, T antlr.ParserRuleContext](
 	ctx context.Context[N],
 	operands []T,
