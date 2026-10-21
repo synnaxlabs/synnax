@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { debounce, MultiSeries, type TimeRange } from "@synnaxlabs/x";
+import { debounce, MultiSeries, type TimeRange, type TimeStamp } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
@@ -163,6 +163,22 @@ export class Feed {
     if (index != null && index !== key) reads.push(this.reader.read(tr, index));
     const [series] = await Promise.all(reads);
     return series;
+  }
+
+  /**
+   * @returns the Core's stamp of the newest live sample for the key, else null.
+   * @throws {UnexpectedError} if the feed has been closed.
+   */
+  lastWrite(key: channel.Key): TimeStamp | null {
+    return this.cache.lastWrite(key);
+  }
+
+  /**
+   * @returns the Core's stamp of the key's sample at alignment, else null.
+   * @throws {UnexpectedError} if the feed has been closed.
+   */
+  timeAt(key: channel.Key, alignment: bigint): TimeStamp | null {
+    return this.cache.timeAt(key, alignment);
   }
 
   /**

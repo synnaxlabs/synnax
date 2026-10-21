@@ -25,10 +25,15 @@ import { type Transform } from "@/framer/cache/transform";
 import { Feed, type LatestReader } from "@/framer/feed";
 import { Frame } from "@/framer/frame";
 import { createTestClient } from "@/testutil";
+import { glTransform } from "@/testutil/telem";
 
 const client = createTestClient();
 const feed = client.openFeed();
-afterAll(async () => await feed.close());
+const glFeed = client.openFeed({ transform: glTransform });
+afterAll(async () => {
+  await feed.close();
+  await glFeed.close();
+});
 
 /**
  * Returns a source of strictly increasing timestamps. `TimeStamp.now()` resolves to the
@@ -140,6 +145,103 @@ describe("feed", () => {
     }
     expect(received).toContain(42);
     sub.close();
+  });
+
+  it("should report no last write before a frame lands for the key", async () => {
+    const { data } = await createChannels();
+    const sub = feed.stream(() => {}, [data.key]);
+    expect(feed.lastWrite(data.key)).toBeNull();
+    sub.close();
+  });
+
+  it("should report the Core's stamp, one nanosecond past the last timestamp", async () => {
+    const { time, data } = await createChannels();
+    let received = 0;
+    const sub = feed.stream(
+      (res) => {
+        received += res.get(data.key)?.length ?? 0;
+      },
+      [data.key],
+    );
+    const next = createClock();
+    const writer = await client.openWriter({
+      start: TimeStamp.now(),
+      channels: [time.key, data.key],
+    });
+    try {
+      await expect
+        .poll(
+          async () => {
+            await writer.write({ [time.key]: [next()], [data.key]: [1] });
+            return received > 0;
+          },
+          { timeout: 10000, interval: 250 },
+        )
+        .toBe(true);
+      const last = next();
+      await writer.write({ [time.key]: [last], [data.key]: [2] });
+      await expect
+        .poll(() => feed.lastWrite(data.key)?.valueOf(), { timeout: 5000 })
+        .toEqual(last.valueOf() + 1n);
+    } finally {
+      await writer.close();
+    }
+    sub.close();
+  });
+
+  it("should stamp a streamed sample by its alignment", async () => {
+    const { time, data } = await createChannels();
+    let leading: Series | null = null;
+    const sub = glFeed.stream(
+      (res) => {
+        const buf = res.get(data.key)?.series.at(-1);
+        if (buf != null) leading = buf;
+      },
+      [data.key],
+    );
+    const next = createClock();
+    const writer = await client.openWriter({
+      start: TimeStamp.now(),
+      channels: [time.key, data.key],
+    });
+    try {
+      let last = next();
+      await expect
+        .poll(
+          async () => {
+            last = next();
+            await writer.write({ [time.key]: [last], [data.key]: [1] });
+            return (leading?.length ?? 0) > 0;
+          },
+          { timeout: 10000, interval: 250 },
+        )
+        .toBe(true);
+      await expect
+        .poll(
+          () => {
+            const buf = leading;
+            if (buf == null || buf.length === 0) return null;
+            const a = buf.alignment + BigInt(buf.length - 1) * buf.alignmentMultiple;
+            return glFeed.timeAt(data.key, a)?.valueOf();
+          },
+          { timeout: 5000 },
+        )
+        .toEqual(last.valueOf());
+    } finally {
+      await writer.close();
+    }
+    sub.close();
+  });
+
+  it("should stamp a fetched sample by its alignment", async () => {
+    const { time, data } = await createChannels();
+    const start = TimeStamp.now().sub(TimeSpan.seconds(10));
+    const second = start.add(TimeSpan.milliseconds(1));
+    await client.write(start, { [time.key]: [start, second], [data.key]: [1, 2] });
+    const tr = new TimeRange(start, start.add(TimeSpan.seconds(1)));
+    const res = await glFeed.read(tr, data.key);
+    const s = res.series[0];
+    expect(glFeed.timeAt(data.key, s.alignment + s.alignmentMultiple)).toEqual(second);
   });
 
   it("should return every written sample across the live boundary", async () => {

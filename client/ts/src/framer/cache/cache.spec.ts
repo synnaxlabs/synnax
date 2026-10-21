@@ -148,8 +148,17 @@ describe("Cache", () => {
           }),
         ]),
       );
-      expect(cache.get(2).timeAt(11n)).toEqual(new TimeStamp(t0 + 1n));
+      expect(cache.timeAt(2, 11n)).toEqual(new TimeStamp(t0 + 1n));
+      expect(cache.lastWrite(1)).toEqual(new TimeStamp(t0 + 2n));
+      expect(cache.lastWrite(2)).toBeNull();
       cache.close();
+    });
+
+    it("should throw from the accessors after close", () => {
+      const { cache } = createCache([INDEX]);
+      cache.close();
+      expect(() => cache.timeAt(1, 0n)).toThrow(UnexpectedError);
+      expect(() => cache.lastWrite(1)).toThrow(UnexpectedError);
     });
 
     it("should throw after close", async () => {

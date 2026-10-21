@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan } from "@synnaxlabs/x";
+import { TimeSpan, type TimeStamp } from "@synnaxlabs/x";
 
 import { channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
@@ -104,6 +104,16 @@ export class Cache {
   /** @returns the key of the channel's index, or null when unresolved or none. */
   indexOf(key: channel.Key): channel.Key | null {
     return this.indexes.get(key) ?? null;
+  }
+
+  /** @returns the stamp of the channel's sample at alignment, else null. */
+  timeAt(key: channel.Key, alignment: bigint): TimeStamp | null {
+    return this.get(key).timeAt(alignment);
+  }
+
+  /** @returns the end of the channel's last stamped live write, else null. */
+  lastWrite(key: channel.Key): TimeStamp | null {
+    return this.get(key).lastWrite;
   }
 
   /**
