@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/query"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func retrieveRack(ctx SpecContext, key rack.Key) rack.Rack {
@@ -34,7 +35,7 @@ var _ = Describe("Rename", func() {
 		u := createUser(ctx)
 		r := rack.Rack{Name: "Before", Integrations: []string{"ni"}}
 		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-		grantUpdateOn(ctx, u.OntologyID(), r.OntologyID())
+		grant(ctx, access.ActionUpdate, u.OntologyID(), r.OntologyID())
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
 			apirack.RenameRequest{Key: r.Key, Name: "After"},
@@ -46,7 +47,7 @@ var _ = Describe("Rename", func() {
 	It("Should keep the embedded flag of the embedded rack", func(ctx SpecContext) {
 		u := createUser(ctx)
 		key := svc.Rack.EmbeddedKey
-		grantUpdateOn(ctx, u.OntologyID(), key.OntologyID())
+		grant(ctx, access.ActionUpdate, u.OntologyID(), key.OntologyID())
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
 			apirack.RenameRequest{Key: key, Name: "Renamed Embedded"},
@@ -59,7 +60,7 @@ var _ = Describe("Rename", func() {
 		u := createUser(ctx)
 		r := rack.Rack{Name: "Before"}
 		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-		grantUpdateOn(ctx, u.OntologyID(), r.OntologyID())
+		grant(ctx, access.ActionUpdate, u.OntologyID(), r.OntologyID())
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
 			apirack.RenameRequest{Key: r.Key, Name: ""},
@@ -69,7 +70,7 @@ var _ = Describe("Rename", func() {
 	It("Should return a not found error for a missing rack", func(ctx SpecContext) {
 		u := createUser(ctx)
 		key := rack.NewKey(1, 60000)
-		grantUpdateOn(ctx, u.OntologyID(), key.OntologyID())
+		grant(ctx, access.ActionUpdate, u.OntologyID(), key.OntologyID())
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
 			apirack.RenameRequest{Key: key, Name: "After"},
@@ -84,5 +85,31 @@ var _ = Describe("Rename", func() {
 			apirack.RenameRequest{Key: r.Key, Name: "After"},
 		)).Error().To(MatchError(access.ErrDenied))
 		Expect(retrieveRack(ctx, r.Key).Name).To(Equal("Before"))
+	})
+})
+
+var _ = Describe("Retrieve", func() {
+	It("Should attach only each rack's own status", func(ctx SpecContext) {
+		u := createUser(ctx)
+		withStatus := rack.Rack{Name: "With Status"}
+		withoutStatus := rack.Rack{Name: "Without Status"}
+		Expect(svc.Rack.NewWriter(nil).Create(ctx, &withStatus)).To(Succeed())
+		Expect(svc.Rack.NewWriter(nil).Create(ctx, &withoutStatus)).To(Succeed())
+		Expect(svc.Status.NewWriter(nil).Delete(
+			ctx, rack.StatusKey(withoutStatus.Key),
+		)).To(Succeed())
+		grant(
+			ctx, access.ActionRetrieve, u.OntologyID(),
+			withStatus.OntologyID(), withoutStatus.OntologyID(),
+		)
+		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apirack.RetrieveRequest{
+			Keys:          []rack.Key{withoutStatus.Key, withStatus.Key},
+			IncludeStatus: true,
+		}))
+		Expect(res.Racks).To(HaveLen(2))
+		Expect(res.Racks[0].Key).To(Equal(withoutStatus.Key))
+		Expect(res.Racks[0].Status).To(BeNil())
+		Expect(res.Racks[1].Key).To(Equal(withStatus.Key))
+		Expect(res.Racks[1].Status.Key).To(Equal(rack.StatusKey(withStatus.Key)))
 	})
 })

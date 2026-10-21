@@ -28,7 +28,7 @@ from freighter.transport import P
 from freighter.websocket import Message
 from synnax.exceptions import UnexpectedError
 from synnax.framer.adapter import ReadFrameAdapter
-from synnax.framer.codec import LOW_PERF_SPECIAL_CHAR, WSFramerCodec
+from synnax.framer.codec import LOW_PERF_SPECIAL_CHAR, WSCodec
 from synnax.framer.common import validate_downsample_factor
 from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import CrudeTimeSpan, TimeSpan
@@ -90,7 +90,7 @@ class _Liveness:
         return Unreachable(message=f"streamer received no response for {self.deadline}")
 
 
-class WSStreamerCodec(WSFramerCodec):
+class WSStreamerCodec(WSCodec):
     def encode(self, data: BaseModel) -> bytes:
         return self.lower_perf_codec.encode(data)
 
