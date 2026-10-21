@@ -37,6 +37,7 @@ import {
   awaitTextEditing,
   commitTextEdit,
   createConsoleWrapper,
+  findIconButton,
   getIconButton,
   openContextMenu,
   queryIconButton,
@@ -171,6 +172,53 @@ describe("task/Toolbar", () => {
     // text node, detaching a match held across an await before the event lands.
     fireEvent.doubleClick(screen.getByText(t.name));
     expect(await awaitTaskResourceTab(created)).toBe(t.key);
+  });
+
+  describe("data saving button", () => {
+    const getRow = (name: string): HTMLElement => {
+      const row = screen.getByText(name).closest<HTMLElement>(".pluto-list__item");
+      assertDefined(row, `no list item for ${name}`);
+      return row;
+    };
+
+    it("disables data saving for a task whose config has it enabled", async () => {
+      const t = await createTask({ config: { dataSavingDisabled: false } });
+      await renderToolbar();
+      await screen.findByText(t.name);
+      fireEvent.click(await findIconButton(getRow(t.name), "save"));
+      await waitFor(async () => {
+        const updated = await client.tasks.retrieve(t.key);
+        expect(updated.config).toMatchObject({ dataSavingDisabled: true });
+      });
+    });
+
+    it("enables data saving for a task whose config has it disabled", async () => {
+      const t = await createTask({ config: { dataSavingDisabled: true } });
+      await renderToolbar();
+      await screen.findByText(t.name);
+      fireEvent.click(await findIconButton(getRow(t.name), "save"));
+      await waitFor(async () => {
+        const updated = await client.tasks.retrieve(t.key);
+        expect(updated.config).toMatchObject({ dataSavingDisabled: false });
+      });
+    });
+
+    it("hides the button for a task without the config field", async () => {
+      const t = await createTask({ type: "pagerduty_alert" });
+      await renderToolbar();
+      await screen.findByText(t.name);
+      expect(queryIconButton(getRow(t.name), "save")).toBeNull();
+    });
+
+    it("leaves the config unchanged when a viewer clicks the button", async () => {
+      const t = await createTask({ config: { dataSavingDisabled: false } });
+      const viewer = await roles.get("Viewer");
+      await renderToolbar(viewer);
+      await screen.findByText(t.name);
+      fireEvent.click(await findIconButton(getRow(t.name), "save"));
+      const updated = await client.tasks.retrieve(t.key);
+      expect(updated.config).toMatchObject({ dataSavingDisabled: false });
+    });
   });
 
   describe("context menu", () => {
