@@ -10,12 +10,18 @@
 import pluginJs from "@eslint/js";
 import pluginReact from "@eslint-react/eslint-plugin";
 import stylistic from "@stylistic/eslint-plugin";
-import type { Linter } from "eslint";
+import type { ESLint, Linter } from "eslint";
 import { includeIgnoreFile } from "eslint/config";
 import simpleImportSort from "eslint-plugin-simple-import-sort";
 import globals from "globals";
 import path from "path";
 import tseslint from "typescript-eslint";
+
+import { jsxFilenameExtension } from "./rules/jsxFilenameExtension";
+
+const synnax: ESLint.Plugin = {
+  rules: { "jsx-filename-extension": jsxFilenameExtension },
+};
 
 const gitignorePath = path.join(import.meta.dirname, "../../.gitignore");
 
@@ -45,8 +51,13 @@ const config: Linter.Config[] = [
         tsconfigRootDir: import.meta.dirname,
       },
     },
-    plugins: { "simple-import-sort": simpleImportSort, "@stylistic": stylistic },
+    plugins: {
+      "simple-import-sort": simpleImportSort,
+      "@stylistic": stylistic,
+      synnax,
+    },
     rules: {
+      "synnax/jsx-filename-extension": "error",
       "new-cap": ["error", { capIsNew: false }],
       "no-constant-condition": ["error", { checkLoops: false }],
       "no-duplicate-imports": "error",
