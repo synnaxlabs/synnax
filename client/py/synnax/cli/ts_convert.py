@@ -24,7 +24,7 @@ from synnax.cli.flow import Context
 from synnax.cli.io import prompt_new_reader
 from synnax.cli.telem import ask_time_units_select
 from synnax.io import BaseReader
-from synnax.io.factory import IO_FACTORY
+from synnax.io.factory import FACTORY
 from synnax.telem import TimeSpanUnits, convert_time_units
 
 OUTPUT_PATH_ARG = "--output-path"
@@ -166,7 +166,7 @@ def pure_tsconvert(
         raise ValueError("Output path is required")
     output_path = Path(output_path_str)
 
-    writer = IO_FACTORY.open_writer(output_path)
+    writer = FACTORY.open_writer(output_path)
 
     reader.seek_first()
     try:
