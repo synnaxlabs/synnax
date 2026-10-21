@@ -11,6 +11,7 @@ import { debounce, MultiSeries, type TimeRange } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
+import { type ChannelRetriever } from "@/framer/adapter";
 import { Cache, type CacheProps } from "@/framer/cache/cache";
 import {
   DEFAULT_BATCH_DEBOUNCE,
@@ -38,11 +39,13 @@ type LatestBatch = Array<debounce.Entry<channel.Key, MultiSeries>>;
 /** Props for {@link Feed}, including the transport it reads and streams through. */
 export interface FeedProps
   extends
-    CacheProps,
+    Omit<CacheProps, "retrieveChannels">,
     Omit<ReaderProps, "cache">,
     Omit<MultiplexedStreamerProps, "cache" | "openStreamer"> {
   openStreamer: StreamOpener;
   readLatest: LatestReader;
+  /** Fetches channel payloads, so the cache learns each channel's index. */
+  retrieveChannels: ChannelRetriever;
   /** Receives each failed reconnect attempt of the stream. Defaults to console.warn. */
   onRetry?: (error: Error) => void;
 }
@@ -50,7 +53,7 @@ export interface FeedProps
 /** The part of {@link FeedProps} a caller sets. The client supplies the rest. */
 export interface FeedOptions extends Omit<
   FeedProps,
-  "readRemote" | "openStreamer" | "readLatest" | "onRetry"
+  "readRemote" | "openStreamer" | "readLatest" | "retrieveChannels" | "onRetry"
 > {}
 
 /**
@@ -71,6 +74,7 @@ export class Feed {
       readRemote,
       openStreamer,
       readLatest,
+      retrieveChannels,
       transform = DEFAULT_STATIC_PROPS.transform,
       instrumentation,
       dynamicBufferSize,
@@ -91,6 +95,7 @@ export class Feed {
       gcInterval,
       staleEntryThreshold,
       staleCoverageThreshold,
+      retrieveChannels,
       instrumentation: instrumentation?.child("cache"),
     });
     this.reader = new Reader({

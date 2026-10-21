@@ -446,6 +446,7 @@ describe("feed", () => {
         throw new UnexpectedError("streamer unused");
       },
       readLatest: async () => new Frame([], []),
+      retrieveChannels: async () => [],
     });
     const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
     await direct.read(tr, 1);
@@ -465,6 +466,7 @@ describe("feed", () => {
         throw new UnexpectedError("streamer unused");
       },
       readLatest: async () => new Frame([], []),
+      retrieveChannels: async () => [],
     });
     const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
     await expect(direct.read(tr, 1)).rejects.toThrow(Unreachable);
@@ -480,6 +482,7 @@ describe("feed", () => {
         throw new Unreachable();
       },
       readLatest: async () => new Frame([], []),
+      retrieveChannels: async () => [],
       onRetry: () => {},
     });
     direct.stream(() => {}, [1]);
@@ -494,6 +497,7 @@ describe("feed", () => {
       new Feed({
         transform,
         readLatest,
+        retrieveChannels: async () => [],
         readRemote: async () => {
           throw new UnexpectedError("reader unused");
         },

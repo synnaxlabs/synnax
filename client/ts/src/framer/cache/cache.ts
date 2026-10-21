@@ -9,8 +9,9 @@
 
 import { TimeSpan } from "@synnaxlabs/x";
 
-import { type channel } from "@/channel";
+import { channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
+import { type ChannelRetriever } from "@/framer/adapter";
 import { type DynamicProps } from "@/framer/cache/dynamic";
 import {
   DEFAULT_STATIC_PROPS,
@@ -30,15 +31,30 @@ export interface CacheProps
    * @default TimeSpan.seconds(30)
    */
   gcInterval?: TimeSpan;
+  /**
+   * Fetches channel payloads, so entries learn their index and timeAt can pair samples
+   * with stamps. Defaults to a retriever that finds no channel.
+   */
+  retrieveChannels?: ChannelRetriever;
 }
+
+// An index is its own index. A virtual channel has none unless it is calculated.
+const indexKey = (ch: channel.Payload): channel.Key | null => {
+  if (ch.isIndex) return ch.key;
+  if (ch.virtual && !channel.isCalculated(ch)) return null;
+  return ch.index === 0 ? null : ch.index;
+};
 
 /**
  * Maintains an in-memory cache of channel data. Entries are created on demand and
- * carry no channel metadata; buffer types derive from the data written to them.
+ * buffer types derive from the data written to them. An entry learns its index channel
+ * through resolve.
  */
 export class Cache {
   private readonly props: Required<CacheProps>;
   private readonly cache = new Map<channel.Key, Unary>();
+  // Resolved keys. Null marks a channel with no index.
+  private readonly indexes = new Map<channel.Key, channel.Key | null>();
   private readonly gcInterval: ReturnType<typeof setInterval>;
   private closed = false;
 
@@ -50,6 +66,7 @@ export class Cache {
       transform = DEFAULT_STATIC_PROPS.transform,
       staleEntryThreshold = DEFAULT_STATIC_PROPS.staleEntryThreshold,
       staleCoverageThreshold = DEFAULT_STATIC_PROPS.staleCoverageThreshold,
+      retrieveChannels = async () => [],
     } = props;
     this.props = {
       dynamicBufferSize,
@@ -58,8 +75,35 @@ export class Cache {
       transform,
       staleEntryThreshold,
       staleCoverageThreshold,
+      retrieveChannels,
     };
     this.gcInterval = setInterval(() => this.gc(), gcInterval.milliseconds);
+  }
+
+  /**
+   * Resolves the index of each key not yet resolved, so timeAt can pair its samples
+   * with their stamps. A key the retriever omits resolves to no index.
+   * @throws {UnexpectedError} if the cache has been closed.
+   */
+  async resolve(keys: channel.Key[]): Promise<void> {
+    if (this.closed)
+      throw new UnexpectedError("resolve called on a closed telemetry cache");
+    const pending = keys.filter((k) => !this.indexes.has(k));
+    if (pending.length === 0) return;
+    const channels = await this.props.retrieveChannels(pending);
+    if (this.closed) return;
+    const found = new Map(channels.map((ch) => [ch.key, ch]));
+    pending.forEach((key) => {
+      const ch = found.get(key);
+      const index = ch == null ? null : indexKey(ch);
+      this.indexes.set(key, index);
+      this.get(key).index = index == null ? null : this.get(index);
+    });
+  }
+
+  /** @returns the key of the channel's index, or null when unresolved or none. */
+  indexOf(key: channel.Key): channel.Key | null {
+    return this.indexes.get(key) ?? null;
   }
 
   /**
