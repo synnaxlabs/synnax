@@ -153,11 +153,16 @@ export class Feed {
   }
 
   /**
-   * Reads the given time range for the given channel, serving from the cache and
-   * gap-filling from the cluster.
+   * Reads the given time range for the given channel and its index, serving from the
+   * cache and gap-filling from the Core.
    */
   async read(tr: TimeRange, key: channel.Key): Promise<MultiSeries> {
-    return await this.reader.read(tr, key);
+    await this.cache.resolve([key]);
+    const index = this.cache.indexOf(key);
+    const reads = [this.reader.read(tr, key)];
+    if (index != null && index !== key) reads.push(this.reader.read(tr, index));
+    const [series] = await Promise.all(reads);
+    return series;
   }
 
   /**

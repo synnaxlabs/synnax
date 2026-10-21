@@ -8,10 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
-import { type MultiSeries, Series, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  DataType,
+  type MultiSeries,
+  Series,
+  sleep,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { type channel } from "@/channel";
+import { channel } from "@/channel";
 import { NotFoundError, UnexpectedError } from "@/errors";
 import { type framer } from "@/framer";
 import { Cache } from "@/framer/cache/cache";
@@ -983,6 +990,110 @@ describe("MultiplexedStreamer", () => {
         error: closeErr,
       });
       expect(() => streamer.stream(() => {}, [2])).toThrow(UnexpectedError);
+    });
+  });
+
+  describe("index demand", () => {
+    const payload = (
+      p: Partial<channel.Payload> & Pick<channel.Payload, "key">,
+    ): channel.Payload =>
+      channel.payloadZ.parse({ name: `ch-${p.key}`, dataType: DataType.FLOAT32, ...p });
+    const CHANNELS = [
+      payload({ key: 1, dataType: DataType.TIMESTAMP, isIndex: true }),
+      payload({ key: 2, index: 1 }),
+      payload({ key: 3, index: 1 }),
+      payload({ key: 4, dataType: DataType.TIMESTAMP, isIndex: true }),
+      payload({ key: 5, index: 4 }),
+    ];
+    const createCache = (): Cache =>
+      new Cache({
+        retrieveChannels: async (keys) =>
+          CHANNELS.filter((ch) => (keys as channel.Key[]).includes(ch.key)),
+      });
+
+    it("should stream a channel's index alongside it", async () => {
+      const opened: channel.Key[][] = [];
+      const ms = pendingStreamer([1, 2]);
+      const streamer = new MultiplexedStreamer({
+        cache: createCache(),
+        openStreamer: async (config) => {
+          const { channels } = config as { channels: channel.Key[] };
+          opened.push([...channels].sort());
+          return ms;
+        },
+      });
+      streamer.stream(() => {}, [2]);
+      await vi.advanceTimersByTimeAsync(200);
+      expect(opened).toEqual([[1, 2]]);
+      await streamer.close();
+    });
+
+    it("should keep an index another channel still needs", async () => {
+      const ms = pendingStreamer([1, 2, 3]);
+      const streamer = new MultiplexedStreamer({
+        cache: createCache(),
+        openStreamer: createStreamOpener([ms]),
+        removalDelay: TimeSpan.milliseconds(50),
+      });
+      const two = streamer.stream(() => {}, [2]);
+      streamer.stream(() => {}, [3]);
+      await vi.advanceTimersByTimeAsync(200);
+      two.close();
+      await vi.advanceTimersByTimeAsync(300);
+      expect(ms.keys.slice().sort()).toEqual([1, 3]);
+      await streamer.close();
+    });
+
+    it("should drop an index when its last channel leaves", async () => {
+      const ms = pendingStreamer([1, 2, 4, 5]);
+      const streamer = new MultiplexedStreamer({
+        cache: createCache(),
+        openStreamer: createStreamOpener([ms]),
+        removalDelay: TimeSpan.milliseconds(50),
+      });
+      const two = streamer.stream(() => {}, [2]);
+      streamer.stream(() => {}, [5]);
+      await vi.advanceTimersByTimeAsync(200);
+      two.close();
+      await vi.advanceTimersByTimeAsync(300);
+      expect(ms.keys.slice().sort()).toEqual([4, 5]);
+      await streamer.close();
+    });
+
+    it("should keep the index's buffer live between frames", async () => {
+      const cache = createCache();
+      const frame = new Frame({
+        1: new Series({
+          data: new BigInt64Array([TimeStamp.seconds(10).valueOf()]),
+          dataType: DataType.TIMESTAMP,
+          timeRange: TimeStamp.seconds(10).range(TimeStamp.seconds(11)),
+          alignment: 0n,
+        }),
+      });
+      const streamer = new MultiplexedStreamer({
+        cache,
+        openStreamer: createStreamOpener([oneFrameStreamer([1, 2], frame)]),
+      });
+      streamer.stream(() => {}, [2]);
+      await vi.advanceTimersByTimeAsync(200);
+      expect(cache.get(1).leadingBuffer).not.toBeNull();
+      await streamer.close();
+    });
+
+    it("should report a failed index lookup on the channel's status", async () => {
+      const cache = new Cache({
+        retrieveChannels: async () => {
+          throw new Error("lookup failed");
+        },
+      });
+      const streamer = new MultiplexedStreamer({
+        cache,
+        openStreamer: createStreamOpener([pendingStreamer([2])]),
+      });
+      const sub = streamer.stream(() => {}, [2]);
+      await vi.advanceTimersByTimeAsync(200);
+      expect(sub.status(2).variant).toBe("error");
+      await streamer.close();
     });
   });
 });

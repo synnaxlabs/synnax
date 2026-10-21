@@ -257,11 +257,18 @@ export class MultiplexedStreamer {
     }, delay.milliseconds);
   }
 
-  /** @returns the union of keys across all entries, including those pending
-   * removal, so the stream lags demand only by the removal delay. */
+  /** @returns the keys every entry demands plus their indexes, including entries
+   * pending removal, so the stream lags demand only by the removal delay. */
   private demandedKeys(): Set<channel.Key> {
+    const { cache } = this.props;
     const keys = new Set<channel.Key>();
-    this.entries.forEach((e) => e.keys.forEach((k) => keys.add(k)));
+    this.entries.forEach((e) =>
+      e.keys.forEach((k) => {
+        keys.add(k);
+        const index = cache.indexOf(k);
+        if (index != null) keys.add(index);
+      }),
+    );
     return keys;
   }
 
@@ -304,14 +311,16 @@ export class MultiplexedStreamer {
   }
 
   private async reconcile(): Promise<void> {
-    const { instrumentation: ins } = this.props;
+    const { cache, instrumentation: ins } = this.props;
     let retry = false;
     await this.connMu.runExclusive(async () => {
       if (this.connMu.closed) return;
-      const desired = this.desiredKeys();
-      const arrKeys = Array.from(desired);
-      const fresh = arrKeys.filter((k) => !this.sentKeys.has(k));
       try {
+        // Indexes join the demand once their channels resolve, so resolve first.
+        await cache.resolve(Array.from(this.demandedKeys()));
+        const desired = this.desiredKeys();
+        const arrKeys = Array.from(desired);
+        const fresh = arrKeys.filter((k) => !this.sentKeys.has(k));
         if (desired.size === 0) {
           const removed = this.sentKeys;
           this.sentKeys = new Set();
@@ -367,6 +376,8 @@ export class MultiplexedStreamer {
       } catch (e) {
         ins.L.error("failed to update streamer", { error: e });
         const failure = status.fromException(e, "failed to stream channel");
+        const desired = this.desiredKeys();
+        const fresh = Array.from(desired).filter((k) => !this.sentKeys.has(k));
         if (isKeyRejection(e) && !this.connMu.closed && fresh.length > 0) {
           // One of the new keys caused the rejection. Retry with one of them, and
           // return the rest one at a time, until the culprit fails alone.

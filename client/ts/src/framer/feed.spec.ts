@@ -83,13 +83,17 @@ describe("feed", () => {
 
   it("should apply the configured transform to cached series", async () => {
     const transform: Transform = {
-      resolveDataType: () => DataType.FLOAT64,
+      resolveDataType: (dt) => (dt.equals(DataType.FLOAT32) ? DataType.FLOAT64 : dt),
       convert: (series) =>
-        new Series({
-          data: new Float64Array((Array.from(series) as number[]).map((v) => v * 2)),
-          timeRange: series.timeRange,
-          alignment: series.alignment,
-        }),
+        series.dataType.equals(DataType.FLOAT32)
+          ? new Series({
+              data: new Float64Array(
+                (Array.from(series) as number[]).map((v) => v * 2),
+              ),
+              timeRange: series.timeRange,
+              alignment: series.alignment,
+            })
+          : series,
     };
     const transformed = client.openFeed({ transform });
     const { time, data } = await createChannels();
@@ -490,6 +494,38 @@ describe("feed", () => {
     const closed = direct.close().then(() => true);
     const timedOut = sleep.sleep(TimeSpan.seconds(1)).then(() => false);
     expect(await Promise.race([closed, timedOut])).toBe(true);
+  });
+
+  it("should fetch the index alongside a data read", async () => {
+    const { time, data } = await createChannels();
+    // Old enough that the fetch counts as covered, so the second read hits the cache.
+    const start = TimeStamp.now().sub(TimeSpan.seconds(10));
+    await client.write(start, {
+      [time.key]: [start, start.add(TimeSpan.milliseconds(1))],
+      [data.key]: [1, 2],
+    });
+    const requested: channel.Key[][] = [];
+    const counting = new Feed({
+      readRemote: async (tr, keys) => {
+        requested.push([...keys].sort((a, b) => a - b));
+        return await client.read(tr, keys);
+      },
+      openStreamer: async () => {
+        throw new UnexpectedError("streamer unused");
+      },
+      readLatest: async () => new Frame([], []),
+      retrieveChannels: async (keys) =>
+        await client.channels.retrieve(keys as channel.Key[]),
+    });
+    try {
+      const tr = new TimeRange(start, start.add(TimeSpan.seconds(1)));
+      expect(Array.from(await counting.read(tr, data.key))).toEqual([1, 2]);
+      expect(requested).toEqual([[time.key, data.key].sort((a, b) => a - b)]);
+      await counting.read(tr, time.key);
+      expect(requested).toHaveLength(1);
+    } finally {
+      await counting.close();
+    }
   });
 
   describe("readLatest", () => {
