@@ -1535,12 +1535,13 @@ func Analyze(
 		return i, aCtx.Diagnostics
 	}
 
-	// Imported modules lower beside the program: their functions, variables, and
-	// scopes join the IR under qualified keys.
+	// Imported modules lower beside the program under qualified keys. Their types
+	// merge after the substitution pass above, which must not rewrite them.
 	var modules []*symbol.Symbol
 	for _, mod := range aCtx.Scope.ImportedModules() {
 		if mod.AST != nil {
 			modules = append(modules, mod)
+			maps.Copy(i.TypeMap, mod.TypeMap)
 		}
 	}
 	i.Functions = collectFunctions(i.Functions, aCtx.Scope)

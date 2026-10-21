@@ -10,8 +10,6 @@
 package analyzer
 
 import (
-	"maps"
-
 	"github.com/synnaxlabs/arc/analyzer/codes"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/parser"
@@ -56,7 +54,6 @@ func collectImports(ctx acontext.Context[parser.IProgramContext]) {
 			ctx.Diagnostics.Add(diagnostics.Error(err, entry.AST))
 			continue
 		}
-		maps.Copy(ctx.TypeMap, module.TypeMap)
 		alias := symbol.Symbol{
 			Name:   entry.Alias,
 			Kind:   symbol.KindModuleAlias,
