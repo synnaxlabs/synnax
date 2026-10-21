@@ -43,14 +43,13 @@ func (s *Service) Dispatch(
 	dispatcher := s.state.Dispatcher()
 	return s.locks.Do(key, func() error {
 		var (
-			sweep  []Action
-			module bool
+			sweep   []Action
+			updated Arc
 		)
 		if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-			return s.table.NewUpdate().Where(gorp.MatchKeys[Key, Arc](key)).
+			if err := s.table.NewUpdate().Where(gorp.MatchKeys[Key, Arc](key)).
 				ChangeErr(func(_ gorp.Context, a Arc) (Arc, error) {
 					sweep = nil
-					module = a.Type == TypeModule
 					var dead []crdt.ID
 					if s.sweeper.quiet(key) {
 						dead = s.sweeper.forgettable(a.Text.Doc)
@@ -70,8 +69,12 @@ func (s *Service) Dispatch(
 					if containsTextEdit(acts) {
 						s.sweeper.recordEdit(key)
 					}
+					updated = a
 					return a, nil
-				}).Exec(ctx, tx)
+				}).Exec(ctx, tx); err != nil {
+				return err
+			}
+			return s.syncImports(ctx, tx, updated)
 		}); err != nil {
 			return err
 		}
@@ -79,10 +82,10 @@ func (s *Service) Dispatch(
 		if len(sweep) > 0 {
 			dispatcher.Notify(ctx, key, "", sweep)
 		}
-		if module {
-			return s.resyncAll(ctx, nil)
-		}
 		s.taskSync.Trigger(key)
+		if updated.Type == TypeModule {
+			return s.resyncImporters(ctx, nil, key)
+		}
 		return nil
 	})
 }
@@ -110,20 +113,6 @@ func (s *Service) resync(ctx context.Context, key Key) {
 		return
 	}
 	s.cfg.L.Error("failed to sync arc task", zap.Error(err), zap.Stringer("key", key))
-}
-
-// resyncAll schedules a resync of every Arc, so importers follow a module write.
-func (s *Service) resyncAll(ctx context.Context, tx gorp.Tx) error {
-	var arcs []Arc
-	if err := s.table.NewRetrieve().
-		Entries(&arcs).
-		Exec(ctx, gorp.OverrideTx(s.cfg.DB, tx)); err != nil {
-		return err
-	}
-	for _, a := range arcs {
-		s.taskSync.Trigger(a.Key)
-	}
-	return nil
 }
 
 // setCompileStatus compiles the module and records the result as its status: an

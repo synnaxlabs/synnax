@@ -51,7 +51,7 @@ func bigGraphArc(nodes int) arc.Arc {
 func benchHash(b *testing.B, a arc.Arc) {
 	b.ReportAllocs()
 	for b.Loop() {
-		if _, err := arc.Hash(a); err != nil {
+		if _, err := arc.Hash(a, nil); err != nil {
 			b.Fatal(err)
 		}
 	}

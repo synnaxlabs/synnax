@@ -110,8 +110,17 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 	} else if err = w.syncTask(ctx, *a); err != nil {
 		return err
 	}
+	if err = w.svc.syncImports(ctx, w.tx, *a); err != nil {
+		return err
+	}
 	if a.Type == TypeModule {
-		if err = w.svc.resyncAll(ctx, w.tx); err != nil {
+		if exists {
+			w.taskSync.Trigger(a.Key)
+			err = w.svc.resyncImporters(ctx, w.tx, a.Key)
+		} else {
+			err = w.svc.resyncAll(ctx, w.tx)
+		}
+		if err != nil {
 			return err
 		}
 	}
@@ -136,12 +145,14 @@ func (w Writer) CreateMany(ctx context.Context, arcs *[]Arc) error {
 // Delete deletes the Arcs with the given keys. If the Arc has child tasks, those tasks
 // will also be deleted.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	var arcs []Arc
-	if err := w.table.NewRetrieve().
-		Where(gorp.MatchKeys[Key, Arc](keys...)).
-		Entries(&arcs).
-		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
-		return err
+	// Edges die with the resource, so importers are found first.
+	var importers []Key
+	for _, key := range keys {
+		found, err := w.svc.Importers(ctx, w.tx, key)
+		if err != nil {
+			return err
+		}
+		importers = append(importers, found...)
 	}
 	for _, key := range keys {
 		if err := w.deleteChildTasks(ctx, key); err != nil {
@@ -164,8 +175,10 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		w.sweeper.forget(key)
 		w.taskSync.Forget(key)
 	}
-	if slices.ContainsFunc(arcs, func(a Arc) bool { return a.Type == TypeModule }) {
-		return w.svc.resyncAll(ctx, w.tx)
+	for _, key := range importers {
+		if !slices.Contains(keys, key) {
+			w.taskSync.Trigger(key)
+		}
 	}
 	return nil
 }

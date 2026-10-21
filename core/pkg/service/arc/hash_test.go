@@ -51,56 +51,56 @@ func graphArc() arc.Arc {
 var _ = Describe("Hash", func() {
 	Describe("Text mode", func() {
 		It("Should hash equal sources equally", func() {
-			Expect(MustSucceed(arc.Hash(textArc("a -> b")))).
-				To(Equal(MustSucceed(arc.Hash(textArc("a -> b")))))
+			Expect(MustSucceed(arc.Hash(textArc("a -> b"), nil))).
+				To(Equal(MustSucceed(arc.Hash(textArc("a -> b"), nil))))
 		})
 
 		It("Should hash different sources differently", func() {
-			Expect(MustSucceed(arc.Hash(textArc("a -> b")))).
-				ToNot(Equal(MustSucceed(arc.Hash(textArc("a -> c")))))
+			Expect(MustSucceed(arc.Hash(textArc("a -> b"), nil))).
+				ToNot(Equal(MustSucceed(arc.Hash(textArc("a -> c"), nil))))
 		})
 
 		It("Should ignore graph content", func() {
 			a := textArc("a -> b")
 			b := textArc("a -> b")
 			b.Graph = graphArc().Graph
-			Expect(MustSucceed(arc.Hash(a))).To(Equal(MustSucceed(arc.Hash(b))))
+			Expect(MustSucceed(arc.Hash(a, nil))).To(Equal(MustSucceed(arc.Hash(b, nil))))
 		})
 
 		It("Should hash a pre-materialized arc identically", func() {
 			a := textArc("a -> b")
 			materialized := a
 			materialized.Text = materialized.Text.Materialize()
-			Expect(MustSucceed(arc.Hash(materialized))).
-				To(Equal(MustSucceed(arc.Hash(a))))
+			Expect(MustSucceed(arc.Hash(materialized, nil))).
+				To(Equal(MustSucceed(arc.Hash(a, nil))))
 		})
 
 		It("Should ignore a stale Raw and hash the document", func() {
 			a := textArc("a -> b")
 			a.Text.Raw = "a -> c"
-			Expect(MustSucceed(arc.Hash(a))).
-				To(Equal(MustSucceed(arc.Hash(textArc("a -> b")))))
+			Expect(MustSucceed(arc.Hash(a, nil))).
+				To(Equal(MustSucceed(arc.Hash(textArc("a -> b"), nil))))
 		})
 	})
 
 	Describe("Graph mode", func() {
 		It("Should hash equal graphs equally", func() {
-			Expect(MustSucceed(arc.Hash(graphArc()))).
-				To(Equal(MustSucceed(arc.Hash(graphArc()))))
+			Expect(MustSucceed(arc.Hash(graphArc(), nil))).
+				To(Equal(MustSucceed(arc.Hash(graphArc(), nil))))
 		})
 
 		It("Should ignore node positions", func() {
 			moved := graphArc()
 			moved.Graph.Nodes[0].Position = spatial.XY{X: 500, Y: 500}
-			Expect(MustSucceed(arc.Hash(graphArc()))).
-				To(Equal(MustSucceed(arc.Hash(moved))))
+			Expect(MustSucceed(arc.Hash(graphArc(), nil))).
+				To(Equal(MustSucceed(arc.Hash(moved, nil))))
 		})
 
 		It("Should ignore edge identity", func() {
 			rekeyed := graphArc()
 			rekeyed.Graph.Edges[0].Key = "e2"
-			Expect(MustSucceed(arc.Hash(graphArc()))).
-				To(Equal(MustSucceed(arc.Hash(rekeyed))))
+			Expect(MustSucceed(arc.Hash(graphArc(), nil))).
+				To(Equal(MustSucceed(arc.Hash(rekeyed, nil))))
 		})
 
 		It("Should ignore node and edge ordering", func() {
@@ -117,35 +117,35 @@ var _ = Describe("Hash", func() {
 				Source: ir.Handle{Node: "b", Param: "out"},
 				Target: ir.Handle{Node: "a", Param: "in"},
 			})
-			Expect(MustSucceed(arc.Hash(base))).
-				To(Equal(MustSucceed(arc.Hash(reordered))))
+			Expect(MustSucceed(arc.Hash(base, nil))).
+				To(Equal(MustSucceed(arc.Hash(reordered, nil))))
 		})
 
 		It("Should change when an edge is reconnected", func() {
 			reconnected := graphArc()
 			reconnected.Graph.Edges[0].Target = ir.Handle{Node: "b", Param: "other"}
-			Expect(MustSucceed(arc.Hash(graphArc()))).
-				ToNot(Equal(MustSucceed(arc.Hash(reconnected))))
+			Expect(MustSucceed(arc.Hash(graphArc(), nil))).
+				ToNot(Equal(MustSucceed(arc.Hash(reconnected, nil))))
 		})
 
 		It("Should change when node inputs change", func() {
 			changed := graphArc()
 			changed.Graph.Inputs["a"] = msgpack.EncodedJSON{"type": "on", "channel": 9}
-			Expect(MustSucceed(arc.Hash(graphArc()))).
-				ToNot(Equal(MustSucceed(arc.Hash(changed))))
+			Expect(MustSucceed(arc.Hash(graphArc(), nil))).
+				ToNot(Equal(MustSucceed(arc.Hash(changed, nil))))
 		})
 
 		It("Should change when a node is added", func() {
 			grown := graphArc()
 			grown.Graph.Nodes = append(grown.Graph.Nodes, graph.Node{Key: "c"})
-			Expect(MustSucceed(arc.Hash(graphArc()))).
-				ToNot(Equal(MustSucceed(arc.Hash(grown))))
+			Expect(MustSucceed(arc.Hash(graphArc(), nil))).
+				ToNot(Equal(MustSucceed(arc.Hash(grown, nil))))
 		})
 	})
 
 	It("Should hash the two modes differently", func() {
 		a := arc.Arc{Mode: arc.ModeText}
 		b := arc.Arc{Mode: arc.ModeGraph}
-		Expect(MustSucceed(arc.Hash(a))).ToNot(Equal(MustSucceed(arc.Hash(b))))
+		Expect(MustSucceed(arc.Hash(a, nil))).ToNot(Equal(MustSucceed(arc.Hash(b, nil))))
 	})
 })
