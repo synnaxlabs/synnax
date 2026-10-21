@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import copy
 from collections.abc import Callable
 from typing import Concatenate, ParamSpec, Protocol, TypeVar
 
@@ -59,10 +60,8 @@ class Instrumentation:
             path=key,
             service_name=service_name,
         )
-        self.L = logger
-        self.L.meta = self.Meta
-        self.T = tracer
-        self.T._meta = self.Meta
+        self.L = logger.child_(self.Meta)
+        self.T = tracer.child_(self.Meta)
 
     def child(self, key: str) -> Instrumentation:
         """
@@ -74,13 +73,10 @@ class Instrumentation:
             conflicts may cause unexpected behavior.
         :returns: A new child Instrumentation.
         """
-        meta = self.Meta.child_(key)
-        ins = Instrumentation(
-            key=meta.key,
-            logger=self.L.child_(meta),
-            tracer=self.T.child_(meta),
-        )
-        ins.Meta = meta
+        ins = copy.copy(self)
+        ins.Meta = self.Meta.child_(key)
+        ins.L = self.L.child_(ins.Meta)
+        ins.T = self.T.child_(ins.Meta)
         return ins
 
 
