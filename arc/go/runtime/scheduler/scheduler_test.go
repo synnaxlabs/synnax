@@ -37,10 +37,10 @@ type MockNode struct {
 	// — out-of-range ordinals are treated as non-truthy.
 	OutputTruthy []bool
 	// SuppressAutoMark disables the default behavior of calling
-	// MarkChanged for every currently-truthy output on each Next. Tests
-	// that want to model a node whose output stays truthy across cycles
-	// but only announces a change on specific cycles should set this and
-	// drive MarkChanged manually from OnNext.
+	// MarkChanged for every currently-truthy output, and MarkDone, on each
+	// Next. Tests that want to model a node whose output stays truthy across
+	// cycles but only announces a change on specific cycles should set this
+	// and drive MarkChanged manually from OnNext.
 	SuppressAutoMark bool
 	OnNext           func(node.Context)
 	ElapsedValues    []telem.TimeSpan
@@ -69,6 +69,7 @@ func (m *MockNode) Next(ctx node.Context) {
 				ctx.MarkChanged(i)
 			}
 		}
+		ctx.MarkDone()
 	}
 	if m.OnNext != nil {
 		m.OnNext(ctx)
@@ -1096,14 +1097,15 @@ var _ = Describe("Scheduler", func() {
 		)
 
 		It(
-			"Should hold the step while its node without outputs reports an error",
+			"Should hold the step until its node without outputs marks done",
 			func(ctx SpecContext) {
 				mock("trigger", true)
 				first := mock("first_node")
+				first.SuppressAutoMark = true
 				first.OnNext = func(c node.Context) {
 					c.MarkSelfChanged()
-					if first.NextCalled == 1 {
-						c.ReportError(errors.New("trap"))
+					if first.NextCalled == 2 {
+						c.MarkDone()
 					}
 				}
 				second := mock("second_node")

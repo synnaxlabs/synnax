@@ -224,6 +224,7 @@ func (b *builder) build(prog ir.IR) *Scheduler {
 	s.nodeCtx = rnode.Context{
 		MarkChanged:     s.markChanged,
 		MarkSelfChanged: s.markSelfChanged,
+		MarkDone:        s.markDone,
 		SetDeadline:     s.setDeadline,
 		ReserveStamps:   s.reserveStamps,
 		ReportError:     s.reportError,

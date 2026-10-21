@@ -75,8 +75,8 @@ const (
 	// RHSInputParam is the right-hand side parameter name for binary operators.
 	// Use this as the second operand name in operations like add, multiply, etc.
 	RHSInputParam = "b"
-	// DoneParam names the pseudo-output marked after a node runs without reporting an
-	// error, so a transition on it can complete a step whose node has no outputs.
+	// DoneParam names the pseudo-output a node marks after its body runs, so a
+	// transition on it can complete a step whose node has no outputs.
 	DoneParam = "$done"
 )
 

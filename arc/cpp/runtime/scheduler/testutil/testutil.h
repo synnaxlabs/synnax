@@ -47,11 +47,11 @@ struct MockNode final : public node::Node {
     /// IR's declared output count — out-of-range ordinals are treated
     /// as non-truthy.
     std::vector<bool> output_truthy;
-    /// @brief disables the default behavior of calling MarkChanged for
-    /// every currently-truthy output on each next. Tests that want to
-    /// model a node whose output stays truthy across cycles but only
-    /// announces a change via MarkChanged on specific cycles should set
-    /// this and drive MarkChanged manually from on_next.
+    /// @brief disables the default behavior of calling mark_changed for
+    /// every currently-truthy output, and mark_done, on each next. Tests
+    /// that want to model a node whose output stays truthy across cycles
+    /// but only announces a change via mark_changed on specific cycles
+    /// should set this and drive mark_changed manually from on_next.
     bool suppress_auto_mark = false;
     std::function<void(node::Context &)> on_next;
 
@@ -65,9 +65,11 @@ struct MockNode final : public node::Node {
     x::errors::Error next(node::Context &ctx) override {
         next_called++;
         elapsed_values.push_back(ctx.cycle.elapsed);
-        if (!suppress_auto_mark)
+        if (!suppress_auto_mark) {
             for (size_t i = 0; i < output_truthy.size(); ++i)
                 if (output_truthy[i]) ctx.mark_changed(i);
+            ctx.mark_done();
+        }
         if (on_next) on_next(ctx);
         return x::errors::NIL;
     }

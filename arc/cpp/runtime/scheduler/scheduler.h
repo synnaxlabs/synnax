@@ -208,8 +208,6 @@ class Scheduler {
     /// executing, cached so mark_changed / mark_self_changed callbacks
     /// know whom they came from. NO_INDEX between cycles.
     size_t curr_node = NO_INDEX;
-    /// @brief withholds the done mark after curr_node reports an error during next.
-    bool failed = false;
     /// @brief owns the IR by value so the ir::Scope * pointers held by
     /// every ScopeState remain valid for the Scheduler's lifetime.
     ir::IR prog;
@@ -335,10 +333,7 @@ private:
             this->changed_flags[idx] = 0;
             this->fired_flags[idx] = 1;
             this->curr_node = m.node;
-            this->failed = false;
             this->nodes[this->curr_node].node->next(this->ctx);
-            if (this->nodes[idx].done != NO_INDEX && !this->failed)
-                this->marked_flags[this->nodes[idx].done] = 1;
         }
     }
 
@@ -493,13 +488,11 @@ private:
         return first;
     }
 
-    void report_error(const x::errors::Error &e) {
-        if (e.matches(errors::WARNING)) {
+    void report_error(const x::errors::Error &e) const {
+        if (e.matches(errors::WARNING))
             LOG(WARNING) << "[arc.scheduler] node reported a warning: " << e;
-        } else {
+        else
             LOG(ERROR) << "[arc.scheduler] node encountered error: " << e;
-            this->failed = true;
-        }
         this->error_handler(e);
     }
 
@@ -533,6 +526,13 @@ private:
     void mark_self_changed() {
         DCHECK(this->curr_node != NO_INDEX);
         this->self_changed_flags[this->curr_node] = 1;
+    }
+
+    /// @brief records a fresh mark on the current node's ir::done_param pseudo-output.
+    void mark_done() {
+        DCHECK(this->curr_node != NO_INDEX);
+        const size_t done = this->nodes[this->curr_node].done;
+        if (done != NO_INDEX) this->marked_flags[done] = 1;
     }
 };
 
@@ -909,6 +909,7 @@ inline Scheduler::Scheduler(
     error_handler(std::move(error_handler)), prog(std::move(prog)) {
     this->ctx.mark_changed = std::bind_front(&Scheduler::mark_changed, this);
     this->ctx.mark_self_changed = std::bind_front(&Scheduler::mark_self_changed, this);
+    this->ctx.mark_done = std::bind_front(&Scheduler::mark_done, this);
     this->ctx.set_deadline =
         [this](const x::telem::TimeSpan at, const x::telem::TimeSpan span) {
             auto &min = this->min_deadline;
