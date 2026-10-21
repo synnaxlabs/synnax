@@ -115,13 +115,12 @@ func (retrieveRequestTranslator) Forward(
 ) (*RetrieveRequest, error) {
 	keys := lo.Map(msg.Keys, func(k arc.Key, _ int) string { return k.String() })
 	return &RetrieveRequest{
-		Keys:          keys,
-		Names:         msg.Names,
-		SearchTerm:    msg.SearchTerm,
-		Limit:         int32(msg.Limit),
-		Offset:        int32(msg.Offset),
-		IncludeStatus: msg.IncludeStatus,
-		Compile:       msg.Compile,
+		Keys:       keys,
+		Names:      msg.Names,
+		SearchTerm: msg.SearchTerm,
+		Limit:      int32(msg.Limit),
+		Offset:     int32(msg.Offset),
+		Compile:    msg.Compile,
 	}, nil
 }
 
@@ -138,13 +137,12 @@ func (retrieveRequestTranslator) Backward(
 		keys = append(keys, key)
 	}
 	return arc.RetrieveRequest{
-		Keys:          keys,
-		Names:         msg.Names,
-		SearchTerm:    msg.SearchTerm,
-		Limit:         int(msg.Limit),
-		Offset:        int(msg.Offset),
-		IncludeStatus: msg.IncludeStatus,
-		Compile:       msg.Compile,
+		Keys:       keys,
+		Names:      msg.Names,
+		SearchTerm: msg.SearchTerm,
+		Limit:      int(msg.Limit),
+		Offset:     int(msg.Offset),
+		Compile:    msg.Compile,
 	}, nil
 }
 

@@ -58,9 +58,13 @@ func createUser(ctx SpecContext) user.User {
 	}))
 }
 
-// grantUpdateOn grants update access on the given objects to the subject through a
-// fresh role.
-func grantUpdateOn(ctx SpecContext, subject ontology.ID, objects ...ontology.ID) {
+// grant grants the action on the given objects to the subject through a fresh role.
+func grant(
+	ctx SpecContext,
+	action access.Action,
+	subject ontology.ID,
+	objects ...ontology.ID,
+) {
 	GinkgoHelper()
 	roleWriter := svc.RBAC.Role.NewWriter(nil, true)
 	policyWriter := svc.RBAC.Policy.NewWriter(nil, true)
@@ -69,7 +73,7 @@ func grantUpdateOn(ctx SpecContext, subject ontology.ID, objects ...ontology.ID)
 	p := &policy.Policy{
 		Name:    "policy-" + uuid.New().String(),
 		Objects: objects,
-		Actions: []access.Action{access.ActionUpdate},
+		Actions: []access.Action{action},
 	}
 	Expect(policyWriter.Create(ctx, p)).To(Succeed())
 	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
