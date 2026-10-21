@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/query"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func createTask(ctx SpecContext) task.Task {
@@ -48,7 +49,7 @@ var _ = Describe("Rename", func() {
 	It("Should rename the task when update is granted", func(ctx SpecContext) {
 		u := createUser(ctx)
 		t := createTask(ctx)
-		grantUpdateOn(ctx, u.OntologyID(), t.OntologyID())
+		grant(ctx, access.ActionUpdate, u.OntologyID(), t.OntologyID())
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
 			apitask.RenameRequest{Key: t.Key, Name: "After"},
@@ -61,7 +62,7 @@ var _ = Describe("Rename", func() {
 	It("Should reject an empty name", func(ctx SpecContext) {
 		u := createUser(ctx)
 		t := createTask(ctx)
-		grantUpdateOn(ctx, u.OntologyID(), t.OntologyID())
+		grant(ctx, access.ActionUpdate, u.OntologyID(), t.OntologyID())
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
 			apitask.RenameRequest{Key: t.Key, Name: ""},
@@ -71,7 +72,7 @@ var _ = Describe("Rename", func() {
 	It("Should return a not found error for a missing task", func(ctx SpecContext) {
 		u := createUser(ctx)
 		key := uuid.New()
-		grantUpdateOn(ctx, u.OntologyID(), task.OntologyID(key))
+		grant(ctx, access.ActionUpdate, u.OntologyID(), task.OntologyID(key))
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
 			apitask.RenameRequest{Key: key, Name: "After"},
@@ -85,5 +86,29 @@ var _ = Describe("Rename", func() {
 			apitask.RenameRequest{Key: t.Key, Name: "After"},
 		)).Error().To(MatchError(access.ErrDenied))
 		Expect(retrieveTask(ctx, t.Key).Name).To(Equal("Before"))
+	})
+})
+
+var _ = Describe("Retrieve", func() {
+	It("Should attach only each task's own status", func(ctx SpecContext) {
+		u := createUser(ctx)
+		withStatus := createTask(ctx)
+		withoutStatus := createTask(ctx)
+		Expect(svc.Status.NewWriter(nil).Delete(
+			ctx, withoutStatus.OntologyID().String(),
+		)).To(Succeed())
+		grant(
+			ctx, access.ActionRetrieve, u.OntologyID(),
+			withStatus.OntologyID(), withoutStatus.OntologyID(),
+		)
+		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
+			Keys:          []task.Key{withoutStatus.Key, withStatus.Key},
+			IncludeStatus: true,
+		}))
+		Expect(res.Tasks).To(HaveLen(2))
+		Expect(res.Tasks[0].Key).To(Equal(withoutStatus.Key))
+		Expect(res.Tasks[0].Status).To(BeNil())
+		Expect(res.Tasks[1].Key).To(Equal(withStatus.Key))
+		Expect(res.Tasks[1].Status.Key).To(Equal(withStatus.OntologyID().String()))
 	})
 })

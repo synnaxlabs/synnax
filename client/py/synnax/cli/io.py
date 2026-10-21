@@ -10,7 +10,7 @@
 from pathlib import Path
 
 from synnax.cli.flow import Context
-from synnax.io import IO_FACTORY, RowFileReader
+from synnax.io import FACTORY, RowFileReader
 
 
 def prompt_file(ctx: Context) -> Path | None:
@@ -36,4 +36,4 @@ def prompt_new_reader(
         path = prompt_file(ctx)
     if path is None:
         return None
-    return IO_FACTORY.new_reader(path if isinstance(path, Path) else Path(path))
+    return FACTORY.new_reader(path if isinstance(path, Path) else Path(path))
