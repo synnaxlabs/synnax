@@ -14,7 +14,6 @@ from collections.abc import Iterable
 from typing import IO, Any
 from urllib.parse import urlencode
 
-import urllib3
 from urllib3 import PoolManager, Retry
 from urllib3.exceptions import MaxRetryError
 from urllib3.response import BaseHTTPResponse
@@ -86,7 +85,6 @@ class HTTPClient(MiddlewareCollector):
         self._endpoint.protocol = "https" if secure else "http"
         self._codec = codec
         self._pool = PoolManager(cert_reqs="CERT_NONE", **kwargs)
-        urllib3.disable_warnings()
 
     def send(self, target: str, req: RQ, res_t: type[RS]) -> RS:
         """Implements the UnaryClient protocol — typed request, typed response."""

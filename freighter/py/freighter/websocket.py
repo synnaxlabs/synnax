@@ -45,6 +45,12 @@ def handle_close_err(e: ConnectionClosedOK) -> Exception:
     return EOF()
 
 
+def _decode_close_exception(exc_pld: ExceptionPayload | None) -> Exception:
+    # A close without an error is a clean close.
+    exc = decode_exception(exc_pld)
+    return EOF() if exc is None else exc
+
+
 class Message(BaseModel, Generic[P]):
     type: Literal["data", "close", "open"]
     payload: P | None = None
@@ -117,9 +123,7 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
         msg = self._encoder.decode(data, self._res_msg_t)
 
         if msg.type == "close":
-            await self._close_server(msg.error)
-            assert self._server_closed is not None
-            raise self._server_closed
+            raise await self._close_server(msg.error)
 
         assert msg.payload is not None
         return msg.payload
@@ -166,12 +170,12 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
         finally:
             self._send_closed = True
 
-    async def _close_server(self, exc_pld: ExceptionPayload | None) -> None:
+    async def _close_server(self, exc_pld: ExceptionPayload | None) -> Exception:
         if self._server_closed is not None:
-            return
+            return self._server_closed
         try:
-            assert exc_pld is not None
-            self._server_closed = decode_exception(exc_pld)
+            self._server_closed = _decode_close_exception(exc_pld)
+            return self._server_closed
         finally:
             await self._internal.close()
 
@@ -213,9 +217,7 @@ class SyncWebsocketStream(Stream[RQ, RS]):
         msg = self._encoder.decode(data, self._res_msg_t)
 
         if msg.type == "close":
-            self._close_server(msg.error)
-            assert self._server_closed is not None
-            raise self._server_closed
+            raise self._close_server(msg.error)
 
         assert msg.payload is not None
         return msg.payload
@@ -263,12 +265,12 @@ class SyncWebsocketStream(Stream[RQ, RS]):
         finally:
             self._send_closed = True
 
-    def _close_server(self, exc_pld: ExceptionPayload | None) -> None:
+    def _close_server(self, exc_pld: ExceptionPayload | None) -> Exception:
         if self._server_closed is not None:
-            return
+            return self._server_closed
         try:
-            assert exc_pld is not None
-            self._server_closed = decode_exception(exc_pld)
+            self._server_closed = _decode_close_exception(exc_pld)
+            return self._server_closed
         finally:
             self._connection.close()
 
