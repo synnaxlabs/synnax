@@ -33,11 +33,31 @@ export interface BodyProps<K extends record.Key>
   fixedItems?: ReactNode;
 }
 
-export const DefaultEmptyContent = ({ resourceName }: { resourceName: string }) => (
-  <Text.Text center status="disabled">
-    No {pluralize.plural(resourceName)} found
-  </Text.Text>
-);
+/** Props for {@link EmptyContent}. */
+export interface EmptyContentProps {
+  resourceName: string;
+  /** A string renders as a disabled summary. Unset, it says no items were found. */
+  emptyContent?: ReactNode;
+}
+
+/** The content a selection shows when it has no options to list. */
+export const EmptyContent = ({
+  resourceName,
+  emptyContent,
+}: EmptyContentProps): ReactNode => {
+  if (typeof emptyContent === "string")
+    return (
+      <Status.Summary center variant="disabled">
+        {emptyContent}
+      </Status.Summary>
+    );
+  if (emptyContent != null) return emptyContent;
+  return (
+    <Text.Text center status="disabled">
+      No {pluralize.plural(resourceName)} found
+    </Text.Text>
+  );
+};
 
 /**
  * The search field, list, and empty and error content of a data-driven selection. Use
@@ -67,15 +87,7 @@ export const Body = <K extends record.Key>({
           {status?.message}
         </Status.Summary>
       );
-    if (typeof emptyContent === "string")
-      return (
-        <Status.Summary center variant="disabled">
-          {emptyContent}
-        </Status.Summary>
-      );
-    if (emptyContent == null)
-      return <DefaultEmptyContent resourceName={resourceName} />;
-    return emptyContent;
+    return <EmptyContent resourceName={resourceName} emptyContent={emptyContent} />;
   }, [status?.key, emptyContent, loading, hasSearch]);
   return (
     <>
