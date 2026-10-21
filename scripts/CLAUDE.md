@@ -12,7 +12,7 @@ easy to get wrong by hand.
   `.cpp`/`.hpp`/`.h`/`.cc` in place, parallelized across cores. Excludes come from the
   root `.clang-format-ignore`. `check_clang_format.sh <path>` — dry run, non-zero exit
   on diffs.
-- `install_clang_format.sh` — installs the pinned LLVM 22 clang-format via apt. Always
+- `install_clang_format.sh` — installs the pinned LLVM 23 clang-format via apt. Always
   use this over a plain `apt install clang-format`, so the version matches CI.
 
 Prettier (TS) and Ruff (Python) run via each toolchain's own CLI, not a repo script.

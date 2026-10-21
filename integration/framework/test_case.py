@@ -14,7 +14,6 @@ warnings.filterwarnings("ignore", message=".*keepalive ping.*")
 warnings.filterwarnings("ignore", message=".*timed out while closing connection.*")
 
 import os
-import sys
 import traceback
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
@@ -32,18 +31,9 @@ from framework.utils import (
     create_time_index,
     read_latest_value,
 )
+from framework.websocket import is_websocket_error, suppress_websocket_errors
 from framework.writer import Writer
-from x import (
-    WebSocketErrorFilter,
-    ignore_websocket_errors,
-    is_websocket_error,
-    suppress_websocket_errors,
-    validate_and_sanitize_name,
-)
-
-# Error filter
-sys.excepthook = ignore_websocket_errors
-sys.stderr = WebSocketErrorFilter()
+from x import validate_and_sanitize_name
 
 
 def _numeric(value: int | float | str) -> float:
@@ -641,13 +631,12 @@ class TestCase(ABC):
             # PASSED set in _check_expectation()
 
         except Exception as e:
-            if not is_websocket_error(e):
-                tb = traceback.format_exc()
-                self.STATUS = STATUS.FAILED
-                self.log(f"EXCEPTION: {e}\n{tb}")
-                if self._error_message is None:
-                    self._error_message = str(e)
-                self._error_traceback = tb
+            tb = traceback.format_exc()
+            self.STATUS = STATUS.FAILED
+            self.log(f"EXCEPTION: {e}\n{tb}")
+            if self._error_message is None:
+                self._error_message = str(e)
+            self._error_traceback = tb
         finally:
             phase_started = sy.TimeStamp.now()
             try:

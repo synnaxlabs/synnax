@@ -27,7 +27,9 @@
 
 namespace driver::http {
 namespace {
-const auto TIMEOUT = 100 * x::telem::MILLISECOND;
+// Only bounds a hang. A loaded runner can stall a loopback request for seconds, so a
+// test that wants a timeout sets a short one itself.
+const auto TIMEOUT = 5 * x::telem::SECOND;
 
 Request make_request(
     const std::string &base_url,
@@ -346,7 +348,7 @@ TEST(ProcessorTest, UnreachableError) {
     Request req{
         .url = "http://192.0.2.1:1/",
         .method = Method::GET,
-        .timeout = TIMEOUT,
+        .timeout = 100 * x::telem::MILLISECOND,
     };
 
     Processor proc;
@@ -1729,6 +1731,7 @@ TEST(ProcessorTest, UnreachableSkipsWaitingRequests) {
         make_gated_request(server.base_url(), "/a", 1),
         make_gated_request(server.base_url(), "/b", 1),
     };
+    reqs[0].timeout = 100 * x::telem::MILLISECOND;
 
     Processor proc;
     const auto results = proc.execute(reqs);
@@ -1781,16 +1784,23 @@ TEST(ProcessorTest, ShutdownFailsActiveAndWaitingRequests) {
     ASSERT_NIL(server.start());
 
     std::vector<Request> reqs;
-    for (int i = 0; i < 3; i++) {
-        auto req = make_gated_request(server.base_url(), "/slow", 1);
-        req.timeout = 5 * x::telem::SECOND;
-        reqs.push_back(req);
-    }
+    for (int i = 0; i < 3; i++)
+        reqs.push_back(make_gated_request(server.base_url(), "/slow", 1));
 
     auto proc = std::make_unique<Processor>();
     std::vector<std::pair<Response, x::errors::Error>> results;
-    std::thread caller([&] { results = proc->execute(reqs); });
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    std::thread caller([&, p = proc.get()] { results = p->execute(reqs); });
+    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
+        server.received_requests().size(),
+        1,
+        std::chrono::seconds(10),
+        std::chrono::milliseconds(1)
+    );
+    // The wait only records a failure, so keep proc alive until the caller ends.
+    if (HasFailure()) {
+        caller.join();
+        return;
+    }
     proc.reset();
     caller.join();
 
@@ -1825,7 +1835,6 @@ TEST(ProcessorTest, PollTimeoutDoesNotDelayCompletion) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/fast");
-    req.timeout = 5 * x::telem::SECOND;
 
     Processor proc(1 * x::telem::SECOND);
     const auto start = std::chrono::steady_clock::now();
@@ -1845,9 +1854,7 @@ TEST(ProcessorTest, PollTimeoutDoesNotDelaySubmissionWhileActive) {
     ASSERT_NIL(server.start());
 
     auto slow = make_request(server.base_url(), "/slow");
-    slow.timeout = 5 * x::telem::SECOND;
     auto fast = make_request(server.base_url(), "/fast");
-    fast.timeout = 5 * x::telem::SECOND;
 
     Processor proc(1 * x::telem::SECOND);
     std::pair<Response, x::errors::Error> slow_result;
@@ -1878,8 +1885,6 @@ TEST(ProcessorTest, PollTimeoutDoesNotDelayGateDispatch) {
         make_gated_request(server.base_url(), "/a", 1),
         make_gated_request(server.base_url(), "/b", 1),
     };
-    for (auto &req: reqs)
-        req.timeout = 5 * x::telem::SECOND;
 
     Processor proc(1 * x::telem::SECOND);
     const auto start = std::chrono::steady_clock::now();
@@ -1903,6 +1908,7 @@ TEST(ProcessorTest, PollTimeoutDoesNotDelaySkip) {
         make_gated_request(server.base_url(), "/slow", 1),
         make_gated_request(server.base_url(), "/slow", 1),
     };
+    reqs[0].timeout = 100 * x::telem::MILLISECOND;
 
     Processor proc(1 * x::telem::SECOND);
     const auto start = std::chrono::steady_clock::now();
@@ -1929,8 +1935,6 @@ TEST(ProcessorTest, PollTimeoutDoesNotDelayFasterServer) {
         make_request(slow_server.base_url(), "/slow"),
         make_request(fast_server.base_url(), "/fast"),
     };
-    for (auto &req: reqs)
-        req.timeout = 5 * x::telem::SECOND;
 
     Processor proc(1 * x::telem::SECOND);
     const auto start = x::telem::TimeStamp::now();
@@ -1952,7 +1956,6 @@ TEST(ProcessorTest, SubmissionWakesIdleLoop) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/fast");
-    req.timeout = 5 * x::telem::SECOND;
 
     Processor proc(1 * x::telem::SECOND);
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
@@ -1971,12 +1974,21 @@ TEST(ProcessorTest, ShutdownWakesActivePoll) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/slow");
-    req.timeout = 5 * x::telem::SECOND;
 
     auto proc = std::make_unique<Processor>(1 * x::telem::SECOND);
     std::pair<Response, x::errors::Error> result;
-    std::thread caller([&] { result = proc->execute(req); });
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    std::thread caller([&, p = proc.get()] { result = p->execute(req); });
+    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
+        server.received_requests().size(),
+        1,
+        std::chrono::seconds(10),
+        std::chrono::milliseconds(1)
+    );
+    // The wait only records a failure, so keep proc alive until the caller ends.
+    if (HasFailure()) {
+        caller.join();
+        return;
+    }
 
     const auto start = std::chrono::steady_clock::now();
     proc.reset();
