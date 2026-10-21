@@ -283,10 +283,11 @@ func (s *Service) Retrieve(
 	if req.IncludeStatus {
 		ids := channel.OntologyIDsFromChannels(resChannels)
 		statuses := make([]Status, 0, len(resChannels))
+		// Most channels have no status row, so a missing key is not an error.
 		if err := s.status.NewRetrieve[struct{}]().
 			Where(status.MatchKeys[struct{}](ontology.IDsToKeys(ids)...)).
 			Entries(&statuses).
-			Exec(ctx, nil); err != nil {
+			Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
 			return RetrieveResponse{}, err
 		}
 		statusByKey := make(map[string]Status, len(statuses))
