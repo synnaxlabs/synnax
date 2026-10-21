@@ -50,7 +50,6 @@ const retrieveReqZ = z.object({
   searchTerm: z.string().optional(),
   limit: z.int().optional(),
   offset: z.int().optional(),
-  includeStatus: z.boolean().optional(),
   ignoreNotFoundError: z.boolean().optional(),
 });
 const retrieveMultiParamsZ = retrieveReqZ.or(query.keyListZ(keyZ));
@@ -67,18 +66,12 @@ export type LSPMessage = z.infer<typeof lspMessageZ>;
 export type RetrieveRequest = z.input<typeof retrieveReqZ>;
 
 const keyRetrieveRequestZ = z
-  .object({
-    key: keyZ,
-    includeStatus: z.boolean().optional(),
-  })
-  .transform(({ key, includeStatus }) => ({ keys: [key], includeStatus }));
+  .object({ key: keyZ })
+  .transform(({ key }) => ({ keys: [key] }));
 
 const nameRetrieveRequestZ = z
-  .object({
-    name: z.string(),
-    includeStatus: z.boolean().optional(),
-  })
-  .transform(({ name, includeStatus }) => ({ names: [name], includeStatus }));
+  .object({ name: z.string() })
+  .transform(({ name }) => ({ names: [name] }));
 
 export const singleRetrieveParamsZ = z.union([
   keyRetrieveRequestZ,
@@ -92,8 +85,8 @@ const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveReqZ]);
 export type RetrieveParams = z.input<typeof retrieveParamsZ>;
 
 const singleQueryZ = z.union([
-  z.strictObject({ key: keyZ, includeStatus: z.boolean().optional() }),
-  z.strictObject({ name: z.string(), includeStatus: z.boolean().optional() }),
+  z.strictObject({ key: keyZ }),
+  z.strictObject({ name: z.string() }),
   keyZ.transform((key) => ({ key })),
 ]);
 
