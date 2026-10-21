@@ -12,6 +12,7 @@ package arc
 import (
 	"context"
 	"io"
+	"iter"
 	"slices"
 
 	"github.com/synnaxlabs/alamos"
@@ -32,6 +33,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/debounce"
 	"github.com/synnaxlabs/x/gorp"
@@ -202,7 +204,17 @@ func (s *Service) NewLSP() (*lsp.Server, error) {
 			return s.cfg.Channel.NewWriter(nil).
 				Rename(ctx, channel.Key(sym.ID), newName, false)
 		},
-		OnExternalChange: observe.Translator[gorp.TxReader[channel.Key, channel.Channel], struct{}]{
+		OnExternalChange: s.externalChanges(),
+	})
+}
+
+// externalChanges fires on channel changes, module writes, and Arc deletes, which carry
+// no type. The LSP republishes open documents on each.
+func (s *Service) externalChanges() observe.Observable[struct{}] {
+	return observe.Merge[struct{}]{
+		observe.Translator[
+			gorp.TxReader[channel.Key, channel.Channel], struct{},
+		]{
 			Observable: s.cfg.Channel.Observe(),
 			Translate: func(
 				context.Context,
@@ -211,7 +223,22 @@ func (s *Service) NewLSP() (*lsp.Server, error) {
 				return struct{}{}, true
 			},
 		},
-	})
+		observe.Translator[iter.Seq[change], struct{}]{
+			Observable: s.table.Observe(),
+			Translate: func(
+				_ context.Context,
+				changes iter.Seq[change],
+			) (struct{}, bool) {
+				for c := range changes {
+					if c.Variant == xchange.VariantDelete ||
+						c.Value.Type == TypeModule {
+						return struct{}{}, true
+					}
+				}
+				return struct{}{}, false
+			},
+		},
+	}
 }
 
 func (s *Service) Close() error { return s.closer.Close() }
@@ -336,6 +363,7 @@ func (s *Service) OnAction(
 // execute the operations directly against the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
+		svc:        s,
 		tx:         gorp.OverrideTx(s.cfg.DB, tx),
 		otgWriter:  s.cfg.Ontology.NewWriter(tx),
 		otg:        s.cfg.Ontology,

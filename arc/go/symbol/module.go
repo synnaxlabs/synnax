@@ -22,7 +22,7 @@ var ErrModuleNotFound = errors.New("module not found")
 // ModuleResolver supplies modules that are not in the ambient prelude, such as user
 // modules stored in a Core, by their import path.
 type ModuleResolver interface {
-	// ResolveModule returns the module at path with its declarations as children.
+	// ResolveModule returns the module at path, with its error if it does not compile.
 	// Returns ErrModuleNotFound when there is none.
 	ResolveModule(ctx context.Context, path string) (*Symbol, error)
 	// SearchModules returns the import paths that start with prefix, sorted.

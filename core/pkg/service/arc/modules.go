@@ -69,14 +69,17 @@ func (r *moduleResolver) ResolveModule(
 		i, diag = text.Analyze(ctx, t, r.svc.newRoot(r.tx, r), true, cfg)
 	}
 	if diag != nil && !diag.Ok() {
+		err = errors.Newf("module %q does not compile", path)
 		if r.cycle != nil {
-			return nil, r.cycle
+			err = r.cycle
 		}
-		return nil, errors.Newf("module %q does not compile", path)
+		if i.Symbols == nil {
+			return nil, err
+		}
 	}
 	mod := i.Symbols
 	mod.Name, mod.Kind, mod.AST, mod.TypeMap = path, symbol.KindModule, t.AST, i.TypeMap
-	return mod, nil
+	return mod, err
 }
 
 // SearchModules implements symbol.ModuleResolver.

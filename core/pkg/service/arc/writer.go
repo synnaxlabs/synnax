@@ -12,8 +12,11 @@ package arc
 import (
 	"context"
 	"encoding/json/v2"
+	"slices"
 	"uuid"
 
+	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	taskversions "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
@@ -50,6 +53,7 @@ func validateModuleName(a Arc) error {
 // method. If no transaction is provided, the writer will execute operations directly
 // on the database.
 type Writer struct {
+	svc        *Service
 	tx         gorp.Tx
 	otgWriter  ontology.Writer
 	otg        *ontology.Ontology
@@ -107,7 +111,9 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 		return err
 	}
 	if a.Type == TypeModule {
-		w.taskSync.Trigger(a.Key)
+		if err = w.svc.resyncAll(ctx, w.tx); err != nil {
+			return err
+		}
 	}
 	// Notify last: a create rejected by ontology validation must not be broadcast.
 	w.dispatcher.Notify(
@@ -130,6 +136,13 @@ func (w Writer) CreateMany(ctx context.Context, arcs *[]Arc) error {
 // Delete deletes the Arcs with the given keys. If the Arc has child tasks, those tasks
 // will also be deleted.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
+	var arcs []Arc
+	if err := w.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, Arc](keys...)).
+		Entries(&arcs).
+		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
+		return err
+	}
 	for _, key := range keys {
 		if err := w.deleteChildTasks(ctx, key); err != nil {
 			return err
@@ -150,6 +163,9 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		}
 		w.sweeper.forget(key)
 		w.taskSync.Forget(key)
+	}
+	if slices.ContainsFunc(arcs, func(a Arc) bool { return a.Type == TypeModule }) {
+		return w.svc.resyncAll(ctx, w.tx)
 	}
 	return nil
 }
@@ -246,7 +262,7 @@ func (w Writer) UpdateTask(
 	if update.Performance != nil {
 		cfg.Performance = *update.Performance
 	}
-	if cfg.Hash, err = Hash(a); err != nil {
+	if cfg.Hash, err = w.hash(ctx, a, nil); err != nil {
 		return nil, err
 	}
 	return w.writeTask(ctx, a, tsk.Rack, existing, cfg)
@@ -322,13 +338,44 @@ func (w Writer) syncTask(ctx context.Context, a Arc) error {
 	if err != nil {
 		return err
 	}
-	hash, err := Hash(a)
+	hash, err := w.hash(ctx, a, nil)
 	if err != nil || cfg.Hash == hash {
 		return err
 	}
 	cfg.Hash = hash
 	_, err = w.writeTask(ctx, a, tsk.Rack, existing, cfg)
 	return err
+}
+
+// hash folds the hashes of a's imports, transitively, into Hash. A missing module or an
+// ancestor in the walk contributes an empty hash.
+func (w Writer) hash(ctx context.Context, a Arc, ancestors []Key) (string, error) {
+	if a.Mode != ModeText {
+		return Hash(a, nil)
+	}
+	cfg := parser.Config{AllowDashedNames: w.svc.AllowDashedNames()}
+	t, diag := text.Parse(a.Text.Materialize(), cfg)
+	if diag != nil {
+		return Hash(a, nil)
+	}
+	ancestors = append(ancestors, a.Key)
+	var modules []string
+	for _, imp := range parser.Imports(t.AST) {
+		mod, err := w.svc.retrieveModule(ctx, w.tx, imp.Path)
+		if err != nil && !errors.Is(err, symbol.ErrModuleNotFound) {
+			return "", err
+		}
+		if err != nil || slices.Contains(ancestors, mod.Key) {
+			modules = append(modules, "")
+			continue
+		}
+		h, err := w.hash(ctx, mod, ancestors)
+		if err != nil {
+			return "", err
+		}
+		modules = append(modules, h)
+	}
+	return Hash(a, modules)
 }
 
 func (w Writer) clearRack(ctx context.Context, taskKeys []task.Key) error {

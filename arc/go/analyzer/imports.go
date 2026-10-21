@@ -52,7 +52,9 @@ func collectImports(ctx acontext.Context[parser.IProgramContext]) {
 		module, err := lookupModule(ctx, root, ambient, entry.Path)
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, entry.AST))
-			continue
+			if module == nil {
+				continue
+			}
 		}
 		alias := symbol.Symbol{
 			Name:   entry.Alias,

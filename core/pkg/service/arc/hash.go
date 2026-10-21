@@ -32,15 +32,17 @@ type semanticContent struct {
 	Nodes     []string                       `json:"nodes"`
 	Edges     []ir.Edge                      `json:"edges"`
 	Inputs    map[string]msgpack.EncodedJSON `json:"inputs"`
+	Modules   []string                       `json:"modules"`
 }
 
 // Hash returns the xxhash64 of the Arc's semantic content as 16 lowercase hex
 // characters. Only the active mode's source contributes: text mode hashes the
-// materialized source, graph mode hashes the graph without layout data. Equal content
-// hashes equally regardless of edit history, so an edit that is undone restores the
-// original hash. Text.Raw never contributes; the document is the source of truth.
-func Hash(a Arc) (string, error) {
-	content := semanticContent{Mode: a.Mode}
+// materialized source, graph mode hashes the graph without layout data. modules are
+// the hashes of the Arc's imports. Equal content hashes equally regardless of edit
+// history, so an edit that is undone restores the original hash. Text.Raw never
+// contributes; the document is the source of truth.
+func Hash(a Arc, modules []string) (string, error) {
+	content := semanticContent{Mode: a.Mode, Modules: modules}
 	if a.Mode == ModeText {
 		content.Text = a.Text.Materialize().Raw
 	} else {

@@ -192,6 +192,24 @@ var _ Observable[any] = Noop[any]{}
 
 func (Noop[T]) OnChange(func(context.Context, T)) Disconnect { return func() {} }
 
+// Merge is an Observable that emits the values of every Observable in it.
+type Merge[T any] []Observable[T]
+
+var _ Observable[struct{}] = Merge[struct{}]{}
+
+// OnChange implements Observable. Disconnecting removes the handler from every source.
+func (m Merge[T]) OnChange(handler func(context.Context, T)) Disconnect {
+	disconnects := make([]Disconnect, len(m))
+	for i, o := range m {
+		disconnects[i] = o.OnChange(handler)
+	}
+	return func() {
+		for _, d := range disconnects {
+			d()
+		}
+	}
+}
+
 // Translator wraps an Observable and transforms its emitted values using the Translate
 // function. Translate returns the transformed value and a boolean indicating whether to
 // notify the handler. If the boolean is false, the handler is not called.

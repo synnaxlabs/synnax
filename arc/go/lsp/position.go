@@ -51,8 +51,11 @@ func findScopeRecursive(scope *symbol.Symbol, line, col int, deepest **symbol.Sy
 			*deepest = scope
 		}
 	}
+	// Module symbols have positions from the module's own document, not this one.
 	for _, child := range scope.Children() {
-		findScopeRecursive(child, line, col, deepest)
+		if child.Kind != symbol.KindModuleAlias {
+			findScopeRecursive(child, line, col, deepest)
+		}
 	}
 }
 

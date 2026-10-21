@@ -47,8 +47,11 @@ func collectFoldingRanges(scope *symbol.Symbol, ranges *[]protocol.FoldingRange)
 			}
 		}
 	}
+	// Module symbols have positions from the module's own document, not this one.
 	for _, child := range scope.Children() {
-		collectFoldingRanges(child, ranges)
+		if child.Kind != symbol.KindModuleAlias {
+			collectFoldingRanges(child, ranges)
+		}
 	}
 }
 
