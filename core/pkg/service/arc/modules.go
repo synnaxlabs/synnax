@@ -27,18 +27,21 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// moduleResolver resolves user modules for one analysis root. visiting holds the
-// paths under analysis, so an import cycle stops instead of recursing.
+// moduleResolver resolves user modules for one analysis root. stack holds the paths
+// under analysis, outermost first, so an import cycle stops instead of recursing.
 type moduleResolver struct {
-	svc      *Service
-	tx       gorp.Tx
-	visiting set.Set[string]
+	svc   *Service
+	tx    gorp.Tx
+	stack []string
+	// cycle is the first import cycle found. Every module on the chain reports it
+	// instead of a bare compile failure.
+	cycle error
 }
 
 var _ symbol.ModuleResolver = (*moduleResolver)(nil)
 
 func (s *Service) newModuleResolver(tx gorp.Tx) *moduleResolver {
-	return &moduleResolver{svc: s, tx: tx, visiting: set.New[string]()}
+	return &moduleResolver{svc: s, tx: tx}
 }
 
 // ResolveModule implements symbol.ModuleResolver. The module is analyzed against a
@@ -48,15 +51,17 @@ func (r *moduleResolver) ResolveModule(
 	ctx context.Context,
 	path string,
 ) (*symbol.Symbol, error) {
-	if r.visiting.Contains(path) {
-		return nil, errors.Newf("import cycle through %q", path)
+	if slices.Contains(r.stack, path) {
+		chain := strings.Join(r.stack, " -> ") + " -> " + path
+		r.cycle = errors.Newf("import cycle:\n%s", chain)
+		return nil, r.cycle
 	}
 	a, err := r.svc.retrieveModule(ctx, r.tx, path)
 	if err != nil {
 		return nil, err
 	}
-	r.visiting.Add(path)
-	defer r.visiting.Remove(path)
+	r.stack = append(r.stack, path)
+	defer func() { r.stack = r.stack[:len(r.stack)-1] }()
 	cfg := parser.Config{AllowDashedNames: r.svc.AllowDashedNames()}
 	t, diag := text.Parse(a.Text.Materialize(), cfg)
 	var i ir.IR
@@ -64,6 +69,9 @@ func (r *moduleResolver) ResolveModule(
 		i, diag = text.Analyze(ctx, t, r.svc.newRoot(r.tx, r), true, cfg)
 	}
 	if diag != nil && !diag.Ok() {
+		if r.cycle != nil {
+			return nil, r.cycle
+		}
 		return nil, errors.Newf("module %q does not compile", path)
 	}
 	mod := i.Symbols
