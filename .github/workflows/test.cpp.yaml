@@ -156,6 +156,9 @@ jobs:
       - name: Test (macOS)
         if: runner.os == 'macOS'
         shell: bash
+        env:
+          # The HTTP/2 client in Go stalls Bazelisk downloads on the Mac build bots.
+          GODEBUG: http2client=0
         run: >-
           bazel test ${{ inputs.sanitizers && '--config=asan' || '' }} --test_output=all
           ${{ inputs.targets }} ${{ steps.tags.outputs.flag }} ${{ inputs.test_flags }}
