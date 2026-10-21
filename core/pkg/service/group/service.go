@@ -264,6 +264,9 @@ func (w Writer) Create(
 		return Group{}, err
 	}
 	g := Group{Key: uuid.New(), Name: name}
+	if err := g.Validate(); err != nil {
+		return Group{}, err
+	}
 	id := g.OntologyID()
 	if err := w.table.NewCreate().Entry(&g).Exec(ctx, w.tx); err != nil {
 		return Group{}, err
@@ -294,6 +297,9 @@ func (w Writer) CreateWithKey(
 	g := Group{Key: key, Name: name}
 	if g.Key == uuid.Nil() {
 		g.Key = uuid.New()
+	}
+	if err := g.Validate(); err != nil {
+		return Group{}, err
 	}
 	id := g.OntologyID()
 	if err := w.table.NewCreate().Entry(&g).Exec(ctx, w.tx); err != nil {
@@ -353,9 +359,9 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 	}
 	return w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Group](key)).
-		Change(func(_ gorp.Context, g Group) Group {
+		ChangeErr(func(_ gorp.Context, g Group) (Group, error) {
 			g.Name = name
-			return g
+			return g, g.Validate()
 		}).
 		Exec(ctx, w.tx)
 }

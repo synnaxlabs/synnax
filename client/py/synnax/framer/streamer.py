@@ -26,9 +26,8 @@ from freighter import (
 )
 from freighter.transport import P
 from freighter.websocket import Message
-from synnax.exceptions import UnexpectedError
 from synnax.framer.adapter import ReadFrameAdapter
-from synnax.framer.codec import LOW_PERF_SPECIAL_CHAR, WSFramerCodec
+from synnax.framer.codec import LOW_PERF_SPECIAL_CHAR, WSCodec
 from synnax.framer.common import validate_downsample_factor
 from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import CrudeTimeSpan, TimeSpan
@@ -90,7 +89,7 @@ class _Liveness:
         return Unreachable(message=f"streamer received no response for {self.deadline}")
 
 
-class WSStreamerCodec(WSFramerCodec):
+class WSStreamerCodec(WSCodec):
     def encode(self, data: BaseModel) -> bytes:
         return self.lower_perf_codec.encode(data)
 
@@ -360,15 +359,11 @@ class AsyncStreamer:
         acknowledge the close request.
         """
         await self._stream.close_send()
-        try:
-            while (await self._stream.receive()).keep_alive:
-                pass
-        except EOF:
-            return
-        raise UnexpectedError(
-            "Unexpected missing close acknowledgment from server. "
-            "Please report this issue to the Synnax team."
-        )
+        while True:
+            try:
+                await self._stream.receive()
+            except EOF:
+                return
 
     async def __aenter__(self) -> AsyncStreamer:
         """Returns the async streamer object when used as an async context manager."""

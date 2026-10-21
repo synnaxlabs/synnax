@@ -29,7 +29,7 @@ from synnax.rack import Client as RackClient
 from synnax.rack import Rack
 from synnax.task.types_gen import Command, Key, Payload, Status, ontology_id
 from synnax.telem import TimeSpan, TimeStamp
-from x.lists import check_for_none, override
+from x.lists import all_none, override
 from x.timing import Timer
 
 
@@ -38,6 +38,11 @@ class _CreateRequest(BaseModel):
 
 
 _CreateResponse = _CreateRequest
+
+
+class _RenameRequest(BaseModel):
+    key: Key
+    name: str
 
 
 class _DeleteRequest(BaseModel):
@@ -361,7 +366,7 @@ class Client:
         self,
         *,
         key: Key | None = None,
-        name: str = "",
+        name: str,
         type: str = "",
         config: Mapping[str, object] | BaseModel | None = None,
         rack: int = 0,
@@ -441,6 +446,15 @@ class Client:
         req = _DeleteRequest(keys=[keys] if isinstance(keys, UUID) else list(keys))
         self._client.send("/task/delete", req, Empty)
 
+    def rename(self, key: Key, name: str) -> None:
+        """Renames a task.
+
+        :param key: The key of the task to rename.
+        :param name: The new name for the task.
+        :raises NotFoundError: If no task has the given key.
+        """
+        self._client.send("/task/rename", _RenameRequest(key=key, name=name), Empty)
+
     @overload
     def retrieve(self, key: Key, *, include_status: bool = False) -> Task: ...
 
@@ -499,10 +513,10 @@ class Client:
         :raises ValueError: If two singular selectors are given, or one is
             combined with a list filter.
         """
-        is_single = not check_for_none(key, name, type)
+        is_single = not all_none(key, name, type)
         if sum(v is not None for v in (key, name, type)) > 1:
             raise ValueError("only one of key, name, and type can be given")
-        if is_single and not check_for_none(
+        if is_single and not all_none(
             keys, names, types, search_term, rack, internal, snapshot, limit, offset
         ):
             raise ValueError(

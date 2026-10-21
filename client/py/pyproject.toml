@@ -21,7 +21,6 @@ dependencies = [
     "click>=8.5.0,<9",
     "keyring>=25.7.0,<26",
     "matplotlib>=3.11.2,<4",
-    "npTDMS>=1.11.0,<2",
     "numpy>=2.5.3,<3",
     "pandas>=3.0.6,<4",
     "pydantic>=2.13.5,<3",
@@ -54,7 +53,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["synnax", "examples"]
+packages = ["synnax"]
 
 [tool.ruff]
 line-length = 88
@@ -128,9 +127,9 @@ markers = [
     "role: mark test as a role test",
     "sequence: mark test as a sequence test",
     "series: mark test as a series test",
+    "signals: mark test as a signals test",
     "status: mark test as a status test",
     "task: mark test as a task test",
-    "tdms: mark test as a tdms test",
     "telem: mark test as a telem test",
     "timing: mark test as a timing test",
     "tsconvert: mark test as a tsconvert test",

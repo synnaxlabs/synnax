@@ -14,8 +14,8 @@ from pydantic import BaseModel, Field
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax.exceptions import NotFoundError
-from synnax.rack.types_gen import Rack
-from x.lists import check_for_none, override
+from synnax.rack.types_gen import Key, Rack
+from x.lists import all_none, override
 
 
 class _CreateRequest(BaseModel):
@@ -24,6 +24,11 @@ class _CreateRequest(BaseModel):
 
 class _CreateResponse(BaseModel):
     racks: list[Rack]
+
+
+class _RenameRequest(BaseModel):
+    key: Key
+    name: str
 
 
 class _DeleteRequest(BaseModel):
@@ -92,6 +97,17 @@ class Client:
         req = _DeleteRequest(keys=keys)
         self._client.send("/rack/delete", req, Empty)
 
+    def rename(self, key: Key, name: str) -> None:
+        """Renames a rack.
+
+        :param key: The key of the rack to rename.
+        :param name: The new name for the rack.
+        :raises NotFoundError: If no rack has the given key.
+        """
+        self._client.send("/rack/rename", _RenameRequest(key=key, name=name), Empty)
+        if self._embedded_rack is not None and self._embedded_rack.key == key:
+            self._embedded_rack = None
+
     @overload
     def retrieve(self, key: int, *, include_status: bool = False) -> Rack: ...
 
@@ -139,10 +155,10 @@ class Client:
             combined with a list filter.
         :raises NotFoundError: If a single rack is requested and none matches.
         """
-        is_single = not check_for_none(key, name)
+        is_single = not all_none(key, name)
         if sum(v is not None for v in (key, name)) > 1:
             raise ValueError("only one of key and name can be given")
-        if is_single and not check_for_none(
+        if is_single and not all_none(
             keys,
             names,
             search_term,

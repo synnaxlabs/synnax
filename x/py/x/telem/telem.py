@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime, timedelta, tzinfo
+from fractions import Fraction
 from math import trunc
 from typing import Any, ClassVar, Literal, TypeAlias
 
@@ -85,6 +86,8 @@ class TimeStamp(int):
         elif isinstance(value, timedelta):
             value = _timedelta_nanoseconds(value)
         elif isinstance(value, np.datetime64):
+            if np.isnat(value):
+                raise ValueError("Cannot convert NaT to TimeStamp")
             value = int(pd.Timestamp(value).value)
         elif isinstance(value, (int, float, np.integer, np.floating)):
             value = int(value)
@@ -409,7 +412,7 @@ class TimeSpan(int):
     @property
     def nanoseconds(self) -> int:
         """:returns: The integer number of nanoseconds in the TimeSpan."""
-        return int(self / TimeSpan.NANOSECOND)
+        return int(self)
 
     def trunc(self, span: CrudeTimeSpan) -> TimeSpan:
         """Truncates the TimeSpan to the nearest integer multiple of the given span.
@@ -424,7 +427,8 @@ class TimeSpan(int):
 
         :param span: The TimeSpan to truncate by.
         """
-        return TimeSpan(trunc(self / span) * span)
+        step = int(TimeSpan(span))
+        return TimeSpan(_div_toward_zero(int(self), step) * step)
 
     @property
     def timedelta(self) -> timedelta:
@@ -438,10 +442,12 @@ class TimeSpan(int):
         return TimeSpan(super().__sub__(TimeSpan(rhs)))
 
     def __mul__(self, rhs: CrudeTimeSpan | np.integer) -> TimeSpan:
-        return TimeSpan(self.nanoseconds * rhs)
+        if isinstance(rhs, np.integer):
+            rhs = int(rhs)
+        return TimeSpan(int(self) * rhs)
 
     def __truediv__(self, rhs: CrudeTimeSpan) -> TimeSpan:
-        return TimeSpan(super().__truediv__(TimeSpan(rhs)))
+        return TimeSpan(_div_toward_zero(int(self), int(TimeSpan(rhs))))
 
     def __mod__(self, rhs: CrudeTimeSpan) -> TimeSpan:
         return TimeSpan(super().__mod__(TimeSpan(rhs)))
@@ -538,6 +544,13 @@ TimeStamp.MIN = TimeStamp(0)
 TimeStamp.ZERO = TimeStamp.MIN
 TimeStamp.MAX = TimeStamp(2**63 - 1)
 
+
+def _div_toward_zero(a: int, b: int) -> int:
+    """Divides integers exactly, truncating toward zero like int(a / b)."""
+    q = abs(a) // abs(b)
+    return q if (a < 0) == (b < 0) else -q
+
+
 TimeSpanUnits = Literal["ns", "us", "ms", "s", "m", "h", "d", "iso"]
 
 
@@ -562,6 +575,8 @@ def convert_time_units(
     if t == 0:
         raise ValueError(f"Invalid output time unit {to}")
 
+    if to == TimeSpan.NANOSECOND_UNITS and np.issubdtype(data.dtype, np.integer):
+        return data.astype(np.int64) * int(f)
     converted = data * f / t
     if to == TimeSpan.SECOND_UNITS:
         return converted.astype(np.float64)
@@ -618,7 +633,10 @@ class Rate(float):
     def span(self, sample_count: int) -> TimeSpan:
         """:returns: the TimeSpan that corresponds to the given number of samples at
         this rate."""
-        return self.period * sample_count
+        # repr gives the shortest decimal that round-trips, so Rate(0.1) is 1/10 and
+        # not the binary float just below it.
+        rate = Fraction(repr(float(self)))
+        return TimeSpan(int(Fraction(sample_count * int(TimeSpan.SECOND)) / rate))
 
     def size_span(self, size: Size, density: Density) -> TimeSpan:
         """:returns: the TimeSpan that corresponds to the given number of bytes at this
@@ -736,11 +754,23 @@ class TimeRange(BaseModel):
         pv = TimeStamp(value)
         return pv.after_eq(self.start) and pv.before(self.end)
 
-    def overlaps_with(self, tr: TimeRange) -> bool:
-        """:returns: True if the time ranges overlap.
+    def overlaps_with(self, tr: TimeRange, delta: CrudeTimeSpan = 0) -> bool:
+        """:returns: True if the time ranges share at least delta of time. Ranges that
+        only touch at a boundary do not overlap.
         :param tr: The time range to compare against.
+        :param delta: The minimum shared span. Defaults to zero.
         """
-        return self == tr or self.contains(tr.end) or tr.contains(self)
+        other = tr.make_valid()
+        rng = self.make_valid()
+        if rng == other:
+            return rng.span >= TimeSpan(delta)
+        if other.end == rng.start or rng.end == other.start:
+            return False
+        start = max(rng.start, other.start)
+        end = min(rng.end, other.end)
+        if end < start:
+            return False
+        return TimeSpan(int(end) - int(start)) >= TimeSpan(delta)
 
     def swap(self) -> TimeRange:
         """:returns: A new TimeRange with the start and end values swapped. Note that
@@ -899,7 +929,7 @@ class Size(int):
     def kb_int(self) -> int:
         """:returns: The integer number of kilobytes in the Size, NOT including
         fractional gigabytes"""
-        return int(self / Size.GB)
+        return int(self / Size.KB)
 
     @property
     def bytes(self) -> int:
@@ -959,58 +989,65 @@ class DataType(str):
         if isinstance(value, str):
             return super().__new__(cls, value)
 
-        if isinstance(value, np.number):
-            result = DataType._FROM_NUMPY.get(np.dtype(value), None)
-            if result is not None:
-                return result
-
-        if isinstance(value, (bool, np.bool_)):
-            return DataType.BOOLEAN
-
-        if isinstance(value, float):
-            return DataType.FLOAT64
-
-        if isinstance(value, int):
-            return DataType.INT64
-
-        if isinstance(value, uuid.UUID):
-            return DataType.UUID
+        if isinstance(value, (int, float, np.number, np.bool_, dict, uuid.UUID)):
+            return DataType._from_sample(value)
 
         if isinstance(value, list):
             if len(value) == 0:
                 raise ValueError("Cannot extract a data type from an empty list")
 
-            if isinstance(value[0], TimeStamp):
-                return DataType.TIMESTAMP
-
-            if isinstance(value[0], (bool, np.bool_)):
-                return DataType.BOOLEAN
-
-            if isinstance(value[0], float):
-                return DataType.FLOAT64
-
-            if isinstance(value[0], int):
-                return DataType.INT64
-
-            if isinstance(value[0], str):
-                return DataType.STRING
-
-            if isinstance(value[0], uuid.UUID):
-                return DataType.UUID
-
-            if isinstance(value[0], dict):
-                return DataType.JSON
-
-            raise TypeError(f"Cannot convert {type(value)} to DataType")
-
-        if isinstance(value, dict):
-            return DataType.JSON
+            types = {DataType._from_sample(v) for v in value}
+            if len(types) == 1:
+                return types.pop()
+            return DataType._promote(types, value)
 
         result = DataType._FROM_NUMPY.get(np.dtype(value), None)
         if result is not None:
             return result
 
         raise TypeError(f"Cannot convert {type(value)} to DataType")
+
+    @staticmethod
+    def _from_sample(value: Any) -> DataType:
+        if isinstance(value, str):
+            return DataType.STRING
+        if isinstance(value, dict):
+            return DataType.JSON
+        if isinstance(value, TimeStamp):
+            return DataType.TIMESTAMP
+        if isinstance(value, (bool, np.bool_)):
+            return DataType.BOOLEAN
+        if isinstance(value, float):
+            return DataType.FLOAT64
+        if isinstance(value, int):
+            return DataType.INT64
+        if isinstance(value, uuid.UUID):
+            return DataType.UUID
+        if isinstance(value, np.number):
+            result = DataType._FROM_NUMPY.get(np.dtype(value), None)
+            if result is not None:
+                return result
+        raise TypeError(f"Cannot convert {type(value)} to DataType")
+
+    @staticmethod
+    def _promote(types: set[DataType], samples: list[Any]) -> DataType:
+        """Returns one numeric type that holds every sample exactly, or raises."""
+        if not all(
+            t != DataType.TIMESTAMP and t.has_np and t.np.kind in "iuf" for t in types
+        ):
+            raise TypeError(f"Cannot infer one data type from {sorted(types)}")
+        promoted = DataType(np.result_type(*(t.np for t in types)))
+        if promoted.np.kind != "f":
+            return promoted
+        ints = [int(v) for v in samples if isinstance(v, (int, np.integer))]
+        if len(ints) == len(samples):
+            if all(-(2**63) <= i < 2**63 for i in ints):
+                return DataType.INT64
+            if all(0 <= i < 2**64 for i in ints):
+                return DataType.UINT64
+        elif all(int(promoted.np.type(i)) == i for i in ints):
+            return promoted
+        raise TypeError(f"No data type in {sorted(types)} holds every value exactly")
 
     @classmethod
     def __get_pydantic_core_schema__(
@@ -1108,21 +1145,23 @@ DataType.STRING = DataType("string")
 DataType.BYTES = DataType("bytes")
 DataType.BOOLEAN = DataType("boolean")
 DataType.ALL = (
-    DataType.UUID,
-    DataType.FLOAT64,
-    DataType.FLOAT32,
-    DataType.INT64,
-    DataType.INT32,
-    DataType.INT16,
-    DataType.INT8,
-    DataType.UINT64,
-    DataType.UINT32,
-    DataType.UINT16,
+    DataType.UNKNOWN,
     DataType.UINT8,
+    DataType.UINT16,
+    DataType.UINT32,
+    DataType.UINT64,
+    DataType.INT8,
+    DataType.INT16,
+    DataType.INT32,
+    DataType.INT64,
+    DataType.FLOAT32,
+    DataType.FLOAT64,
+    DataType.BOOLEAN,
+    DataType.TIMESTAMP,
+    DataType.UUID,
     DataType.STRING,
     DataType.JSON,
     DataType.BYTES,
-    DataType.BOOLEAN,
 )
 
 CrudeTimeStamp: TypeAlias = (
@@ -1201,6 +1240,11 @@ class Bounds:
         return self.lower < value <= self.upper
 
 
+def _pack_alignment(domain_idx: int, sample_idx: int) -> int:
+    """Packs uint32 indices, wrapping each like the Go Alignment's uint32 fields."""
+    return ((domain_idx & 0xFFFFFFFF) << 32) | (sample_idx & 0xFFFFFFFF)
+
+
 class Alignment(int):
     """Alignment is two array index values that can be used to represent
     the location of a sample within an array of arrays. For example, if you have two arrays
@@ -1248,10 +1292,9 @@ class Alignment(int):
                     f"Alignment tuple must have exactly 2 elements (domain_idx, sample_idx), got {len(value)}"
                 )
             domain_idx, sample_idx = value
-            packed_value = (int(domain_idx) << 32) | int(sample_idx)
+            packed_value = _pack_alignment(int(domain_idx), int(sample_idx))
         elif sample_idx is not None:
-            # Called as Alignment(domain_idx, sample_idx)
-            packed_value = (int(value) << 32) | int(sample_idx)
+            packed_value = _pack_alignment(int(value), sample_idx)
         elif isinstance(value, (int, np.integer)):
             # Packed value or zero
             packed_value = int(value)

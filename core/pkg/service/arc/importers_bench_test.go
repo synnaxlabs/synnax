@@ -173,7 +173,8 @@ func (s benchStack) createArcs(b *testing.B, n, per, depth int) arc.Arc {
 			Text: newText("valve -> chamber\n"),
 		}
 		if i < per*depth {
-			a.Text = newText(fmt.Sprintf("import m%d\n\nvalve -> m%d.f{}\n", i/per, i/per))
+			m := i / per
+			a.Text = newText(fmt.Sprintf("import m%d\n\nvalve -> m%d.f{}\n", m, m))
 		}
 		must(b, w.Create(ctx, &a))
 	}
@@ -197,44 +198,48 @@ func resyncWork(b *testing.B, a arc.Arc) {
 // BenchmarkImporters compares two ways to find the Arcs to resync after an edit to the
 // first module: resyncing every Arc, and walking the module's incoming imports edges
 // transitively. Both then pay the per-Arc resync work for each Arc they found. n is
-// the automation count, depth the module chain length, per the importers per module.
+// the automation count, depth the module chain length, per the importers per module,
+// so I = (depth - 1) + per * depth Arcs depend on the first module. Each cell opens its
+// own stack and closes it before the next.
 func BenchmarkImporters(b *testing.B) {
 	ctx := context.Background()
-	for _, n := range []int{10, 100, 1000} {
-		for _, depth := range []int{1, 4} {
-			for _, per := range []int{1, 5} {
+	for _, n := range []int{10, 100, 1000, 10000} {
+		for _, depth := range []int{1, 4, 8} {
+			for _, per := range []int{1, 5, 25, 100} {
 				if per*depth > n {
 					continue
 				}
-				stack := openBenchStack(b)
-				root := stack.createArcs(b, n, per, depth)
 				name := fmt.Sprintf("n=%d/depth=%d/per=%d", n, depth, per)
-				b.Run("resync-all/"+name, func(b *testing.B) {
-					b.ReportAllocs()
-					for b.Loop() {
-						var arcs []arc.Arc
-						must(b, stack.svc.NewRetrieve().
-							Entries(&arcs).
-							Exec(ctx, nil))
-						for _, a := range arcs {
-							resyncWork(b, a)
+				b.Run(name, func(b *testing.B) {
+					stack := openBenchStack(b)
+					root := stack.createArcs(b, n, per, depth)
+					b.Run("resync-all", func(b *testing.B) {
+						b.ReportAllocs()
+						for b.Loop() {
+							var arcs []arc.Arc
+							must(b, stack.svc.NewRetrieve().
+								Entries(&arcs).
+								Exec(ctx, nil))
+							for _, a := range arcs {
+								resyncWork(b, a)
+							}
 						}
-					}
-				})
-				b.Run("imports-edge/"+name, func(b *testing.B) {
-					b.ReportAllocs()
-					for b.Loop() {
-						keys, err := stack.svc.Importers(ctx, nil, root.Key)
-						must(b, err)
-						var arcs []arc.Arc
-						must(b, stack.svc.NewRetrieve().
-							Where(arc.MatchKeys(keys...)).
-							Entries(&arcs).
-							Exec(ctx, nil))
-						for _, a := range arcs {
-							resyncWork(b, a)
+					})
+					b.Run("imports-edge", func(b *testing.B) {
+						b.ReportAllocs()
+						for b.Loop() {
+							keys, err := stack.svc.Importers(ctx, nil, root.Key)
+							must(b, err)
+							var arcs []arc.Arc
+							must(b, stack.svc.NewRetrieve().
+								Where(arc.MatchKeys(keys...)).
+								Entries(&arcs).
+								Exec(ctx, nil))
+							for _, a := range arcs {
+								resyncWork(b, a)
+							}
 						}
-					}
+					})
 				})
 			}
 		}

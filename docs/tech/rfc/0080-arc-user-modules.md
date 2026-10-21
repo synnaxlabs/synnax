@@ -81,24 +81,52 @@ Complexity per module save, with N Arcs and I importers of the module, transitiv
 
 Benchmark, `core/pkg/service/arc/importers_bench_test.go`, Go 1.27, one machine. N
 automations, a chain of D modules each importing the one before, P importers at every
-module. I counts the importers of the first module, transitively. Time per module save:
+module. I = (D - 1) + P x D, the Arcs that depend on the first module. Cells where
+P x D exceeds N are skipped. Time per save of that module:
 
-| N    | D   | P   | I   | Resync all | Imports edge |
-| ---- | --- | --- | --- | ---------- | ------------ |
-| 10   | 1   | 1   | 1   | 1.24 ms    | 0.07 ms      |
-| 10   | 1   | 5   | 5   | 1.02 ms    | 0.44 ms      |
-| 10   | 4   | 1   | 7   | 2.54 ms    | 1.64 ms      |
-| 100  | 1   | 1   | 1   | 11.2 ms    | 0.09 ms      |
-| 100  | 1   | 5   | 5   | 14.1 ms    | 0.42 ms      |
-| 100  | 4   | 1   | 7   | 15.7 ms    | 1.39 ms      |
-| 100  | 4   | 5   | 23  | 11.3 ms    | 2.39 ms      |
-| 1000 | 1   | 1   | 1   | 110 ms     | 0.07 ms      |
-| 1000 | 1   | 5   | 5   | 107 ms     | 0.32 ms      |
-| 1000 | 4   | 1   | 7   | 109 ms     | 1.06 ms      |
-| 1000 | 4   | 5   | 23  | 104 ms     | 2.09 ms      |
+| N     | D   | P   | I   | Resync all | Imports edge |
+| ----- | --- | --- | --- | ---------- | ------------ |
+| 10    | 1   | 1   | 1   | 1.2 ms     | 0.07 ms      |
+| 10    | 1   | 5   | 5   | 1.1 ms     | 0.33 ms      |
+| 10    | 4   | 1   | 7   | 1.8 ms     | 1.1 ms       |
+| 10    | 8   | 1   | 15  | 2.6 ms     | 3.1 ms       |
+| 100   | 1   | 1   | 1   | 11 ms      | 0.07 ms      |
+| 100   | 1   | 5   | 5   | 11 ms      | 0.34 ms      |
+| 100   | 1   | 25  | 25  | 9.8 ms     | 1.6 ms       |
+| 100   | 1   | 100 | 100 | 6.1 ms     | 6.2 ms       |
+| 100   | 4   | 1   | 7   | 12 ms      | 1.00 ms      |
+| 100   | 4   | 5   | 23  | 11 ms      | 2.0 ms       |
+| 100   | 4   | 25  | 103 | 6.8 ms     | 7.0 ms       |
+| 100   | 8   | 1   | 15  | 12 ms      | 2.3 ms       |
+| 100   | 8   | 5   | 47  | 12 ms      | 4.4 ms       |
+| 1000  | 1   | 1   | 1   | 102 ms     | 0.07 ms      |
+| 1000  | 1   | 5   | 5   | 103 ms     | 0.31 ms      |
+| 1000  | 1   | 25  | 25  | 105 ms     | 1.6 ms       |
+| 1000  | 1   | 100 | 100 | 98 ms      | 6.3 ms       |
+| 1000  | 4   | 1   | 7   | 102 ms     | 0.96 ms      |
+| 1000  | 4   | 5   | 23  | 102 ms     | 2.0 ms       |
+| 1000  | 4   | 25  | 103 | 102 ms     | 6.9 ms       |
+| 1000  | 4   | 100 | 403 | 85 ms      | 25 ms        |
+| 1000  | 8   | 1   | 15  | 104 ms     | 2.2 ms       |
+| 1000  | 8   | 5   | 47  | 102 ms     | 4.1 ms       |
+| 1000  | 8   | 25  | 207 | 95 ms      | 14 ms        |
+| 1000  | 8   | 100 | 807 | 68 ms      | 51 ms        |
+| 10000 | 1   | 1   | 1   | 1003 ms    | 0.07 ms      |
+| 10000 | 1   | 5   | 5   | 992 ms     | 0.32 ms      |
+| 10000 | 1   | 25  | 25  | 998 ms     | 1.6 ms       |
+| 10000 | 1   | 100 | 100 | 988 ms     | 6.3 ms       |
+| 10000 | 4   | 1   | 7   | 1013 ms    | 1.00 ms      |
+| 10000 | 4   | 5   | 23  | 992 ms     | 2.0 ms       |
+| 10000 | 4   | 25  | 103 | 1020 ms    | 7.1 ms       |
+| 10000 | 4   | 100 | 403 | 1006 ms    | 32 ms        |
+| 10000 | 8   | 1   | 15  | 1038 ms    | 2.3 ms       |
+| 10000 | 8   | 5   | 47  | 1055 ms    | 4.9 ms       |
+| 10000 | 8   | 25  | 207 | 1017 ms    | 15 ms        |
+| 10000 | 8   | 100 | 807 | 1034 ms    | 53 ms        |
 
-Resync all grows with N, about 0.1 ms per Arc. The edge grows with I and D only, about
-0.07 ms per importer and 0.3 ms per level, and is flat in N.
+Resync all grows with N, about 0.1 ms per Arc stored, whatever I is. The edge grows
+with I and D only, about 0.06 ms per dependent Arc and about 0.3 ms per level, and is
+flat in N.
 
 Other uses, each one traversal instead of a parse of every Arc (IMPORTANT!):
 

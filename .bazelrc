@@ -16,12 +16,6 @@ build --enable_platform_specific_config
 # enough to hit this. Collect duplicate entries only.
 common --repo_contents_cache_gc_max_age=0
 
-# The remote cache can return an action-cache hit whose output blobs have been evicted
-# from the CAS, so a later action fails to fetch them ("Failed to fetch blobs because of
-# a remote cache error"). Rewinding re-runs the actions that produced the lost blobs
-# instead of failing, which keeps Build without the Bytes on.
-build --rewind_lost_inputs
-
 # Use OpenSSl instead of BoringSSL for grpc
 build --@grpc//third_party:grpc_use_openssl=true
 

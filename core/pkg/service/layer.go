@@ -21,6 +21,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
+	passwordversions "github.com/synnaxlabs/synnax/pkg/service/auth/password/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
@@ -71,6 +73,7 @@ import (
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 // LayerConfig is the configuration for opening the service layer. See fields for
@@ -93,6 +96,10 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL]
 	RootCredentials auth.Credentials
+	// FIPS restricts password hashing to PBKDF2, the one password hash NIST approves.
+	//
+	// [OPTIONAL] - Defaults to false.
+	FIPS *bool
 	// License configures the license service. The layer supplies its DB and
 	// instrumentation.
 	//
@@ -125,6 +132,7 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.Security = override.Nil(c.Security, other.Security)
 	c.Storage = override.Nil(c.Storage, other.Storage)
 	c.RootCredentials = override.Zero(c.RootCredentials, other.RootCredentials)
+	c.FIPS = override.Nil(c.FIPS, other.FIPS)
 	c.License = c.License.Override(other.License)
 	c.ValidateChannelNames = override.Nil(
 		c.ValidateChannelNames, other.ValidateChannelNames,
@@ -156,8 +164,8 @@ type Layer struct {
 	User *user.Service
 	// RBAC implements role-based access control for users.
 	RBAC *rbac.Service
-	// Auth validates credentials and manages credential storage.
-	Auth *auth.Service
+	// Password stores passwords and checks proofs of them.
+	Password *password.Service
 	// Token is for creating and validating authentication tokens.
 	Token *token.Service
 	// Ranger is for working with ranges.
@@ -278,12 +286,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Ontology:        l.Ontology,
 		Search:          l.Search,
 	}); !ok(err, nil) {
-		return nil, err
-	}
-	if l.Auth, err = auth.OpenService(ctx, auth.ServiceConfig{
-		Instrumentation: cfg.Child("auth"),
-		DB:              cfg.Distribution.DB,
-	}); !ok(err, l.Auth) {
 		return nil, err
 	}
 	if l.Label, err = label.OpenService(ctx, label.ServiceConfig{
@@ -413,10 +415,39 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Search:          l.Search,
 		Group:           l.Group,
 		Signals:         l.Signals,
-		Auth:            l.Auth,
-		RootCredentials: cfg.RootCredentials,
 	}); !ok(err, l.User) {
 		return nil, err
+	}
+	if err = passwordversions.MoveLegacy(
+		ctx,
+		cfg.Distribution.DB,
+		cfg.Child("password"),
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if l.Password, err = password.OpenService(ctx, password.ServiceConfig{
+		Instrumentation: cfg.Child("password"),
+		DB:              cfg.Distribution.DB,
+		FIPS:            cfg.FIPS,
+	}); !ok(err, l.Password) {
+		return nil, err
+	}
+	if !cfg.RootCredentials.IsZero() {
+		var changed bool
+		if _, changed, err = user.ProvisionRoot(
+			ctx,
+			l.User,
+			l.Password,
+			cfg.RootCredentials,
+		); !ok(err, nil) {
+			return nil, err
+		}
+		if changed {
+			cfg.L.Info(
+				"rotated root user password to match the start settings",
+				zap.String("username", cfg.RootCredentials.Username),
+			)
+		}
 	}
 	if l.RBAC, err = rbac.OpenService(ctx, rbac.ServiceConfig{
 		Instrumentation: cfg.Child("rbac"),

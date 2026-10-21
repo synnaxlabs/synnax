@@ -419,7 +419,8 @@ class TestChannel:
             assert retrieved.name == name
 
     @pytest.fixture(scope="class")
-    def hundred_channels(self, client: sy.Synnax) -> list[sy.Channel]:
+    @classmethod
+    def hundred_channels(cls, client: sy.Synnax) -> list[sy.Channel]:
         data = [
             sy.Channel(
                 name=f"sensor_{i + 1}_{channel_name()}",
@@ -593,12 +594,14 @@ class TestChannelRetrieveFilters:
     """Tests the filters accepted by the channel client's retrieve method."""
 
     @pytest.fixture(scope="class")
-    def prefix(self) -> str:
+    @classmethod
+    def prefix(cls) -> str:
         return channel_name()
 
     @pytest.fixture(scope="class")
+    @classmethod
     def create_channels(
-        self, client: sy.Synnax, prefix: str
+        cls, client: sy.Synnax, prefix: str
     ) -> tuple[sy.Channel, sy.Channel, sy.Channel]:
         idx = client.channels.create(name=f"{prefix}_idx", is_index=True)
         data = client.channels.create(
@@ -752,6 +755,38 @@ class TestChannelRetrieveFilters:
             "aliased"
         )
         assert client.channels.retrieve(data.key).alias is None
+
+    def test_include_status(
+        self,
+        client: sy.Synnax,
+        create_channels: tuple[sy.Channel, sy.Channel, sy.Channel],
+    ) -> None:
+        """Should attach the status of a channel that has one"""
+        virt = create_channels[2]
+        client.statuses.set(
+            sy.Status(
+                key=str(virt.ontology_id),
+                name=virt.name,
+                variant=sy.status.VARIANT_SUCCESS,
+                message="ok",
+            )
+        )
+        res = client.channels.retrieve(virt.key, include_status=True)
+        assert res.status is not None
+        assert res.status.message == "ok"
+        assert res.status.details == {}
+        assert client.channels.retrieve(virt.key).status is None
+
+    def test_include_status_none(
+        self,
+        client: sy.Synnax,
+        create_channels: tuple[sy.Channel, sy.Channel, sy.Channel],
+    ) -> None:
+        """Should leave the status empty for a channel that has none"""
+        idx = create_channels[0]
+        res = client.channels.retrieve([idx.key], include_status=True)
+        assert len(res) == 1
+        assert res[0].status is None
 
 
 class TestChannelRetriever:
