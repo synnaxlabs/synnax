@@ -62,6 +62,9 @@ type node struct {
 	// entry marks a node with no incoming edges and no channel reads. Entry
 	// nodes fire once per activation.
 	entry bool
+	// done is the markedFlags index of the node's ir.DoneParam pseudo-output, -1
+	// when no transition waits on it.
+	done int
 }
 
 // member mirrors an ir.Member: exactly one of node or scope is set.
@@ -292,6 +295,9 @@ func (s *Scheduler) executeMember(stratumIdx int, m *member) {
 		s.firedFlags[idx] = 1
 		s.currNode = m.node
 		s.currNode.Next(s.nodeCtx)
+		if m.node.done >= 0 {
+			s.markedFlags[m.node.done] = 1
+		}
 	}
 }
 

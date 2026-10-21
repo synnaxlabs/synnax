@@ -154,6 +154,7 @@ func newBuilder(prog ir.IR, runtimeNodes map[string]rnode.Node) *builder {
 			key:     n.Key,
 			idx:     i,
 			entry:   n.IsEntryNode(prog.Edges),
+			done:    -1,
 			Node:    runtimeNodes[n.Key],
 			outputs: make([]outputResolved, 0, len(n.Outputs)),
 		}
@@ -327,6 +328,9 @@ func (b *builder) resolveTransitions(state *scope, transitions []ir.Transition) 
 		if on.outputs[oIdx].markHandleIdx == -1 {
 			on.outputs[oIdx].markHandleIdx = b.nextHandleIdx
 			b.nextHandleIdx++
+		}
+		if t.On.Param == ir.DoneParam {
+			on.done = on.outputs[oIdx].markHandleIdx
 		}
 		state.transitionOnNode[i] = on
 		state.transitionOnOutputIdx[i] = oIdx

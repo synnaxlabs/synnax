@@ -90,6 +90,9 @@ class Scheduler {
         /// @brief marks a node with no incoming edges and no channel reads.
         /// Entry nodes fire once per activation.
         bool entry = false;
+        /// @brief marked_flags index of the node's ir::done_param pseudo-output,
+        /// NO_INDEX when no transition waits on it.
+        size_t done = NO_INDEX;
         /// @brief propagation table indexed by output ordinal.
         std::vector<OutputResolved> outputs;
     };
@@ -331,6 +334,8 @@ private:
             this->fired_flags[idx] = 1;
             this->curr_node = m.node;
             this->nodes[this->curr_node].node->next(this->ctx);
+            if (this->nodes[idx].done != NO_INDEX)
+                this->marked_flags[this->nodes[idx].done] = 1;
         }
     }
 
@@ -801,6 +806,8 @@ private:
             auto &out = on_node.outputs[out_idx];
             if (out.mark_handle_idx == NO_INDEX)
                 out.mark_handle_idx = this->next_handle_idx++;
+            if (transitions[i].on.param == ir::done_param)
+                on_node.done = out.mark_handle_idx;
             state.transition_on_node[i] = on;
             state.transition_on_output_idx[i] = out_idx;
             state.transition_on_idx[i] = out.mark_handle_idx;

@@ -75,6 +75,9 @@ const (
 	// RHSInputParam is the right-hand side parameter name for binary operators.
 	// Use this as the second operand name in operations like add, multiply, etc.
 	RHSInputParam = "b"
+	// DoneParam names the pseudo-output a node marks after it runs. A transition on
+	// it fires when the node ran, so a node without outputs can complete a step.
+	DoneParam = "$done"
 )
 
 func (i *IR) IsZero() bool {

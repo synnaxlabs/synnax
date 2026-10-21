@@ -201,6 +201,20 @@ ir_node(const std::string &key, std::initializer_list<std::string> outputs = {})
     return n;
 }
 
+inline ir::Node reader_node(const std::string &key) {
+    auto n = ir_node(key);
+    n.channels.read[1] = "ch";
+    return n;
+}
+
+inline ir::Transition done_transition(const std::string &node_key, ir::Target target) {
+    ir::Transition t;
+    t.on = ir::Handle{node_key, ir::done_param};
+    t.kind = ir::EdgeKind::Continuous;
+    t.target = std::move(target);
+    return t;
+}
+
 /// @brief builds an IR program from the given nodes, edges, and root
 /// scope. Output names are declared per node via ir_node — the
 /// scheduler reads them exclusively from ir::Node::outputs.
