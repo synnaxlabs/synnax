@@ -15,7 +15,7 @@ from typing import Any
 
 import synnax as sy
 from framework.utils import create_indexed_channel, create_time_index
-from x import suppress_websocket_errors
+from framework.websocket import suppress_websocket_errors
 
 
 class TelemetryWriter:

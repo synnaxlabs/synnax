@@ -29,7 +29,7 @@ const auto EMISSION_RATE = x::telem::HERTZ * 1;
 
 class Source final : public driver::pipeline::Base {
     /// @brief the key of the rack the heartbeat is for.
-    const synnax::rack::Rack rack;
+    const synnax::rack::Key rack_key;
     const synnax::task::Task task;
     /// @brief the loop used to control the emission rate of the heartbeat.
     x::loop::Timer loop;
@@ -51,7 +51,7 @@ public:
             },
             TASK_NAME
         ),
-        rack(rack),
+        rack_key(rack.key),
         task(task),
         loop(x::loop::Timer(EMISSION_RATE)),
         ctx(ctx) {}
@@ -73,19 +73,20 @@ public:
         while (breaker.running()) {
             this->loop.wait(breaker);
             synnax::rack::Status status{
-                .key = synnax::rack::ontology_id(this->rack.key).string(),
-                .name = this->rack.name,
+                .key = synnax::rack::ontology_id(this->rack_key).string(),
+                .name = this->ctx->rack_name(),
                 .variant = ::synnax::status::VARIANT_SUCCESS,
                 .message = "Driver is running",
                 .time = x::telem::TimeStamp::now(),
-                .details = synnax::rack::StatusDetails{.rack = this->rack.key}
+                .details = synnax::rack::StatusDetails{.rack = this->rack_key}
             };
             if (const auto err = this->ctx->client->statuses
                                      .set<synnax::rack::StatusDetails>(status);
                 err)
                 LOG(ERROR) << "[rack_status] error updating status: " << err;
             else
-                VLOG(1) << "[rack_status] successfully set status for " << this->rack;
+                VLOG(1) << "[rack_status] successfully set status for rack "
+                        << this->rack_key;
         }
         stat.message = "Stopped";
         stat.time = x::telem::TimeStamp::now();

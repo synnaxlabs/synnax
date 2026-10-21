@@ -20,7 +20,7 @@ from freighter import EOF, ExceptionPayload, Stream, WebsocketClient
 from freighter.transport import P
 from freighter.websocket import Message
 from synnax.framer.adapter import ReadFrameAdapter
-from synnax.framer.codec import LOW_PERF_SPECIAL_CHAR, WSFramerCodec
+from synnax.framer.codec import LOW_PERF_SPECIAL_CHAR, WSCodec
 from synnax.framer.common import validate_downsample_factor
 from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import TimeRange, TimeSpan, TimeStamp
@@ -64,7 +64,7 @@ class _Response(BaseModel):
     frame: FramePayload
 
 
-class WSIteratorCodec(WSFramerCodec):
+class WSIteratorCodec(WSCodec):
     def encode(self, data: BaseModel) -> bytes:
         return self.lower_perf_codec.encode(data)
 
