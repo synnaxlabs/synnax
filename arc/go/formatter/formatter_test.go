@@ -762,6 +762,13 @@ var _ = Describe("Formatter", func() {
 			"func f() {\n    for i, x := data {\n        if x > peak {\n            peak = x\n            peak_idx = i\n        }\n    }\n}",
 			"func f() {\n    for i, x := data {\n        if x > peak {\n            peak = x\n            peak_idx = i\n        }\n    }\n}\n",
 		),
+		Entry(
+			"long call in a func body stays on its line",
+			"func f() {x f64} f64 {\n    return math.clamp(x, "+
+				"lower_bound_of_the_allowed_range, upper_bound_of_the_allowed_range)\n}",
+			"func f() {x f64} f64 {\n    return math.clamp(x, "+
+				"lower_bound_of_the_allowed_range, upper_bound_of_the_allowed_range)\n}\n",
+		),
 	)
 
 	DescribeTable(

@@ -10,6 +10,7 @@
 package formatter
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -22,6 +23,7 @@ type braceContext int
 const (
 	braceContextBlock braceContext = iota
 	braceContextTriggerList
+	braceContextFuncBody
 	braceContextStageBody
 	braceContextSequenceBody
 )
@@ -58,6 +60,8 @@ type printer struct {
 	// body. While set, commas are part of the for-clause (`for i, x := data`)
 	// and must not trigger line breaks.
 	inForHeader bool
+	// inFuncHeader is true between a `func` keyword and the `{` of its body.
+	inFuncHeader bool
 	// reactiveBodyMultiline is a stack tracking, for each currently-open stage
 	// or stageless sequence body, whether the opener emitted a newline and
 	// incremented indent (true) or emitted `{}` as a truly-empty body (false).
@@ -338,6 +342,9 @@ func (p *printer) detectBraceContext(idx int, tokens []antlr.Token) braceContext
 	if p.isSequenceBody(idx, tokens) {
 		return braceContextSequenceBody
 	}
+	if p.inFuncHeader {
+		return braceContextFuncBody
+	}
 	return braceContextBlock
 }
 
@@ -402,7 +409,8 @@ func (p *printer) isTriggerList(idx int, tokens []antlr.Token) bool {
 // isInputValuesParen matches a paren touching a name in flow position.
 func (p *printer) isInputValuesParen(idx int, tokens []antlr.Token) bool {
 	if idx < 1 || tokens[idx-1].GetTokenType() != parser.ArcLexerIDENTIFIER ||
-		!p.tokensAdjacent(tokens[idx-1], tokens[idx]) {
+		!p.tokensAdjacent(tokens[idx-1], tokens[idx]) ||
+		slices.Contains(p.braceContextStack, braceContextFuncBody) {
 		return false
 	}
 	// Walk back through the preceding expression to find the enclosing
@@ -587,6 +595,9 @@ func (p *printer) handleOpenBrace(idx int, tokens []antlr.Token) {
 	p.braceContextStack = append(p.braceContextStack, ctx)
 	p.delimiterStack = append(p.delimiterStack, parser.ArcLexerLBRACE)
 	p.inForHeader = false
+	if ctx == braceContextFuncBody {
+		p.inFuncHeader = false
+	}
 
 	if ctx == braceContextTriggerList {
 		p.writeSpace()
@@ -1033,6 +1044,9 @@ func (p *printer) handleDefault(tok antlr.Token, idx int, tokens []antlr.Token) 
 
 	if tokType == parser.ArcLexerFOR {
 		p.inForHeader = true
+	}
+	if tokType == parser.ArcLexerFUNC {
+		p.inFuncHeader = true
 	}
 
 	if p.needsNewlineBefore(tokType) {

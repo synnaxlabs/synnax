@@ -203,8 +203,14 @@ func compileFunctionCallExpr[T antlr.ParserRuleContext](
 		i := arg.Index
 		if arg.Name != "" {
 			i = funcType.Inputs.GetIndex(arg.Name)
+			if i < 0 {
+				return types.Type{}, errors.Newf(
+					"function %s has no parameter %s",
+					funcName, arg.Name,
+				)
+			}
 		}
-		if i < 0 || i >= totalCount {
+		if i >= totalCount {
 			return types.Type{}, errors.Newf(
 				"function %s expects at most %d arguments",
 				funcName, totalCount,
