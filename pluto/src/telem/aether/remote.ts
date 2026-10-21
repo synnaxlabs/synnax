@@ -47,7 +47,7 @@ import {
 
 /** The slice of a Synnax client that remote telemetry sources consume. */
 export interface Client {
-  feed: Pick<framer.Feed, "read" | "stream" | "readLatest">;
+  feed: Pick<framer.Feed, "read" | "stream" | "readLatest" | "lastWrite">;
   channels: {
     retrieve: (ch: channel.Key | channel.Name) => Promise<channel.Channel>;
   };
@@ -140,6 +140,7 @@ export class StreamChannelValue
 
   private readonly client: Client | null;
   private removeStreamHandler: destructor.Destructor | null = null;
+  private key: channel.Key = 0;
   private leadingBuffer: Series | null = null;
   private sampleTime_: TimeStamp | null = null;
   private generation = 0;
@@ -153,6 +154,12 @@ export class StreamChannelValue
 
   sampleTime(): TimeStamp | null {
     return this.sampleTime_;
+  }
+
+  /** @returns the Core's stamp of the newest sample, live from the feed or stored. */
+  lastWrite(): TimeStamp | null {
+    const live = this.key === 0 ? null : this.client?.feed.lastWrite(this.key);
+    return live ?? this.sampleTime_;
   }
 
   /** @returns the leading series buffer for testing purposes. */
@@ -173,6 +180,7 @@ export class StreamChannelValue
     this.leadingBuffer?.release();
     this.leadingBuffer = null;
     this.sampleTime_ = null;
+    this.key = 0;
     this.removeStreamHandler = null;
   }
 
@@ -216,6 +224,7 @@ export class StreamChannelValue
         this.notify();
       };
       if (generation !== this.generation) return;
+      this.key = ch.key;
       this.removeStreamHandler = client.feed.stream(handler, [ch.key]).close;
       // Opening the stream is not a sample. Notify only when a buffer already holds
       // one, so a consumer that counts arrivals does not count the open.

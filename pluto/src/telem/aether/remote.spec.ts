@@ -78,6 +78,7 @@ describe("remote", () => {
 
       feed = {
         readLatest: async (): Promise<MultiSeries> => new MultiSeries([]),
+        lastWrite: (): TimeStamp | null => null,
         read: async (): Promise<MultiSeries> => this.response,
         stream: (
           handler: framer.StreamHandler,
@@ -434,6 +435,52 @@ describe("remote", () => {
           expect(scv.sampleTime()).toBeNull();
         });
       });
+
+      describe("lastWrite", () => {
+        const STAMP = TimeStamp.seconds(200);
+
+        it("should be null before the stream opens", () => {
+          c.feed.lastWrite = () => STAMP;
+          const scv = new StreamChannelValue(c, { channel: c.channel.key });
+          expect(scv.lastWrite()).toBeNull();
+        });
+
+        it("should be the stamp the feed reports for the channel", async () => {
+          c.feed.lastWrite = vi.fn(() => STAMP);
+          const scv = new StreamChannelValue(c, { channel: c.channel.key });
+          await waitForStream(scv, c);
+          expect(scv.lastWrite()?.equals(STAMP)).toBe(true);
+          expect(c.feed.lastWrite).toHaveBeenCalledWith(c.channel.key);
+        });
+
+        it("should fall back to the initial sample's time", async () => {
+          c.feed.readLatest = async () => new MultiSeries([stored()]);
+          const scv = new StreamChannelValue(c, { channel: c.channel.key });
+          await waitForResolve(scv);
+          expect(scv.lastWrite()?.equals(SAMPLE_TIME)).toBe(true);
+        });
+
+        it("should prefer the feed's stamp over the initial sample", async () => {
+          c.feed.lastWrite = () => STAMP;
+          c.feed.readLatest = async () => new MultiSeries([stored()]);
+          const scv = new StreamChannelValue(c, { channel: c.channel.key });
+          await waitForResolve(scv);
+          expect(scv.lastWrite()?.equals(STAMP)).toBe(true);
+        });
+
+        it("should be null after cleanup", async () => {
+          c.feed.lastWrite = () => STAMP;
+          const scv = new StreamChannelValue(c, { channel: c.channel.key });
+          await waitForStream(scv, c);
+          scv.cleanup();
+          expect(scv.lastWrite()).toBeNull();
+        });
+
+        it("should be null without a client", () => {
+          const scv = new StreamChannelValue(null, { channel: c.channel.key });
+          expect(scv.lastWrite()).toBeNull();
+        });
+      });
     });
   });
 
@@ -460,6 +507,7 @@ describe("remote", () => {
 
       feed = {
         readLatest: async (): Promise<MultiSeries> => new MultiSeries([]),
+        lastWrite: (): TimeStamp | null => null,
         read: async (): Promise<MultiSeries> => this.response,
         stream: (
           handler: framer.StreamHandler,
@@ -819,6 +867,7 @@ describe("remote", () => {
 
       feed = {
         readLatest: async (): Promise<MultiSeries> => new MultiSeries([]),
+        lastWrite: (): TimeStamp | null => null,
         read: async (tr: TimeRange, key: channel.Key): Promise<MultiSeries> => {
           this.readMock(tr, key);
           return this.response[key];
@@ -1222,6 +1271,7 @@ describe("remote", () => {
 
       feed = {
         readLatest: async (): Promise<MultiSeries> => new MultiSeries([]),
+        lastWrite: (): TimeStamp | null => null,
         read: async (tr: TimeRange, key: channel.Key): Promise<MultiSeries> => {
           this.readMock(tr, key);
           return this.response;
