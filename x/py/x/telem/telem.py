@@ -86,6 +86,8 @@ class TimeStamp(int):
         elif isinstance(value, timedelta):
             value = _timedelta_nanoseconds(value)
         elif isinstance(value, np.datetime64):
+            if np.isnat(value):
+                raise ValueError("Cannot convert NaT to TimeStamp")
             value = int(pd.Timestamp(value).value)
         elif isinstance(value, (int, float, np.integer, np.floating)):
             value = int(value)

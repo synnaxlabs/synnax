@@ -40,9 +40,6 @@ struct RetrieveOptions {
     /// @brief If true, compiles the Arc text to a module with IR and WASM bytecode.
     bool compile = false;
 
-    /// @brief If true, includes the runtime status of the Arc program.
-    bool include_status = false;
-
     /// @brief Maximum number of results to return (0 = unlimited).
     int32_t limit = 0;
 
@@ -55,7 +52,6 @@ struct RetrieveOptions {
     /// @brief Applies these options to a protobuf retrieve request.
     void apply(grpc::arc::RetrieveRequest &req) const {
         req.set_compile(compile);
-        req.set_include_status(include_status);
         if (limit > 0) req.set_limit(limit);
         if (offset > 0) req.set_offset(offset);
         if (!search_term.empty()) req.set_search_term(search_term);
@@ -103,7 +99,7 @@ public:
 
     /// @brief Retrieves an Arc program by its name.
     /// @param name The name of the Arc program to retrieve.
-    /// @param options Optional retrieve options (compile, include_status, etc.).
+    /// @param options Optional retrieve options (compile, limit, etc.).
     /// @returns A pair containing the retrieved Arc program and an error.
     /// If the Arc program does not exist or multiple programs have the same name,
     /// an error is returned.
@@ -114,7 +110,7 @@ public:
 
     /// @brief Retrieves an Arc program by its key (UUID).
     /// @param key The key of the Arc program to retrieve.
-    /// @param options Optional retrieve options (compile, include_status, etc.).
+    /// @param options Optional retrieve options (compile, limit, etc.).
     /// @returns A pair containing the retrieved Arc program and an error.
     /// If the Arc program does not exist, an error is returned.
     [[nodiscard]] std::pair<Arc, x::errors::Error> retrieve_by_key(
@@ -124,7 +120,7 @@ public:
 
     /// @brief Retrieves Arc programs by their names.
     /// @param names Vector of names of Arc programs to retrieve.
-    /// @param options Optional retrieve options (compile, include_status, etc.).
+    /// @param options Optional retrieve options (compile, limit, etc.).
     /// @returns A pair containing a vector of retrieved Arc programs and an error.
     /// If an Arc program with a given name does not exist, it will not be in the
     /// result.
@@ -135,7 +131,7 @@ public:
 
     /// @brief Retrieves Arc programs by their keys (UUIDs).
     /// @param keys Vector of keys of Arc programs to retrieve.
-    /// @param options Optional retrieve options (compile, include_status, etc.).
+    /// @param options Optional retrieve options (compile, limit, etc.).
     /// @returns A pair containing a vector of retrieved Arc programs and an error.
     /// If an Arc program with a given key does not exist, it will not be in the result.
     [[nodiscard]] std::pair<std::vector<Arc>, x::errors::Error> retrieve_by_keys(
