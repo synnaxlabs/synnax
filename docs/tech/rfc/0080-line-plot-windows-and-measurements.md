@@ -136,7 +136,7 @@ amplitude:
 - **Magnitude**: The amplitude spectrum, `2 × |X[k]| / (n × G)`, with `n` the samples in
   the block before padding and `G` the coherent gain of the window function (1 for
   `rectangular`, 0.5 for `hann`, 0.2156 for `flat_top`), and no doubling of the `k = 0`
-  bin. A sine of amplitude `A` reads `A` in the channel's units.
+  or `k = N / 2` bins. A sine of amplitude `A` reads `A` in the channel's units.
 - **Decibel scale**: `20 × log10(magnitude)`, relative to one unit of the channel. A
   zero magnitude reads as the plot's lower axis bound, never `-Infinity`.
 
