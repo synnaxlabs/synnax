@@ -670,6 +670,79 @@ describe("DynamicCache", () => {
     });
   });
 
+  describe("lastWrite", () => {
+    const stamped = (data: number[], tr: TimeRange, alignment = 0n): Series =>
+      new Series({
+        data: new Float32Array(data),
+        dataType: DataType.FLOAT32,
+        timeRange: tr,
+        alignment,
+      });
+
+    it("should be null when there is no buffer", () => {
+      const cache = new Dynamic({ dynamicBufferSize: 100 });
+      expect(cache.lastWrite).toBeNull();
+    });
+
+    it("should be the end of the last stamped write", () => {
+      const cache = new Dynamic({ dynamicBufferSize: 100 });
+      cache.write(
+        new MultiSeries([
+          stamped([1, 2, 3], TimeStamp.seconds(10).range(TimeStamp.seconds(13))),
+        ]),
+      );
+      cache.write(
+        new MultiSeries([
+          stamped([4, 5], TimeStamp.seconds(13).range(TimeStamp.seconds(15)), 3n),
+        ]),
+      );
+      expect(cache.lastWrite).toEqual(TimeStamp.seconds(15));
+    });
+
+    it("should be null for unstamped data", () => {
+      const cache = new Dynamic({ dynamicBufferSize: 100 });
+      cache.write(new MultiSeries([f32([1, 2, 3])]));
+      expect(cache.lastWrite).toBeNull();
+    });
+
+    it("should be null again when an unstamped write follows a stamped one", () => {
+      const cache = new Dynamic({ dynamicBufferSize: 100 });
+      cache.write(
+        new MultiSeries([
+          stamped([1, 2, 3], TimeStamp.seconds(10).range(TimeStamp.seconds(13))),
+        ]),
+      );
+      cache.write(new MultiSeries([f32([4, 5]).reAlign(3n)]));
+      expect(cache.lastWrite).toBeNull();
+    });
+
+    it("should follow the last write across a rotation", () => {
+      const cache = new Dynamic({ dynamicBufferSize: 2 });
+      cache.write(
+        new MultiSeries([
+          stamped([1, 2], TimeStamp.seconds(10).range(TimeStamp.seconds(12))),
+        ]),
+      );
+      cache.write(
+        new MultiSeries([
+          stamped([3, 4], TimeStamp.seconds(12).range(TimeStamp.seconds(14)), 2n),
+        ]),
+      );
+      expect(cache.lastWrite).toEqual(TimeStamp.seconds(14));
+    });
+
+    it("should be null after a flush", () => {
+      const cache = new Dynamic({ dynamicBufferSize: 100 });
+      cache.write(
+        new MultiSeries([
+          stamped([1, 2, 3], TimeStamp.seconds(10).range(TimeStamp.seconds(13))),
+        ]),
+      );
+      cache.flush();
+      expect(cache.lastWrite).toBeNull();
+    });
+  });
+
   describe("compaction", () => {
     // 100k samples of float32 is 400KB, so a buffer holding a handful of them wastes
     // far more than the floor and sits well under the fill fraction.
