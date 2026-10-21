@@ -104,8 +104,7 @@ func UnarySuite(
 				)
 				gomega.Expect(client.Send(ctx, addr, Request{ID: 1})).
 					To(gomega.Equal(Response{ID: 1}))
-				host, _, err := net.SplitHostPort(string(remote))
-				gomega.Expect(err).ToNot(gomega.HaveOccurred())
+				host, _ := testutil.MustSucceed2(net.SplitHostPort(string(remote)))
 				ip := net.ParseIP(host)
 				gomega.Expect(ip).ToNot(gomega.BeNil())
 				gomega.Expect(ip.IsLoopback()).To(gomega.BeTrue())
