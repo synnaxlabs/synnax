@@ -30,7 +30,12 @@ cc_library(
         ],
         "//conditions:default": [],
     }),
-    defines = ["CPPHTTPLIB_OPENSSL_SUPPORT"],
+    defines = [
+        "CPPHTTPLIB_OPENSSL_SUPPORT",
+        # The default backlog of 5 drops connects when tests open more at once and the
+        # accept thread lags. A dropped SYN waits at least 1s for a resend.
+        "CPPHTTPLIB_LISTEN_BACKLOG=128",
+    ],
     # cpp-httplib's TLS system-cert loading calls Apple's Security framework on macOS.
     linkopts = select({
         "@platforms//os:macos": [

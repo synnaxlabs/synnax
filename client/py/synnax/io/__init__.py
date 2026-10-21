@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from .factory import IO_FACTORY, IOFactory
+from .factory import FACTORY, Factory
 from .meta import ChannelMeta
 from .protocol import (
     BaseReader,
@@ -19,13 +19,13 @@ from .protocol import (
 )
 
 __all__ = [
-    "IO_FACTORY",
+    "FACTORY",
     "BaseReader",
     "ChannelMeta",
     "ColumnFileReader",
     "DataFrameWriter",
+    "Factory",
     "FileWriter",
-    "IOFactory",
     "ReaderType",
     "RowFileReader",
 ]
