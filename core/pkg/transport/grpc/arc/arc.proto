@@ -42,7 +42,8 @@ message RetrieveRequest {
   string search_term = 3;
   int32 limit = 4;
   int32 offset = 5;
-  bool include_status = 6;
+  reserved 6;
+  reserved "include_status";
   bool compile = 7;
 }
 

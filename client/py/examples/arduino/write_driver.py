@@ -25,7 +25,7 @@ client = sy.Synnax(
 
 command_channel = client.channels.create(
     name="arduino_command",
-    data_type="uint8",
+    data_type=sy.DataType.UINT8,
     virtual=True,
     retrieve_if_name_exists=True,
 )
