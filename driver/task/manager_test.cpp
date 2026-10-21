@@ -1304,7 +1304,29 @@ public:
         this->captured_ctx = ctx;
         return {std::make_unique<MockEchoTask>(ctx, task), true};
     }
+
+    std::vector<std::pair<synnax::task::Task, std::unique_ptr<Task>>>
+    configure_initial_tasks(
+        const std::shared_ptr<Context> &ctx,
+        const synnax::rack::Rack &
+    ) override {
+        this->captured_ctx = ctx;
+        return {};
+    }
 };
+
+/// @brief it should give tasks the rack's new name after the rack is renamed.
+TEST_F(TaskManagerTest, RackRenameUpdatesContext) {
+    auto factory = std::make_unique<ContextCaptureFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+    ASSERT_NE(f->captured_ctx, nullptr);
+    ASSERT_EQ(f->captured_ctx->rack_name(), "test_rack");
+    auto renamed = rack;
+    renamed.name = "renamed_rack";
+    ASSERT_NIL(client->racks.create(renamed));
+    ASSERT_EVENTUALLY_EQ(f->captured_ctx->rack_name(), "renamed_rack");
+}
 
 TEST_F(TaskManagerTest, ControlStateUpdatesPropagate) {
     auto f = std::make_unique<ContextCaptureFactory>();
