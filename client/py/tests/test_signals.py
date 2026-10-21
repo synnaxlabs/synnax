@@ -9,7 +9,7 @@
 
 import asyncio
 import contextlib
-from collections.abc import Callable, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
 
 import pytest
 
@@ -26,7 +26,7 @@ POLL = 0.05
 
 
 @pytest.fixture
-def signals_client(login_info: tuple[str, int, str, str]) -> Iterator[sy.Synnax]:
+def fresh_client(login_info: tuple[str, int, str, str]) -> Iterator[sy.Synnax]:
     """A client with its own signals registry, so handlers stay in one test."""
     host, port, username, password = login_info
     c = sy.Synnax(
@@ -36,12 +36,15 @@ def signals_client(login_info: tuple[str, int, str, str]) -> Iterator[sy.Synnax]
     c.close()
 
 
-def create_channel(client: sy.Synnax) -> sy.Channel:
-    return client.channels.create(
-        name=f"test_{random_name()}_virtual",
-        virtual=True,
-        data_type=sy.DataType.FLOAT64,
-    )
+@contextlib.asynccontextmanager
+async def processing(client: sy.Synnax) -> AsyncIterator[None]:
+    task = asyncio.create_task(client.signals.process())
+    try:
+        yield
+    finally:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
 
 
 async def write_until(
@@ -56,10 +59,85 @@ async def write_until(
             await asyncio.sleep(POLL)
 
 
-async def stop(task: asyncio.Task[None]) -> None:
-    task.cancel()
-    with contextlib.suppress(asyncio.CancelledError):
-        await task
+def create_channel(client: sy.Synnax) -> sy.Channel:
+    return client.channels.create(
+        name=f"test_{random_name()}_virtual",
+        virtual=True,
+        data_type=sy.DataType.FLOAT64,
+    )
+
+
+@pytest.mark.signals
+class TestRegistry:
+    """Tests registering signal handlers and dispatching streamed values to them."""
+
+    def test_on_returns_handler(
+        self, fresh_client: sy.Synnax, virtual_channel: sy.Channel
+    ) -> None:
+        """Should return the decorated handler unchanged."""
+
+        def handler(_: LatestState) -> None: ...
+
+        decorated = fresh_client.signals.on(virtual_channel.key, lambda _: True)
+        assert decorated(handler) is handler
+
+    @pytest.mark.asyncio
+    async def test_process_by_key(
+        self, fresh_client: sy.Synnax, virtual_channel: sy.Channel
+    ) -> None:
+        """Should call a handler registered by key with the latest value."""
+        values: list[SampleValue] = []
+
+        @fresh_client.signals.on(virtual_channel.key, lambda _: True)
+        def handler(state: LatestState) -> None:
+            values.append(state[virtual_channel.key])
+
+        async with processing(fresh_client):
+            await write_until(fresh_client, virtual_channel, 7, lambda: len(values) > 0)
+        assert values[-1] == 7
+
+    @pytest.mark.asyncio
+    async def test_process_by_name(
+        self, fresh_client: sy.Synnax, virtual_channel: sy.Channel
+    ) -> None:
+        """Should resolve a channel name and call the handler by name."""
+        values: list[SampleValue] = []
+
+        @fresh_client.signals.on(virtual_channel.name, lambda _: True)
+        def handler(state: LatestState) -> None:
+            values.append(state[virtual_channel.name])
+
+        async with processing(fresh_client):
+            await write_until(fresh_client, virtual_channel, 3, lambda: len(values) > 0)
+        assert values[-1] == 3
+
+    @pytest.mark.asyncio
+    async def test_process_filter(
+        self, fresh_client: sy.Synnax, virtual_channel: sy.Channel
+    ) -> None:
+        """Should call a handler only when its filter passes."""
+        key = virtual_channel.key
+        filtered: list[SampleValue] = []
+        every: list[SampleValue] = []
+
+        def above_five(state: LatestState) -> bool:
+            value = state[key]
+            return isinstance(value, float) and value > 5
+
+        @fresh_client.signals.on(key, above_five)
+        def above(state: LatestState) -> None:
+            filtered.append(state[key])
+
+        @fresh_client.signals.on(key, lambda _: True)
+        def all_values(state: LatestState) -> None:
+            every.append(state[key])
+
+        async with processing(fresh_client):
+            await write_until(fresh_client, virtual_channel, 1, lambda: len(every) > 0)
+            await write_until(
+                fresh_client, virtual_channel, 10, lambda: every[-1] == 10
+            )
+        assert set(filtered) == {10}
 
 
 @pytest.mark.signals
@@ -68,39 +146,34 @@ class TestRegistryDispatch:
 
     @pytest.mark.asyncio
     async def test_frame_without_handler_channels(
-        self, signals_client: sy.Synnax
+        self, fresh_client: sy.Synnax
     ) -> None:
         """Should not run a filter on a frame without the handler's channels."""
-        a, b = create_channel(signals_client), create_channel(signals_client)
+        a, b = create_channel(fresh_client), create_channel(fresh_client)
         a_values: list[SampleValue] = []
         b_values: list[SampleValue] = []
 
-        @signals_client.signals.on(a.key, lambda s: s[a.key] == 1)
+        @fresh_client.signals.on(a.key, lambda s: s[a.key] == 1)
         def on_a(state: LatestState) -> None:
             a_values.append(state[a.key])
 
-        @signals_client.signals.on(b.key, lambda _: True)
+        @fresh_client.signals.on(b.key, lambda _: True)
         def on_b(state: LatestState) -> None:
             b_values.append(state[b.key])
 
-        task = asyncio.create_task(signals_client.signals.process())
-        try:
-            await write_until(signals_client, b, 2, lambda: len(b_values) > 0)
-            await write_until(signals_client, a, 1, lambda: len(a_values) > 0)
-        finally:
-            await stop(task)
+        async with processing(fresh_client):
+            await write_until(fresh_client, b, 2, lambda: len(b_values) > 0)
+            await write_until(fresh_client, a, 1, lambda: len(a_values) > 0)
         assert a_values[-1] == 1
 
     @pytest.mark.asyncio
-    async def test_handler_channel_without_value(
-        self, signals_client: sy.Synnax
-    ) -> None:
+    async def test_handler_channel_without_value(self, fresh_client: sy.Synnax) -> None:
         """Should not run a filter until every handler channel has a value."""
-        a, b = create_channel(signals_client), create_channel(signals_client)
+        a, b = create_channel(fresh_client), create_channel(fresh_client)
         a_values: list[SampleValue] = []
         sums: list[float] = []
 
-        @signals_client.signals.on(a.key, lambda _: True)
+        @fresh_client.signals.on(a.key, lambda _: True)
         def on_a(state: LatestState) -> None:
             a_values.append(state[a.key])
 
@@ -110,19 +183,16 @@ class TestRegistryDispatch:
             assert isinstance(b_value, float)
             return a_value + b_value > 2
 
-        @signals_client.signals.on([a.key, b.key], sum_above_two)
+        @fresh_client.signals.on([a.key, b.key], sum_above_two)
         def on_both(state: LatestState) -> None:
             a_value, b_value = state[a.key], state[b.key]
             assert isinstance(a_value, float)
             assert isinstance(b_value, float)
             sums.append(a_value + b_value)
 
-        task = asyncio.create_task(signals_client.signals.process())
-        try:
-            await write_until(signals_client, a, 2, lambda: len(a_values) > 0)
-            await write_until(signals_client, b, 3, lambda: len(sums) > 0)
-        finally:
-            await stop(task)
+        async with processing(fresh_client):
+            await write_until(fresh_client, a, 2, lambda: len(a_values) > 0)
+            await write_until(fresh_client, b, 3, lambda: len(sums) > 0)
         assert sums[-1] == 5
 
 
@@ -142,12 +212,9 @@ class TestRegistryStreamer:
         def handler(state: LatestState) -> None:
             values.append(state[ch.key])
 
-        task = asyncio.create_task(proxied_client.signals.process())
-        try:
+        async with processing(proxied_client):
             await write_until(client, ch, 1, lambda: len(values) > 0)
             assert proxy.websockets == 1
-        finally:
-            await stop(task)
         async with asyncio.timeout(TIMEOUT):
             while proxy.websockets > 0:
                 await asyncio.sleep(POLL)
