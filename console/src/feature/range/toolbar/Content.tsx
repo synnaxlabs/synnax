@@ -19,11 +19,13 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Access, Color, Ranger, Synnax } from "@synnaxlabs/pluto";
 import { color, location, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import pluralize from "pluralize";
 import {
   type CSSProperties,
   Fragment,
@@ -50,6 +52,7 @@ import { Time } from "@/feature/range/toolbar/time";
 import { Tree } from "@/feature/range/tree";
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
+import { Modals } from "@/platform/modals";
 import { Range } from "@/platform/range";
 import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";
@@ -691,6 +694,32 @@ const Body = ({ groups }: { groups: Groups }): ReactElement => {
   );
 };
 
+const UnfavoriteAllAction = (): ReactElement | null => {
+  const dispatch = Session.useDispatch();
+  const keys = Session.Range.useSelectFavoriteKeys();
+  const confirm = Modals.useConfirm();
+  const handleError = Status.useErrorHandler();
+  if (keys.length === 0) return null;
+  const handleClick = () =>
+    handleError(async () => {
+      const confirmed = await confirm({
+        message: `Are you sure you want to unfavorite ${pluralize("range", keys.length, true)}?`,
+        description: "The ranges stay on the Core.",
+        confirm: { variant: "error", label: "Unfavorite" },
+        cancel: { label: "Cancel" },
+        title: "Range.Unfavorite all",
+        icon: <Icon.StarOutlined />,
+      });
+      if (confirmed !== true) return;
+      dispatch(Session.Range.remove({ keys }));
+    }, "Failed to unfavorite ranges");
+  return (
+    <Toolbar.Action tooltip="Unfavorite all ranges" onClick={handleClick}>
+      <Icon.StarOutlined />
+    </Toolbar.Action>
+  );
+};
+
 export const Content = (): ReactElement => {
   const [draft, setDraft] = useState<DraftState | null>(null);
   // Counts draft requests, so a suggestion that answers late opens no draft.
@@ -784,6 +813,7 @@ export const Content = (): ReactElement => {
           Ranges
         </Toolbar.Title>
         <Toolbar.Actions>
+          <UnfavoriteAllAction />
           {canRetrieve && (
             <Toolbar.Action
               className={CSS.BE(B, "explore")}

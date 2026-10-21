@@ -684,6 +684,49 @@ describe("range/Toolbar", () => {
     });
   });
 
+  describe("unfavorite all", () => {
+    it("should unfavorite every range after confirmation and keep them on the Core", async () => {
+      const span = TimeStamp.now().spanRange(TimeSpan.seconds(10));
+      const first = await createRange(uniqueName("unfavorite"), span);
+      const second = await createRange(uniqueName("unfavorite"), span);
+      const { store } = await renderToolbar({ favorites: [first, second] });
+      fireEvent.click(
+        await screen.findByRole("button", { name: "Unfavorite all ranges" }),
+      );
+      await screen.findByText("Are you sure you want to unfavorite 2 ranges?");
+      fireEvent.click(screen.getByRole("button", { name: "Unfavorite" }));
+      await waitFor(() =>
+        expect(store.getState()[Session.Range.SLICE_NAME].ranges).toEqual([]),
+      );
+      expect((await reader.ranges.retrieve(first.key)).name).toBe(first.name);
+    });
+
+    it("should keep the favorites when the confirmation is cancelled", async () => {
+      const rng = await createRange(
+        uniqueName("unfavorite"),
+        TimeStamp.now().spanRange(TimeSpan.seconds(10)),
+      );
+      const { store } = await renderToolbar({ favorites: [rng] });
+      fireEvent.click(
+        await screen.findByRole("button", { name: "Unfavorite all ranges" }),
+      );
+      await screen.findByText("Are you sure you want to unfavorite 1 range?");
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      await waitFor(() => expect(screen.queryByText("Cancel")).toBeNull());
+      expect(store.getState()[Session.Range.SLICE_NAME].ranges).toEqual([
+        { variant: "persisted", key: rng.key },
+      ]);
+    });
+
+    it("should hide the action when no range is favorited", async () => {
+      await renderToolbar();
+      await screen.findByText("Star a range to add it here");
+      expect(
+        screen.queryByRole("button", { name: "Unfavorite all ranges" }),
+      ).toBeNull();
+    });
+  });
+
   describe("drag", () => {
     it("should picture a dragged line as its range", async () => {
       const rng = await createRange(
