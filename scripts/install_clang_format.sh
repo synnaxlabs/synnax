@@ -9,7 +9,7 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-LLVM_VERSION=22
+LLVM_VERSION=23
 
 wget -O llvm.sh https://apt.llvm.org/llvm.sh
 sudo bash llvm.sh "$LLVM_VERSION"
