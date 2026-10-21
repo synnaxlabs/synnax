@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/x/query"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func createDevice(ctx SpecContext, key string) device.Device {
@@ -47,7 +48,7 @@ var _ = Describe("Rename", func() {
 	It("Should rename the device when update is granted", func(ctx SpecContext) {
 		u := createUser(ctx)
 		d := createDevice(ctx, "rename-granted")
-		grantUpdateOn(ctx, u.OntologyID(), d.OntologyID())
+		grant(ctx, access.ActionUpdate, u.OntologyID(), d.OntologyID())
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
 			apidevice.RenameRequest{Key: d.Key, Name: "After"},
@@ -59,7 +60,7 @@ var _ = Describe("Rename", func() {
 	It("Should reject an empty name", func(ctx SpecContext) {
 		u := createUser(ctx)
 		d := createDevice(ctx, "rename-empty")
-		grantUpdateOn(ctx, u.OntologyID(), d.OntologyID())
+		grant(ctx, access.ActionUpdate, u.OntologyID(), d.OntologyID())
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
 			apidevice.RenameRequest{Key: d.Key, Name: ""},
@@ -68,7 +69,7 @@ var _ = Describe("Rename", func() {
 	})
 	It("Should return a not found error for a missing device", func(ctx SpecContext) {
 		u := createUser(ctx)
-		grantUpdateOn(ctx, u.OntologyID(), device.OntologyID("missing"))
+		grant(ctx, access.ActionUpdate, u.OntologyID(), device.OntologyID("missing"))
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
 			apidevice.RenameRequest{Key: "missing", Name: "After"},
@@ -82,5 +83,32 @@ var _ = Describe("Rename", func() {
 			apidevice.RenameRequest{Key: d.Key, Name: "After"},
 		)).Error().To(MatchError(access.ErrDenied))
 		Expect(retrieveDevice(ctx, d.Key).Name).To(Equal("Before"))
+	})
+})
+
+var _ = Describe("Retrieve", func() {
+	It("Should attach only each device's own status", func(ctx SpecContext) {
+		u := createUser(ctx)
+		withStatus := createDevice(ctx, "retrieve-with-status")
+		withoutStatus := createDevice(ctx, "retrieve-without-status")
+		Expect(svc.Status.NewWriter(nil).Delete(
+			ctx, withoutStatus.OntologyID().String(),
+		)).To(Succeed())
+		grant(
+			ctx, access.ActionRetrieve, u.OntologyID(),
+			withStatus.OntologyID(), withoutStatus.OntologyID(),
+		)
+		res := MustSucceed(apiSvc.Retrieve(
+			AuthedCtx(ctx, u),
+			apidevice.RetrieveRequest{
+				Keys:          []device.Key{withoutStatus.Key, withStatus.Key},
+				IncludeStatus: true,
+			},
+		))
+		Expect(res.Devices).To(HaveLen(2))
+		Expect(res.Devices[0].Key).To(Equal(withoutStatus.Key))
+		Expect(res.Devices[0].Status).To(BeNil())
+		Expect(res.Devices[1].Key).To(Equal(withStatus.Key))
+		Expect(res.Devices[1].Status.Key).To(Equal(withStatus.OntologyID().String()))
 	})
 })

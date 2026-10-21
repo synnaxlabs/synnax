@@ -11,7 +11,7 @@ import pathlib
 
 import pytest
 
-from synnax.io import IO_FACTORY
+from synnax.io import FACTORY
 from synnax.io.protocol import RowFileReader
 
 BASE_DIR = pathlib.Path("./tests/testdata/io")
@@ -36,7 +36,7 @@ VALID_FILE_CHANNELS = [
 class TestRowFileReaders:
     @pytest.fixture
     def valid_file(self, path: str) -> RowFileReader:
-        return IO_FACTORY.new_reader(BASE_DIR / pathlib.Path(path))
+        return FACTORY.new_reader(BASE_DIR / pathlib.Path(path))
 
     def test_channels(self, valid_file: RowFileReader) -> None:
         """It should correctly return a list of the channel names in the file"""
@@ -69,7 +69,7 @@ class TestRowFileReaders:
 class TestAllStringFirstCol:
     @pytest.fixture
     def valid_file(self) -> RowFileReader:
-        return IO_FACTORY.new_reader(BASE_DIR / "valid_all_string_first_col.csv")
+        return FACTORY.new_reader(BASE_DIR / "valid_all_string_first_col.csv")
 
     def test_channels(self, valid_file: RowFileReader) -> None:
         """It should correctly return a list of the channel names in the file"""
