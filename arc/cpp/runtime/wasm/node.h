@@ -187,7 +187,7 @@ public:
 
         this->state.set_current_node_key(this->ir.key);
 
-        bool failed = false;
+        bool trapped = false;
         for (int i = 0; i < max_length; i++) {
             for (size_t j = 0; j < this->ir.inputs.size(); j++) {
                 if (!this->ir.inputs[j].value.is_null() || this->chan_inputs[j] ||
@@ -215,7 +215,7 @@ public:
                         std::to_string(max_length) + ": " + err.message()
                     )
                 );
-                failed = true;
+                trapped = true;
                 continue;
             }
 
@@ -252,7 +252,7 @@ public:
             this->state.output_time(j)->resize(off);
             if (off > 0) this->state.emit(ctx.mark_changed, j);
         }
-        if (!failed) ctx.mark_done();
+        if (!trapped) ctx.mark_done();
 
         return x::errors::NIL;
     }
