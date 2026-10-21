@@ -26,9 +26,10 @@ func compileTypeCast(
 	if !targetType.IsValid() {
 		return types.Type{}, errors.New("unknown cast target type")
 	}
-	sourceType, err := Compile(
-		ctx.Child(ctx.AST.Expression()).WithHint(targetType),
-	)
+	operand := ctx.AST.Expression()
+	// Only an all-literal operand takes its type from the cast target.
+	hint := lo.Ternary(literalOnly(operand), targetType, types.Type{})
+	sourceType, err := Compile(ctx.Child(operand).WithHint(hint))
 	if err != nil {
 		return types.Type{}, err
 	}
@@ -36,6 +37,28 @@ func compileTypeCast(
 		return types.Type{}, err
 	}
 	return targetType, nil
+}
+
+// literalOnly reports whether every leaf of node is a numeric literal.
+func literalOnly(node antlr.Tree) bool {
+	if prim, ok := node.(parser.IPrimaryExpressionContext); ok {
+		if lit := prim.Literal(); lit != nil {
+			return lit.NumericLiteral() != nil
+		}
+		if prim.LPAREN() == nil || prim.Expression() == nil {
+			return false
+		}
+		return literalOnly(prim.Expression())
+	}
+	for _, child := range node.GetChildren() {
+		if _, ok := child.(antlr.TerminalNode); ok {
+			continue
+		}
+		if !literalOnly(child) {
+			return false
+		}
+	}
+	return true
 }
 
 func extractType(typeCtx parser.ITypeContext) types.Type {

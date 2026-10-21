@@ -185,23 +185,28 @@ func InferAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) types
 				bothConcrete := elemType.Kind != types.KindVariable &&
 					nextElem.Kind != types.KindVariable
 				if bothConcrete && !Compatible(elemType, nextElem) {
-					break
+					if isSeries {
+						return types.Series(elemType)
+					}
+					return elemType
 				}
 			} else {
 				var earlyReturn bool
 				elemType, earlyReturn = inferBinaryType(elemType, nextType.Unwrap())
 				if earlyReturn {
-					break
+					if isSeries {
+						return types.Series(elemType)
+					}
+					return elemType
 				}
 			}
 		}
-		resultType := lo.Ternary(isSeries, types.Series(elemType), elemType)
-		ctx.TypeMap[ctx.AST] = resultType
-		return resultType
+		if isSeries {
+			return types.Series(elemType)
+		}
+		return elemType
 	}
-	resultType := InferMultiplicative(ctx.Child(multiplicatives[0]))
-	ctx.TypeMap[ctx.AST] = resultType
-	return resultType
+	return InferMultiplicative(ctx.Child(multiplicatives[0]))
 }
 
 func InferMultiplicative(
