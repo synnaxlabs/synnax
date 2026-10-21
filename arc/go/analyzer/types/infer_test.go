@@ -494,7 +494,11 @@ var _ = Describe("Type Inference", func() {
 			It(
 				"should stop at a series operand with an invalid element type",
 				func(bCtx SpecContext) {
-					t := inferExprType(bCtx, testResolver, "data_series + [undefined_var]")
+					t := inferExprType(
+						bCtx,
+						testResolver,
+						"data_series + [undefined_var]",
+					)
 					Expect(t.Kind).To(Equal(types.KindSeries))
 					Expect(t.Unwrap().Kind).To(Equal(types.KindInvalid))
 				},
