@@ -30,7 +30,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     CGO_ENABLED=0 go build -ldflags="-w -s" -o integration main.go
 
 # Runtime image
-FROM gcr.io/distroless/static-debian12:nonroot
+FROM gcr.io/distroless/static-debian13:nonroot
 WORKDIR /app
 COPY --from=builder /workspace/freighter/integration/integration /app/integration
 USER nonroot:nonroot

@@ -114,13 +114,13 @@ frame = sy.Frame(
     {
         "channel1": sy.Series([1, 2, 3, 4, 5]),
         "channel2": sy.Series([5, 4, 3, 2, 1]),
-        "channel3": sy.Series([1, 1]),
+        "channel3": sy.Series([1, 1, 1, 1, 1]),
     }
 )
 
-obj = frame[3]
-print(obj)  # {'channel1': 4, 'channel2': 2, 'channel3': None}
+# Index a name-keyed frame by channel name, then index the samples.
+print(frame["channel1"][3])  # 4
 
-# Convert the frame to a pandas DataFrame
+# Convert the frame to a pandas DataFrame. All series must have the same length.
 df = frame.to_df()
 print(df)

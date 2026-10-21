@@ -84,7 +84,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     fi
 
 # Stage 3: Minimal runtime image with glibc for driver support
-FROM ubuntu:24.04
+FROM ubuntu:26.04
 
 # Pass build args to final stage
 ARG VERSION=
