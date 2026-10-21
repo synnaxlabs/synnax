@@ -10,9 +10,8 @@
   },
   "dependencies": {
     "@eslint-react/eslint-plugin": "catalog:",
-    "@eslint/compat": "catalog:",
     "@eslint/js": "catalog:",
-    "eslint-plugin-react": "catalog:",
+    "@stylistic/eslint-plugin": "catalog:",
     "eslint-plugin-simple-import-sort": "catalog:",
     "globals": "catalog:",
     "typescript-eslint": "catalog:"
