@@ -14,8 +14,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import synnax as sy
-from synnax.cli import default
-from synnax.cli.channel import select_channel
+from synnax.cli import channel, default
 from synnax.cli.connect import connect_client
 from synnax.config import default_clusters
 
@@ -36,7 +35,7 @@ def check_timing() -> None:
         return
 
     # Let user select the time channel
-    time_channel = select_channel(default.context(), time_channels)
+    time_channel = channel.select(default.context(), time_channels)
     if time_channel is None:
         return
 
