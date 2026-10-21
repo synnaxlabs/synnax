@@ -179,7 +179,6 @@ class Tracer:
     class _Setter(Setter[Carrier]):
         @staticmethod
         def set(carrier: Carrier, key: str, value: str) -> None:
-            print("setting", key, value)
             carrier.set(key, value)
 
     @noopd
@@ -199,6 +198,7 @@ class Tracer:
         t = Tracer(
             otel_provider=self._otel_provider,
             otel_propagator=self._otel_propagator,
+            filter_=self._filter,
         )
         t._meta = meta
         return t
