@@ -145,13 +145,14 @@ at `ArcParser.g4:459`). When `(` touches the name, the flow node is not read as
 
 ## 3 Implementation phases
 
-One pull request. The old syntax stops parsing, so the grammar and every Arc example and
-test in the repo change together to keep `main` green.
+Three pull requests. The old syntax stops parsing, so the grammar and every Arc example
+and test in the repo change together to keep `main` green.
 
-- Grammar and the regenerated parser.
-- The function analyzer, the formatter, and the LSP.
-- `arc/docs/spec.md` and the Arc reference on the docs site.
-- Every Arc snippet in tests, integration tests, and examples.
+- **Phase 1: The swap.** Grammar and the regenerated parser, the analyzers, the
+  compiler, the formatter, the LSP, the TextMate grammar, and every Arc snippet in
+  tests, integration tests, and examples.
+- **Phase 2: Migration of stored programs.** The rewrite in §4.
+- **Phase 3: Docs.** `arc/docs/spec.md` and the Arc reference on the docs site.
 
 ## 4 Migration of stored programs
 
