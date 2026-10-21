@@ -154,6 +154,8 @@ type Scheduler struct {
 	// currNode is the node whose Next is currently executing, cached so
 	// MarkChanged / MarkSelfChanged callbacks know whom they came from.
 	currNode *node
+	// failed withholds the done mark after currNode reports an error during Next.
+	failed bool
 	// root is the program's parallel + always-live root scope.
 	root *scope
 	// visitedFlags[i] is set when node i has had its execution opportunity
@@ -294,8 +296,9 @@ func (s *Scheduler) executeMember(stratumIdx int, m *member) {
 		s.changedFlags[idx] = 0
 		s.firedFlags[idx] = 1
 		s.currNode = m.node
+		s.failed = false
 		s.currNode.Next(s.nodeCtx)
-		if m.node.done >= 0 {
+		if m.node.done >= 0 && !s.failed {
 			s.markedFlags[m.node.done] = 1
 		}
 	}
@@ -503,6 +506,7 @@ func (s *Scheduler) reserveStamps(n int) telem.TimeStamp {
 }
 
 func (s *Scheduler) reportError(err error) {
+	s.failed = true
 	if s.errorHandler != nil {
 		s.errorHandler.HandleError(s.nodeCtx.Context, s.currNode.key, err)
 	}

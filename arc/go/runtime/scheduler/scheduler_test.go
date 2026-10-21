@@ -1095,6 +1095,43 @@ var _ = Describe("Scheduler", func() {
 			},
 		)
 
+		It(
+			"Should hold the step while its node without outputs reports an error",
+			func(ctx SpecContext) {
+				mock("trigger", true)
+				first := mock("first_node")
+				first.OnNext = func(c node.Context) {
+					c.MarkSelfChanged()
+					if first.NextCalled == 1 {
+						c.ReportError(errors.New("trap"))
+					}
+				}
+				second := mock("second_node")
+				firstStep := step("first", "first_node")
+				secondStep := step("second", "second_node")
+				main := sequentialScope("main",
+					[]ir.Member{{Scope: &firstStep}, {Scope: &secondStep}},
+					doneTransition("first_node", stepKeyTarget("second")),
+				)
+				main.Activations = triggered
+				s := build(programOf(
+					[]ir.Node{
+						irNode("trigger", "output"),
+						irNode("first_node"),
+						irNode("second_node"),
+					},
+					nil,
+					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
+				))
+				s.Next(ctx, cycle)
+				Expect(first.NextCalled).To(Equal(1))
+				Expect(second.NextCalled).To(Equal(0))
+				s.Next(ctx, cycle)
+				Expect(first.NextCalled).To(Equal(2))
+				Expect(second.NextCalled).To(Equal(1))
+			},
+		)
+
 		It("Should interleave done and output transitions", func(ctx SpecContext) {
 			mock("trigger", true)
 			first := mock("first_node")

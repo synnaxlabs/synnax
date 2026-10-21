@@ -19,8 +19,8 @@ inline const std::string default_output_param = "output";
 inline const std::string default_input_param = "input";
 inline const std::string lhs_input_param = "a";
 inline const std::string rhs_input_param = "b";
-/// @brief names the pseudo-output a node marks after it runs. A transition on it
-/// fires when the node ran, so a node without outputs can complete a step.
+/// @brief names the pseudo-output marked after a node runs without reporting an
+/// error, so a transition on it can complete a step whose node has no outputs.
 inline const std::string done_param = "$done";
 
 inline bool operator==(const Handle &lhs, const Handle &rhs) {

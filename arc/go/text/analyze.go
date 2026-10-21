@@ -215,9 +215,8 @@ func (s *shellBuilder) addTransitionTo(f *seqFrame, t ir.Transition) {
 	f.transitions = append(f.transitions, t)
 }
 
-// addCompletion wires a terminal step's completion as a transition of kind: the
-// nearest enclosing frame with a next member advances past its current step; a
-// frame that does not escalate its completion takes the exit instead.
+// addCompletion wires a terminal step's completion with the given kind to the nearest
+// frame that can take it.
 func (s *shellBuilder) addCompletion(on ir.Handle, kind ir.EdgeKind) {
 	for i := len(s.stack) - 1; ; i-- {
 		f := s.stack[i]
@@ -2253,7 +2252,7 @@ func addInlineMembers(scope *ir.Scope, members []ir.Member) {
 }
 
 // autoWireTransition advances past a step, or completes a terminal one, when its
-// last node emits a truthy output, or ran if it has no outputs.
+// last node emits a truthy output, or ran without error if it has no outputs.
 func autoWireTransition(shell *shellBuilder, lastNode ir.Node, nextMemberKey string) {
 	on := ir.Handle{Node: lastNode.Key, Param: ir.DoneParam}
 	kind := ir.EdgeKindContinuous
