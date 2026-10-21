@@ -14,7 +14,7 @@ from synnax.channel import Channel
 from synnax.cli.flow import Context
 
 
-def channel_name_table(
+def name_table(
     ctx: Context,
     names: list[str],
 ) -> None:
@@ -29,7 +29,7 @@ def channel_name_table(
     )
 
 
-def maybe_select_channel(
+def maybe_select(
     ctx: Context,
     channels: list[Channel],
     param: str,
@@ -45,11 +45,11 @@ def maybe_select_channel(
         return None
     if len(channels) > 1:
         ctx.console.error(f"Multiple channels found for {param}!")
-        return select_channel(ctx, channels, **kwargs)
+        return select(ctx, channels, **kwargs)
     return channels[0]
 
 
-def select_channel(
+def select(
     ctx: Context,
     channels: list[Channel],
     **kwargs: Any,
@@ -73,14 +73,12 @@ def select_channel(
     return channels[i]
 
 
-def prompt_group_channel_names(
-    ctx: Context, options: list[str]
-) -> dict[str, list[str]] | None:
+def prompt_group_names(ctx: Context, options: list[str]) -> dict[str, list[str]] | None:
     """Prompts the user to group channel names by providing a list of matchers.
 
     :param ctx: The current flow Context.
     :param options: The list of channel names to match against.
-    :param options: The grouped dict. See "group_channel_names() for reference."
+    :param options: The grouped dict. See "group_names() for reference."
     """
     ctx.console.info(
         """You can enter 'all' for all channels or a comma-separated list of:
@@ -92,10 +90,10 @@ def prompt_group_channel_names(
     response = ctx.console.ask("channels")
     if response is None:
         return None
-    return group_channel_names(ctx, options, response.split(","))
+    return group_names(ctx, options, response.split(","))
 
 
-def group_channel_names(
+def group_names(
     ctx: Context,
     options: list[str],
     matchers: list[str],

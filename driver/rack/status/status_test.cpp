@@ -17,7 +17,7 @@
 
 namespace driver::rack::status {
 /// @brief it should report nominal driver status via state streamer.
-TEST(stateTests, testNominal) {
+TEST(stateTests, Nominal) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
     auto ch = ASSERT_NIL_P(
@@ -55,9 +55,55 @@ TEST(stateTests, testNominal) {
     ASSERT_NIL(streamer.close());
 }
 
+/// @brief it should send the context's current rack name in each heartbeat.
+TEST(stateTests, RenamedRack) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
+    auto ch = ASSERT_NIL_P(
+        client->channels.retrieve(synnax::status::STATUS_SET_CHANNEL_NAME)
+    );
+    auto ctx = std::make_shared<driver::task::SynnaxContext>(client);
+    ctx->set_rack_name(rack.name);
+    auto task = synnax::task::Task{
+        .name = "state",
+        .type = driver::rack::status::TASK_TYPE,
+        .internal = true,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    auto streamer = ASSERT_NIL_P(client->telem.open_streamer(
+        synnax::framer::StreamerConfig{.channels = {ch.key}}
+    ));
+    auto hb = driver::rack::status::Task::configure(ctx, task);
+    ASSERT_NE(hb, nullptr);
+    x::defer::defer stop([&hb]() { hb->stop(false); });
+    const auto key = synnax::rack::ontology_id(rack.key).string();
+    const auto next_beat_name = [&]() -> std::string {
+        for (int i = 0; i < 50; i++) {
+            auto [frm, err] = streamer.read();
+            if (err) return "";
+            for (size_t c = 0; c < frm.size(); c++)
+                for (const auto &raw: frm.series->at(c).strings())
+                    if (const auto j = x::json::json::parse(raw); j["key"] == key)
+                        return j["name"];
+        }
+        return "";
+    };
+    ASSERT_EQ(next_beat_name(), "test_rack");
+
+    ctx->set_rack_name("renamed_rack");
+    // A beat in flight during the rename may still carry the old name.
+    bool renamed = false;
+    for (int i = 0; i < 3 && !renamed; i++)
+        renamed = next_beat_name() == "renamed_rack";
+    ASSERT_TRUE(renamed);
+    EXPECT_EQ(next_beat_name(), "renamed_rack");
+    EXPECT_EQ(next_beat_name(), "renamed_rack");
+    ASSERT_NIL(streamer.close());
+}
+
 /// @brief it should report the task as running while the heartbeat is live, and as
 /// not running once it stops.
-TEST(stateTests, testTaskRunningTransitions) {
+TEST(stateTests, TaskRunningTransitions) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
     auto ch = ASSERT_NIL_P(
