@@ -373,7 +373,7 @@ LOW_PERF_SPECIAL_CHAR = 254
 HIGH_PERF_SPECIAL_CHAR = 255
 
 
-class WSFramerCodec(XCodec):
+class WSCodec(XCodec):
     def __init__(self, codec: Codec) -> None:
         self.codec = codec
         self.lower_perf_codec = JSONCodec()
