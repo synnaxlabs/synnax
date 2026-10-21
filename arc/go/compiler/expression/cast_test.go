@@ -463,7 +463,6 @@ var _ = Describe("Type Cast of Mixed Expressions", func() {
 			Expect(bytecode).To(MatchOpcodes(expectedOpcodes...))
 		},
 
-		// i64 operand, float targets
 		Entry(
 			"i64: literal * var to f64",
 			"f64(2 * n)",
@@ -536,7 +535,6 @@ var _ = Describe("Type Cast of Mixed Expressions", func() {
 			OpI64Const, int64(5), OpLocalGet, 0, OpI64Mul, OpF64ConvertI64S,
 		),
 
-		// i64 operand, integer targets
 		Entry(
 			"i64: literal * var to i32",
 			"i32(2 * n)",
@@ -550,7 +548,6 @@ var _ = Describe("Type Cast of Mixed Expressions", func() {
 			OpI64Const, int64(1), OpLocalGet, 0, OpI64Add,
 		),
 
-		// narrower signed integer operands
 		Entry(
 			"i32: literal * var to f64",
 			"f64(2 * n)",
@@ -576,7 +573,6 @@ var _ = Describe("Type Cast of Mixed Expressions", func() {
 			OpI32Const, int32(1), OpLocalGet, 0, OpI32Add,
 		),
 
-		// unsigned operands
 		Entry(
 			"u64: literal * var to f64",
 			"f64(2 * n)",
@@ -608,7 +604,6 @@ var _ = Describe("Type Cast of Mixed Expressions", func() {
 			OpI32Const, int32(3), OpLocalGet, 0, OpI32Mul, OpI64ExtendI32U,
 		),
 
-		// float operands
 		Entry(
 			"f32: literal * var to f64",
 			"f64(2 * n)",
