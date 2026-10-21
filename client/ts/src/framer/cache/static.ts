@@ -211,6 +211,14 @@ export class Static {
     return { series: new MultiSeries(series), gaps };
   }
 
+  /** @returns the series holding the sample at alignment, else undefined. */
+  find(alignment: bigint): Series | undefined {
+    const hit = [...this.streamed, ...this.fetched].find((e) =>
+      bounds.contains(e.data.alignmentBounds, alignment),
+    );
+    return hit?.data;
+  }
+
   /** @returns the data type of the held series, or null when the cache is empty. */
   get dataType(): DataType | null {
     return (this.fetched[0]?.data ?? this.streamed[0]?.data)?.dataType ?? null;

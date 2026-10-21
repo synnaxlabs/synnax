@@ -929,4 +929,38 @@ describe("StaticReadCache", () => {
       expect(c.dirtyRead(tr).gaps).toHaveLength(1);
     });
   });
+
+  describe("find", () => {
+    const withSeries = (alignment: bigint, streamed: boolean): Static => {
+      const c = new Static({});
+      c.write(
+        new MultiSeries([
+          new Series({
+            data: new Float32Array([1, 2, 3]),
+            dataType: DataType.FLOAT32,
+            timeRange: TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3)),
+            alignment,
+          }),
+        ]),
+        streamed,
+      );
+      return c;
+    };
+
+    it("should return the fetched series holding the alignment", () => {
+      const c = withSeries(10n, false);
+      expect(c.find(12n)?.alignment).toEqual(10n);
+    });
+
+    it("should return the streamed series holding the alignment", () => {
+      const c = withSeries(10n, true);
+      expect(c.find(10n)?.alignment).toEqual(10n);
+    });
+
+    it("should be undefined outside the series", () => {
+      const c = withSeries(10n, false);
+      expect(c.find(13n)).toBeUndefined();
+      expect(c.find(9n)).toBeUndefined();
+    });
+  });
 });

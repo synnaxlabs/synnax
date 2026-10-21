@@ -19,6 +19,7 @@ import { describe, expect, it } from "vitest";
 
 import { UnexpectedError } from "@/errors";
 import { Unary } from "@/framer/cache/unary";
+import { glTransform } from "@/testutil/telem";
 
 const LEADING_ALIGNMENT = (BigInt(0xffffffff) - 1_000_000n) << 32n;
 
@@ -247,6 +248,93 @@ describe("Unary", () => {
       const u = newUnary();
       u.close();
       expect(() => u.lastWrite).toThrow(UnexpectedError);
+    });
+  });
+
+  describe("timeAt", () => {
+    const T0 = TimeStamp.seconds(1_700_000_000).valueOf();
+    // Deltas past 2^24 ns, which a float32 buffer cannot hold exactly.
+    const NS = [T0, T0 + 20_000_001n, T0 + 40_000_003n];
+    const stamps = (ns: bigint[], alignment: bigint): MultiSeries =>
+      new MultiSeries([
+        new Series({
+          data: new BigInt64Array(ns),
+          dataType: DataType.TIMESTAMP,
+          timeRange: new TimeStamp(ns[0]).range(new TimeStamp(ns[ns.length - 1] + 1n)),
+          alignment,
+        }),
+      ]);
+    const newNarrowed = (): Unary =>
+      new Unary({ dynamicBufferSize: 100, transform: glTransform });
+
+    it("should return the exact stamp of a streamed sample through the index", () => {
+      const index = newNarrowed();
+      index.writeDynamic(stamps(NS, LEADING_ALIGNMENT));
+      expect(index.leadingBuffer?.dataType.equals(DataType.FLOAT32)).toBe(true);
+      const data = newNarrowed();
+      data.index = index;
+      expect(data.timeAt(LEADING_ALIGNMENT + 1n)).toEqual(new TimeStamp(NS[1]));
+    });
+
+    it("should find a sample after the leading buffer is flushed", () => {
+      const index = newNarrowed();
+      index.writeDynamic(stamps(NS, LEADING_ALIGNMENT));
+      index.flushDynamic();
+      index.index = index;
+      expect(index.timeAt(LEADING_ALIGNMENT + 2n)).toEqual(new TimeStamp(NS[2]));
+    });
+
+    it("should find a fetched sample", () => {
+      const index = newNarrowed();
+      index.writeStatic(stamps(NS, 100n));
+      index.index = index;
+      expect(index.timeAt(101n)).toEqual(new TimeStamp(NS[1]));
+    });
+
+    it("should read stamps from the main buffer when nothing narrows them", () => {
+      const index = newUnary();
+      index.writeDynamic(stamps(NS, LEADING_ALIGNMENT));
+      index.index = index;
+      expect(index.timeAt(LEADING_ALIGNMENT + 1n)).toEqual(new TimeStamp(NS[1]));
+    });
+
+    it("should be null without an index", () => {
+      const data = newNarrowed();
+      expect(data.timeAt(LEADING_ALIGNMENT)).toBeNull();
+    });
+
+    it("should be null for an alignment the index does not hold", () => {
+      const index = newNarrowed();
+      index.writeDynamic(stamps(NS, LEADING_ALIGNMENT));
+      index.index = index;
+      expect(index.timeAt(LEADING_ALIGNMENT + 3n)).toBeNull();
+    });
+
+    it("should be null when the index holds no timestamps", () => {
+      const index = newUnary();
+      index.writeDynamic(stamped(10, 13, [1, 2, 3], LEADING_ALIGNMENT));
+      index.index = index;
+      expect(index.timeAt(LEADING_ALIGNMENT)).toBeNull();
+    });
+
+    it("should forget a sample the cache collected", () => {
+      const index = new Unary({
+        dynamicBufferSize: 100,
+        transform: glTransform,
+        staleEntryThreshold: TimeSpan.ZERO,
+      });
+      index.writeDynamic(stamps(NS, LEADING_ALIGNMENT));
+      index.flushDynamic();
+      index.index = index;
+      expect(index.timeAt(LEADING_ALIGNMENT)).not.toBeNull();
+      index.gc();
+      expect(index.timeAt(LEADING_ALIGNMENT)).toBeNull();
+    });
+
+    it("should throw after close", () => {
+      const u = newUnary();
+      u.close();
+      expect(() => u.timeAt(0n)).toThrow(UnexpectedError);
     });
   });
 });

@@ -8,10 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import {
+  bounds,
+  DataType,
   MultiSeries,
   type Series,
   type TimeRange,
-  type TimeStamp,
+  TimeStamp,
 } from "@synnaxlabs/x";
 
 import { UnexpectedError } from "@/errors";
@@ -22,6 +24,7 @@ import {
   Static,
   type StaticProps,
 } from "@/framer/cache/static";
+import { IDENTITY_TRANSFORM } from "@/framer/cache/transform";
 
 export interface UnaryProps
   extends StaticProps, Pick<DynamicProps, "dynamicBufferSize"> {}
@@ -33,20 +36,33 @@ export interface UnaryProps
  */
 export class Unary {
   private closed: boolean = false;
+  private readonly props: UnaryProps;
   private readonly static: Static;
   private readonly dynamic: Dynamic;
+  // Whether the transform narrows timestamps, so stamps need an exact copy to survive.
+  private readonly narrowed: boolean;
+  private exact: Unary | null = null;
+  /** The entry of this channel's index channel. An index channel points at itself. */
+  index: Unary | null = null;
 
   constructor(props: UnaryProps) {
+    const { transform = IDENTITY_TRANSFORM } = props;
+    this.props = props;
     this.static = new Static(props);
     this.dynamic = new Dynamic({
       dynamicBufferSize: props.dynamicBufferSize,
-      transform: props.transform,
+      transform,
       instrumentation: props.instrumentation,
     });
+    this.narrowed = !transform
+      .resolveDataType(DataType.TIMESTAMP)
+      .equals(DataType.TIMESTAMP);
   }
 
   writeDynamic(series: MultiSeries): MultiSeries {
     this.checkOpen("writeDynamic");
+    this.trackExact(series);
+    this.exact?.writeDynamic(series);
     const { flushed, allocated } = this.dynamic.write(series);
     // Flushed buffers stay streamed until a fetch replaces them.
     if (flushed.length > 0) this.static.write(flushed, true);
@@ -66,6 +82,12 @@ export class Unary {
     return this.dynamic.lastWrite;
   }
 
+  /** @returns the stamp of the sample at alignment, else null. */
+  timeAt(alignment: bigint): TimeStamp | null {
+    this.checkOpen("timeAt");
+    return this.index?.exactAt(alignment) ?? null;
+  }
+
   /**
    * Flushes the live leading buffer into the static cache with its real end time,
    * so reads treat the span after it as a gap to fetch. Call when streaming for
@@ -73,6 +95,7 @@ export class Unary {
    */
   flushDynamic(): void {
     this.checkOpen("flushDynamic");
+    this.exact?.flushDynamic();
     const flushed = this.dynamic.flush();
     if (flushed != null && flushed.length > 0)
       this.static.write(new MultiSeries([flushed]), true);
@@ -80,6 +103,8 @@ export class Unary {
 
   writeStatic(series: MultiSeries): void {
     this.checkOpen("writeStatic");
+    this.trackExact(series);
+    this.exact?.writeStatic(series);
     this.static.write(series);
     const dt = this.static.dataType;
     if (dt != null) this.dynamic.retainDataType(dt);
@@ -89,6 +114,7 @@ export class Unary {
    * samples. Call after a fetch for tr completes. */
   markFetched(tr: TimeRange): void {
     this.checkOpen("markFetched");
+    this.exact?.markFetched(tr);
     this.static.markFetched(tr);
   }
 
@@ -122,13 +148,40 @@ export class Unary {
 
   gc(): GCMetrics {
     this.checkOpen("gc");
-    return this.static.gc();
+    const res = this.static.gc();
+    const exact = this.exact?.gc();
+    if (exact == null) return res;
+    return {
+      purgedSeries: res.purgedSeries + exact.purgedSeries,
+      purgedBytes: res.purgedBytes.add(exact.purgedBytes),
+    };
   }
 
   close(): void {
     this.closed = true;
+    this.exact?.close();
     this.dynamic.close();
     this.static.close();
+  }
+
+  // Indexes are timestamp channels. Their stamps stay exact beside the narrowed ones.
+  private trackExact(series: MultiSeries): void {
+    if (!this.narrowed || this.exact != null || series.series.length === 0) return;
+    if (!series.dataType.equals(DataType.TIMESTAMP)) return;
+    this.exact = new Unary({ ...this.props, transform: IDENTITY_TRANSFORM });
+  }
+
+  // The exact buffers are this entry's own when nothing narrows them.
+  private exactAt(alignment: bigint): TimeStamp | null {
+    const src = this.narrowed ? this.exact : this;
+    if (src == null) return null;
+    const leading = src.dynamic.leadingBuffer;
+    const series =
+      leading != null && bounds.contains(leading.alignmentBounds, alignment)
+        ? leading
+        : src.static.find(alignment);
+    if (series == null || !series.dataType.equals(DataType.TIMESTAMP)) return null;
+    return new TimeStamp(series.atAlignment(alignment) as bigint);
   }
 
   private checkOpen(op: string): void {
