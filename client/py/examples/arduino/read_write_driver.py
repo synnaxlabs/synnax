@@ -25,7 +25,7 @@ client = sy.Synnax(
 
 arduino_command = client.channels.create(
     name="arduino_command",
-    data_type="uint8",
+    data_type=sy.DataType.UINT8,
     virtual=True,
     retrieve_if_name_exists=True,
 )
@@ -33,21 +33,21 @@ arduino_command = client.channels.create(
 arduino_time = client.channels.create(
     name="arduino_time",
     is_index=True,
-    data_type="timestamp",
+    data_type=sy.DataType.TIMESTAMP,
     retrieve_if_name_exists=True,
 )
 
 arduino_state = client.channels.create(
     name="arduino_state",
     index=arduino_time.key,
-    data_type="uint8",
+    data_type=sy.DataType.UINT8,
     retrieve_if_name_exists=True,
 )
 
 arduino_value = client.channels.create(
     name="arduino_value",
     index=arduino_time.key,
-    data_type="float32",
+    data_type=sy.DataType.FLOAT32,
     retrieve_if_name_exists=True,
 )
 

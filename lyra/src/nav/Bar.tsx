@@ -63,7 +63,6 @@ const createContent =
   (
     pos: spatial.Alignment | "" | "absolute-center",
   ): FunctionComponent<BarContentProps> =>
-  // eslint-disable-next-line react/display-name
   ({ bordered = false, className, ...rest }: BarContentProps): ReactElement => (
     <Flex.Box
       className={CSS.cls(
