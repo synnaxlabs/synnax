@@ -57,6 +57,17 @@ var _ = Describe("Context Detection", func() {
 		),
 		Entry("identifier on a new line after the body brace is a statement start",
 			"func foo() {\n    x ", uint32(1), uint32(6), lsp.ContextStatementStart),
+		Entry("identifier on a new line in a closed body is a statement start",
+			"func foo() {\n    x \n}", uint32(1), uint32(6), lsp.ContextStatementStart),
+		Entry("type annotation in a multi-line trigger list before a body",
+			"func foo() {\n    x \n} {\n}", uint32(1), uint32(6),
+			lsp.ContextTypeAnnotation),
+		Entry("type annotation in a multi-line trigger list before an output type",
+			"func foo() {\n    x \n} f64 {\n}", uint32(1), uint32(6),
+			lsp.ContextTypeAnnotation),
+		Entry("type annotation in a multi-line trigger list before multiple outputs",
+			"func foo() {\n    x \n} (a f64, b f64) {\n}", uint32(1), uint32(6),
+			lsp.ContextTypeAnnotation),
 
 		// Expression Context
 		Entry("expression after DECLARE",

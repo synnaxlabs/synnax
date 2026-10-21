@@ -234,13 +234,6 @@ func bad() {
 start_edge_case_cmd -> bad()
 """
 
-# WASM-only function used as a flow node
-ARC_WASM_IN_FLOW = """
-func print() {
-}
-ch1 -> len() -> print()
-"""
-
 
 @dataclass
 class ExecContextCase:
@@ -255,12 +248,13 @@ EXEC_CONTEXT_CASES = [
         ARC_FLOW_IN_FUNC,
         "cannot be called inside a func block",
     ),
-    ExecContextCase(
-        "WasmInFlow",
-        ARC_WASM_IN_FLOW,
-        "cannot be used as a flow statement",
-    ),
 ]
+
+# ── WASM-only callee as a flow node (valid, runs at runtime) ──
+
+ARC_WASM_IN_FLOW = """
+len(edge_len_input) -> edge_len_out
+"""
 
 # ── Import diagnostic sources (invalid, caught at configure time) ──
 # Verify the four import diagnostics surface end-to-end through the Python client.
@@ -525,7 +519,7 @@ class EdgeCases(ArcCase):
     arc_source = ARC_CHANNEL_EDGE_CASES_SOURCE
     arc_name_prefix = "ArcEdgeCases"
     start_cmd_channel = "start_edge_case_cmd"
-    subscribe_channels = CHANNEL_VIRTUAL
+    subscribe_channels = [*CHANNEL_VIRTUAL, "edge_len_out"]
     collect_notifications = True
     collect_task_status = True
 
@@ -536,6 +530,8 @@ class EdgeCases(ArcCase):
             self.client, "start_read_only_monitor_cmd", sy.DataType.UINT8
         )
         create_virtual_channel(self.client, "edge_monitor_input")
+        create_virtual_channel(self.client, "edge_len_input", sy.DataType.STRING)
+        create_virtual_channel(self.client, "edge_len_out", sy.DataType.INT64)
         self.client.statuses.set(
             sy.Status(
                 key="press_monitor_status",
@@ -632,6 +628,12 @@ class EdgeCases(ArcCase):
                 case.source, f"ExecCtx{case.label}", case.wait_substr
             )
 
+    def _verify_wasm_in_flow(self) -> None:
+        self.log("=== WASM-only callee as a flow node ===")
+        self.load_arc(ARC_WASM_IN_FLOW, "WasmInFlow")
+        self.writer.write("edge_len_input", "hello")
+        self.wait_for_eq("edge_len_out", 5)
+
     def _verify_import_cases(self) -> None:
         self.log("=== Import diagnostic detection ===")
         for case in IMPORT_CASES:
@@ -680,6 +682,7 @@ class EdgeCases(ArcCase):
         self._verify_circular_cases()
         self._verify_guarded_cases()
         self._verify_exec_context_cases()
+        self._verify_wasm_in_flow()
         self._verify_type_mismatch_cases()
         self._verify_routing_table_cases()
         self._verify_import_cases()

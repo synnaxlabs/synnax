@@ -98,7 +98,7 @@ class BangBangAuthority(ArcCase):
     """Test that a bang-bang controller with per-channel set_authority correctly
     releases and reclaims authority on both channels symmetrically.
 
-    Deliberately mixes bare (set_authority{}) and qualified (control.set_authority{})
+    Deliberately mixes bare (set_authority()) and qualified (control.set_authority())
     syntax to verify both forms work end-to-end through compile and runtime.
 
     Verifies:

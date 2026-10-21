@@ -2147,7 +2147,7 @@ TEST(NodeTest, NamedStringOutputMemoryLayout) {
 
     const std::string source =
         R"arc(
-func labeler(x i64) (label str, value i64) {
+func labeler() {x i64} (label str, value i64) {
     label = "ok"
     value = x * 2
 }
