@@ -21,7 +21,7 @@ WRITERS: list[type[FileWriter]] = [
 ]
 
 
-class IOFactory:
+class Factory:
     """A registry for retrieving readers for different file types."""
 
     reader: list[type[RowFileReader]]
@@ -69,4 +69,4 @@ class IOFactory:
         return list(extensions)
 
 
-IO_FACTORY = IOFactory()
+FACTORY = Factory()

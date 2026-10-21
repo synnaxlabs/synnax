@@ -114,6 +114,11 @@ class TestTimeStamp:
             np.datetime64(value, "ns")
         )
 
+    def test_nat_datetime64(self) -> None:
+        """Should raise a ValueError for a NaT np.datetime64"""
+        with pytest.raises(ValueError, match="NaT"):
+            sy.TimeStamp(np.datetime64("NaT"))
+
     def test_aware_datetime_microseconds(self) -> None:
         """Should convert an aware datetime with exact microseconds"""
         ts = sy.TimeStamp(datetime(2262, 4, 11, 23, 47, 16, 854775, tzinfo=UTC))
