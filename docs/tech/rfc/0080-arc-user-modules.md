@@ -3,7 +3,8 @@
 - **Author**: Nico Alba
 - **Date**: 2026-10-19
 
-Draft. Sections marked "open" are not decided.
+Draft. Currently basically just a conglomoration of thoughts. NOT gospel. Will change
+drastically to cut info.
 
 ## 0 Summary
 
@@ -65,6 +66,8 @@ The edge has one consumer, change propagation:
   that leaves the module's content equal leaves the hash equal and shows nothing. A
   deleted or cyclic module contributes an empty hash, so losing a module changes the
   importer too.
+- **Which changed**: The task config also records what the running instance was built
+  from, so the Redeploy tooltip can name the module. §2.5.
 - **Fan-out**: A module write resyncs its importers, found by walking incoming `imports`
   edges through the ontology's `byTo` index. Without the edge, the Core resyncs every
   Arc, each a parse and a hash.
@@ -220,7 +223,49 @@ How languages do it:
 - **No automation exports**: Automation arcs throw an error if the `export` key word is
   used.
 
-### 2.5 Open
+### 2.5 Deploy drift in the task config
+
+"Redeploy" says the running instance is stale. The tooltip should say why: the Arc's
+own text, one of its modules, or both. That needs what the instance was built from,
+stored somewhere the Console reads.
+
+The task config is that place. It is the deploy unit: the Driver echoes its hash in
+the task status, and the Console compares the two to show drift. The alternatives do
+not fit. An Arc status is the Arc's own state and would put a row per automation in the
+status explorer. An ontology relationship has no fields.
+
+`arc_task` v5 adds four fields to `Config`:
+
+- **`modules`**: The hash of each import, in import order, as `ModuleHash` pairs of
+  `path` and `hash`. A module's hash folds in its own imports. A list, not a map: the
+  client camel-cases map keys, and a path may carry underscores.
+- **`content_hash`**: The Arc's own hash, imports left out.
+- **`deployed_modules`** and **`deployed_content_hash`**: The same two as they stood
+  when the running instance was built.
+
+The Core keeps them current in `UpdateTask` and `syncTask`. A sync that changes the
+Arc's hash first reads the task status. When the Driver reports the stored config's
+hash, the instance runs that config, so the stored `modules` and `content_hash` become
+the deployed copies. Otherwise the deployed copies stay, so edits before a redeploy
+accumulate. Then the new values are stamped and the task rewritten.
+
+The Console diffs each pair and the Redeploy tooltip lists one line per finding, "Arc
+changed since deploy" and "Modules changed since deploy: `sylib.wave`", then "Redeploy
+to apply". Neither line means the drift came from the rack or the performance level.
+
+Two Oracle changes carry this:
+
+- **`oracle migrate arc_task`**: v4 shipped in 0.59.0, a minor release, so it cannot
+  change in place and v5 is a new version file. Its migration starts the lists and
+  content hashes empty; the next sync of each task fills them.
+- **Enum defaults through a version alias**: v5 keeps `Performance = v4.Performance`
+  and `performance Performance = auto`. The analyzer resolved the field's type to the
+  alias, not the enum, and rejected the default. `TypeRef.ResolveUnderlying` now
+  follows alias targets, and the enum and union variant resolvers use it. Every
+  generator renders defaults through those resolvers, so Go and TypeScript both pick
+  up the fix.
+
+### 2.6 Open
 
 - Which STL conflict option in §2.3 to take.
 

@@ -240,6 +240,20 @@ func (r TypeRef) Resolve(table *Table) (Type, bool) {
 	return table.Get(r.Name)
 }
 
+// ResolveUnderlying resolves r and follows alias targets until it reaches a type that
+// is not an alias, so a version alias to an enum or union resolves to its form.
+func (r TypeRef) ResolveUnderlying(table *Table) (Type, bool) {
+	typ, ok := r.Resolve(table)
+	for ok {
+		alias, isAlias := typ.Form.(AliasForm)
+		if !isAlias {
+			return typ, true
+		}
+		typ, ok = alias.Target.Resolve(table)
+	}
+	return Type{}, false
+}
+
 // IsDistinct reports whether ref resolves to a distinct type. Primitives and
 // references the table cannot resolve are not distinct.
 func IsDistinct(ref TypeRef, table *Table) bool {

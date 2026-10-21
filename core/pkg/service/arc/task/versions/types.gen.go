@@ -11,18 +11,21 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions/v4"
+import "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions/v5"
 
 // Performance sets how closely the Arc runtime holds timer deadlines. A higher level is
 // more precise and uses more CPU.
-type Performance = v4.Performance
+type Performance = v5.Performance
 
 const (
-	PerformanceAuto   Performance = v4.PerformanceAuto
-	PerformanceLow    Performance = v4.PerformanceLow
-	PerformanceMedium Performance = v4.PerformanceMedium
-	PerformanceHigh   Performance = v4.PerformanceHigh
+	PerformanceAuto   Performance = v5.PerformanceAuto
+	PerformanceLow    Performance = v5.PerformanceLow
+	PerformanceMedium Performance = v5.PerformanceMedium
+	PerformanceHigh   Performance = v5.PerformanceHigh
 )
 
 // Config configures an Arc task, which runs a compiled Arc module.
-type Config = v4.Config
+type Config = v5.Config
+
+// ModuleHash pairs a module's import path with its semantic hash.
+type ModuleHash = v5.ModuleHash

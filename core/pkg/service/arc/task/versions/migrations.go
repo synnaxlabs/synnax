@@ -11,8 +11,9 @@ package versions
 
 import (
 	v4 "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions/v4"
+	v5 "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions/v5"
 	"github.com/synnaxlabs/x/migrate"
 )
 
 // Migrations is the ordered migration chain for stored Arc task configs.
-var Migrations = []migrate.Migration{v4.Migration}
+var Migrations = []migrate.Migration{v4.Migration, v5.Migration}

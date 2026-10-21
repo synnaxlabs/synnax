@@ -22,6 +22,8 @@ export interface BarProps extends Flex.BoxProps {
   running: boolean;
   /** Shows the redeploy button when the deployed config is stale. */
   drifted?: boolean;
+  /** Replaces the redeploy button's generic reason. One line each. */
+  redeployReasons?: string[];
   /** Hides the action row entirely, for a caller that cannot command the task. */
   hideActions?: boolean;
   /** Disables the deploy and start/stop actions. */
@@ -44,6 +46,7 @@ export const Bar = ({
   status: stat,
   running,
   drifted = false,
+  redeployReasons,
   hideActions = false,
   disabled = false,
   fallbackMessage,
@@ -73,6 +76,7 @@ export const Bar = ({
           {extraActions}
           <RedeployButton
             visible={drifted}
+            reasons={redeployReasons}
             onClick={onDeploy}
             disabled={disabled || startStopVariant === "loading"}
           />

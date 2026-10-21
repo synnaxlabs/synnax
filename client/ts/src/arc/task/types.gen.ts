@@ -18,9 +18,22 @@ export const PERFORMANCES = ["auto", "low", "medium", "high"] as const;
 export const performanceZ = z.enum(PERFORMANCES);
 export type Performance = z.infer<typeof performanceZ>;
 
+/** ModuleHash pairs a module's import path with its semantic hash. */
+export const moduleHashZ = z.object({
+  /** path is the import path of the module. */
+  path: z.string(),
+  /** hash is the semantic hash of the module, its own imports folded in. */
+  hash: z.string(),
+});
+export interface ModuleHash extends z.infer<typeof moduleHashZ> {}
+
 export const configZ = task.persistConfigZ.extend({
   arcKey: arc.keyZ,
   hash: z.string().default(""),
   performance: performanceZ.default("auto"),
+  contentHash: z.string().default(""),
+  deployedContentHash: z.string().default(""),
+  modules: moduleHashZ.array().default(() => []),
+  deployedModules: moduleHashZ.array().default(() => []),
 });
 export interface Config extends z.infer<typeof configZ> {}

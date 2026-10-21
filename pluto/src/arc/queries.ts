@@ -283,6 +283,46 @@ const useDriftedResult = createTaskResultSelector(
 export const useDrifted = (query: RetrieveTaskParams): boolean =>
   useDriftedResult(query).data === true;
 
+const hashesByPath = (modules: arc.task.ModuleHash[]): Map<string, string> =>
+  new Map(modules.map(({ path, hash }) => [path, hash]));
+
+const changedModules = (tsk: task.Task | null): string[] => {
+  if (tsk == null) return [];
+  const { modules, deployedModules } = arc.task.configZ
+    .pick({ modules: true, deployedModules: true })
+    .parse(tsk.config);
+  const current = hashesByPath(modules);
+  const deployed = hashesByPath(deployedModules);
+  const paths = new Set([...current.keys(), ...deployed.keys()]);
+  return [...paths].filter((p) => current.get(p) !== deployed.get(p)).sort();
+};
+
+const useChangedModulesResult = createTaskResultSelector(changedModules);
+
+/**
+ * The import paths of the modules whose content differs between the arc's running
+ * instance and its task config, sorted. Empty when the arc has no task.
+ */
+export const useChangedModules = (query: RetrieveTaskParams): string[] =>
+  useChangedModulesResult(query).data ?? [];
+
+const contentChanged = (tsk: task.Task | null): boolean => {
+  if (tsk == null) return false;
+  const { contentHash, deployedContentHash } = arc.task.configZ
+    .pick({ contentHash: true, deployedContentHash: true })
+    .parse(tsk.config);
+  return contentHash !== deployedContentHash;
+};
+
+const useContentChangedResult = createTaskResultSelector(contentChanged);
+
+/**
+ * Whether the arc's own content, its imports left out, differs between the running
+ * instance and its task config. False when the arc has no task.
+ */
+export const useContentChanged = (query: RetrieveTaskParams): boolean =>
+  useContentChangedResult(query).data === true;
+
 export interface UseTaskControlsReturn {
   running: boolean;
   taskKey: task.Key;

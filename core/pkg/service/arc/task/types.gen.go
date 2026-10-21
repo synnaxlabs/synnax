@@ -26,3 +26,6 @@ const (
 
 // Config configures an Arc task, which runs a compiled Arc module.
 type Config = versions.Config
+
+// ModuleHash pairs a module's import path with its semantic hash.
+type ModuleHash = versions.ModuleHash

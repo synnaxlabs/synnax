@@ -22,6 +22,17 @@ import { Task } from "@/platform/task";
 
 const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: "arc" };
 
+const redeployReasons = (
+  contentChanged: boolean,
+  changedModules: string[],
+): string[] | undefined => {
+  const reasons: string[] = [];
+  if (contentChanged) reasons.push("Arc changed since deploy.");
+  if (changedModules.length > 0)
+    reasons.push(`Modules changed since deploy: ${changedModules.join(", ")}.`);
+  return reasons.length > 0 ? reasons : undefined;
+};
+
 export const TaskControls = () => {
   const key = Arc.useKey();
   const name = Arc.useName();
@@ -29,6 +40,8 @@ export const TaskControls = () => {
   const { running, taskRack, taskPerformance, taskStatus, onStart, onStop } =
     Arc.useTaskControls(key, name, { afterSuccess: captureDeploy });
   const drifted = Arc.useDrifted({ arcKey: key });
+  const changedModules = Arc.useChangedModules({ arcKey: key });
+  const contentChanged = Arc.useContentChanged({ arcKey: key });
   const canControl = Framer.useCanCommand();
   const module = Arc.useType() === "module";
   const arcStatus = Arc.useStatus();
@@ -50,6 +63,7 @@ export const TaskControls = () => {
       status={module ? (arcStatus ?? Arc.notCompiledYet(name)) : taskStatus}
       running={running}
       drifted={drifted}
+      redeployReasons={redeployReasons(contentChanged, changedModules)}
       hideActions={!canControl || module}
       disabled={!bound}
       onDeploy={onStart}

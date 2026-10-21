@@ -26,17 +26,41 @@ Performance enum {
 }
 
 Config struct extends task.PersistConfig {
-    arc_key     arc.Key     {
+    arc_key               arc.Key      {
         @doc value "is the key of the Arc module the task executes."
     }
-    hash        string = "" {
+    hash                  string = "" {
         @doc value "is the semantic hash of the Arc module at deploy time."
     }
-    performance Performance = auto {
+    performance           Performance = auto {
         @doc value "sets how closely the runtime holds timer deadlines."
+    }
+    content_hash          string = "" {
+        @doc value "is the hash of the Arc's own content, its imports left out."
+    }
+    deployed_content_hash string = "" {
+        @doc value "is content_hash as it was when the running instance was built."
+    }
+    modules               ModuleHash[] = [] {
+        @doc value "is the hash of each module the Arc imports, in import order."
+    }
+    deployed_modules      ModuleHash[] = [] {
+        @doc value "is modules as it was when the running instance was built."
     }
 
     @doc value  "configures an Arc task, which runs a compiled Arc module."
     @go marshal
     @go migrate
+}
+
+ModuleHash struct {
+    path string {
+        @doc value "is the import path of the module."
+    }
+    hash string {
+        @doc value "is the semantic hash of the module, its own imports folded in."
+    }
+
+    @doc value  "pairs a module's import path with its semantic hash."
+    @go marshal
 }

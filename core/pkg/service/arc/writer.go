@@ -247,7 +247,7 @@ func (w Writer) UpdateTask(
 	}
 	var (
 		a   Arc
-		cfg taskversions.Config
+		cfg = taskversions.Config{DeployedModules: []taskversions.ModuleHash{}}
 		tsk task.Task
 	)
 	if err = w.table.NewRetrieve().
@@ -275,7 +275,10 @@ func (w Writer) UpdateTask(
 	if update.Performance != nil {
 		cfg.Performance = *update.Performance
 	}
-	if cfg.Hash, err = w.hash(ctx, a, nil); err != nil {
+	if cfg.Hash, cfg.Modules, err = w.hash(ctx, a, nil); err != nil {
+		return nil, err
+	}
+	if cfg.ContentHash, err = Hash(a, nil); err != nil {
 		return nil, err
 	}
 	return w.writeTask(ctx, a, tsk.Rack, existing, cfg)
@@ -351,44 +354,77 @@ func (w Writer) syncTask(ctx context.Context, a Arc) error {
 	if err != nil {
 		return err
 	}
-	hash, err := w.hash(ctx, a, nil)
+	hash, modules, err := w.hash(ctx, a, nil)
 	if err != nil || cfg.Hash == hash {
 		return err
 	}
-	cfg.Hash = hash
+	deployed, err := w.deployedConfigHash(ctx, existing[0])
+	if err != nil {
+		return err
+	}
+	// The instance runs the stored config, so its hashes are the deployed baseline.
+	if deployed == tsk.ConfigHash {
+		cfg.DeployedModules, cfg.DeployedContentHash = cfg.Modules, cfg.ContentHash
+	}
+	cfg.Hash, cfg.Modules = hash, modules
+	if cfg.ContentHash, err = Hash(a, nil); err != nil {
+		return err
+	}
 	_, err = w.writeTask(ctx, a, tsk.Rack, existing, cfg)
 	return err
 }
 
-// hash folds the hashes of a's imports, transitively, into Hash. A missing module or an
-// ancestor in the walk contributes an empty hash.
-func (w Writer) hash(ctx context.Context, a Arc, ancestors []Key) (string, error) {
+// deployedConfigHash returns the config hash the Driver last reported for the task,
+// empty when it never has.
+func (w Writer) deployedConfigHash(ctx context.Context, key task.Key) (string, error) {
+	var stat task.Status
+	err := w.status.NewRetrieve[task.StatusDetails]().
+		Where(status.MatchKeys[task.StatusDetails](task.OntologyID(key).String())).
+		Entry(&stat).
+		Exec(ctx, w.tx)
+	if errors.Is(err, query.ErrNotFound) {
+		return "", nil
+	}
+	return stat.Details.ConfigHash, err
+}
+
+// hash folds the hashes of a's imports, transitively, into Hash, and returns the hash
+// of each direct import in import order. A missing module or an ancestor in the walk
+// contributes an empty hash.
+func (w Writer) hash(
+	ctx context.Context,
+	a Arc,
+	ancestors []Key,
+) (string, []taskversions.ModuleHash, error) {
+	modules := []taskversions.ModuleHash{}
 	if a.Mode != ModeText {
-		return Hash(a, nil)
+		h, err := Hash(a, nil)
+		return h, modules, err
 	}
 	cfg := parser.Config{AllowDashedNames: w.svc.AllowDashedNames()}
 	t, diag := text.Parse(a.Text.Materialize(), cfg)
 	if diag != nil {
-		return Hash(a, nil)
+		h, err := Hash(a, nil)
+		return h, modules, err
 	}
 	ancestors = append(ancestors, a.Key)
-	var modules []string
+	var hashes []string
 	for _, imp := range parser.Imports(t.AST) {
 		mod, err := w.svc.retrieveModule(ctx, w.tx, imp.Path)
 		if err != nil && !errors.Is(err, symbol.ErrModuleNotFound) {
-			return "", err
+			return "", nil, err
 		}
-		if err != nil || slices.Contains(ancestors, mod.Key) {
-			modules = append(modules, "")
-			continue
+		var h string
+		if err == nil && !slices.Contains(ancestors, mod.Key) {
+			if h, _, err = w.hash(ctx, mod, ancestors); err != nil {
+				return "", nil, err
+			}
 		}
-		h, err := w.hash(ctx, mod, ancestors)
-		if err != nil {
-			return "", err
-		}
-		modules = append(modules, h)
+		hashes = append(hashes, h)
+		modules = append(modules, taskversions.ModuleHash{Path: imp.Path, Hash: h})
 	}
-	return Hash(a, modules)
+	h, err := Hash(a, hashes)
+	return h, modules, err
 }
 
 func (w Writer) clearRack(ctx context.Context, taskKeys []task.Key) error {

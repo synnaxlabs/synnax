@@ -9,6 +9,7 @@
 
 import { Button } from "@synnaxlabs/lyra/button";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -18,6 +19,8 @@ export interface RedeployButtonProps extends Omit<Button.ButtonProps, "onClick">
   visible: boolean;
   /** Click handler */
   onClick: () => void;
+  /** Replaces the tooltip's generic reason for the redeploy. One line each. */
+  reasons?: string[];
 }
 
 /**
@@ -27,6 +30,7 @@ export interface RedeployButtonProps extends Omit<Button.ButtonProps, "onClick">
 export const RedeployButton = ({
   visible,
   onClick,
+  reasons = ["Configuration changed since deploy."],
   ...props
 }: RedeployButtonProps): ReactElement => (
   <div
@@ -41,7 +45,22 @@ export const RedeployButton = ({
         onClick={onClick}
         size="medium"
         tabIndex={visible ? undefined : -1}
-        tooltip="Configuration changed since deploy. Redeploy to apply."
+        tooltip={
+          <>
+            {reasons.map((line) => (
+              <Text.Text key={line} level="small" color={11}>
+                {line}
+              </Text.Text>
+            ))}
+            <Text.Text
+              className={CSS.BE("task-redeploy", "apply")}
+              level="small"
+              color={11}
+            >
+              Redeploy to apply.
+            </Text.Text>
+          </>
+        }
         variant="filled"
         {...props}
       >
