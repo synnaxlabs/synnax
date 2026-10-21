@@ -12,10 +12,16 @@ package channel_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
+	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func createChannel(ctx SpecContext, dt telem.DataType) channel.Channel {
@@ -79,5 +85,62 @@ var _ = Describe("Service", func() {
 				Expect(apiSvc.RetrieveName(ctx, channel.Key(999999))).To(BeEmpty())
 			},
 		)
+	})
+
+	Describe("Retrieve", func() {
+		Describe("IncludeStatus", func() {
+			BeforeEach(func(ctx SpecContext) {
+				grantOn(
+					ctx,
+					author.OntologyID(),
+					[]access.Action{access.ActionRetrieve},
+					ontology.ID{Type: ontology.ResourceTypeChannel},
+				)
+			})
+
+			setStatus := func(ctx SpecContext, ch channel.Channel) {
+				GinkgoHelper()
+				Expect(statusSvc.NewWriter(nil).Set(ctx, &apichannel.Status{
+					Key:     channel.OntologyID(ch.Key()).String(),
+					Name:    ch.Name,
+					Variant: status.VariantSuccess,
+					Message: "ok",
+					Time:    telem.Now(),
+				})).To(Succeed())
+			}
+
+			retrieve := func(ctx SpecContext, keys ...channel.Key) []apichannel.Channel {
+				GinkgoHelper()
+				return MustSucceed(apiSvc.Retrieve(
+					AuthedCtx(ctx, author),
+					apichannel.RetrieveRequest{Keys: keys, IncludeStatus: true},
+				)).Channels
+			}
+
+			It(
+				"Should attach the status of each channel that has one",
+				func(ctx SpecContext) {
+					ch := createChannel(ctx, telem.Float32T)
+					setStatus(ctx, ch)
+					res := retrieve(ctx, ch.Key())
+					Expect(res).To(HaveLen(1))
+					Expect(res[0].Status).ToNot(BeNil())
+					Expect(res[0].Status.Message).To(Equal("ok"))
+				},
+			)
+
+			It(
+				"Should leave the status empty for a channel that has none",
+				func(ctx SpecContext) {
+					withStatus := createChannel(ctx, telem.Float32T)
+					setStatus(ctx, withStatus)
+					withoutStatus := createChannel(ctx, telem.Int64T)
+					res := retrieve(ctx, withStatus.Key(), withoutStatus.Key())
+					Expect(res).To(HaveLen(2))
+					Expect(res[0].Status).ToNot(BeNil())
+					Expect(res[1].Status).To(BeNil())
+				},
+			)
+		})
 	})
 })
