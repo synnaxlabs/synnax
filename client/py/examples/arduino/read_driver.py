@@ -26,7 +26,7 @@ client = sy.Synnax(
 index_channel = client.channels.create(
     name="arduino_time",
     is_index=True,
-    data_type="timestamp",
+    data_type=sy.DataType.TIMESTAMP,
     retrieve_if_name_exists=True,
 )
 
@@ -34,7 +34,7 @@ index_channel = client.channels.create(
 data_channel = client.channels.create(
     name="arduino_value",
     index=index_channel.key,
-    data_type="float32",
+    data_type=sy.DataType.FLOAT32,
     retrieve_if_name_exists=True,
 )
 
