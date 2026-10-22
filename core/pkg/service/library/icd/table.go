@@ -75,11 +75,38 @@ func parseXLSX(data []byte) (entries []versions.Entry, err error) {
 	if len(sheets) == 0 {
 		return nil, dataErrorf("workbook has no sheets")
 	}
-	rows, err := f.GetRows(sheets[0])
+	rows, err := readRows(f, sheets[0])
+	if err != nil {
+		return nil, err
+	}
+	return parseTable(rows)
+}
+
+// readRows returns the raw cell values of every row of the sheet, so a number format
+// never rounds a number. Unlike excelize's GetRows, it returns an error for a row it
+// cannot read instead of dropping that row and every row after it.
+func readRows(f *excelize.File, sheet string) (table [][]string, err error) {
+	rows, err := f.Rows(sheet)
 	if err != nil {
 		return nil, dataErrorf("invalid workbook: %s", err)
 	}
-	return parseTable(rows)
+	// Without a temporary file, Close returns rows.Error, which err already holds.
+	defer func() {
+		if closeErr := rows.Close(); err == nil {
+			err = closeErr
+		}
+	}()
+	for row := 1; rows.Next(); row++ {
+		cells, err := rows.Columns(excelize.Options{RawCellValue: true})
+		if err != nil {
+			return nil, dataErrorf("row %d: %s", row, err)
+		}
+		table = append(table, cells)
+	}
+	if err = rows.Error(); err != nil {
+		return nil, dataErrorf("invalid workbook: %s", err)
+	}
+	return table, nil
 }
 
 // attr is a message-level value that every row of the message may repeat.

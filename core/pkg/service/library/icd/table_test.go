@@ -10,6 +10,10 @@
 package icd_test
 
 import (
+	"archive/zip"
+	"bytes"
+	"io"
+	"strconv"
 	"strings"
 	"uuid"
 
@@ -136,7 +140,23 @@ func toCSV(rows [][]string) []byte {
 	return []byte(strings.Join(lines, "\n") + "\n")
 }
 
-func toXLSX(sheets ...[][]string) []byte {
+// cellValue returns s as a spreadsheet stores it: a number, a boolean, or text.
+func cellValue(s string) any {
+	if v, err := strconv.ParseFloat(s, 64); err == nil {
+		return v
+	}
+	switch strings.ToLower(s) {
+	case "true":
+		return true
+	case "false":
+		return false
+	}
+	return s
+}
+
+// newWorkbook returns a workbook with one sheet per element of sheets, whose cells
+// hold the typed value of each string.
+func newWorkbook(sheets ...[][]string) *excelize.File {
 	GinkgoHelper()
 	f := excelize.NewFile()
 	DeferCleanup(f.Close)
@@ -149,13 +169,40 @@ func toXLSX(sheets ...[][]string) []byte {
 		for j, r := range rows {
 			cells := make([]any, len(r))
 			for k, c := range r {
-				cells[k] = c
+				cells[k] = cellValue(c)
 			}
 			cell := MustSucceed(excelize.CoordinatesToCellName(1, j+1))
 			Expect(f.SetSheetRow(name, cell, &cells)).To(Succeed())
 		}
 	}
-	return MustSucceed(f.WriteToBuffer()).Bytes()
+	return f
+}
+
+func toXLSX(sheets ...[][]string) []byte {
+	GinkgoHelper()
+	return MustSucceed(newWorkbook(sheets...).WriteToBuffer()).Bytes()
+}
+
+// replaceInSheet returns the workbook data with old replaced by new in the XML of its
+// first sheet.
+func replaceInSheet(data []byte, old, new string) []byte {
+	GinkgoHelper()
+	r := MustSucceed(zip.NewReader(bytes.NewReader(data), int64(len(data))))
+	var out bytes.Buffer
+	w := zip.NewWriter(&out)
+	for _, f := range r.File {
+		src := MustSucceed(f.Open())
+		content := MustSucceed(io.ReadAll(src))
+		Expect(src.Close()).To(Succeed())
+		if f.Name == "xl/worksheets/sheet1.xml" {
+			Expect(string(content)).To(ContainSubstring(old))
+			content = []byte(strings.Replace(string(content), old, new, 1))
+		}
+		dst := MustSucceed(w.Create(f.Name))
+		MustSucceed(dst.Write(content))
+	}
+	Expect(w.Close()).To(Succeed())
+	return out.Bytes()
 }
 
 var _ = Describe("Parse CSV", func() {
@@ -234,6 +281,33 @@ var _ = Describe("Parse XLSX", func() {
 		other := [][]string{{"Color"}, {"red"}}
 		entries := MustSucceed(icd.Parse(icd.FormatXLSX, toXLSX(tableRows, other)))
 		Expect(withoutKeys(entries)).To(Equal(tableEntries))
+	})
+
+	It("Should read the value of a numeric cell, not its formatted text", func() {
+		f := newWorkbook([][]string{
+			{"message", "field", "start_bit", "bit_length", "scale", "offset"},
+			{"m", "a", "8", "16", "0.001", "0.125"},
+		})
+		style := MustSucceed(f.NewStyle(&excelize.Style{CustomNumFmt: new("0.0")}))
+		Expect(f.SetCellStyle("Sheet1", "C2", "F2", style)).To(Succeed())
+		entries := MustSucceed(
+			icd.Parse(icd.FormatXLSX, MustSucceed(f.WriteToBuffer()).Bytes()),
+		)
+		a := binaryFields(messagesOf(entries)[0])[0]
+		Expect(a.StartBit).To(Equal(uint16(8)))
+		Expect(a.Scale).To(Equal(0.001))
+		Expect(a.Offset).To(Equal(0.125))
+	})
+
+	It("Should report a row whose cell reference is invalid", func() {
+		rows := [][]string{
+			{"message", "field", "start_bit", "bit_length"},
+			{"m", "a", "0", "8"},
+			{"m", "b", "8", "8"},
+		}
+		data := replaceInSheet(toXLSX(rows), `r="B3"`, `r="3B"`)
+		Expect(icd.Parse(icd.FormatXLSX, data)).Error().
+			To(MatchError(HavePrefix("data: row 3: ")))
 	})
 
 	It("Should report the row of an invalid cell", func() {

@@ -31,7 +31,7 @@ const (
 	// entry, with a CAN identifier when an id is present.
 	FormatCSV Format = "csv"
 	// FormatXLSX is a field table, laid out as for FormatCSV, in the first sheet of an
-	// Excel workbook.
+	// Excel workbook. A numeric cell is read as its value, whatever its number format.
 	FormatXLSX Format = "xlsx"
 )
 
