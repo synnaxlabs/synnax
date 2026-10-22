@@ -15,6 +15,7 @@ import (
 	"uuid"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/library"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -47,7 +48,9 @@ func (r Resolver) Validate() error {
 }
 
 // Read stamps cfg and returns a path-scoped validation error when cfg has messages but
-// no library, or when a message or field it reads is not in its library.
+// no library, when a message or field it reads is not in its library, when fields
+// that arrive at different times share an index, or when a polled reply with no
+// identifier could be confused with a message the device sends unprompted.
 func (r Resolver) Read(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -58,6 +61,7 @@ func (r Resolver) Read(
 	if err != nil {
 		return err
 	}
+	stamps := make(map[channel.Key]stamp)
 	for i, m := range cfg.Messages {
 		fields := lo.Map(m.Fields, func(f ReadField, _ int) library.FieldKey {
 			return f.Field
@@ -65,8 +69,14 @@ func (r Resolver) Read(
 		if err = checkMessage(messages, i, m.Message, fields); err != nil {
 			return err
 		}
+		if m.Disabled {
+			continue
+		}
+		if err = checkIndexes(stamps, messages[m.Message], i, m.Fields); err != nil {
+			return err
+		}
 	}
-	return nil
+	return checkReplies(messages, cfg.Messages)
 }
 
 // Write stamps cfg and returns a path-scoped validation error when cfg has messages but
@@ -143,4 +153,107 @@ func checkMessage(
 		}
 	}
 	return nil
+}
+
+// stamp is the first field a read config stamps on an index.
+type stamp struct {
+	message library.MessageEntry
+	field   library.BaseField
+}
+
+// checkIndexes records in stamps the index channel of each field that the i-th message
+// of a read config reads from m. It returns a path-scoped validation error when an
+// index already stamps another message, or a field of m that other multiplexor values
+// select.
+func checkIndexes(
+	stamps map[channel.Key]stamp,
+	m library.MessageEntry,
+	i int,
+	fields []ReadField,
+) error {
+	bases := make(map[library.FieldKey]library.BaseField)
+	for _, b := range m.Payload.FieldBases() {
+		bases[b.Key] = b
+	}
+	for j, f := range fields {
+		if f.Index == 0 {
+			continue
+		}
+		field := bases[f.Field]
+		first, ok := stamps[f.Index]
+		if !ok {
+			stamps[f.Index] = stamp{message: m, field: field}
+			continue
+		}
+		path := "messages." + strconv.Itoa(i) + ".fields." + strconv.Itoa(j) + ".index"
+		if first.message.Key != m.Key {
+			return validate.PathedError(errors.Wrapf(
+				validate.ErrValidation,
+				"index %d already stamps message %s",
+				f.Index,
+				first.message.Name,
+			), path)
+		}
+		if !samePresence(first.field, field) {
+			return validate.PathedError(errors.Wrapf(
+				validate.ErrValidation,
+				"fields %s and %s share index %d, but different multiplexor values "+
+					"select them",
+				first.field.Name,
+				field.Name,
+				f.Index,
+			), path)
+		}
+	}
+	return nil
+}
+
+// samePresence returns true when the same frames of a message carry a and b. Two
+// fields with the same multiplexor and values share the rest of the chain above it.
+func samePresence(a, b library.BaseField) bool {
+	if a.Multiplexor == nil || b.Multiplexor == nil {
+		return a.Multiplexor == nil && b.Multiplexor == nil
+	}
+	return *a.Multiplexor == *b.Multiplexor &&
+		set.New(a.MultiplexValues...).Equal(set.New(b.MultiplexValues...))
+}
+
+// checkReplies returns a path-scoped validation error when an enabled polled message
+// has a reply with no identifier and the config also reads a message the device sends
+// unprompted, since nothing would tell the two apart.
+func checkReplies(
+	messages map[library.EntryKey]library.MessageEntry,
+	reads []ReadMessage,
+) error {
+	streamed := lo.ContainsBy(reads, func(m ReadMessage) bool {
+		return !m.Disabled && messages[m.Message].Query == nil
+	})
+	if !streamed {
+		return nil
+	}
+	for i, m := range reads {
+		entry := messages[m.Message]
+		if m.Disabled || entry.Query == nil || labeled(entry.Payload) {
+			continue
+		}
+		return validate.PathedError(errors.Wrapf(
+			validate.ErrValidation,
+			"message %s has a reply with no identifier, so it cannot share the task "+
+				"with messages the device sends unprompted",
+			entry.Name,
+		), "messages."+strconv.Itoa(i)+".message")
+	}
+	return nil
+}
+
+// labeled returns true when a frame or line of the payload carries an identifier.
+func labeled(p library.Payload) bool {
+	switch v := p.Variant.(type) {
+	case library.BinaryPayload:
+		return v.Identifier != nil
+	case library.TextPayload:
+		return v.Prefix != ""
+	default:
+		panic(errors.Newf("unknown payload variant %T", v))
+	}
 }

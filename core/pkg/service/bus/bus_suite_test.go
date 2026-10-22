@@ -54,6 +54,27 @@ func binaryField(name string, startBit uint16) library.BinaryField {
 	}
 }
 
+// multiplexed returns f selected by the given raw values of mux.
+func multiplexed(
+	f library.BinaryField,
+	mux library.BinaryField,
+	values ...int32,
+) library.BinaryField {
+	f.Multiplexor = &mux.Key
+	f.MultiplexValues = values
+	return f
+}
+
+// polled returns a message the task queries with query, whose reply carries no
+// identifier.
+func polled(name, query string, fields ...library.BinaryField) library.MessageEntry {
+	return library.MessageEntry{
+		Key: uuid.New(), Name: name,
+		Payload: library.Payload{Variant: library.BinaryPayload{Fields: fields}},
+		Query:   &query,
+	}
+}
+
 func canMessage(
 	name string,
 	id uint32,
