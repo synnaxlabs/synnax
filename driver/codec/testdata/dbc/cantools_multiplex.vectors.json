@@ -1,0 +1,474 @@
+{
+  "messages": [
+    {
+      "name": "Message1",
+      "vectors": [
+        {
+          "payload": "639beb02f859a700",
+          "values": {
+            "Multiplexor": 24,
+            "BIT_J": 0,
+            "BIT_C": 1,
+            "BIT_G": 1,
+            "BIT_L": 0,
+            "BIT_A": 0,
+            "BIT_K": 0,
+            "BIT_E": 0,
+            "BIT_D": 0,
+            "BIT_B": 0,
+            "BIT_H": 1,
+            "BIT_F": 1
+          },
+          "encoded": "60008800c0000000"
+        },
+        {
+          "payload": "236b62e05cb6fef9",
+          "values": {
+            "Multiplexor": 8,
+            "BIT_J": 0,
+            "BIT_C": 0,
+            "BIT_G": 0,
+            "BIT_L": 0
+          },
+          "encoded": "2000000000000000"
+        },
+        {
+          "payload": "220f2d243bb52db9",
+          "values": {
+            "Multiplexor": 8,
+            "BIT_J": 1,
+            "BIT_C": 1,
+            "BIT_G": 0,
+            "BIT_L": 0
+          },
+          "encoded": "20000c0000000000"
+        },
+        {
+          "payload": "614ed8addc322080",
+          "values": {
+            "Multiplexor": 24,
+            "BIT_J": 0,
+            "BIT_C": 1,
+            "BIT_G": 1,
+            "BIT_L": 1,
+            "BIT_A": 1,
+            "BIT_K": 0,
+            "BIT_E": 1,
+            "BIT_D": 0,
+            "BIT_B": 0,
+            "BIT_H": 1,
+            "BIT_F": 1
+          },
+          "encoded": "60008825c0000000"
+        },
+        {
+          "payload": "220a14278795cbb7",
+          "values": {
+            "Multiplexor": 8,
+            "BIT_J": 1,
+            "BIT_C": 0,
+            "BIT_G": 0,
+            "BIT_L": 1
+          },
+          "encoded": "2000040100000000"
+        },
+        {
+          "payload": "20f3f5f3610c7894",
+          "values": {
+            "Multiplexor": 8,
+            "BIT_J": 1,
+            "BIT_C": 0,
+            "BIT_G": 1,
+            "BIT_L": 1
+          },
+          "encoded": "2000840100000000"
+        },
+        {
+          "payload": "21300de8f9c8fd5e",
+          "values": {
+            "Multiplexor": 8,
+            "BIT_J": 1,
+            "BIT_C": 1,
+            "BIT_G": 0,
+            "BIT_L": 0
+          },
+          "encoded": "20000c0000000000"
+        },
+        {
+          "payload": "631b6520769ffad3",
+          "values": {
+            "Multiplexor": 24,
+            "BIT_J": 1,
+            "BIT_C": 0,
+            "BIT_G": 0,
+            "BIT_L": 0,
+            "BIT_A": 0,
+            "BIT_K": 0,
+            "BIT_E": 1,
+            "BIT_D": 0,
+            "BIT_B": 1,
+            "BIT_H": 1,
+            "BIT_F": 0
+          },
+          "encoded": "6000042042000000"
+        },
+        {
+          "payload": "6381ace36f36ed3f",
+          "values": {
+            "Multiplexor": 24,
+            "BIT_J": 1,
+            "BIT_C": 1,
+            "BIT_G": 1,
+            "BIT_L": 1,
+            "BIT_A": 0,
+            "BIT_K": 0,
+            "BIT_E": 1,
+            "BIT_D": 1,
+            "BIT_B": 1,
+            "BIT_H": 1,
+            "BIT_F": 0
+          },
+          "encoded": "60008c2143000000"
+        },
+        {
+          "payload": "21c1e64113697171",
+          "values": {
+            "Multiplexor": 8,
+            "BIT_J": 1,
+            "BIT_C": 0,
+            "BIT_G": 1,
+            "BIT_L": 1
+          },
+          "encoded": "2000840100000000"
+        },
+        {
+          "payload": "60ebe74884290179",
+          "values": {
+            "Multiplexor": 24,
+            "BIT_J": 1,
+            "BIT_C": 0,
+            "BIT_G": 1,
+            "BIT_L": 0,
+            "BIT_A": 0,
+            "BIT_K": 0,
+            "BIT_E": 0,
+            "BIT_D": 0,
+            "BIT_B": 0,
+            "BIT_H": 0,
+            "BIT_F": 1
+          },
+          "encoded": "6000840080000000"
+        },
+        {
+          "payload": "23840c5188a642fb",
+          "values": {
+            "Multiplexor": 8,
+            "BIT_J": 1,
+            "BIT_C": 1,
+            "BIT_G": 0,
+            "BIT_L": 1
+          },
+          "encoded": "20000c0100000000"
+        },
+        {
+          "payload": "22816492ea755687",
+          "values": {
+            "Multiplexor": 8,
+            "BIT_J": 1,
+            "BIT_C": 0,
+            "BIT_G": 0,
+            "BIT_L": 0
+          },
+          "encoded": "2000040000000000"
+        },
+        {
+          "payload": "62e5a5b9871e6c9a",
+          "values": {
+            "Multiplexor": 24,
+            "BIT_J": 1,
+            "BIT_C": 0,
+            "BIT_G": 1,
+            "BIT_L": 1,
+            "BIT_A": 0,
+            "BIT_K": 1,
+            "BIT_E": 1,
+            "BIT_D": 1,
+            "BIT_B": 1,
+            "BIT_H": 0,
+            "BIT_F": 1
+          },
+          "encoded": "6000843183000000"
+        },
+        {
+          "payload": "61bda4faf3ca686c",
+          "values": {
+            "Multiplexor": 24,
+            "BIT_J": 1,
+            "BIT_C": 0,
+            "BIT_G": 1,
+            "BIT_L": 0,
+            "BIT_A": 0,
+            "BIT_K": 1,
+            "BIT_E": 1,
+            "BIT_D": 1,
+            "BIT_B": 1,
+            "BIT_H": 1,
+            "BIT_F": 1
+          },
+          "encoded": "60008430c3000000"
+        },
+        {
+          "payload": "60eff11e72f320ac",
+          "values": {
+            "Multiplexor": 24,
+            "BIT_J": 0,
+            "BIT_C": 0,
+            "BIT_G": 1,
+            "BIT_L": 0,
+            "BIT_A": 1,
+            "BIT_K": 1,
+            "BIT_E": 0,
+            "BIT_D": 0,
+            "BIT_B": 1,
+            "BIT_H": 1,
+            "BIT_F": 0
+          },
+          "encoded": "6000801442000000"
+        },
+        {
+          "payload": "23eba5fc58e3006a",
+          "values": {
+            "Multiplexor": 8,
+            "BIT_J": 1,
+            "BIT_C": 0,
+            "BIT_G": 1,
+            "BIT_L": 0
+          },
+          "encoded": "2000840000000000"
+        },
+        {
+          "payload": "434f8b2ca38d2d17",
+          "values": {
+            "Multiplexor": 16,
+            "BIT_J": 0,
+            "BIT_C": 1,
+            "BIT_G": 1,
+            "BIT_L": 0
+          },
+          "encoded": "4000880000000000"
+        },
+        {
+          "payload": "63a9e42126f597cd",
+          "values": {
+            "Multiplexor": 24,
+            "BIT_J": 1,
+            "BIT_C": 0,
+            "BIT_G": 1,
+            "BIT_L": 1,
+            "BIT_A": 0,
+            "BIT_K": 0,
+            "BIT_E": 1,
+            "BIT_D": 0,
+            "BIT_B": 1,
+            "BIT_H": 0,
+            "BIT_F": 0
+          },
+          "encoded": "6000842102000000"
+        },
+        {
+          "payload": "21acc89fa2305577",
+          "values": {
+            "Multiplexor": 8,
+            "BIT_J": 0,
+            "BIT_C": 1,
+            "BIT_G": 1,
+            "BIT_L": 1
+          },
+          "encoded": "2000880100000000"
+        },
+        {
+          "payload": "613cd67f2333c5aa",
+          "values": {
+            "Multiplexor": 24,
+            "BIT_J": 1,
+            "BIT_C": 0,
+            "BIT_G": 1,
+            "BIT_L": 1,
+            "BIT_A": 1,
+            "BIT_K": 1,
+            "BIT_E": 1,
+            "BIT_D": 1,
+            "BIT_B": 1,
+            "BIT_H": 0,
+            "BIT_F": 0
+          },
+          "encoded": "6000843503000000"
+        },
+        {
+          "payload": "60144dc0aa6705a1",
+          "values": {
+            "Multiplexor": 24,
+            "BIT_J": 1,
+            "BIT_C": 1,
+            "BIT_G": 0,
+            "BIT_L": 0,
+            "BIT_A": 0,
+            "BIT_K": 0,
+            "BIT_E": 0,
+            "BIT_D": 0,
+            "BIT_B": 1,
+            "BIT_H": 0,
+            "BIT_F": 1
+          },
+          "encoded": "60000c0082000000"
+        },
+        {
+          "payload": "4221a2ee414b3e5c",
+          "values": {
+            "Multiplexor": 16,
+            "BIT_J": 0,
+            "BIT_C": 0,
+            "BIT_G": 1,
+            "BIT_L": 0
+          },
+          "encoded": "4000800000000000"
+        },
+        {
+          "payload": "42aa1fecfcf5a667",
+          "values": {
+            "Multiplexor": 16,
+            "BIT_J": 1,
+            "BIT_C": 1,
+            "BIT_G": 0,
+            "BIT_L": 0
+          },
+          "encoded": "40000c0000000000"
+        },
+        {
+          "payload": "63216adc77ad86f3",
+          "values": {
+            "Multiplexor": 24,
+            "BIT_J": 0,
+            "BIT_C": 1,
+            "BIT_G": 0,
+            "BIT_L": 0,
+            "BIT_A": 1,
+            "BIT_K": 1,
+            "BIT_E": 0,
+            "BIT_D": 1,
+            "BIT_B": 1,
+            "BIT_H": 1,
+            "BIT_F": 0
+          },
+          "encoded": "6000081443000000"
+        },
+        {
+          "payload": "627530d869175a1d",
+          "values": {
+            "Multiplexor": 24,
+            "BIT_J": 0,
+            "BIT_C": 0,
+            "BIT_G": 0,
+            "BIT_L": 0,
+            "BIT_A": 0,
+            "BIT_K": 1,
+            "BIT_E": 0,
+            "BIT_D": 1,
+            "BIT_B": 0,
+            "BIT_H": 1,
+            "BIT_F": 0
+          },
+          "encoded": "6000001041000000"
+        },
+        {
+          "payload": "407211386203a991",
+          "values": {
+            "Multiplexor": 16,
+            "BIT_J": 0,
+            "BIT_C": 0,
+            "BIT_G": 0,
+            "BIT_L": 0
+          },
+          "encoded": "4000000000000000"
+        },
+        {
+          "payload": "4097889aefcf9fcd",
+          "values": {
+            "Multiplexor": 16,
+            "BIT_J": 0,
+            "BIT_C": 1,
+            "BIT_G": 1,
+            "BIT_L": 0
+          },
+          "encoded": "4000880000000000"
+        },
+        {
+          "payload": "61360cf50bc8f5a2",
+          "values": {
+            "Multiplexor": 24,
+            "BIT_J": 1,
+            "BIT_C": 1,
+            "BIT_G": 0,
+            "BIT_L": 1,
+            "BIT_A": 1,
+            "BIT_K": 1,
+            "BIT_E": 1,
+            "BIT_D": 1,
+            "BIT_B": 1,
+            "BIT_H": 0,
+            "BIT_F": 0
+          },
+          "encoded": "60000c3503000000"
+        },
+        {
+          "payload": "43815be41fc2981b",
+          "values": {
+            "Multiplexor": 16,
+            "BIT_J": 0,
+            "BIT_C": 1,
+            "BIT_G": 0,
+            "BIT_L": 0
+          },
+          "encoded": "4000080000000000"
+        },
+        {
+          "payload": "62e40ae2d01c7de6",
+          "values": {
+            "Multiplexor": 24,
+            "BIT_J": 0,
+            "BIT_C": 1,
+            "BIT_G": 0,
+            "BIT_L": 0,
+            "BIT_A": 0,
+            "BIT_K": 0,
+            "BIT_E": 1,
+            "BIT_D": 0,
+            "BIT_B": 0,
+            "BIT_H": 1,
+            "BIT_F": 1
+          },
+          "encoded": "60000820c0000000"
+        },
+        {
+          "payload": "6067eeee3f477d0c",
+          "values": {
+            "Multiplexor": 24,
+            "BIT_J": 1,
+            "BIT_C": 1,
+            "BIT_G": 1,
+            "BIT_L": 0,
+            "BIT_A": 1,
+            "BIT_K": 0,
+            "BIT_E": 1,
+            "BIT_D": 1,
+            "BIT_B": 1,
+            "BIT_H": 0,
+            "BIT_F": 0
+          },
+          "encoded": "60008c2403000000"
+        }
+      ]
+    }
+  ],
+  "skipped": {}
+}

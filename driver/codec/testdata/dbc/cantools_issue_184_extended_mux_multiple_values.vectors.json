@@ -1,0 +1,266 @@
+{
+  "messages": [
+    {
+      "name": "ext_MUX_multiple_values",
+      "vectors": [
+        {
+          "payload": "059beb02f859a700",
+          "values": {
+            "MUX": 5,
+            "muxed_0_3_4_5": -101
+          },
+          "encoded": "059b000000000000"
+        },
+        {
+          "payload": "006b62e05cb6fef9",
+          "values": {
+            "MUX": 0,
+            "muxed_0_3_4_5": 107
+          },
+          "encoded": "006b000000000000"
+        },
+        {
+          "payload": "010f2d243bb52db9",
+          "values": {
+            "MUX": 1,
+            "muxed_1": 15
+          },
+          "encoded": "010f000000000000"
+        },
+        {
+          "payload": "044ed8addc322080",
+          "values": {
+            "MUX": 4,
+            "muxed_0_3_4_5": 78
+          },
+          "encoded": "044e000000000000"
+        },
+        {
+          "payload": "000a14278795cbb7",
+          "values": {
+            "MUX": 0,
+            "muxed_0_3_4_5": 10
+          },
+          "encoded": "000a000000000000"
+        },
+        {
+          "payload": "01f3f5f3610c7894",
+          "values": {
+            "MUX": 1,
+            "muxed_1": -13
+          },
+          "encoded": "01f3000000000000"
+        },
+        {
+          "payload": "01300de8f9c8fd5e",
+          "values": {
+            "MUX": 1,
+            "muxed_1": 48
+          },
+          "encoded": "0130000000000000"
+        },
+        {
+          "payload": "051b6520769ffad3",
+          "values": {
+            "MUX": 5,
+            "muxed_0_3_4_5": 27
+          },
+          "encoded": "051b000000000000"
+        },
+        {
+          "payload": "0481ace36f36ed3f",
+          "values": {
+            "MUX": 4,
+            "muxed_0_3_4_5": -127
+          },
+          "encoded": "0481000000000000"
+        },
+        {
+          "payload": "00c1e64113697171",
+          "values": {
+            "MUX": 0,
+            "muxed_0_3_4_5": -63
+          },
+          "encoded": "00c1000000000000"
+        },
+        {
+          "payload": "04ebe74884290179",
+          "values": {
+            "MUX": 4,
+            "muxed_0_3_4_5": -21
+          },
+          "encoded": "04eb000000000000"
+        },
+        {
+          "payload": "01840c5188a642fb",
+          "values": {
+            "MUX": 1,
+            "muxed_1": -124
+          },
+          "encoded": "0184000000000000"
+        },
+        {
+          "payload": "00816492ea755687",
+          "values": {
+            "MUX": 0,
+            "muxed_0_3_4_5": -127
+          },
+          "encoded": "0081000000000000"
+        },
+        {
+          "payload": "05e5a5b9871e6c9a",
+          "values": {
+            "MUX": 5,
+            "muxed_0_3_4_5": -27
+          },
+          "encoded": "05e5000000000000"
+        },
+        {
+          "payload": "04bda4faf3ca686c",
+          "values": {
+            "MUX": 4,
+            "muxed_0_3_4_5": -67
+          },
+          "encoded": "04bd000000000000"
+        },
+        {
+          "payload": "04eff11e72f320ac",
+          "values": {
+            "MUX": 4,
+            "muxed_0_3_4_5": -17
+          },
+          "encoded": "04ef000000000000"
+        },
+        {
+          "payload": "00eba5fc58e3006a",
+          "values": {
+            "MUX": 0,
+            "muxed_0_3_4_5": -21
+          },
+          "encoded": "00eb000000000000"
+        },
+        {
+          "payload": "034f8b2ca38d2d17",
+          "values": {
+            "MUX": 3,
+            "muxed_0_3_4_5": 79
+          },
+          "encoded": "034f000000000000"
+        },
+        {
+          "payload": "04a9e42126f597cd",
+          "values": {
+            "MUX": 4,
+            "muxed_0_3_4_5": -87
+          },
+          "encoded": "04a9000000000000"
+        },
+        {
+          "payload": "00acc89fa2305577",
+          "values": {
+            "MUX": 0,
+            "muxed_0_3_4_5": -84
+          },
+          "encoded": "00ac000000000000"
+        },
+        {
+          "payload": "043cd67f2333c5aa",
+          "values": {
+            "MUX": 4,
+            "muxed_0_3_4_5": 60
+          },
+          "encoded": "043c000000000000"
+        },
+        {
+          "payload": "05144dc0aa6705a1",
+          "values": {
+            "MUX": 5,
+            "muxed_0_3_4_5": 20
+          },
+          "encoded": "0514000000000000"
+        },
+        {
+          "payload": "0321a2ee414b3e5c",
+          "values": {
+            "MUX": 3,
+            "muxed_0_3_4_5": 33
+          },
+          "encoded": "0321000000000000"
+        },
+        {
+          "payload": "02aa1fecfcf5a667",
+          "values": {
+            "MUX": 2,
+            "muxed_2": -86
+          },
+          "encoded": "02aa000000000000"
+        },
+        {
+          "payload": "04216adc77ad86f3",
+          "values": {
+            "MUX": 4,
+            "muxed_0_3_4_5": 33
+          },
+          "encoded": "0421000000000000"
+        },
+        {
+          "payload": "057530d869175a1d",
+          "values": {
+            "MUX": 5,
+            "muxed_0_3_4_5": 117
+          },
+          "encoded": "0575000000000000"
+        },
+        {
+          "payload": "037211386203a991",
+          "values": {
+            "MUX": 3,
+            "muxed_0_3_4_5": 114
+          },
+          "encoded": "0372000000000000"
+        },
+        {
+          "payload": "0297889aefcf9fcd",
+          "values": {
+            "MUX": 2,
+            "muxed_2": -105
+          },
+          "encoded": "0297000000000000"
+        },
+        {
+          "payload": "05360cf50bc8f5a2",
+          "values": {
+            "MUX": 5,
+            "muxed_0_3_4_5": 54
+          },
+          "encoded": "0536000000000000"
+        },
+        {
+          "payload": "02815be41fc2981b",
+          "values": {
+            "MUX": 2,
+            "muxed_2": -127
+          },
+          "encoded": "0281000000000000"
+        },
+        {
+          "payload": "04e40ae2d01c7de6",
+          "values": {
+            "MUX": 4,
+            "muxed_0_3_4_5": -28
+          },
+          "encoded": "04e4000000000000"
+        },
+        {
+          "payload": "0467eeee3f477d0c",
+          "values": {
+            "MUX": 4,
+            "muxed_0_3_4_5": 103
+          },
+          "encoded": "0467000000000000"
+        }
+      ]
+    }
+  ],
+  "skipped": {}
+}

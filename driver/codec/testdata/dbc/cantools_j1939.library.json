@@ -1,0 +1,66 @@
+{
+  "key": "00000000-0000-4000-8000-000000000000",
+  "name": "cantools_j1939",
+  "entries": [
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000001",
+      "name": "Message1",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 355729921,
+          "extended": true,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "Signal1",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "signed": true,
+            "float": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000003",
+      "name": "Message2",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 368054274,
+          "extended": true,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000004",
+            "name": "Signal2",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "signed": true,
+            "float": false
+          }
+        ]
+      }
+    }
+  ]
+}

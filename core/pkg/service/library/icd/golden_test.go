@@ -93,6 +93,7 @@ func deterministicKeys(entries []library.Entry) []library.Entry {
 	return out
 }
 
+// SYNNAX_UPDATE_GOLDEN=1 rewrites the golden files. Format them with Prettier after.
 var _ = Describe("Golden libraries", func() {
 	DescribeTable(
 		"Should import each DBC to its golden library JSON",
@@ -106,13 +107,12 @@ var _ = Describe("Golden libraries", func() {
 				Entries: deterministicKeys(entries),
 			}
 			got := MustSucceed(json.Marshal(lib, jsontext.WithIndent("  ")))
-			got = append(got, '\n')
 			golden := strings.TrimSuffix(path, ".dbc") + ".library.json"
 			if os.Getenv("SYNNAX_UPDATE_GOLDEN") == "1" {
 				Expect(os.WriteFile(golden, got, 0o644)).To(Succeed())
 				return
 			}
-			Expect(string(got)).To(Equal(string(MustSucceed(os.ReadFile(golden)))))
+			Expect(got).To(MatchJSON(MustSucceed(os.ReadFile(golden))))
 		},
 		goldenEntries(),
 	)

@@ -1,0 +1,190 @@
+{
+  "key": "00000000-0000-4000-8000-000000000000",
+  "name": "cantools_multiplex",
+  "entries": [
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000001",
+      "name": "Message1",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 1193046,
+          "extended": true,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "BIT_K",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-00000000000d",
+            "multiplex_values": [24],
+            "start_bit": 28,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000003",
+            "name": "BIT_D",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-00000000000d",
+            "multiplex_values": [24],
+            "start_bit": 32,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000004",
+            "name": "BIT_B",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-00000000000d",
+            "multiplex_values": [24],
+            "start_bit": 33,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000005",
+            "name": "BIT_F",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-00000000000d",
+            "multiplex_values": [24],
+            "start_bit": 39,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000006",
+            "name": "BIT_H",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-00000000000d",
+            "multiplex_values": [24],
+            "start_bit": 38,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000007",
+            "name": "BIT_E",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-00000000000d",
+            "multiplex_values": [24],
+            "start_bit": 29,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000008",
+            "name": "BIT_A",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-00000000000d",
+            "multiplex_values": [24],
+            "start_bit": 26,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000009",
+            "name": "BIT_L",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-00000000000d",
+            "multiplex_values": [8, 16, 24],
+            "start_bit": 24,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000000a",
+            "name": "BIT_G",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-00000000000d",
+            "multiplex_values": [8, 16, 24],
+            "start_bit": 23,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000000b",
+            "name": "BIT_C",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-00000000000d",
+            "multiplex_values": [8, 16, 24],
+            "start_bit": 19,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000000c",
+            "name": "BIT_J",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-00000000000d",
+            "multiplex_values": [8, 16, 24],
+            "start_bit": 18,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000000d",
+            "name": "Multiplexor",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 2,
+            "bit_length": 6,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,234 @@
+{
+  "messages": [
+    {
+      "name": "ExampleMessage",
+      "vectors": [
+        {
+          "payload": "7b9b",
+          "values": {
+            "Temperature": 4070.29
+          },
+          "encoded": "0b9b"
+        },
+        {
+          "payload": "eb02",
+          "values": {
+            "Temperature": 4071.82
+          },
+          "encoded": "0b02"
+        },
+        {
+          "payload": "f859",
+          "values": {
+            "Temperature": 4078.63
+          },
+          "encoded": "0859"
+        },
+        {
+          "payload": "a700",
+          "values": {
+            "Temperature": 4082.08
+          },
+          "encoded": "0700"
+        },
+        {
+          "payload": "b7cb",
+          "values": {
+            "Temperature": 4080.05
+          },
+          "encoded": "07cb"
+        },
+        {
+          "payload": "6b62",
+          "values": {
+            "Temperature": 4070.86
+          },
+          "encoded": "0b62"
+        },
+        {
+          "payload": "e05c",
+          "values": {
+            "Temperature": 4099.08
+          },
+          "encoded": "005c"
+        },
+        {
+          "payload": "b6fe",
+          "values": {
+            "Temperature": 4082.1
+          },
+          "encoded": "06fe"
+        },
+        {
+          "payload": "f907",
+          "values": {
+            "Temperature": 4076.89
+          },
+          "encoded": "0907"
+        },
+        {
+          "payload": "3e0f",
+          "values": {
+            "Temperature": 4064.01
+          },
+          "encoded": "0e0f"
+        },
+        {
+          "payload": "2d24",
+          "values": {
+            "Temperature": 4066.36
+          },
+          "encoded": "0d24"
+        },
+        {
+          "payload": "3bb5",
+          "values": {
+            "Temperature": 4070.03
+          },
+          "encoded": "0bb5"
+        },
+        {
+          "payload": "2db9",
+          "values": {
+            "Temperature": 4064.87
+          },
+          "encoded": "0db9"
+        },
+        {
+          "payload": "2a7d",
+          "values": {
+            "Temperature": 4073.15
+          },
+          "encoded": "0a7d"
+        },
+        {
+          "payload": "4ed8",
+          "values": {
+            "Temperature": 4062.0
+          },
+          "encoded": "0ed8"
+        },
+        {
+          "payload": "addc",
+          "values": {
+            "Temperature": 4064.52
+          },
+          "encoded": "0ddc"
+        },
+        {
+          "payload": "3220",
+          "values": {
+            "Temperature": 4094.56
+          },
+          "encoded": "0220"
+        },
+        {
+          "payload": "8094",
+          "values": {
+            "Temperature": 4098.52
+          },
+          "encoded": "0094"
+        },
+        {
+          "payload": "060a",
+          "values": {
+            "Temperature": 4084.54
+          },
+          "encoded": "060a"
+        },
+        {
+          "payload": "1427",
+          "values": {
+            "Temperature": 4089.37
+          },
+          "encoded": "0427"
+        },
+        {
+          "payload": "8795",
+          "values": {
+            "Temperature": 4080.59
+          },
+          "encoded": "0795"
+        },
+        {
+          "payload": "cbb7",
+          "values": {
+            "Temperature": 4070.01
+          },
+          "encoded": "0bb7"
+        },
+        {
+          "payload": "cb0c",
+          "values": {
+            "Temperature": 4071.72
+          },
+          "encoded": "0b0c"
+        },
+        {
+          "payload": "58f3",
+          "values": {
+            "Temperature": 4077.09
+          },
+          "encoded": "08f3"
+        },
+        {
+          "payload": "f5f3",
+          "values": {
+            "Temperature": 4084.77
+          },
+          "encoded": "05f3"
+        },
+        {
+          "payload": "610c",
+          "values": {
+            "Temperature": 4097.32
+          },
+          "encoded": "010c"
+        },
+        {
+          "payload": "7894",
+          "values": {
+            "Temperature": 4078.04
+          },
+          "encoded": "0894"
+        },
+        {
+          "payload": "2255",
+          "values": {
+            "Temperature": 4094.03
+          },
+          "encoded": "0255"
+        },
+        {
+          "payload": "300d",
+          "values": {
+            "Temperature": 4099.87
+          },
+          "encoded": "000d"
+        },
+        {
+          "payload": "e8f9",
+          "values": {
+            "Temperature": 4077.03
+          },
+          "encoded": "08f9"
+        },
+        {
+          "payload": "c8fd",
+          "values": {
+            "Temperature": 4076.99
+          },
+          "encoded": "08fd"
+        },
+        {
+          "payload": "5e31",
+          "values": {
+            "Temperature": 4063.67
+          },
+          "encoded": "0e31"
+        }
+      ]
+    }
+  ],
+  "skipped": {}
+}

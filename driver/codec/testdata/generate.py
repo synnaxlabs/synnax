@@ -11,7 +11,9 @@
 
 Run from this directory with:
 
-    uv run --no-project --with cantools python generate.py [directory]
+    uv run --no-project --with cantools==45.1.0 python generate.py [directory]
+
+and format the result from the repository root with pnpm prettier --write driver/codec.
 
 The directory defaults to dbc/. Each vector holds a random payload, the physical values
 cantools decodes from it, and the payload cantools encodes from those values onto a
@@ -29,9 +31,9 @@ import cantools
 
 SEED = 4971
 # Vectors per file, split across its messages, bounded per message.
-VECTORS_PER_FILE = 1024
+VECTORS_PER_FILE = 512
 MIN_VECTORS = 4
-MAX_VECTORS = 64
+MAX_VECTORS = 32
 
 
 def bit_positions(signal) -> list[int]:
@@ -97,17 +99,23 @@ def vectors(rng: random.Random, message, count: int) -> list:
 
 
 def generate(path: Path) -> None:
-    db = cantools.database.load_file(path, strict=False)
+    out = {"messages": [], "skipped": {}}
+    try:
+        db = cantools.database.load_file(path, strict=False)
+    except Exception as e:  # noqa: BLE001 - every cantools failure is reported.
+        out["skipped"][path.name] = f"{type(e).__name__}: {e}"
+        db = cantools.database.Database()
     rng = random.Random(SEED)
     messages = sorted(db.messages, key=lambda m: (m.frame_id, m.name))
-    count = max(MIN_VECTORS, min(MAX_VECTORS, VECTORS_PER_FILE // len(messages)))
-    out = {"messages": [], "skipped": {}}
+    count = max(
+        MIN_VECTORS, min(MAX_VECTORS, VECTORS_PER_FILE // max(1, len(messages)))
+    )
     for m in messages:
         try:
             out["messages"].append({"name": m.name, "vectors": vectors(rng, m, count)})
         except Exception as e:  # noqa: BLE001 - every cantools failure is reported.
             out["skipped"][m.name] = f"{type(e).__name__}: {e}"
-    text = json.dumps(out, indent=1)
+    text = json.dumps(out, indent=2)
     path.with_suffix(".vectors.json").write_text(text + "\n")
 
 

@@ -1,0 +1,79 @@
+{
+  "key": "00000000-0000-4000-8000-000000000000",
+  "name": "cantools_floating_point",
+  "entries": [
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000001",
+      "name": "Message1",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 1024,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "Signal1",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 64,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": true
+          }
+        ]
+      }
+    },
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000003",
+      "name": "Message2",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 1025,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000004",
+            "name": "Signal2",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 32,
+            "bit_length": 32,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": true
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000005",
+            "name": "Signal1",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 32,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": true
+          }
+        ]
+      }
+    }
+  ]
+}

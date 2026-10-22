@@ -1,0 +1,3555 @@
+{
+  "messages": [
+    {
+      "name": "DI_torque1",
+      "vectors": [
+        {
+          "payload": "7b9beb02f859a700",
+          "values": {
+            "DI_torqueDriver": -289.25,
+            "DI_torque1Counter": 4,
+            "DI_torqueMotor": 186.75,
+            "DI_soptState": 0,
+            "DI_motorRPM": 23032,
+            "DI_pedalPos": 66.8,
+            "DI_torque1Checksum": 0
+          },
+          "encoded": "7b9beb02f859a700"
+        },
+        {
+          "payload": "b7cb6b62e05cb6fe",
+          "values": {
+            "DI_torqueDriver": 749.75,
+            "DI_torque1Counter": 6,
+            "DI_torqueMotor": 154.75,
+            "DI_soptState": 3,
+            "DI_motorRPM": 23776,
+            "DI_pedalPos": 72.8,
+            "DI_torque1Checksum": 254
+          },
+          "encoded": "b7cb6b62e05cb6fe"
+        },
+        {
+          "payload": "f9073e0f2d243bb5",
+          "values": {
+            "DI_torqueDriver": 510.25,
+            "DI_torque1Counter": 0,
+            "DI_torqueMotor": 975.5,
+            "DI_soptState": 0,
+            "DI_motorRPM": 9261,
+            "DI_pedalPos": 23.6,
+            "DI_torque1Checksum": 181
+          },
+          "encoded": "f9073e0f2d243bb5"
+        },
+        {
+          "payload": "2db92a7d4ed8addc",
+          "values": {
+            "DI_torqueDriver": -436.75,
+            "DI_torque1Counter": 5,
+            "DI_torqueMotor": -181.5,
+            "DI_soptState": 3,
+            "DI_motorRPM": -10162,
+            "DI_pedalPos": 69.2,
+            "DI_torque1Checksum": 220
+          },
+          "encoded": "2db92a7d4ed8addc"
+        },
+        {
+          "payload": "32208094060a1427",
+          "values": {
+            "DI_torqueDriver": 12.5,
+            "DI_torque1Counter": 1,
+            "DI_torqueMotor": -736.0,
+            "DI_soptState": 4,
+            "DI_motorRPM": 2566,
+            "DI_pedalPos": 8.0,
+            "DI_torque1Checksum": 39
+          },
+          "encoded": "32208094060a1427"
+        },
+        {
+          "payload": "8795cbb7cb0c58f3",
+          "values": {
+            "DI_torqueDriver": -670.25,
+            "DI_torque1Counter": 4,
+            "DI_torqueMotor": -525.25,
+            "DI_soptState": 5,
+            "DI_motorRPM": 3275,
+            "DI_pedalPos": 35.2,
+            "DI_torque1Checksum": 243
+          },
+          "encoded": "8795cbb7cb0c58f3"
+        },
+        {
+          "payload": "f5f3610c78942255",
+          "values": {
+            "DI_torqueDriver": -770.75,
+            "DI_torque1Counter": 7,
+            "DI_torqueMotor": 792.25,
+            "DI_soptState": 0,
+            "DI_motorRPM": -27528,
+            "DI_pedalPos": 13.600000000000001,
+            "DI_torque1Checksum": 85
+          },
+          "encoded": "f5f3610c78942255"
+        },
+        {
+          "payload": "300de8f9c8fd5e31",
+          "values": {
+            "DI_torqueDriver": 844.0,
+            "DI_torque1Counter": 0,
+            "DI_torqueMotor": -390.0,
+            "DI_soptState": 7,
+            "DI_motorRPM": -568,
+            "DI_pedalPos": 37.6,
+            "DI_torque1Checksum": 49
+          },
+          "encoded": "300de8f9c8fd5e31"
+        },
+        {
+          "payload": "e31b6520769ffad3",
+          "values": {
+            "DI_torqueDriver": -263.25,
+            "DI_torque1Counter": 0,
+            "DI_torqueMotor": 25.25,
+            "DI_soptState": 1,
+            "DI_motorRPM": -24714,
+            "DI_pedalPos": 100.0,
+            "DI_torque1Checksum": 211
+          },
+          "encoded": "e31b6520769ffad3"
+        },
+        {
+          "payload": "b6ff81ace36f36ed",
+          "values": {
+            "DI_torqueDriver": -18.5,
+            "DI_torque1Counter": 7,
+            "DI_torqueMotor": 800.25,
+            "DI_soptState": 5,
+            "DI_motorRPM": 28643,
+            "DI_pedalPos": 21.6,
+            "DI_torque1Checksum": 237
+          },
+          "encoded": "b6ff81ace36f36ed"
+        },
+        {
+          "payload": "3f8dddc1e6411369",
+          "values": {
+            "DI_torqueDriver": 847.75,
+            "DI_torque1Counter": 4,
+            "DI_torqueMotor": 119.25,
+            "DI_soptState": 6,
+            "DI_motorRPM": 16870,
+            "DI_pedalPos": 7.6000000000000005,
+            "DI_torque1Checksum": 105
+          },
+          "encoded": "3f8dddc1e6411369"
+        },
+        {
+          "payload": "71710b40ebe74884",
+          "values": {
+            "DI_torqueDriver": -931.75,
+            "DI_torque1Counter": 3,
+            "DI_torqueMotor": 2.75,
+            "DI_soptState": 2,
+            "DI_motorRPM": -6165,
+            "DI_pedalPos": 28.8,
+            "DI_torque1Checksum": 132
+          },
+          "encoded": "71710b40ebe74884"
+        },
+        {
+          "payload": "2901799ea7840c51",
+          "values": {
+            "DI_torqueDriver": 74.25,
+            "DI_torque1Counter": 0,
+            "DI_torqueMotor": -97.75,
+            "DI_soptState": 4,
+            "DI_motorRPM": -31577,
+            "DI_pedalPos": 4.800000000000001,
+            "DI_torque1Checksum": 81
+          },
+          "encoded": "2901799ea7840c51"
+        },
+        {
+          "payload": "88a642fb3e268164",
+          "values": {
+            "DI_torqueDriver": 418.0,
+            "DI_torque1Counter": 5,
+            "DI_torqueMotor": -303.5,
+            "DI_soptState": 7,
+            "DI_motorRPM": 9790,
+            "DI_pedalPos": 51.6,
+            "DI_torque1Checksum": 100
+          },
+          "encoded": "88a642fb3e268164"
+        },
+        {
+          "payload": "92ea7556870b36e5",
+          "values": {
+            "DI_torqueDriver": 676.5,
+            "DI_torque1Counter": 7,
+            "DI_torqueMotor": -610.75,
+            "DI_soptState": 2,
+            "DI_motorRPM": 2951,
+            "DI_pedalPos": 21.6,
+            "DI_torque1Checksum": 229
+          },
+          "encoded": "92ea7556870b36e5"
+        },
+        {
+          "payload": "a5b9871e6c9ae0b6",
+          "values": {
+            "DI_torqueDriver": -406.75,
+            "DI_torque1Counter": 5,
+            "DI_torqueMotor": -94.25,
+            "DI_soptState": 0,
+            "DI_motorRPM": -26004,
+            "DI_pedalPos": 89.60000000000001,
+            "DI_torque1Checksum": 182
+          },
+          "encoded": "a5b9871e6c9ae0b6"
+        },
+        {
+          "payload": "79bda4faf3ca686c",
+          "values": {
+            "DI_torqueDriver": -161.75,
+            "DI_torque1Counter": 5,
+            "DI_torqueMotor": -343.0,
+            "DI_soptState": 7,
+            "DI_motorRPM": -13581,
+            "DI_pedalPos": 41.6,
+            "DI_torque1Checksum": 108
+          },
+          "encoded": "79bda4faf3ca686c"
+        },
+        {
+          "payload": "d480c4eff11e72f3",
+          "values": {
+            "DI_torqueDriver": 53.0,
+            "DI_torque1Counter": 4,
+            "DI_torqueMotor": 1009.0,
+            "DI_soptState": 7,
+            "DI_motorRPM": 7921,
+            "DI_pedalPos": 45.6,
+            "DI_torque1Checksum": 243
+          },
+          "encoded": "d480c4eff11e72f3"
+        },
+        {
+          "payload": "20ac8843eba5fc58",
+          "values": {
+            "DI_torqueDriver": 776.0,
+            "DI_torque1Counter": 5,
+            "DI_torqueMotor": 226.0,
+            "DI_soptState": 2,
+            "DI_motorRPM": -23061,
+            "DI_pedalPos": 100.80000000000001,
+            "DI_torque1Checksum": 88
+          },
+          "encoded": "20ac8843eba5fc58"
+        },
+        {
+          "payload": "e3006a007b4f8b2c",
+          "values": {
+            "DI_torqueDriver": 56.75,
+            "DI_torque1Counter": 0,
+            "DI_torqueMotor": 26.5,
+            "DI_soptState": 0,
+            "DI_motorRPM": 20347,
+            "DI_pedalPos": 55.6,
+            "DI_torque1Checksum": 44
+          },
+          "encoded": "e3006a007b4f8b2c"
+        },
+        {
+          "payload": "a38d2d177733a9e4",
+          "values": {
+            "DI_torqueDriver": 872.75,
+            "DI_torque1Counter": 4,
+            "DI_torqueMotor": -564.75,
+            "DI_soptState": 0,
+            "DI_motorRPM": 13175,
+            "DI_pedalPos": 67.60000000000001,
+            "DI_torque1Checksum": 228
+          },
+          "encoded": "a38d2d177733a9e4"
+        },
+        {
+          "payload": "2126f597cd8379ac",
+          "values": {
+            "DI_torqueDriver": 392.25,
+            "DI_torque1Counter": 1,
+            "DI_torqueMotor": -514.75,
+            "DI_soptState": 4,
+            "DI_motorRPM": -31795,
+            "DI_pedalPos": 48.400000000000006,
+            "DI_torque1Checksum": 172
+          },
+          "encoded": "2126f597cd8379ac"
+        },
+        {
+          "payload": "c89fa23055771ea1",
+          "values": {
+            "DI_torqueDriver": -14.0,
+            "DI_torque1Counter": 4,
+            "DI_torqueMotor": -983.5,
+            "DI_soptState": 1,
+            "DI_motorRPM": 30549,
+            "DI_pedalPos": 12.0,
+            "DI_torque1Checksum": 161
+          },
+          "encoded": "c89fa23055771ea1"
+        },
+        {
+          "payload": "3cd67f2333c5aa98",
+          "values": {
+            "DI_torqueDriver": -625.0,
+            "DI_torque1Counter": 6,
+            "DI_torqueMotor": 223.75,
+            "DI_soptState": 1,
+            "DI_motorRPM": -15053,
+            "DI_pedalPos": 68.0,
+            "DI_torque1Checksum": 152
+          },
+          "encoded": "3cd67f2333c5aa98"
+        },
+        {
+          "payload": "7c144dc0aa6705a1",
+          "values": {
+            "DI_torqueDriver": -737.0,
+            "DI_torque1Counter": 0,
+            "DI_torqueMotor": 19.25,
+            "DI_soptState": 6,
+            "DI_motorRPM": 26538,
+            "DI_pedalPos": 2.0,
+            "DI_torque1Checksum": 161
+          },
+          "encoded": "7c144dc0aa6705a1"
+        },
+        {
+          "payload": "bf6621a2ee414b3e",
+          "values": {
+            "DI_torqueDriver": 431.75,
+            "DI_torque1Counter": 3,
+            "DI_torqueMotor": 136.25,
+            "DI_soptState": 5,
+            "DI_motorRPM": 16878,
+            "DI_pedalPos": 30.0,
+            "DI_torque1Checksum": 62
+          },
+          "encoded": "bf6621a2ee414b3e"
+        },
+        {
+          "payload": "5cd66d22aa1fecfc",
+          "values": {
+            "DI_torqueDriver": -617.0,
+            "DI_torque1Counter": 6,
+            "DI_torqueMotor": 155.25,
+            "DI_soptState": 1,
+            "DI_motorRPM": 8106,
+            "DI_pedalPos": 94.4,
+            "DI_torque1Checksum": 252
+          },
+          "encoded": "5cd66d22aa1fecfc"
+        },
+        {
+          "payload": "f5a6674d93216adc",
+          "values": {
+            "DI_torqueDriver": 445.25,
+            "DI_torque1Counter": 5,
+            "DI_torqueMotor": 857.75,
+            "DI_soptState": 2,
+            "DI_motorRPM": 8595,
+            "DI_pedalPos": 42.400000000000006,
+            "DI_torque1Checksum": 220
+          },
+          "encoded": "f5a6674d93216adc"
+        },
+        {
+          "payload": "77ad86f380fe7530",
+          "values": {
+            "DI_torqueDriver": 861.75,
+            "DI_torque1Counter": 5,
+            "DI_torqueMotor": -798.5,
+            "DI_soptState": 7,
+            "DI_motorRPM": -384,
+            "DI_pedalPos": 46.800000000000004,
+            "DI_torque1Checksum": 48
+          },
+          "encoded": "77ad86f380fe7530"
+        },
+        {
+          "payload": "d869175a1ddaa87c",
+          "values": {
+            "DI_torqueDriver": 630.0,
+            "DI_torque1Counter": 3,
+            "DI_torqueMotor": -378.25,
+            "DI_soptState": 2,
+            "DI_motorRPM": -9699,
+            "DI_pedalPos": 67.2,
+            "DI_torque1Checksum": 124
+          },
+          "encoded": "d869175a1ddaa87c"
+        },
+        {
+          "payload": "7211386203a99174",
+          "values": {
+            "DI_torqueDriver": -931.5,
+            "DI_torque1Counter": 0,
+            "DI_torqueMotor": 142.0,
+            "DI_soptState": 3,
+            "DI_motorRPM": -22269,
+            "DI_pedalPos": 58.0,
+            "DI_torque1Checksum": 116
+          },
+          "encoded": "7211386203a99174"
+        },
+        {
+          "payload": "4097889aefcf9fcd",
+          "values": {
+            "DI_torqueDriver": -560.0,
+            "DI_torque1Counter": 4,
+            "DI_torqueMotor": -350.0,
+            "DI_soptState": 4,
+            "DI_motorRPM": -12305,
+            "DI_pedalPos": 63.6,
+            "DI_torque1Checksum": 205
+          },
+          "encoded": "4097889aefcf9fcd"
+        }
+      ]
+    },
+    {
+      "name": "DI_torque2",
+      "vectors": [
+        {
+          "payload": "5111360cf50b",
+          "values": {
+            "DI_torqueEstimate": 168.5,
+            "DI_gear": 1,
+            "DI_brakePedal": 0,
+            "DI_vehicleSpeed": 131.3,
+            "DI_gearRequest": 0,
+            "DI_torqueInterfaceFailure": 0,
+            "DI_torque2Counter": 5,
+            "DI_brakePedalState": 3,
+            "DI_epbParkRequest": 1,
+            "DI_epbInterfaceReady": 1,
+            "DI_torque2Checksum": 11
+          },
+          "encoded": "5111360cf50b"
+        },
+        {
+          "payload": "c8f5a2ab9381",
+          "values": {
+            "DI_torqueEstimate": 740.0,
+            "DI_gear": 7,
+            "DI_brakePedal": 1,
+            "DI_vehicleSpeed": 123.9,
+            "DI_gearRequest": 2,
+            "DI_torqueInterfaceFailure": 1,
+            "DI_torque2Counter": 3,
+            "DI_brakePedalState": 1,
+            "DI_epbParkRequest": 0,
+            "DI_epbInterfaceReady": 1,
+            "DI_torque2Checksum": 129
+          },
+          "encoded": "c8f5a2ab9381"
+        },
+        {
+          "payload": "5be41fc2981b",
+          "values": {
+            "DI_torqueEstimate": 557.5,
+            "DI_gear": 6,
+            "DI_brakePedal": 1,
+            "DI_vehicleSpeed": 2.150000000000002,
+            "DI_gearRequest": 4,
+            "DI_torqueInterfaceFailure": 1,
+            "DI_torque2Counter": 8,
+            "DI_brakePedalState": 1,
+            "DI_epbParkRequest": 0,
+            "DI_epbInterfaceReady": 1,
+            "DI_torque2Checksum": 27
+          },
+          "encoded": "5be41fc2981b"
+        },
+        {
+          "payload": "447ae40ae2d0",
+          "values": {
+            "DI_torqueEstimate": -734.0,
+            "DI_gear": 7,
+            "DI_brakePedal": 0,
+            "DI_vehicleSpeed": 114.4,
+            "DI_gearRequest": 0,
+            "DI_torqueInterfaceFailure": 0,
+            "DI_torque2Counter": 2,
+            "DI_brakePedalState": 2,
+            "DI_epbParkRequest": 1,
+            "DI_epbInterfaceReady": 1,
+            "DI_torque2Checksum": 208
+          },
+          "encoded": "447ae40ae2d0"
+        },
+        {
+          "payload": "1c7de69dec67",
+          "values": {
+            "DI_torqueEstimate": -370.0,
+            "DI_gear": 7,
+            "DI_brakePedal": 0,
+            "DI_vehicleSpeed": 152.9,
+            "DI_gearRequest": 1,
+            "DI_torqueInterfaceFailure": 1,
+            "DI_torque2Counter": 12,
+            "DI_brakePedalState": 2,
+            "DI_epbParkRequest": 1,
+            "DI_epbInterfaceReady": 1,
+            "DI_torque2Checksum": 103
+          },
+          "encoded": "1c7de69dec67"
+        },
+        {
+          "payload": "eeee3f477d0c",
+          "values": {
+            "DI_torqueEstimate": -137.0,
+            "DI_gear": 6,
+            "DI_brakePedal": 1,
+            "DI_vehicleSpeed": 67.75,
+            "DI_gearRequest": 4,
+            "DI_torqueInterfaceFailure": 0,
+            "DI_torque2Counter": 13,
+            "DI_brakePedalState": 3,
+            "DI_epbParkRequest": 1,
+            "DI_epbInterfaceReady": 0,
+            "DI_torque2Checksum": 12
+          },
+          "encoded": "eeee3f477d0c"
+        },
+        {
+          "payload": "8f0e00a71cda",
+          "values": {
+            "DI_torqueEstimate": -184.5,
+            "DI_gear": 0,
+            "DI_brakePedal": 0,
+            "DI_vehicleSpeed": 64.60000000000001,
+            "DI_gearRequest": 2,
+            "DI_torqueInterfaceFailure": 1,
+            "DI_torque2Counter": 12,
+            "DI_brakePedalState": 1,
+            "DI_epbParkRequest": 0,
+            "DI_epbInterfaceReady": 0,
+            "DI_torque2Checksum": 218
+          },
+          "encoded": "8f0e00a71cda"
+        },
+        {
+          "payload": "25666e0c01c4",
+          "values": {
+            "DI_torqueEstimate": 786.5,
+            "DI_gear": 6,
+            "DI_brakePedal": 0,
+            "DI_vehicleSpeed": 134.10000000000002,
+            "DI_gearRequest": 0,
+            "DI_torqueInterfaceFailure": 0,
+            "DI_torque2Counter": 1,
+            "DI_brakePedalState": 0,
+            "DI_epbParkRequest": 0,
+            "DI_epbInterfaceReady": 0,
+            "DI_torque2Checksum": 196
+          },
+          "encoded": "25666e0c01c4"
+        },
+        {
+          "payload": "28b185a7626b",
+          "values": {
+            "DI_torqueEstimate": 148.0,
+            "DI_gear": 3,
+            "DI_brakePedal": 1,
+            "DI_vehicleSpeed": 71.25,
+            "DI_gearRequest": 2,
+            "DI_torqueInterfaceFailure": 1,
+            "DI_torque2Counter": 2,
+            "DI_brakePedalState": 2,
+            "DI_epbParkRequest": 1,
+            "DI_epbInterfaceReady": 0,
+            "DI_torque2Checksum": 107
+          },
+          "encoded": "28b185a7626b"
+        },
+        {
+          "payload": "d66de2bbe79b",
+          "values": {
+            "DI_torqueEstimate": -277.0,
+            "DI_gear": 6,
+            "DI_brakePedal": 0,
+            "DI_vehicleSpeed": 127.1,
+            "DI_gearRequest": 3,
+            "DI_torqueInterfaceFailure": 1,
+            "DI_torque2Counter": 7,
+            "DI_brakePedalState": 2,
+            "DI_epbParkRequest": 1,
+            "DI_epbInterfaceReady": 1,
+            "DI_torque2Checksum": 155
+          },
+          "encoded": "d66de2bbe79b"
+        },
+        {
+          "payload": "c8170321c3e3",
+          "values": {
+            "DI_torqueEstimate": 996.0,
+            "DI_gear": 1,
+            "DI_brakePedal": 0,
+            "DI_vehicleSpeed": -12.049999999999999,
+            "DI_gearRequest": 2,
+            "DI_torqueInterfaceFailure": 0,
+            "DI_torque2Counter": 3,
+            "DI_brakePedalState": 0,
+            "DI_epbParkRequest": 1,
+            "DI_epbInterfaceReady": 1,
+            "DI_torque2Checksum": 227
+          },
+          "encoded": "c8170321c3e3"
+        },
+        {
+          "payload": "f2c9b3cf4397",
+          "values": {
+            "DI_torqueEstimate": -775.0,
+            "DI_gear": 4,
+            "DI_brakePedal": 1,
+            "DI_vehicleSpeed": 175.95000000000002,
+            "DI_gearRequest": 4,
+            "DI_torqueInterfaceFailure": 1,
+            "DI_torque2Counter": 3,
+            "DI_brakePedalState": 0,
+            "DI_epbParkRequest": 1,
+            "DI_epbInterfaceReady": 0,
+            "DI_torque2Checksum": 151
+          },
+          "encoded": "f2c9b3cf4397"
+        },
+        {
+          "payload": "28ea4dc88898",
+          "values": {
+            "DI_torqueEstimate": -748.0,
+            "DI_gear": 6,
+            "DI_brakePedal": 1,
+            "DI_vehicleSpeed": 81.25,
+            "DI_gearRequest": 4,
+            "DI_torqueInterfaceFailure": 1,
+            "DI_torque2Counter": 8,
+            "DI_brakePedalState": 0,
+            "DI_epbParkRequest": 0,
+            "DI_epbInterfaceReady": 1,
+            "DI_torque2Checksum": 152
+          },
+          "encoded": "28ea4dc88898"
+        },
+        {
+          "payload": "878fbff18faf",
+          "values": {
+            "DI_torqueEstimate": -60.5,
+            "DI_gear": 0,
+            "DI_brakePedal": 1,
+            "DI_vehicleSpeed": -2.6499999999999986,
+            "DI_gearRequest": 7,
+            "DI_torqueInterfaceFailure": 1,
+            "DI_torque2Counter": 15,
+            "DI_brakePedalState": 0,
+            "DI_epbParkRequest": 0,
+            "DI_epbInterfaceReady": 1,
+            "DI_torque2Checksum": 175
+          },
+          "encoded": "878fbff18faf"
+        },
+        {
+          "payload": "f5bbe09dba8e",
+          "values": {
+            "DI_torqueEstimate": -517.5,
+            "DI_gear": 3,
+            "DI_brakePedal": 1,
+            "DI_vehicleSpeed": 152.60000000000002,
+            "DI_gearRequest": 1,
+            "DI_torqueInterfaceFailure": 1,
+            "DI_torque2Counter": 10,
+            "DI_brakePedalState": 3,
+            "DI_epbParkRequest": 0,
+            "DI_epbInterfaceReady": 1,
+            "DI_torque2Checksum": 142
+          },
+          "encoded": "f5bbe09dba8e"
+        },
+        {
+          "payload": "14de310bf35b",
+          "values": {
+            "DI_torqueEstimate": -246.0,
+            "DI_gear": 5,
+            "DI_brakePedal": 1,
+            "DI_vehicleSpeed": 118.25,
+            "DI_gearRequest": 0,
+            "DI_torqueInterfaceFailure": 0,
+            "DI_torque2Counter": 3,
+            "DI_brakePedalState": 3,
+            "DI_epbParkRequest": 1,
+            "DI_epbInterfaceReady": 1,
+            "DI_torque2Checksum": 91
+          },
+          "encoded": "14de310bf35b"
+        },
+        {
+          "payload": "8763aefa07a2",
+          "values": {
+            "DI_torqueEstimate": 451.5,
+            "DI_gear": 6,
+            "DI_brakePedal": 0,
+            "DI_vehicleSpeed": 111.70000000000002,
+            "DI_gearRequest": 7,
+            "DI_torqueInterfaceFailure": 1,
+            "DI_torque2Counter": 7,
+            "DI_brakePedalState": 0,
+            "DI_epbParkRequest": 0,
+            "DI_epbInterfaceReady": 0,
+            "DI_torque2Checksum": 162
+          },
+          "encoded": "8763aefa07a2"
+        },
+        {
+          "payload": "63c40528322c",
+          "values": {
+            "DI_torqueEstimate": 561.5,
+            "DI_gear": 4,
+            "DI_brakePedal": 1,
+            "DI_vehicleSpeed": 77.65,
+            "DI_gearRequest": 2,
+            "DI_torqueInterfaceFailure": 0,
+            "DI_torque2Counter": 2,
+            "DI_brakePedalState": 3,
+            "DI_epbParkRequest": 0,
+            "DI_epbInterfaceReady": 0,
+            "DI_torque2Checksum": 44
+          },
+          "encoded": "63c40528322c"
+        },
+        {
+          "payload": "6c70d4efdfc3",
+          "values": {
+            "DI_torqueEstimate": 54.0,
+            "DI_gear": 7,
+            "DI_brakePedal": 0,
+            "DI_vehicleSpeed": 177.60000000000002,
+            "DI_gearRequest": 6,
+            "DI_torqueInterfaceFailure": 1,
+            "DI_torque2Counter": 15,
+            "DI_brakePedalState": 1,
+            "DI_epbParkRequest": 1,
+            "DI_epbInterfaceReady": 1,
+            "DI_torque2Checksum": 195
+          },
+          "encoded": "6c70d4efdfc3"
+        },
+        {
+          "payload": "9c1a92d0f0bf",
+          "values": {
+            "DI_torqueEstimate": -690.0,
+            "DI_gear": 1,
+            "DI_brakePedal": 0,
+            "DI_vehicleSpeed": -17.7,
+            "DI_gearRequest": 5,
+            "DI_torqueInterfaceFailure": 1,
+            "DI_torque2Counter": 0,
+            "DI_brakePedalState": 3,
+            "DI_epbParkRequest": 1,
+            "DI_epbInterfaceReady": 1,
+            "DI_torque2Checksum": 191
+          },
+          "encoded": "9c1a92d0f0bf"
+        },
+        {
+          "payload": "1024b81ddeee",
+          "values": {
+            "DI_torqueEstimate": 520.0,
+            "DI_gear": 2,
+            "DI_brakePedal": 0,
+            "DI_vehicleSpeed": 150.60000000000002,
+            "DI_gearRequest": 1,
+            "DI_torqueInterfaceFailure": 0,
+            "DI_torque2Counter": 14,
+            "DI_brakePedalState": 1,
+            "DI_epbParkRequest": 1,
+            "DI_epbInterfaceReady": 1,
+            "DI_torque2Checksum": 238
+          },
+          "encoded": "1024b81ddeee"
+        },
+        {
+          "payload": "9d1ecb2b0be9",
+          "values": {
+            "DI_torqueEstimate": -177.5,
+            "DI_gear": 1,
+            "DI_brakePedal": 0,
+            "DI_vehicleSpeed": 125.95000000000002,
+            "DI_gearRequest": 2,
+            "DI_torqueInterfaceFailure": 0,
+            "DI_torque2Counter": 11,
+            "DI_brakePedalState": 0,
+            "DI_epbParkRequest": 0,
+            "DI_epbInterfaceReady": 0,
+            "DI_torque2Checksum": 233
+          },
+          "encoded": "9d1ecb2b0be9"
+        },
+        {
+          "payload": "db8513113b5d",
+          "values": {
+            "DI_torqueEstimate": 749.5,
+            "DI_gear": 0,
+            "DI_brakePedal": 1,
+            "DI_vehicleSpeed": -11.25,
+            "DI_gearRequest": 1,
+            "DI_torqueInterfaceFailure": 0,
+            "DI_torque2Counter": 11,
+            "DI_brakePedalState": 3,
+            "DI_epbParkRequest": 0,
+            "DI_epbInterfaceReady": 0,
+            "DI_torque2Checksum": 93
+          },
+          "encoded": "db8513113b5d"
+        },
+        {
+          "payload": "2ae5e3d19b8b",
+          "values": {
+            "DI_torqueEstimate": 661.0,
+            "DI_gear": 6,
+            "DI_brakePedal": 1,
+            "DI_vehicleSpeed": -0.8499999999999979,
+            "DI_gearRequest": 5,
+            "DI_torqueInterfaceFailure": 1,
+            "DI_torque2Counter": 11,
+            "DI_brakePedalState": 1,
+            "DI_epbParkRequest": 0,
+            "DI_epbInterfaceReady": 1,
+            "DI_torque2Checksum": 139
+          },
+          "encoded": "2ae5e3d19b8b"
+        },
+        {
+          "payload": "535b1637a190",
+          "values": {
+            "DI_torqueEstimate": -598.5,
+            "DI_gear": 5,
+            "DI_brakePedal": 0,
+            "DI_vehicleSpeed": 65.7,
+            "DI_gearRequest": 3,
+            "DI_torqueInterfaceFailure": 0,
+            "DI_torque2Counter": 1,
+            "DI_brakePedalState": 2,
+            "DI_epbParkRequest": 0,
+            "DI_epbInterfaceReady": 1,
+            "DI_torque2Checksum": 144
+          },
+          "encoded": "535b1637a190"
+        },
+        {
+          "payload": "dd32ce0f100d",
+          "values": {
+            "DI_torqueEstimate": 366.5,
+            "DI_gear": 3,
+            "DI_brakePedal": 0,
+            "DI_vehicleSpeed": 177.3,
+            "DI_gearRequest": 0,
+            "DI_torqueInterfaceFailure": 0,
+            "DI_torque2Counter": 0,
+            "DI_brakePedalState": 1,
+            "DI_epbParkRequest": 0,
+            "DI_epbInterfaceReady": 0,
+            "DI_torque2Checksum": 13
+          },
+          "encoded": "dd32ce0f100d"
+        },
+        {
+          "payload": "a34b4efe0abc",
+          "values": {
+            "DI_torqueEstimate": -558.5,
+            "DI_gear": 4,
+            "DI_brakePedal": 0,
+            "DI_vehicleSpeed": 158.10000000000002,
+            "DI_gearRequest": 7,
+            "DI_torqueInterfaceFailure": 1,
+            "DI_torque2Counter": 10,
+            "DI_brakePedalState": 0,
+            "DI_epbParkRequest": 0,
+            "DI_epbInterfaceReady": 0,
+            "DI_torque2Checksum": 188
+          },
+          "encoded": "a34b4efe0abc"
+        },
+        {
+          "payload": "4e27b6333c25",
+          "values": {
+            "DI_torqueEstimate": 935.0,
+            "DI_gear": 2,
+            "DI_brakePedal": 0,
+            "DI_vehicleSpeed": 22.5,
+            "DI_gearRequest": 3,
+            "DI_torqueInterfaceFailure": 0,
+            "DI_torque2Counter": 12,
+            "DI_brakePedalState": 3,
+            "DI_epbParkRequest": 0,
+            "DI_epbInterfaceReady": 0,
+            "DI_torque2Checksum": 37
+          },
+          "encoded": "4e27b6333c25"
+        },
+        {
+          "payload": "0407a8a02e3f",
+          "values": {
+            "DI_torqueEstimate": 898.0,
+            "DI_gear": 0,
+            "DI_brakePedal": 0,
+            "DI_vehicleSpeed": -16.6,
+            "DI_gearRequest": 2,
+            "DI_torqueInterfaceFailure": 1,
+            "DI_torque2Counter": 14,
+            "DI_brakePedalState": 2,
+            "DI_epbParkRequest": 0,
+            "DI_epbInterfaceReady": 0,
+            "DI_torque2Checksum": 63
+          },
+          "encoded": "0407a8a02e3f"
+        },
+        {
+          "payload": "df339d56eb29",
+          "values": {
+            "DI_torqueEstimate": 495.5,
+            "DI_gear": 3,
+            "DI_brakePedal": 0,
+            "DI_vehicleSpeed": 59.650000000000006,
+            "DI_gearRequest": 5,
+            "DI_torqueInterfaceFailure": 0,
+            "DI_torque2Counter": 11,
+            "DI_brakePedalState": 2,
+            "DI_epbParkRequest": 1,
+            "DI_epbInterfaceReady": 1,
+            "DI_torque2Checksum": 41
+          },
+          "encoded": "df339d56eb29"
+        },
+        {
+          "payload": "f9af9cebda6c",
+          "values": {
+            "DI_torqueEstimate": -3.5,
+            "DI_gear": 2,
+            "DI_brakePedal": 1,
+            "DI_vehicleSpeed": 123.6,
+            "DI_gearRequest": 6,
+            "DI_torqueInterfaceFailure": 1,
+            "DI_torque2Counter": 10,
+            "DI_brakePedalState": 1,
+            "DI_epbParkRequest": 1,
+            "DI_epbInterfaceReady": 1,
+            "DI_torque2Checksum": 108
+          },
+          "encoded": "f9af9cebda6c"
+        },
+        {
+          "payload": "9176f91f9783",
+          "values": {
+            "DI_torqueEstimate": 840.5,
+            "DI_gear": 7,
+            "DI_brakePedal": 0,
+            "DI_vehicleSpeed": 179.45000000000002,
+            "DI_gearRequest": 1,
+            "DI_torqueInterfaceFailure": 0,
+            "DI_torque2Counter": 7,
+            "DI_brakePedalState": 1,
+            "DI_epbParkRequest": 0,
+            "DI_epbInterfaceReady": 1,
+            "DI_torque2Checksum": 131
+          },
+          "encoded": "9176f91f9783"
+        }
+      ]
+    },
+    {
+      "name": "BrakeMessage",
+      "vectors": [
+        {
+          "payload": "e855eb0971160975",
+          "values": {
+            "driverBrakeStatus": 2
+          },
+          "encoded": "0800000000000000"
+        },
+        {
+          "payload": "2bccb3a212b373a4",
+          "values": {
+            "driverBrakeStatus": 2
+          },
+          "encoded": "0800000000000000"
+        },
+        {
+          "payload": "7276504dee318f79",
+          "values": {
+            "driverBrakeStatus": 0
+          },
+          "encoded": "0000000000000000"
+        },
+        {
+          "payload": "d1d4f558a4a95d19",
+          "values": {
+            "driverBrakeStatus": 0
+          },
+          "encoded": "0000000000000000"
+        },
+        {
+          "payload": "8d4e40ea9bf5ea50",
+          "values": {
+            "driverBrakeStatus": 3
+          },
+          "encoded": "0c00000000000000"
+        },
+        {
+          "payload": "e2708f9d3df4174e",
+          "values": {
+            "driverBrakeStatus": 0
+          },
+          "encoded": "0000000000000000"
+        },
+        {
+          "payload": "92c6608128735160",
+          "values": {
+            "driverBrakeStatus": 0
+          },
+          "encoded": "0000000000000000"
+        },
+        {
+          "payload": "db42f108d28e4abe",
+          "values": {
+            "driverBrakeStatus": 2
+          },
+          "encoded": "0800000000000000"
+        },
+        {
+          "payload": "8b7b03bd7755436d",
+          "values": {
+            "driverBrakeStatus": 2
+          },
+          "encoded": "0800000000000000"
+        },
+        {
+          "payload": "0c3065131ffa4362",
+          "values": {
+            "driverBrakeStatus": 3
+          },
+          "encoded": "0c00000000000000"
+        },
+        {
+          "payload": "d9beaa8a2b60efa7",
+          "values": {
+            "driverBrakeStatus": 2
+          },
+          "encoded": "0800000000000000"
+        },
+        {
+          "payload": "ec9ac4153a7692c5",
+          "values": {
+            "driverBrakeStatus": 3
+          },
+          "encoded": "0c00000000000000"
+        },
+        {
+          "payload": "0afe1b9bb0bfa0c2",
+          "values": {
+            "driverBrakeStatus": 2
+          },
+          "encoded": "0800000000000000"
+        },
+        {
+          "payload": "a316ac61e478181c",
+          "values": {
+            "driverBrakeStatus": 0
+          },
+          "encoded": "0000000000000000"
+        },
+        {
+          "payload": "f21d2d76eca0f62f",
+          "values": {
+            "driverBrakeStatus": 0
+          },
+          "encoded": "0000000000000000"
+        },
+        {
+          "payload": "f9cbd4b88694edac",
+          "values": {
+            "driverBrakeStatus": 2
+          },
+          "encoded": "0800000000000000"
+        },
+        {
+          "payload": "2927c4a42a7d8d83",
+          "values": {
+            "driverBrakeStatus": 2
+          },
+          "encoded": "0800000000000000"
+        },
+        {
+          "payload": "cf71f3d9073bc8f7",
+          "values": {
+            "driverBrakeStatus": 3
+          },
+          "encoded": "0c00000000000000"
+        },
+        {
+          "payload": "244ce392deafe762",
+          "values": {
+            "driverBrakeStatus": 1
+          },
+          "encoded": "0400000000000000"
+        },
+        {
+          "payload": "bd55aae561c2d34b",
+          "values": {
+            "driverBrakeStatus": 3
+          },
+          "encoded": "0c00000000000000"
+        },
+        {
+          "payload": "648784b95e56f3d7",
+          "values": {
+            "driverBrakeStatus": 1
+          },
+          "encoded": "0400000000000000"
+        },
+        {
+          "payload": "3b60c8a79c541aa5",
+          "values": {
+            "driverBrakeStatus": 2
+          },
+          "encoded": "0800000000000000"
+        },
+        {
+          "payload": "801e3c2a4f0f9024",
+          "values": {
+            "driverBrakeStatus": 0
+          },
+          "encoded": "0000000000000000"
+        },
+        {
+          "payload": "7298198119f3c7df",
+          "values": {
+            "driverBrakeStatus": 0
+          },
+          "encoded": "0000000000000000"
+        },
+        {
+          "payload": "58f67f6ac8418668",
+          "values": {
+            "driverBrakeStatus": 2
+          },
+          "encoded": "0800000000000000"
+        },
+        {
+          "payload": "c184952a1d182580",
+          "values": {
+            "driverBrakeStatus": 0
+          },
+          "encoded": "0000000000000000"
+        },
+        {
+          "payload": "f0317e98f6e5053c",
+          "values": {
+            "driverBrakeStatus": 0
+          },
+          "encoded": "0000000000000000"
+        },
+        {
+          "payload": "e9edffad3a599626",
+          "values": {
+            "driverBrakeStatus": 2
+          },
+          "encoded": "0800000000000000"
+        },
+        {
+          "payload": "55aac0bc5e69cd86",
+          "values": {
+            "driverBrakeStatus": 1
+          },
+          "encoded": "0400000000000000"
+        },
+        {
+          "payload": "47f115012eb456ea",
+          "values": {
+            "driverBrakeStatus": 1
+          },
+          "encoded": "0400000000000000"
+        },
+        {
+          "payload": "453ea834dd7ff8d8",
+          "values": {
+            "driverBrakeStatus": 1
+          },
+          "encoded": "0400000000000000"
+        },
+        {
+          "payload": "9107e09d6167be58",
+          "values": {
+            "driverBrakeStatus": 0
+          },
+          "encoded": "0000000000000000"
+        }
+      ]
+    },
+    {
+      "name": "STW_ACTN_RQ",
+      "vectors": [
+        {
+          "payload": "90e8cb62337b9b4f",
+          "values": {
+            "SpdCtrlLvr_Stat": 16,
+            "VSL_Enbl_Rq": 0,
+            "SpdCtrlLvrStat_Inv": 1,
+            "DTR_Dist_Rq": 232,
+            "TurnIndLvr_Stat": 3,
+            "HiBmLvr_Stat": 2,
+            "WprWashSw_Psd": 0,
+            "WprWash_R_Sw_Posn_V2": 3,
+            "StW_Lvr_Stat": 2,
+            "StW_Cond_Flt": 0,
+            "StW_Cond_Psd": 2,
+            "HrnSw_Psd": 1,
+            "StW_Sw00_Psd": 1,
+            "StW_Sw01_Psd": 1,
+            "StW_Sw02_Psd": 0,
+            "StW_Sw03_Psd": 0,
+            "StW_Sw04_Psd": 1,
+            "StW_Sw05_Psd": 1,
+            "StW_Sw06_Psd": 0,
+            "StW_Sw07_Psd": 0,
+            "StW_Sw08_Psd": 1,
+            "StW_Sw09_Psd": 1,
+            "StW_Sw10_Psd": 0,
+            "StW_Sw11_Psd": 1,
+            "StW_Sw12_Psd": 1,
+            "StW_Sw13_Psd": 1,
+            "StW_Sw14_Psd": 1,
+            "StW_Sw15_Psd": 0,
+            "WprSw6Posn": 3,
+            "MC_STW_ACTN_RQ": 9,
+            "CRC_STW_ACTN_RQ": 79
+          },
+          "encoded": "90e8cb62337b934f"
+        },
+        {
+          "payload": "b3c0ad152bdd2e69",
+          "values": {
+            "SpdCtrlLvr_Stat": 51,
+            "VSL_Enbl_Rq": 0,
+            "SpdCtrlLvrStat_Inv": 1,
+            "DTR_Dist_Rq": 192,
+            "TurnIndLvr_Stat": 1,
+            "HiBmLvr_Stat": 3,
+            "WprWashSw_Psd": 2,
+            "WprWash_R_Sw_Posn_V2": 2,
+            "StW_Lvr_Stat": 5,
+            "StW_Cond_Flt": 0,
+            "StW_Cond_Psd": 1,
+            "HrnSw_Psd": 0,
+            "StW_Sw00_Psd": 1,
+            "StW_Sw01_Psd": 1,
+            "StW_Sw02_Psd": 0,
+            "StW_Sw03_Psd": 1,
+            "StW_Sw04_Psd": 0,
+            "StW_Sw05_Psd": 1,
+            "StW_Sw06_Psd": 0,
+            "StW_Sw07_Psd": 0,
+            "StW_Sw08_Psd": 1,
+            "StW_Sw09_Psd": 0,
+            "StW_Sw10_Psd": 1,
+            "StW_Sw11_Psd": 1,
+            "StW_Sw12_Psd": 1,
+            "StW_Sw13_Psd": 0,
+            "StW_Sw14_Psd": 1,
+            "StW_Sw15_Psd": 1,
+            "WprSw6Posn": 6,
+            "MC_STW_ACTN_RQ": 2,
+            "CRC_STW_ACTN_RQ": 105
+          },
+          "encoded": "b3c0ad152bdd2669"
+        },
+        {
+          "payload": "98f559280110eee4",
+          "values": {
+            "SpdCtrlLvr_Stat": 24,
+            "VSL_Enbl_Rq": 0,
+            "SpdCtrlLvrStat_Inv": 1,
+            "DTR_Dist_Rq": 245,
+            "TurnIndLvr_Stat": 1,
+            "HiBmLvr_Stat": 2,
+            "WprWashSw_Psd": 1,
+            "WprWash_R_Sw_Posn_V2": 1,
+            "StW_Lvr_Stat": 0,
+            "StW_Cond_Flt": 1,
+            "StW_Cond_Psd": 2,
+            "HrnSw_Psd": 0,
+            "StW_Sw00_Psd": 1,
+            "StW_Sw01_Psd": 0,
+            "StW_Sw02_Psd": 0,
+            "StW_Sw03_Psd": 0,
+            "StW_Sw04_Psd": 0,
+            "StW_Sw05_Psd": 0,
+            "StW_Sw06_Psd": 0,
+            "StW_Sw07_Psd": 0,
+            "StW_Sw08_Psd": 0,
+            "StW_Sw09_Psd": 0,
+            "StW_Sw10_Psd": 0,
+            "StW_Sw11_Psd": 0,
+            "StW_Sw12_Psd": 1,
+            "StW_Sw13_Psd": 0,
+            "StW_Sw14_Psd": 0,
+            "StW_Sw15_Psd": 0,
+            "WprSw6Posn": 6,
+            "MC_STW_ACTN_RQ": 14,
+            "CRC_STW_ACTN_RQ": 228
+          },
+          "encoded": "98f559280110e6e4"
+        },
+        {
+          "payload": "defbc3620a5f937e",
+          "values": {
+            "SpdCtrlLvr_Stat": 30,
+            "VSL_Enbl_Rq": 1,
+            "SpdCtrlLvrStat_Inv": 1,
+            "DTR_Dist_Rq": 251,
+            "TurnIndLvr_Stat": 3,
+            "HiBmLvr_Stat": 0,
+            "WprWashSw_Psd": 0,
+            "WprWash_R_Sw_Posn_V2": 3,
+            "StW_Lvr_Stat": 2,
+            "StW_Cond_Flt": 0,
+            "StW_Cond_Psd": 2,
+            "HrnSw_Psd": 1,
+            "StW_Sw00_Psd": 0,
+            "StW_Sw01_Psd": 1,
+            "StW_Sw02_Psd": 0,
+            "StW_Sw03_Psd": 1,
+            "StW_Sw04_Psd": 0,
+            "StW_Sw05_Psd": 0,
+            "StW_Sw06_Psd": 0,
+            "StW_Sw07_Psd": 0,
+            "StW_Sw08_Psd": 1,
+            "StW_Sw09_Psd": 1,
+            "StW_Sw10_Psd": 1,
+            "StW_Sw11_Psd": 1,
+            "StW_Sw12_Psd": 1,
+            "StW_Sw13_Psd": 0,
+            "StW_Sw14_Psd": 1,
+            "StW_Sw15_Psd": 0,
+            "WprSw6Posn": 3,
+            "MC_STW_ACTN_RQ": 9,
+            "CRC_STW_ACTN_RQ": 126
+          },
+          "encoded": "defbc3620a5f937e"
+        },
+        {
+          "payload": "384e837e2fa0650d",
+          "values": {
+            "SpdCtrlLvr_Stat": 56,
+            "VSL_Enbl_Rq": 0,
+            "SpdCtrlLvrStat_Inv": 0,
+            "DTR_Dist_Rq": 78,
+            "TurnIndLvr_Stat": 3,
+            "HiBmLvr_Stat": 0,
+            "WprWashSw_Psd": 0,
+            "WprWash_R_Sw_Posn_V2": 2,
+            "StW_Lvr_Stat": 6,
+            "StW_Cond_Flt": 1,
+            "StW_Cond_Psd": 3,
+            "HrnSw_Psd": 1,
+            "StW_Sw00_Psd": 1,
+            "StW_Sw01_Psd": 1,
+            "StW_Sw02_Psd": 1,
+            "StW_Sw03_Psd": 1,
+            "StW_Sw04_Psd": 0,
+            "StW_Sw05_Psd": 1,
+            "StW_Sw06_Psd": 0,
+            "StW_Sw07_Psd": 0,
+            "StW_Sw08_Psd": 0,
+            "StW_Sw09_Psd": 0,
+            "StW_Sw10_Psd": 0,
+            "StW_Sw11_Psd": 0,
+            "StW_Sw12_Psd": 0,
+            "StW_Sw13_Psd": 1,
+            "StW_Sw14_Psd": 0,
+            "StW_Sw15_Psd": 1,
+            "WprSw6Posn": 5,
+            "MC_STW_ACTN_RQ": 6,
+            "CRC_STW_ACTN_RQ": 13
+          },
+          "encoded": "384e837e2fa0650d"
+        },
+        {
+          "payload": "aa5f9cf45dac3786",
+          "values": {
+            "SpdCtrlLvr_Stat": 42,
+            "VSL_Enbl_Rq": 0,
+            "SpdCtrlLvrStat_Inv": 1,
+            "DTR_Dist_Rq": 95,
+            "TurnIndLvr_Stat": 0,
+            "HiBmLvr_Stat": 3,
+            "WprWashSw_Psd": 1,
+            "WprWash_R_Sw_Posn_V2": 2,
+            "StW_Lvr_Stat": 4,
+            "StW_Cond_Flt": 0,
+            "StW_Cond_Psd": 3,
+            "HrnSw_Psd": 3,
+            "StW_Sw00_Psd": 1,
+            "StW_Sw01_Psd": 0,
+            "StW_Sw02_Psd": 1,
+            "StW_Sw03_Psd": 1,
+            "StW_Sw04_Psd": 1,
+            "StW_Sw05_Psd": 0,
+            "StW_Sw06_Psd": 1,
+            "StW_Sw07_Psd": 0,
+            "StW_Sw08_Psd": 0,
+            "StW_Sw09_Psd": 0,
+            "StW_Sw10_Psd": 1,
+            "StW_Sw11_Psd": 1,
+            "StW_Sw12_Psd": 0,
+            "StW_Sw13_Psd": 1,
+            "StW_Sw14_Psd": 0,
+            "StW_Sw15_Psd": 1,
+            "WprSw6Posn": 7,
+            "MC_STW_ACTN_RQ": 3,
+            "CRC_STW_ACTN_RQ": 134
+          },
+          "encoded": "aa5f9cf45dac3786"
+        },
+        {
+          "payload": "69340ec47b851754",
+          "values": {
+            "SpdCtrlLvr_Stat": 41,
+            "VSL_Enbl_Rq": 1,
+            "SpdCtrlLvrStat_Inv": 0,
+            "DTR_Dist_Rq": 52,
+            "TurnIndLvr_Stat": 2,
+            "HiBmLvr_Stat": 3,
+            "WprWashSw_Psd": 0,
+            "WprWash_R_Sw_Posn_V2": 0,
+            "StW_Lvr_Stat": 4,
+            "StW_Cond_Flt": 0,
+            "StW_Cond_Psd": 0,
+            "HrnSw_Psd": 3,
+            "StW_Sw00_Psd": 1,
+            "StW_Sw01_Psd": 1,
+            "StW_Sw02_Psd": 0,
+            "StW_Sw03_Psd": 1,
+            "StW_Sw04_Psd": 1,
+            "StW_Sw05_Psd": 1,
+            "StW_Sw06_Psd": 1,
+            "StW_Sw07_Psd": 0,
+            "StW_Sw08_Psd": 1,
+            "StW_Sw09_Psd": 0,
+            "StW_Sw10_Psd": 1,
+            "StW_Sw11_Psd": 0,
+            "StW_Sw12_Psd": 0,
+            "StW_Sw13_Psd": 0,
+            "StW_Sw14_Psd": 0,
+            "StW_Sw15_Psd": 1,
+            "WprSw6Posn": 7,
+            "MC_STW_ACTN_RQ": 1,
+            "CRC_STW_ACTN_RQ": 84
+          },
+          "encoded": "69340ec47b851754"
+        },
+        {
+          "payload": "da9bdb4bf33b9ec7",
+          "values": {
+            "SpdCtrlLvr_Stat": 26,
+            "VSL_Enbl_Rq": 1,
+            "SpdCtrlLvrStat_Inv": 1,
+            "DTR_Dist_Rq": 155,
+            "TurnIndLvr_Stat": 3,
+            "HiBmLvr_Stat": 2,
+            "WprWashSw_Psd": 1,
+            "WprWash_R_Sw_Posn_V2": 3,
+            "StW_Lvr_Stat": 3,
+            "StW_Cond_Flt": 1,
+            "StW_Cond_Psd": 0,
+            "HrnSw_Psd": 1,
+            "StW_Sw00_Psd": 1,
+            "StW_Sw01_Psd": 1,
+            "StW_Sw02_Psd": 0,
+            "StW_Sw03_Psd": 0,
+            "StW_Sw04_Psd": 1,
+            "StW_Sw05_Psd": 1,
+            "StW_Sw06_Psd": 1,
+            "StW_Sw07_Psd": 1,
+            "StW_Sw08_Psd": 1,
+            "StW_Sw09_Psd": 1,
+            "StW_Sw10_Psd": 0,
+            "StW_Sw11_Psd": 1,
+            "StW_Sw12_Psd": 1,
+            "StW_Sw13_Psd": 1,
+            "StW_Sw14_Psd": 0,
+            "StW_Sw15_Psd": 0,
+            "WprSw6Posn": 6,
+            "MC_STW_ACTN_RQ": 9,
+            "CRC_STW_ACTN_RQ": 199
+          },
+          "encoded": "da9bdb4bf33b96c7"
+        },
+        {
+          "payload": "c8011ea86cecdac5",
+          "values": {
+            "SpdCtrlLvr_Stat": 8,
+            "VSL_Enbl_Rq": 1,
+            "SpdCtrlLvrStat_Inv": 1,
+            "DTR_Dist_Rq": 1,
+            "TurnIndLvr_Stat": 2,
+            "HiBmLvr_Stat": 3,
+            "WprWashSw_Psd": 1,
+            "WprWash_R_Sw_Posn_V2": 0,
+            "StW_Lvr_Stat": 0,
+            "StW_Cond_Flt": 1,
+            "StW_Cond_Psd": 2,
+            "HrnSw_Psd": 2,
+            "StW_Sw00_Psd": 0,
+            "StW_Sw01_Psd": 0,
+            "StW_Sw02_Psd": 1,
+            "StW_Sw03_Psd": 1,
+            "StW_Sw04_Psd": 0,
+            "StW_Sw05_Psd": 1,
+            "StW_Sw06_Psd": 1,
+            "StW_Sw07_Psd": 0,
+            "StW_Sw08_Psd": 0,
+            "StW_Sw09_Psd": 0,
+            "StW_Sw10_Psd": 1,
+            "StW_Sw11_Psd": 1,
+            "StW_Sw12_Psd": 0,
+            "StW_Sw13_Psd": 1,
+            "StW_Sw14_Psd": 1,
+            "StW_Sw15_Psd": 1,
+            "WprSw6Posn": 2,
+            "MC_STW_ACTN_RQ": 13,
+            "CRC_STW_ACTN_RQ": 197
+          },
+          "encoded": "c8011ea86cecd2c5"
+        },
+        {
+          "payload": "f219dd2d1e81e300",
+          "values": {
+            "SpdCtrlLvr_Stat": 50,
+            "VSL_Enbl_Rq": 1,
+            "SpdCtrlLvrStat_Inv": 1,
+            "DTR_Dist_Rq": 25,
+            "TurnIndLvr_Stat": 1,
+            "HiBmLvr_Stat": 3,
+            "WprWashSw_Psd": 1,
+            "WprWash_R_Sw_Posn_V2": 3,
+            "StW_Lvr_Stat": 5,
+            "StW_Cond_Flt": 1,
+            "StW_Cond_Psd": 2,
+            "HrnSw_Psd": 0,
+            "StW_Sw00_Psd": 0,
+            "StW_Sw01_Psd": 1,
+            "StW_Sw02_Psd": 1,
+            "StW_Sw03_Psd": 1,
+            "StW_Sw04_Psd": 1,
+            "StW_Sw05_Psd": 0,
+            "StW_Sw06_Psd": 0,
+            "StW_Sw07_Psd": 0,
+            "StW_Sw08_Psd": 1,
+            "StW_Sw09_Psd": 0,
+            "StW_Sw10_Psd": 0,
+            "StW_Sw11_Psd": 0,
+            "StW_Sw12_Psd": 0,
+            "StW_Sw13_Psd": 0,
+            "StW_Sw14_Psd": 0,
+            "StW_Sw15_Psd": 1,
+            "WprSw6Posn": 3,
+            "MC_STW_ACTN_RQ": 14,
+            "CRC_STW_ACTN_RQ": 0
+          },
+          "encoded": "f219dd2d1e81e300"
+        },
+        {
+          "payload": "a89b8f169f28a825",
+          "values": {
+            "SpdCtrlLvr_Stat": 40,
+            "VSL_Enbl_Rq": 0,
+            "SpdCtrlLvrStat_Inv": 1,
+            "DTR_Dist_Rq": 155,
+            "TurnIndLvr_Stat": 3,
+            "HiBmLvr_Stat": 3,
+            "WprWashSw_Psd": 0,
+            "WprWash_R_Sw_Posn_V2": 2,
+            "StW_Lvr_Stat": 6,
+            "StW_Cond_Flt": 0,
+            "StW_Cond_Psd": 1,
+            "HrnSw_Psd": 0,
+            "StW_Sw00_Psd": 1,
+            "StW_Sw01_Psd": 1,
+            "StW_Sw02_Psd": 1,
+            "StW_Sw03_Psd": 1,
+            "StW_Sw04_Psd": 1,
+            "StW_Sw05_Psd": 0,
+            "StW_Sw06_Psd": 0,
+            "StW_Sw07_Psd": 1,
+            "StW_Sw08_Psd": 0,
+            "StW_Sw09_Psd": 0,
+            "StW_Sw10_Psd": 0,
+            "StW_Sw11_Psd": 1,
+            "StW_Sw12_Psd": 0,
+            "StW_Sw13_Psd": 1,
+            "StW_Sw14_Psd": 0,
+            "StW_Sw15_Psd": 0,
+            "WprSw6Posn": 0,
+            "MC_STW_ACTN_RQ": 10,
+            "CRC_STW_ACTN_RQ": 37
+          },
+          "encoded": "a89b8f169f28a025"
+        },
+        {
+          "payload": "50dac2437ede5429",
+          "values": {
+            "SpdCtrlLvr_Stat": 16,
+            "VSL_Enbl_Rq": 1,
+            "SpdCtrlLvrStat_Inv": 0,
+            "DTR_Dist_Rq": 218,
+            "TurnIndLvr_Stat": 2,
+            "HiBmLvr_Stat": 0,
+            "WprWashSw_Psd": 0,
+            "WprWash_R_Sw_Posn_V2": 3,
+            "StW_Lvr_Stat": 3,
+            "StW_Cond_Flt": 0,
+            "StW_Cond_Psd": 0,
+            "HrnSw_Psd": 1,
+            "StW_Sw00_Psd": 0,
+            "StW_Sw01_Psd": 1,
+            "StW_Sw02_Psd": 1,
+            "StW_Sw03_Psd": 1,
+            "StW_Sw04_Psd": 1,
+            "StW_Sw05_Psd": 1,
+            "StW_Sw06_Psd": 1,
+            "StW_Sw07_Psd": 0,
+            "StW_Sw08_Psd": 0,
+            "StW_Sw09_Psd": 1,
+            "StW_Sw10_Psd": 1,
+            "StW_Sw11_Psd": 1,
+            "StW_Sw12_Psd": 1,
+            "StW_Sw13_Psd": 0,
+            "StW_Sw14_Psd": 1,
+            "StW_Sw15_Psd": 1,
+            "WprSw6Posn": 4,
+            "MC_STW_ACTN_RQ": 5,
+            "CRC_STW_ACTN_RQ": 41
+          },
+          "encoded": "50dac2437ede5429"
+        },
+        {
+          "payload": "25ce8209869e271e",
+          "values": {
+            "SpdCtrlLvr_Stat": 37,
+            "VSL_Enbl_Rq": 0,
+            "SpdCtrlLvrStat_Inv": 0,
+            "DTR_Dist_Rq": 206,
+            "TurnIndLvr_Stat": 2,
+            "HiBmLvr_Stat": 0,
+            "WprWashSw_Psd": 0,
+            "WprWash_R_Sw_Posn_V2": 2,
+            "StW_Lvr_Stat": 1,
+            "StW_Cond_Flt": 1,
+            "StW_Cond_Psd": 0,
+            "HrnSw_Psd": 0,
+            "StW_Sw00_Psd": 0,
+            "StW_Sw01_Psd": 1,
+            "StW_Sw02_Psd": 1,
+            "StW_Sw03_Psd": 0,
+            "StW_Sw04_Psd": 0,
+            "StW_Sw05_Psd": 0,
+            "StW_Sw06_Psd": 0,
+            "StW_Sw07_Psd": 1,
+            "StW_Sw08_Psd": 0,
+            "StW_Sw09_Psd": 1,
+            "StW_Sw10_Psd": 1,
+            "StW_Sw11_Psd": 1,
+            "StW_Sw12_Psd": 1,
+            "StW_Sw13_Psd": 0,
+            "StW_Sw14_Psd": 0,
+            "StW_Sw15_Psd": 1,
+            "WprSw6Posn": 7,
+            "MC_STW_ACTN_RQ": 2,
+            "CRC_STW_ACTN_RQ": 30
+          },
+          "encoded": "25ce8209869e271e"
+        },
+        {
+          "payload": "fb40240a34f2b0bf",
+          "values": {
+            "SpdCtrlLvr_Stat": 59,
+            "VSL_Enbl_Rq": 1,
+            "SpdCtrlLvrStat_Inv": 1,
+            "DTR_Dist_Rq": 64,
+            "TurnIndLvr_Stat": 0,
+            "HiBmLvr_Stat": 1,
+            "WprWashSw_Psd": 2,
+            "WprWash_R_Sw_Posn_V2": 0,
+            "StW_Lvr_Stat": 2,
+            "StW_Cond_Flt": 1,
+            "StW_Cond_Psd": 0,
+            "HrnSw_Psd": 0,
+            "StW_Sw00_Psd": 0,
+            "StW_Sw01_Psd": 0,
+            "StW_Sw02_Psd": 1,
+            "StW_Sw03_Psd": 0,
+            "StW_Sw04_Psd": 1,
+            "StW_Sw05_Psd": 1,
+            "StW_Sw06_Psd": 0,
+            "StW_Sw07_Psd": 0,
+            "StW_Sw08_Psd": 0,
+            "StW_Sw09_Psd": 1,
+            "StW_Sw10_Psd": 0,
+            "StW_Sw11_Psd": 0,
+            "StW_Sw12_Psd": 1,
+            "StW_Sw13_Psd": 1,
+            "StW_Sw14_Psd": 1,
+            "StW_Sw15_Psd": 1,
+            "WprSw6Posn": 0,
+            "MC_STW_ACTN_RQ": 11,
+            "CRC_STW_ACTN_RQ": 191
+          },
+          "encoded": "fb40240a34f2b0bf"
+        },
+        {
+          "payload": "870689bf7fd0f611",
+          "values": {
+            "SpdCtrlLvr_Stat": 7,
+            "VSL_Enbl_Rq": 0,
+            "SpdCtrlLvrStat_Inv": 1,
+            "DTR_Dist_Rq": 6,
+            "TurnIndLvr_Stat": 1,
+            "HiBmLvr_Stat": 2,
+            "WprWashSw_Psd": 0,
+            "WprWash_R_Sw_Posn_V2": 2,
+            "StW_Lvr_Stat": 7,
+            "StW_Cond_Flt": 1,
+            "StW_Cond_Psd": 3,
+            "HrnSw_Psd": 2,
+            "StW_Sw00_Psd": 1,
+            "StW_Sw01_Psd": 1,
+            "StW_Sw02_Psd": 1,
+            "StW_Sw03_Psd": 1,
+            "StW_Sw04_Psd": 1,
+            "StW_Sw05_Psd": 1,
+            "StW_Sw06_Psd": 1,
+            "StW_Sw07_Psd": 0,
+            "StW_Sw08_Psd": 0,
+            "StW_Sw09_Psd": 0,
+            "StW_Sw10_Psd": 0,
+            "StW_Sw11_Psd": 0,
+            "StW_Sw12_Psd": 1,
+            "StW_Sw13_Psd": 0,
+            "StW_Sw14_Psd": 1,
+            "StW_Sw15_Psd": 1,
+            "WprSw6Posn": 6,
+            "MC_STW_ACTN_RQ": 15,
+            "CRC_STW_ACTN_RQ": 17
+          },
+          "encoded": "870689bf7fd0f611"
+        },
+        {
+          "payload": "2b52dd3cb89f2bda",
+          "values": {
+            "SpdCtrlLvr_Stat": 43,
+            "VSL_Enbl_Rq": 0,
+            "SpdCtrlLvrStat_Inv": 0,
+            "DTR_Dist_Rq": 82,
+            "TurnIndLvr_Stat": 1,
+            "HiBmLvr_Stat": 3,
+            "WprWashSw_Psd": 1,
+            "WprWash_R_Sw_Posn_V2": 3,
+            "StW_Lvr_Stat": 4,
+            "StW_Cond_Flt": 1,
+            "StW_Cond_Psd": 3,
+            "HrnSw_Psd": 0,
+            "StW_Sw00_Psd": 0,
+            "StW_Sw01_Psd": 0,
+            "StW_Sw02_Psd": 0,
+            "StW_Sw03_Psd": 1,
+            "StW_Sw04_Psd": 1,
+            "StW_Sw05_Psd": 1,
+            "StW_Sw06_Psd": 0,
+            "StW_Sw07_Psd": 1,
+            "StW_Sw08_Psd": 1,
+            "StW_Sw09_Psd": 1,
+            "StW_Sw10_Psd": 1,
+            "StW_Sw11_Psd": 1,
+            "StW_Sw12_Psd": 1,
+            "StW_Sw13_Psd": 0,
+            "StW_Sw14_Psd": 0,
+            "StW_Sw15_Psd": 1,
+            "WprSw6Posn": 3,
+            "MC_STW_ACTN_RQ": 2,
+            "CRC_STW_ACTN_RQ": 218
+          },
+          "encoded": "2b52dd3cb89f23da"
+        },
+        {
+          "payload": "5a37b691a492dc37",
+          "values": {
+            "SpdCtrlLvr_Stat": 26,
+            "VSL_Enbl_Rq": 1,
+            "SpdCtrlLvrStat_Inv": 0,
+            "DTR_Dist_Rq": 55,
+            "TurnIndLvr_Stat": 2,
+            "HiBmLvr_Stat": 1,
+            "WprWashSw_Psd": 3,
+            "WprWash_R_Sw_Posn_V2": 2,
+            "StW_Lvr_Stat": 1,
+            "StW_Cond_Flt": 0,
+            "StW_Cond_Psd": 1,
+            "HrnSw_Psd": 2,
+            "StW_Sw00_Psd": 0,
+            "StW_Sw01_Psd": 0,
+            "StW_Sw02_Psd": 1,
+            "StW_Sw03_Psd": 0,
+            "StW_Sw04_Psd": 0,
+            "StW_Sw05_Psd": 1,
+            "StW_Sw06_Psd": 0,
+            "StW_Sw07_Psd": 1,
+            "StW_Sw08_Psd": 0,
+            "StW_Sw09_Psd": 1,
+            "StW_Sw10_Psd": 0,
+            "StW_Sw11_Psd": 0,
+            "StW_Sw12_Psd": 1,
+            "StW_Sw13_Psd": 0,
+            "StW_Sw14_Psd": 0,
+            "StW_Sw15_Psd": 1,
+            "WprSw6Posn": 4,
+            "MC_STW_ACTN_RQ": 13,
+            "CRC_STW_ACTN_RQ": 55
+          },
+          "encoded": "5a37b691a492d437"
+        },
+        {
+          "payload": "4bfafd8ccb3a80d2",
+          "values": {
+            "SpdCtrlLvr_Stat": 11,
+            "VSL_Enbl_Rq": 1,
+            "SpdCtrlLvrStat_Inv": 0,
+            "DTR_Dist_Rq": 250,
+            "TurnIndLvr_Stat": 1,
+            "HiBmLvr_Stat": 3,
+            "WprWashSw_Psd": 3,
+            "WprWash_R_Sw_Posn_V2": 3,
+            "StW_Lvr_Stat": 4,
+            "StW_Cond_Flt": 1,
+            "StW_Cond_Psd": 0,
+            "HrnSw_Psd": 2,
+            "StW_Sw00_Psd": 1,
+            "StW_Sw01_Psd": 1,
+            "StW_Sw02_Psd": 0,
+            "StW_Sw03_Psd": 1,
+            "StW_Sw04_Psd": 0,
+            "StW_Sw05_Psd": 0,
+            "StW_Sw06_Psd": 1,
+            "StW_Sw07_Psd": 1,
+            "StW_Sw08_Psd": 0,
+            "StW_Sw09_Psd": 1,
+            "StW_Sw10_Psd": 0,
+            "StW_Sw11_Psd": 1,
+            "StW_Sw12_Psd": 1,
+            "StW_Sw13_Psd": 1,
+            "StW_Sw14_Psd": 0,
+            "StW_Sw15_Psd": 0,
+            "WprSw6Posn": 0,
+            "MC_STW_ACTN_RQ": 8,
+            "CRC_STW_ACTN_RQ": 210
+          },
+          "encoded": "4bfafd8ccb3a80d2"
+        },
+        {
+          "payload": "845d6f0cf5222ef1",
+          "values": {
+            "SpdCtrlLvr_Stat": 4,
+            "VSL_Enbl_Rq": 0,
+            "SpdCtrlLvrStat_Inv": 1,
+            "DTR_Dist_Rq": 93,
+            "TurnIndLvr_Stat": 3,
+            "HiBmLvr_Stat": 3,
+            "WprWashSw_Psd": 2,
+            "WprWash_R_Sw_Posn_V2": 1,
+            "StW_Lvr_Stat": 4,
+            "StW_Cond_Flt": 1,
+            "StW_Cond_Psd": 0,
+            "HrnSw_Psd": 0,
+            "StW_Sw00_Psd": 1,
+            "StW_Sw01_Psd": 0,
+            "StW_Sw02_Psd": 1,
+            "StW_Sw03_Psd": 0,
+            "StW_Sw04_Psd": 1,
+            "StW_Sw05_Psd": 1,
+            "StW_Sw06_Psd": 1,
+            "StW_Sw07_Psd": 1,
+            "StW_Sw08_Psd": 0,
+            "StW_Sw09_Psd": 1,
+            "StW_Sw10_Psd": 0,
+            "StW_Sw11_Psd": 0,
+            "StW_Sw12_Psd": 0,
+            "StW_Sw13_Psd": 1,
+            "StW_Sw14_Psd": 0,
+            "StW_Sw15_Psd": 0,
+            "WprSw6Posn": 6,
+            "MC_STW_ACTN_RQ": 2,
+            "CRC_STW_ACTN_RQ": 241
+          },
+          "encoded": "845d6f0cf52226f1"
+        },
+        {
+          "payload": "8c50da0503cceb91",
+          "values": {
+            "SpdCtrlLvr_Stat": 12,
+            "VSL_Enbl_Rq": 0,
+            "SpdCtrlLvrStat_Inv": 1,
+            "DTR_Dist_Rq": 80,
+            "TurnIndLvr_Stat": 2,
+            "HiBmLvr_Stat": 2,
+            "WprWashSw_Psd": 1,
+            "WprWash_R_Sw_Posn_V2": 3,
+            "StW_Lvr_Stat": 5,
+            "StW_Cond_Flt": 0,
+            "StW_Cond_Psd": 0,
+            "HrnSw_Psd": 0,
+            "StW_Sw00_Psd": 1,
+            "StW_Sw01_Psd": 1,
+            "StW_Sw02_Psd": 0,
+            "StW_Sw03_Psd": 0,
+            "StW_Sw04_Psd": 0,
+            "StW_Sw05_Psd": 0,
+            "StW_Sw06_Psd": 0,
+            "StW_Sw07_Psd": 0,
+            "StW_Sw08_Psd": 0,
+            "StW_Sw09_Psd": 0,
+            "StW_Sw10_Psd": 1,
+            "StW_Sw11_Psd": 1,
+            "StW_Sw12_Psd": 0,
+            "StW_Sw13_Psd": 0,
+            "StW_Sw14_Psd": 1,
+            "StW_Sw15_Psd": 1,
+            "WprSw6Posn": 3,
+            "MC_STW_ACTN_RQ": 14,
+            "CRC_STW_ACTN_RQ": 145
+          },
+          "encoded": "8c50da0503cce391"
+        },
+        {
+          "payload": "d67754000b416d2d",
+          "values": {
+            "SpdCtrlLvr_Stat": 22,
+            "VSL_Enbl_Rq": 1,
+            "SpdCtrlLvrStat_Inv": 1,
+            "DTR_Dist_Rq": 119,
+            "TurnIndLvr_Stat": 0,
+            "HiBmLvr_Stat": 1,
+            "WprWashSw_Psd": 1,
+            "WprWash_R_Sw_Posn_V2": 1,
+            "StW_Lvr_Stat": 0,
+            "StW_Cond_Flt": 0,
+            "StW_Cond_Psd": 0,
+            "HrnSw_Psd": 0,
+            "StW_Sw00_Psd": 1,
+            "StW_Sw01_Psd": 1,
+            "StW_Sw02_Psd": 0,
+            "StW_Sw03_Psd": 1,
+            "StW_Sw04_Psd": 0,
+            "StW_Sw05_Psd": 0,
+            "StW_Sw06_Psd": 0,
+            "StW_Sw07_Psd": 0,
+            "StW_Sw08_Psd": 1,
+            "StW_Sw09_Psd": 0,
+            "StW_Sw10_Psd": 0,
+            "StW_Sw11_Psd": 0,
+            "StW_Sw12_Psd": 0,
+            "StW_Sw13_Psd": 0,
+            "StW_Sw14_Psd": 1,
+            "StW_Sw15_Psd": 0,
+            "WprSw6Posn": 5,
+            "MC_STW_ACTN_RQ": 6,
+            "CRC_STW_ACTN_RQ": 45
+          },
+          "encoded": "d67754000b41652d"
+        },
+        {
+          "payload": "3a56f668b978f6d1",
+          "values": {
+            "SpdCtrlLvr_Stat": 58,
+            "VSL_Enbl_Rq": 0,
+            "SpdCtrlLvrStat_Inv": 0,
+            "DTR_Dist_Rq": 86,
+            "TurnIndLvr_Stat": 2,
+            "HiBmLvr_Stat": 1,
+            "WprWashSw_Psd": 3,
+            "WprWash_R_Sw_Posn_V2": 3,
+            "StW_Lvr_Stat": 0,
+            "StW_Cond_Flt": 1,
+            "StW_Cond_Psd": 2,
+            "HrnSw_Psd": 1,
+            "StW_Sw00_Psd": 1,
+            "StW_Sw01_Psd": 0,
+            "StW_Sw02_Psd": 0,
+            "StW_Sw03_Psd": 1,
+            "StW_Sw04_Psd": 1,
+            "StW_Sw05_Psd": 1,
+            "StW_Sw06_Psd": 0,
+            "StW_Sw07_Psd": 1,
+            "StW_Sw08_Psd": 0,
+            "StW_Sw09_Psd": 0,
+            "StW_Sw10_Psd": 0,
+            "StW_Sw11_Psd": 1,
+            "StW_Sw12_Psd": 1,
+            "StW_Sw13_Psd": 1,
+            "StW_Sw14_Psd": 1,
+            "StW_Sw15_Psd": 0,
+            "WprSw6Posn": 6,
+            "MC_STW_ACTN_RQ": 15,
+            "CRC_STW_ACTN_RQ": 209
+          },
+          "encoded": "3a56f668b978f6d1"
+        },
+        {
+          "payload": "fe075d0fb444e928",
+          "values": {
+            "SpdCtrlLvr_Stat": 62,
+            "VSL_Enbl_Rq": 1,
+            "SpdCtrlLvrStat_Inv": 1,
+            "DTR_Dist_Rq": 7,
+            "TurnIndLvr_Stat": 1,
+            "HiBmLvr_Stat": 3,
+            "WprWashSw_Psd": 1,
+            "WprWash_R_Sw_Posn_V2": 1,
+            "StW_Lvr_Stat": 7,
+            "StW_Cond_Flt": 1,
+            "StW_Cond_Psd": 0,
+            "HrnSw_Psd": 0,
+            "StW_Sw00_Psd": 0,
+            "StW_Sw01_Psd": 0,
+            "StW_Sw02_Psd": 1,
+            "StW_Sw03_Psd": 0,
+            "StW_Sw04_Psd": 1,
+            "StW_Sw05_Psd": 1,
+            "StW_Sw06_Psd": 0,
+            "StW_Sw07_Psd": 1,
+            "StW_Sw08_Psd": 0,
+            "StW_Sw09_Psd": 0,
+            "StW_Sw10_Psd": 1,
+            "StW_Sw11_Psd": 0,
+            "StW_Sw12_Psd": 0,
+            "StW_Sw13_Psd": 0,
+            "StW_Sw14_Psd": 1,
+            "StW_Sw15_Psd": 0,
+            "WprSw6Posn": 1,
+            "MC_STW_ACTN_RQ": 14,
+            "CRC_STW_ACTN_RQ": 40
+          },
+          "encoded": "fe075d0fb444e128"
+        },
+        {
+          "payload": "631caec4a77948e4",
+          "values": {
+            "SpdCtrlLvr_Stat": 35,
+            "VSL_Enbl_Rq": 1,
+            "SpdCtrlLvrStat_Inv": 0,
+            "DTR_Dist_Rq": 28,
+            "TurnIndLvr_Stat": 2,
+            "HiBmLvr_Stat": 3,
+            "WprWashSw_Psd": 2,
+            "WprWash_R_Sw_Posn_V2": 2,
+            "StW_Lvr_Stat": 4,
+            "StW_Cond_Flt": 0,
+            "StW_Cond_Psd": 0,
+            "HrnSw_Psd": 3,
+            "StW_Sw00_Psd": 1,
+            "StW_Sw01_Psd": 1,
+            "StW_Sw02_Psd": 1,
+            "StW_Sw03_Psd": 0,
+            "StW_Sw04_Psd": 0,
+            "StW_Sw05_Psd": 1,
+            "StW_Sw06_Psd": 0,
+            "StW_Sw07_Psd": 1,
+            "StW_Sw08_Psd": 1,
+            "StW_Sw09_Psd": 0,
+            "StW_Sw10_Psd": 0,
+            "StW_Sw11_Psd": 1,
+            "StW_Sw12_Psd": 1,
+            "StW_Sw13_Psd": 1,
+            "StW_Sw14_Psd": 1,
+            "StW_Sw15_Psd": 0,
+            "WprSw6Posn": 0,
+            "MC_STW_ACTN_RQ": 4,
+            "CRC_STW_ACTN_RQ": 228
+          },
+          "encoded": "631caec4a77940e4"
+        },
+        {
+          "payload": "cb5c36518103e9a1",
+          "values": {
+            "SpdCtrlLvr_Stat": 11,
+            "VSL_Enbl_Rq": 1,
+            "SpdCtrlLvrStat_Inv": 1,
+            "DTR_Dist_Rq": 92,
+            "TurnIndLvr_Stat": 2,
+            "HiBmLvr_Stat": 1,
+            "WprWashSw_Psd": 3,
+            "WprWash_R_Sw_Posn_V2": 0,
+            "StW_Lvr_Stat": 1,
+            "StW_Cond_Flt": 0,
+            "StW_Cond_Psd": 1,
+            "HrnSw_Psd": 1,
+            "StW_Sw00_Psd": 1,
+            "StW_Sw01_Psd": 0,
+            "StW_Sw02_Psd": 0,
+            "StW_Sw03_Psd": 0,
+            "StW_Sw04_Psd": 0,
+            "StW_Sw05_Psd": 0,
+            "StW_Sw06_Psd": 0,
+            "StW_Sw07_Psd": 1,
+            "StW_Sw08_Psd": 1,
+            "StW_Sw09_Psd": 1,
+            "StW_Sw10_Psd": 0,
+            "StW_Sw11_Psd": 0,
+            "StW_Sw12_Psd": 0,
+            "StW_Sw13_Psd": 0,
+            "StW_Sw14_Psd": 0,
+            "StW_Sw15_Psd": 0,
+            "WprSw6Posn": 1,
+            "MC_STW_ACTN_RQ": 14,
+            "CRC_STW_ACTN_RQ": 161
+          },
+          "encoded": "cb5c36518103e1a1"
+        },
+        {
+          "payload": "4d513256a2d7654b",
+          "values": {
+            "SpdCtrlLvr_Stat": 13,
+            "VSL_Enbl_Rq": 1,
+            "SpdCtrlLvrStat_Inv": 0,
+            "DTR_Dist_Rq": 81,
+            "TurnIndLvr_Stat": 2,
+            "HiBmLvr_Stat": 0,
+            "WprWashSw_Psd": 3,
+            "WprWash_R_Sw_Posn_V2": 0,
+            "StW_Lvr_Stat": 6,
+            "StW_Cond_Flt": 0,
+            "StW_Cond_Psd": 1,
+            "HrnSw_Psd": 1,
+            "StW_Sw00_Psd": 0,
+            "StW_Sw01_Psd": 1,
+            "StW_Sw02_Psd": 0,
+            "StW_Sw03_Psd": 0,
+            "StW_Sw04_Psd": 0,
+            "StW_Sw05_Psd": 1,
+            "StW_Sw06_Psd": 0,
+            "StW_Sw07_Psd": 1,
+            "StW_Sw08_Psd": 1,
+            "StW_Sw09_Psd": 1,
+            "StW_Sw10_Psd": 1,
+            "StW_Sw11_Psd": 0,
+            "StW_Sw12_Psd": 1,
+            "StW_Sw13_Psd": 0,
+            "StW_Sw14_Psd": 1,
+            "StW_Sw15_Psd": 1,
+            "WprSw6Posn": 5,
+            "MC_STW_ACTN_RQ": 6,
+            "CRC_STW_ACTN_RQ": 75
+          },
+          "encoded": "4d513256a2d7654b"
+        },
+        {
+          "payload": "f365e8a102c39769",
+          "values": {
+            "SpdCtrlLvr_Stat": 51,
+            "VSL_Enbl_Rq": 1,
+            "SpdCtrlLvrStat_Inv": 1,
+            "DTR_Dist_Rq": 101,
+            "TurnIndLvr_Stat": 0,
+            "HiBmLvr_Stat": 2,
+            "WprWashSw_Psd": 2,
+            "WprWash_R_Sw_Posn_V2": 3,
+            "StW_Lvr_Stat": 1,
+            "StW_Cond_Flt": 0,
+            "StW_Cond_Psd": 2,
+            "HrnSw_Psd": 2,
+            "StW_Sw00_Psd": 0,
+            "StW_Sw01_Psd": 1,
+            "StW_Sw02_Psd": 0,
+            "StW_Sw03_Psd": 0,
+            "StW_Sw04_Psd": 0,
+            "StW_Sw05_Psd": 0,
+            "StW_Sw06_Psd": 0,
+            "StW_Sw07_Psd": 0,
+            "StW_Sw08_Psd": 1,
+            "StW_Sw09_Psd": 1,
+            "StW_Sw10_Psd": 0,
+            "StW_Sw11_Psd": 0,
+            "StW_Sw12_Psd": 0,
+            "StW_Sw13_Psd": 0,
+            "StW_Sw14_Psd": 1,
+            "StW_Sw15_Psd": 1,
+            "WprSw6Posn": 7,
+            "MC_STW_ACTN_RQ": 9,
+            "CRC_STW_ACTN_RQ": 105
+          },
+          "encoded": "f365e8a102c39769"
+        },
+        {
+          "payload": "4e60c4fd1ea7fdb2",
+          "values": {
+            "SpdCtrlLvr_Stat": 14,
+            "VSL_Enbl_Rq": 1,
+            "SpdCtrlLvrStat_Inv": 0,
+            "DTR_Dist_Rq": 96,
+            "TurnIndLvr_Stat": 0,
+            "HiBmLvr_Stat": 1,
+            "WprWashSw_Psd": 0,
+            "WprWash_R_Sw_Posn_V2": 3,
+            "StW_Lvr_Stat": 5,
+            "StW_Cond_Flt": 1,
+            "StW_Cond_Psd": 3,
+            "HrnSw_Psd": 3,
+            "StW_Sw00_Psd": 0,
+            "StW_Sw01_Psd": 1,
+            "StW_Sw02_Psd": 1,
+            "StW_Sw03_Psd": 1,
+            "StW_Sw04_Psd": 1,
+            "StW_Sw05_Psd": 0,
+            "StW_Sw06_Psd": 0,
+            "StW_Sw07_Psd": 0,
+            "StW_Sw08_Psd": 1,
+            "StW_Sw09_Psd": 1,
+            "StW_Sw10_Psd": 1,
+            "StW_Sw11_Psd": 0,
+            "StW_Sw12_Psd": 0,
+            "StW_Sw13_Psd": 1,
+            "StW_Sw14_Psd": 0,
+            "StW_Sw15_Psd": 1,
+            "WprSw6Posn": 5,
+            "MC_STW_ACTN_RQ": 15,
+            "CRC_STW_ACTN_RQ": 178
+          },
+          "encoded": "4e60c4fd1ea7f5b2"
+        },
+        {
+          "payload": "1dd76323c461dd00",
+          "values": {
+            "SpdCtrlLvr_Stat": 29,
+            "VSL_Enbl_Rq": 0,
+            "SpdCtrlLvrStat_Inv": 0,
+            "DTR_Dist_Rq": 215,
+            "TurnIndLvr_Stat": 3,
+            "HiBmLvr_Stat": 0,
+            "WprWashSw_Psd": 2,
+            "WprWash_R_Sw_Posn_V2": 1,
+            "StW_Lvr_Stat": 3,
+            "StW_Cond_Flt": 0,
+            "StW_Cond_Psd": 2,
+            "HrnSw_Psd": 0,
+            "StW_Sw00_Psd": 0,
+            "StW_Sw01_Psd": 0,
+            "StW_Sw02_Psd": 1,
+            "StW_Sw03_Psd": 0,
+            "StW_Sw04_Psd": 0,
+            "StW_Sw05_Psd": 0,
+            "StW_Sw06_Psd": 1,
+            "StW_Sw07_Psd": 1,
+            "StW_Sw08_Psd": 1,
+            "StW_Sw09_Psd": 0,
+            "StW_Sw10_Psd": 0,
+            "StW_Sw11_Psd": 0,
+            "StW_Sw12_Psd": 0,
+            "StW_Sw13_Psd": 1,
+            "StW_Sw14_Psd": 1,
+            "StW_Sw15_Psd": 0,
+            "WprSw6Posn": 5,
+            "MC_STW_ACTN_RQ": 13,
+            "CRC_STW_ACTN_RQ": 0
+          },
+          "encoded": "1dd76323c461d500"
+        },
+        {
+          "payload": "64250ad9b4665471",
+          "values": {
+            "SpdCtrlLvr_Stat": 36,
+            "VSL_Enbl_Rq": 1,
+            "SpdCtrlLvrStat_Inv": 0,
+            "DTR_Dist_Rq": 37,
+            "TurnIndLvr_Stat": 2,
+            "HiBmLvr_Stat": 2,
+            "WprWashSw_Psd": 0,
+            "WprWash_R_Sw_Posn_V2": 0,
+            "StW_Lvr_Stat": 1,
+            "StW_Cond_Flt": 1,
+            "StW_Cond_Psd": 1,
+            "HrnSw_Psd": 3,
+            "StW_Sw00_Psd": 0,
+            "StW_Sw01_Psd": 0,
+            "StW_Sw02_Psd": 1,
+            "StW_Sw03_Psd": 0,
+            "StW_Sw04_Psd": 1,
+            "StW_Sw05_Psd": 1,
+            "StW_Sw06_Psd": 0,
+            "StW_Sw07_Psd": 1,
+            "StW_Sw08_Psd": 0,
+            "StW_Sw09_Psd": 1,
+            "StW_Sw10_Psd": 1,
+            "StW_Sw11_Psd": 0,
+            "StW_Sw12_Psd": 0,
+            "StW_Sw13_Psd": 1,
+            "StW_Sw14_Psd": 1,
+            "StW_Sw15_Psd": 0,
+            "WprSw6Posn": 4,
+            "MC_STW_ACTN_RQ": 5,
+            "CRC_STW_ACTN_RQ": 113
+          },
+          "encoded": "64250ad9b4665471"
+        },
+        {
+          "payload": "665bf38fe6175cd8",
+          "values": {
+            "SpdCtrlLvr_Stat": 38,
+            "VSL_Enbl_Rq": 1,
+            "SpdCtrlLvrStat_Inv": 0,
+            "DTR_Dist_Rq": 91,
+            "TurnIndLvr_Stat": 3,
+            "HiBmLvr_Stat": 0,
+            "WprWashSw_Psd": 3,
+            "WprWash_R_Sw_Posn_V2": 3,
+            "StW_Lvr_Stat": 7,
+            "StW_Cond_Flt": 1,
+            "StW_Cond_Psd": 0,
+            "HrnSw_Psd": 2,
+            "StW_Sw00_Psd": 0,
+            "StW_Sw01_Psd": 1,
+            "StW_Sw02_Psd": 1,
+            "StW_Sw03_Psd": 0,
+            "StW_Sw04_Psd": 0,
+            "StW_Sw05_Psd": 1,
+            "StW_Sw06_Psd": 1,
+            "StW_Sw07_Psd": 1,
+            "StW_Sw08_Psd": 1,
+            "StW_Sw09_Psd": 1,
+            "StW_Sw10_Psd": 1,
+            "StW_Sw11_Psd": 0,
+            "StW_Sw12_Psd": 1,
+            "StW_Sw13_Psd": 0,
+            "StW_Sw14_Psd": 0,
+            "StW_Sw15_Psd": 0,
+            "WprSw6Posn": 4,
+            "MC_STW_ACTN_RQ": 5,
+            "CRC_STW_ACTN_RQ": 216
+          },
+          "encoded": "665bf38fe61754d8"
+        },
+        {
+          "payload": "4930792317e279bb",
+          "values": {
+            "SpdCtrlLvr_Stat": 9,
+            "VSL_Enbl_Rq": 1,
+            "SpdCtrlLvrStat_Inv": 0,
+            "DTR_Dist_Rq": 48,
+            "TurnIndLvr_Stat": 1,
+            "HiBmLvr_Stat": 2,
+            "WprWashSw_Psd": 3,
+            "WprWash_R_Sw_Posn_V2": 1,
+            "StW_Lvr_Stat": 3,
+            "StW_Cond_Flt": 0,
+            "StW_Cond_Psd": 2,
+            "HrnSw_Psd": 0,
+            "StW_Sw00_Psd": 1,
+            "StW_Sw01_Psd": 1,
+            "StW_Sw02_Psd": 1,
+            "StW_Sw03_Psd": 0,
+            "StW_Sw04_Psd": 1,
+            "StW_Sw05_Psd": 0,
+            "StW_Sw06_Psd": 0,
+            "StW_Sw07_Psd": 0,
+            "StW_Sw08_Psd": 0,
+            "StW_Sw09_Psd": 1,
+            "StW_Sw10_Psd": 0,
+            "StW_Sw11_Psd": 0,
+            "StW_Sw12_Psd": 0,
+            "StW_Sw13_Psd": 1,
+            "StW_Sw14_Psd": 1,
+            "StW_Sw15_Psd": 1,
+            "WprSw6Posn": 1,
+            "MC_STW_ACTN_RQ": 7,
+            "CRC_STW_ACTN_RQ": 187
+          },
+          "encoded": "4930792317e271bb"
+        }
+      ]
+    },
+    {
+      "name": "DI_state",
+      "vectors": [
+        {
+          "payload": "140af06c2df575be",
+          "values": {
+            "DI_systemState": 4,
+            "DI_vehicleHoldState": 2,
+            "DI_proximity": 0,
+            "DI_driveReady": 0,
+            "DI_regenLight": 0,
+            "DI_state": 5,
+            "DI_cruiseState": 0,
+            "DI_analogSpeed": 331.20000000000005,
+            "DI_immobilizerState": 6,
+            "DI_speedUnits": 0,
+            "DI_cruiseSet": 150.5,
+            "DI_aebState": 2,
+            "DI_stateCounter": 15,
+            "DI_digitalSpeed": 117,
+            "DI_stateChecksum": 190
+          },
+          "encoded": "140af06c2df575be"
+        },
+        {
+          "payload": "d7eea5340010bdad",
+          "values": {
+            "DI_systemState": 7,
+            "DI_vehicleHoldState": 2,
+            "DI_proximity": 1,
+            "DI_driveReady": 1,
+            "DI_regenLight": 0,
+            "DI_state": 7,
+            "DI_cruiseState": 14,
+            "DI_analogSpeed": 118.9,
+            "DI_immobilizerState": 3,
+            "DI_speedUnits": 0,
+            "DI_cruiseSet": 0.0,
+            "DI_aebState": 0,
+            "DI_stateCounter": 1,
+            "DI_digitalSpeed": 189,
+            "DI_stateChecksum": 173
+          },
+          "encoded": "d7eea5340010bdad"
+        },
+        {
+          "payload": "256a1a92a4eec08c",
+          "values": {
+            "DI_systemState": 5,
+            "DI_vehicleHoldState": 4,
+            "DI_proximity": 0,
+            "DI_driveReady": 0,
+            "DI_regenLight": 0,
+            "DI_state": 5,
+            "DI_cruiseState": 6,
+            "DI_analogSpeed": 53.800000000000004,
+            "DI_immobilizerState": 1,
+            "DI_speedUnits": 1,
+            "DI_cruiseSet": 82.0,
+            "DI_aebState": 7,
+            "DI_stateCounter": 14,
+            "DI_digitalSpeed": 192,
+            "DI_stateChecksum": 140
+          },
+          "encoded": "256a1a92a4eec08c"
+        },
+        {
+          "payload": "f25544b0a75dac5d",
+          "values": {
+            "DI_systemState": 2,
+            "DI_vehicleHoldState": 6,
+            "DI_proximity": 1,
+            "DI_driveReady": 1,
+            "DI_regenLight": 1,
+            "DI_state": 2,
+            "DI_cruiseState": 5,
+            "DI_analogSpeed": 6.800000000000001,
+            "DI_immobilizerState": 3,
+            "DI_speedUnits": 1,
+            "DI_cruiseSet": 211.5,
+            "DI_aebState": 6,
+            "DI_stateCounter": 5,
+            "DI_digitalSpeed": 172,
+            "DI_stateChecksum": 93
+          },
+          "encoded": "f25544b0a75dac5d"
+        },
+        {
+          "payload": "4f91650f81f7eb71",
+          "values": {
+            "DI_systemState": 7,
+            "DI_vehicleHoldState": 1,
+            "DI_proximity": 1,
+            "DI_driveReady": 0,
+            "DI_regenLight": 1,
+            "DI_state": 0,
+            "DI_cruiseState": 9,
+            "DI_analogSpeed": 394.1,
+            "DI_immobilizerState": 0,
+            "DI_speedUnits": 0,
+            "DI_cruiseSet": 192.5,
+            "DI_aebState": 3,
+            "DI_stateCounter": 15,
+            "DI_digitalSpeed": 235,
+            "DI_stateChecksum": 113
+          },
+          "encoded": "4f91650f81f7eb71"
+        },
+        {
+          "payload": "39a918841ad48472",
+          "values": {
+            "DI_systemState": 1,
+            "DI_vehicleHoldState": 7,
+            "DI_proximity": 0,
+            "DI_driveReady": 0,
+            "DI_regenLight": 1,
+            "DI_state": 4,
+            "DI_cruiseState": 10,
+            "DI_analogSpeed": 104.80000000000001,
+            "DI_immobilizerState": 0,
+            "DI_speedUnits": 1,
+            "DI_cruiseSet": 13.0,
+            "DI_aebState": 2,
+            "DI_stateCounter": 13,
+            "DI_digitalSpeed": 132,
+            "DI_stateChecksum": 114
+          },
+          "encoded": "39a918841ad48472"
+        },
+        {
+          "payload": "d4a041c7cf87b433",
+          "values": {
+            "DI_systemState": 4,
+            "DI_vehicleHoldState": 2,
+            "DI_proximity": 1,
+            "DI_driveReady": 1,
+            "DI_regenLight": 0,
+            "DI_state": 0,
+            "DI_cruiseState": 10,
+            "DI_analogSpeed": 185.70000000000002,
+            "DI_immobilizerState": 4,
+            "DI_speedUnits": 1,
+            "DI_cruiseSet": 231.5,
+            "DI_aebState": 3,
+            "DI_stateCounter": 8,
+            "DI_digitalSpeed": 180,
+            "DI_stateChecksum": 51
+          },
+          "encoded": "d4a041c7cf87b433"
+        },
+        {
+          "payload": "1ef3638cb9d61c01",
+          "values": {
+            "DI_systemState": 6,
+            "DI_vehicleHoldState": 3,
+            "DI_proximity": 0,
+            "DI_driveReady": 0,
+            "DI_regenLight": 1,
+            "DI_state": 1,
+            "DI_cruiseState": 15,
+            "DI_analogSpeed": 317.1,
+            "DI_immobilizerState": 0,
+            "DI_speedUnits": 1,
+            "DI_cruiseSet": 92.5,
+            "DI_aebState": 3,
+            "DI_stateCounter": 13,
+            "DI_digitalSpeed": 28,
+            "DI_stateChecksum": 1
+          },
+          "encoded": "1ef3638cb9d61c01"
+        },
+        {
+          "payload": "78a94ffc76fbcc86",
+          "values": {
+            "DI_systemState": 0,
+            "DI_vehicleHoldState": 7,
+            "DI_proximity": 1,
+            "DI_driveReady": 0,
+            "DI_regenLight": 1,
+            "DI_state": 4,
+            "DI_cruiseState": 10,
+            "DI_analogSpeed": 315.1,
+            "DI_immobilizerState": 7,
+            "DI_speedUnits": 1,
+            "DI_cruiseSet": 187.0,
+            "DI_aebState": 5,
+            "DI_stateCounter": 15,
+            "DI_digitalSpeed": 204,
+            "DI_stateChecksum": 134
+          },
+          "encoded": "78a94ffc76fbcc86"
+        },
+        {
+          "payload": "88af4ac9392d1e86",
+          "values": {
+            "DI_systemState": 0,
+            "DI_vehicleHoldState": 1,
+            "DI_proximity": 0,
+            "DI_driveReady": 1,
+            "DI_regenLight": 1,
+            "DI_state": 7,
+            "DI_cruiseState": 10,
+            "DI_analogSpeed": 237.8,
+            "DI_immobilizerState": 4,
+            "DI_speedUnits": 1,
+            "DI_cruiseSet": 156.5,
+            "DI_aebState": 6,
+            "DI_stateCounter": 2,
+            "DI_digitalSpeed": 30,
+            "DI_stateChecksum": 134
+          },
+          "encoded": "88af4ac9392d1e86"
+        },
+        {
+          "payload": "81198286347821eb",
+          "values": {
+            "DI_systemState": 1,
+            "DI_vehicleHoldState": 0,
+            "DI_proximity": 0,
+            "DI_driveReady": 1,
+            "DI_regenLight": 1,
+            "DI_state": 4,
+            "DI_cruiseState": 1,
+            "DI_analogSpeed": 166.60000000000002,
+            "DI_immobilizerState": 0,
+            "DI_speedUnits": 1,
+            "DI_cruiseSet": 26.0,
+            "DI_aebState": 4,
+            "DI_stateCounter": 7,
+            "DI_digitalSpeed": 33,
+            "DI_stateChecksum": 235
+          },
+          "encoded": "81198286347821eb"
+        },
+        {
+          "payload": "065ecc906b80f487",
+          "values": {
+            "DI_systemState": 6,
+            "DI_vehicleHoldState": 0,
+            "DI_proximity": 0,
+            "DI_driveReady": 0,
+            "DI_regenLight": 0,
+            "DI_state": 7,
+            "DI_cruiseState": 5,
+            "DI_analogSpeed": 20.400000000000002,
+            "DI_immobilizerState": 1,
+            "DI_speedUnits": 1,
+            "DI_cruiseSet": 53.5,
+            "DI_aebState": 0,
+            "DI_stateCounter": 8,
+            "DI_digitalSpeed": 244,
+            "DI_stateChecksum": 135
+          },
+          "encoded": "065ecc906b80f487"
+        },
+        {
+          "payload": "244b628f6d8e1de7",
+          "values": {
+            "DI_systemState": 4,
+            "DI_vehicleHoldState": 4,
+            "DI_proximity": 0,
+            "DI_driveReady": 0,
+            "DI_regenLight": 1,
+            "DI_state": 5,
+            "DI_cruiseState": 4,
+            "DI_analogSpeed": 393.8,
+            "DI_immobilizerState": 0,
+            "DI_speedUnits": 1,
+            "DI_cruiseSet": 54.5,
+            "DI_aebState": 7,
+            "DI_stateCounter": 8,
+            "DI_digitalSpeed": 29,
+            "DI_stateChecksum": 231
+          },
+          "encoded": "244b628f6d8e1de7"
+        },
+        {
+          "payload": "5e63fd441b940b62",
+          "values": {
+            "DI_systemState": 6,
+            "DI_vehicleHoldState": 3,
+            "DI_proximity": 1,
+            "DI_driveReady": 0,
+            "DI_regenLight": 1,
+            "DI_state": 1,
+            "DI_cruiseState": 6,
+            "DI_analogSpeed": 127.7,
+            "DI_immobilizerState": 4,
+            "DI_speedUnits": 0,
+            "DI_cruiseSet": 13.5,
+            "DI_aebState": 2,
+            "DI_stateCounter": 9,
+            "DI_digitalSpeed": 11,
+            "DI_stateChecksum": 98
+          },
+          "encoded": "5e63fd441b940b62"
+        },
+        {
+          "payload": "c9e9dc502c8f1d9e",
+          "values": {
+            "DI_systemState": 1,
+            "DI_vehicleHoldState": 1,
+            "DI_proximity": 1,
+            "DI_driveReady": 1,
+            "DI_regenLight": 1,
+            "DI_state": 4,
+            "DI_cruiseState": 14,
+            "DI_analogSpeed": 22.0,
+            "DI_immobilizerState": 5,
+            "DI_speedUnits": 0,
+            "DI_cruiseSet": 150.0,
+            "DI_aebState": 7,
+            "DI_stateCounter": 8,
+            "DI_digitalSpeed": 29,
+            "DI_stateChecksum": 158
+          },
+          "encoded": "c9e9dc502c8f1d9e"
+        },
+        {
+          "payload": "d2fa6e086fdc09d3",
+          "values": {
+            "DI_systemState": 2,
+            "DI_vehicleHoldState": 2,
+            "DI_proximity": 1,
+            "DI_driveReady": 1,
+            "DI_regenLight": 0,
+            "DI_state": 5,
+            "DI_cruiseState": 15,
+            "DI_analogSpeed": 215.8,
+            "DI_immobilizerState": 0,
+            "DI_speedUnits": 0,
+            "DI_cruiseSet": 55.5,
+            "DI_aebState": 6,
+            "DI_stateCounter": 13,
+            "DI_digitalSpeed": 9,
+            "DI_stateChecksum": 211
+          },
+          "encoded": "d2fa6e086fdc09d3"
+        },
+        {
+          "payload": "b8a87b3c1bfc9be8",
+          "values": {
+            "DI_systemState": 0,
+            "DI_vehicleHoldState": 7,
+            "DI_proximity": 0,
+            "DI_driveReady": 1,
+            "DI_regenLight": 0,
+            "DI_state": 4,
+            "DI_cruiseState": 10,
+            "DI_analogSpeed": 319.5,
+            "DI_immobilizerState": 3,
+            "DI_speedUnits": 0,
+            "DI_cruiseSet": 13.5,
+            "DI_aebState": 6,
+            "DI_stateCounter": 15,
+            "DI_digitalSpeed": 155,
+            "DI_stateChecksum": 232
+          },
+          "encoded": "b8a87b3c1bfc9be8"
+        },
+        {
+          "payload": "f2115c5bddd26e63",
+          "values": {
+            "DI_systemState": 2,
+            "DI_vehicleHoldState": 6,
+            "DI_proximity": 1,
+            "DI_driveReady": 1,
+            "DI_regenLight": 1,
+            "DI_state": 0,
+            "DI_cruiseState": 1,
+            "DI_analogSpeed": 290.8,
+            "DI_immobilizerState": 5,
+            "DI_speedUnits": 0,
+            "DI_cruiseSet": 110.5,
+            "DI_aebState": 1,
+            "DI_stateCounter": 13,
+            "DI_digitalSpeed": 110,
+            "DI_stateChecksum": 99
+          },
+          "encoded": "f2115c5bddd26e63"
+        },
+        {
+          "payload": "5f112e13d27572e6",
+          "values": {
+            "DI_systemState": 7,
+            "DI_vehicleHoldState": 3,
+            "DI_proximity": 1,
+            "DI_driveReady": 0,
+            "DI_regenLight": 1,
+            "DI_state": 0,
+            "DI_cruiseState": 1,
+            "DI_analogSpeed": 81.4,
+            "DI_immobilizerState": 1,
+            "DI_speedUnits": 0,
+            "DI_cruiseSet": 233.0,
+            "DI_aebState": 2,
+            "DI_stateCounter": 7,
+            "DI_digitalSpeed": 114,
+            "DI_stateChecksum": 230
+          },
+          "encoded": "5f112e13d27572e6"
+        },
+        {
+          "payload": "78d68df9ca7f846b",
+          "values": {
+            "DI_systemState": 0,
+            "DI_vehicleHoldState": 7,
+            "DI_proximity": 1,
+            "DI_driveReady": 0,
+            "DI_regenLight": 0,
+            "DI_state": 3,
+            "DI_cruiseState": 13,
+            "DI_analogSpeed": 244.5,
+            "DI_immobilizerState": 7,
+            "DI_speedUnits": 1,
+            "DI_cruiseSet": 229.0,
+            "DI_aebState": 7,
+            "DI_stateCounter": 7,
+            "DI_digitalSpeed": 132,
+            "DI_stateChecksum": 107
+          },
+          "encoded": "78d68df9ca7f846b"
+        },
+        {
+          "payload": "43d6995bea7dcdda",
+          "values": {
+            "DI_systemState": 3,
+            "DI_vehicleHoldState": 0,
+            "DI_proximity": 1,
+            "DI_driveReady": 0,
+            "DI_regenLight": 0,
+            "DI_state": 3,
+            "DI_cruiseState": 13,
+            "DI_analogSpeed": 296.90000000000003,
+            "DI_immobilizerState": 5,
+            "DI_speedUnits": 0,
+            "DI_cruiseSet": 245.0,
+            "DI_aebState": 6,
+            "DI_stateCounter": 7,
+            "DI_digitalSpeed": 205,
+            "DI_stateChecksum": 218
+          },
+          "encoded": "43d6995bea7dcdda"
+        },
+        {
+          "payload": "33b099ae04f16e7c",
+          "values": {
+            "DI_systemState": 3,
+            "DI_vehicleHoldState": 6,
+            "DI_proximity": 0,
+            "DI_driveReady": 0,
+            "DI_regenLight": 0,
+            "DI_state": 0,
+            "DI_cruiseState": 11,
+            "DI_analogSpeed": 373.70000000000005,
+            "DI_immobilizerState": 2,
+            "DI_speedUnits": 1,
+            "DI_cruiseSet": 130.0,
+            "DI_aebState": 0,
+            "DI_stateCounter": 15,
+            "DI_digitalSpeed": 110,
+            "DI_stateChecksum": 124
+          },
+          "encoded": "33b099ae04f16e7c"
+        },
+        {
+          "payload": "ae9828522b7aa409",
+          "values": {
+            "DI_systemState": 6,
+            "DI_vehicleHoldState": 5,
+            "DI_proximity": 0,
+            "DI_driveReady": 1,
+            "DI_regenLight": 0,
+            "DI_state": 4,
+            "DI_cruiseState": 9,
+            "DI_analogSpeed": 55.2,
+            "DI_immobilizerState": 5,
+            "DI_speedUnits": 0,
+            "DI_cruiseSet": 21.5,
+            "DI_aebState": 5,
+            "DI_stateCounter": 7,
+            "DI_digitalSpeed": 164,
+            "DI_stateChecksum": 9
+          },
+          "encoded": "ae9828522b7aa409"
+        },
+        {
+          "payload": "82a29da8cec497f4",
+          "values": {
+            "DI_systemState": 2,
+            "DI_vehicleHoldState": 0,
+            "DI_proximity": 0,
+            "DI_driveReady": 1,
+            "DI_regenLight": 0,
+            "DI_state": 1,
+            "DI_cruiseState": 10,
+            "DI_analogSpeed": 220.5,
+            "DI_immobilizerState": 2,
+            "DI_speedUnits": 1,
+            "DI_cruiseSet": 103.0,
+            "DI_aebState": 2,
+            "DI_stateCounter": 12,
+            "DI_digitalSpeed": 151,
+            "DI_stateChecksum": 244
+          },
+          "encoded": "82a29da8cec497f4"
+        },
+        {
+          "payload": "aa161463115f5dde",
+          "values": {
+            "DI_systemState": 2,
+            "DI_vehicleHoldState": 5,
+            "DI_proximity": 0,
+            "DI_driveReady": 1,
+            "DI_regenLight": 0,
+            "DI_state": 3,
+            "DI_cruiseState": 1,
+            "DI_analogSpeed": 78.80000000000001,
+            "DI_immobilizerState": 6,
+            "DI_speedUnits": 0,
+            "DI_cruiseSet": 136.5,
+            "DI_aebState": 7,
+            "DI_stateCounter": 5,
+            "DI_digitalSpeed": 93,
+            "DI_stateChecksum": 222
+          },
+          "encoded": "aa161463115f5dde"
+        },
+        {
+          "payload": "d9b4b36dff93bf12",
+          "values": {
+            "DI_systemState": 1,
+            "DI_vehicleHoldState": 3,
+            "DI_proximity": 1,
+            "DI_driveReady": 1,
+            "DI_regenLight": 0,
+            "DI_state": 2,
+            "DI_cruiseState": 11,
+            "DI_analogSpeed": 350.70000000000005,
+            "DI_immobilizerState": 6,
+            "DI_speedUnits": 0,
+            "DI_cruiseSet": 255.5,
+            "DI_aebState": 1,
+            "DI_stateCounter": 9,
+            "DI_digitalSpeed": 191,
+            "DI_stateChecksum": 18
+          },
+          "encoded": "d9b4b36dff93bf12"
+        },
+        {
+          "payload": "0bc869a7bb5c71f0",
+          "values": {
+            "DI_systemState": 3,
+            "DI_vehicleHoldState": 1,
+            "DI_proximity": 0,
+            "DI_driveReady": 0,
+            "DI_regenLight": 0,
+            "DI_state": 4,
+            "DI_cruiseState": 12,
+            "DI_analogSpeed": 189.70000000000002,
+            "DI_immobilizerState": 2,
+            "DI_speedUnits": 1,
+            "DI_cruiseSet": 93.5,
+            "DI_aebState": 6,
+            "DI_stateCounter": 5,
+            "DI_digitalSpeed": 113,
+            "DI_stateChecksum": 240
+          },
+          "encoded": "0bc869a7bb5c71f0"
+        },
+        {
+          "payload": "1472618227fb0f6e",
+          "values": {
+            "DI_systemState": 4,
+            "DI_vehicleHoldState": 2,
+            "DI_proximity": 0,
+            "DI_driveReady": 0,
+            "DI_regenLight": 0,
+            "DI_state": 1,
+            "DI_cruiseState": 7,
+            "DI_analogSpeed": 60.900000000000006,
+            "DI_immobilizerState": 0,
+            "DI_speedUnits": 1,
+            "DI_cruiseSet": 147.5,
+            "DI_aebState": 5,
+            "DI_stateCounter": 15,
+            "DI_digitalSpeed": 15,
+            "DI_stateChecksum": 110
+          },
+          "encoded": "1472618227fb0f6e"
+        },
+        {
+          "payload": "d03b2ee0a2185522",
+          "values": {
+            "DI_systemState": 0,
+            "DI_vehicleHoldState": 2,
+            "DI_proximity": 1,
+            "DI_driveReady": 1,
+            "DI_regenLight": 1,
+            "DI_state": 5,
+            "DI_cruiseState": 3,
+            "DI_analogSpeed": 4.6000000000000005,
+            "DI_immobilizerState": 6,
+            "DI_speedUnits": 1,
+            "DI_cruiseSet": 81.0,
+            "DI_aebState": 4,
+            "DI_stateCounter": 1,
+            "DI_digitalSpeed": 85,
+            "DI_stateChecksum": 34
+          },
+          "encoded": "d03b2ee0a2185522"
+        },
+        {
+          "payload": "68da4e444e68e4c1",
+          "values": {
+            "DI_systemState": 0,
+            "DI_vehicleHoldState": 5,
+            "DI_proximity": 1,
+            "DI_driveReady": 0,
+            "DI_regenLight": 0,
+            "DI_state": 5,
+            "DI_cruiseState": 13,
+            "DI_analogSpeed": 110.2,
+            "DI_immobilizerState": 4,
+            "DI_speedUnits": 0,
+            "DI_cruiseSet": 39.0,
+            "DI_aebState": 4,
+            "DI_stateCounter": 6,
+            "DI_digitalSpeed": 228,
+            "DI_stateChecksum": 193
+          },
+          "encoded": "68da4e444e68e4c1"
+        },
+        {
+          "payload": "e988cf02d7eca9e2",
+          "values": {
+            "DI_systemState": 1,
+            "DI_vehicleHoldState": 5,
+            "DI_proximity": 1,
+            "DI_driveReady": 1,
+            "DI_regenLight": 0,
+            "DI_state": 4,
+            "DI_cruiseState": 8,
+            "DI_analogSpeed": 71.9,
+            "DI_immobilizerState": 0,
+            "DI_speedUnits": 0,
+            "DI_cruiseSet": 107.5,
+            "DI_aebState": 6,
+            "DI_stateCounter": 14,
+            "DI_digitalSpeed": 169,
+            "DI_stateChecksum": 226
+          },
+          "encoded": "e988cf02d7eca9e2"
+        },
+        {
+          "payload": "e7c436fe5e628e7c",
+          "values": {
+            "DI_systemState": 7,
+            "DI_vehicleHoldState": 4,
+            "DI_proximity": 1,
+            "DI_driveReady": 1,
+            "DI_regenLight": 0,
+            "DI_state": 2,
+            "DI_cruiseState": 12,
+            "DI_analogSpeed": 363.8,
+            "DI_immobilizerState": 7,
+            "DI_speedUnits": 1,
+            "DI_cruiseSet": 47.0,
+            "DI_aebState": 1,
+            "DI_stateCounter": 6,
+            "DI_digitalSpeed": 142,
+            "DI_stateChecksum": 124
+          },
+          "encoded": "e7c436fe5e628e7c"
+        }
+      ]
+    },
+    {
+      "name": "DAS_control",
+      "vectors": [
+        {
+          "payload": "85342a1b31d4787f",
+          "values": {
+            "DAS_setSpeed": 115.7,
+            "DAS_accState": 3,
+            "DAS_aebEvent": 2,
+            "DAS_jerkMin": -9.172,
+            "DAS_jerkMax": 2.065,
+            "DAS_accelMin": -9.64,
+            "DAS_accelMax": 0.8800000000000008,
+            "DAS_controlCounter": 3,
+            "DAS_controlChecksum": 127
+          },
+          "encoded": "85342a1b31d4787f"
+        },
+        {
+          "payload": "4e17d07a65c12b49",
+          "values": {
+            "DAS_setSpeed": 187.0,
+            "DAS_accState": 1,
+            "DAS_aebEvent": 0,
+            "DAS_jerkMin": -9.832,
+            "DAS_jerkMax": 10.325,
+            "DAS_accelMin": -13.24,
+            "DAS_accelMax": -7.4799999999999995,
+            "DAS_controlCounter": 1,
+            "DAS_controlChecksum": 73
+          },
+          "encoded": "4e17d07a65c12b49"
+        },
+        {
+          "payload": "1417718e8cc88b5a",
+          "values": {
+            "DAS_setSpeed": 181.20000000000002,
+            "DAS_accState": 1,
+            "DAS_aebEvent": 1,
+            "DAS_jerkMin": -2.872,
+            "DAS_jerkMax": 8.555,
+            "DAS_accelMin": -4.08,
+            "DAS_accelMax": -7.4799999999999995,
+            "DAS_controlCounter": 4,
+            "DAS_controlChecksum": 90
+          },
+          "encoded": "1417718e8cc88b5a"
+        },
+        {
+          "payload": "d16a686120163c7e",
+          "values": {
+            "DAS_setSpeed": 276.90000000000003,
+            "DAS_accState": 6,
+            "DAS_aebEvent": 0,
+            "DAS_jerkMin": -12.532,
+            "DAS_jerkMax": 0.708,
+            "DAS_accelMin": -7.16,
+            "DAS_accelMax": 2.960000000000001,
+            "DAS_controlCounter": 1,
+            "DAS_controlChecksum": 126
+          },
+          "encoded": "d16a686120163c7e"
+        },
+        {
+          "payload": "8f8a989b61447eff",
+          "values": {
+            "DAS_setSpeed": 270.3,
+            "DAS_accState": 8,
+            "DAS_aebEvent": 0,
+            "DAS_jerkMin": -8.332,
+            "DAS_jerkMax": 3.009,
+            "DAS_accelMin": -9.399999999999999,
+            "DAS_accelMax": 4.359999999999999,
+            "DAS_controlCounter": 3,
+            "DAS_controlChecksum": 255
+          },
+          "encoded": "8f8a989b61447eff"
+        },
+        {
+          "payload": "d1001aa879af79e1",
+          "values": {
+            "DAS_setSpeed": 20.900000000000002,
+            "DAS_accState": 0,
+            "DAS_aebEvent": 2,
+            "DAS_jerkMin": -15.052,
+            "DAS_jerkMax": 3.127,
+            "DAS_accelMin": 4.800000000000001,
+            "DAS_accelMax": 1.3999999999999986,
+            "DAS_controlCounter": 3,
+            "DAS_controlChecksum": 225
+          },
+          "encoded": "d1001aa879af79e1"
+        },
+        {
+          "payload": "d61ee9603ccdd186",
+          "values": {
+            "DAS_setSpeed": 379.8,
+            "DAS_accState": 1,
+            "DAS_aebEvent": 1,
+            "DAS_jerkMin": -13.491999999999999,
+            "DAS_jerkMax": 8.26,
+            "DAS_accelMin": 1.9200000000000017,
+            "DAS_accelMax": -3.6400000000000006,
+            "DAS_controlCounter": 6,
+            "DAS_controlChecksum": 134
+          },
+          "encoded": "d61ee9603ccdd186"
+        },
+        {
+          "payload": "8072cd605af04cb0",
+          "values": {
+            "DAS_setSpeed": 64.0,
+            "DAS_accState": 7,
+            "DAS_aebEvent": 1,
+            "DAS_jerkMin": -13.702,
+            "DAS_jerkMax": 4.484,
+            "DAS_accelMin": -14.56,
+            "DAS_accelMax": -6.720000000000001,
+            "DAS_controlCounter": 2,
+            "DAS_controlChecksum": 176
+          },
+          "encoded": "8072cd605af04cb0"
+        },
+        {
+          "payload": "3927d19391f247d8",
+          "values": {
+            "DAS_setSpeed": 184.9,
+            "DAS_accState": 2,
+            "DAS_aebEvent": 1,
+            "DAS_jerkMin": -7.912,
+            "DAS_jerkMax": 2.9499999999999997,
+            "DAS_accelMin": -11.719999999999999,
+            "DAS_accelMax": -9.92,
+            "DAS_controlCounter": 2,
+            "DAS_controlChecksum": 216
+          },
+          "encoded": "3927d19391f247d8"
+        },
+        {
+          "payload": "eb4a908877f715de",
+          "values": {
+            "DAS_setSpeed": 279.5,
+            "DAS_accState": 4,
+            "DAS_aebEvent": 0,
+            "DAS_jerkMin": -14.152,
+            "DAS_jerkMax": 14.219,
+            "DAS_accelMin": -5.48,
+            "DAS_accelMax": -0.9599999999999991,
+            "DAS_controlCounter": 0,
+            "DAS_controlChecksum": 222
+          },
+          "encoded": "eb4a908877f715de"
+        },
+        {
+          "payload": "03a30e9fbedbf4fe",
+          "values": {
+            "DAS_setSpeed": 77.10000000000001,
+            "DAS_accState": 10,
+            "DAS_aebEvent": 2,
+            "DAS_jerkMin": -1.702,
+            "DAS_jerkMax": 12.449,
+            "DAS_accelMin": 0.0,
+            "DAS_accelMax": -1.6799999999999997,
+            "DAS_controlCounter": 7,
+            "DAS_controlChecksum": 254
+          },
+          "encoded": "03a30e9fbedbf4fe"
+        },
+        {
+          "payload": "8705d0053d0620b6",
+          "values": {
+            "DAS_setSpeed": 141.5,
+            "DAS_accState": 0,
+            "DAS_aebEvent": 0,
+            "DAS_jerkMin": -4.071999999999999,
+            "DAS_jerkMax": 9.44,
+            "DAS_accelMin": -7.04,
+            "DAS_accelMax": -15.0,
+            "DAS_controlCounter": 1,
+            "DAS_controlChecksum": 182
+          },
+          "encoded": "8705d0053d0620b6"
+        },
+        {
+          "payload": "ae60300ecab7d61c",
+          "values": {
+            "DAS_setSpeed": 17.400000000000002,
+            "DAS_accState": 6,
+            "DAS_aebEvent": 0,
+            "DAS_jerkMin": -3.3520000000000003,
+            "DAS_jerkMax": 3.835,
+            "DAS_accelMin": -5.039999999999999,
+            "DAS_accelMax": -0.4800000000000004,
+            "DAS_controlCounter": 6,
+            "DAS_controlChecksum": 28
+          },
+          "encoded": "ae60300ecab7d61c"
+        },
+        {
+          "payload": "f65d46ee6ee371d1",
+          "values": {
+            "DAS_setSpeed": 357.40000000000003,
+            "DAS_accState": 5,
+            "DAS_aebEvent": 2,
+            "DAS_jerkMin": -3.202,
+            "DAS_jerkMax": 13.039,
+            "DAS_accelMin": -10.64,
+            "DAS_accelMax": -3.5600000000000005,
+            "DAS_controlCounter": 3,
+            "DAS_controlChecksum": 209
+          },
+          "encoded": "f65d46ee6ee371d1"
+        },
+        {
+          "payload": "8afb5dbc6fe38561",
+          "values": {
+            "DAS_setSpeed": 295.40000000000003,
+            "DAS_accState": 15,
+            "DAS_aebEvent": 1,
+            "DAS_jerkMin": -6.862,
+            "DAS_jerkMax": 14.572999999999999,
+            "DAS_accelMin": -10.64,
+            "DAS_accelMax": -11.24,
+            "DAS_controlCounter": 4,
+            "DAS_controlChecksum": 97
+          },
+          "encoded": "8afb5dbc6fe38561"
+        },
+        {
+          "payload": "2f8b470f4d56bd55",
+          "values": {
+            "DAS_setSpeed": 286.3,
+            "DAS_accState": 8,
+            "DAS_aebEvent": 3,
+            "DAS_jerkMin": -1.282,
+            "DAS_jerkMax": 9.498999999999999,
+            "DAS_accelMin": -6.959999999999999,
+            "DAS_accelMax": 3.7600000000000016,
+            "DAS_controlCounter": 5,
+            "DAS_controlChecksum": 85
+          },
+          "encoded": "2f8b470f4d56bd55"
+        },
+        {
+          "payload": "75d3623f4f68eb89",
+          "values": {
+            "DAS_setSpeed": 88.5,
+            "DAS_accState": 13,
+            "DAS_aebEvent": 2,
+            "DAS_jerkMin": -1.0719999999999992,
+            "DAS_jerkMax": 13.629,
+            "DAS_accelMin": -4.4,
+            "DAS_accelMax": -7.72,
+            "DAS_controlCounter": 7,
+            "DAS_controlChecksum": 137
+          },
+          "encoded": "75d3623f4f68eb89"
+        },
+        {
+          "payload": "eb69ded1b0295b57",
+          "values": {
+            "DAS_setSpeed": 253.9,
+            "DAS_accState": 6,
+            "DAS_aebEvent": 2,
+            "DAS_jerkMin": -11.661999999999999,
+            "DAS_jerkMax": 1.5339999999999998,
+            "DAS_accelMin": -2.5999999999999996,
+            "DAS_accelMax": 2.3599999999999994,
+            "DAS_controlCounter": 2,
+            "DAS_controlChecksum": 87
+          },
+          "encoded": "eb69ded1b0295b57"
+        },
+        {
+          "payload": "5ea969d8856a48f2",
+          "values": {
+            "DAS_setSpeed": 239.8,
+            "DAS_accState": 10,
+            "DAS_aebEvent": 1,
+            "DAS_jerkMin": -14.452,
+            "DAS_jerkMax": 11.033,
+            "DAS_accelMin": -1.5600000000000005,
+            "DAS_accelMax": -9.64,
+            "DAS_controlCounter": 2,
+            "DAS_controlChecksum": 242
+          },
+          "encoded": "5ea969d8856a48f2"
+        },
+        {
+          "payload": "d2c92610b9e5057b",
+          "values": {
+            "DAS_setSpeed": 251.4,
+            "DAS_accState": 12,
+            "DAS_aebEvent": 2,
+            "DAS_jerkMin": -14.962,
+            "DAS_jerkMax": 2.006,
+            "DAS_accelMin": -7.68,
+            "DAS_accelMax": -11.24,
+            "DAS_controlCounter": 0,
+            "DAS_controlChecksum": 123
+          },
+          "encoded": "d2c92610b9e5057b"
+        },
+        {
+          "payload": "ae1fb6f9647099aa",
+          "values": {
+            "DAS_setSpeed": 401.40000000000003,
+            "DAS_accState": 1,
+            "DAS_aebEvent": 2,
+            "DAS_jerkMin": -11.962,
+            "DAS_jerkMax": 9.381,
+            "DAS_accelMin": -14.52,
+            "DAS_accelMax": 1.2800000000000011,
+            "DAS_controlCounter": 4,
+            "DAS_controlChecksum": 170
+          },
+          "encoded": "ae1fb6f9647099aa"
+        },
+        {
+          "payload": "7458fa58f4e1526a",
+          "values": {
+            "DAS_setSpeed": 216.4,
+            "DAS_accState": 5,
+            "DAS_aebEvent": 2,
+            "DAS_jerkMin": -13.372,
+            "DAS_jerkMax": 8.200999999999999,
+            "DAS_accelMin": -12.52,
+            "DAS_accelMax": -2.92,
+            "DAS_controlCounter": 2,
+            "DAS_controlChecksum": 106
+          },
+          "encoded": "7458fa58f4e1526a"
+        },
+        {
+          "payload": "0f3645f2668d552b",
+          "values": {
+            "DAS_setSpeed": 155.10000000000002,
+            "DAS_accState": 3,
+            "DAS_aebEvent": 1,
+            "DAS_jerkMin": -10.882,
+            "DAS_jerkMax": 13.097999999999999,
+            "DAS_accelMin": 2.120000000000001,
+            "DAS_accelMax": -1.2400000000000002,
+            "DAS_controlCounter": 2,
+            "DAS_controlChecksum": 43
+          },
+          "encoded": "0f3645f2668d552b"
+        },
+        {
+          "payload": "b2c6bc4337842dd6",
+          "values": {
+            "DAS_setSpeed": 171.4,
+            "DAS_accState": 12,
+            "DAS_aebEvent": 0,
+            "DAS_jerkMin": -8.062,
+            "DAS_jerkMax": 13.687999999999999,
+            "DAS_accelMin": -9.64,
+            "DAS_accelMax": -6.359999999999999,
+            "DAS_controlCounter": 1,
+            "DAS_controlChecksum": 214
+          },
+          "encoded": "b2c6bc4337842dd6"
+        },
+        {
+          "payload": "07b8297eaeeff8b6",
+          "values": {
+            "DAS_setSpeed": 205.5,
+            "DAS_accState": 11,
+            "DAS_aebEvent": 1,
+            "DAS_jerkMin": -3.411999999999999,
+            "DAS_jerkMax": 12.213,
+            "DAS_accelMin": 5.039999999999999,
+            "DAS_accelMax": 0.9199999999999999,
+            "DAS_controlCounter": 7,
+            "DAS_controlChecksum": 182
+          },
+          "encoded": "07b8297eaeeff8b6"
+        },
+        {
+          "payload": "a43f64dc4bba6e7e",
+          "values": {
+            "DAS_setSpeed": 400.40000000000003,
+            "DAS_accState": 3,
+            "DAS_aebEvent": 0,
+            "DAS_jerkMin": -6.802,
+            "DAS_jerkMax": 7.257,
+            "DAS_accelMin": -1.8399999999999999,
+            "DAS_accelMax": -5.6,
+            "DAS_controlCounter": 3,
+            "DAS_controlChecksum": 126
+          },
+          "encoded": "a43f64dc4bba6e7e"
+        },
+        {
+          "payload": "c24b0887b7d49e4e",
+          "values": {
+            "DAS_setSpeed": 301.0,
+            "DAS_accState": 4,
+            "DAS_aebEvent": 0,
+            "DAS_jerkMin": -1.7319999999999993,
+            "DAS_jerkMax": 14.16,
+            "DAS_accelMin": -9.0,
+            "DAS_accelMax": 4.719999999999999,
+            "DAS_controlCounter": 4,
+            "DAS_controlChecksum": 78
+          },
+          "encoded": "c24b0887b7d49e4e"
+        },
+        {
+          "payload": "b5c0d0cf4696d250",
+          "values": {
+            "DAS_setSpeed": 18.1,
+            "DAS_accState": 12,
+            "DAS_aebEvent": 0,
+            "DAS_jerkMin": -0.23199999999999932,
+            "DAS_jerkMax": 12.802999999999999,
+            "DAS_accelMin": -7.0,
+            "DAS_accelMax": -3.119999999999999,
+            "DAS_controlCounter": 6,
+            "DAS_controlChecksum": 80
+          },
+          "encoded": "b5c0d0cf4696d250"
+        },
+        {
+          "payload": "2e20a5d09a69ca7c",
+          "values": {
+            "DAS_setSpeed": 4.6000000000000005,
+            "DAS_accState": 2,
+            "DAS_aebEvent": 1,
+            "DAS_jerkMin": -14.001999999999999,
+            "DAS_jerkMax": 5.31,
+            "DAS_accelMin": -2.719999999999999,
+            "DAS_accelMax": -8.36,
+            "DAS_controlCounter": 6,
+            "DAS_controlChecksum": 124
+          },
+          "encoded": "2e20a5d09a69ca7c"
+        },
+        {
+          "payload": "b5b6e0d9a6a05062",
+          "values": {
+            "DAS_setSpeed": 171.70000000000002,
+            "DAS_accState": 11,
+            "DAS_aebEvent": 0,
+            "DAS_jerkMin": -11.632,
+            "DAS_jerkMax": 12.921,
+            "DAS_accelMin": -14.2,
+            "DAS_accelMax": -4.359999999999999,
+            "DAS_controlCounter": 2,
+            "DAS_controlChecksum": 98
+          },
+          "encoded": "b5b6e0d9a6a05062"
+        },
+        {
+          "payload": "b6fb956242cf88dd",
+          "values": {
+            "DAS_setSpeed": 299.8,
+            "DAS_accState": 15,
+            "DAS_aebEvent": 1,
+            "DAS_jerkMin": -10.282,
+            "DAS_jerkMax": 4.484,
+            "DAS_accelMin": 4.52,
+            "DAS_accelMax": -9.399999999999999,
+            "DAS_controlCounter": 4,
+            "DAS_controlChecksum": 221
+          },
+          "encoded": "b6fb956242cf88dd"
+        },
+        {
+          "payload": "dda4d161e1ece933",
+          "values": {
+            "DAS_setSpeed": 124.5,
+            "DAS_accState": 10,
+            "DAS_aebEvent": 1,
+            "DAS_jerkMin": -11.751999999999999,
+            "DAS_jerkMax": 2.596,
+            "DAS_accelMin": 1.4800000000000004,
+            "DAS_accelMax": -8.68,
+            "DAS_controlCounter": 7,
+            "DAS_controlChecksum": 51
+          },
+          "encoded": "dda4d161e1ece933"
+        }
+      ]
+    }
+  ],
+  "skipped": {}
+}

@@ -1,0 +1,463 @@
+{
+  "messages": [
+    {
+      "name": "Message1",
+      "vectors": [
+        {
+          "payload": "7b9beb02f859a700",
+          "values": {
+            "Signal1": 123
+          },
+          "encoded": "7b00000000000000"
+        },
+        {
+          "payload": "b7cb6b62e05cb6fe",
+          "values": {
+            "Signal1": -73
+          },
+          "encoded": "b700000000000000"
+        },
+        {
+          "payload": "f9073e0f2d243bb5",
+          "values": {
+            "Signal1": -7
+          },
+          "encoded": "f900000000000000"
+        },
+        {
+          "payload": "2db92a7d4ed8addc",
+          "values": {
+            "Signal1": 45
+          },
+          "encoded": "2d00000000000000"
+        },
+        {
+          "payload": "32208094060a1427",
+          "values": {
+            "Signal1": 50
+          },
+          "encoded": "3200000000000000"
+        },
+        {
+          "payload": "8795cbb7cb0c58f3",
+          "values": {
+            "Signal1": -121
+          },
+          "encoded": "8700000000000000"
+        },
+        {
+          "payload": "f5f3610c78942255",
+          "values": {
+            "Signal1": -11
+          },
+          "encoded": "f500000000000000"
+        },
+        {
+          "payload": "300de8f9c8fd5e31",
+          "values": {
+            "Signal1": 48
+          },
+          "encoded": "3000000000000000"
+        },
+        {
+          "payload": "e31b6520769ffad3",
+          "values": {
+            "Signal1": -29
+          },
+          "encoded": "e300000000000000"
+        },
+        {
+          "payload": "b6ff81ace36f36ed",
+          "values": {
+            "Signal1": -74
+          },
+          "encoded": "b600000000000000"
+        },
+        {
+          "payload": "3f8dddc1e6411369",
+          "values": {
+            "Signal1": 63
+          },
+          "encoded": "3f00000000000000"
+        },
+        {
+          "payload": "71710b40ebe74884",
+          "values": {
+            "Signal1": 113
+          },
+          "encoded": "7100000000000000"
+        },
+        {
+          "payload": "2901799ea7840c51",
+          "values": {
+            "Signal1": 41
+          },
+          "encoded": "2900000000000000"
+        },
+        {
+          "payload": "88a642fb3e268164",
+          "values": {
+            "Signal1": -120
+          },
+          "encoded": "8800000000000000"
+        },
+        {
+          "payload": "92ea7556870b36e5",
+          "values": {
+            "Signal1": -110
+          },
+          "encoded": "9200000000000000"
+        },
+        {
+          "payload": "a5b9871e6c9ae0b6",
+          "values": {
+            "Signal1": -91
+          },
+          "encoded": "a500000000000000"
+        },
+        {
+          "payload": "79bda4faf3ca686c",
+          "values": {
+            "Signal1": 121
+          },
+          "encoded": "7900000000000000"
+        },
+        {
+          "payload": "d480c4eff11e72f3",
+          "values": {
+            "Signal1": -44
+          },
+          "encoded": "d400000000000000"
+        },
+        {
+          "payload": "20ac8843eba5fc58",
+          "values": {
+            "Signal1": 32
+          },
+          "encoded": "2000000000000000"
+        },
+        {
+          "payload": "e3006a007b4f8b2c",
+          "values": {
+            "Signal1": -29
+          },
+          "encoded": "e300000000000000"
+        },
+        {
+          "payload": "a38d2d177733a9e4",
+          "values": {
+            "Signal1": -93
+          },
+          "encoded": "a300000000000000"
+        },
+        {
+          "payload": "2126f597cd8379ac",
+          "values": {
+            "Signal1": 33
+          },
+          "encoded": "2100000000000000"
+        },
+        {
+          "payload": "c89fa23055771ea1",
+          "values": {
+            "Signal1": -56
+          },
+          "encoded": "c800000000000000"
+        },
+        {
+          "payload": "3cd67f2333c5aa98",
+          "values": {
+            "Signal1": 60
+          },
+          "encoded": "3c00000000000000"
+        },
+        {
+          "payload": "7c144dc0aa6705a1",
+          "values": {
+            "Signal1": 124
+          },
+          "encoded": "7c00000000000000"
+        },
+        {
+          "payload": "bf6621a2ee414b3e",
+          "values": {
+            "Signal1": -65
+          },
+          "encoded": "bf00000000000000"
+        },
+        {
+          "payload": "5cd66d22aa1fecfc",
+          "values": {
+            "Signal1": 92
+          },
+          "encoded": "5c00000000000000"
+        },
+        {
+          "payload": "f5a6674d93216adc",
+          "values": {
+            "Signal1": -11
+          },
+          "encoded": "f500000000000000"
+        },
+        {
+          "payload": "77ad86f380fe7530",
+          "values": {
+            "Signal1": 119
+          },
+          "encoded": "7700000000000000"
+        },
+        {
+          "payload": "d869175a1ddaa87c",
+          "values": {
+            "Signal1": -40
+          },
+          "encoded": "d800000000000000"
+        },
+        {
+          "payload": "7211386203a99174",
+          "values": {
+            "Signal1": 114
+          },
+          "encoded": "7200000000000000"
+        },
+        {
+          "payload": "4097889aefcf9fcd",
+          "values": {
+            "Signal1": 64
+          },
+          "encoded": "4000000000000000"
+        }
+      ]
+    },
+    {
+      "name": "Message2",
+      "vectors": [
+        {
+          "payload": "5111360cf50bc8f5",
+          "values": {
+            "Signal2": 81
+          },
+          "encoded": "5100000000000000"
+        },
+        {
+          "payload": "a2ab93815be41fc2",
+          "values": {
+            "Signal2": -94
+          },
+          "encoded": "a200000000000000"
+        },
+        {
+          "payload": "981b447ae40ae2d0",
+          "values": {
+            "Signal2": -104
+          },
+          "encoded": "9800000000000000"
+        },
+        {
+          "payload": "1c7de69dec67eeee",
+          "values": {
+            "Signal2": 28
+          },
+          "encoded": "1c00000000000000"
+        },
+        {
+          "payload": "3f477d0c8f0e00a7",
+          "values": {
+            "Signal2": 63
+          },
+          "encoded": "3f00000000000000"
+        },
+        {
+          "payload": "1cda25666e0c01c4",
+          "values": {
+            "Signal2": 28
+          },
+          "encoded": "1c00000000000000"
+        },
+        {
+          "payload": "28b185a7626bd66d",
+          "values": {
+            "Signal2": 40
+          },
+          "encoded": "2800000000000000"
+        },
+        {
+          "payload": "e2bbe79bc8170321",
+          "values": {
+            "Signal2": -30
+          },
+          "encoded": "e200000000000000"
+        },
+        {
+          "payload": "c3e3f2c9b3cf4397",
+          "values": {
+            "Signal2": -61
+          },
+          "encoded": "c300000000000000"
+        },
+        {
+          "payload": "28ea4dc88898878f",
+          "values": {
+            "Signal2": 40
+          },
+          "encoded": "2800000000000000"
+        },
+        {
+          "payload": "bff18faff5bbe09d",
+          "values": {
+            "Signal2": -65
+          },
+          "encoded": "bf00000000000000"
+        },
+        {
+          "payload": "ba8e14de310bf35b",
+          "values": {
+            "Signal2": -70
+          },
+          "encoded": "ba00000000000000"
+        },
+        {
+          "payload": "8763aefa07a263c4",
+          "values": {
+            "Signal2": -121
+          },
+          "encoded": "8700000000000000"
+        },
+        {
+          "payload": "0528322c6c70d4ef",
+          "values": {
+            "Signal2": 5
+          },
+          "encoded": "0500000000000000"
+        },
+        {
+          "payload": "dfc39c1a92d0f0bf",
+          "values": {
+            "Signal2": -33
+          },
+          "encoded": "df00000000000000"
+        },
+        {
+          "payload": "1024b81ddeee9d1e",
+          "values": {
+            "Signal2": 16
+          },
+          "encoded": "1000000000000000"
+        },
+        {
+          "payload": "cb2b0be9db851311",
+          "values": {
+            "Signal2": -53
+          },
+          "encoded": "cb00000000000000"
+        },
+        {
+          "payload": "3b5d2ae5e3d19b8b",
+          "values": {
+            "Signal2": 59
+          },
+          "encoded": "3b00000000000000"
+        },
+        {
+          "payload": "535b1637a190dd32",
+          "values": {
+            "Signal2": 83
+          },
+          "encoded": "5300000000000000"
+        },
+        {
+          "payload": "ce0f100da34b4efe",
+          "values": {
+            "Signal2": -50
+          },
+          "encoded": "ce00000000000000"
+        },
+        {
+          "payload": "0abc4e27b6333c25",
+          "values": {
+            "Signal2": 10
+          },
+          "encoded": "0a00000000000000"
+        },
+        {
+          "payload": "0407a8a02e3fdf33",
+          "values": {
+            "Signal2": 4
+          },
+          "encoded": "0400000000000000"
+        },
+        {
+          "payload": "9d56eb29f9af9ceb",
+          "values": {
+            "Signal2": -99
+          },
+          "encoded": "9d00000000000000"
+        },
+        {
+          "payload": "da6c9176f91f9783",
+          "values": {
+            "Signal2": -38
+          },
+          "encoded": "da00000000000000"
+        },
+        {
+          "payload": "e855eb0971160975",
+          "values": {
+            "Signal2": -24
+          },
+          "encoded": "e800000000000000"
+        },
+        {
+          "payload": "2bccb3a212b373a4",
+          "values": {
+            "Signal2": 43
+          },
+          "encoded": "2b00000000000000"
+        },
+        {
+          "payload": "7276504dee318f79",
+          "values": {
+            "Signal2": 114
+          },
+          "encoded": "7200000000000000"
+        },
+        {
+          "payload": "d1d4f558a4a95d19",
+          "values": {
+            "Signal2": -47
+          },
+          "encoded": "d100000000000000"
+        },
+        {
+          "payload": "8d4e40ea9bf5ea50",
+          "values": {
+            "Signal2": -115
+          },
+          "encoded": "8d00000000000000"
+        },
+        {
+          "payload": "e2708f9d3df4174e",
+          "values": {
+            "Signal2": -30
+          },
+          "encoded": "e200000000000000"
+        },
+        {
+          "payload": "92c6608128735160",
+          "values": {
+            "Signal2": -110
+          },
+          "encoded": "9200000000000000"
+        },
+        {
+          "payload": "db42f108d28e4abe",
+          "values": {
+            "Signal2": -37
+          },
+          "encoded": "db00000000000000"
+        }
+      ]
+    }
+  ],
+  "skipped": {}
+}

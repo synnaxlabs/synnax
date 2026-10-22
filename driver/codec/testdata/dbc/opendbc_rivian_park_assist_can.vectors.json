@@ -1,0 +1,783 @@
+{
+  "messages": [
+    {
+      "name": "WheelButtons",
+      "vectors": [
+        {
+          "payload": "7b9beb02f859a7",
+          "values": {
+            "LeftButton_RightClick": 2,
+            "LeftButton_ScrollClick": 2,
+            "LeftButton_LeftClick": 3,
+            "LeftButton_Scroll": 2,
+            "RightButton_RightClick": 3,
+            "RightButton_ScrollClick": 2,
+            "RightButton_LeftClick": 3,
+            "RightButton_Scroll": 89
+          },
+          "encoded": "0000e802f85900"
+        },
+        {
+          "payload": "00b7cb6b62e05c",
+          "values": {
+            "LeftButton_RightClick": 0,
+            "LeftButton_ScrollClick": 2,
+            "LeftButton_LeftClick": 3,
+            "LeftButton_Scroll": 107,
+            "RightButton_RightClick": 2,
+            "RightButton_ScrollClick": 0,
+            "RightButton_LeftClick": 1,
+            "RightButton_Scroll": 224
+          },
+          "encoded": "0000c86b60e000"
+        },
+        {
+          "payload": "b6fef9073e0f2d",
+          "values": {
+            "LeftButton_RightClick": 3,
+            "LeftButton_ScrollClick": 2,
+            "LeftButton_LeftClick": 3,
+            "LeftButton_Scroll": 7,
+            "RightButton_RightClick": 3,
+            "RightButton_ScrollClick": 3,
+            "RightButton_LeftClick": 0,
+            "RightButton_Scroll": 15
+          },
+          "encoded": "0000f8073c0f00"
+        },
+        {
+          "payload": "243bb52db92a7d",
+          "values": {
+            "LeftButton_RightClick": 3,
+            "LeftButton_ScrollClick": 1,
+            "LeftButton_LeftClick": 2,
+            "LeftButton_Scroll": 45,
+            "RightButton_RightClick": 3,
+            "RightButton_ScrollClick": 2,
+            "RightButton_LeftClick": 2,
+            "RightButton_Scroll": 42
+          },
+          "encoded": "0000b42db82a00"
+        },
+        {
+          "payload": "4ed8addc322080",
+          "values": {
+            "LeftButton_RightClick": 2,
+            "LeftButton_ScrollClick": 3,
+            "LeftButton_LeftClick": 2,
+            "LeftButton_Scroll": 220,
+            "RightButton_RightClick": 3,
+            "RightButton_ScrollClick": 0,
+            "RightButton_LeftClick": 0,
+            "RightButton_Scroll": 32
+          },
+          "encoded": "0000acdc302000"
+        },
+        {
+          "payload": "94060a14278795",
+          "values": {
+            "LeftButton_RightClick": 0,
+            "LeftButton_ScrollClick": 2,
+            "LeftButton_LeftClick": 0,
+            "LeftButton_Scroll": 20,
+            "RightButton_RightClick": 2,
+            "RightButton_ScrollClick": 1,
+            "RightButton_LeftClick": 0,
+            "RightButton_Scroll": 135
+          },
+          "encoded": "00000814248700"
+        },
+        {
+          "payload": "cbb7cb0c58f3f5",
+          "values": {
+            "LeftButton_RightClick": 0,
+            "LeftButton_ScrollClick": 2,
+            "LeftButton_LeftClick": 3,
+            "LeftButton_Scroll": 12,
+            "RightButton_RightClick": 1,
+            "RightButton_ScrollClick": 2,
+            "RightButton_LeftClick": 1,
+            "RightButton_Scroll": 243
+          },
+          "encoded": "0000c80c58f300"
+        },
+        {
+          "payload": "f3610c78942255",
+          "values": {
+            "LeftButton_RightClick": 0,
+            "LeftButton_ScrollClick": 3,
+            "LeftButton_LeftClick": 0,
+            "LeftButton_Scroll": 120,
+            "RightButton_RightClick": 1,
+            "RightButton_ScrollClick": 1,
+            "RightButton_LeftClick": 2,
+            "RightButton_Scroll": 34
+          },
+          "encoded": "00000c78942200"
+        },
+        {
+          "payload": "300de8f9c8fd5e",
+          "values": {
+            "LeftButton_RightClick": 2,
+            "LeftButton_ScrollClick": 2,
+            "LeftButton_LeftClick": 3,
+            "LeftButton_Scroll": 249,
+            "RightButton_RightClick": 0,
+            "RightButton_ScrollClick": 2,
+            "RightButton_LeftClick": 3,
+            "RightButton_Scroll": 253
+          },
+          "encoded": "0000e8f9c8fd00"
+        },
+        {
+          "payload": "31e31b6520769f",
+          "values": {
+            "LeftButton_RightClick": 1,
+            "LeftButton_ScrollClick": 2,
+            "LeftButton_LeftClick": 0,
+            "LeftButton_Scroll": 101,
+            "RightButton_RightClick": 2,
+            "RightButton_ScrollClick": 0,
+            "RightButton_LeftClick": 0,
+            "RightButton_Scroll": 118
+          },
+          "encoded": "00001865207600"
+        },
+        {
+          "payload": "fad3b6ff81ace3",
+          "values": {
+            "LeftButton_RightClick": 3,
+            "LeftButton_ScrollClick": 1,
+            "LeftButton_LeftClick": 2,
+            "LeftButton_Scroll": 255,
+            "RightButton_RightClick": 0,
+            "RightButton_ScrollClick": 0,
+            "RightButton_LeftClick": 2,
+            "RightButton_Scroll": 172
+          },
+          "encoded": "0000b4ff80ac00"
+        },
+        {
+          "payload": "6f36ed3f8dddc1",
+          "values": {
+            "LeftButton_RightClick": 2,
+            "LeftButton_ScrollClick": 3,
+            "LeftButton_LeftClick": 3,
+            "LeftButton_Scroll": 63,
+            "RightButton_RightClick": 0,
+            "RightButton_ScrollClick": 3,
+            "RightButton_LeftClick": 2,
+            "RightButton_Scroll": 221
+          },
+          "encoded": "0000ec3f8cdd00"
+        },
+        {
+          "payload": "e641136971710b",
+          "values": {
+            "LeftButton_RightClick": 1,
+            "LeftButton_ScrollClick": 0,
+            "LeftButton_LeftClick": 0,
+            "LeftButton_Scroll": 105,
+            "RightButton_RightClick": 3,
+            "RightButton_ScrollClick": 0,
+            "RightButton_LeftClick": 1,
+            "RightButton_Scroll": 113
+          },
+          "encoded": "00001069707100"
+        },
+        {
+          "payload": "40ebe748842901",
+          "values": {
+            "LeftButton_RightClick": 2,
+            "LeftButton_ScrollClick": 1,
+            "LeftButton_LeftClick": 3,
+            "LeftButton_Scroll": 72,
+            "RightButton_RightClick": 0,
+            "RightButton_ScrollClick": 1,
+            "RightButton_LeftClick": 2,
+            "RightButton_Scroll": 41
+          },
+          "encoded": "0000e448842900"
+        },
+        {
+          "payload": "799ea7840c5188",
+          "values": {
+            "LeftButton_RightClick": 2,
+            "LeftButton_ScrollClick": 1,
+            "LeftButton_LeftClick": 2,
+            "LeftButton_Scroll": 132,
+            "RightButton_RightClick": 0,
+            "RightButton_ScrollClick": 3,
+            "RightButton_LeftClick": 0,
+            "RightButton_Scroll": 81
+          },
+          "encoded": "0000a4840c5100"
+        },
+        {
+          "payload": "a642fb3e268164",
+          "values": {
+            "LeftButton_RightClick": 3,
+            "LeftButton_ScrollClick": 2,
+            "LeftButton_LeftClick": 3,
+            "LeftButton_Scroll": 62,
+            "RightButton_RightClick": 2,
+            "RightButton_ScrollClick": 1,
+            "RightButton_LeftClick": 0,
+            "RightButton_Scroll": 129
+          },
+          "encoded": "0000f83e248100"
+        },
+        {
+          "payload": "92ea7556870b36",
+          "values": {
+            "LeftButton_RightClick": 3,
+            "LeftButton_ScrollClick": 1,
+            "LeftButton_LeftClick": 1,
+            "LeftButton_Scroll": 86,
+            "RightButton_RightClick": 0,
+            "RightButton_ScrollClick": 1,
+            "RightButton_LeftClick": 2,
+            "RightButton_Scroll": 11
+          },
+          "encoded": "00007456840b00"
+        },
+        {
+          "payload": "e5a5b9871e6c9a",
+          "values": {
+            "LeftButton_RightClick": 3,
+            "LeftButton_ScrollClick": 2,
+            "LeftButton_LeftClick": 2,
+            "LeftButton_Scroll": 135,
+            "RightButton_RightClick": 1,
+            "RightButton_ScrollClick": 3,
+            "RightButton_LeftClick": 0,
+            "RightButton_Scroll": 108
+          },
+          "encoded": "0000b8871c6c00"
+        },
+        {
+          "payload": "e0b679bda4faf3",
+          "values": {
+            "LeftButton_RightClick": 3,
+            "LeftButton_ScrollClick": 2,
+            "LeftButton_LeftClick": 1,
+            "LeftButton_Scroll": 189,
+            "RightButton_RightClick": 2,
+            "RightButton_ScrollClick": 1,
+            "RightButton_LeftClick": 2,
+            "RightButton_Scroll": 250
+          },
+          "encoded": "000078bda4fa00"
+        },
+        {
+          "payload": "ca686cd480c4ef",
+          "values": {
+            "LeftButton_RightClick": 2,
+            "LeftButton_ScrollClick": 3,
+            "LeftButton_LeftClick": 1,
+            "LeftButton_Scroll": 212,
+            "RightButton_RightClick": 0,
+            "RightButton_ScrollClick": 0,
+            "RightButton_LeftClick": 2,
+            "RightButton_Scroll": 196
+          },
+          "encoded": "00006cd480c400"
+        },
+        {
+          "payload": "f11e72f320ac88",
+          "values": {
+            "LeftButton_RightClick": 3,
+            "LeftButton_ScrollClick": 0,
+            "LeftButton_LeftClick": 1,
+            "LeftButton_Scroll": 243,
+            "RightButton_RightClick": 2,
+            "RightButton_ScrollClick": 0,
+            "RightButton_LeftClick": 0,
+            "RightButton_Scroll": 172
+          },
+          "encoded": "000070f320ac00"
+        },
+        {
+          "payload": "43eba5fc58e300",
+          "values": {
+            "LeftButton_RightClick": 2,
+            "LeftButton_ScrollClick": 1,
+            "LeftButton_LeftClick": 2,
+            "LeftButton_Scroll": 252,
+            "RightButton_RightClick": 1,
+            "RightButton_ScrollClick": 2,
+            "RightButton_LeftClick": 1,
+            "RightButton_Scroll": 227
+          },
+          "encoded": "0000a4fc58e300"
+        },
+        {
+          "payload": "6a007b4f8b2ca3",
+          "values": {
+            "LeftButton_RightClick": 3,
+            "LeftButton_ScrollClick": 2,
+            "LeftButton_LeftClick": 1,
+            "LeftButton_Scroll": 79,
+            "RightButton_RightClick": 0,
+            "RightButton_ScrollClick": 2,
+            "RightButton_LeftClick": 2,
+            "RightButton_Scroll": 44
+          },
+          "encoded": "0000784f882c00"
+        },
+        {
+          "payload": "8d2d177733a9e4",
+          "values": {
+            "LeftButton_RightClick": 1,
+            "LeftButton_ScrollClick": 1,
+            "LeftButton_LeftClick": 0,
+            "LeftButton_Scroll": 119,
+            "RightButton_RightClick": 3,
+            "RightButton_ScrollClick": 0,
+            "RightButton_LeftClick": 0,
+            "RightButton_Scroll": 169
+          },
+          "encoded": "0000147730a900"
+        },
+        {
+          "payload": "2126f597cd8379",
+          "values": {
+            "LeftButton_RightClick": 3,
+            "LeftButton_ScrollClick": 1,
+            "LeftButton_LeftClick": 3,
+            "LeftButton_Scroll": 151,
+            "RightButton_RightClick": 0,
+            "RightButton_ScrollClick": 3,
+            "RightButton_LeftClick": 3,
+            "RightButton_Scroll": 131
+          },
+          "encoded": "0000f497cc8300"
+        },
+        {
+          "payload": "acc89fa2305577",
+          "values": {
+            "LeftButton_RightClick": 1,
+            "LeftButton_ScrollClick": 3,
+            "LeftButton_LeftClick": 2,
+            "LeftButton_Scroll": 162,
+            "RightButton_RightClick": 3,
+            "RightButton_ScrollClick": 0,
+            "RightButton_LeftClick": 0,
+            "RightButton_Scroll": 85
+          },
+          "encoded": "00009ca2305500"
+        },
+        {
+          "payload": "1ea13cd67f2333",
+          "values": {
+            "LeftButton_RightClick": 3,
+            "LeftButton_ScrollClick": 3,
+            "LeftButton_LeftClick": 0,
+            "LeftButton_Scroll": 214,
+            "RightButton_RightClick": 3,
+            "RightButton_ScrollClick": 3,
+            "RightButton_LeftClick": 1,
+            "RightButton_Scroll": 35
+          },
+          "encoded": "00003cd67c2300"
+        },
+        {
+          "payload": "c5aa987c144dc0",
+          "values": {
+            "LeftButton_RightClick": 1,
+            "LeftButton_ScrollClick": 2,
+            "LeftButton_LeftClick": 2,
+            "LeftButton_Scroll": 124,
+            "RightButton_RightClick": 1,
+            "RightButton_ScrollClick": 1,
+            "RightButton_LeftClick": 0,
+            "RightButton_Scroll": 77
+          },
+          "encoded": "0000987c144d00"
+        },
+        {
+          "payload": "aa6705a1bf6621",
+          "values": {
+            "LeftButton_RightClick": 0,
+            "LeftButton_ScrollClick": 1,
+            "LeftButton_LeftClick": 0,
+            "LeftButton_Scroll": 161,
+            "RightButton_RightClick": 3,
+            "RightButton_ScrollClick": 3,
+            "RightButton_LeftClick": 2,
+            "RightButton_Scroll": 102
+          },
+          "encoded": "000004a1bc6600"
+        },
+        {
+          "payload": "a2ee414b3e5cd6",
+          "values": {
+            "LeftButton_RightClick": 0,
+            "LeftButton_ScrollClick": 0,
+            "LeftButton_LeftClick": 1,
+            "LeftButton_Scroll": 75,
+            "RightButton_RightClick": 3,
+            "RightButton_ScrollClick": 3,
+            "RightButton_LeftClick": 0,
+            "RightButton_Scroll": 92
+          },
+          "encoded": "0000404b3c5c00"
+        },
+        {
+          "payload": "6d22aa1fecfcf5",
+          "values": {
+            "LeftButton_RightClick": 2,
+            "LeftButton_ScrollClick": 2,
+            "LeftButton_LeftClick": 2,
+            "LeftButton_Scroll": 31,
+            "RightButton_RightClick": 2,
+            "RightButton_ScrollClick": 3,
+            "RightButton_LeftClick": 3,
+            "RightButton_Scroll": 252
+          },
+          "encoded": "0000a81fecfc00"
+        },
+        {
+          "payload": "a6674d93216adc",
+          "values": {
+            "LeftButton_RightClick": 0,
+            "LeftButton_ScrollClick": 3,
+            "LeftButton_LeftClick": 1,
+            "LeftButton_Scroll": 147,
+            "RightButton_RightClick": 2,
+            "RightButton_ScrollClick": 0,
+            "RightButton_LeftClick": 0,
+            "RightButton_Scroll": 106
+          },
+          "encoded": "00004c93206a00"
+        }
+      ]
+    },
+    {
+      "name": "BSM_BlindSpotIndicator",
+      "vectors": [
+        {
+          "payload": "77ad86f3",
+          "values": {
+            "BSM_BlindSpotIndicator_Checksum": 119,
+            "BSM_BlindSpotIndicator_Counter": 13,
+            "BSM_BlindSpotIndicator_Left": 3,
+            "BSM_BlindSpotIndicator_Right": 3
+          },
+          "encoded": "770d00f0"
+        },
+        {
+          "payload": "80fe7530",
+          "values": {
+            "BSM_BlindSpotIndicator_Checksum": 128,
+            "BSM_BlindSpotIndicator_Counter": 14,
+            "BSM_BlindSpotIndicator_Left": 3,
+            "BSM_BlindSpotIndicator_Right": 0
+          },
+          "encoded": "800e0030"
+        },
+        {
+          "payload": "d869175a",
+          "values": {
+            "BSM_BlindSpotIndicator_Checksum": 216,
+            "BSM_BlindSpotIndicator_Counter": 9,
+            "BSM_BlindSpotIndicator_Left": 1,
+            "BSM_BlindSpotIndicator_Right": 1
+          },
+          "encoded": "d8090050"
+        },
+        {
+          "payload": "1ddaa87c",
+          "values": {
+            "BSM_BlindSpotIndicator_Checksum": 29,
+            "BSM_BlindSpotIndicator_Counter": 10,
+            "BSM_BlindSpotIndicator_Left": 3,
+            "BSM_BlindSpotIndicator_Right": 1
+          },
+          "encoded": "1d0a0070"
+        },
+        {
+          "payload": "72113862",
+          "values": {
+            "BSM_BlindSpotIndicator_Checksum": 114,
+            "BSM_BlindSpotIndicator_Counter": 1,
+            "BSM_BlindSpotIndicator_Left": 2,
+            "BSM_BlindSpotIndicator_Right": 1
+          },
+          "encoded": "72010060"
+        },
+        {
+          "payload": "03a99174",
+          "values": {
+            "BSM_BlindSpotIndicator_Checksum": 3,
+            "BSM_BlindSpotIndicator_Counter": 9,
+            "BSM_BlindSpotIndicator_Left": 3,
+            "BSM_BlindSpotIndicator_Right": 1
+          },
+          "encoded": "03090070"
+        },
+        {
+          "payload": "4097889a",
+          "values": {
+            "BSM_BlindSpotIndicator_Checksum": 64,
+            "BSM_BlindSpotIndicator_Counter": 7,
+            "BSM_BlindSpotIndicator_Left": 1,
+            "BSM_BlindSpotIndicator_Right": 2
+          },
+          "encoded": "40070090"
+        },
+        {
+          "payload": "efcf9fcd",
+          "values": {
+            "BSM_BlindSpotIndicator_Checksum": 239,
+            "BSM_BlindSpotIndicator_Counter": 15,
+            "BSM_BlindSpotIndicator_Left": 0,
+            "BSM_BlindSpotIndicator_Right": 3
+          },
+          "encoded": "ef0f00c0"
+        },
+        {
+          "payload": "5111360c",
+          "values": {
+            "BSM_BlindSpotIndicator_Checksum": 81,
+            "BSM_BlindSpotIndicator_Counter": 1,
+            "BSM_BlindSpotIndicator_Left": 0,
+            "BSM_BlindSpotIndicator_Right": 0
+          },
+          "encoded": "51010000"
+        },
+        {
+          "payload": "f50bc8f5",
+          "values": {
+            "BSM_BlindSpotIndicator_Checksum": 245,
+            "BSM_BlindSpotIndicator_Counter": 11,
+            "BSM_BlindSpotIndicator_Left": 3,
+            "BSM_BlindSpotIndicator_Right": 3
+          },
+          "encoded": "f50b00f0"
+        },
+        {
+          "payload": "a2ab9381",
+          "values": {
+            "BSM_BlindSpotIndicator_Checksum": 162,
+            "BSM_BlindSpotIndicator_Counter": 11,
+            "BSM_BlindSpotIndicator_Left": 0,
+            "BSM_BlindSpotIndicator_Right": 2
+          },
+          "encoded": "a20b0080"
+        },
+        {
+          "payload": "5be41fc2",
+          "values": {
+            "BSM_BlindSpotIndicator_Checksum": 91,
+            "BSM_BlindSpotIndicator_Counter": 4,
+            "BSM_BlindSpotIndicator_Left": 0,
+            "BSM_BlindSpotIndicator_Right": 3
+          },
+          "encoded": "5b0400c0"
+        },
+        {
+          "payload": "981b447a",
+          "values": {
+            "BSM_BlindSpotIndicator_Checksum": 152,
+            "BSM_BlindSpotIndicator_Counter": 11,
+            "BSM_BlindSpotIndicator_Left": 3,
+            "BSM_BlindSpotIndicator_Right": 1
+          },
+          "encoded": "980b0070"
+        },
+        {
+          "payload": "e40ae2d0",
+          "values": {
+            "BSM_BlindSpotIndicator_Checksum": 228,
+            "BSM_BlindSpotIndicator_Counter": 10,
+            "BSM_BlindSpotIndicator_Left": 1,
+            "BSM_BlindSpotIndicator_Right": 3
+          },
+          "encoded": "e40a00d0"
+        },
+        {
+          "payload": "1c7de69d",
+          "values": {
+            "BSM_BlindSpotIndicator_Checksum": 28,
+            "BSM_BlindSpotIndicator_Counter": 13,
+            "BSM_BlindSpotIndicator_Left": 1,
+            "BSM_BlindSpotIndicator_Right": 2
+          },
+          "encoded": "1c0d0090"
+        },
+        {
+          "payload": "ec67eeee",
+          "values": {
+            "BSM_BlindSpotIndicator_Checksum": 236,
+            "BSM_BlindSpotIndicator_Counter": 7,
+            "BSM_BlindSpotIndicator_Left": 2,
+            "BSM_BlindSpotIndicator_Right": 3
+          },
+          "encoded": "ec0700e0"
+        },
+        {
+          "payload": "3f477d0c",
+          "values": {
+            "BSM_BlindSpotIndicator_Checksum": 63,
+            "BSM_BlindSpotIndicator_Counter": 7,
+            "BSM_BlindSpotIndicator_Left": 0,
+            "BSM_BlindSpotIndicator_Right": 0
+          },
+          "encoded": "3f070000"
+        },
+        {
+          "payload": "8f0e00a7",
+          "values": {
+            "BSM_BlindSpotIndicator_Checksum": 143,
+            "BSM_BlindSpotIndicator_Counter": 14,
+            "BSM_BlindSpotIndicator_Left": 2,
+            "BSM_BlindSpotIndicator_Right": 2
+          },
+          "encoded": "8f0e00a0"
+        },
+        {
+          "payload": "1cda2566",
+          "values": {
+            "BSM_BlindSpotIndicator_Checksum": 28,
+            "BSM_BlindSpotIndicator_Counter": 10,
+            "BSM_BlindSpotIndicator_Left": 2,
+            "BSM_BlindSpotIndicator_Right": 1
+          },
+          "encoded": "1c0a0060"
+        },
+        {
+          "payload": "6e0c01c4",
+          "values": {
+            "BSM_BlindSpotIndicator_Checksum": 110,
+            "BSM_BlindSpotIndicator_Counter": 12,
+            "BSM_BlindSpotIndicator_Left": 0,
+            "BSM_BlindSpotIndicator_Right": 3
+          },
+          "encoded": "6e0c00c0"
+        },
+        {
+          "payload": "28b185a7",
+          "values": {
+            "BSM_BlindSpotIndicator_Checksum": 40,
+            "BSM_BlindSpotIndicator_Counter": 1,
+            "BSM_BlindSpotIndicator_Left": 2,
+            "BSM_BlindSpotIndicator_Right": 2
+          },
+          "encoded": "280100a0"
+        },
+        {
+          "payload": "626bd66d",
+          "values": {
+            "BSM_BlindSpotIndicator_Checksum": 98,
+            "BSM_BlindSpotIndicator_Counter": 11,
+            "BSM_BlindSpotIndicator_Left": 2,
+            "BSM_BlindSpotIndicator_Right": 1
+          },
+          "encoded": "620b0060"
+        },
+        {
+          "payload": "e2bbe79b",
+          "values": {
+            "BSM_BlindSpotIndicator_Checksum": 226,
+            "BSM_BlindSpotIndicator_Counter": 11,
+            "BSM_BlindSpotIndicator_Left": 1,
+            "BSM_BlindSpotIndicator_Right": 2
+          },
+          "encoded": "e20b0090"
+        },
+        {
+          "payload": "c8170321",
+          "values": {
+            "BSM_BlindSpotIndicator_Checksum": 200,
+            "BSM_BlindSpotIndicator_Counter": 7,
+            "BSM_BlindSpotIndicator_Left": 2,
+            "BSM_BlindSpotIndicator_Right": 0
+          },
+          "encoded": "c8070020"
+        },
+        {
+          "payload": "c3e3f2c9",
+          "values": {
+            "BSM_BlindSpotIndicator_Checksum": 195,
+            "BSM_BlindSpotIndicator_Counter": 3,
+            "BSM_BlindSpotIndicator_Left": 0,
+            "BSM_BlindSpotIndicator_Right": 3
+          },
+          "encoded": "c30300c0"
+        },
+        {
+          "payload": "b3cf4397",
+          "values": {
+            "BSM_BlindSpotIndicator_Checksum": 179,
+            "BSM_BlindSpotIndicator_Counter": 15,
+            "BSM_BlindSpotIndicator_Left": 1,
+            "BSM_BlindSpotIndicator_Right": 2
+          },
+          "encoded": "b30f0090"
+        },
+        {
+          "payload": "28ea4dc8",
+          "values": {
+            "BSM_BlindSpotIndicator_Checksum": 40,
+            "BSM_BlindSpotIndicator_Counter": 10,
+            "BSM_BlindSpotIndicator_Left": 0,
+            "BSM_BlindSpotIndicator_Right": 3
+          },
+          "encoded": "280a00c0"
+        },
+        {
+          "payload": "8898878f",
+          "values": {
+            "BSM_BlindSpotIndicator_Checksum": 136,
+            "BSM_BlindSpotIndicator_Counter": 8,
+            "BSM_BlindSpotIndicator_Left": 0,
+            "BSM_BlindSpotIndicator_Right": 2
+          },
+          "encoded": "88080080"
+        },
+        {
+          "payload": "bff18faf",
+          "values": {
+            "BSM_BlindSpotIndicator_Checksum": 191,
+            "BSM_BlindSpotIndicator_Counter": 1,
+            "BSM_BlindSpotIndicator_Left": 2,
+            "BSM_BlindSpotIndicator_Right": 2
+          },
+          "encoded": "bf0100a0"
+        },
+        {
+          "payload": "f5bbe09d",
+          "values": {
+            "BSM_BlindSpotIndicator_Checksum": 245,
+            "BSM_BlindSpotIndicator_Counter": 11,
+            "BSM_BlindSpotIndicator_Left": 1,
+            "BSM_BlindSpotIndicator_Right": 2
+          },
+          "encoded": "f50b0090"
+        },
+        {
+          "payload": "ba8e14de",
+          "values": {
+            "BSM_BlindSpotIndicator_Checksum": 186,
+            "BSM_BlindSpotIndicator_Counter": 14,
+            "BSM_BlindSpotIndicator_Left": 1,
+            "BSM_BlindSpotIndicator_Right": 3
+          },
+          "encoded": "ba0e00d0"
+        },
+        {
+          "payload": "310bf35b",
+          "values": {
+            "BSM_BlindSpotIndicator_Checksum": 49,
+            "BSM_BlindSpotIndicator_Counter": 11,
+            "BSM_BlindSpotIndicator_Left": 1,
+            "BSM_BlindSpotIndicator_Right": 1
+          },
+          "encoded": "310b0050"
+        }
+      ]
+    }
+  ],
+  "skipped": {}
+}

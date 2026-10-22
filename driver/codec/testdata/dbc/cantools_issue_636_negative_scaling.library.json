@@ -1,0 +1,52 @@
+{
+  "key": "00000000-0000-4000-8000-000000000000",
+  "name": "cantools_issue_636_negative_scaling",
+  "entries": [
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000001",
+      "name": "ExampleMessage",
+      "payload": {
+        "format": "binary",
+        "length": 2,
+        "identifier": {
+          "type": "can",
+          "id": 496,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "Temperature",
+            "scale": -0.01,
+            "offset": 4100,
+            "units": "degK",
+            "enumeration": "00000000-0000-4000-8000-000000000003",
+            "multiplex_values": [],
+            "start_bit": 3,
+            "bit_length": 12,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000003",
+      "name": "TempValueTable",
+      "values": [
+        {
+          "value": 4095,
+          "name": "Error"
+        },
+        {
+          "value": 4094,
+          "name": "Init"
+        }
+      ]
+    }
+  ]
+}

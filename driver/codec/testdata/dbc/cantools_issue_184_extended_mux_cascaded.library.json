@@ -1,0 +1,92 @@
+{
+  "key": "00000000-0000-4000-8000-000000000000",
+  "name": "cantools_issue_184_extended_mux_cascaded",
+  "entries": [
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000001",
+      "name": "ext_MUX_cascaded",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 1,
+          "extended": true,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "muxed_B_1",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-000000000004",
+            "multiplex_values": [1],
+            "start_bit": 24,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "signed": true,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000003",
+            "name": "muxed_B_0",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-000000000004",
+            "multiplex_values": [0],
+            "start_bit": 16,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "signed": true,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000004",
+            "name": "muxed_A_2_MUX_B",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-000000000006",
+            "multiplex_values": [2],
+            "start_bit": 8,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "signed": true,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000005",
+            "name": "muxed_A_1",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-000000000006",
+            "multiplex_values": [1],
+            "start_bit": 8,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "signed": true,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000006",
+            "name": "MUX_A",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "signed": true,
+            "float": false
+          }
+        ]
+      }
+    }
+  ]
+}

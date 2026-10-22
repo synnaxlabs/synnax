@@ -1,0 +1,2078 @@
+{
+  "key": "00000000-0000-4000-8000-000000000000",
+  "name": "opendbc_tesla_powertrain",
+  "entries": [
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000001",
+      "name": "DI_torque1",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 262,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "DI_torqueDriver",
+            "scale": 0.25,
+            "offset": 0,
+            "units": "Nm",
+            "enumeration": "00000000-0000-4000-8000-000000000051",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 13,
+            "byte_order": "little_endian",
+            "signed": true,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000003",
+            "name": "DI_torque1Counter",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 13,
+            "bit_length": 3,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000004",
+            "name": "DI_torqueMotor",
+            "scale": 0.25,
+            "offset": 0,
+            "units": "Nm",
+            "enumeration": "00000000-0000-4000-8000-000000000052",
+            "multiplex_values": [],
+            "start_bit": 16,
+            "bit_length": 13,
+            "byte_order": "little_endian",
+            "signed": true,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000005",
+            "name": "DI_soptState",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-000000000053",
+            "multiplex_values": [],
+            "start_bit": 29,
+            "bit_length": 3,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000006",
+            "name": "DI_motorRPM",
+            "scale": 1,
+            "offset": 0,
+            "units": "RPM",
+            "enumeration": "00000000-0000-4000-8000-000000000054",
+            "multiplex_values": [],
+            "start_bit": 32,
+            "bit_length": 16,
+            "byte_order": "little_endian",
+            "signed": true,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000007",
+            "name": "DI_pedalPos",
+            "scale": 0.4,
+            "offset": 0,
+            "units": "%",
+            "enumeration": "00000000-0000-4000-8000-000000000055",
+            "multiplex_values": [],
+            "start_bit": 48,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000008",
+            "name": "DI_torque1Checksum",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 56,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000009",
+      "name": "DI_torque2",
+      "payload": {
+        "format": "binary",
+        "length": 6,
+        "identifier": {
+          "type": "can",
+          "id": 278,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-00000000000a",
+            "name": "DI_torqueEstimate",
+            "scale": 0.5,
+            "offset": 0,
+            "units": "Nm",
+            "enumeration": "00000000-0000-4000-8000-000000000056",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 12,
+            "byte_order": "little_endian",
+            "signed": true,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000000b",
+            "name": "DI_gear",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-000000000057",
+            "multiplex_values": [],
+            "start_bit": 12,
+            "bit_length": 3,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000000c",
+            "name": "DI_brakePedal",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-000000000058",
+            "multiplex_values": [],
+            "start_bit": 15,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000000d",
+            "name": "DI_vehicleSpeed",
+            "scale": 0.05,
+            "offset": -25,
+            "units": "MPH",
+            "enumeration": "00000000-0000-4000-8000-000000000059",
+            "multiplex_values": [],
+            "start_bit": 16,
+            "bit_length": 12,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000000e",
+            "name": "DI_gearRequest",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-00000000005a",
+            "multiplex_values": [],
+            "start_bit": 28,
+            "bit_length": 3,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000000f",
+            "name": "DI_torqueInterfaceFailure",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-00000000005b",
+            "multiplex_values": [],
+            "start_bit": 31,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000010",
+            "name": "DI_torque2Counter",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 32,
+            "bit_length": 4,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000011",
+            "name": "DI_brakePedalState",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-00000000005c",
+            "multiplex_values": [],
+            "start_bit": 36,
+            "bit_length": 2,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000012",
+            "name": "DI_epbParkRequest",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-00000000005d",
+            "multiplex_values": [],
+            "start_bit": 38,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000013",
+            "name": "DI_epbInterfaceReady",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-00000000005e",
+            "multiplex_values": [],
+            "start_bit": 39,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000014",
+            "name": "DI_torque2Checksum",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 40,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000015",
+      "name": "BrakeMessage",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 504,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000016",
+            "name": "driverBrakeStatus",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-00000000005f",
+            "multiplex_values": [],
+            "start_bit": 2,
+            "bit_length": 2,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000017",
+      "name": "STW_ACTN_RQ",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 568,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000018",
+            "name": "SpdCtrlLvr_Stat",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-000000000060",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 6,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000019",
+            "name": "VSL_Enbl_Rq",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 6,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000001a",
+            "name": "SpdCtrlLvrStat_Inv",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 7,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000001b",
+            "name": "DTR_Dist_Rq",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-000000000061",
+            "multiplex_values": [],
+            "start_bit": 8,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000001c",
+            "name": "TurnIndLvr_Stat",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-000000000062",
+            "multiplex_values": [],
+            "start_bit": 16,
+            "bit_length": 2,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000001d",
+            "name": "HiBmLvr_Stat",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-000000000063",
+            "multiplex_values": [],
+            "start_bit": 18,
+            "bit_length": 2,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000001e",
+            "name": "WprWashSw_Psd",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-000000000064",
+            "multiplex_values": [],
+            "start_bit": 20,
+            "bit_length": 2,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000001f",
+            "name": "WprWash_R_Sw_Posn_V2",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-000000000065",
+            "multiplex_values": [],
+            "start_bit": 22,
+            "bit_length": 2,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000020",
+            "name": "StW_Lvr_Stat",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-000000000066",
+            "multiplex_values": [],
+            "start_bit": 24,
+            "bit_length": 3,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000021",
+            "name": "StW_Cond_Flt",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 27,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000022",
+            "name": "StW_Cond_Psd",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-000000000067",
+            "multiplex_values": [],
+            "start_bit": 28,
+            "bit_length": 2,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000023",
+            "name": "HrnSw_Psd",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-000000000068",
+            "multiplex_values": [],
+            "start_bit": 30,
+            "bit_length": 2,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000024",
+            "name": "StW_Sw00_Psd",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-000000000069",
+            "multiplex_values": [],
+            "start_bit": 32,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000025",
+            "name": "StW_Sw01_Psd",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-00000000006a",
+            "multiplex_values": [],
+            "start_bit": 33,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000026",
+            "name": "StW_Sw02_Psd",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 34,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000027",
+            "name": "StW_Sw03_Psd",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-00000000006b",
+            "multiplex_values": [],
+            "start_bit": 35,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000028",
+            "name": "StW_Sw04_Psd",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-00000000006c",
+            "multiplex_values": [],
+            "start_bit": 36,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000029",
+            "name": "StW_Sw05_Psd",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 37,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000002a",
+            "name": "StW_Sw06_Psd",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 38,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000002b",
+            "name": "StW_Sw07_Psd",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 39,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000002c",
+            "name": "StW_Sw08_Psd",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 40,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000002d",
+            "name": "StW_Sw09_Psd",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 41,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000002e",
+            "name": "StW_Sw10_Psd",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 42,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000002f",
+            "name": "StW_Sw11_Psd",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 43,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000030",
+            "name": "StW_Sw12_Psd",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 44,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000031",
+            "name": "StW_Sw13_Psd",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 45,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000032",
+            "name": "StW_Sw14_Psd",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 46,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000033",
+            "name": "StW_Sw15_Psd",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 47,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000034",
+            "name": "WprSw6Posn",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-00000000006d",
+            "multiplex_values": [],
+            "start_bit": 48,
+            "bit_length": 3,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000035",
+            "name": "MC_STW_ACTN_RQ",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 52,
+            "bit_length": 4,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000036",
+            "name": "CRC_STW_ACTN_RQ",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 56,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000037",
+      "name": "DI_state",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 598,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000038",
+            "name": "DI_systemState",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-00000000006e",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 3,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000039",
+            "name": "DI_vehicleHoldState",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-00000000006f",
+            "multiplex_values": [],
+            "start_bit": 3,
+            "bit_length": 3,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000003a",
+            "name": "DI_proximity",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 6,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000003b",
+            "name": "DI_driveReady",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 7,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000003c",
+            "name": "DI_regenLight",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 8,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000003d",
+            "name": "DI_state",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-000000000070",
+            "multiplex_values": [],
+            "start_bit": 9,
+            "bit_length": 3,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000003e",
+            "name": "DI_cruiseState",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-000000000071",
+            "multiplex_values": [],
+            "start_bit": 12,
+            "bit_length": 4,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000003f",
+            "name": "DI_analogSpeed",
+            "scale": 0.1,
+            "offset": 0,
+            "units": "speed",
+            "enumeration": "00000000-0000-4000-8000-000000000072",
+            "multiplex_values": [],
+            "start_bit": 16,
+            "bit_length": 12,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000040",
+            "name": "DI_immobilizerState",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-000000000073",
+            "multiplex_values": [],
+            "start_bit": 28,
+            "bit_length": 3,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000041",
+            "name": "DI_speedUnits",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-000000000074",
+            "multiplex_values": [],
+            "start_bit": 31,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000042",
+            "name": "DI_cruiseSet",
+            "scale": 0.5,
+            "offset": 0,
+            "units": "speed",
+            "multiplex_values": [],
+            "start_bit": 32,
+            "bit_length": 9,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000043",
+            "name": "DI_aebState",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-000000000075",
+            "multiplex_values": [],
+            "start_bit": 41,
+            "bit_length": 3,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000044",
+            "name": "DI_stateCounter",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 44,
+            "bit_length": 4,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000045",
+            "name": "DI_digitalSpeed",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-000000000076",
+            "multiplex_values": [],
+            "start_bit": 48,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000046",
+            "name": "DI_stateChecksum",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 56,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000047",
+      "name": "DAS_control",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 703,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000048",
+            "name": "DAS_setSpeed",
+            "scale": 0.1,
+            "offset": 0,
+            "units": "kph",
+            "enumeration": "00000000-0000-4000-8000-000000000077",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 12,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000049",
+            "name": "DAS_accState",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-000000000078",
+            "multiplex_values": [],
+            "start_bit": 12,
+            "bit_length": 4,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000004a",
+            "name": "DAS_aebEvent",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-000000000079",
+            "multiplex_values": [],
+            "start_bit": 16,
+            "bit_length": 2,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000004b",
+            "name": "DAS_jerkMin",
+            "scale": 0.03,
+            "offset": -15.232,
+            "units": "m/s^3",
+            "enumeration": "00000000-0000-4000-8000-00000000007a",
+            "multiplex_values": [],
+            "start_bit": 18,
+            "bit_length": 9,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000004c",
+            "name": "DAS_jerkMax",
+            "scale": 0.059,
+            "offset": 0,
+            "units": "m/s^3",
+            "enumeration": "00000000-0000-4000-8000-00000000007b",
+            "multiplex_values": [],
+            "start_bit": 27,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000004d",
+            "name": "DAS_accelMin",
+            "scale": 0.04,
+            "offset": -15,
+            "units": "m/s^2",
+            "enumeration": "00000000-0000-4000-8000-00000000007c",
+            "multiplex_values": [],
+            "start_bit": 35,
+            "bit_length": 9,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000004e",
+            "name": "DAS_accelMax",
+            "scale": 0.04,
+            "offset": -15,
+            "units": "m/s^2",
+            "enumeration": "00000000-0000-4000-8000-00000000007d",
+            "multiplex_values": [],
+            "start_bit": 44,
+            "bit_length": 9,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000004f",
+            "name": "DAS_controlCounter",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 53,
+            "bit_length": 3,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000050",
+            "name": "DAS_controlChecksum",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 56,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000051",
+      "name": "DI_torque1.DI_torqueDriver",
+      "values": [
+        {
+          "value": -4096,
+          "name": "SNA"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000052",
+      "name": "DI_torque1.DI_torqueMotor",
+      "values": [
+        {
+          "value": -4096,
+          "name": "SNA"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000053",
+      "name": "DI_torque1.DI_soptState",
+      "values": [
+        {
+          "value": 7,
+          "name": "SOPT_TEST_SNA"
+        },
+        {
+          "value": 4,
+          "name": "SOPT_TEST_NOT_RUN"
+        },
+        {
+          "value": 3,
+          "name": "SOPT_TEST_PASSED"
+        },
+        {
+          "value": 2,
+          "name": "SOPT_TEST_FAILED"
+        },
+        {
+          "value": 1,
+          "name": "SOPT_TEST_IN_PROGRESS"
+        },
+        {
+          "value": 0,
+          "name": "SOPT_PRE_TEST"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000054",
+      "name": "DI_torque1.DI_motorRPM",
+      "values": [
+        {
+          "value": -32768,
+          "name": "SNA"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000055",
+      "name": "DI_torque1.DI_pedalPos",
+      "values": [
+        {
+          "value": 255,
+          "name": "SNA"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000056",
+      "name": "DI_torque2.DI_torqueEstimate",
+      "values": [
+        {
+          "value": -2048,
+          "name": "SNA"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000057",
+      "name": "DI_torque2.DI_gear",
+      "values": [
+        {
+          "value": 7,
+          "name": "DI_GEAR_SNA"
+        },
+        {
+          "value": 4,
+          "name": "DI_GEAR_D"
+        },
+        {
+          "value": 3,
+          "name": "DI_GEAR_N"
+        },
+        {
+          "value": 2,
+          "name": "DI_GEAR_R"
+        },
+        {
+          "value": 1,
+          "name": "DI_GEAR_P"
+        },
+        {
+          "value": 0,
+          "name": "DI_GEAR_INVALID"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000058",
+      "name": "DI_torque2.DI_brakePedal",
+      "values": [
+        {
+          "value": 1,
+          "name": "Applied"
+        },
+        {
+          "value": 0,
+          "name": "Not_applied"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000059",
+      "name": "DI_torque2.DI_vehicleSpeed",
+      "values": [
+        {
+          "value": 4095,
+          "name": "SNA"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-00000000005a",
+      "name": "DI_torque2.DI_gearRequest",
+      "values": [
+        {
+          "value": 7,
+          "name": "DI_GEAR_SNA"
+        },
+        {
+          "value": 4,
+          "name": "DI_GEAR_D"
+        },
+        {
+          "value": 3,
+          "name": "DI_GEAR_N"
+        },
+        {
+          "value": 2,
+          "name": "DI_GEAR_R"
+        },
+        {
+          "value": 1,
+          "name": "DI_GEAR_P"
+        },
+        {
+          "value": 0,
+          "name": "DI_GEAR_INVALID"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-00000000005b",
+      "name": "DI_torque2.DI_torqueInterfaceFailure",
+      "values": [
+        {
+          "value": 1,
+          "name": "TORQUE_INTERFACE_FAILED"
+        },
+        {
+          "value": 0,
+          "name": "TORQUE_INTERFACE_NORMAL"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-00000000005c",
+      "name": "DI_torque2.DI_brakePedalState",
+      "values": [
+        {
+          "value": 3,
+          "name": "SNA"
+        },
+        {
+          "value": 2,
+          "name": "INVALID"
+        },
+        {
+          "value": 1,
+          "name": "ON"
+        },
+        {
+          "value": 0,
+          "name": "OFF"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-00000000005d",
+      "name": "DI_torque2.DI_epbParkRequest",
+      "values": [
+        {
+          "value": 1,
+          "name": "Park_requested"
+        },
+        {
+          "value": 0,
+          "name": "No_request"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-00000000005e",
+      "name": "DI_torque2.DI_epbInterfaceReady",
+      "values": [
+        {
+          "value": 1,
+          "name": "EPB_INTERFACE_READY"
+        },
+        {
+          "value": 0,
+          "name": "EPB_INTERFACE_NOT_READY"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-00000000005f",
+      "name": "BrakeMessage.driverBrakeStatus",
+      "values": [
+        {
+          "value": 2,
+          "name": "APPLIED"
+        },
+        {
+          "value": 1,
+          "name": "NOT_APPLIED"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000060",
+      "name": "STW_ACTN_RQ.SpdCtrlLvr_Stat",
+      "values": [
+        {
+          "value": 32,
+          "name": "DN_1ST"
+        },
+        {
+          "value": 16,
+          "name": "UP_1ST"
+        },
+        {
+          "value": 8,
+          "name": "DN_2ND"
+        },
+        {
+          "value": 4,
+          "name": "UP_2ND"
+        },
+        {
+          "value": 2,
+          "name": "RWD"
+        },
+        {
+          "value": 1,
+          "name": "FWD"
+        },
+        {
+          "value": 0,
+          "name": "IDLE"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000061",
+      "name": "STW_ACTN_RQ.DTR_Dist_Rq",
+      "values": [
+        {
+          "value": 255,
+          "name": "SNA"
+        },
+        {
+          "value": 200,
+          "name": "ACC_DIST_7"
+        },
+        {
+          "value": 166,
+          "name": "ACC_DIST_6"
+        },
+        {
+          "value": 133,
+          "name": "ACC_DIST_5"
+        },
+        {
+          "value": 100,
+          "name": "ACC_DIST_4"
+        },
+        {
+          "value": 66,
+          "name": "ACC_DIST_3"
+        },
+        {
+          "value": 33,
+          "name": "ACC_DIST_2"
+        },
+        {
+          "value": 0,
+          "name": "ACC_DIST_1"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000062",
+      "name": "STW_ACTN_RQ.TurnIndLvr_Stat",
+      "values": [
+        {
+          "value": 3,
+          "name": "SNA"
+        },
+        {
+          "value": 2,
+          "name": "RIGHT"
+        },
+        {
+          "value": 1,
+          "name": "LEFT"
+        },
+        {
+          "value": 0,
+          "name": "IDLE"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000063",
+      "name": "STW_ACTN_RQ.HiBmLvr_Stat",
+      "values": [
+        {
+          "value": 3,
+          "name": "SNA"
+        },
+        {
+          "value": 2,
+          "name": "HIBM_FLSH_ON_PSD"
+        },
+        {
+          "value": 1,
+          "name": "HIBM_ON_PSD"
+        },
+        {
+          "value": 0,
+          "name": "IDLE"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000064",
+      "name": "STW_ACTN_RQ.WprWashSw_Psd",
+      "values": [
+        {
+          "value": 3,
+          "name": "SNA"
+        },
+        {
+          "value": 2,
+          "name": "WASH"
+        },
+        {
+          "value": 1,
+          "name": "TIPWIPE"
+        },
+        {
+          "value": 0,
+          "name": "NPSD"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000065",
+      "name": "STW_ACTN_RQ.WprWash_R_Sw_Posn_V2",
+      "values": [
+        {
+          "value": 3,
+          "name": "SNA"
+        },
+        {
+          "value": 2,
+          "name": "WASH"
+        },
+        {
+          "value": 1,
+          "name": "INTERVAL"
+        },
+        {
+          "value": 0,
+          "name": "OFF"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000066",
+      "name": "STW_ACTN_RQ.StW_Lvr_Stat",
+      "values": [
+        {
+          "value": 4,
+          "name": "STW_BACK"
+        },
+        {
+          "value": 3,
+          "name": "STW_FWD"
+        },
+        {
+          "value": 2,
+          "name": "STW_DOWN"
+        },
+        {
+          "value": 1,
+          "name": "STW_UP"
+        },
+        {
+          "value": 0,
+          "name": "NPSD"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000067",
+      "name": "STW_ACTN_RQ.StW_Cond_Psd",
+      "values": [
+        {
+          "value": 3,
+          "name": "SNA"
+        },
+        {
+          "value": 2,
+          "name": "DOWN"
+        },
+        {
+          "value": 1,
+          "name": "UP"
+        },
+        {
+          "value": 0,
+          "name": "NPSD"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000068",
+      "name": "STW_ACTN_RQ.HrnSw_Psd",
+      "values": [
+        {
+          "value": 3,
+          "name": "SNA"
+        },
+        {
+          "value": 2,
+          "name": "NDEF2"
+        },
+        {
+          "value": 1,
+          "name": "PSD"
+        },
+        {
+          "value": 0,
+          "name": "NPSD"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000069",
+      "name": "STW_ACTN_RQ.StW_Sw00_Psd",
+      "values": [
+        {
+          "value": 1,
+          "name": "PRESSED"
+        },
+        {
+          "value": 0,
+          "name": "NOT_PRESSED_SNA"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-00000000006a",
+      "name": "STW_ACTN_RQ.StW_Sw01_Psd",
+      "values": [
+        {
+          "value": 1,
+          "name": "PRESSED"
+        },
+        {
+          "value": 0,
+          "name": "NOT_PRESSED_SNA"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-00000000006b",
+      "name": "STW_ACTN_RQ.StW_Sw03_Psd",
+      "values": [
+        {
+          "value": 1,
+          "name": "PRESSED"
+        },
+        {
+          "value": 0,
+          "name": "NOT_PRESSED_SNA"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-00000000006c",
+      "name": "STW_ACTN_RQ.StW_Sw04_Psd",
+      "values": [
+        {
+          "value": 1,
+          "name": "PRESSED"
+        },
+        {
+          "value": 0,
+          "name": "NOT_PRESSED_SNA"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-00000000006d",
+      "name": "STW_ACTN_RQ.WprSw6Posn",
+      "values": [
+        {
+          "value": 7,
+          "name": "SNA"
+        },
+        {
+          "value": 6,
+          "name": "STAGE2"
+        },
+        {
+          "value": 5,
+          "name": "STAGE1"
+        },
+        {
+          "value": 4,
+          "name": "INTERVAL4"
+        },
+        {
+          "value": 3,
+          "name": "INTERVAL3"
+        },
+        {
+          "value": 2,
+          "name": "INTERVAL2"
+        },
+        {
+          "value": 1,
+          "name": "INTERVAL1"
+        },
+        {
+          "value": 0,
+          "name": "OFF"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-00000000006e",
+      "name": "DI_state.DI_systemState",
+      "values": [
+        {
+          "value": 3,
+          "name": "ABORT"
+        },
+        {
+          "value": 4,
+          "name": "ENABLE"
+        },
+        {
+          "value": 2,
+          "name": "FAULT"
+        },
+        {
+          "value": 1,
+          "name": "STANDBY"
+        },
+        {
+          "value": 0,
+          "name": "UNAVAILABLE"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-00000000006f",
+      "name": "DI_state.DI_vehicleHoldState",
+      "values": [
+        {
+          "value": 2,
+          "name": "BLEND_IN"
+        },
+        {
+          "value": 4,
+          "name": "BLEND_OUT"
+        },
+        {
+          "value": 6,
+          "name": "FAULT"
+        },
+        {
+          "value": 7,
+          "name": "INIT"
+        },
+        {
+          "value": 5,
+          "name": "PARK"
+        },
+        {
+          "value": 1,
+          "name": "STANDBY"
+        },
+        {
+          "value": 3,
+          "name": "STANDSTILL"
+        },
+        {
+          "value": 0,
+          "name": "UNAVAILABLE"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000070",
+      "name": "DI_state.DI_state",
+      "values": [
+        {
+          "value": 3,
+          "name": "ABORT"
+        },
+        {
+          "value": 4,
+          "name": "ENABLE"
+        },
+        {
+          "value": 2,
+          "name": "FAULT"
+        },
+        {
+          "value": 1,
+          "name": "STANDBY"
+        },
+        {
+          "value": 0,
+          "name": "UNAVAILABLE"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000071",
+      "name": "DI_state.DI_cruiseState",
+      "values": [
+        {
+          "value": 2,
+          "name": "ENABLED"
+        },
+        {
+          "value": 5,
+          "name": "FAULT"
+        },
+        {
+          "value": 0,
+          "name": "OFF"
+        },
+        {
+          "value": 4,
+          "name": "OVERRIDE"
+        },
+        {
+          "value": 7,
+          "name": "PRE_CANCEL"
+        },
+        {
+          "value": 6,
+          "name": "PRE_FAULT"
+        },
+        {
+          "value": 1,
+          "name": "STANDBY"
+        },
+        {
+          "value": 3,
+          "name": "STANDSTILL"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000072",
+      "name": "DI_state.DI_analogSpeed",
+      "values": [
+        {
+          "value": 4095,
+          "name": "SNA"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000073",
+      "name": "DI_state.DI_immobilizerState",
+      "values": [
+        {
+          "value": 2,
+          "name": "AUTHENTICATING"
+        },
+        {
+          "value": 3,
+          "name": "DISARMED"
+        },
+        {
+          "value": 6,
+          "name": "FAULT"
+        },
+        {
+          "value": 4,
+          "name": "IDLE"
+        },
+        {
+          "value": 0,
+          "name": "INIT_SNA"
+        },
+        {
+          "value": 1,
+          "name": "REQUEST"
+        },
+        {
+          "value": 5,
+          "name": "RESET"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000074",
+      "name": "DI_state.DI_speedUnits",
+      "values": [
+        {
+          "value": 1,
+          "name": "KPH"
+        },
+        {
+          "value": 0,
+          "name": "MPH"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000075",
+      "name": "DI_state.DI_aebState",
+      "values": [
+        {
+          "value": 2,
+          "name": "ENABLED"
+        },
+        {
+          "value": 4,
+          "name": "FAULT"
+        },
+        {
+          "value": 7,
+          "name": "SNA"
+        },
+        {
+          "value": 1,
+          "name": "STANDBY"
+        },
+        {
+          "value": 3,
+          "name": "STANDSTILL"
+        },
+        {
+          "value": 0,
+          "name": "UNAVAILABLE"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000076",
+      "name": "DI_state.DI_digitalSpeed",
+      "values": [
+        {
+          "value": 255,
+          "name": "SNA"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000077",
+      "name": "DAS_control.DAS_setSpeed",
+      "values": [
+        {
+          "value": 4095,
+          "name": "SNA"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000078",
+      "name": "DAS_control.DAS_accState",
+      "values": [
+        {
+          "value": 15,
+          "name": "FAULT_SNA"
+        },
+        {
+          "value": 13,
+          "name": "ACC_CANCEL_GENERIC_SILENT"
+        },
+        {
+          "value": 11,
+          "name": "APC_SELFPARK_START"
+        },
+        {
+          "value": 10,
+          "name": "APC_UNPARK_COMPLETE"
+        },
+        {
+          "value": 9,
+          "name": "APC_PAUSE"
+        },
+        {
+          "value": 8,
+          "name": "APC_ABORT"
+        },
+        {
+          "value": 7,
+          "name": "APC_COMPLETE"
+        },
+        {
+          "value": 6,
+          "name": "APC_FORWARD"
+        },
+        {
+          "value": 5,
+          "name": "APC_BACKWARD"
+        },
+        {
+          "value": 4,
+          "name": "ACC_ON"
+        },
+        {
+          "value": 3,
+          "name": "ACC_HOLD"
+        },
+        {
+          "value": 0,
+          "name": "ACC_CANCEL_GENERIC"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000079",
+      "name": "DAS_control.DAS_aebEvent",
+      "values": [
+        {
+          "value": 3,
+          "name": "AEB_SNA"
+        },
+        {
+          "value": 2,
+          "name": "AEB_FAULT"
+        },
+        {
+          "value": 1,
+          "name": "AEB_ACTIVE"
+        },
+        {
+          "value": 0,
+          "name": "AEB_NOT_ACTIVE"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-00000000007a",
+      "name": "DAS_control.DAS_jerkMin",
+      "values": [
+        {
+          "value": 511,
+          "name": "SNA"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-00000000007b",
+      "name": "DAS_control.DAS_jerkMax",
+      "values": [
+        {
+          "value": 255,
+          "name": "SNA"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-00000000007c",
+      "name": "DAS_control.DAS_accelMin",
+      "values": [
+        {
+          "value": 511,
+          "name": "SNA"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-00000000007d",
+      "name": "DAS_control.DAS_accelMax",
+      "values": [
+        {
+          "value": 511,
+          "name": "SNA"
+        }
+      ]
+    }
+  ]
+}
