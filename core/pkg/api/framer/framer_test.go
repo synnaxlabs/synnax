@@ -83,6 +83,16 @@ var _ = Describe("Framer", func() {
 			Expect(res.Indexes).To(BeEmpty())
 		})
 
+		It("Should carry the request's downsample factor", func(ctx SpecContext) {
+			res := MustSucceed(apiSvc.Read(rootCtx(ctx), apiframer.ReadRequest{
+				Keys:             channel.Keys{data.Key()},
+				Bounds:           telem.TimeRangeMax,
+				DownsampleFactor: 3,
+			}))
+			DeferCleanup(func() { Expect(res.Iterator.Close()).To(Succeed()) })
+			Expect(res.DownsampleFactor).To(BeEquivalentTo(3))
+		})
+
 		It("Should close its iterator when the response is closed", func(
 			ctx SpecContext,
 		) {

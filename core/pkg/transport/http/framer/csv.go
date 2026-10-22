@@ -16,6 +16,7 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/x/errors"
 	xhttp "github.com/synnaxlabs/x/http"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -26,9 +27,10 @@ const csvFlushSize = 64 << 10
 // CSVEncoder encodes a read as CSV. Channels are grouped by the index channel that
 // timestamps them. Each group contributes its index column, then one column per data
 // channel, headed by the channel's name. Rows are ordered by timestamp, and a group's
-// cells are empty at a timestamp it has no sample for. A channel is excluded when the
-// read does not include its index. A read that fails after the first byte truncates the
-// body.
+// cells are empty at a timestamp it has no sample for. A data channel's cell holds its
+// sample at the alignment of the row's index sample, and is empty when the channel has
+// no sample there. A channel is excluded when the read does not include its index. A
+// read that fails after the first byte truncates the body.
 var CSVEncoder csvEncoder
 
 type csvEncoder struct{}
@@ -87,8 +89,6 @@ type csvGroup struct {
 	columns []csvColumn
 	// watermark is the latest timestamp the iterator has returned for the index.
 	watermark telem.TimeStamp
-	// exhausted is true once the iterator returns a frame without the index.
-	exhausted bool
 	// writable holds the result of ready for the row being assembled.
 	writable bool
 }
@@ -104,12 +104,21 @@ type csvColumn struct {
 	pending []telem.Series
 	// offset is the byte position of the next sample within the first pending series.
 	offset int
+	// position is the index of the next sample within the first pending series.
+	position uint32
+	// stride is the alignment distance between consecutive samples of a series.
+	stride uint32
+	// exhausted is true once the iterator returns a frame without the channel.
+	exhausted bool
 }
 
 // newCSVGroups builds the columns of the response, grouped by index channel and
 // ordered by the first channel each group timestamps.
 func newCSVGroups(res ReadResponse) []csvGroup {
-	all := slices.Concat(res.Channels, res.Indexes)
+	var (
+		all    = slices.Concat(res.Channels, res.Indexes)
+		stride = max(res.DownsampleFactor, 1)
+	)
 	records := make(map[channel.Key]channel.Channel, len(all))
 	for _, ch := range all {
 		records[ch.Key()] = ch
@@ -125,18 +134,18 @@ func newCSVGroups(res ReadResponse) []csvGroup {
 		if !ok {
 			i, position[index.Key()] = len(groups), len(groups)
 			groups = append(groups, csvGroup{
-				columns: []csvColumn{newCSVColumn(index)},
+				columns: []csvColumn{newCSVColumn(index, stride)},
 			})
 		}
 		if !ch.IsIndex {
-			groups[i].columns = append(groups[i].columns, newCSVColumn(ch))
+			groups[i].columns = append(groups[i].columns, newCSVColumn(ch, stride))
 		}
 	}
 	return groups
 }
 
-func newCSVColumn(ch channel.Channel) csvColumn {
-	c := csvColumn{key: ch.Key(), name: ch.Name, dataType: ch.DataType}
+func newCSVColumn(ch channel.Channel, stride uint32) csvColumn {
+	c := csvColumn{key: ch.Key(), name: ch.Name, dataType: ch.DataType, stride: stride}
 	if !ch.DataType.IsVariable() {
 		c.size = int(ch.DataType.Density())
 	}
@@ -147,22 +156,23 @@ func newCSVColumn(ch channel.Channel) csvColumn {
 func (g *csvGroup) push(fr Frame) {
 	for i := range g.columns {
 		c := &g.columns[i]
-		c.pending = append(c.pending, fr.Get(c.key).Series...)
+		series := fr.Get(c.key).Series
+		c.pending = append(c.pending, series...)
+		c.exhausted = len(series) == 0
 	}
-	index := fr.Get(g.columns[0].key).Series
-	g.exhausted = len(index) == 0
-	for _, s := range index {
+	for _, s := range fr.Get(g.columns[0].key).Series {
 		if s.Len() > 0 {
 			g.watermark = s.ValueAt[telem.TimeStamp](-1)
 		}
 	}
 }
 
-// ready reports whether the group can write its next row. Every column must hold a
-// sample, unless flush is set, in which case the index alone is enough.
+// ready reports whether the group can write its next row. The index must hold a sample,
+// and unless flush is set, each data channel must hold a sample or have none left.
 func (g *csvGroup) ready(flush bool) bool {
 	for i := range g.columns {
-		if _, n := g.columns[i].sample(); n == 0 && (i == 0 || !flush) {
+		c := &g.columns[i]
+		if _, n := c.sample(); n == 0 && (i == 0 || (!flush && !c.exhausted)) {
 			return false
 		}
 	}
@@ -181,10 +191,42 @@ func (g *csvGroup) bound() telem.TimeStamp {
 	if _, n := g.columns[0].sample(); n > 0 {
 		return g.time()
 	}
-	if g.exhausted {
+	if g.columns[0].exhausted {
 		return telem.TimeStampMax
 	}
 	return g.watermark + 1
+}
+
+// appendRow appends the cells of the group's next row and moves its columns past the
+// samples it writes. A data channel's cell is empty unless its next sample shares the
+// alignment of the index's. Only valid when ready.
+func (g *csvGroup) appendRow(dst []byte) ([]byte, error) {
+	index := &g.columns[0]
+	alignment := index.alignment()
+	dst, err := appendCSVSample(dst, index)
+	if err != nil {
+		return nil, err
+	}
+	for i := 1; i < len(g.columns); i++ {
+		dst = append(dst, ',')
+		c := &g.columns[i]
+		if _, n := c.sample(); n == 0 {
+			continue
+		}
+		if a := c.alignment(); a > alignment {
+			continue
+		} else if a < alignment {
+			return nil, errors.Newf(
+				"[api.Read] channel %s has a sample at alignment %s with no index sample",
+				c.name,
+				a,
+			)
+		}
+		if dst, err = appendCSVSample(dst, c); err != nil {
+			return nil, err
+		}
+	}
+	return dst, nil
 }
 
 // sample discards the series the column has fully written, then returns the sample the
@@ -200,9 +242,15 @@ func (c *csvColumn) sample() (sample []byte, n int) {
 		if n > 0 {
 			return sample, n
 		}
-		c.pending, c.offset = c.pending[1:], 0
+		c.pending, c.offset, c.position = c.pending[1:], 0, 0
 	}
 	return nil, 0
+}
+
+// alignment returns the alignment of the sample the column points at. Only valid when
+// sample returns one.
+func (c *csvColumn) alignment() telem.Alignment {
+	return c.pending[0].Alignment.AddSamples(c.position * c.stride)
 }
 
 // writeCSVRows appends every row that no later frame can precede or add cells to,
@@ -232,18 +280,18 @@ func writeCSVRows(
 		}
 		for i := range groups {
 			g := &groups[i]
-			write := g.writable && g.time() == first
-			for j := range g.columns {
-				if i > 0 || j > 0 {
-					dst = append(dst, ',')
-				}
-				if !write {
-					continue
-				}
+			if i > 0 {
+				dst = append(dst, ',')
+			}
+			if g.writable && g.time() == first {
 				var err error
-				if dst, err = appendCSVSample(dst, &g.columns[j]); err != nil {
+				if dst, err = g.appendRow(dst); err != nil {
 					return nil, err
 				}
+				continue
+			}
+			for range len(g.columns) - 1 {
+				dst = append(dst, ',')
 			}
 		}
 		dst = append(dst, '\n')
@@ -265,6 +313,7 @@ func appendCSVSample(dst []byte, c *csvColumn) ([]byte, error) {
 		return dst, nil
 	}
 	c.offset += n
+	c.position++
 	start := len(dst)
 	dst, err := telem.AppendSampleText(dst, c.dataType, sample)
 	if err != nil {

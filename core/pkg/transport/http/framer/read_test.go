@@ -74,6 +74,23 @@ func write(
 	Expect(w.Close()).To(Succeed())
 }
 
+// writeData commits series to the data channel ch, starting at start. The index of ch
+// must already hold a timestamp for each sample.
+func writeData(
+	ctx SpecContext,
+	ch svcchannel.Channel,
+	start telem.TimeStamp,
+	series telem.Series,
+) {
+	GinkgoHelper()
+	w := MustSucceed(framerSvc.OpenWriter(ctx, svcframer.WriterConfig{
+		Start: start,
+		Keys:  svcchannel.Keys{ch.Key()},
+	}))
+	Expect(w.Write(frame.NewUnary(ch.Key(), series))).To(BeTrue())
+	Expect(w.Close()).To(Succeed())
+}
+
 // read opens a response over every sample in the given channels, indexed by index.
 func read(
 	ctx SpecContext,
