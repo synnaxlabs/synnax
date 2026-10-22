@@ -17,6 +17,7 @@ import { z } from "zod";
 
 import { Device } from "@/device";
 import { Errors } from "@/errors";
+import { Flux } from "@/flux";
 import { Status } from "@/status";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
@@ -219,6 +220,35 @@ describe("queries", () => {
   });
 
   describe("useList", () => {
+    it("should update an item read by key when it changes", async () => {
+      const rack = await client.racks.create({ name: "test" });
+      const item = await client.devices.create({
+        key: id.create(),
+        name: "original",
+        rack: rack.key,
+        location: "test",
+        make: "test",
+        model: "test",
+        properties: {},
+      });
+      const { result } = renderHook(
+        () => {
+          const list = Device.useList({ useCachedList: false });
+          return Flux.useListItem({
+            subscribe: list.subscribe,
+            getItem: list.getItem,
+            key: item.key,
+          });
+        },
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current?.name).toEqual("original"));
+      await act(async () => {
+        await client.devices.create({ ...item, name: "updated" });
+      });
+      await waitFor(() => expect(result.current?.name).toEqual("updated"));
+    });
+
     it("should return a list of device keys", async () => {
       const rack = await client.racks.create({
         name: "test",
@@ -1682,7 +1712,7 @@ describe("queries", () => {
             >
               <Display />
             </Errors.SuspenseBoundary>,
-            { wrapper },
+            { wrapper, onCaughtError: () => {} },
           );
         });
         await waitFor(() => expect(utils.queryByTestId("error")).not.toBeNull());

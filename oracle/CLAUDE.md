@@ -74,11 +74,15 @@ or generator logic and schemas disagree.
   minimality (a redeclaration structurally identical to its resolved predecessor must be
   an alias; enum member sets compare exactly).
 - Frozen `versions/vN` Go packages are regenerated, checked outputs of the version
-  files. Hand-written frozen definer files are marked `@go hand` in their version file;
-  hand-ness is version-local — an aliased member whose definer is an older version still
-  generates in the current package as a backward alias. `migrate.gen.go` is a pure
-  function of the two adjacent version files; hand-written transforms live in
-  `migrate.go` (renames and cross-resource moves have no generated counterpart).
+  files. In current and frozen packages alike, a stored reference resolves to the
+  dependency version that the declaring version file imports, so a freeze never moves a
+  generated import. A frozen type that the current version aliases also gets the live
+  `@validate` rules, since the current package's alias runs its `Validate`. Hand-written
+  frozen definer files are marked `@go hand` in their version file; hand-ness is
+  version-local — an aliased member whose definer is an older version still generates in
+  the current package as a backward alias. `migrate.gen.go` is a pure function of the
+  two adjacent version files; hand-written transforms live in `migrate.go` (renames and
+  cross-resource moves have no generated counterpart).
 - Omit-transient members — types reachable from a file's `@go marshal` declarations only
   through omitted fields, e.g. task's StatusDetails — track the live shape: they always
   declare fully, may match their predecessor (exempt from the minimality gate), and
@@ -118,6 +122,15 @@ applicable". A sentinel claims the question was answered when it was not, and it
 the "did you forget" check impossible to write.
 
 `?` and `= value` are mutually exclusive; the analyzer rejects a field carrying both.
+
+## Union discriminators
+
+A union's discriminator is a generated `<Union>Type` with one constant per variant. When
+a declared enum already names the same set, borrow it:
+`Proof union on method Method { ... }`. The discriminator then has the enum's type in
+every language, the variant constants are the enum's members, and no `<Union>Type` is
+emitted. The enum must be a string enum whose values are exactly the variant names; the
+analyzer rejects a variant without a member and a member without a variant.
 
 ## Default groups
 

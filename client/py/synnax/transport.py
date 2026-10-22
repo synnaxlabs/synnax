@@ -55,8 +55,7 @@ class Transport:
             "close_timeout": read_timeout.seconds,
         }
         self.stream = WebsocketClient(**ws_args)
-        # We need to update these here because the WebSocket client doesn't support the
-        # same arguments as the async WebSocket client.
+        # The sync client keeps the websockets keep-alive defaults.
         ws_args["ping_interval"] = keep_alive.seconds
         ws_args["ping_timeout"] = 180
         self.stream_async = AsyncWebsocketClient(**ws_args)

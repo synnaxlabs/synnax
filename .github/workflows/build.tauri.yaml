@@ -81,7 +81,7 @@ jobs:
         run: .github/scripts/import_apple_certificate.sh
 
       - name: Set up pnpm and Node.js
-        uses: pnpm/setup@v3
+        uses: ./.github/actions/setup-pnpm
         with:
           # Signed builds run on macos-latest and windows-latest, which start cold and
           # want the cache. An unsigned build takes macos-build-bot, which keeps a local

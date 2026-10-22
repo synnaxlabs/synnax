@@ -116,6 +116,21 @@ var _ = Describe("Migration", func() {
 	)
 })
 
+var _ = DescribeTable("AlreadyMigrated",
+	func(ctx SpecContext, stored []byte, migrated bool) {
+		db := gorp.Wrap(DeferClose(memkv.New()))
+		if stored != nil {
+			Expect(db.Set(ctx, []byte("sy_rbac_migration_performed"), stored)).
+				To(Succeed())
+		}
+		tx := DeferClose(db.OpenTx())
+		Expect(MustSucceed(v0.AlreadyMigrated(ctx, tx))).To(Equal(migrated))
+	},
+	Entry("no flag", nil, false),
+	Entry("the flag a v0.53 Core set", []byte{1}, true),
+	Entry("any other flag value", []byte{2}, false),
+)
+
 var _ = Describe("Legacy mappings", func() {
 	var db *gorp.DB
 	BeforeEach(func() { db = DeferClose(gorp.Wrap(memkv.New())) })

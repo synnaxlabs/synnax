@@ -12,15 +12,26 @@ import mdx from "@astrojs/mdx";
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
+import { integration } from "@synnaxlabs/site-common/integration";
+import { symbols, theme } from "@synnaxlabs/site-common/shiki";
 import { layers } from "@synnaxlabs/vite-plugin";
 import { defineConfig, envField } from "astro/config";
 
 import { outline } from "./src/util/outline";
-import { symbols, theme } from "./src/util/shiki";
+import { listReleaseNotes } from "./src/util/releaseNotes";
+
+// Each version's notes render only inside /releases, so their old routes point at the
+// version's anchor there.
+const RELEASE_REDIRECTS = Object.fromEntries(
+  listReleaseNotes().map(({ name, anchor }) => [
+    `/releases/${name}`,
+    `/releases/#${anchor}`,
+  ]),
+);
 
 // https://astro.build/config
 export default defineConfig({
-  integrations: [react(), mdx()],
+  integrations: [integration(), react(), mdx()],
   output: "server",
   env: {
     schema: {
@@ -129,6 +140,7 @@ export default defineConfig({
     "/reference/typescript-client/timestamps": "/reference/client/time-types",
     "/reference/typescript-client/examples": "/reference/client/examples",
     "/reference/typescript-client/troubleshooting": "/reference/client/troubleshooting",
+    ...RELEASE_REDIRECTS,
   },
   site: "https://docs.synnaxlabs.com",
 });

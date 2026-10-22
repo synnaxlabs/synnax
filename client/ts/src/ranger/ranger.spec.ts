@@ -881,14 +881,16 @@ describe("cached reads", () => {
           ),
         );
         local.labels.store.set(lbl.key, { ...lbl, name: `${lbl.name}-renamed` });
-        // Rides the same fetch batch as any recheck fetch, so those have been sent.
+        // Rides the same fetch batch as any recheck fetch, so those have been sent. The
+        // client also follows other specs' changes, so it may fetch unrelated ranges.
         await local.ranges.retrieve(barrier.key);
         const fetched = send.mock.calls.flatMap(([target, req]) =>
           target === "/range/retrieve"
             ? ((req as ranger.RetrieveRequest).keys ?? [])
             : [],
         );
-        expect(fetched).toEqual([barrier.key]);
+        expect(fetched).toContain(barrier.key);
+        expect(fetched).not.toContain(unseen);
       } finally {
         off();
       }
@@ -905,8 +907,9 @@ describe("cached reads", () => {
         name: `qry-lbl-${id.create()}`,
         color: "#FF0000",
       });
+      const unseen = uuid.create();
       const rel: ontology.Relationship = {
-        from: ranger.ontologyID(uuid.create()),
+        from: ranger.ontologyID(unseen),
         type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
         to: label.ontologyID(lbl.key),
       };
@@ -918,14 +921,16 @@ describe("cached reads", () => {
         await local.ranges.retrieve(params);
         const send = spyOnSend(local);
         relationships.delete(ontology.relationshipToString(rel));
-        // Rides the same fetch batch as any recheck fetch, so those have been sent.
+        // Rides the same fetch batch as any recheck fetch, so those have been sent. The
+        // client also follows other specs' changes, so it may fetch unrelated ranges.
         await local.ranges.retrieve(barrier.key);
         const fetched = send.mock.calls.flatMap(([target, req]) =>
           target === "/range/retrieve"
             ? ((req as ranger.RetrieveRequest).keys ?? [])
             : [],
         );
-        expect(fetched).toEqual([barrier.key]);
+        expect(fetched).toContain(barrier.key);
+        expect(fetched).not.toContain(unseen);
       } finally {
         off();
       }

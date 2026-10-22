@@ -9,7 +9,8 @@
 
 import { query } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { color, testutil, TimeSpan } from "@synnaxlabs/x";
+import { color, TimeSpan } from "@synnaxlabs/x";
+import { expectAlways } from "@synnaxlabs/x/testutil";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -133,6 +134,7 @@ describe("useForm", () => {
               <Display />
             </Errors.SuspenseBoundary>
           </Wrapper>,
+          { onCaughtError: () => {} },
         );
       });
       await act(async () => {
@@ -380,7 +382,7 @@ describe("useForm", () => {
         { wrapper: Wrapper },
       );
       act(() => result.current.save({ signal: controller.signal }));
-      await testutil.expectAlways(() => expect(afterSave).not.toHaveBeenCalled());
+      await expectAlways(() => expect(afterSave).not.toHaveBeenCalled());
     });
 
     it("should not call afterSave if the form is not valid", async () => {
@@ -678,10 +680,7 @@ describe("useForm", () => {
         result.current.form.set("name", "Jane");
       });
       await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
-      await testutil.expectAlways(
-        () => expect(update).toHaveBeenCalledTimes(1),
-        SETTLE,
-      );
+      await expectAlways(() => expect(update).toHaveBeenCalledTimes(1), SETTLE);
       expect(update).toHaveBeenCalledWith("Jane");
     });
   });
@@ -711,10 +710,7 @@ describe("useForm", () => {
       });
       await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
       expect(update).toHaveBeenCalledWith("Jane");
-      await testutil.expectAlways(
-        () => expect(update).toHaveBeenCalledTimes(1),
-        SETTLE,
-      );
+      await expectAlways(() => expect(update).toHaveBeenCalledTimes(1), SETTLE);
     });
 
     it("should flush a pending update when the form unmounts", async () => {
@@ -771,14 +767,14 @@ describe("useForm", () => {
       const { result, update, abandon } = renderAbandonableForm();
       act(() => result.current.form.set("name", "Jane Doe"));
       act(() => abandon());
-      await testutil.expectAlways(() => expect(update).not.toHaveBeenCalled(), SETTLE);
+      await expectAlways(() => expect(update).not.toHaveBeenCalled(), SETTLE);
     });
 
     it("should ignore later changes once the record is abandoned", async () => {
       const { result, update, abandon } = renderAbandonableForm();
       act(() => abandon());
       act(() => result.current.form.set("name", "Jane Doe"));
-      await testutil.expectAlways(() => expect(update).not.toHaveBeenCalled(), SETTLE);
+      await expectAlways(() => expect(update).not.toHaveBeenCalled(), SETTLE);
     });
 
     it("should autosave again once the form re-points at another record", async () => {
@@ -799,7 +795,7 @@ describe("useForm", () => {
       act(() => result.current.form.set("name", "Jane Doe"));
       act(() => abandon());
       unmount();
-      await testutil.expectAlways(() => expect(update).not.toHaveBeenCalled(), SETTLE);
+      await expectAlways(() => expect(update).not.toHaveBeenCalled(), SETTLE);
     });
 
     it("should abort a save already running when the record is abandoned", async () => {
@@ -827,7 +823,7 @@ describe("useForm", () => {
       await entered;
       act(() => abandon());
       await act(async () => release());
-      await testutil.expectAlways(() => expect(update).not.toHaveBeenCalled(), SETTLE);
+      await expectAlways(() => expect(update).not.toHaveBeenCalled(), SETTLE);
     });
   });
 

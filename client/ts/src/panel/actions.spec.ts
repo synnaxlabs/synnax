@@ -23,7 +23,6 @@ const viewTab = (key: string, type: string = "selector"): panel.Tab => ({
   variant: "view",
   key,
   type,
-  args: {},
 });
 
 const resource = (key: string): ontology.ID => ({ type: "lineplot", key });
@@ -568,7 +567,7 @@ describe("reduceAll", () => {
 
   describe("setTabView", () => {
     it("should swap a resource tab to the view in place", () => {
-      const view = { type: "docs", args: {} };
+      const view = { type: "docs" };
       const { next } = panel.reduceAll(
         state({ variant: "leaf", tabs: [resourceTab(a), viewTab(b)] }),
         [panel.setTabView({ key: a, view })],

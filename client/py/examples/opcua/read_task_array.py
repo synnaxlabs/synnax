@@ -91,12 +91,12 @@ tsk = sy.opcua.ReadTask(
         sy.opcua.ReadChannel(
             channel=my_array_0.key,
             node_id="NS=2;I=2",  # my_array_0
-            data_type="float32",
+            data_type=sy.DataType.FLOAT32,
         ),
         sy.opcua.ReadChannel(
             channel=my_array_1.key,
             node_id="NS=2;I=3",  # my_array_1
-            data_type="float32",
+            data_type=sy.DataType.FLOAT32,
         ),
     ],
 )
@@ -127,29 +127,24 @@ try:
 
             while True:
                 frame = streamer.read()
-                if frame:
-                    # Print the latest array values from each channel
-                    if "my_array_0" in frame and len(frame["my_array_0"]) > 0:
-                        elapsed = sy.TimeStamp.now().span(start_time).seconds
-                        sample_count += 1
+                # Print the latest array values from each channel
+                if frame and "my_array_0" in frame and len(frame["my_array_0"]) > 0:
+                    elapsed = sy.TimeStamp.now().span(start_time).seconds
+                    sample_count += 1
 
-                        # Format arrays for display by iterating directly over MultiSeries
-                        arr0_str = (
-                            "["
-                            + ",".join(f"{v:5.2f}" for v in frame["my_array_0"])
-                            + "]"
-                        )
-                        arr1_str = (
-                            "["
-                            + ",".join(f"{v:5.2f}" for v in frame["my_array_1"])
-                            + "]"
-                        )
+                    # Format arrays for display by iterating directly over MultiSeries
+                    arr0_str = (
+                        "[" + ",".join(f"{v:5.2f}" for v in frame["my_array_0"]) + "]"
+                    )
+                    arr1_str = (
+                        "[" + ",".join(f"{v:5.2f}" for v in frame["my_array_1"]) + "]"
+                    )
 
-                        print(
-                            f"{sample_count:<8} {elapsed:<12.1f} {arr0_str:^35} {arr1_str:^20}",
-                            end="\r",
-                            flush=True,
-                        )
+                    print(
+                        f"{sample_count:<8} {elapsed:<12.1f} {arr0_str:^35} {arr1_str:^20}",
+                        end="\r",
+                        flush=True,
+                    )
 
 # Output summary
 except KeyboardInterrupt:

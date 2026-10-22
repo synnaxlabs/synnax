@@ -38,7 +38,7 @@ class TestReader:
 
     def test_read_by_key(
         self, written_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
-    ):
+    ) -> None:
         """Should key the frame by channel key"""
         idx_ch, data_ch = written_pair
         f = client.read(sy.TimeRange.MAX, [idx_ch.key, data_ch.key])
@@ -47,7 +47,7 @@ class TestReader:
 
     def test_read_by_name(
         self, written_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
-    ):
+    ) -> None:
         """Should key the frame by channel name"""
         idx_ch, data_ch = written_pair
         f = client.read(sy.TimeRange.MAX, [idx_ch.name, data_ch.name])
@@ -55,7 +55,7 @@ class TestReader:
 
     def test_read_downsampled(
         self, written_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
-    ):
+    ) -> None:
         """Should keep one sample in every downsample_factor"""
         _, data_ch = written_pair
         series = client.read(sy.TimeRange.MAX, data_ch.key, downsample_factor=2)
@@ -66,7 +66,7 @@ class TestReader:
         written_pair: tuple[sy.Channel, sy.Channel],
         client: sy.Synnax,
         tmp_path: pathlib.Path,
-    ):
+    ) -> None:
         """Should write the channel and its index to a CSV file"""
         idx_ch, data_ch = written_pair
         dest = tmp_path / "out.csv"
@@ -78,7 +78,7 @@ class TestReader:
 
     def test_read_empty(
         self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
-    ):
+    ) -> None:
         """Should return no samples when the channel has no data in the range"""
         _, data_ch = indexed_pair
         assert len(client.read(sy.TimeRange.MAX, data_ch.key)) == 0

@@ -10,10 +10,13 @@
 import "zod/compile";
 
 import { ResizeObserver } from "@juggle/resize-observer";
+import { failOnConsoleOutput } from "@synnaxlabs/x/testutil";
 import { configure } from "@testing-library/react";
 import { afterAll, beforeAll, vi } from "vitest";
 
 configure({ asyncUtilTimeout: 5000 });
+
+failOnConsoleOutput();
 
 class MockIntersectionObserver {
   observe = vi.fn();

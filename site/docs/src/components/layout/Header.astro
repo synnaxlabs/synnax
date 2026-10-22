@@ -8,7 +8,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Logo } from "@synnaxlabs/media";
+import { Logo } from "@synnaxlabs/lyra/logo";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -16,7 +16,8 @@ import Search from "@/components/search/Search.astro";
 import { Page } from "@/components/nav/Page";
 import { REFERENCE_PAGES } from "@/pages/_nav";
 import { enabled } from "@/flags";
-import "@synnaxlabs/site-common/drawer.css";
+import Drawer from "@synnaxlabs/site-common/Drawer.astro";
+import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
 const url = Astro.url.pathname;
 const version = await Astro.locals.releases.latest("core").catch(() => null);
 const label = version?.split(".").slice(0, -1).join(".");
@@ -32,7 +33,7 @@ const label = version?.split(".").slice(0, -1).join(".");
         >
             <Flex.Box direction="x" align="center" gap={4}>
                 <a href="https://synnaxlabs.com" class="logo-link">
-                    <Logo variant="title" />
+                    <Logo.Logo variant="title" />
                 </a>
                 <Flex.Box direction="x" className="header-nav" align="center" gap={1}>
                     <Button.Button
@@ -84,23 +85,8 @@ const label = version?.split(".").slice(0, -1).join(".");
                         Log in
                     </Button.Button>
                 )}
-                <button class="mobile-menu-btn" aria-label="Open menu" data-mobile-open>
-                    <span class="mobile-menu-icon"></span>
-                </button>
-                <div class="mobile-overlay" data-mobile-close></div>
-                <nav class="mobile-drawer">
-                    <div class="mobile-drawer-header">
-                        <a href="https://synnaxlabs.com" class="logo-link">
-                            <Logo variant="title" />
-                        </a>
-                        <button
-                            class="mobile-close-btn"
-                            aria-label="Close menu"
-                            data-mobile-close
-                        >
-                            <span class="mobile-close-icon"></span>
-                        </button>
-                    </div>
+                <MenuButton />
+                <Drawer home="https://synnaxlabs.com">
                     <div class="mobile-drawer-links">
                         <a href="/reference/" class="mobile-drawer-link">
                             Reference
@@ -120,7 +106,7 @@ const label = version?.split(".").slice(0, -1).join(".");
                     <div class="mobile-drawer-tree">
                         <Page nodes={REFERENCE_PAGES} currentPage={url} />
                     </div>
-                </nav>
+                </Drawer>
             </Flex.Box>
         </Flex.Box>
     </Flex.Box>
@@ -131,9 +117,18 @@ const label = version?.split(".").slice(0, -1).join(".");
         z-index: 4;
         position: sticky;
         top: 0;
-        background: var(--pluto-gray-l2-30);
-        -webkit-backdrop-filter: blur(3rem);
-        backdrop-filter: blur(3rem);
+
+        /* A backdrop filter on the header would contain the drawer's fixed position,
+        so the closed drawer would widen the page. */
+        &::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            z-index: -1;
+            background: var(--pluto-gray-l2-30);
+            -webkit-backdrop-filter: blur(3rem);
+            backdrop-filter: blur(3rem);
+        }
 
         .header-row {
             height: var(--nav-height);

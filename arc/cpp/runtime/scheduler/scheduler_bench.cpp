@@ -136,7 +136,9 @@ Program build_deep_nested(size_t depth) {
         current = std::move(outer);
     }
     current.liveness = ir::Liveness::Gated;
-    current.activation = ir::Handle{"trigger", "go"};
+    current.activations = {
+        {.on = ir::Handle{"trigger", "go"}, .kind = ir::EdgeKind::Conditional}
+    };
 
     p.ir.root.mode = ir::ScopeMode::Parallel;
     p.ir.root.liveness = ir::Liveness::Always;
@@ -162,8 +164,8 @@ Program build_sequential_chain(size_t n) {
         p.nodes[k] = std::make_unique<BenchNode>(std::vector<bool>{true});
         ir::Transition t;
         t.on = ir::Handle{k, "next"};
-        if (i + 1 < n) t.target_key = "m" + std::to_string(i + 1);
-        // leaving target_key unset signals exit for the terminal step.
+        if (i + 1 < n) t.target = ir::StepTarget{.key = "m" + std::to_string(i + 1)};
+        // the terminal step keeps the default exit target.
         transitions.push_back(std::move(t));
     }
 
@@ -174,7 +176,7 @@ Program build_sequential_chain(size_t n) {
     seq.steps = std::move(steps);
     seq.transitions = std::move(transitions);
     ir::Handle act{"trigger", "go"};
-    seq.activation = act;
+    seq.activations = {{.on = act, .kind = ir::EdgeKind::Conditional}};
 
     p.ir.root.mode = ir::ScopeMode::Parallel;
     p.ir.root.liveness = ir::Liveness::Always;
@@ -255,7 +257,7 @@ Program build_sequential_with_vars(size_t n) {
         p.nodes[k] = std::make_unique<BenchNode>(std::vector<bool>{true});
         ir::Transition t;
         t.on = ir::Handle{k, "next"};
-        if (i + 1 < n) t.target_key = "m" + std::to_string(i + 1);
+        if (i + 1 < n) t.target = ir::StepTarget{.key = "m" + std::to_string(i + 1)};
         transitions.push_back(std::move(t));
     }
 
@@ -275,7 +277,9 @@ Program build_sequential_with_vars(size_t n) {
     seq.steps = std::move(steps);
     seq.transitions = std::move(transitions);
     seq.strata.push_back(std::move(vars));
-    seq.activation = ir::Handle{"trigger", "go"};
+    seq.activations = {
+        {.on = ir::Handle{"trigger", "go"}, .kind = ir::EdgeKind::Conditional}
+    };
 
     p.ir.root.mode = ir::ScopeMode::Parallel;
     p.ir.root.liveness = ir::Liveness::Always;
@@ -286,7 +290,7 @@ Program build_sequential_with_vars(size_t n) {
 }
 
 void run_tick_bench(benchmark::State &state, Program p) {
-    Scheduler sched(std::move(p.ir), p.nodes, x::telem::TimeSpan(0));
+    Scheduler sched(std::move(p.ir), p.nodes);
     run_with_alloc_tracking(state, [&] {
         sched.next(
             {.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
@@ -319,7 +323,7 @@ void BM_Construction(benchmark::State &state) {
         state.PauseTiming();
         auto p = build_fanout_chain(state.range(0));
         state.ResumeTiming();
-        Scheduler sched(std::move(p.ir), p.nodes, x::telem::TimeSpan(0));
+        Scheduler sched(std::move(p.ir), p.nodes);
         benchmark::DoNotOptimize(sched);
     }
 }

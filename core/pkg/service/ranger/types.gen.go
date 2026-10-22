@@ -19,3 +19,22 @@ type Key = versions.Key
 // Range is a user-defined region of time in the Synnax cluster. Ranges act as a method
 // for labeling and categorizing telemetry data within specific time periods.
 type Range = versions.Range
+
+// Ref is the range a visualization shows: a range saved in the Core, or an inline
+// window.
+type Ref = versions.Ref
+type RefVariant = versions.RefVariant
+type RefType = versions.RefType
+
+const (
+	// KeyRefType is a range saved in the Core.
+	KeyRefType RefType = versions.KeyRefType
+	// WindowRefType is a window carried inline: rolling or fixed.
+	WindowRefType RefType = versions.WindowRefType
+)
+
+// KeyRef is a range saved in the Core.
+type KeyRef = versions.KeyRef
+
+// WindowRef is a window carried inline: rolling or fixed.
+type WindowRef = versions.WindowRef

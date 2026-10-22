@@ -734,20 +734,31 @@ export class TimeSpan
   }
 
   /**
-   * Parses a run of amounts and units, the form {@link toString} prints: `30s`,
-   * `2h 30m`, `1.5h`, `500ms`. Units are `d`, `h`, `m` or `min`, `s`, `ms`, `us` or
-   * `µs`, and `ns`, in any case.
-   * @returns the span, or null when the text is not a unit run.
+   * Parses a run of amounts and units, such as `30s`, `2h 30min`, `1.5 hours`, or
+   * `.5d`. It reads every form {@link toString} prints, plus years (365 days), months
+   * (30 days), weeks, uncommon units such as `fortnight` and `shake`, SI multiples of
+   * the second (`ks`, `Ms`), and long and plural names, in any case except `Ms`. It
+   * also reads clock form: `1:30` is hours and minutes, `1:30:29.5` adds seconds.
+   * @returns the span, or null when the text is not a unit run or a clock.
    */
   static parse(text: string): TimeSpan | null {
     let rest = text.trim();
     if (rest.length === 0) return null;
+    const clock = CLOCK_RE.exec(rest);
+    if (clock != null) {
+      const [, hours, minutes, seconds = "0", fraction = ""] = clock;
+      return TimeSpan.hours(Number(hours))
+        .add(TimeSpan.minutes(Number(minutes)))
+        .add(TimeSpan.seconds(Number(seconds)))
+        .add(new TimeSpan(BigInt(fraction.padEnd(9, "0").slice(0, 9))));
+    }
     let total = TimeSpan.ZERO;
     while (rest.length > 0) {
       const match = UNIT_RUN_RE.exec(rest);
       if (match == null) return null;
       const [whole, amount, unit] = match;
-      total = total.add(SPAN_UNITS[unit.toLowerCase()].mult(Number(amount)));
+      const span = CASED_SPAN_UNITS[unit] ?? SPAN_UNITS[unit.toLowerCase()];
+      total = total.add(span.mult(Number(amount)));
       rest = rest.slice(whole.length);
     }
     return total;
@@ -818,7 +829,7 @@ export class TimeSpan
   }
 
   /**
-   * @param format - "full" prints every non-zero unit ("2d 3h 45m 12s 500ms"),
+   * @param format - "full" prints every non-zero unit ("2d 3h 45min 12s 500ms"),
    * "semantic" prints the one or two most significant ("2d 3h"). Defaults to "full".
    */
   toString(format: TimeSpanStringFormat = "full"): string {
@@ -842,10 +853,10 @@ export class TimeSpan
     let str = "";
     if (!days.isZero) str += `${days.days}d `;
     if (!hours.isZero) str += `${hours.hours}h `;
-    if (!minutes.isZero) str += `${minutes.minutes}m `;
+    if (!minutes.isZero) str += `${minutes.minutes}min `;
     if (!seconds.isZero) str += `${seconds.seconds}s `;
     if (!milliseconds.isZero) str += `${milliseconds.milliseconds}ms `;
-    if (!microseconds.isZero) str += `${microseconds.microseconds}µs `;
+    if (!microseconds.isZero) str += `${microseconds.microseconds}μs `;
     if (!nanoseconds.isZero) str += `${nanoseconds.nanoseconds}ns`;
     return str.trim();
   }
@@ -864,64 +875,12 @@ export class TimeSpan
     const totalMinutes = span.minutes;
     const totalSeconds = span.seconds;
 
-    const years = Math.floor(totalDays / SIMPLE_DAYS_IN_YEAR);
-    const months = Math.floor(totalDays / SIMPLE_DAYS_IN_MONTH);
-    const weeks = Math.floor(totalDays / 7);
     const days = Math.floor(totalDays);
     const hours = Math.floor(totalHours);
     const minutes = Math.floor(totalMinutes);
     const seconds = Math.floor(totalSeconds);
 
     const prefix = isNegative ? "-" : "";
-
-    if (years >= 1) {
-      let result = `${years}y`;
-      if (years < 2) {
-        const remainingMonths = Math.floor(
-          (totalDays % SIMPLE_DAYS_IN_YEAR) / SIMPLE_DAYS_IN_MONTH,
-        );
-        if (remainingMonths > 0) result += ` ${remainingMonths}mo`;
-      }
-      return prefix + result;
-    }
-
-    // For durations less than 1 month (30 days), prefer weeks if it's exactly divisible
-    if (weeks >= 1 && totalDays < SIMPLE_DAYS_IN_MONTH && totalDays % 7 === 0) {
-      let result = `${weeks}w`;
-      const remainingDays = Math.floor(totalDays % 7);
-      const remainingHoursAfterWeeks = Math.floor(totalHours - weeks * 7 * 24);
-
-      if (weeks < 2)
-        if (remainingDays > 0) result += ` ${remainingDays}d`;
-        else if (remainingHoursAfterWeeks > 0 && remainingHoursAfterWeeks < 24)
-          // Only hours remaining after full weeks (e.g., "1w 1h")
-          result += ` ${remainingHoursAfterWeeks}h`;
-
-      return prefix + result;
-    }
-
-    if (months >= 1) {
-      let result = `${months}mo`;
-      if (months < 3) {
-        const remainingDays = Math.floor(totalDays % SIMPLE_DAYS_IN_MONTH);
-        if (remainingDays > 0) result += ` ${remainingDays}d`;
-      }
-      return prefix + result;
-    }
-
-    if (weeks >= 1) {
-      let result = `${weeks}w`;
-      const remainingDays = Math.floor(totalDays % 7);
-      const remainingHoursAfterWeeks = Math.floor(totalHours - weeks * 7 * 24);
-
-      if (weeks < 2)
-        if (remainingDays > 0) result += ` ${remainingDays}d`;
-        else if (remainingHoursAfterWeeks > 0 && remainingHoursAfterWeeks < 24)
-          // Only hours remaining after full weeks (e.g., "1w 1h")
-          result += ` ${remainingHoursAfterWeeks}h`;
-
-      return prefix + result;
-    }
 
     if (days >= 1) {
       let result = `${days}d`;
@@ -934,13 +893,13 @@ export class TimeSpan
       let result = `${hours}h`;
       if (hours < 3) {
         const remainingMinutes = Math.floor(totalMinutes - hours * 60);
-        if (remainingMinutes > 0) result += ` ${remainingMinutes}m`;
+        if (remainingMinutes > 0) result += ` ${remainingMinutes}min`;
       }
       return prefix + result;
     }
 
     if (minutes >= 1) {
-      let result = `${minutes}m`;
+      let result = `${minutes}min`;
       if (minutes < 5) {
         const remainingSeconds = Math.floor(totalSeconds - minutes * 60);
         if (remainingSeconds > 0) result += ` ${remainingSeconds}s`;
@@ -1093,21 +1052,56 @@ export class TimeSpan
   ]);
 }
 
-const SPAN_UNITS: Record<string, TimeSpan> = {
-  d: TimeSpan.DAY,
-  h: TimeSpan.HOUR,
-  m: TimeSpan.MINUTE,
-  min: TimeSpan.MINUTE,
-  s: TimeSpan.SECOND,
-  ms: TimeSpan.MILLISECOND,
-  us: TimeSpan.MICROSECOND,
-  µs: TimeSpan.MICROSECOND,
-  ns: TimeSpan.NANOSECOND,
-};
+const UNIT_NAMES: [TimeSpan, string[]][] = [
+  [TimeSpan.days(SIMPLE_DAYS_IN_YEAR), ["y", "yr", "yrs", "year", "years"]],
+  [TimeSpan.days(SIMPLE_DAYS_IN_MONTH), ["mo", "mos", "month", "months"]],
+  [TimeSpan.days(7), ["w", "wk", "wks", "week", "weeks"]],
+  [TimeSpan.DAY, ["d", "day", "days"]],
+  [TimeSpan.HOUR, ["h", "hr", "hrs", "hour", "hours"]],
+  [TimeSpan.MINUTE, ["m", "min", "mins", "minute", "minutes"]],
+  [TimeSpan.SECOND, ["s", "sec", "secs", "second", "seconds"]],
+  [TimeSpan.MILLISECOND, ["ms", "msec", "msecs", "millisecond", "milliseconds"]],
+  [
+    TimeSpan.MICROSECOND,
+    // The Greek mu is the SI prefix; the micro sign is its compatibility form.
+    ["μs", "µs", "us", "usec", "usecs", "microsecond", "microseconds"],
+  ],
+  [TimeSpan.NANOSECOND, ["ns", "nsec", "nsecs", "nanosecond", "nanoseconds"]],
+  [TimeSpan.days(10 * SIMPLE_DAYS_IN_YEAR), ["decade", "decades"]],
+  [TimeSpan.days(5 * SIMPLE_DAYS_IN_YEAR), ["lustrum", "lustra", "lustrums"]],
+  [TimeSpan.days(4 * SIMPLE_DAYS_IN_YEAR), ["olympiad", "olympiads"]],
+  [TimeSpan.days(6 * SIMPLE_DAYS_IN_MONTH), ["semester", "semesters"]],
+  [TimeSpan.days(14), ["fortnight", "fortnights"]],
+  [TimeSpan.days(10), ["decaday", "decadays"]],
+  [TimeSpan.seconds(8640), ["deciday", "decidays"]],
+  [TimeSpan.seconds(864), ["centiday", "centidays"]],
+  [TimeSpan.seconds(90), ["moment", "moments"]],
+  [TimeSpan.milliseconds(86400), ["milliday", "millidays"]],
+  [TimeSpan.microseconds(1209600), ["microfortnight", "microfortnights"]],
+  [TimeSpan.seconds(1e6), ["megasecond", "megaseconds"]],
+  [TimeSpan.seconds(1000), ["ks", "kilosecond", "kiloseconds"]],
+  [TimeSpan.seconds(100), ["hs", "hectosecond", "hectoseconds"]],
+  [TimeSpan.seconds(10), ["das", "decasecond", "decaseconds"]],
+  [TimeSpan.milliseconds(100), ["ds", "decisecond", "deciseconds"]],
+  [TimeSpan.milliseconds(10), ["cs", "centisecond", "centiseconds"]],
+  [TimeSpan.nanoseconds(10), ["shake", "shakes"]],
+];
+
+const SPAN_UNITS: Record<string, TimeSpan> = Object.fromEntries(
+  UNIT_NAMES.flatMap(([span, names]) => names.map((name) => [name, span])),
+);
+
+// Matched in exact case, since lowercase they collide with another unit.
+const CASED_SPAN_UNITS: Record<string, TimeSpan> = { Ms: TimeSpan.seconds(1e6) };
+
+const CLOCK_RE = /^(\d+):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?$/;
 
 // Longest first, so `ms` and `min` win over `m`.
 const UNIT_RUN_RE = new RegExp(
-  `^(\\d+(?:\\.\\d+)?)\\s*(${Object.keys(SPAN_UNITS)
+  `^(\\d+(?:\\.\\d+)?|\\.\\d+)\\s*(${[
+    ...Object.keys(SPAN_UNITS),
+    ...Object.keys(CASED_SPAN_UNITS),
+  ]
     .sort((a, b) => b.length - a.length)
     .join("|")})\\s*`,
   "i",
@@ -2078,6 +2072,24 @@ export const stringTimeStampZ = z.preprocess(
  * Keeps int64 precision in plain-data document state.
  */
 export type StringTimeStamp = z.infer<typeof stringTimeStampZ>;
+
+/** A rolling window that ends now. */
+export const dynamicWindowZ = z.object({
+  variant: z.literal("dynamic"),
+  timeSpan: numericTimeSpanZ.default(0),
+});
+export interface DynamicWindow extends z.infer<typeof dynamicWindowZ> {}
+
+/** A fixed window, start-inclusive and end-exclusive. */
+export const staticWindowZ = z.object({
+  variant: z.literal("static"),
+  timeRange: z.object({ start: stringTimeStampZ, end: stringTimeStampZ }),
+});
+export interface StaticWindow extends z.infer<typeof staticWindowZ> {}
+
+/** A window of time: a rolling span that ends now, or a fixed range. */
+export const windowZ = z.discriminatedUnion("variant", [dynamicWindowZ, staticWindowZ]);
+export type Window = DynamicWindow | StaticWindow;
 
 export const typedArrayZ = z.union([
   z.instanceof(Uint8Array),

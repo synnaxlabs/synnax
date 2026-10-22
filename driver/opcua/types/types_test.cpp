@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <vector>
+
 #include "gtest/gtest.h"
 #include "open62541/types.h"
 
@@ -347,7 +349,158 @@ TEST(TypesTest, NodeIdToStringByteString) {
     nodeId.identifierType = UA_NODEIDTYPE_BYTESTRING;
     nodeId.identifier.byteString = byteString;
     std::string nodeIdStr = NodeId::to_string(nodeId);
-    EXPECT_EQ(nodeIdStr, "NS=4;B=deadbeef");
+    EXPECT_EQ(nodeIdStr, "NS=4;B=3q2+7w==");
+}
+
+/// @brief it should decode a base64 ByteString identifier byte for byte.
+TEST(TypesTest, ParseByteStringNodeId) {
+    auto node_id = ASSERT_NIL_P(NodeId::parse("NS=2;B=AAEAAg=="));
+    const UA_NodeId &id = node_id.get();
+    EXPECT_EQ(id.namespaceIndex, 2);
+    ASSERT_EQ(id.identifierType, UA_NODEIDTYPE_BYTESTRING);
+    const std::vector<UA_Byte> bytes(
+        id.identifier.byteString.data,
+        id.identifier.byteString.data + id.identifier.byteString.length
+    );
+    EXPECT_EQ(bytes, std::vector<UA_Byte>({0x00, 0x01, 0x00, 0x02}));
+}
+
+/// @brief it should keep its ByteString identifier after the input string is gone.
+TEST(TypesTest, ParseByteStringNodeIdOwnsIdentifier) {
+    std::vector<UA_Byte> expected(48);
+    for (std::size_t i = 0; i < expected.size(); ++i)
+        expected[i] = static_cast<UA_Byte>(i % 3 == 0 ? 0 : 0xA0 + i);
+    UA_ByteString raw{expected.size(), expected.data()};
+    UA_String encoded;
+    ASSERT_EQ(UA_ByteString_toBase64(&raw, &encoded), UA_STATUSCODE_GOOD);
+    NodeId node_id;
+    {
+        const std::string input = "NS=7;B=" +
+                                  std::string(
+                                      reinterpret_cast<char *>(encoded.data),
+                                      encoded.length
+                                  );
+        UA_String_clear(&encoded);
+        node_id = ASSERT_NIL_P(NodeId::parse(input));
+    }
+    const UA_ByteString &bs = node_id.get().identifier.byteString;
+    EXPECT_EQ(std::vector<UA_Byte>(bs.data, bs.data + bs.length), expected);
+    NodeId moved = std::move(node_id);
+    EXPECT_EQ(moved.get().identifier.byteString.length, expected.size());
+}
+
+/// @brief it should round-trip ByteString NodeIds through parse and to_string.
+TEST(TypesTest, ByteStringNodeIdRoundTrip) {
+    for (const std::string input:
+         {"NS=1;B=3q2+7w==", "NS=0;B=AA==", "NS=3;B=AAEC", "NS=65535;B=/w8A/w=="}) {
+        auto node_id = ASSERT_NIL_P(NodeId::parse(input));
+        EXPECT_EQ(NodeId::to_string(node_id.get()), input);
+    }
+}
+
+/// @brief it should reject a ByteString identifier that is not canonical base64.
+TEST(TypesTest, ParseInvalidByteStringNodeId) {
+    for (const std::string identifier:
+         {"AAE",
+          "AA=A",
+          "AA==AAAA",
+          "A===",
+          "AA$A",
+          "AA-_",
+          "AAEC ",
+          "AAE==",
+          "AB==",
+          "AAB="}) {
+        auto [node_id, err] = NodeId::parse("NS=1;B=" + identifier);
+        ASSERT_MATCHES(err, x::errors::VALIDATION);
+        EXPECT_EQ(err.data, "Invalid base64 in ByteString identifier: " + identifier);
+        EXPECT_TRUE(node_id.is_null());
+    }
+}
+
+/// @brief it should parse prefixes in any case and print them in uppercase.
+TEST(TypesTest, ParseNodeIdPrefixCaseInsensitive) {
+    for (const auto &[input, expected]:
+         std::vector<std::pair<std::string, std::string>>{
+             {"ns=1;i=42", "NS=1;I=42"},
+             {"ns=2;s=TestNode", "NS=2;S=TestNode"},
+             {"Ns=3;g=12345678-1234-5678-9abc-123456789abc",
+              "NS=3;G=12345678-1234-5678-9abc-123456789abc"},
+             {"ns=4;b=3q2+7w==", "NS=4;B=3q2+7w=="},
+             {"nS=5;B=AAEC", "NS=5;B=AAEC"},
+         }) {
+        auto node_id = ASSERT_NIL_P(NodeId::parse(input));
+        EXPECT_EQ(NodeId::to_string(node_id.get()), expected);
+    }
+}
+
+/// @brief it should reject malformed NodeIds with a validation error, not an exception.
+TEST(TypesTest, ParseMalformedNodeId) {
+    for (const std::string input: {
+             "",
+             "NS=1",
+             "NS=1;",
+             "NS=1;I=",
+             "NS=1;I5",
+             "NS=1;I=abc",
+             "NS=1;I=5 ",
+             "NS=1;I=+5",
+             "NS=1;I=-1",
+             "NS=1;I=4294967296",
+             "NS=;I=1",
+             "NS=-1;I=1",
+             "NS=65536;I=1",
+             "NS=99999999999;I=1",
+             " NS=1;I=5",
+             "xNS=1;I=5",
+             "N=1;I=5",
+             "NS=1;X=5",
+             "NS=1;G=xyz",
+             "NS=1;G=12345678-1234-5678-9abc-123456789abg",
+         }) {
+        auto [node_id, err] = NodeId::parse(input);
+        ASSERT_MATCHES(err, x::errors::VALIDATION);
+        EXPECT_EQ(err.data, "Invalid NodeId format") << input;
+        EXPECT_TRUE(node_id.is_null()) << input;
+    }
+}
+
+/// @brief it should accept the largest namespace index and numeric identifier.
+TEST(TypesTest, ParseNodeIdNumericLimits) {
+    auto node_id = ASSERT_NIL_P(NodeId::parse("NS=65535;I=4294967295"));
+    EXPECT_EQ(node_id.get().namespaceIndex, 65535);
+    EXPECT_EQ(node_id.get().identifier.numeric, 4294967295u);
+}
+
+/// @brief it should keep separators inside a string identifier.
+TEST(TypesTest, ParseStringNodeIdWithSeparators) {
+    auto node_id = ASSERT_NIL_P(NodeId::parse("NS=1;S=a;b=c"));
+    EXPECT_EQ(NodeId::to_string(node_id.get()), "NS=1;S=a;b=c");
+}
+
+/// @brief it should parse a very long string identifier.
+TEST(TypesTest, ParseLongStringNodeId) {
+    const std::string input = "NS=1;S=" + std::string(100000, 'a');
+    auto node_id = ASSERT_NIL_P(NodeId::parse(input));
+    EXPECT_EQ(NodeId::to_string(node_id.get()), input);
+}
+
+/// @brief it should report an invalid ByteString identifier as a field error.
+TEST(TypesTest, ParseInvalidByteStringNodeIdFromJSON) {
+    x::json::Parser parser(std::string(R"({"node_id": "NS=1;B=AAE"})"));
+    NodeId node_id = NodeId::parse("node_id", parser);
+    EXPECT_TRUE(node_id.is_null());
+    ASSERT_EQ(parser.errors->size(), 1);
+    const auto err = parser.errors->at(0);
+    EXPECT_EQ(err["path"], "node_id");
+    EXPECT_EQ(
+        err["message"],
+        x::errors::Error(
+            x::errors::VALIDATION,
+            "Invalid base64 in ByteString identifier: AAE"
+        )
+            .message()
+    );
 }
 
 /// @brief it should round-trip NodeId through parse and to_string.

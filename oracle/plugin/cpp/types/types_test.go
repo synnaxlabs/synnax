@@ -1789,6 +1789,28 @@ var _ = Describe("C++ Types Plugin", func() {
 			)
 
 			It(
+				"Should zero-initialize an int enum field with no default",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "out"
+
+					Mode enum {
+						automatic = 1
+						manual    = 2
+					}
+
+					Config struct {
+						mode     Mode
+						override Mode?
+					}
+				`
+					resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+					ExpectContent(resp, "types.gen.h").
+						ToContain(`Mode mode = {};`, `std::optional<Mode> override;`)
+				},
+			)
+
+			It(
 				"Should reference string enum defaults via their generated constants",
 				func(ctx SpecContext) {
 					source := `
@@ -2072,6 +2094,106 @@ var _ = Describe("C++ Union Generation", func() {
 				)
 		},
 	)
+
+	It("Should emit ontology helpers for a union", func(ctx SpecContext) {
+		source := `
+			@cpp output "out"
+
+			Key uuid
+
+			Base struct {
+				key Key @key
+			}
+
+			View union on type extends Base {
+				first {
+					name string
+				}
+				second {
+					size int32
+				}
+
+				@ontology type "view"
+			}
+		`
+		resp := MustGenerate(ctx, source, "view", loader, cppPlugin)
+		ExpectContent(resp, "types.gen.h").
+			ToContain(
+				`const synnax::ontology::ID ONTOLOGY_TYPE("view", "");`,
+				`return synnax::ontology::ID("view", key.to_string());`,
+			)
+	})
+
+	It("Should type union ontology helpers by a primitive key", func(ctx SpecContext) {
+		source := `
+			@cpp output "out"
+
+			Base struct {
+				key uuid @key
+			}
+
+			View union on type extends Base {
+				first {
+					name string
+				}
+
+				@ontology type "view"
+			}
+		`
+		resp := MustGenerate(ctx, source, "view", loader, cppPlugin)
+		ExpectContent(resp, "types.gen.h").
+			ToContain(`ontology_id(const x::uuid::UUID& key)`)
+	})
+
+	It(
+		"Should default the discriminator to the borrowed enum constant",
+		func(ctx SpecContext) {
+			source := `
+			@cpp output "out"
+
+			Method enum {
+				password = "password"
+			}
+			Credentials struct { username string }
+
+			Proof union on method Method {
+				password Credentials
+			}
+		`
+			resp := MustGenerate(ctx, source, "auth", loader, cppPlugin)
+			ExpectContent(resp, "types.gen.h").
+				ToContain(
+					`constexpr const char* METHOD_PASSWORD = "password";`,
+					`std::string method = METHOD_PASSWORD;`,
+				)
+		},
+	)
+
+	It("Should include the header of a borrowed enum from another namespace", func(
+		ctx SpecContext,
+	) {
+		loader.Add("schemas/auth", `
+			@cpp output "client/cpp/auth"
+
+			Method enum {
+				password = "password"
+			}
+		`)
+		source := `
+			import "schemas/auth"
+
+			@cpp output "client/cpp/login"
+
+			Credentials struct { username string }
+
+			Proof union on method auth.Method {
+				password Credentials
+			}
+		`
+		resp := MustGenerate(ctx, source, "login", loader, cppPlugin)
+		ExpectContent(resp, "types.gen.h").
+			ToContain(`#include "client/cpp/auth/types.gen.h"`, `METHOD_PASSWORD;`)
+	})
 
 	It(
 		"Should declare inline variant fields directly on the variant struct",
@@ -2370,6 +2492,35 @@ var _ = Describe("C++ Union Variant Doc Coverage", func() {
 				"struct BaseConfig {",
 			)
 			commonContent.ToNotContain("struct Task {")
+		},
+	)
+	It(
+		"Should declare proto translators for a union that emits protobuf",
+		func(ctx SpecContext) {
+			source := `
+			@cpp output "arc/cpp/ir"
+			@go output "arc/go/ir"
+			@pb
+
+			Target union on type {
+				exit {}
+				step { key string }
+			}
+
+			Transition struct { target Target }
+			`
+			resp := MustGenerate(ctx, source, "ir", loader, cppPlugin)
+			ExpectContent(resp, "types.gen.h").
+				ToContain(
+					"using proto_type = ::arc::ir::pb::TargetExitPayload;",
+					"static std::pair<StepTarget, x::errors::Error> "+
+						"from_proto(const ::arc::ir::pb::TargetStepPayload& pb);",
+					"[[nodiscard]] std::pair<::arc::ir::pb::Target, x::errors::Error> "+
+						"to_proto(const Target& value);",
+					"std::pair<Target, x::errors::Error> "+
+						"target_from_proto(const ::arc::ir::pb::Target& pb);",
+					`#include "arc/go/ir/pb/ir.pb.h"`,
+				)
 		},
 	)
 })

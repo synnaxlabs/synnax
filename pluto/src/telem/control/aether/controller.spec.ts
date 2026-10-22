@@ -10,7 +10,7 @@
 import { type channel, type framer, ValidationError } from "@synnaxlabs/client";
 import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
 import { StreamClosed } from "@synnaxlabs/freighter";
-import { color, DataType, id, TimeStamp } from "@synnaxlabs/x";
+import { color, DataType, id, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 import { type z } from "zod";
 
@@ -285,6 +285,28 @@ describe("control/aether/Controller", SUITE, () => {
     await expect.poll(() => controller.state.needsControlOf.length, POLL).toEqual(2);
     sink.cleanup();
     await expect.poll(() => controller.state.needsControlOf, POLL).toEqual([]);
+  });
+
+  it("should control the other channels when a sink's channel was deleted", async () => {
+    const ch = await createIndexed();
+    const deleted = await createIndexed();
+    await client.channels.delete(deleted.key);
+    const { controller, source, handle } = await setup(ch.key);
+    controller.create(setChannelValue({ channel: ch.key }));
+    controller.create(setChannelValue({ channel: deleted.key }));
+    controller.acquire();
+    await expect.poll(() => source.value().variant, POLL).toEqual("success");
+    expect([...controller.state.needsControlOf].sort()).toEqual(
+      [ch.key, ch.index].sort(),
+    );
+    expect(statusesOf(handle)).toContain(
+      `Some symbols on ${CONTROLLER_NAME} use channels that no longer exist`,
+    );
+    await expect(controller.set({ [deleted.key]: [1] })).rejects.toThrow();
+    await controller.set({ [ch.key]: [1] });
+    await expect
+      .poll(async () => (await client.read(TimeRange.MAX, ch.key)).length, POLL)
+      .toEqual(1);
   });
 
   it("should reopen the writer and replay the write on a closed stream", async () => {

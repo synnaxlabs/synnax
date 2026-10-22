@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 from pydantic import BaseModel, PrivateAttr
 
-from x.interop import overload_comparison_operators
+from x.interop import ArrayOperators
 from x.telem.telem import (
     Alignment,
     Bounds,
@@ -35,7 +35,26 @@ from x.telem.telem import (
 VARIABLE_LENGTH_PREFIX_SIZE = 4
 
 
-class Series(BaseModel):
+def _encode_samples(samples: list[Any], data_type: DataType) -> bytes:
+    if data_type == DataType.JSON:
+        return _encode_variable([json.dumps(d).encode("utf-8") for d in samples])
+    if data_type == DataType.STRING:
+        return _encode_variable([str(d).encode("utf-8") for d in samples])
+    if data_type == DataType.UUID:
+        uuids = [d for d in samples if isinstance(d, uuid.UUID)]
+        if len(uuids) != len(samples):
+            raise TypeError("[Series] - a UUID series accepts only UUIDs")
+        return b"".join(d.bytes for d in uuids)
+    return np.array(samples, dtype=data_type.np).tobytes()
+
+
+def _encode_variable(parts: list[bytes]) -> bytes:
+    return b"".join(
+        len(p).to_bytes(VARIABLE_LENGTH_PREFIX_SIZE, "little") + p for p in parts
+    )
+
+
+class Series(ArrayOperators, BaseModel):
     """Series is a strongly typed array of telemetry samples backed by an underlying
     binary buffer. It is interoperable with np.ndarray, meaning that it can be safely
     passed as an argument to any function/method that accepts a numpy array.
@@ -86,11 +105,11 @@ class Series(BaseModel):
         data: CrudeSeries | MultiSeries,
         data_type: CrudeDataType | None = None,
         time_range: TimeRange | None = None,
-        alignment: CrudeAlignment = 0,
+        alignment: CrudeAlignment | None = None,
     ):
         if data_type is not None:
             data_type = DataType(data_type)
-        alignment = Alignment(alignment)
+        align = None if alignment is None else Alignment(alignment)
         if isinstance(data, (TimeStamp, int, float, np.number)):
             data_type = data_type or DataType(data)
             data_ = np.array([data], dtype=data_type.np).tobytes()
@@ -98,7 +117,7 @@ class Series(BaseModel):
             data_type = data_type or data.data_type
             data_ = data.data
             time_range = data.time_range if time_range is None else time_range
-            alignment = data.alignment
+            align = data.alignment if align is None else align
         elif isinstance(data, MultiSeries):
             if len(data.series) == 1:
                 data_type = data_type or data.series[0].data_type
@@ -106,7 +125,7 @@ class Series(BaseModel):
                 time_range = (
                     data.series[0].time_range if time_range is None else time_range
                 )
-                alignment = data.series[0].alignment
+                align = data.series[0].alignment if align is None else align
             else:
                 raise ValueError(
                     "[Series] - MultiSeries with more than one series cannot be converted to a Series"
@@ -123,39 +142,10 @@ class Series(BaseModel):
             data_ = data.astype(data_type.np).tobytes()
         elif isinstance(data, list):
             data_type = data_type or DataType(data)
-            if data_type == DataType.JSON:
-                parts = [json.dumps(d).encode("utf-8") for d in data]
-                data_ = b"".join(
-                    len(p).to_bytes(VARIABLE_LENGTH_PREFIX_SIZE, "little") + p
-                    for p in parts
-                )
-            elif data_type == DataType.STRING:
-                parts = [str(d).encode("utf-8") for d in data]
-                data_ = b"".join(
-                    len(p).to_bytes(VARIABLE_LENGTH_PREFIX_SIZE, "little") + p
-                    for p in parts
-                )
-            elif data_type == DataType.UUID:
-                uuids = [d for d in data if isinstance(d, uuid.UUID)]
-                data_ = b"".join(d.bytes for d in uuids)
-            else:
-                data_ = np.array(data, dtype=data_type.np).tobytes()
-                data_type = data_type or DataType(data)
-        elif isinstance(data, uuid.UUID):
-            data_type = DataType.UUID
-            data_ = data.bytes
-        elif isinstance(data, dict):
-            data_type = data_type or DataType.JSON
-            encoded = json.dumps(data).encode("utf-8")
-            data_ = (
-                len(encoded).to_bytes(VARIABLE_LENGTH_PREFIX_SIZE, "little") + encoded
-            )
-        elif isinstance(data, str):
-            encoded = data.encode("utf-8")
-            data_ = (
-                len(encoded).to_bytes(VARIABLE_LENGTH_PREFIX_SIZE, "little") + encoded
-            )
-            data_type = DataType.STRING
+            data_ = _encode_samples(data, data_type)
+        elif isinstance(data, (str, dict, uuid.UUID)):
+            data_type = data_type or DataType([data])
+            data_ = _encode_samples([data], data_type)
         else:
             if data_type is None:
                 raise ValueError(
@@ -167,7 +157,7 @@ class Series(BaseModel):
             data_type=data_type,
             data=data_,
             time_range=time_range,
-            alignment=alignment,
+            alignment=Alignment(0) if align is None else align,
         )
         self._len_cache = None
 
@@ -282,26 +272,39 @@ class Series(BaseModel):
             data=self.__array__().astype(data_type.np),
             data_type=data_type,
             time_range=self.time_range,
+            alignment=self.alignment,
         )
 
     def to_datetime(self) -> list[datetime]:
         return [pd.Timestamp(t).to_pydatetime() for t in self.__array__()]
 
-    def __eq__(self, other: object) -> bool:
-        if isinstance(other, Series):
-            return self.data == other.data
-        elif isinstance(other, np.ndarray):
-            return self.__array__() == other  # type: ignore[no-any-return]
-        else:
-            return False
-
-
-overload_comparison_operators(Series, "__array__")
 
 SampleValue: TypeAlias = (
     np.number | uuid.UUID | dict[str, Any] | str | int | float | TimeStamp
 )
 TypedCrudeSeries: TypeAlias = Series | pd.Series | np.ndarray
+
+
+def to_float(value: SampleValue) -> float:
+    """Converts a sample from a numeric channel to a float.
+
+    :raises TypeError: If the sample is not numeric.
+    """
+    if isinstance(value, (int, float, np.number, np.bool_)):
+        return float(value)
+    raise TypeError(f"Expected a numeric sample, got {value!r}")
+
+
+def to_int(value: SampleValue) -> int:
+    """Converts a sample from an integer or timestamp channel to an int.
+
+    :raises TypeError: If the sample is not an integer.
+    """
+    if isinstance(value, (int, np.integer, np.bool_)):
+        return int(value)
+    raise TypeError(f"Expected an integer sample, got {value!r}")
+
+
 CrudeSeries: TypeAlias = (
     Series
     | bytes
@@ -334,7 +337,7 @@ def elapsed_seconds(d: np.ndarray) -> np.ndarray:
     return (d - d[0]) / TimeSpan.SECOND  # type: ignore[no-any-return]
 
 
-class MultiSeries:
+class MultiSeries(ArrayOperators):
     series: list[Series]
 
     def __init__(self, series: list[Series]):
@@ -343,9 +346,10 @@ class MultiSeries:
             first_dt = series[0].data_type
             same_dt = all(s.data_type == first_dt for s in series)
             if not same_dt:
+                data_types = {s.data_type for s in series}
                 raise ValueError(f"""
                     [MultiSeries] - All series must have the same data type. Received
-                    {first_dt} and {set(s.data_type for s in series)}.
+                    {first_dt} and {data_types}.
                     """)
 
     def __array__(
@@ -434,6 +438,3 @@ class MultiSeries:
     @property
     def size(self) -> Size:
         return Size(sum(s.size for s in self.series))
-
-
-overload_comparison_operators(MultiSeries, "__array__")

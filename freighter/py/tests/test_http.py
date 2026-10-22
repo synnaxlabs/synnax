@@ -9,6 +9,7 @@
 
 import json
 import uuid
+import warnings
 from pathlib import Path
 
 import pytest
@@ -26,6 +27,19 @@ from .interface import Error, Message
 @pytest.fixture
 def client(endpoint: URL) -> HTTPClient:
     return HTTPClient(endpoint.child("unary"), JSONCodec())
+
+
+class TestConstruction:
+    def test_url_unchanged(self, endpoint: URL) -> None:
+        """Should not change the protocol of the URL passed by the caller."""
+        HTTPClient(endpoint, JSONCodec(), secure=True)
+        assert endpoint.protocol == ""
+
+    def test_warning_filters_unchanged(self, endpoint: URL) -> None:
+        """Should not change the process warning filters."""
+        before = list(warnings.filters)
+        HTTPClient(endpoint, JSONCodec())
+        assert warnings.filters == before
 
 
 @pytest.mark.http
@@ -241,3 +255,21 @@ class TestStream:
             client.stream(
                 "/middlewareCheck", Message(id=1, message="x"), "application/json"
             )
+
+
+class TestContext:
+    def test_protocol_and_target(self, endpoint: URL) -> None:
+        """Should give middleware the protocol and the full request URL as target."""
+        client = HTTPClient(endpoint.child("unary"), JSONCodec())
+        contexts: list[Context] = []
+
+        def mw(ctx: Context, _: Next) -> Context:
+            contexts.append(ctx)
+            raise RuntimeError("stop")
+
+        client.use(mw)
+        with pytest.raises(RuntimeError, match="stop"):
+            client.send("/echo", Message(id=1, message="hello"), Message)
+        assert contexts[0].protocol == "http"
+        assert contexts[0].target == "http://localhost:8080/unary/echo/"
+        assert contexts[0].role == "client"

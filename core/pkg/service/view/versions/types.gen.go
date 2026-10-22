@@ -11,11 +11,35 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/view/versions/v0"
+import "github.com/synnaxlabs/synnax/pkg/service/view/versions/v1"
 
 // Key is a unique identifier for a saved view configuration.
-type Key = v0.Key
+type Key = v1.Key
 
-// View is a persisted view configuration storing visualization settings and query
-// parameters for line plots, tables, schematics, and other view types.
-type View = v0.View
+// View is a saved, named filter over a list of resources. The type selects the resource
+// the view lists and the shape of its query.
+type View = v1.View
+type ViewVariant = v1.ViewVariant
+type ViewType = v1.ViewType
+
+const (
+	// RangeViewType is a saved view of ranges.
+	RangeViewType ViewType = v1.RangeViewType
+	// StatusViewType is a saved view of statuses.
+	StatusViewType ViewType = v1.StatusViewType
+)
+
+// RangeView is a saved view of ranges.
+type RangeView = v1.RangeView
+
+// StatusView is a saved view of statuses.
+type StatusView = v1.StatusView
+
+// Base carries the fields shared by every view variant.
+type Base = v1.Base
+
+// RangeQuery filters the ranges shown by a range view.
+type RangeQuery = v1.RangeQuery
+
+// StatusQuery filters the statuses shown by a status view.
+type StatusQuery = v1.StatusQuery

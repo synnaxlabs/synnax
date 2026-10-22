@@ -145,7 +145,11 @@ describe("project/Splash", () => {
       render(<Project.Splash />, { wrapper });
 
       const input = await screen.findByPlaceholderText("Search projects...");
-      fireEvent.change(input, { target: { value: uniqueName("nomatchterm") } });
+      // One word with no separators: the Core matches each word of a term on its own,
+      // by prefix and edit distance, so a short word can hit another spec's fixture.
+      fireEvent.change(input, {
+        target: { value: uniqueName("nomatchterm").replace(/_/g, "") },
+      });
 
       await screen.findByText("No matching projects");
       expect(screen.queryByText("No projects")).toBeNull();

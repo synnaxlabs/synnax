@@ -11,4 +11,4 @@
 
 from .server import STATS_PATH, HTTPSim, HTTPSlowSim, run_server
 
-__all__ = ["run_server", "HTTPSim", "HTTPSlowSim", "STATS_PATH"]
+__all__ = ["STATS_PATH", "HTTPSim", "HTTPSlowSim", "run_server"]

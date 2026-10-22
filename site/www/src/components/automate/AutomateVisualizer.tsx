@@ -9,8 +9,10 @@
 
 import { type ReactElement } from "react";
 
-import { AbortDiagram } from "@/components/automate/diagrams/AbortDiagram";
-import { PressureDiagram } from "@/components/automate/diagrams/PressureDiagram";
+import {
+  TankDiagram,
+  type TankDiagramProps,
+} from "@/components/automate/diagrams/TankDiagram";
 import {
   type DiagramState,
   EXAMPLES,
@@ -26,9 +28,9 @@ interface AutomateVisualizerProps {
   codeHtmls: string[];
 }
 
-const DIAGRAMS: Record<string, React.FC<{ state: DiagramState }>> = {
-  pressure: PressureDiagram,
-  abort: AbortDiagram,
+const DIAGRAMS: Record<string, Omit<TankDiagramProps, "state">> = {
+  pressure: { fullScalePressure: 600 },
+  abort: { fullScalePressure: 900, authorityVisible: true },
 };
 
 const PID_WRAPPER_STYLE: React.CSSProperties = {
@@ -90,7 +92,7 @@ export const AutomateVisualizer = ({
   const example = EXAMPLES[activeTab];
   const diagramState: DiagramState = { ...ZERO_DIAGRAM_STATE, ...step.state };
   const isAlarm = example.id === "alarm";
-  const DiagramComponent = DIAGRAMS[example.id];
+  const diagram = DIAGRAMS[example.id];
 
   return (
     <div className="viz-container" {...containerProps}>
@@ -110,9 +112,9 @@ export const AutomateVisualizer = ({
               state={alarmToCalcState(diagramState)}
             />
           ) : (
-            DiagramComponent != null && (
+            diagram != null && (
               <div style={PID_WRAPPER_STYLE}>
-                <DiagramComponent state={diagramState} />
+                <TankDiagram key={example.id} state={diagramState} {...diagram} />
               </div>
             )
           )}

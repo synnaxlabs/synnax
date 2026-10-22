@@ -7,26 +7,27 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Tracked rack/device lifecycle mixin.
+"""Tracked rack, device, and task lifecycle mixin.
 
 Designed for multiple inheritance with TestCase subclasses.
 """
 
 import synnax as sy
-from framework.models import SynnaxConnection
+from framework.models import DEFAULT_CONNECTION, SynnaxConnection
 from framework.test_case import TestCase
 
 
 class HardwareCase(TestCase):
-    """TestCase whose teardown deletes the racks and devices it creates.
+    """TestCase whose teardown deletes the racks, devices, and tasks it creates.
 
     A leftover device keeps the Driver health-checking a dead endpoint, and a leftover
-    rack keeps the rack monitor warning for the rest of the run.
+    rack keeps the rack monitor warning for the rest of the run. Deleting each one also
+    deletes its status.
     """
 
     def __init__(
         self,
-        synnax_connection: SynnaxConnection = SynnaxConnection(),
+        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
         *,
         name: str,
         **params: object,
@@ -34,6 +35,7 @@ class HardwareCase(TestCase):
         super().__init__(synnax_connection, name=name, **params)
         self._test_rack_keys: list[int] = []
         self._test_device_keys: list[str] = []
+        self._test_task_keys: list[sy.task.Key] = []
 
     def create_test_rack(self, name: str) -> sy.Rack:
         """Create a rack that teardown deletes."""
@@ -51,8 +53,12 @@ class HardwareCase(TestCase):
         """Mark existing devices for deletion in teardown."""
         self._test_device_keys.extend(d.key for d in devices)
 
+    def track_test_tasks(self, tasks: list[sy.Task]) -> None:
+        """Mark existing tasks for deletion in teardown."""
+        self._test_task_keys.extend(t.key for t in tasks)
+
     def teardown(self) -> None:
-        """Run the chained teardown, then delete tracked devices and racks.
+        """Run the chained teardown, then delete tracked tasks, devices, and racks.
 
         The deletions are server-side, so they run after the chain to stay out of
         Console traces captured by earlier teardowns.
@@ -60,6 +66,9 @@ class HardwareCase(TestCase):
         try:
             super().teardown()
         finally:
+            with self._try_to("delete test tasks"):
+                if self._test_task_keys:
+                    self.client.tasks.delete(self._test_task_keys)
             with self._try_to("delete test devices"):
                 if self._test_device_keys:
                     self.client.devices.delete(self._test_device_keys)

@@ -235,6 +235,9 @@ func (r *renderer) renderEnum(t resolution.Type, f resolution.EnumForm) {
 
 func (r *renderer) renderUnion(t resolution.Type, f resolution.UnionForm) {
 	head := t.Name + " union on " + f.Discriminator
+	if f.BorrowsEnum() {
+		head += " " + r.ref(f.Enum)
+	}
 	variants := f.Variants
 	if bases := append(slices.Clone(f.Extends), f.Included...); len(bases) > 0 {
 		head += " extends " + r.refList(bases)

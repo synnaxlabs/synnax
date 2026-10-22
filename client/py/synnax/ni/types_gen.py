@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, Union
+from typing import Annotated, Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -766,7 +766,7 @@ class ChanCJC(BaseModel):
 # Is the cold-junction compensation for a thermocouple. The source selects where
 # the reference temperature comes from.
 CJC = Annotated[
-    Union[BuiltInCJC, ConstValCJC, ChanCJC],
+    BuiltInCJC | ConstValCJC | ChanCJC,
     Field(discriminator="source"),
 ]
 
@@ -821,7 +821,7 @@ class NoneScale(BaseModel):
 
 # Determines how raw sensor values are transformed to engineering units.
 Scale = Annotated[
-    Union[LinearScale, MapScale, TableScale, PolynomialScale, NoneScale],
+    LinearScale | MapScale | TableScale | PolynomialScale | NoneScale,
     Field(discriminator="type"),
 ]
 
@@ -1149,38 +1149,36 @@ class AIVoltageWithExcitChannel(
 # Is a single NI analog input channel. The type field selects the measurement mode
 # and the fields that accompany it.
 AIChannel = Annotated[
-    Union[
-        AIVoltageChannel,
-        AIAccelChannel,
-        AIBridgeChannel,
-        AICurrentChannel,
-        AIForceBridgeTableChannel,
-        AIForceBridgeTwoPointLinChannel,
-        AIForceIEPEChannel,
-        AIMicrophoneChannel,
-        AIPressureBridgeTableChannel,
-        AIPressureBridgeTwoPointLinChannel,
-        AIResistanceChannel,
-        AIRTDChannel,
-        AIStrainGaugeChannel,
-        AITempBuiltinChannel,
-        AIThermocoupleChannel,
-        AITorqueBridgeTableChannel,
-        AITorqueBridgeTwoPointLinChannel,
-        AIVelocityIEPEChannel,
-        AIAccel4WireDCVoltageChannel,
-        AIAccelChargeChannel,
-        AIChargeChannel,
-        AICurrentRMSChannel,
-        AIForceBridgePolynomialChannel,
-        AIFreqVoltageChannel,
-        AIPressureBridgePolynomialChannel,
-        AIThermistorIexChannel,
-        AIThermistorVexChannel,
-        AITorqueBridgePolynomialChannel,
-        AIVoltageRMSChannel,
-        AIVoltageWithExcitChannel,
-    ],
+    AIVoltageChannel
+    | AIAccelChannel
+    | AIBridgeChannel
+    | AICurrentChannel
+    | AIForceBridgeTableChannel
+    | AIForceBridgeTwoPointLinChannel
+    | AIForceIEPEChannel
+    | AIMicrophoneChannel
+    | AIPressureBridgeTableChannel
+    | AIPressureBridgeTwoPointLinChannel
+    | AIResistanceChannel
+    | AIRTDChannel
+    | AIStrainGaugeChannel
+    | AITempBuiltinChannel
+    | AIThermocoupleChannel
+    | AITorqueBridgeTableChannel
+    | AITorqueBridgeTwoPointLinChannel
+    | AIVelocityIEPEChannel
+    | AIAccel4WireDCVoltageChannel
+    | AIAccelChargeChannel
+    | AIChargeChannel
+    | AICurrentRMSChannel
+    | AIForceBridgePolynomialChannel
+    | AIFreqVoltageChannel
+    | AIPressureBridgePolynomialChannel
+    | AIThermistorIexChannel
+    | AIThermistorVexChannel
+    | AITorqueBridgePolynomialChannel
+    | AIVoltageRMSChannel
+    | AIVoltageWithExcitChannel,
     Field(discriminator="type"),
 ]
 
@@ -1320,19 +1318,17 @@ class CIDutyCycleChannel(BaseCIChannel, CustomScale, MinMaxVal):
 # Is a single NI counter input channel. The type field selects the measurement
 # mode and the fields that accompany it.
 CIChannel = Annotated[
-    Union[
-        CIFrequencyChannel,
-        CIEdgeCountChannel,
-        CIPeriodChannel,
-        CIPulseWidthChannel,
-        CISemiPeriodChannel,
-        CITwoEdgeSepChannel,
-        CIVelocityLinearChannel,
-        CIVelocityAngularChannel,
-        CIPositionLinearChannel,
-        CIPositionAngularChannel,
-        CIDutyCycleChannel,
-    ],
+    CIFrequencyChannel
+    | CIEdgeCountChannel
+    | CIPeriodChannel
+    | CIPulseWidthChannel
+    | CISemiPeriodChannel
+    | CITwoEdgeSepChannel
+    | CIVelocityLinearChannel
+    | CIVelocityAngularChannel
+    | CIPositionLinearChannel
+    | CIPositionAngularChannel
+    | CIDutyCycleChannel,
     Field(discriminator="type"),
 ]
 
@@ -1362,7 +1358,7 @@ class AOVoltageChannel(BaseAOChannel, MinMaxVal, CustomScale):
 # Is a single NI analog output channel. The type field selects the output mode and
 # the fields that accompany it.
 AOChannel = Annotated[
-    Union[AOCurrentChannel, AOFuncGenChannel, AOVoltageChannel],
+    AOCurrentChannel | AOFuncGenChannel | AOVoltageChannel,
     Field(discriminator="type"),
 ]
 

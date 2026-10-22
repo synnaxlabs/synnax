@@ -21,11 +21,7 @@ export interface Anchors {
   parent?: TimeStamp;
 }
 
-const CLOCK_RE = /^(\d+):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?$/;
 const BARE_NUMBER_RE = /^\d+(?:\.\d+)?$/;
-
-const fractionToNanoseconds = (fraction: string | undefined): bigint =>
-  fraction == null ? 0n : BigInt(fraction.padEnd(9, "0").slice(0, 9));
 
 export interface ParsedTimeSpan {
   value: TimeSpan;
@@ -40,19 +36,11 @@ export interface ParsedTimeSpan {
  */
 export const parseTimeSpan = (text: string): ParsedTimeSpan | null => {
   const trimmed = text.trim();
-  const clock = CLOCK_RE.exec(trimmed);
-  if (clock != null) {
-    const [, hours, minutes, seconds, fraction] = clock;
-    const value = TimeSpan.hours(Number(hours))
-      .add(TimeSpan.minutes(Number(minutes)))
-      .add(TimeSpan.seconds(Number(seconds ?? 0)))
-      .add(new TimeSpan(fractionToNanoseconds(fraction)));
-    return { value, kind: "clock" };
-  }
   if (BARE_NUMBER_RE.test(trimmed))
     return { value: TimeSpan.SECOND.mult(Number(trimmed)), kind: "seconds" };
   const value = TimeSpan.parse(trimmed);
-  return value == null ? null : { value, kind: "units" };
+  if (value == null) return null;
+  return { value, kind: trimmed.includes(":") ? "clock" : "units" };
 };
 
 const ANCHOR_RE = /^(now|start|end|t)\s*(?:([+-])\s*(.+))?$/i;

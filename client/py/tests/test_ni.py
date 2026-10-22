@@ -15,7 +15,7 @@ import synnax as sy
 
 @pytest.mark.ni
 class TestNITask:
-    def test_parse_analog_read_task(self):
+    def test_parse_analog_read_task(self) -> None:
         data = {
             "sample_rate": 10,
             "stream_rate": 5,
@@ -358,7 +358,7 @@ class TestNITask:
         }
         sy.ni.AnalogReadConfig.model_validate(data)
 
-    def test_parse_analog_read_task_default_device_none_provided(self):
+    def test_parse_analog_read_task_default_device_none_provided(self) -> None:
         with pytest.raises(sy.ValidationError):
             sy.ni.AnalogReadTask(
                 sample_rate=10,
@@ -372,13 +372,12 @@ class TestNITask:
                         port=0,
                         min_val=0,
                         max_val=1,
-                        units="Volts",
                         custom_scale=sy.ni.NoneScale(type="none"),
                     )
                 ],
             )
 
-    def test_parse_analog_read_task_default_device_provided(self):
+    def test_parse_analog_read_task_default_device_provided(self) -> None:
         sy.ni.AnalogReadTask(
             device="474503CF-49FD-11EF-80E5-91C59E7C9645",
             sample_rate=10,
@@ -392,13 +391,12 @@ class TestNITask:
                     port=0,
                     min_val=0,
                     max_val=1,
-                    units="Volts",
                     custom_scale=sy.ni.NoneScale(type="none"),
                 )
             ],
         )
 
-    def test_parse_analog_write_task(self):
+    def test_parse_analog_write_task(self) -> None:
         data = {
             "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
             "state_rate": 10,
@@ -421,7 +419,7 @@ class TestNITask:
         }
         sy.ni.AnalogWriteConfig.model_validate(data)
 
-    def test_parse_counter_read_task(self):
+    def test_parse_counter_read_task(self) -> None:
         data = {
             "sample_rate": 1000,
             "stream_rate": 500,
@@ -448,7 +446,7 @@ class TestNITask:
         }
         sy.ni.CounterReadConfig.model_validate(data)
 
-    def test_parse_counter_read_linear_velocity_task(self):
+    def test_parse_counter_read_linear_velocity_task(self) -> None:
         data = {
             "sample_rate": 1000,
             "stream_rate": 500,
@@ -475,7 +473,7 @@ class TestNITask:
         }
         sy.ni.CounterReadConfig.model_validate(data)
 
-    def test_parse_counter_read_angular_velocity_task(self):
+    def test_parse_counter_read_angular_velocity_task(self) -> None:
         data = {
             "sample_rate": 1000,
             "stream_rate": 500,
@@ -502,7 +500,7 @@ class TestNITask:
         }
         sy.ni.CounterReadConfig.model_validate(data)
 
-    def test_parse_counter_read_linear_position_task(self):
+    def test_parse_counter_read_linear_position_task(self) -> None:
         data = {
             "sample_rate": 1000,
             "stream_rate": 500,
@@ -532,7 +530,7 @@ class TestNITask:
         }
         sy.ni.CounterReadConfig.model_validate(data)
 
-    def test_parse_counter_read_angular_position_task(self):
+    def test_parse_counter_read_angular_position_task(self) -> None:
         data = {
             "sample_rate": 1000,
             "stream_rate": 500,
@@ -562,7 +560,7 @@ class TestNITask:
         }
         sy.ni.CounterReadConfig.model_validate(data)
 
-    def test_parse_counter_read_duty_cycle_task(self):
+    def test_parse_counter_read_duty_cycle_task(self) -> None:
         data = {
             "sample_rate": 1000,
             "stream_rate": 500,
@@ -585,7 +583,7 @@ class TestNITask:
         }
         sy.ni.CounterReadConfig.model_validate(data)
 
-    def test_parse_digital_read_task(self):
+    def test_parse_digital_read_task(self) -> None:
         data = {
             "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
             "channels": [
@@ -604,7 +602,7 @@ class TestNITask:
         }
         sy.ni.DigitalReadConfig.model_validate(data)
 
-    def test_parse_digital_write_task(self):
+    def test_parse_digital_write_task(self) -> None:
         data = {
             "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
             "state_rate": 10,
@@ -623,7 +621,7 @@ class TestNITask:
         }
         sy.ni.DigitalWriteConfig.model_validate(data)
 
-    def test_analog_read_config_rates(self):
+    def test_analog_read_config_rates(self) -> None:
         """Test that AnalogReadConfig coerces crude rates and applies defaults."""
         config = sy.ni.AnalogReadConfig(
             sample_rate=sy.Rate(1000),
@@ -638,7 +636,6 @@ class TestNITask:
                     port=0,
                     min_val=0,
                     max_val=10,
-                    units="Volts",
                     custom_scale=sy.ni.NoneScale(type="none"),
                 )
             ],
@@ -648,7 +645,7 @@ class TestNITask:
         assert config.data_saving_disabled is False
         assert config.auto_start is False
 
-    def test_counter_read_config_parses_channels(self):
+    def test_counter_read_config_parses_channels(self) -> None:
         """Test that CounterReadConfig accepts counter channel models."""
         config = sy.ni.CounterReadConfig(
             sample_rate=sy.Rate(1000),
@@ -676,7 +673,7 @@ class TestNITask:
         assert isinstance(ch, sy.ni.CIFrequencyChannel)
         assert ch.units == "Hz"
 
-    def test_digital_read_config_parses_channels(self):
+    def test_digital_read_config_parses_channels(self) -> None:
         """Test that DigitalReadConfig accepts digital input channel models."""
         config = sy.ni.DigitalReadConfig(
             device="test-device",
@@ -694,7 +691,7 @@ class TestNITask:
         assert len(config.channels) == 1
         assert config.channels[0].line == 0
 
-    def test_multi_device_duplicate_ports_allowed(self):
+    def test_multi_device_duplicate_ports_allowed(self) -> None:
         """Channels on different devices can reuse the same port number."""
         sy.ni.AnalogReadConfig(
             channels=[
@@ -707,7 +704,6 @@ class TestNITask:
                     port=0,
                     min_val=-10,
                     max_val=10,
-                    units="Volts",
                     custom_scale=sy.ni.NoneScale(type="none"),
                 ),
                 sy.ni.AIVoltageChannel(
@@ -719,13 +715,12 @@ class TestNITask:
                     port=0,
                     min_val=-10,
                     max_val=10,
-                    units="Volts",
                     custom_scale=sy.ni.NoneScale(type="none"),
                 ),
             ],
         )
 
-    def test_invalid_channel_type_rejected(self):
+    def test_invalid_channel_type_rejected(self) -> None:
         """An unknown channel type discriminator fails validation."""
         with pytest.raises(ValidationError):
             sy.ni.AnalogReadConfig.model_validate(
@@ -741,7 +736,7 @@ class TestNITask:
 class TestNIDeviceHelpers:
     """Tests for NI Device class."""
 
-    def test_device_creates_correct_structure(self):
+    def test_device_creates_correct_structure(self) -> None:
         """Test that Device class creates the expected properties."""
         device = sy.ni.Device(
             identifier="test_device_01",
@@ -755,7 +750,7 @@ class TestNIDeviceHelpers:
         assert "identifier" in device.properties
         assert device.properties["identifier"] == "test_device_01"
 
-    def test_device_with_different_identifiers(self):
+    def test_device_with_different_identifiers(self) -> None:
         """Test Device class with various identifier formats."""
         test_cases = [
             "ni_9205",
@@ -775,7 +770,7 @@ class TestNIDeviceHelpers:
             props = device.properties
             assert props["identifier"] == identifier
 
-    def test_device_sets_make(self, client: sy.Synnax):
+    def test_device_sets_make(self, client: sy.Synnax) -> None:
         """Test that Device class automatically sets make to 'NI'."""
         rack = client.racks.retrieve_embedded_rack()
 
@@ -795,7 +790,7 @@ class TestNIDeviceHelpers:
         assert created_device.model == "NI 9205"
         assert created_device.location == "cDAQ1/dev_mod1"
 
-    def test_device_auto_generates_key(self, client: sy.Synnax):
+    def test_device_auto_generates_key(self, client: sy.Synnax) -> None:
         """Test that Device class auto-generates a UUID key if not provided."""
         rack = client.racks.retrieve_embedded_rack()
 
@@ -814,7 +809,7 @@ class TestNIDeviceHelpers:
         # UUID format check (basic)
         assert "-" in created_device.key or len(created_device.key) > 10
 
-    def test_device_with_explicit_key(self, client: sy.Synnax):
+    def test_device_with_explicit_key(self, client: sy.Synnax) -> None:
         """Test that Device class accepts an explicit key."""
         rack = client.racks.retrieve_embedded_rack()
         explicit_key = "my-explicit-ni-key"
@@ -832,7 +827,7 @@ class TestNIDeviceHelpers:
 
         assert created_device.key == explicit_key
 
-    def test_device_properties_parsing(self, client: sy.Synnax):
+    def test_device_properties_parsing(self, client: sy.Synnax) -> None:
         """Test that device properties are correctly stored and retrieved."""
         rack = client.racks.retrieve_embedded_rack()
         test_identifier = "test_ni_module_01"
@@ -850,7 +845,7 @@ class TestNIDeviceHelpers:
         assert "identifier" in created_device.properties
         assert created_device.properties["identifier"] == test_identifier
 
-    def test_create_device_using_ni_module_directly(self, client: sy.Synnax):
+    def test_create_device_using_ni_module_directly(self, client: sy.Synnax) -> None:
         """Test that ni.Device works when imported via module."""
         rack = client.racks.retrieve_embedded_rack()
 
@@ -867,7 +862,7 @@ class TestNIDeviceHelpers:
         assert created_device.make == "NI"
         assert created_device.name == "Test via ni module"
 
-    def test_device_has_properties_set(self):
+    def test_device_has_properties_set(self) -> None:
         """Test that ni.Device sets properties correctly."""
         device = sy.ni.Device(
             identifier="test_id",

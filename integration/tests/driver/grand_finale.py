@@ -20,6 +20,7 @@ Channel creation is delegated to the existing concrete test case classes
 
 import platform
 from contextlib import ExitStack
+from typing import TypeAlias
 
 from examples.modbus import ModbusSim
 from examples.opcua import OPCUASim
@@ -42,6 +43,15 @@ from tests.driver.task import (
     send_and_verify_commands,
 )
 
+ReadTask: TypeAlias = (
+    modbus.ReadTask
+    | opcua.ReadTask
+    | sy.ni.AnalogReadTask
+    | sy.ni.DigitalReadTask
+    | sy.ni.CounterReadTask
+)
+WriteTask: TypeAlias = modbus.WriteTask | opcua.WriteTask
+
 
 class GrandFinale(SimulatorCase):
     """Concurrent multi-protocol read and write task test."""
@@ -52,14 +62,14 @@ class GrandFinale(SimulatorCase):
     TASK_DURATION = 2 * sy.TimeSpan.SECOND
 
     def setup(self) -> None:
-        self.read_tasks: list[sy.Task] = []
-        self.write_tasks: list[sy.Task] = []
+        self.read_tasks: list[ReadTask] = []
+        self.write_tasks: list[WriteTask] = []
         super().setup()
         self._create_tasks()
 
     @property
-    def all_tasks(self) -> list[sy.Task]:
-        return self.read_tasks + self.write_tasks
+    def all_tasks(self) -> list[ReadTask | WriteTask]:
+        return [*self.read_tasks, *self.write_tasks]
 
     def _create_tasks(self) -> None:
         modbus_device = self.client.devices.retrieve(name=ModbusSim.device_name)
@@ -190,7 +200,7 @@ class GrandFinale(SimulatorCase):
     def _test_read_data_flows(self) -> None:
         self.log("Test 3 - Verify each read task is streaming data")
         for task in self.read_tasks:
-            keys = self._task_channel_keys(task)
+            keys = self._read_channel_keys(task)
             with self.client.open_streamer(keys) as streamer:
                 frame = streamer.read(timeout=30)
                 if frame is None:
@@ -202,7 +212,7 @@ class GrandFinale(SimulatorCase):
         for task in self.write_tasks:
             send_and_verify_commands(
                 self.client,
-                cmd_keys=self._task_channel_keys(task),
+                cmd_keys=self._write_channel_keys(task),
                 writer_name=f"{task.name}_gf_writer",
                 task_name=task.name,
             )
@@ -220,7 +230,7 @@ class GrandFinale(SimulatorCase):
         actual_duration = time_range.span.seconds
         for task in self.read_tasks:
             expected = int(task.config.sample_rate * actual_duration)
-            channel_keys = self._task_channel_keys(task)
+            channel_keys = self._read_channel_keys(task)
             counts = assert_sample_counts_in_range(
                 self.client,
                 channel_keys=channel_keys,
@@ -233,11 +243,14 @@ class GrandFinale(SimulatorCase):
     # ── Helpers ──────────────────────────────────────────────────────
 
     @staticmethod
-    def _task_channel_keys(task: sy.Task) -> list[int]:
-        """Extract channel keys from a task, handling both read and write channels."""
-        ch0 = task.config.channels[0]
-        attr = "cmd_channel" if hasattr(ch0, "cmd_channel") else "channel"
-        return [getattr(ch, attr) for ch in task.config.channels]
+    def _read_channel_keys(task: ReadTask) -> list[int]:
+        return [ch.channel for ch in task.config.channels]
+
+    @staticmethod
+    def _write_channel_keys(task: WriteTask) -> list[int]:
+        if isinstance(task, modbus.WriteTask):
+            return [ch.channel for ch in task.config.channels]
+        return [ch.cmd_channel for ch in task.config.channels]
 
     # ── Teardown ─────────────────────────────────────────────────────
 

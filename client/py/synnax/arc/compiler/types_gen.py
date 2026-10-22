@@ -13,16 +13,18 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+from x.codec import Bytes
+
 
 class Output(BaseModel):
     """Is compiled output from the Arc compiler including WebAssembly bytecode and
     memory layout.
 
     Attributes:
-        WASM: Is compiled WebAssembly bytecode for sandboxed execution.
-        OutputMemoryBases: Contains memory base addresses for multi-output functions,
+        wasm: Is compiled WebAssembly bytecode for sandboxed execution.
+        output_memory_bases: Contains memory base addresses for multi-output functions,
             mapping function keys to their base addresses.
     """
 
-    WASM: bytes
-    OutputMemoryBases: dict[str, int] = Field(default_factory=dict)
+    wasm: Bytes
+    output_memory_bases: dict[str, int] = Field(default_factory=dict)
