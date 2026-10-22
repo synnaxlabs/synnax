@@ -10,7 +10,9 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <memory>
 #include <mutex>
+#include <optional>
 #include <span>
 #include <string>
 #include <thread>
@@ -23,6 +25,8 @@
 
 #include "x/cpp/test/test.h"
 
+#include "driver/bus/testutil/contract.h"
+#include "driver/bus/transport.h"
 #include "driver/udp/socket.h"
 
 namespace driver::udp {
@@ -265,4 +269,75 @@ TEST(Socket, RejectsInvalidProperties) {
     p.local_address = "not an address";
     ASSERT_OCCURRED_AS_P(Socket::open(p), transport::CONFIG_ERROR);
 }
+
+namespace {
+/// @brief plays a UDP device with a socket on a free localhost port.
+class LoopbackRig final : public bus::testutil::Rig {
+    asio::io_context ctx;
+    std::optional<asio::ip::udp::socket> peer;
+    std::uint16_t peer_port;
+    std::uint16_t port;
+
+    [[nodiscard]] synnax::udp::Properties props() const {
+        synnax::udp::Properties p;
+        p.port = this->port;
+        p.remote_host = "127.0.0.1";
+        p.remote_port = this->peer_port;
+        return p;
+    }
+
+    static asio::ip::udp::endpoint local(const std::uint16_t port) {
+        return {asio::ip::address_v4::loopback(), port};
+    }
+
+public:
+    LoopbackRig() {
+        this->peer.emplace(this->ctx, local(0));
+        this->peer_port = this->peer->local_endpoint().port();
+        const asio::ip::udp::socket probe(this->ctx, local(0));
+        this->port = probe.local_endpoint().port();
+    }
+
+    bus::Opener opener() override { return bus::opener<Socket>(this->props()); }
+
+    bus::Opener absent() override {
+        auto p = this->props();
+        p.local_address = "192.0.2.1";
+        return bus::opener<Socket>(p);
+    }
+
+    void send(const std::string &data) override {
+        this->peer->send_to(asio::buffer(data), local(this->port));
+    }
+
+    std::string receive(const std::size_t n) override {
+        std::string out;
+        const auto deadline = x::telem::TimeStamp::now() + x::telem::SECOND;
+        while (out.size() < n && x::telem::TimeStamp::now() < deadline) {
+            if (this->peer->available() == 0) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                continue;
+            }
+            std::string datagram(this->peer->available(), '\0');
+            datagram.resize(this->peer->receive(asio::buffer(datagram)));
+            out += datagram;
+        }
+        return out;
+    }
+
+    void hang_up() override { this->peer.reset(); }
+
+    void restore() override { this->peer.emplace(this->ctx, local(this->peer_port)); }
+};
+
+const auto LOOPBACK = ::testing::Values(
+    bus::testutil::Case{
+        .name = "loopback",
+        .rig = [] { return std::make_unique<LoopbackRig>(); },
+    }
+);
+}
+
+using bus::testutil::TransportContract;
+INSTANTIATE_TEST_SUITE_P(Udp, TransportContract, LOOPBACK, bus::testutil::name);
 }

@@ -329,6 +329,13 @@ Peer::receive(const x::telem::TimeSpan timeout) const {
     return std::pair{std::move(datagram.data), datagram.from};
 }
 
+void Peer::close() const {
+    std::lock_guard lock(this->net->mu);
+    std::erase_if(this->net->bound, [this](const auto &m) {
+        return m->remote && m->at == this->at;
+    });
+}
+
 Network::Network(): state(std::make_shared<State>()) {}
 
 void Network::add(const asio::ip::address &address) const {

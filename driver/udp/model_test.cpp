@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 #include <cstdint>
+#include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <system_error>
@@ -18,6 +20,8 @@
 
 #include "x/cpp/test/test.h"
 
+#include "driver/bus/testutil/contract.h"
+#include "driver/bus/transport.h"
 #include "driver/udp/model.h"
 #include "driver/udp/socket.h"
 
@@ -33,6 +37,15 @@ std::string as_string(const std::span<const std::uint8_t> data) {
 
 const asio::ip::udp::endpoint DEVICE{asio::ip::make_address("10.0.0.2"), 4000};
 const asio::ip::udp::endpoint HOST{asio::ip::address_v4::loopback(), 5000};
+
+/// @returns properties for a socket on HOST that talks to the device at rtu.local.
+synnax::udp::Properties props() {
+    synnax::udp::Properties p;
+    p.port = HOST.port();
+    p.remote_host = "rtu.local";
+    p.remote_port = DEVICE.port();
+    return p;
+}
 }
 
 /// @brief drives a socket over a modeled network with a device at DEVICE.
@@ -40,14 +53,6 @@ class ModelTest : public ::testing::Test {
 protected:
     model::Network network;
     model::Peer device = this->network.bind(DEVICE);
-
-    [[nodiscard]] static synnax::udp::Properties props() {
-        synnax::udp::Properties p;
-        p.port = HOST.port();
-        p.remote_host = "rtu.local";
-        p.remote_port = DEVICE.port();
-        return p;
-    }
 
     [[nodiscard]] Config config() const {
         return Config{.stacks = this->network.stacks()};
@@ -188,4 +193,64 @@ TEST_F(ModelTest, KeepsReceivingAfterAnICMPRefusal) {
         "still here"
     );
 }
+
+namespace {
+/// @brief plays a UDP device on a modeled network.
+class ModelRig final : public bus::testutil::Rig {
+    model::Network network;
+    std::optional<model::Peer> device;
+
+    [[nodiscard]] bus::Opener open(const std::string &local_address) const {
+        auto p = props();
+        p.local_address = local_address;
+        const Config config{.stacks = this->network.stacks()};
+        return
+            [p,
+             config]() -> std::pair<std::unique_ptr<bus::Transport>, x::errors::Error> {
+                auto [socket, err] = Socket::open(p, config);
+                if (err) return {nullptr, err};
+                return {
+                    std::make_unique<bus::Adapter<Socket>>(std::move(socket)),
+                    x::errors::NIL
+                };
+            };
+    }
+
+public:
+    ModelRig() {
+        this->network.name("rtu.local", DEVICE.address());
+        this->device.emplace(this->network.bind(DEVICE));
+    }
+
+    bus::Opener opener() override { return this->open(""); }
+
+    bus::Opener absent() override { return this->open("192.168.7.2"); }
+
+    void send(const std::string &data) override { this->device->send(data, HOST); }
+
+    std::string receive(const std::size_t n) override {
+        std::string out;
+        while (out.size() < n) {
+            const auto datagram = this->device->receive();
+            if (!datagram.has_value()) break;
+            out += datagram->first;
+        }
+        return out;
+    }
+
+    void hang_up() override { this->device->close(); }
+
+    void restore() override { this->device.emplace(this->network.bind(DEVICE)); }
+};
+
+const auto MODEL = ::testing::Values(
+    bus::testutil::Case{
+        .name = "model",
+        .rig = [] { return std::make_unique<ModelRig>(); },
+    }
+);
+}
+
+using bus::testutil::TransportContract;
+INSTANTIATE_TEST_SUITE_P(UdpModel, TransportContract, MODEL, bus::testutil::name);
 }

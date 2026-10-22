@@ -89,6 +89,8 @@ cc_test(
     deps = [
         ":model",
         ":tcp",
+        "//driver/bus",
+        "//driver/bus/testutil:contract",
         "//driver/transport",
         "//x/cpp/test",
         "@asio//:asio_no_openssl",

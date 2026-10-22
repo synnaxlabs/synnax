@@ -86,6 +86,8 @@ cc_test(
     }),
     deps = [
         ":serial",
+        "//driver/bus",
+        "//driver/bus/testutil:contract",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],

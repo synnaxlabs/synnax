@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <cstdint>
+#include <memory>
 #include <span>
 #include <string>
 #include <system_error>
@@ -18,6 +19,8 @@
 
 #include "x/cpp/test/test.h"
 
+#include "driver/bus/testutil/contract.h"
+#include "driver/bus/transport.h"
 #include "driver/tcp/client.h"
 #include "driver/tcp/model.h"
 
@@ -196,4 +199,74 @@ TEST_F(ModelTest, MapsAFailedReadOrWriteThroughTranslate) {
         ASSERT_OCCURRED_AS(writer->write(bytes("ping"), x::telem::SECOND), expected);
     }
 }
+
+namespace {
+/// @brief plays a TCP device on a modeled network.
+class ModelRig final : public bus::testutil::Rig {
+    model::Network network;
+    std::shared_ptr<model::Peer> peer;
+
+    /// @returns the device end of the newest connection, accepting it first.
+    std::shared_ptr<model::Peer> accepted() {
+        if (this->peer == nullptr) this->peer = this->network.accept(DEVICE);
+        EXPECT_NE(this->peer, nullptr) << "no connection reached the device";
+        return this->peer;
+    }
+
+    bus::Opener open(const std::string &host) const {
+        synnax::tcp::Properties p;
+        p.host = host;
+        p.port = DEVICE.port();
+        const Config config{.sockets = this->network.sockets()};
+        return
+            [p,
+             config]() -> std::pair<std::unique_ptr<bus::Transport>, x::errors::Error> {
+                auto [client, err] = Client::open(p, config);
+                if (err) return {nullptr, err};
+                return {
+                    std::make_unique<bus::Adapter<Client>>(std::move(client)),
+                    x::errors::NIL
+                };
+            };
+    }
+
+public:
+    ModelRig() {
+        this->network.name("plc.local", DEVICE.address());
+        this->network.listen(DEVICE);
+    }
+
+    bus::Opener opener() override { return this->open("plc.local"); }
+
+    bus::Opener absent() override { return this->open("10.0.0.3"); }
+
+    void send(const std::string &data) override {
+        if (const auto p = this->accepted()) p->send(data);
+    }
+
+    std::string receive(const std::size_t n) override {
+        if (const auto p = this->accepted()) return p->receive(n);
+        return "";
+    }
+
+    void hang_up() override {
+        if (const auto p = this->accepted()) p->close();
+        this->peer.reset();
+    }
+
+    void restore() override {}
+};
+
+const auto MODEL = ::testing::Values(
+    bus::testutil::Case{
+        .name = "model",
+        .rig = [] { return std::make_unique<ModelRig>(); },
+    }
+);
+}
+
+using bus::testutil::StreamContract;
+using bus::testutil::TransportContract;
+INSTANTIATE_TEST_SUITE_P(TcpModel, TransportContract, MODEL, bus::testutil::name);
+INSTANTIATE_TEST_SUITE_P(TcpModel, StreamContract, MODEL, bus::testutil::name);
 }

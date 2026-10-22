@@ -52,6 +52,9 @@ public:
     /// @returns the datagram and its source, or nothing on timeout.
     [[nodiscard]] std::optional<std::pair<std::string, asio::ip::udp::endpoint>>
     receive(x::telem::TimeSpan timeout = x::telem::SECOND) const;
+
+    /// @brief closes the peer's socket. Datagrams to its endpoint then vanish.
+    void close() const;
 };
 
 /// @brief a modeled network. Copies share one network. Any thread may call it.

@@ -43,3 +43,21 @@ cc_library(
         "//x/cpp/uuid",
     ],
 )
+
+# alwayslink keeps the suites, which no symbol references, in every test binary.
+cc_library(
+    name = "contract",
+    testonly = True,
+    srcs = ["contract.cpp"],
+    hdrs = ["contract.h"],
+    visibility = ["//visibility:public"],
+    alwayslink = True,
+    deps = [
+        "//driver/bus",
+        "//driver/transport",
+        "//x/cpp/errors",
+        "//x/cpp/telem",
+        "//x/cpp/test",
+        "@googletest//:gtest",
+    ],
+)

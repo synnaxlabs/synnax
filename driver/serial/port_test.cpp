@@ -10,6 +10,7 @@
 #include <atomic>
 #include <chrono>
 #include <filesystem>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -19,6 +20,8 @@
 
 #include "x/cpp/test/test.h"
 
+#include "driver/bus/testutil/contract.h"
+#include "driver/bus/transport.h"
 #include "driver/serial/port.h"
 #include "driver/serial/pty.h"
 
@@ -248,4 +251,57 @@ TEST(Port, RejectsInvalidSettingsBeforeOpening) {
         transport::CONFIG_ERROR
     );
 }
+
+namespace {
+/// @brief plays a serial device on a pseudo-terminal behind a stable link, as udev's
+/// by-id links stay put while a device comes and goes.
+class PtyRig final : public bus::testutil::Rig {
+    Pty pty;
+    std::filesystem::path link = std::filesystem::path(::testing::TempDir()) /
+                                 "contract-serial";
+
+    void point() const {
+        std::filesystem::remove(this->link);
+        std::filesystem::create_symlink(this->pty.path(), this->link);
+    }
+
+    static bus::Opener open(const std::string &path) {
+        synnax::serial::Properties p;
+        p.port = path;
+        return bus::opener<Port>(p);
+    }
+
+public:
+    PtyRig() {
+        this->pty.open();
+        this->point();
+    }
+
+    ~PtyRig() override { std::filesystem::remove(this->link); }
+
+    bus::Opener opener() override { return open(this->link.string()); }
+
+    bus::Opener absent() override { return open("/dev/synnax-missing-port"); }
+
+    void send(const std::string &data) override { this->pty.write(data); }
+
+    std::string receive(const std::size_t n) override { return this->pty.read(n); }
+
+    void hang_up() override { this->pty.close(); }
+
+    void restore() override {
+        this->pty.open();
+        this->point();
+    }
+};
+
+const auto PTY = ::testing::Values(
+    bus::testutil::Case{.name = "pty", .rig = [] { return std::make_unique<PtyRig>(); }}
+);
+}
+
+using bus::testutil::StreamContract;
+using bus::testutil::TransportContract;
+INSTANTIATE_TEST_SUITE_P(Serial, TransportContract, PTY, bus::testutil::name);
+INSTANTIATE_TEST_SUITE_P(Serial, StreamContract, PTY, bus::testutil::name);
 }
