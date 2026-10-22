@@ -10,6 +10,7 @@
 package analyzer
 
 import (
+	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/diagnostics"
@@ -198,6 +199,81 @@ func validateDeadOutputs(c *analysisCtx, types []resolution.Type) {
 			c.report(d)
 		}
 	}
+}
+
+// validateFieldOmits errors on an illegal field-level omit. A field may omit any
+// generated language but Go, which has @go marshal omit and @go wire omit instead. A
+// key field may not leave any language or the wire, a field may not omit a language its
+// type does not generate in, and a field must stay in at least one language.
+func validateFieldOmits(c *analysisCtx, types []resolution.Type) {
+	for _, t := range types {
+		form, ok := t.Form.(resolution.StructForm)
+		if !ok {
+			continue
+		}
+		for _, f := range form.Fields {
+			name := t.QualifiedName + "." + f.Name
+			if omit.IsField(f, "go") {
+				c.report(diagnostics.Errorf(nil,
+					"%s omits go; use @go marshal omit or @go wire omit instead", name,
+				))
+			}
+			if wire := getFieldString(f, "go", "wire"); wire != "" && wire != "omit" {
+				c.report(diagnostics.Errorf(nil,
+					"%s has @go wire %s; the only value is omit", name, wire,
+				))
+			}
+			isKey := key.HasKey(f)
+			if isKey && getFieldString(f, "go", "wire") == "omit" {
+				c.report(diagnostics.Errorf(nil,
+					"%s is a key and cannot carry @go wire omit", name,
+				))
+			}
+			var generating, omitted int
+			for _, lang := range generatedLangs {
+				generates := getPath(t, lang) != "" && !omit.IsSkipped(t, lang)
+				if generates {
+					generating++
+				}
+				if lang == "go" || !omit.IsField(f, lang) {
+					continue
+				}
+				omitted++
+				if isKey {
+					c.report(diagnostics.Errorf(nil,
+						"%s is a key and cannot omit %s", name, lang,
+					))
+				}
+				if !generates {
+					c.report(diagnostics.Errorf(nil,
+						"%s omits %s, but %s does not generate in %s",
+						name, lang, t.QualifiedName, lang,
+					))
+				}
+			}
+			if omitted > 0 && omitted == generating {
+				c.report(diagnostics.Errorf(nil,
+					"%s is omitted in every language %s generates in; remove the field",
+					name, t.QualifiedName,
+				))
+			}
+		}
+	}
+}
+
+func getFieldString(f resolution.Field, lang, expr string) string {
+	dom, ok := f.Domains[lang]
+	if !ok {
+		return ""
+	}
+	e, ok := dom.Expressions.Find(expr)
+	if !ok || len(e.Values) == 0 {
+		return ""
+	}
+	if v := e.Values[0].StringValue; v != "" {
+		return v
+	}
+	return e.Values[0].IdentValue
 }
 
 // getPath returns the type's output path for the language, or "".

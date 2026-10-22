@@ -60,6 +60,7 @@ func (p *Plugin) Domains() []string { return []string{"pb"} }
 func (p *Plugin) Requires() []string { return nil }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
+	req = req.OmitFields("pb")
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 
 	structCollector := framework.NewCollector("pb", req).

@@ -84,3 +84,40 @@ var _ = Describe("IsType", func() {
 		Expect(omit.IsType(t, "ts")).To(BeFalse())
 	})
 })
+
+var _ = Describe("Fields", func() {
+	field := func(name string, langs ...string) resolution.Field {
+		f := resolution.Field{Name: name, Domains: map[string]resolution.Domain{}}
+		for _, l := range langs {
+			f.Domains[l] = resolution.Domain{
+				Expressions: []resolution.Expression{{Name: "omit"}},
+			}
+		}
+		return f
+	}
+	table := &resolution.Table{Types: []resolution.Type{{
+		QualifiedName: "auth.Session",
+		Form: resolution.StructForm{Fields: []resolution.Field{
+			field("key"), field("hash", "ts", "py"), field("secret", "cpp"),
+		}},
+	}}}
+	names := func(t *resolution.Table) []string {
+		form := t.MustGet("auth.Session").Form.(resolution.StructForm)
+		names := make([]string, len(form.Fields))
+		for i, f := range form.Fields {
+			names[i] = f.Name
+		}
+		return names
+	}
+
+	It("Should drop the fields omitted in any of the languages", func() {
+		Expect(names(omit.Fields(table, "ts"))).To(Equal([]string{"key", "secret"}))
+		Expect(names(omit.Fields(table, "cpp", "pb"))).
+			To(Equal([]string{"key", "hash"}))
+	})
+
+	It("Should not modify the source table", func() {
+		omit.Fields(table, "ts", "cpp")
+		Expect(names(table)).To(Equal([]string{"key", "hash", "secret"}))
+	})
+})

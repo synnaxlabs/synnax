@@ -322,7 +322,7 @@ class ConfigClient:
         """Dynamically load TestCase subclass(es) from a case identifier."""
         try:
             case_path = f"tests/{test_def.case}"
-            module_name = case_path.split("/")[-1]
+            module_name = case_path.replace("/", ".")
 
             current_dir = os.getcwd()
             script_dir = str(Path(__file__).resolve().parent)
@@ -374,6 +374,9 @@ class ConfigClient:
                         f"Cannot create spec for module: {module_name} at {file_path}"
                     )
                 module = importlib.util.module_from_spec(spec)
+                # Pydantic reads sys.modules when a module parametrizes a generic model
+                # at import time.
+                sys.modules[module_name] = module
                 if spec.loader is not None:
                     spec.loader.exec_module(module)
 
