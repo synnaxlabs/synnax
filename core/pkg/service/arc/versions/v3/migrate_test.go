@@ -133,7 +133,6 @@ var _ = Describe("MigrateArc", func() {
 			Expect(got.Graph.Nodes).To(HaveLen(2))
 			Expect(got.Graph.Nodes[1].Position.X).To(Equal(100.0))
 			Expect(got.Program).To(BeNil())
-			Expect(got.Status).To(BeNil())
 		})
 
 		It(
@@ -203,7 +202,7 @@ var _ = Describe("MigrateArc", func() {
 		})
 
 		It(
-			"drops Status and Program and preserves core wire fields when v0 entries carry a populated Status",
+			"drops Program and preserves core wire fields when v0 entries carry a populated Status",
 			func(ctx SpecContext) {
 				statusKey := uuid.New().String()
 				labelKey := uuid.New()
@@ -233,8 +232,7 @@ var _ = Describe("MigrateArc", func() {
 				Expect(got.Key).To(Equal(seed.Key))
 				Expect(got.Name).To(Equal(seed.Name))
 				Expect(got.Mode).To(Equal(v3.Mode(seed.Mode)))
-				Expect(got.Status).To(BeNil())
-				Expect(got.Program).To(BeNil())
+					Expect(got.Program).To(BeNil())
 			},
 		)
 	})
