@@ -20,12 +20,15 @@ export const usePlaceholder = (resourceName: string): string =>
   Input.useLabelled() ? `Select ${resourceName}` : caseconv.capitalize(resourceName);
 
 const ACRONYM = /^[A-Z]{2,}$/;
+const IDENTIFIER = / [A-Za-z0-9]$/;
 
 /**
  * @returns the plural of a resource name. A name ending in an acronym takes a lowercase
- * "s" ("PDOs"), where pluralize would give "PDOS".
+ * "s" ("PDOs"), where pluralize would give "PDOS". A name ending in a one-character
+ * identifier drops it ("edge 1" gives "edges").
  */
-export const plural = (resourceName: string): string =>
-  ACRONYM.test(resourceName.split(" ").at(-1) ?? "")
-    ? `${resourceName}s`
-    : pluralize.plural(resourceName);
+export const plural = (resourceName: string): string => {
+  if (IDENTIFIER.test(resourceName)) return plural(resourceName.slice(0, -2));
+  if (ACRONYM.test(resourceName.split(" ").at(-1) ?? "")) return `${resourceName}s`;
+  return pluralize.plural(resourceName);
+};

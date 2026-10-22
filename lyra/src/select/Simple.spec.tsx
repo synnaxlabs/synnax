@@ -128,6 +128,20 @@ describe("Select.Simple", () => {
     expect(c.getByPlaceholderText("Search PDOs...")).toBeTruthy();
   });
 
+  it("should drop a trailing one-character identifier from the plural", () => {
+    const c = render(
+      <Select.Simple<string>
+        value=""
+        onChange={vi.fn()}
+        resourceName="input terminal A"
+      >
+        <Select.Item itemKey="1">First Item</Select.Item>
+      </Select.Simple>,
+    );
+    fireEvent.click(c.getByLabelText("Input terminal A"));
+    expect(c.getByPlaceholderText("Search input terminals...")).toBeTruthy();
+  });
+
   it("should clear the search when the dialog closes", () => {
     const c = render(<SelectSimple />);
     fireEvent.click(c.getByText("Test Item"));
