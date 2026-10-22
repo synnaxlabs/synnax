@@ -29,6 +29,7 @@ class ProdAPI final : public API {
     CAN_ReadFD_t read_fd = nullptr;
     CAN_Write_t write = nullptr;
     CAN_WriteFD_t write_fd = nullptr;
+    CAN_GetStatus_t get_status = nullptr;
     CAN_GetValue_t get_value = nullptr;
     CAN_SetValue_t set_value = nullptr;
     CAN_GetErrorText_t get_error_text = nullptr;
@@ -57,6 +58,7 @@ public:
     ReadFD(TPCANHandle channel, TPCANMsgFD *msg, TPCANTimestampFD *timestamp) override;
     TPCANStatus Write(TPCANHandle channel, TPCANMsg *msg) override;
     TPCANStatus WriteFD(TPCANHandle channel, TPCANMsgFD *msg) override;
+    TPCANStatus GetStatus(TPCANHandle channel) override;
     TPCANStatus GetValue(
         TPCANHandle channel,
         TPCANParameter parameter,

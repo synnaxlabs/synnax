@@ -51,6 +51,7 @@ std::pair<std::shared_ptr<API>, x::errors::Error> ProdAPI::load() {
     symbols.resolve("CAN_ReadFD", api->read_fd);
     symbols.resolve("CAN_Write", api->write);
     symbols.resolve("CAN_WriteFD", api->write_fd);
+    symbols.resolve("CAN_GetStatus", api->get_status);
     symbols.resolve("CAN_GetValue", api->get_value);
     symbols.resolve("CAN_SetValue", api->set_value);
     symbols.resolve("CAN_GetErrorText", api->get_error_text);
@@ -96,6 +97,10 @@ TPCANStatus ProdAPI::Write(const TPCANHandle channel, TPCANMsg *msg) {
 
 TPCANStatus ProdAPI::WriteFD(const TPCANHandle channel, TPCANMsgFD *msg) {
     return this->write_fd(channel, msg);
+}
+
+TPCANStatus ProdAPI::GetStatus(const TPCANHandle channel) {
+    return this->get_status(channel);
 }
 
 TPCANStatus ProdAPI::GetValue(

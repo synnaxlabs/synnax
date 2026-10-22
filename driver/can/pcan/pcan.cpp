@@ -12,8 +12,6 @@
 #include <cstring>
 #include <format>
 
-#include "absl/log/log.h"
-
 #include "driver/can/pcan/pcan.h"
 #include "driver/can/pcan/prod.h"
 #include "driver/can/timing.h"
@@ -106,6 +104,42 @@ TPCANMessageType message_type(const Frame &frame) {
     if (frame.bitrate_switched) type |= PCAN_MESSAGE_BRS;
     return type;
 }
+
+constexpr TPCANStatus BUS_STATES = PCAN_ERROR_BUSLIGHT | PCAN_ERROR_BUSHEAVY |
+                                   PCAN_ERROR_BUSPASSIVE;
+
+/// @returns the BUS_ERROR frame of a bus state. PCAN-Basic does not say which error
+/// counter reached a limit, so the frame sets the bits of both, as Linux does when the
+/// counters are equal.
+Frame state_frame(const TPCANStatus state) {
+    std::uint8_t controller = bus_error::CONTROLLER_ACTIVE;
+    if ((state & PCAN_ERROR_BUSPASSIVE) != 0)
+        controller = bus_error::CONTROLLER_RX_PASSIVE |
+                     bus_error::CONTROLLER_TX_PASSIVE;
+    else if (state != PCAN_ERROR_OK)
+        controller = bus_error::CONTROLLER_RX_WARNING |
+                     bus_error::CONTROLLER_TX_WARNING;
+    return bus_error::make(
+        bus_error::CONTROLLER,
+        controller,
+        x::telem::TimeStamp::now()
+    );
+}
+
+/// @returns the error of an Initialize that refused a channel.
+x::errors::Error
+refusal(API &api, const TPCANStatus status, const synnax::can::Properties &props) {
+    const auto handle = status & PCAN_ERROR_ILLHANDLE;
+    if (handle == PCAN_ERROR_ILLHW || handle == PCAN_ERROR_ILLCLIENT)
+        return {UNREACHABLE_ERROR, props.channel + ": no adapter is attached"};
+    if ((status & PCAN_ERROR_INITIALIZE) != 0 || handle == PCAN_ERROR_HWINUSE ||
+        handle == PCAN_ERROR_NETINUSE)
+        return {
+            UNREACHABLE_ERROR,
+            props.channel + ": another task or application holds the channel"
+        };
+    return translate(api, status, props.channel);
+}
 }
 
 std::string describe(API &api, const TPCANStatus status) {
@@ -113,6 +147,27 @@ std::string describe(API &api, const TPCANStatus status) {
     if (api.GetErrorText(status, LANGUAGE_ENGLISH, text.data()) == PCAN_ERROR_OK)
         return {text.data()};
     return std::format("PCAN-Basic status 0x{:X}", status);
+}
+
+x::errors::Error
+translate(API &api, const TPCANStatus status, const std::string &context) {
+    const auto message = context + ": " + describe(api, status);
+    // PCAN-Basic reports a USB channel with no adapter as ILLHW or ILLCLIENT
+    // (forum.peak-system.com/viewtopic.php?t=2025) and resets a bus off controller only
+    // on a new Initialize (PCAN-Basic documentation, CAN_GetStatus).
+    const auto handle = status & PCAN_ERROR_ILLHANDLE;
+    constexpr TPCANStatus absent = PCAN_ERROR_INITIALIZE | PCAN_ERROR_REGTEST |
+                                   PCAN_ERROR_BUSOFF | PCAN_ERROR_CAUTION;
+    if (handle == PCAN_ERROR_ILLHW || handle == PCAN_ERROR_ILLCLIENT ||
+        handle == PCAN_ERROR_HWINUSE || handle == PCAN_ERROR_NETINUSE ||
+        (status & absent) != 0)
+        return {UNREACHABLE_ERROR, message};
+    constexpr TPCANStatus config = PCAN_ERROR_NODRIVER | PCAN_ERROR_ILLPARAMTYPE |
+                                   PCAN_ERROR_ILLPARAMVAL;
+    if ((status & config) != 0) return {CONFIG_ERROR, message};
+    if ((status & (PCAN_ERROR_XMTFULL | PCAN_ERROR_QXMTFULL)) != 0)
+        return {TEMPORARY_HARDWARE_ERROR, message};
+    return {CRITICAL_HARDWARE_ERROR, message};
 }
 
 std::optional<TPCANHandle> parse_channel(const std::string &name) {
@@ -171,6 +226,8 @@ Bus::receive(Frame &frame, const x::telem::TimeSpan timeout) {
     const auto deadline = std::chrono::steady_clock::now() + timeout.chrono();
     while (true) {
         if (auto res = this->take(frame)) return *res;
+        if (auto res = this->apply(this->api->GetStatus(this->handle), frame))
+            return *res;
         const auto now = std::chrono::steady_clock::now();
         if (now >= deadline) return {false, x::errors::NIL};
         const auto remaining = std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -209,34 +266,49 @@ std::optional<std::pair<bool, x::errors::Error>> Bus::take(Frame &frame) {
             }
         }
         if (status == PCAN_ERROR_OK) {
-            if ((type & PCAN_MESSAGE_STATUS) != 0) continue;
-            return std::pair{true, x::errors::NIL};
-        }
-        if ((status & PCAN_ERROR_BUSOFF) != 0)
-            return std::pair{
-                false,
-                x::errors::Error(TEMPORARY_HARDWARE_ERROR, this->name + ": bus off")
-            };
-        if ((status & (PCAN_ERROR_OVERRUN | PCAN_ERROR_QOVERRUN)) != 0) {
-            LOG(WARNING) << "[can] " << this->name
-                         << ": receive queue overran and frames were lost";
+            if ((type & PCAN_MESSAGE_STATUS) == 0)
+                return std::pair{true, x::errors::NIL};
+            if (auto res = this->apply(this->api->GetStatus(this->handle), frame))
+                return res;
             continue;
         }
-        constexpr TPCANStatus idle = PCAN_ERROR_QRCVEMPTY | PCAN_ERROR_BUSLIGHT |
-                                     PCAN_ERROR_BUSHEAVY | PCAN_ERROR_BUSPASSIVE;
-        if ((status & ~idle) != 0)
-            return std::pair{
-                false,
-                x::errors::Error(
-                    CRITICAL_HARDWARE_ERROR,
-                    this->name + ": " + describe(*this->api, status)
-                )
-            };
-        return std::nullopt;
+        if ((status & (PCAN_ERROR_OVERRUN | PCAN_ERROR_QOVERRUN)) != 0) {
+            frame = bus_error::make(
+                bus_error::CONTROLLER,
+                bus_error::CONTROLLER_RX_OVERFLOW,
+                x::telem::TimeStamp::now()
+            );
+            return std::pair{true, x::errors::NIL};
+        }
+        if ((status & PCAN_ERROR_QRCVEMPTY) != 0) return std::nullopt;
+        return this->apply(status, frame);
     }
 }
 
+std::optional<std::pair<bool, x::errors::Error>>
+Bus::apply(const TPCANStatus status, Frame &frame) {
+    if (auto err = this->fault(status)) return std::pair{false, err};
+    const auto state = status & BUS_STATES;
+    if (state == this->state) return std::nullopt;
+    this->state = state;
+    frame = state_frame(state);
+    return std::pair{true, x::errors::NIL};
+}
+
+x::errors::Error Bus::fault(TPCANStatus status) {
+    status &= ~BUS_STATES;
+    if (status == PCAN_ERROR_OK) return x::errors::NIL;
+    // An unplugged channel reads empty and takes writes. Only CAN_GetStatus reports the
+    // unplug (forum.peak-system.com/viewtopic.php?p=20202).
+    if ((status & PCAN_ERROR_ILLHANDLE) == PCAN_ERROR_ILLHW)
+        return {UNREACHABLE_ERROR, this->name + ": the adapter was unplugged"};
+    if ((status & PCAN_ERROR_BUSOFF) != 0)
+        return {UNREACHABLE_ERROR, this->name + ": bus off"};
+    return translate(*this->api, status, this->name);
+}
+
 x::errors::Error Bus::transmit(const Frame &frame) {
+    if (auto err = this->fault(this->api->GetStatus(this->handle))) return err;
     TPCANStatus status;
     if (this->fd) {
         TPCANMsgFD msg{};
@@ -256,9 +328,7 @@ x::errors::Error Bus::transmit(const Frame &frame) {
     if (status == PCAN_ERROR_OK) return x::errors::NIL;
     if ((status & (PCAN_ERROR_XMTFULL | PCAN_ERROR_QXMTFULL)) != 0)
         return {TEMPORARY_HARDWARE_ERROR, this->name + ": transmit queue is full"};
-    if ((status & PCAN_ERROR_BUSOFF) != 0)
-        return {TEMPORARY_HARDWARE_ERROR, this->name + ": bus off"};
-    return {CRITICAL_HARDWARE_ERROR, this->name + ": " + describe(*this->api, status)};
+    return this->fault(status);
 }
 
 x::errors::Error Bus::close() {
@@ -267,7 +337,7 @@ x::errors::Error Bus::close() {
     const auto status = this->api->Uninitialize(this->handle);
     this->event.reset();
     if (status == PCAN_ERROR_OK) return x::errors::NIL;
-    return {CRITICAL_HARDWARE_ERROR, this->name + ": " + describe(*this->api, status)};
+    return translate(*this->api, status, this->name);
 }
 
 std::pair<std::vector<Channel>, x::errors::Error> Backend::scan() {
@@ -322,11 +392,7 @@ Backend::open(const synnax::can::Properties &props) {
         if (status != PCAN_ERROR_OK)
             return {
                 nullptr,
-                x::errors::Error(
-                    CONFIG_ERROR,
-                    props.channel +
-                        " cannot listen only: " + describe(*this->api, status)
-                )
+                translate(*this->api, status, props.channel + " cannot listen only")
             };
     }
     TPCANStatus status;
@@ -339,15 +405,18 @@ Backend::open(const synnax::can::Properties &props) {
         if (err) return {nullptr, err};
         status = this->api->Initialize(*handle, code, 0, 0, 0);
     }
-    if (status != PCAN_ERROR_OK) {
-        const auto &type = (status & (PCAN_ERROR_ILLPARAMVAL | PCAN_ERROR_ILLPARAMTYPE))
-                             ? CONFIG_ERROR
-                             : TEMPORARY_HARDWARE_ERROR;
+    if (status == PCAN_ERROR_CAUTION) {
+        this->api->Uninitialize(*handle);
         return {
             nullptr,
-            x::errors::Error(type, props.channel + ": " + describe(*this->api, status))
+            x::errors::Error(
+                UNREACHABLE_ERROR,
+                props.channel +
+                    ": another application runs the channel at a different bitrate"
+            )
         };
     }
+    if (status != PCAN_ERROR_OK) return {nullptr, refusal(*this->api, status, props)};
     auto [event, err] = this->api->OpenReceiveEvent(*handle);
     if (err) {
         this->api->Uninitialize(*handle);

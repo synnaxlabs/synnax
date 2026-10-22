@@ -52,6 +52,7 @@ public:
     ReadFD(TPCANHandle channel, TPCANMsgFD *msg, TPCANTimestampFD *timestamp) = 0;
     virtual TPCANStatus Write(TPCANHandle channel, TPCANMsg *msg) = 0;
     virtual TPCANStatus WriteFD(TPCANHandle channel, TPCANMsgFD *msg) = 0;
+    virtual TPCANStatus GetStatus(TPCANHandle channel) = 0;
     virtual TPCANStatus GetValue(
         TPCANHandle channel,
         TPCANParameter parameter,

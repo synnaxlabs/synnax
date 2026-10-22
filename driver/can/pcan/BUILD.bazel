@@ -32,7 +32,6 @@ cc_library(
         "//x/cpp/errors",
         "//x/cpp/lib",
         "//x/cpp/telem",
-        "@abseil-cpp//absl/log",
     ] + select({
         "@platforms//os:windows": ["//x/cpp/notify"],
         "//conditions:default": [],
