@@ -8,14 +8,17 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <tuple>
 #include <utility>
 
 #include "driver/bus/read.h"
+#include "driver/transport/errors.h"
 
 namespace driver::bus {
-Source::Source(ReadConfig cfg, Acquire acquire):
+Source::Source(ReadConfig cfg, Acquire acquire, x::telem::NowFunc now):
     cfg(std::move(cfg)),
-    decoder(this->cfg),
+    now(std::move(now)),
+    decoder(this->cfg, this->now),
     acquire(std::move(acquire)),
     next_query(this->cfg.polled.size()) {}
 
@@ -28,9 +31,9 @@ std::vector<synnax::channel::Channel> Source::channels() const {
 }
 
 x::errors::Error Source::start() {
-    this->next_poll = x::telem::TimeStamp::now();
-    this->next_query = this->cfg.polled.size();
-    this->decoder.clear_warning();
+    this->next_poll = this->now();
+    this->restart_polls();
+    this->decoder.reset();
     auto [conn, err] = this->acquire();
     if (err) return err;
     this->conn = std::move(conn);
@@ -45,90 +48,117 @@ x::errors::Error Source::stop() {
 
 common::ReadResult Source::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
     common::ReadResult res;
+    x::errors::Error err;
     {
         auto guard = this->conn->lock();
-        auto [t, err] = guard.transport();
+        Transport *t = nullptr;
+        std::tie(t, err) = guard.transport();
         if (!err) {
             if (guard.opens() != this->opens) {
                 this->opens = guard.opens();
                 if (this->cfg.framer != nullptr) this->cfg.framer->reset();
+                this->restart_polls();
+                this->decoder.restart();
             }
             err = this->exchange(*t, breaker);
+            if (err) guard.fail(err);
         }
-        if (err) {
-            guard.close();
-            this->next_query = this->cfg.polled.size();
+    }
+    if (err) {
+        if (!err.matches(transport::UNREACHABLE_ERROR)) {
             res.error = err;
             return res;
         }
+        this->restart_polls();
+        this->decoder.restart();
+        this->decoder.warn("reconnecting to " + this->cfg.device + ": " + err.data);
+        const auto wait = std::min(this->conn->retry_at() - this->now(), READ_TIMEOUT);
+        if (wait > x::telem::TimeSpan::ZERO()) breaker.wait_for(wait);
     }
     this->decoder.flush(fr);
-    res.warning = this->decoder.warning(x::telem::TimeStamp::now());
+    res.warning = this->decoder.warning();
     return res;
 }
 
-x::errors::Error Source::exchange(Transport &t, const x::breaker::Breaker &breaker) {
-    const auto now = x::telem::TimeStamp::now();
-    if (this->next_query >= this->cfg.polled.size() && !this->cfg.polled.empty() &&
-        now >= this->next_poll) {
-        this->next_query = 0;
-        this->next_poll = std::max(this->next_poll + this->cfg.poll_rate.period(), now);
-    }
-    if (this->next_query < this->cfg.polled.size()) return this->query(t, breaker, now);
-    auto timeout = READ_TIMEOUT;
-    if (!this->cfg.polled.empty()) timeout = std::min(timeout, this->next_poll - now);
-    return this->receive(t, std::max(timeout, x::telem::MILLISECOND));
+void Source::restart_polls() {
+    this->next_query = this->cfg.polled.size();
+    this->awaiting.reset();
+    this->missed.reset();
+    this->idle = x::telem::TimeSpan::ZERO();
 }
 
-x::errors::Error Source::query(
-    Transport &t,
-    const x::breaker::Breaker &breaker,
-    const x::telem::TimeStamp now
-) {
+x::errors::Error Source::exchange(Transport &t, const x::breaker::Breaker &breaker) {
+    const auto now = this->now();
+    if (this->missed.has_value() && now >= this->quiet_until) this->missed.reset();
+    const bool quiet = !this->missed.has_value();
+    if (quiet && this->next_query >= this->cfg.polled.size() &&
+        !this->cfg.polled.empty() && now >= this->next_poll) {
+        const auto period = this->cfg.poll_rate.period();
+        this->next_query = 0;
+        this->next_poll = this->next_poll + period;
+        if (this->next_poll <= now) this->next_poll = now + period;
+    }
+    if (quiet && this->next_query < this->cfg.polled.size())
+        return this->query(t, breaker);
+    auto timeout = READ_TIMEOUT;
+    if (!quiet)
+        timeout = std::min(timeout, this->quiet_until - now);
+    else if (!this->cfg.polled.empty())
+        timeout = std::min(timeout, this->next_poll - now);
+    return this->receive(t, std::max(timeout, x::telem::MILLISECOND)).second;
+}
+
+x::errors::Error Source::query(Transport &t, const x::breaker::Breaker &breaker) {
     const auto message = this->cfg.polled[this->next_query++];
     if (const auto err = this->drain(t)) return err;
     if (const auto err = t.write(this->cfg.messages[message].query, WRITE_TIMEOUT))
         return err;
-    const auto deadline = now + this->cfg.poll_timeout;
+    const auto deadline = this->now() + this->cfg.poll_timeout;
     this->awaiting = message;
     x::errors::Error err;
     while (!err && this->awaiting.has_value() && breaker.running()) {
-        const auto left = deadline - x::telem::TimeStamp::now();
-        if (left <= x::telem::TimeSpan::ZERO()) {
-            this->decoder.warn(
-                "no reply to the query of " + this->cfg.messages[message].entry.name +
-                " within " + this->cfg.poll_timeout.to_string()
-            );
+        const auto now = this->now();
+        if (now >= deadline) {
+            this->missed = message;
+            this->quiet_until = now + this->cfg.poll_timeout;
             break;
         }
-        err = this->receive(t, std::min(left, READ_TIMEOUT));
+        err = this->receive(t, std::min(deadline - now, READ_TIMEOUT)).second;
     }
     this->awaiting.reset();
     return err;
 }
 
 x::errors::Error Source::drain(Transport &t) {
-    const auto deadline = x::telem::TimeStamp::now() + READ_TIMEOUT;
-    while (x::telem::TimeStamp::now() < deadline) {
-        auto [chunk, err] = t.read(x::telem::MILLISECOND);
+    const auto deadline = this->now() + READ_TIMEOUT;
+    while (this->now() < deadline) {
+        const auto [n, err] = this->receive(t, x::telem::MILLISECOND);
         if (err) return err;
-        if (chunk.data.empty()) break;
-        this->consume(chunk);
+        if (n == 0) break;
     }
     if (this->cfg.framer != nullptr) this->cfg.framer->reset();
     return x::errors::NIL;
 }
 
-x::errors::Error Source::receive(Transport &t, const x::telem::TimeSpan timeout) {
+std::pair<std::size_t, x::errors::Error>
+Source::receive(Transport &t, const x::telem::TimeSpan timeout) {
     auto [chunk, err] = t.read(timeout);
-    if (!err) this->consume(chunk);
-    return err;
-}
-
-void Source::consume(const transport::Chunk &chunk) {
-    if (chunk.data.empty()) return;
-    if (this->cfg.framer == nullptr) return this->handle(chunk.data, chunk.time);
+    if (err) return {0, err};
+    if (chunk.errors > 0)
+        this->decoder.warn("dropped bytes received with parity or framing errors");
+    if (chunk.overruns > 0)
+        this->decoder.warn("lost received bytes to receive overruns");
+    if (chunk.data.empty()) {
+        this->idle += timeout;
+        return {0, x::errors::NIL};
+    }
+    if (this->cfg.framer == nullptr) {
+        this->handle(chunk.data, chunk.time);
+        return {chunk.data.size(), x::errors::NIL};
+    }
     const auto before = this->cfg.framer->errors();
+    if (this->idle >= this->cfg.gap) this->cfg.framer->gap();
+    this->idle = x::telem::TimeSpan::ZERO();
     const auto framing_err = this->cfg.framer->write(
         chunk.data,
         [&](const std::span<const std::uint8_t> frame) {
@@ -136,11 +166,9 @@ void Source::consume(const transport::Chunk &chunk) {
         }
     );
     if (framing_err) this->decoder.warn(framing_err.data);
-    if (const auto n = this->cfg.framer->errors() - before; n > 0)
-        this->decoder.warn(
-            "dropped " + std::to_string(n) +
-            " corrupt or unframed segments of the byte stream"
-        );
+    if (this->cfg.framer->errors() > before)
+        this->decoder.warn("dropped corrupt or unframed segments of the byte stream");
+    return {chunk.data.size(), x::errors::NIL};
 }
 
 void Source::handle(
@@ -153,6 +181,12 @@ void Source::handle(
         const auto message = *this->awaiting;
         this->awaiting.reset();
         this->decoder.decode(message, frame, time);
+        return;
+    }
+    if (this->missed.has_value() &&
+        this->cfg.messages[*this->missed].reply.match(frame)) {
+        this->decoder.late(*this->missed);
+        this->quiet_until = this->now() + this->cfg.poll_timeout;
         return;
     }
     if (const auto i = this->cfg.matcher.match(frame))

@@ -19,6 +19,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -31,6 +32,7 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/sync/list.h"
 #include "x/cpp/telem/frame.h"
+#include "x/cpp/telem/mono_clock.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/uuid/uuid.h"
@@ -202,30 +204,54 @@ inline synnax::channel::Channel data_channel(
     return ch;
 }
 
+/// @brief one read an in-memory Transport returns.
+struct Read {
+    /// @brief the bytes the read returns.
+    std::vector<std::uint8_t> data;
+    /// @brief the bytes the line dropped for parity or framing errors.
+    std::size_t errors = 0;
+    /// @brief the receive overruns the line reported.
+    std::size_t overruns = 0;
+};
+
 /// @brief the state an in-memory Transport shares with the test that scripts it.
 struct Wire {
     std::mutex mu;
     std::condition_variable cv;
-    /// @brief chunks the transport returns from read, in order.
-    std::deque<std::vector<std::uint8_t>> reads;
+    /// @brief what the transport returns from read, in order.
+    std::deque<Read> reads;
     /// @brief the error the next read returns instead of a chunk.
     x::errors::Error read_err;
     /// @brief errors the opener returns, in order, before it succeeds.
     std::deque<x::errors::Error> open_errs;
+    /// @brief errors the next writes return, in order, before writes succeed. A failed
+    /// write sends nothing.
+    std::deque<x::errors::Error> write_errs;
+    /// @brief how long each write blocks before its bytes go out, as on a slow link.
+    x::telem::TimeSpan write_delay = x::telem::TimeSpan::ZERO();
+    /// @brief the number of writes that have begun, including those still blocked by
+    /// write_delay.
+    int started = 0;
     /// @brief every write, in order.
     std::vector<std::vector<std::uint8_t>> writes;
     /// @brief called with each write while mu is held. It can queue a reply.
     std::function<void(Wire &, std::span<const std::uint8_t>)> on_write;
     /// @brief the number of successful opens.
     int opens = 0;
+    /// @brief the number of open attempts, failed or not.
+    int attempts = 0;
     /// @brief the number of transports closed.
     int closes = 0;
 
     /// @brief queues a chunk for read.
-    void push(const std::vector<std::uint8_t> &chunk) {
+    void push(
+        const std::vector<std::uint8_t> &chunk,
+        const std::size_t errors = 0,
+        const std::size_t overruns = 0
+    ) {
         {
             std::lock_guard lock(this->mu);
-            this->reads.push_back(chunk);
+            this->reads.push_back({chunk, errors, overruns});
         }
         this->cv.notify_all();
     }
@@ -272,21 +298,38 @@ public:
             return {{}, err};
         }
         if (this->wire->reads.empty()) return {{}, x::errors::NIL};
-        this->last = std::move(this->wire->reads.front());
+        auto read = std::move(this->wire->reads.front());
         this->wire->reads.pop_front();
+        this->last = std::move(read.data);
         return {
-            transport::Chunk{.data = this->last, .time = x::telem::TimeStamp::now()},
+            transport::Chunk{
+                .data = this->last,
+                .time = x::telem::TimeStamp::now(),
+                .errors = read.errors,
+                .overruns = read.overruns,
+            },
             x::errors::NIL,
         };
     }
 
     x::errors::Error
     write(const std::span<const std::uint8_t> data, const x::telem::TimeSpan) override {
-        {
-            std::lock_guard lock(this->wire->mu);
-            this->wire->writes.emplace_back(data.begin(), data.end());
-            if (this->wire->on_write) this->wire->on_write(*this->wire, data);
+        std::unique_lock lock(this->wire->mu);
+        if (!this->wire->write_errs.empty()) {
+            auto err = this->wire->write_errs.front();
+            this->wire->write_errs.pop_front();
+            return err;
         }
+        this->wire->started++;
+        if (const auto delay = this->wire->write_delay;
+            delay > x::telem::TimeSpan::ZERO()) {
+            lock.unlock();
+            std::this_thread::sleep_for(delay.chrono());
+            lock.lock();
+        }
+        this->wire->writes.emplace_back(data.begin(), data.end());
+        if (this->wire->on_write) this->wire->on_write(*this->wire, data);
+        lock.unlock();
         this->wire->cv.notify_all();
         return x::errors::NIL;
     }
@@ -297,6 +340,7 @@ public:
 inline Opener opener(const std::shared_ptr<Wire> &wire) {
     return [wire]() -> std::pair<std::unique_ptr<bus::Transport>, x::errors::Error> {
         std::lock_guard lock(wire->mu);
+        wire->attempts++;
         if (!wire->open_errs.empty()) {
             auto err = wire->open_errs.front();
             wire->open_errs.pop_front();
@@ -316,10 +360,36 @@ inline Acquire acquire(
     return acquirer(connections, "dev", x::json::json::object(), opener(wire));
 }
 
-/// @brief resolves a read config over messages. Message i is stamped on index channel
-/// 100 + i, and its fields map in order to FLOAT64 channels numbered from 1.
+/// @brief a steady clock that moves only when a test sets or advances it. Safe for
+/// concurrent use.
+class Clock {
+    mutable std::mutex mu;
+    x::telem::TimeStamp time = x::telem::TimeStamp(x::telem::SECOND);
+
+public:
+    /// @returns the current time.
+    x::telem::TimeStamp now() const {
+        std::lock_guard lock(this->mu);
+        return this->time;
+    }
+
+    /// @brief moves the clock forward by span.
+    void advance(const x::telem::TimeSpan span) {
+        std::lock_guard lock(this->mu);
+        this->time = this->time + span;
+    }
+
+    /// @returns a NowFunc that reads this clock, which must outlive it.
+    x::telem::NowFunc func() const {
+        return [this] { return this->now(); };
+    }
+};
+
+/// @brief resolves a read config over messages. The fields of message i are stamped on
+/// index channel 100 + i and map in order to FLOAT64 channels numbered from 1.
 /// @param edit changes the config before it resolves.
-/// @param channels channels to add to the generated ones, such as a raw channel.
+/// @param channels channels to add to the generated ones, such as a raw channel. A
+/// channel with the key of a generated one replaces it.
 inline ReadConfig read_config(
     const std::vector<synnax::library::MessageEntry> &messages,
     const std::optional<::synnax::bus::Framing> &framing,
@@ -330,30 +400,36 @@ inline ReadConfig read_config(
 ) {
     ::synnax::bus::ReadConfig cfg;
     cfg.device = "dev";
+    std::vector<synnax::channel::Channel> generated;
     synnax::channel::Key next = 1;
     for (std::size_t i = 0; i < messages.size(); i++) {
         const auto index = static_cast<synnax::channel::Key>(100 + i);
-        channels.push_back(index_channel(index));
-        ::synnax::bus::ReadMessage rm{.message = messages[i].key, .index = index};
+        generated.push_back(index_channel(index));
+        ::synnax::bus::ReadMessage rm{.message = messages[i].key};
         for (const auto *f: field_bases(messages[i])) {
-            channels.push_back(data_channel(next, index));
-            rm.fields.push_back({.field = f->key, .channel = next++});
+            generated.push_back(data_channel(next, index));
+            rm.fields.push_back({.field = f->key, .channel = next++, .index = index});
         }
         cfg.messages.push_back(rm);
     }
+    channels.insert(channels.begin(), generated.begin(), generated.end());
     if (edit) edit(cfg);
     x::json::Parser parser(x::json::json::object());
-    auto out = ReadConfig::resolve(
+    std::optional<Stream> stream;
+    if (framing.has_value()) stream = Stream{.framing = *framing};
+    auto [out, err] = ReadConfig::resolve(
         parser,
         cfg,
         poll,
-        framing,
+        stream,
         library(messages),
         channels,
         medium
     );
     EXPECT_TRUE(parser.ok()) << parser.error_json().dump();
-    return out;
+    EXPECT_FALSE(err) << err;
+    out.device = "dev";
+    return std::move(out);
 }
 
 /// @brief resolves a write config over one message.
@@ -374,7 +450,7 @@ inline WriteConfig write_config(
     }
     cfg.messages = {wm};
     x::json::Parser parser(x::json::json::object());
-    auto out = WriteConfig::resolve(
+    auto [out, err] = WriteConfig::resolve(
         parser,
         cfg,
         framing,
@@ -383,7 +459,9 @@ inline WriteConfig write_config(
         medium
     );
     EXPECT_TRUE(parser.ok()) << parser.error_json().dump();
-    return out;
+    EXPECT_FALSE(err) << err;
+    out.device = "dev";
+    return std::move(out);
 }
 
 /// @returns every value of the channel across frames, in order.

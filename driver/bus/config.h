@@ -50,17 +50,38 @@ enum class Medium : std::uint8_t {
 std::pair<std::vector<std::uint8_t>, x::errors::Error>
 unescape(const std::string &escaped);
 
+/// @brief how a read task splits a byte stream into frames.
+struct Stream {
+    /// @brief splits the stream into frames.
+    ::synnax::bus::Framing framing;
+    /// @brief the pause after which fixed framing drops a partial frame. It depends on
+    /// whether the transport can lose bytes.
+    x::telem::TimeSpan gap = x::telem::TimeSpan::max();
+};
+
+/// @brief the fields of a read message that share an index channel. The same
+/// multiplexor values select every field of a group, so they arrive together.
+struct Group {
+    /// @brief the index channel stamped with each arrival, or zero for a field whose
+    /// channel is virtual.
+    synnax::channel::Key index = 0;
+    /// @brief the plan slots of the group's fields.
+    std::vector<std::size_t> slots;
+};
+
 /// @brief a library message a read task decodes.
 struct ReadMessage {
     /// @brief the message's library entry.
     synnax::library::MessageEntry entry;
     /// @brief decodes the message. Its slots follow the configured fields.
     codec::Plan plan;
-    /// @brief the index channel stamped with each arrival. Zero when the fields'
-    /// channels are virtual.
-    synnax::channel::Key index = 0;
+    /// @brief the fields of the message grouped by index channel.
+    std::vector<Group> groups;
     /// @brief the channel each plan slot is written to.
     std::vector<synnax::channel::Channel> channels;
+    /// @brief how often the message arrives: its poll period when it has a query, its
+    /// library period otherwise, or zero when unknown.
+    x::telem::TimeSpan period;
     /// @brief the wire bytes of the message's query. Empty when the device sends the
     /// message unprompted.
     std::vector<std::uint8_t> query;
@@ -70,6 +91,8 @@ struct ReadMessage {
 
 /// @brief a bus read task config resolved against its library and channels.
 struct ReadConfig {
+    /// @brief the name of the device, for status messages.
+    std::string device;
     /// @brief the enabled messages.
     std::vector<ReadMessage> messages;
     /// @brief matches frames to the messages with no query. Its results index streamed.
@@ -90,30 +113,35 @@ struct ReadConfig {
     /// @brief splits the byte stream into frames. Null when each chunk is one frame, as
     /// with UDP datagrams.
     std::unique_ptr<codec::framing::Framer> framer;
+    /// @brief the pause after which fixed framing drops a partial frame.
+    x::telem::TimeSpan gap = x::telem::TimeSpan::max();
 
     /// @brief resolves cfg against its library and the channels it names, binding
     /// validation errors to their fields on parser.
-    /// @param framing how the stream splits into frames. Absent for datagrams and CAN.
-    static ReadConfig resolve(
+    /// @param stream how the byte stream splits into frames. Absent for datagrams and
+    /// CAN.
+    /// @returns x::errors::INTERNAL when a message layout passed the Core's checks but
+    /// the Driver cannot compile it, which is a bug in one of the two.
+    static std::pair<ReadConfig, x::errors::Error> resolve(
         x::json::Parser &parser,
         const ::synnax::bus::ReadConfig &cfg,
         const ::synnax::bus::PollConfig &poll,
-        const std::optional<::synnax::bus::Framing> &framing,
+        const std::optional<Stream> &stream,
         const synnax::library::Library &library,
         const std::vector<synnax::channel::Channel> &channels,
         Medium medium = Medium::BYTES
     );
 
-    /// @brief retrieves the library and channels cfg names from the Core, then resolves
-    /// cfg as resolve does.
-    /// @returns x::errors::VALIDATION with field errors when cfg is invalid, or the
-    /// Core's error when a retrieval fails.
+    /// @brief retrieves the device, library, and channels cfg names from the Core, then
+    /// resolves cfg as resolve does.
+    /// @returns x::errors::VALIDATION with field errors when cfg is invalid,
+    /// x::errors::INTERNAL as resolve does, or the Core's error when a retrieval fails.
     static std::pair<ReadConfig, x::errors::Error> parse(
         const synnax::Synnax &client,
         x::json::Parser &parser,
         const ::synnax::bus::ReadConfig &cfg,
         const ::synnax::bus::PollConfig &poll,
-        const std::optional<::synnax::bus::Framing> &framing,
+        const std::optional<Stream> &stream,
         Medium medium = Medium::BYTES
     );
 };
@@ -124,6 +152,8 @@ struct Binding {
     synnax::channel::Key channel = 0;
     /// @brief the plan slot of the field.
     std::size_t slot = 0;
+    /// @brief the name of the field.
+    std::string field;
 };
 
 /// @brief a library message a write task encodes.
@@ -143,6 +173,8 @@ struct WriteMessage {
 
 /// @brief a bus write task config resolved against its library and channels.
 struct WriteConfig {
+    /// @brief the name of the device, for status messages.
+    std::string device;
     /// @brief the enabled messages.
     std::vector<WriteMessage> messages;
     /// @brief the distinct command channels, in config order.
@@ -152,7 +184,7 @@ struct WriteConfig {
 
     /// @brief resolves cfg as ReadConfig::resolve does. On CAN, every message needs a
     /// CAN identifier to send with.
-    static WriteConfig resolve(
+    static std::pair<WriteConfig, x::errors::Error> resolve(
         x::json::Parser &parser,
         const ::synnax::bus::WriteConfig &cfg,
         const std::optional<::synnax::bus::Framing> &framing,

@@ -20,6 +20,7 @@ cc_library(
         "write.cpp",
     ],
     hdrs = [
+        "clock.h",
         "config.h",
         "connection.h",
         "decoder.h",
@@ -27,6 +28,7 @@ cc_library(
         "registry.h",
         "task.h",
         "transport.h",
+        "warnings.h",
         "write.h",
     ],
     visibility = ["//visibility:public"],
@@ -37,6 +39,7 @@ cc_library(
         "//driver/codec",
         "//driver/codec/framing",
         "//driver/common",
+        "//driver/errors",
         "//driver/task",
         "//driver/transport",
         "//x/cpp/breaker",
@@ -54,6 +57,7 @@ cc_test(
     srcs = [
         "config_test.cpp",
         "connection_test.cpp",
+        "decoder_test.cpp",
         "read_test.cpp",
         "write_test.cpp",
     ],

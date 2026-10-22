@@ -25,7 +25,7 @@ std::vector<synnax::channel::Channel> Source::channels() const {
 }
 
 x::errors::Error Source::start() {
-    this->decoder.clear_warning();
+    this->decoder.reset();
     auto [link, err] = this->acquire();
     if (err) return err;
     this->link = std::move(link);
@@ -67,7 +67,7 @@ common::ReadResult Source::read(x::breaker::Breaker &, x::telem::Frame &fr) {
         if (x::telem::TimeStamp::now() >= deadline) break;
     }
     this->decoder.flush(fr);
-    res.warning = this->decoder.warning(x::telem::TimeStamp::now());
+    res.warning = this->decoder.warning();
     return res;
 }
 

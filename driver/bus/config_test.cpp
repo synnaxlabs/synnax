@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <string>
+#include <tuple>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -41,19 +42,49 @@ struct ReadFixture {
         cfg.device = "dev";
         cfg.messages = {{
             .message = message.key,
-            .index = 1,
-            .fields = {{.field = field_key(message, 0), .channel = 2}},
+            .fields = {{.field = field_key(message, 0), .channel = 2, .index = 1}},
         }};
+    }
+
+    /// @returns how the fixture splits its byte stream, if it has framing.
+    [[nodiscard]] std::optional<Stream> stream() const {
+        if (!framing.has_value()) return std::nullopt;
+        return Stream{.framing = *framing};
+    }
+
+    /// @returns the config resolved against lib, and the error of resolve.
+    [[nodiscard]] std::pair<ReadConfig, x::errors::Error>
+    resolve(const synnax::library::Library &lib) const {
+        x::json::Parser parser(x::json::json::object());
+        auto [out, err] = ReadConfig::resolve(
+            parser,
+            cfg,
+            poll,
+            stream(),
+            lib,
+            channels,
+            medium
+        );
+        EXPECT_TRUE(parser.ok()) << parser.error_json().dump();
+        return {std::move(out), err};
     }
 
     /// @returns the first field error of resolving the config against lib.
     [[nodiscard]] std::pair<std::string, std::string>
     first_error(const synnax::library::Library &lib) const {
         x::json::Parser parser(x::json::json::object());
-        ReadConfig::resolve(parser, cfg, poll, framing, lib, channels, medium);
+        const auto [_, err] = ReadConfig::resolve(
+            parser,
+            cfg,
+            poll,
+            stream(),
+            lib,
+            channels,
+            medium
+        );
         if (parser.ok()) return {"", ""};
-        const auto err = parser.error_json()["errors"][0];
-        return {err["path"], err["message"]};
+        const auto first = parser.error_json()["errors"][0];
+        return {first["path"], first["message"]};
     }
 
     [[nodiscard]] std::pair<std::string, std::string> first_error() const {
@@ -88,18 +119,12 @@ TEST(Unescape, RejectsATruncatedHexEscape) {
 
 TEST(ReadConfig, ResolvesAValidConfig) {
     ReadFixture f;
-    x::json::Parser parser(x::json::json::object());
-    const auto cfg = ReadConfig::resolve(
-        parser,
-        f.cfg,
-        f.poll,
-        f.framing,
-        library({f.message}),
-        f.channels
-    );
-    ASSERT_NIL(parser.error());
+    const auto [cfg, err] = f.resolve(library({f.message}));
+    ASSERT_NIL(err);
     ASSERT_EQ(cfg.messages.size(), 1);
-    EXPECT_EQ(cfg.messages[0].index, 1);
+    ASSERT_EQ(cfg.messages[0].groups.size(), 1);
+    EXPECT_EQ(cfg.messages[0].groups[0].index, 1);
+    EXPECT_EQ(cfg.messages[0].groups[0].slots, std::vector<std::size_t>{0});
     EXPECT_EQ(cfg.messages[0].channels[0].key, 2);
     EXPECT_EQ(cfg.streamed, std::vector<std::size_t>{0});
     EXPECT_TRUE(cfg.polled.empty());
@@ -128,7 +153,7 @@ TEST(ReadConfig, RejectsAChannelOnAnotherIndex) {
     f.channels[1].index = 3;
     const auto [path, msg] = f.first_error();
     EXPECT_EQ(path, "messages.0.fields.0.channel");
-    EXPECT_EQ(msg, "channel data_2 has index 3, but message status is stamped on 1");
+    EXPECT_EQ(msg, "channel data_2 has index 3, but field value is stamped on 1");
 }
 
 TEST(ReadConfig, RejectsAChannelThatDoesNotExist) {
@@ -150,9 +175,27 @@ TEST(ReadConfig, RejectsAStringChannel) {
     );
 }
 
-TEST(ReadConfig, RejectsAChannelUsedTwice) {
+TEST(ReadConfig, RejectsAFieldReadTwice) {
     ReadFixture f;
     f.cfg.messages[0].fields.push_back(f.cfg.messages[0].fields[0]);
+    const auto [path, msg] = f.first_error();
+    EXPECT_EQ(path, "messages.0.fields.1.field");
+    EXPECT_EQ(msg, "field value is read twice");
+}
+
+TEST(ReadConfig, RejectsAChannelUsedTwice) {
+    ReadFixture f;
+    f.message = text_message(
+        "status",
+        {delimited_field("a", 0), delimited_field("b", 1)}
+    );
+    f.cfg.messages = {{
+        .message = f.message.key,
+        .fields = {
+            {.field = field_key(f.message, 0), .channel = 2, .index = 1},
+            {.field = field_key(f.message, 1), .channel = 2, .index = 1},
+        },
+    }};
     const auto [path, msg] = f.first_error();
     EXPECT_EQ(path, "messages.0.fields.1.channel");
     EXPECT_EQ(msg, "channel 2 is used more than once");
@@ -162,7 +205,7 @@ TEST(ReadConfig, RejectsAnIndexThatIsNotAnIndexChannel) {
     ReadFixture f;
     f.channels[0].is_index = false;
     const auto [path, msg] = f.first_error();
-    EXPECT_EQ(path, "messages.0.index");
+    EXPECT_EQ(path, "messages.0.fields.0.index");
     EXPECT_EQ(msg, "channel index_1 is not an index channel");
 }
 
@@ -283,18 +326,114 @@ TEST(ReadConfig, RequiresADevice) {
 TEST(ReadConfig, SendsTheFramedQueryOfAPolledMessage) {
     ReadFixture f;
     f.message.query = "VOLT?";
+    f.poll = {.rate = x::telem::Rate(4), .timeout = x::telem::SECOND};
+    const auto [cfg, err] = f.resolve(library({f.message}));
+    ASSERT_NIL(err);
+    EXPECT_EQ(cfg.polled, std::vector<std::size_t>{0});
+    EXPECT_EQ(cfg.messages[0].period, 250 * x::telem::MILLISECOND);
+    EXPECT_EQ(text(cfg.messages[0].query), "VOLT?\n");
+}
+
+TEST(ReadConfig, GroupsTheFieldsOfAMessageByIndex) {
+    ReadFixture f;
+    f.message = binary_message(
+        "status",
+        {binary_field("a", 0), binary_field("b", 8), binary_field("c", 16)}
+    );
+    f.cfg.messages = {{
+        .message = f.message.key,
+        .fields = {
+            {.field = field_key(f.message, 0), .channel = 2, .index = 1},
+            {.field = field_key(f.message, 1), .channel = 4, .index = 3},
+            {.field = field_key(f.message, 2), .channel = 5, .index = 1},
+        },
+    }};
+    f.channels.push_back(index_channel(3));
+    f.channels.push_back(data_channel(4, 3));
+    f.channels.push_back(data_channel(5, 1));
+    const auto [cfg, err] = f.resolve(library({f.message}));
+    ASSERT_NIL(err);
+    const auto &groups = cfg.messages[0].groups;
+    ASSERT_EQ(groups.size(), 2);
+    EXPECT_EQ(groups[0].index, 1);
+    EXPECT_EQ(groups[0].slots, (std::vector<std::size_t>{0, 2}));
+    EXPECT_EQ(groups[1].index, 3);
+    EXPECT_EQ(groups[1].slots, std::vector<std::size_t>{1});
+}
+
+TEST(ReadConfig, GivesEachFieldWithoutAnIndexItsOwnGroup) {
+    ReadFixture f;
+    f.message = binary_message("status", {binary_field("a", 0), binary_field("b", 8)});
+    f.cfg.messages = {{
+        .message = f.message.key,
+        .fields = {
+            {.field = field_key(f.message, 0), .channel = 4},
+            {.field = field_key(f.message, 1), .channel = 5},
+        },
+    }};
+    f.channels = {data_channel(4, 0), data_channel(5, 0)};
+    const auto [cfg, err] = f.resolve(library({f.message}));
+    ASSERT_NIL(err);
+    const auto &groups = cfg.messages[0].groups;
+    ASSERT_EQ(groups.size(), 2);
+    EXPECT_EQ(groups[0].index, 0);
+    EXPECT_EQ(groups[0].slots, std::vector<std::size_t>{0});
+    EXPECT_EQ(groups[1].slots, std::vector<std::size_t>{1});
+}
+
+TEST(ReadConfig, RejectsAnIndexThatStampsTwoMessages) {
+    ReadFixture f;
+    const auto other = text_message("other", {delimited_field("v", 0)}, "O,");
+    f.cfg.messages.push_back({
+        .message = other.key,
+        .fields = {{.field = field_key(other, 0), .channel = 4, .index = 1}},
+    });
+    f.channels.push_back(data_channel(4, 1));
+    const auto [path, msg] = f.first_error(library({f.message, other}));
+    EXPECT_EQ(path, "messages.1.fields.0.index");
+    EXPECT_EQ(msg, "channel 1 is used more than once");
+}
+
+TEST(ReadConfig, ExpectsAStreamedMessageEveryLibraryPeriod) {
+    ReadFixture f;
+    f.message.period = 20 * x::telem::MILLISECOND;
+    const auto [cfg, err] = f.resolve(library({f.message}));
+    ASSERT_NIL(err);
+    EXPECT_EQ(cfg.messages[0].period, 20 * x::telem::MILLISECOND);
+}
+
+TEST(ReadConfig, ReportsALayoutTheDriverCannotCompileAsABug) {
+    ReadFixture f;
+    f.message = binary_message("status", {binary_field("value", 0)});
+    binary(f.message).fields[0].bit_length = 65;
+    f.cfg.messages[0].message = f.message.key;
+    f.cfg.messages[0].fields[0].field = field_key(f.message, 0);
+    const auto [_, err] = f.resolve(library({f.message}));
+    ASSERT_MATCHES(err, x::errors::INTERNAL);
+    EXPECT_TRUE(err.data.starts_with(
+        "the Core accepted message status, but the Driver cannot compile it ("
+    )) << err.data;
+    EXPECT_TRUE(err.data.ends_with("). Please report this as a bug")) << err.data;
+}
+
+TEST(WriteConfig, ReportsALayoutTheDriverCannotCompileAsABug) {
+    auto m = binary_message("cmd", {binary_field("a", 0)});
+    binary(m).fields[0].bit_length = 65;
+    ::synnax::bus::WriteConfig cfg;
+    cfg.device = "dev";
+    cfg.messages = {
+        {.message = m.key, .fields = {{.field = field_key(m, 0), .channel = 5}}}
+    };
     x::json::Parser parser(x::json::json::object());
-    const auto cfg = ReadConfig::resolve(
+    const auto [_, err] = WriteConfig::resolve(
         parser,
-        f.cfg,
-        f.poll,
-        f.framing,
-        library({f.message}),
-        f.channels
+        cfg,
+        std::nullopt,
+        library({m}),
+        {data_channel(5, 0)}
     );
     ASSERT_NIL(parser.error());
-    EXPECT_EQ(cfg.polled, std::vector<std::size_t>{0});
-    EXPECT_EQ(text(cfg.messages[0].query), "VOLT?\n");
+    ASSERT_MATCHES(err, x::errors::INTERNAL);
 }
 
 TEST(ReadConfig, ParseRejectsATaskWithNoLibrary) {
@@ -317,7 +456,7 @@ TEST(WriteConfig, BindsCommandChannelsToFieldSlots) {
         {.message = m.key, .fields = {{.field = field_key(m, 1), .channel = 5}}}
     };
     x::json::Parser parser(x::json::json::object());
-    const auto out = WriteConfig::resolve(
+    const auto [out, err] = WriteConfig::resolve(
         parser,
         cfg,
         std::nullopt,
@@ -325,9 +464,11 @@ TEST(WriteConfig, BindsCommandChannelsToFieldSlots) {
         {data_channel(5, 0)}
     );
     ASSERT_NIL(parser.error());
+    ASSERT_NIL(err);
     ASSERT_EQ(out.messages.size(), 1);
     ASSERT_EQ(out.messages[0].bindings.size(), 1);
     EXPECT_EQ(out.messages[0].bindings[0].slot, 1);
+    EXPECT_EQ(out.messages[0].bindings[0].field, "b");
     EXPECT_EQ(out.commands, std::vector<synnax::channel::Key>{5});
 }
 
@@ -341,7 +482,7 @@ TEST(WriteConfig, RejectsAFieldMappedTwice) {
         .fields = {{.field = field, .channel = 5}, {.field = field, .channel = 6}},
     }};
     x::json::Parser parser(x::json::json::object());
-    WriteConfig::resolve(
+    std::ignore = WriteConfig::resolve(
         parser,
         cfg,
         std::nullopt,
@@ -359,7 +500,7 @@ TEST(WriteConfig, RequiresFieldsOnAMessageWithoutAPeriod) {
     cfg.device = "dev";
     cfg.messages = {{.message = m.key}};
     x::json::Parser parser(x::json::json::object());
-    WriteConfig::resolve(parser, cfg, std::nullopt, library({m}), {});
+    std::ignore = WriteConfig::resolve(parser, cfg, std::nullopt, library({m}), {});
     const auto err = parser.error_json()["errors"][0];
     EXPECT_EQ(err["path"], "messages.0.fields");
     EXPECT_EQ(
@@ -376,7 +517,7 @@ TEST(WriteConfig, RequiresACANIdentifierOnACANBus) {
         {.message = m.key, .fields = {{.field = field_key(m, 0), .channel = 5}}}
     };
     x::json::Parser parser(x::json::json::object());
-    WriteConfig::resolve(
+    std::ignore = WriteConfig::resolve(
         parser,
         cfg,
         std::nullopt,

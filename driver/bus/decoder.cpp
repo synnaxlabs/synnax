@@ -16,15 +16,26 @@
 #include "driver/common/common.h"
 
 namespace driver::bus {
-Decoder::Decoder(const ReadConfig &cfg): cfg(cfg), pending(cfg.messages.size()) {}
+namespace {
+/// @brief the number of late messages named in a warning before the rest are counted.
+constexpr std::size_t MAX_NAMED = 3;
+}
+
+Decoder::Decoder(const ReadConfig &cfg, x::telem::NowFunc now):
+    cfg(cfg), now(std::move(now)), pending(cfg.messages.size()), warnings(this->now) {
+    for (std::size_t i = 0; i < cfg.messages.size(); i++)
+        this->pending[i].groups.resize(cfg.messages[i].groups.size());
+    this->reset();
+}
 
 synnax::framer::WriterConfig Decoder::writer_config() const {
     std::vector<synnax::channel::Key> keys;
-    for (const auto &m: this->cfg.messages) {
-        if (m.index != 0) keys.push_back(m.index);
-        for (const auto &ch: m.channels)
-            keys.push_back(ch.key);
-    }
+    for (const auto &m: this->cfg.messages)
+        for (const auto &g: m.groups) {
+            if (g.index != 0) keys.push_back(g.index);
+            for (const auto slot: g.slots)
+                keys.push_back(m.channels[slot].key);
+        }
     if (this->cfg.raw != 0) keys.push_back(this->cfg.raw);
     return {
         .channels = keys,
@@ -39,7 +50,22 @@ std::vector<synnax::channel::Channel> Decoder::channels() const {
     return out;
 }
 
+void Decoder::reset() {
+    this->warnings.clear();
+    this->restart();
+}
+
+void Decoder::restart() {
+    const auto now = this->now();
+    this->started = now;
+    this->received.reset();
+    this->matched = now;
+    for (auto &p: this->pending)
+        p.arrived = now;
+}
+
 void Decoder::raw(const std::span<const std::uint8_t> frame) {
+    this->received = this->now();
     if (this->cfg.raw == 0) return;
     this->raws.emplace_back(reinterpret_cast<const char *>(frame.data()), frame.size());
 }
@@ -51,9 +77,11 @@ void Decoder::decode(
 ) {
     const auto &m = this->cfg.messages[message];
     auto &p = this->pending[message];
-    const auto n = p.times.size();
-    if (n == p.values.size()) p.values.push_back(m.plan.values());
-    auto &values = p.values[n];
+    const auto now = this->now();
+    this->matched = now;
+    p.arrived = now;
+    if (p.used == p.values.size()) p.values.push_back(m.plan.values());
+    auto &values = p.values[p.used];
     if (const auto err = m.plan.decode(payload, values)) {
         this->warn(m.entry.name + ": " + err.data);
         return;
@@ -65,32 +93,56 @@ void Decoder::decode(
         );
         return;
     }
-    for (std::size_t s = 0; s < values.size(); s++)
-        if (!values.present(s)) return;
-    const auto stamp = std::max(time, p.last + x::telem::TimeSpan(1));
-    p.last = stamp;
-    p.times.push_back(stamp);
+    bool kept = false;
+    for (std::size_t g = 0; g < m.groups.size(); g++) {
+        const auto &slots = m.groups[g].slots;
+        if (!std::ranges::all_of(slots, [&](const auto s) {
+                return values.present(s);
+            }))
+            continue;
+        auto &pg = p.groups[g];
+        const auto stamp = std::max(time, pg.last + x::telem::TimeSpan(1));
+        pg.last = stamp;
+        pg.samples.push_back(p.used);
+        pg.times.push_back(stamp);
+        kept = true;
+    }
+    if (kept) p.used++;
 }
 
-void Decoder::warn(std::string message) {
-    if (std::ranges::find(this->warnings, message) != this->warnings.end()) return;
-    this->warnings.push_back(std::move(message));
+void Decoder::late(const std::size_t message) {
+    this->matched = this->now();
+    this->warn(
+        "late reply to " + this->cfg.messages[message].entry.name + " discarded"
+    );
+}
+
+void Decoder::warn(const std::string &message) {
+    this->warnings.add(message);
 }
 
 void Decoder::flush(x::telem::Frame &fr) {
     for (std::size_t i = 0; i < this->cfg.messages.size(); i++) {
         auto &p = this->pending[i];
-        const auto n = p.times.size();
-        if (n == 0) continue;
+        if (p.used == 0) continue;
         const auto &m = this->cfg.messages[i];
-        for (std::size_t s = 0; s < m.channels.size(); s++) {
-            x::telem::Series series(m.channels[s].data_type, n);
-            for (std::size_t k = 0; k < n; k++)
-                p.values[k].write(s, series);
-            fr.emplace(m.channels[s].key, std::move(series));
+        for (std::size_t g = 0; g < m.groups.size(); g++) {
+            auto &pg = p.groups[g];
+            const auto n = pg.samples.size();
+            if (n == 0) continue;
+            for (const auto slot: m.groups[g].slots) {
+                const auto &ch = m.channels[slot];
+                x::telem::Series series(ch.data_type, n);
+                for (const auto k: pg.samples)
+                    p.values[k].write(slot, series);
+                fr.emplace(ch.key, std::move(series));
+            }
+            if (m.groups[g].index != 0)
+                fr.emplace(m.groups[g].index, x::telem::Series(pg.times));
+            pg.samples.clear();
+            pg.times.clear();
         }
-        if (m.index != 0) fr.emplace(m.index, x::telem::Series(p.times));
-        p.times.clear();
+        p.used = 0;
     }
     if (!this->raws.empty()) {
         fr.emplace(this->cfg.raw, x::telem::Series(this->raws, x::telem::BYTES_T));
@@ -98,17 +150,36 @@ void Decoder::flush(x::telem::Frame &fr) {
     }
 }
 
-std::string Decoder::warning(const x::telem::TimeStamp now) {
-    if (!this->warnings.empty()) {
-        this->held_warning = x::strings::join(this->warnings, "; ");
-        this->held_at = now;
-        this->warnings.clear();
-    } else if (now - this->held_at >= WARNING_HOLD)
-        this->held_warning.clear();
-    return this->held_warning;
-}
-
-void Decoder::clear_warning() {
-    this->held_warning.clear();
+std::string Decoder::warning() {
+    const auto now = this->now();
+    std::vector<std::string> out;
+    if (!this->received.has_value() && now - this->started >= SILENCE)
+        out.emplace_back("no frames received since start");
+    else if (
+        this->received.has_value() && *this->received > this->matched &&
+        now - this->matched >= SILENCE && now - *this->received < SILENCE
+    )
+        out.emplace_back("frames arrive, but none match a message in the library");
+    else {
+        std::size_t late = 0;
+        for (std::size_t i = 0; i < this->cfg.messages.size(); i++) {
+            const auto &m = this->cfg.messages[i];
+            if (m.period <= x::telem::TimeSpan::ZERO() ||
+                now - this->pending[i].arrived < m.period * MISSED_PERIODS)
+                continue;
+            if (++late > MAX_NAMED) continue;
+            out.push_back(
+                m.entry.name + " missed " + std::to_string(MISSED_PERIODS) +
+                " periods (expected every " + m.period.to_string() + ")"
+            );
+        }
+        if (late > MAX_NAMED)
+            out.push_back(
+                std::to_string(late - MAX_NAMED) + " more messages missed " +
+                std::to_string(MISSED_PERIODS) + " periods"
+            );
+    }
+    this->warnings.collect(out);
+    return x::strings::join(out, "; ");
 }
 }

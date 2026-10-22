@@ -57,12 +57,22 @@ std::pair<Properties, x::errors::Error> retrieve_properties(
     return {std::move(props), x::errors::NIL};
 }
 
-/// @returns the framing of a read or write config, or nullopt for datagram configs,
-/// which have none.
+/// @returns the framing of a write config, or nullopt for datagram configs, which have
+/// none.
 template<typename Config>
 std::optional<::synnax::bus::Framing> framing(const Config &cfg) {
     if constexpr (requires { cfg.framing; })
         return cfg.framing;
+    else
+        return std::nullopt;
+}
+
+/// @returns how a read task on Conn splits its byte stream into frames, or nullopt for
+/// datagram configs, which have no framing.
+template<typename Conn, typename Config>
+std::optional<Stream> stream(const Config &cfg) {
+    if constexpr (requires { cfg.framing; })
+        return Stream{.framing = cfg.framing, .gap = Conn::FRAME_GAP};
     else
         return std::nullopt;
 }
@@ -118,19 +128,21 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
         parser,
         cfg,
         cfg,
-        framing(cfg)
+        stream<Conn>(cfg)
     );
     if (err) return {common::ConfigureResult{}, err};
     if (check != nullptr) {
         check(parser, props, !resolved.polled.empty());
         if (!parser.ok()) return {common::ConfigureResult{}, parser.error()};
     }
+    auto breaker = x::breaker::default_config(task.name);
+    breaker.max_retries = x::breaker::RETRY_INFINITELY;
     return {
         common::ConfigureResult{
             .task = std::make_unique<common::ReadTask>(
                 task,
                 ctx,
-                x::breaker::default_config(task.name),
+                breaker,
                 std::make_unique<Source>(
                     std::move(resolved),
                     acquirer<Conn>(connections, cfg.device, std::move(props))
