@@ -73,7 +73,10 @@ cc_test(
 cc_test(
     name = "task_test",
     size = "small",
-    srcs = ["task_test.cpp"],
+    srcs = [
+        "link_test.cpp",
+        "task_test.cpp",
+    ],
     deps = [
         ":task",
         "//driver/bus",

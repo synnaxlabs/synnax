@@ -49,12 +49,14 @@ Result configure_read(
         bus::Medium::CAN
     );
     if (err) return {common::ConfigureResult{}, err};
+    auto breaker = x::breaker::default_config(task.name);
+    breaker.max_retries = x::breaker::RETRY_INFINITELY;
     return {
         common::ConfigureResult{
             .task = std::make_unique<common::ReadTask>(
                 task,
                 ctx,
-                x::breaker::default_config(task.name),
+                breaker,
                 std::make_unique<Source>(
                     std::move(resolved),
                     acquirer(links, cfg.device, backends, std::move(props))

@@ -39,10 +39,14 @@ const x::errors::Error UNSUPPORTED_ERROR = CONFIG_ERROR.sub("unsupported");
 const x::errors::Error LISTEN_ONLY_ERROR = CONFIG_ERROR.sub("listen_only");
 /// @brief a frame whose identifier, length, or flags the bus cannot send.
 const x::errors::Error FRAME_ERROR = CONFIG_ERROR.sub("frame");
-/// @brief a bus fault that can clear, such as bus off or a full transmit queue.
+/// @brief a frame the adapter cannot take now, such as one sent while its transmit
+/// queue is full. The bus stays open.
 const x::errors::Error
     TEMPORARY_HARDWARE_ERROR = driver::errors::TEMPORARY_HARDWARE_ERROR.sub("can");
-/// @brief an adapter fault that retrying does not clear.
+/// @brief a channel that is absent, in use, or gone, such as an unplugged adapter. The
+/// bus must close and open again.
+const x::errors::Error UNREACHABLE_ERROR = TEMPORARY_HARDWARE_ERROR.sub("unreachable");
+/// @brief an adapter fault that reopening does not clear.
 const x::errors::Error CRITICAL_HARDWARE_ERROR = driver::errors::CRITICAL_HARDWARE_ERROR
                                                      .sub("can");
 
@@ -207,7 +211,7 @@ public:
     /// @param frame receives the frame when one arrived.
     /// @param timeout the longest time to wait.
     /// @returns true when a frame arrived, and false when the timeout elapsed.
-    /// TEMPORARY_HARDWARE_ERROR or CRITICAL_HARDWARE_ERROR on a fault.
+    /// UNREACHABLE_ERROR or CRITICAL_HARDWARE_ERROR on a fault.
     [[nodiscard]] virtual std::pair<bool, x::errors::Error>
     receive(Frame &frame, x::telem::TimeSpan timeout) = 0;
 
@@ -229,8 +233,9 @@ protected:
     const bool listen_only;
 
     /// @brief queues a frame that send checked.
-    /// @returns TEMPORARY_HARDWARE_ERROR when the transmit queue is full or the bus is
-    /// off.
+    /// @returns TEMPORARY_HARDWARE_ERROR when the transmit queue is full,
+    /// UNREACHABLE_ERROR when the channel is gone, and CRITICAL_HARDWARE_ERROR on
+    /// another fault.
     [[nodiscard]] virtual x::errors::Error transmit(const Frame &frame) = 0;
 };
 
@@ -267,8 +272,9 @@ public:
     [[nodiscard]] virtual std::pair<std::vector<Channel>, x::errors::Error> scan() = 0;
 
     /// @brief opens the channel the properties name and puts it on the bus.
-    /// @returns CONFIG_ERROR when the channel does not exist or the adapter cannot run
-    /// the bitrates or modes the properties ask for.
+    /// @returns CONFIG_ERROR when the properties are invalid or the adapter cannot run
+    /// the bitrates or modes they ask for, UNREACHABLE_ERROR when the channel is
+    /// absent or in use, and CRITICAL_HARDWARE_ERROR on another fault.
     [[nodiscard]] virtual std::pair<std::unique_ptr<Bus>, x::errors::Error>
     open(const synnax::can::Properties &props) = 0;
 };

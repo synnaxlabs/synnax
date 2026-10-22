@@ -29,36 +29,42 @@ x::errors::Error Source::start() {
     auto [link, err] = this->acquire();
     if (err) return err;
     this->link = std::move(link);
-    return this->link->bus()
-        .second.skip(TEMPORARY_HARDWARE_ERROR)
-        .skip(CRITICAL_HARDWARE_ERROR);
+    return this->link->bus().second.skip(UNREACHABLE_ERROR);
 }
 
 x::errors::Error Source::stop() {
     this->link.reset();
-    this->last.reset();
     return x::errors::NIL;
 }
 
-common::ReadResult Source::read(x::breaker::Breaker &, x::telem::Frame &fr) {
+common::ReadResult Source::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
     common::ReadResult res;
-    auto [bus, err] = this->link->bus();
+    auto [opened, err] = this->link->bus();
+    if (err.matches(UNREACHABLE_ERROR)) {
+        breaker.wait_for(bus::READ_TIMEOUT);
+        res.warning = err.data;
+        return res;
+    }
     if (err) {
         res.error = err;
         return res;
     }
-    if (bus != this->last) {
-        this->last = bus;
+    if (opened.opens != this->opens) {
+        this->opens = opened.opens;
         this->aligner = {};
     }
+    std::string fault;
     const auto deadline = x::telem::TimeStamp::now() + bus::READ_TIMEOUT;
     auto timeout = bus::READ_TIMEOUT;
     Frame frame;
     for (std::size_t n = 0; n < MAX_BATCH; n++) {
-        auto [got, recv_err] = bus->receive(frame, timeout);
+        auto [got, recv_err] = opened.bus->receive(frame, timeout);
         if (recv_err) {
-            this->link->close(bus);
-            res.error = recv_err;
+            recv_err = this->link->report(opened, recv_err);
+            if (recv_err.matches(UNREACHABLE_ERROR))
+                fault = recv_err.data;
+            else
+                res.error = recv_err;
             break;
         }
         if (!got) break;
@@ -68,6 +74,8 @@ common::ReadResult Source::read(x::breaker::Breaker &, x::telem::Frame &fr) {
     }
     this->decoder.flush(fr);
     res.warning = this->decoder.warning(x::telem::TimeStamp::now());
+    if (!fault.empty())
+        res.warning = res.warning.empty() ? fault : fault + "; " + res.warning;
     return res;
 }
 

@@ -48,8 +48,9 @@ Transmitter::Transmitter(std::vector<Frame> frames, Acquire acquire):
 
 x::errors::Error Transmitter::acquire() {
     auto [link, err] = this->acquirer();
+    if (err) return err;
     this->link = std::move(link);
-    return err;
+    return this->link->bus().second.skip(UNREACHABLE_ERROR);
 }
 
 void Transmitter::release() {
@@ -68,10 +69,8 @@ x::errors::Error Transmitter::send(
         };
     frame.length = static_cast<std::uint8_t>(payload.size());
     std::ranges::copy(payload, frame.data.begin());
-    auto [bus, err] = this->link->bus();
+    auto [opened, err] = this->link->bus();
     if (err) return err;
-    err = bus->send(frame);
-    if (err.matches(CRITICAL_HARDWARE_ERROR)) this->link->close(bus);
-    return err;
+    return this->link->report(opened, opened.bus->send(frame));
 }
 }
