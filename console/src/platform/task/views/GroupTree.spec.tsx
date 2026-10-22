@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { Component } from "@synnaxlabs/lyra/component";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { id } from "@synnaxlabs/x";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Task } from "@/platform/task";
@@ -22,6 +23,12 @@ interface Field extends Task.Views.GroupField {
 interface Group extends Task.Views.Group<Field> {
   label: string;
 }
+
+interface Leaf extends Task.Views.LeafGroup {
+  label: string;
+}
+
+type Item = Group | Leaf;
 
 const field = (key: string, pointer: string, channel = 0): Field => ({
   key,
@@ -43,21 +50,34 @@ const fieldDetails = Component.renderProp(({ path }: Task.Views.FieldProps) => (
   <span>details-for-{path}</span>
 ));
 
-const createGroup = (): Omit<Group, "key"> => ({ label: "", index: "", fields: [] });
+const KINDS: Task.Views.GroupKind<Item>[] = [
+  {
+    name: "group",
+    create: () => ({ key: id.create(), label: "", index: "", fields: [] }),
+  },
+  {
+    name: "leaf",
+    create: () => ({ key: id.create(), label: "", channel: 0, name: "", index: 0 }),
+  },
+];
 
 const createField = (): Omit<Field, "key"> => field("", "");
 
-const renderTree = (groups: Group[]) =>
+const renderTree = (
+  groups: Item[],
+  props: Partial<Task.Views.GroupTreeProps<Item, Field>> = {},
+) =>
   renderInTaskForm(
-    <Task.Views.GroupTree<Group, Field>
+    <Task.Views.GroupTree<Item, Field>
       listTitle="Groups"
-      groupName="group"
+      emptyMessage="No groups"
       placeholder="Select a group or field"
-      createGroup={createGroup}
+      groupKinds={KINDS}
       createField={createField}
       groupLabel={groupLabel}
       groupDetails={groupDetails}
       fieldDetails={fieldDetails}
+      {...props}
     />,
     { values: { config: { groups } } },
   );
@@ -68,6 +88,8 @@ const GROUP: Group = {
   index: "ts",
   fields: [field("ts", "/time", 1), field("v", "/value", 2)],
 };
+
+const LEAF: Leaf = { key: "l", label: "", channel: 5, name: "flow", index: 4 };
 
 describe("GroupTree", () => {
   it("should list a group's fields beneath it and hide its index field", async () => {
@@ -127,5 +149,65 @@ describe("GroupTree", () => {
     await waitFor(() =>
       expect(form.current?.get("config.groups.g.fields").value).toHaveLength(1),
     );
+  });
+
+  it("should name a field with an empty pointer by the empty pointer label", async () => {
+    await renderTree([{ ...GROUP, fields: [...GROUP.fields, field("e", "")] }], {
+      emptyPointerLabel: "Whole payload",
+    });
+    await screen.findByText("Whole payload");
+  });
+
+  it("should add a group of the kind whose button is pressed", async () => {
+    const { form } = await renderTree([]);
+    fireEvent.click(await screen.findByRole("button", { name: "Add leaf" }));
+    await waitFor(() =>
+      expect(form.current?.get("config.groups").value).toHaveLength(1),
+    );
+    const [added] = form.current?.get<Leaf[]>("config.groups").value ?? [];
+    expect(added).not.toHaveProperty("fields");
+    await screen.findByText(`details-for-config.groups.${added.key}`);
+  });
+
+  it("should offer no add field action on a leaf group", async () => {
+    await renderTree([LEAF]);
+    const item = await screen.findByRole("treeitem", { name: /group-l/ });
+    expect(within(item).queryByRole("button", { name: "Add field" })).toBeNull();
+    fireEvent.contextMenu(item);
+    await screen.findByText("Duplicate");
+    expect(screen.queryByText("Add field")).toBeNull();
+  });
+
+  it("should duplicate a leaf group without its channels", async () => {
+    const { form } = await renderTree([LEAF]);
+    fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /group-l/ }));
+    fireEvent.click(await screen.findByText("Duplicate"));
+    await waitFor(() =>
+      expect(form.current?.get("config.groups").value).toHaveLength(2),
+    );
+    const copy = form.current?.get<Leaf[]>("config.groups").value[1];
+    expect(copy).toMatchObject({ channel: 0, name: "", index: 0 });
+    expect(copy?.key).not.toBe("l");
+  });
+
+  it("should switch a group with a disabled flag through its checkbox and menu", async () => {
+    const { form } = await renderTree([{ ...GROUP, disabled: false }]);
+    const disabled = () => form.current?.get("config.groups.g.disabled").value;
+    const item = await screen.findByRole("treeitem", { name: /group-g/ });
+    fireEvent.click(within(item).getByRole("checkbox", { name: "Enabled" }));
+    await waitFor(() => expect(disabled()).toBe(true));
+    fireEvent.contextMenu(item);
+    expect(screen.queryByText("Disable")).toBeNull();
+    fireEvent.click(await screen.findByText("Enable"));
+    await waitFor(() => expect(disabled()).toBe(false));
+  });
+
+  it("should offer no switch on a group without a disabled flag", async () => {
+    await renderTree([GROUP]);
+    const item = await screen.findByRole("treeitem", { name: /group-g/ });
+    expect(within(item).queryByRole("checkbox")).toBeNull();
+    fireEvent.contextMenu(item);
+    await screen.findByText("Duplicate");
+    expect(screen.queryByText("Disable")).toBeNull();
   });
 });

@@ -10,19 +10,15 @@
 import "@/feature/mqtt/task/Form.css";
 
 import { channel, mqtt, type Synnax as Client } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
-import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Text } from "@synnaxlabs/lyra/text";
-import { Tree } from "@synnaxlabs/lyra/tree";
 import { Telem } from "@synnaxlabs/pluto";
-import { DataType, id, primitive, type record } from "@synnaxlabs/x";
-import { type FC, type MouseEvent, useCallback, useMemo, useState } from "react";
+import { DataType, primitive } from "@synnaxlabs/x";
+import { type FC, useCallback } from "react";
 
 import { Browser } from "@/feature/mqtt/device/Browser";
 import { use } from "@/feature/mqtt/device/queries";
@@ -32,7 +28,7 @@ import { type Device, SCHEMAS } from "@/feature/mqtt/device/types";
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
 import { createReadFields } from "@/feature/mqtt/task/createReadFields";
 import { EntryLabel } from "@/feature/mqtt/task/EntryLabel";
-import { AddEntryButtons, useEntryDrop } from "@/feature/mqtt/task/EntryList";
+import { useEntryDrop } from "@/feature/mqtt/task/EntryList";
 import { QoSField } from "@/feature/mqtt/task/QoSField";
 import {
   fromSparkplugDataType,
@@ -56,7 +52,6 @@ import {
 } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
-import { Empty } from "@/platform/empty";
 import { Form as PlatformForm } from "@/platform/form";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
@@ -73,129 +68,9 @@ const Properties = () => (
 
 const ENTRIES_PATH = "config.entries";
 
-type TreeEntry =
-  | { kind: "entry"; entryKey: string; type: ReadEntry["type"] }
-  | { kind: "field"; entryKey: string; fieldKey: string };
-
-interface TreeIndex {
-  nodes: Tree.Node[];
-  entries: Map<string, TreeEntry>;
-}
-
-/**
- * Entries as tree nodes. A plain entry holds its fields beneath it, less the timestamp
- * field; a Sparkplug B entry is a leaf.
- */
-const useTreeIndex = (): TreeIndex => {
-  // The form writes child paths into the same array, so the array's identity never
-  // changes; the field state's does on every write beneath it.
-  const state = PForm.useFieldState<ReadEntry[]>(ENTRIES_PATH);
-  return useMemo(() => {
-    const entries = new Map<string, TreeEntry>();
-    const nodes = state.value.map((entry): Tree.Node => {
-      entries.set(entry.key, { kind: "entry", entryKey: entry.key, type: entry.type });
-      if (entry.type === "sparkplug") return { key: entry.key };
-      const children = entry.fields
-        .filter((f) => f.key !== entry.index)
-        .map((f) => {
-          entries.set(f.key, { kind: "field", entryKey: entry.key, fieldKey: f.key });
-          return { key: f.key };
-        });
-      return { key: entry.key, children };
-    });
-    return { nodes, entries };
-  }, [state]);
-};
-
-const entryPath = (entry: TreeEntry): string =>
-  entry.kind === "entry"
-    ? `${ENTRIES_PATH}.${entry.entryKey}`
-    : `${ENTRIES_PATH}.${entry.entryKey}.fields.${entry.fieldKey}`;
-
 /** The prefix configure gives the channels of a topic's fields. */
 const namePrefix = (devName: string, topic: string): string =>
   `${channel.escapeInvalidName(devName)}_${channel.escapeInvalidName(topic)}`;
-
-interface EntryTreeItemProps extends Tree.ItemRenderProps<string> {
-  onAddField: (entryKey: string) => void;
-}
-
-const EntryTreeItem = ({ onAddField, ...props }: EntryTreeItemProps) => {
-  const { itemKey } = props;
-  const path = `${ENTRIES_PATH}.${itemKey}`;
-  const type = PForm.useFieldValue<ReadEntry["type"]>(`${path}.type`);
-  const disabled = PForm.useFieldValue<boolean>(`${path}.disabled`);
-  const isPreview = Task.useIsPreview();
-  const handleAdd = useCallback(
-    (e: MouseEvent) => {
-      e.stopPropagation();
-      onAddField(itemKey);
-    },
-    [onAddField, itemKey],
-  );
-  return (
-    <Tree.Item
-      {...props}
-      className={CSS.cls(
-        CSS.B("entry-item"),
-        type === "sparkplug" && CSS.M("leaf"),
-        disabled && CSS.M("off"),
-      )}
-    >
-      <EntryLabel path={path} />
-      {type === "plain" && !isPreview && (
-        <Button.Button
-          onClick={handleAdd}
-          variant="text"
-          size="tiny"
-          tooltip="Add field"
-          aria-label="Add field"
-          tooltipLocation="right"
-          className={CSS.BE("entry-item", "add")}
-        >
-          <Icon.Add />
-        </Button.Button>
-      )}
-      <Task.EnabledCheckbox path={`${path}.disabled`} />
-    </Tree.Item>
-  );
-};
-
-interface FieldLabelProps extends Pick<Text.TextProps, "level"> {
-  pointer: string;
-}
-
-/** Names a field by its pointer. An empty pointer takes the whole payload. */
-const FieldLabel = ({ pointer, level }: FieldLabelProps) => (
-  <Text.Text
-    level={level}
-    weight={500}
-    color={pointer === "" ? 8 : 10}
-    overflow="ellipsis"
-    className={CSS.B("field-pointer")}
-  >
-    {pointer === "" ? "Whole payload" : pointer}
-  </Text.Text>
-);
-
-interface FieldTreeItemProps extends Tree.ItemRenderProps<string> {
-  entryKey: string;
-}
-
-const FieldTreeItem = ({ entryKey, ...props }: FieldTreeItemProps) => {
-  const { itemKey } = props;
-  const path = `${ENTRIES_PATH}.${entryKey}.fields.${itemKey}`;
-  const { disabled, pointer } = PForm.useFieldValue<ReadField>(path);
-  return (
-    <Tree.Item
-      {...props}
-      className={CSS.cls(CSS.B("field-item"), disabled && CSS.M("off"))}
-    >
-      <FieldLabel pointer={pointer} level="small" />
-      <Task.EnabledCheckbox path={`${path}.disabled`} />
-    </Tree.Item>
-  );
-};
 
 const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
 
@@ -370,24 +245,11 @@ const EntryPane: FC<PaneProps> = ({ path, deviceName }) => {
   );
 };
 
-interface FieldPaneProps extends Pick<PaneProps, "deviceName"> {
-  entryKey: string;
-  fieldKey: string;
-}
+interface FieldPaneProps extends Task.Views.FieldProps, Pick<PaneProps, "deviceName"> {}
 
-const FieldTitle: FC<Omit<FieldPaneProps, "deviceName">> = ({ entryKey, fieldKey }) => (
-  <FieldLabel
-    pointer={PForm.useFieldValue<string>(
-      `${ENTRIES_PATH}.${entryKey}.fields.${fieldKey}.pointer`,
-    )}
-    level="p"
-  />
-);
-
-const FieldPane: FC<FieldPaneProps> = ({ entryKey, fieldKey, deviceName }) => {
-  const path = `${ENTRIES_PATH}.${entryKey}.fields.${fieldKey}`;
+const FieldPane: FC<FieldPaneProps> = ({ groupKey, path, deviceName }) => {
   const { channel: fieldChannel, pointer } = PForm.useFieldValue<ReadField>(path);
-  const topic = PForm.useFieldValue<string>(`${ENTRIES_PATH}.${entryKey}.topic`);
+  const topic = PForm.useFieldValue<string>(`${ENTRIES_PATH}.${groupKey}.topic`);
   const bound = fieldChannel !== 0;
   return (
     <Flex.Box y grow empty className={CSS.BE("details", "form")}>
@@ -447,214 +309,41 @@ const createSparkplugEntry = (tag?: SparkplugHaulTag): SparkplugReadEntry => {
   };
 };
 
-const duplicateEntry = (entry: ReadEntry): ReadEntry => {
-  if (entry.type === "sparkplug")
-    return { ...entry, ...Task.READ_CHANNEL_OVERRIDE, key: id.create(), index: 0 };
-  const fields = entry.fields.map((f) => ({
-    ...f,
-    ...Task.READ_CHANNEL_OVERRIDE,
-    key: id.create(),
-  }));
-  const indexPosition = entry.fields.findIndex((f) => f.key === entry.index);
-  return {
-    ...entry,
-    key: id.create(),
-    fields,
-    index: fields[indexPosition]?.key ?? "",
-  };
-};
+const ENTRY_KINDS: Task.Views.GroupKind<ReadEntry>[] = [
+  { name: "topic", create: createEntry },
+  { name: "Sparkplug B tag", create: createSparkplugEntry },
+];
 
-const newField = (last?: ReadField): ReadField => ({
-  ...(last != null
-    ? { ...last, ...Task.READ_CHANNEL_OVERRIDE }
-    : mqtt.readFieldZ.parse({})),
-  key: id.create(),
-});
+const createField = (): ReadField => mqtt.readFieldZ.parse({});
 
-const TREE_ITEM_HEIGHT = 36;
-
-const EMPTY_CONTENT = <Empty.Action message="No entries" />;
+const entryLabel = Component.renderProp(({ path }: Task.Views.GroupProps) => (
+  <EntryLabel path={path} />
+));
 
 const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
-  const [selected, setSelected] = useState<string[]>([]);
-  const { nodes, entries } = useTreeIndex();
-  const ctx = PForm.useContext();
+  const entries = PForm.useFieldValue<ReadEntry[]>(ENTRIES_PATH);
   const isPreview = Task.useIsPreview();
-  const [initialExpanded] = useState(() => nodes.map(({ key }) => key));
-  // A fold that hides the selected field moves the selection up to its entry.
-  const handleExpand = useCallback(
-    ({ action, clicked }: Tree.HandleExpandProps<string>) => {
-      if (action !== "contract") return;
-      const hidesSelection = selected.some((k) => {
-        const entry = entries.get(k);
-        return entry?.kind === "field" && entry.entryKey === clicked;
-      });
-      if (hidesSelection) setSelected([clicked]);
-    },
-    [selected, entries],
-  );
-  const treeProps = Tree.use({
-    nodes,
-    selected,
-    onSelectedChange: setSelected,
-    initialExpanded,
-    onExpand: handleExpand,
-    toggleOn: "caret",
-  });
-  const { expand, shape } = treeProps;
-
-  const handleSelect = useCallback<
-    Tree.TreeProps<string, record.Keyed<string>>["onSelect"]
-  >(
-    (keys, { clicked }) => {
-      setSelected(keys);
-      if (clicked != null && entries.get(clicked)?.kind === "entry") expand(clicked);
-    },
-    [entries, expand],
-  );
-
-  const handleAddEntries = useCallback(
-    (added: ReadEntry[]) => {
-      const current = ctx.get<ReadEntry[]>(ENTRIES_PATH).value;
-      ctx.set(ENTRIES_PATH, [...current, ...added]);
-      setSelected([added[0].key]);
-      for (const { key, type } of added) if (type === "plain") expand(key);
-    },
-    [ctx, expand],
-  );
-  const handleAddEntry = useCallback(
-    () => handleAddEntries([createEntry()]),
-    [handleAddEntries],
-  );
-  const handleAddSparkplugEntry = useCallback(
-    () => handleAddEntries([createSparkplugEntry()]),
-    [handleAddEntries],
-  );
-  const dropProps = useEntryDrop<ReadEntry>({
+  const drop = useEntryDrop<ReadEntry>({
     path: ENTRIES_PATH,
     create: createEntry,
     createSparkplug: createSparkplugEntry,
-    onAdd: handleAddEntries,
   });
-
-  const handleAddField = useCallback(
-    (entryKey: string) => {
-      const path = `${ENTRIES_PATH}.${entryKey}`;
-      const { fields, index } = ctx.get<PlainReadEntry>(path).value;
-      const field = newField(fields.findLast((f) => f.key !== index));
-      ctx.set(`${path}.fields`, [...fields, field]);
-      setSelected([field.key]);
-      expand(entryKey);
-    },
-    [ctx, expand],
+  const entryDetails = useCallback(
+    ({ path }: Task.Views.GroupProps) => (
+      <EntryPane path={path} deviceName={device.name} />
+    ),
+    [device.name],
   );
-
-  const handleRemove = useCallback(
-    (keys: string[]) => {
-      const removed = new Set(keys);
-      const current = ctx.get<ReadEntry[]>(ENTRIES_PATH).value;
-      ctx.set(
-        ENTRIES_PATH,
-        current
-          .filter((entry) => !removed.has(entry.key))
-          .map((entry) =>
-            entry.type === "plain"
-              ? { ...entry, fields: entry.fields.filter((f) => !removed.has(f.key)) }
-              : entry,
-          ),
-      );
-      // Selection moves to the nearest survivor in the visible list, below first.
-      const visible = shape.keys;
-      const first = visible.findIndex((k) => removed.has(k));
-      const after = visible.slice(first).find((k) => !removed.has(k));
-      const before = visible
-        .slice(0, Math.max(first, 0))
-        .reverse()
-        .find((k) => !removed.has(k));
-      const next = after ?? before;
-      setSelected(next == null ? [] : [next]);
-    },
-    [ctx, shape],
-  );
-
-  const handleDuplicate = useCallback(
-    (keys: string[]) => {
-      const chosen = new Set(keys);
-      const current = ctx.get<ReadEntry[]>(ENTRIES_PATH).value;
-      const next: ReadEntry[] = [];
-      let first: string | null = null;
-      for (const entry of current) {
-        if (entry.type === "plain") {
-          const fields: ReadField[] = [];
-          for (const f of entry.fields) {
-            fields.push(f);
-            if (!chosen.has(f.key)) continue;
-            const copy = newField(f);
-            first ??= copy.key;
-            fields.push(copy);
-          }
-          next.push({ ...entry, fields });
-        } else next.push(entry);
-        if (!chosen.has(entry.key)) continue;
-        const copy = duplicateEntry(entry);
-        first ??= copy.key;
-        next.push(copy);
-        if (copy.type === "plain") expand(copy.key);
-      }
-      ctx.set(ENTRIES_PATH, next);
-      if (first != null) setSelected([first]);
-    },
-    [ctx, expand],
-  );
-
-  const handleSetEnabled = useCallback(
-    (keys: string[], enabled: boolean) => {
-      for (const key of keys) {
-        const entry = entries.get(key);
-        if (entry != null) ctx.set(`${entryPath(entry)}.disabled`, !enabled);
-      }
-    },
-    [ctx, entries],
-  );
-
-  const menuProps = Menu.useContextMenu();
-  const menuRenderProp = useCallback(
-    ({ keys }: Menu.ContextMenuMenuProps) => {
-      const entry = keys.length === 1 ? entries.get(keys[0]) : undefined;
-      const disabled = keys
-        .map((key) => entries.get(key))
-        .filter((e) => e != null)
-        .map((e) => ctx.get<boolean>(`${entryPath(e)}.disabled`).value);
-      return (
-        <Task.Views.ContextMenu
-          keys={keys}
-          onRemove={handleRemove}
-          onDuplicate={handleDuplicate}
-          onAddField={
-            entry?.kind === "entry" && entry.type === "plain"
-              ? () => handleAddField(entry.entryKey)
-              : undefined
-          }
-          onEnable={
-            disabled.includes(true) ? () => handleSetEnabled(keys, true) : undefined
-          }
-          onDisable={
-            disabled.includes(false) ? () => handleSetEnabled(keys, false) : undefined
-          }
-        />
-      );
-    },
-    [ctx, entries, handleRemove, handleDuplicate, handleAddField, handleSetEnabled],
-  );
-
-  const renderItem = useCallback(
-    ({ key, ...p }: Tree.ItemRenderProps<string>) => {
-      const entry = entries.get(p.itemKey);
-      if (entry?.kind === "field")
-        return <FieldTreeItem key={key} {...p} entryKey={entry.entryKey} />;
-      return <EntryTreeItem key={key} {...p} onAddField={handleAddField} />;
-    },
-    [entries, handleAddField],
+  const fieldDetails = useCallback(
+    ({ groupKey, fieldKey, path }: Task.Views.FieldProps) => (
+      <FieldPane
+        groupKey={groupKey}
+        fieldKey={fieldKey}
+        path={path}
+        deviceName={device.name}
+      />
+    ),
+    [device.name],
   );
 
   const resolve = useCallback(
@@ -666,65 +355,26 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
     [device],
   );
 
-  const current = selected.length > 0 ? entries.get(selected[0]) : undefined;
-
   return (
     <Flex.Box x grow empty>
       {!isPreview && <Browser device={device} />}
-      <Task.Views.Panes
+      <Task.Views.GroupTree<ReadEntry, ReadField>
+        path={ENTRIES_PATH}
         listTitle="Entries"
-        list={
-          <>
-            <Menu.ContextMenu {...menuProps} menu={menuRenderProp}>
-              <Tree.Tree<string, record.Keyed<string>>
-                {...treeProps}
-                {...dropProps}
-                onSelect={handleSelect}
-                itemHeight={TREE_ITEM_HEIGHT}
-                className={menuProps.className}
-                onContextMenu={menuProps.open}
-                emptyContent={EMPTY_CONTENT}
-                allowNone={false}
-                autoSelectOnNone
-              >
-                {renderItem}
-              </Tree.Tree>
-            </Menu.ContextMenu>
-            <AddEntryButtons
-              onAdd={handleAddEntry}
-              onAddSparkplug={handleAddSparkplugEntry}
-            />
-          </>
-        }
-        detailsPath={current != null ? entryPath(current) : null}
-        title={
-          current?.kind === "entry" ? (
-            <EntryLabel path={entryPath(current)} />
-          ) : current?.kind === "field" ? (
-            <FieldTitle entryKey={current.entryKey} fieldKey={current.fieldKey} />
-          ) : undefined
-        }
-      >
-        {current == null ? (
-          <Flex.Box y grow align="center" justify="center">
-            <Text.Text status="disabled">
-              Select an entry or field to configure
-            </Text.Text>
-          </Flex.Box>
-        ) : current.kind === "entry" ? (
-          <EntryPane path={entryPath(current)} deviceName={device.name} />
-        ) : (
-          <FieldPane
-            entryKey={current.entryKey}
-            fieldKey={current.fieldKey}
-            deviceName={device.name}
-          />
-        )}
-      </Task.Views.Panes>
+        emptyMessage="No entries"
+        placeholder="Select an entry or field to configure"
+        groupKinds={ENTRY_KINDS}
+        createField={createField}
+        emptyPointerLabel="Whole payload"
+        groupLabel={entryLabel}
+        groupDetails={entryDetails}
+        fieldDetails={fieldDetails}
+        drop={drop}
+      />
       <Task.BindChannels<ReadEntry> path={ENTRIES_PATH} resolve={resolve} />
-      {nodes.map(
-        ({ key, children }) =>
-          children != null && <FieldBinder key={key} device={device} entryKey={key} />,
+      {entries.map(
+        ({ key, type }) =>
+          type === "plain" && <FieldBinder key={key} device={device} entryKey={key} />,
       )}
     </Flex.Box>
   );

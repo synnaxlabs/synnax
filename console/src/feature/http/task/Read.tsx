@@ -306,7 +306,9 @@ const REQUEST_BODY_INPUT_PROPS = {
   className: CSS.B("request-body"),
 } as const;
 
-const createEndpoint = (): Omit<ReadEndpoint, "key"> => http.readEndpointZ.parse({});
+const ENDPOINT_KINDS: Task.Views.GroupKind<ReadEndpoint>[] = [
+  { name: "endpoint", create: () => http.readEndpointZ.parse({}) },
+];
 
 const createField = (): Omit<ReadField, "key"> => http.readFieldZ.parse({});
 
@@ -331,9 +333,9 @@ const Form: FC = () => {
       <Task.Views.GroupTree<ReadEndpoint, ReadField>
         path="config.endpoints"
         listTitle="Endpoints"
-        groupName="endpoint"
+        emptyMessage="No endpoints"
         placeholder="Select an endpoint or field to configure"
-        createGroup={createEndpoint}
+        groupKinds={ENDPOINT_KINDS}
         createField={createField}
         groupLabel={endpointLabel}
         groupDetails={endpointDetails}
