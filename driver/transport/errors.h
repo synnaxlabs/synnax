@@ -25,6 +25,11 @@ const x::errors::Error UNREACHABLE_ERROR = driver::errors::TEMPORARY_HARDWARE_ER
 const x::errors::Error CONFIG_ERROR = driver::errors::CONFIGURATION_ERROR.sub(
     "transport"
 );
+/// @brief a failure that reopening the device cannot fix, such as running out of file
+/// descriptors.
+const x::errors::Error CRITICAL_ERROR = driver::errors::CRITICAL_HARDWARE_ERROR.sub(
+    "transport"
+);
 
 /// @returns an error of the given type whose message is context followed by ec's
 /// message.
