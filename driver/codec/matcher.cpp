@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
-#include <stdexcept>
 #include <string_view>
 
 #include "driver/codec/errors.h"
@@ -43,14 +42,11 @@ x::errors::Error duplicate(
     );
 }
 
-const library::BinaryField &find_field(
-    const library::MessageEntry &m,
-    const library::BinaryPayload &payload,
-    const library::FieldKey &key
-) {
+const library::BinaryField *
+find_field(const library::BinaryPayload &payload, const library::FieldKey &key) {
     for (const auto &f: payload.fields)
-        if (f.key == key) return f;
-    throw std::out_of_range("message " + m.name + " has no field " + key.to_string());
+        if (f.key == key) return &f;
+    return nullptr;
 }
 }
 
@@ -119,7 +115,10 @@ Matcher::compile(const std::span<const library::MessageEntry> messages) {
             continue;
         }
         const auto &field = std::get<library::FieldIdentifier>(identifier);
-        const auto &bf = find_field(msg, *binary, field.field);
+        const auto *found = find_field(*binary, field.field);
+        if (found == nullptr)
+            return {{}, message_error(msg, "identifier field is not in the message")};
+        const auto &bf = *found;
         if (bf.float_)
             return {{}, message_error(msg, "identifier field must be an integer")};
         auto [bits, err] = BitRange::compile(
