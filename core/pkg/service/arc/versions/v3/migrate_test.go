@@ -232,7 +232,7 @@ var _ = Describe("MigrateArc", func() {
 				Expect(got.Key).To(Equal(seed.Key))
 				Expect(got.Name).To(Equal(seed.Name))
 				Expect(got.Mode).To(Equal(v3.Mode(seed.Mode)))
-					Expect(got.Program).To(BeNil())
+				Expect(got.Program).To(BeNil())
 			},
 		)
 	})
