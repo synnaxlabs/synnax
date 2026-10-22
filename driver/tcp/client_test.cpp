@@ -36,20 +36,6 @@ std::string as_string(const std::span<const std::uint8_t> data) {
     return {reinterpret_cast<const char *>(data.data()), data.size()};
 }
 
-const Config FAST{
-    .connect_timeout = x::telem::SECOND,
-    .min_backoff = 10 * x::telem::MILLISECOND,
-    .max_backoff = 100 * x::telem::MILLISECOND,
-};
-
-/// @brief reads from the client until bytes arrive or one second of reads passes.
-std::pair<std::string, x::errors::Error> read_eventually(Client &client) {
-    for (int i = 0; i < 100; i++) {
-        auto [chunk, err] = client.read(10 * x::telem::MILLISECOND);
-        if (err || !chunk.data.empty()) return {as_string(chunk.data), err};
-    }
-    return {"", x::errors::NIL};
-}
 }
 
 /// @brief plays the device: a listener on a free localhost port.
@@ -78,7 +64,7 @@ protected:
 };
 
 TEST_F(ClientTest, ReadsWhatThePeerSends) {
-    const auto client = ASSERT_NIL_P(Client::open(this->props(), FAST));
+    const auto client = ASSERT_NIL_P(Client::open(this->props()));
     auto peer = this->accept();
     const auto before = x::telem::TimeStamp::now();
     asio::write(peer, asio::buffer(std::string("hello")));
@@ -89,7 +75,7 @@ TEST_F(ClientTest, ReadsWhatThePeerSends) {
 }
 
 TEST_F(ClientTest, AnswersAQueryInARoundTrip) {
-    const auto client = ASSERT_NIL_P(Client::open(this->props(), FAST));
+    const auto client = ASSERT_NIL_P(Client::open(this->props()));
     auto peer = this->accept();
     ASSERT_NIL(client->write(bytes("*IDN?\n"), x::telem::SECOND));
     EXPECT_EQ(receive(peer, 6), "*IDN?\n");
@@ -99,7 +85,7 @@ TEST_F(ClientTest, AnswersAQueryInARoundTrip) {
 }
 
 TEST_F(ClientTest, ReadsAfterAWriteFromAnotherThread) {
-    const auto client = ASSERT_NIL_P(Client::open(this->props(), FAST));
+    const auto client = ASSERT_NIL_P(Client::open(this->props()));
     auto peer = this->accept();
     std::mutex mu;
     std::string got;
@@ -133,7 +119,7 @@ TEST_F(ClientTest, ReadsAfterAWriteFromAnotherThread) {
 }
 
 TEST_F(ClientTest, ReturnsAnEmptyChunkWhenNothingArrivesBeforeTheTimeout) {
-    const auto client = ASSERT_NIL_P(Client::open(this->props(), FAST));
+    const auto client = ASSERT_NIL_P(Client::open(this->props()));
     auto peer = this->accept();
     const x::telem::Stopwatch sw;
     const auto chunk = ASSERT_NIL_P(client->read(50 * x::telem::MILLISECOND));
@@ -141,52 +127,26 @@ TEST_F(ClientTest, ReturnsAnEmptyChunkWhenNothingArrivesBeforeTheTimeout) {
     EXPECT_GE(sw.elapsed(), 50 * x::telem::MILLISECOND);
 }
 
-TEST_F(ClientTest, ReconnectsAfterThePeerClosesTheSocket) {
-    const auto client = ASSERT_NIL_P(Client::open(this->props(), FAST));
-    {
-        auto peer = this->accept();
-        asio::write(peer, asio::buffer(std::string("first")));
-        ASSERT_EQ(
-            as_string(ASSERT_NIL_P(client->read(x::telem::SECOND)).data),
-            "first"
-        );
-        peer.close();
-    }
-    ASSERT_OCCURRED_AS_P(client->read(x::telem::SECOND), transport::UNREACHABLE_ERROR);
-    std::thread device([this] {
-        auto peer = this->accept();
-        asio::write(peer, asio::buffer(std::string("second")));
-        EXPECT_EQ(receive(peer, 4), "ping");
-    });
-    const auto [data, err] = read_eventually(*client);
-    ASSERT_NIL(err);
-    EXPECT_EQ(data, "second");
-    ASSERT_NIL(client->write(bytes("ping"), x::telem::SECOND));
-    device.join();
-}
-
-TEST_F(ClientTest, WaitsOutTheBackoffBeforeReconnecting) {
-    Config config = FAST;
-    config.min_backoff = 200 * x::telem::MILLISECOND;
-    const auto client = ASSERT_NIL_P(Client::open(this->props(), config));
+TEST_F(ClientTest, StaysClosedAfterThePeerDrops) {
+    const auto client = ASSERT_NIL_P(Client::open(this->props()));
     this->accept().close();
-    this->acceptor.close();
     ASSERT_OCCURRED_AS_P(client->read(x::telem::SECOND), transport::UNREACHABLE_ERROR);
-    const auto waiting = ASSERT_NIL_P(client->read(10 * x::telem::MILLISECOND));
-    EXPECT_TRUE(waiting.data.empty());
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    ASSERT_OCCURRED_AS_P(client->read(x::telem::SECOND), transport::UNREACHABLE_ERROR);
     ASSERT_OCCURRED_AS(
         client->write(bytes("ping"), x::telem::SECOND),
         transport::UNREACHABLE_ERROR
     );
-    const x::telem::Stopwatch sw;
-    ASSERT_OCCURRED_AS_P(client->read(x::telem::SECOND), transport::UNREACHABLE_ERROR);
-    EXPECT_GE(sw.elapsed(), 150 * x::telem::MILLISECOND);
+    this->acceptor.non_blocking(true);
+    std::error_code ec;
+    this->acceptor.accept(ec);
+    EXPECT_EQ(ec, asio::error::would_block);
 }
 
 TEST_F(ClientTest, FailsToOpenWhenNothingListens) {
     const auto p = this->props();
     this->acceptor.close();
-    ASSERT_OCCURRED_AS_P(Client::open(p, FAST), transport::UNREACHABLE_ERROR);
+    ASSERT_OCCURRED_AS_P(Client::open(p), transport::UNREACHABLE_ERROR);
 }
 
 TEST(Client, RejectsAMissingHostOrPort) {
