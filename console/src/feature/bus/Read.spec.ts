@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type bus, can } from "@synnaxlabs/client";
+import { type bus, can, type library } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uuid } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -26,7 +27,7 @@ import {
   deployAndAwaitTask,
   selectFromDropdown,
 } from "@/platform/task/testutil";
-import { assertDefined, findDialogTriggerByText } from "@/testutil";
+import { assertDefined, findDialogTriggerByText, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -43,16 +44,97 @@ const createDraft = async (config: Record<string, unknown>) =>
 const retrieveRead = async (key: string) =>
   await client.tasks.retrieve({ key, schemas: CAN.Task.READ_SCHEMAS });
 
-/** Expects the index and field channels of a deployed message to hold the names. */
-const expectBound = async (m: bus.ReadMessage, index: string, fields: string[]) => {
-  expect((await client.channels.retrieve(m.index)).name).toBe(index);
-  const channels = await client.channels.retrieve(m.fields.map((f) => f.channel));
-  expect(channels.map((c) => c.name).sort()).toEqual(fields);
-  channels.forEach((c) => expect(c.index).toBe(m.index));
+/**
+ * Expects each field of a deployed message to write to the channel named prefix and the
+ * field name, on the index named in indexes for the field. Fields with the same index
+ * name must share one index channel.
+ */
+const expectBound = async (
+  m: bus.ReadMessage,
+  entry: library.MessageEntry,
+  prefix: string,
+  indexes: Record<string, string>,
+) => {
+  const names = new Map(entry.payload.fields.map((f) => [f.key, f.name]));
+  const bound = await Promise.all(
+    m.fields.map(async (f) => {
+      const [ch, index] = await Promise.all([
+        client.channels.retrieve(f.channel),
+        client.channels.retrieve(f.index),
+      ]);
+      const name = names.get(f.field) ?? "";
+      expect(ch.name).toBe(`${prefix}_${name}`);
+      expect(ch.index).toBe(index.key);
+      expect(index.isIndex).toBe(true);
+      return { name, index };
+    }),
+  );
+  expect(Object.fromEntries(bound.map((b) => [b.name, b.index.name]))).toEqual(indexes);
+  expect(new Set(bound.map((b) => b.index.key)).size).toBe(
+    new Set(Object.values(indexes)).size,
+  );
+};
+
+/**
+ * Creates a library with two multiplexed CAN messages. In Mux, Mode selects A and B on
+ * 0 and C and D on 1 or 2. In Ext, Mode selects Sub and F on 3, and Sub selects E on 5.
+ * Mode and Speed are always present.
+ */
+const createMuxLibrary = async () => {
+  const [muxMode, extMode, sub] = [uuid.create(), uuid.create(), uuid.create()];
+  const lib = await client.libraries.create({
+    name: uniqueName("mux_library"),
+    entries: [
+      {
+        kind: "message",
+        name: "Mux",
+        payload: {
+          format: "binary",
+          identifier: { type: "can", id: 0x300, extended: false, fd: false },
+          length: 8,
+          fields: [
+            { key: muxMode, name: "Mode", startBit: 0 },
+            { name: "Speed", startBit: 8 },
+            { name: "A", startBit: 16, multiplexor: muxMode, multiplexValues: [0] },
+            { name: "B", startBit: 24, multiplexor: muxMode, multiplexValues: [0] },
+            { name: "C", startBit: 16, multiplexor: muxMode, multiplexValues: [1, 2] },
+            { name: "D", startBit: 24, multiplexor: muxMode, multiplexValues: [2, 1] },
+          ],
+        },
+      },
+      {
+        kind: "message",
+        name: "Ext",
+        payload: {
+          format: "binary",
+          identifier: { type: "can", id: 0x301, extended: false, fd: false },
+          length: 8,
+          fields: [
+            { key: extMode, name: "Mode", startBit: 0 },
+            {
+              key: sub,
+              name: "Sub",
+              startBit: 8,
+              multiplexor: extMode,
+              multiplexValues: [3],
+            },
+            { name: "F", startBit: 16, multiplexor: extMode, multiplexValues: [3] },
+            { name: "E", startBit: 24, multiplexor: sub, multiplexValues: [5] },
+          ],
+        },
+      },
+    ],
+  });
+  const find = (name: string) => {
+    const entry = lib.entries.find((e) => e.name === name);
+    if (entry?.kind !== "message") throw new Error(`message ${name} not found`);
+    return entry;
+  };
+  return { library: lib, mux: find("Mux"), ext: find("Ext") };
 };
 
 describe("bus read task", () => {
-  it("should create one index per message and one channel per field on deploy", async () => {
+  it("should put every field of a plain message on one index on deploy", async () => {
     const { library, engine } = await createBusLibrary(client);
     const dev = await createCANDevice();
     const draft = await createDraft({ library: library.key, device: dev.key });
@@ -71,9 +153,10 @@ describe("bus read task", () => {
     expect(msg.fields.map((f) => f.field)).toEqual(
       engine.payload.fields.map((f) => f.key),
     );
-    const index = await client.channels.retrieve(msg.index);
+    const index = await client.channels.retrieve(msg.fields[0].index);
     expect(index.name).toBe(`${dev.name}_Engine_time`);
     expect(index.isIndex).toBe(true);
+    msg.fields.forEach((f) => expect(f.index).toBe(index.key));
     const fields = await client.channels.retrieve(msg.fields.map((f) => f.channel));
     expect(fields.map((c) => c.name).sort()).toEqual([
       `${dev.name}_Engine_Rpm`,
@@ -104,13 +187,65 @@ describe("bus read task", () => {
       CAN.Task.READ_SCHEMAS,
     );
     const [engineMsg, brakeMsg] = deployed.config.messages;
-    await expectBound(engineMsg, `${dev.name}_Engine_time`, [
-      `${dev.name}_Engine_Rpm`,
-      `${dev.name}_Engine_Temp`,
-    ]);
-    await expectBound(brakeMsg, `${dev.name}_Brake_time`, [
-      `${dev.name}_Brake_Pressure`,
-    ]);
+    await expectBound(engineMsg, engine, `${dev.name}_Engine`, {
+      Rpm: `${dev.name}_Engine_time`,
+      Temp: `${dev.name}_Engine_time`,
+    });
+    await expectBound(brakeMsg, brake, `${dev.name}_Brake`, {
+      Pressure: `${dev.name}_Brake_time`,
+    });
+  });
+
+  it("should create one index per set of multiplexor values on deploy", async () => {
+    const { library, mux } = await createMuxLibrary();
+    const dev = await createCANDevice();
+    const draft = await createDraft({
+      library: library.key,
+      device: dev.key,
+      messages: [createMessage(mux)],
+    });
+    const { container } = await renderBusTask(CAN.Task.Read, client, draft.key);
+    const prefix = `${dev.name}_Mux`;
+    await screen.findByText(`Creates ${prefix}_mux1_2_time`);
+    const deployed = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      CAN.Task.READ_SCHEMAS,
+    );
+    await expectBound(deployed.config.messages[0], mux, prefix, {
+      Mode: `${prefix}_time`,
+      Speed: `${prefix}_time`,
+      A: `${prefix}_mux0_time`,
+      B: `${prefix}_mux0_time`,
+      C: `${prefix}_mux1_2_time`,
+      D: `${prefix}_mux1_2_time`,
+    });
+  });
+
+  it("should create one index per link of an extended multiplexor chain", async () => {
+    const { library, ext } = await createMuxLibrary();
+    const dev = await createCANDevice();
+    const draft = await createDraft({
+      library: library.key,
+      device: dev.key,
+      messages: [createMessage(ext)],
+    });
+    const { container } = await renderBusTask(CAN.Task.Read, client, draft.key);
+    await screen.findByRole("checkbox", { name: "Sub" });
+    const deployed = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      CAN.Task.READ_SCHEMAS,
+    );
+    const prefix = `${dev.name}_Ext`;
+    await expectBound(deployed.config.messages[0], ext, prefix, {
+      Mode: `${prefix}_time`,
+      Sub: `${prefix}_Mode_3_time`,
+      F: `${prefix}_Mode_3_time`,
+      E: `${prefix}_Mode_3_Sub_5_time`,
+    });
   });
 
   it("should only offer the library messages the integration can carry", async () => {
@@ -175,7 +310,9 @@ describe("bus read task", () => {
       second.key,
       CAN.Task.READ_SCHEMAS,
     );
-    expect(redeployed.config.messages[0].index).toBe(deployed.config.messages[0].index);
+    expect(redeployed.config.messages[0].fields[0].index).toBe(
+      deployed.config.messages[0].fields[0].index,
+    );
     expect(redeployed.config.messages[0].fields[0].channel).toBe(
       deployed.config.messages[0].fields[0].channel,
     );

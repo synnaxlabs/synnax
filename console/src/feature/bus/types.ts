@@ -38,6 +38,19 @@ export const messagesOf = (
   return out;
 };
 
+/**
+ * @returns the field of a message entry with the key.
+ * @throws {Error} if the message has no such field.
+ */
+export const fieldOf = (
+  entry: library.MessageEntry,
+  key: library.FieldKey,
+): library.BaseField => {
+  const field = entry.payload.fields.find((f) => f.key === key);
+  if (field == null) throw new Error(`Field ${key} is not in message ${entry.name}`);
+  return field;
+};
+
 type Issues = z.core.ParsePayload["issues"];
 
 const push = (issues: Issues, input: unknown, path: PropertyKey[], message: string) =>
