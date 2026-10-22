@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <string>
 #include <utility>
@@ -50,20 +51,6 @@ public:
     /// because the item was missing or because it did not parse as a number.
     [[nodiscard]] std::size_t invalid() const { return this->invalid_; }
 
-    /// @brief sets the physical value of the slot and marks it present.
-    void set(std::size_t slot, double value);
-
-    /// @brief sets an exact integer value. Binary integer fields with a scale of 1 and
-    /// an offset of 0 encode it without a round trip through double.
-    void set(std::size_t slot, std::int64_t value);
-
-    /// @brief sets an exact unsigned integer value. See set(std::size_t, int64_t).
-    void set(std::size_t slot, std::uint64_t value);
-
-    /// @brief sets the slot from a sample of a command channel.
-    /// @returns ENCODE_ERROR when the sample is a string.
-    x::errors::Error set(std::size_t slot, const x::telem::SampleValue &value);
-
     /// @brief marks every slot absent.
     void clear();
 
@@ -78,6 +65,10 @@ private:
 
     Values(const std::size_t size, const std::size_t muxes):
         slots(size), muxes(muxes) {}
+
+    void set(std::size_t slot, double value);
+    void set(std::size_t slot, std::int64_t value);
+    void set(std::size_t slot, std::uint64_t value);
 
     /// @brief Kind is how a slot holds its value.
     enum class Kind : std::uint8_t { ABSENT, FLOAT, INT, UINT };
@@ -149,18 +140,76 @@ public:
     x::errors::Error
     decode(std::span<const std::uint8_t> payload, Values &values) const;
 
+    /// @brief sets the slot to a value and marks it present. The field accepts a value
+    /// whose raw value, rounded to an integer for integer fields, fits its bits, and
+    /// that lies within its optional min and max. Text fields accept any finite value
+    /// within their min and max. Integer samples on fields with a scale of 1 and an
+    /// offset of 0 are kept exact.
+    /// @returns RANGE_ERROR, leaving the slot as it was, when the field does not accept
+    /// the value. The error data reads "<value> is outside the range <lo> to <hi>".
+    /// @returns ENCODE_ERROR when the sample is a string.
+    x::errors::Error
+    set(Values &values, std::size_t slot, const x::telem::SampleValue &value) const;
+
+    /// @brief sets the slot to the value whose raw value, before scale and offset, is
+    /// raw. raw must fit the field.
+    void set_raw(Values &values, std::size_t slot, std::int64_t raw) const;
+
     /// @brief encodes values into a payload. For binary messages, grows the payload
     /// with zero bytes to length() and writes each present field that its multiplexor
     /// selects, leaving every other bit as it was. For text messages, replaces the
     /// payload with the delimited items in position order followed by each present
     /// tagged field, skipping absent ones.
-    /// @returns ENCODE_ERROR when a binary integer field receives NaN.
-    x::errors::Error
-    encode(const Values &values, std::vector<std::uint8_t> &payload) const;
+    void encode(const Values &values, std::vector<std::uint8_t> &payload) const;
 
 private:
     /// @brief Type is how a binary field interprets its raw bits.
     enum class Type : std::uint8_t { UNSIGNED, SIGNED, FLOAT32, FLOAT64 };
+
+    /// @brief Limit is the range of values a slot accepts.
+    struct Limit {
+        Limit() = default;
+
+        /// @param field the field, for its scale, offset, min, and max.
+        /// @param type the type of a binary field, or nullopt for a text field.
+        /// @param bits the length of a binary field.
+        Limit(
+            const synnax::library::BaseField &field,
+            std::optional<Type> type,
+            std::uint8_t bits
+        );
+
+        /// @brief integer is true for binary integer fields.
+        bool integer = false;
+        /// @brief signed_ is true for binary fields that hold two's complement.
+        bool signed_ = false;
+        /// @brief exact is true when integer samples keep their exact value.
+        bool exact = false;
+        /// @brief bits is the length of a binary integer field.
+        std::uint8_t bits = 0;
+        /// @brief scale multiplies the raw value.
+        double scale = 1;
+        /// @brief offset is added to the scaled value.
+        double offset = 0;
+        /// @brief lo is the lowest raw value of an integer field.
+        double lo = 0;
+        /// @brief hi is one past the highest raw value of an integer field, or the
+        /// largest magnitude of any other raw value.
+        double hi = 0;
+        /// @brief min is the lowest physical value the field allows.
+        std::optional<double> min;
+        /// @brief max is the highest physical value the field allows.
+        std::optional<double> max;
+        /// @brief range is the accepted physical range, as "<lo> to <hi>".
+        std::string range;
+
+        /// @returns true when the field accepts the physical value.
+        [[nodiscard]] bool accepts(double value) const;
+        /// @returns true when the field accepts the exact integer.
+        [[nodiscard]] bool accepts(std::int64_t value) const;
+        /// @returns true when the field accepts the exact unsigned integer.
+        [[nodiscard]] bool accepts(std::uint64_t value) const;
+    };
 
     /// @brief Condition selects a field when a multiplexor holds one of values.
     struct Condition {
@@ -237,12 +286,13 @@ private:
     x::errors::Error
     decode_binary(std::span<const std::uint8_t> payload, Values &values) const;
     void decode_text(std::span<const std::uint8_t> payload, Values &values) const;
-    x::errors::Error
-    encode_binary(const Values &values, std::vector<std::uint8_t> &payload) const;
+    void encode_binary(const Values &values, std::vector<std::uint8_t> &payload) const;
     void encode_text(const Values &values, std::vector<std::uint8_t> &payload) const;
 
     /// @brief keys is the field key of each slot.
     std::vector<synnax::library::FieldKey> keys;
+    /// @brief limits holds the range of each slot.
+    std::vector<Limit> limits;
     /// @brief text is true for text messages.
     bool text = false;
     /// @brief length_ is the minimum length of an encoded binary payload.

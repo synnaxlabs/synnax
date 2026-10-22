@@ -156,15 +156,17 @@ TEST_F(GoldenVectors, EncodeToThePayloadCantoolsEncodes) {
                 const auto &expected = v["values"];
                 if (!expected.contains(g.names[i])) continue;
                 const auto &e = expected[g.names[i]];
+                x::telem::SampleValue sample;
                 if (!exact(g.signals[i]))
-                    values.set(i, e.get<double>());
+                    sample = e.get<double>();
                 else if (g.signals[i]["signed"].get<bool>())
-                    values.set(i, e.get<std::int64_t>());
+                    sample = e.get<std::int64_t>();
                 else
-                    values.set(i, e.get<std::uint64_t>());
+                    sample = e.get<std::uint64_t>();
+                ASSERT_NIL(plan.set(values, i, sample));
             }
             payload.assign(plan.length(), 0);
-            ASSERT_NIL(plan.encode(values, payload));
+            plan.encode(values, payload);
             EXPECT_EQ(payload, from_hex(v["encoded"]))
                 << g.message.name << " " << v["payload"].get<std::string>();
         }

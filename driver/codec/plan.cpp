@@ -123,6 +123,20 @@ std::int64_t signed_min(const std::uint8_t bits) {
     return -signed_max(bits) - 1;
 }
 
+std::string format(const double v) {
+    if (std::isnan(v)) return "NaN";
+    char buf[32];
+    const auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), v);
+    return {buf, ptr};
+}
+
+constexpr double max_double = std::numeric_limits<double>::max();
+
+/// @returns the largest double below the exclusive integer bound end.
+double below(const double end) {
+    return end - 1 < end ? end - 1 : std::nextafter(end, 0.0);
+}
+
 void append(std::vector<std::uint8_t> &out, const std::string_view s) {
     out.insert(out.end(), s.begin(), s.end());
 }
@@ -133,6 +147,75 @@ void append_number(std::vector<std::uint8_t> &out, const T value) {
     const auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), value);
     append(out, std::string_view(buf, ptr - buf));
 }
+}
+
+Plan::Limit::Limit(
+    const library::BaseField &field,
+    const std::optional<Type> type,
+    const std::uint8_t bits
+):
+    integer(type == Type::SIGNED || type == Type::UNSIGNED),
+    signed_(type == Type::SIGNED),
+    exact(
+        field.scale == 1 && field.offset == 0 && (this->integer || !type.has_value())
+    ),
+    bits(bits),
+    scale(field.scale),
+    offset(field.offset),
+    lo(-max_double),
+    hi(max_double),
+    min(field.min),
+    max(field.max) {
+    if (type == Type::FLOAT32) {
+        this->hi = std::numeric_limits<float>::max();
+        this->lo = -this->hi;
+    } else if (this->integer) {
+        this->lo = signed_ ? -std::ldexp(1.0, bits - 1) : 0;
+        this->hi = std::ldexp(1.0, signed_ ? bits - 1 : bits);
+    }
+    const double top = this->integer ? below(this->hi) : this->hi;
+    double a = this->lo * this->scale + this->offset;
+    double b = top * this->scale + this->offset;
+    if (a > b) std::swap(a, b);
+    std::string low = format(a);
+    std::string high = format(b);
+    if (this->integer && this->exact) {
+        low = this->signed_ ? std::to_string(signed_min(bits)) : "0";
+        high = this->signed_ ? std::to_string(signed_max(bits))
+                             : std::to_string(unsigned_max(bits));
+    }
+    if (this->min && *this->min > a) low = format(*this->min);
+    if (this->max && *this->max < b) high = format(*this->max);
+    this->range = low + " to " + high;
+}
+
+bool Plan::Limit::accepts(const double value) const {
+    if ((this->min && value < *this->min) || (this->max && value > *this->max))
+        return false;
+    const double raw = (value - this->offset) / this->scale;
+    if (!this->integer) return std::abs(raw) <= this->hi;
+    const double r = std::round(raw);
+    return r >= this->lo && r < this->hi;
+}
+
+bool Plan::Limit::accepts(const std::int64_t value) const {
+    if (!this->exact) return this->accepts(static_cast<double>(value));
+    const auto v = static_cast<double>(value);
+    if ((this->min && v < *this->min) || (this->max && v > *this->max)) return false;
+    if (!this->integer) return true;
+    if (this->signed_)
+        return value >= signed_min(this->bits) && value <= signed_max(this->bits);
+    return value >= 0 && static_cast<std::uint64_t>(value) <= unsigned_max(this->bits);
+}
+
+bool Plan::Limit::accepts(const std::uint64_t value) const {
+    if (!this->exact) return this->accepts(static_cast<double>(value));
+    const auto v = static_cast<double>(value);
+    if ((this->min && v < *this->min) || (this->max && v > *this->max)) return false;
+    if (!this->integer) return true;
+    if (this->signed_)
+        return value <= static_cast<std::uint64_t>(signed_max(this->bits));
+    return value <= unsigned_max(this->bits);
 }
 
 void Values::set(const std::size_t slot, const double value) {
@@ -155,26 +238,6 @@ void Values::set(const std::size_t slot, const std::uint64_t value) {
     };
 }
 
-x::errors::Error
-Values::set(const std::size_t slot, const x::telem::SampleValue &value) {
-    return std::visit(
-        [this, slot]<typename T>(const T &v) -> x::errors::Error {
-            if constexpr (std::is_same_v<T, std::string>)
-                return x::errors::Error(ENCODE_ERROR, "cannot encode a string sample");
-            else if constexpr (std::is_same_v<T, x::telem::TimeStamp>)
-                this->set(slot, static_cast<std::int64_t>(v.nanoseconds()));
-            else if constexpr (std::is_floating_point_v<T>)
-                this->set(slot, static_cast<double>(v));
-            else if constexpr (std::is_signed_v<T>)
-                this->set(slot, static_cast<std::int64_t>(v));
-            else
-                this->set(slot, static_cast<std::uint64_t>(v));
-            return x::errors::NIL;
-        },
-        value
-    );
-}
-
 void Values::clear() {
     for (auto &s: this->slots)
         s.kind = Kind::ABSENT;
@@ -195,6 +258,62 @@ std::size_t Values::write(const std::size_t slot, x::telem::Series &series) cons
             return series.write_casted(&s.integer, 1);
     }
     return 0;
+}
+
+x::errors::Error Plan::set(
+    Values &values,
+    const std::size_t slot,
+    const x::telem::SampleValue &value
+) const {
+    const auto &limit = this->limits[slot];
+    const auto refuse = [&limit](const std::string &v) {
+        return x::errors::Error(
+            RANGE_ERROR,
+            v + " is outside the range " + limit.range
+        );
+    };
+    return std::visit(
+        [&values, slot, &limit, &refuse]<typename T>(const T &v) -> x::errors::Error {
+            if constexpr (std::is_same_v<T, std::string>)
+                return x::errors::Error(ENCODE_ERROR, "cannot encode a string sample");
+            else if constexpr (std::is_floating_point_v<T>) {
+                const auto d = static_cast<double>(v);
+                if (!limit.accepts(d)) return refuse(format(d));
+                values.set(slot, d);
+            } else {
+                using I = std::conditional_t<
+                    std::is_same_v<T, x::telem::TimeStamp> || std::is_signed_v<T>,
+                    std::int64_t,
+                    std::uint64_t>;
+                I i;
+                if constexpr (std::is_same_v<T, x::telem::TimeStamp>)
+                    i = v.nanoseconds();
+                else
+                    i = static_cast<I>(v);
+                if (!limit.accepts(i)) return refuse(std::to_string(i));
+                if (limit.exact)
+                    values.set(slot, i);
+                else
+                    values.set(slot, static_cast<double>(i));
+            }
+            return x::errors::NIL;
+        },
+        value
+    );
+}
+
+void Plan::set_raw(
+    Values &values,
+    const std::size_t slot,
+    const std::int64_t raw
+) const {
+    const auto &limit = this->limits[slot];
+    if (!limit.exact)
+        values.set(slot, static_cast<double>(raw) * limit.scale + limit.offset);
+    else if (limit.integer && !limit.signed_)
+        values.set(slot, static_cast<std::uint64_t>(raw));
+    else
+        values.set(slot, raw);
 }
 
 std::pair<Plan, x::errors::Error> Plan::compile(const library::MessageEntry &message) {
@@ -231,11 +350,13 @@ x::errors::Error Plan::compile_payload(const library::TextPayload &payload) {
     this->delimiter = payload.delimiter;
     const auto [fields, err] = select(keyed(payload.fields), this->keys);
     if (err) return err;
+    this->limits.resize(fields.size());
     for (std::size_t slot = 0; slot < fields.size(); slot++) {
         const auto &field = *fields[slot];
         const auto &fb = base(field);
         if (fb.multiplexor.has_value())
             return field_error(fb.name, "text fields cannot be multiplexed");
+        this->limits[slot] = Limit(fb, std::nullopt, 0);
         Text t{.slot = slot, .scale = fb.scale, .offset = fb.offset};
         if (const auto *d = std::get_if<library::DelimitedTextField>(&field)) {
             t.position = d->position;
@@ -259,6 +380,7 @@ x::errors::Error Plan::compile_payload(const library::BinaryPayload &payload) {
     const auto by_key = keyed(payload.fields);
     const auto [fields, err] = select(by_key, this->keys);
     if (err) return err;
+    this->limits.resize(fields.size());
     std::unordered_map<library::FieldKey, int> mux_index;
     std::vector<std::pair<std::size_t, Binary>> ordered;
     for (std::size_t slot = 0; slot < fields.size(); slot++) {
@@ -284,6 +406,7 @@ x::errors::Error Plan::compile_payload(const library::BinaryPayload &payload) {
             b.type = bf.signed_ ? Type::SIGNED : Type::UNSIGNED;
             b.exact = bf.scale == 1 && bf.offset == 0;
         }
+        this->limits[slot] = Limit(bf, b.type, bf.bit_length);
 
         // Resolves the chain of multiplexors above the field. fill is the mux whose
         // condition the next link sets, or -1 for the field's own condition.
@@ -474,17 +597,17 @@ void Plan::decode_text(
         if (!values.present(f.slot)) values.invalid_++;
 }
 
-x::errors::Error
-Plan::encode(const Values &values, std::vector<std::uint8_t> &payload) const {
-    if (this->text) {
+void Plan::encode(const Values &values, std::vector<std::uint8_t> &payload) const {
+    if (this->text)
         this->encode_text(values, payload);
-        return x::errors::NIL;
-    }
-    return this->encode_binary(values, payload);
+    else
+        this->encode_binary(values, payload);
 }
 
-x::errors::Error
-Plan::encode_binary(const Values &values, std::vector<std::uint8_t> &payload) const {
+void Plan::encode_binary(
+    const Values &values,
+    std::vector<std::uint8_t> &payload
+) const {
     if (payload.size() < this->length_) payload.resize(this->length_, 0);
     auto *p = payload.data();
     // Multiplexors come before the fields they select, so each read sees the value this
@@ -494,65 +617,29 @@ Plan::encode_binary(const Values &values, std::vector<std::uint8_t> &payload) co
         const auto &s = values.slots[f.slot];
         if (s.kind == Values::Kind::ABSENT || !this->selected(f.condition, raw))
             continue;
-        const auto bits = f.bits.length();
-        if (f.exact && s.kind == Values::Kind::INT) {
-            const auto v = static_cast<std::int64_t>(s.integer);
-            if (f.type == Type::SIGNED)
-                f.bits.write(
-                    p,
-                    static_cast<std::uint64_t>(
-                        std::clamp(v, signed_min(bits), signed_max(bits))
-                    )
-                );
-            else
-                f.bits.write(p, v < 0 ? 0 : std::min(s.integer, unsigned_max(bits)));
-            continue;
-        }
-        if (f.exact && s.kind == Values::Kind::UINT) {
-            const auto max = f.type == Type::SIGNED
-                               ? static_cast<std::uint64_t>(signed_max(bits))
-                               : unsigned_max(bits);
-            f.bits.write(p, std::min(s.integer, max));
+        if (s.kind != Values::Kind::FLOAT) {
+            f.bits.write(p, s.integer);
             continue;
         }
         const double v = (s.value - f.offset) / f.scale;
         switch (f.type) {
             case Type::FLOAT32:
                 f.bits.write(p, std::bit_cast<std::uint32_t>(static_cast<float>(v)));
-                continue;
+                break;
             case Type::FLOAT64:
                 f.bits.write(p, std::bit_cast<std::uint64_t>(v));
-                continue;
-            default:
+                break;
+            case Type::SIGNED:
+                f.bits.write(
+                    p,
+                    static_cast<std::uint64_t>(static_cast<std::int64_t>(std::round(v)))
+                );
+                break;
+            case Type::UNSIGNED:
+                f.bits.write(p, static_cast<std::uint64_t>(std::round(v)));
                 break;
         }
-        if (std::isnan(v))
-            return x::errors::Error(ENCODE_ERROR, "field " + f.name + " is NaN");
-        const double r = std::round(v);
-        if (f.type == Type::SIGNED) {
-            const auto min = signed_min(bits);
-            const auto max = signed_max(bits);
-            std::int64_t raw;
-            if (r <= static_cast<double>(min))
-                raw = min;
-            else if (r >= static_cast<double>(max))
-                raw = max;
-            else
-                raw = static_cast<std::int64_t>(r);
-            f.bits.write(p, static_cast<std::uint64_t>(raw));
-        } else {
-            const auto max = unsigned_max(bits);
-            std::uint64_t raw;
-            if (r <= 0)
-                raw = 0;
-            else if (r >= static_cast<double>(max))
-                raw = max;
-            else
-                raw = static_cast<std::uint64_t>(r);
-            f.bits.write(p, raw);
-        }
     }
-    return x::errors::NIL;
 }
 
 void Plan::encode_text(const Values &values, std::vector<std::uint8_t> &payload) const {
