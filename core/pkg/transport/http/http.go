@@ -20,9 +20,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/control"
 	"github.com/synnaxlabs/synnax/pkg/api/device"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
+	"github.com/synnaxlabs/synnax/pkg/api/icd"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
-	"github.com/synnaxlabs/synnax/pkg/api/library"
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
@@ -451,21 +451,24 @@ func Bind(layer *api.Layer, router *http.Router) {
 			"/api/v1/status/rename",
 		),
 
-		// LIBRARY
-		LibraryCreate: router.NewUnaryServer[library.CreateRequest, library.CreateResponse](
-			"/api/v1/library/create",
+		// ICD
+		ICDCreate: router.NewUnaryServer[icd.CreateRequest, icd.CreateResponse](
+			"/api/v1/icd/create",
 		),
-		LibraryRetrieve: router.NewUnaryServer[library.RetrieveRequest, library.RetrieveResponse](
-			"/api/v1/library/retrieve",
+		ICDRetrieve: router.NewUnaryServer[icd.RetrieveRequest, icd.RetrieveResponse](
+			"/api/v1/icd/retrieve",
 		),
-		LibraryRename: router.NewUnaryServer[library.RenameRequest, struct{}](
-			"/api/v1/library/rename",
+		ICDCheck: router.NewUnaryServer[icd.CheckRequest, icd.CheckResponse](
+			"/api/v1/icd/check",
 		),
-		LibraryDelete: router.NewUnaryServer[library.DeleteRequest, struct{}](
-			"/api/v1/library/delete",
+		ICDRename: router.NewUnaryServer[icd.RenameRequest, struct{}](
+			"/api/v1/icd/rename",
 		),
-		LibraryImport: router.NewUnaryServer[library.ImportRequest, library.ImportResponse](
-			"/api/v1/library/import",
+		ICDDelete: router.NewUnaryServer[icd.DeleteRequest, struct{}](
+			"/api/v1/icd/delete",
+		),
+		ICDImport: router.NewUnaryServer[icd.ImportRequest, icd.ImportResponse](
+			"/api/v1/icd/import",
 		),
 		// VIEW
 		ViewCreate: router.NewUnaryServer[view.CreateRequest, view.CreateResponse](

@@ -7,148 +7,191 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package library_test
+package icd_test
 
 import (
 	"os"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	apilibrary "github.com/synnaxlabs/synnax/pkg/api/library"
+	apiicd "github.com/synnaxlabs/synnax/pkg/api/icd"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/library"
-	"github.com/synnaxlabs/synnax/pkg/service/library/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var libraryType = ontology.ID{Type: ontology.ResourceTypeLibrary}
+var icdType = ontology.ID{Type: ontology.ResourceTypeICD}
 
-var _ = Describe("Library", func() {
+var _ = Describe("ICD", func() {
 	Describe("Create", func() {
-		It("Should create a library when create is granted", func(ctx SpecContext) {
+		It("Should create an ICD when create is granted", func(ctx SpecContext) {
 			u := createUser(ctx)
-			grantOn(ctx, u.OntologyID(), access.ActionCreate, libraryType)
+			grantOn(ctx, u.OntologyID(), access.ActionCreate, icdType)
 			res := MustSucceed(apiSvc.Create(
 				AuthedCtx(ctx, u),
 				nil,
-				apilibrary.CreateRequest{Libraries: []library.Library{{Name: "Bus"}}},
+				apiicd.CreateRequest{ICDs: []icd.ICD{{Name: "Bus"}}},
 			))
-			Expect(res.Libraries).To(HaveLen(1))
-			Expect(res.Libraries[0].Key).ToNot(BeZero())
+			Expect(res.ICDs).To(HaveLen(1))
+			Expect(res.ICDs[0].Key).ToNot(BeZero())
+			Expect(res.ICDs[0].Hash).ToNot(BeEmpty())
 		})
 
 		It("Should reject a create that is not granted", func(ctx SpecContext) {
 			Expect(apiSvc.Create(
 				AuthedCtx(ctx, createUser(ctx)),
 				nil,
-				apilibrary.CreateRequest{Libraries: []library.Library{{Name: "Bus"}}},
+				apiicd.CreateRequest{ICDs: []icd.ICD{{Name: "Bus"}}},
 			)).Error().To(MatchError(access.ErrDenied))
+		})
+
+		It("Should reject a save of an ICD that changed since it was read", func(
+			ctx SpecContext,
+		) {
+			ic := createICD(ctx, "Shared")
+			u := createUser(ctx)
+			grantOn(ctx, u.OntologyID(), access.ActionCreate, icdType)
+			stale := ic
+			stale.Hash = "0000000000000000"
+			Expect(apiSvc.Create(
+				AuthedCtx(ctx, u),
+				nil,
+				apiicd.CreateRequest{ICDs: []icd.ICD{stale}},
+			)).Error().To(MatchError(library.ErrStale))
 		})
 	})
 
 	Describe("Retrieve", func() {
-		It("Should retrieve libraries by key when retrieve is granted", func(
+		It("Should retrieve ICDs by key when retrieve is granted", func(
 			ctx SpecContext,
 		) {
-			l := createLibrary(ctx, "Engine")
+			ic := createICD(ctx, "Engine")
 			u := createUser(ctx)
-			grantOn(ctx, u.OntologyID(), access.ActionRetrieve, l.OntologyID())
+			grantOn(ctx, u.OntologyID(), access.ActionRetrieve, ic.OntologyID())
 			res := MustSucceed(apiSvc.Retrieve(
 				AuthedCtx(ctx, u),
-				apilibrary.RetrieveRequest{Keys: []library.Key{l.Key}},
+				apiicd.RetrieveRequest{Keys: []icd.Key{ic.Key}},
 			))
-			Expect(res.Libraries).To(HaveExactElements(
-				HaveField("Name", "Engine"),
-			))
+			Expect(res.ICDs).To(HaveExactElements(HaveField("Name", "Engine")))
 		})
 
 		It("Should reject a retrieve that is not granted", func(ctx SpecContext) {
-			l := createLibrary(ctx, "Hidden")
+			ic := createICD(ctx, "Hidden")
 			Expect(apiSvc.Retrieve(
 				AuthedCtx(ctx, createUser(ctx)),
-				apilibrary.RetrieveRequest{Keys: []library.Key{l.Key}},
+				apiicd.RetrieveRequest{Keys: []icd.Key{ic.Key}},
+			)).Error().To(MatchError(access.ErrDenied))
+		})
+	})
+
+	Describe("Check", func() {
+		It("Should return every problem in an ICD", func(ctx SpecContext) {
+			u := createUser(ctx)
+			grantOn(ctx, u.OntologyID(), access.ActionRetrieve, icdType)
+			res := MustSucceed(apiSvc.Check(
+				AuthedCtx(ctx, u),
+				apiicd.CheckRequest{ICD: icd.ICD{}},
+			))
+			Expect(res.Problems).To(Equal(library.Problems{
+				{Path: "name", Message: "required"},
+			}))
+		})
+
+		It("Should return no problems for a valid ICD", func(ctx SpecContext) {
+			u := createUser(ctx)
+			grantOn(ctx, u.OntologyID(), access.ActionRetrieve, icdType)
+			res := MustSucceed(apiSvc.Check(
+				AuthedCtx(ctx, u),
+				apiicd.CheckRequest{ICD: icd.ICD{Name: "Bus"}},
+			))
+			Expect(res.Problems).To(BeEmpty())
+		})
+
+		It("Should reject a check that is not granted", func(ctx SpecContext) {
+			Expect(apiSvc.Check(
+				AuthedCtx(ctx, createUser(ctx)),
+				apiicd.CheckRequest{ICD: icd.ICD{Name: "Bus"}},
 			)).Error().To(MatchError(access.ErrDenied))
 		})
 	})
 
 	Describe("Rename", func() {
-		It("Should rename a library when update is granted", func(ctx SpecContext) {
-			l := createLibrary(ctx, "Old")
+		It("Should rename an ICD when update is granted", func(ctx SpecContext) {
+			ic := createICD(ctx, "Old")
 			u := createUser(ctx)
-			grantOn(ctx, u.OntologyID(), access.ActionUpdate, l.OntologyID())
+			grantOn(ctx, u.OntologyID(), access.ActionUpdate, ic.OntologyID())
 			MustSucceed(apiSvc.Rename(
 				AuthedCtx(ctx, u),
 				nil,
-				apilibrary.RenameRequest{Key: l.Key, Name: "New"},
+				apiicd.RenameRequest{Key: ic.Key, Name: "New"},
 			))
-			var res library.Library
-			Expect(svc.Library.NewRetrieve().
-				Where(library.MatchKeys(l.Key)).
+			var res icd.ICD
+			Expect(svc.ICD.NewRetrieve().
+				Where(icd.MatchKeys(ic.Key)).
 				Entry(&res).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(res.Name).To(Equal("New"))
 		})
 
 		It("Should reject a rename that is not granted", func(ctx SpecContext) {
-			l := createLibrary(ctx, "Fixed")
+			ic := createICD(ctx, "Fixed")
 			Expect(apiSvc.Rename(
 				AuthedCtx(ctx, createUser(ctx)),
 				nil,
-				apilibrary.RenameRequest{Key: l.Key, Name: "New"},
+				apiicd.RenameRequest{Key: ic.Key, Name: "New"},
 			)).Error().To(MatchError(access.ErrDenied))
 		})
 	})
 
 	Describe("Import", func() {
 		It("Should import a DBC file when update is granted", func(ctx SpecContext) {
-			l := createLibrary(ctx, "Vehicle")
+			ic := createICD(ctx, "Vehicle")
 			u := createUser(ctx)
-			grantOn(ctx, u.OntologyID(), access.ActionUpdate, l.OntologyID())
-			data := MustSucceed(
-				os.ReadFile("../../service/library/icd/testdata/basic.dbc"),
-			)
+			grantOn(ctx, u.OntologyID(), access.ActionUpdate, ic.OntologyID())
+			data := MustSucceed(os.ReadFile("../../service/icd/testdata/basic.dbc"))
 			res := MustSucceed(apiSvc.Import(
 				AuthedCtx(ctx, u),
 				nil,
-				apilibrary.ImportRequest{Key: l.Key, Format: icd.FormatDBC, Data: data},
+				apiicd.ImportRequest{Key: ic.Key, Format: icd.FormatDBC, Data: data},
 			))
-			Expect(res.Library.Key).To(Equal(l.Key))
-			Expect(res.Library.Entries).ToNot(BeEmpty())
+			Expect(res.ICD.Key).To(Equal(ic.Key))
+			Expect(res.ICD.Entries).ToNot(BeEmpty())
 		})
 
 		It("Should reject an import that is not granted", func(ctx SpecContext) {
-			l := createLibrary(ctx, "Locked")
+			ic := createICD(ctx, "Locked")
 			Expect(apiSvc.Import(
 				AuthedCtx(ctx, createUser(ctx)),
 				nil,
-				apilibrary.ImportRequest{Key: l.Key, Format: icd.FormatDBC},
+				apiicd.ImportRequest{Key: ic.Key, Format: icd.FormatDBC},
 			)).Error().To(MatchError(access.ErrDenied))
 		})
 	})
 
 	Describe("Delete", func() {
-		It("Should delete a library when delete is granted", func(ctx SpecContext) {
-			l := createLibrary(ctx, "Doomed")
+		It("Should delete an ICD when delete is granted", func(ctx SpecContext) {
+			ic := createICD(ctx, "Doomed")
 			u := createUser(ctx)
-			grantOn(ctx, u.OntologyID(), access.ActionDelete, l.OntologyID())
+			grantOn(ctx, u.OntologyID(), access.ActionDelete, ic.OntologyID())
 			MustSucceed(apiSvc.Delete(
 				AuthedCtx(ctx, u),
 				nil,
-				apilibrary.DeleteRequest{Keys: []library.Key{l.Key}},
+				apiicd.DeleteRequest{Keys: []icd.Key{ic.Key}},
 			))
-			Expect(svc.Library.NewRetrieve().
-				Where(library.MatchKeys(l.Key)).
+			Expect(svc.ICD.NewRetrieve().
+				Where(icd.MatchKeys(ic.Key)).
 				Exists(ctx, nil)).To(BeFalse())
 		})
 
 		It("Should reject a delete that is not granted", func(ctx SpecContext) {
-			l := createLibrary(ctx, "Kept")
+			ic := createICD(ctx, "Kept")
 			Expect(apiSvc.Delete(
 				AuthedCtx(ctx, createUser(ctx)),
 				nil,
-				apilibrary.DeleteRequest{Keys: []library.Key{l.Key}},
+				apiicd.DeleteRequest{Keys: []icd.Key{ic.Key}},
 			)).Error().To(MatchError(access.ErrDenied))
 		})
 	})

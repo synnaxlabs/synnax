@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package library
+package icd
 
 import (
 	"context"
@@ -16,26 +16,26 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	"github.com/synnaxlabs/synnax/pkg/api/library"
-	"github.com/synnaxlabs/synnax/pkg/service/library/pb"
+	"github.com/synnaxlabs/synnax/pkg/api/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type (
 	createServer = grpc.UnaryServer[
-		library.CreateRequest,
+		icd.CreateRequest,
 		*CreateRequest,
-		library.CreateResponse,
+		icd.CreateResponse,
 		*CreateResponse,
 	]
 	retrieveServer = grpc.UnaryServer[
-		library.RetrieveRequest,
+		icd.RetrieveRequest,
 		*RetrieveRequest,
-		library.RetrieveResponse,
+		icd.RetrieveResponse,
 		*RetrieveResponse,
 	]
 	deleteServer = grpc.UnaryServer[
-		library.DeleteRequest,
+		icd.DeleteRequest,
 		*DeleteRequest,
 		struct{},
 		*emptypb.Empty,
@@ -52,76 +52,76 @@ type (
 
 var (
 	_ grpc.Translator[
-		library.CreateRequest,
+		icd.CreateRequest,
 		*CreateRequest,
 	] = createRequestTranslator{}
 	_ grpc.Translator[
-		library.CreateResponse,
+		icd.CreateResponse,
 		*CreateResponse,
 	] = createResponseTranslator{}
 	_ grpc.Translator[
-		library.RetrieveRequest,
+		icd.RetrieveRequest,
 		*RetrieveRequest,
 	] = retrieveRequestTranslator{}
 	_ grpc.Translator[
-		library.RetrieveResponse,
+		icd.RetrieveResponse,
 		*RetrieveResponse,
 	] = retrieveResponseTranslator{}
 	_ grpc.Translator[
-		library.DeleteRequest,
+		icd.DeleteRequest,
 		*DeleteRequest,
 	] = deleteRequestTranslator{}
 )
 
 func (createRequestTranslator) Forward(
 	_ context.Context,
-	req library.CreateRequest,
+	req icd.CreateRequest,
 ) (*CreateRequest, error) {
-	libs, err := pb.LibrariesToPB(req.Libraries)
+	ics, err := pb.ICDSToPB(req.ICDs)
 	if err != nil {
 		return nil, err
 	}
-	return &CreateRequest{Libraries: libs}, nil
+	return &CreateRequest{Icds: ics}, nil
 }
 
 func (createRequestTranslator) Backward(
 	_ context.Context,
 	req *CreateRequest,
-) (library.CreateRequest, error) {
-	libs, err := pb.LibrariesFromPB(req.Libraries)
+) (icd.CreateRequest, error) {
+	ics, err := pb.ICDSFromPB(req.Icds)
 	if err != nil {
-		return library.CreateRequest{}, err
+		return icd.CreateRequest{}, err
 	}
-	return library.CreateRequest{Libraries: libs}, nil
+	return icd.CreateRequest{ICDs: ics}, nil
 }
 
 func (createResponseTranslator) Forward(
 	_ context.Context,
-	res library.CreateResponse,
+	res icd.CreateResponse,
 ) (*CreateResponse, error) {
-	libs, err := pb.LibrariesToPB(res.Libraries)
+	ics, err := pb.ICDSToPB(res.ICDs)
 	if err != nil {
 		return nil, err
 	}
-	return &CreateResponse{Libraries: libs}, nil
+	return &CreateResponse{Icds: ics}, nil
 }
 
 func (createResponseTranslator) Backward(
 	_ context.Context,
 	res *CreateResponse,
-) (library.CreateResponse, error) {
-	libs, err := pb.LibrariesFromPB(res.Libraries)
+) (icd.CreateResponse, error) {
+	ics, err := pb.ICDSFromPB(res.Icds)
 	if err != nil {
-		return library.CreateResponse{}, err
+		return icd.CreateResponse{}, err
 	}
-	return library.CreateResponse{Libraries: libs}, nil
+	return icd.CreateResponse{ICDs: ics}, nil
 }
 
 func (retrieveRequestTranslator) Forward(
 	_ context.Context,
-	req library.RetrieveRequest,
+	req icd.RetrieveRequest,
 ) (*RetrieveRequest, error) {
-	keys := lo.Map(req.Keys, func(k library.Key, _ int) string { return k.String() })
+	keys := lo.Map(req.Keys, func(k icd.Key, _ int) string { return k.String() })
 	return &RetrieveRequest{
 		Keys:       keys,
 		SearchTerm: req.SearchTerm,
@@ -133,14 +133,14 @@ func (retrieveRequestTranslator) Forward(
 func (retrieveRequestTranslator) Backward(
 	_ context.Context,
 	req *RetrieveRequest,
-) (library.RetrieveRequest, error) {
-	keys, err := lo.MapErr(req.Keys, func(keyStr string, _ int) (library.Key, error) {
+) (icd.RetrieveRequest, error) {
+	keys, err := lo.MapErr(req.Keys, func(keyStr string, _ int) (icd.Key, error) {
 		return uuid.Parse(keyStr)
 	})
 	if err != nil {
-		return library.RetrieveRequest{}, err
+		return icd.RetrieveRequest{}, err
 	}
-	return library.RetrieveRequest{
+	return icd.RetrieveRequest{
 		Keys:       keys,
 		SearchTerm: req.SearchTerm,
 		Limit:      int(req.Limit),
@@ -150,66 +150,66 @@ func (retrieveRequestTranslator) Backward(
 
 func (retrieveResponseTranslator) Forward(
 	_ context.Context,
-	res library.RetrieveResponse,
+	res icd.RetrieveResponse,
 ) (*RetrieveResponse, error) {
-	libs, err := pb.LibrariesToPB(res.Libraries)
+	ics, err := pb.ICDSToPB(res.ICDs)
 	if err != nil {
 		return nil, err
 	}
-	return &RetrieveResponse{Libraries: libs}, nil
+	return &RetrieveResponse{Icds: ics}, nil
 }
 
 func (retrieveResponseTranslator) Backward(
 	_ context.Context,
 	res *RetrieveResponse,
-) (library.RetrieveResponse, error) {
-	libs, err := pb.LibrariesFromPB(res.Libraries)
+) (icd.RetrieveResponse, error) {
+	ics, err := pb.ICDSFromPB(res.Icds)
 	if err != nil {
-		return library.RetrieveResponse{}, err
+		return icd.RetrieveResponse{}, err
 	}
-	return library.RetrieveResponse{Libraries: libs}, nil
+	return icd.RetrieveResponse{ICDs: ics}, nil
 }
 
 func (deleteRequestTranslator) Forward(
 	_ context.Context,
-	req library.DeleteRequest,
+	req icd.DeleteRequest,
 ) (*DeleteRequest, error) {
-	keys := lo.Map(req.Keys, func(k library.Key, _ int) string { return k.String() })
+	keys := lo.Map(req.Keys, func(k icd.Key, _ int) string { return k.String() })
 	return &DeleteRequest{Keys: keys}, nil
 }
 
 func (deleteRequestTranslator) Backward(
 	_ context.Context,
 	req *DeleteRequest,
-) (library.DeleteRequest, error) {
-	keys, err := lo.MapErr(req.Keys, func(k string, _ int) (library.Key, error) {
+) (icd.DeleteRequest, error) {
+	keys, err := lo.MapErr(req.Keys, func(k string, _ int) (icd.Key, error) {
 		return uuid.Parse(k)
 	})
 	if err != nil {
-		return library.DeleteRequest{}, err
+		return icd.DeleteRequest{}, err
 	}
-	return library.DeleteRequest{Keys: keys}, nil
+	return icd.DeleteRequest{Keys: keys}, nil
 }
 
 func New(t *api.Transport) grpc.BindableTransport {
 	create := &createServer{
 		RequestTranslator:  createRequestTranslator{},
 		ResponseTranslator: createResponseTranslator{},
-		ServiceDesc:        &LibraryCreateService_ServiceDesc,
+		ServiceDesc:        &ICDCreateService_ServiceDesc,
 	}
-	t.LibraryCreate = create
+	t.ICDCreate = create
 	retrieve := &retrieveServer{
 		RequestTranslator:  retrieveRequestTranslator{},
 		ResponseTranslator: retrieveResponseTranslator{},
-		ServiceDesc:        &LibraryRetrieveService_ServiceDesc,
+		ServiceDesc:        &ICDRetrieveService_ServiceDesc,
 	}
-	t.LibraryRetrieve = retrieve
+	t.ICDRetrieve = retrieve
 	del := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
-		ServiceDesc:        &LibraryDeleteService_ServiceDesc,
+		ServiceDesc:        &ICDDeleteService_ServiceDesc,
 	}
-	t.LibraryDelete = del
+	t.ICDDelete = del
 
 	return grpc.CompoundBindableTransport{create, retrieve, del}
 }

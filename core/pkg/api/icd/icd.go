@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package library
+package icd
 
 import (
 	"context"
@@ -16,42 +16,43 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/library"
-	"github.com/synnaxlabs/synnax/pkg/service/library/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// Service is the API for libraries.
+// Service is the API for interface control documents.
 type Service struct {
 	access   *rbac.Service
-	internal *library.Service
+	internal *icd.Service
 }
 
-// NewService creates the library API service.
+// NewService creates the ICD API service.
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	return &Service{internal: cfg.Service.Library, access: cfg.Service.RBAC}, nil
+	return &Service{internal: cfg.Service.ICD, access: cfg.Service.RBAC}, nil
 }
 
 type (
-	Key     = library.Key
-	Library = library.Library
+	Key = icd.Key
+	ICD = icd.ICD
 )
 
 type CreateRequest struct {
-	Libraries []Library `json:"libraries" msgpack:"libraries"`
+	ICDs []ICD `json:"icds" msgpack:"icds"`
 }
 
 type CreateResponse struct {
-	Libraries []Library `json:"libraries" msgpack:"libraries"`
+	ICDs []ICD `json:"icds" msgpack:"icds"`
 }
 
-// Create creates or replaces the given libraries.
+// Create creates or replaces the given ICDs. A replacement must carry the hash of the
+// ICD as the caller read it, or Create returns an error wrapping library.ErrStale.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -60,11 +61,11 @@ func (s *Service) Create(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeLibrary}},
+		Objects: []ontology.ID{{Type: ontology.ResourceTypeICD}},
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	if err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Libraries); err != nil {
+	if err := s.internal.NewWriter(tx).CreateMany(ctx, &req.ICDs); err != nil {
 		return CreateResponse{}, err
 	}
 	return CreateResponse(req), nil
@@ -78,10 +79,10 @@ type RetrieveRequest struct {
 }
 
 type RetrieveResponse struct {
-	Libraries []Library `json:"libraries" msgpack:"libraries"`
+	ICDs []ICD `json:"icds" msgpack:"icds"`
 }
 
-// Retrieve retrieves libraries by key or by a fuzzy search on their names.
+// Retrieve retrieves ICDs by key or by a fuzzy search on their names.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
@@ -97,20 +98,40 @@ func (s *Service) Retrieve(
 		q = q.Offset(req.Offset)
 	}
 	if len(req.Keys) != 0 {
-		q = q.Where(library.MatchKeys(req.Keys...))
+		q = q.Where(icd.MatchKeys(req.Keys...))
 	}
-	var libs []Library
-	if err := q.Entries(&libs).Exec(ctx, nil); err != nil {
+	var ics []ICD
+	if err := q.Entries(&ics).Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: library.OntologyIDsFromLibraries(libs),
+		Objects: icd.OntologyIDsFromICDs(ics),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
-	return RetrieveResponse{Libraries: libs}, nil
+	return RetrieveResponse{ICDs: ics}, nil
+}
+
+type CheckRequest struct {
+	ICD ICD `json:"icd" msgpack:"icd"`
+}
+
+type CheckResponse struct {
+	Problems library.Problems `json:"problems" msgpack:"problems"`
+}
+
+// Check returns every problem in an ICD without storing it.
+func (s *Service) Check(ctx context.Context, req CheckRequest) (CheckResponse, error) {
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: []ontology.ID{{Type: ontology.ResourceTypeICD}},
+	}); err != nil {
+		return CheckResponse{}, err
+	}
+	return CheckResponse{Problems: icd.Check(req.ICD)}, nil
 }
 
 type RenameRequest struct {
@@ -118,7 +139,7 @@ type RenameRequest struct {
 	Key  Key    `json:"key"  msgpack:"key"`
 }
 
-// Rename renames a library.
+// Rename renames an ICD.
 func (s *Service) Rename(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -127,7 +148,7 @@ func (s *Service) Rename(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{library.OntologyID(req.Key)},
+		Objects: []ontology.ID{icd.OntologyID(req.Key)},
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -141,11 +162,11 @@ type ImportRequest struct {
 }
 
 type ImportResponse struct {
-	Library Library `json:"library" msgpack:"library"`
+	ICD ICD `json:"icd" msgpack:"icd"`
 }
 
-// Import replaces the entries of a library with those of an interface control
-// document.
+// Import replaces the entries of an ICD with those parsed from a DBC file or a field
+// table.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -154,22 +175,22 @@ func (s *Service) Import(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{library.OntologyID(req.Key)},
+		Objects: []ontology.ID{icd.OntologyID(req.Key)},
 	}); err != nil {
 		return ImportResponse{}, err
 	}
-	l, err := s.internal.NewWriter(tx).ImportICD(ctx, req.Key, req.Format, req.Data)
+	ic, err := s.internal.NewWriter(tx).Import(ctx, req.Key, req.Format, req.Data)
 	if err != nil {
 		return ImportResponse{}, err
 	}
-	return ImportResponse{Library: l}, nil
+	return ImportResponse{ICD: ic}, nil
 }
 
 type DeleteRequest struct {
 	Keys []Key `json:"keys" msgpack:"keys"`
 }
 
-// Delete deletes libraries that no task uses.
+// Delete deletes ICDs that no task uses.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -178,7 +199,7 @@ func (s *Service) Delete(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: library.OntologyIDs(req.Keys),
+		Objects: icd.OntologyIDs(req.Keys),
 	}); err != nil {
 		return struct{}{}, err
 	}
