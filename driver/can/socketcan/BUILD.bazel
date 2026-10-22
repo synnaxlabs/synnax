@@ -26,16 +26,24 @@ cc_library(
     ],
 )
 
-# On Linux the test runs against vcan0 and skips when it is absent.
+# On Linux the test runs against vcan0, along with the can::Bus contract, and skips
+# when vcan0 is absent. The contract shares this binary so that its cases never run at
+# the same time as the other vcan0 cases.
 cc_test(
     name = "socketcan_test",
     srcs = ["errors_test.cpp"] + select({
-        "@platforms//os:linux": ["socketcan_test.cpp"],
+        "@platforms//os:linux": [
+            "contract_test.cpp",
+            "socketcan_test.cpp",
+        ],
         "//conditions:default": ["unsupported_test.cpp"],
     }),
     deps = [
         ":socketcan",
         "//x/cpp/test",
         "@googletest//:gtest_main",
-    ],
+    ] + select({
+        "@platforms//os:linux": ["//driver/can:contract"],
+        "//conditions:default": [],
+    }),
 )
