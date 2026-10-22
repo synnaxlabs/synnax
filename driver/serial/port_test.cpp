@@ -9,6 +9,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <filesystem>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -108,6 +109,25 @@ TEST_F(PtyTest, ReportsTheDeviceAsUnreachableWhenThePeerCloses) {
     ASSERT_OCCURRED_AS_P(port->read(x::telem::SECOND), transport::UNREACHABLE_ERROR);
 }
 
+TEST_F(PtyTest, OpensAgainThroughAStableLinkOnceTheDeviceReturns) {
+    const auto link = std::filesystem::path(::testing::TempDir()) / "serial-by-id";
+    std::filesystem::remove(link);
+    std::filesystem::create_symlink(this->props().port, link);
+    auto p = this->props();
+    p.port = link.string();
+    const auto first = ASSERT_NIL_P(Port::open(p));
+    this->close_peer();
+    ASSERT_OCCURRED_AS_P(first->read(x::telem::SECOND), transport::UNREACHABLE_ERROR);
+    first->close(x::telem::SECOND);
+    ASSERT_OCCURRED_AS_P(Port::open(p), transport::UNREACHABLE_ERROR);
+    this->open_peer();
+    std::filesystem::remove(link);
+    std::filesystem::create_symlink(this->props().port, link);
+    const auto second = ASSERT_NIL_P(Port::open(p));
+    this->peer_write("back");
+    EXPECT_EQ(as_string(ASSERT_NIL_P(second->read(x::telem::SECOND)).data), "back");
+}
+
 TEST_F(PtyTest, FailsToReadAfterClose) {
     const auto port = ASSERT_NIL_P(Port::open(this->props()));
     port->close(x::telem::SECOND);
@@ -125,6 +145,64 @@ TEST_F(PtyTest, SendsWrittenBytesBeforeClosing) {
     port->close(x::telem::SECOND);
     peer.join();
     EXPECT_EQ(got, "bye");
+}
+
+TEST_F(PtyTest, RefusesASecondOpenOfAPortInUse) {
+    const auto first = ASSERT_NIL_P(Port::open(this->props()));
+    const auto [second, err] = Port::open(this->props());
+    ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "failed to open serial port " + this->props().port +
+            ": the port is in use by another program"
+    );
+}
+
+TEST_F(PtyTest, OpensAgainAfterTheFirstOpenCloses) {
+    {
+        const auto first = ASSERT_NIL_P(Port::open(this->props()));
+        first->close(x::telem::SECOND);
+    }
+    const auto second = ASSERT_NIL_P(Port::open(this->props()));
+    this->peer_write("again");
+    EXPECT_EQ(as_string(ASSERT_NIL_P(second->read(x::telem::SECOND)).data), "again");
+}
+
+TEST_F(PtyTest, MarksLineErrorsInsteadOfIgnoringThem) {
+    for (const auto &parity:
+         {synnax::serial::PARITY_NONE_, synnax::serial::PARITY_EVEN_}) {
+        auto p = this->props();
+        p.parity = parity;
+        const auto port = ASSERT_NIL_P(Port::open(p));
+        const auto tio = this->termios();
+        EXPECT_TRUE(tio.c_iflag & INPCK) << parity;
+        EXPECT_TRUE(tio.c_iflag & PARMRK) << parity;
+        EXPECT_FALSE(tio.c_iflag & (IGNPAR | ISTRIP | IGNBRK | BRKINT)) << parity;
+        port->close(x::telem::SECOND);
+    }
+}
+
+TEST_F(PtyTest, DeliversA0xFFByteOnceWhileMarkingLineErrors) {
+    auto p = this->props();
+    p.parity = synnax::serial::PARITY_EVEN_;
+    const auto port = ASSERT_NIL_P(Port::open(p));
+    this->peer_write(std::string("\xFF\x01\xFF", 3));
+    std::string got;
+    std::size_t errors = 0;
+    for (int i = 0; i < 100 && got.size() < 3; i++) {
+        const auto chunk = ASSERT_NIL_P(port->read(10 * x::telem::MILLISECOND));
+        got += as_string(chunk.data);
+        errors += chunk.errors;
+    }
+    EXPECT_EQ(got, std::string("\xFF\x01\xFF", 3));
+    EXPECT_EQ(errors, 0);
+}
+
+TEST_F(PtyTest, ReportsNoOverrunsOnAPortThatCountsNone) {
+    const auto port = ASSERT_NIL_P(Port::open(this->props()));
+    this->peer_write("x");
+    const auto chunk = ASSERT_NIL_P(port->read(x::telem::SECOND));
+    EXPECT_EQ(chunk.overruns, 0);
 }
 
 TEST(Port, FailsToOpenAMissingPort) {

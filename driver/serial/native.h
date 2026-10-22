@@ -11,6 +11,9 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
+#include <span>
+#include <string>
 #include <system_error>
 #include <utility>
 
@@ -24,6 +27,13 @@ namespace driver::serial::native {
 /// @brief a file descriptor on POSIX or a HANDLE on Windows.
 using Handle = std::intptr_t;
 
+/// @brief keeps other programs from opening the port while the Driver holds it.
+/// @returns UNREACHABLE_ERROR when another program holds the port.
+x::errors::Error lock(Handle handle, const std::string &port);
+
+/// @brief lets other programs open the port once the Driver closes it.
+void unlock(Handle handle);
+
 /// @brief applies the line settings in props to the open port. props must pass the
 /// checks that Port::open makes.
 /// @returns CONFIG_ERROR when the platform or the port cannot apply a setting.
@@ -31,4 +41,30 @@ x::errors::Error configure(Handle handle, const synnax::serial::Properties &prop
 
 /// @returns the number of written bytes that the port has not yet sent.
 std::pair<std::size_t, std::error_code> queued_output(Handle handle);
+
+/// @brief the line errors of an open port, carried from one read to the next.
+struct Line {
+    /// @brief how many bytes of an error mark ended the last read.
+    std::uint8_t marked = 0;
+    /// @brief the overrun count that the port last reported, if it counts overruns.
+    std::optional<std::uint32_t> overruns;
+};
+
+/// @brief what one read received once its line errors are removed.
+struct Received {
+    /// @brief the number of bytes left at the front of the read.
+    std::size_t size = 0;
+    /// @brief the number of bytes received with a parity or framing error.
+    std::size_t errors = 0;
+    /// @brief the number of receive overruns since the last read.
+    std::size_t overruns = 0;
+};
+
+/// @brief starts counting line errors from the port's current state.
+std::error_code watch(Handle handle, Line &line);
+
+/// @brief removes the bytes with line errors from data, which the port just read, and
+/// counts the errors and overruns.
+std::pair<Received, std::error_code>
+receive(Handle handle, Line &line, std::span<std::uint8_t> data);
 }

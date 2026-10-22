@@ -38,7 +38,10 @@ class PtyTest : public ::testing::Test {
     std::string terminal;
 
 protected:
-    void SetUp() override {
+    void SetUp() override { this->open_peer(); }
+
+    /// @brief plugs in a new device on a new pseudo-terminal.
+    void open_peer() {
         this->controller = ::posix_openpt(O_RDWR | O_NOCTTY);
         ASSERT_GE(this->controller, 0);
         ASSERT_EQ(::grantpt(this->controller), 0);
@@ -74,13 +77,11 @@ protected:
         return out;
     }
 
-    /// @returns the terminal's settings, read through a second descriptor.
+    /// @returns the terminal's settings, read through the controller because the port
+    /// keeps other programs from opening the terminal.
     [[nodiscard]] ::termios termios() const {
-        const int fd = ::open(this->terminal.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
-        EXPECT_GE(fd, 0);
         ::termios tio{};
-        EXPECT_EQ(::tcgetattr(fd, &tio), 0);
-        ::close(fd);
+        EXPECT_EQ(::tcgetattr(this->controller, &tio), 0);
         return tio;
     }
 

@@ -12,27 +12,27 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "serial",
-    srcs = [
-        "native.h",
-        "port.cpp",
-    ] + select({
+    srcs = ["port.cpp"] + select({
         "@platforms//os:linux": [
             "linux.cpp",
             "posix.cpp",
-            "posix.h",
         ],
         "@platforms//os:macos": [
             "macos.cpp",
             "posix.cpp",
-            "posix.h",
         ],
         "@platforms//os:windows": ["windows.cpp"],
     }),
     hdrs = [
+        "errors.h",
         "line.h",
+        "native.h",
         "port.h",
         "scan.h",
-    ],
+    ] + select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["posix.h"],
+    }),
     linkopts = select({
         "@platforms//os:windows": ["advapi32.lib"],
         "//conditions:default": [],
@@ -87,6 +87,22 @@ cc_test(
     deps = [
         ":serial",
         "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "native_test",
+    size = "small",
+    srcs = select({
+        "@platforms//os:windows": ["windows_test.cpp"],
+        "//conditions:default": ["posix_test.cpp"],
+    }),
+    deps = [
+        ":serial",
+        "//driver/transport",
+        "//x/cpp/test",
+        "@asio//:asio_no_openssl",
         "@googletest//:gtest_main",
     ],
 )
