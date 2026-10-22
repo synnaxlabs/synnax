@@ -17,8 +17,7 @@ import {
 
 import { CSS } from "@/css";
 
-/** Props for {@link Skeleton}. */
-export interface SkeletonProps extends Omit<ComponentPropsWithRef<"span">, "children"> {
+interface SkeletonProps extends Omit<ComponentPropsWithRef<"span">, "children"> {
   /** Defaults to the full width of its parent. */
   width?: CSSProperties["width"];
   /** Defaults to about the height of small text. */
