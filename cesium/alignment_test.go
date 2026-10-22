@@ -91,9 +91,9 @@ var _ = Describe("Alignment", func() {
 			} {
 				Context(layout.name, Ordered, ContinueOnFailure, func() {
 					var (
-						db                          *cesium.DB
-						idxKey, i64Key, i32Key, str cesium.ChannelKey
-						dataKeys                    []cesium.ChannelKey
+						db                             *cesium.DB
+						idxKey, i64Key, i32Key, strKey cesium.ChannelKey
+						dataKeys                       []cesium.ChannelKey
 						// stampAt maps the alignment of each index sample to its
 						// timestamp, and alignmentOf maps it back.
 						stampAt     map[telem.Alignment]telem.TimeStamp
@@ -122,7 +122,7 @@ var _ = Describe("Alignment", func() {
 								values[i] = int32(ts / telem.SecondTS)
 							}
 							return telem.NewSeriesV(values...)
-						case str:
+						case strKey:
 							values := make([]string, len(stamps))
 							for i, ts := range stamps {
 								values[i] = strconv.Itoa(int(ts / telem.SecondTS))
@@ -193,10 +193,10 @@ var _ = Describe("Alignment", func() {
 							openFS(),
 							cesium.WithFileSizeCap(40*telem.Byte),
 						)
-						idxKey, i64Key, i32Key, str = GenerateChannelKey(),
+						idxKey, i64Key, i32Key, strKey = GenerateChannelKey(),
 							GenerateChannelKey(), GenerateChannelKey(),
 							GenerateChannelKey()
-						dataKeys = []cesium.ChannelKey{i64Key, i32Key, str}
+						dataKeys = []cesium.ChannelKey{i64Key, i32Key, strKey}
 						Expect(db.CreateChannel(
 							ctx,
 							cesium.Channel{
@@ -218,7 +218,7 @@ var _ = Describe("Alignment", func() {
 								DataType: telem.Int32T,
 							},
 							cesium.Channel{
-								Key:      str,
+								Key:      strKey,
 								Name:     "Peary",
 								Index:    idxKey,
 								DataType: telem.StringT,

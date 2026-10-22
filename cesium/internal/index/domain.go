@@ -189,11 +189,12 @@ type Segment struct {
 	Len int64
 }
 
-// Segments splits samples [start, end) of a run of consecutive index samples into one
-// segment per domain that holds them, and appends the segments to dst in time order.
-// The first sample of the run is the first sample at or after ts. Segments returns
-// ErrDiscontinuous if the run extends past the effective domain that holds ts.
-func (i *Domain) Segments(
+// AppendSegments splits samples [start, end) of a run of consecutive index samples into
+// one segment per domain that holds them, and appends the segments to dst in time
+// order. The first sample of the run is the first sample at or after ts. It returns
+// ErrDiscontinuous if no domain holds a sample at or after ts, or if the run extends
+// past the effective domain that holds its first sample.
+func (i *Domain) AppendSegments(
 	ctx context.Context,
 	dst []Segment,
 	ts telem.TimeStamp,

@@ -1294,6 +1294,18 @@ var _ = Describe("Channel", func() {
 				},
 			)
 			It(
+				"Should trim the index series to a data series that ends before it",
+				func(ctx SpecContext) {
+					src := newSource("s0", 10)
+					writeIndex(99, al(0), 100, 200, 300, 400)
+					writeDataSeries(10, al(0), 42, 43)
+					Expect(firesOn(ctx, src)).To(BeTrue())
+					out := *progState.Node("s0").OutputTime(0)
+					Expect(out).To(telem.MatchSeriesDataV[telem.TimeStamp](100, 200))
+					Expect(emittedTS("s0")).To(Equal(telem.TimeStamp(200)))
+				},
+			)
+			It(
 				"Should not fire when the data runs past the end of the index series",
 				func(ctx SpecContext) {
 					src := newSource("s0", 10)

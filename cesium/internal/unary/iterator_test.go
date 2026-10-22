@@ -2285,10 +2285,8 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							Expect(i.SeekFirst(ctx)).To(BeTrue())
 							Expect(i.Next(ctx, cesium.AutoSpan)).To(BeTrue())
 							Expect(i.Value().Count()).To(Equal(2))
-							first, second := i.Value().
-								SeriesAt(0),
-								i.Value().
-									SeriesAt(1)
+							v := i.Value()
+							first, second := v.SeriesAt(0), v.SeriesAt(1)
 							Expect(first).To(telem.MatchSeriesDataV[int64](
 								10, 11, 12, 13, 14, 15,
 							))

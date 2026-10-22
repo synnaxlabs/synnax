@@ -2022,12 +2022,12 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					telem.NewSeriesV[float32](4, 5, 6, 7, 8),
 				)
 				keys := []channel.Key{indexCh.Key(), dataCh.Key()}
+				calc := &channel.Channel{
+					Name:       "late_downsample_calc_" + suffix,
+					DataType:   telem.Float32T,
+					Expression: "return " + dataCh.Name + " * 2",
+				}
 				if calculated {
-					calc := &channel.Channel{
-						Name:       "late_downsample_calc_" + suffix,
-						DataType:   telem.Float32T,
-						Expression: "return " + dataCh.Name + " * 2",
-					}
 					Expect(channelWriter.Create(ctx, calc)).To(Succeed())
 					keys = append(keys, calc.Key())
 				}
@@ -2043,6 +2043,10 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(1, 3, 5, 7)))
 				Expect(v.Get(dataCh.Key()).Series[0]).
 					To(telem.MatchSeriesDataV[float32](5, 7))
+				if calculated {
+					Expect(v.Get(calc.Key()).Series[0]).
+						To(telem.MatchSeriesDataV[float32](10, 14))
+				}
 				Expect(iter.Close()).To(Succeed())
 			},
 			Entry("Without a calculation", "plain", false),

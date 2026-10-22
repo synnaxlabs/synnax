@@ -453,7 +453,7 @@ func (i *Iterator) read(
 			Alignment: telem.NewAlignment(i.internal.Position(), uint32(start)),
 			Len:       end - start,
 		})
-	} else if i.segments, err = i.idx.Segments(
+	} else if i.segments, err = i.idx.AppendSegments(
 		ctx,
 		i.segments[:0],
 		domainTR.Start,

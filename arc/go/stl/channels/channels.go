@@ -249,7 +249,7 @@ func (s *source) Next(ctx node.Context) {
 		} else {
 			// Match by alignment, not position: a shared index also buffers other
 			// channels' series, so position i no longer pairs to the right timestamp.
-			// A data series can start partway through the index series that holds it.
+			// A data series can cover only part of the index series that holds it.
 			i := slices.IndexFunc(indexData.Series, func(idx telem.Series) bool {
 				b := idx.AlignmentBounds()
 				return b.Lower <= ab.Lower && ab.Upper <= b.Upper
@@ -258,10 +258,12 @@ func (s *source) Next(ctx node.Context) {
 				continue
 			}
 			timeSeries = indexData.Series[i]
-			if offset := int64(ser.Alignment - timeSeries.Alignment); offset > 0 {
-				density := int64(timeSeries.DataType.Density())
-				start, end := offset*density, (offset+ser.Len())*density
-				timeSeries.Data = timeSeries.Data[start:end]
+			if timeSeries.AlignmentBounds() != ab {
+				var (
+					density = int64(timeSeries.DataType.Density())
+					start   = int64(ser.Alignment-timeSeries.Alignment) * density
+				)
+				timeSeries.Data = timeSeries.Data[start : start+ser.Len()*density]
 				timeSeries.Alignment = ser.Alignment
 				timeSeries.TimeRange = ser.TimeRange
 			}

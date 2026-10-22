@@ -348,7 +348,7 @@ var _ = Describe("Domain", func() {
 				})
 			})
 
-			Describe("Segments", func() {
+			Describe("AppendSegments", func() {
 				var rolledOver *index.Domain
 				BeforeEach(func(ctx SpecContext) {
 					rolledOver = &index.Domain{DB: openRolledOver(ctx)}
@@ -367,7 +367,7 @@ var _ = Describe("Domain", func() {
 						expected []index.Segment,
 					) {
 						Expect(
-							rolledOver.Segments(ctx, nil, ts, start, end),
+							rolledOver.AppendSegments(ctx, nil, ts, start, end),
 						).To(Equal(expected))
 					},
 					Entry("Should return one segment for samples inside a domain",
@@ -471,7 +471,7 @@ var _ = Describe("Domain", func() {
 				It("Should append to the given segments", func(ctx SpecContext) {
 					dst := []index.Segment{{Len: 7}}
 					Expect(
-						rolledOver.Segments(ctx, dst, 26*telem.SecondTS, 0, 1),
+						rolledOver.AppendSegments(ctx, dst, 26*telem.SecondTS, 0, 1),
 					).To(Equal(
 						[]index.Segment{
 							{Len: 7},
@@ -485,18 +485,25 @@ var _ = Describe("Domain", func() {
 				})
 				DescribeTable(
 					"Discontinuous runs",
-					func(ctx SpecContext, ts telem.TimeStamp, end int64) {
+					func(ctx SpecContext, ts telem.TimeStamp, end int64, msg string) {
 						Expect(
-							rolledOver.Segments(ctx, nil, ts, 0, end),
-						).Error().To(MatchError(index.ErrDiscontinuous))
+							rolledOver.AppendSegments(ctx, nil, ts, 0, end),
+						).Error().To(SatisfyAll(
+							MatchError(index.ErrDiscontinuous),
+							MatchError(ContainSubstring(msg)),
+						))
 					},
 					Entry(
 						"Should fail when the run passes the effective domain",
 						10*telem.SecondTS,
 						int64(11),
+						"position 11 in continuous index of length 10",
 					),
-					Entry("Should fail when no domain holds the stamp",
-						40*telem.SecondTS, int64(1),
+					Entry(
+						"Should fail when no domain holds the stamp",
+						40*telem.SecondTS,
+						int64(1),
+						"does not exist in the index",
 					),
 				)
 			})
