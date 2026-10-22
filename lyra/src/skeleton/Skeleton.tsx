@@ -9,36 +9,19 @@
 
 import "@/skeleton/Skeleton.css";
 
-import {
-  type ComponentPropsWithRef,
-  type CSSProperties,
-  type ReactElement,
-} from "react";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-
-interface SkeletonProps extends Omit<ComponentPropsWithRef<"span">, "children"> {
-  /** Defaults to the full width of its parent. */
-  width?: CSSProperties["width"];
-  /** Defaults to about the height of small text. */
-  height?: CSSProperties["height"];
-}
+import { Flex } from "@/flex";
 
 /**
- * A pulsing block that holds the place of content still loading, so the layout keeps
- * its shape when the content comes. Screen readers skip it.
+ * A pulsing block that holds the place of content still loading. It is one line of the
+ * surrounding text tall, so it can sit in a text element in place of the text. Size it
+ * across with the box props or a style.
  */
 export const Skeleton = ({
-  width,
-  height,
   className,
-  style,
   ...rest
-}: SkeletonProps): ReactElement => (
-  <span
-    aria-hidden
-    className={CSS.cls(CSS.B("skeleton"), className)}
-    style={{ width, height, ...style }}
-    {...rest}
-  />
+}: Omit<Flex.BoxProps<"span">, "children">): ReactElement => (
+  <Flex.Box el="span" className={CSS.cls(CSS.B("skeleton"), className)} {...rest} />
 );

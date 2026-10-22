@@ -16,13 +16,15 @@
 }
 
 .pluto-skeleton {
-    display: block;
     flex-shrink: 0;
-    width: 100%;
-    height: 1.5rem;
     border-radius: var(--pluto-border-radius);
     background: var(--pluto-gray-l4);
     animation: pluto-skeleton-pulse 0.9s ease-in-out infinite alternate;
+
+    /* Holds one line of the inherited text height. */
+    &::before {
+        content: "\00a0";
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
