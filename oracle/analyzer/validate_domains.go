@@ -10,6 +10,8 @@
 package analyzer
 
 import (
+	"slices"
+
 	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -31,10 +33,13 @@ var generatedLangs = []string{"go", "ts", "py", "cpp"}
 //  2. A file-level @lang output where every declared type omits the language —
 //     with no hand-written anchors or actions — generates nothing and should
 //     be removed.
+//  3. A field that overrides an inherited field cannot omit a language the parent
+//     field keeps.
 func validateDomainOmits(table *resolution.Table, diag *diagnostics.Files) {
 	for _, lang := range generatedLangs {
 		validateOmitRefs(table, lang, diag)
 	}
+	validateOmitOverrides(table, diag)
 }
 
 func validateOmitRefs(
@@ -230,8 +235,8 @@ func validateFieldOmits(c *analysisCtx, types []resolution.Type) {
 				))
 			}
 			var generating, omitted int
-			for _, lang := range generatedLangs {
-				generates := getPath(t, lang) != "" && !omit.IsSkipped(t, lang)
+			for _, lang := range fieldOmitLangs {
+				generates := generatesIn(t, lang)
 				if generates {
 					generating++
 				}
@@ -256,6 +261,62 @@ func validateFieldOmits(c *analysisCtx, types []resolution.Type) {
 					"%s is omitted in every language %s generates in; remove the field",
 					name, t.QualifiedName,
 				))
+			}
+		}
+	}
+}
+
+// fieldOmitLangs are the languages a field-level omit can name: the generated
+// languages plus pb, whose messages hold the field too.
+var fieldOmitLangs = append(slices.Clone(generatedLangs), "pb")
+
+// generatesIn reports whether t generates a declaration in lang. A pb message needs
+// @pb and a Go output, which sets its package.
+func generatesIn(t resolution.Type, lang string) bool {
+	if omit.IsSkipped(t, lang) {
+		return false
+	}
+	if lang != "pb" {
+		return getPath(t, lang) != ""
+	}
+	_, hasPB := t.Domains["pb"]
+	return hasPB && getPath(t, "go") != ""
+}
+
+// validateOmitOverrides errors when a field overrides an inherited field and omits a
+// language the parent field keeps. The parent would still contribute the field, so the
+// omit would not take effect.
+func validateOmitOverrides(table *resolution.Table, diag *diagnostics.Files) {
+	for _, t := range table.Types {
+		form, ok := t.Form.(resolution.StructForm)
+		if !ok || len(form.Extends) == 0 {
+			continue
+		}
+		inherited := make(map[string]resolution.Field)
+		for _, ext := range form.Extends {
+			parent, ok := ext.Resolve(table)
+			if !ok {
+				continue
+			}
+			for _, pf := range resolution.UnifiedFields(parent, table) {
+				if _, seen := inherited[pf.Name]; !seen {
+					inherited[pf.Name] = pf
+				}
+			}
+		}
+		for _, f := range form.Fields {
+			pf, ok := inherited[f.Name]
+			if !ok {
+				continue
+			}
+			for _, lang := range fieldOmitLangs {
+				if omit.IsField(f, lang) && !omit.IsField(pf, lang) {
+					diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
+						"%s.%s overrides an inherited field and cannot omit %s; "+
+							"omit it on the parent field or drop it with -%s",
+						t.QualifiedName, f.Name, lang, f.Name,
+					))
+				}
 			}
 		}
 	}

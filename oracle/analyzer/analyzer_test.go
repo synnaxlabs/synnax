@@ -440,6 +440,23 @@ Entry struct {
 			Expect(omit.IsField(hash, "go")).To(BeFalse())
 		})
 
+		It("Should accept an override of a field its parent omits", func(
+			ctx SpecContext,
+		) {
+			source := `
+				@go output "out"
+				@ts output "ts/out"
+				Parent struct {
+					value int32 { @ts omit }
+				}
+				Child struct extends Parent {
+					value?
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
+
 		DescribeTable(
 			"Should reject an illegal field-level omit",
 			func(ctx SpecContext, source, msg string) {
@@ -485,6 +502,32 @@ Entry struct {
 					value int32 { @py omit }
 				}
 			`, "test.Entry.value omits py, but test.Entry does not generate in py"),
+			Entry("a key field omitted in pb", `
+				@go output "out"
+				@pb
+				Entry struct {
+					key uuid {
+						@key
+						@pb omit
+					}
+				}
+			`, "test.Entry.key is a key and cannot omit pb"),
+			Entry("a field omitted in pb without a pb message", `
+				@go output "out"
+				Entry struct {
+					value int32 { @pb omit }
+				}
+			`, "test.Entry.value omits pb, but test.Entry does not generate in pb"),
+			Entry("an override omitting a language its parent field keeps", `
+				@go output "out"
+				@ts output "ts/out"
+				Parent struct {
+					value int32
+				}
+				Child struct extends Parent {
+					value int32 { @ts omit }
+				}
+			`, "test.Child.value overrides an inherited field and cannot omit ts"),
 			Entry("a field omitted in every language its type generates in", `
 				@py output "py/out"
 				@ts output "ts/out"
