@@ -79,26 +79,27 @@
             center / 100% no-repeat;
     }
 
-    .pluto-input__checkbox-input:is(:checked, :indeterminate)
-        ~ .pluto-input__checkbox-indicator {
+    .pluto-input__checkbox-input:checked ~ .pluto-input__checkbox-indicator,
+    &.pluto--indeterminate .pluto-input__checkbox-indicator {
         background: var(--pluto-primary-z);
         border-color: var(--pluto-primary-z);
     }
 
     &:not(.pluto--disabled, .pluto--icon):hover
-        .pluto-input__checkbox-input:is(:checked, :indeterminate)
-        ~ .pluto-input__checkbox-indicator {
+        .pluto-input__checkbox-input:checked
+        ~ .pluto-input__checkbox-indicator,
+    &.pluto--indeterminate:not(.pluto--disabled, .pluto--icon):hover
+        .pluto-input__checkbox-indicator {
         background: var(--pluto-primary-p1);
         border-color: var(--pluto-primary-p1);
     }
 
-    .pluto-input__checkbox-input:is(:checked, :indeterminate)
-        ~ .pluto-input__checkbox-indicator::after {
+    .pluto-input__checkbox-input:checked ~ .pluto-input__checkbox-indicator::after,
+    &.pluto--indeterminate .pluto-input__checkbox-indicator::after {
         display: block;
     }
 
-    .pluto-input__checkbox-input:indeterminate
-        ~ .pluto-input__checkbox-indicator::after {
+    &.pluto--indeterminate .pluto-input__checkbox-indicator::after {
         mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 8h7' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
     }
 
@@ -140,8 +141,7 @@
        check glyph go away entirely. */
     &.pluto--icon {
         .pluto-input__checkbox-indicator,
-        .pluto-input__checkbox-input:is(:checked, :indeterminate)
-            ~ .pluto-input__checkbox-indicator {
+        .pluto-input__checkbox-input:checked ~ .pluto-input__checkbox-indicator {
             width: auto;
             height: auto;
             background: none;
@@ -153,8 +153,7 @@
         }
 
         .pluto-input__checkbox-indicator::after,
-        .pluto-input__checkbox-input:is(:checked, :indeterminate)
-            ~ .pluto-input__checkbox-indicator::after {
+        .pluto-input__checkbox-input:checked ~ .pluto-input__checkbox-indicator::after {
             display: none;
         }
     }
@@ -169,8 +168,8 @@
             border-color: var(--pluto-gray-l5);
         }
 
-        .pluto-input__checkbox-input:is(:checked, :indeterminate)
-            ~ .pluto-input__checkbox-indicator {
+        .pluto-input__checkbox-input:checked ~ .pluto-input__checkbox-indicator,
+        &.pluto--indeterminate .pluto-input__checkbox-indicator {
             background: color-mix(
                 in srgb,
                 var(--pluto-primary-z) 40%,

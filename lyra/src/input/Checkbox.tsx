@@ -9,8 +9,9 @@
 
 import "@/input/Checkbox.css";
 
-import { type ReactElement, useLayoutEffect, useRef } from "react";
+import { type ReactElement, useEffect, useRef } from "react";
 
+import { CSS } from "@/css";
 import { useCombinedRefs } from "@/hooks";
 import { Boolean, type BooleanProps } from "@/input/Boolean";
 
@@ -27,25 +28,22 @@ export interface CheckboxProps extends Omit<BooleanProps, "inputType"> {
 export const Checkbox = ({
   indeterminate = false,
   ref,
-  onChange,
+  className,
   ...rest
 }: CheckboxProps): ReactElement => {
   const inputRef = useRef<HTMLInputElement>(null);
   const combinedRef = useCombinedRefs(ref, inputRef);
-  // The DOM holds the flag, not an attribute, and a click clears it.
-  const write = () => {
+  // Screen readers read the DOM flag. It has no attribute, and a click clears it, so
+  // every render sets it.
+  useEffect(() => {
     if (inputRef.current != null) inputRef.current.indeterminate = indeterminate;
-  };
-  useLayoutEffect(write);
+  });
   return (
     <Boolean
       {...rest}
       ref={combinedRef}
       inputType="checkbox"
-      onChange={(value) => {
-        write();
-        onChange(value);
-      }}
+      className={CSS.cls(indeterminate && CSS.M("indeterminate"), className)}
     />
   );
 };

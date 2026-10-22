@@ -14,22 +14,31 @@ import { Input } from "@/input";
 
 const box = (): HTMLInputElement => screen.getByRole<HTMLInputElement>("checkbox");
 
+const dashed = (): boolean =>
+  box().closest("label")?.classList.contains("pluto--indeterminate") ?? false;
+
 describe("Input.Checkbox", () => {
-  it("should mark a partly made choice as indeterminate", () => {
+  it("should mark a partly made choice for screen readers and draw a dash", () => {
     const onChange = vi.fn();
     const { rerender } = render(
       <Input.Checkbox value={false} indeterminate onChange={onChange} />,
     );
     expect(box().indeterminate).toBe(true);
+    expect(dashed()).toBe(true);
     rerender(<Input.Checkbox value onChange={onChange} />);
     expect(box().indeterminate).toBe(false);
+    expect(dashed()).toBe(false);
   });
 
-  it("should keep the mark when its owner ignores a click", () => {
+  it("should set the flag again on the render after a click clears it", () => {
     const onChange = vi.fn();
-    render(<Input.Checkbox value={false} indeterminate onChange={onChange} />);
+    const { rerender } = render(
+      <Input.Checkbox value={false} indeterminate onChange={onChange} />,
+    );
     fireEvent.click(box());
     expect(onChange).toHaveBeenCalledWith(true);
+    expect(dashed()).toBe(true);
+    rerender(<Input.Checkbox value={false} indeterminate onChange={onChange} />);
     expect(box().indeterminate).toBe(true);
   });
 });
