@@ -9,11 +9,17 @@
 
 #pragma once
 
+#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
+#include <mutex>
 #include <optional>
 #include <span>
 #include <system_error>
+#include <thread>
+#include <type_traits>
+#include <utility>
 
 #include "asio/error.hpp"
 #include "asio/io_context.hpp"
@@ -94,5 +100,35 @@ Completion run_for(
         done->cancelled = true;
     }
     return *done;
+}
+
+/// @brief runs a blocking call that cannot be cancelled, such as getaddrinfo, on its
+/// own thread, and stops waiting for it after timeout. An abandoned call finishes in
+/// the background and its result is dropped.
+/// @param call returns a value and an std::error_code.
+/// @returns the call's result, or a default value and std::errc::timed_out when the
+/// timeout elapses first.
+template<typename Call>
+auto abandon_after(const x::telem::TimeSpan timeout, Call call)
+    -> std::invoke_result_t<Call> {
+    using Result = std::invoke_result_t<Call>;
+    struct State {
+        std::mutex mu;
+        std::condition_variable cv;
+        std::optional<Result> result;
+    };
+    auto state = std::make_shared<State>();
+    std::thread([state, call = std::move(call)]() mutable {
+        auto result = call();
+        std::lock_guard lock(state->mu);
+        state->result = std::move(result);
+        state->cv.notify_one();
+    }).detach();
+    std::unique_lock lock(state->mu);
+    if (!state->cv.wait_for(lock, timeout.chrono(), [&state] {
+            return state->result.has_value();
+        }))
+        return {{}, std::make_error_code(std::errc::timed_out)};
+    return std::move(*state->result);
 }
 }

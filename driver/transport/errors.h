@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <initializer_list>
 #include <string>
 #include <system_error>
 
@@ -32,6 +33,14 @@ const x::errors::Error CONFIG_ERROR = driver::errors::CONFIGURATION_ERROR.sub(
 const x::errors::Error CRITICAL_ERROR = driver::errors::CRITICAL_HARDWARE_ERROR.sub(
     "transport"
 );
+
+/// @returns true when ec compares equal to any of codes.
+inline bool
+any_of(const std::error_code &ec, const std::initializer_list<std::errc> codes) {
+    for (const auto code: codes)
+        if (ec == code) return true;
+    return false;
+}
 
 /// @returns ec in std::system_category when Asio reported it in its own category,
 /// which compares equal to few std::errc values.

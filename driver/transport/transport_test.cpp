@@ -9,6 +9,8 @@
 
 #include <cerrno>
 #include <functional>
+#include <future>
+#include <string>
 #include <system_error>
 
 #include "asio/error.hpp"
@@ -79,5 +81,27 @@ TEST(FromAsio, LetsAnAsioSystemErrorCompareToTheStandardCodes) {
 
 TEST(FromAsio, KeepsAnErrorFromAnotherCategory) {
     EXPECT_EQ(from_asio(asio::error::eof), asio::error::eof);
+}
+
+TEST(AbandonAfter, ReturnsTheResultOfACallThatFinishesInTime) {
+    const auto [value, ec] = abandon_after(x::telem::SECOND, [] {
+        return std::pair{std::string("resolved"), std::error_code{}};
+    });
+    EXPECT_FALSE(ec);
+    EXPECT_EQ(value, "resolved");
+}
+
+TEST(AbandonAfter, StopsWaitingForACallThatBlocksPastTheTimeout) {
+    std::promise<void> release;
+    auto released = release.get_future().share();
+    const x::telem::Stopwatch sw;
+    const auto [value, ec] = abandon_after(20 * x::telem::MILLISECOND, [released] {
+        released.wait();
+        return std::pair{std::string("late"), std::error_code{}};
+    });
+    EXPECT_LT(sw.elapsed(), x::telem::SECOND);
+    EXPECT_EQ(ec, std::errc::timed_out);
+    EXPECT_TRUE(value.empty());
+    release.set_value();
 }
 }

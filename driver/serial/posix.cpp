@@ -9,7 +9,6 @@
 
 #include <cerrno>
 #include <cstddef>
-#include <initializer_list>
 #include <string>
 #include <system_error>
 #include <utility>
@@ -25,12 +24,6 @@
 
 namespace driver::serial {
 namespace {
-bool any_of(const std::error_code &ec, const std::initializer_list<std::errc> codes) {
-    for (const auto code: codes)
-        if (ec == code) return true;
-    return false;
-}
-
 std::error_code last_error() {
     return {errno, std::generic_category()};
 }
@@ -38,22 +31,26 @@ std::error_code last_error() {
 
 x::errors::Error
 translate(const std::string &context, const std::error_code &reported) {
+    using transport::any_of;
     const auto ec = transport::from_asio(reported);
     if (ec == std::errc::device_or_resource_busy)
         return x::errors::Error(
             transport::UNREACHABLE_ERROR,
             context + ": the port is in use by another program"
         );
-    if (ec == asio::error::eof || any_of(
-                                      ec,
-                                      {std::errc::no_such_file_or_directory,
-                                       std::errc::no_such_device_or_address,
-                                       std::errc::no_such_device,
-                                       std::errc::io_error,
-                                       std::errc::broken_pipe,
-                                       std::errc::bad_file_descriptor,
-                                       std::errc::timed_out}
-                                  ))
+    // A tty reads end of file once its device hangs up.
+    if (ec == asio::error::eof)
+        return transport::error(transport::UNREACHABLE_ERROR, context, ec);
+    if (any_of(
+            ec,
+            {std::errc::no_such_file_or_directory,
+             std::errc::no_such_device_or_address,
+             std::errc::no_such_device,
+             std::errc::io_error,
+             std::errc::broken_pipe,
+             std::errc::bad_file_descriptor,
+             std::errc::timed_out}
+        ))
         return transport::error(transport::UNREACHABLE_ERROR, context, ec);
     if (any_of(
             ec,
