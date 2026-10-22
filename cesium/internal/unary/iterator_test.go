@@ -2204,7 +2204,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						},
 					)
 					It(
-						"Should auto-span through a domain split between two indices",
+						"Should split a data domain at the index boundary it spans",
 						func(ctx SpecContext) {
 							var (
 								iKey     = GenerateChannelKey()
@@ -2284,13 +2284,27 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							)
 							Expect(i.SeekFirst(ctx)).To(BeTrue())
 							Expect(i.Next(ctx, cesium.AutoSpan)).To(BeTrue())
+							Expect(i.Value().Count()).To(Equal(2))
+							first, second := i.Value().
+								SeriesAt(0),
+								i.Value().
+									SeriesAt(1)
+							Expect(first).To(telem.MatchSeriesDataV[int64](
+								10, 11, 12, 13, 14, 15,
+							))
+							Expect(first.Alignment).To(Equal(telem.NewAlignment(0, 0)))
+							Expect(second).To(telem.MatchSeriesDataV[int64](16, 17))
+							Expect(second.Alignment).To(Equal(telem.NewAlignment(1, 0)))
 							Expect(
-								i.Value().SeriesAt(0),
-							).To(telem.MatchSeriesDataV[int64](10, 11, 12, 13, 14, 15, 16, 17))
+								first.TimeRange.End,
+							).To(Equal(second.TimeRange.Start))
 							Expect(i.Next(ctx, cesium.AutoSpan)).To(BeTrue())
 							Expect(
 								i.Value().SeriesAt(0),
 							).To(telem.MatchSeriesDataV[int64](18, 19, 20))
+							Expect(
+								i.Value().SeriesAt(0).Alignment,
+							).To(Equal(telem.NewAlignment(1, 2)))
 							Expect(i.Close()).To(Succeed())
 
 							Expect(dataDB2.Close()).To(Succeed())
