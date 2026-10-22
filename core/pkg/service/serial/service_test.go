@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/bus"
-	"github.com/synnaxlabs/synnax/pkg/service/library"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/serial"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
@@ -27,7 +27,7 @@ var _ = Describe("Service", func() {
 		svc = MustOpen(serial.OpenService(ctx, serial.ServiceConfig{
 			DB: db,
 			Resolver: bus.Resolver{
-				Stamper: library.Stamper{DB: db, Ontology: otg},
+				Stamper: icd.Stamper{DB: db, Ontology: otg},
 			},
 		}))
 	})
@@ -56,36 +56,38 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("Write", func() {
-		It("Should stamp the library hash into a read config", func(ctx SpecContext) {
+		It("Should stamp the ICD hash into a read config", func(ctx SpecContext) {
 			key := uuid.New()
-			l, m := createLibrary(ctx, key)
+			ic, m := createICD(ctx, key)
 			Expect(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
-				"library": l.Key.String(),
+				"icd": ic.Key.String(),
 				"messages": []any{map[string]any{
 					"message": m.Key.String(),
 					"index":   1,
 				}},
 			})).To(Succeed())
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
-			Expect(data["library_hash"]).To(Equal(MustSucceed(library.Hash(l))))
+			Expect(data["icd_hash"]).To(Equal(MustSucceed(
+				icd.TaskHash(ic, []icd.EntryKey{m.Key}),
+			)))
 		})
 
-		It("Should reject a read config whose message is not in the library", func(
+		It("Should reject a read config whose message is not in the ICD", func(
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			l, _ := createLibrary(ctx, key)
+			ic, _ := createICD(ctx, key)
 			Expect(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
-				"library":  l.Key.String(),
+				"icd":      ic.Key.String(),
 				"messages": []any{map[string]any{"message": uuid.New().String()}},
-			})).To(MatchError(ContainSubstring("is not in the library")))
+			})).To(MatchError(ContainSubstring("is not in the ICD")))
 		})
 
-		It("Should reject a write config whose library does not exist", func(
+		It("Should reject a write config whose ICD does not exist", func(
 			ctx SpecContext,
 		) {
 			Expect(svc.Write.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
-				"library": uuid.New().String(),
+				"icd": uuid.New().String(),
 			})).To(MatchError(ContainSubstring("does not exist")))
 		})
 
@@ -93,9 +95,9 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			l, _ := createLibrary(ctx, key)
+			ic, _ := createICD(ctx, key)
 			Expect(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
-				"library": l.Key.String(),
+				"icd": ic.Key.String(),
 			})).To(Succeed())
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
 			Expect(data["rate"]).To(BeNumerically("==", 1))
@@ -110,9 +112,9 @@ var _ = Describe("Service", func() {
 			"Should default the length of a fixed framing to one byte",
 			func(ctx SpecContext) {
 				key := uuid.New()
-				l, _ := createLibrary(ctx, key)
+				ic, _ := createICD(ctx, key)
 				Expect(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
-					"library": l.Key.String(),
+					"icd":     ic.Key.String(),
 					"framing": map[string]any{"type": "fixed", "length": 0},
 				})).To(Succeed())
 				data := MustSucceed(svc.Write.Read(ctx, nil, key))

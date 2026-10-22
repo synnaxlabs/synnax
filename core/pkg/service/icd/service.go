@@ -7,20 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package library
+package icd
 
 import (
 	"context"
 	"io"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/library/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
@@ -28,21 +29,25 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// ServiceConfig is the configuration for opening a library Service.
+// ServiceConfig is the configuration for opening an ICD Service.
 type ServiceConfig struct {
-	// DB is the database the service stores libraries in.
+	// DB is the database the service stores ICDs in.
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology defines libraries as resources and finds the tasks that use them.
+	// Ontology defines ICDs as resources and finds the tasks that use them.
 	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology
-	// Task rewrites the tasks that use a library when the library changes.
+	// Task rewrites the tasks that use an ICD when the entries they use change.
 	//
 	// [REQUIRED]
 	Task *task.Service
-	// Search is the search index for fuzzy searching libraries.
+	// Uses returns the messages, and the fields of each, that a task config uses.
+	//
+	// [REQUIRED]
+	Uses func(config msgpack.EncodedJSON) ([]Use, error)
+	// Search is the search index for fuzzy searching ICDs.
 	//
 	// [REQUIRED]
 	Search *search.Index
@@ -50,7 +55,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	ImEx *imex.Service
-	// Signals publishes library changes to clients.
+	// Signals publishes ICD changes to clients.
 	//
 	// [OPTIONAL] - Defaults to nil.
 	Signals *signals.Provider
@@ -65,6 +70,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Task = override.Nil(c.Task, other.Task)
+	c.Uses = override.Nil(c.Uses, other.Uses)
 	c.Search = override.Nil(c.Search, other.Search)
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
 	c.Signals = override.Nil(c.Signals, other.Signals)
@@ -73,19 +79,20 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
-	v := validate.New("library")
+	v := validate.New("icd")
 	v.NotNil("db", c.DB)
 	v.NotNil("ontology", c.Ontology)
 	v.NotNil("task", c.Task)
+	v.NotNil("uses", c.Uses)
 	v.NotNil("search", c.Search)
 	v.NotNil("imex", c.ImEx)
 	return v.Error()
 }
 
-// Service creates, retrieves, and deletes libraries.
+// Service creates, retrieves, and deletes ICDs.
 type Service struct {
 	cfg    ServiceConfig
-	table  *gorp.Table[Key, Library]
+	table  *gorp.Table[Key, ICD]
 	closer xio.MultiCloser
 }
 
@@ -98,7 +105,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Library]{
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, ICD]{
 		DB:              s.cfg.DB,
 		Migrations:      versions.Migrations,
 		Instrumentation: s.cfg.Instrumentation,
@@ -137,10 +144,11 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
 		table:     s.table,
 		tasks:     s.cfg.Task,
+		uses:      s.cfg.Uses,
 	}
 }
 
-// NewRetrieve opens a query for libraries.
+// NewRetrieve opens a query for ICDs.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		gorp:   s.table.NewRetrieve(),

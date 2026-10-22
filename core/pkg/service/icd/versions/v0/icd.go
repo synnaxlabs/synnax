@@ -14,15 +14,15 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-var _ gorp.Entry[Key] = Library{}
+var _ gorp.Entry[Key] = ICD{}
 
 // GorpKey implements gorp.Entry.
-func (l Library) GorpKey() Key { return l.Key }
+func (ic ICD) GorpKey() Key { return ic.Key }
 
 // SetOptions implements gorp.Entry.
-func (Library) SetOptions() []any { return nil }
+func (ICD) SetOptions() []any { return nil }
 
-// OntologyID returns the unique ontology identifier for the library.
-func (l Library) OntologyID() ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeLibrary, Key: l.Key.String()}
+// OntologyID returns the unique ontology identifier for the ICD.
+func (ic ICD) OntologyID() ontology.ID {
+	return ontology.ID{Type: ontology.ResourceTypeICD, Key: ic.Key.String()}
 }

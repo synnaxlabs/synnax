@@ -60,15 +60,15 @@ var _ = Describe("Writer", func() {
 			Expect(leaf.Tabs[0].Key()).To(Equal(key))
 		})
 
-		It("Should accept a tab that displays a library", func(ctx SpecContext) {
+		It("Should accept a tab that displays an ICD", func(ctx SpecContext) {
 			root := leafNode(panel.Tab{Variant: panel.ResourceTab{
 				Key: uuid.New(),
 				Resource: ontology.ID{
-					Type: ontology.ResourceTypeLibrary,
+					Type: ontology.ResourceTypeICD,
 					Key:  uuid.New().String(),
 				},
 			}})
-			p := panel.Panel{Name: "library", Root: root, Parent: &parentID}
+			p := panel.Panel{Name: "icd", Root: root, Parent: &parentID}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 		})
 

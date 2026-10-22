@@ -7,396 +7,309 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package library_test
+package icd_test
 
 import (
-	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/library"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/query"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
-func enumEntry(name string, values ...library.EnumValue) library.Entry {
-	return library.Entry{Variant: library.EnumEntry{
-		BaseEntry: library.BaseEntry{Name: name},
-		Values:    values,
+func enumEntry(name string, values ...icd.EnumValue) icd.Entry {
+	return icd.Entry{Variant: icd.EnumEntry{
+		Name:   name,
+		Values: values,
 	}}
 }
 
-func binaryField(name string, startBit uint16, bitLength uint8) library.BinaryField {
-	return library.BinaryField{
-		Name:      name,
+func binaryField(name string, startBit uint16, bitLength uint8) icd.BinaryField {
+	return icd.BinaryField{
+		Name: name, Scale: 1,
 		StartBit:  startBit,
 		BitLength: bitLength,
-		ByteOrder: library.ByteOrderLittleEndian,
+		ByteOrder: icd.ByteOrderLittleEndian,
 	}
 }
 
-func messageEntry(m library.MessageEntry) library.Entry {
-	return library.Entry{Variant: m}
-}
+func messageEntry(m icd.MessageEntry) icd.Entry { return icd.Entry{Variant: m} }
 
-func binaryMessage(name string, fields ...library.BinaryField) library.MessageEntry {
-	return library.MessageEntry{
+func binaryMessage(name string, fields ...icd.BinaryField) icd.MessageEntry {
+	return icd.MessageEntry{
 		Name:    name,
-		Payload: library.Payload{Variant: library.BinaryPayload{Fields: fields}},
+		Payload: icd.Payload{Variant: icd.BinaryPayload{Fields: fields}},
 	}
 }
 
-func textMessage(name string, fields ...library.TextField) library.MessageEntry {
-	return library.MessageEntry{
-		Name:    name,
-		Payload: library.Payload{Variant: library.TextPayload{Fields: fields}},
+func textMessage(name string, fields ...icd.TextField) icd.MessageEntry {
+	return icd.MessageEntry{
+		Name: name,
+		Payload: icd.Payload{Variant: icd.TextPayload{
+			Delimiter: ",",
+			Fields:    fields,
+		}},
 	}
 }
 
 // updateBinary returns m with its binary payload changed by update.
 func updateBinary(
-	m library.MessageEntry,
-	update func(*library.BinaryPayload),
-) library.MessageEntry {
+	m icd.MessageEntry,
+	update func(*icd.BinaryPayload),
+) icd.MessageEntry {
 	p := binaryPayloadOf(m)
 	update(&p)
 	m.Payload.Variant = p
 	return m
 }
 
-func canMessage(
-	name string,
-	id uint32,
-	fields ...library.BinaryField,
-) library.MessageEntry {
-	return updateBinary(binaryMessage(name, fields...), func(p *library.BinaryPayload) {
-		p.Identifier = &library.Identifier{Variant: library.CanIdentifier{ID: id}}
+func canMessage(name string, id uint32, fields ...icd.BinaryField) icd.MessageEntry {
+	return updateBinary(binaryMessage(name, fields...), func(p *icd.BinaryPayload) {
+		p.Identifier = &icd.Identifier{Variant: icd.CanIdentifier{ID: id}}
 		p.Length = new(uint16(8))
 	})
 }
 
-func messageOf(l library.Library, i int) library.MessageEntry {
-	return l.Entries[i].Variant.(library.MessageEntry)
+func messageOf(ic icd.ICD, i int) icd.MessageEntry {
+	return ic.Entries[i].Variant.(icd.MessageEntry)
 }
 
-func binaryPayloadOf(m library.MessageEntry) library.BinaryPayload {
-	return m.Payload.Variant.(library.BinaryPayload)
+func binaryPayloadOf(m icd.MessageEntry) icd.BinaryPayload {
+	return m.Payload.Variant.(icd.BinaryPayload)
 }
 
-func binaryFieldOf(m library.MessageEntry, i int) library.BinaryField {
+func binaryFieldOf(m icd.MessageEntry, i int) icd.BinaryField {
 	return binaryPayloadOf(m).Fields[i]
+}
+
+// setScale returns a copy of ic with the scale of the first field of message i set.
+func setScale(ic icd.ICD, i int, scale float64) icd.ICD {
+	ic.Entries = append([]icd.Entry(nil), ic.Entries...)
+	ic.Entries[i].Variant = updateBinary(
+		messageOf(ic, i),
+		func(p *icd.BinaryPayload) {
+			p.Fields = append([]icd.BinaryField(nil), p.Fields...)
+			p.Fields[0].Scale = scale
+		},
+	)
+	return ic
+}
+
+func retrieveICD(ctx SpecContext, key icd.Key) icd.ICD {
+	GinkgoHelper()
+	var res icd.ICD
+	Expect(svc.NewRetrieve().
+		Where(icd.MatchKeys(key)).
+		Entry(&res).
+		Exec(ctx, tx)).To(Succeed())
+	return res
 }
 
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
 		It(
-			"Should create a library with keys for it, its entries, and fields",
+			"Should create an ICD with keys for it, its entries, and fields",
 			func(ctx SpecContext) {
-				l := library.Library{
+				ic := icd.ICD{
 					Name: "Engine",
-					Entries: []library.Entry{
-						enumEntry("State", library.EnumValue{Value: 0, Name: "Off"}),
+					Entries: []icd.Entry{
+						enumEntry("State", icd.EnumValue{Value: 0, Name: "Off"}),
 						messageEntry(
 							canMessage("Status", 0x100, binaryField("rpm", 0, 16)),
 						),
 					},
 				}
-				Expect(svc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
-				Expect(l.Key).ToNot(Equal(uuid.Nil()))
+				Expect(svc.NewWriter(tx).Create(ctx, &ic)).To(Succeed())
+				Expect(ic.Key).ToNot(Equal(uuid.Nil()))
 				Expect(
-					l.Entries[0].Variant.(library.EnumEntry).Key,
+					ic.Entries[0].Variant.(icd.EnumEntry).Key,
 				).ToNot(Equal(uuid.Nil()))
-				m := messageOf(l, 1)
+				m := messageOf(ic, 1)
 				Expect(m.Key).ToNot(Equal(uuid.Nil()))
 				Expect(binaryFieldOf(m, 0).Key).ToNot(Equal(uuid.Nil()))
-				var res library.Library
-				Expect(svc.NewRetrieve().
-					Where(library.MatchKeys(l.Key)).
-					Entry(&res).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(res).To(Equal(l))
+				Expect(retrieveICD(ctx, ic.Key)).To(Equal(ic))
 			},
 		)
 
-		It("Should apply schema defaults to entries and fields", func(ctx SpecContext) {
-			m := textMessage(
-				"Line",
-				library.TextField{Variant: library.DelimitedTextField{
-					BaseField: library.BaseField{Name: "temperature"},
-					Position:  1,
-				}},
-			)
-			l := library.Library{
-				Name:    "Sensor",
-				Entries: []library.Entry{messageEntry(m)},
-			}
-			Expect(svc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
-			res := messageOf(l, 0).Payload.Variant.(library.TextPayload)
-			Expect(res.Delimiter).To(Equal(","))
-			Expect(
-				res.Fields[0].Variant.(library.DelimitedTextField).Scale,
-			).To(Equal(1.0))
+		It("Should set the hash of the stored ICD", func(ctx SpecContext) {
+			ic := icd.ICD{Name: "Hashed"}
+			Expect(svc.NewWriter(tx).Create(ctx, &ic)).To(Succeed())
+			Expect(ic.Hash).To(Equal(MustSucceed(icd.Hash(ic))))
+			Expect(retrieveICD(ctx, ic.Key).Hash).To(Equal(ic.Hash))
 		})
 
-		It("Should define the library in the ontology", func(ctx SpecContext) {
-			l := library.Library{Name: "Ontology"}
-			Expect(svc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
-			var res ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(l.OntologyID()).
-				Entry(&res).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(res.Name).To(Equal("Ontology"))
+		It("Should create an ICD under the key a client chose", func(ctx SpecContext) {
+			key := uuid.New()
+			ic := icd.ICD{Key: key, Name: "Chosen"}
+			Expect(svc.NewWriter(tx).Create(ctx, &ic)).To(Succeed())
+			Expect(retrieveICD(ctx, key).Name).To(Equal("Chosen"))
 		})
 
 		It(
-			"Should keep entry and field keys when replacing a library",
+			"Should store fields as sent, without filling defaults",
 			func(ctx SpecContext) {
-				l := library.Library{
+				m := textMessage("Line", icd.TextField{Variant: icd.DelimitedTextField{
+					Name: "temperature", Scale: 2,
+					Position: 1,
+				}})
+				ic := icd.ICD{Name: "Sensor", Entries: []icd.Entry{messageEntry(m)}}
+				Expect(svc.NewWriter(tx).Create(ctx, &ic)).To(Succeed())
+				res := messageOf(retrieveICD(ctx, ic.Key), 0).Payload.Variant.(icd.TextPayload)
+				Expect(res.Delimiter).To(Equal(","))
+				Expect(
+					res.Fields[0].Variant.(icd.DelimitedTextField).Scale,
+				).To(Equal(2.0))
+			},
+		)
+
+		It("Should define the ICD in the ontology", func(ctx SpecContext) {
+			ic := icd.ICD{Name: "Ontology"}
+			Expect(svc.NewWriter(tx).Create(ctx, &ic)).To(Succeed())
+			var res ontology.Resource
+			Expect(otg.NewRetrieve().
+				WhereIDs(ic.OntologyID()).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res.Name).To(Equal("Ontology"))
+			Expect(res.ID.Type).To(Equal(ontology.ResourceTypeICD))
+		})
+
+		It(
+			"Should keep entry and field keys when replacing an ICD",
+			func(ctx SpecContext) {
+				ic := icd.ICD{
 					Name: "Replace",
-					Entries: []library.Entry{
+					Entries: []icd.Entry{
 						messageEntry(
 							canMessage("Status", 0x100, binaryField("rpm", 0, 16)),
 						),
 					},
 				}
 				w := svc.NewWriter(tx)
-				Expect(w.Create(ctx, &l)).To(Succeed())
-				entryKey := messageOf(l, 0).Key
-				fieldKey := binaryFieldOf(messageOf(l, 0), 0).Key
-				l.Entries[0].Variant = updateBinary(
-					messageOf(l, 0),
-					func(p *library.BinaryPayload) { p.Fields[0].Scale = 0.25 },
-				)
-				Expect(w.Create(ctx, &l)).To(Succeed())
-				Expect(messageOf(l, 0).Key).To(Equal(entryKey))
-				Expect(binaryFieldOf(messageOf(l, 0), 0).Key).To(Equal(fieldKey))
-				Expect(binaryFieldOf(messageOf(l, 0), 0).Scale).To(Equal(0.25))
+				Expect(w.Create(ctx, &ic)).To(Succeed())
+				entryKey := messageOf(ic, 0).Key
+				fieldKey := binaryFieldOf(messageOf(ic, 0), 0).Key
+				ic = setScale(ic, 0, 0.25)
+				Expect(w.Create(ctx, &ic)).To(Succeed())
+				Expect(messageOf(ic, 0).Key).To(Equal(entryKey))
+				Expect(binaryFieldOf(messageOf(ic, 0), 0).Key).To(Equal(fieldKey))
+				Expect(binaryFieldOf(messageOf(ic, 0), 0).Scale).To(Equal(0.25))
 			},
-		)
-
-		DescribeTable("Should reject an invalid library",
-			func(ctx SpecContext, l library.Library, msg string) {
-				Expect(svc.NewWriter(tx).Create(ctx, &l)).
-					To(MatchError(ContainSubstring(msg)))
-			},
-			Entry("missing name", library.Library{}, "name: required"),
-			Entry("entry without a kind",
-				library.Library{Name: "L", Entries: []library.Entry{{}}},
-				"kind is required",
-			),
-			Entry("duplicate entry names",
-				library.Library{Name: "L", Entries: []library.Entry{
-					enumEntry("State"),
-					enumEntry("State"),
-				}},
-				`duplicate entry name "State"`,
-			),
-			Entry("duplicate enum values",
-				library.Library{Name: "L", Entries: []library.Entry{enumEntry(
-					"State",
-					library.EnumValue{Value: 1, Name: "On"},
-					library.EnumValue{Value: 1, Name: "Running"},
-				)}},
-				"duplicate value 1",
-			),
-			Entry("enum value without a name",
-				library.Library{Name: "L", Entries: []library.Entry{enumEntry(
-					"State",
-					library.EnumValue{Value: 1},
-				)}},
-				"entries.0.values.0.name: required",
-			),
-			Entry("duplicate enum names",
-				library.Library{Name: "L", Entries: []library.Entry{enumEntry(
-					"State",
-					library.EnumValue{Value: 1, Name: "On"},
-					library.EnumValue{Value: 2, Name: "On"},
-				)}},
-				`duplicate name "On"`,
-			),
-			Entry("duplicate field names",
-				library.Library{Name: "L", Entries: []library.Entry{messageEntry(
-					canMessage("M", 1, binaryField("a", 0, 8), binaryField("a", 8, 8)),
-				)}},
-				`duplicate field name "a"`,
-			),
-			Entry("bit length over 64",
-				library.Library{Name: "L", Entries: []library.Entry{messageEntry(
-					binaryMessage("M", binaryField("a", 0, 65)),
-				)}},
-				"bit_length must be between 1 and 64",
-			),
-			Entry("float field of 24 bits",
-				library.Library{Name: "L", Entries: []library.Entry{messageEntry(
-					binaryMessage("M", func() library.BinaryField {
-						f := binaryField("a", 0, 24)
-						f.Float = true
-						return f
-					}()),
-				)}},
-				"a float field must be 32 or 64 bits",
-			),
-			Entry("little-endian field past the payload",
-				library.Library{Name: "L", Entries: []library.Entry{messageEntry(
-					canMessage("M", 1, binaryField("a", 60, 8)),
-				)}},
-				"field extends past the 8-byte payload",
-			),
-			Entry("big-endian field past the payload",
-				library.Library{Name: "L", Entries: []library.Entry{messageEntry(
-					canMessage("M", 1, func() library.BinaryField {
-						f := binaryField("a", 56, 16)
-						f.ByteOrder = library.ByteOrderBigEndian
-						return f
-					}()),
-				)}},
-				"field extends past the 8-byte payload",
-			),
-			Entry("standard CAN identifier over 11 bits",
-				library.Library{Name: "L", Entries: []library.Entry{messageEntry(
-					canMessage("M", 0x800),
-				)}},
-				"exceeds the maximum 0x7FF",
-			),
-			Entry("classic CAN frame over 8 bytes",
-				library.Library{Name: "L", Entries: []library.Entry{messageEntry(
-					updateBinary(canMessage("M", 1), func(p *library.BinaryPayload) {
-						p.Length = new(uint16(12))
-					}),
-				)}},
-				"entries.0.payload.length: length 12 exceeds the 8 bytes",
-			),
-			Entry("message without a format",
-				library.Library{Name: "L", Entries: []library.Entry{messageEntry(
-					library.MessageEntry{Name: "M"},
-				)}},
-				"entries.0.payload: format is required",
-			),
-			Entry("text field without an encoding",
-				library.Library{Name: "L", Entries: []library.Entry{messageEntry(
-					textMessage("M", library.TextField{}),
-				)}},
-				"entries.0.payload.fields.0: encoding is required",
-			),
-			Entry("field identifier naming a missing field",
-				library.Library{Name: "L", Entries: []library.Entry{messageEntry(
-					updateBinary(
-						binaryMessage("M", binaryField("a", 0, 8)),
-						func(p *library.BinaryPayload) {
-							p.Identifier = &library.Identifier{
-								Variant: library.FieldIdentifier{
-									Field: uuid.New(),
-									Value: 1,
-								},
-							}
-						},
-					),
-				)}},
-				"entries.0.payload.identifier.field: no field with key",
-			),
-			Entry("tagged field without a tag",
-				library.Library{Name: "L", Entries: []library.Entry{messageEntry(
-					textMessage("M", library.TextField{Variant: library.TaggedTextField{
-						BaseField: library.BaseField{Name: "a"},
-					}}),
-				)}},
-				"entries.0.payload.fields.0.tag: required",
-			),
-			Entry("enumeration naming a missing enum",
-				library.Library{Name: "L", Entries: []library.Entry{messageEntry(
-					binaryMessage("M", func() library.BinaryField {
-						f := binaryField("a", 0, 8)
-						f.Enumeration = new(uuid.New())
-						return f
-					}()),
-				)}},
-				"no enum entry with key",
-			),
-			Entry("field multiplexing itself",
-				library.Library{Name: "L", Entries: []library.Entry{messageEntry(
-					binaryMessage("M", func() library.BinaryField {
-						f := binaryField("a", 0, 8)
-						f.Key = uuid.New()
-						f.Multiplexor = new(f.Key)
-						f.MultiplexValues = []int32{1}
-						return f
-					}()),
-				)}},
-				"a field cannot multiplex itself",
-			),
-			Entry("multiplexed field without values",
-				library.Library{Name: "L", Entries: []library.Entry{messageEntry(
-					func() library.MessageEntry {
-						mux := binaryField("mux", 0, 8)
-						mux.Key = uuid.New()
-						sig := binaryField("sig", 8, 8)
-						sig.Multiplexor = new(mux.Key)
-						return binaryMessage("M", mux, sig)
-					}(),
-				)}},
-				"at least one value is required",
-			),
 		)
 
 		It(
-			"Should accept a multiplexed message referencing an enum",
+			"Should refuse an ICD with every problem Check finds",
 			func(ctx SpecContext) {
-				state := enumEntry("State", library.EnumValue{Value: 1, Name: "On"})
-				stateKey := uuid.New()
-				en := state.Variant.(library.EnumEntry)
-				en.Key = stateKey
-				state.Variant = en
-				mux := binaryField("mux", 0, 8)
-				mux.Key = uuid.New()
-				sig := binaryField("sig", 8, 8)
-				sig.Multiplexor = new(mux.Key)
-				sig.MultiplexValues = []int32{0, 2}
-				sig.Enumeration = new(stateKey)
-				l := library.Library{
-					Name: "Mux",
-					Entries: []library.Entry{
-						state,
-						messageEntry(canMessage("M", 1, mux, sig)),
-					},
-				}
-				Expect(svc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
+				ic := icd.ICD{Entries: []icd.Entry{
+					enumEntry("State"),
+					enumEntry("State"),
+				}}
+				Expect(svc.NewWriter(tx).Create(ctx, &ic)).To(MatchError(
+					"name: required: validation error\n" +
+						`entries.1.name: duplicate entry name "State": validation error`,
+				))
+				Expect(svc.NewRetrieve().
+					Where(icd.MatchKeys(ic.Key)).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			},
 		)
 	})
 
+	Describe("Stale saves", func() {
+		var ic icd.ICD
+		BeforeEach(func(ctx SpecContext) {
+			ic = icd.ICD{
+				Name: "Shared",
+				Entries: []icd.Entry{
+					messageEntry(
+						canMessage("Status", 0x100, binaryField("rpm", 0, 16)),
+					),
+				},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, &ic)).To(Succeed())
+		})
+
+		It(
+			"Should reject a save that carries the hash of an older version",
+			func(ctx SpecContext) {
+				mine, theirs := ic, setScale(ic, 0, 0.5)
+				Expect(svc.NewWriter(tx).Create(ctx, &theirs)).To(Succeed())
+				mine = setScale(mine, 0, 2)
+				Expect(svc.NewWriter(tx).Create(ctx, &mine)).To(SatisfyAll(
+					MatchError(library.ErrStale),
+					MatchError("ICD Shared: changed since it was read"),
+				))
+				stored := retrieveICD(ctx, ic.Key)
+				Expect(binaryFieldOf(messageOf(stored, 0), 0).Scale).To(Equal(0.5))
+			},
+		)
+
+		It("Should reject a replacement that carries no hash", func(ctx SpecContext) {
+			ic.Hash = ""
+			Expect(svc.NewWriter(tx).Create(ctx, &ic)).
+				To(MatchError(library.ErrStale))
+		})
+
+		It(
+			"Should accept consecutive saves of the hash each returns",
+			func(ctx SpecContext) {
+				w := svc.NewWriter(tx)
+				ic = setScale(ic, 0, 2)
+				Expect(w.Create(ctx, &ic)).To(Succeed())
+				ic = setScale(ic, 0, 3)
+				Expect(w.Create(ctx, &ic)).To(Succeed())
+				Expect(binaryFieldOf(messageOf(retrieveICD(ctx, ic.Key), 0), 0).Scale).
+					To(Equal(3.0))
+			},
+		)
+
+		It("Should reject a save read before a rename", func(ctx SpecContext) {
+			stale := ic
+			Expect(svc.NewWriter(tx).Rename(ctx, ic.Key, "Renamed")).To(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, &stale)).
+				To(MatchError(library.ErrStale))
+			Expect(retrieveICD(ctx, ic.Key).Name).To(Equal("Renamed"))
+		})
+	})
+
 	Describe("Rename", func() {
-		It("Should rename a library", func(ctx SpecContext) {
-			l := library.Library{Name: "Before"}
+		It("Should rename an ICD and update its hash", func(ctx SpecContext) {
+			ic := icd.ICD{Name: "Before"}
 			w := svc.NewWriter(tx)
-			Expect(w.Create(ctx, &l)).To(Succeed())
-			Expect(w.Rename(ctx, l.Key, "After")).To(Succeed())
-			var res library.Library
-			Expect(svc.NewRetrieve().
-				Where(library.MatchKeys(l.Key)).
-				Entry(&res).
-				Exec(ctx, tx)).To(Succeed())
+			Expect(w.Create(ctx, &ic)).To(Succeed())
+			Expect(w.Rename(ctx, ic.Key, "After")).To(Succeed())
+			res := retrieveICD(ctx, ic.Key)
 			Expect(res.Name).To(Equal("After"))
+			Expect(res.Hash).To(Equal(MustSucceed(icd.Hash(res))))
+			Expect(res.Hash).ToNot(Equal(ic.Hash))
 		})
 
 		It("Should reject an empty name", func(ctx SpecContext) {
 			Expect(svc.NewWriter(tx).Rename(ctx, uuid.New(), "")).
 				To(MatchError(ContainSubstring("name: name is required: validation error")))
 		})
+
+		It("Should return not found for a missing ICD", func(ctx SpecContext) {
+			Expect(svc.NewWriter(tx).Rename(ctx, uuid.New(), "Name")).
+				To(MatchError(query.ErrNotFound))
+		})
 	})
 
 	Describe("Delete", func() {
-		It("Should delete a library and its ontology resource", func(ctx SpecContext) {
-			l := library.Library{Name: "Doomed"}
+		It("Should delete an ICD and its ontology resource", func(ctx SpecContext) {
+			ic := icd.ICD{Name: "Doomed"}
 			w := svc.NewWriter(tx)
-			Expect(w.Create(ctx, &l)).To(Succeed())
-			Expect(w.Delete(ctx, l.Key)).To(Succeed())
+			Expect(w.Create(ctx, &ic)).To(Succeed())
+			Expect(w.Delete(ctx, ic.Key)).To(Succeed())
 			Expect(svc.NewRetrieve().
-				Where(library.MatchKeys(l.Key)).
+				Where(icd.MatchKeys(ic.Key)).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			Expect(otg.NewRetrieve().
-				WhereIDs(l.OntologyID()).
+				WhereIDs(ic.OntologyID()).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 
@@ -406,106 +319,20 @@ var _ = Describe("Writer", func() {
 	})
 
 	Describe("Retrieve", func() {
-		It(
-			"Should find a library by a fuzzy search on its name",
-			func(ctx SpecContext) {
-				l := library.Library{Name: "Flight Controls ICD"}
-				Expect(svc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
-				DeferCleanup(func(ctx SpecContext) {
-					Expect(svc.NewWriter(nil).Delete(ctx, l.Key)).To(Succeed())
-				})
-				Eventually(func(g Gomega) {
-					var res []library.Library
-					g.Expect(svc.NewRetrieve().
-						Search("flight controls").
-						Entries(&res).
-						Exec(ctx, nil)).To(Succeed())
-					g.Expect(res).To(ContainElement(HaveField("Key", l.Key)))
-				}).Should(Succeed())
-			},
-		)
+		It("Should find an ICD by a fuzzy search on its name", func(ctx SpecContext) {
+			ic := icd.ICD{Name: "Flight Controls ICD"}
+			Expect(svc.NewWriter(nil).Create(ctx, &ic)).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(svc.NewWriter(nil).Delete(ctx, ic.Key)).To(Succeed())
+			})
+			Eventually(func(g Gomega) {
+				var res []icd.ICD
+				g.Expect(svc.NewRetrieve().
+					Search("flight controls").
+					Entries(&res).
+					Exec(ctx, nil)).To(Succeed())
+				g.Expect(res).To(ContainElement(HaveField("Key", ic.Key)))
+			}).Should(Succeed())
+		})
 	})
-})
-
-var _ = Describe("Payload bounds", func() {
-	DescribeTable(
-		"Should require the payload to reach the last byte a binary field touches",
-		func(
-			ctx SpecContext,
-			startBit uint16,
-			bitLength uint8,
-			order library.ByteOrder,
-			lastByte uint16,
-		) {
-			create := func(length uint16) error {
-				GinkgoHelper()
-				f := binaryField("a", startBit, bitLength)
-				f.ByteOrder = order
-				m := updateBinary(
-					binaryMessage("M", f),
-					func(p *library.BinaryPayload) { p.Length = new(length) },
-				)
-				l := library.Library{
-					Name:    "L",
-					Entries: []library.Entry{messageEntry(m)},
-				}
-				return svc.NewWriter(tx).Create(ctx, &l)
-			}
-			Expect(create(lastByte + 1)).To(Succeed())
-			Expect(create(lastByte)).To(MatchError(ContainSubstring(fmt.Sprintf(
-				"entries.0.payload.fields.0.start_bit: field extends past the %d-byte "+
-					"payload",
-				lastByte,
-			))))
-		},
-		Entry(
-			"little-endian byte",
-			uint16(0),
-			uint8(8),
-			library.ByteOrderLittleEndian,
-			uint16(0),
-		),
-		Entry(
-			"little-endian across bytes",
-			uint16(4),
-			uint8(8),
-			library.ByteOrderLittleEndian,
-			uint16(1),
-		),
-		Entry(
-			"little-endian last bit",
-			uint16(63),
-			uint8(1),
-			library.ByteOrderLittleEndian,
-			uint16(7),
-		),
-		Entry(
-			"big-endian byte",
-			uint16(7),
-			uint8(8),
-			library.ByteOrderBigEndian,
-			uint16(0),
-		),
-		Entry(
-			"big-endian word",
-			uint16(7),
-			uint8(16),
-			library.ByteOrderBigEndian,
-			uint16(1),
-		),
-		Entry(
-			"big-endian from a mid-byte MSB",
-			uint16(3),
-			uint8(8),
-			library.ByteOrderBigEndian,
-			uint16(1),
-		),
-		Entry(
-			"big-endian last byte",
-			uint16(63),
-			uint8(8),
-			library.ByteOrderBigEndian,
-			uint16(7),
-		),
-	)
 })

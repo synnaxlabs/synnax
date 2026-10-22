@@ -36,10 +36,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/http"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack"
-	"github.com/synnaxlabs/synnax/pkg/service/library"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
@@ -245,8 +245,8 @@ type Layer struct {
 	Status *status.Service
 	// View is used for managing views
 	View *view.Service
-	// Library stores the shared libraries of typed entries that tasks reference.
-	Library *library.Service
+	// ICD stores the interface control documents that bus tasks reference.
+	ICD *icd.Service
 	// ImEx is the central import/export registry.
 	ImEx *imex.Service
 	// Node publishes the cluster's nodes as resources in the ontology and search
@@ -628,7 +628,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.HTTP) {
 		return nil, err
 	}
-	busResolver := bus.Resolver{Stamper: library.Stamper{
+	busResolver := bus.Resolver{Stamper: icd.Stamper{
 		DB:       cfg.Distribution.DB,
 		Ontology: l.Ontology,
 	}}
@@ -722,15 +722,16 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, l.Arc) {
 		return nil, err
 	}
-	if l.Library, err = library.OpenService(ctx, library.ServiceConfig{
-		Instrumentation: cfg.Child("library"),
+	if l.ICD, err = icd.OpenService(ctx, icd.ServiceConfig{
+		Instrumentation: cfg.Child("icd"),
 		DB:              cfg.Distribution.DB,
 		Ontology:        l.Ontology,
 		Task:            l.Task,
+		Uses:            bus.Uses,
 		Search:          l.Search,
 		ImEx:            l.ImEx,
 		Signals:         l.Signals,
-	}); !ok(err, l.Library) {
+	}); !ok(err, l.ICD) {
 		return nil, err
 	}
 	if l.Alias, err = alias.OpenService(ctx, alias.ServiceConfig{

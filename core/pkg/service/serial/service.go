@@ -29,7 +29,7 @@ type ServiceConfig struct {
 	// DB is the database config records are stored in.
 	// [REQUIRED]
 	DB *gorp.DB
-	// Resolver checks read and write configs against their library.
+	// Resolver checks read and write configs against their ICD.
 	// [REQUIRED]
 	Resolver bus.Resolver
 	alamos.Instrumentation

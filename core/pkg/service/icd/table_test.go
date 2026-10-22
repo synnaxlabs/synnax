@@ -15,35 +15,34 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/library"
-	"github.com/synnaxlabs/synnax/pkg/service/library/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/xuri/excelize/v2"
 )
 
 // withoutKeys returns entries with every entry and field key cleared.
-func withoutKeys(entries []library.Entry) []library.Entry {
-	out := make([]library.Entry, len(entries))
+func withoutKeys(entries []icd.Entry) []icd.Entry {
+	out := make([]icd.Entry, len(entries))
 	for i, e := range entries {
-		m := e.Variant.(library.MessageEntry)
+		m := e.Variant.(icd.MessageEntry)
 		m.Key = uuid.Nil()
-		m.Payload.UpdateFieldBases(func(b *library.BaseField) { b.Key = uuid.Nil() })
-		out[i] = library.Entry{Variant: m}
+		m.Payload.UpdateFieldBases(func(b *icd.BaseField) { b.Key = uuid.Nil() })
+		out[i] = icd.Entry{Variant: m}
 	}
 	return out
 }
 
 func tableMessage(
 	name string,
-	id *library.Identifier,
+	id *icd.Identifier,
 	length *uint16,
 	period *telem.TimeSpan,
-	fields ...library.BinaryField,
-) library.Entry {
-	return library.Entry{Variant: library.MessageEntry{
+	fields ...icd.BinaryField,
+) icd.Entry {
+	return icd.Entry{Variant: icd.MessageEntry{
 		Name: name,
-		Payload: library.Payload{Variant: library.BinaryPayload{
+		Payload: icd.Payload{Variant: icd.BinaryPayload{
 			Identifier: id,
 			Length:     length,
 			Fields:     fields,
@@ -52,32 +51,32 @@ func tableMessage(
 	}}
 }
 
-func canID(id uint32, extended bool) *library.Identifier {
-	return &library.Identifier{
-		Variant: library.CanIdentifier{ID: id, Extended: extended},
+func canID(id uint32, extended bool) *icd.Identifier {
+	return &icd.Identifier{
+		Variant: icd.CanIdentifier{ID: id, Extended: extended},
 	}
 }
 
 // tableEntries are the entries of tableRows.
-var tableEntries = []library.Entry{
+var tableEntries = []icd.Entry{
 	tableMessage(
 		"Engine",
 		canID(0x100, false),
 		new(uint16(8)),
 		new(100*telem.Millisecond),
-		library.BinaryField{
+		icd.BinaryField{
 			Name: "rpm", Scale: 0.25, Units: "rpm",
 			BitLength: 16,
-			ByteOrder: library.ByteOrderLittleEndian,
+			ByteOrder: icd.ByteOrderLittleEndian,
 		},
-		library.BinaryField{
+		icd.BinaryField{
 			Name:      "temp",
 			Scale:     1,
 			Offset:    -40,
 			Units:     "degC",
 			StartBit:  16,
 			BitLength: 8,
-			ByteOrder: library.ByteOrderLittleEndian,
+			ByteOrder: icd.ByteOrderLittleEndian,
 			Signed:    true,
 		},
 	),
@@ -86,11 +85,11 @@ var tableEntries = []library.Entry{
 		canID(0x18FEF100, true),
 		nil,
 		nil,
-		library.BinaryField{
+		icd.BinaryField{
 			Name: "voltage", Scale: 0.01, Units: "V",
 			StartBit:  7,
 			BitLength: 16,
-			ByteOrder: library.ByteOrderBigEndian,
+			ByteOrder: icd.ByteOrderBigEndian,
 		},
 	),
 	tableMessage(
@@ -98,10 +97,10 @@ var tableEntries = []library.Entry{
 		nil,
 		nil,
 		nil,
-		library.BinaryField{
+		icd.BinaryField{
 			Name: "value", Scale: 1,
 			BitLength: 32,
-			ByteOrder: library.ByteOrderLittleEndian,
+			ByteOrder: icd.ByteOrderLittleEndian,
 			Float:     true,
 		},
 	),

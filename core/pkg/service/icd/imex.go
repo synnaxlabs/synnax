@@ -7,25 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package library
+package icd
 
 import (
 	"context"
 
+	"github.com/synnaxlabs/synnax/pkg/service/icd/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/library/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 var _ imex.ImportExporter = (*Service)(nil)
 
-// Match reports false: libraries have no Console-era file shape to recognize.
+// Match reports false: ICDs have no Console-era file shape to recognize.
 func (*Service) Match(map[string]any) bool { return false }
 
-// Import decodes env into a new Library and persists it on tx. The key on the wire is
+// Import decodes env into a new ICD and persists it on tx. The key on the wire is
 // discarded so every import mints a new resource; entry and field keys are kept, so
-// references between entries survive. opts.Parent is ignored: a library is never
+// references between entries survive. opts.Parent is ignored: an ICD is never
 // parented.
 func (s *Service) Import(
 	ctx context.Context,
@@ -33,12 +33,12 @@ func (s *Service) Import(
 	env imex.Envelope,
 	_ imex.ImportOptions,
 ) (ontology.ID, error) {
-	l, err := versions.DecodeImExEnvelope(ctx, env)
+	ic, err := versions.DecodeImExEnvelope(ctx, env)
 	if err != nil {
 		return ontology.ID{}, err
 	}
-	if err = s.NewWriter(tx).Create(ctx, &l); err != nil {
+	if err = s.NewWriter(tx).Create(ctx, &ic); err != nil {
 		return ontology.ID{}, err
 	}
-	return OntologyID(l.Key), nil
+	return OntologyID(ic.Key), nil
 }

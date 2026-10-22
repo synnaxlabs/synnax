@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package icd parses interface control documents (DBC files and field tables) into
-// library entries, and merges imported entries into an existing library.
+// Package icd stores interface control documents (ICDs): the messages a device sends
+// and receives on a bus or byte stream, and the enums that name their values. It checks
+// each ICD, stamps the tasks that use one, and imports entries from DBC files and field
+// tables.
 package icd
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/library/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/versions"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -35,7 +37,7 @@ const (
 	FormatXLSX Format = "xlsx"
 )
 
-// Parse parses data in the given format into library entries. Every entry and field
+// Parse parses data in the given format into ICD entries. Every entry and field
 // gets a new key, so references between them resolve. It returns an error scoped to
 // the "format" path when the format is unknown, and one scoped to the "data" path,
 // naming the line or row, when data is invalid.

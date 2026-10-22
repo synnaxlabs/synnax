@@ -11,5 +11,5 @@ package versions
 
 import "github.com/synnaxlabs/x/migrate"
 
-// Migrations is the ordered migration chain for stored libraries.
+// Migrations is the ordered migration chain for stored ICDs.
 var Migrations []migrate.Migration

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package library
+package icd
 
 import (
 	"context"
@@ -25,22 +25,22 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-// OntologyID returns the ontology ID of the library with the given key.
+// OntologyID returns the ontology ID of the ICD with the given key.
 func OntologyID(key Key) ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeLibrary, Key: key.String()}
+	return ontology.ID{Type: ontology.ResourceTypeICD, Key: key.String()}
 }
 
-// OntologyIDs returns the ontology IDs of the libraries with the given keys.
+// OntologyIDs returns the ontology IDs of the ICDs with the given keys.
 func OntologyIDs(keys []Key) []ontology.ID {
 	return lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
 }
 
-// OntologyIDsFromLibraries returns the ontology IDs of the given libraries.
-func OntologyIDsFromLibraries(libs []Library) []ontology.ID {
-	return lo.Map(libs, func(l Library, _ int) ontology.ID { return l.OntologyID() })
+// OntologyIDsFromICDs returns the ontology IDs of the given ICDs.
+func OntologyIDsFromICDs(ics []ICD) []ontology.ID {
+	return lo.Map(ics, func(ic ICD, _ int) ontology.ID { return ic.OntologyID() })
 }
 
-// KeysFromOntologyIDs returns the library keys of the given ontology IDs.
+// KeysFromOntologyIDs returns the ICD keys of the given ontology IDs.
 func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
 	return lo.MapErr(ids, func(id ontology.ID, _ int) (Key, error) {
 		return uuid.Parse(id.Key)
@@ -52,8 +52,8 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"name": zyn.String(),
 })
 
-func newResource(l Library) ontology.Resource {
-	return ontology.NewResource(schema, l.OntologyID(), l.Name, l)
+func newResource(ic ICD) ontology.Resource {
+	return ontology.NewResource(schema, ic.OntologyID(), ic.Name, ic)
 }
 
 var (
@@ -61,10 +61,10 @@ var (
 	_ search.Service   = (*Service)(nil)
 )
 
-type change = xchange.Change[Key, Library]
+type change = xchange.Change[Key, ICD]
 
 // Type implements ontology.Service.
-func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeLibrary }
+func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeICD }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(
@@ -76,11 +76,11 @@ func (s *Service) RetrieveResource(
 	if err != nil {
 		return ontology.Resource{}, err
 	}
-	var l Library
-	if err = s.NewRetrieve().Where(MatchKeys(k)).Entry(&l).Exec(ctx, tx); err != nil {
+	var ic ICD
+	if err = s.NewRetrieve().Where(MatchKeys(k)).Entry(&ic).Exec(ctx, tx); err != nil {
 		return ontology.Resource{}, err
 	}
-	return newResource(l), nil
+	return newResource(ic), nil
 }
 
 func translateChange(c change) ontology.Change {
@@ -95,7 +95,7 @@ func translateChange(c change) ontology.Change {
 func (s *Service) OnChange(
 	f func(context.Context, iter.Seq[ontology.Change]),
 ) observe.Disconnect {
-	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Library]) {
+	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, ICD]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
 	return s.table.Observe().OnChange(handleChange)

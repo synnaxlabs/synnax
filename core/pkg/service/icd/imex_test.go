@@ -7,17 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package library_test
+package icd_test
 
 import (
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/library"
-	"github.com/synnaxlabs/synnax/pkg/service/library/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -28,46 +28,46 @@ var _ = Describe("ImEx", func() {
 		Expect(svc.Match(map[string]any{"entries": []any{}})).To(BeFalse())
 	})
 
-	It("Should round trip a library through export and import", func(ctx SpecContext) {
-		lib := library.Library{
+	It("Should round trip an ICD through export and import", func(ctx SpecContext) {
+		ic := icd.ICD{
 			Name: "Exported",
-			Entries: []library.Entry{
-				enumEntry("State", library.EnumValue{Value: 1, Name: "On"}),
+			Entries: []icd.Entry{
+				enumEntry("State", icd.EnumValue{Value: 1, Name: "On"}),
 				messageEntry(canMessage("Status", 0x100, binaryField("rpm", 0, 16))),
 			},
 		}
-		Expect(svc.NewWriter(nil).Create(ctx, &lib)).To(Succeed())
+		Expect(svc.NewWriter(nil).Create(ctx, &ic)).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(svc.NewWriter(nil).Delete(ctx, lib.Key)).To(Succeed())
+			Expect(svc.NewWriter(nil).Delete(ctx, ic.Key)).To(Succeed())
 		})
-		env := MustSucceed(svc.Export(ctx, library.OntologyID(lib.Key)))
+		env := MustSucceed(svc.Export(ctx, icd.OntologyID(ic.Key)))
 		Expect(env.Version).To(Equal(versions.Latest))
-		Expect(env.Type).To(Equal("library"))
+		Expect(env.Type).To(Equal("icd"))
 		Expect(env.Name).To(Equal("Exported"))
 		id := MustSucceed(
 			imexSvc.Import(ctx, db, WireRoundTrip(env), imex.ImportOptions{
 				Parent: ontology.RootID,
 			}),
 		)
-		Expect(id.Type).To(Equal(ontology.ResourceTypeLibrary))
+		Expect(id.Type).To(Equal(ontology.ResourceTypeICD))
 		key := MustSucceed(uuid.Parse(id.Key))
 		DeferCleanup(func(ctx SpecContext) {
 			Expect(svc.NewWriter(nil).Delete(ctx, key)).To(Succeed())
 		})
-		Expect(key).ToNot(Equal(lib.Key))
-		var res library.Library
+		Expect(key).ToNot(Equal(ic.Key))
+		var res icd.ICD
 		Expect(svc.NewRetrieve().
-			Where(library.MatchKeys(key)).
+			Where(icd.MatchKeys(key)).
 			Entry(&res).
 			Exec(ctx, nil)).To(Succeed())
 		Expect(res.Name).To(Equal("Exported"))
-		Expect(library.Hash(res)).To(Equal(MustSucceed(library.Hash(lib))))
+		Expect(res.Hash).To(Equal(ic.Hash))
 	})
 
 	It(
-		"Should return not found when exporting a missing library",
+		"Should return not found when exporting a missing ICD",
 		func(ctx SpecContext) {
-			Expect(svc.Export(ctx, library.OntologyID(uuid.New()))).
+			Expect(svc.Export(ctx, icd.OntologyID(uuid.New()))).
 				Error().To(MatchError(query.ErrNotFound))
 		},
 	)

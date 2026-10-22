@@ -17,8 +17,8 @@ import (
 	"strings"
 	"uuid"
 
-	"github.com/synnaxlabs/synnax/pkg/service/library/icd/internal/dbc"
-	"github.com/synnaxlabs/synnax/pkg/service/library/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/internal/dbc"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/versions"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )

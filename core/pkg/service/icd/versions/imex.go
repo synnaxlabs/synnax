@@ -16,14 +16,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 )
 
-// DecodeImExEnvelope materializes env's body as a current-version Library, keyless and
+// DecodeImExEnvelope materializes env's body as a current-version ICD, keyless and
 // named after the envelope. An unknown version is a path-scoped validation error.
-func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Library, error) {
-	l, err := autoDecodeEnvelope(ctx, env)
+func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (ICD, error) {
+	ic, err := autoDecodeEnvelope(ctx, env)
 	if err != nil {
-		return Library{}, err
+		return ICD{}, err
 	}
-	l.Key = uuid.Nil()
-	l.Name = env.Name
-	return l, nil
+	ic.Key = uuid.Nil()
+	ic.Name = env.Name
+	return ic, nil
 }

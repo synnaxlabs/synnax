@@ -9,7 +9,7 @@
 
 package icd
 
-import "github.com/synnaxlabs/synnax/pkg/service/library/versions"
+import "github.com/synnaxlabs/synnax/pkg/service/icd/versions"
 
 // Merge returns existing with its entries replaced by imported. An imported entry that
 // matches an existing entry of the same kind by name keeps the existing key, and each
@@ -17,7 +17,7 @@ import "github.com/synnaxlabs/synnax/pkg/service/library/versions"
 // other values come from imported, and existing entries and fields that imported does
 // not hold are dropped. References between imported entries and fields are rewritten
 // to the kept keys. Merge does not modify its arguments.
-func Merge(existing versions.Library, imported []versions.Entry) versions.Library {
+func Merge(existing versions.ICD, imported []versions.Entry) versions.ICD {
 	old := make(map[string]versions.Entry, len(existing.Entries))
 	for _, e := range existing.Entries {
 		old[e.Base().Name] = e

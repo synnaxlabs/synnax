@@ -17,7 +17,7 @@ import (
 	"strings"
 	"uuid"
 
-	"github.com/synnaxlabs/synnax/pkg/service/library/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/versions"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/xuri/excelize/v2"

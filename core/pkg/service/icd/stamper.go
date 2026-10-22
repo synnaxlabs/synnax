@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package library
+package icd
 
 import (
 	"context"
 	"uuid"
 
+	"github.com/synnaxlabs/synnax/pkg/service/library"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
@@ -21,59 +22,60 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Stamper records a task's use of a library. Task config stores call it on write, so
-// it reads libraries straight from the database and needs no library Service, which
-// opens after the task service.
+// Use is one message a task config uses, with the fields of it the task reads or
+// writes.
+type Use struct {
+	// Message is the key of the message entry.
+	Message EntryKey
+	// Fields are the keys of the fields the task uses.
+	Fields []FieldKey
+}
+
+// Stamper records a task's use of an ICD. Task config stores call it on write, so it
+// reads ICDs straight from the database and needs no ICD Service, which opens after
+// the task service.
 type Stamper struct {
-	// DB is the database libraries are stored in.
+	// DB is the database ICDs are stored in.
 	DB *gorp.DB
-	// Ontology relates the task to the library it uses.
+	// Ontology relates the task to the ICD it uses.
 	Ontology *ontology.Ontology
 }
 
-// Stamp sets ref.LibraryHash to the current hash of the referenced library and returns
-// the library. A task uses at most one library, so Stamp replaces any library the task
-// used before. When ref has no library, Stamp clears ref.LibraryHash, removes the
-// library the task used, and returns the zero Library. It returns a path-scoped
-// validation error when the library does not exist. The task's ontology resource must
-// exist.
+// Stamp sets ref.ICDHash to the TaskHash of the given messages in the referenced ICD
+// and returns the ICD. A task uses at most one ICD, so Stamp replaces any ICD the task
+// used before. When ref has no ICD, Stamp clears ref.ICDHash, removes the ICD the task
+// used, and returns the zero ICD. It returns a validation error scoped to the "icd"
+// path when the ICD does not exist. The task's ontology resource must exist.
 func (s Stamper) Stamp(
 	ctx context.Context,
 	tx gorp.Tx,
 	taskKey uuid.UUID,
 	ref *Reference,
-) (Library, error) {
+	messages []EntryKey,
+) (ICD, error) {
 	tx = gorp.OverrideTx(s.DB, tx)
 	w := s.Ontology.NewWriter(tx)
-	if ref.Library == nil {
-		ref.LibraryHash = ""
-		return Library{}, w.DeleteOutgoingRelationshipsOfType(
-			ctx,
-			task.OntologyID(taskKey),
-			ontology.RelationshipTypeUses,
-		)
+	taskID := task.OntologyID(taskKey)
+	if ref.ICD == nil {
+		ref.ICDHash = ""
+		return ICD{}, library.Use(ctx, w, taskID, nil)
 	}
-	var l Library
-	if err := gorp.NewRetrieve[Key, Library]().
-		Where(gorp.MatchKeys[Key, Library](*ref.Library)).
-		Entry(&l).
+	var ic ICD
+	if err := gorp.NewRetrieve[Key, ICD]().
+		Where(gorp.MatchKeys[Key, ICD](*ref.ICD)).
+		Entry(&ic).
 		Exec(ctx, tx); err != nil {
 		if errors.Is(err, query.ErrNotFound) {
-			return l, validate.PathedError(errors.Wrapf(
-				validate.ErrValidation, "library %s does not exist", *ref.Library,
-			), "library")
+			return ic, validate.PathedError(errors.Wrapf(
+				validate.ErrValidation, "ICD %s does not exist", *ref.ICD,
+			), "icd")
 		}
-		return l, err
+		return ic, err
 	}
-	hash, err := Hash(l)
+	hash, err := TaskHash(ic, messages)
 	if err != nil {
-		return l, err
+		return ic, err
 	}
-	ref.LibraryHash = hash
-	return l, w.ReplaceOutgoingRelationshipsOfType(
-		ctx,
-		task.OntologyID(taskKey),
-		ontology.RelationshipTypeUses,
-		OntologyID(*ref.Library),
-	)
+	ref.ICDHash = hash
+	return ic, library.Use(ctx, w, taskID, new(ic.OntologyID()))
 }

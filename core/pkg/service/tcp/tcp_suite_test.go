@@ -16,7 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/library"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -41,33 +41,33 @@ func TestTCP(t *testing.T) {
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
-// createLibrary stores a library with one message and defines the ontology resource
-// of the task that will use it. It returns the library and its message.
-func createLibrary(
+// createICD stores an ICD with one message and defines the ontology resource of the
+// task that will use it. It returns the ICD and its message.
+func createICD(
 	ctx context.Context,
 	task uuid.UUID,
-) (library.Library, library.MessageEntry) {
+) (icd.ICD, icd.MessageEntry) {
 	GinkgoHelper()
-	m := library.MessageEntry{
+	m := icd.MessageEntry{
 		Key: uuid.New(), Name: "Status",
-		Payload: library.Payload{Variant: library.BinaryPayload{
-			Fields: []library.BinaryField{
+		Payload: icd.Payload{Variant: icd.BinaryPayload{
+			Fields: []icd.BinaryField{
 				{Key: uuid.New(), Name: "rpm", BitLength: 16},
 			},
 		}},
 	}
-	l := library.Library{
+	ic := icd.ICD{
 		Key:     uuid.New(),
 		Name:    "Bus",
-		Entries: []library.Entry{{Variant: m}},
+		Entries: []icd.Entry{{Variant: m}},
 	}
-	Expect(gorp.NewCreate[library.Key, library.Library]().
-		Entry(&l).
+	Expect(gorp.NewCreate[icd.Key, icd.ICD]().
+		Entry(&ic).
 		Exec(ctx, db)).To(Succeed())
 	Expect(otg.NewWriter(nil).DefineResources(
 		ctx,
-		library.OntologyID(l.Key),
+		icd.OntologyID(ic.Key),
 		ontology.ID{Type: ontology.ResourceTypeTask, Key: task.String()},
 	)).To(Succeed())
-	return l, m
+	return ic, m
 }

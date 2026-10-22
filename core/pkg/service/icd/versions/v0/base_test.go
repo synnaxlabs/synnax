@@ -15,7 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/library/versions/v0"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 )
 
 var _ = Describe("Base", func() {

@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package library_test
+package icd_test
 
 import (
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/library"
-	"github.com/synnaxlabs/synnax/pkg/service/library/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -35,75 +34,71 @@ BO_ 256 Engine: 8 Ecu
 VAL_ 256 Gear 0 "Park" 1 "Drive" ;
 `
 
-var _ = Describe("ImportICD", func() {
-	var lib library.Library
+var _ = Describe("Import", func() {
+	var ic icd.ICD
 	BeforeEach(func(ctx SpecContext) {
-		lib = library.Library{
+		ic = icd.ICD{
 			Name: "Bus",
-			Entries: []library.Entry{
-				messageEntry(canMessage("Old", 0x200, binaryField("a", 0, 8))),
+			Entries: []icd.Entry{
+				messageEntry(canMessage("Engine", 0x100, binaryField("Rpm", 0, 16))),
 			},
 		}
-		Expect(svc.NewWriter(tx).Create(ctx, &lib)).To(Succeed())
+		Expect(svc.NewWriter(tx).Create(ctx, &ic)).To(Succeed())
 	})
 
 	importICD := func(
 		ctx SpecContext,
-		key library.Key,
+		key icd.Key,
 		format icd.Format,
 		data string,
-	) (library.Library, error) {
-		return svc.NewWriter(tx).ImportICD(ctx, key, format, []byte(data))
+	) (icd.ICD, error) {
+		return svc.NewWriter(tx).Import(ctx, key, format, []byte(data))
 	}
 
-	It("Should replace the entries of the library", func(ctx SpecContext) {
-		res := MustSucceed(importICD(ctx, lib.Key, icd.FormatDBC, importDBC))
-		Expect(res.Key).To(Equal(lib.Key))
+	It("Should replace the entries of the ICD", func(ctx SpecContext) {
+		res := MustSucceed(importICD(ctx, ic.Key, icd.FormatDBC, importDBC))
+		Expect(res.Key).To(Equal(ic.Key))
 		Expect(res.Name).To(Equal("Bus"))
 		Expect(res.Entries).To(HaveLen(2))
 		m := messageOf(res, 0)
 		Expect(m.Name).To(Equal("Engine"))
-		gear := res.Entries[1].Variant.(library.EnumEntry)
+		gear := res.Entries[1].Variant.(icd.EnumEntry)
 		Expect(*binaryFieldOf(m, 1).Enumeration).To(Equal(gear.Key))
-		var stored library.Library
-		Expect(svc.NewRetrieve().
-			Where(library.MatchKeys(lib.Key)).
-			Entry(&stored).
-			Exec(ctx, tx)).To(Succeed())
-		Expect(stored).To(Equal(res))
+		Expect(retrieveICD(ctx, ic.Key)).To(Equal(res))
 	})
 
 	It("Should keep every key when a file is imported again", func(ctx SpecContext) {
-		first := MustSucceed(importICD(ctx, lib.Key, icd.FormatDBC, importDBC))
-		second := MustSucceed(importICD(ctx, lib.Key, icd.FormatDBC, importDBC))
+		first := MustSucceed(importICD(ctx, ic.Key, icd.FormatDBC, importDBC))
+		second := MustSucceed(importICD(ctx, ic.Key, icd.FormatDBC, importDBC))
 		Expect(second).To(Equal(first))
 	})
 
-	It("Should re-stamp every task that uses the library", func(ctx SpecContext) {
-		t := createUsingTask(ctx, lib.Key)
-		res := MustSucceed(importICD(ctx, lib.Key, icd.FormatDBC, importDBC))
-		hash := MustSucceed(library.Hash(res))
-		Expect(hash).ToNot(Equal(t.Config["library_hash"]))
+	It("Should rewrite each task whose messages change", func(ctx SpecContext) {
+		t := createUsingTask(ctx, "Decoder", ic, messageOf(ic, 0))
+		res := MustSucceed(importICD(ctx, ic.Key, icd.FormatDBC, importDBC))
+		hash := MustSucceed(icd.TaskHash(res, []icd.EntryKey{messageOf(res, 0).Key}))
+		Expect(hash).ToNot(Equal(t.Config["icd_hash"]))
 		config := retrieveTask(ctx, t.Key).Config
-		Expect(config).To(HaveKeyWithValue("library_hash", hash))
+		Expect(config).To(HaveKeyWithValue("icd_hash", hash))
 	})
 
 	It("Should reject data that does not parse", func(ctx SpecContext) {
-		Expect(importICD(ctx, lib.Key, icd.FormatCSV, "color\n")).Error().To(
+		Expect(importICD(ctx, ic.Key, icd.FormatCSV, "color\n")).Error().To(
 			MatchError(`data: row 1: unknown column "color": validation error`),
 		)
 	})
 
-	It("Should reject an imported library that is invalid", func(ctx SpecContext) {
+	It("Should reject an imported ICD that is invalid", func(ctx SpecContext) {
 		csv := "message,field,start_bit,bit_length\nm,a,0,8\nm,a,8,8\n"
-		Expect(importICD(ctx, lib.Key, icd.FormatCSV, csv)).Error().To(MatchError(
+		Expect(importICD(ctx, ic.Key, icd.FormatCSV, csv)).Error().To(MatchError(
 			ContainSubstring(
-				`entries.0.payload.fields.1.name: duplicate field name "a"`,
+				`entries.0.payload.fields.1.name: duplicate field name "a": ` +
+					"validation error",
 			),
 		))
 	})
 
-	It("Should return not found for a missing library", func(ctx SpecContext) {
+	It("Should return not found for a missing ICD", func(ctx SpecContext) {
 		Expect(importICD(ctx, uuid.New(), icd.FormatDBC, importDBC)).Error().
 			To(MatchError(query.ErrNotFound))
 	})

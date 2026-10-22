@@ -16,7 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/library"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -45,39 +45,39 @@ func TestBus(t *testing.T) {
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
-func binaryField(name string, startBit uint16) library.BinaryField {
-	return library.BinaryField{
+func binaryField(name string, startBit uint16) icd.BinaryField {
+	return icd.BinaryField{
 		Key: uuid.New(), Name: name,
 		StartBit:  startBit,
 		BitLength: 8,
-		ByteOrder: library.ByteOrderLittleEndian,
+		ByteOrder: icd.ByteOrderLittleEndian,
 	}
 }
 
 func canMessage(
 	name string,
 	id uint32,
-	fields ...library.BinaryField,
-) library.MessageEntry {
-	return library.MessageEntry{
+	fields ...icd.BinaryField,
+) icd.MessageEntry {
+	return icd.MessageEntry{
 		Key: uuid.New(), Name: name,
-		Payload: library.Payload{Variant: library.BinaryPayload{
-			Identifier: &library.Identifier{Variant: library.CanIdentifier{ID: id}},
+		Payload: icd.Payload{Variant: icd.BinaryPayload{
+			Identifier: &icd.Identifier{Variant: icd.CanIdentifier{ID: id}},
 			Fields:     fields,
 		}},
 	}
 }
 
-// createLibrary stores l and defines the ontology resources of l and the task.
-func createLibrary(ctx context.Context, l *library.Library, task uuid.UUID) {
+// createICD stores ic and defines the ontology resources of ic and the task.
+func createICD(ctx context.Context, ic *icd.ICD, task uuid.UUID) {
 	GinkgoHelper()
-	l.Key = uuid.New()
-	Expect(gorp.NewCreate[library.Key, library.Library]().
-		Entry(l).
+	ic.Key = uuid.New()
+	Expect(gorp.NewCreate[icd.Key, icd.ICD]().
+		Entry(ic).
 		Exec(ctx, tx)).To(Succeed())
 	Expect(otg.NewWriter(tx).DefineResources(
 		ctx,
-		library.OntologyID(l.Key),
+		icd.OntologyID(ic.Key),
 		ontology.ID{Type: ontology.ResourceTypeTask, Key: task.String()},
 	)).To(Succeed())
 }

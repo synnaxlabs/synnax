@@ -17,8 +17,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/library"
-	"github.com/synnaxlabs/synnax/pkg/service/library/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -27,8 +26,8 @@ import (
 // expectedFile is the shape testdata/generate.py writes from the cantools decoding of
 // a DBC file.
 type expectedFile struct {
-	Messages    []expectedMessage              `json:"messages"`
-	ValueTables map[string][]library.EnumValue `json:"value_tables"`
+	Messages    []expectedMessage          `json:"messages"`
+	ValueTables map[string][]icd.EnumValue `json:"value_tables"`
 }
 
 type expectedMessage struct {
@@ -42,31 +41,31 @@ type expectedMessage struct {
 }
 
 type expectedField struct {
-	Name            string              `json:"name"`
-	StartBit        uint16              `json:"start_bit"`
-	BitLength       uint8               `json:"bit_length"`
-	ByteOrder       library.ByteOrder   `json:"byte_order"`
-	Signed          bool                `json:"signed"`
-	Float           bool                `json:"float"`
-	Scale           float64             `json:"scale"`
-	Offset          float64             `json:"offset"`
-	Units           string              `json:"units"`
-	Choices         []library.EnumValue `json:"choices"`
-	Multiplexor     *string             `json:"multiplexor"`
-	MultiplexValues []int32             `json:"multiplex_values"`
+	Name            string          `json:"name"`
+	StartBit        uint16          `json:"start_bit"`
+	BitLength       uint8           `json:"bit_length"`
+	ByteOrder       icd.ByteOrder   `json:"byte_order"`
+	Signed          bool            `json:"signed"`
+	Float           bool            `json:"float"`
+	Scale           float64         `json:"scale"`
+	Offset          float64         `json:"offset"`
+	Units           string          `json:"units"`
+	Choices         []icd.EnumValue `json:"choices"`
+	Multiplexor     *string         `json:"multiplexor"`
+	MultiplexValues []int32         `json:"multiplex_values"`
 }
 
-func messagesOf(entries []library.Entry) []library.MessageEntry {
-	var messages []library.MessageEntry
+func messagesOf(entries []icd.Entry) []icd.MessageEntry {
+	var messages []icd.MessageEntry
 	for _, e := range entries {
-		if m, ok := e.Variant.(library.MessageEntry); ok {
+		if m, ok := e.Variant.(icd.MessageEntry); ok {
 			messages = append(messages, m)
 		}
 	}
 	return messages
 }
 
-func messageNamed(entries []library.Entry, name string) library.MessageEntry {
+func messageNamed(entries []icd.Entry, name string) icd.MessageEntry {
 	GinkgoHelper()
 	for _, m := range messagesOf(entries) {
 		if m.Name == name {
@@ -74,42 +73,42 @@ func messageNamed(entries []library.Entry, name string) library.MessageEntry {
 		}
 	}
 	Fail("no message named " + name)
-	return library.MessageEntry{}
+	return icd.MessageEntry{}
 }
 
 func enumWhere(
-	entries []library.Entry,
-	match func(library.EnumEntry) bool,
-) library.EnumEntry {
+	entries []icd.Entry,
+	match func(icd.EnumEntry) bool,
+) icd.EnumEntry {
 	GinkgoHelper()
 	for _, e := range entries {
-		if en, ok := e.Variant.(library.EnumEntry); ok && match(en) {
+		if en, ok := e.Variant.(icd.EnumEntry); ok && match(en) {
 			return en
 		}
 	}
 	Fail("no matching enum entry")
-	return library.EnumEntry{}
+	return icd.EnumEntry{}
 }
 
-func enumNamed(entries []library.Entry, name string) library.EnumEntry {
+func enumNamed(entries []icd.Entry, name string) icd.EnumEntry {
 	GinkgoHelper()
-	return enumWhere(entries, func(e library.EnumEntry) bool { return e.Name == name })
+	return enumWhere(entries, func(e icd.EnumEntry) bool { return e.Name == name })
 }
 
-func enumWithKey(entries []library.Entry, key library.EntryKey) library.EnumEntry {
+func enumWithKey(entries []icd.Entry, key icd.EntryKey) icd.EnumEntry {
 	GinkgoHelper()
-	return enumWhere(entries, func(e library.EnumEntry) bool { return e.Key == key })
+	return enumWhere(entries, func(e icd.EnumEntry) bool { return e.Key == key })
 }
 
-func binaryPayload(m library.MessageEntry) library.BinaryPayload {
-	return m.Payload.Variant.(library.BinaryPayload)
+func binaryPayload(m icd.MessageEntry) icd.BinaryPayload {
+	return m.Payload.Variant.(icd.BinaryPayload)
 }
 
-func binaryFields(m library.MessageEntry) []library.BinaryField {
+func binaryFields(m icd.MessageEntry) []icd.BinaryField {
 	return binaryPayload(m).Fields
 }
 
-func fieldNamed(m library.MessageEntry, name string) library.BinaryField {
+func fieldNamed(m icd.MessageEntry, name string) icd.BinaryField {
 	GinkgoHelper()
 	for _, f := range binaryFields(m) {
 		if f.Name == name {
@@ -117,16 +116,16 @@ func fieldNamed(m library.MessageEntry, name string) library.BinaryField {
 		}
 	}
 	Fail("no field named " + name)
-	return library.BinaryField{}
+	return icd.BinaryField{}
 }
 
 // toExpected converts parsed messages to the shape of the cantools decoding.
-func toExpected(entries []library.Entry) []expectedMessage {
+func toExpected(entries []icd.Entry) []expectedMessage {
 	GinkgoHelper()
 	var out []expectedMessage
 	for _, m := range messagesOf(entries) {
 		p := binaryPayload(m)
-		id := p.Identifier.Variant.(library.CanIdentifier)
+		id := p.Identifier.Variant.(icd.CanIdentifier)
 		em := expectedMessage{
 			Name:     m.Name,
 			ID:       id.ID,
@@ -138,7 +137,7 @@ func toExpected(entries []library.Entry) []expectedMessage {
 			em.PeriodMS = new(int64(*m.Period / telem.Millisecond))
 		}
 		fields := binaryFields(m)
-		names := make(map[library.FieldKey]string, len(fields))
+		names := make(map[icd.FieldKey]string, len(fields))
 		for _, f := range fields {
 			names[f.Key] = f.Name
 		}
@@ -221,12 +220,12 @@ var _ = Describe("Parse DBC", func() {
 	It("Should give every entry and field a distinct key", func() {
 		data, _ := readFixture("basic")
 		entries := MustSucceed(icd.Parse(icd.FormatDBC, data))
-		keys := make(set.Set[library.EntryKey])
+		keys := make(set.Set[icd.EntryKey])
 		for _, e := range entries {
 			switch v := e.Variant.(type) {
-			case library.EnumEntry:
+			case icd.EnumEntry:
 				keys.Add(v.Key)
-			case library.MessageEntry:
+			case icd.MessageEntry:
 				keys.Add(v.Key)
 				for _, f := range binaryFields(v) {
 					keys.Add(f.Key)
@@ -246,7 +245,7 @@ BA_DEF_DEF_ "VFrameFormat" 0;
 BA_ "VFrameFormat" BO_ 256 14;
 `)
 		m := messageNamed(MustSucceed(icd.Parse(icd.FormatDBC, data)), "Fast")
-		Expect(binaryPayload(m).Identifier.Variant.(library.CanIdentifier).Fd).
+		Expect(binaryPayload(m).Identifier.Variant.(icd.CanIdentifier).Fd).
 			To(BeTrue())
 	})
 
@@ -270,7 +269,7 @@ BA_ "GenMsgCycleTime" BO_ 256 20;
 VAL_ 256 Mode 0 "Off" 1 "Reserved" 2 "Reserved" ;
 `)
 		entries := MustSucceed(icd.Parse(icd.FormatDBC, data))
-		Expect(enumNamed(entries, "Engine.Mode").Values).To(Equal([]library.EnumValue{
+		Expect(enumNamed(entries, "Engine.Mode").Values).To(Equal([]icd.EnumValue{
 			{Value: 0, Name: "Off"},
 			{Value: 1, Name: "Reserved"},
 			{Value: 2, Name: "Reserved (2)"},

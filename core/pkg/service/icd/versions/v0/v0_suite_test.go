@@ -17,9 +17,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestLibraryV0(t *testing.T) {
+func TestICDV0(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Library v0 Suite")
+	RunSpecs(t, "Service ICD v0 Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

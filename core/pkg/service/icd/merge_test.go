@@ -14,51 +14,50 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/library"
-	"github.com/synnaxlabs/synnax/pkg/service/library/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func field(name string, startBit uint16) library.BinaryField {
-	return library.BinaryField{
+func field(name string, startBit uint16) icd.BinaryField {
+	return icd.BinaryField{
 		Key:  uuid.New(),
 		Name: name, Scale: 1,
 		StartBit:  startBit,
 		BitLength: 8,
-		ByteOrder: library.ByteOrderLittleEndian,
+		ByteOrder: icd.ByteOrderLittleEndian,
 	}
 }
 
-func message(name string, fields ...library.BinaryField) library.MessageEntry {
-	return library.MessageEntry{
+func message(name string, fields ...icd.BinaryField) icd.MessageEntry {
+	return icd.MessageEntry{
 		Key:     uuid.New(),
 		Name:    name,
-		Payload: library.Payload{Variant: library.BinaryPayload{Fields: fields}},
+		Payload: icd.Payload{Variant: icd.BinaryPayload{Fields: fields}},
 	}
 }
 
 // identify returns m identified by the raw value 1 of the field with the given key.
-func identify(m library.MessageEntry, field library.FieldKey) library.MessageEntry {
+func identify(m icd.MessageEntry, field icd.FieldKey) icd.MessageEntry {
 	p := binaryPayload(m)
-	p.Identifier = &library.Identifier{
-		Variant: library.FieldIdentifier{Field: field, Value: 1},
+	p.Identifier = &icd.Identifier{
+		Variant: icd.FieldIdentifier{Field: field, Value: 1},
 	}
 	m.Payload.Variant = p
 	return m
 }
 
-func enum(name string, values ...library.EnumValue) library.EnumEntry {
-	return library.EnumEntry{
+func enum(name string, values ...icd.EnumValue) icd.EnumEntry {
+	return icd.EnumEntry{
 		Key:    uuid.New(),
 		Name:   name,
 		Values: values,
 	}
 }
 
-func entries(variants ...library.EntryVariant) []library.Entry {
-	out := make([]library.Entry, len(variants))
+func entries(variants ...icd.EntryVariant) []icd.Entry {
+	out := make([]icd.Entry, len(variants))
 	for i, v := range variants {
-		out[i] = library.Entry{Variant: v}
+		out[i] = icd.Entry{Variant: v}
 	}
 	return out
 }
@@ -67,7 +66,7 @@ var _ = Describe("Merge", func() {
 	DescribeTable("Should keep every key when the same file is imported again",
 		func(name string) {
 			data, _ := readFixture(name)
-			first := library.Library{
+			first := icd.ICD{
 				Key:     uuid.New(),
 				Name:    "Bus",
 				Entries: MustSucceed(icd.Parse(icd.FormatDBC, data)),
@@ -83,15 +82,15 @@ var _ = Describe("Merge", func() {
 	It("Should drop missing entries and fields and add new ones", func() {
 		oldRPM, oldTemp := field("rpm", 0), field("temp", 8)
 		oldEngine := message("Engine", oldRPM, oldTemp)
-		oldGear := enum("Gear", library.EnumValue{Value: 0, Name: "Park"})
-		existing := library.Library{
+		oldGear := enum("Gear", icd.EnumValue{Value: 0, Name: "Park"})
+		existing := icd.ICD{
 			Key:     uuid.New(),
 			Name:    "Bus",
 			Entries: entries(oldEngine, message("Brakes"), oldGear),
 		}
 		newRPM, newLoad := field("rpm", 16), field("load", 24)
 		newEngine := message("Engine", newRPM, newLoad)
-		newGear := enum("Gear", library.EnumValue{Value: 1, Name: "Drive"})
+		newGear := enum("Gear", icd.EnumValue{Value: 1, Name: "Drive"})
 		newDoors := message("Doors")
 		merged := icd.Merge(existing, entries(newEngine, newGear, newDoors))
 		Expect(merged.Key).To(Equal(existing.Key))
@@ -114,7 +113,7 @@ var _ = Describe("Merge", func() {
 		oldMode, oldValue := field("mode", 0), field("value", 8)
 		oldStatus := enum("Status")
 		oldMessage := identify(message("Frame", oldMode, oldValue), oldMode.Key)
-		existing := library.Library{Entries: entries(oldMessage, oldStatus)}
+		existing := icd.ICD{Entries: entries(oldMessage, oldStatus)}
 		newMode, newValue := field("mode", 0), field("value", 8)
 		newStatus := enum("Status")
 		newValue.Enumeration = new(newStatus.Key)
@@ -127,7 +126,7 @@ var _ = Describe("Merge", func() {
 		Expect(*value.Enumeration).To(Equal(oldStatus.Key))
 		Expect(*value.Multiplexor).To(Equal(oldMode.Key))
 		Expect(binaryPayload(frame).Identifier.Variant).To(Equal(
-			library.FieldIdentifier{Field: oldMode.Key, Value: 1},
+			icd.FieldIdentifier{Field: oldMode.Key, Value: 1},
 		))
 		Expect(*newValue.Multiplexor).To(Equal(newMode.Key))
 		Expect(binaryFields(newMessage)[1].Key).To(Equal(newValue.Key))
@@ -136,22 +135,22 @@ var _ = Describe("Merge", func() {
 	It("Should not match entries of different kinds", func() {
 		old := enum("Engine")
 		imported := message("Engine")
-		merged := icd.Merge(library.Library{Entries: entries(old)}, entries(imported))
+		merged := icd.Merge(icd.ICD{Entries: entries(old)}, entries(imported))
 		Expect(messageNamed(merged.Entries, "Engine").Key).To(Equal(imported.Key))
 	})
 
 	It("Should keep the keys of text fields", func() {
-		tagged := func(name string) library.TextField {
-			return library.TextField{Variant: library.TaggedTextField{
-				BaseField: library.BaseField{Key: uuid.New(), Name: name},
+		tagged := func(name string) icd.TextField {
+			return icd.TextField{Variant: icd.TaggedTextField{
+				BaseField: icd.BaseField{Key: uuid.New(), Name: name},
 				Tag:       name + "=",
 			}}
 		}
-		line := func(fields ...library.TextField) library.MessageEntry {
-			return library.MessageEntry{
+		line := func(fields ...icd.TextField) icd.MessageEntry {
+			return icd.MessageEntry{
 				Key:  uuid.New(),
 				Name: "Line",
-				Payload: library.Payload{Variant: library.TextPayload{
+				Payload: icd.Payload{Variant: icd.TextPayload{
 					Delimiter: ",",
 					Fields:    fields,
 				}},
@@ -159,7 +158,7 @@ var _ = Describe("Merge", func() {
 		}
 		old := line(tagged("temp"))
 		imported := line(tagged("temp"), tagged("rh"))
-		merged := icd.Merge(library.Library{Entries: entries(old)}, entries(imported))
+		merged := icd.Merge(icd.ICD{Entries: entries(old)}, entries(imported))
 		fields := messageNamed(merged.Entries, "Line").Payload.FieldBases()
 		Expect(fields).To(HaveLen(2))
 		Expect(fields[0].Key).To(Equal(old.Payload.FieldBases()[0].Key))
