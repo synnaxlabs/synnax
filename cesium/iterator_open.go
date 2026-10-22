@@ -39,7 +39,7 @@ func (db *DB) NewStreamIterator(cfg IteratorConfig) (StreamIterator, error) {
 }
 
 func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err error) {
-	var internal []*unary.Iterator
+	var internal []channelIterator
 	defer func() {
 		if err == nil {
 			return

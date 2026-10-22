@@ -207,8 +207,10 @@ var _ = Describe("Streamer Behavior", func() {
 						var res cesium.StreamerResponse
 						Eventually(o.Outlet()).Should(Receive(&res))
 						Expect(res.Frame.Count()).To(Equal(1))
-						written.Alignment = alignment.Leading(1, 0)
-						Expect(res.Frame.SeriesAt(0)).To(Equal(written))
+						got := res.Frame.SeriesAt(0)
+						Expect(got).To(telem.MatchSeriesData(written))
+						Expect(got.Alignment).To(Equal(alignment.Leading(1, 0)))
+						Expect(got.TimeRange.Span()).To(Equal(telem.Nanosecond))
 						Expect(closer.Close()).To(Succeed())
 						Expect(w.Close()).To(Succeed())
 					},
@@ -590,8 +592,10 @@ var _ = Describe("Virtual Channel Streaming", func() {
 				var res cesium.StreamerResponse
 				Eventually(o.Outlet()).Should(Receive(&res))
 				Expect(res.Frame.Count()).To(Equal(1))
-				d.Alignment = alignment.Leading(1, 0)
-				Expect(res.Frame.SeriesAt(0)).To(Equal(d))
+				got := res.Frame.SeriesAt(0)
+				Expect(got).To(telem.MatchSeriesData(d))
+				Expect(got.Alignment).To(Equal(alignment.Leading(1, 0)))
+				Expect(got.TimeRange.Span()).To(Equal(telem.Nanosecond))
 				Expect(closer.Close()).To(Succeed())
 				Expect(w.Close()).To(Succeed())
 			})

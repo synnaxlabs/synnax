@@ -101,7 +101,7 @@ func (db *DB) OpenIterator(cfgs ...IteratorConfig) (*Iterator, error) {
 	return i, nil
 }
 
-const AutoSpan telem.TimeSpan = -1
+const AutoSpan = channel.AutoSpan
 
 // SetBounds sets the iterator's bounds. The iterator is invalidated, and will not be
 // valid until a seeking call is made.
