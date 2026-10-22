@@ -38,12 +38,18 @@ const x::telem::TimeSpan REPLY_TIMEOUT = x::telem::SECOND;
 /// frames the bus holds before it drops the oldest.
 constexpr std::size_t MAX_QUEUED = 1024;
 
-/// @brief an slcan adapter on a serial port. A thread owns the port once the bus
-/// opens, so a sent frame waits up to a few milliseconds before it reaches the port.
-/// The adapter reports no receive times, so frames carry the host time at which their
-/// bytes arrived.
+/// @returns err from a serial port as a CAN error: UNREACHABLE_ERROR for a port that
+/// cannot open or that fails, CONFIG_ERROR for port settings that the platform refuses,
+/// and CRITICAL_HARDWARE_ERROR for any other error.
+[[nodiscard]] x::errors::Error translate(const x::errors::Error &err);
+
+/// @brief an slcan adapter on a serial port. A thread owns the port once the bus opens,
+/// so a sent frame waits up to a few milliseconds before it reaches the port. The
+/// adapter reports no receive times, so frames carry the host time at which their bytes
+/// arrived.
 class Bus final : public can::Bus {
     std::unique_ptr<serial::Port> port;
+    Firmware firmware = Firmware::CANABLE;
     Decoder decoder;
     std::mutex mu;
     std::condition_variable cv;
@@ -58,8 +64,16 @@ class Bus final : public can::Bus {
 
     Bus(std::unique_ptr<serial::Port> port, const synnax::can::Properties &props);
 
-    std::pair<std::optional<Reply>, x::errors::Error> read(x::telem::TimeSpan timeout);
-    std::pair<Reply, x::errors::Error> command(std::string_view command);
+    /// @brief reads what the adapter sends within timeout and queues its frames.
+    /// @returns the messages that are not frames.
+    std::pair<std::vector<Message>, x::errors::Error> read(x::telem::TimeSpan timeout);
+    x::errors::Error write(std::string_view line);
+    /// @returns the first message that matches within REPLY_TIMEOUT, or nullopt.
+    std::pair<std::optional<Message>, x::errors::Error>
+    await(bool (*matches)(const Message &));
+    /// @returns the adapter's answer to VERSION_COMMAND.
+    std::pair<std::string, x::errors::Error> version();
+    x::errors::Error configure(std::string_view command);
     void run();
     x::errors::Error exchange();
 
@@ -68,9 +82,11 @@ class Bus final : public can::Bus {
     [[nodiscard]] x::errors::Error transmit(const Frame &frame) override;
 
 public:
-    /// @brief configures the adapter on an open port and puts it on the bus.
-    /// @returns CONFIG_ERROR when slcan has no command for a bitrate or the adapter
-    /// rejects a command, and TEMPORARY_HARDWARE_ERROR when the device does not answer.
+    /// @brief identifies the adapter's firmware on an open port, configures the
+    /// adapter, and puts it on the bus.
+    /// @returns CONFIG_ERROR when the firmware has no command for a setting or the
+    /// adapter rejects a command, and UNREACHABLE_ERROR when the device does not answer
+    /// or the port fails.
     [[nodiscard]] static std::pair<std::unique_ptr<Bus>, x::errors::Error>
     open(std::unique_ptr<serial::Port> port, const synnax::can::Properties &props);
 
