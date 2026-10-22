@@ -1,0 +1,798 @@
+{
+  "key": "00000000-0000-4000-8000-000000000000",
+  "name": "layouts",
+  "entries": [
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000001",
+      "name": "LittleEndian",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 256,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "A",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000003",
+            "name": "B",
+            "scale": 0.5,
+            "offset": -10,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 12,
+            "bit_length": 12,
+            "byte_order": "little_endian",
+            "signed": true,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000004",
+            "name": "C",
+            "scale": 0.01,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 24,
+            "bit_length": 16,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000005",
+            "name": "D",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 40,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000006",
+            "name": "E",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 41,
+            "bit_length": 23,
+            "byte_order": "little_endian",
+            "signed": true,
+            "float": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000007",
+      "name": "LittleEndianWide",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 267,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000008",
+            "name": "X",
+            "scale": 0.001,
+            "offset": -3,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 3,
+            "bit_length": 20,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000009",
+            "name": "Y",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 23,
+            "bit_length": 18,
+            "byte_order": "little_endian",
+            "signed": true,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000000a",
+            "name": "Z",
+            "scale": 2,
+            "offset": 1,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 41,
+            "bit_length": 12,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000000b",
+            "name": "W",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 53,
+            "bit_length": 11,
+            "byte_order": "little_endian",
+            "signed": true,
+            "float": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-00000000000c",
+      "name": "BigEndian",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 257,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-00000000000d",
+            "name": "A",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 7,
+            "bit_length": 8,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000000e",
+            "name": "G",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 15,
+            "bit_length": 4,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000000f",
+            "name": "B",
+            "scale": 0.25,
+            "offset": 5,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 11,
+            "bit_length": 12,
+            "byte_order": "big_endian",
+            "signed": true,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000010",
+            "name": "H",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 29,
+            "bit_length": 6,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000011",
+            "name": "C",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 39,
+            "bit_length": 16,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000012",
+            "name": "D",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 50,
+            "bit_length": 1,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000013",
+            "name": "E",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 49,
+            "bit_length": 10,
+            "byte_order": "big_endian",
+            "signed": true,
+            "float": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000014",
+      "name": "BigEndianWide",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 266,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000015",
+            "name": "X",
+            "scale": 0.001,
+            "offset": -3,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 5,
+            "bit_length": 20,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000016",
+            "name": "Y",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 17,
+            "bit_length": 18,
+            "byte_order": "big_endian",
+            "signed": true,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000017",
+            "name": "Z",
+            "scale": 2,
+            "offset": 1,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 43,
+            "bit_length": 12,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000018",
+            "name": "W",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 63,
+            "bit_length": 8,
+            "byte_order": "big_endian",
+            "signed": true,
+            "float": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000019",
+      "name": "Floats",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 258,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-00000000001a",
+            "name": "F32",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 32,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": true
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000001b",
+            "name": "F32BE",
+            "scale": 2,
+            "offset": 1,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 39,
+            "bit_length": 32,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": true
+          }
+        ]
+      }
+    },
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-00000000001c",
+      "name": "Double",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 259,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-00000000001d",
+            "name": "F64",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 64,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": true
+          }
+        ]
+      }
+    },
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-00000000001e",
+      "name": "DoubleBigEndian",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 260,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-00000000001f",
+            "name": "F64BE",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 7,
+            "bit_length": 64,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": true
+          }
+        ]
+      }
+    },
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000020",
+      "name": "Wide",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 261,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000021",
+            "name": "U64",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 64,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000022",
+      "name": "WideBigEndian",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 262,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000023",
+            "name": "S64",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 7,
+            "bit_length": 64,
+            "byte_order": "big_endian",
+            "signed": true,
+            "float": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000024",
+      "name": "Multiplexed",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 263,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000025",
+            "name": "Mux",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000026",
+            "name": "S0",
+            "scale": 0.1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-000000000025",
+            "multiplex_values": [
+              0
+            ],
+            "start_bit": 8,
+            "bit_length": 16,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000027",
+            "name": "S1",
+            "scale": 1,
+            "offset": -100,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-000000000025",
+            "multiplex_values": [
+              1
+            ],
+            "start_bit": 8,
+            "bit_length": 16,
+            "byte_order": "little_endian",
+            "signed": true,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000028",
+            "name": "S2",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-000000000025",
+            "multiplex_values": [
+              2
+            ],
+            "start_bit": 8,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000029",
+            "name": "Common",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 56,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-00000000002a",
+      "name": "ExtendedMultiplexed",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 264,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-00000000002b",
+            "name": "Mux1",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 4,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000002c",
+            "name": "Mux2",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-00000000002b",
+            "multiplex_values": [
+              0
+            ],
+            "start_bit": 8,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000002d",
+            "name": "SigA",
+            "scale": 0.5,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-00000000002c",
+            "multiplex_values": [
+              1,
+              3,
+              4,
+              5
+            ],
+            "start_bit": 16,
+            "bit_length": 16,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000002e",
+            "name": "SigB",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-00000000002b",
+            "multiplex_values": [
+              1,
+              2
+            ],
+            "start_bit": 32,
+            "bit_length": 16,
+            "byte_order": "little_endian",
+            "signed": true,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000002f",
+            "name": "SigC",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-00000000002c",
+            "multiplex_values": [
+              0
+            ],
+            "start_bit": 48,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000030",
+            "name": "Always",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 56,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000031",
+      "name": "LongFrame",
+      "payload": {
+        "format": "binary",
+        "length": 16,
+        "identifier": {
+          "type": "can",
+          "id": 265,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000032",
+            "name": "L0",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000033",
+            "name": "L1",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 87,
+            "bit_length": 16,
+            "byte_order": "big_endian",
+            "signed": true,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000034",
+            "name": "L2",
+            "scale": 0.5,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 100,
+            "bit_length": 12,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000035",
+      "name": "EngineController",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 419361022,
+          "extended": true,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000036",
+            "name": "Torque",
+            "scale": 1,
+            "offset": -125,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 16,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000037",
+            "name": "Speed",
+            "scale": 0.125,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 24,
+            "bit_length": 16,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          }
+        ]
+      }
+    }
+  ]
+}
