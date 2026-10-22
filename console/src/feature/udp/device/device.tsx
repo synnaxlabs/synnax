@@ -18,14 +18,23 @@ import { Bus } from "@/feature/bus";
 const PORT_INPUT_PROPS = { placeholder: "5000" } as const;
 const REMOTE_HOST_INPUT_PROPS = { placeholder: "None" } as const;
 const MULTICAST_INPUT_PROPS = { placeholder: "None" } as const;
+const LOCAL_ADDRESS_INPUT_PROPS = { placeholder: "All interfaces" } as const;
 
 const Properties = (): ReactElement => (
   <>
-    <Form.NumericField
-      path="properties.port"
-      label="Local port"
-      inputProps={PORT_INPUT_PROPS}
-    />
+    <Flex.Box x>
+      <Form.TextField
+        path="properties.localAddress"
+        label="Local address"
+        grow
+        inputProps={LOCAL_ADDRESS_INPUT_PROPS}
+      />
+      <Form.NumericField
+        path="properties.port"
+        label="Local port"
+        inputProps={PORT_INPUT_PROPS}
+      />
+    </Flex.Box>
     <Flex.Box x>
       <Form.TextField
         path="properties.remoteHost"
@@ -51,5 +60,5 @@ export const { MAKE, useConnectModal, Select, COMMANDS } = Bus.createDevice({
   integration: "udp",
   Properties,
   getModel: () => "UDP socket",
-  getLocation: ({ port }) => `:${port}`,
+  getLocation: ({ localAddress, port }) => `${localAddress}:${port}`,
 });
