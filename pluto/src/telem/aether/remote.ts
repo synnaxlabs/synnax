@@ -60,7 +60,6 @@ const readLatestSeries = async (
   ch: channel.Channel,
   onStatusChange?: status.Adder,
 ): Promise<Series | null> => {
-  if (ch.virtual && !channel.isCalculated(ch)) return null;
   try {
     const latest = (await client.feed.readLatest(ch.key)).series.at(-1);
     if (latest == null || latest.length === 0) return null;
@@ -246,12 +245,7 @@ export class StreamChannelValue
   }
 }
 
-interface SelectedChannelProperties extends Pick<
-  channel.Payload,
-  "key" | "dataType" | "virtual"
-> {
-  isCalculated: boolean;
-}
+type SelectedChannelProperties = Pick<channel.Payload, "key" | "dataType">;
 
 const fetchChannelProperties = async (
   client: Client,
@@ -259,12 +253,10 @@ const fetchChannelProperties = async (
   fetchIndex: boolean,
 ): Promise<SelectedChannelProperties> => {
   const c = await client.channels.retrieve(ch);
-  const isCalculated = channel.isCalculated(c);
-  if (!fetchIndex || c.isIndex)
-    return { key: c.key, dataType: c.dataType, virtual: c.virtual, isCalculated };
-  if (c.virtual && !isCalculated)
+  if (!fetchIndex || c.isIndex) return { key: c.key, dataType: c.dataType };
+  if (c.virtual && !channel.isCalculated(c))
     throw new NotFoundError("cannot use virtual channels as a data source");
-  return { key: c.index, dataType: DataType.TIMESTAMP, virtual: false, isCalculated };
+  return { key: c.index, dataType: DataType.TIMESTAMP };
 };
 
 // Spans within the live buffer draw immediately and skip the loading state.
@@ -533,40 +525,29 @@ export class StreamChannelData
       this.failures.report(e, "Failed to stream channel data");
       throw errors.fromUnknown(e);
     }
-    if (!fetched.virtual || fetched.isCalculated)
-      try {
-        // The back-fill stops where live data starts: the cache can return a span in
-        // both representations, and overlapping series pair into stray segments.
-        const liveStart = this.data.series.reduce(
-          (start, s) => (s.timeRange.start.before(start) ? s.timeRange.start : start),
-          streamStart,
+    try {
+      // The back-fill stops where live data starts: the cache can return a span in
+      // both representations, and overlapping series pair into stray segments.
+      const liveStart = this.data.series.reduce(
+        (start, s) => (s.timeRange.start.before(start) ? s.timeRange.start : start),
+        streamStart,
+      );
+      // Live data held across a long retry can start before the window.
+      const start = this.now().sub(timeSpan);
+      if (liveStart.after(start)) {
+        const res = await client.feed.read(
+          new TimeRange(start, liveStart),
+          fetched.key,
         );
-        // Live data held across a long retry can start before the window.
-        const start = this.now().sub(timeSpan);
-        if (liveStart.after(start)) {
-          const res = await client.feed.read(
-            new TimeRange(start, liveStart),
-            fetched.key,
-          );
-          if (generation !== this.generation) return;
-          this.pushNew(res.series);
-          seam.backfillEnd = liveStart;
-          void this.fillSeam(generation, client, seam);
-        }
-      } catch (e) {
-        // Certain calculated channels can fail to read because they need access to
-        // virtual channels that cannot be read from historically.
-        if (
-          e instanceof Error &&
-          (e.message.includes("cannot open iterator on virtual channel") ||
-            e.message.includes("cannot read from free channel"))
-        )
-          console.warn("failed to read calculated channel data", e);
-        else {
-          this.failures.report(e, "Failed to read channel data");
-          throw errors.fromUnknown(e);
-        }
+        if (generation !== this.generation) return;
+        this.pushNew(res.series);
+        seam.backfillEnd = liveStart;
+        void this.fillSeam(generation, client, seam);
       }
+    } catch (e) {
+      this.failures.report(e, "Failed to read channel data");
+      throw errors.fromUnknown(e);
+    }
     this.notify();
   }
 
