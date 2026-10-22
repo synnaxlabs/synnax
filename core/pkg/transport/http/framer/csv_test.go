@@ -172,6 +172,41 @@ var _ = Describe("CSV", func() {
 			},
 		)
 
+		It("Should leave out a channel whose index the read does not include", func(
+			ctx SpecContext,
+		) {
+			firstIndex, first := createIndexed(ctx, telem.Float32T)
+			secondIndex, second := createIndexed(ctx, telem.Float32T)
+			write(
+				ctx,
+				firstIndex,
+				telem.NewSeriesSecondsTSV(1),
+				first,
+				telem.NewSeriesV[float32](1),
+			)
+			write(
+				ctx,
+				secondIndex,
+				telem.NewSeriesSecondsTSV(1),
+				second,
+				telem.NewSeriesV[float32](2),
+			)
+			channels := []svcchannel.Channel{firstIndex, first[0], second[0]}
+			iter := MustSucceed(framerSvc.OpenIterator(ctx, svcframer.IteratorConfig{
+				Keys:   svcchannel.KeysFromChannels(channels),
+				Bounds: readBounds,
+			}))
+			b := MustSucceed(framer.CSVEncoder.Encode(ctx, framer.ReadResponse{
+				Iterator: iter,
+				Channels: channels,
+			}))
+			Expect(string(b)).To(Equal(fmt.Sprintf(
+				"%s,%s\n1000000000,1\n",
+				firstIndex.Name,
+				first[0].Name,
+			)))
+		})
+
 		It("Should order the rows of groups that advance at different rates", func(
 			ctx SpecContext,
 		) {
