@@ -37,7 +37,7 @@ protected:
     std::shared_ptr<can::Backend> backend = load();
 
     void SetUp() override {
-        if (!std::filesystem::exists(VCAN)) GTEST_SKIP() << "vcan0 is absent";
+        if (!std::filesystem::exists(VCAN)) SKIP_MISSING_CAPABILITY("vcan0 is absent");
     }
 
     std::unique_ptr<can::Bus> open(const synnax::can::Properties &p = props()) {
@@ -111,7 +111,7 @@ TEST_F(SocketCANTest, NeverReceivesItsOwnFrames) {
 }
 
 TEST_F(SocketCANTest, DeliversCANFDFrames) {
-    if (!fd_capable()) GTEST_SKIP() << "vcan0 does not run CAN FD";
+    if (!fd_capable()) SKIP_MISSING_CAPABILITY("vcan0 does not run CAN FD");
     auto sender = this->open(props(true));
     auto receiver = this->open(props(true));
     std::vector<std::uint8_t> data(64);
@@ -143,11 +143,11 @@ TEST_F(SocketCANTest, ReturnsFalseWhenNoFrameArrives) {
     EXPECT_FALSE(ASSERT_NIL_P(bus->receive(frame, 20 * x::telem::MILLISECOND)));
 }
 
-TEST_F(SocketCANTest, ReportsAMissingInterface) {
+TEST_F(SocketCANTest, WaitsForAMissingInterface) {
     auto p = props();
     p.channel = "nocan9";
     const auto [bus, err] = this->backend->open(p);
-    ASSERT_MATCHES(err, CONFIG_ERROR);
-    EXPECT_EQ(err.data, "no CAN interface is named nocan9");
+    ASSERT_MATCHES(err, UNREACHABLE_ERROR);
+    EXPECT_EQ(err.data, "no interface named nocan9");
 }
 }

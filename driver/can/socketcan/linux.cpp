@@ -43,11 +43,9 @@ struct Timestamps {
     timespec ts[3];
 };
 
-/// @returns an error of the given type whose message is context followed by the
-/// description of errno.
-x::errors::Error os_error(const x::errors::Error &type, const std::string &context) {
-    const int code = errno;
-    return {type, context + ": " + std::generic_category().message(code)};
+/// @returns the translated error of errno, with context.
+x::errors::Error os_error(const std::string &context) {
+    return translate(errno, context);
 }
 
 std::int64_t nanoseconds(const timespec &ts) {
@@ -122,13 +120,7 @@ public:
         pollfd pfd{.fd = this->socket, .events = POLLIN, .revents = 0};
         const int ready = ::ppoll(&pfd, 1, &wait, nullptr);
         if (ready < 0 && errno != EINTR)
-            return {
-                false,
-                os_error(
-                    TEMPORARY_HARDWARE_ERROR,
-                    this->name + ": failed to wait for a frame"
-                )
-            };
+            return {false, os_error(this->name + ": failed to wait for a frame")};
         if (ready <= 0) return {false, x::errors::NIL};
         canfd_frame raw{};
         iovec iov{.iov_base = &raw, .iov_len = sizeof(raw)};
@@ -144,18 +136,12 @@ public:
         if (size < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
                 return {false, x::errors::NIL};
-            return {
-                false,
-                os_error(
-                    TEMPORARY_HARDWARE_ERROR,
-                    this->name + ": failed to receive a frame"
-                )
-            };
+            return {false, os_error(this->name + ": failed to receive a frame")};
         }
         if (size != CAN_MTU && size != CANFD_MTU)
             return {
                 false,
-                {TEMPORARY_HARDWARE_ERROR,
+                {CRITICAL_HARDWARE_ERROR,
                  this->name + ": received " + std::to_string(size) +
                      " bytes, which is not a CAN frame"}
             };
@@ -182,12 +168,7 @@ private:
         const std::size_t size = frame.fd ? CANFD_MTU : CAN_MTU;
         if (::write(this->socket, &raw, size) == static_cast<ssize_t>(size))
             return x::errors::NIL;
-        if (errno == ENOBUFS || errno == EAGAIN || errno == EWOULDBLOCK)
-            return {TEMPORARY_HARDWARE_ERROR, this->name + ": transmit queue is full"};
-        return os_error(
-            TEMPORARY_HARDWARE_ERROR,
-            this->name + ": failed to send a frame"
-        );
+        return os_error(this->name + ": failed to send a frame");
     }
 
 public:
@@ -195,10 +176,7 @@ public:
         if (this->closed) return x::errors::NIL;
         this->closed = true;
         if (::close(this->socket) != 0)
-            return os_error(
-                TEMPORARY_HARDWARE_ERROR,
-                this->name + ": failed to close the socket"
-            );
+            return os_error(this->name + ": failed to close the socket");
         return x::errors::NIL;
     }
 };
@@ -233,11 +211,7 @@ public:
             });
         }
         if (ec)
-            return {
-                {},
-                {TEMPORARY_HARDWARE_ERROR,
-                 "failed to list the network interfaces: " + ec.message()}
-            };
+            return {{}, translate(ec.value(), "failed to list the network interfaces")};
         std::ranges::sort(channels, {}, &Channel::name);
         return {channels, x::errors::NIL};
     }
@@ -258,33 +232,30 @@ public:
             SOCK_RAW | SOCK_NONBLOCK | SOCK_CLOEXEC,
             CAN_RAW
         );
-        if (sock < 0)
-            return {
-                nullptr,
-                os_error(CRITICAL_HARDWARE_ERROR, "failed to open a SocketCAN socket")
-            };
+        if (sock < 0) return {nullptr, os_error("failed to open a SocketCAN socket")};
         auto bus = std::make_unique<Bus>(sock, name, props.fd, props.listen_only);
         ifreq ifr{};
         std::memcpy(ifr.ifr_name, name.data(), name.size());
-        if (::ioctl(sock, SIOCGIFINDEX, &ifr) < 0)
-            return {
-                nullptr,
-                x::errors::Error(CONFIG_ERROR, "no CAN interface is named " + name)
-            };
+        if (::ioctl(sock, SIOCGIFINDEX, &ifr) < 0) {
+            const int code = errno;
+            if (code == ENODEV)
+                return {
+                    nullptr,
+                    x::errors::Error(
+                        translate(code, name),
+                        "no interface named " + name
+                    )
+                };
+            return {nullptr, translate(code, "failed to find the interface " + name)};
+        }
         const int index = ifr.ifr_ifindex;
         if (::ioctl(sock, SIOCGIFFLAGS, &ifr) < 0)
-            return {
-                nullptr,
-                os_error(
-                    TEMPORARY_HARDWARE_ERROR,
-                    "failed to read the state of " + name
-                )
-            };
+            return {nullptr, os_error("failed to read the state of " + name)};
         if ((ifr.ifr_flags & IFF_UP) == 0)
             return {
                 nullptr,
                 x::errors::Error(
-                    TEMPORARY_HARDWARE_ERROR,
+                    UNREACHABLE_ERROR,
                     "the interface " + name +
                         " is down. Bring it up with: ip link set " + name +
                         " up type can bitrate " + std::to_string(props.bitrate)
@@ -313,10 +284,7 @@ public:
                 ) < 0)
                 return {
                     nullptr,
-                    os_error(
-                        CONFIG_ERROR,
-                        "the kernel cannot send CAN FD frames on " + name
-                    )
+                    os_error("the kernel cannot send CAN FD frames on " + name)
                 };
         }
         const can_err_mask_t errors = CAN_ERR_MASK;
@@ -329,10 +297,7 @@ public:
             ) < 0)
             return {
                 nullptr,
-                os_error(
-                    CRITICAL_HARDWARE_ERROR,
-                    "failed to subscribe to the bus errors of " + name
-                )
+                os_error("failed to subscribe to the bus errors of " + name)
             };
         // Kernels without SO_TIMESTAMPING still offer SO_TIMESTAMP. A kernel with
         // neither leaves frames at the host time of the read.
@@ -350,10 +315,7 @@ public:
         addr.can_family = AF_CAN;
         addr.can_ifindex = index;
         if (::bind(sock, reinterpret_cast<sockaddr *>(&addr), sizeof(addr)) < 0)
-            return {
-                nullptr,
-                os_error(TEMPORARY_HARDWARE_ERROR, "failed to bind to " + name)
-            };
+            return {nullptr, os_error("failed to bind to " + name)};
         return {std::move(bus), x::errors::NIL};
     }
 };
