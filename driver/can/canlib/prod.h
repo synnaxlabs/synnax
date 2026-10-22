@@ -25,14 +25,13 @@ class ProdAPI final : public API {
     canOpenChannel_t open_channel = nullptr;
     canClose_t close = nullptr;
     canBusOn_t bus_on = nullptr;
-    canBusOff_t bus_off = nullptr;
     canSetBusParams_t set_bus_params = nullptr;
     canSetBusParamsFd_t set_bus_params_fd = nullptr;
     canSetBusOutputControl_t set_bus_output_control = nullptr;
     canIoCtl_t io_ctl = nullptr;
     canReadWait_t read_wait = nullptr;
     canWrite_t write = nullptr;
-    canGetNumberOfChannels_t get_number_of_channels = nullptr;
+    canEnumHardwareEx_t enum_hardware_ex = nullptr;
     canGetChannelData_t get_channel_data = nullptr;
     canGetErrorText_t get_error_text = nullptr;
 
@@ -48,7 +47,6 @@ public:
     canHandle OpenChannel(int channel, int flags) override;
     canStatus Close(canHandle hnd) override;
     canStatus BusOn(canHandle hnd) override;
-    canStatus BusOff(canHandle hnd) override;
     canStatus SetBusParams(
         canHandle hnd,
         long freq,
@@ -84,7 +82,7 @@ public:
         unsigned int dlc,
         unsigned int flag
     ) override;
-    canStatus GetNumberOfChannels(int *count) override;
+    canStatus EnumHardwareEx(int *count) override;
     canStatus
     GetChannelData(int channel, int item, void *buffer, std::size_t size) override;
     canStatus GetErrorText(canStatus err, char *buf, unsigned int size) override;

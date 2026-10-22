@@ -45,14 +45,13 @@ std::pair<std::shared_ptr<API>, x::errors::Error> ProdAPI::load() {
     symbols.resolve("canOpenChannel", api->open_channel);
     symbols.resolve("canClose", api->close);
     symbols.resolve("canBusOn", api->bus_on);
-    symbols.resolve("canBusOff", api->bus_off);
     symbols.resolve("canSetBusParams", api->set_bus_params);
     symbols.resolve("canSetBusParamsFd", api->set_bus_params_fd);
     symbols.resolve("canSetBusOutputControl", api->set_bus_output_control);
     symbols.resolve("canIoCtl", api->io_ctl);
     symbols.resolve("canReadWait", api->read_wait);
     symbols.resolve("canWrite", api->write);
-    symbols.resolve("canGetNumberOfChannels", api->get_number_of_channels);
+    symbols.resolve("canEnumHardwareEx", api->enum_hardware_ex);
     symbols.resolve("canGetChannelData", api->get_channel_data);
     symbols.resolve("canGetErrorText", api->get_error_text);
     if (auto err = symbols.error(CRITICAL_HARDWARE_ERROR, LIBRARY_INFO.name))
@@ -71,10 +70,6 @@ canStatus ProdAPI::Close(const canHandle hnd) {
 
 canStatus ProdAPI::BusOn(const canHandle hnd) {
     return this->bus_on(hnd);
-}
-
-canStatus ProdAPI::BusOff(const canHandle hnd) {
-    return this->bus_off(hnd);
 }
 
 canStatus ProdAPI::SetBusParams(
@@ -134,8 +129,8 @@ canStatus ProdAPI::Write(
     return this->write(hnd, id, msg, dlc, flag);
 }
 
-canStatus ProdAPI::GetNumberOfChannels(int *count) {
-    return this->get_number_of_channels(count);
+canStatus ProdAPI::EnumHardwareEx(int *count) {
+    return this->enum_hardware_ex(count);
 }
 
 canStatus ProdAPI::GetChannelData(

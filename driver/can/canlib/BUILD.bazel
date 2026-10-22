@@ -28,7 +28,6 @@ cc_library(
         "//driver/errors",
         "//x/cpp/errors",
         "//x/cpp/lib",
-        "@abseil-cpp//absl/log",
     ],
 )
 

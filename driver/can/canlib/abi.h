@@ -10,6 +10,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 
 /// @brief the subset of the Kvaser CANlib ABI the backend calls, transcribed from
 /// Kvaser's CANlib SDK documentation. Kvaser's SDK license forbids sharing canlib.h, so
@@ -28,17 +29,42 @@ constexpr canStatus canOK = 0;
 constexpr canStatus canERR_PARAM = -1;
 constexpr canStatus canERR_NOMSG = -2;
 constexpr canStatus canERR_NOTFOUND = -3;
+constexpr canStatus canERR_NOMEM = -4;
+constexpr canStatus canERR_NOCHANNELS = -5;
+constexpr canStatus canERR_INTERRUPTED = -6;
+constexpr canStatus canERR_TIMEOUT = -7;
+constexpr canStatus canERR_INVHANDLE = -10;
+constexpr canStatus canERR_DRIVER = -12;
 constexpr canStatus canERR_TXBUFOFL = -13;
+constexpr canStatus canERR_HARDWARE = -15;
+constexpr canStatus canERR_DYNALOAD = -16;
+constexpr canStatus canERR_DYNALIB = -17;
+constexpr canStatus canERR_DYNAINIT = -18;
+constexpr canStatus canERR_NOT_SUPPORTED = -19;
+constexpr canStatus canERR_DRIVERLOAD = -23;
+constexpr canStatus canERR_NOCARD = -26;
+constexpr canStatus canERR_REGISTRY = -28;
+constexpr canStatus canERR_LICENSE = -29;
+constexpr canStatus canERR_INTERNAL = -30;
+constexpr canStatus canERR_NO_ACCESS = -31;
+constexpr canStatus canERR_NOT_IMPLEMENTED = -32;
 
 constexpr unsigned int canMSG_RTR = 0x0001;
 constexpr unsigned int canMSG_STD = 0x0002;
 constexpr unsigned int canMSG_EXT = 0x0004;
 constexpr unsigned int canMSG_ERROR_FRAME = 0x0020;
+constexpr unsigned int canMSGERR_HW_OVERRUN = 0x0200;
 constexpr unsigned int canMSGERR_OVERRUN = 0x0600;
+constexpr unsigned int canMSGERR_STUFF = 0x0800;
+constexpr unsigned int canMSGERR_FORM = 0x1000;
+constexpr unsigned int canMSGERR_CRC = 0x2000;
+constexpr unsigned int canMSGERR_BIT0 = 0x4000;
+constexpr unsigned int canMSGERR_BIT1 = 0x8000;
 constexpr unsigned int canFDMSG_FDF = 0x010000;
 constexpr unsigned int canFDMSG_BRS = 0x020000;
 constexpr unsigned int canFDMSG_ESI = 0x040000;
 
+constexpr int canOPEN_EXCLUSIVE = 0x0008;
 constexpr int canOPEN_ACCEPT_VIRTUAL = 0x0020;
 constexpr int canOPEN_CAN_FD = 0x0400;
 
@@ -48,9 +74,13 @@ constexpr unsigned int canDRIVER_NORMAL = 4;
 constexpr unsigned int canIOCTL_SET_TIMER_SCALE = 6;
 constexpr unsigned int canIOCTL_SET_LOCAL_TXECHO = 32;
 
+constexpr int canCHANNELDATA_CHANNEL_CAP = 1;
 constexpr int canCHANNELDATA_CHAN_NO_ON_CARD = 6;
 constexpr int canCHANNELDATA_CARD_SERIAL_NO = 7;
+constexpr int canCHANNELDATA_CARD_UPC_NO = 11;
 constexpr int canCHANNELDATA_DEVDESCR_ASCII = 26;
+
+constexpr std::uint32_t canCHANNEL_CAP_VIRTUAL = 0x00010000;
 
 constexpr long canBITRATE_1M = -1;
 constexpr long canBITRATE_500K = -2;
@@ -71,7 +101,6 @@ using canInitializeLibrary_t = void(CANLIB_API *)();
 using canOpenChannel_t = canHandle(CANLIB_API *)(int channel, int flags);
 using canClose_t = canStatus(CANLIB_API *)(canHandle hnd);
 using canBusOn_t = canStatus(CANLIB_API *)(canHandle hnd);
-using canBusOff_t = canStatus(CANLIB_API *)(canHandle hnd);
 using canSetBusParams_t = canStatus(CANLIB_API *)(
     canHandle hnd,
     long freq,
@@ -112,7 +141,7 @@ using canWrite_t = canStatus(CANLIB_API *)(
     unsigned int dlc,
     unsigned int flag
 );
-using canGetNumberOfChannels_t = canStatus(CANLIB_API *)(int *channelCount);
+using canEnumHardwareEx_t = canStatus(CANLIB_API *)(int *channelCount);
 using canGetChannelData_t =
     canStatus(CANLIB_API *)(int channel, int item, void *buffer, std::size_t bufsize);
 using canGetErrorText_t =
