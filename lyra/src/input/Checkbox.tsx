@@ -9,10 +9,9 @@
 
 import "@/input/Checkbox.css";
 
-import { type ReactElement, useEffect, useRef } from "react";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { useCombinedRefs } from "@/hooks";
 import { Boolean, type BooleanProps } from "@/input/Boolean";
 
 /** Props for {@link Checkbox}. */
@@ -27,23 +26,12 @@ export interface CheckboxProps extends Omit<BooleanProps, "inputType"> {
 /** A boolean input drawn as a checkbox. Use it for a choice the user then submits. */
 export const Checkbox = ({
   indeterminate = false,
-  ref,
   className,
   ...rest
-}: CheckboxProps): ReactElement => {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const combinedRef = useCombinedRefs(ref, inputRef);
-  // Screen readers read the DOM flag. It has no attribute, and a click clears it, so
-  // every render sets it.
-  useEffect(() => {
-    if (inputRef.current != null) inputRef.current.indeterminate = indeterminate;
-  });
-  return (
-    <Boolean
-      {...rest}
-      ref={combinedRef}
-      inputType="checkbox"
-      className={CSS.cls(indeterminate && CSS.M("indeterminate"), className)}
-    />
-  );
-};
+}: CheckboxProps): ReactElement => (
+  <Boolean
+    {...rest}
+    inputType="checkbox"
+    className={CSS.cls(indeterminate && CSS.M("indeterminate"), className)}
+  />
+);
