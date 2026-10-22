@@ -1103,7 +1103,7 @@ describe("MultiplexedStreamer", () => {
 
     it("should stream every allowed channel when the lookup denies one", async () => {
       const DENIED = 6;
-      let ms: MockStreamer | null = null;
+      const opened: MockStreamer[] = [];
       const cache = new Cache({
         retrieveChannels: async (keys) => {
           if ((keys as channel.Key[]).includes(DENIED))
@@ -1115,7 +1115,8 @@ describe("MultiplexedStreamer", () => {
         cache,
         openStreamer: async (config) => {
           const { channels } = config as { channels: channel.Key[] };
-          ms = pendingStreamer(channels);
+          const ms = pendingStreamer(channels);
+          opened.push(ms);
           return ms;
         },
         instrumentation: createErrorSpy().instrumentation,
@@ -1125,7 +1126,7 @@ describe("MultiplexedStreamer", () => {
       expect(sub.status(2).variant).toBe("success");
       expect(sub.status(5).variant).toBe("success");
       expect(sub.status(DENIED).variant).toBe("error");
-      expect(ms?.keys.slice().sort()).toEqual([1, 2, 4, 5]);
+      expect(opened.at(-1)?.keys.slice().sort()).toEqual([1, 2, 4, 5]);
       await streamer.close();
     });
 
