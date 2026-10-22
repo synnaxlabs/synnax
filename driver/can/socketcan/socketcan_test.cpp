@@ -143,6 +143,31 @@ TEST_F(SocketCANTest, ReturnsFalseWhenNoFrameArrives) {
     EXPECT_FALSE(ASSERT_NIL_P(bus->receive(frame, 20 * x::telem::MILLISECOND)));
 }
 
+TEST_F(SocketCANTest, ReportsFramesTheSocketDroppedBeforeTheNextFrame) {
+    auto sender = this->open();
+    auto receiver = this->open();
+    // A socket's default receive buffer holds a few thousand frames.
+    for (std::uint32_t i = 0; i < 50000; i++) {
+        const auto err = sender->send(data_frame(i & 0x7FF, {1}));
+        if (err) ASSERT_MATCHES(err, TEMPORARY_HARDWARE_ERROR);
+    }
+    Frame frame;
+    while (true) {
+        const auto [got, err] = receiver->receive(frame, 100 * x::telem::MILLISECOND);
+        ASSERT_NIL(err);
+        if (!got) break;
+        ASSERT_EQ(frame.type, Type::DATA);
+    }
+    ASSERT_NIL(sender->send(data_frame(0x7FF, {2})));
+    ASSERT_TRUE(ASSERT_NIL_P(receiver->receive(frame, x::telem::SECOND)));
+    EXPECT_EQ(frame.type, Type::BUS_ERROR);
+    EXPECT_EQ(frame.id, bus_error::CONTROLLER);
+    EXPECT_EQ(frame.data[1], bus_error::CONTROLLER_RX_OVERFLOW);
+    ASSERT_TRUE(ASSERT_NIL_P(receiver->receive(frame, x::telem::SECOND)));
+    EXPECT_EQ(frame.id, 0x7FF);
+    EXPECT_EQ(frame.data[0], 2);
+}
+
 TEST_F(SocketCANTest, WaitsForAMissingInterface) {
     auto p = props();
     p.channel = "nocan9";

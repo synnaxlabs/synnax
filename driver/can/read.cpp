@@ -81,7 +81,7 @@ common::ReadResult Source::read(x::breaker::Breaker &breaker, x::telem::Frame &f
 
 void Source::handle(const Frame &frame) {
     if (frame.type == Type::BUS_ERROR) {
-        this->decoder.warn("the adapter reported a bus error");
+        if (auto fault = bus_error::describe(frame)) this->decoder.warn(*fault);
         return;
     }
     const std::uint32_t id = frame.id | (frame.extended ? 1u << 31 : 0u);

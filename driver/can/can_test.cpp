@@ -100,6 +100,59 @@ TEST(Validate, RejectsABusErrorFrame) {
     EXPECT_EQ(err.data, "a bus error frame cannot be sent");
 }
 
+TEST(BusError, DescribesEachClassItReports) {
+    auto frame = bus_error::make(
+        bus_error::NO_ACK | bus_error::CONTROLLER | bus_error::COUNTERS,
+        bus_error::CONTROLLER_RX_OVERFLOW | bus_error::CONTROLLER_TX_WARNING,
+        x::telem::TimeStamp::now()
+    );
+    frame.data[6] = 97;
+    frame.data[7] = 3;
+    EXPECT_EQ(
+        bus_error::describe(frame),
+        "the adapter reported no acknowledgement, receive overflow, frames lost, "
+        "transmit error warning, 97 transmit and 3 receive errors"
+    );
+}
+
+TEST(BusError, DescribesTheKindOfAProtocolViolation) {
+    auto frame = bus_error::make(bus_error::PROTOCOL, 0, x::telem::TimeStamp::now());
+    EXPECT_EQ(bus_error::describe(frame), "the adapter reported protocol violation");
+    frame.data[2] = bus_error::PROTOCOL_STUFF | bus_error::PROTOCOL_FORM;
+    EXPECT_EQ(
+        bus_error::describe(frame),
+        "the adapter reported form error, stuff error"
+    );
+}
+
+TEST(BusError, DescribesAControllerFaultWithoutDetails) {
+    const auto frame = bus_error::make(
+        bus_error::CONTROLLER,
+        0,
+        x::telem::TimeStamp::now()
+    );
+    EXPECT_EQ(bus_error::describe(frame), "the adapter reported controller fault");
+}
+
+TEST(BusError, ReportsNoFaultForAReturnToErrorActive) {
+    auto frame = bus_error::make(
+        bus_error::CONTROLLER | bus_error::COUNTERS,
+        bus_error::CONTROLLER_ACTIVE,
+        x::telem::TimeStamp::now()
+    );
+    EXPECT_EQ(bus_error::describe(frame), std::nullopt);
+    frame.id |= bus_error::RESTARTED;
+    EXPECT_EQ(
+        bus_error::describe(frame),
+        "the adapter reported controller restarted, 0 transmit and 0 receive errors"
+    );
+}
+
+TEST(BusError, DescribesAFrameWithNoClass) {
+    const auto frame = bus_error::make(0, 0, x::telem::TimeStamp::now());
+    EXPECT_EQ(bus_error::describe(frame), "the adapter reported an unknown bus error");
+}
+
 namespace {
 const auto US = x::telem::MICROSECOND;
 const std::uint64_t WRAP = 1ULL << 32;

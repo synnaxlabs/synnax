@@ -22,8 +22,8 @@
 
 #include "driver/can/can.h"
 
-/// @brief an in-memory CAN network for tests that behaves like a set of adapters.
-/// Every bus on a channel receives the frames the other buses on the channel send. A
+/// @brief an in-memory CAN network for tests that behaves like a set of adapters. Every
+/// bus on a channel receives the frames the other buses on the channel send. A
 /// channel's adapter can be unplugged and plugged back, can refuse a second open, and
 /// can fail any call on demand.
 namespace driver::can::loopback {
@@ -106,8 +106,8 @@ public:
     [[nodiscard]] std::pair<std::vector<can::Channel>, x::errors::Error>
     scan() override;
 
-    /// @returns UNREACHABLE_ERROR when the channel is unplugged, or when the backend
-    /// is exclusive and a bus on the channel is open.
+    /// @returns UNREACHABLE_ERROR when the channel is unplugged, or when the backend is
+    /// exclusive and a bus on the channel is open.
     [[nodiscard]] std::pair<std::unique_ptr<can::Bus>, x::errors::Error>
     open(const synnax::can::Properties &props) override;
 
@@ -119,12 +119,16 @@ public:
     /// on a bus open on the channel fails with UNREACHABLE_ERROR until it closes.
     void unplug(const std::string &channel);
 
-    /// @brief plugs the adapter of a channel back in. Buses open during the unplug
-    /// stay failed, as on a real adapter.
+    /// @brief plugs the adapter of a channel back in. Buses open during the unplug stay
+    /// failed, as on a real adapter.
     void plug(const std::string &channel);
 
-    /// @brief makes the next times calls of a kind fail with err. Faults queue in
-    /// order and apply to buses opened through the backend.
+    /// @brief delivers a bus error frame to every bus opened on the channel, as an
+    /// adapter reports a fault on its bus.
+    void raise(const std::string &channel, const Frame &error);
+
+    /// @brief makes the next times calls of a kind fail with err. Faults queue in order
+    /// and apply to buses opened through the backend.
     void fail(Call call, const x::errors::Error &err, std::size_t times = 1);
 
     /// @returns the number of attempts to open the channel.

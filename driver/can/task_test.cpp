@@ -431,8 +431,8 @@ std::vector<synnax::library::MessageEntry> write_messages() {
     return {command, heartbeat};
 }
 
-/// @returns a read config with one message, status, whose first byte v goes to
-/// channel 1.
+/// @returns a read config with one message, status, whose first byte v goes to channel
+/// 1.
 bus::ReadConfig status_read_config() {
     return read_config(
         {binary_message(
@@ -634,6 +634,25 @@ TEST_F(CANTask, WaitsForAnUnpluggedChannelLongerThanTheBreakerAllows) {
     ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(this->backend->attempts("can0"), 4, SLOW, POLL);
     this->backend->plug("can0");
     ASSERT_TRUE(this->eventually_reads(2));
+    EXPECT_TRUE(this->ctx->last().details.running);
+    t->stop("stop", true);
+}
+
+TEST_F(CANTask, WarnsWithTheFaultsABusErrorFrameReports) {
+    auto t = this->read_task(status_read_config());
+    t->start("start");
+    ASSERT_TRUE(this->eventually_reads(1));
+    auto error = bus_error::make(
+        bus_error::BUS_OFF | bus_error::CONTROLLER,
+        bus_error::CONTROLLER_TX_PASSIVE,
+        x::telem::TimeStamp::now()
+    );
+    this->backend->raise("can0", error);
+    ASSERT_EVENTUALLY_EQ(
+        this->ctx->last().message,
+        "the adapter reported bus off, transmit error passive"
+    );
+    EXPECT_EQ(this->ctx->last().variant, synnax::status::VARIANT_WARNING);
     EXPECT_TRUE(this->ctx->last().details.running);
     t->stop("stop", true);
 }

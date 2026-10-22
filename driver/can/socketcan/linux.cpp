@@ -13,6 +13,7 @@
 #include <ctime>
 #include <filesystem>
 #include <fstream>
+#include <optional>
 #include <string>
 #include <system_error>
 
@@ -50,6 +51,19 @@ x::errors::Error os_error(const std::string &context) {
 
 std::int64_t nanoseconds(const timespec &ts) {
     return static_cast<std::int64_t>(ts.tv_sec) * 1000000000 + ts.tv_nsec;
+}
+
+/// @returns the number of frames the socket dropped for a full receive queue, from its
+/// SO_RXQ_OVFL control message, or nullopt when the kernel attached none.
+std::optional<std::uint32_t> drops(msghdr &msg) {
+    for (auto *cmsg = CMSG_FIRSTHDR(&msg); cmsg != nullptr;
+         cmsg = CMSG_NXTHDR(&msg, cmsg)) {
+        if (cmsg->cmsg_level != SOL_SOCKET || cmsg->cmsg_type != SO_RXQ_OVFL) continue;
+        std::uint32_t count = 0;
+        std::memcpy(&count, CMSG_DATA(cmsg), sizeof(count));
+        return count;
+    }
+    return std::nullopt;
 }
 
 /// @brief sets the time of a received frame from the socket's control messages, and
@@ -103,6 +117,10 @@ void decode(const canfd_frame &raw, const bool fd, Frame &frame) {
 class Bus final : public can::Bus {
     int socket;
     bool closed = false;
+    /// @brief the socket's count of dropped frames at the last receive.
+    std::uint32_t dropped = 0;
+    /// @brief a received frame that waits behind the overflow error it revealed.
+    std::optional<Frame> pending;
 
 public:
     Bus(const int socket, std::string name, const bool fd, const bool listen_only):
@@ -112,6 +130,11 @@ public:
 
     std::pair<bool, x::errors::Error>
     receive(Frame &frame, const x::telem::TimeSpan timeout) override {
+        if (this->pending.has_value()) {
+            frame = *this->pending;
+            this->pending.reset();
+            return {true, x::errors::NIL};
+        }
         const auto ns = std::max<std::int64_t>(timeout.nanoseconds(), 0);
         const timespec wait{
             .tv_sec = static_cast<time_t>(ns / 1000000000),
@@ -124,9 +147,9 @@ public:
         if (ready <= 0) return {false, x::errors::NIL};
         canfd_frame raw{};
         iovec iov{.iov_base = &raw, .iov_len = sizeof(raw)};
-        alignas(
-            cmsghdr
-        ) char control[CMSG_SPACE(sizeof(Timestamps)) + CMSG_SPACE(sizeof(timeval))];
+        alignas(cmsghdr) char control
+            [CMSG_SPACE(sizeof(Timestamps)) + CMSG_SPACE(sizeof(timeval)) +
+             CMSG_SPACE(sizeof(std::uint32_t))];
         msghdr msg{};
         msg.msg_iov = &iov;
         msg.msg_iovlen = 1;
@@ -147,6 +170,16 @@ public:
             };
         decode(raw, size == CANFD_MTU, frame);
         stamp(msg, frame);
+        if (const auto count = drops(msg);
+            count.has_value() && *count != this->dropped) {
+            this->dropped = *count;
+            this->pending = frame;
+            frame = bus_error::make(
+                bus_error::CONTROLLER,
+                bus_error::CONTROLLER_RX_OVERFLOW,
+                x::telem::TimeStamp::now()
+            );
+        }
         return {true, x::errors::NIL};
     }
 
@@ -299,6 +332,9 @@ public:
                 nullptr,
                 os_error("failed to subscribe to the bus errors of " + name)
             };
+        const int counted = 1;
+        if (::setsockopt(sock, SOL_SOCKET, SO_RXQ_OVFL, &counted, sizeof(counted)) < 0)
+            return {nullptr, os_error("failed to count the dropped frames of " + name)};
         // Kernels without SO_TIMESTAMPING still offer SO_TIMESTAMP. A kernel with
         // neither leaves frames at the host time of the read.
         if (::setsockopt(

@@ -156,6 +156,18 @@ void Backend::plug(const std::string &channel) {
     this->network->channels[channel].unplugged = false;
 }
 
+void Backend::raise(const std::string &channel, const Frame &error) {
+    std::lock_guard lock(this->network->mu);
+    for (auto *bus: this->network->channels[channel].buses) {
+        if (bus->node) continue;
+        {
+            std::lock_guard bus_lock(bus->mu);
+            bus->inbox.push_back(error);
+        }
+        bus->cv.notify_one();
+    }
+}
+
 void Backend::fail(const Call call, const x::errors::Error &err, std::size_t times) {
     std::lock_guard lock(this->network->mu);
     auto &queue = this->network->faults[call];
