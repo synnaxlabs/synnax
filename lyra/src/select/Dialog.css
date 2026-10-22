@@ -9,17 +9,19 @@
  * included in the file licenses/APL.txt.
  */
 
+/* Not gated on visibility: the dialog frame reads this width to place the dialog before
+   it shows. About 0.6em per character keeps the search placeholder whole. */
+.pluto-select__dialog:not(.pluto--modal) {
+    min-width: max(
+        32rem,
+        calc(var(--pluto-select-search-chars, 0) * 0.6 * var(--pluto-p-size) + 7rem)
+    );
+}
+
 .pluto-select__dialog.pluto--visible {
     --pluto-dialog-max-height: 250px;
     min-height: 60px;
     height: fit-content;
-    &:not(.pluto--modal) {
-        /* About 0.6em per character keeps the search placeholder whole. */
-        min-width: max(
-            32rem,
-            calc(var(--pluto-select-search-chars, 0) * 0.6 * var(--pluto-p-size) + 7rem)
-        );
-    }
     & .pluto-list__scroll--empty {
         min-height: 20rem;
     }
