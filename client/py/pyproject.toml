@@ -50,6 +50,7 @@ dev = [
     "scipy>=1.18.1,<2",
     "scipy-stubs>=1.18.1.1,<2",
     "types-pyserial>=3.5.0.20260712,<4",
+    "nptdms>=1.13.0,<2",
 ]
 
 [tool.hatch.build.targets.wheel]
