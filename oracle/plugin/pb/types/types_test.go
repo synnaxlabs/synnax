@@ -77,6 +77,25 @@ var _ = Describe("Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		Context("field-level omit", func() {
+			It("Should leave out a field omitted in pb", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/auth"
+					@pb
+
+					Session struct {
+						key     string
+						hash    bytes { @pb omit }
+						subject string
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, p)
+				ExpectContent(resp, "test.proto").
+					ToContain("string subject = 2;").
+					ToNotContain("hash")
+			})
+		})
+
 		Context("primitive type mappings", func() {
 			DescribeTable("should generate correct proto type",
 				func(ctx SpecContext, oracleType, expectedProtoType string) {
