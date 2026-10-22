@@ -86,18 +86,13 @@ configure(const Handle handle, const synnax::serial::Properties &props) {
 }
 
 namespace {
-/// @brief ttyS devices exist for every UART slot the kernel reserves. A slot without a
-/// UART reports type 0 (PORT_UNKNOWN).
-bool has_uart(const std::filesystem::path &root, const std::string &name) {
-    std::ifstream type(root / "sys" / "class" / "tty" / name / "type");
+/// @brief the kernel keeps a ttyS device for every UART slot it reserves. A slot
+/// without a UART reports type 0 (PORT_UNKNOWN).
+bool has_uart(const std::filesystem::path &tty) {
+    std::ifstream type(tty / "type");
     int value = -1;
     if (!(type >> value)) return true;
     return value != 0;
-}
-
-bool is_port(const std::string &name) {
-    return name.starts_with("ttyS") || name.starts_with("ttyUSB") ||
-           name.starts_with("ttyACM");
 }
 
 x::errors::Error
@@ -129,17 +124,23 @@ std::pair<std::vector<Info>, x::errors::Error> scan(const std::filesystem::path 
             });
         }
     }
-    std::filesystem::directory_iterator it(dev, ec);
-    if (ec) return {{}, list_failed(dev, ec)};
+    const auto ttys = root / "sys" / "class" / "tty";
+    std::filesystem::directory_iterator it(ttys, ec);
+    if (ec) return {{}, list_failed(ttys, ec)};
     std::vector<Info> devices;
     for (const auto &entry: it) {
+        // A tty that hardware backs has a device link. Virtual consoles and
+        // pseudo-terminals have none.
+        const auto backed = std::filesystem::exists(entry.path() / "device", ec);
+        if (ec) return {{}, list_failed(entry.path(), ec)};
+        if (!backed || !has_uart(entry.path())) continue;
         const auto name = entry.path().filename().string();
-        if (!is_port(name)) continue;
-        std::error_code missing;
-        if (linked.contains(std::filesystem::canonical(entry.path(), missing)))
-            continue;
-        if (name.starts_with("ttyS") && !has_uart(root, name)) continue;
-        devices.push_back({.path = entry.path().string(), .name = name});
+        const auto path = dev / name;
+        const auto target = std::filesystem::canonical(path, ec);
+        if (ec == std::errc::no_such_file_or_directory) continue;
+        if (ec) return {{}, list_failed(dev, ec)};
+        if (!linked.contains(target))
+            devices.push_back({.path = path.string(), .name = name});
     }
     std::ranges::sort(links, {}, &Info::path);
     std::ranges::sort(devices, {}, &Info::path);

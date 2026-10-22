@@ -31,8 +31,8 @@ struct Info {
     std::string name;
 };
 
-/// @brief lists the serial ports on the host: /dev/serial/by-id links and ttyS, ttyUSB,
-/// and ttyACM devices on Linux, /dev/cu.* on macOS, and the SERIALCOMM registry key on
+/// @brief lists the serial ports on the host: /dev/serial/by-id links and every tty
+/// that hardware backs on Linux, /dev/cu.* on macOS, and the SERIALCOMM registry key on
 /// Windows. A Linux device reached through a by-id link is listed only by the link.
 /// @param root the directory under which to look for dev and sys. Windows ignores it.
 /// @returns the ports sorted by path, or SCAN_ERROR when the listing fails.
