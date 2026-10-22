@@ -122,7 +122,7 @@ func readResponse(value any) (ReadResponse, error) {
 
 // groupByIndex groups the channels of res by the index channel that timestamps them,
 // ordered by the first channel each group timestamps. Each group starts with its index.
-// Channels with no index are excluded.
+// A channel is excluded when the read does not include its index.
 func groupByIndex(res ReadResponse) [][]channel.Channel {
 	all := slices.Concat(res.Channels, res.Indexes)
 	records := make(map[channel.Key]channel.Channel, len(all))
@@ -132,14 +132,14 @@ func groupByIndex(res ReadResponse) [][]channel.Channel {
 	position := make(map[channel.Key]int, len(all))
 	groups := make([][]channel.Channel, 0, len(all))
 	for _, ch := range res.Channels {
-		index := ch.Index()
-		if index == 0 {
+		index, ok := records[ch.Index()]
+		if !ok {
 			continue
 		}
-		i, ok := position[index]
+		i, ok := position[index.Key()]
 		if !ok {
-			i, position[index] = len(groups), len(groups)
-			groups = append(groups, []channel.Channel{records[index]})
+			i, position[index.Key()] = len(groups), len(groups)
+			groups = append(groups, []channel.Channel{index})
 		}
 		if !ch.IsIndex {
 			groups[i] = append(groups[i], ch)

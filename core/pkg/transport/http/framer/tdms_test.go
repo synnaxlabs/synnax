@@ -11,11 +11,13 @@ package framer_test
 
 import (
 	"fmt"
+	"math/bits"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/transport/http/framer"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -115,6 +117,48 @@ func tdmsTimeStamp(fraction uint64, secs int64) []byte {
 	return telem.ByteOrder.AppendUint64(b, uint64(secs))
 }
 
+// tdmsChannelData joins the samples a file holds for the object at path across all of
+// its segments. It joins strings as text, each followed by a zero byte.
+func tdmsChannelData(segments []tdmsSegment, path string) tdmsObject {
+	GinkgoHelper()
+	joined := tdmsObject{path: path}
+	for _, seg := range segments {
+		for _, o := range seg.objects {
+			if o.path != path || o.count == 0 {
+				continue
+			}
+			if joined.dataType != 0 {
+				Expect(o.dataType).To(Equal(joined.dataType))
+			}
+			joined.dataType = o.dataType
+			joined.count += o.count
+			if o.dataType != 0x20 {
+				joined.data = append(joined.data, o.data...)
+				continue
+			}
+			for _, v := range tdmsStrings(o) {
+				joined.data = append(append(joined.data, v...), 0)
+			}
+		}
+	}
+	return joined
+}
+
+// decodeTDMSTimeStamps decodes the raw data of a timestamp object the way a reader that
+// rounds fractions down to nanoseconds does.
+func decodeTDMSTimeStamps(o tdmsObject) []telem.TimeStamp {
+	GinkgoHelper()
+	Expect(o.dataType).To(Equal(uint32(0x44)))
+	stamps := make([]telem.TimeStamp, o.count)
+	for i := range stamps {
+		b := o.data[16*i:]
+		secs := int64(telem.ByteOrder.Uint64(b[8:])) - 2082844800
+		nanos, _ := bits.Mul64(telem.ByteOrder.Uint64(b), 1e9)
+		stamps[i] = telem.TimeStamp(secs*1e9 + int64(nanos))
+	}
+	return stamps
+}
+
 func tdmsPath(names ...string) string {
 	path := ""
 	for _, name := range names {
@@ -208,6 +252,7 @@ var _ = Describe("TDMS", func() {
 				object := parseTDMS(b)[1].objects[1]
 				Expect(object.dataType).To(Equal(uint32(0x44)))
 				Expect(object.data).To(Equal(tdmsTimeStamp(fraction, secs)))
+				Expect(decodeTDMSTimeStamps(object)).To(Equal([]telem.TimeStamp{ts}))
 			},
 			Entry(
 				"at the Unix epoch",
@@ -228,9 +273,15 @@ var _ = Describe("TDMS", func() {
 				int64(2082844799),
 			),
 			Entry(
-				"one nanosecond after the Unix epoch",
+				"one nanosecond after the Unix epoch, rounding the fraction up",
 				telem.TimeStamp(1),
-				uint64(18446744073),
+				uint64(18446744074),
+				int64(2082844800),
+			),
+			Entry(
+				"one nanosecond before a whole second, rounding the fraction up",
+				telem.TimeStamp(999_999_999),
+				uint64(18446744055262807543),
 				int64(2082844800),
 			),
 		)
@@ -269,14 +320,195 @@ var _ = Describe("TDMS", func() {
 			Expect(tdmsStrings(objects[4])).To(Equal([]string{"AP8=", "AQ=="}))
 		})
 
-		It("Should double the quotes in a name", func(ctx SpecContext) {
+		It("Should write each index's channels to their own group", func(
+			ctx SpecContext,
+		) {
+			firstIndex, first := createIndexed(ctx, telem.Float32T)
+			secondIndex, second := createIndexed(ctx, telem.Int16T)
+			write(
+				ctx,
+				firstIndex,
+				telem.NewSeriesSecondsTSV(1, 3),
+				first,
+				telem.NewSeriesV[float32](1, 2),
+			)
+			write(
+				ctx,
+				secondIndex,
+				telem.NewSeriesSecondsTSV(2),
+				second,
+				telem.NewSeriesV[int16](-3),
+			)
+			channels := append(first, second...)
+			indexes := []svcchannel.Channel{firstIndex, secondIndex}
+			iter := MustSucceed(framerSvc.OpenIterator(ctx, svcframer.IteratorConfig{
+				Keys:   svcchannel.KeysFromChannels(append(channels, indexes...)),
+				Bounds: readBounds,
+			}))
+			b := MustSucceed(framer.TDMSEncoder.Encode(ctx, framer.ReadResponse{
+				Iterator: iter,
+				Channels: channels,
+				Indexes:  indexes,
+			}))
+			segments := parseTDMS(b)
+			Expect(segments[0].objects).To(Equal([]tdmsObject{
+				{path: "/"},
+				{path: tdmsPath(firstIndex.Name)},
+				{path: tdmsPath(secondIndex.Name)},
+				{path: tdmsPath(firstIndex.Name, firstIndex.Name)},
+				{path: tdmsPath(firstIndex.Name, first[0].Name)},
+				{path: tdmsPath(secondIndex.Name, secondIndex.Name)},
+				{path: tdmsPath(secondIndex.Name, second[0].Name)},
+			}))
+			firstPath := tdmsPath(firstIndex.Name, first[0].Name)
+			Expect(tdmsChannelData(segments, firstPath)).To(Equal(tdmsObject{
+				path:     firstPath,
+				dataType: 0x09,
+				count:    2,
+				data:     telem.NewSeriesV[float32](1, 2).Data,
+			}))
+			secondPath := tdmsPath(secondIndex.Name, second[0].Name)
+			Expect(tdmsChannelData(segments, secondPath)).To(Equal(tdmsObject{
+				path:     secondPath,
+				dataType: 0x02,
+				count:    1,
+				data:     telem.NewSeriesV[int16](-3).Data,
+			}))
+			secondIndexPath := tdmsPath(secondIndex.Name, secondIndex.Name)
+			Expect(tdmsChannelData(segments, secondIndexPath).data).
+				To(Equal(tdmsTimeStamp(0, 2082844802)))
+		})
+
+		It("Should write every sample of a read that spans many frames", func(
+			ctx SpecContext,
+		) {
+			const samples = 20_000
+			index, channels := createIndexed(ctx, telem.Float64T, telem.StringT)
+			var (
+				timestamps = make([]telem.TimeStamp, samples)
+				floats     = make([]float64, samples)
+				strs       = make([]string, samples)
+				text       []byte
+			)
+			for i := range samples {
+				timestamps[i] = telem.TimeStamp(i+1) * telem.MillisecondTS
+				floats[i] = float64(i) / 3
+				strs[i] = fmt.Sprintf("s%d", i)
+				text = append(append(text, strs[i]...), 0)
+			}
+			write(
+				ctx,
+				index,
+				telem.NewSeriesV(timestamps...),
+				channels,
+				telem.NewSeriesV(floats...),
+				telem.NewSeriesV(strs...),
+			)
+			iter := MustSucceed(framerSvc.OpenIterator(ctx, svcframer.IteratorConfig{
+				Keys:      svcchannel.KeysFromChannels(append(channels, index)),
+				Bounds:    readBounds,
+				ChunkSize: 1000,
+			}))
+			b := MustSucceed(framer.TDMSEncoder.Encode(ctx, framer.ReadResponse{
+				Iterator: iter,
+				Channels: channels,
+				Indexes:  []svcchannel.Channel{index},
+			}))
+			segments := parseTDMS(b)
+			Expect(len(segments)).To(BeNumerically(">", 2))
+			Expect(tdmsChannelData(
+				segments,
+				tdmsPath(index.Name, channels[0].Name),
+			).data).To(Equal(telem.NewSeriesV(floats...).Data))
+			Expect(tdmsChannelData(
+				segments,
+				tdmsPath(index.Name, channels[1].Name),
+			).data).To(Equal(text))
+			Expect(decodeTDMSTimeStamps(tdmsChannelData(
+				segments,
+				tdmsPath(index.Name, index.Name),
+			))).To(Equal(timestamps))
+		})
+
+		It("Should write an index requested on its own", func(ctx SpecContext) {
 			index, channels := createIndexed(ctx, telem.Float32T)
-			channels[0].Name = "it's"
+			write(
+				ctx,
+				index,
+				telem.NewSeriesSecondsTSV(1),
+				channels,
+				telem.NewSeriesV[float32](1),
+			)
+			iter := MustSucceed(framerSvc.OpenIterator(ctx, svcframer.IteratorConfig{
+				Keys:   svcchannel.Keys{index.Key()},
+				Bounds: readBounds,
+			}))
+			b := MustSucceed(framer.TDMSEncoder.Encode(ctx, framer.ReadResponse{
+				Iterator: iter,
+				Channels: []svcchannel.Channel{index},
+			}))
+			segments := parseTDMS(b)
+			Expect(segments[0].objects).To(Equal([]tdmsObject{
+				{path: "/"},
+				{path: tdmsPath(index.Name)},
+				{path: tdmsPath(index.Name, index.Name)},
+			}))
+			Expect(tdmsChannelData(segments, tdmsPath(index.Name, index.Name)).data).
+				To(Equal(tdmsTimeStamp(0, 2082844801)))
+		})
+
+		It("Should double the quotes in a name and count its bytes", func(
+			ctx SpecContext,
+		) {
+			index, channels := createIndexed(ctx, telem.Float32T)
+			channels[0].Name = "it's é"
 			b := MustSucceed(
 				framer.TDMSEncoder.Encode(ctx, read(ctx, index, channels...)),
 			)
 			Expect(parseTDMS(b)[0].objects[3].path).
-				To(Equal(tdmsPath(index.Name, "it''s")))
+				To(Equal(tdmsPath(index.Name, "it''s é")))
+		})
+
+		It("Should leave out a channel whose index the read does not include", func(
+			ctx SpecContext,
+		) {
+			firstIndex, first := createIndexed(ctx, telem.Float32T)
+			secondIndex, second := createIndexed(ctx, telem.Float32T)
+			write(
+				ctx,
+				firstIndex,
+				telem.NewSeriesSecondsTSV(1),
+				first,
+				telem.NewSeriesV[float32](1),
+			)
+			write(
+				ctx,
+				secondIndex,
+				telem.NewSeriesSecondsTSV(1),
+				second,
+				telem.NewSeriesV[float32](2),
+			)
+			channels := []svcchannel.Channel{firstIndex, first[0], second[0]}
+			iter := MustSucceed(framerSvc.OpenIterator(ctx, svcframer.IteratorConfig{
+				Keys:   svcchannel.KeysFromChannels(channels),
+				Bounds: readBounds,
+			}))
+			b := MustSucceed(framer.TDMSEncoder.Encode(ctx, framer.ReadResponse{
+				Iterator: iter,
+				Channels: channels,
+			}))
+			segments := parseTDMS(b)
+			Expect(segments[0].objects).To(Equal([]tdmsObject{
+				{path: "/"},
+				{path: tdmsPath(firstIndex.Name)},
+				{path: tdmsPath(firstIndex.Name, firstIndex.Name)},
+				{path: tdmsPath(firstIndex.Name, first[0].Name)},
+			}))
+			Expect(segments[1].objects).To(HaveLen(2))
+			Expect(tdmsChannelData(
+				segments,
+				tdmsPath(firstIndex.Name, first[0].Name),
+			).data).To(Equal(telem.NewSeriesV[float32](1).Data))
 		})
 
 		It("Should return an error for a data type with no TDMS form", func(

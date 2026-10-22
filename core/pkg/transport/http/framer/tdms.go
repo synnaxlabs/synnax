@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"math"
 	"math/bits"
 	"strings"
 
@@ -26,8 +27,9 @@ import (
 // channel that timestamps them, and each group holds its index, then its data channels.
 // The first segment declares every group and channel, and each frame then becomes one
 // segment, so the file streams. Timestamps become TDMS timestamps, and UUID, bytes, and
-// JSON samples become TDMS strings in their text form. Channels with no index are
-// excluded. A read that fails after the first byte truncates the body.
+// JSON samples become TDMS strings in their text form. A channel is excluded when the
+// read does not include its index. A read that fails after the first byte truncates the
+// body.
 var TDMSEncoder tdmsEncoder
 
 type tdmsEncoder struct{}
@@ -261,6 +263,12 @@ func (s *tdmsSegmenter) appendText(dt telem.DataType, series []telem.Series) err
 			if s.text, err = telem.AppendSampleText(s.text, dt, sample); err != nil {
 				return err
 			}
+			if len(s.text) > math.MaxUint32 {
+				return errors.Newf(
+					"text of a TDMS segment exceeds the %d bytes its offsets can address",
+					uint32(math.MaxUint32),
+				)
+			}
 			s.raw = telem.ByteOrder.AppendUint32(s.raw, uint32(len(s.text)))
 		}
 	}
@@ -273,13 +281,17 @@ func (s *tdmsSegmenter) appendText(dt telem.DataType, series []telem.Series) err
 const tdmsEpochOffset = 2082844800
 
 // appendTDMSTimeStamp appends ts as a TDMS timestamp: the fraction of the second in
-// units of 2^-64 seconds, then the whole seconds since the TDMS epoch.
+// units of 2^-64 seconds, then the whole seconds since the TDMS epoch. The fraction
+// rounds up, so a reader that rounds it down to nanoseconds recovers ts exactly.
 func appendTDMSTimeStamp(dst []byte, ts telem.TimeStamp) []byte {
 	secs, nanos := int64(ts)/1e9, int64(ts)%1e9
 	if nanos < 0 {
 		secs, nanos = secs-1, nanos+1e9
 	}
-	fraction, _ := bits.Div64(uint64(nanos), 0, 1e9)
+	fraction, rem := bits.Div64(uint64(nanos), 0, 1e9)
+	if rem != 0 {
+		fraction++
+	}
 	dst = telem.ByteOrder.AppendUint64(dst, fraction)
 	return telem.ByteOrder.AppendUint64(dst, uint64(secs+tdmsEpochOffset))
 }

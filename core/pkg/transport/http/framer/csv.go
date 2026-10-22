@@ -26,8 +26,9 @@ const csvFlushSize = 64 << 10
 // CSVEncoder encodes a read as CSV. Channels are grouped by the index channel that
 // timestamps them. Each group contributes its index column, then one column per data
 // channel, headed by the channel's name. Rows are ordered by timestamp, and a group's
-// cells are empty at a timestamp it has no sample for. Channels with no index are
-// excluded. A read that fails after the first byte truncates the body.
+// cells are empty at a timestamp it has no sample for. A channel is excluded when the
+// read does not include its index. A read that fails after the first byte truncates the
+// body.
 var CSVEncoder csvEncoder
 
 type csvEncoder struct{}
