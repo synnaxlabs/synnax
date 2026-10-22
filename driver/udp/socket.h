@@ -34,6 +34,8 @@ struct Config {
     Stacks stacks = [](asio::io_context &ctx) {
         return std::make_unique<AsioStack>(ctx);
     };
+    /// @brief how long the socket waits for its remote host to resolve.
+    x::telem::TimeSpan resolve_timeout = 5 * x::telem::SECOND;
 };
 
 /// @brief a UDP socket bound to a local port. It sends to an optional remote and

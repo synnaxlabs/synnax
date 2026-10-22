@@ -15,20 +15,27 @@
 #include "asio/buffer.hpp"
 #include "asio/ip/multicast.hpp"
 
+#include "driver/transport/transport.h"
 #include "driver/udp/stack.h"
 
 namespace driver::udp {
-AsioStack::AsioStack(asio::io_context &ctx): ctx(ctx), socket(ctx) {}
+AsioStack::AsioStack(asio::io_context &ctx): socket(ctx) {}
 
-std::pair<std::vector<asio::ip::udp::endpoint>, std::error_code>
-AsioStack::resolve(const std::string &host, const std::uint16_t port) {
-    asio::ip::udp::resolver resolver(this->ctx);
-    std::error_code ec;
-    const auto results = resolver.resolve(host, std::to_string(port), ec);
-    std::vector<asio::ip::udp::endpoint> endpoints;
-    for (const auto &result: results)
-        endpoints.push_back(result.endpoint());
-    return {endpoints, ec};
+std::pair<std::vector<asio::ip::udp::endpoint>, std::error_code> AsioStack::resolve(
+    const std::string &host,
+    const std::uint16_t port,
+    const x::telem::TimeSpan timeout
+) {
+    return transport::abandon_after(timeout, [host, port] {
+        asio::io_context ctx;
+        asio::ip::udp::resolver resolver(ctx);
+        std::error_code ec;
+        const auto results = resolver.resolve(host, std::to_string(port), ec);
+        std::vector<asio::ip::udp::endpoint> endpoints;
+        for (const auto &result: results)
+            endpoints.push_back(result.endpoint());
+        return std::pair{endpoints, ec};
+    });
 }
 
 std::error_code AsioStack::open(const asio::ip::udp &protocol) {

@@ -23,6 +23,8 @@
 #include "asio/io_context.hpp"
 #include "asio/ip/udp.hpp"
 
+#include "x/cpp/telem/telem.h"
+
 namespace driver::udp {
 /// @brief completes an asynchronous operation with its error and the number of bytes it
 /// moved.
@@ -34,9 +36,12 @@ class Stack {
 public:
     virtual ~Stack() = default;
 
-    /// @brief resolves host to its addresses.
-    virtual std::pair<std::vector<asio::ip::udp::endpoint>, std::error_code>
-    resolve(const std::string &host, std::uint16_t port) = 0;
+    /// @brief resolves host to its addresses, giving up after timeout.
+    virtual std::pair<std::vector<asio::ip::udp::endpoint>, std::error_code> resolve(
+        const std::string &host,
+        std::uint16_t port,
+        x::telem::TimeSpan timeout
+    ) = 0;
 
     /// @brief opens a socket for protocol.
     virtual std::error_code open(const asio::ip::udp &protocol) = 0;
@@ -82,14 +87,18 @@ using Stacks = std::function<std::unique_ptr<Stack>(asio::io_context &ctx)>;
 
 /// @brief a Stack on the host's network stack.
 class AsioStack final : public Stack {
-    asio::io_context &ctx;
     asio::ip::udp::socket socket;
 
 public:
     explicit AsioStack(asio::io_context &ctx);
 
-    std::pair<std::vector<asio::ip::udp::endpoint>, std::error_code>
-    resolve(const std::string &host, std::uint16_t port) override;
+    /// @brief resolves through getaddrinfo, which cannot be cancelled, so a resolve
+    /// that times out finishes on its own thread.
+    std::pair<std::vector<asio::ip::udp::endpoint>, std::error_code> resolve(
+        const std::string &host,
+        std::uint16_t port,
+        x::telem::TimeSpan timeout
+    ) override;
 
     std::error_code open(const asio::ip::udp &protocol) override;
 

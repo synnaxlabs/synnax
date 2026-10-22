@@ -72,7 +72,8 @@ Socket::open(const synnax::udp::Properties &props, const Config &config) {
     if (!props.remote_host.empty()) {
         const auto [endpoints, resolved] = s->stack->resolve(
             props.remote_host,
-            props.remote_port
+            props.remote_port,
+            config.resolve_timeout
         );
         if (resolved)
             return {

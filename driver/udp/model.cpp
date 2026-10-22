@@ -188,7 +188,8 @@ public:
     ~Stack() override { this->close(); }
 
     std::pair<std::vector<asio::ip::udp::endpoint>, std::error_code>
-    resolve(const std::string &host, const std::uint16_t port) override {
+    resolve(const std::string &host, const std::uint16_t port, x::telem::TimeSpan)
+        override {
         if (const auto ec = this->net->call()) return {{}, ec};
         {
             std::lock_guard lock(this->net->mu);
