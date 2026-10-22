@@ -69,6 +69,7 @@ def typed_message(
 class Bound:
     """The channels that one read message writes to."""
 
+    message: str
     index: int
     fields: dict[str, int]
 
@@ -96,12 +97,26 @@ class Collector:
 
         :raises AssertionError: If a message falls short when the timeout expires.
         """
+        self._wait([count] * len(self._bounds), timeout)
+
+    def wait_for_more(
+        self, count: int, timeout: sy.TimeSpan = 15 * sy.TimeSpan.SECOND
+    ) -> None:
+        """Reads until every message has count more samples than it had at the call.
+
+        :raises AssertionError: If a message falls short when the timeout expires.
+        """
+        self._wait([self.count(b) + count for b in self._bounds], timeout)
+
+    def _wait(self, targets: list[int], timeout: sy.TimeSpan) -> None:
         timer = sy.Timer()
-        while any(self.count(b) < count for b in self._bounds):
+        while any(
+            self.count(b) < t for b, t in zip(self._bounds, targets, strict=True)
+        ):
             if timer.elapsed() > timeout:
                 counts = [self.count(b) for b in self._bounds]
                 raise AssertionError(
-                    f"Expected {count} samples per message within {timeout}, "
+                    f"Expected {targets} samples per message within {timeout}, "
                     f"got {counts}"
                 )
             self._read(timeout=1)
@@ -168,6 +183,25 @@ def assert_indexed(name: str, bound: Bound, samples: Collector) -> None:
             )
 
 
+def assert_no_new_samples(
+    samples: Collector,
+    bounds: Sequence[Bound],
+    window: sy.TimeSpan = 3 * sy.TimeSpan.SECOND,
+) -> None:
+    """Asserts that no message gets a sample for window. Samples already on their way
+    get a second to arrive first."""
+    sy.sleep(1)
+    samples.drain()
+    before = [samples.count(b) for b in bounds]
+    sy.sleep(window)
+    samples.drain()
+    after = [samples.count(b) for b in bounds]
+    if after != before:
+        raise AssertionError(
+            f"Expected no new samples within {window}, got {before} then {after}"
+        )
+
+
 class BusCase(SimulatorCase):
     """Runs one bus task against the simulator in sim_classes.
 
@@ -184,6 +218,7 @@ class BusCase(SimulatorCase):
         super().__init__(*args, **kwargs)
         self._created_channels: list[int] = []
         self._messages: dict[str, library.MessageEntry] = {}
+        self.bounds: list[Bound] = []
 
     @abstractmethod
     def create_entries(self) -> list[library.Entry]:
@@ -275,7 +310,8 @@ class BusCase(SimulatorCase):
         fields: list[str],
         data_types: dict[str, sy.DataType] | None = None,
     ) -> tuple[bus.ReadMessage, Bound]:
-        """Creates an index for a message and a channel for each named field.
+        """Creates an index for a message and a channel for each named field, and adds
+        their bound to bounds.
 
         :param data_types: The data type of each field's channel. FLOAT64 when absent.
         """
@@ -299,7 +335,9 @@ class BusCase(SimulatorCase):
                 for name, key in channels.items()
             ],
         )
-        return read, Bound(index=index, fields=channels)
+        bound = Bound(message=entry.name, index=index, fields=channels)
+        self.bounds.append(bound)
+        return read, bound
 
     def bind_write(
         self, message: str, fields: list[str]
@@ -322,6 +360,14 @@ class BusCase(SimulatorCase):
             ],
         )
         return write, channels
+
+    def assert_resumes(self, timeout: sy.TimeSpan = 30 * sy.TimeSpan.SECOND) -> None:
+        """Asserts that every read message gets new samples, each with its own
+        timestamp. The default timeout outlasts the longest reconnect backoff."""
+        with self.collect(self.bounds) as samples:
+            samples.wait(count=10, timeout=timeout)
+        for bound in self.bounds:
+            assert_indexed(bound.message, bound, samples)
 
     @contextmanager
     def collect(self, bounds: Sequence[Bound]) -> Iterator[Collector]:
@@ -403,21 +449,31 @@ class BusCase(SimulatorCase):
         self,
         streamer: sy.Streamer,
         variant: str,
+        containing: str = "",
         timeout: sy.TimeSpan = 10 * sy.TimeSpan.SECOND,
     ) -> str:
-        """Blocks until the task reports a status of the given variant and returns its
-        message.
+        """Blocks until the task reports a status of the given variant whose message
+        contains the given text, and returns the message.
 
         :raises AssertionError: If no such status arrives before the timeout.
         """
         timer = sy.Timer()
+        seen: list[str] = []
         while timer.elapsed() < timeout:
             frame = streamer.read(timeout=0.5)
             if frame is None:
                 continue
             for status in self._task_statuses(frame):
-                if status.variant == variant:
-                    return str(status.message)
+                if status.variant != variant:
+                    continue
+                message = str(status.message)
+                if containing in message:
+                    return message
+                seen.append(message)
+        wanted = f"{variant} status"
+        if containing:
+            wanted += f" containing {containing!r}"
         raise AssertionError(
-            f"{self.task.name} reported no {variant} status within {timeout}"
+            f"{self.task.name} reported no {wanted} within {timeout}. Other "
+            f"{variant} statuses: {seen[-3:]!r}"
         )

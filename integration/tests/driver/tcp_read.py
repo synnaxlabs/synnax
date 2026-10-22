@@ -19,8 +19,13 @@ from tests.driver.bus_task import (
     assert_equal,
     assert_increasing,
     assert_indexed,
+    assert_no_new_samples,
 )
 
+# Every reply arrives past POLL_TIMEOUT, yet before the task's quiet period after the
+# miss ends, so the task must take it for late.
+POLL_TIMEOUT = 400 * sy.TimeSpan.MILLISECOND
+LATE_REPLY = 0.5
 VOLTAGE_SCALE = 2.0
 VOLTAGE_OFFSET = -0.5
 CURRENT_SCALE = 1000.0
@@ -46,6 +51,42 @@ def reading_entry() -> library.MessageEntry:
                 ),
             ]
         ),
+    )
+
+
+def output_entry() -> library.MessageEntry:
+    return library.MessageEntry(
+        name="output",
+        query="MEAS:VOLT?",
+        payload=library.TextPayload(
+            fields=[library.DelimitedTextField(name="voltage", position=0)]
+        ),
+    )
+
+
+def verify_reading(samples: Collector, bound: Bound, step: int | None = None) -> None:
+    """Asserts that the counts of the READ? replies increase, by step when given, and
+    that each reply's voltage and current match its count."""
+    counts = samples[bound.fields["count"]].astype(np.int64)
+    assert_increasing("reading.count", counts, step=step)
+    replies = [reading(int(n)) for n in counts]
+    assert_equal(
+        "reading.voltage",
+        samples[bound.fields["voltage"]],
+        [v * VOLTAGE_SCALE + VOLTAGE_OFFSET for v, _ in replies],
+    )
+    current = samples[bound.fields["current"]]
+    assert_equal("reading.current", current, [c * CURRENT_SCALE for _, c in replies])
+    if not np.any(current < 0):
+        raise AssertionError("reading.current: expected negative samples")
+
+
+def verify_output(samples: Collector, bound: Bound) -> None:
+    """Asserts that every MEAS:VOLT? reply holds the initial voltage."""
+    assert_equal(
+        "output.voltage",
+        samples[bound.fields["voltage"]],
+        [INITIAL_VOLTAGE] * samples.count(bound),
     )
 
 
@@ -83,13 +124,7 @@ class TCPRead(BusCase):
                     ]
                 ),
             ),
-            library.MessageEntry(
-                name="output",
-                query="MEAS:VOLT?",
-                payload=library.TextPayload(
-                    fields=[library.DelimitedTextField(name="voltage", position=0)]
-                ),
-            ),
+            output_entry(),
         ]
 
     def create_task(self, device: sy.Device, library_key: library.Key) -> tcp.ReadTask:
@@ -116,33 +151,12 @@ class TCPRead(BusCase):
             with self.collect(bounds) as samples, self.task.run():
                 samples.wait(count=20)
             self.assert_no_problems(statuses)
-        for name, bound in zip(["reading", "status", "output"], bounds, strict=True):
-            assert_indexed(name, bound, samples)
-        self._verify_reading(samples, self.reading)
-        self._verify_status(samples, self.status)
-        assert_equal(
-            "output.voltage",
-            samples[self.output.fields["voltage"]],
-            [INITIAL_VOLTAGE] * samples.count(self.output),
-        )
-
-    @staticmethod
-    def _verify_reading(samples: Collector, bound: Bound) -> None:
-        counts = samples[bound.fields["count"]].astype(np.int64)
+        for bound in bounds:
+            assert_indexed(bound.message, bound, samples)
         # One query in flight at a time, so every reply the simulator sent arrives.
-        assert_increasing("reading.count", counts, step=1)
-        replies = [reading(int(n)) for n in counts]
-        assert_equal(
-            "reading.voltage",
-            samples[bound.fields["voltage"]],
-            [v * VOLTAGE_SCALE + VOLTAGE_OFFSET for v, _ in replies],
-        )
-        current = samples[bound.fields["current"]]
-        assert_equal(
-            "reading.current", current, [c * CURRENT_SCALE for _, c in replies]
-        )
-        if not np.any(current < 0):
-            raise AssertionError("reading.current: expected negative samples")
+        verify_reading(samples, self.reading, step=1)
+        self._verify_status(samples, self.status)
+        verify_output(samples, self.output)
 
     @staticmethod
     def _verify_status(samples: Collector, bound: Bound) -> None:
@@ -205,3 +219,104 @@ class TCPReadTimeout(BusCase):
         assert_increasing(
             "reading.count", samples[self.reading.fields["count"]], step=1
         )
+
+
+class TCPReadLateReply(BusCase):
+    """Delays every instrument reply past the task's timeout. The task warns that it
+    discarded a late reply, stores no late reply, not even as the answer to the next
+    query, and reads again once replies are on time.
+
+    A READ? reply stored as the MEAS:VOLT? answer would put a count in output.voltage.
+    """
+
+    sim_classes = [SCPISim]
+    prefix = "tcp_read_late"
+    reading: Bound
+    output: Bound
+
+    def create_entries(self) -> list[library.Entry]:
+        return [reading_entry(), output_entry()]
+
+    def create_task(self, device: sy.Device, library_key: library.Key) -> tcp.ReadTask:
+        reading_msg, self.reading = self.bind_read(
+            "reading",
+            ["count", "voltage", "current"],
+            {"count": sy.DataType.UINT32},
+        )
+        output_msg, self.output = self.bind_read("output", ["voltage"])
+        return tcp.ReadTask(
+            name="TCP Read Late Reply",
+            device=device.key,
+            library=library_key,
+            messages=[reading_msg, output_msg],
+            rate=10 * sy.Rate.HZ,
+            timeout=POLL_TIMEOUT,
+            framing=bus.DelimiterFraming(delimiter="\n"),
+        )
+
+    def run(self) -> None:
+        sim = self.simulator(SCPISim)
+        with self.statuses() as statuses:
+            with self.collect(self.bounds) as samples, self.task.run():
+                samples.wait(count=5)
+                self.assert_no_problems(statuses)
+                sim.delay(LATE_REPLY)
+                message = self.wait_for_status(
+                    statuses, "warning", containing="late reply to"
+                )
+                self.log(f"Warning while replies are late: {message}")
+                assert_no_new_samples(samples, self.bounds)
+                sim.delay(0)
+                samples.wait_for_more(count=5)
+                self.wait_for_status(statuses, "success")
+        for bound in self.bounds:
+            assert_indexed(bound.message, bound, samples)
+        verify_reading(samples, self.reading)
+        verify_output(samples, self.output)
+
+
+class TCPReadSilentPeer(BusCase):
+    """Hangs the instrument with its connection open. The task warns that the polled
+    message missed its periods, invents no samples, and reads again once the
+    instrument answers the queries that waited."""
+
+    sim_classes = [SCPISim]
+    prefix = "tcp_read_silent"
+    reading: Bound
+
+    def create_entries(self) -> list[library.Entry]:
+        return [reading_entry()]
+
+    def create_task(self, device: sy.Device, library_key: library.Key) -> tcp.ReadTask:
+        reading_msg, self.reading = self.bind_read(
+            "reading",
+            ["count", "voltage", "current"],
+            {"count": sy.DataType.UINT32},
+        )
+        return tcp.ReadTask(
+            name="TCP Read Silent Peer",
+            device=device.key,
+            library=library_key,
+            messages=[reading_msg],
+            rate=10 * sy.Rate.HZ,
+            timeout=POLL_TIMEOUT,
+            framing=bus.DelimiterFraming(delimiter="\n"),
+        )
+
+    def run(self) -> None:
+        sim = self.simulator(SCPISim)
+        with self.statuses() as statuses:
+            with self.collect(self.bounds) as samples, self.task.run():
+                samples.wait(count=5)
+                self.assert_no_problems(statuses)
+                sim.hang()
+                message = self.wait_for_status(
+                    statuses, "warning", containing="reading missed 3 periods"
+                )
+                self.log(f"Warning while hung: {message}")
+                assert_no_new_samples(samples, self.bounds)
+                sim.unhang()
+                samples.wait_for_more(count=5)
+                self.wait_for_status(statuses, "success")
+        assert_indexed("reading", self.reading, samples)
+        verify_reading(samples, self.reading)

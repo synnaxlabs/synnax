@@ -25,12 +25,18 @@ type:
 The simulator records every valid frame the Driver sends, checksum included, and
 echoes it back. It stops streaming while more than ``BACKLOG`` bytes wait unread, so
 the stream holds only whole frames before the Driver opens the port.
+
+A muted simulator sends none of its own frames. ``inject`` adds faults to the stream,
+muted or not: each period, the simulator sends one of the chosen faults, in turn.
 """
 
 import asyncio
+import enum
 import fcntl
 import math
+import multiprocessing
 import os
+import random
 import struct
 import termios
 import tty
@@ -45,6 +51,21 @@ TELEMETRY_TYPE = 0x01
 STATUS_TYPE = 0x02
 STATUS_DIVISOR = 5
 BACKLOG = 512
+UNKNOWN_TYPE = 0x7F
+
+
+class Fault(enum.IntFlag):
+    """Bad input the simulator can add to its stream."""
+
+    NONE = 0
+    GARBAGE = enum.auto()
+    """Up to 32 random bytes."""
+    TRUNCATED = enum.auto()
+    """A telemetry frame cut short."""
+    BAD_CHECKSUM = enum.auto()
+    """A telemetry frame with one bit of its body or checksum flipped."""
+    UNKNOWN = enum.auto()
+    """A valid frame of type ``UNKNOWN_TYPE``, which no library message has."""
 
 
 def crc16_modbus(data: bytes) -> int:
@@ -91,6 +112,22 @@ def status(count: int) -> bytes:
     """Returns the wire frame of the status frame with the given count."""
     count %= 256
     return frame(struct.pack("<BBb", STATUS_TYPE, count, trim(count)))
+
+
+def _fault(kind: Fault, count: int, rng: random.Random) -> bytes:
+    if kind == Fault.GARBAGE:
+        return rng.randbytes(rng.randint(1, 32))
+    good = telemetry(count)
+    if kind == Fault.TRUNCATED:
+        return good[: rng.randrange(1, len(good))]
+    if kind == Fault.BAD_CHECKSUM:
+        bad = bytearray(good)
+        bit = rng.randrange(HEADER_SIZE * 8, len(bad) * 8)
+        bad[bit // 8] ^= 1 << (bit % 8)
+        return bytes(bad)
+    if kind == Fault.UNKNOWN:
+        return frame(struct.pack("<BH", UNKNOWN_TYPE, count % 65536))
+    raise ValueError(f"{kind!r} is not a single fault")
 
 
 def _pending(fd: int) -> int:
@@ -140,6 +177,24 @@ class SerialFrameSim(BusSim[bytes]):
     path = "/tmp/synnax_serial_sim"
     device_name = "Serial Test Sensor"
 
+    def __init__(self, rate: sy.Rate = 50 * sy.Rate.HZ, verbose: bool = False):
+        super().__init__(rate=rate, verbose=verbose)
+        self._muted = multiprocessing.Event()
+        self._faults = multiprocessing.Value("i", Fault.NONE)
+
+    def mute(self) -> None:
+        """Stops streaming and echoing frames until unmute is called."""
+        self._muted.set()
+
+    def unmute(self) -> None:
+        """Resumes streaming and echoing frames."""
+        self._muted.clear()
+
+    def inject(self, faults: Fault) -> None:
+        """Sends one of faults each period from now on, in turn, after that period's
+        frames. Fault.NONE stops them."""
+        self._faults.value = faults
+
     def start(self) -> None:
         self._unlink()
         super().start()
@@ -164,6 +219,8 @@ class SerialFrameSim(BusSim[bytes]):
         os.replace(link, self.path)
 
         deframer = _Deframer()
+        rng = random.Random(0)
+        turn = 0
 
         def send(data: bytes) -> None:
             if _pending(terminal) + len(data) > BACKLOG:
@@ -180,12 +237,19 @@ class SerialFrameSim(BusSim[bytes]):
                 return
             for f in deframer.write(chunk):
                 self._record(f)
-                send(f)
+                if not self._muted.is_set():
+                    send(f)
 
         def stream(count: int) -> None:
-            send(telemetry(count))
-            if count % STATUS_DIVISOR == 0:
-                send(status(count // STATUS_DIVISOR))
+            nonlocal turn
+            if not self._muted.is_set():
+                send(telemetry(count))
+                if count % STATUS_DIVISOR == 0:
+                    send(status(count // STATUS_DIVISOR))
+            faults = list(Fault(self._faults.value))
+            if faults:
+                send(_fault(faults[turn % len(faults)], count, rng))
+                turn += 1
 
         asyncio.get_running_loop().add_reader(controller, receive)
         self._ready.set()

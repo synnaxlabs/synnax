@@ -9,6 +9,7 @@
 
 import numpy as np
 from examples.simulators import serial_frames
+from examples.simulators.serial_frames import Fault, SerialFrameSim
 
 import synnax as sy
 from synnax import library, serial
@@ -27,6 +28,10 @@ PRESSURE_OFFSET = 14.7
 FLOW_SCALE = 0.5
 # The type byte follows the two sync bytes and the length byte.
 TYPE_START_BIT = 24
+CORRUPT = "dropped corrupt or unframed segments"
+UNMATCHED = "none match a message in the library"
+# A task warns about unmatched frames once none has matched for 10 s.
+UNMATCHED_TIMEOUT = 20 * sy.TimeSpan.SECOND
 
 
 class SerialRead(SerialCase):
@@ -133,3 +138,41 @@ class SerialRead(SerialCase):
         assert_equal("status.trim", trim, [serial_frames.trim(int(n)) for n in counts])
         if not np.any(trim < 0):
             raise AssertionError("status.trim: expected negative samples")
+
+
+class SerialReadGarbage(SerialRead):
+    """Mixes random bytes, truncated frames, and frames with bad checksums into the
+    stream, then streams only valid frames of a type the library lacks. The task warns
+    about each, decodes no bad frame, keeps decoding the good ones, and clears its
+    warning once the stream is clean.
+
+    A bad frame repeats the count of the good frame before it, so decoding one breaks
+    the rising counts.
+    """
+
+    prefix = "serial_read_garbage"
+
+    def run(self) -> None:
+        sim = self.simulator(SerialFrameSim)
+        with self.statuses() as statuses:
+            with self.collect(self.bounds) as samples, self.task.run():
+                samples.wait(count=5)
+                self.assert_no_problems(statuses)
+                sim.inject(Fault.GARBAGE | Fault.TRUNCATED | Fault.BAD_CHECKSUM)
+                message = self.wait_for_status(statuses, "warning", containing=CORRUPT)
+                self.log(f"Warning with garbage: {message}")
+                samples.wait_for_more(count=10)
+                sim.inject(Fault.UNKNOWN)
+                sim.mute()
+                message = self.wait_for_status(
+                    statuses, "warning", containing=UNMATCHED, timeout=UNMATCHED_TIMEOUT
+                )
+                self.log(f"Warning with unknown frames: {message}")
+                sim.inject(Fault.NONE)
+                sim.unmute()
+                samples.wait_for_more(count=5)
+                self.wait_for_status(statuses, "success")
+        assert_indexed("telemetry", self.telemetry, samples)
+        assert_indexed("status", self.status, samples)
+        self._verify_telemetry(samples)
+        self._verify_status(samples)
