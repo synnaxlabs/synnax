@@ -42,8 +42,8 @@ any_of(const std::error_code &ec, const std::initializer_list<std::errc> codes) 
     return false;
 }
 
-/// @returns ec in std::system_category when Asio reported it in its own category,
-/// which compares equal to few std::errc values.
+/// @returns ec in std::system_category when Asio reported it in its own category, which
+/// compares equal to few std::errc values.
 inline std::error_code from_asio(const std::error_code &ec) {
     if (ec.category() != asio::system_category()) return ec;
     return {ec.value(), std::system_category()};

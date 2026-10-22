@@ -56,8 +56,8 @@ public:
     /// and joins props.multicast_group when set. A multicast socket binds every
     /// interface and joins the group on the interface that holds props.local_address.
     /// @returns CONFIG_ERROR when props is invalid or the port is in use, and
-    /// UNREACHABLE_ERROR when the remote does not resolve, no interface holds the
-    /// local address, or the group cannot be joined.
+    /// UNREACHABLE_ERROR when the remote does not resolve, no interface holds the local
+    /// address, or the group cannot be joined.
     static std::pair<std::unique_ptr<Socket>, x::errors::Error>
     open(const synnax::udp::Properties &props, const Config &config = Config{});
 

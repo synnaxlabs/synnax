@@ -20,8 +20,8 @@
 #include "driver/bus/transport.h"
 
 /// @brief the contract that every bus transport keeps, as gtest suites that a
-/// transport's tests instantiate with a Rig for each stack they run on. The suites
-/// live in contract.cpp, so a test binary links them once.
+/// transport's tests instantiate with a Rig for each stack they run on. The suites live
+/// in contract.cpp, so a test binary links them once.
 namespace driver::bus::testutil {
 /// @brief plays the device behind a transport for the contract suites.
 class Rig {

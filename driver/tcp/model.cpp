@@ -21,8 +21,8 @@
 
 namespace driver::tcp::model {
 namespace {
-/// @brief keeps an io_context running while an operation is pending, as a real
-/// socket's registration with the reactor does.
+/// @brief keeps an io_context running while an operation is pending, as a real socket's
+/// registration with the reactor does.
 using Work = asio::executor_work_guard<asio::io_context::executor_type>;
 
 /// @brief an operation that waits for the network.
@@ -62,8 +62,8 @@ struct Pipe {
         });
     }
 
-    /// @brief completes the pending read when bytes are queued or the peer closed.
-    /// The caller holds mu.
+    /// @brief completes the pending read when bytes are queued or the peer closed. The
+    /// caller holds mu.
     void complete_read() {
         if (!this->read.has_value()) return;
         if (!this->to_client.empty()) {

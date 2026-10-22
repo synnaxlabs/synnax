@@ -100,8 +100,8 @@ TEST_P(StreamContract, ReportsUnreachableOnReadOnceThePeerCloses) {
 TEST_P(StreamContract, ReportsUnreachableOnWriteOnceThePeerCloses) {
     const auto transport = ASSERT_NIL_P(this->rig->opener()());
     this->rig->hang_up();
-    // TCP takes the first write after the peer closes and learns of the close from
-    // the reset that the peer sends back.
+    // TCP takes the first write after the peer closes and learns of the close from the
+    // reset that the peer sends back.
     auto err = x::errors::NIL;
     for (int i = 0; i < 50 && !err; i++) {
         err = transport->write(bytes("ping"), x::telem::SECOND);

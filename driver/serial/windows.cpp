@@ -148,8 +148,8 @@ std::error_code watch(const Handle handle, Line &) {
     return {};
 }
 
-// Windows reports which line errors occurred since the last call, not which bytes
-// they hit, so each reported error counts once and the bytes stay in data.
+// Windows reports which line errors occurred since the last call, not which bytes they
+// hit, so each reported error counts once and the bytes stay in data.
 std::pair<Received, std::error_code>
 receive(const Handle handle, Line &, const std::span<std::uint8_t> data) {
     DWORD errors = 0;

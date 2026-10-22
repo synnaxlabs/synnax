@@ -55,8 +55,8 @@ struct Mailbox {
     asio::io_context *ctx = nullptr;
     std::optional<Receive> receive;
 
-    /// @brief completes the pending receive when a datagram is queued. The caller
-    /// holds the network's lock.
+    /// @brief completes the pending receive when a datagram is queued. The caller holds
+    /// the network's lock.
     void complete() {
         if (!this->receive.has_value() || this->queue.empty()) return;
         const auto datagram = std::move(this->queue.front());

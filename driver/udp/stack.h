@@ -24,8 +24,8 @@
 #include "asio/ip/udp.hpp"
 
 namespace driver::udp {
-/// @brief completes an asynchronous operation with its error and the number of bytes
-/// it moved.
+/// @brief completes an asynchronous operation with its error and the number of bytes it
+/// moved.
 using Handler = std::function<void(const std::error_code &, std::size_t)>;
 
 /// @brief the operating system calls that a Socket makes. Each asynchronous operation
@@ -54,8 +54,8 @@ public:
         const std::optional<asio::ip::address> &iface
     ) = 0;
 
-    /// @brief receives one datagram into buffer and its source into sender. The
-    /// caller keeps buffer and sender alive until the handler runs.
+    /// @brief receives one datagram into buffer and its source into sender. The caller
+    /// keeps buffer and sender alive until the handler runs.
     virtual void async_receive_from(
         std::span<std::uint8_t> buffer,
         asio::ip::udp::endpoint &sender,
