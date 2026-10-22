@@ -12,8 +12,16 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "udp",
-    srcs = ["socket.cpp"],
-    hdrs = ["socket.h"],
+    srcs = [
+        "errors.cpp",
+        "socket.cpp",
+        "stack.cpp",
+    ],
+    hdrs = [
+        "errors.h",
+        "socket.h",
+        "stack.h",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/udp",
@@ -42,15 +50,34 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "model",
+    testonly = True,
+    srcs = ["model.cpp"],
+    hdrs = ["model.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":udp",
+        "//x/cpp/telem",
+        "@asio//:asio_no_openssl",
+    ],
+)
+
 # The multicast test loops a datagram back through the host's default interface, which
 # the sandbox blocks without network access.
 cc_test(
     name = "udp_test",
     size = "small",
-    srcs = ["socket_test.cpp"],
+    srcs = [
+        "errors_test.cpp",
+        "model_test.cpp",
+        "socket_test.cpp",
+    ],
     tags = ["requires-network"],
     deps = [
+        ":model",
         ":udp",
+        "//driver/transport",
         "//x/cpp/test",
         "@asio//:asio_no_openssl",
         "@googletest//:gtest_main",

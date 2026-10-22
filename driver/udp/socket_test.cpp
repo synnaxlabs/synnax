@@ -158,7 +158,8 @@ TEST_F(SocketTest, KeepsReceivingAfterTheRemoteRefusesADatagram) {
     p.remote_port = this->free_port();
     const auto socket = ASSERT_NIL_P(Socket::open(p));
     ASSERT_NIL(socket->write(bytes("nobody"), x::telem::SECOND));
-    this->send("still here", local(p.port));
+    asio::ip::udp::socket remote(this->ctx, local(p.remote_port));
+    remote.send_to(asio::buffer(std::string("still here")), local(p.port));
     EXPECT_EQ(
         as_string(ASSERT_NIL_P(socket->read(x::telem::SECOND)).data),
         "still here"
@@ -175,10 +176,41 @@ TEST_F(SocketTest, RejectsAWriteWithoutARemote) {
     );
 }
 
-TEST_F(SocketTest, FailsToBindAPortInUse) {
+TEST_F(SocketTest, RejectsAPortInUse) {
     synnax::udp::Properties p;
     p.port = this->free_port();
     const auto first = ASSERT_NIL_P(Socket::open(p));
+    ASSERT_OCCURRED_AS_P(Socket::open(p), transport::CONFIG_ERROR);
+}
+
+TEST_F(SocketTest, DropsDatagramsFromSendersOtherThanTheRemote) {
+    synnax::udp::Properties p;
+    p.port = this->free_port();
+    p.remote_host = "127.0.0.1";
+    p.remote_port = this->peer.local_endpoint().port();
+    const auto socket = ASSERT_NIL_P(Socket::open(p));
+    asio::ip::udp::socket foreign(this->ctx, local(0));
+    foreign.send_to(asio::buffer(std::string("spoofed")), local(p.port));
+    this->send("genuine", local(p.port));
+    EXPECT_EQ(as_string(ASSERT_NIL_P(socket->read(x::telem::SECOND)).data), "genuine");
+}
+
+TEST_F(SocketTest, BindsTheLocalAddress) {
+    synnax::udp::Properties p;
+    p.port = this->free_port();
+    p.local_address = "127.0.0.1";
+    const auto socket = ASSERT_NIL_P(Socket::open(p));
+    this->send("on loopback", local(p.port));
+    EXPECT_EQ(
+        as_string(ASSERT_NIL_P(socket->read(x::telem::SECOND)).data),
+        "on loopback"
+    );
+}
+
+TEST_F(SocketTest, FailsToBindAnAddressNoInterfaceHolds) {
+    synnax::udp::Properties p;
+    p.port = this->free_port();
+    p.local_address = "192.0.2.1";
     ASSERT_OCCURRED_AS_P(Socket::open(p), transport::UNREACHABLE_ERROR);
 }
 
@@ -196,7 +228,7 @@ TEST_F(SocketTest, ReceivesFromAMulticastGroup) {
     p.multicast_group = "239.255.43.21";
     auto [socket, err] = Socket::open(p);
     if (err.matches(transport::UNREACHABLE_ERROR))
-        GTEST_SKIP() << "the host refused to join a multicast group: " << err;
+        SKIP_MISSING_CAPABILITY("the host refused to join a multicast group: " << err);
     ASSERT_NIL(err);
     asio::ip::udp::socket sender(this->ctx, asio::ip::udp::v4());
     sender.set_option(asio::ip::multicast::enable_loopback(true));
@@ -207,7 +239,10 @@ TEST_F(SocketTest, ReceivesFromAMulticastGroup) {
         0,
         ec
     );
-    if (ec) GTEST_SKIP() << "the host refused to send to a multicast group: " << ec;
+    if (ec)
+        SKIP_MISSING_CAPABILITY(
+            "the host refused to send to a multicast group: " << ec.message()
+        );
     EXPECT_EQ(
         as_string(ASSERT_NIL_P(socket->read(x::telem::SECOND)).data),
         "to the group"
@@ -225,6 +260,9 @@ TEST(Socket, RejectsInvalidProperties) {
     ASSERT_OCCURRED_AS_P(Socket::open(p), transport::CONFIG_ERROR);
     p.remote_host = "";
     p.remote_port = 5000;
+    ASSERT_OCCURRED_AS_P(Socket::open(p), transport::CONFIG_ERROR);
+    p.remote_port = 0;
+    p.local_address = "not an address";
     ASSERT_OCCURRED_AS_P(Socket::open(p), transport::CONFIG_ERROR);
 }
 }
