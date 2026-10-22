@@ -182,7 +182,7 @@ describe("feed", () => {
       await writer.write({ [time.key]: [last], [data.key]: [2] });
       await expect
         .poll(() => feed.lastWrite(data.key)?.valueOf(), { timeout: 5000 })
-        .toEqual(last.valueOf() + 1n);
+        .toEqual(last.valueOf());
     } finally {
       await writer.close();
     }
@@ -294,7 +294,7 @@ describe("feed", () => {
           { timeout: 5000 },
         )
         .toEqual(last.valueOf());
-      expect(glFeed.lastWrite(time.key)?.valueOf()).toEqual(last.valueOf() + 1n);
+      expect(glFeed.lastWrite(time.key)?.valueOf()).toEqual(last.valueOf());
     } finally {
       await writer.close();
     }

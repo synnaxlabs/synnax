@@ -76,7 +76,7 @@ export class Unary {
     return this.dynamic.leadingBuffer;
   }
 
-  /** @returns the end of the last stamped write into the leading buffer, else null. */
+  /** @returns the stamp of the last sample in the leading buffer, else null. */
   get lastWrite(): TimeStamp | null {
     this.checkOpen("lastWrite");
     return this.dynamic.lastWrite;

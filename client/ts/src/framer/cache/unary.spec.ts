@@ -226,10 +226,10 @@ describe("Unary", () => {
   });
 
   describe("lastWrite", () => {
-    it("should be the end of the leading buffer's last stamped write", () => {
+    it("should be the stamp of the leading buffer's last sample", () => {
       const u = newUnary();
       u.writeDynamic(stamped(10, 13, [1, 2, 3], LEADING_ALIGNMENT));
-      expect(u.lastWrite).toEqual(TimeStamp.seconds(13));
+      expect(u.lastWrite).toEqual(TimeStamp.seconds(13).sub(TimeSpan.NANOSECOND));
     });
 
     it("should be null before any write", () => {

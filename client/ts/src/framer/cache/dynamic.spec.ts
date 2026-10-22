@@ -684,7 +684,7 @@ describe("DynamicCache", () => {
       expect(cache.lastWrite).toBeNull();
     });
 
-    it("should be the end of the last stamped write", () => {
+    it("should be the stamp of the last sample written", () => {
       const cache = new Dynamic({ dynamicBufferSize: 100 });
       cache.write(
         new MultiSeries([
@@ -696,7 +696,7 @@ describe("DynamicCache", () => {
           stamped([4, 5], TimeStamp.seconds(13).range(TimeStamp.seconds(15)), 3n),
         ]),
       );
-      expect(cache.lastWrite).toEqual(TimeStamp.seconds(15));
+      expect(cache.lastWrite).toEqual(TimeStamp.seconds(15).sub(TimeSpan.NANOSECOND));
     });
 
     it("should be null for unstamped data", () => {
@@ -728,7 +728,7 @@ describe("DynamicCache", () => {
           stamped([3, 4], TimeStamp.seconds(12).range(TimeStamp.seconds(14)), 2n),
         ]),
       );
-      expect(cache.lastWrite).toEqual(TimeStamp.seconds(14));
+      expect(cache.lastWrite).toEqual(TimeStamp.seconds(14).sub(TimeSpan.NANOSECOND));
     });
 
     it("should be null after a flush", () => {

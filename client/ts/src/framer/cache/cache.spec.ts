@@ -224,7 +224,7 @@ describe("Cache", () => {
       );
       expect(cache.timeAt(2, 11n)).toEqual(new TimeStamp(t0 + 1n));
       expect(cache.timeAt(1, 11n)).toEqual(new TimeStamp(t0 + 1n));
-      expect(cache.lastWrite(1)).toEqual(new TimeStamp(t0 + 2n));
+      expect(cache.lastWrite(1)).toEqual(new TimeStamp(t0 + 1n));
       expect(cache.lastWrite(2)).toBeNull();
       cache.close();
     });
