@@ -66,14 +66,14 @@ true => m4.f{}
 An import is an ontology relationship of a new type, `imports`, from the importing Arc
 to the module, beside `parent_of` and `labeled_by`.
 
-- **Derived on save**: Every save rewrites the Arc's outgoing `imports` relationships
-  from its import statements, in the same transaction as the text.
+- **Derived from the text**: A save, and every resync, rewrites the Arc's outgoing
+  `imports` relationships from its import statements.
 - **By key, not path**: A moved or renamed module keeps its relationships, so its
   importers are still found, and the resync of §3.2.0 reports the unknown path (§5.5).
 - **Unknown path, no relationship**: An import whose path resolves to no module leaves
   no relationship.
-- **Cycles**: The analyzer reports the chain, and the save writes no relationship for
-  the flagged import.
+- **Cycles**: The analyzer reports the chain. The save records the flagged import
+  instead of writing a relationship (§3.2.0).
 - **Delete**: A module in use can be deleted. Its importers resync before the
   relationships go and fail to compile, which is the signal.
 
@@ -81,16 +81,18 @@ to the module, beside `parent_of` and `labeled_by`.
 
 An Arc's content hash (RFC 0056 §6.6) folds in its modules' hashes, transitively, so a
 module edit makes every importer's task drift. The config also stores the Arc's own hash
-and one per module, each with an as-built copy, so a diff names what changed. A resync
-that rewrites the config promotes stored to as-built when the task status shows the
-Driver running the stored config, so `config_hash` never moves for promotion alone. A
-save before the Driver echoes a redeploy skips promotion and over-names until a later
-resync matches. Two kinds of change resync Arcs.
+and one per module. An as-built copy of each lives outside the hashed config, so a diff
+names what changed and promotion never moves `config_hash`. A resync promotes stored to
+as-built when the task status shows the Driver running the stored config. A save before
+the Driver echoes a redeploy skips promotion and over-names until a later resync
+matches. Three kinds of change resync Arcs.
 
 - **Content**: A module write resyncs its importers, found through incoming `imports`
   relationships.
 - **Path**: A module or group created, renamed, or moved below "Arcs" resyncs every Arc
   once, since an importer may already name the new path or lose the old one.
+- **Removal**: A save that drops an import, or a delete, resyncs every recorded Arc
+  (§3.2) as a module write, so it rewrites its relationships and its importers rehash.
 
 #### 3.2.1 Cost
 
@@ -127,8 +129,8 @@ the result as the Arc's status.
 ### 3.5 Migrations
 
 - **Arc**: Existing Arcs re-parent under "Arcs". Type defaults to `automation`.
-- **Task config**: A new version adds the hash fields of §3.2.0, empty until the next
-  sync.
+- **Task config**: A new version adds the stored hashes of §3.2.0, empty until the next
+  sync. The as-built record starts empty.
 
 ## 4 Implementation phases
 
@@ -159,10 +161,10 @@ property of the name, so a rename changes what importers see.
 **5.3 Relationships over a full scan.** O(I + D) against O(N) per module write (§3.2.1),
 for one ontology write per import per save.
 
-**5.4 Drift names the module that changed.** The task config stores an as-built hash per
-module (§3.2.0). RFC 0056 §4.4 rejected a deployed config snapshot, which duplicates
-Driver-held state. A hash is one string, promoted inside a write the resync makes
-anyway. No Driver change.
+**5.4 Drift names the module that changed.** An as-built hash per module lives beside
+the task config (§3.2.0). RFC 0056 §4.4 rejected a deployed config snapshot, which
+duplicates Driver-held state. A hash is one string, kept outside `config_hash`. No
+Driver change.
 
 **5.5 The relationship is derived from the text, not authoritative.** Rewriting
 importers on a rename needs a rename engine in the Core and a merge into open editors
