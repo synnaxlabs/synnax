@@ -28,8 +28,9 @@ export const propertiesZ = z.object({
   /** multicastGroup is the multicast group the task joins. Empty for unicast. */
   multicastGroup: z.string().default(""),
   /**
-   * localAddress is the local address the task binds to and joins the multicast group
-   * on. Empty binds every interface.
+   * localAddress is the local address the task receives on. A unicast socket binds to
+   * it, and a multicast socket joins the group on its interface. Empty uses every
+   * interface.
    */
   localAddress: z.string().default(""),
 });

@@ -32,8 +32,9 @@ Properties struct {
     }
     local_address   string = "" {
         @doc value """
-            is the local address the task binds to and joins the multicast group on.
-            Empty binds every interface.
+            is the local address the task receives on. A unicast socket binds to it, and
+            a multicast socket joins the group on its interface. Empty uses every
+            interface.
         """
     }
 

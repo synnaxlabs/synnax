@@ -35,9 +35,9 @@ struct Properties {
     std::uint16_t remote_port = 0;
     /// @brief multicast_group is the multicast group the task joins. Empty for unicast.
     std::string multicast_group = "";
-    /// @brief local_address is the local address the task binds to and joins the
-    /// multicast
-    /// group on. Empty binds every interface.
+    /// @brief local_address is the local address the task receives on. A unicast socket
+    /// binds to it, and a multicast socket joins the group on its interface. Empty uses
+    /// every interface.
     std::string local_address = "";
 
     static Properties parse(x::json::Parser parser);
