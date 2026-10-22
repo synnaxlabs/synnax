@@ -147,9 +147,7 @@ sequence main {
 start_cmd == 1 => main
 ```
 
-<Note.Note variant="warning">
-  Do not start a separate top-level abort sequence from several lines, one for each
-  condition. Today only the last of those lines starts it, and the others do nothing.
-  Use an abort stage inside the sequence, as above, or join the conditions with `or` in
-  one line.
-</Note.Note>
+A transition from inside the test to a top-level abort stops the whole test, including
+any nested sequences. Its alarm checks stop too. To keep watching after an abort, put
+the monitoring flow at the top level. A top-level `=> abort` starts the abort and stops
+nothing else.

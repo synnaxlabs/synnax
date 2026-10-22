@@ -11,7 +11,10 @@
 
 package v0
 
-import "github.com/synnaxlabs/x/encoding/orc"
+import (
+	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/errors"
+)
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (tr TimeRange) EncodeOrc(w *orc.Writer) error {
@@ -35,6 +38,52 @@ func (tr *TimeRange) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		tr.End = TimeStamp(rawV)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (wv Window) EncodeOrc(w *orc.Writer) error {
+	switch v := wv.Variant.(type) {
+	case DynamicWindow:
+		w.String("dynamic")
+		w.Int64(int64(v.TimeSpan))
+	case StaticWindow:
+		w.String("static")
+		if err := v.TimeRange.EncodeOrc(w); err != nil {
+			return err
+		}
+	default:
+		return errors.Newf("Window: nil or unknown variant %T", wv.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (wv *Window) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.String()
+	if err != nil {
+		return err
+	}
+	switch tag {
+	case "dynamic":
+		var v DynamicWindow
+		{
+			rawV, err := r.Int64()
+			if err != nil {
+				return err
+			}
+			v.TimeSpan = TimeSpan(rawV)
+		}
+		wv.Variant = v
+	case "static":
+		var v StaticWindow
+		if err = v.TimeRange.DecodeOrc(r); err != nil {
+			return err
+		}
+		wv.Variant = v
+	default:
+		return errors.Newf("Window: unknown variant %q", tag)
 	}
 	return nil
 }

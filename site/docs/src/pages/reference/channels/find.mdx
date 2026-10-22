@@ -127,10 +127,27 @@ Put the pattern in an array. With a pattern that is not in an array, `retrieve` 
 
 ### By search term
 
-Only the TypeScript client can search channels by a part of their name, and filter them
-by their properties.
+Both clients can search channels by a part of their name and filter them by their
+properties.
 
-<Client.Tabs exclude={["console", "python"]}>
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+import synnax as sy
+
+matches = client.channels.retrieve(search_term="pressure", limit=10)
+floats = client.channels.retrieve(data_types=[sy.DataType.FLOAT32], is_index=False)
+```
+
+The filters are `search_term`, `data_types`, `not_data_types`, `is_index`, `virtual`,
+`internal`, `node_key`, `limit`, and `offset`. Results match all the filters. Use
+`range_key` to include aliases from a range and search those aliases too. Set
+`include_status=True` to attach each channel's status; a channel with no status gets
+`None`.
+
+  </Fragment>
 
   <Fragment slot="typescript">
 

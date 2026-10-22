@@ -30,9 +30,9 @@ from synnax.framer.adapter import WriteFrameAdapter
 from synnax.framer.codec import (
     HIGH_PERF_SPECIAL_CHAR,
     LOW_PERF_SPECIAL_CHAR,
-    WSFramerCodec,
+    WSCodec,
 )
-from synnax.framer.frame import CrudeFrame, FramePayload
+from synnax.framer.frame import CrudeFrame, FramePayload, K
 from synnax.telem import CrudeSeries, CrudeTimeStamp, TimeSpan, TimeStamp
 from x.control import Authority, CrudeAuthority, Subject
 from x.lists import normalize
@@ -68,7 +68,7 @@ class WriterConfig(BaseModel):
     mode: WriterMode = WriterMode.PERSIST_STREAM
     err_on_unauthorized: bool = False
     enable_auto_commit: bool = True
-    auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND
+    auto_index_persist_interval: TimeSpan = TimeSpan.SECOND
     auto_index: bool = False
 
 
@@ -84,7 +84,7 @@ class WriterResponse(BaseModel):
     err: ExceptionPayload
 
 
-class WSWriterCodec(WSFramerCodec):
+class WSWriterCodec(WSCodec):
     def encode(self, data: BaseModel) -> bytes:
         if not isinstance(data, Message):
             raise TypeError(f"expected Message, got {type(data)}")
@@ -120,8 +120,8 @@ def parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
     if isinstance(mode, int):
         try:
             return WriterMode(mode)
-        except:
-            ...
+        except ValueError:
+            pass
     raise ValueError(f"invalid writer mode {mode}")
 
 
@@ -189,7 +189,7 @@ class Writer:
         mode: CrudeWriterMode = WriterMode.PERSIST_STREAM,
         err_on_unauthorized: bool = False,
         enable_auto_commit: bool = True,
-        auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND,
+        auto_index_persist_interval: TimeSpan = TimeSpan.SECOND,
         auto_index: bool = False,
         group: int = 0,
     ) -> None:
@@ -228,7 +228,7 @@ class Writer:
     @overload
     def write(
         self,
-        channels_or_data: CrudeFrame,
+        channels_or_data: CrudeFrame[K],
     ) -> None: ...
 
     def write(
@@ -240,7 +240,7 @@ class Writer:
             | tuple[channel.Key]
             | list[str]
             | tuple[str]
-            | CrudeFrame
+            | CrudeFrame[K]
         ),
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> None:
@@ -299,7 +299,6 @@ class Writer:
         :param value: The authority level to set (0-255). Use Authority.ABSOLUTE (255)
             for exclusive control or Authority.DEFAULT (1) for standard priority.
         """
-        ...
 
     @overload
     def set_authority(
@@ -312,7 +311,6 @@ class Writer:
         :param value: The key or name of the channel to set authority for.
         :param authority: The authority level to set (0-255).
         """
-        ...
 
     @overload
     def set_authority(
@@ -323,7 +321,6 @@ class Writer:
 
         :param value: A dictionary mapping channel keys/names to their authority levels.
         """
-        ...
 
     def set_authority(
         self,

@@ -31,6 +31,7 @@ export const useList = Flux.createList<ListQuery, rack.Key, rack.Rack>({
   retrieveByKey: async ({ client, key }) =>
     await client.racks.retrieve({ ...BASE_QUERY, key }),
   onChange: ({ client, query }, handler) => client.racks.onChange(query, handler),
+  onChangeByKey: ({ client, key }, handler) => client.racks.onChange(key, handler),
   getCached: ({ client, query }) => client.racks.getCached(query),
 });
 

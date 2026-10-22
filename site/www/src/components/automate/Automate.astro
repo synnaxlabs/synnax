@@ -11,7 +11,7 @@
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Text } from "@synnaxlabs/lyra/text";
-import { createCssVariablesTheme, createHighlighter } from "shiki";
+import { highlighter } from "@synnaxlabs/site-common/shiki";
 import { AutomateVisualizer } from "@/components/automate/AutomateVisualizer";
 import { EXAMPLES } from "@/components/automate/timeline";
 import { ControlSystemGraphic } from "@/components/automate/ControlSystemGraphic";
@@ -19,15 +19,8 @@ import { ControlHandoffGraphic } from "@/components/automate/ControlHandoffGraph
 import SectionHero from "@/components/common/SectionHero.astro";
 import FeatureSection from "@/components/common/FeatureSection.astro";
 
-const cssVarsTheme = createCssVariablesTheme({ name: "css-variables" });
-
-const highlighter = await createHighlighter({
-    themes: [cssVarsTheme],
-    langs: [arcGrammar],
-});
-
-const highlight = (code: string) =>
-    highlighter.codeToHtml(code, { lang: "arc", theme: "css-variables" });
+const render = await highlighter([arcGrammar]);
+const highlight = (code: string) => render(code, "arc");
 
 const codeHtmls = EXAMPLES.map((example) => highlight(example.code));
 ---

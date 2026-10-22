@@ -204,8 +204,8 @@ sy.http.ChannelField(
 Add fixed values to the request body:
 
 ```python
-sy.http.StaticField(pointer="/source", json_type="string", value="python-client")
-sy.http.StaticField(pointer="/priority", json_type="number", value=1)
+sy.http.StaticWriteField(pointer="/source", json_type="string", value="python-client")
+sy.http.StaticWriteField(pointer="/priority", json_type="number", value=1)
 ```
 
 ### Generated fields
@@ -213,8 +213,8 @@ sy.http.StaticField(pointer="/priority", json_type="number", value=1)
 Add auto-generated values (UUIDs or timestamps):
 
 ```python
-sy.http.GeneratedField(pointer="/id", generator="uuid")
-sy.http.GeneratedField(pointer="/ts", generator="timestamp", time_format="iso8601")
+sy.http.GeneratedWriteField(pointer="/id", generator="uuid")
+sy.http.GeneratedWriteField(pointer="/ts", generator="timestamp", time_format="iso8601")
 ```
 
 ## Troubleshooting

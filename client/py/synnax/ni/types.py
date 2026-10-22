@@ -45,7 +45,9 @@ def _assign_channel_devices(
             channel.device = device_key
 
 
-class AnalogReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
+class AnalogReadTask(
+    task.StarterStopperMixin, task.JSONConfigMixin[AnalogReadConfig], task.Protocol
+):
     """A task for reading analog data from NI devices and writing them to a Synnax
     cluster. For detailed information on configuring and operating an analog read
     task, see https://docs.synnaxlabs.com/reference/hardware/ni/analog-read-task
@@ -64,7 +66,6 @@ class AnalogReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protoc
     """
 
     TYPE = "ni_analog_read"
-    config: AnalogReadConfig
     _internal: task.Task
 
     def __init__(
@@ -95,7 +96,9 @@ class AnalogReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protoc
         _assign_channel_devices(self.config.channels, device)
 
 
-class AnalogWriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
+class AnalogWriteTask(
+    task.StarterStopperMixin, task.JSONConfigMixin[AnalogWriteConfig], task.Protocol
+):
     """A task for writing analog output data to NI devices. For detailed information
     on configuring and operating an analog write task, see
     https://docs.synnaxlabs.com/reference/hardware/ni/analog-write-task
@@ -111,7 +114,6 @@ class AnalogWriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Proto
     """
 
     TYPE = "ni_analog_write"
-    config: AnalogWriteConfig
     _internal: task.Task
 
     def __init__(
@@ -140,7 +142,9 @@ class AnalogWriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Proto
         task.assign_keys(self.config.channels)
 
 
-class CounterReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
+class CounterReadTask(
+    task.StarterStopperMixin, task.JSONConfigMixin[CounterReadConfig], task.Protocol
+):
     """A task for reading counter data from NI devices and writing them to a Synnax
     cluster. For detailed information on configuring and operating a counter read
     task, see https://docs.synnaxlabs.com/reference/hardware/ni/counter-read-task
@@ -159,7 +163,6 @@ class CounterReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Proto
     """
 
     TYPE = "ni_counter_read"
-    config: CounterReadConfig
     _internal: task.Task
 
     def __init__(
@@ -190,7 +193,9 @@ class CounterReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Proto
         _assign_channel_devices(self.config.channels, device)
 
 
-class DigitalReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
+class DigitalReadTask(
+    task.StarterStopperMixin, task.JSONConfigMixin[DigitalReadConfig], task.Protocol
+):
     """A task for reading digital data from NI devices and writing them to a Synnax
     cluster. For detailed information on configuring and operating a digital read
     task, see https://docs.synnaxlabs.com/reference/hardware/ni/digital-read-task
@@ -207,7 +212,6 @@ class DigitalReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Proto
     """
 
     TYPE = "ni_digital_read"
-    config: DigitalReadConfig
     _internal: task.Task
 
     def __init__(
@@ -238,7 +242,9 @@ class DigitalReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Proto
         task.assign_keys(self.config.channels)
 
 
-class DigitalWriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
+class DigitalWriteTask(
+    task.StarterStopperMixin, task.JSONConfigMixin[DigitalWriteConfig], task.Protocol
+):
     """A task for writing digital output data to NI devices. For detailed information
     on configuring and operating a digital write task, see
     https://docs.synnaxlabs.com/reference/hardware/ni/digital-write-task
@@ -254,7 +260,6 @@ class DigitalWriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Prot
     """
 
     TYPE = "ni_digital_write"
-    config: DigitalWriteConfig
     _internal: task.Task
 
     def __init__(

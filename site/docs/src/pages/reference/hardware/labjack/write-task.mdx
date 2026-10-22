@@ -31,6 +31,10 @@ Before you start, you need a
 
 ## Create a LabJack write task
 
+When you create command channels with a client library, give each one its own index
+channel. A writer that holds several commands on one index must write all of them in
+every frame.
+
 <Client.Tabs>
   <Fragment slot="console">
 

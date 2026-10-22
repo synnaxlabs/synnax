@@ -146,7 +146,8 @@ license", or "expired".
 </Problem.Cause>
 <Problem.Fix>
 
-Replace the key, or remove the flag and activate a license in the Console. See
+Replace the key, or remove the flag to start without that key. A Core with no stored
+license can use up to 50 channels. See
 [Activate a license](/reference/enterprise/license#activate-at-start).
 
 </Problem.Fix>
@@ -186,8 +187,6 @@ The Console cannot use the Core. Hover over the status to see the reason.
 - **Cannot reach Core at** -> check that the Core runs, the host and port are correct,
   and a firewall allows the port. For a Core with TLS, turn on **Secure**, and
   [install its certificate](/reference/enterprise/certificates) if it is self-signed.
-- **No license is active on this Core** -> log in through a browser at the address of
-  the Core, then [activate a license](/reference/enterprise/license).
 - **The license on this Core has expired** -> see
   [expiry](/reference/enterprise/license#expiry).
 

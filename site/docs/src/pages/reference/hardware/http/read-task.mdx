@@ -150,6 +150,11 @@ await task.start();
 | **Data saving** | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving).        |
 | **Auto start**  | `auto_start`           | Off     | Starts the task each time the Driver starts.                     |
 
+Turn on **NaN fill** (`nan_fill_enabled=True` in Python, `nanFillEnabled: true` in
+TypeScript) to write `NaN` when a float field is missing or cannot be converted. It is
+off by default. With it off, an invalid field skips every field that shares its
+endpoint and index channel. Invalid non-float fields still skip that group.
+
 The HTTP read task has no stream rate. Each response is sent to the Core at once. See
 [read tasks](/reference/hardware/tasks#read-tasks).
 

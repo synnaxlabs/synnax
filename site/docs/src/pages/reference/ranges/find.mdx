@@ -144,7 +144,10 @@ my_ranges = client.ranges.retrieve(names=["My Range", "My Other Range"])
 my_ranges = client.ranges.retrieve(keys=[my_range.key, my_other_range.key])
 
 # By search term
-ranges = client.ranges.search("Hotfire")
+ranges = client.ranges.retrieve(search_term="Hotfire")
+
+# By label
+passed = client.ranges.retrieve(has_labels=[pass_label.key])
 ```
 
   </Fragment>
@@ -199,7 +202,12 @@ Navigate up the hierarchy by retrieving a child range's parent.
 
   <Fragment slot="python">
 
-The Python client cannot retrieve the parent of a range.
+```python
+my_range = client.ranges.retrieve(key=my_range.key, include_parent=True)
+parent = my_range.parent
+```
+
+`parent` is the parent range payload, or `None` when the range has no parent.
 
   </Fragment>
 

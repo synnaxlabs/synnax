@@ -15,11 +15,11 @@ demonstrate how to calculate derived values from these channels with different r
 """
 
 import random
-import time
 
 import numpy as np
 
 import synnax as sy
+from x.telem import CrudeSeries
 
 # We've logged in via the command-line interface, so there's no need to provide
 # credentials here. See https://docs.synnaxlabs.com/reference/client/quick-start.
@@ -71,11 +71,11 @@ with client.open_writer(
 ) as writer:
     i = 0
     while rough_rate.wait():
-        time = sy.TimeStamp.now()
-        time_2 = time + sy.TimeSpan.MICROSECOND * 3
+        now = sy.TimeStamp.now()
+        now_2 = now + sy.TimeSpan.MICROSECOND * 3
         # Generate data to write to the first channel.
-        data_to_write = {
-            time_ch_1.key: [time, time_2],
+        data_to_write: dict[int, CrudeSeries] = {
+            time_ch_1.key: [now, now_2],
             data_ch_1.key: [np.sin(i / 10), np.sin((i + 1) / 10)],
         }
 
@@ -84,7 +84,7 @@ with client.open_writer(
         if i % 3 == 0:
             # Generate timestamps at a random time that is off by between -5 and +5
             # nanoseconds using random.randint
-            second_time = time + sy.TimeSpan.NANOSECOND * random.randint(-5, 5)
+            second_time = now + sy.TimeSpan.NANOSECOND * random.randint(-5, 5)
             second_time_2 = (
                 second_time
                 + sy.TimeSpan.MICROSECOND * 3

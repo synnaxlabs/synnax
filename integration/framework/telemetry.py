@@ -15,7 +15,7 @@ from typing import Any
 
 import synnax as sy
 from framework.utils import create_indexed_channel, create_time_index
-from x import suppress_websocket_errors
+from framework.websocket import suppress_websocket_errors
 
 
 class TelemetryWriter:
@@ -25,11 +25,11 @@ class TelemetryWriter:
         self,
         client: sy.Synnax,
         tlm: dict[str, Any],
-        channels: list[str],
+        channels: sy.channel.Params,
         update: Callable[[dict[str, object], sy.TimeStamp, float], None],
         should_stop: Callable[[], bool],
         *,
-        rate: sy.CrudeTimeSpan = 200 * sy.TimeSpan.MILLISECOND,
+        rate: sy.Rate | sy.TimeSpan = 200 * sy.TimeSpan.MILLISECOND,
         name: str | None = None,
         on_error: Callable[[Exception], None] | None = None,
     ) -> None:

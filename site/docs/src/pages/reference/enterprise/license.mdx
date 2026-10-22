@@ -12,11 +12,12 @@ import { Note } from "@synnaxlabs/lyra/note";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-A Synnax Core needs a license key from your organization's Synnax account. Without an
-active license, the Core accepts only login and license requests. It answers every other
-request with "no license is activated on this Core".
+A Synnax Core without a license key runs with a limit of 50 channels. To use more,
+[contact Synnax Labs](https://www.synnaxlabs.com/#contact) for a license key, then
+[activate it at start](#activate-at-start). The Core accepts numeric keys and signed
+keys issued through your organization's Synnax account.
 
-Most license keys are bound to the computer they were issued for. The key holds the
+Signed license keys can be bound to the computer they were issued for. The key holds the
 fingerprint of that computer, which comes from its network hardware addresses. The Core
 checks the key on its own and needs no internet access. Only the portal, where you get
 the key, needs internet access, and you can use it from any computer.
@@ -27,7 +28,11 @@ To activate or replace a license, log in as a user with the **Owner** role.
 
 ## Activate from the Console
 
-1. Log in to the Core in the Console. The Console shows **This Core needs a license**.
+The Console shows an activation screen when a signed license has expired and no longer
+covers the Core. A Core in the free tier opens your projects instead; use
+[activate at start](#activate-at-start) to give it a key.
+
+1. Log in to the Core. The Console shows **This Core's license has expired**.
 2. Click **Copy fingerprint**.
 3. Click **Get a key**, and log in to your Synnax account.
 4. Select the license, enter a **Machine name**, and paste the fingerprint into **Host
@@ -45,7 +50,10 @@ restart.
 ## Activate at start
 
 Use this method for a Core that no one logs in to, or a Core started with `--mem`, which
-keeps nothing between runs.
+keeps nothing between runs. For a numeric key, set `SYNNAX_LICENSE_KEY` before you start
+the Core, or pass `--license-key`. Numeric keys do not need a fingerprint.
+
+For a signed key from the portal:
 
 1. Start the Core. Its log prints the fingerprint:
    `no active license on this Core. Host fingerprint: ...`
@@ -79,7 +87,7 @@ Run the "Show license info" command. The dialog shows:
 
 | Field                   | Values                                                                  |
 | ----------------------- | ----------------------------------------------------------------------- |
-| Status                  | **Active**, **Expiring**, **Expired**, or **Inactive**                  |
+| Status                  | **Active**, **Expiring**, **Expired**, or **Free**                  |
 | **Machines**            | Runs on any machine, Bound to this machine, or Bound to another machine |
 | **Channels**            | **Unlimited**, or the number of channels for each Core                  |
 | **Expires** or **Term** | The expiry date, or **Perpetual**                                       |
@@ -139,6 +147,9 @@ host instead. On Kubernetes, ask Synnax Labs for a license that runs on any mach
 
 ## Expiry
 
+An expired numeric key falls back to the free 50-channel limit after its grace period.
+Signed keys follow these rules:
+
 1. **7 days before the expiry date** -> the Console warns: "license expires on ..."
 2. **Up to 14 days after the expiry date** -> the license still applies, with a warning
    that names the end of the grace period.
@@ -153,6 +164,7 @@ treats a license with an expiry date as expired.
 
 ### Channel limit
 
-A license can limit the number of channels. Virtual channels do not count. Past the
-limit, creating a channel fails with "using more channels than allowed by the license",
-and channels created past the limit cannot be read.
+A Core with no key has a limit of 50 channels. A license can change that limit. Virtual
+channels do not count. Past the limit, creating a channel fails with "using more
+channels than allowed by the license", and channels created past the limit cannot be
+read.

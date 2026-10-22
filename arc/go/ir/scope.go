@@ -22,8 +22,7 @@ func (s Scope) IsZero() bool {
 	return s.Key == "" &&
 		s.Mode == ScopeModeUnspecified &&
 		s.Liveness == LivenessUnspecified &&
-		s.Activation == nil &&
-		s.ActivationKind == EdgeKindUnspecified &&
+		len(s.Activations) == 0 &&
 		len(s.Strata) == 0 &&
 		len(s.Steps) == 0 &&
 		len(s.Transitions) == 0

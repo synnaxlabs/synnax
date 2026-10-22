@@ -21,8 +21,6 @@ class RequiresNamedParams(TypeError):
     instead of named arguments.
     """
 
-    pass
-
 
 @overload
 def require_named_params(func: Callable[P, R]) -> Callable[P, R]: ...
@@ -68,7 +66,7 @@ def require_named_params(
                         param_example = f"{func_name}(name='value')"
                         value_example = "'value'"
                     message = (
-                        f"{str(e)}. '{func_name}' only accepts named"
+                        f"{e!s}. '{func_name}' only accepts named"
                         f" parameters.\nTry using named parameters"
                         f" like: {param_example} instead of"
                         f" {func_name}({value_example})"

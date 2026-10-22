@@ -9,11 +9,29 @@
 
 #pragma once
 
+#include <cctype>
 #include <string>
 #include <string_view>
 #include <vector>
 
 namespace x::strings {
+
+/// @brief escapes the line breaks in s so it occupies one line.
+/// @param s the string to escape.
+/// @returns s with each '\n' and '\r' replaced by the two characters "\\n" and
+/// "\\r". Every other byte is kept as is.
+[[nodiscard]] inline std::string escape_line_breaks(const std::string &s) {
+    std::string out;
+    out.reserve(s.size());
+    for (const char c: s)
+        if (c == '\n')
+            out += "\\n";
+        else if (c == '\r')
+            out += "\\r";
+        else
+            out += c;
+    return out;
+}
 
 /// @brief writes v as a zero-padded decimal of the given width into the buffer at p.
 /// @param p pointer to at least width writable chars.

@@ -3161,6 +3161,53 @@ var _ = Describe("TS Union Generation", func() {
 		},
 	)
 
+	It("Should key the schema map by a borrowed enum", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			Method enum {
+				password = "password"
+			}
+			Credentials struct { username string }
+
+			Proof union on method Method {
+				password Credentials
+			}
+		`
+		resp := MustGenerate(ctx, source, "auth", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(
+				`export const METHODS = ["password"] as const;`,
+				`method: z.literal("password"),`,
+				`[K in Method]: z.ZodType<Extract<Proof, { method: K }>>;`,
+			).
+			ToNotContain(`PROOF_TYPES`, `proofTypeZ`, `export type ProofType`)
+	})
+
+	It("Should import a borrowed enum from another namespace", func(ctx SpecContext) {
+		loader.Add("schemas/auth", `
+			@ts output "client/ts/src/auth"
+
+			Method enum {
+				password = "password"
+			}
+		`)
+		source := `
+			import "schemas/auth"
+
+			@ts output "client/ts/src/login"
+
+			Credentials struct { username string }
+
+			Proof union on method auth.Method {
+				password Credentials
+			}
+		`
+		resp := MustGenerate(ctx, source, "login", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(`import { auth } from "@/auth"`, `[K in auth.Method]`)
+	})
+
 	Describe("Lazy variants", func() {
 		unionSource := func(count int) string {
 			var b strings.Builder

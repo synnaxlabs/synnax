@@ -35,7 +35,7 @@ class HTTPWriteSetpoint(HTTPWriteTaskCase):
                     pointer="/value",
                     json_type="number",
                     channel=cmd_key,
-                    data_type="float64",
+                    data_type=sy.DataType.FLOAT64,
                 ),
             ),
         ]
@@ -64,7 +64,7 @@ class HTTPWriteControl(HTTPWriteTaskCase):
                     pointer="/power",
                     json_type="number",
                     channel=cmd_key,
-                    data_type="float64",
+                    data_type=sy.DataType.FLOAT64,
                 ),
                 fields=[
                     http.StaticWriteField(

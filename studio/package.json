@@ -21,7 +21,7 @@
     "@remotion/bundler": "catalog:",
     "@remotion/renderer": "catalog:",
     "@synnaxlabs/client": "catalog:",
-    "@synnaxlabs/media": "catalog:",
+    "@synnaxlabs/lyra": "catalog:",
     "@synnaxlabs/x": "catalog:",
     "playwright": "catalog:",
     "react": "catalog:",

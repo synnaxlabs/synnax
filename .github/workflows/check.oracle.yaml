@@ -39,7 +39,7 @@ jobs:
         uses: ./.github/actions/setup-pnpm
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10.2.0
+        uses: astral-sh/setup-uv@v10.3.0
         with:
           version: latest-known
           enable-cache: true

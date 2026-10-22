@@ -13,13 +13,23 @@ import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
 import { integration } from "@synnaxlabs/site-common/integration";
+import { symbols, theme } from "@synnaxlabs/site-common/shiki";
 import { layers } from "@synnaxlabs/vite-plugin";
 import { defineConfig, envField } from "astro/config";
 
 import { inlineCode } from "./src/util/inlineCode";
 import { outline } from "./src/util/outline";
 import { quantities } from "./src/util/quantities";
-import { symbols, theme } from "./src/util/shiki";
+import { listReleaseNotes } from "./src/util/releaseNotes";
+
+// Each version's notes render only inside /releases, so their old routes point at the
+// version's anchor there.
+const RELEASE_REDIRECTS = Object.fromEntries(
+  listReleaseNotes().map(({ name, anchor }) => [
+    `/releases/${name}`,
+    `/releases/#${anchor}`,
+  ]),
+);
 
 // https://astro.build/config
 export default defineConfig({
@@ -255,6 +265,7 @@ export default defineConfig({
     "/reference/driver/pagerduty/alert-task": "/reference/alarms/pagerduty",
     "/reference/driver/task-basics": "/reference/hardware/tasks",
     "/reference/installation": "/reference/enterprise",
+    ...RELEASE_REDIRECTS,
   },
   site: "https://docs.synnaxlabs.com",
 });

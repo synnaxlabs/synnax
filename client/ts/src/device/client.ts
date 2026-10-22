@@ -49,7 +49,8 @@ const createResZ = <
 ) => z.object({ devices: deviceZ(schemas).array() });
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
-const deleteResZ = z.object({});
+const emptyResZ = z.object({});
+const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
@@ -349,22 +350,29 @@ export class Client extends query.Retriever<
           "/device/delete",
           { keys: keysArr },
           deleteReqZ,
-          deleteResZ,
+          emptyResZ,
         ),
     });
     drop();
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const dev = await this.retrieve(key);
-    const renamed = { ...dev, name };
+    const rename = () => [
+      query.partialUpdate(this.store, key, { name }),
+      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
+    ];
     await query.optimistic({
-      rollbacks: [this.store.set(renamed.key, stripStatus(renamed))],
+      rollbacks: rename(),
       onOptimistic: opts.onOptimistic,
-      commit: async () => {
-        await this.create(renamed);
-      },
+      commit: async () =>
+        await this.cfg.unary.send(
+          "/device/rename",
+          { key, name },
+          renameReqZ,
+          emptyResZ,
+        ),
     });
+    rename();
   }
 
   /** Subscribes to every device set delivered to the cache. Statuses excluded. */

@@ -188,40 +188,6 @@ a separate schematic. See
 </Problem.Fix>
 </Problem.Body>
 
-### An abort condition stops the test, but the abort does not run
-
-<Problem.Body>
-<Problem.Cause>
-
-A known bug. When several lines point to the same top-level sequence, only the last line
-starts it. The other lines stop the current sequence and start nothing, so the valves
-stay as they were.
-
-</Problem.Cause>
-<Problem.Fix>
-
-Make the abort a stage of the same sequence. See
-[write a test sequence](/reference/control/arc/test-sequences).
-
-</Problem.Fix>
-</Problem.Body>
-
-### Only one of two start conditions works
-
-<Problem.Body>
-<Problem.Cause>
-
-The same bug. With `start_cmd == 1 => press` and `remote_start == 1 => press`, only the
-last line starts `press`.
-
-</Problem.Cause>
-<Problem.Fix>
-
-Combine the conditions on one line: `start_cmd == 1 or remote_start == 1 => press`.
-
-</Problem.Fix>
-</Problem.Body>
-
 ### The abort stage runs at the end of a normal run
 
 <Problem.Body>
@@ -422,21 +388,6 @@ drops its writes.
 <Problem.Fix>
 
 See [Synnax drops commands with no error](#synnax-drops-commands-with-no-error).
-
-</Problem.Fix>
-</Problem.Body>
-
-### `ctrl.press_vlv_cmd = 1` does nothing
-
-<Problem.Body>
-<Problem.Cause>
-
-A known bug. An attribute assignment sets a Python attribute and sends nothing.
-
-</Problem.Cause>
-<Problem.Fix>
-
-Use `ctrl["press_vlv_cmd"] = 1` or `ctrl.set("press_vlv_cmd", 1)`.
 
 </Problem.Fix>
 </Problem.Body>

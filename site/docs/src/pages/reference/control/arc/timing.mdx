@@ -24,10 +24,10 @@ measure and improve it. To learn what a cycle is, see
 A timer never fires before its deadline. It fires when the computer wakes the
 automation, a short time after the deadline. That delay is the lateness.
 
-Lateness does not add up. An interval keeps a fixed schedule from when it starts: a 1 ms
-interval has its deadlines at 1 ms, 2 ms, 3 ms, and so on. A late fire does not move the
-next deadline. When a cycle takes longer than the period, the interval fires once and
-skips the deadlines it missed.
+Lateness does not add up. An interval fires when it starts, then keeps a fixed schedule:
+a 1 ms interval has its next deadlines at 1 ms, 2 ms, 3 ms, and so on. A late fire does
+not move the next deadline. When a cycle takes longer than the period, the interval
+fires once and skips the deadlines it missed.
 
 Four things set the lateness:
 
@@ -136,9 +136,9 @@ of a 1 ms interval to a channel, and you plot the channel.
 3. Select a Driver and a performance level, then click **Start**.
 4. Plot `loop_spacing_us` on a [line plot](/reference/visualize/line-plots).
 
-Each value is the time between two fires, in microseconds. A value of 1000 is on time.
-When one fire is 10 µs late, you see 1010, then 990. The distance from 1000 shows the
-lateness of the fires on both sides of it.
+Each value is the time between two fires, in microseconds. When one fire is 10 µs late,
+you see 1010, then 990. The plot shows how the lateness changes from fire to fire. A
+delay that is the same on every fire does not show.
 
 <Divider.Divider x />
 
@@ -211,7 +211,7 @@ runs on its own, on both Windows and macOS.
 ## Measured timing
 
 We measured how late Arc timers fire on three test computers. Your numbers depend on
-your hardware, operating system, and load. To measure your own computer, see
+your hardware, operating system, and load. To watch the timing on your own computer, see
 [watch the timing of an automation](#watch-the-timing-of-an-automation).
 
 ### How we measured

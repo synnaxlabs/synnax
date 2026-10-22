@@ -1,4 +1,13 @@
-/* Copyright 2026 Synnax Labs, Inc. Licensed under licenses/BSL.txt. */
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
 
 .foundation-contact-section {
     background: #090d12;
@@ -145,7 +154,7 @@
 
     label span {
         color: #8d9aa8;
-        font-size: 11px;
+        font-size: 12px;
     }
 
     .foundation-contact-input {
@@ -222,6 +231,27 @@
     opacity: 1;
 }
 
+.foundation-contact-form :is(input, textarea) {
+    scroll-margin-block: 96px 32px;
+}
+
+.foundation-contact-field:has([aria-invalid="true"]) {
+    .foundation-contact-input,
+    .foundation-contact-message {
+        border-color: #ad7e72;
+
+        &:focus-within {
+            outline-color: #ad7e7259;
+        }
+    }
+}
+
+.foundation-contact-field-error {
+    margin: 0;
+    color: #e6b7aa;
+    font: 400 12px/1.5 var(--foundation-body);
+}
+
 .foundation-contact-submit-row {
     display: flex;
     flex-wrap: wrap;
@@ -247,9 +277,8 @@
 
 .foundation-contact-note {
     margin: 0;
-    max-width: 25ch;
     color: #99a6b3;
-    font: 400 11px/1.6 var(--foundation-body);
+    font: 400 12px/1.6 var(--foundation-body);
 
     a {
         color: #b5c6d7;
@@ -326,10 +355,6 @@
         flex-direction: column;
         align-items: stretch;
         gap: 16px;
-    }
-
-    .foundation-contact-note {
-        max-width: none;
     }
 
     .foundation-contact-submit.pluto-btn {

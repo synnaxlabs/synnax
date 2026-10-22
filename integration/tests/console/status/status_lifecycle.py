@@ -103,7 +103,7 @@ class StatusLifecycle(ConsoleCase):
         notifications = self.console.statuses.notifications
         notifications.close_all()
         prefix = f"OverflowStatus_{self.suffix}"
-        overflow = [
+        overflow: list[sy.Status[None]] = [
             sy.Status(
                 variant=sy.status.VARIANT_INFO,
                 message=f"Overflow {i}",

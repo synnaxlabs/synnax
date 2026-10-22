@@ -11,14 +11,23 @@ from pydantic import BaseModel, Field
 
 from alamos import NOOP, Instrumentation, trace
 from freighter import UnaryClient
+from synnax import label
 from synnax.ranger.types_gen import Key, Payload
-from x.lists import normalize
+from x.telem import TimeRange
 
 
-class _Request(BaseModel):
+class Request(BaseModel):
+    """The filters for a range retrieval. A field left as None does not filter."""
+
     keys: list[Key] | None = None
     names: list[str] | None = None
     search_term: str | None = None
+    overlaps_with: TimeRange | None = None
+    has_labels: list[label.Key] | None = None
+    limit: int | None = None
+    offset: int | None = None
+    include_labels: bool | None = None
+    include_parent: bool | None = None
 
 
 class _Response(BaseModel):
@@ -38,22 +47,5 @@ class Retriever:
         self.instrumentation = instrumentation
 
     @trace("debug")
-    def retrieve(
-        self,
-        key: Key | None = None,
-        name: str | None = None,
-        names: list[str] | tuple[str] | None = None,
-        keys: list[Key] | tuple[Key] | None = None,
-    ) -> list[Payload]:
-        if key is not None:
-            keys = normalize(key)
-        if name is not None:
-            names = normalize(name)
-        return self._execute(_Request(keys=keys, names=names))
-
-    @trace("debug")
-    def search(self, term: str) -> list[Payload]:
-        return self._execute(_Request(search_term=term))
-
-    def _execute(self, req: _Request) -> list[Payload]:
+    def retrieve(self, req: Request) -> list[Payload]:
         return self._client.send("/range/retrieve", req, _Response).ranges

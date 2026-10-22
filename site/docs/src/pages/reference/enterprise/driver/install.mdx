@@ -67,7 +67,10 @@ sudo synnax-driver install
 
 The `install` command creates a `synnax` system user, the empty environment file
 `/etc/synnax/driver.env`, and the `synnax-driver` service. It does not start the
-service.
+service. It gives the service real-time permission and writes the udev rule
+`/etc/udev/rules.d/99-synnax-driver-latency.rules`, so Arc automations can run with
+[precise timing](/reference/control/arc/timing#linux). After you upgrade the Driver, run
+`sudo synnax-driver install` again.
 
 </Fragment>
 <Fragment slot="Windows">

@@ -1,7 +1,13 @@
 ---
-// Copyright 2026 Synnax Labs, Inc. Licensed under licenses/BSL.txt.
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
 
-import SolutionsBento from "@/components/SolutionsBento.astro";
 import { UnlockArt, type UnlockKind } from "@/components/UnlockArt";
 
 const unlocks: {
@@ -81,7 +87,7 @@ const unlocks: {
     aria-labelledby="unlocks-title"
 >
     <div class="editorial-heading">
-        <p class="editorial-index">02 → What Becomes Possible</p>
+        <p class="editorial-index">02 → Use cases</p>
         <h2 id="unlocks-title" class="editorial-title">
             What will you build
             <br />
@@ -95,16 +101,13 @@ const unlocks: {
     </div>
 
     <div class="unlock-grid">
-        {unlocks.map(({ kind, title, description, detail, wide }, index) => (
+        {unlocks.map(({ kind, title, description, detail, wide }) => (
             <article
                 class:list={["unlock-card", { "unlock-card-wide": wide }]}
                 data-kind={kind}
                 data-active="false"
             >
                 <div class="unlock-card-meta" aria-hidden="true">
-                    <span class="unlock-number">
-                        {String(index + 1).padStart(2, "0")}
-                    </span>
                     <span class="unlock-detail">{detail}</span>
                     <span class="unlock-indicator" />
                 </div>
@@ -125,8 +128,6 @@ const unlocks: {
             </article>
         ))}
     </div>
-
-    <SolutionsBento />
 </section>
 
 <script>

@@ -78,15 +78,14 @@ Starting a sequence with an empty body fails with `sequence 'press' has no steps
 | Anonymous, top level | When the automation starts.                                |
 | Nested               | When its parent sequence or stage reaches it.              |
 
-A flow that starts a sequence can be at the top level, or in a step of a different
-sequence. From a step, it stops the current sequence first.
+A flow that starts a top-level sequence can be at the top level, or in a step of a
+different sequence. From a step, it stops the whole top-level sequence or stage that holds the
+transition, then starts the target in the same cycle. From the top level, it stops
+nothing. A running target does not restart, except when a transition inside it targets
+itself.
 
-<Note.Note variant="warning">
-  Known bug: when more than one flow starts the same sequence, only the last one in the
-  code starts it. The other ones start nothing. In a step of a different sequence, they
-  only stop that sequence. Put the conditions in one flow, such as
-  `start_cmd == 1 or remote_start_cmd == 1 => press`.
-</Note.Note>
+Several flows can start the same sequence. Each flow can activate it when its condition
+is true and the sequence is not already running.
 
 <Divider.Divider x />
 

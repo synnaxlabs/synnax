@@ -7,7 +7,6 @@ description:
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Note } from "@synnaxlabs/lyra/note";
 import { Field } from "@/components/field";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -111,10 +110,9 @@ ctrl[channel] = value
 
 The same as `ctrl.set(channel, value)`.
 
-<Note.Note variant="warning">
-  Attribute assignment does not send a value. `ctrl.press_vlv_cmd = 1` sets a Python
-  attribute and writes nothing. Use `ctrl["press_vlv_cmd"] = 1`.
-</Note.Note>
+Attribute assignment also writes: `ctrl.press_vlv_cmd = 1` is the same as
+`ctrl["press_vlv_cmd"] = 1`. Use brackets for channel names that start with `_`, are not
+valid Python names, or match a controller member such as `state` or `set`.
 
 ### `set_authority`
 
@@ -190,7 +188,9 @@ A condition is a function that takes the controller and returns a `bool`, such a
 `KeyError` from a channel with no value, stops the wait and is raised again. Do not call
 a wait method inside a condition: the controller deadlocks.
 
-Each wait method raises a `ValueError` if `cond` is not callable.
+Each wait method raises a `ValueError` if `cond` is not callable. If the stream fails,
+the wait raises that error instead of waiting for the timeout. An unexpected stream
+closure raises `UnexpectedError`.
 
 ### `wait_until`
 
@@ -253,9 +253,9 @@ Required. The condition.
 
 <Field.Item name="duration" type="CrudeTimeSpan" id="remains_true_for-duration">
 
-Required. How long to check: a `TimeSpan` or a `datetime.timedelta`. A plain number is
-nanoseconds, not seconds, so always pass a `TimeSpan`, such as
-`10 * sy.TimeSpan.SECOND`.
+Required. How long to check: a number of seconds, a `TimeSpan`, or a
+`datetime.timedelta`. For example, `10` and `10 * sy.TimeSpan.SECOND` both mean ten
+seconds.
 
 </Field.Item>
 
@@ -309,7 +309,7 @@ command, it sleeps for `delay` with a precise sleep, then sets the value. `sched
 itself sends nothing.
 
 `ScheduledCommand(channel, value, delay)` is in `synnax.control`. Each `delay` counts
-from the previous command. A number for `delay` is nanoseconds. Pass a `TimeSpan`.
+from the previous command. A number for `delay` is in seconds. A `TimeSpan` also works.
 
 <Divider.Divider x />
 

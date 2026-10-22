@@ -124,9 +124,12 @@ class ChannelContextMenu(ConsoleCase):
         rng = client.ranges.retrieve(name=range_name)
         try:
             rng[alias_name]
-            assert False, f"Alias '{alias_name}' should not resolve after clearing"
         except sy.QueryError:
             pass
+        else:
+            raise AssertionError(
+                f"Alias '{alias_name}' should not resolve after clearing"
+            )
 
         console.channels.delete([data_name])
         console.ranges.explorer.open()

@@ -67,7 +67,7 @@ def _versions_compatible(v1: str, v2: str) -> bool:
     first, second = _parse_version(v1), _parse_version(v2)
     if first is None or second is None:
         return False
-    return first == _DEV or second == _DEV or first == second
+    return _DEV in (first, second) or first == second
 
 
 def _client_is_newer(client_version: str, node_version: str) -> bool:

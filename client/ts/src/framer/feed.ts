@@ -81,6 +81,8 @@ export class Feed {
       breaker,
       batchDebounce,
       overlapThreshold,
+      fetchTimeout,
+      now,
       onRetry,
     } = props;
     this.cache = new Cache({
@@ -96,16 +98,22 @@ export class Feed {
       cache: this.cache,
       batchDebounce,
       overlapThreshold,
+      fetchTimeout,
+      now,
     });
     this.streamer = new MultiplexedStreamer({
       cache: this.cache,
-      openStreamer: async (config, { onReopen, onDrop }) =>
-        await HardenedStreamer.open(openStreamer, config, {
+      openStreamer: async (config, { onReopen, onDrop, signal }) => {
+        const streamer = new HardenedStreamer(openStreamer, config, {
           breaker,
           onReopen,
           onDrop,
           onRetry,
-        }),
+        });
+        signal.addEventListener("abort", () => streamer.close());
+        await streamer.start();
+        return streamer;
+      },
       removalDelay,
       breaker,
       instrumentation: instrumentation?.child("streamer"),

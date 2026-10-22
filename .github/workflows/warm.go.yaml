@@ -58,7 +58,8 @@ jobs:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          for prefix in go-test-Linux-core- go-lint-core-; do
+          for prefix in go-test-Linux-core- go-lint-linux-core- \
+            go-lint-windows-core- go-lint-darwin-core-; do
             gh cache list --ref refs/heads/main --key "$prefix" --sort created_at \
               --order desc --limit 100 --json id --jq '.[1:][].id' |
               xargs -r -n1 gh cache delete

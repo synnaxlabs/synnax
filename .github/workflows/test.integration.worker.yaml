@@ -69,11 +69,8 @@ jobs:
           REF_RUN_ID: ${{ inputs.ref_run_id }}
         run: integration/scripts/download_artifacts.sh
 
-      - name: Update submodules
-        run: git submodule update --init --recursive
-
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.2.0
+        uses: astral-sh/setup-uv@v10.3.0
         with:
           version: latest-known
 

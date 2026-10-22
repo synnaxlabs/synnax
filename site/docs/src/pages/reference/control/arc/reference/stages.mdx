@@ -7,7 +7,6 @@ description:
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Note } from "@synnaxlabs/lyra/note";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -77,10 +76,10 @@ same cycle, the first one in the code wins. See
 A stage of a different sequence is not a valid target: `undefined symbol: name`. A
 `=> next` in the last step fails with `'next' in last stage 'abort' has no next stage`.
 
-<Note.Note variant="warning">
-  Known bug: only the last transition to a top-level sequence or stage starts it. See
-  [starting a sequence](/reference/control/arc/reference/sequences#starting-a-sequence).
-</Note.Note>
+A transition to a top-level target stops the whole top-level sequence or stage that
+holds it, including all nested items. Nothing in that scope resumes. A running target
+does not restart, except when a transition inside it targets itself. Several flows can
+target the same stage or sequence.
 
 <Divider.Divider x />
 

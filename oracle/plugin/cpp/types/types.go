@@ -1467,8 +1467,9 @@ func (p *Plugin) resolveExtendsType(
 	return p.buildGenericType(name, extendsRef.TypeArgs, &parent, data)
 }
 
-// extractOntology extracts ontology metadata from structs that have both @ontology
-// domain and a field with @key annotation. Returns nil if no suitable struct is found.
+// extractOntology extracts ontology metadata from the struct or union with an @ontology
+// domain, keyed by a struct field with an @key annotation. Returns nil if no suitable
+// type is found.
 func (p *Plugin) extractOntology(
 	structs []resolution.Type,
 	table *resolution.Table,
@@ -1476,13 +1477,19 @@ func (p *Plugin) extractOntology(
 ) *ontologyData {
 	skip := func(typ resolution.Type) bool { return omit.IsSkipped(typ, "cpp") }
 	rawKeyFields := key.Collect(structs, table, skip)
-	ontData := ontology.Extract(structs, rawKeyFields, skip)
-	if ontData == nil || len(rawKeyFields) == 0 {
+	unions := lo.Filter(table.UnionTypes(), func(typ resolution.Type, _ int) bool {
+		return output.GetPath(typ, "cpp") == data.OutputPath
+	})
+	ontData := ontology.Extract(
+		slices.Concat(structs, unions),
+		rawKeyFields,
+		skip,
+		table,
+	)
+	if ontData == nil {
 		return nil
 	}
-
-	// Determine the C++ key type name
-	keyType := "Key" // Default - most schemas define a Key type
+	keyType := p.typeRefToCpp(ontData.KeyField.Type, data)
 
 	// Determine key conversion based on the underlying primitive type
 	primitive := ontData.KeyField.Primitive
@@ -1736,6 +1743,10 @@ using {{$u.Name}} = std::variant<{{range $j, $v := $u.Variants}}{{if $j}}, {{end
 
 {{$u.Name}} parse_{{$u.SnakeName}}(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const {{$u.Name}}& value);
+{{- if $u.HasProto}}
+[[nodiscard]] std::pair<{{$u.ProtoType}}, x::errors::Error> to_proto(const {{$u.Name}}& value);
+std::pair<{{$u.Name}}, x::errors::Error> {{$u.SnakeName}}_from_proto(const {{$u.ProtoType}}& pb);
+{{- end}}
 {{- end}}
 {{- end}}
 {{- range $d := .SortedDecls}}

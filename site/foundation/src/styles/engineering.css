@@ -1,8 +1,18 @@
-/* Copyright 2026 Synnax Labs, Inc. Licensed under licenses/BSL.txt. */
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
 .engineering-chapter {
     --engineering-background: #19273a;
     --engineering-canvas: #0f1722;
-    --engineering-card: #152235;
+    --engineering-card: #111d2e;
     --engineering-inset: #0b131e;
     --engineering-raised: #1b2a40;
     --engineering-hover: #202f47;
@@ -13,7 +23,7 @@
     --engineering-ink: #e2e9f1;
     --engineering-body: #b7c5d7;
     --engineering-muted: #a1b3c9;
-    --engineering-caption: #8fa3bd;
+    --engineering-caption: #adbed3;
     --engineering-accent: #b4cbe9;
 
     background: var(--engineering-background);
@@ -46,6 +56,7 @@
 }
 
 .engineering-demo {
+    scroll-margin-top: calc(var(--nav-height) + 24px);
     overflow: hidden;
     background: var(--engineering-canvas);
     border: 1px solid var(--engineering-border);
@@ -83,7 +94,7 @@
 
         .engineering-control-index {
             color: var(--engineering-caption);
-            font: 11px/1 var(--foundation-mono);
+            font: 500 11px/1 var(--foundation-mono);
         }
 
         &:hover {
@@ -102,7 +113,7 @@
 .engineering-view-label,
 .engineering-scenario-label {
     color: var(--engineering-caption);
-    font: 10px/1.5 var(--foundation-mono);
+    font: 500 12px/1.5 var(--foundation-mono);
     letter-spacing: 0.06em;
 }
 
@@ -154,7 +165,7 @@
     gap: 9px;
     margin: 0;
     color: var(--engineering-accent);
-    font: 10px/1.5 var(--foundation-mono);
+    font: 500 12px/1.5 var(--foundation-mono);
     letter-spacing: 0.04em;
 
     > span {
@@ -172,21 +183,6 @@
     margin: 0;
     color: var(--engineering-body);
     font: 400 14px/1.75 var(--foundation-body);
-}
-
-a.engineering-evidence {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: auto;
-    padding-top: 8px;
-    color: var(--engineering-accent);
-    font: 11px/1.5 var(--foundation-mono);
-    text-decoration: none;
-
-    &:hover {
-        color: var(--engineering-ink);
-    }
 }
 
 .engineering-drawing {
@@ -214,7 +210,7 @@ a.engineering-evidence {
     display: flex;
     justify-content: space-between;
     color: var(--engineering-caption);
-    font: 9px/1.5 var(--foundation-mono);
+    font: 500 11px/1.5 var(--foundation-mono);
     letter-spacing: 0.04em;
     pointer-events: none;
 }
@@ -249,8 +245,8 @@ a.engineering-evidence {
         cursor: pointer;
 
         .engineering-control-index {
-            font: 10px/1.5 var(--foundation-mono);
-            opacity: 0.55;
+            font: 500 12px/1.5 var(--foundation-mono);
+            color: var(--engineering-caption);
         }
 
         &:hover {
@@ -264,6 +260,11 @@ a.engineering-evidence {
             background: var(--engineering-selected);
         }
     }
+}
+
+.engineering-modes button[aria-pressed="true"] .engineering-control-index,
+.engineering-scenarios button[aria-pressed="true"] .engineering-control-index {
+    color: inherit;
 }
 
 .engineering-dx-heading {
@@ -292,7 +293,7 @@ a.engineering-evidence {
 .engineering-eyebrow {
     margin: 0;
     color: var(--engineering-caption);
-    font: 11px/1.5 var(--foundation-mono);
+    font: 500 12px/1.5 var(--foundation-mono);
     letter-spacing: 0.04em;
 }
 
@@ -336,7 +337,7 @@ a.engineering-evidence {
 
 .engineering-feature-index {
     color: var(--engineering-caption);
-    font: 10px/1.5 var(--foundation-mono);
+    font: 500 12px/1.5 var(--foundation-mono);
     letter-spacing: 0.03em;
 }
 
@@ -359,11 +360,11 @@ a.engineering-evidence {
     padding: 13px 20px;
     border-bottom: 1px solid var(--engineering-line);
     color: var(--engineering-body);
-    font: 11px/1.5 var(--foundation-mono);
+    font: 500 12px/1.5 var(--foundation-mono);
 
     > :last-child {
         color: var(--engineering-caption);
-        font-size: 9px;
+        font-size: 11px;
     }
 }
 
@@ -405,7 +406,7 @@ a.engineering-evidence {
     gap: 12px;
     padding: 0 20px 16px;
     color: var(--engineering-caption);
-    font: 10px/1.5 var(--foundation-mono);
+    font: 500 12px/1.5 var(--foundation-mono);
 }
 
 .engineering-change pre {
@@ -444,7 +445,7 @@ a.engineering-evidence {
     justify-content: space-between;
     margin: 0 20px 20px;
     color: var(--engineering-caption);
-    font: 11px/1.5 var(--foundation-mono);
+    font: 500 12px/1.5 var(--foundation-mono);
 
     .engineering-change-current {
         padding: 8px 12px;
@@ -500,7 +501,7 @@ a.engineering-evidence {
     small {
         margin-left: auto;
         color: var(--engineering-caption);
-        font-size: 8px;
+        font-size: 11px;
     }
 }
 
@@ -509,7 +510,7 @@ a.engineering-evidence {
     justify-content: space-between;
     margin-top: 22px;
     color: var(--engineering-body);
-    font-size: 10px;
+    font-size: 12px;
 }
 
 .engineering-interface {
@@ -556,7 +557,7 @@ a.engineering-evidence {
         align-items: center;
         gap: 8px;
         color: var(--engineering-body);
-        font-size: 10px;
+        font-size: 12px;
     }
 }
 
@@ -599,7 +600,7 @@ a.engineering-evidence {
     span {
         padding: 10px 12px;
         color: var(--engineering-body);
-        font-size: 10px;
+        font-size: 12px;
         background: var(--engineering-raised);
     }
 }
@@ -608,7 +609,7 @@ a.engineering-evidence {
     padding: 10px 12px;
     color: var(--engineering-ink);
     background: var(--engineering-selected);
-    font-size: 10px;
+    font-size: 12px;
     letter-spacing: 0.08em;
 }
 
@@ -812,17 +813,13 @@ a.engineering-evidence {
         }
     }
 
-    a.engineering-evidence {
-        min-height: 44px;
-    }
-
     .engineering-drawing {
         margin: 0 12px 16px;
         padding-top: 28px;
     }
 
     .engineering-drawing-reference {
-        font-size: 9px;
+        font-size: 11px;
     }
 
     .engineering-scenario-bar {
@@ -896,5 +893,298 @@ a.engineering-evidence {
     .engineering-demo * {
         transition: none !important;
         animation: none !important;
+    }
+}
+
+.engineering-modes button:focus-visible,
+.engineering-scenarios button:focus-visible {
+    outline: 2px solid var(--engineering-accent);
+    outline-offset: 3px;
+}
+
+/* Data-path evidence stays readable independently of the illustration. */
+.engineering-demo[data-mode="reliability"] {
+    .engineering-demo-view {
+        min-height: 500px;
+        grid-template-columns: minmax(260px, 0.85fr) minmax(0, 1.75fr);
+    }
+
+    .engineering-drawing {
+        flex-direction: column;
+        justify-content: center;
+        padding-top: 40px;
+        padding-bottom: 8px;
+    }
+
+    .engineering-explanation h3 {
+        max-width: 305px;
+    }
+
+    .engineering-explanation-copy {
+        min-height: 122px;
+    }
+
+    .engineering-scenario-bar {
+        gap: 14px;
+        padding-inline: 24px;
+    }
+
+    .engineering-scenarios {
+        flex-wrap: wrap;
+        gap: 7px;
+    }
+
+    .engineering-scenarios button {
+        padding-inline: 12px;
+        gap: 8px;
+    }
+
+    .engineering-scenarios button[data-secondary="true"] {
+        border-style: dashed;
+    }
+}
+
+.engineering-health-path {
+    display: none;
+}
+
+.engineering-health-readout {
+    width: 100%;
+    margin-top: 8px;
+    background: #0f1722;
+    border-top: 1px solid var(--engineering-line);
+}
+
+.engineering-health-signals {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr 1.3fr;
+    margin: 0;
+    padding: 16px 0;
+
+    > div {
+        min-width: 0;
+        padding-inline: 14px;
+    }
+
+    > div + div {
+        border-left: 1px solid var(--engineering-line);
+    }
+
+    dt {
+        margin-bottom: 8px;
+        color: var(--engineering-caption);
+        font: 400 11px/1.4 var(--foundation-mono);
+    }
+
+    dd {
+        margin: 0;
+        color: var(--engineering-ink);
+        font: 450 12px/1.6 var(--foundation-body);
+    }
+
+    [data-attention="true"] dd {
+        color: #d8bd94;
+    }
+}
+
+.engineering-health-retention {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px 16px;
+    padding: 12px 14px 0;
+    border-top: 1px solid var(--engineering-line);
+    color: var(--engineering-body);
+    font: 400 11px/1.6 var(--foundation-body);
+
+    > span:first-child {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 10px;
+    }
+
+    [data-gap="true"] {
+        color: #d5ad9f;
+    }
+}
+
+.engineering-health-key {
+    color: var(--engineering-caption);
+    font: 400 10px/1.8 var(--foundation-mono);
+    letter-spacing: 0.05em;
+}
+
+.eng-scene .eng-motion {
+    transition:
+        transform 650ms cubic-bezier(0.22, 0.7, 0.3, 1),
+        opacity 500ms ease;
+}
+
+.eng-scene .eng-stroke {
+    transition:
+        stroke 450ms ease,
+        fill 450ms ease,
+        opacity 450ms ease;
+}
+
+.eng-health-history {
+    font-family: var(--foundation-mono);
+}
+
+.eng-health-annotation {
+    text {
+        font: 400 14px var(--foundation-mono);
+        letter-spacing: 0.5px;
+        fill: #bfcee0;
+        paint-order: stroke fill;
+        stroke: #0f1722;
+        stroke-width: 5px;
+        stroke-linejoin: round;
+    }
+
+    .eng-health-callout-title {
+        font-size: 12px;
+        letter-spacing: 1.1px;
+        fill: #a9bad0;
+    }
+}
+
+.eng-health-scene[data-stage="2"]
+    .eng-health-annotation
+    text:not(.eng-health-callout-title) {
+    fill: #d8bd94;
+}
+
+.eng-health-flow {
+    animation: engineering-data-flow 5s linear infinite;
+}
+
+.eng-health-backfill {
+    animation-duration: 7s;
+}
+
+.engineering-demo[data-motion="paused"] .eng-health-flow {
+    animation-play-state: paused;
+}
+
+@keyframes engineering-data-flow {
+    to {
+        stroke-dashoffset: -200;
+    }
+}
+
+@media (width <= 1100px) {
+    .engineering-demo[data-mode="reliability"] .engineering-scenario-label {
+        display: none;
+    }
+
+    .engineering-health-signals > div {
+        padding-inline: 10px;
+    }
+}
+
+@media (width <= 900px) {
+    .engineering-demo[data-mode="reliability"] {
+        .engineering-demo-view {
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        .engineering-explanation-copy {
+            min-height: 0;
+        }
+
+        .engineering-explanation h3 {
+            max-width: none;
+        }
+
+        .engineering-scenarios {
+            display: flex;
+            justify-content: center;
+        }
+    }
+}
+
+@media (width <= 600px) {
+    .engineering-demo[data-mode="reliability"] {
+        .engineering-scenario-bar {
+            padding: 12px;
+        }
+
+        .engineering-scenarios {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .engineering-scenarios button:last-child {
+            grid-column: 1 / -1;
+            min-height: 40px;
+        }
+
+        .engineering-drawing {
+            padding-top: 26px;
+        }
+    }
+
+    .engineering-health-signals {
+        grid-template-columns: 1fr;
+        padding-block: 6px;
+
+        > div {
+            display: grid;
+            grid-template-columns: 108px minmax(0, 1fr);
+            align-items: baseline;
+            gap: 12px;
+            padding: 8px 10px;
+        }
+
+        > div + div {
+            border-left: 0;
+        }
+
+        dt {
+            margin-bottom: 0;
+        }
+    }
+
+    .engineering-health-retention {
+        padding-inline: 10px;
+    }
+
+    .engineering-demo[data-mode="reliability"]
+        .engineering-drawing-reference
+        > :last-child {
+        display: none;
+    }
+}
+
+@media (width <= 600px) {
+    .eng-health-annotation {
+        display: none;
+    }
+
+    .eng-health-history text {
+        display: none;
+    }
+
+    .engineering-health-path {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 0 0 8px;
+        color: var(--engineering-caption);
+        font: 400 10px/1.5 var(--foundation-mono);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .eng-health-flow {
+        animation: none;
+    }
+
+    .eng-scene .eng-motion,
+    .eng-scene .eng-stroke {
+        transition: none;
     }
 }

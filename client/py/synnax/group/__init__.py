@@ -11,8 +11,8 @@ from synnax.group.client import Client
 from synnax.group.types_gen import ONTOLOGY_TYPE, Group, ontology_id
 
 __all__ = [
+    "ONTOLOGY_TYPE",
     "Client",
     "Group",
-    "ONTOLOGY_TYPE",
     "ontology_id",
 ]

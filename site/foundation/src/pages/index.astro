@@ -20,6 +20,7 @@ import Principles from "@/components/Principles.astro";
 import Contact from "@/components/Contact.astro";
 import SectionBoundary from "@/components/SectionBoundary.astro";
 import Deployments from "@/components/Deployments.astro";
+import IntegrationGrid from "@/components/IntegrationGrid.astro";
 ---
 
 <Layout>
@@ -34,9 +35,9 @@ import Deployments from "@/components/Deployments.astro";
                         <span class="hero-phrase">high-level software.</span>
                     </h1>
                     <p class="hero-supporting-copy">
-                        Foundation communicates with your equipment and delivers it
-                        across sites to your applications, data platforms, and machine
-                        intelligence.
+                        Foundation communicates with your equipment and delivers live
+                        telemetry across sites to your applications, data platforms, and
+                        machine intelligence.
                     </p>
                 </div>
                 <div class="hero-actions">
@@ -69,7 +70,7 @@ import Deployments from "@/components/Deployments.astro";
         data-motion="paused"
     >
         <div class="editorial-heading">
-            <p class="editorial-index">01 → How Foundation Works</p>
+            <p class="editorial-index">01 → How it works</p>
             <h2 id="system-title" class="editorial-title">
                 One programmable reality across your operations.
             </h2>
@@ -90,13 +91,12 @@ import Deployments from "@/components/Deployments.astro";
         </noscript>
     </section>
 
+    <IntegrationGrid />
     <SectionBoundary />
     <UnlockGrid />
+    <Deployments />
     <Engineering />
     <Principles />
-
-    <Deployments />
-
     <Contact />
 </Layout>
 

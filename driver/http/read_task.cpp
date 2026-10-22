@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <limits>
 #include <set>
 
 #include "client/cpp/http/json.gen.h"
@@ -17,7 +18,6 @@
 #include "driver/http/read_task.h"
 
 namespace driver::http {
-
 std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task
@@ -242,6 +242,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
     std::vector<std::string> warnings;
     std::size_t skipped = 0;
     std::size_t failed = 0;
+    std::size_t rejected = 0;
     std::size_t unreachable = 0;
 
     // Parse all response bodies up front so sampling groups can reference them.
@@ -267,10 +268,12 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
         }
 
         if (auto status_err = errors::from_status(resp.status_code); status_err) {
+            rejected++;
             const auto &req = requests[ei];
             auto msg = std::string(to_string(req.method)) + " " + req.url +
                        " returned " + std::to_string(resp.status_code);
-            if (!resp.body.empty()) msg += ": " + resp.body;
+            if (!resp.body.empty())
+                msg += ": " + x::strings::escape_line_breaks(resp.body);
             warnings.push_back(msg);
             continue;
         }
@@ -288,10 +291,14 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
         warnings.push_back(
             std::to_string(skipped) + " requests not sent, the device was unreachable"
         );
-    // An error, not a warning, so the pipeline breaker backs off from a dead device.
-    if (unreachable == this->requests.size()) {
+    // An error, not a warning, so the pipeline breaker backs off from a device that
+    // rejects every request. Always temporary: a 401 during a token refresh or a 404
+    // while a device reboots must not stop the task.
+    if (const auto failures = skipped + failed + rejected;
+        failures == this->requests.size()) {
         res.error = x::errors::Error(
-            errors::UNREACHABLE_ERROR,
+            unreachable == failures ? errors::UNREACHABLE_ERROR
+                                    : errors::TEMPORARY_ERROR,
             x::strings::join(warnings, "; ")
         );
         return res;
@@ -321,36 +328,39 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
         group_data.reserve(group.fields.size());
 
         for (const auto &field: group.fields) {
-            if (!body.contains(field.pointer)) {
-                warnings.push_back(
-                    "field " + field.pointer.to_string() +
-                    " not found in response from " + ep.path
+            const auto &ch = this->cfg.channels.at(field.channel);
+            x::telem::SampleValue sample_val;
+            std::string warning;
+            if (!body.contains(field.pointer))
+                warning = "field " + field.pointer.to_string() +
+                          " not found in response from " + ep.path;
+            else {
+                auto tf = x::json::TimeFormat::ISO8601;
+                if (field.time_format.has_value()) tf = *field.time_format;
+                const auto *enum_ptr = field.enum_values.empty() ? nullptr
+                                                                 : &field.enum_values;
+                auto [val, conv_err] = x::json::to_sample_value(
+                    body.at(field.pointer),
+                    ch.data_type,
+                    tf,
+                    enum_ptr
                 );
-                group_ok = false;
-                break;
+                if (conv_err)
+                    warning = "failed to convert " + field.pointer.to_string() +
+                              " for channel " + ch.name + ": " + conv_err.message();
+                else
+                    sample_val = std::move(val);
             }
 
-            const auto &ch = this->cfg.channels.at(field.channel);
-            const auto &json_val = body.at(field.pointer);
-
-            auto tf = x::json::TimeFormat::ISO8601;
-            if (field.time_format.has_value()) tf = *field.time_format;
-
-            const auto *enum_ptr = field.enum_values.empty() ? nullptr
-                                                             : &field.enum_values;
-            auto [sample_val, conv_err] = x::json::to_sample_value(
-                json_val,
-                ch.data_type,
-                tf,
-                enum_ptr
-            );
-            if (conv_err) {
-                warnings.push_back(
-                    "failed to convert " + field.pointer.to_string() + " for channel " +
-                    ch.name + ": " + conv_err.message()
-                );
-                group_ok = false;
-                break;
+            if (!warning.empty()) {
+                warnings.push_back(std::move(warning));
+                const auto &dt = ch.data_type;
+                if (!this->cfg.nan_fill_enabled ||
+                    (dt != x::telem::FLOAT32_T && dt != x::telem::FLOAT64_T)) {
+                    group_ok = false;
+                    break;
+                }
+                sample_val = dt.cast(std::numeric_limits<double>::quiet_NaN());
             }
 
             group_data.emplace_back(field.channel, x::telem::Series(sample_val));

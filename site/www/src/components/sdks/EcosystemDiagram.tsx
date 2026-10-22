@@ -8,14 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Logo } from "@synnaxlabs/media";
+import { Logo } from "@synnaxlabs/lyra/logo";
 import type { CSSProperties, ReactElement } from "react";
 
 import type { CalcDiagramState } from "@/components/stream/calcTimeline";
 import { Diagram, type DiagramDef } from "@/components/stream/diagrams";
 
 const SynnaxIcon = ({ style }: { style?: CSSProperties }): ReactElement => (
-  <Logo variant="icon" style={{ ...style, "--logo-color": "black" } as CSSProperties} />
+  <Logo.Logo
+    variant="icon"
+    style={{ ...style, "--logo-color": "black" } as CSSProperties}
+  />
 );
 
 const DIAGRAM: DiagramDef = {

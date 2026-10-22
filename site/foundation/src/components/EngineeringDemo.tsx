@@ -1,6 +1,13 @@
-// Copyright 2026 Synnax Labs, Inc. Licensed under licenses/BSL.txt.
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
 
-import { type ReactElement, useId, useState } from "react";
+import { type ReactElement, useEffect, useId, useRef, useState } from "react";
 
 import { DeferredScene } from "@/components/DeferredScene";
 import { type EngineeringMode } from "@/components/EngineeringScene";
@@ -10,37 +17,108 @@ const loadScene = () =>
     default: EngineeringScene,
   }));
 
-type Stage = 0 | 1 | 2;
+type Stage = 0 | 1 | 2 | 3 | 4;
 interface Scenario {
   label: string;
   status: string;
   title: string;
   copy: string;
   notes: [string, string];
+  evidence?: {
+    quality: string;
+    validation: string;
+    delivery: string;
+    buffer: string;
+    gap: string;
+  };
 }
 
-const scenarios: Record<EngineeringMode, [Scenario, Scenario, Scenario]> = {
+const scenarios: Record<EngineeringMode, Scenario[]> = {
   reliability: [
     {
-      label: "Connected",
-      status: "LINK AVAILABLE",
-      title: "Durability starts at the source.",
-      copy: "Nodes retain telemetry locally and track delivery across the network. Your equipment and your destinations can operate independently.",
-      notes: ["Durable, bounded local buffers", "Explicit delivery progress"],
+      label: "Flowing",
+      status: "ACQUIRED → CONFIRMED",
+      title: "Know where every stream stands.",
+      copy: "Follow telemetry from equipment and Ignition through Foundation to InfluxDB. Keep source quality, validation, and confirmed delivery visible as separate signals.",
+      notes: [
+        "Expect an update at least every second",
+        "Confirm writes at the destination",
+      ],
+      evidence: {
+        quality: "Good",
+        validation: "Fresh · 180 ms old",
+        delivery: "Confirmed · 210 ms lag",
+        buffer: "0 samples pending",
+        gap: "No recorded gaps",
+      },
     },
     {
-      label: "Interrupt the link",
-      status: "LOCAL BUFFERING",
-      title: "A lost link is a handled state.",
-      copy: "Acquisition continues into the local buffer while remote delivery pauses. Retention and disk capacity define how much data the node can hold.",
-      notes: ["Telemetry retained at the node", "Command deadlines still apply"],
+      label: "Source silent",
+      status: "UPDATE EXPECTATION MISSED",
+      title: "Connected does not mean current.",
+      copy: "The Ignition connection stays online, but this stream stops updating. Foundation detects the missed expectation and identifies the last sample received.",
+      notes: [
+        "Expected every 1 s · last update 18 s ago",
+        "Last reported quality stays attached to its sample",
+      ],
+      evidence: {
+        quality: "Good · last sample",
+        validation: "Stale · 18 s old",
+        delivery: "Last sample confirmed",
+        buffer: "0 samples pending",
+        gap: "18 s without an update",
+      },
     },
     {
-      label: "Restore the link",
-      status: "DELIVERY RESUMED",
-      title: "Catch up with the operation.",
-      copy: "Forward retained telemetry when the connection returns, with priority for live data. Expired commands stay expired rather than replaying against equipment.",
-      notes: ["Live data ahead of backfill", "No replay of expired commands"],
+      label: "Destination delayed",
+      status: "ACQUIRING · DELIVERY BEHIND",
+      title: "Find the delay. Keep acquiring.",
+      copy: "Equipment keeps running and fresh samples reach Foundation. InfluxDB writes fall behind. Delivery lag and the local backlog expose where the data stopped.",
+      notes: [
+        "Local retention continues while delivery waits",
+        "Source quality is unchanged by delivery lag",
+      ],
+      evidence: {
+        quality: "Good",
+        validation: "Fresh · 180 ms old",
+        delivery: "Delayed · 42 s lag",
+        buffer: "18,400 samples pending",
+        gap: "Buffered · no confirmed loss",
+      },
+    },
+    {
+      label: "Recovering",
+      status: "LIVE + RETAINED TELEMETRY",
+      title: "See what recovers. See what cannot.",
+      copy: "After a longer outage, retained telemetry catches up alongside live data. A four-second interval exceeded local retention. That gap remains visible as delivery recovers.",
+      notes: [
+        "14,200 of 18,400 retained samples delivered",
+        "Expired commands are never replayed",
+      ],
+      evidence: {
+        quality: "Good",
+        validation: "Fresh · 180 ms old",
+        delivery: "Catching up · 12 s lag",
+        buffer: "4,200 samples pending",
+        gap: "4 s gap · outside retention",
+      },
+    },
+    {
+      label: "Value check",
+      status: "VALIDATION CONDITION",
+      title: "Keep the reading. Add the context.",
+      copy: "A pressure reading arrives on time, marked good by its source. It exceeds the configured 0–80 bar range. Foundation exposes that result alongside the original value and source quality.",
+      notes: [
+        "Observed 86.4 bar · expected 0–80 bar",
+        "Validation does not rewrite source quality",
+      ],
+      evidence: {
+        quality: "Good",
+        validation: "86.4 bar · out of range",
+        delivery: "Confirmed · 210 ms lag",
+        buffer: "0 samples pending",
+        gap: "No recorded gaps",
+      },
     },
   ],
   performance: [
@@ -100,10 +178,46 @@ const modes: { id: EngineeringMode; label: string; number: string }[] = [
 export const EngineeringDemo = (): ReactElement => {
   const [mode, setMode] = useState<EngineeringMode>("reliability");
   const [stage, setStage] = useState<Stage>(0);
+  const root = useRef<HTMLDivElement>(null);
   const id = useId();
+
+  useEffect(() => {
+    const element = root.current;
+    if (element == null) return;
+    let visible = typeof IntersectionObserver === "undefined";
+    const preference = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    const sync = (): void => {
+      element.dataset.motion =
+        visible && !document.hidden && !preference?.matches ? "running" : "paused";
+    };
+    const observer =
+      typeof IntersectionObserver === "undefined"
+        ? undefined
+        : new IntersectionObserver(([entry]) => {
+            visible = entry.isIntersecting;
+            sync();
+          });
+    observer?.observe(element);
+    preference?.addEventListener("change", sync);
+    document.addEventListener("visibilitychange", sync);
+    sync();
+    return () => {
+      observer?.disconnect();
+      preference?.removeEventListener("change", sync);
+      document.removeEventListener("visibilitychange", sync);
+    };
+  }, []);
+
   const selected = scenarios[mode][stage];
   return (
-    <div className="engineering-demo" data-mode={mode} data-stage={stage}>
+    <div
+      id="data-health"
+      className="engineering-demo"
+      data-mode={mode}
+      data-stage={stage}
+      data-motion="paused"
+      ref={root}
+    >
       <div className="engineering-demo-toolbar">
         <div
           className="engineering-modes"
@@ -133,8 +247,8 @@ export const EngineeringDemo = (): ReactElement => {
         </span>
       </div>
       <div className="engineering-demo-view" id={`${id}-view`}>
-        <div className="engineering-explanation" aria-live="polite" aria-atomic="true">
-          <p className="engineering-state">
+        <div className="engineering-explanation">
+          <p className="engineering-state" role="status" aria-atomic="true">
             <span />
             {selected.status}
           </p>
@@ -145,18 +259,12 @@ export const EngineeringDemo = (): ReactElement => {
               <li key={note}>{note}</li>
             ))}
           </ul>
-          {mode === "reliability" && (
-            <a
-              href="https://docs.synnaxlabs.com/reliability/"
-              className="engineering-evidence"
-            >
-              How Synnax tests reliability <span aria-hidden="true">↗</span>
-            </a>
-          )}
         </div>
         <div className="engineering-drawing">
           <div className="engineering-drawing-reference" aria-hidden="true">
-            <span>FOUNDATION</span>
+            <span>
+              {mode === "reliability" ? "ILLUSTRATIVE DATA PATH" : "FOUNDATION"}
+            </span>
             <span>ORTHOGRAPHIC → {String(stage + 1).padStart(2, "0")}</span>
           </div>
           <DeferredScene
@@ -164,10 +272,42 @@ export const EngineeringDemo = (): ReactElement => {
             sceneProps={{ mode, stage }}
             viewBox="0 100 900 400"
           />
+          {selected.evidence != null && (
+            <p className="engineering-health-path" aria-hidden="true">
+              Ignition <span>→</span> Foundation <span>→</span> InfluxDB
+            </p>
+          )}
+          {selected.evidence != null && (
+            <div className="engineering-health-readout">
+              <dl className="engineering-health-signals">
+                <div>
+                  <dt>Source quality</dt>
+                  <dd>{selected.evidence.quality}</dd>
+                </div>
+                <div data-attention={stage === 1 || stage === 4}>
+                  <dt>Validation</dt>
+                  <dd>{selected.evidence.validation}</dd>
+                </div>
+                <div data-attention={stage === 2}>
+                  <dt>Delivery</dt>
+                  <dd>{selected.evidence.delivery}</dd>
+                </div>
+              </dl>
+              <div className="engineering-health-retention">
+                <span>
+                  <span className="engineering-health-key">BUFFER</span>
+                  {selected.evidence.buffer}
+                </span>
+                <span data-gap={stage === 3}>{selected.evidence.gap}</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
       <div className="engineering-scenario-bar">
-        <span className="engineering-scenario-label">EXPLORE THE BEHAVIOR</span>
+        <span className="engineering-scenario-label">
+          {mode === "reliability" ? "INSPECT A CONDITION" : "EXPLORE THE BEHAVIOR"}
+        </span>
         <div
           role="group"
           aria-label={`${mode} scenarios`}
@@ -178,6 +318,7 @@ export const EngineeringDemo = (): ReactElement => {
               key={`${mode}-${label}`}
               type="button"
               aria-pressed={stage === index}
+              data-secondary={mode === "reliability" && index === 4}
               aria-controls={`${id}-view`}
               onClick={() => setStage(index as Stage)}
             >

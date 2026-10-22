@@ -45,6 +45,8 @@ export class Unary {
     const { flushed, allocated } = this.dynamic.write(series);
     // Flushed buffers stay streamed until a fetch replaces them.
     if (flushed.length > 0) this.static.write(flushed, true);
+    const leading = this.dynamic.leadingBuffer;
+    if (leading != null) this.static.retainDataType(leading.dataType);
     return allocated;
   }
 
@@ -68,6 +70,8 @@ export class Unary {
   writeStatic(series: MultiSeries): void {
     this.checkOpen("writeStatic");
     this.static.write(series);
+    const dt = this.static.dataType;
+    if (dt != null) this.dynamic.retainDataType(dt);
   }
 
   /** Records tr as fetched so reads stop reporting it as a gap even when it holds no
@@ -91,7 +95,15 @@ export class Unary {
     const res = this.static.dirtyRead(tr);
     const buf = this.dynamic.leadingBuffer;
     const dataTr = this.dynamic.dataTimeRange;
-    if (buf == null || dataTr == null || buf.length === 0 || !dataTr.overlapsWith(tr))
+    if (
+      buf == null ||
+      dataTr == null ||
+      buf.length === 0 ||
+      !dataTr.overlapsWith(tr) ||
+      // The buffer's leading alignments cannot be ordered against fetched data, so
+      // the fetched form of a span wins.
+      this.static.overlapsFetched(dataTr)
+    )
       return res;
     res.series.push(buf);
     return res;

@@ -12,10 +12,13 @@
 package ir
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/ir/versions"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // Handle is a reference to a specific parameter on a specific node in the dataflow
@@ -69,16 +72,131 @@ const (
 	LivenessGated
 )
 
-// Transition is a declarative state-transition rule on a sequential Scope.
+type TargetType string
+
+const (
+	ExitTargetType  TargetType = "exit"
+	StepTargetType  TargetType = "step"
+	ScopeTargetType TargetType = "scope"
+)
+
+type TargetVariant interface {
+	isTargetVariant()
+}
+
+// ExitTarget leaves the scope and yields to its parent.
+type ExitTarget struct {
+}
+
+func (ExitTarget) isTargetVariant() {}
+
+// StepTarget activates a sibling step of the same scope.
+type StepTarget struct {
+	// Key is the key of the sibling step to activate.
+	Key string `json:"key" msgpack:"key"`
+}
+
+func (StepTarget) isTargetVariant() {}
+
+// ScopeTarget leaves the scope, then activates a top-level scope.
+type ScopeTarget struct {
+	// Key is the key of the top-level scope to activate.
+	Key string `json:"key" msgpack:"key"`
+}
+
+func (ScopeTarget) isTargetVariant() {}
+
+// Target is where a transition goes when it fires.
+type Target struct {
+	Variant TargetVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u Target) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case ExitTarget:
+		return json.MarshalEncode(enc, struct {
+			Type TargetType `json:"type"`
+			ExitTarget
+		}{Type: ExitTargetType, ExitTarget: v})
+	case StepTarget:
+		return json.MarshalEncode(enc, struct {
+			Type TargetType `json:"type"`
+			StepTarget
+		}{Type: StepTargetType, StepTarget: v})
+	case ScopeTarget:
+		return json.MarshalEncode(enc, struct {
+			Type TargetType `json:"type"`
+			ScopeTarget
+		}{Type: ScopeTargetType, ScopeTarget: v})
+	default:
+		return errors.Newf("Target: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *Target) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type TargetType `json:"type"`
+	}
+	if err := json.Unmarshal(data, &disc, opts); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case ExitTargetType:
+		var v ExitTarget
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v
+	case StepTargetType:
+		var v StepTarget
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ScopeTargetType:
+		var v ScopeTarget
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v
+	default:
+		return errors.Newf("Target: unknown type %q", disc.Type)
+	}
+	return nil
+}
+
+// Transition is a declarative state-transition rule on a sequential Scope, or an exit
+// from a parallel Scope.
 type Transition struct {
 	// On is the dataflow handle whose output fires this transition.
 	On Handle `json:"on" msgpack:"on"`
 	// Kind is conditional when only a truthy output fires the transition (`=>`), and
 	// continuous when every output fires it (`->`).
 	Kind EdgeKind `json:"kind" msgpack:"kind"`
-	// TargetKey is the sibling step key to activate. Null when the transition exits the
-	// scope, yielding to the parent.
-	TargetKey *string `json:"target_key,omitzero" msgpack:"target_key,omitempty"`
+	// Target is where the transition goes when it fires.
+	Target Target `json:"target" msgpack:"target"`
+}
+
+// Activation is a handle that activates a gated Scope without leaving any scope.
+type Activation struct {
+	// On is the dataflow handle whose output activates the scope.
+	On Handle `json:"on" msgpack:"on"`
+	// Kind is conditional when only a truthy output activates the scope (`=>`), and
+	// continuous when every output does (`->`).
+	Kind EdgeKind `json:"kind" msgpack:"kind"`
 }
 
 // Member is a tagged union representing a single child of a Scope. Exactly one of
@@ -105,21 +223,17 @@ type Scope struct {
 	Mode ScopeMode `json:"mode" msgpack:"mode"`
 	// Liveness defines whether this scope is continuously active or must be activated.
 	Liveness Liveness `json:"liveness" msgpack:"liveness"`
-	// Activation is the handle whose output activates a gated scope. Unset for
+	// Activations contains the handles that activate a gated scope. Empty for
 	// always-live scopes.
-	Activation *Handle `json:"activation,omitzero" msgpack:"activation,omitempty"`
-	// ActivationKind is conditional when only a truthy activation output activates the
-	// scope (`=>`), and continuous when every output does (`->`). Unspecified when
-	// activation is unset.
-	ActivationKind EdgeKind `json:"activation_kind" msgpack:"activation_kind"`
+	Activations []Activation `json:"activations" msgpack:"activations"`
 	// Strata contains stratified execution layers for parallel scopes. On sequential
 	// scopes, strata hold variable nodes that run every pass alongside the active step.
 	// Stratum N depends only on strata 0 to N-1.
 	Strata []Members `json:"strata" msgpack:"strata"`
 	// Steps contains ordered steps for sequential scopes. Empty for parallel scopes.
 	Steps Members `json:"steps" msgpack:"steps"`
-	// Transitions contains state-transition rules for sequential scopes. Empty for
-	// parallel scopes.
+	// Transitions contains state-transition rules in source order. A parallel scope
+	// holds only exits.
 	Transitions []Transition `json:"transitions" msgpack:"transitions"`
 }
 

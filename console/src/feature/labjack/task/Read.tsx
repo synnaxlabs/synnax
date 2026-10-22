@@ -214,7 +214,7 @@ const ChannelsForm = ({ device }: ChannelsFormProps) => {
   );
   const listItem = useCallback(
     ({ key, ...p }: Task.ChannelListItemProps) => (
-      <ChannelListItem {...p} onTare={tare} key={key} deviceModel={model} />
+      <ChannelListItem key={key} {...p} onTare={tare} deviceModel={model} />
     ),
     [tare, model],
   );

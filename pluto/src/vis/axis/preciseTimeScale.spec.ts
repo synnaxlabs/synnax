@@ -80,7 +80,7 @@ describe("PreciseTimeScale", () => {
         .range([0, 100]);
 
       const tick = new TimeStamp(TimeSpan.microseconds(25).valueOf());
-      expect(scale.formatTick(tick)).toBe("25µs");
+      expect(scale.formatTick(tick)).toBe("25μs");
     });
 
     it("should format ticks in milliseconds for larger time spans", () => {

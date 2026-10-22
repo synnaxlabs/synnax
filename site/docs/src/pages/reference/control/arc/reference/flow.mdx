@@ -81,9 +81,9 @@ flow.
 - `=> name` finds a stage or sequence with that name in the enclosing sequences, from
   the innermost out, then at the top level. A stage of a different sequence is not
   found: `undefined symbol: name`.
-- Known bug: when more than one flow starts the same top-level sequence or stage, only
-  the last one starts it. See
-  [starting a sequence](/reference/control/arc/reference/sequences#starting-a-sequence).
+- Several flows can start the same top-level sequence or stage. A running target does
+  not restart, except when a transition inside it targets itself. See
+  [conditions and transitions](/reference/control/arc/execution-model#conditions-and-transitions).
 - `-> name` starts a stage or sequence on each new value, also a false one. `=> name`
   starts it only on a true value.
 - `next` outside a sequence fails with `'next' used outside of a sequence`. In the last

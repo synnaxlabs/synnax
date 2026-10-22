@@ -1,7 +1,144 @@
-/* Copyright 2026 Synnax Labs, Inc. Licensed under licenses/BSL.txt. */
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
 
 .system-demo {
+    --scene-command-color: #c8827c;
+    --scene-acknowledgment-color: #80aee1;
+
     width: 100%;
+    border-radius: var(--foundation-radius);
+    background: #0b121c;
+}
+
+.system-path {
+    --system-path-gap: 24px;
+
+    padding: 18px 36px 16px;
+    border-top: 1px solid #263140;
+}
+
+.system-path-stops {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--system-path-gap);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+
+    li {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        text-align: center;
+    }
+
+    strong {
+        color: #c8d2df;
+        font-size: 14px;
+        font-weight: 500;
+        line-height: 1.5;
+    }
+
+    span {
+        color: #9aa9bb;
+        font: 11px/1.6 var(--foundation-mono);
+    }
+}
+
+.system-path-foundation strong {
+    color: #e2e9f3;
+}
+
+.system-path-lanes {
+    margin: 8px calc((100% - 2 * var(--system-path-gap)) / 6) 0;
+}
+
+.system-path-lane {
+    position: relative;
+    height: 22px;
+    margin: 0;
+    color: var(--scene-acknowledgment-color);
+    font: 11px/22px var(--foundation-mono);
+
+    &::before {
+        content: "";
+        position: absolute;
+        inset: 50% 0 auto;
+        border-top: 1px solid currentcolor;
+        opacity: 0.45;
+    }
+}
+
+.system-path-lane-label {
+    position: relative;
+    display: inline-block;
+    left: 25%;
+    padding-inline: 9px;
+    background: #0b121c;
+    white-space: nowrap;
+    transform: translateX(-50%);
+}
+
+.system-path-route {
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(circle, currentcolor 2px, transparent 2.5px) left center,
+        radial-gradient(circle, currentcolor 2px, transparent 2.5px) center,
+        radial-gradient(circle, currentcolor 2px, transparent 2.5px) right center;
+    background-size: 5px 5px;
+    background-repeat: no-repeat;
+
+    &::before,
+    &::after {
+        content: "";
+        position: absolute;
+        top: calc(50% - 2.5px);
+        width: 5px;
+        height: 5px;
+        border-top: 1px solid currentcolor;
+        border-right: 1px solid currentcolor;
+        transform: rotate(45deg);
+    }
+
+    &::before {
+        right: calc(50% + 12px);
+    }
+
+    &::after {
+        right: 12px;
+    }
+}
+
+.system-path-command {
+    color: var(--scene-command-color);
+
+    .system-path-lane-label {
+        left: 75%;
+    }
+
+    .system-path-route::before,
+    .system-path-route::after {
+        transform: rotate(225deg);
+    }
+
+    .system-path-route::before {
+        right: calc(50% - 17px);
+    }
+
+    .system-path-route::after {
+        right: calc(100% - 17px);
+    }
 }
 
 .system-section[data-motion="paused"] .scene-signal-packets {
@@ -9,14 +146,11 @@
 }
 
 .world-stage {
-    --scene-command-color: #c8827c;
-    --scene-acknowledgment-color: #80aee1;
-
     position: relative;
     overflow: hidden;
     padding: 28px 36px 34px;
     min-height: 740px;
-    border-radius: var(--foundation-radius);
+    border-radius: var(--foundation-radius) var(--foundation-radius) 0 0;
     background: #0b121c;
 }
 
@@ -63,9 +197,16 @@
     }
 }
 
-.layer-number {
-    font-size: 10px;
-    color: var(--foundation-caption);
+.world-step-number {
+    flex-shrink: 0;
+    color: #94a7bd;
+    font-size: 11px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+
+.world-layer-controls button[aria-pressed="true"] .world-step-number {
+    color: #b0c8ee;
 }
 
 .world-viewport {
@@ -212,7 +353,7 @@
     border-radius: 6px;
     background: transparent;
     color: #b4c8e0;
-    font: 11px/1.6 var(--foundation-mono);
+    font: 500 12px/1.6 var(--foundation-mono);
     cursor: pointer;
     transition:
         background 160ms,
@@ -230,11 +371,15 @@
 }
 
 .chapter-topline {
-    color: var(--foundation-caption);
-    font: 11px/1.5 var(--foundation-mono);
+    color: #9baabc;
+    font: 500 12px/1.5 var(--foundation-mono);
 }
 
 @media (width <= 1100px) {
+    .system-path {
+        padding-inline: 28px;
+    }
+
     .world-stage {
         display: grid;
         grid-template:
@@ -342,6 +487,18 @@
 }
 
 @media (width <= 900px) {
+    .system-path {
+        padding-inline: 22px;
+    }
+
+    .system-path-destination {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+    }
+
     .world-stage {
         padding: 22px;
     }
@@ -371,13 +528,45 @@
 }
 
 @media (width <= 600px) {
+    .system-demo {
+        border-radius: 18px;
+    }
+
+    .system-path {
+        --system-path-gap: 18px;
+
+        padding: 16px 16px 14px;
+    }
+
+    .system-path-stops {
+        li {
+            gap: 0;
+        }
+
+        strong {
+            font-size: 11px;
+        }
+
+        span {
+            display: none;
+        }
+    }
+
+    .system-path-lane {
+        font-size: 10px;
+    }
+
+    .system-path-lane-label {
+        padding-inline: 6px;
+    }
+
     .world-stage {
         --world-camera-x: 70px;
         --world-camera-y: 10px;
 
         grid-template-rows: auto auto 54px auto;
         padding: 16px;
-        border-radius: 18px;
+        border-radius: 18px 18px 0 0;
     }
 
     .world-toolbar {
@@ -462,10 +651,6 @@
     .chapter-copy h3 {
         margin-block: 12px 18px;
         font-size: 26px;
-    }
-
-    .chapter-topline {
-        font-size: 10px;
     }
 }
 

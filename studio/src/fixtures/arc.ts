@@ -21,7 +21,7 @@ const START_TIMEOUT = TimeSpan.seconds(10);
 export const startArc = async (client: Synnax, key: arc.Key): Promise<task.Task> => {
   const [rack] = await client.racks.retrieve({ integration: "arc" });
   if (rack == null) throw new Error("the Core has no rack that runs Arc");
-  const tsk = await client.arcs.setRack(key, rack.key);
+  const tsk = await client.arcs.updateTask(key, { rack: rack.key });
   if (tsk == null)
     throw new Error(`binding Arc ${key} to rack ${rack.name} made no task`);
   const started = await tsk.executeCommandSync({

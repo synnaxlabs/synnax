@@ -110,7 +110,7 @@
     margin: 0;
 }
 
-/* The media Logo's white/gradient color props are dead; only "auto" is implemented,
+/* The Lyra Logo's white/gradient color props are dead; only "auto" is implemented,
    and it resolves this var. */
 .console-shell__mark {
     height: 5.5rem;

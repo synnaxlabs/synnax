@@ -65,6 +65,13 @@ Turns off TLS. Users still log in. Do not use it in production.
 
 </Field.Item>
 
+<Field.Item name="--fips" env="SYNNAX_FIPS">
+
+Restricts password hashing to PBKDF2. The Core refuses passwords stored with another
+algorithm until an administrator sets them again.
+
+</Field.Item>
+
 <Field.Item name="--mem" short="-m" env="SYNNAX_MEM">
 
 Keeps all data in memory. The Core writes nothing to disk, and loses all data when it

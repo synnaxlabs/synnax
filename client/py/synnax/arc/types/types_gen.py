@@ -12,9 +12,9 @@
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import Any, TypeAlias
+from typing import TypeAlias
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, JsonValue
 
 
 class Kind(IntEnum):
@@ -145,7 +145,7 @@ class Param(BaseModel):
 
     name: str
     type: Type
-    value: Any
+    value: JsonValue
 
 
 Params: TypeAlias = list[Param]

@@ -107,39 +107,42 @@ tsk = sy.ni.AnalogWriteTask(
 client.tasks.configure(tsk)
 
 # Start the task and write some analog values.
-with tsk.run():
-    with client.control.acquire(
+with (
+    tsk.run(),
+    client.control.acquire(
         name="Analog Control Sequence",
         read=["ao_0_state", "ao_1_state"],
         write=["ao_0_cmd", "ao_1_cmd"],
         write_authorities=50,
-    ) as ctrl:
-        ctrl["ao_0_cmd"] = 5.0
-        ctrl["ao_1_cmd"] = 3.0
-        ctrl.wait_until(
-            lambda c: (
-                abs(c["ao_0_state"] - 5.0) < 0.01 and abs(c["ao_1_state"] - 3.0) < 0.01
-            ),
-            timeout=1,
-        )
-        ctrl.sleep(0.5)
+    ) as ctrl,
+):
+    ctrl["ao_0_cmd"] = 5.0
+    ctrl["ao_1_cmd"] = 3.0
+    ctrl.wait_until(
+        lambda c: (
+            abs(c["ao_0_state"] - 5.0) < 0.01 and abs(c["ao_1_state"] - 3.0) < 0.01
+        ),
+        timeout=1,
+    )
+    ctrl.sleep(0.5)
 
-        ctrl["ao_0_cmd"] = -2.5
-        ctrl["ao_1_cmd"] = 7.5
-        ctrl.wait_until(
-            lambda c: (
-                abs(c["ao_0_state"] - (-2.5)) < 0.01
-                and abs(c["ao_1_state"] - 7.5) < 0.01
-            ),
-            timeout=1,
-        )
-        ctrl.sleep(0.5)
+    ctrl["ao_0_cmd"] = -2.5
+    ctrl["ao_1_cmd"] = 7.5
+    ctrl.wait_until(
+        lambda c: (
+            abs(c["ao_0_state"] - (-2.5)) < 0.01 and abs(c["ao_1_state"] - 7.5) < 0.01
+        ),
+        timeout=1,
+    )
+    ctrl.sleep(0.5)
 
-        ctrl["ao_0_cmd"] = 0.0
-        ctrl["ao_1_cmd"] = 0.0
-        ctrl.wait_until(
-            lambda c: abs(c["ao_0_state"]) < 0.01 and abs(c["ao_1_state"]) < 0.01,
-            timeout=1,
-        )
+    ctrl["ao_0_cmd"] = 0.0
+    ctrl["ao_1_cmd"] = 0.0
+    ctrl.wait_until(
+        lambda c: (
+            abs(float(c["ao_0_state"])) < 0.01 and abs(float(c["ao_1_state"])) < 0.01
+        ),
+        timeout=1,
+    )
 
 client.tasks.delete(tsk.key)

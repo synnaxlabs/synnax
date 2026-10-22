@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, TimeSpan, TimeStamp, xy } from "@synnaxlabs/x";
+import { compare, type destructor, TimeSpan, TimeStamp, xy } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -41,13 +41,20 @@ export interface Listen {
 /** State the {@link Provider} publishes. */
 export interface ContextValue {
   listen: Listen;
+  reserved: Trigger[];
 }
 
 const [Context, useContext] = context.create<ContextValue>({
-  defaultValue: { listen: () => () => {} },
+  defaultValue: { listen: () => () => {}, reserved: [] },
   displayName: "Triggers.Context",
 });
 export { useContext };
+
+/** @returns whether the host keeps trigger for itself, so no hint should show it. */
+export const useReserved = (trigger: Trigger): boolean =>
+  useContext().reserved.some(
+    (r) => compare.unorderedPrimitiveArrays(r, trigger) === compare.EQUAL,
+  );
 
 interface RefState {
   next: Trigger;
@@ -62,6 +69,7 @@ const ZERO_REF_STATE: RefState = {
 };
 
 const EXCLUDE_TRIGGERS = ["CapsLock"];
+const NO_TRIGGERS: Trigger[] = [];
 const DOUBLE_PRESS_WINDOW = TimeSpan.milliseconds(300).valueOf();
 
 // Native text-editing shortcuts (select-all, copy, paste, cut) the browser owns inside
@@ -75,6 +83,9 @@ export interface ProviderProps extends PropsWithChildren {
   /** Triggers whose browser default is suppressed, such as the browser's own find. */
   preventDefaultOn?: Trigger[];
   preventDefaultOptions?: MatchOptions;
+  /** Triggers the host intercepts before the page sees them, such as a browser's
+   * new-tab shortcut. {@link Text} hides their hints. */
+  reserved?: Trigger[];
 }
 
 const shouldTriggerOnKeyDown = (key: Key, e: KeyboardEvent): boolean => {
@@ -96,6 +107,7 @@ export const Provider = ({
   children,
   preventDefaultOn,
   preventDefaultOptions,
+  reserved = NO_TRIGGERS,
 }: ProviderProps): ReactElement => {
   // We track mouse movement to allow for cursor position on keyboard events;
   const cursor = useRef<xy.XY>(xy.ZERO);
@@ -229,7 +241,7 @@ export const Provider = ({
     };
   }, []);
 
-  const ctxValue = useMemo(() => ({ listen }), [listen]);
+  const ctxValue = useMemo(() => ({ listen, reserved }), [listen, reserved]);
 
   return <Context value={ctxValue}>{children}</Context>;
 };
