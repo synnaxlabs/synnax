@@ -15,7 +15,7 @@ import {
 } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, assert, describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
@@ -185,7 +185,11 @@ describe("task/Toolbar", () => {
       const t = await createTask({ config: { dataSavingDisabled: false } });
       await renderToolbar();
       await screen.findByText(t.name);
-      fireEvent.click(await findIconButton(getRow(t.name), "save"));
+      fireEvent.click(
+        await within(getRow(t.name)).findByRole("button", {
+          name: "Data saving enabled. Click to disable.",
+        }),
+      );
       await waitFor(async () => {
         const updated = await client.tasks.retrieve(t.key);
         expect(updated.config).toMatchObject({ dataSavingDisabled: true });
@@ -196,7 +200,11 @@ describe("task/Toolbar", () => {
       const t = await createTask({ config: { dataSavingDisabled: true } });
       await renderToolbar();
       await screen.findByText(t.name);
-      fireEvent.click(await findIconButton(getRow(t.name), "save"));
+      fireEvent.click(
+        await within(getRow(t.name)).findByRole("button", {
+          name: "Data saving disabled. Click to enable.",
+        }),
+      );
       await waitFor(async () => {
         const updated = await client.tasks.retrieve(t.key);
         expect(updated.config).toMatchObject({ dataSavingDisabled: false });

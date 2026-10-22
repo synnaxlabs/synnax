@@ -312,8 +312,14 @@ const TaskListItem = ({
           size="small"
           className={CSS.cls(
             CSS.BE("task", "data-saving"),
-            isRunning && dataSaving && CSS.BEM("task", "data-saving", "active"),
+            isRunning &&
+              dataSaving &&
+              !isDrifted &&
+              CSS.BEM("task", "data-saving", "active"),
           )}
+          textColor={
+            dataSaving ? "var(--pluto-primary-z)" : "var(--pluto-text-disabled)"
+          }
           preventClick={!hasUpdatePermission}
           onClick={handleDataSavingClick}
           onDoubleClick={stopPropagation}
@@ -323,9 +329,7 @@ const TaskListItem = ({
               : ""
           }`}
         >
-          <Status.Indicator variant={dataSaving ? "success" : "disabled"}>
-            <Icon.Save />
-          </Status.Indicator>
+          <Icon.Save />
         </Button.Button>
       )}
       {canControl && (
