@@ -1,0 +1,78 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+name: Test - Codec corpus
+
+on:
+  schedule:
+    - cron: "0 4 * * 1" # Weekly, Monday 4am UTC
+  workflow_dispatch:
+
+env:
+  BAZEL_REMOTE_CACHE_FLAGS:
+    --remote_cache=${{ vars.BAZEL_REMOTE_CACHE_GRPC_URL }}
+    --remote_cache_compression=true
+
+jobs:
+  corpus:
+    name: Corpus
+    runs-on: ubuntu-build-bot
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: core/go.mod
+          cache-dependency-path: |
+            core/go.mod
+            core/go.sum
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.3.0
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.19.1
+        with:
+          bazelisk-cache: false
+          disk-cache: false
+          repository-cache: false
+
+      - name: Fetch the opendbc and cantools corpora
+        id: fetch
+        run: driver/codec/testdata/corpus.sh all "$RUNNER_TEMP/dbc"
+
+      # The steps below run after a failed one, so that one run reports every DBC file
+      # that the Core's importer, cantools, or the Driver's codec disagree on.
+      - name: Import each DBC file into a library
+        working-directory: core
+        env:
+          SYNNAX_UPDATE_GOLDEN: "1"
+        run: >-
+          SYNNAX_GOLDEN_DIR="$RUNNER_TEMP/dbc" go test ./pkg/service/library/icd/ -run
+          TestICD -args -ginkgo.focus=Golden
+
+      - name: Generate vectors with cantools
+        if: ${{ !cancelled() && steps.fetch.outcome == 'success' }}
+        run: >-
+          uv run --no-project --with cantools==45.1.0 python
+          driver/codec/testdata/generate.py "$RUNNER_TEMP/dbc"
+
+      - name: Decode and encode the vectors with the codec
+        if: ${{ !cancelled() && steps.fetch.outcome == 'success' }}
+        run: >-
+          bazel test $BAZEL_REMOTE_CACHE_FLAGS --test_output=all
+          --test_env=SYNNAX_GOLDEN_DIR="$RUNNER_TEMP/dbc"
+          --test_filter='GoldenVectors.*' //driver/codec:codec_test
+
+      - name: Clean build caches
+        if: always()
+        run: integration/scripts/clean_build_caches.sh 25
