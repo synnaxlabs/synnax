@@ -65,7 +65,9 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 			continue
 		}
 		if vDB, ok := db.mu.dbs.virtual[key]; ok {
-			iter, iterErr := vDB.OpenIterator(virtual.IteratorConfig{Bounds: cfg.Bounds})
+			iter, iterErr := vDB.OpenIterator(
+				virtual.IteratorConfig{Bounds: cfg.Bounds},
+			)
 			if iterErr != nil {
 				return nil, iterErr
 			}

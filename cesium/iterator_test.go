@@ -1094,7 +1094,9 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(i.Close()).To(Succeed())
 				})
 
-				It("Should leave out a sample outside the bounds", func(ctx SpecContext) {
+				It("Should leave out a sample outside the bounds", func(
+					ctx SpecContext,
+				) {
 					key := GenerateChannelKey()
 					Expect(db.CreateChannel(ctx, virtualChannel(key, "bounded"))).
 						To(Succeed())
@@ -1103,7 +1105,10 @@ var _ = Describe("Iterator Behavior", func() {
 						10*telem.SecondTS,
 						telem.UnaryFrame(key, telem.NewSeriesV[int64](1)),
 					)).To(Succeed())
-					i := openIterator(telem.TimeRange{Start: 0, End: 5 * telem.SecondTS}, key)
+					i := openIterator(
+						telem.TimeRange{Start: 0, End: 5 * telem.SecondTS},
+						key,
+					)
 					Expect(i.SeekLast()).To(BeFalse())
 					Expect(i.Close()).To(Succeed())
 				})
@@ -1146,8 +1151,12 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(i.SeekFirst()).To(BeTrue())
 					Expect(i.Next(cesium.AutoSpan)).To(BeTrue())
 					f := i.Value()
-					Expect(f.Get(dataKey).Series[0]).To(telem.MatchSeriesDataV[int64](10, 20))
-					Expect(f.Get(virtKey).Series[0]).To(telem.MatchSeriesDataV[int64](30))
+					Expect(f.Get(dataKey).Series[0]).To(
+						telem.MatchSeriesDataV[int64](10, 20),
+					)
+					Expect(f.Get(virtKey).Series[0]).To(
+						telem.MatchSeriesDataV[int64](30),
+					)
 					Expect(i.Close()).To(Succeed())
 				})
 

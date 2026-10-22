@@ -217,14 +217,12 @@ var _ = Describe("Iterator", func() {
 		second := openWriter(ctx, "second")
 		var wg sync.WaitGroup
 		for _, w := range []*virtual.Writer{first, second} {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				defer GinkgoRecover()
 				for n := range int64(50) {
 					MustSucceed(w.Write(stamped(stamp, n)))
 				}
-			}()
+			})
 		}
 		wg.Wait()
 		MustSucceed(first.Close())
