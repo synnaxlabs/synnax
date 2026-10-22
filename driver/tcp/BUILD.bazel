@@ -61,18 +61,33 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "model",
+    testonly = True,
+    srcs = ["model.cpp"],
+    hdrs = ["model.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":tcp",
+        "//x/cpp/telem",
+        "@asio//:asio_no_openssl",
+    ],
+)
+
 cc_test(
     name = "tcp_test",
     size = "small",
     srcs = [
         "client_test.cpp",
         "errors_test.cpp",
+        "model_test.cpp",
     ] + select({
         "@platforms//os:linux": ["keepalive_linux_test.cpp"],
         "@platforms//os:macos": ["keepalive_macos_test.cpp"],
         "@platforms//os:windows": ["keepalive_windows_test.cpp"],
     }),
     deps = [
+        ":model",
         ":tcp",
         "//driver/transport",
         "//x/cpp/test",
