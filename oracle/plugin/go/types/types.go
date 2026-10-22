@@ -942,11 +942,12 @@ func processField(field resolution.Field, data *templateData) fieldData {
 		goType = "*" + goType
 	}
 	return fieldData{
-		GoName:     naming.GetFieldName(field),
-		GoType:     goType,
-		JSONName:   casing.FieldSnake(field.Name),
-		IsOptional: field.Optional,
-		Doc:        doc.Get(field.Domains),
+		GoName:      naming.GetFieldName(field),
+		GoType:      goType,
+		JSONName:    casing.FieldSnake(field.Name),
+		IsOptional:  field.Optional,
+		Doc:         doc.Get(field.Domains),
+		WireOmitted: domain.GetStringFromField(field, "go", "wire") == "omit",
 	}
 }
 
@@ -1100,26 +1101,34 @@ type fieldData struct {
 	JSONName   string
 	Doc        string
 	IsOptional bool
+	// WireOmitted is set by @go wire omit: JSON and msgpack skip the field.
+	WireOmitted bool
 }
 
-// JSONTagSuffix returns the JSON tag suffix for the field. An optional field uses
-// `,omitzero` so its Go zero — a nil slice, map or pointer — is omitted while any
-// allocated value serializes, including an empty collection or a pointer to "". A
-// required field always serializes, because the schema says it always applies.
-func (f fieldData) JSONTagSuffix() string {
-	if f.IsOptional {
-		return ",omitzero"
+// JSONTag returns the field's JSON tag. An optional field uses `,omitzero` so its Go
+// zero — a nil slice, map or pointer — is omitted while any allocated value
+// serializes, including an empty collection or a pointer to "". A required field always
+// serializes, because the schema says it always applies.
+func (f fieldData) JSONTag() string {
+	if f.WireOmitted {
+		return "-"
 	}
-	return ""
+	if f.IsOptional {
+		return f.JSONName + ",omitzero"
+	}
+	return f.JSONName
 }
 
-// MsgpackTagSuffix returns the msgpack tag suffix for the field. vmihailenco/msgpack
-// honors only `,omitempty`, which also omits an allocated empty collection.
-func (f fieldData) MsgpackTagSuffix() string {
-	if f.IsOptional {
-		return ",omitempty"
+// MsgpackTag returns the field's msgpack tag. vmihailenco/msgpack honors only
+// `,omitempty`, which also omits an allocated empty collection.
+func (f fieldData) MsgpackTag() string {
+	if f.WireOmitted {
+		return "-"
 	}
-	return ""
+	if f.IsOptional {
+		return f.JSONName + ",omitempty"
+	}
+	return f.JSONName
 }
 
 type enumData struct {
@@ -1301,7 +1310,7 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{- if .Doc}}
 	{{formatFieldDoc .GoName .Doc | printf "%s"}}
 {{- end}}
-	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.JSONTagSuffix}}" msgpack:"{{.JSONName}}{{.MsgpackTagSuffix}}"` + "`" + `
+	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONTag}}" msgpack:"{{.MsgpackTag}}"` + "`" + `
 {{- end}}
 {{- range .ExtraFields}}
 	{{.}}
@@ -1313,7 +1322,7 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{- if .Doc}}
 	{{formatFieldDoc .GoName .Doc | printf "%s"}}
 {{- end}}
-	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.JSONTagSuffix}}" msgpack:"{{.JSONName}}{{.MsgpackTagSuffix}}"` + "`" + `
+	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONTag}}" msgpack:"{{.MsgpackTag}}"` + "`" + `
 {{- end}}
 {{- range .ExtraFields}}
 	{{.}}
@@ -1444,7 +1453,7 @@ type {{.TypeName}} struct {
 {{- if .Doc}}
 	{{formatFieldDoc .GoName .Doc | printf "%s"}}
 {{- end}}
-	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.JSONTagSuffix}}" msgpack:"{{.JSONName}}{{.MsgpackTagSuffix}}"` + "`" + `
+	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONTag}}" msgpack:"{{.MsgpackTag}}"` + "`" + `
 {{- end}}
 }
 

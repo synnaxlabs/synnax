@@ -393,7 +393,8 @@ export const Logo = {
   PagerDuty: wrapSVGIcon(SiPagerduty, "logo-pagerduty"),
   Windows: wrapSVGIcon(FaWindows, "logo-windows"),
   EtherCAT,
-  HTTP: wrapSVGIcon(MdHttp, "logo-http"),
+  // Crops the view box to the mark, which fills only a thin strip of the original.
+  HTTP: wrapSVGIcon((props) => <MdHttp {...props} viewBox="1 9 22 6" />, "logo-http"),
 };
 export const Arrow = {
   Right: wrapSVGIcon(TbArrowRight, "arrow-right"),
