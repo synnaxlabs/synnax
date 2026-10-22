@@ -1844,7 +1844,7 @@ var _ = Describe("Python Types Plugin", func() {
 
 		Context("generic alias with nil type argument", func() {
 			It(
-				"Should generate TypeAlias with None for nil type arg",
+				"Should drop a nil type arg so the generic uses its default",
 				func(ctx SpecContext) {
 					loader.Add("schemas/status", `
 @py output "client/py/synnax/status"
@@ -1866,8 +1866,9 @@ ChannelStatus = status.Status<nil>
 					resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
 					ExpectContent(resp, "channel/types_gen.py").
 						ToContain(
-							`ChannelStatus: TypeAlias = status.Status[None]`,
-						)
+							"ChannelStatus: TypeAlias = status.Status\n",
+						).
+						ToNotContain(`status.Status[None]`)
 				},
 			)
 		})
