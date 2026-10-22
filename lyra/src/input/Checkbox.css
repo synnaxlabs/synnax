@@ -64,7 +64,7 @@
         cursor: pointer;
     }
 
-    &:not(.pluto--disabled):hover .pluto-input__checkbox-indicator {
+    &:not(.pluto--disabled, .pluto--icon):hover .pluto-input__checkbox-indicator {
         border-color: var(--pluto-gray-l9);
     }
 
@@ -84,7 +84,7 @@
         border-color: var(--pluto-primary-z);
     }
 
-    &:not(.pluto--disabled):hover
+    &:not(.pluto--disabled, .pluto--icon):hover
         .pluto-input__checkbox-input:checked
         ~ .pluto-input__checkbox-indicator {
         background: var(--pluto-primary-p1);
