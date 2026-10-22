@@ -17,8 +17,7 @@ import (
 	"uuid"
 )
 
-// TokenPrefix starts every session token.
-const TokenPrefix = "sys_"
+const tokenPrefix = "sys_"
 
 const secretLen = 32
 
@@ -30,15 +29,15 @@ func newToken(key SessionKey) (string, []byte, error) {
 		return "", nil, err
 	}
 	raw := append(key[:], secret...)
-	return TokenPrefix + tokenEncoding.EncodeToString(raw), hashSecret(secret), nil
+	return tokenPrefix + tokenEncoding.EncodeToString(raw), hashSecret(secret), nil
 }
 
 // parseToken returns [ErrInvalidToken] for a malformed token.
 func parseToken(token string) (SessionKey, []byte, error) {
-	if !strings.HasPrefix(token, TokenPrefix) {
+	if !strings.HasPrefix(token, tokenPrefix) {
 		return uuid.Nil(), nil, ErrInvalidToken
 	}
-	raw, err := tokenEncoding.DecodeString(strings.TrimPrefix(token, TokenPrefix))
+	raw, err := tokenEncoding.DecodeString(strings.TrimPrefix(token, tokenPrefix))
 	if err != nil || len(raw) != 16+secretLen {
 		return uuid.Nil(), nil, ErrInvalidToken
 	}
