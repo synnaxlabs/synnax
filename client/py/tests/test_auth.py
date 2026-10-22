@@ -144,8 +144,8 @@ class TestAuthRetry:
             auth.authenticate()
             raise sy.SessionEnded("ended")
 
-        mock_client.use(relogin_then_end)
         mock_client.use(auth.middleware())
+        mock_client.use(relogin_then_end)
         assert mock_client.send("", Empty(), Empty) == Empty()
         assert auth.token == "def"
         assert len(login.requests) == 2
