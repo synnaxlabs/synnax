@@ -1233,5 +1233,68 @@ describe("MultiplexedStreamer", () => {
       expect(sub.status(2).variant).toBe("error");
       await streamer.close();
     });
+
+    it("should run one lookup at a time", async () => {
+      let inFlight = 0;
+      let peak = 0;
+      const cache = new Cache({
+        retrieveChannels: async (keys) => {
+          inFlight++;
+          peak = Math.max(peak, inFlight);
+          await new Promise((resolve) => setTimeout(resolve, 300));
+          inFlight--;
+          return CHANNELS.filter((ch) => (keys as channel.Key[]).includes(ch.key));
+        },
+      });
+      const streamer = new MultiplexedStreamer({
+        cache,
+        openStreamer: async (config) =>
+          pendingStreamer((config as { channels: channel.Key[] }).channels),
+      });
+      const first = streamer.stream(() => {}, [2]);
+      await vi.advanceTimersByTimeAsync(150);
+      const second = streamer.stream(() => {}, [5]);
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(peak).toBe(1);
+      expect(first.status(2).variant).toBe("success");
+      expect(second.status(5).variant).toBe("success");
+      await streamer.close();
+    });
+
+    it("should not blame an allowed channel for a lookup that overlapped", async () => {
+      const DENIED = 6;
+      const opened: MockStreamer[] = [];
+      const cache = new Cache({
+        retrieveChannels: async (keys) => {
+          if ((keys as channel.Key[]).includes(DENIED)) {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            throw new AccessDeniedError(`cannot retrieve channel ${DENIED}`);
+          }
+          return CHANNELS.filter((ch) => (keys as channel.Key[]).includes(ch.key));
+        },
+      });
+      const streamer = new MultiplexedStreamer({
+        cache,
+        // A slow open keeps the allowed key off the stream while the stale lookup
+        // fails, which is when a second reconcile would blame it.
+        openStreamer: async (config) => {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          const { channels } = config as { channels: channel.Key[] };
+          const ms = pendingStreamer(channels);
+          opened.push(ms);
+          return ms;
+        },
+        instrumentation: createErrorSpy().instrumentation,
+      });
+      const first = streamer.stream(() => {}, [4, DENIED]);
+      await vi.advanceTimersByTimeAsync(150);
+      const second = streamer.stream(() => {}, [3]);
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(first.status(4).variant).toBe("success");
+      expect(second.status(3).variant).toBe("success");
+      expect(first.status(DENIED).variant).toBe("error");
+      expect(opened.at(-1)?.keys.slice().sort()).toEqual([1, 3, 4]);
+      await streamer.close();
+    });
   });
 });

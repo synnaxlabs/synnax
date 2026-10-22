@@ -141,6 +141,9 @@ export class MultiplexedStreamer {
   // Keys held back while a rejection of several new keys is narrowed down. One returns
   // to the stream per successful reconcile.
   private deferred: channel.Key[] = [];
+  // Rejection narrowing blames the one new key left, so reconciles never overlap.
+  private reconciling = false;
+  private rerun = false;
 
   constructor(props: MultiplexedStreamerProps) {
     const {
@@ -310,7 +313,24 @@ export class MultiplexedStreamer {
     for (const key of keys) cache.get(key).flushDynamic();
   }
 
+  // A reconcile that arrives mid-run queues one more pass instead of running beside it.
   private async reconcile(): Promise<void> {
+    if (this.reconciling) {
+      this.rerun = true;
+      return;
+    }
+    this.reconciling = true;
+    try {
+      do {
+        this.rerun = false;
+        await this.reconcileOnce();
+      } while (this.rerun && !this.connMu.closed);
+    } finally {
+      this.reconciling = false;
+    }
+  }
+
+  private async reconcileOnce(): Promise<void> {
     const { cache, instrumentation: ins } = this.props;
     let retry = false;
     if (this.connMu.closed) return;
