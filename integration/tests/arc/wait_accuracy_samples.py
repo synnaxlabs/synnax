@@ -70,7 +70,7 @@ class _WaitSamples(ArcCase):
         min_ms = self.limits.min_wait_ms
         profile = [w for w in self.profile_ms if w >= min_ms]
         if not profile:
-            self.auto_pass(f"every wait of the case is under {min_ms} ms")
+            self.skip(f"every wait of the case is under {min_ms} ms")
         self.waits_ms = profile * REPEATS
         self.arc_source = create_source(self.waits_ms)
         create_indexed_pair(self.client, "ws_cmd", sy.DataType.UINT8)

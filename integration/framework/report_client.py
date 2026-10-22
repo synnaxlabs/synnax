@@ -9,7 +9,7 @@
 
 import threading
 from collections.abc import Callable
-from typing import Any
+from typing import Any, TextIO
 
 import synnax as sy
 from framework.config_client import TestDefinition
@@ -45,6 +45,7 @@ class ReportClient:
                 return {
                     "total": 0,
                     "passed": 0,
+                    "skipped": 0,
                     "flaky": 0,
                     "failed": 0,
                     "killed": 0,
@@ -53,6 +54,7 @@ class ReportClient:
                 }
 
             passed = sum(1 for r in self._tests if r.status == STATUS.PASSED)
+            skipped = sum(1 for r in self._tests if r.status == STATUS.SKIPPED)
             flaky = sum(1 for r in self._tests if r.status == STATUS.FLAKY)
             failed = sum(1 for r in self._tests if r.status == STATUS.FAILED)
             killed = sum(1 for r in self._tests if r.status == STATUS.KILLED)
@@ -62,6 +64,7 @@ class ReportClient:
             return {
                 "total": len(self._tests),
                 "passed": passed,
+                "skipped": skipped,
                 "flaky": flaky,
                 "failed": failed,
                 "killed": killed,
@@ -136,6 +139,8 @@ class ReportClient:
                 "/".join(case_parts[1:]) if len(case_parts) > 1 else str(test)
             )
             self._log(f"{status_symbol} {display_name}{duration_str}", False)
+            if test.skip_reason:
+                self._log(f"SKIPPED: {test.skip_reason}", False)
             if test.error_message:
                 self._log(f"ERROR: {test.error_message}", True)
 
@@ -152,6 +157,8 @@ class ReportClient:
             seconds = int(test_time_secs % 60)
             self._log(f"Total time: {minutes}m {seconds}s", False)
         self._log(f"Passed: {stats['passed']}", False)
+        if stats["skipped"] > 0:
+            self._log(f"Skipped: {stats['skipped']} (unsupported on this host)", False)
         if stats["flaky"] > 0:
             self._log(f"Flaky: {stats['flaky']} (passed on retry)", False)
         self._log(
@@ -162,3 +169,38 @@ class ReportClient:
         )
         self._log("=" * 60, False)
         self._log("\n", False)
+
+    def report_to_github(self, out: TextIO, step_summary: TextIO | None) -> None:
+        """Reports each skipped test to GitHub Actions as a notice on the run and as a
+        table in the job summary, so that a skip does not read as a pass.
+
+        :param out: Where to write workflow commands, which Actions reads from stdout.
+        :param step_summary: The file that GITHUB_STEP_SUMMARY names, or None.
+        """
+        with self._tests_lock:
+            skipped = [t for t in self._tests if t.status == STATUS.SKIPPED]
+        if not skipped:
+            return
+        for test in skipped:
+            message = _escape_command(f"{test}: {test.skip_reason}")
+            out.write(f"::notice title=Skipped test::{message}\n")
+        out.flush()
+        if step_summary is None:
+            return
+        rows = "".join(
+            f"| {_escape_cell(str(t))} | {_escape_cell(t.skip_reason or '')} |\n"
+            for t in skipped
+        )
+        step_summary.write(
+            f"### Skipped integration tests\n\n| Test | Reason |\n| --- | --- |\n{rows}\n"
+        )
+
+
+def _escape_command(message: str) -> str:
+    """Escapes the data of a GitHub Actions workflow command."""
+    return message.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+
+def _escape_cell(text: str) -> str:
+    """Escapes text for one cell of a Markdown table."""
+    return text.replace("|", "\\|").replace("\n", " ")

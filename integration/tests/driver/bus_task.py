@@ -203,7 +203,7 @@ class BusCase(SimulatorCase):
     def setup(self) -> None:
         reason = self.unsupported()
         if reason is not None:
-            self.auto_pass(msg=reason)
+            self.skip(reason)
             return
         super().setup()
         created = self.client.libraries.create(
@@ -346,7 +346,11 @@ class BusCase(SimulatorCase):
             name=f"{type(self).__name__} commands",
         ) as writer:
             now = sy.TimeStamp.now()
-            writer.write({**values, **dict.fromkeys(indexes, now)})
+            frame: dict[int, float | sy.TimeStamp] = {
+                **values,
+                **dict.fromkeys(indexes, now),
+            }
+            writer.write(frame)
 
     def command_until(
         self,

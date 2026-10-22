@@ -20,6 +20,7 @@ class STATUS(Enum):
     RUNNING = auto()
     PENDING = auto()
     PASSED = auto()
+    SKIPPED = auto()
     FLAKY = auto()
     FAILED = auto()
     TIMEOUT = auto()
@@ -28,6 +29,7 @@ class STATUS(Enum):
 
 class SYMBOLS(Enum):
     PASSED = "\u2705"
+    SKIPPED = "\u23ed\ufe0f"
     FLAKY = "\u26a0\ufe0f"
     FAILED = "\u274c"
     KILLED = "\U0001f480"
@@ -75,6 +77,8 @@ class Test:
     name: str | None = None
     error_message: str | None = None
     error_traceback: str | None = None
+    # Why the host could not run a SKIPPED test.
+    skip_reason: str | None = None
     range: sy.Range | None = None
     # Unix-timestamp seconds bounding the test's wall-clock execution. Populated
     # by ExecutionClient; used by summary.json and by per-test server-log slicing.

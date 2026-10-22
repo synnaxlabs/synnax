@@ -127,7 +127,7 @@ class TestCase(ABC):
             log=self.log,
             set_failed=lambda: setattr(self, "STATUS", STATUS.FAILED),
         )
-        self._auto_pass: bool = False
+        self._skip_reason: str | None = None
         self._should_stop = False
         self.is_running = True
 
@@ -219,6 +219,8 @@ class TestCase(ABC):
 
         if self._status == STATUS.PASSED:
             self.log(f"PASSED ({status_symbol})")
+        elif self._status == STATUS.SKIPPED:
+            self.log(f"SKIPPED ({status_symbol}): {self._skip_reason}")
         elif self._status == STATUS.FAILED:
             self.log(f"FAILED ({status_symbol})")
         elif self._status == STATUS.TIMEOUT:
@@ -273,10 +275,14 @@ class TestCase(ABC):
     def setup(self) -> None:
         """Load configs, add channels, subscribe to channels, etc."""
 
-    def auto_pass(self, msg: str) -> None:
-        """Set the auto pass flag. Include reason for passing."""
-        self.log(f"AUTO PASS Enabled: {msg}")
-        self._auto_pass = True
+    def skip(self, reason: str) -> None:
+        """Skips run() and reports the test as SKIPPED, distinct from PASSED. Call it
+        from setup() when the host cannot run the test.
+
+        :param reason: Why the host cannot run the test.
+        """
+        self.log(f"SKIPPING: {reason}")
+        self._skip_reason = reason
 
     @abstractmethod
     def run(self) -> None:
@@ -620,13 +626,15 @@ class TestCase(ABC):
             self._start_client_threads()
 
             self.STATUS = STATUS.RUNNING
-            if not self._auto_pass:
+            if self._skip_reason is None:
                 self.run()
             log_phase("run")
 
             # Set to PENDING only if not in final state
             if self._status not in [STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED]:
-                self.STATUS = STATUS.PENDING
+                self.STATUS = (
+                    STATUS.PENDING if self._skip_reason is None else STATUS.SKIPPED
+                )
 
             # PASSED set in _check_expectation()
 

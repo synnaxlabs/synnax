@@ -277,6 +277,7 @@ class TestConductor:
                 "ended_at": _iso(t.ended_at),
                 "duration_s": _duration(t.started_at, t.ended_at),
                 "error_message": t.error_message,
+                "skip_reason": t.skip_reason,
                 "bundle_dir": (
                     os.path.relpath(t.bundle_dir, str(self.run_dir))
                     if t.bundle_dir
@@ -300,6 +301,7 @@ class TestConductor:
                         "total_passed",
                         "total_failed",
                         "passed",
+                        "skipped",
                         "failed",
                         "flaky",
                         "timeout",
@@ -341,7 +343,7 @@ The layout and inspection workflow are identical between local dev and CI.
    This is the LLM-friendly entry point. Read it first.
 2. **Cross-reference `summary.json`** for run-level stats and per-test paths.
    ```bash
-   jq '.tests[] | select(.status != "PASSED" and .status != "FLAKY")' summary.json
+   jq '.tests[] | select(.status | IN("PASSED", "SKIPPED", "FLAKY") | not)' summary.json
    ```
 3. **Drill into `tests/<name>/`** for the raw artifacts behind a section:
    - `trace.zip` -> full Playwright trace (only on FAILED/TIMEOUT/KILLED)
@@ -366,6 +368,16 @@ in the repo) for the full command cheatsheet, common gotchas, and triage heurist
 `uv run tc` writing this directory at conductor exit. The breadcrumb line
 `→ bundle: <path>` in conductor stdout points here.
 """
+
+
+def _report_to_github(report_client: ReportClient) -> None:
+    """Reports skipped tests to the GitHub Actions run and its job summary."""
+    path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if path is None:
+        report_client.report_to_github(sys.stdout, None)
+        return
+    with open(path, "a", encoding="utf-8") as summary:
+        report_client.report_to_github(sys.stdout, summary)
 
 
 def monitor_test_execution(conductor: TestConductor) -> None:
@@ -536,6 +548,8 @@ All matching is case-insensitive substring.
                 conductor.log(f"Warning: Failed to finalize conductor range: {e}")
 
         conductor.finalize_bundle()
+        if os.environ.get("GITHUB_ACTIONS") == "true":
+            _report_to_github(conductor.report_client)
 
         conductor.log("Fin.")
         if hasattr(conductor, "tests") and conductor.tests:
@@ -548,9 +562,13 @@ All matching is case-insensitive substring.
                 conductor.log(f"→ bundle: {conductor.run_dir}")
                 os._exit(1)
             else:
-                conductor.log(
-                    f"\nAll {stats['total']} tests passed successfully", False
-                )
+                message = f"All {stats['total']} tests passed successfully"
+                if stats["skipped"] > 0:
+                    ran = stats["total"] - stats["skipped"]
+                    message = (
+                        f"All {ran} tests that ran passed, {stats['skipped']} skipped"
+                    )
+                conductor.log(f"\n{message}", False)
                 conductor.log(f"→ bundle: {conductor.run_dir}")
                 os._exit(0)
         else:
