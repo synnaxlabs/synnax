@@ -96,11 +96,38 @@ export class Reader {
     channels: channel.Params,
     opts: ReadCSVOptions = {},
   ): Promise<ReadableStream<Uint8Array>> {
+    return await this.readFile(tr, channels, "CSV", opts);
+  }
+
+  /**
+   * Reads every sample the given channels hold within tr as an NI TDMS file. Channels
+   * are grouped by the index channel that timestamps them, and each group holds its
+   * index channel followed by its other channels. Channels with no index are excluded.
+   *
+   * @param tr - the time range to read.
+   * @param channels - the channels to read, by key or by name.
+   * @param opts - see {@link ReadOptions}.
+   * @returns the TDMS file as a stream of bytes the caller pipes wherever it likes.
+   */
+  async readTDMS(
+    tr: CrudeTimeRange,
+    channels: channel.Params,
+    opts: ReadOptions = {},
+  ): Promise<ReadableStream<Uint8Array>> {
+    return await this.readFile(tr, channels, "TDMS", opts);
+  }
+
+  private async readFile(
+    tr: CrudeTimeRange,
+    channels: channel.Params,
+    encoding: FileOptions["encoding"],
+    opts: ReadOptions,
+  ): Promise<ReadableStream<Uint8Array>> {
     const payloads = await this.retrieveChannels(channels);
     return await this.download(
       payloads.map((c) => c.key),
       tr,
-      "CSV",
+      encoding,
       true,
       opts,
     );

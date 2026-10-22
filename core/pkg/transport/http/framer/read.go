@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"slices"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -117,6 +118,34 @@ func readResponse(value any) (ReadResponse, error) {
 		return res, errors.Newf("[api.Read] cannot encode a value of type %T", value)
 	}
 	return res, nil
+}
+
+// groupByIndex groups the channels of res by the index channel that timestamps them,
+// ordered by the first channel each group timestamps. Each group starts with its index.
+// Channels with no index are excluded.
+func groupByIndex(res ReadResponse) [][]channel.Channel {
+	all := slices.Concat(res.Channels, res.Indexes)
+	records := make(map[channel.Key]channel.Channel, len(all))
+	for _, ch := range all {
+		records[ch.Key()] = ch
+	}
+	position := make(map[channel.Key]int, len(all))
+	groups := make([][]channel.Channel, 0, len(all))
+	for _, ch := range res.Channels {
+		index := ch.Index()
+		if index == 0 {
+			continue
+		}
+		i, ok := position[index]
+		if !ok {
+			i, position[index] = len(groups), len(groups)
+			groups = append(groups, []channel.Channel{records[index]})
+		}
+		if !ch.IsIndex {
+			groups[i] = append(groups[i], ch)
+		}
+	}
+	return groups
 }
 
 func keysAndDataTypes(channels []channel.Channel) (channel.Keys, []telem.DataType) {

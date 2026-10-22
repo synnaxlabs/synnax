@@ -76,6 +76,20 @@ class TestReader:
         assert lines[1] == "1000000000,0"
         assert len(lines) == 11
 
+    def test_read_tdms(
+        self,
+        written_pair: tuple[sy.Channel, sy.Channel],
+        client: sy.Synnax,
+        tmp_path: pathlib.Path,
+    ) -> None:
+        """Should write the channel and its index to a TDMS file"""
+        idx_ch, data_ch = written_pair
+        dest = tmp_path / "out.tdms"
+        client.read_tdms(sy.TimeRange.MAX, data_ch.key, dest)
+        content = dest.read_bytes()
+        assert content.startswith(b"TDSm")
+        assert f"/'{idx_ch.name}'/'{data_ch.name}'".encode() in content
+
     def test_read_empty(
         self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ) -> None:

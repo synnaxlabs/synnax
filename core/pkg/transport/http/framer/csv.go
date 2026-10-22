@@ -105,30 +105,14 @@ type csvColumn struct {
 	offset int
 }
 
-// newCSVGroups builds the columns of the response, grouped by index channel and
-// ordered by the first channel each group timestamps.
+// newCSVGroups builds the columns of the response, grouped by index channel.
 func newCSVGroups(res ReadResponse) []csvGroup {
-	all := slices.Concat(res.Channels, res.Indexes)
-	records := make(map[channel.Key]channel.Channel, len(all))
-	for _, ch := range all {
-		records[ch.Key()] = ch
-	}
-	position := make(map[channel.Key]int, len(all))
-	groups := make([]csvGroup, 0, len(all))
-	for _, ch := range res.Channels {
-		index := ch.Index()
-		if index == 0 {
-			continue
-		}
-		i, ok := position[index]
-		if !ok {
-			i, position[index] = len(groups), len(groups)
-			groups = append(groups, csvGroup{
-				columns: []csvColumn{newCSVColumn(records[index])},
-			})
-		}
-		if !ch.IsIndex {
-			groups[i].columns = append(groups[i].columns, newCSVColumn(ch))
+	indexGroups := groupByIndex(res)
+	groups := make([]csvGroup, len(indexGroups))
+	for i, channels := range indexGroups {
+		groups[i].columns = make([]csvColumn, len(channels))
+		for j, ch := range channels {
+			groups[i].columns[j] = newCSVColumn(ch)
 		}
 	}
 	return groups

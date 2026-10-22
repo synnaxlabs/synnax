@@ -225,6 +225,24 @@ export class Client {
     return await this.reader.readCSV(tr, channels, opts);
   }
 
+  /**
+   * Reads every sample the given channels hold within the time range as an NI TDMS
+   * file. The Core writes the file, so the caller never holds the whole export in
+   * memory.
+   *
+   * @param tr - the time range to read.
+   * @param channels - the channels to read, by key or by name.
+   * @param opts - see {@link ReadOptions}.
+   * @returns the TDMS file as a stream of bytes.
+   */
+  async readTDMS(
+    tr: CrudeTimeRange,
+    channels: channel.Params,
+    opts?: ReadOptions,
+  ): Promise<ReadableStream<Uint8Array>> {
+    return await this.reader.readTDMS(tr, channels, opts);
+  }
+
   async readLatest(
     channel: channel.Key | channel.Name,
     n: number,
