@@ -11,19 +11,13 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, primitive, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import {
-  type Key,
-  keyZ,
-  type Library,
-  libraryZ,
-  type New,
-  ontologyID,
-} from "@/library/types.gen";
+import { type ICD, icdZ, type Key, keyZ, type New, ontologyID } from "@/icd/types.gen";
+import { library } from "@/library";
 import { type ontology } from "@/ontology";
 import { query } from "@/query";
 
-export const SET_CHANNEL_NAME = "sy_library_set";
-export const DELETE_CHANNEL_NAME = "sy_library_delete";
+export const SET_CHANNEL_NAME = "sy_icd_set";
+export const DELETE_CHANNEL_NAME = "sy_icd_delete";
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
@@ -34,11 +28,13 @@ const retrieveReqZ = z.object({
 const retrieveMultiParamsZ = retrieveReqZ.or(query.keyListZ(keyZ));
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 
-const createReqZ = z.object({ libraries: libraryZ.array() });
-const createResZ = z.object({ libraries: libraryZ.array() });
+const createReqZ = z.object({ icds: icdZ.array() });
+const createResZ = z.object({ icds: icdZ.array() });
+const checkReqZ = z.object({ icd: icdZ });
+const checkResZ = z.object({ problems: library.problemZ.array() });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
-const retrieveResZ = z.object({ libraries: libraryZ.array().default(() => []) });
+const retrieveResZ = z.object({ icds: icdZ.array().default(() => []) });
 const emptyResZ = z.object({});
 
 /** The file formats an interface control document is imported from. */
@@ -47,7 +43,7 @@ export const importFormatZ = z.enum(IMPORT_FORMATS);
 export type ImportFormat = z.infer<typeof importFormatZ>;
 
 const importReqZ = z.object({ key: keyZ, format: importFormatZ, data: z.string() });
-const importResZ = z.object({ library: libraryZ });
+const importResZ = z.object({ icd: icdZ });
 
 // btoa takes a binary string, and spreading a large array into fromCharCode overflows
 // the stack, so the bytes convert in chunks.
@@ -64,9 +60,9 @@ const encodeBase64 = (data: Uint8Array): string => {
  * Client-side matching for a request: key sets. Server-computed shapes (search,
  * limit/offset) never reach this filter; they refetch instead.
  */
-const requestFilter = (req: RetrieveRequest): ((l: Library) => boolean) => {
+const requestFilter = (req: RetrieveRequest): ((i: ICD) => boolean) => {
   const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-  return (l) => keySet == null || keySet.has(l.key);
+  return (i) => keySet == null || keySet.has(i.key);
 };
 
 export interface ClientConfig {
@@ -75,27 +71,27 @@ export interface ClientConfig {
   ontology: ontology.Client;
 }
 
-export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Library> {
+export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, ICD> {
   private readonly cfg: ClientConfig;
-  private readonly store: query.Table<Key, Library>;
+  private readonly store: query.Table<Key, ICD>;
 
   constructor(cfg: ClientConfig) {
     const { cache } = cfg;
-    const store = cache.createTable<Key, Library>({
-      name: "libraries",
+    const store = cache.createTable<Key, ICD>({
+      name: "icds",
       fetch: async (keys) => await this.execRetrieve({ keys }),
       listen: [
-        query.createSetListener(SET_CHANNEL_NAME, libraryZ),
+        query.createSetListener(SET_CHANNEL_NAME, icdZ),
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
       ],
     });
     super(cache, {
-      name: "library",
+      name: "icd",
       table: store,
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (library, req) => requestFilter(req)(library),
+        matches: (icd, req) => requestFilter(req)(icd),
       },
     });
     this.cfg = cfg;
@@ -103,55 +99,68 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Li
   }
 
   /**
-   * Creates the given libraries, or replaces those whose keys already exist.
-   * @throws {ValidationError} if a library or one of its entries is invalid.
+   * Creates the given ICDs, or replaces those whose keys already exist. A replacement
+   * must carry the hash of the ICD as the caller read it.
+   * @throws {ValidationError} if an ICD or one of its entries is invalid.
+   * @throws {StaleError} if a replaced ICD changed since the caller read it.
    */
-  async create(library: New, opts?: query.WriteOptions<Library[]>): Promise<Library>;
+  async create(icd: New, opts?: query.WriteOptions<ICD[]>): Promise<ICD>;
+  async create(icds: New[], opts?: query.WriteOptions<ICD[]>): Promise<ICD[]>;
   async create(
-    libraries: New[],
-    opts?: query.WriteOptions<Library[]>,
-  ): Promise<Library[]>;
-  async create(
-    libraries: New | New[],
-    opts: query.WriteOptions<Library[]> = {},
-  ): Promise<Library | Library[]> {
-    const isMany = Array.isArray(libraries);
+    icds: New | New[],
+    opts: query.WriteOptions<ICD[]> = {},
+  ): Promise<ICD | ICD[]> {
+    const isMany = Array.isArray(icds);
     const optimistic = array
-      .toArray(libraries)
-      .map((l) => zod.parse(libraryZ, l, { label: "library" }));
+      .toArray(icds)
+      .map((i) => zod.parse(icdZ, i, { label: "icd" }));
     const res = await query.optimistic({
       rollbacks: [this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),
       commit: async () =>
         await this.cfg.unary.send(
-          "/library/create",
-          { libraries: optimistic },
+          "/icd/create",
+          { icds: optimistic },
           createReqZ,
           createResZ,
         ),
     });
-    this.store.set(res.libraries);
-    return isMany ? res.libraries : res.libraries[0];
+    this.store.set(res.icds);
+    return isMany ? res.icds : res.icds[0];
   }
 
   /**
-   * Replaces the entries of a library with those parsed from an interface control
+   * Checks an ICD against the rules a save enforces, without saving it.
+   * @returns Every problem in the ICD, or an empty array when it is valid.
+   */
+  async check(icd: New): Promise<library.Problem[]> {
+    const res = await this.cfg.unary.send(
+      "/icd/check",
+      { icd: zod.parse(icdZ, icd, { label: "icd" }) },
+      checkReqZ,
+      checkResZ,
+    );
+    return res.problems;
+  }
+
+  /**
+   * Replaces the entries of an ICD with those parsed from an interface control
    * document. Entries and fields that match by name keep their keys.
-   * @param key - The key of the library to import into.
+   * @param key - The key of the ICD to import into.
    * @param data - The raw bytes of the document.
    * @param format - The file format of the document.
-   * @returns The library as the Core stored it.
+   * @returns The ICD as the Core stored it.
    * @throws {ValidationError} if the format is unknown or the document is invalid.
    */
-  async import(key: Key, data: Uint8Array, format: ImportFormat): Promise<Library> {
+  async import(key: Key, data: Uint8Array, format: ImportFormat): Promise<ICD> {
     const res = await this.cfg.unary.send(
-      "/library/import",
+      "/icd/import",
       { key, format, data: encodeBase64(data) },
       importReqZ,
       importResZ,
     );
-    this.store.set([res.library]);
-    return res.library;
+    this.store.set([res.icd]);
+    return res.icd;
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
@@ -163,19 +172,14 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Li
       rollbacks: rename(),
       onOptimistic: opts.onOptimistic,
       commit: async () =>
-        await this.cfg.unary.send(
-          "/library/rename",
-          { key, name },
-          renameReqZ,
-          emptyResZ,
-        ),
+        await this.cfg.unary.send("/icd/rename", { key, name }, renameReqZ, emptyResZ),
     });
     rename();
   }
 
   /**
-   * Deletes the libraries with the given keys.
-   * @throws {ValidationError} if a task uses one of the libraries.
+   * Deletes the ICDs with the given keys.
+   * @throws {ValidationError} if a task uses one of the ICDs.
    */
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
@@ -188,7 +192,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Li
       onOptimistic: opts.onOptimistic,
       commit: async () =>
         await this.cfg.unary.send(
-          "/library/delete",
+          "/icd/delete",
           { keys: keysArr },
           deleteReqZ,
           emptyResZ,
@@ -197,13 +201,13 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Li
     drop();
   }
 
-  private async execRetrieve(req: RetrieveRequest): Promise<Library[]> {
+  private async execRetrieve(req: RetrieveRequest): Promise<ICD[]> {
     const res = await this.cfg.unary.send(
-      "/library/retrieve",
+      "/icd/retrieve",
       req,
       retrieveReqZ,
       retrieveResZ,
     );
-    return res.libraries;
+    return res.icds;
   }
 }

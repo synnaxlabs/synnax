@@ -10,13 +10,13 @@
 import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { NotFoundError, PathError, ValidationError } from "@/errors";
-import { library } from "@/library";
+import { NotFoundError, PathError, StaleError, ValidationError } from "@/errors";
+import { icd } from "@/icd";
 import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
 
-const createNew = (name: string = "Library"): library.New => ({
+const createNew = (name: string = "ICD"): icd.New => ({
   name,
   entries: [
     {
@@ -50,11 +50,11 @@ const createNew = (name: string = "Library"): library.New => ({
   ],
 });
 
-describe("library", () => {
+describe("icd", () => {
   describe("payload", () => {
     it("should reject a text identifier on a binary payload", () => {
       expect(
-        library.payloadZ.safeParse({
+        icd.payloadZ.safeParse({
           format: "binary",
           identifier: { type: "token", prefix: "$" },
         }).success,
@@ -63,7 +63,7 @@ describe("library", () => {
 
     it("should reject a binary field in a text payload", () => {
       expect(
-        library.payloadZ.safeParse({
+        icd.payloadZ.safeParse({
           format: "text",
           fields: [{ encoding: "binary", name: "rpm", startBit: 0, bitLength: 8 }],
         }).success,
@@ -72,12 +72,12 @@ describe("library", () => {
   });
 
   describe("create", () => {
-    it("should create a library with an enum and a CAN message", async () => {
-      const lib = await client.libraries.create(createNew());
-      expect(lib.key).not.toEqual("");
-      expect(lib.name).toEqual("Library");
-      expect(lib.entries).toHaveLength(2);
-      const [en, msg] = lib.entries;
+    it("should create an ICD with an enum and a CAN message", async () => {
+      const ic = await client.icds.create(createNew());
+      expect(ic.key).not.toEqual("");
+      expect(ic.name).toEqual("ICD");
+      expect(ic.entries).toHaveLength(2);
+      const [en, msg] = ic.entries;
       expect(en).toMatchObject({
         kind: "enum",
         name: "State",
@@ -111,7 +111,7 @@ describe("library", () => {
     });
 
     it("should create a text message with the default delimiter", async () => {
-      const lib = await client.libraries.create({
+      const ic = await client.icds.create({
         name: "Text",
         entries: [
           {
@@ -128,7 +128,7 @@ describe("library", () => {
           },
         ],
       });
-      const [msg] = lib.entries;
+      const [msg] = ic.entries;
       expect(msg).toMatchObject({
         kind: "message",
         payload: {
@@ -143,27 +143,35 @@ describe("library", () => {
       });
     });
 
-    it("should create multiple libraries", async () => {
-      const libs = await client.libraries.create([createNew("A"), createNew("B")]);
-      expect(libs.map((l) => l.name)).toEqual(["A", "B"]);
-      expect(libs[0].key).not.toEqual(libs[1].key);
+    it("should create multiple ICDs", async () => {
+      const ics = await client.icds.create([createNew("A"), createNew("B")]);
+      expect(ics.map((i) => i.name)).toEqual(["A", "B"]);
+      expect(ics[0].key).not.toEqual(ics[1].key);
     });
 
-    it("should replace a library with an existing key", async () => {
-      const lib = await client.libraries.create(createNew());
-      await client.libraries.create({ ...lib, entries: [lib.entries[0]] });
-      const retrieved = await client.libraries.retrieve(lib.key);
+    it("should replace an ICD with an existing key", async () => {
+      const ic = await client.icds.create(createNew());
+      await client.icds.create({ ...ic, entries: [ic.entries[0]] });
+      const retrieved = await client.icds.retrieve(ic.key);
       expect(retrieved.entries).toHaveLength(1);
-      expect(retrieved.entries[0].key).toEqual(lib.entries[0].key);
+      expect(retrieved.entries[0].key).toEqual(ic.entries[0].key);
+    });
+
+    it("should reject a replacement that carries a stale hash", async () => {
+      const ic = await client.icds.create(createNew());
+      await client.icds.create({ ...ic, name: "Changed" });
+      await expect(client.icds.create({ ...ic, entries: [] })).rejects.toEqual(
+        new StaleError("ICD Changed: changed since it was read"),
+      );
     });
 
     it("should reject duplicate entry names", async () => {
-      const lib = createNew();
-      lib.entries = [
+      const ic = createNew();
+      ic.entries = [
         { kind: "enum", name: "Mode" },
         { kind: "enum", name: "Mode" },
       ];
-      await expect(client.libraries.create(lib)).rejects.toThrow(
+      await expect(client.icds.create(ic)).rejects.toThrow(
         new PathError(
           ["entries", "1", "name"],
           new ValidationError('duplicate entry name "Mode": validation error'),
@@ -172,40 +180,78 @@ describe("library", () => {
     });
   });
 
-  describe("retrieve", () => {
-    it("should retrieve a library by key", async () => {
-      const lib = await client.libraries.create(createNew());
-      const retrieved = await client.libraries.retrieve(lib.key);
-      expect(retrieved).toEqual(lib);
+  describe("check", () => {
+    it("should return no problems for a valid ICD", async () => {
+      expect(await client.icds.check(createNew())).toEqual([]);
     });
 
-    it("should retrieve multiple libraries by key", async () => {
-      const libs = await client.libraries.create([createNew("A"), createNew("B")]);
-      const retrieved = await client.libraries.retrieve({
-        keys: libs.map((l) => l.key),
+    it("should return every problem with its path", async () => {
+      const problems = await client.icds.check({
+        name: "ICD",
+        entries: [
+          { kind: "enum", name: "Mode" },
+          { kind: "enum", name: "Mode" },
+          {
+            kind: "message",
+            name: "Status",
+            payload: {
+              format: "binary",
+              length: 8,
+              fields: [{ name: "rpm", startBit: 0, bitLength: 8, scale: 0 }],
+            },
+          },
+        ],
       });
-      expect(retrieved.map((l) => l.name).sort()).toEqual(["A", "B"]);
+      expect(problems).toEqual([
+        { path: "entries.1.name", message: 'duplicate entry name "Mode"' },
+        {
+          path: "entries.2.payload.fields.0.scale",
+          message: "scale must be finite and non-zero",
+        },
+      ]);
     });
 
-    it("should search for libraries by name", async () => {
-      const name = `${id.create()} Library`;
-      const lib = await client.libraries.create(createNew(name));
+    it("should not save the ICD", async () => {
+      const ic = icd.icdZ.parse(createNew());
+      await client.icds.check(ic);
+      await expect(client.icds.retrieve(ic.key)).rejects.toThrow(NotFoundError);
+    });
+  });
+
+  describe("retrieve", () => {
+    it("should retrieve an ICD by key", async () => {
+      const ic = await client.icds.create(createNew());
+      const retrieved = await client.icds.retrieve(ic.key);
+      expect(retrieved).toEqual(ic);
+    });
+
+    it("should retrieve multiple ICDs by key", async () => {
+      const ics = await client.icds.create([createNew("A"), createNew("B")]);
+      const retrieved = await client.icds.retrieve({
+        keys: ics.map((i) => i.key),
+      });
+      expect(retrieved.map((i) => i.name).sort()).toEqual(["A", "B"]);
+    });
+
+    it("should search for ICDs by name", async () => {
+      const name = `${id.create()} ICD`;
+      const ic = await client.icds.create(createNew(name));
       await expect
         .poll(async () => {
-          const res = await client.libraries.retrieve({ searchTerm: name });
-          return res.map((l) => l.key);
+          const res = await client.icds.retrieve({ searchTerm: name });
+          return res.map((i) => i.key);
         })
-        .toContain(lib.key);
+        .toContain(ic.key);
     });
   });
 
   describe("rename", () => {
-    it("should rename a library", async () => {
-      const lib = await client.libraries.create(createNew());
-      await client.libraries.rename(lib.key, "Renamed");
-      const retrieved = await client.libraries.retrieve(lib.key);
+    it("should rename an ICD", async () => {
+      const ic = await client.icds.create(createNew());
+      await client.icds.rename(ic.key, "Renamed");
+      const retrieved = await client.icds.retrieve(ic.key);
       expect(retrieved.name).toEqual("Renamed");
-      expect(retrieved.entries).toEqual(lib.entries);
+      expect(retrieved.entries).toEqual(ic.entries);
     });
   });
 
@@ -213,14 +259,14 @@ describe("library", () => {
     const encode = (text: string): Uint8Array => new TextEncoder().encode(text);
 
     it("should import messages from a CSV field table", async () => {
-      const lib = await client.libraries.create({ name: "Import" });
+      const ic = await client.icds.create({ name: "Import" });
       const csv = [
         "message,id,length,field,start_bit,bit_length,scale,units",
         "Engine,256,8,Rpm,0,16,0.25,rpm",
         "Engine,256,8,Temp,16,8,1,degC",
       ].join("\n");
-      const imported = await client.libraries.import(lib.key, encode(csv), "csv");
-      expect(imported.key).toEqual(lib.key);
+      const imported = await client.icds.import(ic.key, encode(csv), "csv");
+      expect(imported.key).toEqual(ic.key);
       expect(imported.entries).toHaveLength(1);
       const [msg] = imported.entries;
       if (msg.kind !== "message") throw new Error("expected a message entry");
@@ -232,11 +278,11 @@ describe("library", () => {
           { name: "Temp" },
         ],
       });
-      expect(await client.libraries.retrieve(lib.key)).toEqual(imported);
+      expect(await client.icds.retrieve(ic.key)).toEqual(imported);
     });
 
     it("should import messages and value tables from a DBC file", async () => {
-      const lib = await client.libraries.create({ name: "Import" });
+      const ic = await client.icds.create({ name: "Import" });
       const dbc = [
         'VERSION ""',
         "BS_:",
@@ -246,39 +292,39 @@ describe("library", () => {
         ' SG_ Rpm : 0|16@1+ (0.25,0) [0|16383.75] "rpm" Ecu',
         "",
       ].join("\n");
-      const imported = await client.libraries.import(lib.key, encode(dbc), "dbc");
+      const imported = await client.icds.import(ic.key, encode(dbc), "dbc");
       const names = imported.entries.map((e) => `${e.kind}:${e.name}`).sort();
       expect(names).toEqual(["enum:GearTable", "message:Engine"]);
     });
 
     it("should keep entry keys across a second import", async () => {
-      const lib = await client.libraries.create({ name: "Import" });
+      const ic = await client.icds.create({ name: "Import" });
       const csv = encode("message,field,start_bit,bit_length\nEngine,Rpm,0,16");
-      const first = await client.libraries.import(lib.key, csv, "csv");
-      const second = await client.libraries.import(lib.key, csv, "csv");
+      const first = await client.icds.import(ic.key, csv, "csv");
+      const second = await client.icds.import(ic.key, csv, "csv");
       expect(second.entries[0].key).toEqual(first.entries[0].key);
     });
 
     it("should reject a document that does not parse", async () => {
-      const lib = await client.libraries.create({ name: "Import" });
-      await expect(client.libraries.import(lib.key, encode(""), "csv")).rejects.toThrow(
+      const ic = await client.icds.create({ name: "Import" });
+      await expect(client.icds.import(ic.key, encode(""), "csv")).rejects.toThrow(
         PathError,
       );
     });
   });
 
   describe("delete", () => {
-    it("should delete a library", async () => {
-      const lib = await client.libraries.create(createNew());
-      await client.libraries.delete(lib.key);
-      await expect(client.libraries.retrieve(lib.key)).rejects.toThrow(NotFoundError);
+    it("should delete an ICD", async () => {
+      const ic = await client.icds.create(createNew());
+      await client.icds.delete(ic.key);
+      await expect(client.icds.retrieve(ic.key)).rejects.toThrow(NotFoundError);
     });
 
-    it("should delete multiple libraries", async () => {
-      const libs = await client.libraries.create([createNew("A"), createNew("B")]);
-      const keys = libs.map((l) => l.key);
-      await client.libraries.delete(keys);
-      await expect(client.libraries.retrieve({ keys })).rejects.toThrow(NotFoundError);
+    it("should delete multiple ICDs", async () => {
+      const ics = await client.icds.create([createNew("A"), createNew("B")]);
+      const keys = ics.map((i) => i.key);
+      await client.icds.delete(keys);
+      await expect(client.icds.retrieve({ keys })).rejects.toThrow(NotFoundError);
     });
   });
 });

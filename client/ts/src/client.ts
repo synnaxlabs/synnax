@@ -29,9 +29,9 @@ import { device } from "@/device";
 import { errorsMiddleware } from "@/errors";
 import { framer } from "@/framer";
 import { group } from "@/group";
+import { icd } from "@/icd";
 import { imex } from "@/imex";
 import { label } from "@/label";
-import { library } from "@/library";
 import { license } from "@/license";
 import { lineplot } from "@/lineplot";
 import { log } from "@/log";
@@ -103,7 +103,7 @@ export default class Synnax extends framer.Client {
   readonly ontology: ontology.Client;
   readonly projects: project.Client;
   readonly labels: label.Client;
-  readonly libraries: library.Client;
+  readonly icds: icd.Client;
   readonly license: license.Client;
   readonly statuses: status.Client;
   readonly tasks: task.Client;
@@ -283,7 +283,7 @@ export default class Synnax extends framer.Client {
       statusStore: this.statuses.store,
     });
     this.views = new view.Client({ unary, cache, ontology: this.ontology });
-    this.libraries = new library.Client({ unary, cache, ontology: this.ontology });
+    this.icds = new icd.Client({ unary, cache, ontology: this.ontology });
     this.groups = new group.Client({
       unary,
       ontology: this.ontology,
