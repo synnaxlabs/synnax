@@ -74,6 +74,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      # The Ubuntu image ships toolchains lint never uses, and the restored cache plus a
+      # compile overflows the disk they leave free.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+          df -h /
+
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
@@ -130,6 +138,21 @@ jobs:
         run: |
           ./custom-gcl config verify
           ./custom-gcl run --path-mode=abs
+
+      # Each save holds every entry it restored, so stale builds pile up until their
+      # extraction fills the disk. Go and golangci-lint refresh an entry's mtime when
+      # they use it, so deleting the oldest files first keeps the ones this lint read.
+      # One cold lint fills about 11 GB.
+      - name: Trim the Go caches
+        if: ${{ success() && github.ref == 'refs/heads/main' }}
+        env:
+          BUDGET: 14000000000
+        run: |
+          du -sh ~/.cache/go-build ~/.cache/golangci-lint
+          find ~/.cache/go-build ~/.cache/golangci-lint -type f -printf '%T@ %s %p\n' |
+            sort -rn | awk -v budget="$BUDGET" '(total += $2) > budget { print $3 }' |
+            xargs -r rm -f
+          du -sh ~/.cache/go-build ~/.cache/golangci-lint
 
       # A failed lint leaves a cache that pull requests would restore, so only a
       # passing lint on main saves.
