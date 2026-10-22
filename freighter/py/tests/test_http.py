@@ -7,7 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import itertools
 import json
+import threading
 import uuid
 import warnings
 from pathlib import Path
@@ -233,44 +235,104 @@ class TestDownload:
         assert parsed.message == big
 
 
+def _send_within(client: HTTPClient, seconds: float) -> Message | None:
+    """Sends a request on another thread and returns its response, or None when it
+    takes longer than seconds. A request on a pool whose one connection leaked never
+    completes."""
+    res: list[Message] = []
+
+    def send() -> None:
+        res.append(client.send("/echo", Message(id=1, message="x"), Message))
+
+    thread = threading.Thread(target=send, daemon=True)
+    thread.start()
+    thread.join(seconds)
+    return res[0] if res else None
+
+
 @pytest.mark.http
 class TestStream:
     def test_yields_the_body(self, client: HTTPClient) -> None:
         """Should hand back the response body in chunks the caller joins."""
-        body = client.stream(
+        with client.stream(
             "/echo", Message(id=1, message="hello"), "application/json"
-        )
-        parsed = Message.model_validate_json(b"".join(body))
+        ) as body:
+            parsed = Message.model_validate_json(b"".join(body))
         assert parsed.id == 2
         assert parsed.message == "hello"
 
     def test_large_body(self, client: HTTPClient) -> None:
         big = "a" * (1024 * 1024)
-        body = client.stream("/echo", Message(id=1, message=big), "application/json")
-        assert Message.model_validate_json(b"".join(body)).message == big
+        with client.stream(
+            "/echo", Message(id=1, message=big), "application/json"
+        ) as body:
+            assert Message.model_validate_json(b"".join(body)).message == big
 
     def test_server_error_raises_before_the_first_chunk(
         self, client: HTTPClient
     ) -> None:
-        with pytest.raises(Error):
+        with (
+            pytest.raises(Error),
             client.stream(
                 "/middlewareCheck", Message(id=1, message="x"), "application/json"
-            )
+            ),
+        ):
+            pass
 
     def test_response_dropped_before_the_body_raises(self, client: HTTPClient) -> None:
         """Should raise when the server drops the response before sending its body."""
-        with pytest.raises(ProtocolError, match="Connection aborted"):
+        with (
+            pytest.raises(ProtocolError, match="Connection aborted"),
             client.stream(
                 "/truncated", Message(id=0, message="ab"), "application/x-truncated"
-            )
+            ),
+        ):
+            pass
 
     def test_body_cut_short_raises(self, client: HTTPClient) -> None:
         """Should raise when the server cuts the body short."""
-        body = client.stream(
-            "/truncated", Message(id=1 << 14, message="ab"), "application/x-truncated"
-        )
-        with pytest.raises(ProtocolError, match="Response ended prematurely"):
+        with (
+            client.stream(
+                "/truncated",
+                Message(id=1 << 14, message="ab"),
+                "application/x-truncated",
+            ) as body,
+            pytest.raises(ProtocolError, match="Response ended prematurely"),
+        ):
             b"".join(body)
+
+    @pytest.mark.parametrize("chunks", [0, 1, None])
+    def test_leaving_releases_the_connection(
+        self, endpoint: URL, chunks: int | None
+    ) -> None:
+        """Should release the connection when the caller leaves the context, however
+        much of the body it read."""
+        client = HTTPClient(endpoint.child("unary"), JSONCodec(), maxsize=1, block=True)
+        with client.stream(
+            "/echo", Message(id=1, message="a" * (1 << 20)), "application/json"
+        ) as body:
+            for _ in itertools.islice(body, chunks):
+                pass
+        assert _send_within(client, 5) == Message(id=2, message="x")
+
+    def test_middleware_failure_releases_the_connection(self, endpoint: URL) -> None:
+        """Should release the connection when a middleware fails after the request."""
+        client = HTTPClient(endpoint.child("unary"), JSONCodec(), maxsize=1, block=True)
+        failures = [RuntimeError("stop")]
+
+        def mw(ctx: Context, next: Next) -> Context:
+            out = next(ctx)
+            if failures:
+                raise failures.pop()
+            return out
+
+        client.use(mw)
+        with (
+            pytest.raises(RuntimeError, match="stop"),
+            client.stream("/echo", Message(id=1, message="x"), "application/json"),
+        ):
+            pass
+        assert _send_within(client, 5) == Message(id=2, message="x")
 
 
 class TestContext:

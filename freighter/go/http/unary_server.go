@@ -14,7 +14,6 @@ import (
 	"compress/gzip"
 	"context"
 	"io"
-	"strings"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/samber/lo"
@@ -253,8 +252,7 @@ func (s *unaryServer[RQ, RS]) streamAndWrite(
 ) error {
 	ctx := s.serverCtx
 	var gz *gzip.Writer
-	if s.compressed.Contains(encoder.ContentType()) &&
-		acceptsGzip(c.Get(fiber.HeaderAcceptEncoding)) {
+	if s.compressed.Contains(encoder.ContentType()) && acceptsGzip(c) {
 		var err error
 		// Compression competes with the encoder for CPU on a body large enough to need
 		// streaming, so take the fastest level over the smallest output.
@@ -291,13 +289,12 @@ func (s *unaryServer[RQ, RS]) streamAndWrite(
 
 const gzipEncoding = "gzip"
 
-func acceptsGzip(header string) bool {
-	for enc := range strings.SplitSeq(header, ",") {
-		if strings.TrimSpace(strings.SplitN(enc, ";", 2)[0]) == gzipEncoding {
-			return true
-		}
-	}
-	return false
+// acceptsGzip reports whether the request's Accept-Encoding accepts gzip. Fiber weighs
+// q-values and wildcards, but it accepts any coding when the header is missing, and a
+// client that never asked for gzip may not decode it.
+func acceptsGzip(c fiber.Ctx) bool {
+	return c.Get(fiber.HeaderAcceptEncoding) != "" &&
+		c.AcceptsEncodings(gzipEncoding) == gzipEncoding
 }
 
 // encodeAndWrite encodes v straight into the response rather than into a buffer the

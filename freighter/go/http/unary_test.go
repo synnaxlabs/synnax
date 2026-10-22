@@ -747,7 +747,9 @@ var _ = Describe("Unary", func() {
 			))
 			httpReq.Header.Set(fiber.HeaderContentType, "application/json")
 			httpReq.Header.Set(fiber.HeaderAccept, accept)
-			httpReq.Header.Set(fiber.HeaderAcceptEncoding, acceptEncoding)
+			if acceptEncoding != "" {
+				httpReq.Header.Set(fiber.HeaderAcceptEncoding, acceptEncoding)
+			}
 			res := MustSucceed((&http.Client{
 				Transport: &http.Transport{DisableCompression: true},
 			}).Do(httpReq))
@@ -767,18 +769,30 @@ var _ = Describe("Unary", func() {
 			Expect(io.ReadAll(res.Body)).To(Equal([]byte("ababab")))
 		})
 
-		It("should gzip a compressed encoder's body when the request accepts it", func(
-			ctx context.Context,
-		) {
-			res := streamingPost(
-				ctx, test.Request{ID: 3, Message: "ab"}, repeat, "gzip",
-			)
-			Expect(res.StatusCode).To(Equal(http.StatusOK))
-			Expect(res.Header.Get(fiber.HeaderContentEncoding)).To(Equal("gzip"))
-			r := MustSucceed(gzip.NewReader(res.Body))
-			DeferCleanup(func() { Expect(r.Close()).To(Succeed()) })
-			Expect(io.ReadAll(r)).To(Equal([]byte("ababab")))
-		})
+		DescribeTable(
+			"should gzip a compressed encoder's body only when the request accepts gzip",
+			func(ctx context.Context, acceptEncoding, contentEncoding string) {
+				res := streamingPost(
+					ctx, test.Request{ID: 3, Message: "ab"}, repeat, acceptEncoding,
+				)
+				Expect(res.StatusCode).To(Equal(http.StatusOK))
+				Expect(res.Header.Get(fiber.HeaderContentEncoding)).
+					To(Equal(contentEncoding))
+				var body io.Reader = res.Body
+				if contentEncoding == "gzip" {
+					r := MustSucceed(gzip.NewReader(res.Body))
+					DeferCleanup(func() { Expect(r.Close()).To(Succeed()) })
+					body = r
+				}
+				Expect(io.ReadAll(body)).To(Equal([]byte("ababab")))
+			},
+			Entry("when it names gzip", "gzip", "gzip"),
+			Entry("when it weighs gzip below another coding", "br, gzip;q=0.5", "gzip"),
+			Entry("when it accepts any coding", "*", "gzip"),
+			Entry("unless it gives gzip a zero weight", "gzip;q=0, identity", ""),
+			Entry("unless it names only other codings", "br, deflate", ""),
+			Entry("unless it has no Accept-Encoding", "", ""),
+		)
 
 		It("should leave an encoder the route did not name uncompressed", func(
 			ctx context.Context,

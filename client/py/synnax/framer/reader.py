@@ -10,7 +10,6 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from contextlib import closing
 
 from pydantic import BaseModel
 
@@ -69,7 +68,7 @@ class Reader:
             keys=adapter.keys, bounds=tr, downsample_factor=downsample_factor
         )
         frame = Frame()
-        with closing(self._file.stream(_ENDPOINT, req, _FRAME_CONTENT_TYPE)) as body:
+        with self._file.stream(_ENDPOINT, req, _FRAME_CONTENT_TYPE) as body:
             for record in _records(body):
                 pld = adapter.codec.decode(record)
                 frame.append(Frame(channels=pld.keys, series=pld.series))
