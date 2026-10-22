@@ -520,6 +520,22 @@ TEST(WriteConfig, RequiresFieldsOnAMessageWithoutAPeriod) {
     );
 }
 
+TEST(WriteConfig, RejectsAMessagePeriodThatIsNotPositive) {
+    auto m = binary_message("heartbeat", {binary_field("a", 0)});
+    m.period = x::telem::TimeSpan::ZERO();
+    ::synnax::bus::WriteConfig cfg;
+    cfg.device = "dev";
+    cfg.messages = {{.message = m.key}};
+    x::json::Parser parser(x::json::json::object());
+    std::ignore = WriteConfig::resolve(parser, cfg, std::nullopt, library({m}), {});
+    const auto err = parser.error_json()["errors"][0];
+    EXPECT_EQ(err["path"], "messages.0.message");
+    EXPECT_EQ(
+        err["message"],
+        "message heartbeat has a period of 0ns, which must be positive"
+    );
+}
+
 TEST(WriteConfig, RequiresACANIdentifierOnACANBus) {
     auto m = binary_message("cmd", {binary_field("a", 0)});
     ::synnax::bus::WriteConfig cfg;

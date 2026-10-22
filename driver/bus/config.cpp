@@ -537,6 +537,12 @@ std::pair<WriteConfig, x::errors::Error> WriteConfig::resolve(
                 path(i, "message"),
                 "message " + entry->name + " needs a CAN identifier to send with"
             );
+        if (entry->period.has_value() && *entry->period <= x::telem::TimeSpan::ZERO())
+            parser.field_err(
+                path(i, "message"),
+                "message " + entry->name + " has a period of " +
+                    entry->period->to_string() + ", which must be positive"
+            );
         if (m.fields.empty() && !entry->period.has_value())
             parser.field_err(
                 path(i, "fields"),
