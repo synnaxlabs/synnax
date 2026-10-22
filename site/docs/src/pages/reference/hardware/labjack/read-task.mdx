@@ -7,10 +7,9 @@ description:
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Text } from "@synnaxlabs/lyra/text";
 import { Fragment } from "react";
+import { Channel } from "@/components/channel";
 import { Client } from "@/components/client";
-import { Details } from "@/components/details";
 import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -143,59 +142,76 @@ Tare sets the current value of an analog channel to zero. The task must be runni
 
 ## Task options
 
-| Console label   | Python field           | Default | Notes                                                     |
-| --------------- | ---------------------- | ------- | --------------------------------------------------------- |
-| **Device**      | `device`               |         | The serial number of the device.                          |
-| **Sample rate** | `sample_rate`          | 10 Hz   | Up to 50,000 Hz in the Console.                           |
-| **Stream rate** | `stream_rate`          | 5 Hz    | See [read tasks](/reference/hardware/tasks#read-tasks).   |
-| **Data saving** | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving). |
-| **Auto start**  | `auto_start`           | Off     | Starts the task each time the Driver starts.              |
+| Console label | Python field           | Default | Notes                                                     |
+| ------------- | ---------------------- | ------- | --------------------------------------------------------- |
+| Device        | `device`               |         | The serial number of the device.                          |
+| Sample rate   | `sample_rate`          | 10 Hz   | Up to 50,000 Hz in the Console.                           |
+| Stream rate   | `stream_rate`          | 5 Hz    | See [read tasks](/reference/hardware/tasks#read-tasks).   |
+| Data saving   | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving). |
+| Auto start    | `auto_start`           | Off     | Starts the task each time the Driver starts.              |
 
 <Divider.Divider x />
 
 ## Channel reference
 
-Each channel has a `port` and a `channel`, the Synnax channel that records the value.
+Each channel has a `channel`, the Synnax channel that records the value. Each table
+shows the Console label of a setting, with its Python field under it.
 
-<Details.Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Analog input</Text.Text>
+<Channel.Types>
 
-| Console label   | Field      | Default | Notes                                                                                          |
-| --------------- | ---------- | ------- | ---------------------------------------------------------------------------------------------- |
-| **Port**        | `port`     | `AIN0`  | An `AIN` port.                                                                                 |
-| **Max voltage** | `range`    | 10      | The Driver does not apply this field. Each input uses the default range of the device.         |
-|                 | `neg_chan` | 199     | The negative input for a differential reading, on the T7 only. 199 means a single-ended input. |
-| **Scale**       | `scale`    | None    | None, linear (slope and offset), or map (from a raw range to a scaled range).                  |
-|                 | `type`     |         | `"analog"`.                                                                                    |
+<Channel.Type
+  name="Analog input"
+  type="analog"
+  python="AnalogReadChannel"
+>
 
-</Details.Details>
+Reads a voltage.
 
-<Details.Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Digital input</Text.Text>
+| Setting                            | Default | Notes                                                                                          |
+| ---------------------------------- | ------- | ---------------------------------------------------------------------------------------------- |
+| Port <small>`port`</small>         | `AIN0`  | An `AIN` port.                                                                                 |
+| Max voltage <small>`range`</small> | `10`    | The Driver does not apply this field. Each input uses the default range of the device.         |
+| <small>`neg_chan`</small>          | `199`   | The negative input for a differential reading, on the T7 only. 199 means a single-ended input. |
+| Scale <small>`scale`</small>       | None    | None, linear (slope and offset), or map (from a raw range to a scaled range).                  |
 
-| Console label | Field  | Default | Notes                                                 |
-| ------------- | ------ | ------- | ----------------------------------------------------- |
-| **Port**      | `port` | `DIO4`  | A `DIO` port. The channel records 0 or 1, as `uint8`. |
-|               | `type` |         | `"digital"`.                                          |
+</Channel.Type>
 
-</Details.Details>
+<Channel.Type
+  name="Digital input"
+  type="digital"
+  python="DigitalReadChannel"
+>
 
-<Details.Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Thermocouple</Text.Text>
+Reads the state of a digital line as 0 or 1, as `uint8`.
 
-| Console label         | Field               | Default                | Notes                                                    |
-| --------------------- | ------------------- | ---------------------- | -------------------------------------------------------- |
-| **Port**              | `port`              | `AIN0`                 | An `AIN` port.                                           |
-| **Thermocouple type** | `thermocouple_type` | `K`                    | B, E, J, K, N, R, S, T, or C.                            |
-| **Temperature units** | `units`             | `K`                    | `C`, `F`, or `K`.                                        |
-| **Negative channel**  | `neg_chan`          | 199                    | The negative input. 199 means a single-ended input.      |
-| **CJC source**        | `cjc_source`        | `TEMPERATURE_DEVICE_K` | **Device**, **Air**, or an `AIN` port with a CJC sensor. |
-| **CJC slope**         | `cjc_slope`         | 1                      | The CJC sensor scale, in kelvin per volt.                |
-| **CJC offset**        | `cjc_offset`        | 0                      | The CJC sensor offset, in kelvin.                        |
-| **Scale**             | `scale`             | None                   | Applied after the conversion to temperature.             |
-|                       | `type`              |                        | `"thermocouple"`.                                        |
+| Setting                    | Default | Notes         |
+| -------------------------- | ------- | ------------- |
+| Port <small>`port`</small> | `DIO4`  | A `DIO` port. |
 
-</Details.Details>
+</Channel.Type>
+
+<Channel.Type
+  name="Thermocouple"
+  type="thermocouple"
+  python="ThermocoupleReadChannel"
+>
+
+Reads a temperature from a thermocouple.
+
+| Setting                                              | Default                | Notes                                                    |
+| ---------------------------------------------------- | ---------------------- | -------------------------------------------------------- |
+| Port <small>`port`</small>                           | `AIN0`                 | An `AIN` port.                                           |
+| Thermocouple type <small>`thermocouple_type`</small> | `K`                    | `B`, `E`, `J`, `K`, `N`, `R`, `S`, `T`, `C`.             |
+| Temperature units <small>`units`</small>             | `K`                    | `C`, `F`, `K`.                                           |
+| Negative channel <small>`neg_chan`</small>           | `199`                  | The negative input. 199 means a single-ended input.      |
+| CJC source <small>`cjc_source`</small>               | `TEMPERATURE_DEVICE_K` | **Device**, **Air**, or an `AIN` port with a CJC sensor. |
+| CJC slope <small>`cjc_slope`</small>                 | `1`                    | The CJC sensor scale, in kelvin per volt.                |
+| CJC offset <small>`cjc_offset`</small>               | `0`                    | The CJC sensor offset, in kelvin.                        |
+| Scale <small>`scale`</small>                         | None                   | Applied after the conversion to temperature.             |
+
+</Channel.Type>
+
+</Channel.Types>
 
 <Divider.Divider x />
 

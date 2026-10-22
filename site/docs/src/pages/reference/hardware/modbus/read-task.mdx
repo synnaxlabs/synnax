@@ -6,10 +6,9 @@ description: "Read the coils and registers of a Modbus TCP server into channels.
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Text } from "@synnaxlabs/lyra/text";
 import { Fragment } from "react";
+import { Channel } from "@/components/channel";
 import { Client } from "@/components/client";
-import { Details } from "@/components/details";
 import { Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -26,12 +25,12 @@ Before you start, you need a
 
 A read task reads four types of data, each with its own address range:
 
-| Console label        | Modbus name      | Function code | Value                         |
-| -------------------- | ---------------- | ------------- | ----------------------------- |
-| **Coil**             | Coil             | 01            | 0 or 1                        |
-| **Discrete**         | Discrete input   | 02            | 0 or 1                        |
-| **Holding register** | Holding register | 03            | A number, in 1 to 4 registers |
-| **Register**         | Input register   | 04            | A number, in 1 to 4 registers |
+| Console label    | Modbus name      | Function code | Value                         |
+| ---------------- | ---------------- | ------------- | ----------------------------- |
+| Coil             | Coil             | 01            | 0 or 1                        |
+| Discrete         | Discrete input   | 02            | 0 or 1                        |
+| Holding register | Holding register | 03            | A number, in 1 to 4 registers |
+| Register         | Input register   | 04            | A number, in 1 to 4 registers |
 
 A register holds 16 bits. An 8-bit or 16-bit value uses one register, and an 8-bit value
 is the low byte. A 32-bit value uses two registers, and a 64-bit value uses four. The
@@ -153,41 +152,77 @@ await task.start();
 
 ## Task options
 
-| Console label     | Python field           | Default | Notes                                                     |
-| ----------------- | ---------------------- | ------- | --------------------------------------------------------- |
-| **Modbus server** | `device`               |         | The key of the server.                                    |
-| **Sample rate**   | `sample_rate`          | 10 Hz   | How often the Driver reads the server. Up to 50,000 Hz.   |
-| **Stream rate**   | `stream_rate`          | 5 Hz    | See [read tasks](/reference/hardware/tasks#read-tasks).   |
-| **Data saving**   | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving). |
-| **Auto start**    | `auto_start`           | Off     | Starts the task each time the Driver starts.              |
+| Console label | Python field           | Default | Notes                                                     |
+| ------------- | ---------------------- | ------- | --------------------------------------------------------- |
+| Modbus server | `device`               |         | The key of the server.                                    |
+| Sample rate   | `sample_rate`          | 10 Hz   | How often the Driver reads the server. Up to 50,000 Hz.   |
+| Stream rate   | `stream_rate`          | 5 Hz    | See [read tasks](/reference/hardware/tasks#read-tasks).   |
+| Data saving   | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving). |
+| Auto start    | `auto_start`           | Off     | Starts the task each time the Driver starts.              |
 
 <Divider.Divider x />
 
 ## Channel reference
 
 Each channel has an `address`, from 0 to 65535, and a `channel`, the Synnax channel that
-records the value.
+records the value. Each table shows the Console label of a setting, with its Python
+field under it.
 
-<Details.Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Coil and Discrete</Text.Text>
+<Channel.Types>
 
-| Field  | Notes                                                            |
-| ------ | ---------------------------------------------------------------- |
-| `type` | `"coil"` or `"discrete_input"`. The value is 0 or 1, as `uint8`. |
+<Channel.Type
+  name="Coil"
+  type="coil"
+  python="CoilReadChannel"
+>
 
-</Details.Details>
+Reads a coil as 0 or 1, as `uint8`.
 
-<Details.Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Holding register and Register</Text.Text>
+</Channel.Type>
 
-| Console label | Field           | Default | Notes                                                                                              |
-| ------------- | --------------- | ------- | -------------------------------------------------------------------------------------------------- |
-| **Data type** | `data_type`     | `uint8` | `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, or `float64`. |
-|               | `words_swapped` | `false` | Reads the high word first. See [byte and word order](#byte-and-word-order).                        |
-|               | `bytes_swapped` | `false` | Swaps the two bytes in each register.                                                              |
-|               | `type`          |         | `"holding_register"` or `"input_register"`.                                                        |
+<Channel.Type
+  name="Discrete"
+  type="discrete_input"
+  python="DiscreteInputReadChannel"
+>
 
-</Details.Details>
+Reads a discrete input as 0 or 1, as `uint8`.
+
+</Channel.Type>
+
+<Channel.Type
+  name="Holding register"
+  type="holding_register"
+  python="HoldingRegisterReadChannel"
+>
+
+Reads a number from one or more holding registers.
+
+| Setting                              | Default | Notes                                                                                           |
+| ------------------------------------ | ------- | ----------------------------------------------------------------------------------------------- |
+| Data type <small>`data_type`</small> | `uint8` | `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, `float64`. |
+| <small>`words_swapped`</small>       | `false` | Reads the high word first. See [byte and word order](#byte-and-word-order).                     |
+| <small>`bytes_swapped`</small>       | `false` | Swaps the two bytes in each register.                                                           |
+
+</Channel.Type>
+
+<Channel.Type
+  name="Register"
+  type="input_register"
+  python="InputRegisterReadChannel"
+>
+
+Reads a number from one or more input registers.
+
+| Setting                              | Default | Notes                                                                                           |
+| ------------------------------------ | ------- | ----------------------------------------------------------------------------------------------- |
+| Data type <small>`data_type`</small> | `uint8` | `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, `float64`. |
+| <small>`words_swapped`</small>       | `false` | Reads the high word first. See [byte and word order](#byte-and-word-order).                     |
+| <small>`bytes_swapped`</small>       | `false` | Swaps the two bytes in each register.                                                           |
+
+</Channel.Type>
+
+</Channel.Types>
 
 <Divider.Divider x />
 
@@ -200,8 +235,9 @@ device. Some devices count addresses from 1, so try the address minus 1.
 
 ### "unsupported data type: ..."
 
-The Console also lists Boolean, Timestamp, and UUID, but the Driver does not support
-them. Select a data type from the [channel reference](#channel-reference).
+The Console also lists the `boolean`, `timestamp`, and `uuid` data types, but the Driver
+does not support them. Select a data type from the
+[channel reference](#channel-reference).
 
 ### "Too many data"
 

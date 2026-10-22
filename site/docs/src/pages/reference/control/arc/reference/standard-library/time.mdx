@@ -67,7 +67,7 @@ Gives the current time.
 
 - Input -> optional. Trigger-only: each new input value runs it, whatever the value.
   With no input, it runs once each time its stage starts.
-- Output -> the time as a timestamp, type `i64 ns`. Write it to a timestamp channel or
+- Output -> the time as a timestamp, type `i64 ns`. Write it to a `timestamp` channel or
   an `i64` channel. Another channel type, such as `f64`, is an error.
 - Function form -> `time.now()`. All calls in the same cycle give the same time.
 

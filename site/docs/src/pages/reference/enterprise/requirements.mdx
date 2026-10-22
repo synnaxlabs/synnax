@@ -8,7 +8,7 @@ description:
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Note } from "@/components/note";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -19,13 +19,13 @@ Driver need to run.
 
 ## Operating systems
 
-|                        | Linux                | Windows    | macOS         |
-| ---------------------- | -------------------- | ---------- | ------------- |
-| **Core**               | x86-64               | x86-64     | Apple silicon |
-| **Core in Docker**     | `linux/amd64` image  | Docker     | Docker        |
-| **Console app**        | No                   | Windows 11 | macOS Sequoia |
-| **Console in browser** | Yes                  | Yes        | Yes           |
-| **Standalone Driver**  | Yes, and NI Linux RT | Yes        | Yes           |
+|                    | Linux                | Windows    | macOS         |
+| ------------------ | -------------------- | ---------- | ------------- |
+| Core               | x86-64               | x86-64     | Apple silicon |
+| Core in Docker     | `linux/amd64` image  | Docker     | Docker        |
+| Console app        | No                   | Windows 11 | macOS Sequoia |
+| Console in browser | Yes                  | Yes        | Yes           |
+| Standalone Driver  | Yes, and NI Linux RT | Yes        | Yes           |
 
 We test the Console app on Windows 11 and macOS Sequoia. Older versions can work, but we
 do not test them.
@@ -91,14 +91,14 @@ Use at least 8 GB of RAM for production.
 These requirements apply to the Console app, the Console in a browser, and Synnax
 Desktop.
 
-|             | Minimum                                             | Recommended                                          |
-| ----------- | --------------------------------------------------- | ---------------------------------------------------- |
-| **CPU**     | Intel Core i5 (8th gen) / AMD Ryzen 5 (3000 series) | Intel Core i7 (10th gen) / AMD Ryzen 7 (4000 series) |
-| **RAM**     | 8 GB                                                | 16 GB or more                                        |
-| **Storage** | 2 GB available                                      | 4 GB available (SSD recommended)                     |
-| **GPU**     | NVIDIA GTX 1030 / AMD RX 550                        | NVIDIA RTX 2060 / AMD RX 5600 XT                     |
-| **VRAM**    | 2 GB                                                | 6 GB or more                                         |
-| **Display** | 1920x1080                                           | 4K                                                   |
+|         | Minimum                                             | Recommended                                          |
+| ------- | --------------------------------------------------- | ---------------------------------------------------- |
+| CPU     | Intel Core i5 (8th gen) / AMD Ryzen 5 (3000 series) | Intel Core i7 (10th gen) / AMD Ryzen 7 (4000 series) |
+| RAM     | 8 GB                                                | 16 GB or more                                        |
+| Storage | 2 GB available                                      | 4 GB available (SSD recommended)                     |
+| GPU     | NVIDIA GTX 1030 / AMD RX 550                        | NVIDIA RTX 2060 / AMD RX 5600 XT                     |
+| VRAM    | 2 GB                                                | 6 GB or more                                         |
+| Display | 1920x1080                                           | 4K                                                   |
 
 The Console draws plots and schematics on the GPU with WebGL 2. Integrated graphics
 (Intel Iris Xe, AMD Radeon Vega) work, but many high-rate channels, long time ranges, or

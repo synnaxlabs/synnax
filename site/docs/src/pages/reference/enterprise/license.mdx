@@ -8,7 +8,7 @@ description:
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Note } from "@/components/note";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -85,12 +85,12 @@ for this machine" or "invalid license".
 
 Run the "Show license info" command. The dialog shows:
 
-| Field                   | Values                                                                  |
-| ----------------------- | ----------------------------------------------------------------------- |
-| Status                  | **Active**, **Expiring**, **Expired**, or **Free**                  |
-| **Machines**            | Runs on any machine, Bound to this machine, or Bound to another machine |
-| **Channels**            | **Unlimited**, or the number of channels for each Core                  |
-| **Expires** or **Term** | The expiry date, or **Perpetual**                                       |
+| Field           | Values                                                                  |
+| --------------- | ----------------------------------------------------------------------- |
+| Status          | **Active**, **Expiring**, **Expired**, or **Free**                      |
+| Machines        | Runs on any machine, Bound to this machine, or Bound to another machine |
+| Channels        | **Unlimited**, or the number of channels for each Core                  |
+| Expires or Term | The expiry date, or **Perpetual**                                       |
 
 When the license is about to expire, the Core badge in the status bar shows a warning
 too.

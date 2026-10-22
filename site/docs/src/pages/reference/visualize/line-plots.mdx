@@ -77,8 +77,8 @@ On the **Data** tab:
 
 You can also drag a channel from the channels toolbar onto an axis of the plot.
 
-The axis lists do not show virtual, string, JSON, or UUID channels. To see text values,
-use a [log](/reference/visualize/logs).
+The axis lists do not show virtual, `string`, `json`, or `uuid` channels. To see text
+values, use a [log](/reference/visualize/logs).
 
 <Divider.Divider x />
 
@@ -87,16 +87,16 @@ use a [log](/reference/visualize/logs).
 The buttons in the top right of the plot set what a drag does: **Zoom** (<Icon.Zoom />),
 **Pan** (<Icon.Pan />), or **Select** (<Icon.Selection />). Zoom is the default.
 
-| Gesture                    | Zoom mode       | Pan mode        | Select mode     |
-| -------------------------- | --------------- | --------------- | --------------- |
-| Drag                       | Zoom to the box | Pan             | Select a region |
-| **Shift**+drag             | Pan             | Zoom to the box | Pan             |
-| **Alt**+drag or right-drag | Select a region | Select a region | Zoom to the box |
-| Middle-drag                | Pan             | Pan             | Pan             |
-| Scroll                     | Zoom at cursor  | Zoom at cursor  | Zoom at cursor  |
-| **Ctrl**+scroll            | Zoom the y-axis | Zoom the y-axis | Zoom the y-axis |
-| **Alt**+scroll             | Zoom the x-axis | Zoom the x-axis | Zoom the x-axis |
-| **Ctrl**+click             | Reset zoom      | Reset zoom      | Reset zoom      |
+| Gesture                | Zoom mode       | Pan mode        | Select mode     |
+| ---------------------- | --------------- | --------------- | --------------- |
+| Drag                   | Zoom to the box | Pan             | Select a region |
+| Shift+drag             | Pan             | Zoom to the box | Pan             |
+| Alt+drag or right-drag | Select a region | Select a region | Zoom to the box |
+| Middle-drag            | Pan             | Pan             | Pan             |
+| Scroll                 | Zoom at cursor  | Zoom at cursor  | Zoom at cursor  |
+| Ctrl+scroll            | Zoom the y-axis | Zoom the y-axis | Zoom the y-axis |
+| Alt+scroll             | Zoom the x-axis | Zoom the x-axis | Zoom the x-axis |
+| Ctrl+click             | Reset zoom      | Reset zoom      | Reset zoom      |
 
 On macOS, use **Cmd** for **Ctrl** and **Option** for **Alt**. Press **Esc** to cancel a
 drag. To reset the zoom, you can also click <Icon.Expand />.
@@ -264,7 +264,7 @@ toolbar and select **Add to active plot**.
 <Problem.Body>
 <Problem.Cause>
 
-The axis lists hide virtual, string, JSON, and UUID channels.
+The axis lists hide virtual, `string`, `json`, and `uuid` channels.
 
 </Problem.Cause>
 <Problem.Fix>

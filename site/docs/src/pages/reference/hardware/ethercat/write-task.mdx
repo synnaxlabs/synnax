@@ -6,10 +6,9 @@ description: "Write command channel values to the output PDOs of EtherCAT module
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Text } from "@synnaxlabs/lyra/text";
 import { Fragment } from "react";
+import { Channel } from "@/components/channel";
 import { Client } from "@/components/client";
-import { Details } from "@/components/details";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -151,47 +150,55 @@ the output value.
 
 ## Task options
 
-| Console label         | Python field           | Default | Notes                                                     |
-| --------------------- | ---------------------- | ------- | --------------------------------------------------------- |
-| **Execution rate**    | `execution_rate`       | 1000 Hz | How often the Driver runs the network on the port.        |
-| **State update rate** | `state_rate`           | 25 Hz   | How often the task writes the state channels.             |
-| **Data saving**       | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving). |
-| **Auto start**        | `auto_start`           | Off     | Starts the task each time the Driver starts.              |
+| Console label     | Python field           | Default | Notes                                                     |
+| ----------------- | ---------------------- | ------- | --------------------------------------------------------- |
+| Execution rate    | `execution_rate`       | 1000 Hz | How often the Driver runs the network on the port.        |
+| State update rate | `state_rate`           | 25 Hz   | How often the task writes the state channels.             |
+| Data saving       | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving). |
+| Auto start        | `auto_start`           | Off     | Starts the task each time the Driver starts.              |
 
 <Divider.Divider x />
 
 ## Channel reference
 
-Both modes have these fields:
+Each channel has a `device`, the key of the module (**Slave device**), a `cmd_channel`,
+and a `state_channel`. A `state_channel` of 0 means no state channel. Each table shows
+the Console label of a setting, with its Python field under it.
 
-| Field           | Default | Notes                                        |
-| --------------- | ------- | -------------------------------------------- |
-| `device`        |         | The key of the module (**Slave device**).    |
-| `cmd_channel`   |         | The command channel.                         |
-| `state_channel` | 0       | The state channel. 0 means no state channel. |
+<Channel.Types>
 
-<Details.Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Automatic (PDO)</Text.Text>
+<Channel.Type
+  name="Automatic (PDO)"
+  type="automatic"
+  python="AutomaticWriteChannel"
+>
 
-| Console label | Field  | Notes                                     |
-| ------------- | ------ | ----------------------------------------- |
-| **PDO**       | `pdo`  | The PDO name, from the device properties. |
-|               | `type` | `"automatic"`.                            |
+Writes a PDO entry by its name.
 
-</Details.Details>
+| Setting                  | Default | Notes                                     |
+| ------------------------ | ------- | ----------------------------------------- |
+| PDO <small>`pdo`</small> |         | The PDO name, from the device properties. |
 
-<Details.Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Manual (address)</Text.Text>
+</Channel.Type>
 
-| Console label   | Field        | Default  | Notes                                      |
-| --------------- | ------------ | -------- | ------------------------------------------ |
-| **Index (hex)** | `index`      | 0        | The CoE index, such as `0x7000`.           |
-| **Subindex**    | `sub_index`  | 0        | The CoE subindex, from 0 to 255.           |
-| **Bit length**  | `bit_length` | 16       | The size of the value, from 1 to 255 bits. |
-| **Data type**   | `data_type`  | `uint16` | The data type of the command channel.      |
-|                 | `type`       |          | `"manual"`.                                |
+<Channel.Type
+  name="Manual (address)"
+  type="manual"
+  python="ManualWriteChannel"
+>
 
-</Details.Details>
+Writes a PDO entry by its CoE address.
+
+| Setting                                | Default  | Notes                                      |
+| -------------------------------------- | -------- | ------------------------------------------ |
+| Index (hex) <small>`index`</small>     | `0`      | The CoE index, such as `0x7000`.           |
+| Subindex <small>`sub_index`</small>    | `0`      | The CoE subindex, from 0 to 255.           |
+| Bit length <small>`bit_length`</small> | `16`     | The size of the value, from 1 to 255 bits. |
+| Data type <small>`data_type`</small>   | `uint16` | The data type of the command channel.      |
+
+</Channel.Type>
+
+</Channel.Types>
 
 <Divider.Divider x />
 

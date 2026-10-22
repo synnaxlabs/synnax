@@ -7,10 +7,8 @@ description:
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Text } from "@synnaxlabs/lyra/text";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
-import { Details } from "@/components/details";
 import { Video } from "@/components/media/Media";
 import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
@@ -163,15 +161,15 @@ task. Only one channel can be the index.
 
 ## Task options
 
-| Console label      | Python field           | Default                 | Notes                                                                           |
-| ------------------ | ---------------------- | ----------------------- | ------------------------------------------------------------------------------- |
-| **OPC UA server**  | `device`               |                         | The key of the server.                                                          |
-| **Sample rate**    | `sample_rate`          | 50 Hz (10 Hz in Python) | Reads per second. At most 10,000.                                               |
-| **Stream rate**    | `stream_rate`          | 25 Hz (5 Hz in Python)  | Frames per second sent to the Core. At most the sample rate. Not in array mode. |
-| **Array sampling** | `array_mode`           | Off                     | See [read arrays](#read-arrays).                                                |
-| **Array size**     | `array_size`           | 1                       | Values in each array node.                                                      |
-| **Data saving**    | `data_saving_disabled` | On                      | See [data saving](/reference/hardware/tasks#data-saving).                       |
-| **Auto start**     | `auto_start`           | Off                     | Starts the task each time the Driver starts.                                    |
+| Console label  | Python field           | Default                 | Notes                                                                           |
+| -------------- | ---------------------- | ----------------------- | ------------------------------------------------------------------------------- |
+| OPC UA server  | `device`               |                         | The key of the server.                                                          |
+| Sample rate    | `sample_rate`          | 50 Hz (10 Hz in Python) | Reads per second. At most 10,000.                                               |
+| Stream rate    | `stream_rate`          | 25 Hz (5 Hz in Python)  | Frames per second sent to the Core. At most the sample rate. Not in array mode. |
+| Array sampling | `array_mode`           | Off                     | See [read arrays](#read-arrays).                                                |
+| Array size     | `array_size`           | 1                       | Values in each array node.                                                      |
+| Data saving    | `data_saving_disabled` | On                      | See [data saving](/reference/hardware/tasks#data-saving).                       |
+| Auto start     | `auto_start`           | Off                     | Starts the task each time the Driver starts.                                    |
 
 TypeScript uses the same fields in camel case, such as `sampleRate`. See
 [timing](/reference/hardware/tasks#timing).
@@ -180,44 +178,38 @@ TypeScript uses the same fields in camel case, such as `sampleRate`. See
 
 ## Channel reference
 
-<Details.Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Channel</Text.Text>
+The table shows the Console label of each setting, with its Python field under it.
 
-| Console label    | Field       | Default | Notes                                                                            |
-| ---------------- | ----------- | ------- | -------------------------------------------------------------------------------- |
-| Channel name     | `name`      | Empty   | The name of the channel that the Console creates.                                |
-|                  | `channel`   |         | The key of the channel that records the values.                                  |
-| Node ID          | `node_id`   |         | See [node IDs](#node-ids).                                                       |
-| Node name        | `node_name` | Empty   | The browse name. For display only.                                               |
-|                  | `data_type` | float32 | The data type of the channel that the Console creates.                           |
-| **Use as index** | `is_index`  | Off     | Shows only for a DateTime node. See [server timestamps](#use-server-timestamps). |
-| Enabled          | `disabled`  | Off     | A disabled channel is not read.                                                  |
+| Setting                                | Default   | Notes                                                                            |
+| -------------------------------------- | --------- | -------------------------------------------------------------------------------- |
+| Channel name <small>`name`</small>     | Empty     | The name of the channel that the Console creates.                                |
+| <small>`channel`</small>               |           | The key of the channel that records the values.                                  |
+| Node ID <small>`node_id`</small>       |           | See [node IDs](#node-ids).                                                       |
+| Node name <small>`node_name`</small>   | Empty     | The browse name. For display only.                                               |
+| <small>`data_type`</small>             | `float32` | The data type of the channel that the Console creates.                           |
+| Use as index <small>`is_index`</small> | Off       | Shows only for a DateTime node. See [server timestamps](#use-server-timestamps). |
+| Enabled <small>`disabled`</small>      | Off       | A disabled channel is not read.                                                  |
 
-</Details.Details>
+### Data types
 
-<Details.Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Data types</Text.Text>
+The Console creates each channel with the data type of its node:
 
 | OPC UA type | Synnax data type |
 | ----------- | ---------------- |
-| Boolean     | uint8            |
-| SByte       | int8             |
-| Byte        | uint8            |
-| Int16       | int16            |
-| UInt16      | uint16           |
-| Int32       | int32            |
-| UInt32      | uint32           |
-| Int64       | int64            |
-| UInt64      | uint64           |
-| Float       | float32          |
-| Double      | float64          |
-| String      | string           |
-| DateTime    | timestamp        |
-| Guid        | uuid             |
-
-The Console creates each channel with the data type of its node.
-
-</Details.Details>
+| Boolean     | `uint8`          |
+| SByte       | `int8`           |
+| Byte        | `uint8`          |
+| Int16       | `int16`          |
+| UInt16      | `uint16`         |
+| Int32       | `int32`          |
+| UInt32      | `uint32`         |
+| Int64       | `int64`          |
+| UInt64      | `uint64`         |
+| Float       | `float32`        |
+| Double      | `float64`        |
+| String      | `string`         |
+| DateTime    | `timestamp`      |
+| Guid        | `uuid`           |
 
 <Divider.Divider x />
 

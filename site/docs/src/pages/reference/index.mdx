@@ -15,13 +15,22 @@ import Grid from "@/components/card/Grid.astro";
 import Choice from "@/components/landing/Choice.astro";
 import Hero from "@/components/landing/Hero.astro";
 import Use from "@/components/landing/Use.astro";
+import { Image } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 <Hero>
-  Synnax is a unified industrial control and operations platform. It combines data
-  acquisition, a time-series database, live visualization, manual and automated
-  control, and data processing in one system.
+<Fragment slot="media">
+  <Image
+    id="landing/console"
+    loading="eager"
+    alt="The Synnax Console with a schematic, a line plot, a table, and an Arc sequence open"
+  />
+</Fragment>
+
+Synnax is a unified industrial control and operations platform. It combines data
+acquisition, a time-series database, live visualization, manual and automated control,
+and data processing in one system.
 
 <Fragment slot="uses">
   <Use
@@ -63,12 +72,6 @@ export const components = mdxOverrides;
     <Icon.Core slot="action-icon" />
   </Choice>
 </Fragment>
-
-  <img
-    slot="media"
-    src="https://synnax.nyc3.cdn.digitaloceanspaces.com/landing/images/console-screenshot.png"
-    alt="The Synnax Console with a schematic, a line plot, and an Arc sequence open"
-  />
 </Hero>
 
 <Divider.Divider x />

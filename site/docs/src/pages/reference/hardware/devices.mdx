@@ -63,11 +63,11 @@ chassis. Each device shows its vendor logo, its name, its location, and a status
 
 <Video id="hardware/devices/toolbar" />
 
-| Driver                     | What it is                                                     |
-| -------------------------- | -------------------------------------------------------------- |
-| **Node 1 Embedded Driver** | The Driver in Synnax Desktop or in a Synnax Core               |
-| **Node 1**                 | Runs Arc automations and PagerDuty alert tasks inside the Core |
-| The name of a computer     | A standalone Driver on that computer                           |
+| Driver                 | What it is                                                     |
+| ---------------------- | -------------------------------------------------------------- |
+| Node 1 Embedded Driver | The Driver in Synnax Desktop or in a Synnax Core               |
+| Node 1                 | Runs Arc automations and PagerDuty alert tasks inside the Core |
+| The name of a computer | A standalone Driver on that computer                           |
 
 <Divider.Divider x />
 
@@ -98,16 +98,16 @@ To fix a warning or an error, see
 
 Right-click a device in the devices toolbar to open its menu.
 
-| Item                                        | What it does                                                                                   |
-| ------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| **Rename**                                  | Changes the device name.                                                                       |
-| **Configure**                               | Names a new NI, LabJack, or EtherCAT device and sets its identifier.                           |
-| **Change identifier**                       | Changes the identifier of a configured NI, LabJack, or EtherCAT device.                        |
-| **Edit connection**                         | Changes the address and settings of a Modbus, OPC UA, or HTTP server.                          |
-| **Disable**, **Enable**                     | Turns an [EtherCAT module](/reference/hardware/ethercat/configure-device) off or on for tasks. |
-| **Create read task**, **Create write task** | Creates a task for the device. NI devices have one item for each NI task type.                 |
-| **Copy properties**                         | Copies the device properties to the clipboard as JSON.                                         |
-| **Delete**                                  | Removes the device. The Driver adds found hardware back as a new device at its next scan.      |
+| Item                                | What it does                                                                                   |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Rename                              | Changes the device name.                                                                       |
+| Configure                           | Names a new NI, LabJack, or EtherCAT device and sets its identifier.                           |
+| Change identifier                   | Changes the identifier of a configured NI, LabJack, or EtherCAT device.                        |
+| Edit connection                     | Changes the address and settings of a Modbus, OPC UA, or HTTP server.                          |
+| Disable, Enable                     | Turns an [EtherCAT module](/reference/hardware/ethercat/configure-device) off or on for tasks. |
+| Create read task, Create write task | Creates a task for the device. NI devices have one item for each NI task type.                 |
+| Copy properties                     | Copies the device properties to the clipboard as JSON.                                         |
+| Delete                              | Removes the device. The Driver adds found hardware back as a new device at its next scan.      |
 
 Creating a task for a device that is not configured opens **Configure** first.
 

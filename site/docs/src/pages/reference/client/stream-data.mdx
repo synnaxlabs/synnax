@@ -212,8 +212,8 @@ const streamer = await client.openStreamer({
 samples in each series. The Core drops the other samples and does not average them. A
 write of fewer than `N` samples is not reduced.
 - <Client.Var py="throttle_rate" ts="throttleRate" /> -> send at most this many frames
-  each second. The Core joins the samples between two sends into one frame, so the
-  streamer gets all samples in fewer frames.
+each second. The Core joins the samples between two sends into one frame, so the
+streamer gets all samples in fewer frames.
 
 <Divider.Divider x />
 

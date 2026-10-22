@@ -6,7 +6,7 @@ clients: ["console", "python", "typescript"]
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Note } from "@/components/note";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
 import { Image } from "@/components/media/Media";
@@ -109,7 +109,7 @@ await client.ranges.create({
   </Fragment>
 </Client.Tabs>
 
-<Note.Note variant="warning" className="compact">
+<Note.Note variant="warning">
   An update in code replaces the name, the time range, and the color. Leave out the
   color and the range loses it. Labels are only added, and the parent stays when you
   leave it out. If no range has the key, Synnax creates a new range with that key.

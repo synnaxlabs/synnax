@@ -7,6 +7,7 @@ layout: "@/layouts/Reference.astro"
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
+import Compare from "@/components/edition/Compare.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -34,34 +35,10 @@ Use **Synnax Enterprise** when a team shares one system. Choose Enterprise when 
 
 ## Compare the editions
 
-The two editions share most capabilities. The table lists each capability for both
-editions.
+The two editions share most capabilities. They differ in where they run and in who can
+connect.
 
-| Capability                            | Synnax Desktop                       | Synnax Enterprise                         |
-| ------------------------------------- | ------------------------------------ | ----------------------------------------- |
-| Operating systems                     | macOS (Apple silicon), Windows (x64) | Linux, macOS, Windows, Docker             |
-| Channels and calculated channels      | Yes                                  | Yes                                       |
-| Ranges                                | Yes                                  | Yes                                       |
-| Projects and visualizations           | Yes                                  | Yes                                       |
-| Devices and tasks                     | Yes                                  | Yes                                       |
-| EtherCAT, Modbus, OPC UA, HTTP        | Yes                                  | Yes                                       |
-| LabJack devices                       | Yes                                  | Windows and macOS                         |
-| NI devices                            | Windows only                         | Windows, Linux, NI Linux Real-Time        |
-| Arc automations                       | Yes                                  | Yes                                       |
-| Statuses and alarms                   | Yes                                  | Yes                                       |
-| Import and export                     | Yes                                  | Yes                                       |
-| Driver on the same computer           | Yes, built in                        | Yes                                       |
-| Drivers on other computers            | No                                   | Yes                                       |
-| Access from other computers           | No                                   | Yes                                       |
-| Python and TypeScript clients         | No                                   | Yes                                       |
-| Console in a web browser              | No                                   | Yes                                       |
-| Users and roles                       | No                                   | Yes                                       |
-| Copy link to a resource               | No                                   | Yes                                       |
-| TLS certificates                      | No                                   | Yes                                       |
-| Automatic start, restart, diagnostics | Yes                                  | No, your team runs the Core               |
-| Metadata backup before an update      | Yes                                  | No                                        |
-| Updates                               | In the app, for all parts            | Console in the app; the rest by your team |
-| Price                                 | Free                                 | Contact Synnax Labs                       |
+<Compare />
 
 <Divider.Divider x />
 

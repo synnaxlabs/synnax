@@ -238,13 +238,13 @@ them with **Copy diagnostics**. For device and Driver statuses, see
 
 Each task page lists the options that its task has.
 
-| Console label         | Python field           | TypeScript field     | Default                               |
-| --------------------- | ---------------------- | -------------------- | ------------------------------------- |
-| **Sample rate**       | `sample_rate`          | `sampleRate`         | 10 Hz, 50 Hz (OPC UA)                 |
-| **Stream rate**       | `stream_rate`          | `streamRate`         | 5 Hz, 25 Hz (OPC UA)                  |
-| **State update rate** | `state_rate`           | `stateRate`          | 10 Hz (NI, LabJack), 25 Hz (EtherCAT) |
-| **Data saving**       | `data_saving_disabled` | `dataSavingDisabled` | On (field `false`)                    |
-| **Auto start**        | `auto_start`           | `autoStart`          | Off                                   |
+| Console label     | Python field           | TypeScript field     | Default                               |
+| ----------------- | ---------------------- | -------------------- | ------------------------------------- |
+| Sample rate       | `sample_rate`          | `sampleRate`         | 10 Hz, 50 Hz (OPC UA)                 |
+| Stream rate       | `stream_rate`          | `streamRate`         | 5 Hz, 25 Hz (OPC UA)                  |
+| State update rate | `state_rate`           | `stateRate`          | 10 Hz (NI, LabJack), 25 Hz (EtherCAT) |
+| Data saving       | `data_saving_disabled` | `dataSavingDisabled` | On (field `false`)                    |
+| Auto start        | `auto_start`           | `autoStart`          | Off                                   |
 
 The LabJack write task has no **Auto start** switch in the Console.
 
@@ -258,17 +258,17 @@ click <Icon.Add /> (**Create task**). Double-click a task to open it in a tab.
 
 Right-click a task to open its menu:
 
-| Item                                            | What it does                                                                   |
-| ----------------------------------------------- | ------------------------------------------------------------------------------ |
-| **Start**, **Stop**                             | Starts or stops the selected tasks.                                            |
-| **Redeploy**                                    | Applies saved edits to a running task. It shows only when edits are waiting.   |
-| **Edit configuration**                          | Opens the task in a tab.                                                       |
-| **Rename**                                      | Changes the task name.                                                         |
-| **Enable data saving**, **Disable data saving** | Turns [data saving](#data-saving) on or off.                                   |
-| **Snapshot to \<range\>**                       | Saves a copy of the task to the active [range](/reference/ranges#snapshots).   |
-| **Export**                                      | Saves the task as a JSON file. Run the "Import components" command to load it. |
-| **Copy link**                                   | Copies a link to the task. Not in Synnax Desktop.                              |
-| **Delete**                                      | Deletes the task.                                                              |
+| Item                                    | What it does                                                                   |
+| --------------------------------------- | ------------------------------------------------------------------------------ |
+| Start, Stop                             | Starts or stops the selected tasks.                                            |
+| Redeploy                                | Applies saved edits to a running task. It shows only when edits are waiting.   |
+| Edit configuration                      | Opens the task in a tab.                                                       |
+| Rename                                  | Changes the task name.                                                         |
+| Enable data saving, Disable data saving | Turns [data saving](#data-saving) on or off.                                   |
+| Snapshot to \<range\>                   | Saves a copy of the task to the active [range](/reference/ranges#snapshots).   |
+| Export                                  | Saves the task as a JSON file. Run the "Import components" command to load it. |
+| Copy link                               | Copies a link to the task. Not in Synnax Desktop.                              |
+| Delete                                  | Deletes the task.                                                              |
 
 The task tab has buttons to **Copy Python code**, **Copy TypeScript code**, **Copy JSON
 configuration**, **Copy link** (not in Synnax Desktop), and **Export**. The code buttons

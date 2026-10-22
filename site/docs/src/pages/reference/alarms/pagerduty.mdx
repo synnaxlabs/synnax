@@ -178,25 +178,25 @@ const alertTask = await client.tasks.create({
 
 ## Task options
 
-| Console label    | Python field  | Default  | Notes                                                              |
-| ---------------- | ------------- | -------- | ------------------------------------------------------------------ |
-| **Routing key**  | `routing_key` | -        | The 32-character Events API v2 integration key.                    |
-| **Connect from** | -             | The Core | The Core runs the task. Python and TypeScript use the Core's rack. |
-| **Auto start**   | `auto_start`  | Off      | Starts the task when you configure it.                             |
-| Alerts           | `alerts`      | -        | At least one alert must be enabled.                                |
+| Console label | Python field  | Default  | Notes                                                              |
+| ------------- | ------------- | -------- | ------------------------------------------------------------------ |
+| Routing key   | `routing_key` | -        | The 32-character Events API v2 integration key.                    |
+| Connect from  | -             | The Core | The Core runs the task. Python and TypeScript use the Core's rack. |
+| Auto start    | `auto_start`  | Off      | Starts the task when you configure it.                             |
+| Alerts        | `alerts`      | -        | At least one alert must be enabled.                                |
 
 <Divider.Divider x />
 
 ## Alert reference
 
-| Console label               | Python field      | Default | Notes                                                                 |
-| --------------------------- | ----------------- | ------- | --------------------------------------------------------------------- |
-| **Status**                  | `status`          | -       | The key of the status to watch.                                       |
-| Enabled check box           | `disabled`        | Off     | A disabled alert is left out of the task.                             |
-| **Treat error as critical** | `errors_critical` | Off     | Sends **Error** as `critical` instead of `error`.                     |
-| **Component**               | `component`       | Empty   | The part of the system, such as `"engine-1"`.                         |
-| **Group**                   | `group`           | Empty   | A group of components, such as `"engines"`.                           |
-| **Class**                   | `class_`          | Empty   | The kind of event, such as `"engine-failure"`. `class` in TypeScript. |
+| Console label           | Python field      | Default | Notes                                                                 |
+| ----------------------- | ----------------- | ------- | --------------------------------------------------------------------- |
+| Status                  | `status`          | -       | The key of the status to watch.                                       |
+| Enabled check box       | `disabled`        | Off     | A disabled alert is left out of the task.                             |
+| Treat error as critical | `errors_critical` | Off     | Sends **Error** as `critical` instead of `error`.                     |
+| Component               | `component`       | Empty   | The part of the system, such as `"engine-1"`.                         |
+| Group                   | `group`           | Empty   | A group of components, such as `"engines"`.                           |
+| Class                   | `class_`          | Empty   | The kind of event, such as `"engine-failure"`. `class` in TypeScript. |
 
 <Divider.Divider x />
 

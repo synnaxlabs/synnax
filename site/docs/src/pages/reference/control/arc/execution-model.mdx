@@ -65,8 +65,8 @@ during a step, put the step in a stage. All the flows in a stage run at the same
 
 `=> next` moves to the next step in the code. `=> name` moves to the named stage of the
 same sequence. A `=> name` to a top-level sequence or stage stops the whole top-level
-sequence or stage that holds the transition, including its nested items, then starts
-the target in the same cycle. Nothing in the stopped scope resumes:
+sequence or stage that holds the transition, including its nested items, then starts the
+target in the same cycle. Nothing in the stopped scope resumes:
 
 ```arc channels="press_vlv_cmd, vent_vlv_cmd, tank_pt, start_cmd" bodies="fill, pressurize, vent"
 sequence fill {
@@ -136,8 +136,8 @@ code wins. Put safety checks before the other transitions.
 
 Between a stage and a sequence declared inside it, line order decides only when both
 transitions target a top-level sequence or stage. A transition inside the inner
-sequence, such as `=> next`, acts first. The outer jump then acts in the same cycle,
-so the stage the inner sequence entered stops at once.
+sequence, such as `=> next`, acts first. The outer jump then acts in the same cycle, so
+the stage the inner sequence entered stops at once.
 
 <Divider.Divider x />
 

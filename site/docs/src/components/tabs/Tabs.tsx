@@ -17,8 +17,11 @@ import { Badge } from "@/components/edition/Badge";
 import { type Edition, NAMES } from "@/components/edition/edition";
 import { QUERY_ATTRIBUTE } from "@/components/tabs/sync";
 
-// Astro's React SSR camelCases dashed slot names.
-const slotName = (key: string): string =>
+/**
+ * Returns the prop that holds the slot of a tab. Astro's React SSR camelCases dashed
+ * slot names.
+ */
+export const slotName = (key: string): string =>
   key.replace(/[-_]([a-z])/g, (_, c: string) => c.toUpperCase());
 
 export interface TabEntry<K extends string = string> {

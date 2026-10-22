@@ -198,4 +198,41 @@ describe("sidebar", () => {
       expect(selected()).toEqual([]);
     });
   });
+
+  describe("scroll", () => {
+    const place = (el: Element, top: number, height: number): void => {
+      el.getBoundingClientRect = () =>
+        ({ top, bottom: top + height, height }) as DOMRect;
+    };
+
+    const scrollable = (): (() => number) => {
+      const tree = document.querySelector(".reference-tree");
+      if (tree == null) throw new Error("no tree");
+      let scrollTop = 0;
+      Object.defineProperty(tree, "scrollTop", {
+        get: () => scrollTop,
+        set: (value: number) => {
+          scrollTop = value;
+        },
+      });
+      place(tree, 0, 100);
+      return () => scrollTop;
+    };
+
+    it("should center the new page when it is out of view", () => {
+      show("/reference/channels");
+      const scrollTop = scrollable();
+      place(item("Stages"), 300, 20);
+      swap("/reference/control/arc/concepts/stages");
+      expect(scrollTop()).toBe(260);
+    });
+
+    it("should not scroll when the new page is in view", () => {
+      show("/reference/channels");
+      const scrollTop = scrollable();
+      place(item("Create channels"), 40, 20);
+      swap("/reference/channels/create");
+      expect(scrollTop()).toBe(0);
+    });
+  });
 });

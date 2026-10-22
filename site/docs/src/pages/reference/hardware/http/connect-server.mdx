@@ -120,15 +120,15 @@ result as the server status in the devices toolbar. For the messages, see
 
 ## Connection options
 
-| Console label               | Python field              | Default | Notes                                                         |
-| --------------------------- | ------------------------- | ------- | ------------------------------------------------------------- |
-| **Host**                    | `host`                    |         | Address and port, with no scheme.                             |
-| **HTTPS**                   | `secure`                  | On      | Off for plain HTTP.                                           |
-| **Verify SSL**              | `verify_ssl`              | On      | Turn off for a server with a self-signed certificate.         |
-| **Expected response time**  | `timeout_ms`              | 100 ms  | The time the Driver waits for each response. Must be above 0. |
-| **Max concurrent requests** | `max_concurrent_requests` | 6       | The most requests open to the server at one time.             |
-| **Authentication**          | `auth`                    | None    | See [authentication](#authentication).                        |
-| **Health check**            | `health_check`            |         | See [health check](#health-check).                            |
+| Console label           | Python field              | Default | Notes                                                         |
+| ----------------------- | ------------------------- | ------- | ------------------------------------------------------------- |
+| Host                    | `host`                    |         | Address and port, with no scheme.                             |
+| HTTPS                   | `secure`                  | On      | Off for plain HTTP.                                           |
+| Verify SSL              | `verify_ssl`              | On      | Turn off for a server with a self-signed certificate.         |
+| Expected response time  | `timeout_ms`              | 100 ms  | The time the Driver waits for each response. Must be above 0. |
+| Max concurrent requests | `max_concurrent_requests` | 6       | The most requests open to the server at one time.             |
+| Authentication          | `auth`                    | None    | See [authentication](#authentication).                        |
+| Health check            | `health_check`            |         | See [health check](#health-check).                            |
 
 TypeScript uses the same fields in camel case, such as `verifySsl`.
 
@@ -136,12 +136,12 @@ TypeScript uses the same fields in camel case, such as `verifySsl`.
 
 ## Authentication
 
-| Console option   | Sends                                                            |
-| ---------------- | ---------------------------------------------------------------- |
-| **None**         | No credentials.                                                  |
-| **Bearer token** | The **Token** in the header `Authorization: Bearer <token>`.     |
-| **API key**      | The **API key** in a header or a query parameter that you name.  |
-| **Basic**        | The **Username** and **Password** in the `Authorization` header. |
+| Console option | Sends                                                            |
+| -------------- | ---------------------------------------------------------------- |
+| None           | No credentials.                                                  |
+| Bearer token   | The **Token** in the header `Authorization: Bearer <token>`.     |
+| API key        | The **API key** in a header or a query parameter that you name.  |
+| Basic          | The **Username** and **Password** in the `Authorization` header. |
 
 In code, `auth` is a dictionary:
 

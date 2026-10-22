@@ -31,6 +31,7 @@ main {
         gap: 2rem;
         max-width: 1100px;
         margin: 0 auto;
+        justify-content: center;
         min-width: 0;
         overflow-x: clip;
     }
@@ -212,14 +213,15 @@ main {
     line-height: var(--pluto-small-line-height);
 }
 
-@media (max-width: 800px) {
+/* Below this width, the header menu opens the page list. */
+@media (max-width: 1023px) {
     .page-nav {
         display: none;
     }
 }
 
 /* On this page sidebar - hide when left sidebar is present (reference pages) */
-@media (max-width: 1150px) {
+@media (max-width: 1279px) {
     .page-nav ~ section nav.on-this-page,
     .page-nav ~ section .on-this-page {
         display: none !important;
@@ -248,7 +250,6 @@ article {
         margin-top: 12rem;
         margin-bottom: 3rem;
         letter-spacing: var(--pluto-h2-letter-spacing);
-        color: var(--pluto-gray-l11);
         font-feature-settings:
             "liga" 1,
             "calt" 1;
@@ -262,10 +263,6 @@ article {
     .pluto-divider + h2,
     .pluto-divider + h2.pluto-text {
         margin-top: 4rem;
-    }
-
-    .pluto-tabs__selector .pluto-text {
-        color: var(--pluto-gray-l10);
     }
 
     /* Block flow collapses margins in a panel exactly as in the article body. */
@@ -282,14 +279,12 @@ article {
         margin-top: 8rem;
         margin-bottom: 2.5rem;
         letter-spacing: -0.015em;
-        color: var(--pluto-gray-l11);
     }
 
     h4,
     h4.pluto-text {
         margin-top: 4rem;
         margin-bottom: 2rem;
-        color: var(--pluto-gray-l11);
     }
 
     h5,
@@ -333,12 +328,9 @@ article {
         margin-top: 0;
     }
 
-    .pluto-btn .pluto-text {
-        margin: 0;
-    }
-
-    p {
-        margin: 2.5rem 0;
+    /* The label of a Lyra button is a <p> too, but it is not prose. */
+    p:not(.pluto-btn *) {
+        margin: 3rem 0;
         color: var(--docs-body-color);
     }
 
@@ -376,13 +368,14 @@ article {
     }
 
     /* A lead-in sentence sits close to the block it introduces. Themed images render
-       inside a picture, and videos inside a play button wrapper. */
-    p:has(+ :is(video, img, .docs-picture, .docs-video, .table-wrapper, .pluto-tabs)),
+       inside a picture, and videos inside a play button wrapper. A table keeps the full
+       gap: its header is text, so a close lead-in reads as one more line. */
+    p:has(+ :is(video, img, .docs-picture, .docs-video, .pluto-tabs)),
     p:has(+ :is(.field-list, .rule-list, .problem-list)) {
         margin-bottom: 2rem;
     }
 
-    p + :is(video, img, .table-wrapper, .pluto-tabs),
+    p + :is(video, img, .pluto-tabs),
     p + :is(.field-list, .rule-list, .problem-list),
     p + .docs-picture > img,
     p + .docs-video > video {

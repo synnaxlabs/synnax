@@ -7,7 +7,7 @@ description:
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Note } from "@/components/note";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -79,10 +79,10 @@ Starting a sequence with an empty body fails with `sequence 'press' has no steps
 | Nested               | When its parent sequence or stage reaches it.              |
 
 A flow that starts a top-level sequence can be at the top level, or in a step of a
-different sequence. From a step, it stops the whole top-level sequence or stage that holds the
-transition, then starts the target in the same cycle. From the top level, it stops
-nothing. A running target does not restart, except when a transition inside it targets
-itself.
+different sequence. From a step, it stops the whole top-level sequence or stage that
+holds the transition, then starts the target in the same cycle. From the top level, it
+stops nothing. A running target does not restart, except when a transition inside it
+targets itself.
 
 Several flows can start the same sequence. Each flow can activate it when its condition
 is true and the sequence is not already running.

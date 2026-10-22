@@ -10,6 +10,9 @@
 ---
 
 <div class="docs-hero">
+    <div class="docs-hero__media">
+        <slot name="media" />
+    </div>
     <div class="docs-hero__lead">
         <slot />
     </div>
@@ -23,9 +26,6 @@
         Not sure which one you need?{" "}
         <a href="/reference/get-started/editions">Compare the editions</a>.
     </p>
-    <div class="docs-hero__media">
-        <slot name="media" />
-    </div>
 </div>
 
 <style is:global>
@@ -61,7 +61,7 @@
             font-size: var(--pluto-small-size);
         }
         .docs-hero__media {
-            margin-top: 6rem;
+            margin-bottom: 5rem;
             img {
                 display: block;
                 width: 100%;

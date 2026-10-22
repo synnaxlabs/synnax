@@ -20,8 +20,11 @@ export const PICKER_ATTRIBUTE = "data-tabs-picker";
 /** Dispatched on the document after any element changes its choice. */
 export const CHANGE_EVENT = "docs:tabs-change";
 
+import { hashTarget } from "@/util/hash";
+
 const TAB = '[role="tab"]';
 const STRIP = '[role="tablist"]';
+const PANEL = '[role="tabpanel"]';
 const OPTION = "[data-tab-key]";
 const SELECTED_CLASS = "pluto--selected";
 const CLIPPED_START_CLASS = "pluto-tabs__selector--clipped-start";
@@ -66,6 +69,15 @@ const reveal = (tab: Element): void => {
   clip(strip);
 };
 
+// The panels of a frame without a query key stay findable in the page while hidden,
+// and a match selects their tab. A frame with a key holds a choice that applies to the
+// whole site, which a search must not change.
+const hide = (frame: Element, panel: HTMLElement, hidden: boolean): void => {
+  if (!hidden) panel.removeAttribute("hidden");
+  else if (keyOf(frame).length === 0) panel.setAttribute("hidden", "until-found");
+  else panel.hidden = true;
+};
+
 const selectTab = (frame: Element, value: string): boolean => {
   const tabs = ownTabs(frame);
   if (!tabs.some((tab) => tab.dataset.tabKey === value)) return false;
@@ -77,7 +89,7 @@ const selectTab = (frame: Element, value: string): boolean => {
     const panel = frame.querySelector<HTMLElement>(
       `[id="${tab.getAttribute("aria-controls")}"]`,
     );
-    if (panel != null) panel.hidden = !selected;
+    if (panel != null) hide(frame, panel, !selected);
     if (selected) reveal(tab);
   }
   return true;
@@ -149,6 +161,11 @@ export const start = (queries: Queries): void => {
       apply(key, value);
     }
     if (replaced) window.history.replaceState(window.history.state, "", url);
+    for (const panel of document.querySelectorAll<HTMLElement>(`${PANEL}[hidden]`)) {
+      const frame = panel.closest(`[${QUERY_ATTRIBUTE}]`);
+      if (frame != null) hide(frame, panel, true);
+    }
+    revealHashTarget();
     clipAll();
     document.dispatchEvent(new CustomEvent(CHANGE_EVENT));
   };
@@ -161,6 +178,21 @@ export const start = (queries: Queries): void => {
     if (key.length > 0) choose(key, value, frame);
     else if (selectTab(frame, value))
       document.dispatchEvent(new CustomEvent(CHANGE_EVENT));
+  };
+
+  const selectPanel = (panel: Element): void => {
+    const tab = document.getElementById(panel.getAttribute("aria-labelledby") ?? "");
+    if (tab != null) select(tab);
+  };
+
+  // Selects each tab whose panel holds the URL hash target, outermost first.
+  const revealHashTarget = (): HTMLElement | null => {
+    const target = hashTarget();
+    const panels: Element[] = [];
+    for (let p = target?.closest(PANEL); p != null; p = p.parentElement?.closest(PANEL))
+      panels.unshift(p);
+    panels.forEach(selectPanel);
+    return target;
   };
 
   document.addEventListener("click", (e) => {
@@ -206,6 +238,17 @@ export const start = (queries: Queries): void => {
       e.target.style.width = `${width}px`;
     },
     // Toggle events do not bubble.
+    { capture: true },
+  );
+
+  window.addEventListener("hashchange", () => revealHashTarget()?.scrollIntoView());
+
+  // Find in page fires beforematch on each hidden panel that holds the match.
+  document.addEventListener(
+    "beforematch",
+    (e) => {
+      if (e.target instanceof Element && e.target.matches(PANEL)) selectPanel(e.target);
+    },
     { capture: true },
   );
 

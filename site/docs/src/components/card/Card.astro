@@ -23,7 +23,7 @@ const { href, title, description } = Astro.props;
     <span class="docs-card__icon">
         <slot name="icon" />
     </span>
-    <Text.Text level="p" weight={500} color={10} className="docs-card__title">
+    <Text.Text level="p" weight={550} className="docs-card__title">
         {title}
     </Text.Text>
     <Text.Text level="small" color={8} weight={400} className="docs-card__description">
@@ -68,6 +68,11 @@ const { href, title, description } = Astro.props;
         .docs-card__title,
         .docs-card__description {
             margin: 0 !important;
+        }
+
+        /* The docs paragraph color would otherwise win over a Lyra text color. */
+        .docs-card__title {
+            color: var(--pluto-gray-l11);
         }
     }
 </style>

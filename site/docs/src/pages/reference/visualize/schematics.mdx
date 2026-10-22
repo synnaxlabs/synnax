@@ -8,7 +8,7 @@ description:
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Note } from "@/components/note";
 import { Image, Video } from "@/components/media/Media";
 import Diagram from "@/components/diagram/Diagram.astro";
 import { Problem } from "@/components/problem";
@@ -157,13 +157,13 @@ Only users with permission to edit the schematic see the tabs **Symbols**,
 
 ### Navigate the canvas
 
-| Action         | Editing off | Select mode     | Pan mode        |
-| -------------- | ----------- | --------------- | --------------- |
-| Drag           | Nothing     | Select a region | Pan             |
-| **Shift**+drag | Pan         | Pan             | Pan             |
-| Middle-drag    | Pan         | Pan             | Pan             |
-| **Alt**+drag   | Nothing     | Zoom to the box | Select a region |
-| Scroll         | Zoom        | Zoom            | Zoom            |
+| Action      | Editing off | Select mode     | Pan mode        |
+| ----------- | ----------- | --------------- | --------------- |
+| Drag        | Nothing     | Select a region | Pan             |
+| Shift+drag  | Pan         | Pan             | Pan             |
+| Middle-drag | Pan         | Pan             | Pan             |
+| Alt+drag    | Nothing     | Zoom to the box | Select a region |
+| Scroll      | Zoom        | Zoom            | Zoom            |
 
 Click <Icon.Expand /> (**Fit view to contents**) to show every symbol. Hold **Ctrl**
 (**Cmd** on macOS) and click an empty part of the schematic to do the same.
@@ -261,17 +261,17 @@ Console window only.
 
 These work while editing is on. On macOS, use **Cmd** for **Ctrl**.
 
-| Shortcut                  | Action                |
-| ------------------------- | --------------------- |
-| **Ctrl+A**                | Select all.           |
-| **Esc**                   | Clear the selection.  |
-| **Ctrl+C**, **Ctrl+V**    | Copy and paste.       |
-| **Ctrl+X**                | Cut.                  |
-| **Ctrl+Z**                | Undo.                 |
-| **Ctrl+Shift+Z**          | Redo.                 |
-| **Ctrl+G**                | Group the selection.  |
-| **Ctrl+U**                | Ungroup.              |
-| **Delete**, **Backspace** | Delete the selection. |
+| Shortcut          | Action                |
+| ----------------- | --------------------- |
+| Ctrl+A            | Select all.           |
+| Esc               | Clear the selection.  |
+| Ctrl+C, Ctrl+V    | Copy and paste.       |
+| Ctrl+X            | Cut.                  |
+| Ctrl+Z            | Undo.                 |
+| Ctrl+Shift+Z      | Redo.                 |
+| Ctrl+G            | Group the selection.  |
+| Ctrl+U            | Ungroup.              |
+| Delete, Backspace | Delete the selection. |
 
 Right-click the schematic for the same actions in a menu.
 

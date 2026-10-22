@@ -57,9 +57,9 @@
     place-items: center;
     width: 20px;
     height: 20px;
-    border: 1px solid var(--pluto-gray-l4);
-    border-radius: 50%;
-    background: var(--handoff-bg);
+    border: 1px solid var(--pluto-gray-l3);
+    border-radius: var(--pluto-border-radius-small);
+    background: var(--pluto-gray-l2);
     font:
         500 11px/1 "Geist Mono",
         monospace;

@@ -7,10 +7,9 @@ description:
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Text } from "@synnaxlabs/lyra/text";
 import { Fragment } from "react";
+import { Channel } from "@/components/channel";
 import { Client } from "@/components/client";
-import { Details } from "@/components/details";
 import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -122,12 +121,12 @@ await task.start();
 
 ## Task options
 
-| Console label         | Python field           | Default | Notes                                                     |
-| --------------------- | ---------------------- | ------- | --------------------------------------------------------- |
-| **Device**            | `device`               |         | The serial number of the device.                          |
-| **State update rate** | `state_rate`           | 10 Hz   | How often the task writes the state channels.             |
-| **Data saving**       | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving). |
-|                       | `auto_start`           | Off     | Starts the task each time the Driver starts. Code only.   |
+| Console label     | Python field           | Default | Notes                                                     |
+| ----------------- | ---------------------- | ------- | --------------------------------------------------------- |
+| Device            | `device`               |         | The serial number of the device.                          |
+| State update rate | `state_rate`           | 10 Hz   | How often the task writes the state channels.             |
+| Data saving       | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving). |
+|                   | `auto_start`           | Off     | Starts the task each time the Driver starts. Code only.   |
 
 <Divider.Divider x />
 
@@ -135,25 +134,37 @@ await task.start();
 
 Each channel has a `cmd_channel` and a `state_channel`. Both are required.
 
-<Details.Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Analog</Text.Text>
+<Channel.Types>
 
-| Field  | Default | Notes                                                 |
-| ------ | ------- | ----------------------------------------------------- |
-| `port` | `DAC0`  | A `DAC` port. The command is a voltage, as `float32`. |
-| `type` |         | `"analog"`.                                           |
+<Channel.Type
+  name="Analog"
+  type="analog"
+  python="AnalogWriteChannel"
+>
 
-</Details.Details>
+Outputs a voltage. The command is in volts, as `float32`.
 
-<Details.Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Digital</Text.Text>
+| Setting               | Default | Notes         |
+| --------------------- | ------- | ------------- |
+| <small>`port`</small> | `DAC0`  | A `DAC` port. |
 
-| Field  | Default | Notes                                            |
-| ------ | ------- | ------------------------------------------------ |
-| `port` | `DIO4`  | A `DIO` port. The command is 0 or 1, as `uint8`. |
-| `type` |         | `"digital"`.                                     |
+</Channel.Type>
 
-</Details.Details>
+<Channel.Type
+  name="Digital"
+  type="digital"
+  python="DigitalWriteChannel"
+>
+
+Sets a digital line. The command is 0 or 1, as `uint8`.
+
+| Setting               | Default | Notes         |
+| --------------------- | ------- | ------------- |
+| <small>`port`</small> | `DIO4`  | A `DIO` port. |
+
+</Channel.Type>
+
+</Channel.Types>
 
 <Divider.Divider x />
 

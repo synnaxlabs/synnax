@@ -117,23 +117,24 @@ await task.start();
 
 ## Task options
 
-| Console label   | Python field           | Default | Notes                                                                    |
-| --------------- | ---------------------- | ------- | ------------------------------------------------------------------------ |
-| **Device**      | `device`               |         | The key of the device.                                                   |
-| **Sample rate** | `sample_rate`          | 10 Hz   | Up to 1,000,000 Hz in the Console.                                       |
-| **Stream rate** | `stream_rate`          | 5 Hz    | Up to 20,000 Hz. See [read tasks](/reference/hardware/tasks#read-tasks). |
-| **Data saving** | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving).                |
-| **Auto start**  | `auto_start`           | Off     | Starts the task each time the Driver starts.                             |
+| Console label | Python field           | Default | Notes                                                                    |
+| ------------- | ---------------------- | ------- | ------------------------------------------------------------------------ |
+| Device        | `device`               |         | The key of the device.                                                   |
+| Sample rate   | `sample_rate`          | 10 Hz   | Up to 1,000,000 Hz in the Console.                                       |
+| Stream rate   | `stream_rate`          | 5 Hz    | Up to 20,000 Hz. See [read tasks](/reference/hardware/tasks#read-tasks). |
+| Data saving   | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving).                |
+| Auto start    | `auto_start`           | Off     | Starts the task each time the Driver starts.                             |
 
 <Divider.Divider x />
 
 ## Channel reference
 
-| Console label | Field     | Default | Notes                                           |
-| ------------- | --------- | ------- | ----------------------------------------------- |
-| **Port/Line** | `port`    | 0       | The port number.                                |
-| **Port/Line** | `line`    | 0       | The line number in the port.                    |
-|               | `channel` |         | The channel that records the value, as `uint8`. |
+Each channel has a `channel`, the Synnax channel that records the value as `uint8`. The
+table shows the Console label of each setting, with its Python field under it.
+
+| Setting                                 | Default | Notes                         |
+| --------------------------------------- | ------- | ----------------------------- |
+| Port/Line <small>`port`, `line`</small> | `0`/`0` | The port, and the line in it. |
 
 <Divider.Divider x />
 

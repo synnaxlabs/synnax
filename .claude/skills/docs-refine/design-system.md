@@ -15,21 +15,32 @@ the content means, not by how it should look. The model page is
   its narrow layout: block diagrams flow from top to bottom, and a rank too wide for a
   phone breaks its labels onto two lines.
 - When a block has a lead-in sentence, the sentence ends with a colon and sits 2rem
-  above the block. A block has 4rem below it.
+  above the block. A table keeps 4rem above it, because its header is text. A block has
+  4rem below it.
 - A heading owns the gap below it. The block under a heading has no top margin.
 - A block that scrolls (a table) takes its margin on its wrapper, never inside it.
 - A `<Divider.Divider x />` and 12rem go before each h2. An h3 gets 8rem.
+- The text column is at most 122rem (732px). The sidebar shows from 1024px, and below
+  that the header menu opens the page list. The outline shows from 1280px. The outline
+  hides first, so the text never drops below 640px on a desktop.
 
 ### Type roles
 
 Use only these four.
 
-- **Body** -> 16px/28px, weight 375, `--docs-body-color`. Prose, list items, values.
+- **Body** -> 15px, line height 175%, weight 350, `--docs-body-color`. Prose, list
+  items, values.
 - **Title** -> body size, weight 550, gray-l11. The name of an entry: a rule, a field, a
   stacked table entry, a problem.
 - **Label** -> small size, weight 500, gray-l8. Names a value and is never the value:
   table headers, stacked labels, meta lines, legends.
 - **Mono** -> Geist Mono. Code, identifiers, values, and the numbers in markers.
+
+Headings sit above these roles: the page title is 42px, h2 28px, h3 21px, and h4 18px,
+all at weight 550 in the text color (gray-l10), never gray-l11. Size and weight lead the
+section; a brighter color would pull the eye from the prose.
+
+An icon in text, such as **Arcs** (`<Icon.Arc />`), is 1em and centers on the capitals.
 
 ### Color roles
 
@@ -39,14 +50,15 @@ Use only these four.
 - **Gray-l4 frame** (`--pluto-border`) -> the edge of a block that has its own surface.
 - **Primary** -> links, the state that matters in a diagram, the Enterprise mark, and
   the brand accent: the rule under a page title and the landing use cases.
-- **Error and warning** -> the severity dot of a problem entry, and notes. Nothing
-  else uses color.
+- **Error and warning** -> the severity dot of a problem entry, and notes. Nothing else
+  uses color.
 
 ### Markers
 
 - **Dot** -> 5px, gray-l8. One item of a set, in no order.
-- **Circle** -> 24px, 1px gray-l4 ring, mono 12px. 20px next to small text. An order:
-  actions to do, events that happen, or parts that come in a fixed order.
+- **Square** -> 24px, 6px corners, gray-l2 fill and 1px gray-l3 border (the inline code
+  chip), mono 12px. 20px next to small text. An order: actions to do, events that
+  happen, or parts that come in a fixed order.
 - **Index** -> `01`, mono 12px, gray-l7. A number that keeps the reader's place in a set
   that has no order of its own.
 - **Eyebrow** -> mono 12px, uppercase, gray-l8, above a heading. A part of a tutorial
@@ -55,15 +67,18 @@ Use only these four.
 ### Frames
 
 A block gets a frame only when it has its own surface: code, tab panes, media, notes,
-disclosures, and the `Diagram.Block` canvas. Lists, tables, and diagrams that draw
-their own regions (`Diagram.Nest`, `Diagram.Handoff`) sit on the page.
+disclosures, and the `Diagram.Block` canvas. Lists, tables, and diagrams that draw their
+own regions (`Diagram.Nest`, `Diagram.Handoff`) sit on the page.
 
 ### Navigation
 
-- The breadcrumb, the sidebar, and the previous and next links use the sidebar names,
-  in sentence case. An overview page takes the name of its section.
+- The breadcrumb, the sidebar, and the previous and next links use the sidebar names, in
+  sentence case. An overview page takes the name of its section.
 - Previous and next: a label over the page title. The next link aligns right. A link
   into another group names the group in its label: "Next in HTTP".
+- The outline title is a Label. At the top of a page, the outline marks its first entry.
+  A page loads with its sidebar entry in view.
+- Cards: 3rem gaps, and the card name is a Title.
 - On a phone, the breadcrumb wraps between segments, never inside one. Nothing on a page
   scrolls sideways except code, tables, and tab bars.
 
@@ -76,8 +91,8 @@ their own regions (`Diagram.Nest`, `Diagram.Handoff`) sit on the page.
 - **Statements of how the system decides** -> `Rule.List`.
 - **Options, parameters, flags, config keys, properties, menu items, controls** ->
   `Field.List`.
-- **Many variants, each with its own fields** -> one `Details` per variant, each holding
-  a table or a `Field.List` by the same rule as the page.
+- **Many variants, each with its own fields** -> `Channel.Types`, one `Channel.Type` per
+  variant, each holding a table by the same rule as the page.
 - **Short values across a few items, or a lookup by key** -> a table.
 - **A message or a symptom, then its cause and fix** -> problem entries.
 - **A question that readers ask** -> an h3 that is the question, then the answer.
@@ -115,8 +130,8 @@ their own regions (`Diagram.Nest`, `Diagram.Handoff`) sit on the page.
 
 ### Field list
 
-- One entry per option. The name is the title. Type, default, and whether it is
-  required go in the meta line. The description is the body.
+- One entry per option. The name is the title. Type, default, and whether it is required
+  go in the meta line. The description is the body.
 - When an option has a Console label and a client field, the Console label is the title
   and the field goes in the meta line in mono. When one label sets two fields, the meta
   line lists both (**Range** -> `min_val`, `max_val`).
@@ -125,8 +140,8 @@ their own regions (`Diagram.Nest`, `Diagram.Handoff`) sit on the page.
 - A properties list marks each entry **Can change** or **Cannot change**, unless one
   sentence above the list covers all of them.
 - Use it when a description runs past about 100 characters. Options with short values
-  and short notes stay a table, whatever the number of columns. Pages of one family
-  (the Arc standard library, the NI tasks) use one form.
+  and short notes stay a table, whatever the number of columns. Pages of one family (the
+  Arc standard library, the NI tasks) use one form.
 
 ### Tables
 
@@ -137,14 +152,19 @@ their own regions (`Diagram.Nest`, `Diagram.Handoff`) sit on the page.
   sentences. When cells need more, use a field list or problem entries.
 - A lookup by key stays a table, even when it reads as terms: keyboard shortcuts, OS
   paths, units.
-- The first column names the item and aligns left. A name of 24 characters or less
-  stays on one line. Numbers in other columns align right. No frame.
+- The first column names the item and aligns left. A name of 24 characters or less stays
+  on one line. Numbers in other columns align right. No frame.
+- The first column is never bold, even for a Console label or a key. Its position and
+  color mark it as the label, and the column header says what the items are.
 - On a phone, a table with at most 3 columns and short cells stays a table. Other tables
   stack into entries, and an entry leaves out a field with no value.
 - Where one integration runs is two labeled lines, **Supported** and **Not supported**,
   never a table of one row. `<Platforms integration="..." />` draws them.
-- Never put a table in `Details` to hide its width. `Details` hides length: one per
-  variant when a page has many variants. A `Details` is a pane, the same as a tab set.
+- Never put a table in `Details` to hide its width or its length. Variants go in
+  `Channel.Types`, and a page with one shape has one table.
+- A settings table has the columns Setting, Default, and Notes. A setting is its Console
+  label with its code field in `<small>` under it. A field with no Console label is the
+  `<small>` field alone.
 
 ### Problem entries
 
@@ -155,10 +175,9 @@ their own regions (`Diagram.Nest`, `Diagram.Handoff`) sit on the page.
 - A fix with one action is a sentence. A fix with two or more actions is steps.
 - Several causes, each with its own fix: **Cause** is one sentence for what they share,
   and **Fix** is term bullets, `**cause** -> fix`. Steps would say "do all of these".
-- A symptom with no known cause has a **Fix** only. A problem that the system handles
-  by itself has a **Cause** only, which says what happens.
-- The exact error text, as a code block or tabs, goes under the heading, above the
-  body.
+- A symptom with no known cause has a **Fix** only. A problem that the system handles by
+  itself has a **Cause** only, which says what happens.
+- The exact error text, as a code block or tabs, goes under the heading, above the body.
 - A reference list of many short entries (compiler errors, task errors) uses
   `Problem.List` and `Problem.Item`, grouped under h3s. Each entry keeps its anchor.
 - A troubleshooting page, where readers scan the outline for their error, keeps one
@@ -169,6 +188,7 @@ their own regions (`Diagram.Nest`, `Diagram.Handoff`) sit on the page.
 ### Code
 
 - A standalone block has a frame and sits flush with the column.
+- Code in a block is 13px with a line height of 1.5, on every screen size.
 - A line of code is at most 80 characters, so a block never scrolls on a desktop.
 - In a tab pane, a block is a full-width band between hairlines, and its code lines up
   with the prose in the pane.
@@ -179,25 +199,35 @@ their own regions (`Diagram.Nest`, `Diagram.Handoff`) sit on the page.
   heading. A single token stays whole, and a message wraps at spaces.
 - A key or shortcut is bold, the same as a label in the interface: **Ctrl+T**. Never
   code, never an icon. Name both platforms: **Ctrl+T** (**Cmd+T** on macOS).
+- A Synnax data type is always code, in prose, tables, and titles: `float64`, a
+  `timestamp` channel. A problem symptom marks code with backticks.
 
 ### Tab panes and editions
 
-- A tab set is a pane: a header bar with Lyra pill tabs, then the panel. A `Details` is
-  the same pane with a summary bar.
-- A tab keeps its full label. When the tabs do not fit, the bar scrolls, fades each
-  edge that hides a tab, and keeps the selected tab in view.
+- A tab set is a pane: a header bar with Lyra tabs, then the panel. A `Details` is the
+  same pane with a summary bar.
+- A channel reference shows one type at a time in one pane. The types are Lyra chips
+  (`Tabs.Selector variant="chip"`) at the top of the panel, each with the Console icon
+  of its type. When the types are many, groups are the tabs in the header bar, each with
+  the icon of its first type. A group is a measured quantity or a signal source (Force,
+  Encoder), never a mix. A link to a type, or a find in page, opens its group and type.
+- A tab keeps its full label. When the tabs do not fit, the bar scrolls, fades each edge
+  that hides a tab, and keeps the selected tab in view.
 - In a pane, a code block, a video, or an image is a band across the full pane between
   hairlines. It never draws a frame inside the frame of the pane.
 - The Enterprise mark is a small primary label. It shows once, at the right end of the
   pane header, only while an Enterprise tab is open. The same label marks an Enterprise
-  page under its title, an Enterprise block above the block, and an Enterprise item in
-  a table or a list after its name. Never put it in a tab label.
+  page under its title, an Enterprise block above the block, and an Enterprise item in a
+  table or a list after its name. Never put it in a tab label.
 
 ### Notes
 
 - Use them rarely. `warning` for a risk to data, hardware, or security. `info` for a
   fact that a reader will miss otherwise. Never two in a row.
-- A note's text and links take its color, so a link in a note is underlined.
+- `Note.Note` from `@/components/note`: the Lyra note with the icon of its variant
+  before the text. The fill is 5% of the note color. Text, links, and code take the note
+  color mixed 70% with the body color, so a link in a note is underlined. The icon keeps
+  the full note color.
 
 ### Downloads
 

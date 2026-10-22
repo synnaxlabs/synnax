@@ -45,7 +45,8 @@ article .pluto-tabs {
     background: var(--pluto-gray-l0);
     overflow: hidden;
 
-    .pluto-tabs__content {
+    /* A panel hidden until found keeps its box, so only a shown panel gets padding. */
+    .pluto-tabs__content:not([hidden]) {
         padding: var(--docs-block-padding);
 
         & > :last-child {
@@ -197,66 +198,19 @@ article table code {
 .pluto-breadcrumb code,
 .on-this-page-item code {
     color: inherit;
-    font-size: inherit;
     line-height: inherit;
     font-weight: inherit;
+}
+
+.pluto-tree code,
+.pluto-breadcrumb code {
+    font-size: inherit;
 }
 
 /* The page nav already sits on gray-l2, so the default chip vanishes into it. */
 .pluto-tree code {
     background: var(--pluto-gray-l3);
     border-color: var(--pluto-gray-l4);
-}
-
-/* Note component - override base layer text colors */
-.pluto-note {
-    /* A link takes the color of the note, so the underline marks it. */
-    & a {
-        text-decoration: underline;
-        text-decoration-thickness: 1px;
-        text-underline-offset: 0.2em;
-        text-decoration-color: color-mix(in srgb, currentcolor 50%, transparent);
-
-        &:hover {
-            text-decoration-color: currentcolor;
-        }
-    }
-
-    &.pluto--info {
-        &,
-        & p,
-        & li,
-        & span,
-        & a,
-        & strong,
-        & code {
-            color: var(--pluto-primary-text);
-        }
-    }
-
-    &.pluto--warning {
-        &,
-        & p,
-        & li,
-        & span,
-        & a,
-        & strong,
-        & code {
-            color: var(--pluto-warning-text);
-        }
-    }
-
-    &.pluto--error {
-        &,
-        & p,
-        & li,
-        & span,
-        & a,
-        & strong,
-        & code {
-            color: var(--pluto-error-text);
-        }
-    }
 }
 
 /* Override Pluto's typography.css which sets font-family directly on td/th.

@@ -6,10 +6,9 @@ description: "Read the input PDOs of EtherCAT modules into channels."
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Text } from "@synnaxlabs/lyra/text";
 import { Fragment } from "react";
+import { Channel } from "@/components/channel";
 import { Client } from "@/components/client";
-import { Details } from "@/components/details";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -159,43 +158,55 @@ await task.start();
 
 ## Task options
 
-| Console label   | Python field           | Default | Notes                                                     |
-| --------------- | ---------------------- | ------- | --------------------------------------------------------- |
-| **Sample rate** | `sample_rate`          | 10 Hz   | Must be a whole multiple of the stream rate.              |
-| **Stream rate** | `stream_rate`          | 5 Hz    | See [read tasks](/reference/hardware/tasks#read-tasks).   |
-| **Data saving** | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving). |
-| **Auto start**  | `auto_start`           | Off     | Starts the task each time the Driver starts.              |
+| Console label | Python field           | Default | Notes                                                     |
+| ------------- | ---------------------- | ------- | --------------------------------------------------------- |
+| Sample rate   | `sample_rate`          | 10 Hz   | Must be a whole multiple of the stream rate.              |
+| Stream rate   | `stream_rate`          | 5 Hz    | See [read tasks](/reference/hardware/tasks#read-tasks).   |
+| Data saving   | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving). |
+| Auto start    | `auto_start`           | Off     | Starts the task each time the Driver starts.              |
 
 <Divider.Divider x />
 
 ## Channel reference
 
-<Details.Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Automatic (PDO)</Text.Text>
+Each channel has a `device`, the key of the module (**Slave device**), and a `channel`,
+the Synnax channel that records the value. Each table shows the Console label of a
+setting, with its Python field under it.
 
-| Console label    | Field     | Default | Notes                                     |
-| ---------------- | --------- | ------- | ----------------------------------------- |
-| **Slave device** | `device`  |         | The key of the module.                    |
-| **PDO**          | `pdo`     |         | The PDO name, from the device properties. |
-|                  | `channel` |         | The channel that records the value.       |
-|                  | `type`    |         | `"automatic"`.                            |
+<Channel.Types>
 
-</Details.Details>
+<Channel.Type
+  name="Automatic (PDO)"
+  type="automatic"
+  python="AutomaticReadChannel"
+>
 
-<Details.Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Manual (address)</Text.Text>
+Reads a PDO entry by its name.
 
-| Console label    | Field        | Default  | Notes                                      |
-| ---------------- | ------------ | -------- | ------------------------------------------ |
-| **Slave device** | `device`     |          | The key of the module.                     |
-| **Index (hex)**  | `index`      | 0        | The CoE index, such as `0x6000`.           |
-| **Subindex**     | `sub_index`  | 0        | The CoE subindex, from 0 to 255.           |
-| **Bit length**   | `bit_length` | 16       | The size of the value, from 1 to 255 bits. |
-| **Data type**    | `data_type`  | `uint16` | The data type of the channel.              |
-|                  | `channel`    |          | The channel that records the value.        |
-|                  | `type`       |          | `"manual"`.                                |
+| Setting                  | Default | Notes                                     |
+| ------------------------ | ------- | ----------------------------------------- |
+| PDO <small>`pdo`</small> |         | The PDO name, from the device properties. |
 
-</Details.Details>
+</Channel.Type>
+
+<Channel.Type
+  name="Manual (address)"
+  type="manual"
+  python="ManualReadChannel"
+>
+
+Reads a PDO entry by its CoE address.
+
+| Setting                                | Default  | Notes                                      |
+| -------------------------------------- | -------- | ------------------------------------------ |
+| Index (hex) <small>`index`</small>     | `0`      | The CoE index, such as `0x6000`.           |
+| Subindex <small>`sub_index`</small>    | `0`      | The CoE subindex, from 0 to 255.           |
+| Bit length <small>`bit_length`</small> | `16`     | The size of the value, from 1 to 255 bits. |
+| Data type <small>`data_type`</small>   | `uint16` | The data type of the channel.              |
+
+</Channel.Type>
+
+</Channel.Types>
 
 <Divider.Divider x />
 

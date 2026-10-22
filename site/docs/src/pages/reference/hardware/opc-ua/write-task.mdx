@@ -7,10 +7,8 @@ description:
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Text } from "@synnaxlabs/lyra/text";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
-import { Details } from "@/components/details";
 import { Video } from "@/components/media/Media";
 import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
@@ -118,45 +116,39 @@ task each time the Driver starts. For node IDs, see
 
 ## Channel reference
 
-<Details.Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Channel</Text.Text>
+The table shows the Console label of each setting, with its Python field under it.
 
-| Console label | Field         | Default | Notes                                                          |
-| ------------- | ------------- | ------- | -------------------------------------------------------------- |
-| Channel name  | `name`        | Empty   | The name of the command channel that the Console creates.      |
-|               | `cmd_channel` |         | The key of the command channel.                                |
-| Node ID       | `node_id`     |         | See [node IDs](/reference/hardware/opc-ua/read-task#node-ids). |
-| Node name     | `node_name`   | Empty   | The browse name. For display only.                             |
-|               | `data_type`   | float32 | The data type of the channel that the Console creates.         |
-| Enabled       | `disabled`    | Off     | A disabled channel is not written.                             |
+| Setting                              | Default   | Notes                                                          |
+| ------------------------------------ | --------- | -------------------------------------------------------------- |
+| Channel name <small>`name`</small>   | Empty     | The name of the command channel that the Console creates.      |
+| <small>`cmd_channel`</small>         |           | The key of the command channel.                                |
+| Node ID <small>`node_id`</small>     |           | See [node IDs](/reference/hardware/opc-ua/read-task#node-ids). |
+| Node name <small>`node_name`</small> | Empty     | The browse name. For display only.                             |
+| <small>`data_type`</small>           | `float32` | The data type of the channel that the Console creates.         |
+| Enabled <small>`disabled`</small>    | Off       | A disabled channel is not written.                             |
 
-</Details.Details>
-
-<Details.Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Data types</Text.Text>
+### Data types
 
 The Driver writes each value with the OPC UA type that matches the data type of the
 command channel:
 
 | Synnax data type | OPC UA type |
 | ---------------- | ----------- |
-| uint8            | Boolean     |
-| int8             | SByte       |
-| int16            | Int16       |
-| uint16           | UInt16      |
-| int32            | Int32       |
-| uint32           | UInt32      |
-| int64            | Int64       |
-| uint64           | UInt64      |
-| float32          | Float       |
-| float64          | Double      |
-| string           | String      |
-| timestamp        | DateTime    |
-| uuid             | Guid        |
+| `uint8`          | Boolean     |
+| `int8`           | SByte       |
+| `int16`          | Int16       |
+| `uint16`         | UInt16      |
+| `int32`          | Int32       |
+| `uint32`         | UInt32      |
+| `int64`          | Int64       |
+| `uint64`         | UInt64      |
+| `float32`        | Float       |
+| `float64`        | Double      |
+| `string`         | String      |
+| `timestamp`      | DateTime    |
+| `uuid`           | Guid        |
 
 A `uint8` channel writes a Boolean, so the task cannot write to a Byte node.
-
-</Details.Details>
 
 <Divider.Divider x />
 

@@ -125,7 +125,7 @@ const label = version?.split(".").slice(0, -1).join(".");
             position: absolute;
             inset: 0;
             z-index: -1;
-            background: var(--pluto-gray-l2-30);
+            background: var(--pluto-gray-l1-80);
             -webkit-backdrop-filter: blur(3rem);
             backdrop-filter: blur(3rem);
         }
@@ -203,6 +203,18 @@ const label = version?.split(".").slice(0, -1).join(".");
         padding-bottom: 2rem;
     }
 
+    /* The menu opens the page list wherever the page nav sidebar is hidden. */
+    @media (max-width: 1023px) {
+        .main-header {
+            .mobile-menu-btn {
+                display: block;
+            }
+            .mobile-drawer {
+                display: flex;
+            }
+        }
+    }
+
     @media (max-width: 800px) {
         .main-header {
             .header-content {
@@ -213,12 +225,6 @@ const label = version?.split(".").slice(0, -1).join(".");
             }
             .version-button {
                 display: none;
-            }
-            .mobile-menu-btn {
-                display: block;
-            }
-            .mobile-drawer {
-                display: flex;
             }
         }
     }

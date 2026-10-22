@@ -93,11 +93,14 @@ const publishedLabel =
 </article>
 
 <style is:global>
+    /* Content-box, so the cap holds the text column at every padding. */
     article {
         position: relative;
-        flex-basis: 840px;
+        box-sizing: content-box;
+        flex-basis: 122rem;
         flex-shrink: 1;
         flex-grow: 1;
+        max-width: 122rem;
         margin-bottom: 25rem;
         min-width: 0;
         overflow-x: clip;
@@ -205,35 +208,9 @@ const publishedLabel =
             }
         }
 
-        p .pluto-icon {
-            vertical-align: middle;
-        }
-
-        /* Padding carries the vertical space, so inline and block content match. */
-        .pluto-note {
-            display: block;
-            margin: var(--docs-block-gap) 0;
-            padding: var(--docs-block-padding) var(--note-padding-inline, 3.5rem);
-            font-size: var(--pluto-small-size);
-            font-family: var(--pluto-font-family);
-            font-weight: 450;
-            line-height: var(--pluto-small-line-height);
-            @media (max-width: 800px) {
-                font-size: calc(var(--pluto-small-size) * 0.9);
-            }
-            & :is(p, li) {
-                font: inherit;
-            }
-            & > :first-child {
-                margin-top: 0;
-            }
-            & > :last-child {
-                margin-bottom: 0;
-            }
-        }
-
-        .pluto-note.compact {
-            --note-padding-inline: 2rem;
+        /* An icon in text centers on the capitals. */
+        :is(p, li) .pluto-icon {
+            vertical-align: -0.125em;
         }
 
         table {
@@ -276,14 +253,14 @@ const publishedLabel =
     }
 
     /* Registered so that it resolves against the line height of the item, not the
-       circle. */
+       marker. */
     @property --docs-step-line {
         syntax: "<length>";
         inherits: true;
         initial-value: 28px;
     }
 
-    /* Every ordered list in an article is a list of steps: a numbered circle per step,
+    /* Every ordered list in an article is a list of steps: a numbered square per step,
        joined by a line, with the content of each step in one column. The built-in
        list-item counter keeps the start of a list that continues after a block. */
     article ol:not([class]) {
@@ -307,9 +284,9 @@ const publishedLabel =
                 width: 24px;
                 height: 24px;
                 box-sizing: border-box;
-                border: 1px solid var(--pluto-gray-l4);
-                border-radius: 50%;
-                background: var(--pluto-gray-l0);
+                border: 1px solid var(--pluto-gray-l3);
+                border-radius: var(--pluto-border-radius-small);
+                background: var(--pluto-gray-l2);
                 font:
                     500 12px/1 "Geist Mono",
                     monospace;
@@ -336,8 +313,14 @@ const publishedLabel =
                 margin: 0;
             }
 
-            & > * + * {
+            /* A step starts with its text, so every block but a leading paragraph sits
+               under text. Inline content, such as an icon, takes no gap. */
+            & > :is(p, ul, ol, div, pre, figure, table, video, .pluto-btn) {
                 margin-top: 2rem;
+            }
+
+            & > p:first-child {
+                margin-top: 0;
             }
         }
     }

@@ -41,8 +41,11 @@ const follow = (menu: HTMLElement, signal: AbortSignal): void => {
   const items = [...menu.querySelectorAll<HTMLAnchorElement>("[data-item-key]")];
   const indicator = menu.querySelector<HTMLElement>("[data-outline-indicator]");
 
+  // Above the first entry's heading, the first entry is the one being read.
   const activate = (id: string | null): void => {
-    const active = items.find((item) => item.dataset.itemKey === id);
+    const active =
+      items.find((item) => item.dataset.itemKey === id) ??
+      items.find((item) => !item.hidden);
     if (active == null) return;
     for (const item of items) item.classList.toggle(ACTIVE_CLASS, item === active);
     if (indicator == null) return;

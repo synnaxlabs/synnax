@@ -6,7 +6,7 @@ clients: ["console", "python", "typescript"]
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Note } from "@/components/note";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
 import { Video } from "@/components/media/Media";
@@ -75,7 +75,7 @@ calculated channel that uses the old name shows an error. Edit its expression to
 new name. A calculated channel keeps its `<name>_time` index when you rename it, and the
 index keeps its old name.
 
-<Note.Note variant="info" className="compact">
+<Note.Note variant="info">
   In an Arc editor, **Rename symbol** on a channel name renames the channel in Synnax.
   It does not change other Arc automations or calculated channels.
 </Note.Note>
@@ -84,7 +84,7 @@ index keeps its old name.
 
 ## Delete channels
 
-<Note.Note variant="warning" className="compact">
+<Note.Note variant="warning">
   Deleting a channel also deletes all of its data. You cannot undo a delete.
 </Note.Note>
 

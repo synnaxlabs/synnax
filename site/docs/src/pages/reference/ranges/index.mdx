@@ -6,7 +6,7 @@ description: "Learn how ranges organize your data into tests, runs, and events."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Note } from "@/components/note";
 import { Image } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -18,7 +18,7 @@ time period.
 A range has a name, a start time, and an end time. You do not add channels to a range. A
 range covers the data of every channel in its time interval.
 
-<Note.Note variant="info" className="compact">
+<Note.Note variant="info">
   The interval includes its start and excludes its end.
 </Note.Note>
 

@@ -7,11 +7,10 @@ description:
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Note } from "@synnaxlabs/lyra/note";
-import { Text } from "@synnaxlabs/lyra/text";
+import { Channel } from "@/components/channel";
+import { Note } from "@/components/note";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
-import { Details } from "@/components/details";
 import { Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -129,27 +128,37 @@ The task has the options **Data saving** and **Auto start**. See
 ## Channel reference
 
 Each channel has an `address`, from 0 to 65535, and a `channel`, the command channel.
+Each table shows the Console label of a setting, with its Python field under it.
 
-<Details.Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Coil</Text.Text>
+<Channel.Types>
 
-| Field  | Notes                                                                     |
-| ------ | ------------------------------------------------------------------------- |
-| `type` | `"coil"`. A command of 0 turns the coil off. Any other value turns it on. |
+<Channel.Type
+  name="Coil"
+  type="coil"
+  python="CoilWriteChannel"
+>
 
-</Details.Details>
+Writes a coil. A command of 0 turns the coil off. Any other value turns it on.
 
-<Details.Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Holding register</Text.Text>
+</Channel.Type>
 
-| Console label | Field           | Default | Notes                                                                                                            |
-| ------------- | --------------- | ------- | ---------------------------------------------------------------------------------------------------------------- |
-| **Data type** | `data_type`     | `uint8` | `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, or `float64`.               |
-|               | `words_swapped` | `false` | Writes the high word first. See [byte and word order](/reference/hardware/modbus/read-task#byte-and-word-order). |
-|               | `bytes_swapped` | `false` | Swaps the two bytes in each register.                                                                            |
-|               | `type`          |         | `"holding_register"`.                                                                                            |
+<Channel.Type
+  name="Holding register"
+  type="holding_register"
+  python="HoldingRegisterWriteChannel"
+>
 
-</Details.Details>
+Writes a number to one or more holding registers.
+
+| Setting                              | Default | Notes                                                                                                            |
+| ------------------------------------ | ------- | ---------------------------------------------------------------------------------------------------------------- |
+| Data type <small>`data_type`</small> | `uint8` | `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, `float64`.                  |
+| <small>`words_swapped`</small>       | `false` | Writes the high word first. See [byte and word order](/reference/hardware/modbus/read-task#byte-and-word-order). |
+| <small>`bytes_swapped`</small>       | `false` | Swaps the two bytes in each register.                                                                            |
+
+</Channel.Type>
+
+</Channel.Types>
 
 <Divider.Divider x />
 

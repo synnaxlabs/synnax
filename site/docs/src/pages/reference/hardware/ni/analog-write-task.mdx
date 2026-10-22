@@ -6,10 +6,9 @@ description: "Write command channel values to the analog outputs of an NI device
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Text } from "@synnaxlabs/lyra/text";
 import { Fragment } from "react";
+import { Channel } from "@/components/channel";
 import { Client } from "@/components/client";
-import { Details } from "@/components/details";
 import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -126,12 +125,12 @@ await task.start();
 
 ## Task options
 
-| Console label         | Python field           | Default | Notes                                                     |
-| --------------------- | ---------------------- | ------- | --------------------------------------------------------- |
-| **Device**            | `device`               |         | The key of the device.                                    |
-| **State update rate** | `state_rate`           | 10 Hz   | Up to 50,000 Hz in the Console.                           |
-| **Data saving**       | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving). |
-| **Auto start**        | `auto_start`           | Off     | Starts the task each time the Driver starts.              |
+| Console label     | Python field           | Default | Notes                                                     |
+| ----------------- | ---------------------- | ------- | --------------------------------------------------------- |
+| Device            | `device`               |         | The key of the device.                                    |
+| State update rate | `state_rate`           | 10 Hz   | Up to 50,000 Hz in the Console.                           |
+| Data saving       | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving). |
+| Auto start        | `auto_start`           | Off     | Starts the task each time the Driver starts.              |
 
 <Divider.Divider x />
 
@@ -139,39 +138,63 @@ await task.start();
 
 Every channel has a `port` (**Port**), a `cmd_channel`, and a `state_channel`.
 
-<Details.Details>
-<Text.Text slot="summary" level="p"><Icon.Units.Voltage /> Voltage ([`ao_voltage`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__output__channel_1gad278075876eeff4223fdb90ce58f0a15.html))</Text.Text>
+Each table shows the Console label of a setting, with its Python field under it. Voltage
+and current channels also have **Custom scaling**.
 
-| Console label      | Field          | Default | Notes                                  |
-| ------------------ | -------------- | ------- | -------------------------------------- |
-| **Range**          | `min_val`      | `0`     | Minimum voltage (Volts).               |
-| **Range**          | `max_val`      | `1`     | Maximum voltage (Volts).               |
-| **Custom scaling** | `custom_scale` |         | See [custom scaling](#custom-scaling). |
+<Channel.Types>
 
-</Details.Details>
+<Channel.Type
+  name="Voltage"
+  type="ao_voltage"
+  python="AOVoltageChannel"
+  reference={{ label: "NI-DAQmx", href: "https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__output__channel_1gad278075876eeff4223fdb90ce58f0a15.html" }}
+>
+  <Icon.Units.Voltage slot="icon" />
 
-<Details.Details>
-<Text.Text slot="summary" level="p"><Icon.Units.Current /> Current ([`ao_current`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__output__channel_1ga1ae6afadb89de214c4823ca7144ab28d.html))</Text.Text>
+Outputs a voltage.
 
-| Console label      | Field          | Default | Notes                                  |
-| ------------------ | -------------- | ------- | -------------------------------------- |
-| **Range**          | `min_val`      | `0`     | Minimum current (Amps).                |
-| **Range**          | `max_val`      | `1`     | Maximum current (Amps).                |
-| **Custom scaling** | `custom_scale` |         | See [custom scaling](#custom-scaling). |
+| Setting                                   | Default    | Notes     |
+| ----------------------------------------- | ---------- | --------- |
+| Range <small>`min_val`, `max_val`</small> | `0` to `1` | In volts. |
 
-</Details.Details>
+</Channel.Type>
 
-<Details.Details>
-<Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Function generator ([`ao_func_gen`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__output__channel_1ga7146d8ebdf2336e5200c4d2549f67494.html))</Text.Text>
+<Channel.Type
+  name="Current"
+  type="ao_current"
+  python="AOCurrentChannel"
+  reference={{ label: "NI-DAQmx", href: "https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__output__channel_1ga1ae6afadb89de214c4823ca7144ab28d.html" }}
+>
+  <Icon.Units.Current slot="icon" />
 
-| Console label | Field       | Default | Notes                                     |
-| ------------- | ----------- | ------- | ----------------------------------------- |
-| **Wave**      | `wave_type` | `Sine`  | `Sine`, `Triangle`, `Square`, `Sawtooth`. |
-| **Frequency** | `frequency` | `0`     | Waveform frequency (Hz).                  |
-| **Amplitude** | `amplitude` | `0`     | Waveform amplitude.                       |
-| **Offset**    | `offset`    | `0`     | Waveform DC offset.                       |
+Outputs a current.
 
-</Details.Details>
+| Setting                                   | Default    | Notes    |
+| ----------------------------------------- | ---------- | -------- |
+| Range <small>`min_val`, `max_val`</small> | `0` to `1` | In amps. |
+
+</Channel.Type>
+
+<Channel.Type
+  name="Function generator"
+  type="ao_func_gen"
+  python="AOFuncGenChannel"
+  reference={{ label: "NI-DAQmx", href: "https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__output__channel_1ga7146d8ebdf2336e5200c4d2549f67494.html" }}
+>
+  <Icon.Function slot="icon" />
+
+Generates a waveform on the output.
+
+| Setting                              | Default | Notes                                     |
+| ------------------------------------ | ------- | ----------------------------------------- |
+| Wave <small>`wave_type`</small>      | `Sine`  | `Sine`, `Triangle`, `Square`, `Sawtooth`. |
+| Frequency <small>`frequency`</small> | `0`     | In hertz.                                 |
+| Amplitude <small>`amplitude`</small> | `0`     | From zero to peak, in volts.              |
+| Offset <small>`offset`</small>       | `0`     | In volts.                                 |
+
+</Channel.Type>
+
+</Channel.Types>
 
 ### Custom scaling
 
@@ -181,11 +204,11 @@ the Console, the options are in the **Scale** section of the channel. In code, s
 
 | Console option | Python class      | Fields                                                                                                                         |
 | -------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| **None**       | `NoneScale`       | No scaling. This is the default.                                                                                               |
-| **Linear**     | `LinearScale`     | **Slope** (`slope`, 1) and **Y-intercept** (`y_intercept`, 0).                                                                 |
-| **Map**        | `MapScale`        | **Pre-scaled min** and **max** to **Scaled min** and **max** (`pre_scaled_min`, `pre_scaled_max`, `scaled_min`, `scaled_max`). |
-| **Polynomial** | `PolynomialScale` | **Forward coefficients** (`forward_coeffs`) and **Reverse coefficients** (`reverse_coeffs`), from c0 up.                       |
-| **Table**      | `TableScale`      | **Pre-scaled** and **Scaled** pairs (`pre_scaled_vals`, `scaled_vals`). A CSV file can fill them.                              |
+| None           | `NoneScale`       | No scaling. This is the default.                                                                                               |
+| Linear         | `LinearScale`     | **Slope** (`slope`, 1) and **Y-intercept** (`y_intercept`, 0).                                                                 |
+| Map            | `MapScale`        | **Pre-scaled min** and **max** to **Scaled min** and **max** (`pre_scaled_min`, `pre_scaled_max`, `scaled_min`, `scaled_max`). |
+| Polynomial     | `PolynomialScale` | **Forward coefficients** (`forward_coeffs`) and **Reverse coefficients** (`reverse_coeffs`), from c0 up.                       |
+| Table          | `TableScale`      | **Pre-scaled** and **Scaled** pairs (`pre_scaled_vals`, `scaled_vals`). A CSV file can fill them.                              |
 
 Every scale except **None** also has **Prescaled units** (`pre_scaled_units`, `Volts`)
 and **Scaled units** (`scaled_units`).

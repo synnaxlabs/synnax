@@ -6,10 +6,8 @@ description: "Poll a web API and record values from its JSON responses in channe
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Text } from "@synnaxlabs/lyra/text";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
-import { Details } from "@/components/details";
 import { Video } from "@/components/media/Media";
 import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
@@ -144,16 +142,16 @@ await task.start();
 
 ## Task options
 
-| Console label   | Python field           | Default | Notes                                                            |
-| --------------- | ---------------------- | ------- | ---------------------------------------------------------------- |
-| **Rate**        | `rate`                 | 1 Hz    | Requests per second to each endpoint. One sample for each field. |
-| **Data saving** | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving).        |
-| **Auto start**  | `auto_start`           | Off     | Starts the task each time the Driver starts.                     |
+| Console label | Python field           | Default | Notes                                                            |
+| ------------- | ---------------------- | ------- | ---------------------------------------------------------------- |
+| Rate          | `rate`                 | 1 Hz    | Requests per second to each endpoint. One sample for each field. |
+| Data saving   | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving).        |
+| Auto start    | `auto_start`           | Off     | Starts the task each time the Driver starts.                     |
 
 Turn on **NaN fill** (`nan_fill_enabled=True` in Python, `nanFillEnabled: true` in
 TypeScript) to write `NaN` when a float field is missing or cannot be converted. It is
-off by default. With it off, an invalid field skips every field that shares its
-endpoint and index channel. Invalid non-float fields still skip that group.
+off by default. With it off, an invalid field skips every field that shares its endpoint
+and index channel. Invalid non-float fields still skip that group.
 
 The HTTP read task has no stream rate. Each response is sent to the Core at once. See
 [read tasks](/reference/hardware/tasks#read-tasks).
@@ -162,30 +160,25 @@ The HTTP read task has no stream rate. Each response is sent to the Core at once
 
 ## Endpoint and field reference
 
-<Details.Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Endpoint</Text.Text>
+Each table shows the Console label of a setting, with its Python field under it. An
+endpoint has these settings:
 
-| Console label        | Field          | Default | Notes                                                           |
-| -------------------- | -------------- | ------- | --------------------------------------------------------------- |
-| **Method**           | `method`       | GET     | GET or POST in the Console. Code accepts any method.            |
-| **Path**             | `path`         |         | Added to the base address of the server.                        |
-| **Query parameters** | `query_params` | None    | A list of `{parameter, value}`.                                 |
-| **Headers**          | `headers`      | None    | A list of `{name, value}`.                                      |
-| **Body**             | `body`         | Empty   | Sent only with methods that take a body, as `application/json`. |
+| Setting                                        | Default | Notes                                                           |
+| ---------------------------------------------- | ------- | --------------------------------------------------------------- |
+| Method <small>`method`</small>                 | `GET`   | `GET` or `POST` in the Console. Code accepts any method.        |
+| Path <small>`path`</small>                     |         | Added to the base address of the server.                        |
+| Query parameters <small>`query_params`</small> | None    | A list of `{parameter, value}`.                                 |
+| Headers <small>`headers`</small>               | None    | A list of `{name, value}`.                                      |
+| Body <small>`body`</small>                     | Empty   | Sent only with methods that take a body, as `application/json`. |
 
-</Details.Details>
+A field has these settings:
 
-<Details.Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Field</Text.Text>
-
-| Console label    | Field         | Default | Notes                                           |
-| ---------------- | ------------- | ------- | ----------------------------------------------- |
-| **Pointer**      | `pointer`     |         | The JSON pointer to the value.                  |
-| **Data type**    | `data_type`   | float64 | Used only when the Console creates the channel. |
-| **Channel**      | `channel`     |         | The channel that records the value.             |
-| **Enum mapping** | `enum_values` | None    | Maps text labels in the response to numbers.    |
-
-</Details.Details>
+| Setting                                   | Default   | Notes                                           |
+| ----------------------------------------- | --------- | ----------------------------------------------- |
+| Pointer <small>`pointer`</small>          |           | The JSON pointer to the value.                  |
+| Data type <small>`data_type`</small>      | `float64` | Used only when the Console creates the channel. |
+| Channel <small>`channel`</small>          |           | The channel that records the value.             |
+| Enum mapping <small>`enum_values`</small> | None      | Maps text labels in the response to numbers.    |
 
 <Divider.Divider x />
 

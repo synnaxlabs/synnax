@@ -8,6 +8,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+
+// A cell that only says Yes or No shows a mark instead, except in the first column.
+const MARKS: Record<string, string> = {
+    Yes: renderToStaticMarkup(
+        createElement(Icon.Check, {
+            className: "docs-mark docs-mark--yes",
+            "aria-label": "Yes",
+        }),
+    ),
+    No: renderToStaticMarkup(
+        createElement(Icon.Subtract, {
+            className: "docs-mark docs-mark--no",
+            "aria-label": "No",
+        }),
+    ),
+};
+
 const props = Astro.props;
 const html = await Astro.slots.render("default");
 const ENTITIES: Record<string, string> = { "&lt;": "<", "&gt;": ">", "&amp;": "&" };
@@ -61,7 +81,8 @@ const labeled = html
                     ? " data-whole"
                     : "";
             const cell = `${label}${empty}${whole}${numClass(col)}${attrs}`;
-            return `<td ${cell}><span>${body}</span></td>`;
+            const content = (col > 0 ? MARKS[value] : undefined) ?? body;
+            return `<td ${cell}><span>${content}</span></td>`;
         });
     })
     .replace(/<tr\b[^>]*>(?:(?!<\/tr>)[\s\S])*?<th\b[\s\S]*?<\/tr>/, (row) => {

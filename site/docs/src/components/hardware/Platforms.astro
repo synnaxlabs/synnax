@@ -170,11 +170,17 @@ const unsupported = PLATFORMS.filter(({ key }) => platforms?.[key] === false);
                         {PLATFORMS.map(({ key }) =>
                             row.platforms[key] ? (
                                 <td class="docs-platforms-yes">
-                                    <Icon.Check aria-label="Supported" />
+                                    <Icon.Check
+                                        className="docs-mark docs-mark--yes"
+                                        aria-label="Supported"
+                                    />
                                 </td>
                             ) : (
                                 <td class="docs-platforms-no">
-                                    <Icon.Subtract aria-label="Not supported" />
+                                    <Icon.Subtract
+                                        className="docs-mark docs-mark--no"
+                                        aria-label="Not supported"
+                                    />
                                 </td>
                             ),
                         )}
@@ -249,20 +255,6 @@ const unsupported = PLATFORMS.filter(({ key }) => platforms?.[key] === false);
             & td.docs-platforms-yes,
             & td.docs-platforms-no {
                 text-align: left;
-            }
-        }
-        & td small {
-            display: block;
-            color: var(--pluto-gray-l8);
-            font-size: var(--pluto-small-size);
-        }
-        & td.docs-platforms-yes svg {
-            color: var(--pluto-primary-z);
-        }
-        & td.docs-platforms-no svg {
-            color: var(--pluto-gray-l9);
-            @media (prefers-color-scheme: dark) {
-                color: var(--pluto-gray-l8);
             }
         }
     }

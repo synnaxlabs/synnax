@@ -34,11 +34,13 @@ import { Triggers } from "@/triggers";
 /**
  * The visual variant of a tab selector.
  *
- * - `default`: rounded chip tabs on a borderless strip; the selected tab carries a
- *   subtle fill.
+ * - `default`: rounded tabs on a borderless strip; the selected tab carries a subtle
+ *   fill.
  * - `pill`: separated outlined rounded buttons.
+ * - `chip`: separated outlined rounded tabs; only the selected one fills, with the same
+ *   subtle fill as `default`.
  */
-export type Variant = "default" | "pill";
+export type Variant = "default" | "pill" | "chip";
 
 /**
  * Where a tab's contents sit along the strip's main axis. Vertical strips always
@@ -66,6 +68,7 @@ interface VariantDefaults {
 const VARIANT_DEFAULTS: Record<Variant, VariantDefaults> = {
   default: { align: "center", sizing: "elastic" },
   pill: { align: "start", sizing: "fixed" },
+  chip: { align: "start", sizing: "content" },
 };
 
 interface ContextValue {
@@ -329,9 +332,9 @@ export interface SelectorProps extends Omit<Flex.BoxProps, "onDrop" | "align"> {
   /** size sets the height of the strip and the typography level of its tabs. */
   size?: Component.Size;
   /**
-   * variant is the chassis its tabs wear: borderless chips on a plain strip, or
-   * separated outlined pills. Everything else about how the strip behaves is a knob
-   * below, which variant only supplies the default for.
+   * variant is the chassis its tabs wear: see {@link Variant}. Everything else about
+   * how the strip behaves is a knob below, which variant only supplies the default
+   * for.
    */
   variant?: Variant;
   /** align places a tab's contents along the strip. Defaults per variant. */

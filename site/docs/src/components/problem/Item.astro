@@ -12,7 +12,7 @@ interface Props {
     /** The exact message the reader sees, or each message that has the same cause. Give
         this or `symptom`. */
     message?: string | string[];
-    /** What the reader sees, in words, when there is no message. */
+    /** What the reader sees, in words, when there is no message. Backticks mark code. */
     symptom?: string;
     /** The diagnostic code, for example `ARC3001`. */
     code?: string;
@@ -34,6 +34,8 @@ const id =
         .replace(/^-|-$/g, "")
         .slice(0, 64);
 const SEVERITIES = { error: "Error", warning: "Warning" };
+const segments = (title: string): { text: string; code: boolean }[] =>
+    title.split("`").map((text, i) => ({ text, code: i % 2 === 1 }));
 ---
 
 <li class="problem" id={id}>
@@ -55,7 +57,11 @@ const SEVERITIES = { error: "Error", warning: "Warning" };
             ]}
             href={`#${id}`}
         >
-            {title}
+            {message != null
+                ? title
+                : segments(title).map(({ text, code }) =>
+                      code ? <code>{text}</code> : text,
+                  )}
         </a>
     ))}
     <dl class="problem__body">

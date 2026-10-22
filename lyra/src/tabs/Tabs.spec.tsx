@@ -486,6 +486,7 @@ describe("Tabs", () => {
     it.each([
       ["default", "align-center", "sizing-elastic"],
       ["pill", "align-start", "sizing-fixed"],
+      ["chip", "align-start", "sizing-content"],
     ] as const)("should default %s to %s and %s", (variant, align, sizing) => {
       const el = strip({ variant });
       expect(el.classList.contains(`pluto-tabs__selector--${align}`)).toBe(true);

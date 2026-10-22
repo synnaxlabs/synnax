@@ -116,23 +116,23 @@ await task.start();
 
 ## Task options
 
-| Console label         | Python field           | Default | Notes                                                     |
-| --------------------- | ---------------------- | ------- | --------------------------------------------------------- |
-| **Device**            | `device`               |         | The key of the device.                                    |
-| **State update rate** | `state_rate`           | 10 Hz   | How often the task writes the state channels.             |
-| **Data saving**       | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving). |
-| **Auto start**        | `auto_start`           | Off     | Starts the task each time the Driver starts.              |
+| Console label     | Python field           | Default | Notes                                                     |
+| ----------------- | ---------------------- | ------- | --------------------------------------------------------- |
+| Device            | `device`               |         | The key of the device.                                    |
+| State update rate | `state_rate`           | 10 Hz   | How often the task writes the state channels.             |
+| Data saving       | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving). |
+| Auto start        | `auto_start`           | Off     | Starts the task each time the Driver starts.              |
 
 <Divider.Divider x />
 
 ## Channel reference
 
-| Console label | Field           | Default | Notes                        |
-| ------------- | --------------- | ------- | ---------------------------- |
-| **Port/Line** | `port`          | 0       | The port number.             |
-| **Port/Line** | `line`          | 0       | The line number in the port. |
-|               | `cmd_channel`   |         | The command channel.         |
-|               | `state_channel` |         | The state channel.           |
+Each channel has a `cmd_channel` and a `state_channel`. The table shows the Console
+label of each setting, with its Python field under it.
+
+| Setting                                 | Default | Notes                         |
+| --------------------------------------- | ------- | ----------------------------- |
+| Port/Line <small>`port`, `line`</small> | `0`/`0` | The port, and the line in it. |
 
 <Divider.Divider x />
 

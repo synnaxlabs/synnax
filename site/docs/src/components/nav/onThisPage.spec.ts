@@ -76,10 +76,10 @@ describe("on this page", () => {
   });
 
   describe("reading position", () => {
-    it("should mark nothing before the first heading reaches the top", () => {
+    it("should mark the first entry before the first heading reaches the top", () => {
       show();
-      expect(active()).toEqual([]);
-      expect(indicator().style.opacity).toBe("");
+      expect(active()).toEqual(["create"]);
+      expect(indicator().style.opacity).toBe("1");
     });
 
     it("should mark the heading closest to the reading line", () => {
@@ -127,9 +127,9 @@ describe("on this page", () => {
 
   it("should stop listening to a page after it swaps out", () => {
     show();
-    const stale = document.querySelector<HTMLElement>('[data-item-key="create"]');
+    const stale = document.querySelector<HTMLElement>('[data-item-key="delete"]');
     show();
-    scrollTo({ create: 100 });
+    scrollTo({ delete: 100 });
     window.dispatchEvent(new Event("scroll"));
     expect(stale?.classList).not.toContain("active");
   });
