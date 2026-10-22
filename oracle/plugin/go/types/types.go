@@ -871,7 +871,10 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 		data.AddExternal(strconvImportPath)
 	}
 	if len(sd.Name) > 0 {
-		sd.Receiver = receiverName(sd.Name)
+		sd.Receiver = receiverName(
+			sd.Name,
+			hasSliceRecurse(sd.DefaultRecurse) || hasSliceRecurse(sd.ValidateRecurse),
+		)
 	}
 
 	sd.ExtraFields = domain.GetAllStringsFromType(entry, "go", "fields")
@@ -884,16 +887,17 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 }
 
 // receiverName derives a method receiver from the type name. It widens to two letters
-// when the first would be "v", which generated Validate bodies use for their validator.
-func receiverName(name string) string {
+// when the first would be "v", which generated Validate bodies use for their validator,
+// or "i" when the methods loop over a slice with that index.
+func receiverName(name string, loops bool) string {
 	r := strings.ToLower(name[:1])
-	if r != "v" {
+	if r != "v" && (r != "i" || !loops) {
 		return r
 	}
 	if len(name) > 1 {
 		return strings.ToLower(name[:2])
 	}
-	return "vv"
+	return r + r
 }
 
 func processTypeParam(tp resolution.TypeParam, data *templateData) typeParamData {

@@ -723,19 +723,19 @@ type ICD struct {
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *ICD) ApplyDefaults() {
-	for i := range i.Entries {
-		i.Entries[i].ApplyDefaults()
+func (ic *ICD) ApplyDefaults() {
+	for i := range ic.Entries {
+		ic.Entries[i].ApplyDefaults()
 	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (i ICD) Validate() error {
+func (ic ICD) Validate() error {
 	v := validate.New("ICD")
-	v.NotEmptyString("name", i.Name)
-	for i := range i.Entries {
-		v.Exec(func() error { return validate.PathedError(i.Entries[i].Validate(), "entries", strconv.Itoa(i)) })
+	v.NotEmptyString("name", ic.Name)
+	for i := range ic.Entries {
+		v.Exec(func() error { return validate.PathedError(ic.Entries[i].Validate(), "entries", strconv.Itoa(i)) })
 	}
 	return v.Error()
 }
