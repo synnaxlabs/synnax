@@ -93,6 +93,14 @@ public:
     open(const synnax::can::Properties &props) override;
 };
 
+/// @returns an error whose message is context followed by NI-XNET's text for status.
+/// Its type is UNREACHABLE_ERROR when the interface is absent or lost or another
+/// session runs it with other settings, CONFIG_ERROR when a bitrate or payload is
+/// invalid, TEMPORARY_HARDWARE_ERROR when the output queue is full, and
+/// CRITICAL_HARDWARE_ERROR otherwise.
+[[nodiscard]] x::errors::Error
+translate(API &api, nxStatus_t status, const std::string &context);
+
 /// @returns the backend over the installed NI-XNET, or an Unavailable backend holding
 /// the reason NI-XNET did not load.
 [[nodiscard]] std::shared_ptr<can::Backend> load();
