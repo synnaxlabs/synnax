@@ -3858,6 +3858,90 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(w.Close()).To(Succeed())
 					},
 				)
+
+				It(
+					"Should stamp every virtual series with the leaseholder's clock",
+					func(ctx SpecContext) {
+						key := GenerateChannelKey()
+						Expect(
+							db.CreateChannel(ctx, virtualChannel(key, "stamped")),
+						).To(Succeed())
+						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels: []cesium.ChannelKey{key},
+							Start:    10 * telem.SecondTS,
+						}))
+						s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+							Channels: []cesium.ChannelKey{key},
+						}))
+						sCtx, cancel := signal.Isolated()
+						defer cancel()
+						i, o := confluence.Attach(s, 2)
+						s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+
+						series := telem.NewSeriesV[int64](1, 2, 3)
+						series.TimeRange = telem.TimeRange{
+							Start: 1 * telem.SecondTS,
+							End:   2 * telem.SecondTS,
+						}
+						before := telem.Now()
+						Expect(w.Write(telem.UnaryFrame(key, series))).To(BeTrue())
+						var res cesium.StreamerResponse
+						Eventually(o.Outlet()).Should(Receive(&res))
+						after := telem.Now()
+						tr := res.Frame.SeriesAt(0).TimeRange
+						Expect(tr.Span()).To(Equal(telem.Nanosecond))
+						Expect(tr.Start).To(BeNumerically(">=", before))
+						Expect(tr.Start).To(BeNumerically("<=", after))
+
+						i.Close()
+						Expect(sCtx.Wait()).To(Succeed())
+						Expect(w.Close()).To(Succeed())
+					},
+				)
+
+				It(
+					"Should stamp every virtual series in one write with one instant",
+					func(ctx SpecContext) {
+						key1 := GenerateChannelKey()
+						key2 := GenerateChannelKey()
+						Expect(
+							db.CreateChannel(ctx, virtualChannel(key1, "stamped1")),
+						).To(Succeed())
+						Expect(
+							db.CreateChannel(ctx, virtualChannel(key2, "stamped2")),
+						).To(Succeed())
+						keys := []cesium.ChannelKey{key1, key2}
+						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels: keys,
+							Start:    10 * telem.SecondTS,
+						}))
+						s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+							Channels: keys,
+						}))
+						sCtx, cancel := signal.Isolated()
+						defer cancel()
+						i, o := confluence.Attach(s, 2)
+						s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+
+						Expect(w.Write(telem.MultiFrame(
+							keys,
+							[]telem.Series{
+								telem.NewSeriesV[int64](1, 2),
+								telem.NewSeriesV[int64](3),
+							},
+						))).To(BeTrue())
+						var res cesium.StreamerResponse
+						Eventually(o.Outlet()).Should(Receive(&res))
+						first := res.Frame.Get(key1).Series[0].TimeRange
+						second := res.Frame.Get(key2).Series[0].TimeRange
+						Expect(first.Span()).To(Equal(telem.Nanosecond))
+						Expect(second).To(Equal(first))
+
+						i.Close()
+						Expect(sCtx.Wait()).To(Succeed())
+						Expect(w.Close()).To(Succeed())
+					},
+				)
 			})
 
 			Describe("Regressions", func() {
