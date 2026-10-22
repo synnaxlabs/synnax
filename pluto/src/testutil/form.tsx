@@ -23,7 +23,7 @@ export interface RenderFormResult extends RenderResult {
  */
 export const renderForm = <Z extends z.ZodType>(
   ui: ReactElement,
-  values: z.infer<Z>,
+  values: NoInfer<z.infer<Z>>,
   schema: Z,
   wrapper?: FC<PropsWithChildren>,
 ): RenderFormResult => {

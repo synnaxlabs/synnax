@@ -35,7 +35,7 @@ describe("sink.Form", () => {
   it("should store no channel when the channel is cleared", async () => {
     const { findByLabelText, value } = renderForm(
       <Form />,
-      { type: "write" as const, channel: ch.key, value: 1 },
+      { type: "write", channel: ch.key, value: 1 },
       configZ,
       wrapper,
     );

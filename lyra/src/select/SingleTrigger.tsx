@@ -13,6 +13,7 @@ import { primitive, type record } from "@synnaxlabs/x";
 import { type KeyboardEvent, type ReactElement, useCallback, useId } from "react";
 
 import { Button } from "@/button";
+import { Caret } from "@/caret";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
@@ -36,8 +37,9 @@ export interface SingleTriggerProps extends Dialog.TriggerProps {
   /** Whether to render the icon alone, with no name and no caret. */
   iconOnly?: boolean;
   /**
-   * Whether hovering the icon shows a button that clears the selection, and Delete or
-   * Backspace on the focused trigger clears it. Single sets it from `allowNone`.
+   * Whether hovering the trigger shows a button that clears the selection, and Delete or
+   * Backspace on the focused trigger clears it. The button covers the icon, or the caret
+   * when there is no icon. Single sets it from `allowNone`.
    */
   clearable?: boolean;
   /** Chooses an icon from the selected entry, overriding `icon`. */
@@ -118,22 +120,34 @@ export const SingleTrigger = <K extends record.Key>({
   // A self-reference reads the trigger's own aria-label, so the name becomes the
   // aria-label followed by the selection.
   const shown = fixed ? fixedText : (name ?? (preview === true ? "None" : placeholder));
-  // The clear button takes the icon's place, so it needs an icon to replace. A key with
-  // no entry, such as a deleted resource, can still be cleared. A zero key means none.
-  const clearShown =
-    clearable &&
-    primitive.isNonZero(selected) &&
-    resolvedIcon != null &&
-    !fixed &&
-    disabled !== true &&
-    preview !== true;
+  const { visible, variant } = Dialog.useContext();
+  // A key with no entry, such as a deleted resource, can still be cleared. A zero key
+  // means none.
+  const canClear =
+    clearable && primitive.isNonZero(selected) && disabled !== true && preview !== true;
+  const clearOnIcon = canClear && resolvedIcon != null;
+  const clearOnCaret =
+    canClear && !clearOnIcon && variant !== "modal" && !hideCaret && !iconOnly;
+  const clearShown = clearOnIcon || clearOnCaret;
   // The clear button is not a tab stop, so the focused trigger takes the key instead.
   const handleKeyDown = (e: KeyboardEvent<HTMLElement>): void => {
     onKeyDown?.(e);
-    if (!clearShown || (e.key !== "Delete" && e.key !== "Backspace")) return;
+    if (!canClear || (e.key !== "Delete" && e.key !== "Backspace")) return;
     e.preventDefault();
     clear();
   };
+  const withClear = (glyph: ReactElement): ReactElement => (
+    <span className={CSS.BE("select-single-trigger", "icon")}>
+      {glyph}
+      <Button.Close
+        el="div"
+        role="button"
+        aria-label={`Clear ${name ?? fixedText ?? "selection"}`}
+        className={CSS.BE("select-single-trigger", "clear")}
+        onClick={clear}
+      />
+    </span>
+  );
   const labelledBySelection =
     rest["aria-label"] != null &&
     !iconOnly &&
@@ -165,27 +179,18 @@ export const SingleTrigger = <K extends record.Key>({
       tooltip={tooltip ?? (collapsible ? shown : undefined)}
       hideTooltip={hideTooltip ?? (collapsible ? nameReadable : undefined)}
       preview={preview}
-      hideCaret={hideCaret || iconOnly}
+      hideCaret={hideCaret || iconOnly || clearOnCaret}
     >
-      {clearShown ? (
-        <span className={CSS.BE("select-single-trigger", "icon")}>
-          {resolvedIcon}
-          <Button.Close
-            el="div"
-            role="button"
-            aria-label={`Clear ${name ?? "selection"}`}
-            className={CSS.BE("select-single-trigger", "clear")}
-            onClick={clear}
-          />
-        </span>
-      ) : (
-        resolvedIcon
-      )}
+      {clearOnIcon ? withClear(resolvedIcon) : resolvedIcon}
       {!iconOnly && (
         <Label itemKey={selected} id={labelId}>
           {shown}
         </Label>
       )}
+      {clearOnCaret &&
+        withClear(
+          <Caret.Animated enabled={visible} enabledLoc="bottom" disabledLoc="left" />,
+        )}
     </Dialog.Trigger>
   );
 };

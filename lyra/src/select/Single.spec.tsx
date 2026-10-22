@@ -390,9 +390,18 @@ describe("Select.Single", () => {
       expect(c.queryByLabelText("Clear First Item")).toBeNull();
     });
 
-    it("should not show the button when there is no icon to replace", () => {
-      const { SelectSingle } = createSelectSingle();
+    it("should clear the selection from the button on its caret without an icon", () => {
+      const { SelectSingle, onChange } = createSelectSingle();
       const c = render(<SelectSingle allowNone />);
+      select(c);
+      fireEvent.click(c.getByLabelText("Clear First Item"));
+      expect(onChange).toHaveBeenLastCalledWith(null);
+      expect(c.getByText("Test Item")).toBeTruthy();
+    });
+
+    it("should not show the button without an icon or a caret", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle allowNone triggerProps={{ hideCaret: true }} />);
       select(c);
       expect(c.queryByLabelText("Clear First Item")).toBeNull();
     });

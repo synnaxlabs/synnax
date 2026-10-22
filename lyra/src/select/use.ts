@@ -166,21 +166,21 @@ export const useSingle = <K extends record.Key>({
     select();
     return subscribe(select);
   }, [autoSelectOnNone, onChange, value, getOrder, subscribe]);
+  const clear = useCallback(() => {
+    if (allowNone) onChange(null as unknown as K, { clicked: null });
+  }, [onChange, allowNone]);
   const handleSelect = useCallback(
     (key: K): void => {
       if (valueRef.current === key) {
         if (closeDialogOnSelect) close();
-        else if (allowNone) onChange(null as unknown as K, { clicked: null });
+        else clear();
         return;
       }
       onChange(key, { clicked: key });
       if (closeDialogOnSelect) close();
     },
-    [onChange, close, allowNone, closeDialogOnSelect],
+    [onChange, close, clear, closeDialogOnSelect],
   );
-  const clear = useCallback(() => {
-    if (allowNone) onChange(null as unknown as K, { clicked: null });
-  }, [onChange, allowNone]);
 
   const setSelected = useCallback(
     (keys: K[]): void => onChange(keys[0], { clicked: null }),

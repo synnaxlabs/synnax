@@ -35,7 +35,7 @@ describe("source.Form", () => {
   it("should store no channel when the channel is cleared", async () => {
     const { findByLabelText, value } = renderForm(
       <Form />,
-      { type: "on" as const, channel: ch.key },
+      { type: "on", channel: ch.key },
       configZ,
       wrapper,
     );
