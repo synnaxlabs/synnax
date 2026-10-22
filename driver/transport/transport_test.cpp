@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cerrno>
 #include <functional>
 #include <system_error>
 
@@ -69,14 +70,14 @@ TEST(RunFor, KeepsAnOperationThatCompletesAsTheTimeoutCancelsIt) {
     EXPECT_EQ(done.size, 3);
 }
 
-TEST(Exhausted, MatchesTheErrorsOfAHostOutOfResources) {
-    EXPECT_TRUE(exhausted(std::make_error_code(std::errc::too_many_files_open)));
-    EXPECT_TRUE(
-        exhausted(std::make_error_code(std::errc::too_many_files_open_in_system))
-    );
-    EXPECT_TRUE(exhausted(std::make_error_code(std::errc::not_enough_memory)));
-    EXPECT_TRUE(exhausted(std::make_error_code(std::errc::no_buffer_space)));
-    EXPECT_FALSE(exhausted(std::make_error_code(std::errc::connection_refused)));
-    EXPECT_FALSE(exhausted(asio::error::eof));
+TEST(FromAsio, LetsAnAsioSystemErrorCompareToTheStandardCodes) {
+    const asio::error_code ec(ENOENT, asio::system_category());
+    EXPECT_NE(ec, std::errc::no_such_file_or_directory);
+    EXPECT_EQ(from_asio(ec), std::errc::no_such_file_or_directory);
+    EXPECT_EQ(from_asio(ec).message(), ec.message());
+}
+
+TEST(FromAsio, KeepsAnErrorFromAnotherCategory) {
+    EXPECT_EQ(from_asio(asio::error::eof), asio::error::eof);
 }
 }
