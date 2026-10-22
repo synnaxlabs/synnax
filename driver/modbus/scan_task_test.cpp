@@ -70,7 +70,7 @@ TEST(ScanTask, testConfigReturnsCorrectValues) {
 
     const Scanner scanner(ctx, t, dev_manager);
     auto cfg = scanner.config();
-    EXPECT_EQ(cfg.make, "modbus");
+    EXPECT_EQ(cfg.make, "Modbus");
     EXPECT_EQ(cfg.log_prefix, "[modbus.scan_task]");
 }
 
@@ -104,7 +104,7 @@ TEST(ScanTask, testScanChecksDeviceHealth) {
     synnax::device::Device dev;
     dev.key = "health-test-device";
     dev.name = "Health Test Device";
-    dev.make = "modbus";
+    dev.make = MAKE;
     dev.rack = t.rack;
     dev.properties = x::json::json{
         {"connection",
@@ -138,7 +138,7 @@ TEST(ScanTask, testScanReportsDisconnectedDevice) {
     synnax::device::Device dev;
     dev.key = "disconnected-device";
     dev.name = "Disconnected Device";
-    dev.make = "modbus";
+    dev.make = MAKE;
     dev.rack = t.rack;
     dev.properties = x::json::json{
         {"connection",

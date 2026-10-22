@@ -67,19 +67,19 @@ tsk = mqtt.ReadTask(
                 mqtt.ReadField(
                     pointer="/temperature",
                     channel=temperature.key,
-                    data_type="float64",
+                    data_type=sy.DataType.FLOAT64,
                     name="Temperature",
                 ),
                 mqtt.ReadField(
                     pointer="/pressure",
                     channel=pressure.key,
-                    data_type="float64",
+                    data_type=sy.DataType.FLOAT64,
                     name="Pressure",
                 ),
                 mqtt.ReadField(
                     pointer="/state",
                     channel=running.key,
-                    data_type="uint8",
+                    data_type=sy.DataType.UINT8,
                     name="Running",
                     enum_values=[
                         mqtt.EnumEntry(label="idle", value=0),

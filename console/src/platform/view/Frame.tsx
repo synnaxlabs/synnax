@@ -9,7 +9,7 @@
 
 import "@/platform/view/View.css";
 
-import { type ontology, UnexpectedError, view } from "@synnaxlabs/client";
+import { UnexpectedError, view } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -43,9 +43,16 @@ import {
 import { Vis } from "@/platform/vis";
 
 export interface FrameProps extends PropsWithChildren {
-  resourceType: ontology.ResourceType;
+  resourceType: view.ViewType;
   icon: string;
 }
+
+const ZERO_VARIANTS: {
+  [K in view.ViewType]: Omit<Extract<view.View, { type: K }>, keyof view.Base>;
+} = {
+  range: { type: "range", query: { hasLabels: [] } },
+  status: { type: "status", query: { hasLabels: [], variants: [] } },
+};
 
 export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElement => {
   const staticViewKey = useMemo(() => uuid.create(), []);
@@ -54,8 +61,7 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
       {
         key: staticViewKey,
         name: `All ${plural(resourceType)}`,
-        type: resourceType,
-        query: {},
+        ...ZERO_VARIANTS[resourceType],
         static: true,
       },
     ],
@@ -134,7 +140,7 @@ interface SelectorProps {
   showEditButton: boolean;
   editable: boolean;
   onEditableClick: () => void;
-  resourceType: ontology.ResourceType;
+  resourceType: view.ViewType;
   staticViews: StaticView[];
   onSelect: (key: view.Key) => void;
   selected: view.Key;

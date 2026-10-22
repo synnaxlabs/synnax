@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -126,15 +127,21 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:   searchIdx,
 		ImEx:     imexSvc,
 	}))
-	authSvc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
+	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB:              db,
-		Ontology:        otg,
-		Group:           groupSvc,
-		Search:          searchIdx,
-		Auth:            authSvc,
-		RootCredentials: auth.Credentials{Username: "suite-root", Password: "p"},
+		DB:       db,
+		Ontology: otg,
+		Group:    groupSvc,
+		Search:   searchIdx,
 	}))
+	MustSucceed2(
+		user.ProvisionRoot(
+			ctx,
+			userSvc,
+			passwordSvc,
+			auth.Credentials{Username: "suite-root", Password: "p"},
+		),
+	)
 	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 		DB:       db,
 		Ontology: otg,

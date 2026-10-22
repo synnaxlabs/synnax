@@ -19,12 +19,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import {
-  AuthError,
-  DisconnectedError,
-  ExpiredLicenseError,
-  MissingLicenseError,
-} from "@/errors";
+import { AuthError, DisconnectedError, ExpiredLicenseError } from "@/errors";
 import { license } from "@/license";
 import { status } from "@/status";
 
@@ -207,11 +202,6 @@ const UNREACHABLE = "Cannot reach Core";
 const STREAM_DENIED =
   "Live updates are unavailable. This user cannot read the change channels.";
 
-const licenseError = (state: Exclude<license.State, "ok">): Error =>
-  state === "missing"
-    ? new MissingLicenseError(license.STATE_MESSAGES.missing)
-    : new ExpiredLicenseError(license.STATE_MESSAGES.expired);
-
 const connectedMessage = ({ name }: Config): string =>
   `Connected to ${name ?? "cluster"}`;
 
@@ -314,11 +304,11 @@ const reduceCheckSuccess = (prev: Status, info: Info, config: Config): Status =>
   if (clusterKey !== "" && info.clusterKey !== clusterKey)
     return reduceClusterReplaced(prev, info, config);
   const facts = checkFacts(info, config);
-  if (info.license !== "ok")
-    return enterError(prev, license.STATE_MESSAGES[info.license], {
+  if (info.license === "expired")
+    return enterError(prev, license.STATE_MESSAGES.expired, {
       ...facts,
       reason: "unlicensed",
-      error: licenseError(info.license),
+      error: new ExpiredLicenseError(license.STATE_MESSAGES.expired),
       retry: null,
     });
   // reachable but the stream is still dark: the client re-demands it and we

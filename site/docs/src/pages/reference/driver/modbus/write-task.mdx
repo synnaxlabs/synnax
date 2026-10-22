@@ -89,6 +89,10 @@ control signals like relay states and valve positions.
 
 ## How-to
 
+When you create channels with a client library, give each command channel its own index
+channel. A writer that holds several commands on one index must write all of them in
+every frame.
+
 <Client.Tabs exclude={["cpp"]}>
   <Fragment slot="console">
     <Video
@@ -109,26 +113,30 @@ client = sy.Synnax()
 # Retrieve device
 dev = client.devices.retrieve(name="Modbus Server")
 
-# Create command time index
-modbus_cmd_time = client.channels.create(
-    name="modbus_cmd_time",
+# Create command channel for coil
+coil_cmd_time = client.channels.create(
+    name="coil_cmd_time",
     is_index=True,
     data_type=sy.DataType.TIMESTAMP,
     retrieve_if_name_exists=True,
 )
-
-# Create command channel for coil
 coil_cmd = client.channels.create(
     name="coil_cmd",
-    index=modbus_cmd_time.key,
+    index=coil_cmd_time.key,
     data_type=sy.DataType.UINT8,
     retrieve_if_name_exists=True,
 )
 
 # Create command channel for holding register
+holding_reg_cmd_time = client.channels.create(
+    name="holding_reg_cmd_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
+)
 holding_reg_cmd = client.channels.create(
     name="holding_reg_cmd",
-    index=modbus_cmd_time.key,
+    index=holding_reg_cmd_time.key,
     data_type=sy.DataType.UINT8,
     retrieve_if_name_exists=True,
 )
@@ -205,31 +213,37 @@ const client = new Synnax();
 // Retrieve device
 const [dev] = await client.devices.retrieve({ names: ["Modbus Server"] });
 
-// Create command time index
-const modbusCmdTime = await client.channels.create(
+// Create command channel for coil
+const coilCmdTime = await client.channels.create(
   {
-    name: "modbus_cmd_time",
+    name: "coil_cmd_time",
     isIndex: true,
     dataType: "timestamp",
   },
   { retrieveIfNameExists: true },
 );
-
-// Create command channel for coil
 const coilCmd = await client.channels.create(
   {
     name: "coil_cmd",
-    index: modbusCmdTime.key,
+    index: coilCmdTime.key,
     dataType: "uint8",
   },
   { retrieveIfNameExists: true },
 );
 
 // Create command channel for holding register
+const holdingRegCmdTime = await client.channels.create(
+  {
+    name: "holding_reg_cmd_time",
+    isIndex: true,
+    dataType: "timestamp",
+  },
+  { retrieveIfNameExists: true },
+);
 const holdingRegCmd = await client.channels.create(
   {
     name: "holding_reg_cmd",
-    index: modbusCmdTime.key,
+    index: holdingRegCmdTime.key,
     dataType: "uint8",
   },
   { retrieveIfNameExists: true },

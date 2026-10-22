@@ -421,11 +421,13 @@ var _ = Describe("Stratify", func() {
 			func(ctx SpecContext) {
 				outerHandle := ir.Handle{Node: "outer_select", Param: "true"}
 				synth := ir.Scope{
-					Key:        "__inline_0",
-					Mode:       ir.ScopeModeParallel,
-					Liveness:   ir.LivenessGated,
-					Activation: &outerHandle,
-					Strata:     []ir.Members{{ir.NodeMember("inline_body")}},
+					Key:      "__inline_0",
+					Mode:     ir.ScopeModeParallel,
+					Liveness: ir.LivenessGated,
+					Activations: []ir.Activation{
+						{On: outerHandle, Kind: ir.EdgeKindConditional},
+					},
+					Strata: []ir.Members{{ir.NodeMember("inline_body")}},
 				}
 				main := ir.Scope{
 					Key:      "main",
@@ -456,11 +458,13 @@ var _ = Describe("Stratify", func() {
 					Strata:   []ir.Members{{ir.NodeMember("inner_select")}},
 				}
 				inner := ir.Scope{
-					Key:        "__inline_1",
-					Mode:       ir.ScopeModeParallel,
-					Liveness:   ir.LivenessGated,
-					Activation: &innerHandle,
-					Strata:     []ir.Members{{ir.NodeMember("inner_body")}},
+					Key:      "__inline_1",
+					Mode:     ir.ScopeModeParallel,
+					Liveness: ir.LivenessGated,
+					Activations: []ir.Activation{
+						{On: innerHandle, Kind: ir.EdgeKindConditional},
+					},
+					Strata: []ir.Members{{ir.NodeMember("inner_body")}},
 				}
 				root := run(ctx, programOf(
 					[]ir.Member{ir.ScopeMember(inner), ir.ScopeMember(outer)},
@@ -487,25 +491,31 @@ var _ = Describe("Stratify", func() {
 					Strata:   []ir.Members{{ir.NodeMember("select_0")}},
 				}
 				s1 := ir.Scope{
-					Key:        "__inline_1",
-					Mode:       ir.ScopeModeParallel,
-					Liveness:   ir.LivenessGated,
-					Activation: &h1,
-					Strata:     []ir.Members{{ir.NodeMember("select_1")}},
+					Key:      "__inline_1",
+					Mode:     ir.ScopeModeParallel,
+					Liveness: ir.LivenessGated,
+					Activations: []ir.Activation{
+						{On: h1, Kind: ir.EdgeKindConditional},
+					},
+					Strata: []ir.Members{{ir.NodeMember("select_1")}},
 				}
 				s2 := ir.Scope{
-					Key:        "__inline_2",
-					Mode:       ir.ScopeModeParallel,
-					Liveness:   ir.LivenessGated,
-					Activation: &h2,
-					Strata:     []ir.Members{{ir.NodeMember("select_2")}},
+					Key:      "__inline_2",
+					Mode:     ir.ScopeModeParallel,
+					Liveness: ir.LivenessGated,
+					Activations: []ir.Activation{
+						{On: h2, Kind: ir.EdgeKindConditional},
+					},
+					Strata: []ir.Members{{ir.NodeMember("select_2")}},
 				}
 				s3 := ir.Scope{
-					Key:        "__inline_3",
-					Mode:       ir.ScopeModeParallel,
-					Liveness:   ir.LivenessGated,
-					Activation: &h3,
-					Strata:     []ir.Members{{ir.NodeMember("innermost_body")}},
+					Key:      "__inline_3",
+					Mode:     ir.ScopeModeParallel,
+					Liveness: ir.LivenessGated,
+					Activations: []ir.Activation{
+						{On: h3, Kind: ir.EdgeKindConditional},
+					},
+					Strata: []ir.Members{{ir.NodeMember("innermost_body")}},
 				}
 				root := run(ctx, programOf(
 					[]ir.Member{

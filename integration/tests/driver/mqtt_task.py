@@ -23,7 +23,7 @@ from tests.driver.task import ReadTaskCase, WriteTaskCase, assert_sample_counts_
 CORE_RACK_NAME = os.environ.get("SYNNAX_CORE_RACK", "Node 1")
 
 
-class MQTTReadTaskCase(SimulatorCase, ReadTaskCase):
+class MQTTReadTaskCase(SimulatorCase, ReadTaskCase[mqtt.ReadTask]):
     """Base class for MQTT read task tests."""
 
     sim_classes = [MQTTSim]
@@ -52,7 +52,7 @@ class MQTTReadTaskCase(SimulatorCase, ReadTaskCase):
             entries=self.create_channels(self.client),
         )
 
-    def _channel_keys(self, task: sy.Task) -> list[int]:
+    def _channel_keys(self, task: mqtt.ReadTask) -> list[int]:
         keys: list[int] = []
         for entry in task.config.entries:
             if isinstance(entry, mqtt.SparkplugReadEntry):
@@ -76,7 +76,7 @@ class MQTTReadTaskCase(SimulatorCase, ReadTaskCase):
     def assert_sample_count(
         self,
         *,
-        task: sy.Task,
+        task: mqtt.ReadTask,
         duration: sy.TimeSpan = 1 * sy.TimeSpan.SECOND,
         strict: bool = True,
     ) -> None:
@@ -106,7 +106,7 @@ class MQTTReadTaskCase(SimulatorCase, ReadTaskCase):
             )
 
 
-class MQTTWriteTaskCase(SimulatorCase, WriteTaskCase):
+class MQTTWriteTaskCase(SimulatorCase, WriteTaskCase[mqtt.WriteTask]):
     """Base class for MQTT write task tests."""
 
     sim_classes = [MQTTSim]
@@ -132,7 +132,7 @@ class MQTTWriteTaskCase(SimulatorCase, WriteTaskCase):
             targets=self.create_channels(self.client),
         )
 
-    def _channel_keys(self, task: sy.Task) -> list[int]:
+    def _channel_keys(self, task: mqtt.WriteTask) -> list[int]:
         return [
             t.channel if isinstance(t, mqtt.SparkplugWriteTarget) else t.channel.channel
             for t in task.config.targets

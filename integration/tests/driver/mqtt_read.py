@@ -52,13 +52,15 @@ class MQTTReadJSON(MQTTReadTaskCase):
                     mqtt.ReadField(
                         pointer="/temperature",
                         channel=temperature,
-                        data_type="float64",
+                        data_type=sy.DataType.FLOAT64,
                     ),
-                    mqtt.ReadField(pointer="/count", channel=count, data_type="int64"),
+                    mqtt.ReadField(
+                        pointer="/count", channel=count, data_type=sy.DataType.INT64
+                    ),
                     mqtt.ReadField(
                         pointer="/state",
                         channel=running,
-                        data_type="uint8",
+                        data_type=sy.DataType.UINT8,
                         enum_values=[
                             mqtt.EnumEntry(label="idle", value=0),
                             mqtt.EnumEntry(label="running", value=1),
@@ -94,7 +96,7 @@ class MQTTReadMultipleTopics(MQTTReadTaskCase):
         stamp = mqtt.ReadField(
             pointer="/timestamp",
             channel=timed_idx.key,
-            data_type="timestamp",
+            data_type=sy.DataType.TIMESTAMP,
             time_format="unix_ns",
         )
         return [
@@ -102,7 +104,9 @@ class MQTTReadMultipleTopics(MQTTReadTaskCase):
                 topic="plant/scalar",
                 qos="at_least_once",
                 fields=[
-                    mqtt.ReadField(pointer="", channel=scalar, data_type="float32")
+                    mqtt.ReadField(
+                        pointer="", channel=scalar, data_type=sy.DataType.FLOAT32
+                    )
                 ],
             ),
             mqtt.PlainReadEntry(
@@ -111,7 +115,7 @@ class MQTTReadMultipleTopics(MQTTReadTaskCase):
                 fields=[
                     stamp,
                     mqtt.ReadField(
-                        pointer="/value", channel=timed, data_type="float64"
+                        pointer="/value", channel=timed, data_type=sy.DataType.FLOAT64
                     ),
                 ],
             ),

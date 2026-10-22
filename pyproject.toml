@@ -17,7 +17,15 @@ requires-python = ">=3.12,<4"
 dev = ["vermin>=1.8.0,<2"]
 
 [tool.uv.workspace]
-members = ["alamos/py", "client/py", "freighter/py", "integration", "x/py"]
+members = [
+    ".github/scripts",
+    "alamos/py",
+    "client/py",
+    "freighter/py",
+    "integration",
+    "scripts",
+    "x/py",
+]
 
 [tool.uv.sources]
 alamos = { workspace = true }

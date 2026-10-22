@@ -62,6 +62,7 @@ describe("device Configure", () => {
           initialProperties={{}}
         />
       </Errors.SuspenseBoundary>,
+      { onCaughtError: () => {} },
     );
     expect(screen.queryByText(/give this device a name/)).toBeNull();
   });

@@ -40,7 +40,7 @@ if existing is not None:
     print(f"Broker already connected: {existing.name} ({existing.location})")
     exit(0)
 
-rack = client.racks.retrieve(integration=sy.mqtt.INTEGRATION)
+rack = client.racks.retrieve(integration=sy.mqtt.INTEGRATION)[0]
 print(f"Using rack: {rack.name} (key={rack.key})")
 device = client.devices.create(
     sy.mqtt.Device(host=HOST, port=PORT, name=DEVICE_NAME, rack=rack.key)

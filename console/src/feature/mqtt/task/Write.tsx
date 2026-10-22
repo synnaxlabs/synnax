@@ -239,8 +239,11 @@ const generatorDisplayKey = (
   return "uuid";
 };
 
-const FieldListItem = (props: List.ItemProps<string> & { targetKey: string }) => {
-  const { itemKey, targetKey } = props;
+const FieldListItem = ({
+  targetKey,
+  ...props
+}: List.ItemProps<string> & { targetKey: string }) => {
+  const { itemKey } = props;
   const path = `${TARGETS_PATH}.${targetKey}.fields.${itemKey}`;
   const fieldType = PForm.useFieldValue<string>(`${path}.type`);
   const jsonType = PForm.useFieldValue<mqtt.JSONType | undefined>(`${path}.jsonType`, {
@@ -387,7 +390,7 @@ const AdditionalFields: FC<{ targetKey: string }> = ({ targetKey }) => {
 
   const listItem = useCallback(
     ({ key, ...p }: List.ItemProps<string>) => (
-      <FieldListItem {...p} key={key} targetKey={targetKey} />
+      <FieldListItem key={key} {...p} targetKey={targetKey} />
     ),
     [targetKey],
   );

@@ -15,13 +15,14 @@ from synnax import mqtt
 from tests.driver.mqtt_task import CORE_RACK_NAME
 from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import WriteTaskCase, create_channel, create_index
+from x.telem import to_float
 
 GROUP = "Plant"
 EDGE_NODE = "SynnaxLine"
 MIRROR = f"plant/sparkplug/{GROUP}/{EDGE_NODE}"
 
 
-class MQTTEdgeNode(SimulatorCase, WriteTaskCase):
+class MQTTEdgeNode(SimulatorCase, WriteTaskCase[mqtt.EdgeTask]):
     """Runs a Sparkplug B edge node on the Core. The simulator mirrors the tags that
     the edge node publishes on plain topics, and turns a plain message into a command
     for a tag, so plain read and write tasks can check both directions."""
@@ -77,7 +78,7 @@ class MQTTEdgeNode(SimulatorCase, WriteTaskCase):
             ],
         )
 
-    def _channel_keys(self, task: sy.Task) -> list[int]:
+    def _channel_keys(self, task: mqtt.EdgeTask) -> list[int]:
         return [
             k
             for t in task.config.tags
@@ -100,7 +101,9 @@ class MQTTEdgeNode(SimulatorCase, WriteTaskCase):
                     topic=f"{MIRROR}/{tag}",
                     fields=[
                         mqtt.ReadField(
-                            pointer="/value", channel=channel.key, data_type="float64"
+                            pointer="/value",
+                            channel=channel.key,
+                            data_type=sy.DataType.FLOAT64,
                         )
                     ],
                 )
@@ -140,7 +143,7 @@ class MQTTEdgeNode(SimulatorCase, WriteTaskCase):
                             )
                             frame = streamer.read(timeout=1)
                             if frame is not None and mirror.key in frame:
-                                value = float(frame[mirror.key][-1])
+                                value = to_float(frame[mirror.key][-1])
             if value != 21.5:
                 raise AssertionError(f"The host saw {value}, not 21.5")
         finally:
@@ -190,7 +193,7 @@ class MQTTEdgeNode(SimulatorCase, WriteTaskCase):
                             )
                             frame = streamer.read(timeout=1)
                             if frame is not None and setpoint_cmd.key in frame:
-                                value = float(frame[setpoint_cmd.key][-1])
+                                value = to_float(frame[setpoint_cmd.key][-1])
             if value != 42.5:
                 raise AssertionError(f"The command channel got {value}, not 42.5")
         finally:

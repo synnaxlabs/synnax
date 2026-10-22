@@ -29,11 +29,17 @@ def _key(item: dict[str, Any], *names: str) -> int:
 
 
 def _items(task: sy.Task) -> list[dict[str, Any]]:
-    """Return the entries, targets, or tags of an MQTT task config."""
-    config = task.config
+    """Return the entries, targets, or tags of an MQTT task config.
+
+    :raises TypeError: If the group is not a list of objects.
+    """
     for group in ("entries", "targets", "tags"):
-        if group in config:
-            return list(config[group])
+        items = task.config.get(group)
+        if items is None:
+            continue
+        if not isinstance(items, list) or not all(isinstance(i, dict) for i in items):
+            raise TypeError(f"task config {group} is not a list of objects")
+        return items
     return []
 
 

@@ -83,6 +83,22 @@ var _ = Describe("StatusHandler", func() {
 			Expect(stat.Description).To(BeEmpty())
 			Expect(stat.Variant).To(Equal(status.VariantSuccess))
 		})
+
+		It("should keep the name the task was renamed to", func(ctx SpecContext) {
+			Expect(handler.Send(
+				ctx,
+				"cmd-1",
+				status.VariantSuccess,
+				true,
+				"Task started successfully",
+			)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return statusSvc.NewWriter(tx).
+					Rename(ctx, t.OntologyID().String(), "renamed")
+			})).To(Succeed())
+			Expect(handler.Ack(ctx, "cmd-2", true)).To(Succeed())
+			Expect(retrieve(ctx).Name).To(Equal("renamed"))
+		})
 	})
 
 	Describe("Warn", func() {

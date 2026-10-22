@@ -62,7 +62,7 @@ tsk = mqtt.ReadTask(
             tag="temperature",
             channel=temperature.key,
             index=temperature.index,
-            data_type="float64",
+            data_type=sy.DataType.FLOAT64,
         ),
         # A device ID selects a tag of a device of the edge node.
         mqtt.SparkplugReadEntry(
@@ -72,7 +72,7 @@ tsk = mqtt.ReadTask(
             tag="speed",
             channel=speed.key,
             index=speed.index,
-            data_type="float32",
+            data_type=sy.DataType.FLOAT32,
         ),
     ],
 )

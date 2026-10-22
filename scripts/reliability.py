@@ -11,14 +11,14 @@
 # dependencies = ["boto3"]
 # ///
 
-"""Builds the reliability page data from a CI workflow run and uploads it.
+"""Builds the reliability page data from a CI, Nightly, or Release run and uploads it.
 
 Usage: uv run scripts/reliability.py <run-url> --version 0.59.0 [--out path]
     [--manual-pass <skip reason>]... [--manual-note <why they were run by hand>]
 
 The data goes to DigitalOcean Spaces, where the docs build reads it; redeploy the docs
-to publish it. --out writes it to a local file instead. Uploading needs DO_SPACES_KEY and
-DO_SPACES_SECRET in the environment.
+to publish it. --out writes it to a local file instead. Uploading needs DO_SPACES_KEY
+and DO_SPACES_SECRET in the environment.
 
 Integration results come from the run's `test-results-*` artifacts. Unit suites write no
 per-test report yet, so their tests are enumerated from source at the run's commit and
@@ -35,6 +35,7 @@ import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 REPO = "synnaxlabs/synnax"
 ROOT = Path(__file__).resolve().parent.parent
@@ -82,7 +83,20 @@ JOBS: dict[str, tuple[str, str, list[str]]] = {
     "oracle": ("toolchain", "go", ["oracle"]),
     "docs": ("toolchain", "ts", ["site/docs"]),
     "vite-plugin": ("toolchain", "ts", ["configs/vite"]),
-    "scripts": ("toolchain", "py", ["scripts", ".github/scripts"]),
+    "scripts": ("toolchain", "py", ["scripts"]),
+    "ci-scripts": ("toolchain", "py", [".github/scripts"]),
+}
+
+# CI test jobs left off the page: lint and schema checks, websites outside the release,
+# and grammar snapshots that declare no named tests.
+UNLISTED = {
+    "foundation",
+    "lint-integration",
+    "oracle-language",
+    "portal",
+    "protobuf",
+    "site-common",
+    "www",
 }
 
 # Integration matrix target -> product.
@@ -116,10 +130,14 @@ TC_STATES = {
     "KILLED": "failed",
 }
 
-# Matrix jobs append their runner, as in "core / Test (ubuntu-latest)"; single jobs do
-# not. The runner's OS comes from the job's labels either way.
+# Matrix jobs append their runner and any shard, as in "console / Test (ubuntu-latest,
+# 1/3)"; single jobs do not. The runner's OS comes from the job's labels either way.
 JOB_NAME = re.compile(r"^([a-z0-9-]+) / Test(?: \(.+\))?$")
 TC_JOB_NAME = re.compile(r"^integration / Test \((\w+)\) / (\w+)$")
+
+CI_WORKFLOW = ".github/workflows/ci.yaml"
+# Nightly and Release call CI as a job named "CI", which prefixes its job names.
+CALLED_PREFIX = "CI / "
 
 
 def gh(*args: str) -> str:
@@ -133,6 +151,36 @@ def os_of(runner: str) -> str:
         if runner.startswith(name):
             return name
     raise ValueError(f"unknown runner: {runner}")
+
+
+def ci_jobs(path: str, jobs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Returns the CI jobs in a run of the workflow at path, named as in a CI run."""
+    if path == CI_WORKFLOW:
+        return jobs
+    return [
+        {**j, "name": j["name"].removeprefix(CALLED_PREFIX)}
+        for j in jobs
+        if j["name"].startswith(CALLED_PREFIX)
+    ]
+
+
+def suite_jobs(
+    jobs: list[dict[str, Any]],
+) -> dict[tuple[str, str], dict[str, Any]]:
+    """Maps the job key and OS of each unit suite to the job that reports its result. A
+    suite split into shards reports through its first shard that did not succeed."""
+    shards: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for job in jobs:
+        m = JOB_NAME.match(job["name"])
+        if m is None or m.group(1) in UNLISTED:
+            continue
+        if m.group(1) not in JOBS:
+            raise ValueError(f"no JOBS or UNLISTED entry for {job['name']}")
+        shards.setdefault((m.group(1), os_of(job["labels"][0])), []).append(job)
+    return {
+        k: next((j for j in group if j["conclusion"] != "success"), group[0])
+        for k, group in shards.items()
+    }
 
 
 def enumerate_tests(
@@ -272,9 +320,10 @@ class Cases:
     def _class(self, case: str, name: str) -> tuple[str, ast.ClassDef]:
         path = f"tests/{case}.py"
         classes = [n for n in self.trees[path].body if isinstance(n, ast.ClassDef)]
-        for cls in classes:
-            if cls.name == name:
-                return path, cls
+        # A parameter matrix appends its values, as in "WaitSamplesAll_65537".
+        hits = [c for c in classes if name == c.name or name.startswith(f"{c.name}_")]
+        if hits:
+            return path, max(hits, key=lambda c: len(c.name))
         # A module holding one test class names its case after the module or the
         # sequence entry, not the class.
         tests = [
@@ -291,7 +340,7 @@ class Cases:
         path, cls = self._class(case, name)
         chain = self._ancestry(path, cls)
         names = {c.name for _, c in chain}
-        skipped = {}
+        skipped: dict[str, str] = {}
         for _, c in chain:
             for node in ast.walk(c):
                 if isinstance(node, ast.If):
@@ -338,7 +387,9 @@ def auto_pass(node: ast.If, system: str) -> str | None:
                 and call.func.attr == "auto_pass"
             ):
                 msg = call.keywords[0].value if call.keywords else call.args[0]
-                return msg.value if isinstance(msg, ast.Constant) else "Auto-passed"
+                if isinstance(msg, ast.Constant) and isinstance(msg.value, str):
+                    return msg.value
+                return "Auto-passed"
     return None
 
 
@@ -392,25 +443,24 @@ def main() -> None:
     run = json.loads(gh("api", f"repos/{REPO}/actions/runs/{rid}"))
     sha = run["head_sha"]
     subprocess.run(["git", "fetch", "-q", "origin", sha], cwd=ROOT, check=True)
-    jobs = [
+    run_jobs = [
         json.loads(line)
         for line in gh(
             "api",
             "--paginate",
             f"repos/{REPO}/actions/runs/{rid}/jobs?per_page=100",
             "-q",
-            ".jobs[]|{name,conclusion,html_url,labels}|tojson",
+            ".jobs[]|{name,conclusion,html_url,labels,started_at,completed_at}|tojson",
         ).splitlines()
     ]
+    jobs = ci_jobs(run["path"], run_jobs)
+    if not jobs:
+        sys.exit(f"{run['path']} does not run CI")
 
-    suites: list[dict] = []
-    tests: list[list] = []
+    suites: list[dict[str, Any]] = []
+    tests: list[list[Any]] = []
 
-    for job in jobs:
-        m = JOB_NAME.match(job["name"])
-        if m is None or m.group(1) not in JOBS:
-            continue
-        key = m.group(1)
+    for (key, runner_os), job in suite_jobs(jobs).items():
         product, lang, dirs = JOBS[key]
         conclusion = job["conclusion"]
         if conclusion == "skipped":
@@ -424,7 +474,7 @@ def main() -> None:
                 "lang": lang,
                 "kind": "unit",
                 "tags": ["unit", FRAMEWORKS[lang]],
-                "os": os_of(job["labels"][0]),
+                "os": runner_os,
                 "conclusion": conclusion,
                 "url": job["html_url"],
                 "count": len(found),
@@ -525,8 +575,9 @@ def main() -> None:
             "version": args.version,
             "branch": run["head_branch"],
             "event": run["event"],
-            "started_at": run["created_at"],
-            "ended_at": run["updated_at"],
+            # A Release run goes on to build and publish after CI.
+            "started_at": min(j["started_at"] for j in jobs),
+            "ended_at": max(j["completed_at"] for j in jobs),
             "conclusion": run["conclusion"],
             "manual_passes": args.manual_pass,
             "manual_note": args.manual_note,

@@ -22,3 +22,10 @@ export const ZERO_PROPS = {
   orientation: "left",
   scale: 1,
 } as const satisfies SVGBasedProps;
+
+/**
+ * @returns the scale a symbol renders at. A stored scale that is absent, not finite,
+ * or not positive would collapse the symbol to nothing, so it renders at 1 instead.
+ */
+export const resolveScale = (scale?: number): number =>
+  scale != null && Number.isFinite(scale) && scale > 0 ? scale : 1;

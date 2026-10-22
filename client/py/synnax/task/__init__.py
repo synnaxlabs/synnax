@@ -29,37 +29,24 @@ from synnax.task.types_gen import (
     WriteConfig,
     ontology_id,
 )
-from x.deprecation import deprecated_getattr
-
-_DEPRECATED = {
-    "TaskPayload": "Payload",
-    "TaskStatus": "Status",
-    "TaskStatusDetails": "StatusDetails",
-    "BaseTaskConfig": "StartConfig",
-    "BaseReadTaskConfig": "ReadConfig",
-    "BaseWriteTaskConfig": "WriteConfig",
-    "TaskProtocol": "Protocol",
-}
-
-__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
 
 __all__ = [
-    "Client",
-    "Key",
-    "Task",
-    "Payload",
-    "Status",
-    "StatusDetails",
     "ONTOLOGY_TYPE",
-    "ontology_id",
-    "assign_keys",
+    "Client",
+    "JSONConfigMixin",
+    "Key",
+    "KeyedConfig",
+    "Payload",
     "PersistConfig",
-    "StartConfig",
+    "Protocol",
     "ReadConfig",
     "ScanConfig",
-    "WriteConfig",
-    "KeyedConfig",
-    "JSONConfigMixin",
+    "StartConfig",
     "StarterStopperMixin",
-    "Protocol",
+    "Status",
+    "StatusDetails",
+    "Task",
+    "WriteConfig",
+    "assign_keys",
+    "ontology_id",
 ]

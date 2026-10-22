@@ -877,6 +877,85 @@ var _ = Describe("Device", func() {
 			Expect(res).To(ConsistOf(d2a))
 		})
 	})
+	Describe("Rename", func() {
+		It(
+			"Should rename a device and its status, keeping every other field",
+			func(ctx SpecContext) {
+				d := device.Device{
+					Key:        "rename-device",
+					Rack:       rackSvc.EmbeddedKey,
+					Location:   "dev-rename",
+					Name:       "Before",
+					Make:       "Test Make",
+					Model:      "Test Model",
+					Configured: true,
+					Properties: msgpack.EncodedJSON{"host": "10.0.0.1"},
+					Status: &device.Status{
+						Variant: status.VariantSuccess,
+						Message: "Connected",
+						Time:    telem.Now(),
+					},
+				}
+				Expect(w.Create(ctx, &d)).To(Succeed())
+				Expect(w.Rename(ctx, d.Key, "After")).To(Succeed())
+				var res device.Device
+				Expect(svc.NewRetrieve().
+					Where(device.MatchKeys(d.Key)).
+					Entry(&res).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res.Name).To(Equal("After"))
+				Expect(res.Location).To(Equal(d.Location))
+				Expect(res.Make).To(Equal(d.Make))
+				Expect(res.Model).To(Equal(d.Model))
+				Expect(res.Rack).To(Equal(d.Rack))
+				Expect(res.Configured).To(BeTrue())
+				Expect(res.Properties).To(Equal(d.Properties))
+				var renamed device.Status
+				Expect(stat.NewRetrieve[device.StatusDetails]().
+					Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
+					Entry(&renamed).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(renamed.Name).To(Equal("After"))
+				Expect(renamed.Variant).To(Equal(status.VariantSuccess))
+				Expect(renamed.Message).To(Equal("Connected"))
+				Expect(renamed.Details.Device).To(Equal(d.Key))
+			},
+		)
+		It("Should return a validation error for an empty name", func(ctx SpecContext) {
+			d := device.Device{
+				Key:      "rename-device-empty",
+				Rack:     rackSvc.EmbeddedKey,
+				Location: "dev-rename-empty",
+				Name:     "Before",
+				Make:     "Test Make",
+				Model:    "Test Model",
+			}
+			Expect(w.Create(ctx, &d)).To(Succeed())
+			Expect(w.Rename(ctx, d.Key, "")).
+				To(MatchError(ContainSubstring("name: required")))
+		})
+		It(
+			"Should return a not found error for a missing device",
+			func(ctx SpecContext) {
+				Expect(w.Rename(ctx, "missing-device", "After")).
+					To(MatchError(query.ErrNotFound))
+			},
+		)
+		It("Should succeed when the device has no status row", func(ctx SpecContext) {
+			d := device.Device{
+				Key:      "rename-device-no-status",
+				Rack:     rackSvc.EmbeddedKey,
+				Location: "dev-rename-no-status",
+				Name:     "Before",
+				Make:     "Test Make",
+				Model:    "Test Model",
+			}
+			Expect(w.Create(ctx, &d)).To(Succeed())
+			Expect(stat.NewWriter(tx).Delete(ctx, d.OntologyID().String())).
+				To(Succeed())
+			Expect(w.Rename(ctx, d.Key, "After")).To(Succeed())
+		})
+	})
 	Describe("Delete", func() {
 		It(
 			"Should correctly delete a device and its associated status",

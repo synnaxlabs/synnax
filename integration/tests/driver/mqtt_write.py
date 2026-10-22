@@ -19,6 +19,7 @@ import synnax as sy
 from synnax import mqtt
 from tests.driver.mqtt_task import MQTTWriteTaskCase
 from tests.driver.task import create_channel, create_index
+from x.telem import to_float
 
 
 class MQTTWriteValve(MQTTWriteTaskCase):
@@ -43,7 +44,7 @@ class MQTTWriteValve(MQTTWriteTaskCase):
                     pointer="/position",
                     json_type="number",
                     channel=cmd,
-                    data_type="float64",
+                    data_type=sy.DataType.FLOAT64,
                 ),
                 fields=[
                     mqtt.StaticWriteField(
@@ -76,7 +77,9 @@ class MQTTWriteValve(MQTTWriteTaskCase):
                     topic="plant/valve/state",
                     retained_ignored=True,
                     fields=[
-                        mqtt.ReadField(pointer="", channel=echo.key, data_type="string")
+                        mqtt.ReadField(
+                            pointer="", channel=echo.key, data_type=sy.DataType.STRING
+                        )
                     ],
                 )
             ],
@@ -99,7 +102,7 @@ class MQTTWriteValve(MQTTWriteTaskCase):
                             writer.write({cmd.index: sy.TimeStamp.now(), cmd_key: 42.5})
                             frame = streamer.read(timeout=1)
                             if frame is not None and echo.key in frame:
-                                payload = json.loads(frame[echo.key][-1])
+                                payload = json.loads(str(frame[echo.key][-1]))
             if payload is None:
                 raise AssertionError("The simulator did not echo the command")
             if payload["position"] != 42.5 or payload["source"] != "synnax":
@@ -182,7 +185,7 @@ class MQTTWriteSparkplug(MQTTWriteTaskCase):
                             writer.write({cmd.index: sy.TimeStamp.now(), cmd_key: 42.5})
                             frame = streamer.read(timeout=1)
                             if frame is not None and state.key in frame:
-                                value = float(frame[state.key][-1])
+                                value = to_float(frame[state.key][-1])
             if value != 42.5:
                 raise AssertionError(f"The setpoint tag is {value}, not 42.5")
         finally:

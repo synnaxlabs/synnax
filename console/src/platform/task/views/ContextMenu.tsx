@@ -25,7 +25,7 @@ export interface ContextMenuProps {
   onDisable?: () => void;
 }
 
-/** The context menu of a task form's list. Each action shows when its handler is set. */
+/** The context menu of a task's item list. Omitted handlers drop their items. */
 export const ContextMenu = ({
   keys,
   onDuplicate,

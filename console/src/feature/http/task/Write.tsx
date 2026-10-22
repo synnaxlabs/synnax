@@ -205,8 +205,11 @@ const generatorDisplayKey = (
   return "uuid";
 };
 
-const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
-  const { itemKey, epKey } = props;
+const FieldListItem = ({
+  epKey,
+  ...props
+}: List.ItemProps<string> & { epKey: string }) => {
+  const { itemKey } = props;
   const path = `config.endpoints.${epKey}.fields.${itemKey}`;
   const fieldType = PForm.useFieldValue<string>(`${path}.type`);
   const jsonType = PForm.useFieldValue<json.PrimitiveType | undefined>(
@@ -354,7 +357,7 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
 
   const listItem = useCallback(
     ({ key, ...p }: List.ItemProps<string>) => (
-      <FieldListItem {...p} key={key} epKey={epKey} />
+      <FieldListItem key={key} {...p} epKey={epKey} />
     ),
     [epKey],
   );

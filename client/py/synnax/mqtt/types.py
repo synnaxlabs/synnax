@@ -9,6 +9,8 @@
 
 from uuid import uuid4
 
+from pydantic import JsonValue
+
 from synnax import device, task
 from synnax.mqtt.types_gen import (
     EdgeConfig,
@@ -35,7 +37,9 @@ def _follow_device_rack(
     return dev
 
 
-class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
+class ReadTask(
+    task.StarterStopperMixin, task.JSONConfigMixin[ReadConfig], task.Protocol
+):
     """A read task that subscribes to topics on an MQTT broker and writes the values
     in their payloads to Synnax channels.
 
@@ -48,7 +52,6 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """
 
     TYPE = "mqtt_read"
-    config: ReadConfig
     _internal: task.Task
 
     def __init__(
@@ -77,7 +80,9 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         return _follow_device_rack(self._internal, device_client, self.config.device)
 
 
-class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
+class WriteTask(
+    task.StarterStopperMixin, task.JSONConfigMixin[WriteConfig], task.Protocol
+):
     """A write task that publishes a message to an MQTT broker each time a value is
     written to the command channel of a target.
 
@@ -88,7 +93,6 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """
 
     TYPE = "mqtt_write"
-    config: WriteConfig
     _internal: task.Task
 
     def __init__(
@@ -115,7 +119,9 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         return _follow_device_rack(self._internal, device_client, self.config.device)
 
 
-class EdgeTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
+class EdgeTask(
+    task.StarterStopperMixin, task.JSONConfigMixin[EdgeConfig], task.Protocol
+):
     """A task that is one Sparkplug B edge node. It publishes Synnax channels as the
     tags of the edge node, and writes inbound tag commands to Synnax channels.
 
@@ -130,7 +136,6 @@ class EdgeTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """
 
     TYPE = "mqtt_sparkplug_edge"
-    config: EdgeConfig
     _internal: task.Task
 
     def __init__(
@@ -169,7 +174,7 @@ class Device(device.Device):
     MQTT tasks run on the driver inside the Core. Create the device on the rack of
     that driver::
 
-        rack = client.racks.retrieve(integration=sy.mqtt.INTEGRATION)
+        rack = client.racks.retrieve(integration=sy.mqtt.INTEGRATION)[0]
         broker = sy.mqtt.Device(host="127.0.0.1", rack=rack.key, name="Broker")
 
     :param host: Host name or address of the broker.
@@ -220,6 +225,7 @@ class Device(device.Device):
             raise ValueError("port must be 0 to 65535")
         if keep_alive < 0:
             raise ValueError("keep_alive must not be negative")
+        sparkplug_groups: list[JsonValue] = list(groups) if groups is not None else []
         super().__init__(
             key=key,
             location=host,
@@ -241,7 +247,7 @@ class Device(device.Device):
                 "keep_alive": keep_alive,
                 "sparkplug": {
                     "host_id": host_id,
-                    "groups": groups if groups is not None else [],
+                    "groups": sparkplug_groups,
                 },
                 "version": 1,
             },

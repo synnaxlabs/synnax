@@ -17,7 +17,7 @@ import synnax as sy
 class TestMQTTReadTask:
     """Tests for MQTT read task configuration."""
 
-    def test_parse_plain_entry(self):
+    def test_parse_plain_entry(self) -> None:
         """Should parse a stored config into a plain entry with its defaults."""
         cfg = sy.mqtt.ReadConfig.model_validate(
             {
@@ -43,7 +43,7 @@ class TestMQTTReadTask:
         assert cfg.auto_start is False
         assert cfg.data_saving_disabled is False
 
-    def test_parse_sparkplug_entry(self):
+    def test_parse_sparkplug_entry(self) -> None:
         """Should select the Sparkplug variant from the type field."""
         cfg = sy.mqtt.ReadConfig.model_validate(
             {
@@ -66,19 +66,19 @@ class TestMQTTReadTask:
         assert entry.tag == "Motor/RPM"
         assert entry.channel == 9
 
-    def test_reject_unknown_entry_type(self):
+    def test_reject_unknown_entry_type(self) -> None:
         """Should reject an entry whose type is not a known variant."""
         with pytest.raises(ValidationError):
             sy.mqtt.ReadConfig.model_validate(
                 {"device": "broker-1", "entries": [{"type": "kafka"}]}
             )
 
-    def test_reject_unknown_qos(self):
+    def test_reject_unknown_qos(self) -> None:
         """Should reject a quality of service that MQTT does not define."""
         with pytest.raises(ValidationError):
             sy.mqtt.PlainReadEntry.model_validate({"topic": "a", "qos": "twice"})
 
-    def test_entries_and_fields_get_keys(self):
+    def test_entries_and_fields_get_keys(self) -> None:
         """Should give each entry and field a unique key."""
         task = sy.mqtt.ReadTask(
             device="broker-1",
@@ -99,14 +99,14 @@ class TestMQTTReadTask:
         assert isinstance(entries[0], sy.mqtt.PlainReadEntry)
         assert len({f.key for f in entries[0].fields}) == 2
 
-    def test_payload_type(self):
+    def test_payload_type(self) -> None:
         """Should create a task of the MQTT read type."""
         task = sy.mqtt.ReadTask(device="broker-1", name="Line 1")
         pld = task.to_payload()
         assert pld.type == "mqtt_read"
         assert pld.name == "Line 1"
 
-    def test_create_and_retrieve_read_task(self, client: sy.Synnax):
+    def test_create_and_retrieve_read_task(self, client: sy.Synnax) -> None:
         """Should store a read config that the task class parses again."""
         task = sy.mqtt.ReadTask(
             device="some-broker",
@@ -136,7 +136,7 @@ class TestMQTTReadTask:
 class TestMQTTWriteTask:
     """Tests for MQTT write task configuration."""
 
-    def test_plain_target_defaults(self):
+    def test_plain_target_defaults(self) -> None:
         """Should default a target to at-least-once delivery and no retain flag."""
         target = sy.mqtt.PlainWriteTarget(topic="plant/valve/set")
         assert target.type == "plain"
@@ -145,7 +145,7 @@ class TestMQTTWriteTask:
         assert target.channel.json_type == "number"
         assert target.fields == []
 
-    def test_parse_sparkplug_target(self):
+    def test_parse_sparkplug_target(self) -> None:
         """Should select the Sparkplug variant from the type field."""
         cfg = sy.mqtt.WriteConfig.model_validate(
             {
@@ -169,12 +169,12 @@ class TestMQTTWriteTask:
         assert target.channel == 12
         assert target.sparkplug_type == "float"
 
-    def test_sparkplug_target_defaults_to_double(self):
+    def test_sparkplug_target_defaults_to_double(self) -> None:
         """Should send a command as a double unless the target names a type."""
         target = sy.mqtt.SparkplugWriteTarget(group="Plant", edge_node="Line7")
         assert target.sparkplug_type == "double"
 
-    def test_parse_static_and_generated_fields(self):
+    def test_parse_static_and_generated_fields(self) -> None:
         """Should select the field variant from the type field."""
         target = sy.mqtt.PlainWriteTarget.model_validate(
             {
@@ -197,11 +197,11 @@ class TestMQTTWriteTask:
         assert isinstance(generated, sy.mqtt.GeneratedWriteField)
         assert generated.generator == "uuid"
 
-    def test_payload_type(self):
+    def test_payload_type(self) -> None:
         """Should create a task of the MQTT write type."""
         assert sy.mqtt.WriteTask(device="broker-1").to_payload().type == "mqtt_write"
 
-    def test_create_and_retrieve_write_task(self, client: sy.Synnax):
+    def test_create_and_retrieve_write_task(self, client: sy.Synnax) -> None:
         """Should store a write config that the task class parses again."""
         task = sy.mqtt.WriteTask(
             device="some-broker",
@@ -230,7 +230,7 @@ class TestMQTTWriteTask:
 class TestMQTTEdgeTask:
     """Tests for the Sparkplug B edge node task configuration."""
 
-    def test_tag_defaults(self):
+    def test_tag_defaults(self) -> None:
         """Should default a tag to a double that rejects writes."""
         tag = sy.mqtt.EdgeTag(name="temperature", channel=7)
         assert tag.sparkplug_type == "double"
@@ -238,7 +238,7 @@ class TestMQTTEdgeTask:
         assert tag.disabled is False
         assert tag.key != ""
 
-    def test_payload_type(self):
+    def test_payload_type(self) -> None:
         """Should create a task of the Sparkplug B edge node type."""
         task = sy.mqtt.EdgeTask(device="broker-1", group="Plant", edge_node="Line1")
         assert task.to_payload().type == "mqtt_sparkplug_edge"
@@ -246,11 +246,11 @@ class TestMQTTEdgeTask:
         assert task.config.authority == 0
         assert task.config.tags == []
 
-    def test_reject_authority_out_of_range(self):
-        with pytest.raises(ValueError):
+    def test_reject_authority_out_of_range(self) -> None:
+        with pytest.raises(ValidationError, match="less than or equal to 255"):
             sy.mqtt.EdgeTask(device="broker-1", authority=256)
 
-    def test_create_and_retrieve_edge_task(self, client: sy.Synnax):
+    def test_create_and_retrieve_edge_task(self, client: sy.Synnax) -> None:
         """Should store an edge config that the task class parses again."""
         task = sy.mqtt.EdgeTask(
             device="some-broker",
@@ -282,7 +282,7 @@ class TestMQTTEdgeTask:
 class TestMQTTDevice:
     """Tests for the MQTT broker device."""
 
-    def test_device_defaults(self):
+    def test_device_defaults(self) -> None:
         """Should describe a plain broker on the default port."""
         dev = sy.mqtt.Device(host="broker.local", name="Broker")
         assert dev.make == "mqtt"
@@ -304,7 +304,7 @@ class TestMQTTDevice:
             "version": 1,
         }
 
-    def test_device_custom_config(self):
+    def test_device_custom_config(self) -> None:
         """Should carry the TLS and credential settings in its properties."""
         dev = sy.mqtt.Device(
             host="broker.local",
@@ -325,7 +325,7 @@ class TestMQTTDevice:
         assert dev.properties["client_id"] == "synnax-line-7"
         assert dev.properties["keep_alive"] == 15
 
-    def test_device_sparkplug_config(self):
+    def test_device_sparkplug_config(self) -> None:
         """Should carry the Sparkplug B host ID and groups in its properties."""
         dev = sy.mqtt.Device(
             host="broker.local", host_id="synnax-primary", groups=["Plant", "Lab"]
@@ -336,15 +336,15 @@ class TestMQTTDevice:
         }
 
     @pytest.mark.parametrize("port", [-1, 65536])
-    def test_device_rejects_port_out_of_range(self, port: int):
+    def test_device_rejects_port_out_of_range(self, port: int) -> None:
         with pytest.raises(ValueError, match="port must be 0 to 65535"):
             sy.mqtt.Device(host="broker.local", port=port)
 
-    def test_device_rejects_negative_keep_alive(self):
+    def test_device_rejects_negative_keep_alive(self) -> None:
         with pytest.raises(ValueError, match="keep_alive must not be negative"):
             sy.mqtt.Device(host="broker.local", keep_alive=-1)
 
-    def test_device_auto_key_generation(self):
+    def test_device_auto_key_generation(self) -> None:
         a = sy.mqtt.Device(host="broker.local")
         b = sy.mqtt.Device(host="broker.local")
         assert a.key != b.key
@@ -354,8 +354,8 @@ class TestMQTTDevice:
 class TestMQTTTaskRack:
     """Tests that MQTT tasks run on the rack of their broker device."""
 
-    def test_task_follows_the_rack_of_its_device(self, client: sy.Synnax):
-        rack = client.racks.retrieve(integration=sy.mqtt.INTEGRATION)
+    def test_task_follows_the_rack_of_its_device(self, client: sy.Synnax) -> None:
+        rack = client.racks.retrieve(integration=sy.mqtt.INTEGRATION)[0]
         dev = client.devices.create(
             sy.mqtt.Device(host="127.0.0.1", rack=rack.key, name="Rack Test Broker")
         )

@@ -59,6 +59,7 @@ cc_test(
         "read_task_test.cpp",
         "write_task_test.cpp",
     ],
+    tags = ["requires-core"],
     deps = [
         "//client/cpp/testutil",
         "//driver/labjack",

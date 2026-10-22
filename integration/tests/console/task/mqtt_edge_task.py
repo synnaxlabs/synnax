@@ -12,6 +12,7 @@ from console.task.mqtt import MQTTEdge
 from synnax import mqtt
 from tests.console.task.mqtt_case import MQTTCase
 from tests.driver.task import create_channel, create_index, delete_channels
+from x.telem import to_float
 
 # An edge node of its own, so it does not collide with the one the simulator runs.
 GROUP = "ConsolePlant"
@@ -91,7 +92,9 @@ class MQTTEdgeTask(MQTTCase):
                     topic=MIRROR_TOPIC,
                     fields=[
                         mqtt.ReadField(
-                            pointer="/value", channel=mirror.key, data_type="float64"
+                            pointer="/value",
+                            channel=mirror.key,
+                            data_type=sy.DataType.FLOAT64,
                         )
                     ],
                 )
@@ -115,7 +118,7 @@ class MQTTEdgeTask(MQTTCase):
                             )
                             frame = streamer.read(timeout=1)
                             if frame is not None and mirror.key in frame:
-                                value = float(frame[mirror.key][-1])
+                                value = to_float(frame[mirror.key][-1])
             if value != VALUE:
                 raise AssertionError(f"The broker saw {value}, not {VALUE}")
         finally:

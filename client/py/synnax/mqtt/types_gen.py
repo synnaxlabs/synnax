@@ -11,10 +11,10 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, Union
+from typing import Annotated, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, JsonValue
 
 from synnax import channel as channel_
 from synnax import device as device_
@@ -252,7 +252,7 @@ class StaticWriteField(BaseWriteField):
 
     type: Literal["static"] = "static"
     json_type: JSONType = "number"
-    value: Any
+    value: JsonValue
 
 
 class GeneratedWriteField(BaseWriteField):
@@ -266,7 +266,7 @@ class GeneratedWriteField(BaseWriteField):
 # Is an additional payload field on a plain write target. The type field selects
 # whether the value is fixed or generated per publish.
 WriteField = Annotated[
-    Union[StaticWriteField, GeneratedWriteField],
+    StaticWriteField | GeneratedWriteField,
     Field(discriminator="type"),
 ]
 
@@ -322,7 +322,7 @@ class SparkplugReadEntry(BaseReadEntry):
 # Is a single source of an MQTT read task. The type field selects a plain topic
 # with a JSON payload or a Sparkplug B tag.
 ReadEntry = Annotated[
-    Union[PlainReadEntry, SparkplugReadEntry],
+    PlainReadEntry | SparkplugReadEntry,
     Field(discriminator="type"),
 ]
 
@@ -354,7 +354,7 @@ class SparkplugWriteTarget(BaseWriteTarget):
 # Is a single destination of an MQTT write task. The type field selects a plain
 # topic with a JSON payload or a Sparkplug B tag command.
 WriteTarget = Annotated[
-    Union[PlainWriteTarget, SparkplugWriteTarget],
+    PlainWriteTarget | SparkplugWriteTarget,
     Field(discriminator="type"),
 ]
 

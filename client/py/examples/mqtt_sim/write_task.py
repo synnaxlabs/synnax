@@ -56,7 +56,7 @@ tsk = mqtt.WriteTask(
                 pointer="/position",
                 json_type="number",
                 channel=cmd.key,
-                data_type="float64",
+                data_type=sy.DataType.FLOAT64,
             ),
             fields=[
                 mqtt.StaticWriteField(

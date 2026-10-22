@@ -18,7 +18,7 @@ from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import ReadTaskCase, WriteTaskCase
 
 
-class ModbusReadTaskCase(SimulatorCase, ReadTaskCase):
+class ModbusReadTaskCase(SimulatorCase, ReadTaskCase[sy.modbus.ReadTask]):
     """Base class for Modbus TCP read task tests."""
 
     sim_classes = [ModbusSim]
@@ -27,6 +27,9 @@ class ModbusReadTaskCase(SimulatorCase, ReadTaskCase):
     @staticmethod
     @abstractmethod
     def create_channels(client: sy.Synnax) -> list[sy.modbus.ReadChannel]: ...
+
+    def _channel_keys(self, task: sy.modbus.ReadTask) -> list[int]:
+        return [ch.channel for ch in task.config.channels]
 
     def create(
         self,
@@ -48,7 +51,7 @@ class ModbusReadTaskCase(SimulatorCase, ReadTaskCase):
         )
 
 
-class ModbusWriteTaskCase(SimulatorCase, WriteTaskCase):
+class ModbusWriteTaskCase(SimulatorCase, WriteTaskCase[sy.modbus.WriteTask]):
     """Base class for Modbus TCP write task tests."""
 
     sim_classes = [ModbusSim]
@@ -56,6 +59,9 @@ class ModbusWriteTaskCase(SimulatorCase, WriteTaskCase):
     @staticmethod
     @abstractmethod
     def create_channels(client: sy.Synnax) -> list[sy.modbus.WriteChannel]: ...
+
+    def _channel_keys(self, task: sy.modbus.WriteTask) -> list[int]:
+        return [ch.channel for ch in task.config.channels]
 
     def create(
         self,

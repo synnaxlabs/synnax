@@ -91,6 +91,12 @@ const COMMAND_DEADLINE = TimeSpan.seconds(10);
 
 const STATUS_NAME = "Task Status";
 
+/** A command awaiting the Driver's reply, with the timer that gives up on it. */
+interface CommandDeadline {
+  cmd: string;
+  timer: NodeJS.Timeout;
+}
+
 /**
  * The task status schema without a details-data schema. Hoisted because statusZ()
  * builds a fresh schema per call, which costs far more than the parse itself.
@@ -383,7 +389,8 @@ const createReqZ = <S extends Schemas = Schemas>(schemas?: S) =>
 const createResZ = <S extends Schemas = Schemas>(schemas?: S) =>
   z.object({ tasks: payloadZ(schemas).array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
-const deleteResZ = z.object({});
+const emptyResZ = z.object({});
+const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const copyReqZ = z.object({ key: keyZ, name: z.string(), snapshot: z.boolean() });
 const copyResZ = <S extends Schemas = Schemas>(schemas?: S) =>
   z.object({ task: payloadZ(schemas) });
@@ -422,7 +429,7 @@ export class Client extends query.Retriever<
   readonly store: query.Table<Key, Omit<Task, "status">>;
   private readonly cfg: ClientConfig;
   private readonly statusesByTask: query.LookupIndex<status.Key, status.Status>;
-  private readonly commandDeadlines = new Map<Key, ReturnType<typeof setTimeout>>();
+  private readonly commandDeadlines = new Map<Key, CommandDeadline>();
 
   constructor(cfg: ClientConfig) {
     const { cache, statusStore } = cfg;
@@ -477,6 +484,17 @@ export class Client extends query.Retriever<
               this.armCommandDeadline(changed, optimistic);
           }),
         ),
+    });
+    // A reply names its command in details.cmd. The Driver clears cmd on its next
+    // status, so the reply is matched on arrival rather than when the deadline fires.
+    statusStore.subscribe((event) => {
+      if (event.variant !== "set") return;
+      const task = statusTaskKey(event.value);
+      if (task == null) return;
+      const pending = this.commandDeadlines.get(task);
+      if (pending == null || status.detailsOf(event.value)?.cmd !== pending.cmd) return;
+      clearTimeout(pending.timer);
+      this.commandDeadlines.delete(task);
     });
     const composed = cache.derive<Key, Omit<Task, "status">, Task>({
       name: "task.composed",
@@ -563,7 +581,7 @@ export class Client extends query.Retriever<
           "/task/delete",
           { keys: keysArr },
           deleteReqZ,
-          deleteResZ,
+          emptyResZ,
         ),
     });
     drop();
@@ -579,10 +597,8 @@ export class Client extends query.Retriever<
     await query.optimistic({
       rollbacks: rename(),
       onOptimistic: opts.onOptimistic,
-      commit: async () => {
-        const t = await this.retrieve(key);
-        await this.create({ ...t.payload, name });
-      },
+      commit: async () =>
+        await this.cfg.unary.send("/task/rename", { key, name }, renameReqZ, emptyResZ),
     });
     rename();
   }
@@ -706,30 +722,25 @@ export class Client extends query.Retriever<
   private armCommandDeadline(cmd: Command, optimistic: Status): void {
     const { statusStore } = this.cfg;
     const key = statusKey(cmd.task);
-    clearTimeout(this.commandDeadlines.get(cmd.task));
-    this.commandDeadlines.set(
-      cmd.task,
-      setTimeout(() => {
-        this.commandDeadlines.delete(cmd.task);
-        // A newer write answered the command. An older one, such as the creation
-        // placeholder echoing back over the stream, did not.
-        const current = statusStore.get(key);
-        if (current == null) return;
-        if (current !== optimistic && current.time.afterEq(optimistic.time)) return;
-        statusStore.set(
+    clearTimeout(this.commandDeadlines.get(cmd.task)?.timer);
+    // A reply disarms the deadline on arrival, so firing means nothing answered.
+    const timer = setTimeout(() => {
+      this.commandDeadlines.delete(cmd.task);
+      if (statusStore.get(key) == null) return;
+      statusStore.set(
+        key,
+        status.create<StatusDetailsZodObject>({
           key,
-          status.create<StatusDetailsZodObject>({
-            key,
-            name: STATUS_NAME,
-            variant: "warning",
-            message: `No response to the ${cmd.type} command`,
-            description: `The Driver did not respond within ${COMMAND_DEADLINE.toString()}.`,
-            // Nothing answered, so the command is taken to have had no effect.
-            details: { ...optimistic.details, running: cmd.type === "stop" },
-          }),
-        );
-      }, COMMAND_DEADLINE.milliseconds),
-    );
+          name: STATUS_NAME,
+          variant: "warning",
+          message: `No response to the ${cmd.type} command`,
+          description: `The Driver did not respond within ${COMMAND_DEADLINE.toString()}.`,
+          // Nothing answered, so the command is taken to have had no effect.
+          details: { ...optimistic.details, running: cmd.type === "stop" },
+        }),
+      );
+    }, COMMAND_DEADLINE.milliseconds);
+    this.commandDeadlines.set(cmd.task, { cmd: cmd.key, timer });
   }
 
   // A task's status may live under the "task:<key>" row or under any status whose
@@ -764,9 +775,11 @@ export class Client extends query.Retriever<
   }
 
   private async fetchThrough(req: RetrieveRequest): Promise<Task[]> {
+    // A status that streams in during the fetch is newer than the fetched one.
+    const since = this.cfg.statusStore.stamp();
     const tasks = await this.execRetrieve({ ...req, includeStatus: true });
     tasks.forEach((t) => {
-      if (t.status != null) this.cfg.statusStore.ingest(t.status);
+      if (t.status != null) this.cfg.statusStore.ingest(t.status, { since });
     });
     return tasks;
   }

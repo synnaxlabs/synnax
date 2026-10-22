@@ -18,13 +18,15 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { caseconv, color, deep } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useState } from "react";
+import { caseconv, deep } from "@synnaxlabs/x";
+import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 
+import { Region } from "@/schematic/node/common/region";
 import { Symbol } from "@/schematic/symbol";
 
 interface RegionControlsProps {
   path: string;
+  svg: string;
   onReset: (path: string) => void;
   getOriginalRegion: (path: string) => schematic.symbol.Region | null;
 }
@@ -83,11 +85,17 @@ const syncStateOverrides = (
 
 const RegionControls = ({
   path,
+  svg,
   onReset,
   getOriginalRegion,
 }: RegionControlsProps): ReactElement => {
   const name = Form.useFieldValue<string>(`${path}.name`);
   const region = Form.useFieldValue<schematic.symbol.Region>(path);
+  const { set } = Form.useContext();
+  const paint = useMemo(
+    () => Region.paint(svg, region.selectors),
+    [svg, region.selectors],
+  );
   const originalRegion = getOriginalRegion(path);
   const canBeReset = !deep.equal(region, originalRegion);
   return (
@@ -101,17 +109,15 @@ const RegionControls = ({
         {caseconv.capitalize(name)}
       </Text.Text>
       <Flex.Box x align="stretch" key={path}>
-        <Color.Field
-          path={`${path}.strokeColor`}
-          fallback={color.ZERO}
-          showLabel={false}
-          align="stretch"
+        <Color.Swatch
+          value={region.strokeColor}
+          fallback={paint.stroke}
+          onChange={(c) => set(`${path}.strokeColor`, c)}
         />
-        <Color.Field
-          path={`${path}.fillColor`}
-          fallback={color.ZERO}
-          showLabel={false}
-          align="stretch"
+        <Color.Swatch
+          value={region.fillColor}
+          fallback={paint.fill}
+          onChange={(c) => set(`${path}.fillColor`, c)}
         />
         <Button.Button
           onClick={() => onReset(path)}
@@ -127,12 +133,18 @@ const RegionControls = ({
 };
 
 interface RegionListProps {
+  svg: string;
   onReset: (path: string) => void;
   getOriginalRegion: (path: string) => schematic.symbol.Region | null;
   selectedState: string;
 }
 
-const RegionList = ({ selectedState, onReset, getOriginalRegion }: RegionListProps) => {
+const RegionList = ({
+  svg,
+  selectedState,
+  onReset,
+  getOriginalRegion,
+}: RegionListProps) => {
   const { data: regions } = Form.useFieldList<string, schematic.symbol.Region>(
     `stateOverrides.${selectedState}.regions`,
   );
@@ -141,6 +153,7 @@ const RegionList = ({ selectedState, onReset, getOriginalRegion }: RegionListPro
       {regions.map((region) => (
         <RegionControls
           key={region}
+          svg={svg}
           onReset={onReset}
           path={`stateOverrides.${selectedState}.regions.${region}`}
           getOriginalRegion={getOriginalRegion}
@@ -221,6 +234,7 @@ export const StateOverrideForm = (): ReactElement => {
       )}
       {shownState != null && (
         <RegionList
+          svg={symbol?.data?.svg ?? ""}
           selectedState={shownState}
           onReset={resetRegion}
           getOriginalRegion={getOriginalRegion}

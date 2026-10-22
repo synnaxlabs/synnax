@@ -43,6 +43,7 @@ cc_library(
 cc_test(
     name = "ranger_test",
     srcs = ["ranger_test.cpp"],
+    tags = ["requires-core"],
     deps = [
         "//client/cpp:synnax",
         "//client/cpp/testutil",

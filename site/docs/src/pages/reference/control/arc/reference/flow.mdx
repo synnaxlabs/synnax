@@ -71,7 +71,8 @@ propagates to its target. On ticks where it is falsy, it does not.
 
 A flow whose target is a stage or sequence name is a **transition**. Transitions
 deactivate the current item and activate the target. They use `=>` because they fire
-while the channel value is truthy. Transitioning to an already-active target is a no-op.
+while the channel value is truthy. A transition to a running target does not restart it,
+except a transition to the item that holds it, which re-enters that item.
 
 | Target          | Description                                             |
 | --------------- | ------------------------------------------------------- |
