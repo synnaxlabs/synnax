@@ -11,8 +11,9 @@
 
 Run from this directory with:
 
-    uv run --no-project --with cobs python generate.py
+    uv run --no-project --with cobs==1.2.2 python generate.py
 
+and format the result from the repository root with pnpm prettier --write driver/codec.
 Each vector holds a frame and its wire bytes: the cobs encoding followed by the zero
 byte that ends the frame.
 """
@@ -66,7 +67,7 @@ def main() -> None:
         {"frame": f.hex(), "wire": (cobs.encode(f) + b"\x00").hex()} for f in frames
     ]
     out = Path(__file__).parent / "cobs.json"
-    out.write_text(json.dumps({"vectors": vectors}, indent=1) + "\n")
+    out.write_text(json.dumps({"vectors": vectors}, indent=2) + "\n")
 
 
 if __name__ == "__main__":
