@@ -16,11 +16,11 @@
 #include <variant>
 #include <vector>
 
-#include "client/cpp/library/types.gen.h"
+#include "client/cpp/icd/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
 
-namespace synnax::library {
+namespace synnax::icd {
 
 inline EnumValue EnumValue::parse(x::json::Parser parser) {
     return EnumValue{
@@ -106,45 +106,48 @@ inline x::json::json BaseEntry::to_json() const {
     return j;
 }
 
-inline Library Library::parse(x::json::Parser parser) {
-    return Library{
+inline ICD ICD::parse(x::json::Parser parser) {
+    return ICD{
         .key = parser.field<Key>("key", x::uuid::create()),
         .name = parser.field<std::string>("name"),
-        .entries = [&] {
-            std::vector<Entry> result;
-            if (parser.has("entries"))
-                parser.iter("entries", [&result](x::json::Parser &p) {
-                    result.push_back(parse_entry(p));
-                });
-            return result;
-        }(),
+        .entries =
+            [&] {
+                std::vector<Entry> result;
+                if (parser.has("entries"))
+                    parser.iter("entries", [&result](x::json::Parser &p) {
+                        result.push_back(parse_entry(p));
+                    });
+                return result;
+            }(),
+        .hash = parser.field<std::string>("hash", ""),
     };
 }
 
-inline x::json::json Library::to_json() const {
+inline x::json::json ICD::to_json() const {
     x::json::json j;
     j["key"] = this->key.to_json();
     j["name"] = this->name;
     {
         auto arr = x::json::json::array();
         for (const auto &item: this->entries)
-            arr.push_back(::synnax::library::to_json(item));
+            arr.push_back(::synnax::icd::to_json(item));
         j["entries"] = arr;
     }
+    j["hash"] = this->hash;
     return j;
 }
 
 inline Reference Reference::parse(x::json::Parser parser) {
     return Reference{
-        .library = parser.field<std::optional<Key>>("library"),
-        .library_hash = parser.field<std::string>("library_hash", ""),
+        .icd = parser.field<std::optional<Key>>("icd"),
+        .icd_hash = parser.field<std::string>("icd_hash", ""),
     };
 }
 
 inline x::json::json Reference::to_json() const {
     x::json::json j;
-    if (this->library.has_value()) j["library"] = this->library->to_json();
-    j["library_hash"] = this->library_hash;
+    if (this->icd.has_value()) j["icd"] = this->icd->to_json();
+    j["icd_hash"] = this->icd_hash;
     return j;
 }
 
@@ -238,7 +241,7 @@ inline x::json::json BinaryPayload::to_json() const {
     x::json::json j;
     j["length"] = this->length;
     if (this->identifier.has_value())
-        j["identifier"] = ::synnax::library::to_json(*this->identifier);
+        j["identifier"] = ::synnax::icd::to_json(*this->identifier);
     j["fields"] = x::json::to_array(this->fields);
     j["format"] = this->format;
     return j;
@@ -267,7 +270,7 @@ inline x::json::json TextPayload::to_json() const {
     {
         auto arr = x::json::json::array();
         for (const auto &item: this->fields)
-            arr.push_back(::synnax::library::to_json(item));
+            arr.push_back(::synnax::icd::to_json(item));
         j["fields"] = arr;
     }
     j["format"] = this->format;
@@ -308,7 +311,7 @@ inline x::json::json MessageEntry::to_json() const {
     x::json::json j;
     for (const auto base = BaseEntry::to_json(); const auto &[k, v]: base.items())
         j[k] = v;
-    j["payload"] = ::synnax::library::to_json(this->payload);
+    j["payload"] = ::synnax::icd::to_json(this->payload);
     if (this->period.has_value()) j["period"] = this->period->nanoseconds();
     j["query"] = this->query;
     j["kind"] = this->kind;

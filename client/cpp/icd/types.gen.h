@@ -24,16 +24,16 @@
 #include "x/cpp/telem/types.gen.h"
 #include "x/cpp/uuid/uuid.h"
 
-#include "core/pkg/service/library/pb/library.pb.h"
+#include "core/pkg/service/icd/pb/icd.pb.h"
 
-namespace synnax::library {
+namespace synnax::icd {
 
 struct EnumValue;
 struct Reference;
 struct BaseEntry;
 struct BaseField;
 struct BinaryField;
-struct Library;
+struct ICD;
 
 constexpr const char *BYTE_ORDER_LITTLE_ENDIAN = "little_endian";
 constexpr const char *BYTE_ORDER_BIG_ENDIAN = "big_endian";
@@ -54,49 +54,50 @@ struct EnumValue {
     static EnumValue parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::library::pb::EnumValue;
-    [[nodiscard]] std::pair<::service::library::pb::EnumValue, x::errors::Error>
+    using proto_type = ::service::icd::pb::EnumValue;
+    [[nodiscard]] std::pair<::service::icd::pb::EnumValue, x::errors::Error>
     to_proto() const;
     static std::pair<EnumValue, x::errors::Error>
-    from_proto(const ::service::library::pb::EnumValue &pb);
+    from_proto(const ::service::icd::pb::EnumValue &pb);
 };
 
-/// @brief Reference is embedded in the config of a task that uses a library. A task
-/// uses at most one library.
+/// @brief Reference is embedded in the config of a task that uses an ICD. A task uses
+/// at most one ICD.
 struct Reference {
-    /// @brief library is the key of the library the task reads its layouts from. When
-    /// absent the task uses no library yet.
-    std::optional<Key> library;
-    /// @brief library_hash is the hash of the library's entries, stamped by the Core
-    /// when
-    /// the task or the library is written.
-    std::string library_hash = "";
+    /// @brief icd is the key of the ICD the task reads its messages from. When absent
+    /// the
+    /// task uses no ICD yet.
+    std::optional<Key> icd;
+    /// @brief icd_hash is the hash of the ICD entries the task uses, stamped by the
+    /// Core
+    /// when the task or the ICD is written.
+    std::string icd_hash = "";
 
     static Reference parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::library::pb::Reference;
-    [[nodiscard]] std::pair<::service::library::pb::Reference, x::errors::Error>
+    using proto_type = ::service::icd::pb::Reference;
+    [[nodiscard]] std::pair<::service::icd::pb::Reference, x::errors::Error>
     to_proto() const;
     static std::pair<Reference, x::errors::Error>
-    from_proto(const ::service::library::pb::Reference &pb);
+    from_proto(const ::service::icd::pb::Reference &pb);
 };
 
-/// @brief BaseEntry carries the parts every library entry shares.
+/// @brief BaseEntry carries the parts every ICD entry shares.
 struct BaseEntry {
-    /// @brief key is the unique identifier for the entry within its library.
+    /// @brief key is the unique identifier for the entry within its ICD.
     EntryKey key;
-    /// @brief name is the name of the entry, unique within its library.
+    /// @brief name is the name of the entry, unique within its ICD.
     std::string name;
 
     static BaseEntry parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::library::pb::BaseEntry;
-    [[nodiscard]] std::pair<::service::library::pb::BaseEntry, x::errors::Error>
+    using proto_type = ::service::icd::pb::BaseEntry;
+    [[nodiscard]] std::pair<::service::icd::pb::BaseEntry, x::errors::Error>
     to_proto() const;
     static std::pair<BaseEntry, x::errors::Error>
-    from_proto(const ::service::library::pb::BaseEntry &pb);
+    from_proto(const ::service::icd::pb::BaseEntry &pb);
 };
 
 /// @brief BaseField carries the parts every message field shares.
@@ -132,11 +133,11 @@ struct BaseField {
     static BaseField parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::library::pb::BaseField;
-    [[nodiscard]] std::pair<::service::library::pb::BaseField, x::errors::Error>
+    using proto_type = ::service::icd::pb::BaseField;
+    [[nodiscard]] std::pair<::service::icd::pb::BaseField, x::errors::Error>
     to_proto() const;
     static std::pair<BaseField, x::errors::Error>
-    from_proto(const ::service::library::pb::BaseField &pb);
+    from_proto(const ::service::icd::pb::BaseField &pb);
 };
 
 /// @brief CanIdentifier matches a CAN frame by arbitration identifier.
@@ -156,12 +157,11 @@ struct CanIdentifier {
     static CanIdentifier parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::library::pb::IdentifierCanPayload;
-    [[nodiscard]] std::
-        pair<::service::library::pb::IdentifierCanPayload, x::errors::Error>
-        to_proto() const;
+    using proto_type = ::service::icd::pb::IdentifierCanPayload;
+    [[nodiscard]] std::pair<::service::icd::pb::IdentifierCanPayload, x::errors::Error>
+    to_proto() const;
     static std::pair<CanIdentifier, x::errors::Error>
-    from_proto(const ::service::library::pb::IdentifierCanPayload &pb);
+    from_proto(const ::service::icd::pb::IdentifierCanPayload &pb);
 };
 
 /// @brief FieldIdentifier matches a binary frame by the raw value of one of its fields.
@@ -175,12 +175,12 @@ struct FieldIdentifier {
     static FieldIdentifier parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::library::pb::IdentifierFieldPayload;
+    using proto_type = ::service::icd::pb::IdentifierFieldPayload;
     [[nodiscard]] std::
-        pair<::service::library::pb::IdentifierFieldPayload, x::errors::Error>
+        pair<::service::icd::pb::IdentifierFieldPayload, x::errors::Error>
         to_proto() const;
     static std::pair<FieldIdentifier, x::errors::Error>
-    from_proto(const ::service::library::pb::IdentifierFieldPayload &pb);
+    from_proto(const ::service::icd::pb::IdentifierFieldPayload &pb);
 };
 
 /// @brief Identifier selects which frames on a bus belong to a binary message.
@@ -188,10 +188,10 @@ using Identifier = std::variant<CanIdentifier, FieldIdentifier>;
 
 Identifier parse_identifier(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const Identifier &value);
-[[nodiscard]] std::pair<::service::library::pb::Identifier, x::errors::Error>
+[[nodiscard]] std::pair<::service::icd::pb::Identifier, x::errors::Error>
 to_proto(const Identifier &value);
 std::pair<Identifier, x::errors::Error>
-identifier_from_proto(const ::service::library::pb::Identifier &pb);
+identifier_from_proto(const ::service::icd::pb::Identifier &pb);
 
 /// @brief BinaryField is a field read from a bit range of a binary payload.
 struct BinaryField : public BaseField {
@@ -212,11 +212,11 @@ struct BinaryField : public BaseField {
     static BinaryField parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::library::pb::BinaryField;
-    [[nodiscard]] std::pair<::service::library::pb::BinaryField, x::errors::Error>
+    using proto_type = ::service::icd::pb::BinaryField;
+    [[nodiscard]] std::pair<::service::icd::pb::BinaryField, x::errors::Error>
     to_proto() const;
     static std::pair<BinaryField, x::errors::Error>
-    from_proto(const ::service::library::pb::BinaryField &pb);
+    from_proto(const ::service::icd::pb::BinaryField &pb);
 };
 
 /// @brief DelimitedTextField is a field read from one item of a delimited text line.
@@ -228,12 +228,12 @@ struct DelimitedTextField : public BaseField {
     static DelimitedTextField parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::library::pb::TextFieldDelimitedPayload;
+    using proto_type = ::service::icd::pb::TextFieldDelimitedPayload;
     [[nodiscard]] std::
-        pair<::service::library::pb::TextFieldDelimitedPayload, x::errors::Error>
+        pair<::service::icd::pb::TextFieldDelimitedPayload, x::errors::Error>
         to_proto() const;
     static std::pair<DelimitedTextField, x::errors::Error>
-    from_proto(const ::service::library::pb::TextFieldDelimitedPayload &pb);
+    from_proto(const ::service::icd::pb::TextFieldDelimitedPayload &pb);
 };
 
 /// @brief TaggedTextField is a field read from the text that follows a tag.
@@ -245,12 +245,12 @@ struct TaggedTextField : public BaseField {
     static TaggedTextField parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::library::pb::TextFieldTaggedPayload;
+    using proto_type = ::service::icd::pb::TextFieldTaggedPayload;
     [[nodiscard]] std::
-        pair<::service::library::pb::TextFieldTaggedPayload, x::errors::Error>
+        pair<::service::icd::pb::TextFieldTaggedPayload, x::errors::Error>
         to_proto() const;
     static std::pair<TaggedTextField, x::errors::Error>
-    from_proto(const ::service::library::pb::TextFieldTaggedPayload &pb);
+    from_proto(const ::service::icd::pb::TextFieldTaggedPayload &pb);
 };
 
 /// @brief TextField is a field read from a text line.
@@ -258,10 +258,10 @@ using TextField = std::variant<DelimitedTextField, TaggedTextField>;
 
 TextField parse_text_field(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const TextField &value);
-[[nodiscard]] std::pair<::service::library::pb::TextField, x::errors::Error>
+[[nodiscard]] std::pair<::service::icd::pb::TextField, x::errors::Error>
 to_proto(const TextField &value);
 std::pair<TextField, x::errors::Error>
-text_field_from_proto(const ::service::library::pb::TextField &pb);
+text_field_from_proto(const ::service::icd::pb::TextField &pb);
 
 /// @brief BinaryPayload is a payload of raw bytes.
 struct BinaryPayload {
@@ -279,12 +279,11 @@ struct BinaryPayload {
     static BinaryPayload parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::library::pb::PayloadBinaryPayload;
-    [[nodiscard]] std::
-        pair<::service::library::pb::PayloadBinaryPayload, x::errors::Error>
-        to_proto() const;
+    using proto_type = ::service::icd::pb::PayloadBinaryPayload;
+    [[nodiscard]] std::pair<::service::icd::pb::PayloadBinaryPayload, x::errors::Error>
+    to_proto() const;
     static std::pair<BinaryPayload, x::errors::Error>
-    from_proto(const ::service::library::pb::PayloadBinaryPayload &pb);
+    from_proto(const ::service::icd::pb::PayloadBinaryPayload &pb);
 };
 
 /// @brief TextPayload is a payload of one text line.
@@ -302,12 +301,11 @@ struct TextPayload {
     static TextPayload parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::library::pb::PayloadTextPayload;
-    [[nodiscard]] std::
-        pair<::service::library::pb::PayloadTextPayload, x::errors::Error>
-        to_proto() const;
+    using proto_type = ::service::icd::pb::PayloadTextPayload;
+    [[nodiscard]] std::pair<::service::icd::pb::PayloadTextPayload, x::errors::Error>
+    to_proto() const;
     static std::pair<TextPayload, x::errors::Error>
-    from_proto(const ::service::library::pb::PayloadTextPayload &pb);
+    from_proto(const ::service::icd::pb::PayloadTextPayload &pb);
 };
 
 /// @brief Payload is the layout of a message's payload.
@@ -315,10 +313,10 @@ using Payload = std::variant<BinaryPayload, TextPayload>;
 
 Payload parse_payload(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const Payload &value);
-[[nodiscard]] std::pair<::service::library::pb::Payload, x::errors::Error>
+[[nodiscard]] std::pair<::service::icd::pb::Payload, x::errors::Error>
 to_proto(const Payload &value);
 std::pair<Payload, x::errors::Error>
-payload_from_proto(const ::service::library::pb::Payload &pb);
+payload_from_proto(const ::service::icd::pb::Payload &pb);
 
 /// @brief EnumEntry maps integer values to names.
 struct EnumEntry : public BaseEntry {
@@ -329,11 +327,11 @@ struct EnumEntry : public BaseEntry {
     static EnumEntry parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::library::pb::EntryEnumPayload;
-    [[nodiscard]] std::pair<::service::library::pb::EntryEnumPayload, x::errors::Error>
+    using proto_type = ::service::icd::pb::EntryEnumPayload;
+    [[nodiscard]] std::pair<::service::icd::pb::EntryEnumPayload, x::errors::Error>
     to_proto() const;
     static std::pair<EnumEntry, x::errors::Error>
-    from_proto(const ::service::library::pb::EntryEnumPayload &pb);
+    from_proto(const ::service::icd::pb::EntryEnumPayload &pb);
 };
 
 /// @brief MessageEntry is a frame layout on a bus or byte stream.
@@ -352,47 +350,49 @@ struct MessageEntry : public BaseEntry {
     static MessageEntry parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::library::pb::EntryMessagePayload;
-    [[nodiscard]] std::
-        pair<::service::library::pb::EntryMessagePayload, x::errors::Error>
-        to_proto() const;
+    using proto_type = ::service::icd::pb::EntryMessagePayload;
+    [[nodiscard]] std::pair<::service::icd::pb::EntryMessagePayload, x::errors::Error>
+    to_proto() const;
     static std::pair<MessageEntry, x::errors::Error>
-    from_proto(const ::service::library::pb::EntryMessagePayload &pb);
+    from_proto(const ::service::icd::pb::EntryMessagePayload &pb);
 };
 
-/// @brief Entry is one typed item in a library.
+/// @brief Entry is one typed item in an ICD.
 using Entry = std::variant<EnumEntry, MessageEntry>;
 
 Entry parse_entry(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const Entry &value);
-[[nodiscard]] std::pair<::service::library::pb::Entry, x::errors::Error>
+[[nodiscard]] std::pair<::service::icd::pb::Entry, x::errors::Error>
 to_proto(const Entry &value);
 std::pair<Entry, x::errors::Error>
-entry_from_proto(const ::service::library::pb::Entry &pb);
+entry_from_proto(const ::service::icd::pb::Entry &pb);
 
-/// @brief Library is a named, shared container of typed entries that tasks and other
-/// resources reference by key.
-struct Library {
-    /// @brief key is the unique identifier for the library.
+/// @brief ICD is an interface control document: the messages a device sends and
+/// receives on a bus or byte stream, and the enums that name their values.
+struct ICD {
+    /// @brief key is the unique identifier for the ICD.
     Key key;
-    /// @brief name is a human-readable name for the library.
+    /// @brief name is a human-readable name for the ICD.
     std::string name;
-    /// @brief entries are the entries the library holds.
+    /// @brief entries are the messages and enums the ICD holds.
     std::vector<Entry> entries = {};
+    /// @brief hash is the hash of the entries as the Core last stored them. A write
+    /// sends
+    /// the hash it read, and the Core rejects the write when the ICD changed since.
+    std::string hash = "";
 
-    static Library parse(x::json::Parser parser);
+    static ICD parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::library::pb::Library;
-    [[nodiscard]] std::pair<::service::library::pb::Library, x::errors::Error>
-    to_proto() const;
-    static std::pair<Library, x::errors::Error>
-    from_proto(const ::service::library::pb::Library &pb);
+    using proto_type = ::service::icd::pb::ICD;
+    [[nodiscard]] std::pair<::service::icd::pb::ICD, x::errors::Error> to_proto() const;
+    static std::pair<ICD, x::errors::Error>
+    from_proto(const ::service::icd::pb::ICD &pb);
 };
 
-const synnax::ontology::ID ONTOLOGY_TYPE("library", "");
+const synnax::ontology::ID ONTOLOGY_TYPE("icd", "");
 
 inline synnax::ontology::ID ontology_id(const Key &key) {
-    return synnax::ontology::ID("library", key.to_string());
+    return synnax::ontology::ID("icd", key.to_string());
 }
 }

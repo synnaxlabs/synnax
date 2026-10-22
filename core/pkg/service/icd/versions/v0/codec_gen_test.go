@@ -17,7 +17,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/library/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
@@ -225,6 +225,42 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v0.EnumValue{Value: 0, Name: ""}),
 		)
 	})
+	Describe("ICD", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.ICD) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.ICD
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v0.ICD{
+				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name: "test_2",
+				Entries: []v0.Entry{
+					{Variant: v0.EnumEntry{
+						BaseEntry: fullyPopulatedBaseEntry,
+						Values:    []v0.EnumValue{{Value: 6, Name: "test_6"}},
+					}},
+				},
+				Hash: "test_7",
+			}),
+			Entry("zero values", v0.ICD{
+				Key:     uuid.Nil(),
+				Name:    "",
+				Entries: []v0.Entry{},
+				Hash:    "",
+			}),
+			Entry("empty collections", v0.ICD{
+				Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name:    "test_2",
+				Entries: []v0.Entry{},
+				Hash:    "test_4",
+			}),
+		)
+	})
 	Describe("Identifier", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v0.Identifier) {
@@ -246,39 +282,6 @@ var _ = Describe("Codec", func() {
 				Field: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Value: 3,
 			}}),
-		)
-	})
-	Describe("Library", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v0.Library) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v0.Library
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", v0.Library{
-				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Name: "test_2",
-				Entries: []v0.Entry{
-					{Variant: v0.EnumEntry{
-						BaseEntry: fullyPopulatedBaseEntry,
-						Values:    []v0.EnumValue{{Value: 6, Name: "test_6"}},
-					}},
-				},
-			}),
-			Entry("zero values", v0.Library{
-				Key:     uuid.Nil(),
-				Name:    "",
-				Entries: []v0.Entry{},
-			}),
-			Entry("empty collections", v0.Library{
-				Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Name:    "test_2",
-				Entries: []v0.Entry{},
-			}),
 		)
 	})
 	Describe("Payload", func() {
@@ -339,10 +342,10 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v0.Reference{
-				Library:     new(v0.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"))),
-				LibraryHash: "test_2",
+				ICD:     new(v0.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"))),
+				ICDHash: "test_2",
 			}),
-			Entry("zero values", v0.Reference{Library: nil, LibraryHash: ""}),
+			Entry("zero values", v0.Reference{ICD: nil, ICDHash: ""}),
 		)
 	})
 	Describe("TextField", func() {
@@ -466,6 +469,33 @@ func BenchmarkEncodeDecodeEnumValue(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeDecodeICD(b *testing.B) {
+	seed := v0.ICD{
+		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Name: "test_2",
+		Entries: []v0.Entry{
+			{Variant: v0.EnumEntry{
+				BaseEntry: fullyPopulatedBaseEntry,
+				Values:    []v0.EnumValue{{Value: 6, Name: "test_6"}},
+			}},
+		},
+		Hash: "test_7",
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.ICD
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeIdentifier(b *testing.B) {
 	seed := v0.Identifier{Variant: v0.CanIdentifier{
 		ID:       2,
@@ -481,32 +511,6 @@ func BenchmarkEncodeDecodeIdentifier(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v0.Identifier
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeLibrary(b *testing.B) {
-	seed := v0.Library{
-		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-		Name: "test_2",
-		Entries: []v0.Entry{
-			{Variant: v0.EnumEntry{
-				BaseEntry: fullyPopulatedBaseEntry,
-				Values:    []v0.EnumValue{{Value: 6, Name: "test_6"}},
-			}},
-		},
-	}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v0.Library
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -560,8 +564,8 @@ func BenchmarkEncodeDecodePayload(b *testing.B) {
 
 func BenchmarkEncodeDecodeReference(b *testing.B) {
 	seed := v0.Reference{
-		Library:     new(v0.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"))),
-		LibraryHash: "test_2",
+		ICD:     new(v0.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"))),
+		ICDHash: "test_2",
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -911,6 +915,73 @@ func FuzzDecodeEnumValue(f *testing.F) {
 	})
 }
 
+func FuzzDecodeICD(f *testing.F) {
+	{
+		seed := v0.ICD{
+			Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Name: "test_2",
+			Entries: []v0.Entry{
+				{Variant: v0.EnumEntry{
+					BaseEntry: fullyPopulatedBaseEntry,
+					Values:    []v0.EnumValue{{Value: 6, Name: "test_6"}},
+				}},
+			},
+			Hash: "test_7",
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.ICD{
+			Key:     uuid.Nil(),
+			Name:    "",
+			Entries: []v0.Entry{},
+			Hash:    "",
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.ICD{
+			Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Name:    "test_2",
+			Entries: []v0.Entry{},
+			Hash:    "test_4",
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.ICD
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.ICD
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
 func FuzzDecodeIdentifier(f *testing.F) {
 	{
 		seed := v0.Identifier{Variant: v0.CanIdentifier{
@@ -948,70 +1019,6 @@ func FuzzDecodeIdentifier(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v0.Identifier
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !testutil.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeLibrary(f *testing.F) {
-	{
-		seed := v0.Library{
-			Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Name: "test_2",
-			Entries: []v0.Entry{
-				{Variant: v0.EnumEntry{
-					BaseEntry: fullyPopulatedBaseEntry,
-					Values:    []v0.EnumValue{{Value: 6, Name: "test_6"}},
-				}},
-			},
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v0.Library{
-			Key:     uuid.Nil(),
-			Name:    "",
-			Entries: []v0.Entry{},
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v0.Library{
-			Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Name:    "test_2",
-			Entries: []v0.Entry{},
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v0.Library
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v0.Library
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -1095,8 +1102,8 @@ func FuzzDecodePayload(f *testing.F) {
 func FuzzDecodeReference(f *testing.F) {
 	{
 		seed := v0.Reference{
-			Library:     new(v0.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"))),
-			LibraryHash: "test_2",
+			ICD:     new(v0.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"))),
+			ICDHash: "test_2",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1105,7 +1112,7 @@ func FuzzDecodeReference(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.Reference{Library: nil, LibraryHash: ""}
+		seed := v0.Reference{ICD: nil, ICDHash: ""}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)

@@ -11,12 +11,12 @@
 // versions:
 // 	protoc-gen-go v1.36.12
 // 	protoc        (unknown)
-// source: core/pkg/transport/grpc/library/library.proto
+// source: core/pkg/transport/grpc/icd/icd.proto
 
-package library
+package icd
 
 import (
-	pb "github.com/synnaxlabs/synnax/pkg/service/library/pb"
+	pb "github.com/synnaxlabs/synnax/pkg/service/icd/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -34,14 +34,14 @@ const (
 
 type CreateRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Libraries     []*pb.Library          `protobuf:"bytes,1,rep,name=libraries,proto3" json:"libraries,omitempty"`
+	Icds          []*pb.ICD              `protobuf:"bytes,1,rep,name=icds,proto3" json:"icds,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CreateRequest) Reset() {
 	*x = CreateRequest{}
-	mi := &file_core_pkg_transport_grpc_library_library_proto_msgTypes[0]
+	mi := &file_core_pkg_transport_grpc_icd_icd_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -53,7 +53,7 @@ func (x *CreateRequest) String() string {
 func (*CreateRequest) ProtoMessage() {}
 
 func (x *CreateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_library_library_proto_msgTypes[0]
+	mi := &file_core_pkg_transport_grpc_icd_icd_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -66,26 +66,26 @@ func (x *CreateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateRequest.ProtoReflect.Descriptor instead.
 func (*CreateRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_library_library_proto_rawDescGZIP(), []int{0}
+	return file_core_pkg_transport_grpc_icd_icd_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *CreateRequest) GetLibraries() []*pb.Library {
+func (x *CreateRequest) GetIcds() []*pb.ICD {
 	if x != nil {
-		return x.Libraries
+		return x.Icds
 	}
 	return nil
 }
 
 type CreateResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Libraries     []*pb.Library          `protobuf:"bytes,1,rep,name=libraries,proto3" json:"libraries,omitempty"`
+	Icds          []*pb.ICD              `protobuf:"bytes,1,rep,name=icds,proto3" json:"icds,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CreateResponse) Reset() {
 	*x = CreateResponse{}
-	mi := &file_core_pkg_transport_grpc_library_library_proto_msgTypes[1]
+	mi := &file_core_pkg_transport_grpc_icd_icd_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -97,7 +97,7 @@ func (x *CreateResponse) String() string {
 func (*CreateResponse) ProtoMessage() {}
 
 func (x *CreateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_library_library_proto_msgTypes[1]
+	mi := &file_core_pkg_transport_grpc_icd_icd_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -110,12 +110,12 @@ func (x *CreateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateResponse.ProtoReflect.Descriptor instead.
 func (*CreateResponse) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_library_library_proto_rawDescGZIP(), []int{1}
+	return file_core_pkg_transport_grpc_icd_icd_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *CreateResponse) GetLibraries() []*pb.Library {
+func (x *CreateResponse) GetIcds() []*pb.ICD {
 	if x != nil {
-		return x.Libraries
+		return x.Icds
 	}
 	return nil
 }
@@ -132,7 +132,7 @@ type RetrieveRequest struct {
 
 func (x *RetrieveRequest) Reset() {
 	*x = RetrieveRequest{}
-	mi := &file_core_pkg_transport_grpc_library_library_proto_msgTypes[2]
+	mi := &file_core_pkg_transport_grpc_icd_icd_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -144,7 +144,7 @@ func (x *RetrieveRequest) String() string {
 func (*RetrieveRequest) ProtoMessage() {}
 
 func (x *RetrieveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_library_library_proto_msgTypes[2]
+	mi := &file_core_pkg_transport_grpc_icd_icd_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -157,7 +157,7 @@ func (x *RetrieveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RetrieveRequest.ProtoReflect.Descriptor instead.
 func (*RetrieveRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_library_library_proto_rawDescGZIP(), []int{2}
+	return file_core_pkg_transport_grpc_icd_icd_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *RetrieveRequest) GetKeys() []string {
@@ -190,14 +190,14 @@ func (x *RetrieveRequest) GetOffset() int32 {
 
 type RetrieveResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Libraries     []*pb.Library          `protobuf:"bytes,1,rep,name=libraries,proto3" json:"libraries,omitempty"`
+	Icds          []*pb.ICD              `protobuf:"bytes,1,rep,name=icds,proto3" json:"icds,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RetrieveResponse) Reset() {
 	*x = RetrieveResponse{}
-	mi := &file_core_pkg_transport_grpc_library_library_proto_msgTypes[3]
+	mi := &file_core_pkg_transport_grpc_icd_icd_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -209,7 +209,7 @@ func (x *RetrieveResponse) String() string {
 func (*RetrieveResponse) ProtoMessage() {}
 
 func (x *RetrieveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_library_library_proto_msgTypes[3]
+	mi := &file_core_pkg_transport_grpc_icd_icd_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -222,12 +222,12 @@ func (x *RetrieveResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RetrieveResponse.ProtoReflect.Descriptor instead.
 func (*RetrieveResponse) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_library_library_proto_rawDescGZIP(), []int{3}
+	return file_core_pkg_transport_grpc_icd_icd_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *RetrieveResponse) GetLibraries() []*pb.Library {
+func (x *RetrieveResponse) GetIcds() []*pb.ICD {
 	if x != nil {
-		return x.Libraries
+		return x.Icds
 	}
 	return nil
 }
@@ -241,7 +241,7 @@ type DeleteRequest struct {
 
 func (x *DeleteRequest) Reset() {
 	*x = DeleteRequest{}
-	mi := &file_core_pkg_transport_grpc_library_library_proto_msgTypes[4]
+	mi := &file_core_pkg_transport_grpc_icd_icd_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -253,7 +253,7 @@ func (x *DeleteRequest) String() string {
 func (*DeleteRequest) ProtoMessage() {}
 
 func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_library_library_proto_msgTypes[4]
+	mi := &file_core_pkg_transport_grpc_icd_icd_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -266,7 +266,7 @@ func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRequest.ProtoReflect.Descriptor instead.
 func (*DeleteRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_library_library_proto_rawDescGZIP(), []int{4}
+	return file_core_pkg_transport_grpc_icd_icd_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *DeleteRequest) GetKeys() []string {
@@ -276,65 +276,65 @@ func (x *DeleteRequest) GetKeys() []string {
 	return nil
 }
 
-var File_core_pkg_transport_grpc_library_library_proto protoreflect.FileDescriptor
+var File_core_pkg_transport_grpc_icd_icd_proto protoreflect.FileDescriptor
 
-const file_core_pkg_transport_grpc_library_library_proto_rawDesc = "" +
+const file_core_pkg_transport_grpc_icd_icd_proto_rawDesc = "" +
 	"\n" +
-	"-core/pkg/transport/grpc/library/library.proto\x12\fgrpc.library\x1a)core/pkg/service/library/pb/library.proto\x1a\x1bgoogle/protobuf/empty.proto\"J\n" +
-	"\rCreateRequest\x129\n" +
-	"\tlibraries\x18\x01 \x03(\v2\x1b.service.library.pb.LibraryR\tlibraries\"K\n" +
-	"\x0eCreateResponse\x129\n" +
-	"\tlibraries\x18\x01 \x03(\v2\x1b.service.library.pb.LibraryR\tlibraries\"t\n" +
+	"%core/pkg/transport/grpc/icd/icd.proto\x12\bgrpc.icd\x1a!core/pkg/service/icd/pb/icd.proto\x1a\x1bgoogle/protobuf/empty.proto\"8\n" +
+	"\rCreateRequest\x12'\n" +
+	"\x04icds\x18\x01 \x03(\v2\x13.service.icd.pb.ICDR\x04icds\"9\n" +
+	"\x0eCreateResponse\x12'\n" +
+	"\x04icds\x18\x01 \x03(\v2\x13.service.icd.pb.ICDR\x04icds\"t\n" +
 	"\x0fRetrieveRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\tR\x04keys\x12\x1f\n" +
 	"\vsearch_term\x18\x02 \x01(\tR\n" +
 	"searchTerm\x12\x14\n" +
 	"\x05limit\x18\x03 \x01(\x05R\x05limit\x12\x16\n" +
-	"\x06offset\x18\x04 \x01(\x05R\x06offset\"M\n" +
-	"\x10RetrieveResponse\x129\n" +
-	"\tlibraries\x18\x01 \x03(\v2\x1b.service.library.pb.LibraryR\tlibraries\"#\n" +
+	"\x06offset\x18\x04 \x01(\x05R\x06offset\";\n" +
+	"\x10RetrieveResponse\x12'\n" +
+	"\x04icds\x18\x01 \x03(\v2\x13.service.icd.pb.ICDR\x04icds\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
-	"\x04keys\x18\x01 \x03(\tR\x04keys2Y\n" +
-	"\x14LibraryCreateService\x12A\n" +
-	"\x04Exec\x12\x1b.grpc.library.CreateRequest\x1a\x1c.grpc.library.CreateResponse2_\n" +
-	"\x16LibraryRetrieveService\x12E\n" +
-	"\x04Exec\x12\x1d.grpc.library.RetrieveRequest\x1a\x1e.grpc.library.RetrieveResponse2S\n" +
-	"\x14LibraryDeleteService\x12;\n" +
-	"\x04Exec\x12\x1b.grpc.library.DeleteRequest\x1a\x16.google.protobuf.EmptyB\xaa\x01\n" +
-	"\x10com.grpc.libraryB\fLibraryProtoP\x01Z7github.com/synnaxlabs/synnax/pkg/transport/grpc/library\xa2\x02\x03GLX\xaa\x02\fGrpc.Library\xca\x02\fGrpc\\Library\xe2\x02\x18Grpc\\Library\\GPBMetadata\xea\x02\rGrpc::Libraryb\x06proto3"
+	"\x04keys\x18\x01 \x03(\tR\x04keys2M\n" +
+	"\x10ICDCreateService\x129\n" +
+	"\x04Exec\x12\x17.grpc.icd.CreateRequest\x1a\x18.grpc.icd.CreateResponse2S\n" +
+	"\x12ICDRetrieveService\x12=\n" +
+	"\x04Exec\x12\x19.grpc.icd.RetrieveRequest\x1a\x1a.grpc.icd.RetrieveResponse2K\n" +
+	"\x10ICDDeleteService\x127\n" +
+	"\x04Exec\x12\x17.grpc.icd.DeleteRequest\x1a\x16.google.protobuf.EmptyB\x8e\x01\n" +
+	"\fcom.grpc.icdB\bIcdProtoP\x01Z3github.com/synnaxlabs/synnax/pkg/transport/grpc/icd\xa2\x02\x03GIX\xaa\x02\bGrpc.Icd\xca\x02\bGrpc\\Icd\xe2\x02\x14Grpc\\Icd\\GPBMetadata\xea\x02\tGrpc::Icdb\x06proto3"
 
 var (
-	file_core_pkg_transport_grpc_library_library_proto_rawDescOnce sync.Once
-	file_core_pkg_transport_grpc_library_library_proto_rawDescData []byte
+	file_core_pkg_transport_grpc_icd_icd_proto_rawDescOnce sync.Once
+	file_core_pkg_transport_grpc_icd_icd_proto_rawDescData []byte
 )
 
-func file_core_pkg_transport_grpc_library_library_proto_rawDescGZIP() []byte {
-	file_core_pkg_transport_grpc_library_library_proto_rawDescOnce.Do(func() {
-		file_core_pkg_transport_grpc_library_library_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_core_pkg_transport_grpc_library_library_proto_rawDesc), len(file_core_pkg_transport_grpc_library_library_proto_rawDesc)))
+func file_core_pkg_transport_grpc_icd_icd_proto_rawDescGZIP() []byte {
+	file_core_pkg_transport_grpc_icd_icd_proto_rawDescOnce.Do(func() {
+		file_core_pkg_transport_grpc_icd_icd_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_core_pkg_transport_grpc_icd_icd_proto_rawDesc), len(file_core_pkg_transport_grpc_icd_icd_proto_rawDesc)))
 	})
-	return file_core_pkg_transport_grpc_library_library_proto_rawDescData
+	return file_core_pkg_transport_grpc_icd_icd_proto_rawDescData
 }
 
-var file_core_pkg_transport_grpc_library_library_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
-var file_core_pkg_transport_grpc_library_library_proto_goTypes = []any{
-	(*CreateRequest)(nil),    // 0: grpc.library.CreateRequest
-	(*CreateResponse)(nil),   // 1: grpc.library.CreateResponse
-	(*RetrieveRequest)(nil),  // 2: grpc.library.RetrieveRequest
-	(*RetrieveResponse)(nil), // 3: grpc.library.RetrieveResponse
-	(*DeleteRequest)(nil),    // 4: grpc.library.DeleteRequest
-	(*pb.Library)(nil),       // 5: service.library.pb.Library
+var file_core_pkg_transport_grpc_icd_icd_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_core_pkg_transport_grpc_icd_icd_proto_goTypes = []any{
+	(*CreateRequest)(nil),    // 0: grpc.icd.CreateRequest
+	(*CreateResponse)(nil),   // 1: grpc.icd.CreateResponse
+	(*RetrieveRequest)(nil),  // 2: grpc.icd.RetrieveRequest
+	(*RetrieveResponse)(nil), // 3: grpc.icd.RetrieveResponse
+	(*DeleteRequest)(nil),    // 4: grpc.icd.DeleteRequest
+	(*pb.ICD)(nil),           // 5: service.icd.pb.ICD
 	(*emptypb.Empty)(nil),    // 6: google.protobuf.Empty
 }
-var file_core_pkg_transport_grpc_library_library_proto_depIdxs = []int32{
-	5, // 0: grpc.library.CreateRequest.libraries:type_name -> service.library.pb.Library
-	5, // 1: grpc.library.CreateResponse.libraries:type_name -> service.library.pb.Library
-	5, // 2: grpc.library.RetrieveResponse.libraries:type_name -> service.library.pb.Library
-	0, // 3: grpc.library.LibraryCreateService.Exec:input_type -> grpc.library.CreateRequest
-	2, // 4: grpc.library.LibraryRetrieveService.Exec:input_type -> grpc.library.RetrieveRequest
-	4, // 5: grpc.library.LibraryDeleteService.Exec:input_type -> grpc.library.DeleteRequest
-	1, // 6: grpc.library.LibraryCreateService.Exec:output_type -> grpc.library.CreateResponse
-	3, // 7: grpc.library.LibraryRetrieveService.Exec:output_type -> grpc.library.RetrieveResponse
-	6, // 8: grpc.library.LibraryDeleteService.Exec:output_type -> google.protobuf.Empty
+var file_core_pkg_transport_grpc_icd_icd_proto_depIdxs = []int32{
+	5, // 0: grpc.icd.CreateRequest.icds:type_name -> service.icd.pb.ICD
+	5, // 1: grpc.icd.CreateResponse.icds:type_name -> service.icd.pb.ICD
+	5, // 2: grpc.icd.RetrieveResponse.icds:type_name -> service.icd.pb.ICD
+	0, // 3: grpc.icd.ICDCreateService.Exec:input_type -> grpc.icd.CreateRequest
+	2, // 4: grpc.icd.ICDRetrieveService.Exec:input_type -> grpc.icd.RetrieveRequest
+	4, // 5: grpc.icd.ICDDeleteService.Exec:input_type -> grpc.icd.DeleteRequest
+	1, // 6: grpc.icd.ICDCreateService.Exec:output_type -> grpc.icd.CreateResponse
+	3, // 7: grpc.icd.ICDRetrieveService.Exec:output_type -> grpc.icd.RetrieveResponse
+	6, // 8: grpc.icd.ICDDeleteService.Exec:output_type -> google.protobuf.Empty
 	6, // [6:9] is the sub-list for method output_type
 	3, // [3:6] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name
@@ -342,26 +342,26 @@ var file_core_pkg_transport_grpc_library_library_proto_depIdxs = []int32{
 	0, // [0:3] is the sub-list for field type_name
 }
 
-func init() { file_core_pkg_transport_grpc_library_library_proto_init() }
-func file_core_pkg_transport_grpc_library_library_proto_init() {
-	if File_core_pkg_transport_grpc_library_library_proto != nil {
+func init() { file_core_pkg_transport_grpc_icd_icd_proto_init() }
+func file_core_pkg_transport_grpc_icd_icd_proto_init() {
+	if File_core_pkg_transport_grpc_icd_icd_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_transport_grpc_library_library_proto_rawDesc), len(file_core_pkg_transport_grpc_library_library_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_transport_grpc_icd_icd_proto_rawDesc), len(file_core_pkg_transport_grpc_icd_icd_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   3,
 		},
-		GoTypes:           file_core_pkg_transport_grpc_library_library_proto_goTypes,
-		DependencyIndexes: file_core_pkg_transport_grpc_library_library_proto_depIdxs,
-		MessageInfos:      file_core_pkg_transport_grpc_library_library_proto_msgTypes,
+		GoTypes:           file_core_pkg_transport_grpc_icd_icd_proto_goTypes,
+		DependencyIndexes: file_core_pkg_transport_grpc_icd_icd_proto_depIdxs,
+		MessageInfos:      file_core_pkg_transport_grpc_icd_icd_proto_msgTypes,
 	}.Build()
-	File_core_pkg_transport_grpc_library_library_proto = out.File
-	file_core_pkg_transport_grpc_library_library_proto_goTypes = nil
-	file_core_pkg_transport_grpc_library_library_proto_depIdxs = nil
+	File_core_pkg_transport_grpc_icd_icd_proto = out.File
+	file_core_pkg_transport_grpc_icd_icd_proto_goTypes = nil
+	file_core_pkg_transport_grpc_icd_icd_proto_depIdxs = nil
 }

@@ -17,7 +17,7 @@ import (
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/device/versions/v0"
-	library "github.com/synnaxlabs/synnax/pkg/service/library/versions/v0"
+	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -27,7 +27,7 @@ import (
 // ReadField maps one decoded message field to a channel.
 type ReadField struct {
 	// Field is the key of the field within its message.
-	Field library.FieldKey `json:"field" msgpack:"field"`
+	Field icd.FieldKey `json:"field" msgpack:"field"`
 	// Channel is the channel the field's decoded values are written to.
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 }
@@ -35,7 +35,7 @@ type ReadField struct {
 // ReadMessage is one library message a read task decodes.
 type ReadMessage struct {
 	// Message is the key of the message entry in the task's library.
-	Message library.EntryKey `json:"message" msgpack:"message"`
+	Message icd.EntryKey `json:"message" msgpack:"message"`
 	// Disabled is true when the task ignores the message.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
 	// Index is the index channel stamped with the time each message arrives.
@@ -48,7 +48,7 @@ type ReadMessage struct {
 // sent as zero.
 type WriteField struct {
 	// Field is the key of the field within its message.
-	Field library.FieldKey `json:"field" msgpack:"field"`
+	Field icd.FieldKey `json:"field" msgpack:"field"`
 	// Channel is the command channel whose values are encoded into the field.
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 }
@@ -57,7 +57,7 @@ type WriteField struct {
 // sent on that period, and one without is sent when a command channel changes.
 type WriteMessage struct {
 	// Message is the key of the message entry in the task's library.
-	Message library.EntryKey `json:"message" msgpack:"message"`
+	Message icd.EntryKey `json:"message" msgpack:"message"`
 	// Disabled is true when the task does not send the message.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
 	// Fields are the fields of the message driven by command channels.
@@ -67,7 +67,7 @@ type WriteMessage struct {
 // ReadConfig carries the settings every bus read task shares.
 type ReadConfig struct {
 	task.PersistConfig
-	library.Reference
+	icd.Reference
 	// Device is the key of the device the task reads from.
 	Device device.Key `json:"device" msgpack:"device"`
 	// Raw is the virtual bytes channel every received frame is written to, known or
@@ -80,7 +80,7 @@ type ReadConfig struct {
 // WriteConfig carries the settings every bus write task shares.
 type WriteConfig struct {
 	task.WriteConfig
-	library.Reference
+	icd.Reference
 	// Messages are the messages the task sends.
 	Messages []WriteMessage `json:"messages" msgpack:"messages"`
 }
@@ -179,14 +179,14 @@ type SyncFraming struct {
 	// LengthSize is the size of the length field in bytes: 1, 2, or 4.
 	LengthSize uint8 `json:"length_size" msgpack:"length_size"`
 	// ByteOrder is the byte order of the length field.
-	ByteOrder library.ByteOrder `json:"byte_order" msgpack:"byte_order"`
+	ByteOrder icd.ByteOrder `json:"byte_order" msgpack:"byte_order"`
 	// LengthAdjustment is added to the length field to get the number of bytes that
 	// follow the length field, checksum included.
 	LengthAdjustment int32 `json:"length_adjustment" msgpack:"length_adjustment"`
 	// Checksum is the checksum that ends each frame.
 	Checksum Checksum `json:"checksum" msgpack:"checksum"`
 	// ChecksumByteOrder is the byte order of the checksum.
-	ChecksumByteOrder library.ByteOrder `json:"checksum_byte_order" msgpack:"checksum_byte_order"`
+	ChecksumByteOrder icd.ByteOrder `json:"checksum_byte_order" msgpack:"checksum_byte_order"`
 }
 
 func (SyncFraming) isFramingVariant() {}
@@ -197,13 +197,13 @@ func (s *SyncFraming) ApplyDefaults() {
 		s.LengthSize = 1
 	}
 	if s.ByteOrder == "" {
-		s.ByteOrder = library.ByteOrderLittleEndian
+		s.ByteOrder = icd.ByteOrderLittleEndian
 	}
 	if s.Checksum == "" {
 		s.Checksum = ChecksumNone
 	}
 	if s.ChecksumByteOrder == "" {
-		s.ChecksumByteOrder = library.ByteOrderLittleEndian
+		s.ChecksumByteOrder = icd.ByteOrderLittleEndian
 	}
 }
 

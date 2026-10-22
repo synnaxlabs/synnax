@@ -46,26 +46,26 @@ class EnumValue(BaseModel):
 
 
 class Reference(BaseModel):
-    """Is embedded in the config of a task that uses a library. A task uses at most one
-    library.
+    """Is embedded in the config of a task that uses an ICD. A task uses at most one
+    ICD.
 
     Attributes:
-        library: Is the key of the library the task reads its layouts from. When absent
-            the task uses no library yet.
-        library_hash: Is the hash of the library's entries, stamped by the Core when the
-            task or the library is written.
+        icd: Is the key of the ICD the task reads its messages from. When absent the
+            task uses no ICD yet.
+        icd_hash: Is the hash of the ICD entries the task uses, stamped by the Core when
+            the task or the ICD is written.
     """
 
-    library: Key | None = None
-    library_hash: str = ""
+    icd: Key | None = None
+    icd_hash: str = ""
 
 
 class BaseEntry(BaseModel):
-    """Carries the parts every library entry shares.
+    """Carries the parts every ICD entry shares.
 
     Attributes:
-        key: Is the unique identifier for the entry within its library.
-        name: Is the name of the entry, unique within its library.
+        key: Is the unique identifier for the entry within its ICD.
+        name: Is the name of the entry, unique within its ICD.
     """
 
     key: EntryKey = Field(default_factory=uuid4)
@@ -144,7 +144,7 @@ class BinaryField(BaseField):
     """
 
     start_bit: int = Field(default=0, ge=0, le=65535)
-    bit_length: int = Field(default=8, ge=0, le=255)
+    bit_length: int = Field(ge=1, le=64, default=8)
     byte_order: ByteOrder = "little_endian"
     signed: bool = False
     float: bool = False
@@ -184,7 +184,7 @@ class TextPayload(BaseModel):
     """Is a payload of one text line."""
 
     format: Literal["text"] = "text"
-    delimiter: str = ","
+    delimiter: str = Field(min_length=1, default=",")
     prefix: str = ""
     fields: list[TextField] = Field(default_factory=list)
 
@@ -214,33 +214,36 @@ class MessageEntry(BaseEntry):
     query: str | None = None
 
 
-# Is one typed item in a library.
+# Is one typed item in an ICD.
 Entry = Annotated[
     EnumEntry | MessageEntry,
     Field(discriminator="kind"),
 ]
 
 
-class Library(BaseModel):
-    """Is a named, shared container of typed entries that tasks and other resources
-    reference by key.
+class ICD(BaseModel):
+    """Is an interface control document: the messages a device sends and receives on a
+    bus or byte stream, and the enums that name their values.
 
     Attributes:
-        key: Is the unique identifier for the library.
-        name: Is a human-readable name for the library.
-        entries: Are the entries the library holds.
+        key: Is the unique identifier for the ICD.
+        name: Is a human-readable name for the ICD.
+        entries: Are the messages and enums the ICD holds.
+        hash: Is the hash of the entries as the Core last stored them. A write sends the
+            hash it read, and the Core rejects the write when the ICD changed since.
     """
 
     key: Key = Field(default_factory=uuid4)
     name: str = Field(min_length=1)
     entries: list[Entry] = Field(default_factory=list)
+    hash: str = ""
 
     def __hash__(self) -> int:
         return hash(self.key)
 
 
-ONTOLOGY_TYPE = ID(type="library")
+ONTOLOGY_TYPE = ID(type="icd")
 
 
 def ontology_id(key: Key) -> ID:
-    return ID(type="library", key=str(key))
+    return ID(type="icd", key=str(key))

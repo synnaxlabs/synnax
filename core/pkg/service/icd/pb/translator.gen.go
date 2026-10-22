@@ -14,13 +14,13 @@ package pb
 import (
 	"uuid"
 
-	"github.com/synnaxlabs/synnax/pkg/service/library"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 
 // EnumValueToPB converts EnumValue to EnumValue.
-func EnumValueToPB(r library.EnumValue) (*EnumValue, error) {
+func EnumValueToPB(r icd.EnumValue) (*EnumValue, error) {
 	pb := &EnumValue{
 		Value: r.Value,
 		Name:  r.Name,
@@ -29,8 +29,8 @@ func EnumValueToPB(r library.EnumValue) (*EnumValue, error) {
 }
 
 // EnumValueFromPB converts EnumValue to EnumValue.
-func EnumValueFromPB(pb *EnumValue) (library.EnumValue, error) {
-	var r library.EnumValue
+func EnumValueFromPB(pb *EnumValue) (icd.EnumValue, error) {
+	var r icd.EnumValue
 	if pb == nil {
 		return r, nil
 	}
@@ -40,7 +40,7 @@ func EnumValueFromPB(pb *EnumValue) (library.EnumValue, error) {
 }
 
 // EnumValuesToPB converts a slice of EnumValue to EnumValue.
-func EnumValuesToPB(rs []library.EnumValue) ([]*EnumValue, error) {
+func EnumValuesToPB(rs []icd.EnumValue) ([]*EnumValue, error) {
 	result := make([]*EnumValue, len(rs))
 	for i := range rs {
 		var err error
@@ -53,8 +53,8 @@ func EnumValuesToPB(rs []library.EnumValue) ([]*EnumValue, error) {
 }
 
 // EnumValuesFromPB converts a slice of EnumValue to EnumValue.
-func EnumValuesFromPB(pbs []*EnumValue) ([]library.EnumValue, error) {
-	result := make([]library.EnumValue, len(pbs))
+func EnumValuesFromPB(pbs []*EnumValue) ([]icd.EnumValue, error) {
+	result := make([]icd.EnumValue, len(pbs))
 	for i, pb := range pbs {
 		var err error
 		result[i], err = EnumValueFromPB(pb)
@@ -66,7 +66,7 @@ func EnumValuesFromPB(pbs []*EnumValue) ([]library.EnumValue, error) {
 }
 
 // BaseFieldToPB converts BaseField to BaseField.
-func BaseFieldToPB(r library.BaseField) (*BaseField, error) {
+func BaseFieldToPB(r icd.BaseField) (*BaseField, error) {
 	pb := &BaseField{
 		Name:            r.Name,
 		Scale:           r.Scale,
@@ -93,17 +93,17 @@ func BaseFieldToPB(r library.BaseField) (*BaseField, error) {
 }
 
 // BaseFieldFromPB converts BaseField to BaseField.
-func BaseFieldFromPB(pb *BaseField) (library.BaseField, error) {
-	var r library.BaseField
+func BaseFieldFromPB(pb *BaseField) (icd.BaseField, error) {
+	var r icd.BaseField
 	if pb == nil {
 		return r, nil
 	}
 	var err error
 	parsedKey, err := uuid.Parse(pb.Key)
 	if err != nil {
-		return library.BaseField{}, err
+		return icd.BaseField{}, err
 	}
-	r.Key = library.FieldKey(parsedKey)
+	r.Key = icd.FieldKey(parsedKey)
 	r.Name = pb.Name
 	r.Scale = pb.Scale
 	r.Offset = pb.Offset
@@ -112,7 +112,7 @@ func BaseFieldFromPB(pb *BaseField) (library.BaseField, error) {
 	if pb.Enumeration != nil {
 		parsed, err := uuid.Parse(*pb.Enumeration)
 		if err != nil {
-			return library.BaseField{}, err
+			return icd.BaseField{}, err
 		}
 		v := parsed
 		r.Enumeration = &v
@@ -120,7 +120,7 @@ func BaseFieldFromPB(pb *BaseField) (library.BaseField, error) {
 	if pb.Multiplexor != nil {
 		parsed, err := uuid.Parse(*pb.Multiplexor)
 		if err != nil {
-			return library.BaseField{}, err
+			return icd.BaseField{}, err
 		}
 		v := parsed
 		r.Multiplexor = &v
@@ -135,7 +135,7 @@ func BaseFieldFromPB(pb *BaseField) (library.BaseField, error) {
 }
 
 // BaseFieldsToPB converts a slice of BaseField to BaseField.
-func BaseFieldsToPB(rs []library.BaseField) ([]*BaseField, error) {
+func BaseFieldsToPB(rs []icd.BaseField) ([]*BaseField, error) {
 	result := make([]*BaseField, len(rs))
 	for i := range rs {
 		var err error
@@ -148,8 +148,8 @@ func BaseFieldsToPB(rs []library.BaseField) ([]*BaseField, error) {
 }
 
 // BaseFieldsFromPB converts a slice of BaseField to BaseField.
-func BaseFieldsFromPB(pbs []*BaseField) ([]library.BaseField, error) {
-	result := make([]library.BaseField, len(pbs))
+func BaseFieldsFromPB(pbs []*BaseField) ([]icd.BaseField, error) {
+	result := make([]icd.BaseField, len(pbs))
 	for i, pb := range pbs {
 		var err error
 		result[i], err = BaseFieldFromPB(pb)
@@ -161,7 +161,7 @@ func BaseFieldsFromPB(pbs []*BaseField) ([]library.BaseField, error) {
 }
 
 // BinaryFieldToPB converts BinaryField to BinaryField.
-func BinaryFieldToPB(r library.BinaryField) (*BinaryField, error) {
+func BinaryFieldToPB(r icd.BinaryField) (*BinaryField, error) {
 	byteOrderVal, err := ByteOrderToPB(r.ByteOrder)
 	if err != nil {
 		return nil, err
@@ -197,20 +197,20 @@ func BinaryFieldToPB(r library.BinaryField) (*BinaryField, error) {
 }
 
 // BinaryFieldFromPB converts BinaryField to BinaryField.
-func BinaryFieldFromPB(pb *BinaryField) (library.BinaryField, error) {
-	var r library.BinaryField
+func BinaryFieldFromPB(pb *BinaryField) (icd.BinaryField, error) {
+	var r icd.BinaryField
 	if pb == nil {
 		return r, nil
 	}
 	var err error
 	parsedKey, err := uuid.Parse(pb.Key)
 	if err != nil {
-		return library.BinaryField{}, err
+		return icd.BinaryField{}, err
 	}
-	r.Key = library.FieldKey(parsedKey)
+	r.Key = icd.FieldKey(parsedKey)
 	r.ByteOrder, err = ByteOrderFromPB(pb.ByteOrder)
 	if err != nil {
-		return library.BinaryField{}, err
+		return icd.BinaryField{}, err
 	}
 	r.Name = pb.Name
 	r.Scale = pb.Scale
@@ -224,7 +224,7 @@ func BinaryFieldFromPB(pb *BinaryField) (library.BinaryField, error) {
 	if pb.Enumeration != nil {
 		parsed, err := uuid.Parse(*pb.Enumeration)
 		if err != nil {
-			return library.BinaryField{}, err
+			return icd.BinaryField{}, err
 		}
 		v := parsed
 		r.Enumeration = &v
@@ -232,7 +232,7 @@ func BinaryFieldFromPB(pb *BinaryField) (library.BinaryField, error) {
 	if pb.Multiplexor != nil {
 		parsed, err := uuid.Parse(*pb.Multiplexor)
 		if err != nil {
-			return library.BinaryField{}, err
+			return icd.BinaryField{}, err
 		}
 		v := parsed
 		r.Multiplexor = &v
@@ -247,7 +247,7 @@ func BinaryFieldFromPB(pb *BinaryField) (library.BinaryField, error) {
 }
 
 // BinaryFieldsToPB converts a slice of BinaryField to BinaryField.
-func BinaryFieldsToPB(rs []library.BinaryField) ([]*BinaryField, error) {
+func BinaryFieldsToPB(rs []icd.BinaryField) ([]*BinaryField, error) {
 	result := make([]*BinaryField, len(rs))
 	for i := range rs {
 		var err error
@@ -260,8 +260,8 @@ func BinaryFieldsToPB(rs []library.BinaryField) ([]*BinaryField, error) {
 }
 
 // BinaryFieldsFromPB converts a slice of BinaryField to BinaryField.
-func BinaryFieldsFromPB(pbs []*BinaryField) ([]library.BinaryField, error) {
-	result := make([]library.BinaryField, len(pbs))
+func BinaryFieldsFromPB(pbs []*BinaryField) ([]icd.BinaryField, error) {
+	result := make([]icd.BinaryField, len(pbs))
 	for i, pb := range pbs {
 		var err error
 		result[i], err = BinaryFieldFromPB(pb)
@@ -273,7 +273,7 @@ func BinaryFieldsFromPB(pbs []*BinaryField) ([]library.BinaryField, error) {
 }
 
 // BaseEntryToPB converts BaseEntry to BaseEntry.
-func BaseEntryToPB(r library.BaseEntry) (*BaseEntry, error) {
+func BaseEntryToPB(r icd.BaseEntry) (*BaseEntry, error) {
 	pb := &BaseEntry{
 		Name: r.Name,
 		Key:  r.Key.String(),
@@ -282,23 +282,23 @@ func BaseEntryToPB(r library.BaseEntry) (*BaseEntry, error) {
 }
 
 // BaseEntryFromPB converts BaseEntry to BaseEntry.
-func BaseEntryFromPB(pb *BaseEntry) (library.BaseEntry, error) {
-	var r library.BaseEntry
+func BaseEntryFromPB(pb *BaseEntry) (icd.BaseEntry, error) {
+	var r icd.BaseEntry
 	if pb == nil {
 		return r, nil
 	}
 	var err error
 	parsedKey, err := uuid.Parse(pb.Key)
 	if err != nil {
-		return library.BaseEntry{}, err
+		return icd.BaseEntry{}, err
 	}
-	r.Key = library.EntryKey(parsedKey)
+	r.Key = icd.EntryKey(parsedKey)
 	r.Name = pb.Name
 	return r, nil
 }
 
 // BaseEntriesToPB converts a slice of BaseEntry to BaseEntry.
-func BaseEntriesToPB(rs []library.BaseEntry) ([]*BaseEntry, error) {
+func BaseEntriesToPB(rs []icd.BaseEntry) ([]*BaseEntry, error) {
 	result := make([]*BaseEntry, len(rs))
 	for i := range rs {
 		var err error
@@ -311,8 +311,8 @@ func BaseEntriesToPB(rs []library.BaseEntry) ([]*BaseEntry, error) {
 }
 
 // BaseEntriesFromPB converts a slice of BaseEntry to BaseEntry.
-func BaseEntriesFromPB(pbs []*BaseEntry) ([]library.BaseEntry, error) {
-	result := make([]library.BaseEntry, len(pbs))
+func BaseEntriesFromPB(pbs []*BaseEntry) ([]icd.BaseEntry, error) {
+	result := make([]icd.BaseEntry, len(pbs))
 	for i, pb := range pbs {
 		var err error
 		result[i], err = BaseEntryFromPB(pb)
@@ -323,46 +323,48 @@ func BaseEntriesFromPB(pbs []*BaseEntry) ([]library.BaseEntry, error) {
 	return result, nil
 }
 
-// LibraryToPB converts Library to Library.
-func LibraryToPB(r library.Library) (*Library, error) {
+// ICDToPB converts ICD to ICD.
+func ICDToPB(r icd.ICD) (*ICD, error) {
 	entriesVal, err := EntriesToPB(r.Entries)
 	if err != nil {
 		return nil, err
 	}
-	pb := &Library{
+	pb := &ICD{
 		Name:    r.Name,
+		Hash:    r.Hash,
 		Key:     r.Key.String(),
 		Entries: entriesVal,
 	}
 	return pb, nil
 }
 
-// LibraryFromPB converts Library to Library.
-func LibraryFromPB(pb *Library) (library.Library, error) {
-	var r library.Library
+// ICDFromPB converts ICD to ICD.
+func ICDFromPB(pb *ICD) (icd.ICD, error) {
+	var r icd.ICD
 	if pb == nil {
 		return r, nil
 	}
 	var err error
 	parsedKey, err := uuid.Parse(pb.Key)
 	if err != nil {
-		return library.Library{}, err
+		return icd.ICD{}, err
 	}
-	r.Key = library.Key(parsedKey)
+	r.Key = icd.Key(parsedKey)
 	r.Entries, err = EntriesFromPB(pb.Entries)
 	if err != nil {
-		return library.Library{}, err
+		return icd.ICD{}, err
 	}
 	r.Name = pb.Name
+	r.Hash = pb.Hash
 	return r, nil
 }
 
-// LibrariesToPB converts a slice of Library to Library.
-func LibrariesToPB(rs []library.Library) ([]*Library, error) {
-	result := make([]*Library, len(rs))
+// ICDSToPB converts a slice of ICD to ICD.
+func ICDSToPB(rs []icd.ICD) ([]*ICD, error) {
+	result := make([]*ICD, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = LibraryToPB(rs[i])
+		result[i], err = ICDToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -370,12 +372,12 @@ func LibrariesToPB(rs []library.Library) ([]*Library, error) {
 	return result, nil
 }
 
-// LibrariesFromPB converts a slice of Library to Library.
-func LibrariesFromPB(pbs []*Library) ([]library.Library, error) {
-	result := make([]library.Library, len(pbs))
+// ICDSFromPB converts a slice of ICD to ICD.
+func ICDSFromPB(pbs []*ICD) ([]icd.ICD, error) {
+	result := make([]icd.ICD, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = LibraryFromPB(pb)
+		result[i], err = ICDFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -384,37 +386,37 @@ func LibrariesFromPB(pbs []*Library) ([]library.Library, error) {
 }
 
 // ReferenceToPB converts Reference to Reference.
-func ReferenceToPB(r library.Reference) (*Reference, error) {
+func ReferenceToPB(r icd.Reference) (*Reference, error) {
 	pb := &Reference{
-		LibraryHash: r.LibraryHash,
+		IcdHash: r.ICDHash,
 	}
-	if r.Library != nil {
-		v := (*r.Library).String()
-		pb.Library = &v
+	if r.ICD != nil {
+		v := (*r.ICD).String()
+		pb.Icd = &v
 	}
 	return pb, nil
 }
 
 // ReferenceFromPB converts Reference to Reference.
-func ReferenceFromPB(pb *Reference) (library.Reference, error) {
-	var r library.Reference
+func ReferenceFromPB(pb *Reference) (icd.Reference, error) {
+	var r icd.Reference
 	if pb == nil {
 		return r, nil
 	}
-	r.LibraryHash = pb.LibraryHash
-	if pb.Library != nil {
-		parsed, err := uuid.Parse(*pb.Library)
+	r.ICDHash = pb.IcdHash
+	if pb.Icd != nil {
+		parsed, err := uuid.Parse(*pb.Icd)
 		if err != nil {
-			return library.Reference{}, err
+			return icd.Reference{}, err
 		}
 		v := parsed
-		r.Library = &v
+		r.ICD = &v
 	}
 	return r, nil
 }
 
 // ReferencesToPB converts a slice of Reference to Reference.
-func ReferencesToPB(rs []library.Reference) ([]*Reference, error) {
+func ReferencesToPB(rs []icd.Reference) ([]*Reference, error) {
 	result := make([]*Reference, len(rs))
 	for i := range rs {
 		var err error
@@ -427,8 +429,8 @@ func ReferencesToPB(rs []library.Reference) ([]*Reference, error) {
 }
 
 // ReferencesFromPB converts a slice of Reference to Reference.
-func ReferencesFromPB(pbs []*Reference) ([]library.Reference, error) {
-	result := make([]library.Reference, len(pbs))
+func ReferencesFromPB(pbs []*Reference) ([]icd.Reference, error) {
+	result := make([]icd.Reference, len(pbs))
 	for i, pb := range pbs {
 		var err error
 		result[i], err = ReferenceFromPB(pb)
@@ -440,7 +442,7 @@ func ReferencesFromPB(pbs []*Reference) ([]library.Reference, error) {
 }
 
 // CanIdentifierToPB converts CanIdentifier to IdentifierCanPayload.
-func CanIdentifierToPB(r library.CanIdentifier) (*IdentifierCanPayload, error) {
+func CanIdentifierToPB(r icd.CanIdentifier) (*IdentifierCanPayload, error) {
 	pb := &IdentifierCanPayload{
 		Id:       r.ID,
 		Extended: r.Extended,
@@ -453,8 +455,8 @@ func CanIdentifierToPB(r library.CanIdentifier) (*IdentifierCanPayload, error) {
 }
 
 // CanIdentifierFromPB converts IdentifierCanPayload to CanIdentifier.
-func CanIdentifierFromPB(pb *IdentifierCanPayload) (library.CanIdentifier, error) {
-	var r library.CanIdentifier
+func CanIdentifierFromPB(pb *IdentifierCanPayload) (icd.CanIdentifier, error) {
+	var r icd.CanIdentifier
 	if pb == nil {
 		return r, nil
 	}
@@ -468,7 +470,7 @@ func CanIdentifierFromPB(pb *IdentifierCanPayload) (library.CanIdentifier, error
 }
 
 // CanIdentifiersToPB converts a slice of CanIdentifier to IdentifierCanPayload.
-func CanIdentifiersToPB(rs []library.CanIdentifier) ([]*IdentifierCanPayload, error) {
+func CanIdentifiersToPB(rs []icd.CanIdentifier) ([]*IdentifierCanPayload, error) {
 	result := make([]*IdentifierCanPayload, len(rs))
 	for i := range rs {
 		var err error
@@ -481,8 +483,8 @@ func CanIdentifiersToPB(rs []library.CanIdentifier) ([]*IdentifierCanPayload, er
 }
 
 // CanIdentifiersFromPB converts a slice of IdentifierCanPayload to CanIdentifier.
-func CanIdentifiersFromPB(pbs []*IdentifierCanPayload) ([]library.CanIdentifier, error) {
-	result := make([]library.CanIdentifier, len(pbs))
+func CanIdentifiersFromPB(pbs []*IdentifierCanPayload) ([]icd.CanIdentifier, error) {
+	result := make([]icd.CanIdentifier, len(pbs))
 	for i, pb := range pbs {
 		var err error
 		result[i], err = CanIdentifierFromPB(pb)
@@ -494,7 +496,7 @@ func CanIdentifiersFromPB(pbs []*IdentifierCanPayload) ([]library.CanIdentifier,
 }
 
 // FieldIdentifierToPB converts FieldIdentifier to IdentifierFieldPayload.
-func FieldIdentifierToPB(r library.FieldIdentifier) (*IdentifierFieldPayload, error) {
+func FieldIdentifierToPB(r icd.FieldIdentifier) (*IdentifierFieldPayload, error) {
 	pb := &IdentifierFieldPayload{
 		Value: r.Value,
 		Field: r.Field.String(),
@@ -503,23 +505,23 @@ func FieldIdentifierToPB(r library.FieldIdentifier) (*IdentifierFieldPayload, er
 }
 
 // FieldIdentifierFromPB converts IdentifierFieldPayload to FieldIdentifier.
-func FieldIdentifierFromPB(pb *IdentifierFieldPayload) (library.FieldIdentifier, error) {
-	var r library.FieldIdentifier
+func FieldIdentifierFromPB(pb *IdentifierFieldPayload) (icd.FieldIdentifier, error) {
+	var r icd.FieldIdentifier
 	if pb == nil {
 		return r, nil
 	}
 	var err error
 	parsedField, err := uuid.Parse(pb.Field)
 	if err != nil {
-		return library.FieldIdentifier{}, err
+		return icd.FieldIdentifier{}, err
 	}
-	r.Field = library.FieldKey(parsedField)
+	r.Field = icd.FieldKey(parsedField)
 	r.Value = pb.Value
 	return r, nil
 }
 
 // FieldIdentifiersToPB converts a slice of FieldIdentifier to IdentifierFieldPayload.
-func FieldIdentifiersToPB(rs []library.FieldIdentifier) ([]*IdentifierFieldPayload, error) {
+func FieldIdentifiersToPB(rs []icd.FieldIdentifier) ([]*IdentifierFieldPayload, error) {
 	result := make([]*IdentifierFieldPayload, len(rs))
 	for i := range rs {
 		var err error
@@ -532,8 +534,8 @@ func FieldIdentifiersToPB(rs []library.FieldIdentifier) ([]*IdentifierFieldPaylo
 }
 
 // FieldIdentifiersFromPB converts a slice of IdentifierFieldPayload to FieldIdentifier.
-func FieldIdentifiersFromPB(pbs []*IdentifierFieldPayload) ([]library.FieldIdentifier, error) {
-	result := make([]library.FieldIdentifier, len(pbs))
+func FieldIdentifiersFromPB(pbs []*IdentifierFieldPayload) ([]icd.FieldIdentifier, error) {
+	result := make([]icd.FieldIdentifier, len(pbs))
 	for i, pb := range pbs {
 		var err error
 		result[i], err = FieldIdentifierFromPB(pb)
@@ -545,7 +547,7 @@ func FieldIdentifiersFromPB(pbs []*IdentifierFieldPayload) ([]library.FieldIdent
 }
 
 // DelimitedTextFieldToPB converts DelimitedTextField to TextFieldDelimitedPayload.
-func DelimitedTextFieldToPB(r library.DelimitedTextField) (*TextFieldDelimitedPayload, error) {
+func DelimitedTextFieldToPB(r icd.DelimitedTextField) (*TextFieldDelimitedPayload, error) {
 	pb := &TextFieldDelimitedPayload{
 		Position: r.Position,
 	}
@@ -553,8 +555,8 @@ func DelimitedTextFieldToPB(r library.DelimitedTextField) (*TextFieldDelimitedPa
 }
 
 // DelimitedTextFieldFromPB converts TextFieldDelimitedPayload to DelimitedTextField.
-func DelimitedTextFieldFromPB(pb *TextFieldDelimitedPayload) (library.DelimitedTextField, error) {
-	var r library.DelimitedTextField
+func DelimitedTextFieldFromPB(pb *TextFieldDelimitedPayload) (icd.DelimitedTextField, error) {
+	var r icd.DelimitedTextField
 	if pb == nil {
 		return r, nil
 	}
@@ -563,7 +565,7 @@ func DelimitedTextFieldFromPB(pb *TextFieldDelimitedPayload) (library.DelimitedT
 }
 
 // DelimitedTextFieldsToPB converts a slice of DelimitedTextField to TextFieldDelimitedPayload.
-func DelimitedTextFieldsToPB(rs []library.DelimitedTextField) ([]*TextFieldDelimitedPayload, error) {
+func DelimitedTextFieldsToPB(rs []icd.DelimitedTextField) ([]*TextFieldDelimitedPayload, error) {
 	result := make([]*TextFieldDelimitedPayload, len(rs))
 	for i := range rs {
 		var err error
@@ -576,8 +578,8 @@ func DelimitedTextFieldsToPB(rs []library.DelimitedTextField) ([]*TextFieldDelim
 }
 
 // DelimitedTextFieldsFromPB converts a slice of TextFieldDelimitedPayload to DelimitedTextField.
-func DelimitedTextFieldsFromPB(pbs []*TextFieldDelimitedPayload) ([]library.DelimitedTextField, error) {
-	result := make([]library.DelimitedTextField, len(pbs))
+func DelimitedTextFieldsFromPB(pbs []*TextFieldDelimitedPayload) ([]icd.DelimitedTextField, error) {
+	result := make([]icd.DelimitedTextField, len(pbs))
 	for i, pb := range pbs {
 		var err error
 		result[i], err = DelimitedTextFieldFromPB(pb)
@@ -589,7 +591,7 @@ func DelimitedTextFieldsFromPB(pbs []*TextFieldDelimitedPayload) ([]library.Deli
 }
 
 // TaggedTextFieldToPB converts TaggedTextField to TextFieldTaggedPayload.
-func TaggedTextFieldToPB(r library.TaggedTextField) (*TextFieldTaggedPayload, error) {
+func TaggedTextFieldToPB(r icd.TaggedTextField) (*TextFieldTaggedPayload, error) {
 	pb := &TextFieldTaggedPayload{
 		Tag: r.Tag,
 	}
@@ -597,8 +599,8 @@ func TaggedTextFieldToPB(r library.TaggedTextField) (*TextFieldTaggedPayload, er
 }
 
 // TaggedTextFieldFromPB converts TextFieldTaggedPayload to TaggedTextField.
-func TaggedTextFieldFromPB(pb *TextFieldTaggedPayload) (library.TaggedTextField, error) {
-	var r library.TaggedTextField
+func TaggedTextFieldFromPB(pb *TextFieldTaggedPayload) (icd.TaggedTextField, error) {
+	var r icd.TaggedTextField
 	if pb == nil {
 		return r, nil
 	}
@@ -607,7 +609,7 @@ func TaggedTextFieldFromPB(pb *TextFieldTaggedPayload) (library.TaggedTextField,
 }
 
 // TaggedTextFieldsToPB converts a slice of TaggedTextField to TextFieldTaggedPayload.
-func TaggedTextFieldsToPB(rs []library.TaggedTextField) ([]*TextFieldTaggedPayload, error) {
+func TaggedTextFieldsToPB(rs []icd.TaggedTextField) ([]*TextFieldTaggedPayload, error) {
 	result := make([]*TextFieldTaggedPayload, len(rs))
 	for i := range rs {
 		var err error
@@ -620,8 +622,8 @@ func TaggedTextFieldsToPB(rs []library.TaggedTextField) ([]*TextFieldTaggedPaylo
 }
 
 // TaggedTextFieldsFromPB converts a slice of TextFieldTaggedPayload to TaggedTextField.
-func TaggedTextFieldsFromPB(pbs []*TextFieldTaggedPayload) ([]library.TaggedTextField, error) {
-	result := make([]library.TaggedTextField, len(pbs))
+func TaggedTextFieldsFromPB(pbs []*TextFieldTaggedPayload) ([]icd.TaggedTextField, error) {
+	result := make([]icd.TaggedTextField, len(pbs))
 	for i, pb := range pbs {
 		var err error
 		result[i], err = TaggedTextFieldFromPB(pb)
@@ -633,7 +635,7 @@ func TaggedTextFieldsFromPB(pbs []*TextFieldTaggedPayload) ([]library.TaggedText
 }
 
 // BinaryPayloadToPB converts BinaryPayload to PayloadBinaryPayload.
-func BinaryPayloadToPB(r library.BinaryPayload) (*PayloadBinaryPayload, error) {
+func BinaryPayloadToPB(r icd.BinaryPayload) (*PayloadBinaryPayload, error) {
 	fieldsVal, err := BinaryFieldsToPB(r.Fields)
 	if err != nil {
 		return nil, err
@@ -656,15 +658,15 @@ func BinaryPayloadToPB(r library.BinaryPayload) (*PayloadBinaryPayload, error) {
 }
 
 // BinaryPayloadFromPB converts PayloadBinaryPayload to BinaryPayload.
-func BinaryPayloadFromPB(pb *PayloadBinaryPayload) (library.BinaryPayload, error) {
-	var r library.BinaryPayload
+func BinaryPayloadFromPB(pb *PayloadBinaryPayload) (icd.BinaryPayload, error) {
+	var r icd.BinaryPayload
 	if pb == nil {
 		return r, nil
 	}
 	var err error
 	r.Fields, err = BinaryFieldsFromPB(pb.Fields)
 	if err != nil {
-		return library.BinaryPayload{}, err
+		return icd.BinaryPayload{}, err
 	}
 	if pb.Length != nil {
 		v := uint16(*pb.Length)
@@ -673,7 +675,7 @@ func BinaryPayloadFromPB(pb *PayloadBinaryPayload) (library.BinaryPayload, error
 	if pb.Identifier != nil {
 		val, err := IdentifierFromPB(pb.Identifier)
 		if err != nil {
-			return library.BinaryPayload{}, err
+			return icd.BinaryPayload{}, err
 		}
 		r.Identifier = &val
 	}
@@ -681,7 +683,7 @@ func BinaryPayloadFromPB(pb *PayloadBinaryPayload) (library.BinaryPayload, error
 }
 
 // BinaryPayloadsToPB converts a slice of BinaryPayload to PayloadBinaryPayload.
-func BinaryPayloadsToPB(rs []library.BinaryPayload) ([]*PayloadBinaryPayload, error) {
+func BinaryPayloadsToPB(rs []icd.BinaryPayload) ([]*PayloadBinaryPayload, error) {
 	result := make([]*PayloadBinaryPayload, len(rs))
 	for i := range rs {
 		var err error
@@ -694,8 +696,8 @@ func BinaryPayloadsToPB(rs []library.BinaryPayload) ([]*PayloadBinaryPayload, er
 }
 
 // BinaryPayloadsFromPB converts a slice of PayloadBinaryPayload to BinaryPayload.
-func BinaryPayloadsFromPB(pbs []*PayloadBinaryPayload) ([]library.BinaryPayload, error) {
-	result := make([]library.BinaryPayload, len(pbs))
+func BinaryPayloadsFromPB(pbs []*PayloadBinaryPayload) ([]icd.BinaryPayload, error) {
+	result := make([]icd.BinaryPayload, len(pbs))
 	for i, pb := range pbs {
 		var err error
 		result[i], err = BinaryPayloadFromPB(pb)
@@ -707,7 +709,7 @@ func BinaryPayloadsFromPB(pbs []*PayloadBinaryPayload) ([]library.BinaryPayload,
 }
 
 // TextPayloadToPB converts TextPayload to PayloadTextPayload.
-func TextPayloadToPB(r library.TextPayload) (*PayloadTextPayload, error) {
+func TextPayloadToPB(r icd.TextPayload) (*PayloadTextPayload, error) {
 	fieldsVal, err := TextFieldsToPB(r.Fields)
 	if err != nil {
 		return nil, err
@@ -721,15 +723,15 @@ func TextPayloadToPB(r library.TextPayload) (*PayloadTextPayload, error) {
 }
 
 // TextPayloadFromPB converts PayloadTextPayload to TextPayload.
-func TextPayloadFromPB(pb *PayloadTextPayload) (library.TextPayload, error) {
-	var r library.TextPayload
+func TextPayloadFromPB(pb *PayloadTextPayload) (icd.TextPayload, error) {
+	var r icd.TextPayload
 	if pb == nil {
 		return r, nil
 	}
 	var err error
 	r.Fields, err = TextFieldsFromPB(pb.Fields)
 	if err != nil {
-		return library.TextPayload{}, err
+		return icd.TextPayload{}, err
 	}
 	r.Delimiter = pb.Delimiter
 	r.Prefix = pb.Prefix
@@ -737,7 +739,7 @@ func TextPayloadFromPB(pb *PayloadTextPayload) (library.TextPayload, error) {
 }
 
 // TextPayloadsToPB converts a slice of TextPayload to PayloadTextPayload.
-func TextPayloadsToPB(rs []library.TextPayload) ([]*PayloadTextPayload, error) {
+func TextPayloadsToPB(rs []icd.TextPayload) ([]*PayloadTextPayload, error) {
 	result := make([]*PayloadTextPayload, len(rs))
 	for i := range rs {
 		var err error
@@ -750,8 +752,8 @@ func TextPayloadsToPB(rs []library.TextPayload) ([]*PayloadTextPayload, error) {
 }
 
 // TextPayloadsFromPB converts a slice of PayloadTextPayload to TextPayload.
-func TextPayloadsFromPB(pbs []*PayloadTextPayload) ([]library.TextPayload, error) {
-	result := make([]library.TextPayload, len(pbs))
+func TextPayloadsFromPB(pbs []*PayloadTextPayload) ([]icd.TextPayload, error) {
+	result := make([]icd.TextPayload, len(pbs))
 	for i, pb := range pbs {
 		var err error
 		result[i], err = TextPayloadFromPB(pb)
@@ -763,7 +765,7 @@ func TextPayloadsFromPB(pbs []*PayloadTextPayload) ([]library.TextPayload, error
 }
 
 // EnumEntryToPB converts EnumEntry to EntryEnumPayload.
-func EnumEntryToPB(r library.EnumEntry) (*EntryEnumPayload, error) {
+func EnumEntryToPB(r icd.EnumEntry) (*EntryEnumPayload, error) {
 	valuesVal, err := EnumValuesToPB(r.Values)
 	if err != nil {
 		return nil, err
@@ -775,21 +777,21 @@ func EnumEntryToPB(r library.EnumEntry) (*EntryEnumPayload, error) {
 }
 
 // EnumEntryFromPB converts EntryEnumPayload to EnumEntry.
-func EnumEntryFromPB(pb *EntryEnumPayload) (library.EnumEntry, error) {
-	var r library.EnumEntry
+func EnumEntryFromPB(pb *EntryEnumPayload) (icd.EnumEntry, error) {
+	var r icd.EnumEntry
 	if pb == nil {
 		return r, nil
 	}
 	var err error
 	r.Values, err = EnumValuesFromPB(pb.Values)
 	if err != nil {
-		return library.EnumEntry{}, err
+		return icd.EnumEntry{}, err
 	}
 	return r, nil
 }
 
 // EnumEntriesToPB converts a slice of EnumEntry to EntryEnumPayload.
-func EnumEntriesToPB(rs []library.EnumEntry) ([]*EntryEnumPayload, error) {
+func EnumEntriesToPB(rs []icd.EnumEntry) ([]*EntryEnumPayload, error) {
 	result := make([]*EntryEnumPayload, len(rs))
 	for i := range rs {
 		var err error
@@ -802,8 +804,8 @@ func EnumEntriesToPB(rs []library.EnumEntry) ([]*EntryEnumPayload, error) {
 }
 
 // EnumEntriesFromPB converts a slice of EntryEnumPayload to EnumEntry.
-func EnumEntriesFromPB(pbs []*EntryEnumPayload) ([]library.EnumEntry, error) {
-	result := make([]library.EnumEntry, len(pbs))
+func EnumEntriesFromPB(pbs []*EntryEnumPayload) ([]icd.EnumEntry, error) {
+	result := make([]icd.EnumEntry, len(pbs))
 	for i, pb := range pbs {
 		var err error
 		result[i], err = EnumEntryFromPB(pb)
@@ -815,7 +817,7 @@ func EnumEntriesFromPB(pbs []*EntryEnumPayload) ([]library.EnumEntry, error) {
 }
 
 // MessageEntryToPB converts MessageEntry to EntryMessagePayload.
-func MessageEntryToPB(r library.MessageEntry) (*EntryMessagePayload, error) {
+func MessageEntryToPB(r icd.MessageEntry) (*EntryMessagePayload, error) {
 	payloadVal, err := PayloadToPB(r.Payload)
 	if err != nil {
 		return nil, err
@@ -834,15 +836,15 @@ func MessageEntryToPB(r library.MessageEntry) (*EntryMessagePayload, error) {
 }
 
 // MessageEntryFromPB converts EntryMessagePayload to MessageEntry.
-func MessageEntryFromPB(pb *EntryMessagePayload) (library.MessageEntry, error) {
-	var r library.MessageEntry
+func MessageEntryFromPB(pb *EntryMessagePayload) (icd.MessageEntry, error) {
+	var r icd.MessageEntry
 	if pb == nil {
 		return r, nil
 	}
 	var err error
 	r.Payload, err = PayloadFromPB(pb.Payload)
 	if err != nil {
-		return library.MessageEntry{}, err
+		return icd.MessageEntry{}, err
 	}
 	if pb.Period != nil {
 		v := telem.TimeSpan(*pb.Period)
@@ -855,7 +857,7 @@ func MessageEntryFromPB(pb *EntryMessagePayload) (library.MessageEntry, error) {
 }
 
 // MessageEntriesToPB converts a slice of MessageEntry to EntryMessagePayload.
-func MessageEntriesToPB(rs []library.MessageEntry) ([]*EntryMessagePayload, error) {
+func MessageEntriesToPB(rs []icd.MessageEntry) ([]*EntryMessagePayload, error) {
 	result := make([]*EntryMessagePayload, len(rs))
 	for i := range rs {
 		var err error
@@ -868,8 +870,8 @@ func MessageEntriesToPB(rs []library.MessageEntry) ([]*EntryMessagePayload, erro
 }
 
 // MessageEntriesFromPB converts a slice of EntryMessagePayload to MessageEntry.
-func MessageEntriesFromPB(pbs []*EntryMessagePayload) ([]library.MessageEntry, error) {
-	result := make([]library.MessageEntry, len(pbs))
+func MessageEntriesFromPB(pbs []*EntryMessagePayload) ([]icd.MessageEntry, error) {
+	result := make([]icd.MessageEntry, len(pbs))
 	for i, pb := range pbs {
 		var err error
 		result[i], err = MessageEntryFromPB(pb)
@@ -881,19 +883,19 @@ func MessageEntriesFromPB(pbs []*EntryMessagePayload) ([]library.MessageEntry, e
 }
 
 // IdentifierToPB converts Identifier to Identifier.
-func IdentifierToPB(r library.Identifier) (*Identifier, error) {
+func IdentifierToPB(r icd.Identifier) (*Identifier, error) {
 	if r.Variant == nil {
 		return nil, nil
 	}
 	pb := &Identifier{}
 	switch v := r.Variant.(type) {
-	case library.CanIdentifier:
+	case icd.CanIdentifier:
 		inner, err := CanIdentifierToPB(v)
 		if err != nil {
 			return nil, err
 		}
 		pb.Variant = &Identifier_Can{Can: inner}
-	case library.FieldIdentifier:
+	case icd.FieldIdentifier:
 		inner, err := FieldIdentifierToPB(v)
 		if err != nil {
 			return nil, err
@@ -906,8 +908,8 @@ func IdentifierToPB(r library.Identifier) (*Identifier, error) {
 }
 
 // IdentifierFromPB converts Identifier to Identifier.
-func IdentifierFromPB(pb *Identifier) (library.Identifier, error) {
-	var r library.Identifier
+func IdentifierFromPB(pb *Identifier) (icd.Identifier, error) {
+	var r icd.Identifier
 	if pb == nil {
 		return r, nil
 	}
@@ -931,7 +933,7 @@ func IdentifierFromPB(pb *Identifier) (library.Identifier, error) {
 }
 
 // IdentifiersToPB converts a slice of Identifier to Identifier.
-func IdentifiersToPB(rs []library.Identifier) ([]*Identifier, error) {
+func IdentifiersToPB(rs []icd.Identifier) ([]*Identifier, error) {
 	result := make([]*Identifier, len(rs))
 	for i := range rs {
 		var err error
@@ -944,8 +946,8 @@ func IdentifiersToPB(rs []library.Identifier) ([]*Identifier, error) {
 }
 
 // IdentifiersFromPB converts a slice of Identifier to Identifier.
-func IdentifiersFromPB(pbs []*Identifier) ([]library.Identifier, error) {
-	result := make([]library.Identifier, len(pbs))
+func IdentifiersFromPB(pbs []*Identifier) ([]icd.Identifier, error) {
+	result := make([]icd.Identifier, len(pbs))
 	for i, pb := range pbs {
 		var err error
 		result[i], err = IdentifierFromPB(pb)
@@ -957,13 +959,13 @@ func IdentifiersFromPB(pbs []*Identifier) ([]library.Identifier, error) {
 }
 
 // TextFieldToPB converts TextField to TextField.
-func TextFieldToPB(r library.TextField) (*TextField, error) {
+func TextFieldToPB(r icd.TextField) (*TextField, error) {
 	if r.Variant == nil {
 		return nil, nil
 	}
 	pb := &TextField{}
 	switch v := r.Variant.(type) {
-	case library.DelimitedTextField:
+	case icd.DelimitedTextField:
 		inner, err := DelimitedTextFieldToPB(v)
 		if err != nil {
 			return nil, err
@@ -973,7 +975,7 @@ func TextFieldToPB(r library.TextField) (*TextField, error) {
 			return nil, err
 		}
 		pb.Variant = &TextField_Delimited{Delimited: inner}
-	case library.TaggedTextField:
+	case icd.TaggedTextField:
 		inner, err := TaggedTextFieldToPB(v)
 		if err != nil {
 			return nil, err
@@ -990,8 +992,8 @@ func TextFieldToPB(r library.TextField) (*TextField, error) {
 }
 
 // TextFieldFromPB converts TextField to TextField.
-func TextFieldFromPB(pb *TextField) (library.TextField, error) {
-	var r library.TextField
+func TextFieldFromPB(pb *TextField) (icd.TextField, error) {
+	var r icd.TextField
 	if pb == nil {
 		return r, nil
 	}
@@ -1023,7 +1025,7 @@ func TextFieldFromPB(pb *TextField) (library.TextField, error) {
 }
 
 // TextFieldsToPB converts a slice of TextField to TextField.
-func TextFieldsToPB(rs []library.TextField) ([]*TextField, error) {
+func TextFieldsToPB(rs []icd.TextField) ([]*TextField, error) {
 	result := make([]*TextField, len(rs))
 	for i := range rs {
 		var err error
@@ -1036,8 +1038,8 @@ func TextFieldsToPB(rs []library.TextField) ([]*TextField, error) {
 }
 
 // TextFieldsFromPB converts a slice of TextField to TextField.
-func TextFieldsFromPB(pbs []*TextField) ([]library.TextField, error) {
-	result := make([]library.TextField, len(pbs))
+func TextFieldsFromPB(pbs []*TextField) ([]icd.TextField, error) {
+	result := make([]icd.TextField, len(pbs))
 	for i, pb := range pbs {
 		var err error
 		result[i], err = TextFieldFromPB(pb)
@@ -1049,19 +1051,19 @@ func TextFieldsFromPB(pbs []*TextField) ([]library.TextField, error) {
 }
 
 // PayloadToPB converts Payload to Payload.
-func PayloadToPB(r library.Payload) (*Payload, error) {
+func PayloadToPB(r icd.Payload) (*Payload, error) {
 	if r.Variant == nil {
 		return nil, nil
 	}
 	pb := &Payload{}
 	switch v := r.Variant.(type) {
-	case library.BinaryPayload:
+	case icd.BinaryPayload:
 		inner, err := BinaryPayloadToPB(v)
 		if err != nil {
 			return nil, err
 		}
 		pb.Variant = &Payload_Binary{Binary: inner}
-	case library.TextPayload:
+	case icd.TextPayload:
 		inner, err := TextPayloadToPB(v)
 		if err != nil {
 			return nil, err
@@ -1074,8 +1076,8 @@ func PayloadToPB(r library.Payload) (*Payload, error) {
 }
 
 // PayloadFromPB converts Payload to Payload.
-func PayloadFromPB(pb *Payload) (library.Payload, error) {
-	var r library.Payload
+func PayloadFromPB(pb *Payload) (icd.Payload, error) {
+	var r icd.Payload
 	if pb == nil {
 		return r, nil
 	}
@@ -1099,7 +1101,7 @@ func PayloadFromPB(pb *Payload) (library.Payload, error) {
 }
 
 // PayloadsToPB converts a slice of Payload to Payload.
-func PayloadsToPB(rs []library.Payload) ([]*Payload, error) {
+func PayloadsToPB(rs []icd.Payload) ([]*Payload, error) {
 	result := make([]*Payload, len(rs))
 	for i := range rs {
 		var err error
@@ -1112,8 +1114,8 @@ func PayloadsToPB(rs []library.Payload) ([]*Payload, error) {
 }
 
 // PayloadsFromPB converts a slice of Payload to Payload.
-func PayloadsFromPB(pbs []*Payload) ([]library.Payload, error) {
-	result := make([]library.Payload, len(pbs))
+func PayloadsFromPB(pbs []*Payload) ([]icd.Payload, error) {
+	result := make([]icd.Payload, len(pbs))
 	for i, pb := range pbs {
 		var err error
 		result[i], err = PayloadFromPB(pb)
@@ -1125,13 +1127,13 @@ func PayloadsFromPB(pbs []*Payload) ([]library.Payload, error) {
 }
 
 // EntryToPB converts Entry to Entry.
-func EntryToPB(r library.Entry) (*Entry, error) {
+func EntryToPB(r icd.Entry) (*Entry, error) {
 	if r.Variant == nil {
 		return nil, nil
 	}
 	pb := &Entry{}
 	switch v := r.Variant.(type) {
-	case library.EnumEntry:
+	case icd.EnumEntry:
 		inner, err := EnumEntryToPB(v)
 		if err != nil {
 			return nil, err
@@ -1141,7 +1143,7 @@ func EntryToPB(r library.Entry) (*Entry, error) {
 			return nil, err
 		}
 		pb.Variant = &Entry_Enum{Enum: inner}
-	case library.MessageEntry:
+	case icd.MessageEntry:
 		inner, err := MessageEntryToPB(v)
 		if err != nil {
 			return nil, err
@@ -1158,8 +1160,8 @@ func EntryToPB(r library.Entry) (*Entry, error) {
 }
 
 // EntryFromPB converts Entry to Entry.
-func EntryFromPB(pb *Entry) (library.Entry, error) {
-	var r library.Entry
+func EntryFromPB(pb *Entry) (icd.Entry, error) {
+	var r icd.Entry
 	if pb == nil {
 		return r, nil
 	}
@@ -1191,7 +1193,7 @@ func EntryFromPB(pb *Entry) (library.Entry, error) {
 }
 
 // EntriesToPB converts a slice of Entry to Entry.
-func EntriesToPB(rs []library.Entry) ([]*Entry, error) {
+func EntriesToPB(rs []icd.Entry) ([]*Entry, error) {
 	result := make([]*Entry, len(rs))
 	for i := range rs {
 		var err error
@@ -1204,8 +1206,8 @@ func EntriesToPB(rs []library.Entry) ([]*Entry, error) {
 }
 
 // EntriesFromPB converts a slice of Entry to Entry.
-func EntriesFromPB(pbs []*Entry) ([]library.Entry, error) {
-	result := make([]library.Entry, len(pbs))
+func EntriesFromPB(pbs []*Entry) ([]icd.Entry, error) {
+	result := make([]icd.Entry, len(pbs))
 	for i, pb := range pbs {
 		var err error
 		result[i], err = EntryFromPB(pb)
@@ -1216,26 +1218,26 @@ func EntriesFromPB(pbs []*Entry) ([]library.Entry, error) {
 	return result, nil
 }
 
-// ByteOrderToPB converts library.ByteOrder to ByteOrder.
-func ByteOrderToPB(v library.ByteOrder) (ByteOrder, error) {
+// ByteOrderToPB converts icd.ByteOrder to ByteOrder.
+func ByteOrderToPB(v icd.ByteOrder) (ByteOrder, error) {
 	switch v {
-	case library.ByteOrderLittleEndian:
+	case icd.ByteOrderLittleEndian:
 		return ByteOrder_BYTE_ORDER_LITTLE_ENDIAN, nil
-	case library.ByteOrderBigEndian:
+	case icd.ByteOrderBigEndian:
 		return ByteOrder_BYTE_ORDER_BIG_ENDIAN, nil
 	default:
-		return 0, errors.Newf("unrecognized library.ByteOrder value: %v", v)
+		return 0, errors.Newf("unrecognized icd.ByteOrder value: %v", v)
 	}
 }
 
-// ByteOrderFromPB converts ByteOrder to library.ByteOrder.
-func ByteOrderFromPB(v ByteOrder) (library.ByteOrder, error) {
+// ByteOrderFromPB converts ByteOrder to icd.ByteOrder.
+func ByteOrderFromPB(v ByteOrder) (icd.ByteOrder, error) {
 	switch v {
 	case ByteOrder_BYTE_ORDER_LITTLE_ENDIAN:
-		return library.ByteOrderLittleEndian, nil
+		return icd.ByteOrderLittleEndian, nil
 	case ByteOrder_BYTE_ORDER_BIG_ENDIAN:
-		return library.ByteOrderBigEndian, nil
+		return icd.ByteOrderBigEndian, nil
 	default:
-		return library.ByteOrder(""), errors.Newf("unrecognized ByteOrder value: %v", v)
+		return icd.ByteOrder(""), errors.Newf("unrecognized ByteOrder value: %v", v)
 	}
 }

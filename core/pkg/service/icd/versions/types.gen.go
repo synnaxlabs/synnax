@@ -11,12 +11,12 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/library/versions/v0"
+import "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 
-// Key is a unique identifier for a library.
+// Key is a unique identifier for an ICD.
 type Key = v0.Key
 
-// EntryKey is a unique identifier for an entry within a library.
+// EntryKey is a unique identifier for an entry within an ICD.
 type EntryKey = v0.EntryKey
 
 // FieldKey is a unique identifier for a field within a message.
@@ -93,10 +93,10 @@ type BinaryPayload = v0.BinaryPayload
 // TextPayload is a payload of one text line.
 type TextPayload = v0.TextPayload
 
-// BaseEntry carries the parts every library entry shares.
+// BaseEntry carries the parts every ICD entry shares.
 type BaseEntry = v0.BaseEntry
 
-// Entry is one typed item in a library.
+// Entry is one typed item in an ICD.
 type Entry = v0.Entry
 type EntryVariant = v0.EntryVariant
 type EntryType = v0.EntryType
@@ -114,10 +114,10 @@ type EnumEntry = v0.EnumEntry
 // MessageEntry is a frame layout on a bus or byte stream.
 type MessageEntry = v0.MessageEntry
 
-// Library is a named, shared container of typed entries that tasks and other resources
-// reference by key.
-type Library = v0.Library
+// ICD is an interface control document: the messages a device sends and receives on a
+// bus or byte stream, and the enums that name their values.
+type ICD = v0.ICD
 
-// Reference is embedded in the config of a task that uses a library. A task uses at
-// most one library.
+// Reference is embedded in the config of a task that uses an ICD. A task uses at most
+// one ICD.
 type Reference = v0.Reference

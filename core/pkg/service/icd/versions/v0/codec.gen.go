@@ -463,6 +463,56 @@ func (ev *EnumValue) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (icd ICD) EncodeOrc(w *orc.Writer) error {
+	w.Write(icd.Key[:])
+	w.String(icd.Name)
+	w.Bool(icd.Entries != nil)
+	if icd.Entries != nil {
+		w.Uint32(uint32(len(icd.Entries)))
+		for i := range icd.Entries {
+			if err := icd.Entries[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	w.String(icd.Hash)
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (icd *ICD) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if _, err := r.Read(icd.Key[:]); err != nil {
+		return err
+	}
+	if icd.Name, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			icd.Entries = make([]Entry, n)
+			for i := range icd.Entries {
+				if err = icd.Entries[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	if icd.Hash, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (iv Identifier) EncodeOrc(w *orc.Writer) error {
 	switch v := iv.Variant.(type) {
 	case CanIdentifier:
@@ -529,52 +579,6 @@ func (iv *Identifier) DecodeOrc(r *orc.Reader) error {
 		iv.Variant = v
 	default:
 		return errors.Newf("Identifier: unknown variant %q", tag)
-	}
-	return nil
-}
-
-// EncodeOrc writes the value to w in the Orc binary format.
-func (lv Library) EncodeOrc(w *orc.Writer) error {
-	w.Write(lv.Key[:])
-	w.String(lv.Name)
-	w.Bool(lv.Entries != nil)
-	if lv.Entries != nil {
-		w.Uint32(uint32(len(lv.Entries)))
-		for i := range lv.Entries {
-			if err := lv.Entries[i].EncodeOrc(w); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-// DecodeOrc reads the value from r in the Orc binary format.
-func (lv *Library) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if _, err := r.Read(lv.Key[:]); err != nil {
-		return err
-	}
-	if lv.Name, err = r.String(); err != nil {
-		return err
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			lv.Entries = make([]Entry, n)
-			for i := range lv.Entries {
-				if err = lv.Entries[i].DecodeOrc(r); err != nil {
-					return err
-				}
-			}
-		}
 	}
 	return nil
 }
@@ -715,13 +719,13 @@ func (p *Payload) DecodeOrc(r *orc.Reader) error {
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (rv Reference) EncodeOrc(w *orc.Writer) error {
-	if rv.Library != nil {
+	if rv.ICD != nil {
 		w.Bool(true)
-		w.Write((*rv.Library)[:])
+		w.Write((*rv.ICD)[:])
 	} else {
 		w.Bool(false)
 	}
-	w.String(rv.LibraryHash)
+	w.String(rv.ICDHash)
 	return nil
 }
 
@@ -738,10 +742,10 @@ func (rv *Reference) DecodeOrc(r *orc.Reader) error {
 			if _, err := r.Read(hv[:]); err != nil {
 				return err
 			}
-			rv.Library = &hv
+			rv.ICD = &hv
 		}
 	}
-	if rv.LibraryHash, err = r.String(); err != nil {
+	if rv.ICDHash, err = r.String(); err != nil {
 		return err
 	}
 	return nil

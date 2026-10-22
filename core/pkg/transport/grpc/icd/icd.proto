@@ -9,31 +9,31 @@
 
 syntax = "proto3";
 
-package grpc.library;
+package grpc.icd;
 
-import "core/pkg/service/library/pb/library.proto";
+import "core/pkg/service/icd/pb/icd.proto";
 import "google/protobuf/empty.proto";
 
-option go_package = "github.com/synnaxlabs/synnax/pkg/transport/grpc/library";
+option go_package = "github.com/synnaxlabs/synnax/pkg/transport/grpc/icd";
 
-service LibraryCreateService {
+service ICDCreateService {
   rpc Exec(CreateRequest) returns (CreateResponse);
 }
 
-service LibraryRetrieveService {
+service ICDRetrieveService {
   rpc Exec(RetrieveRequest) returns (RetrieveResponse);
 }
 
-service LibraryDeleteService {
+service ICDDeleteService {
   rpc Exec(DeleteRequest) returns (google.protobuf.Empty);
 }
 
 message CreateRequest {
-  repeated service.library.pb.Library libraries = 1;
+  repeated service.icd.pb.ICD icds = 1;
 }
 
 message CreateResponse {
-  repeated service.library.pb.Library libraries = 1;
+  repeated service.icd.pb.ICD icds = 1;
 }
 
 message RetrieveRequest {
@@ -44,7 +44,7 @@ message RetrieveRequest {
 }
 
 message RetrieveResponse {
-  repeated service.library.pb.Library libraries = 1;
+  repeated service.icd.pb.ICD icds = 1;
 }
 
 message DeleteRequest {

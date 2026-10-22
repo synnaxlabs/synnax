@@ -17,23 +17,21 @@
 #include <utility>
 #include <variant>
 
-#include "client/cpp/library/json.gen.h"
-#include "client/cpp/library/types.gen.h"
+#include "client/cpp/icd/json.gen.h"
+#include "client/cpp/icd/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/pb/pb.h"
 
-#include "core/pkg/service/library/pb/library.pb.h"
+#include "core/pkg/service/icd/pb/icd.pb.h"
 
-namespace synnax::library {
+namespace synnax::icd {
 
-inline std::pair<::service::library::pb::ByteOrder, x::errors::Error>
+inline std::pair<::service::icd::pb::ByteOrder, x::errors::Error>
 byte_order_to_pb(const std::string &cpp) {
-    static const std::unordered_map<std::string, ::service::library::pb::ByteOrder>
-        kMap = {
-            {BYTE_ORDER_LITTLE_ENDIAN,
-             ::service::library::pb::BYTE_ORDER_LITTLE_ENDIAN},
-            {BYTE_ORDER_BIG_ENDIAN, ::service::library::pb::BYTE_ORDER_BIG_ENDIAN},
-        };
+    static const std::unordered_map<std::string, ::service::icd::pb::ByteOrder> kMap = {
+        {BYTE_ORDER_LITTLE_ENDIAN, ::service::icd::pb::BYTE_ORDER_LITTLE_ENDIAN},
+        {BYTE_ORDER_BIG_ENDIAN, ::service::icd::pb::BYTE_ORDER_BIG_ENDIAN},
+    };
     auto it = kMap.find(cpp);
     if (it == kMap.end())
         return {{}, x::errors::Error("unrecognized ByteOrder value: " + cpp)};
@@ -41,36 +39,36 @@ byte_order_to_pb(const std::string &cpp) {
 }
 
 inline std::pair<std::string, x::errors::Error>
-byte_order_from_pb(::service::library::pb::ByteOrder pb) {
+byte_order_from_pb(::service::icd::pb::ByteOrder pb) {
     switch (pb) {
-        case ::service::library::pb::BYTE_ORDER_LITTLE_ENDIAN:
+        case ::service::icd::pb::BYTE_ORDER_LITTLE_ENDIAN:
             return {BYTE_ORDER_LITTLE_ENDIAN, x::errors::NIL};
-        case ::service::library::pb::BYTE_ORDER_BIG_ENDIAN:
+        case ::service::icd::pb::BYTE_ORDER_BIG_ENDIAN:
             return {BYTE_ORDER_BIG_ENDIAN, x::errors::NIL};
         default:
             return {"", x::errors::Error("unrecognized ByteOrder protobuf value")};
     }
 }
 
-inline std::pair<::service::library::pb::EnumValue, x::errors::Error>
+inline std::pair<::service::icd::pb::EnumValue, x::errors::Error>
 EnumValue::to_proto() const {
-    ::service::library::pb::EnumValue pb;
+    ::service::icd::pb::EnumValue pb;
     pb.set_value(this->value);
     pb.set_name(this->name);
     return {pb, x::errors::NIL};
 }
 
 inline std::pair<EnumValue, x::errors::Error>
-EnumValue::from_proto(const ::service::library::pb::EnumValue &pb) {
+EnumValue::from_proto(const ::service::icd::pb::EnumValue &pb) {
     EnumValue cpp;
     cpp.value = pb.value();
     cpp.name = pb.name();
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::library::pb::BaseField, x::errors::Error>
+inline std::pair<::service::icd::pb::BaseField, x::errors::Error>
 BaseField::to_proto() const {
-    ::service::library::pb::BaseField pb;
+    ::service::icd::pb::BaseField pb;
     pb.set_key(this->key.to_string());
     pb.set_name(this->name);
     pb.set_scale(this->scale);
@@ -88,7 +86,7 @@ BaseField::to_proto() const {
 }
 
 inline std::pair<BaseField, x::errors::Error>
-BaseField::from_proto(const ::service::library::pb::BaseField &pb) {
+BaseField::from_proto(const ::service::icd::pb::BaseField &pb) {
     BaseField cpp;
     {
         auto [v, err] = x::uuid::UUID::parse(pb.key());
@@ -116,9 +114,9 @@ BaseField::from_proto(const ::service::library::pb::BaseField &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::library::pb::BinaryField, x::errors::Error>
+inline std::pair<::service::icd::pb::BinaryField, x::errors::Error>
 BinaryField::to_proto() const {
-    ::service::library::pb::BinaryField pb;
+    ::service::icd::pb::BinaryField pb;
     pb.set_key(this->key.to_string());
     pb.set_name(this->name);
     pb.set_scale(this->scale);
@@ -145,7 +143,7 @@ BinaryField::to_proto() const {
 }
 
 inline std::pair<BinaryField, x::errors::Error>
-BinaryField::from_proto(const ::service::library::pb::BinaryField &pb) {
+BinaryField::from_proto(const ::service::icd::pb::BinaryField &pb) {
     BinaryField cpp;
     {
         auto [v, err] = x::uuid::UUID::parse(pb.key());
@@ -182,16 +180,16 @@ BinaryField::from_proto(const ::service::library::pb::BinaryField &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::library::pb::BaseEntry, x::errors::Error>
+inline std::pair<::service::icd::pb::BaseEntry, x::errors::Error>
 BaseEntry::to_proto() const {
-    ::service::library::pb::BaseEntry pb;
+    ::service::icd::pb::BaseEntry pb;
     pb.set_key(this->key.to_string());
     pb.set_name(this->name);
     return {pb, x::errors::NIL};
 }
 
 inline std::pair<BaseEntry, x::errors::Error>
-BaseEntry::from_proto(const ::service::library::pb::BaseEntry &pb) {
+BaseEntry::from_proto(const ::service::icd::pb::BaseEntry &pb) {
     BaseEntry cpp;
     {
         auto [v, err] = x::uuid::UUID::parse(pb.key());
@@ -202,22 +200,22 @@ BaseEntry::from_proto(const ::service::library::pb::BaseEntry &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::library::pb::Library, x::errors::Error>
-Library::to_proto() const {
-    ::service::library::pb::Library pb;
+inline std::pair<::service::icd::pb::ICD, x::errors::Error> ICD::to_proto() const {
+    ::service::icd::pb::ICD pb;
     pb.set_key(this->key.to_string());
     pb.set_name(this->name);
     for (const auto &item: this->entries) {
-        auto [v, err] = ::synnax::library::to_proto(item);
+        auto [v, err] = ::synnax::icd::to_proto(item);
         if (err) return {{}, err};
         *pb.add_entries() = v;
     }
+    pb.set_hash(this->hash);
     return {pb, x::errors::NIL};
 }
 
-inline std::pair<Library, x::errors::Error>
-Library::from_proto(const ::service::library::pb::Library &pb) {
-    Library cpp;
+inline std::pair<ICD, x::errors::Error>
+ICD::from_proto(const ::service::icd::pb::ICD &pb) {
+    ICD cpp;
     {
         auto [v, err] = x::uuid::UUID::parse(pb.key());
         if (err) return {{}, err};
@@ -225,36 +223,37 @@ Library::from_proto(const ::service::library::pb::Library &pb) {
     }
     cpp.name = pb.name();
     for (const auto &item: pb.entries()) {
-        auto [v, err] = ::synnax::library::entry_from_proto(item);
+        auto [v, err] = ::synnax::icd::entry_from_proto(item);
         if (err) return {{}, err};
         cpp.entries.push_back(v);
     }
+    cpp.hash = pb.hash();
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::library::pb::Reference, x::errors::Error>
+inline std::pair<::service::icd::pb::Reference, x::errors::Error>
 Reference::to_proto() const {
-    ::service::library::pb::Reference pb;
-    if (this->library.has_value()) pb.set_library(this->library->to_string());
-    pb.set_library_hash(this->library_hash);
+    ::service::icd::pb::Reference pb;
+    if (this->icd.has_value()) pb.set_icd(this->icd->to_string());
+    pb.set_icd_hash(this->icd_hash);
     return {pb, x::errors::NIL};
 }
 
 inline std::pair<Reference, x::errors::Error>
-Reference::from_proto(const ::service::library::pb::Reference &pb) {
+Reference::from_proto(const ::service::icd::pb::Reference &pb) {
     Reference cpp;
-    if (!pb.library().empty()) {
-        auto [v, err] = x::uuid::UUID::parse(pb.library());
+    if (!pb.icd().empty()) {
+        auto [v, err] = x::uuid::UUID::parse(pb.icd());
         if (err) return {{}, err};
-        cpp.library = v;
+        cpp.icd = v;
     }
-    cpp.library_hash = pb.library_hash();
+    cpp.icd_hash = pb.icd_hash();
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::library::pb::IdentifierCanPayload, x::errors::Error>
+inline std::pair<::service::icd::pb::IdentifierCanPayload, x::errors::Error>
 CanIdentifier::to_proto() const {
-    ::service::library::pb::IdentifierCanPayload pb;
+    ::service::icd::pb::IdentifierCanPayload pb;
     pb.set_id(this->id);
     pb.set_extended(this->extended);
     pb.set_fd(this->fd);
@@ -263,7 +262,7 @@ CanIdentifier::to_proto() const {
 }
 
 inline std::pair<CanIdentifier, x::errors::Error>
-CanIdentifier::from_proto(const ::service::library::pb::IdentifierCanPayload &pb) {
+CanIdentifier::from_proto(const ::service::icd::pb::IdentifierCanPayload &pb) {
     CanIdentifier cpp;
     cpp.id = pb.id();
     cpp.extended = pb.extended();
@@ -272,16 +271,16 @@ CanIdentifier::from_proto(const ::service::library::pb::IdentifierCanPayload &pb
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::library::pb::IdentifierFieldPayload, x::errors::Error>
+inline std::pair<::service::icd::pb::IdentifierFieldPayload, x::errors::Error>
 FieldIdentifier::to_proto() const {
-    ::service::library::pb::IdentifierFieldPayload pb;
+    ::service::icd::pb::IdentifierFieldPayload pb;
     pb.set_field(this->field.to_string());
     pb.set_value(this->value);
     return {pb, x::errors::NIL};
 }
 
 inline std::pair<FieldIdentifier, x::errors::Error>
-FieldIdentifier::from_proto(const ::service::library::pb::IdentifierFieldPayload &pb) {
+FieldIdentifier::from_proto(const ::service::icd::pb::IdentifierFieldPayload &pb) {
     FieldIdentifier cpp;
     {
         auto [v, err] = x::uuid::UUID::parse(pb.field());
@@ -292,41 +291,41 @@ FieldIdentifier::from_proto(const ::service::library::pb::IdentifierFieldPayload
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::library::pb::TextFieldDelimitedPayload, x::errors::Error>
+inline std::pair<::service::icd::pb::TextFieldDelimitedPayload, x::errors::Error>
 DelimitedTextField::to_proto() const {
-    ::service::library::pb::TextFieldDelimitedPayload pb;
+    ::service::icd::pb::TextFieldDelimitedPayload pb;
     pb.set_position(this->position);
     return {pb, x::errors::NIL};
 }
 
 inline std::pair<DelimitedTextField, x::errors::Error> DelimitedTextField::from_proto(
-    const ::service::library::pb::TextFieldDelimitedPayload &pb
+    const ::service::icd::pb::TextFieldDelimitedPayload &pb
 ) {
     DelimitedTextField cpp;
     cpp.position = pb.position();
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::library::pb::TextFieldTaggedPayload, x::errors::Error>
+inline std::pair<::service::icd::pb::TextFieldTaggedPayload, x::errors::Error>
 TaggedTextField::to_proto() const {
-    ::service::library::pb::TextFieldTaggedPayload pb;
+    ::service::icd::pb::TextFieldTaggedPayload pb;
     pb.set_tag(this->tag);
     return {pb, x::errors::NIL};
 }
 
 inline std::pair<TaggedTextField, x::errors::Error>
-TaggedTextField::from_proto(const ::service::library::pb::TextFieldTaggedPayload &pb) {
+TaggedTextField::from_proto(const ::service::icd::pb::TextFieldTaggedPayload &pb) {
     TaggedTextField cpp;
     cpp.tag = pb.tag();
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::library::pb::PayloadBinaryPayload, x::errors::Error>
+inline std::pair<::service::icd::pb::PayloadBinaryPayload, x::errors::Error>
 BinaryPayload::to_proto() const {
-    ::service::library::pb::PayloadBinaryPayload pb;
+    ::service::icd::pb::PayloadBinaryPayload pb;
     if (this->length.has_value()) pb.set_length(*this->length);
     if (this->identifier.has_value()) {
-        auto [v, err] = ::synnax::library::to_proto(*this->identifier);
+        auto [v, err] = ::synnax::icd::to_proto(*this->identifier);
         if (err) return {{}, err};
         *pb.mutable_identifier() = v;
     }
@@ -339,11 +338,11 @@ BinaryPayload::to_proto() const {
 }
 
 inline std::pair<BinaryPayload, x::errors::Error>
-BinaryPayload::from_proto(const ::service::library::pb::PayloadBinaryPayload &pb) {
+BinaryPayload::from_proto(const ::service::icd::pb::PayloadBinaryPayload &pb) {
     BinaryPayload cpp;
     if (pb.has_length()) cpp.length = pb.length();
     if (pb.has_identifier()) {
-        auto [v, err] = ::synnax::library::identifier_from_proto(pb.identifier());
+        auto [v, err] = ::synnax::icd::identifier_from_proto(pb.identifier());
         if (err) return {{}, err};
         cpp.identifier = v;
     }
@@ -352,13 +351,13 @@ BinaryPayload::from_proto(const ::service::library::pb::PayloadBinaryPayload &pb
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::library::pb::PayloadTextPayload, x::errors::Error>
+inline std::pair<::service::icd::pb::PayloadTextPayload, x::errors::Error>
 TextPayload::to_proto() const {
-    ::service::library::pb::PayloadTextPayload pb;
+    ::service::icd::pb::PayloadTextPayload pb;
     pb.set_delimiter(this->delimiter);
     pb.set_prefix(this->prefix);
     for (const auto &item: this->fields) {
-        auto [v, err] = ::synnax::library::to_proto(item);
+        auto [v, err] = ::synnax::icd::to_proto(item);
         if (err) return {{}, err};
         *pb.add_fields() = v;
     }
@@ -366,21 +365,21 @@ TextPayload::to_proto() const {
 }
 
 inline std::pair<TextPayload, x::errors::Error>
-TextPayload::from_proto(const ::service::library::pb::PayloadTextPayload &pb) {
+TextPayload::from_proto(const ::service::icd::pb::PayloadTextPayload &pb) {
     TextPayload cpp;
     cpp.delimiter = pb.delimiter();
     cpp.prefix = pb.prefix();
     for (const auto &item: pb.fields()) {
-        auto [v, err] = ::synnax::library::text_field_from_proto(item);
+        auto [v, err] = ::synnax::icd::text_field_from_proto(item);
         if (err) return {{}, err};
         cpp.fields.push_back(v);
     }
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::library::pb::EntryEnumPayload, x::errors::Error>
+inline std::pair<::service::icd::pb::EntryEnumPayload, x::errors::Error>
 EnumEntry::to_proto() const {
-    ::service::library::pb::EntryEnumPayload pb;
+    ::service::icd::pb::EntryEnumPayload pb;
     for (const auto &item: this->values) {
         auto [v, err] = item.to_proto();
         if (err) return {{}, err};
@@ -390,18 +389,18 @@ EnumEntry::to_proto() const {
 }
 
 inline std::pair<EnumEntry, x::errors::Error>
-EnumEntry::from_proto(const ::service::library::pb::EntryEnumPayload &pb) {
+EnumEntry::from_proto(const ::service::icd::pb::EntryEnumPayload &pb) {
     EnumEntry cpp;
     if (auto err = x::pb::from_proto_repeated<EnumValue>(cpp.values, pb.values()))
         return {{}, err};
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::library::pb::EntryMessagePayload, x::errors::Error>
+inline std::pair<::service::icd::pb::EntryMessagePayload, x::errors::Error>
 MessageEntry::to_proto() const {
-    ::service::library::pb::EntryMessagePayload pb;
+    ::service::icd::pb::EntryMessagePayload pb;
     {
-        auto [v, err] = ::synnax::library::to_proto(this->payload);
+        auto [v, err] = ::synnax::icd::to_proto(this->payload);
         if (err) return {{}, err};
         *pb.mutable_payload() = v;
     }
@@ -411,10 +410,10 @@ MessageEntry::to_proto() const {
 }
 
 inline std::pair<MessageEntry, x::errors::Error>
-MessageEntry::from_proto(const ::service::library::pb::EntryMessagePayload &pb) {
+MessageEntry::from_proto(const ::service::icd::pb::EntryMessagePayload &pb) {
     MessageEntry cpp;
     {
-        auto [v, err] = ::synnax::library::payload_from_proto(pb.payload());
+        auto [v, err] = ::synnax::icd::payload_from_proto(pb.payload());
         if (err) return {{}, err};
         cpp.payload = v;
     }
@@ -423,9 +422,9 @@ MessageEntry::from_proto(const ::service::library::pb::EntryMessagePayload &pb) 
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::library::pb::Identifier, x::errors::Error>
+inline std::pair<::service::icd::pb::Identifier, x::errors::Error>
 to_proto(const Identifier &value) {
-    ::service::library::pb::Identifier pb;
+    ::service::icd::pb::Identifier pb;
     const auto visit_err = std::visit(
         [&pb](const auto &v) -> x::errors::Error {
             using V = std::decay_t<decltype(v)>;
@@ -443,14 +442,14 @@ to_proto(const Identifier &value) {
 }
 
 inline std::pair<Identifier, x::errors::Error>
-identifier_from_proto(const ::service::library::pb::Identifier &pb) {
+identifier_from_proto(const ::service::icd::pb::Identifier &pb) {
     switch (pb.variant_case()) {
-        case ::service::library::pb::Identifier::kCan: {
+        case ::service::icd::pb::Identifier::kCan: {
             auto [v, err] = CanIdentifier::from_proto(pb.can());
             if (err) return {{}, err};
             return {v, x::errors::NIL};
         }
-        case ::service::library::pb::Identifier::kField: {
+        case ::service::icd::pb::Identifier::kField: {
             auto [v, err] = FieldIdentifier::from_proto(pb.field());
             if (err) return {{}, err};
             return {v, x::errors::NIL};
@@ -463,9 +462,9 @@ identifier_from_proto(const ::service::library::pb::Identifier &pb) {
     }
 }
 
-inline std::pair<::service::library::pb::TextField, x::errors::Error>
+inline std::pair<::service::icd::pb::TextField, x::errors::Error>
 to_proto(const TextField &value) {
-    ::service::library::pb::TextField pb;
+    ::service::icd::pb::TextField pb;
     const auto visit_err = std::visit(
         [&pb](const auto &v) -> x::errors::Error {
             using V = std::decay_t<decltype(v)>;
@@ -488,9 +487,9 @@ to_proto(const TextField &value) {
 }
 
 inline std::pair<TextField, x::errors::Error>
-text_field_from_proto(const ::service::library::pb::TextField &pb) {
+text_field_from_proto(const ::service::icd::pb::TextField &pb) {
     switch (pb.variant_case()) {
-        case ::service::library::pb::TextField::kDelimited: {
+        case ::service::icd::pb::TextField::kDelimited: {
             auto [v, err] = DelimitedTextField::from_proto(pb.delimited());
             if (err) return {{}, err};
             {
@@ -500,7 +499,7 @@ text_field_from_proto(const ::service::library::pb::TextField &pb) {
             }
             return {v, x::errors::NIL};
         }
-        case ::service::library::pb::TextField::kTagged: {
+        case ::service::icd::pb::TextField::kTagged: {
             auto [v, err] = TaggedTextField::from_proto(pb.tagged());
             if (err) return {{}, err};
             {
@@ -518,9 +517,9 @@ text_field_from_proto(const ::service::library::pb::TextField &pb) {
     }
 }
 
-inline std::pair<::service::library::pb::Payload, x::errors::Error>
+inline std::pair<::service::icd::pb::Payload, x::errors::Error>
 to_proto(const Payload &value) {
-    ::service::library::pb::Payload pb;
+    ::service::icd::pb::Payload pb;
     const auto visit_err = std::visit(
         [&pb](const auto &v) -> x::errors::Error {
             using V = std::decay_t<decltype(v)>;
@@ -538,14 +537,14 @@ to_proto(const Payload &value) {
 }
 
 inline std::pair<Payload, x::errors::Error>
-payload_from_proto(const ::service::library::pb::Payload &pb) {
+payload_from_proto(const ::service::icd::pb::Payload &pb) {
     switch (pb.variant_case()) {
-        case ::service::library::pb::Payload::kBinary: {
+        case ::service::icd::pb::Payload::kBinary: {
             auto [v, err] = BinaryPayload::from_proto(pb.binary());
             if (err) return {{}, err};
             return {v, x::errors::NIL};
         }
-        case ::service::library::pb::Payload::kText: {
+        case ::service::icd::pb::Payload::kText: {
             auto [v, err] = TextPayload::from_proto(pb.text());
             if (err) return {{}, err};
             return {v, x::errors::NIL};
@@ -558,9 +557,9 @@ payload_from_proto(const ::service::library::pb::Payload &pb) {
     }
 }
 
-inline std::pair<::service::library::pb::Entry, x::errors::Error>
+inline std::pair<::service::icd::pb::Entry, x::errors::Error>
 to_proto(const Entry &value) {
-    ::service::library::pb::Entry pb;
+    ::service::icd::pb::Entry pb;
     const auto visit_err = std::visit(
         [&pb](const auto &v) -> x::errors::Error {
             using V = std::decay_t<decltype(v)>;
@@ -583,9 +582,9 @@ to_proto(const Entry &value) {
 }
 
 inline std::pair<Entry, x::errors::Error>
-entry_from_proto(const ::service::library::pb::Entry &pb) {
+entry_from_proto(const ::service::icd::pb::Entry &pb) {
     switch (pb.variant_case()) {
-        case ::service::library::pb::Entry::kEnum: {
+        case ::service::icd::pb::Entry::kEnum: {
             auto [v, err] = EnumEntry::from_proto(pb.enum_());
             if (err) return {{}, err};
             {
@@ -595,7 +594,7 @@ entry_from_proto(const ::service::library::pb::Entry &pb) {
             }
             return {v, x::errors::NIL};
         }
-        case ::service::library::pb::Entry::kMessage: {
+        case ::service::icd::pb::Entry::kMessage: {
             auto [v, err] = MessageEntry::from_proto(pb.message());
             if (err) return {{}, err};
             {

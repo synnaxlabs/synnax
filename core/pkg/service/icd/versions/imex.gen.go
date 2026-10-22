@@ -14,21 +14,21 @@ package versions
 import (
 	"context"
 
+	"github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/library/versions/v0"
 )
 
-// Latest is the portable schema version stamped on exported Library envelopes and the
+// Latest is the portable schema version stamped on exported ICD envelopes and the
 // highest version import accepts. It equals the resource's current schema version.
 const Latest = v0.Version
 
-// autoDecodeEnvelope decodes a server-exported envelope as its version's Library
+// autoDecodeEnvelope decodes a server-exported envelope as its version's ICD
 // shape and lifts it through the per-version migration chain to the current shape. A
 // version the ladder does not cover is rejected with a path-scoped validation error.
-func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Library, error) {
+func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (ICD, error) {
 	switch env.Version {
 	case v0.Version:
-		return env.Decode[Library](ctx)
+		return env.Decode[ICD](ctx)
 	}
-	return Library{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
+	return ICD{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
 }

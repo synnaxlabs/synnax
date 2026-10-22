@@ -22,10 +22,10 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Key is a unique identifier for a library.
+// Key is a unique identifier for an ICD.
 type Key = uuid.UUID
 
-// EntryKey is a unique identifier for an entry within a library.
+// EntryKey is a unique identifier for an entry within an ICD.
 type EntryKey = uuid.UUID
 
 // FieldKey is a unique identifier for a field within a message.
@@ -240,6 +240,8 @@ func (b *BinaryField) ApplyDefaults() {
 func (b BinaryField) Validate() error {
 	v := validate.New("BinaryField")
 	v.Ternaryf("byte_order", !b.ByteOrder.IsValid(), "invalid byte_order: %v", b.ByteOrder)
+	v.GreaterThanEq("bit_length", b.BitLength, 1)
+	v.LessThanEq("bit_length", b.BitLength, 64)
 	v.Exec(b.BaseField.Validate)
 	return v.Error()
 }
@@ -454,6 +456,7 @@ func (t *TextPayload) ApplyDefaults() {
 // schema constraints.
 func (t TextPayload) Validate() error {
 	v := validate.New("TextPayload")
+	v.NotEmptyString("delimiter", t.Delimiter)
 	for i := range t.Fields {
 		v.Exec(func() error { return validate.PathedError(t.Fields[i].Validate(), "fields", strconv.Itoa(i)) })
 	}
@@ -546,11 +549,11 @@ func (u Payload) Validate() error {
 	return nil
 }
 
-// BaseEntry carries the parts every library entry shares.
+// BaseEntry carries the parts every ICD entry shares.
 type BaseEntry struct {
-	// Key is the unique identifier for the entry within its library.
+	// Key is the unique identifier for the entry within its ICD.
 	Key EntryKey `json:"key" msgpack:"key"`
-	// Name is the name of the entry, unique within its library.
+	// Name is the name of the entry, unique within its ICD.
 	Name string `json:"name" msgpack:"name"`
 }
 
@@ -622,7 +625,7 @@ func (m MessageEntry) Validate() error {
 	return v.Error()
 }
 
-// Entry is one typed item in a library.
+// Entry is one typed item in an ICD.
 type Entry struct {
 	Variant EntryVariant
 }
@@ -705,42 +708,45 @@ func (u Entry) Validate() error {
 	return nil
 }
 
-// Library is a named, shared container of typed entries that tasks and other resources
-// reference by key.
-type Library struct {
-	// Key is the unique identifier for the library.
+// ICD is an interface control document: the messages a device sends and receives on a
+// bus or byte stream, and the enums that name their values.
+type ICD struct {
+	// Key is the unique identifier for the ICD.
 	Key Key `json:"key" msgpack:"key"`
-	// Name is a human-readable name for the library.
+	// Name is a human-readable name for the ICD.
 	Name string `json:"name" msgpack:"name"`
-	// Entries are the entries the library holds.
+	// Entries are the messages and enums the ICD holds.
 	Entries []Entry `json:"entries" msgpack:"entries"`
+	// Hash is the hash of the entries as the Core last stored them. A write sends the
+	// hash it read, and the Core rejects the write when the ICD changed since.
+	Hash string `json:"hash" msgpack:"hash"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *Library) ApplyDefaults() {
-	for i := range l.Entries {
-		l.Entries[i].ApplyDefaults()
+func (i *ICD) ApplyDefaults() {
+	for i := range i.Entries {
+		i.Entries[i].ApplyDefaults()
 	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (l Library) Validate() error {
-	v := validate.New("Library")
-	v.NotEmptyString("name", l.Name)
-	for i := range l.Entries {
-		v.Exec(func() error { return validate.PathedError(l.Entries[i].Validate(), "entries", strconv.Itoa(i)) })
+func (i ICD) Validate() error {
+	v := validate.New("ICD")
+	v.NotEmptyString("name", i.Name)
+	for i := range i.Entries {
+		v.Exec(func() error { return validate.PathedError(i.Entries[i].Validate(), "entries", strconv.Itoa(i)) })
 	}
 	return v.Error()
 }
 
-// Reference is embedded in the config of a task that uses a library. A task uses at
-// most one library.
+// Reference is embedded in the config of a task that uses an ICD. A task uses at most
+// one ICD.
 type Reference struct {
-	// Library is the key of the library the task reads its layouts from. When absent
-	// the task uses no library yet.
-	Library *Key `json:"library,omitzero" msgpack:"library,omitempty"`
-	// LibraryHash is the hash of the library's entries, stamped by the Core when the
-	// task or the library is written.
-	LibraryHash string `json:"library_hash" msgpack:"library_hash"`
+	// ICD is the key of the ICD the task reads its messages from. When absent the task
+	// uses no ICD yet.
+	ICD *Key `json:"icd,omitzero" msgpack:"icd,omitempty"`
+	// ICDHash is the hash of the ICD entries the task uses, stamped by the Core when
+	// the task or the ICD is written.
+	ICDHash string `json:"icd_hash" msgpack:"icd_hash"`
 }

@@ -11,9 +11,9 @@
 
 syntax = "proto3";
 
-package service.library.pb;
+package service.icd.pb;
 
-option go_package = "github.com/synnaxlabs/synnax/pkg/service/library/pb";
+option go_package = "github.com/synnaxlabs/synnax/pkg/service/icd/pb";
 
 // ByteOrder is the byte order of a multi-byte binary field.
 enum ByteOrder {
@@ -99,34 +99,37 @@ message BinaryField {
   bool float = 15;
 }
 
-// BaseEntry carries the parts every library entry shares.
+// BaseEntry carries the parts every ICD entry shares.
 message BaseEntry {
-  // key is the unique identifier for the entry within its library.
+  // key is the unique identifier for the entry within its ICD.
   string key = 1;
-  // name is the name of the entry, unique within its library.
+  // name is the name of the entry, unique within its ICD.
   string name = 2;
 }
 
-// Library is a named, shared container of typed entries that tasks and other resources
-// reference by key.
-message Library {
-  // key is the unique identifier for the library.
+// ICD is an interface control document: the messages a device sends and receives on a
+// bus or byte stream, and the enums that name their values.
+message ICD {
+  // key is the unique identifier for the ICD.
   string key = 1;
-  // name is a human-readable name for the library.
+  // name is a human-readable name for the ICD.
   string name = 2;
-  // entries are the entries the library holds.
+  // entries are the messages and enums the ICD holds.
   repeated Entry entries = 3;
+  // hash is the hash of the entries as the Core last stored them. A write sends the
+  // hash it read, and the Core rejects the write when the ICD changed since.
+  string hash = 4;
 }
 
-// Reference is embedded in the config of a task that uses a library. A task uses at
-// most one library.
+// Reference is embedded in the config of a task that uses an ICD. A task uses at most
+// one ICD.
 message Reference {
-  // library is the key of the library the task reads its layouts from. When absent the
-  // task uses no library yet.
-  optional string library = 1;
-  // library_hash is the hash of the library's entries, stamped by the Core when the
-  // task or the library is written.
-  string library_hash = 2;
+  // icd is the key of the ICD the task reads its messages from. When absent the task
+  // uses no ICD yet.
+  optional string icd = 1;
+  // icd_hash is the hash of the ICD entries the task uses, stamped by the Core when the
+  // task or the ICD is written.
+  string icd_hash = 2;
 }
 message IdentifierCanPayload {
   // id is the CAN arbitration identifier.
@@ -211,7 +214,7 @@ message Payload {
   }
 }
 
-// Entry is one typed item in a library.
+// Entry is one typed item in an ICD.
 message Entry {
   BaseEntry base_entry = 1;
   oneof variant {

@@ -19,7 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/bus/versions/v0"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	library "github.com/synnaxlabs/synnax/pkg/service/library/versions/v0"
+	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
@@ -43,10 +43,10 @@ var _ = Describe("Codec", func() {
 				Sync:              "test_1",
 				LengthOffset:      3,
 				LengthSize:        4,
-				ByteOrder:         library.ByteOrder("little_endian"),
+				ByteOrder:         icd.ByteOrder("little_endian"),
 				LengthAdjustment:  6,
 				Checksum:          v0.Checksum("none"),
-				ChecksumByteOrder: library.ByteOrder("little_endian"),
+				ChecksumByteOrder: icd.ByteOrder("little_endian"),
 			}}),
 			Entry("cobs variant", v0.Framing{Variant: v0.CobsFraming{}}),
 			Entry("slip variant", v0.Framing{Variant: v0.SlipFraming{}}),
@@ -82,8 +82,8 @@ var _ = Describe("Codec", func() {
 				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				AutoStart:          false,
 				DataSavingDisabled: true,
-				Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
-				LibraryHash:        "test_5",
+				ICD:                new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
+				ICDHash:            "test_5",
 				Device:             "test_6",
 				Raw:                channel.Key(8),
 				Messages: []v0.ReadMessage{
@@ -104,8 +104,8 @@ var _ = Describe("Codec", func() {
 				Key:                uuid.Nil(),
 				AutoStart:          false,
 				DataSavingDisabled: false,
-				Library:            nil,
-				LibraryHash:        "",
+				ICD:                nil,
+				ICDHash:            "",
 				Device:             "",
 				Raw:                channel.Key(0),
 				Messages:           []v0.ReadMessage{},
@@ -114,8 +114,8 @@ var _ = Describe("Codec", func() {
 				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				AutoStart:          false,
 				DataSavingDisabled: true,
-				Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
-				LibraryHash:        "test_5",
+				ICD:                new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
+				ICDHash:            "test_5",
 				Device:             "test_6",
 				Raw:                channel.Key(8),
 				Messages:           []v0.ReadMessage{},
@@ -191,8 +191,8 @@ var _ = Describe("Codec", func() {
 				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				AutoStart:          false,
 				DataSavingDisabled: true,
-				Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
-				LibraryHash:        "test_5",
+				ICD:                new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
+				ICDHash:            "test_5",
 				Device:             "test_6",
 				Raw:                channel.Key(8),
 				Messages: []v0.ReadMessage{
@@ -216,8 +216,8 @@ var _ = Describe("Codec", func() {
 				Key:                uuid.Nil(),
 				AutoStart:          false,
 				DataSavingDisabled: false,
-				Library:            nil,
-				LibraryHash:        "",
+				ICD:                nil,
+				ICDHash:            "",
 				Device:             "",
 				Raw:                channel.Key(0),
 				Messages:           []v0.ReadMessage{},
@@ -229,8 +229,8 @@ var _ = Describe("Codec", func() {
 				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				AutoStart:          false,
 				DataSavingDisabled: true,
-				Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
-				LibraryHash:        "test_5",
+				ICD:                new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
+				ICDHash:            "test_5",
 				Device:             "test_6",
 				Raw:                channel.Key(8),
 				Messages:           []v0.ReadMessage{},
@@ -256,8 +256,8 @@ var _ = Describe("Codec", func() {
 				AutoStart:          false,
 				DataSavingDisabled: true,
 				Device:             "test_4",
-				Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
-				LibraryHash:        "test_6",
+				ICD:                new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
+				ICDHash:            "test_6",
 				Messages: []v0.WriteMessage{
 					{
 						Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
@@ -277,8 +277,8 @@ var _ = Describe("Codec", func() {
 				AutoStart:          false,
 				DataSavingDisabled: false,
 				Device:             "",
-				Library:            nil,
-				LibraryHash:        "",
+				ICD:                nil,
+				ICDHash:            "",
 				Messages:           []v0.WriteMessage{},
 				Framing:            v0.Framing{Variant: v0.DelimiterFraming{Delimiter: ""}},
 			}),
@@ -287,8 +287,8 @@ var _ = Describe("Codec", func() {
 				AutoStart:          false,
 				DataSavingDisabled: true,
 				Device:             "test_4",
-				Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
-				LibraryHash:        "test_6",
+				ICD:                new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
+				ICDHash:            "test_6",
 				Messages:           []v0.WriteMessage{},
 				Framing:            v0.Framing{Variant: v0.DelimiterFraming{Delimiter: "test_9"}},
 			}),
@@ -310,8 +310,8 @@ var _ = Describe("Codec", func() {
 				AutoStart:          false,
 				DataSavingDisabled: true,
 				Device:             "test_4",
-				Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
-				LibraryHash:        "test_6",
+				ICD:                new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
+				ICDHash:            "test_6",
 				Messages: []v0.WriteMessage{
 					{
 						Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
@@ -330,8 +330,8 @@ var _ = Describe("Codec", func() {
 				AutoStart:          false,
 				DataSavingDisabled: false,
 				Device:             "",
-				Library:            nil,
-				LibraryHash:        "",
+				ICD:                nil,
+				ICDHash:            "",
 				Messages:           []v0.WriteMessage{},
 			}),
 			Entry("empty collections", v0.WriteConfig{
@@ -339,8 +339,8 @@ var _ = Describe("Codec", func() {
 				AutoStart:          false,
 				DataSavingDisabled: true,
 				Device:             "test_4",
-				Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
-				LibraryHash:        "test_6",
+				ICD:                new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
+				ICDHash:            "test_6",
 				Messages:           []v0.WriteMessage{},
 			}),
 		)
@@ -437,8 +437,8 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 		Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		AutoStart:          false,
 		DataSavingDisabled: true,
-		Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
-		LibraryHash:        "test_5",
+		ICD:                new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
+		ICDHash:            "test_5",
 		Device:             "test_6",
 		Raw:                channel.Key(8),
 		Messages: []v0.ReadMessage{
@@ -522,8 +522,8 @@ func BenchmarkEncodeDecodeStreamReadConfig(b *testing.B) {
 		Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		AutoStart:          false,
 		DataSavingDisabled: true,
-		Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
-		LibraryHash:        "test_5",
+		ICD:                new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
+		ICDHash:            "test_5",
 		Device:             "test_6",
 		Raw:                channel.Key(8),
 		Messages: []v0.ReadMessage{
@@ -564,8 +564,8 @@ func BenchmarkEncodeDecodeStreamWriteConfig(b *testing.B) {
 		AutoStart:          false,
 		DataSavingDisabled: true,
 		Device:             "test_4",
-		Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
-		LibraryHash:        "test_6",
+		ICD:                new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
+		ICDHash:            "test_6",
 		Messages: []v0.WriteMessage{
 			{
 				Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
@@ -601,8 +601,8 @@ func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 		AutoStart:          false,
 		DataSavingDisabled: true,
 		Device:             "test_4",
-		Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
-		LibraryHash:        "test_6",
+		ICD:                new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
+		ICDHash:            "test_6",
 		Messages: []v0.WriteMessage{
 			{
 				Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
@@ -699,10 +699,10 @@ func FuzzDecodeFraming(f *testing.F) {
 			Sync:              "test_1",
 			LengthOffset:      3,
 			LengthSize:        4,
-			ByteOrder:         library.ByteOrder("little_endian"),
+			ByteOrder:         icd.ByteOrder("little_endian"),
 			LengthAdjustment:  6,
 			Checksum:          v0.Checksum("none"),
-			ChecksumByteOrder: library.ByteOrder("little_endian"),
+			ChecksumByteOrder: icd.ByteOrder("little_endian"),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -793,8 +793,8 @@ func FuzzDecodeReadConfig(f *testing.F) {
 			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			AutoStart:          false,
 			DataSavingDisabled: true,
-			Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
-			LibraryHash:        "test_5",
+			ICD:                new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
+			ICDHash:            "test_5",
 			Device:             "test_6",
 			Raw:                channel.Key(8),
 			Messages: []v0.ReadMessage{
@@ -822,8 +822,8 @@ func FuzzDecodeReadConfig(f *testing.F) {
 			Key:                uuid.Nil(),
 			AutoStart:          false,
 			DataSavingDisabled: false,
-			Library:            nil,
-			LibraryHash:        "",
+			ICD:                nil,
+			ICDHash:            "",
 			Device:             "",
 			Raw:                channel.Key(0),
 			Messages:           []v0.ReadMessage{},
@@ -839,8 +839,8 @@ func FuzzDecodeReadConfig(f *testing.F) {
 			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			AutoStart:          false,
 			DataSavingDisabled: true,
-			Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
-			LibraryHash:        "test_5",
+			ICD:                new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
+			ICDHash:            "test_5",
 			Device:             "test_6",
 			Raw:                channel.Key(8),
 			Messages:           []v0.ReadMessage{},
@@ -988,8 +988,8 @@ func FuzzDecodeStreamReadConfig(f *testing.F) {
 			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			AutoStart:          false,
 			DataSavingDisabled: true,
-			Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
-			LibraryHash:        "test_5",
+			ICD:                new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
+			ICDHash:            "test_5",
 			Device:             "test_6",
 			Raw:                channel.Key(8),
 			Messages: []v0.ReadMessage{
@@ -1020,8 +1020,8 @@ func FuzzDecodeStreamReadConfig(f *testing.F) {
 			Key:                uuid.Nil(),
 			AutoStart:          false,
 			DataSavingDisabled: false,
-			Library:            nil,
-			LibraryHash:        "",
+			ICD:                nil,
+			ICDHash:            "",
 			Device:             "",
 			Raw:                channel.Key(0),
 			Messages:           []v0.ReadMessage{},
@@ -1040,8 +1040,8 @@ func FuzzDecodeStreamReadConfig(f *testing.F) {
 			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			AutoStart:          false,
 			DataSavingDisabled: true,
-			Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
-			LibraryHash:        "test_5",
+			ICD:                new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
+			ICDHash:            "test_5",
 			Device:             "test_6",
 			Raw:                channel.Key(8),
 			Messages:           []v0.ReadMessage{},
@@ -1084,8 +1084,8 @@ func FuzzDecodeStreamWriteConfig(f *testing.F) {
 			AutoStart:          false,
 			DataSavingDisabled: true,
 			Device:             "test_4",
-			Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
-			LibraryHash:        "test_6",
+			ICD:                new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
+			ICDHash:            "test_6",
 			Messages: []v0.WriteMessage{
 				{
 					Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
@@ -1112,8 +1112,8 @@ func FuzzDecodeStreamWriteConfig(f *testing.F) {
 			AutoStart:          false,
 			DataSavingDisabled: false,
 			Device:             "",
-			Library:            nil,
-			LibraryHash:        "",
+			ICD:                nil,
+			ICDHash:            "",
 			Messages:           []v0.WriteMessage{},
 			Framing:            v0.Framing{Variant: v0.DelimiterFraming{Delimiter: ""}},
 		}
@@ -1129,8 +1129,8 @@ func FuzzDecodeStreamWriteConfig(f *testing.F) {
 			AutoStart:          false,
 			DataSavingDisabled: true,
 			Device:             "test_4",
-			Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
-			LibraryHash:        "test_6",
+			ICD:                new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
+			ICDHash:            "test_6",
 			Messages:           []v0.WriteMessage{},
 			Framing:            v0.Framing{Variant: v0.DelimiterFraming{Delimiter: "test_9"}},
 		}
@@ -1169,8 +1169,8 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 			AutoStart:          false,
 			DataSavingDisabled: true,
 			Device:             "test_4",
-			Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
-			LibraryHash:        "test_6",
+			ICD:                new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
+			ICDHash:            "test_6",
 			Messages: []v0.WriteMessage{
 				{
 					Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
@@ -1196,8 +1196,8 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 			AutoStart:          false,
 			DataSavingDisabled: false,
 			Device:             "",
-			Library:            nil,
-			LibraryHash:        "",
+			ICD:                nil,
+			ICDHash:            "",
 			Messages:           []v0.WriteMessage{},
 		}
 		w := orc.NewWriter(0)
@@ -1212,8 +1212,8 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 			AutoStart:          false,
 			DataSavingDisabled: true,
 			Device:             "test_4",
-			Library:            new(library.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
-			LibraryHash:        "test_6",
+			ICD:                new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
+			ICDHash:            "test_6",
 			Messages:           []v0.WriteMessage{},
 		}
 		w := orc.NewWriter(0)

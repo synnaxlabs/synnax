@@ -9,7 +9,7 @@
 
 import "schemas/synnax/channel"
 import "schemas/synnax/device"
-import "schemas/synnax/library"
+import "schemas/synnax/icd"
 import "schemas/synnax/task"
 import "schemas/x/telem"
 
@@ -19,7 +19,7 @@ import "schemas/x/telem"
 @ts output  "client/ts/src/bus"
 
 ReadField struct {
-    field   library.FieldKey {
+    field   icd.FieldKey {
         @doc value "is the key of the field within its message."
     }
     channel channel.Key = 0 {
@@ -31,7 +31,7 @@ ReadField struct {
 }
 
 ReadMessage struct {
-    message  library.EntryKey {
+    message  icd.EntryKey {
         @doc value "is the key of the message entry in the task's library."
     }
     disabled bool = false {
@@ -40,7 +40,7 @@ ReadMessage struct {
     index    channel.Key = 0 {
         @doc value "is the index channel stamped with the time each message arrives."
     }
-    fields   ReadField[]      {
+    fields   ReadField[]  {
         @doc value "are the fields of the message the task writes to channels."
     }
 
@@ -49,7 +49,7 @@ ReadMessage struct {
 }
 
 WriteField struct {
-    field   library.FieldKey {
+    field   icd.FieldKey {
         @doc value "is the key of the field within its message."
     }
     channel channel.Key = 0 {
@@ -64,13 +64,13 @@ WriteField struct {
 }
 
 WriteMessage struct {
-    message  library.EntryKey {
+    message  icd.EntryKey {
         @doc value "is the key of the message entry in the task's library."
     }
     disabled bool = false {
         @doc value "is true when the task does not send the message."
     }
-    fields   WriteField[]     {
+    fields   WriteField[] {
         @doc value "are the fields of the message driven by command channels."
     }
 
@@ -81,7 +81,7 @@ WriteMessage struct {
     @go marshal
 }
 
-ReadConfig struct extends task.PersistConfig, library.Reference {
+ReadConfig struct extends task.PersistConfig, icd.Reference {
     device   device.Key = "" {
         @doc value "is the key of the device the task reads from."
     }
@@ -99,7 +99,7 @@ ReadConfig struct extends task.PersistConfig, library.Reference {
     @go marshal
 }
 
-WriteConfig struct extends task.WriteConfig, library.Reference {
+WriteConfig struct extends task.WriteConfig, icd.Reference {
     messages WriteMessage[] {
         @doc value "are the messages the task sends."
     }
@@ -158,7 +158,7 @@ Framing union on type {
         length_size         uint8 = 1 {
             @doc value "is the size of the length field in bytes: 1, 2, or 4."
         }
-        byte_order          library.ByteOrder = little_endian {
+        byte_order          icd.ByteOrder = little_endian {
             @doc value "is the byte order of the length field."
         }
         length_adjustment   int32 = 0 {
@@ -170,7 +170,7 @@ Framing union on type {
         checksum            Checksum = none {
             @doc value "is the checksum that ends each frame."
         }
-        checksum_byte_order library.ByteOrder = little_endian {
+        checksum_byte_order icd.ByteOrder = little_endian {
             @doc value "is the byte order of the checksum."
         }
 

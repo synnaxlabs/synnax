@@ -14,7 +14,7 @@ package v0
 import (
 	bus "github.com/synnaxlabs/synnax/pkg/service/bus/versions/v0"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	library "github.com/synnaxlabs/synnax/pkg/service/library/versions/v0"
+	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
@@ -43,13 +43,13 @@ func (rc ReadConfig) EncodeOrc(w *orc.Writer) error {
 	w.Write(rc.Key[:])
 	w.Bool(rc.AutoStart)
 	w.Bool(rc.DataSavingDisabled)
-	if rc.Library != nil {
+	if rc.ICD != nil {
 		w.Bool(true)
-		w.Write((*rc.Library)[:])
+		w.Write((*rc.ICD)[:])
 	} else {
 		w.Bool(false)
 	}
-	w.String(rc.LibraryHash)
+	w.String(rc.ICDHash)
 	w.String(rc.Device)
 	w.Uint32(uint32(rc.Raw))
 	w.Bool(rc.Messages != nil)
@@ -87,14 +87,14 @@ func (rc *ReadConfig) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv library.Key
+			var hv icd.Key
 			if _, err := r.Read(hv[:]); err != nil {
 				return err
 			}
-			rc.Library = &hv
+			rc.ICD = &hv
 		}
 	}
-	if rc.LibraryHash, err = r.String(); err != nil {
+	if rc.ICDHash, err = r.String(); err != nil {
 		return err
 	}
 	if rc.Device, err = r.String(); err != nil {
@@ -178,13 +178,13 @@ func (wc WriteConfig) EncodeOrc(w *orc.Writer) error {
 	w.Bool(wc.AutoStart)
 	w.Bool(wc.DataSavingDisabled)
 	w.String(wc.Device)
-	if wc.Library != nil {
+	if wc.ICD != nil {
 		w.Bool(true)
-		w.Write((*wc.Library)[:])
+		w.Write((*wc.ICD)[:])
 	} else {
 		w.Bool(false)
 	}
-	w.String(wc.LibraryHash)
+	w.String(wc.ICDHash)
 	w.Bool(wc.Messages != nil)
 	if wc.Messages != nil {
 		w.Uint32(uint32(len(wc.Messages)))
@@ -221,14 +221,14 @@ func (wc *WriteConfig) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv library.Key
+			var hv icd.Key
 			if _, err := r.Read(hv[:]); err != nil {
 				return err
 			}
-			wc.Library = &hv
+			wc.ICD = &hv
 		}
 	}
-	if wc.LibraryHash, err = r.String(); err != nil {
+	if wc.ICDHash, err = r.String(); err != nil {
 		return err
 	}
 	{

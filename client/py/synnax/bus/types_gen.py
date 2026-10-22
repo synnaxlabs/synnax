@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 
 from synnax import channel as channel_
 from synnax import device as device_
-from synnax import library as library_
+from synnax import icd as icd_
 from synnax import task
 from x import telem
 
@@ -41,7 +41,7 @@ class ReadField(BaseModel):
         channel: Is the channel the field's decoded values are written to.
     """
 
-    field: library_.FieldKey
+    field: icd_.FieldKey
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
 
 
@@ -54,7 +54,7 @@ class WriteField(BaseModel):
         channel: Is the command channel whose values are encoded into the field.
     """
 
-    field: library_.FieldKey
+    field: icd_.FieldKey
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
 
 
@@ -98,10 +98,10 @@ class SyncFraming(BaseModel):
     sync: str = ""
     length_offset: int = Field(default=0, ge=0, le=4294967295)
     length_size: int = Field(default=1, ge=0, le=255)
-    byte_order: library_.ByteOrder = "little_endian"
+    byte_order: icd_.ByteOrder = "little_endian"
     length_adjustment: int = Field(default=0, ge=-2147483648, le=2147483647)
     checksum: Checksum = "none"
-    checksum_byte_order: library_.ByteOrder = "little_endian"
+    checksum_byte_order: icd_.ByteOrder = "little_endian"
 
 
 class CobsFraming(BaseModel):
@@ -133,7 +133,7 @@ class ReadMessage(BaseModel):
         fields: Are the fields of the message the task writes to channels.
     """
 
-    message: library_.EntryKey
+    message: icd_.EntryKey
     disabled: bool = False
     index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     fields: list[ReadField] = Field(default_factory=list)
@@ -149,12 +149,12 @@ class WriteMessage(BaseModel):
         fields: Are the fields of the message driven by command channels.
     """
 
-    message: library_.EntryKey
+    message: icd_.EntryKey
     disabled: bool = False
     fields: list[WriteField] = Field(default_factory=list)
 
 
-class ReadConfig(task.PersistConfig, library_.Reference):
+class ReadConfig(task.PersistConfig, icd_.Reference):
     """Carries the settings every bus read task shares.
 
     Attributes:
@@ -172,7 +172,7 @@ class ReadConfig(task.PersistConfig, library_.Reference):
         return hash(self.key)
 
 
-class WriteConfig(task.WriteConfig, library_.Reference):
+class WriteConfig(task.WriteConfig, icd_.Reference):
     """Carries the settings every bus write task shares.
 
     Attributes:

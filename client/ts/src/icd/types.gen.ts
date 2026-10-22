@@ -37,28 +37,28 @@ export const fieldKeyZ = z.uuid();
 export type FieldKey = z.infer<typeof fieldKeyZ>;
 
 /**
- * Reference is embedded in the config of a task that uses a library. A task uses at
- * most one library.
+ * Reference is embedded in the config of a task that uses an ICD. A task uses at most
+ * one ICD.
  */
 export const referenceZ = z.object({
   /**
-   * library is the key of the library the task reads its layouts from. When absent the
-   * task uses no library yet.
+   * icd is the key of the ICD the task reads its messages from. When absent the task
+   * uses no ICD yet.
    */
-  library: keyZ.optional(),
+  icd: keyZ.optional(),
   /**
-   * libraryHash is the hash of the library's entries, stamped by the Core when the task
-   * or the library is written.
+   * icdHash is the hash of the ICD entries the task uses, stamped by the Core when the
+   * task or the ICD is written.
    */
-  libraryHash: z.string().default(""),
+  icdHash: z.string().default(""),
 });
 export interface Reference extends z.infer<typeof referenceZ> {}
 
-/** BaseEntry carries the parts every library entry shares. */
+/** BaseEntry carries the parts every ICD entry shares. */
 export const baseEntryZ = z.object({
-  /** key is the unique identifier for the entry within its library. */
+  /** key is the unique identifier for the entry within its ICD. */
   key: entryKeyZ.default(uuid.create),
-  /** name is the name of the entry, unique within its library. */
+  /** name is the name of the entry, unique within its ICD. */
   name: z.string().min(1),
 });
 export interface BaseEntry extends z.infer<typeof baseEntryZ> {}
@@ -153,7 +153,7 @@ export const IDENTIFIER_SCHEMAS: {
 
 export const binaryFieldZ = baseFieldZ.extend({
   startBit: zod.uint16.default(0),
-  bitLength: zod.uint8.default(8),
+  bitLength: zod.uint8.min(1).max(64).default(8),
   byteOrder: byteOrderZ.default("little_endian"),
   signed: z.boolean().default(false),
   float: z.boolean().default(false),
@@ -213,7 +213,7 @@ export interface BinaryPayload extends z.infer<typeof binaryPayloadZ> {}
 export const textPayloadZ = z.object({
   format: z.literal("text"),
   /** delimiter splits the items of the line. */
-  delimiter: z.string().default(","),
+  delimiter: z.string().min(1).default(","),
   /**
    * prefix is the text a line must start with to belong to the message. An empty prefix
    * matches every line.
@@ -269,7 +269,7 @@ export const ENTRY_TYPES = ["enum", "message"] as const;
 export const entryTypeZ = z.enum(ENTRY_TYPES);
 export type EntryType = z.infer<typeof entryTypeZ>;
 
-/** Entry is one typed item in a library. */
+/** Entry is one typed item in an ICD. */
 export const entryZ = z.discriminatedUnion("kind", [enumEntryZ, messageEntryZ]);
 export type Entry = EnumEntry | MessageEntry;
 
@@ -281,19 +281,24 @@ export const ENTRY_SCHEMAS: {
 };
 
 /**
- * Library is a named, shared container of typed entries that tasks and other resources
- * reference by key.
+ * ICD is an interface control document: the messages a device sends and receives on a
+ * bus or byte stream, and the enums that name their values.
  */
-export const libraryZ = z.object({
-  /** key is the unique identifier for the library. */
+export const icdZ = z.object({
+  /** key is the unique identifier for the ICD. */
   key: keyZ.default(uuid.create),
-  /** name is a human-readable name for the library. */
+  /** name is a human-readable name for the ICD. */
   name: z.string().min(1),
-  /** entries are the entries the library holds. */
+  /** entries are the messages and enums the ICD holds. */
   entries: entryZ.array().default(() => []),
+  /**
+   * hash is the hash of the entries as the Core last stored them. A write sends the
+   * hash it read, and the Core rejects the write when the ICD changed since.
+   */
+  hash: z.string().default(""),
 });
-export interface Library extends z.infer<typeof libraryZ> {}
-export interface New extends z.input<typeof libraryZ> {}
+export interface ICD extends z.infer<typeof icdZ> {}
+export interface New extends z.input<typeof icdZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("library");
+export const ontologyID = ontology.createIDFactory<Key>("icd");
 export const TYPE_ONTOLOGY_ID = ontologyID("");

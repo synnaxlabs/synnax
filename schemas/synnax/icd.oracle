@@ -7,14 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/x/versions/telem/v0"
+import "schemas/x/telem"
+
+@cpp output "client/cpp/icd"
+@go output  "core/pkg/service/icd"
+@pb
+@py output  "client/py/synnax/icd"
+@ts output  "client/ts/src/icd"
 
 Key = uuid {
-    @doc value "is a unique identifier for a library."
+    @doc value "is a unique identifier for an ICD."
 }
 
 EntryKey = uuid {
-    @doc value "is a unique identifier for an entry within a library."
+    @doc value "is a unique identifier for an entry within an ICD."
 }
 
 FieldKey = uuid {
@@ -26,7 +32,8 @@ EnumValue struct {
         @doc value "is the integer value."
     }
     name  string {
-        @doc value "is the name of the value."
+        @doc value           "is the name of the value."
+        @validate min_length 1
     }
 
     @doc value  "maps one integer value of an enum to a name."
@@ -80,7 +87,8 @@ BaseField struct {
         @doc value "is the unique identifier for the field within its message."
     }
     name             string    {
-        @doc value "is the name of the field, unique within its message."
+        @doc value           "is the name of the field, unique within its message."
+        @validate min_length 1
     }
     scale            float64 = 1 {
         @doc value "multiplies the raw value on decode."
@@ -108,13 +116,13 @@ BaseField struct {
             are the raw values of the multiplexor for which this field is present.
         """
     }
-    min              float64? {
+    min              float64?  {
         @doc value """
             is the smallest decoded value a write task accepts. When absent the field's
             bit width sets the limit.
         """
     }
-    max              float64? {
+    max              float64?  {
         @doc value """
             is the largest decoded value a write task accepts. When absent the field's
             bit width sets the limit.
@@ -134,7 +142,9 @@ BinaryField struct extends BaseField {
         """
     }
     bit_length uint8 = 8 {
-        @doc value "is the number of bits in the field, from 1 to 64."
+        @doc value    "is the number of bits in the field, from 1 to 64."
+        @validate max 64
+        @validate min 1
     }
     byte_order ByteOrder = little_endian {
         @doc value "is the byte order of the field."
@@ -143,9 +153,7 @@ BinaryField struct extends BaseField {
         @doc value "is true when the raw value is two's complement."
     }
     float      bool = false {
-        @doc value """
-            is true when the raw bits are an IEEE 754 float of 32 or 64 bits.
-        """
+        @doc value "is true when the raw bits are an IEEE 754 float of 32 or 64 bits."
     }
 
     @doc value  "is a field read from a bit range of a binary payload."
@@ -162,7 +170,10 @@ TextField union on encoding extends BaseField {
     }
     tagged {
         tag string {
-            @doc value "is the text that comes just before the value in the line."
+            @doc value           """
+                is the text that comes just before the value in the line.
+            """
+            @validate min_length 1
         }
 
         @doc value "is a field read from the text that follows a tag."
@@ -193,7 +204,8 @@ Payload union on format {
     }
     text {
         delimiter string = "," {
-            @doc value "splits the items of the line."
+            @doc value           "splits the items of the line."
+            @validate min_length 1
         }
         prefix    string = "" {
             @doc value """
@@ -214,13 +226,14 @@ Payload union on format {
 
 BaseEntry struct {
     key  EntryKey = create {
-        @doc value "is the unique identifier for the entry within its library."
+        @doc value "is the unique identifier for the entry within its ICD."
     }
     name string   {
-        @doc value "is the name of the entry, unique within its library."
+        @doc value           "is the name of the entry, unique within its ICD."
+        @validate min_length 1
     }
 
-    @doc value  "carries the parts every library entry shares."
+    @doc value  "carries the parts every ICD entry shares."
     @go marshal
 }
 
@@ -252,48 +265,59 @@ Entry union on kind extends BaseEntry {
         @doc value "is a frame layout on a bus or byte stream."
     }
 
-    @doc value  "is one typed item in a library."
+    @doc value  "is one typed item in an ICD."
     @go marshal
 }
 
-Library struct {
+ICD struct {
     key     Key = create {
-        @doc value "is the unique identifier for the library."
+        @doc value "is the unique identifier for the ICD."
         @key
     }
     name    string  {
-        @doc value "is a human-readable name for the library."
+        @doc value           "is a human-readable name for the ICD."
+        @validate min_length 1
     }
     entries Entry[] = [] {
-        @doc value "are the entries the library holds."
+        @doc value "are the messages and enums the ICD holds."
+    }
+    hash    string = "" {
+        @doc value """
+            is the hash of the entries as the Core last stored them. A write sends the
+            hash it read, and the Core rejects the write when the ICD changed since.
+        """
     }
 
-    @doc value  """
-        is a named, shared container of typed entries that tasks and other resources
-        reference by key.
+    @create
+    @doc value     """
+        is an interface control document: the messages a device sends and receives on a
+        bus or byte stream, and the enums that name their values.
     """
     @go imex
     @go marshal
     @go migrate
+    @ontology type "icd"
+    @retrieve
+    @search
 }
 
 Reference struct {
-    library      Key?   {
+    icd      Key?   {
         @doc value """
-            is the key of the library the task reads its layouts from. When absent the
-            task uses no library yet.
+            is the key of the ICD the task reads its messages from. When absent the task
+            uses no ICD yet.
         """
     }
-    library_hash string = "" {
+    icd_hash string = "" {
         @doc value """
-            is the hash of the library's entries, stamped by the Core when the task or
-            the library is written.
+            is the hash of the ICD entries the task uses, stamped by the Core when the
+            task or the ICD is written.
         """
     }
 
     @doc value  """
-        is embedded in the config of a task that uses a library. A task uses at most one
-        library.
+        is embedded in the config of a task that uses an ICD. A task uses at most one
+        ICD.
     """
     @go marshal
 }

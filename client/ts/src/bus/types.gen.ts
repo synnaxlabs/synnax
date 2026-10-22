@@ -14,7 +14,7 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { device } from "@/device";
-import { library } from "@/library";
+import { icd } from "@/icd";
 import { task } from "@/task";
 
 export const CHECKSUMS = ["none", "crc16_ccitt", "crc16_modbus", "crc32"] as const;
@@ -24,7 +24,7 @@ export type Checksum = z.infer<typeof checksumZ>;
 /** ReadField maps one decoded message field to a channel. */
 export const readFieldZ = z.object({
   /** field is the key of the field within its message. */
-  field: library.fieldKeyZ,
+  field: icd.fieldKeyZ,
   /** channel is the channel the field's decoded values are written to. */
   channel: channel.keyZ.default(0),
 });
@@ -36,7 +36,7 @@ export interface ReadField extends z.infer<typeof readFieldZ> {}
  */
 export const writeFieldZ = z.object({
   /** field is the key of the field within its message. */
-  field: library.fieldKeyZ,
+  field: icd.fieldKeyZ,
   /** channel is the command channel whose values are encoded into the field. */
   channel: channel.keyZ.default(0),
 });
@@ -83,7 +83,7 @@ export const syncFramingZ = z.object({
   /** lengthSize is the size of the length field in bytes: 1, 2, or 4. */
   lengthSize: zod.uint8.default(1),
   /** byteOrder is the byte order of the length field. */
-  byteOrder: library.byteOrderZ.default("little_endian"),
+  byteOrder: icd.byteOrderZ.default("little_endian"),
   /**
    * lengthAdjustment is added to the length field to get the number of bytes that
    * follow the length field, checksum included.
@@ -92,7 +92,7 @@ export const syncFramingZ = z.object({
   /** checksum is the checksum that ends each frame. */
   checksum: checksumZ.default("none"),
   /** checksumByteOrder is the byte order of the checksum. */
-  checksumByteOrder: library.byteOrderZ.default("little_endian"),
+  checksumByteOrder: icd.byteOrderZ.default("little_endian"),
 });
 export interface SyncFraming extends z.infer<typeof syncFramingZ> {}
 
@@ -136,7 +136,7 @@ export const FRAMING_SCHEMAS: {
 /** ReadMessage is one library message a read task decodes. */
 export const readMessageZ = z.object({
   /** message is the key of the message entry in the task's library. */
-  message: library.entryKeyZ,
+  message: icd.entryKeyZ,
   /** disabled is true when the task ignores the message. */
   disabled: z.boolean().default(false),
   /** index is the index channel stamped with the time each message arrives. */
@@ -152,7 +152,7 @@ export interface ReadMessage extends z.infer<typeof readMessageZ> {}
  */
 export const writeMessageZ = z.object({
   /** message is the key of the message entry in the task's library. */
-  message: library.entryKeyZ,
+  message: icd.entryKeyZ,
   /** disabled is true when the task does not send the message. */
   disabled: z.boolean().default(false),
   /** fields are the fields of the message driven by command channels. */
@@ -160,14 +160,14 @@ export const writeMessageZ = z.object({
 });
 export interface WriteMessage extends z.infer<typeof writeMessageZ> {}
 
-export const readConfigZ = task.persistConfigZ.extend(library.referenceZ.shape).extend({
+export const readConfigZ = task.persistConfigZ.extend(icd.referenceZ.shape).extend({
   device: device.keyZ.default(""),
   raw: channel.keyZ.default(0),
   messages: readMessageZ.array().default(() => []),
 });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 
-export const writeConfigZ = task.writeConfigZ.extend(library.referenceZ.shape).extend({
+export const writeConfigZ = task.writeConfigZ.extend(icd.referenceZ.shape).extend({
   messages: writeMessageZ.array().default(() => []),
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
