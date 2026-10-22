@@ -20,7 +20,9 @@
           "units": "",
           "choices": null,
           "multiplexor": null,
-          "multiplex_values": []
+          "multiplex_values": [],
+          "min": 0,
+          "max": 15
         },
         {
           "name": "Channel",
@@ -34,7 +36,9 @@
           "units": "",
           "choices": null,
           "multiplexor": "Group",
-          "multiplex_values": [0]
+          "multiplex_values": [0],
+          "min": 0,
+          "max": 15
         },
         {
           "name": "Voltage",
@@ -48,7 +52,9 @@
           "units": "V",
           "choices": null,
           "multiplexor": "Channel",
-          "multiplex_values": [0, 1, 2, 3]
+          "multiplex_values": [0, 1, 2, 3],
+          "min": 0,
+          "max": 65.535
         },
         {
           "name": "Current",
@@ -62,7 +68,9 @@
           "units": "A",
           "choices": null,
           "multiplexor": "Channel",
-          "multiplex_values": [4, 5, 8, 9]
+          "multiplex_values": [4, 5, 8, 9],
+          "min": -327.68,
+          "max": 327.67
         },
         {
           "name": "Status",
@@ -76,7 +84,9 @@
           "units": "",
           "choices": null,
           "multiplexor": "Group",
-          "multiplex_values": [1, 2]
+          "multiplex_values": [1, 2],
+          "min": 0,
+          "max": 255
         },
         {
           "name": "Flags",
@@ -90,7 +100,9 @@
           "units": "",
           "choices": null,
           "multiplexor": "Group",
-          "multiplex_values": [3]
+          "multiplex_values": [3],
+          "min": 0,
+          "max": 255
         }
       ]
     }

@@ -39,6 +39,8 @@ const (
 	columnScale     = "scale"
 	columnOffset    = "offset"
 	columnUnits     = "units"
+	columnMin       = "min"
+	columnMax       = "max"
 )
 
 const (
@@ -189,7 +191,7 @@ func (t *table) readHeader(cells []string) error {
 	known := []string{
 		columnMessage, columnID, columnExtended, columnLength, columnPeriodMS,
 		columnField, columnStartBit, columnBitLength, columnByteOrder, columnSigned,
-		columnFloat, columnScale, columnOffset, columnUnits,
+		columnFloat, columnScale, columnOffset, columnUnits, columnMin, columnMax,
 	}
 	for i, cell := range cells {
 		name := strings.ToLower(strings.TrimSpace(cell))
@@ -337,7 +339,30 @@ func (t *table) readField(row int, cells []string) (versions.BinaryField, error)
 			return f, rowErrorf(row, columnOffset, "invalid number %q", s)
 		}
 	}
+	if f.Min, err = t.optionalFloat(row, cells, columnMin); err != nil {
+		return f, err
+	}
+	if f.Max, err = t.optionalFloat(row, cells, columnMax); err != nil {
+		return f, err
+	}
 	return f, nil
+}
+
+// optionalFloat returns the number in the named column, or nil when the cell is empty.
+func (t *table) optionalFloat(
+	row int,
+	cells []string,
+	column string,
+) (*float64, error) {
+	s := t.cell(cells, column)
+	if s == "" {
+		return nil, nil
+	}
+	v, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return nil, rowErrorf(row, column, "invalid number %q", s)
+	}
+	return &v, nil
 }
 
 func (t *table) uint(row int, cells []string, column string, bits int) (uint64, error) {

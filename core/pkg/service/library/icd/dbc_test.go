@@ -54,6 +54,8 @@ type expectedField struct {
 	Choices         []library.EnumValue `json:"choices"`
 	Multiplexor     *string             `json:"multiplexor"`
 	MultiplexValues []int32             `json:"multiplex_values"`
+	Min             *float64            `json:"min"`
+	Max             *float64            `json:"max"`
 }
 
 func messagesOf(entries []library.Entry) []library.MessageEntry {
@@ -105,6 +107,10 @@ func binaryPayload(m library.MessageEntry) library.BinaryPayload {
 	return m.Payload.Variant.(library.BinaryPayload)
 }
 
+func canIdentifier(m library.MessageEntry) library.CanIdentifier {
+	return binaryPayload(m).Identifier.Variant.(library.CanIdentifier)
+}
+
 func binaryFields(m library.MessageEntry) []library.BinaryField {
 	return binaryPayload(m).Fields
 }
@@ -154,6 +160,8 @@ func toExpected(entries []library.Entry) []expectedMessage {
 				Offset:          f.Offset,
 				Units:           f.Units,
 				MultiplexValues: append([]int32{}, f.MultiplexValues...),
+				Min:             f.Min,
+				Max:             f.Max,
 			}
 			if f.Enumeration != nil {
 				ef.Choices = enumWithKey(entries, *f.Enumeration).Values
@@ -246,8 +254,127 @@ BA_DEF_DEF_ "VFrameFormat" 0;
 BA_ "VFrameFormat" BO_ 256 14;
 `)
 		m := messageNamed(MustSucceed(icd.Parse(icd.FormatDBC, data)), "Fast")
-		Expect(binaryPayload(m).Identifier.Variant.(library.CanIdentifier).Fd).
-			To(BeTrue())
+		Expect(canIdentifier(m).Fd).To(BeTrue())
+	})
+
+	DescribeTable("Should choose between CAN and CAN FD frames",
+		func(body string, fd bool) {
+			data := []byte(dbcHeader + body)
+			m := messageNamed(MustSucceed(icd.Parse(icd.FormatDBC, data)), "M")
+			Expect(canIdentifier(m).Fd).To(Equal(fd))
+		},
+		Entry("FD for a message longer than 8 bytes with no VFrameFormat",
+			`BO_ 256 M: 24 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
+`, true),
+		Entry("FD for a message longer than 8 bytes with a classic VFrameFormat",
+			`BO_ 256 M: 64 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
+
+BA_DEF_ BO_ "VFrameFormat" ENUM "StandardCAN","ExtendedCAN";
+BA_DEF_DEF_ "VFrameFormat" "StandardCAN";
+`, true),
+		Entry("FD on a CAN FD bus with no VFrameFormat", `BO_ 256 M: 8 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
+
+BA_DEF_ "BusType" STRING ;
+BA_DEF_DEF_ "BusType" "";
+BA_ "BusType" "CAN FD";
+`, true),
+		Entry("classic on a CAN FD bus with a classic VFrameFormat", `BO_ 256 M: 8 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
+
+BA_DEF_ "BusType" STRING ;
+BA_DEF_ BO_ "VFrameFormat" ENUM "StandardCAN","ExtendedCAN";
+BA_DEF_DEF_ "VFrameFormat" "StandardCAN";
+BA_ "BusType" "CAN FD";
+`, false),
+		Entry("classic on a classic bus", `BO_ 256 M: 8 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
+
+BA_DEF_ "BusType" STRING ;
+BA_ "BusType" "CAN";
+`, false),
+	)
+
+	j1939Formats := `BA_DEF_ BO_ "VFrameFormat" ENUM "StandardCAN","ExtendedCAN",
+ "reserved","J1939PG";
+BA_DEF_DEF_ "VFrameFormat" "J1939PG";
+`
+	DescribeTable("Should match a J1939 message by its parameter group number",
+		func(body string, id, mask uint32) {
+			data := []byte(dbcHeader + body)
+			m := messageNamed(MustSucceed(icd.Parse(icd.FormatDBC, data)), "M")
+			Expect(canIdentifier(m)).To(Equal(library.CanIdentifier{
+				ID:       id,
+				Extended: true,
+				Mask:     new(mask),
+			}))
+		},
+		Entry("ignoring the priority and source address of a PDU2 message",
+			`BO_ 2364539904 M: 8 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
+
+`+j1939Formats, uint32(0x0CF00400), uint32(0x03FFFF00)),
+		Entry("ignoring the destination address of a PDU1 message",
+			`BO_ 2348810243 M: 8 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
+
+`+j1939Formats, uint32(0x0C000003), uint32(0x03FF0000)),
+		Entry("from a VFrameFormat defined as an INT attribute",
+			`BO_ 2364539904 M: 8 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
+
+BA_DEF_ BO_ "VFrameFormat" INT 0 15;
+BA_ "VFrameFormat" BO_ 2364539904 3;
+`, uint32(0x0CF00400), uint32(0x03FFFF00)),
+		Entry("from a ProtocolType of J1939 with no VFrameFormat",
+			`BO_ 2364539904 M: 8 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
+
+BA_DEF_ "ProtocolType" STRING ;
+BA_ "ProtocolType" "J1939";
+`, uint32(0x0CF00400), uint32(0x03FFFF00)),
+	)
+
+	It("Should match a standard message in a J1939 file exactly", func() {
+		data := []byte(dbcHeader + `BO_ 256 M: 8 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
+
+` + j1939Formats)
+		m := messageNamed(MustSucceed(icd.Parse(icd.FormatDBC, data)), "M")
+		Expect(canIdentifier(m)).To(Equal(library.CanIdentifier{ID: 0x100}))
+	})
+
+	It("Should match a message that is not a J1939 group exactly", func() {
+		data := []byte(dbcHeader + `BO_ 2364539904 M: 8 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
+
+BA_DEF_ "ProtocolType" STRING ;
+` + j1939Formats + `BA_ "ProtocolType" "J1939";
+BA_ "VFrameFormat" BO_ 2364539904 1;
+`)
+		m := messageNamed(MustSucceed(icd.Parse(icd.FormatDBC, data)), "M")
+		Expect(canIdentifier(m)).To(Equal(library.CanIdentifier{
+			ID:       0x0CF00400,
+			Extended: true,
+		}))
+	})
+
+	It("Should keep the range of a signal unless both of its limits are zero", func() {
+		data := []byte(dbcHeader + `BO_ 256 M: 8 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|0] "" Ecu
+ SG_ B : 8|8@1- (0.5,-10) [-20|50] "" Ecu
+ SG_ C : 16|8@1+ (1,0) [0|255] "" Ecu
+`)
+		m := messageNamed(MustSucceed(icd.Parse(icd.FormatDBC, data)), "M")
+		a, b, c := fieldNamed(m, "A"), fieldNamed(m, "B"), fieldNamed(m, "C")
+		Expect(a.Min).To(BeNil())
+		Expect(a.Max).To(BeNil())
+		Expect(b.Min).To(Equal(new(-20.0)))
+		Expect(b.Max).To(Equal(new(50.0)))
+		Expect(c.Min).To(Equal(new(0.0)))
+		Expect(c.Max).To(Equal(new(255.0)))
 	})
 
 	It("Should read the lines that follow an unknown definition", func() {

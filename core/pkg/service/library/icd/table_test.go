@@ -79,6 +79,8 @@ var tableEntries = []library.Entry{
 			Scale:     1,
 			Offset:    -40,
 			Units:     "degC",
+			Min:       new(-40.0),
+			Max:       new(87.5),
 			StartBit:  16,
 			BitLength: 8,
 			ByteOrder: library.ByteOrderLittleEndian,
@@ -113,8 +115,22 @@ var tableEntries = []library.Entry{
 
 var tableRows = [][]string{
 	{
-		"Message", "ID", "Extended", "Length", "Period_MS", "Field", "Start_Bit",
-		"Bit_Length", "Byte_Order", "Signed", "Float", "Scale", "Offset", "Units",
+		"Message",
+		"ID",
+		"Extended",
+		"Length",
+		"Period_MS",
+		"Field",
+		"Start_Bit",
+		"Bit_Length",
+		"Byte_Order",
+		"Signed",
+		"Float",
+		"Scale",
+		"Offset",
+		"Units",
+		"Min",
+		"Max",
 	},
 	{
 		"Engine", "0x100", "", "8", "100", "rpm", "0", "16", "little_endian", "false",
@@ -123,7 +139,7 @@ var tableRows = [][]string{
 	{"", "", "", "", "", "", "", "", "", "", "", "", "", ""},
 	{
 		"Engine", "256", "", "", "", "temp", "16", "8", "intel", "true", "", "1", "-40",
-		"degC",
+		"degC", "-40", "87.5",
 	},
 	{
 		"Battery", "419361024", "", "", "", "voltage", "7", "16", "Motorola", "", "",
@@ -238,11 +254,13 @@ var _ = Describe("Parse CSV", func() {
 
 	header := "message,id,extended,length,period_ms,field,start_bit,bit_length," +
 		"byte_order,signed,float\n"
-	DescribeTable("Should reject an invalid table", func(csv, message string) {
-		Expect(icd.Parse(icd.FormatCSV, []byte(csv))).Error().To(MatchError(
-			"data: " + message + ": validation error",
-		))
-	},
+	DescribeTable(
+		"Should reject an invalid table",
+		func(csv, message string) {
+			Expect(icd.Parse(icd.FormatCSV, []byte(csv))).Error().To(MatchError(
+				"data: " + message + ": validation error",
+			))
+		},
 		Entry("an empty file", "", "missing header row"),
 		Entry("an unknown column", "message,field,start_bit,bit_length,Color\n",
 			`row 1: unknown column "Color"`),
@@ -264,6 +282,16 @@ var _ = Describe("Parse CSV", func() {
 			`row 2, column length: invalid length "-1"`),
 		Entry("an invalid period", header+"m,,,,0,a,0,8\n",
 			`row 2, column period_ms: invalid period "0"`),
+		Entry(
+			"an invalid minimum",
+			"message,field,start_bit,bit_length,min\nm,a,0,8,low\n",
+			`row 2, column min: invalid number "low"`,
+		),
+		Entry(
+			"an invalid maximum",
+			"message,field,start_bit,bit_length,max\nm,a,0,8,hi\n",
+			`row 2, column max: invalid number "hi"`,
+		),
 		Entry("an invalid byte order", header+"m,,,,,a,0,8,middle\n",
 			`row 2, column byte_order: invalid byte order "middle"`),
 		Entry("an invalid boolean", header+"m,,,,,a,0,8,,maybe\n",
