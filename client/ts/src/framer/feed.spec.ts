@@ -244,6 +244,63 @@ describe("feed", () => {
     expect(glFeed.timeAt(data.key, s.alignment + s.alignmentMultiple)).toEqual(second);
   });
 
+  it("should stamp an index fetched only as a dependency", async () => {
+    const { time, data } = await createChannels();
+    const start = TimeStamp.now().sub(TimeSpan.seconds(10));
+    const second = start.add(TimeSpan.milliseconds(1));
+    await client.write(start, { [time.key]: [start, second], [data.key]: [1, 2] });
+    const tr = new TimeRange(start, start.add(TimeSpan.seconds(1)));
+    const res = await glFeed.read(tr, data.key);
+    const s = res.series[0];
+    expect(glFeed.timeAt(time.key, s.alignment)).toEqual(start);
+    expect(glFeed.timeAt(time.key, s.alignment + s.alignmentMultiple)).toEqual(second);
+  });
+
+  it("should stamp an index streamed only as a dependency", async () => {
+    const { time, data } = await createChannels();
+    let leading: Series | null = null;
+    const sub = glFeed.stream(
+      (res) => {
+        const buf = res.get(data.key)?.series.at(-1);
+        if (buf != null) leading = buf;
+      },
+      [data.key],
+    );
+    const next = createClock();
+    const writer = await client.openWriter({
+      start: TimeStamp.now(),
+      channels: [time.key, data.key],
+    });
+    try {
+      let last = next();
+      await expect
+        .poll(
+          async () => {
+            last = next();
+            await writer.write({ [time.key]: [last], [data.key]: [1] });
+            return (leading?.length ?? 0) > 0;
+          },
+          { timeout: 10000, interval: 250 },
+        )
+        .toBe(true);
+      await expect
+        .poll(
+          () => {
+            const buf = leading;
+            if (buf == null || buf.length === 0) return null;
+            const a = buf.alignment + BigInt(buf.length - 1) * buf.alignmentMultiple;
+            return glFeed.timeAt(time.key, a)?.valueOf();
+          },
+          { timeout: 5000 },
+        )
+        .toEqual(last.valueOf());
+      expect(glFeed.lastWrite(time.key)?.valueOf()).toEqual(last.valueOf() + 1n);
+    } finally {
+      await writer.close();
+    }
+    sub.close();
+  });
+
   it("should return every written sample across the live boundary", async () => {
     const { time, data } = await createChannels();
     const received: number[] = [];

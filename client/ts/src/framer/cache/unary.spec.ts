@@ -367,6 +367,58 @@ describe("Unary", () => {
     });
   });
 
+  describe("markFetched", () => {
+    const TR = TimeStamp.seconds(10).range(TimeStamp.seconds(13));
+
+    it("should stop reporting a fetched span as a gap", () => {
+      const u = newUnary();
+      expect(u.read(TR).gaps).toHaveLength(1);
+      u.markFetched(TR);
+      expect(u.read(TR).gaps).toHaveLength(0);
+    });
+
+    it("should leave the spans around a fetched one as gaps", () => {
+      const u = newUnary();
+      u.markFetched(TR);
+      const { gaps } = u.read(TimeStamp.seconds(5).range(TimeStamp.seconds(20)));
+      expect(gaps.map((g) => g.toString())).toEqual([
+        TimeStamp.seconds(5).range(TimeStamp.seconds(10)).toString(),
+        TimeStamp.seconds(13).range(TimeStamp.seconds(20)).toString(),
+      ]);
+    });
+
+    it("should ignore a zero-length span", () => {
+      const u = newUnary();
+      u.markFetched(TimeStamp.seconds(10).range(TimeStamp.seconds(10)));
+      expect(u.read(TR).gaps).toHaveLength(1);
+    });
+
+    it("should cover the exact copy alongside the narrowed one", () => {
+      const T0 = TimeStamp.seconds(10).valueOf();
+      const index = new Unary({ dynamicBufferSize: 100, transform: glTransform });
+      index.writeStatic(
+        new MultiSeries([
+          new Series({
+            data: new BigInt64Array([T0, T0 + 1n, T0 + 2n]),
+            dataType: DataType.TIMESTAMP,
+            timeRange: TR,
+            alignment: 100n,
+          }),
+        ]),
+      );
+      index.index = index;
+      index.markFetched(TR);
+      expect(index.read(TR).gaps).toHaveLength(0);
+      expect(index.timeAt(101n)).toEqual(new TimeStamp(T0 + 1n));
+    });
+
+    it("should throw after close", () => {
+      const u = newUnary();
+      u.close();
+      expect(() => u.markFetched(TR)).toThrow(UnexpectedError);
+    });
+  });
+
   describe("heldAlignments", () => {
     it("should report the spans of series a consumer holds", () => {
       const u = newUnary();
@@ -375,6 +427,28 @@ describe("Unary", () => {
       const tr = TimeStamp.seconds(10).range(TimeStamp.seconds(13));
       u.read(tr).series.series.forEach((s) => s.acquire());
       expect(u.heldAlignments()).toEqual([{ lower: 100n, upper: 103n }]);
+    });
+
+    it("should report held static and leading spans together", () => {
+      const u = newUnary();
+      u.writeStatic(stamped(10, 13, [1, 2, 3], 100n));
+      u.writeDynamic(stamped(20, 23, [4, 5, 6], LEADING_ALIGNMENT));
+      const tr = TimeStamp.seconds(10).range(TimeStamp.seconds(13));
+      u.read(tr).series.series.forEach((s) => s.acquire());
+      u.leadingBuffer?.acquire();
+      expect(u.heldAlignments()).toEqual([
+        { lower: 100n, upper: 103n },
+        { lower: LEADING_ALIGNMENT, upper: LEADING_ALIGNMENT + 3n },
+      ]);
+    });
+
+    it("should report only the held series among several", () => {
+      const u = newUnary();
+      u.writeStatic(stamped(10, 13, [1, 2, 3], 100n));
+      u.writeStatic(stamped(20, 23, [4, 5, 6], 200n));
+      const tr = TimeStamp.seconds(20).range(TimeStamp.seconds(23));
+      u.read(tr).series.series.forEach((s) => s.acquire());
+      expect(u.heldAlignments()).toEqual([{ lower: 200n, upper: 203n }]);
     });
 
     it("should report a held leading buffer", () => {

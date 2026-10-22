@@ -8,11 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { DataType, MultiSeries, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import { Cache } from "@/framer/cache/cache";
+import { IDENTITY_TRANSFORM, type Transform } from "@/framer/cache/transform";
 import { glTransform } from "@/testutil/telem";
 
 describe("Cache", () => {
@@ -59,16 +60,17 @@ describe("Cache", () => {
     });
   });
 
-  describe("resolve", () => {
-    const payload = (
-      p: Partial<channel.Payload> & Pick<channel.Payload, "key">,
-    ): channel.Payload =>
-      channel.payloadZ.parse({ name: `ch-${p.key}`, dataType: DataType.FLOAT32, ...p });
-    const INDEX = payload({ key: 1, dataType: DataType.TIMESTAMP, isIndex: true });
-    const DATA = payload({ key: 2, index: 1 });
-    const VIRTUAL = payload({ key: 3, virtual: true });
-    const CALCULATED = payload({ key: 4, index: 1, virtual: true, expression: "a" });
+  const payload = (
+    p: Partial<channel.Payload> & Pick<channel.Payload, "key">,
+  ): channel.Payload =>
+    channel.payloadZ.parse({ name: `ch-${p.key}`, dataType: DataType.FLOAT32, ...p });
+  const INDEX = payload({ key: 1, dataType: DataType.TIMESTAMP, isIndex: true });
+  const DATA = payload({ key: 2, index: 1 });
+  const VIRTUAL = payload({ key: 3, virtual: true });
+  const CALCULATED = payload({ key: 4, index: 1, virtual: true, expression: "a" });
+  const OTHER = payload({ key: 5, index: 1 });
 
+  describe("resolve", () => {
     const createCache = (channels: channel.Payload[]) => {
       const calls: channel.Key[][] = [];
       const cache = new Cache({
@@ -145,6 +147,62 @@ describe("Cache", () => {
       cache.close();
     });
 
+    it("should skip an index an earlier key in the same pass recorded", async () => {
+      const { cache, calls } = createCache([INDEX, DATA]);
+      await cache.resolve([2, 1]);
+      expect(calls).toEqual([[2, 1]]);
+      expect(cache.indexOf(1)).toBe(1);
+      expect(cache.indexOf(2)).toBe(1);
+      expect(cache.get(2).index).toBe(cache.get(1));
+      cache.close();
+    });
+
+    it("should settle overlapping lookups of one key consistently", async () => {
+      const { cache } = createCache([INDEX, DATA]);
+      await Promise.all([cache.resolve([2]), cache.resolve([2])]);
+      expect(cache.indexOf(2)).toBe(1);
+      expect(cache.indexOf(1)).toBe(1);
+      expect(cache.get(2).index).toBe(cache.get(1));
+      expect(cache.get(1).index).toBe(cache.get(1));
+      cache.close();
+    });
+
+    it("should point sibling data channels at one index entry", async () => {
+      const { cache } = createCache([INDEX, DATA, OTHER]);
+      await cache.resolve([2, 5]);
+      expect(cache.get(2).index).toBe(cache.get(1));
+      expect(cache.get(5).index).toBe(cache.get(1));
+      cache.close();
+    });
+
+    it("should trust a payload's index without fetching the index channel", async () => {
+      const { cache, calls } = createCache([DATA]);
+      await cache.resolve([2]);
+      expect(cache.indexOf(1)).toBe(1);
+      expect(cache.get(1).index).toBe(cache.get(1));
+      await cache.resolve([1]);
+      expect(calls).toEqual([[2]]);
+      cache.close();
+    });
+
+    it("should record nothing when closed during the lookup", async () => {
+      let release: (() => void) | undefined;
+      const cache = new Cache({
+        retrieveChannels: async () => {
+          await new Promise<void>((resolve) => {
+            release = resolve;
+          });
+          return [INDEX, DATA];
+        },
+      });
+      const pending = cache.resolve([2]);
+      cache.close();
+      release?.();
+      await expect(pending).resolves.toBeUndefined();
+      expect(cache.indexOf(2)).toBeNull();
+      expect(cache.indexOf(1)).toBeNull();
+    });
+
     it("should time a data sample through the resolved index", async () => {
       const { cache } = createCache([INDEX, DATA]);
       await cache.resolve([2]);
@@ -166,63 +224,6 @@ describe("Cache", () => {
       cache.close();
     });
 
-    it("should keep the stamps of held samples past the stale threshold", async () => {
-      vi.useFakeTimers();
-      try {
-        const OTHER = payload({ key: 5, index: 1 });
-        const cache = new Cache({
-          retrieveChannels: async (keys) =>
-            [INDEX, DATA, OTHER].filter((ch) =>
-              (keys as channel.Key[]).includes(ch.key),
-            ),
-          gcInterval: TimeSpan.milliseconds(10),
-          staleEntryThreshold: TimeSpan.ZERO,
-          transform: glTransform,
-        });
-        await cache.resolve([2, 5]);
-        const t0 = TimeStamp.seconds(1_700_000_000).valueOf();
-        const tr = new TimeStamp(t0).range(new TimeStamp(t0 + 2n));
-        cache.get(1).writeStatic(
-          new MultiSeries([
-            new Series({
-              data: new BigInt64Array([t0, t0 + 1n]),
-              dataType: DataType.TIMESTAMP,
-              timeRange: tr,
-              alignment: 10n,
-            }),
-          ]),
-        );
-        const hold = (key: channel.Key): (() => void) => {
-          cache.get(key).writeStatic(
-            new MultiSeries([
-              new Series({
-                data: new Float32Array([1, 2]),
-                dataType: DataType.FLOAT32,
-                timeRange: tr,
-                alignment: 10n,
-              }),
-            ]),
-          );
-          const held = cache.get(key).read(tr).series.series;
-          held.forEach((s) => s.acquire());
-          return () => held.forEach((s) => s.release());
-        };
-        const releaseData = hold(2);
-        const releaseOther = hold(5);
-        vi.advanceTimersByTime(10);
-        expect(cache.timeAt(2, 11n)).toEqual(new TimeStamp(t0 + 1n));
-        releaseData();
-        vi.advanceTimersByTime(10);
-        expect(cache.timeAt(2, 11n)).toEqual(new TimeStamp(t0 + 1n));
-        releaseOther();
-        vi.advanceTimersByTime(10);
-        expect(cache.timeAt(2, 11n)).toBeNull();
-        cache.close();
-      } finally {
-        vi.useRealTimers();
-      }
-    });
-
     it("should throw from the accessors after close", () => {
       const { cache } = createCache([INDEX]);
       cache.close();
@@ -234,6 +235,139 @@ describe("Cache", () => {
       const { cache } = createCache([INDEX]);
       cache.close();
       await expect(cache.resolve([1])).rejects.toThrow(UnexpectedError);
+    });
+  });
+
+  describe("gc", () => {
+    const T0 = TimeStamp.seconds(1_700_000_000).valueOf();
+    const T1 = new TimeStamp(T0 + 1n);
+    const TR = new TimeStamp(T0).range(new TimeStamp(T0 + 2n));
+    const stamps = (): MultiSeries =>
+      new MultiSeries([
+        new Series({
+          data: new BigInt64Array([T0, T0 + 1n]),
+          dataType: DataType.TIMESTAMP,
+          timeRange: TR,
+          alignment: 10n,
+        }),
+      ]);
+    const values = (): MultiSeries =>
+      new MultiSeries([
+        new Series({
+          data: new Float32Array([1, 2]),
+          dataType: DataType.FLOAT32,
+          timeRange: TR,
+          alignment: 10n,
+        }),
+      ]);
+    // Collects every 10 ms with no grace period, so only retention keeps an entry.
+    const createCache = (transform: Transform = glTransform): Cache =>
+      new Cache({
+        retrieveChannels: async (keys) =>
+          [INDEX, DATA, VIRTUAL, OTHER].filter((ch) =>
+            (keys as channel.Key[]).includes(ch.key),
+          ),
+        gcInterval: TimeSpan.milliseconds(10),
+        staleEntryThreshold: TimeSpan.ZERO,
+        transform,
+      });
+    const acquire = (cache: Cache, key: channel.Key): (() => void) => {
+      const held = cache.get(key).read(TR).series.series;
+      held.forEach((s) => s.acquire());
+      return () => held.forEach((s) => s.release());
+    };
+    const hold = (cache: Cache, key: channel.Key): (() => void) => {
+      cache.get(key).writeStatic(values());
+      return acquire(cache, key);
+    };
+    const tick = (): void => {
+      vi.advanceTimersByTime(10);
+    };
+
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
+
+    it("should keep the stamps of held samples past the stale threshold", async () => {
+      const cache = createCache();
+      await cache.resolve([2, 5]);
+      cache.get(1).writeStatic(stamps());
+      const releaseData = hold(cache, 2);
+      const releaseOther = hold(cache, 5);
+      tick();
+      expect(cache.timeAt(2, 11n)).toEqual(T1);
+      releaseData();
+      tick();
+      expect(cache.timeAt(2, 11n)).toEqual(T1);
+      releaseOther();
+      tick();
+      expect(cache.timeAt(2, 11n)).toBeNull();
+      cache.close();
+    });
+
+    it("should purge the narrowed index copy while its stamps stay", async () => {
+      const cache = createCache();
+      await cache.resolve([2]);
+      cache.get(1).writeStatic(stamps());
+      hold(cache, 2);
+      tick();
+      expect(cache.get(1).read(TR).series.series).toHaveLength(0);
+      expect(cache.timeAt(2, 11n)).toEqual(T1);
+      cache.close();
+    });
+
+    it("should keep stamps held through the index channel itself", async () => {
+      const cache = createCache();
+      await cache.resolve([2]);
+      cache.get(1).writeStatic(stamps());
+      const release = acquire(cache, 1);
+      tick();
+      expect(cache.timeAt(2, 11n)).toEqual(T1);
+      release();
+      tick();
+      expect(cache.timeAt(2, 11n)).toBeNull();
+      cache.close();
+    });
+
+    it("should keep stamps under a held leading buffer", async () => {
+      const cache = createCache();
+      await cache.resolve([2]);
+      cache.get(1).writeDynamic(stamps());
+      cache.get(1).flushDynamic();
+      cache.get(2).writeDynamic(values());
+      const leading = cache.get(2).leadingBuffer;
+      expect(leading).not.toBeNull();
+      leading?.acquire();
+      tick();
+      expect(cache.timeAt(2, 11n)).toEqual(T1);
+      leading?.release();
+      tick();
+      expect(cache.timeAt(2, 11n)).toBeNull();
+      cache.close();
+    });
+
+    it("should ignore held samples of channels without an index", async () => {
+      const cache = createCache();
+      await cache.resolve([2, 3]);
+      cache.get(1).writeStatic(stamps());
+      hold(cache, 3);
+      hold(cache, 9);
+      tick();
+      expect(cache.timeAt(2, 11n)).toBeNull();
+      cache.close();
+    });
+
+    it("should keep stamps in the main copy when nothing narrows them", async () => {
+      const cache = createCache(IDENTITY_TRANSFORM);
+      await cache.resolve([2]);
+      cache.get(1).writeStatic(stamps());
+      const release = hold(cache, 2);
+      tick();
+      expect(cache.get(1).read(TR).series.series).toHaveLength(1);
+      expect(cache.timeAt(2, 11n)).toEqual(T1);
+      release();
+      tick();
+      expect(cache.timeAt(2, 11n)).toBeNull();
+      cache.close();
     });
   });
 });
