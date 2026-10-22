@@ -39,6 +39,12 @@ struct Chunk {
     std::span<const std::uint8_t> data;
     /// @brief the host time at which the bytes arrived.
     x::telem::TimeStamp time;
+    /// @brief the number of bytes the line received with a parity or framing error and
+    /// dropped from data.
+    std::size_t errors = 0;
+    /// @brief the number of receive overruns the line reported since the last read:
+    /// bytes the UART or the OS dropped because the Driver read too slowly.
+    std::size_t overruns = 0;
 };
 
 /// @brief the outcome of one asynchronous operation.
@@ -49,10 +55,13 @@ struct Completion {
     std::size_t size = 0;
     /// @brief the host time at which the operation completed.
     x::telem::TimeStamp time;
+    /// @brief true when run_for cancelled the operation at its timeout.
+    bool cancelled = false;
 
-    /// @returns true when the timeout cancelled the operation.
+    /// @returns true when the timeout cancelled the operation. An operation that the OS
+    /// aborted on its own, as Windows does when a device goes away, is an error.
     [[nodiscard]] bool timed_out() const {
-        return this->ec == asio::error::operation_aborted;
+        return this->cancelled && this->ec == asio::error::operation_aborted;
     }
 };
 
@@ -82,6 +91,7 @@ Completion run_for(
         cancel();
         ctx.restart();
         ctx.run();
+        done->cancelled = true;
     }
     return *done;
 }

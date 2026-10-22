@@ -31,6 +31,14 @@ const x::errors::Error CRITICAL_ERROR = driver::errors::CRITICAL_HARDWARE_ERROR.
     "transport"
 );
 
+/// @returns true when ec reports that the host ran out of a resource: file
+/// descriptors, memory, or buffer space.
+inline bool exhausted(const std::error_code &ec) {
+    return ec == std::errc::too_many_files_open ||
+           ec == std::errc::too_many_files_open_in_system ||
+           ec == std::errc::not_enough_memory || ec == std::errc::no_buffer_space;
+}
+
 /// @returns an error of the given type whose message is context followed by ec's
 /// message.
 inline x::errors::Error error(
