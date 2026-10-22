@@ -832,6 +832,101 @@ TEST(StateTest, NodeReset_KeepsAnEdgeFedInputConsumed) {
     ASSERT_FALSE(consumer_node.refresh_inputs());
 }
 
+/// @brief a consumed input holds its last sample until new data arrives.
+TEST(StateTest, RefreshInputs_HoldsConsumedInputAtLastSample) {
+    arc::types::Param output_param;
+    output_param.name = "output";
+    output_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
+
+    arc::types::Param a_param;
+    a_param.name = "a";
+    a_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
+
+    arc::types::Param b_param;
+    b_param.name = "b";
+    b_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
+
+    arc::ir::Node a;
+    a.key = "a";
+    a.type = "a";
+    a.outputs.push_back(output_param);
+
+    arc::ir::Node b;
+    b.key = "b";
+    b.type = "b";
+    b.outputs.push_back(output_param);
+
+    arc::ir::Node target;
+    target.key = "target";
+    target.type = "target";
+    target.inputs.push_back(a_param);
+    target.inputs.push_back(b_param);
+
+    arc::ir::IR ir;
+    ir.nodes.push_back(a);
+    ir.nodes.push_back(b);
+    ir.nodes.push_back(target);
+    ir.edges.emplace_back(
+        arc::ir::Handle("a", "output"),
+        arc::ir::Handle("target", "a")
+    );
+    ir.edges.emplace_back(
+        arc::ir::Handle("b", "output"),
+        arc::ir::Handle("target", "b")
+    );
+
+    Config cfg{.ir = ir, .channels = {}};
+    State s(cfg, arc::runtime::errors::noop_handler);
+    auto a_node = ASSERT_NIL_P(s.node("a"));
+    auto b_node = ASSERT_NIL_P(s.node("b"));
+    auto target_node = ASSERT_NIL_P(s.node("target"));
+
+    const auto emit = [](Node &n, const std::vector<int64_t> &stamps) {
+        std::vector<float> values;
+        std::vector<x::telem::TimeStamp> times;
+        for (const auto stamp: stamps) {
+            values.push_back(static_cast<float>(stamp));
+            times.emplace_back(stamp * x::telem::SECOND);
+        }
+        n.output(0) = x::mem::make_local_shared<x::telem::Series>(values);
+        n.output_time(0) = x::mem::make_local_shared<x::telem::Series>(times);
+        n.mark_fresh(0);
+    };
+
+    emit(a_node, {1, 2, 3});
+    emit(b_node, {10});
+    ASSERT_TRUE(target_node.refresh_inputs());
+    ASSERT_EQ(target_node.input(0)->size(), 3);
+    EXPECT_FLOAT_EQ(target_node.input(0)->at<float>(0), 1.0f);
+    EXPECT_FALSE(target_node.input_stale(0));
+    EXPECT_FALSE(target_node.input_stale(1));
+
+    emit(b_node, {20});
+    ASSERT_TRUE(target_node.refresh_inputs());
+    ASSERT_EQ(target_node.input(0)->size(), 1);
+    EXPECT_FLOAT_EQ(target_node.input(0)->at<float>(0), 3.0f);
+    ASSERT_EQ(target_node.input_time(0)->size(), 1);
+    EXPECT_EQ(
+        target_node.input_time(0)->at<x::telem::TimeStamp>(0),
+        x::telem::TimeStamp(3 * x::telem::SECOND)
+    );
+    ASSERT_EQ(target_node.input(1)->size(), 1);
+    EXPECT_FLOAT_EQ(target_node.input(1)->at<float>(0), 20.0f);
+    EXPECT_TRUE(target_node.input_stale(0));
+    EXPECT_FALSE(target_node.input_stale(1));
+
+    emit(a_node, {4, 5});
+    ASSERT_TRUE(target_node.refresh_inputs());
+    ASSERT_EQ(target_node.input(0)->size(), 2);
+    EXPECT_FLOAT_EQ(target_node.input(0)->at<float>(0), 4.0f);
+    EXPECT_FLOAT_EQ(target_node.input(0)->at<float>(1), 5.0f);
+    ASSERT_EQ(target_node.input(1)->size(), 1);
+    EXPECT_FLOAT_EQ(target_node.input(1)->at<float>(0), 20.0f);
+    EXPECT_FALSE(target_node.input_stale(0));
+    EXPECT_TRUE(target_node.input_stale(1));
+    EXPECT_FALSE(target_node.input_stale(2));
+}
+
 /// @brief Test that is_series_truthy returns false for empty series
 TEST(StateTest, IsSeriesTruthy_EmptySeriesIsFalsy) {
     x::telem::Series empty_series(x::telem::FLOAT32_T, 0);

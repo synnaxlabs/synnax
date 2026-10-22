@@ -15,3 +15,4 @@ export * from "@/hooks/useEffectCompare";
 export * from "@/hooks/useHold";
 export * from "@/hooks/useResize";
 export * from "@/hooks/useUniqueKey";
+export * from "@/hooks/useWheelScrollX";

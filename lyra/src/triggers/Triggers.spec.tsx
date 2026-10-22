@@ -355,6 +355,52 @@ describe("Triggers", () => {
     });
   });
 
+  describe("codeless key events", () => {
+    // Browser autofill dispatches plain Events typed as key events, with no code.
+    const autofill = (type: "keydown" | "keyup"): void => {
+      fireEvent(document.body, new Event(type, { bubbles: true }));
+    };
+
+    it("should read no key from an event without a code", () => {
+      expect(
+        Triggers.keyboardKey(new KeyboardEvent("keydown", { key: "Enter" })),
+      ).toBeNull();
+      expect(Triggers.eventKey(new Event("keydown") as KeyboardEvent)).toBeNull();
+    });
+
+    it("should not fire a trigger for an autofill key event", () => {
+      const callback = vi.fn();
+      renderHook(() => Triggers.use({ callback, triggers: [["Enter"]] }), {
+        wrapper: TriggersWrapper,
+      });
+      autofill("keydown");
+      autofill("keyup");
+      expect(callback).not.toHaveBeenCalled();
+    });
+
+    it("should still match an exact combination after an autofill keydown", () => {
+      const callback = vi.fn();
+      renderHook(() => Triggers.use({ callback, triggers: [["Control", "Enter"]] }), {
+        wrapper: TriggersWrapper,
+      });
+      fireEvent.keyDown(document.body, { code: "ControlLeft" });
+      autofill("keydown");
+      fireEvent.keyDown(document.body, { code: "Enter" });
+      expect(callback).toHaveBeenCalledWith(
+        expect.objectContaining({ triggers: [["Control", "Enter"]], stage: "start" }),
+      );
+    });
+
+    it("should not match a codeless event in matchCallback", () => {
+      const callback = vi.fn();
+      Triggers.matchCallback(
+        [["Enter"]],
+        callback,
+      )(new KeyboardEvent("keydown", { key: "Enter" }));
+      expect(callback).not.toHaveBeenCalled();
+    });
+  });
+
   describe("scope", () => {
     beforeEach(() => {
       vi.useFakeTimers();
@@ -980,7 +1026,7 @@ describe("Triggers", () => {
           triggers: [["A"], ["Control", "B"]],
         });
         return (
-          <div data-testid="editable" contentEditable>
+          <div data-testid="editable" contentEditable suppressContentEditableWarning>
             Editable content
           </div>
         );

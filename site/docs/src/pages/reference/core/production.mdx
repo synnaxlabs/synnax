@@ -11,7 +11,7 @@ prevURL: "/reference/core/installation"
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Note } from "@synnaxlabs/lyra/note";
-import { Table } from "@/components";
+import { Table } from "@/components/table";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -22,9 +22,10 @@ additional steps compared to development use.
 
 ## License keys
 
-If your organization has an enterprise license for Synnax, you'll need to provide your
-license key on startup. The easiest way to do this is using the `--license-key` flag
-when starting the Core. Here's an example:
+A Core without a license key is limited to 50 channels. To use more,
+[contact us](https://www.synnaxlabs.com/#contact) to get a license key, then provide it
+on startup. The easiest way to do this is using the `--license-key` flag when starting
+the Core. Here's an example:
 
 ```sh
 synnax start --listen=localhost:9090 --license-key=000000-00000000-0000000000
@@ -53,7 +54,6 @@ We recommend using TLS for securing all communications with your Core.
 There are four important command line options for configuring TLS:
 
 <Table.Data
-  client:only="react"
   columns={[
     { key: "option", name: "Option", type: "code", width: 130 },
     { key: "description", name: "Description", type: "string" },
@@ -209,7 +209,6 @@ Each listener draws its certificate from a **source**, selected by `cert.source`
 Different listeners can use different sources.
 
 <Table.Data
-  client:only="react"
   columns={[
     { key: "source", name: "Source", type: "code", width: 100 },
     { key: "description", name: "Description", type: "html" },

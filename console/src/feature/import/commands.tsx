@@ -12,7 +12,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Command } from "@/platform/command";
 import { Import } from "@/platform/import";
 
-export const ImportCommand = Command.create({
+const ImportCommand = Command.create({
   key: "import",
   name: "Import components",
   icon: <Icon.Import />,

@@ -16,27 +16,19 @@ Key = uuid {
 }
 
 Project struct {
-    key    Key = create {
+    key  Key = create {
         @doc value "is the unique identifier for this project."
         @key
     }
-    name   string {
+    name string {
         @doc value         "is a human-readable name for the project."
         @validate required
-    }
-    layout record {
-        @doc value        """
-            is the mosaic tree structure that defines how visualizations are arranged.
-            Contains tab layout, split configurations, and window positions.
-        """
-        @ts preserve_case
     }
 
     @create
     @doc value     """
-        is a named, persistable container that stores the layout and organization of the
-        Console application. Projects allow users to save and restore custom
-        arrangements of visualizations, tabs, and window configurations.
+        is a named, persistable container that groups the panels of the Console
+        application.
     """
     @go marshal
     @go migrate

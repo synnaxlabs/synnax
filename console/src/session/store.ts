@@ -18,6 +18,7 @@ import {
 import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
 import { useDispatch as baseUseDispatch, useStore as baseUseStore } from "react-redux";
 
+import { Account } from "@/session/account";
 import { Arc } from "@/session/arc";
 import { Color } from "@/session/color";
 import { Core } from "@/session/core";
@@ -51,6 +52,7 @@ const PERSIST_EXCLUDE: Array<Persist.ExcludeFn<State>> = [
 // missing from all four.
 const PERSIST_SCOPES: Persist.Scopes<State> = {
   global: {
+    [Account.SLICE_NAME]: Account.sliceStateZ,
     [Core.SLICE_NAME]: Core.sliceStateZ,
     [Color.SLICE_NAME]: Color.sliceStateZ,
     [Theme.SLICE_NAME]: Theme.sliceStateZ,
@@ -93,6 +95,7 @@ const getPersistContext = (state: State): Persist.Context => ({
 });
 
 export const ZERO_STATE: State = {
+  [Account.SLICE_NAME]: Account.ZERO_SLICE_STATE,
   [Arc.SLICE_NAME]: Arc.ZERO_SLICE_STATE,
   [Core.SLICE_NAME]: Core.ZERO_SLICE_STATE,
   [Color.SLICE_NAME]: Color.ZERO_SLICE_STATE,
@@ -113,6 +116,7 @@ export const ZERO_STATE: State = {
 };
 
 const combinedReducer = combineReducers({
+  [Account.SLICE_NAME]: Account.reducer,
   [Arc.SLICE_NAME]: Arc.reducer,
   [Core.SLICE_NAME]: Core.reducer,
   [Color.SLICE_NAME]: Color.reducer,
@@ -146,6 +150,7 @@ export const reducer: Reducer<State, Action> = (state, action) => {
 };
 
 export interface State {
+  [Account.SLICE_NAME]: Account.SliceState;
   [Arc.SLICE_NAME]: Arc.SliceState;
   [Core.SLICE_NAME]: Core.SliceState;
   [Color.SLICE_NAME]: Color.SliceState;
@@ -166,6 +171,7 @@ export interface State {
 }
 
 export type Action =
+  | Account.Action
   | Arc.Action
   | Core.Action
   | Color.Action
@@ -213,6 +219,10 @@ export interface CreateStoreOptions extends Partial<
   enablePersistence?: boolean;
   /** Overrides the persistence KV store. Tests inject an in-memory KV. */
   openKV?: Persist.KVOpener;
+  /**
+   * Receives each storage failure persistence recovers from. Defaults to console.error.
+   */
+  onPersistError?: (error: Error) => void;
 }
 
 export const createStore = async (opts: CreateStoreOptions = {}): Promise<Store> => {
@@ -222,6 +232,7 @@ export const createStore = async (opts: CreateStoreOptions = {}): Promise<Store>
     debug = false,
     enablePersistence = true,
     openKV,
+    onPersistError,
   } = opts;
   let { preloadedState } = opts;
   const middleware: Middleware[] = [...BASE_MIDDLEWARE];
@@ -235,6 +246,7 @@ export const createStore = async (opts: CreateStoreOptions = {}): Promise<Store>
       exclude: PERSIST_EXCLUDE,
       migrate: Legacy.migrate,
       openKV,
+      onError: onPersistError,
     });
     preloadedState ??= persist.initialState;
     middleware.push(persist.middleware);

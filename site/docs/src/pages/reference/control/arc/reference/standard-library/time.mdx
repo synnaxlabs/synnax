@@ -10,7 +10,7 @@ nextURL: "/reference/control/arc/reference/errors"
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Arc } from "@/components";
+import { Arc } from "@/components/arc";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import Params from "@/components/params/Params.astro";
 
@@ -41,6 +41,10 @@ control loops, periodic sampling, and generating test data.
 time.interval{period=1s} -> tick
 ```
 
+An interval fires when it starts, then on a fixed schedule, once each `period`. A late
+fire does not move the next one. When a cycle takes longer than `period`, the interval
+fires once and does not make up the fires that it missed.
+
 <Divider.Divider x />
 
 ## `now`
@@ -53,7 +57,7 @@ function call, so it can be wired into a chain or called inside a `func`.
   output={{ type: "i64 ns", description: "The current timestamp." }}
 />
 
-<Arc.Tabs client:load>
+<Arc.Tabs>
 
 <Fragment slot="flow">
 
@@ -100,3 +104,11 @@ Fires once after a fixed duration, then stops.
 ```arc bodies="done"
 time.wait{duration=500ms} -> done
 ```
+
+<Divider.Divider x />
+
+## Timing
+
+Timers never fire early. How soon after its deadline a timer fires depends on where the
+automation runs and its performance level. See
+[timing and performance](/reference/control/arc/timing).

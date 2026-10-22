@@ -346,7 +346,7 @@ class BusCase(SimulatorCase):
             name=f"{type(self).__name__} commands",
         ) as writer:
             now = sy.TimeStamp.now()
-            writer.write({**values, **{k: now for k in indexes}})
+            writer.write({**values, **dict.fromkeys(indexes, now)})
 
     def command_until(
         self,

@@ -46,7 +46,6 @@ const createTab = (): panel.Tab => ({
   variant: "view",
   key: uuid.create(),
   type: "t",
-  args: {},
 });
 
 interface CreateProjectPanelProps {
@@ -189,7 +188,6 @@ describe("Panel.Selector", () => {
   it("should render the pills in the session's strip order", async () => {
     const proj = await client.projects.create({
       name: uniqueName("project"),
-      layout: {},
     });
     const alpha = await createProjectPanel(proj.key, { name: "alpha" });
     const bravo = await createProjectPanel(proj.key, { name: "bravo" });
@@ -221,7 +219,6 @@ describe("Panel.Selector", () => {
   it("should render a panel missing from the strip order last", async () => {
     const proj = await client.projects.create({
       name: uniqueName("project"),
-      layout: {},
     });
     // The membership answer arrives in key order, so the unreconciled panel takes
     // the lower key: a correct sort cannot pass by luck.
@@ -255,7 +252,6 @@ describe("Panel.Selector", () => {
   it("should reorder the strip when a pill is dragged past the last slot", async () => {
     const proj = await client.projects.create({
       name: uniqueName("project"),
-      layout: {},
     });
     const alpha = await createProjectPanel(proj.key, { name: "alpha" });
     const bravo = await createProjectPanel(proj.key, { name: "bravo" });
@@ -303,7 +299,6 @@ describe("Panel.Selector", () => {
     const createHarness = async (otherCount: number): Promise<Harness> => {
       const { key: projectKey } = await client.projects.create({
         name: uniqueName("project"),
-        layout: {},
       });
       const tab = createTab();
       const source = await createProjectPanel(projectKey, { tab });
@@ -396,7 +391,6 @@ describe("Panel.Selector", () => {
     it("should keep the panel it switched to when the drag lands in it", async () => {
       const { key: projectKey } = await client.projects.create({
         name: uniqueName("project"),
-        layout: {},
       });
       const tab = createTab();
       const source = await createProjectPanel(projectKey, { tab });
@@ -464,7 +458,6 @@ describe("Panel.Selector", () => {
     const createStrip = async (): Promise<{ store: TestStore; row: panel.Panel[] }> => {
       const { key: projectKey } = await client.projects.create({
         name: uniqueName("project"),
-        layout: {},
       });
       const panels = [
         await createProjectPanel(projectKey),
@@ -508,7 +501,6 @@ describe("Panel.Selector", () => {
     it("should offer no create button", async () => {
       const proj = await client.projects.create({
         name: uniqueName("project"),
-        layout: {},
       });
       const pan = await createProjectPanel(proj.key, { name: "alpha" });
       const viewer = await createTestClientWithPolicy(client, {
@@ -540,7 +532,6 @@ describe("Panel.Selector", () => {
     const openPillMenu = async (): Promise<void> => {
       const { key: projectKey } = await client.projects.create({
         name: uniqueName("project"),
-        layout: {},
       });
       const pan = await createProjectPanel(projectKey);
       await renderStrip([pan], projectKey);
@@ -567,7 +558,6 @@ describe("Panel.Selector", () => {
     const openPillMenuBeside = async (onSelected: boolean): Promise<void> => {
       const { key: projectKey } = await client.projects.create({
         name: uniqueName("project"),
-        layout: {},
       });
       const panels = [
         await createProjectPanel(projectKey, { name: "alpha" }),

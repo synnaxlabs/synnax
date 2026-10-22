@@ -59,7 +59,7 @@ export const useVirtualDrag = ({
       el.setPointerCapture(e.pointerId);
       el.onpointermove = handleMove;
       const start = xy.construct(e);
-      const mouseKey = Triggers.eventKey(e);
+      const mouseKey = Triggers.mouseKey(e.button);
       setRef({ start, mouseKey, pointerId: e.pointerId });
       onStart?.(start, mouseKey, el);
       el.addEventListener("pointerup", handleUp);

@@ -40,7 +40,6 @@ describe("table queries", () => {
     it("should retrieve a table by key", async () => {
       const project = await client.projects.create({
         name: "test_project",
-        layout: {},
       });
       const created = await client.tables.create(project.key, {
         name: "retrieve_test",
@@ -62,7 +61,6 @@ describe("table queries", () => {
     it("should cache retrieved tables", async () => {
       const project = await client.projects.create({
         name: "cache_project",
-        layout: {},
       });
       const created = await client.tables.create(project.key, {
         name: "cached_table",
@@ -87,7 +85,6 @@ describe("table queries", () => {
     it("should create a new table", async () => {
       const project = await client.projects.create({
         name: "create_project",
-        layout: {},
       });
 
       const { result } = renderHook(() => Table.useCreate(), { wrapper });
@@ -112,7 +109,6 @@ describe("table queries", () => {
     it("should cache the created table for subsequent retrieves", async () => {
       const project = await client.projects.create({
         name: "store_project",
-        layout: {},
       });
 
       const { result: createResult } = renderHook(() => Table.useCreate(), {
@@ -141,7 +137,6 @@ describe("table queries", () => {
     it("should initialize a 2x2 layout of empty text cells when rows and columns are empty", async () => {
       const project = await client.projects.create({
         name: "default_layout_project",
-        layout: {},
       });
 
       const { result } = renderHook(() => Table.useCreate(), { wrapper });
@@ -173,7 +168,6 @@ describe("table queries", () => {
     it("should not apply defaults when rows are provided", async () => {
       const project = await client.projects.create({
         name: "explicit_layout_project",
-        layout: {},
       });
 
       const { result } = renderHook(() => Table.useCreate(), { wrapper });
@@ -219,7 +213,6 @@ describe("table queries", () => {
     it("should rename a table", async () => {
       const project = await client.projects.create({
         name: "rename_project",
-        layout: {},
       });
       const created = await client.tables.create(project.key, {
         name: "original_name",
@@ -251,7 +244,6 @@ describe("table queries", () => {
     it("should update cached table after rename", async () => {
       const project = await client.projects.create({
         name: "rename_cache_project",
-        layout: {},
       });
       const created = await client.tables.create(project.key, {
         name: "cache_original",
@@ -283,7 +275,6 @@ describe("table queries", () => {
     it("should delete a single table", async () => {
       const project = await client.projects.create({
         name: "delete_project",
-        layout: {},
       });
       const created = await client.tables.create(project.key, {
         name: "delete_single",
@@ -301,7 +292,6 @@ describe("table queries", () => {
     it("should delete multiple tables", async () => {
       const project = await client.projects.create({
         name: "delete_multi_project",
-        layout: {},
       });
       const created1 = await client.tables.create(project.key, {
         name: "delete_multi_1",
@@ -327,7 +317,6 @@ describe("table queries", () => {
     const createTable = async () => {
       const proj = await client.projects.create({
         name: `dispatch_ws_${uuid.create()}`,
-        layout: {},
       });
       return await client.tables.create(proj.key, {
         name: "dispatch_test",
@@ -557,7 +546,6 @@ describe("table queries", () => {
     it("populates the cache so downstream selectors resolve", async () => {
       const proj = await client.projects.create({
         name: `ensure_ws_${uuid.create()}`,
-        layout: {},
       });
       const created = await client.tables.create(proj.key, {
         name: "ensure_test",
@@ -575,7 +563,6 @@ describe("table queries", () => {
     it("does not suspend when the table is already in the store", async () => {
       const proj = await client.projects.create({
         name: `fastpath_ws_${uuid.create()}`,
-        layout: {},
       });
       const created = await client.tables.create(proj.key, {
         name: "fastpath_test",
@@ -610,7 +597,6 @@ describe("table queries", () => {
     const createTable = async () => {
       const proj = await client.projects.create({
         name: `selector_ws_${uuid.create()}`,
-        layout: {},
       });
       return await client.tables.create(proj.key, {
         name: "selector_test",

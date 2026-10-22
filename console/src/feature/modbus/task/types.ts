@@ -38,9 +38,7 @@ export const WRITE_CHANNEL_SCHEMAS = modbus.WRITE_CHANNEL_SCHEMAS;
 
 export const READ_TYPE = `${PREFIX}_read`;
 
-export interface ReadConfig extends modbus.ReadConfig {}
-
-export const readConfigZ = modbus.readConfigZ;
+const readConfigZ = modbus.readConfigZ;
 
 export const deployReadConfigZ = modbus.readConfigZ
   .extend({
@@ -69,9 +67,7 @@ export type ReadSchemas = typeof READ_SCHEMAS;
 
 export const WRITE_TYPE = `${PREFIX}_write`;
 
-export interface WriteConfig extends modbus.WriteConfig {}
-
-export const writeConfigZ = modbus.writeConfigZ;
+const writeConfigZ = modbus.writeConfigZ;
 
 export const deployWriteConfigZ = modbus.writeConfigZ.extend({
   device: Task.deviceKeyZ,

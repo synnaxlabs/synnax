@@ -37,13 +37,11 @@ const roles = new RoleClients(client);
 
 let projectKey: string | undefined;
 const testProject = async (): Promise<string> =>
-  (projectKey ??= (
-    await client.projects.create({ name: uniqueName("project"), layout: {} })
-  ).key);
+  (projectKey ??= (await client.projects.create({ name: uniqueName("project") })).key);
 
 const viewLeaf = (key: string, type: string): panel.New["root"] => ({
   variant: "leaf",
-  tabs: [{ variant: "view", key, type, args: {} }],
+  tabs: [{ variant: "view", key, type }],
 });
 
 // A node key no tree in these specs reaches: the root's own children stop at 3.
@@ -66,7 +64,7 @@ describe("Panel.useOpenTab", () => {
       const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
       const newTabKey = uuid.create();
       await act(async () => {
-        result.current({ variant: "view", key: newTabKey, type: "added", args: {} });
+        result.current({ variant: "view", key: newTabKey, type: "added" });
       });
       await waitFor(async () => {
         const doc = await client.panels.retrieve(existing.key);
@@ -91,7 +89,7 @@ describe("Panel.useOpenTab", () => {
       const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
       const newTabKey = uuid.create();
       await act(async () => {
-        result.current({ variant: "view", key: newTabKey, type: "added", args: {} });
+        result.current({ variant: "view", key: newTabKey, type: "added" });
       });
       await waitFor(async () => {
         const doc = await client.panels.retrieve(existing.key);
@@ -119,7 +117,7 @@ describe("Panel.useOpenTab", () => {
       const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
       const newTabKey = uuid.create();
       await act(async () => {
-        result.current({ variant: "view", key: newTabKey, type: "added", args: {} });
+        result.current({ variant: "view", key: newTabKey, type: "added" });
       });
       await waitFor(async () => {
         const doc = await client.panels.retrieve(scoped.key);
@@ -165,7 +163,7 @@ describe("Panel.useOpenTab", () => {
       await primePanel(wrapper, existing.key);
       const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
       await act(async () => {
-        result.current({ variant: "view", type: "added", args: {} });
+        result.current({ variant: "view", type: "added" });
       });
       await waitFor(async () => {
         const doc = await client.panels.retrieve(existing.key);
@@ -192,7 +190,6 @@ describe("Panel.useOpenTab", () => {
           variant: "view",
           key: seedTabKey,
           type: "replaced",
-          args: {},
         });
       });
       await waitFor(async () => {
@@ -220,7 +217,7 @@ describe("Panel.useOpenTab", () => {
       const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
       await act(async () => {
         result.current(
-          { variant: "view", type: "range_explorer", args: {} },
+          { variant: "view", type: "range_explorer" },
           { singleton: true },
         );
       });
@@ -273,7 +270,7 @@ describe("Panel.useOpenTab", () => {
       const newTabKey = uuid.create();
       await act(async () => {
         result.current(
-          { variant: "view", key: newTabKey, type: "dropped", args: {} },
+          { variant: "view", key: newTabKey, type: "dropped" },
           { placement: { leaf: panel.ROOT_NODE_KEY, location: "left" } },
         );
       });
@@ -297,7 +294,7 @@ describe("Panel.useOpenTab", () => {
       const newTabKey = uuid.create();
       await act(async () => {
         result.current(
-          { variant: "view", key: newTabKey, type: "dropped", args: {} },
+          { variant: "view", key: newTabKey, type: "dropped" },
           { placement: { leaf: STALE_LEAF, location: "left" } },
         );
       });
@@ -323,7 +320,7 @@ describe("Panel.useOpenTab", () => {
       await primePanel(wrapper, existing.key);
       const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
       await act(async () => {
-        result.current({ variant: "view", type: "range_explorer", args: {} });
+        result.current({ variant: "view", type: "range_explorer" });
       });
       await waitFor(async () => {
         const doc = await client.panels.retrieve(existing.key);
@@ -338,7 +335,7 @@ describe("Panel.useOpenTab", () => {
       const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
       const tabKey = uuid.create();
       await act(async () => {
-        result.current({ variant: "view", key: tabKey, type: "created", args: {} });
+        result.current({ variant: "view", key: tabKey, type: "created" });
       });
       const tab = await resolveFocusedTab(store, client, (t) => t.key === tabKey);
       expect(tab.variant).toBe("view");
@@ -354,7 +351,7 @@ describe("Panel.useOpenTab", () => {
       const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
       const tabKey = uuid.create();
       await act(async () => {
-        result.current({ variant: "view", key: tabKey, type: "created", args: {} });
+        result.current({ variant: "view", key: tabKey, type: "created" });
       });
       const focused = await waitForFocusedTab(store);
       expect(focused).toBe(tabKey);
@@ -373,7 +370,7 @@ describe("Panel.useOpenTabs", () => {
     const keys = [uuid.create(), uuid.create(), uuid.create()];
     await act(async () => {
       result.current(
-        keys.map((key) => ({ variant: "view", key, type: "dropped", args: {} })),
+        keys.map((key) => ({ variant: "view", key, type: "dropped" })),
         { placement: { leaf: panel.ROOT_NODE_KEY, location: "left" } },
       );
     });
@@ -399,7 +396,7 @@ describe("Panel.useOpenTabs", () => {
     await act(async () => {
       result.current([
         { variant: "resource", key: uuid.create(), resource },
-        { variant: "view", key: freshKey, type: "added", args: {} },
+        { variant: "view", key: freshKey, type: "added" },
       ]);
     });
     await waitFor(async () => {
@@ -425,7 +422,7 @@ describe("Panel.useOpenTabs", () => {
     const { result } = renderHook(() => Panel.useOpenTabs(), { wrapper });
     await act(async () => {
       result.current([
-        { variant: "view", key: uuid.create(), type: "added", args: {} },
+        { variant: "view", key: uuid.create(), type: "added" },
         { variant: "resource", key: uuid.create(), resource },
       ]);
     });

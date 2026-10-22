@@ -20,8 +20,8 @@ import { Text as BaseText } from "@/text";
 /** Props for {@link Summary}. Pass a whole `status`, or its parts one by one. */
 export interface SummaryProps
   extends
-    Omit<BaseText.TextProps, "wrap" | "variant" | "status">,
-    Partial<Omit<Status, "key">> {
+    Omit<BaseText.TextProps, "wrap" | "variant" | "status" | "color">,
+    Partial<Pick<Status, "variant" | "message" | "description">> {
   hideIcon?: boolean;
   status?: Status;
 }
@@ -39,14 +39,10 @@ export const Summary = ({
   className,
   children,
   message,
-  color,
   ...rest
 }: SummaryProps): ReactElement => {
   let icon: Icon.ReactElement | undefined;
-  if (status != null) {
-    const { key: _, ...restStatus } = status;
-    return <Summary {...rest} {...restStatus} />;
-  }
+  if (status != null) ({ variant, message, description } = status);
   if (!hideIcon) icon = <Indicator variant={variant} />;
   const hasDescription = primitive.isNonZero(description);
   children ??= message;

@@ -1,0 +1,63 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { assetURL, type Product } from "@/util/releases";
+
+export interface Platform {
+    name: string;
+    asset: string;
+    /** Matches the user agents of browsers running on the platform. */
+    agent: RegExp;
+}
+
+export interface Props {
+    product: Product;
+    version: string;
+    platforms: Platform[];
+}
+
+const { product, version, platforms } = Astro.props;
+---
+
+<Flex.Box direction="x" gap="small" wrap>
+    {platforms.map(({ name, asset, agent }) => (
+        <Button.Button
+            href={assetURL(product, version, asset)}
+            variant="filled"
+            data-agent={agent.source}
+        >
+            <Icon.Download />
+            Download v{version} for {name}
+        </Button.Button>
+    ))}
+</Flex.Box>
+<script is:inline>
+    // The CDN serves every browser the same page, so the browser picks its platform
+    // before paint. An unknown agent, or a phone or tablet that can install neither,
+    // keeps every platform: iPhones say "like Mac OS X" and iPads may pose as a
+    // Macintosh, so mobile is checked first.
+    (() => {
+        const agent = navigator.userAgent;
+        if (/iPhone|iPad|Android|Mobile/.test(agent)) return;
+        const buttons = [
+            ...document.currentScript.previousElementSibling.querySelectorAll(
+                "[data-agent]",
+            ),
+        ];
+        const matches = (button) => new RegExp(button.dataset.agent).test(agent);
+        if (!buttons.some(matches)) return;
+        buttons.forEach((button) => {
+            if (!matches(button)) button.remove();
+        });
+    })();
+</script>

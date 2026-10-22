@@ -19,10 +19,7 @@ import { resolveFocusedTab, uniqueName } from "@/testutil";
 
 describe("Library commands", () => {
   it("should create a library and open it in a tab", async () => {
-    const project = await client.projects.create({
-      name: uniqueName("project"),
-      layout: {},
-    });
+    const project = await client.projects.create({ name: uniqueName("project") });
     const { store, openCommandPalette } = await renderPalette({
       commands: Library.COMMANDS,
       client,

@@ -39,7 +39,7 @@ export const StyleForm = ({
         <Label.Form omit={omit} path="label" />
       </Form.Section>
       <Form.Section title="Appearance">
-        {!hasStateOverrides && <ColorField path="color" />}
+        {!hasStateOverrides && <ColorField path="strokeColor" label="Stroke" />}
         <Form.SwitchField
           path="normallyOpen"
           label="Normally open"

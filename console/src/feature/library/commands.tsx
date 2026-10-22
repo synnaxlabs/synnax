@@ -13,7 +13,7 @@ import { Access, Library } from "@synnaxlabs/pluto";
 import { useCreate } from "@/feature/library/useCreate";
 import { Command } from "@/platform/command";
 
-export const CreateCommand = Command.create({
+const CreateCommand = Command.create({
   key: "create_library",
   name: "Create library",
   icon: <Library.CreateIcon />,

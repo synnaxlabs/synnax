@@ -28,18 +28,32 @@ const {
 } = Astro.props;
 
 const visibleTitleLength = String(title ?? "").replace(/`/g, "").length;
+const publishedLabel =
+    published &&
+    new Date(published).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        timeZone: "UTC",
+    });
 ---
 
-<article transition:animate="none">
+<article>
     {showBreadcrumb && url.split("/").length > 2 && (
         <Breadcrumb url={url} title={title} />
     )}
     {published && (
         <div class="blog-meta">
-            <span class="blog-published">{published}</span>
+            <time class="blog-published" datetime={published}>
+                {publishedLabel}
+            </time>
         </div>
     )}
-    <Text.Text className="article-title" level={visibleTitleLength > 30 ? "h2" : "h1"}>
+    <Text.Text
+        className="article-title"
+        el="h1"
+        level={visibleTitleLength > 30 ? "h2" : "h1"}
+    >
         <span>
             <InlineCode text={title} />
         </span>
@@ -205,9 +219,7 @@ const visibleTitleLength = String(title ?? "").replace(/`/g, "").length;
             --note-padding-inline: 2rem;
         }
 
-        /* Astro delivers tab slots inside a layout-transparent astro-slot. */
-        :is(.pluto-tabs__content, .pluto-tabs__content > astro-slot)
-            > .pluto-note:first-child {
+        .pluto-tabs__content > .pluto-note:first-child {
             margin-top: 0;
         }
 

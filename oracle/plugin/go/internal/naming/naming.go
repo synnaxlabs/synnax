@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/keywords"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/set"
 )
 
 // IsScreamingCase returns true if s is all uppercase letters (possibly with
@@ -201,4 +202,72 @@ func isWordEnd(s string, i int) bool {
 		i++
 	}
 	return i >= len(s) || !unicode.IsLower(rune(s[i]))
+}
+
+// VersionAliases returns the import aliases for the version packages
+// (".../<resource>/versions/vN") among the import paths of one generated file, keyed by
+// path. When a file imports more than one version of a resource, the newest takes the
+// bare resource name and each older one takes the version-suffixed name ("irv0"). When
+// another import in the file is a non-version package with the resource's name, such as
+// the resource's root, every version takes the suffixed name. When two imported
+// resources share a name, both prefix it with their parent directory ("arctask",
+// "arctaskv0"). The result leaves out a resource imported at one version with no name
+// clash, and the versions of the file's own resource that sit beside currentPath.
+func VersionAliases(paths []string, currentPath string) map[string]string {
+	byResource := make(map[string][]string)
+	plainNames := make(set.Set[string])
+	for _, p := range paths {
+		dir := filepath.Dir(p)
+		if filepath.Base(dir) != "versions" ||
+			!majorVersion.MatchString(filepath.Base(p)) {
+			plainNames.Add(filepath.Base(p))
+			continue
+		}
+		if dir == filepath.Dir(currentPath) {
+			continue
+		}
+		root := filepath.Dir(dir)
+		byResource[root] = append(byResource[root], p)
+	}
+	rootsByName := make(map[string]int)
+	for root := range byResource {
+		rootsByName[filepath.Base(root)]++
+	}
+	aliases := make(map[string]string)
+	for root, versions := range byResource {
+		resource := filepath.Base(root)
+		shared := rootsByName[resource] > 1
+		if shared {
+			resource = filepath.Base(filepath.Dir(root)) + resource
+		}
+		bareTaken := plainNames.Contains(resource)
+		if len(versions) < 2 && !bareTaken && !shared {
+			continue
+		}
+		newest := versions[0]
+		for _, p := range versions[1:] {
+			if newerVersion(p, newest) {
+				newest = p
+			}
+		}
+		for _, p := range versions {
+			if p == newest && !bareTaken {
+				aliases[p] = keywords.Escape(resource)
+			} else {
+				aliases[p] = resource + filepath.Base(p)
+			}
+		}
+	}
+	return aliases
+}
+
+// newerVersion reports whether path a ends in a higher "vN" segment than path b. The
+// segments hold only digits, so a longer number is the larger one.
+func newerVersion(a, b string) bool {
+	na := strings.TrimPrefix(filepath.Base(a), "v")
+	nb := strings.TrimPrefix(filepath.Base(b), "v")
+	if len(na) != len(nb) {
+		return len(na) > len(nb)
+	}
+	return na > nb
 }

@@ -8,10 +8,13 @@
 #  included in the file licenses/APL.txt.
 
 import os
+from collections.abc import Iterator
 
 import pytest
 
 import synnax as sy
+from tests.channel import RetrieveCounter
+from tests.proxy import Proxy
 from x.strings import random_name
 
 HOST = "localhost"
@@ -34,6 +37,56 @@ def client() -> sy.Synnax:
         password=PASSWORD,
         secure=False,
     )
+
+
+@pytest.fixture
+def counted_client() -> tuple[sy.Synnax, RetrieveCounter]:
+    """A client that counts the channel retrieve requests it sends."""
+    c = sy.Synnax(
+        host=HOST,
+        port=PORT,
+        username=USERNAME,
+        password=PASSWORD,
+        secure=False,
+    )
+    counter = RetrieveCounter()
+    c._transport.use(counter)
+    return c, counter
+
+
+def _connect(proxy: Proxy) -> sy.Synnax:
+    return sy.Synnax(
+        host="localhost",
+        port=proxy.port,
+        username=USERNAME,
+        password=PASSWORD,
+        secure=False,
+    )
+
+
+@pytest.fixture
+def proxy() -> Iterator[Proxy]:
+    p = Proxy(HOST, PORT)
+    yield p
+    p.close()
+
+
+@pytest.fixture
+def proxied_client(proxy: Proxy) -> sy.Synnax:
+    return _connect(proxy)
+
+
+@pytest.fixture
+def early_proxy() -> Iterator[Proxy]:
+    """A proxy that sends a keep-alive ahead of each streamer's open ack."""
+    p = Proxy(HOST, PORT, inject_keep_alive=True)
+    yield p
+    p.close()
+
+
+@pytest.fixture
+def early_proxied_client(early_proxy: Proxy) -> sy.Synnax:
+    return _connect(early_proxy)
 
 
 @pytest.fixture
@@ -62,7 +115,7 @@ def virtual_channel(client: sy.Synnax) -> sy.Channel:
     )
 
 
-def pytest_addoption(parser):
+def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
         "--run-multi-node",
         action="store_true",
@@ -71,13 +124,15 @@ def pytest_addoption(parser):
     )
 
 
-def pytest_configure(config):
+def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers", "multi-node: tests that run only when a flag is provided"
     )
 
 
-def pytest_collection_modifyitems(config, items):
+def pytest_collection_modifyitems(
+    config: pytest.Config, items: list[pytest.Item]
+) -> None:
     if config.getoption("--run-multi-node"):
         # If the flag is provided, no filtering is needed
         return

@@ -11,7 +11,6 @@ import { library, query } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Library } from "@synnaxlabs/pluto";
 
-import { Editor } from "@/feature/library/editor/Editor";
 import { Panel } from "@/platform/panel";
 
 export * from "@/feature/library/commands";
@@ -23,15 +22,27 @@ export * from "@/feature/library/useCreate";
 export * from "@/feature/library/useImport";
 
 const TAB: Panel.Tab = {
-  Content: Editor,
+  Content: Panel.lazyComponent(
+    () => import("@/feature/library/editor/Editor"),
+    "Editor",
+  ),
   Icon: Icon.Library,
-  Name: Panel.createEditableTabName(Library, <Icon.Library />),
+  // Only these hooks, so the bundler can drop the rest of the namespace.
+  Name: Panel.createEditableTabName(
+    {
+      useEnsure: Library.useEnsure,
+      useName: Library.useName,
+      useRename: Library.useRename,
+    },
+    <Icon.Library />,
+  ),
   restore: async ({ client, resource }) => {
     await client.libraries.create(
       query.requireCorpse(client.libraries.getCached({ key: resource.key })),
     );
   },
-  useTombstone: Panel.createTombstoneReader(Library),
+  // Only these hooks, so the bundler can drop the rest of the namespace.
+  useTombstone: Panel.createTombstoneReader({ useTombstone: Library.useTombstone }),
 };
 
 export const TABS: Panel.Tabs = {

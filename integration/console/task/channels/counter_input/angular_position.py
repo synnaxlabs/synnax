@@ -62,7 +62,7 @@ class AngularPosition(Counter):
 
         self._configure_dropdown("Units", units)
         self._configure_input("Initial angle", initial_angle)
-        self._configure_input("Pulses / Rev", pulses_per_rev)
+        self._configure_input("Pulses / rev", pulses_per_rev)
         self._configure_dropdown("Decoding type", decoding_type)
         self._configure_toggle("Z index enable", z_index_enabled)
         self._configure_input("Z index value", z_index_val)

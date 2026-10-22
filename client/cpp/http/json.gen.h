@@ -145,6 +145,7 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
         "endpoints",
         std::vector<ReadEndpoint>{}
     );
+    result.nan_fill_enabled = parser.field<bool>("nan_fill_enabled", false);
     return result;
 }
 
@@ -156,6 +157,7 @@ inline x::json::json ReadConfig::to_json() const {
     j["device"] = this->device;
     j["rate"] = this->rate;
     j["endpoints"] = x::json::to_array(this->endpoints);
+    j["nan_fill_enabled"] = this->nan_fill_enabled;
     return j;
 }
 

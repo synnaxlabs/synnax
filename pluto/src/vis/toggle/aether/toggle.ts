@@ -22,8 +22,6 @@ export const toggleStateZ = staleness.stateZ.extend({
   source: telem.booleanSourceSpecZ.default(telem.noopBooleanSourceSpec),
 });
 
-export type ToggleState = z.input<typeof toggleStateZ>;
-
 /** Methods schema for Toggle RPC */
 export const toggleMethodsZ = {
   toggle: z.function({ input: z.tuple([]), output: z.void() }),

@@ -160,7 +160,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
   none: () => null,
 };
 
-export const CustomScaleForm = ({ prefix }: CustomScaleFormProps) => {
+const CustomScaleForm = ({ prefix }: CustomScaleFormProps) => {
   const path = `${prefix}.customScale`;
   const type = Form.useFieldValue<ScaleType>(`${path}.type`);
   const FormComponent = SCALE_FORMS[type];

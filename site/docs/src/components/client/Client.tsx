@@ -9,7 +9,7 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-export type Client = "console" | "python" | "typescript" | "cpp";
+import { type Client } from "@/components/client/choice";
 
 export interface Info {
   key: Client;
@@ -17,22 +17,9 @@ export interface Info {
   icon: Icon.ReactElement;
 }
 
-export const CLIENTS: Info[] = [
+export const INFO: Info[] = [
   { key: "console", name: "Console", icon: <Icon.Visualize /> },
   { key: "python", name: "Python", icon: <Icon.Python /> },
   { key: "typescript", name: "TypeScript", icon: <Icon.TypeScript /> },
   { key: "cpp", name: "C++", icon: <Icon.CPlusPlus /> },
 ];
-
-export const getFromURL = (): Client | null => {
-  const url = new URL(window.location.href);
-  const client = url.searchParams.get("client");
-  return CLIENTS.find((c) => c.key === client)?.key ?? null;
-};
-
-export const setInURL = (client: Client) => {
-  const url = new URL(window.location.href);
-  url.searchParams.set("client", client);
-  window.history.pushState({}, "", url.toString());
-  window.dispatchEvent(new CustomEvent("urlchange"));
-};

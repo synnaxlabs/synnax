@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, Union
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
@@ -118,7 +118,7 @@ class SlipFraming(BaseModel):
 
 # Is how a byte stream is split into frames.
 Framing = Annotated[
-    Union[DelimiterFraming, FixedFraming, SyncFraming, CobsFraming, SlipFraming],
+    DelimiterFraming | FixedFraming | SyncFraming | CobsFraming | SlipFraming,
     Field(discriminator="type"),
 ]
 

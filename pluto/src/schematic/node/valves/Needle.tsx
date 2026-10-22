@@ -20,7 +20,7 @@ const DIMENSIONS = { width: 87, height: 42 };
 export const Needle = ({
   className,
   orientation = "left",
-  color: colorVal,
+  strokeColor: colorVal,
   scale,
   enabled = false,
   ...rest
@@ -40,7 +40,7 @@ export const Needle = ({
     <Primitive.SVG
       dimensions={DIMENSIONS}
       orientation={orientation}
-      color={colorVal}
+      strokeColor={colorVal}
       scale={scale}
     >
       <Primitive.Path

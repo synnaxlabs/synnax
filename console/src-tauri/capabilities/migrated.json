@@ -78,6 +78,7 @@
     "dialog:allow-confirm",
     "dialog:default",
     "deep-link:default",
+    "os:allow-hostname",
     "store:default",
     "shell:default"
   ]

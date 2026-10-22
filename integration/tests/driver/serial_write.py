@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import struct
+from functools import partial
 
 from examples.simulators import serial_frames
 from examples.simulators.serial_frames import SerialFrameSim
@@ -79,6 +80,6 @@ class SerialWrite(SerialCase):
                             self.commands["setpoint"]: setpoint,
                             self.commands["trim"]: trim,
                         },
-                        lambda: sim.wait_for(frame),
+                        partial(sim.wait_for, frame),
                     )
             self.assert_no_problems(statuses)

@@ -43,7 +43,7 @@ class TestBusTasks:
     def test_read_task_type(self, integration: ModuleType) -> None:
         """Should name the read task type after the integration."""
         t = integration.ReadTask(library=uuid.uuid4())
-        assert t.TYPE == f"{integration.__name__.split('.')[-1]}_read"
+        assert f"{integration.__name__.split('.')[-1]}_read" == t.TYPE
 
     @pytest.mark.parametrize("integration", INTEGRATIONS)
     def test_read_config_round_trip(self, integration: ModuleType) -> None:

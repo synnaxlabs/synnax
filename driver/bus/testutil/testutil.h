@@ -29,6 +29,7 @@
 #include "client/cpp/library/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/sync/list.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
@@ -387,9 +388,9 @@ inline WriteConfig write_config(
 
 /// @returns every value of the channel across frames, in order.
 inline std::vector<double>
-values(const std::vector<x::telem::Frame> &frames, const synnax::channel::Key key) {
+values(const x::sync::List<x::telem::Frame> &frames, const synnax::channel::Key key) {
     std::vector<double> out;
-    for (const auto &fr: frames)
+    for (const auto &fr: frames.snapshot())
         for (const auto &[k, series]: fr) {
             if (k != key) continue;
             for (std::size_t i = 0; i < series.size(); i++)

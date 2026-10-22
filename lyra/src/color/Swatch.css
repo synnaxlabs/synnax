@@ -31,6 +31,15 @@
         background: var(--pluto-swatch-fill);
     }
 
+    /* Stripes, so a mixed value reads apart from the checkerboard of transparent. */
+    &.pluto--mixed {
+        --pluto-swatch-fill: repeating-linear-gradient(
+            135deg,
+            var(--pluto-gray-l8) 0 2px,
+            var(--pluto-gray-l2) 2px 5px
+        );
+    }
+
     /* A control: a button with the color as a smaller chip inside. */
     &.pluto-color-swatch--chip {
         position: relative;

@@ -303,6 +303,26 @@ describe("Cache", () => {
       await cache.close();
     });
 
+    it("ignores an announced key the table does not hold", async () => {
+      const fetch = vi.fn(async (keys: string[]) =>
+        keys.map((k) => ({ key: k, name: `${k}-fresh` })),
+      );
+      const opener = async () =>
+        new MockStreamer([new framer.Frame({ docs_set: new Series(["k2", "k1"]) })]);
+      const cache = makeEngine(opener);
+      const table = cache.createTable<string, Doc>({
+        name: "docs",
+        fetch,
+        listen: [query.createFetchListener("docs_set", z.string())],
+      });
+      table.set("k1", { key: "k1", name: "stale" });
+      await cache.ensureStreaming();
+      await expect.poll(() => table.get("k1")).toEqual({ key: "k1", name: "k1-fresh" });
+      expect(fetch.mock.calls).toEqual([[["k1"]]]);
+      expect(table.has("k2")).toBe(false);
+      await cache.close();
+    });
+
     it("delivers channel reactions registered via listen", async () => {
       const opener = async () =>
         new MockStreamer([new framer.Frame({ commands: new Series(["start"]) })]);

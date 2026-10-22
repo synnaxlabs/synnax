@@ -64,7 +64,7 @@ var _ = Describe("C++ PB Plugin", func() {
 	Describe("Generate", func() {
 		Context("union translation", func() {
 			It(
-				"Should generate oneof translators for a discriminated union",
+				"Should translate a variant that references a struct against that struct's message",
 				func(ctx SpecContext) {
 					source := `
 					@cpp output "client/cpp/schematic"
@@ -85,59 +85,12 @@ var _ = Describe("C++ PB Plugin", func() {
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
 							"#include <variant>",
-							"to_proto(const Source& value) {",
-							"if (const auto* v = std::get_if<BooleanSource>(&value)) {",
-							"static_cast<const Spec&>(*v).to_proto();",
-							"*pb.mutable_boolean() = payload;",
-							`return {{}, x::errors::Error("Source: unknown variant")};`,
-							"const ::service::schematic::pb::Source& pb",
-							"switch (pb.variant_case()) {",
+							"BooleanSource::to_proto() const {",
+							"NumberSource::from_proto(",
+							"const ::service::schematic::pb::Spec& pb",
+							"if constexpr (std::is_same_v<V, BooleanSource>) *pb.mutable_boolean() = inner;",
 							"case ::service::schematic::pb::Source::kNumber: {",
-							"auto [payload, err] = Spec::from_proto(pb.number());",
-							"static_cast<Spec&>(cpp) = std::move(payload);",
-							`return {{}, x::errors::Error("Source: variant is not set")};`,
-						)
-				},
-			)
-
-			It(
-				"Should route union-typed fields through the union translators",
-				func(ctx SpecContext) {
-					source := `
-					@cpp output "client/cpp/schematic"
-					@go output "core/pkg/service/schematic"
-					@pb
-
-					Spec struct {
-						type string
-					}
-
-					Source union on value_type {
-						boolean Spec
-					}
-
-					Config struct {
-						source Source
-						fallback Source?
-						sources Source[]
-					}
-				`
-					resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
-					ExpectContent(resp, "proto.gen.h").
-						ToContain(
-							"auto [v, err] = ::synnax::schematic::to_proto(this->source);",
-							"*pb.mutable_source() = v;",
-							"auto [v, err] = ::synnax::schematic::source_from_proto(pb.source());",
-							"cpp.source = std::move(v);",
-							"if (this->fallback.has_value()) {",
-							"::synnax::schematic::to_proto(*this->fallback);",
-							"if (pb.has_fallback()) {",
-							"for (const auto& item : this->sources) {",
-							"auto [v, err] = ::synnax::schematic::to_proto(item);",
-							"*pb.add_sources() = v;",
-							"for (const auto& item : pb.sources()) {",
-							"auto [v, err] = ::synnax::schematic::source_from_proto(item);",
-							"cpp.sources.push_back(std::move(v));",
+							"auto [v, err] = NumberSource::from_proto(pb.number());",
 						)
 				},
 			)
@@ -163,11 +116,10 @@ var _ = Describe("C++ PB Plugin", func() {
 					resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
-							"std::get_if<IsoCapShape>(&value)",
-							"*pb.mutable_iso_cap() = payload;",
+							"if constexpr (std::is_same_v<V, IsoCapShape>) *pb.mutable_iso_cap() = inner;",
 							"case ::service::schematic::pb::Shape::kIsoCap: {",
 							"case ::service::schematic::pb::Shape::kTJunction: {",
-							"auto [payload, err] = Body::from_proto(pb.t_junction());",
+							"auto [v, err] = TJunctionShape::from_proto(pb.t_junction());",
 							"case ::service::schematic::pb::Shape::kArinc429: {",
 						)
 				},
@@ -192,9 +144,9 @@ var _ = Describe("C++ PB Plugin", func() {
 					resp := MustGenerate(ctx, source, "library", loader, pbPlugin)
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
-							"*pb.mutable_enum_() = payload;",
+							"*pb.mutable_enum_() = inner;",
 							"case ::service::library::pb::Entry::kEnum: {",
-							"Values::from_proto(pb.enum_());",
+							"auto [v, err] = EnumEntry::from_proto(pb.enum_());",
 						)
 				},
 			)
@@ -230,74 +182,6 @@ var _ = Describe("C++ PB Plugin", func() {
 			)
 
 			It(
-				"Should translate union extends bases through the bases' own translators",
-				func(ctx SpecContext) {
-					source := `
-					@cpp output "client/cpp/schematic"
-					@go output "core/pkg/service/schematic"
-					@pb
-
-					Base struct {
-						key string
-					}
-
-					Body struct {
-						width float64
-					}
-
-					Shape union on variant extends Base {
-						square Body
-					}
-				`
-					resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
-					ExpectContent(resp, "proto.gen.h").
-						ToContain(
-							"auto [base, err] = static_cast<const Base&>(*v).to_proto();",
-							"*pb.mutable_base() = base;",
-							"auto [base, err] = Base::from_proto(pb.base());",
-							"static_cast<Base&>(cpp) = std::move(base);",
-						)
-				},
-			)
-
-			It(
-				"Should translate inline variants against the variant struct",
-				func(ctx SpecContext) {
-					source := `
-					@cpp output "client/cpp/schematic"
-					@go output "core/pkg/service/schematic"
-					@pb
-
-					Base struct {
-						key string
-					}
-
-					Shape union on variant extends Base {
-						square {
-							width float64
-							label string?
-						}
-						empty {}
-					}
-				`
-					resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
-					ExpectContent(resp, "proto.gen.h").
-						ToContain(
-							"square_shape_to_proto(const SquareShape& cpp) {",
-							"::service::schematic::pb::ShapeSquarePayload pb;",
-							"pb.set_width(cpp.width);",
-							"if (cpp.label.has_value()) pb.set_label(*cpp.label);",
-							"const ::service::schematic::pb::ShapeSquarePayload& pb",
-							"cpp.width = pb.width();",
-							"auto [payload, err] = square_shape_to_proto(*v);",
-							"auto [cpp, err] = square_shape_from_proto(pb.square());",
-							"auto [cpp, err] = empty_shape_from_proto(pb.empty());",
-						).
-						ToNotContain("this->width")
-				},
-			)
-
-			It(
 				"Should translate inline variants inherited through union composition",
 				func(ctx SpecContext) {
 					source := `
@@ -322,9 +206,9 @@ var _ = Describe("C++ PB Plugin", func() {
 					resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
-							"box_node_config_to_proto(const BoxNodeConfig& cpp) {",
-							"box_element_config_to_proto(const BoxElementConfig& cpp) {",
-							"pipe_element_config_to_proto(const PipeElementConfig& cpp) {",
+							"BoxNodeConfig::to_proto() const {",
+							"BoxElementConfig::to_proto() const {",
+							"PipeElementConfig::to_proto() const {",
 							"::service::schematic::pb::EdgeConfigPipePayload pb;",
 							"case ::service::schematic::pb::ElementConfig::kBox: {",
 						).
@@ -511,6 +395,53 @@ var _ = Describe("C++ PB Plugin", func() {
 						"pb.add_names(item)",
 					)
 			})
+
+			It("Should convert uuid arrays element by element", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Key = uuid
+
+					Data struct {
+						keys Key[]
+					}
+				`
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+				ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						"pb.add_keys(item.to_string());",
+						"auto [v, err] = x::uuid::UUID::parse(item);",
+						"cpp.keys.push_back(v);",
+					)
+			})
+
+			It(
+				"Should translate string enum arrays element by element",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Variant enum {
+						success = "success"
+						error = "error"
+					}
+
+					Data struct {
+						variants Variant[]
+					}
+				`
+					resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+					ExpectContent(resp, "proto.gen.h").
+						ToContain(
+							"auto [v, err] = variant_to_pb(item);",
+							"pb.add_variants(v);",
+							"variant_from_pb(static_cast<",
+							"cpp.variants.push_back(v);",
+						)
+				},
+			)
 		})
 
 		Context("optional struct fields", func() {
@@ -1986,6 +1917,124 @@ var _ = Describe("C++ PB Plugin", func() {
 			)
 		})
 	})
+})
+
+var _ = Describe("C++ PB Plugin unions", func() {
+	var (
+		loader   *MockFileLoader
+		pbPlugin *pb.Plugin
+	)
+	const source = `
+	@cpp output "arc/cpp/ir"
+	@go output "arc/go/ir"
+	@pb
+
+	Target union on type {
+		exit {}
+		step { key string }
+		scope { key string }
+	}
+
+	Transition struct {
+		name string
+		target Target
+	}
+	`
+
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		pbPlugin = pb.New(pb.DefaultOptions())
+	})
+
+	It(
+		"Should convert a union field through the union's free functions",
+		func(ctx SpecContext) {
+			resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
+			ExpectContent(resp, "proto.gen.h").
+				ToContain(
+					"auto [v, err] = ::arc::ir::to_proto(this->target);",
+					"*pb.mutable_target() = v;",
+					"auto [v, err] = ::arc::ir::target_from_proto(pb.target());",
+					"cpp.target = v;",
+				)
+		},
+	)
+
+	It(
+		"Should translate each variant against its payload message",
+		func(ctx SpecContext) {
+			resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
+			ExpectContent(resp, "proto.gen.h").
+				ToContain(
+					"ExitTarget::to_proto() const {",
+					"::arc::ir::pb::TargetExitPayload pb;",
+					"StepTarget::from_proto(",
+					"const ::arc::ir::pb::TargetStepPayload& pb",
+					"cpp.key = pb.key();",
+				).
+				ToNotContain(
+					// The discriminator lives in the oneof case, not the payload.
+					"pb.set_type(",
+				)
+		},
+	)
+
+	It(
+		"Should dispatch between the std::variant and the oneof",
+		func(ctx SpecContext) {
+			resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
+			ExpectContent(resp, "proto.gen.h").
+				ToContain(
+					"inline std::pair<::arc::ir::pb::Target, x::errors::Error> "+
+						"to_proto(const Target& value) {",
+					"if constexpr (std::is_same_v<V, ExitTarget>) *pb.mutable_exit() = inner;",
+					"inline std::pair<Target, x::errors::Error> "+
+						"target_from_proto(const ::arc::ir::pb::Target& pb) {",
+					"switch (pb.variant_case()) {",
+					"case ::arc::ir::pb::Target::kScope: {",
+					"auto [v, err] = ScopeTarget::from_proto(pb.scope());",
+					`x::errors::Error(x::errors::VALIDATION, "Target: no variant set")`,
+				)
+		},
+	)
+
+	It(
+		"Should convert the union's bases on the wrapper and union array elements",
+		func(ctx SpecContext) {
+			source := `
+			@cpp output "arc/cpp/ir"
+			@go output "arc/go/ir"
+			@pb
+
+			Base struct { id string }
+
+			Field union on type extends Base {
+				fixed { value string }
+			}
+
+			Holder struct {
+				fields Field[]
+				spare Field?
+			}
+			`
+			resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
+			ExpectContent(resp, "proto.gen.h").
+				ToContain(
+					"auto [base, base_err] = static_cast<const Base&>(v).to_proto();",
+					"*pb.mutable_base() = base;",
+					"auto [base, base_err] = Base::from_proto(pb.base());",
+					"static_cast<Base&>(v) = base;",
+					"for (const auto& item : this->fields) {",
+					"auto [v, err] = ::arc::ir::to_proto(item);",
+					"*pb.add_fields() = v;",
+					"for (const auto& item : pb.fields()) {",
+					"auto [v, err] = ::arc::ir::field_from_proto(item);",
+					"cpp.fields.push_back(v);",
+					"if (this->spare.has_value()) {",
+					"if (pb.has_spare()) {",
+				)
+		},
+	)
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

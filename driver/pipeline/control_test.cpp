@@ -9,6 +9,7 @@
 
 #include "gtest/gtest.h"
 
+#include "client/cpp/errors/errors.h"
 #include "x/cpp/test/test.h"
 
 #include "driver/pipeline/control.h"
@@ -68,8 +69,10 @@ TEST(ControlPipeline, testUnknownErrOnOpen) {
     ASSERT_MATCHES(sink->stop_err, x::errors::UNKNOWN);
 }
 
-/// @brief it should retry opening streamer on unreachable error and succeed.
-TEST(ControlPipeline, testOpenRetrySuccessful) {
+namespace {
+/// @brief asserts that the pipeline retries a streamer open failing twice with
+/// open_err, then succeeds.
+void assert_open_retries(const x::errors::Error &open_err) {
     auto fr_1 = x::telem::Frame(1);
     fr_1.emplace(1, x::telem::Series(1.0));
     auto fr_2 = x::telem::Frame(1);
@@ -85,7 +88,7 @@ TEST(ControlPipeline, testOpenRetrySuccessful) {
     );
     const auto streamer_config = synnax::framer::StreamerConfig{.channels = {1}};
     const auto streamer_factory = std::make_shared<mock::StreamerFactory>(
-        std::vector{freighter::UNREACHABLE, freighter::UNREACHABLE, x::errors::NIL},
+        std::vector{open_err, open_err, x::errors::NIL},
         std::make_shared<std::vector<mock::StreamerConfig>>(std::vector{
             mock::StreamerConfig{
                 reads,
@@ -118,5 +121,16 @@ TEST(ControlPipeline, testOpenRetrySuccessful) {
     );
     ASSERT_EVENTUALLY_EQ(sink->writes->size(), 2);
     control.stop();
+}
+}
+
+/// @brief it should retry opening streamer on unreachable error and succeed.
+TEST(ControlPipeline, testOpenRetrySuccessful) {
+    assert_open_retries(freighter::UNREACHABLE);
+}
+
+/// @brief it should wait out an unlicensed Core and succeed once it is licensed.
+TEST(ControlPipeline, testOpenRetryUnlicensed) {
+    assert_open_retries(synnax::errors::LICENSE_MISSING);
 }
 }

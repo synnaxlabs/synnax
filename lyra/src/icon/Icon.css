@@ -25,7 +25,7 @@
     }
 
     & .pluto-icon__halo {
-        color: var(--pluto-bg, var(--pluto-gray-l0));
+        color: var(--pluto-btn-bg, var(--pluto-gray-l0));
 
         & :is(path, circle, rect, line, polyline, polygon) {
             stroke-width: 3;
@@ -35,7 +35,7 @@
 
     & .pluto-sub__bg {
         transition: var(--pluto-btn-transition);
-        fill: var(--pluto-bg, var(--pluto-gray-l0)) !important;
+        fill: var(--pluto-btn-bg, var(--pluto-gray-l0)) !important;
     }
 
     .pluto-sub {

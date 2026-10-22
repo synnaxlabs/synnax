@@ -30,10 +30,16 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       properties.locator("[role='tab']").filter({ hasText: "Control" }).first(),
       { text: true, zoom: false },
     );
-    const bind = async (label: string, channel: string): Promise<void> => {
+    const bind = async (section: string, channel: string): Promise<void> => {
       const item = properties
+        .locator(".pluto-form-section")
+        .filter({
+          has: page
+            .locator(".pluto-form-section__header")
+            .getByText(section, { exact: true }),
+        })
         .locator(".pluto-input__item")
-        .filter({ hasText: label })
+        .filter({ hasText: "Channel" })
         .first();
       await session.click(item.getByText("Select channel", { exact: true }).first(), {
         zoom: false,
@@ -49,10 +55,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       await session.click(option, { zoom: false });
       await session.settle(400);
     };
-    await bind("State channel", fixture.state);
-    await bind("Command channel", fixture.command);
+    await bind("State", fixture.state);
+    await bind("Command", fixture.command);
 
-    await capture.deselect(session, { x: 200, y: 400 });
+    await capture.deselect(session, { x: 100, y: 290 });
     // Control mode leaves the toolbar on a "not editable" placeholder, so the
     // drawer closes before recording.
     await session.click(page.locator(".console-main-nav__item").last(), {
@@ -70,7 +76,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.settle(400);
     // Park the cursor inside the schematic: the floating controls only show
     // while the panel is hovered.
-    await session.moveTo({ x: 300, y: 700 });
+    await session.moveTo({ x: 300, y: 560 });
 
     session.startRecording();
     await session.hold(1200);

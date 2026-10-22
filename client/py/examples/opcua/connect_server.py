@@ -127,29 +127,22 @@ if response in ("", "y", "yes"):
         rack = client.racks.retrieve_embedded_rack()
         print(f"Using rack: {rack.name} (key={rack.key})")
 
-        # Build device kwargs
-        device_kwargs: dict = {
-            "endpoint": ENDPOINT,
-            "name": DEVICE_NAME,
-            "location": ENDPOINT,
-            "rack": rack.key,
-        }
-
-        if args.tls_auth or args.tls:
-            device_kwargs.update(
-                security_mode="SignAndEncrypt",
-                security_policy="Basic256Sha256",
-                server_cert=str(CERT_DIR / "server-certificate.der"),
-                client_cert=str(CERT_DIR / "client-certificate.der"),
-                client_private_key=str(CERT_DIR / "client-private-key.pem"),
-            )
-        if args.tls_auth:
-            device_kwargs.update(
-                username=TLS_AUTH_USERNAME,
-                password=TLS_AUTH_PASSWORD,
-            )
-
-        device = sy.opcua.Device(**device_kwargs)
+        encrypted = args.tls_auth or args.tls
+        device = sy.opcua.Device(
+            endpoint=ENDPOINT,
+            name=DEVICE_NAME,
+            location=ENDPOINT,
+            rack=rack.key,
+            security_mode="SignAndEncrypt" if encrypted else "None",
+            security_policy="Basic256Sha256" if encrypted else "None",
+            server_cert=str(CERT_DIR / "server-certificate.der") if encrypted else "",
+            client_cert=str(CERT_DIR / "client-certificate.der") if encrypted else "",
+            client_private_key=(
+                str(CERT_DIR / "client-private-key.pem") if encrypted else ""
+            ),
+            username=TLS_AUTH_USERNAME if args.tls_auth else "",
+            password=TLS_AUTH_PASSWORD if args.tls_auth else "",
+        )
         created_device = client.devices.create(device)
 
         print("✓ Device connected successfully!")

@@ -13,7 +13,7 @@ import { uuid } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Library } from "@/feature/library";
+import { Editor } from "@/feature/library/editor/Editor";
 import { client, createLibrary, ENGINE_CSV } from "@/feature/library/testutil";
 import { createResourceTab, primePanel } from "@/platform/panel/testutil";
 import {
@@ -22,8 +22,6 @@ import {
   interceptFilePicker,
   renderSuspended,
 } from "@/testutil";
-
-const Editor = Library.TABS[library.TYPE_ONTOLOGY_ID.type].Content;
 
 const renderEditor = async (lib: library.Library): Promise<void> => {
   const { wrapper } = await createConsoleWrapper({ client });

@@ -20,7 +20,7 @@ const DIMENSIONS = { width: 66, height: 101 };
 export const AngledSpringLoadedRelief = ({
   className,
   orientation = "left",
-  color: colorVal,
+  strokeColor: colorVal,
   scale,
   enabled = false,
   ...rest
@@ -49,7 +49,7 @@ export const AngledSpringLoadedRelief = ({
     </Handle.Boundary>
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={colorVal}
+      strokeColor={colorVal}
       orientation={orientation}
       scale={scale}
     >

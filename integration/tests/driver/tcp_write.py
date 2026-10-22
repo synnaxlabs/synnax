@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from functools import partial
+
 from examples.simulators.scpi import SCPISim
 
 import synnax as sy
@@ -66,7 +68,7 @@ class TCPWrite(BusCase):
                             self.commands["voltage"]: voltage,
                             self.commands["current"]: current,
                         },
-                        lambda: sim.wait_for(line),
+                        partial(sim.wait_for, line),
                     )
                     self._verify_setpoint(sim, "VOLT?", voltage)
                     self._verify_setpoint(sim, "CURR?", current / CURRENT_SCALE)

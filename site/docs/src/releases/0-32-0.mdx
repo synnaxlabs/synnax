@@ -1,0 +1,44 @@
+---
+title: "Version 0.32 release notes"
+---
+
+import { Image } from "@/components/media/Media";
+import Diagram from "@/components/diagram/Diagram.astro";
+import Release from "@/components/releases/Release.astro";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+<Release
+version="0.32.0"
+date="Oct 9, 2024"
+title="Multi-device NI analog read tasks"
+>
+
+<Image id="releases/0-32-0/thumbnail" />
+
+<Divider.Divider x />
+
+### Summary
+
+Synnax version 0.32 makes an improvement to
+[NI analog read tasks](/reference/driver/ni/analog-read-task). The new version allows
+you to acquire data from multiple devices in a single task. This is useful in one of two
+scenarios:
+
+1. You have multiple devices and you want to acquire data from all of them
+   synchronously.
+2. You have many different cards on a single chassis (e.g. cDAQ-9174) and you need to
+   avoid hitting the maximum number of allowed tasks.
+
+Instead of choosing the device at the top level of the task, you can now specify the
+device for each channel.
+
+<Divider.Divider x />
+
+### Breaking changes
+
+This release does **not** introduce any breaking changes. Previous NI analog read tasks
+will be migrated to the new format automatically.
+
+</Release>

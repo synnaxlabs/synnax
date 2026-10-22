@@ -919,6 +919,24 @@ func (p *Plugin) toJSONExprForField(
     }`, fieldName, typeName, typeName, jsonName)
 		}
 
+		// UUIDs serialize through their to_json member, which nlohmann_json cannot
+		// reach inside a vector.
+		if elemType.Name == "uuid" || p.resolvesToUUID(elemType, data) {
+			src := "this->" + fieldName
+			if field.Optional {
+				src = "*" + src
+			}
+			body := fmt.Sprintf(`{
+        auto arr = x::json::json::array();
+        for (const auto& item : %s) arr.push_back(item.to_json());
+        j["%s"] = arr;
+    }`, src, jsonName)
+			if field.Optional {
+				return fmt.Sprintf(`if (this->%s.has_value()) %s`, fieldName, body)
+			}
+			return body
+		}
+
 		if elemResolved, ok := elemType.Resolve(data.table); ok {
 			if _, isStruct := elemResolved.Form.(resolution.StructForm); isStruct {
 				if field.Optional {

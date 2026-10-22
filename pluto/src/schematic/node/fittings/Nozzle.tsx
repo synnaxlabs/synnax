@@ -18,7 +18,7 @@ export interface NozzleProps extends Primitive.DivProps, Primitive.SVGBasedProps
 const DIMENSIONS = { width: 64, height: 126 };
 
 export const Nozzle = ({
-  color,
+  strokeColor,
   className,
   orientation = "left",
   scale,
@@ -50,7 +50,7 @@ export const Nozzle = ({
     </Handle.Boundary>
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >

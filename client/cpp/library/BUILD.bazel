@@ -35,6 +35,7 @@ cc_library(
 cc_test(
     name = "library_test",
     srcs = ["library_test.cpp"],
+    tags = ["requires-core"],
     deps = [
         ":library",
         "//client/cpp:synnax",

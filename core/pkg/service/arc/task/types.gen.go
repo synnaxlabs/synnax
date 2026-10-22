@@ -13,16 +13,15 @@ package task
 
 import "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
 
-// ExecutionMode selects how the Arc runtime loop schedules execution.
-type ExecutionMode = versions.ExecutionMode
+// Performance sets how closely the Arc runtime holds timer deadlines. A higher level is
+// more precise and uses more CPU.
+type Performance = versions.Performance
 
 const (
-	ExecutionModeAuto        ExecutionMode = versions.ExecutionModeAuto
-	ExecutionModeBusyWait    ExecutionMode = versions.ExecutionModeBusyWait
-	ExecutionModeHighRate    ExecutionMode = versions.ExecutionModeHighRate
-	ExecutionModeRtEvent     ExecutionMode = versions.ExecutionModeRtEvent
-	ExecutionModeHybrid      ExecutionMode = versions.ExecutionModeHybrid
-	ExecutionModeEventDriven ExecutionMode = versions.ExecutionModeEventDriven
+	PerformanceAuto   Performance = versions.PerformanceAuto
+	PerformanceLow    Performance = versions.PerformanceLow
+	PerformanceMedium Performance = versions.PerformanceMedium
+	PerformanceHigh   Performance = versions.PerformanceHigh
 )
 
 // Config configures an Arc task, which runs a compiled Arc module.

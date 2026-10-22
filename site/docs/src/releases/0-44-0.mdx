@@ -1,0 +1,121 @@
+---
+title: "Version 0.44 release notes"
+---
+
+import { Image, Video } from "@/components/media/Media";
+import Release from "@/components/releases/Release.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+
+export const components = mdxOverrides;
+
+<Release
+    version="0.44.0"
+    npmVersion="0.44.1"
+    date="Aug 11, 2025"
+    title="Embedded Console"
+>
+
+<Image id="releases/0-44-0/thumbnail" themed={false} />
+
+Synnax v0.44 introduces an embedded Console into the Synnax Core, which can be used in
+place of the desktop Console application.
+
+We've also improved the data export process by adding dedicated CSV export buttons to
+both ranges and line plots.
+
+As always, this release comes with a number of additional performance, stability, and
+user experience improvements to Synnax.
+
+<Divider.Divider x />
+
+### Embedded Console
+
+Every Synnax Core now comes with an embedded, browser-based Console. After starting the
+Core using the default port of `9090`, you can access the Console at
+`http://localhost:9090`.
+
+All functionality of the desktop Console is available in the embedded Console, with the
+notable exception of multi-window functionality.
+
+The desktop Console will continue to be supported, and it's still our preferred way to
+work with a Synnax deployment.
+
+<Divider.Divider x />
+
+### Data export
+
+We've added dedicated CSV export buttons to both ranges and line plots, making it much
+easier to export data from Synnax for analysis.
+
+<Flex.Box x justify="center">
+  <Image id="releases/0-44-0/csv" themed={false} style={{ width: 350 }} />
+</Flex.Box>
+
+<Divider.Divider x />
+
+### Legend Y-axis indicators
+
+The line plot legend now separates lines into groups by their corresponding y-axis.
+
+<Flex.Box x justify="center">
+  <Image id="releases/0-44-0/legend" themed={false} style={{ width: 100 }} />
+</Flex.Box>
+
+<Divider.Divider x />
+
+### Added methods for reading the latest values from a channel
+
+We've added new methods in the Python and TypeScript clients for reading the most recent
+values written to one or more channels.
+
+##### Python
+
+In Python, simply [call `read_latest`](/reference/python-client/read-data) with the
+channels and the number of values you want to read.
+
+```python
+import synnax as sy
+
+client = sy.Synnax()
+
+print(client.read_latest(["daq_time", "ox_pt_1"], 1))
+# {
+#   "daq_time": [1723200000000000000],
+#   "ox_pt_1": [100.0]
+# }
+```
+
+##### TypeScript
+
+The TypeScript client has a
+[`readLatest` method](/reference/typescript-client/read-data) that works in the same
+way.
+
+```typescript
+import { Synnax } from "@synnaxlabs/client";
+
+const client = new Synnax();
+
+console.log(await client.readLatest(["daq_time", "ox_pt_1"], 1));
+// {
+//   "daq_time": [1723200000000000000],
+//   "ox_pt_1": [100.0]
+// }
+```
+
+<Divider.Divider x />
+
+### Minor improvements and bug fixes
+
+- Added status indicators for devices and Drivers to selection dialogs.
+- Made a number of updates to real-time data fetching infrastructure, improving the
+  reactivity and performance of the Console.
+- Added `Command + W` and `Control + W` keyboard shortcuts to close modals, and added a
+  press and hold delay to close the application on macOS.
+- Fixed an issue where the Palette would not properly switch between search and command
+  modes when closed and re-opened.
+- Added drag and drop importing and exporting of tasks.
+
+</Release>

@@ -18,7 +18,7 @@ export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 const DIMENSIONS = { width: 64, height: 79 };
 
 export const AngledRelief = ({
-  color,
+  strokeColor,
   className,
   orientation = "left",
   scale,
@@ -50,7 +50,7 @@ export const AngledRelief = ({
     <Primitive.SVG
       dimensions={DIMENSIONS}
       orientation={orientation}
-      color={color}
+      strokeColor={strokeColor}
       scale={scale}
     >
       <Primitive.Line x1={21} y1={2} x2={21} y2={36.7} strokeLinecap="round" />

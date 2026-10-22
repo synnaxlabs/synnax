@@ -21,6 +21,7 @@ cc_library(
         "//driver/bus",
         "//x/cpp/errors",
         "//x/cpp/json",
+        "//x/cpp/sync",
         "//x/cpp/telem",
         "//x/cpp/uuid",
         "@googletest//:gtest",

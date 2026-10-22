@@ -27,7 +27,7 @@ const RF_POSITIONS: Record<location.Outer, Position> = {
   left: Position.Left,
 };
 
-export const locationToRFPosition = (location: location.Outer): Position =>
+const locationToRFPosition = (location: location.Outer): Position =>
   RF_POSITIONS[location];
 
 export const Base = ({ location, className, ...props }: BaseProps) => {

@@ -153,7 +153,7 @@ describe("Read", () => {
     );
     const first = await renderRead({ client, taskKey: draft.key });
     await screen.findByText(new RegExp(tsChannel.nodeName));
-    expect(screen.getAllByText("Use as Index")).toHaveLength(1);
+    expect(screen.getAllByText("Use as index")).toHaveLength(1);
 
     const deployed = await deployAndAwaitTask(
       client,

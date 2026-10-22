@@ -116,7 +116,7 @@ class TCPRead(BusCase):
             with self.collect(bounds) as samples, self.task.run():
                 samples.wait(count=20)
             self.assert_no_problems(statuses)
-        for name, bound in zip(["reading", "status", "output"], bounds):
+        for name, bound in zip(["reading", "status", "output"], bounds, strict=True):
             assert_indexed(name, bound, samples)
         self._verify_reading(samples, self.reading)
         self._verify_status(samples, self.status)

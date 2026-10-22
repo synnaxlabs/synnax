@@ -20,7 +20,9 @@ from synnax.udp.types_gen import (
 MAKE = "UDP"
 
 
-class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
+class ReadTask(
+    task.StarterStopperMixin, task.JSONConfigMixin[ReadConfig], task.Protocol
+):
     """A read task that decodes UDP messages described by a library into
     channels.
 
@@ -38,7 +40,6 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """
 
     TYPE = "udp_read"
-    config: ReadConfig
     _internal: task.Task
 
     def __init__(
@@ -74,7 +75,9 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         )
 
 
-class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
+class WriteTask(
+    task.StarterStopperMixin, task.JSONConfigMixin[WriteConfig], task.Protocol
+):
     """A write task that encodes command channel values into UDP messages
     described by a library.
 
@@ -86,7 +89,6 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """
 
     TYPE = "udp_write"
-    config: WriteConfig
     _internal: task.Task
 
     def __init__(

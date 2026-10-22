@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { observe, type record } from "@synnaxlabs/x";
-import { fireEvent, render } from "@testing-library/react";
-import { act, type ReactElement, useState } from "react";
+import { act, fireEvent, render } from "@testing-library/react";
+import { type ReactElement, useState } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Button } from "@/button";
@@ -192,9 +192,9 @@ describe("List", () => {
           };
           const result = render(<Component />);
           expect(fetchMore).toHaveBeenCalledTimes(1);
-          result.getByText("Toggle").click();
+          fireEvent.click(result.getByText("Toggle"));
           expect(fetchMore).toHaveBeenCalledTimes(1);
-          result.getByText("Toggle").click();
+          fireEvent.click(result.getByText("Toggle"));
           expect(fetchMore).toHaveBeenCalledTimes(1);
         });
       });
@@ -305,6 +305,85 @@ describe("List", () => {
       expect(result.getByText("before")).toBeTruthy();
       fireEvent.click(result.getByText("rename"));
       expect(result.getByText("after")).toBeTruthy();
+    });
+
+    describe("pinned", () => {
+      interface PinnedProps {
+        pinned?: string[];
+        onFetchMore?: () => void;
+      }
+
+      const Pinned = ({ pinned, onFetchMore }: PinnedProps): ReactElement => (
+        <List.Frame
+          data={DATA}
+          virtual
+          itemHeight={ITEM_HEIGHT}
+          pinned={pinned}
+          onFetchMore={onFetchMore}
+        >
+          <List.Scroll>
+            <List.Items>
+              {({ key, ...rest }: List.ItemProps<string>) => (
+                <List.Item key={key} {...rest}>
+                  {key}
+                </List.Item>
+              )}
+            </List.Items>
+          </List.Scroll>
+        </List.Frame>
+      );
+
+      const texts = (result: ReturnType<typeof render>): (string | null)[] =>
+        rows(result).map((row) => row.textContent);
+
+      it("should keep pinned rows mounted outside the window", () => {
+        const result = render(<Pinned pinned={["250", "499"]} />);
+        expect(texts(result)).toContain("250");
+        expect(texts(result)).toContain("499");
+        expect(texts(result)).not.toContain("251");
+      });
+
+      it("should place a pinned row at the offset of its index", () => {
+        const result = render(<Pinned pinned={["250"]} />);
+        const row = rows(result).find((r) => r.textContent === "250");
+        expect(row?.style.top).toBe(`${250 * ITEM_HEIGHT}px`);
+      });
+
+      it("should mount a row when it becomes pinned and release it after", () => {
+        const result = render(<Pinned />);
+        expect(texts(result)).not.toContain("250");
+        result.rerender(<Pinned pinned={["250"]} />);
+        expect(texts(result)).toContain("250");
+        result.rerender(<Pinned />);
+        expect(texts(result)).not.toContain("250");
+      });
+
+      it("should move the pin when the pinned key changes", () => {
+        const result = render(<Pinned pinned={["250"]} />);
+        result.rerender(<Pinned pinned={["300"]} />);
+        expect(texts(result)).toContain("300");
+        expect(texts(result)).not.toContain("250");
+      });
+
+      it("should ignore a pinned key that is not in the data", () => {
+        const unpinned = texts(render(<Pinned />));
+        expect(texts(render(<Pinned pinned={["missing"]} />))).toEqual(unpinned);
+      });
+
+      it("should not fetch more when only the pinned last row is mounted", () => {
+        const onFetchMore = vi.fn();
+        const result = render(<Pinned pinned={["499"]} onFetchMore={onFetchMore} />);
+        const scroller =
+          result.container.querySelector<HTMLElement>(".pluto-list__scroll");
+        if (scroller == null) throw new Error("scroll container not found");
+        const calls = onFetchMore.mock.calls.length;
+        act(() => {
+          scroller.scrollTop = ITEM_HEIGHT;
+          fireEvent.scroll(scroller);
+        });
+        expect(texts(result)).toContain("499");
+        expect(onFetchMore).toHaveBeenCalledTimes(calls);
+      });
     });
 
     it("should keep the container tall enough to scroll the whole data set", () => {

@@ -2834,6 +2834,52 @@ var _ = Describe("Go Union Generation", func() {
 	)
 
 	It(
+		"Should type the discriminator with a borrowed enum and emit no constants",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			Method enum {
+				password = "password"
+			}
+			Credentials struct { username string }
+
+			Proof union on method Method {
+				password Credentials
+			}
+		`
+			resp := MustGenerate(ctx, source, "auth", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain(
+					`MethodPassword Method = "password"`,
+					"Type Method `json:\"method\"`",
+					`}{Type: MethodPassword, PasswordProof: v})`,
+					`case MethodPassword:`,
+				).
+				ToNotContain(`type ProofType string`, `PasswordProofType`)
+		},
+	)
+
+	It(
+		"Should emit a single discriminator constant on one line",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			LinearParams struct { slope float64 }
+
+			Scale union on type {
+				linear LinearParams
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain(`type ScaleType string`, "\nconst LinearScaleType ScaleType = \"linear\"\n").
+				ToNotContain("const (\n\tLinearScaleType")
+		},
+	)
+
+	It(
 		"Should generate a sealed interface with variant structs",
 		func(ctx SpecContext) {
 			source := `

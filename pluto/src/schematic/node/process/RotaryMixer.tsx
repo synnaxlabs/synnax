@@ -18,7 +18,7 @@ export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 const DIMENSIONS = { width: 50, height: 33 };
 
 export const RotaryMixer = ({
-  color,
+  strokeColor,
   className,
   orientation = "left",
   scale,
@@ -32,7 +32,7 @@ export const RotaryMixer = ({
     <Handle.Linear orientation={orientation} left={2} right={97.5} top={48.4849} />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >

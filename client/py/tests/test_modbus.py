@@ -12,6 +12,7 @@ from pydantic import ValidationError
 
 import synnax as sy
 from synnax.modbus.types import _READ_NAME_TYPES, _WRITE_NAME_TYPES
+from tests.json_value import arr, obj
 from x.strings import random_name
 
 
@@ -156,12 +157,12 @@ class TestModbusReadTask:
             },
         ],
     )
-    def test_parse_modbus_read_task(self, test_data):
+    def test_parse_modbus_read_task(self, test_data: dict[str, object]) -> None:
         """Test that ReadConfig can parse various channel configurations."""
         input_data = test_data["data"]
         sy.modbus.ReadConfig.model_validate(input_data)
 
-    def test_read_config_defaults(self):
+    def test_read_config_defaults(self) -> None:
         """Test that ReadConfig applies the shared task config defaults."""
         config = sy.modbus.ReadConfig(device="test-device")
         assert config.sample_rate == sy.Rate(10)
@@ -170,7 +171,7 @@ class TestModbusReadTask:
         assert config.auto_start is False
         assert config.channels == []
 
-    def test_read_task_auto_key_generation(self):
+    def test_read_task_auto_key_generation(self) -> None:
         """Test that the ReadTask assigns keys to channels missing one."""
         task = sy.modbus.ReadTask(
             name="test",
@@ -180,7 +181,7 @@ class TestModbusReadTask:
                     type="holding_register",
                     address=0,
                     channel=1234,
-                    data_type="float32",
+                    data_type=sy.DataType.FLOAT32,
                 )
             ],
         )
@@ -188,17 +189,20 @@ class TestModbusReadTask:
         assert channel.key != ""
         assert len(channel.key) > 0
 
-    def test_read_task_address_bounds(self):
+    def test_read_task_address_bounds(self) -> None:
         """Test that address validation works (0-65535)."""
         # Valid address
         sy.modbus.HoldingRegisterReadChannel(
-            type="holding_register", address=0, channel=1234, data_type="float32"
+            type="holding_register",
+            address=0,
+            channel=1234,
+            data_type=sy.DataType.FLOAT32,
         )
         sy.modbus.HoldingRegisterReadChannel(
             type="holding_register",
             address=65535,
             channel=1234,
-            data_type="float32",
+            data_type=sy.DataType.FLOAT32,
         )
 
         # Invalid addresses
@@ -207,17 +211,17 @@ class TestModbusReadTask:
                 type="holding_register",
                 address=-1,
                 channel=1234,
-                data_type="float32",
+                data_type=sy.DataType.FLOAT32,
             )
         with pytest.raises(ValidationError):
             sy.modbus.HoldingRegisterReadChannel(
                 type="holding_register",
                 address=65536,
                 channel=1234,
-                data_type="float32",
+                data_type=sy.DataType.FLOAT32,
             )
 
-    def test_to_payload_serializes_config(self):
+    def test_to_payload_serializes_config(self) -> None:
         """Test that to_payload() correctly serializes the config into the payload.
 
         This is a regression test for the JSONConfigMixin.to_payload() method which
@@ -236,7 +240,7 @@ class TestModbusReadTask:
                     key="holding-reg-1",
                     address=0,
                     channel=1234,
-                    data_type="float32",
+                    data_type=sy.DataType.FLOAT32,
                 ),
             ],
         )
@@ -251,11 +255,12 @@ class TestModbusReadTask:
         assert payload.config["device"] == "some-device-key"
         assert payload.config["data_saving_disabled"] is False
         assert payload.config["auto_start"] is False
-        assert len(payload.config["channels"]) == 1
-        assert payload.config["channels"][0]["address"] == 0
-        assert payload.config["channels"][0]["data_type"] == "float32"
+        channels = arr(payload.config, "channels")
+        assert len(channels) == 1
+        assert obj(channels[0])["address"] == 0
+        assert obj(channels[0])["data_type"] == "float32"
 
-    def test_create_and_retrieve_read_task(self, client: sy.Synnax):
+    def test_create_and_retrieve_read_task(self, client: sy.Synnax) -> None:
         """Test that ReadTask can be created and retrieved from the database."""
         task = sy.modbus.ReadTask(
             name="test-modbus-read-task",
@@ -270,7 +275,7 @@ class TestModbusReadTask:
                     key="holding-reg-1",
                     address=0,
                     channel=1234,
-                    data_type="float32",
+                    data_type=sy.DataType.FLOAT32,
                 ),
                 sy.modbus.CoilReadChannel(
                     type="coil",
@@ -375,12 +380,12 @@ class TestModbusWriteTask:
             },
         ],
     )
-    def test_parse_modbus_write_task(self, test_data):
+    def test_parse_modbus_write_task(self, test_data: dict[str, object]) -> None:
         """Test that WriteConfig can parse various channel configurations."""
         input_data = test_data["data"]
         sy.modbus.WriteConfig.model_validate(input_data)
 
-    def test_write_task_disabled_channels(self):
+    def test_write_task_disabled_channels(self) -> None:
         """Test that disabled channels are handled correctly."""
         config = sy.modbus.WriteConfig(
             device="test-device",
@@ -406,7 +411,7 @@ class TestModbusWriteTask:
         assert config.channels[0].disabled is False
         assert config.channels[1].disabled is True
 
-    def test_write_channel_auto_key_generation(self):
+    def test_write_channel_auto_key_generation(self) -> None:
         """Test that the WriteTask assigns keys to channels missing one."""
         task = sy.modbus.WriteTask(
             name="test",
@@ -423,7 +428,7 @@ class TestModbusWriteTask:
         assert channel.key != ""
         assert len(channel.key) > 0
 
-    def test_to_payload_serializes_config(self):
+    def test_to_payload_serializes_config(self) -> None:
         """Test that to_payload() correctly serializes the config into the payload.
 
         This is a regression test for the JSONConfigMixin.to_payload() method which
@@ -450,10 +455,11 @@ class TestModbusWriteTask:
         assert isinstance(payload.config, dict)
         assert payload.config["device"] == "some-device-key"
         assert payload.config["auto_start"] is False
-        assert len(payload.config["channels"]) == 1
-        assert payload.config["channels"][0]["address"] == 5
+        channels = arr(payload.config, "channels")
+        assert len(channels) == 1
+        assert obj(channels[0])["address"] == 5
 
-    def test_create_and_retrieve_write_task(self, client: sy.Synnax):
+    def test_create_and_retrieve_write_task(self, client: sy.Synnax) -> None:
         """Test that WriteTask can be created and retrieved from the database."""
         task = sy.modbus.WriteTask(
             name="test-modbus-write-task",
@@ -471,7 +477,7 @@ class TestModbusWriteTask:
                     key="hold-cmd-1",
                     address=0,
                     channel=5678,
-                    data_type="float32",
+                    data_type=sy.DataType.FLOAT32,
                 ),
             ],
         )
@@ -482,7 +488,7 @@ class TestModbusWriteTask:
         )
         sy.modbus.WriteTask(created_task)
 
-    def test_write_task_serialization_round_trip(self, client: sy.Synnax):
+    def test_write_task_serialization_round_trip(self, client: sy.Synnax) -> None:
         """Test that task can be serialized and deserialized correctly."""
         original_task = sy.modbus.WriteTask(
             name="test-round-trip",
@@ -501,7 +507,7 @@ class TestModbusWriteTask:
                     key="hold-cmd-1",
                     address=10,
                     channel=5678,
-                    data_type="int16",
+                    data_type=sy.DataType.INT16,
                     bytes_swapped=True,
                     words_swapped=False,
                     disabled=True,
@@ -525,7 +531,7 @@ class TestModbusWriteTask:
         assert len(retrieved_task.config.channels) == len(original_task.config.channels)
 
         for orig_ch, retr_ch in zip(
-            original_task.config.channels, retrieved_task.config.channels
+            original_task.config.channels, retrieved_task.config.channels, strict=True
         ):
             assert retr_ch.key == orig_ch.key
             assert retr_ch.address == orig_ch.address
@@ -542,7 +548,7 @@ class TestModbusWriteTask:
 class TestModbusDevicePropertyUpdates:
     """Tests that device properties are correctly updated with channel mappings."""
 
-    def test_read_task_updates_device_properties(self, client: sy.Synnax):
+    def test_read_task_updates_device_properties(self, client: sy.Synnax) -> None:
         """Test that configuring a ReadTask updates device properties with channel mappings."""
         # Create a rack
         rack = client.racks.retrieve_embedded_rack()
@@ -591,13 +597,13 @@ class TestModbusDevicePropertyUpdates:
                     type="input_register",
                     channel=ch1.key,
                     address=0,
-                    data_type="uint8",
+                    data_type=sy.DataType.UINT8,
                 ),
                 sy.modbus.HoldingRegisterReadChannel(
                     type="holding_register",
                     channel=ch2.key,
                     address=5,
-                    data_type="uint16",
+                    data_type=sy.DataType.UINT16,
                 ),
             ],
         )
@@ -610,12 +616,12 @@ class TestModbusDevicePropertyUpdates:
 
         # Verify read.channels mapping exists
         assert "read" in updated_device.properties
-        assert "channels" in updated_device.properties["read"]
+        assert "channels" in obj(updated_device.properties, "read")
 
         # Verify channel keys match Console format:
         # InputRegisterReadChannel: "register-input-{address}-{dataType}"
         # HoldingRegisterReadChannel: "holding-register-input-{address}-{dataType}"
-        channels = updated_device.properties["read"]["channels"]
+        channels = obj(updated_device.properties, "read", "channels")
 
         # Check InputRegisterReadChannel mapping (type-address-dataType,
         # underscores replaced with hyphens)
@@ -626,7 +632,7 @@ class TestModbusDevicePropertyUpdates:
         assert "holding-register-input-5-uint16" in channels
         assert channels["holding-register-input-5-uint16"] == ch2.key
 
-    def test_write_task_updates_device_properties(self, client: sy.Synnax):
+    def test_write_task_updates_device_properties(self, client: sy.Synnax) -> None:
         """Test that configuring a WriteTask updates device properties with channel mappings."""
         # Create a rack
         rack = client.racks.retrieve_embedded_rack()
@@ -678,7 +684,7 @@ class TestModbusDevicePropertyUpdates:
                     type="holding_register",
                     channel=holding_cmd.key,
                     address=20,
-                    data_type="float32",
+                    data_type=sy.DataType.FLOAT32,
                 ),
             ],
         )
@@ -691,10 +697,10 @@ class TestModbusDevicePropertyUpdates:
 
         # Verify write.channels mapping exists
         assert "write" in updated_device.properties
-        assert "channels" in updated_device.properties["write"]
+        assert "channels" in obj(updated_device.properties, "write")
 
         # Verify channel keys match Console format (type-address, no dataType for write)
-        channels = updated_device.properties["write"]["channels"]
+        channels = obj(updated_device.properties, "write", "channels")
 
         # Check coil output mapping (type-address, underscores replaced with hyphens)
         assert "coil-output-10" in channels
@@ -704,14 +710,14 @@ class TestModbusDevicePropertyUpdates:
         assert "holding-register-output-20" in channels
         assert channels["holding-register-output-20"] == holding_cmd.key
 
-    def test_device_property_key_format(self):
+    def test_device_property_key_format(self) -> None:
         """Test that map keys keep the released type spellings after the rename."""
         # Test InputRegisterReadChannel key format
         ch = sy.modbus.InputRegisterReadChannel(
             type="input_register",
             channel=123,
             address=5,
-            data_type="uint8",
+            data_type=sy.DataType.UINT8,
         )
         expected_key = "register-input-5-uint8"
         key = f"{_READ_NAME_TYPES[ch.type]}-{ch.address}"
@@ -725,7 +731,7 @@ class TestModbusDevicePropertyUpdates:
             type="holding_register",
             channel=456,
             address=10,
-            data_type="float32",
+            data_type=sy.DataType.FLOAT32,
         )
         expected_key2 = "holding-register-input-10-float32"
         key2 = f"{_READ_NAME_TYPES[ch2.type]}-{ch2.address}"

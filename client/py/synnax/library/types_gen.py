@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias, Union
+from typing import Annotated, Literal, TypeAlias
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -119,7 +119,7 @@ class FieldIdentifier(BaseModel):
 
 # Selects which frames on a bus belong to a binary message.
 Identifier = Annotated[
-    Union[CanIdentifier, FieldIdentifier],
+    CanIdentifier | FieldIdentifier,
     Field(discriminator="type"),
 ]
 
@@ -160,7 +160,7 @@ class TaggedTextField(BaseField):
 
 # Is a field read from a text line.
 TextField = Annotated[
-    Union[DelimitedTextField, TaggedTextField],
+    DelimitedTextField | TaggedTextField,
     Field(discriminator="encoding"),
 ]
 
@@ -185,7 +185,7 @@ class TextPayload(BaseModel):
 
 # Is the layout of a message's payload.
 Payload = Annotated[
-    Union[BinaryPayload, TextPayload],
+    BinaryPayload | TextPayload,
     Field(discriminator="format"),
 ]
 
@@ -210,7 +210,7 @@ class MessageEntry(BaseEntry):
 
 # Is one typed item in a library.
 Entry = Annotated[
-    Union[EnumEntry, MessageEntry],
+    EnumEntry | MessageEntry,
     Field(discriminator="kind"),
 ]
 

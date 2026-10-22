@@ -12,15 +12,13 @@ import { z } from "zod";
 
 export const MAKE = "ethercat";
 
-export type Make = typeof MAKE;
 export const makeZ = z.literal(MAKE);
 
 export const SLAVE_MODEL = "slave";
-export type SlaveModel = typeof SLAVE_MODEL;
 export const modelZ = z.literal(SLAVE_MODEL);
 
 /** Schema for a single PDO entry from device scan. */
-export const pdoEntryZ = z.object({
+const pdoEntryZ = z.object({
   name: z.string(),
   index: z.number(),
   subIndex: z.number(),
@@ -30,13 +28,13 @@ export const pdoEntryZ = z.object({
 export interface PDOEntry extends z.infer<typeof pdoEntryZ> {}
 
 /** Schema for PDO collections (inputs and outputs). */
-export const pdosZ = z.object({
+const pdosZ = z.object({
   inputs: z.array(pdoEntryZ).default(() => []),
   outputs: z.array(pdoEntryZ).default(() => []),
 });
 export interface PDOs extends z.infer<typeof pdosZ> {}
 
-export const ZERO_PDOS: PDOs = {
+const ZERO_PDOS: PDOs = {
   inputs: [],
   outputs: [],
 };

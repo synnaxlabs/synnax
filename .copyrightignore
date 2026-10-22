@@ -27,6 +27,7 @@ core/pkg/service/library/icd/internal/dbc/types.go
 pnpm-lock.yaml
 
 # Test fixtures and third-party assets
+oracle/lsp/extensions/vscode/test/*.oracle
 integration/tests/fixtures/test_symbol.svg
 integration/tests/fixtures/styled_symbol.svg
 site/docs/public/images/us-flag.svg

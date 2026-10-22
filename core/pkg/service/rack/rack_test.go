@@ -30,11 +30,61 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// stack is a rack service and the services it depends on. Closing it closes all of
+// them.
+type stack struct {
+	xio.MultiCloser
+	rack   *rack.Service
+	status *status.Service
+	otg    *ontology.Ontology
+}
+
+// openStack opens a rack service and its dependencies on db, as a Core start does. It
+// fills every dependency in cfg.
+func openStack(ctx context.Context, db *gorp.DB, cfg rack.ServiceConfig) stack {
+	GinkgoHelper()
+	otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
+	searchIdx := MustSucceed(search.OpenIndex())
+	g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Search:   searchIdx,
+	}))
+	lbl := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Group:    g,
+		Search:   searchIdx,
+	}))
+	stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+		Ontology: otg,
+		DB:       db,
+		Group:    g,
+		Label:    lbl,
+		Search:   searchIdx,
+	}))
+	cfg.DB = db
+	cfg.Ontology = otg
+	cfg.Group = g
+	cfg.HostProvider = mock.NewStaticHostProvider(1)
+	cfg.Status = stat
+	cfg.Search = searchIdx
+	svc := MustSucceed(rack.OpenService(ctx, cfg))
+	Expect(searchIdx.Initialize(ctx)).To(Succeed())
+	return stack{
+		MultiCloser: xio.MultiCloser{otg, searchIdx, g, lbl, stat, svc},
+		rack:        svc,
+		status:      stat,
+		otg:         otg,
+	}
+}
 
 var _ = Describe("Rack", Ordered, func() {
 	var (
@@ -54,35 +104,8 @@ var _ = Describe("Rack", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.OpenIndex())
-		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Search:   searchIdx,
-		}))
-		label := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
-			Search:   searchIdx,
-		}))
-		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			Ontology: otg,
-			DB:       db,
-			Group:    g,
-			Label:    label,
-			Search:   searchIdx,
-		}))
-		svc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:           db,
-			Ontology:     otg,
-			Group:        g,
-			HostProvider: mock.NewStaticHostProvider(1),
-			Status:       stat,
-
+		s := DeferClose(openStack(ctx, db, rack.ServiceConfig{
 			HealthCheckInterval: 10 * telem.Millisecond,
-			Search:              searchIdx,
 			Now: func() telem.TimeStamp {
 				if t := frozenNow.Load(); t != 0 {
 					return telem.TimeStamp(t)
@@ -90,8 +113,8 @@ var _ = Describe("Rack", Ordered, func() {
 				return telem.Now()
 			},
 		}))
+		svc, stat, otg = s.rack, s.status, s.otg
 		noTxWriter = svc.NewWriter(nil)
-		Expect(searchIdx.Initialize(ctx)).To(Succeed())
 	})
 	BeforeEach(func(ctx SpecContext) {
 		frozenNow.Store(0)
@@ -605,6 +628,80 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(res.Integrations).To(ConsistOf([]string{"opc", "modbus"}))
 		})
 	})
+	Describe("Rename", func() {
+		It(
+			"Should rename the embedded rack and its status, keeping every other field",
+			func(ctx SpecContext) {
+				var before rack.Rack
+				Expect(svc.NewRetrieve().
+					Where(rack.MatchKeys(svc.EmbeddedKey)).
+					Entry(&before).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(writer.Rename(ctx, svc.EmbeddedKey, "Renamed Embedded")).
+					To(Succeed())
+				var after rack.Rack
+				Expect(svc.NewRetrieve().
+					Where(rack.MatchKeys(svc.EmbeddedKey)).
+					Entry(&after).
+					Exec(ctx, tx)).To(Succeed())
+				expected := before
+				expected.Name = "Renamed Embedded"
+				Expect(after).To(Equal(expected))
+				Expect(after.Embedded).To(BeTrue())
+				var renamed rack.Status
+				Expect(stat.NewRetrieve[rack.StatusDetails]().
+					Where(status.MatchKeys[rack.StatusDetails](
+						rack.StatusKey(svc.EmbeddedKey),
+					)).
+					Entry(&renamed).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(renamed.Name).To(Equal("Renamed Embedded"))
+				Expect(renamed.Details.Rack).To(Equal(svc.EmbeddedKey))
+			},
+		)
+		It("Should keep a rack's integrations", func(ctx SpecContext) {
+			r := &rack.Rack{Name: "rename-integ-rack", Integrations: []string{"ni"}}
+			Expect(writer.Create(ctx, r)).To(Succeed())
+			Expect(writer.Rename(ctx, r.Key, "renamed-integ-rack")).To(Succeed())
+			var res rack.Rack
+			Expect(svc.NewRetrieve().
+				Where(rack.MatchKeys(r.Key)).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res.Name).To(Equal("renamed-integ-rack"))
+			Expect(res.Integrations).To(Equal([]string{"ni"}))
+		})
+		It("Should return a validation error for an empty name", func(ctx SpecContext) {
+			r := &rack.Rack{Name: "rename-empty-rack"}
+			Expect(writer.Create(ctx, r)).To(Succeed())
+			Expect(writer.Rename(ctx, r.Key, "")).
+				To(MatchError(ContainSubstring("name: required")))
+		})
+		It("Should return a not found error for a missing rack", func(ctx SpecContext) {
+			Expect(writer.Rename(ctx, rack.NewKey(1, 60000), "renamed")).
+				To(MatchError(query.ErrNotFound))
+		})
+		It("Should notify observers of the rename", func(ctx SpecContext) {
+			r := &rack.Rack{Name: "observed-rack"}
+			Expect(noTxWriter.Create(ctx, r)).To(Succeed())
+			renameTx := db.OpenTx()
+			defer func() { Expect(renameTx.Close()).To(Succeed()) }()
+			Expect(svc.NewWriter(renameTx).Rename(ctx, r.Key, "renamed")).
+				To(Succeed())
+			var names []string
+			disconnect := svc.Observe().OnChange(func(
+				_ context.Context,
+				reader gorp.TxReader[rack.Key, rack.Rack],
+			) {
+				for c := range reader {
+					names = append(names, c.Value.Name)
+				}
+			})
+			defer disconnect()
+			Expect(renameTx.Commit(ctx)).To(Succeed())
+			Expect(names).To(Equal([]string{"renamed"}))
+		})
+	})
 	Describe("Delete", func() {
 		It("Should delete a rack and its associated status", func(ctx SpecContext) {
 			r := &rack.Rack{Name: "rack4"}
@@ -651,6 +748,72 @@ var _ = Describe("Rack", Ordered, func() {
 			).To(Succeed())
 			Expect(embeddedRack.Embedded).To(BeTrue())
 		})
+		It(
+			"Should keep a renamed embedded rack across restarts",
+			func(ctx SpecContext) {
+				restartDB := DeferClose(gorp.Wrap(memkv.New()))
+				before := openStack(ctx, restartDB, rack.ServiceConfig{})
+				key := before.rack.EmbeddedKey
+				Expect(
+					before.rack.NewWriter(nil).Rename(ctx, key, "Renamed"),
+				).To(Succeed())
+				Expect(before.Close()).To(Succeed())
+				after := DeferClose(openStack(ctx, restartDB, rack.ServiceConfig{}))
+				Expect(after.rack.EmbeddedKey).To(Equal(key))
+				var embedded []rack.Rack
+				Expect(after.rack.NewRetrieve().
+					Where(rack.MatchEmbedded(true)).
+					Entries(&embedded).
+					Exec(ctx, nil)).To(Succeed())
+				Expect(embedded).To(HaveLen(1))
+				Expect(embedded[0].Name).To(Equal("Renamed"))
+			},
+		)
+		It(
+			"Should find an embedded rack stored without a key binding by its name",
+			func(ctx SpecContext) {
+				restartDB := DeferClose(gorp.Wrap(memkv.New()))
+				before := openStack(ctx, restartDB, rack.ServiceConfig{})
+				key := before.rack.EmbeddedKey
+				Expect(before.Close()).To(Succeed())
+				Expect(restartDB.Delete(
+					ctx,
+					[]byte("1.rack.embedded.Node 1 Embedded Driver"),
+				)).To(Succeed())
+				after := DeferClose(openStack(ctx, restartDB, rack.ServiceConfig{}))
+				Expect(after.rack.EmbeddedKey).To(Equal(key))
+			},
+		)
+		It(
+			"Should apply edit to the embedded rack before saving it",
+			func(ctx SpecContext) {
+				r := MustSucceed(svc.RetrieveOrCreateEmbedded(
+					ctx,
+					"edited embedded",
+					func(r *rack.Rack) { r.Integrations = []string{"arc"} },
+				))
+				var res rack.Rack
+				Expect(svc.NewRetrieve().
+					Where(rack.MatchKeys(r.Key)).
+					Entry(&res).
+					Exec(ctx, nil)).To(Succeed())
+				Expect(res.Name).To(Equal("edited embedded"))
+				Expect(res.Embedded).To(BeTrue())
+				Expect(res.Integrations).To(Equal([]string{"arc"}))
+			},
+		)
+		It(
+			"Should return a zero rack when the embedded rack fails to save",
+			func(ctx SpecContext) {
+				r, err := svc.RetrieveOrCreateEmbedded(
+					ctx,
+					"invalid embedded",
+					func(r *rack.Rack) { r.Name = "" },
+				)
+				Expect(err).To(MatchError(ContainSubstring("name: required")))
+				Expect(r).To(Equal(rack.Rack{}))
+			},
+		)
 	})
 
 	Describe("Status", func() {
@@ -887,6 +1050,36 @@ var _ = Describe("Rack", Ordered, func() {
 					50*time.Millisecond,
 					5*time.Millisecond,
 				).Should(BeNumerically(">", countAfterRecovery))
+			},
+		)
+
+		It(
+			"Should mark a stored healthy rack as dead when it is silent after a restart",
+			func(ctx SpecContext) {
+				restartDB := DeferClose(gorp.Wrap(memkv.New()))
+				before := openStack(ctx, restartDB, rack.ServiceConfig{
+					HealthCheckInterval: telem.Hour,
+				})
+				r := rack.Rack{
+					Name: "restarted rack",
+					Status: &rack.Status{
+						Variant: status.VariantSuccess,
+						Message: "Driver is running",
+						Time:    telem.Now(),
+					},
+				}
+				Expect(before.rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+				Expect(before.Close()).To(Succeed())
+
+				after := DeferClose(openStack(ctx, restartDB, rack.ServiceConfig{
+					HealthCheckInterval: 10 * telem.Millisecond,
+				}))
+				Eventually(func(g Gomega) {
+					s := MustSucceed(after.rack.RetrieveStatus(ctx, r.Key))
+					g.Expect(s.Variant).To(Equal(status.VariantWarning))
+					g.Expect(s.Message).
+						To(Equal("Synnax Driver on restarted rack not running"))
+				}).Should(Succeed())
 			},
 		)
 	})

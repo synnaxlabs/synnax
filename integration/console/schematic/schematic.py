@@ -13,6 +13,7 @@ from playwright.sync_api import Locator
 
 import synnax as sy
 from console.layout import LayoutClient
+from console.multiedit import Colors
 from console.page import ConsolePage
 from console.schematic.symbol import (
     Symbol,
@@ -79,6 +80,19 @@ class Schematic(ConsolePage):
     ):
         """Initialize a Schematic page wrapper (see ConsolePage.__init__ for details)."""
         super().__init__(layout, client, page_name, pane_locator=pane_locator)
+        self.colors = Colors(self.page)
+
+    def select(self, symbols: list[Symbol]) -> None:
+        """Replace the selection with `symbols` and show the Properties tab."""
+        # A click on a node that is already selected keeps the rest of the selection,
+        # so an empty corner of the canvas clears it first.
+        if self.pane_locator is None:
+            raise RuntimeError("Schematic pane locator not available")
+        self.pane_locator.click(position={"x": 10, "y": 10})
+        for symbol in symbols:
+            symbol.meta_click()
+        self.layout.show_visualization_toolbar()
+        self.page.get_by_role("tab", name="Properties", exact=True).click()
 
     def create_symbol(self, symbol: Symbol) -> Symbol:
         """Add a symbol to the schematic and configure it.

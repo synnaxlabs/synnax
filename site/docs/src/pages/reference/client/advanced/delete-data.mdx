@@ -42,7 +42,7 @@ stamp is not.
 For example, to remove data in the range `[00:01, 00:03)` on the `channel_1` and
 `channel_2` channels:
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -72,7 +72,7 @@ await client.delete(
 The `delete` method is idempotent, meaning consecutive calls to `delete` on overlapping
 time ranges are allowed:
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -119,7 +119,7 @@ In some situations, `delete` raises an error. If some channel keys or names do n
 in the database, the entirety of the `delete` operation fails, no data is deleted, and a
 `NotFound` error is returned:
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -152,7 +152,7 @@ error immediately.
 If a `delete` call is made to an index channel that other channels depend on in the
 requested time range, an error is raised:
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 
@@ -198,7 +198,7 @@ await client.delete(
 range will raise an error. This is to ensure that the writer and the deleter do not
 contend over data in the same region.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs exclude={["cpp","console"]}>
 
   <Fragment slot="python">
 

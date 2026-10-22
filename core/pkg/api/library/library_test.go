@@ -84,7 +84,7 @@ var _ = Describe("Library", func() {
 				apilibrary.RenameRequest{Key: l.Key, Name: "New"},
 			))
 			var res library.Library
-			Expect(libSvc.NewRetrieve().
+			Expect(svc.Library.NewRetrieve().
 				Where(library.MatchKeys(l.Key)).
 				Entry(&res).
 				Exec(ctx, nil)).To(Succeed())
@@ -138,7 +138,7 @@ var _ = Describe("Library", func() {
 				nil,
 				apilibrary.DeleteRequest{Keys: []library.Key{l.Key}},
 			))
-			Expect(libSvc.NewRetrieve().
+			Expect(svc.Library.NewRetrieve().
 				Where(library.MatchKeys(l.Key)).
 				Exists(ctx, nil)).To(BeFalse())
 		})

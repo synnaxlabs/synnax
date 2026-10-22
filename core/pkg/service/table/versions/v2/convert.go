@@ -184,7 +184,7 @@ func isZeroColor(v any) bool {
 	if err := json.Unmarshal(b, &c); err != nil {
 		return false
 	}
-	return c.IsZero()
+	return c == color.Color{}
 }
 
 // legacyAligns maps the x-location alignment values the pre-typed text cell schema
@@ -215,7 +215,7 @@ func extractLegacyArgs(cfg map[string]any) {
 			cfg["channel"] = ch
 		}
 		if w, ok := segProp(cfg["telem"], "rollingAverage", "windowSize"); ok {
-			cfg["rolling_average"] = w
+			cfg["rolling_average"] = floorWindow(w)
 		}
 		if p, ok := segProp(cfg["telem"], "stringifier", "precision"); ok {
 			cfg["precision"] = truncPrecision(p)
@@ -238,15 +238,28 @@ func extractLegacyArgs(cfg map[string]any) {
 	}
 }
 
-// truncPrecision rounds a stored decimal-place count to a whole number. The pre-typed
-// schema held it as a float, so a fractional value would fail to decode into the typed
-// int and degrade the whole cell.
+// truncPrecision truncates a stored decimal-place count to a whole number, as the
+// Console's toFixed call did. The pre-typed schema held it as a float, so a fractional
+// value would fail to decode into the typed int and degrade the whole cell.
 func truncPrecision(v any) any {
 	switch t := v.(type) {
 	case float64:
-		return int64(math.Round(t))
+		return int64(math.Trunc(t))
 	case float32:
-		return int64(math.Round(float64(t)))
+		return int64(math.Trunc(float64(t)))
+	}
+	return v
+}
+
+// floorWindow rounds a stored averaging window down to a whole sample count. The
+// Console's numeric input stored a typed fraction unrounded, and its window held the
+// floor of that many samples.
+func floorWindow(v any) any {
+	switch t := v.(type) {
+	case float64:
+		return int64(math.Floor(t))
+	case float32:
+		return int64(math.Floor(float64(t)))
 	}
 	return v
 }
@@ -285,4 +298,23 @@ func segProp(spec any, segment, prop string) (any, bool) {
 		}
 	}
 	return v, true
+}
+
+// colorRenames maps each cell variant's legacy color fields to the fields named for the
+// part they paint.
+var colorRenames = map[string]map[string]string{
+	"text":  {"background_color": "fill_color"},
+	"value": {"background_color": "fill_color", "color": "text_color"},
+}
+
+// renameColors rewrites a cell's legacy color fields to the names of the parts they
+// paint, in place on the normalized wire map.
+func renameColors(cfg map[string]any) {
+	variant, _ := cfg["variant"].(string)
+	for from, to := range colorRenames[variant] {
+		if val, ok := cfg[from]; ok {
+			delete(cfg, from)
+			cfg[to] = val
+		}
+	}
 }

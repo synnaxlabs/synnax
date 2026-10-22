@@ -89,7 +89,6 @@ export const formSchema = project.projectZ.partial({ key: true });
 
 const INITIAL_VALUES: z.infer<typeof formSchema> = {
   name: "",
-  layout: {},
 };
 
 export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
@@ -104,22 +103,6 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
   update: async ({ client, value, set }) => {
     const res = await client.projects.create(value());
     set("key", res.key);
-  },
-});
-
-export interface SaveLayoutParams extends project.SetLayoutParams {}
-
-const LAYOUT_RESOURCE_NAME = "project layout";
-
-export const { useUpdate: useSaveLayout } = Flux.createUpdate<SaveLayoutParams>({
-  name: LAYOUT_RESOURCE_NAME,
-  verbs: verbs.CREATE,
-  update: async ({ client, data, onOptimisticComplete }) => {
-    const { key, layout } = data;
-    await client.projects.setLayout(key, layout, {
-      onOptimistic: async () => await onOptimisticComplete(data),
-    });
-    return data;
   },
 });
 

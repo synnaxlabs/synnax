@@ -20,8 +20,7 @@ import { Task } from "@/feature/task";
 vi.mock("@/flags", () => ({ FLAGS: { library: true, can: true } }));
 
 describe("bus integration flag on", () => {
-  it("should register every bus form, selectable, and command when on", () => {
-    expect(Object.keys(Task.FORMS)).toEqual(expect.arrayContaining(BUS_TASK_TYPES));
+  it("should register every bus selectable and command when on", () => {
     expect(Task.SELECTABLES.map((s) => s.type)).toEqual(
       expect.arrayContaining(BUS_TASK_TYPES),
     );

@@ -1,0 +1,39 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Fails when the rulesets on GitHub drift from .github/rulesets. Nothing applies the
+# files, so a change to one fails here until an admin applies it.
+
+name: Check - Rulesets
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/rulesets/**
+  schedule:
+    - cron: "0 14 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify rulesets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Verify rulesets
+        env:
+          GH_TOKEN: ${{ secrets.GH_SERVICE_TOKEN }}
+        run: .github/scripts/verify_rulesets.sh

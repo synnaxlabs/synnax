@@ -20,9 +20,7 @@ import { Task } from "@/feature/task";
 vi.mock("@/flags", () => ({ FLAGS: { library: true, can: false } }));
 
 describe("bus integration flag off", () => {
-  it("should hide every bus form, selectable, and command when off", () => {
-    const types = Object.keys(Task.FORMS);
-    BUS_TASK_TYPES.forEach((type) => expect(types).not.toContain(type));
+  it("should hide every bus selectable and command when off", () => {
     const selectable = Task.SELECTABLES.map((s) => s.type);
     BUS_TASK_TYPES.forEach((type) => expect(selectable).not.toContain(type));
     const commands = [...Task.COMMANDS, ...Device.COMMANDS].map((c) => c.key);
@@ -30,6 +28,5 @@ describe("bus integration flag off", () => {
       expect(commands).not.toContain(key),
     );
     expect(Task.parseType("can_read")).toBe("Can read task");
-    expect(Object.keys(Task.FORMS)).toContain("modbus_read");
   });
 });

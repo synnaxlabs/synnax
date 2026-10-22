@@ -147,7 +147,10 @@ export const createMessage = (entry: library.MessageEntry) => ({
 
 /** Commits value into the text or numeric input with the given label. */
 export const enterField = async (label: string, value: string): Promise<void> =>
-  commitFieldInput(await screen.findByLabelText<HTMLInputElement>(label), value);
+  commitFieldInput(
+    await screen.findByLabelText<HTMLInputElement>(label, { selector: "input" }),
+    value,
+  );
 
 /** Finds the dialog opened last, such as the picker a click just opened. */
 export const findOpenDialog = async (): Promise<HTMLElement> =>

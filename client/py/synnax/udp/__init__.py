@@ -15,8 +15,8 @@ from synnax.udp.types_gen import (
 )
 
 __all__ = [
-    "Device",
     "MAKE",
+    "Device",
     "Properties",
     "ReadConfig",
     "ReadTask",

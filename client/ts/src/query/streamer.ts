@@ -67,6 +67,8 @@ export interface StreamerParams {
   onLive?: () => void;
   /** Called when the underlying stream fails and reconnection begins. */
   onDrop?: (error: Error) => void;
+  /** Receives each failed reconnect attempt. Defaults to console.warn. */
+  onRetry?: (error: Error) => void;
   /**
    * Called when the stream ends on a failure it cannot recover from. The next
    * demand opens a new stream.
@@ -103,6 +105,7 @@ export const createStreamer = ({
   onReopen,
   onLive,
   onDrop,
+  onRetry,
   onDead,
 }: StreamerParams): Streamer => {
   let opened: Promise<ObservableStreamer> | null = null;
@@ -122,14 +125,17 @@ export const createStreamer = ({
     const h = new HardenedStreamer(
       openStreamer,
       { channels },
-      breakerConfig,
-      // onLive first: onReopen's reconcile fetches must not hit a stale
-      // liveness short circuit
-      () => {
-        onLive?.();
-        onReopen?.();
+      {
+        breaker: breakerConfig,
+        // onLive first: onReopen's reconcile fetches must not hit a stale liveness short
+        // circuit
+        onReopen: () => {
+          onLive?.();
+          onReopen?.();
+        },
+        onDrop,
+        onRetry,
       },
-      onDrop,
     );
     // Held outside so close() can interrupt the retry loop while this call
     // is still waiting on a first successful open.

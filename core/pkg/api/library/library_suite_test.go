@@ -17,28 +17,15 @@ import (
 	. "github.com/onsi/gomega"
 	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
 	apilibrary "github.com/synnaxlabs/synnax/pkg/api/library"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/library"
+	svcmock "github.com/synnaxlabs/synnax/pkg/service/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
-	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -50,87 +37,23 @@ func TestAPILibrary(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	rbacSvc *rbac.Service
-	libSvc  *library.Service
-	userSvc *user.Service
-	apiSvc  *apilibrary.Service
+	svc    *service.Layer
+	apiSvc *apilibrary.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	db := DeferClose(gorp.Wrap(memkv.New()))
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	searchIdx := MustOpen(search.OpenIndex())
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Search:   searchIdx,
-	}))
-	authSvc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
-	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB:              db,
-		Ontology:        otg,
-		Group:           groupSvc,
-		Search:          searchIdx,
-		Auth:            authSvc,
-		RootCredentials: auth.Credentials{Username: "suite-root", Password: "p"},
-	}))
-	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-		Search:   searchIdx,
-		User:     userSvc,
-	}))
-	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-		Search:   searchIdx,
-	}))
-	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-		Label:    labelSvc,
-		Search:   searchIdx,
-	}))
-	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-		DB:                  db,
-		Ontology:            otg,
-		Group:               groupSvc,
-		HostProvider:        mock.NewStaticHostProvider(1),
-		Status:              statusSvc,
-		HealthCheckInterval: 10 * telem.Millisecond,
-		Search:              searchIdx,
-	}))
-	imexSvc := imex.NewService()
-	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-		Rack:     rackSvc,
-		Status:   statusSvc,
-		Search:   searchIdx,
-		ImEx:     imexSvc,
-		Configs:  MustSucceed(taskconfig.NewRegistry()),
-	}))
-	libSvc = MustOpen(library.OpenService(ctx, library.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Task:     taskSvc,
-		Search:   searchIdx,
-		ImEx:     imexSvc,
-	}))
+	node := mock.NewNode(ctx)
+	svc = MustOpen(svcmock.OpenLayer(ctx, node))
 	apiSvc = MustSucceed(apilibrary.NewService(apicfg.LayerConfig{
-		Distribution: &distribution.Layer{DB: db},
-		Service:      &service.Layer{Library: libSvc, RBAC: rbacSvc},
+		Distribution: node.Layer,
+		Service:      svc,
 	}))
 })
 
 func createUser(ctx SpecContext) user.User {
 	GinkgoHelper()
-	return MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+	return MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
 		Username: "library-" + uuid.New().String(),
 	}))
 }
@@ -138,7 +61,7 @@ func createUser(ctx SpecContext) user.User {
 func createLibrary(ctx SpecContext, name string) library.Library {
 	GinkgoHelper()
 	l := library.Library{Name: name}
-	Expect(libSvc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
+	Expect(svc.Library.NewWriter(nil).Create(ctx, &l)).To(Succeed())
 	return l
 }
 
@@ -151,8 +74,8 @@ func grantOn(
 	objects ...ontology.ID,
 ) {
 	GinkgoHelper()
-	roleWriter := rbacSvc.Role.NewWriter(nil, true)
-	policyWriter := rbacSvc.Policy.NewWriter(nil, true)
+	roleWriter := svc.RBAC.Role.NewWriter(nil, true)
+	policyWriter := svc.RBAC.Policy.NewWriter(nil, true)
 	r := &role.Role{
 		Name:        string(action) + "-" + uuid.New().String(),
 		Description: "test",

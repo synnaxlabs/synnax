@@ -150,6 +150,31 @@ Framing struct {
 			To(ContainSubstring("one of every field shape"))
 	})
 
+	It(
+		"Should render the enum a union borrows as its discriminator",
+		func(ctx SpecContext) {
+			source := `
+Method enum {
+	password = "password"
+}
+
+Credentials struct { username string }
+
+Proof union on method Method {
+	password Credentials
+}
+`
+			table := analyzeFixture(ctx, source)
+			rendered := versions.Render(declsOf(table), versions.RenderOptions{
+				Qualifier: func(string) string { return "" },
+			})
+			Expect(rendered).To(ContainSubstring("Proof union on method Method {"))
+			again := analyzeFixture(ctx, MustSucceed(formatter.Format(rendered)))
+			form := MustBeOk(again.Get("test.Proof")).Form.(resolution.UnionForm)
+			Expect(form.Enum.Name).To(Equal("test.Method"))
+		},
+	)
+
 	It("Should render field omissions on structs and union variants", func(
 		ctx SpecContext,
 	) {

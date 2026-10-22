@@ -9,6 +9,7 @@
 
 import { panel, ranger, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { TimeRange } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -19,12 +20,7 @@ import { Range } from "@/platform/range";
 import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
 import { Session } from "@/session";
 import { createCore } from "@/session/core/testutil";
-import {
-  createConsoleWrapper,
-  renderSuspended,
-  stubClipboardWriteText,
-  uniqueName,
-} from "@/testutil";
+import { createConsoleWrapper, renderSuspended, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);
@@ -74,7 +70,6 @@ describe("Range.Details", () => {
     });
     const proj = await client.projects.create({
       name: uniqueName("proj"),
-      layout: {},
     });
     const { wrapper, store } = await createConsoleWrapper({
       client,

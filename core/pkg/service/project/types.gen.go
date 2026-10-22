@@ -16,7 +16,6 @@ import "github.com/synnaxlabs/synnax/pkg/service/project/versions"
 // Key is a unique identifier for a project, represented as a UUID.
 type Key = versions.Key
 
-// Project is a named, persistable container that stores the layout and organization of
-// the Console application. Projects allow users to save and restore custom arrangements
-// of visualizations, tabs, and window configurations.
+// Project is a named, persistable container that groups the panels of the Console
+// application.
 type Project = versions.Project

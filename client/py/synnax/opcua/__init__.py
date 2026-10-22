@@ -24,20 +24,12 @@ from synnax.opcua.types_gen import (
     WriteChannel,
     WriteConfig,
 )
-from x.deprecation import deprecated_getattr
-
-_DEPRECATED: dict[str, str | tuple[str, str]] = {
-    "Channel": "ReadChannel",
-    "WriteTaskConfig": "WriteConfig",
-}
-
-__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
 
 __all__ = [
-    "BaseChannel",
-    "Device",
     "MAKE",
     "MODEL",
+    "BaseChannel",
+    "Device",
     "ReadChannel",
     "ReadConfig",
     "ReadTask",

@@ -11,7 +11,7 @@ nextURL: "/reference/console/logs"
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Image, Video } from "@/components/media/Media";
-import { Table } from "@/components";
+import { Table } from "@/components/table";
 import Diagram from "@/components/diagram/Diagram.astro";
 import CreateVisualization from "@/components/console/CreateVisualization.astro";
 import ShareAndExport from "@/components/console/ShareAndExport.astro";
@@ -20,7 +20,6 @@ export const components = mdxOverrides;
 
 <Diagram style="height: 400px" preview>
   <Image
-    client:only="react"
     id="console/line-plots/example"
     style={{
       height: "500px",
@@ -48,7 +47,7 @@ y-axes, with time or another channel on the x-axis.
 Click the line plot <Icon.LinePlot /> button in the bottom-left corner to open the
 component toolbar and configure the plot.
 
-<Video client:only="react" id="console/line-plots/toolbar" />
+<Video id="console/line-plots/toolbar" />
 
 ### Data
 
@@ -115,7 +114,7 @@ component toolbar and configure the plot.
     </tr>
     <tr>
       <td>
-        <b>Line Width</b>
+        <b>Line width</b>
       </td>
       <td>The thickness of the line.</td>
     </tr>
@@ -151,19 +150,19 @@ component toolbar and configure the plot.
   <tbody>
     <tr>
       <td>
-        <b>Lower Bound</b>
+        <b>Lower bound</b>
       </td>
       <td>The lower bound of the axis.</td>
     </tr>
     <tr>
       <td>
-        <b>Upper Bound</b>
+        <b>Upper bound</b>
       </td>
       <td>The upper bound of the axis.</td>
     </tr>
     <tr>
       <td>
-        <b>Tick Spacing</b>
+        <b>Tick spacing</b>
       </td>
       <td>The distance between tick marks on the axis.</td>
     </tr>
@@ -175,13 +174,13 @@ component toolbar and configure the plot.
     </tr>
     <tr>
       <td>
-        <b>Label Direction</b>
+        <b>Label direction</b>
       </td>
       <td>The direction of the axis title.</td>
     </tr>
     <tr>
       <td>
-        <b>Label Size</b>
+        <b>Label size</b>
       </td>
       <td>The size of the axis title.</td>
     </tr>
@@ -206,13 +205,13 @@ component toolbar and configure the plot.
     </tr>
     <tr>
       <td>
-        <b>Show Title</b>
+        <b>Show title</b>
       </td>
       <td>Whether the title is visible on the line plot.</td>
     </tr>
     <tr>
       <td>
-        <b>Show Legend</b>
+        <b>Show legend</b>
       </td>
       <td>Whether the legend is visible on the line plot.</td>
     </tr>
@@ -282,7 +281,7 @@ calculate the slope between them. You can also see the difference in the x and y
 To change the first point, press the `1` key and click on the line plot. To change the
 second point, press the `2` key and click on the line plot.
 
-<Video client:only="react" id="console/line-plots/slope" />
+<Video id="console/line-plots/slope" />
 
 <Divider.Divider x />
 

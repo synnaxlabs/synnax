@@ -17,6 +17,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { type Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
+import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Device as PDevice, type Flux, Rack } from "@synnaxlabs/pluto";
@@ -24,6 +25,7 @@ import { caseconv, type record } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useCallback } from "react";
 import { z } from "zod";
 
+import { Analytics } from "@/platform/analytics";
 import { Command } from "@/platform/command";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
@@ -48,7 +50,7 @@ export interface CreateDeviceParams<
   icon: Icon.ReactElement;
   properties: P;
   /** The integration a rack must run for the device to connect from it. */
-  integration: string;
+  integration: Analytics.Properties<"device_connected">["integration"];
   /** Edits the device's properties, at paths under properties. */
   Properties: FC;
   /** @returns the model of a device with the given properties. */
@@ -122,6 +124,7 @@ export const createDevice = <M extends string, P extends z.ZodType<record.Unknow
 
   const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
     ({ deviceKey, close }) => {
+      const { capture } = Analytics.use();
       const {
         form,
         save,
@@ -131,11 +134,14 @@ export const createDevice = <M extends string, P extends z.ZodType<record.Unknow
         query: deviceKey == null ? null : { key: deviceKey },
         initialValues: INITIAL_VALUES,
         beforeValidate,
-        afterSave: useCallback(() => close(), [close]),
+        afterSave: useCallback(() => {
+          if (deviceKey == null) capture("device_connected", { integration });
+          close();
+        }, [capture, close, deviceKey]),
       });
       return (
-        <Modals.Frame className={CSS.B("bus-connect")}>
-          <Modals.Header icon={icon}>{`${noun}.Connect`}</Modals.Header>
+        <Modal.Frame className={CSS.B("bus-connect")}>
+          <Modal.Header icon={icon}>{`${noun}.Connect`}</Modal.Header>
           <Flex.Box className={CSS.B("content")} grow size="small">
             <Form.Form<typeof PDevice.formSchema> {...form}>
               <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
@@ -145,7 +151,7 @@ export const createDevice = <M extends string, P extends z.ZodType<record.Unknow
               <Properties />
             </Form.Form>
           </Flex.Box>
-          <Modals.Footer>
+          <Modal.Footer>
             <Nav.Bar.Start gap="small">
               {variant == "success" ? (
                 <Triggers.SaveHelpText action="Connect" noBar />
@@ -163,8 +169,8 @@ export const createDevice = <M extends string, P extends z.ZodType<record.Unknow
                 Connect
               </Button.Button>
             </Nav.Bar.End>
-          </Modals.Footer>
-        </Modals.Frame>
+          </Modal.Footer>
+        </Modal.Frame>
       );
     },
   );

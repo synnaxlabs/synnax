@@ -9,13 +9,13 @@ next: "Read task"
 nextURL: "/reference/driver/labjack/read-task"
 ---
 
-import { Text as TextComponent } from "@/components";
+import { Text as TextComponent } from "@/components/text";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Note } from "@synnaxlabs/lyra/note";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Image, Video } from "@/components/media/Media";
-import { Details } from "@/components";
+import { Details } from "@/components/details";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Client } from "@/components/client";
 import { Fragment } from "react";
@@ -83,14 +83,14 @@ that you have the following:
   [Kipling](https://support.labjack.com/docs/kipling).
 </Note.Note>
 
-<Client.Tabs client:load exclude={["cpp"]}>
+<Client.Tabs exclude={["cpp"]}>
   <Fragment slot="console">
 
 Synnax will automatically detect new LabJack devices and display a notification in the
 Console when a new device is connected. To start configuring the device, find the device
 in the devices toolbar, right click on the device and select "Configure".
 
-<Video client:only="react" id="device-drivers/labjack/configure-device/lj-configure" />
+<Video id="device-drivers/labjack/configure-device/lj-configure" />
 
 </Fragment>
   <Fragment slot="python">

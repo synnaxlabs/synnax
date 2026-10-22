@@ -155,8 +155,9 @@ private:
         data_type_(other.data_type_),
         cap_(other.cap_),
         cached_byte_size(other.cached_byte_size),
+        cached_byte_cap(other.cached_byte_cap),
         size_(other.size_),
-        data_(alloc(other.byte_size())),
+        data_(alloc(other.byte_cap())),
         time_range(other.time_range),
         alignment(other.alignment) {
         memcpy(data_.get(), other.data_.get(), other.byte_size());
@@ -894,7 +895,11 @@ public:
             );
             const size_t count = std::min(d.size(), this->cap() - this->size());
             if (count == 0) return 0;
-            memcpy(this->data_.get(), d.data(), count * this->data_type().density());
+            memcpy(
+                this->data_.get() + this->byte_size(),
+                d.data(),
+                count * this->data_type().density()
+            );
             this->size_ += count;
             return count;
         }
@@ -986,7 +991,11 @@ public:
         );
         this->ensure_exclusive();
         const size_t capped_count = std::min(count, this->cap() - this->size());
-        memcpy(this->data_.get(), d, capped_count * this->data_type().density());
+        memcpy(
+            this->data_.get() + this->byte_size(),
+            d,
+            capped_count * this->data_type().density()
+        );
         this->size_ += capped_count;
         return capped_count;
     }
@@ -1536,6 +1545,22 @@ public:
         return apply_logical_scalar_op(scalar, [](const bool a, const bool b) {
             return a || b;
         });
+    }
+
+    /// @brief returns a one-sample series holding the last sample. Throws when empty.
+    [[nodiscard]] Series last() const {
+        const auto v = this->at(-1);
+        Series out = this->data_type().is_variable()
+                       ? Series(std::get<std::string>(v), this->data_type())
+                       : Series(v);
+        out.data_type_ = this->data_type();
+        const auto offset = static_cast<std::uint32_t>(this->size() - 1);
+        out.alignment = Alignment(
+            this->alignment.domain_index(),
+            this->alignment.sample_index() + offset
+        );
+        out.time_range = this->time_range;
+        return out;
     }
 
     /// @brief deep copies the series, including all of its data_. This function

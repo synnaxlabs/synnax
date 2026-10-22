@@ -13,7 +13,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Note } from "@synnaxlabs/lyra/note";
 
-import { Platform } from "@/components";
+import { Platform } from "@/components/platform";
 import DownloadURL from "@/components/core/DownloadURL.astro";
 import MoveCommand from "@/components/core/MoveCommand.astro";
 import WindowsDownloadButton from "@/components/core/WindowsDownloadButton.astro";
@@ -24,7 +24,7 @@ export const components = mdxOverrides;
 This page will walk you through starting a Synnax Core. To get started, select your
 operating system below:
 
-<Platform.Tabs client:load>
+<Platform.Tabs>
 <Fragment slot="Docker">
 
 ## Using Docker

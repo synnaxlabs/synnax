@@ -27,10 +27,7 @@ import {
 } from "@/testutil";
 
 const renderToolbar = async (): Promise<{ store: TestStore }> => {
-  const proj = await client.projects.create({
-    name: uniqueName("project"),
-    layout: {},
-  });
+  const proj = await client.projects.create({ name: uniqueName("project") });
   const { wrapper, store } = await createConsoleWrapper({
     client,
     preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(proj) },

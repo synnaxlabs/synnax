@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import json
+from uuid import UUID
 
 import synnax as sy
 
@@ -15,6 +16,9 @@ client = sy.Synnax()
 
 with client.open_streamer("sy_task_set") as s:
     for frame in s:
-        t = client.tasks.retrieve(keys=[frame["sy_task_set"][0]])
-        with open("task.json", "w") as f:
-            json.dump(t[0].config, f, indent=4)
+        for task in frame["sy_task_set"]:
+            if not isinstance(task, dict):
+                raise TypeError(f"expected a task payload, got {task!r}")
+            t = client.tasks.retrieve(key=UUID(task["key"]))
+            with open("task.json", "w") as f:
+                json.dump(t.config, f, indent=4)

@@ -13,14 +13,18 @@ from examples.control.tpc.common import DAQ_TIME, FUEL_PT_1
 client = sy.Synnax()
 
 with client.open_streamer([FUEL_PT_1, DAQ_TIME]) as streamer:
-    above_threshold = None
+    above_threshold: sy.TimeStamp | None = None
     for frame in streamer:
-        if frame[FUEL_PT_1] > 20 and not above_threshold:
-            above_threshold = sy.TimeStamp(frame[DAQ_TIME][-1])
-        elif frame[FUEL_PT_1] < 20 and above_threshold:
-            client.ranges.create(
-                name="Fuel Above Threshold - " + str(above_threshold)[11:19],
-                time_range=sy.TimeRange(start=above_threshold, end=frame[DAQ_TIME][-1]),
-                color="#BADA55",
-            )
-            above_threshold = None
+        pressures = frame[FUEL_PT_1].to_numpy()
+        times = frame[DAQ_TIME].to_numpy()
+        for pressure, raw_time in zip(pressures, times, strict=True):
+            time = sy.TimeStamp(raw_time)
+            if pressure > 20 and not above_threshold:
+                above_threshold = time
+            elif pressure < 20 and above_threshold:
+                client.ranges.create(
+                    name="Fuel Above Threshold - " + str(above_threshold)[11:19],
+                    time_range=sy.TimeRange(start=above_threshold, end=time),
+                    color="#BADA55",
+                )
+                above_threshold = None

@@ -56,7 +56,7 @@ export const StateIndicatorForm = ({ tab, onTabChange }: FormProps): ReactElemen
           <Label.Form path="label" />
         </Base.Section>
         <Base.Section title="Appearance">
-          <Form.ColorField path="color" />
+          <Form.ColorField path="strokeColor" label="Stroke" />
           <Form.SizeField />
           <Base.NumericField
             path="inlineSize"

@@ -53,6 +53,7 @@ py: &py
 
 ts: &ts
   - *ci
+  - .github/actions/setup-pnpm/**
   - .github/workflows/test.ts.yaml
   - codecov.yaml
   - configs/**
@@ -61,6 +62,12 @@ ts: &ts
   - pnpm-lock.yaml
   - pnpm-workspace.yaml
   - turbo.json
+
+eslint_config:
+  - *ts
+
+vite_plugin:
+  - *ts
 
 alamos_go: &alamos_go
   - *go
@@ -127,9 +134,9 @@ arc_ts: &arc_ts
   - *ts
   - arc/ts/**
 
-media: &media
+oracle_language:
   - *ts
-  - x/media/**
+  - oracle/lsp/extensions/vscode/**
 
 x_ts: &x_ts
   - *ts
@@ -169,38 +176,66 @@ pluto: &pluto
   - *client_ts
   - *freighter_ts
   - *lyra
-  - *media
   - *ts
   - *x_ts
   - pluto/**
+
+portal:
+  - *client_ts
+  - *lyra
+  - *ts
+  - *x_ts
+  - site/portal/**
 
 console: &console
   - *client_ts
   - *drift
   - *freighter_ts
   - *lyra
-  - *media
   - *pluto
   - *ts
   - *x_ts
   - console/**
 
+site_common: &site_common
+  - *lyra
+  - *ts
+  - site/common/**
+
 docs:
   - *arc_ts
   - *client_ts
   - *lyra
-  - *media
+  - *site_common
   - *ts
   - *x_ts
   - .github/workflows/test.docs.yaml
   - site/docs/**
 
+foundation:
+  - *lyra
+  - *site_common
+  - *ts
+  - site/foundation/**
+
 www:
   - *arc_ts
   - *lyra
-  - *media
+  - *site_common
   - *ts
   - site/www/**
+
+knip:
+  - *arc_ts
+  - *console
+  - *ts
+  - oracle/lsp/extensions/vscode/**
+  - site/common/**
+  - site/docs/**
+  - site/foundation/**
+  - site/portal/**
+  - site/www/**
+  - studio/**
 
 alamos_py: &alamos_py
   - *py
@@ -286,6 +321,7 @@ oracle_check:
   - *oracle
   - .clang-format
   - .clang-format-ignore
+  - .github/actions/setup-pnpm/**
   - .github/workflows/check.oracle.yaml
   - .prettierignore
   - .prettierrc
@@ -307,23 +343,23 @@ protobuf:
   - buf.gen.yaml
   - buf.yaml
 
-scripts:
-  - *ci
+ci_scripts:
+  - *py
   - .github/scripts/**
-  - .github/workflows/test.scripts.yaml
+
+scripts:
+  - *py
   - scripts/**
 
 console_build: &console_build
   - *console
-  - .github/workflows/build.synnax.yaml
 
 core_build: &core_build
   - *core
-  - .github/workflows/build.synnax.yaml
 
 driver_build: &driver_build
   - *driver
-  - .github/workflows/build.synnax.yaml
+  - scripts/run_bazel.sh
 
 integration:
   - *client_py
@@ -333,6 +369,7 @@ integration:
   - *py
   - *x_py
   - .github/scripts/check_artifact_cache.sh
+  - .github/workflows/build.synnax.yaml
   - .github/workflows/test.integration.worker.yaml
   - .github/workflows/test.integration.yaml
   - .github/workflows/test.migration.yaml

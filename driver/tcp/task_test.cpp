@@ -24,6 +24,7 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/tcp/json.gen.h"
+#include "x/cpp/sync/list.h"
 #include "x/cpp/test/test.h"
 
 #include "driver/bus/read.h"
@@ -52,8 +53,8 @@ protected:
         nullptr
     );
     synnax::task::Task task{.key = x::uuid::create(), .name = "tcp"};
-    std::shared_ptr<std::vector<x::telem::Frame>>
-        writes = std::make_shared<std::vector<x::telem::Frame>>();
+    std::shared_ptr<x::sync::List<x::telem::Frame>>
+        writes = std::make_shared<x::sync::List<x::telem::Frame>>();
     const x::breaker::Config breaker{
         .name = "tcp",
         .base_interval = 20 * x::telem::MILLISECOND,

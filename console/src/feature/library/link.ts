@@ -9,6 +9,6 @@
 
 import { Link } from "@/platform/link";
 
-export const useLink = Link.createUseOpenResourceTab("library");
+const useLink = Link.createUseOpenResourceTab("library");
 
 export const LINKS: Link.Registry = { library: useLink };

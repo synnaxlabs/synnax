@@ -67,6 +67,7 @@ export const SelectPort = ({
   variant,
   preview,
   dialogProps,
+  allowNone,
   ...rest
 }: SelectPortProps) => {
   const { data, getItem, retrieve } = List.useStaticData<string, Port>({
@@ -81,11 +82,14 @@ export const SelectPort = ({
         getItem={getItem}
         onChange={onChange}
         value={value}
+        allowNone={allowNone}
         closeDialogOnSelect
       >
         <Flex.Box pack x>
           <Dialog.Trigger preview={preview} {...triggerProps}>
-            {selected?.alias ?? selected?.key}
+            <Select.Label itemKey={value}>
+              {selected?.alias ?? selected?.key}
+            </Select.Label>
           </Dialog.Trigger>
           {children}
         </Flex.Box>

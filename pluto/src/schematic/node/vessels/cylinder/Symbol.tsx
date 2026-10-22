@@ -22,8 +22,8 @@ export const Symbol = ({
   config: {
     label,
     orientation = "left",
-    backgroundColor,
-    color,
+    fillColor,
+    strokeColor,
     dimensions,
     borderRadius,
   },
@@ -38,10 +38,10 @@ export const Symbol = ({
     <Label.Label config={label} onChange={onConfigChange} />
     <Cylinder
       orientation={orientation}
-      color={color}
+      strokeColor={strokeColor}
       dimensions={dimensions}
       borderRadius={borderRadius}
-      backgroundColor={backgroundColor}
+      fillColor={fillColor}
     />
   </Grid.Grid>
 );

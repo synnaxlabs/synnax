@@ -10,13 +10,14 @@
 from __future__ import annotations
 
 import warnings
-from collections.abc import Generator, Iterable
+from collections.abc import Generator, Iterable, Mapping, Sequence
 from contextlib import contextmanager
-from typing import Any, overload
 from typing import Protocol as BaseProtocol
+from typing import TypeVar, overload
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, JsonValue, ValidationError
+from pydantic_core import to_jsonable_python
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
@@ -28,7 +29,7 @@ from synnax.rack import Client as RackClient
 from synnax.rack import Rack
 from synnax.task.types_gen import Command, Key, Payload, Status, ontology_id
 from synnax.telem import TimeSpan, TimeStamp
-from x.lists import check_for_none, normalize, override
+from x.lists import all_none, override
 from x.timing import Timer
 
 
@@ -37,6 +38,11 @@ class _CreateRequest(BaseModel):
 
 
 _CreateResponse = _CreateRequest
+
+
+class _RenameRequest(BaseModel):
+    key: Key
+    name: str
 
 
 class _DeleteRequest(BaseModel):
@@ -61,6 +67,9 @@ class _RetrieveRequest(BaseModel):
     include_status: bool = False
     internal: bool | None = None
     snapshot: bool | None = None
+    search_term: str | None = None
+    limit: int | None = None
+    offset: int | None = None
 
 
 class _RetrieveResponse(BaseModel):
@@ -93,34 +102,30 @@ def assign_keys(records: Iterable[_Keyed]) -> None:
 
 class Task:
     key: Key
-    rack: int = 0
-    name: str = ""
-    type: str = ""
-    config: dict[str, Any] = {}
-    config_hash: str = ""
-    snapshot: bool = False
-    status: Status | None = None
-    _cached_frame_client: FrameClient | None = None
+    rack: int
+    name: str
+    type: str
+    config: Mapping[str, object]
+    config_hash: str
+    snapshot: bool
+    status: Status | None
+    _cached_frame_client: FrameClient | None
 
     def __init__(
         self,
         *,
-        key: Key | str | None = None,
+        key: Key | None = None,
         rack: int = 0,
         name: str = "",
         type: str = "",
-        config: dict[str, Any] | None = None,
+        config: Mapping[str, object] | None = None,
         config_hash: str = "",
         snapshot: bool = False,
         status: Status | None = None,
         internal: bool = False,
         _frame_client: FrameClient | None = None,
     ):
-        if key is None:
-            key = uuid4()
-        elif isinstance(key, str):
-            key = UUID(key)
-        self.key = key
+        self.key = uuid4() if key is None else key
         self.rack = rack
         self.name = name
         self.type = type
@@ -145,7 +150,7 @@ class Task:
             rack=self.rack,
             name=self.name,
             type=self.type,
-            config=self.config,
+            config=to_jsonable_python(self.config),
         )
 
     def set_internal(self, task: Task) -> None:
@@ -174,7 +179,9 @@ class Task:
         """
         return None
 
-    def execute_command(self, type_: str, args: dict[str, Any] | None = None) -> str:
+    def execute_command(
+        self, type_: str, args: Mapping[str, object] | None = None
+    ) -> str:
         """Executes a command on the task and returns the unique key assigned to the
         command.
 
@@ -188,7 +195,7 @@ class Task:
             type=type_,
             key=str(uuid4()),
             config_hash=self.config_hash,
-            args=args or {},
+            args=to_jsonable_python(args) if args is not None else {},
         )
         w.write(_TASK_CMD_CHANNEL, [cmd.model_dump(mode="json")])
         w.close()
@@ -197,7 +204,7 @@ class Task:
     def execute_command_sync(
         self,
         type_: str,
-        args: dict[str, Any] | None = None,
+        args: Mapping[str, object] | None = None,
         timeout: float | TimeSpan = 5,
     ) -> Status:
         """Executes a command on the task and waits for the driver to acknowledge the
@@ -221,8 +228,10 @@ class Task:
                     raise TimeoutError(
                         f"timed out waiting for driver to acknowledge {type_} command"
                     )
-                elif _TASK_STATE_CHANNEL not in frame:
-                    warnings.warn("task - unexpected missing state in frame")
+                if _TASK_STATE_CHANNEL not in frame:
+                    warnings.warn(
+                        "task - unexpected missing state in frame", stacklevel=2
+                    )
                     continue
                 # A frame can carry several statuses, and only some of them answer
                 # this command.
@@ -266,6 +275,9 @@ class Protocol(BaseProtocol):
         return None
 
 
+P = TypeVar("P", bound=Protocol)
+
+
 class StarterStopperMixin:
     _internal: Task
 
@@ -302,9 +314,9 @@ class StarterStopperMixin:
             self.stop(timeout)
 
 
-class JSONConfigMixin(Protocol):
+class JSONConfigMixin[C: BaseModel](Protocol):
     _internal: Task
-    config: BaseModel
+    config: C
 
     @property
     def name(self) -> str:
@@ -312,17 +324,17 @@ class JSONConfigMixin(Protocol):
 
     @property
     def key(self) -> Key:
-        """Implements TaskProtocol protocol"""
+        """Implements the Protocol interface."""
         return self._internal.key
 
     def to_payload(self) -> Payload:
-        """Implements TaskProtocol protocol"""
+        """Implements the Protocol interface."""
         pld = self._internal.to_payload()
-        pld.config = self.config.model_dump(by_alias=True, exclude_none=True)
+        pld.config = to_jsonable_python(self.config, by_alias=True, exclude_none=True)
         return pld
 
     def set_internal(self, task: Task) -> None:
-        """Implements TaskProtocol protocol"""
+        """Implements the Protocol interface."""
         self._internal = task
 
 
@@ -353,10 +365,10 @@ class Client:
     def create(
         self,
         *,
-        key: Key | str | None = None,
-        name: str = "",
+        key: Key | None = None,
+        name: str,
         type: str = "",
-        config: dict[str, Any] | BaseModel | None = None,
+        config: Mapping[str, object] | BaseModel | None = None,
         rack: int = 0,
     ) -> Task: ...
 
@@ -370,24 +382,23 @@ class Client:
         self,
         tasks: Task | list[Task] | None = None,
         *,
-        key: Key | str | None = None,
+        key: Key | None = None,
         name: str = "",
         type: str = "",
-        config: dict[str, Any] | BaseModel | None = None,
+        config: Mapping[str, object] | BaseModel | None = None,
         rack: int = 0,
     ) -> Task | list[Task]:
         is_single = True
-        if config is None:
-            config = dict()
-        elif isinstance(config, BaseModel):
-            config = config.model_dump(by_alias=True, exclude_none=True)
+        json_config: dict[str, JsonValue] = (
+            to_jsonable_python(config, by_alias=True, exclude_none=True)
+            if config is not None
+            else {}
+        )
         if tasks is None:
             if key is None:
                 key = uuid4()
-            elif isinstance(key, str):
-                key = UUID(key)
             payloads = [
-                Payload(key=key, rack=rack, name=name, type=type, config=config or {})
+                Payload(key=key, rack=rack, name=name, type=type, config=json_config)
             ]
         elif isinstance(tasks, Task):
             payloads = [tasks.to_payload()]
@@ -415,12 +426,11 @@ class Client:
         pld.rack = rack
         return pld
 
-    def configure(self, task: Protocol, timeout: float = 5) -> Protocol:
+    def configure(self, task: P) -> P:
         """Saves the task's configuration to the cluster. The config is deployed
         to the driver on the next start command.
 
         :param task: The task to save.
-        :param timeout: Unused. Retained for backwards compatibility.
         :returns: The saved task with its key and rack populated.
         """
         # Call task-specific device property update (e.g., for Modbus, OPC UA, LabJack)
@@ -432,56 +442,99 @@ class Client:
         task.set_internal(self.sugar(tasks)[0])
         return task
 
-    def delete(self, keys: Key | str | list[Key | str]) -> None:
-        req = _DeleteRequest(keys=normalize(keys))
+    def delete(self, keys: Key | Sequence[Key]) -> None:
+        req = _DeleteRequest(keys=[keys] if isinstance(keys, UUID) else list(keys))
         self._client.send("/task/delete", req, Empty)
 
+    def rename(self, key: Key, name: str) -> None:
+        """Renames a task.
+
+        :param key: The key of the task to rename.
+        :param name: The new name for the task.
+        :raises NotFoundError: If no task has the given key.
+        """
+        self._client.send("/task/rename", _RenameRequest(key=key, name=name), Empty)
+
     @overload
-    def retrieve(
-        self,
-        key: Key | str | None = None,
-        name: str | None = None,
-        type: str | None = None,
-        *,
-        include_status: bool = False,
-    ) -> Task: ...
+    def retrieve(self, key: Key, *, include_status: bool = False) -> Task: ...
+
+    @overload
+    def retrieve(self, *, name: str, include_status: bool = False) -> Task: ...
+
+    @overload
+    def retrieve(self, *, type: str, include_status: bool = False) -> Task: ...
 
     @overload
     def retrieve(
         self,
-        key: None = None,
-        name: None = None,
-        type: None = None,
-        names: list[str] | None = None,
-        keys: list[Key | str] | None = None,
-        types: list[str] | None = None,
         *,
+        keys: list[Key] | None = None,
+        names: list[str] | None = None,
+        types: list[str] | None = None,
+        search_term: str | None = None,
+        rack: int | None = None,
+        internal: bool | None = None,
+        snapshot: bool | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
         include_status: bool = False,
     ) -> list[Task]: ...
 
     def retrieve(
         self,
-        key: Key | str | None = None,
+        key: Key | None = None,
+        *,
         name: str | None = None,
         type: str | None = None,
+        keys: list[Key] | None = None,
         names: list[str] | None = None,
-        keys: list[Key | str] | None = None,
         types: list[str] | None = None,
-        *,
+        search_term: str | None = None,
+        rack: int | None = None,
+        internal: bool | None = None,
+        snapshot: bool | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
         include_status: bool = False,
     ) -> list[Task] | Task:
-        """Retrieves tasks matching the given filters.
+        """Retrieves tasks matching the given filters. Returns one task when a key,
+        name, or type is given, and a list otherwise.
 
+        :param search_term: A fuzzy search term matched against task names.
+        :param rack: Only return tasks on the rack with this key.
+        :param internal: Only return internal tasks when true, or only user tasks when
+            false.
+        :param snapshot: Only return snapshot tasks when true, or only live tasks when
+            false.
+        :param limit: The maximum number of tasks to return.
+        :param offset: The number of tasks to skip.
         :param include_status: Whether to populate each task's status. Tasks come
             back with a null status when false.
+        :raises ValueError: If two singular selectors are given, or one is
+            combined with a list filter.
         """
-        is_single = check_for_none(names, keys, types)
+        is_single = not all_none(key, name, type)
+        if sum(v is not None for v in (key, name, type)) > 1:
+            raise ValueError("only one of key, name, and type can be given")
+        if is_single and not all_none(
+            keys, names, types, search_term, rack, internal, snapshot, limit, offset
+        ):
+            raise ValueError(
+                "key, name, and type cannot be combined with list filters; use "
+                "keys, names, or types instead"
+            )
         res = self._client.send(
             "/task/retrieve",
             _RetrieveRequest(
                 keys=override(key, keys),
                 names=override(name, names),
                 types=override(type, types),
+                search_term=search_term,
+                rack=rack,
+                internal=internal,
+                snapshot=snapshot,
+                limit=limit,
+                offset=offset,
                 include_status=include_status,
             ),
             _RetrieveResponse,
@@ -538,7 +591,7 @@ class Client:
 
     def copy(
         self,
-        key: Key | str,
+        key: Key,
         name: str,
     ) -> Task:
         """Copies an existing task with a new name.

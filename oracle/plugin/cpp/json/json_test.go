@@ -427,6 +427,24 @@ var _ = Describe("C++ JSON Plugin", func() {
 						)
 				},
 			)
+
+			It(
+				"Should serialize uuid arrays element by element",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/types"
+
+					Key = uuid
+
+					Data struct {
+						keys Key[]
+					}
+				`
+					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					ExpectContent(resp, "json.gen.h").
+						ToContain("for (const auto& item : this->keys) arr.push_back(item.to_json());")
+				},
+			)
 		})
 
 		Context("struct arrays without alias", func() {

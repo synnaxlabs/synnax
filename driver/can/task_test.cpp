@@ -21,6 +21,7 @@
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/sync/list.h"
 #include "x/cpp/test/test.h"
 
 #include "driver/bus/testutil/testutil.h"
@@ -96,9 +97,9 @@ Bytes payload(const Frame &frame) {
 
 /// @returns the timestamps of an index channel across frames, in order.
 std::vector<std::int64_t>
-times(const std::vector<x::telem::Frame> &frames, const synnax::channel::Key key) {
+times(const x::sync::List<x::telem::Frame> &frames, const synnax::channel::Key key) {
     std::vector<std::int64_t> out;
-    for (const auto &fr: frames)
+    for (const auto &fr: frames.snapshot())
         for (const auto &[k, series]: fr) {
             if (k != key) continue;
             for (std::size_t i = 0; i < series.size(); i++)
@@ -109,9 +110,9 @@ times(const std::vector<x::telem::Frame> &frames, const synnax::channel::Key key
 
 /// @returns every raw sample of the channel across frames, in order.
 std::vector<std::string>
-raws(const std::vector<x::telem::Frame> &frames, const synnax::channel::Key key) {
+raws(const x::sync::List<x::telem::Frame> &frames, const synnax::channel::Key key) {
     std::vector<std::string> out;
-    for (const auto &fr: frames)
+    for (const auto &fr: frames.snapshot())
         for (const auto &[k, series]: fr)
             if (k == key)
                 for (auto &s: samples(series))
@@ -239,8 +240,8 @@ protected:
         nullptr
     );
     synnax::task::Task task{.key = x::uuid::create(), .name = "can"};
-    std::shared_ptr<std::vector<x::telem::Frame>>
-        writes = std::make_shared<std::vector<x::telem::Frame>>();
+    std::shared_ptr<x::sync::List<x::telem::Frame>>
+        writes = std::make_shared<x::sync::List<x::telem::Frame>>();
 
     void SetUp() override {
         this->props.backend = loopback::BACKEND;
@@ -613,7 +614,7 @@ TEST_F(CANTask, MovesAdapterTimesOntoTheHostClock) {
     for (int i = 0; i < 3; i++)
         ASSERT_NIL(peer->send(frame));
     x::breaker::Breaker breaker;
-    std::vector<x::telem::Frame> frames;
+    x::sync::List<x::telem::Frame> frames;
     ASSERT_EVENTUALLY_TRUE([&] {
         x::telem::Frame fr;
         EXPECT_FALSE(source.read(breaker, fr).error);
@@ -655,7 +656,7 @@ TEST_F(CANTask, SlewsAdapterTimesTowardTheHostClock) {
     for (std::size_t i = 0; i < count; i++)
         ASSERT_NIL(peer->send(frame));
     x::breaker::Breaker breaker;
-    std::vector<x::telem::Frame> frames;
+    x::sync::List<x::telem::Frame> frames;
     ASSERT_EVENTUALLY_TRUE([&] {
         x::telem::Frame fr;
         EXPECT_FALSE(source.read(breaker, fr).error);

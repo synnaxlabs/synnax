@@ -26,8 +26,8 @@
     }
 
     /* Rows speak the list selection tier. The extra .pluto-btn outranks the
-       control-tier default in Button.css; color resets to inherited because rows
-       carry multi-color content. */
+       control-tier default in Button.css; color stays the plain text color because
+       rows carry multi-color content. */
     &.pluto-btn.pluto--selected {
         --pluto-bg: var(--pluto-selected-list-bg);
         --pluto-hover-bg: var(--pluto-selected-list-hover-bg);
@@ -35,7 +35,7 @@
         --pluto-border-color: var(--pluto-selected-list-border-color);
         --pluto-hover-border-color: var(--pluto-selected-list-border-color);
         --pluto-active-border-color: var(--pluto-selected-list-border-color);
-        color: unset;
+        color: var(--pluto-text-color);
     }
 
     /* Contiguous selected rows merge into one box: only the run's first row keeps

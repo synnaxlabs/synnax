@@ -7,14 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Core } from "@/platform/core";
-import { getCoreRow, renderCoreUI } from "@/platform/core/testutil";
+import { renderCoreUI } from "@/platform/core/testutil";
 import { Session } from "@/session";
 import { createCore, createCoreState } from "@/session/core/testutil";
-import { getBySelector, getIconButton, stubClipboardWriteText } from "@/testutil";
+import { getBySelector } from "@/testutil";
 
 const ALPHA = createCore("Alpha", { clusterKey: "cluster-alpha" });
 const BRAVO = createCore("Bravo", { port: 9099, clusterKey: undefined });
@@ -92,17 +93,15 @@ describe("Core List", () => {
     expect(writeText).not.toHaveBeenCalled();
   });
 
-  // The row is itself a select target, so the copy button must not switch Cores.
-  it("should copy a Core's address without selecting its row", async () => {
+  it("should copy a Core's address from the context menu", async () => {
     const writeText = stubClipboardWriteText();
-    const onChange = vi.fn();
-    const { container } = await renderCoreUI(
-      <Core.List value={ALPHA.key} onChange={onChange} />,
+    await renderCoreUI(
+      <Core.List value={ALPHA.key} onChange={vi.fn()} />,
       createCoreState([ALPHA, BRAVO], ALPHA.key),
     );
-    fireEvent.click(getIconButton(getCoreRow(container, "Bravo"), "copy"));
+    fireEvent.contextMenu(await screen.findByText("Bravo"));
+    fireEvent.click(await screen.findByText("Copy address"));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith("localhost:9099"));
-    expect(onChange).not.toHaveBeenCalled();
   });
 
   it("should remove a Core and reselect a sibling from the context menu", async () => {

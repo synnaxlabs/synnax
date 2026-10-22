@@ -15,6 +15,7 @@ import { type FC, memo, type ReactElement, useMemo } from "react";
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
+import { type Primitive } from "@/schematic/node/common/primitive";
 import { Telem } from "@/schematic/node/common/telem";
 import { type ButtonProps } from "@/schematic/node/common/toggle/Button";
 import { type NodeProps } from "@/schematic/node/spec";
@@ -33,7 +34,7 @@ export const createToggle = <C extends ToggleConfig>(
   // BaseSymbol's prop type is derived from C so callers are checked, but the node only
   // renders it with the shared button props; the config's symbol-specific fields reach
   // it at runtime via the rest spread.
-  const Sym = BaseSymbol as FC<ButtonProps>;
+  const Sym = BaseSymbol as FC<ButtonProps & Primitive.SVGBasedProps>;
   const Inner = ({
     nodeKey,
     onConfigChange,
@@ -49,7 +50,7 @@ export const createToggle = <C extends ToggleConfig>(
       onClickDelay = 0,
       stalenessTimeout,
       stalenessColor,
-      color: symbolColor,
+      strokeColor: symbolColor,
       ...rest
     } = config;
     const theme = Theming.use();
@@ -82,7 +83,9 @@ export const createToggle = <C extends ToggleConfig>(
           onClick={toggle}
           onClickDelay={TimeSpan.milliseconds(onClickDelay)}
           orientation={orientation}
-          color={stale ? Staleness.resolveColor(stalenessColor, theme) : symbolColor}
+          strokeColor={
+            stale ? Staleness.resolveColor(stalenessColor, theme) : symbolColor
+          }
           {...rest}
         />
       </Grid.Grid>
@@ -93,7 +96,7 @@ export const createToggle = <C extends ToggleConfig>(
   return M;
 };
 
-export type DummyToggleConfig = Omit<schematic.DummyToggleSymbolConfig, "color">;
+export type DummyToggleConfig = Omit<schematic.DummyToggleSymbolConfig, "strokeColor">;
 
 export const createDummyToggle = <C extends DummyToggleConfig>(
   Primitive: FC<Omit<C, "label"> & ButtonProps>,

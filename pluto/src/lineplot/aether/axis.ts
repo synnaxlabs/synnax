@@ -44,8 +44,6 @@ export const baseAxisStateZ = axis.axisStateZ
   })
   .partial({ color: true, font: true, gridColor: true });
 
-export type BaseAxisState = z.infer<typeof baseAxisStateZ>;
-
 const AXIS_SIZE_UPDATE_UPPER_THRESHOLD = 2; // px;
 const AXIS_SIZE_UPDATE_LOWER_THRESHOLD = 7; // px;
 
@@ -58,7 +56,7 @@ export const withinSizeThreshold = (prev: number, next: number): boolean =>
     next,
   );
 
-export const EMPTY_LINEAR_BOUNDS = bounds.DECIMAL;
+const EMPTY_LINEAR_BOUNDS = bounds.DECIMAL;
 
 // Computed per call so an empty time axis tracks the present instead of app start.
 export const emptyBounds = (type: TickType): bounds.Bounds => {
@@ -114,9 +112,10 @@ export class BaseAxis<
     const { location, autoBoundUpdateInterval } = this.state;
     i.render = render.Context.use(ctx);
     const theme = theming.use(ctx);
-    const dir = direction.construct(location);
     this.state.autoBoundPadding ??=
-      dir === "x" ? DEFAULT_Y_BOUND_PADDING : DEFAULT_X_BOUND_PADDING;
+      direction.swap(location) === "x"
+        ? DEFAULT_X_BOUND_PADDING
+        : DEFAULT_Y_BOUND_PADDING;
     i.base = axis.newCanvas(location, i.render, {
       color: theme.colors.gray.l10,
       font: baseTheme.fontString(theme, { level: "small", code: true }),

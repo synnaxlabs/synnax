@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "zod/compile";
-
 export { access } from "@/access";
 export type { Policy } from "@/access/policy/types.gen";
 export type { Role } from "@/access/role/types.gen";
@@ -33,7 +31,13 @@ export {
   AuthError,
   ContiguityError,
   DisconnectedError,
+  ExpiredLicenseError,
+  InvalidLicenseError,
   isConnectionError,
+  LicenseError,
+  LicenseFingerprintError,
+  LicenseLimitError,
+  MissingLicenseError,
   MultipleFoundError,
   NotFoundError,
   PathError,
@@ -51,6 +55,7 @@ export { imex } from "@/imex";
 export { label } from "@/label";
 export { labjack } from "@/labjack";
 export { library } from "@/library";
+export { license } from "@/license";
 export { lineplot } from "@/lineplot";
 export { log } from "@/log";
 export { modbus } from "@/modbus";

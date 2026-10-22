@@ -12,9 +12,9 @@
 /*
  * The switch draws itself from the input theme, so a colored switch paints its own
  * track and knob. On fills the track. Off tints the track and paints the knob, which
- * keeps the two states apart.
+ * keeps the two states apart. A disabled switch keeps the input theme's look.
  */
-.pluto-switch-symbol--colored {
+.pluto-switch-symbol--colored .pluto-input__switch:not(.pluto--disabled) {
     .pluto-input__switch-indicator {
         background: oklch(from var(--pluto-symbol-display) l c h / 25%);
     }

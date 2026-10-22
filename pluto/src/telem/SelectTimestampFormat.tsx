@@ -39,7 +39,7 @@ export const SelectTimestampFormat = ({
     <Select.Item itemKey="time">Time</Select.Item>
     <Select.Item itemKey="preciseTime">Precise time</Select.Item>
     <Select.Item itemKey="date">Date</Select.Item>
-    <Select.Item itemKey="dateTime">Date + Time</Select.Item>
+    <Select.Item itemKey="dateTime">Date and time</Select.Item>
     <Select.Item itemKey="preciseDate">Precise date</Select.Item>
   </Select.Simple>
 );

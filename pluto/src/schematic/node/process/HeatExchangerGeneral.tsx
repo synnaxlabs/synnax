@@ -20,7 +20,7 @@ export const HeatExchangerGeneral = ({
   id,
   className,
   orientation = "right",
-  color,
+  strokeColor,
   scale = 1,
   ...rest
 }: Props): ReactElement => (
@@ -37,7 +37,7 @@ export const HeatExchangerGeneral = ({
     />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >

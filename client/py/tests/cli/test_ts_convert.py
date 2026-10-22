@@ -7,13 +7,15 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from collections.abc import Iterator
+
 import pytest
 
 import synnax as sy
 from synnax.cli.console.mock import MockConsole
 from synnax.cli.flow import Context
 from synnax.cli.ts_convert import pure_tsconvert
-from synnax.io import IO_FACTORY
+from synnax.io import FACTORY
 
 from .data import DATA_DIR
 
@@ -22,7 +24,7 @@ OUT_FILE = DATA_DIR / "tsconvert_out.csv"
 
 
 @pytest.fixture
-def remove_testdata():
+def remove_testdata() -> Iterator[None]:
     yield
     if OUT_FILE.exists():
         OUT_FILE.unlink()
@@ -32,7 +34,7 @@ def remove_testdata():
 @pytest.mark.tsconvert
 class TestTSConvert:
     @pytest.mark.usefixtures("remove_testdata")
-    def test_tsconvert(self):
+    def test_tsconvert(self) -> None:
         pure_tsconvert(
             ctx=Context(console=MockConsole(), prompt_enabled=False),
             input_path=DATA_DIR / "tsconvert.csv",
@@ -42,14 +44,14 @@ class TestTSConvert:
             input_precision="s",
             output_precision="ns",
         )
-        f = IO_FACTORY.new_reader(DATA_DIR / "tsconvert_out.csv")
+        f = FACTORY.new_reader(DATA_DIR / "tsconvert_out.csv")
         f.set_chunk_size(1)
         f.seek_first()
         df = f.read()
         assert df["Time"].to_numpy()[0] == int(123e9)
 
     @pytest.mark.usefixtures("remove_testdata")
-    def test_tsconvert_with_string_data_channel(self):
+    def test_tsconvert_with_string_data_channel(self) -> None:
         pure_tsconvert(
             ctx=Context(console=MockConsole(), prompt_enabled=False),
             input_path=DATA_DIR / "tsconvert_string_first_col.csv",
@@ -59,14 +61,14 @@ class TestTSConvert:
             input_precision="s",
             output_precision="ns",
         )
-        f = IO_FACTORY.new_reader(DATA_DIR / "tsconvert_out.csv")
+        f = FACTORY.new_reader(DATA_DIR / "tsconvert_out.csv")
         f.set_chunk_size(1)
         f.seek_first()
         df = f.read()
         assert df["Time"].to_numpy()[0] == int(1e9)
 
     @pytest.mark.usefixtures("remove_testdata")
-    def test_tsconvert_iso(self):
+    def test_tsconvert_iso(self) -> None:
         pure_tsconvert(
             ctx=Context(console=MockConsole(), prompt_enabled=False),
             input_path=DATA_DIR / "tsconvert_iso.csv",
@@ -76,7 +78,7 @@ class TestTSConvert:
             input_precision="iso",
             output_precision="ns",
         )
-        f = IO_FACTORY.new_reader(DATA_DIR / "tsconvert_out.csv")
+        f = FACTORY.new_reader(DATA_DIR / "tsconvert_out.csv")
         f.set_chunk_size(1)
         f.seek_first()
         df = f.read()

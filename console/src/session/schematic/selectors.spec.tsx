@@ -43,6 +43,7 @@ const customState = Schematic.stateZ.parse({
   },
   editable: true,
   fitViewOnResize: true,
+  tooltipsDisabled: true,
   viewport: { position: { x: 7, y: 8 }, zoom: 2, mode: "pan" },
 });
 
@@ -232,6 +233,13 @@ describe("schematic selector hooks", () => {
     expect(result.current).toBe(true);
   });
 
+  it("should return the tooltips disabled flag", () => {
+    const { result } = renderHook(() => Schematic.useSelectTooltipsDisabled(), {
+      wrapper: wrapperFor(store(), KEY),
+    });
+    expect(result.current).toBe(true);
+  });
+
   it("should return the viewport", () => {
     const { result } = renderHook(() => Schematic.useSelectViewport(), {
       wrapper: wrapperFor(store(), KEY),
@@ -381,7 +389,7 @@ let projectKey: string;
 
 describe("useSelectEditable", () => {
   beforeAll(async () => {
-    projectKey = (await client.projects.create({ name: id.create(), layout: {} })).key;
+    projectKey = (await client.projects.create({ name: id.create() })).key;
   });
 
   it("permits editing when the user can update and edit mode is on", async () => {

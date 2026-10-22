@@ -30,7 +30,7 @@ export const TextBox = ({
   className,
   orientation = "left",
   width,
-  color: colorVal,
+  textColor,
   level,
   autoFitDisabled,
   align = "center",
@@ -42,10 +42,10 @@ export const TextBox = ({
   const style = useMemo<CSSProperties>(
     () => ({
       textAlign: align as CSSProperties["textAlign"],
-      [CSS.variable("symbol-color")]: color.rgbaString(colorVal),
+      [CSS.variable("symbol-color")]: color.rgbaString(textColor),
       ...(isVertical ? { height: size } : { width: size }),
     }),
-    [align, colorVal, isVertical, size],
+    [align, textColor, isVertical, size],
   );
 
   return (

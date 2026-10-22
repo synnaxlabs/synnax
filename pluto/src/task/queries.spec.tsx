@@ -1582,6 +1582,7 @@ describe("queries", () => {
               <Display />
             </Errors.SuspenseBoundary>
           </Wrapper>,
+          { onCaughtError: () => {} },
         );
       });
       await waitFor(() =>

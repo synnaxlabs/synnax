@@ -4,7 +4,7 @@
   "enforcement": "active",
   "conditions": {
     "ref_name": {
-      "include": ["~DEFAULT_BRANCH", "refs/heads/release/**"],
+      "include": ["~DEFAULT_BRANCH"],
       "exclude": []
     }
   },
@@ -21,13 +21,17 @@
         "dismiss_stale_reviews_on_push": false,
         "require_code_owner_review": false,
         "require_last_push_approval": false,
+        "require_extra_approval_for_unattributed_changes": true,
         "required_review_thread_resolution": false,
+        "required_reviewers": [],
+        "dismissal_restriction": { "enabled": false, "allowed_actors": [] },
         "allowed_merge_methods": ["squash"]
       }
     },
     {
       "type": "required_status_checks",
       "parameters": {
+        "do_not_enforce_on_create": false,
         "strict_required_status_checks_policy": false,
         "required_status_checks": [{ "context": "Review gate" }, { "context": "OK" }]
       }

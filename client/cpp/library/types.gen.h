@@ -149,6 +149,13 @@ struct CanIdentifier {
 
     static CanIdentifier parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::library::pb::IdentifierCanPayload;
+    [[nodiscard]] std::
+        pair<::service::library::pb::IdentifierCanPayload, x::errors::Error>
+        to_proto() const;
+    static std::pair<CanIdentifier, x::errors::Error>
+    from_proto(const ::service::library::pb::IdentifierCanPayload &pb);
 };
 
 /// @brief FieldIdentifier matches a binary frame by the raw value of one of its fields.
@@ -161,6 +168,13 @@ struct FieldIdentifier {
 
     static FieldIdentifier parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::library::pb::IdentifierFieldPayload;
+    [[nodiscard]] std::
+        pair<::service::library::pb::IdentifierFieldPayload, x::errors::Error>
+        to_proto() const;
+    static std::pair<FieldIdentifier, x::errors::Error>
+    from_proto(const ::service::library::pb::IdentifierFieldPayload &pb);
 };
 
 /// @brief Identifier selects which frames on a bus belong to a binary message.
@@ -207,6 +221,13 @@ struct DelimitedTextField : public BaseField {
 
     static DelimitedTextField parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::library::pb::TextFieldDelimitedPayload;
+    [[nodiscard]] std::
+        pair<::service::library::pb::TextFieldDelimitedPayload, x::errors::Error>
+        to_proto() const;
+    static std::pair<DelimitedTextField, x::errors::Error>
+    from_proto(const ::service::library::pb::TextFieldDelimitedPayload &pb);
 };
 
 /// @brief TaggedTextField is a field read from the text that follows a tag.
@@ -217,6 +238,13 @@ struct TaggedTextField : public BaseField {
 
     static TaggedTextField parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::library::pb::TextFieldTaggedPayload;
+    [[nodiscard]] std::
+        pair<::service::library::pb::TextFieldTaggedPayload, x::errors::Error>
+        to_proto() const;
+    static std::pair<TaggedTextField, x::errors::Error>
+    from_proto(const ::service::library::pb::TextFieldTaggedPayload &pb);
 };
 
 /// @brief TextField is a field read from a text line.
@@ -244,6 +272,13 @@ struct BinaryPayload {
 
     static BinaryPayload parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::library::pb::PayloadBinaryPayload;
+    [[nodiscard]] std::
+        pair<::service::library::pb::PayloadBinaryPayload, x::errors::Error>
+        to_proto() const;
+    static std::pair<BinaryPayload, x::errors::Error>
+    from_proto(const ::service::library::pb::PayloadBinaryPayload &pb);
 };
 
 /// @brief TextPayload is a payload of one text line.
@@ -260,6 +295,13 @@ struct TextPayload {
 
     static TextPayload parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::library::pb::PayloadTextPayload;
+    [[nodiscard]] std::
+        pair<::service::library::pb::PayloadTextPayload, x::errors::Error>
+        to_proto() const;
+    static std::pair<TextPayload, x::errors::Error>
+    from_proto(const ::service::library::pb::PayloadTextPayload &pb);
 };
 
 /// @brief Payload is the layout of a message's payload.
@@ -280,6 +322,12 @@ struct EnumEntry : public BaseEntry {
 
     static EnumEntry parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::library::pb::EntryEnumPayload;
+    [[nodiscard]] std::pair<::service::library::pb::EntryEnumPayload, x::errors::Error>
+    to_proto() const;
+    static std::pair<EnumEntry, x::errors::Error>
+    from_proto(const ::service::library::pb::EntryEnumPayload &pb);
 };
 
 /// @brief MessageEntry is a frame layout on a bus or byte stream.
@@ -297,6 +345,13 @@ struct MessageEntry : public BaseEntry {
 
     static MessageEntry parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::library::pb::EntryMessagePayload;
+    [[nodiscard]] std::
+        pair<::service::library::pb::EntryMessagePayload, x::errors::Error>
+        to_proto() const;
+    static std::pair<MessageEntry, x::errors::Error>
+    from_proto(const ::service::library::pb::EntryMessagePayload &pb);
 };
 
 /// @brief Entry is one typed item in a library.

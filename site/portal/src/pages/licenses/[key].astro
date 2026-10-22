@@ -1,0 +1,61 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import Portal from "@/layouts/Portal.astro";
+import { licenseFor } from "@/access";
+import { failure, loadScoped } from "@/page";
+import { Page } from "@/ui/Page";
+import { Licenses } from "@/ui/licenses";
+import { listForLicense } from "@/server/event";
+
+const loaded = await loadScoped(Astro);
+if (loaded instanceof Response) return loaded;
+const { portal, session, organizations, scope } = loaded;
+
+let error: string | undefined;
+let view: Awaited<ReturnType<typeof licenseFor>> | undefined;
+let events: Awaited<ReturnType<typeof listForLicense>> = [];
+let actors: Record<string, string> = {};
+try {
+    view = await licenseFor(portal, session, Astro.params.key ?? "");
+    events = await listForLicense(portal.store, view.license.key);
+    const machines = new Set(view.activations.map((a) => a.key));
+    actors = await portal.directory.names(
+        [...new Set(events.map((e) => e.actor))].filter((a) => !machines.has(a)),
+    );
+} catch (err) {
+    const f = failure(err);
+    Astro.response.status = f.status;
+    error = f.message;
+}
+---
+
+<Portal
+    title={view?.license.label ?? "License"}
+    session={session}
+    organizations={organizations}
+    scope={view?.organization ?? scope}
+    tab={view == null ? null : "licenses"}
+>
+    {view == null ? (
+        <Page title="License" error={error} />
+    ) : (
+        <Licenses.License
+            client:load
+            license={view.license}
+            organization={view.organization}
+            activations={view.activations}
+            events={events}
+            actors={actors}
+            staff={session.staff}
+            now={portal.now()}
+        />
+    )}
+</Portal>

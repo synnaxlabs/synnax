@@ -15,6 +15,7 @@ import { CONSOLE_NAV } from "@/pages/reference/console/_nav";
 import { CONTROL_NAV } from "@/pages/reference/control/_nav";
 import { CORE_NAV } from "@/pages/reference/core/_nav";
 import { DRIVER_NAV } from "@/pages/reference/driver/_nav";
+import { normalizeRoute } from "@/util/route";
 
 const visible = (nodes: PageNavNode[]): PageNavNode[] =>
   nodes
@@ -37,3 +38,11 @@ export const REFERENCE_PAGES: PageNavNode[] = visible([
   CLIENT_NAV,
   DRIVER_NAV,
 ]);
+
+const contains = (node: PageNavNode, route: string): boolean =>
+  (node.href != null && normalizeRoute(node.href) === route) ||
+  (node.children?.some((child) => contains(child, route)) ?? false);
+
+/** Returns the name of the nav section that holds a route, if one does. */
+export const sectionOf = (route: string): string | undefined =>
+  REFERENCE_PAGES.find((node) => node.children != null && contains(node, route))?.name;

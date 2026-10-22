@@ -13,7 +13,7 @@ import { act, fireEvent, render } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
-import { ValueForm } from "@/table/cells/Forms";
+import { TextForm, ValueForm } from "@/table/cells/Forms";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const SynnaxWrapper = createSynnaxWrapper({ client: null });
@@ -200,11 +200,39 @@ describe("ValueForm", () => {
       expect(floor()).toBe("0 psi");
     });
 
-    it("should show the background below the lowest band once one is set", () => {
+    it("should show the fill below the lowest band once one is set", () => {
       const { getByText } = renderTab("Redline");
       fireEvent.click(getByText("Add band"));
-      act(() => methods.set("backgroundColor", [0, 255, 0, 1]));
-      expect(getByText("Background")).toBeDefined();
+      act(() => methods.set("fillColor", [0, 255, 0, 1]));
+      expect(getByText("Fill")).toBeDefined();
     });
+  });
+});
+
+describe("TextForm", () => {
+  const TextWrapper = ({ children }: PropsWithChildren): ReactElement => {
+    const textMethods = Form.use<typeof table.textCellConfigZ>({
+      values: table.textCellConfigZ.parse({ variant: "text", fillColor: "#00ff00" }),
+      schema: table.textCellConfigZ,
+    });
+    return (
+      <SynnaxWrapper>
+        <Form.Form<typeof table.textCellConfigZ> {...textMethods}>{children}</Form.Form>
+      </SynnaxWrapper>
+    );
+  };
+
+  it("should edit the text color as auto and show the stored fill", () => {
+    const { getAllByText, container } = render(
+      <TextWrapper>
+        <TextForm />
+      </TextWrapper>,
+    );
+    expect(getAllByText("Text")).toHaveLength(3);
+    expect(getAllByText("Fill")).toHaveLength(1);
+    const swatches = container.querySelectorAll<HTMLElement>(".pluto-color-swatch");
+    expect(swatches).toHaveLength(2);
+    expect(swatches[0].className).toContain("pluto--auto");
+    expect(swatches[1].className).not.toContain("pluto--auto");
   });
 });

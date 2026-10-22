@@ -9,6 +9,7 @@
 
 import { act, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, useState } from "react";
+import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { Store } from "@/store";
@@ -94,6 +95,22 @@ describe("Store.createPresence", () => {
       expect(result.current).toEqual("b");
       act(() => setValue(undefined));
       expect(result.current).toBeUndefined();
+    });
+  });
+  describe("server rendering", () => {
+    const Probe = (): ReactElement => (
+      <>
+        {String(Presence.useIsPresent("a"))},{String(Presence.usePresent())}
+      </>
+    );
+
+    it("should render the key the context holds", () => {
+      const html = renderToString(
+        <Presence.Context value="a">
+          <Probe />
+        </Presence.Context>,
+      );
+      expect(html).toBe("true<!-- -->,<!-- -->a");
     });
   });
 });

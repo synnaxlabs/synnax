@@ -7,5 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/app/vis/Selector";
+export * from "@/app/vis/useSelectorVisible";
 export * from "@/platform/vis/Canvas";

@@ -20,6 +20,7 @@ import { Framer } from "@/feature/framer";
 import { Import } from "@/feature/import";
 import { Label } from "@/feature/label";
 import { Library } from "@/feature/library";
+import { License } from "@/feature/license";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
 import { Panel } from "@/feature/panel";
@@ -45,6 +46,7 @@ const COMMANDS: Command.Command[] = [
   ...Import.COMMANDS,
   ...(FLAGS.library ? Library.COMMANDS : []),
   ...Label.COMMANDS,
+  ...License.COMMANDS,
   ...LinePlot.COMMANDS,
   ...Log.COMMANDS,
   ...Panel.COMMANDS,

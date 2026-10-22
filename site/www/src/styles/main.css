@@ -16,5 +16,5 @@
 @import url("./reset.css") layer(reset);
 @import url("@synnaxlabs/lyra/dist/base.css") layer(pluto);
 @import url("@synnaxlabs/lyra/dist/theme-dark.css") layer(pluto);
-@import url("@synnaxlabs/media/dist/media.css") layer(pluto);
+@import url("@synnaxlabs/site-common/base.css") layer(base);
 @import url("./base.css") layer(base);

@@ -100,13 +100,20 @@ func (f Frame) ShallowCopy() Frame {
 	return Frame{Frame: f.Frame.ShallowCopy()}
 }
 
-// Merge combines multiple frames into a single frame.
+// Merge combines multiple frames into a single frame in one allocation.
 func Merge(frames []Frame) Frame {
-	if len(frames) == 0 {
+	switch len(frames) {
+	case 0:
 		return Frame{}
+	case 1:
+		return frames[0]
 	}
-	f := frames[0]
-	for _, frame := range frames[1:] {
+	count := 0
+	for _, frame := range frames {
+		count += frame.Count()
+	}
+	f := Alloc(count)
+	for _, frame := range frames {
 		f = f.Extend(frame)
 	}
 	return f

@@ -8,11 +8,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { List as ListComponent } from "@/components/releases/List";
-const { headings } = Astro.props;
+import type { MarkdownHeading } from "astro";
+import { unescape } from "html-escaper";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Text } from "@synnaxlabs/lyra/text";
+
+interface Props {
+    headings?: MarkdownHeading[];
+}
+
+const { headings = [] } = Astro.props;
+const releases = headings.filter(({ depth }) => depth === 6);
 ---
 
-<ListComponent client:idle headings={headings} />
+{releases.length > 0 && (
+    <Flex.Box el="nav" className="release-list" gap={2}>
+        <Text.Text level="h5">History</Text.Text>
+        <div class="release-menu" data-outline="article h6">
+            <div class="release-indicator" data-outline-indicator></div>
+            {releases.map(({ slug, text }) => (
+                <a href={`#${slug}`} data-item-key={slug} class="release-item">
+                    {unescape(text)}
+                </a>
+            ))}
+        </div>
+    </Flex.Box>
+)}
 
 <style is:global>
     .release-list {

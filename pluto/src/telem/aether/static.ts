@@ -64,7 +64,10 @@ export const fixedSeriesPropsZ = z.object({
 
 export type FixedArrayProps = z.input<typeof fixedSeriesPropsZ>;
 
-class FixedSeries extends AbstractSource<typeof fixedSeriesPropsZ> {
+class FixedSeries
+  extends AbstractSource<typeof fixedSeriesPropsZ>
+  implements SeriesSource
+{
   data: Series[];
   schema = fixedSeriesPropsZ;
 
@@ -83,9 +86,9 @@ class FixedSeries extends AbstractSource<typeof fixedSeriesPropsZ> {
     );
   }
 
-  value(): [bounds.Bounds, Series[]] {
+  value(): [bounds.Bounds, MultiSeries] {
     const b = bounds.max(this.data.map((x) => x.bounds));
-    return [b, this.data];
+    return [b, new MultiSeries(this.data)];
   }
 }
 

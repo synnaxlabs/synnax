@@ -543,7 +543,7 @@ class PagesClient(ResourceClient):
         download.save_as(save_path)
         self.layout.close_left_toolbar()
 
-        with open(save_path, "r", encoding="utf-8") as f:
+        with open(save_path, encoding="utf-8") as f:
             result: dict[str, Any] = json.load(f)
             return result
 
@@ -563,7 +563,7 @@ class PagesClient(ResourceClient):
         """
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_path = os.path.join(tmp_dir, f"{name}.json")
-            with open(json_path, "r", encoding="utf-8") as f:
+            with open(json_path, encoding="utf-8") as f:
                 text = resolve_channel_placeholders(self.client, f.read())
             with open(tmp_path, "w", encoding="utf-8") as f:
                 f.write(text)

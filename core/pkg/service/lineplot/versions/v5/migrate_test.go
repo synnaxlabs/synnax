@@ -13,6 +13,7 @@ import (
 	"embed"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -382,5 +383,19 @@ var _ = Describe("MigrateLinePlot", func() {
 			Expect(out.Lines).To(BeEmpty())
 			Expect(out.Rules).To(BeEmpty())
 		})
+
+		DescribeTable(
+			"Should round a fractional downsample factor typed in an older Console",
+			func(ctx SpecContext, factor float64, expected uint32) {
+				out := migrateV4(ctx, fmt.Sprintf(`"lines": [
+				{"key": "l1", "color": "#ff0000", "strokeWidth": 1, "downsample": %g}
+			]`, factor))
+				Expect(out.Lines[0].Downsample).To(Equal(expected))
+			},
+			Entry("rounds half up", 2.5, uint32(3)),
+			Entry("rounds down", 1.4, uint32(1)),
+			Entry("keeps an integer factor", 7.0, uint32(7)),
+			Entry("clamps a sub-one factor to 1", 0.4, uint32(1)),
+		)
 	})
 })

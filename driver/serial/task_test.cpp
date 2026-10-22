@@ -14,6 +14,7 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/serial/json.gen.h"
+#include "x/cpp/sync/list.h"
 #include "x/cpp/test/test.h"
 
 #include "driver/bus/read.h"
@@ -38,8 +39,8 @@ protected:
         nullptr
     );
     synnax::task::Task task{.key = x::uuid::create(), .name = "serial"};
-    std::shared_ptr<std::vector<x::telem::Frame>>
-        writes = std::make_shared<std::vector<x::telem::Frame>>();
+    std::shared_ptr<x::sync::List<x::telem::Frame>>
+        writes = std::make_shared<x::sync::List<x::telem::Frame>>();
 
     std::unique_ptr<common::ReadTask> read_task(bus::ReadConfig cfg) {
         return std::make_unique<common::ReadTask>(

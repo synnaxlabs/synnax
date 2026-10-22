@@ -9,7 +9,7 @@ next: "Introduction to Arc"
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Image, Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
-import { Table } from "@/components";
+import { Table } from "@/components/table";
 import Diagram from "@/components/diagram/Diagram.astro";
 export const components = mdxOverrides;
 
@@ -70,12 +70,7 @@ To illustrate how control sequences fit into a larger system, here's an example 
 deployment that communicates with National Instruments devices:
 
 <Diagram>
-  <Image
-    client:only="react"
-    id="control/sequence-structure-v2"
-    themed={false}
-    extension="svg"
-  />
+  <Image id="control/sequence-structure-v2" themed={false} extension="svg" />
 </Diagram>
 
 {/* prettier-ignore */}

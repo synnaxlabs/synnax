@@ -10,7 +10,9 @@
 #include <algorithm>
 #include <cstdint>
 #include <iterator>
+#include <ostream>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -2775,6 +2777,583 @@ TEST(ReactiveReadChainCadenceTest, FiresOncePerSampleWhenTheChainLivesInAStage) 
     h.push("src_ch", x::telem::Series(3.5f));
     out = h.flush();
     EXPECT_EQ(count_of(out, h.key("out_str"), "tick"), 1);
+}
+
+// A jump to a top-level scope acts only when it is the first true jump in source order.
+// It stops the whole top-level scope that holds it, then starts its target.
+namespace jumps {
+/// @brief what one flush holds: the log in write order, and the alive_* channels that a
+/// probe reached.
+struct Phase {
+    std::vector<std::string> log;
+    std::vector<std::string> alive;
+
+    bool operator==(const Phase &) const = default;
+
+    friend std::ostream &operator<<(std::ostream &os, const Phase &p) {
+        os << "{log: [";
+        for (const auto &l: p.log)
+            os << l << " ";
+        os << "], alive: [";
+        for (const auto &a: p.alive)
+            os << a << " ";
+        return os << "]}";
+    }
+};
+
+const std::vector<std::string> INPUTS{"start", "a", "b", "probe"};
+const std::vector<std::string> ALIVE{"alive_main", "alive_inner", "alive_flight"};
+
+/// @brief drives one compiled source. write ingests 1 on each named input in one
+/// cycle and settles, write_once runs a single cycle instead, and phase flushes what
+/// the program wrote since the last flush.
+class Program {
+public:
+    explicit Program(const std::string &source): h(source, specs()) {
+        this->h.settle();
+    }
+
+    template<typename... Names>
+    void write(const Names &...names) {
+        this->ingest(names...);
+        this->h.settle();
+    }
+
+    template<typename... Names>
+    void write_once(const Names &...names) {
+        this->ingest(names...);
+        this->h.advance(x::telem::MILLISECOND);
+    }
+
+    Phase phase() {
+        const auto out = this->h.flush();
+        Phase p{.log = collect<std::string>(out, this->h.key("log"))};
+        for (const auto &name: ALIVE)
+            if (!collect<std::uint8_t>(out, this->h.key(name)).empty())
+                p.alive.push_back(name);
+        return p;
+    }
+
+private:
+    static std::vector<testutil::ChannelSpec> specs() {
+        std::vector<testutil::ChannelSpec> specs{{"log", x::telem::STRING_T}};
+        for (const auto &name: INPUTS)
+            specs.push_back({name, x::telem::UINT8_T});
+        for (const auto &name: ALIVE)
+            specs.push_back({name, x::telem::UINT8_T});
+        return specs;
+    }
+
+    template<typename... Names>
+    void ingest(const Names &...names) {
+        (this->h.ingest(std::string(names), x::telem::Series(std::uint8_t(1))), ...);
+    }
+
+    Sequence h;
+};
+
+/// @brief one entry of a table of programs.
+struct Case {
+    std::string name;
+    std::string source;
+    std::string expected;
+};
+
+std::string case_name(const testing::TestParamInfo<Case> &info) {
+    return info.param.name;
+}
+
+const std::string TWO_JUMPS_TO_ABORT = R"(
+    sequence main {
+        stage armed {
+            "main" -> %log%
+            %a% == 1 => abort
+            %b% == 1 => abort
+        }
+    }
+    sequence abort {
+        stage safed { "abort" -> %log% }
+    }
+    %start% == 1 => main)";
+
+const std::string FLIGHT = R"(
+    sequence flight {
+        stage f {
+            "flight" -> %log%
+            %probe% -> %alive_flight%
+        }
+    })";
+}
+
+class JumpTargetTest : public testing::TestWithParam<std::string> {};
+
+INSTANTIATE_TEST_SUITE_P(Jumps, JumpTargetTest, testing::Values("a", "b"));
+
+TEST_P(JumpTargetTest, StartsTheTargetFromEachJumpToIt) {
+    using namespace jumps;
+    Program p(TWO_JUMPS_TO_ABORT);
+    p.write("start");
+    p.write(GetParam());
+    EXPECT_EQ(p.phase(), (Phase{.log = {"main", "abort"}}));
+}
+
+TEST(JumpTest, StartsTheTargetFromAJumpAndFromAnEntryPoint) {
+    using namespace jumps;
+    Program p(R"(
+    sequence main {
+        stage armed {
+            "main" -> %log%
+            %b% == 1 => abort
+        }
+    }
+    sequence abort {
+        stage safed { "abort" -> %log% }
+    }
+    %start% == 1 => main
+    %a% == 1 => abort)");
+    p.write("start");
+    p.write("b");
+    EXPECT_EQ(p.phase(), (Phase{.log = {"main", "abort"}}));
+}
+
+class EntryPointTest : public testing::TestWithParam<std::string> {};
+
+INSTANTIATE_TEST_SUITE_P(Jumps, EntryPointTest, testing::Values("a", "b"));
+
+TEST_P(EntryPointTest, StartsAScopeFromEachEntryPointToIt) {
+    using namespace jumps;
+    Program p(R"(
+    sequence main {
+        stage armed { "main" -> %log% }
+    }
+    %a% == 1 => main
+    %b% == 1 => main)");
+    p.write(GetParam());
+    EXPECT_EQ(p.phase(), (Phase{.log = {"main"}}));
+}
+
+class FirstJumpTest : public testing::TestWithParam<jumps::Case> {};
+
+INSTANTIATE_TEST_SUITE_P(
+    Jumps,
+    FirstJumpTest,
+    testing::Values(
+        jumps::Case{
+            "two_jumps_in_one_stage",
+            R"(
+    sequence main {
+        stage armed {
+            %a% == 1 => abort
+            %b% == 1 => flight
+        }
+    }
+    sequence abort { stage s { "abort" -> %log% } }
+    sequence flight { stage f { "flight" -> %log% } }
+    %start% == 1 => main)",
+            "abort"
+        },
+        jumps::Case{
+            "two_jumps_in_a_top_level_stage",
+            R"(
+    stage armed {
+        %a% == 1 => abort
+        %b% == 1 => flight
+    }
+    sequence abort { stage s { "abort" -> %log% } }
+    sequence flight { stage f { "flight" -> %log% } }
+    %start% == 1 => armed)",
+            "abort"
+        },
+        jumps::Case{
+            "a_next_before_a_jump",
+            R"(
+    sequence main {
+        stage armed {
+            %b% == 1 => next
+            %a% == 1 => abort
+        }
+        stage hold { "hold" -> %log% }
+    }
+    sequence abort { stage s { "abort" -> %log% } }
+    %start% == 1 => main)",
+            "hold"
+        },
+        jumps::Case{
+            "a_stage_jump_before_a_jump_in_its_inline_sequence",
+            R"(
+    sequence main {
+        stage armed {
+            %a% == 1 => abort
+            sequence { stage r { %b% == 1 => flight } }
+        }
+    }
+    sequence abort { stage s { "abort" -> %log% } }
+    sequence flight { stage f { "flight" -> %log% } }
+    %start% == 1 => main)",
+            "abort"
+        },
+        jumps::Case{
+            "a_jump_in_an_inline_sequence_before_a_stage_jump",
+            R"(
+    sequence main {
+        stage armed {
+            sequence { stage r { %b% == 1 => flight } }
+            %a% == 1 => abort
+        }
+    }
+    sequence abort { stage s { "abort" -> %log% } }
+    sequence flight { stage f { "flight" -> %log% } }
+    %start% == 1 => main)",
+            "flight"
+        }
+    ),
+    jumps::case_name
+);
+
+TEST_P(FirstJumpTest, ActsOnlyOnTheFirstTrueJumpInSourceOrder) {
+    using namespace jumps;
+    Program p(GetParam().source);
+    p.write("start");
+    p.write("a", "b");
+    EXPECT_EQ(p.phase(), (Phase{.log = {GetParam().expected}}));
+}
+
+class InnerTransitionTest : public testing::TestWithParam<jumps::Case> {};
+
+INSTANTIATE_TEST_SUITE_P(
+    Jumps,
+    InnerTransitionTest,
+    testing::Values(
+        jumps::Case{
+            "the_jump_in_the_enclosing_stage",
+            R"(
+    sequence main {
+        stage armed {
+            %a% == 1 => abort
+            sequence {
+                stage r { %b% == 1 => next }
+                stage r2 { "r2" -> %log% }
+            }
+        }
+    }
+    sequence abort { stage s { "abort" -> %log% } }
+    %start% == 1 => main)",
+            ""
+        },
+        jumps::Case{
+            "the_jump_in_the_inner_stage",
+            R"(
+    sequence main {
+        stage armed {
+            sequence {
+                stage r {
+                    %a% == 1 => abort
+                    %b% == 1 => next
+                }
+                stage r2 { "r2" -> %log% }
+            }
+        }
+    }
+    sequence abort { stage s { "abort" -> %log% } }
+    %start% == 1 => main)",
+            ""
+        }
+    ),
+    jumps::case_name
+);
+
+TEST_P(InnerTransitionTest, ActsOnAnInnerTransitionBeforeTheJump) {
+    using namespace jumps;
+    Program p(GetParam().source);
+    p.write("start");
+    p.write("a", "b");
+    EXPECT_EQ(p.phase(), (Phase{.log = {"r2", "abort"}}));
+}
+
+class StopTopLevelScopeTest : public testing::TestWithParam<jumps::Case> {};
+
+INSTANTIATE_TEST_SUITE_P(
+    Jumps,
+    StopTopLevelScopeTest,
+    testing::Values(
+        jumps::Case{
+            "a_stage_of_a_sequence",
+            R"(
+    sequence main {
+        stage armed {
+            "main" -> %log%
+            %probe% -> %alive_main%
+            %a% == 1 => flight
+        }
+    }
+    %start% == 1 => main)",
+            "main"
+        },
+        jumps::Case{
+            "an_inline_sequence_in_a_stage",
+            R"(
+    sequence main {
+        stage armed {
+            "main" -> %log%
+            %probe% -> %alive_main%
+            sequence {
+                stage release {
+                    %probe% -> %alive_inner%
+                    %a% == 1 => flight
+                }
+            }
+        }
+    }
+    %start% == 1 => main)",
+            "main"
+        },
+        jumps::Case{
+            "a_sequence_that_is_a_step",
+            R"(
+    sequence main {
+        sequence ramp {
+            stage r {
+                "main" -> %log%
+                %probe% -> %alive_inner%
+                %a% == 1 => flight
+            }
+        }
+        stage hold { "hold" -> %log% }
+    }
+    %start% == 1 => main)",
+            "main"
+        },
+        jumps::Case{
+            "a_top_level_stage",
+            R"(
+    stage idle {
+        "idle" -> %log%
+        %probe% -> %alive_main%
+        %a% == 1 => flight
+    }
+    %start% == 1 => idle)",
+            "idle"
+        },
+        jumps::Case{
+            "an_inline_sequence_in_a_top_level_stage",
+            R"(
+    stage idle {
+        "idle" -> %log%
+        %probe% -> %alive_main%
+        sequence {
+            stage release {
+                %probe% -> %alive_inner%
+                %a% == 1 => flight
+            }
+        }
+    }
+    %start% == 1 => idle)",
+            "idle"
+        }
+    ),
+    jumps::case_name
+);
+
+TEST_P(StopTopLevelScopeTest, StopsTheWholeTopLevelScopeThatHoldsTheJump) {
+    using namespace jumps;
+    const auto &name = GetParam().expected;
+    Program p(GetParam().source + FLIGHT);
+    p.write("start");
+    p.write("a");
+    EXPECT_EQ(p.phase(), (Phase{.log = {name, "flight"}}));
+    p.write("probe");
+    EXPECT_EQ(p.phase(), (Phase{.alive = {"alive_flight"}}));
+    p.write("start");
+    EXPECT_EQ(p.phase(), (Phase{.log = {name}}));
+}
+
+TEST(JumpTest, RestartsASequenceThatJumpsToItself) {
+    using namespace jumps;
+    Program p(R"(
+    sequence main {
+        stage armed {
+            "main" -> %log%
+            %probe% -> %alive_main%
+            %a% == 1 => main
+        }
+    }
+    %start% == 1 => main)");
+    p.write("start");
+    p.write("a");
+    EXPECT_EQ(p.phase(), (Phase{.log = {"main", "main"}}));
+    p.write("probe");
+    EXPECT_EQ(p.phase(), (Phase{.alive = {"alive_main"}}));
+}
+
+class RestartTest : public testing::TestWithParam<jumps::Case> {};
+
+INSTANTIATE_TEST_SUITE_P(
+    Jumps,
+    RestartTest,
+    testing::Values(
+        jumps::Case{
+            "a_self_jump_to_a_top_level_scope",
+            R"(
+    sequence main {
+        stage armed {
+            "main" -> %log%
+            %a% == 1 => main
+            %b% == 1 => flight
+        }
+    }
+    sequence flight { stage f { "flight" -> %log% } }
+    %start% == 1 => main)",
+            "main"
+        },
+        jumps::Case{
+            "a_stage_that_transitions_to_itself",
+            R"(
+    sequence main {
+        stage s {
+            "s" -> %log%
+            %a% == 1 => s
+            %b% == 1 => t
+        }
+        stage t { "t" -> %log% }
+    }
+    %start% == 1 => main)",
+            "s"
+        }
+    ),
+    jumps::case_name
+);
+
+TEST_P(RestartTest, DoesNotActOnALosingTransitionAfterItsScopeRestarts) {
+    using namespace jumps;
+    const auto &expected = GetParam().expected;
+    Program p(GetParam().source);
+    p.write("start");
+    p.write("a", "b");
+    EXPECT_EQ(p.phase(), (Phase{.log = {expected, expected}}));
+}
+
+TEST(JumpTest, DoesNotRestartATargetThatIsAlreadyRunning) {
+    using namespace jumps;
+    Program p(R"(
+    sequence main {
+        stage armed {
+            "main" -> %log%
+            %a% == 1 => abort
+        }
+    }
+    sequence abort {
+        stage s {
+            "abort" -> %log%
+            %probe% -> %alive_flight%
+        }
+    }
+    %start% == 1 => main
+    %b% == 1 => abort)");
+    p.write("b");
+    p.write("start");
+    p.write("a");
+    EXPECT_EQ(p.phase(), (Phase{.log = {"abort", "main"}}));
+    p.write("probe");
+    EXPECT_EQ(p.phase(), (Phase{.alive = {"alive_flight"}}));
+}
+
+class JumpCycleTest : public testing::TestWithParam<jumps::Case> {};
+
+INSTANTIATE_TEST_SUITE_P(
+    Jumps,
+    JumpCycleTest,
+    testing::Values(
+        jumps::Case{
+            "target_declared_after_the_source",
+            R"(
+    sequence main {
+        stage armed { %a% == 1 => flight }
+    }
+    sequence flight { stage f { "flight" -> %log% } }
+    %start% == 1 => main)",
+            ""
+        },
+        jumps::Case{
+            "target_declared_before_the_source",
+            R"(
+    sequence flight { stage f { "flight" -> %log% } }
+    sequence main {
+        stage armed { %a% == 1 => flight }
+    }
+    %start% == 1 => main)",
+            ""
+        }
+    ),
+    jumps::case_name
+);
+
+TEST_P(JumpCycleTest, StartsTheTargetInTheCycleOfTheJump) {
+    using namespace jumps;
+    Program p(GetParam().source);
+    p.write("start");
+    EXPECT_EQ(p.phase(), Phase{});
+    p.write_once("a");
+    EXPECT_EQ(p.phase(), (Phase{.log = {"flight"}}));
+}
+
+/// @brief a program whose stage leaves and enters again, with the log that shows it.
+struct ReentryCase {
+    std::string name;
+    std::string source;
+    std::vector<std::string> log;
+};
+
+class TriggeredBodyTest : public testing::TestWithParam<ReentryCase> {};
+
+INSTANTIATE_TEST_SUITE_P(
+    Jumps,
+    TriggeredBodyTest,
+    testing::Values(
+        ReentryCase{
+            "left_through_a_jump_to_a_top_level_scope",
+            R"(
+    sequence main {
+        stage armed {
+            "armed" -> %log%
+            %b% == 1 => stage { %probe% -> %alive_inner% }
+            %a% == 1 => flight
+        }
+    }
+    sequence flight { stage f { "flight" -> %log% } }
+    %start% == 1 => main)",
+            {"armed", "flight", "armed"}
+        },
+        ReentryCase{
+            "left_through_a_transition_to_another_stage",
+            R"(
+    sequence main {
+        stage armed {
+            "armed" -> %log%
+            %b% == 1 => stage { %probe% -> %alive_inner% }
+            %a% == 1 => next
+        }
+        stage hold { %start% == 1 => armed }
+    }
+    %start% == 1 => main)",
+            {"armed", "armed"}
+        }
+    ),
+    [](const testing::TestParamInfo<ReentryCase> &info) { return info.param.name; }
+);
+
+TEST_P(TriggeredBodyTest, DoesNotRunATriggeredBodyOfAStageThatLeftAndEnteredAgain) {
+    using namespace jumps;
+    Program p(GetParam().source);
+    p.write("start");
+    p.write("b");
+    p.write("a");
+    p.write("start");
+    EXPECT_EQ(p.phase(), (Phase{.log = GetParam().log}));
+    p.write("probe");
+    EXPECT_EQ(p.phase(), Phase{});
+    p.write("b");
+    p.write("probe");
+    EXPECT_EQ(p.phase(), (Phase{.alive = {"alive_inner"}}));
 }
 
 // A one-shot entry drives a func whose output rebinds a variable;

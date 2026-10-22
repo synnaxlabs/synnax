@@ -10,6 +10,8 @@
 #pragma once
 
 #include <cstdlib>
+#include <filesystem>
+#include <sstream>
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -18,6 +20,8 @@
 
 #include "x/cpp/caseconv/caseconv.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/fs/fs.h"
+#include "x/cpp/strings/strings.h"
 
 namespace x::env {
 class Parser {
@@ -106,5 +110,31 @@ inline int unset(const std::string &name) {
 #else
     return unsetenv(name.c_str());
 #endif
+}
+
+/// @brief sets the KEY=VALUE pairs in the file at path into the process environment.
+/// A variable the environment already holds is kept, so the environment overrides the
+/// file. A file that does not exist is not an error. Blank lines, lines starting with
+/// '#', and lines with no '=' are ignored, matching how a service manager reads the
+/// same file.
+inline errors::Error load_file(const std::string &path) {
+    if (std::error_code ec; !std::filesystem::exists(path, ec)) return errors::NIL;
+    auto [content, err] = fs::read_file(path);
+    if (err) return err;
+    std::istringstream lines(content);
+    std::string line;
+    while (std::getline(lines, line)) {
+        const auto entry = strings::trim(line);
+        if (entry.empty() || entry.front() == '#') continue;
+        const auto eq = entry.find('=');
+        if (eq == std::string::npos) continue;
+        const auto name = strings::trim(entry.substr(0, eq));
+        if (name.empty() || std::getenv(name.c_str()) != nullptr) continue;
+        const auto value = strings::unquote(strings::trim(entry.substr(eq + 1)));
+        if (set(name, value) != 0)
+            return errors::Error("failed to set " + name + " from " + path);
+        VLOG(1) << "Loaded " << name << " from " << path;
+    }
+    return errors::NIL;
 }
 }

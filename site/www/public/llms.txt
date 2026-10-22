@@ -1,0 +1,22 @@
+# Synnax
+
+> Synnax is an observability and control platform for hardware operations: one platform
+> for real-time data acquisition, hardware control, visualization, and analysis.
+
+Synnax has a Core (a time-series database and server), the Console (a desktop app for
+live plots, schematics, and tables), the Driver (data acquisition and control for
+National Instruments, LabJack, Modbus, OPC UA, EtherCAT, and HTTP devices), Arc (a
+reactive language for control sequences, alarms, and calculated channels), and Python,
+TypeScript, and C++ client libraries. Synnax Labs is backed by Y Combinator.
+
+## Docs
+
+- [Docs index](https://docs.synnaxlabs.com/llms.txt): Every docs page, with a Markdown link and a summary.
+- [Get started](https://docs.synnaxlabs.com/reference.md): What Synnax is and where to start.
+- [Installation](https://docs.synnaxlabs.com/reference/installation.md): Install a Core and connect a Console.
+
+## Company
+
+- [Company](https://www.synnaxlabs.com/company): The team behind Synnax.
+- [Sponsorships](https://www.synnaxlabs.com/sponsorships): Free licenses for student engineering teams.
+- [Blog](https://docs.synnaxlabs.com/blog): Articles from the Synnax team.

@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from functools import partial
+
 from examples.simulators.can_frames import CANFrameSim, Frame
 
 import synnax as sy
@@ -100,7 +102,7 @@ class CANWrite(CANCase):
                             self.commands["enabled"]: enabled,
                             self.beat["beat"]: beat,
                         },
-                        lambda: sim.wait_for(Frame(COMMAND_ID, False, command)),
+                        partial(sim.wait_for, Frame(COMMAND_ID, False, command)),
                     )
                     sim.wait_for(
                         Frame(HEARTBEAT_ID, False, heartbeat),

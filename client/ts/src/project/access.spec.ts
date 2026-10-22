@@ -25,7 +25,6 @@ describe("project", () => {
       });
       const randomProject = await client.projects.create({
         name: "test",
-        layout: {},
       });
       await expect(userClient.projects.retrieve(randomProject.key)).rejects.toSatisfy(
         AccessDeniedError.matches,
@@ -40,7 +39,6 @@ describe("project", () => {
       });
       const randomProject = await client.projects.create({
         name: "test",
-        layout: {},
       });
       const retrieved = await userClient.projects.retrieve(randomProject.key);
       expect(retrieved.key).toBe(randomProject.key);
@@ -55,7 +53,6 @@ describe("project", () => {
       });
       await userClient.projects.create({
         name: "test",
-        layout: {},
       });
     });
 
@@ -68,7 +65,6 @@ describe("project", () => {
       await expect(
         userClient.projects.create({
           name: "test",
-          layout: {},
         }),
       ).rejects.toSatisfy(AccessDeniedError.matches);
     });
@@ -81,7 +77,6 @@ describe("project", () => {
       });
       const randomProject = await client.projects.create({
         name: "test",
-        layout: {},
       });
       await userClient.projects.delete(randomProject.key);
       await expect(userClient.projects.retrieve(randomProject.key)).rejects.toThrow(
@@ -97,7 +92,6 @@ describe("project", () => {
       });
       const randomProject = await client.projects.create({
         name: "test",
-        layout: {},
       });
       await expect(userClient.projects.delete(randomProject.key)).rejects.toSatisfy(
         AccessDeniedError.matches,

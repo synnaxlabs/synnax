@@ -47,7 +47,7 @@ export interface UseCreate {
  * form and at deploy, not here.
  * @returns The created task.
  */
-export const create = async <S extends task.Schemas = task.Schemas>({
+const create = async <S extends task.Schemas = task.Schemas>({
   client,
   getInitialValues,
   deviceKey,

@@ -35,6 +35,7 @@ cc_library(
     }),
     visibility = ["//visibility:public"],
     deps = [
+        "//client/cpp/errors",
         "//driver/arc",
         "//driver/can:task",
         "//driver/can/backends",
@@ -70,6 +71,7 @@ cc_test(
     srcs = [
         "config_test.cpp",
     ],
+    tags = ["requires-core"],
     deps = [
         "//client/cpp/testutil",
         "//driver/rack",

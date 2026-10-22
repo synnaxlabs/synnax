@@ -13,8 +13,10 @@ import { describe, expect, it } from "vitest";
 
 import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
+import { createTestSink } from "@/platform/analytics/testutil";
 import { pressSaveTrigger, renderModalOpener } from "@/platform/modals/testutil";
-import { getSwitchInput } from "@/testutil";
+import { answerNextCommand, selectFromDropdown } from "@/platform/task/testutil";
+import { getSwitchInput, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -136,6 +138,53 @@ describe("useConnectModal", () => {
     await waitFor(() => expect(getSwitchInput("Expected value")).toBeTruthy());
     fireEvent.click(getSwitchInput("Validate response body"));
     await waitFor(() => expect(screen.queryByPlaceholderText("/status")).toBeNull());
+  });
+
+  it("should report a device it connected", async () => {
+    const rack = await client.racks.create({
+      name: uniqueName("http_rack"),
+      integrations: ["http"],
+    });
+    const scan = await rack.createTask({
+      name: uniqueName("http_scan"),
+      type: HTTP.Task.SCAN_TYPE,
+      config: {},
+    });
+    const analytics = createTestSink();
+    await renderModalOpener(HTTP.Device.useConnectModal, [{}], { client, analytics });
+    await selectFromDropdown("Select Driver", rack.name);
+    fireEvent.change(screen.getByPlaceholderText("www.example.com"), {
+      target: { value: "localhost:8080" },
+    });
+    const { answered } = await answerNextCommand(client, scan);
+    pressSaveTrigger();
+    await answered;
+    await waitFor(() =>
+      expect(analytics.capture).toHaveBeenCalledWith("device_connected", {
+        integration: "http",
+      }),
+    );
+  });
+
+  it("should not report an edited device as connected", async () => {
+    const dev = await createHTTPDevice(client);
+    const rack = await client.racks.retrieve({ key: dev.rack });
+    const scan = await rack.createTask({
+      name: uniqueName("http_scan"),
+      type: HTTP.Task.SCAN_TYPE,
+      config: {},
+    });
+    const analytics = createTestSink();
+    await renderModalOpener(HTTP.Device.useConnectModal, [{ deviceKey: dev.key }], {
+      client,
+      analytics,
+    });
+    await screen.findByDisplayValue(dev.name);
+    const { answered } = await answerNextCommand(client, scan);
+    pressSaveTrigger();
+    await answered;
+    await waitFor(() => expect(screen.queryByDisplayValue(dev.name)).toBeNull());
+    expect(analytics.capture).not.toHaveBeenCalled();
   });
 
   // Submitting with no rack chosen fails validation. That error is the proof the keys

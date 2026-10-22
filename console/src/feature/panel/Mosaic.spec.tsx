@@ -293,7 +293,10 @@ describe("Panel.Mosaic not found", () => {
   it("should load the panel when retry is clicked after it exists again", async () => {
     const key = uuid.create();
     const { wrapper, store } = await setup();
-    render(<Mosaic onCreateTab={createTab} onFileDrop={noopFileDrop} />, { wrapper });
+    render(<Mosaic onCreateTab={createTab} onFileDrop={noopFileDrop} />, {
+      wrapper,
+      onCaughtError: () => {},
+    });
 
     // The suspending read must be awaited: a component that suspends inside a
     // synchronous act never resumes.
@@ -328,7 +331,6 @@ describe("Panel.Mosaic overlay", () => {
     variant: "view",
     key: uuid.create(),
     type: "tabProbe",
-    args: {},
   });
 
   const tabMountCount = (key: panel.TabKey): number =>
@@ -391,7 +393,7 @@ describe("Panel.Mosaic overlay", () => {
       variant: "leaf",
       tabs: [tabA, tabB],
     });
-    const proj = await client.projects.create({ name: uniqueName("proj"), layout: {} });
+    const proj = await client.projects.create({ name: uniqueName("proj") });
     const { wrapper, store } = await setup(withSelectedProject(proj.key));
     render(<Mosaic onCreateTab={createTab} onFileDrop={noopFileDrop} />, { wrapper });
 
@@ -480,7 +482,6 @@ describe("Panel.Mosaic trigger scope", () => {
     variant: "view",
     key: uuid.create(),
     type: "triggerProbe",
-    args: {},
   });
 
   const pressTrigger = (): void => {

@@ -11,14 +11,13 @@ import { type channel, type schematic } from "@synnaxlabs/client";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
-import { Theming } from "@synnaxlabs/lyra/theming";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
 import { Control } from "@/schematic/node/common/control";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
-import { type FormProps } from "@/schematic/node/spec";
+import { type ColorFallbacks, type FormProps } from "@/schematic/node/spec";
 import { Button as BaseButton } from "@/vis/button";
 import { Properties } from "@/vis/properties";
 
@@ -27,7 +26,11 @@ type ButtonTelemFormT = Pick<
   "commandChannel" | "control" | "mode"
 >;
 
-export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
+export const colorFallbacks = {
+  fillColor: Form.primaryFallback,
+} satisfies ColorFallbacks;
+
+const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } = Base.useField<ButtonTelemFormT>(path);
   const handleSinkChange = (v: channel.Key): void =>
     onChange({
@@ -61,27 +64,24 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   );
 };
 
-export const ButtonForm = ({ tab, onTabChange }: FormProps): ReactElement => {
-  const theme = Theming.use();
-  return (
-    <Properties.Tabs tabs={["control", "style"]} tab={tab} onTabChange={onTabChange}>
-      <Tabs.Content itemKey="style">
-        <Base.Sections x>
-          <Base.Section title="Label">
-            <Label.Form
-              path="label"
-              omit={["align", "maxInlineSize", "level", "direction"]}
-            />
-          </Base.Section>
-          <Base.Section title="Appearance">
-            <Form.ColorField path="color" fallback={theme.colors.primary.z} />
-            <Form.SizeField />
-          </Base.Section>
-        </Base.Sections>
-      </Tabs.Content>
-      <Tabs.Content itemKey="control">
-        <ButtonTelemForm path="" />
-      </Tabs.Content>
-    </Properties.Tabs>
-  );
-};
+export const ButtonForm = ({ tab, onTabChange }: FormProps): ReactElement => (
+  <Properties.Tabs tabs={["control", "style"]} tab={tab} onTabChange={onTabChange}>
+    <Tabs.Content itemKey="style">
+      <Base.Sections x>
+        <Base.Section title="Label">
+          <Label.Form
+            path="label"
+            omit={["align", "maxInlineSize", "level", "direction"]}
+          />
+        </Base.Section>
+        <Base.Section title="Appearance">
+          <Form.FillField fallback={colorFallbacks.fillColor} />
+          <Form.SizeField />
+        </Base.Section>
+      </Base.Sections>
+    </Tabs.Content>
+    <Tabs.Content itemKey="control">
+      <ButtonTelemForm path="" />
+    </Tabs.Content>
+  </Properties.Tabs>
+);

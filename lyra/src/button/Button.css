@@ -28,15 +28,32 @@
     }
 }
 
+/* Scoped to the button itself, so a bordered box inside one keeps its own color. */
+@property --pluto-btn-border-color {
+    syntax: "*";
+    inherits: false;
+}
+
 .pluto-btn {
     position: relative;
     cursor: pointer;
     width: fit-content;
     border: none;
     transition: var(--pluto-btn-transition);
-    background: var(--pluto-bg);
+
+    /* Variants and consumers set the rest, hover, and active inputs. Only state rules
+       write these outputs. */
+    --pluto-btn-bg: var(--pluto-bg);
+    --pluto-btn-border-color: var(--pluto-border-color);
+
+    background: var(--pluto-btn-bg);
     border-radius: var(--pluto-border-radius);
     text-decoration: none;
+
+    /* Buttons are pluto-text too, so this outranks the link underline in Text.css. */
+    &.pluto-text:hover {
+        text-decoration: none;
+    }
 
     /* We give the button a fixed z-index to ensure that we maintain a consistent
     stacking context even when increasing the z-index on hover. This prevents strange
@@ -55,11 +72,6 @@
 
     &.pluto--rounded {
         border-radius: var(--pluto-border-radius);
-    }
-
-    &.flex.pluto--bordered {
-        border: var(--pluto-border);
-        border-color: var(--pluto-border-color);
     }
 
     padding: 0 2rem;
@@ -119,10 +131,6 @@
             --pluto-border-color: rgb(var(--pluto-btn-color), 1);
             --pluto-hover-border-color: rgb(var(--pluto-btn-color), 0.85);
             --pluto-active-border-color: rgb(var(--pluto-btn-color), 0.7);
-        }
-
-        &:hover {
-            text-decoration: none;
         }
 
         &.pluto--status-warning {
@@ -398,8 +406,8 @@
     }
 
     &.pluto-haul-drop-region {
-        --pluto-bg: var(--haul-background) !important;
-        --pluto-border-color: var(--haul-border-color) !important;
+        --pluto-btn-bg: var(--haul-background) !important;
+        --pluto-btn-border-color: var(--haul-border-color) !important;
     }
 
     /* We use the flex selector that is always present in order to increase specificity
@@ -411,13 +419,13 @@
         &:is(:hover, .pluto--hovered, [data-context-menu-open]):not(
                 .pluto--focus-frozen:focus-within
             ) {
-            --pluto-bg: var(--pluto-hover-bg);
-            --pluto-border-color: var(--pluto-hover-border-color);
+            --pluto-btn-bg: var(--pluto-hover-bg);
+            --pluto-btn-border-color: var(--pluto-hover-border-color);
         }
 
         &.pluto--pressed:not(.pluto--focus-frozen:focus-within) {
-            --pluto-bg: var(--pluto-active-bg);
-            --pluto-border-color: var(--pluto-active-border-color);
+            --pluto-btn-bg: var(--pluto-active-bg);
+            --pluto-btn-border-color: var(--pluto-active-border-color);
         }
     }
 }

@@ -20,7 +20,9 @@ from synnax.can.types_gen import (
 MAKE = "CAN"
 
 
-class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
+class ReadTask(
+    task.StarterStopperMixin, task.JSONConfigMixin[ReadConfig], task.Protocol
+):
     """A read task that decodes CAN messages described by a library into
     channels.
 
@@ -35,7 +37,6 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """
 
     TYPE = "can_read"
-    config: ReadConfig
     _internal: task.Task
 
     def __init__(
@@ -67,7 +68,9 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         )
 
 
-class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
+class WriteTask(
+    task.StarterStopperMixin, task.JSONConfigMixin[WriteConfig], task.Protocol
+):
     """A write task that encodes command channel values into CAN messages
     described by a library.
 
@@ -79,7 +82,6 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """
 
     TYPE = "can_write"
-    config: WriteConfig
     _internal: task.Task
 
     def __init__(

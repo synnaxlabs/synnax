@@ -7,18 +7,31 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { satteri } from "@astrojs/markdown-satteri";
 import mdx from "@astrojs/mdx";
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
+import { integration } from "@synnaxlabs/site-common/integration";
+import { symbols, theme } from "@synnaxlabs/site-common/shiki";
+import { layers } from "@synnaxlabs/vite-plugin";
 import { defineConfig, envField } from "astro/config";
 
-import { layer } from "./src/util/layer";
-import { symbols, theme } from "./src/util/shiki";
+import { outline } from "./src/util/outline";
+import { listReleaseNotes } from "./src/util/releaseNotes";
+
+// Each version's notes render only inside /releases, so their old routes point at the
+// version's anchor there.
+const RELEASE_REDIRECTS = Object.fromEntries(
+  listReleaseNotes().map(({ name, anchor }) => [
+    `/releases/${name}`,
+    `/releases/#${anchor}`,
+  ]),
+);
 
 // https://astro.build/config
 export default defineConfig({
-  integrations: [react(), mdx()],
+  integrations: [integration(), react(), mdx()],
   output: "server",
   env: {
     schema: {
@@ -28,15 +41,34 @@ export default defineConfig({
         access: "public",
         optional: true,
       }),
+      FLAG_PORTAL: envField.boolean({
+        context: "client",
+        access: "public",
+        default: false,
+      }),
     },
   },
-  adapter: vercel(),
+  adapter: vercel({
+    // Misses read Vercel's shared page cache, not the function, and pages refresh
+    // with the release listing. The updater feeds stay uncached so a failed lookup
+    // never sticks.
+    isr: { expiration: 300, exclude: [/^\/releases\/[^/]+\/(latest|next)\.json$/] },
+  }),
   vite: {
-    // Lyra is ESM with CSS imports, which Node cannot load; Vite bundles it for SSR.
-    ssr: { noExternal: ["@synnaxlabs/lyra"] },
-    css: { postcss: { plugins: [layer(/[\\/]lyra[\\/]/, "pluto")] } },
+    // These ship ESM with CSS imports, which Node cannot load; Vite bundles them for
+    // SSR.
+    ssr: { noExternal: ["@synnaxlabs/lyra", "@synnaxlabs/site-common"] },
+    css: {
+      postcss: { plugins: [layers([{ name: "pluto", files: /[\\/]lyra[\\/]/ }])] },
+    },
+    // An inlined font ships in the render-blocking stylesheet whether or not a page
+    // needs its characters.
+    build: {
+      assetsInlineLimit: (file) => (/\.woff2?$/.test(file) ? false : undefined),
+    },
   },
   markdown: {
+    processor: satteri({ hastPlugins: [outline] }),
     shikiConfig: {
       theme,
       langs: [arcGrammar],
@@ -108,6 +140,7 @@ export default defineConfig({
     "/reference/typescript-client/timestamps": "/reference/client/time-types",
     "/reference/typescript-client/examples": "/reference/client/examples",
     "/reference/typescript-client/troubleshooting": "/reference/client/troubleshooting",
+    ...RELEASE_REDIRECTS,
   },
   site: "https://docs.synnaxlabs.com",
 });

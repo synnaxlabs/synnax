@@ -94,7 +94,7 @@ export const sync = async (
   await syncCurrent(prevWin, nextWin, runtime, debug);
 };
 
-export const syncCurrent = async (
+const syncCurrent = async (
   prevWin: WindowState,
   nextWin: WindowState,
   runtime: RequiredRuntime,
@@ -262,7 +262,7 @@ export const syncCurrent = async (
   for (const [, , change] of changes) await change();
 };
 
-export const syncMain = async (
+const syncMain = async (
   prev: SliceState,
   next: SliceState,
   runtime: RequiredRuntime,

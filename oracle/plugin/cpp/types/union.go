@@ -15,10 +15,12 @@ import (
 
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/domain/omit"
+	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
 	cppnaming "github.com/synnaxlabs/oracle/plugin/cpp/naming"
 	"github.com/synnaxlabs/oracle/plugin/domain"
+	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -39,11 +41,10 @@ type unionData struct {
 	DiscJSON string
 	// Variants holds the dispatch info for each variant.
 	Variants []unionVariantData
-	// HasProto marks a union that translates to a protobuf oneof wrapper.
-	HasProto bool
-	// ProtoType is the qualified wrapper message (e.g.
-	// "::service::library::pb::Entry").
+	// ProtoType is the qualified protobuf wrapper message, set when HasProto.
 	ProtoType string
+	// HasProto marks a union that translates to and from a protobuf message.
+	HasProto bool
 }
 
 // unionVariantData is the template view of one variant for the dispatch alias.
@@ -75,30 +76,49 @@ func (p *Plugin) processUnion(
 		Doc:       doc.Get(entry.Domains),
 		DiscJSON:  casing.FieldSnake(form.Discriminator),
 	}
-
-	if pbOutputPath := output.GetPBPath(entry); pbOutputPath != "" &&
-		hasPBFlag(entry) && !omit.IsSkipped(entry, "pb") {
-		ud.HasProto = true
-		ud.ProtoType = fmt.Sprintf(
-			"%s::%s",
-			cppnaming.PBNamespace(pbOutputPath),
-			cppnaming.PBName(entry),
-		)
-		data.AddSystem("utility")
-		data.AddInternal("x/cpp/errors/errors.h")
-		data.AddInternal(fmt.Sprintf("%s/%s.pb.h", pbOutputPath, entry.Namespace))
+	pbNamespace := ""
+	if hasPBFlag(entry) && !omit.IsSkipped(entry, "pb") {
+		if pbOutputPath := output.GetPBPath(entry); pbOutputPath != "" {
+			pbNamespace = cppnaming.PBNamespace(pbOutputPath)
+			ud.HasProto = true
+			ud.ProtoType = fmt.Sprintf("%s::%s", pbNamespace, cppnaming.PBName(entry))
+			data.AddSystem("utility")
+			data.AddInternal("x/cpp/errors/errors.h")
+			data.AddInternal(fmt.Sprintf("%s/%s.pb.h", pbOutputPath, entry.Namespace))
+		}
 	}
 
+	enumType, borrows := form.Enum.Resolve(data.table)
+	borrows = borrows && form.BorrowsEnum()
+	if borrows && enumType.Namespace != data.rawNs {
+		if path := enum.FindOutputPath(enumType, data.table, "cpp"); path != "" {
+			data.AddInternal(fmt.Sprintf("%s/types.gen.h", path))
+		}
+	}
 	variants := make([]structData, 0, len(form.Variants))
 	for _, v := range form.Variants {
 		variantName := cppnaming.VariantTypeName(name, v.Name)
+		discDefault := fmt.Sprintf("%q", v.Name)
+		if borrows {
+			member, ok := enumMember(enumType, v.Name)
+			if !ok {
+				panic(fmt.Sprintf(
+					"union %s variant %q has no member in enum %s",
+					name, v.Name, enumType.Name,
+				))
+			}
+			discDefault = p.cppEnumVariantRef(validation.EnumVariant{
+				Type:    enumType,
+				Variant: member,
+			}, data)
+		}
 		sd := structData{
 			Name: variantName,
 			Doc:  doc.Get(v.Domains),
 			Fields: []fieldData{{
 				Name:         discField,
 				CppType:      "std::string",
-				DefaultValue: fmt.Sprintf("%q", v.Name),
+				DefaultValue: discDefault,
 			}},
 		}
 		inherited, declared := resolver.VariantBases(form, v, data.table)
@@ -111,6 +131,14 @@ func (p *Plugin) processUnion(
 			}
 		}
 		if payload, ok := v.Type.Resolve(data.table); ok {
+			// The variant translates against its payload message: a synthetic one
+			// for an inline body, the referenced struct's own message otherwise.
+			if ud.HasProto {
+				sd.HasProto = true
+				sd.ProtoNamespace = pbNamespace
+				sd.ProtoClass = cppnaming.PBName(payload)
+				sd.ProtoType = fmt.Sprintf("%s::%s", pbNamespace, sd.ProtoClass)
+			}
 			if v.Inline {
 				pform := payload.Form.(resolution.StructForm)
 				// A field that only restates an inherited default keeps the base's
@@ -148,4 +176,16 @@ func (p *Plugin) processUnion(
 		})
 	}
 	return variants, ud
+}
+
+// enumMember returns the member of enumType whose value is value. The analyzer
+// guarantees one exists for every variant of a union that borrows the enum.
+func enumMember(enumType resolution.Type, value string) (resolution.EnumValue, bool) {
+	form := enumType.Form.(resolution.EnumForm)
+	for _, m := range form.Values {
+		if m.StringValue() == value {
+			return m, true
+		}
+	}
+	return resolution.EnumValue{}, false
 }

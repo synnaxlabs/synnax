@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/domain"
@@ -29,11 +30,15 @@ const (
 )
 
 // defaultFillData describes a single field assignment emitted by a generated
-// ApplyDefaults method: when the field equals ZeroLit it is set to Expr.
+// ApplyDefaults method: when the field equals ZeroLit, Setup runs and the field is set
+// to Expr.
 type defaultFillData struct {
 	GoName  string
 	ZeroLit string
 	Expr    string
+	// Setup holds the statements that build a union literal's variant in local
+	// variables before Expr assigns it. Empty for every other default.
+	Setup []string
 }
 
 // enumCheckData describes a single enum-membership assertion emitted by a generated
@@ -54,6 +59,9 @@ func goDefaultFills(field resolution.Field, data *templateData) []defaultFillDat
 	}
 	name := naming.GetFieldName(field)
 	if field.Default.Kind == resolution.ValueKindStruct {
+		if fill, ok := unionLiteralFill(name, field.Type, *field.Default, data); ok {
+			return []defaultFillData{fill}
+		}
 		return structDefaultFills(name, field.Type, *field.Default, data)
 	}
 	if fill, ok := componentFill(name, field.Type, field.Default, data); ok {
@@ -101,6 +109,10 @@ func structDefaultFills(
 		}
 		selector := prefix + "." + naming.GetFieldName(f)
 		if comp.Value.Kind == resolution.ValueKindStruct {
+			if fill, ok := unionLiteralFill(selector, f.Type, comp.Value, data); ok {
+				fills = append(fills, fill)
+				continue
+			}
 			fills = append(
 				fills,
 				structDefaultFills(selector, f.Type, comp.Value, data)...,
@@ -114,6 +126,252 @@ func structDefaultFills(
 	return fills
 }
 
+// unionLiteralFill returns the fill for a union field defaulted by an object literal
+// such as `{ variant = "window", key = "r7" }`. The fill builds the selected variant in
+// a local variable and assigns it to the nil Variant. It returns ok=false when typeRef
+// is not a union or the literal names no variant of it.
+func unionLiteralFill(
+	goName string,
+	typeRef resolution.TypeRef,
+	val resolution.ExpressionValue,
+	data *templateData,
+) (defaultFillData, bool) {
+	var next int
+	setup, variable, ok := unionLiteral(typeRef, val, data, &next)
+	if !ok {
+		return defaultFillData{}, false
+	}
+	return defaultFillData{
+		GoName:  goName + ".Variant",
+		ZeroLit: "nil",
+		Expr:    variable,
+		Setup:   setup,
+	}, true
+}
+
+// unionLiteral renders the statements that build the variant a union literal selects,
+// returning them with the name of the local variable that holds it. next numbers the
+// variables, so nested literals declare distinct ones.
+func unionLiteral(
+	typeRef resolution.TypeRef,
+	val resolution.ExpressionValue,
+	data *templateData,
+	next *int,
+) ([]string, string, bool) {
+	resolved, ok := typeRef.Resolve(data.table)
+	if !ok {
+		return nil, "", false
+	}
+	form, ok := resolved.Form.(resolution.UnionForm)
+	if !ok {
+		return nil, "", false
+	}
+	var variant resolution.UnionVariant
+	found := false
+	for _, comp := range val.Fields {
+		if comp.Name == form.Discriminator {
+			variant, found = form.Variant(comp.Value.StringValue)
+			break
+		}
+	}
+	if !found {
+		return nil, "", false
+	}
+	fields := resolution.UnifiedVariantFields(resolved, variant, data.table)
+	unionType := stripPointer(data.resolver.ResolveTypeRef(typeRef, data.ctx))
+	variable := fmt.Sprintf("v%d", *next)
+	*next++
+	setup := []string{
+		variable + " := " +
+			casing.QualifiedVariantTypeName(unionType, variant.Name, ".") + "{}",
+	}
+	for _, comp := range val.Fields {
+		if comp.Name == form.Discriminator {
+			continue
+		}
+		f, ok := lo.Find(fields, func(f resolution.Field) bool {
+			return f.Name == comp.Name
+		})
+		if !ok {
+			return nil, "", false
+		}
+		lines, ok := literalAssignments(
+			variable+"."+naming.GetFieldName(f),
+			f.Type,
+			f.Optional,
+			comp.Value,
+			data,
+			next,
+		)
+		if !ok {
+			return nil, "", false
+		}
+		setup = append(setup, lines...)
+	}
+	return setup, variable, true
+}
+
+// literalAssignments renders the statements that assign the literal v to the Go
+// selector of type typeRef, recursing into struct and union literals. An optional
+// selector is a pointer, so the statements allocate its value first.
+func literalAssignments(
+	selector string,
+	typeRef resolution.TypeRef,
+	optional bool,
+	v resolution.ExpressionValue,
+	data *templateData,
+	next *int,
+) ([]string, bool) {
+	goType := stripPointer(data.resolver.ResolveTypeRef(typeRef, data.ctx))
+	switch v.Kind {
+	case resolution.ValueKindStruct:
+		var lines []string
+		if optional {
+			lines = append(lines, selector+" = &"+goType+"{}")
+		}
+		if setup, variable, ok := unionLiteral(typeRef, v, data, next); ok {
+			lines = append(lines, setup...)
+			return append(lines, selector+".Variant = "+variable), true
+		}
+		resolved, ok := typeRef.Resolve(data.table)
+		if !ok {
+			return nil, false
+		}
+		fields := resolution.UnifiedFields(resolved, data.table)
+		if form, ok := resolved.Form.(resolution.StructForm); ok && form.IsGeneric() {
+			fields = lo.Map(fields, func(f resolution.Field, _ int) resolution.Field {
+				f.Type = bindTypeArgs(f.Type, form.TypeParams, typeRef.TypeArgs, data)
+				return f
+			})
+		}
+		for _, comp := range v.Fields {
+			f, ok := lo.Find(fields, func(f resolution.Field) bool {
+				return f.Name == comp.Name
+			})
+			if !ok {
+				return nil, false
+			}
+			sub, ok := literalAssignments(
+				selector+"."+naming.GetFieldName(f),
+				f.Type,
+				f.Optional,
+				comp.Value,
+				data,
+				next,
+			)
+			if !ok {
+				return nil, false
+			}
+			lines = append(lines, sub...)
+		}
+		return lines, true
+	case resolution.ValueKindArray:
+		if len(v.Elements) == 0 {
+			return nil, true
+		}
+		setup, expr, ok := arrayLiteral(typeRef, v, data, next)
+		if !ok {
+			return nil, false
+		}
+		return append(setup, selector+" = "+expr), true
+	}
+	if v.Kind == resolution.ValueKindIdent {
+		if expr, ok := emptyVariant(v.IdentValue, typeRef, data); ok {
+			if optional {
+				return []string{
+					selector + " = &" + goType + "{Variant: " + expr + "}",
+				}, true
+			}
+			return []string{selector + ".Variant = " + expr}, true
+		}
+	}
+	lit, ok := goLiteral(typeRef, &v, data)
+	if !ok {
+		return nil, false
+	}
+	if optional {
+		return []string{selector + " = new(" + goType + "(" + lit + "))"}, true
+	}
+	return []string{selector + " = " + lit}, true
+}
+
+// bindTypeArgs returns ref with each of params replaced by the type argument at its
+// position in args, so a generic struct's field types name its concrete instantiation.
+// When the resolver renders defaulted parameters as their defaults, a defaulted
+// parameter stays unbound so the field keeps the type its declaration has.
+func bindTypeArgs(
+	ref resolution.TypeRef,
+	params []resolution.TypeParam,
+	args []resolution.TypeRef,
+	data *templateData,
+) resolution.TypeRef {
+	if ref.IsTypeParam() {
+		for i, p := range params {
+			if p.Name != ref.TypeParam.Name || i >= len(args) {
+				continue
+			}
+			if p.HasDefault() && data.ctx.SubstituteDefaultedTypeParams {
+				return ref
+			}
+			return args[i]
+		}
+		return ref
+	}
+	if len(ref.TypeArgs) == 0 {
+		return ref
+	}
+	bound := ref
+	bound.TypeArgs = lo.Map(
+		ref.TypeArgs,
+		func(a resolution.TypeRef, _ int) resolution.TypeRef {
+			return bindTypeArgs(a, params, args, data)
+		},
+	)
+	return bound
+}
+
+// arrayLiteral renders the array literal v of slice type typeRef, returning the
+// statements that build its object elements in local variables and the slice
+// expression. next numbers the variables.
+func arrayLiteral(
+	typeRef resolution.TypeRef,
+	v resolution.ExpressionValue,
+	data *templateData,
+	next *int,
+) ([]string, string, bool) {
+	if typeRef.Name != "Array" || len(typeRef.TypeArgs) != 1 {
+		return nil, "", false
+	}
+	elemRef := typeRef.TypeArgs[0]
+	elemType := stripPointer(data.resolver.ResolveTypeRef(elemRef, data.ctx))
+	var setup []string
+	elems := make([]string, 0, len(v.Elements))
+	for _, elem := range v.Elements {
+		if elem.Kind != resolution.ValueKindStruct {
+			lit, ok := goLiteral(elemRef, &elem, data)
+			if !ok {
+				return nil, "", false
+			}
+			elems = append(elems, lit)
+			continue
+		}
+		variable := fmt.Sprintf("v%d", *next)
+		*next++
+		lines, ok := literalAssignments(variable, elemRef, false, elem, data, next)
+		if !ok {
+			return nil, "", false
+		}
+		setup = append(setup, variable+" := "+elemType+"{}")
+		setup = append(setup, lines...)
+		elems = append(elems, variable)
+	}
+	return setup, fmt.Sprintf(
+		"%s{%s}",
+		data.resolver.ResolveTypeRef(typeRef, data.ctx),
+		strings.Join(elems, ", "),
+	), true
+}
+
 // arrayFill returns the fill assigning the array default d to the Go selector goName of
 // slice type typeRef. It returns ok=false when d is empty, since the nil slice the
 // caller starts from already carries that value, and when an element has no Go literal.
@@ -123,25 +381,19 @@ func arrayFill(
 	d *resolution.ExpressionValue,
 	data *templateData,
 ) (defaultFillData, bool) {
-	if len(d.Elements) == 0 || typeRef.Name != "Array" || len(typeRef.TypeArgs) != 1 {
+	if len(d.Elements) == 0 {
 		return defaultFillData{}, false
 	}
-	lits := make([]string, 0, len(d.Elements))
-	for i := range d.Elements {
-		lit, ok := goLiteral(typeRef.TypeArgs[0], &d.Elements[i], data)
-		if !ok {
-			return defaultFillData{}, false
-		}
-		lits = append(lits, lit)
+	var next int
+	setup, expr, ok := arrayLiteral(typeRef, *d, data, &next)
+	if !ok {
+		return defaultFillData{}, false
 	}
 	return defaultFillData{
 		GoName:  goName,
 		ZeroLit: "nil",
-		Expr: fmt.Sprintf(
-			"%s{%s}",
-			data.resolver.ResolveTypeRef(typeRef, data.ctx),
-			strings.Join(lits, ", "),
-		),
+		Expr:    expr,
+		Setup:   setup,
 	}, true
 }
 
@@ -213,22 +465,13 @@ func scalarFill(
 			Expr:    strconv.FormatFloat(d.FloatValue, 'g', -1, 64),
 		}, true
 	case resolution.ValueKindIdent:
-		if uv, ok := validation.ResolveUnionVariant(
-			d.IdentValue,
-			typeRef,
-			data.table,
-		); ok {
+		if expr, ok := emptyVariant(d.IdentValue, typeRef, data); ok {
 			// The wrapper holds the active variant behind a nil-able interface, so
 			// the fill targets that field rather than the wrapper itself.
-			unionType := stripPointer(data.resolver.ResolveTypeRef(typeRef, data.ctx))
 			return defaultFillData{
 				GoName:  goName + ".Variant",
 				ZeroLit: "nil",
-				Expr: casing.QualifiedVariantTypeName(
-					unionType,
-					uv.Variant.Name,
-					".",
-				) + "{}",
+				Expr:    expr,
 			}, true
 		}
 		ev, ok := validation.ResolveEnumVariant(d.IdentValue, typeRef, data.table)
@@ -249,6 +492,22 @@ func scalarFill(
 		}, true
 	}
 	return defaultFillData{}, false
+}
+
+// emptyVariant renders the empty Go variant struct that a bare-name union default such
+// as `= const_val` selects. It returns ok=false when typeRef is not a union with that
+// variant.
+func emptyVariant(
+	ident string,
+	typeRef resolution.TypeRef,
+	data *templateData,
+) (string, bool) {
+	uv, ok := validation.ResolveUnionVariant(ident, typeRef, data.table)
+	if !ok {
+		return "", false
+	}
+	unionType := stripPointer(data.resolver.ResolveTypeRef(typeRef, data.ctx))
+	return casing.QualifiedVariantTypeName(unionType, uv.Variant.Name, ".") + "{}", true
 }
 
 // constraintCheckData describes a single @validate constraint assertion emitted by a

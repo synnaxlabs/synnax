@@ -10,7 +10,7 @@
 import { type errors } from "@synnaxlabs/x";
 import type z from "zod";
 
-import { type Crude, fromException, type Status, toString } from "@/status/status";
+import { type Crude, fromException, toString } from "@/status/status";
 
 /** Adds a status to the enclosing aggregator. */
 export interface Adder {
@@ -35,35 +35,34 @@ export interface AsyncErrorHandler {
   ): Promise<void>;
 }
 
+/** Prints a reported error. */
+export interface Log {
+  (message: string): void;
+}
+
 type Skip = errors.Matchable | errors.Matchable[] | undefined;
+
+type Report = (exc: unknown, message?: string, skip?: Skip) => void;
 
 const checkSkip = (err: unknown, skip: Skip): boolean => {
   if (Array.isArray(skip)) return skip.some((matcher) => matcher.matches(err));
   return skip?.matches(err) ?? false;
 };
 
-const parseException = (exc: unknown, message?: string, skip?: Skip): Status | null => {
-  const stat = fromException(exc, message);
-  console.error(toString(stat));
-  if (checkSkip(exc, skip)) return null;
-  return stat;
-};
+const createReport =
+  (add: Adder, log: Log): Report =>
+  (exc, message, skip) => {
+    if (checkSkip(exc, skip)) return;
+    const stat = fromException(exc, message);
+    log(toString(stat));
+    add(stat);
+  };
 
-const handleException = <ExcOrFunc>(
-  excOrFunc: ExcOrFunc,
-  add: Adder,
-  message?: string,
-  skip?: Skip,
-): excOrFunc is ExcOrFunc & (() => Promise<void> | void) => {
-  if (typeof excOrFunc === "function") return true;
-  const stat = parseException(excOrFunc, message, skip);
-  if (stat != null) add(stat);
-  return false;
-};
+const isFunc = (v: unknown): v is () => Promise<void> | void => typeof v === "function";
 
-const handleFunc = async (
+const run = async (
   func: () => Promise<void> | void,
-  add: Adder,
+  report: Report,
   message?: string,
   skip?: Skip,
 ): Promise<void> => {
@@ -72,21 +71,22 @@ const handleFunc = async (
     // Skip the added microtask if the function returns void instead of a promise.
     if (promise != null) await promise;
   } catch (exc) {
-    const stat = parseException(exc, message, skip);
-    if (stat != null) add(stat);
+    report(exc, message, skip);
   }
 };
 
-export const createErrorHandler =
-  (add: Adder): ErrorHandler =>
-  (excOrFunc, message, skip): void => {
-    if (!handleException(excOrFunc, add, message, skip)) return;
-    void handleFunc(excOrFunc, add, message, skip);
+export const createErrorHandler = (add: Adder, log: Log): ErrorHandler => {
+  const report = createReport(add, log);
+  return (excOrFunc, message, skip) => {
+    if (isFunc(excOrFunc)) void run(excOrFunc, report, message, skip);
+    else report(excOrFunc, message, skip);
   };
+};
 
-export const createAsyncErrorHandler =
-  (add: Adder): AsyncErrorHandler =>
-  async (func, message, skip): Promise<void> => {
-    if (!handleException(func, add, message, skip)) return;
-    await handleFunc(func, add, message, skip);
+export const createAsyncErrorHandler = (add: Adder, log: Log): AsyncErrorHandler => {
+  const report = createReport(add, log);
+  return async (excOrFunc, message, skip) => {
+    if (isFunc(excOrFunc)) await run(excOrFunc, report, message, skip);
+    else report(excOrFunc, message, skip);
   };
+};

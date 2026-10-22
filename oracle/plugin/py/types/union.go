@@ -14,13 +14,12 @@ import (
 
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/internal/casing"
-	"github.com/synnaxlabs/oracle/plugin/py/keywords"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
 // unionData is the template view of a discriminated union. A union renders as
-// one Pydantic BaseModel per variant plus an Annotated[Union[...],
+// one Pydantic BaseModel per variant plus an Annotated[A | B,
 // Field(discriminator=...)] alias that ties them together.
 type unionData struct {
 	// Name is the union alias name (e.g. "Scale").
@@ -67,12 +66,11 @@ func processUnion(
 	form := entry.Form.(resolution.UnionForm)
 	field := data.imports.addField()
 	data.imports.addTyping("Annotated")
-	data.imports.addTyping("Union")
 	data.imports.addTyping("Literal")
 	ud := unionData{
 		Name:     getPyName(entry),
 		Doc:      doc.Get(entry.Domains),
-		DiscName: keywords.Escape(form.Discriminator),
+		DiscName: fieldName(form.Discriminator),
 		Field:    field,
 	}
 	for _, v := range form.Variants {

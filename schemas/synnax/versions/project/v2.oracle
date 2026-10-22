@@ -1,0 +1,27 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+Key = v0.Key
+
+Project struct {
+    key  Key = create {
+        @doc value "is the unique identifier for this project."
+        @key
+    }
+    name string {
+        @doc value "is a human-readable name for the project."
+    }
+
+    @doc value  """
+        is a named, persistable container that groups the panels of the Console
+        application.
+    """
+    @go marshal
+    @go migrate
+}

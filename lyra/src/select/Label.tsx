@@ -12,20 +12,25 @@ import { type ReactNode, useCallback } from "react";
 
 import { CSS } from "@/css";
 import { useIsFixed, useRegistryContext } from "@/select/registry";
+import { Text } from "@/text";
 
 /** Props for {@link Label}. */
 export interface LabelProps<K extends record.Key = record.Key> {
   itemKey: K | undefined;
+  /** The label element's id, for a trigger's aria-labelledby. */
+  id?: string;
   /** Shown when the key names no fixed {@link Item}. */
   children?: ReactNode;
 }
 
 /**
  * Shows the children of the fixed {@link Item} with the given key, or its own children
- * when the key names no fixed item. Triggers and tags use it to label a selection.
+ * when the key names no fixed item. Triggers and tags use it to label a selection. The
+ * label shrinks and fades at its end when its row runs out of space.
  */
 export const Label = <K extends record.Key>({
   itemKey,
+  id,
   children,
 }: LabelProps<K>): ReactNode => {
   const fixed = useIsFixed(itemKey);
@@ -39,6 +44,15 @@ export const Label = <K extends record.Key>({
     },
     [registry, itemKey],
   );
-  if (!fixed) return children;
-  return <span ref={ref} className={CSS.BE("select", "label")} />;
+  return (
+    <Text.Text
+      el="span"
+      id={id}
+      overflow="fade"
+      className={CSS.BE("select", "label")}
+      ref={fixed ? ref : undefined}
+    >
+      {fixed ? null : children}
+    </Text.Text>
+  );
 };

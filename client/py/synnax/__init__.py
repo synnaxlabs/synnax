@@ -15,6 +15,7 @@ from synnax import (
     ethercat,
     http,
     labjack,
+    license,
     modbus,
     ni,
     node,
@@ -37,7 +38,6 @@ from synnax.arc import (
     Position,
     Text,
 )
-from synnax.arc import Task as ArcTask
 from synnax.channel import Channel
 from synnax.control import Controller
 from synnax.device import Device
@@ -46,8 +46,14 @@ from synnax.exceptions import (
     AuthError,
     ConfigurationError,
     ControlError,
+    ExpiredLicense,
     ExpiredToken,
+    InvalidLicense,
     InvalidToken,
+    LicenseError,
+    LicenseFingerprintMismatch,
+    LicenseLimitExceeded,
+    MissingLicense,
     MultipleFoundError,
     NotFoundError,
     PathError,
@@ -72,8 +78,6 @@ from synnax.rack import Rack
 from synnax.ranger import Range
 from synnax.status import Status
 from synnax.synnax import Synnax
-from synnax.task import Status as TaskStatus
-from synnax.task import StatusDetails as TaskStatusDetails
 from synnax.task import Task
 from synnax.telem import (
     Alignment,
@@ -104,39 +108,25 @@ from synnax.user.payload import User
 from synnax.view import View
 from x import color
 from x.color import Color
-from x.deprecation import deprecated_getattr
 from x.exceptions import ContiguityError
 
 __version__ = _version("synnax")
 
-_DEPRECATED: dict[str, str | tuple[str, str]] = {
-    "ArcTask": ("synnax.arc.Task", "ArcTask"),
-    "TaskStatus": ("synnax.task.Status", "TaskStatus"),
-    "TaskStatusDetails": ("synnax.task.StatusDetails", "TaskStatusDetails"),
-    "SynnaxOptions": "Options",
-}
-
-__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
 
 __all__ = [
-    "ArcTask",
-    "TaskStatus",
-    "TaskStatusDetails",
-    "Alignment",
-    "Arc",
     "AUTO_SPAN",
     "AccessDenied",
+    "Alignment",
+    "Arc",
     "AuthError",
     "Authority",
-    "Controller",
     "Bounds",
     "Channel",
     "Color",
-    "Edge",
     "ConfigurationError",
     "ContiguityError",
     "ControlError",
-    "convert_time_units",
+    "Controller",
     "CrudeAlignment",
     "CrudeAuthority",
     "CrudeDataType",
@@ -147,26 +137,31 @@ __all__ = [
     "DataType",
     "Density",
     "Device",
-    "Library",
-    "Project",
-    "View",
-    "elapsed_seconds",
+    "Edge",
+    "ExpiredLicense",
     "ExpiredToken",
-    "PathError",
     "Frame",
     "Graph",
     "GraphEdge",
     "GraphNode",
     "Handle",
-    "Iterator",
+    "InvalidLicense",
     "InvalidToken",
+    "Iterator",
+    "Library",
+    "LicenseError",
+    "LicenseFingerprintMismatch",
+    "LicenseLimitExceeded",
     "Loop",
+    "MissingLicense",
+    "MultiSeries",
     "MultipleFoundError",
     "NotFoundError",
     "Options",
-    "poll",
+    "PathError",
     "Policy",
     "Position",
+    "Project",
     "QueryError",
     "Rack",
     "Range",
@@ -174,41 +169,44 @@ __all__ = [
     "Role",
     "RouteError",
     "Series",
-    "MultiSeries",
     "Size",
-    "sleep",
     "Status",
     "Streamer",
     "Synnax",
     "Task",
     "Text",
-    "Timer",
     "TimeRange",
     "TimeSpan",
     "TimeSpanUnits",
     "TimeStamp",
+    "Timer",
     "UnauthorizedError",
     "UnexpectedError",
     "User",
     "ValidationError",
+    "View",
     "Writer",
     "WriterMode",
     "bus",
     "can",
     "color",
+    "convert_time_units",
+    "elapsed_seconds",
     "ethercat",
+    "group",
     "http",
     "labjack",
+    "license",
     "modbus",
     "ni",
     "node",
+    "ontology",
     "opcua",
     "pagerduty",
+    "poll",
     "serial",
+    "sleep",
+    "status",
     "tcp",
     "udp",
-    "ontology",
-    "status",
-    "Status",
-    "group",
 ]

@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from functools import partial
+
 from examples.simulators.udp_telemetry import UDPTelemetrySim
 
 import synnax as sy
@@ -75,6 +77,6 @@ class UDPWrite(BusCase):
                             self.commands["trim"]: trim,
                             self.commands["mode"]: mode,
                         },
-                        lambda: sim.wait_for(datagram),
+                        partial(sim.wait_for, datagram),
                     )
             self.assert_no_problems(statuses)

@@ -18,7 +18,12 @@ import {
   TimeStamp,
 } from "@synnaxlabs/x";
 
-import { AccessDeniedError, NotFoundError } from "@/errors";
+import {
+  AccessDeniedError,
+  ExpiredLicenseError,
+  MissingLicenseError,
+  NotFoundError,
+} from "@/errors";
 import { Deleted } from "@/query/deleted";
 import { type Table, type TableEvent } from "@/query/table";
 import { type Data, type FetchOptions, type Params } from "@/query/types";
@@ -146,9 +151,12 @@ export const watch = <
  * 1. exact-key — `keyOf` returns a key: track that entry; deletion flips the
  *    answer to deleted.
  * 2. client-checkable — `matches` compares a record against the query:
- *    admit/evict exactly, no network.
- * 3. server-computed — any field named in `serverFields` is set on the query
- *    (or neither `keyOf` nor `matches` applies): debounced wholesale refetch.
+ *    admit/evict exactly, no network. A positive `limit` keeps rule 2: below the
+ *    limit the answer holds every match; at the limit it holds some `limit` of
+ *    them, not necessarily the server's first. A full answer that loses a member
+ *    refetches to fill the slot.
+ * 3. server-computed — any other field named in `serverFields` is set on the
+ *    query (or neither `keyOf` nor `matches` applies): debounced wholesale refetch.
  */
 export interface SpaceConfig<
   P extends Params,
@@ -180,7 +188,8 @@ export interface SpaceConfig<
   matches?: (record: V, params: P) => boolean;
   /**
    * Query fields only the server can evaluate (searchTerm, limit, offset).
-   * A query instance with any of them set is maintained by rule 3.
+   * A query instance with any of them set is maintained by rule 3, except a
+   * positive `limit` alone (see rule 2).
    */
   serverFields?: readonly string[];
   /** Foreign tables whose events affect this space's answers. */
@@ -241,6 +250,9 @@ interface Query<
   unmaintained?: boolean;
   /** Keys whose membership a fetch in flight deferred; drained on settle. */
   pendingRechecks?: Set<K>;
+  /** Set when a full limited answer lost a member: it may leave out matches until a
+   *  server answer replaces it. */
+  vacated?: boolean;
   /** Set when a fetch in flight deferred a refetch; honored on settle. */
   refetchOnSettle?: boolean;
   refetchTimer?: ReturnType<typeof setTimeout>;
@@ -485,6 +497,9 @@ export class Space<
       await this.hooks.ensureStreaming?.();
     } catch (exc) {
       if (AccessDeniedError.matches(exc)) return;
+      // An unlicensed Core refuses the stream. The connection opens it once a license
+      // applies, and the epoch bump that follows refetches maintained answers.
+      if (MissingLicenseError.matches(exc) || ExpiredLicenseError.matches(exc)) return;
       this.report(exc);
     }
   }
@@ -587,6 +602,7 @@ export class Space<
     // A late promise resolution must not clobber a maintenance update.
     if (query.state !== expected) return;
     query.state = next;
+    query.vacated = false;
     this.drainRechecks(query);
     if (next.variant === "error") {
       query.refetchOnSettle = false;
@@ -665,6 +681,7 @@ export class Space<
     // superseded this one.
     if (query.state !== before) return;
     query.state = { variant: "ready", keys };
+    query.vacated = false;
     this.touch(query);
   }
 
@@ -687,9 +704,21 @@ export class Space<
     const { serverFields } = this.config;
     if (serverFields == null || serverFields.length === 0) return false;
     if (typeof params !== "object" || params === null) return false;
+    const limited = this.limitOf(params) != null;
     return Object.entries(params).some(
-      ([field, value]) => value != null && serverFields.includes(field),
+      ([field, value]) =>
+        value != null &&
+        serverFields.includes(field) &&
+        !(limited && field === "limit"),
     );
+  }
+
+  /** The query's positive `limit`, when the space evaluates `limit` on the server. */
+  private limitOf(params: P): number | null {
+    if (this.config.serverFields?.includes("limit") !== true) return null;
+    if (typeof params !== "object" || params === null) return null;
+    if (!("limit" in params) || typeof params.limit !== "number") return null;
+    return params.limit > 0 ? params.limit : null;
   }
 
   private maintain(query: Query<P, K, D, V>): void {
@@ -811,9 +840,10 @@ export class Space<
 
   /**
    * Applies membership rechecks for the given keys against the table's current entries,
-   * without notifying. Admissions append in iteration order; evicting a single space's
-   * last member flips the query to deleted or unfetched. Returns whether the answer
-   * changed: membership moved, or a member's content was touched.
+   * without notifying. Admissions append in iteration order up to the query's limit;
+   * evicting a single space's last member flips the query to deleted or unfetched.
+   * Returns whether the answer changed: membership moved, or a member's content was
+   * touched.
    */
   private applyRechecks(query: Query<P, K, D, V>, keys: Iterable<K>): boolean {
     if (query.state.variant === "loading") {
@@ -843,7 +873,20 @@ export class Space<
       }
     }
     if (admitted.length === 0 && lastEvicted == null) return touched;
-    const next = [...query.state.keys.filter((k) => memberSet.has(k)), ...admitted];
+    const limit = this.limitOf(query.params);
+    const kept = query.state.keys.filter((k) => memberSet.has(k));
+    const room = limit == null ? admitted.length : limit - kept.length;
+    if (lastEvicted == null && room <= 0) return touched;
+    const next = [...kept, ...admitted.slice(0, room)];
+    // A full answer may leave out matches, so only the server can fill a vacated slot.
+    if (
+      limit != null &&
+      next.length < limit &&
+      (query.vacated === true || query.state.keys.length >= limit)
+    ) {
+      query.vacated = true;
+      this.scheduleRefetch(query);
+    }
     if (single === true && next.length === 0 && lastEvicted != null)
       query.state =
         table.status(lastEvicted) === "tombstoned"

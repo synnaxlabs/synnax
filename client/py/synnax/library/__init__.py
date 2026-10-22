@@ -36,6 +36,7 @@ from synnax.library.types_gen import (
 )
 
 __all__ = [
+    "ONTOLOGY_TYPE",
     "BaseEntry",
     "BaseField",
     "BinaryField",
@@ -55,7 +56,6 @@ __all__ = [
     "Key",
     "Library",
     "MessageEntry",
-    "ONTOLOGY_TYPE",
     "Payload",
     "Reference",
     "TaggedTextField",

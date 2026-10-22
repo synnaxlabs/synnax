@@ -37,7 +37,10 @@ const WorkerBridge = ({ children }: PropsWithChildren): ReactElement => {
   return <Aether.Composite path={path}>{children}</Aether.Composite>;
 };
 
-/** Props for {@link Aggregator}. */
+/**
+ * Props for {@link Aggregator}. `log` prints only main-thread errors. Errors on the
+ * Aether worker print through its instrumentation.
+ */
 export interface AggregatorProps extends Base.AggregatorProps {}
 
 /**

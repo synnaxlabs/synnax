@@ -11,10 +11,12 @@ package start
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/samber/lo"
@@ -33,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/transport"
 	"github.com/synnaxlabs/synnax/pkg/version"
@@ -50,6 +53,7 @@ import (
 
 type CoreConfig struct {
 	insecure             *bool
+	fips                 *bool
 	debug                *bool
 	autoCert             *bool
 	validateChannelNames *bool
@@ -57,7 +61,7 @@ type CoreConfig struct {
 	noDriver             *bool
 	alamos.Instrumentation
 	dataPath             string
-	verifier             string
+	licenseKey           string
 	rootCredentials      auth.Credentials
 	listeners            listener.Configs
 	peers                []address.Address
@@ -96,6 +100,7 @@ func DriverTrustAnchors(insecure bool, lc cert.LoaderConfig) ([]byte, error) {
 func (c CoreConfig) Validate() error {
 	v := validate.New("core.config")
 	v.NotNil("insecure", c.insecure)
+	v.NotNil("fips", c.fips)
 	v.NotNil("debug", c.debug)
 	v.NotNil("auto_cert", c.autoCert)
 	v.NotNil("mem_backed", c.memBacked)
@@ -120,9 +125,10 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 	return CoreConfig{
 		Instrumentation: override.Zero(c.Instrumentation, other.Instrumentation),
 		insecure:        override.Nil(c.insecure, other.insecure),
+		fips:            override.Nil(c.fips, other.fips),
 		debug:           override.Nil(c.debug, other.debug),
 		autoCert:        override.Nil(c.autoCert, other.autoCert),
-		verifier:        override.String(c.verifier, other.verifier),
+		licenseKey:      override.String(c.licenseKey, other.licenseKey),
 		memBacked:       override.Nil(c.memBacked, other.memBacked),
 		listeners:       override.Slice(c.listeners, other.listeners),
 		peers:           override.Slice(c.peers, other.peers),
@@ -249,12 +255,16 @@ func BootupCore(
 	}
 
 	serviceLayer, err := service.OpenLayer(ctx, service.LayerConfig{
-		Instrumentation:      cfg.Child("service"),
-		Distribution:         distributionLayer,
-		Security:             securityProvider,
-		Storage:              storageLayer,
-		RootCredentials:      cfg.rootCredentials,
-		Verifier:             cfg.verifier,
+		Instrumentation: cfg.Child("service"),
+		Distribution:    distributionLayer,
+		Security:        securityProvider,
+		Storage:         storageLayer,
+		RootCredentials: cfg.rootCredentials,
+		FIPS:            cfg.fips,
+		License: license.ServiceConfig{
+			Key:     cfg.licenseKey,
+			Version: version.Get(),
+		},
 		ValidateChannelNames: cfg.validateChannelNames,
 	})
 	if !ok(err, serviceLayer) {
@@ -348,11 +358,16 @@ func BootupCore(
 		return err
 	}
 
+	licenseInfo := serviceLayer.License.Retrieve()
+	expired := licenseInfo.State == license.StateExpired
 	if embeddedDriver, err := driver.Open(
 		ctx,
 		driver.Config{
 			Enabled:  new(!*cfg.noDriver),
 			Insecure: cfg.insecure,
+			// An expired Core refuses the Driver's rack, so the Driver retries in the
+			// background.
+			Detached: new(expired),
 			Integrations: parseIntegrations(
 				cfg.enabledIntegrations,
 				cfg.disabledIntegrations,
@@ -364,8 +379,6 @@ func BootupCore(
 			Credentials:         cfg.rootCredentials,
 			Debug:               cfg.debug,
 			TrustAnchorsPEM:     driverTrustAnchors,
-			ClientCertFile:      cfg.certFactoryConfig.AbsoluteCACertPath(),
-			ClientKeyFile:       cfg.certFactoryConfig.AbsoluteCAKeyPath(),
 			ParentDirname:       workDir,
 			TaskWorkerCount:     cfg.taskWorkerCount,
 			TaskShutdownTimeout: cfg.taskShutdownTimeout,
@@ -380,6 +393,18 @@ func BootupCore(
 		"\033[32mSynnax is running and available at %v \033[0m",
 		cfg.listeners.AdvertiseAddress(),
 	)
+	if licenseInfo.State != license.StateOk {
+		scheme := "https"
+		if *cfg.insecure {
+			scheme = "http"
+		}
+		cfg.L.Warn(fmt.Sprintf(
+			"no active license on this Core. Host fingerprint: %s. Open the "+
+				"Console at %s to activate.",
+			strings.Join(licenseInfo.Fingerprint, ", "),
+			scheme+"://"+string(cfg.listeners.AdvertiseAddress()),
+		))
+	}
 
 	if onServerStarted != nil {
 		onServerStarted <- struct{}{}

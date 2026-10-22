@@ -12,6 +12,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { type Input } from "@synnaxlabs/lyra/input";
+import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { type z } from "zod";
 
@@ -80,10 +81,10 @@ export const useConnectModal = Modals.create<ConnectModalParams>(
     };
 
     return (
-      <Modals.Frame className={CSS.B("connect-core")}>
-        <Modals.Header icon={<Icon.Core />}>Connect a Core</Modals.Header>
+      <Modal.Frame className={CSS.B("connect-core")}>
+        <Modal.Header icon={<Icon.Core />}>Connect a Core</Modal.Header>
         <Form.Form<typeof FORM_SCHEMA> {...methods}>
-          <Modals.Body gap="tiny" align="stretch">
+          <Modal.Body gap="tiny" align="stretch">
             <Form.TextField
               path="name"
               inputProps={{
@@ -99,9 +100,9 @@ export const useConnectModal = Modals.create<ConnectModalParams>(
               <Form.NumericField path="port" />
               <Form.SwitchField path="secure" />
             </Flex.Box>
-          </Modals.Body>
+          </Modal.Body>
         </Form.Form>
-        <Modals.Footer>
+        <Modal.Footer>
           <Nav.Bar.Start gap="small">
             <Triggers.SaveHelpText action={isEdit ? "Save" : "Connect"} noBar />
           </Nav.Bar.Start>
@@ -114,8 +115,8 @@ export const useConnectModal = Modals.create<ConnectModalParams>(
               {isEdit ? "Save" : "Connect"}
             </Button.Button>
           </Nav.Bar.End>
-        </Modals.Footer>
-      </Modals.Frame>
+        </Modal.Footer>
+      </Modal.Frame>
     );
   },
 );

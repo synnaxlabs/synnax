@@ -15,9 +15,6 @@ import { type Page } from "@/util/checks/check";
 export const PAGES_DIR = "./src/pages";
 const CONCURRENCY = 4;
 
-export const normalizeRoute = (route: string): string =>
-  route !== "/" && route.endsWith("/") ? route.slice(0, -1) : route;
-
 /** Lists every file under src/pages, as paths relative to it. */
 export const pageFiles = (): string[] => {
   const files: string[] = [];

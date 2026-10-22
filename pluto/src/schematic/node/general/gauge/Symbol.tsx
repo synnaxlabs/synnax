@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/schematic/node/common/primitive/primitive.css";
+
 import { type schematic } from "@synnaxlabs/client";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { box, dimensions, type text, xy } from "@synnaxlabs/x";
@@ -36,7 +38,7 @@ export const Symbol = ({
   config: {
     label,
     level = "p",
-    color,
+    strokeColor,
     channel,
     rollingAverage,
     precision,
@@ -60,7 +62,7 @@ export const Symbol = ({
     aetherKey: nodeKey,
     box: box.construct(position ?? xy.ZERO, dims),
     telem,
-    color,
+    color: strokeColor,
     level,
     units,
     bounds,

@@ -18,7 +18,7 @@ export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 const DIMENSIONS = { width: 64, height: 64 };
 
 export const Angled = ({
-  color,
+  strokeColor,
   className,
   orientation = "left",
   scale,
@@ -47,7 +47,7 @@ export const Angled = ({
     </Handle.Boundary>
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >

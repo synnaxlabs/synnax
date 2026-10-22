@@ -9,9 +9,8 @@
 
 import { type Check } from "@/util/checks/check";
 import { locate } from "@/util/checks/crawl";
-import { islands, QUOTED } from "@/util/checks/html";
+import { attrOf, elements, QUOTED } from "@/util/checks/html";
 
-const NAMED_SLOT = new RegExp(`data-astro-template=${QUOTED}|<astro-slot name=`);
 const STYLE_ATTR = new RegExp(`\\sstyle=${QUOTED}`, "g");
 
 // Returns the first margin declaration with a nonzero vertical component, or null.
@@ -36,37 +35,43 @@ const verticalMargin = (style: string): string | null => {
   return null;
 };
 
-// Guards against Astro dropping named MDX slots on tab islands, which ships every
-// platform tab blank, and against spacer margins that pad a short panel to match
-// its siblings. The zero-islands canary needs a full crawl; filtered runs skip it.
+// Names the tab that controls a panel, to find its slot in the page source.
+const tabKey = (html: string, panel: string): string | undefined => {
+  const id = attrOf(panel, "id");
+  const tab = new RegExp(`<[^>]*\\saria-controls="${id}"[^>]*>`).exec(html);
+  return tab == null ? undefined : attrOf(tab[0], "data-tab-key");
+};
+
+// Guards against Astro dropping named MDX slots, which ships a tab panel blank, and
+// against spacer margins that pad a short panel to match its siblings. The zero-panels
+// canary needs a full crawl; filtered runs skip it.
 export const tabs = (fullCrawl: boolean): Check => {
   let seen = 0;
   return {
     name: "tabs",
     page: ({ route, html }) => {
       const failures: string[] = [];
-      for (const island of islands(html)) {
-        if (!island.component.endsWith(".Tabs")) continue;
+      for (const panel of elements(html, "div", "role", "tabpanel")) {
         seen += 1;
-        if (!NAMED_SLOT.test(island.body))
+        if (panel.body.trim() === "") {
+          const key = tabKey(html, panel.tag);
           failures.push(
-            `${locate(route, `<${island.component}`)} - ` +
-              `${island.component} island has no named slot content`,
+            `${locate(route, `slot="${key}"`)} - tab panel ${key ?? ""} is empty`,
           );
-        for (const m of island.body.matchAll(STYLE_ATTR)) {
+        }
+        for (const m of panel.body.matchAll(STYLE_ATTR)) {
           const decl = verticalMargin(m[1] ?? m[2]);
           if (decl != null)
             failures.push(
               `${locate(route, decl.split(":")[1].trim())} - ` +
-                `spacer "${decl}" inside a ${island.component} panel`,
+                `spacer "${decl}" inside a tab panel`,
             );
         }
       }
       return failures;
     },
     finish: async (_, report) => {
-      if (fullCrawl && seen === 0)
-        report("no *.Tabs islands found: markup has changed");
+      if (fullCrawl && seen === 0) report("no tab panels found: markup has changed");
     },
   };
 };

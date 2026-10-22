@@ -10,7 +10,7 @@ prevURL: "/reference/concepts/ranges"
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Table } from "@/components";
+import { Table } from "@/components/table";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -28,7 +28,6 @@ example, if our desired range is from `1677433720970863400` to `1677433721870863
 would retrieve the following subset from the shown domain:
 
 <Table.Data
-  client:only="react"
   columns={[
     { key: "time" },
     { key: "thermocouple-01" },

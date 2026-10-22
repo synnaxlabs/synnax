@@ -12,6 +12,7 @@
 #pragma once
 
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 #include <utility>
 #include <variant>
@@ -32,7 +33,7 @@ byte_order_to_pb(const std::string &cpp) {
             {BYTE_ORDER_LITTLE_ENDIAN,
              ::service::library::pb::BYTE_ORDER_LITTLE_ENDIAN},
             {BYTE_ORDER_BIG_ENDIAN, ::service::library::pb::BYTE_ORDER_BIG_ENDIAN},
-        };
+    };
     auto it = kMap.find(cpp);
     if (it == kMap.end())
         return {{}, x::errors::Error("unrecognized ByteOrder value: " + cpp)};
@@ -218,7 +219,7 @@ Library::from_proto(const ::service::library::pb::Library &pb) {
     for (const auto &item: pb.entries()) {
         auto [v, err] = ::synnax::library::entry_from_proto(item);
         if (err) return {{}, err};
-        cpp.entries.push_back(std::move(v));
+        cpp.entries.push_back(v);
     }
     return {cpp, x::errors::NIL};
 }
@@ -244,17 +245,17 @@ Reference::from_proto(const ::service::library::pb::Reference &pb) {
 }
 
 inline std::pair<::service::library::pb::IdentifierCanPayload, x::errors::Error>
-can_identifier_to_proto(const CanIdentifier &cpp) {
+CanIdentifier::to_proto() const {
     ::service::library::pb::IdentifierCanPayload pb;
-    pb.set_id(cpp.id);
-    pb.set_extended(cpp.extended);
-    pb.set_fd(cpp.fd);
-    if (cpp.mask.has_value()) pb.set_mask(*cpp.mask);
+    pb.set_id(this->id);
+    pb.set_extended(this->extended);
+    pb.set_fd(this->fd);
+    if (this->mask.has_value()) pb.set_mask(*this->mask);
     return {pb, x::errors::NIL};
 }
 
 inline std::pair<CanIdentifier, x::errors::Error>
-can_identifier_from_proto(const ::service::library::pb::IdentifierCanPayload &pb) {
+CanIdentifier::from_proto(const ::service::library::pb::IdentifierCanPayload &pb) {
     CanIdentifier cpp;
     cpp.id = pb.id();
     cpp.extended = pb.extended();
@@ -264,15 +265,15 @@ can_identifier_from_proto(const ::service::library::pb::IdentifierCanPayload &pb
 }
 
 inline std::pair<::service::library::pb::IdentifierFieldPayload, x::errors::Error>
-field_identifier_to_proto(const FieldIdentifier &cpp) {
+FieldIdentifier::to_proto() const {
     ::service::library::pb::IdentifierFieldPayload pb;
-    pb.set_field(cpp.field.to_string());
-    pb.set_value(cpp.value);
+    pb.set_field(this->field.to_string());
+    pb.set_value(this->value);
     return {pb, x::errors::NIL};
 }
 
 inline std::pair<FieldIdentifier, x::errors::Error>
-field_identifier_from_proto(const ::service::library::pb::IdentifierFieldPayload &pb) {
+FieldIdentifier::from_proto(const ::service::library::pb::IdentifierFieldPayload &pb) {
     FieldIdentifier cpp;
     {
         auto [v, err] = x::uuid::UUID::parse(pb.field());
@@ -283,50 +284,14 @@ field_identifier_from_proto(const ::service::library::pb::IdentifierFieldPayload
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::library::pb::Identifier, x::errors::Error>
-to_proto(const Identifier &value) {
-    ::service::library::pb::Identifier pb;
-    if (const auto *v = std::get_if<CanIdentifier>(&value)) {
-        auto [payload, err] = can_identifier_to_proto(*v);
-        if (err) return {{}, err};
-        *pb.mutable_can() = payload;
-        return {pb, x::errors::NIL};
-    }
-    if (const auto *v = std::get_if<FieldIdentifier>(&value)) {
-        auto [payload, err] = field_identifier_to_proto(*v);
-        if (err) return {{}, err};
-        *pb.mutable_field() = payload;
-        return {pb, x::errors::NIL};
-    }
-    return {{}, x::errors::Error("Identifier: unknown variant")};
-}
-
-inline std::pair<Identifier, x::errors::Error>
-identifier_from_proto(const ::service::library::pb::Identifier &pb) {
-    switch (pb.variant_case()) {
-        case ::service::library::pb::Identifier::kCan: {
-            auto [cpp, err] = can_identifier_from_proto(pb.can());
-            if (err) return {{}, err};
-            return {std::move(cpp), x::errors::NIL};
-        }
-        case ::service::library::pb::Identifier::kField: {
-            auto [cpp, err] = field_identifier_from_proto(pb.field());
-            if (err) return {{}, err};
-            return {std::move(cpp), x::errors::NIL};
-        }
-        default:
-            return {{}, x::errors::Error("Identifier: variant is not set")};
-    }
-}
-
 inline std::pair<::service::library::pb::TextFieldDelimitedPayload, x::errors::Error>
-delimited_text_field_to_proto(const DelimitedTextField &cpp) {
+DelimitedTextField::to_proto() const {
     ::service::library::pb::TextFieldDelimitedPayload pb;
-    pb.set_position(cpp.position);
+    pb.set_position(this->position);
     return {pb, x::errors::NIL};
 }
 
-inline std::pair<DelimitedTextField, x::errors::Error> delimited_text_field_from_proto(
+inline std::pair<DelimitedTextField, x::errors::Error> DelimitedTextField::from_proto(
     const ::service::library::pb::TextFieldDelimitedPayload &pb
 ) {
     DelimitedTextField cpp;
@@ -335,85 +300,29 @@ inline std::pair<DelimitedTextField, x::errors::Error> delimited_text_field_from
 }
 
 inline std::pair<::service::library::pb::TextFieldTaggedPayload, x::errors::Error>
-tagged_text_field_to_proto(const TaggedTextField &cpp) {
+TaggedTextField::to_proto() const {
     ::service::library::pb::TextFieldTaggedPayload pb;
-    pb.set_tag(cpp.tag);
+    pb.set_tag(this->tag);
     return {pb, x::errors::NIL};
 }
 
 inline std::pair<TaggedTextField, x::errors::Error>
-tagged_text_field_from_proto(const ::service::library::pb::TextFieldTaggedPayload &pb) {
+TaggedTextField::from_proto(const ::service::library::pb::TextFieldTaggedPayload &pb) {
     TaggedTextField cpp;
     cpp.tag = pb.tag();
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::library::pb::TextField, x::errors::Error>
-to_proto(const TextField &value) {
-    ::service::library::pb::TextField pb;
-    if (const auto *v = std::get_if<DelimitedTextField>(&value)) {
-        {
-            auto [base, err] = static_cast<const BaseField &>(*v).to_proto();
-            if (err) return {{}, err};
-            *pb.mutable_base_field() = base;
-        }
-        auto [payload, err] = delimited_text_field_to_proto(*v);
-        if (err) return {{}, err};
-        *pb.mutable_delimited() = payload;
-        return {pb, x::errors::NIL};
-    }
-    if (const auto *v = std::get_if<TaggedTextField>(&value)) {
-        {
-            auto [base, err] = static_cast<const BaseField &>(*v).to_proto();
-            if (err) return {{}, err};
-            *pb.mutable_base_field() = base;
-        }
-        auto [payload, err] = tagged_text_field_to_proto(*v);
-        if (err) return {{}, err};
-        *pb.mutable_tagged() = payload;
-        return {pb, x::errors::NIL};
-    }
-    return {{}, x::errors::Error("TextField: unknown variant")};
-}
-
-inline std::pair<TextField, x::errors::Error>
-text_field_from_proto(const ::service::library::pb::TextField &pb) {
-    switch (pb.variant_case()) {
-        case ::service::library::pb::TextField::kDelimited: {
-            auto [cpp, err] = delimited_text_field_from_proto(pb.delimited());
-            if (err) return {{}, err};
-            {
-                auto [base, err] = BaseField::from_proto(pb.base_field());
-                if (err) return {{}, err};
-                static_cast<BaseField &>(cpp) = std::move(base);
-            }
-            return {std::move(cpp), x::errors::NIL};
-        }
-        case ::service::library::pb::TextField::kTagged: {
-            auto [cpp, err] = tagged_text_field_from_proto(pb.tagged());
-            if (err) return {{}, err};
-            {
-                auto [base, err] = BaseField::from_proto(pb.base_field());
-                if (err) return {{}, err};
-                static_cast<BaseField &>(cpp) = std::move(base);
-            }
-            return {std::move(cpp), x::errors::NIL};
-        }
-        default:
-            return {{}, x::errors::Error("TextField: variant is not set")};
-    }
-}
-
 inline std::pair<::service::library::pb::PayloadBinaryPayload, x::errors::Error>
-binary_payload_to_proto(const BinaryPayload &cpp) {
+BinaryPayload::to_proto() const {
     ::service::library::pb::PayloadBinaryPayload pb;
-    if (cpp.length.has_value()) pb.set_length(*cpp.length);
-    if (cpp.identifier.has_value()) {
-        auto [v, err] = ::synnax::library::to_proto(*cpp.identifier);
+    if (this->length.has_value()) pb.set_length(*this->length);
+    if (this->identifier.has_value()) {
+        auto [v, err] = ::synnax::library::to_proto(*this->identifier);
         if (err) return {{}, err};
         *pb.mutable_identifier() = v;
     }
-    for (const auto &item: cpp.fields) {
+    for (const auto &item: this->fields) {
         auto [v, err] = item.to_proto();
         if (err) return {{}, err};
         *pb.add_fields() = v;
@@ -422,13 +331,13 @@ binary_payload_to_proto(const BinaryPayload &cpp) {
 }
 
 inline std::pair<BinaryPayload, x::errors::Error>
-binary_payload_from_proto(const ::service::library::pb::PayloadBinaryPayload &pb) {
+BinaryPayload::from_proto(const ::service::library::pb::PayloadBinaryPayload &pb) {
     BinaryPayload cpp;
     if (pb.has_length()) cpp.length = pb.length();
     if (pb.has_identifier()) {
         auto [v, err] = ::synnax::library::identifier_from_proto(pb.identifier());
         if (err) return {{}, err};
-        cpp.identifier = std::move(v);
+        cpp.identifier = v;
     }
     if (auto err = x::pb::from_proto_repeated<BinaryField>(cpp.fields, pb.fields()))
         return {{}, err};
@@ -436,11 +345,11 @@ binary_payload_from_proto(const ::service::library::pb::PayloadBinaryPayload &pb
 }
 
 inline std::pair<::service::library::pb::PayloadTextPayload, x::errors::Error>
-text_payload_to_proto(const TextPayload &cpp) {
+TextPayload::to_proto() const {
     ::service::library::pb::PayloadTextPayload pb;
-    pb.set_delimiter(cpp.delimiter);
-    pb.set_prefix(cpp.prefix);
-    for (const auto &item: cpp.fields) {
+    pb.set_delimiter(this->delimiter);
+    pb.set_prefix(this->prefix);
+    for (const auto &item: this->fields) {
         auto [v, err] = ::synnax::library::to_proto(item);
         if (err) return {{}, err};
         *pb.add_fields() = v;
@@ -449,58 +358,22 @@ text_payload_to_proto(const TextPayload &cpp) {
 }
 
 inline std::pair<TextPayload, x::errors::Error>
-text_payload_from_proto(const ::service::library::pb::PayloadTextPayload &pb) {
+TextPayload::from_proto(const ::service::library::pb::PayloadTextPayload &pb) {
     TextPayload cpp;
     cpp.delimiter = pb.delimiter();
     cpp.prefix = pb.prefix();
     for (const auto &item: pb.fields()) {
         auto [v, err] = ::synnax::library::text_field_from_proto(item);
         if (err) return {{}, err};
-        cpp.fields.push_back(std::move(v));
+        cpp.fields.push_back(v);
     }
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::library::pb::Payload, x::errors::Error>
-to_proto(const Payload &value) {
-    ::service::library::pb::Payload pb;
-    if (const auto *v = std::get_if<BinaryPayload>(&value)) {
-        auto [payload, err] = binary_payload_to_proto(*v);
-        if (err) return {{}, err};
-        *pb.mutable_binary() = payload;
-        return {pb, x::errors::NIL};
-    }
-    if (const auto *v = std::get_if<TextPayload>(&value)) {
-        auto [payload, err] = text_payload_to_proto(*v);
-        if (err) return {{}, err};
-        *pb.mutable_text() = payload;
-        return {pb, x::errors::NIL};
-    }
-    return {{}, x::errors::Error("Payload: unknown variant")};
-}
-
-inline std::pair<Payload, x::errors::Error>
-payload_from_proto(const ::service::library::pb::Payload &pb) {
-    switch (pb.variant_case()) {
-        case ::service::library::pb::Payload::kBinary: {
-            auto [cpp, err] = binary_payload_from_proto(pb.binary());
-            if (err) return {{}, err};
-            return {std::move(cpp), x::errors::NIL};
-        }
-        case ::service::library::pb::Payload::kText: {
-            auto [cpp, err] = text_payload_from_proto(pb.text());
-            if (err) return {{}, err};
-            return {std::move(cpp), x::errors::NIL};
-        }
-        default:
-            return {{}, x::errors::Error("Payload: variant is not set")};
-    }
-}
-
 inline std::pair<::service::library::pb::EntryEnumPayload, x::errors::Error>
-enum_entry_to_proto(const EnumEntry &cpp) {
+EnumEntry::to_proto() const {
     ::service::library::pb::EntryEnumPayload pb;
-    for (const auto &item: cpp.values) {
+    for (const auto &item: this->values) {
         auto [v, err] = item.to_proto();
         if (err) return {{}, err};
         *pb.add_values() = v;
@@ -509,7 +382,7 @@ enum_entry_to_proto(const EnumEntry &cpp) {
 }
 
 inline std::pair<EnumEntry, x::errors::Error>
-enum_entry_from_proto(const ::service::library::pb::EntryEnumPayload &pb) {
+EnumEntry::from_proto(const ::service::library::pb::EntryEnumPayload &pb) {
     EnumEntry cpp;
     if (auto err = x::pb::from_proto_repeated<EnumValue>(cpp.values, pb.values()))
         return {{}, err};
@@ -517,84 +390,218 @@ enum_entry_from_proto(const ::service::library::pb::EntryEnumPayload &pb) {
 }
 
 inline std::pair<::service::library::pb::EntryMessagePayload, x::errors::Error>
-message_entry_to_proto(const MessageEntry &cpp) {
+MessageEntry::to_proto() const {
     ::service::library::pb::EntryMessagePayload pb;
     {
-        auto [v, err] = ::synnax::library::to_proto(cpp.payload);
+        auto [v, err] = ::synnax::library::to_proto(this->payload);
         if (err) return {{}, err};
         *pb.mutable_payload() = v;
     }
-    if (cpp.period.has_value()) pb.set_period(cpp.period->to_proto());
-    if (cpp.query.has_value()) pb.set_query(*cpp.query);
+    if (this->period.has_value()) pb.set_period(this->period->to_proto());
+    if (this->query.has_value()) pb.set_query(*this->query);
     return {pb, x::errors::NIL};
 }
 
 inline std::pair<MessageEntry, x::errors::Error>
-message_entry_from_proto(const ::service::library::pb::EntryMessagePayload &pb) {
+MessageEntry::from_proto(const ::service::library::pb::EntryMessagePayload &pb) {
     MessageEntry cpp;
     {
         auto [v, err] = ::synnax::library::payload_from_proto(pb.payload());
         if (err) return {{}, err};
-        cpp.payload = std::move(v);
+        cpp.payload = v;
     }
     if (pb.has_period()) cpp.period = ::x::telem::TimeSpan::from_proto(pb.period());
     if (pb.has_query()) cpp.query = pb.query();
     return {cpp, x::errors::NIL};
 }
 
+inline std::pair<::service::library::pb::Identifier, x::errors::Error>
+to_proto(const Identifier &value) {
+    ::service::library::pb::Identifier pb;
+    const auto visit_err = std::visit(
+        [&pb](const auto &v) -> x::errors::Error {
+            using V = std::decay_t<decltype(v)>;
+            auto [inner, err] = v.to_proto();
+            if (err) return err;
+            if constexpr (std::is_same_v<V, CanIdentifier>)
+                *pb.mutable_can() = inner;
+            else if constexpr (std::is_same_v<V, FieldIdentifier>)
+                *pb.mutable_field() = inner;
+            return x::errors::NIL;
+        },
+        value
+    );
+    return {pb, visit_err};
+}
+
+inline std::pair<Identifier, x::errors::Error>
+identifier_from_proto(const ::service::library::pb::Identifier &pb) {
+    switch (pb.variant_case()) {
+        case ::service::library::pb::Identifier::kCan: {
+            auto [v, err] = CanIdentifier::from_proto(pb.can());
+            if (err) return {{}, err};
+            return {v, x::errors::NIL};
+        }
+        case ::service::library::pb::Identifier::kField: {
+            auto [v, err] = FieldIdentifier::from_proto(pb.field());
+            if (err) return {{}, err};
+            return {v, x::errors::NIL};
+        }
+        default:
+            return {
+                {},
+                x::errors::Error(x::errors::VALIDATION, "Identifier: no variant set")
+            };
+    }
+}
+
+inline std::pair<::service::library::pb::TextField, x::errors::Error>
+to_proto(const TextField &value) {
+    ::service::library::pb::TextField pb;
+    const auto visit_err = std::visit(
+        [&pb](const auto &v) -> x::errors::Error {
+            using V = std::decay_t<decltype(v)>;
+            auto [inner, err] = v.to_proto();
+            if (err) return err;
+            {
+                auto [base, base_err] = static_cast<const BaseField &>(v).to_proto();
+                if (base_err) return base_err;
+                *pb.mutable_base_field() = base;
+            }
+            if constexpr (std::is_same_v<V, DelimitedTextField>)
+                *pb.mutable_delimited() = inner;
+            else if constexpr (std::is_same_v<V, TaggedTextField>)
+                *pb.mutable_tagged() = inner;
+            return x::errors::NIL;
+        },
+        value
+    );
+    return {pb, visit_err};
+}
+
+inline std::pair<TextField, x::errors::Error>
+text_field_from_proto(const ::service::library::pb::TextField &pb) {
+    switch (pb.variant_case()) {
+        case ::service::library::pb::TextField::kDelimited: {
+            auto [v, err] = DelimitedTextField::from_proto(pb.delimited());
+            if (err) return {{}, err};
+            {
+                auto [base, base_err] = BaseField::from_proto(pb.base_field());
+                if (base_err) return {{}, base_err};
+                static_cast<BaseField &>(v) = base;
+            }
+            return {v, x::errors::NIL};
+        }
+        case ::service::library::pb::TextField::kTagged: {
+            auto [v, err] = TaggedTextField::from_proto(pb.tagged());
+            if (err) return {{}, err};
+            {
+                auto [base, base_err] = BaseField::from_proto(pb.base_field());
+                if (base_err) return {{}, base_err};
+                static_cast<BaseField &>(v) = base;
+            }
+            return {v, x::errors::NIL};
+        }
+        default:
+            return {
+                {},
+                x::errors::Error(x::errors::VALIDATION, "TextField: no variant set")
+            };
+    }
+}
+
+inline std::pair<::service::library::pb::Payload, x::errors::Error>
+to_proto(const Payload &value) {
+    ::service::library::pb::Payload pb;
+    const auto visit_err = std::visit(
+        [&pb](const auto &v) -> x::errors::Error {
+            using V = std::decay_t<decltype(v)>;
+            auto [inner, err] = v.to_proto();
+            if (err) return err;
+            if constexpr (std::is_same_v<V, BinaryPayload>)
+                *pb.mutable_binary() = inner;
+            else if constexpr (std::is_same_v<V, TextPayload>)
+                *pb.mutable_text() = inner;
+            return x::errors::NIL;
+        },
+        value
+    );
+    return {pb, visit_err};
+}
+
+inline std::pair<Payload, x::errors::Error>
+payload_from_proto(const ::service::library::pb::Payload &pb) {
+    switch (pb.variant_case()) {
+        case ::service::library::pb::Payload::kBinary: {
+            auto [v, err] = BinaryPayload::from_proto(pb.binary());
+            if (err) return {{}, err};
+            return {v, x::errors::NIL};
+        }
+        case ::service::library::pb::Payload::kText: {
+            auto [v, err] = TextPayload::from_proto(pb.text());
+            if (err) return {{}, err};
+            return {v, x::errors::NIL};
+        }
+        default:
+            return {
+                {},
+                x::errors::Error(x::errors::VALIDATION, "Payload: no variant set")
+            };
+    }
+}
+
 inline std::pair<::service::library::pb::Entry, x::errors::Error>
 to_proto(const Entry &value) {
     ::service::library::pb::Entry pb;
-    if (const auto *v = std::get_if<EnumEntry>(&value)) {
-        {
-            auto [base, err] = static_cast<const BaseEntry &>(*v).to_proto();
-            if (err) return {{}, err};
-            *pb.mutable_base_entry() = base;
-        }
-        auto [payload, err] = enum_entry_to_proto(*v);
-        if (err) return {{}, err};
-        *pb.mutable_enum_() = payload;
-        return {pb, x::errors::NIL};
-    }
-    if (const auto *v = std::get_if<MessageEntry>(&value)) {
-        {
-            auto [base, err] = static_cast<const BaseEntry &>(*v).to_proto();
-            if (err) return {{}, err};
-            *pb.mutable_base_entry() = base;
-        }
-        auto [payload, err] = message_entry_to_proto(*v);
-        if (err) return {{}, err};
-        *pb.mutable_message() = payload;
-        return {pb, x::errors::NIL};
-    }
-    return {{}, x::errors::Error("Entry: unknown variant")};
+    const auto visit_err = std::visit(
+        [&pb](const auto &v) -> x::errors::Error {
+            using V = std::decay_t<decltype(v)>;
+            auto [inner, err] = v.to_proto();
+            if (err) return err;
+            {
+                auto [base, base_err] = static_cast<const BaseEntry &>(v).to_proto();
+                if (base_err) return base_err;
+                *pb.mutable_base_entry() = base;
+            }
+            if constexpr (std::is_same_v<V, EnumEntry>)
+                *pb.mutable_enum_() = inner;
+            else if constexpr (std::is_same_v<V, MessageEntry>)
+                *pb.mutable_message() = inner;
+            return x::errors::NIL;
+        },
+        value
+    );
+    return {pb, visit_err};
 }
 
 inline std::pair<Entry, x::errors::Error>
 entry_from_proto(const ::service::library::pb::Entry &pb) {
     switch (pb.variant_case()) {
         case ::service::library::pb::Entry::kEnum: {
-            auto [cpp, err] = enum_entry_from_proto(pb.enum_());
+            auto [v, err] = EnumEntry::from_proto(pb.enum_());
             if (err) return {{}, err};
             {
-                auto [base, err] = BaseEntry::from_proto(pb.base_entry());
-                if (err) return {{}, err};
-                static_cast<BaseEntry &>(cpp) = std::move(base);
+                auto [base, base_err] = BaseEntry::from_proto(pb.base_entry());
+                if (base_err) return {{}, base_err};
+                static_cast<BaseEntry &>(v) = base;
             }
-            return {std::move(cpp), x::errors::NIL};
+            return {v, x::errors::NIL};
         }
         case ::service::library::pb::Entry::kMessage: {
-            auto [cpp, err] = message_entry_from_proto(pb.message());
+            auto [v, err] = MessageEntry::from_proto(pb.message());
             if (err) return {{}, err};
             {
-                auto [base, err] = BaseEntry::from_proto(pb.base_entry());
-                if (err) return {{}, err};
-                static_cast<BaseEntry &>(cpp) = std::move(base);
+                auto [base, base_err] = BaseEntry::from_proto(pb.base_entry());
+                if (base_err) return {{}, base_err};
+                static_cast<BaseEntry &>(v) = base;
             }
-            return {std::move(cpp), x::errors::NIL};
+            return {v, x::errors::NIL};
         }
         default:
-            return {{}, x::errors::Error("Entry: variant is not set")};
+            return {
+                {},
+                x::errors::Error(x::errors::VALIDATION, "Entry: no variant set")
+            };
     }
 }
 

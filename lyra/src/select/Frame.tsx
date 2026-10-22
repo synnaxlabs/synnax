@@ -118,6 +118,7 @@ export const Frame = <
   onFetchMore,
   overscan,
   virtual = false,
+  pinned,
   value,
   onChange,
   ...rest
@@ -132,6 +133,7 @@ export const Frame = <
       itemHeight={itemHeight}
       overscan={overscan}
       virtual={virtual}
+      pinned={pinned}
     >
       <RegistryContext value={registry}>
         {multiple ? (

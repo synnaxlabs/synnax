@@ -19,7 +19,7 @@ from tests.migration.task_opc_setup import (
 from tests.migration.task_verify import ReadTaskConsoleVerify, ReadTaskMigrationVerify
 
 
-class OPCUAReadVerify(ReadTaskMigrationVerify, OPCUAReadTaskCase):
+class OPCUAReadVerify(ReadTaskMigrationVerify[sy.opcua.ReadTask], OPCUAReadTaskCase):
     """Verify OPC UA task config survived and task can still run."""
 
     task_name = TASK_NAME
@@ -41,7 +41,7 @@ class OPCUAReadVerify(ReadTaskMigrationVerify, OPCUAReadTaskCase):
                     index=idx.key,
                 ),
                 node_id=f"NS=2;I={8 + i}",
-                data_type="float32",
+                data_type=sy.DataType.FLOAT32,
             )
             for i in range(NUM_CHANNELS)
         ]

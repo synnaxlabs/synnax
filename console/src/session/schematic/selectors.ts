@@ -97,7 +97,7 @@ export const selectSelectedSymbolGroup = (params: KeyedSelectorParams): string =
 
 export const useSelectSelectedSymbolGroup = createSelector(selectSelectedSymbolGroup);
 
-export const selectPropertiesTab = (
+const selectPropertiesTab = (
   params: KeyedSelectorParams,
 ): Properties.TabKey | undefined => selectToolbar(params).propertiesTab;
 
@@ -124,6 +124,11 @@ const selectFitViewOnResize = (params: KeyedSelectorParams): boolean =>
 
 export const useSelectFitViewOnResize = createSelector(selectFitViewOnResize);
 export const useGetFitViewOnResize = createGetter(selectFitViewOnResize);
+
+const selectTooltipsDisabled = (params: KeyedSelectorParams): boolean =>
+  selectState(params).tooltipsDisabled;
+
+export const useSelectTooltipsDisabled = createSelector(selectTooltipsDisabled);
 
 const selectViewport = (params: KeyedSelectorParams): Viewport =>
   selectState(params).viewport;

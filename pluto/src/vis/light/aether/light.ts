@@ -19,7 +19,6 @@ export const stateZ = staleness.stateZ.extend({
   enabled: z.boolean(),
   source: telem.booleanSourceSpecZ.default(telem.noopBooleanSourceSpec),
 });
-export interface State extends z.input<typeof stateZ> {}
 
 interface InternalState {
   source: telem.BooleanSource;

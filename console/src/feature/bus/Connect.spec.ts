@@ -17,7 +17,10 @@ import { CAN } from "@/feature/can";
 import { Serial } from "@/feature/serial";
 import { TCP } from "@/feature/tcp";
 import { UDP } from "@/feature/udp";
+import { createTestSink } from "@/platform/analytics/testutil";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
+import { selectFromDropdown } from "@/platform/task/testutil";
+import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -101,6 +104,23 @@ describe("bus device connect", () => {
     const saved = await connectAndRetrieve(dev.key);
     expect(saved.model).toBe("UDP socket");
     expect(saved.location).toBe(":5000");
+  });
+
+  it("should report a device it connected", async () => {
+    const rack = await client.racks.create({
+      name: uniqueName("udp_rack"),
+      integrations: ["udp"],
+    });
+    const analytics = createTestSink();
+    await renderModalOpener(UDP.Device.useConnectModal, [{}], { client, analytics });
+    await selectFromDropdown("Select Driver", rack.name);
+    await enterField("Local port", "5001");
+    fireEvent.click(findButton("Connect"));
+    await waitFor(() =>
+      expect(analytics.capture).toHaveBeenCalledWith("device_connected", {
+        integration: "udp",
+      }),
+    );
   });
 
   it("should show an empty required property on its field", async () => {

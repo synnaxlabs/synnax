@@ -32,6 +32,7 @@ import (
 	pyprimitives "github.com/synnaxlabs/oracle/plugin/py/primitives"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -116,12 +117,17 @@ func generatePyFile(
 	skip := func(typ resolution.Type) bool { return omit.IsSkipped(typ, "py") }
 	rawKeyFields := key.Collect(structs, table, skip)
 	keyFields := convertKeyFields(rawKeyFields, data)
-	allStructs := lo.Filter(table.StructTypes(), func(typ resolution.Type, _ int) bool {
+	inOutput := func(typ resolution.Type, _ int) bool {
 		return output.GetPath(typ, "py") == outputPath
-	})
+	}
+	allStructs := lo.Filter(table.StructTypes(), inOutput)
 	allRawKeyFields := key.Collect(allStructs, table, nil)
-	allKeyFields := convertKeyFields(allRawKeyFields, data)
-	data.Ontology = extractOntology(allStructs, allRawKeyFields, allKeyFields, nil)
+	data.Ontology = extractOntology(
+		slices.Concat(allStructs, lo.Filter(table.UnionTypes(), inOutput)),
+		allRawKeyFields,
+		nil,
+		table,
+	)
 	if data.Ontology != nil {
 		data.imports.addOntology("ID")
 	}
@@ -131,12 +137,12 @@ func generatePyFile(
 	for _, s := range structs {
 		if form, ok := s.Form.(resolution.StructForm); ok {
 			for _, field := range form.Fields {
-				data.imports.registerFieldName(field.Name)
+				data.imports.registerFieldName(fieldName(field.Name))
 			}
 		}
 		// Also collect unified fields (which include inherited fields)
 		for _, field := range resolution.UnifiedFields(s, table) {
-			data.imports.registerFieldName(field.Name)
+			data.imports.registerFieldName(fieldName(field.Name))
 		}
 	}
 
@@ -195,7 +201,10 @@ func generatePyFile(
 				TypeDef:   processTypeDef(typ, table, data),
 			})
 		case resolution.StructForm:
-			sd := processStruct(typ, table, data, keyFields)
+			sd, err := processStruct(typ, table, data, keyFields)
+			if err != nil {
+				return nil, err
+			}
 			for _, f := range sd.Fields {
 				if f.Alias != "" {
 					sd.HasKeywordAlias = true
@@ -244,11 +253,11 @@ func convertKeyFields(fields []key.Field, data *templateData) []keyFieldData {
 func extractOntology(
 	types []resolution.Type,
 	rawFields []key.Field,
-	keyFields []keyFieldData,
 	skip ontology.SkipFunc,
+	table *resolution.Table,
 ) *ontologyData {
-	data := ontology.Extract(types, rawFields, skip)
-	if data == nil || len(keyFields) == 0 {
+	data := ontology.Extract(types, rawFields, skip, table)
+	if data == nil {
 		return nil
 	}
 	return &ontologyData{
@@ -457,15 +466,6 @@ func constraintToPython(
 	return "Any"
 }
 
-func containsTypeVar(typeVars []typeVarData, name string) bool {
-	for _, tv := range typeVars {
-		if tv.Name == name {
-			return true
-		}
-	}
-	return false
-}
-
 func typeDefBaseToPython(
 	typeRef resolution.TypeRef,
 	currentNamespace string,
@@ -533,7 +533,7 @@ func processStruct(
 	table *resolution.Table,
 	data *templateData,
 	keyFields []keyFieldData,
-) structData {
+) (structData, error) {
 	sd := structData{
 		Name:   entry.Name,
 		Doc:    doc.Get(entry.Domains),
@@ -543,14 +543,14 @@ func processStruct(
 	form, ok := entry.Form.(resolution.StructForm)
 	if !ok {
 		sd.Skip = true
-		return sd
+		return sd, nil
 	}
 
 	// Check for py domain omit or hand-written implementation
 	if domain.HasExprFromType(entry, "py", "omit") ||
 		domain.HasExprFromType(entry, "py", "hand") {
 		sd.Skip = true
-		return sd
+		return sd, nil
 	}
 	// Check for py domain name override
 	if name := domain.GetStringFromType(entry, "py", "name"); name != "" {
@@ -561,18 +561,35 @@ func processStruct(
 	if len(form.TypeParams) > 0 {
 		sd.IsGeneric = true
 		data.imports.addTyping("Generic")
-		data.imports.addTyping("TypeVar")
 		for _, tp := range resolution.NonDefaultedTypeParams(form.TypeParams) {
 			tpd := processTypeParam(tp, table, data)
 			sd.TypeParams = append(sd.TypeParams, tpd)
-
-			// Collect TypeVars for module-level declaration (with or without
-			// constraints)
-			if !containsTypeVar(data.TypeVars, tp.Name) {
-				data.TypeVars = append(data.TypeVars, typeVarData{
-					Name:       tp.Name,
-					Constraint: tpd.Constraint,
-				})
+			tvd := typeVarData{Name: tp.Name, Constraint: tpd.Constraint}
+			// An omitted optional type argument means its bound, or arbitrary JSON when
+			// unbounded. TypeVar defaults need typing_extensions on Python 3.12.
+			if tp.Optional {
+				data.imports.typeVarDefault = true
+				tvd.Default = tpd.Constraint
+				if tvd.Default == "" {
+					data.imports.addPydantic("JsonValue")
+					tvd.Default = "JsonValue"
+				}
+			}
+			// TypeVars are module-level, so structs in one file share them by name.
+			existing, found := lo.Find(
+				data.TypeVars,
+				func(tv typeVarData) bool { return tv.Name == tp.Name },
+			)
+			if !found {
+				data.TypeVars = append(data.TypeVars, tvd)
+			} else if existing != tvd {
+				return structData{}, errors.Newf(
+					"type parameter %s of %s conflicts with another %s in the same "+
+						"Python file; rename one of them",
+					tp.Name,
+					entry.Name,
+					tp.Name,
+				)
 			}
 		}
 	}
@@ -581,7 +598,7 @@ func processStruct(
 	if aliasForm, isAlias := entry.Form.(resolution.AliasForm); isAlias {
 		sd.IsAlias = true
 		sd.AliasOf = typeRefToPythonAlias(aliasForm.Target, table, data)
-		return sd
+		return sd, nil
 	}
 
 	// Handle struct extension with Pydantic inheritance (supports multiple parents)
@@ -613,10 +630,10 @@ func processStruct(
 						processField(field, table, data, keyFields, form.OmittedFields),
 					)
 					if hashableKey(field) {
-						sd.KeyField = field.Name
+						sd.KeyField = fieldName(field.Name)
 					}
 				}
-				return sd
+				return sd, nil
 			}
 
 			// Get all parent fields for comparison (first parent wins on conflict)
@@ -682,7 +699,7 @@ func processStruct(
 						)
 						sd.Fields = append(sd.Fields, fd)
 						if hashableKey(childField) {
-							sd.KeyField = childField.Name
+							sd.KeyField = fieldName(childField.Name)
 						}
 					} else {
 						fd := processField(
@@ -694,7 +711,7 @@ func processStruct(
 						)
 						sd.Fields = append(sd.Fields, fd)
 						if hashableKey(pf) {
-							sd.KeyField = pf.Name
+							sd.KeyField = fieldName(pf.Name)
 						}
 					}
 					addedFields.Add(pf.Name)
@@ -713,10 +730,10 @@ func processStruct(
 					)
 					sd.Fields = append(sd.Fields, fd)
 					if hashableKey(field) {
-						sd.KeyField = field.Name
+						sd.KeyField = fieldName(field.Name)
 					}
 				}
-				return sd
+				return sd, nil
 			}
 
 			sd.HasExtends = true
@@ -730,13 +747,13 @@ func processStruct(
 				sd.Fields = append(sd.Fields, fd)
 				// Only a required @key field yields a __hash__.
 				if hashableKey(field) {
-					sd.KeyField = field.Name
+					sd.KeyField = fieldName(field.Name)
 				}
 			}
 			// Also check parent fields for @key if not redefined
 			for _, pf := range parentFields {
 				if !redefinedFields.Contains(pf.Name) && hashableKey(pf) {
-					sd.KeyField = pf.Name
+					sd.KeyField = fieldName(pf.Name)
 				}
 			}
 
@@ -768,7 +785,7 @@ func processStruct(
 					}
 				}
 			}
-			return sd
+			return sd, nil
 		}
 	}
 
@@ -779,10 +796,10 @@ func processStruct(
 		sd.Fields = append(sd.Fields, processField(field, table, data, keyFields, nil))
 		// Only a required @key field yields a __hash__.
 		if hashableKey(field) {
-			sd.KeyField = field.Name
+			sd.KeyField = fieldName(field.Name)
 		}
 	}
-	return sd
+	return sd, nil
 }
 
 func getPyName(typ resolution.Type) string {
@@ -856,15 +873,15 @@ func processField(
 	keyFields []keyFieldData,
 	excludedFields []string,
 ) fieldData {
-	escapedName := keywords.Escape(field.Name)
+	wireName := casing.FieldSnake(field.Name)
 	fd := fieldData{
-		Name:       escapedName,
+		Name:       fieldName(field.Name),
 		Doc:        doc.Get(field.Domains),
 		IsOptional: field.Optional,
 		IsArray:    field.Type.Name == "Array",
 	}
-	if escapedName != field.Name {
-		fd.Alias = field.Name
+	if fd.Name != wireName {
+		fd.Alias = wireName
 	}
 
 	baseType := typeToPython(field.Type, table, data)
@@ -1135,7 +1152,7 @@ func collectValidation(
 				constraints = append(constraints, fmt.Sprintf(
 					"default_factory=lambda: %s(%s=%q)",
 					unionVariantToPython(uv, table, data),
-					keywords.Escape(uv.Union.Discriminator),
+					fieldName(uv.Union.Discriminator),
 					uv.Variant.Name,
 				))
 			}
@@ -1153,9 +1170,9 @@ func collectValidation(
 				)
 			}
 		case resolution.ValueKindStruct:
-			// Records (dict[str, Any]) and maps are mutable dicts, so they use
-			// default_factory. An empty default becomes dict; a populated one a dict
-			// literal. Other struct types default to a model constructor.
+			// Records (dict[str, JsonValue]) and maps are mutable dicts, so they
+			// use default_factory. An empty default becomes dict; a populated one a
+			// dict literal. Other struct types default to a model constructor.
 			kind, _ := resolution.CollectionKind(typeRef, table)
 			if typeRef.Name == "record" || kind == "Map" {
 				if len(defaultVal.Fields) == 0 {
@@ -1290,7 +1307,7 @@ func pyStructLiteral(
 			parts,
 			fmt.Sprintf(
 				"%s=%s",
-				keywords.Escape(fv.Name),
+				fieldName(fv.Name),
 				pyDefaultLiteral(fieldsByName[fv.Name].Type, fv.Value, table, data),
 			),
 		)
@@ -1522,10 +1539,10 @@ func typeToPython(
 			modulePath := toPythonModulePath(outputPath)
 			pyName = addCrossNamespaceImport(modulePath, pyName, data)
 		}
-		if len(typeRef.TypeArgs) > 0 {
+		if typeArgs := trimNilTypeArgs(typeRef.TypeArgs); len(typeArgs) > 0 {
 			structForm := resolved.Form.(resolution.StructForm)
 			var args []string
-			for i, arg := range typeRef.TypeArgs {
+			for i, arg := range typeArgs {
 				if i < len(structForm.TypeParams) &&
 					structForm.TypeParams[i].HasDefault() {
 					continue
@@ -1633,16 +1650,26 @@ func typeRefToPythonAlias(
 	}
 
 	// If no type arguments, just return the base name
-	if len(typeRef.TypeArgs) == 0 {
+	args := trimNilTypeArgs(typeRef.TypeArgs)
+	if len(args) == 0 {
 		return baseName
 	}
 
 	// Build type arguments for generic: Status[Details] or Status[Details, Data]
 	var typeArgs []string
-	for _, arg := range typeRef.TypeArgs {
+	for _, arg := range args {
 		typeArgs = append(typeArgs, typeToPython(arg, table, data))
 	}
 	return fmt.Sprintf("%s[%s]", baseName, strings.Join(typeArgs, ", "))
+}
+
+// trimNilTypeArgs drops trailing nil type arguments, so the generic uses its type
+// parameter defaults. Go sends a nil argument as an empty struct, which None rejects.
+func trimNilTypeArgs(args []resolution.TypeRef) []resolution.TypeRef {
+	for len(args) > 0 && args[len(args)-1].Name == "nil" {
+		args = args[:len(args)-1]
+	}
+	return args
 }
 
 func toPythonModulePath(repoPath string) string {
@@ -1676,8 +1703,12 @@ func primitiveToPython(primitive string, data *templateData) string {
 			data.imports.addUUID(imp.Name)
 		case "typing":
 			data.imports.addTyping(imp.Name)
+		case "pydantic":
+			data.imports.addPydantic(imp.Name)
 		case "synnax":
 			data.imports.addSynnax(imp.Name)
+		case "codec":
+			data.imports.addCodec(imp.Name)
 		}
 	}
 	return mapping.TargetType
@@ -1688,14 +1719,19 @@ type importManager struct {
 	fieldNames set.Set[string]
 	uuid       []string
 	typing     []string
-	enum       []string
-	pydantic   []string
+	// typeVarDefault is true when a TypeVar takes a default, so TypeVar comes from
+	// typing_extensions instead of typing.
+	typeVarDefault bool
+	enum           []string
+	pydantic       []string
 	// field is the name pydantic's Field is imported as. It differs from "Field" when
 	// the file declares a type of that name.
 	field  string
 	synnax []string
 	// ontology holds imports from synnax.ontology.payload.
 	ontology []string
+	// codec holds imports from x.codec.
+	codec []string
 	// namespaces maps alias to path.
 	namespaces []namespaceImportData
 	// modules holds module imports (for "from parent import module").
@@ -1748,6 +1784,12 @@ func (m *importManager) addField() string {
 func (m *importManager) addSynnax(name string) {
 	if !lo.Contains(m.synnax, name) {
 		m.synnax = append(m.synnax, name)
+	}
+}
+
+func (m *importManager) addCodec(name string) {
+	if !lo.Contains(m.codec, name) {
+		m.codec = append(m.codec, name)
 	}
 }
 
@@ -1856,9 +1898,14 @@ type ontologyData struct {
 	StructName string
 }
 
-func (d *templateData) UUIDImports() []string   { return d.imports.uuid }
-func (d *templateData) TypingImports() []string { return d.imports.typing }
-func (d *templateData) EnumImports() []string   { return d.imports.enum }
+func (d *templateData) UUIDImports() []string { return d.imports.uuid }
+func (d *templateData) TypingImports() []string {
+	if len(d.TypeVars) == 0 || d.imports.typeVarDefault {
+		return d.imports.typing
+	}
+	return append(slices.Clone(d.imports.typing), "TypeVar")
+}
+func (d *templateData) EnumImports() []string { return d.imports.enum }
 func (d *templateData) PydanticImports() []string {
 	return lo.Map(d.imports.pydantic, func(name string, _ int) string {
 		if name == "Field" && d.imports.field != name {
@@ -1869,10 +1916,19 @@ func (d *templateData) PydanticImports() []string {
 }
 func (d *templateData) SynnaxImports() []string   { return d.imports.synnax }
 func (d *templateData) OntologyImports() []string { return d.imports.ontology }
+func (d *templateData) CodecImports() []string    { return d.imports.codec }
 
 func (d *templateData) NamespaceImports() []namespaceImportData { return d.imports.namespaces }
 
 func (d *templateData) ModuleImports() []moduleImportData { return d.imports.modules }
+
+// TypingExtensionsImports returns the names imported from typing_extensions.
+func (d *templateData) TypingExtensionsImports() []string {
+	if d.imports.typeVarDefault {
+		return []string{"TypeVar"}
+	}
+	return nil
+}
 
 type keyFieldData struct {
 	Name   string
@@ -1884,13 +1940,15 @@ type typeParamData struct {
 	Name string
 	// Constraint is the Python bound type, or empty.
 	Constraint string
-	// IsOptional is true if optional (defaults to Any).
+	// IsOptional is true if optional (defaults to JsonValue).
 	IsOptional bool
 }
 
 type typeVarData struct {
 	Name       string
 	Constraint string
+	// Default is the Python type used when the type argument is omitted, or empty.
+	Default string
 }
 
 type structData struct {
@@ -2012,6 +2070,12 @@ func hasTypeParams(params []typeParamData) bool {
 	return len(params) > 0
 }
 
+// fieldName returns the Python attribute name for a schema field: its snake_case wire
+// key, escaped when it collides with a Python keyword.
+func fieldName(name string) string {
+	return keywords.Escape(casing.FieldSnake(name))
+}
+
 func toScreamingSnake(s string) string {
 	return strings.ToUpper(lo.SnakeCase(s))
 }
@@ -2027,6 +2091,7 @@ var templateFuncs = template.FuncMap{
 	"pyDocComment":           pyDocComment,
 	"genericArg":             genericArg,
 	"hasTypeParams":          hasTypeParams,
+	"fieldName":              fieldName,
 }
 
 var fileTemplate = template.Must(
@@ -2041,6 +2106,9 @@ from uuid import {{ join .UUIDImports ", " }}
 {{- if .TypingImports }}
 from typing import {{ join .TypingImports ", " }}
 {{- end }}
+{{- if .TypingExtensionsImports }}
+from typing_extensions import {{ join .TypingExtensionsImports ", " }}
+{{- end }}
 {{- if .EnumImports }}
 from enum import {{ join .EnumImports ", " }}
 {{- end }}
@@ -2052,6 +2120,9 @@ from synnax.telem import {{ join .SynnaxImports ", " }}
 {{- end }}
 {{- if .OntologyImports }}
 from synnax.ontology.payload import {{ join .OntologyImports ", " }}
+{{- end }}
+{{- if .CodecImports }}
+from x.codec import {{ join .CodecImports ", " }}
 {{- end }}
 {{- range .NamespaceImports }}
 from {{ .Path }} import {{ .Alias }}
@@ -2093,7 +2164,7 @@ class {{ .Name }}(IntEnum):
 {{- end }}
 {{- range .TypeVars }}
 
-{{ .Name }} = TypeVar("{{ .Name }}"{{ if .Constraint }}, bound={{ .Constraint }}{{ end }})
+{{ .Name }} = TypeVar("{{ .Name }}"{{ if .Constraint }}, bound={{ .Constraint }}{{ end }}{{ if .Default }}, default={{ .Default }}{{ end }})
 {{- end }}
 {{- range .SortedDecls }}
 {{- if .IsTypeDef }}
@@ -2195,7 +2266,7 @@ class {{ .ClassName }}({{ range $i, $p := .Parents }}{{ if $i }}, {{ end }}{{ $p
 {{ if .Doc }}{{ pyDocComment .Doc }}
 {{ end -}}
 {{ .Name }} = Annotated[
-    Union[{{ range $i, $v := .Variants }}{{ if $i }}, {{ end }}{{ $v.ClassName }}{{ end }}],
+    {{ range $i, $v := .Variants }}{{ if $i }} | {{ end }}{{ $v.ClassName }}{{ end }},
     {{ .Field }}(discriminator="{{ .DiscName }}"),
 ]
 {{- end }}

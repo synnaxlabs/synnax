@@ -11,6 +11,7 @@ package rack
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
 
 	"github.com/synnaxlabs/alamos"
@@ -172,7 +173,7 @@ func OpenService(
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
-	if s.monitor, err = openMonitor(s.Child("monitor"), s); !ok(err, s.monitor) {
+	if s.monitor, err = openMonitor(ctx, s.Child("monitor"), s); !ok(err, s.monitor) {
 		return nil, err
 	}
 	return s, nil
@@ -190,27 +191,65 @@ func (s *Service) OnSuspect(
 }
 
 func (s *Service) loadEmbeddedRack(ctx context.Context) error {
-	var (
-		embeddedRack Rack
-		name         = fmt.Sprintf("Node %s Embedded Driver", s.HostProvider.HostKey())
+	r, err := s.RetrieveOrCreateEmbedded(
+		ctx,
+		fmt.Sprintf("Node %s Embedded Driver", s.HostProvider.HostKey()),
+		nil,
 	)
-	err := s.NewRetrieve().
-		Where(MatchNames(name)).
-		Where(MatchEmbedded(true)).
-		Where(MatchNode(s.HostProvider.HostKey())).
-		Entry(&embeddedRack).Exec(ctx, s.DB)
-	if err != nil && !errors.Is(err, query.ErrNotFound) {
+	if err != nil {
 		return err
 	}
-	embeddedRack.Name = name
-	embeddedRack.Embedded = true
-	if err = s.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.NewWriter(tx).Create(ctx, &embeddedRack)
-	}); err != nil {
-		return err
-	}
-	s.EmbeddedKey = embeddedRack.Key
+	s.EmbeddedKey = r.Key
 	return nil
+}
+
+// RetrieveOrCreateEmbedded returns the embedded rack of this Core that was created with
+// name, creating it if it does not exist. The rack keeps its identity across renames
+// and restarts. edit, if non-nil, changes the rack before it is saved.
+func (s *Service) RetrieveOrCreateEmbedded(
+	ctx context.Context,
+	name string,
+	edit func(*Rack),
+) (r Rack, err error) {
+	bindingKey := []byte(s.HostProvider.HostKey().String() + ".rack.embedded." + name)
+	err = s.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		q := s.NewRetrieve().Entry(&r)
+		b, closer, err := tx.Get(ctx, bindingKey)
+		if err == nil {
+			q = q.Where(MatchKeys(Key(binary.LittleEndian.Uint32(b))))
+			if err = closer.Close(); err != nil {
+				return err
+			}
+		} else if errors.Is(err, query.ErrNotFound) {
+			q = q.
+				Where(MatchNames(name)).
+				Where(MatchEmbedded(true)).
+				Where(MatchNode(s.HostProvider.HostKey()))
+		} else {
+			return err
+		}
+		if err = q.Exec(ctx, tx); errors.Is(err, query.ErrNotFound) {
+			r = Rack{Name: name}
+		} else if err != nil {
+			return err
+		}
+		r.Embedded = true
+		if edit != nil {
+			edit(&r)
+		}
+		if err = s.NewWriter(tx).Create(ctx, &r); err != nil {
+			return err
+		}
+		return tx.Set(
+			ctx,
+			bindingKey,
+			binary.LittleEndian.AppendUint32(nil, uint32(r.Key)),
+		)
+	})
+	if err != nil {
+		return Rack{}, err
+	}
+	return r, nil
 }
 
 func (s *Service) Close() error { return s.closer.Close() }

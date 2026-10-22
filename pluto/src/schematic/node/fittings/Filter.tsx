@@ -20,7 +20,7 @@ const DIMENSIONS = { width: 52, height: 34 };
 export const Filter = ({
   className,
   orientation = "left",
-  color,
+  strokeColor,
   scale,
   ...rest
 }: FilterProps): ReactElement => (
@@ -29,7 +29,7 @@ export const Filter = ({
     <Primitive.SVG
       dimensions={DIMENSIONS}
       orientation={orientation}
-      color={color}
+      strokeColor={strokeColor}
       scale={scale}
     >
       <Primitive.Path d="M6 17L24.8 2.9C25.5111 2.36667 26.4889 2.36667 27.2 2.9L46 17M6 17L24.8 31.1C25.5111 31.6333 26.4889 31.6333 27.2 31.1L46 17" />

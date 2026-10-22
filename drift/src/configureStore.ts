@@ -28,6 +28,7 @@ import {
   setWindowStage,
   SLICE_NAME,
   type StoreState,
+  ZERO_SLICE_STATE,
 } from "@/state";
 import { sugar } from "@/sugar";
 import { syncInitial } from "@/sync";
@@ -112,7 +113,7 @@ const receivePreloadedStateAndListen = async <
       const store = getStore();
       if (store == null) return;
       if (action != null) {
-        validateAction({ action, emitter });
+        validateAction(action);
         store.dispatch(sugar(action, emitter));
         return;
       }
@@ -150,7 +151,7 @@ const receivePreloadedStateAndListen = async <
             return;
           }
           if (action == null) return;
-          validateAction({ action, emitter });
+          validateAction(action);
           s.dispatch(sugar(action, emitter));
         });
         await runtime.emit({ sendState: true }, MAIN_WINDOW);
@@ -201,6 +202,13 @@ export const resetInitialState = <S extends StoreState>(
   if (state == null) return state;
   const drift = state[SLICE_NAME];
   drift.config.debug = debug ?? drift.config.debug;
+  // A close of the main window can persist the slice without it. The main window runs
+  // whenever this does, and nothing shows a window missing from the slice.
+  if (!(MAIN_WINDOW in drift.windows)) {
+    drift.windows[MAIN_WINDOW] = ZERO_SLICE_STATE.windows[MAIN_WINDOW];
+    drift.labelKeys[MAIN_WINDOW] = MAIN_WINDOW;
+    drift.keyLabels[MAIN_WINDOW] = MAIN_WINDOW;
+  }
   drift.windows = Object.fromEntries(
     Object.entries(drift.windows)
       .filter(([, window]) => window.reserved)
