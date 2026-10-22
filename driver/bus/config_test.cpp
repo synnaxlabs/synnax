@@ -175,6 +175,17 @@ TEST(ReadConfig, RejectsAStringChannel) {
     );
 }
 
+TEST(ReadConfig, RejectsATimestampChannel) {
+    ReadFixture f;
+    f.channels[1].data_type = x::telem::TIMESTAMP_T;
+    const auto [path, msg] = f.first_error();
+    EXPECT_EQ(path, "messages.0.fields.0.channel");
+    EXPECT_EQ(
+        msg,
+        "channel data_2 has data type timestamp, which cannot hold a numeric field"
+    );
+}
+
 TEST(ReadConfig, RejectsAFieldReadTwice) {
     ReadFixture f;
     f.cfg.messages[0].fields.push_back(f.cfg.messages[0].fields[0]);

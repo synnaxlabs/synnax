@@ -97,13 +97,30 @@ void check_medium(
     );
 }
 
-/// @brief binds an error when the channel cannot hold decoded or commanded values.
+/// @brief the data types a read task writes decoded values to.
+const std::set<x::telem::DataType> DECODED_TYPES = {
+    x::telem::FLOAT64_T,
+    x::telem::FLOAT32_T,
+    x::telem::INT64_T,
+    x::telem::INT32_T,
+    x::telem::INT16_T,
+    x::telem::INT8_T,
+    x::telem::UINT64_T,
+    x::telem::UINT32_T,
+    x::telem::UINT16_T,
+    x::telem::UINT8_T,
+};
+
+/// @brief binds an error when the channel cannot hold commanded values, or decoded
+/// values when decoded is true.
 void check_numeric(
     const x::json::Parser &parser,
     const std::string &at,
-    const synnax::channel::Channel &ch
+    const synnax::channel::Channel &ch,
+    const bool decoded
 ) {
-    if (ch.data_type.is_variable() || ch.data_type == x::telem::UUID_T)
+    const auto &t = ch.data_type;
+    if (decoded ? !DECODED_TYPES.contains(t) : t.is_variable() || t == x::telem::UUID_T)
         parser.field_err(
             at,
             "channel " + ch.name + " has data type " + ch.data_type.name() +
@@ -392,7 +409,7 @@ std::pair<ReadConfig, x::errors::Error> ReadConfig::resolve(
             const auto at = field_at + ".channel";
             const auto *ch = find_channel(parser, at, chs, f.channel);
             if (ch == nullptr) continue;
-            check_numeric(parser, at, *ch);
+            check_numeric(parser, at, *ch, true);
             if (ch->index != f.index)
                 parser.field_err(
                     at,
@@ -552,7 +569,7 @@ std::pair<WriteConfig, x::errors::Error> WriteConfig::resolve(
             const auto at = path(i, "fields." + std::to_string(j) + ".channel");
             const auto *ch = find_channel(parser, at, chs, f.channel);
             if (ch == nullptr) continue;
-            check_numeric(parser, at, *ch);
+            check_numeric(parser, at, *ch, false);
             msg.bindings.push_back(
                 {.channel = ch->key, .slot = *slot, .field = bases[*slot]->name}
             );

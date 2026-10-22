@@ -13,8 +13,10 @@
 #include <cmath>
 #include <limits>
 #include <string_view>
+#include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 
 #include "driver/codec/errors.h"
 #include "driver/codec/plan.h"
@@ -241,6 +243,62 @@ void Values::set(const std::size_t slot, const std::uint64_t value) {
 void Values::clear() {
     for (auto &s: this->slots)
         s.kind = Kind::ABSENT;
+}
+
+namespace {
+/// @returns true when T holds the value: a double truncated toward zero for integer
+/// types, or an integer.
+template<typename T, typename V>
+bool holds(const V value) {
+    if constexpr (std::is_integral_v<V>) {
+        if constexpr (std::is_floating_point_v<T>)
+            return true;
+        else
+            return std::in_range<T>(value);
+    } else if constexpr (std::is_floating_point_v<T>)
+        return !std::isfinite(value) ||
+               std::abs(value) <= static_cast<double>(std::numeric_limits<T>::max());
+    else {
+        const double t = std::trunc(value);
+        const double end = std::ldexp(1.0, std::numeric_limits<T>::digits);
+        if constexpr (std::is_signed_v<T>)
+            return t >= -end && t < end;
+        else
+            return t >= 0 && t < end;
+    }
+}
+
+/// @returns true when a series of the data type holds the value, which is a double or
+/// an integer.
+template<typename V>
+bool holds(const V value, const x::telem::DataType &type) {
+    if (type == x::telem::FLOAT64_T) return holds<double>(value);
+    if (type == x::telem::FLOAT32_T) return holds<float>(value);
+    if (type == x::telem::INT64_T) return holds<std::int64_t>(value);
+    if (type == x::telem::INT32_T) return holds<std::int32_t>(value);
+    if (type == x::telem::INT16_T) return holds<std::int16_t>(value);
+    if (type == x::telem::INT8_T) return holds<std::int8_t>(value);
+    if (type == x::telem::UINT64_T) return holds<std::uint64_t>(value);
+    if (type == x::telem::UINT32_T) return holds<std::uint32_t>(value);
+    if (type == x::telem::UINT16_T) return holds<std::uint16_t>(value);
+    if (type == x::telem::UINT8_T) return holds<std::uint8_t>(value);
+    return false;
+}
+}
+
+bool Values::fits(const std::size_t slot, const x::telem::DataType &type) const {
+    const auto &s = this->slots[slot];
+    switch (s.kind) {
+        case Kind::ABSENT:
+            return true;
+        case Kind::FLOAT:
+            return holds(s.value, type);
+        case Kind::INT:
+            return holds(static_cast<std::int64_t>(s.integer), type);
+        case Kind::UINT:
+            return holds(s.integer, type);
+    }
+    return false;
 }
 
 std::size_t Values::write(const std::size_t slot, x::telem::Series &series) const {

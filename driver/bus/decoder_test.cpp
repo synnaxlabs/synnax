@@ -329,6 +329,32 @@ TEST(Decoder, WarnsAboutADiscardedLateReply) {
     EXPECT_TRUE(fr.empty());
 }
 
+TEST(Decoder, WarnsAndDropsAValueItsChannelCannotHold) {
+    const auto m = binary_message(
+        "status",
+        {binary_field("a", 0, 16), binary_field("b", 16)}
+    );
+    const auto cfg = read_config(
+        {m},
+        std::nullopt,
+        nullptr,
+        {},
+        {data_channel(1, 100, x::telem::INT8_T)}
+    );
+    Decoder decoder(cfg);
+    decoder.decode(0, std::vector<std::uint8_t>{0x2C, 0x01, 7}, T);
+    EXPECT_EQ(
+        decoder.warning(),
+        "status: channel data_1 of data type int8 cannot hold 300"
+    );
+    x::telem::Frame fr;
+    decoder.flush(fr);
+    EXPECT_TRUE(fr.empty());
+    decoder.decode(0, std::vector<std::uint8_t>{0x05, 0x00, 7}, T);
+    decoder.flush(fr);
+    EXPECT_EQ(fr.at<std::int8_t>(1, 0), 5);
+}
+
 TEST(Decoder, WarnsAndDropsAPayloadThatDoesNotDecode) {
     const auto m = binary_message("status", {binary_field("a", 8)});
     const auto cfg = grouped(m, {100});

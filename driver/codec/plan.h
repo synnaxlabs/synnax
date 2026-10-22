@@ -54,8 +54,15 @@ public:
     /// @brief marks every slot absent.
     void clear();
 
+    /// @returns true when a series of the data type can hold the slot's value: an
+    /// integer type holds the value truncated toward zero when it is in range, float32
+    /// holds any value but a finite one beyond its range, and float64 holds any value.
+    /// Other data types hold no value.
+    [[nodiscard]] bool fits(std::size_t slot, const x::telem::DataType &type) const;
+
     /// @brief appends the slot's value to the series, cast to the series' data type.
-    /// Integer fields with a scale of 1 and an offset of 0 are written exactly.
+    /// Integer fields with a scale of 1 and an offset of 0 are written exactly. Call it
+    /// only when fits returns true for the series' data type.
     /// @returns the number of samples written: 0 when the slot is absent or the series
     /// is full, 1 otherwise.
     std::size_t write(std::size_t slot, x::telem::Series &series) const;

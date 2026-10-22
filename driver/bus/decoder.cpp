@@ -8,6 +8,9 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <charconv>
+#include <cmath>
+#include <string>
 #include <utility>
 
 #include "x/cpp/strings/strings.h"
@@ -19,6 +22,14 @@ namespace driver::bus {
 namespace {
 /// @brief the number of late messages named in a warning before the rest are counted.
 constexpr std::size_t MAX_NAMED = 3;
+
+/// @returns the shortest text that reads back as v.
+std::string format(const double v) {
+    if (std::isnan(v)) return "NaN";
+    char buf[32];
+    const auto [end, _] = std::to_chars(buf, buf + sizeof(buf), v);
+    return {buf, end};
+}
 }
 
 Decoder::Decoder(const ReadConfig &cfg, x::telem::NowFunc now):
@@ -93,6 +104,16 @@ void Decoder::decode(
         );
         return;
     }
+    for (const auto &group: m.groups)
+        for (const auto slot: group.slots) {
+            const auto &ch = m.channels[slot];
+            if (values.fits(slot, ch.data_type)) continue;
+            this->warn(
+                m.entry.name + ": channel " + ch.name + " of data type " +
+                ch.data_type.name() + " cannot hold " + format(values.get(slot))
+            );
+            return;
+        }
     bool kept = false;
     for (std::size_t g = 0; g < m.groups.size(); g++) {
         const auto &slots = m.groups[g].slots;

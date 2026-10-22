@@ -631,6 +631,64 @@ TEST(Values, CastsToTheSeriesDataType) {
     EXPECT_EQ(s.at<float>(0), 2.5f);
 }
 
+TEST(Values, FitsAnIntegerTypeOnlyWhenTheTruncatedValueIsInRange) {
+    const auto plan = ASSERT_NIL_P(Plan::compile(text({delimited("a", 0)})));
+    auto values = plan.values();
+    const auto fits = [&](const std::string &line, const x::telem::DataType &type) {
+        EXPECT_FALSE(plan.decode(bytes(line), values));
+        return values.fits(0, type);
+    };
+    EXPECT_TRUE(fits("127.9", x::telem::INT8_T));
+    EXPECT_FALSE(fits("128", x::telem::INT8_T));
+    EXPECT_TRUE(fits("-128.9", x::telem::INT8_T));
+    EXPECT_FALSE(fits("-129", x::telem::INT8_T));
+    EXPECT_TRUE(fits("-0.5", x::telem::UINT8_T));
+    EXPECT_FALSE(fits("-1", x::telem::UINT8_T));
+    EXPECT_FALSE(fits("256", x::telem::UINT8_T));
+    EXPECT_FALSE(fits("nan", x::telem::INT32_T));
+    EXPECT_FALSE(fits("inf", x::telem::INT64_T));
+    EXPECT_FALSE(fits("9223372036854775808", x::telem::INT64_T));
+    EXPECT_TRUE(fits("-9223372036854775808", x::telem::INT64_T));
+    EXPECT_FALSE(fits("18446744073709551616", x::telem::UINT64_T));
+}
+
+TEST(Values, FitsAFloatTypeUnlessAFiniteValueOverflowsIt) {
+    const auto plan = ASSERT_NIL_P(Plan::compile(text({delimited("a", 0)})));
+    auto values = plan.values();
+    const auto fits = [&](const std::string &line, const x::telem::DataType &type) {
+        EXPECT_FALSE(plan.decode(bytes(line), values));
+        return values.fits(0, type);
+    };
+    EXPECT_TRUE(fits("nan", x::telem::FLOAT32_T));
+    EXPECT_TRUE(fits("-inf", x::telem::FLOAT32_T));
+    EXPECT_TRUE(fits("3e38", x::telem::FLOAT32_T));
+    EXPECT_FALSE(fits("4e38", x::telem::FLOAT32_T));
+    EXPECT_TRUE(fits("1e308", x::telem::FLOAT64_T));
+}
+
+TEST(Values, FitsAnExactIntegerByItsBits) {
+    auto u = binary("u", 0, 64);
+    auto i = binary("i", 0, 64);
+    i.signed_ = true;
+    const auto plan = ASSERT_NIL_P(Plan::compile(message({u, i})));
+    auto values = plan.values();
+    const std::vector<std::uint8_t> payload(8, 0xFF);
+    ASSERT_NIL(plan.decode(payload, values));
+    EXPECT_FALSE(values.fits(0, x::telem::INT64_T));
+    EXPECT_TRUE(values.fits(0, x::telem::UINT64_T));
+    EXPECT_TRUE(values.fits(0, x::telem::FLOAT32_T));
+    EXPECT_TRUE(values.fits(1, x::telem::INT8_T));
+    EXPECT_FALSE(values.fits(1, x::telem::UINT8_T));
+}
+
+TEST(Values, DoesNotFitATypeThatHoldsNoNumber) {
+    const auto plan = ASSERT_NIL_P(Plan::compile(message({binary("a", 0, 8)})));
+    auto values = plan.values();
+    ASSERT_NIL(plan.decode(std::vector<std::uint8_t>{1}, values));
+    EXPECT_FALSE(values.fits(0, x::telem::TIMESTAMP_T));
+    EXPECT_FALSE(values.fits(0, x::telem::STRING_T));
+}
+
 TEST(PlanText, DecodesDelimitedItemsByPosition) {
     auto b = delimited("b", 2);
     b.scale = 2;
