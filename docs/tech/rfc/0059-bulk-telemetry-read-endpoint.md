@@ -225,7 +225,9 @@ carries the first failure of the encoder or of the iterator. The iterator report
 read error from `Close`, which the encoder always calls.
 
 CSV has no in-band slot that does not corrupt the file for every other tool, so a failed
-CSV read ends as a short body. Clients surface an incomplete response as an error.
+CSV read ends as a short body. The Core drops the connection before the chunk that ends
+the body, so a short body never looks complete. Clients surface an incomplete response
+as an error.
 
 HTTP trailers are not used. `fetch` exposes no way to read them, so the Console, the
 main consumer, would never see one.

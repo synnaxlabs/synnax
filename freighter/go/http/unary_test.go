@@ -47,6 +47,7 @@ var (
 	unaryAddr                   address.Address
 	unaryApp                    *fiber.App
 	errFailingEncoderEncodeFail = errors.New("failing encoder: encode rejected by test")
+	errTruncatingEncoderFail    = errors.New("truncating encoder: failed partway")
 )
 
 // failingEncoder is a unary-server response encoder whose Encode/EncodeStream methods
@@ -88,6 +89,25 @@ func (repeatingEncoder) EncodeStream(_ context.Context, w io.Writer, v any) erro
 		}
 	}
 	return nil
+}
+
+// truncatingEncoder is a unary-server response encoder that writes the response
+// message once per byte of its ID, then fails.
+type truncatingEncoder struct{}
+
+func (truncatingEncoder) ContentType() string { return "application/x-truncate" }
+
+func (e truncatingEncoder) Encode(ctx context.Context, v any) ([]byte, error) {
+	var buf bytes.Buffer
+	err := e.EncodeStream(ctx, &buf, v)
+	return buf.Bytes(), err
+}
+
+func (truncatingEncoder) EncodeStream(ctx context.Context, w io.Writer, v any) error {
+	if err := (repeatingEncoder{}).EncodeStream(ctx, w, v); err != nil {
+		return err
+	}
+	return errTruncatingEncoderFail
 }
 
 // echoingEncoder is a unary-server response encoder that writes the response message
@@ -188,8 +208,12 @@ var _ = BeforeSuite(func() {
 	unaryServerStreaming = router.NewUnaryServer[test.Request, test.Response](
 		"/streaming",
 		fhttp.WithRequestDecoders(json.Codec),
-		fhttp.WithResponseEncoders(repeatingEncoder{}, echoingEncoder{}),
-		fhttp.WithStreamingResponse(repeatingEncoder{}),
+		fhttp.WithResponseEncoders(
+			repeatingEncoder{},
+			echoingEncoder{},
+			truncatingEncoder{},
+		),
+		fhttp.WithStreamingResponse(repeatingEncoder{}, truncatingEncoder{}),
 	)
 	unaryServerStreaming.BindHandler(
 		func(_ context.Context, req test.Request) (test.Response, error) {
@@ -704,8 +728,9 @@ var _ = Describe("Unary", func() {
 
 	Describe("Streaming Response", func() {
 		const (
-			repeat = "application/x-repeat"
-			echo   = "application/x-echo"
+			repeat   = "application/x-repeat"
+			echo     = "application/x-echo"
+			truncate = "application/x-truncate"
 		)
 		// streamingPost sends req to the streaming route, asking for the given content
 		// encoding, and returns the response.
@@ -764,6 +789,41 @@ var _ = Describe("Unary", func() {
 			Expect(res.Header.Get(fiber.HeaderContentEncoding)).To(BeEmpty())
 			Expect(io.ReadAll(res.Body)).To(Equal([]byte("ab")))
 		})
+
+		DescribeTable(
+			"should fail the request when the encoder fails before the body leaves",
+			func(ctx context.Context, writes int, acceptEncoding string) {
+				httpReq := MustSucceed(http.NewRequestWithContext(
+					ctx, http.MethodPost, "http://"+unaryAddr.String()+"/streaming",
+					bytes.NewReader(MustSucceed(json.Codec.Encode(ctx, test.Request{
+						ID:      writes,
+						Message: "ab",
+					}))),
+				))
+				httpReq.Header.Set(fiber.HeaderContentType, "application/json")
+				httpReq.Header.Set(fiber.HeaderAccept, truncate)
+				httpReq.Header.Set(fiber.HeaderAcceptEncoding, acceptEncoding)
+				Expect((&http.Client{}).Do(httpReq)).Error().To(MatchError(io.EOF))
+			},
+			Entry("before the first byte", 0, "identity"),
+			Entry("after the first byte", 3, "identity"),
+			Entry("in a gzipped body", 3, "gzip"),
+		)
+
+		It("should cut the body short when the encoder fails after part of it leaves",
+			func(ctx context.Context) {
+				res := streamingPost(
+					ctx,
+					test.Request{ID: 8192, Message: "ab"},
+					truncate,
+					"identity",
+				)
+				Expect(res.StatusCode).To(Equal(http.StatusOK))
+				body, err := io.ReadAll(res.Body)
+				Expect(err).To(MatchError(io.ErrUnexpectedEOF))
+				Expect(len(body)).To(BeNumerically("<", 2*8192))
+			},
+		)
 	})
 
 	Describe("Unencoded Response", func() {
