@@ -275,6 +275,14 @@ func (f dbcFile) message(
 	keys := make(map[string]versions.FieldKey, len(m.Signals))
 	var switches []string
 	for _, s := range m.Signals {
+		if _, ok := keys[string(s.Name)]; ok {
+			return versions.MessageEntry{}, nil, dataErrorf(
+				"line %d: message %s has more than one signal named %s",
+				s.Pos.Line,
+				m.Name,
+				s.Name,
+			)
+		}
 		keys[string(s.Name)] = uuid.New()
 		if s.IsMultiplexerSwitch {
 			switches = append(switches, string(s.Name))
@@ -443,7 +451,16 @@ func (f dbcFile) period(m *dbc.MessageDef) (*telem.TimeSpan, error) {
 	if ms == 0 {
 		return nil, nil
 	}
-	return new(telem.TimeSpan(ms * float64(telem.Millisecond))), nil
+	span, ok := msToSpan(ms)
+	if !ok {
+		return nil, dataErrorf(
+			"line %d: message %s has a cycle time out of range: %g ms",
+			m.Pos.Line,
+			m.Name,
+			ms,
+		)
+	}
+	return &span, nil
 }
 
 func numeric(def *dbc.AttributeDef, i int64, f float64) float64 {

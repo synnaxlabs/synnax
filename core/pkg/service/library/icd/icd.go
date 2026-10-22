@@ -14,6 +14,7 @@ package icd
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/library/versions"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -52,6 +53,16 @@ func Parse(format Format, data []byte) ([]versions.Entry, error) {
 		errors.Wrapf(validate.ErrValidation, "unsupported format %q", format),
 		"format",
 	)
+}
+
+// msToSpan converts a period in milliseconds to a time span. It returns false unless
+// the span is from 1ns to telem.TimeSpanMax.
+func msToSpan(ms float64) (telem.TimeSpan, bool) {
+	span := ms * float64(telem.Millisecond)
+	if !(span >= float64(telem.Nanosecond) && span < float64(telem.TimeSpanMax)) {
+		return 0, false
+	}
+	return telem.TimeSpan(span), true
 }
 
 func dataErrorf(format string, args ...any) error {

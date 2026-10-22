@@ -12,6 +12,7 @@ package icd
 import (
 	"bytes"
 	"encoding/csv"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
@@ -281,10 +282,10 @@ func (t *table) readMessage(row int, cells []string, m *tableMessage) error {
 	}
 	if s := t.cell(cells, columnPeriodMS); s != "" {
 		ms, err := strconv.ParseFloat(s, 64)
-		if err != nil || ms <= 0 {
+		period, ok := msToSpan(ms)
+		if err != nil || !ok {
 			return rowErrorf(row, columnPeriodMS, "invalid period %q", s)
 		}
-		period := telem.TimeSpan(ms * float64(telem.Millisecond))
 		if err = m.period.merge(columnPeriodMS, row, period); err != nil {
 			return err
 		}
@@ -329,37 +330,37 @@ func (t *table) readField(row int, cells []string) (versions.BinaryField, error)
 			return f, err
 		}
 	}
-	if s := t.cell(cells, columnScale); s != "" {
-		if f.Scale, err = strconv.ParseFloat(s, 64); err != nil {
-			return f, rowErrorf(row, columnScale, "invalid number %q", s)
-		}
-	}
-	if s := t.cell(cells, columnOffset); s != "" {
-		if f.Offset, err = strconv.ParseFloat(s, 64); err != nil {
-			return f, rowErrorf(row, columnOffset, "invalid number %q", s)
-		}
-	}
-	if f.Min, err = t.optionalFloat(row, cells, columnMin); err != nil {
+	scale, err := t.number(row, cells, columnScale)
+	if err != nil {
 		return f, err
 	}
-	if f.Max, err = t.optionalFloat(row, cells, columnMax); err != nil {
+	if scale != nil {
+		f.Scale = *scale
+	}
+	offset, err := t.number(row, cells, columnOffset)
+	if err != nil {
+		return f, err
+	}
+	if offset != nil {
+		f.Offset = *offset
+	}
+	if f.Min, err = t.number(row, cells, columnMin); err != nil {
+		return f, err
+	}
+	if f.Max, err = t.number(row, cells, columnMax); err != nil {
 		return f, err
 	}
 	return f, nil
 }
 
-// optionalFloat returns the number in the named column, or nil when the cell is empty.
-func (t *table) optionalFloat(
-	row int,
-	cells []string,
-	column string,
-) (*float64, error) {
+// number returns the finite number in the named column, or nil when the cell is empty.
+func (t *table) number(row int, cells []string, column string) (*float64, error) {
 	s := t.cell(cells, column)
 	if s == "" {
 		return nil, nil
 	}
 	v, err := strconv.ParseFloat(s, 64)
-	if err != nil {
+	if err != nil || math.IsNaN(v) || math.IsInf(v, 0) {
 		return nil, rowErrorf(row, column, "invalid number %q", s)
 	}
 	return &v, nil

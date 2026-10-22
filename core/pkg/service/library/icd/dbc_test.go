@@ -14,6 +14,7 @@ import (
 	"encoding/json/v2"
 	"os"
 	"path/filepath"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -183,6 +184,36 @@ func readFixture(name string) ([]byte, expectedFile) {
 	var want expectedFile
 	Expect(json.Unmarshal(raw, &want)).To(Succeed())
 	return data, want
+}
+
+// FuzzParseDBC checks that any input either imports with resolved references or fails
+// with a validation error, and never panics.
+func FuzzParseDBC(f *testing.F) {
+	paths, err := filepath.Glob(filepath.Join("testdata", "*.dbc"))
+	if err != nil {
+		f.Fatal(err)
+	}
+	for _, path := range paths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			f.Fatal(err)
+		}
+		f.Add(data)
+	}
+	f.Add([]byte(dbcHeader + `BO_ 2364539904 M: 24 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|0] "" Ecu
+
+BA_DEF_ "BusType" STRING ;
+BA_DEF_ "ProtocolType" STRING ;
+BA_DEF_ BO_ "VFrameFormat" INT 0 15;
+BA_ "BusType" "CAN FD";
+BA_ "ProtocolType" "J1939";
+BA_ "VFrameFormat" BO_ 2364539904 3;
+`))
+	f.Fuzz(func(t *testing.T, data []byte) {
+		entries, err := icd.Parse(icd.FormatDBC, data)
+		checkImport(t, entries, err)
+	})
 }
 
 const dbcHeader = `VERSION ""
@@ -435,6 +466,10 @@ and ends here.";
 SG_MUL_VAL_ 256 A S 0-0;
 BO_ x
 `, "line 13, column 5"),
+		Entry("a message with two signals of the same name", `BO_ 256 Engine: 8 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
+ SG_ A : 8|8@1+ (1,0) [0|255] "" Ecu
+`, "line 11: message Engine has more than one signal named A"),
 		Entry("a malformed SG_MUL_VAL_ line", `SG_MUL_VAL_ 256 A;
 `, "line 9, column 18: expected ident"),
 		Entry("an inverted multiplexor range", `SG_MUL_VAL_ 256 A S 3-1;
@@ -486,5 +521,17 @@ VAL_ 256 A 4294967296 "Big" ;
 BA_DEF_ BO_ "GenMsgCycleTime" INT -100 65535;
 BA_ "GenMsgCycleTime" BO_ 256 -5;
 `, "line 9: message Engine has a negative cycle time"),
+		Entry("a cycle time past the longest period", `BO_ 256 Engine: 8 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
+
+BA_DEF_ BO_ "GenMsgCycleTime" FLOAT 0 1e300;
+BA_ "GenMsgCycleTime" BO_ 256 1e300;
+`, "line 9: message Engine has a cycle time out of range: 1e+300 ms"),
+		Entry("a cycle time shorter than a nanosecond", `BO_ 256 Engine: 8 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
+
+BA_DEF_ BO_ "GenMsgCycleTime" FLOAT 0 1;
+BA_ "GenMsgCycleTime" BO_ 256 1e-9;
+`, "line 9: message Engine has a cycle time out of range: 1e-09 ms"),
 	)
 })

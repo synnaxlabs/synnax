@@ -78,7 +78,9 @@ jobs:
         # go test -fuzz requires a single package (cannot use ./...), so we discover
         # the targets via grep and run them one at a time. A shard takes a contiguous
         # block of the sorted list, which keeps the targets of a package together. A
-        # failed target does not stop the loop, so one run reports every failure.
+        # failed target does not stop the loop, so one run reports every failure. The
+        # default 60s minimization of each new input stalls a slow target, such as an
+        # XLSX import, for most of its run.
         run: |
           targets=$(grep -roE '^func Fuzz[A-Za-z0-9_]+' --include='*_test.go' . \
             | sed -E 's|^(\./)?|./|; s|/[^/]*:func | |' | sort -u \
@@ -92,7 +94,8 @@ jobs:
           failed=()
           while read -r pkg target; do
             echo "::group::Fuzzing $pkg $target"
-            go test "$pkg" -fuzz="^${target}$" -fuzztime="$FUZZTIME" -run='^$' \
+            go test "$pkg" -fuzz="^${target}$" -fuzztime="$FUZZTIME" \
+              -fuzzminimizetime=5s -run='^$' \
               || failed+=("$pkg $target")
             echo "::endgroup::"
           done <<< "$targets"

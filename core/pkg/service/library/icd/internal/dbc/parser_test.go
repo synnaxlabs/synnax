@@ -10,13 +10,43 @@
 package dbc_test
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/library/icd/internal/dbc"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// FuzzParse checks that Parse returns definitions or an *Error for any input, and never
+// panics.
+func FuzzParse(f *testing.F) {
+	paths, err := filepath.Glob(filepath.Join("..", "..", "testdata", "*.dbc"))
+	if err != nil {
+		f.Fatal(err)
+	}
+	for _, path := range paths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			f.Fatal(err)
+		}
+		f.Add(data)
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		defs, err := dbc.Parse(data)
+		if err == nil {
+			return
+		}
+		var perr *dbc.Error
+		if !errors.As(err, &perr) || defs != nil {
+			t.Fatalf("Parse returned %d definitions and error %v", len(defs), err)
+		}
+	})
+}
 
 // parseOne parses src and returns its only definition, which must have type D.
 func parseOne[D dbc.Def](src string) D {
