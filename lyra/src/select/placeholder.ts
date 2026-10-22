@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { caseconv } from "@synnaxlabs/x";
+import pluralize from "pluralize";
 
 import { Input } from "@/input";
 
@@ -17,3 +18,14 @@ import { Input } from "@/input";
  */
 export const usePlaceholder = (resourceName: string): string =>
   Input.useLabelled() ? `Select ${resourceName}` : caseconv.capitalize(resourceName);
+
+const ACRONYM = /^[A-Z]{2,}$/;
+
+/**
+ * @returns the plural of a resource name. A name ending in an acronym takes a lowercase
+ * "s" ("PDOs"), where pluralize would give "PDOS".
+ */
+export const plural = (resourceName: string): string =>
+  ACRONYM.test(resourceName.split(" ").at(-1) ?? "")
+    ? `${resourceName}s`
+    : pluralize.plural(resourceName);
