@@ -9,12 +9,13 @@
 
 Six new Driver integrations: `can`, `serial`, `tcp`, `udp`, `arinc429`, and `mil1553`.
 Each one is a transport. Every integration reads and writes messages whose bit or text
-layout lives in a library (RFC 0074) as `message` entries, and one codec in the Driver
+layout lives in an ICD (RFC 0074) as `message` entries, and one codec in the Driver
 decodes and encodes them all. Serial and TCP tasks cut byte streams into messages with a
 framing setting. Any byte-stream task can listen to a device that streams or poll a
 device that answers queries, which covers SCPI instruments such as power supplies. A
-write task sends each message on its period and falls silent when it stops. The Core
-imports ICDs from DBC, CSV, and XLSX files into libraries.
+write task sends each message on its period and falls silent when it stops. Tasks
+recover from unplugs and dropped links on their own and report what they wait for. The
+Core imports ICDs from DBC, CSV, and XLSX files.
 
 ## 1 Motivation
 
@@ -40,8 +41,8 @@ arbitrary widths up to 64 bits, scaling, or text.
 - **Framing**: How a byte stream is cut into messages. Only `serial` and `tcp` need it.
 - **Exchange**: Who speaks first. A streaming device sends on its own. A polled device
   answers a query.
-- **Layout**: Where values sit in a message. A layout is a `message` entry in a library.
-- **Message**: A library entry with a payload and an optional period and query.
+- **Layout**: Where values sit in a message. A layout is a `message` entry in an ICD.
+- **Message**: An ICD entry with a payload and an optional period and query.
 - **Payload**: The layout of a message in one format: binary, with a length, an
   identifier, and bit fields, or text, with a delimiter, a prefix, and text fields.
 - **Identifier**: What names a binary message on its transport: a CAN ID or a match on a
@@ -50,6 +51,8 @@ arbitrary widths up to 64 bits, scaling, or text.
 - **Field**: One value in a message, located by bits for binary messages or by position
   or tag for text messages.
 - **Multiplexor**: A field whose value selects which other fields a message carries.
+- **Presence group**: The fields of a message that are present under the same
+  multiplexor values. Fields with no multiplexor form the message's own group.
 - **Query**: The bytes or text a task sends to ask a polled device for a message.
 
 ## 3 Principles
@@ -57,8 +60,8 @@ arbitrary widths up to 64 bits, scaling, or text.
 1. **Four independent layers**: Transport, framing, exchange, and layout vary on their
    own. The same power supply sits on serial or TCP. The same ICD arrives over serial or
    UDP. A layer never encodes an assumption about another.
-2. **Layout lives in a library**: A task names library entries and maps fields to
-   channels. It never carries a layout of its own.
+2. **Layout lives in an ICD**: A task names ICD entries and maps fields to channels. It
+   never carries a layout of its own.
 3. **One codec**: Every integration decodes and encodes through the same code.
 4. **The Driver runs next to the hardware**: A CAN adapter or a 429 card sits in the rig
    computer, often behind a standalone Driver. These integrations live in the C++
@@ -67,6 +70,9 @@ arbitrary widths up to 64 bits, scaling, or text.
    library disables its backend, as NI and LabJack do today.
 6. **Stopping means silence**: A stopped write task sends nothing. Receivers see the
    same timeout they would see from a box that lost power.
+7. **Never send a value the user did not command**: A write task refuses an out-of-range
+   value instead of clamping it, and never invents a value for a field it has not
+   received.
 
 ## 4 Prior art
 
@@ -102,13 +108,13 @@ listens as a monitor (§5.5).
 
 ### 5.1 The `message` kind
 
-`schemas/synnax/library.oracle` defines the kind as a variant of the library entry union
-(RFC 0074):
+`schemas/synnax/icd.oracle` defines the message as a variant of the ICD entry union (RFC
+0074 §5.1):
 
 ```
 Identifier union on type {
     can   { id uint32, extended bool, fd bool, mask uint32? }
-    field { field FieldKey, value int64 }   // binary header field match
+    field { field FieldKey, value int32 }   // binary header field match
 }
 
 BinaryField struct extends BaseField {
@@ -119,7 +125,8 @@ TextField union on encoding extends BaseField {
     delimited { position uint32 }
     tagged    { tag string }
 }  // BaseField: key (uuid), name, scale = 1, offset = 0, units,
-   // enumeration EntryKey?, multiplexor FieldKey?, multiplex_values int64[]
+   // enumeration EntryKey?, multiplexor FieldKey?, multiplex_values int32[],
+   // min float64?, max float64?
 
 Payload union on format {
     binary {
@@ -155,6 +162,8 @@ identifier cannot sit in a text message, and a text field cannot sit in a binary
 - **Queries**: `query` holds escaped bytes for binary messages and plain text for text
   messages. The poll rate is a task setting (§5.5), because it is a rig decision and the
   query is a property of the device.
+- **Limits**: `min` and `max` narrow the range a write task accepts for a field. Without
+  them, the range is what the field's bits can hold after scale and offset (§5.4).
 
 Phases 11 and 12 add `arinc429` and `mil1553` variants to the binary identifier union.
 The ARINC 429 label, SDI, SSM, and parity occupy fixed bits, so a 429 message's fields
@@ -172,7 +181,7 @@ Decode writes each value straight into the series for its channel with
 Scaling is `value * scale + offset`, applied on decode and inverted on encode. Enums are
 not applied: the channel holds the raw integer.
 
-Modbus and EtherCAT move onto the codec in Phase 3 (§7). Modbus register decoding
+Modbus and EtherCAT move onto the codec in Phase 2 (§7). Modbus register decoding
 becomes a codec field over the register words. EtherCAT PDO decoding becomes a codec
 plan over the process image.
 
@@ -184,9 +193,12 @@ the queue with a timeout and returns an empty frame when nothing arrived, which 
 acquisition pipeline skips (`driver/pipeline/acquisition.cpp:141`). The EtherCAT reader
 already blocks on its engine thread the same way.
 
-- **One index per message**: each message the task reads gets its own index channel,
-  because messages arrive at their own rates. A frame carries only the messages that
-  arrived, following HTTP's sampling groups (`driver/http/read_task.h:52`).
+- **One index per presence group**: each presence group of each message gets its own
+  index channel, because messages arrive at their own rates and multiplexed fields
+  arrive only under their multiplexor values. A plain message has one group and one
+  index. A frame writes a sample to every group present in it, so a field is never
+  dropped because a field of another group is absent. A frame carries only the groups
+  that arrived, following HTTP's sampling groups (`driver/http/read_task.h:52`).
 - **Timestamps**: hardware timestamps from the adapter when it has them (SocketCAN,
   PCAN-Basic, CANlib, gs_usb, and the 429 and 1553 cards all do), converted to the host
   clock once per task by an offset measured at start. Otherwise, the host time of
@@ -195,6 +207,10 @@ already blocks on its engine thread the same way.
   virtual `bytes` channel. It streams for live debugging and is never saved.
 - **Unknown and malformed frames**: a frame no message matches goes only to the raw
   channel. A frame that matches but is too short warns once per message and is dropped.
+- **Health warnings**: the task status warns, and clears the warning when the cause
+  ends, when nothing arrived 10 s after start, when frames arrive but none match a
+  message, and when a message with a known period (its `period` or the poll rate) misses
+  3 periods. There are no counters; the Console's live inspector shows rates.
 
 ### 5.4 Writing
 
@@ -202,10 +218,15 @@ A write task implements `common::Sink` (`driver/common/write_task.h:33`). Each f
 sends maps to a command channel.
 
 - **Periodic messages**: a message with a `period` is sent on that period with the
-  latest value of each command channel. The task sends a message only after every one of
-  its command channels has a value, so it never invents one.
+  latest value of each command channel, scheduled on the steady clock so a wall-clock
+  step never bunches or skips sends. The task sends a message only after every one of
+  its command channels has a value, so it never invents one, and warns which fields it
+  waits for until then.
 - **On-change messages**: a message with no period is sent when any of its command
   channels changes.
+- **Out-of-range values**: a value outside the field's range (§5.1) or NaN is refused
+  when it arrives and is not stored. The task warns with the field, the value, and the
+  range, and the message keeps its last good value. The codec never clamps.
 - **Stop**: the task stops sending. It never replays a stale value.
 - **Control authority**: command channels follow the same authority rules as every other
   write task (RFC 0057).
@@ -215,9 +236,13 @@ sends maps to a command channel.
 A byte-stream read task with polled messages sends each message's `query` at the task's
 poll rate and decodes the reply. One query is in flight per device at a time, because
 SCPI and most serial protocols answer in order. A reply that does not arrive within the
-task's timeout counts as a missed sample and warns. A power supply on RS-232 is a
+task's timeout counts as a missed sample and warns. After a miss, the task waits until
+the link is quiet for one timeout before the next query, and discards what arrives in
+that time with a "late reply" warning, so a late answer is never read as the answer to
+the next query. A reply with no identifier matches by order alone, so the Core accepts
+it only on a link that carries no unprompted messages. A power supply on RS-232 is a
 `serial` task, and the same supply on Ethernet port 5025 is a `tcp` task, with the same
-library.
+ICD.
 
 For `mil1553`, the task acts as bus controller when it polls: each message becomes a
 command in a frame, scheduled by the message's period. A monitor-only task reads without
@@ -265,11 +290,12 @@ code is copied.
 **`serial`**. The device is a port path with baud rate, data bits, parity, stop bits,
 flow control, and an RS-485 mode. The scan task lists ports.
 
-**`tcp`**. The device is a host and port. The task connects as a client and reconnects
-with backoff.
+**`tcp`**. The device is a host and port. The task connects as a client, with TCP
+keepalive (idle 10 s, interval 5 s, 3 probes) so a dead peer is found within 25 s.
 
-**`udp`**. The device is a local port to bind, with an optional remote host and port for
-writes and queries, and an optional multicast group.
+**`udp`**. The device is a local port and interface to bind, with an optional remote
+host and port for writes and queries, and an optional multicast group and interface. A
+task with a remote host reads only datagrams from that host.
 
 **`arinc429`**. The device is a card channel with its speed (12.5 or 100 kbit/s) and
 direction. Each vendor (Astronics Ballard, Alta, DDC, AIM) is one backend behind the
@@ -283,7 +309,7 @@ latest command channel values of the messages it owns.
 
 ### 5.8 ICD import
 
-The Core imports files into a library, adding `message` and `enum` entries:
+The Core imports files into an ICD, adding `message` and `enum` entries:
 
 - **DBC**: messages, signals, value tables, `GenMsgCycleTime` as the period, and
   multiplexing, as binary payloads. The parser is a copy of
@@ -295,25 +321,27 @@ The Core imports files into a library, adding `message` and `enum` entries:
   name, identifier, start bit, bit length, byte order, sign, scale, offset, units, and
   period. A header line maps columns by name. XLSX parses with `excelize`.
 
-Importing into a library that already has entries matches messages by name, and fields
-by name within their message. A match is updated in place and keeps its key, so tasks
-keep working across ICD revisions. A message or field missing from the new file is
-removed, and a task that used it fails validation with an error naming it.
+DBC import keeps each signal's `[min|max]` as the field's limits. Importing into an ICD
+that already has entries matches messages by name, and fields by name within their
+message. A match is updated in place and keeps its key, so tasks keep working across ICD
+revisions. A message or field missing from the new file is removed, and a task that used
+it fails validation with an error naming it.
 
-Import runs in the Core so every client uses the same parser. It is a `library/import`
-action on the library service.
+Import runs in the Core so every client uses the same parser. It is the `icd/import`
+route on the ICD service.
 
 ### 5.9 Console
 
 - **Devices**: a connect form per integration, and scan results for `can`, `serial`,
   `arinc429`, and `mil1553`.
-- **Read tasks**: pick a library, then pick messages and fields. The Console creates one
-  index per message (`<device>_<message>_time`) and one channel per field
-  (`<device>_<message>_<field>`), following Modbus channel creation
-  (`console/src/feature/modbus/task/Read.tsx:181`). Framing and exchange settings appear
-  for `serial` and `tcp`.
+- **Read tasks**: pick an ICD, then pick messages and fields. The Console creates one
+  index per presence group and one channel per field (`<device>_<message>_<field>`),
+  following Modbus channel creation (`console/src/feature/modbus/task/Read.tsx:181`).
+  The message's own group uses `<device>_<message>_time`; a multiplexed group adds its
+  values, as in `<device>_<message>_mux0_time`. Framing and exchange settings appear for
+  `serial` and `tcp`.
 - **Write tasks**: pick messages and fields, and map each field to a command channel.
-- **Import**: a library's context menu imports a DBC, CSV, or XLSX file.
+- **Import**: an ICD's context menu imports a DBC, CSV, or XLSX file.
 
 Each integration registers in the Console's task and device maps
 (`console/src/feature/task/types.tsx`, `tab.tsx`, `Selector.tsx`, `external.tsx`, and
@@ -334,9 +362,9 @@ Each integration registers in the Console's task and device maps
 integration schema (`can`, `serial`, `tcp`, `udp`) extends them and adds its device
 `Properties`.
 
-- **Read**: `bus.ReadConfig` embeds the library `Reference` and lists `messages`. Each
-  message names its library entry, its index channel, and the fields it writes, each by
-  field key and channel. `raw` is the virtual bytes channel.
+- **Read**: `bus.ReadConfig` embeds the ICD `Reference` and lists `messages`. Each
+  message names its ICD entry and the fields it writes, each by field key, channel, and
+  index channel. `raw` is the virtual bytes channel.
 - **Write**: `bus.WriteConfig` lists messages and maps field keys to command channels. A
   field with no mapping is sent as zero.
 - **Polling**: `bus.PollConfig` holds the poll `rate` and reply `timeout` for `serial`,
@@ -345,9 +373,49 @@ integration schema (`can`, `serial`, `tcp`, `udp`) extends them and adds its dev
   `slip`. `serial` and `tcp` read and write configs carry one, because a write task
   frames what it sends. `udp` needs none.
 
-On every write, the Core stamps the library hash and rejects a config whose message or
-field keys are not in its library (`core/pkg/service/bus/resolve.go`), so the Driver
-never builds a plan from a stale key.
+On every write, the Core stamps the entry hash and rejects a config whose message or
+field keys are not in its ICD, whose fields share an index across presence groups, or
+whose unlabeled poll replies share a link with unprompted messages
+(`core/pkg/service/bus/resolve.go`). The Driver never builds a plan from a stale key.
+
+### 5.12 Connection loss
+
+Every backend has one translate function that sorts its native errors into three
+classes: a config error (a bad bitrate, a misspelled interface), an unreachable device
+(unplugged, absent, refused, timed out), and a critical error. A device that is not
+present is always unreachable, at start and during a run, because the user fixes it by
+plugging something in, not by editing the task.
+
+The shared device handle (`can::Link`, `bus::Connection`) owns the open device. It drops
+the device on an unreachable or critical error and reopens it with one backoff per
+device, shared by every task that uses it. Tasks hold open counts, never device
+pointers, so a reopen never fights a task that still holds the failed handle. A read
+task shows "reconnecting to <device>: <reason>" as a warning and waits as long as it
+takes. Modbus and OPC UA keep their own policies.
+
+### 5.13 Testing without hardware
+
+- **Behavior models**: each vendor library and OS call layer has a fake built from a
+  primary source (firmware source, vendor documentation, the Linux driver), including
+  its documented failures: gs_usb's transmit pool, echo, unplug, and exclusive claim;
+  PCAN's unplug status; CANlib's blocking reads and channel renumbering; the CANable
+  slcan profile; TCP partial writes and silent peers; UDP loss and foreign senders.
+  Production Driver code runs above the fakes.
+- **Contract suites**: one suite per transport interface runs against each model and
+  against the real stack: vcan in CI, PTYs and loopback sockets, and bench adapters when
+  a developer has one.
+- **CI**: vcan runs CAN FD. A test that needs a missing host capability fails in CI
+  instead of skipping. UBSan runs with ASan on every pull request; ThreadSanitizer and
+  coverage run nightly.
+- **Parsers**: Go fuzz targets for the DBC, CSV, and XLSX importers; seeded random-input
+  property tests for the codec, framers, and slcan parser; and a corpus of public DBC
+  files run through the Core importer and the Driver decoder and compared with
+  `cantools`.
+- **Integration**: simulators inject late replies, hangs, garbage, truncated frames, and
+  bad checksums, and every bus integration has a disconnect case. A nightly soak cycles
+  faults for hours and fails on a rising memory, file descriptor, or thread count.
+- **Support labels**: the docs label each adapter and OS as tested on hardware, on the
+  real stack, or against a model.
 
 ## 6 What this RFC does not cover
 
@@ -362,18 +430,17 @@ never builds a plan from a stale key.
 
 ## 7 Implementation phases
 
-The work lands as three PRs, each behind the `library` and `can` flags until the last.
+The work lands as two PRs, each behind the `library` and `can` flags until the last.
 
-- **Phase 1: Library and ICD import (SY-4970).** The `message` kind, ICD import, the
-  clients in every language, and the Console library editor.
-- **Phase 2: Codec, CAN, serial, TCP, and UDP (SY-4971).** `driver/codec`, the task
-  config schemas and Core stores, the Driver tasks on every CAN backend and on Asio, the
-  Python types, and the Console forms.
-- **Phase 3: ARINC 429, MIL-STD-1553, and the codec everywhere (SY-4972).** One vendor
+- **Phase 1: ICD, codec, CAN, serial, TCP, and UDP (SY-4971).** The library toolkit and
+  the ICD (RFC 0074), ICD import, the clients in every language, the Console ICD editor,
+  `driver/codec`, the task config schemas and Core stores, the Driver tasks on every CAN
+  backend and on Asio, the behavior models and contract suites, and the Console forms.
+- **Phase 2: ARINC 429, MIL-STD-1553, and the codec everywhere (SY-4972).** One vendor
   backend each, Modbus and EtherCAT moved onto the codec, and flag removal.
 
 Every phase adds new task types or internal code. No stored shape changes, so no
-migration is needed. Phase 3 keeps the Modbus and EtherCAT task configs as they are.
+migration is needed. Phase 2 keeps the Modbus and EtherCAT task configs as they are.
 
 ## 8 Resolved decisions
 
@@ -387,13 +454,13 @@ codec, and the import five times. Every format already describes fields with the
 parts (§4). The cost is an identifier union and an editor that shows the identifier
 columns for each message's bus.
 
-**8.2 Framing on the task, not in the library.** Framing describes the link, not the
+**8.2 Framing on the task, not in the ICD.** Framing describes the link, not the
 message: one ICD arrives over serial on one bench and UDP on another.
 
 **8.3 Polling on byte-stream tasks, not a SCPI integration.** A SCPI integration would
 bundle a transport, an exchange, and a text format into one integration, and could not
-share a serial port's settings or a library's layout. The same query-and-reply loop
-serves instruments, serial sensors that need a prompt, and 1553 bus control.
+share a serial port's settings or an ICD's layout. The same query-and-reply loop serves
+instruments, serial sensors that need a prompt, and 1553 bus control.
 
 **8.4 Raw frames are virtual.** A saved raw channel allows decoding a run again after an
 ICD fix and keeps unknown frames. It costs about 200 kB/s on a busy CAN bus. Live
@@ -411,6 +478,27 @@ Linux.
 **8.7 The Core imports ICDs.** A Console import would run in one client and would rely
 on SheetJS, whose npm package is stuck on a version with known vulnerabilities. Go has
 `excelize` and a DBC parser we own, and every client gets the same result.
+
+**8.8 One index per presence group.** One index per message forces every field on it to
+hold the same number of samples, so a multiplexed message writes nothing unless every
+selected field is present, which a multiplexed message never is. One index per field
+works but doubles the channel count of every plain message. Presence groups give plain
+messages one index and multiplexed messages one per group.
+
+**8.9 Read tasks wait for a device without limit.** Modbus and OPC UA give up after
+about 17 minutes of retries. A bus device is unplugged for a cable swap or a power cycle
+during a test campaign, and an operator expects the task to resume when it returns. The
+cost is a task that waits forever on a device that will not return; its status says what
+it waits for.
+
+**8.10 Refuse out-of-range values, not clamp them.** A clamp sends a value the operator
+did not command, and silently: a command of 300 to a field that holds 255 sends 255. A
+refusal keeps the last good value and says why. The trade is real: a periodic message
+keeps sending the previous command after an operator mistake.
+
+**8.11 Warnings, not counters.** Per-message counters need new status fields in every
+language and a Console view for them. A warning that names the cause and clears itself
+answers the question an operator asks, which is what is wrong now.
 
 ## 9 Open questions
 
