@@ -485,12 +485,14 @@ public:
         auto code_at = out.size();
         out.push_back(0);
         std::uint8_t code = 1;
-        for (const auto b: frame) {
+        for (std::size_t i = 0; i < frame.size(); i++) {
+            const auto b = frame[i];
             if (b != 0) {
                 out.push_back(b);
                 code++;
             }
-            if (b == 0 || code == 0xFF) {
+            // A full block that ends the frame needs no empty block after it.
+            if (b == 0 || (code == 0xFF && i + 1 < frame.size())) {
                 out[code_at] = code;
                 code_at = out.size();
                 out.push_back(0);

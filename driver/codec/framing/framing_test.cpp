@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <fstream>
 #include <memory>
 #include <random>
 #include <string>
 #include <vector>
 
 #include "gtest/gtest.h"
+#include "nlohmann/json.hpp"
 
 #include "client/cpp/bus/types.gen.h"
 #include "x/cpp/test/test.h"
@@ -83,24 +85,25 @@ Bytes random_payload(std::mt19937_64 &rng, const std::size_t max) {
     return p;
 }
 
-Bytes cobs(const Bytes &payload) {
-    Bytes out = {0};
-    std::size_t code_at = 0;
-    std::uint8_t code = 1;
-    for (const auto b: payload) {
-        if (b != 0) {
-            out.push_back(b);
-            code++;
-        }
-        if (b == 0 || code == 0xFF) {
-            out[code_at] = code;
-            code_at = out.size();
-            out.push_back(0);
-            code = 1;
-        }
+/// @returns the COBS wire bytes of a frame of n copies of a nonzero byte.
+Bytes cobs_run(const std::size_t n, const std::uint8_t b) {
+    Bytes out;
+    for (std::size_t left = n; left > 0;) {
+        const auto block = std::min<std::size_t>(left, 254);
+        out.push_back(static_cast<std::uint8_t>(block + 1));
+        out.insert(out.end(), block, b);
+        left -= block;
     }
-    out[code_at] = code;
     out.push_back(0);
+    return out;
+}
+
+Bytes from_hex(const std::string &hex) {
+    Bytes out;
+    for (std::size_t i = 0; i < hex.size(); i += 2)
+        out.push_back(
+            static_cast<std::uint8_t>(std::stoul(hex.substr(i, 2), nullptr, 16))
+        );
     return out;
 }
 
@@ -525,16 +528,20 @@ TEST(Sync, EncodeRejectsALengthTheFieldCannotHold) {
     ASSERT_OCCURRED_AS(f->encode(Bytes(300, 1), out), ENCODE_ERROR);
 }
 
-TEST(COBS, EncodesLikeAReferenceEncoder) {
-    std::mt19937_64 rng(5);
+TEST(COBS, EncodesAndDecodesLikeThePythonCobsPackage) {
+    std::ifstream file("driver/codec/framing/testdata/cobs.json");
+    const auto root = nlohmann::json::parse(file);
+    ASSERT_FALSE(root["vectors"].empty());
     const auto f = open(bus::CobsFraming{});
-    for (int i = 0; i < 100; i++) {
-        auto payload = random_payload(rng, i % 10 == 0 ? 600 : 40);
-        if (i % 7 == 0) std::fill(payload.begin(), payload.end(), 0x11);
+    for (const auto &v: root["vectors"]) {
+        const auto frame = from_hex(v["frame"]);
+        const auto wire = from_hex(v["wire"]);
         Bytes out;
-        ASSERT_NIL(f->encode(payload, out));
-        ASSERT_EQ(out, cobs(payload));
+        ASSERT_NIL(f->encode(frame, out));
+        EXPECT_EQ(out, wire) << v["frame"].get<std::string>().size() / 2 << " bytes";
+        EXPECT_EQ(trickle(*f, wire), std::vector<Bytes>{frame});
     }
+    EXPECT_EQ(f->errors(), 0);
 }
 
 TEST(COBS, RoundTripsRandomFramesAcrossRandomChunks) {
@@ -552,7 +559,7 @@ TEST(COBS, RoundTripsRandomFramesAcrossRandomChunks) {
 TEST(COBS, DropsAFrameThatEndsInsideABlock) {
     const auto f = open(bus::CobsFraming{});
     Bytes stream = {0x05, 0x11, 0x22, 0x00};
-    const auto good = cobs({1, 0, 2});
+    const Bytes good = {0x02, 0x01, 0x02, 0x02, 0x00};
     stream.insert(stream.end(), good.begin(), good.end());
     Collector c;
     ASSERT_NIL(f->write(stream, c.handler()));
@@ -562,8 +569,8 @@ TEST(COBS, DropsAFrameThatEndsInsideABlock) {
 
 TEST(COBS, DropsAnOversizedFrameAndRecovers) {
     const auto f = open(bus::CobsFraming{});
-    auto stream = cobs(Bytes(MAX_SIZE + 1, 7));
-    const auto good = cobs({7});
+    auto stream = cobs_run(MAX_SIZE + 1, 7);
+    const auto good = cobs_run(1, 7);
     stream.insert(stream.end(), good.begin(), good.end());
     Collector c;
     ASSERT_OCCURRED_AS(f->write(stream, c.handler()), OVERFLOW_ERROR);
