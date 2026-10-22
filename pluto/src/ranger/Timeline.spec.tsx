@@ -9,10 +9,13 @@
 
 import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Ranger } from "@/ranger";
+
+// A float64 holds the nanoseconds of this instant exactly.
+const EXACT = new Date(Date.UTC(2026, 0, 1));
 
 const DAY = Number(TimeSpan.DAY.valueOf());
 const HOUR = Number(TimeSpan.HOUR.valueOf());
@@ -119,17 +122,26 @@ describe("Ranger.Timeline", () => {
     await waitFor(() => expect(screen.getByText("Completed")).toBeTruthy());
   });
 
-  it("should move to completed when rendered at the planned end", () => {
-    vi.useFakeTimers();
+  it("should read in progress at the planned start", () => {
+    vi.useFakeTimers({ now: EXACT });
+    try {
+      const now = TimeStamp.now().nanoseconds;
+      render(
+        <Ranger.Timeline value={{ start: now, end: now + HOUR }} onChange={() => {}} />,
+      );
+      expect(screen.getByText("In progress")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("should read completed at the planned end", () => {
+    vi.useFakeTimers({ now: EXACT });
     try {
       const now = TimeStamp.now().nanoseconds;
       render(
         <Ranger.Timeline value={{ start: now - HOUR, end: now }} onChange={() => {}} />,
       );
-      expect(screen.getByText("In progress")).toBeTruthy();
-      act(() => {
-        vi.advanceTimersByTime(1);
-      });
       expect(screen.getByText("Completed")).toBeTruthy();
     } finally {
       vi.useRealTimers();

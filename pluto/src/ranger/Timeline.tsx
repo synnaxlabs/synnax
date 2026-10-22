@@ -211,7 +211,7 @@ const useStageBoundary = ({ start, end }: NumericTimeRange): void => {
   const now = TimeStamp.now().nanoseconds;
   let boundary: number | null = null;
   if (start < UNSET && start > now) boundary = start;
-  else if (end < UNSET && end >= now) boundary = end;
+  else if (end < UNSET && end > now) boundary = end;
   useEffect(() => {
     if (boundary == null) return;
     const remaining = (boundary - TimeStamp.now().nanoseconds) / 1e6;
