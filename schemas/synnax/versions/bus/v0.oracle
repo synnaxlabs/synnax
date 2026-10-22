@@ -20,6 +20,9 @@ ReadField struct {
     channel channel.Key = 0 {
         @doc value "is the channel the field's decoded values are written to."
     }
+    index   channel.Key = 0 {
+        @doc value "is the index channel stamped with the time the field arrives."
+    }
 
     @doc value  "maps one decoded message field to a channel."
     @go marshal
@@ -32,14 +35,14 @@ ReadMessage struct {
     disabled bool = false {
         @doc value "is true when the task ignores the message."
     }
-    index    channel.Key = 0 {
-        @doc value "is the index channel stamped with the time each message arrives."
-    }
     fields   ReadField[]      {
         @doc value "are the fields of the message the task writes to channels."
     }
 
-    @doc value  "is one library message a read task decodes."
+    @doc value  """
+        is one library message a read task decodes. Fields share an index only when the
+        same multiplexor values select them.
+    """
     @go marshal
 }
 

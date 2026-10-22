@@ -16,7 +16,8 @@ import "github.com/synnaxlabs/synnax/pkg/service/bus/versions/v0"
 // ReadField maps one decoded message field to a channel.
 type ReadField = v0.ReadField
 
-// ReadMessage is one library message a read task decodes.
+// ReadMessage is one library message a read task decodes. Fields share an index only
+// when the same multiplexor values select them.
 type ReadMessage = v0.ReadMessage
 
 // WriteField maps one command channel to a message field. A field with no mapping is

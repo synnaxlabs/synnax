@@ -229,6 +229,7 @@ func (rc *ReadConfig) DecodeOrc(r *orc.Reader) error {
 func (rf ReadField) EncodeOrc(w *orc.Writer) error {
 	w.Write(rf.Field[:])
 	w.Uint32(uint32(rf.Channel))
+	w.Uint32(uint32(rf.Index))
 	return nil
 }
 
@@ -244,6 +245,13 @@ func (rf *ReadField) DecodeOrc(r *orc.Reader) error {
 		}
 		rf.Channel = channel.Key(rawV)
 	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		rf.Index = channel.Key(rawV)
+	}
 	return nil
 }
 
@@ -251,7 +259,6 @@ func (rf *ReadField) DecodeOrc(r *orc.Reader) error {
 func (rm ReadMessage) EncodeOrc(w *orc.Writer) error {
 	w.Write(rm.Message[:])
 	w.Bool(rm.Disabled)
-	w.Uint32(uint32(rm.Index))
 	w.Bool(rm.Fields != nil)
 	if rm.Fields != nil {
 		w.Uint32(uint32(len(rm.Fields)))
@@ -272,13 +279,6 @@ func (rm *ReadMessage) DecodeOrc(r *orc.Reader) error {
 	}
 	if rm.Disabled, err = r.Bool(); err != nil {
 		return err
-	}
-	{
-		rawV, err := r.Uint32()
-		if err != nil {
-			return err
-		}
-		rm.Index = channel.Key(rawV)
 	}
 	{
 		present, err := r.Bool()

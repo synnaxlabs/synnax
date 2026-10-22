@@ -46,6 +46,8 @@ struct ReadField {
     ::synnax::library::FieldKey field;
     /// @brief channel is the channel the field's decoded values are written to.
     ::synnax::channel::Key channel = ::synnax::channel::Key(0);
+    /// @brief index is the index channel stamped with the time the field arrives.
+    ::synnax::channel::Key index = ::synnax::channel::Key(0);
 
     static ReadField parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -76,14 +78,13 @@ struct PollConfig {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief ReadMessage is one library message a read task decodes.
+/// @brief ReadMessage is one library message a read task decodes. Fields share an index
+/// only when the same multiplexor values select them.
 struct ReadMessage {
     /// @brief message is the key of the message entry in the task's library.
     ::synnax::library::EntryKey message;
     /// @brief disabled is true when the task ignores the message.
     bool disabled = false;
-    /// @brief index is the index channel stamped with the time each message arrives.
-    ::synnax::channel::Key index = ::synnax::channel::Key(0);
     /// @brief fields are the fields of the message the task writes to channels.
     std::vector<ReadField> fields;
 

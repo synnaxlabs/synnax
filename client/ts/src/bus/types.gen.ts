@@ -27,6 +27,8 @@ export const readFieldZ = z.object({
   field: library.fieldKeyZ,
   /** channel is the channel the field's decoded values are written to. */
   channel: channel.keyZ.default(0),
+  /** index is the index channel stamped with the time the field arrives. */
+  index: channel.keyZ.default(0),
 });
 export interface ReadField extends z.infer<typeof readFieldZ> {}
 
@@ -133,14 +135,15 @@ export const FRAMING_SCHEMAS: {
   slip: slipFramingZ,
 };
 
-/** ReadMessage is one library message a read task decodes. */
+/**
+ * ReadMessage is one library message a read task decodes. Fields share an index only
+ * when the same multiplexor values select them.
+ */
 export const readMessageZ = z.object({
   /** message is the key of the message entry in the task's library. */
   message: library.entryKeyZ,
   /** disabled is true when the task ignores the message. */
   disabled: z.boolean().default(false),
-  /** index is the index channel stamped with the time each message arrives. */
-  index: channel.keyZ.default(0),
   /** fields are the fields of the message the task writes to channels. */
   fields: readFieldZ.array().default(() => []),
 });
