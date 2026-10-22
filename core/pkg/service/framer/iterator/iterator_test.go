@@ -1986,6 +1986,69 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Expect(iter.Close()).To(Succeed())
 		})
 		DescribeTable(
+			"Should keep the samples of a late data channel that its index keeps",
+			func(ctx SpecContext, suffix string, calculated bool) {
+				indexCh := &channel.Channel{
+					Name:     "late_downsample_time_" + suffix,
+					DataType: telem.TimestampT,
+					IsIndex:  true,
+				}
+				Expect(channelWriter.Create(ctx, indexCh)).To(Succeed())
+				dataCh := &channel.Channel{
+					Name:       "late_downsample_sensor_" + suffix,
+					DataType:   telem.Float32T,
+					LocalIndex: indexCh.LocalKey,
+				}
+				Expect(channelWriter.Create(ctx, dataCh)).To(Succeed())
+				write := func(start telem.TimeStamp, key channel.Key, s telem.Series) {
+					GinkgoHelper()
+					w := MustSucceed(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+						Start:            start,
+						Keys:             []channel.Key{key},
+						EnableAutoCommit: new(true),
+					}))
+					Expect(w.Write(frame.NewUnary(key, s))).To(BeTrue())
+					Expect(w.Close()).To(Succeed())
+				}
+				write(
+					telem.SecondTS,
+					indexCh.Key(),
+					telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6, 7, 8),
+				)
+				// The data channel starts at the fourth index sample.
+				write(
+					4*telem.SecondTS,
+					dataCh.Key(),
+					telem.NewSeriesV[float32](4, 5, 6, 7, 8),
+				)
+				keys := []channel.Key{indexCh.Key(), dataCh.Key()}
+				if calculated {
+					calc := &channel.Channel{
+						Name:       "late_downsample_calc_" + suffix,
+						DataType:   telem.Float32T,
+						Expression: "return " + dataCh.Name + " * 2",
+					}
+					Expect(channelWriter.Create(ctx, calc)).To(Succeed())
+					keys = append(keys, calc.Key())
+				}
+				iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
+					Keys:             keys,
+					Bounds:           telem.TimeRangeMax,
+					DownsampleFactor: 2,
+				}))
+				Expect(iter.SeekFirst()).To(BeTrue())
+				Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+				v := iter.Value()
+				Expect(v.Get(indexCh.Key()).Series[0]).
+					To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(1, 3, 5, 7)))
+				Expect(v.Get(dataCh.Key()).Series[0]).
+					To(telem.MatchSeriesDataV[float32](5, 7))
+				Expect(iter.Close()).To(Succeed())
+			},
+			Entry("Without a calculation", "plain", false),
+			Entry("With a calculation", "calculated", true),
+		)
+		DescribeTable(
 			"Should not downsample when factor is 0 or 1",
 			func(ctx SpecContext, factor uint32) {
 				suffix := strconv.FormatUint(uint64(factor), 10)
