@@ -1166,24 +1166,16 @@ TEST(TestScanTask, TestNoUpdateWhenParentDeviceSame) {
     EXPECT_EQ(created_devices->size(), 1);
 }
 
-/// @brief it should update when parent is cleared.
-TEST(TestScanTask, TestUpdateWhenParentDeviceCleared) {
+/// @brief it should not update a module whose stored parent matches its chassis.
+TEST(TestScanTask, TestNoUpdateWhenStoredParentMatches) {
     synnax::device::Device dev1;
-    dev1.key = "device1";
-    dev1.name = "Device 1";
+    dev1.key = "module1";
+    dev1.name = "Module 1";
     dev1.rack = 1;
     dev1.location = "slot-1";
+    dev1.parent = synnax::device::ontology_id("chassis-1");
 
-    synnax::device::Device dev1_no_parent = dev1;
-
-    const auto parent_id = synnax::device::ontology_id("chassis-1");
-    dev1.parent = parent_id;
-
-    // First scan establishes parent, second scan clears it
-    std::vector<std::vector<synnax::device::Device>> devices = {
-        {dev1},
-        {dev1_no_parent}
-    };
+    std::vector<std::vector<synnax::device::Device>> devices = {{dev1}, {dev1}};
     auto scanner = std::make_unique<MockScanner>(
         devices,
         std::vector<x::errors::Error>{},
@@ -1199,7 +1191,6 @@ TEST(TestScanTask, TestUpdateWhenParentDeviceCleared) {
         remote_devices,
         created_devices
     );
-    auto cluster_api_ptr = cluster_api.get();
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
@@ -1220,15 +1211,61 @@ TEST(TestScanTask, TestUpdateWhenParentDeviceCleared) {
     );
 
     ASSERT_NIL(scan_task.init());
-    // First scan has same parent as remote — no update expected
+    ASSERT_NIL(scan_task.scan());
     ASSERT_NIL(scan_task.scan());
     ASSERT_EQ(created_devices->size(), 0);
+}
 
-    // Second scan clears the parent — triggers update
+/// @brief it should not update a device the scanner gives no parent.
+TEST(TestScanTask, TestNoUpdateWhenScannedDeviceHasNoParent) {
+    synnax::device::Device dev1;
+    dev1.key = "device1";
+    dev1.name = "Device 1";
+    dev1.rack = 1;
+    dev1.location = "slot-1";
+
+    synnax::device::Device dev1_remote = dev1;
+    dev1_remote.parent = synnax::rack::rack_ontology_id(dev1.rack);
+
+    std::vector<std::vector<synnax::device::Device>> devices = {{dev1}, {dev1}};
+    auto scanner = std::make_unique<MockScanner>(
+        devices,
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{}
+    );
+
+    auto remote_devices = std::make_shared<std::vector<synnax::device::Device>>();
+    remote_devices->push_back(dev1_remote);
+
+    auto created_devices = std::make_shared<std::vector<synnax::device::Device>>();
+    auto cluster_api = std::make_unique<MockClusterAPI>(
+        remote_devices,
+        created_devices
+    );
+
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    task.name = "Test Scan Task";
+
+    x::breaker::Config breaker_config;
+    x::telem::Rate scan_rate = x::telem::HERTZ * 1;
+
+    ScanTask scan_task(
+        std::move(scanner),
+        ctx,
+        task,
+        breaker_config,
+        scan_rate,
+        std::move(cluster_api)
+    );
+
+    ASSERT_NIL(scan_task.init());
     ASSERT_NIL(scan_task.scan());
-    ASSERT_EQ(created_devices->size(), 1);
-    EXPECT_EQ(created_devices->at(0).key, "device1");
-    EXPECT_EQ(cluster_api_ptr->created_parents->at(0), synnax::ontology::ID{});
+    ASSERT_NIL(scan_task.scan());
+    ASSERT_EQ(created_devices->size(), 0);
 }
 
 /// @brief it should return expected config values from scanner.
