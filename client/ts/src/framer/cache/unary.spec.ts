@@ -331,10 +331,66 @@ describe("Unary", () => {
       expect(index.timeAt(LEADING_ALIGNMENT)).toBeNull();
     });
 
+    it("should keep a retained stamp past the stale threshold", () => {
+      const index = new Unary({
+        dynamicBufferSize: 100,
+        transform: glTransform,
+        staleEntryThreshold: TimeSpan.ZERO,
+      });
+      index.writeDynamic(stamps(NS, LEADING_ALIGNMENT));
+      index.flushDynamic();
+      index.index = index;
+      index.gc([{ lower: LEADING_ALIGNMENT + 2n, upper: LEADING_ALIGNMENT + 3n }]);
+      expect(index.timeAt(LEADING_ALIGNMENT)).toEqual(new TimeStamp(NS[0]));
+      index.gc();
+      expect(index.timeAt(LEADING_ALIGNMENT)).toBeNull();
+    });
+
+    it("should keep a retained stamp when nothing narrows it", () => {
+      const index = new Unary({
+        dynamicBufferSize: 100,
+        staleEntryThreshold: TimeSpan.ZERO,
+      });
+      index.writeDynamic(stamps(NS, LEADING_ALIGNMENT));
+      index.flushDynamic();
+      index.index = index;
+      index.gc([{ lower: LEADING_ALIGNMENT, upper: LEADING_ALIGNMENT + 1n }]);
+      expect(index.timeAt(LEADING_ALIGNMENT + 2n)).toEqual(new TimeStamp(NS[2]));
+      index.gc();
+      expect(index.timeAt(LEADING_ALIGNMENT + 2n)).toBeNull();
+    });
+
     it("should throw after close", () => {
       const u = newUnary();
       u.close();
       expect(() => u.timeAt(0n)).toThrow(UnexpectedError);
+    });
+  });
+
+  describe("heldAlignments", () => {
+    it("should report the spans of series a consumer holds", () => {
+      const u = newUnary();
+      u.writeStatic(stamped(10, 13, [1, 2, 3], 100n));
+      expect(u.heldAlignments()).toEqual([]);
+      const tr = TimeStamp.seconds(10).range(TimeStamp.seconds(13));
+      u.read(tr).series.series.forEach((s) => s.acquire());
+      expect(u.heldAlignments()).toEqual([{ lower: 100n, upper: 103n }]);
+    });
+
+    it("should report a held leading buffer", () => {
+      const u = newUnary();
+      u.writeDynamic(stamped(10, 13, [1, 2, 3], LEADING_ALIGNMENT));
+      expect(u.heldAlignments()).toEqual([]);
+      u.leadingBuffer?.acquire();
+      expect(u.heldAlignments()).toEqual([
+        { lower: LEADING_ALIGNMENT, upper: LEADING_ALIGNMENT + 3n },
+      ]);
+    });
+
+    it("should throw after close", () => {
+      const u = newUnary();
+      u.close();
+      expect(() => u.heldAlignments()).toThrow(UnexpectedError);
     });
   });
 });

@@ -76,6 +76,37 @@ interface CoveredRange {
   addedAt: TimeStamp;
 }
 
+// Sorts spans by start and joins the ones that touch or overlap.
+const mergeSpans = (spans: bounds.Bounds<bigint>[]): bounds.Bounds<bigint>[] => {
+  const sorted = [...spans].sort((a, b) => (a.lower < b.lower ? -1 : 1));
+  const merged: bounds.Bounds<bigint>[] = [];
+  for (const span of sorted) {
+    const last = merged[merged.length - 1];
+    if (last == null || span.lower > last.upper) merged.push(span);
+    else if (span.upper > last.upper)
+      merged[merged.length - 1] = { lower: last.lower, upper: span.upper };
+  }
+  return merged;
+};
+
+// Sorted, disjoint items, so only the first one ending past a sample can hold it.
+const firstEndingAfter = <T>(
+  items: T[],
+  boundsOf: (item: T) => bounds.Bounds<bigint>,
+  alignment: bigint,
+): T | undefined => {
+  let lo = 0;
+  let hi = items.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (boundsOf(items[mid]).upper <= alignment) lo = mid + 1;
+    else hi = mid;
+  }
+  return items[lo];
+};
+
+const entryBounds = (e: CacheEntry): bounds.Bounds<bigint> => e.data.alignmentBounds;
+
 /**
  * A cache for historical channel data that will not be modified after it is written.
  * Fetched and streamed entries are held apart because they measure position in
@@ -213,10 +244,22 @@ export class Static {
 
   /** @returns the series holding the sample at alignment, else undefined. */
   find(alignment: bigint): Series | undefined {
-    const hit = [...this.streamed, ...this.fetched].find((e) =>
-      bounds.contains(e.data.alignmentBounds, alignment),
-    );
-    return hit?.data;
+    const hit = (entries: CacheEntry[]): Series | undefined => {
+      const e = firstEndingAfter(entries, entryBounds, alignment);
+      return e != null && e.data.alignment <= alignment ? e.data : undefined;
+    };
+    return hit(this.streamed) ?? hit(this.fetched);
+  }
+
+  /** @returns the alignment spans of every entry a consumer holds. */
+  heldAlignments(): bounds.Bounds<bigint>[] {
+    const held: bounds.Bounds<bigint>[] = [];
+    const collect = (entries: CacheEntry[]): void => {
+      for (const e of entries) if (e.data.refCount > 0) held.push(entryBounds(e));
+    };
+    collect(this.fetched);
+    collect(this.streamed);
+    return held;
   }
 
   /** @returns the data type of the held series, or null when the cache is empty. */
@@ -276,16 +319,24 @@ export class Static {
 
   /**
    * Garbage collects the cache, removing any stale entries.
+   * @param retain - Alignment spans whose entries survive however stale they are.
    * @returns metrics about the garbage collection.
    */
-  gc(): GCMetrics {
+  gc(retain: bounds.Bounds<bigint>[] = []): GCMetrics {
     const { staleEntryThreshold } = this.props;
     const res = zeroGCMetrics();
+    const spans = mergeSpans(retain);
+    const retained = (s: Series): boolean => {
+      const b = s.alignmentBounds;
+      const span = firstEndingAfter(spans, (x) => x, b.lower);
+      return span != null && span.lower < b.upper;
+    };
     const collect = (entries: CacheEntry[]): CacheEntry[] =>
       entries.filter((s) => {
         const shouldKeep =
           s.data.refCount > 0 ||
-          TimeStamp.since(s.addedAt).lessThan(staleEntryThreshold);
+          TimeStamp.since(s.addedAt).lessThan(staleEntryThreshold) ||
+          retained(s.data);
         if (!shouldKeep) {
           res.purgedBytes = res.purgedBytes.add(s.data.byteCapacity);
           res.purgedSeries++;

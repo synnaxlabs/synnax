@@ -18,9 +18,7 @@ const WRITES_PER_BUFFER = 10_000;
 
 const data = new Float32Array(SAMPLES);
 
-// One stamped frame per write, with the monotonic alignments and time ranges the
-// streamer feeds the cache in steady state. Built up front so the loop measures the
-// cache alone.
+// Steady-state streamer frames, built up front so the loop measures the cache alone.
 const frames: MultiSeries[] = Array.from(
   { length: WRITES_PER_BUFFER },
   (_, i) =>
@@ -37,8 +35,7 @@ const frames: MultiSeries[] = Array.from(
 const newCache = (): Unary =>
   new Unary({ dynamicBufferSize: SAMPLES * WRITES_PER_BUFFER });
 
-// Rotates the cache before its buffer flushes into the static cache, so every
-// iteration measures a write into the leading buffer alone.
+// Rotates the cache before its buffer flushes, so every write hits the leading buffer.
 const newWriter = (readLastWrite: boolean): (() => TimeStamp | null) => {
   let cache = newCache();
   let i = 0;

@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, MultiSeries, Series, TimeStamp } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { DataType, MultiSeries, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { describe, expect, it, vi } from "vitest";
 
 import { channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import { Cache } from "@/framer/cache/cache";
+import { glTransform } from "@/testutil/telem";
 
 describe("Cache", () => {
   describe("get", () => {
@@ -95,6 +96,16 @@ describe("Cache", () => {
       cache.close();
     });
 
+    it("should resolve an index found through its data channel", async () => {
+      const { cache, calls } = createCache([INDEX, DATA]);
+      await cache.resolve([2]);
+      expect(cache.indexOf(1)).toBe(1);
+      expect(cache.get(1).index).toBe(cache.get(1));
+      await cache.resolve([1]);
+      expect(calls).toEqual([[2]]);
+      cache.close();
+    });
+
     it("should give a virtual channel no index", async () => {
       const { cache } = createCache([VIRTUAL]);
       await cache.resolve([3]);
@@ -149,9 +160,67 @@ describe("Cache", () => {
         ]),
       );
       expect(cache.timeAt(2, 11n)).toEqual(new TimeStamp(t0 + 1n));
+      expect(cache.timeAt(1, 11n)).toEqual(new TimeStamp(t0 + 1n));
       expect(cache.lastWrite(1)).toEqual(new TimeStamp(t0 + 2n));
       expect(cache.lastWrite(2)).toBeNull();
       cache.close();
+    });
+
+    it("should keep the stamps of held samples past the stale threshold", async () => {
+      vi.useFakeTimers();
+      try {
+        const OTHER = payload({ key: 5, index: 1 });
+        const cache = new Cache({
+          retrieveChannels: async (keys) =>
+            [INDEX, DATA, OTHER].filter((ch) =>
+              (keys as channel.Key[]).includes(ch.key),
+            ),
+          gcInterval: TimeSpan.milliseconds(10),
+          staleEntryThreshold: TimeSpan.ZERO,
+          transform: glTransform,
+        });
+        await cache.resolve([2, 5]);
+        const t0 = TimeStamp.seconds(1_700_000_000).valueOf();
+        const tr = new TimeStamp(t0).range(new TimeStamp(t0 + 2n));
+        cache.get(1).writeStatic(
+          new MultiSeries([
+            new Series({
+              data: new BigInt64Array([t0, t0 + 1n]),
+              dataType: DataType.TIMESTAMP,
+              timeRange: tr,
+              alignment: 10n,
+            }),
+          ]),
+        );
+        const hold = (key: channel.Key): (() => void) => {
+          cache.get(key).writeStatic(
+            new MultiSeries([
+              new Series({
+                data: new Float32Array([1, 2]),
+                dataType: DataType.FLOAT32,
+                timeRange: tr,
+                alignment: 10n,
+              }),
+            ]),
+          );
+          const held = cache.get(key).read(tr).series.series;
+          held.forEach((s) => s.acquire());
+          return () => held.forEach((s) => s.release());
+        };
+        const releaseData = hold(2);
+        const releaseOther = hold(5);
+        vi.advanceTimersByTime(10);
+        expect(cache.timeAt(2, 11n)).toEqual(new TimeStamp(t0 + 1n));
+        releaseData();
+        vi.advanceTimersByTime(10);
+        expect(cache.timeAt(2, 11n)).toEqual(new TimeStamp(t0 + 1n));
+        releaseOther();
+        vi.advanceTimersByTime(10);
+        expect(cache.timeAt(2, 11n)).toBeNull();
+        cache.close();
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it("should throw from the accessors after close", () => {

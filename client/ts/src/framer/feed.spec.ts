@@ -598,6 +598,20 @@ describe("feed", () => {
     expect(await Promise.race([closed, timedOut])).toBe(true);
   });
 
+  it("should answer null from the lookups after close", async () => {
+    const direct = new Feed({
+      readRemote: async () => new Frame([], []),
+      openStreamer: async () => {
+        throw new UnexpectedError("streamer unused");
+      },
+      readLatest: async () => new Frame([], []),
+      retrieveChannels: async () => [],
+    });
+    await direct.close();
+    expect(direct.lastWrite(1)).toBeNull();
+    expect(direct.timeAt(1, 0n)).toBeNull();
+  });
+
   it("should fetch the index alongside a data read", async () => {
     const { time, data } = await createChannels();
     // Old enough that the fetch counts as covered, so the second read hits the cache.

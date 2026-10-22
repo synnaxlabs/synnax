@@ -146,15 +146,29 @@ export class Unary {
     return res;
   }
 
-  gc(): GCMetrics {
+  /**
+   * Garbage collects the entry.
+   * @param retain - Alignment spans whose stamps must survive however stale they are.
+   */
+  gc(retain: bounds.Bounds<bigint>[] = []): GCMetrics {
     this.checkOpen("gc");
-    const res = this.static.gc();
-    const exact = this.exact?.gc();
+    // Stamps live in the exact copy when the transform narrows them, else here.
+    const res = this.static.gc(this.narrowed ? [] : retain);
+    const exact = this.exact?.gc(retain);
     if (exact == null) return res;
     return {
       purgedSeries: res.purgedSeries + exact.purgedSeries,
       purgedBytes: res.purgedBytes.add(exact.purgedBytes),
     };
+  }
+
+  /** @returns the alignment spans of every cached series a consumer holds. */
+  heldAlignments(): bounds.Bounds<bigint>[] {
+    this.checkOpen("heldAlignments");
+    const held = this.static.heldAlignments();
+    const leading = this.dynamic.leadingBuffer;
+    if (leading != null && leading.refCount > 0) held.push(leading.alignmentBounds);
+    return held;
   }
 
   close(): void {

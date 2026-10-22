@@ -962,5 +962,64 @@ describe("StaticReadCache", () => {
       expect(c.find(13n)).toBeUndefined();
       expect(c.find(9n)).toBeUndefined();
     });
+
+    it("should find the series holding the alignment among several", () => {
+      const c = new Static({});
+      [20n, 0n, 30n, 10n].forEach((alignment) =>
+        c.write(
+          new MultiSeries([
+            new Series({
+              data: new Float32Array([1, 2, 3]),
+              dataType: DataType.FLOAT32,
+              timeRange: TimeStamp.seconds(Number(alignment)).spanRange(
+                TimeSpan.seconds(3),
+              ),
+              alignment,
+            }),
+          ]),
+        ),
+      );
+      expect(c.find(0n)?.alignment).toEqual(0n);
+      expect(c.find(12n)?.alignment).toEqual(10n);
+      expect(c.find(32n)?.alignment).toEqual(30n);
+      expect(c.find(13n)).toBeUndefined();
+      expect(c.find(33n)).toBeUndefined();
+    });
+  });
+
+  describe("retained spans", () => {
+    const tr = TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3));
+    const withSeries = (c: Static): Static => {
+      c.write(
+        new MultiSeries([
+          new Series({
+            data: new Float32Array([1, 2, 3]),
+            dataType: DataType.FLOAT32,
+            timeRange: tr,
+            alignment: 10n,
+          }),
+        ]),
+      );
+      return c;
+    };
+
+    it("should keep a retained entry past the stale threshold", () => {
+      const c = withSeries(new Static({ staleEntryThreshold: TimeSpan.ZERO }));
+      const overlapping = [
+        { lower: 0n, upper: 5n },
+        { lower: 3n, upper: 11n },
+      ];
+      expect(c.gc(overlapping).purgedSeries).toEqual(0);
+      expect(c.dirtyRead(tr).series.series).toHaveLength(1);
+      expect(c.gc([{ lower: 13n, upper: 20n }]).purgedSeries).toEqual(1);
+      expect(c.dirtyRead(tr).series.series).toHaveLength(0);
+    });
+
+    it("should report the spans of held entries", () => {
+      const c = withSeries(new Static({}));
+      expect(c.heldAlignments()).toEqual([]);
+      c.dirtyRead(tr).series.series.forEach((s) => s.acquire());
+      expect(c.heldAlignments()).toEqual([{ lower: 10n, upper: 13n }]);
+    });
   });
 });

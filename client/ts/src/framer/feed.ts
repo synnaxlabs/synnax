@@ -166,18 +166,20 @@ export class Feed {
   }
 
   /**
-   * @returns the Core's stamp of the newest live sample for the key, else null.
-   * @throws {UnexpectedError} if the feed has been closed.
+   * @returns the Core's stamp of the newest live sample for the key, else null. A
+   * closed feed holds no sample.
    */
   lastWrite(key: channel.Key): TimeStamp | null {
+    if (this.closed) return null;
     return this.cache.lastWrite(key);
   }
 
   /**
-   * @returns the Core's stamp of the key's sample at alignment, else null.
-   * @throws {UnexpectedError} if the feed has been closed.
+   * @returns the Core's stamp of the key's sample at alignment, else null. A closed
+   * feed holds no sample.
    */
   timeAt(key: channel.Key, alignment: bigint): TimeStamp | null {
+    if (this.closed) return null;
     return this.cache.timeAt(key, alignment);
   }
 

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan, type TimeStamp } from "@synnaxlabs/x";
+import { type bounds, TimeSpan, type TimeStamp } from "@synnaxlabs/x";
 
-import { channel } from "@/channel";
+import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import { type ChannelRetriever } from "@/framer/adapter";
 import { type DynamicProps } from "@/framer/cache/dynamic";
@@ -38,10 +38,9 @@ export interface CacheProps
   retrieveChannels?: ChannelRetriever;
 }
 
-// An index is its own index. A virtual channel has none unless it is calculated.
+// An index is its own index. A channel with none, virtual included, reports zero.
 const indexKey = (ch: channel.Payload): channel.Key | null => {
   if (ch.isIndex) return ch.key;
-  if (ch.virtual && !channel.isCalculated(ch)) return null;
   return ch.index === 0 ? null : ch.index;
 };
 
@@ -82,7 +81,8 @@ export class Cache {
 
   /**
    * Resolves the index of each key not yet resolved, so timeAt can pair its samples
-   * with their stamps. A key the retriever omits resolves to no index.
+   * with their stamps. A key the retriever omits resolves to no index. An index
+   * resolves with the first channel that names it.
    * @throws {UnexpectedError} if the cache has been closed.
    */
   async resolve(keys: channel.Key[]): Promise<void> {
@@ -94,10 +94,16 @@ export class Cache {
     if (this.closed) return;
     const found = new Map(channels.map((ch) => [ch.key, ch]));
     pending.forEach((key) => {
+      // Recorded since the lookup began, as an earlier key's index or by another call.
+      if (this.indexes.has(key)) return;
       const ch = found.get(key);
       const index = ch == null ? null : indexKey(ch);
       this.indexes.set(key, index);
-      this.get(key).index = index == null ? null : this.get(index);
+      if (index == null) return;
+      const entry = this.get(index);
+      entry.index = entry;
+      this.indexes.set(index, index);
+      this.get(key).index = entry;
     });
   }
 
@@ -148,9 +154,20 @@ export class Cache {
       instrumentation: { L },
     } = this.props;
     L.info("starting garbage collection");
+    // Stamps stay while a consumer holds the samples they belong to.
+    const held = new Map<channel.Key, bounds.Bounds<bigint>[]>();
+    this.cache.forEach((c, key) => {
+      const index = this.indexes.get(key);
+      if (index == null) return;
+      const spans = c.heldAlignments();
+      if (spans.length === 0) return;
+      const prev = held.get(index);
+      if (prev == null) held.set(index, spans);
+      else prev.push(...spans);
+    });
     const total = zeroGCMetrics();
-    this.cache.forEach((c) => {
-      const res = c.gc();
+    this.cache.forEach((c, key) => {
+      const res = c.gc(held.get(key) ?? []);
       total.purgedSeries += res.purgedSeries;
       total.purgedBytes = total.purgedBytes.add(res.purgedBytes);
     });
