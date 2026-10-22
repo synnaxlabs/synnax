@@ -30,6 +30,11 @@ def client(endpoint: URL) -> HTTPClient:
 
 
 class TestConstruction:
+    def test_url_unchanged(self, endpoint: URL) -> None:
+        """Should not change the protocol of the URL passed by the caller."""
+        HTTPClient(endpoint, JSONCodec(), secure=True)
+        assert endpoint.protocol == ""
+
     def test_warning_filters_unchanged(self, endpoint: URL) -> None:
         """Should not change the process warning filters."""
         before = list(warnings.filters)
