@@ -171,8 +171,10 @@ when most types need it, declare it file-level and omit the exceptions.
   declaration is generated, but references resolve to it, pb translators generate
   against it, and it anchors the language output.
 - Field-level `@<lang> omit` (ts, py, cpp, pb): the field does not exist in that
-  language's type, codecs, or translators. Never on a `@key` field, never in a language
-  the type does not generate, and never in every language the type generates.
+  language's type, codecs, translators, or action payloads. An override inherits its
+  parent field's omit and cannot add one; a pb message reserves the omitted number.
+  Never on a `@key` field, never in a language the type does not generate, and never in
+  every language the type generates.
 - Go has no field-level omit. `@go marshal omit` keeps a field out of the codec;
   `@go wire omit` keeps it out of JSON and msgpack (`json:"-" msgpack:"-"`), so the API
   can return a stored record without a secret. Both are version-owned.

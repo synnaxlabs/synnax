@@ -78,7 +78,9 @@ var _ = Describe("Plugin", func() {
 
 	Describe("Generate", func() {
 		Context("field-level omit", func() {
-			It("Should leave out a field omitted in pb", func(ctx SpecContext) {
+			It("Should reserve the number of a field omitted in pb", func(
+				ctx SpecContext,
+			) {
 				source := `
 					@go output "core/pkg/service/auth"
 					@pb
@@ -91,7 +93,11 @@ var _ = Describe("Plugin", func() {
 				`
 				resp := MustGenerate(ctx, source, "test", loader, p)
 				ExpectContent(resp, "test.proto").
-					ToContain("string subject = 2;").
+					ToContain(
+						"string key = 1;",
+						"reserved 2;",
+						"string subject = 3;",
+					).
 					ToNotContain("hash")
 			})
 		})

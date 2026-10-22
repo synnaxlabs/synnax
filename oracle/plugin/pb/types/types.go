@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -60,7 +61,6 @@ func (p *Plugin) Domains() []string { return []string{"pb"} }
 func (p *Plugin) Requires() []string { return nil }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
-	req = req.OmitFields("pb")
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 
 	structCollector := framework.NewCollector("pb", req).
@@ -394,7 +394,14 @@ func (p *Plugin) processStruct(
 	}
 
 	fieldNumber := 1
+	var reserved []string
 	for _, field := range resolution.UnifiedFields(entry, data.table) {
+		// An omitted field keeps its number, reserved, so later fields never shift.
+		if omit.IsField(field, "pb") {
+			reserved = append(reserved, strconv.Itoa(fieldNumber))
+			fieldNumber++
+			continue
+		}
 		fd, err := p.processField(field, fieldNumber, data)
 		if err != nil {
 			return messageData{}, errors.Wrapf(err, "struct %q", entry.Name)
@@ -402,6 +409,7 @@ func (p *Plugin) processStruct(
 		md.Fields = append(md.Fields, fd)
 		fieldNumber++
 	}
+	md.Reserved = strings.Join(reserved, ", ")
 
 	return md, nil
 }
@@ -825,11 +833,13 @@ func (d *templateData) Imports() []string {
 }
 
 type messageData struct {
-	Name   string
-	Doc    string
-	Fields []fieldData
-	Oneof  *oneofData
-	Skip   bool
+	Name string
+	Doc  string
+	// Reserved lists the numbers of omitted fields, comma-separated.
+	Reserved string
+	Fields   []fieldData
+	Oneof    *oneofData
+	Skip     bool
 }
 
 type oneofData struct {
@@ -899,6 +909,9 @@ enum {{.Name}} {
 {{formatDoc .Name .Doc}}
 {{- end}}
 message {{.Name}} {
+{{- with .Reserved}}
+  reserved {{.}};
+{{- end}}
 {{- range .Fields}}
 {{- if .Doc}}
   {{formatDoc .Name .Doc 2}}

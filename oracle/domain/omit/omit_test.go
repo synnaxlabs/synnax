@@ -121,3 +121,75 @@ var _ = Describe("Fields", func() {
 		Expect(names(table)).To(Equal([]string{"key", "hash", "secret"}))
 	})
 })
+
+var _ = Describe("IsField", func() {
+	withDomains := func(domains map[string]resolution.Domain) resolution.Field {
+		return resolution.Field{Name: "hash", Domains: domains}
+	}
+
+	It("Should return true when the field omits the domain", func() {
+		f := withDomains(map[string]resolution.Domain{
+			"ts": {Expressions: []resolution.Expression{{Name: "omit"}}},
+		})
+		Expect(omit.IsField(f, "ts")).To(BeTrue())
+		Expect(omit.IsField(f, "py")).To(BeFalse())
+	})
+
+	It("Should return false when the domain is missing", func() {
+		Expect(omit.IsField(withDomains(nil), "ts")).To(BeFalse())
+	})
+
+	It("Should return false for a non-omit expression", func() {
+		f := withDomains(map[string]resolution.Domain{
+			"go": {Expressions: []resolution.Expression{{
+				Name:   "marshal",
+				Values: []resolution.ExpressionValue{{IdentValue: "omit"}},
+			}}},
+		})
+		Expect(omit.IsField(f, "go")).To(BeFalse())
+	})
+})
+
+var _ = Describe("Fields inheritance and actions", func() {
+	tsOmit := map[string]resolution.Domain{
+		"ts": {Expressions: []resolution.Expression{{Name: "omit"}}},
+	}
+	table := &resolution.Table{Types: []resolution.Type{
+		{
+			Name:          "Parent",
+			QualifiedName: "auth.Parent",
+			Form: resolution.StructForm{Fields: []resolution.Field{
+				{Name: "name"}, {Name: "secret", Domains: tsOmit},
+			}},
+		},
+		{
+			Name:          "Child",
+			QualifiedName: "auth.Child",
+			Form: resolution.StructForm{
+				Extends: []resolution.TypeRef{{Name: "auth.Parent"}},
+				Fields:  []resolution.Field{{Name: "secret", Optional: true}},
+				Actions: []resolution.Action{{
+					Name: "Apply",
+					Fields: []resolution.Field{
+						{Name: "name"},
+						{Name: "secret", Domains: tsOmit},
+					},
+				}},
+			},
+		},
+	}}
+
+	It("Should drop an override of a field its parent omits", func() {
+		stripped := omit.Fields(table, "ts")
+		child := stripped.MustGet("auth.Child")
+		Expect(resolution.UnifiedFields(child, stripped)).To(HaveLen(1))
+		Expect(resolution.UnifiedFields(child, stripped)[0].Name).To(Equal("name"))
+	})
+
+	It("Should drop omitted fields from action payloads", func() {
+		child := omit.Fields(table, "ts").MustGet("auth.Child")
+		form := child.Form.(resolution.StructForm)
+		Expect(form.Actions[0].Fields).To(HaveLen(1))
+		Expect(form.Actions[0].Fields[0].Name).To(Equal("name"))
+	})
+})
