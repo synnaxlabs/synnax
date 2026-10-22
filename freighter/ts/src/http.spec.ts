@@ -254,6 +254,33 @@ describe("http", () => {
       ).rejects.toThrow("Not Found");
     });
 
+    const TRUNCATED = { encoding: { contentType: "application/x-truncated" } };
+
+    test("rejects a response the server drops before its body", async () => {
+      await expect(
+        client.download("/truncated", { id: 0, message: "ab" }, messageZ, TRUNCATED),
+      ).rejects.toThrow(Unreachable);
+    });
+
+    test("rejects a body the server cuts short", async () => {
+      const read = async (): Promise<ArrayBuffer> => {
+        const stream = await client.download(
+          "/truncated",
+          { id: 1 << 14, message: "ab" },
+          messageZ,
+          TRUNCATED,
+        );
+        return await new Response(stream).arrayBuffer();
+      };
+      // The cut can land before fetch resolves the response or while the body is
+      // read, depending on how the bytes arrive.
+      await expect(read()).rejects.toSatisfy(
+        (e) =>
+          e instanceof Unreachable ||
+          (e instanceof TypeError && e.message === "terminated"),
+      );
+    });
+
     test("unreachable", async () => {
       const c = new HTTPClient(
         new url.URL({

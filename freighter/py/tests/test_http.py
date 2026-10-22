@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pytest
 from urllib3 import Retry
+from urllib3.exceptions import ProtocolError
 
 from freighter import URL
 from freighter.context import Context
@@ -255,6 +256,21 @@ class TestStream:
             client.stream(
                 "/middlewareCheck", Message(id=1, message="x"), "application/json"
             )
+
+    def test_response_dropped_before_the_body_raises(self, client: HTTPClient) -> None:
+        """Should raise when the server drops the response before sending its body."""
+        with pytest.raises(ProtocolError, match="Connection aborted"):
+            client.stream(
+                "/truncated", Message(id=0, message="ab"), "application/x-truncated"
+            )
+
+    def test_body_cut_short_raises(self, client: HTTPClient) -> None:
+        """Should raise when the server cuts the body short."""
+        body = client.stream(
+            "/truncated", Message(id=1 << 14, message="ab"), "application/x-truncated"
+        )
+        with pytest.raises(ProtocolError, match="Response ended prematurely"):
+            b"".join(body)
 
 
 class TestContext:

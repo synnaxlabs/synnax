@@ -263,22 +263,30 @@ func (s *unaryServer[RQ, RS]) streamAndWrite(
 		}
 		c.Set(fiber.HeaderContentEncoding, gzipEncoding)
 	}
-	return c.SendStreamWriter(func(w *bufio.Writer) {
+	pr, pw := io.Pipe()
+	go func() {
+		w := bufio.NewWriter(pw)
 		var dst io.Writer = w
 		if gz != nil {
 			gz.Reset(w)
 			dst = gz
 		}
 		err := encoder.EncodeStream(ctx, dst, v)
-		if gz != nil {
-			err = errors.Combine(err, gz.Close())
+		if gz != nil && err == nil {
+			err = gz.Close()
 		}
-		// The status is long since committed, so a failure here is only ever a log
-		// line. Encoders that can fail mid-body carry their own in-band contract.
+		if err == nil {
+			err = w.Flush()
+		}
 		if err != nil {
 			s.L.Error("failed to write streamed response", zap.Error(err))
 		}
-	})
+		// The status is long since committed. A pipe closed with an error makes the
+		// server drop the connection before the chunk that ends the body, so the
+		// client sees the body cut short instead of complete.
+		pw.CloseWithError(err)
+	}()
+	return c.SendStream(pr)
 }
 
 const gzipEncoding = "gzip"
