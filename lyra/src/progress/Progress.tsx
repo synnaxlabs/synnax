@@ -14,8 +14,7 @@ import { type ComponentPropsWithRef, type ReactElement } from "react";
 
 import { CSS } from "@/css";
 
-/** Props for {@link Progress}. */
-export interface ProgressProps extends Omit<ComponentPropsWithRef<"div">, "children"> {
+interface ProgressProps extends Omit<ComponentPropsWithRef<"div">, "children"> {
   /** How far along the work is, from 0 to 100. Leave it out while that is unknown. */
   value?: number;
   /**
