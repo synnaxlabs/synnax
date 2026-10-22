@@ -270,8 +270,8 @@ func validateFieldOmits(c *analysisCtx, types []resolution.Type) {
 // languages plus pb, whose messages hold the field too.
 var fieldOmitLangs = append(slices.Clone(generatedLangs), "pb")
 
-// generatesIn reports whether t generates a declaration in lang. A pb message needs
-// @pb and a Go output, which sets its package.
+// generatesIn reports whether t generates a declaration in lang. A pb message needs a
+// pb domain and a Go output, which sets its package.
 func generatesIn(t resolution.Type, lang string) bool {
 	if omit.IsSkipped(t, lang) {
 		return false
