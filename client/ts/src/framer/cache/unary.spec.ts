@@ -132,7 +132,7 @@ describe("Unary", () => {
   });
 
   describe("streamed flushes", () => {
-    it("should evict a flushed buffer when a fetched write covers it", () => {
+    it("should read the fetched form of a flushed buffer a fetch covers", () => {
       const u = newUnary();
       u.writeDynamic(stamped(10, 13, [1, 2, 3], LEADING_ALIGNMENT));
       // An alignment gap flushes the first buffer into the static cache.
@@ -315,6 +315,25 @@ describe("Unary", () => {
       index.writeDynamic(stamped(10, 13, [1, 2, 3], LEADING_ALIGNMENT));
       index.index = index;
       expect(index.timeAt(LEADING_ALIGNMENT)).toBeNull();
+    });
+
+    it("should keep a flushed stamp a fetch covers", () => {
+      const index = newNarrowed();
+      index.writeDynamic(stamps(NS, LEADING_ALIGNMENT));
+      index.flushDynamic();
+      index.writeStatic(stamps(NS, 100n));
+      index.index = index;
+      expect(index.timeAt(LEADING_ALIGNMENT + 1n)).toEqual(new TimeStamp(NS[1]));
+      expect(index.timeAt(101n)).toEqual(new TimeStamp(NS[1]));
+    });
+
+    it("should keep a flushed stamp a fetch covers when nothing narrows it", () => {
+      const index = newUnary();
+      index.writeDynamic(stamps(NS, LEADING_ALIGNMENT));
+      index.flushDynamic();
+      index.writeStatic(stamps(NS, 100n));
+      index.index = index;
+      expect(index.timeAt(LEADING_ALIGNMENT + 1n)).toEqual(new TimeStamp(NS[1]));
     });
 
     it("should forget a sample the cache collected", () => {

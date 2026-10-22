@@ -140,14 +140,12 @@ export class Static {
   /**
    * Writes the given series to the cache, merging written series with any existing
    * series in the cache.
-   * @param streamed - Marks the series as live-streamed data. A fetched write evicts
-   * every streamed entry whose time range it fully covers.
+   * @param streamed - Marks the series as live-streamed data.
    */
   write(series: MultiSeries, streamed: boolean = false): void {
     if (series.length === 0) return;
     const converted = series.series.map((s) => this.props.transform.convert(s));
     this.retainDataType(converted[0].dataType);
-    if (!streamed) this.evictStreamed(series);
     const entries = streamed ? this.streamed : this.fetched;
     converted.forEach((s) => this.writeOne(s, entries));
     this.repairIntegrity(series, entries);
@@ -196,27 +194,15 @@ export class Static {
     return TimeStamp.since(c.addedAt).lessThan(this.props.staleCoverageThreshold);
   }
 
-  // Containment, not overlap: a fetch stamped wider than the data it returned
-  // (an uncommitted tail) must not evict streamed samples it did not replace.
-  private evictStreamed(written: MultiSeries): void {
-    this.streamed = this.streamed.filter(
-      (e) =>
-        !written.series.some(
-          (s) =>
-            s.timeRange.start.beforeEq(e.data.timeRange.start) &&
-            s.timeRange.end.afterEq(e.data.timeRange.end),
-        ),
-    );
-  }
-
   /**
    * Executes a 'dirty' read of the cache, retrieving any series in the cache that
    * overlap with the given time range. The series may extend before or after the range.
    * Gaps are computed against fetched entries only. Streamed entries carry provisional
    * leading alignments that cannot pair with fetched data on another channel, so they
-   * never claim coverage; the fetch they provoke evicts them. A streamed entry that
-   * overlaps a fetched one is left out: consumers order series by alignment, so the
-   * two forms of one span would join backwards in time.
+   * never claim coverage. A streamed entry that overlaps a fetched one is left out:
+   * consumers order series by alignment, so the two forms of one span would join
+   * backwards in time. It stays cached until garbage collection, so lookups by its
+   * alignment keep working while a consumer holds it.
    * @returns A list of series that overlap with the given time range and a list of
    * gaps, representing the regions of time the fetched series do not cover.
    */

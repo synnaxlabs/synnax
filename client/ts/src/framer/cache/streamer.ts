@@ -313,11 +313,12 @@ export class MultiplexedStreamer {
   private async reconcile(): Promise<void> {
     const { cache, instrumentation: ins } = this.props;
     let retry = false;
-    await this.connMu.runExclusive(async () => {
-      if (this.connMu.closed) return;
-      try {
-        // Indexes join the demand once their channels resolve, so resolve first.
-        await cache.resolve(Array.from(this.demandedKeys()));
+    if (this.connMu.closed) return;
+    try {
+      // Nothing interrupts the lookup, so it runs before the mutex close() takes.
+      await cache.resolve(Array.from(this.desiredKeys()));
+      await this.connMu.runExclusive(async () => {
+        if (this.connMu.closed) return;
         const desired = this.desiredKeys();
         const arrKeys = Array.from(desired);
         const fresh = arrKeys.filter((k) => !this.sentKeys.has(k));
@@ -373,30 +374,30 @@ export class MultiplexedStreamer {
         this.pruneStatuses();
         this.breaker.reset();
         this.releaseDeferred();
-      } catch (e) {
-        ins.L.error("failed to update streamer", { error: e });
-        const failure = status.fromException(e, "failed to stream channel");
-        const desired = this.desiredKeys();
-        const fresh = Array.from(desired).filter((k) => !this.sentKeys.has(k));
-        if (isKeyRejection(e) && !this.connMu.closed && fresh.length > 0) {
-          // One of the new keys caused the rejection. Retry with one of them, and
-          // return the rest one at a time, until the culprit fails alone.
-          if (fresh.length === 1) {
-            this.rejected.add(fresh[0]);
-            this.setStatus(fresh[0], failure);
-            this.releaseDeferred();
-          } else {
-            this.deferred.push(...fresh.slice(1));
-            this.scheduleReconcile(TimeSpan.ZERO);
-          }
-          return;
+      });
+    } catch (e) {
+      ins.L.error("failed to update streamer", { error: e });
+      const failure = status.fromException(e, "failed to stream channel");
+      const desired = this.desiredKeys();
+      const fresh = Array.from(desired).filter((k) => !this.sentKeys.has(k));
+      if (isKeyRejection(e) && !this.connMu.closed && fresh.length > 0) {
+        // One of the new keys caused the rejection. Retry with one of them, and
+        // return the rest one at a time, until the culprit fails alone.
+        if (fresh.length === 1) {
+          this.rejected.add(fresh[0]);
+          this.setStatus(fresh[0], failure);
+          this.releaseDeferred();
+        } else {
+          this.deferred.push(...fresh.slice(1));
+          this.scheduleReconcile(TimeSpan.ZERO);
         }
-        desired.forEach((key) => {
-          if (!this.sentKeys.has(key)) this.setStatus(key, failure);
-        });
-        retry = true;
+        return;
       }
-    });
+      desired.forEach((key) => {
+        if (!this.sentKeys.has(key)) this.setStatus(key, failure);
+      });
+      retry = true;
+    }
     if (!retry || this.connMu.closed) return;
     if (await this.breaker.wait()) this.scheduleReconcile(TimeSpan.ZERO);
   }

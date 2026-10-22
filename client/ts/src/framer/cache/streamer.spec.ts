@@ -19,7 +19,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { channel } from "@/channel";
-import { NotFoundError, UnexpectedError } from "@/errors";
+import { AccessDeniedError, NotFoundError, UnexpectedError } from "@/errors";
 import { type framer } from "@/framer";
 import { Cache } from "@/framer/cache/cache";
 import { MultiplexedStreamer, type StreamHooks } from "@/framer/cache/streamer";
@@ -1078,6 +1078,143 @@ describe("MultiplexedStreamer", () => {
       await vi.advanceTimersByTimeAsync(200);
       expect(cache.get(1).leadingBuffer).not.toBeNull();
       await streamer.close();
+    });
+
+    it("should stream an allowed channel when the lookup denies another", async () => {
+      const DENIED = 6;
+      const cache = new Cache({
+        retrieveChannels: async (keys) => {
+          if ((keys as channel.Key[]).includes(DENIED))
+            throw new AccessDeniedError(`cannot retrieve channel ${DENIED}`);
+          return CHANNELS.filter((ch) => (keys as channel.Key[]).includes(ch.key));
+        },
+      });
+      const streamer = new MultiplexedStreamer({
+        cache,
+        openStreamer: createStreamOpener([pendingStreamer([1, 2])]),
+        instrumentation: createErrorSpy().instrumentation,
+      });
+      const sub = streamer.stream(() => {}, [2, DENIED]);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(sub.status(2).variant).toBe("success");
+      expect(sub.status(DENIED).variant).toBe("error");
+      await streamer.close();
+    });
+
+    it("should stream every allowed channel when the lookup denies one", async () => {
+      const DENIED = 6;
+      let ms: MockStreamer | null = null;
+      const cache = new Cache({
+        retrieveChannels: async (keys) => {
+          if ((keys as channel.Key[]).includes(DENIED))
+            throw new AccessDeniedError(`cannot retrieve channel ${DENIED}`);
+          return CHANNELS.filter((ch) => (keys as channel.Key[]).includes(ch.key));
+        },
+      });
+      const streamer = new MultiplexedStreamer({
+        cache,
+        openStreamer: async (config) => {
+          const { channels } = config as { channels: channel.Key[] };
+          ms = pendingStreamer(channels);
+          return ms;
+        },
+        instrumentation: createErrorSpy().instrumentation,
+      });
+      const sub = streamer.stream(() => {}, [2, DENIED, 5]);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(sub.status(2).variant).toBe("success");
+      expect(sub.status(5).variant).toBe("success");
+      expect(sub.status(DENIED).variant).toBe("error");
+      expect(ms?.keys.slice().sort()).toEqual([1, 2, 4, 5]);
+      await streamer.close();
+    });
+
+    it("should stop looking up a denied channel once it is rejected", async () => {
+      const DENIED = 6;
+      const lookups: channel.Key[][] = [];
+      const cache = new Cache({
+        retrieveChannels: async (keys) => {
+          lookups.push([...(keys as channel.Key[])].sort());
+          if ((keys as channel.Key[]).includes(DENIED))
+            throw new AccessDeniedError(`cannot retrieve channel ${DENIED}`);
+          return CHANNELS.filter((ch) => (keys as channel.Key[]).includes(ch.key));
+        },
+      });
+      const streamer = new MultiplexedStreamer({
+        cache,
+        openStreamer: createStreamOpener([pendingStreamer([1, 2])]),
+        instrumentation: createErrorSpy().instrumentation,
+      });
+      const sub = streamer.stream(() => {}, [2, DENIED]);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(sub.status(DENIED).variant).toBe("error");
+      const count = lookups.length;
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(lookups).toHaveLength(count);
+      expect(lookups.at(-1)).toEqual([DENIED]);
+      await streamer.close();
+    });
+
+    it("should keep streaming when a later subscription adds a denied channel", async () => {
+      const DENIED = 6;
+      const ms = pendingStreamer([1, 2]);
+      const cache = new Cache({
+        retrieveChannels: async (keys) => {
+          if ((keys as channel.Key[]).includes(DENIED))
+            throw new AccessDeniedError(`cannot retrieve channel ${DENIED}`);
+          return CHANNELS.filter((ch) => (keys as channel.Key[]).includes(ch.key));
+        },
+      });
+      const streamer = new MultiplexedStreamer({
+        cache,
+        openStreamer: createStreamOpener([ms]),
+        instrumentation: createErrorSpy().instrumentation,
+      });
+      const first = streamer.stream(() => {}, [2]);
+      await vi.advanceTimersByTimeAsync(200);
+      const second = streamer.stream(() => {}, [DENIED]);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(first.status(2).variant).toBe("success");
+      expect(second.status(DENIED).variant).toBe("error");
+      expect(ms.closeVi).not.toHaveBeenCalled();
+      expect(ms.keys.slice().sort()).toEqual([1, 2]);
+      await streamer.close();
+    });
+
+    it("should close while a lookup hangs", async () => {
+      const cache = new Cache({
+        retrieveChannels: async () => await new Promise(() => {}),
+      });
+      const streamer = new MultiplexedStreamer({
+        cache,
+        openStreamer: createStreamOpener([pendingStreamer([1, 2])]),
+      });
+      streamer.stream(() => {}, [2]);
+      await vi.advanceTimersByTimeAsync(200);
+      let closed = false;
+      void streamer.close().then(() => {
+        closed = true;
+      });
+      await vi.advanceTimersByTimeAsync(100);
+      expect(closed).toBe(true);
+    });
+
+    it("should not open a stream when a lookup lands after close", async () => {
+      let finish: (channels: channel.Payload[]) => void = () => {};
+      const cache = new Cache({
+        retrieveChannels: async () =>
+          await new Promise<channel.Payload[]>((resolve) => {
+            finish = resolve;
+          }),
+      });
+      const open = vi.fn(async () => pendingStreamer([1, 2]));
+      const streamer = new MultiplexedStreamer({ cache, openStreamer: open });
+      streamer.stream(() => {}, [2]);
+      await vi.advanceTimersByTimeAsync(200);
+      await streamer.close();
+      finish(CHANNELS);
+      await vi.advanceTimersByTimeAsync(200);
+      expect(open).not.toHaveBeenCalled();
     });
 
     it("should report a failed index lookup on the channel's status", async () => {

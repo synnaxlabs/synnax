@@ -242,22 +242,23 @@ describe("Cache", () => {
     const T0 = TimeStamp.seconds(1_700_000_000).valueOf();
     const T1 = new TimeStamp(T0 + 1n);
     const TR = new TimeStamp(T0).range(new TimeStamp(T0 + 2n));
-    const stamps = (): MultiSeries =>
+    const LEADING = (BigInt(0xffffffff) - 1_000_000n) << 32n;
+    const stamps = (alignment = 10n): MultiSeries =>
       new MultiSeries([
         new Series({
           data: new BigInt64Array([T0, T0 + 1n]),
           dataType: DataType.TIMESTAMP,
           timeRange: TR,
-          alignment: 10n,
+          alignment,
         }),
       ]);
-    const values = (): MultiSeries =>
+    const values = (alignment = 10n): MultiSeries =>
       new MultiSeries([
         new Series({
           data: new Float32Array([1, 2]),
           dataType: DataType.FLOAT32,
           timeRange: TR,
-          alignment: 10n,
+          alignment,
         }),
       ]);
     // Collects every 10 ms with no grace period, so only retention keeps an entry.
@@ -301,6 +302,24 @@ describe("Cache", () => {
       releaseOther();
       tick();
       expect(cache.timeAt(2, 11n)).toBeNull();
+      cache.close();
+    });
+
+    it("should keep the stamps of held streamed samples through a fetch", async () => {
+      const cache = createCache();
+      await cache.resolve([2]);
+      cache.get(1).writeDynamic(stamps(LEADING));
+      cache.get(1).flushDynamic();
+      cache.get(2).writeDynamic(values(LEADING));
+      cache.get(2).flushDynamic();
+      const release = acquire(cache, 2);
+      cache.get(1).writeStatic(stamps());
+      cache.get(2).writeStatic(values());
+      tick();
+      expect(cache.timeAt(2, LEADING + 1n)).toEqual(T1);
+      release();
+      tick();
+      expect(cache.timeAt(2, LEADING + 1n)).toBeNull();
       cache.close();
     });
 
