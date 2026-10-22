@@ -24,6 +24,9 @@ type Properties struct {
 	RemotePort uint16 `json:"remote_port" msgpack:"remote_port"`
 	// MulticastGroup is the multicast group the task joins. Empty for unicast.
 	MulticastGroup string `json:"multicast_group" msgpack:"multicast_group"`
+	// LocalAddress is the local address the task binds to and joins the multicast group
+	// on. Empty binds every interface.
+	LocalAddress string `json:"local_address" msgpack:"local_address"`
 }
 
 // ReadConfig configures a UDP read task. Each datagram is one frame.

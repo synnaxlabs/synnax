@@ -26,6 +26,7 @@ inline Properties Properties::parse(x::json::Parser parser) {
         .remote_host = parser.field<std::string>("remote_host", ""),
         .remote_port = parser.field<std::uint16_t>("remote_port", 0),
         .multicast_group = parser.field<std::string>("multicast_group", ""),
+        .local_address = parser.field<std::string>("local_address", ""),
     };
 }
 
@@ -35,6 +36,7 @@ inline x::json::json Properties::to_json() const {
     j["remote_host"] = this->remote_host;
     j["remote_port"] = this->remote_port;
     j["multicast_group"] = this->multicast_group;
+    j["local_address"] = this->local_address;
     return j;
 }
 

@@ -43,12 +43,14 @@ var _ = Describe("Codec", func() {
 				RemoteHost:     "test_2",
 				RemotePort:     4,
 				MulticastGroup: "test_4",
+				LocalAddress:   "test_5",
 			}),
 			Entry("zero values", v0.Properties{
 				Port:           0,
 				RemoteHost:     "",
 				RemotePort:     0,
 				MulticastGroup: "",
+				LocalAddress:   "",
 			}),
 		)
 	})
@@ -172,6 +174,7 @@ func BenchmarkEncodeDecodeProperties(b *testing.B) {
 		RemoteHost:     "test_2",
 		RemotePort:     4,
 		MulticastGroup: "test_4",
+		LocalAddress:   "test_5",
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -271,6 +274,7 @@ func FuzzDecodeProperties(f *testing.F) {
 			RemoteHost:     "test_2",
 			RemotePort:     4,
 			MulticastGroup: "test_4",
+			LocalAddress:   "test_5",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -284,6 +288,7 @@ func FuzzDecodeProperties(f *testing.F) {
 			RemoteHost:     "",
 			RemotePort:     0,
 			MulticastGroup: "",
+			LocalAddress:   "",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
