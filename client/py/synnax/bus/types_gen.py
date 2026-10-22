@@ -81,14 +81,14 @@ class DelimiterFraming(BaseModel):
     """Ends each frame with a byte sequence."""
 
     type: Literal["delimiter"] = "delimiter"
-    delimiter: str = "\n"
+    delimiter: str = Field(min_length=1, default="\n")
 
 
 class FixedFraming(BaseModel):
     """Gives every frame the same number of bytes."""
 
     type: Literal["fixed"] = "fixed"
-    length: int = Field(default=1, ge=0, le=4294967295)
+    length: int = Field(ge=1, le=65536, default=1)
 
 
 class SyncFraming(BaseModel):
@@ -104,7 +104,7 @@ class SyncFraming(BaseModel):
     length_adjustment: int = Field(default=0, ge=-2147483648, le=2147483647)
     checksum: Checksum = "none"
     checksum_byte_order: library_.ByteOrder = "little_endian"
-    max_length: int = Field(default=0, ge=0, le=4294967295)
+    max_length: int = Field(le=65536, default=0, ge=0)
 
 
 class CobsFraming(BaseModel):

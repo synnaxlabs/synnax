@@ -92,7 +92,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 				key uuid.UUID,
 				c *ReadConfig,
 			) error {
-				return cfg.Resolver.Read(ctx, tx, key, &c.ReadConfig)
+				return cfg.Resolver.StreamRead(ctx, tx, key, &c.StreamReadConfig)
 			},
 		},
 	); !ok(err, s.Read) {
@@ -113,7 +113,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 				key uuid.UUID,
 				c *WriteConfig,
 			) error {
-				return cfg.Resolver.Write(ctx, tx, key, &c.WriteConfig)
+				return cfg.Resolver.StreamWrite(ctx, tx, key, &c.StreamWriteConfig)
 			},
 		},
 	); !ok(err, s.Write) {

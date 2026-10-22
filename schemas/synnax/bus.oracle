@@ -139,14 +139,17 @@ Checksum enum {
 Framing union on type {
     delimiter {
         delimiter string = "\n" {
-            @doc value "is the byte sequence that ends each frame."
+            @doc value           "is the byte sequence that ends each frame."
+            @validate min_length 1
         }
 
         @doc value "ends each frame with a byte sequence."
     }
     fixed {
         length uint32 = 1 {
-            @doc value "is the number of bytes in each frame."
+            @doc value    "is the number of bytes in each frame."
+            @validate max 65536
+            @validate min 1
         }
 
         @doc value "gives every frame the same number of bytes."
@@ -177,11 +180,12 @@ Framing union on type {
             @doc value "is the byte order of the checksum."
         }
         max_length          uint32 = 0 {
-            @doc value """
+            @doc value    """
                 is the size in bytes of the largest frame, sync sequence and checksum
                 included. A length field that gives a larger frame marks a corrupt
                 frame. Zero allows the largest frame the Driver can hold.
             """
+            @validate max 65536
         }
 
         @doc value """

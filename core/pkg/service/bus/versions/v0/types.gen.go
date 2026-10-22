@@ -155,6 +155,14 @@ func (d *DelimiterFraming) ApplyDefaults() {
 	}
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (d DelimiterFraming) Validate() error {
+	v := validate.New("DelimiterFraming")
+	v.NotEmptyString("delimiter", d.Delimiter)
+	return v.Error()
+}
+
 // FixedFraming gives every frame the same number of bytes.
 type FixedFraming struct {
 	// Length is the number of bytes in each frame.
@@ -168,6 +176,15 @@ func (f *FixedFraming) ApplyDefaults() {
 	if f.Length == 0 {
 		f.Length = 1
 	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (f FixedFraming) Validate() error {
+	v := validate.New("FixedFraming")
+	v.GreaterThanEq("length", f.Length, 1)
+	v.LessThanEq("length", f.Length, 65536)
+	return v.Error()
 }
 
 // SyncFraming starts each frame with a sync sequence followed by a length field, and
@@ -219,6 +236,7 @@ func (s SyncFraming) Validate() error {
 	v.Ternaryf("byte_order", !s.ByteOrder.IsValid(), "invalid byte_order: %v", s.ByteOrder)
 	v.Ternaryf("checksum", !s.Checksum.IsValid(), "invalid checksum: %v", s.Checksum)
 	v.Ternaryf("checksum_byte_order", !s.ChecksumByteOrder.IsValid(), "invalid checksum_byte_order: %v", s.ChecksumByteOrder)
+	v.LessThanEq("max_length", s.MaxLength, 65536)
 	return v.Error()
 }
 
@@ -348,6 +366,10 @@ func (u *Framing) ApplyDefaults() {
 // violates its schema constraints.
 func (u Framing) Validate() error {
 	switch variant := u.Variant.(type) {
+	case DelimiterFraming:
+		return variant.Validate()
+	case FixedFraming:
+		return variant.Validate()
 	case SyncFraming:
 		return variant.Validate()
 	}

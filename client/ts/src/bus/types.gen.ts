@@ -60,7 +60,7 @@ export interface PollConfig extends z.infer<typeof pollConfigZ> {}
 export const delimiterFramingZ = z.object({
   type: z.literal("delimiter"),
   /** delimiter is the byte sequence that ends each frame. */
-  delimiter: z.string().default("\n"),
+  delimiter: z.string().min(1).default("\n"),
 });
 export interface DelimiterFraming extends z.infer<typeof delimiterFramingZ> {}
 
@@ -68,7 +68,7 @@ export interface DelimiterFraming extends z.infer<typeof delimiterFramingZ> {}
 export const fixedFramingZ = z.object({
   type: z.literal("fixed"),
   /** length is the number of bytes in each frame. */
-  length: z.uint32().default(1),
+  length: z.uint32().min(1).max(65536).default(1),
 });
 export interface FixedFraming extends z.infer<typeof fixedFramingZ> {}
 
@@ -100,7 +100,7 @@ export const syncFramingZ = z.object({
    * included. A length field that gives a larger frame marks a corrupt frame. Zero
    * allows the largest frame the Driver can hold.
    */
-  maxLength: z.uint32().default(0),
+  maxLength: z.uint32().max(65536).default(0),
 });
 export interface SyncFraming extends z.infer<typeof syncFramingZ> {}
 
