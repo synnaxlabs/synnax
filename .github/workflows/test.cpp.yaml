@@ -17,8 +17,20 @@ on:
         required: false
         type: string
         default: ""
+      capabilities_required:
+        description:
+          Whether a test that lacks a host capability, such as vcan, fails on Ubuntu
+          instead of skipping
+        required: false
+        type: boolean
+        default: false
       core_image:
         description: Core image to test against on Ubuntu, or empty for none
+        required: false
+        type: string
+        default: ""
+      coverage_flag:
+        description: The codecov flag for coverage on Ubuntu, or empty for no coverage
         required: false
         type: string
         default: ""
@@ -37,11 +49,13 @@ on:
         required: false
         type: boolean
         default: false
-      sanitizers:
-        description: Whether to build with the sanitizer configs
+      sanitizer:
+        description:
+          The sanitizer build on macOS and Ubuntu, one of address (with UBSan, and LSan
+          on Ubuntu), thread, or none
         required: false
-        type: boolean
-        default: true
+        type: string
+        default: address
       targets:
         description: Bazel target patterns to test
         required: true
@@ -107,8 +121,11 @@ jobs:
           - os: ${{ !inputs.ubuntu && 'ubuntu-build-bot' }}
           - os: ${{ !inputs.windows && 'windows-build-bot' }}
     runs-on: ${{ matrix.os }}
-    # About 1.5x the slowest successful cold-cache job on each OS.
-    timeout-minutes: ${{ matrix.os == 'ubuntu-build-bot' && 75 || 30 }}
+    # About 1.5x the slowest successful cold-cache job on each OS. TSan and coverage
+    # builds have no measured run yet, so they get a wider bound.
+    timeout-minutes:
+      ${{ matrix.os != 'ubuntu-build-bot' && 30 || (inputs.sanitizer == 'thread' ||
+      inputs.coverage_flag != '') && 120 || 75 }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -119,12 +136,22 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ${{ inputs.apt_packages }}
 
+      # An MTU of 72 carries CAN FD frames. The interface outlives the job on a build
+      # bot, and its MTU changes only while it is down.
       - name: Create the virtual CAN interface
         if: runner.os == 'Linux' && inputs.vcan
         run: |
           sudo modprobe vcan
           ip link show vcan0 || sudo ip link add dev vcan0 type vcan
+          sudo ip link set down vcan0
+          sudo ip link set vcan0 mtu 72
           sudo ip link set up vcan0
+
+      # TSan reserves fixed address ranges that the wider mmap randomization of recent
+      # kernels can map over.
+      - name: Narrow mmap randomization for TSan
+        if: runner.os == 'Linux' && inputs.sanitizer == 'thread'
+        run: sudo sysctl vm.mmap_rnd_bits=28
 
       - name: Install Rust
         if: inputs.rust
@@ -165,6 +192,53 @@ jobs:
           IFS=,
           echo "flag=${tags[*]:+--test_tag_filters=${tags[*]}}" >> "$GITHUB_OUTPUT"
 
+      # A sanitizer needs an absolute path to its suppressions, so they are passed here
+      # instead of in .bazelrc. Windows has no sanitizer build.
+      - name: Choose the Bazel command
+        id: bazel
+        shell: bash
+        env:
+          CAPABILITIES_REQUIRED: ${{ inputs.capabilities_required }}
+          COVERAGE: ${{ inputs.coverage_flag != '' }}
+          SANITIZER: ${{ inputs.sanitizer }}
+          SUPPRESSIONS: ${{ github.workspace }}/scripts/sanitizers
+        run: |
+          command=test
+          flags=()
+          lsan="suppressions=$SUPPRESSIONS/lsan_suppressions.txt"
+          ubsan="halt_on_error=1:print_stacktrace=1"
+          ubsan+=":suppressions=$SUPPRESSIONS/ubsan_suppressions.txt"
+          tsan="halt_on_error=1:second_deadlock_stack=1"
+          tsan+=":suppressions=$SUPPRESSIONS/tsan_suppressions.txt"
+          case "$SANITIZER/$RUNNER_OS" in
+            address/Linux)
+              flags+=(--config=asan-leak "--test_env=LSAN_OPTIONS=$lsan"
+                "--test_env=UBSAN_OPTIONS=$ubsan")
+              ;;
+            address/macOS)
+              flags+=(--config=asan "--test_env=UBSAN_OPTIONS=$ubsan")
+              ;;
+            thread/Linux | thread/macOS)
+              flags+=(--config=tsan "--test_env=TSAN_OPTIONS=$tsan")
+              ;;
+            address/Windows | none/*) ;;
+            *)
+              echo "::error::No $SANITIZER sanitizer build on $RUNNER_OS"
+              exit 1
+              ;;
+          esac
+          if [ "$RUNNER_OS" = Linux ]; then
+            if [ "$CAPABILITIES_REQUIRED" = true ]; then
+              flags+=(--test_env=SYNNAX_TEST_REQUIRE_CAPABILITIES=1)
+            fi
+            if [ "$COVERAGE" = true ]; then
+              command=coverage
+              flags+=(--combined_report=lcov)
+            fi
+          fi
+          echo "command=$command" >> "$GITHUB_OUTPUT"
+          echo "flags=${flags[*]}" >> "$GITHUB_OUTPUT"
+
       - name: Test (macOS)
         if: runner.os == 'macOS'
         shell: bash
@@ -172,8 +246,9 @@ jobs:
           # The HTTP/2 client in Go stalls Bazelisk downloads on the Mac build bots.
           GODEBUG: http2client=0
         run: >-
-          bazel test ${{ inputs.sanitizers && '--config=asan' || '' }} --test_output=all
-          ${{ inputs.targets }} ${{ steps.tags.outputs.flag }} ${{ inputs.test_flags }}
+          bazel ${{ steps.bazel.outputs.command }} ${{ steps.bazel.outputs.flags }}
+          --test_output=all ${{ inputs.targets }} ${{ steps.tags.outputs.flag }} ${{
+          inputs.test_flags }}
 
       # The Ubuntu build bots have 16 GB and no swap. A sanitized compile takes up to
       # 3.5 GB, so eight at once reach the OOM killer, which takes the runner down with
@@ -182,10 +257,8 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         run: >-
-          bazel test $BAZEL_REMOTE_CACHE_FLAGS --jobs=4 ${{ inputs.sanitizers &&
-          '--config=asan-leak' || '' }} --test_output=all
-          --test_env=LSAN_OPTIONS=suppressions=${{ github.workspace
-          }}/scripts/sanitizers/lsan_suppressions.txt ${{ inputs.targets }} ${{
+          bazel ${{ steps.bazel.outputs.command }} $BAZEL_REMOTE_CACHE_FLAGS --jobs=4
+          ${{ steps.bazel.outputs.flags }} --test_output=all ${{ inputs.targets }} ${{
           steps.tags.outputs.flag }} ${{ inputs.test_flags }}
 
       - name: Test (Windows)
@@ -193,9 +266,20 @@ jobs:
         shell: bash
         run: |
           export MSYS_NO_PATHCONV=1
-          scripts/run_bazel.sh test $BAZEL_REMOTE_CACHE_FLAGS --test_output=all \
-            ${{ inputs.targets }} ${{ steps.tags.outputs.flag }} \
+          scripts/run_bazel.sh ${{ steps.bazel.outputs.command }} \
+            $BAZEL_REMOTE_CACHE_FLAGS ${{ steps.bazel.outputs.flags }} \
+            --test_output=all ${{ inputs.targets }} ${{ steps.tags.outputs.flag }} \
             ${{ inputs.test_flags }}
+
+      - name: Upload coverage
+        if: runner.os == 'Linux' && inputs.coverage_flag != ''
+        uses: codecov/codecov-action@v7
+        with:
+          disable_search: true
+          fail_ci_if_error: true
+          files: bazel-out/_coverage/_coverage_report.dat
+          flags: ${{ inputs.coverage_flag }}
+          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Clean build caches (Ubuntu)
         if: always() && runner.os == 'Linux'
