@@ -33,6 +33,7 @@ export const SelectTimestampFormat = ({
       ),
     }}
     resourceName="timestamp format"
+    searchName="format"
   >
     <Select.Item itemKey="ISO">ISO 8601</Select.Item>
     <Select.Item itemKey="ISODate">ISO date</Select.Item>

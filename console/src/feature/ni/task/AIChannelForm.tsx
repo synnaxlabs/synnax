@@ -63,6 +63,7 @@ const TerminalConfigField = Form.buildSelectField<TerminalConfig>({
   fieldProps: { label: "Terminal configuration" },
   inputProps: {
     resourceName: "terminal configuration",
+    searchName: "configuration",
     children: Task.selectItems(TERMINAL_CONFIG_NAMES),
   },
 });
@@ -78,6 +79,7 @@ const AccelUnitsField = Form.buildSelectField<AccelUnits>({
   fieldProps: { label: "Acceleration units" },
   inputProps: {
     resourceName: "acceleration units",
+    searchName: "unit",
     children: Task.selectItems(ACCEL_UNITS_NAMES),
   },
 });
@@ -92,6 +94,7 @@ const AccelSensitivityUnitsField = Form.buildSelectField<AccelSensitivityUnits>(
   fieldProps: { label: "Sensitivity units" },
   inputProps: {
     resourceName: "sensitivity units",
+    searchName: "unit",
     children: Task.selectItems(ACCEL_SENSITIVITY_UNITS_NAMES),
   },
 });
@@ -108,6 +111,7 @@ const AccelChargeSensitivityUnitsField =
     fieldProps: { label: "Sensitivity units" },
     inputProps: {
       resourceName: "sensitivity units",
+      searchName: "unit",
       children: Task.selectItems(ACCEL_CHARGE_SENSITIVITY_UNITS_NAMES),
     },
   });
@@ -123,6 +127,7 @@ const ExcitSourceField = Form.buildSelectField<ExcitationSource>({
   fieldProps: { label: "Excitation source" },
   inputProps: {
     resourceName: "excitation source",
+    searchName: "source",
     children: Task.selectItems(EXCIT_SOURCE_NAMES),
   },
 });
@@ -138,6 +143,7 @@ const BridgeConfigField = Form.buildSelectField<BridgeConfig>({
   fieldProps: { label: "Bridge configuration" },
   inputProps: {
     resourceName: "bridge configuration",
+    searchName: "configuration",
     children: Task.selectItems(BRIDGE_CONFIG_NAMES),
   },
 });
@@ -153,6 +159,7 @@ const ShuntResistorLocField = Form.buildSelectField<ShuntResistorLoc>({
   fieldProps: { label: "Shunt resistor location" },
   inputProps: {
     resourceName: "shunt resistor location",
+    searchName: "location",
     children: Task.selectItems(SHUNT_RESISTOR_LOC_NAMES),
   },
 });
@@ -168,6 +175,7 @@ const ResistanceConfigField = Form.buildSelectField<ResistanceConfig>({
   fieldProps: { label: "Resistance configuration" },
   inputProps: {
     resourceName: "resistance configuration",
+    searchName: "configuration",
     children: Task.selectItems(RESISTANCE_CONFIG_NAMES),
   },
 });
@@ -187,6 +195,7 @@ const StrainConfigField = Form.buildSelectField<StrainConfig>({
   fieldProps: { label: "Strain configuration" },
   inputProps: {
     resourceName: "strain configuration",
+    searchName: "configuration",
     children: Task.selectItems(STRAIN_CONFIG_NAMES),
   },
 });
@@ -224,6 +233,7 @@ const ElectricalUnitsField = Form.buildSelectField<ElectricalUnits>({
   fieldProps: { label: "Electrical units" },
   inputProps: {
     resourceName: "electrical units",
+    searchName: "unit",
     children: Task.selectItems(ELECTRICAL_UNITS_NAMES),
   },
 });
@@ -253,6 +263,7 @@ const PressureUnitsField = Form.buildSelectField<PressureUnits>({
   fieldProps: { label: "Pressure units" },
   inputProps: {
     resourceName: "pressure units",
+    searchName: "unit",
     children: Task.selectItems(PRESSURE_UNITS_NAMES),
   },
 });
@@ -276,6 +287,7 @@ const TemperatureUnitsField = Form.buildSelectField<TemperatureUnits>({
   fieldProps: { label: "Temperature units" },
   inputProps: {
     resourceName: "temperature units",
+    searchName: "unit",
     children: Task.selectItems(TEMPERATURE_UNITS_NAMES),
   },
 });
@@ -296,6 +308,7 @@ const ThermocoupleTypeField = Form.buildSelectField<ThermocoupleType>({
   fieldProps: { label: "Thermocouple type" },
   inputProps: {
     resourceName: "thermocouple type",
+    searchName: "type",
     children: Task.selectItems(THERMOCOUPLE_TYPE_NAMES),
   },
 });
@@ -326,6 +339,7 @@ const ForceSensitivityUnitsField = Form.buildSelectField<ForceSensitivityUnits>(
   fieldProps: { label: "Sensitivity units" },
   inputProps: {
     resourceName: "sensitivity units",
+    searchName: "unit",
     children: Task.selectItems(FORCE_SENSITIVITY_UNITS_NAMES),
   },
 });
@@ -394,6 +408,7 @@ const VelocityUnitsField = Form.buildSelectField<VelocityUnits>({
   fieldProps: { label: "Velocity units" },
   inputProps: {
     resourceName: "velocity units",
+    searchName: "unit",
     children: Task.selectItems(VELOCITY_UNITS_NAMES),
   },
 });
@@ -408,6 +423,7 @@ const VelocitySensitivityUnitsField = Form.buildSelectField<VelocitySensitivityU
   fieldProps: { label: "Sensitivity units" },
   inputProps: {
     resourceName: "sensitivity units",
+    searchName: "unit",
     children: Task.selectItems(VELOCITY_SENSITIVITY_UNITS_NAMES),
   },
 });
