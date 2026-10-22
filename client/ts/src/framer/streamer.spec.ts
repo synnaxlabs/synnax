@@ -75,15 +75,14 @@ describe("Streamer", () => {
       const d = await streamer.read();
       expect(Array.from(d.get(ch.key))).toEqual(samples);
     });
-    test("should preserve non-zero time ranges through codec round-trip", async () => {
+    test("should stamp a virtual channel's series with the Core's clock", async () => {
       const ch = await newVirtualChannel(client);
       const streamer = await client.openStreamer(ch.key);
       const writer = await client.openWriter({
         start: TimeStamp.now(),
         channels: ch.key,
       });
-      const start = new TimeStamp(1000000000n);
-      const end = new TimeStamp(6000000000n);
+      const before = TimeStamp.now();
       try {
         const fr = new Frame(
           [ch.key],
@@ -91,7 +90,7 @@ describe("Streamer", () => {
             new Series({
               data: new Float64Array([1, 2, 3]),
               dataType: DataType.FLOAT64,
-              timeRange: start.spanRange(TimeSpan.seconds(5)),
+              timeRange: new TimeStamp(1000000000n).spanRange(TimeSpan.seconds(5)),
             }),
           ],
         );
@@ -101,9 +100,10 @@ describe("Streamer", () => {
       }
       const d = await streamer.read();
       const series = d.series[0];
-      expect(series.timeRange).toBeDefined();
-      expect(series.timeRange?.start.valueOf()).toEqual(start.valueOf());
-      expect(series.timeRange?.end.valueOf()).toEqual(end.valueOf());
+      expect(series.timeRange.span.valueOf()).toEqual(1n);
+      expect(series.timeRange.start.afterEq(before)).toBe(true);
+      const after = TimeStamp.now().add(TimeSpan.seconds(1));
+      expect(series.timeRange.start.beforeEq(after)).toBe(true);
     });
     test("should deliver series stamped with the index's time range", async () => {
       const channels = await newIndexedPair(client);

@@ -12,6 +12,7 @@ package cesium
 import (
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/unary"
+	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -63,11 +64,13 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 			internal = append(internal, iter)
 			continue
 		}
-		if vdb, ok := db.mu.dbs.virtual[key]; ok {
-			return nil, errors.Newf(
-				"cannot open iterator on virtual channel %v",
-				vdb.Channel,
-			)
+		if vDB, ok := db.mu.dbs.virtual[key]; ok {
+			iter, iterErr := vDB.OpenIterator(virtual.IteratorConfig{Bounds: cfg.Bounds})
+			if iterErr != nil {
+				return nil, iterErr
+			}
+			internal = append(internal, iter)
+			continue
 		}
 		return nil, channel.NewNotFoundError(key)
 	}

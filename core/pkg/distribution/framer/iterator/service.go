@@ -32,9 +32,9 @@ import (
 // Config the configuration for opening an Iterator or StreamIterator.
 type Config struct {
 	// Keys are the keys of the channels to iterator over. At least one key must be
-	// specified. An iterator cannot iterate over non-calculated virtual channels or
-	// free channels, and calls to Open or NewStream will return an error when
-	// attempting to iterate over channels of these types.
+	// specified. An iterator cannot iterate over free channels, and calls to Open or
+	// NewStream will return an error when attempting to iterate over them. A leased
+	// virtual channel reads as its retained last sample.
 	//
 	// [REQUIRED] - must have at least one key.
 	Keys channel.Keys

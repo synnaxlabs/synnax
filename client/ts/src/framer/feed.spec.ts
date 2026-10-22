@@ -73,6 +73,13 @@ const createChannels = async () => {
   return { time, data };
 };
 
+const createVirtualChannel = async () =>
+  await client.channels.create({
+    name: id.create(),
+    dataType: "float32",
+    virtual: true,
+  });
+
 describe("feed", () => {
   it("should read written samples through the feed cache", async () => {
     const { time, data } = await createChannels();
@@ -154,7 +161,7 @@ describe("feed", () => {
     sub.close();
   });
 
-  it("should report the Core's stamp, one nanosecond past the last timestamp", async () => {
+  it("should report the Core's stamp of the last sample", async () => {
     const { time, data } = await createChannels();
     let received = 0;
     const sub = feed.stream(
@@ -183,6 +190,73 @@ describe("feed", () => {
       await expect
         .poll(() => feed.lastWrite(data.key)?.valueOf(), { timeout: 5000 })
         .toEqual(last.valueOf());
+    } finally {
+      await writer.close();
+    }
+    sub.close();
+  });
+
+  it("should stamp a virtual channel's last write with the Core's clock", async () => {
+    const virtual = await createVirtualChannel();
+    let received = 0;
+    const sub = feed.stream(
+      (res) => {
+        received += res.get(virtual.key)?.length ?? 0;
+      },
+      [virtual.key],
+    );
+    const before = TimeStamp.now();
+    const writer = await client.openWriter({
+      start: TimeStamp.now(),
+      channels: [virtual.key],
+    });
+    try {
+      await expect
+        .poll(
+          async () => {
+            await writer.write({ [virtual.key]: [1] });
+            return received > 0;
+          },
+          { timeout: 10000, interval: 250 },
+        )
+        .toBe(true);
+      const stamp = feed.lastWrite(virtual.key);
+      expect(stamp).not.toBeNull();
+      expect(stamp?.afterEq(before)).toBe(true);
+      expect(stamp?.beforeEq(TimeStamp.now().add(TimeSpan.seconds(1)))).toBe(true);
+    } finally {
+      await writer.close();
+    }
+    sub.close();
+  });
+
+  it("should not stamp a virtual sample by its alignment", async () => {
+    const virtual = await createVirtualChannel();
+    let leading: Series | null = null;
+    const sub = feed.stream(
+      (res) => {
+        const buf = res.get(virtual.key)?.series.at(-1);
+        if (buf != null) leading = buf;
+      },
+      [virtual.key],
+    );
+    const writer = await client.openWriter({
+      start: TimeStamp.now(),
+      channels: [virtual.key],
+    });
+    try {
+      await expect
+        .poll(
+          async () => {
+            await writer.write({ [virtual.key]: [1] });
+            return (leading?.length ?? 0) > 0;
+          },
+          { timeout: 10000, interval: 250 },
+        )
+        .toBe(true);
+      const buf = leading as Series | null;
+      expect(buf).not.toBeNull();
+      expect(feed.timeAt(virtual.key, buf?.alignment ?? 0n)).toBeNull();
     } finally {
       await writer.close();
     }
@@ -729,6 +803,15 @@ describe("feed", () => {
         [data.key]: [1, 2],
       });
       expect(Array.from(await feed.readLatest(data.key))).toEqual([2]);
+    });
+
+    it("should return a virtual channel's retained last sample", async () => {
+      const virtual = await createVirtualChannel();
+      expect((await feed.readLatest(virtual.key)).length).toBe(0);
+      await client.write(TimeStamp.now(), { [virtual.key]: [1, 2] });
+      const latest = await feed.readLatest(virtual.key);
+      expect(Array.from(latest)).toEqual([2]);
+      expect(latest.timeRange.span.valueOf()).toEqual(1n);
     });
 
     it("should coalesce concurrent reads into one request", async () => {
