@@ -565,12 +565,12 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
     () => handleAddTargets([createSparkplugTarget()]),
     [handleAddTargets],
   );
-  const drop = useEntryDrop<WriteTarget>({
+  const dropProps = useEntryDrop<WriteTarget>({
     path: TARGETS_PATH,
     create: createTarget,
     createSparkplug: createSparkplugTarget,
+    onAdd: handleAddTargets,
   });
-  const dropProps = Task.Views.useDrop({ drop, onAdd: handleAddTargets });
 
   const handleRemove = useCallback(
     (keys: string[]) => {

@@ -28,7 +28,6 @@ import { useIsPreview } from "@/platform/task/Form";
 import { READ_CHANNEL_OVERRIDE } from "@/platform/task/types";
 import { ContextMenu } from "@/platform/task/views/ContextMenu";
 import { Panes } from "@/platform/task/views/Panes";
-import { type Drop, useDrop } from "@/platform/task/views/useDrop";
 
 /** A value a group extracts into one channel. */
 export interface GroupField {
@@ -63,8 +62,11 @@ export interface LeafGroup {
 export interface GroupKind<G> {
   /** Names the kind for its add button: "endpoint". */
   name: string;
-  /** Returns a new group under a fresh key. */
-  create: () => G;
+  /**
+   * Returns a new group under a fresh key, or a promise of the groups to add once the
+   * user picks them. A group under a key the tree holds replaces that group.
+   */
+  create: () => G | Promise<G[]>;
 }
 
 export interface GroupProps {
@@ -95,8 +97,6 @@ export interface GroupTreeProps<G extends Group<F> | LeafGroup, F extends GroupF
   groupLabel: Component.RenderProp<GroupProps>;
   groupDetails: Component.RenderProp<GroupProps>;
   fieldDetails: Component.RenderProp<FieldProps>;
-  /** Adds the groups built from items dragged onto the tree. */
-  drop?: Drop<G>;
 }
 
 type Entry =
@@ -269,7 +269,6 @@ export const GroupTree = <G extends Group<F> | LeafGroup, F extends GroupField>(
   groupLabel,
   groupDetails,
   fieldDetails,
-  drop,
 }: GroupTreeProps<G, F>): ReactNode => {
   const [selected, setSelected] = useState<string[]>([]);
   const { nodes, entries } = useIndex<F>(path);
@@ -312,14 +311,29 @@ export const GroupTree = <G extends Group<F> | LeafGroup, F extends GroupField>(
 
   const handleAddGroups = useCallback(
     (added: G[]) => {
-      const groups = ctx.get<G[]>(path).value;
-      ctx.set(path, [...groups, ...added]);
+      if (added.length === 0) return;
+      const byKey = new Map(added.map((g) => [g.key, g]));
+      const groups = ctx.get<G[]>(path).value.map((g) => {
+        const replacement = byKey.get(g.key);
+        byKey.delete(g.key);
+        return replacement ?? g;
+      });
+      ctx.set(path, [...groups, ...byKey.values()]);
       setSelected([added[0].key]);
       for (const g of added) if (isBranch<F>(g)) expand(g.key);
     },
     [ctx, expand, path],
   );
-  const dropProps = useDrop({ drop, onAdd: handleAddGroups });
+
+  const handleCreate = useCallback(
+    ({ create }: GroupKind<G>) => {
+      const created = create();
+      if (created instanceof Promise)
+        created.then(handleAddGroups).catch(console.error);
+      else handleAddGroups([created]);
+    },
+    [handleAddGroups],
+  );
 
   const handleAddField = useCallback(
     (groupKey: string) => {
@@ -466,7 +480,6 @@ export const GroupTree = <G extends Group<F> | LeafGroup, F extends GroupField>(
           <Menu.ContextMenu {...menuProps} menu={menuRenderProp}>
             <Tree.Tree<string, record.Keyed<string>>
               {...treeProps}
-              {...dropProps}
               onSelect={handleSelect}
               itemHeight={TREE_ITEM_HEIGHT}
               className={CSS.cls(menuProps.className, CSS.B("group-tree"))}
@@ -479,13 +492,13 @@ export const GroupTree = <G extends Group<F> | LeafGroup, F extends GroupField>(
             </Tree.Tree>
           </Menu.ContextMenu>
           {!isPreview &&
-            groupKinds.map(({ name, create }) => (
+            groupKinds.map((kind) => (
               <PlatformButton.CreateListItem
-                key={name}
+                key={kind.name}
                 size="small"
-                onClick={() => handleAddGroups([create()])}
+                onClick={() => handleCreate(kind)}
               >
-                {`Add ${name}`}
+                {`Add ${kind.name}`}
               </PlatformButton.CreateListItem>
             ))}
         </>

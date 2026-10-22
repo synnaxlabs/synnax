@@ -18,28 +18,23 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Telem } from "@synnaxlabs/pluto";
 import { DataType, primitive } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC, useCallback, useMemo } from "react";
 
-import { Browser } from "@/feature/mqtt/device/Browser";
 import { use } from "@/feature/mqtt/device/queries";
 import { Select as SelectDevice } from "@/feature/mqtt/device/Select";
-import { type SparkplugHaulTag } from "@/feature/mqtt/device/SparkplugBrowser";
 import { type Device, SCHEMAS } from "@/feature/mqtt/device/types";
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
-import { createReadFields } from "@/feature/mqtt/task/createReadFields";
+import { useDiscoverModal } from "@/feature/mqtt/task/discover/Discover";
+import { ENTRIES_PATH, namePrefix } from "@/feature/mqtt/task/entries";
 import { EntryLabel } from "@/feature/mqtt/task/EntryLabel";
-import { useEntryDrop } from "@/feature/mqtt/task/EntryList";
 import { QoSField } from "@/feature/mqtt/task/QoSField";
 import {
-  fromSparkplugDataType,
   sparkplugChannelName,
   sparkplugPropertiesKey,
-  toSparkplugDataType,
 } from "@/feature/mqtt/task/sparkplug";
 import { SparkplugTagFields } from "@/feature/mqtt/task/SparkplugTagFields";
 import { TimeFormatField } from "@/feature/mqtt/task/TimeFormatField";
 import {
-  type BrowsedTopic,
   deployReadConfigZ,
   HIDDEN_DATA_TYPES,
   type PlainReadEntry,
@@ -65,12 +60,6 @@ const Properties = () => (
     </Flex.Box>
   </>
 );
-
-const ENTRIES_PATH = "config.entries";
-
-/** The prefix configure gives the channels of a topic's fields. */
-const namePrefix = (devName: string, topic: string): string =>
-  `${channel.escapeInvalidName(devName)}_${channel.escapeInvalidName(topic)}`;
 
 const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
 
@@ -290,30 +279,6 @@ const FieldPane: FC<FieldPaneProps> = ({ groupKey, path, deviceName }) => {
   );
 };
 
-const createEntry = (topic?: BrowsedTopic): PlainReadEntry => ({
-  ...mqtt.plainReadEntryZ.parse({ type: "plain" }),
-  ...(topic != null && {
-    topic: topic.topic,
-    fields: createReadFields(topic.payload),
-  }),
-});
-
-const createSparkplugEntry = (tag?: SparkplugHaulTag): SparkplugReadEntry => {
-  const entry = mqtt.sparkplugReadEntryZ.parse({ type: "sparkplug" });
-  if (tag == null) return entry;
-  const { dataType, ...tagID } = tag;
-  return {
-    ...entry,
-    ...tagID,
-    dataType: fromSparkplugDataType(toSparkplugDataType(dataType)),
-  };
-};
-
-const ENTRY_KINDS: Task.Views.GroupKind<ReadEntry>[] = [
-  { name: "topic", create: createEntry },
-  { name: "Sparkplug B tag", create: createSparkplugEntry },
-];
-
 const createField = (): ReadField => mqtt.readFieldZ.parse({});
 
 const entryLabel = Component.renderProp(({ path }: Task.Views.GroupProps) => (
@@ -322,12 +287,16 @@ const entryLabel = Component.renderProp(({ path }: Task.Views.GroupProps) => (
 
 const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
   const entries = PForm.useFieldValue<ReadEntry[]>(ENTRIES_PATH);
-  const isPreview = Task.useIsPreview();
-  const drop = useEntryDrop<ReadEntry>({
-    path: ENTRIES_PATH,
-    create: createEntry,
-    createSparkplug: createSparkplugEntry,
-  });
+  const discover = useDiscoverModal();
+  const kinds = useMemo<Task.Views.GroupKind<ReadEntry>[]>(
+    () => [
+      {
+        name: "data",
+        create: async () => (await discover({ device, entries })) ?? [],
+      },
+    ],
+    [discover, device, entries],
+  );
   const entryDetails = useCallback(
     ({ path }: Task.Views.GroupProps) => (
       <EntryPane path={path} deviceName={device.name} />
@@ -357,19 +326,17 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
 
   return (
     <Flex.Box x grow empty>
-      {!isPreview && <Browser device={device} />}
       <Task.Views.GroupTree<ReadEntry, ReadField>
         path={ENTRIES_PATH}
         listTitle="Entries"
         emptyMessage="No entries"
         placeholder="Select an entry or field to configure"
-        groupKinds={ENTRY_KINDS}
+        groupKinds={kinds}
         createField={createField}
         emptyPointerLabel="Whole payload"
         groupLabel={entryLabel}
         groupDetails={entryDetails}
         fieldDetails={fieldDetails}
-        drop={drop}
       />
       <Task.BindChannels<ReadEntry> path={ENTRIES_PATH} resolve={resolve} />
       {entries.map(

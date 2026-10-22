@@ -15,4 +15,3 @@ export * from "@/platform/task/views/List";
 export * from "@/platform/task/views/ListAndDetails";
 export * from "@/platform/task/views/ListAndDetailsChannelItem";
 export * from "@/platform/task/views/Panes";
-export * from "@/platform/task/views/useDrop";

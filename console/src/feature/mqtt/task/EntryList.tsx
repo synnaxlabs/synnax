@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { type Haul } from "@synnaxlabs/lyra/haul";
-import { useCallback, useMemo } from "react";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { useCallback } from "react";
 
 import {
   canDropHaulItem,
@@ -39,42 +39,45 @@ export interface UseEntryDropProps<E extends Item> {
   path: string;
   create: (topic: BrowsedTopic) => E;
   createSparkplug: (tag: SparkplugHaulTag) => E;
+  /** Takes the entries built from a drop; a topic or tag the list holds is skipped. */
+  onAdd: (items: E[]) => void;
 }
 
-/**
- * Builds entries from the topics and tags dragged from the Browser. A topic or tag the
- * list holds builds nothing.
- */
+/** Makes an element a target for topics and tags dragged from the Browser. */
 export const useEntryDrop = <E extends Item>({
   path,
   create,
   createSparkplug,
-}: UseEntryDropProps<E>): Task.Views.Drop<E> => {
+  onAdd,
+}: UseEntryDropProps<E>): Partial<Haul.UseDropReturn> => {
   const { get } = PForm.useContext();
-  const onDrop = useCallback(
-    ({ items }: Haul.OnDropProps) => {
+  const isPreview = Task.useIsPreview();
+  const handleDrop = useCallback(
+    ({ items: dropped }: Haul.OnDropProps): Haul.Item[] => {
       const present = new Set(
         get<E[]>(path).value.map((item) =>
           item.type === "plain" ? item.topic : tagIdentity(item),
         ),
       );
-      const topics = filterHaulItems(items);
-      const tags = filterSparkplugHaulItems(items);
-      return {
-        dropped: [...topics, ...tags],
-        added: [
-          ...topics
-            .filter(({ data }) => !present.has(data.topic))
-            .map(({ data }) => create(data)),
-          ...tags
-            .filter(({ data }) => !present.has(tagIdentity(data)))
-            .map(({ data }) => createSparkplug(data)),
-        ],
-      };
+      const topics = filterHaulItems(dropped);
+      const tags = filterSparkplugHaulItems(dropped);
+      const added = [
+        ...topics
+          .filter(({ data }) => !present.has(data.topic))
+          .map(({ data }) => create(data)),
+        ...tags
+          .filter(({ data }) => !present.has(tagIdentity(data)))
+          .map(({ data }) => createSparkplug(data)),
+      ];
+      if (added.length > 0) onAdd(added);
+      return [...topics, ...tags];
     },
-    [get, path, create, createSparkplug],
+    [get, path, create, createSparkplug, onAdd],
   );
-  return useMemo(() => ({ type: HAUL_TYPE, canDrop, onDrop }), [onDrop]);
+  const dropProps = Haul.useDrop({ type: HAUL_TYPE, canDrop, onDrop: handleDrop });
+  // The browser hides in preview, but the browser of a second tab can still source
+  // drags, so the drop target goes inert too.
+  return isPreview ? {} : dropProps;
 };
 
 export interface AddEntryButtonsProps {

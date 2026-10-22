@@ -9,7 +9,7 @@
 
 import "@/feature/mqtt/device/Browser.css";
 
-import { DisconnectedError, status, type Synnax as Client } from "@synnaxlabs/client";
+import { DisconnectedError, status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -22,14 +22,18 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Tag } from "@synnaxlabs/lyra/tag";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Synnax, TimeSpan } from "@synnaxlabs/pluto";
+import { Synnax } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useState } from "react";
 
-import { retrieveScanTask } from "@/feature/mqtt/device/retrieveScanTask";
+import {
+  type BrowseResult,
+  browseTopics,
+  type KeyedTopic,
+} from "@/feature/mqtt/device/browse";
 import { SparkplugBrowser } from "@/feature/mqtt/device/SparkplugBrowser";
 import { type Device } from "@/feature/mqtt/device/types";
-import { BROWSE_COMMAND_TYPE, type BrowsedTopic } from "@/feature/mqtt/task/types";
+import { type BrowsedTopic } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
 
 export const HAUL_TYPE = "mqtt";
@@ -56,10 +60,6 @@ export const canDropHaulItem = Haul.canDropOfType<HaulItem>(HAUL_TYPE);
 
 export interface BrowserProps {
   device: Device;
-}
-
-interface KeyedTopic extends BrowsedTopic {
-  key: string;
 }
 
 const listItem = Component.renderProp((props: List.ItemProps<string>) => {
@@ -92,36 +92,6 @@ const listItem = Component.renderProp((props: List.ItemProps<string>) => {
 });
 
 const DEFAULT_FILTER = "#";
-
-const BROWSE_DURATION = TimeSpan.seconds(3);
-
-// The driver listens for up to 20 s before it replies.
-const BROWSE_TIMEOUT = TimeSpan.seconds(25);
-
-interface BrowseResult {
-  topics: KeyedTopic[];
-  truncated: boolean;
-}
-
-const browseTopics = async (
-  client: Client,
-  device: Device,
-  filter: string,
-): Promise<BrowseResult> => {
-  const scanTask = await retrieveScanTask(client, device.rack);
-  const { details, variant, message } = await scanTask.executeCommandSync({
-    type: BROWSE_COMMAND_TYPE,
-    timeout: BROWSE_TIMEOUT,
-    args: { device: device.key, filter, duration: BROWSE_DURATION.milliseconds },
-  });
-  if (variant !== "success") throw new Error(message);
-  const data = details?.data;
-  if (data == null || !("topics" in data)) return { topics: [], truncated: false };
-  return {
-    topics: data.topics.map((t) => ({ ...t, key: t.topic })),
-    truncated: data.truncated,
-  };
-};
 
 const FILTER_INPUT_PROPS = { placeholder: DEFAULT_FILTER } as const;
 

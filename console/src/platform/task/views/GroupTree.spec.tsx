@@ -115,6 +115,37 @@ describe("GroupTree", () => {
     await screen.findByText(`details-for-config.groups.${added.key}`);
   });
 
+  it("should add every group a kind resolves with and select the first", async () => {
+    const resolved: Group[] = [
+      { key: "a", label: "", index: "", fields: [] },
+      { key: "b", label: "", index: "", fields: [] },
+    ];
+    const { form } = await renderTree([GROUP], {
+      groupKinds: [{ name: "data", create: async () => resolved }],
+    });
+    fireEvent.click(await screen.findByRole("button", { name: "Add data" }));
+    await waitFor(() =>
+      expect(
+        form.current?.get<Item[]>("config.groups").value.map(({ key }) => key),
+      ).toEqual(["g", "a", "b"]),
+    );
+    await screen.findByText("details-for-config.groups.a");
+  });
+
+  it("should replace a group whose key it holds", async () => {
+    const replacement: Group = {
+      ...GROUP,
+      fields: [...GROUP.fields, field("w", "/wind")],
+    };
+    const { form } = await renderTree([GROUP], {
+      groupKinds: [{ name: "data", create: async () => [replacement] }],
+    });
+    fireEvent.click(await screen.findByRole("button", { name: "Add data" }));
+    await waitFor(() =>
+      expect(form.current?.get<Item[]>("config.groups").value).toEqual([replacement]),
+    );
+  });
+
   it("should add a field copied from the last one, without its channel", async () => {
     const { form } = await renderTree([GROUP]);
     await screen.findAllByText("group-g");

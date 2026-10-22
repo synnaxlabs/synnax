@@ -13,6 +13,10 @@ import { type SparkplugDataType, type SparkplugTagID } from "@/feature/mqtt/task
 
 const NAMESPACE = "spBv1.0";
 
+/** @returns true when a topic belongs to the Sparkplug B namespace. */
+export const isSparkplugTopic = (topic: string): boolean =>
+  topic === NAMESPACE || topic.startsWith(`${NAMESPACE}/`);
+
 const levels = ({ group, edgeNode, device, tag }: SparkplugTagID): string[] => [
   group,
   edgeNode,

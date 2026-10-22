@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, status, type Synnax as Client } from "@synnaxlabs/client";
+import { DisconnectedError, status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -20,14 +20,13 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree } from "@synnaxlabs/lyra/tree";
-import { Synnax, TimeSpan } from "@synnaxlabs/pluto";
+import { Synnax } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useState } from "react";
 
-import { retrieveScanTask } from "@/feature/mqtt/device/retrieveScanTask";
+import { browseSparkplug } from "@/feature/mqtt/device/browse";
 import { type Device } from "@/feature/mqtt/device/types";
 import {
-  BROWSE_SPARKPLUG_COMMAND_TYPE,
   type BrowsedSparkplugNode,
   type BrowsedSparkplugTag,
   type SparkplugTagID,
@@ -46,7 +45,7 @@ export type SparkplugHaulItem = Haul.Item<
   SparkplugHaulTag
 >;
 
-const tagKey = ({ group, edgeNode, device, tag }: SparkplugTagID): string =>
+export const tagKey = ({ group, edgeNode, device, tag }: SparkplugTagID): string =>
   `${group}/${edgeNode}/${device}/${tag}`;
 
 export const createSparkplugHaulItem = ({
@@ -152,38 +151,6 @@ const itemRenderProp = Component.renderProp((props: Tree.ItemRenderProps<string>
   );
 });
 
-const BROWSE_DURATION = TimeSpan.seconds(3);
-
-// The driver listens for up to 20 s before it replies.
-const BROWSE_TIMEOUT = TimeSpan.seconds(25);
-
-interface BrowseArgs {
-  group: string;
-  edgeNode: string;
-}
-
-const browse = async (
-  client: Client,
-  device: Device,
-  { group, edgeNode }: BrowseArgs,
-) => {
-  const scanTask = await retrieveScanTask(client, device.rack);
-  const { details, variant, message } = await scanTask.executeCommandSync({
-    type: BROWSE_SPARKPLUG_COMMAND_TYPE,
-    timeout: BROWSE_TIMEOUT,
-    args: {
-      device: device.key,
-      group,
-      edge_node: edgeNode,
-      duration: BROWSE_DURATION.milliseconds,
-    },
-  });
-  if (variant !== "success") throw new Error(message);
-  const data = details?.data;
-  if (data == null || !("nodes" in data)) return { nodes: [], tags: [] };
-  return data;
-};
-
 const GROUP_INPUT_PROPS = { placeholder: "All groups" } as const;
 
 const EMPTY_CONTENT = (
@@ -211,7 +178,10 @@ export const SparkplugBrowser = ({ device }: SparkplugBrowserProps) => {
       let browsed: BrowsedSparkplugNode[];
       try {
         if (client == null) throw new DisconnectedError();
-        ({ nodes: browsed } = await browse(client, device, { group, edgeNode: "" }));
+        ({ nodes: browsed } = await browseSparkplug(client, device, {
+          group,
+          edgeNode: "",
+        }));
       } catch (e) {
         setStat(status.fromException(e, "Failed to browse edge nodes"));
         return;
@@ -232,7 +202,7 @@ export const SparkplugBrowser = ({ device }: SparkplugBrowserProps) => {
       handleError(async () => {
         try {
           if (client == null) throw new DisconnectedError();
-          const { tags } = await browse(client, device, node);
+          const { tags } = await browseSparkplug(client, device, node);
           const items: Item[] = [];
           const children: Tree.Node[] = [];
           tags.forEach(({ name: tag, device: owner, ...rest }) => {
