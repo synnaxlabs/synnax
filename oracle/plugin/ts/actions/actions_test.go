@@ -67,6 +67,33 @@ var _ = Describe("TS Actions Plugin", func() {
 			})
 		})
 
+		Context("field-level omit", func() {
+			It("Should leave an omitted field out of an action payload", func(
+				ctx SpecContext,
+			) {
+				source := `
+					@go output "core/pkg/service/counter"
+					@ts output "client/ts/src/counter"
+
+					Base struct {
+						value  int32
+						secret bytes { @ts omit }
+					}
+
+					Counter struct {
+						key uuid
+
+						action SetValue extends Base {
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "counter", loader, p)
+				ExpectContent(resp, "actions.gen.ts").
+					ToContain("export const setValuePayloadZ = z.object({", "value").
+					ToNotContain("secret")
+			})
+		})
+
 		Context("structs with actions", func() {
 			It(
 				"Should emit a discriminated-union codec with HandlerResult/ReduceAllResult aliases and a createReduceAll wrapper delegating to @/actions",

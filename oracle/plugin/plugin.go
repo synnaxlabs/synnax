@@ -12,6 +12,7 @@ package plugin
 
 import (
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/oracle/versions"
@@ -34,6 +35,14 @@ type Request struct {
 	// Versions resolves the explicitly managed version chains under
 	// schemas/<domain>/versions/. Nil when the repository declares none.
 	Versions *versions.Resolver
+}
+
+// OmitFields returns a copy of r whose struct types drop the fields carrying a
+// field-level omit in any of langs.
+func (r *Request) OmitFields(langs ...string) *Request {
+	stripped := *r
+	stripped.Resolutions = omit.Fields(r.Resolutions, langs...)
+	return &stripped
 }
 
 // ValidateOutputPath validates that the output path is within the repository.
