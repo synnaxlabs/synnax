@@ -53,6 +53,25 @@ var _ = Describe("Python Types Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		Context("field-level omit", func() {
+			It("Should leave out a field omitted in py", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/auth"
+					@py output "out"
+
+					Session struct {
+						key     uuid
+						hash    bytes { @py omit }
+						subject string
+					}
+				`
+				resp := MustGenerate(ctx, source, "auth", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(`key: UUID`, `subject: str`).
+					ToNotContain("hash")
+			})
+		})
+
 		Context("basic struct generation", func() {
 			It(
 				"Should generate Pydantic model for simple struct",

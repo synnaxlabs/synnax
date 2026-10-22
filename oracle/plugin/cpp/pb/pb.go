@@ -55,6 +55,7 @@ func (p *Plugin) Domains() []string { return []string{"cpp", "pb"} }
 func (p *Plugin) Requires() []string { return []string{"cpp/types", "pb/types"} }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
+	req = req.OmitFields("cpp", "pb")
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 
 	outputStructs := make(map[string][]resolution.Type)
