@@ -64,11 +64,14 @@ or generator logic and schemas disagree.
   and always resolves its current surface. A live schema may import only its own
   resource's versions directory. The `versions` gate enforces placement, and fails the
   current surface on any stored pin lagging its dependency chain's current version.
-- **Change workflow**: for a version that has never shipped in a release, edit the
-  current vN file in place; for a shipped one, `oracle migrate <resource>` scaffolds
-  v(N+1).oracle (alias lines to definers, omit-transient declarations redeclared,
-  imports carried), then convert the changed types to full declarations and run
-  `oracle sync`. Shipped-ness is developer knowledge; Oracle never tracks it.
+- **Change workflow**: mint a new version only when the change makes the stored bytes on
+  disk different from what a shipped release wrote. Every other change, including one to
+  a shipped version, edits the current vN file in place: an unshipped version, an
+  `@go marshal omit` field, a doc, or a validation rule. To mint,
+  `oracle migrate <resource>` scaffolds v(N+1).oracle (alias lines to definers,
+  omit-transient declarations redeclared, imports carried), then convert the changed
+  types to full declarations and run `oracle sync`. Shipped-ness is developer knowledge;
+  Oracle never tracks it.
 - `oracle check`'s blocking `versions` gate enforces: live-file consistency (on-disk
   live file == merged projection), import placement, stored-pin currency, and delta
   minimality (a redeclaration structurally identical to its resolved predecessor must be
@@ -86,8 +89,8 @@ or generator logic and schemas disagree.
 - Omit-transient members — types reachable from a file's `@go marshal` declarations only
   through omitted fields, e.g. task's StatusDetails — track the live shape: they always
   declare fully, may match their predecessor (exempt from the minimality gate), and
-  resolve their references at read time. A transient shape change to a shipped version
-  requires a mint.
+  resolve their references at read time. A transient shape change never requires a mint,
+  because it does not change the stored bytes.
 - `@go imex` (bare marker) on a versioned resource's root struct emits `imex.gen.go`
   files across the versions tree: a `Version imex.Version` constant in every
   `versions/vK` package the Core has exported (from the earliest version file carrying
