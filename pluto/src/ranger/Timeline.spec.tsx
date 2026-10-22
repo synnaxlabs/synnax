@@ -9,7 +9,7 @@
 
 import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Ranger } from "@/ranger";
@@ -117,6 +117,23 @@ describe("Ranger.Timeline", () => {
     );
     expect(screen.getByText("In progress")).toBeTruthy();
     await waitFor(() => expect(screen.getByText("Completed")).toBeTruthy());
+  });
+
+  it("should move to completed when rendered at the planned end", () => {
+    vi.useFakeTimers();
+    try {
+      const now = TimeStamp.now().nanoseconds;
+      render(
+        <Ranger.Timeline value={{ start: now - HOUR, end: now }} onChange={() => {}} />,
+      );
+      expect(screen.getByText("In progress")).toBeTruthy();
+      act(() => {
+        vi.advanceTimersByTime(1);
+      });
+      expect(screen.getByText("Completed")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("should never read an open range finer than the second", () => {
