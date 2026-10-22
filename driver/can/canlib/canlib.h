@@ -38,7 +38,7 @@ class Bus final : public can::Bus {
     std::shared_ptr<API> api;
     canHandle rx;
     std::optional<canHandle> tx;
-    Counter counter;
+    Counter counter{TIMER_SCALE};
     bool closed = false;
 
     [[nodiscard]] x::errors::Error transmit(const Frame &frame) override;

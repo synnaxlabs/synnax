@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <chrono>
 #include <format>
 #include <string>
 
@@ -90,11 +91,34 @@ Aligner::align(const x::telem::TimeStamp adapter, const x::telem::TimeStamp host
     return adapter + offset;
 }
 
-std::uint64_t Counter::extend(const std::uint32_t raw) {
-    if (this->started && raw < this->last) this->high += 1ULL << 32;
-    this->started = true;
-    this->last = raw;
-    return this->high | raw;
+x::telem::TimeStamp steady_now() {
+    return x::telem::TimeStamp(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()
+        )
+            .count()
+    );
+}
+
+Counter::Counter(const x::telem::TimeSpan tick): tick(tick) {}
+
+std::uint64_t Counter::extend(const std::uint32_t raw, const x::telem::TimeStamp host) {
+    std::uint64_t count = raw;
+    if (this->last.has_value()) {
+        const auto prev = *this->last;
+        const std::uint32_t delta = raw - prev.raw;
+        const auto elapsed = std::max<std::int64_t>(
+            (host - prev.host).nanoseconds(),
+            0
+        );
+        const auto missed = elapsed / this->tick.nanoseconds() -
+                            static_cast<std::int64_t>(delta);
+        // The nearest whole number of wraps to the counts the host clock saw.
+        const std::int64_t wraps = missed > 0 ? (missed + (1LL << 31)) >> 32 : 0;
+        count = prev.count + delta + (static_cast<std::uint64_t>(wraps) << 32);
+    }
+    this->last = Reading{.raw = raw, .count = count, .host = host};
+    return count;
 }
 
 std::pair<std::unique_ptr<Bus>, x::errors::Error>

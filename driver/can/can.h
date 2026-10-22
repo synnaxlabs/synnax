@@ -148,16 +148,32 @@ find_bitrate(const Table &table, const std::uint32_t bitrate, const std::string 
     };
 }
 
-/// @brief extends a wrapping 32-bit hardware counter into a 64-bit count that never
-/// wraps, provided it is read at least once per wrap period.
+/// @returns the time of a steady clock, which never steps when the wall clock does.
+[[nodiscard]] x::telem::TimeStamp steady_now();
+
+/// @brief extends a wrapping 32-bit adapter counter into a 64-bit count. It counts the
+/// wraps between two readings from the host time between them, so a quiet bus that
+/// outlasts a wrap never shifts the count by a wrap.
 class Counter {
-    std::uint32_t last = 0;
-    std::uint64_t high = 0;
-    bool started = false;
+    /// @brief a reading of the counter.
+    struct Reading {
+        std::uint32_t raw;
+        std::uint64_t count;
+        x::telem::TimeStamp host;
+    };
+
+    x::telem::TimeSpan tick;
+    std::optional<Reading> last;
 
 public:
-    /// @returns raw extended to 64 bits.
-    std::uint64_t extend(std::uint32_t raw);
+    /// @param tick the time between two counts of the adapter.
+    explicit Counter(x::telem::TimeSpan tick);
+
+    /// @returns raw extended to 64 bits. The first reading returns raw.
+    /// @param raw the counter's value.
+    /// @param host a steady host time at which the value arrived. An error of up to
+    /// half a wrap period is harmless.
+    std::uint64_t extend(std::uint32_t raw, x::telem::TimeStamp host);
 };
 
 /// @brief moves adapter times onto the host clock. Each frame measures the host time

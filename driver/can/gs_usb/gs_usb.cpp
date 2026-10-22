@@ -354,7 +354,7 @@ Bus::receive(Frame &frame, const x::telem::TimeSpan timeout) {
                      << " overran and frames were lost";
     frame = hf.frame;
     if (hf.timestamp_us.has_value()) {
-        const auto us = this->counter.extend(*hf.timestamp_us);
+        const auto us = this->counter.extend(*hf.timestamp_us, steady_now());
         frame.time = x::telem::TimeStamp(static_cast<std::int64_t>(us) * 1000);
         frame.clock = Clock::HARDWARE;
     } else {

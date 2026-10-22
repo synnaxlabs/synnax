@@ -100,13 +100,59 @@ TEST(Validate, RejectsABusErrorFrame) {
     EXPECT_EQ(err.data, "a bus error frame cannot be sent");
 }
 
-TEST(Counter, ExtendsAcrossAWrap) {
-    Counter counter;
-    EXPECT_EQ(counter.extend(0xFFFFFFF0), 0xFFFFFFF0);
-    EXPECT_EQ(counter.extend(0xFFFFFFFF), 0xFFFFFFFF);
-    EXPECT_EQ(counter.extend(0x00000005), 0x100000005);
-    EXPECT_EQ(counter.extend(0x00000010), 0x100000010);
-    EXPECT_EQ(counter.extend(0x00000001), 0x200000001);
+namespace {
+const auto US = x::telem::MICROSECOND;
+const std::uint64_t WRAP = 1ULL << 32;
+const x::telem::TimeStamp START(1000 * x::telem::SECOND);
+
+/// @returns the host time at which a counter with a tick of US reads count.
+x::telem::TimeStamp at(const std::uint64_t count) {
+    return START + US * static_cast<std::int64_t>(count);
+}
+}
+
+TEST(Counter, ExtendsAcrossWrapsItSees) {
+    Counter counter(US);
+    for (const std::uint64_t count:
+         {0xFFFFFFF0ULL, 0xFFFFFFFFULL, WRAP + 5, WRAP + 0x10, 2 * WRAP + 1})
+        EXPECT_EQ(counter.extend(static_cast<std::uint32_t>(count), at(count)), count);
+}
+
+TEST(Counter, CountsAWrapMissedWhileTheBusWasQuiet) {
+    Counter counter(US);
+    EXPECT_EQ(counter.extend(100, at(100)), 100);
+    const auto count = 100 + WRAP + 1000;
+    EXPECT_EQ(counter.extend(static_cast<std::uint32_t>(count), at(count)), count);
+}
+
+TEST(Counter, CountsSeveralMissedWraps) {
+    Counter counter(US);
+    EXPECT_EQ(counter.extend(100, at(100)), 100);
+    const auto count = 100 + 3 * WRAP - 50;
+    EXPECT_EQ(counter.extend(static_cast<std::uint32_t>(count), at(count)), count);
+}
+
+TEST(Counter, IgnoresHostDelayShorterThanHalfAWrap) {
+    Counter counter(US);
+    EXPECT_EQ(counter.extend(100, at(100)), 100);
+    const auto late = at(200) + WRAP / 2 * US - x::telem::SECOND;
+    EXPECT_EQ(counter.extend(200, late), 200);
+    EXPECT_EQ(counter.extend(150, at(WRAP + 150)), WRAP + 150);
+}
+
+TEST(Counter, NeverCountsWrapsWhenTheHostClockRunsBackward) {
+    Counter counter(US);
+    EXPECT_EQ(counter.extend(1000, at(1000)), 1000);
+    EXPECT_EQ(counter.extend(2000, START - x::telem::SECOND), 2000);
+}
+
+TEST(Counter, ScalesHostTimeByTheTick) {
+    const auto tick = 10 * US;
+    Counter counter(tick);
+    EXPECT_EQ(counter.extend(7, START), 7);
+    const auto count = 7 + WRAP + 3;
+    const auto host = START + tick * static_cast<std::int64_t>(WRAP + 3);
+    EXPECT_EQ(counter.extend(static_cast<std::uint32_t>(count), host), count);
 }
 
 TEST(Aligner, FollowsAnAdapterClockThatDrifts) {

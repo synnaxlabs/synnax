@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
-#include <chrono>
 #include <utility>
 
 #include "client/cpp/can/json.gen.h"
@@ -16,15 +15,6 @@
 #include "driver/can/link.h"
 
 namespace driver::can {
-x::telem::TimeStamp steady_now() {
-    return x::telem::TimeStamp(
-        std::chrono::duration_cast<std::chrono::nanoseconds>(
-            std::chrono::steady_clock::now().time_since_epoch()
-        )
-            .count()
-    );
-}
-
 Link::Link(std::string channel, Opener open, x::telem::NowFunc now):
     channel(std::move(channel)), open(std::move(open)), now(std::move(now)) {}
 

@@ -41,7 +41,7 @@ class Bus final : public can::Bus {
     std::shared_ptr<Adapter> adapter;
     std::uint8_t channel;
     bool timestamped;
-    Counter counter;
+    Counter counter{x::telem::MICROSECOND};
     std::atomic<std::uint32_t> next_echo = 0;
     bool closed = false;
 

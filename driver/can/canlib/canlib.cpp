@@ -142,7 +142,10 @@ Bus::receive(Frame &frame, const x::telem::TimeSpan timeout) {
     const auto max = frame.fd ? MAX_FD_LENGTH : MAX_CLASSIC_LENGTH;
     frame.length = static_cast<std::uint8_t>(std::min<std::size_t>(dlc, max));
     std::memcpy(frame.data.data(), data.data(), frame.length);
-    const auto ticks = this->counter.extend(static_cast<std::uint32_t>(time));
+    const auto ticks = this->counter.extend(
+        static_cast<std::uint32_t>(time),
+        steady_now()
+    );
     frame.time = x::telem::TimeStamp(
         static_cast<std::int64_t>(ticks) * TIMER_SCALE.nanoseconds()
     );

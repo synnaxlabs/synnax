@@ -34,9 +34,6 @@ inline const x::telem::TimeSpan MIN_REOPEN_WAIT = 250 * x::telem::MILLISECOND;
 /// @brief the longest wait between two opens of a link's bus.
 inline const x::telem::TimeSpan MAX_REOPEN_WAIT = 5 * x::telem::SECOND;
 
-/// @returns the time of a steady clock, which never steps when the wall clock does.
-x::telem::TimeStamp steady_now();
-
 /// @brief a bus that a Link opened.
 struct Opened {
     /// @brief the open bus. Hold it only for the length of a call on it.
